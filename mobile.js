@@ -6105,6 +6105,42 @@
     }
   };
 
+  // src/shared/sim/weather.ts
+  var SPELL_HOURS = 6;
+  var ODDS = {
+    spring: [["clear", 4], ["cloudy", 3], ["rain", 3], ["fog", 1]],
+    summer: [["clear", 6], ["cloudy", 2], ["rain", 1], ["storm", 1.5]],
+    autumn: [["clear", 2], ["cloudy", 3], ["rain", 3], ["fog", 2], ["storm", 0.5]],
+    winter: [["clear", 2], ["cloudy", 3], ["snow", 4], ["fog", 1]]
+  };
+  function spellWeather(seed, spell, season) {
+    const odds = ODDS[season];
+    const total = odds.reduce((n, [, w]) => n + w, 0);
+    let roll = (mixSeed(hashSeed(seed), 32423, spell) >>> 0) % 1e4 / 1e4 * total;
+    for (const [w, n] of odds) if ((roll -= n) < 0) return w;
+    return "clear";
+  }
+  function weatherAt(seed, tick, doom) {
+    const spellTicks = SPELL_HOURS * TICKS_PER_HOUR;
+    const spell = Math.floor(tick / spellTicks);
+    const through = tick % spellTicks / spellTicks;
+    const at = (i) => override(doom) ?? spellWeather(seed, i, calendar(i * spellTicks).season);
+    return { kind: at(spell), through, before: at(spell - 1) };
+  }
+  function override(doom) {
+    switch (doom) {
+      case "deep_freeze":
+        return "snow";
+      case "drought":
+        return "clear";
+      case "ash_winter":
+      case "smog":
+        return "fog";
+      default:
+        return null;
+    }
+  }
+
   // src/shared/sim/snapshot.ts
   function journalView(s) {
     return s.journal.map(entryView);
@@ -6194,6 +6230,7 @@
       impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
       moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
       moonPhase: moonPhaseOf(nightDay(s.tick)),
+      weather: weatherAt(s.seed, s.tick, s.doom?.phase === "active" ? s.doom.kind : null),
       ironman: !!s.ironman,
       launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
       mainId: s.mainId,
@@ -6716,6 +6753,28 @@
     return { pct, title: `Researching ${TOPIC_BY_ID[id]?.name ?? id}: ${pct}%` };
   }
 
+  // src/renderer/town/skyColors.ts
+  var COVER = { clear: 0.12, cloudy: 0.5, rain: 0.8, storm: 0.95, snow: 0.7, fog: 0.6 };
+  function weatherCover(w) {
+    const t = Math.min(1, w.through / 0.15);
+    return COVER[w.before] + (COVER[w.kind] - COVER[w.before]) * t;
+  }
+  function mix(a, b, t) {
+    const ch = (s) => Math.round((a >> s & 255) + ((b >> s & 255) - (a >> s & 255)) * t);
+    return ch(16) << 16 | ch(8) << 8 | ch(0);
+  }
+  function skyColors(hours, daylight2, cover) {
+    let top = mix(659238, 4161488, daylight2);
+    let horizon = mix(1712706, 11064050, daylight2);
+    const twilight = daylight2 > 0 && daylight2 < 1 ? 1 - Math.abs(daylight2 * 2 - 1) : 0;
+    const glow = hours < 12 ? 15900784 : 15761488;
+    horizon = mix(horizon, glow, twilight * 0.85 * (1 - cover * 0.6));
+    top = mix(top, 3817344, twilight * 0.4);
+    const grey = mix(1842726, 9080988, daylight2);
+    return { top: mix(top, grey, cover * 0.7), horizon: mix(horizon, mix(grey, 12106948, daylight2 * 0.5), cover * 0.6) };
+  }
+  var css = (c) => `#${c.toString(16).padStart(6, "0")}`;
+
   // src/renderer/mobile/mobile.ts
   var ZOOM_KEY = "littletown.zoom";
   var ZOOMS = [1, 1.25, 1.5, 2];
@@ -6771,6 +6830,15 @@
     b.addEventListener("click", () => bridge.togglePanel(p.id));
     tabs.append(b);
     return { id: p.id, b };
+  });
+  var skyKey = "";
+  bridge.onSnapshot((snap) => {
+    const c = snap.calendar;
+    const { top } = skyColors(c.hour + c.minute / 60, c.daylight, weatherCover(snap.weather));
+    const key2 = css(top);
+    if (key2 === skyKey) return;
+    skyKey = key2;
+    document.body.style.background = `linear-gradient(${css(mix(top, 329487, 0.35))}, ${key2})`;
   });
   var researchPct = -1;
   bridge.onSnapshot((snap) => {

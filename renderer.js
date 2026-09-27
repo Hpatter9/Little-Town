@@ -41399,6 +41399,74 @@ ${parts.join("\n")}
     ash: "#4a4240",
     flowers: ["#e6d25a", "#e0e0e8", "#c77dc9", "#e27a5a"]
   };
+  var BASE = { ...PAL };
+  var SEASONS = {
+    spring: {
+      grassDark: "#46742f",
+      grass: "#62923e",
+      grassLight: "#82b24e",
+      grassTip: "#a6ce6c",
+      leafDark: "#3a6a2c",
+      leaf: "#4f8a38",
+      leafLight: "#78b454",
+      leafTip: "#f2c6d8"
+    },
+    autumn: {
+      grassDark: "#62622a",
+      grass: "#85803a",
+      grassLight: "#a49848",
+      grassTip: "#c2ac5a",
+      leafDark: "#80361a",
+      leaf: "#b85424",
+      leafLight: "#dc8a30",
+      leafTip: "#f0b848",
+      moss: "#8a7a3a",
+      marsh: "#6a6a40",
+      reed: "#b09048",
+      reedLight: "#c8a858"
+    },
+    winter: {
+      grassDark: "#b4c0c8",
+      grass: "#d6dee4",
+      grassLight: "#e8eef2",
+      grassTip: "#fafcfe",
+      leafDark: "#4a3a2e",
+      leaf: "#5c4838",
+      leafLight: "#dde4ea",
+      leafTip: "#f4f8fa",
+      pineLight: "#dbe5ea",
+      moss: "#9aa6ac",
+      marsh: "#a8b4bc",
+      water: "#7ea6c4",
+      waterLight: "#dcebf6",
+      reed: "#9a9270",
+      reedLight: "#b0a88a"
+    }
+  };
+  var BIOME_SEASONS = {
+    desert: { winter: { grassDark: "#a09070", grass: "#bcae8a", grassLight: "#cfc4a2", grassTip: "#e0d8bc", leafDark: "#4e5a38", leaf: "#6a7448", leafLight: "#8a9060", leafTip: "#a0a070" } },
+    tundra: {
+      spring: { grassDark: "#6e8468", grass: "#88a07c", grassLight: "#a4b896", grassTip: "#c4d4b8" },
+      summer: { grassDark: "#687e5e", grass: "#809a70", grassLight: "#9cb286", grassTip: "#bccca6" },
+      autumn: null,
+      // (the biome's own frosty palette)
+      winter: null
+    }
+  };
+  var SEASON_FLOWERS = {
+    spring: ["#f0dc5a", "#f4f0f8", "#d884d8", "#f08aa8"],
+    autumn: ["#c89040", "#a86a30", "#d8b060", "#8a5a2a"],
+    winter: ["#eef3f6", "#dfe7ec", "#f6f9fb", "#cfd9df"]
+  };
+  function applySeasonPalette(biome, season) {
+    Object.assign(PAL, BASE);
+    applyBiomePalette(biome);
+    const special = BIOME_SEASONS[biome];
+    const swap = special && season in special ? special[season] : SEASONS[season];
+    if (swap) Object.assign(PAL, swap);
+    const dryWinter = biome === "desert" && season === "winter";
+    PAL.flowers = (dryWinter ? SEASON_FLOWERS.autumn : SEASON_FLOWERS[season]) ?? BASE.flowers;
+  }
   function applyBiomePalette(biome) {
     const swaps = {
       desert: {
@@ -44725,7 +44793,7 @@ ${parts.join("\n")}
   var TICKS_PER_HOUR = SECONDS_PER_GAME_HOUR * TICK_HZ;
   var TICKS_PER_DAY = TICKS_PER_HOUR * 24;
   var DAYS_PER_SEASON = 3;
-  var SEASONS = ["spring", "summer", "autumn", "winter"];
+  var SEASONS2 = ["spring", "summer", "autumn", "winter"];
   var START_HOUR = 7;
   var SUNRISE = [5, 7];
   var SUNSET = [19, 21];
@@ -44736,8 +44804,8 @@ ${parts.join("\n")}
     const seasonIndex = Math.floor(dayIndex / DAYS_PER_SEASON);
     return {
       day: dayIndex + 1,
-      year: Math.floor(seasonIndex / SEASONS.length) + 1,
-      season: SEASONS[seasonIndex % SEASONS.length],
+      year: Math.floor(seasonIndex / SEASONS2.length) + 1,
+      season: SEASONS2[seasonIndex % SEASONS2.length],
       dayOfSeason: dayIndex % DAYS_PER_SEASON + 1,
       hour: Math.floor(hoursIntoDay),
       minute: Math.floor(hoursIntoDay % 1 * 60),
@@ -50274,6 +50342,42 @@ ${parts.join("\n")}
     return `${h2} game hour${h2 === 1 ? "" : "s"}`;
   }
 
+  // src/shared/sim/weather.ts
+  var SPELL_HOURS = 6;
+  var ODDS = {
+    spring: [["clear", 4], ["cloudy", 3], ["rain", 3], ["fog", 1]],
+    summer: [["clear", 6], ["cloudy", 2], ["rain", 1], ["storm", 1.5]],
+    autumn: [["clear", 2], ["cloudy", 3], ["rain", 3], ["fog", 2], ["storm", 0.5]],
+    winter: [["clear", 2], ["cloudy", 3], ["snow", 4], ["fog", 1]]
+  };
+  function spellWeather(seed, spell, season) {
+    const odds = ODDS[season];
+    const total = odds.reduce((n2, [, w2]) => n2 + w2, 0);
+    let roll = (mixSeed(hashSeed(seed), 32423, spell) >>> 0) % 1e4 / 1e4 * total;
+    for (const [w2, n2] of odds) if ((roll -= n2) < 0) return w2;
+    return "clear";
+  }
+  function weatherAt(seed, tick, doom) {
+    const spellTicks = SPELL_HOURS * TICKS_PER_HOUR;
+    const spell = Math.floor(tick / spellTicks);
+    const through = tick % spellTicks / spellTicks;
+    const at2 = (i2) => override(doom) ?? spellWeather(seed, i2, calendar(i2 * spellTicks).season);
+    return { kind: at2(spell), through, before: at2(spell - 1) };
+  }
+  function override(doom) {
+    switch (doom) {
+      case "deep_freeze":
+        return "snow";
+      case "drought":
+        return "clear";
+      case "ash_winter":
+      case "smog":
+        return "fog";
+      default:
+        return null;
+    }
+  }
+
   // src/shared/sim/snapshot.ts
   function journalView(s2) {
     return s2.journal.map(entryView);
@@ -50363,6 +50467,7 @@ ${parts.join("\n")}
       impacts: (s2.impacts ?? []).filter((m2) => s2.tick - m2.tick < 30).map((m2) => ({ x: m2.x, since: s2.tick - m2.tick })),
       moonNight: moonPhaseOf(nightDay(s2.tick)) === FULL_MOON_PHASE && (calendar(s2.tick).hour >= 20 || calendar(s2.tick).hour < 5),
       moonPhase: moonPhaseOf(nightDay(s2.tick)),
+      weather: weatherAt(s2.seed, s2.tick, s2.doom?.phase === "active" ? s2.doom.kind : null),
       ironman: !!s2.ironman,
       launchHours: s2.launchTick != null ? Math.max(0, (s2.launchTick - s2.tick) / TICKS_PER_HOUR) : null,
       mainId: s2.mainId,
@@ -53338,6 +53443,28 @@ ${parts.join("\n")}
       this.fore.cull(this.camX, this.camX + screenW);
       this.back.cull(-this.backX / BACK_SCALE, (screenW - this.backX) / BACK_SCALE);
     }
+    /** Redraw the land's scenery for a new season (its colours come from the palette: see applySeasonPalette).
+     *  The shapes are drawn from the same seeds, so the land looks the same, only the colours turn. */
+    setSeason(biome, season) {
+      if (season === this.season) return;
+      this.season = season;
+      applySeasonPalette(biome, season);
+      this.near = makeSpriteSet(this.world.seedHash ^ 81, noTone);
+      this.back.removeGroup("static");
+      this.buildBack(makeSpriteSet(this.world.seedHash ^ 82, haze(0.32)), haze(0.32));
+      for (let i2 = 0; i2 < this.world.tiles; i2++) {
+        this.mid.removeGroup(i2);
+        this.buildMidTile(i2);
+        this.fore.removeGroup(i2);
+        this.buildForeTile(i2);
+      }
+      for (const l2 of [this.back, this.mid, this.fore]) {
+        l2.rebuildSkyline();
+        l2.sortObjects();
+      }
+    }
+    /** (The palette the scenery was drawn in: main.ts applies the starting season before the town is built.) */
+    season = null;
     /** Light the town for the time of day: 1 = full daylight, 0 = moonlit night. In a Deep Freeze everything
      *  takes an icy blue cast. */
     setDaylight(daylight2, frost = false) {
@@ -54414,31 +54541,46 @@ ${parts.join("\n")}
     }
   };
 
+  // src/renderer/town/skyColors.ts
+  var COVER = { clear: 0.12, cloudy: 0.5, rain: 0.8, storm: 0.95, snow: 0.7, fog: 0.6 };
+  function weatherCover(w2) {
+    const t2 = Math.min(1, w2.through / 0.15);
+    return COVER[w2.before] + (COVER[w2.kind] - COVER[w2.before]) * t2;
+  }
+  function mix2(a2, b2, t2) {
+    const ch = (s2) => Math.round((a2 >> s2 & 255) + ((b2 >> s2 & 255) - (a2 >> s2 & 255)) * t2);
+    return ch(16) << 16 | ch(8) << 8 | ch(0);
+  }
+  function skyColors(hours, daylight2, cover) {
+    let top = mix2(659238, 4161488, daylight2);
+    let horizon = mix2(1712706, 11064050, daylight2);
+    const twilight = daylight2 > 0 && daylight2 < 1 ? 1 - Math.abs(daylight2 * 2 - 1) : 0;
+    const glow = hours < 12 ? 15900784 : 15761488;
+    horizon = mix2(horizon, glow, twilight * 0.85 * (1 - cover * 0.6));
+    top = mix2(top, 3817344, twilight * 0.4);
+    const grey = mix2(1842726, 9080988, daylight2);
+    return { top: mix2(top, grey, cover * 0.7), horizon: mix2(horizon, mix2(grey, 12106948, daylight2 * 0.5), cover * 0.6) };
+  }
+
   // src/renderer/town/skyView.ts
   var SUN = [5, 21];
   var MOON = [19, 31];
   var HORIZON = BACK_GROUND_Y + 4;
   var ZENITH = 22;
+  var ZENITH_FULL = 48;
   var SCALE = 2;
   var STARS = 130;
+  var CLOUDS = 14;
   var SkyView = class {
-    root = new Container();
-    stars = new Graphics();
-    glow = new Graphics();
-    sun = new Sprite(sunTexture());
-    moon = new Sprite();
-    moons = [];
-    starList = [];
-    hours = 12;
-    daylight = 1;
-    phase = FULL_MOON_DAYS - 1;
-    constructor() {
+    constructor(full = false) {
+      this.full = full;
       for (let i2 = 0; i2 < FULL_MOON_DAYS; i2++) this.moons.push(moonTexture(i2));
       for (const s2 of [this.sun, this.moon]) {
         s2.anchor.set(0.5);
         s2.scale.set(SCALE);
       }
-      this.root.addChild(this.stars, this.glow, this.moon, this.sun);
+      this.root.addChild(this.back, this.stars, this.glow, this.rainbow, this.moon, this.sun, this.clouds, this.flyers);
+      this.back.visible = this.rainbow.visible = this.clouds.visible = this.flyers.visible = full;
       for (let i2 = 0; i2 < STARS; i2++) {
         const bright = Math.random() < 0.18;
         this.starList.push({
@@ -54451,11 +54593,46 @@ ${parts.join("\n")}
           phase: Math.random() * Math.PI * 2
         });
       }
+      if (full) {
+        const shapes = [0, 1, 2, 3].map(cloudTexture);
+        for (let i2 = 0; i2 < CLOUDS; i2++) {
+          const sprite = new Sprite(shapes[i2 % shapes.length]);
+          sprite.anchor.set(0.5);
+          sprite.scale.set(SCALE);
+          sprite.y = 18 + i2 * 37 % 70;
+          this.clouds.addChild(sprite);
+          this.cloudList.push({ sprite, x: Math.random(), speed: 4e-3 + Math.random() * 6e-3, alpha: 0 });
+        }
+      }
     }
-    /** From each snapshot: the time of day and tonight's moon. */
-    update(c2, moonPhase) {
+    full;
+    root = new Container();
+    back = new Graphics();
+    stars = new Graphics();
+    glow = new Graphics();
+    rainbow = new Graphics();
+    clouds = new Container();
+    flyers = new Graphics();
+    sun = new Sprite(sunTexture());
+    moon = new Sprite();
+    moons = [];
+    starList = [];
+    cloudList = [];
+    flock = null;
+    nextFlock = 0;
+    shooting = null;
+    nextShooting = 0;
+    hours = 12;
+    daylight = 1;
+    phase = FULL_MOON_DAYS - 1;
+    weather = { kind: "clear", through: 1, before: "clear" };
+    backKey = "";
+    lastNow = 0;
+    /** From each snapshot: the time of day, tonight's moon and the weather. */
+    update(c2, moonPhase, weather) {
       this.hours = c2.hour + c2.minute / 60;
       this.daylight = c2.daylight;
+      this.weather = weather;
       if (moonPhase !== this.phase || !this.moon.texture || this.moon.texture === Texture.EMPTY) {
         this.phase = moonPhase;
         this.moon.texture = this.moons[moonPhase] ?? this.moons[0];
@@ -54463,29 +54640,34 @@ ${parts.join("\n")}
     }
     /** Each frame: `width` is the town's share of the screen. (The root sits in the town's, at the strip's top.) */
     render(now, width) {
+      const dt = this.lastNow ? Math.min(0.1, (now - this.lastNow) / 1e3) : 0;
+      this.lastNow = now;
       const h2 = this.hours;
+      const cover = this.full ? weatherCover(this.weather) : 0;
       const g2 = this.glow.clear();
+      if (this.full) this.drawBack(width, cover);
       const sunU = (h2 - SUN[0]) / (SUN[1] - SUN[0]);
       this.sun.visible = sunU > 0 && sunU < 1;
       if (this.sun.visible) {
-        const { x: x2, y: y2 } = arc(sunU, width);
+        const { x: x2, y: y2 } = arc(sunU, width, this.full);
         this.sun.position.set(x2, y2);
         const low = 1 - Math.sin(Math.PI * sunU);
         this.sun.tint = mix2(16774872, 16751178, low ** 1.5);
-        g2.circle(x2, y2, 20 + low * 8).fill({ color: this.sun.tint, alpha: 0.12 + low * 0.08 });
-        g2.circle(x2, y2, 30 + low * 14).fill({ color: this.sun.tint, alpha: 0.06 });
+        this.sun.alpha = 1 - cover * 0.75;
+        g2.circle(x2, y2, 20 + low * 8).fill({ color: this.sun.tint, alpha: (0.12 + low * 0.08) * (1 - cover) });
+        g2.circle(x2, y2, 30 + low * 14).fill({ color: this.sun.tint, alpha: 0.06 * (1 - cover) });
       }
       const mh = h2 < 12 ? h2 + 24 : h2;
       const moonU = (mh - MOON[0]) / (MOON[1] - MOON[0]);
       this.moon.visible = moonU > 0 && moonU < 1;
       if (this.moon.visible) {
-        const { x: x2, y: y2 } = arc(moonU, width);
+        const { x: x2, y: y2 } = arc(moonU, width, this.full);
         this.moon.position.set(x2, y2);
-        this.moon.alpha = 0.35 + 0.65 * (1 - this.daylight);
+        this.moon.alpha = (0.35 + 0.65 * (1 - this.daylight)) * (1 - cover * 0.7);
         const lit = litShare(this.phase);
-        if (lit > 0.05) g2.circle(x2, y2, 18).fill({ color: 13622527, alpha: 0.1 * lit * (1 - this.daylight) });
+        if (lit > 0.05) g2.circle(x2, y2, 18).fill({ color: 13622527, alpha: 0.1 * lit * (1 - this.daylight) * (1 - cover) });
       }
-      const dark = Math.max(0, 1 - this.daylight * 1.6);
+      const dark = Math.max(0, 1 - this.daylight * 1.6) * (1 - cover);
       const st = this.stars.clear();
       this.stars.visible = dark > 0;
       if (dark > 0) {
@@ -54498,16 +54680,153 @@ ${parts.join("\n")}
           st.rect(x2, Math.round(s2.y), s2.size, s2.size).fill({ color: s2.color, alpha: a2 });
           if (s2.size > 1 && twinkle > 0.9) st.rect(x2 - 1, Math.round(s2.y) + 0.5, 4, 1).rect(x2 + 0.5, Math.round(s2.y) - 1, 1, 4).fill({ color: s2.color, alpha: a2 * 0.5 });
         }
+        this.shootingStar(st, now, width, dark);
       }
+      if (!this.full) return;
+      this.drawRainbow(width);
+      this.drawClouds(dt, width, cover);
+      this.drawFlyers(now, dt, width);
+    }
+    /** The sky's colour, in bands from the top down to behind the hills (redrawn only when it changes). */
+    drawBack(width, cover) {
+      const { top, horizon } = skyColors(this.hours, this.daylight, cover);
+      const key2 = `${top}|${horizon}|${width}`;
+      if (key2 === this.backKey) return;
+      this.backKey = key2;
+      const g2 = this.back.clear();
+      const BANDS = 24;
+      const bandH = STRIP_HEIGHT / BANDS;
+      for (let i2 = 0; i2 < BANDS; i2++) g2.rect(0, Math.floor(i2 * bandH), width, Math.ceil(bandH) + 1).fill({ color: mix2(top, horizon, (i2 / (BANDS - 1)) ** 1.3) });
+    }
+    /** Now and then at night a shooting star streaks down across the sky. */
+    shootingStar(g2, now, width, dark) {
+      if (!this.shooting && now > this.nextShooting) {
+        if (this.nextShooting) {
+          const dir = Math.random() < 0.5 ? -1 : 1;
+          this.shooting = { x: Math.random() * width, y: 8 + Math.random() * 40, dx: dir * (220 + Math.random() * 120), dy: 60 + Math.random() * 40, born: now };
+        }
+        this.nextShooting = now + 15e3 + Math.random() * 3e4;
+      }
+      const s2 = this.shooting;
+      if (!s2) return;
+      const age = (now - s2.born) / 1e3;
+      if (age > 0.7) {
+        this.shooting = null;
+        return;
+      }
+      const x2 = s2.x + s2.dx * age;
+      const y2 = s2.y + s2.dy * age;
+      const fade2 = dark * (1 - age / 0.7);
+      for (let i2 = 0; i2 < 8; i2++) g2.rect(Math.round(x2 - s2.dx * 0.012 * i2), Math.round(y2 - s2.dy * 0.012 * i2), 1, 1).fill({ color: 16777215, alpha: fade2 * (1 - i2 / 8) });
+    }
+    /** A rainbow in the hours after the rain clears (by day). */
+    drawRainbow(width) {
+      const w2 = this.weather;
+      const after = (w2.before === "rain" || w2.before === "storm") && (w2.kind === "clear" || w2.kind === "cloudy");
+      const strength = after && this.daylight > 0.6 ? Math.sin(Math.PI * Math.min(1, w2.through / 0.45)) * (w2.through < 0.45 ? 1 : 0) : 0;
+      const g2 = this.rainbow.clear();
+      if (strength <= 0.01) return;
+      const cx = width * 0.62;
+      const cy = HORIZON + 10;
+      const colors = [14696506, 15764016, 15781952, 6340688, 4227296, 7360704];
+      colors.forEach((c2, i2) => g2.arc(cx, cy, 150 - i2 * 4, Math.PI, 0).stroke({ width: 4, color: c2, alpha: 0.28 * strength }));
+    }
+    /** Clouds drift on the wind; more of them, and greyer, the worse the weather. */
+    drawClouds(dt, width, cover) {
+      const loop2 = width + 200;
+      const wind = this.weather.kind === "storm" ? 3 : this.weather.kind === "rain" ? 1.8 : 1;
+      const shown = Math.round(2 + cover * (CLOUDS - 2));
+      const tint = cloudTint(this.hours, this.daylight, cover);
+      this.cloudList.forEach((c2, i2) => {
+        const want = i2 < shown ? 0.55 + cover * 0.4 : 0;
+        c2.alpha += (want - c2.alpha) * Math.min(1, dt * 0.8);
+        c2.x = (c2.x + c2.speed * wind * dt) % 1;
+        c2.sprite.x = Math.round(c2.x * loop2 - 100);
+        c2.sprite.alpha = c2.alpha;
+        c2.sprite.tint = tint;
+        c2.sprite.visible = c2.alpha > 0.02 && c2.sprite.x > -80 && c2.sprite.x < width + 80;
+      });
+    }
+    /** Birds cross the sky by day in fair weather; at dusk, bats. */
+    drawFlyers(now, dt, width) {
+      const fair = this.weather.kind === "clear" || this.weather.kind === "cloudy";
+      const dusk = this.daylight > 0.05 && this.daylight < 0.55;
+      const day = this.daylight >= 0.55;
+      if (!this.flock && now > this.nextFlock) {
+        if (this.nextFlock && fair && (day || dusk)) {
+          const bats = dusk;
+          const dir = Math.random() < 0.5 ? 1 : -1;
+          const n2 = bats ? 2 + Math.floor(Math.random() * 4) : 3 + Math.floor(Math.random() * 5);
+          const y0 = 24 + Math.random() * 60;
+          const x0 = dir > 0 ? -20 : width + 20;
+          const speed = (bats ? 40 : 30 + Math.random() * 15) * dir;
+          this.flock = {
+            bats,
+            birds: Array.from({ length: n2 }, (_, i2) => ({
+              // a loose V for birds; bats flit about anywhere
+              x: x0 - dir * (bats ? Math.random() * 40 : Math.ceil(i2 / 2) * 9),
+              y: y0 + (bats ? (Math.random() - 0.5) * 24 : (i2 % 2 ? -1 : 1) * Math.ceil(i2 / 2) * 5),
+              dx: speed * (0.9 + Math.random() * 0.2),
+              phase: Math.random() * 6,
+              bob: Math.random() * 6
+            }))
+          };
+        }
+        this.nextFlock = now + 2e4 + Math.random() * 4e4;
+      }
+      const g2 = this.flyers.clear();
+      const f2 = this.flock;
+      if (!f2) return;
+      const t2 = now / 1e3;
+      const color = f2.bats ? 1709088 : mix2(2763316, 1315868, 1 - this.daylight);
+      let onScreen = false;
+      for (const b2 of f2.birds) {
+        b2.x += b2.dx * dt;
+        const x2 = Math.round(b2.x);
+        const y2 = Math.round(b2.y + Math.sin(t2 * (f2.bats ? 7 : 1.5) + b2.bob) * (f2.bats ? 4 : 1.5));
+        if (x2 > -30 && x2 < width + 30) onScreen = true;
+        const up = Math.sin(t2 * (f2.bats ? 22 : 9) + b2.phase) > 0;
+        if (up) g2.rect(x2 - 3, y2 - 2, 1, 1).rect(x2 - 2, y2 - 1, 1, 1).rect(x2 - 1, y2, 2, 1).rect(x2 + 1, y2 - 1, 1, 1).rect(x2 + 2, y2 - 2, 1, 1);
+        else g2.rect(x2 - 3, y2, 1, 1).rect(x2 - 2, y2 - 1, 1, 1).rect(x2 - 1, y2 - 1, 2, 1).rect(x2 + 1, y2 - 1, 1, 1).rect(x2 + 2, y2, 1, 1);
+      }
+      g2.fill({ color });
+      if (!onScreen && f2.birds.every((b2) => b2.dx > 0 ? b2.x > width : b2.x < 0)) this.flock = null;
     }
   };
-  function arc(u2, width) {
-    const margin = 24;
-    return { x: Math.round(margin + u2 * (width - 2 * margin)), y: Math.round(HORIZON - (HORIZON - ZENITH) * Math.sin(Math.PI * u2)) };
+  function cloudTint(hours, daylight2, cover) {
+    const twilight = daylight2 > 0 && daylight2 < 1 ? 1 - Math.abs(daylight2 * 2 - 1) : 0;
+    let c2 = mix2(3291208, 16777215, daylight2);
+    c2 = mix2(c2, hours < 12 ? 16763048 : 15769744, twilight * 0.7);
+    return mix2(c2, mix2(2763828, 9476260, daylight2), Math.max(0, cover - 0.4) * 1.4);
   }
-  function mix2(a2, b2, t2) {
-    const ch = (s2) => Math.round((a2 >> s2 & 255) + ((b2 >> s2 & 255) - (a2 >> s2 & 255)) * t2);
-    return ch(16) << 16 | ch(8) << 8 | ch(0);
+  function cloudTexture(shape) {
+    const W = 48;
+    const H2 = 20;
+    const puffs = [
+      [[14, 12, 7], [24, 9, 9], [34, 12, 7], [20, 14, 6], [30, 14, 6]],
+      [[10, 13, 6], [19, 10, 7], [28, 9, 8], [37, 13, 6]],
+      [[16, 12, 8], [28, 11, 9], [22, 14, 7]],
+      [[8, 14, 5], [16, 12, 6], [25, 10, 7], [33, 12, 6], [40, 14, 5]]
+    ];
+    const c2 = document.createElement("canvas");
+    c2.width = W;
+    c2.height = H2;
+    const g2 = c2.getContext("2d");
+    for (let y2 = 0; y2 < H2; y2++) {
+      for (let x2 = 0; x2 < W; x2++) {
+        const inside = puffs[shape].some(([px, py, r2]) => Math.hypot(x2 - px, (y2 - py) * 1.25) <= r2);
+        if (!inside || y2 > 17) continue;
+        const shade = y2 > 13 ? "#c8ccd6" : y2 > 10 ? "#e8eaf0" : "#ffffff";
+        g2.fillStyle = shade;
+        g2.fillRect(x2, y2, 1, 1);
+      }
+    }
+    return Texture.from(c2);
+  }
+  function arc(u2, width, full) {
+    const margin = 24;
+    const top = full ? ZENITH_FULL : ZENITH;
+    return { x: Math.round(margin + u2 * (width - 2 * margin)), y: Math.round(HORIZON - (HORIZON - top) * Math.sin(Math.PI * u2)) };
   }
   function cycle2(phase) {
     return ((phase - (FULL_MOON_DAYS - 1) + FULL_MOON_DAYS / 2) % FULL_MOON_DAYS + FULL_MOON_DAYS) % FULL_MOON_DAYS / FULL_MOON_DAYS;
@@ -54571,6 +54890,131 @@ ${parts.join("\n")}
         }
       }
     });
+  }
+
+  // src/renderer/town/weatherView.ts
+  var DROPS = 420;
+  var LEAVES = 18;
+  var FLIES = 22;
+  var GROUND2 = STRIP_HEIGHT - 6;
+  var WeatherView = class {
+    root = new Container();
+    rain = new Graphics();
+    fog = new Graphics();
+    bits = new Graphics();
+    flash = new Graphics();
+    drops = [];
+    leaves = [];
+    flies = [];
+    weather = { kind: "clear", through: 1, before: "clear" };
+    season = "spring";
+    daylight = 1;
+    lastNow = 0;
+    nextBolt = 0;
+    bolt = null;
+    /** How hard it's raining now, eased toward the weather's (0..1). */
+    wet = 0;
+    foggy = 0;
+    constructor() {
+      this.root.addChild(this.fog, this.rain, this.bits, this.flash);
+      const leafColors = [13656106, 14721072, 12075038, 13142570, 10115620];
+      for (let i2 = 0; i2 < DROPS; i2++) this.drops.push({ x: Math.random(), y: Math.random() * GROUND2, speed: 260 + Math.random() * 120, phase: 0, color: 0 });
+      for (let i2 = 0; i2 < LEAVES; i2++) this.leaves.push({ x: Math.random(), y: Math.random() * GROUND2, speed: 14 + Math.random() * 14, phase: Math.random() * 6.3, color: leafColors[i2 % leafColors.length] });
+      for (let i2 = 0; i2 < FLIES; i2++) this.flies.push({ x: Math.random(), y: GROUND2 - 10 - Math.random() * 50, speed: 0.4 + Math.random() * 0.8, phase: Math.random() * 6.3, color: 0 });
+    }
+    update(c2, weather) {
+      this.weather = weather;
+      this.season = c2.season;
+      this.daylight = c2.daylight;
+    }
+    render(now, width) {
+      const dt = this.lastNow ? Math.min(0.1, (now - this.lastNow) / 1e3) : 0;
+      this.lastNow = now;
+      const w2 = this.weather.kind;
+      const wantWet = w2 === "storm" ? 1 : w2 === "rain" ? 0.55 : 0;
+      this.wet += (wantWet - this.wet) * Math.min(1, dt * 0.5);
+      this.foggy += ((w2 === "fog" ? 1 : 0) - this.foggy) * Math.min(1, dt * 0.3);
+      const t2 = now / 1e3;
+      const wind = w2 === "storm" ? 70 : 25;
+      const r2 = this.rain.clear();
+      const n2 = Math.round(DROPS * this.wet);
+      for (let i2 = 0; i2 < n2; i2++) {
+        const d2 = this.drops[i2];
+        d2.y += d2.speed * (0.8 + this.wet * 0.5) * dt;
+        d2.x += wind * dt / Math.max(1, width);
+        if (d2.y > GROUND2) {
+          d2.y = -6;
+          d2.x = Math.random();
+        }
+        const x2 = Math.round((d2.x % 1 + 1) % 1 * width);
+        r2.moveTo(x2, d2.y).lineTo(x2 - wind * 0.05, d2.y - 6);
+      }
+      if (n2) r2.stroke({ width: 1, color: this.daylight > 0.3 ? 13162736 : 7901368, alpha: 0.65 });
+      const f2 = this.fog.clear();
+      if (this.foggy > 0.02) {
+        for (let i2 = 0; i2 < 5; i2++) {
+          const y2 = 100 + i2 * 18 + Math.sin(t2 * 0.2 + i2) * 4;
+          const x2 = (t2 * (6 + i2 * 2) + i2 * 173) % (width + 400) - 200;
+          f2.roundRect(x2 - 200, y2, width * 0.7, 22, 11).fill({ color: this.daylight > 0.3 ? 14541544 : 6975616, alpha: 0.13 * this.foggy });
+          f2.roundRect(x2 + width * 0.4, y2 + 6, width * 0.6, 18, 9).fill({ color: this.daylight > 0.3 ? 14541544 : 6975616, alpha: 0.1 * this.foggy });
+        }
+        f2.rect(0, 60, width, GROUND2 - 60).fill({ color: this.daylight > 0.3 ? 13686494 : 5265512, alpha: 0.12 * this.foggy });
+      }
+      const b2 = this.bits.clear();
+      if (this.season === "autumn" && this.wet < 0.3 && this.daylight > 0.2) {
+        for (const l2 of this.leaves) {
+          l2.y += l2.speed * dt;
+          l2.x += (wind * 0.6 + Math.sin(t2 * 1.3 + l2.phase) * 20) * dt / Math.max(1, width);
+          if (l2.y > GROUND2) {
+            l2.y = -4;
+            l2.x = Math.random();
+          }
+          const x2 = Math.round((l2.x % 1 + 1) % 1 * width);
+          const flip = Math.sin(t2 * 4 + l2.phase) > 0;
+          b2.rect(x2, Math.round(l2.y), flip ? 2 : 1, flip ? 1 : 2).fill({ color: l2.color });
+        }
+      }
+      if (this.season === "summer" && this.daylight < 0.3 && this.wet < 0.2) {
+        for (const fl2 of this.flies) {
+          const x2 = Math.round(fl2.x * width + Math.sin(t2 * fl2.speed + fl2.phase) * 14);
+          const y2 = Math.round(fl2.y + Math.sin(t2 * fl2.speed * 1.7 + fl2.phase) * 6);
+          const glow = Math.max(0, Math.sin(t2 * 1.6 + fl2.phase * 3));
+          if (glow < 0.2) continue;
+          b2.rect(x2 - 1, y2 - 1, 3, 3).fill({ color: 14221168, alpha: 0.18 * glow * (1 - this.daylight * 3) });
+          b2.rect(x2, y2, 1, 1).fill({ color: 15794080, alpha: glow * (1 - this.daylight * 3) });
+        }
+      }
+      const fl = this.flash.clear();
+      if (w2 === "storm") {
+        if (now > this.nextBolt) {
+          if (this.nextBolt) this.bolt = { at: now, path: boltPath(Math.random() * width) };
+          this.nextBolt = now + 5e3 + Math.random() * 12e3;
+        }
+        if (this.bolt) {
+          const age = (now - this.bolt.at) / 1e3;
+          if (age > 0.45) this.bolt = null;
+          else {
+            const on = age < 0.08 || age > 0.16 && age < 0.22;
+            fl.rect(0, 0, width, STRIP_HEIGHT).fill({ color: 15659775, alpha: on ? 0.35 : 0.08 * (1 - age / 0.45) });
+            if (on) {
+              const [first, ...rest] = this.bolt.path;
+              fl.moveTo(first[0], first[1]);
+              for (const [x2, y2] of rest) fl.lineTo(x2, y2);
+              fl.stroke({ width: 2, color: 16777215, alpha: 0.95 });
+            }
+          }
+        }
+      } else this.bolt = null;
+    }
+  };
+  function boltPath(x0) {
+    const out2 = [[x0, 0]];
+    let x2 = x0;
+    for (let y2 = 12; y2 < 130; y2 += 10 + Math.random() * 10) {
+      x2 += (Math.random() - 0.5) * 22;
+      out2.push([Math.round(x2), Math.round(y2)]);
+    }
+    return out2;
   }
 
   // src/renderer/town/raidersView.ts
@@ -54740,7 +55184,7 @@ ${parts.join("\n")}
     if (hostBridge()) document.body.classList.add("embedded");
     const coarse = () => matchMedia("(pointer: coarse)").matches;
     const [first] = await Promise.all([bridge.getSnapshot(), loadLpc(), loadCreatures(), loadEffects(), loadStills()]);
-    applyBiomePalette(first.biome);
+    applySeasonPalette(first.biome, first.calendar.season);
     const world = generateWorld(first.seed, first.biome);
     const app = new Application();
     await app.init({
@@ -54755,13 +55199,17 @@ ${parts.join("\n")}
     document.body.appendChild(app.canvas);
     const canvas2 = app.canvas;
     const town = new TownView(world, first.tiles, first.buildings);
+    town.season = first.calendar.season;
     const people = new PeopleView(town.people);
     const raiders = new RaidersView(town.people);
     const animals = new AnimalsView(town.people);
     const pane = new ExpeditionPane(world.seedHash);
     const snow = new SnowView();
     town.root.addChild(snow.root);
-    const sky = new SkyView();
+    const fullSky = !!hostBridge();
+    const sky = new SkyView(fullSky);
+    const weather = fullSky ? new WeatherView() : null;
+    if (weather) town.root.addChild(weather.root);
     town.root.addChildAt(sky.root, 0);
     const townMask = new Graphics();
     app.stage.addChild(town.root, pane.root);
@@ -55155,8 +55603,9 @@ ${parts.join("\n")}
       hud.update(next);
       music.update(view.music && !view.hidden, next.raid?.phase === "active");
       const freeze = next.doom?.kind === "deep_freeze" && next.doom.phase === "active";
-      town.setDaylight(next.calendar.daylight, freeze);
-      snow.on = freeze;
+      const gloom = fullSky ? { clear: 0, cloudy: 0.04, rain: 0.12, storm: 0.22, snow: 0.05, fog: 0.08 }[next.weather.kind] : 0;
+      town.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
+      snow.on = freeze || fullSky && next.weather.kind === "snow";
       snow.heavy = freeze && !!next.doom?.cold;
       pane.setDaylight(next.calendar.daylight);
       const q = next.prompts[0];
@@ -55174,9 +55623,11 @@ ${parts.join("\n")}
       if (e2 && pane.visible && paneX < Infinity) expHeader.show(e2, next.expeditions.length - 1, paneX, paneW);
       else expHeader.hide();
       if (tilesChanged) town.updateTiles(next.tiles);
+      town.setSeason(next.biome, next.calendar.season);
       town.syncBuildings(next.buildings);
       people.moon = next.moonNight;
-      sky.update(next.calendar, next.moonPhase);
+      sky.update(next.calendar, next.moonPhase, next.weather);
+      weather?.update(next.calendar, next.weather);
       people.revived = next.revived ? { ...next.revived, at: performance.now() } : null;
       people.fx = next.fx.map((f2) => ({ ...f2, at: performance.now() }));
       people.update(
@@ -55203,6 +55654,7 @@ ${parts.join("\n")}
       animals.render(performance.now());
       snow.render(performance.now(), ticker.deltaMS / 1e3, w2);
       sky.render(performance.now(), w2);
+      weather?.render(performance.now(), w2);
       pane.render(performance.now(), ticker.deltaMS / 1e3);
       if (moving) {
         refreshHover();

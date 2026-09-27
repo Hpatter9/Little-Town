@@ -24755,6 +24755,42 @@ ${src}`;
     return `${h2} game hour${h2 === 1 ? "" : "s"}`;
   }
 
+  // src/shared/sim/weather.ts
+  var SPELL_HOURS = 6;
+  var ODDS = {
+    spring: [["clear", 4], ["cloudy", 3], ["rain", 3], ["fog", 1]],
+    summer: [["clear", 6], ["cloudy", 2], ["rain", 1], ["storm", 1.5]],
+    autumn: [["clear", 2], ["cloudy", 3], ["rain", 3], ["fog", 2], ["storm", 0.5]],
+    winter: [["clear", 2], ["cloudy", 3], ["snow", 4], ["fog", 1]]
+  };
+  function spellWeather(seed, spell, season) {
+    const odds = ODDS[season];
+    const total = odds.reduce((n2, [, w2]) => n2 + w2, 0);
+    let roll = (mixSeed(hashSeed(seed), 32423, spell) >>> 0) % 1e4 / 1e4 * total;
+    for (const [w2, n2] of odds) if ((roll -= n2) < 0) return w2;
+    return "clear";
+  }
+  function weatherAt(seed, tick, doom) {
+    const spellTicks = SPELL_HOURS * TICKS_PER_HOUR;
+    const spell = Math.floor(tick / spellTicks);
+    const through = tick % spellTicks / spellTicks;
+    const at = (i2) => override(doom) ?? spellWeather(seed, i2, calendar(i2 * spellTicks).season);
+    return { kind: at(spell), through, before: at(spell - 1) };
+  }
+  function override(doom) {
+    switch (doom) {
+      case "deep_freeze":
+        return "snow";
+      case "drought":
+        return "clear";
+      case "ash_winter":
+      case "smog":
+        return "fog";
+      default:
+        return null;
+    }
+  }
+
   // src/shared/sim/snapshot.ts
   function journalView(s2) {
     return s2.journal.map(entryView);
@@ -24844,6 +24880,7 @@ ${src}`;
       impacts: (s2.impacts ?? []).filter((m2) => s2.tick - m2.tick < 30).map((m2) => ({ x: m2.x, since: s2.tick - m2.tick })),
       moonNight: moonPhaseOf(nightDay(s2.tick)) === FULL_MOON_PHASE && (calendar(s2.tick).hour >= 20 || calendar(s2.tick).hour < 5),
       moonPhase: moonPhaseOf(nightDay(s2.tick)),
+      weather: weatherAt(s2.seed, s2.tick, s2.doom?.phase === "active" ? s2.doom.kind : null),
       ironman: !!s2.ironman,
       launchHours: s2.launchTick != null ? Math.max(0, (s2.launchTick - s2.tick) / TICKS_PER_HOUR) : null,
       mainId: s2.mainId,
