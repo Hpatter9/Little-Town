@@ -491,17 +491,30 @@
       body.embedded #dock {
         display: none !important;
       }
-      /* a phone is narrower than the clock bar: it scrolls sideways */
+      /* On a phone the clock bar spans the width, so it goes up in the sky rather than over the walkway (where it
+         hid the townsfolk's legs), and scrolls sideways; the cards that pop up at the top move down under it. */
       body.embedded #clock {
+        top: 0;
+        bottom: auto;
         max-width: 100%;
         overflow-x: auto;
         scrollbar-width: none;
-        border-radius: 0;
-        border-right: 0;
+        border-radius: 0 0 6px 0;
+        border-top: 0;
+        border-bottom: 2px solid var(--wood-edge);
+      }
+      body.embedded #toasts,
+      body.embedded #prompt,
+      body.embedded #away,
+      body.embedded #banner {
+        top: 34px;
       }
       body.embedded .clock-text {
         min-width: 0;
         white-space: nowrap;
+      }
+      body.embedded #clock > * {
+        flex-shrink: 0; /* (it scrolls instead of squashing its parts together) */
       }
     </style>
   </head>

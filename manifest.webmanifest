@@ -4,7 +4,7 @@
   "description": "A pixel-art idle town builder that lives in a strip above the taskbar.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "any",
   "background_color": "#211811",
   "theme_color": "#211811",

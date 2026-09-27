@@ -1,6 +1,6 @@
 // Offline support for the phone (web) version: every file of the game is cached on install, and served from
 // the cache first. The build stamps VERSION, so a new build replaces the old cache.
-const VERSION = 'littletown-0.1.1-muiiqclx';
+const VERSION = 'littletown-0.1.1-mujwb6w0';
 const FILES = ["./","icon-192.png","icon-512.png","index.html","manifest.webmanifest","mobile.js","music/battle.ogg","music/town.ogg","panel.html","panel.js","renderer.js","strip.html"];
 
 self.addEventListener('install', (e) => {
