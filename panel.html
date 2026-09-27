@@ -496,6 +496,88 @@
       .newgame-head:first-child {
         margin-top: 4px;
       }
+      .card.pick .purpose {
+        white-space: pre-line;
+      }
+      .founder {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+      }
+      .founder-side {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .founder-side .place {
+        align-self: stretch;
+        margin: 0;
+      }
+      .founder-preview {
+        width: 128px;
+        height: 128px;
+        image-rendering: pixelated;
+        background: radial-gradient(#3b2b1e, #211811 70%);
+        border: 1px solid #4a3522;
+        border-radius: 4px;
+      }
+      .founder-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+      .founder-name {
+        padding: 5px 8px;
+        background: #1a120c;
+        color: var(--text);
+        border: 1px solid #4a3522;
+        border-radius: 3px;
+        font: inherit;
+      }
+      .looks {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .look-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 5px;
+      }
+      .look-label {
+        width: 78px;
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .look-value {
+        min-width: 90px;
+        text-align: center;
+        font-size: 12px;
+      }
+      .swatch {
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border: 2px solid #22170f;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+      .swatch.on {
+        border-color: #f1e2c2;
+        box-shadow: 0 0 0 1px #c79a55;
+      }
+      .trait-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .trait-chips .hint {
+        flex-basis: 100%;
+      }
       .place.found {
         margin-top: 14px;
         padding: 6px 22px;

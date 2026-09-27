@@ -1117,6 +1117,7 @@
   };
 
   // src/shared/data/biomes.ts
+  var BIOMES = ["forest", "desert", "tundra", "coast"];
   var BIOME_DEFS = {
     forest: {
       name: "Forest",
@@ -1159,6 +1160,7 @@
     }
   };
   var biomeOf = (s) => BIOME_DEFS[s.biome ?? "forest"];
+  var DIFFICULTIES = ["easy", "normal", "hard"];
   var DIFFICULTY_DEFS = {
     easy: { name: "Easy", description: "Smaller raids, further apart; fewer disasters.", raidStrength: 0.6, raidGap: 1.5, doomGap: 1.5 },
     normal: { name: "Normal", description: "As designed.", raidStrength: 1, raidGap: 1, doomGap: 1 },
@@ -1283,6 +1285,80 @@
     return x * x * (3 - 2 * x);
   }
 
+  // src/shared/data/founding.ts
+  var BACKGROUNDS = [
+    { id: "forager", name: "Forager", description: "A bit of everything: gathers, builds and thinks.", skills: { gathering: 4, construction: 3, research: 3 }, passions: ["gathering", "construction"] },
+    { id: "hunter", name: "Hunter", description: "Keeps the town fed and safe with spear and bow.", skills: { melee: 4, ranged: 5, animals: 3 }, passions: ["ranged", "melee"] },
+    { id: "farmer", name: "Farmer", description: "Green fields early, and full stores.", skills: { farming: 5, gathering: 4, cooking: 3 }, passions: ["farming", "gathering"] },
+    { id: "builder", name: "Builder", description: "Raises the camp fast and makes the tools.", skills: { construction: 5, crafting: 4 }, passions: ["construction", "crafting"] },
+    { id: "scholar", name: "Scholar", description: "Researches quickly; not much of a fighter.", skills: { research: 5, medicine: 3, melee: 1 }, passions: ["research", "medicine"] },
+    { id: "healer", name: "Healer", description: "Keeps the wounded alive and the town together.", skills: { medicine: 5, social: 4, research: 3 }, passions: ["medicine", "social"] }
+  ];
+  var BACKGROUND_BY_ID = Object.fromEntries(BACKGROUNDS.map((b) => [b.id, b]));
+  function founderSkills(b) {
+    return Object.fromEntries(SKILLS.map((k) => [k, b.skills[k] ?? 2]));
+  }
+  var MAX_FOUNDER_TRAITS = 2;
+  var MAX_NAME_LENGTH = 16;
+  var SCENARIOS = [
+    { id: "lone", name: "Lone Founder", description: "You, a campfire and a few berries. The classic start.", companions: [], stores: { berries: 8 }, research: [] },
+    { id: "band", name: "Band of Three", description: "Arrive with a gatherer and a hunter. More hands, more mouths.", companions: ["gatherer", "hunter"], stores: { berries: 20 }, research: [] },
+    {
+      id: "tribe",
+      name: "Lost Tribe",
+      description: "Six of you, young and old, and not much food. Put everyone to work fast.",
+      companions: ["gatherer", "hunter", "crafter", "elder", "child"],
+      stores: { berries: 36 },
+      research: []
+    },
+    {
+      id: "supplied",
+      name: "Well Supplied",
+      description: "Alone, but with a stockpile of wood, stone and food, and shelter-making already known.",
+      companions: [],
+      stores: { berries: 40, wood: 40, stone: 20, fiber: 15 },
+      research: ["foraging", "basic_shelter"]
+    }
+  ];
+  var SCENARIO_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));
+  function cleanNewGameOptions(raw) {
+    if (typeof raw !== "object" || raw === null) return null;
+    const o = raw;
+    const biome = pick(BIOMES, o.biome);
+    const difficulty = pick(DIFFICULTIES, o.difficulty);
+    const scenario = o.scenario === void 0 ? "lone" : typeof o.scenario === "string" && SCENARIO_BY_ID[o.scenario] ? o.scenario : null;
+    const founder = o.founder === void 0 ? void 0 : cleanFounder(o.founder);
+    if (!biome || !difficulty || !scenario || founder === null) return null;
+    return { biome, difficulty, ironman: o.ironman === true, scenario, ...founder ? { founder } : {} };
+  }
+  var pick = (list2, v) => list2.find((x) => x === v);
+  function cleanLook(raw) {
+    if (typeof raw !== "object" || raw === null) return null;
+    const o = raw;
+    const gender = pick(["m", "f"], o.gender);
+    const skin = pick(SKINS, o.skin);
+    const hair = pick(HAIR_STYLES, o.hair);
+    const hairColor = pick(HAIR_COLORS, o.hairColor);
+    const outfit = pick(HIDE_COLORS, o.outfit);
+    if (!gender || !skin || !hair || !hairColor || !outfit) return null;
+    return { gender, skin, hair, hairColor, outfit, beard: gender === "m" && o.beard === true };
+  }
+  function cleanFounder(raw) {
+    if (typeof raw !== "object" || raw === null) return null;
+    const o = raw;
+    if (typeof o.background !== "string" || !BACKGROUND_BY_ID[o.background]) return null;
+    const traits = Array.isArray(o.traits) ? [...new Set(o.traits.filter((t) => typeof t === "string"))] : [];
+    if (traits.length > MAX_FOUNDER_TRAITS) return null;
+    for (const t of traits) {
+      const def = TRAITS.find((d) => d.id === t);
+      if (!def || traits.some((u) => def.excludes?.includes(u))) return null;
+    }
+    const name = typeof o.name === "string" ? o.name.replace(/[^\p{L}\p{N} '\-]/gu, "").trim().slice(0, MAX_NAME_LENGTH) : "";
+    const look = o.look === void 0 ? null : cleanLook(o.look);
+    if (o.look !== void 0 && !look) return null;
+    return { background: o.background, traits, ...name ? { name } : {}, ...look ? { look } : {} };
+  }
+
   // src/shared/sim/state.ts
   var ERA_MULTIPLIER = { neolithic: 1, medieval: 2.5, industrial: 6, modern: 15, space: 40 };
   var RESEARCH_MULTIPLIER = { neolithic: 1, medieval: 15, industrial: 120, modern: 700, space: 2500 };
@@ -1317,6 +1393,26 @@
     const pack = p?.gear.pack ? ITEM_BY_ID[p.gear.pack]?.effects.carry ?? 0 : 0;
     return CARRY_CAPACITY + modifiers(s.research).carryBonus + pack;
   }
+  function makeFounder(p, f) {
+    const bg = BACKGROUND_BY_ID[f.background] ?? BACKGROUND_BY_ID.forager;
+    const levels = founderSkills(bg);
+    p.skills = Object.fromEntries(SKILLS.map((k) => [k, { level: levels[k], xp: 0 }]));
+    p.passions = [...bg.passions];
+    p.traits = [...f.traits];
+    if (f.name) p.name = f.name;
+    if (f.look) p.look = { ...f.look };
+    p.priorities = autoPriorities(p.skills);
+    p.hp = maxHp(p);
+  }
+  function makeChild(p) {
+    p.skills = Object.fromEntries(SKILLS.map((k) => [k, { level: 1, xp: 0 }]));
+    p.traits = [];
+    p.look = { ...p.look, beard: false };
+    p.priorities = { haul: 0, construct: 0, farm: 0, craft: 0, research: 0, gather: 0, defend: 0 };
+    p.autoPriorities = false;
+    p.bornTick = 0;
+    p.hp = maxHp(p);
+  }
   function newGame(seed, opts = {}) {
     const world = generateWorld(seed, opts.biome);
     const rng = new Rng(mixSeed(hashSeed(seed), 24301));
@@ -1331,7 +1427,27 @@
       return { terrain, pool, designated: false };
     });
     const main = makePerson(rng, 1, "founder", (world.camp + 0.5) * TILE - TILE, []);
-    const campfire = { id: 2, def: "campfire", tile: world.camp, status: "done", delivered: {}, progress: 1, store: { berries: 8 } };
+    if (opts.founder) makeFounder(main, opts.founder);
+    const scenario = SCENARIO_BY_ID[opts.scenario ?? "lone"] ?? SCENARIO_BY_ID.lone;
+    const campfire = { id: 2, def: "campfire", tile: world.camp, status: "done", delivered: {}, progress: 1, store: {} };
+    const buildings = [campfire];
+    const people = [main];
+    let nextId = 3;
+    for (const type of scenario.companions) {
+      const x = (world.camp + 0.5) * TILE + (people.length % 2 ? 1 : -1) * Math.ceil(people.length / 2) * TILE;
+      const p = makePerson(rng, nextId++, type, x, people.map((q) => q.name));
+      if (type === "child") makeChild(p);
+      people.push(p);
+    }
+    let room = BUILDING_BY_ID.campfire.storage ?? 0;
+    const extra = {};
+    for (const [m, n] of Object.entries(scenario.stores)) {
+      const here = Math.min(n, room);
+      if (here > 0) campfire.store[m] = here;
+      room -= here;
+      if (n > here) extra[m] = n - here;
+    }
+    if (Object.keys(extra).length) buildings.push({ id: nextId++, def: "stockpile", tile: world.camp + BUILDING_BY_ID.campfire.width + 1, status: "done", delivered: {}, progress: 1, store: extra });
     return {
       version: 15,
       seed,
@@ -1341,10 +1457,10 @@
       era: "neolithic",
       tiles,
       tileRev: 0,
-      buildings: [campfire],
-      people: [main],
+      buildings,
+      people,
       mainId: main.id,
-      nextId: 3,
+      nextId,
       visitor: null,
       expeditions: [],
       scouted: [],
@@ -1362,7 +1478,7 @@
       horses: [],
       caravan: null,
       nextCaravanTick: 0,
-      research: { done: [], queue: [], progress: {} },
+      research: { done: [...scenario.research], queue: [], progress: {} },
       items: {},
       crafting: [],
       notices: [],
@@ -1385,8 +1501,8 @@
     );
     const passions = [];
     for (let n = rng.int(1, typeId === "founder" ? 2 : 3); passions.length < n; ) {
-      const pick = type.passionFor.length && rng.chance(0.7) ? rng.pick(type.passionFor) : rng.pick(SKILLS);
-      if (!passions.includes(pick)) passions.push(pick);
+      const pick2 = type.passionFor.length && rng.chance(0.7) ? rng.pick(type.passionFor) : rng.pick(SKILLS);
+      if (!passions.includes(pick2)) passions.push(pick2);
       else if (passions.length >= type.passionFor.length) n--;
     }
     const traits = [];
@@ -5420,15 +5536,15 @@
       return;
     }
     let r = rng.next() * poolSize(tile.pool);
-    let pick = entries[entries.length - 1][0];
+    let pick2 = entries[entries.length - 1][0];
     for (const [m, n] of entries) {
       if ((r -= n) < 0) {
-        pick = m;
+        pick2 = m;
         break;
       }
     }
-    addStock(tile.pool, pick, -1);
-    addStock(p.carrying, pick, 1);
+    addStock(tile.pool, pick2, -1);
+    addStock(p.carrying, pick2, 1);
     gainSkill(p, "gathering", GATHER_XP);
     if (poolSize(tile.pool) === 0) {
       tile.terrain = "clear";
@@ -6441,7 +6557,10 @@
     })();
     const game = new GameLoop(loaded?.state ?? newGame(randomSeed()), (snap) => snapListeners.forEach((f) => f(snap)));
     if (loaded) game.catchUp(Date.now() - loaded.savedAt, saveNow);
-    else saveNow();
+    else {
+      saveNow();
+      state.panel = "newgame";
+    }
     game.start();
     setInterval(saveNow, AUTOSAVE_MS);
     document.addEventListener("visibilitychange", () => {
@@ -6488,9 +6607,11 @@
         placeListeners.add(cb);
         return () => placeListeners.delete(cb);
       },
-      newGame: (opts) => {
+      newGame: (raw) => {
+        const opts = cleanNewGameOptions(raw);
+        if (!opts) return;
         const old = read(SAVE_KEY);
-        if (old && !game.state.ironman) write(BACKUP_KEY, old);
+        if (old && !game.state.ironman && game.state.tick >= TICKS_PER_HOUR) write(BACKUP_KEY, old);
         write(SAVE_KEY, serialize(newGame(randomSeed(), opts), Date.now()));
         leaving = true;
         location.reload();
@@ -6507,6 +6628,14 @@
       setAlerts: async (a) => a,
       testAlert: async () => "Phone alerts come from the desktop app."
     };
+  }
+
+  // src/shared/format.ts
+  function researchFill(r) {
+    const id = r.queue[0];
+    if (!id) return null;
+    const pct = Math.floor((r.progress[id] ?? 0) * 100);
+    return { pct, title: `Researching ${TOPIC_BY_ID[id]?.name ?? id}: ${pct}%` };
   }
 
   // src/renderer/mobile/mobile.ts
@@ -6551,22 +6680,39 @@
   window.addEventListener("resize", layout);
   layout();
   var tabs = $("tabs");
+  var researchBar = document.createElement("span");
+  researchBar.className = "tab-fill";
+  researchBar.hidden = true;
   var tabButtons = PANELS.map((p) => {
     const b = document.createElement("button");
-    b.textContent = p.label;
+    if (p.id === "research") b.append(researchBar);
+    const label2 = document.createElement("span");
+    label2.className = "tab-label";
+    label2.textContent = p.label;
+    b.append(label2);
     b.addEventListener("click", () => bridge.togglePanel(p.id));
     tabs.append(b);
     return { id: p.id, b };
+  });
+  var researchPct = -1;
+  bridge.onSnapshot((snap) => {
+    const fill = researchFill(snap.research);
+    if ((fill?.pct ?? -1) === researchPct) return;
+    researchPct = fill?.pct ?? -1;
+    researchBar.hidden = !fill;
+    researchBar.style.width = `${researchPct}%`;
   });
   new ResizeObserver(() => {
     document.documentElement.style.setProperty("--tabs-h", `${tabs.offsetHeight}px`);
     layout();
   }).observe(tabs);
-  bridge.onState((s) => {
+  var applyState = (s) => {
     sheet.hidden = !s.panel;
     if (s.panel) menu.hidden = true;
     for (const t of tabButtons) t.b.classList.toggle("on", t.id === s.panel);
-  });
+  };
+  bridge.onState(applyState);
+  void bridge.getState().then(applyState);
   function drawMenu() {
     void bridge.getState().then((s) => {
       const item = (label2, onClick, on = false) => {

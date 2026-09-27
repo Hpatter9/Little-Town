@@ -165,6 +165,23 @@
         background: var(--btn-on);
         border-color: #c79a55;
       }
+      #tabs button {
+        position: relative;
+      }
+      /* the Research button fills from the left as the topic being studied is learned */
+      .tab-fill {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        background: linear-gradient(#6a9ad0, #3f6a9a);
+        opacity: 0.6;
+        transition: width 0.5s;
+        pointer-events: none;
+      }
+      .tab-label {
+        position: relative;
+      }
 
       /* the menus: above the tabs, or the whole screen when there's no room above them */
       #sheet {
