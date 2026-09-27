@@ -1,0 +1,511 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:"
+    />
+    <title>Little Town</title>
+    <style>
+      :root {
+        --wood: rgba(36, 26, 18, 0.94);
+        --wood-edge: #6e4d2e;
+        --btn: #3b2b1e;
+        --btn-hover: #574029;
+        --btn-active: #8a6434;
+        --text: #f1e2c2;
+        --text-dim: #bfa981;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+        user-select: none;
+        font: 600 12px/1 'Segoe UI', system-ui, sans-serif;
+        color: var(--text);
+      }
+      canvas {
+        display: block;
+      }
+      [hidden] {
+        display: none !important;
+      }
+
+      .tab {
+        display: block;
+        width: 100%;
+        height: 21px;
+        padding: 0 8px;
+        border: 1px solid #22170f;
+        border-radius: 3px;
+        background: var(--btn);
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .tab:hover {
+        background: var(--btn-hover);
+      }
+      .tab.active {
+        background: var(--btn-active);
+        border-color: #c79a55;
+      }
+
+      #dock {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 108px;
+        padding: 6px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-right: 0;
+        border-bottom: 0;
+        border-radius: 6px 0 0 0;
+      }
+      #dock .collapse {
+        margin-top: 2px;
+        color: var(--text-dim);
+      }
+      /* eight rows must fit the 200px strip */
+      #dock {
+        gap: 2px;
+      }
+      #dock .tab {
+        height: 19px;
+      }
+
+      #ticker {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        height: 28px;
+        padding: 0 4px 0 12px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-right: 0;
+        border-bottom: 0;
+        border-radius: 6px 0 0 0;
+      }
+      #clock {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 28px;
+        padding: 0 4px 0 10px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-left: 0;
+        border-bottom: 0;
+        border-radius: 0 6px 0 0;
+      }
+      .clock-text {
+        min-width: 150px;
+        font-variant-numeric: tabular-nums;
+      }
+      .clock-text.paused {
+        color: var(--text-dim);
+      }
+      .tab.pause {
+        width: 58px;
+        text-align: center;
+      }
+      .tab.music {
+        width: 24px;
+        padding: 0;
+        text-align: center;
+        color: var(--text-dim);
+      }
+      .tab.music.active {
+        color: var(--text);
+      }
+      #clock .food-days {
+        color: var(--text-dim);
+        white-space: nowrap;
+      }
+      #clock .food-days.low {
+        color: #ff7a6a;
+        font-weight: 700;
+      }
+      #clock .stock {
+        padding-right: 8px;
+        color: var(--text-dim);
+        white-space: nowrap;
+      }
+
+      #banner {
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 4px 4px 12px;
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      #banner .banner-detail {
+        color: var(--text-dim);
+        font-weight: 400;
+      }
+      #banner .tab,
+      #actions .tab {
+        width: auto;
+      }
+      #actions {
+        position: absolute;
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-radius: 6px;
+      }
+      .tab.danger {
+        background: #6a2a20;
+      }
+      .tab.danger:hover {
+        background: #8a3a2a;
+      }
+
+      #person-card {
+        position: absolute;
+        bottom: 4px;
+        width: 290px;
+        max-height: 188px;
+        box-sizing: border-box;
+        padding: 6px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-radius: 6px;
+        font: 12px/1.3 'Segoe UI', system-ui, sans-serif;
+      }
+      #person-card .card-title {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      #person-card .card-gear {
+        display: flex;
+        gap: 2px;
+        margin-left: auto;
+        margin-right: 8px;
+      }
+      #person-card .card-dim,
+      #person-card .card-doing {
+        color: var(--text-dim);
+      }
+      #person-card .card-doing {
+        font-style: italic;
+      }
+      .meter {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .meter-label {
+        width: 42px;
+        color: var(--text-dim);
+      }
+      .meter-bar {
+        flex: 0 0 60px;
+        height: 5px;
+        background: #1a120c;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .meter-fill {
+        display: block;
+        height: 100%;
+        background: #8cc05a;
+      }
+      .meter-fill.low {
+        background: #e06040;
+      }
+      .meter-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text-dim);
+      }
+      #person-card .card-buttons {
+        display: flex;
+        gap: 4px;
+        margin-top: 2px;
+      }
+      #person-card .card-buttons .tab {
+        width: auto;
+      }
+
+      #exp-header {
+        position: absolute;
+        top: 70px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 3px 3px 8px;
+        background: var(--wood);
+        border: 1px solid var(--wood-edge);
+        border-radius: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      #exp-header .exp-info {
+        color: var(--text-dim);
+        font-weight: 400;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #exp-header .tab {
+        width: auto;
+        height: 19px;
+      }
+
+      #prompt {
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: 560px;
+        padding: 6px 8px;
+        background: var(--wood);
+        border: 2px solid #c79a55;
+        border-radius: 6px;
+      }
+      #prompt .prompt-title {
+        font-weight: 700;
+      }
+      #prompt .prompt-text {
+        margin: 2px 0 5px;
+        color: var(--text-dim);
+        font-weight: 400;
+      }
+      #prompt .prompt-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      #prompt .tab {
+        width: auto;
+      }
+      #prompt .tab.default {
+        border-color: #c79a55;
+      }
+      #prompt .prompt-count {
+        margin-left: 6px;
+        color: var(--text-dim);
+        font-weight: 400;
+      }
+      #away {
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(620px, calc(100% - 24px));
+        box-sizing: border-box;
+        padding: 6px 8px;
+        background: var(--wood);
+        border: 2px solid #c79a55;
+        border-radius: 6px;
+      }
+      #away .away-lines {
+        max-height: 104px;
+        overflow-y: auto;
+        margin: 3px 0 5px;
+        padding-left: 16px;
+        color: var(--text-dim);
+        font: 12px/1.35 'Segoe UI', system-ui, sans-serif;
+      }
+      #away .prompt-row {
+        display: flex;
+        gap: 4px;
+      }
+      #away .tab {
+        width: auto;
+      }
+      #away .tab.default {
+        border-color: #c79a55;
+      }
+      #gameover {
+        position: absolute;
+        left: 50%;
+        bottom: 40px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: rgba(20, 12, 10, 0.95);
+        border: 2px solid #8a3a2a;
+        border-radius: 6px;
+      }
+      #gameover .tab {
+        width: auto;
+      }
+
+      /* the strip flashes red while raiders are coming or in town */
+      #raid-flash {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 60px;
+        pointer-events: none;
+        background: linear-gradient(to top, rgba(220, 40, 30, 0.55), rgba(220, 40, 30, 0));
+        animation: raid-pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes raid-pulse {
+        0%,
+        100% {
+          opacity: 0.25;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      #clock .raid-badge {
+        padding: 1px 6px;
+        border-radius: 3px;
+        background: #8a2a20;
+        color: #fff4e0;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      #clock .doom-badge {
+        background: #6a5020;
+      }
+      #boss-bar {
+        position: absolute;
+        left: 50%;
+        bottom: 118px;
+        transform: translateX(-50%);
+        width: min(420px, 60vw);
+        pointer-events: none;
+        text-align: center;
+        font: bold 12px/1.2 sans-serif;
+        color: #f0e0c0;
+        text-shadow: 0 1px 2px #000;
+      }
+      #boss-bar .boss-track {
+        height: 8px;
+        margin-top: 3px;
+        background: rgba(20, 12, 8, 0.85);
+        border: 1px solid #6a3424;
+        border-radius: 2px;
+      }
+      #boss-bar .boss-fill {
+        height: 100%;
+        background: linear-gradient(#e06040, #9a2a1a);
+        transition: width 0.3s;
+      }
+      #boss-bar.enraged .boss-fill {
+        background: linear-gradient(#ff8a3a, #c81e10);
+      }
+      #clock .launch-badge {
+        background: #2a4a7a;
+      }
+      /* someone is bleeding out: it pulses */
+      #clock .bleed-badge {
+        background: #8a1a1a;
+        animation: bleed-pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes bleed-pulse {
+        50% {
+          background: #c02828;
+        }
+      }
+      #gameover .gameover-title {
+        font-weight: bold;
+        color: #e06040;
+      }
+      #gameover.won .gameover-title {
+        color: #f0d060;
+      }
+      #toasts {
+        position: absolute;
+        top: 6px;
+        left: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        pointer-events: none;
+      }
+      .toast {
+        align-self: flex-start;
+        padding: 4px 10px;
+        background: var(--wood);
+        border: 1px solid #c79a55;
+        border-radius: 4px;
+        transition: opacity 0.6s;
+      }
+      .toast.fade {
+        opacity: 0;
+      }
+
+      #tip {
+        position: absolute;
+        max-width: 320px;
+        padding: 5px 8px;
+        background: rgba(24, 17, 12, 0.94);
+        border: 1px solid var(--wood-edge);
+        border-radius: 4px;
+        font: 12px/1.35 'Segoe UI', system-ui, sans-serif;
+        color: var(--text-dim);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      #tip .tip-title {
+        color: var(--text);
+        font-weight: 700;
+      }
+      #ticker .expand {
+        width: auto;
+      }
+      /* inside the phone page, which has its own tab bar */
+      body.embedded #dock {
+        display: none !important;
+      }
+      /* a phone is narrower than the clock bar: it scrolls sideways */
+      body.embedded #clock {
+        max-width: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+        border-radius: 0;
+        border-right: 0;
+      }
+      body.embedded .clock-text {
+        min-width: 0;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="renderer.js"></script>
+  </body>
+</html>

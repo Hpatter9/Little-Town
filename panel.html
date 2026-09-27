@@ -1,0 +1,516 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+    <title>Little Town</title>
+    <style>
+      :root {
+        --bg: #211811;
+        --wood-edge: #6e4d2e;
+        --header: #33251a;
+        --btn: #3b2b1e;
+        --btn-hover: #574029;
+        --text: #f1e2c2;
+        --text-dim: #bfa981;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font: 13px/1.5 'Segoe UI', system-ui, sans-serif;
+        user-select: none;
+        overflow: hidden;
+      }
+      body {
+        box-sizing: border-box;
+        border: 2px solid var(--wood-edge);
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 6px 6px 14px;
+        background: var(--header);
+        border-bottom: 2px solid var(--wood-edge);
+      }
+      h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      #close {
+        width: 28px;
+        height: 24px;
+        border: 1px solid #22170f;
+        border-radius: 3px;
+        background: var(--btn);
+        color: var(--text);
+        font: 700 14px/1 'Segoe UI', system-ui, sans-serif;
+        cursor: pointer;
+      }
+      #close:hover {
+        background: var(--btn-hover);
+      }
+      main {
+        flex: 1;
+        padding: 16px 18px;
+        overflow: auto;
+      }
+      .empty {
+        color: var(--text-dim);
+      }
+      h2 {
+        margin: 14px 0 6px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+      .alerts-form {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 12px 0;
+      }
+      .form-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+      }
+      .form-label {
+        width: 130px;
+        color: var(--text-dim);
+      }
+      .form-row input {
+        flex: 1;
+        max-width: 260px;
+        padding: 4px 6px;
+        background: #1a120c;
+        color: var(--text);
+        border: 1px solid #4a3522;
+        border-radius: 3px;
+        font: inherit;
+      }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .era-head {
+        margin: 18px 0 0;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #c79a55;
+        color: #e8c88a;
+      }
+      .era-head:first-of-type {
+        margin-top: 8px;
+      }
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        color: var(--text-dim);
+      }
+      .queue {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .queue-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        background: #2c2018;
+        border: 1px solid #4a3522;
+        border-radius: 4px;
+      }
+      .queue-name {
+        min-width: 150px;
+        font-weight: 700;
+      }
+      .queue-time {
+        min-width: 110px;
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .bar {
+        flex: 1;
+        height: 6px;
+        background: #1a120c;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        background: #ffd84a;
+      }
+      .card.done {
+        opacity: 0.55;
+        border-color: #5a7a3a;
+      }
+      .hint {
+        margin-top: 6px;
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .row {
+        display: flex;
+        gap: 6px;
+      }
+      .place.quiet {
+        background: #3b2b1e;
+      }
+      .card.arrival {
+        margin-top: 8px;
+        border-color: #c79a55;
+      }
+      .queue {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+      .order {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 8px;
+        background: #2c2018;
+        border: 1px solid #4a3522;
+        border-radius: 4px;
+      }
+      .order-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+      .order-info .bar {
+        flex: none;
+      }
+      .inventory {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .inv-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px 2px 2px;
+        background: #2c2018;
+        border: 1px solid #4a3522;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .recipe-top .card-name,
+      .gear {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .gear {
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .gear .item-icon {
+        background-color: #1f1610;
+        border-radius: 3px;
+      }
+      .journal-day {
+        margin: 12px 0 4px;
+      }
+      .journal-day:first-child {
+        margin-top: 0;
+      }
+      .journal-row {
+        display: flex;
+        gap: 10px;
+        padding: 3px 2px;
+        font-size: 12px;
+        border-bottom: 1px solid #33261b;
+      }
+      .journal-row:not(.key) {
+        color: var(--text-dim);
+      }
+      .journal-row.key {
+        font-weight: 600;
+      }
+      .journal-time {
+        flex: none;
+        color: var(--text-dim);
+        font-variant-numeric: tabular-nums;
+      }
+      .card.away {
+        margin: 4px 0;
+        border-color: #c79a55;
+      }
+      .away-lines {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--text-dim);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      table.grid {
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      table.grid th {
+        padding: 2px 6px;
+        color: var(--text-dim);
+        font-weight: 600;
+        text-align: center;
+      }
+      table.grid td {
+        padding: 2px 3px;
+        text-align: center;
+      }
+      table.grid td.grid-name {
+        padding-right: 10px;
+        text-align: left;
+        font-weight: 700;
+      }
+      .prio {
+        width: 64px;
+        padding: 2px 0;
+        border: 1px solid #22170f;
+        border-radius: 3px;
+        color: var(--text);
+        font: 600 11px 'Segoe UI', system-ui, sans-serif;
+        cursor: pointer;
+      }
+      .prio.p1 {
+        background: #7a5a33;
+      }
+      .prio.p2 {
+        background: #4e3a26;
+      }
+      .prio.p3 {
+        background: #33261b;
+        color: var(--text-dim);
+      }
+      .prio.p0 {
+        background: #1c1510;
+        color: #7a6a52;
+      }
+      .prio.auto {
+        font-style: italic;
+      }
+      .card.person {
+        margin-bottom: 8px;
+      }
+      .bars {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .bar-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .bar-label {
+        width: 48px;
+        color: var(--text-dim);
+      }
+      .bar-row .bar {
+        flex: 0 0 140px;
+      }
+      .bar-fill.low {
+        background: #e06040;
+      }
+      .bar-text {
+        color: var(--text-dim);
+      }
+      .reasons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        font-size: 12px;
+      }
+      .reasons .good {
+        color: #a8d080;
+      }
+      .reasons .bad {
+        color: #f0a080;
+      }
+      .skills {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px 12px;
+        font-size: 12px;
+      }
+      .skill {
+        display: flex;
+        justify-content: space-between;
+      }
+      .skill.good {
+        color: #ffe08a;
+      }
+      .skill.weak {
+        color: #8a7a62;
+      }
+      .skill .lvl {
+        font-variant-numeric: tabular-nums;
+      }
+      .traits {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .cards.wide {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      }
+      .party {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 10px;
+        font-size: 12px;
+      }
+      .pick {
+        cursor: pointer;
+      }
+      .pick-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+      }
+      .pick-row select {
+        margin-left: auto;
+        background: #3b2b1e;
+        color: var(--text);
+        border: 1px solid #22170f;
+        border-radius: 3px;
+        font: 11px 'Segoe UI', system-ui, sans-serif;
+      }
+      .row.stance {
+        margin-top: 2px;
+      }
+      .place.small.on {
+        background: #7a5a33;
+        border-color: #c79a55;
+      }
+      .place.small {
+        margin: 0;
+        padding: 2px 8px;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 8px;
+      }
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 10px;
+        background: #2c2018;
+        border: 1px solid #4a3522;
+        border-radius: 4px;
+      }
+      .card.locked {
+        opacity: 0.6;
+      }
+      .card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .card-name {
+        font-weight: 700;
+      }
+      .card-size,
+      .purpose,
+      .lock {
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .cost {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .chip {
+        padding: 0 6px;
+        border-radius: 3px;
+        background: #3b2b1e;
+        font-size: 12px;
+      }
+      .short {
+        color: #f0a080;
+      }
+      .place {
+        align-self: flex-start;
+        margin-top: 2px;
+        padding: 3px 14px;
+        border: 1px solid #22170f;
+        border-radius: 3px;
+        background: #5a4228;
+        color: var(--text);
+        font: 600 12px 'Segoe UI', system-ui, sans-serif;
+        cursor: pointer;
+      }
+      .place:hover:not(:disabled) {
+        background: #7a5a33;
+      }
+      .place:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      /* New town: pickable cards */
+      .card.pick {
+        cursor: pointer;
+        text-align: left;
+        color: var(--text);
+        font: inherit;
+      }
+      .card.pick:hover {
+        border-color: #7a5a33;
+      }
+      .card.pick.on {
+        border-color: #c79a55;
+        background: #3b2b1e;
+        box-shadow: inset 0 0 0 1px #c79a55;
+      }
+      .newgame-head {
+        margin: 14px 0 6px;
+        color: #e8c88a;
+        font-size: 13px;
+      }
+      .newgame-head:first-child {
+        margin-top: 4px;
+      }
+      .place.found {
+        margin-top: 14px;
+        padding: 6px 22px;
+        font-size: 13px;
+        background: #7a5a33;
+        border-color: #c79a55;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1 id="title"></h1>
+      <button id="close" title="Close">&#x2715;</button>
+    </header>
+    <main id="body"></main>
+    <script src="panel.js"></script>
+  </body>
+</html>
