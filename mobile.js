@@ -318,9 +318,9 @@
     { id: "resurrection_rites", name: "Resurrection Rites", branch: "occult", hidden: true, era: "medieval", seconds: 900, prereqs: ["spirit_binding"], unlocks: "", effects: [] },
     { id: "lichcraft", name: "Lichcraft", branch: "occult", hidden: true, era: "medieval", seconds: 1200, prereqs: ["resurrection_rites"], unlocks: "The Phylactery: the founder becomes a lich", effects: [] },
     // special classes (see classes.ts): three hidden in the Occult, one out in the open
-    { id: "necromancy", name: "Necromancy", branch: "occult", hidden: true, seconds: 420, prereqs: ["forbidden_lore"], unlocks: "Train a Necromancer (Townsfolk)", effects: [] },
-    { id: "summoning", name: "Summoning", branch: "occult", hidden: true, seconds: 420, prereqs: ["spirit_binding"], unlocks: "Train a Summoner (Townsfolk)", effects: [] },
-    { id: "blood_oath", name: "The Blood Oath", branch: "occult", hidden: true, seconds: 480, prereqs: ["forbidden_lore"], unlocks: "Train a Blood Knight (Townsfolk)", effects: [] },
+    { id: "necromancy", name: "Necromancy", branch: "occult", hidden: true, era: "medieval", seconds: 1200, prereqs: ["resurrection_rites"], unlocks: "Train a Necromancer (Townsfolk)", effects: [] },
+    { id: "summoning", name: "Summoning", branch: "occult", hidden: true, seconds: 900, prereqs: ["blood_rite"], unlocks: "Train a Summoner (Townsfolk)", effects: [] },
+    { id: "blood_oath", name: "The Blood Oath", branch: "occult", hidden: true, seconds: 900, prereqs: ["blood_rite"], unlocks: "Train a Blood Knight (Townsfolk)", effects: [] },
     { id: "beast_lore", name: "Beast Lore", branch: "military", seconds: 300, prereqs: ["spear_hunting"], unlocks: "Train a Beast Tamer (Townsfolk)", effects: [] },
     { id: "moon_rite", name: "The Moon Rite", branch: "occult", hidden: true, seconds: 600, prereqs: ["spirit_binding", "beast_lore"], unlocks: "The founder may become a werewolf", effects: [] },
     { id: "town_charter", name: "Town Charter", branch: "society", era: "medieval", seconds: 1200, prereqs: ["writing", "guilds"], requiresCount: 12, unlocks: "Building the Town Hall opens the Industrial era", effects: [{ type: "eraCapstone" }] }
@@ -646,6 +646,19 @@
 
   // src/shared/data/skills.ts
   var SKILLS = ["construction", "crafting", "research", "farming", "cooking", "gathering", "medicine", "melee", "ranged", "social", "animals"];
+  var SKILL_NAMES = {
+    construction: "Construction",
+    crafting: "Crafting",
+    research: "Research",
+    farming: "Farming",
+    cooking: "Cooking",
+    gathering: "Gathering",
+    medicine: "Medicine",
+    melee: "Melee",
+    ranged: "Ranged",
+    social: "Social",
+    animals: "Animal Handling"
+  };
   var MAX_SKILL = 20;
   function skillSpeed(level) {
     return 1 + (level - 1) * 3 / 14;
@@ -1853,33 +1866,41 @@
       name: "Necromancer",
       description: "Raises fallen enemies to fight for the town (two a fight).",
       research: "necromancy",
-      cost: { bone: 10, herbs: 4 },
+      cost: { bone: 24, herbs: 12 },
       skill: "research",
-      level: 4
+      level: 7,
+      deed: { kind: "burials", count: 3 },
+      deedText: "The town must have buried three of its own."
     },
     summoner: {
       name: "Summoner",
       description: "Calls a spirit to fight at their side in every fight.",
       research: "summoning",
-      cost: { herbs: 6, fiber: 6 },
+      cost: { herbs: 16, fiber: 12 },
       skill: "research",
-      level: 4
+      level: 6,
+      deed: { kind: "totem" },
+      deedText: "A Spirit Totem is given up to bind the spirit (the founder's second life)."
     },
     beast_tamer: {
       name: "Beast Tamer",
       description: "Fights with a wolf companion, and tames wild beasts that come near.",
       research: "beast_lore",
-      cost: { meat: 10, hide: 4 },
-      skill: "gathering",
-      level: 3
+      cost: { meat: 20, hide: 10 },
+      skill: "animals",
+      level: 6,
+      deed: { kind: "none" },
+      deedText: "Only a true master of animals."
     },
     blood_knight: {
       name: "Blood Knight",
       description: "Heals from the wounds they deal, and hits harder the more hurt they are.",
       research: "blood_oath",
-      cost: { meat: 8, hide: 6 },
+      cost: { meat: 16, hide: 12 },
       skill: "melee",
-      level: 5
+      level: 7,
+      deed: { kind: "scarred" },
+      deedText: "Only someone who has been cut down in battle and lived."
     }
   };
   var BLOOD_LIFESTEAL = 0.35;
@@ -2085,6 +2106,7 @@
     if (!how) return false;
     p.hp = Math.round(maxHp(p) * 0.3);
     p.downed = null;
+    p.scarred = true;
     p.sick = null;
     p.away = null;
     p.task = null;
@@ -2876,7 +2898,8 @@
     const person = makePerson(rng, s.nextId++, type, edge, [...s.people.map((p) => p.name)]);
     if (monster) becomeMonster(s, person, monster);
     const roll = mixSeed(hashSeed(s.seed), person.id * 7919);
-    if (!monster && roll % 1e3 < RARE_CLASS_CHANCE * 1e3) person.cls = CLASSES[Math.floor(roll / 1e3) % CLASSES.length];
+    const open = CLASSES.filter((k) => !s.people.some((p) => p.cls === k));
+    if (!monster && open.length && roll % 1e3 < RARE_CLASS_CHANCE * 1e3) person.cls = open[Math.floor(roll / 1e3) % open.length];
     person.dir = side < 0 ? 1 : -1;
     s.visitor = { person, waitX: campEdgeX(s, side), leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
     const trained = person.cls ? ` (a ${CLASS_DEFS[person.cls].name}!)` : "";
@@ -3130,6 +3153,7 @@
       s.items.medkit -= 1;
       p.hp = Math.round(maxHp(p) * MEDKIT_HP);
       p.downed = null;
+      p.scarred = true;
       personFx(s, p.id, "heal");
       notify(s, `${p.name} was struck down, but a medkit got them straight back up.`);
       return;
@@ -3168,6 +3192,7 @@
     }
     s.mourningUntil = s.tick + MOURNING_TICKS;
     if (p.away === null) {
+      s.burials = (s.burials ?? 0) + 1;
       s.graves = [...s.graves ?? [], { x: Math.round(p.x), name: p.name }].slice(-MAX_GRAVES);
       layOutGraves(s);
     }
@@ -3208,6 +3233,7 @@
     p.hp = Math.min(max, p.hp + rate * infirmary * (p.monster === "undead" ? UNDEAD_HEAL : 1) / TICKS_PER_HOUR);
     if (p.downed && p.downed.bleedUntil === null && p.hp >= max * BACK_ON_FEET) {
       p.downed = null;
+      p.scarred = true;
       notify(s, `${p.name} is back on their feet.`);
       if (p.id === s.mainId && s.research.done.length >= VISION_AFTER_TOPICS) revealOccult(s, `Near death, ${p.name} had a strange vision.`);
     }
@@ -3338,18 +3364,36 @@
   }
 
   // src/shared/sim/classes.ts
-  function canTrain(s, p, cls) {
+  function canTrain(s, p, cls, stock = totalStock(s)) {
     const def = CLASS_DEFS[cls];
     if (!def) return { ok: false, reason: "Unknown class" };
     if (p.cls) return { ok: false, reason: `${p.name} is already a ${CLASS_DEFS[p.cls].name}` };
     if (p.bornTick != null) return { ok: false, reason: "Too young" };
     if (p.away !== null) return { ok: false, reason: "Away" };
     if (!s.research.done.includes(def.research)) return { ok: false, reason: `Needs research: ${TOPIC_BY_ID[def.research]?.name ?? def.research}` };
-    if (p.skills[def.skill].level < def.level) return { ok: false, reason: `Needs ${def.skill} ${def.level}` };
-    const stock = totalStock(s);
+    const holder = s.people.find((q) => q.cls === cls);
+    if (holder) return { ok: false, reason: `The town already has a ${def.name}: ${holder.name}` };
+    if (p.skills[def.skill].level < def.level) return { ok: false, reason: `Needs ${SKILL_NAMES[def.skill]} ${def.level}` };
+    const deed = deedUnmet(s, p, cls);
+    if (deed) return { ok: false, reason: deed };
     const short = Object.entries(def.cost).filter(([m, n]) => (stock[m] ?? 0) < n);
     if (short.length) return { ok: false, reason: `Needs ${short.map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`).join(", ")}` };
     return { ok: true };
+  }
+  function deedUnmet(s, p, cls) {
+    const deed = CLASS_DEFS[cls].deed;
+    switch (deed.kind) {
+      case "burials": {
+        const buried = s.burials ?? s.graves?.length ?? 0;
+        return buried >= deed.count ? null : `The town has buried ${buried} of its own; a Necromancer needs ${deed.count}`;
+      }
+      case "totem":
+        return (s.items.spirit_totem ?? 0) > 0 ? null : "Needs a Spirit Totem to give up";
+      case "scarred":
+        return p.scarred ? null : `${p.name} has never been cut down and lived`;
+      default:
+        return null;
+    }
   }
   function train(s, personId, cls) {
     const p = s.people.find((q) => q.id === personId);
@@ -3366,6 +3410,7 @@
         }
       }
     }
+    if (CLASS_DEFS[cls].deed.kind === "totem") addItems(s, "spirit_totem", -1);
     p.cls = cls;
     notify(s, `${p.name} has become a ${CLASS_DEFS[cls].name}.`, true);
     return { ok: true };
@@ -6084,7 +6129,7 @@
       tileRev: s.tileRev,
       tiles: s.tiles.map((t) => ({ terrain: t.terrain, pool: { ...t.pool }, designated: t.designated })),
       buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store } })),
-      people: ((riders) => s.people.map((p) => ({ ...personView(s, p), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
+      people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
       visitor: v ? {
         ...personView(s, v.person),
         doing: v.leavingTo !== null ? "Leaving" : "Waiting to be let in",
@@ -6190,7 +6235,7 @@
     const e = s.unreadAway === null ? void 0 : s.journal.find((q) => q.id === s.unreadAway);
     return e ? entryView(e) : null;
   }
-  function personView(s, p) {
+  function personView(s, p, stock) {
     const m = mood(s, p);
     const bed = p.bed === null ? void 0 : s.buildings.find((b) => b.id === p.bed);
     return {
@@ -6203,6 +6248,10 @@
       activity: p.activity,
       mounted: null,
       cls: p.cls ?? null,
+      trainable: p.cls ? [] : CLASSES.filter((k) => s.research.done.includes(CLASS_DEFS[k].research)).map((k) => {
+        const r = canTrain(s, p, k, stock);
+        return { cls: k, reason: r.ok ? null : r.reason ?? null };
+      }),
       doing: describe(s, p),
       carrying: { ...p.carrying },
       skills: Object.fromEntries(
