@@ -73,6 +73,10 @@
       .tab-label {
         position: relative;
       }
+      /* the Expeditions tab fills in green as the party makes its way */
+      .tab-fill.trip {
+        background: linear-gradient(#7fb05a, #4f7a34);
+      }
 
       #dock {
         position: absolute;
@@ -302,6 +306,26 @@
       #exp-header .tab {
         width: auto;
         height: 19px;
+      }
+      /* the trip's progress, along the bottom of the label */
+      #exp-header {
+        position: absolute;
+        padding-bottom: 5px;
+      }
+      #exp-header .exp-track {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        background: #1a120c;
+      }
+      #exp-header .exp-fill {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: linear-gradient(90deg, #4f7a34, #8cc05a);
+        transition: width 0.5s;
       }
 
       #prompt {

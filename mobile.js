@@ -6685,7 +6685,19 @@
     });
     window.addEventListener("pagehide", saveNow);
     Object.assign(window, { __game: game });
+    const inspectListeners = /* @__PURE__ */ new Set();
+    const actionListeners = /* @__PURE__ */ new Set();
     return {
+      inspect: (info) => inspectListeners.forEach((f) => f(info)),
+      onInspect: (cb) => {
+        inspectListeners.add(cb);
+        return () => inspectListeners.delete(cb);
+      },
+      inspectAction: (id) => actionListeners.forEach((f) => f(id)),
+      onInspectAction: (cb) => {
+        actionListeners.add(cb);
+        return () => actionListeners.delete(cb);
+      },
       setInteractive: () => {
       },
       setMode: () => {
@@ -6746,6 +6758,16 @@
   }
 
   // src/shared/format.ts
+  function tripProgress(e) {
+    return Math.min(1, (e.phase === "out" ? 0 : e.phase === "work" ? 1 : 2) / 3 + e.phaseProgress / 3);
+  }
+  function expeditionFill(exps) {
+    const e = [...exps].sort((a, b) => a.secondsLeft - b.secondsLeft)[0];
+    if (!e) return null;
+    const pct = Math.floor(tripProgress(e) * 100);
+    const more = exps.length > 1 ? ` (+${exps.length - 1} more out)` : "";
+    return { pct, title: `Expedition to ${e.destName}: ${pct}%${more}` };
+  }
   function researchFill(r) {
     const id = r.queue[0];
     if (!id) return null;
@@ -6817,12 +6839,20 @@
   window.addEventListener("resize", layout);
   layout();
   var tabs = $("tabs");
-  var researchBar = document.createElement("span");
-  researchBar.className = "tab-fill";
-  researchBar.hidden = true;
+  var fillBar = (cls) => {
+    const bar = document.createElement("span");
+    bar.className = cls;
+    bar.hidden = true;
+    return { bar, pct: -1 };
+  };
+  var fills = /* @__PURE__ */ new Map([
+    ["research", fillBar("tab-fill")],
+    ["expeditions", fillBar("tab-fill trip")]
+  ]);
   var tabButtons = PANELS.map((p) => {
     const b = document.createElement("button");
-    if (p.id === "research") b.append(researchBar);
+    const fill = fills.get(p.id);
+    if (fill) b.append(fill.bar);
     const label2 = document.createElement("span");
     label2.className = "tab-label";
     label2.textContent = p.label;
@@ -6840,13 +6870,14 @@
     skyKey = key2;
     document.body.style.background = `linear-gradient(${css(mix(top, 329487, 0.35))}, ${key2})`;
   });
-  var researchPct = -1;
   bridge.onSnapshot((snap) => {
-    const fill = researchFill(snap.research);
-    if ((fill?.pct ?? -1) === researchPct) return;
-    researchPct = fill?.pct ?? -1;
-    researchBar.hidden = !fill;
-    researchBar.style.width = `${researchPct}%`;
+    for (const [id, f] of fills) {
+      const now = id === "research" ? researchFill(snap.research) : expeditionFill(snap.expeditions);
+      if ((now?.pct ?? -1) === f.pct) continue;
+      f.pct = now?.pct ?? -1;
+      f.bar.hidden = !now;
+      f.bar.style.width = `${Math.max(0, f.pct)}%`;
+    }
   });
   new ResizeObserver(() => {
     document.documentElement.style.setProperty("--tabs-h", `${tabs.offsetHeight}px`);
@@ -6859,6 +6890,36 @@
   };
   bridge.onState(applyState);
   void bridge.getState().then(applyState);
+  var inspect = $("inspect");
+  bridge.onInspect?.((info) => {
+    inspect.hidden = !info;
+    $("hint").hidden = !!info;
+    if (!info) return inspect.replaceChildren();
+    const top = document.createElement("div");
+    top.className = "inspect-top";
+    const title = document.createElement("span");
+    title.className = "inspect-title";
+    title.textContent = info.title;
+    const close = document.createElement("button");
+    close.className = "inspect-close";
+    close.textContent = "\u2715";
+    close.addEventListener("click", () => bridge.inspectAction?.("close"));
+    top.append(title, close);
+    const lines = document.createElement("div");
+    lines.className = "inspect-lines";
+    lines.textContent = info.lines.join(" \xB7 ");
+    const actions = document.createElement("div");
+    actions.className = "inspect-actions";
+    for (const a of info.actions) {
+      const b = document.createElement("button");
+      b.textContent = a.label;
+      if (a.primary) b.className = "primary";
+      if (a.danger) b.className = "danger";
+      b.addEventListener("click", () => bridge.inspectAction?.(a.id));
+      actions.append(b);
+    }
+    inspect.replaceChildren(top, lines, ...info.actions.length ? [actions] : []);
+  });
   function drawMenu() {
     void bridge.getState().then((s) => {
       const item = (label2, onClick, on = false) => {

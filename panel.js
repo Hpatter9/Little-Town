@@ -25207,6 +25207,9 @@ ${src}`;
   }
 
   // src/shared/format.ts
+  function tripProgress(e2) {
+    return Math.min(1, (e2.phase === "out" ? 0 : e2.phase === "work" ? 1 : 2) / 3 + e2.phaseProgress / 3);
+  }
   function bleedLeft(minutes) {
     if (minutes == null) return "";
     const h2 = Math.floor(minutes / 60);
@@ -25264,7 +25267,7 @@ ${src}`;
       const foes = e2.battle.filter((f2) => f2.side === "enemy");
       c2.append(el("div", "lock short", `Against: ${foes.map((f2) => `${f2.name}${f2.down ? " (down)" : ` ${f2.hp}/${f2.maxHp}`}`).join(", ")}`));
     }
-    const whole = (e2.phase === "out" ? 0 : e2.phase === "work" ? 1 : 2) / 3 + e2.phaseProgress / 3;
+    const whole = tripProgress(e2);
     const bar2 = el("div", "bar");
     const fill = el("div", "bar-fill");
     fill.style.width = `${Math.round(whole * 100)}%`;
