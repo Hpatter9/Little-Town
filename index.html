@@ -129,7 +129,7 @@
         text-align: center;
       }
 
-      /* what's selected in the town, just above the tabs (over the title bar, clear of the ☰, on a phone on its side) */
+      /* what's selected in the town: a card just above the tabs */
       #inspect {
         position: fixed;
         left: calc(env(safe-area-inset-left) + 10px);
@@ -143,38 +143,6 @@
         background: var(--wood);
         border: 2px solid var(--wood-edge);
         border-radius: 8px;
-      }
-      #inspect .inspect-top {
-          display: contents;
-        }
-        #inspect .inspect-title {
-          order: 1;
-          flex: none;
-          font-size: 14px;
-        }
-        #inspect .inspect-lines {
-          order: 2;
-          flex: 1;
-          min-width: 0;
-          margin: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        #inspect .inspect-actions {
-          order: 3;
-          flex: none;
-          flex-wrap: nowrap;
-        }
-        #inspect .inspect-actions button {
-          min-height: 30px;
-          padding: 0 10px;
-        }
-        #inspect .inspect-close {
-          order: 4;
-          width: 30px;
-          height: 28px;
-        }
       }
       #inspect .inspect-top {
         display: flex;
@@ -224,8 +192,8 @@
       #inspect .inspect-actions button.danger {
         background: #6a2a20;
       }
-
-      /* on its side there's only the title bar's height to spare: one row of name, details, buttons, close */
+      /* on its side there's only the title bar's height to spare: one row of name, details, buttons, close
+         (after the rules above, so it wins) */
       @media (max-height: 560px) {
         #inspect {
           top: calc(env(safe-area-inset-top) + 5px);
@@ -238,7 +206,40 @@
           overflow: hidden;
           padding: 4px 6px 4px 10px;
         }
-        /* the menus' tabs, just above the town: two rows of four, or one row on a phone on its side */
+        #inspect .inspect-top {
+          display: contents;
+        }
+        #inspect .inspect-title {
+          order: 1;
+          flex: none;
+          font-size: 14px;
+        }
+        #inspect .inspect-lines {
+          order: 2;
+          flex: 1;
+          min-width: 0;
+          margin: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        #inspect .inspect-actions {
+          order: 3;
+          flex: none;
+          flex-wrap: nowrap;
+        }
+        #inspect .inspect-actions button {
+          min-height: 30px;
+          padding: 0 10px;
+        }
+        #inspect .inspect-close {
+          order: 4;
+          width: 30px;
+          height: 28px;
+        }
+      }
+
+      /* the menus' tabs, just above the town: two rows of four, or one row on a phone on its side */
       #tabs {
         position: fixed;
         left: env(safe-area-inset-left);
