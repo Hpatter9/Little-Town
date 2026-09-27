@@ -18665,10 +18665,29 @@ ${src}`;
     "Frode",
     "Hild"
   ];
-  var SKINS = ["#f0cfa8", "#e3b890", "#c9956a", "#a0704a", "#7a5236"];
-  var HAIR_COLORS = ["#2a1c14", "#4a3020", "#6e4a2c", "#9a6e40", "#c49a62", "#3c3434", "#8a3a22"];
+  var SKINS = ["#fbe3cf", "#f0cfa8", "#e8c29a", "#e3b890", "#d6a67c", "#c9956a", "#b5825a", "#a0704a", "#8c5e3e", "#7a5236", "#654230", "#4e3224"];
+  var HAIR_COLORS = [
+    "#1a1414",
+    "#2a1c14",
+    "#3c3434",
+    "#4a3020",
+    "#5a4636",
+    "#6e4a2c",
+    "#9a6e40",
+    "#b88a58",
+    "#c49a62",
+    "#e0c890",
+    "#f0dca8",
+    "#8a3a22",
+    "#b0542a",
+    "#a8a29a"
+  ];
   var HAIR_STYLES = ["plain", "long", "ponytail", "unkempt", "messy1", "messy2", "loose", "bedhead", "shoulderl", "bangs", "shortknot", "longknot"];
-  var HIDE_COLORS = ["#8a6a48", "#7a5a3a", "#9c7c54", "#6c5040", "#8c7458"];
+  var DYED_HAIR_COLORS = ["#ece8e0", "#c8281c", "#e07830", "#d8589c", "#8a4ac0", "#3a5ac8", "#2a9a9a", "#3a9a4a"];
+  var HAIR_CHOICES = [...HAIR_COLORS, ...DYED_HAIR_COLORS];
+  var HIDE_COLORS = ["#8a6a48", "#7a5a3a", "#9c7c54", "#6c5040", "#8c7458", "#5a4838", "#a88c68", "#b89c74"];
+  var CLOTH_COLORS = ["#e0d8c4", "#b8a888", "#c8a040", "#b86a2a", "#8a2a24", "#6a2a4a", "#5a3a7a", "#2a4a7a", "#3a6a8a", "#2a6a5a", "#4a6a2a", "#2e2a28"];
+  var OUTFIT_CHOICES = [...HIDE_COLORS, ...CLOTH_COLORS];
   function randomLook(rng, elder = false) {
     const gender = rng.chance(0.5) ? "m" : "f";
     return {
@@ -25873,7 +25892,7 @@ ${src}`;
     push("body_light", look2.skin, "skin");
     push("legs_pants", mix(look2.outfit, "#20180f", 0.35));
     push("feet_shoes", null);
-    push("torso_tunic", look2.outfit);
+    push(look2.gender === "m" ? "torso_longsleeve" : "torso_tunic", look2.outfit);
     push("belt_leather", null);
     for (const w2 of wear) if (w2.startsWith("torso_")) push(w2, null);
     const hat = wear.find((w2) => w2.startsWith("head_"));
@@ -25964,14 +25983,15 @@ ${skills}`, () => (background = b2.id, drawBackgrounds()));
     const drawLooks = () => {
       const swatches = (label, list3, cur, set) => {
         const row2 = el("div", "look-row");
-        row2.append(el("span", "look-label", label));
+        const colours = el("div", "swatches");
         for (const c2 of list3) {
           const s2 = el("button", `swatch${c2 === cur ? " on" : ""}`);
           s2.style.background = c2;
           s2.title = label;
           s2.addEventListener("click", () => (set(c2), drawLooks(), drawPreview()));
-          row2.append(s2);
+          colours.append(s2);
         }
+        row2.append(el("span", "look-label", label), colours);
         return row2;
       };
       const style = el("div", "look-row");
@@ -25989,8 +26009,8 @@ ${skills}`, () => (background = b2.id, drawBackgrounds()));
         body2,
         swatches("Skin", SKINS, look.skin, (c2) => look = { ...look, skin: c2 }),
         style,
-        swatches("Hair colour", HAIR_COLORS, look.hairColor, (c2) => look = { ...look, hairColor: c2 }),
-        swatches("Clothes", HIDE_COLORS, look.outfit, (c2) => look = { ...look, outfit: c2 })
+        swatches("Hair colour", HAIR_CHOICES, look.hairColor, (c2) => look = { ...look, hairColor: c2 }),
+        swatches("Clothes", OUTFIT_CHOICES, look.outfit, (c2) => look = { ...look, outfit: c2 })
       );
     };
     const side = el("div", "founder-side");

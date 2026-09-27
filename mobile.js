@@ -580,10 +580,29 @@
     "Frode",
     "Hild"
   ];
-  var SKINS = ["#f0cfa8", "#e3b890", "#c9956a", "#a0704a", "#7a5236"];
-  var HAIR_COLORS = ["#2a1c14", "#4a3020", "#6e4a2c", "#9a6e40", "#c49a62", "#3c3434", "#8a3a22"];
+  var SKINS = ["#fbe3cf", "#f0cfa8", "#e8c29a", "#e3b890", "#d6a67c", "#c9956a", "#b5825a", "#a0704a", "#8c5e3e", "#7a5236", "#654230", "#4e3224"];
+  var HAIR_COLORS = [
+    "#1a1414",
+    "#2a1c14",
+    "#3c3434",
+    "#4a3020",
+    "#5a4636",
+    "#6e4a2c",
+    "#9a6e40",
+    "#b88a58",
+    "#c49a62",
+    "#e0c890",
+    "#f0dca8",
+    "#8a3a22",
+    "#b0542a",
+    "#a8a29a"
+  ];
   var HAIR_STYLES = ["plain", "long", "ponytail", "unkempt", "messy1", "messy2", "loose", "bedhead", "shoulderl", "bangs", "shortknot", "longknot"];
-  var HIDE_COLORS = ["#8a6a48", "#7a5a3a", "#9c7c54", "#6c5040", "#8c7458"];
+  var DYED_HAIR_COLORS = ["#ece8e0", "#c8281c", "#e07830", "#d8589c", "#8a4ac0", "#3a5ac8", "#2a9a9a", "#3a9a4a"];
+  var HAIR_CHOICES = [...HAIR_COLORS, ...DYED_HAIR_COLORS];
+  var HIDE_COLORS = ["#8a6a48", "#7a5a3a", "#9c7c54", "#6c5040", "#8c7458", "#5a4838", "#a88c68", "#b89c74"];
+  var CLOTH_COLORS = ["#e0d8c4", "#b8a888", "#c8a040", "#b86a2a", "#8a2a24", "#6a2a4a", "#5a3a7a", "#2a4a7a", "#3a6a8a", "#2a6a5a", "#4a6a2a", "#2e2a28"];
+  var OUTFIT_CHOICES = [...HIDE_COLORS, ...CLOTH_COLORS];
   function randomLook(rng, elder = false) {
     const gender = rng.chance(0.5) ? "m" : "f";
     return {
@@ -1338,8 +1357,8 @@
     const gender = pick(["m", "f"], o.gender);
     const skin = pick(SKINS, o.skin);
     const hair = pick(HAIR_STYLES, o.hair);
-    const hairColor = pick(HAIR_COLORS, o.hairColor);
-    const outfit = pick(HIDE_COLORS, o.outfit);
+    const hairColor = pick(HAIR_CHOICES, o.hairColor);
+    const outfit = pick(OUTFIT_CHOICES, o.outfit);
     if (!gender || !skin || !hair || !hairColor || !outfit) return null;
     return { gender, skin, hair, hairColor, outfit, beard: gender === "m" && o.beard === true };
   }

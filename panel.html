@@ -558,6 +558,21 @@
         text-align: center;
         font-size: 12px;
       }
+      .swatches {
+        flex: 1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        min-width: 0;
+      }
+      .look-row:has(.swatches) {
+        flex-wrap: nowrap;
+        align-items: flex-start;
+      }
+      .look-row:has(.swatches) .look-label {
+        flex: none;
+        padding-top: 3px;
+      }
       .swatch {
         width: 22px;
         height: 22px;
