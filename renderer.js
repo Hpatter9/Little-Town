@@ -12676,10 +12676,10 @@ Deprecated since v${version}`;
           if (this._deactivateOnMouseMove) {
             globalThis.document.addEventListener("mousemove", this._boundOnMouseMove, true);
           }
-          const canvas = this._renderer.view.canvas;
-          if (!canvas.parentNode) {
+          const canvas2 = this._renderer.view.canvas;
+          if (!canvas2.parentNode) {
             const observer = new MutationObserver(() => {
-              if (canvas.parentNode) {
+              if (canvas2.parentNode) {
                 observer.disconnect();
                 this._canvasObserver.ensureAttached();
                 this._initAccessibilitySetup();
@@ -14640,8 +14640,8 @@ Deprecated since v${version}`;
          * @ignore
          */
         init(options) {
-          const { canvas, resolution } = this.renderer;
-          this.setTargetElement(canvas);
+          const { canvas: canvas2, resolution } = this.renderer;
+          this.setTargetElement(canvas2);
           this.resolution = resolution;
           _EventSystem2._defaultEventMode = options.eventMode ?? "passive";
           Object.assign(this.features, options.eventFeatures ?? {});
@@ -15271,10 +15271,10 @@ Deprecated since v${version}`;
       "use strict";
       BrowserAdapter = {
         createCanvas: (width, height) => {
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          return canvas;
+          const canvas2 = document.createElement("canvas");
+          canvas2.width = width;
+          canvas2.height = height;
+          return canvas2;
         },
         createImage: () => new Image(),
         getCanvasRenderingContext2D: () => CanvasRenderingContext2D,
@@ -17496,8 +17496,8 @@ Deprecated since v${version}`;
   // node_modules/pixi.js/lib/utils/browser/detectVideoAlphaMode.mjs
   async function detectVideoAlphaMode() {
     promise ?? (promise = (async () => {
-      const canvas = DOMAdapter.get().createCanvas(1, 1);
-      const gl = canvas.getContext("webgl");
+      const canvas2 = DOMAdapter.get().createCanvas(1, 1);
+      const gl = canvas2.getContext("webgl");
       if (!gl) {
         return "premultiply-alpha-on-upload";
       }
@@ -18055,11 +18055,11 @@ Deprecated since v${version}`;
 
   // node_modules/pixi.js/lib/rendering/renderers/canvas/utils/canUseNewCanvasBlendModes.mjs
   function createColoredCanvas(color) {
-    const canvas = DOMAdapter.get().createCanvas(6, 1);
-    const context2 = canvas.getContext("2d");
+    const canvas2 = DOMAdapter.get().createCanvas(6, 1);
+    const context2 = canvas2.getContext("2d");
     context2.fillStyle = color;
     context2.fillRect(0, 0, 6, 1);
-    return canvas;
+    return canvas2;
   }
   function canUseNewCanvasBlendModes() {
     if (canUseNewCanvasBlendModesValue !== void 0) {
@@ -18068,8 +18068,8 @@ Deprecated since v${version}`;
     try {
       const magenta = createColoredCanvas("#ff00ff");
       const yellow = createColoredCanvas("#ffff00");
-      const canvas = DOMAdapter.get().createCanvas(6, 1);
-      const context2 = canvas.getContext("2d");
+      const canvas2 = DOMAdapter.get().createCanvas(6, 1);
+      const context2 = canvas2.getContext("2d");
       context2.globalCompositeOperation = "multiply";
       context2.drawImage(magenta, 0, 0);
       context2.drawImage(yellow, 2, 0);
@@ -18134,8 +18134,8 @@ Deprecated since v${version}`;
             if (cached?.resourceId === source3._resourceId) {
               return cached.canvas;
             }
-            const canvas = DOMAdapter.get().createCanvas(source3.pixelWidth, source3.pixelHeight);
-            const context2 = canvas.getContext("2d");
+            const canvas2 = DOMAdapter.get().createCanvas(source3.pixelWidth, source3.pixelHeight);
+            const context2 = canvas2.getContext("2d");
             const imageData = context2.createImageData(source3.pixelWidth, source3.pixelHeight);
             const data = imageData.data;
             const bytes = resource instanceof ArrayBuffer ? new Uint8Array(resource) : new Uint8Array(resource.buffer, resource.byteOffset, resource.byteLength);
@@ -18150,16 +18150,16 @@ Deprecated since v${version}`;
               data.set(bytes.subarray(0, data.length));
             }
             context2.putImageData(imageData, 0, 0);
-            canvasUtils._canvasSourceCache.set(source3, { canvas, resourceId: source3._resourceId });
-            return canvas;
+            canvasUtils._canvasSourceCache.set(source3, { canvas: canvas2, resourceId: source3._resourceId });
+            return canvas2;
           }
           if (isPMA) {
-            const canvas = DOMAdapter.get().createCanvas(source3.pixelWidth, source3.pixelHeight);
-            const context2 = canvas.getContext("2d", { willReadFrequently: true });
-            canvas.width = source3.pixelWidth;
-            canvas.height = source3.pixelHeight;
+            const canvas2 = DOMAdapter.get().createCanvas(source3.pixelWidth, source3.pixelHeight);
+            const context2 = canvas2.getContext("2d", { willReadFrequently: true });
+            canvas2.width = source3.pixelWidth;
+            canvas2.height = source3.pixelHeight;
             context2.drawImage(resource, 0, 0);
-            const imageData = context2.getImageData(0, 0, canvas.width, canvas.height);
+            const imageData = context2.getImageData(0, 0, canvas2.width, canvas2.height);
             const data = imageData.data;
             for (let i2 = 0; i2 < data.length; i2 += 4) {
               const a2 = data[i2 + 3];
@@ -18171,21 +18171,21 @@ Deprecated since v${version}`;
               }
             }
             context2.putImageData(imageData, 0, 0);
-            canvasUtils._unpremultipliedCache.set(source3, { canvas, resourceId: source3._resourceId });
-            return canvas;
+            canvasUtils._unpremultipliedCache.set(source3, { canvas: canvas2, resourceId: source3._resourceId });
+            return canvas2;
           }
           if (needsResize) {
             const cached = canvasUtils._canvasSourceCache.get(source3);
             if (cached?.resourceId === source3._resourceId) {
               return cached.canvas;
             }
-            const canvas = DOMAdapter.get().createCanvas(source3.pixelWidth, source3.pixelHeight);
-            const context2 = canvas.getContext("2d");
-            canvas.width = source3.pixelWidth;
-            canvas.height = source3.pixelHeight;
+            const canvas2 = DOMAdapter.get().createCanvas(source3.pixelWidth, source3.pixelHeight);
+            const context2 = canvas2.getContext("2d");
+            canvas2.width = source3.pixelWidth;
+            canvas2.height = source3.pixelHeight;
             context2.drawImage(resource, 0, 0);
-            canvasUtils._canvasSourceCache.set(source3, { canvas, resourceId: source3._resourceId });
-            return canvas;
+            canvasUtils._canvasSourceCache.set(source3, { canvas: canvas2, resourceId: source3._resourceId });
+            return canvas2;
           }
           return resource;
         },
@@ -18198,16 +18198,16 @@ Deprecated since v${version}`;
           if (cachedCanvas?.tintId === resourceId) {
             return cachedCanvas;
           }
-          const canvas = cachedCanvas && "getContext" in cachedCanvas ? cachedCanvas : DOMAdapter.get().createCanvas();
-          canvasUtils.tintMethod(texture, color, canvas);
-          canvas.tintId = resourceId;
-          if (canvasUtils.convertTintToImage && canvas.toDataURL !== void 0) {
+          const canvas2 = cachedCanvas && "getContext" in cachedCanvas ? cachedCanvas : DOMAdapter.get().createCanvas();
+          canvasUtils.tintMethod(texture, color, canvas2);
+          canvas2.tintId = resourceId;
+          if (canvasUtils.convertTintToImage && canvas2.toDataURL !== void 0) {
             const tintImage = DOMAdapter.get().createImage();
-            tintImage.src = canvas.toDataURL();
+            tintImage.src = canvas2.toDataURL();
             tintImage.tintId = resourceId;
             cache3[stringColor] = tintImage;
           } else {
-            cache3[stringColor] = canvas;
+            cache3[stringColor] = canvas2;
           }
           return cache3[stringColor];
         },
@@ -18250,8 +18250,8 @@ Deprecated since v${version}`;
           const domMatrix = new DOMMatrixCtor([matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty]);
           patternAny.setTransform(invert ? domMatrix.inverse() : domMatrix);
         },
-        tintWithMultiply: (texture, color, canvas) => {
-          const context2 = canvas.getContext("2d");
+        tintWithMultiply: (texture, color, canvas2) => {
+          const context2 = canvas2.getContext("2d");
           const crop = texture.frame.clone();
           const resolution = texture.source._resolution ?? texture.source.resolution ?? 1;
           const rotate = texture.rotate;
@@ -18262,8 +18262,8 @@ Deprecated since v${version}`;
           const isVertical = groupD8.isVertical(rotate);
           const outWidth = isVertical ? crop.height : crop.width;
           const outHeight = isVertical ? crop.width : crop.height;
-          canvas.width = Math.ceil(outWidth);
-          canvas.height = Math.ceil(outHeight);
+          canvas2.width = Math.ceil(outWidth);
+          canvas2.height = Math.ceil(outHeight);
           context2.save();
           if (color !== 16777215) {
             context2.fillStyle = Color.shared.setValue(color).toHex();
@@ -18305,8 +18305,8 @@ Deprecated since v${version}`;
           }
           context2.restore();
         },
-        tintWithOverlay: (texture, color, canvas) => {
-          const context2 = canvas.getContext("2d");
+        tintWithOverlay: (texture, color, canvas2) => {
+          const context2 = canvas2.getContext("2d");
           const crop = texture.frame.clone();
           const resolution = texture.source._resolution ?? texture.source.resolution ?? 1;
           const rotate = texture.rotate;
@@ -18317,8 +18317,8 @@ Deprecated since v${version}`;
           const isVertical = groupD8.isVertical(rotate);
           const outWidth = isVertical ? crop.height : crop.width;
           const outHeight = isVertical ? crop.width : crop.height;
-          canvas.width = Math.ceil(outWidth);
-          canvas.height = Math.ceil(outHeight);
+          canvas2.width = Math.ceil(outWidth);
+          canvas2.height = Math.ceil(outHeight);
           context2.save();
           context2.globalCompositeOperation = "copy";
           context2.fillStyle = Color.shared.setValue(color).toHex();
@@ -18345,8 +18345,8 @@ Deprecated since v${version}`;
           );
           context2.restore();
         },
-        tintWithPerPixel: (texture, color, canvas) => {
-          const context2 = canvas.getContext("2d");
+        tintWithPerPixel: (texture, color, canvas2) => {
+          const context2 = canvas2.getContext("2d");
           const crop = texture.frame.clone();
           const resolution = texture.source._resolution ?? texture.source.resolution ?? 1;
           const rotate = texture.rotate;
@@ -18357,8 +18357,8 @@ Deprecated since v${version}`;
           const isVertical = groupD8.isVertical(rotate);
           const outWidth = isVertical ? crop.height : crop.width;
           const outHeight = isVertical ? crop.width : crop.height;
-          canvas.width = Math.ceil(outWidth);
-          canvas.height = Math.ceil(outHeight);
+          canvas2.width = Math.ceil(outWidth);
+          canvas2.height = Math.ceil(outHeight);
           context2.save();
           context2.globalCompositeOperation = "copy";
           const source3 = canvasUtils.getCanvasSource(texture);
@@ -18456,11 +18456,11 @@ Deprecated since v${version}`;
          * @param pixelHeight - Height of texture in pixels.
          */
         _createCanvasAndContext(pixelWidth, pixelHeight) {
-          const canvas = DOMAdapter.get().createCanvas();
-          canvas.width = pixelWidth;
-          canvas.height = pixelHeight;
-          const context2 = canvas.getContext("2d");
-          return { canvas, context: context2 };
+          const canvas2 = DOMAdapter.get().createCanvas();
+          canvas2.width = pixelWidth;
+          canvas2.height = pixelHeight;
+          const context2 = canvas2.getContext("2d");
+          return { canvas: canvas2, context: context2 };
         }
         /**
          * Gets a Power-of-Two canvas or screen sized canvas
@@ -18515,8 +18515,8 @@ Deprecated since v${version}`;
          * @param canvasAndContext
          */
         returnCanvasAndContext(canvasAndContext) {
-          const canvas = canvasAndContext.canvas;
-          const { width, height } = canvas;
+          const canvas2 = canvasAndContext.canvas;
+          const { width, height } = canvas2;
           const canvases = this._buckets.get(bucketKey2(width, height));
           if (!canvases) return;
           canvasAndContext.context.resetTransform();
@@ -19845,9 +19845,9 @@ Deprecated since v${version}`;
           const width = frame.width;
           const height = frame.height;
           const canvasAndContext = CanvasPool.getOptimalCanvasAndContext(width, height, resolution);
-          const { canvas, context: context2 } = canvasAndContext;
+          const { canvas: canvas2, context: context2 } = canvasAndContext;
           context2.setTransform(1, 0, 0, 1, 0, 0);
-          context2.clearRect(0, 0, canvas.width, canvas.height);
+          context2.clearRect(0, 0, canvas2.width, canvas2.height);
           if (cssFilters.length) {
             context2.filter = cssFilters.join(" ");
           }
@@ -19871,7 +19871,7 @@ Deprecated since v${version}`;
           );
           context2.filter = "none";
           context2.globalAlpha = 1;
-          return getPo2TextureFromSource(canvas, width, height, resolution);
+          return getPo2TextureFromSource(canvas2, width, height, resolution);
         }
         /**
          * Calculate the filter area bounds.
@@ -19992,8 +19992,8 @@ Deprecated since v${version}`;
   // node_modules/pixi.js/lib/rendering/renderers/gl/shader/program/getTestContext.mjs
   function getTestContext() {
     if (!context || context?.isContextLost()) {
-      const canvas = DOMAdapter.get().createCanvas();
-      context = canvas.getContext("webgl", {});
+      const canvas2 = DOMAdapter.get().createCanvas();
+      context = canvas2.getContext("webgl", {});
     }
     return context;
   }
@@ -25298,10 +25298,10 @@ ${parts.join("\n")}
             _ExtractSystem2.defaultImageOptions
           );
           const { format, quality } = options;
-          const canvas = this.canvas(options);
-          if (canvas.toBlob !== void 0) {
+          const canvas2 = this.canvas(options);
+          if (canvas2.toBlob !== void 0) {
             return new Promise((resolve2, reject) => {
-              canvas.toBlob((blob) => {
+              canvas2.toBlob((blob) => {
                 if (!blob) {
                   reject(new Error("ICanvas.toBlob failed!"));
                   return;
@@ -25313,11 +25313,11 @@ ${parts.join("\n")}
               }, imageTypes[format], quality);
             });
           }
-          if (canvas.toDataURL !== void 0) {
-            return canvas.toDataURL(imageTypes[format], quality);
+          if (canvas2.toDataURL !== void 0) {
+            return canvas2.toDataURL(imageTypes[format], quality);
           }
-          if (canvas.convertToBlob !== void 0) {
-            const blob = await canvas.convertToBlob({ type: imageTypes[format], quality });
+          if (canvas2.convertToBlob !== void 0) {
+            const blob = await canvas2.convertToBlob({ type: imageTypes[format], quality });
             return new Promise((resolve2, reject) => {
               const reader = new FileReader();
               reader.onload = () => resolve2(reader.result);
@@ -25375,9 +25375,9 @@ ${parts.join("\n")}
             return renderer.texture.generateCanvas(target);
           }
           const texture = renderer.textureGenerator.generateTexture(options);
-          const canvas = renderer.texture.generateCanvas(texture);
+          const canvas2 = renderer.texture.generateCanvas(texture);
           texture.destroy(true);
-          return canvas;
+          return canvas2;
         }
         /**
          * Returns a one-dimensional array containing the pixel data of the entire texture in RGBA order,
@@ -25514,10 +25514,10 @@ ${parts.join("\n")}
          */
         download(options) {
           options = this._normalizeOptions(options);
-          const canvas = this.canvas(options);
+          const canvas2 = this.canvas(options);
           const link = document.createElement("a");
           link.download = options.filename ?? "image.png";
-          link.href = canvas.toDataURL("image/png");
+          link.href = canvas2.toDataURL("image/png");
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -25541,9 +25541,9 @@ ${parts.join("\n")}
         log(options) {
           const width = options.width ?? 200;
           options = this._normalizeOptions(options);
-          const canvas = this.canvas(options);
-          const base64 = canvas.toDataURL();
-          console.log(`[Pixi Texture] ${canvas.width}px ${canvas.height}px`);
+          const canvas2 = this.canvas(options);
+          const base64 = canvas2.toDataURL();
+          console.log(`[Pixi Texture] ${canvas2.width}px ${canvas2.height}px`);
           const style = [
             "font-size: 1px;",
             `padding: ${width}px ${300}px;`,
@@ -26852,24 +26852,24 @@ ${parts.join("\n")}
   });
 
   // node_modules/pixi.js/lib/rendering/renderers/shared/texture/utils/getCanvasTexture.mjs
-  function getCanvasTexture(canvas, options) {
-    if (!canvasCache.has(canvas)) {
+  function getCanvasTexture(canvas2, options) {
+    if (!canvasCache.has(canvas2)) {
       const texture = new Texture({
         source: new CanvasSource({
-          resource: canvas,
+          resource: canvas2,
           ...options
         })
       });
       const onDestroy = () => {
-        if (canvasCache.get(canvas) === texture) {
-          canvasCache.delete(canvas);
+        if (canvasCache.get(canvas2) === texture) {
+          canvasCache.delete(canvas2);
         }
       };
       texture.once("destroy", onDestroy);
       texture.source.once("destroy", onDestroy);
-      canvasCache.set(canvas, texture);
+      canvasCache.set(canvas2, texture);
     }
-    return canvasCache.get(canvas);
+    return canvasCache.get(canvas2);
   }
   var canvasCache;
   var init_getCanvasTexture = __esm({
@@ -29867,10 +29867,10 @@ ${parts.join("\n")}
           const resource = source3.resource;
           if (!resource) return;
           if (globalThis.HTMLImageElement && resource instanceof HTMLImageElement) {
-            const canvas = DOMAdapter.get().createCanvas(resource.width, resource.height);
-            const context2 = canvas.getContext("2d");
+            const canvas2 = DOMAdapter.get().createCanvas(resource.width, resource.height);
+            const context2 = canvas2.getContext("2d");
             context2.drawImage(resource, 0, 0, resource.width, resource.height);
-            source3.resource = canvas;
+            source3.resource = canvas2;
             warn("ImageSource: Image element passed, converting to canvas and replacing resource.");
           }
           const width = Math.min(gpuTexture.width, source3.resourceWidth || source3.pixelWidth);
@@ -30293,10 +30293,10 @@ ${parts.join("\n")}
         generateCanvas(texture) {
           const renderer = this._renderer;
           const commandEncoder = renderer.gpu.device.createCommandEncoder();
-          const canvas = DOMAdapter.get().createCanvas();
-          canvas.width = texture.source.pixelWidth;
-          canvas.height = texture.source.pixelHeight;
-          const context2 = canvas.getContext("webgpu");
+          const canvas2 = DOMAdapter.get().createCanvas();
+          canvas2.width = texture.source.pixelWidth;
+          canvas2.height = texture.source.pixelHeight;
+          const context2 = canvas2.getContext("webgpu");
           context2.configure({
             device: renderer.gpu.device,
             usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
@@ -30312,11 +30312,11 @@ ${parts.join("\n")}
           }, {
             texture: context2.getCurrentTexture()
           }, {
-            width: canvas.width,
-            height: canvas.height
+            width: canvas2.width,
+            height: canvas2.height
           });
           renderer.gpu.device.queue.submit([commandEncoder.finish()]);
-          return canvas;
+          return canvas2;
         }
         getPixels(texture) {
           const webGPUCanvas = this.generateCanvas(texture);
@@ -30946,10 +30946,10 @@ ${parts.join("\n")}
             }
             return;
           }
-          const { canvas } = this;
-          if (canvas.width < targetCanvas.width || canvas.height < targetCanvas.height) {
-            canvas.width = Math.max(targetCanvas.width, targetCanvas.width);
-            canvas.height = Math.max(targetCanvas.height, targetCanvas.height);
+          const { canvas: canvas2 } = this;
+          if (canvas2.width < targetCanvas.width || canvas2.height < targetCanvas.height) {
+            canvas2.width = Math.max(targetCanvas.width, targetCanvas.width);
+            canvas2.height = Math.max(targetCanvas.height, targetCanvas.height);
           }
         }
         /**
@@ -30976,12 +30976,12 @@ ${parts.join("\n")}
          */
         createContext(preferWebGLVersion, options) {
           let gl;
-          const canvas = this.canvas;
+          const canvas2 = this.canvas;
           if (preferWebGLVersion === 2) {
-            gl = canvas.getContext("webgl2", options);
+            gl = canvas2.getContext("webgl2", options);
           }
           if (!gl) {
-            gl = canvas.getContext("webgl", options);
+            gl = canvas2.getContext("webgl", options);
             if (!gl) {
               throw new Error("This browser does not support WebGL. Try using the canvas renderer");
             }
@@ -33819,16 +33819,16 @@ ${parts.join("\n")}
         }
         generateCanvas(texture) {
           const { pixels, width, height } = this.getPixels(texture);
-          const canvas = DOMAdapter.get().createCanvas();
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
+          const canvas2 = DOMAdapter.get().createCanvas();
+          canvas2.width = width;
+          canvas2.height = height;
+          const ctx = canvas2.getContext("2d");
           if (ctx) {
             const imageData = ctx.createImageData(width, height);
             imageData.data.set(pixels);
             ctx.putImageData(imageData, 0, 0);
           }
-          return canvas;
+          return canvas2;
         }
         getPixels(texture) {
           const resolution = texture.source.resolution;
@@ -34341,9 +34341,9 @@ ${parts.join("\n")}
     }
   }
   function getCanvas(width, height) {
-    const canvas = DOMAdapter.get().createCanvas(width, height);
-    const context2 = canvas.getContext("2d");
-    return { canvas, context: context2 };
+    const canvas2 = DOMAdapter.get().createCanvas(width, height);
+    const context2 = canvas2.getContext("2d");
+    return { canvas: canvas2, context: context2 };
   }
   function ensureGradientOptions(args) {
     let options = args[0] ?? {};
@@ -34437,14 +34437,14 @@ ${parts.join("\n")}
           }
           const colorStops = this.colorStops.length ? this.colorStops : emptyColorStops;
           const defaultSize = this._textureSize;
-          const { canvas, context: context2 } = getCanvas(defaultSize, 1);
+          const { canvas: canvas2, context: context2 } = getCanvas(defaultSize, 1);
           const gradient = !flip ? context2.createLinearGradient(0, 0, this._textureSize, 0) : context2.createLinearGradient(this._textureSize, 0, 0, 0);
           addColorStops(gradient, colorStops);
           context2.fillStyle = gradient;
           context2.fillRect(0, 0, defaultSize, 1);
           this.texture = new Texture({
             source: new ImageSource({
-              resource: canvas,
+              resource: canvas2,
               addressMode: this._wrapMode
             })
           });
@@ -34481,7 +34481,7 @@ ${parts.join("\n")}
           if (this.texture) return;
           const colorStops = this.colorStops.length ? this.colorStops : emptyColorStops;
           const defaultSize = this._textureSize;
-          const { canvas, context: context2 } = getCanvas(defaultSize, defaultSize);
+          const { canvas: canvas2, context: context2 } = getCanvas(defaultSize, defaultSize);
           const { x: x0, y: y0 } = this.center;
           const { x: x1, y: y1 } = this.outerCenter;
           const r0 = this.innerRadius;
@@ -34510,7 +34510,7 @@ ${parts.join("\n")}
           context2.fillRect(0, 0, defaultSize, defaultSize);
           this.texture = new Texture({
             source: new ImageSource({
-              resource: canvas,
+              resource: canvas2,
               addressMode: this._wrapMode
             })
           });
@@ -41039,12 +41039,12 @@ ${parts.join("\n")}
          */
         initGpuRenderTarget(renderTarget) {
           const colorTexture = renderTarget.colorTexture;
-          const { canvas, context: context2 } = this._ensureCanvas(colorTexture);
+          const { canvas: canvas2, context: context2 } = this._ensureCanvas(colorTexture);
           return {
-            canvas,
+            canvas: canvas2,
             context: context2,
-            width: canvas.width,
-            height: canvas.height
+            width: canvas2.width,
+            height: canvas2.height
           };
         }
         /**
@@ -41054,9 +41054,9 @@ ${parts.join("\n")}
          */
         resizeGpuRenderTarget(renderTarget) {
           const colorTexture = renderTarget.colorTexture;
-          const { canvas } = this._ensureCanvas(colorTexture);
-          canvas.width = renderTarget.pixelWidth;
-          canvas.height = renderTarget.pixelHeight;
+          const { canvas: canvas2 } = this._ensureCanvas(colorTexture);
+          canvas2.width = renderTarget.pixelWidth;
+          canvas2.height = renderTarget.pixelHeight;
         }
         /**
          * Starts a render pass on the canvas target.
@@ -41166,17 +41166,17 @@ ${parts.join("\n")}
         destroyGpuRenderTarget(_gpuRenderTarget) {
         }
         _ensureCanvas(source3) {
-          let canvas = source3.resource;
-          if (!canvas || !CanvasSource.test(canvas)) {
-            canvas = DOMAdapter.get().createCanvas(source3.pixelWidth, source3.pixelHeight);
-            source3.resource = canvas;
+          let canvas2 = source3.resource;
+          if (!canvas2 || !CanvasSource.test(canvas2)) {
+            canvas2 = DOMAdapter.get().createCanvas(source3.pixelWidth, source3.pixelHeight);
+            source3.resource = canvas2;
           }
-          if (canvas.width !== source3.pixelWidth || canvas.height !== source3.pixelHeight) {
-            canvas.width = source3.pixelWidth;
-            canvas.height = source3.pixelHeight;
+          if (canvas2.width !== source3.pixelWidth || canvas2.height !== source3.pixelHeight) {
+            canvas2.width = source3.pixelWidth;
+            canvas2.height = source3.pixelHeight;
           }
-          const context2 = canvas.getContext("2d");
-          return { canvas, context: context2 };
+          const context2 = canvas2.getContext("2d");
+          return { canvas: canvas2, context: context2 };
         }
       };
     }
@@ -41231,11 +41231,11 @@ ${parts.join("\n")}
          * @param texture - Texture to render.
          */
         generateCanvas(texture) {
-          const canvas = DOMAdapter.get().createCanvas();
-          const context2 = canvas.getContext("2d");
+          const canvas2 = DOMAdapter.get().createCanvas();
+          const context2 = canvas2.getContext("2d");
           const source3 = canvasUtils.getCanvasSource(texture);
           if (!source3) {
-            return canvas;
+            return canvas2;
           }
           const frame = texture.frame;
           const resolution = texture.source._resolution ?? texture.source.resolution ?? 1;
@@ -41243,8 +41243,8 @@ ${parts.join("\n")}
           const sy = frame.y * resolution;
           const sw = frame.width * resolution;
           const sh = frame.height * resolution;
-          canvas.width = Math.ceil(sw);
-          canvas.height = Math.ceil(sh);
+          canvas2.width = Math.ceil(sw);
+          canvas2.height = Math.ceil(sh);
           context2.drawImage(
             source3,
             sx,
@@ -41256,20 +41256,20 @@ ${parts.join("\n")}
             sw,
             sh
           );
-          return canvas;
+          return canvas2;
         }
         /**
          * Reads pixel data from a texture.
          * @param texture - Texture to read.
          */
         getPixels(texture) {
-          const canvas = this.generateCanvas(texture);
-          const context2 = canvas.getContext("2d", { willReadFrequently: true });
-          const imageData = context2.getImageData(0, 0, canvas.width, canvas.height);
+          const canvas2 = this.generateCanvas(texture);
+          const context2 = canvas2.getContext("2d", { willReadFrequently: true });
+          const imageData = context2.getImageData(0, 0, canvas2.width, canvas2.height);
           return {
             pixels: imageData.data,
-            width: canvas.width,
-            height: canvas.height
+            width: canvas2.width,
+            height: canvas2.height
           };
         }
         /** Destroys the system (no-op for canvas). */
@@ -42433,8 +42433,8 @@ ${parts.join("\n")}
         if (!DOMAdapter.get().getWebGLRenderingContext()) {
           return false;
         }
-        const canvas = DOMAdapter.get().createCanvas();
-        let gl = canvas.getContext("webgl", contextOptions);
+        const canvas2 = DOMAdapter.get().createCanvas();
+        let gl = canvas2.getContext("webgl", contextOptions);
         const success = !!gl?.getContextAttributes()?.stencil;
         if (gl) {
           const loseContext = gl.getExtension("WEBGL_lose_context");
@@ -44970,7 +44970,7 @@ ${parts.join("\n")}
     };
   }
   function autoPriorities(skills) {
-    return Object.fromEntries(
+    const out2 = Object.fromEntries(
       JOBS.map((j2) => {
         if (j2 === "defend") {
           const fight = Math.max(skills.melee.level, skills.ranged.level);
@@ -44981,6 +44981,9 @@ ${parts.join("\n")}
         return [j2, level >= 6 ? 1 : level >= 3 ? 2 : 3];
       })
     );
+    const top = Math.min(...JOBS.filter((j2) => j2 !== "defend" && j2 !== "construct").map((j2) => out2[j2]));
+    out2.construct = Math.min(out2.construct, top, 2);
+    return out2;
   }
   function campX(s2) {
     return tileCentreX(Math.floor(s2.tiles.length / 2));
@@ -46011,7 +46014,13 @@ ${parts.join("\n")}
     p2.lastFed = s2.tick;
     p2.hp = maxHp(p2);
   }
-  var fullMoon = (s2) => Math.floor(calendar(s2.tick).day - 1) % FULL_MOON_DAYS === FULL_MOON_DAYS - 1;
+  var moonPhaseOf = (day) => ((day - 1) % FULL_MOON_DAYS + FULL_MOON_DAYS) % FULL_MOON_DAYS;
+  var FULL_MOON_PHASE = FULL_MOON_DAYS - 1;
+  function nightDay(tick) {
+    const c2 = calendar(tick);
+    return c2.hour < 12 ? c2.day - 1 : c2.day;
+  }
+  var fullMoon = (s2) => moonPhaseOf(calendar(s2.tick).day) === FULL_MOON_PHASE;
   var packLeader = (s2) => s2.people.some((p2) => p2.id === s2.mainId && p2.monster === "werewolf" && p2.away === null);
   function runWithThePack(s2, raiders) {
     if (!packLeader(s2)) return;
@@ -50320,7 +50329,8 @@ ${parts.join("\n")}
       fx: (s2.fx ?? []).filter((f2) => s2.tick - f2.tick < FX_TICKS).map((f2) => ({ id: f2.id, kind: f2.kind, since: s2.tick - f2.tick })),
       launchSite: launchSiteView(s2),
       impacts: (s2.impacts ?? []).filter((m2) => s2.tick - m2.tick < 30).map((m2) => ({ x: m2.x, since: s2.tick - m2.tick })),
-      moonNight: fullMoon(s2) && (calendar(s2.tick).hour >= 20 || calendar(s2.tick).hour < 5),
+      moonNight: moonPhaseOf(nightDay(s2.tick)) === FULL_MOON_PHASE && (calendar(s2.tick).hour >= 20 || calendar(s2.tick).hour < 5),
+      moonPhase: moonPhaseOf(nightDay(s2.tick)),
       ironman: !!s2.ironman,
       launchHours: s2.launchTick != null ? Math.max(0, (s2.launchTick - s2.tick) / TICKS_PER_HOUR) : null,
       mainId: s2.mainId,
@@ -50602,10 +50612,10 @@ ${parts.join("\n")}
     }
   };
   function paint(width, height, tone, draw) {
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const canvas2 = document.createElement("canvas");
+    canvas2.width = width;
+    canvas2.height = height;
+    const ctx = canvas2.getContext("2d", { willReadFrequently: true });
     ctx.imageSmoothingEnabled = false;
     draw(new Painter(ctx, width, height, tone));
     const data = ctx.getImageData(0, 0, width, height).data;
@@ -50618,7 +50628,7 @@ ${parts.join("\n")}
         }
       }
     }
-    return { texture: Texture.from(canvas), width, height, tops };
+    return { texture: Texture.from(canvas2), width, height, tops };
   }
   function mixHex(a2, b2, t2) {
     const pa = parseInt(a2.slice(1), 16);
@@ -50787,12 +50797,12 @@ ${parts.join("\n")}
   var url = null;
   function customSheetUrl() {
     if (url) return url;
-    const canvas = document.createElement("canvas");
-    canvas.width = 8 * 16;
-    canvas.height = CUSTOM_ROWS * 16;
-    const ctx = canvas.getContext("2d");
-    CUSTOM_ORDER.forEach((id, i2) => CUSTOM_ICONS[id](new Painter(ctx, canvas.width, canvas.height, shift(i2 % 8 * 16, Math.floor(i2 / 8) * 16, ctx))));
-    url = canvas.toDataURL();
+    const canvas2 = document.createElement("canvas");
+    canvas2.width = 8 * 16;
+    canvas2.height = CUSTOM_ROWS * 16;
+    const ctx = canvas2.getContext("2d");
+    CUSTOM_ORDER.forEach((id, i2) => CUSTOM_ICONS[id](new Painter(ctx, canvas2.width, canvas2.height, shift(i2 % 8 * 16, Math.floor(i2 / 8) * 16, ctx))));
+    url = canvas2.toDataURL();
     return url;
   }
   function shift(ox, oy, ctx) {
@@ -54368,6 +54378,165 @@ ${parts.join("\n")}
     }
   };
 
+  // src/renderer/town/skyView.ts
+  var SUN = [5, 21];
+  var MOON = [19, 31];
+  var HORIZON = BACK_GROUND_Y + 4;
+  var ZENITH = 22;
+  var SCALE = 2;
+  var STARS = 130;
+  var SkyView = class {
+    root = new Container();
+    stars = new Graphics();
+    glow = new Graphics();
+    sun = new Sprite(sunTexture());
+    moon = new Sprite();
+    moons = [];
+    starList = [];
+    hours = 12;
+    daylight = 1;
+    phase = FULL_MOON_DAYS - 1;
+    constructor() {
+      for (let i2 = 0; i2 < FULL_MOON_DAYS; i2++) this.moons.push(moonTexture(i2));
+      for (const s2 of [this.sun, this.moon]) {
+        s2.anchor.set(0.5);
+        s2.scale.set(SCALE);
+      }
+      this.root.addChild(this.stars, this.glow, this.moon, this.sun);
+      for (let i2 = 0; i2 < STARS; i2++) {
+        const bright = Math.random() < 0.18;
+        this.starList.push({
+          x: Math.random(),
+          y: 4 + Math.random() * (HORIZON - 30),
+          size: bright ? 2 : 1,
+          color: [16777215, 16774360, 14215423, 16769216][Math.floor(Math.random() * 4)],
+          base: bright ? 1 : 0.6 + Math.random() * 0.4,
+          speed: 0.6 + Math.random() * 1.8,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+    /** From each snapshot: the time of day and tonight's moon. */
+    update(c2, moonPhase) {
+      this.hours = c2.hour + c2.minute / 60;
+      this.daylight = c2.daylight;
+      if (moonPhase !== this.phase || !this.moon.texture || this.moon.texture === Texture.EMPTY) {
+        this.phase = moonPhase;
+        this.moon.texture = this.moons[moonPhase] ?? this.moons[0];
+      }
+    }
+    /** Each frame: `width` is the town's share of the screen. (The root sits in the town's, at the strip's top.) */
+    render(now, width) {
+      const h2 = this.hours;
+      const g2 = this.glow.clear();
+      const sunU = (h2 - SUN[0]) / (SUN[1] - SUN[0]);
+      this.sun.visible = sunU > 0 && sunU < 1;
+      if (this.sun.visible) {
+        const { x: x2, y: y2 } = arc(sunU, width);
+        this.sun.position.set(x2, y2);
+        const low = 1 - Math.sin(Math.PI * sunU);
+        this.sun.tint = mix2(16774872, 16751178, low ** 1.5);
+        g2.circle(x2, y2, 20 + low * 8).fill({ color: this.sun.tint, alpha: 0.12 + low * 0.08 });
+        g2.circle(x2, y2, 30 + low * 14).fill({ color: this.sun.tint, alpha: 0.06 });
+      }
+      const mh = h2 < 12 ? h2 + 24 : h2;
+      const moonU = (mh - MOON[0]) / (MOON[1] - MOON[0]);
+      this.moon.visible = moonU > 0 && moonU < 1;
+      if (this.moon.visible) {
+        const { x: x2, y: y2 } = arc(moonU, width);
+        this.moon.position.set(x2, y2);
+        this.moon.alpha = 0.35 + 0.65 * (1 - this.daylight);
+        const lit = litShare(this.phase);
+        if (lit > 0.05) g2.circle(x2, y2, 18).fill({ color: 13622527, alpha: 0.1 * lit * (1 - this.daylight) });
+      }
+      const dark = Math.max(0, 1 - this.daylight * 1.6);
+      const st = this.stars.clear();
+      this.stars.visible = dark > 0;
+      if (dark > 0) {
+        const t2 = now / 1e3;
+        for (const s2 of this.starList) {
+          const twinkle = 0.55 + 0.45 * Math.sin(t2 * s2.speed + s2.phase);
+          const a2 = dark * s2.base * twinkle;
+          if (a2 < 0.04) continue;
+          const x2 = Math.round(s2.x * width);
+          st.rect(x2, Math.round(s2.y), s2.size, s2.size).fill({ color: s2.color, alpha: a2 });
+          if (s2.size > 1 && twinkle > 0.9) st.rect(x2 - 1, Math.round(s2.y) + 0.5, 4, 1).rect(x2 + 0.5, Math.round(s2.y) - 1, 1, 4).fill({ color: s2.color, alpha: a2 * 0.5 });
+        }
+      }
+    }
+  };
+  function arc(u2, width) {
+    const margin = 24;
+    return { x: Math.round(margin + u2 * (width - 2 * margin)), y: Math.round(HORIZON - (HORIZON - ZENITH) * Math.sin(Math.PI * u2)) };
+  }
+  function mix2(a2, b2, t2) {
+    const ch = (s2) => Math.round((a2 >> s2 & 255) + ((b2 >> s2 & 255) - (a2 >> s2 & 255)) * t2);
+    return ch(16) << 16 | ch(8) << 8 | ch(0);
+  }
+  function cycle2(phase) {
+    return ((phase - (FULL_MOON_DAYS - 1) + FULL_MOON_DAYS / 2) % FULL_MOON_DAYS + FULL_MOON_DAYS) % FULL_MOON_DAYS / FULL_MOON_DAYS;
+  }
+  function litShare(phase) {
+    return (1 - Math.cos(cycle2(phase) * Math.PI * 2)) / 2;
+  }
+  function canvas(size, draw) {
+    const c2 = document.createElement("canvas");
+    c2.width = c2.height = size;
+    const g2 = c2.getContext("2d");
+    draw((x2, y2, rgba) => {
+      g2.fillStyle = rgba;
+      g2.fillRect(x2, y2, 1, 1);
+    });
+    return Texture.from(c2);
+  }
+  function sunTexture() {
+    const N2 = 21;
+    const c2 = (N2 - 1) / 2;
+    return canvas(N2, (put) => {
+      for (let y2 = 0; y2 < N2; y2++) {
+        for (let x2 = 0; x2 < N2; x2++) {
+          const d2 = Math.hypot(x2 - c2, y2 - c2);
+          if (d2 <= 5.6) put(x2, y2, d2 < 3 ? "#ffffff" : d2 < 4.6 ? "#fffaf0" : "#f4e8c8");
+        }
+      }
+      for (let i2 = 0; i2 < 8; i2++) {
+        const a2 = i2 / 8 * Math.PI * 2;
+        for (const r2 of i2 % 2 ? [7.5, 8.5] : [7.2, 8.2, 9.2]) put(Math.round(c2 + Math.cos(a2) * r2), Math.round(c2 + Math.sin(a2) * r2), "#f8ecd0");
+      }
+    });
+  }
+  function moonTexture(phase) {
+    const N2 = 13;
+    const R = 6;
+    const c2 = (N2 - 1) / 2;
+    const u2 = cycle2(phase);
+    const theta = u2 * Math.PI * 2;
+    const craters = [
+      [-2, -2, 1.3],
+      [2, 1, 1],
+      [-1, 3, 0.9],
+      [3, -3, 0.7]
+    ];
+    return canvas(N2, (put) => {
+      for (let y2 = 0; y2 < N2; y2++) {
+        for (let x2 = 0; x2 < N2; x2++) {
+          const nx = (x2 - c2) / R;
+          const ny = (y2 - c2) / R;
+          if (nx * nx + ny * ny > 1.02) continue;
+          const w2 = Math.sqrt(Math.max(0, 1 - ny * ny));
+          const lit = u2 <= 0.5 ? nx > w2 * Math.cos(theta) : -nx > w2 * Math.cos(Math.PI * 2 - theta);
+          if (!lit) {
+            put(x2, y2, "rgba(120,130,160,0.22)");
+            continue;
+          }
+          const crater = craters.some(([cx, cy, r2]) => Math.hypot(x2 - c2 - cx, y2 - c2 - cy) <= r2);
+          const rim = nx * nx + ny * ny > 0.75;
+          put(x2, y2, crater ? "#c8ccd8" : rim ? "#dfe4ee" : "#f2f4f8");
+        }
+      }
+    });
+  }
+
   // src/renderer/town/raidersView.ts
   var RaidersView = class {
     constructor(layer) {
@@ -54548,7 +54717,7 @@ ${parts.join("\n")}
       sharedTicker: true
     });
     document.body.appendChild(app.canvas);
-    const canvas = app.canvas;
+    const canvas2 = app.canvas;
     const town = new TownView(world, first.tiles, first.buildings);
     const people = new PeopleView(town.people);
     const raiders = new RaidersView(town.people);
@@ -54556,6 +54725,8 @@ ${parts.join("\n")}
     const pane = new ExpeditionPane(world.seedHash);
     const snow = new SnowView();
     town.root.addChild(snow.root);
+    const sky = new SkyView();
+    town.root.addChildAt(sky.root, 0);
     const townMask = new Graphics();
     app.stage.addChild(town.root, pane.root);
     let paneX = Infinity;
@@ -54639,7 +54810,7 @@ ${parts.join("\n")}
       hover = mouse && !overUi && active ? hitTest(mouse.x, mouse.y) : null;
       setInteractive(overUi || hover !== null);
       const clickable = hover?.kind === "building" || hover?.kind === "pane" || hover?.kind === "tile" && snap.tiles[hover.tile].terrain !== "clear";
-      canvas.style.cursor = clickable ? "pointer" : hover ? "grab" : "default";
+      canvas2.style.cursor = clickable ? "pointer" : hover ? "grab" : "default";
       showHover();
     };
     const showHover = () => {
@@ -54809,7 +54980,7 @@ ${parts.join("\n")}
       placing.tile = town.placementTile(def.layer, mouse.x, def.width);
       placing.check = checkPlacement(def, placing.tile);
       town.showGhost(def.id, def.layer, placing.tile, def.width, placing.check.ok);
-      canvas.style.cursor = placing.check.ok ? "copy" : "not-allowed";
+      canvas2.style.cursor = placing.check.ok ? "copy" : "not-allowed";
       if (placing.check.ok) tip.hide();
       else tip.show("Can't build here", [placing.check.reason ?? ""], mouse.x, mouse.y - 16);
     };
@@ -54878,21 +55049,21 @@ ${parts.join("\n")}
       },
       { passive: true }
     );
-    canvas.style.touchAction = "none";
-    canvas.addEventListener("pointerdown", (e2) => {
+    canvas2.style.touchAction = "none";
+    canvas2.addEventListener("pointerdown", (e2) => {
       if (e2.pointerType !== "mouse") {
         mouse = { x: e2.clientX, y: e2.clientY, target: e2.target };
         refreshHover();
       }
       if (!hover && !placing && e2.pointerType === "mouse" || e2.button !== 0) return;
       press = { x: e2.clientX, y: e2.clientY, id: e2.pointerId };
-      canvas.setPointerCapture(e2.pointerId);
+      canvas2.setPointerCapture(e2.pointerId);
     });
-    canvas.addEventListener("pointermove", (e2) => {
+    canvas2.addEventListener("pointermove", (e2) => {
       if (!press || e2.pointerId !== press.id) return;
       if (!camera.dragging && Math.abs(e2.clientX - press.x) >= DRAG_THRESHOLD) {
         camera.beginDrag(press.x, e2.timeStamp);
-        canvas.style.cursor = "grabbing";
+        canvas2.style.cursor = "grabbing";
         tip.hide();
       }
       camera.dragTo(e2.clientX, e2.timeStamp);
@@ -54902,19 +55073,19 @@ ${parts.join("\n")}
       const wasDrag = camera.dragging;
       camera.endDrag(e2.timeStamp);
       press = null;
-      if (canvas.hasPointerCapture(e2.pointerId)) canvas.releasePointerCapture(e2.pointerId);
+      if (canvas2.hasPointerCapture(e2.pointerId)) canvas2.releasePointerCapture(e2.pointerId);
       mouse = { x: e2.clientX, y: e2.clientY, target: e2.target };
       if (!wasDrag && e2.type === "pointerup") click(e2.clientX, e2.clientY, e2.pointerType !== "mouse");
       refreshHover();
     };
-    canvas.addEventListener("pointerup", release2);
-    canvas.addEventListener("pointercancel", release2);
+    canvas2.addEventListener("pointerup", release2);
+    canvas2.addEventListener("pointercancel", release2);
     const applyState = (s2) => {
       const modeChanged = s2.mode !== view.mode;
       view = s2;
       hud.apply(s2);
       music.update(s2.music && !s2.hidden, snap.raid?.phase === "active");
-      canvas.hidden = s2.mode !== "full";
+      canvas2.hidden = s2.mode !== "full";
       if (s2.mode === "full" && !s2.hidden) app.ticker.start();
       else app.ticker.stop();
       if (modeChanged) {
@@ -54969,6 +55140,7 @@ ${parts.join("\n")}
       if (tilesChanged) town.updateTiles(next.tiles);
       town.syncBuildings(next.buildings);
       people.moon = next.moonNight;
+      sky.update(next.calendar, next.moonPhase);
       people.revived = next.revived ? { ...next.revived, at: performance.now() } : null;
       people.fx = next.fx.map((f2) => ({ ...f2, at: performance.now() }));
       people.update(
@@ -54994,6 +55166,7 @@ ${parts.join("\n")}
       raiders.render(performance.now());
       animals.render(performance.now());
       snow.render(performance.now(), ticker.deltaMS / 1e3, w2);
+      sky.render(performance.now(), w2);
       pane.render(performance.now(), ticker.deltaMS / 1e3);
       if (moving) {
         refreshHover();

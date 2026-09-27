@@ -1558,7 +1558,7 @@
     };
   }
   function autoPriorities(skills) {
-    return Object.fromEntries(
+    const out = Object.fromEntries(
       JOBS.map((j) => {
         if (j === "defend") {
           const fight = Math.max(skills.melee.level, skills.ranged.level);
@@ -1569,6 +1569,9 @@
         return [j, level >= 6 ? 1 : level >= 3 ? 2 : 3];
       })
     );
+    const top = Math.min(...JOBS.filter((j) => j !== "defend" && j !== "construct").map((j) => out[j]));
+    out.construct = Math.min(out.construct, top, 2);
+    return out;
   }
   function campX(s) {
     return tileCentreX(Math.floor(s.tiles.length / 2));
@@ -1896,7 +1899,13 @@
     p.lastFed = s.tick;
     p.hp = maxHp(p);
   }
-  var fullMoon = (s) => Math.floor(calendar(s.tick).day - 1) % FULL_MOON_DAYS === FULL_MOON_DAYS - 1;
+  var moonPhaseOf = (day) => ((day - 1) % FULL_MOON_DAYS + FULL_MOON_DAYS) % FULL_MOON_DAYS;
+  var FULL_MOON_PHASE = FULL_MOON_DAYS - 1;
+  function nightDay(tick) {
+    const c = calendar(tick);
+    return c.hour < 12 ? c.day - 1 : c.day;
+  }
+  var fullMoon = (s) => moonPhaseOf(calendar(s.tick).day) === FULL_MOON_PHASE;
   var packLeader = (s) => s.people.some((p) => p.id === s.mainId && p.monster === "werewolf" && p.away === null);
   function runWithThePack(s, raiders) {
     if (!packLeader(s)) return;
@@ -6138,7 +6147,8 @@
       fx: (s.fx ?? []).filter((f) => s.tick - f.tick < FX_TICKS).map((f) => ({ id: f.id, kind: f.kind, since: s.tick - f.tick })),
       launchSite: launchSiteView(s),
       impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
-      moonNight: fullMoon(s) && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
+      moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
+      moonPhase: moonPhaseOf(nightDay(s.tick)),
       ironman: !!s.ironman,
       launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
       mainId: s.mainId,

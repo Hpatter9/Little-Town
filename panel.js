@@ -19629,7 +19629,7 @@ ${src}`;
     };
   }
   function autoPriorities(skills) {
-    return Object.fromEntries(
+    const out = Object.fromEntries(
       JOBS.map((j2) => {
         if (j2 === "defend") {
           const fight = Math.max(skills.melee.level, skills.ranged.level);
@@ -19640,6 +19640,9 @@ ${src}`;
         return [j2, level >= 6 ? 1 : level >= 3 ? 2 : 3];
       })
     );
+    const top = Math.min(...JOBS.filter((j2) => j2 !== "defend" && j2 !== "construct").map((j2) => out[j2]));
+    out.construct = Math.min(out.construct, top, 2);
+    return out;
   }
   function campX(s2) {
     return tileCentreX(Math.floor(s2.tiles.length / 2));
@@ -20029,7 +20032,13 @@ ${src}`;
     p2.lastFed = s2.tick;
     p2.hp = maxHp(p2);
   }
-  var fullMoon = (s2) => Math.floor(calendar(s2.tick).day - 1) % FULL_MOON_DAYS === FULL_MOON_DAYS - 1;
+  var moonPhaseOf = (day) => ((day - 1) % FULL_MOON_DAYS + FULL_MOON_DAYS) % FULL_MOON_DAYS;
+  var FULL_MOON_PHASE = FULL_MOON_DAYS - 1;
+  function nightDay(tick) {
+    const c2 = calendar(tick);
+    return c2.hour < 12 ? c2.day - 1 : c2.day;
+  }
+  var fullMoon = (s2) => moonPhaseOf(calendar(s2.tick).day) === FULL_MOON_PHASE;
   var packLeader = (s2) => s2.people.some((p2) => p2.id === s2.mainId && p2.monster === "werewolf" && p2.away === null);
   function runWithThePack(s2, raiders) {
     if (!packLeader(s2)) return;
@@ -24801,7 +24810,8 @@ ${src}`;
       fx: (s2.fx ?? []).filter((f2) => s2.tick - f2.tick < FX_TICKS).map((f2) => ({ id: f2.id, kind: f2.kind, since: s2.tick - f2.tick })),
       launchSite: launchSiteView(s2),
       impacts: (s2.impacts ?? []).filter((m2) => s2.tick - m2.tick < 30).map((m2) => ({ x: m2.x, since: s2.tick - m2.tick })),
-      moonNight: fullMoon(s2) && (calendar(s2.tick).hour >= 20 || calendar(s2.tick).hour < 5),
+      moonNight: moonPhaseOf(nightDay(s2.tick)) === FULL_MOON_PHASE && (calendar(s2.tick).hour >= 20 || calendar(s2.tick).hour < 5),
+      moonPhase: moonPhaseOf(nightDay(s2.tick)),
       ironman: !!s2.ironman,
       launchHours: s2.launchTick != null ? Math.max(0, (s2.launchTick - s2.tick) / TICKS_PER_HOUR) : null,
       mainId: s2.mainId,
