@@ -54767,7 +54767,7 @@ ${parts.join("\n")}
         mouse = { x: e2.clientX, y: e2.clientY, target: e2.target };
         refreshHover();
       }
-      if (!hover && !placing || e2.button !== 0) return;
+      if (!hover && !placing && e2.pointerType === "mouse" || e2.button !== 0) return;
       press = { x: e2.clientX, y: e2.clientY, id: e2.pointerId };
       canvas.setPointerCapture(e2.pointerId);
     });
