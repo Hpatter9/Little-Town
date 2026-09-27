@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
-    <title>Little Town</title>
+    <title>Chronos Settlement</title>
     <style>
       :root {
         --bg: #211811;
@@ -473,6 +473,148 @@
         opacity: 0.5;
         cursor: default;
       }
+      /* The world map on the Expedition Board (square; smaller on a short screen, like a phone on its side) */
+      .world-map {
+        position: relative;
+        width: min(100%, 62vh);
+        aspect-ratio: 1;
+        margin: 6px auto 4px;
+        border: 2px solid #4a3522;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #1c3a5a url('world-map.jpg') center / cover no-repeat;
+      }
+      .map-svg,
+      .map-marks {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .map-svg {
+        pointer-events: none;
+      }
+      .map-route {
+        stroke-width: 5;
+        stroke-dasharray: 12 9;
+        stroke-linecap: round;
+      }
+      .map-route.picked {
+        stroke: #ffd84a;
+      }
+      .map-route.party {
+        stroke: #8cc05a;
+      }
+      /* a destination: a big invisible tap target round a small dot */
+      .map-dot {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        transform: translate(-50%, -50%);
+        cursor: pointer;
+      }
+      .map-dot::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 9px;
+        height: 9px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: #f1e2c2;
+        border: 2px solid #3b2b1e;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+      }
+      .map-dot.locked::after {
+        background: #8a7a6a;
+      }
+      .map-dot.on::after {
+        background: #ffd84a;
+      }
+      .map-home {
+        position: absolute;
+        width: 13px;
+        height: 13px;
+        transform: translate(-50%, -50%) rotate(45deg);
+        background: #e8c88a;
+        border: 2px solid #3b2b1e;
+        box-shadow: 0 0 0 2px rgba(232, 200, 138, 0.35);
+        pointer-events: none;
+      }
+      /* the picked destination: a red flag on a pole, planted on the spot */
+      .map-flag {
+        position: absolute;
+        width: 3px;
+        height: 26px;
+        transform: translate(-1px, -100%);
+        background: #2a1c14;
+        pointer-events: none;
+      }
+      .map-flag::after {
+        content: '';
+        position: absolute;
+        left: 3px;
+        top: 0;
+        border-left: 16px solid #d8402a;
+        border-top: 6px solid transparent;
+        border-bottom: 6px solid transparent;
+      }
+      .map-label {
+        position: absolute;
+        transform: translate(-50%, 9px);
+        padding: 1px 6px;
+        border-radius: 3px;
+        background: rgba(20, 14, 10, 0.82);
+        color: #f1e2c2;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      .map-label.picked {
+        color: #ffd84a;
+      }
+      .map-label.left {
+        transform: translate(-12px, 9px);
+      }
+      .map-label.right {
+        transform: translate(calc(-100% + 12px), 9px);
+      }
+      .map-label.above {
+        margin-top: -42px;
+      }
+      /* a party out: the size of the party, moving along its route */
+      .map-party {
+        position: absolute;
+        min-width: 18px;
+        height: 18px;
+        transform: translate(-50%, -50%);
+        border-radius: 9px;
+        background: #4f7a34;
+        border: 2px solid #d8f0b0;
+        color: #fff;
+        font-size: 11px;
+        line-height: 18px;
+        text-align: center;
+        pointer-events: none;
+      }
+      .map-party.fighting {
+        background: #a83a2a;
+        border-color: #ffc0a0;
+      }
+      .map-hint {
+        text-align: center;
+        margin-bottom: 8px;
+      }
+      .card.chosen {
+        border-color: #ffd84a;
+        box-shadow: inset 0 0 0 1px #ffd84a;
+      }
+
       /* New town: pickable cards */
       .card.pick {
         cursor: pointer;

@@ -45979,7 +45979,7 @@ ${parts.join("\n")}
     tickerPause.addEventListener("click", togglePause);
     const expand = el("button", { class: "tab expand", title: "Show the full town" }, "Expand \u25B4");
     expand.addEventListener("click", () => bridge.setMode("full"));
-    ticker.append(el("span", { class: "ticker-name" }, "Little Town"), tickerText, tickerPause, expand);
+    ticker.append(el("span", { class: "ticker-name" }, "Chronos Settlement"), tickerText, tickerPause, expand);
     document.body.append(clock, dock, ticker);
     return {
       apply(s2) {

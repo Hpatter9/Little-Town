@@ -6827,9 +6827,10 @@
   panel.src = "panel.html";
   panel.title = "Menu";
   sheet.append(panel);
+  var sideways = matchMedia("(orientation: landscape) and (max-height: 560px)");
   function layout() {
-    const room = window.innerHeight - $("top").offsetHeight - $("tabs").offsetHeight;
-    const z = Math.max(1, Math.min(zoom, room / STRIP_HEIGHT));
+    const room = window.innerHeight - $("tabs").offsetHeight - (sideways.matches ? 0 : $("top").offsetHeight);
+    const z = Math.max(1, sideways.matches ? room / STRIP_HEIGHT : Math.min(zoom, room / STRIP_HEIGHT));
     strip.style.width = `${stripBox.clientWidth / z}px`;
     strip.style.height = `${STRIP_HEIGHT}px`;
     strip.style.transform = `scale(${z})`;
@@ -6948,7 +6949,7 @@
       menu.replaceChildren(
         item("New town\u2026", () => bridge.openPanel("newgame")),
         item(`Music: ${s.music ? "on" : "off"}`, () => (bridge.setMusic(!s.music), drawMenu())),
-        label("Town size"),
+        label("Town size (upright; on its side the town fills the screen)"),
         zooms,
         ...installed ? [] : [label("To install: Chrome menu \u22EE \u2192 Add to Home screen")]
       );

@@ -3413,16 +3413,16 @@ Deprecated since v${version}`;
         getChildByName(name2, deep = false) {
           return this.getChildByLabel(name2, deep);
         },
-        getChildByLabel(label, deep = false) {
+        getChildByLabel(label2, deep = false) {
           const children = this.children;
           for (let i2 = 0; i2 < children.length; i2++) {
             const child = children[i2];
-            if (child.label === label || label instanceof RegExp && label.test(child.label)) return child;
+            if (child.label === label2 || label2 instanceof RegExp && label2.test(child.label)) return child;
           }
           if (deep) {
             for (let i2 = 0; i2 < children.length; i2++) {
               const child = children[i2];
-              const found = child.getChildByLabel(label, true);
+              const found = child.getChildByLabel(label2, true);
               if (found) {
                 return found;
               }
@@ -3430,17 +3430,17 @@ Deprecated since v${version}`;
           }
           return null;
         },
-        getChildrenByLabel(label, deep = false, out = []) {
+        getChildrenByLabel(label2, deep = false, out = []) {
           const children = this.children;
           for (let i2 = 0; i2 < children.length; i2++) {
             const child = children[i2];
-            if (child.label === label || label instanceof RegExp && label.test(child.label)) {
+            if (child.label === label2 || label2 instanceof RegExp && label2.test(child.label)) {
               out.push(child);
             }
           }
           if (deep) {
             for (let i2 = 0; i2 < children.length; i2++) {
-              children[i2].getChildrenByLabel(label, true, out);
+              children[i2].getChildrenByLabel(label2, true, out);
             }
           }
           return out;
@@ -6323,7 +6323,7 @@ Deprecated since v${version}`;
          */
         constructor({
           source: source2,
-          label,
+          label: label2,
           frame,
           orig,
           trim,
@@ -6339,7 +6339,7 @@ Deprecated since v${version}`;
           this.noFrame = false;
           this.dynamic = false;
           this.isTexture = true;
-          this.label = label;
+          this.label = label2;
           this.source = source2?.source ?? new TextureSource();
           this.noFrame = !frame;
           if (frame) {
@@ -17066,7 +17066,7 @@ ${src}`;
          */
         constructor(options) {
           let { data, size } = options;
-          const { usage, label, shrinkToFit } = options;
+          const { usage, label: label2, shrinkToFit } = options;
           super();
           this._gpuData = /* @__PURE__ */ Object.create(null);
           this._gcLastUsed = -1;
@@ -17089,7 +17089,7 @@ ${src}`;
             size,
             usage,
             mappedAtCreation,
-            label
+            label: label2
           };
           this.shrinkToFit = shrinkToFit ?? true;
         }
@@ -19591,8 +19591,8 @@ ${src}`;
     );
     const passions = [];
     for (let n2 = rng.int(1, typeId === "founder" ? 2 : 3); passions.length < n2; ) {
-      const pick = type.passionFor.length && rng.chance(0.7) ? rng.pick(type.passionFor) : rng.pick(SKILLS);
-      if (!passions.includes(pick)) passions.push(pick);
+      const pick2 = type.passionFor.length && rng.chance(0.7) ? rng.pick(type.passionFor) : rng.pick(SKILLS);
+      if (!passions.includes(pick2)) passions.push(pick2);
       else if (passions.length >= type.passionFor.length) n2--;
     }
     const traits2 = [];
@@ -19812,8 +19812,8 @@ ${src}`;
     if (text !== void 0) e2.textContent = text;
     return e2;
   }
-  function button(label, onClick, opts = {}) {
-    const b2 = el("button", opts.cls ?? "place", label);
+  function button(label2, onClick, opts = {}) {
+    const b2 = el("button", opts.cls ?? "place", label2);
     b2.disabled = !!opts.disabled;
     if (opts.title) b2.title = opts.title;
     b2.addEventListener("click", onClick);
@@ -20104,17 +20104,17 @@ ${src}`;
     const order = target.order ?? "hide";
     return { options, defaultOption: order === "give_up" ? 0 : order === "hide" ? 1 : 2 };
   }
-  function answerGuild(s2, label, rng) {
+  function answerGuild(s2, label2, rng) {
     const target = s2.people.find((p2) => p2.id === s2.guildTarget);
     if (!target) return true;
-    if (label.startsWith("Give up")) {
+    if (label2.startsWith("Give up")) {
       s2.people = s2.people.filter((p2) => p2 !== target);
       grieve(s2, target);
       s2.guild = Math.max(0, (s2.guild ?? 0) - 40);
       notify(s2, `${target.name} was handed over to the Hunter's Guild.`, true);
       return true;
     }
-    if (label.startsWith("Hide")) {
+    if (label2.startsWith("Hide")) {
       const social = Math.max(1, ...inTown(s2).map((p2) => p2.skills.social.level));
       if (rng.chance(HIDE_BASE + social * HIDE_PER_SOCIAL)) {
         s2.guild = Math.max(0, (s2.guild ?? 0) - 15);
@@ -20164,9 +20164,9 @@ ${src}`;
     });
     notify(s2, "The Moon Rite is ready. A choice awaits.", true);
   }
-  function answerRite(s2, label) {
+  function answerRite(s2, label2) {
     const main = s2.people.find((p2) => p2.id === s2.mainId);
-    const kind = label.startsWith("Embrace") ? "vampire" : label.startsWith("Answer the moon") ? "werewolf" : null;
+    const kind = label2.startsWith("Embrace") ? "vampire" : label2.startsWith("Answer the moon") ? "werewolf" : null;
     if (!main || !kind) return notify(s2, "The rite was refused.");
     main.monster = kind;
     main.order = "fight";
@@ -22215,25 +22215,25 @@ ${src}`;
     prompt.defaultOption = defaultOption;
     s2.guildTarget = target.id;
   }
-  function answerRaidPrompt(s2, label, rng) {
+  function answerRaidPrompt(s2, label2, rng) {
     const r2 = s2.raid;
     if (!r2) return;
     r2.prompt = null;
     if (r2.kind === "hunters") {
-      if (answerGuild(s2, label, rng)) {
+      if (answerGuild(s2, label2, rng)) {
         s2.raid = null;
         s2.guildTarget = null;
       }
       return;
     }
-    if (label.startsWith("Pay")) {
+    if (label2.startsWith("Pay")) {
       if (takeFood(s2, bribeCost(r2))) {
         notify(s2, `You paid off the ${RAID_KIND_BY_ID[r2.kind].name.toLowerCase()}. They turn back.`, true);
         s2.raid = null;
         return;
       }
       notify(s2, "Not enough food to pay them off. Sound the alarm!");
-    } else if (label.startsWith("Recall")) {
+    } else if (label2.startsWith("Recall")) {
       for (const e2 of s2.expeditions) recallExpedition(s2, e2.id);
       notify(s2, "Expeditions recalled. They are a long way off, though.");
     }
@@ -22713,9 +22713,9 @@ ${src}`;
     return built(s2, "well") ? DROUGHT_GROWTH_WELL : DROUGHT_GROWTH;
   }
   var doomForage = (s2) => drought(s2) ? DROUGHT_FORAGE : striking(s2, "ash_winter") ? ASH_FORAGE : striking(s2, "deep_freeze") ? FREEZE_FORAGE : 1;
-  function answerLich(s2, label) {
+  function answerLich(s2, label2) {
     if (s2.doom?.kind !== "outbreak") return;
-    if (label.startsWith("Command")) {
+    if (label2.startsWith("Command")) {
       s2.doom.commanded = true;
       personFx(s2, s2.mainId, "undead");
       notify(s2, "The lich raises a hand, and most of the dead bow. Each wave, they turn on their own kind.", true);
@@ -24177,15 +24177,15 @@ ${src}`;
       return;
     }
     let r2 = rng.next() * poolSize(tile.pool);
-    let pick = entries[entries.length - 1][0];
+    let pick2 = entries[entries.length - 1][0];
     for (const [m2, n2] of entries) {
       if ((r2 -= n2) < 0) {
-        pick = m2;
+        pick2 = m2;
         break;
       }
     }
-    addStock(tile.pool, pick, -1);
-    addStock(p2.carrying, pick, 1);
+    addStock(tile.pool, pick2, -1);
+    addStock(p2.carrying, pick2, 1);
     gainSkill(p2, "gathering", GATHER_XP);
     if (poolSize(tile.pool) === 0) {
       tile.terrain = "clear";
@@ -25216,13 +25216,133 @@ ${src}`;
     return h2 ? `${h2}h ${minutes % 60}m` : `${minutes}m`;
   }
 
+  // src/shared/data/worldMap.ts
+  var MAP_SIZE = 768;
+  var MAP_HOME = { x: 395, y: 410 };
+  var MAP_SPOTS = {
+    berry_thicket: { x: 360, y: 470 },
+    riverbank: { x: 275, y: 345 },
+    deep_woods: { x: 530, y: 360 },
+    old_quarry: { x: 240, y: 460 },
+    bear_cave: { x: 120, y: 140 },
+    iron_hills: { x: 390, y: 150 },
+    old_ruins: { x: 215, y: 330 },
+    bandit_camp: { x: 90, y: 330 },
+    lost_village: { x: 165, y: 600 },
+    coal_fields: { x: 230, y: 560 },
+    abandoned_mill: { x: 330, y: 260 },
+    gang_hideout: { x: 190, y: 220 },
+    oil_fields: { x: 610, y: 470 },
+    ghost_city: { x: 440, y: 620 },
+    militia_compound: { x: 610, y: 590 },
+    crater: { x: 620, y: 130 },
+    fallen_satellite: { x: 590, y: 300 },
+    rogue_foundry: { x: 680, y: 560 },
+    dark_keep: { x: 420, y: 70 },
+    dragon_lair: { x: 100, y: 650 },
+    baron_manor: { x: 300, y: 520 },
+    warlord_fort: { x: 650, y: 380 },
+    pirate_flagship: { x: 330, y: 690 }
+  };
+
+  // src/renderer/panel/worldMapView.ts
+  var SVG = "http://www.w3.org/2000/svg";
+  var pct = (v2) => `${v2 / MAP_SIZE * 100}%`;
+  var WorldMapView = class {
+    constructor(onPick) {
+      this.onPick = onPick;
+      this.svg.setAttribute("viewBox", `0 0 ${MAP_SIZE} ${MAP_SIZE}`);
+      this.svg.setAttribute("class", "map-svg");
+      this.el.append(this.svg, this.marks);
+    }
+    onPick;
+    el = el("div", "world-map");
+    svg = document.createElementNS(SVG, "svg");
+    marks = el("div", "map-marks");
+    key = "";
+    update(dests, picked2, parties) {
+      const key2 = JSON.stringify([dests, picked2, parties.map((e2) => [e2.id, e2.dest, Math.round(tripProgress(e2) * 200), e2.phase])]);
+      if (key2 === this.key) return;
+      this.key = key2;
+      this.svg.replaceChildren();
+      this.marks.replaceChildren();
+      const route = (to, cls) => {
+        const line = document.createElementNS(SVG, "line");
+        line.setAttribute("x1", String(MAP_HOME.x));
+        line.setAttribute("y1", String(MAP_HOME.y));
+        line.setAttribute("x2", String(to.x));
+        line.setAttribute("y2", String(to.y));
+        line.setAttribute("class", cls);
+        this.svg.append(line);
+      };
+      for (const e2 of parties) if (MAP_SPOTS[e2.dest]) route(MAP_SPOTS[e2.dest], "map-route party");
+      const pickedSpot = picked2 ? MAP_SPOTS[picked2] : void 0;
+      if (pickedSpot) route(pickedSpot, "map-route picked");
+      for (const d2 of dests) {
+        const at = MAP_SPOTS[d2.id];
+        if (!at) continue;
+        const dot = el("button", `map-dot${d2.unlocked ? "" : " locked"}${d2.id === picked2 ? " on" : ""}`);
+        dot.title = d2.name;
+        dot.setAttribute("aria-label", d2.name);
+        place(dot, at);
+        dot.addEventListener("click", () => this.onPick(d2.id));
+        this.marks.append(dot);
+      }
+      const home = el("div", "map-home");
+      place(home, MAP_HOME);
+      this.marks.append(home, label("Home", MAP_HOME, "home"));
+      const pickedDest = dests.find((d2) => d2.id === picked2);
+      if (pickedSpot && pickedDest) {
+        const flag = el("div", "map-flag");
+        place(flag, pickedSpot);
+        this.marks.append(flag, label(pickedDest.name, pickedSpot, "picked"));
+      }
+      for (const e2 of parties) {
+        const to = MAP_SPOTS[e2.dest];
+        if (!to) continue;
+        const t2 = e2.phase === "out" ? e2.phaseProgress : e2.phase === "work" ? 1 : 1 - e2.phaseProgress;
+        const at = { x: MAP_HOME.x + (to.x - MAP_HOME.x) * t2, y: MAP_HOME.y + (to.y - MAP_HOME.y) * t2 };
+        const p2 = el("div", `map-party${e2.battle ? " fighting" : ""}`, String(e2.members.length));
+        p2.title = `${e2.destName}: ${e2.members.map((m2) => m2.name).join(", ")}`;
+        place(p2, at);
+        this.marks.append(p2);
+      }
+    }
+  };
+  function place(node, at) {
+    node.style.left = pct(at.x);
+    node.style.top = pct(at.y);
+  }
+  function label(text, at, cls) {
+    const l2 = el("div", `map-label ${cls}`, text);
+    place(l2, at);
+    if (at.x < 110) l2.classList.add("left");
+    else if (at.x > MAP_SIZE - 110) l2.classList.add("right");
+    if (at.y > MAP_SIZE - 60) l2.classList.add("above");
+    return l2;
+  }
+
   // src/renderer/panel/expeditionsPanel.ts
   var picked = /* @__PURE__ */ new Map();
   var pickedRoles = /* @__PURE__ */ new Map();
   var pickedStance = /* @__PURE__ */ new Map();
   var pickedHorses = /* @__PURE__ */ new Map();
   var pickedTruck = /* @__PURE__ */ new Map();
+  var mapPick = null;
+  var rerenderBoard = () => {
+  };
+  var worldMap = new WorldMapView((id) => {
+    mapPick = id;
+    rerenderBoard();
+    setTimeout(() => document.querySelector(`[data-dest="${id}"]`)?.scrollIntoView({ block: "center" }), 0);
+  });
+  var pick = (id) => {
+    if (mapPick === id) return;
+    mapPick = id;
+    rerenderBoard();
+  };
   var expeditionsKey = (s2) => JSON.stringify([
+    mapPick,
     s2.expeditions.map((e2) => [e2.id, e2.phase, Math.floor(e2.phaseProgress * 50), e2.lootSize, e2.recalled, e2.waiting, e2.battle?.map((f2) => [f2.hp, f2.down])]),
     s2.era,
     s2.destinations,
@@ -25240,14 +25360,32 @@ ${src}`;
   ]);
   var listStock2 = (st) => MATERIALS.filter((m2) => (st[m2] ?? 0) > 0).map((m2) => `${MATERIAL_NAMES[m2]} ${st[m2]}`).join(", ");
   function renderExpeditions(s2, bridge2, rerender) {
+    rerenderBoard = rerender;
     const out = [];
     const head = el("div", "panel-head");
     head.append(el("span", "", `Expeditions out ${s2.expeditions.length}/${MAX_EXPEDITIONS}`), el("span", "", `Parties of up to ${MAX_PARTY}`));
     out.push(head);
-    for (const e2 of s2.expeditions) out.push(activeCard(e2, s2, bridge2));
+    const shown2 = DESTINATIONS.filter((d2) => s2.unlockAll || eraReached(s2.era, d2.era));
+    worldMap.update(
+      shown2.map((d2) => ({ id: d2.id, name: d2.name, unlocked: !!s2.destinations.find((v2) => v2.id === d2.id)?.unlocked })),
+      mapPick,
+      s2.expeditions
+    );
+    out.push(worldMap.el, el("div", "hint map-hint", "Tap a place on the map, or a destination below, to mark it."));
+    for (const e2 of s2.expeditions) {
+      const card3 = activeCard(e2, s2, bridge2);
+      card3.addEventListener("click", () => pick(e2.dest));
+      out.push(card3);
+    }
     out.push(el("h2", "", "Destinations"));
     const grid = el("div", "cards wide");
-    for (const d2 of DESTINATIONS) if (s2.unlockAll || eraReached(s2.era, d2.era)) grid.append(destinationCard(d2, s2.destinations.find((v2) => v2.id === d2.id), s2, bridge2, rerender));
+    for (const d2 of shown2) {
+      const card3 = destinationCard(d2, s2.destinations.find((v2) => v2.id === d2.id), s2, bridge2, rerender);
+      card3.dataset.dest = d2.id;
+      if (d2.id === mapPick) card3.classList.add("chosen");
+      card3.addEventListener("click", () => pick(d2.id));
+      grid.append(card3);
+    }
     out.push(grid);
     out.push(el("div", "hint", "Fighters stand in front; scouts, medics and porters in back. Parties fall back when hurt past their stance, or when you are badly hurt. The downed bleed out unless a medic tends them."));
     return out;
@@ -25300,7 +25438,7 @@ ${src}`;
     const list3 = el("div", "party");
     for (const p2 of home) {
       const row2 = el("div", "pick-row");
-      const label = el("label", "pick");
+      const label2 = el("label", "pick");
       const box = el("input");
       box.type = "checkbox";
       box.checked = party.includes(p2.id);
@@ -25311,8 +25449,8 @@ ${src}`;
         rerender();
       });
       const hurt = p2.downed ? " \xB7 too hurt to go" : p2.hp < p2.maxHp ? ` \xB7 HP ${Math.round(p2.hp)}/${p2.maxHp}` : "";
-      label.append(box, document.createTextNode(` ${p2.name} (${skillNote(d2, p2)}${hurt})`));
-      row2.append(label);
+      label2.append(box, document.createTextNode(` ${p2.name} (${skillNote(d2, p2)}${hurt})`));
+      row2.append(label2);
       if (box.checked) {
         const sel = el("select");
         for (const [id, r2] of Object.entries(ROLES)) {
@@ -25358,14 +25496,14 @@ ${src}`;
     const truck = !!pickedTruck.get(d2.id) && trucks > 0 && fuel >= TRUCK_FUEL;
     if (trucks > 0) {
       const row2 = el("div", "row");
-      const label = el("label", "pick");
+      const label2 = el("label", "pick");
       const box = el("input");
       box.type = "checkbox";
       box.checked = truck;
       box.disabled = fuel < TRUCK_FUEL;
       box.addEventListener("change", () => (pickedTruck.set(d2.id, box.checked), rerender()));
-      label.append(box, document.createTextNode(fuel < TRUCK_FUEL ? ` Take a truck (needs ${TRUCK_FUEL} fuel, ${fuel} stored)` : ` Take a truck (carries ${TRUCK_CARRY}, burns ${TRUCK_FUEL} fuel)`));
-      row2.append(label);
+      label2.append(box, document.createTextNode(fuel < TRUCK_FUEL ? ` Take a truck (needs ${TRUCK_FUEL} fuel, ${fuel} stored)` : ` Take a truck (carries ${TRUCK_CARRY}, burns ${TRUCK_FUEL} fuel)`));
+      row2.append(label2);
       c2.append(row2);
     }
     const foodHave = Object.keys(FOOD_VALUE).reduce((n2, m2) => n2 + (s2.stock[m2] ?? 0) * FOOD_VALUE[m2], 0);
@@ -25410,7 +25548,7 @@ ${src}`;
     const list3 = el("div");
     const row2 = el("div", "row");
     const draw = () => {
-      row2.replaceChildren(...FILTERS.map(([f2, label]) => button(label, () => (filter = f2, draw()), { cls: `place small${filter === f2 ? "" : " quiet"}` })));
+      row2.replaceChildren(...FILTERS.map(([f2, label2]) => button(label2, () => (filter = f2, draw()), { cls: `place small${filter === f2 ? "" : " quiet"}` })));
       const shown2 = filter === "all" ? entries : filter === "key" ? entries.filter((e2) => e2.key || e2.lines) : entries.filter(isDeath);
       list3.replaceChildren(...shown2.length ? entryRows(shown2) : [el("p", "empty", filter === "deaths" ? "Nobody has died. Yet." : "Nothing like that yet.")]);
       if (filter === "all" && entries.length >= 200) list3.append(platino());
@@ -25447,8 +25585,8 @@ ${src}`;
   // src/renderer/panel/researchPanel.ts
   var researchKey = (s2) => {
     const r2 = s2.research;
-    const pct = Object.fromEntries(Object.entries(r2.progress).map(([k2, v2]) => [k2, Math.floor(v2 * 100)]));
-    return JSON.stringify([s2.era, s2.unlockAll, r2.done, r2.revealed, r2.queue, pct, r2.slots, r2.station, r2.speed]);
+    const pct2 = Object.fromEntries(Object.entries(r2.progress).map(([k2, v2]) => [k2, Math.floor(v2 * 100)]));
+    return JSON.stringify([s2.era, s2.unlockAll, r2.done, r2.revealed, r2.queue, pct2, r2.slots, r2.station, r2.speed]);
   };
   var BUILDINGS_BY_TOPIC = /* @__PURE__ */ new Map();
   for (const b2 of BUILDINGS) if (b2.research) BUILDINGS_BY_TOPIC.set(b2.research, [...BUILDINGS_BY_TOPIC.get(b2.research) ?? [], b2.name]);
@@ -25764,13 +25902,13 @@ Not yet: ${reason}.` : ""}`
     }
     return d2;
   }
-  function bar(label, value, text) {
+  function bar(label2, value, text) {
     const r2 = el("div", "bar-row");
     const b2 = el("div", "bar");
     const f2 = el("div", value < 0.25 ? "bar-fill low" : "bar-fill");
     f2.style.width = `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
     b2.append(f2);
-    r2.append(el("span", "bar-label", label), b2, el("span", "bar-text", text));
+    r2.append(el("span", "bar-label", label2), b2, el("span", "bar-text", text));
     return r2;
   }
 
@@ -25855,13 +25993,13 @@ Not yet: ${reason}.` : ""}`
       lead.max = "120";
       lead.value = String(cur.leadMinutes);
       lead.addEventListener("change", () => void save({ leadMinutes: Number(lead.value) }));
-      const check = (label, key2) => {
+      const check = (label2, key2) => {
         const l2 = el("label", "check");
         const box = el("input");
         box.type = "checkbox";
         box.checked = cur[key2];
         box.addEventListener("change", () => void save({ [key2]: box.checked }));
-        l2.append(box, el("span", "", label));
+        l2.append(box, el("span", "", label2));
         return l2;
       };
       const paint = () => {
@@ -25885,9 +26023,9 @@ Not yet: ${reason}.` : ""}`
     });
     return out;
   }
-  function row(label, input) {
+  function row(label2, input) {
     const r2 = el("label", "form-row");
-    r2.append(el("span", "form-label", label), input);
+    r2.append(el("span", "form-label", label2), input);
     return r2;
   }
 
@@ -26066,17 +26204,17 @@ ${skills}`, () => (background = b2.id, drawBackgrounds()));
     nameInput.addEventListener("input", () => name = nameInput.value);
     const looks = el("div", "looks");
     const drawLooks = () => {
-      const swatches = (label, list3, cur, set) => {
+      const swatches = (label2, list3, cur, set) => {
         const row2 = el("div", "look-row");
         const colours = el("div", "swatches");
         for (const c2 of list3) {
           const s2 = el("button", `swatch${c2 === cur ? " on" : ""}`);
           s2.style.background = c2;
-          s2.title = label;
+          s2.title = label2;
           s2.addEventListener("click", () => (set(c2), drawLooks(), drawPreview()));
           colours.append(s2);
         }
-        row2.append(el("span", "look-label", label), colours);
+        row2.append(el("span", "look-label", label2), colours);
         return row2;
       };
       const style = el("div", "look-row");

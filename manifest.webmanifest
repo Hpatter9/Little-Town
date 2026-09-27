@@ -1,6 +1,6 @@
 {
-  "name": "Little Town",
-  "short_name": "Little Town",
+  "name": "Chronos Settlement",
+  "short_name": "Chronos",
   "description": "A pixel-art idle town builder that lives in a strip above the taskbar.",
   "start_url": "./",
   "scope": "./",

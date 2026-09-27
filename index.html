@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon-192.png" />
     <link rel="apple-touch-icon" href="icon-192.png" />
-    <title>Little Town</title>
+    <title>Chronos Settlement</title>
     <style>
       :root {
         --bg: #211811;
@@ -192,53 +192,6 @@
       #inspect .inspect-actions button.danger {
         background: #6a2a20;
       }
-      /* on its side there's only the title bar's height to spare: one row of name, details, buttons, close
-         (after the rules above, so it wins) */
-      @media (max-height: 560px) {
-        #inspect {
-          top: calc(env(safe-area-inset-top) + 5px);
-          bottom: auto;
-          right: calc(env(safe-area-inset-right) + 64px);
-          max-height: none;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          overflow: hidden;
-          padding: 4px 6px 4px 10px;
-        }
-        #inspect .inspect-top {
-          display: contents;
-        }
-        #inspect .inspect-title {
-          order: 1;
-          flex: none;
-          font-size: 14px;
-        }
-        #inspect .inspect-lines {
-          order: 2;
-          flex: 1;
-          min-width: 0;
-          margin: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        #inspect .inspect-actions {
-          order: 3;
-          flex: none;
-          flex-wrap: nowrap;
-        }
-        #inspect .inspect-actions button {
-          min-height: 30px;
-          padding: 0 10px;
-        }
-        #inspect .inspect-close {
-          order: 4;
-          width: 30px;
-          height: 28px;
-        }
-      }
-
       /* the menus' tabs, just above the town: two rows of four, or one row on a phone on its side */
       #tabs {
         position: fixed;
@@ -296,7 +249,7 @@
         background: linear-gradient(#7fb05a, #4f7a34);
       }
 
-      /* the menus: above the tabs, or the whole screen when there's no room above them */
+      /* the menus: above the tabs (on its side: over the right half of the town, see the end) */
       #sheet {
         position: fixed;
         top: env(safe-area-inset-top);
@@ -304,11 +257,6 @@
         right: env(safe-area-inset-right);
         bottom: calc(var(--strip-h) + var(--tabs-h) + env(safe-area-inset-bottom));
         z-index: 3;
-      }
-      @media (max-height: 560px) {
-        #sheet {
-          bottom: env(safe-area-inset-bottom);
-        }
       }
       #sheet iframe {
         width: 100%;
@@ -335,11 +283,53 @@
         justify-content: center;
         color: var(--text-dim);
       }
+
+      /* A phone on its side: no title bar. The tabs run across the top with the ☰ at their end, the town fills the
+         rest, and the menus (and the selected thing's card) open over the right half of the town, leaving the left
+         half to look at and tap. (Last in the sheet, so these win over the rules above.) */
+      @media (orientation: landscape) and (max-height: 560px) {
+        #top {
+          top: calc(env(safe-area-inset-top) + 6px);
+          left: auto;
+          right: calc(env(safe-area-inset-right) + 6px);
+          padding: 0;
+          z-index: 4;
+        }
+        #top-title {
+          display: none;
+        }
+        #menu-btn {
+          height: 38px;
+        }
+        #menu {
+          top: calc(env(safe-area-inset-top) + var(--tabs-h) + 4px);
+        }
+        #tabs {
+          top: env(safe-area-inset-top);
+          bottom: auto;
+          padding: 6px 58px 6px 6px;
+          border-top: 0;
+          border-bottom: 2px solid var(--wood-edge);
+        }
+        #sheet {
+          top: calc(env(safe-area-inset-top) + var(--tabs-h));
+          left: 50%;
+          bottom: env(safe-area-inset-bottom);
+          border-left: 2px solid var(--wood-edge);
+        }
+        #inspect {
+          top: calc(env(safe-area-inset-top) + var(--tabs-h) + 8px);
+          bottom: auto;
+          left: calc(50% + 8px);
+          right: calc(env(safe-area-inset-right) + 8px);
+          max-height: calc(100% - var(--tabs-h) - 16px - env(safe-area-inset-bottom));
+        }
+      }
     </style>
   </head>
   <body>
     <div id="top">
-      <span id="top-title">Little Town</span>
+      <span id="top-title">Chronos Settlement</span>
       <button id="menu-btn" title="Menu">☰</button>
     </div>
     <div id="menu" hidden></div>
