@@ -6,7 +6,15 @@ import { canTrain } from './classes';
 import { turnable, undeadShare } from './turning';
 import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
 import { weatherAt, type WeatherNow } from './weather';
-import { directionOf, type Direction, type TownPlan } from './planner';
+import { directionOf, forSale, shoppingList, type Direction, type TownPlan } from './planner';
+import { appeal, attractiveness, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect } from './shop';
+import { moneyTown, wageBill } from './wages';
+import { COMMON, qualityOf, typicalQuality } from '../data/quality';
+import { OPERATORS } from '../data/operators';
+import { itemUnlocked, qualitiesOf } from './crafting';
+import { FARE, furnishes, MAX_EXTENSIONS, temperOf, tierOf, venueOfDef, WARES } from '../data/shop';
+import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../data/items';
+import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
 import { DESTINATION_BY_ID, DESTINATIONS } from '../data/expeditions';
@@ -27,7 +35,7 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, totalCapacity, totalStock } from './buildings';
 import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
 import { modifiers, researchStation } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Needs, type Notice, type Person, type TileState } from './state';
+import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';
 
@@ -75,8 +83,15 @@ export interface PersonView {
   downed: 'bleeding' | 'recovering' | null;
   /** Bleeding: game minutes until they bleed out. */
   bleedMinutes: number | null;
-  /** Worn items by slot (item ids). */
+  /** Worn items by slot (item ids), and their quality. */
   gear: Partial<Record<Slot, string>>;
+  gearQ: Partial<Record<Slot, number>>;
+  /** Their own coins (wages, for their gear), once the town has money. */
+  coins: number | null;
+  /** A little more about them: the role they fill, how their work is going, what their crafting is like. */
+  detail: string[];
+  /** What they've done lately, newest first. */
+  recent: string[];
   /** Sleeps on a bedroll (no bed). */
   bedroll: boolean;
   carryCapacity: number;
@@ -220,8 +235,82 @@ export interface VisitorView extends PersonView {
   leaving: boolean;
 }
 
+/** The town's shop, as its bird's-eye window shows it. */
+/** A venue (the shop or the tavern), as its bird's-eye window shows it. A tavern's `appeal` is its comfort. */
+export interface ShopView {
+  venue: 'shop' | 'tavern';
+  building: number;
+  def: string;
+  name: string;
+  /** Being built (or rebuilt bigger): 0..1. */
+  progress: number | null;
+  cols: number;
+  rows: number;
+  counter: Rect;
+  keeper: Rect;
+  door: number;
+  pieces: { item: string; name: string; kind: FurnishKind; x: number; y: number; w: number; h: number; appeal: number; level: number; nextLevel: number | null; q: number }[];
+  /** The floor's appeal, the shop's renown, and the two together (which decides who comes). */
+  appeal: number;
+  renown: number;
+  attractiveness: number;
+  /** Extensions bought, most there can be, and what the next costs. */
+  extensions: number;
+  maxExtensions: number;
+  nextExtension: number | null;
+  /** The ladder of customers: who it draws (from what attractiveness), and the wares each wants (how many are in
+   *  stock, and what the town still needs to make them). */
+  tiers: { tier: number; name: string; plural: string; from: number; drawn: boolean; wares: { name: string; price: number; have: number; needs: string | null }[] }[];
+  keeperName: string | null;
+  keeperLook: Look | null;
+  /** Strangers inside now: who they are, what they came for, their temper, and (at the tavern) the comfort they need. */
+  customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null }[];
+  /** What customers came for lately and didn't find (the town makes it), most asked first. */
+  asked: { what: string; times: number }[];
+  /** The tavern's menu: every dish, how many are ready (by quality), its price, and what's still needed to make it. */
+  menu: { name: string; kind: string; have: number; best: number; price: number; needs: string | null }[];
+  /** Spare gear in stock (for customers, and for the townsfolk to buy). */
+  gear: { name: string; q: number; n: number; price: number }[];
+  /** Coming (walking in) or going (walking out). */
+  passing: number;
+  forSale: Stock;
+  wants: { m: Material; n: number; essential: boolean }[];
+  log: { when: string; text: string }[];
+  /** Game hours until the next traveller is due, if the shop's open. */
+  nextHours: number | null;
+  /** A furnishing being made for it, and ones made and waiting to be set out. */
+  making: string | null;
+  waiting: string[];
+  /** What would make it bigger next, once learned. */
+  grows: { name: string; research: string | null } | null;
+}
+
+export interface TravellerView {
+  id: number;
+  name: string;
+  kind: string;
+  venue: 'shop' | 'tavern';
+  /** What they came for, in words, their temper, and the coins they have to spend. */
+  wants: string;
+  temper: string;
+  purse: number;
+  look: Look;
+  x: number;
+  dir: 1 | -1;
+  phase: 'arriving' | 'shopping' | 'leaving';
+  tier: number;
+}
+
 export interface Snapshot {
   seed: string;
+  /** The town's coins (from selling to travellers), its shop (once one's planned), and the travellers in town. */
+  coins: number;
+  shop: ShopView | null;
+  tavern: ShopView | null;
+  /** What a day's wages come to (once the town has money), and yesterday's coins in and out by where from. */
+  wageBill: number;
+  ledger: Ledger | null;
+  travellers: TravellerView[];
   tick: number;
   paused: boolean;
   calendar: Calendar;
@@ -342,6 +431,12 @@ export function snapshot(s: GameState): Snapshot {
   const v = s.visitor;
   return {
     seed: s.seed,
+    coins: Math.floor(s.coins ?? 0),
+    shop: venueView(s, 'shop'),
+    tavern: venueView(s, 'tavern'),
+    wageBill: moneyTown(s) ? wageBill(s) : 0,
+    ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
+    travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
     tick: s.tick,
     paused: s.paused,
     calendar: calendar(s.tick),
@@ -465,6 +560,102 @@ export function snapshot(s: GameState): Snapshot {
   };
 }
 
+/** What the town sells and buys changes slowly: worked out afresh every few ticks, not on every snapshot. */
+let dealsCache: { state: GameState; tick: number; forSale: Stock; wants: ShopView['wants'] } | null = null;
+const DEALS_EVERY = 10;
+
+function venueView(s: GameState, venue: 'shop' | 'tavern'): ShopView | null {
+  const b = s.buildings.find((q) => venueOfDef(q.def) === venue);
+  if (!b) return null;
+  const inside = (s.travellers ?? []).filter((t) => (t.venue ?? 'shop') === venue);
+  const needs = (w: ItemDef) => {
+    const missing = w.research.filter((r) => !s.research.done.includes(r)).map((r) => TOPIC_BY_ID[r]?.name ?? r);
+    return missing.length ? `needs ${missing.join(' and ')}` : !itemUnlocked(s, w) ? 'not yet' : !stationFor(s, w) ? `needs a ${BUILDING_BY_ID[w.station]?.name ?? w.station}` : null;
+  };
+  const def = BUILDING_BY_ID[b.def];
+  const layout = shopLayout(b);
+  if (!dealsCache || dealsCache.state !== s || Math.abs(s.tick - dealsCache.tick) >= DEALS_EVERY) dealsCache = { state: s, tick: s.tick, forSale: forSale(s), wants: shoppingList(s) };
+  const keeper = b.operator != null ? s.people.find((p) => p.id === b.operator && p.away === null && !p.downed) : undefined;
+  const open = b.status === 'done' && !!keeper;
+  const next = UPGRADES[b.def] ? BUILDING_BY_ID[UPGRADES[b.def]] : undefined;
+  const mine = (id: string) => !!ITEM_BY_ID[id] && furnishes(ITEM_BY_ID[id], venue);
+  const making = s.crafting.find((o) => mine(o.item));
+  return {
+    venue,
+    building: b.id,
+    def: b.def,
+    name: def.name,
+    progress: b.status === 'blueprint' ? b.progress : null,
+    ...layout,
+    pieces: (b.shop?.pieces ?? []).map((p) => {
+      const item = ITEM_BY_ID[p.item];
+      const f = item.furnish!;
+      return { item: p.item, name: item.name, kind: f.kind, x: p.x, y: p.y, w: f.w, h: f.h, appeal: f.appeal, level: p.level ?? 1, nextLevel: levelPrice(p), q: p.q ?? COMMON };
+    }),
+    appeal: appeal(b),
+    renown: Math.floor(renownOf(b)),
+    attractiveness: attractiveness(s, b),
+    extensions: extensionsOf(b),
+    maxExtensions: MAX_EXTENSIONS,
+    nextExtension: extensionPrice(s, b),
+    tiers: venue === 'tavern' ? [] : customerTiers(s, b).map((c) => ({
+      tier: c.tier,
+      name: c.name,
+      plural: c.plural,
+      from: c.from,
+      drawn: c.drawn,
+      wares: WARES.filter((w) => w.ware!.tier === c.tier).map((w) => ({ name: w.name, price: w.ware!.price, have: s.items[w.id] ?? 0, needs: needs(w) })),
+    })),
+    keeperName: keeper?.name ?? null,
+    keeperLook: keeper?.look ?? null,
+    customers: inside
+      .filter((t) => t.phase === 'shopping' && s.tick < t.until)
+      .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null })),
+    passing: inside.filter((t) => t.phase !== 'shopping').length,
+    asked: Object.entries(b.shop?.asked ?? {})
+      .sort((x, y) => y[1] - x[1])
+      .slice(0, 6)
+      .map(([k, n]) => ({ what: askedText(k), times: Math.round(n) })),
+    menu:
+      venue === 'tavern'
+        ? FARE.map((i) => ({ name: i.name, kind: i.fare!.kind, have: s.items[i.id] ?? 0, best: qualitiesOf(s, i.id)[0] ?? COMMON, price: farePrice(s, i, COMMON), needs: needs(i) }))
+        : [],
+    gear:
+      venue === 'shop'
+        ? SALE_GEAR.flatMap((i) => [...new Set(qualitiesOf(s, i.id))].map((q) => ({ name: i.name, q, n: qualitiesOf(s, i.id).filter((x) => x === q).length, price: itemPrice(i, q) })))
+        : [],
+    forSale: venue === 'shop' ? dealsCache.forSale : {},
+    wants: venue === 'shop' ? dealsCache.wants : [],
+    log: (b.shop?.log ?? []).map((l) => ({ when: entryView({ id: 0, tick: l.tick, text: '' }).when, text: l.text })),
+    nextHours: ((due) => (open && due !== undefined ? Math.max(0, (due - s.tick) / TICKS_PER_HOUR) : null))(venue === 'shop' ? s.nextTravellerTick : s.nextGuestTick),
+    making: making ? ITEM_BY_ID[making.item].name : null,
+    waiting: Object.entries(s.items).filter(([id, n]) => n > 0 && mine(id)).map(([id, n]) => (n > 1 ? `${ITEM_BY_ID[id].name} ×${n}` : ITEM_BY_ID[id].name)),
+    grows: next ? { name: next.name, research: next.research && !s.research.done.includes(next.research) ? (TOPIC_BY_ID[next.research]?.name ?? next.research) : null } : null,
+  };
+}
+
+/** An unmet want, from the key it's remembered by, in words. */
+function askedText(key: string): string {
+  const [kind, what] = key.split(':');
+  switch (kind) {
+    case 'gear':
+      return what === 'tool' ? 'tools' : what === 'weapon' ? 'weapons' : 'armour';
+    case 'item':
+    case 'dish':
+      return ITEM_BY_ID[what]?.name ?? what;
+    case 'ware':
+      return `fine goods for ${tierOf(Number(what)).plural.toLowerCase()}`;
+    case 'mat':
+      return MATERIAL_NAMES[what as Material]?.toLowerCase() ?? what;
+    case 'fare':
+      return FARE_NAMES[what as FareKind] ?? what;
+    case 'comfort':
+      return 'more comfort';
+    default:
+      return key;
+  }
+}
+
 function awayView(s: GameState): JournalEntryView | null {
   const e = s.unreadAway === null ? undefined : s.journal.find((q) => q.id === s.unreadAway);
   return e ? entryView(e) : null;
@@ -509,6 +700,10 @@ function personView(s: GameState, p: Person, stock?: Stock): PersonView {
     downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
     bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,
     gear: { ...p.gear },
+    gearQ: { ...(p.gearQ ?? {}) },
+    coins: p.coins ?? (moneyTown(s) ? 0 : null),
+    detail: personDetail(s, p),
+    recent: [...(p.recent ?? [])].reverse().map((r) => r.text),
     bedroll: hasBedroll(s, p),
     carryCapacity: carryCapacity(s, p),
     partner: p.partner == null ? null : (s.people.find((q) => q.id === p.partner)?.name ?? null),
@@ -521,6 +716,33 @@ function personView(s: GameState, p: Person, stock?: Stock): PersonView {
     order: p.monster ? (p.order ?? 'hide') : null,
     sick: !!p.sick,
   };
+}
+
+/** A line or two more about someone: the building they run, how their work is getting on, and (for a crafter) what
+ *  their pieces usually come out like. */
+function personDetail(s: GameState, p: Person): string[] {
+  const out: string[] = [];
+  for (const b of s.buildings) {
+    if (b.operator !== p.id || b.status !== 'done') continue;
+    const role = OPERATORS[b.def];
+    if (!role) continue;
+    const def = BUILDING_BY_ID[b.def];
+    const inside = def.floor ? (s.travellers ?? []).filter((t) => t.phase === 'shopping' && (t.venue ?? 'shop') === def.floor!.venue).length : 0;
+    out.push(`${role.title} of the ${def.name}` + (def.floor ? (inside ? ` (${inside} ${def.floor.venue === 'tavern' ? 'guest' : 'customer'}${inside > 1 ? 's' : ''} in)` : ' (nobody in)') : ''));
+  }
+  const task = p.task;
+  if (task?.type === 'build') {
+    const b = s.buildings.find((q) => q.id === task.building);
+    if (b) out.push(`The ${defOf(b).name} is ${Math.floor(b.progress * 100)}% built`);
+  } else if (task?.type === 'research') {
+    const t = TOPIC_BY_ID[s.research.queue[0]];
+    if (t) out.push(`${t.name}: ${Math.floor(((s.research.progress[t.id] ?? 0) as number) * 100)}% learned`);
+  } else if (task?.type === 'craft' || (p.priorities.craft && p.priorities.craft <= 2)) {
+    out.push(`Crafting ${p.skills.crafting.level}: their pieces usually come out ${qualityOf(Math.round(typicalQuality(p.skills.crafting.level))).name}`);
+  } else if (task?.type === 'gather' && !task.scrounge && s.plan?.gathering.length) {
+    out.push(`The town is gathering for ${s.plan.gathering.join(', ').toLowerCase()}`);
+  }
+  return out;
 }
 
 const BREAK_TEXT = { sulk: 'Sulking in a corner', binge: 'Stress-eating everything in sight', brawl: 'Picking a fight', wander: 'Wandering off to be alone' } as const;
@@ -666,7 +888,12 @@ function describe(s: GameState, p: Person): string {
     case 'craft': {
       const o = s.crafting.find((q) => q.id === task.order);
       const item = o ? ITEM_BY_ID[o.item].name : 'something';
-      return task.phase === 'work' ? `Crafting: ${item}` : `Fetching materials to craft: ${item}`;
+      // (a commission says who it's for, who asked, and for how much)
+      const f = o?.for;
+      const keeper = f ? s.people.find((q) => q.id === f.by) : undefined;
+      const place = f ? s.buildings.find((b) => BUILDING_BY_ID[b.def]?.floor?.venue === f.venue) : undefined;
+      const forWhom = f ? ` for the ${place ? BUILDING_BY_ID[place.def].name : f.venue}${keeper && keeper !== p ? `, ordered by ${keeper.name}` : ''}, ${f.pay} coins` : '';
+      return task.phase === 'work' ? `Crafting: ${item} (${Math.floor((o?.progress ?? 0) * 100)}%)${forWhom}` : `Fetching materials to craft: ${item}${forWhom}`;
     }
   }
 }

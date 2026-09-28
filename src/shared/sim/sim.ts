@@ -28,7 +28,12 @@ import { cancelResearch, queueResearch, researchNext } from './research';
 import { autoPriorities, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
-import { runPlanner } from './planner';
+import { forSale, runPlanner, shoppingList } from './planner';
+import { updateShop, type ShopTown } from './shop';
+import { updateWages } from './wages';
+
+/** How the town trades at its shop: the planner decides what's spare and what to buy. */
+const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
 
 /** Most ticks one advance() call will run; the rest of a long gap is dropped (long gaps go through catchUp). */
 export const MAX_TICKS_PER_ADVANCE = 600;
@@ -107,6 +112,8 @@ export class Sim {
     updateBreaks(s, this.rng);
     checkLeavers(s);
     updateTrade(s, this.rng);
+    updateShop(s, this.rng, SHOP_TOWN);
+    updateWages(s);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
     drillGuards(s);
     updateAdvice(s);

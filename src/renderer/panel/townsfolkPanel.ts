@@ -1,5 +1,6 @@
 // Townsfolk panel: the wanderer waiting to be let in, the job priority grid, and everyone's details.
 
+import { qualityOf } from '../../shared/data/quality';
 import { ITEM_BY_ID, SLOT_NAMES, SLOTS } from '../../shared/data/items';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
@@ -15,7 +16,7 @@ import { button, el } from './dom';
 /** Changes whenever something this panel shows changes (needs and morale to the whole percent). */
 export const townsfolkKey = (s: Snapshot) =>
   JSON.stringify([
-    s.people.map((p) => [p.id, p.doing, p.order, p.sick, p.gear, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
+    s.people.map((p) => [p.id, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
     s.visitor && [s.visitor.id, Math.ceil(s.visitor.hoursLeft), s.visitor.leaving],
     s.housing,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 100), p.hungry]),
@@ -134,6 +135,8 @@ function personCard(p: PersonView, isMain: boolean): HTMLElement {
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', `${p.name}${isMain ? ' (you)' : ''}`), el('span', 'card-size', `${p.typeName} · ${p.bed ? `bed: ${p.bed}` : 'no bed'}`));
   c.append(top, el('div', 'lock', p.doing));
+  for (const d of p.detail) c.append(el('div', 'hint', d));
+  if (p.recent.length) c.append(el('div', 'hint', `Lately: ${p.recent.slice(0, 3).join(' · ')}`));
 
   const bars = el('div', 'bars');
   bars.append(
@@ -236,17 +239,22 @@ function relationsText(p: PersonView): string {
   return parts.join(' · ');
 }
 
-/** What they wear (handed out automatically: see the Crafting panel for spares). */
+/** What they wear, each piece ringed in its quality's colour (handed out from the stores before the town has money;
+ *  bought with their wages after), and their coins. */
 function gearRow(p: PersonView): HTMLElement {
   const g = el('div', 'gear');
   const worn = SLOTS.filter((slot) => p.gear[slot]);
   if (!worn.length) g.append(el('span', '', 'No gear'));
   for (const slot of worn) {
     const def = ITEM_BY_ID[p.gear[slot]!];
+    const q = qualityOf(p.gearQ[slot]);
     const icon = itemIcon(def, 2);
-    icon.title = `${SLOT_NAMES[slot]}: ${def.name} (${def.description})`;
+    icon.title = `${SLOT_NAMES[slot]}: ${q.name} ${def.name} (${def.description})`;
+    icon.style.outline = `2px solid ${q.color}`;
+    icon.style.borderRadius = '3px';
     g.append(icon);
   }
+  if (p.coins !== null) g.append(el('span', 'coins', `● ${p.coins} coins`));
   if (p.bedroll) g.append(el('span', '', 'Sleeps on a bedroll'));
   g.append(el('span', '', `Carries ${p.carryCapacity}`));
   return g;

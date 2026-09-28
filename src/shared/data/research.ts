@@ -63,6 +63,8 @@ export const TOPICS: readonly Topic[] = [
   { id: 'lookout', name: 'Lookout', branch: 'military', seconds: 240, prereqs: ['palisades'], unlocks: 'Raid warning', effects: [] },
   { id: 'early_agriculture', name: 'Early Agriculture', branch: 'agriculture', seconds: 240, prereqs: ['foraging'], unlocks: 'Wild grain', effects: [] },
   { id: 'oral_tradition', name: 'Oral Tradition', branch: 'society', seconds: 180, prereqs: ['fire_keeping'], unlocks: '+1 research queue slot, +10% research speed', effects: [{ type: 'researchSlots', add: 1 }, { type: 'researchSpeed', mult: 1.1 }] },
+  { id: 'barter', name: 'Barter', branch: 'logistics', seconds: 180, prereqs: ['fire_keeping'], unlocks: 'Travellers stop to buy and sell: coins', effects: [] },
+  { id: 'hospitality', name: 'Hospitality', branch: 'society', seconds: 180, prereqs: ['barter'], unlocks: 'Travellers stop to eat and drink: coins', effects: [] },
   { id: 'pack_carrying', name: 'Pack Carrying', branch: 'logistics', seconds: 240, prereqs: ['tanning', 'cordage'], unlocks: '+5 carry', effects: [{ type: 'carry', add: 5 }] },
   { id: 'elders_council', name: "Elder's Council", branch: 'society', seconds: 600, prereqs: ['oral_tradition'], requiresCount: 10, unlocks: 'Building the Elder Lodge opens the Medieval era', effects: [{ type: 'eraCapstone' }] },
 

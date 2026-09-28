@@ -11,6 +11,7 @@ import { TOPIC_BY_ID } from '../data/research';
 import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
+import { BUILDING_BY_ID } from '../data/buildings';
 import { buildingCentreX, defOf, stillNeeded, storageFree, storages } from './buildings';
 import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickTool, stationFor, takeItemInputs, toolSpeed } from './crafting';
 import { leaveX } from './breaks';
@@ -23,7 +24,7 @@ import { cropOf, fieldToWork, isField, mineToWork, workField, workMine } from '.
 import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyX } from './raids';
 import { modifiers, researchStation } from './research';
-import { addStock, campX, BUILD_MULTIPLIER, carryCapacity, ERA_MULTIPLIER, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
+import { remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, ERA_MULTIPLIER, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
@@ -184,7 +185,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       workResearch(s, p, ctx);
       break;
     case 'craft':
-      doCraft(s, p, task);
+      doCraft(s, p, task, rng);
       break;
     case 'farm': {
       const field = byId(s, task.building)!;
@@ -347,10 +348,19 @@ function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' 
 
 /* ------------------------------------------------------------ work */
 
-function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>): void {
+function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>, rng: Rng): void {
   const o = s.crafting.find((q) => q.id === task.order)!;
   const def = ITEM_BY_ID[o.item];
   const station = stationFor(s, def)!;
+  // a commission: the crafter takes it on from whoever asked (once)
+  if (o.for && !(o.for.told ?? []).includes(p.id)) {
+    (o.for.told ??= []).push(p.id);
+    const keeper = s.people.find((q) => q.id === o.for!.by);
+    const place = s.buildings.find((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.floor?.venue === o.for!.venue);
+    const where = place ? `the ${BUILDING_BY_ID[place.def].name}` : `the ${o.for.venue}`;
+    remember(s, p, `Took an order${keeper ? ` from ${keeper.name}` : ''}: a ${def.name} for ${where}, for ${o.for.pay} coins`);
+    if (keeper && keeper !== p) remember(s, keeper, `Asked ${p.name} to make a ${def.name} for ${o.for.pay} coins`);
+  }
   switch (task.phase) {
     case 'fetch': {
       const from = task.from === null ? undefined : byId(s, task.from);
@@ -398,7 +408,7 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
       o.progress += speed / (craftSeconds(def, s.era) * TICK_HZ);
       gainSkill(p, 'crafting', CRAFT_XP_PER_SEC / TICK_HZ);
       if (o.progress >= 1) {
-        finishPiece(s, o, p);
+        finishPiece(s, o, p, rng);
         p.task = null;
       }
       return;
