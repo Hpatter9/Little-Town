@@ -139,6 +139,13 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
     building someone keeps, and what they did lately.
   - **Tap the shop or tavern** (or a stranger) to see inside: a bird's-eye view of the counter, the furnishings and the
     travellers browsing, with what's for sale, what the town wants to buy, and the latest sales.
+- **Research stations seat one person each** (the campfire, Storyteller's Circles, Scriptoria, Libraries,
+  Universities, AI Cores). Each researcher takes a topic of their own from the queue where they can, so more stations
+  means more topics at once; the town builds more, and better ones, as it grows. The Research tab shows who's where.
+- **Becoming a lich:** once the hidden Occult branch yields Lichcraft, the founder is offered the Rite of the
+  Phylactery (and if it's put off, a **Become a lich…** button waits on the Plan tab). Chosen, the town builds the
+  phylactery; once it stands, the founder is a lich, and the whole game turns: grave-dark menus, bars and windows, mist,
+  a drained town, and new names (Designs, Grimoire, Souls, Chronicle; Chronos Necropolis). It stays that way for good.
 - **The strip:** scroll with the mouse wheel or drag, and click buildings and people for their details. The
   tabs on the right open the panels: Plan, Research, Expeditions, Townsfolk, Crafting, Trade and the Journal.
 - **The tray icon:**

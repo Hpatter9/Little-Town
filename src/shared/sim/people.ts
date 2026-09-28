@@ -19,7 +19,7 @@ import { onBuilt } from './era';
 import { doomForage } from './doom';
 import { biomeOf } from '../data/biomes';
 import { HORSE_HP } from '../data/trade';
-import { offerBloodRite, offerMoonRite } from './occult';
+import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
 import { cropOf, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
 import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyX } from './raids';
@@ -442,6 +442,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   notify(s, `Research complete: ${topic.name}`, true);
   if (topic.id === 'blood_rite') offerBloodRite(s);
   if (topic.id === 'moon_rite') offerMoonRite(s);
+  if (topic.id === 'lichcraft') offerLichRite(s);
   if (topic.effects.some((e) => e.type === 'eraCapstone')) {
     s.eraReady = true;
     notify(

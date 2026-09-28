@@ -84,6 +84,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     (kept in step by `qualitiesOf`), worn ones in `p.gearQ`.
   - Wages and gear buying: `sim/wages.ts`. With a shop, `equipAll`/`pickTool` stop handing gear out. The daily ledger
     is `s.ledger` (`earn` in `state.ts`); per-person activity is `p.recent` (`remember`).
+  - Research: one person per station (`researchStations`, `freeStation`, `topicFor` in `research.ts`); the research
+    task carries its station and topic.
+  - The lich path: `offerLichRite`/`chooseLich`/`watchLich` in `occult.ts`, `s.lichChosen` then `s.lich` (permanent).
+    `snapshot.theme` is `'lich'` once it's set; `src/renderer/theme.ts` holds the look (one stylesheet scoped to
+    `html.theme-lich`) and the menus' new names, applied by the phone page, the panels and the strip's HUD.
   - The bird's-eye interior is the `shop` and `tavern` panels (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop.
   - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs

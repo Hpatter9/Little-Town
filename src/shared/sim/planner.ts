@@ -404,7 +404,8 @@ function wallSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef):
 function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const out: { def: string; why: string }[] = [];
   const add = (def: string | undefined, why: string) => def && !out.some((w) => w.def === def) && out.push({ def, why });
-  const can = (d: BuildingDef) => unlocked(s, d.id) && !NEVER.has(d.id);
+  // (the phylactery only once the founder's soul is to be bound)
+  const can = (d: BuildingDef) => unlocked(s, d.id) && (!NEVER.has(d.id) || (d.id === 'phylactery' && !!s.lichChosen));
   const count = (id: string) => s.buildings.filter((b) => b.def === id).length;
 
   // (every kind that would do, best first: if the best can't be had, the next is tried)
@@ -422,6 +423,8 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   // (poor soil, like the desert's, feeds fewer per field: while food is short it keeps adding fields)
   const fieldsWanted = Math.ceil(n.people / 2) + (n.foodDays < 3 ? Math.ceil(n.people / 3) : 0);
   if (fields < Math.min(fieldsWanted, n.people + 1)) options((d) => !!CROPS[d.id] && CROPS[d.id].material !== 'herbs', (d) => CROPS[d.id].yield, n.foodDays < 3 ? 'food is running low' : 'more fields for more people');
+  // the phylactery, first of all, once it's decided
+  if (s.lichChosen && !planned(s, 'phylactery')) add('phylactery', `to bind ${s.people.find((p) => p.id === s.mainId)?.name ?? 'the founder'}'s soul`);
   // a shop, first thing, when the land can't give what the town needs (a desert's fiber, once it's gathered out)
   const shopPlanned = s.buildings.some((b) => isShop(b.def));
   const firstShop = BUILDING_BY_ID.trading_post;

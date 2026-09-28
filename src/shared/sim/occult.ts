@@ -44,7 +44,46 @@ export function offerMoonRite(s: GameState): void {
   notify(s, 'The Moon Rite is ready. A choice awaits.', true);
 }
 
+/** Lichcraft learned: offer to bind the founder's soul into a phylactery (a choice, like the other rites; if it's
+ *  put off, the Plan tab keeps the offer open). */
+export function offerLichRite(s: GameState): void {
+  const main = s.people.find((p) => p.id === s.mainId);
+  if (!main || main.monster || s.lich || s.lichChosen) return;
+  s.prompts.push({
+    id: s.nextId++,
+    kind: 'rite',
+    expedition: null,
+    title: 'The Rite of the Phylactery',
+    text: `The secret of lichcraft is ${main.name}'s. Bind their soul into a phylactery? They will not truly die while it stands, and the dead may answer to them. The town will never be the same.`,
+    options: [LICH_YES, 'Not yet'],
+    defaultOption: 1,
+    expiresTick: s.tick + 24 * 600,
+  });
+  notify(s, 'Lichcraft is learned. A choice awaits.', true);
+}
+export const LICH_YES = 'Bind the soul';
+
+/** The founder's soul is to be bound: the town builds the phylactery (see planner.ts). */
+export function chooseLich(s: GameState): void {
+  if (s.lich || s.lichChosen || !s.research.done.includes('lichcraft')) return;
+  s.lichChosen = true;
+  notify(s, 'It is decided. The townsfolk begin gathering bone and iron for a phylactery.', true);
+}
+
+/** Once the phylactery stands, the founder is a lich, and the town is changed for good. */
+export function watchLich(s: GameState): void {
+  if (s.lich || !s.buildings.some((b) => b.def === 'phylactery' && b.status === 'done')) return;
+  s.lich = true;
+  const main = s.people.find((p) => p.id === s.mainId);
+  if (main) {
+    main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
+    personFx(s, main.id, 'undead');
+  }
+  notify(s, `The phylactery is sealed. ${main?.name ?? 'The founder'} is a lich now, and the town will never be the same.`, true);
+}
+
 export function answerRite(s: GameState, label: string): void {
+  if (label === LICH_YES) return chooseLich(s);
   const main = s.people.find((p) => p.id === s.mainId);
   const kind = label.startsWith('Embrace') ? 'vampire' : label.startsWith('Answer the moon') ? 'werewolf' : null;
   if (!main || !kind) return notify(s, 'The rite was refused.');

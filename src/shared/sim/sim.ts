@@ -29,6 +29,7 @@ import { autoPriorities, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { forSale, runPlanner, shoppingList } from './planner';
+import { chooseLich, watchLich } from './occult';
 import { updateShop, type ShopTown } from './shop';
 import { updateWages } from './wages';
 
@@ -107,6 +108,7 @@ export class Sim {
     updatePrisoners(s, this.rng);
     updateDoom(s, this.rng);
     updateLaunch(s);
+    watchLich(s);
     if (s.gameOver) return;
     updateMonsters(s, this.rng, (target) => startGuildRaid(s, target, this.rng));
     updateBreaks(s, this.rng);
@@ -226,6 +228,9 @@ export class Sim {
         break;
       case 'setPaused':
         s.paused = c.paused;
+        break;
+      case 'becomeLich':
+        chooseLich(s);
         break;
       case 'setDirection':
         s.direction = c.direction;

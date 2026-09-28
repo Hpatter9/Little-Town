@@ -2,6 +2,7 @@
 // Every element that should capture the mouse carries [data-hit]; everything else is click-through.
 
 import { PANELS, type Bridge, type PanelId, type StripState } from '../shared/ipc';
+import { applyTheme, panelLabel } from './theme';
 import { ERA_NAMES } from '../shared/data/eras';
 import { MATERIAL_NAMES, MATERIALS, type Material } from '../shared/data/materials';
 import { FOOD_VALUE } from '../shared/data/people';
@@ -88,6 +89,8 @@ export function createHud(bridge: Bridge): Hud {
       for (const [id, b] of tabs) b.classList.toggle('active', s.panel === id);
     },
     update(snap) {
+      // the necropolis look, once the founder is a lich (the desktop dock's tabs take the new names)
+      if (applyTheme(snap.theme, 'strip')) for (const p of PANELS) tabs.get(p.id)!.querySelector('.tab-label')!.textContent = panelLabel(p.id, p.label, snap.theme);
       for (const [id, f] of fills) {
         const now = id === 'research' ? researchFill(snap.research) : expeditionFill(snap.expeditions);
         if ((now?.pct ?? -1) === f.pct) continue;

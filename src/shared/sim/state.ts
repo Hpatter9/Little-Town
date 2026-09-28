@@ -537,6 +537,10 @@ export interface GameState {
   coins?: number;
   travellers?: Traveller[];
   nextTravellerTick?: number;
+  /** The founder's soul is to be bound into a phylactery (the town builds it); and, once it stands, the founder is a
+   *  lich, and the town looks it from then on, whatever becomes of the phylactery. */
+  lichChosen?: boolean;
+  lich?: boolean;
   /** When the next guest is due at the tavern. */
   nextGuestTick?: number;
   /** Where the town's coins came from and went, today and yesterday (see earn). */

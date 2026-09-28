@@ -14,6 +14,7 @@ import { renderTrade, tradeKey } from './tradePanel';
 import { renderAlerts } from './alertsPanel';
 import { renderNewGame } from './newGamePanel';
 import { renderShop, shopKey } from './shopPanel';
+import { applyTheme, currentTheme, panelLabel } from '../theme';
 
 declare global {
   interface Window {
@@ -58,7 +59,8 @@ function render(): void {
                     : shown;
   if (key === renderedKey) return;
   renderedKey = key;
-  title.textContent = PANELS.find((p) => p.id === shown)?.label ?? (shown === 'alerts' ? 'Phone alerts' : shown === 'newgame' ? 'New town' : shown === 'shop' || shown === 'tavern' ? (snap?.[shown]?.name ?? (shown === 'shop' ? 'Shop' : 'Tavern')) : '');
+  const tab = PANELS.find((p) => p.id === shown);
+  title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'newgame' ? 'New town' : shown === 'shop' || shown === 'tavern' ? (snap?.[shown]?.name ?? (shown === 'shop' ? 'Shop' : 'Tavern')) : '');
   const scroll = body.scrollTop;
   if (snap && shown === 'journal') {
     // fetched separately: the whole journal is too big to send with every snapshot
@@ -96,6 +98,7 @@ if (bridge) {
   bridge.onState(onState);
   bridge.onSnapshot((next) => {
     snap = next;
+    if (applyTheme(next.theme, 'panel')) renderedKey = ''; // (the look changed: redraw, with the new names)
     render();
   });
   Promise.all([bridge.getState(), bridge.getSnapshot()]).then(([st, sn]) => {

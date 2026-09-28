@@ -17,13 +17,21 @@ import { topicKnown } from './secrets';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
+  JSON.stringify([s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const used = blueprintCount(s);
   const head = el('div', 'panel-head');
   head.append(el('span', '', `Building ${used}/${s.buildSlots} at once`), el('span', '', `● ${s.coins} coins · Stored ${s.storageUsed}/${s.storageCapacity}`));
   const out: HTMLElement[] = [head];
+
+  // a choice only the player can make: binding the founder's soul (once Lichcraft is learned)
+  if (s.lichOffer) {
+    out.push(el('h2', '', 'Lichcraft'));
+    out.push(el('div', 'hint', "The founder could be bound into a phylactery: they won't truly die while it stands, and the dead may answer to them. The town, and the whole game, will never look the same."));
+    // (there's no going back: asked twice)
+    out.push(button('Become a lich…', () => confirm('Bind the founder\'s soul into a phylactery? There is no going back.') && bridge?.command({ type: 'becomeLich' }), { cls: 'place' }));
+  }
 
   // the one thing the player decides: where the town puts its effort
   out.push(el('h2', '', 'Direction'));

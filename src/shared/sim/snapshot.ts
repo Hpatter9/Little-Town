@@ -307,6 +307,10 @@ export interface Snapshot {
   coins: number;
   shop: ShopView | null;
   tavern: ShopView | null;
+  /** How the game looks: the town, or (once the founder is a lich) the necropolis; and whether the founder can
+   *  choose to become a lich now (Lichcraft learned, not yet chosen). */
+  theme: 'town' | 'lich';
+  lichOffer: boolean;
   /** What a day's wages come to (once the town has money), and yesterday's coins in and out by where from. */
   wageBill: number;
   ledger: Ledger | null;
@@ -437,6 +441,8 @@ export function snapshot(s: GameState): Snapshot {
     shop: venueView(s, 'shop'),
     tavern: venueView(s, 'tavern'),
     wageBill: moneyTown(s) ? wageBill(s) : 0,
+    theme: s.lich ? 'lich' : 'town',
+    lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
     travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
     tick: s.tick,
