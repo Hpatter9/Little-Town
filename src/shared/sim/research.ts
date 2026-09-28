@@ -3,7 +3,7 @@
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
 import { RESEARCH_QUEUE_BASE, RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import type { WorkAnim } from '../data/terrain';
-import type { GameState } from './state';
+import type { GameState, Person } from './state';
 
 export interface ResearchState {
   done: string[];
@@ -116,6 +116,37 @@ export function researchNext(r: ResearchState, id: string): void {
   if (!TOPIC_BY_ID[id].prereqs.every((p) => r.done.includes(p))) return;
   r.queue.splice(i, 1);
   r.queue.unshift(id);
+}
+
+/** Every place research can happen, best first: each finished research station (the campfire among them). One person
+ *  studies at each at a time. */
+export function researchStations(s: GameState): { buildingId: number; label: string; mult: number }[] {
+  return s.buildings
+    .filter((b) => b.status === 'done' && RESEARCH_STATIONS[b.def])
+    .map((b) => ({ buildingId: b.id, label: RESEARCH_STATIONS[b.def].label, mult: RESEARCH_STATIONS[b.def].mult }))
+    .sort((a, b) => b.mult - a.mult || a.buildingId - b.buildingId);
+}
+
+/** Who's studying at a station (or at the camp, for null), if anyone, besides `except`. */
+export function studyingAt(s: GameState, station: number | null, except?: Person): Person | undefined {
+  return s.people.find((q) => q !== except && q.away === null && q.task?.type === 'research' && q.task.station === station);
+}
+
+/** The best station nobody's studying at: a building id, null for the camp (only when the town has no station at all),
+ *  or undefined when every one is taken. */
+export function freeStation(s: GameState, p: Person): number | null | undefined {
+  const all = researchStations(s);
+  if (!all.length) return studyingAt(s, null, p) ? undefined : null;
+  return all.find((st) => !studyingAt(s, st.buildingId, p))?.buildingId;
+}
+
+/** What someone should study: the first topic in the queue they can start (its prerequisites learned) that nobody
+ *  else is on; else, helping with the first. */
+export function topicFor(s: GameState, p: Person): string | undefined {
+  const r = s.research;
+  const taken = new Set(s.people.filter((q) => q !== p && q.away === null && q.task?.type === 'research').map((q) => (q.task as { topic?: string }).topic));
+  const ready = r.queue.filter((id) => TOPIC_BY_ID[id]?.prereqs.every((pre) => r.done.includes(pre)));
+  return ready.find((id) => !taken.has(id)) ?? ready[0] ?? r.queue[0];
 }
 
 /** Where research happens: the best finished research station, else the camp. */

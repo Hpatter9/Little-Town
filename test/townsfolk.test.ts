@@ -175,20 +175,32 @@ test('two gatherers spread over two marked tiles', () => {
   assert.ok(tiles.every((t) => forest.includes(t)));
 });
 
-test('two researchers are faster than one, with diminishing returns', () => {
-  const time = (researchers: number) => {
-    const sim = new Sim(plainGame('stack'));
+test('one person studies at a station at a time: a second researcher needs a second station, and studies a topic of their own', () => {
+  const setup = (stations: number) => {
+    const sim = new Sim(plainGame('stations'));
     const s = sim.state;
-    for (let i = 1; i < researchers; i++) {
+    for (let i = 1; i < 2; i++) {
       const p = addPerson(s);
       p.skills = structuredClone(s.people[0].skills);
+      p.priorities.research = 1;
     }
+    s.people[0].priorities.research = 1;
+    for (let k = 1; k < stations; k++) s.buildings.push({ id: s.nextId++, def: 'storytellers_circle', tile: Math.floor(s.tiles.length / 2) + 6 * k, status: 'done', delivered: {}, progress: 1, store: {} });
     sim.command({ type: 'queueResearch', topic: 'flint_knapping' });
-    return runUntil(sim, () => s.research.done.includes('flint_knapping'));
+    sim.command({ type: 'queueResearch', topic: 'fire_keeping' });
+    for (let t = 0; t < 600; t++) sim.step();
+    return s;
   };
-  const one = time(1);
-  const two = time(2);
-  assert.ok(two < one * 0.75 && two > one * 0.5, `one ${one}s, two ${two}s`);
+  const one = setup(1); // (just the campfire)
+  const at = (s: GameState) => s.people.filter((p) => p.task?.type === 'research').map((p) => (p.task as { station?: number | null }).station);
+  assert.equal(at(one).length, 1, 'only one studies at the campfire');
+  const two = setup(2);
+  const busy = two.people.filter((p) => p.task?.type === 'research');
+  assert.equal(busy.length, 2, 'two stations, two researchers');
+  assert.notEqual(at(two)[0], at(two)[1], 'at different stations');
+  const topics = busy.map((p) => (p.task as { topic?: string }).topic);
+  assert.notEqual(topics[0], topics[1], 'each on a topic of their own');
+  assert.ok((two.research.progress.flint_knapping ?? 0) > 0 && (two.research.progress.fire_keeping ?? 0) > 0, 'both topics coming along');
 });
 
 test('traits: Hard Worker works faster, Lazy slower; Quick Learner and passions learn faster', () => {

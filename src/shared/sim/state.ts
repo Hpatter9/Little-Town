@@ -135,8 +135,9 @@ export type Task =
   /** Carry fetched materials to a construction site. */
   | { type: 'deliver'; building: number }
   | { type: 'build'; building: number }
-  /** Work on the first topic in the research queue, at the research station. */
-  | { type: 'research' }
+  /** Study at a research station (a building id; null: the camp, for a town with none). One person to a station; each
+   *  works on a topic of their own from the queue where they can. (Older saves: neither set, and it's chosen afresh.) */
+  | { type: 'research'; station?: number | null; topic?: string }
   /** Walk to a storage building with food and eat one unit (taking until `until`, once started). */
   | { type: 'eat'; building: number; until: number | null }
   /** Sleep in a bed (building id) or on the ground by the camp (null). */

@@ -14,7 +14,7 @@ import { topicKnown } from './secrets';
 export const researchKey = (s: Snapshot) => {
   const r = s.research;
   const pct = Object.fromEntries(Object.entries(r.progress).map(([k, v]) => [k, Math.floor(v * 100)]));
-  return JSON.stringify([s.era, s.unlockAll, r.done, r.revealed, r.queue, pct, r.slots, r.station, r.speed, s.plan?.research]);
+  return JSON.stringify([s.era, s.unlockAll, r.done, r.revealed, r.queue, pct, r.slots, r.station, r.stations, r.speed, s.plan?.research]);
 };
 
 /** Buildings and craftable items each topic unlocks, from their data. */
@@ -31,7 +31,7 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined): HTMLEle
 
   // Now and next
   const head = el('div', 'panel-head');
-  head.append(el('span', '', `Research queue ${r.queue.length}/${r.slots}`), el('span', '', `Researching at ${r.station} (×${r.stationMult})`));
+  head.append(el('span', '', `Research queue ${r.queue.length}/${r.slots}`), el('span', '', `${r.stations.filter((st) => st.who).length}/${r.stations.length} stations in use`));
   out.push(head);
   const queue = el('div', 'queue');
   if (!r.queue.length) queue.append(el('div', 'empty', 'Nothing left to study for now. Some research waits on the next era (and the next era can wait on an expedition).'));
@@ -50,6 +50,15 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined): HTMLEle
     queue.append(row);
   });
   out.push(queue);
+
+  // where it's studied: one person at each station, each on a topic of their own where there is one
+  out.push(el('h2', '', 'Stations'));
+  for (const st of r.stations) {
+    const row = el('div', 'queue-row');
+    row.append(el('span', 'queue-name', `${st.label} ×${st.mult}`), el('span', 'queue-time', st.who ? `${st.who}${st.topic ? `: ${st.topic}` : ''}` : 'free'));
+    out.push(row);
+  }
+  out.push(el('div', 'hint', 'One person studies at each station at a time. The town builds more, and better ones, as it grows.'));
 
   // Every topic of the eras reached (newest era first), by branch
   const era = s.unlockAll ? 'space' : s.era;

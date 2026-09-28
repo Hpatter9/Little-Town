@@ -441,9 +441,14 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   }
   // a shop to sell to travellers (sooner when the town is set on trade)
   if (!shopPlanned && can(firstShop) && n.direction === 'trade') add(firstShop.id, 'to sell to travellers for coins');
-  // a better place to research
+  // a better place to research, and more of them as the town grows (one person studies at each: about one station for
+  // every four grown-ups, up to one per topic it can study at once)
   const station = Object.entries(RESEARCH_STATIONS).filter(([id]) => BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id])).sort((a, b) => b[1].mult - a[1].mult)[0];
   if (station && !planned(s, station[0])) add(station[0], 'somewhere better to study');
+  const stations = s.buildings.filter((b) => RESEARCH_STATIONS[b.def]).length;
+  const grown = s.people.filter((p) => p.bornTick == null).length;
+  const wantStations = Math.min(modifiers(s.research).researchSlots, 1 + Math.floor(grown / 4));
+  if (station && stations < wantStations) add(station[0], `a desk for another researcher (${stations} for ${grown} people)`);
   // the next era, once the town can manage it
   for (const id of CAPSTONES) if (BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id]) && !planned(s, id)) add(id, 'the way to the next era');
   if (!shopPlanned && can(firstShop)) add(firstShop.id, 'to sell to travellers for coins');

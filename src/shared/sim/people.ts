@@ -7,7 +7,7 @@ import { TILE } from '../constants';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
 import { BEDROLL_SLEEP, ITEM_BY_ID } from '../data/items';
 import { FOOD_VALUE, JOBS, type Job } from '../data/people';
-import { TOPIC_BY_ID } from '../data/research';
+import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
@@ -23,7 +23,7 @@ import { offerBloodRite, offerMoonRite } from './occult';
 import { cropOf, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
 import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyX } from './raids';
-import { modifiers, researchStation } from './research';
+import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
 import { remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, ERA_MULTIPLIER, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
@@ -182,7 +182,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       break;
     }
     case 'research':
-      workResearch(s, p, ctx);
+      workResearch(s, p, task);
       break;
     case 'craft':
       doCraft(s, p, task, rng);
@@ -416,20 +416,28 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
   }
 }
 
-function workResearch(s: GameState, p: Person, ctx: TickContext): void {
-  const station = researchStation(s);
-  const at = station.buildingId !== null ? buildingCentreX(byId(s, station.buildingId)!) : campX(s);
+/** Study at one's own station (one person to each), on a topic of one's own where there is one. */
+function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'research' }>): void {
+  const r = s.research;
+  const building = task.station != null ? byId(s, task.station) : undefined;
+  const at = building ? buildingCentreX(building) : campX(s);
+  // (a topic finished by someone else, or cancelled: on to the next)
+  if (!task.topic || !r.queue.includes(task.topic)) task.topic = topicFor(s, p);
+  if (!task.topic) {
+    p.task = null;
+    return;
+  }
   if (!walkTo(p, at)) return;
   p.activity = 'research';
-  const r = s.research;
-  const topic = TOPIC_BY_ID[r.queue[0]];
-  const speed = skillSpeed(p.skills.research.level) * station.mult * modifiers(r).researchSpeed * workFactor(s, p) * stackFactor(ctx, 'research');
+  const topic = TOPIC_BY_ID[task.topic];
+  const mult = building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1;
+  const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p);
   r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[s.era] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   if (r.progress[topic.id] < 1) return;
 
   delete r.progress[topic.id];
-  r.queue.shift();
+  r.queue = r.queue.filter((id) => id !== topic.id);
   r.done.push(topic.id);
   notify(s, `Research complete: ${topic.name}`, true);
   if (topic.id === 'blood_rite') offerBloodRite(s);
@@ -727,8 +735,12 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
     case 'defend':
       // (fighting only happens in raids, see chooseTask; between them, guards on shift patrol)
       return onShift(s, p) ? { type: 'patrol', targetX: patrolEnd(s, p) } : null;
-    case 'research':
-      return s.research.queue.length ? { type: 'research' } : null;
+    case 'research': {
+      // (one person to a station: with every one taken, they find other work)
+      if (!s.research.queue.length) return null;
+      const station = freeStation(s, p);
+      return station === undefined ? null : { type: 'research', station, topic: topicFor(s, p) };
+    }
     case 'gather': {
       const tile = bestGatherTile(s, p);
       if (tile !== null) return { type: 'gather', tile, progress: 0 };
@@ -810,7 +822,14 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
     case 'build':
       return site?.status === 'blueprint' && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0;
     case 'research':
-      return s.research.queue.length > 0 && p.priorities.research !== 0;
+      // (still their station: built, standing, and nobody else's)
+      return (
+        s.research.queue.length > 0 &&
+        p.priorities.research !== 0 &&
+        t.station !== undefined &&
+        (t.station === null ? !researchStations(s).length : byId(s, t.station)?.status === 'done') &&
+        !studyingAt(s, t.station, p)
+      );
     case 'eat':
       return !!site;
     case 'sleep':

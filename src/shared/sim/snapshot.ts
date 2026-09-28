@@ -29,12 +29,12 @@ import { DOOMS, type DoomKind } from '../data/doom';
 import { friendsOf, rivalsOf } from './social';
 import { canTrade, stalls } from './trade';
 import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
-import { TOPIC_BY_ID } from '../data/research';
+import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, totalCapacity, totalStock } from './buildings';
 import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
-import { modifiers, researchStation } from './research';
+import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';
@@ -422,6 +422,8 @@ export interface ResearchView {
   /** Where research happens now, and its speed multiplier. */
   station: string;
   stationMult: number;
+  /** Every research station (one person to each): where, how fast, and who's studying there and on what. */
+  stations: { label: string; mult: number; who: string | null; topic: string | null }[];
   /** Research speed of the main character there (skill x station x bonuses), for time estimates. */
   speed: number;
 }
@@ -825,6 +827,11 @@ function researchView(s: GameState): ResearchView {
     slots: mods.researchSlots,
     station: station.label,
     stationMult: station.mult,
+    stations: researchStations(s).map((st) => {
+      const who = s.people.find((q) => q.away === null && q.task?.type === 'research' && q.task.station === st.buildingId);
+      const topic = who?.task?.type === 'research' && who.task.topic ? (TOPIC_BY_ID[who.task.topic]?.name ?? null) : null;
+      return { label: st.label, mult: st.mult, who: who?.name ?? null, topic };
+    }),
     speed: ((main ? skillSpeed(main.skills.research.level) : 1) * station.mult * mods.researchSpeed) / RESEARCH_MULTIPLIER[s.era],
   };
 }
@@ -856,8 +863,10 @@ function describe(s: GameState, p: Person): string {
     case 'build':
       return `Building the ${name(task.building)}`;
     case 'research': {
-      const t = TOPIC_BY_ID[s.research.queue[0]];
-      return t ? `Researching ${t.name}` : 'Researching';
+      const t = TOPIC_BY_ID[task.topic ?? s.research.queue[0]];
+      const at = task.station != null ? s.buildings.find((b) => b.id === task.station) : undefined;
+      const where = at ? ` at ${RESEARCH_STATIONS[at.def]?.label ?? defOf(at).name}` : '';
+      return t ? `Researching ${t.name}${where}` : 'Researching';
     }
     case 'eat':
       return 'Eating';
