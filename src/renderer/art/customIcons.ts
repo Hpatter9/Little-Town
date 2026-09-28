@@ -12,6 +12,100 @@ const GLOW = '#8ad8f8';
 
 /** The icons, in sheet order (the index is the icon's x; they all sit on row 0 or 1). */
 export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
+  // tavern furnishings
+  log_table: (p) => {
+    p.rect(1, 5, 14, 5, WOOD);
+    p.rect(1, 5, 14, 1, '#a87a48');
+    p.rect(2, 10, 2, 4, WOOD_DARK);
+    p.rect(12, 10, 2, 4, WOOD_DARK);
+    p.rect(0, 12, 16, 2, '#5a3a1e');
+  },
+  stone_hearth: (p) => {
+    p.rect(1, 3, 14, 12, '#6b6763');
+    p.rect(4, 7, 8, 8, '#2a1a10');
+    p.rect(5, 10, 6, 4, '#e8702a');
+    p.rect(7, 11, 2, 2, '#ffd060');
+  },
+  barrels: (p) => {
+    p.rect(2, 4, 6, 10, WOOD);
+    p.rect(8, 6, 6, 8, WOOD_DARK);
+    for (const y of [6, 11]) p.rect(2, y, 12, 1, '#3a3a40');
+  },
+  hide_rug: (p) => {
+    p.rect(2, 5, 12, 7, '#a88258');
+    p.rect(0, 6, 2, 2, '#a88258');
+    p.rect(14, 9, 2, 2, '#a88258');
+    p.rect(5, 7, 6, 2, '#7c5c3c');
+  },
+  oak_table: (p) => {
+    p.rect(1, 5, 14, 4, '#a8703a');
+    p.rect(2, 9, 2, 5, WOOD_DARK);
+    p.rect(12, 9, 2, 5, WOOD_DARK);
+    p.rect(6, 3, 3, 2, '#c8a050');
+  },
+  brick_hearth: (p) => {
+    p.rect(1, 2, 14, 13, '#a4543a');
+    for (let y = 4; y < 15; y += 3) p.rect(1, y, 14, 1, '#6a3424');
+    p.rect(4, 7, 8, 8, '#2a1a10');
+    p.rect(5, 10, 6, 4, '#e8702a');
+  },
+  tapestry: (p) => {
+    p.rect(3, 1, 10, 14, '#8a2a3a');
+    p.rect(5, 4, 6, 5, '#c8a050');
+    p.rect(2, 1, 12, 1, WOOD_DARK);
+  },
+  upright_piano: (p) => {
+    p.rect(2, 2, 12, 12, '#2a1a10');
+    p.rect(3, 8, 10, 3, '#f0ece0');
+    for (let x = 4; x < 13; x += 2) p.rect(x, 8, 1, 2, '#1a1a1a');
+  },
+  // fare
+  roast_meat: (p) => {
+    p.rect(3, 6, 9, 6, '#8a3a22');
+    p.rect(4, 7, 7, 3, '#b0542a');
+    p.rect(11, 8, 4, 2, '#e8e0cc');
+  },
+  porridge: (p) => {
+    p.rect(3, 8, 10, 5, '#b0704a');
+    p.rect(4, 7, 8, 2, '#e8d8a0');
+    p.rect(9, 3, 1, 4, '#c8b8a0');
+  },
+  berry_bowl: (p) => {
+    p.rect(3, 8, 10, 5, '#b0704a');
+    for (const [x, y] of [[4, 6], [7, 5], [10, 6], [6, 7], [9, 7]]) p.rect(x, y, 2, 2, '#8a2a4a');
+  },
+  herb_tea: (p) => {
+    p.rect(4, 7, 7, 7, '#c8b8a0');
+    p.rect(11, 8, 2, 3, '#c8b8a0');
+    p.rect(5, 7, 5, 2, '#5a9443');
+    p.rect(6, 3, 1, 3, '#e8e8e8');
+  },
+  berry_wine: (p) => {
+    p.rect(5, 5, 6, 9, '#b0704a');
+    p.rect(6, 3, 4, 2, '#80502f');
+    p.rect(5, 8, 6, 2, '#8a2a4a');
+  },
+  ale: (p) => {
+    p.rect(4, 5, 7, 9, '#c8a050');
+    p.rect(4, 4, 7, 2, '#f0f0e0');
+    p.rect(11, 7, 2, 4, WOOD_DARK);
+  },
+  stew: (p) => {
+    p.rect(2, 7, 12, 6, '#3a3a40');
+    p.rect(3, 6, 10, 2, '#8a4a2a');
+    p.rect(5, 6, 2, 1, '#6fd06a');
+    p.rect(9, 3, 1, 3, '#c8c8c8');
+  },
+  meat_pie: (p) => {
+    p.rect(2, 8, 12, 5, '#d0903a');
+    p.rect(3, 6, 10, 3, '#e0a850');
+    p.rect(6, 7, 4, 1, '#8a3a22');
+  },
+  honey_cake: (p) => {
+    p.rect(3, 7, 10, 6, '#d0903a');
+    p.rect(3, 6, 10, 2, '#f0c848');
+    p.rect(7, 4, 2, 2, '#8a2a4a');
+  },
   // shop wares
   bone_trinket: (p) => {
     for (let i = 0; i < 5; i++) p.rect(3 + i * 2, 5 + Math.abs(2 - i), 2, 2, '#e8e0cc');

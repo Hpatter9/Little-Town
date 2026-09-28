@@ -115,7 +115,29 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
   - **Coins go back into the shop**, from what's left after a reserve: an **extension** when the floor is crowded
     (up to three, each two cells wider and one deeper), otherwise a **level** on the cheapest piece to improve
     (★ a second tier, ★★ polished and trimmed in brass; each adds half the piece's appeal again).
-  - **Tap the shop** (or a traveller) to see inside: a bird's-eye view of the counter, the furnishings and the
+  - **Everything starts bare.** A new shop or tavern is one small room with a counter (or a bar). Every shelf, table,
+    stand, hearth and rug is commissioned: the town orders one only when it can pay, the shopkeeper or barkeep asks a
+    crafter, and the crafter is paid when it's done. More **rooms** are bought with coins too.
+  - **Strangers are all different:** named ("Bram Tallow", "Ysolde of the Salt Road"), of some temper (a haggler, a
+    big spender, picky, chatty, in a hurry), and each wants something in particular: a weapon, armour, a tool, one
+    piece of gear, fine goods, a load of some material; or, at the tavern, a hearty meal, a drink, something sweet, or
+    one dish. What they asked for and didn't find, the town makes.
+  - **Keepers upsell** on their Social skill: a finer piece than a customer came for, something extra on the side, a
+    better price, a second round; or, with nothing they want, something else instead (never the picky). They learn
+    Social as they go.
+  - **The tavern** (a Fireside Inn with Hospitality, after Barter, rebuilt as the Tavern with Brewing) sells fare the
+    town cooks. Its furnishings give **comfort**: every guest is used to some, and one used to more walks out. The
+    better-off need more, and spend more.
+  - **Quality:** everything crafted (gear, wares, fare, furnishings) comes in eight grades, Poor, Common, Uncommon,
+    Rare, Epic, Legendary, Mythic and Divine, rolled from the crafter's Crafting skill. Finer gear does more, finer
+    furnishings add more appeal or comfort, and finer pieces sell for more. Grand customers want Uncommon or better.
+  - **The townsfolk's own coins:** once there's a shop, the town pays a daily wage (more for the skilled, never over
+    half its purse), and crafters earn a piece rate for what they make to sell. The townsfolk **buy their own gear**
+    from the shop's stock (before there's a shop it's handed out free), and spend evenings at the tavern, which cheers
+    them. The Plan tab shows yesterday's coins in and out: travellers at the shop and tavern fund the town.
+  - **Tap anyone** to see what they're doing and why: a crafter's commission (who it's for, who asked, the price), the
+    building someone keeps, and what they did lately.
+  - **Tap the shop or tavern** (or a stranger) to see inside: a bird's-eye view of the counter, the furnishings and the
     travellers browsing, with what's for sale, what the town wants to buy, and the latest sales.
 - **The strip:** scroll with the mouse wheel or drag, and click buildings and people for their details. The
   tabs on the right open the panels: Plan, Research, Expeditions, Townsfolk, Crafting, Trade and the Journal.

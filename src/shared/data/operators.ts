@@ -11,10 +11,11 @@ export interface OperatorRole {
 }
 
 export const OPERATORS: Readonly<Record<string, OperatorRole>> = {
-  tavern: { title: 'Barkeep', skill: 'social', effect: 'The tavern lifts morale more' },
-  trading_post: { title: 'Shopkeeper', skill: 'social', effect: 'Sets out the furnishings; travellers spend more' },
-  general_store: { title: 'Shopkeeper', skill: 'social', effect: 'Sets out the furnishings; travellers spend more' },
-  emporium: { title: 'Shopkeeper', skill: 'social', effect: 'Sets out the furnishings; travellers spend more' },
+  tavern: { title: 'Barkeep', skill: 'social', effect: 'The tavern lifts morale more; guests are talked into more' },
+  fireside_inn: { title: 'Barkeep', skill: 'social', effect: 'Guests are talked into another round' },
+  trading_post: { title: 'Shopkeeper', skill: 'social', effect: 'Sets out the furnishings; talks customers into more' },
+  general_store: { title: 'Shopkeeper', skill: 'social', effect: 'Sets out the furnishings; talks customers into more' },
+  emporium: { title: 'Shopkeeper', skill: 'social', effect: 'Sets out the furnishings; talks customers into more' },
   market: { title: 'Merchant', skill: 'social', effect: 'Better prices from caravans' },
   infirmary: { title: 'Healer', skill: 'medicine', effect: 'Wounds heal faster still' },
   watchtower: { title: 'Guard Captain', skill: 'melee', effect: 'Defenders hit harder and more often' },

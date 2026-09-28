@@ -700,6 +700,24 @@ const ART: Record<string, { h: number; draw: Draw }> = {
       p.ellipse(w - 16, h - 24, 3, 3, '#e8c040');
     },
   },
+  fireside_inn: {
+    h: 52,
+    draw: (p, w, h) => {
+      stones(p, 4, w - 4, h - 3); // footing
+      for (let x = 6; x < w - 6; x += 4) log(p, x, h - 28, 4, 26); // log walls
+      roof(p, 0, w, h - 26, 6, THATCH, THATCH_DARK);
+      // a stone chimney with smoke, a lit window, the door, and a hanging tankard
+      p.rect(w - 20, 4, 8, h - 30, PAL.rockDark);
+      p.rect(w - 19, 4, 6, h - 30, PAL.rock);
+      p.rect(w - 18, 0, 3, 3, '#b8b0a8');
+      p.rect(12, h - 22, 10, 8, '#f0c870');
+      p.rect(16, h - 22, 1, 8, PAL.trunkDark);
+      p.rect(w / 2 - 5, h - 20, 10, 20, '#3a2a1c');
+      beam(p, w / 2 + 8, h - 28, 14, 2);
+      p.rect(w / 2 + 12, h - 26, 7, 8, '#c8a050');
+      p.rect(w / 2 + 12, h - 26, 7, 2, '#f0f0e0');
+    },
+  },
   general_store: {
     h: 62,
     draw: (p, w, h) => {

@@ -75,9 +75,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     `data/items.ts`, unlocked by research). Served, renown rises; disappointed, it falls.
   - The planner makes wares from spare materials only, spends coins on the shop (`planShop`: extensions when crowded,
     else piece levels), and weights research toward wares for tiers it draws but can't serve (`wareGaps`).
-  - The bird's-eye interior is the `shop` panel (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop.
+  - Venues are general (`floor.venue` in `data/buildings.ts`: `shop` or `tavern`; the tavern chain is Fireside Inn →
+    Tavern). They start bare; furnishings are commissioned (`CraftOrder.for`) only when the town can pay, and crafters
+    are paid (`payCrafter` in `crafting.ts`). Renown, the log and unmet wants (`asked`) live on each venue's `b.shop`.
+  - Strangers (`Traveller`) have a name, temper and `want`; keepers upsell on Social (`talkChance`). Tavern guests need
+    comfort (`req`).
+  - Quality (`data/quality.ts`, 8 grades) is rolled from Crafting skill; inventory qualities live in `s.itemQ`
+    (kept in step by `qualitiesOf`), worn ones in `p.gearQ`.
+  - Wages and gear buying: `sim/wages.ts`. With a shop, `equipAll`/`pickTool` stop handing gear out. The daily ledger
+    is `s.ledger` (`earn` in `state.ts`); per-person activity is `p.recent` (`remember`).
+  - The bird's-eye interior is the `shop` and `tavern` panels (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop.
   - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs
   itself, so there's little to watch while a menu is open. The tabs stay visible (along the bottom upright).
-- **Phase 3:** a **Tavern**, built on the same plan.
+- **Phase 3 is done** (the Tavern: see above).
 - **Phase 4:** animal husbandry and more farming.

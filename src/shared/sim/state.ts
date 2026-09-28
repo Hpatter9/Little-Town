@@ -6,7 +6,7 @@ import type { Material, Stock } from '../data/materials';
 import { JOB_SKILL, JOBS, NAMES, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
 import { SKILLS, type Skill, type SkillLevel } from '../data/skills';
 import { DESTINATIONS, type Role, type Stance } from '../data/expeditions';
-import { ITEM_BY_ID, type Slot } from '../data/items';
+import { ITEM_BY_ID, type FareKind, type Slot } from '../data/items';
 import { RAID_GRACE_HOURS, type RaidGoal } from '../data/raids';
 import { TERRAIN, type WorkAnim } from '../data/terrain';
 import { hashSeed, mixSeed, Rng } from '../rng';
@@ -72,9 +72,10 @@ export interface Building {
   /** Who runs it (buildings with an operator role), and whether the player picked them. */
   operator?: number | null;
   operatorChosen?: boolean;
-  /** Shops: the furnishings set out on the floor (item id, and its top-left cell), and extensions bought with coins
-   *  (each makes the floor bigger). */
-  shop?: { pieces: ShopPiece[]; extensions?: number };
+  /** Venues (a shop or a tavern): the furnishings set out on the floor, extensions bought with coins (each makes the
+   *  floor bigger), its renown, what customers asked for and didn't find (fading day by day), the tiers of customer
+   *  it has drawn, and what's happened there lately (newest last). */
+  shop?: { pieces: ShopPiece[]; extensions?: number; renown?: number; asked?: Record<string, number>; seen?: number[]; log?: { tick: number; text: string }[] };
 }
 
 export interface ShopPiece {
@@ -83,15 +84,33 @@ export interface ShopPiece {
   y: number;
   /** Improved with coins (a second tier of shelves, then a polished third): 1 when left out. */
   level?: number;
+  /** How well it was made (Common when left out). */
+  q?: number;
 }
 
-/** Someone passing through who stops at the town's shop (see shop.ts). */
+/** What a stranger comes for (see shop.ts): gear of a kind, a piece in particular (at some quality or better), the
+ *  fine wares of their standing, a load of some material; or, at the tavern, a kind of fare or one dish. */
+export type Want =
+  | { kind: 'gear'; slots: Slot[]; label: string; minQ?: number }
+  | { kind: 'item'; item: string; minQ?: number }
+  | { kind: 'ware' }
+  | { kind: 'material'; m: Material; n: number }
+  | { kind: 'fare'; fare: FareKind }
+  | { kind: 'dish'; item: string };
+
+/** Someone passing through who stops at the town's shop or tavern (see shop.ts). */
 export interface Traveller {
   id: number;
   name: string;
   /** What they are (a pedlar, a merchant, a noble...), and their tier of customer (1 when left out). */
   kind: string;
   tier?: number;
+  /** Where they're going (the shop when left out), what they want, their temper (see data/shop.ts TEMPERS), and, at
+   *  the tavern, the comfort they're used to. */
+  venue?: 'shop' | 'tavern';
+  want?: Want;
+  temper?: string;
+  req?: number;
   look: Look;
   x: number;
   dir: 1 | -1;
@@ -152,6 +171,9 @@ export interface CraftOrder {
   progress: number;
   /** Pieces finished so far (for the notice when the order is done). */
   made: number;
+  /** A commission: made for the shop or tavern, asked for by its keeper (a person id), for so many coins a piece;
+   *  and the crafters already told about it. */
+  for?: { venue: 'shop' | 'tavern'; by: number | null; pay: number; told?: number[] };
 }
 
 /** What a person is visibly doing (drives their animation). */
@@ -249,8 +271,9 @@ export interface Person {
   task: Task | null;
   activity: Activity;
   carrying: Stock;
-  /** Worn items (item ids) by slot. */
+  /** Worn items (item ids) by slot, and their quality (Common when left out; see data/quality.ts). */
   gear: Partial<Record<Slot, string>>;
+  gearQ?: Partial<Record<Slot, number>>;
   /** Set when the person can't put down what they carry because all storage is full. */
   blocked: boolean;
   /** Expedition id while they're away from town (not simulated or drawn in town meanwhile). */
@@ -280,6 +303,10 @@ export interface Person {
   scarred?: boolean;
   order?: StandingOrder;
   lastFed?: number;
+  /** Their own coins: wages from the town, spent on their gear (see wages.ts). None when left out. */
+  coins?: number;
+  /** What they've done lately that's worth a line on their card (newest last). */
+  recent?: { tick: number; text: string }[];
   /** Sick with the plague until a tick. */
   sick?: { until: number; treated?: boolean } | null;
 }
@@ -462,8 +489,10 @@ export interface GameState {
   doom?: Doom | null;
   nextDoomTick?: number;
   research: ResearchState;
-  /** Items not being worn, by item id (they take no storage room). */
+  /** Items not being worn, by item id (they take no storage room), and the quality of each piece, best first (kept in
+   *  step with the counts by crafting.ts's qualitiesOf; Common when left out). */
   items: Record<string, number>;
+  itemQ?: Record<string, number[]>;
   /** The craft queue, worked front to back. */
   crafting: CraftOrder[];
   /** Recent in-strip messages ("Research complete: ..."), newest last. */
@@ -503,14 +532,14 @@ export interface GameState {
   plan?: TownPlan;
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
-  /** The town's purse (none when left out), travellers in town, when the next is due, and what the shop has done
-   *  lately (newest last), for its window. */
+  /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];
   nextTravellerTick?: number;
-  shopLog?: { tick: number; text: string }[];
-  /** The shop's renown: won by customers who find what they came for, lost by those who don't (0 when left out). */
-  renown?: number;
+  /** When the next guest is due at the tavern. */
+  nextGuestTick?: number;
+  /** Where the town's coins came from and went, today and yesterday (see earn). */
+  ledger?: { day: number; today: Ledger; yesterday: Ledger | null };
 }
 
 /** Effects drawn round a townsperson: turned undead, a vampire or a werewolf, healed by a medkit, or struck by an
@@ -546,6 +575,33 @@ export interface JournalEntry extends Notice {
 
 const MAX_NOTICES = 20;
 export const MAX_JOURNAL = 400;
+
+/** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
+ *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods';
+export type Ledger = Partial<Record<LedgerLine, number>>;
+
+/** Book coins in (or out) against a line of the town's ledger. */
+export function earn(s: GameState, line: LedgerLine, n: number): void {
+  const day = Math.floor(s.tick / (TICKS_PER_HOUR * 24));
+  const l = (s.ledger ??= { day, today: {}, yesterday: null });
+  if (l.day !== day) {
+    l.yesterday = l.day === day - 1 ? l.today : {};
+    l.today = {};
+    l.day = day;
+  }
+  l.today[line] = (l.today[line] ?? 0) + n;
+}
+
+/** Lines kept on a person's card of what they've done lately. */
+const RECENT = 6;
+
+/** Note something someone did, for their card. */
+export function remember(s: GameState, p: Person, text: string): void {
+  const r = (p.recent ??= []);
+  r.push({ tick: s.tick, text });
+  if (r.length > RECENT) r.splice(0, r.length - RECENT);
+}
 
 /** Tell the player something: a toast on the strip and a line in the Journal. `key` marks milestones. */
 export function notify(s: GameState, text: string, key = false): void {

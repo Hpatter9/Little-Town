@@ -17,7 +17,7 @@ import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
 import { blueprintCount, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, Snapshot, TravellerView } from '../shared/sim/snapshot';
-import { isShop } from '../shared/data/shop';
+import { venueOfDef } from '../shared/data/shop';
 
 /** A traveller, drawn like a townsperson (they're only passing through: most of a person's details don't apply). */
 function travellerPerson(t: TravellerView): PersonView {
@@ -27,11 +27,14 @@ function travellerPerson(t: TravellerView): PersonView {
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
-    away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, bedroll: false, carryCapacity: 0,
+    away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, monster: null, order: null, sick: false,
   };
 }
-const travellerDoing = (t: TravellerView) => (t.phase === 'arriving' ? 'On the way to the shop' : t.phase === 'shopping' ? 'In the shop' : 'Moving on');
+const travellerDoing = (t: TravellerView) => {
+  const where = t.venue === 'tavern' ? 'tavern' : 'shop';
+  return t.phase === 'arriving' ? `On the way to the ${where}` : t.phase === 'shopping' ? `In the ${where}` : 'Moving on';
+};
 import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { generateWorld } from '../shared/world';
@@ -273,11 +276,17 @@ async function start(): Promise<void> {
           return { title: `${v.name}, ${v.typeName.toLowerCase()}`, lines: [when], hint: 'Click to decide', y: town.foreScreenY(-66) };
         }
         const traveller = snap.travellers.find((q) => q.id === id);
-        if (traveller) return { title: `${traveller.name}, a ${traveller.kind}`, lines: [`Passing through · ${travellerDoing(traveller)}`], hint: 'Click to see the shop', y: town.foreScreenY(-50) };
+        if (traveller)
+          return {
+            title: `${traveller.name}, a ${traveller.kind}`,
+            lines: [`${travellerDoing(traveller)} · after ${traveller.wants}${traveller.temper ? ` · ${traveller.temper}` : ''}`, `A stranger passing through, with ${traveller.purse} coins to spend`],
+            hint: `Click to see the ${traveller.venue}`,
+            y: town.foreScreenY(-50),
+          };
         const p = snap.people.find((q) => q.id === id) ?? h.person; // latest data for the person
-        const lines = [p.doing];
+        const lines = [p.doing, ...p.detail.slice(0, 1)];
         if (poolSize(p.carrying) > 0) lines.push(`Carrying ${listStock(p.carrying)}`);
-        lines.push(`Morale ${Math.round(p.morale)} · ${p.typeName}`);
+        lines.push(`Morale ${Math.round(p.morale)} · ${p.typeName}${p.coins !== null ? ` · ${p.coins} coins` : ''}`);
         return { title: `${p.name}${p.id === snap.mainId ? ' (you)' : ''}`, lines, hint: 'Click for details', y: town.foreScreenY(-50) };
       }
       case 'building': {
@@ -442,7 +451,8 @@ async function start(): Promise<void> {
         if (!b) return null;
         const list = buildingActions(b, inspectMenu, (m) => ((inspectMenu = m), publishInspect()), () => inspectTarget(null));
         const actions = list.map((a, i) => act(`b${i}`, a.label, a.onClick, { danger: a.danger }));
-        if (isShop(b.def) && inspectMenu === 'main') actions.unshift(act('shop', 'Look inside…', () => bridge.openPanel('shop'), { primary: true }));
+        const venue = venueOfDef(b.def);
+        if (venue && inspectMenu === 'main') actions.unshift(act('venue', 'Look inside…', () => bridge.openPanel(venue), { primary: true }));
         return { title: d.title, lines: d.lines, actions };
       }
       case 'person': {
@@ -456,12 +466,14 @@ async function start(): Promise<void> {
           };
         }
         const traveller = snap.travellers.find((q) => q.id === h.person.id);
-        if (traveller) return { title: d.title, lines: [...d.lines, 'They buy what the town has spare, and sell it what it lacks.'], actions: [act('shop', 'The shop…', () => bridge.openPanel('shop'), { primary: true })] };
+        if (traveller) return { title: d.title, lines: d.lines, actions: [act('venue', traveller.venue === 'tavern' ? 'The tavern…' : 'The shop…', () => bridge.openPanel(traveller.venue), { primary: true })] };
         const p = snap.people.find((q) => q.id === h.person.id);
         if (!p) return null;
-        const lines = [p.doing];
+        const lines = [p.doing, ...p.detail];
         if (poolSize(p.carrying) > 0) lines.push(`Carrying ${listStock(p.carrying)}`);
         if (p.bleedMinutes !== null) lines.push(`Bleeding out: ${bleedLeft(p.bleedMinutes)} left!`);
+        if (p.coins !== null) lines.push(`${p.coins} coins`);
+        if (p.recent.length) lines.push(`Lately: ${p.recent.slice(0, 2).join('; ')}`);
         lines.push(`Health ${Math.round(p.hp)}/${p.maxHp} · Morale ${Math.round(p.morale)} · Food ${Math.round(p.needs.food * 100)}% · Rest ${Math.round(p.needs.rest * 100)}%`);
         lines.push(`${p.typeName}${p.cls ? `, ${CLASS_DEFS[p.cls].name}` : ''} · ${bestSkills(p)}`);
         return { title: d.title, lines, actions: [act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
@@ -581,11 +593,12 @@ async function start(): Promise<void> {
       return;
     }
     const h = hitTest(x, y);
-    // the shop (or a traveller on their way to it) opens its bird's-eye window
-    const shopTap = (h?.kind === 'building' && isShop(snap.buildings.find((b) => b.id === h.id)?.def ?? '')) || (h?.kind === 'person' && snap.travellers.some((t) => t.id === h.person.id));
-    if (shopTap && snap.shop) bridge.openPanel('shop');
+    // the shop or tavern (or a stranger on their way to one) opens its bird's-eye window
+    const tapped = h?.kind === 'person' ? snap.travellers.find((t) => t.id === h.person.id) : undefined;
+    const venue = h?.kind === 'building' ? venueOfDef(snap.buildings.find((b) => b.id === h.id)?.def ?? '') : tapped?.venue;
+    if (venue && snap[venue]) bridge.openPanel(venue);
     if (phone) return inspectTarget(h); // (the phone's top card shows it, and holds its buttons)
-    if (shopTap && h?.kind === 'person') return;
+    if (tapped) return;
     if (h?.kind === 'pane') return bridge.openPanel('expeditions');
     if (h?.kind === 'caravan') return bridge.openPanel('trade');
     if (h?.kind === 'person') {

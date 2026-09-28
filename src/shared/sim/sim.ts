@@ -30,6 +30,7 @@ import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { forSale, runPlanner, shoppingList } from './planner';
 import { updateShop, type ShopTown } from './shop';
+import { updateWages } from './wages';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -112,6 +113,7 @@ export class Sim {
     checkLeavers(s);
     updateTrade(s, this.rng);
     updateShop(s, this.rng, SHOP_TOWN);
+    updateWages(s);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
     drillGuards(s);
     updateAdvice(s);

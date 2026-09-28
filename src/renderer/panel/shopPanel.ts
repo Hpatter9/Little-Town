@@ -1,18 +1,22 @@
-// The shop's window: a bird's-eye view of the inside (drawn in code, like the town's buildings), with the shopkeeper
-// behind the counter, the furnishings the town has set out, and travellers browsing, and below it what the shop sells
-// and buys and what it has done lately. It only shows: the town runs the shop itself.
+// A venue's window (the shop, or the tavern): a bird's-eye view of the inside (drawn in code, like the town's
+// buildings), with the keeper behind the counter or bar, the furnishings the town has set out, and strangers browsing
+// or sitting over their food; and beside or below it, who's in and what they came for, what the venue has to offer,
+// what's been asked for, and what's happened lately. It only shows: the town runs its venues itself.
 
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
+import { qualityOf } from '../../shared/data/quality';
 import { APPEAL_HALVES_WAIT, TRAVELLER_EVERY } from '../../shared/data/shop';
 import type { Look } from '../../shared/data/people';
 import type { ShopView, Snapshot } from '../../shared/sim/snapshot';
 import { materialIcon } from '../art/materialIcons';
 import { el } from './dom';
 
+type VenueId = 'shop' | 'tavern';
+
 /** Changes whenever something the text shows changes (the picture animates on its own). */
-export const shopKey = (s: Snapshot) => {
-  const v = s.shop;
-  return JSON.stringify(v && [s.coins, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers.map((c) => c.id), v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting]);
+export const shopKey = (s: Snapshot, venue: VenueId = 'shop') => {
+  const v = s[venue];
+  return JSON.stringify(v && [s.coins, s.wageBill, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers, v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting, v.asked, v.menu, v.gear]);
 };
 
 /** Pixels per floor cell, and the thickness of the walls, in the picture's own pixels (it's scaled up to fit). */
@@ -23,14 +27,34 @@ let latest: ShopView | null = null;
 let canvas: HTMLCanvasElement | null = null;
 let running = false;
 
-export function renderShop(s: Snapshot): HTMLElement[] {
-  const v = s.shop;
+/** A chip in its quality's colour ("Rare Spear ×2 · 14c"). */
+function qualityChip(text: string, q: number): HTMLElement {
+  const c = el('span', 'chip', text);
+  c.style.color = qualityOf(q).color;
+  c.title = qualityOf(q).name;
+  return c;
+}
+
+export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] {
+  const v = s[venue];
   latest = v;
-  if (!v) return [el('p', 'empty', 'The town has no shop yet. Once it learns Barter it builds a Trading Post, and travellers start stopping by.')];
+  const tavern = venue === 'tavern';
+  if (!v)
+    return [
+      el(
+        'p',
+        'empty',
+        tavern
+          ? 'The town has no tavern yet. Once it learns Hospitality (after Barter) it builds a Fireside Inn, and travellers stop for a meal and a drink.'
+          : 'The town has no shop yet. Once it learns Barter it builds a Trading Post, and travellers start stopping by.',
+      ),
+    ];
   const out: HTMLElement[] = [];
+  const place = tavern ? 'tavern' : 'shop';
+  const floorWord = tavern ? 'Comfort' : 'Appeal';
 
   const head = el('div', 'panel-head');
-  head.append(el('span', 'shop-coins', `● ${s.coins} coins`), el('span', '', `Attractiveness ${v.attractiveness}`));
+  head.append(el('span', 'shop-coins', `● ${s.coins} coins`), el('span', '', tavern ? `Comfort ${v.appeal} · Renown ${v.renown}` : `Attractiveness ${v.attractiveness}`));
   out.push(head);
 
   canvas ??= el('canvas', 'shop-floor');
@@ -55,56 +79,98 @@ export function renderShop(s: Snapshot): HTMLElement[] {
     v.progress !== null
       ? `Being built: ${Math.floor(v.progress * 100)}%. The furnishings wait in the stores meanwhile.`
       : v.keeperName
-        ? `${v.keeperName} keeps the shop.` + (v.customers.length ? ` Browsing: ${v.customers.map((c) => `${c.name} the ${c.kind}`).join(', ')}.` : '')
-        : 'Closed: nobody free to keep it.';
+        ? `${v.keeperName} keeps the ${place}.`
+        : `Closed: nobody free to keep it.`;
   info.push(el('div', 'hint shop-status', status));
   const every = ((TRAVELLER_EVERY[0] + TRAVELLER_EVERY[1]) / 2 / (1 + v.attractiveness / APPEAL_HALVES_WAIT)).toFixed(1);
-  info.push(el('div', 'hint', `Attractiveness ${v.attractiveness}: the furnishings' appeal (${v.appeal}) and the shop's renown (${v.renown}). Someone stops about every ${every} hours` + (v.nextHours !== null ? ` (the next in about ${Math.max(1, Math.ceil(v.nextHours))}h)` : '') + '.'));
+  info.push(
+    el(
+      'div',
+      'hint',
+      (tavern
+        ? `Comfort ${v.appeal}: guests used to more walk out, and the better-off need more. Renown ${v.renown} brings them more often.`
+        : `Attractiveness ${v.attractiveness}: the furnishings' appeal (${v.appeal}) and the shop's renown (${v.renown}).`) +
+        ` Someone comes about every ${every} hours` +
+        (v.nextHours !== null ? ` (the next in about ${Math.max(1, Math.ceil(v.nextHours))}h)` : '') +
+        '.',
+    ),
+  );
 
-  // who it draws, and what each wants
-  info.push(el('h2', '', 'Customers'));
-  for (const t of v.tiers) {
-    const row = el('div', t.drawn ? 'shop-tier' : 'shop-tier locked');
-    const top = el('div', 'shop-tier-top');
-    top.append(el('span', 'shop-tier-name', `${'★'.repeat(t.tier - 1) || '·'} ${t.plural}`), el('span', 'shop-tier-from', t.drawn ? 'coming' : `at attractiveness ${t.from}`));
-    row.append(top);
-    if (t.tier > 1 || t.wares.some((w) => w.have)) {
-      const wares = el('div', 'shop-pieces');
-      for (const w of t.wares) wares.append(el('span', w.needs ? 'chip dim' : 'chip', w.needs ? `${w.name} (${w.needs})` : `${w.name} ${w.have} · ${w.price}c`));
-      row.append(wares);
-    }
-    if (t.tier > 1 && t.drawn && !t.wares.some((w) => w.have)) row.append(el('div', 'hint', `None in stock: ${t.plural.toLowerCase()} leave disappointed, and the shop's renown falls.`));
+  // who's in, and what they came for
+  info.push(el('h2', '', tavern ? 'Guests' : 'In the shop'));
+  if (!v.customers.length) info.push(el('p', 'empty', v.passing ? `${v.passing} on the road, coming or going.` : 'Nobody just now.'));
+  for (const c of v.customers) {
+    const row = el('div', 'shop-guest');
+    row.append(el('span', 'shop-guest-name', `${c.name}, a ${c.kind}`), el('span', 'shop-guest-want', `after ${c.wants}${c.temper ? ` · ${c.temper}` : ''}${c.req !== null ? ` · used to comfort ${c.req}` : ''}`));
     info.push(row);
   }
 
-  info.push(el('h2', '', 'For sale'));
-  info.push(stockRow(v.forSale, 'Nothing spare: the town needs everything it has.'));
-  info.push(el('h2', '', 'Wants to buy'));
-  const wants: Stock = {};
-  for (const w of v.wants) wants[w.m] = w.n;
-  info.push(stockRow(wants, 'Nothing: the town has what it needs.'));
-  const must = v.wants.filter((w) => w.essential).map((w) => MATERIAL_NAMES[w.m].toLowerCase());
-  if (must.length) info.push(el('div', 'hint', `It can't get ${must.join(' or ')} any other way: it buys it whatever it costs.`));
+  if (tavern) {
+    info.push(el('h2', '', 'Menu'));
+    const menu = el('div', 'shop-pieces');
+    for (const d of v.menu) {
+      if (d.needs) menu.append(el('span', 'chip dim', `${d.name} (${d.needs})`));
+      else menu.append(qualityChip(`${d.name} ${d.have} · ${d.price}c`, d.have ? d.best : 1));
+    }
+    info.push(menu, el('div', 'hint', 'Hearty food, drinks and sweets. The town cooks what guests ask for most; a skilled cook makes finer dishes, which fetch more.'));
+  } else {
+    // who it draws, and what each wants
+    info.push(el('h2', '', 'Customers'));
+    for (const t of v.tiers) {
+      const row = el('div', t.drawn ? 'shop-tier' : 'shop-tier locked');
+      const top = el('div', 'shop-tier-top');
+      top.append(el('span', 'shop-tier-name', `${'★'.repeat(t.tier - 1) || '·'} ${t.plural}`), el('span', 'shop-tier-from', t.drawn ? 'coming' : `at attractiveness ${t.from}`));
+      row.append(top);
+      if (t.tier > 1 || t.wares.some((w) => w.have)) {
+        const wares = el('div', 'shop-pieces');
+        for (const w of t.wares) wares.append(el('span', w.needs ? 'chip dim' : 'chip', w.needs ? `${w.name} (${w.needs})` : `${w.name} ${w.have} · ${w.price}c`));
+        row.append(wares);
+      }
+      if (t.tier > 1 && t.drawn && !t.wares.some((w) => w.have)) row.append(el('div', 'hint', `None in stock: ${t.plural.toLowerCase()} leave disappointed, and the shop's renown falls.`));
+      info.push(row);
+    }
+    info.push(el('h2', '', 'Gear in stock'));
+    if (!v.gear.length) info.push(el('p', 'empty', 'None spare.'));
+    else {
+      const gear = el('div', 'shop-pieces');
+      for (const g of v.gear) gear.append(qualityChip(`${g.q !== 1 ? qualityOf(g.q).name + ' ' : ''}${g.name}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q));
+      info.push(gear);
+    }
+    info.push(el('div', 'hint', `Travellers buy it, and so do the townsfolk, with their wages (${s.wageBill} coins a day in all), for a little less.`));
+    info.push(el('h2', '', 'Spare to sell'));
+    info.push(stockRow(v.forSale, 'Nothing spare: the town needs everything it has.'));
+    info.push(el('h2', '', 'Wants to buy'));
+    const wants: Stock = {};
+    for (const w of v.wants) wants[w.m] = w.n;
+    info.push(stockRow(wants, 'Nothing: the town has what it needs.'));
+    const must = v.wants.filter((w) => w.essential).map((w) => MATERIAL_NAMES[w.m].toLowerCase());
+    if (must.length) info.push(el('div', 'hint', `It can't get ${must.join(' or ')} any other way: it buys it whatever it costs.`));
+  }
+
+  if (v.asked.length) {
+    info.push(el('h2', '', 'Asked for, and not found'));
+    const asked = el('div', 'shop-pieces');
+    for (const a of v.asked) asked.append(el('span', 'chip', `${a.what}${a.times > 1 ? ` ×${a.times}` : ''}`));
+    info.push(asked, el('div', 'hint', 'The town makes what it can of this, from what it has spare.'));
+  }
 
   info.push(el('h2', '', `Furnishings (${v.pieces.length})`));
   if (!v.pieces.length) info.push(el('p', 'empty', 'Bare floor so far.'));
-  const counts = new Map<string, { n: number; appeal: number }>();
-  for (const p of v.pieces) {
-    const name = p.name + (p.level > 1 ? ' ' + '★'.repeat(p.level - 1) : '');
-    counts.set(name, { n: (counts.get(name)?.n ?? 0) + 1, appeal: Math.round(p.appeal * (1 + (p.level - 1) / 2)) });
-  }
   const pieces = el('div', 'shop-pieces');
-  for (const [name, { n, appeal }] of counts) pieces.append(el('span', 'chip', `${name}${n > 1 ? ` ×${n}` : ''} +${appeal}`));
+  for (const p of v.pieces) {
+    const name = `${p.q !== 1 ? qualityOf(p.q).name + ' ' : ''}${p.name}${p.level > 1 ? ' ' + '★'.repeat(p.level - 1) : ''}`;
+    pieces.append(qualityChip(`${name} +${Math.round(p.appeal * qualityOf(p.q).mult * (1 + (p.level - 1) / 2))}`, p.q));
+  }
+  if (v.pieces.length) info.push(pieces);
   const levelled = v.pieces.filter((p) => p.level > 1).length;
-  if (counts.size) info.push(pieces);
   if (v.making) info.push(el('div', 'hint', `Being made for it: ${v.making}.`));
   if (v.waiting.length) info.push(el('div', 'hint', `Made, waiting to be set out: ${v.waiting.join(', ')}.`));
   if (levelled) info.push(el('div', 'hint', `${levelled} improved with coins (★ a second tier, ★★ polished and trimmed in brass).`));
-  info.push(el('div', 'hint', `Floor ${v.cols}×${v.rows}` + (v.extensions ? `, extended ${v.extensions} of ${v.maxExtensions} times` : '') + (v.nextExtension !== null ? `. The town extends it (${v.nextExtension} coins) once it's crowded and it has the coins to spare.` : '.')));
+  info.push(el('div', 'hint', `${floorWord} counts each piece's quality. Floor ${v.cols}×${v.rows}` + (v.extensions ? `, extended ${v.extensions} of ${v.maxExtensions} times` : '') + (v.nextExtension !== null ? `. The town extends it (${v.nextExtension} coins) once it's crowded and it has coins to spare.` : '.')));
   if (v.grows) info.push(el('div', 'hint', `It grows into a ${v.grows.name}${v.grows.research ? ` once the town learns ${v.grows.research}` : ''}, with room for more.`));
 
   info.push(el('h2', '', 'Lately'));
-  if (!v.log.length) info.push(el('p', 'empty', 'No travellers yet.'));
+  if (!v.log.length) info.push(el('p', 'empty', tavern ? 'No guests yet.' : 'No travellers yet.'));
   for (const l of [...v.log].reverse()) {
     const row = el('div', 'shop-log');
     row.append(el('span', 'shop-when', l.when.replace(/ · \w+ · /, ' · ')), el('span', '', l.text));
@@ -175,6 +241,8 @@ const FLOORS: Record<string, Floor> = {
   trading_post: { floor: '#8a6a44', seam: '#7a5c3a', wall: '#5a3a22', wallLight: '#77502f', wallDark: '#3b2616' },
   general_store: { floor: '#a0703e', seam: '#83582e', wall: '#d8c8a8', wallLight: '#efe2c6', wallDark: '#3b2616' },
   emporium: { floor: '#c8bca0', seam: '#a89c80', wall: '#a4543a', wallLight: '#bc6a48', wallDark: '#6a3424' },
+  fireside_inn: { floor: '#6e5236', seam: '#5e452c', wall: '#6b6763', wallLight: '#8b8680', wallDark: '#3b2616' },
+  tavern: { floor: '#7a4e2a', seam: '#5e3a1e', wall: '#a4543a', wallLight: '#bc6a48', wallDark: '#3b2616' },
 };
 
 function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
@@ -203,7 +271,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       const px = cellX(x);
       const py = cellY(y);
       if (v.def === 'emporium') rect(px, py, CELL, CELL, (x + y) % 2 ? pal.floor : pal.seam);
-      else if (v.def === 'general_store') {
+      else if (v.def === 'general_store' || v.def === 'tavern') {
         rect(px, py, CELL, CELL, pal.floor);
         for (let k = 0; k < CELL; k += 4) rect(px, py + k, CELL, 1, pal.seam);
         rect(px + ((y * 7) % CELL), py, 1, CELL, pal.seam);
@@ -230,16 +298,30 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   // rugs lie under everything else
   for (const p of v.pieces) if (p.kind === 'rug') drawPiece(p);
 
-  // the counter, the shopkeeper behind it, and the takings
+  // the counter (a tavern's bar), the keeper behind it, and the takings (or the tankards)
   const cx = cellX(v.counter.x);
   const cy = cellY(v.counter.y);
+  if (v.venue === 'tavern') {
+    // casks against the back wall, behind the barkeep
+    for (let k = 0; k < v.keeper.w; k++) {
+      disc(cellX(v.keeper.x + k) + 4, cellY(v.keeper.y) + 5, 3, '#5a3a22');
+      disc(cellX(v.keeper.x + k) + 4, cellY(v.keeper.y) + 5, 2, '#8a5a30');
+    }
+  }
   if (v.keeperLook) person(cellX(v.keeper.x) + CELL, cellY(v.keeper.y) + CELL / 2 + 2, v.keeperLook, 1, t);
   rect(cx, cy + 2, v.counter.w * CELL, CELL - 4, '#5a3a22');
   rect(cx, cy + 2, v.counter.w * CELL, 3, '#8a5a30');
-  disc(cx + 6, cy + 8, 2, '#e8c040');
-  disc(cx + 9, cy + 7, 2, '#f0d060');
-  rect(cx + v.counter.w * CELL - 10, cy + 5, 6, 1, '#c0c8d0'); // scales
-  rect(cx + v.counter.w * CELL - 7, cy + 5, 1, 5, '#8a94a0');
+  if (v.venue === 'tavern') {
+    for (const dx of [5, 13, 22]) {
+      rect(cx + dx, cy + 6, 3, 4, '#c8a050'); // tankards
+      rect(cx + dx, cy + 6, 3, 1, '#f0f0e0');
+    }
+  } else {
+    disc(cx + 6, cy + 8, 2, '#e8c040');
+    disc(cx + 9, cy + 7, 2, '#f0d060');
+    rect(cx + v.counter.w * CELL - 10, cy + 5, 6, 1, '#c0c8d0'); // scales
+    rect(cx + v.counter.w * CELL - 7, cy + 5, 1, 5, '#8a94a0');
+  }
 
   for (const p of v.pieces) if (p.kind !== 'rug') drawPiece(p);
 
@@ -264,7 +346,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       const s = spots[Math.floor(Math.random() * spots.length)];
       wk.tx = s.x;
       wk.ty = s.y;
-      wk.wait = 1.5 + Math.random() * 3;
+      wk.wait = v.venue === 'tavern' ? 6 + Math.random() * 8 : 1.5 + Math.random() * 3;
     }
     person(wk.x, wk.y, wk.look, d > 0.5 ? (dy < 0 ? -1 : 1) : 0, t + q.id, q.tier);
   }
@@ -291,6 +373,56 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     const shelf = goods.length >= 3 ? goods : [...goods, ...FALLBACK_GOODS];
     const good = (i: number) => shelf[(i + p.x * 3 + p.y) % shelf.length];
     switch (p.item) {
+      case 'log_table':
+      case 'oak_table': {
+        const top = p.item === 'oak_table' ? '#a8703a' : '#8a5a30';
+        rect(x + 2, y + 1, w - 4, 3, '#5a3a22'); // benches (chairs, for oak)
+        rect(x + 2, y + h - 4, w - 4, 3, '#5a3a22');
+        rect(x + 3, y + 5, w - 6, h - 10, '#2a1a10');
+        rect(x + 3, y + 4, w - 6, h - 10, top);
+        for (let k = y + 7; k < y + h - 7; k += 4) rect(x + 4, k, w - 8, 1, '#77502f');
+        rect(x + 8, y + 9, 3, 3, '#c8a050'); // a tankard, a plate
+        disc(x + w - 9, y + 12, 2, '#e8e0cc');
+        return;
+      }
+      case 'stone_hearth':
+      case 'brick_hearth': {
+        rect(x + 1, y + 1, w - 2, h - 2, p.item === 'brick_hearth' ? '#a4543a' : '#6b6763');
+        rect(x + 5, y + 4, w - 10, h - 6, '#2a1a10');
+        const flick = Math.sin(t * 9 + p.x) > 0 ? 1 : 0;
+        rect(x + 8, y + 6 - flick, w - 16, 5 + flick, '#e8702a');
+        rect(x + 11, y + 7, w - 22, 3, '#ffd060');
+        // (a soft glow out onto the floor in front)
+        const glow = g.createRadialGradient(x + w / 2, y + h, 2, x + w / 2, y + h, CELL * 1.4);
+        glow.addColorStop(0, `rgba(255, 150, 60, ${0.22 + 0.06 * Math.sin(t * 7)})`);
+        glow.addColorStop(1, 'rgba(255, 150, 60, 0)');
+        g.fillStyle = glow;
+        g.fillRect(x - CELL, y, w + CELL * 2, h + CELL * 1.5);
+        return;
+      }
+      case 'barrels':
+        disc(x + 5, y + 5, 4, '#5a3a22');
+        disc(x + 5, y + 5, 3, '#8a5a30');
+        disc(x + 11, y + 11, 4, '#5a3a22');
+        disc(x + 11, y + 11, 3, '#8a5a30');
+        return;
+      case 'hide_rug':
+        rect(x + 2, y + 3, w - 4, h - 6, '#a88258');
+        rect(x + 1, y + 5, 2, 3, '#a88258');
+        rect(x + w - 3, y + 5, 2, 3, '#a88258');
+        rect(x + 6, y + 6, w - 12, 2, '#7c5c3c');
+        return;
+      case 'tapestry':
+        rect(x + 2, y + 1, 12, 13, '#6a1a2a');
+        rect(x + 3, y + 2, 10, 11, '#8a2a3a');
+        rect(x + 5, y + 5, 6, 4, '#c8a050');
+        rect(x + 2, y + 1, 12, 1, '#5a3a22');
+        return;
+      case 'upright_piano':
+        rect(x + 1, y + 1, w - 2, h - 5, '#2a1a10');
+        rect(x + 3, y + h - 6, w - 6, 3, '#f0ece0');
+        for (let k = x + 4; k < x + w - 4; k += 3) rect(k, y + h - 6, 1, 2, '#1a1a1a');
+        return;
       case 'woven_mat':
         rect(x + 1, y + 3, w - 2, h - 6, '#b89a58');
         for (let k = x + 3; k < x + w - 3; k += 3) rect(k, y + 3, 1, h - 6, '#8a7040');
@@ -391,6 +523,17 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
 
 /** Where a browser stands: in front of each piece, and at the counter. */
 function browseSpots(v: ShopView): { x: number; y: number }[] {
+  // tavern guests sit at the tables (on the benches either side), or stand at the bar
+  if (v.venue === 'tavern') {
+    const seats = v.pieces
+      .filter((p) => p.kind === 'table')
+      .flatMap((p) => [
+        { x: WALL + (p.x + 0.5) * CELL, y: WALL + p.y * CELL + 3 },
+        { x: WALL + (p.x + 1.5) * CELL, y: WALL + (p.y + p.h) * CELL - 3 },
+      ]);
+    seats.push({ x: WALL + (v.counter.x + 0.5) * CELL, y: WALL + (v.counter.y + 1.5) * CELL }, { x: WALL + (v.counter.x + 1.5) * CELL, y: WALL + (v.counter.y + 1.5) * CELL });
+    return seats;
+  }
   const spots = v.pieces
     .filter((p) => p.kind !== 'rug')
     .map((p) => ({ x: WALL + (p.x + p.w / 2) * CELL, y: WALL + Math.min(v.rows - 0.5, p.y + p.h + 0.4) * CELL }));

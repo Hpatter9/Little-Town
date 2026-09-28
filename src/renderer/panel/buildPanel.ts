@@ -17,7 +17,7 @@ import { topicKnown } from './secrets';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([s.coins, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
+  JSON.stringify([s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const used = blueprintCount(s);
@@ -37,6 +37,38 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
     );
   }
   out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description));
+
+  // the town's money: travellers bring it in at the shop and the tavern, and it goes on wages, crafters and the venues
+  if (s.shop || s.tavern || s.coins) {
+    out.push(el('h2', '', `Coins: ${s.coins}`));
+    const l = s.ledger;
+    if (!l) out.push(el('div', 'hint', 'Travellers passing through fund the town: they buy at the shop and eat and drink at the tavern. A day\'s takings show here from tomorrow.'));
+    else {
+      const LINES: [keyof NonNullable<typeof l>, string][] = [
+        ['shop', 'Travellers at the shop'],
+        ['tavern', 'Travellers at the tavern'],
+        ['townsfolk', 'The townsfolk (gear, evenings out)'],
+        ['wages', 'Wages'],
+        ['crafters', 'Crafters, for what they made'],
+        ['venues', 'Rooms and improvements'],
+        ['goods', 'Goods bought from travellers'],
+      ];
+      const t = el('table', 'grid ledger');
+      let net = 0;
+      for (const [k, name] of LINES) {
+        const n = Math.round(l[k] ?? 0);
+        if (!n) continue;
+        net += n;
+        const tr = el('tr');
+        tr.append(el('td', 'grid-name', name), el('td', n > 0 ? 'ledger-in' : 'ledger-out', `${n > 0 ? '+' : ''}${n}`));
+        t.append(tr);
+      }
+      const tr = el('tr');
+      tr.append(el('td', 'grid-name', 'Yesterday, all told'), el('td', net >= 0 ? 'ledger-in' : 'ledger-out', `${net >= 0 ? '+' : ''}${net}`));
+      t.append(tr);
+      out.push(t);
+    }
+  }
 
   // what it's doing about it
   out.push(el('h2', '', 'Being built'));

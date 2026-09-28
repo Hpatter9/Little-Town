@@ -20,12 +20,14 @@ import { MATERIALS, type Material, type Stock } from '../data/materials';
 import type { WorkAnim } from '../data/terrain';
 import type { Rng } from '../rng';
 import type { Era } from '../data/eras';
+import { COMMON, qualityMult, qualityOf, rollQuality, typicalQuality } from '../data/quality';
+import { PIECE_RATE, PURSE_SCALE, saleValue } from '../data/shop';
 import { FOOD_VALUE } from '../data/people';
 import { buildingCentreX, depositNear } from './buildings';
 import { stabilize } from './health';
 import { treatSickness } from './doom';
 import { modifiers } from './research';
-import { addStock, campX, ERA_MULTIPLIER, maxHp, notify, type Building, type CraftOrder, type GameState, type Person } from './state';
+import { addStock, campX, earn, ERA_MULTIPLIER, maxHp, notify, remember, type Building, type CraftOrder, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 /* ------------------------------------------------------------ what can be made, and where */
@@ -99,10 +101,42 @@ export function reduceCraft(s: GameState, orderId: number, all = false): void {
   if (o.itemsTaken) for (const [id, n] of Object.entries(def.items ?? {})) addItems(s, id, n);
 }
 
-export function addItems(s: GameState, id: string, n: number): void {
+export function addItems(s: GameState, id: string, n: number, quality = COMMON): void {
+  const q = n > 0 ? qualitiesOf(s, id) : null;
   const v = (s.items[id] ?? 0) + n;
   if (v > 0) s.items[id] = v;
   else delete s.items[id];
+  if (q) {
+    for (let k = 0; k < n; k++) q.push(quality);
+    (s.itemQ ??= {})[id] = q.sort((a, b) => b - a);
+  }
+}
+
+/** The quality of each piece of an item in the inventory, best first. It's kept in step with the count here: pieces
+ *  used up without a word about quality (a snare breaking, say) take the poorest with them, and pieces from before
+ *  quality existed are Common. */
+export function qualitiesOf(s: GameState, id: string): number[] {
+  const n = s.items[id] ?? 0;
+  const all = (s.itemQ ??= {});
+  const q = (all[id] ?? []).slice().sort((a, b) => b - a);
+  while (q.length > n) q.pop();
+  while (q.length < n) q.push(COMMON);
+  if (q.length) all[id] = q;
+  else delete all[id];
+  return q;
+}
+
+/** Take one piece of an item out of the inventory, the best or the poorest. Its quality, or null if there's none. */
+export function takeItem(s: GameState, id: string, which: 'best' | 'worst' = 'best'): number | null {
+  const q = qualitiesOf(s, id);
+  if (!q.length) return null;
+  const got = which === 'best' ? q.shift()! : q.pop()!;
+  s.itemQ![id] = q;
+  if (!q.length) delete s.itemQ![id];
+  const v = (s.items[id] ?? 0) - 1;
+  if (v > 0) s.items[id] = v;
+  else delete s.items[id];
+  return got;
 }
 
 /** Take item ingredients for the next piece out of the inventory. Returns false if some are missing. */
@@ -115,14 +149,19 @@ export function takeItemInputs(s: GameState, o: CraftOrder): boolean {
 }
 
 /** One piece is done: into the inventory (or storage, for materials); the order moves on. */
-export function finishPiece(s: GameState, o: CraftOrder, p: Person): void {
+export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): void {
   const def = ITEM_BY_ID[o.item];
   if (def.makes) {
     const at = stationFor(s, def);
     const left = depositNear(s, at ? buildingCentreX(at) : p.x, def.makes);
     for (const m of MATERIALS) if (left[m]) addStock(p.carrying, m, left[m]!); // no room: they hold it
   } else {
-    addItems(s, def.id, 1);
+    // (how well it's made depends on who made it)
+    const level = p.skills.crafting.level;
+    const q = rng ? rollQuality(rng, level) : Math.round(typicalQuality(level));
+    addItems(s, def.id, 1, q);
+    if (q >= 5) notify(s, `${p.name} made a ${qualityOf(q).name} ${def.name}!`, true);
+    payCrafter(s, def, q, p);
   }
   o.delivered = {};
   o.itemsTaken = false;
@@ -136,24 +175,44 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person): void {
   if (def.slot) equipAll(s);
 }
 
+/** Once the town has money, it pays for what it has made to sell: a furnishing outright (it's bought for the shop or
+ *  tavern), a piece rate for gear, wares and fare. As far as its purse goes. */
+function payCrafter(s: GameState, def: ItemDef, q: number, p: Person): void {
+  if (!moneyTown(s) || !(def.furnish || def.ware || def.fare || def.slot)) return;
+  const worth = saleValue(def, q) * (def.fare ? PURSE_SCALE[s.era] : 1);
+  const pay = Math.min(s.coins ?? 0, Math.round(def.furnish ? worth : worth * PIECE_RATE));
+  if (pay <= 0) return;
+  s.coins = (s.coins ?? 0) - pay;
+  p.coins = (p.coins ?? 0) + pay;
+  earn(s, 'crafters', -pay);
+  const what = `${q !== COMMON ? qualityOf(q).name + ' ' : ''}${def.name}`;
+  remember(s, p, `Was paid ${pay} coins for a ${what}`);
+  if (def.furnish) notify(s, `The town bought a ${what} from ${p.name} for ${pay} coins.`);
+}
+
 /* ------------------------------------------------------------ gear */
 
 /** Combined effects of everything someone wears. */
 export function gearEffects(p: Person): Required<Pick<ItemEffects, 'damage' | 'beastDamage' | 'accuracy' | 'armor' | 'block' | 'carry' | 'morale'>> & { ranged: boolean } {
   const e = { damage: 0, beastDamage: 0, accuracy: 0, armor: 0, block: 0, carry: 0, morale: 0, ranged: false };
-  for (const id of Object.values(p.gear)) {
-    const fx = ITEM_BY_ID[id!]?.effects;
+  for (const [slot, id] of Object.entries(p.gear) as [Slot, string][]) {
+    const fx = ITEM_BY_ID[id]?.effects;
     if (!fx) continue;
+    // (a finer piece does more)
+    const k = qualityMult(p.gearQ?.[slot]);
     // a knife only helps in a fight when there's no real weapon
-    if (fx.damage && !(ITEM_BY_ID[id!].slot === 'tool' && p.gear.weapon)) e.damage += fx.damage;
-    e.beastDamage += fx.beastDamage ?? 0;
-    e.accuracy += fx.accuracy ?? 0;
-    e.armor += fx.armor ?? 0;
-    e.block += fx.block ?? 0;
-    e.carry += fx.carry ?? 0;
-    e.morale += fx.morale ?? 0;
+    if (fx.damage && !(ITEM_BY_ID[id].slot === 'tool' && p.gear.weapon)) e.damage += fx.damage * k;
+    e.beastDamage += (fx.beastDamage ?? 0) * k;
+    e.accuracy += (fx.accuracy ?? 0) * k;
+    e.armor += (fx.armor ?? 0) * k;
+    e.block += (fx.block ?? 0) * k;
+    e.carry += Math.round((fx.carry ?? 0) * k);
+    e.morale += (fx.morale ?? 0) * k;
     if (fx.ranged) e.ranged = true;
   }
+  // (however fine the armour, some blows still land)
+  e.armor = Math.min(ARMOR_CAP, e.armor);
+  e.block = Math.min(BLOCK_CAP, e.block);
   return e;
 }
 
@@ -161,17 +220,18 @@ export function gearEffects(p: Person): Required<Pick<ItemEffects, 'damage' | 'b
 export function toolSpeed(p: Person, work: WorkAnim | 'construct'): number {
   const fx = p.gear.tool ? ITEM_BY_ID[p.gear.tool]?.effects : undefined;
   if (!fx) return 1;
-  return work === 'construct' ? (fx.construct ?? 1) : (fx.gather?.[work] ?? 1);
+  return finer(work === 'construct' ? (fx.construct ?? 1) : (fx.gather?.[work] ?? 1), p.gearQ?.tool);
 }
 
 /** Swap to the best spare tool for the work at hand (the one in hand goes back to the inventory). */
 export function pickTool(s: GameState, p: Person, work: WorkAnim | 'construct'): void {
+  if (moneyTown(s)) return; // (the tools in store are the shop's, for sale)
   let best = p.gear.tool;
   let bestSpeed = toolSpeed(p, work);
   for (const [id, n] of Object.entries(s.items)) {
     const def = ITEM_BY_ID[id];
     if (!n || def?.slot !== 'tool') continue;
-    const speed = work === 'construct' ? (def.effects.construct ?? 1) : (def.effects.gather?.[work] ?? 1);
+    const speed = finer(work === 'construct' ? (def.effects.construct ?? 1) : (def.effects.gather?.[work] ?? 1), qualitiesOf(s, id)[0]);
     if (speed > bestSpeed) {
       best = id;
       bestSpeed = speed;
@@ -180,7 +240,19 @@ export function pickTool(s: GameState, p: Person, work: WorkAnim | 'construct'):
   if (best && best !== p.gear.tool) equip(s, p, 'tool', best);
 }
 
-/** How much an item is worth in its slot, to hand out the best first. */
+/** A tool's speed-up, made finer by its quality. */
+const finer = (speed: number, q: number | undefined) => 1 + (speed - 1) * qualityMult(q);
+/** However fine the gear, some blows still land. */
+const ARMOR_CAP = 0.8;
+const BLOCK_CAP = 0.6;
+
+/** How much an item is worth in its slot, to hand out the best first (times its quality's worth). */
+export const gearScore = (def: ItemDef, q: number | undefined) => score(def) * qualityMult(q);
+const scoreQ = gearScore;
+
+/** Once the town has a shop (and so money), townsfolk buy their gear with their wages (see wages.ts) instead of
+ *  having it handed out from the common store. */
+const moneyTown = (s: GameState) => s.buildings.some((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.floor?.venue === 'shop');
 function score(def: ItemDef): number {
   const e = def.effects;
   const gather = Object.values(e.gather ?? {}).reduce((a, b) => a + (b - 1), 0);
@@ -191,11 +263,15 @@ function score(def: ItemDef): number {
 export function equip(s: GameState, p: Person, slot: Slot, itemId: string | null): void {
   if (itemId !== null && ((s.items[itemId] ?? 0) <= 0 || ITEM_BY_ID[itemId]?.slot !== slot)) return;
   const old = p.gear[slot];
-  if (old) addItems(s, old, 1);
-  if (itemId === null) delete p.gear[slot];
-  else {
-    addItems(s, itemId, -1);
+  if (old) addItems(s, old, 1, p.gearQ?.[slot] ?? COMMON);
+  if (itemId === null) {
+    delete p.gear[slot];
+    if (p.gearQ) delete p.gearQ[slot];
+  } else {
+    // (the best of them)
+    const q = takeItem(s, itemId, 'best') ?? COMMON;
     p.gear[slot] = itemId;
+    (p.gearQ ??= {})[slot] = q;
   }
 }
 
@@ -204,6 +280,7 @@ export function equip(s: GameState, p: Person, slot: Slot, itemId: string | null
  * and the rest to whoever has nothing in that slot. Better spare items replace worse ones.
  */
 export function equipAll(s: GameState): void {
+  if (moneyTown(s)) return; // (they buy it now)
   const fightSkill = (p: Person) => Math.max(p.skills.melee.level, p.skills.ranged.level) + (p.id === s.mainId ? 0.5 : 0) + (p.priorities.defend ? 3 : 0);
   for (const slot of SLOTS) {
     const combat = slot === 'weapon' || slot === 'offhand' || slot === 'head' || slot === 'body';
@@ -211,12 +288,12 @@ export function equipAll(s: GameState): void {
     for (const p of people) {
       const spare = Object.entries(s.items)
         .filter(([id, n]) => n > 0 && ITEM_BY_ID[id]?.slot === slot)
-        .map(([id]) => ITEM_BY_ID[id])
-        .sort((a, b) => score(b) - score(a))[0];
+        .map(([id]) => ({ def: ITEM_BY_ID[id], q: qualitiesOf(s, id)[0] }))
+        .sort((a, b) => scoreQ(b.def, b.q) - scoreQ(a.def, a.q))[0]?.def;
       if (!spare) break;
       const worn = p.gear[slot] ? ITEM_BY_ID[p.gear[slot]!] : undefined;
       // a torch and a shield share a hand: fighters keep the shield
-      if (worn && score(spare) <= score(worn)) continue;
+      if (worn && scoreQ(spare, qualitiesOf(s, spare.id)[0]) <= scoreQ(worn, p.gearQ?.[slot])) continue;
       equip(s, p, slot, spare.id);
     }
   }

@@ -15,11 +15,13 @@ import { blueprintCount, buildSlots, canPlace, canUpgrade, isUnlocked, placeBlue
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
-import { addStock, campX, type GameState } from './state';
+import { addStock, campX, type Building, type GameState } from './state';
 import { TILE } from '../constants';
 import { TICKS_PER_HOUR } from './time';
-import { COIN_RESERVE, isShop, PURSE_SCALE, tiersDrawn, travellerGoods, WARE_STOCK, WARES } from '../data/shop';
-import { appealGain, attractiveness, extend, extensionPrice, improve, levelPrice, shopOf, spotFor, wouldFurnish } from './shop';
+import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
+import { wageBill } from './wages';
+import { appealGain, attractiveness, extend, extensionPrice, improve, levelPrice, SALE_GEAR, shopOf, spotFor, tavernOf, venueKind, wouldFurnish } from './shop';
+import { gearScore } from './crafting';
 
 /* ------------------------------------------------------------ the town's direction */
 
@@ -151,6 +153,7 @@ function topicScore(t: Topic, n: Needs): number {
     if (b.stalls || b.id === 'tavern') score += n.direction === 'trade' ? 12 : 3;
     // (a shop is the only way to get what the land doesn't give: without it the town can't build at all)
     if (isShop(b.id)) score += (n.unsourced.length ? 60 : 0) + (n.direction === 'trade' ? 12 : 3);
+    if (isTavern(b.id)) score += n.direction === 'trade' ? 12 : 3;
   }
   // (wares for the grand customers the shop draws, which it has nothing to sell yet)
   if (ITEMS.some((i) => i.ware && n.wareGaps.includes(i.ware.tier) && i.research.includes(t.id))) score += n.direction === 'trade' ? 30 : 15;
@@ -267,33 +270,89 @@ function planCrafting(s: GameState, n: Needs): Stock {
   const isMedicine = (i: ItemDef) => i.id === 'poultice' || i.id === 'bandage';
   if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
   // (one pot on order at a time: the crafters have other work)
-  // 5. a furnishing for the shop, one at a time (while food holds up): the one that adds the most appeal that would
-  // improve the shop (it has room for it, or it beats a piece already out), and not yet another of a kind it has
-  // plenty of
-  const shop = shopOf(s);
+  // Everything made to sell or to dress a venue is made only from what the town has spare (beyond what it needs, a
+  // reserve, and several days' food), never from what it can only buy (like a desert's fiber); nothing is gathered for
+  // it but what the land gives.
+  const spareStock = forSale(s);
+  const fromSpare = (w: ItemDef) => (Object.entries(w.cost) as [Material, number][]).every(([m, k]) => (spareStock[m] ?? 0) >= k && !n.unsourced.includes(m)) && inputsReady(s, w, n.stock);
+  const gatherFor = (w: ItemDef) => {
+    if ((Object.keys(w.cost) as Material[]).every((m) => !n.unsourced.includes(m) && GATHERABLE.has(m))) lack(w);
+  };
+  /** Of some things worth making, the first that can be made from what's spare (the rest are gathered for). */
+  const makeFirst = (options: ItemDef[]) => {
+    const ready = options.find(fromSpare);
+    for (const w of options) {
+      if (w === ready) break;
+      gatherFor(w);
+    }
+    if (ready) queueCraft(s, ready.id);
+  };
+  const makeable = (i: ItemDef) => itemUnlocked(s, i) && !!stationFor(s, i);
+  const settled = n.foodDays >= 2;
+
+  // (whatever's queued below for a venue is a commission: its keeper asks, and the crafter is paid)
+  const commission = (venue: Building | undefined, before: Set<number>) => {
+    if (!venue) return;
+    for (const o of s.crafting) {
+      if (before.has(o.id) || o.for) continue;
+      const def = ITEM_BY_ID[o.item];
+      const worth = saleValue(def, undefined) * (def.fare ? PURSE_SCALE[s.era] : 1);
+      o.for = { venue: venueKind(venue), by: venue.operator ?? null, pay: Math.round(def.furnish ? worth : worth * PIECE_RATE) };
+    }
+  };
+  const queued = () => new Set(s.crafting.map((o) => o.id));
+
+  // 5. a furnishing for each venue, one at a time (they start bare): the one that adds the most that would improve it
+  // (room for it, or it beats a piece already out), and not yet another of a kind it has plenty of
   const isFurnishing = (i: ItemDef) => !!i.furnish;
-  if (shop && room() && n.foodDays >= 2 && !ordered(s, isFurnishing) && !kept(s, isFurnishing)) {
-    tryMake(bestMakeable(s, (i) => isFurnishing(i) && wouldFurnish(shop, i) && appealGain(shop, i) >= 1, (i) => appealGain(shop, i)));
+  for (const venue of [shopOf(s), tavernOf(s)]) {
+    if (!venue || !room() || !settled) continue;
+    const mine = (i: ItemDef) => furnishes(i, venueKind(venue));
+    if (ordered(s, (i) => isFurnishing(i) && mine(i)) || kept(s, (i) => isFurnishing(i) && mine(i))) continue;
+    // (every piece is bought: only what the town can pay for, keeping tomorrow's wages back)
+    const purse = (s.coins ?? 0) - wageBill(s);
+    const before = queued();
+    tryMake(bestMakeable(s, (i) => mine(i) && wouldFurnish(venue, i) && appealGain(venue, i) >= 1 && saleValue(i, undefined) <= purse, (i) => appealGain(venue, i)));
+    commission(venue, before);
   }
+  const shop = shopOf(s);
   // 6. wares to sell, one order at a time: for the grandest customers the shop draws first, whichever of their wares it
   // has least of (a few of each kept in stock)
   const isWare = (i: ItemDef) => !!i.ware;
-  if (shop && room() && n.foodDays >= 2 && !ordered(s, isWare)) {
+  if (shop && room() && settled && !ordered(s, isWare)) {
+    const before = queued();
     const tiers = tiersDrawn(attractiveness(s, shop)).map((c) => c.tier).reverse();
-    // (one it lacks the makings for is gathered for, and the next tier's tried meanwhile)
-    const options = tiers.flatMap((tier) =>
-      WARES.filter((i) => i.ware!.tier === tier && itemUnlocked(s, i) && stationFor(s, i) && (s.items[i.id] ?? 0) < WARE_STOCK).sort((a, b) => (s.items[a.id] ?? 0) - (s.items[b.id] ?? 0)),
-    );
-    // (wares are made from what the town has spare, beyond what it needs and a reserve; never from what it can only
-    // buy, like a desert's fiber, and nothing is gathered for them but what the land gives)
-    const spare = (m: Material) => (n.stock[m] ?? 0) - Math.max(n.demand[m] ?? 0, (RESERVE[m] ?? 6) * 2);
-    const fromSpare = (w: ItemDef) => (Object.entries(w.cost) as [Material, number][]).every(([m, k]) => spare(m) >= k && !n.unsourced.includes(m));
-    const ready = options.find((w) => fromSpare(w) && inputsReady(s, w, n.stock));
-    for (const w of options) {
-      if (w === ready) break;
-      if ((Object.keys(w.cost) as Material[]).every((m) => !n.unsourced.includes(m) && GATHERABLE.has(m))) lack(w);
+    makeFirst(tiers.flatMap((tier) => WARES.filter((i) => i.ware!.tier === tier && makeable(i) && (s.items[i.id] ?? 0) < WARE_STOCK).sort((a, b) => (s.items[a.id] ?? 0) - (s.items[b.id] ?? 0))));
+    commission(shop, before);
+  }
+  // 7. gear customers came for and didn't find (the most asked-for first), a couple of each kind kept in stock
+  if (shop && room() && settled && !ordered(s, (i) => SALE_GEAR.includes(i))) {
+    const before = queued();
+    const options: ItemDef[] = [];
+    for (const [key] of Object.entries(shop.shop?.asked ?? {}).sort((a, b) => b[1] - a[1])) {
+      const [kind, what] = key.split(':');
+      const slots = kind === 'gear' ? what.split(',') : kind === 'item' ? [ITEM_BY_ID[what]?.slot] : [];
+      if (!slots.length) continue;
+      const inStock = SALE_GEAR.filter((i) => slots.includes(i.slot!)).reduce((k, i) => k + (s.items[i.id] ?? 0), 0);
+      if (inStock >= 2) continue;
+      if (kind === 'item' && ITEM_BY_ID[what] && makeable(ITEM_BY_ID[what])) options.push(ITEM_BY_ID[what]);
+      else options.push(...SALE_GEAR.filter((i) => slots.includes(i.slot!) && makeable(i) && !i.items).sort((a, b) => gearScore(b, undefined) - gearScore(a, undefined)));
     }
-    if (ready) queueCraft(s, ready.id);
+    makeFirst(options);
+    commission(shop, before);
+  }
+  // 8. fare for the tavern, one order at a time: the kind guests asked for most (or have least of), a few of each
+  const tavern = tavernOf(s);
+  if (tavern && room() && settled && !ordered(s, (i) => !!i.fare)) {
+    const before = queued();
+    const asked = tavern.shop?.asked ?? {};
+    const wanted = (i: ItemDef) => (asked[`dish:${i.id}`] ?? 0) + (asked[`fare:${i.fare!.kind}`] ?? 0);
+    const stockOf = (kind: string) => FARE.filter((i) => i.fare!.kind === kind).reduce((k, i) => k + (s.items[i.id] ?? 0), 0);
+    makeFirst(
+      FARE.filter((i) => makeable(i) && stockOf(i.fare!.kind) < FARE_STOCK)
+        .sort((a, b) => wanted(b) - wanted(a) || stockOf(a.fare!.kind) - stockOf(b.fare!.kind) || b.fare!.price - a.fare!.price),
+    );
+    commission(tavern, before);
   }
   if (room() && n.storageFill > 0.7 && !ordered(s, (i) => i.id === 'clay_pot') && (s.items.clay_pot ?? 0) < MAX_POTS && stationFor(s, ITEM_BY_ID.clay_pot) && itemUnlocked(s, ITEM_BY_ID.clay_pot)) tryMake(ITEM_BY_ID.clay_pot);
   return want;
@@ -366,6 +425,9 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   // a shop, first thing, when the land can't give what the town needs (a desert's fiber, once it's gathered out)
   const shopPlanned = s.buildings.some((b) => isShop(b.def));
   const firstShop = BUILDING_BY_ID.trading_post;
+  // (a tavern starts as a Fireside Inn, or straight away as a Tavern for a town that learned brewing first)
+  const tavernPlanned = s.buildings.some((b) => isTavern(b.def));
+  const firstTavern = VENUE_CHAIN.tavern.map((id) => BUILDING_BY_ID[id]).find((d) => can(d));
   if (!shopPlanned && can(firstShop) && n.unsourced.length) add(firstShop.id, `to buy the ${names(n.unsourced)} it can't gather`);
   // storage when it's filling up (a few stores, not a field of them: the rest is what the shop is for)
   const stores = s.buildings.filter((b) => BUILDING_BY_ID[b.def]?.storage && b.def !== 'campfire').length;
@@ -385,12 +447,13 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   // the next era, once the town can manage it
   for (const id of CAPSTONES) if (BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id]) && !planned(s, id)) add(id, 'the way to the next era');
   if (!shopPlanned && can(firstShop)) add(firstShop.id, 'to sell to travellers for coins');
+  if (!tavernPlanned && firstTavern) add(firstTavern.id, 'to feed travellers for coins');
   // one of every workshop, mine, farm building and comfort it has learned to build
   const order = n.direction === 'trade' ? (d: BuildingDef) => (d.stalls || d.id === 'tavern' || ITEMS.some((i) => i.station === d.id) ? 0 : 1) : () => 0;
   for (const d of [...BUILDINGS].sort((a, b) => order(a) - order(b))) {
     if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || CAPSTONES.includes(d.id)) continue;
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
-    if (isShop(d.id)) continue; // (one shop, which grows by being rebuilt bigger)
+    if (venueOfDef(d.id)) continue; // (one shop and one tavern, which grow by being rebuilt bigger)
     add(d.id, WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
   }
   return out;
@@ -540,17 +603,21 @@ const names = (ms: readonly Material[]) => ms.map((m) => MATERIAL_NAMES[m].toLow
 /** Once an hour, what's left in the purse after a good reserve goes into the shop: an extension when its floor is
  *  crowded (no room for another shelf or table), else a level on the piece that's cheapest to improve. */
 function planShop(s: GameState): void {
-  const shop = shopOf(s);
-  if (!shop || s.tick % TICKS_PER_HOUR !== 0) return;
-  const spare = (s.coins ?? 0) - 2 * COIN_RESERVE * PURSE_SCALE[s.era];
-  const ext = extensionPrice(s, shop);
-  const crowded = !spotFor(shop, ITEM_BY_ID.plank_shelf) && !spotFor(shop, ITEM_BY_ID.trestle_table);
-  if (crowded && ext !== null) {
-    if (spare >= ext) extend(s, shop);
-    return; // (saving up for it)
+  if (s.tick % TICKS_PER_HOUR !== 0) return;
+  for (const venue of [shopOf(s), tavernOf(s)]) {
+    if (!venue) continue;
+    // (a good reserve, and tomorrow's wages, are kept back)
+    const spare = (s.coins ?? 0) - 2 * COIN_RESERVE * PURSE_SCALE[s.era] - wageBill(s);
+    const ext = extensionPrice(s, venue);
+    const table = venueKind(venue) === 'tavern' ? ITEM_BY_ID.log_table : ITEM_BY_ID.trestle_table;
+    const crowded = !spotFor(venue, ITEM_BY_ID.clay_urns) && !spotFor(venue, table);
+    if (crowded && ext !== null) {
+      if (spare >= ext) extend(s, venue);
+      continue; // (saving up for it)
+    }
+    const cheapest = (venue.shop?.pieces ?? []).filter((p) => levelPrice(p) !== null).sort((a, b) => levelPrice(a)! - levelPrice(b)!)[0];
+    if (cheapest && spare >= levelPrice(cheapest)!) improve(s, venue, cheapest);
   }
-  const cheapest = (shop.shop?.pieces ?? []).filter((p) => levelPrice(p) !== null).sort((a, b) => levelPrice(a)! - levelPrice(b)!)[0];
-  if (cheapest && spare >= levelPrice(cheapest)!) improve(s, cheapest);
 }
 
 /* ------------------------------------------------------------ making room */

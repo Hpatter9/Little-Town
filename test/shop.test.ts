@@ -7,10 +7,10 @@ import { TOPICS } from '../src/shared/data/research';
 import { totalStock } from '../src/shared/sim/buildings';
 import { forSale, runPlanner, shoppingList, PLAN_TICKS } from '../src/shared/sim/planner';
 import { parseSave, serialize } from '../src/shared/sim/save';
-import { appeal, shopLayout, spotFor } from '../src/shared/sim/shop';
+import { appeal, renownOf, shopLayout, spotFor } from '../src/shared/sim/shop';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
-import { newGame, type Building, type GameState } from '../src/shared/sim/state';
+import { newGame, type Building, type GameState, type Want } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { generateWorld } from '../src/shared/world';
 import { plainGame } from './helpers';
@@ -21,6 +21,13 @@ function addBuilding(s: GameState, def: string, tile: number, store = {}): Build
   s.buildings.push(b);
   return b;
 }
+/** The shop's log (newest last). */
+const logOf = (s: GameState) => s.buildings.find((b) => b.def === 'trading_post')?.shop?.log ?? [];
+/** Strangers of a tier on their way in are made to want something. */
+function wanting(s: GameState, tier: number, want: Want): void {
+  for (const t of s.travellers ?? []) if (t.phase === 'arriving' && (t.tier ?? 1) === tier) t.want = want;
+}
+
 /** Nothing wild left to gather: no fiber (or anything else) from the land. */
 const bareLand = (s: GameState) => {
   for (const t of s.tiles) {
@@ -41,7 +48,7 @@ test('travellers stop at an open shop, buy what the town has spare for coins, an
   assert.ok((stock.stone ?? 0) < 90 || (stock.clay ?? 0) < 40, 'spare stone or clay sold');
   assert.ok((stock.berries ?? 0) >= 3, 'food the town needs is never sold (short of it, the town buys more)');
   assert.equal(stock.totem, 1, 'the totem is never sold');
-  assert.ok(s.shopLog?.some((l) => l.text.includes('bought')), 'the shop logs the sale');
+  assert.ok(logOf(s).some((l) => l.text.includes('bought')), 'the shop logs the sale');
   // they browse a while, then leave the map
   const who = (s.travellers ?? []).map((tr) => tr.id);
   for (let k = 0; k < TICKS_PER_DAY && (s.travellers ?? []).some((tr) => who.includes(tr.id)); k++) sim.step();
@@ -191,7 +198,7 @@ test('old saves (from before the shop) load and play on, with an empty purse', (
   const s = plainGame('shop-old-save');
   const text = serialize(s, 1000);
   const raw = JSON.parse(text);
-  for (const k of ['coins', 'travellers', 'nextTravellerTick', 'shopLog']) delete raw.state[k];
+  for (const k of ['coins', 'travellers', 'nextTravellerTick', 'nextGuestTick', 'itemQ']) delete raw.state[k];
   const r = parseSave(JSON.stringify(raw));
   assert.ok(r.ok);
   if (!r.ok) return;
@@ -211,7 +218,7 @@ test('the shop window: layout, furnishings and the log reach the snapshot', () =
   sim.step();
   const v = snapshot(s).shop!;
   assert.equal(v.name, BUILDING_BY_ID.trading_post.name);
-  assert.equal(v.cols, 6);
+  assert.equal(v.cols, 5);
   assert.equal(v.pieces[0].kind, 'shelf');
   assert.ok(spotFor(shop, ITEM_BY_ID.crate_stand), 'room for more');
 });
@@ -219,11 +226,12 @@ test('the shop window: layout, furnishings and the log reach the snapshot', () =
 test('left alone in the desert, a town builds a shop, furnishes it, and earns coins', () => {
   const sim = new Sim(newGame('d3', { biome: 'desert' }));
   const s = sim.state;
-  for (let t = 0; t < 12 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
+  // (it starts bare, and every piece has to be paid for out of what travellers spend)
+  for (let t = 0; t < 20 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   const shop = s.buildings.find((b) => b.def === 'trading_post');
   assert.ok(shop, 'a Trading Post');
   assert.ok((shop!.shop?.pieces.length ?? 0) >= 1, 'something set out in it');
-  assert.ok(s.shopLog?.length, 'travellers have come by');
+  assert.ok(logOf(s).length, 'travellers have come by');
 });
 
 /* ------------------------------------------------------------ attractiveness, customer tiers, wares */
@@ -231,7 +239,7 @@ test('left alone in the desert, a town builds a shop, furnishes it, and earns co
 /** A shop dressed up to draw a given crowd: its renown set so its attractiveness is at least `attract`. */
 function grandShop(s: GameState, attract: number): Building {
   const shop = addBuilding(s, 'trading_post', camp(s) + 3);
-  s.renown = attract;
+  shop.shop = { pieces: [], renown: attract };
   return shop;
 }
 
@@ -243,7 +251,7 @@ test('an ordinary shop draws only ordinary travellers; an attractive one draws m
     const seen = new Set<number>();
     for (let k = 0; k < 6 * TICKS_PER_DAY; k++) {
       sim.step();
-      s.renown = attract; // (held steady: nobody's being satisfied here)
+      s.buildings.find((b) => b.def === 'trading_post')!.shop!.renown = attract; // (held steady: nobody's being satisfied here)
       for (const t of s.travellers ?? []) seen.add(t.tier ?? 1);
     }
     return seen;
@@ -259,17 +267,18 @@ test('a customer who finds a ware of their standing buys it and spreads the shop
     const sim = new Sim(plainGame('shop-renown'));
     const s = sim.state;
     s.era = 'medieval'; // (where satchels belong: purses to match)
-    grandShop(s, 20); // (merchants come)
+    const shop = grandShop(s, 20); // (merchants come)
     if (stock) s.items.leather_satchel = 20;
     let merchants = 0;
     // (to the third merchant with wares to sell; to the first without, whose disappointment is then the latest news)
     for (let k = 0; k < 8 * TICKS_PER_DAY && merchants < (stock ? 3 : 1); k++) {
       const before = (s.travellers ?? []).filter((t) => t.phase === 'shopping' && t.tier === 2).length;
+      wanting(s, 2, { kind: 'ware' }); // (merchants who came for fine goods)
       sim.step();
       if ((s.travellers ?? []).filter((t) => t.phase === 'shopping' && t.tier === 2).length > before) merchants++;
     }
     assert.ok(merchants >= 1, 'a merchant came');
-    return { renown: s.renown ?? 0, left: s.items.leather_satchel ?? 0, coins: s.coins ?? 0, log: s.shopLog ?? [] };
+    return { renown: renownOf(shop), left: s.items.leather_satchel ?? 0, coins: s.coins ?? 0, log: logOf(s) };
   };
   const happy = run(true);
   assert.ok(happy.left < 20, 'satchels sold');
@@ -285,7 +294,10 @@ test('ordinary travellers never buy the finer wares; the grand buy the finest th
   grandShop(s, 0);
   s.items.iron_brooch = 5;
   s.items.bone_trinket = 5;
-  for (let k = 0; k < 3 * TICKS_PER_DAY; k++) sim.step();
+  for (let k = 0; k < 3 * TICKS_PER_DAY; k++) {
+    wanting(s, 1, { kind: 'ware' });
+    sim.step();
+  }
   assert.equal(s.items.iron_brooch, 5, 'no brooches for pedlars');
   assert.ok((s.items.bone_trinket ?? 0) < 5, 'trinkets sold');
 });
@@ -354,7 +366,7 @@ test('drawing customers it has no wares for, the town studies what makes them', 
   s.direction = 'trade';
   s.research.done = TOPICS.filter((t) => !t.era && !t.hidden && t.branch !== 'occult').map((t) => t.id).concat(['mining']);
   addBuilding(s, 'trading_post', camp(s) + 3);
-  s.renown = 50; // (nobles come: no noble's ware can be made yet)
+  s.buildings.find((b) => b.def === 'trading_post')!.shop = { pieces: [], renown: 50 }; // (nobles come: no noble's ware can be made yet)
   s.buildings[0].store = { wood: 25, stone: 25, berries: 25 };
   s.tick = PLAN_TICKS * 10;
   runPlanner(s, back);

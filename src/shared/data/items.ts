@@ -45,8 +45,9 @@ export type Station =
   | 'alloy_foundry'
   | 'chip_fab'
   | 'battery_plant'
-  | 'robot_workshop';
-export const STATIONS: readonly Station[] = ['campfire', 'workbench', 'tanning_rack', 'drying_rack', 'kiln', 'bloomery', 'smithy', 'sawmill', 'tannery', 'loom', 'windmill', 'bakery', 'steelworks', 'glassworks', 'gunsmith', 'refinery', 'cement_works', 'electronics_plant', 'garage', 'alloy_foundry', 'chip_fab', 'battery_plant', 'robot_workshop'];
+  | 'robot_workshop'
+  | 'tavern';
+export const STATIONS: readonly Station[] = ['campfire', 'workbench', 'tanning_rack', 'drying_rack', 'kiln', 'bloomery', 'smithy', 'sawmill', 'tannery', 'loom', 'windmill', 'bakery', 'steelworks', 'glassworks', 'gunsmith', 'refinery', 'cement_works', 'electronics_plant', 'garage', 'alloy_foundry', 'chip_fab', 'battery_plant', 'robot_workshop', 'tavern'];
 
 /** What an item does for whoever wears it (gear) or for the town (the rest). */
 export interface ItemEffects {
@@ -95,6 +96,8 @@ export interface ItemDef {
   /** Wares: fine goods made only to sell in the shop, to customers of this tier or higher (see data/shop.ts), for
    *  this many coins. */
   ware?: { tier: WareTier; price: number };
+  /** Fare: served in the tavern, for this many coins (times the era's scale). */
+  fare?: { kind: FareKind; price: number };
 }
 
 export type WareTier = 1 | 2 | 3 | 4;
@@ -104,8 +107,15 @@ export interface Furnish {
   kind: FurnishKind;
   w: number;
   h: number;
+  /** Appeal in a shop, comfort in a tavern. */
   appeal: number;
+  /** Where it goes: a shop (when left out), a tavern, or either. */
+  venue?: 'tavern' | 'both';
 }
+
+/** Fare: what a tavern serves. Guests come wanting a kind of it, or one dish in particular. */
+export type FareKind = 'hearty' | 'sweet' | 'drink';
+export const FARE_NAMES: Record<FareKind, string> = { hearty: 'a hearty meal', sweet: 'something sweet', drink: 'a drink' };
 
 export type IconSheet =
   | 'ShortWep'
@@ -169,17 +179,36 @@ export const ITEMS: readonly ItemDef[] = [
   { id: 'plastic_toys', name: 'Plastic Toys', slot: null, station: 'refinery', cost: { plastic: 2 }, seconds: 120, research: ['barter', 'refining'], effects: {}, ware: { tier: 4, price: 140 }, description: 'A ware for magnates (for their children). 140 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'plastic_toys' } },
   { id: 'radio_set', name: 'Radio Set', slot: null, station: 'electronics_plant', cost: { electronics: 2, plastic: 1 }, seconds: 200, research: ['barter', 'electronics'], effects: {}, ware: { tier: 4, price: 240 }, description: 'A ware for magnates. 240 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'radio_set' } },
   { id: 'holo_charm', name: 'Holo Charm', slot: null, station: 'chip_fab', cost: { circuits: 1, alloys: 1 }, seconds: 240, research: ['barter', 'microchips'], effects: {}, ware: { tier: 4, price: 420 }, description: 'A ware for magnates: a charm that shows moving pictures. 420 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'holo_charm' } },
+  // tavern furnishings (comfort: the more comfortable the tavern, the better-off the guests)
+  { id: 'log_table', name: 'Log Table', slot: null, station: 'workbench', cost: { wood: 8 }, seconds: 50, research: ['hospitality'], effects: {}, furnish: { kind: 'table', w: 2, h: 2, appeal: 3, venue: 'tavern' }, description: 'Tavern furnishing: a table of split logs with benches. Comfort +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'log_table' } },
+  { id: 'stone_hearth', name: 'Stone Hearth', slot: null, station: 'campfire', cost: { stone: 10 }, seconds: 60, research: ['hospitality'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 5, venue: 'tavern' }, description: 'Tavern furnishing: a fire to sit by. Comfort +5.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'stone_hearth' } },
+  { id: 'barrels', name: 'Barrels', slot: null, station: 'workbench', cost: { wood: 5 }, seconds: 40, research: ['hospitality'], effects: {}, furnish: { kind: 'stand', w: 1, h: 1, appeal: 1, venue: 'tavern' }, description: 'Tavern furnishing: somewhere to lean. Comfort +1.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'barrels' } },
+  { id: 'hide_rug', name: 'Hide Rug', slot: null, station: 'tanning_rack', cost: { hide: 3 }, seconds: 45, research: ['hospitality', 'tanning'], effects: {}, furnish: { kind: 'rug', w: 2, h: 1, appeal: 3, venue: 'tavern' }, description: 'Tavern furnishing: warm underfoot. Comfort +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'hide_rug' } },
+  { id: 'oak_table', name: 'Oak Table', slot: null, station: 'sawmill', cost: { lumber: 6 }, seconds: 90, research: ['hospitality', 'carpentry'], effects: {}, furnish: { kind: 'table', w: 2, h: 2, appeal: 6, venue: 'tavern' }, description: 'Tavern furnishing: a sawn table with proper chairs. Comfort +6.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'oak_table' } },
+  { id: 'brick_hearth', name: 'Brick Hearth', slot: null, station: 'kiln', cost: { bricks: 6, stone: 4 }, seconds: 120, research: ['hospitality', 'masonry'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 9, venue: 'tavern' }, description: 'Tavern furnishing: a great hearth with a spit. Comfort +9.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'brick_hearth' } },
+  { id: 'tapestry', name: 'Tapestry', slot: null, station: 'loom', cost: { cloth: 3 }, seconds: 100, research: ['hospitality', 'weaving'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 5, venue: 'tavern' }, description: 'Tavern furnishing: a woven hunting scene. Comfort +5.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'tapestry' } },
+  { id: 'upright_piano', name: 'Upright Piano', slot: null, station: 'sawmill', cost: { lumber: 8, steel: 1 }, seconds: 150, research: ['hospitality', 'steelmaking'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 12, venue: 'tavern' }, description: 'Tavern furnishing: songs of an evening. Comfort +12.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'upright_piano' } },
+  // fare (served in the tavern; guests come for a kind of it, or one dish in particular)
+  { id: 'roast_meat', name: 'Roast', slot: null, station: 'campfire', cost: { meat: 2 }, seconds: 30, research: ['hospitality'], effects: {}, fare: { kind: 'hearty', price: 6 }, description: 'Tavern fare: meat off the spit. 6 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'roast_meat' } },
+  { id: 'porridge', name: 'Porridge', slot: null, station: 'campfire', cost: { grain: 3 }, seconds: 25, research: ['hospitality', 'early_agriculture'], effects: {}, fare: { kind: 'hearty', price: 4 }, description: 'Tavern fare: a bowl of hot grain. 4 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'porridge' } },
+  { id: 'berry_bowl', name: 'Berry Bowl', slot: null, station: 'campfire', cost: { berries: 3 }, seconds: 20, research: ['hospitality'], effects: {}, fare: { kind: 'sweet', price: 4 }, description: 'Tavern fare: wild berries. 4 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'berry_bowl' } },
+  { id: 'herb_tea', name: 'Herb Tea', slot: null, station: 'campfire', cost: { herbs: 1 }, seconds: 20, research: ['hospitality', 'herbalism'], effects: {}, fare: { kind: 'drink', price: 4 }, description: 'Tavern fare: a hot brew of herbs. 4 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'herb_tea' } },
+  { id: 'berry_wine', name: 'Berry Wine', slot: null, station: 'kiln', cost: { berries: 4 }, seconds: 60, research: ['hospitality', 'pottery'], effects: {}, fare: { kind: 'drink', price: 9 }, description: 'Tavern fare: wine laid down in clay jars. 9 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'berry_wine' } },
+  { id: 'ale', name: 'Ale', slot: null, station: 'tavern', cost: { grain: 3 }, seconds: 60, research: ['hospitality', 'brewing'], effects: {}, fare: { kind: 'drink', price: 10 }, description: 'Tavern fare: brewed in the tavern. 10 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'ale' } },
+  { id: 'stew', name: 'Stew', slot: null, station: 'tavern', cost: { meat: 1, herbs: 1, grain: 2 }, seconds: 60, research: ['hospitality', 'brewing'], effects: {}, fare: { kind: 'hearty', price: 11 }, description: 'Tavern fare: a pot kept on the fire. 11 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'stew' } },
+  { id: 'meat_pie', name: 'Meat Pie', slot: null, station: 'bakery', cost: { meat: 2, flour: 1 }, seconds: 80, research: ['hospitality', 'baking'], effects: {}, fare: { kind: 'hearty', price: 15 }, description: 'Tavern fare: baked in a crust. 15 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'meat_pie' } },
+  { id: 'honey_cake', name: 'Honey Cake', slot: null, station: 'bakery', cost: { flour: 1, berries: 2 }, seconds: 70, research: ['hospitality', 'baking'], effects: {}, fare: { kind: 'sweet', price: 13 }, description: 'Tavern fare: sticky and sweet. 13 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'honey_cake' } },
   // shop furnishings (the shopkeeper sets them out in the shop; a better-furnished shop sells more)
   { id: 'crate_stand', name: 'Crate Stand', slot: null, station: 'campfire', cost: { wood: 3 }, seconds: 25, research: ['barter'], effects: {}, furnish: { kind: 'stand', w: 1, h: 1, appeal: 1 }, description: 'Shop furnishing: an upturned crate with goods on it. Appeal +1.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'crate_stand' } },
   { id: 'plank_shelf', name: 'Plank Shelf', slot: null, station: 'workbench', cost: { wood: 6 }, seconds: 40, research: ['barter'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 3 }, description: 'Shop furnishing: goods laid out along a wall. Appeal +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'plank_shelf' } },
-  { id: 'woven_mat', name: 'Woven Mat', slot: null, station: 'campfire', cost: { fiber: 4 }, seconds: 30, research: ['barter', 'cordage'], effects: {}, furnish: { kind: 'rug', w: 2, h: 1, appeal: 2 }, description: 'Shop furnishing: a mat for the floor. Appeal +2.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'woven_mat' } },
-  { id: 'clay_urns', name: 'Clay Urns', slot: null, station: 'kiln', cost: { clay: 4 }, seconds: 40, research: ['barter', 'pottery'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 2 }, description: 'Shop furnishing: painted urns in a corner. Appeal +2.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'clay_urns' } },
+  { id: 'woven_mat', name: 'Woven Mat', slot: null, station: 'campfire', cost: { fiber: 4 }, seconds: 30, research: ['barter', 'cordage'], effects: {}, furnish: { kind: 'rug', w: 2, h: 1, appeal: 2, venue: 'both' }, description: 'Shop furnishing: a mat for the floor. Appeal +2.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'woven_mat' } },
+  { id: 'clay_urns', name: 'Clay Urns', slot: null, station: 'kiln', cost: { clay: 4 }, seconds: 40, research: ['barter', 'pottery'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 2, venue: 'both' }, description: 'Shop furnishing: painted urns in a corner. Appeal +2.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'clay_urns' } },
   { id: 'trestle_table', name: 'Trestle Table', slot: null, station: 'workbench', cost: { wood: 8, stone: 2 }, seconds: 60, research: ['barter', 'woodcutting'], effects: {}, furnish: { kind: 'table', w: 2, h: 2, appeal: 4 }, description: 'Shop furnishing: a big table of wares in the middle of the floor. Appeal +4.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'trestle_table' } },
-  { id: 'herb_planter', name: 'Herb Planter', slot: null, station: 'kiln', cost: { clay: 2, herbs: 3 }, seconds: 40, research: ['barter', 'pottery', 'herbalism'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 3 }, description: 'Shop furnishing: a pot of sweet herbs. Appeal +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'herb_planter' } },
+  { id: 'herb_planter', name: 'Herb Planter', slot: null, station: 'kiln', cost: { clay: 2, herbs: 3 }, seconds: 40, research: ['barter', 'pottery', 'herbalism'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 3, venue: 'both' }, description: 'Shop furnishing: a pot of sweet herbs. Appeal +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'herb_planter' } },
   { id: 'oak_shelves', name: 'Oak Shelves', slot: null, station: 'sawmill', cost: { lumber: 6 }, seconds: 90, research: ['barter', 'carpentry'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 6 }, description: 'Shop furnishing: tall sawn shelves. Appeal +6.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'oak_shelves' } },
   { id: 'display_table', name: 'Display Table', slot: null, station: 'sawmill', cost: { lumber: 8, cloth: 2 }, seconds: 120, research: ['barter', 'carpentry', 'weaving'], effects: {}, furnish: { kind: 'table', w: 2, h: 2, appeal: 8 }, description: 'Shop furnishing: a cloth-covered table of the best wares. Appeal +8.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'display_table' } },
-  { id: 'wool_rug', name: 'Wool Rug', slot: null, station: 'loom', cost: { cloth: 3 }, seconds: 90, research: ['barter', 'weaving'], effects: {}, furnish: { kind: 'rug', w: 2, h: 1, appeal: 5 }, description: 'Shop furnishing: a patterned rug. Appeal +5.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'wool_rug' } },
-  { id: 'iron_lantern', name: 'Iron Lantern', slot: null, station: 'smithy', cost: { iron: 2 }, seconds: 90, research: ['barter', 'iron_working'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 5 }, description: 'Shop furnishing: a warm light to shop by. Appeal +5.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'iron_lantern' } },
+  { id: 'wool_rug', name: 'Wool Rug', slot: null, station: 'loom', cost: { cloth: 3 }, seconds: 90, research: ['barter', 'weaving'], effects: {}, furnish: { kind: 'rug', w: 2, h: 1, appeal: 5, venue: 'both' }, description: 'Shop furnishing: a patterned rug. Appeal +5.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'wool_rug' } },
+  { id: 'iron_lantern', name: 'Iron Lantern', slot: null, station: 'smithy', cost: { iron: 2 }, seconds: 90, research: ['barter', 'iron_working'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 5, venue: 'both' }, description: 'Shop furnishing: a warm light to shop by. Appeal +5.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'iron_lantern' } },
   { id: 'glass_cabinet', name: 'Glass Cabinet', slot: null, station: 'glassworks', cost: { glass: 4, lumber: 2 }, seconds: 150, research: ['barter', 'glassblowing'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 10 }, description: 'Shop furnishing: goods behind glass. Appeal +10.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'glass_cabinet' } },
   { id: 'neon_sign', name: 'Neon Sign', slot: null, station: 'electronics_plant', cost: { glass: 2, electronics: 1 }, seconds: 150, research: ['barter', 'electronics'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 12 }, description: 'Shop furnishing: it glows, and people come. Appeal +12.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'neon_sign' } },
   { id: 'poultice', name: 'Poultice', slot: null, station: 'campfire', cost: { herbs: 2, fiber: 1 }, seconds: 30, research: ['herbalism'], effects: {}, description: 'Used on anyone badly hurt in town: stops bleeding, +20 health.', icon: { sheet: 'Food', x: 6, y: 1 } },
