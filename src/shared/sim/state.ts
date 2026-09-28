@@ -536,6 +536,9 @@ export interface GameState {
   fx?: { tick: number; id: number; kind: PersonFx }[];
   /** Where meteors struck lately (for the impact bursts). */
   impacts?: { tick: number; x: number }[];
+  /** A nomad tribe's seasonal round (sim/nomads.ts): its home ground and summer pasture (tiles), where the camp is
+   *  now, when it last moved and from where, and whether it has settled for good. */
+  nomad?: { home: number; pasture: number; camp: number; movedAt?: number; from?: number; settled?: boolean };
   /** Spells cast lately (the town's powers and rival lords'), for the renderer to draw (see castSpellFx). */
   spellFx?: SpellFx[];
   /** The living are frightened (someone was turned) until this tick. */
@@ -776,6 +779,8 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   else if (f === 'lich') main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
   // what the fire can't hold waits in a stockpile just past it
   if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: world.camp + BUILDING_BY_ID.campfire.width + 1, status: 'done', delivered: {}, progress: 1, store: extra });
+  // (a nomad tribe has a summer pasture a day's ride along the land, on the side the seed picks)
+  const nomad = origin.rules.nomadic ? { home: world.camp, pasture: Math.max(12, Math.min(world.tiles - 13, world.camp + (hashSeed(seed) % 2 ? 1 : -1) * NOMAD_PASTURE_TILES)), camp: world.camp } : undefined;
   // (and anything the origin starts with standing, the other side of the fire)
   let at = world.camp - 1;
   for (const def of origin.start.buildings ?? []) {
@@ -794,6 +799,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     tiles,
     tileRev: 0,
     buildings,
+    ...(nomad ? { nomad } : {}),
     people,
     mainId: main.id,
     nextId,
@@ -915,8 +921,12 @@ export function autoPriorities(skills: Record<Skill, SkillLevel>): Record<Job, P
 }
 
 /** World x of the camp centre (where idle people drift back to). */
+/** The middle of the camp: the middle of the land (World.camp), unless a nomad tribe has moved it (nomads.ts). */
+/** How far a nomad tribe's summer pasture is from its home ground (tiles). */
+export const NOMAD_PASTURE_TILES = 42;
+
 export function campX(s: GameState): number {
-  return tileCentreX(Math.floor(s.tiles.length / 2)); // same as World.camp
+  return tileCentreX(s.nomad?.camp ?? Math.floor(s.tiles.length / 2));
 }
 
 export function tileCentreX(tile: number): number {

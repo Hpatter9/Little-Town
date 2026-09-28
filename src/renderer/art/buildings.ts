@@ -210,6 +210,30 @@ const ART: Record<string, { h: number; draw: Draw }> = {
       }
     },
   },
+  // a nomad tribe's wagon, drawn up across the camp (and on the road, when the camp moves)
+  wagon_circle: {
+    h: 34,
+    draw: (p, w, h) => {
+      p.rect(1, h - 16, w - 2, 7, PAL.trunk); // the bed
+      p.rect(1, h - 16, w - 2, 1, PAL.trunkLight);
+      p.rect(1, h - 10, w - 2, 1, PAL.trunkDark);
+      for (let x = 3; x < w - 3; x += 5) p.rect(x, h - 15, 1, 5, PAL.trunkDark);
+      // the canvas hood on its hoops
+      p.ellipse(w / 2, h - 16, w / 2 - 2, 14, HIDE_DARK);
+      p.ellipse(w / 2, h - 16, w / 2 - 3, 13, HIDE_LIGHT);
+      p.rect(2, h - 17, w - 4, 2, HIDE_LIGHT);
+      for (const x of [8, 16, 24]) p.rect(x, h - 29, 1, 13, HIDE);
+      p.rect(3, h - 20, w - 6, 1, '#b83a2a'); // a painted band
+      // wheels
+      for (const cx of [7, w - 8]) {
+        p.disc(cx, h - 5, 5, PAL.trunkDark);
+        p.disc(cx, h - 5, 3, PAL.trunk);
+        p.rect(cx - 5, h - 5, 10, 1, PAL.trunkDark);
+        p.rect(cx, h - 10, 1, 10, PAL.trunkDark);
+        p.disc(cx, h - 5, 1, PAL.trunkLight);
+      }
+    },
+  },
   palisade_wall: {
     h: 62,
     draw: (p, w, h) => {

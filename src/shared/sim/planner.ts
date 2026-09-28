@@ -3,6 +3,7 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { buildOrigin, nomadic } from './nomads';
 import { adoptRooms, castleOn, castleSpan, openFloors, roomKind } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
@@ -372,7 +373,8 @@ const campTile = (s: GameState) => Math.floor(campX(s) / TILE);
 /** The nearest free spot for a building, out from the camp on either side (null if there's no room). In a castle
  *  town the keep's ground is the castle's: everything else goes outside it. */
 function findSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): number | null {
-  const c = campTile(s);
+  // (a wandering tribe builds its great works on its home ground)
+  const c = buildOrigin(s, def.id) ?? campTile(s);
   const [lo, hi] = castleOn(s) && def.layer === 'mid' ? castleSpan(s) : [0, 0];
   for (let d = 0; d < s.tiles.length; d++) {
     for (const t of d === 0 ? [c] : [c + d, c - d - def.width + 1]) {
@@ -418,7 +420,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const out: { def: string; why: string }[] = [];
   const add = (def: string | undefined, why: string) => def && !out.some((w) => w.def === def) && out.push({ def, why });
   // (the phylactery only once the founder's soul is to be bound)
-  const can = (d: BuildingDef) => unlocked(s, d.id) && (!NEVER.has(d.id) || (d.id === 'phylactery' && !!s.lichChosen));
+  const can = (d: BuildingDef) => !d.never && unlocked(s, d.id) && (!NEVER.has(d.id) || (d.id === 'phylactery' && !!s.lichChosen));
   const count = (id: string) => s.buildings.filter((b) => b.def === id).length;
 
   // (every kind that would do, best first: if the best can't be had, the next is tried)
@@ -497,6 +499,7 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
       tile = spot.tile;
       room = { floor: spot.floor };
     } else if (isWall(def)) {
+      if (nomadic(s)) continue; // (no walls while the tribe wanders: the wagons do)
       const spot = wallSpot(s, back, def);
       if (!spot) continue;
       if (spot.clear) {

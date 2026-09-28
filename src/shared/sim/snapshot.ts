@@ -41,10 +41,11 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, totalCapacity, totalStock } from './buildings';
 import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState } from './state';
+import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, tileCentreX } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
 import { castleFloors, castleOn, castleSpan, roomOf } from './castle';
+import { daysToMove } from './nomads';
 import { RIVALS } from '../data/rivals';
 
 const spellName = (spell: string): string => {
@@ -389,6 +390,11 @@ export interface Snapshot {
   impacts: { x: number; since: number }[];
   /** Spells cast lately (the town's powers and rival lords'): drawn by renderer/town/spellsView.ts. */
   spells: SpellView[];
+  /** The middle of the camp (a nomad tribe's moves with it). */
+  campX: number;
+  /** A nomad tribe's seasonal round (sim/nomads.ts): where it's camped, when it moves next, whether it has settled,
+   *  and its last move (x from and to, and ticks since), for the caravan on the road. */
+  nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null } | null;
   /** A castle town's keep (sim/castle.ts): its tiles and how many floors it stands. */
   castle: { lo: number; hi: number; floors: number } | null;
   /** A full-moon night: werewolves show what they are. */
@@ -570,6 +576,15 @@ export function snapshot(s: GameState): Snapshot {
     fx: (s.fx ?? []).filter((f) => s.tick - f.tick < FX_TICKS).map((f) => ({ id: f.id, kind: f.kind, since: s.tick - f.tick })),
     launchSite: launchSiteView(s),
     impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
+    campX: campX(s),
+    nomad: s.nomad
+      ? {
+          site: s.nomad.camp === s.nomad.home ? 'home' : 'pasture',
+          settled: !!s.nomad.settled,
+          nextMoveDays: daysToMove(s),
+          move: s.nomad.movedAt != null && s.nomad.from != null ? { from: tileCentreX(s.nomad.from), to: tileCentreX(s.nomad.camp), since: s.tick - s.nomad.movedAt } : null,
+        }
+      : null,
     castle: castleOn(s) && castleFloors(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: castleFloors(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),

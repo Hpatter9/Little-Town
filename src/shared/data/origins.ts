@@ -5,6 +5,7 @@
 
 import type { Material } from './materials';
 import type { MonsterKind } from './monsters';
+import type { Era } from './eras';
 
 export const ORIGINS = ['settlers', 'lich', 'druid', 'vampire', 'werewolf', 'robot', 'dwarves', 'merfolk', 'nomads', 'fae', 'alchemists', 'knights'] as const;
 export type OriginId = (typeof ORIGINS)[number];
@@ -48,6 +49,9 @@ export interface OriginRules {
   /** The town is a castle: its halls, workshops and bedchambers are rooms stacked up a keep that grows upward
    *  (sim/castle.ts); only yards, fields, mines and walls stay outside. */
   castle?: boolean;
+  /** The town moves with the seasons (sim/nomads.ts): its tents and wagons between a winter ground and a summer
+   *  pasture, until it reaches this era and settles for good. */
+  nomadic?: { until: Era };
 }
 
 export interface OriginDef {
@@ -157,10 +161,10 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     id: 'nomads',
     name: 'Nomad Caravan',
     town: 'Chronos Waystation',
-    description: 'Nomads who settled at a crossroads. Quick to put up tents, great traders, restless.',
-    features: ['Build 40% faster (light, tented buildings)', 'Travellers come twice as often, and pay more', 'Research slower', 'Rituals: Trade Road, Swift Riders, Scouting Party'],
+    description: 'A tribe that follows the seasons: summer on the pasture, winter on the home ground, until the Industrial age, when their home ground becomes a caravan city. Quick to pitch camp, great traders, restless.',
+    features: ['The camp moves with the seasons: tents, workshops, shop and tavern go on the wagons; the great works stay on the home ground', 'No walls while they wander: the wagons are drawn into a circle when raiders come', 'Settle for good in the Industrial age', 'Build 40% faster; travellers come twice as often, and pay more', 'Research slower; fields left behind at each move', 'Rituals: Trade Road, Swift Riders, Scouting Party'],
     start: { companions: ['hunter', 'gatherer'], stores: { hide: 10, berries: 25 }, research: ['foraging'] },
-    rules: { build: 1.4, travellers: 2, prices: 1.15, research: 0.85 },
+    rules: { build: 1.4, travellers: 2, prices: 1.15, research: 0.85, nomadic: { until: 'industrial' } },
     powers: ['trade_road', 'swift_riders', 'scouting'],
   },
   fae: {

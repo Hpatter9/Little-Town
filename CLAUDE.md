@@ -122,6 +122,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Behemoth joins beast raids (`BEAST_RAIDS` in raids.ts). `src/shared/sim/lurkers.ts`: raids that start inside the
   town (`startRaid(..., inside)`: the Mimic at the shop by night, possessed tomes at a library) and their rewards
   (`lurkersBeaten`, from `endRaid`).
+- **The nomads' seasonal round:** `nomadic` in an origin's rules. `src/shared/sim/nomads.ts`: `s.nomad` (home ground,
+  summer pasture, current camp; `campX` follows the camp), `updateNomads` (moves at midsummer and midwinter, by day;
+  settles in the Industrial era), `moveCamp` (`PORTABLE` tents move and are re-pitched as blueprints at `PITCHED`),
+  `buildOrigin` (rooted great works go on the home ground), the wagon circle (`circleWagons` at a raid warning; the
+  `wagon_circle` def is `never` built by the planner) and no walls while nomadic. The renderer follows the caravan
+  (`snapshot.nomad.move`).
 - **Origin buildings:** `src/renderer/art/originStyles.ts`: each origin's own homes, walls and gates; every other
   building gets its materials swapped (`reclad`) and dressing on top. `buildingArt` takes the style (the theme id).
 - **Phase 4:** animal husbandry and more farming.

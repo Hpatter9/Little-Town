@@ -232,7 +232,7 @@ building style.
 | **Machine Colony** | Machines: no food, sleep or moods; fast research; nobody wanders in, units are assembled | Assemble, Overclock, Repair Swarm |
 | **Deep Hold** | Dwarves: fast builders, finer crafts, tough; poor farmers | Deep Delve, Forge Blessing, Stone Skin |
 | **Tide Clan** | Merfolk: great foragers, the sea gives fish, busy trade; pirates | Tide Call, Whirlpool, Sea Fog |
-| **Nomad Caravan** | Fast building, twice the travellers, better prices; slower research | Trade Road, Swift Riders, Scouting Party |
+| **Nomad Caravan** | A tribe that follows the seasons until the Industrial age; fast building, twice the travellers, better prices; slower research | Trade Road, Swift Riders, Scouting Party |
 | **Fae Court** | Strangers pay half again as much and may be charmed into staying; slow crafting | Glamour, Changeling, Faerie Ring |
 | **Crucible** | Alchemists: fast research, newcomers gain a strange trait; poor builders | Transmute, Elixir, Volatile Flask |
 | **Exiled Order** | Knights: armed from day one, fight hard, take less harm; slow crafting and research | Rally, Shield Wall, Oath of Mending |
@@ -241,6 +241,21 @@ Each origin builds its own way: homes are crypts, living trees, gothic houses, e
 stilt huts, yurts, mushroom houses, alchemists' towers or keeps; walls are bone palisades, hedges, iron railings,
 plated barriers and so on; and every other building is roofed and walled in the origin's materials and dressed in
 its things (skulls and candles, vines, bats and banners, antennae, runes, nets and shells, flasks, heraldry).
+
+### The Nomad Caravan's seasonal round
+
+A nomad tribe doesn't stay put. Winter and spring it camps on its home ground; at midsummer it breaks camp and moves
+a day's ride along the land to its summer pasture, and at midwinter it comes home, setting out at first light so the
+tents are up again before dark. Its tents go on the wagons (homes, workshops, storage, the shop, the tavern, the
+stable) and are pitched again at the new camp with all their materials, needing only a little work to stand. Fields,
+mines and the great works are rooted: they stay where they were built, and the great works (the era capstones, and
+in the end the Launch Site) always go up on the home ground, so nothing that takes years is lost to the road. The
+view rides along with the caravan of wagons and pack animals (camels in the desert).
+
+While it wanders the tribe builds no walls: when raiders are sighted, the wagons are drawn up across both ends of
+the camp, and put away again after. In the Industrial age it comes home one last time and settles: the home ground
+becomes a caravan city, and it plays on to the stars like any other town. The Plan tab shows where it's camped and
+when it moves next.
 
 ### The Blood Court's castle
 

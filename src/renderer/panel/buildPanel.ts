@@ -17,7 +17,7 @@ import { topicKnown } from './secrets';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours)]), s.powerLog[0], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
+  JSON.stringify([s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours)]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const used = blueprintCount(s);
@@ -44,6 +44,23 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
       out.push(row, el('div', 'hint', p.description));
     }
     if (s.powerLog.length) out.push(el('div', 'hint', `Lately: ${s.powerLog.slice(0, 3).join(' · ')}`));
+  }
+
+  // a nomad tribe's seasonal round
+  if (s.nomad) {
+    out.push(el('h2', '', 'The seasonal round'));
+    const n = s.nomad;
+    const where = n.site === 'home' ? 'the home ground' : 'the summer pasture';
+    const next = n.nextMoveDays !== null ? ` Breaks camp for ${n.site === 'home' ? 'the summer pasture' : 'the home ground'} in ${n.nextMoveDays < 1 ? `${Math.max(1, Math.round(n.nextMoveDays * 24))}h` : `${Math.round(n.nextMoveDays * 10) / 10} days`}.` : '';
+    out.push(
+      el(
+        'div',
+        'hint',
+        n.settled
+          ? 'Settled: the home ground is a caravan city now, and the tribe travels no more.'
+          : `Camped at ${where}.${next} Summer and autumn on the pasture, winter and spring at home; the tents go on the wagons, and the great works stay on the home ground. The tribe settles for good in the Industrial age.`,
+      ),
+    );
   }
 
   // the one thing the player decides: where the town puts its effort
@@ -120,7 +137,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
     out.push(el('h2', '', LAYER_NAMES[layer]));
     const grid = el('div', 'cards');
     // buildings from eras the town hasn't reached stay hidden
-    const shown = BUILDINGS.filter((b) => b.layer === layer && (s.unlockAll || !b.research || (eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research))));
+    const shown = BUILDINGS.filter((b) => b.layer === layer && !b.never && (s.unlockAll || !b.research || (eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research))));
     for (const def of shown) grid.append(card(def, s));
     out.push(grid);
   }
