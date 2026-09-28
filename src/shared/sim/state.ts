@@ -16,6 +16,7 @@ import type { ClassId } from '../data/classes';
 import type { Battle } from './combat';
 import type { Doom } from './doom';
 import { MONSTER_HP, type MonsterKind, type StandingOrder } from '../data/monsters';
+import { ORIGIN_DEFS, type OriginId } from '../data/origins';
 import { modifiers, type ResearchState } from './research';
 import { TICKS_PER_HOUR } from './time';
 
@@ -310,7 +311,12 @@ export interface Person {
   recent?: { tick: number; text: string }[];
   /** Sick with the plague until a tick. */
   sick?: { until: number; treated?: boolean } | null;
+  /** A machine (the Machine Colony origin): never eats, sleeps or sickens, and its spirits hold steady. */
+  machine?: boolean;
 }
+
+/** The raised dead and machines never eat, sleep or sicken. */
+export const tireless = (p: Pick<Person, 'monster' | 'machine'>) => p.monster === 'undead' || !!p.machine;
 
 /** Base health, and the extra a Tough person has. */
 export const BASE_HP = 60;
@@ -543,6 +549,12 @@ export interface GameState {
   lich?: boolean;
   /** When the next guest is due at the tavern. */
   nextGuestTick?: number;
+  /** Who founded the town (see data/origins.ts; Settlers when left out), when each of its powers is ready again, what
+   *  it has cast lately (newest last), and the spells still in effect (by id, until a tick). */
+  origin?: OriginId;
+  powers?: Record<string, number>;
+  powerLog?: { tick: number; text: string }[];
+  buffs?: Record<string, number>;
   /** Where the town's coins came from and went, today and yesterday (see earn). */
   ledger?: { day: number; today: Ledger; yesterday: Ledger | null };
 }
@@ -637,6 +649,8 @@ export interface NewGameOptions {
   founder?: FounderSpec;
   /** How the town starts (a lone founder when left out). */
   scenario?: string;
+  /** Who founds it (Settlers when left out). */
+  origin?: OriginId;
 }
 
 /** Give the rolled founder the player's choices. */
@@ -701,8 +715,36 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     room -= here;
     if (n > here) extra[m] = n - here;
   }
+  // the origin: its own companions, stores, knowledge and buildings, and who the founder (and everyone) is
+  const origin = ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers;
+  for (const type of origin.start.companions ?? []) {
+    const x = (world.camp + 0.5) * TILE + (people.length % 2 ? 1 : -1) * Math.ceil(people.length / 2) * TILE;
+    people.push(makePerson(rng, nextId++, type, x, people.map((q) => q.name)));
+  }
+  for (const [m, n] of Object.entries(origin.start.stores ?? {}) as [Material, number][]) {
+    const here = Math.min(n, room);
+    if (here > 0) addStock(campfire.store, m, here);
+    room -= here;
+    if (n > here) addStock(extra, m, n - here);
+  }
+  const k = origin.rules.kin;
+  for (const p of people) {
+    if (k === 'machine') p.machine = true;
+    else if (k === 'undead' && p !== main) turnMonster(p, 'undead', 0);
+  }
+  const f = origin.rules.founder;
+  if (f === 'machine') main.machine = true;
+  else if (f === 'vampire' || f === 'werewolf') turnMonster(main, f, 0);
+  else if (f === 'lich') main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
   // what the fire can't hold waits in a stockpile just past it
   if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: world.camp + BUILDING_BY_ID.campfire.width + 1, status: 'done', delivered: {}, progress: 1, store: extra });
+  // (and anything the origin starts with standing, the other side of the fire)
+  let at = world.camp - 1;
+  for (const def of origin.start.buildings ?? []) {
+    at -= BUILDING_BY_ID[def].width;
+    buildings.push({ id: nextId++, def, tile: at, status: 'done', delivered: {}, progress: 1, store: {} });
+    at -= 1;
+  }
 
   return {
     version: 15,
@@ -734,8 +776,8 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     horses: [],
     caravan: null,
     nextCaravanTick: 0,
-    research: { done: [...scenario.research], queue: [], progress: {} },
-    items: {},
+    research: { done: [...new Set([...scenario.research, ...(origin.start.research ?? [])])], queue: [], progress: {} },
+    items: { ...(origin.start.items ?? {}) },
     crafting: [],
     notices: [],
     journal: [],
@@ -745,7 +787,17 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     ...(opts.biome && opts.biome !== 'forest' ? { biome: opts.biome } : {}),
     ...(opts.ironman ? { ironman: true } : {}),
     ...(opts.difficulty && opts.difficulty !== 'normal' ? { difficulty: opts.difficulty } : {}),
+    ...(origin.id !== 'settlers' ? { origin: origin.id } : {}),
+    ...(f === 'lich' ? { lich: true } : {}),
   };
+}
+
+/** Make someone a monster (as monsters.ts becomeMonster does; here too so founding needs no sim module). */
+function turnMonster(p: Person, kind: MonsterKind, tick: number): void {
+  p.monster = kind;
+  p.order = 'hide';
+  p.lastFed = tick;
+  p.hp = maxHp(p);
 }
 
 /** A new person of a recruit type: skills from its ranges, 1-3 passions, 1-2 traits, a name not in use. */

@@ -24,10 +24,11 @@ import { cropOf, fieldToWork, isField, mineToWork, workField, workMine } from '.
 import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyX } from './raids';
 import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
-import { remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, ERA_MULTIPLIER, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
+import { tireless, remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, ERA_MULTIPLIER, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
+import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
 
 /** Walking speed in world pixels per second. */
 export const WALK_SPEED = 48;
@@ -157,7 +158,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
       const speed = skillSpeed(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
-      site.progress += speed / (defOf(site).buildSeconds * BUILD_MULTIPLIER[s.era] * TICK_HZ);
+      site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_MULTIPLIER[s.era] * TICK_HZ);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
       if (site.progress >= 1) {
         site.progress = 1;
@@ -404,7 +405,7 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
       // a steam factory speeds every station's work
       const built = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
       const factory = (built('factory') ? 2 : 1) * (built('fusion_reactor') ? 1.5 : 1);
-      const speed = skillSpeed(p.skills.crafting.level) * workFactor(s, p) * factory * nearSource(s, station);
+      const speed = skillSpeed(p.skills.crafting.level) * workFactor(s, p) * factory * nearSource(s, station) * craftSpeed(s);
       o.progress += speed / (craftSeconds(def, s.era) * TICK_HZ);
       gainSkill(p, 'crafting', CRAFT_XP_PER_SEC / TICK_HZ);
       if (o.progress >= 1) {
@@ -431,7 +432,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   p.activity = 'research';
   const topic = TOPIC_BY_ID[task.topic];
   const mult = building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1;
-  const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p);
+  const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p) * researchSpeed(s);
   r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[s.era] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   if (r.progress[topic.id] < 1) return;
@@ -467,7 +468,7 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
   const def = TERRAIN[tile.terrain as keyof typeof TERRAIN];
   if (p.activity !== def.anim) pickTool(s, p, def.anim);
   p.activity = def.anim;
-  const speed = skillSpeed(p.skills.gathering.level) * modifiers(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage : 1);
+  const speed = skillSpeed(p.skills.gathering.level) * modifiers(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
   // (foraging is food: people eat on the same clock in every era, so it isn't stretched)
   task.progress += speed / (def.secondsPerUnit * (def.anim === 'forage' ? 1 : ERA_MULTIPLIER[s.era]) * TICK_HZ);
   while (task.progress >= 1 && p.task === task) {
@@ -481,7 +482,7 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
 function scrounge(s: GameState, p: Person, task: Extract<Task, { type: 'gather' }>): void {
   const tile = s.tiles[task.tile];
   p.activity = 'forage';
-  task.progress += (skillSpeed(p.skills.gathering.level) * doomForage(s) * biomeOf(s).forage) / (SCROUNGE_SECONDS * TICK_HZ);
+  task.progress += (skillSpeed(p.skills.gathering.level) * doomForage(s) * biomeOf(s).forage * forageSpeed(s)) / (SCROUNGE_SECONDS * TICK_HZ);
   if (task.progress < 1) return;
   task.progress = 0;
   addStock(tile.pool, 'berries', -1);
@@ -658,7 +659,7 @@ function chooseTask(s: GameState, p: Person): Task | null {
       p.needs.food = Math.min(1, p.needs.food + FOOD_VALUE[own]!);
     }
     // nothing in storage: go and find something wild to eat before they starve
-    if (p.monster !== 'undead') {
+    if (!tireless(p)) {
       if (p.task?.type === 'gather' && p.task.scrounge) return p.task;
       const wild = wildFood(s, p);
       if (wild !== null) return { type: 'gather', tile: wild, progress: 0, scrounge: true };

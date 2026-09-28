@@ -17,7 +17,7 @@ import { topicKnown } from './secrets';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
+  JSON.stringify([s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours)]), s.powerLog[0], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const used = blueprintCount(s);
@@ -31,6 +31,19 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
     out.push(el('div', 'hint', "The founder could be bound into a phylactery: they won't truly die while it stands, and the dead may answer to them. The town, and the whole game, will never look the same."));
     // (there's no going back: asked twice)
     out.push(button('Become a lich…', () => confirm('Bind the founder\'s soul into a phylactery? There is no going back.') && bridge?.command({ type: 'becomeLich' }), { cls: 'place' }));
+  }
+
+  // the origin's powers: the town calls on them itself, when the moment's right
+  if (s.powers.length) {
+    out.push(el('h2', '', `${s.origin.name}: powers`));
+    for (const p of s.powers) {
+      const row = el('div', 'queue-row');
+      const state = p.activeHours > 0 ? `in effect, ${Math.ceil(p.activeHours)}h left` : p.readyHours > 0 ? `ready in ${Math.ceil(p.readyHours)}h` : 'ready';
+      row.append(el('span', 'queue-name', p.name), el('span', 'queue-time', state));
+      row.title = p.description;
+      out.push(row, el('div', 'hint', p.description));
+    }
+    if (s.powerLog.length) out.push(el('div', 'hint', `Lately: ${s.powerLog.slice(0, 3).join(' · ')}`));
   }
 
   // the one thing the player decides: where the town puts its effort

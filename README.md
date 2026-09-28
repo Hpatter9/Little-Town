@@ -215,6 +215,28 @@ travel take longer. Food doesn't stretch, because people eat on the same clock i
 | Modern | Mission Control | Oil, concrete, plastics, electronics, trucks, turrets, cryo pods, war |
 | Robotic & Space | Launch Site (the ending) | Alloys, circuits, worker bots, shields, clone vats, drones, meteors |
 
+## Origins
+
+Chosen first on the New town screen, an origin changes how the whole game plays and looks: who the townsfolk are,
+what they need, what they're good and bad at, three powers (spells or rituals) the town calls on by itself when the
+moment's right (shown on the Plan tab with their cooldowns), and its own colours, fonts, menu names, town tint and
+building style.
+
+| Origin | Twist | Powers |
+|---|---|---|
+| **Settlers** | The classic game | None |
+| **Lich** | A lich founder and the raised dead: no food, no sleep, slow healing, no children | Raise Dead, Bone Ward, Drain Life |
+| **Druid Grove** | Fields and foraging fast, cleared forest grows back; builds slower, coarser crafts | Call Rain, Entangle, Bloom |
+| **Blood Court** | A vampire founder; the town works hard by night, thralls never despair | Mesmerise, Blood Feast, Night Terror |
+| **Moon Pack** | A werewolf founder; wolves never raid, full moons make everyone fierce | Howl, Pack Hunt, Moon Frenzy |
+| **Machine Colony** | Machines: no food, sleep or moods; fast research; nobody wanders in, units are assembled | Assemble, Overclock, Repair Swarm |
+| **Deep Hold** | Dwarves: fast builders, finer crafts, tough; poor farmers | Deep Delve, Forge Blessing, Stone Skin |
+| **Tide Clan** | Merfolk: great foragers, the sea gives fish, busy trade; pirates | Tide Call, Whirlpool, Sea Fog |
+| **Nomad Caravan** | Fast building, twice the travellers, better prices; slower research | Trade Road, Swift Riders, Scouting Party |
+| **Fae Court** | Strangers pay half again as much and may be charmed into staying; slow crafting | Glamour, Changeling, Faerie Ring |
+| **Crucible** | Alchemists: fast research, newcomers gain a strange trait; poor builders | Transmute, Elixir, Volatile Flask |
+| **Exiled Order** | Knights: armed from day one, fight hard, take less harm; slow crafting and research | Rally, Shield Wall, Oath of Mending |
+
 ## New-game options
 
 The New town panel opens on a first run, from the tray's New game… and from the game-over card.

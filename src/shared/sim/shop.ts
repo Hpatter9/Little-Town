@@ -85,6 +85,7 @@ import { operatorOf, operatorSkill } from './operators';
 import { addStock, earn, notify, poolSize, remember, type Building, type GameState, type ShopPiece, type Traveller, type Want } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { gainSkill } from './townsfolk';
+import { priceRate, travellerRate } from './origin';
 
 /* ------------------------------------------------------------ the venues and their floors */
 
@@ -325,7 +326,7 @@ const worldWidth = (s: GameState) => s.tiles.length * TILE;
 
 /** Game ticks until the next stranger, for a venue this attractive. */
 export function travellerGap(s: GameState, rng: Rng, attract: number): number {
-  const hours = rng.range(TRAVELLER_EVERY[0], TRAVELLER_EVERY[1]) / (1 + attract / APPEAL_HALVES_WAIT) / (biomeOf(s).caravans ?? 1);
+  const hours = rng.range(TRAVELLER_EVERY[0], TRAVELLER_EVERY[1]) / (1 + attract / APPEAL_HALVES_WAIT) / (biomeOf(s).caravans ?? 1) / travellerRate(s);
   return Math.round(hours * TICKS_PER_HOUR);
 }
 
@@ -511,7 +512,7 @@ function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown): void {
     // who comes: any tier the shop is attractive enough for, the grander ones less often
     const tier = weighted(rng, tiersDrawn(attract).map((c) => [c, c.weight] as [(typeof CUSTOMER_TIERS)[number], number]));
     if (tier.outfit) look.outfit = tier.outfit; // (dressed for their station)
-    const purse = rng.int(PURSE[0], PURSE[1]) * PURSE_SCALE[s.era] * tier.purse * (1 + attract * APPEAL_SPEND) * (1 + keeper) * temperOf(temper).purse;
+    const purse = rng.int(PURSE[0], PURSE[1]) * PURSE_SCALE[s.era] * tier.purse * (1 + attract * APPEAL_SPEND) * (1 + keeper) * temperOf(temper).purse * priceRate(s);
     t = stranger(rng.pick(tier.kinds), tier.tier, purse);
     t.want = shopWant(s, rng, tier.tier, town.forSale(s));
     if (tier.tier > 1 && !(open.shop?.seen ?? []).includes(tier.tier)) {
@@ -524,7 +525,7 @@ function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown): void {
     const band = [...GUEST_KINDS].reverse().find(([from]) => req >= from) ?? GUEST_KINDS[0];
     const outfit = CUSTOMER_TIERS[band[1] - 1]?.outfit;
     if (outfit) look.outfit = outfit;
-    const purse = rng.int(GUEST_PURSE[0], GUEST_PURSE[1]) * PURSE_SCALE[s.era] * (1 + req / 15) * (1 + keeper) * temperOf(temper).purse;
+    const purse = rng.int(GUEST_PURSE[0], GUEST_PURSE[1]) * PURSE_SCALE[s.era] * (1 + req / 15) * (1 + keeper) * temperOf(temper).purse * priceRate(s);
     t = stranger(rng.pick(band[2]), band[1], purse);
     t.want = guestWant(s, rng);
     t.req = req;

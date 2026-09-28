@@ -94,4 +94,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs
   itself, so there's little to watch while a menu is open. The tabs stay visible (along the bottom upright).
 - **Phase 3 is done** (the Tavern: see above).
+- **Origins are done:** `src/shared/data/origins.ts` (defs: start, rules, powers), applied at founding in
+  `newGame`; the rule multipliers are in `src/shared/sim/origin.ts` (asked for by people, farming, raids, crafting, the
+  shop, townsfolk); powers in `src/shared/sim/powers.ts` (`castPowers`, cast by the town itself; buffs in `s.buffs`);
+  looks in `src/renderer/theme.ts` (one palette per origin, CSS generated and scoped to `html.theme-<id>`, menu names,
+  building tint). Undead and machines are both `tireless` (state.ts).
 - **Phase 4:** animal husbandry and more farming.

@@ -9,7 +9,7 @@ import { defOf, stillNeeded } from '../../shared/sim/buildings';
 import { poolSize, type Building } from '../../shared/sim/state';
 import { CROPS } from '../../shared/data/crops';
 import { buildingArt, type CropLook } from '../art/buildings';
-import { haze, noTone, type PixelArt, type Tone } from '../art/pixelArt';
+import { haze, mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
 import { campfireFrames } from '../art/sprites';
 import { Rng } from '../../shared/rng';
 import type { Layer } from './layer';
@@ -53,7 +53,7 @@ const DUST_PIVOT: [number, number] = [48, 70];
 export class BuildingsView {
   private readonly drawn = new Map<number, Drawn>();
   private readonly overlays: Record<BuildLayer, Container>;
-  private readonly tones: Record<BuildLayer, [Tone, string]> = { fore: [noTone, 'near'], mid: [noTone, 'near'], back: [haze(0.32), 'far'] };
+  private tones: Record<BuildLayer, [Tone, string]> = { fore: [noTone, 'near'], mid: [noTone, 'near'], back: [haze(0.32), 'far'] };
   private readonly fireFrames: PixelArt[];
   private ghost: { sprite: Sprite; foot: Graphics; layer: BuildLayer } | null = null;
 
@@ -67,6 +67,22 @@ export class BuildingsView {
       back: layers.back.root.addChild(new Container()),
     };
     this.fireFrames = campfireFrames(Rng.from(seedHash, 0xf2), noTone);
+  }
+
+  /** The town's look (its origin's): buildings tinted toward a colour, or as drawn; everything is redrawn. */
+  setStyle(tint: [string, number] | null): void {
+    const key = tint ? `${tint[0]}${tint[1]}` : '';
+    const toward = (base: Tone): Tone => {
+      if (!tint) return base;
+      const cache = new Map<string, string>();
+      return (hex) => {
+        let out = cache.get(hex);
+        if (!out) cache.set(hex, (out = base(mixHex(hex, tint[0], tint[1]))));
+        return out;
+      };
+    };
+    this.tones = { fore: [toward(noTone), `near${key}`], mid: [toward(noTone), `near${key}`], back: [toward(haze(0.32)), `far${key}`] };
+    for (const d of this.drawn.values()) d.sig = ''; // (the next sync redraws them all)
   }
 
   private art(defId: string, layer: BuildLayer, stage?: CropLook): PixelArt {

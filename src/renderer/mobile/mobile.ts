@@ -7,7 +7,7 @@ import { PANELS, type StripState } from '../../shared/ipc';
 import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
 import { css, mix, skyColors, weatherCover } from '../town/skyColors';
-import { applyTheme, gameTitle, panelLabel } from '../theme';
+import { applyTheme, panelLabel } from '../theme';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -133,8 +133,8 @@ const tabButtons = PANELS.map((p) => {
 bridge.onSnapshot((snap) => {
   if (!applyTheme(snap.theme, 'phone')) return;
   for (const t of tabButtons) t.label.textContent = panelLabel(t.id, t.name, snap.theme);
-  $('top-title').textContent = gameTitle(snap.theme);
-  document.title = gameTitle(snap.theme);
+  $('top-title').textContent = snap.origin.town;
+  document.title = snap.origin.town;
 });
 // The page above the strip is more of the same sky, a little deeper toward the top of the screen.
 let skyKey = '';

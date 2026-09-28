@@ -3,7 +3,7 @@
 
 import { TILE, WORLD_WIDTH } from '../constants';
 import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/buildings';
-import { ARRIVING_TYPES, TRAIT_BY_ID } from '../data/people';
+import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
 import { hashSeed, mixSeed, type Rng } from '../rng';
 import { CLASS_DEFS, CLASSES, RARE_CLASS_CHANCE } from '../data/classes';
@@ -20,8 +20,10 @@ import { DREAD_MORALE, TRIUMPH_MORALE } from './bosses';
 import { TAVERN_BASE, TAVERN_PER_LEVEL } from '../data/operators';
 import { ASH_MORALE, FALLOUT_MORALE, FREEZE_COLD_MORALE, FREEZE_MORALE, PLAGUE_MORALE, PLAGUE_WORK, SMOG_MORALE } from '../data/doom';
 import { isInjured } from './health';
-import { campX, makePerson, notify, type GameState, type Person, type Visitor } from './state';
+import { tireless, maxHp, campX, makePerson, notify, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
+import { rulesOf } from '../data/origins';
+import { originWork } from './origin';
 
 /** Need drain per game hour. Food lasts about a day; rest about 18 waking hours. */
 export const FOOD_PER_HOUR = 1 / 24;
@@ -50,7 +52,7 @@ const ARRIVAL_REPUTATION_MAX = 0.1;
 /* ------------------------------------------------------------ needs and mood */
 
 export function drainNeeds(p: Person, asleep: boolean): void {
-  if (p.monster === 'undead') return; // (the dead neither hunger nor tire)
+  if (tireless(p)) return; // (the dead, and machines, neither hunger nor tire)
   const glutton = p.traits.includes('glutton') ? 1.5 : 1;
   p.needs.food = Math.max(0, p.needs.food - (FOOD_PER_HOUR * glutton) / TICKS_PER_HOUR);
   if (!asleep) p.needs.rest = Math.max(0, p.needs.rest - REST_PER_HOUR / TICKS_PER_HOUR);
@@ -62,7 +64,7 @@ export function isNight(hour: number): boolean {
 
 /** Time for bed: late at night (unless fully rested), or dead on their feet. */
 export function wantsSleep(s: GameState, p: Person): boolean {
-  if (p.monster === 'undead') return false;
+  if (tireless(p)) return false;
   return (isNight(calendar(s.tick).hour) && p.needs.rest < 0.9) || p.needs.rest < 0.15;
 }
 
@@ -121,8 +123,8 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   if (p.sick) add('Sick with the plague', PLAGUE_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'ash_winter') add('Ash blots out the sun', ASH_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'smog' && p.away === null) add('Choking smog', SMOG_MORALE);
-  if (s.doom?.phase === 'active' && s.doom.kind === 'meltdown' && p.away === null && p.monster !== 'undead') add('Fallout sickness', FALLOUT_MORALE);
-  if (s.doom?.phase === 'active' && s.doom.kind === 'deep_freeze' && p.away === null && p.monster !== 'undead') add(s.doom.cold ? 'Freezing: nothing left to burn' : 'The Deep Freeze', s.doom.cold ? FREEZE_COLD_MORALE : FREEZE_MORALE);
+  if (s.doom?.phase === 'active' && s.doom.kind === 'meltdown' && p.away === null && !tireless(p)) add('Fallout sickness', FALLOUT_MORALE);
+  if (s.doom?.phase === 'active' && s.doom.kind === 'deep_freeze' && p.away === null && !tireless(p)) add(s.doom.cold ? 'Freezing: nothing left to burn' : 'The Deep Freeze', s.doom.cold ? FREEZE_COLD_MORALE : FREEZE_MORALE);
   if (!p.monster && s.people.some((q) => q.monster === 'vampire' && q.away === null)) add('Uneasy nights (a vampire in town)', UNEASY_MORALE);
   if (s.tick < s.celebrationUntil) add('A wedding in town', 5);
   // epic bosses: the dread of one at the gates, the triumph of one slain
@@ -150,9 +152,17 @@ const MORALE_EVERY = 10;
 export function driftMorale(s: GameState, p: Person): void {
   // (working out someone's mood weighs up everyone they know, so it's done once a second, not every tick)
   if (s.tick % MORALE_EVERY !== 0) return;
+  // (a machine's spirits hold steady)
+  if (p.machine) {
+    p.morale = MACHINE_MORALE;
+    return;
+  }
   const { target } = mood(s, p);
   const step = (MORALE_DRIFT_PER_HOUR / TICKS_PER_HOUR) * MORALE_EVERY;
   p.morale = p.morale < target ? Math.min(target, p.morale + step) : Math.max(target, p.morale - step);
+  // (some origins' folk never sink too low: thralls, the fair folk)
+  const floor = rulesOf(s).moraleFloor;
+  if (floor !== undefined && p.morale < floor) p.morale = floor;
 }
 
 /** Barracks (DESIGN §10): XP an hour for everyone with Defend on High, while no raid is on. */
@@ -166,6 +176,27 @@ export function drillGuards(s: GameState): void {
     if (p.away !== null || p.downed || p.bornTick != null || p.priorities.defend !== 1) continue;
     gainSkill(p, 'melee', DRILL_XP_PER_HOUR);
     gainSkill(p, 'ranged', DRILL_XP_PER_HOUR);
+  }
+}
+
+/** A machine's steady spirits. */
+export const MACHINE_MORALE = 60;
+
+/** Someone joins a town of an origin: raised as one of the dead, made a machine, or (alchemists) changed a little. */
+export function joinOrigin(s: GameState, p: Person, rng?: Rng): void {
+  const r = rulesOf(s);
+  if (r.kin === 'undead' && !p.monster) {
+    p.monster = 'undead';
+    p.hp = maxHp(p);
+  } else if (r.kin === 'machine') p.machine = true;
+  if (r.mutate) {
+    // (a trait they don't have, decided by who they are, so no randomness shifts)
+    const open = TRAITS.filter((t) => !p.traits.includes(t.id) && !p.traits.some((o) => t.excludes?.includes(o)));
+    const pick = rng ? rng.pick(open) : open[(p.id * 7) % Math.max(1, open.length)];
+    if (pick) {
+      p.traits.push(pick.id);
+      notify(s, `${p.name} came out of the crucible changed: ${pick.name}.`);
+    }
   }
 }
 
@@ -197,7 +228,7 @@ export function workFactor(s: GameState, p: Person): number {
   const uprising = s.doom?.kind === 'rogue_ai' && s.doom.phase === 'active';
   const bots = uprising ? 0 : Math.min(MAX_BOTS, s.items.worker_bot ?? 0);
   if (bots) f *= 1 + BOT_WORK * bots;
-  return f;
+  return f * originWork(s, p);
 }
 
 /** Grow a skill, faster for passions and Quick Learners. */
@@ -243,6 +274,7 @@ export function campEdgeX(s: GameState, side: -1 | 1): number {
 /** Once per game hour, maybe a wanderer turns up (only while a bed is free). */
 export function maybeArrive(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.visitor) return;
+  if (rulesOf(s).noWanderers) return; // (a town that makes its own people)
   if (housingCapacity(s) <= s.people.length) return;
   const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
   const chance =
@@ -252,7 +284,8 @@ export function maybeArrive(s: GameState, rng: Rng): void {
     s.buildings.reduce((n, b) => n + (b.status === 'done' ? (BUILDING_BY_ID[b.def]?.arrivals ?? 0) : 0), 0) +
     Math.min(ARRIVAL_REPUTATION_MAX, s.reputation * ARRIVAL_PER_REPUTATION);
   // wanderers shy away from a town where the dead outnumber the living
-  if (!rng.chance(chance * (undeadShare(s) >= 0.5 ? UNDEAD_TOWN_ARRIVALS : 1))) return;
+  // (unless the town was founded by the dead: then they're raised on joining anyway)
+  if (!rng.chance(chance * (undeadShare(s) >= 0.5 && rulesOf(s).kin !== 'undead' ? UNDEAD_TOWN_ARRIVALS : 1))) return;
 
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
   const edge = side < 0 ? 0 : WORLD_WIDTH;
@@ -295,6 +328,7 @@ export function acceptVisitor(s: GameState): void {
   if (!v || v.leavingTo !== null) return;
   s.people.push(v.person);
   s.visitor = null;
+  joinOrigin(s, v.person);
   assignBeds(s);
   equipAll(s);
   notify(s, `${v.person.name} joined the town.`, true);

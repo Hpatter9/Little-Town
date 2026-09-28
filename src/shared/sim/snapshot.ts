@@ -11,6 +11,12 @@ import { appeal, attractiveness, customerTiers, extensionPrice, extensionsOf, fa
 import { moneyTown, wageBill } from './wages';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
+import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
+import { powersView } from './powers';
+
+/** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
+export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
+const themeOf = (s: GameState): ThemeId => (s.lich ? 'lich' : !s.origin || s.origin === 'settlers' ? 'town' : s.origin);
 import { itemUnlocked, qualitiesOf } from './crafting';
 import { FARE, furnishes, MAX_EXTENSIONS, temperOf, tierOf, venueOfDef, WARES } from '../data/shop';
 import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../data/items';
@@ -309,8 +315,12 @@ export interface Snapshot {
   tavern: ShopView | null;
   /** How the game looks: the town, or (once the founder is a lich) the necropolis; and whether the founder can
    *  choose to become a lich now (Lichcraft learned, not yet chosen). */
-  theme: 'town' | 'lich';
+  theme: ThemeId;
   lichOffer: boolean;
+  /** Who founded the town, its powers (when each is ready, and whether it's in effect), and what they did lately. */
+  origin: { id: OriginId; name: string; town: string };
+  powers: ReturnType<typeof powersView>;
+  powerLog: string[];
   /** What a day's wages come to (once the town has money), and yesterday's coins in and out by where from. */
   wageBill: number;
   ledger: Ledger | null;
@@ -441,7 +451,11 @@ export function snapshot(s: GameState): Snapshot {
     shop: venueView(s, 'shop'),
     tavern: venueView(s, 'tavern'),
     wageBill: moneyTown(s) ? wageBill(s) : 0,
-    theme: s.lich ? 'lich' : 'town',
+    // (a lich founder turns any town into a necropolis; otherwise the origin's own look)
+    theme: themeOf(s),
+    origin: { id: originOf(s).id, name: originOf(s).name, town: s.lich ? ORIGIN_DEFS.lich.town : originOf(s).town },
+    powers: powersView(s),
+    powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
     lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
     travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),

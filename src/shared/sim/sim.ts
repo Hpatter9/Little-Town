@@ -30,6 +30,14 @@ import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { forSale, runPlanner, shoppingList } from './planner';
 import { chooseLich, watchLich } from './occult';
+import { castPowers } from './powers';
+import { rulesOf } from '../data/origins';
+import { BUILDING_BY_ID } from '../data/buildings';
+import { TERRAIN } from '../data/terrain';
+import type { Material, Stock } from '../data/materials';
+
+/** How often a druid town's forest grows back a tile. */
+const REGROW_TICKS = TICKS_PER_HOUR * 2;
 import { updateShop, type ShopTown } from './shop';
 import { updateWages } from './wages';
 
@@ -109,6 +117,8 @@ export class Sim {
     updateDoom(s, this.rng);
     updateLaunch(s);
     watchLich(s);
+    this.regrow();
+    castPowers(s, this.rng);
     if (s.gameOver) return;
     updateMonsters(s, this.rng, (target) => startGuildRaid(s, target, this.rng));
     updateBreaks(s, this.rng);
@@ -125,6 +135,28 @@ export class Sim {
     runPlanner(s, this.world.back);
 
     s.rngState = this.rng.state;
+  }
+
+  /** A druid town's cleared forest grows back: now and then, a tree comes up on a clear tile that was forest once,
+   *  away from any building. */
+  private regrow(): void {
+    const s = this.state;
+    if (!rulesOf(s).regrow || s.tick % REGROW_TICKS !== 0) return;
+    const covered = (i: number) =>
+      s.buildings.some((b) => {
+        const d = BUILDING_BY_ID[b.def];
+        return d.layer !== 'back' && i >= b.tile - 1 && i <= b.tile + d.width;
+      });
+    const spots = s.tiles.map((_, i) => i).filter((i) => s.tiles[i].terrain === 'clear' && this.world.mid[i] === 'forest' && !covered(i));
+    if (!spots.length) return;
+    const i = this.rng.pick(spots);
+    const pool: Stock = {};
+    for (const [m, [lo, hi]] of Object.entries(TERRAIN.forest.pool) as [Material, [number, number]][]) {
+      const n = this.rng.int(lo, hi);
+      if (n > 0) pool[m] = n;
+    }
+    s.tiles[i] = { terrain: 'forest', pool, designated: false };
+    s.tileRev++;
   }
 
   private apply(c: Command): void {

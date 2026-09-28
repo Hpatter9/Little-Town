@@ -50,9 +50,11 @@ import { bossArrives, bossBlow, bossesInRaid } from './bosses';
 import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
 import { flammable, setFire } from './fire';
 import { killPerson, knockDown, stabilize } from './health';
-import { addStock, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider } from './state';
+import { tireless, addStock, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { campEdgeX, gainSkill } from './townsfolk';
+import { rulesOf } from '../data/origins';
+import { fightRate, guardRate } from './origin';
 
 /** Raiders start this far beyond the edge of the world. */
 const OFF_MAP = 40;
@@ -98,8 +100,12 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
   const freeze = s.doom?.kind === 'deep_freeze' && s.doom.phase === 'active';
   const rats = s.doom?.kind === 'rat_plague' && s.doom.phase === 'active';
   const kinds = uprising ? [RAID_KIND_BY_ID.drones] : outbreak ? [RAID_KIND_BY_ID.zombies] : freeze ? [RAID_KIND_BY_ID.frost] : rats ? [RAID_KIND_BY_ID.rats] : raidKindsFor(s.era, day);
+  // (the land, and who founded the town, make some raiders likelier, and some never come)
   const odds = biomeOf(s).raids ?? {};
-  const kind = RAID_KIND_BY_ID[rng.weighted(Object.fromEntries(kinds.map((k) => [k.id, k.weight * (odds[k.id] ?? 1)])))];
+  const own = rulesOf(s).raids ?? {};
+  const weights = Object.fromEntries(kinds.map((k) => [k.id, k.weight * (odds[k.id] ?? 1) * (own[k.id] ?? 1)]));
+  const any = Object.values(weights).some((w) => w > 0);
+  const kind = RAID_KIND_BY_ID[rng.weighted(any ? weights : Object.fromEntries(kinds.map((k) => [k.id, k.weight])))];
   const raid = startRaid(s, kind, raidBudget(s), rng);
   // now and then the era's boss leads a raid of people (not beasts or the dead)
   const bosses = ERA_BOSS[s.era];
@@ -441,11 +447,11 @@ function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng): void {
   // an epic boss rages, and now and then sweeps everyone near it
   const mult = def.kit ? bossBlow(s, rd, s.people.filter((q) => exposed(q)), blow) : 1;
   if (!mult) return;
-  const dmg = Math.round(blow(p) * mult);
+  const dmg = Math.round(blow(p) * mult * guardRate(s));
   p.hp = Math.max(0, p.hp - dmg);
   if (dmg > 0 && (rd.kind === 'ice_mage' || rd.kind === 'frost_archmage')) personFx(s, p.id, 'frost'); // (a burst of ice)
   // a plague rat's bite can carry the sickness
-  if (dmg > 0 && (rd.kind === 'plague_rat' || rd.kind === 'rat_king') && p.monster !== 'undead' && !p.sick && rng.chance(RAT_BITE_SICKNESS)) sicken(s, p, rng);
+  if (dmg > 0 && (rd.kind === 'plague_rat' || rd.kind === 'rat_king') && !tireless(p) && !p.sick && rng.chance(RAT_BITE_SICKNESS)) sicken(s, p, rng);
   if (p.hp === 0) {
     knockDown(s, p);
     notify(s, `${p.name} was struck down!`);
@@ -509,7 +515,7 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   gainSkill(p, f.ranged ? 'ranged' : 'melee', 6);
   const captain = operatorSkill(s, 'watchtower') * CAPTAIN_PER_LEVEL; // a guard captain drills the defenders
   if (rng.next() >= f.accuracy + captain - dodge) return;
-  let dmg = hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus;
+  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s));
   // a Blood Knight hits harder when hurt, and heals from what they deal
   if (p.cls === 'blood_knight') {
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);

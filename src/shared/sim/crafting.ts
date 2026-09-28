@@ -20,7 +20,7 @@ import { MATERIALS, type Material, type Stock } from '../data/materials';
 import type { WorkAnim } from '../data/terrain';
 import type { Rng } from '../rng';
 import type { Era } from '../data/eras';
-import { COMMON, qualityMult, qualityOf, rollQuality, typicalQuality } from '../data/quality';
+import { COMMON, MAX_QUALITY, qualityMult, qualityOf, rollQuality, typicalQuality } from '../data/quality';
 import { PIECE_RATE, PURSE_SCALE, saleValue } from '../data/shop';
 import { FOOD_VALUE } from '../data/people';
 import { buildingCentreX, depositNear } from './buildings';
@@ -29,6 +29,7 @@ import { treatSickness } from './doom';
 import { modifiers } from './research';
 import { addStock, campX, earn, ERA_MULTIPLIER, maxHp, notify, remember, type Building, type CraftOrder, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
+import { qualityBonus } from './origin';
 
 /* ------------------------------------------------------------ what can be made, and where */
 
@@ -158,7 +159,8 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
   } else {
     // (how well it's made depends on who made it)
     const level = p.skills.crafting.level;
-    const q = rng ? rollQuality(rng, level) : Math.round(typicalQuality(level));
+    // (and on the town: dwarves make finer things, druids coarser, and a forge blessing helps)
+    const q = Math.max(0, Math.min(MAX_QUALITY, (rng ? rollQuality(rng, level) : Math.round(typicalQuality(level))) + Math.round(qualityBonus(s))));
     addItems(s, def.id, 1, q);
     if (q >= 5) notify(s, `${p.name} made a ${qualityOf(q).name} ${def.name}!`, true);
     payCrafter(s, def, q, p);

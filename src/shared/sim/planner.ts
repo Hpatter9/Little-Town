@@ -15,7 +15,7 @@ import { blueprintCount, buildSlots, canPlace, canUpgrade, isUnlocked, placeBlue
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
-import { addStock, campX, type Building, type GameState } from './state';
+import { tireless, addStock, campX, type Building, type GameState } from './state';
 import { TILE } from '../constants';
 import { TICKS_PER_HOUR } from './time';
 import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
@@ -78,7 +78,7 @@ const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber:
 
 function needs(s: GameState): Needs {
   const stock = totalStock(s);
-  const eaters = s.people.filter((p) => p.monster !== 'undead').length || 1;
+  const eaters = s.people.filter((p) => !tireless(p)).length || 1;
   const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (stock[m] ?? 0) * v, 0);
   const demand: Stock = {};
   const want = (m: Material, n: number) => (demand[m] = (demand[m] ?? 0) + n);
@@ -565,7 +565,7 @@ const AMMO_KEEP = 30;
  *  (twice its usual one), food beyond several days' worth, and never the totem. */
 export function forSale(s: GameState): Stock {
   const n = needs(s);
-  const eaters = s.people.filter((p) => p.monster !== 'undead').length || 1;
+  const eaters = s.people.filter((p) => !tireless(p)).length || 1;
   let spareFood = Math.max(0, (n.foodDays - FOOD_KEEP_DAYS) * eaters);
   const out: Stock = {};
   for (const m of MATERIALS) {
@@ -589,7 +589,7 @@ export function shoppingList(s: GameState): { m: Material; n: number; essential:
   const n = needs(s);
   const out: { m: Material; n: number; essential: boolean }[] = [];
   if (n.foodDays < 2) {
-    const eaters = s.people.filter((p) => p.monster !== 'undead').length || 1;
+    const eaters = s.people.filter((p) => !tireless(p)).length || 1;
     const food = travellerGoods(s.era).filter((m) => FOOD_VALUE[m]).sort((a, b) => FOOD_VALUE[b]! - FOOD_VALUE[a]!)[0];
     if (food) out.push({ m: food, n: Math.ceil(((3 - n.foodDays) * eaters) / FOOD_VALUE[food]!), essential: true });
   }

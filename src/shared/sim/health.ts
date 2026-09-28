@@ -7,7 +7,7 @@ import { operatorSkill } from './operators';
 import { buildingCentreX } from './buildings';
 import { grieve } from './social';
 import { revealOccult, tryRevive } from './occult';
-import { notify, maxHp, personFx, type GameState, type Person } from './state';
+import { tireless, notify, maxHp, personFx, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 /** How long someone downed has before they bleed out, unless a medic (or the camp) tends them. */
@@ -122,7 +122,7 @@ export function checkBleeding(s: GameState, p: Person): void {
 export function heal(s: GameState, p: Person): void {
   const max = maxHp(p);
   // (the downed are recovering in bed and can't go and eat: they aren't worn down, or they'd never get up)
-  if (p.needs.food <= STARVING && p.monster !== 'undead' && !p.downed) {
+  if (p.needs.food <= STARVING && !tireless(p) && !p.downed) {
     if (!p.starving) {
       p.starving = true;
       notify(s, `${p.name} is starving! There's no food to be had: plant fields, hunt, or trade for some.`, true);
@@ -137,7 +137,7 @@ export function heal(s: GameState, p: Person): void {
   const rate = asleep ? (p.task?.type === 'sleep' && p.task.building !== null ? REGEN_BED : REGEN_GROUND) : REGEN_AWAKE;
   let infirmary = bestHealing(s);
   if (infirmary > 1) infirmary += operatorSkill(s, 'infirmary') * HEALER_PER_LEVEL; // a healer on hand
-  p.hp = Math.min(max, p.hp + (rate * infirmary * (p.monster === 'undead' ? UNDEAD_HEAL : 1)) / TICKS_PER_HOUR);
+  p.hp = Math.min(max, p.hp + (rate * infirmary * (tireless(p) ? UNDEAD_HEAL : 1)) / TICKS_PER_HOUR);
   if (p.downed && p.downed.bleedUntil === null && p.hp >= max * BACK_ON_FEET) {
     p.downed = null;
     p.scarred = true;

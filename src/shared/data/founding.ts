@@ -4,6 +4,7 @@
 import { BIOMES, DIFFICULTIES, type Biome, type Difficulty } from './biomes';
 import { HAIR_CHOICES, HAIR_STYLES, OUTFIT_CHOICES, SKINS, TRAITS, type Look } from './people';
 import type { Material } from './materials';
+import { ORIGINS, type OriginId } from './origins';
 import { SKILLS, type Skill } from './skills';
 
 /* ------------------------------------------------------------ backgrounds */
@@ -85,15 +86,16 @@ export const SCENARIO_BY_ID: Readonly<Record<string, Scenario>> = Object.fromEnt
 /* ------------------------------------------------------------ checking what the panel sent */
 
 /** The New town panel's choices, checked (on the desktop they arrive over IPC). Null if they don't make sense. */
-export function cleanNewGameOptions(raw: unknown): { biome: Biome; difficulty: Difficulty; ironman: boolean; scenario: string; founder?: FounderSpec } | null {
+export function cleanNewGameOptions(raw: unknown): { biome: Biome; difficulty: Difficulty; ironman: boolean; scenario: string; origin: OriginId; founder?: FounderSpec } | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const o = raw as Record<string, unknown>;
   const biome = pick(BIOMES, o.biome);
   const difficulty = pick(DIFFICULTIES, o.difficulty);
   const scenario = o.scenario === undefined ? 'lone' : typeof o.scenario === 'string' && SCENARIO_BY_ID[o.scenario] ? o.scenario : null;
   const founder = o.founder === undefined ? undefined : cleanFounder(o.founder);
-  if (!biome || !difficulty || !scenario || founder === null) return null;
-  return { biome, difficulty, ironman: o.ironman === true, scenario, ...(founder ? { founder } : {}) };
+  const origin = o.origin === undefined ? 'settlers' : pick(ORIGINS, o.origin);
+  if (!biome || !difficulty || !scenario || !origin || founder === null) return null;
+  return { biome, difficulty, ironman: o.ironman === true, scenario, origin, ...(founder ? { founder } : {}) };
 }
 
 const pick = <T>(list: readonly T[], v: unknown): T | undefined => list.find((x) => x === v);

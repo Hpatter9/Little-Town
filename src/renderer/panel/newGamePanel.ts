@@ -7,6 +7,7 @@ import { BIOME_DEFS, BIOMES, DIFFICULTIES, DIFFICULTY_DEFS, type Biome, type Dif
 import { BACKGROUNDS, founderSkills, MAX_FOUNDER_TRAITS, MAX_NAME_LENGTH, SCENARIOS, type FounderSpec } from '../../shared/data/founding';
 import { HAIR_CHOICES, HAIR_STYLES, NAMES, OUTFIT_CHOICES, randomLook, SKINS, TRAITS, type Look } from '../../shared/data/people';
 import { SKILL_NAMES, SKILLS } from '../../shared/data/skills';
+import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../../shared/data/origins';
 import { Rng } from '../../shared/rng';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
@@ -17,6 +18,7 @@ const dice = () => new Rng(Math.floor(Math.random() * 0x7fffffff));
 
 /* (kept while the panel re-renders, and between openings) */
 let scenario = 'lone';
+let origin: OriginId = 'settlers';
 let name = '';
 let look: Look = randomLook(dice());
 let background = 'forager';
@@ -28,6 +30,7 @@ let ironman = false;
 let lpcReady: Promise<void> | null = null;
 
 export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
+  const origins = el('div', 'cards');
   const scenarios = el('div', 'cards');
   const founder = el('div', 'founder');
   const backgrounds = el('div', 'cards');
@@ -36,6 +39,13 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const dangers = el('div', 'cards');
   const found = button('', () => bridge.newGame(choices()), { cls: 'place found' });
 
+  const drawOrigins = () =>
+    origins.replaceChildren(
+      ...ORIGINS.map((id) => {
+        const o = ORIGIN_DEFS[id];
+        return pickCard(id === origin, o.name, `${o.description}\n${o.features.map((f) => `• ${f}`).join('\n')}`, () => ((origin = id), drawOrigins(), drawPlaces()));
+      }),
+    );
   const drawScenarios = () =>
     scenarios.replaceChildren(...SCENARIOS.map((sc) => pickCard(sc.id === scenario, sc.name, sc.description, () => ((scenario = sc.id), drawScenarios()))));
   const drawBackgrounds = () =>
@@ -64,7 +74,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const drawPlaces = () => {
     biomes.replaceChildren(...BIOMES.map((b) => pickCard(b === biome, BIOME_DEFS[b].name, BIOME_DEFS[b].description, () => ((biome = b), drawPlaces()))));
     dangers.replaceChildren(...DIFFICULTIES.map((d) => pickCard(d === difficulty, DIFFICULTY_DEFS[d].name, DIFFICULTY_DEFS[d].description, () => ((difficulty = d), drawPlaces()))));
-    found.textContent = `Found a ${BIOME_DEFS[biome].name.toLowerCase()} town`;
+    found.textContent = origin === 'settlers' ? `Found a ${BIOME_DEFS[biome].name.toLowerCase()} town` : `Found ${ORIGIN_DEFS[origin].town} (${BIOME_DEFS[biome].name.toLowerCase()})`;
   };
 
   /* ---------------------------------------------------- the founder: preview, name and looks */
@@ -148,7 +158,11 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     snap.gameOver || snap.tick < TICKS_PER_HOUR
       ? []
       : [el('div', 'hint', 'Your current town is kept as a backup in the saves folder, but the game carries on with the new one.')];
+  drawOrigins();
   return [
+    el('h3', 'newgame-head', 'Who founds the town?'),
+    origins,
+    el('div', 'hint', 'Each changes how the whole game plays and looks. Settlers are the classic game.'),
     el('h3', 'newgame-head', 'How does it begin?'),
     scenarios,
     el('h3', 'newgame-head', 'Your founder'),
@@ -170,7 +184,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
 
 function choices() {
   const f: FounderSpec = { background, traits: [...traits], look: { ...look }, ...(name.trim() ? { name: name.trim() } : {}) };
-  return { biome, difficulty, ironman, scenario, founder: f };
+  return { biome, difficulty, ironman, scenario, origin, founder: f };
 }
 
 function pickCard(on: boolean, name: string, text: string, onClick: () => void): HTMLElement {

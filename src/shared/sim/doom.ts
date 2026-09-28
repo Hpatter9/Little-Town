@@ -50,7 +50,7 @@ import { raidBudget, shielded, startRaid } from './raids';
 import { isLich } from './turning';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { ENEMIES } from '../data/enemies';
-import { addStock, ERA_MULTIPLIER, notify, personFx, type GameState, type Person } from './state';
+import { tireless, addStock, ERA_MULTIPLIER, notify, personFx, type GameState, type Person } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
 export interface Doom {
@@ -199,7 +199,7 @@ function gnawStores(s: GameState): void {
  *  freezes last longer (`stretch`), so each hour costs that much less: a whole freeze takes the same heat in
  *  any era. */
 function keepWarm(s: GameState, d: Doom, stretch: number): void {
-  const here = s.people.filter((p) => p.away === null && p.monster !== 'undead');
+  const here = s.people.filter((p) => p.away === null && !tireless(p));
   const wasCold = !!d.cold;
   let need = FREEZE_HEATERS.some((h) => built(s, h)) ? 0 : (d.heatOwed ?? 0) + here.length / FREEZE_PEOPLE_PER_HEAT / stretch;
   for (const m of ['wood', 'coal', 'fuel'] as const) {
@@ -222,7 +222,7 @@ function keepWarm(s: GameState, d: Doom, stretch: number): void {
 export const sicken = (s: GameState, p: Person, rng: Rng) => infect(s, p, rng);
 
 function infect(s: GameState, p: Person, rng: Rng): void {
-  if (isSick(p) || p.monster === 'undead') return; // (the dead can't sicken)
+  if (isSick(p) || tireless(p)) return; // (the dead, and machines, can't sicken)
   p.sick = { until: s.tick + rng.int(PLAGUE_HOURS[0], PLAGUE_HOURS[1]) * TICKS_PER_HOUR };
   notify(s, `${p.name} has fallen sick.`);
 }
@@ -265,7 +265,7 @@ function meteorStrike(s: GameState, rng: Rng): void {
  *  it stops at 1 health, but leaves people weak for raids. */
 function breatheSmog(s: GameState, perHour = SMOG_HP_PER_HOUR): void {
   const guard = built(s, 'hospital') || built(s, 'trauma_center') ? 0.5 : 1;
-  for (const p of s.people) if (p.away === null && !p.downed && p.hp > 1 && p.monster !== 'undead') p.hp = Math.max(1, p.hp - perHour * guard);
+  for (const p of s.people) if (p.away === null && !p.downed && p.hp > 1 && !tireless(p)) p.hp = Math.max(1, p.hp - perHour * guard);
 }
 
 /** A dressing (bandage or poultice) cuts someone's sickness short (once). Returns true if it was used. */

@@ -18,6 +18,7 @@ import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
 import { blueprintCount, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { venueOfDef } from '../shared/data/shop';
+import { buildingTint } from './theme';
 
 /** A traveller, drawn like a townsperson (they're only passing through: most of a person's details don't apply). */
 function travellerPerson(t: TravellerView): PersonView {
@@ -179,7 +180,8 @@ async function start(): Promise<void> {
     dismissAway,
   );
 
-  const hud = createHud(bridge);
+  // (an origin's look reaches its buildings too)
+  const hud = createHud(bridge, (theme) => town.setBuildingStyle(buildingTint(theme)));
   const music = createMusic();
   const tip = createTooltip();
   const actions = createActionBar();
