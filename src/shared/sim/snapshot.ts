@@ -7,8 +7,9 @@ import { turnable, undeadShare } from './turning';
 import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
 import { weatherAt, type WeatherNow } from './weather';
 import { directionOf, forSale, shoppingList, type Direction, type TownPlan } from './planner';
-import { appeal, shopLayout, type Rect } from './shop';
-import { isShop } from '../data/shop';
+import { appeal, attractiveness, customerTiers, extensionPrice, extensionsOf, levelPrice, shopLayout, type Rect } from './shop';
+import { itemUnlocked } from './crafting';
+import { isShop, MAX_EXTENSIONS, WARES } from '../data/shop';
 import type { FurnishKind } from '../data/items';
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
@@ -236,12 +237,22 @@ export interface ShopView {
   counter: Rect;
   keeper: Rect;
   door: number;
-  pieces: { item: string; name: string; kind: FurnishKind; x: number; y: number; w: number; h: number; appeal: number }[];
+  pieces: { item: string; name: string; kind: FurnishKind; x: number; y: number; w: number; h: number; appeal: number; level: number; nextLevel: number | null }[];
+  /** The floor's appeal, the shop's renown, and the two together (which decides who comes). */
   appeal: number;
+  renown: number;
+  attractiveness: number;
+  /** Extensions bought, most there can be, and what the next costs. */
+  extensions: number;
+  maxExtensions: number;
+  nextExtension: number | null;
+  /** The ladder of customers: who it draws (from what attractiveness), and the wares each wants (how many are in
+   *  stock, and what the town still needs to make them). */
+  tiers: { tier: number; name: string; plural: string; from: number; drawn: boolean; wares: { name: string; price: number; have: number; needs: string | null }[] }[];
   keeperName: string | null;
   keeperLook: Look | null;
   /** Travellers in the shop now. */
-  customers: { id: number; name: string; kind: string; look: Look }[];
+  customers: { id: number; name: string; kind: string; look: Look; tier: number }[];
   /** Coming (walking in) or going (walking out). */
   passing: number;
   forSale: Stock;
@@ -264,6 +275,7 @@ export interface TravellerView {
   x: number;
   dir: 1 | -1;
   phase: 'arriving' | 'shopping' | 'leaving';
+  tier: number;
 }
 
 export interface Snapshot {
@@ -394,7 +406,7 @@ export function snapshot(s: GameState): Snapshot {
     seed: s.seed,
     coins: Math.floor(s.coins ?? 0),
     shop: shopView(s),
-    travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, x: t.x, dir: t.dir, phase: t.phase })),
+    travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, x: t.x, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
     tick: s.tick,
     paused: s.paused,
     calendar: calendar(s.tick),
@@ -526,7 +538,7 @@ function shopView(s: GameState): ShopView | null {
   const b = s.buildings.find((q) => isShop(q.def));
   if (!b) return null;
   const def = BUILDING_BY_ID[b.def];
-  const layout = shopLayout(b.def);
+  const layout = shopLayout(b);
   if (!dealsCache || dealsCache.state !== s || Math.abs(s.tick - dealsCache.tick) >= DEALS_EVERY) dealsCache = { state: s, tick: s.tick, forSale: forSale(s), wants: shoppingList(s) };
   const keeper = b.operator != null ? s.people.find((p) => p.id === b.operator && p.away === null && !p.downed) : undefined;
   const open = b.status === 'done' && !!keeper;
@@ -541,12 +553,29 @@ function shopView(s: GameState): ShopView | null {
     pieces: (b.shop?.pieces ?? []).map((p) => {
       const item = ITEM_BY_ID[p.item];
       const f = item.furnish!;
-      return { item: p.item, name: item.name, kind: f.kind, x: p.x, y: p.y, w: f.w, h: f.h, appeal: f.appeal };
+      return { item: p.item, name: item.name, kind: f.kind, x: p.x, y: p.y, w: f.w, h: f.h, appeal: f.appeal, level: p.level ?? 1, nextLevel: levelPrice(p) };
     }),
     appeal: appeal(b),
+    renown: Math.floor(s.renown ?? 0),
+    attractiveness: attractiveness(s, b),
+    extensions: extensionsOf(b),
+    maxExtensions: MAX_EXTENSIONS,
+    nextExtension: extensionPrice(s, b),
+    tiers: customerTiers(s, b).map((c) => ({
+      tier: c.tier,
+      name: c.name,
+      plural: c.plural,
+      from: c.from,
+      drawn: c.drawn,
+      wares: WARES.filter((w) => w.ware!.tier === c.tier).map((w) => {
+        const missing = w.research.filter((r) => !s.research.done.includes(r)).map((r) => TOPIC_BY_ID[r]?.name ?? r);
+        const needs = missing.length ? `needs ${missing.join(' and ')}` : !itemUnlocked(s, w) ? 'not yet' : !stationFor(s, w) ? `needs a ${BUILDING_BY_ID[w.station]?.name ?? w.station}` : null;
+        return { name: w.name, price: w.ware!.price, have: s.items[w.id] ?? 0, needs };
+      }),
+    })),
     keeperName: keeper?.name ?? null,
     keeperLook: keeper?.look ?? null,
-    customers: (s.travellers ?? []).filter((t) => t.phase === 'shopping').map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look })),
+    customers: (s.travellers ?? []).filter((t) => t.phase === 'shopping').map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1 })),
     passing: (s.travellers ?? []).filter((t) => t.phase !== 'shopping').length,
     forSale: dealsCache.forSale,
     wants: dealsCache.wants,

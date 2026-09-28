@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { ITEM_BY_ID } from '../src/shared/data/items';
 import { FURNISHINGS } from '../src/shared/data/shop';
+import { TOPICS } from '../src/shared/data/research';
 import { totalStock } from '../src/shared/sim/buildings';
 import { forSale, runPlanner, shoppingList, PLAN_TICKS } from '../src/shared/sim/planner';
 import { parseSave, serialize } from '../src/shared/sim/save';
@@ -90,7 +91,7 @@ test('the shopkeeper sets out what the town makes: on the floor, clear of the co
   for (let k = 0; k < 40 * TICKS_PER_HOUR; k++) sim.step();
   const pieces = shop.shop!.pieces;
   assert.ok(pieces.length >= 6, `pieces ${pieces.length}`);
-  const { cols, rows, counter, keeper, door } = shopLayout(shop.def);
+  const { cols, rows, counter, keeper, door } = shopLayout(shop);
   const used = new Set<string>();
   for (const p of pieces) {
     const f = ITEM_BY_ID[p.item].furnish!;
@@ -147,7 +148,7 @@ test('rebuilt bigger, the shop keeps its furnishings, and what no longer fits go
   shop.shop.pieces.push({ item: 'crate_stand', x: 5, y: 1 }); // (right where the bigger shop's counter now stands)
   for (let k = 0; k < 2 * TICKS_PER_HOUR; k++) sim.step();
   assert.ok(shop.shop.pieces.some((p) => p.item === 'plank_shelf' && p.x === 0 && p.y === 0), 'kept where it was');
-  const { counter } = shopLayout('general_store');
+  const { counter } = shopLayout(shop);
   assert.ok(!shop.shop.pieces.some((p) => p.x >= counter.x && p.x < counter.x + counter.w && p.y === counter.y), 'nothing left on the counter');
   assert.equal(shop.shop.pieces.filter((p) => p.item === 'crate_stand').length + (s.items.crate_stand ?? 0), 2, 'the stand that was in the way is set out again or waiting in the stores');
 });
@@ -223,4 +224,139 @@ test('left alone in the desert, a town builds a shop, furnishes it, and earns co
   assert.ok(shop, 'a Trading Post');
   assert.ok((shop!.shop?.pieces.length ?? 0) >= 1, 'something set out in it');
   assert.ok(s.shopLog?.length, 'travellers have come by');
+});
+
+/* ------------------------------------------------------------ attractiveness, customer tiers, wares */
+
+/** A shop dressed up to draw a given crowd: its renown set so its attractiveness is at least `attract`. */
+function grandShop(s: GameState, attract: number): Building {
+  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+  s.renown = attract;
+  return shop;
+}
+
+test('an ordinary shop draws only ordinary travellers; an attractive one draws merchants and nobles too', () => {
+  const tiersSeen = (attract: number) => {
+    const sim = new Sim(plainGame('shop-tiers'));
+    const s = sim.state;
+    grandShop(s, attract);
+    const seen = new Set<number>();
+    for (let k = 0; k < 6 * TICKS_PER_DAY; k++) {
+      sim.step();
+      s.renown = attract; // (held steady: nobody's being satisfied here)
+      for (const t of s.travellers ?? []) seen.add(t.tier ?? 1);
+    }
+    return seen;
+  };
+  assert.deepEqual([...tiersSeen(0)], [1]);
+  const grand = tiersSeen(50);
+  assert.ok(grand.has(2) && grand.has(3), `tiers ${[...grand]}`);
+  assert.ok(!grand.has(4), 'magnates need a far grander shop');
+});
+
+test('a customer who finds a ware of their standing buys it and spreads the shop\'s renown; one who does not leaves disappointed', () => {
+  const run = (stock: boolean) => {
+    const sim = new Sim(plainGame('shop-renown'));
+    const s = sim.state;
+    s.era = 'medieval'; // (where satchels belong: purses to match)
+    grandShop(s, 20); // (merchants come)
+    if (stock) s.items.leather_satchel = 20;
+    let merchants = 0;
+    // (to the third merchant with wares to sell; to the first without, whose disappointment is then the latest news)
+    for (let k = 0; k < 8 * TICKS_PER_DAY && merchants < (stock ? 3 : 1); k++) {
+      const before = (s.travellers ?? []).filter((t) => t.phase === 'shopping' && t.tier === 2).length;
+      sim.step();
+      if ((s.travellers ?? []).filter((t) => t.phase === 'shopping' && t.tier === 2).length > before) merchants++;
+    }
+    assert.ok(merchants >= 1, 'a merchant came');
+    return { renown: s.renown ?? 0, left: s.items.leather_satchel ?? 0, coins: s.coins ?? 0, log: s.shopLog ?? [] };
+  };
+  const happy = run(true);
+  assert.ok(happy.left < 20, 'satchels sold');
+  assert.ok(happy.renown > 20, `renown up (${happy.renown})`);
+  const sad = run(false);
+  assert.ok(sad.renown < 20, `renown down (${sad.renown})`);
+  assert.ok(sad.log.some((l) => l.text.includes('disappointed')));
+});
+
+test('ordinary travellers never buy the finer wares; the grand buy the finest they can afford first', () => {
+  const sim = new Sim(plainGame('shop-ware-tiers'));
+  const s = sim.state;
+  grandShop(s, 0);
+  s.items.iron_brooch = 5;
+  s.items.bone_trinket = 5;
+  for (let k = 0; k < 3 * TICKS_PER_DAY; k++) sim.step();
+  assert.equal(s.items.iron_brooch, 5, 'no brooches for pedlars');
+  assert.ok((s.items.bone_trinket ?? 0) < 5, 'trinkets sold');
+});
+
+test('coins go into the shop: a crowded floor is extended, and pieces are improved a level at a time', () => {
+  const s = plainGame('shop-spend');
+  s.autopilot = true;
+  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+  const back = generateWorld(s.seed).back;
+  const { cols, rows } = shopLayout(shop);
+  // a full floor of crates (every free cell)
+  shop.shop = { pieces: [] };
+  for (let spot = spotFor(shop, ITEM_BY_ID.crate_stand); spot; spot = spotFor(shop, ITEM_BY_ID.crate_stand)) shop.shop.pieces.push({ item: 'crate_stand', ...spot });
+  assert.ok(shop.shop.pieces.length >= cols * rows - 6);
+  s.coins = 1000;
+  s.tick = TICKS_PER_HOUR * 10; // (the planner spends on the hour)
+  runPlanner(s, back);
+  assert.equal(shop.shop.extensions, 1, 'extended');
+  assert.equal(s.coins, 1000 - 60, 'paid for it');
+  assert.equal(shopLayout(shop).cols, cols + 2);
+  // not crowded now: next it improves the cheapest piece
+  s.tick += TICKS_PER_HOUR;
+  const before = appeal(shop);
+  runPlanner(s, back);
+  assert.ok(shop.shop.pieces.some((p) => p.level === 2), 'a piece improved');
+  assert.ok(appeal(shop) >= before);
+  // a poor town keeps its coins
+  const poor = plainGame('shop-poor');
+  poor.autopilot = true;
+  const p2 = addBuilding(poor, 'trading_post', camp(poor) + 3);
+  p2.shop = { pieces: [{ item: 'plank_shelf', x: 0, y: 0 }] };
+  poor.coins = 20;
+  poor.tick = TICKS_PER_HOUR * 10;
+  runPlanner(poor, back);
+  assert.equal(poor.coins, 20);
+});
+
+test('an improved piece adds half its appeal again per level', () => {
+  const s = plainGame('shop-levels');
+  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+  shop.shop = { pieces: [{ item: 'trestle_table', x: 0, y: 1 }] };
+  const base = appeal(shop);
+  shop.shop.pieces[0].level = 3;
+  assert.equal(appeal(shop) - base, ITEM_BY_ID.trestle_table.furnish!.appeal);
+});
+
+test('the town makes wares from what it has spare, never from what it can only buy', () => {
+  const s = newGame('shop-wares', { biome: 'desert' });
+  const back = generateWorld(s.seed, s.biome).back;
+  bareLand(s);
+  s.research.done.push('fire_keeping', 'flint_knapping', 'foraging', 'cordage', 'barter', 'herbalism');
+  addBuilding(s, 'trading_post', camp(s) + 3);
+  s.buildings[0].store = { fiber: 20, berries: 25, wood: 5 }; // (bought fiber: not to be woven into baskets)
+  addBuilding(s, 'stockpile', camp(s) - 8, { bone: 40, herbs: 40, meat: 20 });
+  s.tick = PLAN_TICKS * 10;
+  runPlanner(s, back);
+  const wares = s.crafting.filter((o) => ITEM_BY_ID[o.item].ware).map((o) => o.item);
+  assert.ok(wares.length === 1, `one ware at a time: ${wares}`);
+  assert.notEqual(wares[0], 'reed_basket');
+});
+
+test('drawing customers it has no wares for, the town studies what makes them', () => {
+  const s = newGame('shop-study');
+  const back = generateWorld(s.seed).back;
+  s.era = 'medieval';
+  s.direction = 'trade';
+  s.research.done = TOPICS.filter((t) => !t.era && !t.hidden && t.branch !== 'occult').map((t) => t.id).concat(['mining']);
+  addBuilding(s, 'trading_post', camp(s) + 3);
+  s.renown = 50; // (nobles come: no noble's ware can be made yet)
+  s.buildings[0].store = { wood: 25, stone: 25, berries: 25 };
+  s.tick = PLAN_TICKS * 10;
+  runPlanner(s, back);
+  assert.ok(s.research.queue.includes('iron_working'), `queue ${s.research.queue}`);
 });

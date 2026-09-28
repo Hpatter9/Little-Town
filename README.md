@@ -100,8 +100,21 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
     waiting on, keeping some coins back, or toward its usual stock once it's rich.
   - **Furnishings:** the town makes shelves, tables, stands, rugs and decorations for it, and the shopkeeper
     (the best Social person free) sets them out. A better-furnished shop (higher **appeal**) draws travellers
-    more often, and they spend more. A second piece like one already out counts half, so the town goes for
-    variety, and on a full floor better pieces replace the poorest.
+    more often, and they spend more. Each copy of a piece counts half as much as the one before, so the town goes
+    for variety, and on a full floor better pieces replace the poorest.
+  - **Attractiveness** is the shop's appeal plus its **renown**, and it decides who comes. Ordinary travellers come
+    to any shop. From 18, **Merchants** come too; from 45, **Nobles**; from 90, **Magnates**. The grander they are,
+    the bigger their purses.
+  - **Wares** are fine goods the town crafts only to sell, each tier's unlocked by research: bone trinkets, baskets,
+    figurines and salves for travellers; painted urns, sweet loaves, leather satchels and dyed cloth for merchants;
+    iron brooches, glassware and steel cutlery for nobles; toys, radios and holo charms for magnates. The town makes
+    them from what it has spare (never from what it can only buy), for the grandest customers it draws first.
+  - **Renown** rises when a merchant, noble or magnate finds a ware of their standing, and falls when they leave
+    disappointed. It fades a little each day. A town drawing customers it can't serve studies what makes their
+    wares (Iron Working for nobles' brooches, say).
+  - **Coins go back into the shop**, from what's left after a reserve: an **extension** when the floor is crowded
+    (up to three, each two cells wider and one deeper), otherwise a **level** on the cheapest piece to improve
+    (★ a second tier, ★★ polished and trimmed in brass; each adds half the piece's appeal again).
   - **Tap the shop** (or a traveller) to see inside: a bird's-eye view of the counter, the furnishings and the
     travellers browsing, with what's for sale, what the town wants to buy, and the latest sales.
 - **The strip:** scroll with the mouse wheel or drag, and click buildings and people for their details. The

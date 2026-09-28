@@ -18,8 +18,8 @@ import { acceptVisitor, housingCapacity } from './townsfolk';
 import { addStock, campX, type GameState } from './state';
 import { TILE } from '../constants';
 import { TICKS_PER_HOUR } from './time';
-import { COIN_RESERVE, isShop, PURSE_SCALE, travellerGoods } from '../data/shop';
-import { appealGain, shopOf, wouldFurnish } from './shop';
+import { COIN_RESERVE, isShop, PURSE_SCALE, tiersDrawn, travellerGoods, WARE_STOCK, WARES } from '../data/shop';
+import { appealGain, attractiveness, extend, extensionPrice, improve, levelPrice, shopOf, spotFor, wouldFurnish } from './shop';
 
 /* ------------------------------------------------------------ the town's direction */
 
@@ -67,6 +67,8 @@ interface Needs {
   direction: Direction;
   /** Materials the town wants but can't gather, grow or make: only travellers can sell it them. */
   unsourced: Material[];
+  /** Customer tiers the shop draws that the town can't make a single ware for yet (their research is wanted). */
+  wareGaps: number[];
 }
 
 /** A small stock the town likes to keep of each basic material it can get (so building never waits long). */
@@ -87,7 +89,10 @@ function needs(s: GameState): Needs {
   // (the basics every town builds with, and whatever a blueprint is waiting on)
   const wanted = new Set<Material>(['wood', 'stone', 'fiber']);
   for (const b of s.buildings) if (b.status === 'blueprint') for (const m of Object.keys(stillNeeded(b)) as Material[]) wanted.add(m);
+  const shop = shopOf(s);
+  const drawn = shop ? tiersDrawn(attractiveness(s, shop)).map((c) => c.tier) : [];
   return {
+    wareGaps: drawn.filter((t) => t > 1 && !WARES.some((w) => w.ware!.tier === t && itemUnlocked(s, w))),
     unsourced: [...wanted].filter((m) => m !== 'totem' && !sourceable(s, m, 0, false)),
     people: s.people.length,
     freeBeds: housingCapacity(s) + coming - s.people.length,
@@ -147,6 +152,8 @@ function topicScore(t: Topic, n: Needs): number {
     // (a shop is the only way to get what the land doesn't give: without it the town can't build at all)
     if (isShop(b.id)) score += (n.unsourced.length ? 60 : 0) + (n.direction === 'trade' ? 12 : 3);
   }
+  // (wares for the grand customers the shop draws, which it has nothing to sell yet)
+  if (ITEMS.some((i) => i.ware && n.wareGaps.includes(i.ware.tier) && i.research.includes(t.id))) score += n.direction === 'trade' ? 30 : 15;
   const items = ITEMS.filter((i) => i.research.includes(t.id)).length;
   score += Math.min(12, items * 3);
   for (const e of t.effects) {
@@ -165,6 +172,7 @@ function whyTopic(t: Topic, n: Needs): string {
   if (unlocks.some((b) => b.housing) && n.freeBeds <= 1) return 'the town needs more beds';
   if (unlocks.some((b) => CROPS[b.id]) && n.foodDays < 5) return 'food is running short';
   if (unlocks.some((b) => isShop(b.id)) && n.unsourced.length) return `it can't get ${names(n.unsourced)} any other way`;
+  if (ITEMS.some((i) => i.ware && n.wareGaps.includes(i.ware.tier) && i.research.includes(t.id))) return 'the shop\'s grander customers want finer wares';
   if (t.effects.some((e) => e.type === 'eraCapstone')) return 'it leads to the next era';
   if (DIRECTION_DEFS[n.direction].branches.includes(BRANCH_OF(t))) return `the town is set on ${DIRECTION_DEFS[n.direction].name.toLowerCase()}`;
   return 'it opens new things to build and make';
@@ -259,12 +267,33 @@ function planCrafting(s: GameState, n: Needs): Stock {
   const isMedicine = (i: ItemDef) => i.id === 'poultice' || i.id === 'bandage';
   if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
   // (one pot on order at a time: the crafters have other work)
-  // 5. a furnishing for the shop, one at a time (while food holds up): the most appealing it can make that would
-  // improve the shop (it has room for it, or it beats a piece already out)
+  // 5. a furnishing for the shop, one at a time (while food holds up): the one that adds the most appeal that would
+  // improve the shop (it has room for it, or it beats a piece already out), and not yet another of a kind it has
+  // plenty of
   const shop = shopOf(s);
   const isFurnishing = (i: ItemDef) => !!i.furnish;
   if (shop && room() && n.foodDays >= 2 && !ordered(s, isFurnishing) && !kept(s, isFurnishing)) {
-    tryMake(bestMakeable(s, (i) => isFurnishing(i) && wouldFurnish(shop, i), (i) => appealGain(shop, i)));
+    tryMake(bestMakeable(s, (i) => isFurnishing(i) && wouldFurnish(shop, i) && appealGain(shop, i) >= 1, (i) => appealGain(shop, i)));
+  }
+  // 6. wares to sell, one order at a time: for the grandest customers the shop draws first, whichever of their wares it
+  // has least of (a few of each kept in stock)
+  const isWare = (i: ItemDef) => !!i.ware;
+  if (shop && room() && n.foodDays >= 2 && !ordered(s, isWare)) {
+    const tiers = tiersDrawn(attractiveness(s, shop)).map((c) => c.tier).reverse();
+    // (one it lacks the makings for is gathered for, and the next tier's tried meanwhile)
+    const options = tiers.flatMap((tier) =>
+      WARES.filter((i) => i.ware!.tier === tier && itemUnlocked(s, i) && stationFor(s, i) && (s.items[i.id] ?? 0) < WARE_STOCK).sort((a, b) => (s.items[a.id] ?? 0) - (s.items[b.id] ?? 0)),
+    );
+    // (wares are made from what the town has spare, beyond what it needs and a reserve; never from what it can only
+    // buy, like a desert's fiber, and nothing is gathered for them but what the land gives)
+    const spare = (m: Material) => (n.stock[m] ?? 0) - Math.max(n.demand[m] ?? 0, (RESERVE[m] ?? 6) * 2);
+    const fromSpare = (w: ItemDef) => (Object.entries(w.cost) as [Material, number][]).every(([m, k]) => spare(m) >= k && !n.unsourced.includes(m));
+    const ready = options.find((w) => fromSpare(w) && inputsReady(s, w, n.stock));
+    for (const w of options) {
+      if (w === ready) break;
+      if ((Object.keys(w.cost) as Material[]).every((m) => !n.unsourced.includes(m) && GATHERABLE.has(m))) lack(w);
+    }
+    if (ready) queueCraft(s, ready.id);
   }
   if (room() && n.storageFill > 0.7 && !ordered(s, (i) => i.id === 'clay_pot') && (s.items.clay_pot ?? 0) < MAX_POTS && stationFor(s, ITEM_BY_ID.clay_pot) && itemUnlocked(s, ITEM_BY_ID.clay_pot)) tryMake(ITEM_BY_ID.clay_pot);
   return want;
@@ -508,6 +537,22 @@ export function shoppingList(s: GameState): { m: Material; n: number; essential:
 
 const names = (ms: readonly Material[]) => ms.map((m) => MATERIAL_NAMES[m].toLowerCase()).join(' and ');
 
+/** Once an hour, what's left in the purse after a good reserve goes into the shop: an extension when its floor is
+ *  crowded (no room for another shelf or table), else a level on the piece that's cheapest to improve. */
+function planShop(s: GameState): void {
+  const shop = shopOf(s);
+  if (!shop || s.tick % TICKS_PER_HOUR !== 0) return;
+  const spare = (s.coins ?? 0) - 2 * COIN_RESERVE * PURSE_SCALE[s.era];
+  const ext = extensionPrice(s, shop);
+  const crowded = !spotFor(shop, ITEM_BY_ID.plank_shelf) && !spotFor(shop, ITEM_BY_ID.trestle_table);
+  if (crowded && ext !== null) {
+    if (spare >= ext) extend(s, shop);
+    return; // (saving up for it)
+  }
+  const cheapest = (shop.shop?.pieces ?? []).filter((p) => levelPrice(p) !== null).sort((a, b) => levelPrice(a)! - levelPrice(b)!)[0];
+  if (cheapest && spare >= levelPrice(cheapest)!) improve(s, cheapest);
+}
+
 /* ------------------------------------------------------------ making room */
 
 /** Bulk materials the town clears out when its stores are full (clearing land piles up far more wood and stone
@@ -549,5 +594,6 @@ export function runPlanner(s: GameState, back: readonly BackTerrain[]): void {
   const clear = planBuilding(s, back, n, plan);
   planGathering(s, needs(s), plan, clear, craftWants);
   planVisitor(s);
+  planShop(s);
   s.plan = plan;
 }

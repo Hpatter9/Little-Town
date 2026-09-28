@@ -72,22 +72,26 @@ export interface Building {
   /** Who runs it (buildings with an operator role), and whether the player picked them. */
   operator?: number | null;
   operatorChosen?: boolean;
-  /** Shops: the furnishings set out on the floor (item id, and its top-left cell). */
-  shop?: { pieces: ShopPiece[] };
+  /** Shops: the furnishings set out on the floor (item id, and its top-left cell), and extensions bought with coins
+   *  (each makes the floor bigger). */
+  shop?: { pieces: ShopPiece[]; extensions?: number };
 }
 
 export interface ShopPiece {
   item: string;
   x: number;
   y: number;
+  /** Improved with coins (a second tier of shelves, then a polished third): 1 when left out. */
+  level?: number;
 }
 
 /** Someone passing through who stops at the town's shop (see shop.ts). */
 export interface Traveller {
   id: number;
   name: string;
-  /** What they are (a pedlar, a herder...). */
+  /** What they are (a pedlar, a merchant, a noble...), and their tier of customer (1 when left out). */
   kind: string;
+  tier?: number;
   look: Look;
   x: number;
   dir: 1 | -1;
@@ -505,6 +509,8 @@ export interface GameState {
   travellers?: Traveller[];
   nextTravellerTick?: number;
   shopLog?: { tick: number; text: string }[];
+  /** The shop's renown: won by customers who find what they came for, lost by those who don't (0 when left out). */
+  renown?: number;
 }
 
 /** Effects drawn round a townsperson: turned undead, a vampire or a werewolf, healed by a medkit, or struck by an

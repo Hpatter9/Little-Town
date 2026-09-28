@@ -70,6 +70,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - Travellers (`s.travellers`) walk in, trade at the shop, and walk out. The planner decides what's for sale
     (`forSale`) and what to buy (`shoppingList`). Materials travellers sell count as sourceable once there's a
     shop, which is how desert towns get fiber.
+  - Attractiveness (`attractiveness()`: appeal plus `s.renown`) sets the customer tiers that come (`CUSTOMER_TIERS` in
+    `data/shop.ts`: travellers, merchants, nobles, magnates). Higher tiers want wares (items with `ware` in
+    `data/items.ts`, unlocked by research). Served, renown rises; disappointed, it falls.
+  - The planner makes wares from spare materials only, spends coins on the shop (`planShop`: extensions when crowded,
+    else piece levels), and weights research toward wares for tiers it draws but can't serve (`wareGaps`).
   - The bird's-eye interior is the `shop` panel (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop.
   - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs

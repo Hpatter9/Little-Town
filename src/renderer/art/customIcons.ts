@@ -12,6 +12,93 @@ const GLOW = '#8ad8f8';
 
 /** The icons, in sheet order (the index is the icon's x; they all sit on row 0 or 1). */
 export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
+  // shop wares
+  bone_trinket: (p) => {
+    for (let i = 0; i < 5; i++) p.rect(3 + i * 2, 5 + Math.abs(2 - i), 2, 2, '#e8e0cc');
+    p.rect(7, 10, 2, 4, '#c8bca0');
+  },
+  reed_basket: (p) => {
+    p.rect(3, 7, 10, 7, '#b89a58');
+    for (let x = 4; x < 13; x += 2) p.rect(x, 7, 1, 7, '#8a7040');
+    p.rect(4, 4, 8, 1, '#8a7040');
+    p.rect(4, 4, 1, 3, '#8a7040');
+    p.rect(11, 4, 1, 3, '#8a7040');
+  },
+  clay_figurine: (p) => {
+    p.rect(5, 7, 7, 5, '#b0704a');
+    p.rect(10, 5, 3, 3, '#b0704a');
+    for (const x of [5, 7, 9, 11]) p.rect(x, 12, 1, 2, '#80502f');
+  },
+  herbal_salve: (p) => {
+    p.rect(4, 7, 8, 6, '#c8b8a0');
+    p.rect(4, 5, 8, 2, '#5a9443');
+    p.rect(5, 8, 6, 1, '#8a8070');
+  },
+  painted_urn: (p) => {
+    p.rect(5, 4, 6, 10, '#b0704a');
+    p.rect(4, 6, 8, 6, '#b0704a');
+    p.rect(4, 8, 8, 1, '#3a6ab0');
+    p.rect(5, 10, 6, 1, '#5a9443');
+    p.rect(6, 2, 4, 2, '#80502f');
+  },
+  sweet_loaves: (p) => {
+    p.rect(2, 7, 7, 5, '#d0903a');
+    p.rect(8, 6, 6, 6, '#c0802a');
+    p.rect(4, 8, 1, 1, '#8a2a4a');
+    p.rect(10, 8, 1, 1, '#8a2a4a');
+  },
+  leather_satchel: (p) => {
+    p.rect(3, 6, 10, 8, '#7c4c2c');
+    p.rect(3, 6, 10, 3, '#9a6a3a');
+    p.rect(7, 8, 2, 2, '#e8c040');
+    p.rect(5, 2, 6, 1, '#5a3a1e');
+    p.rect(5, 2, 1, 4, '#5a3a1e');
+    p.rect(10, 2, 1, 4, '#5a3a1e');
+  },
+  dyed_cloth: (p) => {
+    p.rect(2, 4, 12, 9, '#8a2a3a');
+    p.rect(2, 6, 12, 2, '#c8a050');
+    p.rect(2, 10, 12, 1, '#3a6ab0');
+  },
+  iron_brooch: (p) => {
+    p.rect(4, 4, 8, 8, '#9aa0a8');
+    p.rect(6, 6, 4, 4, '#e05a8a');
+    p.rect(4, 4, 8, 1, STEEL_LIGHT);
+  },
+  glassware: (p) => {
+    p.rect(3, 4, 4, 5, '#a8d8e8');
+    p.rect(4, 9, 2, 3, '#a8d8e8');
+    p.rect(3, 12, 4, 1, '#a8d8e8');
+    p.rect(9, 5, 5, 8, '#88c0d8');
+    p.rect(10, 3, 3, 2, '#88c0d8');
+  },
+  steel_cutlery: (p) => {
+    p.rect(4, 2, 1, 12, STEEL_LIGHT);
+    p.rect(3, 2, 3, 3, STEEL);
+    p.rect(8, 2, 2, 12, STEEL);
+    p.rect(11, 2, 1, 5, STEEL_LIGHT);
+    p.rect(11, 7, 2, 7, WOOD);
+  },
+  plastic_toys: (p) => {
+    p.rect(2, 8, 5, 5, '#e05a8a');
+    p.rect(8, 5, 6, 4, '#3a8ad8');
+    p.rect(9, 9, 1, 2, '#2a2a30');
+    p.rect(12, 9, 1, 2, '#2a2a30');
+    p.rect(4, 5, 2, 3, '#f0c848');
+  },
+  radio_set: (p) => {
+    p.rect(2, 5, 12, 8, '#7a4a2a');
+    p.rect(3, 6, 6, 6, '#c8b8a0');
+    for (let y = 7; y < 12; y += 2) p.rect(3, y, 6, 1, '#8a8070');
+    p.rect(10, 7, 3, 3, DARK);
+    p.rect(12, 2, 1, 3, STEEL);
+  },
+  holo_charm: (p) => {
+    p.rect(6, 9, 4, 4, '#c0c8e0');
+    p.rect(4, 3, 8, 6, 'rgba(138, 216, 248, 0.6)');
+    p.rect(7, 4, 2, 4, GLOW);
+    p.rect(5, 6, 6, 1, GLOW);
+  },
   // shop furnishings
   crate_stand: (p) => {
     p.rect(3, 6, 10, 8, WOOD);

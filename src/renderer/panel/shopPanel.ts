@@ -12,7 +12,7 @@ import { el } from './dom';
 /** Changes whenever something the text shows changes (the picture animates on its own). */
 export const shopKey = (s: Snapshot) => {
   const v = s.shop;
-  return JSON.stringify(v && [s.coins, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.keeperName, v.customers.map((c) => c.id), v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting]);
+  return JSON.stringify(v && [s.coins, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers.map((c) => c.id), v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting]);
 };
 
 /** Pixels per floor cell, and the thickness of the walls, in the picture's own pixels (it's scaled up to fit). */
@@ -30,7 +30,7 @@ export function renderShop(s: Snapshot): HTMLElement[] {
   const out: HTMLElement[] = [];
 
   const head = el('div', 'panel-head');
-  head.append(el('span', 'shop-coins', `● ${s.coins} coins`), el('span', '', `Appeal ${v.appeal}`));
+  head.append(el('span', 'shop-coins', `● ${s.coins} coins`), el('span', '', `Attractiveness ${v.attractiveness}`));
   out.push(head);
 
   canvas ??= el('canvas', 'shop-floor');
@@ -55,11 +55,27 @@ export function renderShop(s: Snapshot): HTMLElement[] {
     v.progress !== null
       ? `Being built: ${Math.floor(v.progress * 100)}%. The furnishings wait in the stores meanwhile.`
       : v.keeperName
-        ? `${v.keeperName} keeps the shop.` + (v.customers.length ? ` ${v.customers.length === 1 ? 'A traveller is' : `${v.customers.length} travellers are`} browsing.` : '')
+        ? `${v.keeperName} keeps the shop.` + (v.customers.length ? ` Browsing: ${v.customers.map((c) => `${c.name} the ${c.kind}`).join(', ')}.` : '')
         : 'Closed: nobody free to keep it.';
   info.push(el('div', 'hint shop-status', status));
-  const every = ((TRAVELLER_EVERY[0] + TRAVELLER_EVERY[1]) / 2 / (1 + v.appeal / APPEAL_HALVES_WAIT)).toFixed(1);
-  info.push(el('div', 'hint', `A traveller stops about every ${every} hours` + (v.nextHours !== null ? ` (the next in about ${Math.max(1, Math.ceil(v.nextHours))}h)` : '') + '. The better furnished the shop, the more often they stop and the more they spend.'));
+  const every = ((TRAVELLER_EVERY[0] + TRAVELLER_EVERY[1]) / 2 / (1 + v.attractiveness / APPEAL_HALVES_WAIT)).toFixed(1);
+  info.push(el('div', 'hint', `Attractiveness ${v.attractiveness}: the furnishings' appeal (${v.appeal}) and the shop's renown (${v.renown}). Someone stops about every ${every} hours` + (v.nextHours !== null ? ` (the next in about ${Math.max(1, Math.ceil(v.nextHours))}h)` : '') + '.'));
+
+  // who it draws, and what each wants
+  info.push(el('h2', '', 'Customers'));
+  for (const t of v.tiers) {
+    const row = el('div', t.drawn ? 'shop-tier' : 'shop-tier locked');
+    const top = el('div', 'shop-tier-top');
+    top.append(el('span', 'shop-tier-name', `${'★'.repeat(t.tier - 1) || '·'} ${t.plural}`), el('span', 'shop-tier-from', t.drawn ? 'coming' : `at attractiveness ${t.from}`));
+    row.append(top);
+    if (t.tier > 1 || t.wares.some((w) => w.have)) {
+      const wares = el('div', 'shop-pieces');
+      for (const w of t.wares) wares.append(el('span', w.needs ? 'chip dim' : 'chip', w.needs ? `${w.name} (${w.needs})` : `${w.name} ${w.have} · ${w.price}c`));
+      row.append(wares);
+    }
+    if (t.tier > 1 && t.drawn && !t.wares.some((w) => w.have)) row.append(el('div', 'hint', `None in stock: ${t.plural.toLowerCase()} leave disappointed, and the shop's renown falls.`));
+    info.push(row);
+  }
 
   info.push(el('h2', '', 'For sale'));
   info.push(stockRow(v.forSale, 'Nothing spare: the town needs everything it has.'));
@@ -73,12 +89,18 @@ export function renderShop(s: Snapshot): HTMLElement[] {
   info.push(el('h2', '', `Furnishings (${v.pieces.length})`));
   if (!v.pieces.length) info.push(el('p', 'empty', 'Bare floor so far.'));
   const counts = new Map<string, { n: number; appeal: number }>();
-  for (const p of v.pieces) counts.set(p.name, { n: (counts.get(p.name)?.n ?? 0) + 1, appeal: p.appeal });
+  for (const p of v.pieces) {
+    const name = p.name + (p.level > 1 ? ' ' + '★'.repeat(p.level - 1) : '');
+    counts.set(name, { n: (counts.get(name)?.n ?? 0) + 1, appeal: Math.round(p.appeal * (1 + (p.level - 1) / 2)) });
+  }
   const pieces = el('div', 'shop-pieces');
   for (const [name, { n, appeal }] of counts) pieces.append(el('span', 'chip', `${name}${n > 1 ? ` ×${n}` : ''} +${appeal}`));
+  const levelled = v.pieces.filter((p) => p.level > 1).length;
   if (counts.size) info.push(pieces);
   if (v.making) info.push(el('div', 'hint', `Being made for it: ${v.making}.`));
   if (v.waiting.length) info.push(el('div', 'hint', `Made, waiting to be set out: ${v.waiting.join(', ')}.`));
+  if (levelled) info.push(el('div', 'hint', `${levelled} improved with coins (★ a second tier, ★★ polished and trimmed in brass).`));
+  info.push(el('div', 'hint', `Floor ${v.cols}×${v.rows}` + (v.extensions ? `, extended ${v.extensions} of ${v.maxExtensions} times` : '') + (v.nextExtension !== null ? `. The town extends it (${v.nextExtension} coins) once it's crowded and it has the coins to spare.` : '.')));
   if (v.grows) info.push(el('div', 'hint', `It grows into a ${v.grows.name}${v.grows.research ? ` once the town learns ${v.grows.research}` : ''}, with room for more.`));
 
   info.push(el('h2', '', 'Lately'));
@@ -244,7 +266,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       wk.ty = s.y;
       wk.wait = 1.5 + Math.random() * 3;
     }
-    person(wk.x, wk.y, wk.look, d > 0.5 ? (dy < 0 ? -1 : 1) : 0, t + q.id);
+    person(wk.x, wk.y, wk.look, d > 0.5 ? (dy < 0 ? -1 : 1) : 0, t + q.id, q.tier);
   }
 
   function drawPiece(p: ShopView['pieces'][number]): void {
@@ -252,6 +274,18 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     const y = cellY(p.y);
     const w = p.w * CELL;
     const h = p.h * CELL;
+    drawBody(p, x, y, w, h);
+    // improved pieces: brass trim for a second tier, gold and a glint for the third
+    if (p.level > 1 && p.kind !== 'rug') {
+      const trim = p.level > 2 ? '#f0c848' : '#b08a3a';
+      rect(x + 1, y + 1, w - 2, 1, trim);
+      rect(x + 1, y + 1, 1, h - 3, trim);
+      rect(x + w - 2, y + 1, 1, h - 3, trim);
+      if (p.level > 2 && Math.sin(t * 2 + p.x) > 0.9) rect(x + 2 + ((t * 20) % (w - 4)), y + 1, 2, 1, '#fff8d0');
+    } else if (p.level > 1) rect(x + 1, y + 2, w - 2, 1, p.level > 2 ? '#f0c848' : '#b08a3a'); // (a rug's border)
+  }
+
+  function drawBody(p: ShopView['pieces'][number], x: number, y: number, w: number, h: number): void {
     const goods = Object.keys(v.forSale).map((m) => GOODS[m as Material] ?? '#c8a060');
     // (a town with only a kind or two to sell still stocks its shelves with odds and ends)
     const shelf = goods.length >= 3 ? goods : [...goods, ...FALLBACK_GOODS];
@@ -302,6 +336,8 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
         rect(x + 1, y + 1, w - 2, h - 3, frame);
         rect(x + 2, y + 2, w - 4, h - 5, glass ? '#a8d8e8' : '#3b2616');
         for (let i = 0; i < (w - 6) / 3; i++) rect(x + 3 + i * 3, y + 3 + (i % 2) * 4, 2, 3, good(i));
+        // (a second tier: more goods packed in between)
+        if (p.level > 1) for (let i = 0; i < (w - 6) / 3; i++) rect(x + 4 + i * 3, y + 5 - (i % 2) * 2, 1, 2, good(i + 3));
         if (glass) rect(x + 2, y + 2, w - 4, 1, '#e0f4fa');
         rect(x + 1, y + h - 3, w - 2, 1, '#2a1a10'); // shadow
         return;
@@ -328,7 +364,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   }
 
   /** A person from above: shoulders in their clothes, head, hair. `walk` swings them as they go. */
-  function person(x: number, y: number, look: Look, walk: number, phase: number): void {
+  function person(x: number, y: number, look: Look, walk: number, phase: number, tier = 1): void {
     const bob = walk ? Math.round(Math.sin(phase * 10)) : 0;
     g.fillStyle = 'rgba(0,0,0,0.25)';
     g.beginPath();
@@ -338,6 +374,18 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     rect(x - 5, y - 3 + bob, 10, 1, 'rgba(255,255,255,0.18)');
     disc(x, y - 1 + bob, 3, look.skin);
     disc(x, y - 2 + bob, 3, look.hairColor);
+    // merchants wear a feathered cap, nobles a gold circlet, magnates a top hat
+    if (tier === 2) {
+      disc(x, y - 2 + bob, 3, '#3a6ab0');
+      rect(x + 2, y - 5 + bob, 1, 3, '#e8e0cc');
+    } else if (tier === 3) {
+      rect(x - 3, y - 3 + bob, 6, 1, '#f0c848');
+      rect(x - 1, y - 4 + bob, 1, 1, '#f0c848');
+      rect(x + 1, y - 4 + bob, 1, 1, '#e05a8a');
+    } else if (tier === 4) {
+      disc(x, y - 2 + bob, 4, '#141418');
+      disc(x, y - 2 + bob, 2, '#2a2a30');
+    }
   }
 }
 

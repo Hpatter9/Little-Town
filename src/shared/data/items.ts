@@ -92,7 +92,12 @@ export interface ItemDef {
   /** Shop furnishings (see data/shop.ts): what it is, how many cells of the shop floor it takes, and how much it
    *  draws travellers in. The shopkeeper sets it out once it's made. */
   furnish?: Furnish;
+  /** Wares: fine goods made only to sell in the shop, to customers of this tier or higher (see data/shop.ts), for
+   *  this many coins. */
+  ware?: { tier: WareTier; price: number };
 }
+
+export type WareTier = 1 | 2 | 3 | 4;
 
 export type FurnishKind = 'shelf' | 'table' | 'stand' | 'decor' | 'rug';
 export interface Furnish {
@@ -149,6 +154,21 @@ export const ITEMS: readonly ItemDef[] = [
   { id: 'clay_pot', name: 'Clay Pot', slot: null, station: 'kiln', cost: { clay: 3 }, seconds: 45, research: ['pottery'], effects: {}, description: '+5 room in the campfire store (up to 10 pots).', icon: { sheet: 'Potion', x: 4, y: 2 } },
   { id: 'waterskin', name: 'Waterskin', slot: null, station: 'tanning_rack', cost: { hide: 2, fiber: 1 }, seconds: 40, research: ['tanning'], effects: {}, description: 'A party with one each walks 10% faster.', icon: { sheet: 'Potion', x: 1, y: 3 } },
   { id: 'bedroll', name: 'Bedroll', slot: null, station: 'tanning_rack', cost: { hide: 2, fiber: 2 }, seconds: 45, research: ['tanning'], effects: {}, description: 'Someone without a bed sleeps almost as well.', icon: { sheet: 'Armor', x: 3, y: 5 } },
+  // wares: fine goods made to sell in the shop (the better the customers it draws, the finer the goods they want)
+  { id: 'bone_trinket', name: 'Bone Trinkets', slot: null, station: 'campfire', cost: { bone: 2 }, seconds: 30, research: ['barter'], effects: {}, ware: { tier: 1, price: 6 }, description: 'A ware for the shop: carved beads and toggles. Travellers pay 6 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'bone_trinket' } },
+  { id: 'reed_basket', name: 'Reed Basket', slot: null, station: 'campfire', cost: { fiber: 4 }, seconds: 35, research: ['barter', 'cordage'], effects: {}, ware: { tier: 1, price: 7 }, description: 'A ware for the shop. Travellers pay 7 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'reed_basket' } },
+  { id: 'clay_figurine', name: 'Clay Figurine', slot: null, station: 'kiln', cost: { clay: 3 }, seconds: 40, research: ['barter', 'pottery'], effects: {}, ware: { tier: 1, price: 8 }, description: 'A ware for the shop: a little fired beast. Travellers pay 8 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'clay_figurine' } },
+  { id: 'herbal_salve', name: 'Herbal Salve', slot: null, station: 'campfire', cost: { herbs: 3 }, seconds: 40, research: ['barter', 'herbalism'], effects: {}, ware: { tier: 1, price: 10 }, description: 'A ware for the shop. Travellers pay 10 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'herbal_salve' } },
+  { id: 'painted_urn', name: 'Painted Urn', slot: null, station: 'kiln', cost: { clay: 4, herbs: 2 }, seconds: 60, research: ['barter', 'pottery', 'herbalism'], effects: {}, ware: { tier: 2, price: 20 }, description: 'A ware for merchants: an urn painted with herb dyes. 20 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'painted_urn' } },
+  { id: 'sweet_loaves', name: 'Sweet Loaves', slot: null, station: 'bakery', cost: { bread: 2, berries: 2 }, seconds: 60, research: ['barter', 'baking'], effects: {}, ware: { tier: 2, price: 24 }, description: 'A ware for merchants: berry bread. 24 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'sweet_loaves' } },
+  { id: 'leather_satchel', name: 'Leather Satchel', slot: null, station: 'tannery', cost: { leather: 2 }, seconds: 90, research: ['barter', 'leatherworking'], effects: {}, ware: { tier: 2, price: 30 }, description: 'A ware for merchants. 30 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'leather_satchel' } },
+  { id: 'dyed_cloth', name: 'Dyed Cloth', slot: null, station: 'loom', cost: { cloth: 2, herbs: 1 }, seconds: 90, research: ['barter', 'weaving'], effects: {}, ware: { tier: 2, price: 32 }, description: 'A ware for merchants: cloth dyed with herbs. 32 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'dyed_cloth' } },
+  { id: 'iron_brooch', name: 'Iron Brooch', slot: null, station: 'smithy', cost: { iron: 2 }, seconds: 120, research: ['barter', 'iron_working'], effects: {}, ware: { tier: 3, price: 60 }, description: 'A ware for nobles: fine metalwork. 60 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'iron_brooch' } },
+  { id: 'glassware', name: 'Glassware', slot: null, station: 'glassworks', cost: { glass: 2 }, seconds: 120, research: ['barter', 'glassblowing'], effects: {}, ware: { tier: 3, price: 75 }, description: 'A ware for nobles: goblets and a decanter. 75 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'glassware' } },
+  { id: 'steel_cutlery', name: 'Steel Cutlery', slot: null, station: 'steelworks', cost: { steel: 1, lumber: 1 }, seconds: 150, research: ['barter', 'steelmaking'], effects: {}, ware: { tier: 3, price: 85 }, description: 'A ware for nobles. 85 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'steel_cutlery' } },
+  { id: 'plastic_toys', name: 'Plastic Toys', slot: null, station: 'refinery', cost: { plastic: 2 }, seconds: 120, research: ['barter', 'refining'], effects: {}, ware: { tier: 4, price: 140 }, description: 'A ware for magnates (for their children). 140 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'plastic_toys' } },
+  { id: 'radio_set', name: 'Radio Set', slot: null, station: 'electronics_plant', cost: { electronics: 2, plastic: 1 }, seconds: 200, research: ['barter', 'electronics'], effects: {}, ware: { tier: 4, price: 240 }, description: 'A ware for magnates. 240 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'radio_set' } },
+  { id: 'holo_charm', name: 'Holo Charm', slot: null, station: 'chip_fab', cost: { circuits: 1, alloys: 1 }, seconds: 240, research: ['barter', 'microchips'], effects: {}, ware: { tier: 4, price: 420 }, description: 'A ware for magnates: a charm that shows moving pictures. 420 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'holo_charm' } },
   // shop furnishings (the shopkeeper sets them out in the shop; a better-furnished shop sells more)
   { id: 'crate_stand', name: 'Crate Stand', slot: null, station: 'campfire', cost: { wood: 3 }, seconds: 25, research: ['barter'], effects: {}, furnish: { kind: 'stand', w: 1, h: 1, appeal: 1 }, description: 'Shop furnishing: an upturned crate with goods on it. Appeal +1.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'crate_stand' } },
   { id: 'plank_shelf', name: 'Plank Shelf', slot: null, station: 'workbench', cost: { wood: 6 }, seconds: 40, research: ['barter'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 3 }, description: 'Shop furnishing: goods laid out along a wall. Appeal +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'plank_shelf' } },
