@@ -6,6 +6,7 @@
 
 import type { PanelId } from '../shared/ipc';
 import type { ThemeId } from '../shared/sim/snapshot';
+import { skinCss } from './skins';
 
 export type Theme = ThemeId;
 export type Page = 'phone' | 'panel' | 'strip';
@@ -131,11 +132,12 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     labels: { build: 'Harbour Plans', research: 'Sea Lore', townsfolk: 'Shoal', journal: 'Tides' },
     tint: ['#3a8a9a', 0.22],
   },
+  // (the one bright theme: the menus are a tent of cream canvas and dyed stripes, see skins.ts)
   nomads: {
-    bg: '#1a120a', wood: 'rgba(36, 24, 14, 0.96)', header: ['#3a2614', '#281a0e'],
-    edge: '#d0883a', btn: '#3a2414', btnHover: '#4a301c', on: '#8a4a1a', onRim: '#f0a860', glow: 'rgba(240, 160, 90, 0.4)',
-    text: '#f8e8d0', dim: '#c8a888', heading: '#f0a860', headingGlow: 'rgba(240, 160, 90, 0.35)',
-    fill: ['#b8601a', '#f0b060'], low: ['#6a2a1a', '#a84a2a'], card: 'rgba(44, 30, 18, 0.95)',
+    bg: '#f6e8c8', wood: 'rgba(253, 245, 226, 0.97)', header: ['#c0392b', '#a0301f'],
+    edge: '#b83a2a', btn: '#fdf5e2', btnHover: '#f0dcb0', on: '#c0392b', onRim: '#e8c040', glow: 'rgba(232, 160, 48, 0.45)',
+    text: '#3a2414', dim: '#7a5a3a', heading: '#b83a2a', headingGlow: 'rgba(255, 255, 255, 0.6)',
+    fill: ['#c0392b', '#e8a030'], low: ['#6a2a1a', '#a84a2a'], card: '#fdf5e2',
     font: "'Segoe UI', system-ui, sans-serif", glyph: '\\2726',
     mist: ['rgba(240, 180, 100, 0.06)', 'rgba(220, 140, 60, 0.05)', 'rgba(250, 210, 150, 0.05)'],
     canvas: 'saturate(1.1) sepia(0.25) brightness(1.03)', vignette: 'rgba(40, 20, 0, 0.3)',
@@ -259,5 +261,5 @@ ${T}.page-strip body::before {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 5;
   background: linear-gradient(90deg, ${p.vignette}, transparent 16%, transparent 84%, ${p.vignette});
 }
-`;
+${skinCss(id as Theme, T)}`;
 }

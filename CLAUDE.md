@@ -100,7 +100,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `newGame`; the rule multipliers are in `src/shared/sim/origin.ts` (asked for by people, farming, raids, crafting, the
   shop, townsfolk); powers in `src/shared/sim/powers.ts` (`castPowers`, cast by the town itself; buffs in `s.buffs`);
   looks in `src/renderer/theme.ts` (one palette per origin, CSS generated and scoped to `html.theme-<id>`, menu names,
-  building tint). Undead and machines are both `tireless` (state.ts).
+  building tint), and each origin's menu materials and shapes in `src/renderer/skins.ts` (appended to the theme's
+  CSS: small inline SVGs; use `pseudo()` to put `::after` on a selector list). Undead and machines are both
+  `tireless` (state.ts).
 - **Rival origins are done:** `src/shared/data/rivals.ts` (each origin's lord, army and hostile spells), raid kinds
   `rival_*` in `data/raids.ts` (with `origin` and `leader`; never picked for the town's own origin), enemies and
   relics in `data/enemies.ts` and `data/items.ts`. `src/shared/sim/rivals.ts` casts the lords' spells

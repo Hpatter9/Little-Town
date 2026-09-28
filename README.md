@@ -242,6 +242,12 @@ stilt huts, yurts, mushroom houses, alchemists' towers or keeps; walls are bone 
 plated barriers and so on; and every other building is roofed and walled in the origin's materials and dressed in
 its things (skulls and candles, vines, bats and banners, antennae, runes, nets and shells, flasks, heraldry).
 
+The menus are made of the origin's stuff too. The Nomads' are a bright tent (striped awnings, stitched felt buttons,
+pennants, rugs and rope). The Druids' hang from a bark branch with leaves. The Lich's are bordered in bones and
+skulls. The Blood Court's are gothic stone, with spires, pointed arches and red stained glass. The rest have their
+own: fur and claws, riveted plates, rune-carved stone, sea glass and shells, shimmering petals, brass and bubbling
+flasks, or steel and heraldic banners.
+
 ### The Nomad Caravan's seasonal round
 
 A nomad tribe doesn't stay put. Winter and spring it camps on its home ground; at midsummer it breaks camp and moves
