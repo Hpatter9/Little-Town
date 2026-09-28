@@ -32,6 +32,7 @@ import { forSale, runPlanner, shoppingList } from './planner';
 import { chooseLich, watchLich } from './occult';
 import { castPowers } from './powers';
 import { lurkers } from './lurkers';
+import { updateNomads } from './nomads';
 import { rulesOf } from '../data/origins';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { TERRAIN } from '../data/terrain';
@@ -104,6 +105,7 @@ export class Sim {
     updateExpeditions(s, this.rng);
     maybeStartRaid(s, this.rng);
     lurkers(s, this.rng);
+    updateNomads(s, this.world.back);
     updateRaid(s, this.rng);
     updateFires(s, this.rng);
     expirePrompts(s, this.rng);

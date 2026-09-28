@@ -51,7 +51,7 @@ import { createActionBar, createAwayCard, createBanner, createExpeditionHeader, 
 import { createTooltip } from './tooltip';
 import { ExpeditionPane } from './town/expeditionPane';
 import { PeopleView } from './town/peopleView';
-import { AnimalsView } from './town/animalsView';
+import { AnimalsView, CARAVAN_TICKS } from './town/animalsView';
 import { SnowView } from './town/snowView';
 import { SkyView } from './town/skyView';
 import { WeatherView } from './town/weatherView';
@@ -167,7 +167,7 @@ async function start(): Promise<void> {
   };
 
   const camera = new Camera(WORLD_WIDTH);
-  camera.centreOn(town.campX, app.screen.width);
+  camera.centreOn(first.campX ?? town.campX, app.screen.width); // (a nomad tribe's camp may be away on its pasture)
 
   /** The expedition shown in the split view: the most recently sent one. */
   const shownExpedition = () => snap.expeditions.at(-1) ?? null;
@@ -184,7 +184,7 @@ async function start(): Promise<void> {
   );
 
   // (an origin's look reaches its buildings too)
-  const hud = createHud(bridge, (theme) => town.setBuildingStyle(buildingTint(theme), theme));
+  const hud = createHud(bridge); // (the buildings' style follows the snapshot: see applySnapshot)
   const music = createMusic();
   const tip = createTooltip();
   const actions = createActionBar();
@@ -749,6 +749,8 @@ async function start(): Promise<void> {
 
   let lastShake: number | null = null;
   let shakeUntil = 0;
+  let lastCamp: number | null = null;
+  let buildStyle = 'town';
   const applySnapshot = (next: Snapshot) => {
     showNotices(next);
     const tilesChanged = next.tileRev !== snap.tileRev;
@@ -781,8 +783,23 @@ async function start(): Promise<void> {
     if (tilesChanged) town.updateTiles(next.tiles);
     town.setSeason(next.biome, next.calendar.season); // (redraws the land when the season turns)
     town.syncBuildings(next.buildings);
+    // the buildings' style: the town's origin (and a nomad tribe's, once settled, its caravan city)
+    const style = next.theme === 'nomads' && next.nomad?.settled ? 'nomads_city' : next.theme;
+    if (style !== buildStyle) {
+      buildStyle = style;
+      town.setBuildingStyle(buildingTint(next.theme), style);
+    }
     town.syncCastle(next.castle);
+    // (a nomad tribe on the road: the view rides along with the caravan, and comes to rest at the new camp)
+    const move = next.nomad?.move;
+    if (move && move.since >= 0 && move.since <= CARAVAN_TICKS && lastCamp !== null) camera.centreOn(move.from + (move.to - move.from) * Math.min(1, move.since / CARAVAN_TICKS), app.screen.width);
+    // (and if it moved while no one was watching, say in the background, the view just goes to the new camp)
+    else if (lastCamp !== null && next.campX !== lastCamp) camera.centreOn(next.campX, app.screen.width);
+    lastCamp = next.campX;
     people.moon = next.moonNight;
+    people.theme = next.theme;
+    people.weave = next.research.done.includes('weaving');
+    people.founderId = next.mainId;
     publishInspect(); // (the phone's top card keeps up with what it shows)
     sky.update(next.calendar, next.moonPhase, next.weather);
     weather?.update(next.calendar, next.weather);

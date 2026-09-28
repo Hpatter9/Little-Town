@@ -100,7 +100,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `newGame`; the rule multipliers are in `src/shared/sim/origin.ts` (asked for by people, farming, raids, crafting, the
   shop, townsfolk); powers in `src/shared/sim/powers.ts` (`castPowers`, cast by the town itself; buffs in `s.buffs`);
   looks in `src/renderer/theme.ts` (one palette per origin, CSS generated and scoped to `html.theme-<id>`, menu names,
-  building tint). Undead and machines are both `tireless` (state.ts).
+  building tint), and each origin's menu materials and shapes in `src/renderer/skins.ts` (appended to the theme's
+  CSS: small inline SVGs; use `pseudo()` to put `::after` on a selector list). Undead and machines are both
+  `tireless` (state.ts).
 - **Rival origins are done:** `src/shared/data/rivals.ts` (each origin's lord, army and hostile spells), raid kinds
   `rival_*` in `data/raids.ts` (with `origin` and `leader`; never picked for the town's own origin), enemies and
   relics in `data/enemies.ts` and `data/items.ts`. `src/shared/sim/rivals.ts` casts the lords' spells
@@ -122,6 +124,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Behemoth joins beast raids (`BEAST_RAIDS` in raids.ts). `src/shared/sim/lurkers.ts`: raids that start inside the
   town (`startRaid(..., inside)`: the Mimic at the shop by night, possessed tomes at a library) and their rewards
   (`lurkersBeaten`, from `endRaid`).
+- **The nomads' seasonal round:** `nomadic` in an origin's rules. `src/shared/sim/nomads.ts`: `s.nomad` (home ground,
+  summer pasture, current camp; `campX` follows the camp), `updateNomads` (moves at midsummer and midwinter, by day;
+  settles in the Industrial era), `moveCamp` (`PORTABLE` tents move and are re-pitched as blueprints at `PITCHED`),
+  `buildOrigin` (rooted great works go on the home ground), the wagon circle (`circleWagons` at a raid warning; the
+  `wagon_circle` def is `never` built by the planner) and no walls while nomadic. The renderer follows the caravan
+  (`snapshot.nomad.move`). Their tents and the settled caravan city's adobe are in `src/renderer/art/nomadArt.ts`
+  (style `nomads_city` once `snapshot.nomad.settled`); parked wagons and old camp marks (`nomad.left`) in animalsView.
 - **Origin buildings:** `src/renderer/art/originStyles.ts`: each origin's own homes, walls and gates; every other
   building gets its materials swapped (`reclad`) and dressing on top. `buildingArt` takes the style (the theme id).
 - **Phase 4:** animal husbandry and more farming.

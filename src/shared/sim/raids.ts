@@ -58,6 +58,7 @@ import { fightRate, guardRate } from './origin';
 import { fogAim, frenzyOf, heldBack, lordHp, rivalsInRaid, turretsDown, wardOf } from './rivals';
 import { RIVAL_LEADER_COST } from '../data/rivals';
 import { lurkersBeaten } from './lurkers';
+import { circleWagons } from './nomads';
 
 /** Raiders start this far beyond the edge of the world. */
 const OFF_MAP = 40;
@@ -214,6 +215,8 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   s.prompts.push(prompt);
   raid.prompt = prompt.id;
   s.raid = raid;
+  // (a wandering tribe draws its wagons up across the camp)
+  circleWagons(s, []);
   notify(s, `${kind.name} ${kind.plural ? 'are' : 'is'} coming from the ${where}!`);
   return raid;
 }

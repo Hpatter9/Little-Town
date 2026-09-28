@@ -232,7 +232,7 @@ building style.
 | **Machine Colony** | Machines: no food, sleep or moods; fast research; nobody wanders in, units are assembled | Assemble, Overclock, Repair Swarm |
 | **Deep Hold** | Dwarves: fast builders, finer crafts, tough; poor farmers | Deep Delve, Forge Blessing, Stone Skin |
 | **Tide Clan** | Merfolk: great foragers, the sea gives fish, busy trade; pirates | Tide Call, Whirlpool, Sea Fog |
-| **Nomad Caravan** | Fast building, twice the travellers, better prices; slower research | Trade Road, Swift Riders, Scouting Party |
+| **Nomad Caravan** | A tribe that follows the seasons until the Industrial age; fast building, twice the travellers, better prices; slower research | Trade Road, Swift Riders, Scouting Party |
 | **Fae Court** | Strangers pay half again as much and may be charmed into staying; slow crafting | Glamour, Changeling, Faerie Ring |
 | **Crucible** | Alchemists: fast research, newcomers gain a strange trait; poor builders | Transmute, Elixir, Volatile Flask |
 | **Exiled Order** | Knights: armed from day one, fight hard, take less harm; slow crafting and research | Rally, Shield Wall, Oath of Mending |
@@ -241,6 +241,34 @@ Each origin builds its own way: homes are crypts, living trees, gothic houses, e
 stilt huts, yurts, mushroom houses, alchemists' towers or keeps; walls are bone palisades, hedges, iron railings,
 plated barriers and so on; and every other building is roofed and walled in the origin's materials and dressed in
 its things (skulls and candles, vines, bats and banners, antennae, runes, nets and shells, flasks, heraldry).
+
+The menus are made of the origin's stuff too. The Nomads' are a bright tent (striped awnings, stitched felt buttons,
+pennants, rugs and rope). The Druids' hang from a bark branch with leaves. The Lich's are bordered in bones and
+skulls. The Blood Court's are gothic stone, with spires, pointed arches and red stained glass. The rest have their
+own: fur and claws, riveted plates, rune-carved stone, sea glass and shells, shimmering petals, brass and bubbling
+flasks, or steel and heraldic banners.
+
+### The Nomad Caravan's seasonal round
+
+A nomad tribe doesn't stay put. Winter and spring it camps on its home ground; at midsummer it breaks camp and moves
+a day's ride along the land to its summer pasture, and at midwinter it comes home, setting out at first light so the
+tents are up again before dark. Its tents go on the wagons (homes, workshops, storage, the shop, the tavern, the
+stable) and are pitched again at the new camp with all their materials, needing only a little work to stand. Fields,
+mines and the great works are rooted: they stay where they were built, and the great works (the era capstones, and
+in the end the Launch Site) always go up on the home ground, so nothing that takes years is lost to the road. The
+view rides along with the caravan of wagons and pack animals (camels in the desert).
+
+Its camp looks the part: work goes on under striped awnings, the shop is a bazaar stall that grows into a
+pavilion and then a grand three-peaked one, the tavern is a feast tent, the stable a horse line, the stockpile a
+laden cart, the lookout a tall pole with a pennant. While it stays put its wagons and pack animals wait at the edge of
+the camp, and the ground it left keeps the marks of its tents (fire rings, flattened grass) until it comes back.
+Once it settles, the caravan city rebuilds it all in adobe: domed houses, arcades and a caravanserai bazaar under
+striped awnings.
+
+While it wanders the tribe builds no walls: when raiders are sighted, the wagons are drawn up across both ends of
+the camp, and put away again after. In the Industrial age it comes home one last time and settles: the home ground
+becomes a caravan city, and it plays on to the stars like any other town. The Plan tab shows where it's camped and
+when it moves next.
 
 ### The Blood Court's castle
 

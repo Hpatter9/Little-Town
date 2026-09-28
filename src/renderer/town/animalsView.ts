@@ -1,7 +1,8 @@
 // Horses at the stables, and the trade caravan (a merchant with pack horses) at the market. Drawn on the
 // walkway in front of their buildings. Also the town-wide extras: graves, a haven's ghosts, the launch, meteors.
 
-import { Container, Sprite } from 'pixi.js';
+import { Container, Graphics, Sprite } from 'pixi.js';
+import { portable } from '../../shared/sim/nomads';
 import { TILE } from '../../shared/constants';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import type { Look } from '../../shared/data/people';
@@ -13,6 +14,8 @@ import { stillTexture } from '../art/stills';
 import { LAUNCH_SIZE, launchFrame, meteorFrame } from '../art/effects';
 import { TICK_MS } from '../../shared/sim/time';
 import { ROOF_H, ROOM_H } from '../../shared/sim/castle';
+import { buildingArt } from '../art/buildings';
+import { noTone } from '../art/pixelArt';
 
 const METEOR_SCALE = 1.5;
 
@@ -23,6 +26,11 @@ const MERCHANT: Look = { gender: 'm', skin: '#c9956a', hair: 'shortknot', hairCo
 const HORSE_SCALE = 0.85;
 /** Bats round a castle at night. */
 const BAT_COUNT = 6;
+/** A nomad tribe's caravan takes this long on the road (ticks: half a game hour, as long as the tribe walking), and how many wagons and animals it has. */
+export const CARAVAN_TICKS = 300;
+/** Where the marks of an old camp lie (the middle ground's line, seen from the walkway). */
+const TRACE_Y = WALK_Y - 21;
+const ROAD_COUNT = 9;
 
 export class AnimalsView {
   private readonly root = new Container();
@@ -30,6 +38,16 @@ export class AnimalsView {
   /** Bats round a castle town's keep at night (see castle.ts), and how high it stands. */
   private readonly bats: Sprite[] = [];
   private keepTop: number | null = null;
+  /** A nomad tribe on the road: its last move (x from and to, and ticks since as of `at`), and the caravan drawn. */
+  private move: { from: number; to: number; since: number; at: number } | null = null;
+  private desert = false;
+  private readonly road: Sprite[] = [];
+  /** While the tribe stays put: its wagons and pack animals parked at the edge of the camp (x, or null), and the marks
+   *  its tents left at the camp it's away from. */
+  private parkX: number | null = null;
+  private readonly parked: Sprite[] = [];
+  private readonly traces = new Graphics();
+  private traceKey = '';
   private merchant: { sprite: Sprite; x: number } | null = null;
   private key = '';
   /** Gravestones where townsfolk fell (DungeonItemsLite, drawn down to about 22px). */
@@ -58,7 +76,7 @@ export class AnimalsView {
     this.impacts = s.impacts.map((m) => ({ ...m, at: performance.now() }));
     this.haunted = s.undeadHaven;
     this.night = s.calendar.daylight < 0.4;
-    this.campX = (s.tiles.length / 2) * TILE;
+    this.campX = s.campX;
     if (!this.ghosts.length) for (let i = 0; i < 4; i++) {
       const g = this.graves.parent!.addChild(new Sprite());
       g.alpha = 0.55;
@@ -80,6 +98,31 @@ export class AnimalsView {
     // (horses ridden into a fight are drawn under their riders instead)
     const ridden = s.people.filter((p) => p.mounted !== null).length;
     const home = s.horses.filter((h) => !h.away).slice(ridden);
+    this.move = s.nomad?.move && s.nomad.move.since < CARAVAN_TICKS ? { ...s.nomad.move, at: performance.now() } : null;
+    this.desert = s.biome === 'desert';
+    // the wagons wait at the far edge of the camp while the tribe stays put
+    const wandering = !!s.nomad && !s.nomad.settled;
+    if (wandering && !this.move) {
+      const campTile = Math.floor(s.campX / TILE);
+      const camp = s.buildings.filter((b) => portable(b.def) && Math.abs(b.tile - campTile) <= 30);
+      this.parkX = (Math.max(campTile + 3, ...camp.map((b) => b.tile + BUILDING_BY_ID[b.def].width)) + 1) * TILE;
+    } else this.parkX = null;
+    // and where the tents stood at the camp it left: fire rings and flattened grass
+    const tk = JSON.stringify(wandering ? s.nomad!.traces : []);
+    if (tk !== this.traceKey) {
+      this.traceKey = tk;
+      if (!this.traces.parent) this.graves.parent!.addChildAt(this.traces, 0);
+      const g = this.traces.clear();
+      for (const tr of wandering ? s.nomad!.traces : []) {
+        g.ellipse(tr.x, TRACE_Y, tr.w / 2 - 4, 3).fill({ color: 0x8a8a4a, alpha: 0.45 }); // the grass pressed flat
+        g.ellipse(tr.x, TRACE_Y, 6, 2).fill({ color: 0x2a2420, alpha: 0.8 }); // the old hearth
+        for (let k = 0; k < 7; k++) {
+          const a = (k / 7) * Math.PI * 2;
+          g.rect(tr.x + Math.cos(a) * 8 - 1, TRACE_Y + Math.sin(a) * 2.5 - 1, 3, 2).fill(0x8b8680); // its ring of stones
+        }
+        for (const d of [-1, 1]) g.rect(tr.x + d * (tr.w / 2 - 6), TRACE_Y - 1, 2, 2).fill(0x5a3a22); // a peg hole or two
+      }
+    }
     this.keepTop = s.castle ? WALK_Y - 30 - s.castle.floors * ROOM_H - ROOF_H : null;
     const key = JSON.stringify([stables.map((b) => b.tile), home.map((h) => h.coat), s.caravan?.x ?? null, s.biome]);
     if (key === this.key) return;
@@ -141,6 +184,46 @@ export class AnimalsView {
       const dir = Math.cos(t / (9 + i * 3) + i * 2) >= 0 ? 'right' : 'left';
       g.texture = creatureFrame('ghosts', i % 4, dir, Math.floor(t * 4 + i));
       g.position.set(Math.round(x - CREATURE_FRAME / 2), Math.round(WALK_Y - CREATURE_FRAME - 8 + Math.sin(t * 2 + i) * 3));
+    });
+    // a nomad tribe on the road: wagons and pack animals, strung out from the old camp to the new
+    if (!this.road.length) for (let i = 0; i < ROAD_COUNT; i++) this.road.push(this.graves.parent!.addChild(new Sprite()));
+    const m = this.move;
+    const u = m ? Math.min(1, (m.since + (now - m.at) / TICK_MS) / CARAVAN_TICKS) : 1;
+    this.road.forEach((sp, i) => {
+      sp.visible = !!m && u < 1;
+      if (!sp.visible) return;
+      const dir = m!.to > m!.from ? 1 : -1;
+      const x = m!.from + (m!.to - m!.from) * u - dir * i * 30;
+      const wagon = i % 3 === 0;
+      if (wagon) {
+        const art = buildingArt('wagon_circle', noTone, 'road');
+        sp.texture = art.texture;
+        sp.scale.set(dir > 0 ? 1 : -1, 1);
+        sp.position.set(Math.round(x - (dir * art.width) / 2), WALK_Y + 2 - art.height);
+      } else {
+        sp.texture = creatureFrame(this.desert ? 'camel' : 'horse', this.desert ? i % 2 : 3, dir > 0 ? 'right' : 'left', Math.floor(t * 6 + i));
+        sp.scale.set(HORSE_SCALE);
+        sp.position.set(Math.round(x - (CREATURE_FRAME * HORSE_SCALE) / 2), Math.round(WALK_Y + 2 - CREATURE_FRAME * HORSE_SCALE));
+      }
+    });
+    // the wagons parked at the edge of the camp
+    if (!this.parked.length) for (let i = 0; i < 4; i++) this.parked.push(this.graves.parent!.addChild(new Sprite()));
+    this.parked.forEach((sp, i) => {
+      sp.visible = this.parkX !== null;
+      if (!sp.visible) return;
+      const x = this.parkX! + i * 30;
+      if (i % 2 === 0) {
+        const art = buildingArt('wagon_circle', noTone, 'road');
+        sp.texture = art.texture;
+        sp.scale.set(1, 1);
+        sp.position.set(Math.round(x - art.width / 2), WALK_Y + 2 - art.height);
+      } else {
+        // (the animals mostly stand, now and then shifting a foot)
+        const frame = Math.floor(t / 1.1 + i) % 5 === 0 ? 0 : 1;
+        sp.texture = creatureFrame(this.desert ? 'camel' : 'horse', this.desert ? 1 : 3, 'left', frame);
+        sp.scale.set(HORSE_SCALE);
+        sp.position.set(Math.round(x - (CREATURE_FRAME * HORSE_SCALE) / 2), Math.round(WALK_Y + 2 - CREATURE_FRAME * HORSE_SCALE));
+      }
     });
     // bats wheel round the keep's towers at night
     if (!this.bats.length) for (let i = 0; i < BAT_COUNT; i++) this.bats.push(this.graves.parent!.addChild(new Sprite()));

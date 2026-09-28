@@ -131,7 +131,7 @@ export function canPlace(
 /** Place a blueprint (a castle's room: on a floor). Returns the reason on failure. */
 export function placeBlueprint(s: GameState, back: readonly BackTerrain[], defId: string, tile: number, room?: { floor: number }): PlaceCheck {
   const def = BUILDING_BY_ID[defId];
-  if (!def) return { ok: false, reason: 'Unknown building' };
+  if (!def || def.never) return { ok: false, reason: 'Unknown building' };
   if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: 'Not researched yet' };
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
   const check = canPlace(s, back, def, tile, room?.floor ?? 0);

@@ -15,6 +15,8 @@ export interface BuildingDef {
   /** Base seconds of construction work (before era multiplier and worker speed). */
   buildSeconds: number;
   purpose: string;
+  /** Placed only by the sim itself (a nomad tribe's wagon circle): never planned, placed or shown to build. */
+  never?: boolean;
   /** Research topic that unlocks it (none = available from the start). */
   research?: string;
   /** Units of materials it can store. */
@@ -56,6 +58,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'healers_hut', name: "Healer's Hut", layer: 'mid', width: 2, cost: { wood: 12, hide: 4, herbs: 6 }, buildSeconds: 90, purpose: 'Herbs and a fire for the hurt: wounds heal half again as fast, and the downed take longer to bleed out.', research: 'herbalism', healing: 1.5 },
   { id: 'graveyard', name: 'Graveyard', layer: 'mid', width: 3, cost: { wood: 10, stone: 8 }, buildSeconds: 60, purpose: 'The dead are laid to rest here: mourning weighs less and grief passes sooner. (A Necromancer may find other uses for it.)' },
   { id: 'well', name: 'Well', layer: 'mid', width: 1, cost: { stone: 12, wood: 4 }, buildSeconds: 60, purpose: 'Fields keep growing (slower) through a drought.', research: 'early_agriculture' },
+  // (never built: a nomad tribe's wagons drawn up across the ends of the camp while raiders are about, see nomads.ts)
+  { id: 'wagon_circle', name: 'Wagon Circle', layer: 'fore', width: 1, cost: {}, buildSeconds: 1, purpose: 'Wagons drawn up across the camp while raiders are about.', never: true, hp: 110 },
   { id: 'palisade_wall', name: 'Palisade Wall', layer: 'fore', width: 1, cost: { wood: 8 }, buildSeconds: 40, purpose: 'Stops raiders until they break it. Townsfolk can pass. Best at the town edges.', research: 'palisades', hp: 150 },
   { id: 'palisade_gate', name: 'Palisade Gate', layer: 'fore', width: 2, cost: { wood: 14, fiber: 4 }, buildSeconds: 70, purpose: 'Like a wall, but weaker. Townsfolk come and go through it.', research: 'palisades', hp: 120 },
   { id: 'lookout', name: 'Lookout Platform', layer: 'mid', width: 2, cost: { wood: 14, fiber: 6 }, buildSeconds: 90, purpose: 'Spots raiders early: an hour of warning instead of minutes.', research: 'lookout', warningMinutes: 60 },
