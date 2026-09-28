@@ -262,6 +262,11 @@ A rival never raids a town founded its own way.
 | The Mad Alchemist | Acid slimes, brass homunculi | Volatile Flask, Elixir, Transmute (breaks walls) | Philosopher's Stone |
 | The Grand Master | Knights and crossbowmen of the Order | Rally, Shield Wall, Oath of Mending | Shield |
 
+Every spell, the town's and the rival lords', is drawn as it's cast: a magic circle under the caster, its name
+rising, and its own effect: lightning out of the sky, life drawn off in streams of light, roots bursting up round the
+defenders, rain clouds, sea fog, shockwaves, vortices, wards, volleys of arrows, thrown flasks bursting, falling
+rocks, swarms of bats, fountains of coins, auras, a wave rolling through the town.
+
 Hexes on the defenders (held, fogged, EMP) and blessings on the army (frenzied, warded) show on the raid badge
 with the seconds left.
 

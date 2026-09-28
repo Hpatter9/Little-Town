@@ -104,6 +104,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   relics in `data/enemies.ts` and `data/items.ts`. `src/shared/sim/rivals.ts` casts the lords' spells
   (`rivalsInRaid`) and holds the hexes on `Raid.hex` that raids.ts and powers.ts read (`heldBack`, `fogAim`,
   `wardOf`, `frenzyOf`, `turretsDown`).
+- **Spell visuals:** casts are recorded with `castSpellFx` (state.ts: caster, targets by id, how long) from
+  `castPowers` (the `TOUCH` table in powers.ts says what each power touches) and `rivalsInRaid`; `snapshot.spells`
+  carries them; `src/renderer/town/spellsView.ts` draws them (looks per spell in `town/spellLooks.ts`: bolts,
+  streams, roots, rain, fog, rings, domes, arrows, flasks...), above the day-and-night tint so they glow.
 - **Origin buildings:** `src/renderer/art/originStyles.ts`: each origin's own homes, walls and gates; every other
   building gets its materials swapped (`reclad`) and dressing on top. `buildingArt` takes the style (the theme id).
 - **Phase 4:** animal husbandry and more farming.

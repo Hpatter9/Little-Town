@@ -533,6 +533,8 @@ export interface GameState {
   fx?: { tick: number; id: number; kind: PersonFx }[];
   /** Where meteors struck lately (for the impact bursts). */
   impacts?: { tick: number; x: number }[];
+  /** Spells cast lately (the town's powers and rival lords'), for the renderer to draw (see castSpellFx). */
+  spellFx?: SpellFx[];
   /** The living are frightened (someone was turned) until this tick. */
   turningFearUntil?: number;
   /** Ironman: a single save with no backups, and no cheats. */
@@ -573,6 +575,34 @@ export type RaiderHitFx = 'blood' | 'shock' | 'fire' | 'lightning';
 export const FX_TICKS = 60;
 /** How long each plays (a frost hit is quick). */
 export const fxTicks = (kind: PersonFx) => (kind === 'frost' ? 12 : FX_TICKS);
+
+/** Something a spell touched: a townsperson, a raider (by id: the renderer follows them), or a place. */
+export interface SpellTarget {
+  x: number;
+  id?: number;
+  raider?: boolean;
+}
+/** A spell cast, as the renderer draws it: which spell (`town:<power>` or `rival:<spell>`), from where, onto what,
+ *  and for how long its look lasts (seconds). */
+export interface SpellFx {
+  n: number;
+  tick: number;
+  spell: string;
+  x: number;
+  /** The caster, when it's someone (their id; a raider for a rival lord). */
+  by?: SpellTarget;
+  targets: SpellTarget[];
+  secs: number;
+}
+/** How long a spell's look is kept for the renderer, at most (ticks). */
+export const SPELL_FX_TICKS = 300;
+
+/** Record a spell for the renderer (old ones are dropped). */
+export function castSpellFx(s: GameState, spell: string, by: SpellTarget, targets: SpellTarget[], secs = 2): void {
+  s.spellFx = (s.spellFx ?? []).filter((f) => s.tick - f.tick < SPELL_FX_TICKS);
+  s.spellFx.push({ n: (s.spellFx.at(-1)?.n ?? 0) + 1, tick: s.tick, spell, x: by.x, by: by.id !== undefined ? by : undefined, targets: targets.slice(0, 10), secs });
+  if (s.spellFx.length > 12) s.spellFx.splice(0, s.spellFx.length - 12);
+}
 
 /** Mark a spell on someone, for the renderer (old ones are dropped). */
 export function personFx(s: GameState, id: number, kind: PersonFx): void {

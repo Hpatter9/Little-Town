@@ -10,6 +10,7 @@ import { bossesInRaid } from '../src/shared/sim/bosses';
 import { defenderAttack, maybeStartRaid, startRaid } from '../src/shared/sim/raids';
 import { heldBack, hexOn, rivalsInRaid } from '../src/shared/sim/rivals';
 import { newGame, type GameState, type Raid } from '../src/shared/sim/state';
+import { snapshot } from '../src/shared/sim/snapshot';
 import { TICK_HZ, TICKS_PER_DAY } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
 import { plainGame } from './helpers';
@@ -143,4 +144,27 @@ test('a rival lord slain leaves its trophy', () => {
   lord.down = true;
   bossesInRaid(s, r);
   assert.equal(s.items.thane_hammer, 1);
+});
+
+test('every spell has a look, and casting one leaves it for the renderer: from the caster, onto what it touched', async () => {
+  const { LOOKS } = await import('../src/renderer/town/spellLooks');
+  const { POWERS, castPowers } = await import('../src/shared/sim/powers');
+  for (const id of Object.keys(POWERS)) assert.ok(LOOKS[`town:${id}`], `town:${id}`);
+  for (const rv of Object.values(RIVALS)) for (const sp of rv.spells) assert.ok(LOOKS[`rival:${sp.id}`], `rival:${sp.id}`);
+  // a rival lord's drain: from the lord, onto the townsfolk it drained
+  const s = plainGame('spell-fx');
+  const r = rivalRaid(s, 'rival_lich');
+  castFor(s, r, 10);
+  const fx = s.spellFx!.find((f) => f.spell === 'rival:drain_life')!;
+  assert.ok(fx, 'the drain was recorded');
+  assert.equal(fx.by?.id, r.raiders.find((q) => q.kind === 'lich_lord')!.id);
+  assert.ok(fx.targets.length && fx.targets.every((t) => s.people.some((p) => p.id === t.id)));
+  // the town's own: an alchemist's flask, thrown at the raiders
+  const a = newGame('flask-fx', { origin: 'alchemists' });
+  const ra = rivalRaid(a, 'rival_knights');
+  a.tick = 10;
+  castPowers(a, new Rng(3));
+  const flask = a.spellFx!.find((f) => f.spell === 'town:volatile_flask')!;
+  assert.ok(flask.targets.length > 0 && flask.targets.every((t) => t.raider && ra.raiders.some((q) => q.id === t.id)));
+  assert.ok(snapshot(a).spells.some((v) => v.spell === 'town:volatile_flask' && v.name === 'Volatile Flask'));
 });

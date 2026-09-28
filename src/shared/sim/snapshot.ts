@@ -12,7 +12,7 @@ import { moneyTown, wageBill } from './wages';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
 import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
-import { powersView } from './powers';
+import { POWERS, powersView } from './powers';
 
 /** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
 export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
@@ -41,9 +41,17 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, totalCapacity, totalStock } from './buildings';
 import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState } from './state';
+import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
+import { RIVALS } from '../data/rivals';
+
+const spellName = (spell: string): string => {
+  const [side, id] = spell.split(':');
+  if (side === 'town') return POWERS[id]?.name ?? id;
+  for (const r of Object.values(RIVALS)) for (const sp of r.spells) if (sp.id === id) return sp.name;
+  return id;
+};
 import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';
 
 export interface SkillView {
@@ -178,6 +186,19 @@ export interface RaiderView {
   captive: string | null;
   sinceAction: number;
   sinceHit: number;
+}
+
+export interface SpellView {
+  /** Increasing: each cast once. */
+  n: number;
+  /** `town:<power>` or `rival:<spell>`. */
+  spell: string;
+  name: string;
+  since: number;
+  x: number;
+  by: SpellTarget | null;
+  targets: SpellTarget[];
+  secs: number;
 }
 
 export interface RaidView {
@@ -363,6 +384,8 @@ export interface Snapshot {
   launchSite: number | null;
   /** Meteors that just struck: where, and ticks since. */
   impacts: { x: number; since: number }[];
+  /** Spells cast lately (the town's powers and rival lords'): drawn by renderer/town/spellsView.ts. */
+  spells: SpellView[];
   /** A full-moon night: werewolves show what they are. */
   moonNight: boolean;
   /** Tonight's moon, 0..FULL_MOON_PHASE through its cycle (full at FULL_MOON_PHASE), for the sky. */
@@ -542,6 +565,7 @@ export function snapshot(s: GameState): Snapshot {
     fx: (s.fx ?? []).filter((f) => s.tick - f.tick < FX_TICKS).map((f) => ({ id: f.id, kind: f.kind, since: s.tick - f.tick })),
     launchSite: launchSiteView(s),
     impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
+    spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),
     weather: weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null),

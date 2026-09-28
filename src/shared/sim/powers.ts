@@ -9,7 +9,7 @@ import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
 import { DESTINATIONS } from '../data/expeditions';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { depositNear, storages, totalStock } from './buildings';
+import { buildingCentreX, depositNear, storages, totalStock } from './buildings';
 import { ally } from './classes';
 import { destinationUnlocked } from './expeditions';
 import { cropOf } from './farming';
@@ -17,7 +17,8 @@ import { stabilize } from './health';
 import { fullMoon } from './monsters';
 import { shopOf, tavernOf } from './shop';
 import { wardOf } from './rivals';
-import { addStock, campX, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider } from './state';
+import { addStock, campX, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
+import { WORLD_WIDTH } from '../constants';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { housingCapacity, joinOrigin } from './townsfolk';
 
@@ -528,6 +529,56 @@ function pay(s: GameState, cost: Stock): void {
   }
 }
 
+/** What each power is seen to touch, for its look (see renderer/town/spellsView.ts), and how long the look lasts. */
+type Touch = 'foes' | 'home' | 'hurt' | 'defenders' | 'fields' | 'newest' | 'walls' | 'venue' | 'caster';
+const TOUCH: Record<string, [Touch, number]> = {
+  raise_dead: ['newest', 2.5], bone_ward: ['defenders', 3], drain_life: ['foes', 2],
+  call_rain: ['fields', 5], entangle: ['foes', 4], bloom: ['fields', 2.5],
+  mesmerize: ['foes', 3], blood_feast: ['home', 2], night_terror: ['foes', 3],
+  howl: ['caster', 2], pack_hunt: ['caster', 2], moon_frenzy: ['home', 3],
+  assemble: ['newest', 2.5], overclock: ['home', 3], repair_swarm: ['hurt', 2.5],
+  deep_delve: ['caster', 2], forge_blessing: ['caster', 2.5], stone_skin: ['defenders', 3],
+  tide_call: ['caster', 3], whirlpool: ['foes', 3], sea_fog: ['caster', 5],
+  trade_road: ['venue', 2.5], swift_riders: ['caster', 2], scouting: ['caster', 2],
+  glamour: ['venue', 3], changeling: ['newest', 2.5], faerie_ring: ['home', 3],
+  transmute: ['caster', 2.5], elixir: ['hurt', 2.5], volatile_flask: ['foes', 2],
+  rally: ['defenders', 2.5], shield_wall: ['defenders', 3], oath: ['hurt', 2.5],
+};
+
+function touched(s: GameState, touch: Touch): SpellTarget[] {
+  const person = (p: Person): SpellTarget => ({ x: p.x, id: p.id });
+  switch (touch) {
+    case 'foes':
+      return foes(s).filter((r) => r.x >= 0 && r.x <= WORLD_WIDTH).map((r) => ({ x: r.x, id: r.id, raider: true }));
+    case 'home':
+      return home(s).map(person);
+    case 'hurt':
+      return (hurt(s).length ? hurt(s) : home(s)).map(person);
+    case 'defenders': {
+      const d = home(s).filter((p) => p.task?.type === 'defend');
+      return (d.length ? d : home(s)).map(person);
+    }
+    case 'fields':
+      return s.buildings.filter((b) => b.crop?.stage === 'growing').map((b) => ({ x: buildingCentreX(b) }));
+    case 'newest':
+      return s.people.length ? [person(s.people[s.people.length - 1])] : [];
+    case 'walls':
+      return s.buildings.filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def].hp).map((b) => ({ x: buildingCentreX(b) }));
+    case 'venue': {
+      const v = shopOf(s) ?? tavernOf(s);
+      return v ? [{ x: buildingCentreX(v) }] : [];
+    }
+    case 'caster':
+      return [];
+  }
+}
+
+/** Who calls on the town's powers: the founder, when at home; else the camp. */
+function casterOf(s: GameState): SpellTarget {
+  const f = founder(s);
+  return f && f.away === null ? { x: f.x, id: f.id } : { x: campX(s) };
+}
+
 /** The town calls on its powers when the moment's right: once a second in a raid, else once a game hour. */
 export function castPowers(s: GameState, rng: Rng): void {
   const all = originOf(s).powers;
@@ -539,7 +590,11 @@ export function castPowers(s: GameState, rng: Rng): void {
     const cost = payable(s, p);
     if (!cost) continue;
     pay(s, cost);
+    // (what it's aimed at is taken before it strikes: the fallen are still on the field; newcomers after)
+    const [touch, secs] = TOUCH[id] ?? ['caster', 2];
+    const aimed = touch === 'newest' ? [] : touched(s, touch);
     const text = p.cast(s, rng);
+    castSpellFx(s, `town:${id}`, casterOf(s), touch === 'newest' ? touched(s, touch) : aimed, secs);
     (s.powers ??= {})[id] = s.tick + Math.round(p.cooldown * TICKS_PER_HOUR);
     if (p.lasts) (s.buffs ??= {})[id] = s.tick + Math.round(p.lasts * TICKS_PER_HOUR);
     const log = (s.powerLog ??= []);

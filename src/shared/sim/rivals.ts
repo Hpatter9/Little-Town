@@ -11,7 +11,7 @@ import { buildingCentreX, defOf } from './buildings';
 import { flammable, setFire } from './fire';
 import { knockDown } from './health';
 import { guardRate } from './origin';
-import { notify, personFx, type GameState, type Person, type Raid, type Raider } from './state';
+import { castSpellFx, notify, type GameState, type Person, type Raid, type Raider, type SpellTarget } from './state';
 import { TICK_HZ, TICKS_PER_DAY } from './time';
 
 /** The hexes and blessings a lord can lay on a fight. */
@@ -50,6 +50,10 @@ export const lordHp = (s: GameState, kind: string) => Math.round(ENEMIES[kind].h
 const standing = (s: GameState) => s.people.filter((p) => p.away === null && !p.downed && !((p.task?.type === 'shelter' || p.task?.type === 'sleep') && p.bed !== null && p.activity === 'sleep'));
 const onField = (rd: Raider) => !rd.down && !rd.gone && !rd.ally;
 const onMap = (rd: Raider) => rd.x >= 0 && rd.x <= WORLD_WIDTH;
+const person = (p: Person): SpellTarget => ({ x: p.x, id: p.id });
+const raider = (q: Raider): SpellTarget => ({ x: q.x, id: q.id, raider: true });
+/** How long each kind of spell's look lasts (seconds; hexes and blessings last as long as they do). */
+const SPELL_SECS: Partial<Record<RivalSpellKind, number>> = { drain: 2, storm: 1.5, raise: 2.5, mend: 2.5, summon: 2.5, dread: 3, shatter: 2, plunder: 2 };
 
 function hurt(s: GameState, p: Person, dmg: number): number {
   const d = Math.max(1, Math.round(dmg * guardRate(s)));
@@ -61,61 +65,67 @@ function hurt(s: GameState, p: Person, dmg: number): number {
   return d;
 }
 
-/** Cast one spell; false if there was nothing for it to do (it'll try again shortly). */
-function cast(s: GameState, r: Raid, rd: Raider, sp: RivalSpell, rng: Rng): boolean {
+/** Cast one spell: what it touched (for its look), or null if there was nothing for it to do (it'll try again
+ *  shortly). */
+function cast(s: GameState, r: Raid, rd: Raider, sp: RivalSpell, rng: Rng): SpellTarget[] | null {
   switch (sp.kind) {
     case 'drain': {
       const near = standing(s)
         .sort((a, b) => Math.abs(a.x - rd.x) - Math.abs(b.x - rd.x))
         .slice(0, 2);
-      if (!near.length) return false;
+      if (!near.length) return null;
       let took = 0;
       for (const p of near) {
         took += hurt(s, p, sp.power);
-        personFx(s, p.id, 'vampire');
       }
       rd.hp = Math.min(rd.maxHp, rd.hp + took);
-      return true;
+      return near.map(person);
     }
     case 'storm': {
       const all = standing(s);
-      if (!all.length) return false;
-      for (let i = 0; i < 3 && all.length; i++) hurt(s, all.splice(rng.int(0, all.length - 1), 1)[0], sp.power);
+      if (!all.length) return null;
+      const struck: SpellTarget[] = [];
+      for (let i = 0; i < 3 && all.length; i++) {
+        const p = all.splice(rng.int(0, all.length - 1), 1)[0];
+        struck.push(person(p));
+        hurt(s, p, sp.power);
+      }
       if (sp.burns && !s.buildings.some((b) => b.def === 'shield_generator' && b.status === 'done')) {
         const b = s.buildings
           .filter((q) => q.status === 'done' && q.fire === undefined && !defOf(q).hp && flammable(q))
           .sort((a, c) => Math.abs(buildingCentreX(a) - rd.x) - Math.abs(buildingCentreX(c) - rd.x))[0];
         if (b && rng.chance(0.5)) setFire(s, b);
       }
-      return true;
+      return struck;
     }
     case 'raise': {
       const fallen = r.raiders.filter((q) => q.down && !q.ally && !q.gone && !ENEMIES[q.kind].kit && !q.raiseChecked).slice(0, sp.power);
-      if (!fallen.length) return false;
+      if (!fallen.length) return null;
       for (const q of fallen) {
         q.down = false;
         q.fleeing = false;
         q.hp = Math.round(q.maxHp / 2);
         q.conjuredAt = s.tick;
       }
-      return true;
+      return fallen.map(raider);
     }
     case 'mend': {
       const hurtOnes = r.raiders.filter((q) => onField(q) && q.hp < q.maxHp * 0.85);
-      if (!hurtOnes.length) return false;
+      if (!hurtOnes.length) return null;
       for (const q of hurtOnes) {
         q.hp = Math.min(q.maxHp, q.hp + Math.round(q.maxHp * sp.power));
-        q.conjuredAt = s.tick;
       }
-      return true;
+      return hurtOnes.map(raider);
     }
     case 'summon': {
-      if (r.raiders.filter(onField).length >= MAX_ON_FIELD || !sp.summons) return false;
+      if (r.raiders.filter(onField).length >= MAX_ON_FIELD || !sp.summons) return null;
       const d = ENEMIES[sp.summons];
+      const came: SpellTarget[] = [];
       for (let i = 0; i < sp.power; i++) {
+        came.push({ x: rd.x - rd.dir * (24 + i * 16), id: s.nextId, raider: true });
         r.raiders.push({ id: s.nextId++, kind: sp.summons, x: rd.x - rd.dir * (24 + i * 16), dir: rd.dir, hp: d.hp, maxHp: d.hp, cooldown: 10, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm', conjuredAt: s.tick });
       }
-      return true;
+      return came;
     }
     case 'hold':
     case 'fog':
@@ -123,39 +133,39 @@ function cast(s: GameState, r: Raid, rd: Raider, sp: RivalSpell, rng: Rng): bool
       // (only worth it with defenders out)
       const defenders = s.people.filter((p) => p.away === null && !p.downed && p.task?.type === 'defend');
       const turrets = sp.kind === 'emp' && s.buildings.some((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.defense);
-      if (!defenders.length && !turrets) return false;
+      if (!defenders.length && !turrets) return null;
       (r.hex ??= {})[sp.kind] = { until: s.tick + sp.power * TICK_HZ, name: sp.name };
-      for (const p of defenders) if (sp.kind !== 'emp' || p.machine) personFx(s, p.id, 'frost');
-      return true;
+      return defenders.filter((p) => sp.kind !== 'emp' || p.machine).map(person);
     }
     case 'frenzy':
     case 'ward':
       (r.hex ??= {})[sp.kind] = { until: s.tick + sp.power * TICK_HZ, name: sp.name };
-      return true;
+      return r.raiders.filter((q) => onField(q) && onMap(q)).map(raider);
     case 'dread': {
       const all = s.people.filter((p) => p.away === null);
-      if (!all.length) return false;
+      if (!all.length) return null;
       for (const p of all) p.morale = Math.max(0, p.morale - sp.power);
-      return true;
+      return all.map(person);
     }
     case 'shatter': {
       const wall = s.buildings
         .filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def].hp && (b.hp ?? 0) > 0)
         .sort((a, b) => Math.abs(buildingCentreX(a) - rd.x) - Math.abs(buildingCentreX(b) - rd.x))[0];
-      if (!wall) return false;
+      if (!wall) return null;
       wall.hp = Math.max(0, (wall.hp ?? 0) - sp.power);
       if (wall.hp === 0) {
         s.buildings = s.buildings.filter((b) => b !== wall);
         notify(s, `The ${defOf(wall).name.toLowerCase()} came down!`, true);
       }
-      return true;
+      return [{ x: buildingCentreX(wall) }];
     }
     case 'plunder': {
       const n = Math.floor((s.coins ?? 0) * sp.power);
-      if (n < 3) return false;
+      if (n < 3) return null;
       s.coins = (s.coins ?? 0) - n;
       notify(s, `They made off with ${n} coins.`, true);
-      return true;
+      const store = s.buildings.find((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.floor);
+      return [{ x: store ? buildingCentreX(store) : rd.x }];
     }
   }
 }
@@ -174,10 +184,13 @@ export function rivalsInRaid(s: GameState, r: Raid, rng: Rng): void {
         continue;
       }
       if (s.tick < at[sp.id]) continue;
-      if (!cast(s, r, rd, sp, rng)) {
+      const hit = cast(s, r, rd, sp, rng);
+      if (!hit) {
         at[sp.id] = s.tick + 2 * TICK_HZ;
         continue;
       }
+      // (a hex or a blessing looks the part for as long as it lasts)
+      castSpellFx(s, `rival:${sp.id}`, raider(rd), hit, HEXES.includes(sp.kind) ? sp.power : SPELL_SECS[sp.kind] ?? 2);
       at[sp.id] = s.tick + Math.round(sp.every * TICK_HZ * (rd.enraged ? RAGE_CASTING : 1));
       rd.lastCast = s.tick;
       notify(s, sp.text, HEXES.includes(sp.kind) || sp.kind === 'raise' || sp.kind === 'summon');

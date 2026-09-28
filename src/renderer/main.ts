@@ -56,6 +56,7 @@ import { SnowView } from './town/snowView';
 import { SkyView } from './town/skyView';
 import { WeatherView } from './town/weatherView';
 import { RaidersView } from './town/raidersView';
+import { SpellsView } from './town/spellsView';
 import { TownView } from './town/townView';
 
 declare global {
@@ -130,6 +131,8 @@ async function start(): Promise<void> {
   const people = new PeopleView(town.people);
   const raiders = new RaidersView(town.people);
   const animals = new AnimalsView(town.people);
+  // (spells sit over the town, out of its day-and-night tint, so they glow in the dark; they follow the walkway)
+  const spells = new SpellsView();
   const pane = new ExpeditionPane(world.seedHash);
   const snow = new SnowView();
   town.root.addChild(snow.root); // (over everything in the town, in screen space)
@@ -140,7 +143,7 @@ async function start(): Promise<void> {
   if (weather) town.root.addChild(weather.root);
   town.root.addChildAt(sky.root, 0); // (behind the hills, so the sun and moon rise and set behind the land)
   const townMask = new Graphics(); // used only as a mask (never added to the stage, or it would draw)
-  app.stage.addChild(town.root, pane.root);
+  app.stage.addChild(town.root, spells.root, pane.root);
 
   /** Where the town ends and the expedition pane (if showing) begins, in screen x. */
   let paneX = Infinity;
@@ -791,6 +794,7 @@ async function start(): Promise<void> {
     );
     raiders.update(next.raid?.phase === 'active' ? next.raid.raiders : [], performance.now());
     animals.update(next);
+    spells.update(next, performance.now());
     if (hover || placing) refreshHover(); // tooltip contents change as work progresses
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
@@ -816,6 +820,9 @@ async function start(): Promise<void> {
     people.render(performance.now());
     raiders.render(performance.now());
     animals.render(performance.now());
+    const walk = town.people.getGlobalPosition();
+    spells.root.position.set(walk.x - app.stage.x, walk.y - app.stage.y);
+    spells.render(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     sky.render(performance.now(), w);
     weather?.render(performance.now(), w);
