@@ -13,7 +13,9 @@ taskbar. TypeScript + PixiJS. `DESIGN.md` is the original design, and `README.md
   Knowledge, in the Plan tab) and sends **expeditions**. Don't add chores or manual controls.
 - **Deaths should be common.** Raids, disasters and hunger are meant to bite.
 - **Assets.** The project is free and private, so any sprite from the asset packs may be used. Credit the source
-  in `CREDITS.md`. (The packs themselves aren't in the repo; sprites the game uses are already in `src`.)
+  in `CREDITS.md`. The packs live in the private repo `hpatter9/chronos-assets` (clone it next to this one, at
+  `../chronos-assets`); copy in only the individual sprites the game uses, never whole packs. Sprites the game uses
+  are in `src`. Images load through `art/loadImage.ts` (a refused `decode()` falls back to the load event).
 
 ## Commands
 
@@ -113,6 +115,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   checks overlap per floor), `openFloors`, `roomOf` (the room someone's in: `PersonView.floor`), `adoptRooms` for
   older saves. The planner's `roomSpot` fills it. Drawn by `src/renderer/art/castle.ts` (`roomArt` cutaways, `keepArt`
   shell, sliced per 16px in `BuildingsView.syncCastle`); `mobile.ts` zooms and grows the strip so the keep fits.
+- **Spell sprites:** `SPELL_SHEET_DEFS` in `art/effects.ts` (pvfx and Alenia sheets), matched to spells by `sprite` in
+  `town/spellLooks.ts` and placed by `SHEETS` in `spellsView.ts` (foot offset, frame rate, glow). Rival troops use
+  the golem/elemental stills (`elem_*`) and strip sheets with a `feet` share (`creatures.ts`).
 - **Origin buildings:** `src/renderer/art/originStyles.ts`: each origin's own homes, walls and gates; every other
   building gets its materials swapped (`reclad`) and dressing on top. `buildingArt` takes the style (the theme id).
 - **Phase 4:** animal husbandry and more farming.

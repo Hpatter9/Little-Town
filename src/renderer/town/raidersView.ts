@@ -4,7 +4,7 @@ import { Container, Graphics, Sprite } from 'pixi.js';
 import { ENEMIES } from '../../shared/data/enemies';
 import type { RaiderView } from '../../shared/sim/snapshot';
 import { TICK_MS } from '../../shared/sim/time';
-import { creatureFlip, creatureFrame, creatureSize, creatureTop, type CreatureSheet } from '../art/creatures';
+import { creatureFeet, creatureFlip, creatureFrame, creatureSize, creatureTop, type CreatureSheet } from '../art/creatures';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { AREA_SIZE, BLAST_SIZE, castFrame, FLAME_SIZE, fireHitFrame, lightningHitFrame, BLOOD_SIZE, bloodFrame, conjureFrame, IMPACT_SIZE, impactFrame, placeArea, portalFrame, shockFrame, SPELL_SIZE } from '../art/effects';
@@ -92,7 +92,7 @@ export class RaidersView {
         const flip = creatureFlip(sp.sheet, facing);
         s.scale.set(sp.scale * flip, sp.scale);
         s.x = Math.round(x + lunge - ((size.w * sp.scale) / 2) * flip);
-        s.y = Math.round(WALK_Y + 4 - size.h * sp.scale);
+        s.y = Math.round(WALK_Y + 4 - size.h * sp.scale * creatureFeet(sp.sheet));
         top = s.y + 6 + Math.round(size.h * sp.scale * creatureTop(sp.sheet));
       } else if ('still' in def.sprite) {
         // a single image: flipped to face its way, bobbing if it hovers

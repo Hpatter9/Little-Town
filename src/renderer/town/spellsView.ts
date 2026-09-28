@@ -5,7 +5,7 @@
 // the town's day-and-night tint, so spells glow in the dark.
 
 import { Container, Graphics, Sprite, Text, type Texture } from 'pixi.js';
-import { AREA_SIZE, areaFrame, BLAST_SIZE, BLOOD_SIZE, bloodFrame, castFrame, conjureFrame, HOLY_SIZE, holyFrame, portalFrame, shockFrame, SPELL_SIZE, spellFrame } from '../art/effects';
+import { AREA_SIZE, areaFrame, spellSheetFrame, spellSheetSize, BLAST_SIZE, BLOOD_SIZE, bloodFrame, castFrame, conjureFrame, HOLY_SIZE, holyFrame, portalFrame, shockFrame, SPELL_SIZE, spellFrame } from '../art/effects';
 import type { Snapshot, SpellView } from '../../shared/sim/snapshot';
 import type { SpellTarget } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
@@ -40,7 +40,7 @@ interface Live {
 
 /** Each effect sheet: a frame at a time (null once it's over), its size, frames a second, and where its foot sits
  *  in the frame (from the bottom). */
-const SHEETS: Record<SpriteFx, { frame: (i: number) => Texture | null; size: number; fps: number; foot: number; scale?: number }> = {
+const SHEETS: Record<SpriteFx, { frame: (i: number) => Texture | null; size: number; fps: number; foot: number; scale?: number; glow?: boolean }> = {
   blood: { frame: bloodFrame, size: BLOOD_SIZE, fps: 14, foot: 20 },
   vampire: { frame: (i) => spellFrame('vampire', i), size: SPELL_SIZE, fps: 10, foot: 14 },
   undead: { frame: (i) => spellFrame('undead', i), size: SPELL_SIZE, fps: 10, foot: 14 },
@@ -53,6 +53,32 @@ const SHEETS: Record<SpriteFx, { frame: (i: number) => Texture | null; size: num
   shock: { frame: shockFrame, size: SPELL_SIZE, fps: 12, foot: 20 },
   conjure: { frame: conjureFrame, size: BLAST_SIZE, fps: 16, foot: 6, scale: 1.3 },
   acid: { frame: (i) => areaFrame('acid', i), size: AREA_SIZE, fps: 14, foot: 32 },
+  roots: { frame: (i) => spellSheetFrame('roots', i), size: spellSheetSize('roots'), fps: 20, foot: 23 },
+  rain: { frame: (i) => spellSheetFrame('rain', i), size: spellSheetSize('rain'), fps: 16, foot: 24 },
+  leaves: { frame: (i) => spellSheetFrame('leaves', i), size: spellSheetSize('leaves'), fps: 20, foot: 34 },
+  bloom: { frame: (i) => spellSheetFrame('bloom', i), size: spellSheetSize('bloom'), fps: 20, foot: 32 },
+  venom_ward: { frame: (i) => spellSheetFrame('venom_ward', i), size: spellSheetSize('venom_ward'), fps: 20, foot: 28 },
+  parry: { frame: (i) => spellSheetFrame('parry', i), size: spellSheetSize('parry'), fps: 20, foot: 24 },
+  counterfall: { frame: (i) => spellSheetFrame('counterfall', i), size: spellSheetSize('counterfall'), fps: 20, foot: 24 },
+  prism: { frame: (i) => spellSheetFrame('prism', i), size: spellSheetSize('prism'), fps: 24, foot: 28, glow: true },
+  void: { frame: (i) => spellSheetFrame('void', i), size: spellSheetSize('void'), fps: 18, foot: 28, glow: true },
+  moths: { frame: (i) => spellSheetFrame('moths', i), size: spellSheetSize('moths'), fps: 20, foot: 28 },
+  suture: { frame: (i) => spellSheetFrame('suture', i), size: spellSheetSize('suture'), fps: 20, foot: 28, glow: true },
+  charge: { frame: (i) => spellSheetFrame('charge', i), size: spellSheetSize('charge'), fps: 18, foot: 28, glow: true },
+  splash: { frame: (i) => spellSheetFrame('splash', i), size: spellSheetSize('splash'), fps: 18, foot: 26 },
+  foam: { frame: (i) => spellSheetFrame('foam', i), size: spellSheetSize('foam'), fps: 16, foot: 24 },
+  hourglass: { frame: (i) => spellSheetFrame('hourglass', i), size: spellSheetSize('hourglass'), fps: 18, foot: 28 },
+  mercury: { frame: (i) => spellSheetFrame('mercury', i), size: spellSheetSize('mercury'), fps: 18, foot: 28 },
+  spines: { frame: (i) => spellSheetFrame('spines', i), size: spellSheetSize('spines'), fps: 20, foot: 21 },
+  orchid: { frame: (i) => spellSheetFrame('orchid', i), size: spellSheetSize('orchid'), fps: 20, foot: 18 },
+  missile: { frame: (i) => spellSheetFrame('missile', i), size: spellSheetSize('missile'), fps: 18, foot: 28, glow: true },
+  // (the Alenia sheets glow, centred on the body)
+  blood_bubble: { frame: (i) => spellSheetFrame('blood_bubble', i), size: spellSheetSize('blood_bubble'), fps: 12, foot: 44, glow: true },
+  blood_storm: { frame: (i) => spellSheetFrame('blood_storm', i), size: spellSheetSize('blood_storm'), fps: 10, foot: 36, glow: true },
+  dark_flames: { frame: (i) => spellSheetFrame('dark_flames', i), size: spellSheetSize('dark_flames'), fps: 12, foot: 44, glow: true },
+  gold_vortex: { frame: (i) => spellSheetFrame('gold_vortex', i), size: spellSheetSize('gold_vortex'), fps: 10, foot: 36, glow: true },
+  life_fountain: { frame: (i) => spellSheetFrame('life_fountain', i), size: spellSheetSize('life_fountain'), fps: 12, foot: 54, glow: true },
+  chaos_storm: { frame: (i) => spellSheetFrame('chaos_storm', i), size: spellSheetSize('chaos_storm'), fps: 10, foot: 36, glow: true },
 };
 
 export class SpellsView {
@@ -129,6 +155,7 @@ export class SpellsView {
       sp.visible = !!f && t - i * 0.12 >= 0;
       if (!f || !sp.visible) return;
       sp.texture = f;
+      sp.blendMode = sh.glow ? 'add' : 'normal';
       sp.scale.set(k);
       sp.position.set(Math.round(x - (sh.size * k) / 2), Math.round(WALK_Y + sh.foot * k - sh.size * k));
     });
