@@ -792,11 +792,14 @@ async function start(): Promise<void> {
     town.syncCastle(next.castle);
     // (a nomad tribe on the road: the view rides along with the caravan, and comes to rest at the new camp)
     const move = next.nomad?.move;
-    if (move && move.since <= CARAVAN_TICKS && lastCamp !== null) camera.centreOn(move.from + (move.to - move.from) * Math.min(1, move.since / CARAVAN_TICKS), app.screen.width);
+    if (move && move.since >= 0 && move.since <= CARAVAN_TICKS && lastCamp !== null) camera.centreOn(move.from + (move.to - move.from) * Math.min(1, move.since / CARAVAN_TICKS), app.screen.width);
     // (and if it moved while no one was watching, say in the background, the view just goes to the new camp)
     else if (lastCamp !== null && next.campX !== lastCamp) camera.centreOn(next.campX, app.screen.width);
     lastCamp = next.campX;
     people.moon = next.moonNight;
+    people.theme = next.theme;
+    people.weave = next.research.done.includes('weaving');
+    people.founderId = next.mainId;
     publishInspect(); // (the phone's top card keeps up with what it shows)
     sky.update(next.calendar, next.moonPhase, next.weather);
     weather?.update(next.calendar, next.weather);

@@ -5,7 +5,7 @@ import { Container, Graphics, Sprite } from 'pixi.js';
 import type { PersonView } from '../../shared/sim/snapshot';
 import { poolSize } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
-import { heldWeapon, wornLayers } from '../art/held';
+import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CREATURE_FRAME, creatureFrame, creatureSize } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, type Emote } from '../art/effects';
 
@@ -73,6 +73,10 @@ export class PeopleView {
   private readonly drawn = new Map<number, Drawn>();
   /** A full-moon night (werewolves change). */
   moon = false;
+  /** What the town wears: its origin's look (for its dyes), whether it can weave yet, and who founded it (a cape). */
+  theme = 'town';
+  weave = false;
+  founderId = -1;
   /** Someone just brought back from death (they glow). */
   revived: { id: number; since: number; at: number } | null = null;
   /** Spells cast on townsfolk lately (turned, healed): ticks since, as of `at`. */
@@ -128,6 +132,14 @@ export class PeopleView {
         this.drawn.delete(id);
       }
     }
+  }
+
+  /** Someone's look and what they wear: their everyday clothes (wardrobe) and armour over them. Strangers passing
+   *  through wear what they came in. */
+  private dressed(v: PersonView): [PersonView['look'], string[]] {
+    if (v.typeName === 'Traveller') return [v.look, wornLayers(v.gear, v.gearQ)];
+    const w = wardrobe({ id: v.id, gender: v.look.gender, typeName: v.typeName, gear: v.gear, coins: v.coins, child: v.growsUpIn !== null, founder: v.id === this.founderId }, this.theme, this.weave);
+    return [{ ...v.look, outfit: w.outfit }, [...w.wear, ...wornLayers(v.gear, v.gearQ)]];
   }
 
   /** Which emote to show over someone right now, if any: anger in a breakdown and zzz asleep in the open always;
@@ -204,7 +216,8 @@ export class PeopleView {
       // clubs, axes and knives are swung, not thrust (the LPC layers only have swinging frames for them)
       if (anim === 'thrust' && held === 'bow') [anim, frame] = ['shoot', cycle((now - d.animStart) / 1000, 1.2, FRAME_COUNT.shoot)];
       else if (anim === 'thrust' && held && held !== 'spear') [anim, frame] = ['slash', cycle((now - d.animStart) / 1000, 1.0, FRAME_COUNT.slash)];
-      d.sprite.texture = lpcFrame(d.view.look, anim, frame, held, wornLayers(d.view.gear));
+      const [look, wear] = this.dressed(d.view);
+      d.sprite.texture = lpcFrame(look, anim, frame, held, wear);
       const flip = d.view.dir < 0;
       const k = d.view.growsUpIn !== null ? CHILD_SCALE : 1; // children are drawn smaller
       d.sprite.scale.set(flip ? -k : k, k);
@@ -242,7 +255,7 @@ export class PeopleView {
         d.horse.x = Math.round(x - (CREATURE_FRAME * HORSE_SCALE) / 2);
         d.horse.y = Math.round(WALK_Y + 2 - CREATURE_FRAME * HORSE_SCALE);
         d.sprite.y -= SADDLE_LIFT;
-        if (anim === 'walk') d.sprite.texture = lpcFrame(d.view.look, 'walk', 0, held, wornLayers(d.view.gear)); // (legs still in the saddle)
+        if (anim === 'walk') d.sprite.texture = lpcFrame(look, 'walk', 0, held, wear); // (legs still in the saddle)
       }
       // a bundle on the back while carrying
       d.load.visible = !hidden && poolSize(d.view.carrying) > 0;

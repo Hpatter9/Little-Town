@@ -110,25 +110,46 @@ interface LayerRef {
 /** Weapons drawn on top of the character (the LPC data has right-facing weapon rows). */
 export type LpcWeapon = 'spear' | 'dagger' | 'bow' | 'mace' | 'axe' | 'sword' | null;
 
+/** Garments that are someone's clothes (they replace the plain shirt, trousers, shoes or belt), as opposed to armour
+ *  drawn over them. */
+const CLOTHES = /^(torso_(longsleeve|tunic|dress|robe|sleeveless|pirate|jacket|underdress|overskirt)|legs_|feet_|belt_)/;
+
+/**
+ * The layers for a look. `wear` lists what's worn beyond the plain clothes, each as a layer base with an optional
+ * tint after a colon ('torso_robe:#6a3a8a', 'torso_chain'): garments replace the plain shirt, trousers, shoes or belt;
+ * armour and hats go over them; capes and quivers (back_) behind.
+ */
 function layersFor(look: Look, weapon: LpcWeapon, wear: readonly string[]): LayerRef[] {
   const out: LayerRef[] = [];
   const push = (base: string, tint: string | null, mode: TintMode = 'mul') => {
     const id = resolve(`${base}_${look.gender}`);
     if (id) out.push({ id, tint, mode });
   };
+  const items = wear.map((w) => {
+    const [base, tint] = w.split(':');
+    return { base, tint: tint || null };
+  });
+  const find = (re: RegExp) => items.find((w) => re.test(w.base));
+  for (const w of items) if (w.base.startsWith('back_')) push(w.base, w.tint);
   push('body_light', look.skin, 'skin');
-  push('legs_pants', mix(look.outfit, '#20180f', 0.35));
-  push('feet_shoes', null);
+  const legs = find(/^legs_/);
+  push(legs?.base ?? 'legs_pants', legs ? legs.tint : mix(look.outfit, '#20180f', 0.35));
+  const feet = find(/^feet_/);
+  push(feet?.base ?? 'feet_shoes', feet?.tint ?? null);
   // (the LPC data's tunic exists only cut for a woman, and a man given it showed her figure: men wear the
   // men's long-sleeved shirt instead)
-  push(look.gender === 'm' ? 'torso_longsleeve' : 'torso_tunic', look.outfit);
-  push('belt_leather', null);
-  for (const w of wear) if (w.startsWith('torso_')) push(w, null);
-  const hat = wear.find((w) => w.startsWith('head_'));
-  // a helm or hood covers the hair (a beard still shows)
-  if (!hat) push(`hair_${look.hair}`, look.hairColor);
+  const shirt = find(/^torso_(longsleeve|tunic|dress|robe|sleeveless|pirate|jacket|underdress|overskirt)$/);
+  push(shirt?.base ?? (look.gender === 'm' ? 'torso_longsleeve' : 'torso_tunic'), shirt?.tint ?? look.outfit);
+  const belt = find(/^belt_/);
+  push(belt?.base ?? 'belt_leather', belt?.tint ?? null);
+  for (const w of items) if (w.base.startsWith('torso_') && !CLOTHES.test(w.base)) push(w.base, w.tint);
+  for (const w of items) if (w.base.startsWith('hands_')) push(w.base, w.tint);
+  const hat = items.find((w) => w.base.startsWith('head_'));
+  // a helm or hood covers the hair (a beard still shows; a bandana, cap or crown doesn't hide it all)
+  const covers = !!hat && /^head_(helm|hood|chain|chainhood)$/.test(hat.base);
+  if (!covers) push(`hair_${look.hair}`, look.hairColor);
   if (look.beard) push('beard', look.hairColor);
-  if (hat) push(hat, null);
+  if (hat) push(hat.base, hat.tint);
   if (weapon) push(`w_${weapon}`, null);
   return out;
 }
