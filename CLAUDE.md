@@ -167,6 +167,24 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   three-quarter, angled view of the room instead of the bird's-eye one, so the townsfolk and travellers can be drawn
   with their ordinary side-on sprites (LPC characters) as they come in to shop, dine and sleep.
 
+- **More to watch, not more to do** (the town still decides everything; these give the player moments):
+  1. **Raids wait for you:** when a raid is about to start and nobody is watching, the town pauses and a phone alert
+     (ntfy) says raiders are at the gate; a **Watch the fight** button starts it. It waits at most ~12 real hours,
+     then plays out alone. (Alternative kept in mind: a replay of an unwatched raid, key moments slowed.)
+  2. **Time away capped at 1 game day** (`MAX_OFFLINE_MS` in `sim/offline.ts`, now 3 days).
+  3. **Choices that wait for you:** more events that stop and ask, each with a time limit and a default so the town
+     never stalls (like the lich rite): a stranger asks to join; a raider chief offers terms (tribute or fight); a sick
+     traveller begs shelter (plague risk); a deserter from a rival origin's army; a merchant offers a rare relic for
+     most of the coins; twins born, name one after a hero; a duel for the founder's honour; a comet (omen: a ritual
+     or ignore it); a flood or fire threatens the fields or the stores (save one); a prisoner offers a secret for
+     freedom; the guild offers a contract (send people away for a big reward); townsfolk quarrel (whose side); an
+     old ruin found nearby (dig now, or seal it); a wandering monster's lair (hunt it or leave it be).
+  4. **Rally in a fight:** tap a defender to rally them (a burst of courage, cooldown).
+  5. **Hold a power:** the player can keep one of the origin's powers back and cast it themselves in a raid.
+  6. **Morning report card:** on return, a short illustrated strip of the three biggest things that happened.
+  7. **Follow a hero:** pin one townsperson; the camera follows them, and their life's big moments send alerts.
+  8. **Expedition stakes:** one choice as a party leaves (safe or risky), the rest planned by the town.
+
 ## Known problem (open)
 
 - **The self-running town grows much slower since the livestock, research and background changes** (not yet
