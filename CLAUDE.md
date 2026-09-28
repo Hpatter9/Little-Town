@@ -178,7 +178,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
      most of the coins; twins born, name one after a hero; a duel for the founder's honour; a comet (omen: a ritual
      or ignore it); a flood or fire threatens the fields or the stores (save one); a prisoner offers a secret for
      freedom; the guild offers a contract (send people away for a big reward); townsfolk quarrel (whose side); an
-     old ruin found nearby (dig now, or seal it); a wandering monster's lair (hunt it or leave it be).
+     old ruin found nearby (dig now, or seal it); a wandering monster's lair (hunt it or leave it be). The full list of 100
+     events to draw from at random is in `EVENTS.md`.
   4. **Rally in a fight:** tap a defender to rally them (a burst of courage, cooldown).
   5. **Hold a power:** the player can keep one of the origin's powers back and cast it themselves in a raid.
   6. **Morning report card:** on return, a short illustrated strip of the three biggest things that happened.
