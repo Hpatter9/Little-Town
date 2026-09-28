@@ -89,6 +89,17 @@ export interface ItemDef {
   icon: { sheet: IconSheet; x: number; y: number; name?: string };
   /** A relic: never crafted, only found on expeditions (DESIGN §9 special items). */
   relic?: boolean;
+  /** Shop furnishings (see data/shop.ts): what it is, how many cells of the shop floor it takes, and how much it
+   *  draws travellers in. The shopkeeper sets it out once it's made. */
+  furnish?: Furnish;
+}
+
+export type FurnishKind = 'shelf' | 'table' | 'stand' | 'decor' | 'rug';
+export interface Furnish {
+  kind: FurnishKind;
+  w: number;
+  h: number;
+  appeal: number;
 }
 
 export type IconSheet =
@@ -138,6 +149,19 @@ export const ITEMS: readonly ItemDef[] = [
   { id: 'clay_pot', name: 'Clay Pot', slot: null, station: 'kiln', cost: { clay: 3 }, seconds: 45, research: ['pottery'], effects: {}, description: '+5 room in the campfire store (up to 10 pots).', icon: { sheet: 'Potion', x: 4, y: 2 } },
   { id: 'waterskin', name: 'Waterskin', slot: null, station: 'tanning_rack', cost: { hide: 2, fiber: 1 }, seconds: 40, research: ['tanning'], effects: {}, description: 'A party with one each walks 10% faster.', icon: { sheet: 'Potion', x: 1, y: 3 } },
   { id: 'bedroll', name: 'Bedroll', slot: null, station: 'tanning_rack', cost: { hide: 2, fiber: 2 }, seconds: 45, research: ['tanning'], effects: {}, description: 'Someone without a bed sleeps almost as well.', icon: { sheet: 'Armor', x: 3, y: 5 } },
+  // shop furnishings (the shopkeeper sets them out in the shop; a better-furnished shop sells more)
+  { id: 'crate_stand', name: 'Crate Stand', slot: null, station: 'campfire', cost: { wood: 3 }, seconds: 25, research: ['barter'], effects: {}, furnish: { kind: 'stand', w: 1, h: 1, appeal: 1 }, description: 'Shop furnishing: an upturned crate with goods on it. Appeal +1.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'crate_stand' } },
+  { id: 'plank_shelf', name: 'Plank Shelf', slot: null, station: 'workbench', cost: { wood: 6 }, seconds: 40, research: ['barter'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 3 }, description: 'Shop furnishing: goods laid out along a wall. Appeal +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'plank_shelf' } },
+  { id: 'woven_mat', name: 'Woven Mat', slot: null, station: 'campfire', cost: { fiber: 4 }, seconds: 30, research: ['barter', 'cordage'], effects: {}, furnish: { kind: 'rug', w: 2, h: 1, appeal: 2 }, description: 'Shop furnishing: a mat for the floor. Appeal +2.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'woven_mat' } },
+  { id: 'clay_urns', name: 'Clay Urns', slot: null, station: 'kiln', cost: { clay: 4 }, seconds: 40, research: ['barter', 'pottery'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 2 }, description: 'Shop furnishing: painted urns in a corner. Appeal +2.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'clay_urns' } },
+  { id: 'trestle_table', name: 'Trestle Table', slot: null, station: 'workbench', cost: { wood: 8, stone: 2 }, seconds: 60, research: ['barter', 'woodcutting'], effects: {}, furnish: { kind: 'table', w: 2, h: 2, appeal: 4 }, description: 'Shop furnishing: a big table of wares in the middle of the floor. Appeal +4.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'trestle_table' } },
+  { id: 'herb_planter', name: 'Herb Planter', slot: null, station: 'kiln', cost: { clay: 2, herbs: 3 }, seconds: 40, research: ['barter', 'pottery', 'herbalism'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 3 }, description: 'Shop furnishing: a pot of sweet herbs. Appeal +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'herb_planter' } },
+  { id: 'oak_shelves', name: 'Oak Shelves', slot: null, station: 'sawmill', cost: { lumber: 6 }, seconds: 90, research: ['barter', 'carpentry'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 6 }, description: 'Shop furnishing: tall sawn shelves. Appeal +6.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'oak_shelves' } },
+  { id: 'display_table', name: 'Display Table', slot: null, station: 'sawmill', cost: { lumber: 8, cloth: 2 }, seconds: 120, research: ['barter', 'carpentry', 'weaving'], effects: {}, furnish: { kind: 'table', w: 2, h: 2, appeal: 8 }, description: 'Shop furnishing: a cloth-covered table of the best wares. Appeal +8.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'display_table' } },
+  { id: 'wool_rug', name: 'Wool Rug', slot: null, station: 'loom', cost: { cloth: 3 }, seconds: 90, research: ['barter', 'weaving'], effects: {}, furnish: { kind: 'rug', w: 2, h: 1, appeal: 5 }, description: 'Shop furnishing: a patterned rug. Appeal +5.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'wool_rug' } },
+  { id: 'iron_lantern', name: 'Iron Lantern', slot: null, station: 'smithy', cost: { iron: 2 }, seconds: 90, research: ['barter', 'iron_working'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 5 }, description: 'Shop furnishing: a warm light to shop by. Appeal +5.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'iron_lantern' } },
+  { id: 'glass_cabinet', name: 'Glass Cabinet', slot: null, station: 'glassworks', cost: { glass: 4, lumber: 2 }, seconds: 150, research: ['barter', 'glassblowing'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 10 }, description: 'Shop furnishing: goods behind glass. Appeal +10.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'glass_cabinet' } },
+  { id: 'neon_sign', name: 'Neon Sign', slot: null, station: 'electronics_plant', cost: { glass: 2, electronics: 1 }, seconds: 150, research: ['barter', 'electronics'], effects: {}, furnish: { kind: 'decor', w: 1, h: 1, appeal: 12 }, description: 'Shop furnishing: it glows, and people come. Appeal +12.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'neon_sign' } },
   { id: 'poultice', name: 'Poultice', slot: null, station: 'campfire', cost: { herbs: 2, fiber: 1 }, seconds: 30, research: ['herbalism'], effects: {}, description: 'Used on anyone badly hurt in town: stops bleeding, +20 health.', icon: { sheet: 'Food', x: 6, y: 1 } },
   // food
   { id: 'dried_meat', name: 'Dried Meat', slot: null, station: 'drying_rack', cost: { meat: 2 }, seconds: 60, research: ['food_preservation'], makes: { dried_meat: 2 }, effects: {}, description: 'More filling than raw meat.', icon: { sheet: 'Flesh', x: 5, y: 4 } },

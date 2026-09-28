@@ -91,6 +91,19 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
   Your part is the town's **direction** (Growth, Defence, Trade or Knowledge, under Plan) and sending
   **expeditions** (the next era needs the Bear Cave's totem). The Plan tab shows what it's building, what it
   decided last and why, and what it's gathering for.
+- **The shop and coins.** Once the town learns Barter it builds a **Trading Post**, and later rebuilds it
+  bigger (a General Store with Carpentry, an Emporium with Glassblowing).
+  - **Travellers** pass through every few hours. Each stops at the shop, buys what the town has spare (never
+    food it needs, the totem, or anything a build is waiting on) for **coins**, browses a while, and walks on.
+  - **The town buys from them** what it's short of. Anything it can't gather, grow or make (a desert's fiber,
+    once the land is cleared of it) it buys at any price. Anything else it buys only for a building it's
+    waiting on, keeping some coins back, or toward its usual stock once it's rich.
+  - **Furnishings:** the town makes shelves, tables, stands, rugs and decorations for it, and the shopkeeper
+    (the best Social person free) sets them out. A better-furnished shop (higher **appeal**) draws travellers
+    more often, and they spend more. A second piece like one already out counts half, so the town goes for
+    variety, and on a full floor better pieces replace the poorest.
+  - **Tap the shop** (or a traveller) to see inside: a bird's-eye view of the counter, the furnishings and the
+    travellers browsing, with what's for sale, what the town wants to buy, and the latest sales.
 - **The strip:** scroll with the mouse wheel or drag, and click buildings and people for their details. The
   tabs on the right open the panels: Plan, Research, Expeditions, Townsfolk, Crafting, Trade and the Journal.
 - **The tray icon:**

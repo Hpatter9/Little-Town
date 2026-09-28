@@ -162,7 +162,7 @@ export function createHud(bridge: Bridge): Hud {
       if (foodDays.textContent !== foodText) foodDays.textContent = foodText;
       foodDays.classList.toggle('low', days < 1);
       foodDays.title = 'How long the stored food lasts everyone, at a meal a day each';
-      const town = `People ${snap.housing.people} · Beds ${snap.housing.beds}`;
+      const town = `People ${snap.housing.people} · Beds ${snap.housing.beds}` + (snap.shop || snap.coins ? ` · ● ${snap.coins} coins` : '');
       const stockText = `${town} · Stored ${snap.storageUsed}/${snap.storageCapacity}` + (held.length ? ': ' + held.join(' · ') : '');
       if (stock.textContent !== stockText) stock.textContent = stockText;
     },

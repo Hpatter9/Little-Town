@@ -32,6 +32,8 @@ export interface BuildingDef {
   healing?: number;
   /** Horses it can keep. */
   stalls?: number;
+  /** Shops (see data/shop.ts): the size of the floor inside, in cells, and the appeal it has bare. */
+  shop?: { cols: number; rows: number; appeal: number };
   /** Traps and turrets: they hit the nearest raider in range (px from the building's centre) every interval seconds. */
   defense?: { damage: [number, number]; range: number; interval: number; accuracy: number };
 }
@@ -56,6 +58,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'palisade_gate', name: 'Palisade Gate', layer: 'fore', width: 2, cost: { wood: 14, fiber: 4 }, buildSeconds: 70, purpose: 'Like a wall, but weaker. Townsfolk come and go through it.', research: 'palisades', hp: 120 },
   { id: 'lookout', name: 'Lookout Platform', layer: 'mid', width: 2, cost: { wood: 14, fiber: 6 }, buildSeconds: 90, purpose: 'Spots raiders early: an hour of warning instead of minutes.', research: 'lookout', warningMinutes: 60 },
   { id: 'spike_trap', name: 'Spike Pit', layer: 'fore', width: 1, cost: { wood: 6, flint: 2 }, buildSeconds: 40, purpose: 'Hurts raiders who cross it.', research: 'palisades', defense: { damage: [6, 12], range: 16, interval: 5, accuracy: 0.8 } },
+  { id: 'trading_post', name: 'Trading Post', layer: 'mid', width: 3, cost: { wood: 12, stone: 8 }, buildSeconds: 90, purpose: 'A shop: travellers stop to buy the town\'s goods for coins, and sell it what it lacks. The townsfolk furnish it over time, and a better-furnished shop sells more.', research: 'barter', shop: { cols: 6, rows: 4, appeal: 0 } },
   { id: 'elder_lodge', name: 'Elder Lodge', layer: 'mid', width: 5, cost: { wood: 40, stone: 30, hide: 10, totem: 1 }, buildSeconds: 300, purpose: 'Era capstone: opens the Medieval era. Needs the totem from the Bear Cave.', research: 'elders_council', morale: [4, 'The elders keep the peace'] },
 
   // Medieval
@@ -78,6 +81,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'infirmary', name: 'Infirmary', layer: 'mid', width: 4, cost: { lumber: 16, bricks: 10, cloth: 6 }, buildSeconds: 180, purpose: 'Wounds heal twice as fast.', research: 'physick', healing: 2 },
   { id: 'stable', name: 'Stable', layer: 'mid', width: 4, cost: { lumber: 20, stone: 6, fiber: 10 }, buildSeconds: 180, purpose: 'Keeps up to 4 horses. Buy them from caravans.', research: 'animal_husbandry', stalls: 4 },
   { id: 'school', name: 'School', layer: 'mid', width: 4, cost: { lumber: 16, bricks: 8, cloth: 2 }, buildSeconds: 180, purpose: 'Children grow up with better skills.', research: 'schooling' },
+  { id: 'general_store', name: 'General Store', layer: 'mid', width: 4, cost: { lumber: 16, stone: 8, cloth: 2 }, buildSeconds: 180, purpose: 'A bigger shop, with room for more furnishings: more travellers stop, and they spend more.', research: 'carpentry', shop: { cols: 8, rows: 5, appeal: 4 } },
   { id: 'market', name: 'Market Stall', layer: 'fore', width: 3, cost: { lumber: 12, cloth: 6 }, buildSeconds: 120, purpose: 'Trade caravans stop here.', research: 'trade' },
   { id: 'resurrection_shrine', name: 'Resurrection Shrine', layer: 'mid', width: 2, cost: { stone: 30, bricks: 10, iron: 4, cloth: 4 }, buildSeconds: 400, purpose: 'If the founder dies, they come back. Works once.', research: 'resurrection_rites' },
   // Industrial
@@ -87,6 +91,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'factory', name: 'Factory', layer: 'mid', width: 6, cost: { bricks: 40, steel: 10, glass: 6 }, buildSeconds: 360, purpose: 'Steam-driven: everything crafted here and at other stations goes twice as fast.', research: 'steam_power' },
   { id: 'gunsmith', name: 'Gunsmith', layer: 'mid', width: 3, cost: { bricks: 16, steel: 6, lumber: 8 }, buildSeconds: 200, purpose: 'Makes muskets and shot.', research: 'firearms' },
   { id: 'gun_nest', name: 'Gun Nest', layer: 'fore', width: 1, cost: { bricks: 16, steel: 6 }, buildSeconds: 180, purpose: 'A sandbagged gun that fires on raiders in range.', research: 'firearms', defense: { damage: [9, 14], range: 170, interval: 1.6, accuracy: 0.65 } },
+  { id: 'emporium', name: 'Emporium', layer: 'mid', width: 5, cost: { bricks: 24, glass: 8, lumber: 10 }, buildSeconds: 300, purpose: 'A grand shop with glass windows and room for a lot of furnishings.', research: 'glassblowing', shop: { cols: 10, rows: 6, appeal: 10 } },
   { id: 'rowhouse', name: 'Row Houses', layer: 'mid', width: 4, cost: { bricks: 30, lumber: 12, glass: 4 }, buildSeconds: 300, purpose: 'Houses 6.', research: 'urban_housing', housing: 6 },
   { id: 'hospital', name: 'Hospital', layer: 'mid', width: 5, cost: { bricks: 30, steel: 4, glass: 6, cloth: 10 }, buildSeconds: 360, purpose: 'Wounds heal three times as fast.', research: 'sanitation', healing: 3 },
   { id: 'library', name: 'Library', layer: 'mid', width: 4, cost: { bricks: 24, glass: 8, lumber: 12 }, buildSeconds: 300, purpose: 'Research workstation (tier 3): research three times as fast.', research: 'public_library' },
@@ -134,6 +139,8 @@ export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walk
 /** Upgrades in place (DESIGN §4): what each building can be rebuilt into where it stands (it may grow wider). */
 export const UPGRADES: Readonly<Record<string, string>> = {
   lean_to: 'hide_tent',
+  trading_post: 'general_store',
+  general_store: 'emporium',
   hide_tent: 'cottage',
   cottage: 'rowhouse',
   rowhouse: 'apartments',

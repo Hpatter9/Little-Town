@@ -17,12 +17,12 @@ import { topicKnown } from './secrets';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
+  JSON.stringify([s.coins, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const used = blueprintCount(s);
   const head = el('div', 'panel-head');
-  head.append(el('span', '', `Building ${used}/${s.buildSlots} at once`), el('span', '', `Stored ${s.storageUsed}/${s.storageCapacity}`));
+  head.append(el('span', '', `Building ${used}/${s.buildSlots} at once`), el('span', '', `● ${s.coins} coins · Stored ${s.storageUsed}/${s.storageCapacity}`));
   const out: HTMLElement[] = [head];
 
   // the one thing the player decides: where the town puts its effort

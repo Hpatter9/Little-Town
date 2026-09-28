@@ -70,7 +70,7 @@ function layout(): void {
   strip.style.height = `${height}px`;
   strip.style.transform = `scale(${z})`;
   document.documentElement.style.setProperty('--strip-h', `${height * z}px`);
-  strip.contentDocument?.documentElement.style.setProperty('--ui-zoom', String(Math.max(1, 1 / z)));
+  strip.contentDocument?.documentElement?.style.setProperty('--ui-zoom', String(Math.max(1, 1 / z)));
 }
 function setZoom(z: number): void {
   zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
@@ -155,6 +155,7 @@ new ResizeObserver(() => {
 
 const applyState = (s: StripState) => {
   sheet.hidden = !s.panel;
+  document.body.classList.toggle('menu-open', !!s.panel); // (menus take the whole screen)
   if (s.panel) menu.hidden = true;
   for (const t of tabButtons) t.b.classList.toggle('on', t.id === s.panel);
 };

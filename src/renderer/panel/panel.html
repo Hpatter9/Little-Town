@@ -742,6 +742,60 @@
         background: #7a5a33;
         border-color: #c79a55;
       }
+      .shop-frame {
+        display: flex;
+        justify-content: center;
+        margin: 8px 0 4px;
+      }
+      .shop-floor {
+        display: block;
+        width: 100%;
+        max-width: 560px;
+        height: auto;
+        max-height: 48vh;
+        object-fit: contain;
+        image-rendering: pixelated;
+        border: 2px solid #22170f;
+        border-radius: 3px;
+        background: #22170f;
+      }
+      /* wide (a phone on its side): the picture on the left, what the shop's doing beside it */
+      @media (min-aspect-ratio: 3/2) {
+        .shop-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+          gap: 16px;
+          align-items: start;
+        }
+        .shop-layout .shop-frame {
+          position: sticky;
+          top: 0;
+        }
+        .shop-floor {
+          max-height: 72vh;
+        }
+      }
+      .shop-coins {
+        color: #f0d060;
+        font-weight: 700;
+      }
+      .shop-pieces {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .shop-log {
+        display: flex;
+        gap: 8px;
+        font-size: 12px;
+        padding: 2px 0;
+        border-bottom: 1px solid #33251a;
+      }
+      .shop-when {
+        flex: none;
+        color: var(--text-dim);
+        white-space: nowrap;
+      }
     </style>
   </head>
   <body>

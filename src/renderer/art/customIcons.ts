@@ -12,6 +12,80 @@ const GLOW = '#8ad8f8';
 
 /** The icons, in sheet order (the index is the icon's x; they all sit on row 0 or 1). */
 export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
+  // shop furnishings
+  crate_stand: (p) => {
+    p.rect(3, 6, 10, 8, WOOD);
+    p.rect(3, 6, 10, 1, '#a87a48');
+    p.rect(3, 10, 10, 1, WOOD_DARK);
+    p.rect(5, 3, 3, 3, '#d8a050');
+    p.rect(9, 4, 3, 2, '#8a4a30');
+  },
+  plank_shelf: (p) => {
+    p.rect(2, 2, 12, 12, WOOD_DARK);
+    for (const y of [5, 9, 13]) p.rect(2, y, 12, 1, WOOD);
+    p.rect(4, 3, 2, 2, '#d8a050');
+    p.rect(8, 7, 3, 2, '#8a4a30');
+    p.rect(5, 11, 3, 2, '#aab35c');
+  },
+  woven_mat: (p) => {
+    p.rect(1, 5, 14, 7, '#b89a58');
+    for (let x = 2; x < 15; x += 3) p.rect(x, 5, 1, 7, '#8a7040');
+  },
+  clay_urns: (p) => {
+    p.rect(3, 5, 5, 8, '#b0704a');
+    p.rect(4, 3, 3, 2, '#80502f');
+    p.rect(9, 8, 5, 5, '#c88a5a');
+    p.rect(10, 7, 3, 1, '#80502f');
+  },
+  trestle_table: (p) => {
+    p.rect(1, 6, 14, 3, WOOD);
+    p.rect(2, 9, 2, 5, WOOD_DARK);
+    p.rect(12, 9, 2, 5, WOOD_DARK);
+    p.rect(4, 4, 3, 2, '#d8a050');
+    p.rect(9, 4, 3, 2, '#5a5a64');
+  },
+  herb_planter: (p) => {
+    p.rect(4, 9, 8, 5, '#b0704a');
+    p.rect(5, 4, 2, 5, '#5a9443');
+    p.rect(8, 3, 2, 6, '#3e7234');
+    p.rect(10, 5, 2, 4, '#7fb456');
+  },
+  oak_shelves: (p) => {
+    p.rect(2, 1, 12, 14, '#5a3a22');
+    for (const y of [4, 8, 12]) p.rect(2, y, 12, 1, '#8a5a30');
+    p.rect(4, 2, 3, 2, '#9aa0a8');
+    p.rect(9, 6, 3, 2, '#d8c8a8');
+    p.rect(5, 10, 4, 2, '#d0903a');
+  },
+  display_table: (p) => {
+    p.rect(1, 6, 14, 4, '#8a2a3a');
+    p.rect(1, 10, 14, 2, '#6a1a2a');
+    p.rect(4, 4, 3, 2, '#e8c040');
+    p.rect(9, 4, 3, 2, '#9aa0a8');
+  },
+  wool_rug: (p) => {
+    p.rect(1, 4, 14, 9, '#8a2a3a');
+    p.rect(3, 6, 10, 5, '#c8a050');
+    p.rect(5, 8, 6, 1, '#8a2a3a');
+  },
+  iron_lantern: (p) => {
+    p.rect(7, 1, 2, 2, DARK);
+    p.rect(5, 3, 6, 9, DARK);
+    p.rect(6, 4, 4, 7, '#f0c060');
+    p.rect(4, 12, 8, 2, DARK);
+  },
+  glass_cabinet: (p) => {
+    p.rect(2, 1, 12, 14, WOOD_DARK);
+    p.rect(3, 2, 10, 12, '#a8d8e8');
+    p.rect(3, 2, 10, 1, '#e0f4fa');
+    p.rect(5, 5, 2, 2, '#e8c040');
+    p.rect(9, 9, 2, 2, '#e05a8a');
+  },
+  neon_sign: (p) => {
+    p.rect(1, 4, 14, 8, '#2a2a30');
+    p.rect(3, 6, 10, 1, '#ff5ab8');
+    p.rect(3, 9, 7, 1, GLOW);
+  },
   musket: (p) => {
     p.rect(1, 9, 9, 2, WOOD);
     p.rect(1, 10, 3, 3, WOOD_DARK);

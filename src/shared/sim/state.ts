@@ -72,6 +72,32 @@ export interface Building {
   /** Who runs it (buildings with an operator role), and whether the player picked them. */
   operator?: number | null;
   operatorChosen?: boolean;
+  /** Shops: the furnishings set out on the floor (item id, and its top-left cell). */
+  shop?: { pieces: ShopPiece[] };
+}
+
+export interface ShopPiece {
+  item: string;
+  x: number;
+  y: number;
+}
+
+/** Someone passing through who stops at the town's shop (see shop.ts). */
+export interface Traveller {
+  id: number;
+  name: string;
+  /** What they are (a pedlar, a herder...). */
+  kind: string;
+  look: Look;
+  x: number;
+  dir: 1 | -1;
+  /** Walking in to the shop, inside it, or on their way out of town (to `toX`, then gone). */
+  phase: 'arriving' | 'shopping' | 'leaving';
+  toX: number;
+  /** When they're done shopping. */
+  until: number;
+  /** Coins they can spend. */
+  purse: number;
 }
 
 export type Task =
@@ -473,6 +499,12 @@ export interface GameState {
   plan?: TownPlan;
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
+  /** The town's purse (none when left out), travellers in town, when the next is due, and what the shop has done
+   *  lately (newest last), for its window. */
+  coins?: number;
+  travellers?: Traveller[];
+  nextTravellerTick?: number;
+  shopLog?: { tick: number; text: string }[];
 }
 
 /** Effects drawn round a townsperson: turned undead, a vampire or a werewolf, healed by a medkit, or struck by an

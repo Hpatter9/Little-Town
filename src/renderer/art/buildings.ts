@@ -683,6 +683,64 @@ const ART: Record<string, { h: number; draw: Draw }> = {
       for (let i = 0; i < 7; i++) p.rect(8 + i * 12, h - 20, 8, 6, goods[i % goods.length]);
     },
   },
+  trading_post: {
+    h: 50,
+    draw: (p, w, h) => {
+      for (let x = 6; x < w - 6; x += 4) log(p, x, h - 28, 4, 28); // log walls
+      roof(p, 2, w - 2, h - 26, 6, THATCH, THATCH_DARK);
+      p.rect(w / 2 - 6, h - 20, 12, 20, '#3a2a1c'); // door
+      // a striped awning over a trestle of goods, left of the door
+      for (let x = 4; x < w / 2 - 8; x += 6) p.rect(x, h - 24, 6, 5, (x / 6) % 2 ? '#c84a3a' : '#e8dcc0');
+      beam(p, 6, h - 10, w / 2 - 16, 3);
+      const goods = ['#d8a050', '#8a4a30', '#c8b8a0', PAL.leafLight];
+      for (let i = 0; i * 7 + 8 < w / 2 - 12; i++) p.rect(8 + i * 7, h - 14, 5, 4, goods[i % goods.length]);
+      // a hanging sign with a coin on it
+      beam(p, w - 26, h - 30, 18, 2);
+      p.rect(w - 22, h - 28, 12, 9, '#8a5a2a');
+      p.ellipse(w - 16, h - 24, 3, 3, '#e8c040');
+    },
+  },
+  general_store: {
+    h: 62,
+    draw: (p, w, h) => {
+      p.rect(6, h - 36, w - 12, 36, '#d8c8a8'); // plaster
+      for (const x of [6, w - 9]) p.rect(x, h - 36, 3, 36, PAL.trunkDark);
+      p.rect(6, h - 36, w - 12, 2, PAL.trunkDark);
+      roof(p, 0, w, h - 34, 6, THATCH, THATCH_DARK);
+      // a long shop window full of goods, and the door
+      p.rect(12, h - 26, w / 2 - 6, 14, PAL.trunkDark);
+      p.rect(14, h - 24, w / 2 - 10, 10, '#f0d890');
+      const goods = ['#8a4a30', '#5a5a64', '#d8a050', '#a4543a', PAL.leafLight, '#c8b8a0'];
+      for (let i = 0; i * 7 + 16 < w / 2 + 2; i++) p.rect(16 + i * 7, h - 20, 5, 6, goods[i % goods.length]);
+      p.rect(w - 30, h - 20, 12, 20, '#3a2a1c');
+      // the sign board over it all
+      p.rect(w / 2 - 22, h - 34, 44, 7, '#5a3a22');
+      p.rect(w / 2 - 20, h - 33, 40, 5, '#8a5a2a');
+      for (let x = w / 2 - 16; x < w / 2 + 16; x += 5) p.rect(x, h - 31, 3, 1, '#e8dcc0');
+    },
+  },
+  emporium: {
+    h: 74,
+    draw: (p, w, h) => {
+      bricks(p, 4, h - 48, w - 8, 48);
+      p.rect(2, h - 50, w - 4, 4, BRICK_DARK); // cornice
+      p.rect(2, h - 52, w - 4, 2, BRICK_LIGHT);
+      // two big glass windows either side of the door, under a striped awning
+      for (const x of [10, w / 2 + 12]) {
+        p.rect(x, h - 30, w / 2 - 22, 22, '#3a3a40');
+        p.rect(x + 2, h - 28, w / 2 - 26, 18, '#a8d8e8');
+        p.rect(x + 2, h - 28, w / 2 - 26, 2, '#e0f4fa');
+        const goods = ['#d0a020', '#e05a8a', '#9aa0a8', '#d0903a', '#3a8a4a'];
+        for (let i = 0; i * 8 + 6 < w / 2 - 26; i++) p.rect(x + 4 + i * 8, h - 16, 6, 6, goods[i % goods.length]);
+      }
+      for (let x = 6; x < w - 6; x += 8) p.rect(x, h - 38, 8, 6, (x / 8) % 2 ? '#2a6a4a' : '#e8dcc0');
+      p.rect(w / 2 - 8, h - 26, 16, 26, '#3a2a1c');
+      p.rect(w / 2 - 6, h - 24, 12, 8, '#f0d890');
+      // the name across the top, in gold
+      p.rect(w / 2 - 30, h - 47, 60, 7, '#2a1a10');
+      for (let x = w / 2 - 26; x < w / 2 + 26; x += 5) p.rect(x, h - 45, 3, 3, '#e8c040');
+    },
+  },
   town_hall: {
     h: 100,
     draw: (p, w, h) => {

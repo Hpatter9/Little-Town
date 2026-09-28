@@ -18,6 +18,8 @@ import { acceptVisitor, housingCapacity } from './townsfolk';
 import { addStock, campX, type GameState } from './state';
 import { TILE } from '../constants';
 import { TICKS_PER_HOUR } from './time';
+import { COIN_RESERVE, isShop, PURSE_SCALE, travellerGoods } from '../data/shop';
+import { appealGain, shopOf, wouldFurnish } from './shop';
 
 /* ------------------------------------------------------------ the town's direction */
 
@@ -63,6 +65,8 @@ interface Needs {
   demand: Stock;
   raided: boolean;
   direction: Direction;
+  /** Materials the town wants but can't gather, grow or make: only travellers can sell it them. */
+  unsourced: Material[];
 }
 
 /** A small stock the town likes to keep of each basic material it can get (so building never waits long). */
@@ -80,7 +84,11 @@ function needs(s: GameState): Needs {
   const used = MATERIALS.reduce((n, m) => n + (stock[m] ?? 0), 0);
   // (homes already started count: they're beds on the way)
   const coming = s.buildings.filter((b) => b.status === 'blueprint').reduce((k, b) => k + (BUILDING_BY_ID[b.def]?.housing ?? 0), 0);
+  // (the basics every town builds with, and whatever a blueprint is waiting on)
+  const wanted = new Set<Material>(['wood', 'stone', 'fiber']);
+  for (const b of s.buildings) if (b.status === 'blueprint') for (const m of Object.keys(stillNeeded(b)) as Material[]) wanted.add(m);
   return {
+    unsourced: [...wanted].filter((m) => m !== 'totem' && !sourceable(s, m, 0, false)),
     people: s.people.length,
     freeBeds: housingCapacity(s) + coming - s.people.length,
     foodDays: food / eaters,
@@ -101,14 +109,19 @@ const unlocked = (s: GameState, id: string) => !!BUILDING_BY_ID[id] && isUnlocke
 const planned = (s: GameState, id: string) => s.buildings.some((b) => b.def === id);
 
 /** Whether the town has a way to get a material: from the land, a field, a mine, or a recipe it can make (its
- *  station built or at least unlocked, and the recipe's own inputs obtainable). */
-function sourceable(s: GameState, m: Material, depth = 0): boolean {
+ *  station built or at least unlocked, and the recipe's own inputs obtainable), or (unless `buy` is off) from the
+ *  travellers who stop at its shop. */
+function sourceable(s: GameState, m: Material, depth = 0, buy = true): boolean {
   if (depth > 3) return false;
+  if (buy && buyable(s, m)) return true;
   if (GATHERABLE.has(m) && s.tiles.some((t) => t.terrain !== 'clear' && (t.pool[m] ?? 0) > 0)) return true;
   for (const [id, c] of Object.entries(CROPS)) if (c.material === m && unlocked(s, id)) return true;
   for (const [id, w] of Object.entries(WORKPLACES)) if ((w.outputs as Stock)[m] && unlocked(s, id)) return true;
-  return RECIPES_FOR(m).some((r) => itemUnlocked(s, r) && unlocked(s, r.station) && (Object.keys(r.cost) as Material[]).every((i) => sourceable(s, i, depth + 1)));
+  return RECIPES_FOR(m).some((r) => itemUnlocked(s, r) && unlocked(s, r.station) && (Object.keys(r.cost) as Material[]).every((i) => sourceable(s, i, depth + 1, buy)));
 }
+
+/** Travellers sell it, and the town has a shop for them to stop at. */
+const buyable = (s: GameState, m: Material) => !!shopOf(s) && travellerGoods(s.era).includes(m);
 
 /** Whether every material a building costs can be had (the totem only if it's already in store). */
 function affordable(s: GameState, def: BuildingDef, stock: Stock): boolean {
@@ -131,6 +144,8 @@ function topicScore(t: Topic, n: Needs): number {
     if (b.healing) score += 8;
     if (b.hp || b.defense) score += n.raided || n.direction === 'defense' ? 14 : 2;
     if (b.stalls || b.id === 'tavern') score += n.direction === 'trade' ? 12 : 3;
+    // (a shop is the only way to get what the land doesn't give: without it the town can't build at all)
+    if (isShop(b.id)) score += (n.unsourced.length ? 60 : 0) + (n.direction === 'trade' ? 12 : 3);
   }
   const items = ITEMS.filter((i) => i.research.includes(t.id)).length;
   score += Math.min(12, items * 3);
@@ -149,6 +164,7 @@ function whyTopic(t: Topic, n: Needs): string {
   const unlocks = BUILDINGS.filter((d) => d.research === t.id);
   if (unlocks.some((b) => b.housing) && n.freeBeds <= 1) return 'the town needs more beds';
   if (unlocks.some((b) => CROPS[b.id]) && n.foodDays < 5) return 'food is running short';
+  if (unlocks.some((b) => isShop(b.id)) && n.unsourced.length) return `it can't get ${names(n.unsourced)} any other way`;
   if (t.effects.some((e) => e.type === 'eraCapstone')) return 'it leads to the next era';
   if (DIRECTION_DEFS[n.direction].branches.includes(BRANCH_OF(t))) return `the town is set on ${DIRECTION_DEFS[n.direction].name.toLowerCase()}`;
   return 'it opens new things to build and make';
@@ -243,6 +259,13 @@ function planCrafting(s: GameState, n: Needs): Stock {
   const isMedicine = (i: ItemDef) => i.id === 'poultice' || i.id === 'bandage';
   if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
   // (one pot on order at a time: the crafters have other work)
+  // 5. a furnishing for the shop, one at a time (while food holds up): the most appealing it can make that would
+  // improve the shop (it has room for it, or it beats a piece already out)
+  const shop = shopOf(s);
+  const isFurnishing = (i: ItemDef) => !!i.furnish;
+  if (shop && room() && n.foodDays >= 2 && !ordered(s, isFurnishing) && !kept(s, isFurnishing)) {
+    tryMake(bestMakeable(s, (i) => isFurnishing(i) && wouldFurnish(shop, i), (i) => appealGain(shop, i)));
+  }
   if (room() && n.storageFill > 0.7 && !ordered(s, (i) => i.id === 'clay_pot') && (s.items.clay_pot ?? 0) < MAX_POTS && stationFor(s, ITEM_BY_ID.clay_pot) && itemUnlocked(s, ITEM_BY_ID.clay_pot)) tryMake(ITEM_BY_ID.clay_pot);
   return want;
 }
@@ -311,6 +334,10 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   // (poor soil, like the desert's, feeds fewer per field: while food is short it keeps adding fields)
   const fieldsWanted = Math.ceil(n.people / 2) + (n.foodDays < 3 ? Math.ceil(n.people / 3) : 0);
   if (fields < Math.min(fieldsWanted, n.people + 1)) options((d) => !!CROPS[d.id] && CROPS[d.id].material !== 'herbs', (d) => CROPS[d.id].yield, n.foodDays < 3 ? 'food is running low' : 'more fields for more people');
+  // a shop, first thing, when the land can't give what the town needs (a desert's fiber, once it's gathered out)
+  const shopPlanned = s.buildings.some((b) => isShop(b.def));
+  const firstShop = BUILDING_BY_ID.trading_post;
+  if (!shopPlanned && can(firstShop) && n.unsourced.length) add(firstShop.id, `to buy the ${names(n.unsourced)} it can't gather`);
   // storage when it's filling up (a few stores, not a field of them: the rest is what the shop is for)
   const stores = s.buildings.filter((b) => BUILDING_BY_ID[b.def]?.storage && b.def !== 'campfire').length;
   if (n.storageFill > 0.8 && stores < 2 + Math.floor(n.people / 4)) options((d) => !!d.storage && d.id !== 'campfire', (d) => d.storage!, 'the stores are nearly full');
@@ -321,16 +348,20 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     const walls = s.buildings.filter((b) => isWall(BUILDING_BY_ID[b.def])).length;
     if (walls < 4) options((d) => isWall(d), (d) => d.hp!, 'a wall at each end of town');
   }
+  // a shop to sell to travellers (sooner when the town is set on trade)
+  if (!shopPlanned && can(firstShop) && n.direction === 'trade') add(firstShop.id, 'to sell to travellers for coins');
   // a better place to research
   const station = Object.entries(RESEARCH_STATIONS).filter(([id]) => BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id])).sort((a, b) => b[1].mult - a[1].mult)[0];
   if (station && !planned(s, station[0])) add(station[0], 'somewhere better to study');
   // the next era, once the town can manage it
   for (const id of CAPSTONES) if (BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id]) && !planned(s, id)) add(id, 'the way to the next era');
+  if (!shopPlanned && can(firstShop)) add(firstShop.id, 'to sell to travellers for coins');
   // one of every workshop, mine, farm building and comfort it has learned to build
   const order = n.direction === 'trade' ? (d: BuildingDef) => (d.stalls || d.id === 'tavern' || ITEMS.some((i) => i.station === d.id) ? 0 : 1) : () => 0;
   for (const d of [...BUILDINGS].sort((a, b) => order(a) - order(b))) {
     if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || CAPSTONES.includes(d.id)) continue;
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
+    if (isShop(d.id)) continue; // (one shop, which grows by being rebuilt bigger)
     add(d.id, WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
   }
   return out;
@@ -419,6 +450,63 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
   }
   for (const i of clear) mark(i);
 }
+
+/* ------------------------------------------------------------ the shop: selling and buying */
+
+/** Days of food the town holds back before it sells any. */
+const FOOD_KEEP_DAYS = 5;
+/** With this many times its coin reserve in the purse, the town also buys toward its usual stock of materials. */
+const RICH = 3;
+/** Ammunition kept for the town's slings, bows and guns. */
+const AMMO: readonly Material[] = ['sling_stones', 'arrows', 'shot', 'cartridges'];
+const AMMO_KEEP = 30;
+
+/** What the town will sell to travellers: what it has beyond what building and crafting need and a healthy reserve
+ *  (twice its usual one), food beyond several days' worth, and never the totem. */
+export function forSale(s: GameState): Stock {
+  const n = needs(s);
+  const eaters = s.people.filter((p) => p.monster !== 'undead').length || 1;
+  let spareFood = Math.max(0, (n.foodDays - FOOD_KEEP_DAYS) * eaters);
+  const out: Stock = {};
+  for (const m of MATERIALS) {
+    const have = n.stock[m] ?? 0;
+    if (m === 'totem' || have <= 0) continue;
+    let spare: number;
+    const value = FOOD_VALUE[m];
+    if (value) {
+      spare = Math.min(have, Math.floor(spareFood / value));
+      spareFood -= spare * value;
+    } else spare = have - Math.max(n.demand[m] ?? 0, (RESERVE[m] ?? 6) * 2, AMMO.includes(m) ? AMMO_KEEP : 0);
+    if (spare > 0) out[m] = spare;
+  }
+  return out;
+}
+
+/** What the town would buy from a traveller, most needed first. What it can't get any other way it buys whatever
+ *  it costs (`essential`); what it could gather or make it buys only for a building it's waiting on, and only with
+ *  coins to spare; and food when it's running out. */
+export function shoppingList(s: GameState): { m: Material; n: number; essential: boolean }[] {
+  const n = needs(s);
+  const out: { m: Material; n: number; essential: boolean }[] = [];
+  if (n.foodDays < 2) {
+    const eaters = s.people.filter((p) => p.monster !== 'undead').length || 1;
+    const food = travellerGoods(s.era).filter((m) => FOOD_VALUE[m]).sort((a, b) => FOOD_VALUE[b]! - FOOD_VALUE[a]!)[0];
+    if (food) out.push({ m: food, n: Math.ceil(((3 - n.foodDays) * eaters) / FOOD_VALUE[food]!), essential: true });
+  }
+  const rich = (s.coins ?? 0) >= RICH * COIN_RESERVE * PURSE_SCALE[s.era];
+  const building: Stock = {};
+  for (const b of s.buildings) if (b.status === 'blueprint') for (const [m, k] of Object.entries(stillNeeded(b)) as [Material, number][]) addStock(building, m, k);
+  for (const m of MATERIALS) {
+    const short = (n.demand[m] ?? 0) - (n.stock[m] ?? 0);
+    if (short <= 0 || m === 'totem') continue;
+    const essential = !sourceable(s, m, 0, false);
+    const k = essential || rich ? short : Math.min(short, building[m] ?? 0);
+    if (k > 0) out.push({ m, n: k, essential });
+  }
+  return out.sort((a, b) => Number(b.essential) - Number(a.essential));
+}
+
+const names = (ms: readonly Material[]) => ms.map((m) => MATERIAL_NAMES[m].toLowerCase()).join(' and ');
 
 /* ------------------------------------------------------------ making room */
 

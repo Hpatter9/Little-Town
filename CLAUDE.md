@@ -62,11 +62,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 ## Current work: the ant-farm redesign
 
 - **Phase 1 is done:** the self-running town, direction, and a zoomed-out phone view with pinch-to-zoom.
-- **Phase 2, next:** coins, and a **Shop** the townsfolk build and grow.
-  - It has a **bird's-eye (top-down) interior**. It opens like a menu over the town (above the tabs upright, or
-    the right half sideways), and they fill it with shelves, tables, stands and decorations over time.
-  - Better furnishing sells more.
-  - Travellers pass through town and buy goods, and the coins fund growth.
-  - Coins should also let desert towns buy the fiber they can't gather.
+- **Phase 2 is done:** coins and a shop (`src/shared/sim/shop.ts`, data in `src/shared/data/shop.ts`).
+  - The planner researches Barter and builds a Trading Post, which grows by upgrade (General Store, then Emporium).
+    Straight away if the land can't give what it needs (`unsourced`).
+  - It crafts furnishings (items with `furnish` in `data/items.ts`), and the shopkeeper (an operator role) sets them
+    out on the shop's floor grid (`shopLayout`). Appeal: more travellers, bigger purses.
+  - Travellers (`s.travellers`) walk in, trade at the shop, and walk out. The planner decides what's for sale
+    (`forSale`) and what to buy (`shoppingList`). Materials travellers sell count as sourceable once there's a
+    shop, which is how desert towns get fiber.
+  - The bird's-eye interior is the `shop` panel (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop.
+  - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
+- **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs
+  itself, so there's little to watch while a menu is open. The tabs stay visible (along the bottom upright).
 - **Phase 3:** a **Tavern**, built on the same plan.
 - **Phase 4:** animal husbandry and more farming.
