@@ -148,12 +148,16 @@ export const POWERS: Record<string, PowerDef> = {
   entangle: {
     id: 'entangle',
     name: 'Entangle',
-    description: 'In a raid: roots and vines hold the raiders fast.',
+    description: 'In a raid: roots and vines hold the raiders fast, and two walking mushrooms wake to fight.',
     cooldown: 8,
     when: raidOn,
     cast: (s) => {
       for (const r of foes(s)) r.cooldown += 15 * TICK_HZ;
-      return `Roots burst up and hold ${foes(s).length} raiders fast.`;
+      // and the grove's walking mushrooms wake to fight for it
+      const f = founder(s);
+      const x = f?.x ?? campX(s);
+      for (let i = 0; i < 2; i++) s.raid!.raiders.push(ally(s, 'shroom_folk', x + (i ? 16 : -16), f?.dir ?? 1));
+      return `Roots burst up and hold ${foes(s).length} raiders fast, and the mushrooms walk.`;
     },
   },
   bloom: {

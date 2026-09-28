@@ -32,6 +32,8 @@ export interface RaidKind {
    *  leads it. */
   origin?: string;
   leader?: string;
+  /** Only in these lands (data/biomes.ts); anywhere if unset. */
+  biomes?: string[];
 }
 
 export const RAID_KINDS: readonly RaidKind[] = [
@@ -59,10 +61,17 @@ export const RAID_KINDS: readonly RaidKind[] = [
   { id: 'pirates', name: 'Space pirates', goal: 'steal', goals: { steal: 4, burn: 1, kidnap: 2 }, steals: 'valuables', enemies: { space_pirate: 30 }, fromDay: 0, era: 'space', weight: 4, speed: 75, bribable: true, plural: true },
   { id: 'drones', name: 'Drone swarm', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { combat_drone: 22, slug_bot: 32, war_bot: 40 }, fromDay: 0, era: 'space', weight: 3, speed: 90, bribable: false, plural: false },
   { id: 'warband', name: 'Warband', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { soldier: 20, bandit_archer: 12, ogre: 32, hedge_wizard: 18 }, fromDay: 0, era: 'medieval', untilEra: 'industrial', weight: 2, speed: 50, bribable: true, plural: false },
+  // The land's own beasts
+  { id: 'lions', name: 'Pride of lions', goal: 'harm', enemies: { lion: 16, lioness: 11 }, fromDay: 4, untilEra: 'industrial', weight: 3, speed: 70, bribable: false, plural: false, biomes: ['desert'] },
+  { id: 'wild_dogs', name: 'Wild dog pack', goal: 'harm', enemies: { wild_dog: 6 }, fromDay: 3, untilEra: 'industrial', weight: 2, speed: 90, bribable: false, plural: false, biomes: ['desert', 'tundra'] },
+  { id: 'crocodiles', name: 'Crocodiles', goal: 'harm', enemies: { crocodile: 18 }, fromDay: 3, untilEra: 'modern', weight: 3, speed: 35, bribable: false, plural: true, biomes: ['coast'] },
+  // (never picked at random: things that come alive inside the town, see lurkers.ts)
+  { id: 'mimic', name: 'Mimic', goal: 'harm', enemies: { mimic: 30 }, fromDay: 9999, weight: 0, speed: 30, bribable: false, plural: false },
+  { id: 'tomes', name: 'Possessed tomes', goal: 'harm', enemies: { possessed_tome: 8 }, fromDay: 9999, weight: 0, speed: 40, bribable: false, plural: true },
   // Rival origins (data/rivals.ts): any era, from day 8, never to a town founded the same way
   { id: 'rival_lich', name: 'The Lich Lord\'s dead', goal: 'harm', goals: { harm: 4, burn: 1 }, enemies: { flying_skull: 6, zombie: 8, wraith: 10, mummy: 14 }, fromDay: 8, weight: 0.3, speed: 30, bribable: false, plural: true, origin: 'lich', leader: 'lich_lord' },
   { id: 'rival_druid', name: 'The Archdruid\'s wild', goal: 'harm', enemies: { wolf: 8, boar: 11, treant: 24 }, fromDay: 8, weight: 0.3, speed: 55, bribable: false, plural: false, origin: 'druid', leader: 'archdruid' },
-  { id: 'rival_vampire', name: 'The Blood Court', goal: 'harm', goals: { harm: 3, kidnap: 2 }, enemies: { thrall: 10, night_shade: 9 }, fromDay: 8, weight: 0.3, speed: 50, bribable: false, plural: false, origin: 'vampire', leader: 'countess' },
+  { id: 'rival_vampire', name: 'The Blood Court', goal: 'harm', goals: { harm: 3, kidnap: 2 }, enemies: { thrall: 10, night_shade: 9, vampire_bat: 6 }, fromDay: 8, weight: 0.3, speed: 50, bribable: false, plural: false, origin: 'vampire', leader: 'countess' },
   { id: 'rival_werewolf', name: 'The Moon Pack', goal: 'harm', enemies: { wolf: 8, wolf_alpha: 18, werewolf: 16 }, fromDay: 8, weight: 0.3, speed: 80, bribable: false, plural: false, origin: 'werewolf', leader: 'the_alpha' },
   { id: 'rival_robot', name: 'The Machine Colony', goal: 'harm', goals: { harm: 3, burn: 1 }, enemies: { scout_drone: 8, iron_sentry: 18 }, fromDay: 8, weight: 0.3, speed: 45, bribable: false, plural: false, origin: 'robot', leader: 'overmind' },
   { id: 'rival_dwarves', name: 'The Deep Hold', goal: 'steal', goals: { steal: 4, harm: 2 }, steals: 'valuables', enemies: { hold_warrior: 14, hold_crossbow: 11, stone_golem: 26 }, fromDay: 8, weight: 0.3, speed: 40, bribable: true, plural: false, origin: 'dwarves', leader: 'thane' },

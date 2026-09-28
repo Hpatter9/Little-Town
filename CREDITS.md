@@ -106,3 +106,12 @@ the game.
 - **Pixel Champions v3**: three more heroes as rival lords: Prime the Great Sage (the Mad Alchemist), Oratio the
   Mercenary (the Khan) and Wyvera the Queen Dragoon (the Tide Queen) (`creatures/champ_sage.png`,
   `champ_mercenary.png`, `champ_dragoon.png`).
+
+## Beasts and things that come alive
+
+- **whtdragon**'s RPG Maker MV sheets (see Creatures for the licence note): desert lions and wild dogs, coastal
+  crocodiles, the Behemoth, possessed tomes, vampire bats, the desert caravan's camels and the druid's walking
+  mushrooms (`creatures/lions.png`, `wilddogs.png`, `crocodiles.png`, `behemoth.png`, `tomes.png`, `bats.png`,
+  `camel.png`, `shrooms.png`).
+- **mobs** (mimic): the Mimic (`creatures/mimic.png`, its walk, attack, idle and disguise frames stacked into one
+  sheet; see the licence note under Rival armies).

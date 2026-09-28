@@ -118,6 +118,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Spell sprites:** `SPELL_SHEET_DEFS` in `art/effects.ts` (pvfx and Alenia sheets), matched to spells by `sprite` in
   `town/spellLooks.ts` and placed by `SHEETS` in `spellsView.ts` (foot offset, frame rate, glow). Rival troops use
   the golem/elemental stills (`elem_*`) and strip sheets with a `feet` share (`creatures.ts`).
+- **Beasts and lurkers:** biome-only raid kinds (`biomes` on a `RaidKind`: lions, wild dogs, crocodiles); the
+  Behemoth joins beast raids (`BEAST_RAIDS` in raids.ts). `src/shared/sim/lurkers.ts`: raids that start inside the
+  town (`startRaid(..., inside)`: the Mimic at the shop by night, possessed tomes at a library) and their rewards
+  (`lurkersBeaten`, from `endRaid`).
 - **Origin buildings:** `src/renderer/art/originStyles.ts`: each origin's own homes, walls and gates; every other
   building gets its materials swapped (`reclad`) and dressing on top. `buildingArt` takes the style (the theme id).
 - **Phase 4:** animal husbandry and more farming.

@@ -9,7 +9,7 @@ export interface HumanSprite {
 }
 
 /** Creature sheets (see renderer/art/creatures.ts). */
-export type CreatureSheetId = 'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'golems2' | 'snowmonkey' | 'ghosts' | 'mouse' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon';
+export type CreatureSheetId = 'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'golems2' | 'snowmonkey' | 'ghosts' | 'mouse' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon' | 'lions' | 'wilddogs' | 'crocodiles' | 'behemoth' | 'tomes' | 'bats' | 'camel' | 'shrooms' | 'mimic';
 
 /** A single still image (see renderer/art/stills.ts); hover ones bob in the air. */
 export interface StillSprite {
@@ -131,6 +131,19 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   commander: { id: 'commander', name: 'Commander', hp: 200, damage: [14, 22], accuracy: 0.8, dodge: 0.15, interval: 1.2, ranged: true, boss: true, loot: { electronics: 3, cartridges: 20 }, sprite: { people: 'soldier', weapon: 'sword' } },
   soldier: { id: 'soldier', name: 'Warband Soldier', hp: 70, damage: [7, 11], accuracy: 0.72, dodge: 0.14, interval: 1.2, ranged: false, loot: { iron: 2, leather: 1 }, sprite: { people: 'soldier', weapon: 'spear' } },
 
+  // The land's own beasts: prides of lions and wild dog packs in the desert, crocodiles on the coast; and the
+  // Behemoth, which now and then drives a beast raid before it
+  lion: { id: 'lion', name: 'Lion', hp: 60, damage: [7, 12], accuracy: 0.72, dodge: 0.12, interval: 1.2, ranged: false, loot: { hide: 2, meat: 2, bone: 1 }, sprite: { sheet: 'lions', block: 0, scale: 1.05 } },
+  lioness: { id: 'lioness', name: 'Lioness', hp: 45, damage: [5, 10], accuracy: 0.76, dodge: 0.16, interval: 1.0, ranged: false, loot: { hide: 1, meat: 2 }, sprite: { sheet: 'lions', block: 1, scale: 1 } },
+  wild_dog: { id: 'wild_dog', name: 'Wild Dog', hp: 24, damage: [3, 6], accuracy: 0.7, dodge: 0.16, interval: 0.9, ranged: false, loot: { hide: 1, meat: 1 }, sprite: { sheet: 'wilddogs', block: 0, scale: 0.9 } },
+  crocodile: { id: 'crocodile', name: 'Crocodile', hp: 95, damage: [9, 15], accuracy: 0.66, dodge: 0.02, interval: 1.8, ranged: false, loot: { hide: 3, meat: 3 }, sprite: { sheet: 'crocodiles', block: 0, scale: 0.7 } },
+  behemoth: { id: 'behemoth', name: 'The Behemoth', hp: 650, damage: [16, 26], accuracy: 0.72, dodge: 0.02, interval: 2, ranged: false, boss: true, loot: { hide: 8, meat: 10, bone: 8 }, sprite: { sheet: 'behemoth', block: 0, scale: 0.85 }, kit: { roar: 'The ground shakes. The Behemoth drives the beasts before it!', enrage: 'Wounded, the Behemoth tramples everything in its way!', area: { every: 3, targets: 3, name: 'stamps the earth', fx: 'quake' }, trophy: 'behemoth_horn' } },
+  // Things that come alive inside the town (sim/lurkers.ts): a chest a traveller left at the shop, and the tomes of a
+  // library
+  mimic: { id: 'mimic', name: 'Mimic', hp: 150, damage: [9, 15], accuracy: 0.74, dodge: 0.05, interval: 1.3, ranged: false, loot: { iron: 3, cloth: 3, leather: 2 }, sprite: { sheet: 'mimic', block: 0, scale: 0.8 } },
+  possessed_tome: { id: 'possessed_tome', name: 'Possessed Tome', hp: 28, damage: [4, 8], accuracy: 0.74, dodge: 0.35, interval: 1.3, ranged: true, loot: { fiber: 2 }, sprite: { sheet: 'tomes', block: 0, scale: 0.9 } },
+  // A druid grove's walking mushrooms, woken by Entangle to fight for it
+  shroom_folk: { id: 'shroom_folk', name: 'Walking Mushroom', hp: 50, damage: [4, 8], accuracy: 0.72, dodge: 0.1, interval: 1.2, ranged: false, loot: {}, sprite: { sheet: 'shrooms', block: 0, scale: 0.9 } },
   // Rival origins (see data/rivals.ts): the towns founded the other ways, come to take this one. Each army is led by
   // its own lord, who casts that origin's spells against the town (sim/rivals.ts).
   // (the Lich Lord and the dead)
@@ -142,6 +155,7 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   treant: { id: 'treant', name: 'Treant', hp: 130, damage: [9, 15], accuracy: 0.62, dodge: 0, interval: 2, ranged: false, loot: { wood: 6 }, sprite: { still: 'elem_treant', scale: 0.62 } },
   // (the Countess and her thralls)
   countess: { id: 'countess', name: 'The Countess', hp: 280, damage: [11, 17], accuracy: 0.82, dodge: 0.25, interval: 1.2, ranged: false, boss: true, loot: { cloth: 4, iron: 2 }, tint: 0xf0dce8, sprite: { sheet: 'champ_blood_knight', block: 2, scale: 2.2 }, kit: { roar: 'Fog rolls in, and in it, a smile. The Countess has come to feed!', enrage: 'The Countess bares her fangs, and her beauty falls away!', summon: { kind: 'night_shade', count: 2, text: 'Demons claw their way up out of the shadows to serve the Countess!' }, trophy: 'countess_ring' } },
+  vampire_bat: { id: 'vampire_bat', name: 'Vampire Bat', hp: 22, damage: [3, 6], accuracy: 0.74, dodge: 0.4, interval: 0.9, ranged: false, loot: {}, sprite: { sheet: 'bats', block: 0, scale: 0.8 } },
   thrall: { id: 'thrall', name: 'Blood Fiend', hp: 50, damage: [5, 9], accuracy: 0.66, dodge: 0.1, interval: 1.2, ranged: false, loot: { cloth: 1 }, sprite: { sheet: 'blood_monster', block: 0, scale: 2 } },
   night_shade: { id: 'night_shade', name: 'Demon', hp: 40, damage: [5, 9], accuracy: 0.72, dodge: 0.35, interval: 1.2, ranged: false, loot: {}, sprite: { sheet: 'demon', block: 0, scale: 2 } },
   // (the Alpha and the pack)

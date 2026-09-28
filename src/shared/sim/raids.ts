@@ -57,6 +57,7 @@ import { rulesOf } from '../data/origins';
 import { fightRate, guardRate } from './origin';
 import { fogAim, frenzyOf, heldBack, lordHp, rivalsInRaid, turretsDown, wardOf } from './rivals';
 import { RIVAL_LEADER_COST } from '../data/rivals';
+import { lurkersBeaten } from './lurkers';
 
 /** Raiders start this far beyond the edge of the world. */
 const OFF_MAP = 40;
@@ -101,7 +102,8 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
   const outbreak = s.doom?.kind === 'outbreak' && s.doom.phase === 'active';
   const freeze = s.doom?.kind === 'deep_freeze' && s.doom.phase === 'active';
   const rats = s.doom?.kind === 'rat_plague' && s.doom.phase === 'active';
-  const kinds = uprising ? [RAID_KIND_BY_ID.drones] : outbreak ? [RAID_KIND_BY_ID.zombies] : freeze ? [RAID_KIND_BY_ID.frost] : rats ? [RAID_KIND_BY_ID.rats] : raidKindsFor(s.era, day);
+  // (the land's own beasts come only in their own lands)
+  const kinds = uprising ? [RAID_KIND_BY_ID.drones] : outbreak ? [RAID_KIND_BY_ID.zombies] : freeze ? [RAID_KIND_BY_ID.frost] : rats ? [RAID_KIND_BY_ID.rats] : raidKindsFor(s.era, day).filter((k) => !k.biomes || k.biomes.includes(s.biome ?? 'forest'));
   // (the land, and who founded the town, make some raiders likelier, and some never come)
   const odds = biomeOf(s).raids ?? {};
   const own = rulesOf(s).raids ?? {};
@@ -118,6 +120,13 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
     raid.raiders.push({ ...first, id: s.nextId++, kind: boss, hp: ENEMIES[boss].hp, maxHp: ENEMIES[boss].hp, goal: 'harm', x: first.x + raid.side * 30, carrying: {} });
     notify(s, `${ENEMIES[boss].name} leads them!`, true);
   }
+  // and now and then the Behemoth drives a raid of beasts before it
+  if (BEAST_RAIDS.includes(kind.id) && day >= BEHEMOTH_FROM_DAY && rng.chance(BEHEMOTH_CHANCE)) {
+    const first = raid.raiders[0];
+    const hp = Math.round(ENEMIES.behemoth.hp * (0.6 + day * 0.03));
+    raid.raiders.push({ ...first, id: s.nextId++, kind: 'behemoth', hp, maxHp: hp, goal: 'harm', x: first.x + raid.side * 40, carrying: {} });
+    notify(s, 'Something huge comes behind them...', true);
+  }
   scheduleNextRaid(s, rng);
 }
 
@@ -125,8 +134,14 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
 const ERA_BOSS: Partial<Record<Era, string[]>> = { medieval: ['black_knight', 'dragon'], industrial: ['iron_baron', 'iron_colossus'], modern: ['warlord', 'war_machine'], space: ['pirate_king', 'star_mech'] };
 const BOSS_RAID_CHANCE = 0.12;
 const BOSS_RAID_FROM_DAY = 10;
+/** The beast raids the Behemoth may drive, from which day, and how often. */
+const BEAST_RAIDS = ['wolves', 'boars', 'lions', 'wild_dogs', 'crocodiles'];
+const BEHEMOTH_FROM_DAY = 8;
+const BEHEMOTH_CHANCE = 0.1;
 
-export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng): Raid {
+/** Gather a raid at the edge of the world, with a warning; or, given `inside` (an x), one that's already in the middle
+ *  of the town, fighting (lurkers.ts). */
+export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng, inside?: number): Raid {
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
   const raiders: Raider[] = [];
   const costs = Object.entries(kind.enemies);
@@ -170,6 +185,17 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   const patrol = s.people.some((p) => p.task?.type === 'patrol') ? PATROL_WARNING_MINUTES : 0;
   const warn = Math.round((((lookout ? BUILDING_BY_ID[lookout.def].warningMinutes! : WARNING_MINUTES) + patrol) / 60) * TICKS_PER_HOUR);
   const raid: Raid = { id: s.nextId++, kind: kind.id, side, phase: 'warning', arrivesTick: s.tick + warn, leavesTick: s.tick + warn + RAID_MAX_HOURS * TICKS_PER_HOUR, raiders, prompt: null };
+  if (inside !== undefined) {
+    raiders.forEach((rd, i) => {
+      rd.x = inside + (i - (raiders.length - 1) / 2) * 14;
+      rd.dir = i % 2 ? 1 : -1;
+    });
+    raid.phase = 'active';
+    raid.arrivesTick = s.tick;
+    raid.leavesTick = s.tick + RAID_MAX_HOURS * TICKS_PER_HOUR;
+    s.raid = raid;
+    return raid;
+  }
 
   const options = ['Sound the alarm'];
   if (kind.bribable) options.push(`Pay them off (${bribeCost(raid)} food)`);
@@ -570,6 +596,7 @@ function endRaid(s: GameState, rng: Rng): void {
   s.raid = null;
   const kind = RAID_KIND_BY_ID[r.kind];
   if (r.kind === 'hunters') guildDefeated(s);
+  lurkersBeaten(s, r);
   // thieves who got away may have led off a horse, too
   if (s.horses.length && r.raiders.some((rd) => rd.gone && poolSize(rd.carrying) > 0) && rng.chance(HORSE_THEFT)) {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];

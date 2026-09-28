@@ -33,8 +33,17 @@ import slimeUrl from './creatures/slime.png';
 import champSageUrl from './creatures/champ_sage.png';
 import champMercenaryUrl from './creatures/champ_mercenary.png';
 import champDragoonUrl from './creatures/champ_dragoon.png';
+import lionsUrl from './creatures/lions.png';
+import wildDogsUrl from './creatures/wilddogs.png';
+import crocodilesUrl from './creatures/crocodiles.png';
+import behemothUrl from './creatures/behemoth.png';
+import tomesUrl from './creatures/tomes.png';
+import batsUrl from './creatures/bats.png';
+import camelUrl from './creatures/camel.png';
+import shroomsUrl from './creatures/shrooms.png';
+import mimicUrl from './creatures/mimic.png';
 
-export type CreatureSheet = 'mouse' |'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'ghosts' | 'golems2' | 'snowmonkey' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon';
+export type CreatureSheet = 'mouse' |'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'ghosts' | 'golems2' | 'snowmonkey' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon' | 'lions' | 'wilddogs' | 'crocodiles' | 'behemoth' | 'tomes' | 'bats' | 'camel' | 'shrooms' | 'mimic';
 
 interface SheetDef {
   url: string;
@@ -93,6 +102,18 @@ const SHEETS: Record<CreatureSheet, SheetDef> = {
   champ_sage: { url: champSageUrl, w: 24, h: 24, blocksAcross: 4 },
   champ_mercenary: { url: champMercenaryUrl, w: 24, h: 24, blocksAcross: 4 },
   champ_dragoon: { url: champDragoonUrl, w: 24, h: 24, blocksAcross: 4 },
+  // More of whtdragon's MV sheets: desert lions and wild dogs, coastal crocodiles, the Behemoth, possessed tomes,
+  // vampire bats, the desert caravan's camels, the druid's walking mushrooms; and the mobs pack's mimic (a strip:
+  // walk, attack, idle and disguised rows).
+  lions: { url: lionsUrl, w: 48, h: 48, blocksAcross: 4 },
+  wilddogs: { url: wildDogsUrl, w: 48, h: 48, blocksAcross: 4 },
+  crocodiles: { url: crocodilesUrl, w: 96, h: 96, blocksAcross: 4 },
+  behemoth: { url: behemothUrl, w: 96, h: 132, blocksAcross: 1, top: 0.1 },
+  tomes: { url: tomesUrl, w: 48, h: 48, blocksAcross: 4, feet: 0.8 },
+  bats: { url: batsUrl, w: 48, h: 48, blocksAcross: 4 },
+  camel: { url: camelUrl, w: 48, h: 48, blocksAcross: 2 },
+  shrooms: { url: shroomsUrl, w: 48, h: 48, blocksAcross: 4 },
+  mimic: { url: mimicUrl, w: 64, h: 64, blocksAcross: 1, feet: 0.88, strip: { perRow: 6, walk: [0, 1, 2, 3, 4, 5], attack: [6, 7, 8], idle: [12, 13, 14, 15] } },
   horror: { url: horrorUrl, w: 80, h: 64, blocksAcross: 1, strip: { perRow: 5, walk: [4, 5, 6, 7, 8, 9], attack: [11, 13, 15, 17], idle: [0, 1, 2, 3] } },
 };
 

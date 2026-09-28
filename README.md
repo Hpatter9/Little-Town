@@ -253,6 +253,21 @@ the keep is full the town builds on outside it. People climb to the room they're
 can be seen. On the phone the view zooms out as the castle grows so it always fits, and upright the strip grows
 taller to show it.
 
+### Beasts, and things that come alive
+
+- **The land's own beasts:** prides of lions (from day 4) and wild dog packs (from day 3) in the desert (wild dogs on
+  the tundra too), crocodiles on the coast.
+- **The Behemoth:** from day 8, now and then a beast raid comes with the Behemoth behind it: an epic beast that
+  stamps the earth. Its horn is a relic.
+- **Mimics:** a town with a shop may find, some night, that a chest a traveller left there has teeth. The Mimic
+  starts inside the town with no warning; killed, its belly holds 45 coins.
+- **Possessed tomes:** now and then, while someone studies at a library or better, its books tear themselves off
+  the shelves and fly at the scholars. Beaten, they give up their secrets: every topic being studied jumps halfway
+  to done.
+- **Vampire bats** fly with the Countess's army, and wheel round a Blood Court's castle at night.
+- **Walking mushrooms:** a druid grove's Entangle wakes two to fight for it.
+- In the desert the trade caravan comes by camel.
+
 ### Rival origins
 
 The origins you didn't pick are out there too. From day 8, in any era, now and then one sends its army against
