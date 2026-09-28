@@ -1,0 +1,8 @@
+node_modules/
+out/
+dist/
+*.log
+build/
+# the asset packs stay on this PC (the sprites the game uses are already in src); only the world map is built in
+assets/*
+!assets/World map.jpg

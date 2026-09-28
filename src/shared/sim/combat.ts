@@ -1,0 +1,335 @@
+// Automatic battles (DESIGN §8): the player doesn't control them; skills, traits, roles and rows decide.
+// Fighters act on their own cooldowns. Melee can only reach the other side's front row while it stands;
+// ranged attacks reach anyone. Medics heal instead of attacking; porters stay out of it. Gear adds damage,
+// aim, armour and blocking.
+
+import { BLOOD_FURY, BLOOD_LIFESTEAL, NECRO_RAISES, type ClassId } from '../data/classes';
+import { ENEMIES, type EnemyGroup } from '../data/enemies';
+import { WEREWOLF_DAMAGE } from '../data/monsters';
+import type { Role } from '../data/expeditions';
+import { AMMO_DAMAGE, ITEM_BY_ID } from '../data/items';
+import type { Material, Stock } from '../data/materials';
+import type { Rng } from '../rng';
+import { gearEffects } from './crafting';
+import { maxHp, type Person } from './state';
+import { TICK_HZ } from './time';
+
+export interface Fighter {
+  side: 'party' | 'enemy';
+  /** Person id (party) or enemy index (enemy). */
+  ref: number;
+  /** Enemy def id, or 'person'. */
+  kind: string;
+  name: string;
+  hp: number;
+  maxHp: number;
+  row: 'front' | 'back';
+  ranged: boolean;
+  damage: [number, number];
+  accuracy: number;
+  dodge: number;
+  /** Ticks between actions, and ticks until the next one. */
+  interval: number;
+  cooldown: number;
+  down: boolean;
+  role: Role | 'enemy';
+  /** Medics: HP restored per action. */
+  heal: number;
+  tough: boolean;
+  coward: boolean;
+  /** Battle tick of their last action and of the last time they were hit (for animation). */
+  lastAction: number;
+  lastHit: number;
+  /** What the last hit looked like when it wasn't an ordinary blow: a Blood Knight's, a gunshot's, a laser's. */
+  hitFx?: 'blood' | 'fire' | 'lightning' | null;
+  /** Attacks made (for skill XP afterwards). */
+  attacks: number;
+  /** Gear: share of each hit taken away, chance to block a blow outright, extra damage against beasts. */
+  armor: number;
+  block: number;
+  beastDamage: number;
+  /** Ammunition: what kind, how much on hand, the extra damage each shot adds, and how many were used. */
+  ammoType?: Material | null;
+  ammo: number;
+  ammoBonus: number;
+  ammoUsed: number;
+  /** A special class (people only). */
+  cls?: ClassId | null;
+  /** Fallen enemies this fighter has raised (necromancers), and who raised this one. */
+  raised?: number;
+  raisedBy?: number;
+  /** Epic bosses: raging yet, called for help yet, attacks made (for the sweeping attack). */
+  enraged?: boolean;
+  summoned?: boolean;
+  bossAttacks?: number;
+  lastArea?: number;
+}
+
+/** What a person's weapon shoots, if anything. */
+export const ammoOf = (p: Person): Material | null => (p.gear.weapon ? (ITEM_BY_ID[p.gear.weapon]?.effects.ammo ?? null) : null);
+
+export const isBeast = (kind: string) => !!ENEMIES[kind] && 'sheet' in ENEMIES[kind].sprite;
+
+export interface Battle {
+  fighters: Fighter[];
+  tick: number;
+  outcome: null | 'won' | 'retreated' | 'lost';
+  boss: boolean;
+  /** What the bosses said and did, for the Journal (taken and cleared by the expedition). */
+  shouts?: string[];
+}
+
+/** Ticks before the first exchange can end in a retreat (so a party at least tries). */
+const MIN_TICKS_BEFORE_RETREAT = 2 * TICK_HZ;
+const PERSON_INTERVAL = 1.2;
+
+/** How someone fights: with a sling or bow if they carry one; from the back row (or if much better at
+ *  throwing) they throw stones; otherwise hand to hand, with their weapon or knife. */
+export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo = 0): Fighter {
+  const melee = p.skills.melee.level;
+  const ranged = p.skills.ranged.level;
+  const weapon = p.gear.weapon ? ITEM_BY_ID[p.gear.weapon] : undefined;
+  const knife = p.gear.tool ? (ITEM_BY_ID[p.gear.tool]?.effects.damage ?? 0) : 0;
+  const sling = !!weapon?.effects.ranged;
+  const useRanged = sling || row === 'back' || ranged > melee + 2;
+  const skill = useRanged ? ranged : melee;
+  // the weapon only helps in the way it's used
+  const bonus = useRanged ? (sling ? (weapon!.effects.damage ?? 0) : 0) : sling || !weapon ? knife : (weapon.effects.damage ?? 0);
+  const aim = weapon && sling === useRanged ? (weapon.effects.accuracy ?? 0) : 0;
+  const base: [number, number] = useRanged ? [Math.round(2 + ranged * 0.5), Math.round(4 + ranged * 0.5)] : [Math.round(3 + melee * 0.6), Math.round(5 + melee * 0.6)];
+  const wolf = p.monster === 'werewolf' ? WEREWOLF_DAMAGE : 0; // (a werewolf fights with more than a weapon)
+  const damage: [number, number] = [base[0] + bonus + wolf, base[1] + bonus + wolf];
+  const g = gearEffects(p);
+  return {
+    side: 'party',
+    ref: p.id,
+    kind: 'person',
+    name: p.name,
+    hp: p.hp,
+    maxHp: maxHp(p),
+    row,
+    ranged: useRanged,
+    damage: role === 'porter' ? [0, 0] : damage,
+    accuracy: 0.55 + skill * 0.025 + aim,
+    dodge: 0.05 + melee * 0.01,
+    interval: Math.round(PERSON_INTERVAL * TICK_HZ),
+    cooldown: 0,
+    down: p.hp <= 0,
+    role,
+    heal: role === 'medic' ? 3 + p.skills.medicine.level * 0.5 : 0,
+    tough: p.traits.includes('tough'),
+    coward: p.traits.includes('coward'),
+    lastAction: -99,
+    lastHit: -99,
+    attacks: 0,
+    armor: Math.min(0.6, g.armor),
+    block: g.block,
+    beastDamage: g.beastDamage,
+    ammoType: ammoOf(p),
+    ammo: ammoOf(p) ? ammo : 0,
+    ammoBonus: AMMO_DAMAGE[ammoOf(p) ?? 'wood'] ?? 0,
+    ammoUsed: 0,
+    cls: p.cls ?? null,
+  };
+}
+
+/** Damage one attack does to a target, after ammo, beast bonus, blocking, armour and toughness. Uses the
+ *  attacker's ammo. Returns 0 for a blocked blow. */
+export function hitDamage(f: Pick<Fighter, 'damage' | 'ammo' | 'ammoBonus' | 'ammoUsed' | 'beastDamage'>, target: { kind: string; armor: number; block: number; tough: boolean }, rng: Rng): number {
+  let dmg = rng.int(f.damage[0], f.damage[1]);
+  if (f.ammoBonus && f.ammo > 0) {
+    f.ammo--;
+    f.ammoUsed++;
+    dmg += f.ammoBonus;
+  }
+  if (isBeast(target.kind)) dmg += f.beastDamage;
+  if (target.block && rng.chance(target.block)) return 0;
+  return Math.max(1, Math.round(dmg * (1 - target.armor) * (target.tough ? 0.85 : 1)));
+}
+
+function enemyFighters(group: EnemyGroup): Fighter[] {
+  const out: Fighter[] = [];
+  for (const [id, n] of Object.entries(group)) for (let i = 0; i < n; i++) out.push(unitFighter(id, 'enemy', out.length));
+  return out;
+}
+
+/** A fighter from an enemy (or ally) def, on either side. */
+export function unitFighter(id: string, side: Fighter['side'], ref: number): Fighter {
+  const d = ENEMIES[id];
+  return {
+    side,
+    ref,
+    kind: id,
+    name: d.name,
+    hp: d.hp,
+    maxHp: d.hp,
+    row: d.ranged ? 'back' : 'front',
+    ranged: d.ranged,
+    damage: d.damage,
+    accuracy: d.accuracy,
+    dodge: d.dodge,
+    interval: Math.round(d.interval * TICK_HZ),
+    cooldown: 0,
+    down: false,
+    role: side === 'enemy' ? 'enemy' : 'fighter',
+    heal: 0,
+    tough: false,
+    coward: false,
+    lastAction: -99,
+    lastHit: -99,
+    attacks: 0,
+    armor: 0,
+    block: 0,
+    beastDamage: 0,
+    ammo: 0,
+    ammoBonus: 0,
+    ammoUsed: 0,
+  };
+}
+
+/**
+ * Set up a fight. Fighters go in front; everyone else in back (if nobody fights, everyone stands in front).
+ * The ammunition in `ammo` (sling stones, arrows) is shared out among whoever shoots that kind.
+ */
+export function startBattle(members: Person[], roles: Record<number, Role>, group: EnemyGroup, rng: Rng, ammo: Stock = {}): Battle {
+  const standing = members.filter((p) => p.hp > 0 && !p.downed);
+  const anyFighter = standing.some((p) => (roles[p.id] ?? 'fighter') === 'fighter');
+  const party = standing.map((p) => {
+    const role = roles[p.id] ?? 'fighter';
+    const front = role === 'fighter' || (!anyFighter && role !== 'porter');
+    const kind = ammoOf(p);
+    const shooters = kind ? standing.filter((q) => ammoOf(q) === kind) : [];
+    const have = kind ? (ammo[kind] ?? 0) : 0;
+    const i = shooters.indexOf(p);
+    const share = i < 0 ? 0 : Math.floor(have / shooters.length) + (i < have % shooters.length ? 1 : 0);
+    return personFighter(p, role, front ? 'front' : 'back', share);
+  });
+  const fighters = [...party, ...enemyFighters(group)];
+  // stagger first actions so nobody moves in lockstep
+  for (const f of fighters) f.cooldown = rng.int(1, f.interval);
+  return { fighters, tick: 0, outcome: null, boss: Object.keys(group).some((id) => ENEMIES[id].boss) };
+}
+
+export interface BattleRules {
+  /** Party HP fraction at which they fall back. */
+  retreatAt: number;
+  /** The main character's person id, if they're in the fight (they pull the party out when badly hurt). */
+  mainId: number | null;
+}
+
+/** One tick of fighting. Sets `outcome` when it's over. */
+export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
+  if (b.outcome) return;
+  b.tick++;
+  for (const f of b.fighters) {
+    if (f.down || --f.cooldown > 0) continue;
+    f.cooldown = f.interval;
+    if (f.role === 'porter') continue;
+    if (f.role === 'medic') {
+      const hurt = b.fighters.filter((o) => o.side === f.side && !o.down && o.hp < o.maxHp).sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp)[0];
+      if (hurt) {
+        hurt.hp = Math.min(hurt.maxHp, hurt.hp + f.heal);
+        f.lastAction = b.tick;
+      }
+      continue;
+    }
+    // A hurt coward backs out of the front line and throws stones instead.
+    if (f.coward && f.row === 'front' && f.hp < f.maxHp * 0.6) {
+      f.row = 'back';
+      f.ranged = true;
+    }
+    const foes = b.fighters.filter((o) => o.side !== f.side && !o.down);
+    if (!foes.length) break;
+    const front = foes.filter((o) => o.row === 'front');
+    const reachable = f.ranged || !front.length ? foes : front;
+    const target = f.ranged ? reachable.reduce((a, c) => (c.hp < a.hp ? c : a)) : reachable[rng.int(0, reachable.length - 1)];
+    f.lastAction = b.tick;
+    f.attacks++;
+    if (rng.next() >= f.accuracy - target.dodge) {
+      if (f.ammoBonus && f.ammo > 0) (f.ammo--, f.ammoUsed++); // a stone thrown is a stone gone
+      continue; // miss
+    }
+    // an epic boss: every few blows, a sweeping attack that hits several at once
+    const kit = f.kind !== 'person' ? ENEMIES[f.kind]?.kit : undefined;
+    if (kit?.area) {
+      f.bossAttacks = (f.bossAttacks ?? 0) + 1;
+      if (f.bossAttacks % kit.area.every === 0) {
+        const hit = foes.slice().sort(() => rng.next() - 0.5).slice(0, kit.area.targets);
+        for (const t of hit) {
+          const d = hitDamage(f, t, rng);
+          t.hp = Math.max(0, t.hp - d);
+          t.lastHit = b.tick;
+          t.hitFx = null;
+          if (t.hp === 0) t.down = true;
+        }
+        (b.shouts ??= []).push(`${f.name} ${kit.area.name}!`);
+        f.lastArea = b.tick;
+        continue;
+      }
+    }
+    let dmg = hitDamage(f, target, rng);
+    if (!dmg) continue; // blocked
+    // a Blood Knight hits harder when hurt, and drinks in some of what they deal
+    if (f.cls === 'blood_knight') {
+      if (f.hp < f.maxHp / 2) dmg = Math.round(dmg * BLOOD_FURY);
+      f.hp = Math.min(f.maxHp, f.hp + Math.round(dmg * BLOOD_LIFESTEAL));
+    }
+    target.hp = Math.max(0, target.hp - dmg);
+    target.lastHit = b.tick;
+    target.hitFx = f.cls === 'blood_knight' ? 'blood' : f.ranged && f.ammoType === 'power_cells' ? 'lightning' : f.ranged && (f.ammoType === 'shot' || f.ammoType === 'cartridges') ? 'fire' : null;
+    bossHurt(b, target);
+    if (target.hp === 0) {
+      target.down = true;
+      // a Necromancer on the other side raises the fallen enemy to fight for them
+      const necro = target.side === 'enemy' ? b.fighters.find((o) => o.side === 'party' && o.cls === 'necromancer' && !o.down && (o.raised ?? 0) < NECRO_RAISES) : undefined;
+      if (necro && !ENEMIES[target.kind]?.boss) {
+        necro.raised = (necro.raised ?? 0) + 1;
+        target.side = 'party';
+        target.role = 'fighter';
+        target.down = false;
+        target.hp = Math.round(target.maxHp / 2);
+        target.raisedBy = necro.ref;
+      }
+    }
+  }
+
+  const party = b.fighters.filter((f) => f.side === 'party');
+  const enemies = b.fighters.filter((f) => f.side === 'enemy');
+  if (enemies.every((f) => f.down)) b.outcome = 'won';
+  else if (party.every((f) => f.down || f.role === 'porter')) b.outcome = 'lost';
+  else if (b.tick >= MIN_TICKS_BEFORE_RETREAT) {
+    const hp = party.reduce((n, f) => n + f.hp, 0) / party.reduce((n, f) => n + f.maxHp, 0);
+    const main = party.find((f) => f.ref === rules.mainId);
+    if (hp < rules.retreatAt || (main && !main.down && main.hp < main.maxHp * 0.5) || (main && main.down)) b.outcome = 'retreated';
+  }
+}
+
+/** A boss below half health rages (harder, faster) and calls for help, once each. */
+function bossHurt(b: Battle, f: Fighter): void {
+  const kit = f.kind !== 'person' ? ENEMIES[f.kind]?.kit : undefined;
+  if (!kit || f.down || f.hp >= f.maxHp / 2) return;
+  if (!f.enraged) {
+    f.enraged = true;
+    f.damage = [Math.round(f.damage[0] * BOSS_RAGE), Math.round(f.damage[1] * BOSS_RAGE)];
+    f.interval = Math.max(3, Math.round(f.interval * 0.75));
+    (b.shouts ??= []).push(kit.enrage);
+  }
+  if (kit.summon && !f.summoned) {
+    f.summoned = true;
+    for (let i = 0; i < kit.summon.count; i++) b.fighters.push({ ...unitFighter(kit.summon.kind, f.side, 100 + b.fighters.length), cooldown: 5 });
+    (b.shouts ??= []).push(kit.summon.text);
+  }
+}
+
+/** How much harder a raging boss hits. */
+export const BOSS_RAGE = 1.5;
+
+/** Loot dropped by the enemies that fell. */
+export function battleLoot(b: Battle): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const f of b.fighters) {
+    if (f.side !== 'enemy' || !f.down) continue;
+    for (const [m, n] of Object.entries(ENEMIES[f.kind].loot)) out[m] = (out[m] ?? 0) + (n ?? 0);
+  }
+  return out;
+}

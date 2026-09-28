@@ -1,0 +1,104 @@
+// Raids by era (DESIGN §10, §15): wolf packs, boar charges, rival tribe scouting parties; then bandits and
+// warbands. Numbers are starting points for tuning.
+
+import type { Era } from './eras';
+
+/** What a raider is after (DESIGN §10): hurting people, stealing, setting fires, carrying someone off. */
+export type RaidGoal = 'harm' | 'steal' | 'burn' | 'kidnap';
+
+export interface RaidKind {
+  id: string;
+  name: string;
+  /** What they're after: beasts go for people (then food), rivals go for the food. Each raider gets one
+   *  of `goals` (weighted); `goal` is the main one. */
+  goal: RaidGoal;
+  goals?: Partial<Record<RaidGoal, number>>;
+  /** What thieves take: only food, or anything of value. */
+  steals?: 'food' | 'valuables';
+  /** Enemy ids and what each costs out of the raid's strength budget. */
+  enemies: Record<string, number>;
+  /** Raids of this kind only happen from this day on, and only between these eras. */
+  fromDay: number;
+  era?: Era;
+  untilEra?: Era;
+  weight: number;
+  /** Walking speed in px per second. */
+  speed: number;
+  /** Can be paid off. */
+  bribable: boolean;
+  /** The name takes a plural verb ("the scouts are here"). */
+  plural: boolean;
+}
+
+export const RAID_KINDS: readonly RaidKind[] = [
+  { id: 'wolves', name: 'Wolf pack', goal: 'harm', enemies: { wolf: 8, wolf_alpha: 20 }, fromDay: 0, untilEra: 'industrial', weight: 3, speed: 80, bribable: false, plural: false },
+  { id: 'boars', name: 'Boar charge', goal: 'harm', enemies: { boar: 11 }, fromDay: 0, untilEra: 'medieval', weight: 2, speed: 60, bribable: false, plural: false },
+  { id: 'rivals', name: 'Rival tribe scouts', goal: 'steal', enemies: { rival_spear: 12, rival_slinger: 10 }, fromDay: 3, untilEra: 'neolithic', weight: 2, speed: 50, bribable: true, plural: true },
+  { id: 'slimes', name: 'Bog slimes', goal: 'harm', enemies: { slime: 6 }, fromDay: 2, untilEra: 'medieval', weight: 1, speed: 25, bribable: false, plural: true },
+  // Medieval
+  { id: 'bandits', name: 'Bandits', goal: 'steal', goals: { steal: 4, burn: 1, kidnap: 1 }, steals: 'valuables', enemies: { bandit: 14, bandit_archer: 12, bandit_chief: 30 }, fromDay: 0, era: 'medieval', untilEra: 'industrial', weight: 4, speed: 55, bribable: true, plural: true },
+  // (never picked at random: sent by the Hunter's Guild, see monsters.ts)
+  { id: 'hunters', name: "Hunter's Guild", goal: 'harm', enemies: { guild_hunter: 20 }, fromDay: 9999, weight: 0, speed: 55, bribable: false, plural: false },
+  // Industrial
+  { id: 'gang', name: 'Gang', goal: 'steal', goals: { steal: 4, burn: 2, kidnap: 1 }, steals: 'valuables', enemies: { gangster: 18 }, fromDay: 0, era: 'industrial', untilEra: 'modern', weight: 4, speed: 60, bribable: true, plural: false },
+  { id: 'army', name: 'Rival army', goal: 'harm', goals: { harm: 3, burn: 1 }, enemies: { rifleman: 24, soldier: 20 }, fromDay: 0, era: 'industrial', untilEra: 'industrial', weight: 2, speed: 50, bribable: true, plural: false },
+  // Modern
+  { id: 'marauders', name: 'Marauders', goal: 'steal', goals: { steal: 4, burn: 2, kidnap: 1 }, steals: 'valuables', enemies: { raider: 24 }, fromDay: 0, era: 'modern', untilEra: 'modern', weight: 4, speed: 70, bribable: true, plural: true },
+  { id: 'mechanized', name: 'Mechanized force', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { trooper: 28, commander: 60 }, fromDay: 0, era: 'modern', untilEra: 'modern', weight: 2, speed: 65, bribable: true, plural: false },
+  // (never picked at random: the waves of a zombie outbreak, see doom.ts)
+  { id: 'zombies', name: 'Walking dead', goal: 'harm', enemies: { zombie: 8, zombie_hound: 7, mummy: 14, zombie_brute: 22, zombie_bear: 26 }, fromDay: 9999, weight: 0, speed: 28, bribable: false, plural: true },
+  // (never picked at random: the ice mages of a Deep Freeze, see doom.ts)
+  { id: 'frost', name: 'Ice mages', goal: 'harm', goals: { harm: 4, steal: 1 }, steals: 'food', enemies: { ice_mage: 12, frost_yeti: 16, ice_golem: 24 }, fromDay: 9999, weight: 0, speed: 40, bribable: false, plural: true },
+  // (never picked at random: the swarms of a Rat Plague, see doom.ts)
+  { id: 'rats', name: 'Rat swarm', goal: 'steal', goals: { steal: 3, harm: 2 }, steals: 'food', enemies: { rat: 3, plague_rat: 6 }, fromDay: 9999, weight: 0, speed: 75, bribable: false, plural: false },
+  // Robotic & Space
+  { id: 'pirates', name: 'Space pirates', goal: 'steal', goals: { steal: 4, burn: 1, kidnap: 2 }, steals: 'valuables', enemies: { space_pirate: 30 }, fromDay: 0, era: 'space', weight: 4, speed: 75, bribable: true, plural: true },
+  { id: 'drones', name: 'Drone swarm', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { combat_drone: 22, slug_bot: 32, war_bot: 40 }, fromDay: 0, era: 'space', weight: 3, speed: 90, bribable: false, plural: false },
+  { id: 'warband', name: 'Warband', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { soldier: 20, bandit_archer: 12, ogre: 32, hedge_wizard: 18 }, fromDay: 0, era: 'medieval', untilEra: 'industrial', weight: 2, speed: 50, bribable: true, plural: false },
+];
+
+export const RAID_KIND_BY_ID: Readonly<Record<string, RaidKind>> = Object.fromEntries(RAID_KINDS.map((k) => [k.id, k]));
+
+/** No raids before this many game hours. */
+export const RAID_GRACE_HOURS = 48;
+/** Hours between raids: a base that shrinks as days pass, never below the minimum, plus some randomness. */
+export const RAID_INTERVAL_HOURS = 30;
+export const RAID_INTERVAL_MIN = 14;
+export const RAID_INTERVAL_JITTER = 6;
+/** Strength budget: base + per day survived + per 25 points of wealth (stock units, 5 per building). */
+export const RAID_BUDGET_BASE = 12;
+export const RAID_BUDGET_PER_DAY = 2;
+export const RAID_BUDGET_PER_WEALTH = 1 / 25;
+export const RAID_MAX_SIZE = 6;
+/** Warning before raiders appear: without and with a Lookout Platform (game minutes). */
+export const WARNING_MINUTES = 10;
+export const LOOKOUT_WARNING_MINUTES = 60;
+/** Extra warning while guards are out on patrol (see Barracks). */
+export const PATROL_WARNING_MINUTES = 30;
+/** Raiders give up and leave after this long in town. */
+export const RAID_MAX_HOURS = 3;
+/** Raiders run when hurt below this share of health: beasts fight on longer than rival scouts. */
+export const RAIDER_FLEE: Record<RaidGoal, number> = { harm: 0.25, steal: 0.4, burn: 0.4, kidnap: 0.4 };
+/** What each unit is worth to a thief (anything unlisted counts 1). */
+export const LOOT_VALUE: Partial<Record<string, number>> = { iron: 6, cloth: 4, leather: 4, bread: 3, bricks: 2, lumber: 2, iron_ore: 2, arrows: 2, dried_meat: 2, rations: 3, steel: 5, glass: 3, electronics: 8, plastic: 3, fuel: 3, concrete: 2, cartridges: 1, shot: 1, rare_minerals: 6, alloys: 10, circuits: 12, power_cells: 2 };
+
+/* ------------------------------------------------------------ fire */
+
+/** A burning building is gone after this many game hours unless put out. */
+export const BURN_HOURS = 4;
+/** Chance each game hour that fire jumps to a flammable neighbour (within a tile). */
+export const SPREAD_PER_HOUR = 0.35;
+/** Seconds of one person's work (at skill 1) to put out a fire that has just started. */
+export const EXTINGUISH_SECONDS = 25;
+/** What rivals can carry off, each. */
+export const RAIDER_CARRY = 5;
+/** Food it takes to pay off a raid, per raider. */
+export const BRIBE_FOOD_PER_RAIDER = 3;
+/** Deaths: a raider out to hurt people, standing over someone downed with nobody else in reach, finishes them off
+ *  with this chance per blow (never the founder). After a raid an infirmary (or better) takes in all the fallen;
+ *  without one they must be tended where they lie (people.ts), and some bleed out first. */
+export const FINISH_OFF_CHANCE = 0.3;
+
+/** Reach of melee and thrown attacks, in px. */
+export const MELEE_RANGE = 22;
+export const THROW_RANGE = 120;

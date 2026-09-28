@@ -1,0 +1,59 @@
+// Materials by era (DESIGN §6: raw -> refined). Crafted food and ammo are materials too, so they sit in
+// storage and get hauled, eaten and packed like the rest.
+
+export const MATERIALS = [
+  // Neolithic
+  'wood', 'stone', 'flint', 'fiber', 'hide', 'bone', 'clay', 'herbs', 'meat', 'berries', 'grain', 'dried_meat', 'rations', 'sling_stones', 'totem',
+  // Medieval
+  'iron_ore', 'iron', 'lumber', 'bricks', 'leather', 'cloth', 'flour', 'bread', 'arrows',
+  // Industrial
+  'coal', 'steel', 'glass', 'shot',
+  // Modern
+  'oil', 'fuel', 'plastic', 'concrete', 'electronics', 'cartridges',
+  // Robotic & Space
+  'rare_minerals', 'alloys', 'circuits', 'power_cells',
+] as const;
+export type Material = (typeof MATERIALS)[number];
+
+export const MATERIAL_NAMES: Record<Material, string> = {
+  wood: 'Wood',
+  stone: 'Stone',
+  flint: 'Flint',
+  fiber: 'Fiber',
+  hide: 'Hide',
+  bone: 'Bone',
+  clay: 'Clay',
+  herbs: 'Herbs',
+  meat: 'Raw meat',
+  berries: 'Berries',
+  grain: 'Wild grain',
+  dried_meat: 'Dried meat',
+  rations: 'Rations',
+  sling_stones: 'Sling stones',
+  totem: 'Cave Bear Totem',
+  iron_ore: 'Iron ore',
+  iron: 'Iron',
+  lumber: 'Lumber',
+  bricks: 'Bricks',
+  leather: 'Leather',
+  cloth: 'Cloth',
+  flour: 'Flour',
+  bread: 'Bread',
+  arrows: 'Arrows',
+  coal: 'Coal',
+  steel: 'Steel',
+  glass: 'Glass',
+  shot: 'Musket shot',
+  oil: 'Crude oil',
+  fuel: 'Fuel',
+  plastic: 'Plastic',
+  concrete: 'Concrete',
+  electronics: 'Electronics',
+  cartridges: 'Rifle cartridges',
+  rare_minerals: 'Rare minerals',
+  alloys: 'Alloys',
+  circuits: 'Circuits',
+  power_cells: 'Power cells',
+};
+
+export type Stock = Partial<Record<Material, number>>;

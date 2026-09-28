@@ -1,0 +1,692 @@
+// What the renderers see of the sim: a read-only copy sent over IPC each tick.
+
+import type { Biome } from '../data/biomes';
+import { CLASS_DEFS, CLASSES, type ClassId } from '../data/classes';
+import { canTrain } from './classes';
+import { turnable, undeadShare } from './turning';
+import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
+import { weatherAt, type WeatherNow } from './weather';
+import { directionOf, type Direction, type TownPlan } from './planner';
+import type { MonsterKind } from '../data/monsters';
+import { ENEMIES } from '../data/enemies';
+import { DESTINATION_BY_ID, DESTINATIONS } from '../data/expeditions';
+import { RAID_KIND_BY_ID } from '../data/raids';
+import { alarmRaised, cavalry } from './people';
+import type { Era } from '../data/eras';
+import { ITEM_BY_ID, type Slot } from '../data/items';
+import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
+import { craftNeeded, craftSlots, hasBedroll, missingItems, stationFor, stationName } from './crafting';
+import { CHILD_HOURS } from '../data/social';
+import { DOOMS, type DoomKind } from '../data/doom';
+import { friendsOf, rivalsOf } from './social';
+import { canTrade, stalls } from './trade';
+import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
+import { TOPIC_BY_ID } from '../data/research';
+import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
+import { TERRAIN } from '../data/terrain';
+import { buildingCentreX, buildSlots, defOf, totalCapacity, totalStock } from './buildings';
+import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
+import { modifiers, researchStation } from './research';
+import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Needs, type Notice, type Person, type TileState } from './state';
+import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
+import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';
+
+export interface SkillView {
+  level: number;
+  /** 0..1 toward the next level. */
+  progress: number;
+  passion: boolean;
+}
+
+export interface PersonView {
+  id: number;
+  name: string;
+  typeName: string;
+  look: Look;
+  x: number;
+  dir: 1 | -1;
+  activity: Activity;
+  /** A special class, if they have one. */
+  cls: ClassId | null;
+  /** The callings the town has studied, and why they can't take each up yet (null: they can). */
+  trainable: { cls: ClassId; reason: string | null }[];
+  /** Riding into a fight (cavalry): the horse's coat. */
+  mounted: number | null;
+  /** Short description of what they're doing, for tooltips. */
+  doing: string;
+  carrying: Stock;
+  skills: Record<Skill, SkillView>;
+  traits: { name: string; description: string }[];
+  needs: Needs;
+  morale: number;
+  moodTarget: number;
+  moodReasons: MoodReason[];
+  priorities: Record<Job, Priority>;
+  autoPriorities: boolean;
+  /** Name of the building they sleep in, or null (sleeps on the ground). */
+  bed: string | null;
+  /** Asleep inside a building (the renderer hides them). */
+  indoors: boolean;
+  /** Destination name while away on an expedition (not in town). */
+  away: string | null;
+  hp: number;
+  maxHp: number;
+  /** 'bleeding' (dying unless tended), 'recovering' (stabilized, in bed), or null. */
+  downed: 'bleeding' | 'recovering' | null;
+  /** Bleeding: game minutes until they bleed out. */
+  bleedMinutes: number | null;
+  /** Worn items by slot (item ids). */
+  gear: Partial<Record<Slot, string>>;
+  /** Sleeps on a bedroll (no bed). */
+  bedroll: boolean;
+  carryCapacity: number;
+  /** Their partner's name (and whether they're married), friends and rivals. */
+  partner: string | null;
+  married: boolean;
+  friends: string[];
+  rivals: string[];
+  /** Children: game hours until they grow up. */
+  growsUpIn: number | null;
+  /** A mental break in progress, described. */
+  breakdown: string | null;
+  /** Monsters: what they are and their standing order for the Hunter's Guild. */
+  monster: string | null;
+  order: string | null;
+  sick: boolean;
+}
+
+export interface CraftOrderView {
+  id: number;
+  item: string;
+  count: number;
+  progress: number;
+  /** Materials still to bring for the piece being made. */
+  needed: Stock;
+  /** Why nobody is working on it, if nobody is. */
+  waiting: string | null;
+  crafter: string | null;
+}
+
+export interface FighterView {
+  /** Ticks since its last sweeping attack (bosses). */
+  sinceArea: number;
+  side: 'party' | 'enemy';
+  ref: number;
+  kind: string;
+  name: string;
+  hp: number;
+  maxHp: number;
+  row: 'front' | 'back';
+  down: boolean;
+  role: string;
+  /** Person look and gear (party members only). */
+  look: Look | null;
+  gear: Partial<Record<Slot, string>>;
+  /** Fights from range (thrown stones, a sling). */
+  ranged: boolean;
+  /** Battle ticks since their last action / since they were last hit. */
+  sinceAction: number;
+  sinceHit: number;
+  /** What the last hit was, if special (a Blood Knight's, a gunshot's, a laser's). */
+  hitFx: 'blood' | 'fire' | 'lightning' | null;
+}
+
+export interface RaiderView {
+  id: number;
+  /** Fighting for the town (summoned, raised or tamed). */
+  ally: boolean;
+  /** Ticks since its last sweeping attack (bosses), and since it was summoned, raised or tamed. */
+  sinceArea: number;
+  sinceConjured: number;
+  /** What the last hit was, if special. */
+  hitFx: RaiderHitFx | null;
+  kind: string;
+  name: string;
+  x: number;
+  dir: 1 | -1;
+  hp: number;
+  maxHp: number;
+  down: boolean;
+  fleeing: boolean;
+  gone: boolean;
+  carrying: number;
+  /** Name of the townsperson they're carrying off. */
+  captive: string | null;
+  sinceAction: number;
+  sinceHit: number;
+}
+
+export interface RaidView {
+  name: string;
+  phase: 'warning' | 'active';
+  /** Game seconds until they reach the edge of the world (warning phase). */
+  secondsToArrival: number;
+  side: -1 | 1;
+  alarm: boolean;
+  raiders: RaiderView[];
+}
+
+export interface PromptView {
+  id: number;
+  title: string;
+  text: string;
+  options: string[];
+  defaultOption: number;
+  secondsLeft: number;
+}
+
+export interface ExpeditionView {
+  id: number;
+  dest: string;
+  destName: string;
+  scenery: string;
+  phase: ExpeditionPhase;
+  /** 0..1 through the current phase. */
+  phaseProgress: number;
+  /** Game seconds until they're home (at the current plan). */
+  secondsLeft: number;
+  members: { id: number; name: string; look: Look; gear: Partial<Record<Slot, string>> }[];
+  /** Coats of the horses along. */
+  horses: number[];
+  truck: boolean;
+  loot: Stock;
+  lootSize: number;
+  carry: number;
+  supplies: Stock;
+  recalled: boolean;
+  /** Which end of town they left from. */
+  side: -1 | 1;
+  stance: string;
+  roles: Record<number, string>;
+  /** A fight in progress, if any. */
+  battle: FighterView[] | null;
+  /** Waiting on a question for the player. */
+  waiting: boolean;
+}
+
+export interface DestinationView {
+  id: string;
+  unlocked: boolean;
+  scouted: boolean;
+  /** Round trip in game seconds (unloaded). */
+  tripSeconds: number;
+  /** Food (need units) one member eats on the trip. */
+  foodPerMember: number;
+}
+
+export interface VisitorView extends PersonView {
+  /** Game hours before they give up (0 once leaving). */
+  hoursLeft: number;
+  leaving: boolean;
+}
+
+export interface Snapshot {
+  seed: string;
+  tick: number;
+  paused: boolean;
+  calendar: Calendar;
+  /** Everything in storage, summed. */
+  stock: Stock;
+  storageUsed: number;
+  storageCapacity: number;
+  tileRev: number;
+  tiles: TileState[];
+  buildings: Building[];
+  people: PersonView[];
+  visitor: VisitorView | null;
+  housing: { beds: number; people: number };
+  expeditions: ExpeditionView[];
+  destinations: DestinationView[];
+  prompts: PromptView[];
+  raid: RaidView | null;
+  reputation: number;
+  gameOver: { text: string; won: boolean } | null;
+  /** An epic boss in a fight right now (in town first, else on an expedition): its health bar. */
+  bossBar: { name: string; hp: number; maxHp: number; enraged: boolean; where: string } | null;
+  /** The dead outnumber the living: ghosts walk at night. */
+  undeadHaven: boolean;
+  /** Graves of townsfolk who fell in town. */
+  graves: { x: number; name: string }[];
+  /** Someone just brought back from death: who, and ticks since (for the glow). */
+  revived: { id: number; since: number } | null;
+  /** Spells cast on townsfolk lately: who, what, and ticks since. */
+  fx: { id: number; kind: PersonFx; since: number }[];
+  /** The Launch Site's centre, while the ship is about to leave (its last hour) or has left. */
+  launchSite: number | null;
+  /** Meteors that just struck: where, and ticks since. */
+  impacts: { x: number; since: number }[];
+  /** A full-moon night: werewolves show what they are. */
+  moonNight: boolean;
+  /** Tonight's moon, 0..FULL_MOON_PHASE through its cycle (full at FULL_MOON_PHASE), for the sky. */
+  moonPhase: number;
+  /** The weather (just for looks). */
+  weather: WeatherNow;
+  /** The self-running town: where it's putting its effort, and what it last decided (and why). */
+  direction: Direction;
+  plan: TownPlan | null;
+  /** The tick of the last big boss moment (a roar, a sweeping attack): the strip shakes. */
+  bossShake: number;
+  /** Curses the town can pass on (hidden: a lich founder, a vampire or werewolf in town). */
+  turnable: MonsterKind[];
+  /** Game hours until lift-off, once the ship is built. */
+  launchHours: number | null;
+  /** Time away being simulated: how far along (0..1). Set by the main process while it catches up. */
+  catchingUp?: number;
+  biome: Biome;
+  ironman: boolean;
+  mainId: number;
+  unlockAll: boolean;
+  research: ResearchView;
+  notices: Notice[];
+  /** Spare items (not worn), and the craft queue. */
+  items: Record<string, number>;
+  crafting: CraftOrderView[];
+  craftSlots: number;
+  buildSlots: number;
+  era: Era;
+  /** Horses at home and away, and stable room. */
+  horses: { id: number; name: string; hp: number; coat: number; away: boolean }[];
+  stalls: number;
+  /** A trade caravan at the market (and its deals), or when the next is due. */
+  caravan: { x: number; hoursLeft: number; offers: { id: number; gives: Stock; horse: boolean; wants: Stock; done: boolean; ok: boolean; reason?: string }[] } | null;
+  marketBuilt: boolean;
+  nextCaravanHours: number | null;
+  prisoners: { id: number; name: string; was: string; conviction: number; hungry: boolean }[];
+  /** A disaster coming (signs) or under way, with game hours left. */
+  /** A disaster coming or striking (`cold`: a Deep Freeze with nothing left to burn). */
+  doom: { name: string; phase: 'signs' | 'active'; hoursLeft: number; sick: number; kind: DoomKind; cold: boolean } | null;
+  /** Id of the newest journal entry (the Journal panel refetches when it changes). */
+  journalHead: number;
+  /** An unread "while you were away" report. */
+  away: JournalEntryView | null;
+  eraReady: boolean;
+}
+
+export interface JournalEntryView {
+  id: number;
+  /** "Day 3 · Spring · 14:05" */
+  when: string;
+  day: number;
+  text: string;
+  key: boolean;
+  lines?: string[];
+}
+
+export function journalView(s: GameState): JournalEntryView[] {
+  return s.journal.map(entryView);
+}
+
+function entryView(e: JournalEntry): JournalEntryView {
+  const c = calendar(e.tick);
+  const season = c.season[0].toUpperCase() + c.season.slice(1);
+  const when = `Day ${c.day} · ${season} · ${String(c.hour).padStart(2, '0')}:${String(c.minute).padStart(2, '0')}`;
+  return { id: e.id, when, day: c.day, text: e.text, key: !!e.key, lines: e.lines && [...e.lines] };
+}
+
+export interface ResearchView {
+  done: string[];
+  /** Hidden topics discovered so far. */
+  revealed: string[];
+  queue: string[];
+  progress: Record<string, number>;
+  slots: number;
+  /** Where research happens now, and its speed multiplier. */
+  station: string;
+  stationMult: number;
+  /** Research speed of the main character there (skill x station x bonuses), for time estimates. */
+  speed: number;
+}
+
+export function snapshot(s: GameState): Snapshot {
+  const stock = totalStock(s);
+  const v = s.visitor;
+  return {
+    seed: s.seed,
+    tick: s.tick,
+    paused: s.paused,
+    calendar: calendar(s.tick),
+    stock,
+    storageUsed: poolSize(stock),
+    storageCapacity: totalCapacity(s),
+    tileRev: s.tileRev,
+    tiles: s.tiles.map((t) => ({ terrain: t.terrain, pool: { ...t.pool }, designated: t.designated })),
+    buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store } })),
+    people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
+    visitor: v
+      ? {
+          ...personView(s, v.person),
+          doing: v.leavingTo !== null ? 'Leaving' : 'Waiting to be let in',
+          hoursLeft: v.leavingTo !== null ? 0 : Math.max(0, (v.leavesTick - s.tick) / TICKS_PER_HOUR),
+          leaving: v.leavingTo !== null,
+        }
+      : null,
+    housing: { beds: housingCapacity(s), people: s.people.length },
+    expeditions: s.expeditions.map((e) => expeditionView(s, e)),
+    destinations: DESTINATIONS.map((d) => ({
+      id: d.id,
+      unlocked: destinationUnlocked(s, d),
+      scouted: s.scouted.includes(d.id),
+      tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
+      foodPerMember: foodNeeded(s, d, 1),
+    })),
+    prompts: s.prompts.map((p) => ({
+      id: p.id,
+      title: p.title,
+      text: p.text,
+      options: [...p.options],
+      defaultOption: p.defaultOption,
+      secondsLeft: Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
+    })),
+    raid: s.raid
+      ? {
+          name: RAID_KIND_BY_ID[s.raid.kind].name,
+          phase: s.raid.phase,
+          secondsToArrival: Math.max(0, (s.raid.arrivesTick - s.tick) / TICK_HZ),
+          side: s.raid.side,
+          alarm: alarmRaised(s),
+          raiders: s.raid.raiders.map((r) => ({
+            id: r.id,
+            kind: r.kind,
+            name: ENEMIES[r.kind].name,
+            x: r.x,
+            dir: r.dir,
+            hp: r.hp,
+            maxHp: r.maxHp,
+            down: r.down,
+            fleeing: r.fleeing,
+            gone: r.gone,
+            carrying: poolSize(r.carrying),
+            captive: r.captive?.name ?? null,
+            sinceAction: s.tick - r.lastAction,
+            sinceHit: s.tick - r.lastHit,
+            ally: !!r.ally,
+            sinceArea: r.lastArea != null ? s.tick - r.lastArea : 999,
+            sinceConjured: r.conjuredAt != null ? s.tick - r.conjuredAt : 999,
+            hitFx: r.hitFx ?? null,
+          })),
+        }
+      : null,
+    reputation: s.reputation,
+    gameOver: s.gameOver ? { text: s.gameOver.text, won: !!s.gameOver.won } : null,
+    biome: s.biome ?? 'forest',
+    turnable: turnable(s),
+    bossBar: bossBar(s),
+    bossShake: s.bossShake ?? -1,
+    graves: s.graves ?? [],
+    undeadHaven: undeadShare(s) >= 0.5,
+    revived: s.revivedAt && s.tick - s.revivedAt.tick < 60 ? { id: s.revivedAt.id, since: s.tick - s.revivedAt.tick } : null,
+    fx: (s.fx ?? []).filter((f) => s.tick - f.tick < FX_TICKS).map((f) => ({ id: f.id, kind: f.kind, since: s.tick - f.tick })),
+    launchSite: launchSiteView(s),
+    impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
+    moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
+    moonPhase: moonPhaseOf(nightDay(s.tick)),
+    weather: weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null),
+    direction: directionOf(s),
+    plan: s.plan ?? null,
+    ironman: !!s.ironman,
+    launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
+    mainId: s.mainId,
+    unlockAll: s.cheats.unlockAll,
+    research: researchView(s),
+    notices: [...s.notices],
+    items: { ...s.items },
+    crafting: s.crafting.map((o) => craftView(s, o)),
+    craftSlots: craftSlots(s),
+    buildSlots: buildSlots(s),
+    era: s.era,
+    horses: [
+      ...s.horses.map((h) => ({ ...h, away: false })),
+      ...s.expeditions.flatMap((e) => (e.horses ?? []).map((h) => ({ ...h, away: true }))),
+    ],
+    stalls: stalls(s),
+    caravan: s.caravan
+      ? {
+          x: s.caravan.x,
+          hoursLeft: Math.max(0, (s.caravan.leavesTick - s.tick) / TICKS_PER_HOUR),
+          offers: s.caravan.offers.map((o) => ({ ...o, gives: { ...o.gives }, wants: { ...o.wants }, ...canTrade(s, o.id) })),
+        }
+      : null,
+    marketBuilt: s.buildings.some((b) => b.def === 'market' && b.status === 'done'),
+    nextCaravanHours: s.nextCaravanTick > s.tick ? (s.nextCaravanTick - s.tick) / TICKS_PER_HOUR : null,
+    doom: s.doom
+      ? {
+          name: DOOMS[s.doom.kind].name,
+          phase: s.doom.phase,
+          hoursLeft: Math.max(0, (s.doom.untilTick - s.tick) / TICKS_PER_HOUR),
+          sick: s.people.filter((p) => p.sick).length,
+          kind: s.doom.kind,
+          cold: !!s.doom.cold,
+        }
+      : null,
+    prisoners: s.prisoners.map((p) => ({ id: p.id, name: p.name, was: ENEMIES[p.enemy]?.name ?? p.enemy, conviction: p.conviction, hungry: p.hungry })),
+    journalHead: s.journal.at(-1)?.id ?? 0,
+    away: awayView(s),
+    eraReady: s.eraReady,
+  };
+}
+
+function awayView(s: GameState): JournalEntryView | null {
+  const e = s.unreadAway === null ? undefined : s.journal.find((q) => q.id === s.unreadAway);
+  return e ? entryView(e) : null;
+}
+
+function personView(s: GameState, p: Person, stock?: Stock): PersonView {
+  const m = mood(s, p);
+  const bed = p.bed === null ? undefined : s.buildings.find((b) => b.id === p.bed);
+  return {
+    id: p.id,
+    name: p.name,
+    typeName: RECRUIT_TYPES[p.type]?.name ?? p.type,
+    look: p.look,
+    x: p.x,
+    dir: p.dir,
+    activity: p.activity,
+    mounted: null,
+    cls: p.cls ?? null,
+    trainable: p.cls
+      ? []
+      : CLASSES.filter((k) => s.research.done.includes(CLASS_DEFS[k].research)).map((k) => {
+          const r = canTrain(s, p, k, stock);
+          return { cls: k, reason: r.ok ? null : (r.reason ?? null) };
+        }),
+    doing: describe(s, p),
+    carrying: { ...p.carrying },
+    skills: Object.fromEntries(
+      SKILLS.map((k) => [k, { level: p.skills[k].level, progress: p.skills[k].xp / xpToNext(p.skills[k].level), passion: p.passions.includes(k) }]),
+    ) as Record<Skill, SkillView>,
+    traits: p.traits.map((t) => ({ name: TRAIT_BY_ID[t]?.name ?? t, description: TRAIT_BY_ID[t]?.description ?? '' })),
+    needs: { ...p.needs },
+    morale: p.morale,
+    moodTarget: m.target,
+    moodReasons: m.reasons,
+    priorities: { ...p.priorities },
+    autoPriorities: p.autoPriorities,
+    bed: bed ? defOf(bed).name : null,
+    indoors: p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
+    away: p.away === null ? null : (DESTINATION_BY_ID[s.expeditions.find((e) => e.id === p.away)?.dest ?? '']?.name ?? 'expedition'),
+    hp: p.hp,
+    maxHp: maxHp(p),
+    downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
+    bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,
+    gear: { ...p.gear },
+    bedroll: hasBedroll(s, p),
+    carryCapacity: carryCapacity(s, p),
+    partner: p.partner == null ? null : (s.people.find((q) => q.id === p.partner)?.name ?? null),
+    married: !!p.married,
+    friends: friendsOf(s, p).filter((f) => f.id !== p.partner).map((f) => f.name),
+    rivals: rivalsOf(s, p).map((f) => f.name),
+    growsUpIn: p.bornTick != null ? Math.max(0, CHILD_HOURS - (s.tick - p.bornTick) / TICKS_PER_HOUR) : null,
+    breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,
+    monster: p.monster ?? null,
+    order: p.monster ? (p.order ?? 'hide') : null,
+    sick: !!p.sick,
+  };
+}
+
+const BREAK_TEXT = { sulk: 'Sulking in a corner', binge: 'Stress-eating everything in sight', brawl: 'Picking a fight', wander: 'Wandering off to be alone' } as const;
+
+function craftView(s: GameState, o: CraftOrder): CraftOrderView {
+  const def = ITEM_BY_ID[o.item];
+  const crafter = s.people.find((p) => p.task?.type === 'craft' && p.task.order === o.id);
+  const needed = craftNeeded(o);
+  let waiting: string | null = null;
+  if (!crafter) {
+    const missing = missingItems(s, o);
+    const stock = totalStock(s);
+    const short = (Object.entries(needed) as [Material, number][]).filter(([m, n]) => (stock[m] ?? 0) < n).map(([m]) => MATERIAL_NAMES[m].toLowerCase());
+    if (!stationFor(s, def)) waiting = `Needs a ${stationName(def)}`;
+    else if (missing.length) waiting = `Needs ${missing.join(', ')}`;
+    else if (short.length) waiting = `Short of ${short.join(', ')}`;
+    else if (!s.people.some((p) => p.priorities.craft !== 0 && p.away === null)) waiting = 'Nobody has the Craft job';
+    else waiting = 'Waiting for a crafter';
+  }
+  return { id: o.id, item: o.item, count: o.count, progress: o.progress, needed, waiting, crafter: crafter?.name ?? null };
+}
+
+function expeditionView(s: GameState, e: Expedition): ExpeditionView {
+  const d = DESTINATION_BY_ID[e.dest];
+  const len = e.phase === 'out' ? e.outTicks : e.phase === 'work' ? e.workTicks : e.backTicks;
+  const left = e.phase === 'out' ? e.outTicks - e.elapsed + e.workTicks + e.outTicks : e.phase === 'work' ? e.workTicks - e.elapsed + e.outTicks : e.backTicks - e.elapsed;
+  return {
+    id: e.id,
+    dest: e.dest,
+    destName: d.name,
+    scenery: d.scenery,
+    phase: e.phase,
+    phaseProgress: Math.min(1, e.elapsed / Math.max(1, len)),
+    secondsLeft: Math.max(0, left) / TICK_HZ,
+    members: e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p).map((p) => ({ id: p.id, name: p.name, look: p.look, gear: { ...p.gear } })),
+    horses: (e.horses ?? []).map((h) => h.coat),
+    truck: !!e.truck,
+    loot: { ...e.loot },
+    lootSize: poolSize(e.loot),
+    carry: partyCarry(s, e),
+    supplies: { ...e.supplies },
+    recalled: e.recalled,
+    side: s.destSides[e.dest] ?? 1,
+    stance: e.stance,
+    roles: { ...e.roles },
+    battle: e.battle
+      ? e.battle.fighters.map((f) => ({
+          side: f.side,
+          ref: f.ref,
+          kind: f.kind,
+          name: f.name,
+          hp: f.hp,
+          maxHp: f.maxHp,
+          row: f.row,
+          down: f.down,
+          role: f.role,
+          look: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.look ?? null) : null,
+          gear: f.side === 'party' ? { ...(s.people.find((p) => p.id === f.ref)?.gear ?? {}) } : {},
+          ranged: f.ranged,
+          sinceAction: e.battle!.tick - f.lastAction,
+          sinceHit: e.battle!.tick - f.lastHit,
+          sinceArea: f.lastArea != null ? e.battle!.tick - f.lastArea : 999,
+          hitFx: f.hitFx ?? null,
+        }))
+      : null,
+    waiting: e.prompt !== null,
+  };
+}
+
+function researchView(s: GameState): ResearchView {
+  const r = s.research;
+  const mods = modifiers(r);
+  const station = researchStation(s);
+  const main = s.people.find((p) => p.id === s.mainId);
+  return {
+    done: [...r.done],
+    revealed: [...(r.revealed ?? [])],
+    queue: [...r.queue],
+    progress: { ...r.progress },
+    slots: mods.researchSlots,
+    station: station.label,
+    stationMult: station.mult,
+    speed: ((main ? skillSpeed(main.skills.research.level) : 1) * station.mult * mods.researchSpeed) / RESEARCH_MULTIPLIER[s.era],
+  };
+}
+
+function describe(s: GameState, p: Person): string {
+  const name = (id: number) => {
+    const b = s.buildings.find((q) => q.id === id);
+    return b ? defOf(b).name : 'building';
+  };
+  const task = p.task;
+  if (p.breakdown) return BREAK_TEXT[p.breakdown.kind];
+  if (p.blocked && (!task || task.type === 'wander' || task.type === 'idle')) return 'Storage is full — click a storage building to throw something out, or build a stockpile';
+  if (!task) return 'Idle';
+  switch (task.type) {
+    case 'wander':
+    case 'idle':
+      return p.morale < SULK_MORALE ? 'Sulking (morale too low to work)' : 'Idling at camp';
+    case 'gather': {
+      if (task.scrounge) return 'Hungry: picking wild berries (nothing in storage)';
+      const t = s.tiles[task.tile].terrain;
+      return t === 'clear' ? 'Idle' : `${TERRAIN[t].verb} (${TERRAIN[t].name.toLowerCase()})`;
+    }
+    case 'store':
+      return `Hauling to the ${name(task.building).toLowerCase()}`;
+    case 'fetch':
+      return `Fetching materials for the ${name(task.building)}`;
+    case 'deliver':
+      return `Carrying materials to the ${name(task.building)}`;
+    case 'build':
+      return `Building the ${name(task.building)}`;
+    case 'research': {
+      const t = TOPIC_BY_ID[s.research.queue[0]];
+      return t ? `Researching ${t.name}` : 'Researching';
+    }
+    case 'eat':
+      return 'Eating';
+    case 'sleep':
+      if (p.downed) return task.building === null ? 'Badly hurt, resting on the ground' : `Badly hurt, resting in the ${name(task.building).toLowerCase()}`;
+      return task.building === null ? 'Sleeping on the ground' : `Sleeping in the ${name(task.building).toLowerCase()}`;
+    case 'defend':
+      return p.activity === 'fight' ? 'Fighting off the raiders!' : 'Defending the town';
+    case 'patrol':
+      return 'On patrol';
+    case 'shelter':
+      return p.bed !== null ? 'Sheltering from the raid' : 'Huddled by the fire (no bed to hide in)';
+    case 'repair':
+      return `Repairing the ${name(task.building).toLowerCase()}`;
+    case 'mine':
+      return 'Digging in the mine';
+    case 'extinguish':
+      return `Fighting the fire at the ${name(task.building).toLowerCase()}!`;
+    case 'tend': {
+      const q = s.people.find((x) => x.id === task.patient);
+      return `Tending ${q?.name ?? 'the wounded'}'s wounds!`;
+    }
+    case 'farm': {
+      const b = s.buildings.find((q) => q.id === task.building);
+      const what = b?.def === 'herb_garden' ? 'herbs' : 'grain';
+      return b?.crop?.stage === 'ripe' ? `Harvesting ${what}` : `Sowing ${what}`;
+    }
+    case 'craft': {
+      const o = s.crafting.find((q) => q.id === task.order);
+      const item = o ? ITEM_BY_ID[o.item].name : 'something';
+      return task.phase === 'work' ? `Crafting: ${item}` : `Fetching materials to craft: ${item}`;
+    }
+  }
+}
+
+/** The boss to show a health bar for: one raiding the town, else one fighting an expedition. */
+/** The Launch Site's centre in the last hour before lift-off, and once the ship has gone (for the effect). */
+function launchSiteView(s: GameState): number | null {
+  const soon = s.launchTick != null && s.launchTick - s.tick <= TICKS_PER_HOUR;
+  if (!soon && !s.gameOver?.won) return null;
+  const site = s.buildings.find((b) => b.def === 'launch_site' && b.status === 'done');
+  return site ? buildingCentreX(site) : null;
+}
+
+function bossBar(s: GameState): Snapshot['bossBar'] {
+  const r = s.raid;
+  const raider = r?.phase === 'active' ? r.raiders.find((q) => ENEMIES[q.kind]?.kit && !q.ally && !q.down && !q.gone) : undefined;
+  if (raider) return { name: ENEMIES[raider.kind].name, hp: raider.hp, maxHp: raider.maxHp, enraged: !!raider.enraged, where: 'in town' };
+  for (const e of s.expeditions) {
+    const f = e.battle?.fighters.find((q) => q.side === 'enemy' && ENEMIES[q.kind]?.kit && !q.down);
+    if (f) return { name: f.name, hp: f.hp, maxHp: f.maxHp, enraged: !!f.enraged, where: `at the ${DESTINATION_BY_ID[e.dest]?.name ?? 'expedition'}` };
+  }
+  return null;
+}

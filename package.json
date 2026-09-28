@@ -1,0 +1,50 @@
+{
+  "name": "little-town",
+  "productName": "Chronos Settlement",
+  "version": "0.2.0",
+  "private": true,
+  "description": "A pixel-art idle town builder that lives in a strip above the taskbar.",
+  "author": "Chronos Settlement",
+  "main": "out/main.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "start": "node build.mjs && electron .",
+    "check": "tsc --noEmit && node build.mjs && node test.mjs",
+    "test": "node test.mjs",
+    "web": "node build.mjs && node tools/build-web.mjs",
+    "dist": "node tools/make-icon.mjs && node build.mjs && electron-builder --win nsis",
+    "postinstall": "install-electron"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "pixi.js": "^8.21.0",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "koffi": "^3.3.1"
+  },
+  "build": {
+    "appId": "local.littletown",
+    "productName": "Chronos Settlement",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["out/**/*", "!out/**/*.map", "!out/test/**", "package.json"],
+    "asarUnpack": ["node_modules/koffi/**"],
+    "win": { "target": "nsis", "icon": "build/icon.ico" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Chronos Settlement",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Chronos Settlement Setup ${version}.${ext}"
+    }
+  }
+}
