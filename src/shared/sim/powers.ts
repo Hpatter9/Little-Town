@@ -16,6 +16,7 @@ import { cropOf } from './farming';
 import { stabilize } from './health';
 import { fullMoon } from './monsters';
 import { shopOf, tavernOf } from './shop';
+import { researchMods } from './research';
 import { wardOf } from './rivals';
 import { addStock, campX, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
 import { WORLD_WIDTH } from '../constants';
@@ -599,8 +600,9 @@ export function castPowers(s: GameState, rng: Rng): void {
     const aimed = touch === 'newest' ? [] : touched(s, touch);
     const text = p.cast(s, rng);
     castSpellFx(s, `town:${id}`, casterOf(s), touch === 'newest' ? touched(s, touch) : aimed, secs);
-    (s.powers ??= {})[id] = s.tick + Math.round(p.cooldown * TICKS_PER_HOUR);
-    if (p.lasts) (s.buffs ??= {})[id] = s.tick + Math.round(p.lasts * TICKS_PER_HOUR);
+    const lore = researchMods(s.research); // (heritage research brings powers back sooner, and makes them last)
+    (s.powers ??= {})[id] = s.tick + Math.round(p.cooldown * lore.powerRecharge * TICKS_PER_HOUR);
+    if (p.lasts) (s.buffs ??= {})[id] = s.tick + Math.round(p.lasts * lore.powerLasts * TICKS_PER_HOUR);
     const log = (s.powerLog ??= []);
     log.push({ tick: s.tick, text: `${p.name}: ${text}` });
     if (log.length > 10) log.splice(0, log.length - 10);

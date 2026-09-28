@@ -133,4 +133,44 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (style `nomads_city` once `snapshot.nomad.settled`); parked wagons and old camp marks (`nomad.left`) in animalsView.
 - **Origin buildings:** `src/renderer/art/originStyles.ts`: each origin's own homes, walls and gates; every other
   building gets its materials swapped (`reclad`) and dressing on top. `buildingArt` takes the style (the theme id).
-- **Phase 4:** animal husbandry and more farming.
+- **Research, doubled:** general topics per era and a six-topic **heritage** line per origin (`origin` on a `Topic`,
+  branch `heritage`; built with `T()`/`heritage()` in `data/research.ts`, whose `unlocks` text comes from
+  `describeEffects`). New effect kinds: `rule` (the origin levers: build, craft, travellers, prices, fight, guard,
+  day, night; multiplied in by `sim/origin.ts` through the cached `researchMods`), `quality` and `powers` (recharge
+  and duration, in `castPowers`). `prereqsMet`/`canQueue`/`queueResearch` take the town's origin; another origin's
+  heritage is refused (`foreignHeritage`). The Research tab's Hide toggles are kept in `localStorage`
+  (`littletown.researchHide`).
+- **Animal husbandry (Phase 4 begun):** pens in the background (`chicken_coop`, `goat_pen` from Domestication;
+  `pig_sty`, `sheep_fold`, `cattle_pasture` from Animal Husbandry), their herds in `data/livestock.ts` (`HERDS`) and
+  `sim/livestock.ts` (`b.herd`; `tendHerds` hourly: breeding, winter fodder, starving; `workPen`, tended through the
+  Farm job's `farm` task after the fields; `rustle` when raiders get away). New materials `eggs`, `milk` (food),
+  `wool` (spun into cloth at the loom). The animals are drawn by `town/herdsView.ts` (`art/livestockArt.ts`) in the
+  background layer.
+- **The background clears with the land:** `backNow`/`backOpen` in `sim/buildings.ts`: a forest, hills or marsh
+  column behind a cleared tile is `cleared`, and background buildings can go there (never on a river). TownView
+  draws the background per column (`b<i>` groups) and rebuilds a column when its tile clears.
+- **The far wall:** `enclosure()` (sim/buildings.ts; `snapshot.enclosure`): walls finished beyond both ends of the
+  town. `art/farWall.ts` draws it in the background's far depth, in the weaker end's material.
+- **Terrain art:** `art/terrain.ts` paints each walkway and midground tile as one texture (road with ruts, stones,
+  puddles and a verge; footpaths; forest floor; cobbles; marsh pools), continuous across tiles via `noise()` on
+  world x. `art/sprites.ts` has the scenery (trees with bark and leaf clusters, stumps, logs, ferns, mushrooms);
+  the background has mountains and a wooded ridge, hedgerows, furrows, river banks.
+- **Offline pacing:** `awayPlayMs` in `sim/offline.ts`: the first half hour away passes as in play, the rest at a
+  quarter pace, and at most 3 game days pass for one absence.
+- **Hide toggles:** `panel/hide.ts` (`HidePrefs`): Research, Build and Crafting each have a "Hide:" row, kept in
+  `localStorage` (`littletown.researchHide`, `buildHide`, `craftHide`).
+- **Phase 4:** more farming.
+
+## Planned (owner's requests, not started)
+
+- **Shop and tavern interiors at an angle:** the `shop` and `tavern` panels (`panel/shopPanel.ts`) should show a
+  three-quarter, angled view of the room instead of the bird's-eye one, so the townsfolk and travellers can be drawn
+  with their ordinary side-on sprites (LPC characters) as they come in to shop, dine and sleep.
+
+## Known problem (open)
+
+- **The self-running town grows much slower since the livestock, research and background changes** (not yet
+  merged). Eight towns per origin run 15 days (`soakmany.ts` style): settlers average 16.6 people (were 20.1), druids
+  6.6 (were 26.8), dwarves 13.6 (were 26.0). Many stall at 3 people. Find the cause (suspects: pens taking the
+  farmers, refinements and the Domestication topic crowding early research, `affordable()` refusing homes that need
+  bought materials, more land cleared for the background) before merging.

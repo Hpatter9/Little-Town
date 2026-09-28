@@ -790,6 +790,8 @@ async function start(): Promise<void> {
       town.setBuildingStyle(buildingTint(next.theme), style);
     }
     town.syncCastle(next.castle);
+    town.syncEnclosure(next.enclosure);
+    town.herds.update(next.buildings);
     // (a nomad tribe on the road: the view rides along with the caravan, and comes to rest at the new camp)
     const move = next.nomad?.move;
     if (move && move.since >= 0 && move.since <= CARAVAN_TICKS && lastCamp !== null) camera.centreOn(move.from + (move.to - move.from) * Math.min(1, move.since / CARAVAN_TICKS), app.screen.width);
@@ -838,6 +840,7 @@ async function start(): Promise<void> {
     people.render(performance.now());
     raiders.render(performance.now());
     animals.render(performance.now());
+    town.herds.render(performance.now(), ticker.deltaMS / 1000);
     const walk = town.people.getGlobalPosition();
     spells.root.position.set(walk.x - app.stage.x, walk.y - app.stage.y);
     spells.render(performance.now());

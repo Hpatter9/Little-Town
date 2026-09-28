@@ -7,6 +7,7 @@ import { buildOrigin, nomadic } from './nomads';
 import { adoptRooms, castleOn, castleSpan, openFloors, roomKind } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
+import { HERDS } from '../data/livestock';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
 import { FOOD_VALUE } from '../data/people';
@@ -126,6 +127,7 @@ function sourceable(s: GameState, m: Material, depth = 0, buy = true): boolean {
   if (GATHERABLE.has(m) && s.tiles.some((t) => t.terrain !== 'clear' && (t.pool[m] ?? 0) > 0)) return true;
   for (const [id, c] of Object.entries(CROPS)) if (c.material === m && unlocked(s, id)) return true;
   for (const [id, w] of Object.entries(WORKPLACES)) if ((w.outputs as Stock)[m] && unlocked(s, id)) return true;
+  for (const [id, h] of Object.entries(HERDS)) if ((h.yields[m] || h.cull[m]) && unlocked(s, id)) return true;
   return RECIPES_FOR(m).some((r) => itemUnlocked(s, r) && unlocked(s, r.station) && (Object.keys(r.cost) as Material[]).every((i) => sourceable(s, i, depth + 1, buy)));
 }
 
@@ -134,7 +136,15 @@ const buyable = (s: GameState, m: Material) => !!shopOf(s) && travellerGoods(s.e
 
 /** Whether every material a building costs can be had (the totem only if it's already in store). */
 function affordable(s: GameState, def: BuildingDef, stock: Stock): boolean {
-  return (Object.entries(def.cost) as [Material, number][]).every(([m, n]) => (stock[m] ?? 0) >= n || (m !== 'totem' && sourceable(s, m)));
+  // (a home is wanted now: not one waiting on what a passing trader might sell, while another the town can make from
+  // its own land would do)
+  const buy = !def.housing || !BUILDINGS.some((h) => h.housing && h !== def && unlocked(s, h.id) && gettable(s, h, stock, false));
+  return gettable(s, def, stock, buy);
+}
+
+/** Whether every material a building costs is in store or can be had (bought from travellers too, with `buy`). */
+function gettable(s: GameState, def: BuildingDef, stock: Stock, buy: boolean): boolean {
+  return (Object.entries(def.cost) as [Material, number][]).every(([m, n]) => (stock[m] ?? 0) >= n || (m !== 'totem' && sourceable(s, m, 0, buy)));
 }
 
 /* ------------------------------------------------------------ research */
@@ -165,9 +175,13 @@ function topicScore(t: Topic, n: Needs): number {
     if (e.type === 'eraCapstone') score += 30;
     else if (e.type === 'researchSpeed' || e.type === 'researchSlots') score += n.direction === 'knowledge' ? 18 : 8;
     else if (e.type === 'storage') score += n.storageFill > 0.6 ? 15 : 4;
+    else if (e.type === 'rule' && (e.rule === 'fight' || e.rule === 'guard')) score += n.raided || n.direction === 'defense' ? 14 : 4;
+    else if (e.type === 'rule' && (e.rule === 'travellers' || e.rule === 'prices')) score += n.direction === 'trade' ? 14 : 4;
+    else if (e.type === 'rule' || e.type === 'quality' || e.type === 'powers') score += 8;
     else score += 6;
   }
   if (DIRECTION_DEFS[n.direction].branches.includes(BRANCH_OF(t))) score *= 1.6;
+  if (t.branch === 'heritage') score *= 1.25; // (what the town's people are good at, they like to study)
   if (t.branch === 'occult') score *= 0.35; // (the town dabbles, but it's not what it's for)
   return score;
 }
@@ -183,13 +197,18 @@ function whyTopic(t: Topic, n: Needs): string {
   return 'it opens new things to build and make';
 }
 
+/** People a town needs before it studies refinements (topics that only make it better at what it does). */
+const REFINE_AT = 4;
+
 function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
   const slots = modifiers(s.research).researchSlots;
   while (s.research.queue.length < slots) {
     let best: Topic | null = null;
     let bestScore = -Infinity;
     for (const t of TOPICS) {
-      if (!canQueue(s.research, t.id, s.era).ok) continue;
+      // (refinements wait until the town is a few people strong: its first days go on shelter and food)
+      if (t.refinement && n.people < REFINE_AT) continue;
+      if (!canQueue(s.research, t.id, s.era, s.origin).ok) continue;
       const sc = topicScore(t, n);
       if (sc > bestScore) {
         best = t;
@@ -197,7 +216,7 @@ function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
       }
     }
     if (!best) break;
-    queueResearch(s.research, best.id, s.era);
+    queueResearch(s.research, best.id, s.era, s.origin);
   }
   const head = s.research.queue[0];
   const t = head ? TOPICS.find((q) => q.id === head) : undefined;
@@ -477,7 +496,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || CAPSTONES.includes(d.id)) continue;
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
     if (venueOfDef(d.id)) continue; // (one shop and one tavern, which grow by being rebuilt bigger)
-    add(d.id, WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
+    add(d.id, HERDS[d.id] ? `to keep ${HERDS[d.id].plural}` : WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
   }
   return out;
 }
@@ -509,7 +528,7 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
       tile = spot.tile;
     } else tile = findSpot(s, back, def);
     if (tile === null) {
-      if (def.layer !== 'back') blocked ??= def; // (the back fields need meadow; nothing to clear there)
+      blocked ??= def; // (clearing the land in front of the fields clears the ground behind it too)
       continue;
     }
     if (placeBlueprint(s, back, def.id, tile, room).ok) {

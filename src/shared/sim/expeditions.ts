@@ -487,7 +487,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, 
       if (!rng.chance(SALVAGE_NOTES_CHANCE)) return;
       // old writings: halve what's left of the topic being researched (or the next one on offer)
       const r = s.research;
-      const topic = r.queue[0] ?? TOPICS.find((t) => !r.done.includes(t.id) && prereqsMet(r, t.id, s.era).ok)?.id;
+      const topic = r.queue[0] ?? TOPICS.find((t) => !r.done.includes(t.id) && prereqsMet(r, t.id, s.era, s.origin).ok)?.id;
       if (!topic) return;
       const p = r.progress[topic] ?? 0;
       r.progress[topic] = p + (1 - p) / 2;

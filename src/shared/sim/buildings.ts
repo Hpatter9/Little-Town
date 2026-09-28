@@ -12,6 +12,38 @@ import { addStock, notify, poolSize, type Building, type GameState, type TileSta
 
 /** Background terrain a background building can go on. */
 const BACK_BUILDABLE: ReadonlySet<BackTerrain> = new Set(['meadow', 'fertile']);
+/** Background wilds that are cleared along with the land in front of them (a river never is). */
+const BACK_CLEARABLE: ReadonlySet<BackTerrain> = new Set(['forest', 'hills', 'marsh']);
+
+/** The background column behind tile t as it is now: its forest, hills or marsh are gone once the land in front of it
+ *  has been cleared (the town clears outward, the fields behind it too). */
+export function backNow(back: readonly BackTerrain[], tiles: readonly Pick<TileState, 'terrain'>[], t: number): BackTerrain | 'cleared' {
+  const kind = back[t + BACK_PAD_TILES];
+  return BACK_CLEARABLE.has(kind) && tiles[t]?.terrain === 'clear' ? 'cleared' : kind;
+}
+
+/** Whether a background building can stand behind tile t. */
+export const backOpen = (back: readonly BackTerrain[], tiles: readonly Pick<TileState, 'terrain'>[], t: number) => {
+  const k = backNow(back, tiles, t);
+  return k === 'cleared' || BACK_BUILDABLE.has(k);
+};
+
+/** A town walled at both ends: the span between its outermost finished walls, and the best wall kind among them (for
+ *  the far wall drawn round it), or null. */
+export function enclosure(s: GameState): { lo: number; hi: number; wall: string } | null {
+  // (a nomad camp's wagon circle doesn't count: it's drawn up only while raiders are about)
+  const isWall = (d: BuildingDef | undefined) => !!d && !!d.hp && d.width === 1 && !d.defense && !d.never;
+  const town = s.buildings.filter((b) => defOf(b)?.layer !== 'back' && !isWall(defOf(b)) && !defOf(b)?.never);
+  const walls = s.buildings.filter((b) => b.status === 'done' && isWall(defOf(b)));
+  if (!town.length || walls.length < 2) return null;
+  const lo = Math.min(...town.map((b) => b.tile));
+  const hi = Math.max(...town.map((b) => b.tile + defOf(b).width));
+  const left = walls.filter((w) => w.tile < lo).sort((a, b) => a.tile - b.tile)[0];
+  const right = walls.filter((w) => w.tile >= hi).sort((a, b) => b.tile - a.tile)[0];
+  if (!left || !right) return null;
+  const best = [left, right].map(defOf).sort((a, b) => (a.hp ?? 0) - (b.hp ?? 0))[0]; // (the weaker end is what it's walled with)
+  return { lo: left.tile, hi: right.tile + 1, wall: best.id };
+}
 
 export const defOf = (b: { def: string }): BuildingDef => BUILDING_BY_ID[b.def];
 
@@ -116,7 +148,7 @@ export function canPlace(
   if (tile < 0 || tile + def.width > view.tiles.length) return { ok: false, reason: 'Outside the town' };
   for (let t = tile; t < tile + def.width; t++) {
     if (def.layer === 'back') {
-      if (!BACK_BUILDABLE.has(back[t + BACK_PAD_TILES])) return { ok: false, reason: 'Needs open meadow or fertile soil' };
+      if (!backOpen(back, view.tiles, t)) return { ok: false, reason: back[t + BACK_PAD_TILES] === 'river' ? 'The river runs here' : 'Clear the land in front of it first' };
     } else if (view.tiles[t].terrain !== 'clear') {
       return { ok: false, reason: 'Clear the land first' };
     }

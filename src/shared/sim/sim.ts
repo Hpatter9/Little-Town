@@ -7,6 +7,7 @@ import { demolish, discardStock, placeBlueprint, upgrade } from './buildings';
 import type { Command } from './commands';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
 import { growCrops } from './farming';
+import { tendHerds } from './livestock';
 import { updateFires } from './fire';
 import { updateSocial } from './social';
 import { checkDespair, checkLeavers, updateBreaks } from './breaks';
@@ -114,6 +115,7 @@ export class Sim {
     assignBeds(s);
     hourlyItems(s, this.rng);
     growCrops(s);
+    tendHerds(s);
     updateSocial(s, this.rng);
     checkDespair(s);
     assignOperators(s);
@@ -205,7 +207,7 @@ export class Sim {
         break;
       }
       case 'queueResearch':
-        queueResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era);
+        queueResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era, s.origin);
         break;
       case 'cancelResearch':
         cancelResearch(s.research, c.topic);

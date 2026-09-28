@@ -47,6 +47,32 @@ function stones(p: Painter, x0: number, x1: number, y: number): void {
   }
 }
 
+/** A fenced paddock (rails on posts) over a floor of grass, mud or straw. */
+function paddock(p: Painter, w: number, h: number, floor: 'grass' | 'mud' | 'straw'): void {
+  const [base, fleck] = floor === 'mud' ? [PAL.mud, PAL.dirtDark] : floor === 'straw' ? [PAL.dirt, '#d8c070'] : [PAL.grass, PAL.grassLight];
+  p.rect(1, h - 5, w - 2, 5, base);
+  for (let x = 2; x < w - 2; x += 3) p.rect(x, h - 4 + (x % 2), 2, 1, fleck);
+  if (floor === 'mud') for (let x = 6; x < w - 8; x += 13) p.ellipse(x, h - 2, 3, 1, PAL.waterDark);
+  // the fence: posts and two rails, along the front
+  for (let x = 1; x < w; x += 7) {
+    p.rect(x, h - 12, 2, 12, PAL.trunkDark);
+    p.px(x, h - 12, PAL.trunkLight);
+  }
+  for (const y of [h - 10, h - 6]) {
+    p.rect(1, y, w - 2, 1, PAL.trunkLight);
+    p.rect(1, y + 1, w - 2, 1, PAL.trunk);
+  }
+}
+
+/** A wooden feed trough. */
+function trough(p: Painter, x: number, y: number, w: number): void {
+  p.rect(x, y - 3, w, 3, PAL.trunk);
+  p.rect(x, y - 3, w, 1, PAL.trunkLight);
+  p.rect(x + 1, y - 2, w - 2, 1, GRAIN);
+  p.rect(x + 1, y, 1, 2, PAL.trunkDark);
+  p.rect(x + w - 2, y, 1, 2, PAL.trunkDark);
+}
+
 /** A thatched or hide roof as a triangle from (x0..x1) at base y up to a peak. */
 function roof(p: Painter, x0: number, x1: number, base: number, peak: number, color: string, dark: string): void {
   const mid = (x0 + x1) / 2;
@@ -208,6 +234,80 @@ const ART: Record<string, { h: number; draw: Draw }> = {
           p.rect(x - 1, h - 17, 3, 3, GRAIN);
         }
       }
+    },
+  },
+  // livestock pens (the animals themselves wander inside: see town/animalsView.ts)
+  chicken_coop: {
+    h: 30,
+    draw: (p, w, h) => {
+      paddock(p, w, h, 'straw');
+      // a little hen house on legs, with a ramp
+      const x0 = w - 30;
+      for (const x of [x0 + 2, x0 + 20]) p.rect(x, h - 12, 2, 8, PAL.trunkDark);
+      p.rect(x0, h - 22, 24, 11, PAL.trunk);
+      for (let y = h - 21; y < h - 11; y += 3) p.rect(x0, y, 24, 1, PAL.trunkDark);
+      p.rect(x0 + 1, h - 22, 1, 11, PAL.trunkLight);
+      roof(p, x0 - 2, x0 + 26, h - 21, h - 30, THATCH, THATCH_DARK);
+      p.rect(x0 + 9, h - 17, 6, 6, '#2a1a10'); // the pop-hole
+      for (let i = 0; i < 6; i++) p.rect(x0 + 9 - i * 2, h - 11 + i, 3, 1, PAL.trunkLight); // the ramp
+      p.rect(4, h - 4, 6, 2, '#e8e0c8'); // a nest of straw and an egg
+      p.rect(6, h - 5, 2, 1, '#f4f0e4');
+    },
+  },
+  goat_pen: {
+    h: 26,
+    draw: (p, w, h) => {
+      paddock(p, w, h, 'grass');
+      // a lean-to shelter at the back and a feed rack
+      p.rect(w - 26, h - 20, 22, 16, PAL.trunkDark);
+      for (let x = w - 26; x < w - 4; x += 4) p.rect(x, h - 20, 3, 16, PAL.trunk);
+      beam(p, w - 28, h - 22, 26, 3);
+      trough(p, 6, h - 4, 14);
+      stones(p, 26, 38, h - 2);
+    },
+  },
+  pig_sty: {
+    h: 24,
+    draw: (p, w, h) => {
+      paddock(p, w, h, 'mud');
+      p.rect(w - 30, h - 18, 26, 14, CLAY_DARK);
+      for (let x = w - 30; x < w - 4; x += 5) p.rect(x, h - 18, 1, 14, CLAY);
+      roof(p, w - 32, w - 2, h - 17, h - 24, THATCH, THATCH_DARK);
+      p.rect(w - 21, h - 12, 7, 8, '#2a1a10');
+      trough(p, 8, h - 4, 18);
+    },
+  },
+  sheep_fold: {
+    h: 26,
+    draw: (p, w, h) => {
+      // a drystone fold, with a shepherd's hut
+      p.rect(2, h - 5, w - 4, 5, PAL.grass);
+      for (let x = 3; x < w - 3; x += 2) p.px(x, h - 5 - ((x * 7) % 3 === 0 ? 1 : 0), PAL.grassLight);
+      for (let x = 0; x < w; x += 6) {
+        p.ellipse(x + 3, h - 3, 3.5, 2.5, PAL.rockDark);
+        p.ellipse(x + 3, h - 7, 3, 2.2, PAL.rock);
+        p.rect(x + 2, h - 9, 2, 1, PAL.rockLight);
+      }
+      const x0 = w - 34;
+      p.rect(x0, h - 22, 22, 14, PAL.rock);
+      for (let y = h - 21; y < h - 8; y += 3) for (let x = x0 + ((y / 3) % 2 ? 0 : 3); x < x0 + 22; x += 6) p.rect(x, y, 5, 2, PAL.rockLight);
+      roof(p, x0 - 2, x0 + 24, h - 21, h - 30 + 4, THATCH, THATCH_DARK);
+      p.rect(x0 + 8, h - 15, 6, 7, '#2a1a10');
+    },
+  },
+  cattle_pasture: {
+    h: 30,
+    draw: (p, w, h) => {
+      paddock(p, w, h, 'grass');
+      // a byre: a long low barn with a hay loft
+      const x0 = w - 50;
+      p.rect(x0, h - 22, 44, 18, PAL.trunk);
+      for (let x = x0; x < x0 + 44; x += 4) p.rect(x, h - 22, 1, 18, PAL.trunkDark);
+      p.rect(x0 + 16, h - 16, 12, 12, '#2a1a10');
+      p.rect(x0 + 16, h - 16, 12, 1, PAL.trunkLight);
+      roof(p, x0 - 3, x0 + 47, h - 21, h - 32 + 4, '#9a3a2a', '#6a2418');
+      p.rect(x0 + 19, h - 26, 6, 4, GRAIN); // hay in the loft door
+      trough(p, 10, h - 4, 20);
     },
   },
   // a nomad tribe's wagon, drawn up across the camp (and on the road, when the camp moves)

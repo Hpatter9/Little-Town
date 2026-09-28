@@ -142,6 +142,13 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
 - **Research stations seat one person each** (the campfire, Storyteller's Circles, Scriptoria, Libraries,
   Universities, AI Cores). Each researcher takes a topic of their own from the queue where they can, so more stations
   means more topics at once; the town builds more, and better ones, as it grows. The Research tab shows who's where.
+- **Nearly 200 research topics.** Besides the ones that open buildings and items, each era has topics that make the
+  town steadily better at building, crafting, farming, fighting, trading and learning. Every origin also has its own
+  **heritage** line of six topics, one or two an era from the Stone Age to the stars. The Lich learns Ossuary Rites
+  and the Eternal Engine, the Druids Seed Lore and the Gaia Mind, the Knights Chivalry and Star Knights, and so on.
+  Heritage sharpens what that people are good at, and makes their powers come back sooner. Only that origin sees it,
+  at the top of each era in the Research tab. **Hide: Researched / Can't study yet** at the top of the tab cuts the
+  list down to what's open now; the phone remembers the choice.
 - **Becoming a lich:** once the hidden Occult branch yields Lichcraft, the founder is offered the Rite of the
   Phylactery (and if it's put off, a **Become a lich…** button waits on the Plan tab). Chosen, the town builds the
   phylactery; once it stands, the founder is a lich, and the whole game turns: grave-dark menus, bars and windows, mist,
@@ -157,7 +164,21 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
   - **Open saves folder.**
 - **Time away:** the town keeps going while the game is closed or the PC sleeps. When you come back the
   missed time is simulated (the clock bar says "Catching up…"), and a "while you were away" report goes
-  into the Journal.
+  into the Journal. The first half hour away passes as in play; after that the town slows to a quarter of the
+  pace, and at most three game days (a season) pass however long you're gone, so a night away is a few days
+  in the town, not weeks.
+- **Livestock:** Domestication (Stone Age) brings the Chicken Coop (eggs) and the Goat Pen (milk); Animal
+  Husbandry (Medieval) the Pig Sty (meat), the Sheep Fold (wool, spun into cloth at the loom) and the Cattle
+  Pasture (milk, and a lot of meat and hide). They're built in the fields behind the town, and the animals
+  wander about in them. Farmers tend them after the fields. Herds grow in spring and summer; when a pen is full,
+  or food runs short, one goes to the pot. In winter they eat grain, and without it they starve one by one.
+  Raiders who get away may drive some off. Eggs and cheese are served at the tavern too.
+- **The land behind the town clears as the town grows:** clearing the land along the walkway clears the
+  forest, hills or marsh behind it, so fields and pens can go there (a river stays a river).
+- **A walled town:** once the town has a finished wall beyond each end, a wall is drawn round it far off behind
+  the fields: stakes and watchtowers, stone with battlements, brick, concrete, or a shimmering force field.
+- **Hide toggles:** the Research, Build and Crafting lists each have a **Hide:** row (researched, built, already
+  have; and what can't be had yet). The phone remembers them.
 - **Losing:** if the founder dies, or the whole town gives up in despair, the game is over. The Occult
   branch and later medicine offer ways back from death.
 - **Death is common:** anyone knocked down in town bleeds out in about 2 game hours unless someone saves

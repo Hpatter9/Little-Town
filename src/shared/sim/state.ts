@@ -67,6 +67,9 @@ export interface Building {
   hp?: number;
   /** Fields: what's in the ground. `growth` runs 0..1 while growing; `work` is sowing or harvest progress. */
   crop?: { stage: 'fallow' | 'growing' | 'ripe'; growth: number; work: number };
+  /** A pen's animals (sim/livestock.ts): how many, when they were last tended, progress to the next birth (0..1), hours
+   *  gone hungry this winter, and the work done on the tending under way. */
+  herd?: { head: number; tended: number; breed: number; hungry: number; work: number; owed?: number };
   /** On fire: how far it has burned (0..1; gone at 1). */
   fire?: number;
   /** Single-use buildings (the Resurrection Shrine): used up. */

@@ -58,6 +58,7 @@ import { fightRate, guardRate } from './origin';
 import { fogAim, frenzyOf, heldBack, lordHp, rivalsInRaid, turretsDown, wardOf } from './rivals';
 import { RIVAL_LEADER_COST } from '../data/rivals';
 import { lurkersBeaten } from './lurkers';
+import { rustle } from './livestock';
 import { circleWagons } from './nomads';
 
 /** Raiders start this far beyond the edge of the world. */
@@ -605,6 +606,8 @@ function endRaid(s: GameState, rng: Rng): void {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];
     notify(s, `The raiders stole ${h.name} from the stable.`, true);
   }
+  // (and drove off some of the livestock, or carried it off in their jaws)
+  if (r.raiders.some((rd) => rd.gone && !rd.ally)) rustle(s, rng);
   const stolen: Stock = {};
   let killed = 0;
   // (the town's own summoned and tamed allies aren't counted, or taken prisoner; raiders a necromancer raised

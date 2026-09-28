@@ -21,6 +21,7 @@ import { biomeOf } from '../data/biomes';
 import { HORSE_HP } from '../data/trade';
 import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
 import { cropOf, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
+import { isPen, needsTending, penToTend, workPen } from './livestock';
 import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyX } from './raids';
 import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
@@ -192,7 +193,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       const field = byId(s, task.building)!;
       if (!walkTo(p, buildingCentreX(field))) break;
       p.activity = 'forage';
-      if (workField(s, p, field)) p.task = null;
+      if (isPen(field) ? workPen(s, p, field) : workField(s, p, field)) p.task = null;
       break;
     }
     case 'extinguish': {
@@ -599,6 +600,8 @@ function rank(t: Task, p?: Person): number {
       if (t.scrounge) return -2; // (as urgent as eating)
       return p ? p.priorities.gather * 10 + JOBS.indexOf('gather') : 0;
     case 'store':
+    case 'deliver':
+      // (putting down what's in your hands: nothing but a need comes first, or the load only grows)
       return -1;
     case 'wander':
     case 'idle':
@@ -696,6 +699,8 @@ function chooseTask(s: GameState, p: Person): Task | null {
     }
   }
   if (p.morale < SULK_MORALE || p.breakdown) return null; // sulking (or in the middle of a break)
+  // (hands already full, whatever they're doing: no more gathering or fetching on top)
+  if (poolSize(p.carrying) >= carryCapacity(s, p)) handsFull = true;
   // Jobs, by the person's priorities.
   for (const level of [1, 2, 3]) {
     for (const job of JOBS) {
@@ -752,7 +757,8 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
     case 'craft':
       return findCraft(s, p);
     case 'farm': {
-      const field = fieldToWork(s, p);
+      // (the fields first; then the pens)
+      const field = fieldToWork(s, p) ?? penToTend(s, p);
       return field ? { type: 'farm', building: field.id } : null;
     }
   }
@@ -849,6 +855,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       return !!o && !!stationFor(s, ITEM_BY_ID[o.item]) && p.priorities.craft !== 0;
     }
     case 'farm':
+      if (site && isPen(site)) return (needsTending(s, site) || (site.herd?.work ?? 0) > 0) && p.priorities.farm !== 0;
       return !!site && isField(site) && cropOf(site).stage !== 'growing' && p.priorities.farm !== 0;
     case 'mine':
       return site?.status === 'done' && p.priorities.gather !== 0;

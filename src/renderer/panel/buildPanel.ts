@@ -13,13 +13,14 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, duration, el } from './dom';
 import { materialIcon } from '../art/materialIcons';
 import { BUILD_MULTIPLIER } from '../../shared/sim/state';
+import { hiddenNote, HidePrefs } from './hide';
 import { topicKnown } from './secrets';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours)]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
+  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours)]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
 
-export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
+export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const used = blueprintCount(s);
   const head = el('div', 'panel-head');
   head.append(el('span', '', `Building ${used}/${s.buildSlots} at once`), el('span', '', `● ${s.coins} coins · Stored ${s.storageUsed}/${s.storageCapacity}`));
@@ -133,16 +134,38 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
   if (plan?.gathering.length) out.push(el('div', 'hint', `Gathering for: ${plan.gathering.join(', ').toLowerCase()}.`));
 
   // everything it knows how to build (for reference: it decides for itself)
+  out.push(
+    el('h2', '', 'Buildings'),
+    hide.row(
+      [
+        ['built', 'Built', 'Hide the buildings the town already has'],
+        ['locked', "Can't build yet", 'Hide the buildings still waiting on research'],
+      ],
+      rerender,
+    ),
+  );
+  let hidden = 0;
   for (const layer of ['fore', 'mid', 'back'] as BuildLayer[]) {
+    // buildings from eras the town hasn't reached stay hidden
+    const known = BUILDINGS.filter((b) => b.layer === layer && !b.never && (s.unlockAll || !b.research || (eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research))));
+    const shown = known.filter(
+      (b) =>
+        !(hide.has('built') && s.buildings.some((q) => q.def === b.id && q.status === 'done')) &&
+        !(hide.has('locked') && !isUnlocked({ unlockAll: s.unlockAll, done: s.research.done }, b)),
+    );
+    hidden += known.length - shown.length;
+    if (!shown.length) continue;
     out.push(el('h2', '', LAYER_NAMES[layer]));
     const grid = el('div', 'cards');
-    // buildings from eras the town hasn't reached stay hidden
-    const shown = BUILDINGS.filter((b) => b.layer === layer && !b.never && (s.unlockAll || !b.research || (eraReached(s.era, TOPIC_BY_ID[b.research]?.era) && topicKnown(s, b.research))));
     for (const def of shown) grid.append(card(def, s));
     out.push(grid);
   }
+  out.push(...hiddenNote(hidden));
   return out;
 }
+
+/** What to hide in the list of buildings (kept across visits, per phone). */
+const hide = new HidePrefs('littletown.buildHide', ['built', 'locked'] as const);
 
 function card(def: BuildingDef, s: Snapshot): HTMLElement {
 

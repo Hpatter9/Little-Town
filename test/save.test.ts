@@ -5,7 +5,7 @@ import { parseSave, serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { addStock, MAX_JOURNAL, newGame, notify, type GameState } from '../src/shared/sim/state';
-import { TICK_MS, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICK_MS, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { plainGame } from './helpers';
 
 const HOUR_MS = 3_600_000;
@@ -61,11 +61,12 @@ test('offline: the town works through its research queue, then a report goes in 
   sim.command({ type: 'queueResearch', topic: 'basic_shelter' });
   sim.step();
   const r = catchUp(sim, 2 * HOUR_MS);
-  assert.equal(r.ticks, (2 * HOUR_MS) / TICK_MS);
+  // (the first half hour away passes as in play, the rest at a quarter of the pace)
+  assert.equal(r.ticks, (30 * 60_000 + 90 * 60_000 * 0.25) / TICK_MS);
   assert.ok(s.research.done.includes('basic_shelter'));
   const report = s.journal.at(-1)!;
   assert.equal(report.id, r.reportId);
-  assert.match(report.text, /While you were away \(2h 0m, 5 game days\)/);
+  assert.match(report.text, /While you were away \(2h 0m, 2\.2 game days\)/);
   assert.ok(report.lines!.some((l) => l.includes('Research complete: Basic Shelter')));
   assert.ok(report.lines!.some((l) => l.includes('queues ran dry')));
   assert.equal(snapshot(s).away?.id, report.id);
@@ -90,9 +91,11 @@ test('offline: short gaps are caught up without a report; paused games stay put;
 
   const capped = new Sim(plainGame('cap'));
   capped.state.people[0].needs = { food: 1, rest: 1 };
-  const r = catchUp(capped, MAX_OFFLINE_MS + HOUR_MS);
+  // a night away is a few days in the town, not weeks
+  const r = catchUp(capped, 9 * HOUR_MS);
   assert.ok(r.ticks <= MAX_OFFLINE_MS / TICK_MS);
-  assert.ok(capped.state.journal.at(-1)!.lines!.some((l) => l.includes('Only the first 72 hours')));
+  assert.ok(r.ticks / TICKS_PER_DAY <= 3, `${r.ticks / TICKS_PER_DAY} game days`);
+  assert.ok(capped.state.journal.at(-1)!.lines!.some((l) => l.includes('at most 3 game days')));
 });
 
 test('offline: a busy town simulates a real hour quickly', () => {

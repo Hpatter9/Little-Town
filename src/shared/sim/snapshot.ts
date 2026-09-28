@@ -11,6 +11,7 @@ import { appeal, attractiveness, customerTiers, extensionPrice, extensionsOf, fa
 import { moneyTown, wageBill } from './wages';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
+import { HERDS } from '../data/livestock';
 import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
 import { POWERS, powersView } from './powers';
 
@@ -38,7 +39,7 @@ import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
-import { buildingCentreX, buildSlots, defOf, totalCapacity, totalStock } from './buildings';
+import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
 import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, tileCentreX } from './state';
@@ -397,6 +398,8 @@ export interface Snapshot {
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's keep (sim/castle.ts): its tiles and how many floors it stands. */
   castle: { lo: number; hi: number; floors: number } | null;
+  /** A town walled at both ends: the tiles its walls span, and what they're built of (drawn as a far wall round it). */
+  enclosure: { lo: number; hi: number; wall: string } | null;
   /** A full-moon night: werewolves show what they are. */
   moonNight: boolean;
   /** Tonight's moon, 0..FULL_MOON_PHASE through its cycle (full at FULL_MOON_PHASE), for the sky. */
@@ -506,7 +509,7 @@ export function snapshot(s: GameState): Snapshot {
     storageCapacity: totalCapacity(s),
     tileRev: s.tileRev,
     tiles: s.tiles.map((t) => ({ terrain: t.terrain, pool: { ...t.pool }, designated: t.designated })),
-    buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store } })),
+    buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}) })),
     people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
     visitor: v
       ? {
@@ -586,6 +589,7 @@ export function snapshot(s: GameState): Snapshot {
           move: s.nomad.movedAt != null && s.nomad.from != null ? { from: tileCentreX(s.nomad.from), to: tileCentreX(s.nomad.camp), since: s.tick - s.nomad.movedAt } : null,
         }
       : null,
+    enclosure: enclosure(s),
     castle: castleOn(s) && castleFloors(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: castleFloors(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
@@ -966,6 +970,8 @@ function describe(s: GameState, p: Person): string {
     }
     case 'farm': {
       const b = s.buildings.find((q) => q.id === task.building);
+      const herd = b && HERDS[b.def];
+      if (herd) return `Tending the ${herd.plural}`;
       const what = b?.def === 'herb_garden' ? 'herbs' : 'grain';
       return b?.crop?.stage === 'ripe' ? `Harvesting ${what}` : `Sowing ${what}`;
     }
