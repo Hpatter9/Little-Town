@@ -537,8 +537,9 @@ export interface GameState {
   /** Where meteors struck lately (for the impact bursts). */
   impacts?: { tick: number; x: number }[];
   /** A nomad tribe's seasonal round (sim/nomads.ts): its home ground and summer pasture (tiles), where the camp is
-   *  now, when it last moved and from where, and whether it has settled for good. */
-  nomad?: { home: number; pasture: number; camp: number; movedAt?: number; from?: number; settled?: boolean };
+   *  now, when it last moved and from where, whether it has settled for good, and where the tents stood at the camp it
+   *  left (px: the marks they left on the ground). */
+  nomad?: { home: number; pasture: number; camp: number; movedAt?: number; from?: number; settled?: boolean; left?: { x: number; w: number }[] };
   /** Spells cast lately (the town's powers and rival lords'), for the renderer to draw (see castSpellFx). */
   spellFx?: SpellFx[];
   /** The living are frightened (someone was turned) until this tick. */

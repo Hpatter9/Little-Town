@@ -127,7 +127,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   settles in the Industrial era), `moveCamp` (`PORTABLE` tents move and are re-pitched as blueprints at `PITCHED`),
   `buildOrigin` (rooted great works go on the home ground), the wagon circle (`circleWagons` at a raid warning; the
   `wagon_circle` def is `never` built by the planner) and no walls while nomadic. The renderer follows the caravan
-  (`snapshot.nomad.move`).
+  (`snapshot.nomad.move`). Their tents and the settled caravan city's adobe are in `src/renderer/art/nomadArt.ts`
+  (style `nomads_city` once `snapshot.nomad.settled`); parked wagons and old camp marks (`nomad.left`) in animalsView.
 - **Origin buildings:** `src/renderer/art/originStyles.ts`: each origin's own homes, walls and gates; every other
   building gets its materials swapped (`reclad`) and dressing on top. `buildingArt` takes the style (the theme id).
 - **Phase 4:** animal husbandry and more farming.

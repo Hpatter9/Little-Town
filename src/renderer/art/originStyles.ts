@@ -6,6 +6,7 @@
 
 import type { ThemeId } from '../../shared/sim/snapshot';
 import type { Painter } from './pixelArt';
+import { cityHome, nomadArt } from './nomadArt';
 
 type Draw = (p: Painter, w: number, h: number) => void;
 type Style = Exclude<ThemeId, 'town'>;
@@ -732,6 +733,15 @@ function reclad(p: Painter, st: Style): void {
 /** How to draw a building in an origin's style: its own art (homes, walls, gates), or the usual art dressed in the
  *  origin's things. Null for buildings the style leaves as they are (fields, the campfire). */
 export function styled(style: string, defId: string): { h?: number; draw?: Draw; dress?: (p: Painter, w: number, h: number) => void } | null {
+  // (the Nomad Caravan: its tents while it wanders, its adobe once it settles into a caravan city: nomadArt.ts)
+  const city = style === 'nomads_city';
+  if (city) style = 'nomads';
+  if (style === 'nomads') {
+    const own = nomadArt(defId, city);
+    if (own) return own;
+    const hi = HOMES.indexOf(defId as (typeof HOMES)[number]);
+    if (city && hi >= 0) return { h: HOME_H[hi], draw: (p, w, h) => cityHome(p, w, h, hi) };
+  }
   if (style === 'town' || !(style in home)) return null;
   const st = style as Style;
   const hi = HOMES.indexOf(defId as (typeof HOMES)[number]);

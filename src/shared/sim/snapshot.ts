@@ -394,7 +394,7 @@ export interface Snapshot {
   campX: number;
   /** A nomad tribe's seasonal round (sim/nomads.ts): where it's camped, when it moves next, whether it has settled,
    *  and its last move (x from and to, and ticks since), for the caravan on the road. */
-  nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null } | null;
+  nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's keep (sim/castle.ts): its tiles and how many floors it stands. */
   castle: { lo: number; hi: number; floors: number } | null;
   /** A full-moon night: werewolves show what they are. */
@@ -582,6 +582,7 @@ export function snapshot(s: GameState): Snapshot {
           site: s.nomad.camp === s.nomad.home ? 'home' : 'pasture',
           settled: !!s.nomad.settled,
           nextMoveDays: daysToMove(s),
+          traces: s.nomad.settled ? [] : (s.nomad.left ?? []),
           move: s.nomad.movedAt != null && s.nomad.from != null ? { from: tileCentreX(s.nomad.from), to: tileCentreX(s.nomad.camp), since: s.tick - s.nomad.movedAt } : null,
         }
       : null,

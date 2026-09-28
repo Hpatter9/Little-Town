@@ -252,6 +252,13 @@ mines and the great works are rooted: they stay where they were built, and the g
 in the end the Launch Site) always go up on the home ground, so nothing that takes years is lost to the road. The
 view rides along with the caravan of wagons and pack animals (camels in the desert).
 
+Its camp looks the part: work goes on under striped awnings, the shop is a bazaar stall that grows into a
+pavilion and then a grand three-peaked one, the tavern is a feast tent, the stable a horse line, the stockpile a
+laden cart, the lookout a tall pole with a pennant. While it stays put its wagons and pack animals wait at the edge of
+the camp, and the ground it left keeps the marks of its tents (fire rings, flattened grass) until it comes back.
+Once it settles, the caravan city rebuilds it all in adobe: domed houses, arcades and a caravanserai bazaar under
+striped awnings.
+
 While it wanders the tribe builds no walls: when raiders are sighted, the wagons are drawn up across both ends of
 the camp, and put away again after. In the Industrial age it comes home one last time and settles: the home ground
 becomes a caravan city, and it plays on to the stars like any other town. The Plan tab shows where it's camped and

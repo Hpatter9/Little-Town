@@ -7,6 +7,7 @@
 // wagons are drawn up across the ends of the camp. In the Industrial age it comes home one last time and settles,
 // and its home ground becomes a caravan city.
 
+import { TILE } from '../constants';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { eraReached } from '../data/eras';
 import { rulesOf } from '../data/origins';
@@ -80,6 +81,8 @@ export function moveCamp(s: GameState, back: readonly BackTerrain[], to: number)
   }
   s.tileRev = (s.tileRev ?? 0) + 1;
   const tents = s.buildings.filter((b) => portable(b.def) && !b.room);
+  // (where the tents stood, the ground remembers: fire rings and flattened grass, until the tribe comes back)
+  n.left = tents.filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def].layer === 'mid').map((b) => ({ x: (b.tile + BUILDING_BY_ID[b.def].width / 2) * TILE, w: BUILDING_BY_ID[b.def].width * TILE }));
   const staying = s.buildings.filter((b) => !tents.includes(b));
   const placed: Building[] = [...staying];
   let lost = 0;
