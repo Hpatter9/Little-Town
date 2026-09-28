@@ -220,6 +220,9 @@ export interface Raider {
   captive?: Person | null;
   /** Fires this one has set. */
   fires?: number;
+  /** A rival lord (sim/rivals.ts): when each of its spells is next ready, and when it last cast one. */
+  spellAt?: Record<string, number>;
+  lastCast?: number;
 }
 
 export interface Raid {
@@ -238,6 +241,8 @@ export interface Raid {
   leavesTick: number;
   raiders: Raider[];
   prompt: number | null;
+  /** A rival lord's hexes on the defenders and blessings on its army, until these ticks (sim/rivals.ts). */
+  hex?: Partial<Record<'hold' | 'fog' | 'emp' | 'frenzy' | 'ward', { until: number; name: string }>>;
 }
 
 export interface Needs {

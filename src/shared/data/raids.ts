@@ -28,6 +28,10 @@ export interface RaidKind {
   bribable: boolean;
   /** The name takes a plural verb ("the scouts are here"). */
   plural: boolean;
+  /** A rival origin's army (data/rivals.ts): it never comes to a town founded the same way, and its lord always
+   *  leads it. */
+  origin?: string;
+  leader?: string;
 }
 
 export const RAID_KINDS: readonly RaidKind[] = [
@@ -55,6 +59,18 @@ export const RAID_KINDS: readonly RaidKind[] = [
   { id: 'pirates', name: 'Space pirates', goal: 'steal', goals: { steal: 4, burn: 1, kidnap: 2 }, steals: 'valuables', enemies: { space_pirate: 30 }, fromDay: 0, era: 'space', weight: 4, speed: 75, bribable: true, plural: true },
   { id: 'drones', name: 'Drone swarm', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { combat_drone: 22, slug_bot: 32, war_bot: 40 }, fromDay: 0, era: 'space', weight: 3, speed: 90, bribable: false, plural: false },
   { id: 'warband', name: 'Warband', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { soldier: 20, bandit_archer: 12, ogre: 32, hedge_wizard: 18 }, fromDay: 0, era: 'medieval', untilEra: 'industrial', weight: 2, speed: 50, bribable: true, plural: false },
+  // Rival origins (data/rivals.ts): any era, from day 8, never to a town founded the same way
+  { id: 'rival_lich', name: 'The Lich Lord\'s dead', goal: 'harm', goals: { harm: 4, burn: 1 }, enemies: { flying_skull: 6, zombie: 8, wraith: 10, mummy: 14 }, fromDay: 8, weight: 0.3, speed: 30, bribable: false, plural: true, origin: 'lich', leader: 'lich_lord' },
+  { id: 'rival_druid', name: 'The Archdruid\'s wild', goal: 'harm', enemies: { wolf: 8, boar: 11, treant: 24 }, fromDay: 8, weight: 0.3, speed: 55, bribable: false, plural: false, origin: 'druid', leader: 'archdruid' },
+  { id: 'rival_vampire', name: 'The Blood Court', goal: 'harm', goals: { harm: 3, kidnap: 2 }, enemies: { thrall: 10, night_shade: 9 }, fromDay: 8, weight: 0.3, speed: 50, bribable: false, plural: false, origin: 'vampire', leader: 'countess' },
+  { id: 'rival_werewolf', name: 'The Moon Pack', goal: 'harm', enemies: { wolf: 8, wolf_alpha: 18, werewolf: 16 }, fromDay: 8, weight: 0.3, speed: 80, bribable: false, plural: false, origin: 'werewolf', leader: 'the_alpha' },
+  { id: 'rival_robot', name: 'The Machine Colony', goal: 'harm', goals: { harm: 3, burn: 1 }, enemies: { scout_drone: 8, iron_sentry: 18 }, fromDay: 8, weight: 0.3, speed: 45, bribable: false, plural: false, origin: 'robot', leader: 'overmind' },
+  { id: 'rival_dwarves', name: 'The Deep Hold', goal: 'steal', goals: { steal: 4, harm: 2 }, steals: 'valuables', enemies: { hold_warrior: 14, hold_crossbow: 11, stone_golem: 26 }, fromDay: 8, weight: 0.3, speed: 40, bribable: true, plural: false, origin: 'dwarves', leader: 'thane' },
+  { id: 'rival_merfolk', name: 'The Tide Clan', goal: 'steal', goals: { steal: 3, kidnap: 2, harm: 1 }, steals: 'food', enemies: { tide_warrior: 12, tide_caller: 10, coral_golem: 22 }, fromDay: 8, weight: 0.3, speed: 50, bribable: true, plural: false, origin: 'merfolk', leader: 'tide_queen' },
+  { id: 'rival_nomads', name: 'The Horde', goal: 'steal', goals: { steal: 4, burn: 1, kidnap: 1 }, steals: 'valuables', enemies: { horse_rider: 12, horse_archer: 10 }, fromDay: 8, weight: 0.3, speed: 85, bribable: true, plural: false, origin: 'nomads', leader: 'the_khan' },
+  { id: 'rival_fae', name: 'The Wild Hunt', goal: 'kidnap', goals: { kidnap: 3, harm: 2, steal: 1 }, steals: 'food', enemies: { wisp: 6, redcap: 10 }, fromDay: 8, weight: 0.3, speed: 70, bribable: false, plural: false, origin: 'fae', leader: 'hunt_queen' },
+  { id: 'rival_alchemists', name: 'The Mad Alchemist\'s experiments', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { acid_slime: 7, homunculus: 16 }, fromDay: 8, weight: 0.3, speed: 40, bribable: false, plural: true, origin: 'alchemists', leader: 'mad_alchemist' },
+  { id: 'rival_knights', name: 'The Order', goal: 'harm', goals: { harm: 3, burn: 1, steal: 1 }, steals: 'valuables', enemies: { order_knight: 18, order_crossbow: 12 }, fromDay: 8, weight: 0.3, speed: 55, bribable: true, plural: false, origin: 'knights', leader: 'grand_master' },
 ];
 
 export const RAID_KIND_BY_ID: Readonly<Record<string, RaidKind>> = Object.fromEntries(RAID_KINDS.map((k) => [k.id, k]));

@@ -181,7 +181,7 @@ async function start(): Promise<void> {
   );
 
   // (an origin's look reaches its buildings too)
-  const hud = createHud(bridge, (theme) => town.setBuildingStyle(buildingTint(theme)));
+  const hud = createHud(bridge, (theme) => town.setBuildingStyle(buildingTint(theme), theme));
   const music = createMusic();
   const tip = createTooltip();
   const actions = createActionBar();

@@ -54,6 +54,8 @@ export class BuildingsView {
   private readonly drawn = new Map<number, Drawn>();
   private readonly overlays: Record<BuildLayer, Container>;
   private tones: Record<BuildLayer, [Tone, string]> = { fore: [noTone, 'near'], mid: [noTone, 'near'], back: [haze(0.32), 'far'] };
+  /** The origin whose homes, walls and dressing the buildings are drawn in (see art/originStyles.ts). */
+  private style = 'town';
   private readonly fireFrames: PixelArt[];
   private ghost: { sprite: Sprite; foot: Graphics; layer: BuildLayer } | null = null;
 
@@ -69,8 +71,10 @@ export class BuildingsView {
     this.fireFrames = campfireFrames(Rng.from(seedHash, 0xf2), noTone);
   }
 
-  /** The town's look (its origin's): buildings tinted toward a colour, or as drawn; everything is redrawn. */
-  setStyle(tint: [string, number] | null): void {
+  /** The town's look (its origin's): its own homes and walls, everything else dressed in its things, and tinted
+   *  toward a colour (or as drawn); everything is redrawn. */
+  setStyle(tint: [string, number] | null, style = 'town'): void {
+    this.style = style;
     const key = tint ? `${tint[0]}${tint[1]}` : '';
     const toward = (base: Tone): Tone => {
       if (!tint) return base;
@@ -88,7 +92,7 @@ export class BuildingsView {
   private art(defId: string, layer: BuildLayer, stage?: CropLook): PixelArt {
     if (defId === 'campfire') return this.fireFrames[0];
     const [tone, key] = this.tones[layer];
-    return buildingArt(defId, tone, key, stage);
+    return buildingArt(defId, tone, key, stage, this.style);
   }
 
   /** Bring the drawing up to date. Returns the layers whose shapes changed (their skylines need rebuilding). */

@@ -136,7 +136,8 @@ export class RaidersView {
       }
       s.alpha = r.down ? 0.4 : 1;
       // allies (summoned, raised, tamed) glow a ghostly green
-      s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : r.ally ? 0xa8f0b8 : 0xffffff;
+      // (a rival origin's troops wear its colours)
+      s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : r.ally ? 0xa8f0b8 : (def.tint ?? 0xffffff);
       // a burst where the blow landed: blood for a Blood Knight's, crackling light for a laser's
       const since = r.sinceHit + t;
       const special = r.hitFx === 'blood' ? bloodFrame(since) : r.hitFx === 'shock' ? shockFrame(since * 1.5) : r.hitFx === 'fire' ? fireHitFrame(since * 1.2) : r.hitFx === 'lightning' ? lightningHitFrame(since * 1.2) : null;
@@ -152,8 +153,9 @@ export class RaidersView {
       // a Summoner's spirit steps out of a rift; dark magic swirls round the raised and the tamed
       // (and a cold vortex swirls round an ice mage as they cast)
       const portal = r.kind === 'spirit';
-      const casting = (r.kind === 'ice_mage' || r.kind === 'frost_archmage') && !r.down;
-      const magic = portal ? portalFrame((r.sinceConjured + t) * 1.5) : casting ? castFrame((r.sinceAction + t) * 1.4) : conjureFrame(Math.floor(r.sinceConjured * 2 + t * 2));
+      // (and a rival lord as it casts one of its spells)
+      const casting = ((r.kind === 'ice_mage' || r.kind === 'frost_archmage') && !r.down) || (r.sinceCast < 20 && !r.down);
+      const magic = portal ? portalFrame((r.sinceConjured + t) * 1.5) : casting ? castFrame((Math.min(r.sinceAction, r.sinceCast) + t) * 1.4) : conjureFrame(Math.floor(r.sinceConjured * 2 + t * 2));
       const msize = portal || casting ? AREA_SIZE : BLAST_SIZE;
       d.magic.visible = !!magic;
       if (magic) {

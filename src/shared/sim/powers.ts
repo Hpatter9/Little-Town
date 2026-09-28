@@ -16,6 +16,7 @@ import { cropOf } from './farming';
 import { stabilize } from './health';
 import { fullMoon } from './monsters';
 import { shopOf, tavernOf } from './shop';
+import { wardOf } from './rivals';
 import { addStock, campX, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { housingCapacity, joinOrigin } from './townsfolk';
@@ -51,8 +52,9 @@ const night = (s: GameState) => {
 /** Strike every raider still fighting; returns how many fell. */
 function strike(s: GameState, dmg: number, fx: Raider['hitFx']): number {
   let fell = 0;
+  const ward = wardOf(s); // (a rival lord's ward turns some of it)
   for (const r of foes(s)) {
-    r.hp = Math.max(0, r.hp - dmg);
+    r.hp = Math.max(0, r.hp - Math.round(dmg * ward));
     r.lastHit = s.tick;
     r.hitFx = fx;
     if (r.hp === 0) {

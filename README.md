@@ -237,6 +237,34 @@ building style.
 | **Crucible** | Alchemists: fast research, newcomers gain a strange trait; poor builders | Transmute, Elixir, Volatile Flask |
 | **Exiled Order** | Knights: armed from day one, fight hard, take less harm; slow crafting and research | Rally, Shield Wall, Oath of Mending |
 
+Each origin builds its own way: homes are crypts, living trees, gothic houses, earth dens, metal pods, stone halls,
+stilt huts, yurts, mushroom houses, alchemists' towers or keeps; walls are bone palisades, hedges, iron railings,
+plated barriers and so on; and every other building is roofed and walled in the origin's materials and dressed in
+its things (skulls and candles, vines, bats and banners, antennae, runes, nets and shells, flasks, heraldry).
+
+### Rival origins
+
+The origins you didn't pick are out there too. From day 8, in any era, now and then one sends its army against
+you, led by its lord, who casts that origin's spells in the fight. Kill the lord and the town keeps its relic.
+A rival never raids a town founded its own way.
+
+| Rival | Army | The lord's spells | Relic |
+|---|---|---|---|
+| The Lich Lord | Flying skulls, zombies, wraiths, mummies | Drain Life, Raise the Fallen, Bone Ward | Phylactery |
+| The Archdruid | Wolves, boars, treants | Entangle, Call Storm, Regrowth | Staff |
+| The Countess | Thralls, night shades (and she carries people off) | Mesmerise, Blood Drain, Night Terror | Ring |
+| The Alpha | Wolves, alphas, werewolves | Howl, Blood Frenzy | Pelt |
+| The Overmind | Scout drones, iron sentries | Overclock, Repair Swarm, EMP (machines and turrets stop) | Core |
+| The Thane | Hold warriors and crossbows, stone golems | Stone Skin, Rockfall (breaks walls) | Hammer |
+| The Tide Queen | Tide warriors and callers, coral golems | Whirlpool, Sea Fog, High Tide | Trident |
+| The Khan | Riders and horse archers | Arrow Volley, Plunder (takes coins) | Bow |
+| The Queen of the Wild Hunt | Wisps, redcaps (they carry people off) | Glamour, Faerie Fire | Crown |
+| The Mad Alchemist | Acid slimes, brass homunculi | Volatile Flask, Elixir, Transmute (breaks walls) | Philosopher's Stone |
+| The Grand Master | Knights and crossbowmen of the Order | Rally, Shield Wall, Oath of Mending | Shield |
+
+Hexes on the defenders (held, fogged, EMP) and blessings on the army (frenzied, warded) show on the raid badge
+with the seconds left.
+
 ## New-game options
 
 The New town panel opens on a first run, from the tray's New game… and from the game-over card.

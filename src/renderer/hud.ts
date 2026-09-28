@@ -130,7 +130,7 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
       raid.hidden = !r;
       flash.hidden = !r || stripMode !== 'full';
       if (r) {
-        const t = r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!`;
+        const t = r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!${r.hexes.length ? ` · ${r.hexes.join(' · ')}` : ''}`;
         if (raid.textContent !== t) raid.textContent = t;
       }
       // anyone bleeding out in town: who has least time left (a dressing or an infirmary saves them)

@@ -43,6 +43,7 @@ import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
+import { hexesNow } from './rivals';
 import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';
 
 export interface SkillView {
@@ -159,6 +160,8 @@ export interface RaiderView {
   /** Ticks since its last sweeping attack (bosses), and since it was summoned, raised or tamed. */
   sinceArea: number;
   sinceConjured: number;
+  /** Ticks since a rival lord last cast a spell. */
+  sinceCast: number;
   /** What the last hit was, if special. */
   hitFx: RaiderHitFx | null;
   kind: string;
@@ -184,6 +187,8 @@ export interface RaidView {
   secondsToArrival: number;
   side: -1 | 1;
   alarm: boolean;
+  /** A rival lord's hexes and blessings on the fight ("Entangle 6s"). */
+  hexes: string[];
   raiders: RaiderView[];
 }
 
@@ -501,6 +506,7 @@ export function snapshot(s: GameState): Snapshot {
           secondsToArrival: Math.max(0, (s.raid.arrivesTick - s.tick) / TICK_HZ),
           side: s.raid.side,
           alarm: alarmRaised(s),
+          hexes: hexesNow(s).map((h) => `${h.name} ${h.seconds}s`),
           raiders: s.raid.raiders.map((r) => ({
             id: r.id,
             kind: r.kind,
@@ -519,6 +525,7 @@ export function snapshot(s: GameState): Snapshot {
             ally: !!r.ally,
             sinceArea: r.lastArea != null ? s.tick - r.lastArea : 999,
             sinceConjured: r.conjuredAt != null ? s.tick - r.conjuredAt : 999,
+            sinceCast: r.lastCast != null ? s.tick - r.lastCast : 999,
             hitFx: r.hitFx ?? null,
           })),
         }
