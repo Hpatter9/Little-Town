@@ -1,7 +1,8 @@
 // Draws buildings into their layers: finished art, blueprints (a faint outline that fills in from the
 // ground up as work progresses, with scaffolding and a progress bar), and the placement ghost.
 
-import { Container, Graphics, Sprite, Ticker } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Texture, Ticker } from 'pixi.js';
+import { keepArt, PLINTH, ROOM_H, roomArt, TOWER_W } from '../art/castle';
 import { dustFrame, FLAME_SIZE, flameFrame, smokeFrame } from '../art/effects';
 import { TILE } from '../../shared/constants';
 import type { BuildLayer } from '../../shared/data/buildings';
@@ -9,7 +10,7 @@ import { defOf, stillNeeded } from '../../shared/sim/buildings';
 import { poolSize, type Building } from '../../shared/sim/state';
 import { CROPS } from '../../shared/data/crops';
 import { buildingArt, type CropLook } from '../art/buildings';
-import { haze, noTone, type PixelArt, type Tone } from '../art/pixelArt';
+import { haze, mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
 import { campfireFrames } from '../art/sprites';
 import { Rng } from '../../shared/rng';
 import type { Layer } from './layer';
@@ -22,6 +23,8 @@ function cropLook(b: Building): CropLook | undefined {
   if (c.stage === 'ripe') return 'ripe';
   return c.growth < 0.4 ? 'sprout' : 'tall';
 }
+
+const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.status}|${cropLook(b) ?? ''}|${b.room ? `room${b.floor ?? 0}` : ''}`;
 
 /** Where building bottoms sit in each layer's local coordinates. */
 const BASE_Y: Record<BuildLayer, number> = { fore: 14, mid: 0, back: 6 };
@@ -53,7 +56,10 @@ const DUST_PIVOT: [number, number] = [48, 70];
 export class BuildingsView {
   private readonly drawn = new Map<number, Drawn>();
   private readonly overlays: Record<BuildLayer, Container>;
-  private readonly tones: Record<BuildLayer, [Tone, string]> = { fore: [noTone, 'near'], mid: [noTone, 'near'], back: [haze(0.32), 'far'] };
+  private tones: Record<BuildLayer, [Tone, string]> = { fore: [noTone, 'near'], mid: [noTone, 'near'], back: [haze(0.32), 'far'] };
+  /** The origin whose homes, walls and dressing the buildings are drawn in (see art/originStyles.ts). */
+  private style = 'town';
+  private castleKey = '';
   private readonly fireFrames: PixelArt[];
   private ghost: { sprite: Sprite; foot: Graphics; layer: BuildLayer } | null = null;
 
@@ -69,10 +75,28 @@ export class BuildingsView {
     this.fireFrames = campfireFrames(Rng.from(seedHash, 0xf2), noTone);
   }
 
+  /** The town's look (its origin's): its own homes and walls, everything else dressed in its things, and tinted
+   *  toward a colour (or as drawn); everything is redrawn. */
+  setStyle(tint: [string, number] | null, style = 'town'): void {
+    this.style = style;
+    const key = tint ? `${tint[0]}${tint[1]}` : '';
+    const toward = (base: Tone): Tone => {
+      if (!tint) return base;
+      const cache = new Map<string, string>();
+      return (hex) => {
+        let out = cache.get(hex);
+        if (!out) cache.set(hex, (out = base(mixHex(hex, tint[0], tint[1]))));
+        return out;
+      };
+    };
+    this.tones = { fore: [toward(noTone), `near${key}`], mid: [toward(noTone), `near${key}`], back: [toward(haze(0.32)), `far${key}`] };
+    for (const d of this.drawn.values()) d.sig = ''; // (the next sync redraws them all)
+  }
+
   private art(defId: string, layer: BuildLayer, stage?: CropLook): PixelArt {
     if (defId === 'campfire') return this.fireFrames[0];
     const [tone, key] = this.tones[layer];
-    return buildingArt(defId, tone, key, stage);
+    return buildingArt(defId, tone, key, stage, this.style);
   }
 
   /** Bring the drawing up to date. Returns the layers whose shapes changed (their skylines need rebuilding). */
@@ -82,7 +106,7 @@ export class BuildingsView {
     for (const b of buildings) {
       seen.add(b.id);
       const def = defOf(b);
-      const sig = `${b.def}|${b.tile}|${b.status}|${cropLook(b) ?? ''}`;
+      const sig = sigOf(b);
       let d = this.drawn.get(b.id);
       if (!d || d.sig !== sig) {
         this.remove(b.id);
@@ -138,9 +162,10 @@ export class BuildingsView {
   private draw(b: Building): Drawn {
     const def = defOf(b);
     const L = this.layers[def.layer].group(`b${b.id}`);
-    const art = this.art(b.def, def.layer, b.status === 'done' ? cropLook(b) : undefined);
+    // (a castle's room is drawn in cutaway, up on its floor)
+    const art = b.room ? roomArt(b.def, this.tones[def.layer][0], this.tones[def.layer][1]) : this.art(b.def, def.layer, b.status === 'done' ? cropLook(b) : undefined);
     const cx = (b.tile + def.width / 2) * TILE;
-    const bottom = BASE_Y[def.layer];
+    const bottom = BASE_Y[def.layer] - (b.room ? PLINTH + (b.floor ?? 0) * ROOM_H : 0);
     const left = Math.round(cx - art.width / 2);
     const top = bottom - art.height;
     const rect: LocalRect = { layer: def.layer, x: left, y: top, w: art.width, h: art.height };
@@ -148,7 +173,7 @@ export class BuildingsView {
     if (b.status === 'done') {
       if (b.def === 'campfire') L.placeAnimated(this.fireFrames, cx, bottom, 7);
       else L.place(art, cx, bottom);
-      return { sig: `${b.def}|${b.tile}|${b.status}|${cropLook(b) ?? ''}`, rect };
+      return { sig: sigOf(b), rect };
     }
     // blueprint: a faint full outline, plus the finished art masked to the progress so far
     const faint = L.place(art, cx, bottom);
@@ -159,7 +184,7 @@ export class BuildingsView {
     const mask = L.add(new Graphics(), cx);
     solid.mask = mask;
     const overlay = this.overlays[def.layer].addChild(new Graphics());
-    return { sig: `${b.def}|${b.tile}|${b.status}|${cropLook(b) ?? ''}`, rect, reveal: { mask, art, left, top }, overlay };
+    return { sig: sigOf(b), rect, reveal: { mask, art, left, top }, overlay };
   }
 
   private updateBlueprint(b: Building, d: Drawn): void {
@@ -241,6 +266,27 @@ export class BuildingsView {
     });
     const char = Math.round(255 - b.fire * 150);
     this.layers[layer].tintGroup(`b${b.id}`, (char << 16) | (char << 8) | char);
+  }
+
+  /** A castle town's keep, round its rooms (drawn behind them, in tile-wide slices so it culls with the rest).
+   *  Returns true if it changed. */
+  syncCastle(castle: { lo: number; hi: number; floors: number } | null): boolean {
+    const key = castle ? `${castle.lo}|${castle.hi}|${castle.floors}|${this.tones.mid[1]}` : '';
+    if (key === this.castleKey) return false;
+    this.castleKey = key;
+    const L = this.layers.mid;
+    L.removeGroup('castle');
+    if (!castle) return true;
+    L.group('castle');
+    const art = keepArt(castle.lo, castle.hi, castle.floors, this.tones.mid[0], this.tones.mid[1]);
+    const left = castle.lo * TILE - TOWER_W;
+    const SLICE = 16;
+    for (let x0 = 0; x0 < art.width; x0 += SLICE) {
+      const w = Math.min(SLICE, art.width - x0);
+      const slice: PixelArt = { texture: new Texture({ source: art.texture.source, frame: new Rectangle(x0, 0, w, art.height) }), width: w, height: art.height, tops: art.tops.slice(x0, x0 + w) };
+      L.place(slice, left + x0 + w / 2, BASE_Y.mid, false, 'ground');
+    }
+    return true;
   }
 
   /** Local rects of every drawn building (for hit-testing). */

@@ -16,6 +16,7 @@ import type { ClassId } from '../data/classes';
 import type { Battle } from './combat';
 import type { Doom } from './doom';
 import { MONSTER_HP, type MonsterKind, type StandingOrder } from '../data/monsters';
+import { ORIGIN_DEFS, type OriginId } from '../data/origins';
 import { modifiers, type ResearchState } from './research';
 import { TICKS_PER_HOUR } from './time';
 
@@ -51,6 +52,9 @@ export interface Building {
   def: string;
   /** Leftmost tile on its layer's grid. */
   tile: number;
+  /** A room of a castle (sim/castle.ts), and the floor it's on (0: the ground floor). */
+  room?: boolean;
+  floor?: number;
   /** A blueprint is waiting for materials or being built; progress > 0 once work has started. */
   status: 'blueprint' | 'done';
   /** Materials hauled to the site so far. */
@@ -135,8 +139,9 @@ export type Task =
   /** Carry fetched materials to a construction site. */
   | { type: 'deliver'; building: number }
   | { type: 'build'; building: number }
-  /** Work on the first topic in the research queue, at the research station. */
-  | { type: 'research' }
+  /** Study at a research station (a building id; null: the camp, for a town with none). One person to a station; each
+   *  works on a topic of their own from the queue where they can. (Older saves: neither set, and it's chosen afresh.) */
+  | { type: 'research'; station?: number | null; topic?: string }
   /** Walk to a storage building with food and eat one unit (taking until `until`, once started). */
   | { type: 'eat'; building: number; until: number | null }
   /** Sleep in a bed (building id) or on the ground by the camp (null). */
@@ -218,6 +223,9 @@ export interface Raider {
   captive?: Person | null;
   /** Fires this one has set. */
   fires?: number;
+  /** A rival lord (sim/rivals.ts): when each of its spells is next ready, and when it last cast one. */
+  spellAt?: Record<string, number>;
+  lastCast?: number;
 }
 
 export interface Raid {
@@ -236,6 +244,8 @@ export interface Raid {
   leavesTick: number;
   raiders: Raider[];
   prompt: number | null;
+  /** A rival lord's hexes on the defenders and blessings on its army, until these ticks (sim/rivals.ts). */
+  hex?: Partial<Record<'hold' | 'fog' | 'emp' | 'frenzy' | 'ward', { until: number; name: string }>>;
 }
 
 export interface Needs {
@@ -309,7 +319,12 @@ export interface Person {
   recent?: { tick: number; text: string }[];
   /** Sick with the plague until a tick. */
   sick?: { until: number; treated?: boolean } | null;
+  /** A machine (the Machine Colony origin): never eats, sleeps or sickens, and its spirits hold steady. */
+  machine?: boolean;
 }
+
+/** The raised dead and machines never eat, sleep or sicken. */
+export const tireless = (p: Pick<Person, 'monster' | 'machine'>) => p.monster === 'undead' || !!p.machine;
 
 /** Base health, and the extra a Tough person has. */
 export const BASE_HP = 60;
@@ -521,6 +536,8 @@ export interface GameState {
   fx?: { tick: number; id: number; kind: PersonFx }[];
   /** Where meteors struck lately (for the impact bursts). */
   impacts?: { tick: number; x: number }[];
+  /** Spells cast lately (the town's powers and rival lords'), for the renderer to draw (see castSpellFx). */
+  spellFx?: SpellFx[];
   /** The living are frightened (someone was turned) until this tick. */
   turningFearUntil?: number;
   /** Ironman: a single save with no backups, and no cheats. */
@@ -536,8 +553,18 @@ export interface GameState {
   coins?: number;
   travellers?: Traveller[];
   nextTravellerTick?: number;
+  /** The founder's soul is to be bound into a phylactery (the town builds it); and, once it stands, the founder is a
+   *  lich, and the town looks it from then on, whatever becomes of the phylactery. */
+  lichChosen?: boolean;
+  lich?: boolean;
   /** When the next guest is due at the tavern. */
   nextGuestTick?: number;
+  /** Who founded the town (see data/origins.ts; Settlers when left out), when each of its powers is ready again, what
+   *  it has cast lately (newest last), and the spells still in effect (by id, until a tick). */
+  origin?: OriginId;
+  powers?: Record<string, number>;
+  powerLog?: { tick: number; text: string }[];
+  buffs?: Record<string, number>;
   /** Where the town's coins came from and went, today and yesterday (see earn). */
   ledger?: { day: number; today: Ledger; yesterday: Ledger | null };
 }
@@ -551,6 +578,34 @@ export type RaiderHitFx = 'blood' | 'shock' | 'fire' | 'lightning';
 export const FX_TICKS = 60;
 /** How long each plays (a frost hit is quick). */
 export const fxTicks = (kind: PersonFx) => (kind === 'frost' ? 12 : FX_TICKS);
+
+/** Something a spell touched: a townsperson, a raider (by id: the renderer follows them), or a place. */
+export interface SpellTarget {
+  x: number;
+  id?: number;
+  raider?: boolean;
+}
+/** A spell cast, as the renderer draws it: which spell (`town:<power>` or `rival:<spell>`), from where, onto what,
+ *  and for how long its look lasts (seconds). */
+export interface SpellFx {
+  n: number;
+  tick: number;
+  spell: string;
+  x: number;
+  /** The caster, when it's someone (their id; a raider for a rival lord). */
+  by?: SpellTarget;
+  targets: SpellTarget[];
+  secs: number;
+}
+/** How long a spell's look is kept for the renderer, at most (ticks). */
+export const SPELL_FX_TICKS = 300;
+
+/** Record a spell for the renderer (old ones are dropped). */
+export function castSpellFx(s: GameState, spell: string, by: SpellTarget, targets: SpellTarget[], secs = 2): void {
+  s.spellFx = (s.spellFx ?? []).filter((f) => s.tick - f.tick < SPELL_FX_TICKS);
+  s.spellFx.push({ n: (s.spellFx.at(-1)?.n ?? 0) + 1, tick: s.tick, spell, x: by.x, by: by.id !== undefined ? by : undefined, targets: targets.slice(0, 10), secs });
+  if (s.spellFx.length > 12) s.spellFx.splice(0, s.spellFx.length - 12);
+}
 
 /** Mark a spell on someone, for the renderer (old ones are dropped). */
 export function personFx(s: GameState, id: number, kind: PersonFx): void {
@@ -632,6 +687,8 @@ export interface NewGameOptions {
   founder?: FounderSpec;
   /** How the town starts (a lone founder when left out). */
   scenario?: string;
+  /** Who founds it (Settlers when left out). */
+  origin?: OriginId;
 }
 
 /** Give the rolled founder the player's choices. */
@@ -696,8 +753,36 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     room -= here;
     if (n > here) extra[m] = n - here;
   }
+  // the origin: its own companions, stores, knowledge and buildings, and who the founder (and everyone) is
+  const origin = ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers;
+  for (const type of origin.start.companions ?? []) {
+    const x = (world.camp + 0.5) * TILE + (people.length % 2 ? 1 : -1) * Math.ceil(people.length / 2) * TILE;
+    people.push(makePerson(rng, nextId++, type, x, people.map((q) => q.name)));
+  }
+  for (const [m, n] of Object.entries(origin.start.stores ?? {}) as [Material, number][]) {
+    const here = Math.min(n, room);
+    if (here > 0) addStock(campfire.store, m, here);
+    room -= here;
+    if (n > here) addStock(extra, m, n - here);
+  }
+  const k = origin.rules.kin;
+  for (const p of people) {
+    if (k === 'machine') p.machine = true;
+    else if (k === 'undead' && p !== main) turnMonster(p, 'undead', 0);
+  }
+  const f = origin.rules.founder;
+  if (f === 'machine') main.machine = true;
+  else if (f === 'vampire' || f === 'werewolf') turnMonster(main, f, 0);
+  else if (f === 'lich') main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
   // what the fire can't hold waits in a stockpile just past it
   if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: world.camp + BUILDING_BY_ID.campfire.width + 1, status: 'done', delivered: {}, progress: 1, store: extra });
+  // (and anything the origin starts with standing, the other side of the fire)
+  let at = world.camp - 1;
+  for (const def of origin.start.buildings ?? []) {
+    at -= BUILDING_BY_ID[def].width;
+    buildings.push({ id: nextId++, def, tile: at, status: 'done', delivered: {}, progress: 1, store: {} });
+    at -= 1;
+  }
 
   return {
     version: 15,
@@ -729,8 +814,8 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     horses: [],
     caravan: null,
     nextCaravanTick: 0,
-    research: { done: [...scenario.research], queue: [], progress: {} },
-    items: {},
+    research: { done: [...new Set([...scenario.research, ...(origin.start.research ?? [])])], queue: [], progress: {} },
+    items: { ...(origin.start.items ?? {}) },
     crafting: [],
     notices: [],
     journal: [],
@@ -740,7 +825,17 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     ...(opts.biome && opts.biome !== 'forest' ? { biome: opts.biome } : {}),
     ...(opts.ironman ? { ironman: true } : {}),
     ...(opts.difficulty && opts.difficulty !== 'normal' ? { difficulty: opts.difficulty } : {}),
+    ...(origin.id !== 'settlers' ? { origin: origin.id } : {}),
+    ...(f === 'lich' ? { lich: true } : {}),
   };
+}
+
+/** Make someone a monster (as monsters.ts becomeMonster does; here too so founding needs no sim module). */
+function turnMonster(p: Person, kind: MonsterKind, tick: number): void {
+  p.monster = kind;
+  p.order = 'hide';
+  p.lastFed = tick;
+  p.hp = maxHp(p);
 }
 
 /** A new person of a recruit type: skills from its ranges, 1-3 passions, 1-2 traits, a name not in use. */

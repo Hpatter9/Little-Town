@@ -7,7 +7,7 @@ import { TILE } from '../constants';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
 import { BEDROLL_SLEEP, ITEM_BY_ID } from '../data/items';
 import { FOOD_VALUE, JOBS, type Job } from '../data/people';
-import { TOPIC_BY_ID } from '../data/research';
+import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
@@ -19,15 +19,16 @@ import { onBuilt } from './era';
 import { doomForage } from './doom';
 import { biomeOf } from '../data/biomes';
 import { HORSE_HP } from '../data/trade';
-import { offerBloodRite, offerMoonRite } from './occult';
+import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
 import { cropOf, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
 import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyX } from './raids';
-import { modifiers, researchStation } from './research';
-import { remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, ERA_MULTIPLIER, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
+import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
+import { tireless, remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, ERA_MULTIPLIER, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
+import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
 
 /** Walking speed in world pixels per second. */
 export const WALK_SPEED = 48;
@@ -157,7 +158,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
       const speed = skillSpeed(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
-      site.progress += speed / (defOf(site).buildSeconds * BUILD_MULTIPLIER[s.era] * TICK_HZ);
+      site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_MULTIPLIER[s.era] * TICK_HZ);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
       if (site.progress >= 1) {
         site.progress = 1;
@@ -182,7 +183,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       break;
     }
     case 'research':
-      workResearch(s, p, ctx);
+      workResearch(s, p, task);
       break;
     case 'craft':
       doCraft(s, p, task, rng);
@@ -404,7 +405,7 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
       // a steam factory speeds every station's work
       const built = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
       const factory = (built('factory') ? 2 : 1) * (built('fusion_reactor') ? 1.5 : 1);
-      const speed = skillSpeed(p.skills.crafting.level) * workFactor(s, p) * factory * nearSource(s, station);
+      const speed = skillSpeed(p.skills.crafting.level) * workFactor(s, p) * factory * nearSource(s, station) * craftSpeed(s);
       o.progress += speed / (craftSeconds(def, s.era) * TICK_HZ);
       gainSkill(p, 'crafting', CRAFT_XP_PER_SEC / TICK_HZ);
       if (o.progress >= 1) {
@@ -416,24 +417,33 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
   }
 }
 
-function workResearch(s: GameState, p: Person, ctx: TickContext): void {
-  const station = researchStation(s);
-  const at = station.buildingId !== null ? buildingCentreX(byId(s, station.buildingId)!) : campX(s);
+/** Study at one's own station (one person to each), on a topic of one's own where there is one. */
+function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'research' }>): void {
+  const r = s.research;
+  const building = task.station != null ? byId(s, task.station) : undefined;
+  const at = building ? buildingCentreX(building) : campX(s);
+  // (a topic finished by someone else, or cancelled: on to the next)
+  if (!task.topic || !r.queue.includes(task.topic)) task.topic = topicFor(s, p);
+  if (!task.topic) {
+    p.task = null;
+    return;
+  }
   if (!walkTo(p, at)) return;
   p.activity = 'research';
-  const r = s.research;
-  const topic = TOPIC_BY_ID[r.queue[0]];
-  const speed = skillSpeed(p.skills.research.level) * station.mult * modifiers(r).researchSpeed * workFactor(s, p) * stackFactor(ctx, 'research');
+  const topic = TOPIC_BY_ID[task.topic];
+  const mult = building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1;
+  const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p) * researchSpeed(s);
   r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[s.era] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   if (r.progress[topic.id] < 1) return;
 
   delete r.progress[topic.id];
-  r.queue.shift();
+  r.queue = r.queue.filter((id) => id !== topic.id);
   r.done.push(topic.id);
   notify(s, `Research complete: ${topic.name}`, true);
   if (topic.id === 'blood_rite') offerBloodRite(s);
   if (topic.id === 'moon_rite') offerMoonRite(s);
+  if (topic.id === 'lichcraft') offerLichRite(s);
   if (topic.effects.some((e) => e.type === 'eraCapstone')) {
     s.eraReady = true;
     notify(
@@ -458,7 +468,7 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
   const def = TERRAIN[tile.terrain as keyof typeof TERRAIN];
   if (p.activity !== def.anim) pickTool(s, p, def.anim);
   p.activity = def.anim;
-  const speed = skillSpeed(p.skills.gathering.level) * modifiers(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage : 1);
+  const speed = skillSpeed(p.skills.gathering.level) * modifiers(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
   // (foraging is food: people eat on the same clock in every era, so it isn't stretched)
   task.progress += speed / (def.secondsPerUnit * (def.anim === 'forage' ? 1 : ERA_MULTIPLIER[s.era]) * TICK_HZ);
   while (task.progress >= 1 && p.task === task) {
@@ -472,7 +482,7 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
 function scrounge(s: GameState, p: Person, task: Extract<Task, { type: 'gather' }>): void {
   const tile = s.tiles[task.tile];
   p.activity = 'forage';
-  task.progress += (skillSpeed(p.skills.gathering.level) * doomForage(s) * biomeOf(s).forage) / (SCROUNGE_SECONDS * TICK_HZ);
+  task.progress += (skillSpeed(p.skills.gathering.level) * doomForage(s) * biomeOf(s).forage * forageSpeed(s)) / (SCROUNGE_SECONDS * TICK_HZ);
   if (task.progress < 1) return;
   task.progress = 0;
   addStock(tile.pool, 'berries', -1);
@@ -649,7 +659,7 @@ function chooseTask(s: GameState, p: Person): Task | null {
       p.needs.food = Math.min(1, p.needs.food + FOOD_VALUE[own]!);
     }
     // nothing in storage: go and find something wild to eat before they starve
-    if (p.monster !== 'undead') {
+    if (!tireless(p)) {
       if (p.task?.type === 'gather' && p.task.scrounge) return p.task;
       const wild = wildFood(s, p);
       if (wild !== null) return { type: 'gather', tile: wild, progress: 0, scrounge: true };
@@ -727,8 +737,12 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
     case 'defend':
       // (fighting only happens in raids, see chooseTask; between them, guards on shift patrol)
       return onShift(s, p) ? { type: 'patrol', targetX: patrolEnd(s, p) } : null;
-    case 'research':
-      return s.research.queue.length ? { type: 'research' } : null;
+    case 'research': {
+      // (one person to a station: with every one taken, they find other work)
+      if (!s.research.queue.length) return null;
+      const station = freeStation(s, p);
+      return station === undefined ? null : { type: 'research', station, topic: topicFor(s, p) };
+    }
     case 'gather': {
       const tile = bestGatherTile(s, p);
       if (tile !== null) return { type: 'gather', tile, progress: 0 };
@@ -810,7 +824,14 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
     case 'build':
       return site?.status === 'blueprint' && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0;
     case 'research':
-      return s.research.queue.length > 0 && p.priorities.research !== 0;
+      // (still their station: built, standing, and nobody else's)
+      return (
+        s.research.queue.length > 0 &&
+        p.priorities.research !== 0 &&
+        t.station !== undefined &&
+        (t.station === null ? !researchStations(s).length : byId(s, t.station)?.status === 'done') &&
+        !studyingAt(s, t.station, p)
+      );
     case 'eat':
       return !!site;
     case 'sleep':

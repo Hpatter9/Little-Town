@@ -90,7 +90,7 @@ export function classAllies(members: Person[]): Fighter[] {
 const inTown = (s: GameState, cls: ClassId) => s.people.filter((p) => p.cls === cls && p.away === null && !p.downed);
 
 /** An ally raider (summoned, raised or tamed) next to x. */
-function ally(s: GameState, kind: string, x: number, dir: 1 | -1): Raider {
+export function ally(s: GameState, kind: string, x: number, dir: 1 | -1): Raider {
   const d = ENEMIES[kind];
   return { id: s.nextId++, kind, x, dir, hp: d.hp, maxHp: d.hp, cooldown: 5, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm', ally: true, conjuredAt: s.tick };
 }

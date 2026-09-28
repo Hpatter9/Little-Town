@@ -14,6 +14,7 @@ import { generateWorld } from '../world';
 import { addStock, carryCapacity, ERA_MULTIPLIER, poolSize, type Building, type GameState, type Person } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { gainSkill, workFactor } from './townsfolk';
+import { cropSpeed } from './origin';
 
 const FARM_XP_PER_SEC = 2;
 const HARVEST_XP = 20;
@@ -51,7 +52,7 @@ export function growCrops(s: GameState): void {
     speed ??= modifiers(s.research).cropSpeed;
     // indoor fields (hydroponics) don't care about the season or the weather
     const indoor = CROPS[b.def].indoor;
-    const outside = indoor ? 1 : SEASON_GROWTH[season] * doomGrowth(s) * biomeOf(s).crops * (byRiver(s, b) ? RIVER_GROWTH : 1);
+    const outside = indoor ? 1 : SEASON_GROWTH[season] * doomGrowth(s) * biomeOf(s).crops * cropSpeed(s) * (byRiver(s, b) ? RIVER_GROWTH : 1);
     // (crops are food, and people eat on the same clock in every era: growing isn't stretched by the era)
     c.growth += (outside * speed) / (CROPS[b.def].growHours * TICKS_PER_HOUR);
     if (c.growth >= 1) {

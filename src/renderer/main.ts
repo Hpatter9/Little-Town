@@ -18,6 +18,7 @@ import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
 import { blueprintCount, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { venueOfDef } from '../shared/data/shop';
+import { buildingTint } from './theme';
 
 /** A traveller, drawn like a townsperson (they're only passing through: most of a person's details don't apply). */
 function travellerPerson(t: TravellerView): PersonView {
@@ -25,7 +26,7 @@ function travellerPerson(t: TravellerView): PersonView {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, dir: t.dir,
     activity: 'walk', cls: null, trainable: [], mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
-    priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null,
+    priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, monster: null, order: null, sick: false,
@@ -55,6 +56,7 @@ import { SnowView } from './town/snowView';
 import { SkyView } from './town/skyView';
 import { WeatherView } from './town/weatherView';
 import { RaidersView } from './town/raidersView';
+import { SpellsView } from './town/spellsView';
 import { TownView } from './town/townView';
 
 declare global {
@@ -129,6 +131,8 @@ async function start(): Promise<void> {
   const people = new PeopleView(town.people);
   const raiders = new RaidersView(town.people);
   const animals = new AnimalsView(town.people);
+  // (spells sit over the town, out of its day-and-night tint, so they glow in the dark; they follow the walkway)
+  const spells = new SpellsView();
   const pane = new ExpeditionPane(world.seedHash);
   const snow = new SnowView();
   town.root.addChild(snow.root); // (over everything in the town, in screen space)
@@ -139,7 +143,7 @@ async function start(): Promise<void> {
   if (weather) town.root.addChild(weather.root);
   town.root.addChildAt(sky.root, 0); // (behind the hills, so the sun and moon rise and set behind the land)
   const townMask = new Graphics(); // used only as a mask (never added to the stage, or it would draw)
-  app.stage.addChild(town.root, pane.root);
+  app.stage.addChild(town.root, spells.root, pane.root);
 
   /** Where the town ends and the expedition pane (if showing) begins, in screen x. */
   let paneX = Infinity;
@@ -179,7 +183,8 @@ async function start(): Promise<void> {
     dismissAway,
   );
 
-  const hud = createHud(bridge);
+  // (an origin's look reaches its buildings too)
+  const hud = createHud(bridge, (theme) => town.setBuildingStyle(buildingTint(theme), theme));
   const music = createMusic();
   const tip = createTooltip();
   const actions = createActionBar();
@@ -776,6 +781,7 @@ async function start(): Promise<void> {
     if (tilesChanged) town.updateTiles(next.tiles);
     town.setSeason(next.biome, next.calendar.season); // (redraws the land when the season turns)
     town.syncBuildings(next.buildings);
+    town.syncCastle(next.castle);
     people.moon = next.moonNight;
     publishInspect(); // (the phone's top card keeps up with what it shows)
     sky.update(next.calendar, next.moonPhase, next.weather);
@@ -789,6 +795,7 @@ async function start(): Promise<void> {
     );
     raiders.update(next.raid?.phase === 'active' ? next.raid.raiders : [], performance.now());
     animals.update(next);
+    spells.update(next, performance.now());
     if (hover || placing) refreshHover(); // tooltip contents change as work progresses
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
@@ -814,6 +821,9 @@ async function start(): Promise<void> {
     people.render(performance.now());
     raiders.render(performance.now());
     animals.render(performance.now());
+    const walk = town.people.getGlobalPosition();
+    spells.root.position.set(walk.x - app.stage.x, walk.y - app.stage.y);
+    spells.render(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     sky.render(performance.now(), w);
     weather?.render(performance.now(), w);

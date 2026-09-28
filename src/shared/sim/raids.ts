@@ -50,9 +50,14 @@ import { bossArrives, bossBlow, bossesInRaid } from './bosses';
 import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
 import { flammable, setFire } from './fire';
 import { killPerson, knockDown, stabilize } from './health';
-import { addStock, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider } from './state';
+import { tireless, addStock, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { campEdgeX, gainSkill } from './townsfolk';
+import { rulesOf } from '../data/origins';
+import { fightRate, guardRate } from './origin';
+import { fogAim, frenzyOf, heldBack, lordHp, rivalsInRaid, turretsDown, wardOf } from './rivals';
+import { RIVAL_LEADER_COST } from '../data/rivals';
+import { lurkersBeaten } from './lurkers';
 
 /** Raiders start this far beyond the edge of the world. */
 const OFF_MAP = 40;
@@ -97,17 +102,30 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
   const outbreak = s.doom?.kind === 'outbreak' && s.doom.phase === 'active';
   const freeze = s.doom?.kind === 'deep_freeze' && s.doom.phase === 'active';
   const rats = s.doom?.kind === 'rat_plague' && s.doom.phase === 'active';
-  const kinds = uprising ? [RAID_KIND_BY_ID.drones] : outbreak ? [RAID_KIND_BY_ID.zombies] : freeze ? [RAID_KIND_BY_ID.frost] : rats ? [RAID_KIND_BY_ID.rats] : raidKindsFor(s.era, day);
+  // (the land's own beasts come only in their own lands)
+  const kinds = uprising ? [RAID_KIND_BY_ID.drones] : outbreak ? [RAID_KIND_BY_ID.zombies] : freeze ? [RAID_KIND_BY_ID.frost] : rats ? [RAID_KIND_BY_ID.rats] : raidKindsFor(s.era, day).filter((k) => !k.biomes || k.biomes.includes(s.biome ?? 'forest'));
+  // (the land, and who founded the town, make some raiders likelier, and some never come)
   const odds = biomeOf(s).raids ?? {};
-  const kind = RAID_KIND_BY_ID[rng.weighted(Object.fromEntries(kinds.map((k) => [k.id, k.weight * (odds[k.id] ?? 1)])))];
+  const own = rulesOf(s).raids ?? {};
+  // (a rival never comes to a town founded its own way)
+  const weights = Object.fromEntries(kinds.map((k) => [k.id, k.origin === (s.origin ?? 'settlers') ? 0 : k.weight * (odds[k.id] ?? 1) * (own[k.id] ?? 1)]));
+  const any = Object.values(weights).some((w) => w > 0);
+  const kind = RAID_KIND_BY_ID[rng.weighted(any ? weights : Object.fromEntries(kinds.map((k) => [k.id, k.origin === (s.origin ?? 'settlers') ? 0 : k.weight])))];
   const raid = startRaid(s, kind, raidBudget(s), rng);
   // now and then the era's boss leads a raid of people (not beasts or the dead)
   const bosses = ERA_BOSS[s.era];
-  if (bosses && day >= BOSS_RAID_FROM_DAY && kind.steals !== undefined && rng.chance(BOSS_RAID_CHANCE)) {
+  if (bosses && day >= BOSS_RAID_FROM_DAY && kind.steals !== undefined && !kind.leader && rng.chance(BOSS_RAID_CHANCE)) {
     const boss = rng.pick(bosses);
     const first = raid.raiders[0];
     raid.raiders.push({ ...first, id: s.nextId++, kind: boss, hp: ENEMIES[boss].hp, maxHp: ENEMIES[boss].hp, goal: 'harm', x: first.x + raid.side * 30, carrying: {} });
     notify(s, `${ENEMIES[boss].name} leads them!`, true);
+  }
+  // and now and then the Behemoth drives a raid of beasts before it
+  if (BEAST_RAIDS.includes(kind.id) && day >= BEHEMOTH_FROM_DAY && rng.chance(BEHEMOTH_CHANCE)) {
+    const first = raid.raiders[0];
+    const hp = Math.round(ENEMIES.behemoth.hp * (0.6 + day * 0.03));
+    raid.raiders.push({ ...first, id: s.nextId++, kind: 'behemoth', hp, maxHp: hp, goal: 'harm', x: first.x + raid.side * 40, carrying: {} });
+    notify(s, 'Something huge comes behind them...', true);
   }
   scheduleNextRaid(s, rng);
 }
@@ -116,13 +134,20 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
 const ERA_BOSS: Partial<Record<Era, string[]>> = { medieval: ['black_knight', 'dragon'], industrial: ['iron_baron', 'iron_colossus'], modern: ['warlord', 'war_machine'], space: ['pirate_king', 'star_mech'] };
 const BOSS_RAID_CHANCE = 0.12;
 const BOSS_RAID_FROM_DAY = 10;
+/** The beast raids the Behemoth may drive, from which day, and how often. */
+const BEAST_RAIDS = ['wolves', 'boars', 'lions', 'wild_dogs', 'crocodiles'];
+const BEHEMOTH_FROM_DAY = 8;
+const BEHEMOTH_CHANCE = 0.1;
 
-export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng): Raid {
+/** Gather a raid at the edge of the world, with a warning; or, given `inside` (an x), one that's already in the middle
+ *  of the town, fighting (lurkers.ts). */
+export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng, inside?: number): Raid {
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
   const raiders: Raider[] = [];
   const costs = Object.entries(kind.enemies);
   const cheapest = Math.min(...costs.map(([, c]) => c));
-  let left = budget;
+  // (a rival's lord always leads its army: it takes its share of the budget)
+  let left = kind.leader ? Math.max(0, budget - RIVAL_LEADER_COST) : budget;
   while (raiders.length < RAID_MAX_SIZE && (left >= cheapest || raiders.length === 0)) {
     const affordable = costs.filter(([, c]) => c <= left);
     const [id, cost] = affordable.length ? rng.pick(affordable) : costs.find(([, c]) => c === cheapest)!;
@@ -146,6 +171,11 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
       goal: kind.goals ? rng.weighted(kind.goals as Record<RaidGoal, number>) : kind.goal,
     });
   }
+  if (kind.leader) {
+    const hp = lordHp(s, kind.leader);
+    const last = raiders[raiders.length - 1];
+    raiders.push({ ...last, id: s.nextId++, kind: kind.leader, hp, maxHp: hp, goal: 'harm', x: last.x + (side < 0 ? -30 : 30), carrying: {} });
+  }
   // (a lich founder may command most of the dead)
   if (kind.id === 'zombies') bindTheDead(s, raiders);
   // (and a werewolf founder's own kind run with them)
@@ -155,6 +185,17 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   const patrol = s.people.some((p) => p.task?.type === 'patrol') ? PATROL_WARNING_MINUTES : 0;
   const warn = Math.round((((lookout ? BUILDING_BY_ID[lookout.def].warningMinutes! : WARNING_MINUTES) + patrol) / 60) * TICKS_PER_HOUR);
   const raid: Raid = { id: s.nextId++, kind: kind.id, side, phase: 'warning', arrivesTick: s.tick + warn, leavesTick: s.tick + warn + RAID_MAX_HOURS * TICKS_PER_HOUR, raiders, prompt: null };
+  if (inside !== undefined) {
+    raiders.forEach((rd, i) => {
+      rd.x = inside + (i - (raiders.length - 1) / 2) * 14;
+      rd.dir = i % 2 ? 1 : -1;
+    });
+    raid.phase = 'active';
+    raid.arrivesTick = s.tick;
+    raid.leavesTick = s.tick + RAID_MAX_HOURS * TICKS_PER_HOUR;
+    s.raid = raid;
+    return raid;
+  }
 
   const options = ['Sound the alarm'];
   if (kind.bribable) options.push(`Pay them off (${bribeCost(raid)} food)`);
@@ -272,6 +313,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
   }
   classesInRaid(s, r);
   bossesInRaid(s, r);
+  rivalsInRaid(s, r, rng);
   const step = kind.speed / TICK_HZ;
   const edge = r.side < 0 ? -OFF_MAP : WORLD_WIDTH + OFF_MAP;
   fireDefenses(s, rng);
@@ -280,7 +322,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
     if (rd.down && rd.captive) release(s, rd); // cut down while carrying someone off: they're dropped
     if (rd.down || rd.gone) continue;
     if (rd.ally) {
-      allyAct(r, rd, rng, step);
+      allyAct(s, r, rd, rng, step);
       continue;
     }
     const def = ENEMIES[rd.kind];
@@ -441,11 +483,14 @@ function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng): void {
   // an epic boss rages, and now and then sweeps everyone near it
   const mult = def.kit ? bossBlow(s, rd, s.people.filter((q) => exposed(q)), blow) : 1;
   if (!mult) return;
-  const dmg = Math.round(blow(p) * mult);
+  // (a rival lord's frenzy: harder, and sooner again)
+  const frenzy = frenzyOf(s);
+  if (frenzy > 1) rd.cooldown = Math.round(rd.cooldown / frenzy);
+  const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s));
   p.hp = Math.max(0, p.hp - dmg);
   if (dmg > 0 && (rd.kind === 'ice_mage' || rd.kind === 'frost_archmage')) personFx(s, p.id, 'frost'); // (a burst of ice)
   // a plague rat's bite can carry the sickness
-  if (dmg > 0 && (rd.kind === 'plague_rat' || rd.kind === 'rat_king') && p.monster !== 'undead' && !p.sick && rng.chance(RAT_BITE_SICKNESS)) sicken(s, p, rng);
+  if (dmg > 0 && (rd.kind === 'plague_rat' || rd.kind === 'rat_king') && !tireless(p) && !p.sick && rng.chance(RAT_BITE_SICKNESS)) sicken(s, p, rng);
   if (p.hp === 0) {
     knockDown(s, p);
     notify(s, `${p.name} was struck down!`);
@@ -464,7 +509,7 @@ function attackWall(s: GameState, rd: Raider, wall: Building, rng: Rng): void {
 }
 
 /** An ally (summoned, raised or tamed) goes for the nearest raider still fighting the town. */
-function allyAct(r: Raid, rd: Raider, rng: Rng, step: number): void {
+function allyAct(s: GameState, r: Raid, rd: Raider, rng: Rng, step: number): void {
   const def = ENEMIES[rd.kind];
   const foe = r.raiders.filter((o) => !o.ally && !o.down && !o.gone && o.x >= 0 && o.x <= WORLD_WIDTH).sort((a, b) => Math.abs(a.x - rd.x) - Math.abs(b.x - rd.x))[0];
   if (!foe) return;
@@ -477,12 +522,13 @@ function allyAct(r: Raid, rd: Raider, rng: Rng, step: number): void {
   if (--rd.cooldown > 0) return;
   rd.cooldown = Math.round(def.interval * TICK_HZ);
   if (rng.next() >= def.accuracy - ENEMIES[foe.kind].dodge) return;
-  foe.hp = Math.max(0, foe.hp - rng.int(def.damage[0], def.damage[1]));
+  foe.hp = Math.max(0, foe.hp - Math.round(rng.int(def.damage[0], def.damage[1]) * wardOf(s)));
   if (foe.hp === 0) foe.down = true;
 }
 
 /** Traps and turrets: each hits the nearest raider in its range when it's ready. */
 function fireDefenses(s: GameState, rng: Rng): void {
+  if (turretsDown(s)) return; // (an EMP)
   for (const b of s.buildings) {
     const d = b.status === 'done' ? BUILDING_BY_ID[b.def]?.defense : undefined;
     if (!d || (b.readyTick ?? 0) > s.tick) continue;
@@ -490,8 +536,8 @@ function fireDefenses(s: GameState, rng: Rng): void {
     const target = s.raid!.raiders.filter((rd) => !rd.down && !rd.gone && !rd.ally && Math.abs(rd.x - x) <= d.range).sort((a, c) => Math.abs(a.x - x) - Math.abs(c.x - x))[0];
     if (!target) continue;
     b.readyTick = s.tick + Math.round(d.interval * TICK_HZ);
-    if (rng.next() >= d.accuracy - ENEMIES[target.kind].dodge / 2) continue;
-    target.hp = Math.max(0, target.hp - rng.int(d.damage[0], d.damage[1]));
+    if (rng.next() >= d.accuracy - fogAim(s) - ENEMIES[target.kind].dodge / 2) continue;
+    target.hp = Math.max(0, target.hp - Math.round(rng.int(d.damage[0], d.damage[1]) * wardOf(s)));
     target.lastHit = s.tick;
     target.hitFx = b.def === 'laser_turret' ? 'shock' : null;
     if (target.hp === 0) target.down = true;
@@ -500,6 +546,8 @@ function fireDefenses(s: GameState, rng: Rng): void {
 
 /** A defender's attack on the nearest raider in reach (called from the defend task). Returns true if they struck. */
 export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bonus = 0): void {
+  // (held by a rival lord's hex, they lose the moment)
+  if (heldBack(s, p, rng)) return;
   // a shooter at home takes a stone or arrow from storage for each shot, while there are any
   const kind = ammoOf(p);
   const store = kind ? storages(s).find((b) => (b.store[kind] ?? 0) > 0) : undefined;
@@ -508,8 +556,8 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   const dodge = ENEMIES[rd.kind].dodge;
   gainSkill(p, f.ranged ? 'ranged' : 'melee', 6);
   const captain = operatorSkill(s, 'watchtower') * CAPTAIN_PER_LEVEL; // a guard captain drills the defenders
-  if (rng.next() >= f.accuracy + captain - dodge) return;
-  let dmg = hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus;
+  if (rng.next() >= f.accuracy + captain - fogAim(s) - dodge) return;
+  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s));
   // a Blood Knight hits harder when hurt, and heals from what they deal
   if (p.cls === 'blood_knight') {
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);
@@ -548,6 +596,7 @@ function endRaid(s: GameState, rng: Rng): void {
   s.raid = null;
   const kind = RAID_KIND_BY_ID[r.kind];
   if (r.kind === 'hunters') guildDefeated(s);
+  lurkersBeaten(s, r);
   // thieves who got away may have led off a horse, too
   if (s.horses.length && r.raiders.some((rd) => rd.gone && poolSize(rd.carrying) > 0) && rng.chance(HORSE_THEFT)) {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];

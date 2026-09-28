@@ -5,6 +5,7 @@ import { TILE } from '../../shared/constants';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { PAL } from './palette';
 import { stillImage } from './stills';
+import { DECO_HEAD, styled } from './originStyles';
 import { paint, type Painter, type PixelArt, type Tone } from './pixelArt';
 
 const HIDE = '#a88258';
@@ -1226,15 +1227,23 @@ const FALLBACK: { h: number; draw: Draw } = {
 
 const cache = new Map<string, PixelArt>();
 
-/** Art for a building (cached per tone, and per crop stage for fields). */
-export function buildingArt(defId: string, tone: Tone, toneKey: string, stage?: CropLook): PixelArt {
-  const key = `${defId}|${toneKey}|${stage ?? ''}`;
+/** Art for a building (cached per tone, per crop stage for fields, and per origin style: see originStyles.ts). */
+export function buildingArt(defId: string, tone: Tone, toneKey: string, stage?: CropLook, style = 'town'): PixelArt {
+  const key = `${defId}|${toneKey}|${stage ?? ''}|${style}`;
   let art = cache.get(key);
   if (!art) {
     const def = BUILDING_BY_ID[defId];
-    const spec = ART[defId] ?? FALLBACK;
+    const own = styled(style, defId);
+    const spec = own?.draw ? { h: own.h!, draw: own.draw as Draw } : (ART[defId] ?? FALLBACK);
     const w = def.width * TILE;
-    art = paint(w, spec.h, tone, (p) => spec.draw(p, w, spec.h, stage));
+    // (a dressed building gets headroom for what goes on its roof)
+    const head = own?.dress ? DECO_HEAD : 0;
+    art = paint(w, spec.h + head, tone, (p) => {
+      p.ctx.translate(0, head);
+      spec.draw(p, w, spec.h, stage);
+      p.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      own?.dress?.(p, w, spec.h + head);
+    });
     cache.set(key, art);
   }
   return art;

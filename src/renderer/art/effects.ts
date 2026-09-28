@@ -5,6 +5,7 @@
 // and casting are from the ICE skills pack; the pillar of light at a revival from Holy VFX 02; flames on burning
 // buildings and townsfolk's emotes from 5000 Pixel Effects.
 
+import { loadImage } from './loadImage';
 import { Rectangle, Texture, type Sprite } from 'pixi.js';
 import type { PersonFx } from '../../shared/sim/state';
 import impactUrl from './effects/impact.png';
@@ -40,6 +41,31 @@ import noteUrl from './effects/emote_note.png';
 import levelUpUrl from './effects/levelup.png';
 import hitFireUrl from './effects/hit_fire.png';
 import hitLightningUrl from './effects/hit_lightning.png';
+import pvfxRoots from './effects/pvfx_rootscript.png';
+import pvfxRain from './effects/pvfx_rain_field.png';
+import pvfxLeaves from './effects/pvfx_leaf_gust.png';
+import pvfxBloom from './effects/pvfx_spectral_bloom.png';
+import pvfxVenomWard from './effects/pvfx_venom_ward.png';
+import pvfxParry from './effects/pvfx_arcane_parry.png';
+import pvfxCounterfall from './effects/pvfx_counterfall.png';
+import pvfxPrism from './effects/pvfx_prism_loom.png';
+import pvfxVoid from './effects/pvfx_void_implosion.png';
+import pvfxMoths from './effects/pvfx_choir_moths.png';
+import pvfxSuture from './effects/pvfx_suturelight.png';
+import pvfxCharge from './effects/pvfx_focus_charge.png';
+import pvfxSplash from './effects/pvfx_splash_crown.png';
+import pvfxFoam from './effects/pvfx_shoreline_foam.png';
+import pvfxHourglass from './effects/pvfx_hourglass_splinter.png';
+import pvfxMercury from './effects/pvfx_mercury_molt.png';
+import pvfxSpines from './effects/pvfx_ferrospine.png';
+import pvfxOrchid from './effects/pvfx_cinder_orchid.png';
+import pvfxMissile from './effects/pvfx_magical_projectile.png';
+import aleniaBloodBubble from './effects/spell_blood_bubble.png';
+import aleniaBloodStorm from './effects/spell_blood_storm.png';
+import aleniaDarkFlames from './effects/spell_dark_flames.png';
+import aleniaGoldVortex from './effects/spell_gold_vortex.png';
+import aleniaLifeFountain from './effects/spell_life_fountain.png';
+import aleniaChaosStorm from './effects/spell_chaos_storm.png';
 import type { AreaFx } from '../../shared/data/enemies';
 
 /** A 7-frame impact burst, 48px square, played over whoever was just hit. */
@@ -95,15 +121,52 @@ export const AREA_FROM_BOSS: Record<AreaFx, boolean> = { fire: true, beam: true,
 
 /** Load a sheet and cut `count` square frames of `size`, `across` to a row, from frame `from` on. */
 async function cut(url: string, size: number, count: number, into: Texture[], across = count, from = 0): Promise<void> {
-  const im = new Image();
-  im.src = url;
-  await im.decode();
+  const im = await loadImage(url);
   const src = Texture.from(im).source;
   for (let i = from; i < count; i++) into.push(new Texture({ source: src, frame: new Rectangle((i % across) * size, Math.floor(i / across) * size, size, size) }));
 }
 
+/**
+ * Spell sheets (see town/spellsView.ts): pvfx-foundry's CC0 effects (96px, 5 to a row) and a few of the Alenia Star
+ * Magic Pack's, shrunk from 320px (the vampire's blood bubble and blood storm, dark flames, a golden vortex, a fountain
+ * of life, a chaotic storm). Each: the sheet, its frame size, frames, frames to a row.
+ */
+const SPELL_SHEET_DEFS = {
+  roots: [pvfxRoots, 96, 48, 5],
+  rain: [pvfxRain, 96, 16, 5],
+  leaves: [pvfxLeaves, 96, 14, 5],
+  bloom: [pvfxBloom, 96, 16, 5],
+  venom_ward: [pvfxVenomWard, 96, 16, 5],
+  parry: [pvfxParry, 96, 16, 5],
+  counterfall: [pvfxCounterfall, 96, 40, 5],
+  prism: [pvfxPrism, 96, 60, 5],
+  void: [pvfxVoid, 96, 14, 5],
+  moths: [pvfxMoths, 96, 60, 5],
+  suture: [pvfxSuture, 96, 36, 5],
+  charge: [pvfxCharge, 96, 14, 5],
+  splash: [pvfxSplash, 96, 14, 5],
+  foam: [pvfxFoam, 96, 16, 5],
+  hourglass: [pvfxHourglass, 96, 28, 5],
+  mercury: [pvfxMercury, 96, 32, 5],
+  spines: [pvfxSpines, 96, 40, 5],
+  orchid: [pvfxOrchid, 96, 42, 5],
+  missile: [pvfxMissile, 96, 12, 5],
+  blood_bubble: [aleniaBloodBubble, 128, 20, 5],
+  blood_storm: [aleniaBloodStorm, 112, 16, 4],
+  dark_flames: [aleniaDarkFlames, 128, 20, 5],
+  gold_vortex: [aleniaGoldVortex, 112, 16, 4],
+  life_fountain: [aleniaLifeFountain, 128, 20, 5],
+  chaos_storm: [aleniaChaosStorm, 112, 16, 4],
+} as const;
+export type SpellSheet = keyof typeof SPELL_SHEET_DEFS;
+const spellSheets = Object.fromEntries(Object.keys(SPELL_SHEET_DEFS).map((k) => [k, [] as Texture[]])) as Record<SpellSheet, Texture[]>;
+/** A spell sheet's frame size, and frame `i` of it (null once it's over, or before loading). */
+export const spellSheetSize = (id: SpellSheet) => SPELL_SHEET_DEFS[id][1];
+export const spellSheetFrame = (id: SpellSheet, i: number) => at(spellSheets[id], i);
+
 export async function loadEffects(): Promise<void> {
   await Promise.all([
+    ...(Object.entries(SPELL_SHEET_DEFS) as [SpellSheet, readonly [string, number, number, number]][]).map(([id, [url, size, count, across]]) => cut(url, size, count, spellSheets[id], across)),
     cut(impactUrl, IMPACT_SIZE, IMPACT_FRAMES, impacts),
     cut(blastUrl, BLAST_SIZE, BLAST_FRAMES, blasts),
     cut(conjureUrl, BLAST_SIZE, CONJURE_FRAMES, conjures),

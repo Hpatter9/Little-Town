@@ -11,6 +11,12 @@ import { appeal, attractiveness, customerTiers, extensionPrice, extensionsOf, fa
 import { moneyTown, wageBill } from './wages';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
+import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
+import { POWERS, powersView } from './powers';
+
+/** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
+export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
+const themeOf = (s: GameState): ThemeId => (s.lich ? 'lich' : !s.origin || s.origin === 'settlers' ? 'town' : s.origin);
 import { itemUnlocked, qualitiesOf } from './crafting';
 import { FARE, furnishes, MAX_EXTENSIONS, temperOf, tierOf, venueOfDef, WARES } from '../data/shop';
 import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../data/items';
@@ -29,14 +35,24 @@ import { DOOMS, type DoomKind } from '../data/doom';
 import { friendsOf, rivalsOf } from './social';
 import { canTrade, stalls } from './trade';
 import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
-import { TOPIC_BY_ID } from '../data/research';
+import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, totalCapacity, totalStock } from './buildings';
 import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
-import { modifiers, researchStation } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState } from './state';
+import { modifiers, researchStation, researchStations } from './research';
+import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
+import { hexesNow } from './rivals';
+import { castleFloors, castleOn, castleSpan, roomOf } from './castle';
+import { RIVALS } from '../data/rivals';
+
+const spellName = (spell: string): string => {
+  const [side, id] = spell.split(':');
+  if (side === 'town') return POWERS[id]?.name ?? id;
+  for (const r of Object.values(RIVALS)) for (const sp of r.spells) if (sp.id === id) return sp.name;
+  return id;
+};
 import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';
 
 export interface SkillView {
@@ -75,6 +91,8 @@ export interface PersonView {
   bed: string | null;
   /** Asleep inside a building (the renderer hides them). */
   indoors: boolean;
+  /** The castle floor of the room they're in, working or asleep (drawn inside it); null on the walkway. */
+  floor: number | null;
   /** Destination name while away on an expedition (not in town). */
   away: string | null;
   hp: number;
@@ -153,6 +171,8 @@ export interface RaiderView {
   /** Ticks since its last sweeping attack (bosses), and since it was summoned, raised or tamed. */
   sinceArea: number;
   sinceConjured: number;
+  /** Ticks since a rival lord last cast a spell. */
+  sinceCast: number;
   /** What the last hit was, if special. */
   hitFx: RaiderHitFx | null;
   kind: string;
@@ -171,6 +191,19 @@ export interface RaiderView {
   sinceHit: number;
 }
 
+export interface SpellView {
+  /** Increasing: each cast once. */
+  n: number;
+  /** `town:<power>` or `rival:<spell>`. */
+  spell: string;
+  name: string;
+  since: number;
+  x: number;
+  by: SpellTarget | null;
+  targets: SpellTarget[];
+  secs: number;
+}
+
 export interface RaidView {
   name: string;
   phase: 'warning' | 'active';
@@ -178,6 +211,8 @@ export interface RaidView {
   secondsToArrival: number;
   side: -1 | 1;
   alarm: boolean;
+  /** A rival lord's hexes and blessings on the fight ("Entangle 6s"). */
+  hexes: string[];
   raiders: RaiderView[];
 }
 
@@ -307,6 +342,14 @@ export interface Snapshot {
   coins: number;
   shop: ShopView | null;
   tavern: ShopView | null;
+  /** How the game looks: the town, or (once the founder is a lich) the necropolis; and whether the founder can
+   *  choose to become a lich now (Lichcraft learned, not yet chosen). */
+  theme: ThemeId;
+  lichOffer: boolean;
+  /** Who founded the town, its powers (when each is ready, and whether it's in effect), and what they did lately. */
+  origin: { id: OriginId; name: string; town: string };
+  powers: ReturnType<typeof powersView>;
+  powerLog: string[];
   /** What a day's wages come to (once the town has money), and yesterday's coins in and out by where from. */
   wageBill: number;
   ledger: Ledger | null;
@@ -344,6 +387,10 @@ export interface Snapshot {
   launchSite: number | null;
   /** Meteors that just struck: where, and ticks since. */
   impacts: { x: number; since: number }[];
+  /** Spells cast lately (the town's powers and rival lords'): drawn by renderer/town/spellsView.ts. */
+  spells: SpellView[];
+  /** A castle town's keep (sim/castle.ts): its tiles and how many floors it stands. */
+  castle: { lo: number; hi: number; floors: number } | null;
   /** A full-moon night: werewolves show what they are. */
   moonNight: boolean;
   /** Tonight's moon, 0..FULL_MOON_PHASE through its cycle (full at FULL_MOON_PHASE), for the sky. */
@@ -422,6 +469,8 @@ export interface ResearchView {
   /** Where research happens now, and its speed multiplier. */
   station: string;
   stationMult: number;
+  /** Every research station (one person to each): where, how fast, and who's studying there and on what. */
+  stations: { label: string; mult: number; who: string | null; topic: string | null }[];
   /** Research speed of the main character there (skill x station x bonuses), for time estimates. */
   speed: number;
 }
@@ -435,6 +484,12 @@ export function snapshot(s: GameState): Snapshot {
     shop: venueView(s, 'shop'),
     tavern: venueView(s, 'tavern'),
     wageBill: moneyTown(s) ? wageBill(s) : 0,
+    // (a lich founder turns any town into a necropolis; otherwise the origin's own look)
+    theme: themeOf(s),
+    origin: { id: originOf(s).id, name: originOf(s).name, town: s.lich ? ORIGIN_DEFS.lich.town : originOf(s).town },
+    powers: powersView(s),
+    powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
+    lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
     travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
     tick: s.tick,
@@ -479,6 +534,7 @@ export function snapshot(s: GameState): Snapshot {
           secondsToArrival: Math.max(0, (s.raid.arrivesTick - s.tick) / TICK_HZ),
           side: s.raid.side,
           alarm: alarmRaised(s),
+          hexes: hexesNow(s).map((h) => `${h.name} ${h.seconds}s`),
           raiders: s.raid.raiders.map((r) => ({
             id: r.id,
             kind: r.kind,
@@ -497,6 +553,7 @@ export function snapshot(s: GameState): Snapshot {
             ally: !!r.ally,
             sinceArea: r.lastArea != null ? s.tick - r.lastArea : 999,
             sinceConjured: r.conjuredAt != null ? s.tick - r.conjuredAt : 999,
+            sinceCast: r.lastCast != null ? s.tick - r.lastCast : 999,
             hitFx: r.hitFx ?? null,
           })),
         }
@@ -513,6 +570,8 @@ export function snapshot(s: GameState): Snapshot {
     fx: (s.fx ?? []).filter((f) => s.tick - f.tick < FX_TICKS).map((f) => ({ id: f.id, kind: f.kind, since: s.tick - f.tick })),
     launchSite: launchSiteView(s),
     impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
+    castle: castleOn(s) && castleFloors(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: castleFloors(s) } : null,
+    spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),
     weather: weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null),
@@ -693,7 +752,9 @@ function personView(s: GameState, p: Person, stock?: Stock): PersonView {
     priorities: { ...p.priorities },
     autoPriorities: p.autoPriorities,
     bed: bed ? defOf(bed).name : null,
-    indoors: p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
+    floor: castleOn(s) ? (roomOf(s, p)?.floor ?? null) : null,
+    // (asleep in a castle's room, they're seen there, in their coffin)
+    indoors: !(castleOn(s) && roomOf(s, p)) && p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
     away: p.away === null ? null : (DESTINATION_BY_ID[s.expeditions.find((e) => e.id === p.away)?.dest ?? '']?.name ?? 'expedition'),
     hp: p.hp,
     maxHp: maxHp(p),
@@ -825,6 +886,11 @@ function researchView(s: GameState): ResearchView {
     slots: mods.researchSlots,
     station: station.label,
     stationMult: station.mult,
+    stations: researchStations(s).map((st) => {
+      const who = s.people.find((q) => q.away === null && q.task?.type === 'research' && q.task.station === st.buildingId);
+      const topic = who?.task?.type === 'research' && who.task.topic ? (TOPIC_BY_ID[who.task.topic]?.name ?? null) : null;
+      return { label: st.label, mult: st.mult, who: who?.name ?? null, topic };
+    }),
     speed: ((main ? skillSpeed(main.skills.research.level) : 1) * station.mult * mods.researchSpeed) / RESEARCH_MULTIPLIER[s.era],
   };
 }
@@ -856,8 +922,10 @@ function describe(s: GameState, p: Person): string {
     case 'build':
       return `Building the ${name(task.building)}`;
     case 'research': {
-      const t = TOPIC_BY_ID[s.research.queue[0]];
-      return t ? `Researching ${t.name}` : 'Researching';
+      const t = TOPIC_BY_ID[task.topic ?? s.research.queue[0]];
+      const at = task.station != null ? s.buildings.find((b) => b.id === task.station) : undefined;
+      const where = at ? ` at ${RESEARCH_STATIONS[at.def]?.label ?? defOf(at).name}` : '';
+      return t ? `Researching ${t.name}${where}` : 'Researching';
     }
     case 'eat':
       return 'Eating';

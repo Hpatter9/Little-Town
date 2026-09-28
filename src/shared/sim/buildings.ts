@@ -1,5 +1,6 @@
 // Building rules shared by the sim and the renderer (the placement ghost uses canPlace too).
 
+import { castleOn, castleSpan } from './castle';
 import { BACK_PAD_TILES, TILE } from '../constants';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
@@ -104,12 +105,13 @@ export interface PlaceCheck {
   reason?: string;
 }
 
-/** Whether `def` fits with its left edge on `tile` (terrain, bounds, overlap). */
+/** Whether `def` fits with its left edge on `tile` (terrain, bounds, overlap), on a castle floor (0: the ground). */
 export function canPlace(
-  view: { tiles: readonly Pick<TileState, 'terrain'>[]; buildings: readonly Pick<Building, 'def' | 'tile'>[] },
+  view: { tiles: readonly Pick<TileState, 'terrain'>[]; buildings: readonly Pick<Building, 'def' | 'tile' | 'floor'>[] },
   back: readonly BackTerrain[],
   def: BuildingDef,
   tile: number,
+  floor = 0,
 ): PlaceCheck {
   if (tile < 0 || tile + def.width > view.tiles.length) return { ok: false, reason: 'Outside the town' };
   for (let t = tile; t < tile + def.width; t++) {
@@ -121,20 +123,20 @@ export function canPlace(
   }
   for (const b of view.buildings) {
     const d = defOf(b);
-    if (d.layer === def.layer && b.tile < tile + def.width && tile < b.tile + d.width) return { ok: false, reason: `Overlaps ${d.name}` };
+    if (d.layer === def.layer && (b.floor ?? 0) === floor && b.tile < tile + def.width && tile < b.tile + d.width) return { ok: false, reason: `Overlaps ${d.name}` };
   }
   return { ok: true };
 }
 
-/** Place a blueprint. Returns the reason on failure. */
-export function placeBlueprint(s: GameState, back: readonly BackTerrain[], defId: string, tile: number): PlaceCheck {
+/** Place a blueprint (a castle's room: on a floor). Returns the reason on failure. */
+export function placeBlueprint(s: GameState, back: readonly BackTerrain[], defId: string, tile: number, room?: { floor: number }): PlaceCheck {
   const def = BUILDING_BY_ID[defId];
   if (!def) return { ok: false, reason: 'Unknown building' };
   if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: 'Not researched yet' };
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
-  const check = canPlace(s, back, def, tile);
+  const check = canPlace(s, back, def, tile, room?.floor ?? 0);
   if (!check.ok) return check;
-  s.buildings.push({ id: s.nextId++, def: defId, tile, status: 'blueprint', delivered: {}, progress: 0, store: {} });
+  s.buildings.push({ id: s.nextId++, def: defId, tile, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(room ? { room: true, floor: room.floor } : {}) });
   return { ok: true };
 }
 
@@ -151,7 +153,12 @@ export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: numbe
   const others = { tiles: s.tiles, buildings: s.buildings.filter((q) => q !== b) };
   const grow = def.width - defOf(b).width;
   for (const tile of grow > 0 ? [b.tile, b.tile - grow] : [b.tile]) {
-    if (canPlace(others, back, def, tile).ok) return { ok: true, to, tile };
+    // (a castle's room grows within the keep)
+    if (b.room && ((b.floor ?? 0) > 0 || castleOn(s))) {
+      const [lo, hi] = castleSpan(s);
+      if (tile < lo || tile + def.width > hi) continue;
+    }
+    if (canPlace(others, back, def, tile, b.floor ?? 0).ok) return { ok: true, to, tile };
   }
   return { ok: false, reason: `No room for the ${def.name}`, to };
 }

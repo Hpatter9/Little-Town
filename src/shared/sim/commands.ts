@@ -67,6 +67,8 @@ export type Command =
   | { type: 'equip'; person: number; slot: Slot; item: string | null }
   /** Close the "while you were away" report (it stays in the Journal). */
   | { type: 'dismissAway' }
+  /** Bind the founder's soul into a phylactery (once Lichcraft is learned): the town builds it. */
+  | { type: 'becomeLich' }
   /** Debug: make every building available regardless of research. */
   | { type: 'cheatUnlockAll'; on: boolean };
 
@@ -77,6 +79,8 @@ export function parseCommand(raw: unknown): Command | null {
   switch (c.type) {
     case 'setPaused':
       return typeof c.paused === 'boolean' ? { type: 'setPaused', paused: c.paused } : null;
+    case 'becomeLich':
+      return { type: 'becomeLich' };
     case 'setDirection':
       return DIRECTIONS.includes(c.direction as Direction) ? { type: 'setDirection', direction: c.direction as Direction } : null;
     case 'toggleGather':

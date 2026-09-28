@@ -26,7 +26,7 @@ import {
 } from '../data/social';
 import { SKILLS, type Skill, type SkillLevel } from '../data/skills';
 import { hashSeed, mixSeed, type Rng } from '../rng';
-import { maxHp, notify, type GameState, type Person } from './state';
+import { tireless, maxHp, notify, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { housingCapacity } from './townsfolk';
 
@@ -122,7 +122,7 @@ export function chemistry(s: GameState, a: number, b: number): number {
 /** Traits that rub people the wrong way. */
 const friction = (p: Person) => ['lazy', 'glutton', 'coward', 'loner'].filter((t) => p.traits.includes(t)).length * 0.5;
 
-const canPair = (p: Person) => !isChild(p) && (p.partner ?? null) === null && p.monster !== 'undead';
+const canPair = (p: Person) => !isChild(p) && (p.partner ?? null) === null && !tireless(p);
 
 function families(s: GameState, rng: Rng): void {
   if (!s.research.done.includes('family_life')) return;

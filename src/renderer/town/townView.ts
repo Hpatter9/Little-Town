@@ -88,6 +88,12 @@ export class TownView {
 
   /* ------------------------------------------------------------ buildings */
 
+  /** A castle town's keep (drawn round its rooms). */
+  syncCastle(castle: { lo: number; hi: number; floors: number } | null): void {
+    if (!this.buildings.syncCastle(castle)) return;
+    this.mid.rebuildSkyline();
+  }
+
   syncBuildings(buildings: Building[]): void {
     for (const layer of this.buildings.sync(buildings)) {
       const l = { back: this.back, mid: this.mid, fore: this.fore }[layer];
@@ -165,6 +171,11 @@ export class TownView {
 
   /** Redraw the land's scenery for a new season (its colours come from the palette: see applySeasonPalette).
    *  The shapes are drawn from the same seeds, so the land looks the same, only the colours turn. */
+  /** The origin's building style: a tint (or none), redrawn at the next sync. */
+  setBuildingStyle(tint: [string, number] | null, style = 'town'): void {
+    this.buildings.setStyle(tint, style);
+  }
+
   setSeason(biome: string, season: string): void {
     if (season === this.season) return;
     this.season = season;

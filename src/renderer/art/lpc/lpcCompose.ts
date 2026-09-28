@@ -4,6 +4,7 @@
 // stacked into one 64x64 frame per (look, animation, frame). The data holds right-facing rows only;
 // left-facing is a mirrored sprite.
 
+import { loadImage } from '../loadImage';
 import type { Look } from '../../../shared/data/people';
 import data from './lpcData.json';
 
@@ -26,9 +27,7 @@ const images = new Map<string, HTMLImageElement>();
 export async function loadLpc(): Promise<void> {
   await Promise.all(
     Object.entries(LAYERS).map(async ([id, src]) => {
-      const im = new Image();
-      im.src = src;
-      await im.decode();
+      const im = await loadImage(src);
       images.set(id, im);
     }),
   );

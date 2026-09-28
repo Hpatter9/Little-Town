@@ -3,6 +3,7 @@
 // right, up). The Abomination comes from PackMonsters instead: one long animation strip that faces left.
 // Some sheets are recoloured as they load (the wyvern becomes the red dragon).
 
+import { loadImage } from './loadImage';
 import { Rectangle, Texture } from 'pixi.js';
 import type { CreatureSheetId } from '../../shared/data/enemies';
 import bearUrl from './creatures/bear.png';
@@ -25,8 +26,24 @@ import ghostsUrl from './creatures/ghosts.png';
 import golems2Url from './creatures/golems2.png';
 import snowmonkeyUrl from './creatures/snowmonkey.png';
 import mouseUrl from './creatures/mouse.png';
+import bloodMonsterUrl from './creatures/blood_monster.png';
+import demonUrl from './creatures/demon.png';
+import goblinUrl from './creatures/goblin.png';
+import slimeUrl from './creatures/slime.png';
+import champSageUrl from './creatures/champ_sage.png';
+import champMercenaryUrl from './creatures/champ_mercenary.png';
+import champDragoonUrl from './creatures/champ_dragoon.png';
+import lionsUrl from './creatures/lions.png';
+import wildDogsUrl from './creatures/wilddogs.png';
+import crocodilesUrl from './creatures/crocodiles.png';
+import behemothUrl from './creatures/behemoth.png';
+import tomesUrl from './creatures/tomes.png';
+import batsUrl from './creatures/bats.png';
+import camelUrl from './creatures/camel.png';
+import shroomsUrl from './creatures/shrooms.png';
+import mimicUrl from './creatures/mimic.png';
 
-export type CreatureSheet = 'mouse' |'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'ghosts' | 'golems2' | 'snowmonkey';
+export type CreatureSheet = 'mouse' |'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'ghosts' | 'golems2' | 'snowmonkey' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon' | 'lions' | 'wilddogs' | 'crocodiles' | 'behemoth' | 'tomes' | 'bats' | 'camel' | 'shrooms' | 'mimic';
 
 interface SheetDef {
   url: string;
@@ -44,6 +61,9 @@ interface SheetDef {
   /** Where the art starts, as a share of the frame's height from the top (for placing health bars over small
    *  creatures in big frames). */
   top?: number;
+  /** Where its feet are, as a share of the frame's height from the top (small creatures in big frames; 1: the
+   *  bottom edge). */
+  feet?: number;
 }
 
 const SHEETS: Record<CreatureSheet, SheetDef> = {
@@ -71,6 +91,29 @@ const SHEETS: Record<CreatureSheet, SheetDef> = {
   snowmonkey: { url: snowmonkeyUrl, w: 48, h: 48, blocksAcross: 4 },
   // the Rat Plague: brown rats (block 0), grey plague rats (5), and the black Rat King (3, drawn huge)
   mouse: { url: mouseUrl, w: 48, h: 48, blocksAcross: 4, top: 0.62 },
+  // Tiny RPG Character Asset Pack 02 (Zerie): the Blood Court's blood monsters and demons; the mobs pack's goblin
+  // (the Wild Hunt's redcaps) and slime (the Mad Alchemist's acid slimes). Strips: walk, attack and idle rows.
+  blood_monster: { url: bloodMonsterUrl, w: 100, h: 100, blocksAcross: 1, facesRight: true, top: 0.4, feet: 0.57, strip: { perRow: 8, walk: [0, 1, 2, 3, 4, 5, 6, 7], attack: [8, 9, 10, 11, 12, 13, 14, 15], idle: [16, 17, 18, 19, 20, 21] } },
+  demon: { url: demonUrl, w: 100, h: 100, blocksAcross: 1, facesRight: true, top: 0.37, feet: 0.59, strip: { perRow: 8, walk: [0, 1, 2, 3, 4, 5, 6, 7], attack: [8, 9, 10, 11, 12, 13, 14], idle: [16, 17, 18, 19, 20, 21] } },
+  goblin: { url: goblinUrl, w: 64, h: 64, blocksAcross: 1, facesRight: true, top: 0.1, feet: 0.82, strip: { perRow: 5, walk: [0, 1, 2, 3, 4], attack: [5, 6, 7], idle: [10, 11, 12, 13] } },
+  slime: { url: slimeUrl, w: 64, h: 64, blocksAcross: 1, facesRight: true, top: 0.46, feet: 0.8, strip: { perRow: 10, walk: [0, 1, 2, 3, 4, 5], attack: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19], idle: [20, 21, 22, 23, 24, 25, 26, 27] } },
+  // Pixel Champions: rival lords (Prime the Great Sage is the Mad Alchemist; Oratio the Mercenary, the Khan;
+  // Wyvera the Queen Dragoon, the Tide Queen)
+  champ_sage: { url: champSageUrl, w: 24, h: 24, blocksAcross: 4 },
+  champ_mercenary: { url: champMercenaryUrl, w: 24, h: 24, blocksAcross: 4 },
+  champ_dragoon: { url: champDragoonUrl, w: 24, h: 24, blocksAcross: 4 },
+  // More of whtdragon's MV sheets: desert lions and wild dogs, coastal crocodiles, the Behemoth, possessed tomes,
+  // vampire bats, the desert caravan's camels, the druid's walking mushrooms; and the mobs pack's mimic (a strip:
+  // walk, attack, idle and disguised rows).
+  lions: { url: lionsUrl, w: 48, h: 48, blocksAcross: 4 },
+  wilddogs: { url: wildDogsUrl, w: 48, h: 48, blocksAcross: 4 },
+  crocodiles: { url: crocodilesUrl, w: 96, h: 96, blocksAcross: 4 },
+  behemoth: { url: behemothUrl, w: 96, h: 132, blocksAcross: 1, top: 0.1 },
+  tomes: { url: tomesUrl, w: 48, h: 48, blocksAcross: 4, feet: 0.8 },
+  bats: { url: batsUrl, w: 48, h: 48, blocksAcross: 4 },
+  camel: { url: camelUrl, w: 48, h: 48, blocksAcross: 2 },
+  shrooms: { url: shroomsUrl, w: 48, h: 48, blocksAcross: 4 },
+  mimic: { url: mimicUrl, w: 64, h: 64, blocksAcross: 1, feet: 0.88, strip: { perRow: 6, walk: [0, 1, 2, 3, 4, 5], attack: [6, 7, 8], idle: [12, 13, 14, 15] } },
   horror: { url: horrorUrl, w: 80, h: 64, blocksAcross: 1, strip: { perRow: 5, walk: [4, 5, 6, 7, 8, 9], attack: [11, 13, 15, 17], idle: [0, 1, 2, 3] } },
 };
 
@@ -84,6 +127,8 @@ export const CREATURE_FRAME = 48;
 export const creatureSize = (sheet: CreatureSheet) => ({ w: SHEETS[sheet].w, h: SHEETS[sheet].h });
 /** Where a sheet's art starts, from the top of the frame (0..1). */
 export const creatureTop = (sheet: CreatureSheet) => SHEETS[sheet].top ?? 0;
+/** Where a sheet's feet are, from the top of the frame (0..1). */
+export const creatureFeet = (sheet: CreatureSheet) => SHEETS[sheet].feet ?? 1;
 
 const FACING = { left: 1, right: 2 } as const;
 const sheets = new Map<CreatureSheet, Texture>();
@@ -93,9 +138,7 @@ export async function loadCreatures(): Promise<void> {
   await Promise.all(
     (Object.keys(SHEETS) as CreatureSheet[]).map(async (id) => {
       const def = SHEETS[id];
-      const im = new Image();
-      im.src = def.url;
-      await im.decode();
+      const im = await loadImage(def.url);
       if (def.redden) {
         const c = document.createElement('canvas');
         c.width = im.width;

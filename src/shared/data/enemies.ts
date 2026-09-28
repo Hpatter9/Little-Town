@@ -1,4 +1,4 @@
-﻿// Enemies by era (DESIGN §15 and on). Numbers are starting points for tuning.
+// Enemies by era (DESIGN §15 and on). Numbers are starting points for tuning.
 
 import type { Stock } from './materials';
 
@@ -9,14 +9,17 @@ export interface HumanSprite {
 }
 
 /** Creature sheets (see renderer/art/creatures.ts). */
-export type CreatureSheetId = 'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'golems2' | 'snowmonkey' | 'ghosts' | 'mouse';
+export type CreatureSheetId = 'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'golems2' | 'snowmonkey' | 'ghosts' | 'mouse' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon' | 'lions' | 'wilddogs' | 'crocodiles' | 'behemoth' | 'tomes' | 'bats' | 'camel' | 'shrooms' | 'mimic';
 
 /** A single still image (see renderer/art/stills.ts); hover ones bob in the air. */
 export interface StillSprite {
-  still: 'observer' | 'steel_eagle' | 'drone' | 'sentinel' | 'ogre' | 'mummy' | 'wizard' | 'slime' | 'metal_slug';
+  still: 'observer' | 'steel_eagle' | 'drone' | 'sentinel' | 'ogre' | 'mummy' | 'wizard' | 'slime' | 'metal_slug' | ElementalStill;
   scale: number;
   hover?: boolean;
 }
+
+/** Golems and elementals (batareya): the rival origins' big troops. */
+export type ElementalStill = 'elem_treant' | 'elem_stone_golem' | 'elem_water_elemental' | 'elem_homunculus' | 'elem_iron_sentry' | 'elem_wraith' | 'elem_crystal_fiend' | 'elem_fire_elemental';
 
 /** A machine (Robotic & Space): drawn in code. */
 export interface MachineSprite {
@@ -62,6 +65,8 @@ export interface EnemyDef {
   kit?: BossKit;
   /** How it's drawn: a block of an MV creature sheet, or an LPC person. */
   sprite: { sheet: CreatureSheetId; block: number; scale: number } | HumanSprite | MachineSprite | StillSprite;
+  /** Drawn tinted (a rival origin's colours: sea-green merfolk, pale thralls). */
+  tint?: number;
 }
 
 export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
@@ -125,6 +130,69 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   raider: { id: 'raider', name: 'Raider', hp: 90, damage: [10, 15], accuracy: 0.7, dodge: 0.16, interval: 1.2, ranged: true, loot: { fuel: 2, electronics: 1 }, sprite: { people: 'bandit', weapon: null } },
   commander: { id: 'commander', name: 'Commander', hp: 200, damage: [14, 22], accuracy: 0.8, dodge: 0.15, interval: 1.2, ranged: true, boss: true, loot: { electronics: 3, cartridges: 20 }, sprite: { people: 'soldier', weapon: 'sword' } },
   soldier: { id: 'soldier', name: 'Warband Soldier', hp: 70, damage: [7, 11], accuracy: 0.72, dodge: 0.14, interval: 1.2, ranged: false, loot: { iron: 2, leather: 1 }, sprite: { people: 'soldier', weapon: 'spear' } },
+
+  // The land's own beasts: prides of lions and wild dog packs in the desert, crocodiles on the coast; and the
+  // Behemoth, which now and then drives a beast raid before it
+  lion: { id: 'lion', name: 'Lion', hp: 60, damage: [7, 12], accuracy: 0.72, dodge: 0.12, interval: 1.2, ranged: false, loot: { hide: 2, meat: 2, bone: 1 }, sprite: { sheet: 'lions', block: 0, scale: 1.05 } },
+  lioness: { id: 'lioness', name: 'Lioness', hp: 45, damage: [5, 10], accuracy: 0.76, dodge: 0.16, interval: 1.0, ranged: false, loot: { hide: 1, meat: 2 }, sprite: { sheet: 'lions', block: 1, scale: 1 } },
+  wild_dog: { id: 'wild_dog', name: 'Wild Dog', hp: 24, damage: [3, 6], accuracy: 0.7, dodge: 0.16, interval: 0.9, ranged: false, loot: { hide: 1, meat: 1 }, sprite: { sheet: 'wilddogs', block: 0, scale: 0.9 } },
+  crocodile: { id: 'crocodile', name: 'Crocodile', hp: 95, damage: [9, 15], accuracy: 0.66, dodge: 0.02, interval: 1.8, ranged: false, loot: { hide: 3, meat: 3 }, sprite: { sheet: 'crocodiles', block: 0, scale: 0.7 } },
+  behemoth: { id: 'behemoth', name: 'The Behemoth', hp: 650, damage: [16, 26], accuracy: 0.72, dodge: 0.02, interval: 2, ranged: false, boss: true, loot: { hide: 8, meat: 10, bone: 8 }, sprite: { sheet: 'behemoth', block: 0, scale: 0.85 }, kit: { roar: 'The ground shakes. The Behemoth drives the beasts before it!', enrage: 'Wounded, the Behemoth tramples everything in its way!', area: { every: 3, targets: 3, name: 'stamps the earth', fx: 'quake' }, trophy: 'behemoth_horn' } },
+  // Things that come alive inside the town (sim/lurkers.ts): a chest a traveller left at the shop, and the tomes of a
+  // library
+  mimic: { id: 'mimic', name: 'Mimic', hp: 150, damage: [9, 15], accuracy: 0.74, dodge: 0.05, interval: 1.3, ranged: false, loot: { iron: 3, cloth: 3, leather: 2 }, sprite: { sheet: 'mimic', block: 0, scale: 0.8 } },
+  possessed_tome: { id: 'possessed_tome', name: 'Possessed Tome', hp: 28, damage: [4, 8], accuracy: 0.74, dodge: 0.35, interval: 1.3, ranged: true, loot: { fiber: 2 }, sprite: { sheet: 'tomes', block: 0, scale: 0.9 } },
+  // A druid grove's walking mushrooms, woken by Entangle to fight for it
+  shroom_folk: { id: 'shroom_folk', name: 'Walking Mushroom', hp: 50, damage: [4, 8], accuracy: 0.72, dodge: 0.1, interval: 1.2, ranged: false, loot: {}, sprite: { sheet: 'shrooms', block: 0, scale: 0.9 } },
+  // Rival origins (see data/rivals.ts): the towns founded the other ways, come to take this one. Each army is led by
+  // its own lord, who casts that origin's spells against the town (sim/rivals.ts).
+  // (the Lich Lord and the dead)
+  lich_lord: { id: 'lich_lord', name: 'The Lich Lord', hp: 300, damage: [10, 16], accuracy: 0.78, dodge: 0.12, interval: 1.6, ranged: true, boss: true, loot: { bone: 12, cloth: 3 }, tint: 0xb8d0b0, sprite: { sheet: 'champ_necromancer', block: 4, scale: 2.2 }, kit: { roar: 'Bells toll from nowhere. The Lich Lord has come to add this town to the dead!', enrage: 'Cracked, the Lich Lord shrieks, and the grave-cold spills out of it!', area: { every: 4, targets: 3, name: 'unleashes a wave of grave-cold', fx: 'frost' }, summon: { kind: 'wraith', count: 2, text: 'Wraiths tear themselves out of the ground for the Lich Lord!' }, trophy: 'lich_phylactery' } },
+  flying_skull: { id: 'flying_skull', name: 'Flying Skull', hp: 24, damage: [3, 6], accuracy: 0.7, dodge: 0.3, interval: 1.1, ranged: false, loot: { bone: 1 }, sprite: { sheet: 'skeleghouls', block: 0, scale: 0.8 } },
+  wraith: { id: 'wraith', name: 'Wraith', hp: 45, damage: [5, 9], accuracy: 0.74, dodge: 0.35, interval: 1.3, ranged: false, loot: { cloth: 1 }, sprite: { still: 'elem_wraith', scale: 0.55, hover: true } },
+  // (the Archdruid and the wild)
+  archdruid: { id: 'archdruid', name: 'The Archdruid', hp: 280, damage: [9, 15], accuracy: 0.76, dodge: 0.14, interval: 1.5, ranged: true, boss: true, loot: { herbs: 10, wood: 12 }, tint: 0xc0e8a8, sprite: { sheet: 'champ_beast_tamer', block: 4, scale: 2.2 }, kit: { roar: 'The trees lean in. The Archdruid has come to take the land back!', enrage: 'Bleeding sap, the Archdruid calls on the whole forest!', summon: { kind: 'treant', count: 1, text: 'A tree tears up its roots and walks for the Archdruid!' }, trophy: 'archdruid_staff' } },
+  treant: { id: 'treant', name: 'Treant', hp: 130, damage: [9, 15], accuracy: 0.62, dodge: 0, interval: 2, ranged: false, loot: { wood: 6 }, sprite: { still: 'elem_treant', scale: 0.62 } },
+  // (the Countess and her thralls)
+  countess: { id: 'countess', name: 'The Countess', hp: 280, damage: [11, 17], accuracy: 0.82, dodge: 0.25, interval: 1.2, ranged: false, boss: true, loot: { cloth: 4, iron: 2 }, tint: 0xf0dce8, sprite: { sheet: 'champ_blood_knight', block: 2, scale: 2.2 }, kit: { roar: 'Fog rolls in, and in it, a smile. The Countess has come to feed!', enrage: 'The Countess bares her fangs, and her beauty falls away!', summon: { kind: 'night_shade', count: 2, text: 'Demons claw their way up out of the shadows to serve the Countess!' }, trophy: 'countess_ring' } },
+  vampire_bat: { id: 'vampire_bat', name: 'Vampire Bat', hp: 22, damage: [3, 6], accuracy: 0.74, dodge: 0.4, interval: 0.9, ranged: false, loot: {}, sprite: { sheet: 'bats', block: 0, scale: 0.8 } },
+  thrall: { id: 'thrall', name: 'Blood Fiend', hp: 50, damage: [5, 9], accuracy: 0.66, dodge: 0.1, interval: 1.2, ranged: false, loot: { cloth: 1 }, sprite: { sheet: 'blood_monster', block: 0, scale: 2 } },
+  night_shade: { id: 'night_shade', name: 'Demon', hp: 40, damage: [5, 9], accuracy: 0.72, dodge: 0.35, interval: 1.2, ranged: false, loot: {}, sprite: { sheet: 'demon', block: 0, scale: 2 } },
+  // (the Alpha and the pack)
+  the_alpha: { id: 'the_alpha', name: 'The Alpha', hp: 320, damage: [12, 18], accuracy: 0.78, dodge: 0.18, interval: 1.1, ranged: false, boss: true, loot: { hide: 6, meat: 4, bone: 2 }, sprite: { sheet: 'wolfman', block: 4, scale: 1.4 }, kit: { roar: 'A howl, then a hundred. The Alpha has come to hunt!', enrage: 'Hurt, the Alpha goes mad with blood!', area: { every: 4, targets: 2, name: 'tears through the line', fx: 'quake' }, summon: { kind: 'werewolf', count: 2, text: 'Werewolves bound out of the dark to the Alpha\'s side!' }, trophy: 'alpha_pelt' } },
+  werewolf: { id: 'werewolf', name: 'Werewolf', hp: 80, damage: [7, 12], accuracy: 0.72, dodge: 0.16, interval: 1.1, ranged: false, loot: { hide: 2, meat: 1 }, sprite: { sheet: 'wolfman', block: 2, scale: 1.1 } },
+  // (the Overmind and its machines)
+  overmind: { id: 'overmind', name: 'The Overmind', hp: 300, damage: [10, 16], accuracy: 0.84, dodge: 0.08, interval: 1.4, ranged: true, boss: true, loot: { alloys: 6, circuits: 4 }, tint: 0xa8e0ff, sprite: { still: 'drone', scale: 0.7, hover: true }, kit: { roar: 'A voice in every direction: "THIS SETTLEMENT WILL BE OPTIMISED."', enrage: '"DAMAGE CRITICAL. ALL UNITS: PRIORITY ZERO."', area: { every: 3, targets: 3, name: 'sweeps a beam across the town', fx: 'beam' }, summon: { kind: 'iron_sentry', count: 2, text: 'The Overmind prints two more sentries!' }, trophy: 'overmind_core' } },
+  iron_sentry: { id: 'iron_sentry', name: 'Iron Sentry', hp: 90, damage: [8, 13], accuracy: 0.72, dodge: 0.02, interval: 1.5, ranged: false, loot: { stone: 2, iron: 1 }, sprite: { still: 'elem_iron_sentry', scale: 0.55 } },
+  scout_drone: { id: 'scout_drone', name: 'Scout Drone', hp: 35, damage: [4, 7], accuracy: 0.78, dodge: 0.3, interval: 1.0, ranged: true, loot: { stone: 1 }, sprite: { still: 'observer', scale: 0.35, hover: true } },
+  // (the Thane and the hold)
+  thane: { id: 'thane', name: 'The Thane', hp: 360, damage: [12, 18], accuracy: 0.76, dodge: 0.08, interval: 1.5, ranged: false, boss: true, loot: { iron: 6, stone: 10 }, tint: 0xf0c890, sprite: { people: 'soldier', weapon: 'mace' }, kit: { roar: 'Drums under the earth. The Thane of the Deep Hold has come for your stone and iron!', enrage: 'The Thane roars a war-oath his fathers knew!', area: { every: 3, targets: 2, name: 'brings the hammer down', fx: 'quake' }, summon: { kind: 'stone_golem', count: 1, text: 'The ground heaves: a stone golem answers the Thane!' }, trophy: 'thane_hammer' } },
+  hold_warrior: { id: 'hold_warrior', name: 'Hold Warrior', hp: 70, damage: [6, 10], accuracy: 0.7, dodge: 0.06, interval: 1.3, ranged: false, loot: { iron: 1, stone: 1 }, tint: 0xe8c898, sprite: { people: 'soldier', weapon: 'mace' } },
+  hold_crossbow: { id: 'hold_crossbow', name: 'Hold Crossbow', hp: 50, damage: [5, 9], accuracy: 0.72, dodge: 0.06, interval: 1.6, ranged: true, loot: { arrows: 3 }, tint: 0xe8c898, sprite: { people: 'soldier', weapon: 'bow' } },
+  stone_golem: { id: 'stone_golem', name: 'Stone Golem', hp: 140, damage: [9, 15], accuracy: 0.6, dodge: 0, interval: 2.1, ranged: false, loot: { stone: 5 }, sprite: { still: 'elem_stone_golem', scale: 0.62 } },
+  // (the Tide Queen and her clan)
+  tide_queen: { id: 'tide_queen', name: 'The Tide Queen', hp: 290, damage: [10, 16], accuracy: 0.8, dodge: 0.2, interval: 1.4, ranged: true, boss: true, loot: { meat: 8, herbs: 4 }, sprite: { sheet: 'champ_dragoon', block: 4, scale: 2.2 }, kit: { roar: 'The tide comes in, all the way to the square. The Tide Queen is here!', enrage: 'The Tide Queen raises the sea itself!', area: { every: 3, targets: 3, name: 'drives a wave through the town', fx: 'frost' }, summon: { kind: 'coral_golem', count: 1, text: 'The surf rises and walks: a water elemental!' }, trophy: 'tide_trident' } },
+  tide_warrior: { id: 'tide_warrior', name: 'Tide Warrior', hp: 60, damage: [6, 10], accuracy: 0.7, dodge: 0.14, interval: 1.2, ranged: false, loot: { meat: 1 }, tint: 0x80e0d0, sprite: { people: 'frost', weapon: 'spear' } },
+  tide_caller: { id: 'tide_caller', name: 'Tide Caller', hp: 44, damage: [6, 10], accuracy: 0.72, dodge: 0.12, interval: 1.6, ranged: true, loot: { herbs: 1 }, tint: 0x80e0d0, sprite: { people: 'frost', weapon: null } },
+  coral_golem: { id: 'coral_golem', name: 'Water Elemental', hp: 120, damage: [8, 14], accuracy: 0.62, dodge: 0, interval: 2, ranged: false, loot: { stone: 3 }, sprite: { still: 'elem_water_elemental', scale: 0.6 } },
+  // (the Khan and the horde)
+  the_khan: { id: 'the_khan', name: 'The Khan', hp: 280, damage: [11, 17], accuracy: 0.84, dodge: 0.2, interval: 1.2, ranged: true, boss: true, loot: { hide: 6, cloth: 3, leather: 2 }, sprite: { sheet: 'champ_mercenary', block: 0, scale: 2.2 }, kit: { roar: 'Hoofbeats like thunder. The Khan has come to take tribute!', enrage: 'The Khan draws his sabre and rides straight in!', summon: { kind: 'horse_rider', count: 2, text: 'More riders crest the hill for the Khan!' }, trophy: 'khan_bow' } },
+  horse_rider: { id: 'horse_rider', name: 'Horde Rider', hp: 60, damage: [6, 10], accuracy: 0.7, dodge: 0.18, interval: 1.1, ranged: false, loot: { hide: 1, leather: 1 }, tint: 0xf0d8b0, sprite: { people: 'bandit', weapon: 'spear' } },
+  horse_archer: { id: 'horse_archer', name: 'Horse Archer', hp: 45, damage: [5, 9], accuracy: 0.72, dodge: 0.18, interval: 1.3, ranged: true, loot: { arrows: 3 }, tint: 0xf0d8b0, sprite: { people: 'bandit', weapon: 'bow' } },
+  // (the Queen of the Wild Hunt and her court)
+  hunt_queen: { id: 'hunt_queen', name: 'The Queen of the Wild Hunt', hp: 270, damage: [10, 16], accuracy: 0.84, dodge: 0.3, interval: 1.3, ranged: true, boss: true, loot: { herbs: 8, cloth: 3 }, tint: 0xf0c8ff, sprite: { sheet: 'champ_summoner', block: 4, scale: 2.2 }, kit: { roar: 'Horns, and laughter in the trees. The Wild Hunt rides for your town!', enrage: 'The Queen\'s glamour cracks: underneath is something old and terrible!', summon: { kind: 'wisp', count: 3, text: 'Wisps flicker out of the hedges for their Queen!' }, trophy: 'hunt_crown' } },
+  wisp: { id: 'wisp', name: "Will-o'-Wisp", hp: 26, damage: [4, 7], accuracy: 0.74, dodge: 0.4, interval: 1.1, ranged: true, loot: {}, sprite: { sheet: 'skeleghouls', block: 5, scale: 0.8 } },
+  redcap: { id: 'redcap', name: 'Redcap', hp: 50, damage: [6, 10], accuracy: 0.72, dodge: 0.2, interval: 1.1, ranged: false, loot: { cloth: 1 }, sprite: { sheet: 'goblin', block: 0, scale: 0.8 } },
+  // (the Mad Alchemist and the experiments)
+  mad_alchemist: { id: 'mad_alchemist', name: 'The Mad Alchemist', hp: 260, damage: [10, 16], accuracy: 0.78, dodge: 0.12, interval: 1.5, ranged: true, boss: true, loot: { herbs: 8, glass: 2 }, sprite: { sheet: 'champ_sage', block: 0, scale: 2.2 }, kit: { roar: '"Test subjects!" cackles the Mad Alchemist. "A whole town of them!"', enrage: 'The Mad Alchemist drinks something that glows, and grows!', area: { every: 3, targets: 3, name: 'hurls a crate of flasks', burns: true, fx: 'acid' }, summon: { kind: 'homunculus', count: 2, text: 'The Mad Alchemist uncorks two homunculi!' }, trophy: 'philosophers_stone' } },
+  fire_elemental: { id: 'fire_elemental', name: 'Fire Elemental', hp: 95, damage: [9, 14], accuracy: 0.7, dodge: 0.1, interval: 1.4, ranged: false, loot: { coal: 2 }, sprite: { still: 'elem_fire_elemental', scale: 0.55 } },
+  crystal_fiend: { id: 'crystal_fiend', name: 'Crystal Fiend', hp: 110, damage: [9, 15], accuracy: 0.7, dodge: 0.08, interval: 1.6, ranged: false, loot: { stone: 3, glass: 1 }, sprite: { still: 'elem_crystal_fiend', scale: 0.55 } },
+  homunculus: { id: 'homunculus', name: 'Brass Homunculus', hp: 80, damage: [7, 11], accuracy: 0.68, dodge: 0.05, interval: 1.4, ranged: false, loot: { iron: 1 }, sprite: { still: 'elem_homunculus', scale: 0.55 } },
+  acid_slime: { id: 'acid_slime', name: 'Acid Slime', hp: 36, damage: [4, 8], accuracy: 0.62, dodge: 0.05, interval: 1.3, ranged: false, loot: { herbs: 1 }, sprite: { sheet: 'slime', block: 0, scale: 0.8 } },
+  // (the Grand Master and the Order)
+  grand_master: { id: 'grand_master', name: 'The Grand Master', hp: 380, damage: [12, 19], accuracy: 0.8, dodge: 0.12, interval: 1.3, ranged: false, boss: true, loot: { iron: 6, cloth: 3 }, tint: 0xfff0b0, sprite: { sheet: 'dark_knight', block: 0, scale: 1.5 }, kit: { roar: 'Banners on the road. The Grand Master of the Order has come to claim this town!', enrage: 'The Grand Master lowers his lance: no quarter!', summon: { kind: 'order_knight', count: 2, text: 'The Order\'s knights ride to their Grand Master!' }, trophy: 'order_shield' } },
+  order_knight: { id: 'order_knight', name: 'Knight of the Order', hp: 90, damage: [7, 12], accuracy: 0.74, dodge: 0.1, interval: 1.3, ranged: false, loot: { iron: 1, leather: 1 }, tint: 0xfff0d0, sprite: { people: 'soldier', weapon: 'sword' } },
+  order_crossbow: { id: 'order_crossbow', name: 'Order Crossbowman', hp: 55, damage: [6, 10], accuracy: 0.74, dodge: 0.1, interval: 1.6, ranged: true, loot: { arrows: 3 }, tint: 0xfff0d0, sprite: { people: 'soldier', weapon: 'bow' } },
 };
 
 /** A group of enemies: id -> count. */

@@ -28,6 +28,11 @@ export class Painter {
     this.ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
   }
 
+  /** A colour as this painter would paint it (through its tone). */
+  toned(color: string): string {
+    return this.tone(color);
+  }
+
   px(x: number, y: number, color: string): void {
     this.rect(x, y, 1, 1, color);
   }

@@ -83,3 +83,35 @@ Horses are from **whtdragon**'s RPG Maker MV animal sprites (see Creatures above
 ## Terrain and scenery
 
 Terrain, trees, rocks and the campfire are placeholder pixel art drawn in code for this project.
+
+## Rival armies and spells
+
+Taken from the owner's asset repository (hpatter9/chronos-assets, private); only the individual sheets used are in
+the game.
+
+- **pvfx foundry thirteen spritesheets** (CC0): the spell sheets `src/renderer/art/effects/pvfx_*.png`: roots for
+  Entangle, rain, leaves, blooms, wards, a parry shield, a mending light, a charge, splashes and surf, an hourglass
+  and a quicksilver shape (Transmute, Assemble), stone spines, a cinder orchid, a magic missile, moths and a prism.
+- **Alenia Star Magic Pack**: six effects shrunk from 320px (`effects/spell_*.png`): the vampire's blood bubble and
+  blood storm, dark flames, a golden vortex, a fountain of life and a chaotic storm. Bundled inside the game only, as
+  its licence allows; never redistributed as files.
+- **Golems and elementals** (pack by batareya): the rival armies' treant, stone golem, water elemental, brass
+  homunculus, iron sentry, wraith, crystal fiend and fire elemental (`src/renderer/art/stills/elem_*.png`). The pack
+  folder has no licence file: check the author's terms before any public release.
+- **Tiny RPG Character Asset Pack 02** (Demon_A and Blood Monster_A): the Countess's demons and blood fiends
+  (`creatures/demon.png`, `creatures/blood_monster.png`, their walk, attack and idle strips stacked into one sheet).
+- **mobs** (goblin and slime): the Wild Hunt's redcaps and the Mad Alchemist's acid slimes (`creatures/goblin.png`,
+  `creatures/slime.png`, strips stacked the same way). The pack folder has no licence file: check the author's
+  terms before any public release.
+- **Pixel Champions v3**: three more heroes as rival lords: Prime the Great Sage (the Mad Alchemist), Oratio the
+  Mercenary (the Khan) and Wyvera the Queen Dragoon (the Tide Queen) (`creatures/champ_sage.png`,
+  `champ_mercenary.png`, `champ_dragoon.png`).
+
+## Beasts and things that come alive
+
+- **whtdragon**'s RPG Maker MV sheets (see Creatures for the licence note): desert lions and wild dogs, coastal
+  crocodiles, the Behemoth, possessed tomes, vampire bats, the desert caravan's camels and the druid's walking
+  mushrooms (`creatures/lions.png`, `wilddogs.png`, `crocodiles.png`, `behemoth.png`, `tomes.png`, `bats.png`,
+  `camel.png`, `shrooms.png`).
+- **mobs** (mimic): the Mimic (`creatures/mimic.png`, its walk, attack, idle and disguise frames stacked into one
+  sheet; see the licence note under Rival armies).

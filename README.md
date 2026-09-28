@@ -139,6 +139,13 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
     building someone keeps, and what they did lately.
   - **Tap the shop or tavern** (or a stranger) to see inside: a bird's-eye view of the counter, the furnishings and the
     travellers browsing, with what's for sale, what the town wants to buy, and the latest sales.
+- **Research stations seat one person each** (the campfire, Storyteller's Circles, Scriptoria, Libraries,
+  Universities, AI Cores). Each researcher takes a topic of their own from the queue where they can, so more stations
+  means more topics at once; the town builds more, and better ones, as it grows. The Research tab shows who's where.
+- **Becoming a lich:** once the hidden Occult branch yields Lichcraft, the founder is offered the Rite of the
+  Phylactery (and if it's put off, a **Become a lich…** button waits on the Plan tab). Chosen, the town builds the
+  phylactery; once it stands, the founder is a lich, and the whole game turns: grave-dark menus, bars and windows, mist,
+  a drained town, and new names (Designs, Grimoire, Souls, Chronicle; Chronos Necropolis). It stays that way for good.
 - **The strip:** scroll with the mouse wheel or drag, and click buildings and people for their details. The
   tabs on the right open the panels: Plan, Research, Expeditions, Townsfolk, Crafting, Trade and the Journal.
 - **The tray icon:**
@@ -207,6 +214,87 @@ travel take longer. Food doesn't stretch, because people eat on the same clock i
 | Industrial | Power Station | Coal, steel, glass, factories, muskets, gangs, rival armies, smog |
 | Modern | Mission Control | Oil, concrete, plastics, electronics, trucks, turrets, cryo pods, war |
 | Robotic & Space | Launch Site (the ending) | Alloys, circuits, worker bots, shields, clone vats, drones, meteors |
+
+## Origins
+
+Chosen first on the New town screen, an origin changes how the whole game plays and looks: who the townsfolk are,
+what they need, what they're good and bad at, three powers (spells or rituals) the town calls on by itself when the
+moment's right (shown on the Plan tab with their cooldowns), and its own colours, fonts, menu names, town tint and
+building style.
+
+| Origin | Twist | Powers |
+|---|---|---|
+| **Settlers** | The classic game | None |
+| **Lich** | A lich founder and the raised dead: no food, no sleep, slow healing, no children | Raise Dead, Bone Ward, Drain Life |
+| **Druid Grove** | Fields and foraging fast, cleared forest grows back; builds slower, coarser crafts | Call Rain, Entangle, Bloom |
+| **Blood Court** | A vampire founder, in a castle that climbs a floor at a time; the town works hard by night, thralls never despair | Mesmerise, Blood Feast, Night Terror |
+| **Moon Pack** | A werewolf founder; wolves never raid, full moons make everyone fierce | Howl, Pack Hunt, Moon Frenzy |
+| **Machine Colony** | Machines: no food, sleep or moods; fast research; nobody wanders in, units are assembled | Assemble, Overclock, Repair Swarm |
+| **Deep Hold** | Dwarves: fast builders, finer crafts, tough; poor farmers | Deep Delve, Forge Blessing, Stone Skin |
+| **Tide Clan** | Merfolk: great foragers, the sea gives fish, busy trade; pirates | Tide Call, Whirlpool, Sea Fog |
+| **Nomad Caravan** | Fast building, twice the travellers, better prices; slower research | Trade Road, Swift Riders, Scouting Party |
+| **Fae Court** | Strangers pay half again as much and may be charmed into staying; slow crafting | Glamour, Changeling, Faerie Ring |
+| **Crucible** | Alchemists: fast research, newcomers gain a strange trait; poor builders | Transmute, Elixir, Volatile Flask |
+| **Exiled Order** | Knights: armed from day one, fight hard, take less harm; slow crafting and research | Rally, Shield Wall, Oath of Mending |
+
+Each origin builds its own way: homes are crypts, living trees, gothic houses, earth dens, metal pods, stone halls,
+stilt huts, yurts, mushroom houses, alchemists' towers or keeps; walls are bone palisades, hedges, iron railings,
+plated barriers and so on; and every other building is roofed and walled in the origin's materials and dressed in
+its things (skulls and candles, vines, bats and banners, antennae, runes, nets and shells, flasks, heraldry).
+
+### The Blood Court's castle
+
+A vampire town doesn't spread out: it builds up. Every hall, workshop, shop, tavern and bedchamber is a room of one
+castle over the camp, seen in cutaway: coffins stood against the walls where the thralls sleep, shelves of books, a
+forge, a feasting hall, a throne room, a chapel, sickbeds with bottles of blood. A room goes on the ground floor
+while there's space, then on the next floor up once the one below is half built, up to five floors, with towers,
+battlements, spires and red pennons over the top. Fields, mines, the graveyard and the walls stay outside, and when
+the keep is full the town builds on outside it. People climb to the room they're working in, and sleep where they
+can be seen. On the phone the view zooms out as the castle grows so it always fits, and upright the strip grows
+taller to show it.
+
+### Beasts, and things that come alive
+
+- **The land's own beasts:** prides of lions (from day 4) and wild dog packs (from day 3) in the desert (wild dogs on
+  the tundra too), crocodiles on the coast.
+- **The Behemoth:** from day 8, now and then a beast raid comes with the Behemoth behind it: an epic beast that
+  stamps the earth. Its horn is a relic.
+- **Mimics:** a town with a shop may find, some night, that a chest a traveller left there has teeth. The Mimic
+  starts inside the town with no warning; killed, its belly holds 45 coins.
+- **Possessed tomes:** now and then, while someone studies at a library or better, its books tear themselves off
+  the shelves and fly at the scholars. Beaten, they give up their secrets: every topic being studied jumps halfway
+  to done.
+- **Vampire bats** fly with the Countess's army, and wheel round a Blood Court's castle at night.
+- **Walking mushrooms:** a druid grove's Entangle wakes two to fight for it.
+- In the desert the trade caravan comes by camel.
+
+### Rival origins
+
+The origins you didn't pick are out there too. From day 8, in any era, now and then one sends its army against
+you, led by its lord, who casts that origin's spells in the fight. Kill the lord and the town keeps its relic.
+A rival never raids a town founded its own way.
+
+| Rival | Army | The lord's spells | Relic |
+|---|---|---|---|
+| The Lich Lord | Flying skulls, zombies, wraiths, mummies | Drain Life, Raise the Fallen, Bone Ward | Phylactery |
+| The Archdruid | Wolves, boars, treants | Entangle, Call Storm, Regrowth | Staff |
+| The Countess | Thralls, night shades (and she carries people off) | Mesmerise, Blood Drain, Night Terror | Ring |
+| The Alpha | Wolves, alphas, werewolves | Howl, Blood Frenzy | Pelt |
+| The Overmind | Scout drones, iron sentries | Overclock, Repair Swarm, EMP (machines and turrets stop) | Core |
+| The Thane | Hold warriors and crossbows, stone golems | Stone Skin, Rockfall (breaks walls) | Hammer |
+| The Tide Queen | Tide warriors and callers, coral golems | Whirlpool, Sea Fog, High Tide | Trident |
+| The Khan | Riders and horse archers | Arrow Volley, Plunder (takes coins) | Bow |
+| The Queen of the Wild Hunt | Wisps, redcaps (they carry people off) | Glamour, Faerie Fire | Crown |
+| The Mad Alchemist | Acid slimes, brass homunculi | Volatile Flask, Elixir, Transmute (breaks walls) | Philosopher's Stone |
+| The Grand Master | Knights and crossbowmen of the Order | Rally, Shield Wall, Oath of Mending | Shield |
+
+Every spell, the town's and the rival lords', is drawn as it's cast: a magic circle under the caster, its name
+rising, and its own effect: lightning out of the sky, life drawn off in streams of light, roots bursting up round the
+defenders, rain clouds, sea fog, shockwaves, vortices, wards, volleys of arrows, thrown flasks bursting, falling
+rocks, swarms of bats, fountains of coins, auras, a wave rolling through the town.
+
+Hexes on the defenders (held, fogged, EMP) and blessings on the army (frenzied, warded) show on the raid badge
+with the seconds left.
 
 ## New-game options
 

@@ -3,6 +3,7 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { adoptRooms, castleOn, castleSpan, openFloors, roomKind } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
@@ -15,7 +16,7 @@ import { blueprintCount, buildSlots, canPlace, canUpgrade, isUnlocked, placeBlue
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
-import { addStock, campX, type Building, type GameState } from './state';
+import { tireless, addStock, campX, type Building, type GameState } from './state';
 import { TILE } from '../constants';
 import { TICKS_PER_HOUR } from './time';
 import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
@@ -78,7 +79,7 @@ const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber:
 
 function needs(s: GameState): Needs {
   const stock = totalStock(s);
-  const eaters = s.people.filter((p) => p.monster !== 'undead').length || 1;
+  const eaters = s.people.filter((p) => !tireless(p)).length || 1;
   const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (stock[m] ?? 0) * v, 0);
   const demand: Stock = {};
   const want = (m: Material, n: number) => (demand[m] = (demand[m] ?? 0) + n);
@@ -368,14 +369,26 @@ const NEVER = new Set(['phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_v
 /** The camp's tile (where the town grows out from). */
 const campTile = (s: GameState) => Math.floor(campX(s) / TILE);
 
-/** The nearest free spot for a building, out from the camp on either side (null if there's no room). */
+/** The nearest free spot for a building, out from the camp on either side (null if there's no room). In a castle
+ *  town the keep's ground is the castle's: everything else goes outside it. */
 function findSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): number | null {
   const c = campTile(s);
+  const [lo, hi] = castleOn(s) && def.layer === 'mid' ? castleSpan(s) : [0, 0];
   for (let d = 0; d < s.tiles.length; d++) {
     for (const t of d === 0 ? [c] : [c + d, c - d - def.width + 1]) {
+      if (t < hi && t + def.width > lo) continue;
       if (canPlace(s, back, def, t).ok) return t;
     }
   }
+  return null;
+}
+
+/** Where a castle's next room goes: the lowest open floor with space, nearest the middle of the keep. */
+function roomSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): { tile: number; floor: number } | null {
+  const [lo, hi] = castleSpan(s);
+  const mid = (lo + hi - def.width) / 2;
+  const tiles = Array.from({ length: hi - lo - def.width + 1 }, (_, i) => lo + i).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+  for (const floor of openFloors(s)) for (const tile of tiles) if (canPlace(s, back, def, tile, floor).ok) return { tile, floor };
   return null;
 }
 
@@ -404,7 +417,8 @@ function wallSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef):
 function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const out: { def: string; why: string }[] = [];
   const add = (def: string | undefined, why: string) => def && !out.some((w) => w.def === def) && out.push({ def, why });
-  const can = (d: BuildingDef) => unlocked(s, d.id) && !NEVER.has(d.id);
+  // (the phylactery only once the founder's soul is to be bound)
+  const can = (d: BuildingDef) => unlocked(s, d.id) && (!NEVER.has(d.id) || (d.id === 'phylactery' && !!s.lichChosen));
   const count = (id: string) => s.buildings.filter((b) => b.def === id).length;
 
   // (every kind that would do, best first: if the best can't be had, the next is tried)
@@ -422,6 +436,8 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   // (poor soil, like the desert's, feeds fewer per field: while food is short it keeps adding fields)
   const fieldsWanted = Math.ceil(n.people / 2) + (n.foodDays < 3 ? Math.ceil(n.people / 3) : 0);
   if (fields < Math.min(fieldsWanted, n.people + 1)) options((d) => !!CROPS[d.id] && CROPS[d.id].material !== 'herbs', (d) => CROPS[d.id].yield, n.foodDays < 3 ? 'food is running low' : 'more fields for more people');
+  // the phylactery, first of all, once it's decided
+  if (s.lichChosen && !planned(s, 'phylactery')) add('phylactery', `to bind ${s.people.find((p) => p.id === s.mainId)?.name ?? 'the founder'}'s soul`);
   // a shop, first thing, when the land can't give what the town needs (a desert's fiber, once it's gathered out)
   const shopPlanned = s.buildings.some((b) => isShop(b.def));
   const firstShop = BUILDING_BY_ID.trading_post;
@@ -441,9 +457,14 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   }
   // a shop to sell to travellers (sooner when the town is set on trade)
   if (!shopPlanned && can(firstShop) && n.direction === 'trade') add(firstShop.id, 'to sell to travellers for coins');
-  // a better place to research
+  // a better place to research, and more of them as the town grows (one person studies at each: about one station for
+  // every four grown-ups, up to one per topic it can study at once)
   const station = Object.entries(RESEARCH_STATIONS).filter(([id]) => BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id])).sort((a, b) => b[1].mult - a[1].mult)[0];
   if (station && !planned(s, station[0])) add(station[0], 'somewhere better to study');
+  const stations = s.buildings.filter((b) => RESEARCH_STATIONS[b.def]).length;
+  const grown = s.people.filter((p) => p.bornTick == null).length;
+  const wantStations = Math.min(modifiers(s.research).researchSlots, 1 + Math.floor(grown / 4));
+  if (station && stations < wantStations) add(station[0], `a desk for another researcher (${stations} for ${grown} people)`);
   // the next era, once the town can manage it
   for (const id of CAPSTONES) if (BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id]) && !planned(s, id)) add(id, 'the way to the next era');
   if (!shopPlanned && can(firstShop)) add(firstShop.id, 'to sell to travellers for coins');
@@ -462,6 +483,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
 /** Place the next building the town wants (one at a time), or upgrade one. Returns wild tiles to clear for a
  *  building it wanted but had no room for (or for a wall's spot at the end of town). */
 function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan: TownPlan): number[] {
+  adoptRooms(s);
   if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
   let blocked: BuildingDef | null = null;
@@ -469,7 +491,12 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
     const def = BUILDING_BY_ID[w.def];
     if (!affordable(s, def, n.stock)) continue;
     let tile: number | null;
-    if (isWall(def)) {
+    let room: { floor: number } | undefined;
+    if (roomKind(s, def) && roomSpot(s, back, def)) {
+      const spot = roomSpot(s, back, def)!;
+      tile = spot.tile;
+      room = { floor: spot.floor };
+    } else if (isWall(def)) {
       const spot = wallSpot(s, back, def);
       if (!spot) continue;
       if (spot.clear) {
@@ -482,7 +509,7 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
       if (def.layer !== 'back') blocked ??= def; // (the back fields need meadow; nothing to clear there)
       continue;
     }
-    if (placeBlueprint(s, back, def.id, tile).ok) {
+    if (placeBlueprint(s, back, def.id, tile, room).ok) {
       plan.build = w;
       if (def.housing) plan.lastHome = s.tick;
       return clear;
@@ -557,7 +584,7 @@ const AMMO_KEEP = 30;
  *  (twice its usual one), food beyond several days' worth, and never the totem. */
 export function forSale(s: GameState): Stock {
   const n = needs(s);
-  const eaters = s.people.filter((p) => p.monster !== 'undead').length || 1;
+  const eaters = s.people.filter((p) => !tireless(p)).length || 1;
   let spareFood = Math.max(0, (n.foodDays - FOOD_KEEP_DAYS) * eaters);
   const out: Stock = {};
   for (const m of MATERIALS) {
@@ -581,7 +608,7 @@ export function shoppingList(s: GameState): { m: Material; n: number; essential:
   const n = needs(s);
   const out: { m: Material; n: number; essential: boolean }[] = [];
   if (n.foodDays < 2) {
-    const eaters = s.people.filter((p) => p.monster !== 'undead').length || 1;
+    const eaters = s.people.filter((p) => !tireless(p)).length || 1;
     const food = travellerGoods(s.era).filter((m) => FOOD_VALUE[m]).sort((a, b) => FOOD_VALUE[b]! - FOOD_VALUE[a]!)[0];
     if (food) out.push({ m: food, n: Math.ceil(((3 - n.foodDays) * eaters) / FOOD_VALUE[food]!), essential: true });
   }

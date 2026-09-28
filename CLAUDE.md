@@ -13,7 +13,9 @@ taskbar. TypeScript + PixiJS. `DESIGN.md` is the original design, and `README.md
   Knowledge, in the Plan tab) and sends **expeditions**. Don't add chores or manual controls.
 - **Deaths should be common.** Raids, disasters and hunger are meant to bite.
 - **Assets.** The project is free and private, so any sprite from the asset packs may be used. Credit the source
-  in `CREDITS.md`. (The packs themselves aren't in the repo; sprites the game uses are already in `src`.)
+  in `CREDITS.md`. The packs live in the private repo `hpatter9/chronos-assets` (clone it next to this one, at
+  `../chronos-assets`); copy in only the individual sprites the game uses, never whole packs. Sprites the game uses
+  are in `src`. Images load through `art/loadImage.ts` (a refused `decode()` falls back to the load event).
 
 ## Commands
 
@@ -84,9 +86,42 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     (kept in step by `qualitiesOf`), worn ones in `p.gearQ`.
   - Wages and gear buying: `sim/wages.ts`. With a shop, `equipAll`/`pickTool` stop handing gear out. The daily ledger
     is `s.ledger` (`earn` in `state.ts`); per-person activity is `p.recent` (`remember`).
+  - Research: one person per station (`researchStations`, `freeStation`, `topicFor` in `research.ts`); the research
+    task carries its station and topic.
+  - The lich path: `offerLichRite`/`chooseLich`/`watchLich` in `occult.ts`, `s.lichChosen` then `s.lich` (permanent).
+    `snapshot.theme` is `'lich'` once it's set; `src/renderer/theme.ts` holds the look (one stylesheet scoped to
+    `html.theme-lich`) and the menus' new names, applied by the phone page, the panels and the strip's HUD.
   - The bird's-eye interior is the `shop` and `tavern` panels (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop.
   - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs
   itself, so there's little to watch while a menu is open. The tabs stay visible (along the bottom upright).
 - **Phase 3 is done** (the Tavern: see above).
+- **Origins are done:** `src/shared/data/origins.ts` (defs: start, rules, powers), applied at founding in
+  `newGame`; the rule multipliers are in `src/shared/sim/origin.ts` (asked for by people, farming, raids, crafting, the
+  shop, townsfolk); powers in `src/shared/sim/powers.ts` (`castPowers`, cast by the town itself; buffs in `s.buffs`);
+  looks in `src/renderer/theme.ts` (one palette per origin, CSS generated and scoped to `html.theme-<id>`, menu names,
+  building tint). Undead and machines are both `tireless` (state.ts).
+- **Rival origins are done:** `src/shared/data/rivals.ts` (each origin's lord, army and hostile spells), raid kinds
+  `rival_*` in `data/raids.ts` (with `origin` and `leader`; never picked for the town's own origin), enemies and
+  relics in `data/enemies.ts` and `data/items.ts`. `src/shared/sim/rivals.ts` casts the lords' spells
+  (`rivalsInRaid`) and holds the hexes on `Raid.hex` that raids.ts and powers.ts read (`heldBack`, `fogAim`,
+  `wardOf`, `frenzyOf`, `turretsDown`).
+- **Spell visuals:** casts are recorded with `castSpellFx` (state.ts: caster, targets by id, how long) from
+  `castPowers` (the `TOUCH` table in powers.ts says what each power touches) and `rivalsInRaid`; `snapshot.spells`
+  carries them; `src/renderer/town/spellsView.ts` draws them (looks per spell in `town/spellLooks.ts`: bolts,
+  streams, roots, rain, fog, rings, domes, arrows, flasks...), above the day-and-night tint so they glow.
+- **The vampire castle:** `castle` in an origin's rules (the Blood Court). `src/shared/sim/castle.ts`: the keep's span
+  over the camp (`castleSpan`), which buildings are rooms (`roomKind`), floors (`Building.room`/`floor`; `canPlace`
+  checks overlap per floor), `openFloors`, `roomOf` (the room someone's in: `PersonView.floor`), `adoptRooms` for
+  older saves. The planner's `roomSpot` fills it. Drawn by `src/renderer/art/castle.ts` (`roomArt` cutaways, `keepArt`
+  shell, sliced per 16px in `BuildingsView.syncCastle`); `mobile.ts` zooms and grows the strip so the keep fits.
+- **Spell sprites:** `SPELL_SHEET_DEFS` in `art/effects.ts` (pvfx and Alenia sheets), matched to spells by `sprite` in
+  `town/spellLooks.ts` and placed by `SHEETS` in `spellsView.ts` (foot offset, frame rate, glow). Rival troops use
+  the golem/elemental stills (`elem_*`) and strip sheets with a `feet` share (`creatures.ts`).
+- **Beasts and lurkers:** biome-only raid kinds (`biomes` on a `RaidKind`: lions, wild dogs, crocodiles); the
+  Behemoth joins beast raids (`BEAST_RAIDS` in raids.ts). `src/shared/sim/lurkers.ts`: raids that start inside the
+  town (`startRaid(..., inside)`: the Mimic at the shop by night, possessed tomes at a library) and their rewards
+  (`lurkersBeaten`, from `endRaid`).
+- **Origin buildings:** `src/renderer/art/originStyles.ts`: each origin's own homes, walls and gates; every other
+  building gets its materials swapped (`reclad`) and dressing on top. `buildingArt` takes the style (the theme id).
 - **Phase 4:** animal husbandry and more farming.

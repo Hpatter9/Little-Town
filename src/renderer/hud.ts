@@ -2,6 +2,7 @@
 // Every element that should capture the mouse carries [data-hit]; everything else is click-through.
 
 import { PANELS, type Bridge, type PanelId, type StripState } from '../shared/ipc';
+import { applyTheme, panelLabel, type Theme } from './theme';
 import { ERA_NAMES } from '../shared/data/eras';
 import { MATERIAL_NAMES, MATERIALS, type Material } from '../shared/data/materials';
 import { FOOD_VALUE } from '../shared/data/people';
@@ -13,7 +14,7 @@ export interface Hud {
   update(snap: Snapshot): void;
 }
 
-export function createHud(bridge: Bridge): Hud {
+export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud {
   let paused = false;
   let stripMode: StripState['mode'] = 'full';
   const togglePause = () => bridge.command({ type: 'setPaused', paused: !paused });
@@ -88,6 +89,11 @@ export function createHud(bridge: Bridge): Hud {
       for (const [id, b] of tabs) b.classList.toggle('active', s.panel === id);
     },
     update(snap) {
+      // the necropolis look, once the founder is a lich (the desktop dock's tabs take the new names)
+      if (applyTheme(snap.theme, 'strip')) {
+        for (const p of PANELS) tabs.get(p.id)!.querySelector('.tab-label')!.textContent = panelLabel(p.id, p.label, snap.theme);
+        onTheme?.(snap.theme);
+      }
       for (const [id, f] of fills) {
         const now = id === 'research' ? researchFill(snap.research) : expeditionFill(snap.expeditions);
         if ((now?.pct ?? -1) === f.pct) continue;
@@ -124,7 +130,7 @@ export function createHud(bridge: Bridge): Hud {
       raid.hidden = !r;
       flash.hidden = !r || stripMode !== 'full';
       if (r) {
-        const t = r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!`;
+        const t = r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!${r.hexes.length ? ` · ${r.hexes.join(' · ')}` : ''}`;
         if (raid.textContent !== t) raid.textContent = t;
       }
       // anyone bleeding out in town: who has least time left (a dressing or an infirmary saves them)
