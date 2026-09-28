@@ -1,5 +1,6 @@
 // Draws people on the walkway. Positions arrive at the sim's tick rate and are interpolated per frame.
 
+import { ROOM_H, PLINTH } from '../art/castle';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import type { PersonView } from '../../shared/sim/snapshot';
 import { poolSize } from '../../shared/sim/state';
@@ -51,6 +52,9 @@ interface Drawn {
   levels?: number;
   levelAt?: number;
   levelUp?: Sprite;
+  /** How far up they're drawn (in a castle's room), and when it was last eased. */
+  lift?: number;
+  liftAt?: number;
   fromX: number;
   toX: number;
   at: number;
@@ -59,6 +63,11 @@ interface Drawn {
   animStart: number;
   lastActivity: string;
 }
+
+/** From the walkway up to a castle room's floor (the ground floor's boards, over the keep's plinth, on the middle
+ *  ground behind the walkway), and how fast people climb (px a second). */
+const FLOOR_LIFT = WALK_Y + 2 + PLINTH + 3;
+const CLIMB_SPEED = 90;
 
 export class PeopleView {
   private readonly drawn = new Map<number, Drawn>();
@@ -283,6 +292,12 @@ export class PeopleView {
           d.blood.position.set(Math.round(x) - 4, WALK_Y - 40);
         }
       }
+      // up in a castle's room: lifted to its floor (easing there, as if up the stairs)
+      const want = d.view.floor !== null ? FLOOR_LIFT + d.view.floor * ROOM_H : 0;
+      const dt = Math.min(0.1, (now - (d.liftAt ?? now)) / 1000);
+      d.liftAt = now;
+      d.lift = (d.lift ?? want) + Math.sign(want - (d.lift ?? want)) * Math.min(Math.abs(want - (d.lift ?? want)), CLIMB_SPEED * dt);
+      if (d.lift) for (const o of [d.sprite, d.load, d.bubble, d.levelUp, d.emote, d.blood]) if (o?.visible) o.y -= Math.round(d.lift);
     }
   }
 
@@ -317,7 +332,8 @@ export class PeopleView {
   personAt(localX: number, localY: number): PersonView | null {
     for (const d of this.drawn.values()) {
       if (d.view.indoors) continue;
-      if (Math.abs(localX - d.x) <= HIT_HALF_W && localY <= WALK_Y && localY >= WALK_Y - HIT_H) return d.view;
+      const up = Math.round(d.lift ?? 0);
+      if (Math.abs(localX - d.x) <= HIT_HALF_W && localY <= WALK_Y - up && localY >= WALK_Y - HIT_H - up) return d.view;
     }
     return null;
   }

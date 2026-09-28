@@ -44,6 +44,7 @@ import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
+import { castleFloors, castleOn, castleSpan, roomOf } from './castle';
 import { RIVALS } from '../data/rivals';
 
 const spellName = (spell: string): string => {
@@ -90,6 +91,8 @@ export interface PersonView {
   bed: string | null;
   /** Asleep inside a building (the renderer hides them). */
   indoors: boolean;
+  /** The castle floor of the room they're in, working or asleep (drawn inside it); null on the walkway. */
+  floor: number | null;
   /** Destination name while away on an expedition (not in town). */
   away: string | null;
   hp: number;
@@ -386,6 +389,8 @@ export interface Snapshot {
   impacts: { x: number; since: number }[];
   /** Spells cast lately (the town's powers and rival lords'): drawn by renderer/town/spellsView.ts. */
   spells: SpellView[];
+  /** A castle town's keep (sim/castle.ts): its tiles and how many floors it stands. */
+  castle: { lo: number; hi: number; floors: number } | null;
   /** A full-moon night: werewolves show what they are. */
   moonNight: boolean;
   /** Tonight's moon, 0..FULL_MOON_PHASE through its cycle (full at FULL_MOON_PHASE), for the sky. */
@@ -565,6 +570,7 @@ export function snapshot(s: GameState): Snapshot {
     fx: (s.fx ?? []).filter((f) => s.tick - f.tick < FX_TICKS).map((f) => ({ id: f.id, kind: f.kind, since: s.tick - f.tick })),
     launchSite: launchSiteView(s),
     impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
+    castle: castleOn(s) && castleFloors(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: castleFloors(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),
@@ -746,7 +752,9 @@ function personView(s: GameState, p: Person, stock?: Stock): PersonView {
     priorities: { ...p.priorities },
     autoPriorities: p.autoPriorities,
     bed: bed ? defOf(bed).name : null,
-    indoors: p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
+    floor: castleOn(s) ? (roomOf(s, p)?.floor ?? null) : null,
+    // (asleep in a castle's room, they're seen there, in their coffin)
+    indoors: !(castleOn(s) && roomOf(s, p)) && p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
     away: p.away === null ? null : (DESTINATION_BY_ID[s.expeditions.find((e) => e.id === p.away)?.dest ?? '']?.name ?? 'expedition'),
     hp: p.hp,
     maxHp: maxHp(p),

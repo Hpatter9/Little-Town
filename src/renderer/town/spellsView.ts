@@ -4,12 +4,13 @@
 // Every cast also rings a magic circle on the ground under the caster and floats the spell's name up. It sits above
 // the town's day-and-night tint, so spells glow in the dark.
 
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Sprite, Text, type Texture } from 'pixi.js';
+import { AREA_SIZE, areaFrame, BLAST_SIZE, BLOOD_SIZE, bloodFrame, castFrame, conjureFrame, HOLY_SIZE, holyFrame, portalFrame, shockFrame, SPELL_SIZE, spellFrame } from '../art/effects';
 import type { Snapshot, SpellView } from '../../shared/sim/snapshot';
 import type { SpellTarget } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { WALK_Y } from './townView';
-import { BONE, GREEN_DEAD, LOOKS, type Kind } from './spellLooks';
+import { BONE, GREEN_DEAD, LOOKS, type Kind, type SpriteFx } from './spellLooks';
 
 /** The top of the sky a spell reaches (fore-local y). */
 const SKY = WALK_Y - 125;
@@ -33,7 +34,26 @@ interface Live {
   byX: number;
   dir: 1 | -1;
   name: Text;
+  /** Its sprites from the effect sheets (one per target, or one on the caster). */
+  sprites: Sprite[];
 }
+
+/** Each effect sheet: a frame at a time (null once it's over), its size, frames a second, and where its foot sits
+ *  in the frame (from the bottom). */
+const SHEETS: Record<SpriteFx, { frame: (i: number) => Texture | null; size: number; fps: number; foot: number; scale?: number }> = {
+  blood: { frame: bloodFrame, size: BLOOD_SIZE, fps: 14, foot: 20 },
+  vampire: { frame: (i) => spellFrame('vampire', i), size: SPELL_SIZE, fps: 10, foot: 14 },
+  undead: { frame: (i) => spellFrame('undead', i), size: SPELL_SIZE, fps: 10, foot: 14 },
+  werewolf: { frame: (i) => spellFrame('werewolf', i), size: SPELL_SIZE, fps: 10, foot: 14 },
+  heal: { frame: (i) => spellFrame('heal', i), size: SPELL_SIZE, fps: 10, foot: 14 },
+  frost: { frame: (i) => spellFrame('frost', i), size: SPELL_SIZE, fps: 6, foot: 14, scale: 1.4 },
+  portal: { frame: portalFrame, size: AREA_SIZE, fps: 10, foot: 16 },
+  cast: { frame: castFrame, size: SPELL_SIZE, fps: 12, foot: 2 },
+  holy: { frame: holyFrame, size: HOLY_SIZE, fps: 12, foot: 4, scale: 1.5 },
+  shock: { frame: shockFrame, size: SPELL_SIZE, fps: 12, foot: 20 },
+  conjure: { frame: conjureFrame, size: BLAST_SIZE, fps: 16, foot: 6, scale: 1.3 },
+  acid: { frame: (i) => areaFrame('acid', i), size: AREA_SIZE, fps: 14, foot: 32 },
+};
 
 export class SpellsView {
   readonly root = new Container();
@@ -57,13 +77,15 @@ export class SpellsView {
       const colour = LOOKS[sp.spell].color;
       const name = new Text({
         text: sp.name,
-        style: { fontFamily: 'Georgia, serif', fontSize: 10, fontWeight: 'bold', fill: lighten(colour), stroke: { color: 0x10080c, width: 3 } },
+        style: { fontFamily: 'Georgia, serif', fontSize: 12, fontWeight: 'bold', fill: lighten(colour), stroke: { color: 0x10080c, width: 4 } },
         resolution: 3,
       });
       name.anchor.set(0.5, 1);
       this.root.addChild(name);
       const first = sp.targets[0]?.x ?? sp.x + 60;
-      this.live.set(sp.n, { view: sp, start: now - sp.since * TICK_MS, xs: sp.targets.map((t) => t.x), byX: sp.x, dir: first >= sp.x ? 1 : -1, name });
+      const look = LOOKS[sp.spell];
+      const sprites = look.sprite ? Array.from({ length: look.onCaster ? 1 : Math.min(4, Math.max(1, sp.targets.length)) }, () => this.root.addChild(new Sprite())) : [];
+      this.live.set(sp.n, { view: sp, start: now - sp.since * TICK_MS, xs: sp.targets.map((t) => t.x), byX: sp.x, dir: first >= sp.x ? 1 : -1, name, sprites });
     }
     // follow the caster and whoever it touched
     for (const l of this.live.values()) {
@@ -84,6 +106,7 @@ export class SpellsView {
       const secs = Math.max(l.view.secs, CIRCLE_SECS, NAME_SECS);
       if (t > secs + 0.3) {
         l.name.destroy();
+        for (const s of l.sprites) s.destroy();
         this.live.delete(n);
         continue;
       }
@@ -91,8 +114,24 @@ export class SpellsView {
       this.circle(l, t, look.color);
       this.label(l, t);
       this.effect(look.kind, look.color, l, t);
+      if (look.sprite) this.sheet(look.sprite, l, t, !!look.onCaster);
       if (look.also) this.effect(look.also, look.alt ?? look.color, l, t);
     }
+  }
+
+  /** A sprite from the effect sheets over each target (staggered a little), or over the caster. */
+  private sheet(fx: SpriteFx, l: Live, t: number, onCaster: boolean): void {
+    const sh = SHEETS[fx];
+    const k = sh.scale ?? 1;
+    l.sprites.forEach((sp, i) => {
+      const x = onCaster ? l.byX : (l.xs[i] ?? l.byX);
+      const f = sh.frame((t - i * 0.12) * sh.fps);
+      sp.visible = !!f && t - i * 0.12 >= 0;
+      if (!f || !sp.visible) return;
+      sp.texture = f;
+      sp.scale.set(k);
+      sp.position.set(Math.round(x - (sh.size * k) / 2), Math.round(WALK_Y + sh.foot * k - sh.size * k));
+    });
   }
 
   /** The magic circle under the caster: two rings and six runes turning. */

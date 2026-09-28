@@ -227,7 +227,7 @@ building style.
 | **Settlers** | The classic game | None |
 | **Lich** | A lich founder and the raised dead: no food, no sleep, slow healing, no children | Raise Dead, Bone Ward, Drain Life |
 | **Druid Grove** | Fields and foraging fast, cleared forest grows back; builds slower, coarser crafts | Call Rain, Entangle, Bloom |
-| **Blood Court** | A vampire founder; the town works hard by night, thralls never despair | Mesmerise, Blood Feast, Night Terror |
+| **Blood Court** | A vampire founder, in a castle that climbs a floor at a time; the town works hard by night, thralls never despair | Mesmerise, Blood Feast, Night Terror |
 | **Moon Pack** | A werewolf founder; wolves never raid, full moons make everyone fierce | Howl, Pack Hunt, Moon Frenzy |
 | **Machine Colony** | Machines: no food, sleep or moods; fast research; nobody wanders in, units are assembled | Assemble, Overclock, Repair Swarm |
 | **Deep Hold** | Dwarves: fast builders, finer crafts, tough; poor farmers | Deep Delve, Forge Blessing, Stone Skin |
@@ -241,6 +241,17 @@ Each origin builds its own way: homes are crypts, living trees, gothic houses, e
 stilt huts, yurts, mushroom houses, alchemists' towers or keeps; walls are bone palisades, hedges, iron railings,
 plated barriers and so on; and every other building is roofed and walled in the origin's materials and dressed in
 its things (skulls and candles, vines, bats and banners, antennae, runes, nets and shells, flasks, heraldry).
+
+### The Blood Court's castle
+
+A vampire town doesn't spread out: it builds up. Every hall, workshop, shop, tavern and bedchamber is a room of one
+castle over the camp, seen in cutaway: coffins stood against the walls where the thralls sleep, shelves of books, a
+forge, a feasting hall, a throne room, a chapel, sickbeds with bottles of blood. A room goes on the ground floor
+while there's space, then on the next floor up once the one below is half built, up to five floors, with towers,
+battlements, spires and red pennons over the top. Fields, mines, the graveyard and the walls stay outside, and when
+the keep is full the town builds on outside it. People climb to the room they're working in, and sleep where they
+can be seen. On the phone the view zooms out as the castle grows so it always fits, and upright the strip grows
+taller to show it.
 
 ### Rival origins
 

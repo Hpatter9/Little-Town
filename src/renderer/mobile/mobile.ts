@@ -2,12 +2,13 @@
 // in two frames: the town strip along the bottom, scaled up for fingers, and the menus in a sheet above it.
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
-import { STRIP_HEIGHT } from '../../shared/constants';
+import { MID_GROUND_Y, STRIP_HEIGHT } from '../../shared/constants';
 import { PANELS, type StripState } from '../../shared/ipc';
 import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
 import { css, mix, skyColors, weatherCover } from '../town/skyColors';
 import { applyTheme, panelLabel } from '../theme';
+import { keepHeight } from '../../shared/sim/castle';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -63,10 +64,17 @@ sheet.append(panel);
  * tabs, the town along the bottom and more sky over it the further out it's zoomed. The clock bar and cards in the
  * strip are scaled back up, so they stay readable however far out it goes.
  */
+/** A castle town's keep: its floors (0: not a castle), and the strip height it needs beyond the keep itself (the
+ *  walkway under it, and a little sky over its spires). */
+let castle = 0;
+const KEEP_MARGIN = STRIP_HEIGHT - MID_GROUND_Y + 24;
+
 function layout(): void {
   const room = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
-  const z = Math.min(zoom, room / STRIP_HEIGHT); // (never taller than there's room for)
-  const height = sideways.matches ? room / z : STRIP_HEIGHT;
+  // (a castle town stands tall: the strip is zoomed out enough to show all of the keep, and upright it grows taller)
+  const need = castle ? keepHeight(castle) + KEEP_MARGIN : 0;
+  const z = Math.min(zoom, room / STRIP_HEIGHT, need ? room / need : Infinity); // (never taller than there's room for)
+  const height = sideways.matches ? room / z : castle ? Math.min(room / z, Math.max(STRIP_HEIGHT, need)) : STRIP_HEIGHT;
   strip.style.width = `${stripBox.clientWidth / z}px`;
   strip.style.height = `${height}px`;
   strip.style.transform = `scale(${z})`;
@@ -130,6 +138,13 @@ const tabButtons = PANELS.map((p) => {
   return { id: p.id, b, label, name: p.label };
 });
 // the necropolis look, once the founder is a lich (and the menus' new names)
+bridge.onSnapshot((snap) => {
+  if ((snap.castle?.floors ?? 0) !== castle) {
+    castle = snap.castle?.floors ?? 0;
+    document.body.classList.toggle('castle', castle > 0);
+    layout();
+  }
+});
 bridge.onSnapshot((snap) => {
   if (!applyTheme(snap.theme, 'phone')) return;
   for (const t of tabButtons) t.label.textContent = panelLabel(t.id, t.name, snap.theme);

@@ -26,7 +26,7 @@ function travellerPerson(t: TravellerView): PersonView {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, dir: t.dir,
     activity: 'walk', cls: null, trainable: [], mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
-    priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null,
+    priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, monster: null, order: null, sick: false,
@@ -781,6 +781,7 @@ async function start(): Promise<void> {
     if (tilesChanged) town.updateTiles(next.tiles);
     town.setSeason(next.biome, next.calendar.season); // (redraws the land when the season turns)
     town.syncBuildings(next.buildings);
+    town.syncCastle(next.castle);
     people.moon = next.moonNight;
     publishInspect(); // (the phone's top card keeps up with what it shows)
     sky.update(next.calendar, next.moonPhase, next.weather);

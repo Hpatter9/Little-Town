@@ -45,6 +45,9 @@ export interface OriginRules {
   guard?: number;
   /** Newcomers come with a strange gift: a random extra trait. */
   mutate?: boolean;
+  /** The town is a castle: its halls, workshops and bedchambers are rooms stacked up a keep that grows upward
+   *  (sim/castle.ts); only yards, fields, mines and walls stay outside. */
+  castle?: boolean;
 }
 
 export interface OriginDef {
@@ -104,10 +107,10 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     id: 'vampire',
     name: 'Blood Court',
     town: 'Chronos Nocturne',
-    description: 'A vampire lord and their thralls. The town comes alive at night; the Hunter\'s Guild never forgets.',
-    features: ['The founder is a vampire from the start', 'Everyone works hard by night, slower by day', 'Thralls: spirits never sink low', 'Spells: Mesmerise, Blood Feast, Night Terror'],
+    description: 'A vampire lord and their thralls, in a castle that climbs higher with every room. It comes alive at night; the Hunter\'s Guild never forgets.',
+    features: ['The founder is a vampire from the start', 'The town is a castle: every room is built on, floor by floor, up a growing keep', 'Everyone works hard by night, slower by day', 'Thralls: spirits never sink low', 'Spells: Mesmerise, Blood Feast, Night Terror'],
     start: { companions: ['gatherer', 'hunter'], stores: { berries: 20 } },
-    rules: { founder: 'vampire', day: 0.85, night: 1.3, moraleFloor: 35, prices: 1.1 },
+    rules: { founder: 'vampire', day: 0.85, night: 1.3, moraleFloor: 35, prices: 1.1, castle: true },
     powers: ['mesmerize', 'blood_feast', 'night_terror'],
   },
   werewolf: {

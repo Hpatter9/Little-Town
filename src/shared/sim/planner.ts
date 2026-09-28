@@ -3,6 +3,7 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { adoptRooms, castleOn, castleSpan, openFloors, roomKind } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
@@ -368,14 +369,26 @@ const NEVER = new Set(['phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_v
 /** The camp's tile (where the town grows out from). */
 const campTile = (s: GameState) => Math.floor(campX(s) / TILE);
 
-/** The nearest free spot for a building, out from the camp on either side (null if there's no room). */
+/** The nearest free spot for a building, out from the camp on either side (null if there's no room). In a castle
+ *  town the keep's ground is the castle's: everything else goes outside it. */
 function findSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): number | null {
   const c = campTile(s);
+  const [lo, hi] = castleOn(s) && def.layer === 'mid' ? castleSpan(s) : [0, 0];
   for (let d = 0; d < s.tiles.length; d++) {
     for (const t of d === 0 ? [c] : [c + d, c - d - def.width + 1]) {
+      if (t < hi && t + def.width > lo) continue;
       if (canPlace(s, back, def, t).ok) return t;
     }
   }
+  return null;
+}
+
+/** Where a castle's next room goes: the lowest open floor with space, nearest the middle of the keep. */
+function roomSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): { tile: number; floor: number } | null {
+  const [lo, hi] = castleSpan(s);
+  const mid = (lo + hi - def.width) / 2;
+  const tiles = Array.from({ length: hi - lo - def.width + 1 }, (_, i) => lo + i).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+  for (const floor of openFloors(s)) for (const tile of tiles) if (canPlace(s, back, def, tile, floor).ok) return { tile, floor };
   return null;
 }
 
@@ -470,6 +483,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
 /** Place the next building the town wants (one at a time), or upgrade one. Returns wild tiles to clear for a
  *  building it wanted but had no room for (or for a wall's spot at the end of town). */
 function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan: TownPlan): number[] {
+  adoptRooms(s);
   if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
   let blocked: BuildingDef | null = null;
@@ -477,7 +491,12 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
     const def = BUILDING_BY_ID[w.def];
     if (!affordable(s, def, n.stock)) continue;
     let tile: number | null;
-    if (isWall(def)) {
+    let room: { floor: number } | undefined;
+    if (roomKind(s, def) && roomSpot(s, back, def)) {
+      const spot = roomSpot(s, back, def)!;
+      tile = spot.tile;
+      room = { floor: spot.floor };
+    } else if (isWall(def)) {
       const spot = wallSpot(s, back, def);
       if (!spot) continue;
       if (spot.clear) {
@@ -490,7 +509,7 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
       if (def.layer !== 'back') blocked ??= def; // (the back fields need meadow; nothing to clear there)
       continue;
     }
-    if (placeBlueprint(s, back, def.id, tile).ok) {
+    if (placeBlueprint(s, back, def.id, tile, room).ok) {
       plan.build = w;
       if (def.housing) plan.lastHome = s.tick;
       return clear;

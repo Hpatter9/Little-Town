@@ -52,6 +52,9 @@ export interface Building {
   def: string;
   /** Leftmost tile on its layer's grid. */
   tile: number;
+  /** A room of a castle (sim/castle.ts), and the floor it's on (0: the ground floor). */
+  room?: boolean;
+  floor?: number;
   /** A blueprint is waiting for materials or being built; progress > 0 once work has started. */
   status: 'blueprint' | 'done';
   /** Materials hauled to the site so far. */
