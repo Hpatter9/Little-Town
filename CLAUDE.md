@@ -167,6 +167,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   three-quarter, angled view of the room instead of the bird's-eye one, so the townsfolk and travellers can be drawn
   with their ordinary side-on sprites (LPC characters) as they come in to shop, dine and sleep.
 
+- **Upgradable buildings (part of the next change):** houses and any other building where it makes sense (workshops,
+  storehouses, farms, the well, the school, the walls) upgrade in place to a bigger, better-looking version as the
+  town progresses (eras and research), instead of the town sprawling into many small houses. The town decides when
+  (planner, from coins and materials; no manual controls). An upgraded home holds more people, so the planner
+  builds fewer homes; the art changes per tier (`art/buildings.ts`, origin styles in `art/originStyles.ts`). Shops
+  already grow this way (Trading Post → General Store → Emporium; Fireside Inn → Tavern); reuse that upgrade
+  mechanism. Needs: tier data on `data/buildings.ts`, save-safe (optional fields), planner rules, tests, and a look
+  at phone sizes.
+
 - **More to watch, not more to do** (the town still decides everything; these give the player moments):
   1. **Raids wait for you:** when a raid is about to start and nobody is watching, the town pauses and a phone alert
      (ntfy) says raiders are at the gate; a **Watch the fight** button starts it. It waits at most ~12 real hours,
