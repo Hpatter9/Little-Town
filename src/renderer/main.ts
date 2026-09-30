@@ -43,7 +43,9 @@ import { generateWorld } from '../shared/world';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
-import { loadLpc } from './art/lpc/lpc';
+import { loadLpc, lpcFrame } from './art/lpc/lpc';
+import { buildingArt } from './art/buildings';
+import { noTone, textureCanvas } from './art/pixelArt';
 import { Camera } from './camera';
 import { createHud } from './hud';
 import { hostBridge, localBridge } from './localBridge';
@@ -773,7 +775,14 @@ async function start(): Promise<void> {
     if (q && view.mode === 'full') promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
-    if (next.away && !q && view.mode === 'full') awayCard.show(next.away);
+    if (next.away && !q && view.mode === 'full')
+      awayCard.show(next.away, (h) => {
+        // the report card's pictures: the townsperson, or the building, in the town's own style
+        const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
+        if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
+        if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(buildingArt(h.building, noTone, 'card', undefined, buildStyle || 'town').texture, 96, 64);
+        return null;
+      });
     else awayCard.hide();
     if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won);
     // a boss roars or sweeps: the strip shakes (only for fresh moments, not ones from before a reload)

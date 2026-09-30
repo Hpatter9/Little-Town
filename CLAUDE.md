@@ -196,6 +196,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   wind, then a town-wide cooldown (`s.rallyReady`); the rallied pulse gold (peopleView). `PersonView.rally` and
   `snapshot.rallyIn` drive the card. A power held back (`s.heldPower`, `holdPower`/`castHeld` in `powers.ts`; the Plan
   tab's Hold back / Cast now) is never cast by the town; in a raid a button by the clock casts it (`hud.ts`).
+- **Morning report card:** `src/shared/sim/highlights.ts` picks the three biggest things from the away report's
+  milestones (deaths together first, then a new age, raids, weddings, newcomers, great buildings, research), each with
+  a building or a townsperson to show; stored on the report (`JournalEntry.highlights`). The away card draws them as
+  pictures (`textureCanvas` in `art/pixelArt.ts`; the picture callback in `main.ts`), buttons above the long list.
 - **Fonts:** `src/renderer/fonts.ts`: a display and a body font for each look (`FONTS`, keyed by theme id; `town` is
   the base game), Google Fonts (OFL) bundled from @fontsource by `build.mjs` into `fonts/` (so they work offline).
   `theme.ts` declares the faces on every page and sets `--font-display`/`--font-body` (a theme overrides the two);
@@ -220,7 +224,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   1. and 2. are done (raids wait for you; time away capped at a game day: see above).
   3. is done (choice events: see above).
   4. and 5. are done (rally in a fight; hold a power: see above).
-  6. **Morning report card:** on return, a short illustrated strip of the three biggest things that happened.
+  6. is done (the morning report card: see above).
   7. **Follow a hero:** pin one townsperson; the camera follows them, and their life's big moments send alerts.
   8. **Expedition stakes:** one choice as a party leaves (safe or risky), the rest planned by the town.
 

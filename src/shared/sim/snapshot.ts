@@ -463,6 +463,7 @@ export interface JournalEntryView {
   text: string;
   key: boolean;
   lines?: string[];
+  highlights?: { text: string; building?: string; person?: number }[];
 }
 
 export function journalView(s: GameState): JournalEntryView[] {
@@ -473,7 +474,7 @@ function entryView(e: JournalEntry): JournalEntryView {
   const c = calendar(e.tick);
   const season = c.season[0].toUpperCase() + c.season.slice(1);
   const when = `Day ${c.day} · ${season} · ${String(c.hour).padStart(2, '0')}:${String(c.minute).padStart(2, '0')}`;
-  return { id: e.id, when, day: c.day, text: e.text, key: !!e.key, lines: e.lines && [...e.lines] };
+  return { id: e.id, when, day: c.day, text: e.text, key: !!e.key, lines: e.lines && [...e.lines], highlights: e.highlights?.map((h) => ({ ...h })) };
 }
 
 export interface ResearchView {

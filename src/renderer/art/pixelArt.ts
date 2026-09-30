@@ -15,6 +15,19 @@ export interface PixelArt {
 export type Tone = (hex: string) => string;
 export const noTone: Tone = (hex) => hex;
 
+/** A texture drawn onto a plain canvas (for the page, outside Pixi), scaled up by whole pixels to fit a box. */
+export function textureCanvas(tex: Texture, boxW: number, boxH: number): HTMLCanvasElement {
+  const f = tex.frame;
+  const scale = Math.max(1, Math.floor(Math.min(boxW / f.width, boxH / f.height)));
+  const c = document.createElement('canvas');
+  c.width = Math.round(f.width * scale);
+  c.height = Math.round(f.height * scale);
+  const ctx = c.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(tex.source.resource as CanvasImageSource, f.x, f.y, f.width, f.height, 0, 0, c.width, c.height);
+  return c;
+}
+
 export class Painter {
   constructor(
     readonly ctx: CanvasRenderingContext2D,

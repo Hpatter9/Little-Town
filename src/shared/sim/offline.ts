@@ -8,6 +8,7 @@ import type { Sim } from './sim';
 import { addJournal, notify, type GameState } from './state';
 import { holdAtGate, openGate, RAID_WAIT_MS, raidAtGate } from './raidWait';
 import { holdEventClock } from './events';
+import { highlights } from './highlights';
 import { TICK_MS, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
 /** Gaps shorter than this are just caught up quietly (no report). */
@@ -136,7 +137,8 @@ function report(s: GameState, awayMs: number, before: { tick: number; stock: Sto
   }
 
   const id = s.nextId++;
-  addJournal(s, { id, tick: s.tick, text: `While you were away (${realDuration(awayMs)}, ${gameDuration(ticks)})`, lines });
+  const cards = highlights(s, events);
+  addJournal(s, { id, tick: s.tick, text: `While you were away (${realDuration(awayMs)}, ${gameDuration(ticks)})`, lines, ...(cards.length ? { highlights: cards } : {}) });
   s.unreadAway = id;
   return { ticks, reportId: id };
 }

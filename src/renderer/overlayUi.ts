@@ -290,7 +290,7 @@ export function createPromptCard(onAnswer: (prompt: number, option: number) => v
 }
 
 /** The "while you were away" report, shown once on return (it stays in the Journal). */
-export function createAwayCard(onJournal: () => void, onClose: () => void): { show(e: JournalEntryView): void; hide(): void } {
+export function createAwayCard(onJournal: () => void, onClose: () => void): { show(e: JournalEntryView, picture?: (h: NonNullable<JournalEntryView['highlights']>[number]) => HTMLCanvasElement | null): void; hide(): void } {
   const el = document.createElement('div');
   el.id = 'away';
   el.setAttribute('data-hit', '');
@@ -298,12 +298,28 @@ export function createAwayCard(onJournal: () => void, onClose: () => void): { sh
   document.body.append(el);
   let shown = -1;
   return {
-    show(e) {
+    show(e, picture) {
       if (e.id !== shown) {
         shown = e.id;
         const title = document.createElement('div');
         title.className = 'prompt-title';
         title.textContent = e.text;
+        // the morning report card: the three biggest things, as pictures
+        const cards = document.createElement('div');
+        cards.className = 'away-cards';
+        for (const h of e.highlights ?? []) {
+          const card = document.createElement('div');
+          card.className = 'away-card';
+          const pic = picture?.(h);
+          const frame = document.createElement('div');
+          frame.className = 'away-pic';
+          if (pic) frame.append(pic);
+          const cap = document.createElement('div');
+          cap.className = 'away-cap';
+          cap.textContent = h.text;
+          card.append(frame, cap);
+          cards.append(card);
+        }
         const list = document.createElement('ul');
         list.className = 'away-lines';
         for (const line of e.lines ?? []) {
@@ -322,7 +338,8 @@ export function createAwayCard(onJournal: () => void, onClose: () => void): { sh
         ok.textContent = 'OK';
         ok.addEventListener('click', onClose);
         row.append(ok, journal);
-        el.replaceChildren(title, list, row);
+        // (the buttons before the long list, so they're in reach on a short strip)
+        el.replaceChildren(title, ...(e.highlights?.length ? [cards] : []), row, list);
       }
       el.hidden = false;
     },

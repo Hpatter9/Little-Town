@@ -655,8 +655,10 @@ export interface JournalEntry extends Notice {
   /** A milestone (finished research or building, a death, a raid's outcome...): "while you were away"
    *  reports list these and only count the rest. */
   key?: true;
-  /** A "while you were away" report: `text` is its title, `lines` the summary. */
+  /** A "while you were away" report: `text` is its title, `lines` the summary, and the three biggest things that
+   *  happened, as pictures (sim/highlights.ts). */
   lines?: string[];
+  highlights?: { text: string; building?: string; person?: number }[];
 }
 
 const MAX_NOTICES = 20;
