@@ -224,7 +224,9 @@ export class PeopleView {
       d.sprite.x = Math.round(x) + (flip ? (CENTRE_X + 1) * k : -CENTRE_X * k);
       d.sprite.y = WALK_Y - FEET_Y * k;
       // the turned look it: the undead grey-green, vampires deathly pale
-      d.sprite.tint = d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff;
+      // (rallied in a fight: flushed gold, pulsing)
+      const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : null;
+      d.sprite.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
       // someone who's taken up a special class looks the part (a Pixel Champions hero, at twice size)
       if (d.view.cls && !hidden) {
         const facing = d.view.dir < 0 ? 'left' : 'right';

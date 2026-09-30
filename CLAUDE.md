@@ -191,6 +191,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `EVENT_HOURS` in play and holds its clock while the town is caught up (`holdEventClock`), `answerEvent`. Marks are
   `s.marks`: a lever's are multiplied in by `markMult` in `sim/origin.ts`, morale ones join `mood()`. The tests'
   `plainGame` turns events off.
+- **Rally and held powers:** `src/shared/sim/rally.ts`: in a raid a defender's tap card offers **Rally!** (the `rally`
+  command): harder, faster blows for `RALLY_TICKS` (`p.rallied`, read by `defenderAttack` and `doDefend`), a second
+  wind, then a town-wide cooldown (`s.rallyReady`); the rallied pulse gold (peopleView). `PersonView.rally` and
+  `snapshot.rallyIn` drive the card. A power held back (`s.heldPower`, `holdPower`/`castHeld` in `powers.ts`; the Plan
+  tab's Hold back / Cast now) is never cast by the town; in a raid a button by the clock casts it (`hud.ts`).
 - **Fonts:** `src/renderer/fonts.ts`: a display and a body font for each look (`FONTS`, keyed by theme id; `town` is
   the base game), Google Fonts (OFL) bundled from @fontsource by `build.mjs` into `fonts/` (so they work offline).
   `theme.ts` declares the faces on every page and sets `--font-display`/`--font-body` (a theme overrides the two);
@@ -214,8 +219,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **More to watch, not more to do** (the town still decides everything; these give the player moments):
   1. and 2. are done (raids wait for you; time away capped at a game day: see above).
   3. is done (choice events: see above).
-  4. **Rally in a fight:** tap a defender to rally them (a burst of courage, cooldown).
-  5. **Hold a power:** the player can keep one of the origin's powers back and cast it themselves in a raid.
+  4. and 5. are done (rally in a fight; hold a power: see above).
   6. **Morning report card:** on return, a short illustrated strip of the three biggest things that happened.
   7. **Follow a hero:** pin one townsperson; the camera follows them, and their life's big moments send alerts.
   8. **Expedition stakes:** one choice as a party leaves (safe or risky), the rest planned by the town.

@@ -277,6 +277,8 @@ export interface Person {
   /** Up a castle's keep (sim/castle.ts): the floor they're on, and how far up or down the stairs to the next. */
   floor?: number;
   climb?: number;
+  /** Rallied by the player in a fight until this tick (sim/rally.ts). */
+  rallied?: number;
   skills: Record<Skill, SkillLevel>;
   /** Skills they love: XP in these grows faster. */
   passions: Skill[];
@@ -586,6 +588,10 @@ export interface GameState {
    *  next may come, the last few drawn (not drawn again soon), the marks answers left on the town (a lever or
    *  everyone's morale, until a tick), and effects still to come. */
   event?: { def: string; prompt: number; who?: number };
+  /** The origin power the player keeps back to cast themselves (sim/powers.ts castHeld). */
+  heldPower?: string;
+  /** When the player can rally a defender again (sim/rally.ts). */
+  rallyReady?: number;
   nextEventTick?: number;
   eventLog?: string[];
   marks?: { lever: string; value: number; until: number; text: string }[];

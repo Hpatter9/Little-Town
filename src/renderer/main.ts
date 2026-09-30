@@ -28,6 +28,7 @@ function travellerPerson(t: TravellerView): PersonView {
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
+    rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, monster: null, order: null, sick: false,
   };
@@ -481,7 +482,11 @@ async function start(): Promise<void> {
         if (p.recent.length) lines.push(`Lately: ${p.recent.slice(0, 2).join('; ')}`);
         lines.push(`Health ${Math.round(p.hp)}/${p.maxHp} · Morale ${Math.round(p.morale)} · Food ${Math.round(p.needs.food * 100)}% · Rest ${Math.round(p.needs.rest * 100)}%`);
         lines.push(`${p.typeName}${p.cls ? `, ${CLASS_DEFS[p.cls].name}` : ''} · ${bestSkills(p)}`);
-        return { title: d.title, lines, actions: [act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
+        // in a fight: rally them (a burst of courage), when the town's rally is ready
+        if (p.rally === 'on') lines.unshift('Rallied: fighting like ten!');
+        else if (p.rally === 'wait') lines.unshift(`Rally again in ${snap.rallyIn}s`);
+        const rallyAct = p.rally === 'ready' ? [act('rally', 'Rally!', () => bridge.command({ type: 'rally', person: p.id }), { primary: true })] : [];
+        return { title: d.title, lines, actions: [...rallyAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
       case 'caravan':
         return { title: d.title, lines: d.lines, actions: [act('trade', 'Trade…', () => bridge.openPanel('trade'), { primary: true })] };

@@ -3,6 +3,7 @@
 // within a level: haul, construct, research, gather) > loaf around camp.
 
 import { castleOn, floorOf, moveOnFloors } from './castle';
+import { rallied, RALLY_SPEED } from './rally';
 import { ADJACENT_TILES, NEAR_SOURCE, NEAR_SOURCE_BONUS } from '../data/buildings';
 import { TILE } from '../constants';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
@@ -346,7 +347,7 @@ function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' 
   p.dir = gap >= 0 ? 1 : -1;
   p.activity = 'fight';
   if (--task.cooldown > 0) return;
-  task.cooldown = DEFEND_INTERVAL;
+  task.cooldown = rallied(s, p) ? Math.round(DEFEND_INTERVAL / RALLY_SPEED) : DEFEND_INTERVAL;
   defenderAttack(s, p, rd, rng, mounted ? CAVALRY_DAMAGE : 0);
 }
 

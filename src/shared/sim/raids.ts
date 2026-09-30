@@ -42,6 +42,7 @@ import {
 import type { Rng } from '../rng';
 import { buildingCentreX, defOf, depositNear, storages, totalStock } from './buildings';
 import { castleOn, floorOf, moveOnFloors, stairXs } from './castle';
+import { rallied, RALLY_DAMAGE } from './rally';
 import { ammoOf, hitDamage, personFighter } from './combat';
 import { gearEffects } from './crafting';
 import { recallExpedition } from './expeditions';
@@ -577,7 +578,7 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   gainSkill(p, f.ranged ? 'ranged' : 'melee', 6);
   const captain = operatorSkill(s, 'watchtower') * CAPTAIN_PER_LEVEL; // a guard captain drills the defenders
   if (rng.next() >= f.accuracy + captain - fogAim(s) - dodge) return;
-  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s));
+  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1));
   // a Blood Knight hits harder when hurt, and heals from what they deal
   if (p.cls === 'blood_knight') {
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);

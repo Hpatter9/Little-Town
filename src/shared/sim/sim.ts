@@ -3,6 +3,7 @@
 
 import { openGate } from './raidWait';
 import { maybeEvent } from './events';
+import { rally } from './rally';
 import { Rng } from '../rng';
 import { generateWorld, type World } from '../world';
 import { demolish, discardStock, placeBlueprint, upgrade } from './buildings';
@@ -33,7 +34,7 @@ import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { forSale, runPlanner, shoppingList } from './planner';
 import { chooseLich, watchLich } from './occult';
-import { castPowers } from './powers';
+import { castHeld, castPowers, holdPower } from './powers';
 import { lurkers } from './lurkers';
 import { updateNomads } from './nomads';
 import { rulesOf } from '../data/origins';
@@ -235,6 +236,15 @@ export class Sim {
         if (p?.monster) p.order = c.order;
         break;
       }
+      case 'rally':
+        rally(s, c.person);
+        break;
+      case 'holdPower':
+        holdPower(s, c.power);
+        break;
+      case 'castHeld':
+        if (!castHeld(s, this.rng)) notify(s, "Can't cast it yet.");
+        break;
       case 'answerPrompt':
         answerPrompt(s, c.prompt, c.option, this.rng);
         break;

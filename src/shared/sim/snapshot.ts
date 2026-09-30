@@ -46,6 +46,7 @@ import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, po
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
 import { castleFloors, castleOn, castleSpan, heightOf, roomOf } from './castle';
+import { rallyState } from './rally';
 import { daysToMove } from './nomads';
 import { RIVALS } from '../data/rivals';
 
@@ -93,6 +94,8 @@ export interface PersonView {
   bed: string | null;
   /** Asleep inside a building (the renderer hides them). */
   indoors: boolean;
+  /** In a raid: the player can rally them ('ready'), they're rallied ('on'), or the rally is cooling down ('wait'). */
+  rally: 'ready' | 'on' | 'wait' | null;
   /** How high up a castle's keep they are, in floors (fractional on the stairs); null on the walkway. */
   floor: number | null;
   /** Destination name while away on an expedition (not in town). */
@@ -375,6 +378,8 @@ export interface Snapshot {
   expeditions: ExpeditionView[];
   destinations: DestinationView[];
   prompts: PromptView[];
+  /** Seconds until the player can rally a defender again (0: now). */
+  rallyIn: number;
   raid: RaidView | null;
   reputation: number;
   gameOver: { text: string; won: boolean } | null;
@@ -531,6 +536,7 @@ export function snapshot(s: GameState): Snapshot {
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
     })),
+    rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     prompts: s.prompts.map((p) => ({
       id: p.id,
       title: p.title,
@@ -779,6 +785,7 @@ function personView(s: GameState, p: Person, stock?: Stock): PersonView {
     bed: bed ? defOf(bed).name : null,
     floor: castleOn(s) && (heightOf(p) > 0 || roomOf(s, p)) ? heightOf(p) : null,
     // (asleep in a castle's room, they're seen there, in their coffin)
+    rally: rallyState(s, p),
     indoors: !(castleOn(s) && roomOf(s, p)) && p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
     away: p.away === null ? null : (DESTINATION_BY_ID[s.expeditions.find((e) => e.id === p.away)?.dest ?? '']?.name ?? 'expedition'),
     hp: p.hp,

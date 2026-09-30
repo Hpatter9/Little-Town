@@ -158,6 +158,22 @@
       .tab.music.active {
         color: var(--text);
       }
+      /* the power the player holds back, to cast in a raid */
+      .tab.cast {
+        width: auto;
+        flex: 0 0 auto;
+        white-space: nowrap;
+        text-align: center;
+        font-family: var(--font-body);
+        font-weight: 700;
+      }
+      .tab.cast.primary {
+        border-color: #f0c050;
+        box-shadow: 0 0 8px rgba(240, 192, 80, 0.6);
+      }
+      .tab.cast[hidden] {
+        display: none;
+      }
       #clock .food-days {
         color: var(--text-dim);
         white-space: nowrap;
