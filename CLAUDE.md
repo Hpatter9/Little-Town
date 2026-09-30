@@ -240,13 +240,27 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     (`plotsWorth`), so a town has about 12 fields where it had 20.
   - Fields are drawn on the rise behind the town (`slope()` in `art/buildings.ts`: rows of crops climbing back, about
     40px tall) so they show over the houses' roofs.
-- **Tavern rooms:** the taverns are bigger (Fireside Inn 6x5, Tavern 9x6), with guest rooms upstairs (`roomsOf`: one per 3
-  cells of width, so extensions and the Tavern add rooms). Beds are furnishings (kind `bed`: `straw_pallet`, `box_bed`,
+- **Roomier venues:** Trading Post 8x5, General Store 11x6, Emporium 14x7, Fireside Inn 9x6, Tavern 13x7 (`floor` in
+  `data/buildings.ts`), up to `MAX_EXTENSIONS` (5) extensions of 2 columns and a row each. Aisles are kept clear
+  (`fixedCell` in `shop.ts`: from the door up to the row in front of the counter, and along it). The keeper fills at most
+  `FILL_MAX` (half) of the free floor (`fill`, checked in `spotFor`); past that the venue is crowded and `planShop` saves
+  up to extend it.
+- **Tavern rooms:** guest rooms upstairs (`roomsOf`: one per 3 cells of width, so extensions and the Tavern add rooms). Beds are furnishings (kind `bed`: `straw_pallet`, `box_bed`,
   `feather_bed`), one to a room, set at y `UPSTAIRS` (-1) with x the room; the common room stays for tables and hearths. `lodge` in `shop.ts`: after being served, an evening guest (`LODGING` in `data/shop.ts`) takes the best free
   bed they can pay for (`Traveller.bed`), stays till morning, and pays; with none, they ask (`asked.bed`), which the
   planner's `furnishValue` turns into a bed order. The tavern panel draws the guest rooms as a storey over
   the common room (`upstairs()`, `UPSTAIRS_H`), the sleepers in their beds (`asleepHour`), and a Rooms line
   (`ShopView.rooms`, `beds`, `lodgers`).
+
+- **Out of the Stone Age:** towns learned everything by day 3, then stalled for want of the Bear Cave totem (only a
+  player-sent party fetched it). `src/shared/sim/caveBear.ts`: with the Elder's Council learned, no totem, and no party
+  headed for the cave, after `BEAR_WAIT_HOURS` (36) the Cave Bear raids the town (raid kind `cave_bear`); killed, it gives
+  up the totem (`caveBearBeaten`, from `endRaid`); if not, it comes again later. Towns now reach the Medieval era by days
+  5 to 8. The town note says so.
+- **Succession:** the founder's death no longer ends the game while a grown-up is left: `heirOf` in `health.ts` (the
+  partner, a grown child, else the best at Social then Research; someone at home first) becomes `s.mainId`, and the town
+  mourns (`SUCCESSION_MORALE` for `SUCCESSION_HOURS`). Only children left, or nobody: the camp breaks apart.
+- **Night windows:** `ShopView.night`; the shop's and tavern's windows show the night sky.
 
 ## Planned (owner's requests, not started)
 

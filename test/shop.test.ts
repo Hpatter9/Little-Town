@@ -7,7 +7,8 @@ import { TOPICS } from '../src/shared/data/research';
 import { totalStock } from '../src/shared/sim/buildings';
 import { forSale, runPlanner, shoppingList, PLAN_TICKS } from '../src/shared/sim/planner';
 import { parseSave, serialize } from '../src/shared/sim/save';
-import { appeal, renownOf, shopLayout, spotFor } from '../src/shared/sim/shop';
+import { appeal, fill, renownOf, shopLayout, spotFor } from '../src/shared/sim/shop';
+import { FILL_MAX } from '../src/shared/data/shop';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { newGame, type Building, type GameState, type Want } from '../src/shared/sim/state';
@@ -218,7 +219,7 @@ test('the shop window: layout, furnishings and the log reach the snapshot', () =
   sim.step();
   const v = snapshot(s).shop!;
   assert.equal(v.name, BUILDING_BY_ID.trading_post.name);
-  assert.equal(v.cols, 5);
+  assert.equal(v.cols, 8);
   assert.equal(v.pieces[0].kind, 'shelf');
   assert.ok(spotFor(shop, ITEM_BY_ID.crate_stand), 'room for more');
 });
@@ -308,10 +309,10 @@ test('coins go into the shop: a crowded floor is extended, and pieces are improv
   const shop = addBuilding(s, 'trading_post', camp(s) + 3);
   const back = generateWorld(s.seed).back;
   const { cols, rows } = shopLayout(shop);
-  // a full floor of crates (every free cell)
+  // crates set out till the floor's as full as the keeper will have it (half of it: the rest is room to walk)
   shop.shop = { pieces: [] };
   for (let spot = spotFor(shop, ITEM_BY_ID.crate_stand); spot; spot = spotFor(shop, ITEM_BY_ID.crate_stand)) shop.shop.pieces.push({ item: 'crate_stand', ...spot });
-  assert.ok(shop.shop.pieces.length >= cols * rows - 6);
+  assert.ok(fill(shop) >= FILL_MAX && shop.shop.pieces.length < cols * rows * 0.6, `${shop.shop.pieces.length} of ${cols * rows}`);
   s.coins = 1000;
   s.tick = TICKS_PER_HOUR * 10; // (the planner spends on the hour)
   runPlanner(s, back);

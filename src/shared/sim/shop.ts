@@ -40,6 +40,7 @@ import {
   GUEST_PURSE,
   GUEST_STAY,
   KEEPER_SPEND,
+  FILL_MAX,
   LODGING,
   MAX_BUY_EACH,
   MAX_EXTENSIONS,
@@ -130,10 +131,24 @@ const isBed = (item: ItemDef) => item.furnish?.kind === 'bed';
 
 const inRect = (r: Rect, x: number, y: number) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 
-/** Cells nothing can be set on. */
+/** Cells nothing can be set on: the counter and the keeper's place behind it, and the aisles kept clear for people
+ *  to walk (from the door straight up to the row in front of the counter, and along that row to the counter). */
 function fixedCell(b: VenueBuilding, x: number, y: number): boolean {
   const l = shopLayout(b);
-  return inRect(l.counter, x, y) || inRect(l.keeper, x, y) || (x === l.door && y >= l.rows - 2);
+  const front = l.counter.y + 1;
+  const aisle = (x === l.door && y >= front) || (y === front && x >= Math.min(l.door, l.counter.x) && x < Math.max(l.door + 1, l.counter.x + l.counter.w));
+  return inRect(l.counter, x, y) || inRect(l.keeper, x, y) || aisle;
+}
+
+/** How much of the floor's free cells are taken up. */
+export function fill(b: Building): number {
+  const { cols, rows } = shopLayout(b);
+  let free = 0;
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (!fixedCell(b, x, y)) free++;
+  const used = piecesOf(b)
+    .filter((p) => p.y >= 0)
+    .reduce((n, p) => n + footprint(p).w * footprint(p).h, 0);
+  return free ? used / free : 1;
 }
 
 const piecesOf = (b: Building): ShopPiece[] => (b.shop ??= { pieces: [] }).pieces;
@@ -187,6 +202,8 @@ export function spotFor(b: Building, item: ItemDef): { x: number; y: number } | 
     for (let x = 0; x < roomsOf(b); x++) if (fits(b, item, x, UPSTAIRS)) return { x, y: UPSTAIRS };
     return null;
   }
+  // (past half full it's crowded: better to extend than to cram more in)
+  if (fill(b) >= FILL_MAX) return null;
   const { cols, rows } = shopLayout(b);
   let best: { x: number; y: number; score: number } | null = null;
   for (let y = 0; y < rows; y++)

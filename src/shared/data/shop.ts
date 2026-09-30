@@ -70,7 +70,10 @@ export const WARE_STOCK = 3;
 /* ------------------------------------------------------------ spending coins on the shop */
 
 /** Extensions bought with coins: each widens the floor by two cells and deepens it by one, up to this many. */
-export const MAX_EXTENSIONS = 3;
+export const MAX_EXTENSIONS = 5;
+/** The keeper fills no more than this share of the floor: past it the venue is crowded, and the town saves up to
+ *  extend it rather than cram more in. */
+export const FILL_MAX = 0.5;
 export const extensionCost = (n: number) => 60 * 2 ** n;
 /** Pieces improved with coins, up to this level: each level adds half the piece's appeal again, for its appeal
  *  times this many coins times the level it goes to. */

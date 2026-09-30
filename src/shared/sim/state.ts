@@ -480,6 +480,9 @@ export interface GameState {
   /** A would-be recruit waiting for an answer, if any. */
   visitor: Visitor | null;
   expeditions: Expedition[];
+  /** When the Cave Bear comes down for its totem, if the town has learned the Elder's Council and nobody has fetched it
+   *  (sim/caveBear.ts). */
+  caveBearTick?: number;
   /** Destinations visited at least once (their loot is known). */
   scouted: string[];
   /** Which end of town each destination lies beyond (-1 left, 1 right). */

@@ -317,6 +317,8 @@ export interface ShopView {
   customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean }[];
   /** The tavern's guest rooms upstairs (a bed is a piece at y -1, x the room), its beds, and how many are taken tonight. */
   rooms: number;
+  /** Dark out (the windows show the night sky). */
+  night: boolean;
   beds: number;
   lodgers: number;
   /** What customers came for lately and didn't find (the town makes it), most asked first. */
@@ -718,6 +720,7 @@ function venueView(s: GameState, venue: 'shop' | 'tavern'): ShopView | null {
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
       .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour) })),
     rooms: roomsOf(b),
+    night: calendar(s.tick).daylight < 0.35,
     beds: bedsOf(b).length,
     lodgers: inside.filter((t) => t.bed && t.phase === 'shopping').length,
     passing: inside.filter((t) => t.phase !== 'shopping').length,

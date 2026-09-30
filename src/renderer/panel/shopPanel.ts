@@ -357,8 +357,9 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   for (let x = 1; x < v.cols - 3; x += 3) {
     const wx = cellX(x) + 2;
     rect(wx - 1, 7, CELL - 2, 17, pal.wallDark);
-    rect(wx, 8, CELL - 4, 15, '#86b9e0');
-    rect(wx, 8, CELL - 4, 5, '#a8d0ec');
+    rect(wx, 8, CELL - 4, 15, v.night ? '#1e2a48' : '#86b9e0');
+    rect(wx, 8, CELL - 4, 5, v.night ? '#2a3a5e' : '#a8d0ec');
+    if (v.night) rect(wx + 2 + (x % 3), 10 + (x % 4), 1, 1, '#e8e8f0'); // (a star)
     rect(wx + (CELL - 4) / 2 - 1, 8, 1, 15, pal.wallDark);
     rect(wx, 15, CELL - 4, 1, pal.wallDark);
     rect(wx - 2, 23, CELL, 2, pal.wallLight); // the sill
@@ -482,7 +483,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   function upstairs(): void {
     const rooms = v.rooms;
     const rw = (W - WALL * 2) / rooms;
-    const night = v.customers.some((q) => q.asleep);
+    const night = v.night;
     rect(0, 0, W, up, pal.wallDark);
     rect(WALL, 2, W - WALL * 2, up - 7, '#d8c8a8');
     for (let y = 4; y < up - 7; y += 5) for (let x = WALL + ((y * 3) % 7); x < W - WALL; x += 9) rect(x, y, 1, 1, '#c8b898'); // (plaster)

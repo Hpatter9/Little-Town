@@ -66,6 +66,7 @@ export const RAID_KINDS: readonly RaidKind[] = [
   { id: 'wild_dogs', name: 'Wild dog pack', goal: 'harm', enemies: { wild_dog: 6 }, fromDay: 3, untilEra: 'industrial', weight: 2, speed: 90, bribable: false, plural: false, biomes: ['desert', 'tundra'] },
   { id: 'crocodiles', name: 'Crocodiles', goal: 'harm', enemies: { crocodile: 18 }, fromDay: 3, untilEra: 'modern', weight: 3, speed: 35, bribable: false, plural: true, biomes: ['coast'] },
   // (never picked at random: things that come alive inside the town, see lurkers.ts)
+  { id: 'cave_bear', name: 'The Cave Bear', goal: 'harm', enemies: { cave_bear: 1 }, fromDay: 9999, weight: 0, speed: 26, bribable: false, plural: false },
   { id: 'mimic', name: 'Mimic', goal: 'harm', enemies: { mimic: 30 }, fromDay: 9999, weight: 0, speed: 30, bribable: false, plural: false },
   { id: 'tomes', name: 'Possessed tomes', goal: 'harm', enemies: { possessed_tome: 8 }, fromDay: 9999, weight: 0, speed: 40, bribable: false, plural: true },
   // Rival origins (data/rivals.ts): any era, from day 8, never to a town founded the same way

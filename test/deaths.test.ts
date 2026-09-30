@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { knockDown } from '../src/shared/sim/health';
+import { killPerson, knockDown } from '../src/shared/sim/health';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Sim } from '../src/shared/sim/sim';
@@ -8,6 +8,8 @@ import { makePerson, type Building, type GameState } from '../src/shared/sim/sta
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
 import { plainGame } from './helpers';
+import { caveBear, caveBearBeaten } from '../src/shared/sim/caveBear';
+import { totalStock } from '../src/shared/sim/buildings';
 
 function town(seed: string): GameState {
   const s = plainGame(seed);
@@ -278,4 +280,49 @@ test('the "while you were away" report names everyone lost, first', async () => 
   const report = s.journal.find((e) => e.lines);
   assert.ok(report, 'a report');
   assert.equal(report!.lines![0], `Lost while you were away: ${a.name} (of their wounds).`);
+});
+
+test("the founder's death passes the town to an heir (their partner first); only with no grown-up left is it over", () => {
+  const s = plainGame('succession');
+  const founder = s.people[0];
+  const rng = new Rng(3);
+  const a = makePerson(rng, s.nextId++, 'wanderer', founder.x, [founder.name]);
+  const b = makePerson(rng, s.nextId++, 'wanderer', founder.x, [founder.name, a.name]);
+  const kid = makePerson(rng, s.nextId++, 'wanderer', founder.x, [founder.name, a.name, b.name]);
+  kid.bornTick = s.tick;
+  s.people.push(a, b, kid);
+  founder.partner = b.id;
+  killPerson(s, founder, 'of a fever');
+  assert.equal(s.gameOver, null);
+  assert.equal(s.mainId, b.id, 'the partner leads');
+  assert.ok(s.marks?.some((m) => m.lever === 'morale' && m.value < 0), 'the town mourns');
+  killPerson(s, b, 'in a raid');
+  assert.equal(s.mainId, a.id);
+  killPerson(s, a, 'of hunger');
+  assert.ok(s.gameOver, 'a child alone cannot keep the town');
+});
+
+test('with the Elder\'s Council learned and no totem fetched, the Cave Bear comes down for it; killed, it gives it up', () => {
+  const s = plainGame('cave-bear');
+  const rng = new Rng(5);
+  s.research.done.push('elders_council');
+  s.tick = TICKS_PER_HOUR * 10;
+  caveBear(s, rng);
+  assert.ok(s.caveBearTick, 'its clock starts');
+  s.tick = s.caveBearTick!;
+  caveBear(s, rng);
+  assert.equal(s.raid?.kind, 'cave_bear');
+  for (const rd of s.raid!.raiders) rd.down = true;
+  caveBearBeaten(s, s.raid!);
+  assert.equal(totalStock(s).totem, 1);
+  s.raid = null;
+  caveBear(s, rng);
+  assert.equal(s.caveBearTick, undefined, 'with the totem in hand it stays in its cave');
+  // (nor does it come while a party is on its way to the cave)
+  const t = plainGame('cave-bear-party');
+  t.research.done.push('elders_council');
+  t.expeditions.push({ dest: 'bear_cave' } as never);
+  t.tick = TICKS_PER_HOUR * 10;
+  caveBear(t, rng);
+  assert.equal(t.caveBearTick, undefined);
 });
