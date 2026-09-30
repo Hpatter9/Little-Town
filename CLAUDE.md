@@ -91,7 +91,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - The lich path: `offerLichRite`/`chooseLich`/`watchLich` in `occult.ts`, `s.lichChosen` then `s.lich` (permanent).
     `snapshot.theme` is `'lich'` once it's set; `src/renderer/theme.ts` holds the look (one stylesheet scoped to
     `html.theme-lich`) and the menus' new names, applied by the phone page, the panels and the strip's HUD.
-  - The bird's-eye interior is the `shop` and `tavern` panels (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop.
+  - The interior is the `shop` and `tavern` panels (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop: an
+    angled (three-quarter) view, the back wall up top and the floor in foreshortened rows (`DEPTH`), each piece a box
+    with a top and a front (`TALL`), wall pieces hung (`ON_WALL`), everything painted back to front with the keeper and
+    strangers as their own side-on LPC sprites (`lpcCanvas`, flipped to walk left).
   - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs
   itself, so there's little to watch while a menu is open. The tabs stay visible (along the bottom upright).
@@ -226,9 +229,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 
 ## Planned (owner's requests, not started)
 
-- **Shop and tavern interiors at an angle:** the `shop` and `tavern` panels (`panel/shopPanel.ts`) should show a
-  three-quarter, angled view of the room instead of the bird's-eye one, so the townsfolk and travellers can be drawn
-  with their ordinary side-on sprites (LPC characters) as they come in to shop, dine and sleep.
+- **Phase 4:** more farming.
 
 ## Known problem (fixed, watch)
 
