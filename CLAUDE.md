@@ -180,6 +180,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   towers, climbing time (`people.ts`), drawn in `art/castle.ts`/`peopleView.ts`. Raidable: raiders breach the gate and
   climb, defenders hold the stairs (`raids.ts`, `combat.ts`); first cut: the gate, the ground floor and the stairs.
 
+- **Twice the scenery detail:** on top of the terrain redraw (`art/terrain.ts`, `art/sprites.ts`, the background in
+  `town/townView.ts`), double the detail again: more kinds of scenery (bushes, flowers, rocks, grass tufts, fallen
+  leaves, puddles, birds), denser and more varied trees, textured mountains and hills, per-season and per-biome
+  variants, small animated touches (swaying grass, drifting leaves, smoke). Check it at phone sizes and keep the
+  frame rate up on the phone.
+
 - **A font for every origin:** the base game and each origin get their own font to match its look (in `theme.ts`, with
   the palette), from Google Fonts or bundled, for the menus, the HUD and the tap card.
 
