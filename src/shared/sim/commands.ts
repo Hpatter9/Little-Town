@@ -53,6 +53,8 @@ export type Command =
   /** Keep one of the origin's powers back to cast yourself (null: let the town cast them all), and cast it. */
   | { type: 'holdPower'; power: string | null }
   | { type: 'castHeld' }
+  /** Follow a townsperson (null: nobody). */
+  | { type: 'follow'; person: number | null }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
   | { type: 'rally'; person: number }
   /** Turn a party around. */
@@ -140,6 +142,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.power === null || typeof c.power === 'string' ? { type: 'holdPower', power: c.power as string | null } : null;
     case 'castHeld':
       return { type: 'castHeld' };
+    case 'follow':
+      return c.person === null || Number.isInteger(c.person) ? { type: 'follow', person: c.person as number | null } : null;
     case 'rally':
       return Number.isInteger(c.person) ? { type: 'rally', person: c.person as number } : null;
     case 'answerPrompt':

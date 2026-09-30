@@ -380,6 +380,8 @@ export interface Snapshot {
   prompts: PromptView[];
   /** Seconds until the player can rally a defender again (0: now). */
   rallyIn: number;
+  /** The townsperson the player follows (the camera keeps them in view), while they live. */
+  hero: number | null;
   raid: RaidView | null;
   reputation: number;
   gameOver: { text: string; won: boolean } | null;
@@ -538,6 +540,7 @@ export function snapshot(s: GameState): Snapshot {
       foodPerMember: foodNeeded(s, d, 1),
     })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
+    hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,
       title: p.title,

@@ -239,6 +239,9 @@ export class Sim {
       case 'rally':
         rally(s, c.person);
         break;
+      case 'follow':
+        s.hero = c.person !== null && s.people.some((p) => p.id === c.person) ? c.person : undefined;
+        break;
       case 'holdPower':
         holdPower(s, c.power);
         break;

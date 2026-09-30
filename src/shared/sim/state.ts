@@ -588,6 +588,8 @@ export interface GameState {
    *  next may come, the last few drawn (not drawn again soon), the marks answers left on the town (a lever or
    *  everyone's morale, until a tick), and effects still to come. */
   event?: { def: string; prompt: number; who?: number };
+  /** The townsperson the player follows (the camera keeps them in view; their big moments send phone alerts). */
+  hero?: number;
   /** The origin power the player keeps back to cast themselves (sim/powers.ts castHeld). */
   heldPower?: string;
   /** When the player can rally a defender again (sim/rally.ts). */

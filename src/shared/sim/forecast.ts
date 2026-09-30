@@ -6,7 +6,7 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import { Sim } from './sim';
 import type { GameState } from './state';
 
-export type ForecastKind = 'raid' | 'death' | 'expedition' | 'choice';
+export type ForecastKind = 'raid' | 'death' | 'expedition' | 'choice' | 'hero';
 
 export interface ForecastEvent {
   kind: ForecastKind;
@@ -23,6 +23,7 @@ export function forecast(state: GameState, ticks: number, max = 12): ForecastEve
   const out: ForecastEvent[] = [];
   const seenRaids = new Set<number>();
   const seenPrompts = new Set(s.prompts.map((p) => p.id));
+  const hero = state.hero !== undefined ? state.people.find((p) => p.id === state.hero)?.name : undefined;
   let lastNotice = s.notices.at(-1)?.id ?? 0;
   for (let i = 0; i < ticks && out.length < max && !s.gameOver && !s.paused; i++) {
     sim.step();
@@ -38,7 +39,9 @@ export function forecast(state: GameState, ticks: number, max = 12): ForecastEve
     }
     for (const n of s.notices) {
       if (n.id <= lastNotice) continue;
-      if (/has died|carried off|camp breaks apart/.test(n.text)) out.push({ kind: 'death', tick: n.tick, title: 'Bad news', text: n.text });
+      // (the hero's big moments: anything that makes the journal's milestones with their name in it)
+      if (hero && n.text.includes(hero) && s.journal.some((j) => j.id === n.id && j.key)) out.push({ kind: 'hero', tick: n.tick, title: hero, text: n.text });
+      else if (/has died|carried off|camp breaks apart/.test(n.text)) out.push({ kind: 'death', tick: n.tick, title: 'Bad news', text: n.text });
       else if (/party is back|No one came back/.test(n.text)) out.push({ kind: 'expedition', tick: n.tick, title: 'Expedition', text: n.text });
     }
     lastNotice = s.notices.at(-1)?.id ?? lastNotice;

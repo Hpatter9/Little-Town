@@ -200,6 +200,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   milestones (deaths together first, then a new age, raids, weddings, newcomers, great buildings, research), each with
   a building or a townsperson to show; stored on the report (`JournalEntry.highlights`). The away card draws them as
   pictures (`textureCanvas` in `art/pixelArt.ts`; the picture callback in `main.ts`), buttons above the long list.
+- **Follow a hero:** a person's tap card has **Follow** (the `follow` command, `s.hero`; `snapshot.hero` while they
+  live). The camera eases to keep them in view (`Camera.follow`), waiting `FOLLOW_WAIT_MS` after the player drags or
+  scrolls. Their big moments (journal milestones with their name) are a forecast kind, `hero`, sent as phone alerts
+  (the `hero` alert setting, on by default).
 - **Fonts:** `src/renderer/fonts.ts`: a display and a body font for each look (`FONTS`, keyed by theme id; `town` is
   the base game), Google Fonts (OFL) bundled from @fontsource by `build.mjs` into `fonts/` (so they work offline).
   `theme.ts` declares the faces on every page and sets `--font-display`/`--font-body` (a theme overrides the two);
@@ -225,7 +229,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   3. is done (choice events: see above).
   4. and 5. are done (rally in a fight; hold a power: see above).
   6. is done (the morning report card: see above).
-  7. **Follow a hero:** pin one townsperson; the camera follows them, and their life's big moments send alerts.
+  7. is done (follow a hero: see above).
   8. **Expedition stakes:** one choice as a party leaves (safe or risky), the rest planned by the town.
 
 ## Known problem (fixed, watch)

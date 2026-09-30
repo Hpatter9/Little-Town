@@ -13,7 +13,17 @@ export class Camera {
   private drag: { startX: number; startCam: number; lastX: number; lastT: number; speed: number } | null = null;
   private screenW = 1;
 
+  /** When the player last moved the view themselves (ms, performance.now()): following waits a while after. */
+  touchedAt = -Infinity;
+
   constructor(private readonly worldWidth: number) {}
+
+  /** Ease toward keeping worldX in the middle of the view (following someone), unless the player is looking around. */
+  follow(worldX: number, screenW: number, now: number, waitMs: number): void {
+    if (this.drag || this.velocity !== 0 || now - this.touchedAt < waitMs) return;
+    this.screenW = screenW;
+    this.target = this.clamp(worldX - screenW / 2);
+  }
 
   get dragging(): boolean {
     return this.drag !== null;
@@ -30,11 +40,13 @@ export class Camera {
   }
 
   scrollBy(dx: number): void {
+    this.touchedAt = performance.now();
     this.velocity = 0;
     this.target = this.clamp(this.target + dx);
   }
 
   beginDrag(screenX: number, t: number): void {
+    this.touchedAt = performance.now();
     this.velocity = 0;
     this.drag = { startX: screenX, startCam: this.x, lastX: screenX, lastT: t, speed: 0 };
   }
@@ -47,6 +59,7 @@ export class Camera {
     d.speed = d.speed * 0.6 + (-(screenX - d.lastX) / dt) * 0.4;
     d.lastX = screenX;
     d.lastT = t;
+    this.touchedAt = performance.now();
     this.x = this.target = this.clamp(d.startCam - (screenX - d.startX));
   }
 

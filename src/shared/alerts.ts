@@ -13,7 +13,7 @@ import { TICK_MS } from './sim/time';
 const MIN_DELAY_MS = 30_000;
 const TIMEOUT_MS = 5_000;
 
-const TAGS: Record<ForecastEvent['kind'], string> = { raid: 'crossed_swords', death: 'skull', expedition: 'compass', choice: 'question' };
+const TAGS: Record<ForecastEvent['kind'], string> = { raid: 'crossed_swords', death: 'skull', expedition: 'compass', choice: 'question', hero: 'star' };
 
 function url(a: AlertSettings): string {
   return `${a.server}/${encodeURIComponent(a.topic)}`;
@@ -42,7 +42,7 @@ export async function testAlert(a: AlertSettings): Promise<string> {
 /** The alerts worth sending for this forecast, with when each should arrive (wall-clock ms). */
 export function plan(a: AlertSettings, state: GameState, now: number): { at: number; event: ForecastEvent }[] {
   if (!a.enabled || !a.topic) return [];
-  const want = { raid: a.raids, death: a.deaths, expedition: a.expeditions, choice: a.choices };
+  const want = { raid: a.raids, death: a.deaths, expedition: a.expeditions, choice: a.choices, hero: a.hero };
   // (no further than one absence can take the town, and nothing past the first raid: the town waits for the player
   // at the gate; sim/raidWait.ts)
   const events = forecast(state, Math.floor(MAX_OFFLINE_MS / TICK_MS));
@@ -110,5 +110,6 @@ export function cleanAlerts(a: unknown): AlertSettings {
     deaths: bool(x.deaths, DEFAULT_ALERTS.deaths),
     expeditions: bool(x.expeditions, DEFAULT_ALERTS.expeditions),
     choices: bool(x.choices, DEFAULT_ALERTS.choices),
+    hero: bool(x.hero, DEFAULT_ALERTS.hero),
   };
 }

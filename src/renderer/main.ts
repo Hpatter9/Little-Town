@@ -488,7 +488,11 @@ async function start(): Promise<void> {
         if (p.rally === 'on') lines.unshift('Rallied: fighting like ten!');
         else if (p.rally === 'wait') lines.unshift(`Rally again in ${snap.rallyIn}s`);
         const rallyAct = p.rally === 'ready' ? [act('rally', 'Rally!', () => bridge.command({ type: 'rally', person: p.id }), { primary: true })] : [];
-        return { title: d.title, lines, actions: [...rallyAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
+        // follow them: the camera keeps them in view, and their big moments come as phone alerts
+        const following = snap.hero === p.id;
+        const followAct = act('follow', following ? 'Stop following' : 'Follow', () => bridge.command({ type: 'follow', person: following ? null : p.id }));
+        if (following) lines.unshift('You follow them: their big moments come as phone alerts.');
+        return { title: d.title, lines, actions: [...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
       case 'caravan':
         return { title: d.title, lines: d.lines, actions: [act('trade', 'Trade…', () => bridge.openPanel('trade'), { primary: true })] };
@@ -846,6 +850,9 @@ async function start(): Promise<void> {
       if (viewW) camera.shift((viewW - w) / 2);
       viewW = w;
     }
+    // following someone: keep them in view (after the player has looked around a few seconds on their own)
+    const heroX = snap.hero !== null ? people.xOf(snap.hero) : null;
+    if (heroX !== null) camera.follow(heroX, w, performance.now(), FOLLOW_WAIT_MS);
     const moving = camera.update(ticker.deltaMS / 1000, w);
     town.setCamera(camera.x, w, app.screen.height);
     // screen shake (a boss's roar or sweeping attack)
@@ -871,5 +878,8 @@ async function start(): Promise<void> {
     app.ticker.maxFPS = interactive || moving ? FPS_ACTIVE : FPS_IDLE;
   });
 }
+
+/** After the player drags or scrolls the view, following someone waits this long before it takes the camera back. */
+const FOLLOW_WAIT_MS = 4000;
 
 start().catch((err) => console.error('strip failed to start', err));
