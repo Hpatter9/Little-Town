@@ -2,6 +2,7 @@
 // however many whole ticks that covers.
 
 import { openGate } from './raidWait';
+import { maybeEvent } from './events';
 import { Rng } from '../rng';
 import { generateWorld, type World } from '../world';
 import { demolish, discardStock, placeBlueprint, upgrade } from './buildings';
@@ -137,6 +138,7 @@ export class Sim {
     drillGuards(s);
     updateAdvice(s);
     maybeArrive(s, this.rng);
+    maybeEvent(s, this.rng);
     updateVisitor(s, walkTo);
     // the town decides for itself what to research, make, build and gather
     runPlanner(s, this.world.back);

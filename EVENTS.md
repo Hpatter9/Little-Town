@@ -2,7 +2,7 @@
 
 Events that stop and ask the player, picked at random now and then (see CLAUDE.md, "Choices that wait for you").
 Each waits a while (a few real hours at most), then the **default** is taken, so the town never stalls.
-Tags: when it can happen (an era, an origin, a building or state it needs). Nothing here is built yet.
+Tags: when it can happen (an era, an origin, a building or state it needs). All of them are in the game: `src/shared/data/events.ts`.
 
 ## Strangers and newcomers
 

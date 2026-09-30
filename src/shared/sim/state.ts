@@ -390,7 +390,7 @@ export interface Caravan {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event';
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -582,6 +582,14 @@ export interface GameState {
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
   buffs?: Record<string, number>;
+  /** Choice events (sim/events.ts): the one being asked now (its def, prompt and the townsperson it's about), when the
+   *  next may come, the last few drawn (not drawn again soon), the marks answers left on the town (a lever or
+   *  everyone's morale, until a tick), and effects still to come. */
+  event?: { def: string; prompt: number; who?: number };
+  nextEventTick?: number;
+  eventLog?: string[];
+  marks?: { lever: string; value: number; until: number; text: string }[];
+  eventLater?: { tick: number; event: string; option: number; index: number; who?: number }[];
   /** Where the town's coins came from and went, today and yesterday (see earn). */
   ledger?: { day: number; today: Ledger; yesterday: Ledger | null };
 }
@@ -650,7 +658,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */

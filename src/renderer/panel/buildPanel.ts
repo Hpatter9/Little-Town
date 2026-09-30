@@ -91,6 +91,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
         ['crafters', 'Crafters, for what they made'],
         ['venues', 'Rooms and improvements'],
         ['goods', 'Goods bought from travellers'],
+        ['events', 'Choices the town made (events)'],
       ];
       const t = el('table', 'grid ledger');
       let net = 0;

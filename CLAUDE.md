@@ -183,6 +183,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   small home bigger before building another; in a quiet spell it upgrades one anyway (up to `SLEEP_ROUGH` sleep out
   meanwhile). New homes are paced by beds (`lastHomeBeds`), so bigger homes don't speed growth. Soak: about 10 homes
   (mostly longhouses) for 30 people at day 15, where it was about 28.
+- **Choice events:** the 100 of `EVENTS.md` are data in `src/shared/data/events.ts` (`EVENTS`: title, text, `who`
+  for a townsperson in it, `when`, two or three options with one `default`, each a list of `EventEffect`s: notes,
+  morale and lever marks, gains and losses, coins, renown, newcomers, leaving, deaths and wounds, sickness, raids
+  sooner or later, research, the Occult, chances and `later` effects). `src/shared/sim/events.ts`: `maybeEvent` hourly
+  (one at a time, `EVENT_GAP_HOURS` apart, none repeated within 25), a prompt of kind `event` that waits
+  `EVENT_HOURS` in play and holds its clock while the town is caught up (`holdEventClock`), `answerEvent`. Marks are
+  `s.marks`: a lever's are multiplied in by `markMult` in `sim/origin.ts`, morale ones join `mood()`. The tests'
+  `plainGame` turns events off.
 - **Fonts:** `src/renderer/fonts.ts`: a display and a body font for each look (`FONTS`, keyed by theme id; `town` is
   the base game), Google Fonts (OFL) bundled from @fontsource by `build.mjs` into `fonts/` (so they work offline).
   `theme.ts` declares the faces on every page and sets `--font-display`/`--font-body` (a theme overrides the two);
@@ -205,14 +213,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 
 - **More to watch, not more to do** (the town still decides everything; these give the player moments):
   1. and 2. are done (raids wait for you; time away capped at a game day: see above).
-  3. **Choices that wait for you:** more events that stop and ask, each with a time limit and a default so the town
-     never stalls (like the lich rite): a stranger asks to join; a raider chief offers terms (tribute or fight); a sick
-     traveller begs shelter (plague risk); a deserter from a rival origin's army; a merchant offers a rare relic for
-     most of the coins; twins born, name one after a hero; a duel for the founder's honour; a comet (omen: a ritual
-     or ignore it); a flood or fire threatens the fields or the stores (save one); a prisoner offers a secret for
-     freedom; the guild offers a contract (send people away for a big reward); townsfolk quarrel (whose side); an
-     old ruin found nearby (dig now, or seal it); a wandering monster's lair (hunt it or leave it be). The full list of 100
-     events to draw from at random is in `EVENTS.md`.
+  3. is done (choice events: see above).
   4. **Rally in a fight:** tap a defender to rally them (a burst of courage, cooldown).
   5. **Hold a power:** the player can keep one of the origin's powers back and cast it themselves in a raid.
   6. **Morning report card:** on return, a short illustrated strip of the three biggest things that happened.

@@ -349,11 +349,20 @@
       }
       #prompt .prompt-row {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 4px;
       }
-      #prompt .tab {
+      /* (answers can be a few words: they wrap and grow, in the plain font, rather than cut off) */
+      :root #prompt .tab {
         width: auto;
+        height: auto;
+        min-height: 24px;
+        max-width: 100%;
+        padding: 3px 8px;
+        white-space: normal;
+        line-height: 1.2;
+        font-family: var(--font-body);
       }
       #prompt .tab.default {
         border-color: #c79a55;

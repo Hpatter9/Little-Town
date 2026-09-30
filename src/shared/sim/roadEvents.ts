@@ -2,6 +2,7 @@
 // for the player with a timer and a default.
 
 import { openGate } from './raidWait';
+import { answerEvent } from './events';
 import { answerLich } from './doom';
 import { DESTINATION_BY_ID } from '../data/expeditions';
 import { FOOD_VALUE } from '../data/people';
@@ -79,6 +80,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'rite') return answerRite(s, prompt.options[option]);
   if (prompt.kind === 'lich') return answerLich(s, prompt.options[option]);
   if (prompt.kind === 'gate') return openGate(s);
+  if (prompt.kind === 'event') return answerEvent(s, option, rng);
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   if (!e) return;
   e.prompt = null;
