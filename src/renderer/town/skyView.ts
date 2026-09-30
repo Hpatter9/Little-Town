@@ -270,7 +270,7 @@ export class SkyView {
           })),
         };
       }
-      this.nextFlock = now + 20_000 + Math.random() * 40_000;
+      this.nextFlock = now + 10_000 + Math.random() * 20_000;
     }
     const g = this.flyers.clear();
     const f = this.flock;

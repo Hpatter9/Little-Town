@@ -1,5 +1,5 @@
-// A venue's window (the shop, or the tavern): a bird's-eye view of the inside (drawn in code, like the town's
-// buildings), with the keeper behind the counter or bar, the furnishings the town has set out, and strangers browsing
+// A venue's window (the shop, or the tavern): the inside seen at an angle (drawn in code, like the town's
+// buildings, with the townsfolk and strangers as their own side-on sprites), with the keeper behind the counter or bar, the furnishings the town has set out, and strangers browsing
 // or sitting over their food; and beside or below it, who's in and what they came for, what the venue has to offer,
 // what's been asked for, and what's happened lately. It only shows: the town runs its venues itself.
 
@@ -8,6 +8,7 @@ import { qualityOf } from '../../shared/data/quality';
 import { APPEAL_HALVES_WAIT, TRAVELLER_EVERY } from '../../shared/data/shop';
 import type { Look } from '../../shared/data/people';
 import type { ShopView, Snapshot } from '../../shared/sim/snapshot';
+import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, loadLpc, lookKey, lpcCanvas } from '../art/lpc/lpcCompose';
 import { materialIcon } from '../art/materialIcons';
 import { el } from './dom';
 
@@ -19,9 +20,16 @@ export const shopKey = (s: Snapshot, venue: VenueId = 'shop') => {
   return JSON.stringify(v && [s.coins, s.wageBill, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers, v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting, v.asked, v.menu, v.gear]);
 };
 
-/** Pixels per floor cell, and the thickness of the walls, in the picture's own pixels (it's scaled up to fit). */
+/** In the picture's own pixels (it's scaled up to fit): a floor cell's width and its depth (a row, foreshortened),
+ *  the side walls' thickness, the back wall's height, and the sill across the front. */
 const CELL = 16;
-const WALL = 8;
+const DEPTH = 12;
+const WALL = 6;
+const BACK = 40;
+const SILL = 6;
+/** The characters' size in the room, and where the top of a head is in a character's frame. */
+const SCALE = 0.5;
+const HEAD_Y = 16;
 
 let latest: ShopView | null = null;
 let canvas: HTMLCanvasElement | null = null;
@@ -59,7 +67,7 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
 
   canvas ??= el('canvas', 'shop-floor');
   const w = v.cols * CELL + WALL * 2;
-  const h = v.rows * CELL + WALL * 2;
+  const h = BACK + v.rows * DEPTH + SILL;
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
@@ -196,7 +204,12 @@ function stockRow(st: Stock, none: string): HTMLElement {
 
 /* ------------------------------------------------------------ the picture */
 
-/** Travellers browsing, moving from piece to piece (the picture's own pixels). */
+// Seen at an angle, like a stage with its front wall taken away: the back wall stands up at the top with its windows
+// (and anything hung on it), the floor runs down towards us in rows, and each piece stands up off the floor as a
+// box with a lit top and a front face. So the people in it are their ordinary side-on sprites, the same as in the
+// town, walking about among the furniture: whatever's nearer (lower on the floor) is drawn over what's behind.
+
+/** Travellers browsing, moving from piece to piece: x in the picture's pixels, y where their feet are. */
 interface Walker {
   id: number;
   look: Look;
@@ -205,10 +218,31 @@ interface Walker {
   tx: number;
   ty: number;
   wait: number;
+  /** facing left (the sprites face right) */
+  left: boolean;
 }
 const walkers = new Map<number, Walker>();
 
+/** The characters, and the frames composed so far (the townsfolk's own look, side-on). */
+let lpcReady: Promise<void> | null = null;
+let lpcLoaded = false;
+const frames = new Map<string, HTMLCanvasElement>();
+function frameOf(look: Look, frame: number): HTMLCanvasElement {
+  const key = `${lookKey(look)}|${frame}`;
+  let c = frames.get(key);
+  if (!c) {
+    if (frames.size > 400) frames.clear();
+    c = lpcCanvas(look, 'walk', frame);
+    frames.set(key, c);
+  }
+  return c;
+}
+
 function startDrawing(): void {
+  lpcReady ??= loadLpc().then(
+    () => void (lpcLoaded = true),
+    () => undefined,
+  );
   if (running) return;
   running = true;
   let last = performance.now();
@@ -229,6 +263,7 @@ function startDrawing(): void {
 /** Colours for goods on the shelves: the town's goods for sale where it has them. */
 const GOODS: Partial<Record<Material, string>> = {
   wood: '#8a5a30', stone: '#8b8680', flint: '#5a5a64', fiber: '#aab35c', hide: '#a88258', bone: '#e8e0cc', clay: '#b0704a', herbs: '#5a9443',
+  vegetables: '#6a9a3a', fruit: '#d0402a',
   meat: '#a8423a', berries: '#8a2a4a', grain: '#d8c060', dried_meat: '#7a3a2a', rations: '#c8a060', sling_stones: '#6b6763', iron_ore: '#7a5a4a',
   iron: '#9aa0a8', lumber: '#c08a50', bricks: '#a4543a', leather: '#7c4c2c', cloth: '#d8c8a8', flour: '#f0e8d8', bread: '#d0903a', arrows: '#8a6a4a',
   coal: '#2a2a2a', steel: '#b0b8c0', glass: '#a8d8e8', shot: '#50505a', oil: '#1a1a20', fuel: '#d0a020', plastic: '#e05a8a', concrete: '#a0a09a',
@@ -236,94 +271,133 @@ const GOODS: Partial<Record<Material, string>> = {
 };
 const FALLBACK_GOODS = ['#d8a050', '#8a4a30', '#c8b8a0', '#5a5a64', '#6f9a45'];
 
-type Floor = { floor: string; seam: string; wall: string; wallLight: string; wallDark: string };
-const FLOORS: Record<string, Floor> = {
-  trading_post: { floor: '#8a6a44', seam: '#7a5c3a', wall: '#5a3a22', wallLight: '#77502f', wallDark: '#3b2616' },
-  general_store: { floor: '#a0703e', seam: '#83582e', wall: '#d8c8a8', wallLight: '#efe2c6', wallDark: '#3b2616' },
-  emporium: { floor: '#c8bca0', seam: '#a89c80', wall: '#a4543a', wallLight: '#bc6a48', wallDark: '#6a3424' },
-  fireside_inn: { floor: '#6e5236', seam: '#5e452c', wall: '#6b6763', wallLight: '#8b8680', wallDark: '#3b2616' },
-  tavern: { floor: '#7a4e2a', seam: '#5e3a1e', wall: '#a4543a', wallLight: '#bc6a48', wallDark: '#3b2616' },
+type Room = { floor: string; seam: string; wall: string; wallLight: string; wallDark: string; build: 'logs' | 'plaster' | 'brick' | 'stone' };
+const ROOMS: Record<string, Room> = {
+  trading_post: { floor: '#8a6a44', seam: '#7a5c3a', wall: '#6a4628', wallLight: '#86603a', wallDark: '#3b2616', build: 'logs' },
+  general_store: { floor: '#a0703e', seam: '#83582e', wall: '#d8c8a8', wallLight: '#efe2c6', wallDark: '#8a7a60', build: 'plaster' },
+  emporium: { floor: '#c8bca0', seam: '#a89c80', wall: '#a4543a', wallLight: '#bc6a48', wallDark: '#6a3424', build: 'brick' },
+  fireside_inn: { floor: '#6e5236', seam: '#5e452c', wall: '#6b6763', wallLight: '#8b8680', wallDark: '#3b3836', build: 'stone' },
+  tavern: { floor: '#7a4e2a', seam: '#5e3a1e', wall: '#a4543a', wallLight: '#bc6a48', wallDark: '#5a2e1e', build: 'brick' },
 };
+
+/** How tall each piece stands off the floor (pixels), by item, then by kind. */
+const TALL: Record<string, number> = {
+  log_table: 9, oak_table: 10, stone_hearth: 26, brick_hearth: 28, barrels: 14, upright_piano: 24, clay_urns: 12, herb_planter: 7,
+  iron_lantern: 22, shelf: 30, table: 11, stand: 15, counter: 15,
+};
+/** Hung on the back wall rather than stood on the floor. */
+const ON_WALL = new Set(['tapestry', 'neon_sign']);
 
 function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
-  const pal = FLOORS[v.def] ?? FLOORS.trading_post;
+  const pal = ROOMS[v.def] ?? ROOMS.trading_post;
   const W = c.width;
   const H = c.height;
   const rect = (x: number, y: number, w: number, h: number, col: string) => {
     g.fillStyle = col;
     g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
   };
-  const disc = (cx: number, cy: number, r: number, col: string) => {
+  const oval = (cx: number, cy: number, rx: number, ry: number, col: string) => {
     g.fillStyle = col;
     g.beginPath();
-    g.arc(Math.round(cx), Math.round(cy), r, 0, Math.PI * 2);
+    g.ellipse(Math.round(cx), Math.round(cy), rx, ry, 0, 0, Math.PI * 2);
     g.fill();
   };
   const cellX = (x: number) => WALL + x * CELL;
-  const cellY = (y: number) => WALL + y * CELL;
+  /** The floor's y at a row's back edge (rows run from the back wall towards us). */
+  const rowY = (y: number) => BACK + y * DEPTH;
+  const floorBottom = rowY(v.rows);
+  /** A box standing on the floor: its footprint's back edge at y0, d deep, h tall: a lit top and a front face. */
+  const box = (x: number, y0: number, w: number, d: number, h: number, top: string, front: string, edge = 'rgba(0,0,0,0.35)') => {
+    g.fillStyle = 'rgba(0,0,0,0.22)';
+    g.fillRect(Math.round(x + 1), Math.round(y0 + d - 1), Math.round(w), 2); // (its shadow on the floor)
+    rect(x, y0 - h, w, d, top);
+    rect(x, y0 + d - h, w, h, front);
+    rect(x, y0 + d - h, w, 1, edge);
+    rect(x, y0 - h, w, 1, 'rgba(255,255,255,0.18)');
+  };
 
-  // floor
+  // the back wall, built of the venue's own stuff
   rect(0, 0, W, H, pal.wallDark);
-  for (let y = 0; y < v.rows; y++)
-    for (let x = 0; x < v.cols; x++) {
-      const px = cellX(x);
-      const py = cellY(y);
-      if (v.def === 'emporium') rect(px, py, CELL, CELL, (x + y) % 2 ? pal.floor : pal.seam);
-      else if (v.def === 'general_store' || v.def === 'tavern') {
-        rect(px, py, CELL, CELL, pal.floor);
-        for (let k = 0; k < CELL; k += 4) rect(px, py + k, CELL, 1, pal.seam);
-        rect(px + ((y * 7) % CELL), py, 1, CELL, pal.seam);
-      } else {
-        rect(px, py, CELL, CELL, pal.floor);
-        rect(px + ((x * 5 + y * 3) % 13), py + ((x * 3 + y * 7) % 11), 3, 1, '#b89a58'); // straw
-      }
+  rect(0, 0, W, BACK, pal.wall);
+  for (let y = 0; y < BACK; y += pal.build === 'logs' ? 5 : 4) {
+    if (pal.build === 'logs') {
+      rect(0, y, W, 1, pal.wallLight);
+      rect(0, y + 4, W, 1, pal.wallDark);
+    } else if (pal.build === 'brick' || pal.build === 'stone') {
+      rect(0, y + 3, W, 1, pal.wallDark);
+      const step = pal.build === 'brick' ? 8 : 11;
+      for (let x = ((y / 4) % 2) * (step / 2); x < W; x += step) rect(x, y, 1, 3, pal.wallDark);
+      for (let x = ((y * 3) % 7) + 2; x < W; x += 13) rect(x, y + 1, 3, 1, pal.wallLight);
+    } else {
+      for (let x = (y * 5) % 9; x < W; x += 9) rect(x, y + 1, 1, 1, pal.wallDark);
     }
-  // walls, a window or two along the back, and the door in the front
-  rect(0, 0, W, WALL, pal.wall);
-  rect(0, WALL - 2, W, 2, pal.wallDark);
-  rect(0, H - WALL, W, WALL, pal.wall);
-  rect(0, H - WALL, W, 1, pal.wallLight);
+  }
+  if (pal.build === 'plaster') for (let x = WALL; x < W; x += 24) rect(x, 0, 2, BACK, '#8a6a44'); // (timber framing)
+  // windows, with the sky out there
+  for (let x = 1; x < v.cols - 3; x += 3) {
+    const wx = cellX(x) + 2;
+    rect(wx - 1, 7, CELL - 2, 17, pal.wallDark);
+    rect(wx, 8, CELL - 4, 15, '#86b9e0');
+    rect(wx, 8, CELL - 4, 5, '#a8d0ec');
+    rect(wx + (CELL - 4) / 2 - 1, 8, 1, 15, pal.wallDark);
+    rect(wx, 15, CELL - 4, 1, pal.wallDark);
+    rect(wx - 2, 23, CELL, 2, pal.wallLight); // the sill
+  }
+  rect(0, BACK - 3, W, 3, pal.wallDark); // skirting
+  // what's hung on the wall
+  for (const p of v.pieces) if (ON_WALL.has(p.item)) hang(p);
+  if (v.venue === 'tavern')
+    for (let k = 0; k < v.keeper.w; k++) {
+      // casks racked against the back wall, behind the barkeep
+      const x = cellX(v.keeper.x + k) + 2;
+      rect(x, BACK - 12, 12, 10, '#5a3a22');
+      rect(x + 1, BACK - 11, 10, 8, '#8a5a30');
+      rect(x + 3, BACK - 11, 1, 8, '#3a3a40');
+      rect(x + 8, BACK - 11, 1, 8, '#3a3a40');
+      oval(x + 6, BACK - 7, 2, 2, '#3b2616');
+    }
+
+  // the floor
+  for (let y = 0; y < v.rows; y++) {
+    const py = rowY(y);
+    if (v.def === 'emporium') for (let x = 0; x < v.cols; x++) rect(cellX(x), py, CELL, DEPTH, (x + y) % 2 ? pal.floor : pal.seam);
+    else {
+      rect(0, py, W, DEPTH, pal.floor);
+      for (let k = 0; k < DEPTH; k += 4) rect(0, py + k, W, 1, pal.seam); // boards, running across
+      for (let k = 0; k < DEPTH; k += 4) rect(((y * 37 + k * 11) % W) | 0, py + k, 1, 4, pal.seam);
+      if (v.def === 'trading_post' || v.def === 'fireside_inn')
+        for (let x = 0; x < v.cols; x++) rect(cellX(x) + ((x * 5 + y * 3) % 11), py + ((x * 3 + y * 7) % (DEPTH - 1)), 3, 1, '#b89a58'); // straw
+    }
+  }
+  // the side walls, seen end-on
   rect(0, 0, WALL, H, pal.wall);
   rect(W - WALL, 0, WALL, H, pal.wall);
-  for (let x = 1; x < v.cols - 3; x += 3) {
-    rect(cellX(x) + 3, 1, CELL - 6, WALL - 3, '#86b9e0');
-    rect(cellX(x) + CELL / 2 - 1, 1, 1, WALL - 3, pal.wallDark);
-  }
+  rect(WALL - 1, 0, 1, H, pal.wallDark);
+  rect(W - WALL, 0, 1, H, pal.wallDark);
+  // the front: a low sill with the doorway in it
   const doorX = cellX(v.door);
-  rect(doorX + 2, H - WALL, CELL - 4, WALL, '#3a2a1c');
-  rect(doorX + 3, H - WALL - 4, CELL - 6, 4, '#8a3a2a'); // doormat
+  rect(0, floorBottom, W, H - floorBottom, pal.wall);
+  rect(0, floorBottom, W, 1, pal.wallLight);
+  rect(doorX + 1, floorBottom, CELL - 2, H - floorBottom, '#8a3a2a'); // the doormat on the threshold
+  rect(doorX + 1, floorBottom, CELL - 2, 1, '#a84a3a');
 
-  // rugs lie under everything else
-  for (const p of v.pieces) if (p.kind === 'rug') drawPiece(p);
+  // rugs lie flat, under everything else
+  for (const p of v.pieces) if (p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat') rug(p);
 
-  // the counter (a tavern's bar), the keeper behind it, and the takings (or the tankards)
-  const cx = cellX(v.counter.x);
-  const cy = cellY(v.counter.y);
-  if (v.venue === 'tavern') {
-    // casks against the back wall, behind the barkeep
-    for (let k = 0; k < v.keeper.w; k++) {
-      disc(cellX(v.keeper.x + k) + 4, cellY(v.keeper.y) + 5, 3, '#5a3a22');
-      disc(cellX(v.keeper.x + k) + 4, cellY(v.keeper.y) + 5, 2, '#8a5a30');
-    }
+  // everything standing, back to front, with the people among it
+  const layers: { y: number; paint: () => void }[] = [];
+  const cy = rowY(v.counter.y);
+  layers.push({ y: rowY(v.counter.y + 1), paint: () => counter(cellX(v.counter.x), cy, v.counter.w * CELL) });
+  if (v.keeperLook) {
+    const look = v.keeperLook;
+    layers.push({ y: rowY(v.keeper.y + 1) - 2, paint: () => person(cellX(v.keeper.x) + CELL, rowY(v.keeper.y + 1) - 2, look, false, false, t, 1) });
   }
-  if (v.keeperLook) person(cellX(v.keeper.x) + CELL, cellY(v.keeper.y) + CELL / 2 + 2, v.keeperLook, 1, t);
-  rect(cx, cy + 2, v.counter.w * CELL, CELL - 4, '#5a3a22');
-  rect(cx, cy + 2, v.counter.w * CELL, 3, '#8a5a30');
-  if (v.venue === 'tavern') {
-    for (const dx of [5, 13, 22]) {
-      rect(cx + dx, cy + 6, 3, 4, '#c8a050'); // tankards
-      rect(cx + dx, cy + 6, 3, 1, '#f0f0e0');
-    }
-  } else {
-    disc(cx + 6, cy + 8, 2, '#e8c040');
-    disc(cx + 9, cy + 7, 2, '#f0d060');
-    rect(cx + v.counter.w * CELL - 10, cy + 5, 6, 1, '#c0c8d0'); // scales
-    rect(cx + v.counter.w * CELL - 7, cy + 5, 1, 5, '#8a94a0');
+  for (const p of v.pieces) {
+    if (ON_WALL.has(p.item) || p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat') continue;
+    layers.push({ y: rowY(p.y + p.h), paint: () => piece(p) });
   }
-
-  for (const p of v.pieces) if (p.kind !== 'rug') drawPiece(p);
 
   // travellers browsing
   const here = new Set(v.customers.map((q) => q.id));
@@ -332,211 +406,318 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   for (const q of v.customers) {
     let wk = walkers.get(q.id);
     if (!wk) {
-      wk = { id: q.id, look: q.look, x: doorX + CELL / 2, y: H - WALL - 2, tx: doorX + CELL / 2, ty: H - WALL - 2, wait: 0 };
+      const x0 = doorX + CELL / 2;
+      wk = { id: q.id, look: q.look, x: x0, y: floorBottom + 4, tx: x0, ty: floorBottom - 2, wait: 0, left: false };
       walkers.set(q.id, wk);
     }
     const dx = wk.tx - wk.x;
     const dy = wk.ty - wk.y;
-    const d = Math.hypot(dx, dy);
-    if (d > 0.5) {
-      const k = Math.min(1, (14 * dt) / d);
+    const d = Math.hypot(dx, dy * 1.5);
+    const moving = d > 0.5;
+    if (moving) {
+      const k = Math.min(1, (16 * dt) / d);
       wk.x += dx * k;
       wk.y += dy * k;
+      if (Math.abs(dx) > 0.3) wk.left = dx < 0;
     } else if ((wk.wait -= dt) <= 0) {
       const s = spots[Math.floor(Math.random() * spots.length)];
       wk.tx = s.x;
       wk.ty = s.y;
       wk.wait = v.venue === 'tavern' ? 6 + Math.random() * 8 : 1.5 + Math.random() * 3;
+    } else if (v.venue === 'tavern') {
+      // (seated, they turn to the table)
+      const table = v.pieces.find((p) => p.kind === 'table' && Math.abs(wk!.y - rowY(p.y + p.h / 2) - 3) < 3);
+      if (table) wk.left = wk.x > cellX(table.x + table.w / 2);
     }
-    person(wk.x, wk.y, wk.look, d > 0.5 ? (dy < 0 ? -1 : 1) : 0, t + q.id, q.tier);
+    const w = wk;
+    layers.push({ y: w.y, paint: () => person(w.x, w.y, w.look, moving, w.left, t + q.id, q.tier) });
+  }
+  layers.sort((a, b) => a.y - b.y);
+  for (const l of layers) l.paint();
+
+  // (a soft glow from each hearth, over the floor in front of it)
+  for (const p of v.pieces)
+    if (p.item.endsWith('_hearth')) {
+      const x = cellX(p.x) + (p.w * CELL) / 2;
+      const y = rowY(p.y + p.h);
+      const glow = g.createRadialGradient(x, y, 2, x, y, CELL * 2);
+      glow.addColorStop(0, `rgba(255, 150, 60, ${0.2 + 0.06 * Math.sin(t * 7)})`);
+      glow.addColorStop(1, 'rgba(255, 150, 60, 0)');
+      g.fillStyle = glow;
+      g.fillRect(x - CELL * 2, y - CELL * 2, CELL * 4, CELL * 3);
+    }
+
+  function counter(x: number, y0: number, w: number): void {
+    const h = TALL.counter;
+    box(x, y0, w, DEPTH - 2, h, '#8a5a30', '#5a3a22');
+    for (let k = x + 3; k < x + w - 2; k += 6) rect(k, y0 + DEPTH - 2 - h + 3, 1, h - 4, '#4a2e1a'); // panels
+    const top = y0 - h;
+    if (v.venue === 'tavern') {
+      for (const dx of [4, 12, 21]) {
+        if (dx + 3 > w) continue;
+        rect(x + dx, top - 3, 3, 5, '#c8a050'); // tankards
+        rect(x + dx, top - 4, 3, 1, '#f0f0e0');
+        rect(x + dx + 3, top - 2, 1, 2, '#a8803a');
+      }
+    } else {
+      oval(x + 6, top + 4, 2, 1, '#e8c040');
+      oval(x + 9, top + 3, 2, 1, '#f0d060');
+      rect(x + w - 10, top - 3, 7, 1, '#c0c8d0'); // scales
+      rect(x + w - 7, top - 3, 1, 6, '#8a94a0');
+      rect(x + w - 11, top - 2, 3, 1, '#c0c8d0');
+      rect(x + w - 5, top - 2, 3, 1, '#c0c8d0');
+    }
   }
 
-  function drawPiece(p: ShopView['pieces'][number]): void {
+  function hang(p: ShopView['pieces'][number]): void {
+    const x = cellX(p.x) + (p.w * CELL) / 2;
+    if (p.item === 'tapestry') {
+      rect(x - 7, 4, 14, 1, '#5a3a22');
+      rect(x - 6, 5, 12, 22, '#6a1a2a');
+      rect(x - 5, 6, 10, 20, '#8a2a3a');
+      rect(x - 3, 11, 6, 7, '#c8a050');
+      rect(x - 1, 13, 2, 3, '#8a2a3a');
+      for (let k = -5; k < 6; k += 2) rect(x + k, 27, 1, 2, '#c8a050'); // fringe
+    } else {
+      const on = Math.sin(t * 3) > -0.8;
+      rect(x - 8, 10, 16, 8, '#2a2a30');
+      rect(x - 6, 13, 12, 2, on ? '#ff5ab8' : '#6a2a50');
+      if (on) {
+        g.fillStyle = 'rgba(255, 90, 184, 0.18)';
+        g.fillRect(Math.round(x - 11), 7, 22, 14);
+      }
+    }
+    trim(p, x - 7, 5, 14, 1);
+  }
+
+  function rug(p: ShopView['pieces'][number]): void {
     const x = cellX(p.x);
-    const y = cellY(p.y);
+    const y = rowY(p.y);
     const w = p.w * CELL;
-    const h = p.h * CELL;
-    drawBody(p, x, y, w, h);
-    // improved pieces: brass trim for a second tier, gold and a glint for the third
-    if (p.level > 1 && p.kind !== 'rug') {
-      const trim = p.level > 2 ? '#f0c848' : '#b08a3a';
-      rect(x + 1, y + 1, w - 2, 1, trim);
-      rect(x + 1, y + 1, 1, h - 3, trim);
-      rect(x + w - 2, y + 1, 1, h - 3, trim);
-      if (p.level > 2 && Math.sin(t * 2 + p.x) > 0.9) rect(x + 2 + ((t * 20) % (w - 4)), y + 1, 2, 1, '#fff8d0');
-    } else if (p.level > 1) rect(x + 1, y + 2, w - 2, 1, p.level > 2 ? '#f0c848' : '#b08a3a'); // (a rug's border)
+    const d = p.h * DEPTH;
+    if (p.item === 'hide_rug') {
+      oval(x + w / 2, y + d / 2, w / 2 - 2, d / 2 - 1, '#a88258');
+      oval(x + w / 2, y + d / 2, w / 2 - 5, d / 2 - 3, '#b8926a');
+    } else if (p.item === 'wool_rug') {
+      rect(x + 1, y + 1, w - 2, d - 2, '#8a2a3a');
+      rect(x + 3, y + 2, w - 6, d - 4, '#c8a050');
+      rect(x + 5, y + 3, w - 10, d - 6, '#8a2a3a');
+    } else {
+      rect(x + 1, y + 1, w - 2, d - 2, '#b89a58');
+      for (let k = x + 3; k < x + w - 3; k += 3) rect(k, y + 1, 1, d - 2, '#8a7040');
+    }
+    if (p.level > 1) rect(x + 2, y + 1, w - 4, 1, p.level > 2 ? '#f0c848' : '#b08a3a');
   }
 
-  function drawBody(p: ShopView['pieces'][number], x: number, y: number, w: number, h: number): void {
+  /** Brass trim along an improved piece's top edge (gold and a glint for the third tier). */
+  function trim(p: ShopView['pieces'][number], x: number, y: number, w: number, h: number): void {
+    if (p.level <= 1) return;
+    const col = p.level > 2 ? '#f0c848' : '#b08a3a';
+    rect(x, y, w, 1, col);
+    rect(x, y, 1, h, col);
+    rect(x + w - 1, y, 1, h, col);
+    if (p.level > 2 && Math.sin(t * 2 + p.x) > 0.9) rect(x + 1 + ((t * 20) % Math.max(1, w - 3)), y, 2, 1, '#fff8d0');
+  }
+
+  function piece(p: ShopView['pieces'][number]): void {
     const goods = Object.keys(v.forSale).map((m) => GOODS[m as Material] ?? '#c8a060');
     // (a town with only a kind or two to sell still stocks its shelves with odds and ends)
     const shelf = goods.length >= 3 ? goods : [...goods, ...FALLBACK_GOODS];
     const good = (i: number) => shelf[(i + p.x * 3 + p.y) % shelf.length];
+    const x = cellX(p.x);
+    const y0 = rowY(p.y);
+    const w = p.w * CELL;
+    const d = p.h * DEPTH;
+    const h = TALL[p.item] ?? TALL[p.kind] ?? 10;
     switch (p.item) {
       case 'log_table':
       case 'oak_table': {
         const top = p.item === 'oak_table' ? '#a8703a' : '#8a5a30';
-        rect(x + 2, y + 1, w - 4, 3, '#5a3a22'); // benches (chairs, for oak)
-        rect(x + 2, y + h - 4, w - 4, 3, '#5a3a22');
-        rect(x + 3, y + 5, w - 6, h - 10, '#2a1a10');
-        rect(x + 3, y + 4, w - 6, h - 10, top);
-        for (let k = y + 7; k < y + h - 7; k += 4) rect(x + 4, k, w - 8, 1, '#77502f');
-        rect(x + 8, y + 9, 3, 3, '#c8a050'); // a tankard, a plate
-        disc(x + w - 9, y + 12, 2, '#e8e0cc');
+        box(x + 1, y0, w - 2, 3, 5, '#6a4428', '#4a2e1a'); // the bench (or chairs) behind
+        box(x + 3, y0 + 2, w - 6, d - 5, h, top, '#5a3a22');
+        rect(x + 4, y0 + d - 3, 2, 1, '#2a1a10'); // legs
+        rect(x + w - 6, y0 + d - 3, 2, 1, '#2a1a10');
+        for (let k = y0 + 3 - h; k < y0 + d - 4 - h; k += 3) rect(x + 4, k, w - 8, 1, '#77502f');
+        rect(x + 8, y0 - h + 1, 3, 4, '#c8a050'); // a tankard, a plate
+        oval(x + w - 9, y0 + 4 - h, 3, 1, '#e8e0cc');
+        box(x + 1, y0 + d - 3, w - 2, 3, 5, '#6a4428', '#4a2e1a'); // and in front
+        trim(p, x + 3, y0 + 2 - h, w - 6, 2);
         return;
       }
       case 'stone_hearth':
       case 'brick_hearth': {
-        rect(x + 1, y + 1, w - 2, h - 2, p.item === 'brick_hearth' ? '#a4543a' : '#6b6763');
-        rect(x + 5, y + 4, w - 10, h - 6, '#2a1a10');
+        const stone = p.item === 'brick_hearth' ? '#a4543a' : '#6b6763';
+        box(x + 1, y0, w - 2, d - 2, h, p.item === 'brick_hearth' ? '#bc6a48' : '#8b8680', stone);
+        const fy = y0 + d - 2 - h;
+        for (let k = fy + 3; k < fy + h; k += 4) rect(x + 1, k, w - 2, 1, 'rgba(0,0,0,0.25)');
+        rect(x + 5, fy + h - 12, w - 10, 11, '#2a1a10');
         const flick = Math.sin(t * 9 + p.x) > 0 ? 1 : 0;
-        rect(x + 8, y + 6 - flick, w - 16, 5 + flick, '#e8702a');
-        rect(x + 11, y + 7, w - 22, 3, '#ffd060');
-        // (a soft glow out onto the floor in front)
-        const glow = g.createRadialGradient(x + w / 2, y + h, 2, x + w / 2, y + h, CELL * 1.4);
-        glow.addColorStop(0, `rgba(255, 150, 60, ${0.22 + 0.06 * Math.sin(t * 7)})`);
-        glow.addColorStop(1, 'rgba(255, 150, 60, 0)');
-        g.fillStyle = glow;
-        g.fillRect(x - CELL, y, w + CELL * 2, h + CELL * 1.5);
+        rect(x + 7, fy + h - 7 - flick, w - 14, 6 + flick, '#e8702a');
+        rect(x + 9, fy + h - 5, w - 18, 4, '#ffd060');
+        rect(x + 3, fy + h - 13, w - 6, 2, '#5a3a22'); // the mantel
+        trim(p, x + 1, y0 - h, w - 2, 3);
         return;
       }
       case 'barrels':
-        disc(x + 5, y + 5, 4, '#5a3a22');
-        disc(x + 5, y + 5, 3, '#8a5a30');
-        disc(x + 11, y + 11, 4, '#5a3a22');
-        disc(x + 11, y + 11, 3, '#8a5a30');
-        return;
-      case 'hide_rug':
-        rect(x + 2, y + 3, w - 4, h - 6, '#a88258');
-        rect(x + 1, y + 5, 2, 3, '#a88258');
-        rect(x + w - 3, y + 5, 2, 3, '#a88258');
-        rect(x + 6, y + 6, w - 12, 2, '#7c5c3c');
-        return;
-      case 'tapestry':
-        rect(x + 2, y + 1, 12, 13, '#6a1a2a');
-        rect(x + 3, y + 2, 10, 11, '#8a2a3a');
-        rect(x + 5, y + 5, 6, 4, '#c8a050');
-        rect(x + 2, y + 1, 12, 1, '#5a3a22');
+        for (const [bx, by] of [
+          [x + 1, y0 + 1],
+          [x + 7, y0 + d - 4],
+        ]) {
+          rect(bx, by - h + 2, 9, h - 1, '#8a5a30');
+          rect(bx, by - h + 5, 9, 1, '#3a3a40');
+          rect(bx, by - 3, 9, 1, '#3a3a40');
+          rect(bx + 1, by - h + 2, 1, h - 1, '#a87a48');
+          oval(bx + 4.5, by - h + 2, 4.5, 2, '#5a3a22');
+          oval(bx + 4.5, by - h + 2, 3.5, 1, '#77502f');
+        }
         return;
       case 'upright_piano':
-        rect(x + 1, y + 1, w - 2, h - 5, '#2a1a10');
-        rect(x + 3, y + h - 6, w - 6, 3, '#f0ece0');
-        for (let k = x + 4; k < x + w - 4; k += 3) rect(k, y + h - 6, 1, 2, '#1a1a1a');
-        return;
-      case 'woven_mat':
-        rect(x + 1, y + 3, w - 2, h - 6, '#b89a58');
-        for (let k = x + 3; k < x + w - 3; k += 3) rect(k, y + 3, 1, h - 6, '#8a7040');
-        return;
-      case 'wool_rug':
-        rect(x + 1, y + 2, w - 2, h - 4, '#8a2a3a');
-        rect(x + 3, y + 4, w - 6, h - 8, '#c8a050');
-        rect(x + 5, y + 6, w - 10, h - 12, '#8a2a3a');
+        box(x + 1, y0, w - 2, 4, h, '#3a2a1c', '#2a1a10');
+        box(x + 2, y0 + 4, w - 4, 3, 11, '#f0ece0', '#2a1a10'); // the keyboard
+        for (let k = x + 3; k < x + w - 3; k += 3) rect(k, y0 - 4, 1, 2, '#1a1a1a');
+        trim(p, x + 1, y0 - h, w - 2, 3);
         return;
       case 'clay_urns':
-        disc(x + 5, y + 6, 4, '#80502f');
-        disc(x + 5, y + 6, 3, '#b0704a');
-        disc(x + 11, y + 10, 3, '#80502f');
-        disc(x + 11, y + 10, 2, '#c88a5a');
+        for (const [ux, uy, s] of [
+          [x + 5, y0 + 3, 1],
+          [x + 11, y0 + d - 2, 0.8],
+        ]) {
+          oval(ux, uy - 5 * s, 4 * s, 5 * s, '#b0704a');
+          oval(ux - 1, uy - 6 * s, 1.5 * s, 3 * s, '#c88a5a');
+          rect(ux - 2 * s, uy - 11 * s, 4 * s, 2, '#80502f');
+        }
         return;
       case 'herb_planter':
-        disc(x + 8, y + 8, 6, '#80502f');
-        disc(x + 8, y + 8, 5, '#3e7234');
-        disc(x + 6, y + 6, 2, '#5a9443');
-        disc(x + 10, y + 9, 2, '#7fb456');
+        box(x + 2, y0 + 1, w - 4, d - 3, h, '#5c3f27', '#80502f');
+        for (let k = 0; k < 5; k++) oval(x + 4 + k * ((w - 8) / 4), y0 - h - 2 - (k % 2) * 2, 2.5, 3, k % 2 ? '#5a9443' : '#3e7234');
+        oval(x + w / 2, y0 - h - 5, 2, 2, '#7fb456');
         return;
       case 'iron_lantern': {
-        const glow = 0.25 + 0.1 * Math.sin(t * 5);
+        const lx = x + w / 2;
+        const base = y0 + d - 2;
+        const glow = 0.22 + 0.1 * Math.sin(t * 5);
         g.fillStyle = `rgba(255, 200, 90, ${glow})`;
         g.beginPath();
-        g.arc(x + 8, y + 8, 9, 0, Math.PI * 2);
+        g.arc(lx, base - h + 3, 9, 0, Math.PI * 2);
         g.fill();
-        rect(x + 5, y + 5, 6, 6, '#3a3a40');
-        rect(x + 6, y + 6, 4, 4, '#f0c060');
-        return;
-      }
-      case 'neon_sign': {
-        const on = Math.sin(t * 3) > -0.8;
-        rect(x + 2, y + 5, 12, 6, '#2a2a30');
-        rect(x + 3, y + 7, 10, 2, on ? '#ff5ab8' : '#6a2a50');
+        rect(lx - 3, base - 1, 6, 2, '#2a2a30');
+        rect(lx, base - h + 6, 1, h - 6, '#3a3a40');
+        rect(lx - 2, base - h, 5, 6, '#3a3a40');
+        rect(lx - 1, base - h + 1, 3, 4, '#f0c060');
         return;
       }
     }
     switch (p.kind) {
       case 'shelf': {
         const glass = p.item === 'glass_cabinet';
-        const frame = p.item === 'plank_shelf' ? '#77502f' : '#5a3a22';
-        rect(x + 1, y + 1, w - 2, h - 3, frame);
-        rect(x + 2, y + 2, w - 4, h - 5, glass ? '#a8d8e8' : '#3b2616');
-        for (let i = 0; i < (w - 6) / 3; i++) rect(x + 3 + i * 3, y + 3 + (i % 2) * 4, 2, 3, good(i));
-        // (a second tier: more goods packed in between)
-        if (p.level > 1) for (let i = 0; i < (w - 6) / 3; i++) rect(x + 4 + i * 3, y + 5 - (i % 2) * 2, 1, 2, good(i + 3));
-        if (glass) rect(x + 2, y + 2, w - 4, 1, '#e0f4fa');
-        rect(x + 1, y + h - 3, w - 2, 1, '#2a1a10'); // shadow
+        const wood = p.item === 'plank_shelf' ? '#77502f' : '#5a3a22';
+        const dd = Math.min(d - 2, 6);
+        box(x + 1, y0, w - 2, dd, h, wood, wood);
+        const fy = y0 + dd - h; // (the front face's top, for a shallow shelf)
+        rect(x + 2, fy + 2, w - 4, h - 3, glass ? '#8cc4d8' : '#3b2616');
+        for (let row = 0; row < 3; row++) {
+          const sy = fy + 2 + row * 9;
+          rect(x + 2, sy + 8, w - 4, 1, wood); // the board
+          const n = Math.floor((w - 6) / 3);
+          for (let i = 0; i < n; i++) {
+            if ((i + row) % 4 === 3 && p.level < 2) continue; // (gaps, until it's better stocked)
+            const tall = 3 + ((i + row) % 3);
+            rect(x + 3 + i * 3, sy + 8 - tall, 2, tall, good(i + row * 2));
+          }
+        }
+        if (glass) {
+          rect(x + 2, fy + 2, w - 4, 1, '#e0f4fa');
+          rect(x + 3, fy + 3, 1, h - 6, 'rgba(255,255,255,0.35)');
+        }
+        trim(p, x + 1, fy, w - 2, h);
         return;
       }
       case 'table': {
         const cloth = p.item === 'display_table';
-        rect(x + 1, y + 2, w - 2, h - 3, '#2a1a10'); // shadow
-        rect(x + 1, y + 1, w - 2, h - 4, cloth ? '#8a2a3a' : '#8a5a30');
-        if (cloth) rect(x + 3, y + 3, w - 6, h - 8, '#a83a4a');
-        else for (let k = y + 4; k < y + h - 4; k += 4) rect(x + 2, k, w - 4, 1, '#77502f');
-        for (let i = 0; i < 6; i++) rect(x + 5 + (i % 3) * 8, y + 6 + Math.floor(i / 3) * 10, 4, 4, good(i + 1));
+        box(x + 2, y0 + 1, w - 4, d - 3, h, cloth ? '#a83a4a' : '#8a5a30', cloth ? '#8a2a3a' : '#5a3a22');
+        if (cloth) for (let k = x + 4; k < x + w - 4; k += 4) rect(k, y0 + d - 2 - h + 2, 1, h - 2, '#6a1a2a'); // folds
+        else {
+          rect(x + 3, y0 + d - 3, 2, 1, '#2a1a10');
+          rect(x + w - 5, y0 + d - 3, 2, 1, '#2a1a10');
+        }
+        const n = Math.max(2, Math.floor((w - 8) / 6));
+        for (let i = 0; i < n * 2; i++) {
+          const gx = x + 5 + (i % n) * 6;
+          const gy = y0 + 1 - h + Math.floor(i / n) * Math.max(3, d - 8);
+          rect(gx, gy, 4, 3, good(i + 1));
+          rect(gx, gy, 4, 1, 'rgba(255,255,255,0.25)');
+        }
+        trim(p, x + 2, y0 + 1 - h, w - 4, 2);
         return;
       }
       case 'stand':
-        rect(x + 2, y + 2, w - 4, h - 4, '#8a5a30');
-        rect(x + 2, y + 2, w - 4, 1, '#a87a48');
-        rect(x + 3, y + 7, w - 6, 1, '#5a3a22');
-        rect(x + 5, y + 4, 3, 3, good(2));
-        rect(x + 9, y + 9, 3, 3, good(3));
+        box(x + 3, y0 + 2, w - 6, d - 4, h, '#a87a48', '#8a5a30');
+        for (let k = y0 + d - 2 - h + 3; k < y0 + d - 2; k += 4) rect(x + 3, k, w - 6, 1, '#5a3a22'); // slats
+        rect(x + 5, y0 - h - 2, 4, 4, good(2));
+        rect(x + w - 9, y0 - h - 1, 3, 3, good(3));
+        trim(p, x + 3, y0 + 2 - h, w - 6, 2);
         return;
       default:
-        disc(x + 8, y + 8, 5, '#8a5a30');
+        box(x + 3, y0 + 1, w - 6, d - 3, h, '#a87a48', '#8a5a30');
     }
   }
 
-  /** A person from above: shoulders in their clothes, head, hair. `walk` swings them as they go. */
-  function person(x: number, y: number, look: Look, walk: number, phase: number, tier = 1): void {
-    const bob = walk ? Math.round(Math.sin(phase * 10)) : 0;
-    g.fillStyle = 'rgba(0,0,0,0.25)';
-    g.beginPath();
-    g.ellipse(Math.round(x), Math.round(y + 4), 5, 2, 0, 0, Math.PI * 2);
-    g.fill();
-    rect(x - 5, y - 3 + bob, 10, 6, look.outfit);
-    rect(x - 5, y - 3 + bob, 10, 1, 'rgba(255,255,255,0.18)');
-    disc(x, y - 1 + bob, 3, look.skin);
-    disc(x, y - 2 + bob, 3, look.hairColor);
+  /** Someone side-on (their own look, as in the town), feet at (x, y); walking, or standing. */
+  function person(x: number, y: number, look: Look, walking: boolean, left: boolean, phase: number, tier = 1): void {
+    oval(x, y, 5, 1.5, 'rgba(0,0,0,0.28)');
+    const top = y - (FEET_Y - HEAD_Y) * SCALE; // (the top of the head)
+    if (lpcLoaded) {
+      const f = walking ? 1 + (Math.floor(phase * 10) % (FRAME_COUNT.walk - 1)) : 0;
+      const s = FRAME_SIZE * SCALE;
+      g.save();
+      g.translate(Math.round(x), Math.round(y));
+      if (left) g.scale(-1, 1);
+      g.drawImage(frameOf(look, f), -CENTRE_X * SCALE, -FEET_Y * SCALE, s, s);
+      g.restore();
+    } else {
+      // (until the characters have loaded: a simple figure)
+      rect(x - 3, top + 7, 6, y - top - 9, look.outfit);
+      rect(x - 2, y - 3, 1, 3, '#3b2616');
+      rect(x + 1, y - 3, 1, 3, '#3b2616');
+      oval(x, top + 4, 3, 3.5, look.skin);
+      rect(x - 3, top, 6, 3, look.hairColor);
+    }
     // merchants wear a feathered cap, nobles a gold circlet, magnates a top hat
+    const hx = Math.round(x) + (left ? 1 : -1);
     if (tier === 2) {
-      disc(x, y - 2 + bob, 3, '#3a6ab0');
-      rect(x + 2, y - 5 + bob, 1, 3, '#e8e0cc');
+      rect(hx - 4, top, 8, 2, '#3a6ab0');
+      rect(hx - 3, top - 1, 6, 1, '#3a6ab0');
+      rect(hx + (left ? -4 : 3), top - 4, 1, 4, '#e8e0cc');
     } else if (tier === 3) {
-      rect(x - 3, y - 3 + bob, 6, 1, '#f0c848');
-      rect(x - 1, y - 4 + bob, 1, 1, '#f0c848');
-      rect(x + 1, y - 4 + bob, 1, 1, '#e05a8a');
+      rect(hx - 3, top + 1, 6, 1, '#f0c848');
+      rect(hx - 2, top, 1, 1, '#f0c848');
+      rect(hx + 1, top, 1, 1, '#f0c848');
+      rect(hx, top, 1, 1, '#e05a8a');
     } else if (tier === 4) {
-      disc(x, y - 2 + bob, 4, '#141418');
-      disc(x, y - 2 + bob, 2, '#2a2a30');
+      rect(hx - 4, top + 1, 8, 1, '#141418');
+      rect(hx - 3, top - 5, 6, 6, '#141418');
+      rect(hx - 3, top - 1, 6, 1, '#8a2a3a');
     }
   }
 }
 
-/** Where a browser stands: in front of each piece, and at the counter. */
+/** Where a browser stands (their feet): in front of each piece, and at the counter. */
 function browseSpots(v: ShopView): { x: number; y: number }[] {
-  // tavern guests sit at the tables (on the benches either side), or stand at the bar
+  const rowY = (y: number) => BACK + y * DEPTH;
+  const bottom = rowY(v.rows) - 2;
+  const atCounter = [0.5, 1.5].map((k) => ({ x: WALL + (v.counter.x + k) * CELL, y: Math.min(bottom, rowY(v.counter.y + 1) + 4) }));
+  // tavern guests sit at the tables (on the benches either end), or stand at the bar
   if (v.venue === 'tavern') {
     const seats = v.pieces
       .filter((p) => p.kind === 'table')
       .flatMap((p) => [
-        { x: WALL + (p.x + 0.5) * CELL, y: WALL + p.y * CELL + 3 },
-        { x: WALL + (p.x + 1.5) * CELL, y: WALL + (p.y + p.h) * CELL - 3 },
+        { x: WALL + p.x * CELL + 2, y: rowY(p.y + p.h / 2) + 3 },
+        { x: WALL + (p.x + p.w) * CELL - 2, y: rowY(p.y + p.h / 2) + 3 },
       ]);
-    seats.push({ x: WALL + (v.counter.x + 0.5) * CELL, y: WALL + (v.counter.y + 1.5) * CELL }, { x: WALL + (v.counter.x + 1.5) * CELL, y: WALL + (v.counter.y + 1.5) * CELL });
-    return seats;
+    return [...seats, ...atCounter];
   }
   const spots = v.pieces
-    .filter((p) => p.kind !== 'rug')
-    .map((p) => ({ x: WALL + (p.x + p.w / 2) * CELL, y: WALL + Math.min(v.rows - 0.5, p.y + p.h + 0.4) * CELL }));
-  spots.push({ x: WALL + (v.counter.x + 1) * CELL, y: WALL + (v.counter.y + 1.5) * CELL });
-  return spots;
+    .filter((p) => p.kind !== 'rug' && !ON_WALL.has(p.item))
+    .map((p) => ({ x: WALL + (p.x + p.w / 2) * CELL, y: Math.min(bottom, rowY(p.y + p.h) + 4) }));
+  return [...spots, atCounter[0]];
 }

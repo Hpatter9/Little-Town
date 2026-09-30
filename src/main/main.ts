@@ -12,7 +12,7 @@ import { cleanNewGameOptions } from '../shared/data/founding';
 import { fullscreenAppOnMonitorOf, hwndAddress } from './fullscreen';
 import { GameLoop } from '../shared/gameLoop';
 import { loadSave, savesDir, writeSave } from './saves';
-import { cancelAlerts, scheduleAlerts, testAlert } from './alerts';
+import { cancelAlerts, scheduleAlerts, testAlert } from '../shared/alerts';
 import { cleanAlerts, loadSettings, saveSettings, type Settings } from './settings';
 import { trayIconPng } from './trayIcon';
 

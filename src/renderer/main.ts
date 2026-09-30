@@ -28,6 +28,7 @@ function travellerPerson(t: TravellerView): PersonView {
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
+    rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, monster: null, order: null, sick: false,
   };
@@ -42,7 +43,9 @@ import { generateWorld } from '../shared/world';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
-import { loadLpc } from './art/lpc/lpc';
+import { loadLpc, lpcFrame } from './art/lpc/lpc';
+import { buildingArt } from './art/buildings';
+import { noTone, textureCanvas } from './art/pixelArt';
 import { Camera } from './camera';
 import { createHud } from './hud';
 import { hostBridge, localBridge } from './localBridge';
@@ -53,6 +56,7 @@ import { ExpeditionPane } from './town/expeditionPane';
 import { PeopleView } from './town/peopleView';
 import { AnimalsView, CARAVAN_TICKS } from './town/animalsView';
 import { SnowView } from './town/snowView';
+import { LeavesView } from './town/leavesView';
 import { SkyView } from './town/skyView';
 import { WeatherView } from './town/weatherView';
 import { RaidersView } from './town/raidersView';
@@ -136,6 +140,8 @@ async function start(): Promise<void> {
   const pane = new ExpeditionPane(world.seedHash);
   const snow = new SnowView();
   town.root.addChild(snow.root); // (over everything in the town, in screen space)
+  const leaves = new LeavesView();
+  town.root.addChild(leaves.root);
   // On the phone the strip has no desktop behind it, so it draws a whole sky, and weather in front of the town.
   const fullSky = !!hostBridge();
   const sky = new SkyView(fullSky);
@@ -316,16 +322,26 @@ async function start(): Promise<void> {
           if (b.def === 'graveyard') lines.push(snap.graves.length ? `Here lie: ${snap.graves.map((g) => g.name).join(', ')}` : 'Nobody lies here yet.');
           if (CROPS[b.def]) {
             const c = b.crop;
+            const crop = CROPS[b.def];
             const winter = snap.calendar.season === 'winter';
+            const soil = c?.soil ?? 1;
+            const tired = !crop.indoor && !crop.establishHours && soil < 0.5;
             lines.push(
               !c || c.stage === 'fallow'
                 ? winter
                   ? 'Fallow: nothing grows in winter'
-                  : 'Fallow: waiting for a farmer to sow it'
+                  : crop.establishHours
+                    ? 'Waiting for a farmer to plant the trees'
+                    : tired
+                      ? 'Fallow: resting the tired soil'
+                      : 'Fallow: waiting for a farmer to sow it'
                 : c.stage === 'ripe'
                   ? 'Ripe: waiting for a farmer to harvest it'
-                  : `Growing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`,
+                  : crop.establishHours && !c.bearing
+                    ? `Young trees, coming into bearing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`
+                    : `Growing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`,
             );
+            if (!crop.indoor && !crop.establishHours) lines.push(`Soil: ${soil >= 1 ? 'rich' : soil >= 0.75 ? 'good' : soil >= 0.5 ? 'tiring' : 'worn out'} (the harvest ×${soil.toFixed(1)})`);
           }
         }
         return { title: def.name + (b.status === 'blueprint' ? ' (blueprint)' : ''), lines, hint: 'Click for options', y: r.y };
@@ -481,7 +497,15 @@ async function start(): Promise<void> {
         if (p.recent.length) lines.push(`Lately: ${p.recent.slice(0, 2).join('; ')}`);
         lines.push(`Health ${Math.round(p.hp)}/${p.maxHp} · Morale ${Math.round(p.morale)} · Food ${Math.round(p.needs.food * 100)}% · Rest ${Math.round(p.needs.rest * 100)}%`);
         lines.push(`${p.typeName}${p.cls ? `, ${CLASS_DEFS[p.cls].name}` : ''} · ${bestSkills(p)}`);
-        return { title: d.title, lines, actions: [act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
+        // in a fight: rally them (a burst of courage), when the town's rally is ready
+        if (p.rally === 'on') lines.unshift('Rallied: fighting like ten!');
+        else if (p.rally === 'wait') lines.unshift(`Rally again in ${snap.rallyIn}s`);
+        const rallyAct = p.rally === 'ready' ? [act('rally', 'Rally!', () => bridge.command({ type: 'rally', person: p.id }), { primary: true })] : [];
+        // follow them: the camera keeps them in view, and their big moments come as phone alerts
+        const following = snap.hero === p.id;
+        const followAct = act('follow', following ? 'Stop following' : 'Follow', () => bridge.command({ type: 'follow', person: following ? null : p.id }));
+        if (following) lines.unshift('You follow them: their big moments come as phone alerts.');
+        return { title: d.title, lines, actions: [...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
       case 'caravan':
         return { title: d.title, lines: d.lines, actions: [act('trade', 'Trade…', () => bridge.openPanel('trade'), { primary: true })] };
@@ -762,13 +786,22 @@ async function start(): Promise<void> {
     const gloom = fullSky ? ({ clear: 0, cloudy: 0.04, rain: 0.12, storm: 0.22, snow: 0.05, fog: 0.08 } as const)[next.weather.kind] : 0;
     town.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
+    // autumn leaves on the wind, in fair weather
+    leaves.on = next.calendar.season === 'autumn' && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !freeze;
     snow.heavy = freeze && !!next.doom?.cold;
     pane.setDaylight(next.calendar.daylight);
     const q = next.prompts[0];
     if (q && view.mode === 'full') promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
-    if (next.away && !q && view.mode === 'full') awayCard.show(next.away);
+    if (next.away && !q && view.mode === 'full')
+      awayCard.show(next.away, (h) => {
+        // the report card's pictures: the townsperson, or the building, in the town's own style
+        const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
+        if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
+        if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(buildingArt(h.building, noTone, 'card', undefined, buildStyle || 'town').texture, 96, 64);
+        return null;
+      });
     else awayCard.hide();
     if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won);
     // a boss roars or sweeps: the strip shakes (only for fresh moments, not ones from before a reload)
@@ -790,6 +823,8 @@ async function start(): Promise<void> {
       town.setBuildingStyle(buildingTint(next.theme), style);
     }
     town.syncCastle(next.castle);
+    town.syncEnclosure(next.enclosure);
+    town.herds.update(next.buildings);
     // (a nomad tribe on the road: the view rides along with the caravan, and comes to rest at the new camp)
     const move = next.nomad?.move;
     if (move && move.since >= 0 && move.since <= CARAVAN_TICKS && lastCamp !== null) camera.centreOn(move.from + (move.to - move.from) * Math.min(1, move.since / CARAVAN_TICKS), app.screen.width);
@@ -830,6 +865,9 @@ async function start(): Promise<void> {
       if (viewW) camera.shift((viewW - w) / 2);
       viewW = w;
     }
+    // following someone: keep them in view (after the player has looked around a few seconds on their own)
+    const heroX = snap.hero !== null ? people.xOf(snap.hero) : null;
+    if (heroX !== null) camera.follow(heroX, w, performance.now(), FOLLOW_WAIT_MS);
     const moving = camera.update(ticker.deltaMS / 1000, w);
     town.setCamera(camera.x, w, app.screen.height);
     // screen shake (a boss's roar or sweeping attack)
@@ -838,10 +876,12 @@ async function start(): Promise<void> {
     people.render(performance.now());
     raiders.render(performance.now());
     animals.render(performance.now());
+    town.herds.render(performance.now(), ticker.deltaMS / 1000);
     const walk = town.people.getGlobalPosition();
     spells.root.position.set(walk.x - app.stage.x, walk.y - app.stage.y);
     spells.render(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
+    leaves.render(performance.now(), ticker.deltaMS / 1000, w);
     sky.render(performance.now(), w);
     weather?.render(performance.now(), w);
     pane.render(performance.now(), ticker.deltaMS / 1000);
@@ -854,5 +894,8 @@ async function start(): Promise<void> {
     app.ticker.maxFPS = interactive || moving ? FPS_ACTIVE : FPS_IDLE;
   });
 }
+
+/** After the player drags or scrolls the view, following someone waits this long before it takes the camera back. */
+const FOLLOW_WAIT_MS = 4000;
 
 start().catch((err) => console.error('strip failed to start', err));

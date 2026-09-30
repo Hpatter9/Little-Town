@@ -11,11 +11,13 @@ import { craftSeconds } from '../../shared/sim/crafting';
 import { itemIcon } from '../art/icons';
 import { materialIcon } from '../art/materialIcons';
 import { duration, el } from './dom';
+import { hiddenNote, HidePrefs } from './hide';
 import { topicKnown } from './secrets';
 
 /** Changes whenever something this panel shows changes (progress to the whole percent). */
 export const craftingKey = (s: Snapshot) =>
   JSON.stringify([
+    hide.key,
     s.era,
     s.craftSlots,
     s.stock,
@@ -28,7 +30,7 @@ export const craftingKey = (s: Snapshot) =>
     s.people.map((p) => p.gear),
   ]);
 
-export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined): HTMLElement[] {
+export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const out: HTMLElement[] = [];
   const full = s.crafting.length >= s.craftSlots;
   const head = el('div', 'panel-head');
@@ -64,9 +66,24 @@ export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined): HTMLEl
   }
 
   const built = new Set(s.buildings.filter((b) => b.status === 'done').map((b) => b.def));
+  out.push(
+    el('h2', '', 'Recipes'),
+    hide.row(
+      [
+        ['have', 'Already have', 'Hide the things the town already has one of (in store or worn)'],
+        ['locked', "Can't make yet", 'Hide the recipes still waiting on research or on their workshop'],
+      ],
+      rerender,
+    ),
+  );
+  const have = (d: ItemDef) => !d.makes && ((s.items[d.id] ?? 0) > 0 || worn.has(d.id));
+  const canMake = (d: ItemDef) => (s.unlockAll || d.research.every((r) => s.research.done.includes(r))) && built.has(d.station);
+  let hidden = 0;
   for (const station of STATIONS) {
     // recipes from eras the town hasn't reached stay hidden
-    const defs = ITEMS.filter((d) => !d.relic && d.station === station && (s.unlockAll || d.research.every((r) => eraReached(s.era, TOPIC_BY_ID[r]?.era) && topicKnown(s, r))));
+    const known = ITEMS.filter((d) => !d.relic && d.station === station && (s.unlockAll || d.research.every((r) => eraReached(s.era, TOPIC_BY_ID[r]?.era) && topicKnown(s, r))));
+    const defs = known.filter((d) => !(hide.has('have') && have(d)) && !(hide.has('locked') && !canMake(d)));
+    hidden += known.length - defs.length;
     if (!defs.length) continue;
     const name = BUILDING_BY_ID[station]?.name ?? station;
     out.push(el('h2', '', built.has(station) ? name : `${name} (not built)`));
@@ -74,8 +91,12 @@ export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined): HTMLEl
     for (const def of defs) grid.append(recipeCard(def, s, built.has(station)));
     out.push(grid);
   }
+  out.push(...hiddenNote(hidden));
   return out;
 }
+
+/** What to hide in the list of recipes (kept across visits, per phone). */
+const hide = new HidePrefs('littletown.craftHide', ['have', 'locked'] as const);
 
 function orderRow(o: CraftOrderView): HTMLElement {
   const def = ITEM_BY_ID[o.item];

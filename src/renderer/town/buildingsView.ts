@@ -21,6 +21,8 @@ function cropLook(b: Building): CropLook | undefined {
   const c = b.crop;
   if (!c || c.stage === 'fallow') return 'fallow';
   if (c.stage === 'ripe') return 'ripe';
+  // (an orchard's trees stay grown between crops; only young ones look it)
+  if (CROPS[b.def].establishHours) return c.bearing ? 'tall' : 'sprout';
   return c.growth < 0.4 ? 'sprout' : 'tall';
 }
 

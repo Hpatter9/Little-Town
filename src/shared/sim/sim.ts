@@ -1,12 +1,16 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
+import { openGate } from './raidWait';
+import { maybeEvent } from './events';
+import { rally } from './rally';
 import { Rng } from '../rng';
 import { generateWorld, type World } from '../world';
 import { demolish, discardStock, placeBlueprint, upgrade } from './buildings';
 import type { Command } from './commands';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
-import { growCrops } from './farming';
+import { growCrops, tendFields } from './farming';
+import { tendHerds } from './livestock';
 import { updateFires } from './fire';
 import { updateSocial } from './social';
 import { checkDespair, checkLeavers, updateBreaks } from './breaks';
@@ -15,7 +19,7 @@ import { assignOperators, cycleOperator } from './operators';
 import { releasePrisoner, updatePrisoners } from './prisoners';
 import { updateDoom } from './doom';
 import { updateMonsters } from './monsters';
-import { recallExpedition, sendExpedition, updateExpeditions } from './expeditions';
+import { recallExpedition, sendExpedition, updateExpeditions , sendParty } from './expeditions';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { train } from './classes';
@@ -30,7 +34,7 @@ import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { forSale, runPlanner, shoppingList } from './planner';
 import { chooseLich, watchLich } from './occult';
-import { castPowers } from './powers';
+import { castHeld, castPowers, holdPower } from './powers';
 import { lurkers } from './lurkers';
 import { updateNomads } from './nomads';
 import { rulesOf } from '../data/origins';
@@ -114,6 +118,8 @@ export class Sim {
     assignBeds(s);
     hourlyItems(s, this.rng);
     growCrops(s);
+    tendFields(s, this.rng);
+    tendHerds(s);
     updateSocial(s, this.rng);
     checkDespair(s);
     assignOperators(s);
@@ -134,6 +140,7 @@ export class Sim {
     drillGuards(s);
     updateAdvice(s);
     maybeArrive(s, this.rng);
+    maybeEvent(s, this.rng);
     updateVisitor(s, walkTo);
     // the town decides for itself what to research, make, build and gather
     runPlanner(s, this.world.back);
@@ -205,7 +212,7 @@ export class Sim {
         break;
       }
       case 'queueResearch':
-        queueResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era);
+        queueResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era, s.origin);
         break;
       case 'cancelResearch':
         cancelResearch(s.research, c.topic);
@@ -216,6 +223,11 @@ export class Sim {
       case 'sendExpedition':
         sendExpedition(s, c.dest, c.members, c.roles, c.stance, c.horses, c.truck === true);
         break;
+      case 'sendParty': {
+        const r = sendParty(s, c.dest, c.stakes);
+        if (!r.ok) notify(s, `Can't send a party: ${r.reason}.`);
+        break;
+      }
       case 'trade':
         trade(s, c.offer, this.rng);
         break;
@@ -230,6 +242,18 @@ export class Sim {
         if (p?.monster) p.order = c.order;
         break;
       }
+      case 'rally':
+        rally(s, c.person);
+        break;
+      case 'follow':
+        s.hero = c.person !== null && s.people.some((p) => p.id === c.person) ? c.person : undefined;
+        break;
+      case 'holdPower':
+        holdPower(s, c.power);
+        break;
+      case 'castHeld':
+        if (!castHeld(s, this.rng)) notify(s, "Can't cast it yet.");
+        break;
       case 'answerPrompt':
         answerPrompt(s, c.prompt, c.option, this.rng);
         break;
@@ -264,6 +288,7 @@ export class Sim {
         break;
       case 'setPaused':
         s.paused = c.paused;
+        if (!c.paused) openGate(s); // (raiders held at the gate come on when the town runs again)
         break;
       case 'becomeLich':
         chooseLich(s);

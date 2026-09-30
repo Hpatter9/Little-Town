@@ -70,6 +70,43 @@ export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
     p.rect(4, 7, 8, 2, '#e8d8a0');
     p.rect(9, 3, 1, 4, '#c8b8a0');
   },
+  fried_eggs: (p) => {
+    p.ellipse(8, 10, 7, 3, '#3a3a40');
+    p.ellipse(6, 9, 3, 2, '#f4f0e4');
+    p.ellipse(11, 9, 3, 2, '#f4f0e4');
+    p.rect(5, 8, 2, 2, '#f0b830');
+    p.rect(10, 8, 2, 2, '#f0b830');
+  },
+  cheese: (p) => {
+    p.rect(2, 7, 12, 7, '#e8c860');
+    p.rect(2, 7, 12, 1, '#f8e090');
+    p.rect(2, 13, 12, 1, '#b89030');
+    for (const [x, y] of [[5, 9], [10, 11], [8, 9]]) p.rect(x, y, 2, 1, '#c8a040');
+  },
+  wool: (p) => {
+    p.ellipse(8, 9, 6, 5, '#e8e4dc');
+    p.ellipse(6, 7, 3, 2, '#fbf8f2');
+    for (const [x, y] of [[4, 10], [9, 8], [11, 11], [7, 12]]) p.rect(x, y, 2, 1, '#c8c0b4');
+    p.rect(12, 4, 1, 4, '#8a5a30');
+  },
+  vegetable_soup: (p) => {
+    p.rect(3, 8, 10, 5, '#b0704a');
+    p.rect(4, 7, 8, 2, '#8a9a3a');
+    p.rect(5, 7, 2, 1, '#e07a2a');
+    p.rect(9, 7, 2, 1, '#6a9a3a');
+    p.rect(7, 3, 1, 3, '#c8b8a0');
+  },
+  cider: (p) => {
+    p.rect(4, 5, 7, 9, '#e0a840');
+    p.rect(4, 4, 7, 1, '#f0e0a0');
+    p.rect(5, 6, 1, 7, '#f0c860');
+    p.rect(11, 7, 2, 4, '#80502f');
+  },
+  fruit_tart: (p) => {
+    p.ellipse(8, 11, 6, 3, '#c8903a');
+    p.ellipse(8, 10, 5, 2, '#8a2a2a');
+    for (const [x, y] of [[5, 9], [8, 9], [10, 10]]) p.rect(x, y, 2, 1, '#d0402a');
+  },
   berry_bowl: (p) => {
     p.rect(3, 8, 10, 5, '#b0704a');
     for (const [x, y] of [[4, 6], [7, 5], [10, 6], [6, 7], [9, 7]]) p.rect(x, y, 2, 2, '#8a2a4a');

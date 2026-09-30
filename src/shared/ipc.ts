@@ -34,9 +34,11 @@ export interface AlertSettings {
   deaths: boolean;
   expeditions: boolean;
   choices: boolean;
+  /** The hero's big moments (the townsperson the player follows). */
+  hero: boolean;
 }
 
-export const DEFAULT_ALERTS: AlertSettings = { enabled: false, server: 'https://ntfy.sh', topic: '', leadMinutes: 10, raids: true, deaths: true, expeditions: false, choices: false };
+export const DEFAULT_ALERTS: AlertSettings = { enabled: false, server: 'https://ntfy.sh', topic: '', leadMinutes: 10, raids: true, deaths: true, expeditions: false, choices: false, hero: true };
 
 /** A valid ntfy topic name. */
 export const validTopic = (t: string) => /^[A-Za-z0-9_-]{1,64}$/.test(t);

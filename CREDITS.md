@@ -115,3 +115,13 @@ the game.
   `camel.png`, `shrooms.png`).
 - **mobs** (mimic): the Mimic (`creatures/mimic.png`, its walk, attack, idle and disguise frames stacked into one
   sheet; see the licence note under Rival armies).
+
+## Fonts
+
+Each look's fonts are Google Fonts under the **SIL Open Font License 1.1**, bundled from the @fontsource packages
+(`src/renderer/fonts.ts`, copied into `fonts/` by `build.mjs`): Alegreya, Alegreya SC and Alegreya Sans (Juan Pablo del
+Peral, Huerta Tipográfica), Pirata One (Rodrigo Fuenzalida, Nicolas Massi), IM Fell English and IM Fell English SC
+(Igino Marini), Uncial Antiqua (Astigmatic), Crimson Text (Sebastian Kosch), Grenze Gotisch (Omnibus-Type), EB Garamond
+(Georg Duffner, Octavio Pardo), New Rocker (Impallari Type), Orbitron (Matt McInerney), Share Tech Mono (Carrois
+Apostrophe), Cinzel (Natanael Gama), Berkshire Swash (Astigmatic), Quicksand (Andrew Paglinawan), Marcellus SC (Brian J.
+Bonislawsky), Fondamento (Astigmatic) and MedievalSharp (Wojciech Kalinowski).

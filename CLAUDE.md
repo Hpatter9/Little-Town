@@ -91,7 +91,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - The lich path: `offerLichRite`/`chooseLich`/`watchLich` in `occult.ts`, `s.lichChosen` then `s.lich` (permanent).
     `snapshot.theme` is `'lich'` once it's set; `src/renderer/theme.ts` holds the look (one stylesheet scoped to
     `html.theme-lich`) and the menus' new names, applied by the phone page, the panels and the strip's HUD.
-  - The bird's-eye interior is the `shop` and `tavern` panels (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop.
+  - The interior is the `shop` and `tavern` panels (`src/renderer/panel/shopPanel.ts`), opened by tapping the shop: an
+    angled (three-quarter) view, the back wall up top and the floor in foreshortened rows (`DEPTH`), each piece a box
+    with a top and a front (`TALL`), wall pieces hung (`ON_WALL`), everything painted back to front with the keeper and
+    strangers as their own side-on LPC sprites (`lpcCanvas`, flipped to walk left).
   - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs
   itself, so there's little to watch while a menu is open. The tabs stay visible (along the bottom upright).
@@ -117,6 +120,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   checks overlap per floor), `openFloors`, `roomOf` (the room someone's in: `PersonView.floor`), `adoptRooms` for
   older saves. The planner's `roomSpot` fills it. Drawn by `src/renderer/art/castle.ts` (`roomArt` cutaways, `keepArt`
   shell, sliced per 16px in `BuildingsView.syncCastle`); `mobile.ts` zooms and grows the strip so the keep fits.
+  - The keep widens each era (`castleWidth`: 16 tiles, 4 more per era). Nothing that belongs inside sprawls: with no
+    room in the keep the planner clears the keep's ground or waits for it to grow. Wells, stables and racks are rooms
+    too (`OUTSIDE` keeps only mines, the graveyard and the launch site out).
+  - Floors are real: `Person.floor`/`climb` and `Raider.floor`/`climb`. A stair tower stands at each end of the keep
+    (`stairXs`, drawn as an open stairwell in `keepArt`); `moveOnFloors` walks to the nearer one, climbs a floor per
+    `CLIMB_SECONDS`, then walks along. People use it through `goTo`/`goToB` in `people.ts`; defenders fight only on their
+    foe's floor. Raiders strike only on their own floor, weigh a climb (`FLOOR_COST`) in choosing a target, break the
+    walls on the ground first, climb after the townsfolk, and come down before they flee. `PersonView.floor` and
+    `RaiderView.floor` are how high up they are (fractional on the stairs).
 - **Spell sprites:** `SPELL_SHEET_DEFS` in `art/effects.ts` (pvfx and Alenia sheets), matched to spells by `sprite` in
   `town/spellLooks.ts` and placed by `SHEETS` in `spellsView.ts` (foot offset, frame rate, glow). Rival troops use
   the golem/elemental stills (`elem_*`) and strip sheets with a `feet` share (`creatures.ts`).
@@ -133,4 +145,102 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (style `nomads_city` once `snapshot.nomad.settled`); parked wagons and old camp marks (`nomad.left`) in animalsView.
 - **Origin buildings:** `src/renderer/art/originStyles.ts`: each origin's own homes, walls and gates; every other
   building gets its materials swapped (`reclad`) and dressing on top. `buildingArt` takes the style (the theme id).
-- **Phase 4:** animal husbandry and more farming.
+- **Research, doubled:** general topics per era and a six-topic **heritage** line per origin (`origin` on a `Topic`,
+  branch `heritage`; built with `T()`/`heritage()` in `data/research.ts`, whose `unlocks` text comes from
+  `describeEffects`). New effect kinds: `rule` (the origin levers: build, craft, travellers, prices, fight, guard,
+  day, night; multiplied in by `sim/origin.ts` through the cached `researchMods`), `quality` and `powers` (recharge
+  and duration, in `castPowers`). `prereqsMet`/`canQueue`/`queueResearch` take the town's origin; another origin's
+  heritage is refused (`foreignHeritage`). The Research tab's Hide toggles are kept in `localStorage`
+  (`littletown.researchHide`).
+- **Animal husbandry (Phase 4 begun):** pens in the background (`chicken_coop`, `goat_pen` from Domestication;
+  `pig_sty`, `sheep_fold`, `cattle_pasture` from Animal Husbandry), their herds in `data/livestock.ts` (`HERDS`) and
+  `sim/livestock.ts` (`b.herd`; `tendHerds` hourly: breeding, winter fodder, starving; `workPen`, tended through the
+  Farm job's `farm` task after the fields; `rustle` when raiders get away). New materials `eggs`, `milk` (food),
+  `wool` (spun into cloth at the loom). The animals are drawn by `town/herdsView.ts` (`art/livestockArt.ts`) in the
+  background layer.
+- **The background clears with the land:** `backNow`/`backOpen` in `sim/buildings.ts`: a forest, hills or marsh
+  column behind a cleared tile is `cleared`, and background buildings can go there (never on a river). TownView
+  draws the background per column (`b<i>` groups) and rebuilds a column when its tile clears.
+- **The far wall:** `enclosure()` (sim/buildings.ts; `snapshot.enclosure`): walls finished beyond both ends of the
+  town. `art/farWall.ts` draws it in the background's far depth, in the weaker end's material.
+- **Terrain art:** `art/terrain.ts` paints each walkway and midground tile as one texture (road with ruts, stones,
+  puddles and a verge; footpaths; forest floor; cobbles; marsh pools), continuous across tiles via `noise()` on
+  world x. `art/sprites.ts` has the scenery (trees with bark and leaf clusters, stumps, logs, ferns, mushrooms);
+  the background has mountains and a wooded ridge, hedgerows, furrows, river banks.
+- **Offline pacing:** `awayPlayMs` in `sim/offline.ts`: the first half hour away passes as in play, the rest at a
+  quarter pace, and at most 1 game day passes for one absence (`MAX_OFFLINE_MS`).
+- **Raids wait for you:** `src/shared/sim/raidWait.ts`. During the catch-up after time away, raiders reaching the gate
+  hold there (`holdAtGate`: `Raid.waiting`, the town paused, a `gate` prompt, "Watch the fight", with no countdown);
+  answering it or unpausing lets them in (`openGate`). Held more than `RAID_WAIT_MS` (12 real hours, across visits), or
+  away that long after they came, and the raid plays out alone (`Raid.alone`). Phone alerts (ntfy) are shared by both
+  apps: `src/shared/alerts.ts` (`plan` looks one absence ahead with the forecast, stops at the first raid, and times
+  them by the away pace, `awayRealMs`); the phone page books them when it goes to the background and drops them when
+  it comes back (`mobileBridge.ts`, keys `littletown.alerts`, `littletown.scheduledAlerts`); the panel is in the ☰
+  menu.
+- **Hide toggles:** `panel/hide.ts` (`HidePrefs`): Research, Build and Crafting each have a "Hide:" row, kept in
+  `localStorage` (`littletown.researchHide`, `buildHide`, `craftHide`).
+- **Upgrades and fewer homes:** `UPGRADES` in `data/buildings.ts` (homes: lean-to or hide tent → longhouse →
+  cottage → row houses → apartments → dome; research stations; healer's hut → infirmary; watchtower → radio tower →
+  drone hub). `upgrade(s, back, id, absorb?)` in `sim/buildings.ts` can pull down a neighbour of the same kind and make
+  the two one (two lean-tos become a longhouse). The planner's `consolidateHomes`: when beds are wanted it rebuilds a
+  small home bigger before building another; in a quiet spell it upgrades one anyway (up to `SLEEP_ROUGH` sleep out
+  meanwhile). New homes are paced by beds (`lastHomeBeds`), so bigger homes don't speed growth. Soak: about 10 homes
+  (mostly longhouses) for 30 people at day 15, where it was about 28.
+- **Choice events:** the 100 of `EVENTS.md` are data in `src/shared/data/events.ts` (`EVENTS`: title, text, `who`
+  for a townsperson in it, `when`, two or three options with one `default`, each a list of `EventEffect`s: notes,
+  morale and lever marks, gains and losses, coins, renown, newcomers, leaving, deaths and wounds, sickness, raids
+  sooner or later, research, the Occult, chances and `later` effects). `src/shared/sim/events.ts`: `maybeEvent` hourly
+  (one at a time, `EVENT_GAP_HOURS` apart, none repeated within 25), a prompt of kind `event` that waits
+  `EVENT_HOURS` in play and holds its clock while the town is caught up (`holdEventClock`), `answerEvent`. Marks are
+  `s.marks`: a lever's are multiplied in by `markMult` in `sim/origin.ts`, morale ones join `mood()`. The tests'
+  `plainGame` turns events off.
+- **Rally and held powers:** `src/shared/sim/rally.ts`: in a raid a defender's tap card offers **Rally!** (the `rally`
+  command): harder, faster blows for `RALLY_TICKS` (`p.rallied`, read by `defenderAttack` and `doDefend`), a second
+  wind, then a town-wide cooldown (`s.rallyReady`); the rallied pulse gold (peopleView). `PersonView.rally` and
+  `snapshot.rallyIn` drive the card. A power held back (`s.heldPower`, `holdPower`/`castHeld` in `powers.ts`; the Plan
+  tab's Hold back / Cast now) is never cast by the town; in a raid a button by the clock casts it (`hud.ts`).
+- **Morning report card:** `src/shared/sim/highlights.ts` picks the three biggest things from the away report's
+  milestones (deaths together first, then a new age, raids, weddings, newcomers, great buildings, research), each with
+  a building or a townsperson to show; stored on the report (`JournalEntry.highlights`). The away card draws them as
+  pictures (`textureCanvas` in `art/pixelArt.ts`; the picture callback in `main.ts`), buttons above the long list.
+- **Follow a hero:** a person's tap card has **Follow** (the `follow` command, `s.hero`; `snapshot.hero` while they
+  live). The camera eases to keep them in view (`Camera.follow`), waiting `FOLLOW_WAIT_MS` after the player drags or
+  scrolls. Their big moments (journal milestones with their name) are a forecast kind, `hero`, sent as phone alerts
+  (the `hero` alert setting, on by default).
+- **Expedition stakes:** the town plans every party (`planParty` in `sim/expeditions.ts`: the fittest for the trip,
+  the founder stays unless alone, half the town kept home, roles, horses, a truck); the player picks the destination
+  and the stakes (`sendParty`, the `sendParty` command): safe (cautious, packs 75%, half the fights) or risky (bold,
+  packs 150%, more fights), `STAKES`, `Expedition.stakes`. The Expedition Board shows the planned party and the two
+  buttons (the manual picker is gone).
+- **More to watch (all eight done):** raids wait for you, a day at most away, choice events, rally, a held power, the
+  report card, following a hero, expedition stakes (each above).
+- **Fonts:** `src/renderer/fonts.ts`: a display and a body font for each look (`FONTS`, keyed by theme id; `town` is
+  the base game), Google Fonts (OFL) bundled from @fontsource by `build.mjs` into `fonts/` (so they work offline).
+  `theme.ts` declares the faces on every page and sets `--font-display`/`--font-body` (a theme overrides the two);
+  the pages' CSS uses the variables, never a font name. Titles, headings and tabs take the display font.
+- **Texture and scenery detail:** every sprite painted with `paint()` gets a surface grain (`grain` in
+  `art/pixelArt.ts`: fine and clumped light/dark noise, `GRAIN`; pass 0 to `paint` to skip it). The Graphics-drawn far
+  land is textured in `townView.ts` (mountain strata and crags, a mottled ridge canopy, turf on the hills). More kinds
+  underfoot (`sprites.ts`: pebbles, twigs, tall seeding grass, bramble; twice the flower variants and more colours),
+  placed from a second random stream per tile (`0xc3` midground, `0xb3` background) so older layouts don't move.
+  Autumn leaves drift over the town (`town/leavesView.ts`); flocks cross the sky twice as often. Frame rate checked:
+  about 57 fps where it was 60 in the headless browser.
+- **Phase 4, more farming (done):** new fields in `data/crops.ts`: `flax_field` (fiber), `vegetable_patch`
+  (`hardy`: full speed in autumn), `orchard` (`establishHours`, then `crop.bearing`: fruits again without sowing).
+  New foods `vegetables` and `fruit`. Soil (`crop.soil`, `SOIL`): each sown harvest drains it and scales the yield; it
+  rests while fallow and in winter, and pens with animals muck it. A tired field rests unless food is under 2 days
+  (`fieldToWork`). Blight (`BLIGHT`, daily in `tendFields`) is worse in the wet and with many fields of one crop, and
+  spreads between them. The planner's `cropPower` favours a mix (and no orchard while food is short). `ripensInTime`
+  stops autumn sowing that winter would kill. The harvest home is a morale mark at the turn of winter. The research
+  effect `soil` (Crop Rotation, Fertilisers) lessens the wear and the blight. Tests: `test/fields.test.ts`.
+
+## Planned (owner's requests, not started)
+
+Nothing waiting.
+
+## Known problem (fixed, watch)
+
+- **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be
+  culled (`sourceable` in `planner.ts`). Pens are culled only when full or short of food, so towns queued buildings that
+  cost hide and nobody could supply it. Now only pens kept for meat count. Soak (8 towns, 15 days): druids 27.5,
+  dwarves 30.1, settlers 20.9. Two of eight druid towns died out; not yet compared with the old build.

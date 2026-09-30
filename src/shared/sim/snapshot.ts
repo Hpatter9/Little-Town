@@ -11,6 +11,7 @@ import { appeal, attractiveness, customerTiers, extensionPrice, extensionsOf, fa
 import { moneyTown, wageBill } from './wages';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
+import { HERDS } from '../data/livestock';
 import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
 import { POWERS, powersView } from './powers';
 
@@ -23,12 +24,13 @@ import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../da
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
-import { DESTINATION_BY_ID, DESTINATIONS } from '../data/expeditions';
+import { DESTINATION_BY_ID, DESTINATIONS, ROLES } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry } from './people';
 import type { Era } from '../data/eras';
 import { ITEM_BY_ID, type Slot } from '../data/items';
 import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
+import { CROPS } from '../data/crops';
 import { craftNeeded, craftSlots, hasBedroll, missingItems, stationFor, stationName } from './crafting';
 import { CHILD_HOURS } from '../data/social';
 import { DOOMS, type DoomKind } from '../data/doom';
@@ -38,13 +40,14 @@ import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
-import { buildingCentreX, buildSlots, defOf, totalCapacity, totalStock } from './buildings';
-import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
+import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
+import { destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, tileCentreX } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
-import { castleFloors, castleOn, castleSpan, roomOf } from './castle';
+import { castleFloors, castleOn, castleSpan, heightOf, roomOf } from './castle';
+import { rallyState } from './rally';
 import { daysToMove } from './nomads';
 import { RIVALS } from '../data/rivals';
 
@@ -92,7 +95,9 @@ export interface PersonView {
   bed: string | null;
   /** Asleep inside a building (the renderer hides them). */
   indoors: boolean;
-  /** The castle floor of the room they're in, working or asleep (drawn inside it); null on the walkway. */
+  /** In a raid: the player can rally them ('ready'), they're rallied ('on'), or the rally is cooling down ('wait'). */
+  rally: 'ready' | 'on' | 'wait' | null;
+  /** How high up a castle's keep they are, in floors (fractional on the stairs); null on the walkway. */
   floor: number | null;
   /** Destination name while away on an expedition (not in town). */
   away: string | null;
@@ -178,6 +183,8 @@ export interface RaiderView {
   hitFx: RaiderHitFx | null;
   kind: string;
   name: string;
+  /** How high up a castle's keep it has climbed, in floors; null on the ground. */
+  floor: number | null;
   x: number;
   dir: 1 | -1;
   hp: number;
@@ -223,7 +230,8 @@ export interface PromptView {
   text: string;
   options: string[];
   defaultOption: number;
-  secondsLeft: number;
+  /** Until the default is taken; null when it waits as long as it takes. */
+  secondsLeft: number | null;
 }
 
 export interface ExpeditionView {
@@ -248,6 +256,8 @@ export interface ExpeditionView {
   /** Which end of town they left from. */
   side: -1 | 1;
   stance: string;
+  /** What the player staked on it: a safe or a risky trip (older ones: none). */
+  stakes: 'safe' | 'risky' | null;
   roles: Record<number, string>;
   /** A fight in progress, if any. */
   battle: FighterView[] | null;
@@ -263,6 +273,10 @@ export interface DestinationView {
   tripSeconds: number;
   /** Food (need units) one member eats on the trip. */
   foodPerMember: number;
+  /** The party the town would send now ("Name (role)"), and whether it'd take horses and a truck. */
+  party: string[];
+  partyHorses: number;
+  partyTruck: boolean;
 }
 
 export interface VisitorView extends PersonView {
@@ -371,6 +385,10 @@ export interface Snapshot {
   expeditions: ExpeditionView[];
   destinations: DestinationView[];
   prompts: PromptView[];
+  /** Seconds until the player can rally a defender again (0: now). */
+  rallyIn: number;
+  /** The townsperson the player follows (the camera keeps them in view), while they live. */
+  hero: number | null;
   raid: RaidView | null;
   reputation: number;
   gameOver: { text: string; won: boolean } | null;
@@ -397,6 +415,8 @@ export interface Snapshot {
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's keep (sim/castle.ts): its tiles and how many floors it stands. */
   castle: { lo: number; hi: number; floors: number } | null;
+  /** A town walled at both ends: the tiles its walls span, and what they're built of (drawn as a far wall round it). */
+  enclosure: { lo: number; hi: number; wall: string } | null;
   /** A full-moon night: werewolves show what they are. */
   moonNight: boolean;
   /** Tonight's moon, 0..FULL_MOON_PHASE through its cycle (full at FULL_MOON_PHASE), for the sky. */
@@ -452,6 +472,7 @@ export interface JournalEntryView {
   text: string;
   key: boolean;
   lines?: string[];
+  highlights?: { text: string; building?: string; person?: number }[];
 }
 
 export function journalView(s: GameState): JournalEntryView[] {
@@ -462,7 +483,7 @@ function entryView(e: JournalEntry): JournalEntryView {
   const c = calendar(e.tick);
   const season = c.season[0].toUpperCase() + c.season.slice(1);
   const when = `Day ${c.day} · ${season} · ${String(c.hour).padStart(2, '0')}:${String(c.minute).padStart(2, '0')}`;
-  return { id: e.id, when, day: c.day, text: e.text, key: !!e.key, lines: e.lines && [...e.lines] };
+  return { id: e.id, when, day: c.day, text: e.text, key: !!e.key, lines: e.lines && [...e.lines], highlights: e.highlights?.map((h) => ({ ...h })) };
 }
 
 export interface ResearchView {
@@ -506,7 +527,7 @@ export function snapshot(s: GameState): Snapshot {
     storageCapacity: totalCapacity(s),
     tileRev: s.tileRev,
     tiles: s.tiles.map((t) => ({ terrain: t.terrain, pool: { ...t.pool }, designated: t.designated })),
-    buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store } })),
+    buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}) })),
     people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
     visitor: v
       ? {
@@ -524,14 +545,18 @@ export function snapshot(s: GameState): Snapshot {
       scouted: s.scouted.includes(d.id),
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
+      ...partyView(s, d.id),
     })),
+    rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
+    hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,
       title: p.title,
       text: p.text,
       options: [...p.options],
       defaultOption: p.defaultOption,
-      secondsLeft: Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
+      // (none for a question that waits as long as it takes: raiders held at the gate)
+      secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
     })),
     raid: s.raid
       ? {
@@ -545,6 +570,7 @@ export function snapshot(s: GameState): Snapshot {
             id: r.id,
             kind: r.kind,
             name: ENEMIES[r.kind].name,
+            floor: castleOn(s) && heightOf(r) > 0 ? heightOf(r) : null,
             x: r.x,
             dir: r.dir,
             hp: r.hp,
@@ -586,6 +612,7 @@ export function snapshot(s: GameState): Snapshot {
           move: s.nomad.movedAt != null && s.nomad.from != null ? { from: tileCentreX(s.nomad.from), to: tileCentreX(s.nomad.camp), since: s.tick - s.nomad.movedAt } : null,
         }
       : null,
+    enclosure: enclosure(s),
     castle: castleOn(s) && castleFloors(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: castleFloors(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
@@ -731,6 +758,16 @@ function askedText(key: string): string {
   }
 }
 
+/** The party the town would plan for a destination, for the Expedition Board. */
+function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
+  const plan = planParty(s, dest);
+  const party = plan.members.map((id) => {
+    const p = s.people.find((q) => q.id === id)!;
+    return `${p.name} (${ROLES[plan.roles[id] ?? 'fighter'].name.toLowerCase()})`;
+  });
+  return { party, partyHorses: plan.horses, partyTruck: plan.truck };
+}
+
 function awayView(s: GameState): JournalEntryView | null {
   const e = s.unreadAway === null ? undefined : s.journal.find((q) => q.id === s.unreadAway);
   return e ? entryView(e) : null;
@@ -768,8 +805,9 @@ function personView(s: GameState, p: Person, stock?: Stock): PersonView {
     priorities: { ...p.priorities },
     autoPriorities: p.autoPriorities,
     bed: bed ? defOf(bed).name : null,
-    floor: castleOn(s) ? (roomOf(s, p)?.floor ?? null) : null,
+    floor: castleOn(s) && (heightOf(p) > 0 || roomOf(s, p)) ? heightOf(p) : null,
     // (asleep in a castle's room, they're seen there, in their coffin)
+    rally: rallyState(s, p),
     indoors: !(castleOn(s) && roomOf(s, p)) && p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
     away: p.away === null ? null : (DESTINATION_BY_ID[s.expeditions.find((e) => e.id === p.away)?.dest ?? '']?.name ?? 'expedition'),
     hp: p.hp,
@@ -864,6 +902,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     recalled: e.recalled,
     side: s.destSides[e.dest] ?? 1,
     stance: e.stance,
+    stakes: e.stakes ?? null,
     roles: { ...e.roles },
     battle: e.battle
       ? e.battle.fighters.map((f) => ({
@@ -966,7 +1005,11 @@ function describe(s: GameState, p: Person): string {
     }
     case 'farm': {
       const b = s.buildings.find((q) => q.id === task.building);
-      const what = b?.def === 'herb_garden' ? 'herbs' : 'grain';
+      const herd = b && HERDS[b.def];
+      if (herd) return `Tending the ${herd.plural}`;
+      const crop = b && CROPS[b.def];
+      if (crop?.establishHours) return b?.crop?.stage === 'ripe' ? 'Picking fruit in the orchard' : 'Planting fruit trees';
+      const what = crop ? (crop.material === 'grain' ? 'grain' : crop.material === 'fiber' ? 'flax' : MATERIAL_NAMES[crop.material].toLowerCase()) : 'grain';
       return b?.crop?.stage === 'ripe' ? `Harvesting ${what}` : `Sowing ${what}`;
     }
     case 'craft': {

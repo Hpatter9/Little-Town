@@ -1,4 +1,4 @@
-// Phone alerts panel (opened from the tray): ntfy topic, what to be told about, and a test button.
+// Phone alerts panel (opened from the tray, or the phone's ☰ menu): ntfy topic, what to be told about, a test button.
 
 import { validTopic, type AlertSettings, type Bridge } from '../../shared/ipc';
 import { button, el } from './dom';
@@ -9,7 +9,7 @@ export function renderAlerts(bridge: Bridge | undefined): HTMLElement[] {
     el(
       'div',
       'hint',
-      'Get a push on your phone before a raid hits while the game is closed. Install the free ntfy app, subscribe to a topic name only you know, and enter the same name here. When you quit, the game looks a day ahead and schedules the alerts.',
+      'Get a push on your phone when raiders reach the town while you\'re away: they wait at the gate for you to watch the fight (up to 12 hours). Install the free ntfy app, subscribe to a topic name only you know, and enter the same name here. When you leave the game, it looks ahead and books the alerts.',
     ),
   );
   const form = el('div', 'alerts-form');
@@ -40,7 +40,7 @@ export function renderAlerts(bridge: Bridge | undefined): HTMLElement[] {
     lead.max = '120';
     lead.value = String(cur.leadMinutes);
     lead.addEventListener('change', () => void save({ leadMinutes: Number(lead.value) }));
-    const check = (label: string, key: 'enabled' | 'raids' | 'deaths' | 'expeditions' | 'choices') => {
+    const check = (label: string, key: 'enabled' | 'raids' | 'deaths' | 'expeditions' | 'choices' | 'hero') => {
       const l = el('label', 'check');
       const box = el('input');
       box.type = 'checkbox';
@@ -57,6 +57,7 @@ export function renderAlerts(bridge: Bridge | undefined): HTMLElement[] {
         check('Raids (before they hit)', 'raids'),
         row('Minutes of warning', lead),
         check('Deaths and kidnappings', 'deaths'),
+        check('Big moments of the one you follow', 'hero'),
         check('Expeditions coming home', 'expeditions'),
         check('Questions waiting for an answer', 'choices'),
         button('Send a test alert', async () => {

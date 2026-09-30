@@ -66,7 +66,12 @@ export interface Building {
   /** Walls and gates: current health (set when finished). */
   hp?: number;
   /** Fields: what's in the ground. `growth` runs 0..1 while growing; `work` is sowing or harvest progress. */
-  crop?: { stage: 'fallow' | 'growing' | 'ripe'; growth: number; work: number };
+  /** A field's crop. `soil`: how good the ground is (1 when left out; see SOIL in data/crops.ts). `bearing`: an
+   *  orchard's trees have come into fruit. */
+  crop?: { stage: 'fallow' | 'growing' | 'ripe'; growth: number; work: number; soil?: number; bearing?: boolean };
+  /** A pen's animals (sim/livestock.ts): how many, when they were last tended, progress to the next birth (0..1), hours
+   *  gone hungry this winter, and the work done on the tending under way. */
+  herd?: { head: number; tended: number; breed: number; hungry: number; work: number; owed?: number };
   /** On fire: how far it has burned (0..1; gone at 1). */
   fire?: number;
   /** Single-use buildings (the Resurrection Shrine): used up. */
@@ -204,6 +209,9 @@ export interface Raider {
   kind: string;
   x: number;
   dir: 1 | -1;
+  /** Up a castle's keep (sim/castle.ts): the floor they're on, and how far up or down the stairs to the next. */
+  floor?: number;
+  climb?: number;
   hp: number;
   maxHp: number;
   cooldown: number;
@@ -246,6 +254,10 @@ export interface Raid {
   prompt: number | null;
   /** A rival lord's hexes on the defenders and blessings on its army, until these ticks (sim/rivals.ts). */
   hex?: Partial<Record<'hold' | 'fog' | 'emp' | 'frenzy' | 'ward', { until: number; name: string }>>;
+  /** Held at the gate for the player (sim/offline.ts): the real ms it has waited so far. Unset once it's under way,
+   *  and `alone` once it has been left to play out without them. */
+  waiting?: number;
+  alone?: boolean;
 }
 
 export interface Needs {
@@ -264,6 +276,11 @@ export interface Person {
   /** World x in pixels, along the walkway. */
   x: number;
   dir: 1 | -1;
+  /** Up a castle's keep (sim/castle.ts): the floor they're on, and how far up or down the stairs to the next. */
+  floor?: number;
+  climb?: number;
+  /** Rallied by the player in a fight until this tick (sim/rally.ts). */
+  rallied?: number;
   skills: Record<Skill, SkillLevel>;
   /** Skills they love: XP in these grows faster. */
   passions: Skill[];
@@ -377,7 +394,7 @@ export interface Caravan {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event';
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -393,6 +410,8 @@ export interface Expedition {
   id: number;
   /** Destination id. */
   dest: string;
+  /** What the player staked on it as it left (sim/expeditions.ts STAKES): a safe or a risky trip. */
+  stakes?: 'safe' | 'risky';
   /** Person ids, leader first. */
   members: number[];
   phase: ExpeditionPhase;
@@ -569,6 +588,20 @@ export interface GameState {
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
   buffs?: Record<string, number>;
+  /** Choice events (sim/events.ts): the one being asked now (its def, prompt and the townsperson it's about), when the
+   *  next may come, the last few drawn (not drawn again soon), the marks answers left on the town (a lever or
+   *  everyone's morale, until a tick), and effects still to come. */
+  event?: { def: string; prompt: number; who?: number };
+  /** The townsperson the player follows (the camera keeps them in view; their big moments send phone alerts). */
+  hero?: number;
+  /** The origin power the player keeps back to cast themselves (sim/powers.ts castHeld). */
+  heldPower?: string;
+  /** When the player can rally a defender again (sim/rally.ts). */
+  rallyReady?: number;
+  nextEventTick?: number;
+  eventLog?: string[];
+  marks?: { lever: string; value: number; until: number; text: string }[];
+  eventLater?: { tick: number; event: string; option: number; index: number; who?: number }[];
   /** Where the town's coins came from and went, today and yesterday (see earn). */
   ledger?: { day: number; today: Ledger; yesterday: Ledger | null };
 }
@@ -628,8 +661,10 @@ export interface JournalEntry extends Notice {
   /** A milestone (finished research or building, a death, a raid's outcome...): "while you were away"
    *  reports list these and only count the rest. */
   key?: true;
-  /** A "while you were away" report: `text` is its title, `lines` the summary. */
+  /** A "while you were away" report: `text` is its title, `lines` the summary, and the three biggest things that
+   *  happened, as pictures (sim/highlights.ts). */
   lines?: string[];
+  highlights?: { text: string; building?: string; person?: number }[];
 }
 
 const MAX_NOTICES = 20;
@@ -637,7 +672,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */

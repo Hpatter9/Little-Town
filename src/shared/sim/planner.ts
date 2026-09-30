@@ -7,6 +7,7 @@ import { buildOrigin, nomadic } from './nomads';
 import { adoptRooms, castleOn, castleSpan, openFloors, roomKind } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
+import { HERDS } from '../data/livestock';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
 import { FOOD_VALUE } from '../data/people';
@@ -21,7 +22,7 @@ import { tireless, addStock, campX, type Building, type GameState } from './stat
 import { TILE } from '../constants';
 import { TICKS_PER_HOUR } from './time';
 import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
-import { wageBill } from './wages';
+import { WAGE_SHARE, wageBill } from './wages';
 import { appealGain, attractiveness, extend, extensionPrice, improve, levelPrice, SALE_GEAR, shopOf, spotFor, tavernOf, venueKind, wouldFurnish } from './shop';
 import { gearScore } from './crafting';
 
@@ -55,6 +56,8 @@ export interface TownPlan {
   waiting: string[];
   /** When it last started a home (the town grows a home at a time). */
   lastHome?: number;
+  /** Beds the last new home added (the next waits longer after a big one). */
+  lastHomeBeds?: number;
 }
 
 /* ------------------------------------------------------------ what the town needs */
@@ -126,6 +129,7 @@ function sourceable(s: GameState, m: Material, depth = 0, buy = true): boolean {
   if (GATHERABLE.has(m) && s.tiles.some((t) => t.terrain !== 'clear' && (t.pool[m] ?? 0) > 0)) return true;
   for (const [id, c] of Object.entries(CROPS)) if (c.material === m && unlocked(s, id)) return true;
   for (const [id, w] of Object.entries(WORKPLACES)) if ((w.outputs as Stock)[m] && unlocked(s, id)) return true;
+  for (const [id, h] of Object.entries(HERDS)) if ((h.yields[m] || (h.forMeat && h.cull[m])) && unlocked(s, id)) return true;
   return RECIPES_FOR(m).some((r) => itemUnlocked(s, r) && unlocked(s, r.station) && (Object.keys(r.cost) as Material[]).every((i) => sourceable(s, i, depth + 1, buy)));
 }
 
@@ -134,19 +138,30 @@ const buyable = (s: GameState, m: Material) => !!shopOf(s) && travellerGoods(s.e
 
 /** Whether every material a building costs can be had (the totem only if it's already in store). */
 function affordable(s: GameState, def: BuildingDef, stock: Stock): boolean {
-  return (Object.entries(def.cost) as [Material, number][]).every(([m, n]) => (stock[m] ?? 0) >= n || (m !== 'totem' && sourceable(s, m)));
+  // (a home is wanted now: not one waiting on what a passing trader might sell, while another the town can make from
+  // its own land would do)
+  const buy = !def.housing || !BUILDINGS.some((h) => h.housing && h !== def && unlocked(s, h.id) && gettable(s, h, stock, false));
+  return gettable(s, def, stock, buy);
+}
+
+/** Whether every material a building costs is in store or can be had (bought from travellers too, with `buy`). */
+function gettable(s: GameState, def: BuildingDef, stock: Stock, buy: boolean): boolean {
+  return (Object.entries(def.cost) as [Material, number][]).every(([m, n]) => (stock[m] ?? 0) >= n || (m !== 'totem' && sourceable(s, m, 0, buy)));
 }
 
 /* ------------------------------------------------------------ research */
 
 const BRANCH_OF = (t: Topic) => t.branch as string;
 
+/** Whether the town could build it from what it can get (nothing it has no source for). */
+const canMake = (d: BuildingDef, n: Needs) => !(Object.keys(d.cost) as Material[]).some((m) => n.unsourced.includes(m));
+
 function topicScore(t: Topic, n: Needs): number {
   let score = 60 / Math.sqrt(t.seconds); // quicker topics first, all else equal
   for (const b of BUILDINGS.filter((d) => d.research === t.id)) {
     score += 4;
-    if (b.housing && n.freeBeds <= 1) score += 30;
-    if (CROPS[b.id] && n.foodDays < 5) score += 25;
+    if (b.housing && n.freeBeds <= 1 && canMake(b, n)) score += 30;
+    if (CROPS[b.id] && CROPS[b.id].material !== 'fiber' && n.foodDays < 5) score += 25;
     if (b.storage && n.storageFill > 0.6) score += 15;
     if (RESEARCH_STATIONS[b.id]) score += 15;
     if (WORKPLACES[b.id]) score += 10;
@@ -165,17 +180,21 @@ function topicScore(t: Topic, n: Needs): number {
     if (e.type === 'eraCapstone') score += 30;
     else if (e.type === 'researchSpeed' || e.type === 'researchSlots') score += n.direction === 'knowledge' ? 18 : 8;
     else if (e.type === 'storage') score += n.storageFill > 0.6 ? 15 : 4;
+    else if (e.type === 'rule' && (e.rule === 'fight' || e.rule === 'guard')) score += n.raided || n.direction === 'defense' ? 14 : 4;
+    else if (e.type === 'rule' && (e.rule === 'travellers' || e.rule === 'prices')) score += n.direction === 'trade' ? 14 : 4;
+    else if (e.type === 'rule' || e.type === 'quality' || e.type === 'powers') score += 8;
     else score += 6;
   }
   if (DIRECTION_DEFS[n.direction].branches.includes(BRANCH_OF(t))) score *= 1.6;
+  if (t.branch === 'heritage') score *= 1.25; // (what the town's people are good at, they like to study)
   if (t.branch === 'occult') score *= 0.35; // (the town dabbles, but it's not what it's for)
   return score;
 }
 
 function whyTopic(t: Topic, n: Needs): string {
   const unlocks = BUILDINGS.filter((d) => d.research === t.id);
-  if (unlocks.some((b) => b.housing) && n.freeBeds <= 1) return 'the town needs more beds';
-  if (unlocks.some((b) => CROPS[b.id]) && n.foodDays < 5) return 'food is running short';
+  if (unlocks.some((b) => b.housing && canMake(b, n)) && n.freeBeds <= 1) return 'the town needs more beds';
+  if (unlocks.some((b) => CROPS[b.id] && CROPS[b.id].material !== 'fiber') && n.foodDays < 5) return 'food is running short';
   if (unlocks.some((b) => isShop(b.id)) && n.unsourced.length) return `it can't get ${names(n.unsourced)} any other way`;
   if (ITEMS.some((i) => i.ware && n.wareGaps.includes(i.ware.tier) && i.research.includes(t.id))) return 'the shop\'s grander customers want finer wares';
   if (t.effects.some((e) => e.type === 'eraCapstone')) return 'it leads to the next era';
@@ -183,13 +202,18 @@ function whyTopic(t: Topic, n: Needs): string {
   return 'it opens new things to build and make';
 }
 
+/** People a town needs before it studies refinements (topics that only make it better at what it does). */
+const REFINE_AT = 4;
+
 function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
   const slots = modifiers(s.research).researchSlots;
   while (s.research.queue.length < slots) {
     let best: Topic | null = null;
     let bestScore = -Infinity;
     for (const t of TOPICS) {
-      if (!canQueue(s.research, t.id, s.era).ok) continue;
+      // (refinements wait until the town is a few people strong: its first days go on shelter and food)
+      if (t.refinement && n.people < REFINE_AT) continue;
+      if (!canQueue(s.research, t.id, s.era, s.origin).ok) continue;
       const sc = topicScore(t, n);
       if (sc > bestScore) {
         best = t;
@@ -197,7 +221,7 @@ function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
       }
     }
     if (!best) break;
-    queueResearch(s.research, best.id, s.era);
+    queueResearch(s.research, best.id, s.era, s.origin);
   }
   const head = s.research.queue[0];
   const t = head ? TOPICS.find((q) => q.id === head) : undefined;
@@ -311,8 +335,9 @@ function planCrafting(s: GameState, n: Needs): Stock {
     if (!venue || !room() || !settled) continue;
     const mine = (i: ItemDef) => furnishes(i, venueKind(venue));
     if (ordered(s, (i) => isFurnishing(i) && mine(i)) || kept(s, (i) => isFurnishing(i) && mine(i))) continue;
-    // (every piece is bought: only what the town can pay for, keeping tomorrow's wages back)
-    const purse = (s.coins ?? 0) - wageBill(s);
+    // (every piece is bought: only what the town can pay for, keeping back what payday will take, which is never more
+    // than a share of the purse, however many there are to pay)
+    const purse = (s.coins ?? 0) - Math.min(wageBill(s), (s.coins ?? 0) * WAGE_SHARE);
     const before = queued();
     tryMake(bestMakeable(s, (i) => mine(i) && wouldFurnish(venue, i) && appealGain(venue, i) >= 1 && saleValue(i, undefined) <= purse, (i) => appealGain(venue, i)));
     commission(venue, before);
@@ -429,15 +454,22 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   };
   // homes: a bed ahead of the people, but only as fast as the town can feed them: food holding up, fields for
   // everyone, and one new home at a time (half a day apart, once past the first few)
-  const fieldsNow = s.buildings.filter((b) => CROPS[b.def] && CROPS[b.def].material !== 'herbs').length;
+  const foodField = (id: string) => !!CROPS[id] && !!FOOD_VALUE[CROPS[id].material];
+  const fieldsNow = s.buildings.filter((b) => foodField(b.def)).length;
   const fed = n.people < 4 || (n.foodDays >= 2 && fieldsNow >= Math.ceil(n.people / 2) - 1);
-  const paced = n.people < 4 || s.tick - (s.plan?.lastHome ?? -Infinity) >= HOME_EVERY;
+  const paced = n.people < 4 || s.tick - (s.plan?.lastHome ?? -Infinity) >= HOME_EVERY * Math.max(1, s.plan?.lastHomeBeds ?? 1);
   if (n.freeBeds < 1 && fed && paced) options((d) => !!d.housing, (d) => d.housing!, `${n.people} people and ${n.people + n.freeBeds} beds`);
   // food: a field for every two people (one or two more when stores are low; never a field per person)
-  const fields = s.buildings.filter((b) => CROPS[b.def] && CROPS[b.def].material !== 'herbs').length;
+  const fields = fieldsNow;
   // (poor soil, like the desert's, feeds fewer per field: while food is short it keeps adding fields)
   const fieldsWanted = Math.ceil(n.people / 2) + (n.foodDays < 3 ? Math.ceil(n.people / 3) : 0);
-  if (fields < Math.min(fieldsWanted, n.people + 1)) options((d) => !!CROPS[d.id] && CROPS[d.id].material !== 'herbs', (d) => CROPS[d.id].yield, n.foodDays < 3 ? 'food is running low' : 'more fields for more people');
+  // (a mix of crops, so one blight can't take them all; and no slow orchard while food is short)
+  const cropPower = (d: BuildingDef) => {
+    const c = CROPS[d.id];
+    const perDay = (c.yield * FOOD_VALUE[c.material]!) / c.growHours;
+    return (c.establishHours && n.foodDays < 3 ? perDay / 4 : perDay) / (1 + count(d.id));
+  };
+  if (fields < Math.min(fieldsWanted, n.people + 1)) options((d) => foodField(d.id), cropPower, n.foodDays < 3 ? 'food is running low' : 'more fields for more people');
   // the phylactery, first of all, once it's decided
   if (s.lichChosen && !planned(s, 'phylactery')) add('phylactery', `to bind ${s.people.find((p) => p.id === s.mainId)?.name ?? 'the founder'}'s soul`);
   // a shop, first thing, when the land can't give what the town needs (a desert's fiber, once it's gathered out)
@@ -477,9 +509,49 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || CAPSTONES.includes(d.id)) continue;
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
     if (venueOfDef(d.id)) continue; // (one shop and one tavern, which grow by being rebuilt bigger)
-    add(d.id, WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
+    add(d.id, HERDS[d.id] ? `to keep ${HERDS[d.id].plural}` : WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
   }
   return out;
+}
+
+/** Whether rebuilding a home would leave people without a bed while it's built (the beds elsewhere can't take them). */
+const displaces = (s: GameState, b: { def: string }, allow = 0) => {
+  const beds = BUILDING_BY_ID[b.def]?.housing ?? 0;
+  return beds > 0 && housingCapacity(s) - beds + allow < s.people.length;
+};
+
+/** Up to this many people may sleep rough for the short while a small home is rebuilt. */
+const SLEEP_ROUGH = 2;
+
+/** Keeps the town from sprawling into small houses: with beds to spare, the smallest home is rebuilt as the next
+ *  kind up, where it stands (its people sleep in the spare beds meanwhile). One at a time, once fed. */
+function consolidateHomes(s: GameState, back: readonly BackTerrain[], n: Needs, plan: TownPlan, needBeds = false): boolean {
+  // (for more beds, any time a new home would do; otherwise only in a quiet spell, with nothing else being built)
+  if (!needBeds && (n.people < 4 || n.foodDays < 3 || blueprintCount(s) > 0)) return false;
+  const homes = s.buildings
+    .filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.housing && UPGRADES[b.def])
+    .sort((a, b) => BUILDING_BY_ID[a.def].housing! - BUILDING_BY_ID[b.def].housing!);
+  for (const b of homes) {
+    const from = BUILDING_BY_ID[b.def];
+    const to = BUILDING_BY_ID[UPGRADES[b.def]];
+    if (!to?.housing || to.housing <= from.housing! || !affordable(s, to, n.stock)) continue;
+    // where it stands if there's room; else pulled down with the same kind of home next door, the two made one
+    let absorb: Building | undefined;
+    if (!canUpgrade(s, back, b.id).ok) {
+      absorb = s.buildings.find((q) => q !== b && q.def === b.def && q.status === 'done' && (q.floor ?? 0) === (b.floor ?? 0) && (q.tile === b.tile + from.width || q.tile + from.width === b.tile));
+      // (more beds are wanted: only if the one home has more than the two)
+      if (!absorb || (needBeds && to.housing <= 2 * from.housing!) || !canUpgrade(s, back, b.id, absorb.id).ok) continue;
+    }
+    if (displaces(s, b, SLEEP_ROUGH - (absorb ? from.housing! : 0))) continue;
+    const was = absorb ? `two ${from.name}s` : `the ${from.name}`;
+    if (upgrade(s, back, b.id, absorb?.id).ok) {
+      plan.build = { def: to.id, why: needBeds ? `more beds: ${was} rebuilt bigger` : `a better home than ${was}` };
+      plan.lastHome = s.tick;
+      plan.lastHomeBeds = to.housing - from.housing! * (absorb ? 2 : 1);
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Place the next building the town wants (one at a time), or upgrade one. Returns wild tiles to clear for a
@@ -488,14 +560,27 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
   adoptRooms(s);
   if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
+  if (consolidateHomes(s, back, n, plan)) return clear;
   let blocked: BuildingDef | null = null;
+  let triedUpgrade = false;
   for (const w of wishes(s, n)) {
     const def = BUILDING_BY_ID[w.def];
+    // (beds wanted: a bigger home where a small one stands comes before another home beside it)
+    if (def.housing && !triedUpgrade) {
+      triedUpgrade = true;
+      if (consolidateHomes(s, back, n, plan, true)) return clear;
+    }
     if (!affordable(s, def, n.stock)) continue;
     let tile: number | null;
     let room: { floor: number } | undefined;
-    if (roomKind(s, def) && roomSpot(s, back, def)) {
-      const spot = roomSpot(s, back, def)!;
+    if (roomKind(s, def)) {
+      // (a castle town builds it inside the keep, or waits: the keep grows wider each era, and the land under it is
+      // cleared first)
+      const spot = roomSpot(s, back, def);
+      if (!spot) {
+        blocked ??= def;
+        continue;
+      }
       tile = spot.tile;
       room = { floor: spot.floor };
     } else if (isWall(def)) {
@@ -509,12 +594,15 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
       tile = spot.tile;
     } else tile = findSpot(s, back, def);
     if (tile === null) {
-      if (def.layer !== 'back') blocked ??= def; // (the back fields need meadow; nothing to clear there)
+      blocked ??= def; // (clearing the land in front of the fields clears the ground behind it too)
       continue;
     }
     if (placeBlueprint(s, back, def.id, tile, room).ok) {
       plan.build = w;
-      if (def.housing) plan.lastHome = s.tick;
+      if (def.housing) {
+        plan.lastHome = s.tick;
+        plan.lastHomeBeds = def.housing;
+      }
       return clear;
     }
   }
@@ -522,13 +610,20 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
   for (const b of s.buildings) {
     if (b.status !== 'done' || !UPGRADES[b.def]) continue;
     const to = BUILDING_BY_ID[UPGRADES[b.def]];
-    if (!to || !affordable(s, to, n.stock) || !canUpgrade(s, back, b.id).ok) continue;
+    if (!to || !affordable(s, to, n.stock) || displaces(s, b) || !canUpgrade(s, back, b.id).ok) continue;
+    const was = BUILDING_BY_ID[b.def].name;
     if (upgrade(s, back, b.id).ok) {
-      plan.build = { def: to.id, why: `a better ${BUILDING_BY_ID[b.def].name}` };
+      plan.build = { def: to.id, why: `a better ${was}` };
       return clear;
     }
   }
-  if (blocked) {
+  if (blocked && roomKind(s, blocked)) {
+    // (a castle's room: the keep's own ground cleared, or it waits for the keep to grow)
+    const [lo, hi] = castleSpan(s);
+    const wild = s.tiles.map((t, i) => ({ t, i })).filter(({ t, i }) => i >= lo && i < hi && t.terrain !== 'clear');
+    plan.waiting.push(wild.length ? `No room in the keep for a ${blocked.name}: clearing its ground` : `The keep is full: the ${blocked.name} waits for it to grow`);
+    for (const { i } of wild.slice(0, blocked.width + 1)) clear.push(i);
+  } else if (blocked) {
     plan.waiting.push(`No room for a ${blocked.name}: clearing land`);
     // the nearest wild land, out from the camp
     const c = campTile(s);
@@ -685,7 +780,7 @@ export function runPlanner(s: GameState, back: readonly BackTerrain[]): void {
   if (s.gameOver || s.autopilot === false || s.tick % PLAN_TICKS !== 0) return;
   const n = needs(s);
   makeRoom(s, n);
-  const plan: TownPlan = { build: s.plan?.build ?? null, research: null, gathering: [], waiting: [], lastHome: s.plan?.lastHome };
+  const plan: TownPlan = { build: s.plan?.build ?? null, research: null, gathering: [], waiting: [], lastHome: s.plan?.lastHome, lastHomeBeds: s.plan?.lastHomeBeds };
   planResearch(s, n, plan);
   const craftWants = planCrafting(s, n);
   const clear = planBuilding(s, back, n, plan);

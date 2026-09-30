@@ -18,6 +18,25 @@
   },
   "license": "UNLICENSED",
   "devDependencies": {
+    "@fontsource/alegreya": "^5.3.0",
+    "@fontsource/alegreya-sans": "^5.3.0",
+    "@fontsource/alegreya-sc": "^5.3.0",
+    "@fontsource/berkshire-swash": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/crimson-text": "^5.3.0",
+    "@fontsource/eb-garamond": "^5.3.0",
+    "@fontsource/fondamento": "^5.3.0",
+    "@fontsource/grenze-gotisch": "^5.3.0",
+    "@fontsource/im-fell-english": "^5.3.0",
+    "@fontsource/im-fell-english-sc": "^5.3.0",
+    "@fontsource/marcellus-sc": "^5.3.0",
+    "@fontsource/medievalsharp": "^5.3.0",
+    "@fontsource/new-rocker": "^5.3.0",
+    "@fontsource/orbitron": "^5.3.0",
+    "@fontsource/pirata-one": "^5.3.0",
+    "@fontsource/quicksand": "^5.3.0",
+    "@fontsource/share-tech-mono": "^5.3.0",
+    "@fontsource/uncial-antiqua": "^5.3.0",
     "@types/node": "^26.6.2",
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
@@ -31,10 +50,23 @@
   "build": {
     "appId": "local.littletown",
     "productName": "Chronos Settlement",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["out/**/*", "!out/**/*.map", "!out/test/**", "package.json"],
-    "asarUnpack": ["node_modules/koffi/**"],
-    "win": { "target": "nsis", "icon": "build/icon.ico" },
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "!out/**/*.map",
+      "!out/test/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,

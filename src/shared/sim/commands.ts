@@ -33,6 +33,8 @@ export type Command =
   | { type: 'researchNext'; topic: string }
   /** Send a party (leader first) to a destination, with a role for each member and a stance. */
   | { type: 'sendExpedition'; dest: string; members: number[]; roles?: Record<number, Role>; stance?: Stance; horses?: number; truck?: boolean }
+  /** Send a party the town plans, at the stakes the player picks (safe or risky). */
+  | { type: 'sendParty'; dest: string; stakes: 'safe' | 'risky' }
   /** Pass on a curse (hidden): turn one person, or everyone who can be. */
   | { type: 'turnPerson'; person: number; kind: MonsterKind }
   | { type: 'turnTown'; kind: MonsterKind }
@@ -50,6 +52,13 @@ export type Command =
   | { type: 'setOrder'; person: number; order: StandingOrder }
   /** Answer a question from the road. */
   | { type: 'answerPrompt'; prompt: number; option: number }
+  /** Keep one of the origin's powers back to cast yourself (null: let the town cast them all), and cast it. */
+  | { type: 'holdPower'; power: string | null }
+  | { type: 'castHeld' }
+  /** Follow a townsperson (null: nobody). */
+  | { type: 'follow'; person: number | null }
+  /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
+  | { type: 'rally'; person: number }
   /** Turn a party around. */
   | { type: 'recallExpedition'; expedition: number }
   /** Let the waiting visitor join, or send them on their way. */
@@ -113,6 +122,8 @@ export function parseCommand(raw: unknown): Command | null {
     case 'cancelResearch':
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
+    case 'sendParty':
+      return typeof c.dest === 'string' && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendParty', dest: c.dest, stakes: c.stakes } : null;
     case 'sendExpedition': {
       if (typeof c.dest !== 'string' || !DESTINATION_BY_ID[c.dest] || !Array.isArray(c.members) || !c.members.every(Number.isInteger)) return null;
       const stance = (typeof c.stance === 'string' && c.stance in STANCES ? c.stance : 'balanced') as Stance;
@@ -131,6 +142,14 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.prisoner) ? { type: 'releasePrisoner', prisoner: c.prisoner as number } : null;
     case 'setOrder':
       return Number.isInteger(c.person) && typeof c.order === 'string' && c.order in ORDER_NAMES ? { type: 'setOrder', person: c.person as number, order: c.order as StandingOrder } : null;
+    case 'holdPower':
+      return c.power === null || typeof c.power === 'string' ? { type: 'holdPower', power: c.power as string | null } : null;
+    case 'castHeld':
+      return { type: 'castHeld' };
+    case 'follow':
+      return c.person === null || Number.isInteger(c.person) ? { type: 'follow', person: c.person as number | null } : null;
+    case 'rally':
+      return Number.isInteger(c.person) ? { type: 'rally', person: c.person as number } : null;
     case 'answerPrompt':
       return Number.isInteger(c.prompt) && Number.isInteger(c.option) ? { type: 'answerPrompt', prompt: c.prompt as number, option: c.option as number } : null;
     case 'recallExpedition':

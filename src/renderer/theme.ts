@@ -7,6 +7,7 @@
 import type { PanelId } from '../shared/ipc';
 import type { ThemeId } from '../shared/sim/snapshot';
 import { skinCss } from './skins';
+import { fontFaces, fontStacks } from './fonts';
 
 export type Theme = ThemeId;
 export type Page = 'phone' | 'panel' | 'strip';
@@ -31,7 +32,6 @@ interface Palette {
   fill: [string, string];
   low: [string, string];
   card: string;
-  font: string;
   /** Before each window's title (a CSS escape). */
   glyph: string;
   /** Over the menus: three soft blots of colour, or the machines' scan-lines. */
@@ -53,7 +53,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#4f6b3a', btn: '#241c2e', btnHover: '#342a42', on: '#3d5a33', onRim: '#8ad070', glow: 'rgba(138, 208, 112, 0.45)',
     text: '#dfe8d0', dim: '#9aa88a', heading: '#a8d890', headingGlow: 'rgba(120, 220, 120, 0.35)',
     fill: ['#3f7a34', '#9ae070'], low: ['#5a1a3a', '#a83a6a'], card: 'rgba(24, 18, 32, 0.95)',
-    font: "Georgia, 'Palatino Linotype', serif", glyph: '\\2620',
+    glyph: '\\2620',
     mist: ['rgba(140, 220, 140, 0.07)', 'rgba(170, 120, 220, 0.08)', 'rgba(160, 200, 160, 0.06)'],
     canvas: 'saturate(0.5) hue-rotate(-18deg) brightness(0.88) contrast(1.08)', vignette: 'rgba(18, 4, 28, 0.55)',
     page: ['#07050b', '#150e1e', '#120e16'],
@@ -65,7 +65,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#6a8a3a', btn: '#1e2a1a', btnHover: '#2a3a22', on: '#3f6a2a', onRim: '#b8e070', glow: 'rgba(170, 220, 100, 0.4)',
     text: '#e6efd6', dim: '#a3b58a', heading: '#b8e08a', headingGlow: 'rgba(160, 220, 110, 0.35)',
     fill: ['#4a8a2a', '#b8e070'], low: ['#7a4a1a', '#c08030'], card: 'rgba(22, 32, 18, 0.95)',
-    font: "Georgia, 'Palatino Linotype', serif", glyph: '\\2766',
+    glyph: '\\2766',
     mist: ['rgba(180, 230, 120, 0.07)', 'rgba(240, 220, 120, 0.05)', 'rgba(120, 200, 120, 0.06)'],
     canvas: 'saturate(1.25) hue-rotate(8deg) brightness(1.02)', vignette: 'rgba(10, 30, 6, 0.35)',
     page: ['#081006', '#122012', '#10170e'],
@@ -77,7 +77,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#7a1a2a', btn: '#2a0e14', btnHover: '#3a1420', on: '#6a1424', onRim: '#e0506a', glow: 'rgba(220, 40, 70, 0.45)',
     text: '#f0dada', dim: '#b08a8e', heading: '#ff8a9a', headingGlow: 'rgba(220, 40, 70, 0.4)',
     fill: ['#7a1024', '#e0405a'], low: ['#3a0a14', '#7a1a2a'], card: 'rgba(32, 10, 16, 0.95)',
-    font: "'Palatino Linotype', Georgia, serif", glyph: '\\2720',
+    glyph: '\\2720',
     mist: ['rgba(200, 30, 60, 0.07)', 'rgba(120, 20, 40, 0.08)', 'rgba(180, 60, 90, 0.05)'],
     canvas: 'saturate(0.7) hue-rotate(-12deg) brightness(0.8) contrast(1.1)', vignette: 'rgba(40, 0, 10, 0.6)',
     page: ['#070204', '#1a060c', '#12070a'],
@@ -89,7 +89,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#5a7aa8', btn: '#182236', btnHover: '#22304a', on: '#2e4a78', onRim: '#9ac0f0', glow: 'rgba(140, 180, 255, 0.45)',
     text: '#e2eaf6', dim: '#93a4bd', heading: '#b8d4ff', headingGlow: 'rgba(140, 180, 255, 0.4)',
     fill: ['#3a5a9a', '#a8c8ff'], low: ['#5a2a2a', '#a04a3a'], card: 'rgba(18, 26, 40, 0.95)',
-    font: "Georgia, 'Palatino Linotype', serif", glyph: '\\263E',
+    glyph: '\\263E',
     mist: ['rgba(160, 190, 255, 0.07)', 'rgba(220, 230, 255, 0.05)', 'rgba(100, 140, 220, 0.06)'],
     canvas: 'saturate(0.75) hue-rotate(15deg) brightness(0.9)', vignette: 'rgba(4, 10, 30, 0.5)',
     page: ['#04070e', '#0e1626', '#0b1018'],
@@ -101,7 +101,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#2ad07a', btn: '#0e1c16', btnHover: '#15281f', on: '#125a36', onRim: '#5affa8', glow: 'rgba(80, 255, 160, 0.45)',
     text: '#c8ffe0', dim: '#6ab08a', heading: '#5affa8', headingGlow: 'rgba(80, 255, 160, 0.45)',
     fill: ['#1a8a4a', '#6affb0'], low: ['#8a5a1a', '#e0a040'], card: 'rgba(10, 22, 16, 0.95)',
-    font: "'Courier New', 'Lucida Console', monospace", glyph: '\\25A3',
+    glyph: '\\25A3',
     mist: 'scanlines',
     canvas: 'saturate(0.55) contrast(1.15) brightness(0.95)', vignette: 'rgba(0, 20, 10, 0.45)',
     page: ['#020604', '#08140e', '#07100c'],
@@ -113,7 +113,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#b88a3a', btn: '#2a221a', btnHover: '#3a2e22', on: '#6a4a20', onRim: '#f0c060', glow: 'rgba(240, 190, 90, 0.4)',
     text: '#f4e6cc', dim: '#b8a484', heading: '#f0c060', headingGlow: 'rgba(240, 190, 90, 0.35)',
     fill: ['#a86a1a', '#f0c060'], low: ['#6a2a1a', '#a84a2a'], card: 'rgba(36, 28, 20, 0.95)',
-    font: "'Palatino Linotype', Georgia, serif", glyph: '\\2692',
+    glyph: '\\2692',
     mist: ['rgba(240, 160, 60, 0.05)', 'rgba(200, 120, 40, 0.05)', 'rgba(160, 140, 120, 0.05)'],
     canvas: 'saturate(0.9) sepia(0.2) brightness(0.92)', vignette: 'rgba(20, 10, 0, 0.45)',
     page: ['#0a0805', '#1c150e', '#15110c'],
@@ -125,7 +125,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#3aa8b8', btn: '#0e2230', btnHover: '#163044', on: '#146a7a', onRim: '#7ae8f0', glow: 'rgba(120, 230, 240, 0.4)',
     text: '#d8f4f8', dim: '#88b8c4', heading: '#7ae8f0', headingGlow: 'rgba(120, 230, 240, 0.4)',
     fill: ['#1a7a8a', '#8af0f0'], low: ['#6a3a2a', '#b06040'], card: 'rgba(10, 28, 40, 0.95)',
-    font: "Georgia, 'Palatino Linotype', serif", glyph: '\\2248',
+    glyph: '\\2248',
     mist: ['rgba(120, 220, 240, 0.07)', 'rgba(80, 160, 220, 0.06)', 'rgba(200, 240, 250, 0.05)'],
     canvas: 'saturate(0.9) hue-rotate(10deg) brightness(0.97)', vignette: 'rgba(0, 30, 40, 0.35)',
     page: ['#030a10', '#0a1c28', '#06121a'],
@@ -138,7 +138,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#b83a2a', btn: '#fdf5e2', btnHover: '#f0dcb0', on: '#c0392b', onRim: '#e8c040', glow: 'rgba(232, 160, 48, 0.45)',
     text: '#3a2414', dim: '#7a5a3a', heading: '#b83a2a', headingGlow: 'rgba(255, 255, 255, 0.6)',
     fill: ['#c0392b', '#e8a030'], low: ['#6a2a1a', '#a84a2a'], card: '#fdf5e2',
-    font: "'Segoe UI', system-ui, sans-serif", glyph: '\\2726',
+    glyph: '\\2726',
     mist: ['rgba(240, 180, 100, 0.06)', 'rgba(220, 140, 60, 0.05)', 'rgba(250, 210, 150, 0.05)'],
     canvas: 'saturate(1.1) sepia(0.25) brightness(1.03)', vignette: 'rgba(40, 20, 0, 0.3)',
     page: ['#0e0904', '#241810', '#1a120a'],
@@ -150,7 +150,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#d07ae0', btn: '#2a1836', btnHover: '#3a2248', on: '#6a3a86', onRim: '#f8b0ff', glow: 'rgba(255, 160, 255, 0.45)',
     text: '#fbeaff', dim: '#c4a4d0', heading: '#ffc4ff', headingGlow: 'rgba(255, 160, 255, 0.45)',
     fill: ['#a04ad0', '#ffb8f8'], low: ['#5a2a4a', '#a04a7a'], card: 'rgba(34, 20, 44, 0.94)',
-    font: "Georgia, 'Palatino Linotype', serif", glyph: '\\2727',
+    glyph: '\\2727',
     mist: ['rgba(255, 170, 255, 0.08)', 'rgba(140, 240, 230, 0.06)', 'rgba(255, 230, 160, 0.05)'],
     canvas: 'saturate(1.3) hue-rotate(-25deg) brightness(1.05)', vignette: 'rgba(40, 0, 50, 0.35)',
     page: ['#0a0610', '#1e1028', '#140c1a'],
@@ -162,7 +162,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#c8a03a', btn: '#1e1e2a', btnHover: '#2a2a38', on: '#4a3a1a', onRim: '#e0c060', glow: 'rgba(160, 255, 120, 0.3)',
     text: '#eee8d8', dim: '#a8a088', heading: '#e0c060', headingGlow: 'rgba(160, 255, 120, 0.25)',
     fill: ['#6a9a1a', '#e0e060'], low: ['#6a1a4a', '#a83a7a'], card: 'rgba(22, 22, 32, 0.95)',
-    font: "'Palatino Linotype', Georgia, serif", glyph: '\\2697',
+    glyph: '\\2697',
     mist: ['rgba(160, 255, 120, 0.06)', 'rgba(220, 200, 90, 0.05)', 'rgba(180, 120, 255, 0.05)'],
     canvas: 'saturate(0.9) hue-rotate(-8deg) brightness(0.95)', vignette: 'rgba(10, 20, 0, 0.35)',
     page: ['#060608', '#14141c', '#0e0f14'],
@@ -174,7 +174,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     edge: '#9aa4b8', btn: '#22262f', btnHover: '#2e3340', on: '#3a4a6a', onRim: '#d8b860', glow: 'rgba(216, 184, 96, 0.4)',
     text: '#eef0f6', dim: '#a8aebc', heading: '#d8b860', headingGlow: 'rgba(216, 184, 96, 0.3)',
     fill: ['#3a5a9a', '#d8b860'], low: ['#6a1a1a', '#a83a3a'], card: 'rgba(26, 28, 38, 0.95)',
-    font: "'Palatino Linotype', Georgia, serif", glyph: '\\2720',
+    glyph: '\\2720',
     mist: ['rgba(200, 210, 230, 0.05)', 'rgba(216, 184, 96, 0.04)', 'rgba(160, 170, 200, 0.05)'],
     canvas: 'saturate(0.85) brightness(0.96) contrast(1.05)', vignette: 'rgba(10, 10, 20, 0.35)',
     page: ['#06070a', '#161922', '#0e1016'],
@@ -188,6 +188,16 @@ export const panelLabel = (id: PanelId, label: string, theme: Theme) => (theme =
 export const buildingTint = (theme: Theme): [string, number] | null => (theme === 'town' ? null : PALETTES[theme].tint);
 
 let current: Theme = 'town';
+
+// every page: the bundled faces, and the base game's pair as the default (a theme overrides the two variables)
+if (typeof document !== 'undefined' && !document.getElementById('fonts')) {
+  const style = document.createElement('style');
+  style.id = 'fonts';
+  const [display, body] = fontStacks('town');
+  style.textContent = `${fontFaces()}\n:root { --font-display: ${display}; --font-body: ${body}; }
+:root h1, :root h2, :root .era-head, :root .shop-tier-name, :root #title, :root #top-title, :root .tab, :root #tabs button { font-family: var(--font-display); }`;
+  document.head.prepend(style);
+}
 export const currentTheme = () => current;
 
 /** Switch a page's look. Returns true when it changed (so the page can rename what it shows). */
@@ -223,7 +233,7 @@ ${T} {
   --btn: ${p.btn}; --btn-hover: ${p.btnHover}; --btn-on: ${p.on}; --btn-active: ${p.on};
   --text: ${p.text}; --text-dim: ${p.dim};
 }
-${T} body { font-family: ${p.font}; }
+${T} { --font-display: ${fontStacks(id)[0]}; --font-body: ${fontStacks(id)[1]}; }
 ${T}.page-panel body::after, ${T}.page-phone body::after {
   content: ''; position: fixed; inset: -10%; pointer-events: none; z-index: 50;
   background: ${mist};

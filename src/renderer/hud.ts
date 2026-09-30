@@ -34,7 +34,10 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
   let musicOn = false;
   const music = el('button', { class: 'tab music', title: 'Music on/off' }, '♪');
   music.addEventListener('click', () => bridge.setMusic(!musicOn));
-  clock.append(clockText, pause, music, raid, bleed, hunger, doom, launch, foodDays, stock);
+  // the power the player holds back: theirs to cast in a raid (sim/powers.ts castHeld)
+  const cast = el('button', { class: 'tab cast', hidden: '' });
+  cast.addEventListener('click', () => bridge.command({ type: 'castHeld' }));
+  clock.append(clockText, pause, music, cast, raid, bleed, hunger, doom, launch, foodDays, stock);
   const flash = el('div', { id: 'raid-flash', hidden: '' });
   document.body.append(flash);
   // an epic boss's health bar, across the top of the strip
@@ -129,6 +132,16 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
       const r = snap.raid;
       raid.hidden = !r;
       flash.hidden = !r || stripMode !== 'full';
+      const mine = snap.powers.find((p) => p.held);
+      cast.hidden = !r || !mine;
+      if (r && mine) {
+        const ready = mine.readyHours <= 0 && mine.affordable;
+        const t = ready ? `Cast ${mine.name}!` : mine.readyHours > 0 ? `${mine.name} in ${Math.ceil(mine.readyHours)}h` : `${mine.name}: can't pay`;
+        if (cast.textContent !== t) cast.textContent = t;
+        cast.toggleAttribute('disabled', !ready);
+        cast.classList.toggle('primary', ready);
+        cast.title = mine.description;
+      }
       if (r) {
         const t = r.phase === 'warning' ? `${r.name} in ${Math.ceil(r.secondsToArrival)}s` : `${r.name} in town!${r.hexes.length ? ` · ${r.hexes.join(' · ')}` : ''}`;
         if (raid.textContent !== t) raid.textContent = t;

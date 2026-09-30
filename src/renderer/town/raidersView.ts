@@ -12,6 +12,10 @@ import type { HumanSprite, MachineSprite, StillSprite } from '../../shared/data/
 import { stillTexture } from '../art/stills';
 import { machineFrame, machineSize } from '../art/machines';
 import { WALK_Y } from './townView';
+import { PLINTH, ROOM_H } from '../../shared/sim/castle';
+
+/** A keep's ground floor stands this far above the walkway (as in peopleView). */
+const FLOOR_LIFT = WALK_Y + 2 + PLINTH + 3;
 
 interface Drawn {
   view: RaiderView;
@@ -173,6 +177,10 @@ export class RaidersView {
           .rect(x - w / 2, top - 4, Math.max(1, Math.round((w * r.hp) / r.maxHp)), 2)
           .fill(r.ally ? 0x8cc05a : 0xe06040);
       }
+      // up a castle's keep: lifted to the floor it has climbed to
+      const lift = r.floor !== null ? Math.round(FLOOR_LIFT + r.floor * ROOM_H) : 0;
+      for (const o of [s, d.spark, d.blast, d.magic, d.load]) o.y -= lift;
+      d.bar.y = -lift;
     }
   }
 
@@ -180,7 +188,8 @@ export class RaidersView {
   raiderAt(localX: number, localY: number): RaiderView | null {
     for (const d of this.drawn.values()) {
       if (d.view.down) continue;
-      if (Math.abs(localX - d.x) <= 16 && localY <= WALK_Y + 4 && localY >= WALK_Y - 50) return d.view;
+      const lift = d.view.floor !== null ? FLOOR_LIFT + d.view.floor * ROOM_H : 0;
+      if (Math.abs(localX - d.x) <= 16 && localY + lift <= WALK_Y + 4 && localY + lift >= WALK_Y - 50) return d.view;
     }
     return null;
   }

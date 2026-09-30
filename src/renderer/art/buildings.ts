@@ -47,6 +47,32 @@ function stones(p: Painter, x0: number, x1: number, y: number): void {
   }
 }
 
+/** A fenced paddock (rails on posts) over a floor of grass, mud or straw. */
+function paddock(p: Painter, w: number, h: number, floor: 'grass' | 'mud' | 'straw'): void {
+  const [base, fleck] = floor === 'mud' ? [PAL.mud, PAL.dirtDark] : floor === 'straw' ? [PAL.dirt, '#d8c070'] : [PAL.grass, PAL.grassLight];
+  p.rect(1, h - 5, w - 2, 5, base);
+  for (let x = 2; x < w - 2; x += 3) p.rect(x, h - 4 + (x % 2), 2, 1, fleck);
+  if (floor === 'mud') for (let x = 6; x < w - 8; x += 13) p.ellipse(x, h - 2, 3, 1, PAL.waterDark);
+  // the fence: posts and two rails, along the front
+  for (let x = 1; x < w; x += 7) {
+    p.rect(x, h - 12, 2, 12, PAL.trunkDark);
+    p.px(x, h - 12, PAL.trunkLight);
+  }
+  for (const y of [h - 10, h - 6]) {
+    p.rect(1, y, w - 2, 1, PAL.trunkLight);
+    p.rect(1, y + 1, w - 2, 1, PAL.trunk);
+  }
+}
+
+/** A wooden feed trough. */
+function trough(p: Painter, x: number, y: number, w: number): void {
+  p.rect(x, y - 3, w, 3, PAL.trunk);
+  p.rect(x, y - 3, w, 1, PAL.trunkLight);
+  p.rect(x + 1, y - 2, w - 2, 1, GRAIN);
+  p.rect(x + 1, y, 1, 2, PAL.trunkDark);
+  p.rect(x + w - 2, y, 1, 2, PAL.trunkDark);
+}
+
 /** A thatched or hide roof as a triangle from (x0..x1) at base y up to a peak. */
 function roof(p: Painter, x0: number, x1: number, base: number, peak: number, color: string, dark: string): void {
   const mid = (x0 + x1) / 2;
@@ -97,6 +123,25 @@ const ART: Record<string, { h: number; draw: Draw }> = {
       p.rect(w / 2 - 6, h - 20, 12, 20, '#3a2a1c'); // doorway
       p.rect(w / 2 - 7, h - 21, 3, 21, HIDE_LIGHT); // flap
       for (let y = 18; y < h - 4; y += 9) p.rect(w / 2 - 20 + y / 3, y, 6, 1, HIDE_LIGHT);
+    },
+  },
+  longhouse: {
+    h: 54,
+    draw: (p, w, h) => {
+      // A long, low timber hall: log walls under a deep thatched roof that comes down nearly to the ground.
+      p.rect(4, h - 20, w - 8, 20, PAL.trunkDark);
+      for (let y = h - 19; y < h; y += 4) beam(p, 5, y, w - 10, 3); // stacked log walls
+      roof(p, 0, w, h - 16, 6, THATCH, THATCH_DARK);
+      for (let x = 3; x < w - 3; x += 5) p.rect(x, h - 17, 2, 2, THATCH_DARK); // ragged eaves
+      p.rect(w / 2 - 1, 2, 2, 5, PAL.trunkDark); // ridge pole ends
+      p.rect(w / 2 - 6, 3, 1, 4, PAL.trunkDark);
+      p.rect(w / 2 + 5, 3, 1, 4, PAL.trunkDark);
+      p.rect(w / 2 - 7, h - 14, 14, 14, '#3a2a1c'); // doorway, and a warm glow inside
+      p.rect(w / 2 - 4, h - 8, 8, 8, '#6a3a1c');
+      p.rect(w / 2 - 8, h - 15, 16, 2, PAL.trunk); // lintel
+      p.rect(12, h - 12, 6, 4, '#f0d890'); // smoke-hole windows
+      p.rect(w - 18, h - 12, 6, 4, '#f0d890');
+      for (const x of [w / 2 - 12, w / 2 + 10]) p.rect(x, h - 22, 2, 22, PAL.trunkLight); // carved door posts
     },
   },
   workbench: {
@@ -208,6 +253,169 @@ const ART: Record<string, { h: number; draw: Draw }> = {
           p.rect(x - 1, h - 17, 3, 3, GRAIN);
         }
       }
+    },
+  },
+  flax_field: {
+    h: 24,
+    draw: (p, w, h, stage = 'ripe') => {
+      p.rect(2, h - 7, w - 4, 7, PAL.soil);
+      for (let y = h - 6; y < h; y += 3) p.rect(2, y, w - 4, 1, PAL.soilLight);
+      if (stage === 'fallow') return;
+      for (let x = 4; x < w - 3; x += 2) {
+        const tall = stage === 'sprout' ? 3 : stage === 'tall' ? 10 : 13;
+        const lean = x % 4 === 0 ? 0 : 1;
+        p.rect(x, h - 6 - tall, 1, tall, stage === 'ripe' ? '#a8a060' : PAL.leafLight);
+        // (blue flowers while it grows; golden seed heads when it's ready)
+        if (stage === 'tall' && x % 3 === 0) p.rect(x - lean, h - 7 - tall, 2, 2, '#6a8ee0');
+        if (stage === 'ripe') p.rect(x - lean, h - 7 - tall, 2, 2, '#c8a848');
+      }
+    },
+  },
+  vegetable_patch: {
+    h: 22,
+    draw: (p, w, h, stage = 'ripe') => {
+      p.rect(2, h - 7, w - 4, 7, PAL.soil);
+      // raised beds, edged with boards
+      for (const y of [h - 7, h - 1]) p.rect(2, y, w - 4, 1, PAL.trunk);
+      for (let x = 3; x < w - 3; x += 3) p.px(x, h - 4, PAL.soilLight);
+      if (stage === 'fallow') return;
+      for (let x = 6; x < w - 4; x += 6) {
+        const row = (x / 6) % 3;
+        if (stage === 'sprout') {
+          p.rect(x, h - 9, 1, 2, PAL.leafLight);
+          p.rect(x + 1, h - 10, 1, 1, PAL.leafLight);
+          continue;
+        }
+        const big = stage === 'ripe' ? 1 : 0;
+        if (row === 0) {
+          // cabbages
+          p.disc(x, h - 9, 3 + big, PAL.leaf);
+          p.disc(x, h - 10, 2 + big, PAL.leafLight);
+        } else if (row === 1) {
+          // carrots: feathery tops, orange shoulders once ready
+          for (const dx of [-1, 0, 1]) p.rect(x + dx, h - 13 + Math.abs(dx), 1, 5, PAL.leafLight);
+          if (big) p.rect(x - 1, h - 8, 3, 2, '#e07a2a');
+        } else {
+          // beans up canes
+          p.rect(x, h - 18, 1, 11, PAL.trunkLight);
+          for (let y = h - 17; y < h - 8; y += 3) p.rect(x - 1 + ((y / 3) % 2), y, 2, 2, PAL.leaf);
+          if (big) p.rect(x + 1, h - 14, 1, 3, '#8ab44a');
+        }
+      }
+    },
+  },
+  orchard: {
+    h: 40,
+    draw: (p, w, h, stage = 'ripe') => {
+      p.rect(1, h - 4, w - 2, 4, PAL.grassDark);
+      for (let x = 2; x < w - 2; x += 3) p.rect(x, h - 5 + (x % 2), 2, 1, PAL.grass);
+      const trees = Math.max(2, Math.floor(w / 30));
+      for (let i = 0; i < trees; i++) {
+        const x = Math.round(((i + 0.5) * w) / trees);
+        if (stage === 'fallow') {
+          // staked out, waiting to be planted
+          p.rect(x, h - 10, 1, 7, PAL.trunkLight);
+          continue;
+        }
+        if (stage === 'sprout') {
+          // saplings tied to their stakes
+          p.rect(x + 2, h - 16, 1, 13, PAL.trunkLight);
+          p.rect(x, h - 14, 2, 11, PAL.trunk);
+          p.disc(x + 1, h - 16, 4, PAL.leaf);
+          p.disc(x, h - 17, 2, PAL.leafLight);
+          continue;
+        }
+        p.rect(x - 1, h - 20, 4, 17, PAL.trunk);
+        p.rect(x - 1, h - 20, 1, 17, PAL.trunkLight);
+        p.rect(x - 4, h - 22, 3, 2, PAL.trunk); // limbs
+        p.rect(x + 3, h - 23, 3, 2, PAL.trunk);
+        p.disc(x + 1, h - 28, 10, PAL.leafDark);
+        p.disc(x - 1, h - 30, 8, PAL.leaf);
+        p.disc(x + 3, h - 31, 5, PAL.leafLight);
+        p.px(x - 3, h - 34, PAL.leafTip);
+        if (stage === 'ripe')
+          for (const [dx, dy] of [[-6, -26], [-2, -31], [4, -27], [7, -30], [0, -23], [-5, -33], [6, -22]]) {
+            p.rect(x + dx, h + dy, 2, 2, '#d0402a');
+            p.px(x + dx, h + dy, '#f07a5a');
+          }
+      }
+      // a ladder against the last tree, and a basket
+      p.rect(w - 6, h - 5, 5, 4, THATCH_DARK);
+      p.rect(w - 6, h - 5, 5, 1, THATCH);
+    },
+  },
+  // livestock pens (the animals themselves wander inside: see town/animalsView.ts)
+  chicken_coop: {
+    h: 30,
+    draw: (p, w, h) => {
+      paddock(p, w, h, 'straw');
+      // a little hen house on legs, with a ramp
+      const x0 = w - 30;
+      for (const x of [x0 + 2, x0 + 20]) p.rect(x, h - 12, 2, 8, PAL.trunkDark);
+      p.rect(x0, h - 22, 24, 11, PAL.trunk);
+      for (let y = h - 21; y < h - 11; y += 3) p.rect(x0, y, 24, 1, PAL.trunkDark);
+      p.rect(x0 + 1, h - 22, 1, 11, PAL.trunkLight);
+      roof(p, x0 - 2, x0 + 26, h - 21, h - 30, THATCH, THATCH_DARK);
+      p.rect(x0 + 9, h - 17, 6, 6, '#2a1a10'); // the pop-hole
+      for (let i = 0; i < 6; i++) p.rect(x0 + 9 - i * 2, h - 11 + i, 3, 1, PAL.trunkLight); // the ramp
+      p.rect(4, h - 4, 6, 2, '#e8e0c8'); // a nest of straw and an egg
+      p.rect(6, h - 5, 2, 1, '#f4f0e4');
+    },
+  },
+  goat_pen: {
+    h: 26,
+    draw: (p, w, h) => {
+      paddock(p, w, h, 'grass');
+      // a lean-to shelter at the back and a feed rack
+      p.rect(w - 26, h - 20, 22, 16, PAL.trunkDark);
+      for (let x = w - 26; x < w - 4; x += 4) p.rect(x, h - 20, 3, 16, PAL.trunk);
+      beam(p, w - 28, h - 22, 26, 3);
+      trough(p, 6, h - 4, 14);
+      stones(p, 26, 38, h - 2);
+    },
+  },
+  pig_sty: {
+    h: 24,
+    draw: (p, w, h) => {
+      paddock(p, w, h, 'mud');
+      p.rect(w - 30, h - 18, 26, 14, CLAY_DARK);
+      for (let x = w - 30; x < w - 4; x += 5) p.rect(x, h - 18, 1, 14, CLAY);
+      roof(p, w - 32, w - 2, h - 17, h - 24, THATCH, THATCH_DARK);
+      p.rect(w - 21, h - 12, 7, 8, '#2a1a10');
+      trough(p, 8, h - 4, 18);
+    },
+  },
+  sheep_fold: {
+    h: 26,
+    draw: (p, w, h) => {
+      // a drystone fold, with a shepherd's hut
+      p.rect(2, h - 5, w - 4, 5, PAL.grass);
+      for (let x = 3; x < w - 3; x += 2) p.px(x, h - 5 - ((x * 7) % 3 === 0 ? 1 : 0), PAL.grassLight);
+      for (let x = 0; x < w; x += 6) {
+        p.ellipse(x + 3, h - 3, 3.5, 2.5, PAL.rockDark);
+        p.ellipse(x + 3, h - 7, 3, 2.2, PAL.rock);
+        p.rect(x + 2, h - 9, 2, 1, PAL.rockLight);
+      }
+      const x0 = w - 34;
+      p.rect(x0, h - 22, 22, 14, PAL.rock);
+      for (let y = h - 21; y < h - 8; y += 3) for (let x = x0 + ((y / 3) % 2 ? 0 : 3); x < x0 + 22; x += 6) p.rect(x, y, 5, 2, PAL.rockLight);
+      roof(p, x0 - 2, x0 + 24, h - 21, h - 30 + 4, THATCH, THATCH_DARK);
+      p.rect(x0 + 8, h - 15, 6, 7, '#2a1a10');
+    },
+  },
+  cattle_pasture: {
+    h: 30,
+    draw: (p, w, h) => {
+      paddock(p, w, h, 'grass');
+      // a byre: a long low barn with a hay loft
+      const x0 = w - 50;
+      p.rect(x0, h - 22, 44, 18, PAL.trunk);
+      for (let x = x0; x < x0 + 44; x += 4) p.rect(x, h - 22, 1, 18, PAL.trunkDark);
+      p.rect(x0 + 16, h - 16, 12, 12, '#2a1a10');
+      p.rect(x0 + 16, h - 16, 12, 1, PAL.trunkLight);
+      roof(p, x0 - 3, x0 + 47, h - 21, h - 32 + 4, '#9a3a2a', '#6a2418');
+      p.rect(x0 + 19, h - 26, 6, 4, GRAIN); // hay in the loft door
+      trough(p, 10, h - 4, 20);
     },
   },
   // a nomad tribe's wagon, drawn up across the camp (and on the road, when the camp moves)

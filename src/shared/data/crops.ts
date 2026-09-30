@@ -14,11 +14,19 @@ export interface CropDef {
   harvestSeconds: number;
   /** Grows indoors: no seasons, no weather. */
   indoor?: boolean;
+  /** Hardy: grows through autumn at full speed (roots and cabbages). */
+  hardy?: boolean;
+  /** Trees: planted once, and this many game hours (growing seasons only) before the first crop; then they fruit
+   *  again without being sown, and don't tire the soil. */
+  establishHours?: number;
 }
 
 export const CROPS: Readonly<Record<string, CropDef>> = {
   garden_plot: { material: 'grain', yield: 10, growHours: 18, sowSeconds: 25, harvestSeconds: 30 },
   herb_garden: { material: 'herbs', yield: 5, growHours: 14, sowSeconds: 20, harvestSeconds: 20 },
+  flax_field: { material: 'fiber', yield: 8, growHours: 20, sowSeconds: 25, harvestSeconds: 30 },
+  vegetable_patch: { material: 'vegetables', yield: 9, growHours: 15, sowSeconds: 25, harvestSeconds: 25, hardy: true },
+  orchard: { material: 'fruit', yield: 14, growHours: 30, sowSeconds: 60, harvestSeconds: 40, establishHours: 60 },
   hydroponics_bay: { material: 'grain', yield: 16, growHours: 12, sowSeconds: 20, harvestSeconds: 25, indoor: true },
 };
 
@@ -40,3 +48,12 @@ export const WORKPLACES: Readonly<Record<string, WorkplaceDef>> = {
 export const SEASON_GROWTH = { spring: 1, summer: 1.2, autumn: 0.6, winter: 0 } as const;
 /** Extra harvest per Farming level above 1. */
 export const YIELD_PER_LEVEL = 0.08;
+
+/** The soil (a field's `soil`: 1 is good ground, and the harvest is multiplied by it). Each harvest of a sown crop
+ *  tires it; it rests while fallow (and all winter), and muck from the town's pens mends it. A tired field is left to
+ *  rest a while unless the town is going hungry. */
+export const SOIL = { start: 1, min: 0.3, max: 1.2, drain: 0.1, restPerDay: 0.12, manurePerPen: 0.02, manureMax: 0.1, tired: 0.5 } as const;
+
+/** Blight (checked once a day, for each outdoor field with a crop in the ground): the chance it strikes, more in the
+ *  wet and where many fields grow the same crop (it spreads between them); trees take it better. */
+export const BLIGHT = { chance: 0.012, wet: 1.8, perSame: 0.35, spread: 0.4, trees: 0.4 } as const;

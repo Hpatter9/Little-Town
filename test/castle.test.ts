@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { canPlace } from '../src/shared/sim/buildings';
-import { adoptRooms, CASTLE_FLOORS, CASTLE_TILES, castleFloors, castleSpan, floorFill, openFloors, roomOf } from '../src/shared/sim/castle';
+import { adoptRooms, CASTLE_FLOORS, CASTLE_TILES, CLIMB_SECONDS, castleFloors, castleSpan, castleWidth, floorFill, moveOnFloors, openFloors, roomOf, stairXs } from '../src/shared/sim/castle';
+import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
+import { startRaid, updateRaid } from '../src/shared/sim/raids';
+import { Rng } from '../src/shared/rng';
+import { TICK_HZ } from '../src/shared/sim/time';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { newGame } from '../src/shared/sim/state';
@@ -64,10 +68,79 @@ test('townsfolk are seen in the room they sleep or work in, up on its floor', ()
   const room = s.buildings.at(-1)!;
   const p = s.people[0];
   p.x = (room.tile + 1.5) * 32;
+  p.floor = 2;
   p.task = { type: 'sleep', building: room.id };
   p.activity = 'sleep';
   assert.equal(roomOf(s, p), room);
   const view = snapshot(s).people.find((q) => q.id === p.id)!;
   assert.equal(view.floor, 2);
   assert.equal(view.indoors, false, 'seen in the room, not hidden');
+});
+
+test('the keep has stairs: to reach a room up the keep, you walk to a stair tower and climb, a floor at a time', () => {
+  const s = newGame('stairs', { origin: 'vampire' });
+  const [lo] = castleSpan(s);
+  const [a] = stairXs(s);
+  const m = { x: (lo + 4) * 32, dir: 1 as const as 1 | -1, floor: 0 };
+  const target = (lo + 8) * 32;
+  let ticks = 0;
+  let sawStair = false;
+  while (!moveOnFloors(s, m, target, 2, 2) && ticks < 5000) {
+    if (m.x === a && (m.floor ?? 0) < 2) sawStair = true;
+    ticks++;
+  }
+  assert.ok(sawStair, 'went up by the stair tower');
+  assert.equal(m.floor, 2);
+  assert.equal(m.x, target);
+  assert.ok(ticks >= 2 * CLIMB_SECONDS * TICK_HZ, `climbing takes time (${ticks} ticks)`);
+});
+
+test('raiders who get into the keep climb its stairs to reach the townsfolk upstairs', () => {
+  const s = newGame('siege', { origin: 'vampire' });
+  s.autopilot = false;
+  const [lo] = castleSpan(s);
+  s.buildings.push({ id: s.nextId++, def: 'workbench', tile: lo + 6, status: 'done', delivered: {}, progress: 1, store: {}, room: true, floor: 1 });
+  s.people = s.people.slice(0, 1);
+  const p = s.people[0];
+  p.x = (lo + 7) * 32;
+  p.floor = 1;
+  p.task = { type: 'idle', untilTick: s.tick + 100000 };
+  const raid = startRaid(s, RAID_KIND_BY_ID.bandits, 14, new Rng(3));
+  s.raid = raid;
+  raid.raiders = raid.raiders.slice(0, 1);
+  const rd = raid.raiders[0];
+  rd.goal = 'harm';
+  rd.x = (lo - 2) * 32;
+  raid.arrivesTick = s.tick;
+  raid.leavesTick = s.tick + 100000;
+  s.prompts = [];
+  raid.prompt = null;
+  const rng = new Rng(9);
+  for (let i = 0; i < 60 * TICK_HZ && (rd.floor ?? 0) < 1; i++) {
+    s.tick++;
+    updateRaid(s, rng);
+  }
+  assert.equal(rd.floor, 1, 'up to the floor the townsperson is on');
+  const hp = p.hp;
+  for (let i = 0; i < 60 * TICK_HZ && p.hp === hp && !p.downed; i++) {
+    s.tick++;
+    updateRaid(s, rng);
+  }
+  assert.ok(p.hp < hp || !!p.downed, 'and along it to strike them');
+});
+
+test('the keep grows wider each era, and a Blood Court never builds its rooms outside it', () => {
+  assert.ok(castleWidth('medieval') > castleWidth('neolithic'));
+  assert.ok(castleWidth('space') > castleWidth('industrial'));
+  const sim = new Sim(newGame('no-sprawl', { origin: 'vampire' }));
+  const s = sim.state;
+  for (let t = 0; t < 12 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
+  const [lo, hi] = castleSpan(s);
+  const outside = s.buildings.filter((b) => {
+    const d = BUILDING_BY_ID[b.def];
+    return d.layer === 'mid' && !b.room && b.def !== 'campfire' && b.tile + d.width > lo && b.tile < hi;
+  });
+  const sprawl = s.buildings.filter((b) => !b.room && BUILDING_BY_ID[b.def].layer === 'mid' && ['longhouse', 'lean_to', 'hide_tent', 'workbench', 'cottage'].includes(b.def));
+  assert.deepEqual(outside.map((b) => b.def), [], 'nothing overlapping the keep that is not a room');
+  assert.deepEqual(sprawl.map((b) => b.def), [], 'homes and workshops are all rooms');
 });

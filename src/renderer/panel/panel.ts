@@ -72,11 +72,11 @@ function render(): void {
     });
     return;
   }
-  if (snap && shown === 'build') body.replaceChildren(...renderBuild(snap, bridge));
-  else if (snap && shown === 'research') body.replaceChildren(...renderResearch(snap, bridge));
+  if (snap && shown === 'build') body.replaceChildren(...renderBuild(snap, bridge, render));
+  else if (snap && shown === 'research') body.replaceChildren(...renderResearch(snap, bridge, render));
   else if (snap && shown === 'townsfolk') body.replaceChildren(...renderTownsfolk(snap, bridge));
   else if (snap && shown === 'expeditions') body.replaceChildren(...renderExpeditions(snap, bridge, render));
-  else if (snap && shown === 'crafting') body.replaceChildren(...renderCrafting(snap, bridge));
+  else if (snap && shown === 'crafting') body.replaceChildren(...renderCrafting(snap, bridge, render));
   else if (snap && shown === 'trade') body.replaceChildren(...renderTrade(snap, bridge));
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
   else if (snap && (shown === 'shop' || shown === 'tavern')) body.replaceChildren(...renderShop(snap, shown));

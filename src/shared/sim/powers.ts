@@ -16,6 +16,7 @@ import { cropOf } from './farming';
 import { stabilize } from './health';
 import { fullMoon } from './monsters';
 import { shopOf, tavernOf } from './shop';
+import { researchMods } from './research';
 import { wardOf } from './rivals';
 import { addStock, campX, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
 import { WORLD_WIDTH } from '../constants';
@@ -589,31 +590,56 @@ export function castPowers(s: GameState, rng: Rng): void {
   if (!all.length || s.gameOver) return;
   if (!(s.raid?.phase === 'active' ? s.tick % TICK_HZ === 0 : s.tick % TICKS_PER_HOUR === 0)) return;
   for (const id of all) {
+    // (the one the player holds back is theirs to cast: castHeld)
+    if (id === s.heldPower) continue;
     const p = POWERS[id];
     if (!p || (s.powers?.[id] ?? 0) > s.tick || !p.when(s)) continue;
-    const cost = payable(s, p);
-    if (!cost) continue;
-    pay(s, cost);
-    // (what it's aimed at is taken before it strikes: the fallen are still on the field; newcomers after)
-    const [touch, secs] = TOUCH[id] ?? ['caster', 2];
-    const aimed = touch === 'newest' ? [] : touched(s, touch);
-    const text = p.cast(s, rng);
-    castSpellFx(s, `town:${id}`, casterOf(s), touch === 'newest' ? touched(s, touch) : aimed, secs);
-    (s.powers ??= {})[id] = s.tick + Math.round(p.cooldown * TICKS_PER_HOUR);
-    if (p.lasts) (s.buffs ??= {})[id] = s.tick + Math.round(p.lasts * TICKS_PER_HOUR);
-    const log = (s.powerLog ??= []);
-    log.push({ tick: s.tick, text: `${p.name}: ${text}` });
-    if (log.length > 10) log.splice(0, log.length - 10);
-    notify(s, `${p.name}! ${text}`);
+    castPower(s, id, rng);
   }
 }
 
+/** Cast one of the town's powers now, if it can be paid for. Returns whether it was cast. */
+function castPower(s: GameState, id: string, rng: Rng): boolean {
+  const p = POWERS[id];
+  const cost = p && payable(s, p);
+  if (!cost) return false;
+  pay(s, cost);
+  // (what it's aimed at is taken before it strikes: the fallen are still on the field; newcomers after)
+  const [touch, secs] = TOUCH[id] ?? ['caster', 2];
+  const aimed = touch === 'newest' ? [] : touched(s, touch);
+  const text = p.cast(s, rng);
+  castSpellFx(s, `town:${id}`, casterOf(s), touch === 'newest' ? touched(s, touch) : aimed, secs);
+  const lore = researchMods(s.research); // (heritage research brings powers back sooner, and makes them last)
+  (s.powers ??= {})[id] = s.tick + Math.round(p.cooldown * lore.powerRecharge * TICKS_PER_HOUR);
+  if (p.lasts) (s.buffs ??= {})[id] = s.tick + Math.round(p.lasts * lore.powerLasts * TICKS_PER_HOUR);
+  const log = (s.powerLog ??= []);
+  log.push({ tick: s.tick, text: `${p.name}: ${text}` });
+  if (log.length > 10) log.splice(0, log.length - 10);
+  notify(s, `${p.name}! ${text}`);
+  return true;
+}
+
+/** Hold a power back for the player to cast themselves (null: the town casts them all). */
+export function holdPower(s: GameState, id: string | null): void {
+  if (id !== null && !originOf(s).powers.includes(id)) return;
+  s.heldPower = id ?? undefined;
+}
+
+/** The player casts the power they held back, when it's ready (whenever they like: a raid is what it's for). */
+export function castHeld(s: GameState, rng: Rng): boolean {
+  const id = s.heldPower;
+  if (!id || (s.powers?.[id] ?? 0) > s.tick) return false;
+  return castPower(s, id, rng);
+}
+
 /** For the Plan tab: each of the origin's powers, when it's ready, and whether it's in effect. */
-export function powersView(s: GameState): { id: string; name: string; description: string; readyHours: number; activeHours: number }[] {
+export function powersView(s: GameState): { id: string; name: string; description: string; readyHours: number; activeHours: number; held: boolean; affordable: boolean }[] {
   return originOf(s).powers.map((id) => {
     const p = POWERS[id];
     return {
       id,
+      held: s.heldPower === id,
+      affordable: !!payable(s, p),
       name: p.name,
       description: p.description + (p.costs ? ` (${p.costs.map(list).join(', or ')})` : ''),
       readyHours: Math.max(0, ((s.powers?.[id] ?? 0) - s.tick) / TICKS_PER_HOUR),

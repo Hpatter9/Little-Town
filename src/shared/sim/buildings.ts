@@ -12,6 +12,38 @@ import { addStock, notify, poolSize, type Building, type GameState, type TileSta
 
 /** Background terrain a background building can go on. */
 const BACK_BUILDABLE: ReadonlySet<BackTerrain> = new Set(['meadow', 'fertile']);
+/** Background wilds that are cleared along with the land in front of them (a river never is). */
+const BACK_CLEARABLE: ReadonlySet<BackTerrain> = new Set(['forest', 'hills', 'marsh']);
+
+/** The background column behind tile t as it is now: its forest, hills or marsh are gone once the land in front of it
+ *  has been cleared (the town clears outward, the fields behind it too). */
+export function backNow(back: readonly BackTerrain[], tiles: readonly Pick<TileState, 'terrain'>[], t: number): BackTerrain | 'cleared' {
+  const kind = back[t + BACK_PAD_TILES];
+  return BACK_CLEARABLE.has(kind) && tiles[t]?.terrain === 'clear' ? 'cleared' : kind;
+}
+
+/** Whether a background building can stand behind tile t. */
+export const backOpen = (back: readonly BackTerrain[], tiles: readonly Pick<TileState, 'terrain'>[], t: number) => {
+  const k = backNow(back, tiles, t);
+  return k === 'cleared' || BACK_BUILDABLE.has(k);
+};
+
+/** A town walled at both ends: the span between its outermost finished walls, and the best wall kind among them (for
+ *  the far wall drawn round it), or null. */
+export function enclosure(s: GameState): { lo: number; hi: number; wall: string } | null {
+  // (a nomad camp's wagon circle doesn't count: it's drawn up only while raiders are about)
+  const isWall = (d: BuildingDef | undefined) => !!d && !!d.hp && d.width === 1 && !d.defense && !d.never;
+  const town = s.buildings.filter((b) => defOf(b)?.layer !== 'back' && !isWall(defOf(b)) && !defOf(b)?.never);
+  const walls = s.buildings.filter((b) => b.status === 'done' && isWall(defOf(b)));
+  if (!town.length || walls.length < 2) return null;
+  const lo = Math.min(...town.map((b) => b.tile));
+  const hi = Math.max(...town.map((b) => b.tile + defOf(b).width));
+  const left = walls.filter((w) => w.tile < lo).sort((a, b) => a.tile - b.tile)[0];
+  const right = walls.filter((w) => w.tile >= hi).sort((a, b) => b.tile - a.tile)[0];
+  if (!left || !right) return null;
+  const best = [left, right].map(defOf).sort((a, b) => (a.hp ?? 0) - (b.hp ?? 0))[0]; // (the weaker end is what it's walled with)
+  return { lo: left.tile, hi: right.tile + 1, wall: best.id };
+}
 
 export const defOf = (b: { def: string }): BuildingDef => BUILDING_BY_ID[b.def];
 
@@ -116,7 +148,7 @@ export function canPlace(
   if (tile < 0 || tile + def.width > view.tiles.length) return { ok: false, reason: 'Outside the town' };
   for (let t = tile; t < tile + def.width; t++) {
     if (def.layer === 'back') {
-      if (!BACK_BUILDABLE.has(back[t + BACK_PAD_TILES])) return { ok: false, reason: 'Needs open meadow or fertile soil' };
+      if (!backOpen(back, view.tiles, t)) return { ok: false, reason: back[t + BACK_PAD_TILES] === 'river' ? 'The river runs here' : 'Clear the land in front of it first' };
     } else if (view.tiles[t].terrain !== 'clear') {
       return { ok: false, reason: 'Clear the land first' };
     }
@@ -141,7 +173,7 @@ export function placeBlueprint(s: GameState, back: readonly BackTerrain[], defId
 }
 
 /** Whether a finished building can be upgraded in place now, and to what. */
-export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: number): PlaceCheck & { to?: string; tile?: number } {
+export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: number, absorb?: number): PlaceCheck & { to?: string; tile?: number } {
   const b = s.buildings.find((q) => q.id === id);
   const to = b && UPGRADES[b.def];
   if (!b || !to || b.status !== 'done') return { ok: false, reason: 'Nothing to upgrade to' };
@@ -150,7 +182,8 @@ export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: numbe
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full', to };
   if (b.fire !== undefined) return { ok: false, reason: 'It is on fire', to };
   // it may grow: keep its left edge if there's room, else grow to the left
-  const others = { tiles: s.tiles, buildings: s.buildings.filter((q) => q !== b) };
+  // (absorbing a neighbour: it's pulled down to make room, so it doesn't count as in the way)
+  const others = { tiles: s.tiles, buildings: s.buildings.filter((q) => q !== b && q.id !== absorb) };
   const grow = def.width - defOf(b).width;
   for (const tile of grow > 0 ? [b.tile, b.tile - grow] : [b.tile]) {
     // (a castle's room grows within the keep)
@@ -167,15 +200,20 @@ export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: numbe
  * Rebuild a finished building as its upgrade, where it stands: half the old building's materials go into
  * the new one, and it's a blueprint (not working) until finished.
  */
-export function upgrade(s: GameState, back: readonly BackTerrain[], id: number): PlaceCheck {
-  const check = canUpgrade(s, back, id);
+export function upgrade(s: GameState, back: readonly BackTerrain[], id: number, absorb?: number): PlaceCheck {
+  const check = canUpgrade(s, back, id, absorb);
   if (!check.ok) return check;
   const b = s.buildings.find((q) => q.id === id)!;
   const next = BUILDING_BY_ID[check.to!];
-  // salvage: half the old cost, as far as the new building needs it; the rest (and what it stored) goes to storage
+  // salvage: half the old cost (and of a neighbour pulled down with it), as far as the new building needs it; the
+  // rest (and what they stored) goes to storage
   const salvage: Stock = {};
-  for (const [m, n] of Object.entries(defOf(b).cost) as [Material, number][]) salvage[m] = Math.floor(n * DEMOLISH_REFUND);
-  for (const m of MATERIALS) if (b.store[m]) addStock(salvage, m, b.store[m]!);
+  const merged = absorb === undefined ? undefined : s.buildings.find((q) => q.id === absorb);
+  for (const old of merged ? [b, merged] : [b]) {
+    for (const [m, n] of Object.entries(defOf(old).cost) as [Material, number][]) addStock(salvage, m, Math.floor(n * DEMOLISH_REFUND));
+    for (const m of MATERIALS) if (old.store[m]) addStock(salvage, m, old.store[m]!);
+  }
+  if (merged) s.buildings.splice(s.buildings.indexOf(merged), 1);
   const delivered: Stock = {};
   for (const [m, n] of Object.entries(next.cost) as [Material, number][]) {
     const k = Math.min(n, salvage[m] ?? 0);

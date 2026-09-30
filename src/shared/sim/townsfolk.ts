@@ -23,7 +23,7 @@ import { isInjured } from './health';
 import { tireless, maxHp, campX, makePerson, notify, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { rulesOf } from '../data/origins';
-import { originWork } from './origin';
+import { originWork, moraleMarks } from './origin';
 
 /** Need drain per game hour. Food lasts about a day; rest about 18 waking hours. */
 export const FOOD_PER_HOUR = 1 / 24;
@@ -127,6 +127,7 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   if (s.doom?.phase === 'active' && s.doom.kind === 'deep_freeze' && p.away === null && !tireless(p)) add(s.doom.cold ? 'Freezing: nothing left to burn' : 'The Deep Freeze', s.doom.cold ? FREEZE_COLD_MORALE : FREEZE_MORALE);
   if (!p.monster && s.people.some((q) => q.monster === 'vampire' && q.away === null)) add('Uneasy nights (a vampire in town)', UNEASY_MORALE);
   if (s.tick < s.celebrationUntil) add('A wedding in town', 5);
+  for (const [text, value] of moraleMarks(s)) add(text, value); // (what the town chose in its events)
   // epic bosses: the dread of one at the gates, the triumph of one slain
   if (s.tick < (s.dreadUntil ?? 0)) add('A monster at the gates', DREAD_MORALE);
   if (s.triumph && s.tick < s.triumph.until) add(`Slew ${s.triumph.name}`, TRIUMPH_MORALE);

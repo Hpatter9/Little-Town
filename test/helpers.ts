@@ -20,5 +20,6 @@ export function plainGame(seed: string): GameState {
   main.needs = { food: 1, rest: 1 };
   s.buildings.find((b) => b.def === 'campfire')!.store = {};
   s.autopilot = false; // (the town's own planner stays out of tests of single mechanics)
+  s.nextEventTick = Number.MAX_SAFE_INTEGER; // (and so do the choice events)
   return s;
 }
