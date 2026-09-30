@@ -215,6 +215,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   the base game), Google Fonts (OFL) bundled from @fontsource by `build.mjs` into `fonts/` (so they work offline).
   `theme.ts` declares the faces on every page and sets `--font-display`/`--font-body` (a theme overrides the two);
   the pages' CSS uses the variables, never a font name. Titles, headings and tabs take the display font.
+- **Texture and scenery detail:** every sprite painted with `paint()` gets a surface grain (`grain` in
+  `art/pixelArt.ts`: fine and clumped light/dark noise, `GRAIN`; pass 0 to `paint` to skip it). The Graphics-drawn far
+  land is textured in `townView.ts` (mountain strata and crags, a mottled ridge canopy, turf on the hills). More kinds
+  underfoot (`sprites.ts`: pebbles, twigs, tall seeding grass, bramble; twice the flower variants and more colours),
+  placed from a second random stream per tile (`0xc3` midground, `0xb3` background) so older layouts don't move.
+  Autumn leaves drift over the town (`town/leavesView.ts`); flocks cross the sky twice as often. Frame rate checked:
+  about 57 fps where it was 60 in the headless browser.
 - **Phase 4:** more farming.
 
 ## Planned (owner's requests, not started)
@@ -222,14 +229,6 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Shop and tavern interiors at an angle:** the `shop` and `tavern` panels (`panel/shopPanel.ts`) should show a
   three-quarter, angled view of the room instead of the bird's-eye one, so the townsfolk and travellers can be drawn
   with their ordinary side-on sprites (LPC characters) as they come in to shop, dine and sleep.
-
-- **Twice the scenery detail:** on top of the terrain redraw (`art/terrain.ts`, `art/sprites.ts`, the background in
-  `town/townView.ts`), double the detail again: more kinds of scenery (bushes, flowers, rocks, grass tufts, fallen
-  leaves, puddles, birds), denser and more varied trees, textured mountains and hills, per-season and per-biome
-  variants, small animated touches (swaying grass, drifting leaves, smoke). Check it at phone sizes and keep the
-  frame rate up on the phone. **Textures first** (the owner: "adding textures will go a long ways"): grain, noise,
-  dithering and material patterns on every surface (ground, grass, bark, rock, thatch, stone, timber, water, hills), not
-  flat fills.
 
 ## Known problem (fixed, watch)
 

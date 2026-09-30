@@ -56,6 +56,7 @@ import { ExpeditionPane } from './town/expeditionPane';
 import { PeopleView } from './town/peopleView';
 import { AnimalsView, CARAVAN_TICKS } from './town/animalsView';
 import { SnowView } from './town/snowView';
+import { LeavesView } from './town/leavesView';
 import { SkyView } from './town/skyView';
 import { WeatherView } from './town/weatherView';
 import { RaidersView } from './town/raidersView';
@@ -139,6 +140,8 @@ async function start(): Promise<void> {
   const pane = new ExpeditionPane(world.seedHash);
   const snow = new SnowView();
   town.root.addChild(snow.root); // (over everything in the town, in screen space)
+  const leaves = new LeavesView();
+  town.root.addChild(leaves.root);
   // On the phone the strip has no desktop behind it, so it draws a whole sky, and weather in front of the town.
   const fullSky = !!hostBridge();
   const sky = new SkyView(fullSky);
@@ -773,6 +776,8 @@ async function start(): Promise<void> {
     const gloom = fullSky ? ({ clear: 0, cloudy: 0.04, rain: 0.12, storm: 0.22, snow: 0.05, fog: 0.08 } as const)[next.weather.kind] : 0;
     town.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
+    // autumn leaves on the wind, in fair weather
+    leaves.on = next.calendar.season === 'autumn' && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !freeze;
     snow.heavy = freeze && !!next.doom?.cold;
     pane.setDaylight(next.calendar.daylight);
     const q = next.prompts[0];
@@ -866,6 +871,7 @@ async function start(): Promise<void> {
     spells.root.position.set(walk.x - app.stage.x, walk.y - app.stage.y);
     spells.render(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
+    leaves.render(performance.now(), ticker.deltaMS / 1000, w);
     sky.render(performance.now(), w);
     weather?.render(performance.now(), w);
     pane.render(performance.now(), ticker.deltaMS / 1000);

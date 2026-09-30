@@ -67,13 +67,46 @@ export class Painter {
   }
 }
 
-export function paint(width: number, height: number, tone: Tone, draw: (p: Painter) => void): PixelArt {
+/** How strong the surface grain is (a share of brightness, up or down), fine and in clumps. */
+export const GRAIN = { fine: 0.055, clump: 0.075 };
+let grainSeed = 1;
+
+/** Surface texture over everything painted: each opaque pixel a touch lighter or darker, by fine per-pixel noise and
+ *  coarser clumps (2x2 and 3x3 cells), so flat fills read as wood, stone, thatch, earth and leaves, not plastic. The
+ *  seed differs per canvas, so tiles side by side don't repeat the same pattern. */
+function grain(img: ImageData, strength: number): void {
+  const { data, width, height } = img;
+  const seed = (grainSeed = (grainSeed * 1103515245 + 12345) >>> 0);
+  const h = (x: number, y: number, k: number) => {
+    let n = (x * 374761393 + y * 668265263 + seed * 2246822519 + k * 3266489917) >>> 0;
+    n = Math.imul(n ^ (n >>> 13), 1274126177) >>> 0;
+    return ((n ^ (n >>> 16)) & 1023) / 1023 - 0.5;
+  };
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      if (data[i + 3] < 200) continue;
+      const f = 1 + strength * (GRAIN.fine * 2 * h(x, y, 1) + GRAIN.clump * (h(x >> 1, y >> 1, 2) + h(Math.floor(x / 3), Math.floor(y / 3), 3)));
+      data[i] = Math.max(0, Math.min(255, data[i] * f));
+      data[i + 1] = Math.max(0, Math.min(255, data[i + 1] * f));
+      data[i + 2] = Math.max(0, Math.min(255, data[i + 2] * f));
+    }
+  }
+}
+
+/** Paint a sprite (with a surface grain over it: `grainAmount` 0 for none, as for crisp icons and flat UI shapes). */
+export function paint(width: number, height: number, tone: Tone, draw: (p: Painter) => void, grainAmount = 1): PixelArt {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   ctx.imageSmoothingEnabled = false;
   draw(new Painter(ctx, width, height, tone));
+  if (grainAmount > 0 && width > 0 && height > 0) {
+    const img = ctx.getImageData(0, 0, width, height);
+    grain(img, grainAmount);
+    ctx.putImageData(img, 0, 0);
+  }
 
   const data = ctx.getImageData(0, 0, width, height).data;
   const tops = new Int16Array(width).fill(height);

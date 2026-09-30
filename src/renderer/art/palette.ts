@@ -48,7 +48,7 @@ export const PAL = {
   ember: '#ffb347',
   ash: '#4a4240',
 
-  flowers: ['#e6d25a', '#e0e0e8', '#c77dc9', '#e27a5a'],
+  flowers: ['#e6d25a', '#e0e0e8', '#c77dc9', '#e27a5a', '#6a8ee0', '#f0a0c0'],
 } as const;
 
 type Swap = Partial<Record<Exclude<keyof typeof PAL, 'flowers'>, string>>;
@@ -87,7 +87,7 @@ const BIOME_SEASONS: Record<string, Record<string, Swap | null>> = {
 /** The little flowers dotted about: brightest in spring, seed heads in autumn, snow tufts in winter. (Recoloured
  *  rather than removed, so the layout of the land stays the same all year.) */
 const SEASON_FLOWERS: Record<string, readonly string[]> = {
-  spring: ['#f0dc5a', '#f4f0f8', '#d884d8', '#f08aa8'],
+  spring: ['#f0dc5a', '#f4f0f8', '#d884d8', '#f08aa8', '#7898e8', '#f4b0c8'],
   autumn: ['#c89040', '#a86a30', '#d8b060', '#8a5a2a'],
   winter: ['#eef3f6', '#dfe7ec', '#f6f9fb', '#cfd9df'],
 };

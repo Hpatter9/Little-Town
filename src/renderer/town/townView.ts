@@ -408,11 +408,25 @@ export class TownView {
       const rising = Math.sin(x / 71 + d) * Math.cos(x / 71 + d) > 0;
       if (rising) g.rect(x, -m, 1, Math.min(m, 30)).fill(col(mount, PAL.rock));
       if (m > snowLine) g.rect(x, -m, 2, Math.min(m - snowLine + 2, 6)).fill(col(mount, '#f0f4f8'));
+      // texture: rock strata slanting down the slopes, crags in shadow, flecks of light and of snow in the gullies
+      for (let y = -m + 3 + (x % 4 ? 2 : 0); y < -2; y += 4) {
+        const n = hash(w.seedHash, x, y);
+        const strata = (((y + Math.round(x * 0.45)) % 11) + 11) % 11 === 0;
+        if (strata || n < 0.22) g.rect(x, y, 2, 1).fill(col(mount, strata ? PAL.rockDark : '#3e4450'));
+        else if (n > 0.86) g.rect(x + (n > 0.93 ? 1 : 0), y, 1, 1).fill(col(mount, rising ? PAL.rockLight : PAL.rock));
+        else if (m > snowLine - 8 && y < -m + 14 && n > 0.7) g.rect(x, y, 1, 1).fill(col(mount, '#dfe6ee'));
+      }
       L.markSpan(x, 2, -m);
       // the wooded ridge in front of them
       const h = Math.round(22 + 12 * Math.sin(x / 260 + a) + 8 * Math.sin(x / 97 + b));
       g.rect(x, -h, 2, h).fill(col(wood, PAL.grassDark));
       g.rect(x, -h, 2, 1).fill(col(wood, PAL.grass));
+      // texture: the canopy mottled light and dark, a darker understory toward the foot
+      for (let y = -h + 2 + (x % 4 ? 1 : 0); y < -1; y += 3) {
+        const n = hash(w.seedHash, x, y + 500);
+        if (n < 0.25) g.rect(x, y, 2, 1).fill(col(wood, PAL.pineDark));
+        else if (n > 0.8 && y < -h + 8) g.rect(x + (n > 0.9 ? 1 : 0), y, 1, 1).fill(col(wood, PAL.grassLight));
+      }
       // little conifers along its crest
       if (hash(w.seedHash, x, 3) < 0.28) {
         const th = 3 + Math.floor(hash(w.seedHash, x, 4) * 5);
@@ -447,6 +461,12 @@ export class TownView {
         g.rect(X, -h, 2, 2).fill(col(PAL.grassTip));
         for (let y = -h + 6; y < 0; y += 7 + Math.floor(hash(run.start, x, y) * 5)) if (hash(X, y, 5) < 0.6) g.rect(X, y, 2, 1).fill(col(t < 0.5 ? PAL.grass : PAL.grassDark));
         if (t > 0.5) g.rect(X, -h + 2, 2, Math.min(h - 2, 4)).fill(col(PAL.grass));
+        // texture: tufts of grass catching the light, and shadows in the turf
+        for (let y = -h + 4 + (x % 4 ? 2 : 0); y < -1; y += 4) {
+          const n = hash(X, y, run.start + 7);
+          if (n < 0.2) g.rect(X, y, 2, 1).fill(col(t < 0.5 ? PAL.grass : PAL.grassDark));
+          else if (n > 0.84) g.rect(X + (n > 0.92 ? 1 : 0), y - 1, 1, 2).fill(col(PAL.grassTip));
+        }
         // rocky outcrops showing through
         if (hash(X, 9, run.start) < 0.04 && h > 12) g.rect(X, -h + 6, 4, 3).fill(col(PAL.rock)).rect(X, -h + 6, 4, 1).fill(col(PAL.rockLight));
         L.markSpan(X, 2, -h);
@@ -559,6 +579,23 @@ export class TownView {
         break;
       }
     }
+    // a second layer of small things, far off (their own random stream: nothing above moves)
+    const r = Rng.from(w.seedHash, 0xb3, i);
+    const bit = (set: PixelArt[], chance: number) => {
+      if (r.chance(chance)) L.place(r.pick(set), x + r.int(3, TILE - 3), r.int(3, 22), r.chance(0.5));
+    };
+    if (kind === 'meadow' || kind === 'cleared') {
+      bit(s.tuft, 0.6);
+      bit(s.tallGrass, 0.35);
+      bit(s.flowers, 0.35);
+      bit(s.pebbles, 0.2);
+    } else if (kind === 'forest') {
+      bit(s.bramble, 0.35);
+      bit(s.fern, 0.35);
+      bit(s.tallGrass, 0.25);
+    } else if (kind === 'marsh') {
+      bit(s.tallGrass, 0.5);
+    }
   }
 
   /* ------------------------------------------------------------ midground */
@@ -598,6 +635,41 @@ export class TownView {
       case 'marsh':
         for (let k = rng.int(1, 3); k > 0; k--) L.place(rng.pick(s.reeds), x + rng.int(2, TILE - 2), base());
         if (rng.chance(0.3)) L.place(rng.pick(s.tuft), x + rng.int(2, TILE - 2), base());
+        break;
+    }
+    // the small things underfoot, twice as thick as they were (their own random stream, so nothing above moves)
+    const r = Rng.from(this.world.seedHash, 0xc3, c);
+    const at = () => x + r.int(2, TILE - 2);
+    const bit = (set: PixelArt[], chance: number, flip = true) => {
+      if (r.chance(chance)) L.place(r.pick(set), at(), base(), flip && r.chance(0.5));
+    };
+    switch (kind) {
+      case 'clear':
+        bit(s.tuft, 0.6);
+        bit(s.tuft, 0.4);
+        bit(s.pebbles, 0.35);
+        bit(s.flowers, 0.3);
+        bit(s.tallGrass, 0.2);
+        bit(s.twig, 0.12);
+        break;
+      case 'forest':
+        bit(s.bramble, 0.3);
+        bit(s.fern, 0.4);
+        bit(s.twig, 0.35);
+        bit(s.mushroom, 0.2);
+        bit(s.tallGrass, 0.3);
+        bit(s.tuft, 0.4);
+        break;
+      case 'rock':
+        bit(s.pebbles, 0.7);
+        bit(s.pebbles, 0.4);
+        bit(s.tallGrass, 0.25);
+        bit(s.flowers, 0.15);
+        break;
+      case 'marsh':
+        bit(s.tallGrass, 0.5);
+        bit(s.reeds, 0.4);
+        bit(s.flowers, 0.15);
         break;
     }
   }

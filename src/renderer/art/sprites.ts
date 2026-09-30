@@ -19,6 +19,11 @@ export interface SpriteSet {
   log: PixelArt[];
   fern: PixelArt[];
   mushroom: PixelArt[];
+  /** Small things underfoot: pebbles, twigs and a dropped branch, tall seeding grass, and bramble with its berries. */
+  pebbles: PixelArt[];
+  twig: PixelArt[];
+  tallGrass: PixelArt[];
+  bramble: PixelArt[];
 }
 
 export function makeSpriteSet(seed: number, tone: Tone): SpriteSet {
@@ -32,11 +37,15 @@ export function makeSpriteSet(seed: number, tone: Tone): SpriteSet {
     outcrop: many(4, (r) => outcrop(r, tone)),
     reeds: many(5, (r) => reeds(r, tone)),
     tuft: many(8, (r) => tuft(r, tone)),
-    flowers: many(6, (r) => flowers(r, tone)),
+    flowers: many(12, (r) => flowers(r, tone)),
     stump: many(4, (r) => stump(r, tone)),
     log: many(3, (r) => fallenLog(r, tone)),
     fern: many(4, (r) => fern(r, tone)),
     mushroom: many(3, (r) => mushrooms(r, tone)),
+    pebbles: many(6, (r) => pebbles(r, tone)),
+    twig: many(4, (r) => twig(r, tone)),
+    tallGrass: many(6, (r) => tallGrass(r, tone)),
+    bramble: many(4, (r) => bramble(r, tone)),
   };
 }
 
@@ -299,6 +308,66 @@ function flowers(rng: Rng, tone: Tone): PixelArt {
       p.rect(x, h - sh, 1, sh, PAL.grass);
       p.px(x, h - sh - 1, color);
     }
+  });
+}
+
+/** A scatter of pebbles, lit on top. */
+function pebbles(rng: Rng, tone: Tone): PixelArt {
+  const w = rng.int(6, 12);
+  return paint(w, 3, tone, (p) => {
+    for (let k = rng.int(3, 6); k > 0; k--) {
+      const x = rng.int(0, w - 2);
+      const big = rng.chance(0.35);
+      p.rect(x, big ? 1 : 2, big ? 2 : 1, big ? 2 : 1, rng.chance(0.5) ? PAL.rock : PAL.rockDark);
+      p.px(x, big ? 1 : 2, PAL.rockLight);
+    }
+  });
+}
+
+/** A dropped branch or a few twigs, a leaf or two still on. */
+function twig(rng: Rng, tone: Tone): PixelArt {
+  const w = rng.int(7, 13);
+  return paint(w, 4, tone, (p) => {
+    const y0 = rng.int(1, 3);
+    for (let x = 0; x < w; x++) p.px(x, Math.max(0, Math.min(3, y0 + Math.round(Math.sin(x / 2.5) * 0.8))), x % 3 ? PAL.trunk : PAL.trunkDark);
+    for (let k = rng.int(1, 2); k > 0; k--) {
+      const x = rng.int(2, w - 3);
+      p.px(x, 0, PAL.trunkLight);
+      p.px(x + 1, 1, PAL.trunk);
+    }
+    if (rng.chance(0.6)) p.px(rng.int(1, w - 2), 0, rng.chance(0.5) ? PAL.leaf : PAL.leafDark);
+  });
+}
+
+/** Tall grass gone to seed: long blades, some bent over, with pale seed heads. */
+function tallGrass(rng: Rng, tone: Tone): PixelArt {
+  const w = rng.int(6, 10);
+  const h = rng.int(8, 13);
+  return paint(w, h, tone, (p) => {
+    for (let x = 0; x < w; x += 1 + (rng.chance(0.4) ? 1 : 0)) {
+      const bh = rng.int(Math.floor(h / 2), h);
+      const lean = rng.chance(0.35) ? (rng.chance(0.5) ? 1 : -1) : 0;
+      for (let y = 0; y < bh; y++) p.px(Math.max(0, Math.min(w - 1, x + (y > bh * 0.6 ? lean : 0))), h - 1 - y, y > bh * 0.7 ? PAL.grassLight : rng.chance(0.3) ? PAL.grassDark : PAL.grass);
+      if (bh > h * 0.75) p.rect(Math.max(0, Math.min(w - 1, x + lean)), h - bh, 1, 2, PAL.grassTip);
+    }
+  });
+}
+
+/** A bramble: a tangle of thorny stems and dark leaves, with berries (red, or ripe and dark). */
+function bramble(rng: Rng, tone: Tone): PixelArt {
+  const w = rng.int(12, 18);
+  const h = rng.int(7, 10);
+  const berry = rng.pick(['#b8283a', '#3a1c4a', '#7a1c3a']);
+  return paint(w, h, tone, (p) => {
+    for (let k = 0; k < 4; k++) {
+      let x = rng.int(0, w - 1);
+      for (let y = h - 1; y > rng.int(1, 3); y--) {
+        p.px(x, y, PAL.trunkDark);
+        x = Math.max(0, Math.min(w - 1, x + rng.int(-1, 1)));
+      }
+    }
+    for (let k = 0; k < w * 2; k++) p.px(rng.int(0, w - 1), rng.int(1, h - 2), rng.chance(0.6) ? PAL.leafDark : PAL.leaf);
+    for (let k = rng.int(3, 6); k > 0; k--) p.px(rng.int(1, w - 2), rng.int(2, h - 3), berry);
   });
 }
 
