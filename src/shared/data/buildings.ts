@@ -90,8 +90,10 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'scriptorium', name: 'Scriptorium', layer: 'mid', width: 4, cost: { bricks: 16, lumber: 12, cloth: 4 }, buildSeconds: 200, purpose: 'Research workstation (tier 2): research twice as fast.', research: 'writing' },
   { id: 'tavern', name: 'Tavern', layer: 'mid', width: 5, cost: { lumber: 24, bricks: 16, cloth: 6 }, buildSeconds: 240, purpose: 'Morale, and draws more wanderers. Travellers stop for food and drink, and pay in coins; the more comfortable it is, the better-off the guests.', research: 'brewing', morale: [8, 'A drink at the tavern'], arrivals: 0.08, floor: { venue: 'tavern', cols: 8, rows: 5, appeal: 0 } },
   { id: 'infirmary', name: 'Infirmary', layer: 'mid', width: 4, cost: { lumber: 16, bricks: 10, cloth: 6 }, buildSeconds: 180, purpose: 'Wounds heal twice as fast.', research: 'physick', healing: 2 },
+  { id: 'open_field', name: 'Open Field', layer: 'back', width: 8, cost: { wood: 10, fiber: 4 }, buildSeconds: 80, purpose: 'Grain (food) on a big ploughed field: more than two garden plots give, for the same work. The town ploughs two plots side by side into one.', research: 'ard_plough' },
+  { id: 'estate_farm', name: 'Estate Farm', layer: 'back', width: 8, cost: { lumber: 12, stone: 6 }, buildSeconds: 150, purpose: 'Grain (food) from a farm run in rotation, with a barn: a bigger harvest than an open field, quicker to work.', research: 'crop_rotation' },
   { id: 'vegetable_patch', name: 'Vegetable Patch', layer: 'back', width: 3, cost: { wood: 6, stone: 2 }, buildSeconds: 50, purpose: 'Grows vegetables (food): hardy, they grow on through the autumn at full speed.', research: 'market_gardens' },
-  { id: 'orchard', name: 'Orchard', layer: 'back', width: 5, cost: { lumber: 6, wood: 8 }, buildSeconds: 90, purpose: 'Fruit trees (food): slow to come into bearing, then they fruit again and again without sowing, and never tire the soil.', research: 'orcharding' },
+  { id: 'orchard', name: 'Orchard', layer: 'back', width: 5, cost: { wood: 14, fiber: 4 }, buildSeconds: 90, purpose: 'Fruit trees (food): slow to come into bearing, then they fruit again and again without sowing, and never tire the soil.', research: 'orcharding' },
   { id: 'pig_sty', name: 'Pig Sty', layer: 'back', width: 3, cost: { wood: 10, stone: 6 }, buildSeconds: 60, purpose: 'Pigs (2 to start, up to 6): they breed fast and are kept for meat, hide and bone.', research: 'animal_husbandry' },
   { id: 'sheep_fold', name: 'Sheep Fold', layer: 'back', width: 4, cost: { lumber: 12, stone: 6 }, buildSeconds: 90, purpose: 'Sheep (3 to start, up to 8): wool once a day, woven into cloth at the loom.', research: 'animal_husbandry' },
   { id: 'cattle_pasture', name: 'Cattle Pasture', layer: 'back', width: 5, cost: { lumber: 16, fiber: 8 }, buildSeconds: 120, purpose: 'Cattle (2 to start, up to 6): plenty of milk, and a great deal of meat and hide. Slow to breed; hungry in winter.', research: 'animal_husbandry' },
@@ -155,6 +157,8 @@ export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walk
 /** Upgrades in place (DESIGN §4): what each building can be rebuilt into where it stands (it may grow wider). */
 export const UPGRADES: Readonly<Record<string, string>> = {
   lean_to: 'longhouse',
+  garden_plot: 'open_field',
+  open_field: 'estate_farm',
   trading_post: 'general_store',
   fireside_inn: 'tavern',
   general_store: 'emporium',

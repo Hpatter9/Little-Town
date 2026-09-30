@@ -152,7 +152,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   and duration, in `castPowers`). `prereqsMet`/`canQueue`/`queueResearch` take the town's origin; another origin's
   heritage is refused (`foreignHeritage`). The Research tab's Hide toggles are kept in `localStorage`
   (`littletown.researchHide`).
-- **Animal husbandry (Phase 4 begun):** pens in the background (`chicken_coop`, `goat_pen` from Domestication;
+- **Animal husbandry (Phase 4):** pens in the background (`chicken_coop`, `goat_pen` from Domestication;
   `pig_sty`, `sheep_fold`, `cattle_pasture` from Animal Husbandry), their herds in `data/livestock.ts` (`HERDS`) and
   `sim/livestock.ts` (`b.herd`; `tendHerds` hourly: breeding, winter fodder, starving; `workPen`, tended through the
   Farm job's `farm` task after the fields; `rustle` when raiders get away). New materials `eggs`, `milk` (food),
@@ -242,5 +242,5 @@ Nothing waiting.
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be
   culled (`sourceable` in `planner.ts`). Pens are culled only when full or short of food, so towns queued buildings that
-  cost hide and nobody could supply it. Now only pens kept for meat count. Soak (8 towns, 15 days): druids 27.5,
-  dwarves 30.1, settlers 20.9. Two of eight druid towns died out; not yet compared with the old build.
+  cost hide and nobody could supply it. Now only pens kept for meat count. Later soaks (8 towns per origin, 15 days,
+  after the Phase 4 farming) had no town die out: druids 29.6, dwarves 30.9, settlers 28.3.

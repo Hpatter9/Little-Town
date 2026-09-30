@@ -47,6 +47,43 @@ function stones(p: Painter, x0: number, x1: number, y: number): void {
   }
 }
 
+/** A field on the rising ground behind the town: a bank of earth climbing back from the front edge, in `rows` rows
+ *  (each drawn by `row` at its baseline y and span, back row first so the nearer rows overlap it). */
+function slope(p: Painter, w: number, h: number, rows: number, row: (y: number, x0: number, x1: number, i: number) => void, soil: string = PAL.soil, furrow: string = PAL.soilLight): void {
+  const step = 6;
+  const top = h - 2 - rows * step;
+  // the bank: a little narrower at the top, as it climbs away
+  for (let y = top; y < h; y++) {
+    const inset = Math.round(((h - y) / (h - top)) * 3);
+    p.rect(1 + inset, y, w - 2 - inset * 2, 1, soil);
+  }
+  for (let i = rows - 1; i >= 0; i--) {
+    const y = h - 2 - i * step;
+    const inset = Math.round(((h - y) / (h - top)) * 3);
+    p.rect(1 + inset, y, w - 2 - inset * 2, 1, furrow);
+    row(y, 1 + inset, w - 1 - inset, i);
+  }
+}
+
+/** A row of grain: shoots, green stalks, or ripe ears. */
+function grainRow(p: Painter, x0: number, x1: number, y: number, stage: CropLook): void {
+  if (stage === 'fallow') return;
+  for (let x = x0 + 2; x < x1 - 1; x += 3) {
+    if (stage === 'sprout') p.rect(x, y - 2, 1, 2, PAL.leafLight);
+    else if (stage === 'tall') p.rect(x, y - 7, 1, 7, x % 2 ? PAL.leaf : PAL.leafLight);
+    else {
+      p.rect(x, y - 8, 1, 8, PAL.reed);
+      p.rect(x - 1, y - 10, 2, 3, GRAIN);
+    }
+  }
+}
+
+/** A stook: sheaves leaned together to dry. */
+function stook(p: Painter, x: number, base: number): void {
+  for (let i = 0; i < 7; i++) p.rect(x - 3 + Math.floor(i / 2), base - 1 - i, 7 - i, 1, i % 2 ? GRAIN : '#b8a048');
+  p.rect(x, base - 9, 1, 3, THATCH_DARK);
+}
+
 /** A fenced paddock (rails on posts) over a floor of grass, mud or straw. */
 function paddock(p: Painter, w: number, h: number, floor: 'grass' | 'mud' | 'straw'): void {
   const [base, fleck] = floor === 'mud' ? [PAL.mud, PAL.dirtDark] : floor === 'straw' ? [PAL.dirt, '#d8c070'] : [PAL.grass, PAL.grassLight];
@@ -221,127 +258,148 @@ const ART: Record<string, { h: number; draw: Draw }> = {
       p.rect(w / 2 - 1, h - 12, 2, 4, PAL.flameYellow);
     },
   },
+  // fields lie on the rising ground behind the town: rows of crops climbing away up the slope, so they show over the
+  // roofs in front (see slope())
   herb_garden: {
-    h: 22,
+    h: 40,
     draw: (p, w, h, stage = 'ripe') => {
-      p.rect(2, h - 6, w - 4, 6, PAL.soil);
-      for (let x = 4; x < w - 4; x += 3) p.rect(x, h - 4, 1, 4, PAL.soilLight);
-      for (let x = 8; x < w - 6; x += 7) {
-        if (stage === 'fallow') continue;
-        if (stage === 'sprout') {
-          p.rect(x, h - 8, 1, 2, PAL.leafLight);
-          continue;
+      slope(p, w, h, 3, (y, x0, x1) => {
+        for (let x = x0 + 3; x < x1 - 2; x += 5) {
+          if (stage === 'fallow') continue;
+          if (stage === 'sprout') {
+            p.rect(x, y - 2, 1, 2, PAL.leafLight);
+            continue;
+          }
+          p.disc(x, y - 3, stage === 'tall' ? 2 : 3, PAL.leafLight);
+          p.px(x - 1, y - 3, PAL.leaf);
+          if (stage === 'ripe') p.px(x, y - 6, x % 2 ? '#c77dc9' : '#e0e0e8');
         }
-        p.disc(x, h - 9, stage === 'tall' ? 2 : 3, PAL.leafLight);
-        if (stage === 'ripe') p.px(x, h - 12, x % 2 ? '#c77dc9' : '#e0e0e8');
-      }
-      for (let x = 2; x < w; x += 8) p.rect(x, h - 14, 2, 14, PAL.trunk); // fence posts
-      beam(p, 2, h - 12, w - 4, 2);
+      });
+      for (let x = 2; x < w; x += 8) p.rect(x, h - 10, 2, 10, PAL.trunk); // the fence along the front
+      beam(p, 2, h - 8, w - 4, 2);
     },
   },
   garden_plot: {
-    h: 22,
+    h: 40,
     draw: (p, w, h, stage = 'ripe') => {
-      p.rect(2, h - 8, w - 4, 8, PAL.soil);
-      for (let y = h - 7; y < h; y += 3) p.rect(2, y, w - 4, 1, PAL.soilLight);
-      for (let x = 6; x < w - 4; x += 5) {
-        if (stage === 'fallow') continue;
-        if (stage === 'sprout') p.rect(x, h - 10, 1, 3, PAL.leafLight);
-        else if (stage === 'tall') p.rect(x, h - 15, 1, 8, PAL.leaf);
-        else {
-          p.rect(x, h - 16, 1, 9, PAL.reed);
-          p.rect(x - 1, h - 17, 3, 3, GRAIN);
-        }
-      }
+      slope(p, w, h, 4, (y, x0, x1) => grainRow(p, x0, x1, y, stage));
+    },
+  },
+  open_field: {
+    h: 44,
+    draw: (p, w, h, stage = 'ripe') => {
+      slope(p, w, h, 5, (y, x0, x1) => grainRow(p, x0, x1, y, stage));
+      // stooks of sheaves at harvest, a boundary stone at the corner
+      if (stage === 'ripe') for (let x = 12; x < w - 8; x += 22) stook(p, x, h - 4);
+      p.ellipse(3, h - 3, 3, 2, PAL.rockDark);
+      p.px(2, h - 5, PAL.rockLight);
+    },
+  },
+  estate_farm: {
+    h: 48,
+    draw: (p, w, h, stage = 'ripe') => {
+      slope(p, w - 26, h, 5, (y, x0, x1) => grainRow(p, x0, x1, y, stage));
+      if (stage === 'ripe') for (let x = 12; x < w - 34; x += 20) stook(p, x, h - 4);
+      // the barn at the end, with its hay loft
+      const x0 = w - 26;
+      p.rect(x0 + 2, h - 22, 22, 22, BRICK);
+      for (let y = h - 20; y < h; y += 4) p.rect(x0 + 2, y, 22, 1, BRICK_DARK);
+      p.rect(x0 + 2, h - 22, 1, 22, BRICK_LIGHT);
+      roof(p, x0, x0 + 26, h - 21, h - 34, THATCH, THATCH_DARK);
+      p.rect(x0 + 9, h - 12, 8, 12, PAL.trunkDark); // the doors
+      p.rect(x0 + 12, h - 12, 1, 12, PAL.trunk);
+      p.rect(x0 + 10, h - 19, 6, 4, '#2a1a10'); // the loft, with hay
+      p.rect(x0 + 10, h - 16, 6, 1, GRAIN);
     },
   },
   flax_field: {
-    h: 24,
+    h: 42,
     draw: (p, w, h, stage = 'ripe') => {
-      p.rect(2, h - 7, w - 4, 7, PAL.soil);
-      for (let y = h - 6; y < h; y += 3) p.rect(2, y, w - 4, 1, PAL.soilLight);
-      if (stage === 'fallow') return;
-      for (let x = 4; x < w - 3; x += 2) {
-        const tall = stage === 'sprout' ? 3 : stage === 'tall' ? 10 : 13;
-        const lean = x % 4 === 0 ? 0 : 1;
-        p.rect(x, h - 6 - tall, 1, tall, stage === 'ripe' ? '#a8a060' : PAL.leafLight);
-        // (blue flowers while it grows; golden seed heads when it's ready)
-        if (stage === 'tall' && x % 3 === 0) p.rect(x - lean, h - 7 - tall, 2, 2, '#6a8ee0');
-        if (stage === 'ripe') p.rect(x - lean, h - 7 - tall, 2, 2, '#c8a848');
-      }
+      slope(p, w, h, 4, (y, x0, x1) => {
+        if (stage === 'fallow') return;
+        const tall = stage === 'sprout' ? 2 : stage === 'tall' ? 7 : 9;
+        for (let x = x0 + 1; x < x1 - 1; x += 2) {
+          const lean = x % 4 === 0 ? 0 : 1;
+          p.rect(x, y - tall, 1, tall, stage === 'ripe' ? '#a8a060' : PAL.leafLight);
+          // (blue flowers while it grows; golden seed heads when it's ready)
+          if (stage === 'tall' && x % 3 === 0) p.rect(x - lean, y - tall - 1, 2, 2, '#6a8ee0');
+          if (stage === 'ripe') p.rect(x - lean, y - tall - 1, 2, 2, '#c8a848');
+        }
+      });
     },
   },
   vegetable_patch: {
-    h: 22,
+    h: 40,
     draw: (p, w, h, stage = 'ripe') => {
-      p.rect(2, h - 7, w - 4, 7, PAL.soil);
-      // raised beds, edged with boards
-      for (const y of [h - 7, h - 1]) p.rect(2, y, w - 4, 1, PAL.trunk);
-      for (let x = 3; x < w - 3; x += 3) p.px(x, h - 4, PAL.soilLight);
-      if (stage === 'fallow') return;
-      for (let x = 6; x < w - 4; x += 6) {
-        const row = (x / 6) % 3;
-        if (stage === 'sprout') {
-          p.rect(x, h - 9, 1, 2, PAL.leafLight);
-          p.rect(x + 1, h - 10, 1, 1, PAL.leafLight);
-          continue;
+      slope(p, w, h, 3, (y, x0, x1, row) => {
+        p.rect(x0, y, x1 - x0, 1, PAL.trunk); // (raised beds, edged with boards)
+        if (stage === 'fallow') return;
+        for (let x = x0 + 4; x < x1 - 3; x += 6) {
+          if (stage === 'sprout') {
+            p.rect(x, y - 2, 1, 2, PAL.leafLight);
+            p.px(x + 1, y - 3, PAL.leafLight);
+            continue;
+          }
+          const big = stage === 'ripe' ? 1 : 0;
+          if (row === 0) {
+            // cabbages
+            p.disc(x, y - 3, 3 + big, PAL.leaf);
+            p.disc(x, y - 4, 2 + big, PAL.leafLight);
+          } else if (row === 1) {
+            // carrots: feathery tops, orange shoulders once ready
+            for (const dx of [-1, 0, 1]) p.rect(x + dx, y - 6 + Math.abs(dx), 1, 5, PAL.leafLight);
+            if (big) p.rect(x - 1, y - 1, 3, 1, '#e07a2a');
+          } else {
+            // beans up canes
+            p.rect(x, y - 11, 1, 11, PAL.trunkLight);
+            for (let k = y - 10; k < y - 1; k += 3) p.rect(x - 1 + ((k / 3) % 2), k, 2, 2, PAL.leaf);
+            if (big) p.rect(x + 1, y - 7, 1, 3, '#8ab44a');
+          }
         }
-        const big = stage === 'ripe' ? 1 : 0;
-        if (row === 0) {
-          // cabbages
-          p.disc(x, h - 9, 3 + big, PAL.leaf);
-          p.disc(x, h - 10, 2 + big, PAL.leafLight);
-        } else if (row === 1) {
-          // carrots: feathery tops, orange shoulders once ready
-          for (const dx of [-1, 0, 1]) p.rect(x + dx, h - 13 + Math.abs(dx), 1, 5, PAL.leafLight);
-          if (big) p.rect(x - 1, h - 8, 3, 2, '#e07a2a');
-        } else {
-          // beans up canes
-          p.rect(x, h - 18, 1, 11, PAL.trunkLight);
-          for (let y = h - 17; y < h - 8; y += 3) p.rect(x - 1 + ((y / 3) % 2), y, 2, 2, PAL.leaf);
-          if (big) p.rect(x + 1, h - 14, 1, 3, '#8ab44a');
-        }
-      }
+      });
     },
   },
   orchard: {
-    h: 40,
+    h: 48,
     draw: (p, w, h, stage = 'ripe') => {
-      p.rect(1, h - 4, w - 2, 4, PAL.grassDark);
-      for (let x = 2; x < w - 2; x += 3) p.rect(x, h - 5 + (x % 2), 2, 1, PAL.grass);
+      slope(p, w, h, 2, () => undefined, PAL.grassDark, PAL.grass);
       const trees = Math.max(2, Math.floor(w / 30));
-      for (let i = 0; i < trees; i++) {
-        const x = Math.round(((i + 0.5) * w) / trees);
-        if (stage === 'fallow') {
-          // staked out, waiting to be planted
-          p.rect(x, h - 10, 1, 7, PAL.trunkLight);
-          continue;
-        }
-        if (stage === 'sprout') {
-          // saplings tied to their stakes
-          p.rect(x + 2, h - 16, 1, 13, PAL.trunkLight);
-          p.rect(x, h - 14, 2, 11, PAL.trunk);
-          p.disc(x + 1, h - 16, 4, PAL.leaf);
-          p.disc(x, h - 17, 2, PAL.leafLight);
-          continue;
-        }
-        p.rect(x - 1, h - 20, 4, 17, PAL.trunk);
-        p.rect(x - 1, h - 20, 1, 17, PAL.trunkLight);
-        p.rect(x - 4, h - 22, 3, 2, PAL.trunk); // limbs
-        p.rect(x + 3, h - 23, 3, 2, PAL.trunk);
-        p.disc(x + 1, h - 28, 10, PAL.leafDark);
-        p.disc(x - 1, h - 30, 8, PAL.leaf);
-        p.disc(x + 3, h - 31, 5, PAL.leafLight);
-        p.px(x - 3, h - 34, PAL.leafTip);
-        if (stage === 'ripe')
-          for (const [dx, dy] of [[-6, -26], [-2, -31], [4, -27], [7, -30], [0, -23], [-5, -33], [6, -22]]) {
-            p.rect(x + dx, h + dy, 2, 2, '#d0402a');
-            p.px(x + dx, h + dy, '#f07a5a');
+      for (const back of [true, false]) {
+        for (let i = 0; i < trees; i++) {
+          // (two staggered rows up the slope)
+          const x = Math.round(((i + (back ? 0.9 : 0.4)) * w) / (trees + 0.4));
+          const base = back ? h - 12 : h - 3;
+          if (stage === 'fallow') {
+            p.rect(x, base - 7, 1, 7, PAL.trunkLight); // staked out, waiting to be planted
+            continue;
           }
+          if (stage === 'sprout') {
+            // saplings tied to their stakes
+            p.rect(x + 2, base - 13, 1, 13, PAL.trunkLight);
+            p.rect(x, base - 11, 2, 11, PAL.trunk);
+            p.disc(x + 1, base - 13, 4, PAL.leaf);
+            p.disc(x, base - 14, 2, PAL.leafLight);
+            continue;
+          }
+          p.rect(x - 1, base - 17, 4, 17, PAL.trunk);
+          p.rect(x - 1, base - 17, 1, 17, PAL.trunkLight);
+          p.rect(x - 4, base - 19, 3, 2, PAL.trunk); // limbs
+          p.rect(x + 3, base - 20, 3, 2, PAL.trunk);
+          p.disc(x + 1, base - 25, 10, PAL.leafDark);
+          p.disc(x - 1, base - 27, 8, PAL.leaf);
+          p.disc(x + 3, base - 28, 5, PAL.leafLight);
+          p.px(x - 3, base - 31, PAL.leafTip);
+          if (stage === 'ripe')
+            for (const [dx, dy] of [[-6, -23], [-2, -28], [4, -24], [7, -27], [0, -20], [-5, -30], [6, -19]]) {
+              p.rect(x + dx, base + dy, 2, 2, '#d0402a');
+              p.px(x + dx, base + dy, '#f07a5a');
+            }
+        }
       }
-      // a ladder against the last tree, and a basket
+      // a basket of picked fruit
       p.rect(w - 6, h - 5, 5, 4, THATCH_DARK);
       p.rect(w - 6, h - 5, 5, 1, THATCH);
+      if (stage === 'ripe') p.rect(w - 5, h - 6, 3, 1, '#d0402a');
     },
   },
   // livestock pens (the animals themselves wander inside: see town/animalsView.ts)
