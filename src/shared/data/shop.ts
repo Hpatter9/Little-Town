@@ -209,3 +209,8 @@ export const DISH_CHANCE = 0.35;
 export const FARE_STOCK = 3;
 /** Guests linger over their food (times a shopper's stay). */
 export const GUEST_STAY = 1.5;
+
+/** Lodging: a guest who comes in the evening may stay the night in one of the tavern's beds (its `bed` furnishings),
+ *  paying this much (times the era's purse scale, the bed's comfort and quality) and leaving in the morning. Wanting a
+ *  bed and finding none counts against the tavern, and the town makes one. */
+export const LODGING = { price: 4, perComfort: 0.5, evening: 17, night: 21, morning: 7, chance: 0.75 } as const;

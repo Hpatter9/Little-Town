@@ -20,10 +20,10 @@ import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
 import { tireless, addStock, campX, type Building, type GameState } from './state';
 import { TILE } from '../constants';
-import { TICKS_PER_HOUR } from './time';
+import { calendar, TICKS_PER_HOUR } from './time';
 import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
-import { appealGain, attractiveness, extend, extensionPrice, improve, levelPrice, SALE_GEAR, shopOf, spotFor, tavernOf, venueKind, wouldFurnish } from './shop';
+import { attractiveness, extend, extensionPrice, furnishValue, improve, levelPrice, SALE_GEAR, shopOf, spotFor, tavernOf, venueKind, wouldFurnish } from './shop';
 import { gearScore } from './crafting';
 
 /* ------------------------------------------------------------ the town's direction */
@@ -162,6 +162,8 @@ function topicScore(t: Topic, n: Needs): number {
     score += 4;
     if (b.housing && n.freeBeds <= 1 && canMake(b, n)) score += 30;
     if (CROPS[b.id] && CROPS[b.id].material !== 'fiber' && n.foodDays < 5) score += 25;
+    // (a new kind of crop is worth having anyway: a mix of fields shrugs off blight)
+    if (CROPS[b.id] && FOOD_VALUE[CROPS[b.id].material]) score += 12;
     if (b.storage && n.storageFill > 0.6) score += 15;
     if (RESEARCH_STATIONS[b.id]) score += 15;
     if (WORKPLACES[b.id]) score += 10;
@@ -339,7 +341,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
     // than a share of the purse, however many there are to pay)
     const purse = (s.coins ?? 0) - Math.min(wageBill(s), (s.coins ?? 0) * WAGE_SHARE);
     const before = queued();
-    tryMake(bestMakeable(s, (i) => mine(i) && wouldFurnish(venue, i) && appealGain(venue, i) >= 1 && saleValue(i, undefined) <= purse, (i) => appealGain(venue, i)));
+    tryMake(bestMakeable(s, (i) => mine(i) && wouldFurnish(venue, i) && furnishValue(venue, i) >= 1 && saleValue(i, undefined) <= purse, (i) => furnishValue(venue, i)));
     commission(venue, before);
   }
   const shop = shopOf(s);
@@ -455,7 +457,8 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   // homes: a bed ahead of the people, but only as fast as the town can feed them: food holding up, fields for
   // everyone, and one new home at a time (half a day apart, once past the first few)
   const foodField = (id: string) => !!CROPS[id] && !!FOOD_VALUE[CROPS[id].material];
-  const fieldsNow = s.buildings.filter((b) => foodField(b.def)).length;
+  // (counted in garden plots' worth of food, so one big field counts for more than one small one)
+  const fieldsNow = s.buildings.filter((b) => foodField(b.def)).reduce((n, b) => n + plotsWorth(b.def), 0);
   const fed = n.people < 4 || (n.foodDays >= 2 && fieldsNow >= Math.ceil(n.people / 2) - 1);
   const paced = n.people < 4 || s.tick - (s.plan?.lastHome ?? -Infinity) >= HOME_EVERY * Math.max(1, s.plan?.lastHomeBeds ?? 1);
   if (n.freeBeds < 1 && fed && paced) options((d) => !!d.housing, (d) => d.housing!, `${n.people} people and ${n.people + n.freeBeds} beds`);
@@ -514,6 +517,38 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   return out;
 }
 
+/** A field's food as garden plots' worth (a garden plot is 1). */
+const PLOT_FOOD = CROPS.garden_plot.yield * FOOD_VALUE.grain!;
+const plotsWorth = (id: string) => (CROPS[id].yield * (FOOD_VALUE[CROPS[id].material] ?? 0)) / PLOT_FOOD;
+
+/** Fewer, bigger fields: two garden plots side by side, both lying fallow, are ploughed into one open field (and an
+ *  open field grows into an estate farm where it stands, if there's room). In winter, when nothing's in the ground
+ *  anyway, or whenever more food is wanted. */
+function consolidateFields(s: GameState, back: readonly BackTerrain[], n: Needs, plan: TownPlan, needFood = false): boolean {
+  if (!needFood && calendar(s.tick).season !== 'winter' && n.foodDays < 4) return false;
+  const fallow = (b: Building) => b.status === 'done' && (b.crop?.stage ?? 'fallow') === 'fallow';
+  for (const b of s.buildings) {
+    const to = UPGRADES[b.def] && CROPS[b.def] ? BUILDING_BY_ID[UPGRADES[b.def]] : undefined;
+    if (!to || !CROPS[to.id] || !fallow(b) || !affordable(s, to, n.stock)) continue;
+    const from = BUILDING_BY_ID[b.def];
+    let absorb: Building | undefined;
+    if (to.width > from.width) {
+      // (a garden plot's width doubles: it takes its neighbour in)
+      absorb = s.buildings.find((q) => q !== b && q.def === b.def && fallow(q) && q.tile === b.tile + from.width);
+      if (!absorb || !canUpgrade(s, back, b.id, absorb.id).ok) continue;
+    } else if (!canUpgrade(s, back, b.id).ok) continue;
+    const was = absorb ? `two ${from.name.toLowerCase()}s` : `the ${from.name.toLowerCase()}`;
+    const crop = b.crop;
+    if (upgrade(s, back, b.id, absorb?.id).ok) {
+      // (the ground keeps its soil)
+      if (crop) b.crop = { stage: 'fallow', growth: 0, work: 0, soil: Math.min(crop.soil ?? 1, absorb?.crop?.soil ?? 1) };
+      plan.build = { def: to.id, why: `${was} made into one ${to.name.toLowerCase()}` };
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Whether rebuilding a home would leave people without a bed while it's built (the beds elsewhere can't take them). */
 const displaces = (s: GameState, b: { def: string }, allow = 0) => {
   const beds = BUILDING_BY_ID[b.def]?.housing ?? 0;
@@ -561,14 +596,21 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
   if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
   if (consolidateHomes(s, back, n, plan)) return clear;
+  if (consolidateFields(s, back, n, plan)) return clear;
   let blocked: BuildingDef | null = null;
   let triedUpgrade = false;
+  let triedFields = false;
   for (const w of wishes(s, n)) {
     const def = BUILDING_BY_ID[w.def];
     // (beds wanted: a bigger home where a small one stands comes before another home beside it)
     if (def.housing && !triedUpgrade) {
       triedUpgrade = true;
       if (consolidateHomes(s, back, n, plan, true)) return clear;
+    }
+    // (more food wanted: a bigger field where two small ones lie comes first)
+    if (CROPS[def.id] && FOOD_VALUE[CROPS[def.id].material] && !triedFields) {
+      triedFields = true;
+      if (consolidateFields(s, back, n, plan, true)) return clear;
     }
     if (!affordable(s, def, n.stock)) continue;
     let tile: number | null;

@@ -195,7 +195,7 @@ function blight(b: Building): void {
 }
 
 /** Morale at the turn of winter: a feast if the stores are full, grumbling if they're thin. */
-export const HARVEST_HOME = { days: 5, lean: 2, feast: 6, grumble: -5, hours: 36 } as const;
+export const HARVEST_HOME = { days: 3, lean: 1.5, feast: 6, grumble: -5, hours: 36 } as const;
 function harvestHome(s: GameState): void {
   if (!s.buildings.some((b) => isField(b) && !CROPS[b.def].indoor) || !s.people.length) return;
   const days = foodDays(s);

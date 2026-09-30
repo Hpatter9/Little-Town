@@ -173,14 +173,22 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
   wander about in them. Farmers tend them after the fields. Herds grow in spring and summer; when a pen is full,
   or food runs short, one goes to the pot. In winter they eat grain, and without it they starve one by one.
   Raiders who get away may drive some off. Eggs and cheese are served at the tavern too.
-- **More farming:** Flax Growing (Stone Age) brings the Flax Field (fiber); Market Gardens (Medieval) the
-  Vegetable Patch, whose cabbages, carrots and beans grow on through the autumn; Orcharding (Medieval) the Orchard,
+- **More farming:** Flax Growing (Stone Age) brings the Flax Field (fiber); Garden Crops (Stone Age) the
+  Vegetable Patch, whose cabbages, carrots and beans grow on through the autumn; Orcharding (Stone Age) the Orchard,
   whose trees take a while to come into bearing and then fruit every year without sowing. Every harvest tires a
   field's soil and the next crop is smaller. Fields rest while fallow and all winter, and muck from the pens mends
   them. A worn-out field is left to rest unless the town is going hungry. Blight strikes now and then, worse in the
   wet and where one crop is grown everywhere, so the town plants a mix. Crop Rotation and Fertilisers soften both.
   Nobody sows in late autumn what can't ripen before winter. At the turn of winter a well-stocked town feasts at the
-  harvest home, and a hungry one grumbles. The tavern serves vegetable soup, cider and fruit tarts.
+  harvest home, and a hungry one grumbles. The tavern serves vegetable soup, cider and fruit tarts. The town keeps
+  its fields few and big: with the Ard Plough it ploughs two garden plots side by side into one Open Field, and with
+  Crop Rotation an open field becomes an Estate Farm with a barn. Fields lie on the rising ground behind the town, so
+  their crops show over the roofs.
+- **Rooms at the tavern:** the tavern has guest rooms upstairs (two at the Fireside Inn, more as it's extended and
+  rebuilt as a Tavern), and the town puts a bed in each (a straw pallet, a box bed, a feather bed) once guests ask for
+  somewhere to sleep. A guest who comes in the evening may take a bed for the night, paying more for a
+  finer one; they sit up over their food, go to bed late, and set out in the morning. The Rooms line in the tavern's
+  window says how many beds are taken tonight.
 - **The land behind the town clears as the town grows:** clearing the land along the walkway clears the
   forest, hills or marsh behind it, so fields and pens can go there (a river stays a river).
 - **A walled town:** once the town has a finished wall beyond each end, a wall is drawn round it far off behind

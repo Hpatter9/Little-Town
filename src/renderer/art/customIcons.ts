@@ -107,6 +107,27 @@ export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
     p.ellipse(8, 10, 5, 2, '#8a2a2a');
     for (const [x, y] of [[5, 9], [8, 9], [10, 10]]) p.rect(x, y, 2, 1, '#d0402a');
   },
+  straw_pallet: (p) => {
+    p.rect(1, 9, 14, 4, '#b89a58');
+    p.rect(1, 9, 14, 1, '#d8c070');
+    p.rect(2, 7, 4, 2, '#e8e0cc');
+    p.rect(6, 8, 9, 2, '#a88258');
+  },
+  box_bed: (p) => {
+    p.rect(1, 8, 14, 5, '#8a5a30');
+    p.rect(1, 13, 2, 2, '#5a3a22');
+    p.rect(13, 13, 2, 2, '#5a3a22');
+    p.rect(2, 6, 4, 2, '#e8e0cc');
+    p.rect(6, 7, 9, 2, '#7c5c3c');
+  },
+  feather_bed: (p) => {
+    for (const x of [1, 14]) p.rect(x, 2, 1, 12, '#4a2a18');
+    p.rect(1, 2, 14, 2, '#8a2a3a');
+    p.rect(1, 9, 14, 4, '#6a3a22');
+    p.rect(2, 7, 4, 2, '#f4f0e4');
+    p.rect(6, 7, 9, 3, '#8a2a3a');
+    p.rect(6, 7, 9, 1, '#c8a050');
+  },
   berry_bowl: (p) => {
     p.rect(3, 8, 10, 5, '#b0704a');
     for (const [x, y] of [[4, 6], [7, 5], [10, 6], [6, 7], [9, 7]]) p.rect(x, y, 2, 2, '#8a2a4a');

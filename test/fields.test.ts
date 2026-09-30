@@ -8,6 +8,8 @@ import type { Rng } from '../src/shared/rng';
 import { type Building, type GameState } from '../src/shared/sim/state';
 import { calendar, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { plainGame } from './helpers';
+import { runPlanner, PLAN_TICKS } from '../src/shared/sim/planner';
+import { generateWorld } from '../src/shared/world';
 
 const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
 function field(s: GameState, def: string, at = 2): Building {
@@ -123,4 +125,21 @@ test('at the turn of winter a well-stocked town holds a harvest home; a hungry o
   t.tick = tickAt('winter', 1, 6);
   tendFields(t, never);
   assert.ok(t.marks?.some((m) => m.text === 'A thin harvest' && m.value < 0));
+});
+
+test('two garden plots side by side, lying fallow, are ploughed into one open field (keeping the poorer soil)', () => {
+  const s = plainGame('plough');
+  s.autopilot = true;
+  s.research.done.push('early_agriculture', 'woodcutting', 'ard_plough');
+  s.buildings.find((b) => b.def === 'campfire')!.store = { wood: 60, fiber: 30, grain: 200 };
+  const world = generateWorld(s.seed);
+  const a = field(s, 'garden_plot', 2);
+  const b = field(s, 'garden_plot', 6);
+  a.crop = { stage: 'fallow', growth: 0, work: 0, soil: 0.8 };
+  b.crop = { stage: 'fallow', growth: 0, work: 0, soil: 0.6 };
+  s.tick = tickAt('winter', 1, 8) - (tickAt('winter', 1, 8) % PLAN_TICKS) + PLAN_TICKS;
+  runPlanner(s, world.back);
+  assert.equal(a.def, 'open_field');
+  assert.ok(!s.buildings.includes(b), 'the neighbour was taken in');
+  assert.equal(a.crop?.soil, 0.6);
 });

@@ -24,6 +24,8 @@ export interface CropDef {
 export const CROPS: Readonly<Record<string, CropDef>> = {
   garden_plot: { material: 'grain', yield: 10, growHours: 18, sowSeconds: 25, harvestSeconds: 30 },
   herb_garden: { material: 'herbs', yield: 5, growHours: 14, sowSeconds: 20, harvestSeconds: 20 },
+  open_field: { material: 'grain', yield: 24, growHours: 18, sowSeconds: 40, harvestSeconds: 50 },
+  estate_farm: { material: 'grain', yield: 34, growHours: 16, sowSeconds: 35, harvestSeconds: 40 },
   flax_field: { material: 'fiber', yield: 8, growHours: 20, sowSeconds: 25, harvestSeconds: 30 },
   vegetable_patch: { material: 'vegetables', yield: 9, growHours: 15, sowSeconds: 25, harvestSeconds: 25, hardy: true },
   orchard: { material: 'fruit', yield: 14, growHours: 30, sowSeconds: 60, harvestSeconds: 40, establishHours: 60 },

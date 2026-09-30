@@ -27,6 +27,8 @@ const DEPTH = 12;
 const WALL = 6;
 const BACK = 40;
 const SILL = 6;
+/** A tavern's guest rooms, drawn as a storey over the common room. */
+const UPSTAIRS_H = 32;
 /** The characters' size in the room, and where the top of a head is in a character's frame. */
 const SCALE = 0.5;
 const HEAD_Y = 16;
@@ -67,7 +69,7 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
 
   canvas ??= el('canvas', 'shop-floor');
   const w = v.cols * CELL + WALL * 2;
-  const h = BACK + v.rows * DEPTH + SILL;
+  const h = (v.rooms ? UPSTAIRS_H : 0) + BACK + v.rows * DEPTH + SILL;
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
@@ -109,7 +111,7 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
   if (!v.customers.length) info.push(el('p', 'empty', v.passing ? `${v.passing} on the road, coming or going.` : 'Nobody just now.'));
   for (const c of v.customers) {
     const row = el('div', 'shop-guest');
-    row.append(el('span', 'shop-guest-name', `${c.name}, a ${c.kind}`), el('span', 'shop-guest-want', `after ${c.wants}${c.temper ? ` · ${c.temper}` : ''}${c.req !== null ? ` · used to comfort ${c.req}` : ''}`));
+    row.append(el('span', 'shop-guest-name', `${c.name}, a ${c.kind}`), el('span', 'shop-guest-want', `${c.asleep ? 'asleep in bed' : `after ${c.wants}`}${c.temper ? ` · ${c.temper}` : ''}${c.req !== null ? ` · used to comfort ${c.req}` : ''}${c.bed && !c.asleep ? ' · staying the night' : ''}`));
     info.push(row);
   }
 
@@ -121,6 +123,16 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
       else menu.append(qualityChip(`${d.name} ${d.have} · ${d.price}c`, d.have ? d.best : 1));
     }
     info.push(menu, el('div', 'hint', 'Hearty food, drinks and sweets. The town cooks what guests ask for most; a skilled cook makes finer dishes, which fetch more.'));
+    info.push(el('h2', '', 'Rooms'));
+    info.push(
+      el(
+        'div',
+        'hint',
+        v.beds
+          ? `${v.rooms} rooms upstairs, ${v.beds} with a bed, ${v.lodgers} taken tonight. Guests who come in the evening may stay the night and pay for the bed (a finer bed fetches more), leaving in the morning.`
+          : `${v.rooms} rooms upstairs, none with a bed yet: guests who come in the evening have nowhere to stay the night. The town makes a bed once they ask.`,
+      ),
+    );
   } else {
     // who it draws, and what each wants
     info.push(el('h2', '', 'Customers'));
@@ -287,13 +299,15 @@ const TALL: Record<string, number> = {
 };
 /** Hung on the back wall rather than stood on the floor. */
 const ON_WALL = new Set(['tapestry', 'neon_sign']);
+const PAL_WOOD = '#8a5a30';
 
 function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
   const pal = ROOMS[v.def] ?? ROOMS.trading_post;
   const W = c.width;
-  const H = c.height;
+  const up = v.rooms ? UPSTAIRS_H : 0;
+  const H = c.height - up;
   const rect = (x: number, y: number, w: number, h: number, col: string) => {
     g.fillStyle = col;
     g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
@@ -318,6 +332,10 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     rect(x, y0 - h, w, 1, 'rgba(255,255,255,0.18)');
   };
 
+  // (a tavern's guest rooms are a storey above; the common room is drawn below them)
+  const sleepers = new Map<string, Look>();
+  g.save();
+  g.translate(0, up);
   // the back wall, built of the venue's own stuff
   rect(0, 0, W, H, pal.wallDark);
   rect(0, 0, W, BACK, pal.wall);
@@ -384,7 +402,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   rect(doorX + 1, floorBottom, CELL - 2, 1, '#a84a3a');
 
   // rugs lie flat, under everything else
-  for (const p of v.pieces) if (p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat') rug(p);
+  for (const p of v.pieces) if (p.y >= 0 && (p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat')) rug(p);
 
   // everything standing, back to front, with the people among it
   const layers: { y: number; paint: () => void }[] = [];
@@ -395,7 +413,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     layers.push({ y: rowY(v.keeper.y + 1) - 2, paint: () => person(cellX(v.keeper.x) + CELL, rowY(v.keeper.y + 1) - 2, look, false, false, t, 1) });
   }
   for (const p of v.pieces) {
-    if (ON_WALL.has(p.item) || p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat') continue;
+    if (p.y < 0 || ON_WALL.has(p.item) || p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat') continue;
     layers.push({ y: rowY(p.y + p.h), paint: () => piece(p) });
   }
 
@@ -430,6 +448,16 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       if (table) wk.left = wk.x > cellX(table.x + table.w / 2);
     }
     const w = wk;
+    if (q.asleep && q.bed) {
+      // (in bed: drawn with it, under the covers)
+      // (they're upstairs: when they come down in the morning, it's by the stairs at the back)
+      w.x = cellX(0) + 4;
+      w.y = rowY(0) + 3;
+      w.tx = w.x;
+      w.ty = w.y;
+      sleepers.set(`${q.bed.x},${q.bed.y}`, q.look);
+      continue;
+    }
     layers.push({ y: w.y, paint: () => person(w.x, w.y, w.look, moving, w.left, t + q.id, q.tier) });
   }
   layers.sort((a, b) => a.y - b.y);
@@ -446,6 +474,80 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       g.fillStyle = glow;
       g.fillRect(x - CELL * 2, y - CELL * 2, CELL * 4, CELL * 3);
     }
+  g.restore();
+  if (up) upstairs();
+
+  /** The guest rooms, a storey over the common room: plastered rooms side by side, each with a window, and a bed if
+   *  the town has made one for it (with its guest asleep in it, of a night). */
+  function upstairs(): void {
+    const rooms = v.rooms;
+    const rw = (W - WALL * 2) / rooms;
+    const night = v.customers.some((q) => q.asleep);
+    rect(0, 0, W, up, pal.wallDark);
+    rect(WALL, 2, W - WALL * 2, up - 7, '#d8c8a8');
+    for (let y = 4; y < up - 7; y += 5) for (let x = WALL + ((y * 3) % 7); x < W - WALL; x += 9) rect(x, y, 1, 1, '#c8b898'); // (plaster)
+    rect(WALL, up - 5, W - WALL * 2, 3, pal.floor); // the floorboards
+    rect(WALL, up - 5, W - WALL * 2, 1, pal.seam);
+    rect(0, up - 2, W, 2, pal.wallDark); // the beam between the storeys
+    rect(0, 0, W, 2, pal.wallDark);
+    for (let i = 0; i < rooms; i++) {
+      const x0 = WALL + i * rw;
+      if (i > 0) rect(x0 - 1, 2, 2, up - 4, pal.wallDark); // the partition
+      // a little window (the moon out there, of a night)
+      const wx = x0 + rw - 9;
+      rect(wx - 1, 5, 7, 8, pal.wallDark);
+      rect(wx, 6, 5, 6, night ? '#2a3a5a' : '#86b9e0');
+      rect(wx + 2, 6, 1, 6, pal.wallDark);
+      const bed = v.pieces.find((p) => p.y === -1 && p.x === i);
+      const yb = up - 5;
+      if (!bed) {
+        // (empty: a stool, waiting for a bed)
+        rect(x0 + 5, yb - 4, 5, 1, PAL_WOOD);
+        rect(x0 + 5, yb - 3, 1, 3, PAL_WOOD);
+        rect(x0 + 9, yb - 3, 1, 3, PAL_WOOD);
+        continue;
+      }
+      const feather = bed.item === 'feather_bed';
+      const straw = bed.item === 'straw_pallet';
+      const frame = straw ? '#b89a58' : feather ? '#6a3a22' : '#8a5a30';
+      const cover = straw ? '#a88258' : feather ? '#8a2a3a' : '#7c5c3c';
+      const bx = x0 + 3;
+      const bl = Math.min(rw - 13, 22);
+      const top = straw ? yb - 3 : yb - 5;
+      if (feather) {
+        for (const px of [bx, bx + bl - 1]) rect(px, yb - 18, 1, 18, '#4a2a18'); // posts
+        rect(bx, yb - 19, bl, 2, '#8a2a3a'); // the canopy
+        rect(bx, yb - 17, bl, 1, '#c8a050');
+      }
+      if (!straw) {
+        rect(bx, top - 5, 2, yb - top + 5, frame); // headboard
+        rect(bx, yb - 2, 1, 2, '#3b2616'); // legs
+        rect(bx + bl - 1, yb - 2, 1, 2, '#3b2616');
+      }
+      rect(bx, top, bl, straw ? 3 : 3, frame);
+      rect(bx + 2, top - 3, 5, 3, '#e8e0cc'); // the pillow
+      rect(bx + 7, top - 2, bl - 8, 2, cover); // the blanket
+      rect(bx + 7, top - 2, bl - 8, 1, 'rgba(255,255,255,0.2)');
+      if ((bed.level ?? 1) > 1) rect(bx, top, bl, 1, (bed.level ?? 1) > 2 ? '#f0c848' : '#b08a3a');
+      const sleeper = sleepers.get(`${i},-1`);
+      if (sleeper) {
+        // someone asleep: their head on the pillow, the covers over them, and a z or two drifting up
+        oval(bx + 5, top - 4, 3, 2.5, sleeper.skin);
+        rect(bx + 3, top - 7, 5, 2, sleeper.hairColor);
+        rect(bx + 3, top - 5, 1, 2, sleeper.hairColor);
+        rect(bx + 9, top - 4, bl - 11, 2, cover);
+        const k = (t * 0.6 + i * 0.37) % 1;
+        g.globalAlpha = 1 - k;
+        g.fillStyle = '#f0f0f8';
+        g.font = 'bold 7px monospace';
+        g.fillText('z', Math.round(bx + 7 + k * 4), Math.round(top - 8 - k * 8));
+        g.globalAlpha = 1;
+        // (a candle left burning)
+        g.fillStyle = `rgba(255, 200, 90, ${0.18 + 0.05 * Math.sin(t * 6 + i)})`;
+        g.fillRect(Math.round(x0 + 2), 3, Math.round(rw - 4), up - 8);
+      }
+    }
+  }
 
   function counter(x: number, y0: number, w: number): void {
     const h = TALL.counter;

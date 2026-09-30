@@ -152,7 +152,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   and duration, in `castPowers`). `prereqsMet`/`canQueue`/`queueResearch` take the town's origin; another origin's
   heritage is refused (`foreignHeritage`). The Research tab's Hide toggles are kept in `localStorage`
   (`littletown.researchHide`).
-- **Animal husbandry (Phase 4 begun):** pens in the background (`chicken_coop`, `goat_pen` from Domestication;
+- **Animal husbandry (Phase 4):** pens in the background (`chicken_coop`, `goat_pen` from Domestication;
   `pig_sty`, `sheep_fold`, `cattle_pasture` from Animal Husbandry), their herds in `data/livestock.ts` (`HERDS`) and
   `sim/livestock.ts` (`b.herd`; `tendHerds` hourly: breeding, winter fodder, starving; `workPen`, tended through the
   Farm job's `farm` task after the fields; `rustle` when raiders get away). New materials `eggs`, `milk` (food),
@@ -233,6 +233,20 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   spreads between them. The planner's `cropPower` favours a mix (and no orchard while food is short). `ripensInTime`
   stops autumn sowing that winter would kill. The harvest home is a morale mark at the turn of winter. The research
   effect `soil` (Crop Rotation, Fertilisers) lessens the wear and the blight. Tests: `test/fields.test.ts`.
+  - The new crops are Stone Age (Garden Crops, Orcharding), since towns are still there at day 20; the planner scores a
+    new food crop +12 for the mix. Fields upgrade (`UPGRADES`: `garden_plot` → `open_field` (Ard Plough, width 8, two
+    plots merged) → `estate_farm` (Crop Rotation)) through the planner's `consolidateFields` (both plots fallow; in
+    winter, with food to spare, or when more food is wanted). The planner counts fields as garden plots' worth of food
+    (`plotsWorth`), so a town has about 12 fields where it had 20.
+  - Fields are drawn on the rise behind the town (`slope()` in `art/buildings.ts`: rows of crops climbing back, about
+    40px tall) so they show over the houses' roofs.
+- **Tavern rooms:** the taverns are bigger (Fireside Inn 6x5, Tavern 9x6), with guest rooms upstairs (`roomsOf`: one per 3
+  cells of width, so extensions and the Tavern add rooms). Beds are furnishings (kind `bed`: `straw_pallet`, `box_bed`,
+  `feather_bed`), one to a room, set at y `UPSTAIRS` (-1) with x the room; the common room stays for tables and hearths. `lodge` in `shop.ts`: after being served, an evening guest (`LODGING` in `data/shop.ts`) takes the best free
+  bed they can pay for (`Traveller.bed`), stays till morning, and pays; with none, they ask (`asked.bed`), which the
+  planner's `furnishValue` turns into a bed order. The tavern panel draws the guest rooms as a storey over
+  the common room (`upstairs()`, `UPSTAIRS_H`), the sleepers in their beds (`asleepHour`), and a Rooms line
+  (`ShopView.rooms`, `beds`, `lodgers`).
 
 ## Planned (owner's requests, not started)
 
@@ -242,5 +256,5 @@ Nothing waiting.
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be
   culled (`sourceable` in `planner.ts`). Pens are culled only when full or short of food, so towns queued buildings that
-  cost hide and nobody could supply it. Now only pens kept for meat count. Soak (8 towns, 15 days): druids 27.5,
-  dwarves 30.1, settlers 20.9. Two of eight druid towns died out; not yet compared with the old build.
+  cost hide and nobody could supply it. Now only pens kept for meat count. Later soaks (8 towns per origin, 15 days,
+  after the Phase 4 farming) had no town die out: druids 29.6, dwarves 30.9, settlers 28.3.
