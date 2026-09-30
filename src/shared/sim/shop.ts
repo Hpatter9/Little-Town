@@ -40,6 +40,7 @@ import {
   GUEST_PURSE,
   GUEST_STAY,
   KEEPER_SPEND,
+  LODGING,
   MAX_BUY_EACH,
   MAX_EXTENSIONS,
   MAX_KINDS,
@@ -83,7 +84,7 @@ import { buildingCentreX, depositNear, storages, totalCapacity, totalStock } fro
 import { addItems, itemUnlocked, qualitiesOf, takeItem } from './crafting';
 import { operatorOf, operatorSkill } from './operators';
 import { addStock, earn, notify, poolSize, remember, type Building, type GameState, type ShopPiece, type Traveller, type Want } from './state';
-import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { gainSkill } from './townsfolk';
 import { priceRate, travellerRate } from './origin';
 
@@ -166,6 +167,9 @@ function placeScore(b: Building, item: ItemDef, x: number, y: number): number {
       return !wallX && !wallY ? 0 : !wallY ? 1 : 2;
     case 'stand':
       return wallX || wallY ? 0 : 1;
+    case 'bed':
+      // (along the side walls, away from the bar and the fire)
+      return wallX && y > 0 ? 0 : wallX ? 1 : wallY && y > 0 ? 2 : 4;
   }
 }
 
@@ -212,6 +216,21 @@ export function appeal(b: Building): number {
   let n = BUILDING_BY_ID[b.def].floor?.appeal ?? 0;
   for (const list of byItem.values()) list.sort((x, y) => y - x).forEach((a, i) => (n += a / 2 ** i));
   return Math.round(n);
+}
+
+/** Lodgers are in bed from late evening till morning (before that they sit up over their food). */
+export const asleepHour = (hour: number) => hour >= LODGING.night || hour < LODGING.morning;
+
+/** The beds set out in a tavern. */
+export const bedsOf = (b: Building) => (b.shop?.pieces ?? []).filter((p) => ITEM_BY_ID[p.item]?.furnish?.kind === 'bed');
+
+/** How much the keeper would like one more of a piece: what it adds (comfort, appeal), and for a bed, the guests it
+ *  would put up (more when guests have been turned away for want of one). */
+export function furnishValue(b: Building, item: ItemDef): number {
+  const gain = appealGain(b, item);
+  if (item.furnish?.kind !== 'bed') return gain;
+  const beds = bedsOf(b).length;
+  return gain + (4 + 3 * (b.shop?.asked?.bed ?? 0)) / (1 + beds);
 }
 
 /** What one more of a piece would add (halved for each like it already out). */
@@ -784,6 +803,34 @@ function serveGuest(s: GameState, tavern: Building, t: Traveller, rng: Rng): voi
   log(s, tavern, text);
   if (keeper) remember(s, keeper, met ? `Served ${t.name} the ${t.kind}: ${had.join(' and ')} (${spent} coins)${talked ? ', and talked them into more' : ''}` : `Had nothing ${t.name} wanted (${wantText(want)})`);
   if (first && spent > 0) notify(s, `The ${BUILDING_BY_ID[tavern.def].name} served its first guest: ${text}`, true);
+  lodge(s, tavern, t, spent, rng);
+}
+
+/** Come the evening, a guest may take a bed for the night (the best free one they can pay for), and stays till morning. */
+function lodge(s: GameState, tavern: Building, t: Traveller, spent: number, rng: Rng): void {
+  const hour = calendar(s.tick).hour;
+  if ((hour < LODGING.evening && hour >= LODGING.morning) || !rng.chance(LODGING.chance)) return;
+  const who = `${t.name} the ${t.kind}`;
+  const taken = new Set((s.travellers ?? []).filter((o) => o !== t && o.bed).map((o) => `${o.bed!.x},${o.bed!.y}`));
+  const free = bedsOf(tavern).filter((p) => !taken.has(`${p.x},${p.y}`));
+  const price = (p: ShopPiece) => Math.round(LODGING.price * PURSE_SCALE[s.era] * (1 + pieceAppeal(p) * LODGING.perComfort) * priceRate(s));
+  const bed = free.sort((a, b) => pieceAppeal(b) - pieceAppeal(a)).find((p) => price(p) <= t.purse - spent);
+  if (!bed) {
+    asked(tavern, 'bed');
+    addRenown(tavern, -RENOWN_LOSS / 4);
+    log(s, tavern, free.length ? `${who} couldn't afford a bed for the night and walked on in the dark.` : `${who} wanted a bed for the night, but there was none to be had.`);
+    return;
+  }
+  const pay = price(bed);
+  t.bed = { x: bed.x, y: bed.y };
+  // (they stay till morning)
+  let until = s.tick + TICKS_PER_HOUR;
+  while (calendar(until).hour !== LODGING.morning) until += TICKS_PER_HOUR;
+  t.until = until;
+  s.coins = (s.coins ?? 0) + pay;
+  earn(s, 'tavern', pay);
+  addRenown(tavern, RENOWN_WIN / 4);
+  log(s, tavern, `${who} took the ${pieceName({ item: ITEM_BY_ID[bed.item], q: bed.q ?? COMMON })} for the night (${pay} coins).`);
 }
 
 /** The town buys what it wants from a customer (as far as its coins go, keeping a reserve unless it's essential). */

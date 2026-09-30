@@ -102,7 +102,7 @@ export interface ItemDef {
 
 export type WareTier = 1 | 2 | 3 | 4;
 
-export type FurnishKind = 'shelf' | 'table' | 'stand' | 'decor' | 'rug';
+export type FurnishKind = 'shelf' | 'table' | 'stand' | 'decor' | 'rug' | 'bed';
 export interface Furnish {
   kind: FurnishKind;
   w: number;
@@ -182,6 +182,9 @@ export const ITEMS: readonly ItemDef[] = [
   // tavern furnishings (comfort: the more comfortable the tavern, the better-off the guests)
   { id: 'log_table', name: 'Log Table', slot: null, station: 'workbench', cost: { wood: 8 }, seconds: 50, research: ['hospitality'], effects: {}, furnish: { kind: 'table', w: 2, h: 2, appeal: 3, venue: 'tavern' }, description: 'Tavern furnishing: a table of split logs with benches. Comfort +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'log_table' } },
   { id: 'stone_hearth', name: 'Stone Hearth', slot: null, station: 'campfire', cost: { stone: 10 }, seconds: 60, research: ['hospitality'], effects: {}, furnish: { kind: 'shelf', w: 2, h: 1, appeal: 5, venue: 'tavern' }, description: 'Tavern furnishing: a fire to sit by. Comfort +5.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'stone_hearth' } },
+  { id: 'straw_pallet', name: 'Straw Pallet', slot: null, station: 'workbench', cost: { fiber: 5, wood: 2 }, seconds: 40, research: ['hospitality'], effects: {}, furnish: { kind: 'bed', w: 2, h: 1, appeal: 1, venue: 'tavern' }, description: 'Tavern furnishing: a bed for a guest to stay the night. Comfort +1.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'straw_pallet' } },
+  { id: 'box_bed', name: 'Box Bed', slot: null, station: 'workbench', cost: { wood: 10, hide: 2 }, seconds: 70, research: ['hospitality', 'tanning'], effects: {}, furnish: { kind: 'bed', w: 2, h: 1, appeal: 3, venue: 'tavern' }, description: 'Tavern furnishing: a wooden bed with hide covers; guests pay more to sleep in it. Comfort +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'box_bed' } },
+  { id: 'feather_bed', name: 'Feather Bed', slot: null, station: 'sawmill', cost: { lumber: 6, cloth: 3 }, seconds: 120, research: ['hospitality', 'carpentry', 'weaving'], effects: {}, furnish: { kind: 'bed', w: 2, h: 1, appeal: 6, venue: 'tavern' }, description: 'Tavern furnishing: a four-poster with a feather mattress, for the finest guests. Comfort +6.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'feather_bed' } },
   { id: 'barrels', name: 'Barrels', slot: null, station: 'workbench', cost: { wood: 5 }, seconds: 40, research: ['hospitality'], effects: {}, furnish: { kind: 'stand', w: 1, h: 1, appeal: 1, venue: 'tavern' }, description: 'Tavern furnishing: somewhere to lean. Comfort +1.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'barrels' } },
   { id: 'hide_rug', name: 'Hide Rug', slot: null, station: 'tanning_rack', cost: { hide: 3 }, seconds: 45, research: ['hospitality', 'tanning'], effects: {}, furnish: { kind: 'rug', w: 2, h: 1, appeal: 3, venue: 'tavern' }, description: 'Tavern furnishing: warm underfoot. Comfort +3.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'hide_rug' } },
   { id: 'oak_table', name: 'Oak Table', slot: null, station: 'sawmill', cost: { lumber: 6 }, seconds: 90, research: ['hospitality', 'carpentry'], effects: {}, furnish: { kind: 'table', w: 2, h: 2, appeal: 6, venue: 'tavern' }, description: 'Tavern furnishing: a sawn table with proper chairs. Comfort +6.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'oak_table' } },

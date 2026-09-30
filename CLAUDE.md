@@ -233,6 +233,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   spreads between them. The planner's `cropPower` favours a mix (and no orchard while food is short). `ripensInTime`
   stops autumn sowing that winter would kill. The harvest home is a morale mark at the turn of winter. The research
   effect `soil` (Crop Rotation, Fertilisers) lessens the wear and the blight. Tests: `test/fields.test.ts`.
+  - The new crops are Stone Age (Garden Crops, Orcharding), since towns are still there at day 20; the planner scores a
+    new food crop +12 for the mix. Fields upgrade (`UPGRADES`: `garden_plot` → `open_field` (Ard Plough, width 8, two
+    plots merged) → `estate_farm` (Crop Rotation)) through the planner's `consolidateFields` (both plots fallow; in
+    winter, with food to spare, or when more food is wanted). The planner counts fields as garden plots' worth of food
+    (`plotsWorth`), so a town has about 12 fields where it had 20.
+  - Fields are drawn on the rise behind the town (`slope()` in `art/buildings.ts`: rows of crops climbing back, about
+    40px tall) so they show over the houses' roofs.
+- **Tavern rooms:** beds are furnishings (kind `bed`: `straw_pallet`, `box_bed`, `feather_bed`), placed along the side
+  walls. `lodge` in `shop.ts`: after being served, an evening guest (`LODGING` in `data/shop.ts`) takes the best free
+  bed they can pay for (`Traveller.bed`), stays till morning, and pays; with none, they ask (`asked.bed`), which the
+  planner's `furnishValue` turns into a bed order. The tavern panel draws beds and the sleepers in them
+  (`asleepHour`), and a Rooms line (`ShopView.beds`, `lodgers`).
 
 ## Planned (owner's requests, not started)
 

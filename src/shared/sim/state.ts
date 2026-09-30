@@ -130,6 +130,8 @@ export interface Traveller {
   until: number;
   /** Coins they can spend. */
   purse: number;
+  /** The tavern bed they've taken for the night (its spot on the floor). */
+  bed?: { x: number; y: number };
 }
 
 export type Task =

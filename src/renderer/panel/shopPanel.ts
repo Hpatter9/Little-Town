@@ -109,7 +109,7 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
   if (!v.customers.length) info.push(el('p', 'empty', v.passing ? `${v.passing} on the road, coming or going.` : 'Nobody just now.'));
   for (const c of v.customers) {
     const row = el('div', 'shop-guest');
-    row.append(el('span', 'shop-guest-name', `${c.name}, a ${c.kind}`), el('span', 'shop-guest-want', `after ${c.wants}${c.temper ? ` · ${c.temper}` : ''}${c.req !== null ? ` · used to comfort ${c.req}` : ''}`));
+    row.append(el('span', 'shop-guest-name', `${c.name}, a ${c.kind}`), el('span', 'shop-guest-want', `${c.asleep ? 'asleep in bed' : `after ${c.wants}`}${c.temper ? ` · ${c.temper}` : ''}${c.req !== null ? ` · used to comfort ${c.req}` : ''}${c.bed && !c.asleep ? ' · staying the night' : ''}`));
     info.push(row);
   }
 
@@ -121,6 +121,16 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
       else menu.append(qualityChip(`${d.name} ${d.have} · ${d.price}c`, d.have ? d.best : 1));
     }
     info.push(menu, el('div', 'hint', 'Hearty food, drinks and sweets. The town cooks what guests ask for most; a skilled cook makes finer dishes, which fetch more.'));
+    info.push(el('h2', '', 'Rooms'));
+    info.push(
+      el(
+        'div',
+        'hint',
+        v.beds
+          ? `${v.beds} bed${v.beds === 1 ? '' : 's'}, ${v.lodgers} taken tonight. Guests who come in the evening may stay the night and pay for the bed (a finer bed fetches more), leaving in the morning.`
+          : 'No beds yet: guests who come in the evening have nowhere to stay the night. The town makes a bed once they ask.',
+      ),
+    );
   } else {
     // who it draws, and what each wants
     info.push(el('h2', '', 'Customers'));
@@ -283,7 +293,7 @@ const ROOMS: Record<string, Room> = {
 /** How tall each piece stands off the floor (pixels), by item, then by kind. */
 const TALL: Record<string, number> = {
   log_table: 9, oak_table: 10, stone_hearth: 26, brick_hearth: 28, barrels: 14, upright_piano: 24, clay_urns: 12, herb_planter: 7,
-  iron_lantern: 22, shelf: 30, table: 11, stand: 15, counter: 15,
+  iron_lantern: 22, shelf: 30, table: 11, stand: 15, counter: 15, bed: 7, feather_bed: 9,
 };
 /** Hung on the back wall rather than stood on the floor. */
 const ON_WALL = new Set(['tapestry', 'neon_sign']);
@@ -403,6 +413,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   const here = new Set(v.customers.map((q) => q.id));
   for (const id of walkers.keys()) if (!here.has(id)) walkers.delete(id);
   const spots = browseSpots(v);
+  const sleepers = new Map<string, Look>();
   for (const q of v.customers) {
     let wk = walkers.get(q.id);
     if (!wk) {
@@ -430,6 +441,17 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       if (table) wk.left = wk.x > cellX(table.x + table.w / 2);
     }
     const w = wk;
+    if (q.asleep && q.bed) {
+      // (in bed: drawn with it, under the covers)
+      const bx = cellX(q.bed.x);
+      const by = rowY(q.bed.y);
+      w.x = bx + CELL;
+      w.y = by + DEPTH;
+      w.tx = w.x;
+      w.ty = w.y;
+      sleepers.set(`${q.bed.x},${q.bed.y}`, q.look);
+      continue;
+    }
     layers.push({ y: w.y, paint: () => person(w.x, w.y, w.look, moving, w.left, t + q.id, q.tier) });
   }
   layers.sort((a, b) => a.y - b.y);
@@ -608,6 +630,40 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       }
     }
     switch (p.kind) {
+      case 'bed': {
+        const feather = p.item === 'feather_bed';
+        const frame = p.item === 'straw_pallet' ? '#b89a58' : feather ? '#6a3a22' : '#8a5a30';
+        const cover = p.item === 'straw_pallet' ? '#a88258' : feather ? '#8a2a3a' : '#7c5c3c';
+        const bx = x + 2;
+        const bw = w - 4;
+        if (feather) for (const px of [bx, bx + bw - 2]) rect(px, y0 - h - 12, 2, h + d, '#4a2a18'); // the posts
+        box(bx, y0 + 1, bw, d - 2, h, frame, frame);
+        rect(bx + 1, y0 + 1 - h, 7, d - 4, '#e8e0cc'); // the pillow
+        rect(bx + 8, y0 + 1 - h, bw - 9, d - 3, cover); // the blanket
+        rect(bx + 8, y0 + 1 - h, bw - 9, 1, 'rgba(255,255,255,0.2)');
+        if (feather) {
+          rect(bx, y0 - h - 13, bw, 2, '#8a2a3a'); // the canopy
+          rect(bx, y0 - h - 11, bw, 1, '#c8a050');
+        }
+        const sleeper = sleepers.get(`${p.x},${p.y}`);
+        if (sleeper) {
+          // someone asleep: their head on the pillow, the covers over them, and a z or two drifting up
+          oval(bx + 5, y0 - h + 2, 3.5, 3, sleeper.skin);
+          rect(bx + 2, y0 - h - 1, 6, 2, sleeper.hairColor);
+          rect(bx + 2, y0 - h + 1, 1, 2, sleeper.hairColor);
+          rect(bx + 6, y0 - h + 2, 1, 1, '#3a2a20'); // (eyes shut)
+          rect(bx + 9, y0 - h - 1, bw - 12, 3, cover);
+          rect(bx + 9, y0 - h - 1, bw - 12, 1, 'rgba(255,255,255,0.25)');
+          const k = (t * 0.6 + p.x * 0.37) % 1;
+          g.globalAlpha = 1 - k;
+          g.fillStyle = '#f0f0f8';
+          g.font = 'bold 7px monospace';
+          g.fillText('z', Math.round(bx + 6 + k * 4), Math.round(y0 - h - 3 - k * 8));
+          g.globalAlpha = 1;
+        }
+        trim(p, bx, y0 + 1 - h, bw, 2);
+        return;
+      }
       case 'shelf': {
         const glass = p.item === 'glass_cabinet';
         const wood = p.item === 'plank_shelf' ? '#77502f' : '#5a3a22';

@@ -23,7 +23,7 @@ import { TILE } from '../constants';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
-import { appealGain, attractiveness, extend, extensionPrice, improve, levelPrice, SALE_GEAR, shopOf, spotFor, tavernOf, venueKind, wouldFurnish } from './shop';
+import { attractiveness, extend, extensionPrice, furnishValue, improve, levelPrice, SALE_GEAR, shopOf, spotFor, tavernOf, venueKind, wouldFurnish } from './shop';
 import { gearScore } from './crafting';
 
 /* ------------------------------------------------------------ the town's direction */
@@ -341,7 +341,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
     // than a share of the purse, however many there are to pay)
     const purse = (s.coins ?? 0) - Math.min(wageBill(s), (s.coins ?? 0) * WAGE_SHARE);
     const before = queued();
-    tryMake(bestMakeable(s, (i) => mine(i) && wouldFurnish(venue, i) && appealGain(venue, i) >= 1 && saleValue(i, undefined) <= purse, (i) => appealGain(venue, i)));
+    tryMake(bestMakeable(s, (i) => mine(i) && wouldFurnish(venue, i) && furnishValue(venue, i) >= 1 && saleValue(i, undefined) <= purse, (i) => furnishValue(venue, i)));
     commission(venue, before);
   }
   const shop = shopOf(s);
