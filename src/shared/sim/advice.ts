@@ -16,7 +16,7 @@ const TIPS: Tip[] = [
   {
     id: 'expedition',
     when: (s) => s.research.queue.length === 0 && s.research.done.length >= 12 && s.era === 'neolithic',
-    text: "Town note: the town has learned all it can for now. The next era needs the totem from the Bear Cave: that's a job for an expedition.",
+    text: "Town note: the town has learned all it can for now. The next era needs the totem from the Bear Cave: send a party for it from Expeditions, or before long the Cave Bear will come down for it itself.",
   },
   {
     id: 'winter',

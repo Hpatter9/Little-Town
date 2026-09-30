@@ -5,7 +5,7 @@ import { HEALER_PER_LEVEL } from '../data/operators';
 import { UNDEAD_HEAL } from '../data/monsters';
 import { operatorSkill } from './operators';
 import { buildingCentreX } from './buildings';
-import { grieve } from './social';
+import { grieve, isChild } from './social';
 import { revealOccult, tryRevive } from './occult';
 import { tireless, notify, maxHp, personFx, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
@@ -60,7 +60,23 @@ export function stabilize(p: Person): void {
 
 export const isInjured = (p: Person) => p.hp < maxHp(p) * INJURED;
 
-/** Remove someone who has died. The main character's death ends the game. */
+/** How hard the town takes its leader's death, and for how long (game hours). */
+export const SUCCESSION_MORALE = -15;
+export const SUCCESSION_HOURS = 48;
+
+/** Who leads after the leader: their partner, else their eldest grown child, else the grown-up the town thinks most
+ *  of (the best at getting on with people, then at learning). Someone at home before someone away. None if only
+ *  children are left. */
+export function heirOf(s: GameState, dead: Person): Person | undefined {
+  const grown = s.people.filter((q) => q !== dead && !isChild(q));
+  if (!grown.length) return undefined;
+  const rank = (q: Person) =>
+    (q.away === null ? 1000 : 0) + (q.id === dead.partner ? 500 : 0) + ((q.parents ?? []).includes(dead.id) ? 300 : 0) + q.skills.social.level * 3 + q.skills.research.level;
+  return [...grown].sort((a, b) => rank(b) - rank(a))[0];
+}
+
+/** Remove someone who has died. The leader's death passes the town to an heir (it ends the game only if no grown-up
+ *  is left to take over). */
 export function killPerson(s: GameState, p: Person, cause: string): void {
   for (const e of s.expeditions) {
     e.members = e.members.filter((id) => id !== p.id);
@@ -82,9 +98,18 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
   // what they wore stays in town if they died there (it's lost with them on the road)
   if (p.away === null) for (const id of Object.values(p.gear)) s.items[id!] = (s.items[id!] ?? 0) + 1;
   if (p.id === s.mainId) {
-    s.gameOver = { tick: s.tick, text: `${p.name} has died ${cause}. Without them, the camp breaks apart.` };
-    notify(s, s.gameOver.text, true);
-    return;
+    // someone takes up the leadership, if there's a grown-up left to; else the town is finished
+    const heir = heirOf(s, p);
+    if (!heir) {
+      s.gameOver = { tick: s.tick, text: `${p.name} has died ${cause}. Without them, the camp breaks apart.` };
+      notify(s, s.gameOver.text, true);
+      return;
+    }
+    s.mainId = heir.id;
+    // (the lich's rite was for the one who died)
+    if (s.lichChosen && !s.lich) s.lichChosen = undefined;
+    (s.marks ??= []).push({ lever: 'morale', value: SUCCESSION_MORALE, until: s.tick + SUCCESSION_HOURS * TICKS_PER_HOUR, text: `${p.name} is dead` });
+    notify(s, `${p.name}, who founded the town, has died ${cause}. ${heir.name} takes up the leadership, and the town mourns.`, true);
   }
   s.mourningUntil = s.tick + MOURNING_TICKS;
   // a grave in the graveyard, or where they fell if there isn't one (the oldest make way after a while)

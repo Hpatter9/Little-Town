@@ -235,15 +235,15 @@ test('a tavern has guest rooms upstairs, one bed to a room, and more rooms as it
   s.research.done.push('barter', 'hospitality');
   const inn = addBuilding(s, 'fireside_inn', camp(s) + 3);
   inn.shop = { pieces: [] };
-  assert.equal(roomsOf(inn), 2);
+  assert.equal(roomsOf(inn), 3);
   const bed = ITEM_BY_ID.straw_pallet;
-  assert.deepEqual(spotFor(inn, bed), { x: 0, y: -1 });
-  inn.shop.pieces.push({ item: 'straw_pallet', x: 0, y: -1 });
-  assert.deepEqual(spotFor(inn, bed), { x: 1, y: -1 });
-  inn.shop.pieces.push({ item: 'straw_pallet', x: 1, y: -1 });
+  for (let x = 0; x < 3; x++) {
+    assert.deepEqual(spotFor(inn, bed), { x, y: -1 });
+    inn.shop.pieces.push({ item: 'straw_pallet', x, y: -1 });
+  }
   assert.equal(spotFor(inn, bed), null, 'every room has its bed');
   assert.ok(spotFor(inn, ITEM_BY_ID.log_table), 'and the common room is still free for tables');
-  inn.shop.extensions = 2; // (two cells wider each time: 10 cells, three rooms)
-  assert.equal(roomsOf(inn), 3);
-  assert.deepEqual(spotFor(inn, bed), { x: 2, y: -1 });
+  inn.shop.extensions = 2; // (two cells wider each time: 13 cells, four rooms)
+  assert.equal(roomsOf(inn), 4);
+  assert.deepEqual(spotFor(inn, bed), { x: 3, y: -1 });
 });

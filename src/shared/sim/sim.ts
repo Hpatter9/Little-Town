@@ -36,6 +36,7 @@ import { forSale, runPlanner, shoppingList } from './planner';
 import { chooseLich, watchLich } from './occult';
 import { castHeld, castPowers, holdPower } from './powers';
 import { lurkers } from './lurkers';
+import { caveBear } from './caveBear';
 import { updateNomads } from './nomads';
 import { rulesOf } from '../data/origins';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -109,6 +110,7 @@ export class Sim {
     updateExpeditions(s, this.rng);
     maybeStartRaid(s, this.rng);
     lurkers(s, this.rng);
+    caveBear(s, this.rng);
     updateNomads(s, this.world.back);
     updateRaid(s, this.rng);
     updateFires(s, this.rng);

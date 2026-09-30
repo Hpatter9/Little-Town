@@ -60,6 +60,7 @@ import { fightRate, guardRate } from './origin';
 import { fogAim, frenzyOf, heldBack, lordHp, rivalsInRaid, turretsDown, wardOf } from './rivals';
 import { RIVAL_LEADER_COST } from '../data/rivals';
 import { lurkersBeaten } from './lurkers';
+import { caveBearBeaten } from './caveBear';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
 
@@ -618,6 +619,7 @@ function endRaid(s: GameState, rng: Rng): void {
   const kind = RAID_KIND_BY_ID[r.kind];
   if (r.kind === 'hunters') guildDefeated(s);
   lurkersBeaten(s, r);
+  caveBearBeaten(s, r);
   // thieves who got away may have led off a horse, too
   if (s.horses.length && r.raiders.some((rd) => rd.gone && poolSize(rd.carrying) > 0) && rng.chance(HORSE_THEFT)) {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];
