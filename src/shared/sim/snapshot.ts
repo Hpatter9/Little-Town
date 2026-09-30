@@ -24,7 +24,7 @@ import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../da
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
-import { DESTINATION_BY_ID, DESTINATIONS } from '../data/expeditions';
+import { DESTINATION_BY_ID, DESTINATIONS, ROLES } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry } from './people';
 import type { Era } from '../data/eras';
@@ -40,7 +40,7 @@ import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
-import { destinationUnlocked, foodNeeded, partyCarry } from './expeditions';
+import { destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, tileCentreX } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
@@ -255,6 +255,8 @@ export interface ExpeditionView {
   /** Which end of town they left from. */
   side: -1 | 1;
   stance: string;
+  /** What the player staked on it: a safe or a risky trip (older ones: none). */
+  stakes: 'safe' | 'risky' | null;
   roles: Record<number, string>;
   /** A fight in progress, if any. */
   battle: FighterView[] | null;
@@ -270,6 +272,10 @@ export interface DestinationView {
   tripSeconds: number;
   /** Food (need units) one member eats on the trip. */
   foodPerMember: number;
+  /** The party the town would send now ("Name (role)"), and whether it'd take horses and a truck. */
+  party: string[];
+  partyHorses: number;
+  partyTruck: boolean;
 }
 
 export interface VisitorView extends PersonView {
@@ -538,6 +544,7 @@ export function snapshot(s: GameState): Snapshot {
       scouted: s.scouted.includes(d.id),
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
+      ...partyView(s, d.id),
     })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
@@ -750,6 +757,16 @@ function askedText(key: string): string {
   }
 }
 
+/** The party the town would plan for a destination, for the Expedition Board. */
+function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
+  const plan = planParty(s, dest);
+  const party = plan.members.map((id) => {
+    const p = s.people.find((q) => q.id === id)!;
+    return `${p.name} (${ROLES[plan.roles[id] ?? 'fighter'].name.toLowerCase()})`;
+  });
+  return { party, partyHorses: plan.horses, partyTruck: plan.truck };
+}
+
 function awayView(s: GameState): JournalEntryView | null {
   const e = s.unreadAway === null ? undefined : s.journal.find((q) => q.id === s.unreadAway);
   return e ? entryView(e) : null;
@@ -884,6 +901,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     recalled: e.recalled,
     side: s.destSides[e.dest] ?? 1,
     stance: e.stance,
+    stakes: e.stakes ?? null,
     roles: { ...e.roles },
     battle: e.battle
       ? e.battle.fighters.map((f) => ({

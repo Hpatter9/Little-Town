@@ -31,7 +31,8 @@ import { ARRIVING_TYPES, FOOD_VALUE } from '../data/people';
 import { TOPIC_BY_ID, TOPICS } from '../data/research';
 import { skillSpeed, type Skill } from '../data/skills';
 import type { Rng } from '../rng';
-import { depositNear, storages } from './buildings';
+import { depositNear, storages, totalStock } from './buildings';
+import { isChild } from './social';
 import { ammoOf, battleLoot, startBattle, stepBattle } from './combat';
 import { classAllies } from './classes';
 import { bossSlain } from './bosses';
@@ -39,7 +40,7 @@ import { checkBleeding, killPerson, knockDown, stabilize } from './health';
 import { rollRoadEvent } from './roadEvents';
 import { prereqsMet } from './research';
 import { occultRevealed, revealOccult } from './occult';
-import { addStock, carryCapacity, ERA_MULTIPLIER, makePerson, notify, poolSize, type Expedition, type GameState, type Person } from './state';
+import { addStock, carryCapacity, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds, campEdgeX, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
@@ -225,7 +226,48 @@ function startBack(s: GameState, e: Expedition, walkedTicks: number): void {
 
 export function partyCarry(s: GameState, e: Expedition): number {
   const people = e.members.reduce((n, id) => n + carryCapacity(s, s.people.find((p) => p.id === id)) * (e.roles[id] === 'porter' ? PORTER_CARRY : 1), 0);
-  return people + (e.horses?.length ?? 0) * HORSE_CARRY + (e.truck ? TRUCK_CARRY : 0);
+  return Math.round((people + (e.horses?.length ?? 0) * HORSE_CARRY + (e.truck ? TRUCK_CARRY : 0)) * (e.stakes ? STAKES[e.stakes].carry : 1));
+}
+
+/** Expedition stakes (CLAUDE.md, "More to watch"): the one choice the player makes as a party leaves. Safe: a
+ *  cautious party that packs light and keeps out of trouble; risky: a bold one that loads up and goes looking for it. */
+export type Stakes = 'safe' | 'risky';
+export const STAKES: Readonly<Record<Stakes, { carry: number; fights: number; stance: Stance }>> = {
+  safe: { carry: 0.75, fights: 0.5, stance: 'cautious' },
+  risky: { carry: 1.5, fights: 1.6, stance: 'bold' },
+};
+/** The town keeps at least this share of its grown-ups at home when it plans a party. */
+const KEEP_HOME = 0.5;
+
+/** The town plans a party for a destination: who goes (the fittest, best at what the trip needs, leaving enough at
+ *  home), in what role, and the horses and truck it can spare. */
+export function planParty(s: GameState, destId: string): { members: number[]; roles: Record<number, Role>; horses: number; truck: boolean } {
+  const d = DESTINATION_BY_ID[destId];
+  const able = s.people.filter((p) => p.away === null && !p.downed && !isChild(p) && !p.sick && p.hp >= maxHp(p) * 0.6);
+  const room = Math.max(1, Math.min(MAX_PARTY, d?.recommendedParty ?? 1, able.length - Math.ceil(s.people.length * KEEP_HOME)));
+  const score = (p: Person) => (d?.type === 'gather' ? p.skills.gathering.level * 2 + Math.max(p.skills.melee.level, p.skills.ranged.level) : Math.max(p.skills.melee.level, p.skills.ranged.level) * 2 + p.hp / 20);
+  // (the founder stays home unless there's nobody else)
+  const members = [...able].sort((a, b) => Number(a.id === s.mainId) - Number(b.id === s.mainId) || score(b) - score(a)).slice(0, able.length ? room : 0);
+  const roles: Record<number, Role> = {};
+  const medic = members.length >= 3 ? [...members].sort((a, b) => b.skills.medicine.level - a.skills.medicine.level)[0] : undefined;
+  for (const p of members) {
+    if (p === medic && p.skills.medicine.level > 0) roles[p.id] = 'medic';
+    else if (d?.type === 'gather' && members.length >= 2 && p === members.at(-1)) roles[p.id] = 'porter';
+    else if (p.skills.ranged.level > p.skills.melee.level + 1) roles[p.id] = 'scout';
+    else roles[p.id] = 'fighter';
+  }
+  const horses = Math.min(members.length, s.horses.filter((h) => h.hp >= HORSE_HP / 2).length);
+  const truck = (s.items.truck ?? 0) > 0 && (totalStock(s).fuel ?? 0) >= TRUCK_FUEL;
+  return { members: members.map((p) => p.id), roles, horses, truck };
+}
+
+/** Send a party the town planned, at the stakes the player chose. */
+export function sendParty(s: GameState, destId: string, stakes: Stakes): SendCheck {
+  const plan = planParty(s, destId);
+  if (!plan.members.length) return { ok: false, reason: 'Nobody fit to go' };
+  const r = sendExpedition(s, destId, plan.members, plan.roles, STAKES[stakes].stance, plan.horses, plan.truck);
+  if (r.ok) s.expeditions[s.expeditions.length - 1].stakes = stakes;
+  return r;
 }
 
 const membersOf = (s: GameState, e: Expedition) => e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
@@ -319,7 +361,8 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
 
 /** Roll for a fight; a scout may spot a (non-boss) one first and lead the party around it. */
 function maybeFight(s: GameState, e: Expedition, d: Destination, members: Person[], chance: number, rng: Rng): void {
-  if (!rng.chance(chance)) return;
+  // (a risky party goes looking for trouble; a safe one keeps clear of it)
+  if (!rng.chance(Math.min(1, chance * (e.stakes ? STAKES[e.stakes].fights : 1)))) return;
   const group = d.encounters.groups[pickIndex(d.encounters.groups.map((g) => g.weight), rng)].enemies;
   const boss = Object.keys(group).some((id) => ENEMIES[id].boss);
   const scout = members.find((p) => e.roles[p.id] === 'scout' && !p.downed);

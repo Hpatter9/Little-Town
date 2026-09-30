@@ -204,6 +204,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   live). The camera eases to keep them in view (`Camera.follow`), waiting `FOLLOW_WAIT_MS` after the player drags or
   scrolls. Their big moments (journal milestones with their name) are a forecast kind, `hero`, sent as phone alerts
   (the `hero` alert setting, on by default).
+- **Expedition stakes:** the town plans every party (`planParty` in `sim/expeditions.ts`: the fittest for the trip,
+  the founder stays unless alone, half the town kept home, roles, horses, a truck); the player picks the destination
+  and the stakes (`sendParty`, the `sendParty` command): safe (cautious, packs 75%, half the fights) or risky (bold,
+  packs 150%, more fights), `STAKES`, `Expedition.stakes`. The Expedition Board shows the planned party and the two
+  buttons (the manual picker is gone).
+- **More to watch (all eight done):** raids wait for you, a day at most away, choice events, rally, a held power, the
+  report card, following a hero, expedition stakes (each above).
 - **Fonts:** `src/renderer/fonts.ts`: a display and a body font for each look (`FONTS`, keyed by theme id; `town` is
   the base game), Google Fonts (OFL) bundled from @fontsource by `build.mjs` into `fonts/` (so they work offline).
   `theme.ts` declares the faces on every page and sets `--font-display`/`--font-body` (a theme overrides the two);
@@ -223,14 +230,6 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   frame rate up on the phone. **Textures first** (the owner: "adding textures will go a long ways"): grain, noise,
   dithering and material patterns on every surface (ground, grass, bark, rock, thatch, stone, timber, water, hills), not
   flat fills.
-
-- **More to watch, not more to do** (the town still decides everything; these give the player moments):
-  1. and 2. are done (raids wait for you; time away capped at a game day: see above).
-  3. is done (choice events: see above).
-  4. and 5. are done (rally in a fight; hold a power: see above).
-  6. is done (the morning report card: see above).
-  7. is done (follow a hero: see above).
-  8. **Expedition stakes:** one choice as a party leaves (safe or risky), the rest planned by the town.
 
 ## Known problem (fixed, watch)
 

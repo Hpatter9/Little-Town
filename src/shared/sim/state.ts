@@ -408,6 +408,8 @@ export interface Expedition {
   id: number;
   /** Destination id. */
   dest: string;
+  /** What the player staked on it as it left (sim/expeditions.ts STAKES): a safe or a risky trip. */
+  stakes?: 'safe' | 'risky';
   /** Person ids, leader first. */
   members: number[];
   phase: ExpeditionPhase;

@@ -1,23 +1,15 @@
 // Expedition Board: parties that are out, and where you can send one next.
 
 import { eraReached } from '../../shared/data/eras';
-import { HORSE_CARRY, HORSE_HP } from '../../shared/data/trade';
-import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, TRUCK_CARRY, TRUCK_FUEL, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
+import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../../shared/data/materials';
 import { FOOD_VALUE } from '../../shared/data/people';
 import { TOPIC_BY_ID } from '../../shared/data/research';
 import type { Bridge } from '../../shared/ipc';
-import type { DestinationView, ExpeditionView, PersonView, Snapshot } from '../../shared/sim/snapshot';
+import type { DestinationView, ExpeditionView, Snapshot } from '../../shared/sim/snapshot';
 import { bleedLeft, tripProgress } from '../../shared/format';
 import { button, duration, el } from './dom';
 import { WorldMapView } from './worldMapView';
-
-/** Who's picked for each destination's party, their roles, and the stance (kept while the panel re-renders). */
-const picked = new Map<string, number[]>();
-const pickedRoles = new Map<string, Record<number, Role>>();
-const pickedStance = new Map<string, Stance>();
-const pickedHorses = new Map<string, number>();
-const pickedTruck = new Map<string, boolean>();
 
 /** The destination picked on the world map (or by tapping its card): flagged, with the route out to it. */
 let mapPick: string | null = null;
@@ -43,14 +35,9 @@ export const expeditionsKey = (s: Snapshot) =>
     s.people.map((p) => [p.id, p.away, p.skills.gathering.level, p.skills.melee.level, p.skills.ranged.level, Math.round(p.hp), p.downed, p.bleedMinutes]),
     s.stock.berries,
     s.stock.meat,
-    [...picked],
-    [...pickedRoles],
-    [...pickedHorses],
-    [...pickedTruck],
     s.items.truck,
     s.stock.fuel,
     s.horses,
-    [...pickedStance],
   ]);
 
 const listStock = (st: Stock) =>
@@ -80,7 +67,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
   out.push(el('h2', '', 'Destinations'));
   const grid = el('div', 'cards wide');
   for (const d of shown) {
-    const card = destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge, rerender);
+    const card = destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge);
     card.dataset.dest = d.id;
     if (d.id === mapPick) card.classList.add('chosen');
     card.addEventListener('click', () => pick(d.id));
@@ -111,7 +98,7 @@ function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined):
     const hp = p ? (p.downed ? (p.downed === 'bleeding' ? ` (bleeding out: ${bleedLeft(p.bleedMinutes)})` : ' (down)') : ` ${Math.round(p.hp)}/${p.maxHp}`) : '';
     return `${m.name} · ${ROLES[(e.roles[m.id] ?? 'fighter') as Role].name}${hp}`;
   });
-  c.append(top, el('div', 'lock', `${who.join(' | ')} · ${STANCES[e.stance as Stance].name}${e.truck ? ' · by truck' : ''}`));
+  c.append(top, el('div', 'lock', `${who.join(' | ')} · ${e.stakes ? (e.stakes === 'risky' ? 'Risky' : 'Safe') : STANCES[e.stance as Stance].name}${e.truck ? ' · by truck' : ''}`));
   if (e.battle) {
     const foes = e.battle.filter((f) => f.side === 'enemy');
     c.append(el('div', 'lock short', `Against: ${foes.map((f) => `${f.name}${f.down ? ' (down)' : ` ${f.hp}/${f.maxHp}`}`).join(', ')}`));
@@ -128,7 +115,7 @@ function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined):
   return c;
 }
 
-function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement {
+function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   const c = el('div', v.unlocked ? 'card' : 'card locked');
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', d.name), el('span', 'card-size', `${EXPEDITION_TYPE_NAMES[d.type]} · ~${duration(v.tripSeconds)} round trip`));
@@ -143,116 +130,20 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
     return c;
   }
 
-  // Party picker: who goes, in what role
-  const home = s.people.filter((p) => p.away === null);
-  const party = (picked.get(d.id) ?? []).filter((id) => home.some((p) => p.id === id && !p.downed));
-  picked.set(d.id, party);
-  const roles = pickedRoles.get(d.id) ?? {};
-  pickedRoles.set(d.id, roles);
-  const list = el('div', 'party');
-  for (const p of home) {
-    const row = el('div', 'pick-row');
-    const label = el('label', 'pick');
-    const box = el('input');
-    box.type = 'checkbox';
-    box.checked = party.includes(p.id);
-    box.disabled = !!p.downed || (!box.checked && party.length >= MAX_PARTY);
-    box.addEventListener('change', () => {
-      const now = picked.get(d.id) ?? [];
-      picked.set(d.id, box.checked ? [...now, p.id] : now.filter((id) => id !== p.id));
-      rerender();
-    });
-    const hurt = p.downed ? ' · too hurt to go' : p.hp < p.maxHp ? ` · HP ${Math.round(p.hp)}/${p.maxHp}` : '';
-    label.append(box, document.createTextNode(` ${p.name} (${skillNote(d, p)}${hurt})`));
-    row.append(label);
-    if (box.checked) {
-      const sel = el('select');
-      for (const [id, r] of Object.entries(ROLES) as [Role, (typeof ROLES)[Role]][]) {
-        const o = el('option', '', r.name);
-        o.value = id;
-        o.title = r.description;
-        o.selected = (roles[p.id] ?? 'fighter') === id;
-        sel.append(o);
-      }
-      sel.addEventListener('change', () => {
-        roles[p.id] = sel.value as Role;
-        rerender();
-      });
-      row.append(sel);
-    }
-    list.append(row);
-  }
-  if (!home.length) list.append(el('span', 'lock', 'Everyone is away.'));
-  c.append(list);
-
-  const stance = pickedStance.get(d.id) ?? 'balanced';
-  const stanceRow = el('div', 'row stance');
-  for (const [id, st] of Object.entries(STANCES) as [Stance, (typeof STANCES)[Stance]][]) {
-    const b = button(st.name, () => {
-      pickedStance.set(d.id, id);
-      rerender();
-    }, { cls: id === stance ? 'place small on' : 'place small quiet', title: `${st.description} Falls back below ${Math.round(st.retreatAt * 100)}% health.` });
-    stanceRow.append(b);
-  }
-  c.append(stanceRow);
-
-  // horses: fit ones at home can go along (a horse each carries more and walks faster)
-  const fit = s.horses.filter((h) => !h.away && h.hp >= HORSE_HP / 2).length;
-  const horses = Math.min(pickedHorses.get(d.id) ?? 0, fit);
-  if (fit) {
-    const row = el('div', 'row');
-    row.append(
-      el('span', 'lock', `Horses: ${horses} of ${fit}`),
-      button('−', () => (pickedHorses.set(d.id, Math.max(0, horses - 1)), rerender()), { cls: 'place small quiet', disabled: horses === 0 }),
-      button('+', () => (pickedHorses.set(d.id, Math.min(fit, horses + 1)), rerender()), { cls: 'place small quiet', disabled: horses >= fit, title: `Each carries ${HORSE_CARRY}; one each speeds the walk` }),
-    );
-    c.append(row);
-  }
-
-  // a truck (Modern): carries a lot and drives there and back far faster, on fuel
-  const trucks = s.items.truck ?? 0;
-  const fuel = s.stock.fuel ?? 0;
-  const truck = !!pickedTruck.get(d.id) && trucks > 0 && fuel >= TRUCK_FUEL;
-  if (trucks > 0) {
-    const row = el('div', 'row');
-    const label = el('label', 'pick');
-    const box = el('input');
-    box.type = 'checkbox';
-    box.checked = truck;
-    box.disabled = fuel < TRUCK_FUEL;
-    box.addEventListener('change', () => (pickedTruck.set(d.id, box.checked), rerender()));
-    label.append(box, document.createTextNode(fuel < TRUCK_FUEL ? ` Take a truck (needs ${TRUCK_FUEL} fuel, ${fuel} stored)` : ` Take a truck (carries ${TRUCK_CARRY}, burns ${TRUCK_FUEL} fuel)`));
-    row.append(label);
-    c.append(row);
-  }
-
+  // The town plans the party (who goes, their roles, horses, a truck); the player picks only the stakes
+  const party = v.party;
+  const extras = [v.partyHorses ? `${v.partyHorses} horse${v.partyHorses === 1 ? '' : 's'}` : '', v.partyTruck ? 'a truck' : ''].filter(Boolean);
+  c.append(el('div', 'purpose', party.length ? `The town would send ${party.join(', ')}${extras.length ? `, with ${extras.join(' and ')}` : ''}.` : 'Nobody is fit to go (the town keeps half its people at home).'));
   const foodHave = (Object.keys(FOOD_VALUE) as Material[]).reduce((n, m) => n + (s.stock[m] ?? 0) * FOOD_VALUE[m]!, 0);
-  const foodNeed = v.foodPerMember * party.length;
-  if (party.length) {
-    const berries = Math.max(1, Math.ceil(foodNeed / FOOD_VALUE.berries!));
-    c.append(
-      el(
-        'div',
-        foodHave >= foodNeed ? 'lock' : 'lock short',
-        foodHave >= foodNeed ? `Packs about ${berries} ${berries === 1 ? "berry's" : "berries'"} worth of food` : 'Not enough food in storage: they will go hungry on the road',
-      ),
-    );
-  }
+  if (party.length && foodHave < v.foodPerMember * party.length) c.append(el('div', 'lock short', 'Not enough food in storage: they will go hungry on the road'));
   const full = s.expeditions.length >= MAX_EXPEDITIONS;
-  c.append(
-    button(full ? 'Too many out' : 'Send', () => {
-      bridge?.command({ type: 'sendExpedition', dest: d.id, members: party, roles: { ...roles }, stance, horses, truck });
-      picked.set(d.id, []);
-      pickedHorses.set(d.id, 0);
-      pickedTruck.set(d.id, false);
-    }, { disabled: full || party.length === 0, title: party.length ? `Send ${party.length} to the ${d.name}` : 'Pick who goes' }),
+  const row = el('div', 'row stakes');
+  const send = (stakes: 'safe' | 'risky') => bridge?.command({ type: 'sendParty', dest: d.id, stakes });
+  row.append(
+    button(full ? 'Too many out' : 'Send: safe', () => send('safe'), { disabled: full || !party.length, title: 'A cautious party: packs light, keeps clear of trouble, and falls back early.' }),
+    button(full ? 'Too many out' : 'Send: risky', () => send('risky'), { disabled: full || !party.length, cls: 'place danger', title: 'A bold party: loads up half again as much, and goes looking for trouble.' }),
   );
+  c.append(row);
   return c;
 }
 
-/** The skill that matters for a destination, for the picker. */
-function skillNote(d: Destination, p: PersonView): string {
-  if (d.type === 'gather') return `Gathering ${p.skills.gathering.level}`;
-  const best = Math.max(p.skills.melee.level, p.skills.ranged.level);
-  return `Fighting ${best}`;
-}
