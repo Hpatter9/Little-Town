@@ -115,3 +115,13 @@ test('a town walled at both ends is enclosed', () => {
   assert.deepEqual(e, { lo: camp - 12, hi: camp + 13, wall: 'palisade_wall' });
   assert.deepEqual(snapshot(s).enclosure, e);
 });
+
+test('a druid town keeps building: a goat pen does not make hide count as available', async () => {
+  const { newGame } = await import('../src/shared/sim/state');
+  const sim = new Sim(newGame('soak-druid-0', { origin: 'druid' }));
+  const done = () => sim.state.buildings.filter((b) => b.status === 'done').length;
+  for (let t = 0; t < 3 * TICKS_PER_DAY; t++) sim.step();
+  const early = done();
+  for (let t = 0; t < 6 * TICKS_PER_DAY && !sim.state.gameOver; t++) sim.step();
+  assert.ok(sim.state.gameOver || done() > early, 'the town finished nothing in six days');
+});

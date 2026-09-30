@@ -195,10 +195,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   7. **Follow a hero:** pin one townsperson; the camera follows them, and their life's big moments send alerts.
   8. **Expedition stakes:** one choice as a party leaves (safe or risky), the rest planned by the town.
 
-## Known problem (open)
+## Known problem (fixed, watch)
 
-- **The self-running town grows much slower since the livestock, research and background changes** (not yet
-  merged). Eight towns per origin run 15 days (`soakmany.ts` style): settlers average 16.6 people (were 20.1), druids
-  6.6 (were 26.8), dwarves 13.6 (were 26.0). Many stall at 3 people. Find the cause (suspects: pens taking the
-  farmers, refinements and the Domestication topic crowding early research, `affordable()` refusing homes that need
-  bought materials, more land cleared for the background) before merging.
+- **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be
+  culled (`sourceable` in `planner.ts`). Pens are culled only when full or short of food, so towns queued buildings that
+  cost hide and nobody could supply it. Now only pens kept for meat count. Soak (8 towns, 15 days): druids 27.5,
+  dwarves 30.1, settlers 20.9. Two of eight druid towns died out; not yet compared with the old build.

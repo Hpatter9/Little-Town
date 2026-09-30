@@ -127,7 +127,7 @@ function sourceable(s: GameState, m: Material, depth = 0, buy = true): boolean {
   if (GATHERABLE.has(m) && s.tiles.some((t) => t.terrain !== 'clear' && (t.pool[m] ?? 0) > 0)) return true;
   for (const [id, c] of Object.entries(CROPS)) if (c.material === m && unlocked(s, id)) return true;
   for (const [id, w] of Object.entries(WORKPLACES)) if ((w.outputs as Stock)[m] && unlocked(s, id)) return true;
-  for (const [id, h] of Object.entries(HERDS)) if ((h.yields[m] || h.cull[m]) && unlocked(s, id)) return true;
+  for (const [id, h] of Object.entries(HERDS)) if ((h.yields[m] || (h.forMeat && h.cull[m])) && unlocked(s, id)) return true;
   return RECIPES_FOR(m).some((r) => itemUnlocked(s, r) && unlocked(s, r.station) && (Object.keys(r.cost) as Material[]).every((i) => sourceable(s, i, depth + 1, buy)));
 }
 
