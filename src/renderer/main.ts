@@ -790,6 +790,13 @@ async function start(): Promise<void> {
     leaves.on = next.calendar.season === 'autumn' && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !freeze;
     snow.heavy = freeze && !!next.doom?.cold;
     pane.setDaylight(next.calendar.daylight);
+    // (the phone page's feed borrows the town's pictures: a townsperson, or a building in the town's own style)
+    (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {
+      const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
+      if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
+      if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(buildingArt(h.building, noTone, 'card', undefined, buildStyle || 'town').texture, 96, 64);
+      return null;
+    };
     const q = next.prompts[0];
     if (q && view.mode === 'full') promptCard.show(q);
     else promptCard.hide();

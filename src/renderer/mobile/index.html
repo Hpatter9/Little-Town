@@ -300,6 +300,169 @@
         color: var(--text-dim);
       }
 
+      /* A phone held upright: a slim title bar; under it the feed (what the town is up to: sim/../mobile/feed.ts); the
+         town, bigger, in the lower half; and one slim row of tabs along the bottom edge. (The rules for a phone on its
+         side follow, and win where they overlap.) */
+      #hint {
+        display: none;
+      }
+      #tabs {
+        bottom: env(safe-area-inset-bottom);
+        grid-template-columns: repeat(7, 1fr);
+        gap: 3px;
+        padding: 4px 4px 5px;
+        border-top: 2px solid var(--wood-edge);
+      }
+      #tabs button {
+        height: 44px;
+        padding: 2px 1px 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1px;
+        font-size: 10.5px;
+        line-height: 1.05;
+      }
+      .tab-icon {
+        position: relative;
+        font-size: 15px;
+        line-height: 1;
+        color: #e8c88a;
+      }
+      #tabs .tab-label {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0;
+      }
+      #tabs .tab-label::after {
+        content: attr(data-short);
+        font-size: 10.5px;
+      }
+      #strip-box {
+        bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom));
+      }
+      #sheet {
+        bottom: calc(var(--strip-h) + var(--tabs-h) + env(safe-area-inset-bottom));
+      }
+      #inspect {
+        bottom: calc(var(--strip-h) + var(--tabs-h) + env(safe-area-inset-bottom) + 8px);
+      }
+      #feed {
+        position: fixed;
+        top: calc(env(safe-area-inset-top) + 56px);
+        left: calc(env(safe-area-inset-left) + 8px);
+        right: calc(env(safe-area-inset-right) + 8px);
+        bottom: calc(var(--strip-h) + var(--tabs-h) + env(safe-area-inset-bottom) + 6px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      body.menu-open #feed {
+        display: none;
+      }
+      .feed-now,
+      .feed-hero,
+      .feed-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .feed-now:empty,
+      .feed-hero:empty {
+        display: none;
+      }
+      .feed-card,
+      .feed-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 6px 9px;
+        background: var(--wood);
+        border: 1px solid var(--wood-edge);
+        border-radius: 7px;
+      }
+      .feed-row {
+        background: rgba(30, 22, 15, 0.72);
+        border-color: rgba(110, 77, 46, 0.55);
+      }
+      .feed-row.key {
+        background: rgba(40, 29, 19, 0.9);
+      }
+      .feed-card.alarm {
+        border-color: #d0503a;
+        background: rgba(70, 22, 16, 0.94);
+      }
+      .feed-card.doom {
+        border-color: #8a9ac8;
+      }
+      .feed-card.ask {
+        border-color: #e8c88a;
+      }
+      .feed-pic {
+        flex: none;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 5px;
+        background: rgba(0, 0, 0, 0.25);
+        color: #e8c88a;
+        font-size: 20px;
+        overflow: hidden;
+      }
+      .feed-pic canvas {
+        image-rendering: pixelated;
+      }
+      .feed-body {
+        min-width: 0;
+        flex: 1;
+      }
+      .feed-title {
+        color: #e8c88a;
+        font-family: var(--font-display);
+        font-size: 14px;
+      }
+      .feed-text {
+        font-weight: 400;
+        font-size: 13px;
+      }
+      .feed-when {
+        color: var(--text-dim);
+        font-weight: 400;
+        font-size: 11px;
+      }
+      .feed-head {
+        margin: 2px 2px -2px;
+        color: #e8c88a;
+        font-family: var(--font-display);
+        font-size: 13px;
+        letter-spacing: 0.04em;
+      }
+      .feed-hp {
+        height: 4px;
+        margin-top: 4px;
+        border-radius: 2px;
+        background: rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+      }
+      .feed-hp span {
+        display: block;
+        height: 100%;
+        background: #7fb05a;
+      }
+      .feed-empty {
+        padding: 8px 4px;
+        color: var(--text-dim);
+        font-weight: 400;
+        text-align: center;
+      }
+
       /* A phone on its side: no title bar. The tabs run across the top with the ☰ at their end, the town fills the
          rest, and the menus (and the selected thing's card) open over the right half of the town, leaving the left
          half to look at and tap. (Last in the sheet, so these win over the rules above.) */
@@ -323,9 +486,30 @@
         #tabs {
           top: env(safe-area-inset-top);
           bottom: auto;
+          gap: 4px;
           padding: 6px 58px 6px 6px;
           border-top: 0;
           border-bottom: 2px solid var(--wood-edge);
+        }
+        #tabs button {
+          height: 38px;
+          flex-direction: row;
+          font-size: 13px;
+        }
+        .tab-icon {
+          display: none;
+        }
+        #tabs .tab-label {
+          font-size: 13px;
+        }
+        #tabs .tab-label::after {
+          content: none;
+        }
+        #feed {
+          display: none;
+        }
+        #strip-box {
+          bottom: env(safe-area-inset-bottom);
         }
         #sheet {
           top: calc(env(safe-area-inset-top) + var(--tabs-h));
@@ -359,6 +543,7 @@
     </div>
     <div id="menu" hidden></div>
     <div id="hint">Tap people and buildings to see them, and drag to look along the town. A long press cancels.</div>
+    <div id="feed"></div>
     <div id="inspect" hidden></div>
     <div id="tabs"></div>
     <div id="sheet" hidden></div>

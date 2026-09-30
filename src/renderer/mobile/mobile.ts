@@ -3,6 +3,7 @@
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
 import { MID_GROUND_Y, STRIP_HEIGHT } from '../../shared/constants';
+import { startFeed } from './feed';
 import { PANELS, type StripState } from '../../shared/ipc';
 import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
@@ -19,10 +20,12 @@ const orientation = (): Orientation => (sideways.matches ? 'sideways' : 'upright
 /** How big the town is drawn (1 = the desktop strip's own size), zoomed out by default to see more of it. Upright
  *  and on its side are kept apart: on its side the height goes to sky as it zooms out, so it starts less far out.
  *  (New keys: the old one held the earlier, bigger sizes.) */
-const ZOOM_KEYS: Record<Orientation, string> = { upright: 'littletown.zoom2', sideways: 'littletown.zoom2.side' };
-const DEFAULT_ZOOMS: Record<Orientation, number> = { upright: 0.8, sideways: 1.2 };
+const ZOOM_KEYS: Record<Orientation, string> = { upright: 'littletown.zoom3', sideways: 'littletown.zoom2.side' };
+const DEFAULT_ZOOMS: Record<Orientation, number> = { upright: 1.5, sideways: 1.2 };
 const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 1.8;
+const MAX_ZOOM = 2.6;
+/** Upright, the town takes this share of the height between the title bar and the tabs (the feed has the rest). */
+const UPRIGHT_TOWN = 0.55;
 
 const bridge = mobileBridge();
 window.bridge = bridge;
@@ -70,11 +73,14 @@ let castle = 0;
 const KEEP_MARGIN = STRIP_HEIGHT - MID_GROUND_Y + 24;
 
 function layout(): void {
-  const room = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
-  // (a castle town stands tall: the strip is zoomed out enough to show all of the keep, and upright it grows taller)
+  const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
+  // (upright, the town has the lower part and the feed the rest; on its side, everything under the tabs)
+  const room = sideways.matches ? free : Math.round(free * UPRIGHT_TOWN);
+  // (a castle town stands tall: the strip is zoomed out enough to show all of the keep)
   const need = castle ? keepHeight(castle) + KEEP_MARGIN : 0;
   const z = Math.min(zoom, room / STRIP_HEIGHT, need ? room / need : Infinity); // (never taller than there's room for)
-  const height = sideways.matches ? room / z : castle ? Math.min(room / z, Math.max(STRIP_HEIGHT, need)) : STRIP_HEIGHT;
+  // (it fills its room, the town along the bottom and sky over it)
+  const height = room / z;
   strip.style.width = `${stripBox.clientWidth / z}px`;
   strip.style.height = `${height}px`;
   strip.style.transform = `scale(${z})`;
@@ -125,14 +131,21 @@ const fills = new Map([
   ['research', fillBar('tab-fill')],
   ['expeditions', fillBar('tab-fill trip')],
 ]);
+/** Upright, the tabs are one slim row along the bottom: a mark over a short name. */
+const TAB_ICONS: Record<string, string> = { build: '⚑', research: '✦', expeditions: '⛺', townsfolk: '☺', crafting: '⚒', trade: '⚖', journal: '✎' };
+const SHORT_LABELS: Record<string, string> = { expeditions: 'Trips', townsfolk: 'Folk', crafting: 'Craft' };
 const tabButtons = PANELS.map((p) => {
   const b = document.createElement('button');
   const fill = fills.get(p.id);
   if (fill) b.append(fill.bar);
+  const icon = document.createElement('span');
+  icon.className = 'tab-icon';
+  icon.textContent = TAB_ICONS[p.id] ?? '•';
   const label = document.createElement('span');
   label.className = 'tab-label';
   label.textContent = p.label;
-  b.append(label);
+  label.dataset.short = SHORT_LABELS[p.id] ?? p.label;
+  b.append(icon, label);
   b.addEventListener('click', () => bridge.togglePanel(p.id));
   tabs.append(b);
   return { id: p.id, b, label, name: p.label };
@@ -147,7 +160,12 @@ bridge.onSnapshot((snap) => {
 });
 bridge.onSnapshot((snap) => {
   if (!applyTheme(snap.theme, 'phone')) return;
-  for (const t of tabButtons) t.label.textContent = panelLabel(t.id, t.name, snap.theme);
+  for (const t of tabButtons) {
+    t.label.textContent = panelLabel(t.id, t.name, snap.theme);
+    // (a look's own names where they fit the slim tabs; else the plain short name)
+    const short = SHORT_LABELS[t.id] ?? t.name;
+    t.label.dataset.short = t.label.textContent.length <= 9 ? t.label.textContent : short;
+  }
   $('top-title').textContent = snap.origin.town;
   document.title = snap.origin.town;
 });
@@ -184,6 +202,10 @@ const applyState = (s: StripState) => {
 };
 bridge.onState(applyState);
 void bridge.getState().then(applyState); // (a first run opens on the New town panel)
+
+/* ------------------------------------------------------------ the feed (upright) */
+
+startFeed($('feed'), bridge, strip);
 
 /* ------------------------------------------------------------ the selected thing's card */
 
