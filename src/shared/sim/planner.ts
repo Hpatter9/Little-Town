@@ -501,12 +501,41 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   return out;
 }
 
+/** Whether rebuilding a home would leave people without a bed while it's built (the beds elsewhere can't take them). */
+const displaces = (s: GameState, b: { def: string }, allow = 0) => {
+  const beds = BUILDING_BY_ID[b.def]?.housing ?? 0;
+  return beds > 0 && housingCapacity(s) - beds + allow < s.people.length;
+};
+
+/** Up to this many people may sleep rough for the short while a small home is rebuilt. */
+const SLEEP_ROUGH = 0;
+
+/** Keeps the town from sprawling into small houses: with beds to spare, the smallest home is rebuilt as the next
+ *  kind up, where it stands (its people sleep in the spare beds meanwhile). One at a time, once fed. */
+function consolidateHomes(s: GameState, back: readonly BackTerrain[], n: Needs, plan: TownPlan): boolean {
+  if (n.people < 4 || n.foodDays < 2 || s.buildings.some((b) => b.status === 'blueprint' && BUILDING_BY_ID[b.def]?.housing)) return false;
+  const homes = s.buildings
+    .filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.housing && UPGRADES[b.def])
+    .sort((a, b) => BUILDING_BY_ID[a.def].housing! - BUILDING_BY_ID[b.def].housing!);
+  for (const b of homes) {
+    const to = BUILDING_BY_ID[UPGRADES[b.def]];
+    if (!to?.housing || to.housing <= BUILDING_BY_ID[b.def].housing! || displaces(s, b, SLEEP_ROUGH) || !affordable(s, to, n.stock) || !canUpgrade(s, back, b.id).ok) continue;
+    const was = BUILDING_BY_ID[b.def].name;
+    if (upgrade(s, back, b.id).ok) {
+      plan.build = { def: to.id, why: `a better home than the ${was}` };
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Place the next building the town wants (one at a time), or upgrade one. Returns wild tiles to clear for a
  *  building it wanted but had no room for (or for a wall's spot at the end of town). */
 function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan: TownPlan): number[] {
   adoptRooms(s);
   if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
+  if (consolidateHomes(s, back, n, plan)) return clear;
   let blocked: BuildingDef | null = null;
   for (const w of wishes(s, n)) {
     const def = BUILDING_BY_ID[w.def];
@@ -541,9 +570,10 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
   for (const b of s.buildings) {
     if (b.status !== 'done' || !UPGRADES[b.def]) continue;
     const to = BUILDING_BY_ID[UPGRADES[b.def]];
-    if (!to || !affordable(s, to, n.stock) || !canUpgrade(s, back, b.id).ok) continue;
+    if (!to || !affordable(s, to, n.stock) || displaces(s, b) || !canUpgrade(s, back, b.id).ok) continue;
+    const was = BUILDING_BY_ID[b.def].name;
     if (upgrade(s, back, b.id).ok) {
-      plan.build = { def: to.id, why: `a better ${BUILDING_BY_ID[b.def].name}` };
+      plan.build = { def: to.id, why: `a better ${was}` };
       return clear;
     }
   }

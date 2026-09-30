@@ -166,7 +166,13 @@ export const UPGRADES: Readonly<Record<string, string>> = {
   lookout: 'watchtower',
   infirmary: 'hospital',
   hospital: 'trauma_center',
+  storytellers_circle: 'scriptorium',
   scriptorium: 'library',
+  library: 'university',
+  university: 'ai_core',
+  healers_hut: 'infirmary',
+  watchtower: 'radio_tower',
+  radio_tower: 'drone_hub',
   gun_nest: 'gun_turret',
   gun_turret: 'laser_turret',
 };
