@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { raidKindsFor } from '../src/shared/sim/raids';
 import type { Era } from '../src/shared/data/eras';
-import { TOPICS } from '../src/shared/data/research';
+import { eraOfResearch, TOPICS } from '../src/shared/data/research';
+import { ITEMS } from '../src/shared/data/items';
+import { BUILDING_BY_ID } from '../src/shared/data/buildings';
+import { craftSeconds } from '../src/shared/sim/crafting';
 import { totalStock } from '../src/shared/sim/buildings';
 import { startBattle, stepBattle } from '../src/shared/sim/combat';
 import { canQueue, prereqsMet } from '../src/shared/sim/research';
@@ -156,3 +159,12 @@ import { eraReached } from '../src/shared/data/eras';
 function snapshotDest(s: GameState, id: string): boolean {
   return snapshot(s).destinations.some((d) => d.id === id) && eraReached(s.era, DESTINATION_BY_ID[id].era);
 }
+
+test('work is stretched by the era of what is made, not the era the town is in', () => {
+  const old = ITEMS.find((i) => !i.fare && !i.makes && eraOfResearch(i.research) === 'neolithic')!;
+  const newer = ITEMS.find((i) => !i.fare && !i.makes && eraOfResearch(i.research) === 'medieval')!;
+  assert.equal(craftSeconds(old, 'medieval'), craftSeconds(old, 'neolithic'), `${old.id} takes no longer in the Medieval era`);
+  assert.ok(craftSeconds(newer, 'medieval') > newer.seconds, `${newer.id} is Medieval work`);
+  assert.equal(eraOfResearch(BUILDING_BY_ID.lean_to.research), 'neolithic');
+  assert.equal(eraOfResearch(BUILDING_BY_ID.town_hall.research), 'medieval');
+});

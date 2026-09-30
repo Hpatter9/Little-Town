@@ -260,6 +260,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Succession:** the founder's death no longer ends the game while a grown-up is left: `heirOf` in `health.ts` (the
   partner, a grown child, else the best at Social then Research; someone at home first) becomes `s.mainId`, and the town
   mourns (`SUCCESSION_MORALE` for `SUCCESSION_HOURS`). Only children left, or nobody: the camp breaks apart.
+- **Medieval tuning:** work is stretched by the era of what's made, not the town's (`eraOfResearch` in
+  `data/research.ts`, `earlier` in `data/eras.ts`): a lean-to, a spear or a garden plot takes no longer in the Medieval
+  era; gathering from the land isn't stretched at all. The planner makes a material by a recipe it has the makings for
+  (cloth from fiber while there's no wool: it used to pick the first recipe, and towns waited on wool forever).
+  Blueprints that haven't moved for `STALL_HOURS` (12) and wait on something the town has none of are set aside
+  (`shelveStalled`: refunded, their kind not tried again for `SHELF_HOURS`), so they don't hold every build slot. Soak
+  (8 per origin, 15 days): alchemists 29.0 (was 24.8), druids 32.4 (28.1), vampires 32.6 (29.5), the rest steady.
+  Settlers stay lowest (about 23): they start with one person where the others start with three.
 - **Night windows:** `ShopView.night`; the shop's and tavern's windows show the night sky.
 
 ## Planned (owner's requests, not started)

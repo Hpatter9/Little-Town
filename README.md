@@ -189,6 +189,8 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
   place (up to five times), rather than cramming more in.
 - **Out of the Stone Age:** the Elder Lodge needs the Bear Cave's totem. Send a party for it; if nobody goes, the Cave
   Bear comes down to the town a day and a half after the Elder's Council is learned. Kill it and the totem is yours.
+- **A new age doesn't slow the old work:** in the Medieval era only Medieval buildings and goods take longer; a
+  lean-to, a spear or a garden plot takes as long as ever, and felling a tree is no slower.
 - **When the founder dies:** their partner, a grown child or the town's most respected grown-up takes over, and the
   town mourns. The camp breaks apart only if no grown-up is left.
 - **Rooms at the tavern:** the tavern has guest rooms upstairs (two at the Fireside Inn, more as it's extended and

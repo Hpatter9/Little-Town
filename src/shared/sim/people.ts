@@ -9,7 +9,8 @@ import { TILE } from '../constants';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
 import { BEDROLL_SLEEP, ITEM_BY_ID } from '../data/items';
 import { FOOD_VALUE, JOBS, type Job } from '../data/people';
-import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
+import { eraOfResearch, RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
+import { earlier } from '../data/eras';
 import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
@@ -27,7 +28,7 @@ import { isPen, needsTending, penToTend, workPen } from './livestock';
 import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyX } from './raids';
 import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
-import { tireless, remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, ERA_MULTIPLIER, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
+import { tireless, remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
@@ -161,7 +162,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
       const speed = skillSpeed(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
-      site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_MULTIPLIER[s.era] * TICK_HZ);
+      site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
       if (site.progress >= 1) {
         site.progress = 1;
@@ -437,7 +438,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   const topic = TOPIC_BY_ID[task.topic];
   const mult = building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1;
   const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p) * researchSpeed(s);
-  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[s.era] * TICK_HZ);
+  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   if (r.progress[topic.id] < 1) return;
 
@@ -473,8 +474,8 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
   if (p.activity !== def.anim) pickTool(s, p, def.anim);
   p.activity = def.anim;
   const speed = skillSpeed(p.skills.gathering.level) * modifiers(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
-  // (foraging is food: people eat on the same clock in every era, so it isn't stretched)
-  task.progress += speed / (def.secondsPerUnit * (def.anim === 'forage' ? 1 : ERA_MULTIPLIER[s.era]) * TICK_HZ);
+  // (the land is the same in every era: a tree takes no longer to fell in the Medieval era)
+  task.progress += speed / (def.secondsPerUnit * TICK_HZ);
   while (task.progress >= 1 && p.task === task) {
     task.progress -= 1;
     gatherUnit(s, p, task.tile, rng);

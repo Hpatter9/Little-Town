@@ -1,6 +1,6 @@
 // Research by era (DESIGN §5, §15). Research costs no materials, only time. Numbers are starting points.
 
-import type { Era } from './eras';
+import { ERAS, type Era } from './eras';
 import type { OriginId } from './origins';
 import type { WorkAnim } from './terrain';
 
@@ -380,6 +380,18 @@ export function describeEffects(effects: readonly Effect[]): string {
 }
 
 export const TOPIC_BY_ID: Readonly<Record<string, Topic>> = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
+
+/** The era a thing belongs to, from the research that opens it (the latest of them): Neolithic with none. Work is
+ *  stretched by the era of what's being made, not the town's: a lean-to is no harder to put up in the Medieval era. */
+export function eraOfResearch(ids: readonly string[] | string | undefined): Era {
+  const list = ids === undefined ? [] : typeof ids === 'string' ? [ids] : ids;
+  let era: Era = 'neolithic';
+  for (const id of list) {
+    const e = TOPIC_BY_ID[id]?.era ?? 'neolithic';
+    if (ERAS.indexOf(e) > ERAS.indexOf(era)) era = e;
+  }
+  return era;
+}
 
 /** Research queue slots before any bonuses (DESIGN §2: queues start at 2-3 slots). */
 export const RESEARCH_QUEUE_BASE = 2;
