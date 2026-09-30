@@ -263,6 +263,7 @@ function startDrawing(): void {
 /** Colours for goods on the shelves: the town's goods for sale where it has them. */
 const GOODS: Partial<Record<Material, string>> = {
   wood: '#8a5a30', stone: '#8b8680', flint: '#5a5a64', fiber: '#aab35c', hide: '#a88258', bone: '#e8e0cc', clay: '#b0704a', herbs: '#5a9443',
+  vegetables: '#6a9a3a', fruit: '#d0402a',
   meat: '#a8423a', berries: '#8a2a4a', grain: '#d8c060', dried_meat: '#7a3a2a', rations: '#c8a060', sling_stones: '#6b6763', iron_ore: '#7a5a4a',
   iron: '#9aa0a8', lumber: '#c08a50', bricks: '#a4543a', leather: '#7c4c2c', cloth: '#d8c8a8', flour: '#f0e8d8', bread: '#d0903a', arrows: '#8a6a4a',
   coal: '#2a2a2a', steel: '#b0b8c0', glass: '#a8d8e8', shot: '#50505a', oil: '#1a1a20', fuel: '#d0a020', plastic: '#e05a8a', concrete: '#a0a09a',

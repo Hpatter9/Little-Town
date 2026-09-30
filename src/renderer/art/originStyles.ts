@@ -763,4 +763,4 @@ export function styled(style: string, defId: string): { h?: number; draw?: Draw;
 }
 
 /** Left as they are: fields and gardens (the crop is the look), the campfire, traps, and what's too small to dress. */
-const UNDRESSED = new Set(['campfire', 'garden_plot', 'herb_garden', 'spike_trap', 'graveyard', 'well', 'drying_rack', 'tanning_rack', 'stockpile', 'palisade_wall', 'stone_wall', 'brick_wall', 'concrete_wall', 'force_wall']);
+const UNDRESSED = new Set(['campfire', 'garden_plot', 'herb_garden', 'flax_field', 'vegetable_patch', 'orchard', 'spike_trap', 'graveyard', 'well', 'drying_rack', 'tanning_rack', 'stockpile', 'palisade_wall', 'stone_wall', 'brick_wall', 'concrete_wall', 'force_wall']);

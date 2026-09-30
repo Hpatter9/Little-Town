@@ -6,6 +6,8 @@ export const MATERIALS = [
   'wood', 'stone', 'flint', 'fiber', 'hide', 'bone', 'clay', 'herbs', 'meat', 'berries', 'grain', 'dried_meat', 'rations', 'sling_stones', 'totem',
   // Livestock (from the coop, the pens and the fold)
   'eggs', 'milk', 'wool',
+  // Fields (the vegetable patch and the orchard)
+  'vegetables', 'fruit',
   // Medieval
   'iron_ore', 'iron', 'lumber', 'bricks', 'leather', 'cloth', 'flour', 'bread', 'arrows',
   // Industrial
@@ -36,6 +38,8 @@ export const MATERIAL_NAMES: Record<Material, string> = {
   eggs: 'Eggs',
   milk: 'Milk',
   wool: 'Wool',
+  vegetables: 'Vegetables',
+  fruit: 'Fruit',
   iron_ore: 'Iron ore',
   iron: 'Iron',
   lumber: 'Lumber',

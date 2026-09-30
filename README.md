@@ -173,6 +173,14 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
   wander about in them. Farmers tend them after the fields. Herds grow in spring and summer; when a pen is full,
   or food runs short, one goes to the pot. In winter they eat grain, and without it they starve one by one.
   Raiders who get away may drive some off. Eggs and cheese are served at the tavern too.
+- **More farming:** Flax Growing (Stone Age) brings the Flax Field (fiber); Market Gardens (Medieval) the
+  Vegetable Patch, whose cabbages, carrots and beans grow on through the autumn; Orcharding (Medieval) the Orchard,
+  whose trees take a while to come into bearing and then fruit every year without sowing. Every harvest tires a
+  field's soil and the next crop is smaller. Fields rest while fallow and all winter, and muck from the pens mends
+  them. A worn-out field is left to rest unless the town is going hungry. Blight strikes now and then, worse in the
+  wet and where one crop is grown everywhere, so the town plants a mix. Crop Rotation and Fertilisers soften both.
+  Nobody sows in late autumn what can't ripen before winter. At the turn of winter a well-stocked town feasts at the
+  harvest home, and a hungry one grumbles. The tavern serves vegetable soup, cider and fruit tarts.
 - **The land behind the town clears as the town grows:** clearing the land along the walkway clears the
   forest, hills or marsh behind it, so fields and pens can go there (a river stays a river).
 - **A walled town:** once the town has a finished wall beyond each end, a wall is drawn round it far off behind

@@ -23,6 +23,8 @@ export interface Modifiers {
   carryBonus: number;
   storage: number;
   cropSpeed: number;
+  /** How much fields tire and take blight. */
+  soil: number;
   /** Extra build and craft queue slots. */
   queueSlots: number;
   /** The origin levers research pulls too (sim/origin.ts multiplies them in). */
@@ -43,6 +45,7 @@ export function modifiers(r: Pick<ResearchState, 'done'>): Modifiers {
     carryBonus: 0,
     storage: 1,
     cropSpeed: 1,
+    soil: 1,
     queueSlots: 0,
     rules: { build: 1, craft: 1, travellers: 1, prices: 1, fight: 1, guard: 1, day: 1, night: 1 },
     quality: 0,
@@ -69,6 +72,9 @@ export function modifiers(r: Pick<ResearchState, 'done'>): Modifiers {
           break;
         case 'cropSpeed':
           m.cropSpeed *= e.mult;
+          break;
+        case 'soil':
+          m.soil *= e.mult;
           break;
         case 'queueSlots':
           m.queueSlots += e.add;

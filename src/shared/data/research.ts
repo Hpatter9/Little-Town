@@ -30,6 +30,8 @@ export type Effect =
   | { type: 'carry'; add: number }
   | { type: 'storage'; mult: number }
   | { type: 'cropSpeed'; mult: number }
+  /** Fields tire and take blight this much (a multiplier: lower is better). */
+  | { type: 'soil'; mult: number }
   | { type: 'queueSlots'; add: number }
   | { type: 'rule'; rule: ResearchRule; mult: number }
   /** Crafted things come out this many grades finer. */
@@ -101,6 +103,7 @@ export const TOPICS: readonly Topic[] = [
   { id: 'palisades', name: 'Palisades', branch: 'military', seconds: 240, prereqs: ['woodcutting'], unlocks: '', effects: [] },
   { id: 'lookout', name: 'Lookout', branch: 'military', seconds: 240, prereqs: ['palisades'], unlocks: 'Raid warning', effects: [] },
   { id: 'early_agriculture', name: 'Early Agriculture', branch: 'agriculture', seconds: 240, prereqs: ['foraging'], unlocks: 'Wild grain', effects: [] },
+  { id: 'flax_growing', name: 'Flax Growing', branch: 'agriculture', seconds: 210, prereqs: ['early_agriculture', 'cordage'], unlocks: 'Fiber from fields', effects: [] },
   { id: 'domestication', name: 'Domestication', branch: 'agriculture', seconds: 240, prereqs: ['early_agriculture', 'cordage'], unlocks: 'Hens for eggs and goats for milk', effects: [] },
   { id: 'oral_tradition', name: 'Oral Tradition', branch: 'society', seconds: 180, prereqs: ['fire_keeping'], unlocks: '+1 research queue slot, +10% research speed', effects: [{ type: 'researchSlots', add: 1 }, { type: 'researchSpeed', mult: 1.1 }] },
   { id: 'barter', name: 'Barter', branch: 'logistics', seconds: 180, prereqs: ['fire_keeping'], unlocks: 'Travellers stop to buy and sell: coins', effects: [] },
@@ -117,7 +120,9 @@ export const TOPICS: readonly Topic[] = [
   { id: 'weaving', name: 'Weaving', branch: 'crafting', era: 'medieval', seconds: 300, prereqs: [], unlocks: 'Cloth', effects: [] },
   { id: 'milling', name: 'Milling', branch: 'agriculture', era: 'medieval', seconds: 360, prereqs: ['carpentry'], unlocks: 'Flour from grain', effects: [] },
   { id: 'baking', name: 'Baking', branch: 'agriculture', era: 'medieval', seconds: 300, prereqs: ['milling', 'masonry'], unlocks: 'Bread', effects: [] },
-  { id: 'crop_rotation', name: 'Crop Rotation', branch: 'agriculture', era: 'medieval', seconds: 360, prereqs: [], unlocks: 'Fields grow 30% faster', effects: [{ type: 'cropSpeed', mult: 1.3 }] },
+  { id: 'crop_rotation', name: 'Crop Rotation', branch: 'agriculture', era: 'medieval', seconds: 360, prereqs: [], unlocks: 'Fields grow 30% faster, and tire and take blight half as much', effects: [{ type: 'cropSpeed', mult: 1.3 }, { type: 'soil', mult: 0.5 }] },
+  { id: 'market_gardens', name: 'Market Gardens', branch: 'agriculture', era: 'medieval', seconds: 300, prereqs: ['crop_rotation'], unlocks: 'Vegetables', effects: [] },
+  { id: 'orcharding', name: 'Orcharding', branch: 'agriculture', era: 'medieval', seconds: 360, prereqs: ['carpentry', 'early_agriculture'], unlocks: 'Fruit trees', effects: [] },
   { id: 'animal_husbandry', name: 'Animal Husbandry', branch: 'agriculture', era: 'medieval', seconds: 480, prereqs: ['carpentry', 'domestication'], unlocks: 'Horses for expeditions', effects: [] },
   { id: 'physick', name: 'Physick', branch: 'medicine', era: 'medieval', seconds: 420, prereqs: ['weaving'], unlocks: 'Faster healing', effects: [] },
   { id: 'archery', name: 'Archery', branch: 'military', era: 'medieval', seconds: 360, prereqs: ['carpentry'], unlocks: '', effects: [] },
@@ -207,7 +212,7 @@ export const TOPICS: readonly Topic[] = [
 
   T('prefabrication', 'Prefabrication', 'construction', 'industrial', 420, ['urban_housing'], [R('build', 1.15)]),
   T('machine_tools', 'Machine Tools', 'crafting', 'industrial', 420, ['steelmaking'], [R('craft', 1.15)]),
-  T('fertilisers', 'Fertilisers', 'agriculture', 'industrial', 420, ['industrial_farming'], [{ type: 'cropSpeed', mult: 1.1 }]),
+  T('fertilisers', 'Fertilisers', 'agriculture', 'industrial', 420, ['industrial_farming'], [{ type: 'cropSpeed', mult: 1.1 }, { type: 'soil', mult: 0.5 }]),
   T('drill_manuals', 'Drill Manuals', 'military', 'industrial', 420, ['firearms'], [R('fight', 1.1)]),
   T('banking', 'Banking', 'logistics', 'industrial', 480, ['assembly_lines'], [R('prices', 1.1)]),
   T('telegraph', 'Telegraph', 'society', 'industrial', 480, ['public_library'], [{ type: 'researchSpeed', mult: 1.1 }]),
@@ -352,6 +357,8 @@ export function describeEffects(effects: readonly Effect[]): string {
           return `${pct(e.mult)} ${GATHER_TEXT[e.anim]}`;
         case 'cropSpeed':
           return `fields grow ${pct(e.mult)} faster`;
+        case 'soil':
+          return `fields tire and take blight ${Math.round((1 - e.mult) * 100)}% less`;
         case 'researchSpeed':
           return `${pct(e.mult)} research speed`;
         case 'researchSlots':

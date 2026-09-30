@@ -121,4 +121,4 @@ export const PRIORITY_NAMES: Record<Priority, string> = { 1: 'High', 2: 'Normal'
 
 /** How much of the food need one unit restores (about two berries a day per person). In order of what
  *  gets eaten first at home (the least filling); expeditions pack from the other end. */
-export const FOOD_VALUE: Partial<Record<string, number>> = { grain: 0.4, milk: 0.4, berries: 0.5, eggs: 0.5, meat: 0.7, dried_meat: 0.9, bread: 0.9, rations: 1 };
+export const FOOD_VALUE: Partial<Record<string, number>> = { grain: 0.4, milk: 0.4, berries: 0.5, eggs: 0.5, vegetables: 0.6, fruit: 0.6, meat: 0.7, dried_meat: 0.9, bread: 0.9, rations: 1 };

@@ -23,6 +23,8 @@ export const WORTH: Record<Material, number> = {
   eggs: 1,
   milk: 1,
   wool: 2,
+  vegetables: 1,
+  fruit: 2,
   iron_ore: 3,
   iron: 8,
   lumber: 2,

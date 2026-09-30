@@ -225,11 +225,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   placed from a second random stream per tile (`0xc3` midground, `0xb3` background) so older layouts don't move.
   Autumn leaves drift over the town (`town/leavesView.ts`); flocks cross the sky twice as often. Frame rate checked:
   about 57 fps where it was 60 in the headless browser.
-- **Phase 4:** more farming.
+- **Phase 4, more farming (done):** new fields in `data/crops.ts`: `flax_field` (fiber), `vegetable_patch`
+  (`hardy`: full speed in autumn), `orchard` (`establishHours`, then `crop.bearing`: fruits again without sowing).
+  New foods `vegetables` and `fruit`. Soil (`crop.soil`, `SOIL`): each sown harvest drains it and scales the yield; it
+  rests while fallow and in winter, and pens with animals muck it. A tired field rests unless food is under 2 days
+  (`fieldToWork`). Blight (`BLIGHT`, daily in `tendFields`) is worse in the wet and with many fields of one crop, and
+  spreads between them. The planner's `cropPower` favours a mix (and no orchard while food is short). `ripensInTime`
+  stops autumn sowing that winter would kill. The harvest home is a morale mark at the turn of winter. The research
+  effect `soil` (Crop Rotation, Fertilisers) lessens the wear and the blight. Tests: `test/fields.test.ts`.
 
 ## Planned (owner's requests, not started)
 
-- **Phase 4:** more farming.
+Nothing waiting.
 
 ## Known problem (fixed, watch)
 

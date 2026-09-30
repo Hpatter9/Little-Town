@@ -66,7 +66,9 @@ export interface Building {
   /** Walls and gates: current health (set when finished). */
   hp?: number;
   /** Fields: what's in the ground. `growth` runs 0..1 while growing; `work` is sowing or harvest progress. */
-  crop?: { stage: 'fallow' | 'growing' | 'ripe'; growth: number; work: number };
+  /** A field's crop. `soil`: how good the ground is (1 when left out; see SOIL in data/crops.ts). `bearing`: an
+   *  orchard's trees have come into fruit. */
+  crop?: { stage: 'fallow' | 'growing' | 'ripe'; growth: number; work: number; soil?: number; bearing?: boolean };
   /** A pen's animals (sim/livestock.ts): how many, when they were last tended, progress to the next birth (0..1), hours
    *  gone hungry this winter, and the work done on the tending under way. */
   herd?: { head: number; tended: number; breed: number; hungry: number; work: number; owed?: number };

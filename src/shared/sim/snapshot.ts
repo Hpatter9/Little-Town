@@ -30,6 +30,7 @@ import { alarmRaised, cavalry } from './people';
 import type { Era } from '../data/eras';
 import { ITEM_BY_ID, type Slot } from '../data/items';
 import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
+import { CROPS } from '../data/crops';
 import { craftNeeded, craftSlots, hasBedroll, missingItems, stationFor, stationName } from './crafting';
 import { CHILD_HOURS } from '../data/social';
 import { DOOMS, type DoomKind } from '../data/doom';
@@ -1006,7 +1007,9 @@ function describe(s: GameState, p: Person): string {
       const b = s.buildings.find((q) => q.id === task.building);
       const herd = b && HERDS[b.def];
       if (herd) return `Tending the ${herd.plural}`;
-      const what = b?.def === 'herb_garden' ? 'herbs' : 'grain';
+      const crop = b && CROPS[b.def];
+      if (crop?.establishHours) return b?.crop?.stage === 'ripe' ? 'Picking fruit in the orchard' : 'Planting fruit trees';
+      const what = crop ? (crop.material === 'grain' ? 'grain' : crop.material === 'fiber' ? 'flax' : MATERIAL_NAMES[crop.material].toLowerCase()) : 'grain';
       return b?.crop?.stage === 'ripe' ? `Harvesting ${what}` : `Sowing ${what}`;
     }
     case 'craft': {

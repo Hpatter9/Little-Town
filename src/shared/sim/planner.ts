@@ -161,7 +161,7 @@ function topicScore(t: Topic, n: Needs): number {
   for (const b of BUILDINGS.filter((d) => d.research === t.id)) {
     score += 4;
     if (b.housing && n.freeBeds <= 1 && canMake(b, n)) score += 30;
-    if (CROPS[b.id] && n.foodDays < 5) score += 25;
+    if (CROPS[b.id] && CROPS[b.id].material !== 'fiber' && n.foodDays < 5) score += 25;
     if (b.storage && n.storageFill > 0.6) score += 15;
     if (RESEARCH_STATIONS[b.id]) score += 15;
     if (WORKPLACES[b.id]) score += 10;
@@ -194,7 +194,7 @@ function topicScore(t: Topic, n: Needs): number {
 function whyTopic(t: Topic, n: Needs): string {
   const unlocks = BUILDINGS.filter((d) => d.research === t.id);
   if (unlocks.some((b) => b.housing && canMake(b, n)) && n.freeBeds <= 1) return 'the town needs more beds';
-  if (unlocks.some((b) => CROPS[b.id]) && n.foodDays < 5) return 'food is running short';
+  if (unlocks.some((b) => CROPS[b.id] && CROPS[b.id].material !== 'fiber') && n.foodDays < 5) return 'food is running short';
   if (unlocks.some((b) => isShop(b.id)) && n.unsourced.length) return `it can't get ${names(n.unsourced)} any other way`;
   if (ITEMS.some((i) => i.ware && n.wareGaps.includes(i.ware.tier) && i.research.includes(t.id))) return 'the shop\'s grander customers want finer wares';
   if (t.effects.some((e) => e.type === 'eraCapstone')) return 'it leads to the next era';
@@ -454,15 +454,22 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   };
   // homes: a bed ahead of the people, but only as fast as the town can feed them: food holding up, fields for
   // everyone, and one new home at a time (half a day apart, once past the first few)
-  const fieldsNow = s.buildings.filter((b) => CROPS[b.def] && CROPS[b.def].material !== 'herbs').length;
+  const foodField = (id: string) => !!CROPS[id] && !!FOOD_VALUE[CROPS[id].material];
+  const fieldsNow = s.buildings.filter((b) => foodField(b.def)).length;
   const fed = n.people < 4 || (n.foodDays >= 2 && fieldsNow >= Math.ceil(n.people / 2) - 1);
   const paced = n.people < 4 || s.tick - (s.plan?.lastHome ?? -Infinity) >= HOME_EVERY * Math.max(1, s.plan?.lastHomeBeds ?? 1);
   if (n.freeBeds < 1 && fed && paced) options((d) => !!d.housing, (d) => d.housing!, `${n.people} people and ${n.people + n.freeBeds} beds`);
   // food: a field for every two people (one or two more when stores are low; never a field per person)
-  const fields = s.buildings.filter((b) => CROPS[b.def] && CROPS[b.def].material !== 'herbs').length;
+  const fields = fieldsNow;
   // (poor soil, like the desert's, feeds fewer per field: while food is short it keeps adding fields)
   const fieldsWanted = Math.ceil(n.people / 2) + (n.foodDays < 3 ? Math.ceil(n.people / 3) : 0);
-  if (fields < Math.min(fieldsWanted, n.people + 1)) options((d) => !!CROPS[d.id] && CROPS[d.id].material !== 'herbs', (d) => CROPS[d.id].yield, n.foodDays < 3 ? 'food is running low' : 'more fields for more people');
+  // (a mix of crops, so one blight can't take them all; and no slow orchard while food is short)
+  const cropPower = (d: BuildingDef) => {
+    const c = CROPS[d.id];
+    const perDay = (c.yield * FOOD_VALUE[c.material]!) / c.growHours;
+    return (c.establishHours && n.foodDays < 3 ? perDay / 4 : perDay) / (1 + count(d.id));
+  };
+  if (fields < Math.min(fieldsWanted, n.people + 1)) options((d) => foodField(d.id), cropPower, n.foodDays < 3 ? 'food is running low' : 'more fields for more people');
   // the phylactery, first of all, once it's decided
   if (s.lichChosen && !planned(s, 'phylactery')) add('phylactery', `to bind ${s.people.find((p) => p.id === s.mainId)?.name ?? 'the founder'}'s soul`);
   // a shop, first thing, when the land can't give what the town needs (a desert's fiber, once it's gathered out)

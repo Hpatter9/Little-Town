@@ -9,7 +9,7 @@ import { generateWorld, type World } from '../world';
 import { demolish, discardStock, placeBlueprint, upgrade } from './buildings';
 import type { Command } from './commands';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
-import { growCrops } from './farming';
+import { growCrops, tendFields } from './farming';
 import { tendHerds } from './livestock';
 import { updateFires } from './fire';
 import { updateSocial } from './social';
@@ -118,6 +118,7 @@ export class Sim {
     assignBeds(s);
     hourlyItems(s, this.rng);
     growCrops(s);
+    tendFields(s, this.rng);
     tendHerds(s);
     updateSocial(s, this.rng);
     checkDespair(s);

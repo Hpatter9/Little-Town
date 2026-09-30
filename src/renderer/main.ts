@@ -322,16 +322,26 @@ async function start(): Promise<void> {
           if (b.def === 'graveyard') lines.push(snap.graves.length ? `Here lie: ${snap.graves.map((g) => g.name).join(', ')}` : 'Nobody lies here yet.');
           if (CROPS[b.def]) {
             const c = b.crop;
+            const crop = CROPS[b.def];
             const winter = snap.calendar.season === 'winter';
+            const soil = c?.soil ?? 1;
+            const tired = !crop.indoor && !crop.establishHours && soil < 0.5;
             lines.push(
               !c || c.stage === 'fallow'
                 ? winter
                   ? 'Fallow: nothing grows in winter'
-                  : 'Fallow: waiting for a farmer to sow it'
+                  : crop.establishHours
+                    ? 'Waiting for a farmer to plant the trees'
+                    : tired
+                      ? 'Fallow: resting the tired soil'
+                      : 'Fallow: waiting for a farmer to sow it'
                 : c.stage === 'ripe'
                   ? 'Ripe: waiting for a farmer to harvest it'
-                  : `Growing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`,
+                  : crop.establishHours && !c.bearing
+                    ? `Young trees, coming into bearing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`
+                    : `Growing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`,
             );
+            if (!crop.indoor && !crop.establishHours) lines.push(`Soil: ${soil >= 1 ? 'rich' : soil >= 0.75 ? 'good' : soil >= 0.5 ? 'tiring' : 'worn out'} (the harvest ×${soil.toFixed(1)})`);
           }
         }
         return { title: def.name + (b.status === 'blueprint' ? ' (blueprint)' : ''), lines, hint: 'Click for options', y: r.y };
