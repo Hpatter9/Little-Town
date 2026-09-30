@@ -184,8 +184,9 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
   its fields few and big: with the Ard Plough it ploughs two garden plots side by side into one Open Field, and with
   Crop Rotation an open field becomes an Estate Farm with a barn. Fields lie on the rising ground behind the town, so
   their crops show over the roofs.
-- **Rooms at the tavern:** the town furnishes the tavern with beds (a straw pallet, a box bed, a feather bed) once
-  guests ask for somewhere to sleep. A guest who comes in the evening may take a bed for the night, paying more for a
+- **Rooms at the tavern:** the tavern has guest rooms upstairs (two at the Fireside Inn, more as it's extended and
+  rebuilt as a Tavern), and the town puts a bed in each (a straw pallet, a box bed, a feather bed) once guests ask for
+  somewhere to sleep. A guest who comes in the evening may take a bed for the night, paying more for a
   finer one; they sit up over their food, go to bed late, and set out in the morning. The Rooms line in the tavern's
   window says how many beds are taken tonight.
 - **The land behind the town clears as the town grows:** clearing the land along the walkway clears the

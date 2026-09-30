@@ -240,11 +240,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     (`plotsWorth`), so a town has about 12 fields where it had 20.
   - Fields are drawn on the rise behind the town (`slope()` in `art/buildings.ts`: rows of crops climbing back, about
     40px tall) so they show over the houses' roofs.
-- **Tavern rooms:** beds are furnishings (kind `bed`: `straw_pallet`, `box_bed`, `feather_bed`), placed along the side
-  walls. `lodge` in `shop.ts`: after being served, an evening guest (`LODGING` in `data/shop.ts`) takes the best free
+- **Tavern rooms:** the taverns are bigger (Fireside Inn 6x5, Tavern 9x6), with guest rooms upstairs (`roomsOf`: one per 3
+  cells of width, so extensions and the Tavern add rooms). Beds are furnishings (kind `bed`: `straw_pallet`, `box_bed`,
+  `feather_bed`), one to a room, set at y `UPSTAIRS` (-1) with x the room; the common room stays for tables and hearths. `lodge` in `shop.ts`: after being served, an evening guest (`LODGING` in `data/shop.ts`) takes the best free
   bed they can pay for (`Traveller.bed`), stays till morning, and pays; with none, they ask (`asked.bed`), which the
-  planner's `furnishValue` turns into a bed order. The tavern panel draws beds and the sleepers in them
-  (`asleepHour`), and a Rooms line (`ShopView.beds`, `lodgers`).
+  planner's `furnishValue` turns into a bed order. The tavern panel draws the guest rooms as a storey over
+  the common room (`upstairs()`, `UPSTAIRS_H`), the sleepers in their beds (`asleepHour`), and a Rooms line
+  (`ShopView.rooms`, `beds`, `lodgers`).
 
 ## Planned (owner's requests, not started)
 

@@ -4,7 +4,7 @@ import { ITEM_BY_ID } from '../src/shared/data/items';
 import { MAX_QUALITY, qualityMult, rollQuality, typicalQuality } from '../src/shared/data/quality';
 import { addItems, equipAll, gearEffects, qualitiesOf, takeItem } from '../src/shared/sim/crafting';
 import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
-import { appeal, tavernOf } from '../src/shared/sim/shop';
+import { appeal, roomsOf, spotFor, tavernOf } from '../src/shared/sim/shop';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { type Building, type GameState } from '../src/shared/sim/state';
@@ -201,7 +201,7 @@ test('guests who come of an evening take a bed for the night and leave in the mo
     const s = sim.state;
     s.research.done.push('barter', 'hospitality');
     const inn = addBuilding(s, 'fireside_inn', camp(s) + 3);
-    inn.shop = { pieces: beds ? [{ item: 'straw_pallet', x: 0, y: 2 }, { item: 'box_bed', x: 3, y: 2 }] : [] };
+    inn.shop = { pieces: beds ? [{ item: 'straw_pallet', x: 0, y: -1 }, { item: 'box_bed', x: 1, y: -1 }] : [] };
     for (const f of ['roast_meat', 'herb_tea', 'berry_bowl']) addItems(s, f, 40, 1);
     const lodgers = new Set<number>();
     const left = new Set<number>();
@@ -228,4 +228,22 @@ test('guests who come of an evening take a bed for the night and leave in the mo
   const bare = run(false);
   assert.equal(bare.lodged, 0);
   assert.ok((bare.inn.shop?.asked?.bed ?? 0) > 0, 'guests asked for a bed');
+});
+
+test('a tavern has guest rooms upstairs, one bed to a room, and more rooms as it is extended', () => {
+  const s = plainGame('rooms');
+  s.research.done.push('barter', 'hospitality');
+  const inn = addBuilding(s, 'fireside_inn', camp(s) + 3);
+  inn.shop = { pieces: [] };
+  assert.equal(roomsOf(inn), 2);
+  const bed = ITEM_BY_ID.straw_pallet;
+  assert.deepEqual(spotFor(inn, bed), { x: 0, y: -1 });
+  inn.shop.pieces.push({ item: 'straw_pallet', x: 0, y: -1 });
+  assert.deepEqual(spotFor(inn, bed), { x: 1, y: -1 });
+  inn.shop.pieces.push({ item: 'straw_pallet', x: 1, y: -1 });
+  assert.equal(spotFor(inn, bed), null, 'every room has its bed');
+  assert.ok(spotFor(inn, ITEM_BY_ID.log_table), 'and the common room is still free for tables');
+  inn.shop.extensions = 2; // (two cells wider each time: 10 cells, three rooms)
+  assert.equal(roomsOf(inn), 3);
+  assert.deepEqual(spotFor(inn, bed), { x: 2, y: -1 });
 });

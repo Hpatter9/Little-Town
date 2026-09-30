@@ -122,6 +122,12 @@ export function shopLayout(b: VenueBuilding): { cols: number; rows: number; coun
   return { cols, rows, counter: { x: cols - 3, y: 1, w: 2, h: 1 }, keeper: { x: cols - 3, y: 0, w: 2, h: 1 }, door: Math.floor(cols / 2) - 1 };
 }
 
+/** A tavern's guest rooms, upstairs over the common room: one for every three cells of its width (so more as it's
+ *  extended, and more again as a Tavern). Each holds one bed, set at y -1 with x the room. A shop has none. */
+export const UPSTAIRS = -1;
+export const roomsOf = (b: VenueBuilding) => (venueKind(b) === 'tavern' ? Math.floor(shopLayout(b).cols / 3) : 0);
+const isBed = (item: ItemDef) => item.furnish?.kind === 'bed';
+
 const inRect = (r: Rect, x: number, y: number) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 
 /** Cells nothing can be set on. */
@@ -140,6 +146,8 @@ const footprint = (p: ShopPiece): Rect => {
  *  of the other pieces. */
 function fits(b: Building, item: ItemDef, x: number, y: number): boolean {
   if (!furnishes(item, venueKind(b))) return false;
+  // (a bed goes in a guest room upstairs, one to a room)
+  if (isBed(item)) return y === UPSTAIRS && x >= 0 && x < roomsOf(b) && !piecesOf(b).some((p) => p.y === UPSTAIRS && p.x === x);
   const f = item.furnish!;
   const { cols, rows } = shopLayout(b);
   if (x < 0 || y < 0 || x + f.w > cols || y + f.h > rows) return false;
@@ -175,6 +183,10 @@ function placeScore(b: Building, item: ItemDef, x: number, y: number): number {
 
 /** The best free spot for a piece, or null if there's no room (or it doesn't belong here). */
 export function spotFor(b: Building, item: ItemDef): { x: number; y: number } | null {
+  if (isBed(item)) {
+    for (let x = 0; x < roomsOf(b); x++) if (fits(b, item, x, UPSTAIRS)) return { x, y: UPSTAIRS };
+    return null;
+  }
   const { cols, rows } = shopLayout(b);
   let best: { x: number; y: number; score: number } | null = null;
   for (let y = 0; y < rows; y++)

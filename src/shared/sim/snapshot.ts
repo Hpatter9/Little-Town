@@ -7,7 +7,7 @@ import { turnable, undeadShare } from './turning';
 import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
 import { weatherAt, type WeatherNow } from './weather';
 import { directionOf, forSale, shoppingList, type Direction, type TownPlan } from './planner';
-import { appeal, asleepHour, attractiveness, bedsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect } from './shop';
+import { appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect } from './shop';
 import { moneyTown, wageBill } from './wages';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
@@ -315,7 +315,8 @@ export interface ShopView {
   keeperLook: Look | null;
   /** Strangers inside now: who they are, what they came for, their temper, and (at the tavern) the comfort they need. */
   customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean }[];
-  /** The tavern's beds, and how many are taken tonight. */
+  /** The tavern's guest rooms upstairs (a bed is a piece at y -1, x the room), its beds, and how many are taken tonight. */
+  rooms: number;
   beds: number;
   lodgers: number;
   /** What customers came for lately and didn't find (the town makes it), most asked first. */
@@ -716,6 +717,7 @@ function venueView(s: GameState, venue: 'shop' | 'tavern'): ShopView | null {
     customers: inside
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
       .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour) })),
+    rooms: roomsOf(b),
     beds: bedsOf(b).length,
     lodgers: inside.filter((t) => t.bed && t.phase === 'shopping').length,
     passing: inside.filter((t) => t.phase !== 'shopping').length,
