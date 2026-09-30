@@ -175,6 +175,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   small home bigger before building another; in a quiet spell it upgrades one anyway (up to `SLEEP_ROUGH` sleep out
   meanwhile). New homes are paced by beds (`lastHomeBeds`), so bigger homes don't speed growth. Soak: about 10 homes
   (mostly longhouses) for 30 people at day 15, where it was about 28.
+- **Fonts:** `src/renderer/fonts.ts`: a display and a body font for each look (`FONTS`, keyed by theme id; `town` is
+  the base game), Google Fonts (OFL) bundled from @fontsource by `build.mjs` into `fonts/` (so they work offline).
+  `theme.ts` declares the faces on every page and sets `--font-display`/`--font-body` (a theme overrides the two);
+  the pages' CSS uses the variables, never a font name. Titles, headings and tabs take the display font.
 - **Phase 4:** more farming.
 
 ## Planned (owner's requests, not started)
@@ -190,9 +194,6 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   frame rate up on the phone. **Textures first** (the owner: "adding textures will go a long ways"): grain, noise,
   dithering and material patterns on every surface (ground, grass, bark, rock, thatch, stone, timber, water, hills), not
   flat fills.
-
-- **A font for every origin:** the base game and each origin get their own font to match its look (in `theme.ts`, with
-  the palette), from Google Fonts or bundled, for the menus, the HUD and the tap card.
 
 - **More to watch, not more to do** (the town still decides everything; these give the player moments):
   1. **Raids wait for you:** when a raid is about to start and nobody is watching, the town pauses and a phone alert

@@ -1,6 +1,7 @@
 // Bundles main, preload and renderers into out/. Type checking is separate (npm run typecheck).
 import * as esbuild from 'esbuild';
 import { copyFileSync, mkdirSync } from 'node:fs';
+import { FONT_FILES, fontFile } from './src/renderer/fonts.ts';
 
 const common = { bundle: true, sourcemap: true, logLevel: 'warning', target: 'es2023' };
 // koffi loads a native binary at runtime, so it stays in node_modules instead of the bundle.
@@ -23,4 +24,7 @@ copyFileSync('assets/World map.jpg', 'out/renderer/world-map.jpg');
 // music is streamed from files, not inlined
 mkdirSync('out/renderer/music', { recursive: true });
 for (const f of ['town.ogg', 'battle.ogg']) copyFileSync(`src/renderer/music/${f}`, `out/renderer/music/${f}`);
+// each look's fonts (Google Fonts, OFL), from @fontsource: only the faces and weights used
+mkdirSync('out/renderer/fonts', { recursive: true });
+for (const f of FONT_FILES) for (const w of f.weights) copyFileSync(`node_modules/@fontsource/${f.pkg}/files/${fontFile(f, w)}`, `out/renderer/fonts/${fontFile(f, w)}`);
 console.log('built out/');

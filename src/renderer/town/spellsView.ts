@@ -10,6 +10,8 @@ import type { Snapshot, SpellView } from '../../shared/sim/snapshot';
 import type { SpellTarget } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { WALK_Y } from './townView';
+import { fontStacks } from '../fonts';
+import { currentTheme } from '../theme';
 import { BONE, GREEN_DEAD, LOOKS, type Kind, type SpriteFx } from './spellLooks';
 
 /** The top of the sky a spell reaches (fore-local y). */
@@ -103,7 +105,7 @@ export class SpellsView {
       const colour = LOOKS[sp.spell].color;
       const name = new Text({
         text: sp.name,
-        style: { fontFamily: 'Georgia, serif', fontSize: 12, fontWeight: 'bold', fill: lighten(colour), stroke: { color: 0x10080c, width: 4 } },
+        style: { fontFamily: fontStacks(currentTheme())[0].replace(/'/g, '').split(', '), fontSize: 12, fontWeight: 'bold', fill: lighten(colour), stroke: { color: 0x10080c, width: 4 } },
         resolution: 3,
       });
       name.anchor.set(0.5, 1);

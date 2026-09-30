@@ -185,15 +185,15 @@ function robot(T: string): string {
   return `
 ${P.frame} { border: 4px solid #5a6470; }
 ${P.header} { position: relative; background: ${BRUSHED}, linear-gradient(#6a7684, #3a4450); border-bottom: 4px solid; border-image: repeating-linear-gradient(45deg, #e8c040 0 6px, #1a1a20 6px 12px) 4; }
-${P.title} { font-family: 'Consolas', 'Courier New', monospace; letter-spacing: 0.1em; text-transform: uppercase; }
-${P.btn} { clip-path: ${chamfer}; border-radius: 0 !important; background: ${RIVETS}, ${BRUSHED}, linear-gradient(#7a8694, #4a5460) !important; color: #e8f4ff !important; border: 0 !important; font-family: 'Consolas', 'Courier New', monospace; }
+${P.title} { font-family: var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; }
+${P.btn} { clip-path: ${chamfer}; border-radius: 0 !important; background: ${RIVETS}, ${BRUSHED}, linear-gradient(#7a8694, #4a5460) !important; color: #e8f4ff !important; border: 0 !important; font-family: var(--font-display); }
 ${P.on} { background: ${RIVETS}, linear-gradient(transparent calc(100% - 3px), #60e0ff calc(100% - 3px)), ${BRUSHED}, linear-gradient(#5a8aa8, #2a4a60) !important; }
 ${P.card} { clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
   border-radius: 0 !important; background: ${RIVETS}, ${BRUSHED}, rgba(34, 42, 52, 0.96) !important; border: 0 !important; }
-${P.h2} { font-family: 'Consolas', 'Courier New', monospace; color: #60e0ff !important; }
+${P.h2} { font-family: var(--font-display); color: #60e0ff !important; }
 ${P.h2} { padding-left: 14px; background: linear-gradient(90deg, #40f080 0 2px, transparent 2px) 0 50% / 8px 8px no-repeat; }
 ${T} #tabs { background: ${BRUSHED}, linear-gradient(#5a6470, #2a3038); border-top: 3px solid; border-image: repeating-linear-gradient(45deg, #e8c040 0 6px, #1a1a20 6px 12px) 3; }
-${T} #clock { background: ${BRUSHED}, linear-gradient(#4a5460, #2a3038) !important; font-family: 'Consolas', 'Courier New', monospace; }
+${T} #clock { background: ${BRUSHED}, linear-gradient(#4a5460, #2a3038) !important; font-family: var(--font-body); }
 ${P.fill} { background: repeating-linear-gradient(90deg, #60e0ff 0 5px, #2a8aa8 5px 6px) !important; }
 `;
 }
