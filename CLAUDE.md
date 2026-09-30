@@ -184,7 +184,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `town/townView.ts`), double the detail again: more kinds of scenery (bushes, flowers, rocks, grass tufts, fallen
   leaves, puddles, birds), denser and more varied trees, textured mountains and hills, per-season and per-biome
   variants, small animated touches (swaying grass, drifting leaves, smoke). Check it at phone sizes and keep the
-  frame rate up on the phone.
+  frame rate up on the phone. **Textures first** (the owner: "adding textures will go a long ways"): grain, noise,
+  dithering and material patterns on every surface (ground, grass, bark, rock, thatch, stone, timber, water, hills), not
+  flat fills.
 
 - **A font for every origin:** the base game and each origin get their own font to match its look (in `theme.ts`, with
   the palette), from Google Fonts or bundled, for the menus, the HUD and the tap card.
