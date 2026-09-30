@@ -5,7 +5,8 @@
 import { MATERIAL_NAMES, MATERIALS, type Stock } from '../data/materials';
 import { blueprintCount, totalStock } from './buildings';
 import type { Sim } from './sim';
-import { addJournal, type GameState } from './state';
+import { addJournal, notify, type GameState } from './state';
+import { holdAtGate, openGate, RAID_WAIT_MS, raidAtGate } from './raidWait';
 import { TICK_MS, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
 /** Gaps shorter than this are just caught up quietly (no report). */
@@ -15,14 +16,20 @@ export const OFFLINE_REPORT_MS = 2 * 60_000;
 export const AWAY_FULL_MS = 30 * 60_000;
 /** How fast time away passes after that, compared with play. */
 export const AWAY_RATE = 0.25;
-/** At most this much of the town's time is simulated for one absence (a season: 3 game days); the rest is skipped. */
-export const MAX_OFFLINE_MS = 72 * 60_000;
+/** At most this much of the town's time is simulated for one absence (one game day); the rest is skipped. */
+export const MAX_OFFLINE_MS = 24 * 60_000;
 
 /** How much of the town's time (as play time, ms) an absence of `awayMs` is worth. */
 export function awayPlayMs(awayMs: number): number {
   const away = Math.max(0, awayMs);
   return Math.min(MAX_OFFLINE_MS, Math.min(away, AWAY_FULL_MS) + Math.max(0, away - AWAY_FULL_MS) * AWAY_RATE);
 }
+/** The real time away (ms) that `playMs` of the town's time took, while the absence lasted (the inverse of awayPlayMs,
+ *  before its cap). */
+export function awayRealMs(playMs: number): number {
+  return playMs <= AWAY_FULL_MS ? playMs : AWAY_FULL_MS + (playMs - AWAY_FULL_MS) / AWAY_RATE;
+}
+
 /** How many milestones the report quotes before pointing at the Journal. */
 const REPORT_EVENTS = 8;
 
@@ -48,7 +55,18 @@ export interface CatchUpJob {
 /** Start simulating `awayMs` of absence. Stops early if the game ends. Paused games don't move. */
 export function startCatchUp(sim: Sim, awayMs: number): CatchUpJob {
   const s = sim.state;
-  const want = s.paused || s.gameOver ? 0 : Math.floor(awayPlayMs(awayMs) / TICK_MS);
+  // raiders already held at the gate wait on; long enough, and they come in without the player
+  let away = awayMs;
+  if (s.raid?.waiting !== undefined) {
+    s.raid.waiting += awayMs;
+    if (s.raid.waiting >= RAID_WAIT_MS) {
+      away = s.raid.waiting - RAID_WAIT_MS;
+      openGate(s);
+      s.raid!.alone = true;
+      notify(s, 'Nobody came to watch: the raiders at the gate attacked.');
+    }
+  }
+  const want = s.paused || s.gameOver ? 0 : Math.floor(awayPlayMs(away) / TICK_MS);
   const before = { tick: s.tick, stock: totalStock(s), people: s.people.length, lastEntry: s.journal.at(-1)?.id ?? 0 };
   const job: CatchUpJob = {
     left: want,
@@ -57,8 +75,22 @@ export function startCatchUp(sim: Sim, awayMs: number): CatchUpJob {
     },
     run(ticks) {
       for (let i = 0; i < ticks && job.left > 0; i++, job.left--) {
-        if (s.gameOver || s.paused) job.left = 0;
-        else sim.step();
+        if (s.gameOver || s.paused) {
+          job.left = 0;
+          break;
+        }
+        // raiders reaching the gate while nobody's watching: the town waits for the player (unless they're away so
+        // long after it that the raid would have played out anyway)
+        if (raidAtGate(s)) {
+          const left = away - awayRealMs((want - job.left) * TICK_MS);
+          if (left < RAID_WAIT_MS) {
+            holdAtGate(s, Math.max(0, left));
+            job.left = 0;
+            break;
+          }
+          s.raid!.alone = true;
+        }
+        sim.step();
       }
       return job.left <= 0;
     },
@@ -92,10 +124,14 @@ function report(s: GameState, awayMs: number, before: { tick: number; stock: Sto
   if (minor) lines.push(`${minor} smaller event${minor === 1 ? '' : 's'}: see the Journal.`);
   const stock = stockChange(before.stock, totalStock(s));
   if (stock) lines.push(`Stores: ${stock}.`);
+  if (s.prompts.some((p) => p.kind === 'gate')) lines.push('Raiders are at the gate: the town waits for you to watch the fight.');
   const idle = idleNote(s);
   if (idle) lines.push(idle);
   if (!lines.length) lines.push('A quiet time. Nothing much happened.');
-  if (awayPlayMs(awayMs) >= MAX_OFFLINE_MS) lines.push(`(The town rests while you're away: at most ${Math.round(MAX_OFFLINE_MS / TICK_MS / TICKS_PER_DAY)} game days pass.)`);
+  if (awayPlayMs(awayMs) >= MAX_OFFLINE_MS) {
+    const d = Math.round(MAX_OFFLINE_MS / TICK_MS / TICKS_PER_DAY);
+    lines.push(`(The town rests while you're away: at most ${d} game day${d === 1 ? '' : 's'} pass${d === 1 ? 'es' : ''}.)`);
+  }
 
   const id = s.nextId++;
   addJournal(s, { id, tick: s.tick, text: `While you were away (${realDuration(awayMs)}, ${gameDuration(ticks)})`, lines });

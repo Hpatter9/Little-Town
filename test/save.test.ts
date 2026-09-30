@@ -61,12 +61,12 @@ test('offline: the town works through its research queue, then a report goes in 
   sim.command({ type: 'queueResearch', topic: 'basic_shelter' });
   sim.step();
   const r = catchUp(sim, 2 * HOUR_MS);
-  // (the first half hour away passes as in play, the rest at a quarter of the pace)
-  assert.equal(r.ticks, (30 * 60_000 + 90 * 60_000 * 0.25) / TICK_MS);
+  // (two hours away: capped at a game day)
+  assert.equal(r.ticks, MAX_OFFLINE_MS / TICK_MS);
   assert.ok(s.research.done.includes('basic_shelter'));
   const report = s.journal.at(-1)!;
   assert.equal(report.id, r.reportId);
-  assert.match(report.text, /While you were away \(2h 0m, 2\.2 game days\)/);
+  assert.match(report.text, /While you were away \(2h 0m, 1 game day\)/);
   assert.ok(report.lines!.some((l) => l.includes('Research complete: Basic Shelter')));
   assert.ok(report.lines!.some((l) => l.includes('queues ran dry')));
   assert.equal(snapshot(s).away?.id, report.id);
@@ -91,11 +91,11 @@ test('offline: short gaps are caught up without a report; paused games stay put;
 
   const capped = new Sim(plainGame('cap'));
   capped.state.people[0].needs = { food: 1, rest: 1 };
-  // a night away is a few days in the town, not weeks
+  // a night away is one day in the town, not weeks
   const r = catchUp(capped, 9 * HOUR_MS);
   assert.ok(r.ticks <= MAX_OFFLINE_MS / TICK_MS);
-  assert.ok(r.ticks / TICKS_PER_DAY <= 3, `${r.ticks / TICKS_PER_DAY} game days`);
-  assert.ok(capped.state.journal.at(-1)!.lines!.some((l) => l.includes('at most 3 game days')));
+  assert.ok(r.ticks / TICKS_PER_DAY <= 1, `${r.ticks / TICKS_PER_DAY} game days`);
+  assert.ok(capped.state.journal.at(-1)!.lines!.some((l) => l.includes('at most 1 game day passes')));
 });
 
 test('offline: a busy town simulates a real hour quickly', () => {

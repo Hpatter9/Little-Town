@@ -1,7 +1,8 @@
 // The phone (web) version's stand-in for the desktop app's main process: it runs the game loop in the page,
 // keeps the town in the browser's storage, and catches up on the time the app was closed or in the background.
 
-import { DEFAULT_ALERTS, type Bridge, type InspectInfo, type StripState } from '../../shared/ipc';
+import { type AlertSettings, type Bridge, type InspectInfo, type StripState } from '../../shared/ipc';
+import { cancelAlerts, cleanAlerts, scheduleAlerts, testAlert } from '../../shared/alerts';
 import { GameLoop } from '../../shared/gameLoop';
 import { parseSave, serialize } from '../../shared/sim/save';
 import type { Snapshot } from '../../shared/sim/snapshot';
@@ -12,6 +13,9 @@ import { TICKS_PER_HOUR } from '../../shared/sim/time';
 const SAVE_KEY = 'littletown.save';
 const BACKUP_KEY = 'littletown.backup';
 const SETTINGS_KEY = 'littletown.settings';
+const ALERTS_KEY = 'littletown.alerts';
+/** ntfy messages booked on the way out (dropped on the way back, where the server allows). */
+const SCHEDULED_KEY = 'littletown.scheduledAlerts';
 const AUTOSAVE_MS = 30_000;
 
 /** Browser storage can be missing or full; the game carries on either way. */
@@ -65,9 +69,27 @@ export function mobileBridge(): Bridge {
   game.start();
   setInterval(saveNow, AUTOSAVE_MS);
 
+  // Phone alerts (ntfy): booked for the time away as the page goes to the background, dropped when it comes back.
+  let alerts: AlertSettings = cleanAlerts(JSON.parse(read(ALERTS_KEY) ?? '{}'));
+  const dropBooked = () => {
+    const ids = JSON.parse(read(SCHEDULED_KEY) ?? '[]') as string[];
+    if (!ids.length) return;
+    write(SCHEDULED_KEY, '[]');
+    void cancelAlerts(alerts, ids);
+  };
+  const book = () => {
+    if (!alerts.enabled || game.catchingUp) return;
+    dropBooked();
+    void scheduleAlerts(alerts, game.state).then((ids) => write(SCHEDULED_KEY, JSON.stringify(ids)));
+  };
+  dropBooked();
+
   // In the background the page is frozen: save on the way out; coming back, the loop sees the gap and catches up.
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) saveNow();
+    if (document.hidden) {
+      saveNow();
+      book();
+    } else dropBooked();
     state.hidden = document.hidden;
     emit();
   });
@@ -146,9 +168,12 @@ export function mobileBridge(): Bridge {
       return () => snapListeners.delete(cb);
     },
     getJournal: async () => game.journal(),
-    // Phone alerts are a desktop feature (they're sent when the desktop app quits).
-    getAlerts: async () => ({ ...DEFAULT_ALERTS }),
-    setAlerts: async (a) => a,
-    testAlert: async () => 'Phone alerts come from the desktop app.',
+    getAlerts: async () => ({ ...alerts }),
+    setAlerts: async (a) => {
+      alerts = cleanAlerts(a);
+      write(ALERTS_KEY, JSON.stringify(alerts));
+      return { ...alerts };
+    },
+    testAlert: async () => testAlert(alerts),
   };
 }

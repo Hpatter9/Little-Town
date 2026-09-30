@@ -1,4 +1,4 @@
-// Phone alerts panel (opened from the tray): ntfy topic, what to be told about, and a test button.
+// Phone alerts panel (opened from the tray, or the phone's ☰ menu): ntfy topic, what to be told about, a test button.
 
 import { validTopic, type AlertSettings, type Bridge } from '../../shared/ipc';
 import { button, el } from './dom';
@@ -9,7 +9,7 @@ export function renderAlerts(bridge: Bridge | undefined): HTMLElement[] {
     el(
       'div',
       'hint',
-      'Get a push on your phone before a raid hits while the game is closed. Install the free ntfy app, subscribe to a topic name only you know, and enter the same name here. When you quit, the game looks a day ahead and schedules the alerts.',
+      'Get a push on your phone when raiders reach the town while you\'re away: they wait at the gate for you to watch the fight (up to 12 hours). Install the free ntfy app, subscribe to a topic name only you know, and enter the same name here. When you leave the game, it looks ahead and books the alerts.',
     ),
   );
   const form = el('div', 'alerts-form');

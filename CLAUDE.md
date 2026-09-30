@@ -165,7 +165,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   world x. `art/sprites.ts` has the scenery (trees with bark and leaf clusters, stumps, logs, ferns, mushrooms);
   the background has mountains and a wooded ridge, hedgerows, furrows, river banks.
 - **Offline pacing:** `awayPlayMs` in `sim/offline.ts`: the first half hour away passes as in play, the rest at a
-  quarter pace, and at most 3 game days pass for one absence.
+  quarter pace, and at most 1 game day passes for one absence (`MAX_OFFLINE_MS`).
+- **Raids wait for you:** `src/shared/sim/raidWait.ts`. During the catch-up after time away, raiders reaching the gate
+  hold there (`holdAtGate`: `Raid.waiting`, the town paused, a `gate` prompt, "Watch the fight", with no countdown);
+  answering it or unpausing lets them in (`openGate`). Held more than `RAID_WAIT_MS` (12 real hours, across visits), or
+  away that long after they came, and the raid plays out alone (`Raid.alone`). Phone alerts (ntfy) are shared by both
+  apps: `src/shared/alerts.ts` (`plan` looks one absence ahead with the forecast, stops at the first raid, and times
+  them by the away pace, `awayRealMs`); the phone page books them when it goes to the background and drops them when
+  it comes back (`mobileBridge.ts`, keys `littletown.alerts`, `littletown.scheduledAlerts`); the panel is in the ☰
+  menu.
 - **Hide toggles:** `panel/hide.ts` (`HidePrefs`): Research, Build and Crafting each have a "Hide:" row, kept in
   `localStorage` (`littletown.researchHide`, `buildHide`, `craftHide`).
 - **Upgrades and fewer homes:** `UPGRADES` in `data/buildings.ts` (homes: lean-to or hide tent → longhouse →
@@ -196,10 +204,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   flat fills.
 
 - **More to watch, not more to do** (the town still decides everything; these give the player moments):
-  1. **Raids wait for you:** when a raid is about to start and nobody is watching, the town pauses and a phone alert
-     (ntfy) says raiders are at the gate; a **Watch the fight** button starts it. It waits at most ~12 real hours,
-     then plays out alone. (Alternative kept in mind: a replay of an unwatched raid, key moments slowed.)
-  2. **Time away capped at 1 game day** (`MAX_OFFLINE_MS` in `sim/offline.ts`, now 3 days).
+  1. and 2. are done (raids wait for you; time away capped at a game day: see above).
   3. **Choices that wait for you:** more events that stop and ask, each with a time limit and a default so the town
      never stalls (like the lich rite): a stranger asks to join; a raider chief offers terms (tribute or fight); a sick
      traveller begs shelter (plague risk); a deserter from a rival origin's army; a merchant offers a rare relic for

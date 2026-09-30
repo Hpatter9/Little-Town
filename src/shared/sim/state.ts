@@ -252,6 +252,10 @@ export interface Raid {
   prompt: number | null;
   /** A rival lord's hexes on the defenders and blessings on its army, until these ticks (sim/rivals.ts). */
   hex?: Partial<Record<'hold' | 'fog' | 'emp' | 'frenzy' | 'ward', { until: number; name: string }>>;
+  /** Held at the gate for the player (sim/offline.ts): the real ms it has waited so far. Unset once it's under way,
+   *  and `alone` once it has been left to play out without them. */
+  waiting?: number;
+  alone?: boolean;
 }
 
 export interface Needs {
@@ -386,7 +390,7 @@ export interface Caravan {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate';
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;

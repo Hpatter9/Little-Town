@@ -279,7 +279,7 @@ export function createPromptCard(onAnswer: (prompt: number, option: number) => v
         row.append(count);
         el.replaceChildren(title, text, row);
       }
-      count.textContent = `${p.options[p.defaultOption]} in ${Math.ceil(p.secondsLeft)}s`;
+      count.textContent = p.secondsLeft === null ? '' : `${p.options[p.defaultOption]} in ${Math.ceil(p.secondsLeft)}s`;
       el.hidden = false;
     },
     hide() {

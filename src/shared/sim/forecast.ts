@@ -29,7 +29,7 @@ export function forecast(state: GameState, ticks: number, max = 12): ForecastEve
     if (s.raid && !seenRaids.has(s.raid.id)) {
       seenRaids.add(s.raid.id);
       const kind = RAID_KIND_BY_ID[s.raid.kind];
-      out.push({ kind: 'raid', tick: s.raid.arrivesTick, title: `${kind.name} coming!`, text: `${s.raid.raiders.length} raiders will reach your town.` });
+      out.push({ kind: 'raid', tick: s.raid.arrivesTick, title: `${kind.name} at the gate!`, text: `${s.raid.raiders.length} raiders are reaching your town. It waits for you: open the game to watch the fight.` });
     }
     for (const p of s.prompts) {
       if (seenPrompts.has(p.id)) continue;

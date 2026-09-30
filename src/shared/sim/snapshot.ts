@@ -226,7 +226,8 @@ export interface PromptView {
   text: string;
   options: string[];
   defaultOption: number;
-  secondsLeft: number;
+  /** Until the default is taken; null when it waits as long as it takes. */
+  secondsLeft: number | null;
 }
 
 export interface ExpeditionView {
@@ -536,7 +537,8 @@ export function snapshot(s: GameState): Snapshot {
       text: p.text,
       options: [...p.options],
       defaultOption: p.defaultOption,
-      secondsLeft: Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
+      // (none for a question that waits as long as it takes: raiders held at the gate)
+      secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
     })),
     raid: s.raid
       ? {

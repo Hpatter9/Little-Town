@@ -4,7 +4,8 @@ import { DEFAULT_ALERTS } from '../src/shared/ipc';
 import { forecast } from '../src/shared/sim/forecast';
 import { Sim } from '../src/shared/sim/sim';
 import { TICK_MS, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { plan } from '../src/main/alerts';
+import { plan } from '../src/shared/alerts';
+import { awayRealMs } from '../src/shared/sim/offline';
 import { plainGame } from './helpers';
 
 test('the forecast sees the next raid exactly when it will come, and leaves the real game alone', () => {
@@ -29,13 +30,16 @@ test('the forecast sees the next raid exactly when it will come, and leaves the 
 
 test('alerts are planned only when turned on, with the raid warning ahead of time', () => {
   const s = plainGame('plan');
-  s.nextRaidTick = s.tick + 3 * TICKS_PER_HOUR;
+  s.nextRaidTick = s.tick + 20 * TICKS_PER_HOUR;
   const now = 1_000_000;
   assert.deepEqual(plan({ ...DEFAULT_ALERTS }, s, now), [], 'off by default');
   const on = { ...DEFAULT_ALERTS, enabled: true, topic: 'test-topic', leadMinutes: 10 };
   const p = plan(on, s, now);
   const raid = p.find((x) => x.event.kind === 'raid')!;
   assert.ok(raid);
-  assert.equal(raid.at, now + (raid.event.tick - s.tick) * TICK_MS - 10 * 60_000);
+  assert.equal(raid.at, now + awayRealMs((raid.event.tick - s.tick) * TICK_MS) - 10 * 60_000);
+  // (one due sooner than the lead time is sent as soon as it can be)
+  s.nextRaidTick = s.tick + 3 * TICKS_PER_HOUR;
+  assert.equal(plan(on, s, now).find((x) => x.event.kind === 'raid')!.at, now + 30_000);
   assert.deepEqual(plan({ ...on, raids: false }, s, now).filter((x) => x.event.kind === 'raid'), []);
 });

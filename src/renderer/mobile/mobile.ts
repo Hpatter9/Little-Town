@@ -242,6 +242,7 @@ function drawMenu(): void {
     menu.replaceChildren(
       item('New town…', () => bridge.openPanel('newgame')),
       item(`Music: ${s.music ? 'on' : 'off'}`, () => (bridge.setMusic(!s.music), drawMenu())),
+      item('Phone alerts…', () => bridge.openPanel('alerts')),
       label('Zoom (or pinch the town with two fingers; tap the % to reset)'),
       zooms,
       ...(installed ? [] : [label('To install: Chrome menu ⋮ → Add to Home screen')]),

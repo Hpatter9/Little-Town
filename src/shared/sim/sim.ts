@@ -1,6 +1,7 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
+import { openGate } from './raidWait';
 import { Rng } from '../rng';
 import { generateWorld, type World } from '../world';
 import { demolish, discardStock, placeBlueprint, upgrade } from './buildings';
@@ -266,6 +267,7 @@ export class Sim {
         break;
       case 'setPaused':
         s.paused = c.paused;
+        if (!c.paused) openGate(s); // (raiders held at the gate come on when the town runs again)
         break;
       case 'becomeLich':
         chooseLich(s);
