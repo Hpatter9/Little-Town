@@ -566,8 +566,14 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
     if (!affordable(s, def, n.stock)) continue;
     let tile: number | null;
     let room: { floor: number } | undefined;
-    if (roomKind(s, def) && roomSpot(s, back, def)) {
-      const spot = roomSpot(s, back, def)!;
+    if (roomKind(s, def)) {
+      // (a castle town builds it inside the keep, or waits: the keep grows wider each era, and the land under it is
+      // cleared first)
+      const spot = roomSpot(s, back, def);
+      if (!spot) {
+        blocked ??= def;
+        continue;
+      }
       tile = spot.tile;
       room = { floor: spot.floor };
     } else if (isWall(def)) {
@@ -604,7 +610,13 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
       return clear;
     }
   }
-  if (blocked) {
+  if (blocked && roomKind(s, blocked)) {
+    // (a castle's room: the keep's own ground cleared, or it waits for the keep to grow)
+    const [lo, hi] = castleSpan(s);
+    const wild = s.tiles.map((t, i) => ({ t, i })).filter(({ t, i }) => i >= lo && i < hi && t.terrain !== 'clear');
+    plan.waiting.push(wild.length ? `No room in the keep for a ${blocked.name}: clearing its ground` : `The keep is full: the ${blocked.name} waits for it to grow`);
+    for (const { i } of wild.slice(0, blocked.width + 1)) clear.push(i);
+  } else if (blocked) {
     plan.waiting.push(`No room for a ${blocked.name}: clearing land`);
     // the nearest wild land, out from the camp
     const c = campTile(s);

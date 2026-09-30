@@ -41,6 +41,7 @@ import {
 } from '../data/raids';
 import type { Rng } from '../rng';
 import { buildingCentreX, defOf, depositNear, storages, totalStock } from './buildings';
+import { castleOn, floorOf, moveOnFloors, stairXs } from './castle';
 import { ammoOf, hitDamage, personFighter } from './combat';
 import { gearEffects } from './crafting';
 import { recallExpedition } from './expeditions';
@@ -288,6 +289,12 @@ function exposed(p: Person, raidKind?: string): boolean {
   return true;
 }
 
+/** Same floor of a castle's keep (everyone is on the ground elsewhere). */
+const level = (m: { floor?: number }) => m.floor ?? 0;
+/** A floor up or down counts as this far (px) when a raider picks what to go for. */
+const FLOOR_COST = 160;
+const cost = (rd: Raider, x: number, floor: number) => Math.abs(x - rd.x) + Math.abs(floor - level(rd)) * FLOOR_COST;
+
 /** Raiders are on the map (not waiting beyond the edge). */
 export const raidActive = (s: GameState) => s.raid?.phase === 'active';
 
@@ -335,6 +342,10 @@ export function updateRaid(s: GameState, rng: Rng): void {
     // (an epic boss never runs from a fight: only time drives it off)
     const coward = !ENEMIES[rd.kind].kit && rd.hp < rd.maxHp * RAIDER_FLEE[goal];
     if (!rd.fleeing && (coward || s.tick >= r.leavesTick || poolSize(rd.carrying) >= RAIDER_CARRY)) rd.fleeing = true;
+    if (rd.fleeing && level(rd) > 0) {
+      moveOnFloors(s, rd, edge, 0, step * 1.2); // (down the stairs of the keep first)
+      continue;
+    }
     if (rd.fleeing) {
       rd.dir = edge > rd.x ? 1 : -1;
       rd.x += rd.dir * step * (rd.captive ? 0.8 : 1.2);
@@ -347,18 +358,18 @@ export function updateRaid(s: GameState, rng: Rng): void {
     const reach = def.ranged ? THROW_RANGE : MELEE_RANGE;
     // 0. A kidnapper picks up whoever they've struck down (never the main character) and runs.
     if (goal === 'kidnap') {
-      const fallen = s.people.filter((p) => p.downed && p.away === null && p.id !== s.mainId).sort((a, b) => Math.abs(a.x - rd.x) - Math.abs(b.x - rd.x))[0];
-      if (fallen && Math.abs(fallen.x - rd.x) <= MELEE_RANGE) {
+      const fallen = s.people.filter((p) => p.downed && p.away === null && p.id !== s.mainId).sort((a, b) => cost(rd, a.x, level(a)) - cost(rd, b.x, level(b)))[0];
+      if (fallen && level(fallen) === level(rd) && Math.abs(fallen.x - rd.x) <= MELEE_RANGE) {
         grab(s, rd, fallen);
         continue;
       }
-      if (fallen && !s.people.some((p) => exposed(p, kind.id) && Math.abs(p.x - rd.x) <= reach)) {
-        moveToward(rd, fallen.x, step); // go and pick them up (unless someone's in the way)
+      if (fallen && !s.people.some((p) => exposed(p, kind.id) && level(p) === level(rd) && Math.abs(p.x - rd.x) <= reach)) {
+        moveOnFloors(s, rd, fallen.x, level(fallen), step); // go and pick them up (unless someone's in the way)
         continue;
       }
     }
     // 1. Anyone in reach gets attacked.
-    const near = s.people.filter((p) => exposed(p, kind.id) && Math.abs(p.x - rd.x) <= reach).sort((a, b) => Math.abs(a.x - rd.x) - Math.abs(b.x - rd.x))[0];
+    const near = s.people.filter((p) => exposed(p, kind.id) && level(p) === level(rd) && Math.abs(p.x - rd.x) <= reach).sort((a, b) => Math.abs(a.x - rd.x) - Math.abs(b.x - rd.x))[0];
     if (near) {
       rd.dir = near.x >= rd.x ? 1 : -1;
       if (rd.cooldown <= 0) attackPerson(s, rd, near, rng);
@@ -366,7 +377,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
     }
     // 1b. With nobody standing in reach, a killer finishes off someone lying at its feet (never the founder).
     // (the Hunter's Guild only finishes off monsters: the ordinary folk they leave lying)
-    const fallen = goal === 'harm' ? s.people.find((p) => p.downed && p.away === null && p.id !== s.mainId && p.activity !== 'sleep' && Math.abs(p.x - rd.x) <= MELEE_RANGE && (kind.id !== 'hunters' || !!p.monster)) : undefined;
+    const fallen = goal === 'harm' ? s.people.find((p) => p.downed && p.away === null && p.id !== s.mainId && p.activity !== 'sleep' && level(p) === level(rd) && Math.abs(p.x - rd.x) <= MELEE_RANGE && (kind.id !== 'hunters' || !!p.monster)) : undefined;
     if (fallen && rd.cooldown <= 0) {
       rd.cooldown = Math.round(def.interval * TICK_HZ);
       rd.lastAction = s.tick;
@@ -374,37 +385,40 @@ export function updateRaid(s: GameState, rng: Rng): void {
       continue;
     }
     // 2. Head for the goal: people (beasts, kidnappers), a building to burn, or the stores.
-    let target: { x: number; store?: Building; burn?: Building } | null = null;
+    let target: { x: number; floor: number; store?: Building; burn?: Building } | null = null;
     if (goal === 'harm' || goal === 'kidnap') {
-      const prey = s.people.filter((p) => exposed(p, kind.id) && (goal === 'harm' || p.id !== s.mainId)).sort((a, b) => Math.abs(a.x - rd.x) - Math.abs(b.x - rd.x))[0];
-      if (prey) target = { x: prey.x };
+      const prey = s.people.filter((p) => exposed(p, kind.id) && (goal === 'harm' || p.id !== s.mainId)).sort((a, b) => cost(rd, a.x, level(a)) - cost(rd, b.x, level(b)))[0];
+      if (prey) target = { x: prey.x, floor: level(prey) };
     }
     // (a shield generator keeps every fire-starter out)
     if (!target && goal === 'burn' && (rd.fires ?? 0) < ARSON_LIMIT && !shielded(s)) {
-      const b = s.buildings.filter((q) => q.status === 'done' && q.fire === undefined && !defOf(q).hp && flammable(q)).sort((a, c) => Math.abs(buildingCentreX(a) - rd.x) - Math.abs(buildingCentreX(c) - rd.x))[0];
-      if (b) target = { x: buildingCentreX(b), burn: b };
+      const b = s.buildings.filter((q) => q.status === 'done' && q.fire === undefined && !defOf(q).hp && flammable(q)).sort((a, c) => cost(rd, buildingCentreX(a), floorOf(a)) - cost(rd, buildingCentreX(c), floorOf(c)))[0];
+      if (b) target = { x: buildingCentreX(b), floor: floorOf(b), burn: b };
     }
     if (!target) {
       const score = kind.steals === 'valuables' ? valueScore : foodScore;
       const st = storages(s)
         .filter((b) => poolSize(b.store) > 0)
-        .sort((a, b) => score(b) - score(a) || Math.abs(buildingCentreX(a) - rd.x) - Math.abs(buildingCentreX(b) - rd.x))[0];
-      if (st) target = { x: buildingCentreX(st), store: st };
+        .sort((a, b) => score(b) - score(a) || cost(rd, buildingCentreX(a), floorOf(a)) - cost(rd, buildingCentreX(b), floorOf(b)))[0];
+      if (st) target = { x: buildingCentreX(st), floor: floorOf(st), store: st };
     }
     if (!target) {
       rd.fleeing = true; // nothing here for them
       continue;
     }
-    // 3. A wall in the way gets broken down first.
-    const wall = wallBetween(s, rd.x, target.x);
+    // 3. A wall in the way gets broken down first (on the ground: to the target, or to the keep's stairs up to it).
+    const upstairs = target.floor !== level(rd);
+    const stairs = upstairs && castleOn(s) ? stairXs(s).sort((a, b) => Math.abs(a - rd.x) - Math.abs(b - rd.x))[0] : target.x;
+    const wall = level(rd) === 0 ? wallBetween(s, rd.x, stairs) : null;
     if (wall) {
       const wx = buildingCentreX(wall) - rd.dir * (defOf(wall).width * 16 + 6);
       if (Math.abs(wx - rd.x) > step) moveToward(rd, wx, step);
       else if (rd.cooldown <= 0) attackWall(s, rd, wall, rng);
       continue;
     }
-    if (Math.abs(target.x - rd.x) > step) {
-      moveToward(rd, target.x, step);
+    if (upstairs || Math.abs(target.x - rd.x) > step) {
+      if (castleOn(s)) moveOnFloors(s, rd, target.x, target.floor, step);
+      else moveToward(rd, target.x, step);
       continue;
     }
     if (target.burn) {
@@ -443,6 +457,8 @@ function release(s: GameState, rd: Raider): void {
   const p = rd.captive!;
   rd.captive = null;
   p.x = Math.max(0, Math.min(WORLD_WIDTH, rd.x));
+  p.floor = rd.floor;
+  p.climb = 0;
   p.away = null;
   s.people.push(p);
   notify(s, `${p.name} was saved from the kidnapper.`, true);

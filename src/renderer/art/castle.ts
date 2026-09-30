@@ -434,17 +434,41 @@ export function keepArt(lo: number, hi: number, floors: number, tone: Tone, tone
       blocks(p, tx, tTop, TOWER_W, ground - tTop);
       p.rect(tx, tTop, TOWER_W, 2, STONE_LIGHT);
       for (let x = tx; x < tx + TOWER_W; x += 6) p.rect(x, tTop - 4, 4, 4, STONE);
-      for (let f = 0; f <= floors; f++) {
-        const y = ground - PLINTH - f * ROOM_H - 26;
-        if (y < tTop + 6) continue;
-        gothicWindow(p, tx + TOWER_W / 2 - 3, y, 6, 12, f % 2 ? MOON : '#c05030', f % 2 ? MOON_LIGHT : '#f08050');
+      // the stairwell, open to view: a dark shaft with stone steps zigzagging up it, a landing at each floor (people
+      // and raiders climb here: sim/castle.ts moveOnFloors)
+      const sx0 = tx + 4;
+      const sw = TOWER_W - 8;
+      const shaftTop = ground - PLINTH - floors * ROOM_H + 6;
+      p.rect(sx0, shaftTop, sw, ground - PLINTH - shaftTop, '#1a1016');
+      p.rect(sx0, shaftTop, 1, ground - PLINTH - shaftTop, STONE_DARK);
+      p.rect(sx0 + sw - 1, shaftTop, 1, ground - PLINTH - shaftTop, STONE_DARK);
+      for (let f = 0; f < floors; f++) {
+        const base = ground - PLINTH - f * ROOM_H;
+        p.rect(sx0, base - 2, sw, 2, STONE_LIGHT); // the landing
+        const flight = ROOM_H - 6;
+        const steps = 8;
+        for (let k = 0; k < steps; k++) {
+          const leftward = f % 2 === 1;
+          const sx = leftward ? sx0 + sw - 3 - ((sw - 4) * k) / (steps - 1) : sx0 + 1 + ((sw - 4) * k) / (steps - 1);
+          const sy = base - 4 - (flight * (k + 1)) / steps;
+          p.rect(Math.round(sx), Math.round(sy), 3, 2, STONE);
+          p.px(Math.round(sx), Math.round(sy), STONE_LIGHT);
+        }
+        // a torch on each landing
+        p.px(side < 0 ? sx0 + sw - 2 : sx0 + 1, base - 12, '#f0a040');
+        p.px(side < 0 ? sx0 + sw - 2 : sx0 + 1, base - 13, '#f06030');
       }
+      p.rect(sx0, shaftTop - 1, sw, 1, STONE_LIGHT);
+      gothicWindow(p, tx + TOWER_W / 2 - 3, tTop + 6, 6, 12, MOON, MOON_LIGHT);
       cone(p, tx + TOWER_W / 2, tTop - 4, TOWER_W / 2 + 2, 30);
       pennon(p, tx + TOWER_W / 2 + (side > 0 ? 0 : -1), tTop - 44, 9);
     }
-    // the great door at the foot of the left tower, and bats about the roof
-    p.rect(TOWER_W / 2 - 5, ground - 16, 10, 16, '#1a0e0a');
-    p.rect(TOWER_W / 2 - 5, ground - 16, 10, 1, GOLD);
+    // a great door at the foot of each tower (the way in, for townsfolk and raiders alike), and bats about the roof
+    for (const tx of [0, w - TOWER_W]) {
+      p.rect(tx + TOWER_W / 2 - 5, ground - 16, 10, 16, '#1a0e0a');
+      p.rect(tx + TOWER_W / 2 - 5, ground - 16, 10, 1, GOLD);
+      p.rect(tx + TOWER_W / 2 - 1, ground - 15, 1, 15, '#3a2418');
+    }
     for (const [bx, by] of [[w * 0.35, top - 30], [w * 0.62, top - 38], [w * 0.5, top - 24]]) {
       p.rect(bx, by, 2, 2, '#140c18');
       p.rect(bx - 3, by - 1, 3, 1, '#140c18');

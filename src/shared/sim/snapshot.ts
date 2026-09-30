@@ -45,7 +45,7 @@ import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, tileCentreX } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
-import { castleFloors, castleOn, castleSpan, roomOf } from './castle';
+import { castleFloors, castleOn, castleSpan, heightOf, roomOf } from './castle';
 import { daysToMove } from './nomads';
 import { RIVALS } from '../data/rivals';
 
@@ -93,7 +93,7 @@ export interface PersonView {
   bed: string | null;
   /** Asleep inside a building (the renderer hides them). */
   indoors: boolean;
-  /** The castle floor of the room they're in, working or asleep (drawn inside it); null on the walkway. */
+  /** How high up a castle's keep they are, in floors (fractional on the stairs); null on the walkway. */
   floor: number | null;
   /** Destination name while away on an expedition (not in town). */
   away: string | null;
@@ -179,6 +179,8 @@ export interface RaiderView {
   hitFx: RaiderHitFx | null;
   kind: string;
   name: string;
+  /** How high up a castle's keep it has climbed, in floors; null on the ground. */
+  floor: number | null;
   x: number;
   dir: 1 | -1;
   hp: number;
@@ -548,6 +550,7 @@ export function snapshot(s: GameState): Snapshot {
             id: r.id,
             kind: r.kind,
             name: ENEMIES[r.kind].name,
+            floor: castleOn(s) && heightOf(r) > 0 ? heightOf(r) : null,
             x: r.x,
             dir: r.dir,
             hp: r.hp,
@@ -772,7 +775,7 @@ function personView(s: GameState, p: Person, stock?: Stock): PersonView {
     priorities: { ...p.priorities },
     autoPriorities: p.autoPriorities,
     bed: bed ? defOf(bed).name : null,
-    floor: castleOn(s) ? (roomOf(s, p)?.floor ?? null) : null,
+    floor: castleOn(s) && (heightOf(p) > 0 || roomOf(s, p)) ? heightOf(p) : null,
     // (asleep in a castle's room, they're seen there, in their coffin)
     indoors: !(castleOn(s) && roomOf(s, p)) && p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
     away: p.away === null ? null : (DESTINATION_BY_ID[s.expeditions.find((e) => e.id === p.away)?.dest ?? '']?.name ?? 'expedition'),

@@ -117,6 +117,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   checks overlap per floor), `openFloors`, `roomOf` (the room someone's in: `PersonView.floor`), `adoptRooms` for
   older saves. The planner's `roomSpot` fills it. Drawn by `src/renderer/art/castle.ts` (`roomArt` cutaways, `keepArt`
   shell, sliced per 16px in `BuildingsView.syncCastle`); `mobile.ts` zooms and grows the strip so the keep fits.
+  - The keep widens each era (`castleWidth`: 16 tiles, 4 more per era). Nothing that belongs inside sprawls: with no
+    room in the keep the planner clears the keep's ground or waits for it to grow. Wells, stables and racks are rooms
+    too (`OUTSIDE` keeps only mines, the graveyard and the launch site out).
+  - Floors are real: `Person.floor`/`climb` and `Raider.floor`/`climb`. A stair tower stands at each end of the keep
+    (`stairXs`, drawn as an open stairwell in `keepArt`); `moveOnFloors` walks to the nearer one, climbs a floor per
+    `CLIMB_SECONDS`, then walks along. People use it through `goTo`/`goToB` in `people.ts`; defenders fight only on their
+    foe's floor. Raiders strike only on their own floor, weigh a climb (`FLOOR_COST`) in choosing a target, break the
+    walls on the ground first, climb after the townsfolk, and come down before they flee. `PersonView.floor` and
+    `RaiderView.floor` are how high up they are (fractional on the stairs).
 - **Spell sprites:** `SPELL_SHEET_DEFS` in `art/effects.ts` (pvfx and Alenia sheets), matched to spells by `sprite` in
   `town/spellLooks.ts` and placed by `SHEETS` in `spellsView.ts` (foot offset, frame rate, glow). Rival troops use
   the golem/elemental stills (`elem_*`) and strip sheets with a `feet` share (`creatures.ts`).
@@ -173,12 +182,6 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Shop and tavern interiors at an angle:** the `shop` and `tavern` panels (`panel/shopPanel.ts`) should show a
   three-quarter, angled view of the room instead of the bird's-eye one, so the townsfolk and travellers can be drawn
   with their ordinary side-on sprites (LPC characters) as they come in to shop, dine and sleep.
-
-- **Vampire castle, the rest of it:** the keep grows wider and taller with the town instead of overflowing beside it
-  (`CASTLE_TILES`/`CASTLE_FLOORS` in `sim/castle.ts`; `roomSpot` then `findSpot` in the planner); more buildings become
-  rooms (well, stable); the walls become its curtain wall and gatehouse. Real stairs: a floor on `Person`, stair
-  towers, climbing time (`people.ts`), drawn in `art/castle.ts`/`peopleView.ts`. Raidable: raiders breach the gate and
-  climb, defenders hold the stairs (`raids.ts`, `combat.ts`); first cut: the gate, the ground floor and the stairs.
 
 - **Twice the scenery detail:** on top of the terrain redraw (`art/terrain.ts`, `art/sprites.ts`, the background in
   `town/townView.ts`), double the detail again: more kinds of scenery (bushes, flowers, rocks, grass tufts, fallen

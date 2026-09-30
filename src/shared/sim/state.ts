@@ -207,6 +207,9 @@ export interface Raider {
   kind: string;
   x: number;
   dir: 1 | -1;
+  /** Up a castle's keep (sim/castle.ts): the floor they're on, and how far up or down the stairs to the next. */
+  floor?: number;
+  climb?: number;
   hp: number;
   maxHp: number;
   cooldown: number;
@@ -267,6 +270,9 @@ export interface Person {
   /** World x in pixels, along the walkway. */
   x: number;
   dir: 1 | -1;
+  /** Up a castle's keep (sim/castle.ts): the floor they're on, and how far up or down the stairs to the next. */
+  floor?: number;
+  climb?: number;
   skills: Record<Skill, SkillLevel>;
   /** Skills they love: XP in these grows faster. */
   passions: Skill[];

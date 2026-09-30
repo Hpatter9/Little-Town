@@ -2,6 +2,7 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { castleOn, floorOf, moveOnFloors } from './castle';
 import { ADJACENT_TILES, NEAR_SOURCE, NEAR_SOURCE_BONUS } from '../data/buildings';
 import { TILE } from '../constants';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
@@ -101,21 +102,21 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
   const task = p.task;
   switch (task.type) {
     case 'wander':
-      if (walkTo(p, task.targetX)) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ };
+      if (goTo(s, p, task.targetX)) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ };
       break;
     case 'idle':
       p.activity = 'idle';
       if (s.tick >= task.untilTick) p.task = null;
       break;
     case 'gather':
-      if (walkTo(p, tileCentreX(task.tile))) {
+      if (goTo(s, p, tileCentreX(task.tile))) {
         if (task.scrounge) scrounge(s, p, task);
         else workGather(s, p, task, rng);
       }
       break;
     case 'store': {
       const st = byId(s, task.building)!;
-      if (!walkTo(p, buildingCentreX(st))) break;
+      if (!goToB(s, p, st)) break;
       for (const m of MATERIALS) {
         const n = Math.min(p.carrying[m] ?? 0, storageFree(s, st));
         if (n > 0) {
@@ -128,7 +129,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     }
     case 'fetch': {
       const from = byId(s, task.from)!;
-      if (!walkTo(p, buildingCentreX(from))) break;
+      if (!goToB(s, p, from)) break;
       for (const m of MATERIALS) {
         const n = Math.min(task.amounts[m] ?? 0, from.store[m] ?? 0, carryCapacity(s, p) - poolSize(p.carrying));
         if (n > 0) {
@@ -141,7 +142,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     }
     case 'deliver': {
       const site = byId(s, task.building)!;
-      if (!walkTo(p, buildingCentreX(site))) break;
+      if (!goToB(s, p, site)) break;
       const need = stillNeeded(site);
       for (const m of MATERIALS) {
         const n = Math.min(p.carrying[m] ?? 0, need[m] ?? 0);
@@ -155,7 +156,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     }
     case 'build': {
       const site = byId(s, task.building)!;
-      if (!walkTo(p, buildingCentreX(site))) break;
+      if (!goToB(s, p, site)) break;
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
       const speed = skillSpeed(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
@@ -174,7 +175,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     }
     case 'repair': {
       const wall = byId(s, task.building)!;
-      if (!walkTo(p, buildingCentreX(wall))) break;
+      if (!goToB(s, p, wall)) break;
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
       const max = defOf(wall).hp ?? 0;
@@ -191,7 +192,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       break;
     case 'farm': {
       const field = byId(s, task.building)!;
-      if (!walkTo(p, buildingCentreX(field))) break;
+      if (!goToB(s, p, field)) break;
       p.activity = 'forage';
       if (isPen(field) ? workPen(s, p, field) : workField(s, p, field)) p.task = null;
       break;
@@ -202,14 +203,14 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
         p.task = null;
         break;
       }
-      if (!walkTo(p, buildingCentreX(b))) break;
+      if (!goToB(s, p, b)) break;
       p.activity = 'build';
       if (fightFire(s, p, b)) p.task = null;
       break;
     }
     case 'mine': {
       const mine = byId(s, task.building)!;
-      if (!walkTo(p, buildingCentreX(mine))) break;
+      if (!goToB(s, p, mine)) break;
       if (p.activity !== 'mine') pickTool(s, p, 'mine');
       p.activity = 'mine';
       if (workMine(s, p, mine, task)) p.task = null; // off to store the load
@@ -225,14 +226,14 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       doDefend(s, p, task, rng);
       break;
     case 'patrol':
-      if (walkTo(p, task.targetX)) p.task = null; // then back the other way
+      if (goTo(s, p, task.targetX)) p.task = null; // then back the other way
       break;
     case 'tend':
       doTend(s, p, task, rng);
       break;
     case 'shelter': {
       const bed = p.bed === null ? undefined : byId(s, p.bed);
-      if (!walkTo(p, bed ? buildingCentreX(bed) : campX(s))) break;
+      if (!goTo(s, p, bed ? buildingCentreX(bed) : campX(s), bed ? floorOf(bed) : 0)) break;
       p.activity = bed ? 'sleep' : 'idle'; // inside, out of sight; or huddled by the fire
       break;
     }
@@ -270,7 +271,7 @@ function doTend(s: GameState, p: Person, task: Extract<Task, { type: 'tend' }>, 
     p.task = null;
     return;
   }
-  if (!walkTo(p, q.x)) return;
+  if (!goTo(s, p, q.x, q.floor ?? 0)) return;
   p.dir = q.x >= p.x ? 1 : -1;
   p.activity = 'forage';
   task.progress += (skillSpeed(p.skills.medicine.level) * workFactor(s, p)) / (TEND_SECONDS * TICK_HZ);
@@ -331,14 +332,15 @@ function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' 
   const rd = nearestRaider(s, p.x);
   const mounted = cavalry(s).has(p.id);
   if (!rd) {
-    if (walkTo(p, rallyX(s)) || (mounted && walkTo(p, rallyX(s)))) p.activity = 'idle'; // wait for them at the edge of camp
+    if (goTo(s, p, rallyX(s)) || (mounted && goTo(s, p, rallyX(s)))) p.activity = 'idle'; // wait for them at the edge of camp
     return;
   }
   const reach = defenderReach(p);
   const gap = rd.x - p.x;
-  if (Math.abs(gap) > reach) {
+  // (up in a castle's keep: only on the same floor)
+  if (Math.abs(gap) > reach || (p.floor ?? 0) !== (rd.floor ?? 0)) {
     // riders cover ground twice as fast
-    if (!walkTo(p, rd.x - Math.sign(gap) * (reach - 4)) && mounted) walkTo(p, rd.x - Math.sign(gap) * (reach - 4));
+    if (!goTo(s, p, rd.x - Math.sign(gap) * (reach - 4), rd.floor ?? 0) && mounted) goTo(s, p, rd.x - Math.sign(gap) * (reach - 4), rd.floor ?? 0);
     return;
   }
   p.dir = gap >= 0 ? 1 : -1;
@@ -370,7 +372,7 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
         p.task = null;
         return;
       }
-      if (!walkTo(p, buildingCentreX(from))) return;
+      if (!goToB(s, p, from)) return;
       const need = craftNeeded(o);
       for (const m of MATERIALS) {
         const n = Math.min((need[m] ?? 0) - (p.carrying[m] ?? 0), from.store[m] ?? 0, carryCapacity(s, p) - poolSize(p.carrying));
@@ -383,7 +385,7 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
       return;
     }
     case 'deliver': {
-      if (!walkTo(p, buildingCentreX(station))) return;
+      if (!goToB(s, p, station)) return;
       const need = craftNeeded(o);
       for (const m of MATERIALS) {
         const n = Math.min(p.carrying[m] ?? 0, need[m] ?? 0);
@@ -397,7 +399,7 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
       return;
     }
     case 'work': {
-      if (!walkTo(p, buildingCentreX(station))) return;
+      if (!goToB(s, p, station)) return;
       if (!takeItemInputs(s, o)) {
         p.task = null;
         return;
@@ -429,7 +431,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
     p.task = null;
     return;
   }
-  if (!walkTo(p, at)) return;
+  if (!goTo(s, p, at, building ? floorOf(building) : 0)) return;
   p.activity = 'research';
   const topic = TOPIC_BY_ID[task.topic];
   const mult = building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1;
@@ -550,7 +552,7 @@ function gatherUnit(s: GameState, p: Person, tileIndex: number, rng: Rng): void 
 
 function doEat(s: GameState, p: Person, task: Extract<Task, { type: 'eat' }>): void {
   const st = byId(s, task.building)!;
-  if (!walkTo(p, buildingCentreX(st))) return;
+  if (!goToB(s, p, st)) return;
   if (task.until === null) {
     const food = foodIn(st);
     if (!food) {
@@ -567,7 +569,7 @@ function doEat(s: GameState, p: Person, task: Extract<Task, { type: 'eat' }>): v
 
 function doSleep(s: GameState, p: Person, task: Extract<Task, { type: 'sleep' }>): void {
   const bed = task.building === null ? undefined : byId(s, task.building);
-  if (!walkTo(p, bed ? buildingCentreX(bed) : campX(s) - TILE)) return;
+  if (!goTo(s, p, bed ? buildingCentreX(bed) : campX(s) - TILE, bed ? floorOf(bed) : 0)) return;
   p.activity = 'sleep';
   const bedroll = !bed && hasBedroll(s, p);
   p.needs.rest = Math.min(1, p.needs.rest + (SLEEP_PER_HOUR * (bed ? 1 : bedroll ? BEDROLL_SLEEP : GROUND_SLEEP)) / TICKS_PER_HOUR);
@@ -873,6 +875,17 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 }
 
 /* ------------------------------------------------------------ helpers */
+
+/** Step toward x on a floor (a castle town's keep: via the stair towers). Returns true once there. */
+function goTo(s: GameState, p: Person, x: number, floor = 0): boolean {
+  if (!castleOn(s)) return walkTo(p, x);
+  const there = moveOnFloors(s, p, x, floor, STEP);
+  if (!there) p.activity = 'walk';
+  return there;
+}
+
+/** Step toward a building (up in the keep, if it's a room there). */
+const goToB = (s: GameState, p: Person, b: Building) => goTo(s, p, buildingCentreX(b), floorOf(b));
 
 /** Step toward x. Returns true once there. */
 export function walkTo(p: Person, x: number): boolean {
