@@ -5,6 +5,8 @@
 // take a few seasons to bear, then fruit without sowing; nobody sows in autumn what can't ripen before winter; and at
 // the turn of winter the town holds a harvest home if the stores are full (or goes short-tempered if they're not).
 
+import { earlier } from '../data/eras';
+import { eraOfResearch } from '../data/research';
 import { BLIGHT, CROPS, SEASON_GROWTH, SOIL, WORKPLACES, YIELD_PER_LEVEL } from '../data/crops';
 import { HERDS } from '../data/livestock';
 import { FOOD_VALUE } from '../data/people';
@@ -227,7 +229,7 @@ export function mineToWork(s: GameState, p: Person): Building | null {
 /** One tick of digging. Returns true when a load is dug out (it goes into the digger's hands). */
 export function workMine(s: GameState, p: Person, b: Building, progress: { work: number }): boolean {
   const w = WORKPLACES[b.def];
-  progress.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * modifiers(s.research).gather.mine * workFactor(s, p)) / (w.seconds * ERA_MULTIPLIER[s.era] * TICK_HZ);
+  progress.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * modifiers(s.research).gather.mine * workFactor(s, p)) / (w.seconds * ERA_MULTIPLIER[earlier(s.era, eraOfResearch(BUILDING_BY_ID[b.def].research))] * TICK_HZ);
   gainSkill(p, 'gathering', FARM_XP_PER_SEC / TICK_HZ);
   if (progress.work < 1) return false;
   progress.work = 0;

@@ -3,9 +3,9 @@
 
 import { ADJACENT_TILES, BUILDING_BY_ID, BUILDINGS, LAYER_NAMES, NEAR_SOURCE, NEAR_SOURCE_BONUS, RIVER_GROWTH, TAVERN_MARKET_MORALE, type BuildLayer, type BuildingDef } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
-import { eraReached } from '../../shared/data/eras';
+import { earlier, eraReached } from '../../shared/data/eras';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
-import { TOPIC_BY_ID } from '../../shared/data/research';
+import { eraOfResearch, TOPIC_BY_ID } from '../../shared/data/research';
 import type { Bridge } from '../../shared/ipc';
 import { DIRECTION_DEFS, DIRECTIONS } from '../../shared/sim/planner';
 import { blueprintCount, isUnlocked } from '../../shared/sim/buildings';
@@ -177,7 +177,7 @@ function card(def: BuildingDef, s: Snapshot): HTMLElement {
   const unlocked = isUnlocked({ unlockAll: s.unlockAll, done: s.research.done }, def);
   const c = el('div', unlocked ? 'card' : 'card locked');
   const top = el('div', 'card-top');
-  top.append(el('span', 'card-name', def.name), el('span', 'card-size', `${def.width} wide · ~${duration(def.buildSeconds * BUILD_MULTIPLIER[s.era])} of work`));
+  top.append(el('span', 'card-name', def.name), el('span', 'card-size', `${def.width} wide · ~${duration(def.buildSeconds * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(def.research))])} of work`));
   const cost = el('div', 'cost');
   for (const [m, n] of Object.entries(def.cost) as [Material, number][]) {
     const chip = el('span', (s.stock[m] ?? 0) >= n ? 'chip' : 'chip short', `${MATERIAL_NAMES[m]} ${n}`);

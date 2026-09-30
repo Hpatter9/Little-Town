@@ -19,7 +19,8 @@ import {
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import type { WorkAnim } from '../data/terrain';
 import type { Rng } from '../rng';
-import type { Era } from '../data/eras';
+import { earlier, type Era } from '../data/eras';
+import { eraOfResearch } from '../data/research';
 import { COMMON, MAX_QUALITY, qualityMult, qualityOf, rollQuality, typicalQuality } from '../data/quality';
 import { PIECE_RATE, PURSE_SCALE, saleValue } from '../data/shop';
 import { FOOD_VALUE } from '../data/people';
@@ -349,9 +350,9 @@ export function hourlyItems(s: GameState, rng: Rng): void {
   }
 }
 
-/** Seconds of work for one of an item in this era: stretched by the era, except food (people eat on the
- *  same clock in every era). */
+/** Seconds of work for one of an item in this era: stretched by the item's own era (a spear is no harder to make
+ *  in the Medieval era), except food (people eat on the same clock in every era). */
 export function craftSeconds(def: ItemDef, era: Era): number {
   const food = Object.keys(def.makes ?? {}).some((m) => FOOD_VALUE[m as Material] || m === 'flour');
-  return def.seconds * (food ? 1 : ERA_MULTIPLIER[era]);
+  return def.seconds * (food ? 1 : ERA_MULTIPLIER[earlier(era, eraOfResearch(def.research))]);
 }

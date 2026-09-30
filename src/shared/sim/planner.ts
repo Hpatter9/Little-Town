@@ -14,11 +14,11 @@ import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
 import type { BackTerrain } from '../world';
-import { blueprintCount, buildSlots, canPlace, canUpgrade, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, unlockInfo, upgrade } from './buildings';
+import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, unlockInfo, upgrade } from './buildings';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
-import { tireless, addStock, campX, type Building, type GameState } from './state';
+import { tireless, addStock, campX, poolSize, type Building, type GameState } from './state';
 import { TILE } from '../constants';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
@@ -58,7 +58,16 @@ export interface TownPlan {
   lastHome?: number;
   /** Beds the last new home added (the next waits longer after a big one). */
   lastHomeBeds?: number;
+  /** Blueprints shelved for want of what nobody could get (see shelveStalled): the kind, and when; not tried again
+   *  for a while. And the last time each blueprint moved (its deliveries or building), by id. */
+  shelved?: Record<string, number>;
+  moved?: Record<number, { tick: number; sig: string }>;
 }
+
+/** A blueprint that hasn't moved for this long, waiting on something the town has none of, is shelved (its slot is
+ *  wanted for something that can be built), and its kind isn't tried again for SHELF_HOURS. */
+export const STALL_HOURS = 12;
+export const SHELF_HOURS = 24;
 
 /* ------------------------------------------------------------ what the town needs */
 
@@ -273,7 +282,9 @@ function planCrafting(s: GameState, n: Needs): Stock {
   for (const m of MATERIALS) {
     const short = (n.demand[m] ?? 0) - (n.stock[m] ?? 0);
     if (short <= 0) continue;
-    const r = RECIPES_FOR(m).find((i) => itemUnlocked(s, i) && stationFor(s, i));
+    // (of the ways to make it, one it has the makings for now: cloth from fiber while there's no wool)
+    const ways = RECIPES_FOR(m).filter((i) => itemUnlocked(s, i) && stationFor(s, i));
+    const r = ways.find((i) => inputsReady(s, i, n.stock)) ?? ways[0];
     if (!r) continue;
     const per = (r.makes as Stock)[m] ?? 1;
     const have = s.crafting.find((o) => o.item === r.id)?.count ?? 0;
@@ -447,7 +458,8 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const out: { def: string; why: string }[] = [];
   const add = (def: string | undefined, why: string) => def && !out.some((w) => w.def === def) && out.push({ def, why });
   // (the phylactery only once the founder's soul is to be bound)
-  const can = (d: BuildingDef) => !d.never && unlocked(s, d.id) && (!NEVER.has(d.id) || (d.id === 'phylactery' && !!s.lichChosen));
+  const shelved = (id: string) => s.tick - (s.plan?.shelved?.[id] ?? -Infinity) < SHELF_HOURS * TICKS_PER_HOUR;
+  const can = (d: BuildingDef) => !d.never && !shelved(d.id) && unlocked(s, d.id) && (!NEVER.has(d.id) || (d.id === 'phylactery' && !!s.lichChosen));
   const count = (id: string) => s.buildings.filter((b) => b.def === id).length;
 
   // (every kind that would do, best first: if the best can't be had, the next is tried)
@@ -547,6 +559,31 @@ function consolidateFields(s: GameState, back: readonly BackTerrain[], n: Needs,
     }
   }
   return false;
+}
+
+/** Blueprints stuck waiting on what the town has none of (no progress, no deliveries, for STALL_HOURS) are taken down,
+ *  their materials back in store, so the build slots go to what can be built. Never an era's capstone. */
+function shelveStalled(s: GameState, n: Needs, plan: TownPlan): void {
+  const moved = (plan.moved ??= {});
+  const shelved = (plan.shelved ??= {});
+  for (const id of Object.keys(moved)) if (!s.buildings.some((b) => b.id === Number(id) && b.status === 'blueprint')) delete moved[Number(id)];
+  for (const k of Object.keys(shelved)) if (s.tick - shelved[k] > SHELF_HOURS * TICKS_PER_HOUR) delete shelved[k];
+  for (const b of [...s.buildings]) {
+    if (b.status !== 'blueprint') continue;
+    const sig = `${Math.round(b.progress * 100)}|${poolSize(b.delivered)}`;
+    const m = moved[b.id];
+    if (!m || m.sig !== sig) {
+      moved[b.id] = { tick: s.tick, sig };
+      continue;
+    }
+    if (s.tick - m.tick < STALL_HOURS * TICKS_PER_HOUR || CAPSTONES.includes(b.def) || b.progress > 0) continue;
+    const missing = (Object.keys(stillNeeded(b)) as Material[]).filter((k) => (n.stock[k] ?? 0) === 0);
+    if (!missing.length) continue;
+    demolish(s, b.id);
+    delete moved[b.id];
+    shelved[b.def] = s.tick;
+    plan.waiting.push(`Set aside the ${BUILDING_BY_ID[b.def].name}: no ${names(missing)} to be had`);
+  }
 }
 
 /** Whether rebuilding a home would leave people without a bed while it's built (the beds elsewhere can't take them). */
@@ -822,7 +859,8 @@ export function runPlanner(s: GameState, back: readonly BackTerrain[]): void {
   if (s.gameOver || s.autopilot === false || s.tick % PLAN_TICKS !== 0) return;
   const n = needs(s);
   makeRoom(s, n);
-  const plan: TownPlan = { build: s.plan?.build ?? null, research: null, gathering: [], waiting: [], lastHome: s.plan?.lastHome, lastHomeBeds: s.plan?.lastHomeBeds };
+  const plan: TownPlan = { build: s.plan?.build ?? null, research: null, gathering: [], waiting: [], lastHome: s.plan?.lastHome, lastHomeBeds: s.plan?.lastHomeBeds, shelved: s.plan?.shelved, moved: s.plan?.moved };
+  shelveStalled(s, n, plan);
   planResearch(s, n, plan);
   const craftWants = planCrafting(s, n);
   const clear = planBuilding(s, back, n, plan);
