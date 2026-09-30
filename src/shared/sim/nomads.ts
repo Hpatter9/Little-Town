@@ -18,7 +18,7 @@ import { calendar, TICKS_PER_HOUR } from './time';
 
 /** What goes on the wagons. */
 export const PORTABLE = new Set([
-  'campfire', 'stockpile', 'lean_to', 'hide_tent', 'cottage', 'rowhouse', 'workbench', 'drying_rack', 'tanning_rack',
+  'campfire', 'stockpile', 'lean_to', 'hide_tent', 'longhouse', 'cottage', 'rowhouse', 'workbench', 'drying_rack', 'tanning_rack',
   'hunters_lodge', 'storytellers_circle', 'healers_hut', 'loom', 'tannery', 'trading_post', 'general_store', 'emporium',
   'fireside_inn', 'tavern', 'stable', 'barracks', 'market', 'lookout',
 ]);

@@ -125,6 +125,25 @@ const ART: Record<string, { h: number; draw: Draw }> = {
       for (let y = 18; y < h - 4; y += 9) p.rect(w / 2 - 20 + y / 3, y, 6, 1, HIDE_LIGHT);
     },
   },
+  longhouse: {
+    h: 54,
+    draw: (p, w, h) => {
+      // A long, low timber hall: log walls under a deep thatched roof that comes down nearly to the ground.
+      p.rect(4, h - 20, w - 8, 20, PAL.trunkDark);
+      for (let y = h - 19; y < h; y += 4) beam(p, 5, y, w - 10, 3); // stacked log walls
+      roof(p, 0, w, h - 16, 6, THATCH, THATCH_DARK);
+      for (let x = 3; x < w - 3; x += 5) p.rect(x, h - 17, 2, 2, THATCH_DARK); // ragged eaves
+      p.rect(w / 2 - 1, 2, 2, 5, PAL.trunkDark); // ridge pole ends
+      p.rect(w / 2 - 6, 3, 1, 4, PAL.trunkDark);
+      p.rect(w / 2 + 5, 3, 1, 4, PAL.trunkDark);
+      p.rect(w / 2 - 7, h - 14, 14, 14, '#3a2a1c'); // doorway, and a warm glow inside
+      p.rect(w / 2 - 4, h - 8, 8, 8, '#6a3a1c');
+      p.rect(w / 2 - 8, h - 15, 16, 2, PAL.trunk); // lintel
+      p.rect(12, h - 12, 6, 4, '#f0d890'); // smoke-hole windows
+      p.rect(w - 18, h - 12, 6, 4, '#f0d890');
+      for (const x of [w / 2 - 12, w / 2 + 10]) p.rect(x, h - 22, 2, 22, PAL.trunkLight); // carved door posts
+    },
+  },
   workbench: {
     h: 32,
     draw: (p, w, h) => {

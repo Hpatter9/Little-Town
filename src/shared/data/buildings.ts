@@ -47,6 +47,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'stockpile', name: 'Stockpile', layer: 'fore', width: 3, cost: { wood: 6 }, buildSeconds: 20, purpose: 'Stores materials. Put them near the work to cut hauling.', storage: 100 },
   { id: 'lean_to', name: 'Lean-to', layer: 'mid', width: 2, cost: { wood: 8, fiber: 4 }, buildSeconds: 30, purpose: 'Houses 1.', research: 'basic_shelter', housing: 1 },
   { id: 'hide_tent', name: 'Hide Tent', layer: 'mid', width: 3, cost: { wood: 6, hide: 6, fiber: 4 }, buildSeconds: 60, purpose: 'Houses 2.', research: 'tanning', housing: 2 },
+  { id: 'longhouse', name: 'Longhouse', layer: 'mid', width: 4, cost: { wood: 24, stone: 6 }, buildSeconds: 90, purpose: 'Houses 3. A long timber hall under one thatched roof, where two lean-tos stood.', research: 'oral_tradition', housing: 3 },
   { id: 'workbench', name: 'Workbench', layer: 'mid', width: 2, cost: { wood: 10, stone: 4 }, buildSeconds: 45, purpose: 'Crafts tools and weapons.', research: 'flint_knapping' },
   { id: 'drying_rack', name: 'Drying Rack', layer: 'mid', width: 1, cost: { wood: 5, fiber: 3 }, buildSeconds: 25, purpose: 'Preserves food.', research: 'food_preservation' },
   { id: 'tanning_rack', name: 'Tanning Rack', layer: 'mid', width: 2, cost: { wood: 6, fiber: 2, stone: 2 }, buildSeconds: 40, purpose: 'Processes hides.', research: 'tanning' },
@@ -79,7 +80,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'loom', name: 'Loom', layer: 'mid', width: 2, cost: { wood: 12, fiber: 6 }, buildSeconds: 80, purpose: 'Weaves fiber into cloth.', research: 'weaving' },
   { id: 'windmill', name: 'Windmill', layer: 'back', width: 3, cost: { lumber: 16, stone: 12, cloth: 4 }, buildSeconds: 160, purpose: 'Grinds grain into flour.', research: 'milling' },
   { id: 'bakery', name: 'Bakery', layer: 'mid', width: 3, cost: { bricks: 12, lumber: 8 }, buildSeconds: 140, purpose: 'Bakes flour into bread.', research: 'baking' },
-  { id: 'cottage', name: 'Cottage', layer: 'mid', width: 3, cost: { lumber: 14, stone: 8, cloth: 2 }, buildSeconds: 150, purpose: 'Houses 3.', research: 'carpentry', housing: 3 },
+  { id: 'cottage', name: 'Cottage', layer: 'mid', width: 3, cost: { lumber: 14, stone: 8, cloth: 2 }, buildSeconds: 150, purpose: 'Houses 4.', research: 'carpentry', housing: 4 },
   { id: 'stone_wall', name: 'Stone Wall', layer: 'fore', width: 1, cost: { stone: 18, bricks: 4 }, buildSeconds: 120, purpose: 'Much tougher than a palisade.', research: 'fortification', hp: 420 },
   { id: 'stone_gate', name: 'Stone Gate', layer: 'fore', width: 2, cost: { stone: 20, lumber: 8, iron: 2 }, buildSeconds: 150, purpose: 'A strong gate townsfolk pass through.', research: 'fortification', hp: 340 },
   { id: 'watchtower', name: 'Watchtower', layer: 'mid', width: 2, cost: { stone: 20, lumber: 10 }, buildSeconds: 160, purpose: 'Two hours of raid warning.', research: 'fortification', warningMinutes: 120 },
@@ -150,11 +151,12 @@ export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walk
 
 /** Upgrades in place (DESIGN §4): what each building can be rebuilt into where it stands (it may grow wider). */
 export const UPGRADES: Readonly<Record<string, string>> = {
-  lean_to: 'hide_tent',
+  lean_to: 'longhouse',
   trading_post: 'general_store',
   fireside_inn: 'tavern',
   general_store: 'emporium',
-  hide_tent: 'cottage',
+  hide_tent: 'longhouse',
+  longhouse: 'cottage',
   cottage: 'rowhouse',
   rowhouse: 'apartments',
   apartments: 'habitat_dome',

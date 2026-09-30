@@ -173,7 +173,7 @@ export function placeBlueprint(s: GameState, back: readonly BackTerrain[], defId
 }
 
 /** Whether a finished building can be upgraded in place now, and to what. */
-export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: number): PlaceCheck & { to?: string; tile?: number } {
+export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: number, absorb?: number): PlaceCheck & { to?: string; tile?: number } {
   const b = s.buildings.find((q) => q.id === id);
   const to = b && UPGRADES[b.def];
   if (!b || !to || b.status !== 'done') return { ok: false, reason: 'Nothing to upgrade to' };
@@ -182,7 +182,8 @@ export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: numbe
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full', to };
   if (b.fire !== undefined) return { ok: false, reason: 'It is on fire', to };
   // it may grow: keep its left edge if there's room, else grow to the left
-  const others = { tiles: s.tiles, buildings: s.buildings.filter((q) => q !== b) };
+  // (absorbing a neighbour: it's pulled down to make room, so it doesn't count as in the way)
+  const others = { tiles: s.tiles, buildings: s.buildings.filter((q) => q !== b && q.id !== absorb) };
   const grow = def.width - defOf(b).width;
   for (const tile of grow > 0 ? [b.tile, b.tile - grow] : [b.tile]) {
     // (a castle's room grows within the keep)
@@ -199,15 +200,20 @@ export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: numbe
  * Rebuild a finished building as its upgrade, where it stands: half the old building's materials go into
  * the new one, and it's a blueprint (not working) until finished.
  */
-export function upgrade(s: GameState, back: readonly BackTerrain[], id: number): PlaceCheck {
-  const check = canUpgrade(s, back, id);
+export function upgrade(s: GameState, back: readonly BackTerrain[], id: number, absorb?: number): PlaceCheck {
+  const check = canUpgrade(s, back, id, absorb);
   if (!check.ok) return check;
   const b = s.buildings.find((q) => q.id === id)!;
   const next = BUILDING_BY_ID[check.to!];
-  // salvage: half the old cost, as far as the new building needs it; the rest (and what it stored) goes to storage
+  // salvage: half the old cost (and of a neighbour pulled down with it), as far as the new building needs it; the
+  // rest (and what they stored) goes to storage
   const salvage: Stock = {};
-  for (const [m, n] of Object.entries(defOf(b).cost) as [Material, number][]) salvage[m] = Math.floor(n * DEMOLISH_REFUND);
-  for (const m of MATERIALS) if (b.store[m]) addStock(salvage, m, b.store[m]!);
+  const merged = absorb === undefined ? undefined : s.buildings.find((q) => q.id === absorb);
+  for (const old of merged ? [b, merged] : [b]) {
+    for (const [m, n] of Object.entries(defOf(old).cost) as [Material, number][]) addStock(salvage, m, Math.floor(n * DEMOLISH_REFUND));
+    for (const m of MATERIALS) if (old.store[m]) addStock(salvage, m, old.store[m]!);
+  }
+  if (merged) s.buildings.splice(s.buildings.indexOf(merged), 1);
   const delivered: Stock = {};
   for (const [m, n] of Object.entries(next.cost) as [Material, number][]) {
     const k = Math.min(n, salvage[m] ?? 0);

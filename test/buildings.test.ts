@@ -131,16 +131,58 @@ test('with all storage full, gathering stops and the worker says so', () => {
   assert.ok(s.tiles[forest].terrain === 'forest', 'tile not cleared');
 });
 
-test('upgrading in place: a lean-to becomes a hide tent where it stands, reusing half its materials', () => {
+test('upgrading in place: a lean-to becomes a longhouse where it stands, reusing half its materials', () => {
   const s = plainGame('upgrade');
   const back = generateWorld('upgrade').back;
   const lean = { id: s.nextId++, def: 'lean_to', tile: camp(s) + 3, status: 'done' as const, delivered: {}, progress: 1, store: {} };
   s.buildings.push(lean);
-  assert.equal(upgrade(s, back, lean.id).ok, false, 'needs Tanning');
-  s.research.done.push('tanning');
+  assert.equal(upgrade(s, back, lean.id).ok, false, 'needs Oral Tradition');
+  s.research.done.push('oral_tradition');
   const r = upgrade(s, back, lean.id);
   assert.ok(r.ok, r.reason ?? '');
-  assert.equal(lean.def, 'hide_tent');
+  assert.equal(lean.def, 'longhouse');
   assert.equal(lean.status, 'blueprint');
-  assert.deepEqual(lean.delivered, { wood: 4, fiber: 2 }, 'half the lean-to (8 wood, 4 fiber) goes into the tent');
+  assert.deepEqual(lean.delivered, { wood: 4 }, 'half the lean-to\'s wood goes into the longhouse (its fiber to storage)');
+});
+test('merging: two lean-tos side by side with no room to widen become one longhouse', () => {
+  const s = plainGame('merge');
+  const back = generateWorld('merge').back;
+  s.research.done.push('oral_tradition');
+  const at = camp(s) + 3;
+  const lean = (tile: number) => {
+    const b = { id: s.nextId++, def: 'lean_to', tile, status: 'done' as const, delivered: {}, progress: 1, store: {} };
+    s.buildings.push(b);
+    return b;
+  };
+  const a = lean(at);
+  const b = lean(at + 2);
+  // hemmed in: a workbench on each side
+  s.buildings.push({ id: s.nextId++, def: 'workbench', tile: at - 2, status: 'done', delivered: {}, progress: 1, store: {} });
+  s.buildings.push({ id: s.nextId++, def: 'workbench', tile: at + 4, status: 'done', delivered: {}, progress: 1, store: {} });
+  assert.equal(upgrade(s, back, a.id).ok, false, 'no room on its own');
+  const before = s.buildings.length;
+  const r = upgrade(s, back, a.id, b.id);
+  assert.ok(r.ok, r.reason ?? '');
+  assert.equal(s.buildings.length, before - 1, 'one home instead of two');
+  assert.equal(a.def, 'longhouse');
+  assert.ok(!s.buildings.includes(b));
+  assert.deepEqual(a.delivered, { wood: 8 }, 'both lean-tos\' wood goes into the longhouse');
+});
+
+test('a town short of beds rebuilds a small home bigger before building another', () => {
+  const sim = new Sim(newGame('beds-up'));
+  const s = sim.state;
+  s.research.done.push('basic_shelter', 'oral_tradition');
+  for (const b of s.buildings.filter((q) => q.def === 'lean_to')) s.buildings.splice(s.buildings.indexOf(b), 1);
+  const c = camp(s);
+  s.buildings.push({ id: s.nextId++, def: 'lean_to', tile: c - 8, status: 'done', delivered: {}, progress: 1, store: {} });
+  const home = s.buildings[s.buildings.length - 1];
+  addStock(campfire(s).store, 'wood', 24);
+  addStock(campfire(s).store, 'stone', 6);
+  const homes = () => s.buildings.filter((b) => BUILDING_BY_ID[b.def].housing).length;
+  const was = homes();
+  for (let i = 0; i < 20 && home.def === 'lean_to'; i++) sim.step();
+  run(sim, 30);
+  assert.equal(home.def, 'longhouse', 'the lean-to is being rebuilt as a longhouse');
+  assert.equal(homes(), was, 'no new home beside it');
 });

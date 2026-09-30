@@ -159,6 +159,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   quarter pace, and at most 3 game days pass for one absence.
 - **Hide toggles:** `panel/hide.ts` (`HidePrefs`): Research, Build and Crafting each have a "Hide:" row, kept in
   `localStorage` (`littletown.researchHide`, `buildHide`, `craftHide`).
+- **Upgrades and fewer homes:** `UPGRADES` in `data/buildings.ts` (homes: lean-to or hide tent → longhouse →
+  cottage → row houses → apartments → dome; research stations; healer's hut → infirmary; watchtower → radio tower →
+  drone hub). `upgrade(s, back, id, absorb?)` in `sim/buildings.ts` can pull down a neighbour of the same kind and make
+  the two one (two lean-tos become a longhouse). The planner's `consolidateHomes`: when beds are wanted it rebuilds a
+  small home bigger before building another; in a quiet spell it upgrades one anyway (up to `SLEEP_ROUGH` sleep out
+  meanwhile). New homes are paced by beds (`lastHomeBeds`), so bigger homes don't speed growth. Soak: about 10 homes
+  (mostly longhouses) for 30 people at day 15, where it was about 28.
 - **Phase 4:** more farming.
 
 ## Planned (owner's requests, not started)
@@ -167,14 +174,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   three-quarter, angled view of the room instead of the bird's-eye one, so the townsfolk and travellers can be drawn
   with their ordinary side-on sprites (LPC characters) as they come in to shop, dine and sleep.
 
-- **Upgradable buildings (part of the next change):** houses and any other building where it makes sense (workshops,
-  storehouses, farms, the well, the school, the walls) upgrade in place to a bigger, better-looking version as the
-  town progresses (eras and research), instead of the town sprawling into many small houses. The town decides when
-  (planner, from coins and materials; no manual controls). An upgraded home holds more people, so the planner
-  builds fewer homes; the art changes per tier (`art/buildings.ts`, origin styles in `art/originStyles.ts`). Shops
-  already grow this way (Trading Post → General Store → Emporium; Fireside Inn → Tavern); reuse that upgrade
-  mechanism. Needs: tier data on `data/buildings.ts`, save-safe (optional fields), planner rules, tests, and a look
-  at phone sizes.
+- **Vampire castle, the rest of it:** the keep grows wider and taller with the town instead of overflowing beside it
+  (`CASTLE_TILES`/`CASTLE_FLOORS` in `sim/castle.ts`; `roomSpot` then `findSpot` in the planner); more buildings become
+  rooms (well, stable); the walls become its curtain wall and gatehouse. Real stairs: a floor on `Person`, stair
+  towers, climbing time (`people.ts`), drawn in `art/castle.ts`/`peopleView.ts`. Raidable: raiders breach the gate and
+  climb, defenders hold the stairs (`raids.ts`, `combat.ts`); first cut: the gate, the ground floor and the stairs.
+
+- **A font for every origin:** the base game and each origin get their own font to match its look (in `theme.ts`, with
+  the palette), from Google Fonts or bundled, for the menus, the HUD and the tap card.
 
 - **More to watch, not more to do** (the town still decides everything; these give the player moments):
   1. **Raids wait for you:** when a raid is about to start and nobody is watching, the town pauses and a phone alert

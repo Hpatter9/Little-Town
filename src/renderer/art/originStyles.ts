@@ -14,6 +14,8 @@ type Style = Exclude<ThemeId, 'town'>;
 /** Homes by size: lean-to, tent, cottage, row houses (and their heights). */
 const HOMES = ['lean_to', 'hide_tent', 'cottage', 'rowhouse'] as const;
 const HOME_H = [46, 58, 62, 80];
+/** Which of those sizes a home is drawn as (a longhouse as a cottage, wider). */
+const homeSize = (defId: string) => (defId === 'longhouse' ? 2 : HOMES.indexOf(defId as (typeof HOMES)[number]));
 /** Walls and gates by strength: palisade, then stone. */
 const WALLS = ['palisade_wall', 'stone_wall'] as const;
 const GATES = ['palisade_gate', 'stone_gate'] as const;
@@ -739,12 +741,12 @@ export function styled(style: string, defId: string): { h?: number; draw?: Draw;
   if (style === 'nomads') {
     const own = nomadArt(defId, city);
     if (own) return own;
-    const hi = HOMES.indexOf(defId as (typeof HOMES)[number]);
+    const hi = homeSize(defId);
     if (city && hi >= 0) return { h: HOME_H[hi], draw: (p, w, h) => cityHome(p, w, h, hi) };
   }
   if (style === 'town' || !(style in home)) return null;
   const st = style as Style;
-  const hi = HOMES.indexOf(defId as (typeof HOMES)[number]);
+  const hi = homeSize(defId);
   if (hi >= 0) return { h: HOME_H[hi], draw: (p, w, h) => home[st](p, w, h, hi) };
   const wi = WALLS.indexOf(defId as (typeof WALLS)[number]);
   if (wi >= 0) return { h: WALL_H[wi], draw: (p, w, h) => wall[st](p, w, h, wi === 1, false) };
