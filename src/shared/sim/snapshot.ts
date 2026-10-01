@@ -46,7 +46,14 @@ import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, tileCentreX } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
-import { castleFloors, castleOn, castleSpan, heightOf, roomOf } from './castle';
+import { castleFloors, castleOn, castleSpan, heightOf, keepFlare, roomOf } from './castle';
+import { TILE } from '../constants';
+
+/** Whether x is within the keep's ground floor. */
+const inKeepX = (s: GameState, x: number) => {
+  const [lo, hi] = castleSpan(s);
+  return x >= lo * TILE && x <= hi * TILE;
+};
 import { rallyState } from './rally';
 import { daysToMove } from './nomads';
 import { RIVALS } from '../data/rivals';
@@ -420,7 +427,7 @@ export interface Snapshot {
    *  and its last move (x from and to, and ticks since), for the caravan on the road. */
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's keep (sim/castle.ts): its tiles and how many floors it stands. */
-  castle: { lo: number; hi: number; floors: number } | null;
+  castle: { lo: number; hi: number; floors: number; flare: number } | null;
   /** A town walled at both ends: the tiles its walls span, and what they're built of (drawn as a far wall round it). */
   enclosure: { lo: number; hi: number; wall: string } | null;
   /** A full-moon night: werewolves show what they are. */
@@ -576,7 +583,8 @@ export function snapshot(s: GameState): Snapshot {
             id: r.id,
             kind: r.kind,
             name: ENEMIES[r.kind].name,
-            floor: castleOn(s) && heightOf(r) > 0 ? heightOf(r) : null,
+            // (inside the keep, even on its ground floor: drawn in the castle, at its scale)
+            floor: castleOn(s) && (heightOf(r) > 0 || inKeepX(s, r.x)) ? heightOf(r) : null,
             x: r.x,
             dir: r.dir,
             hp: r.hp,
@@ -619,7 +627,7 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     enclosure: enclosure(s),
-    castle: castleOn(s) && castleFloors(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: castleFloors(s) } : null,
+    castle: castleOn(s) && castleFloors(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: castleFloors(s), flare: keepFlare(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),

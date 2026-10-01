@@ -1,5 +1,6 @@
 ﻿// Draws raiders in town, on the walkway. Positions arrive at the sim's tick rate and are interpolated.
 
+import { INSIDE_SCALE } from './peopleView';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { ENEMIES } from '../../shared/data/enemies';
 import type { RaiderView } from '../../shared/sim/snapshot';
@@ -176,6 +177,13 @@ export class RaidersView {
           .fill({ color: 0x1a120c, alpha: 0.85 })
           .rect(x - w / 2, top - 4, Math.max(1, Math.round((w * r.hp) / r.maxHp)), 2)
           .fill(r.ally ? 0x8cc05a : 0xe06040);
+      }
+      // inside a castle's keep: drawn smaller, to the rooms' scale, about its feet (and walking at the same pace)
+      if (r.floor !== null) {
+        const feet = WALK_Y + 2;
+        s.scale.set(s.scale.x * INSIDE_SCALE, s.scale.y * INSIDE_SCALE);
+        s.x = Math.round(x + (s.x - x) * INSIDE_SCALE);
+        s.y = Math.round(feet - (feet - s.y) * INSIDE_SCALE);
       }
       // up a castle's keep: lifted to the floor it has climbed to
       const lift = r.floor !== null ? Math.round(FLOOR_LIFT + r.floor * ROOM_H) : 0;

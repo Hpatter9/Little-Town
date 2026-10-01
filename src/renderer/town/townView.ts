@@ -135,7 +135,7 @@ export class TownView {
   /* ------------------------------------------------------------ buildings */
 
   /** A castle town's keep (drawn round its rooms). */
-  syncCastle(castle: { lo: number; hi: number; floors: number } | null): void {
+  syncCastle(castle: { lo: number; hi: number; floors: number; flare: number } | null): void {
     if (!this.buildings.syncCastle(castle)) return;
     this.mid.rebuildSkyline();
   }

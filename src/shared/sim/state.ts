@@ -483,6 +483,9 @@ export interface GameState {
   /** When the Cave Bear comes down for its totem, if the town has learned the Elder's Council and nobody has fetched it
    *  (sim/caveBear.ts). */
   caveBearTick?: number;
+  /** A castle town's keep (sim/castle.ts): its ground floor's width at first, and how far each floor up reaches out.
+   *  Left out (castles from older saves): the old shape, 16 tiles straight up, so their rooms stay where they are. */
+  keep?: { tiles: number; flare: number };
   /** Destinations visited at least once (their loot is known). */
   scouted: string[];
   /** Which end of town each destination lies beyond (-1 left, 1 right). */
@@ -874,6 +877,8 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     ...(opts.difficulty && opts.difficulty !== 'normal' ? { difficulty: opts.difficulty } : {}),
     ...(origin.id !== 'settlers' ? { origin: origin.id } : {}),
     ...(f === 'lich' ? { lich: true } : {}),
+    // (a castle town's keep: narrow at the foot, reaching out a tile a side each floor up)
+    ...(origin.rules.castle ? { keep: { tiles: 12, flare: 1 } } : {}),
   };
 }
 

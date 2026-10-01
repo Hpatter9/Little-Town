@@ -2,7 +2,7 @@
 // ground up as work progresses, with scaffolding and a progress bar), and the placement ghost.
 
 import { Container, Graphics, Rectangle, Sprite, Texture, Ticker } from 'pixi.js';
-import { KEEP_MARGIN_X, keepArt, PLINTH, ROOM_H, roomArt, TOWER_W } from '../art/castle';
+import { KEEP_MARGIN_X, keepArt, keepLeft, PLINTH, ROOM_H, roomArt } from '../art/castle';
 import { dustFrame, FLAME_SIZE, flameFrame, smokeFrame } from '../art/effects';
 import { TILE } from '../../shared/constants';
 import type { BuildLayer } from '../../shared/data/buildings';
@@ -272,16 +272,16 @@ export class BuildingsView {
 
   /** A castle town's keep, round its rooms (drawn behind them, in tile-wide slices so it culls with the rest).
    *  Returns true if it changed. */
-  syncCastle(castle: { lo: number; hi: number; floors: number } | null): boolean {
-    const key = castle ? `${castle.lo}|${castle.hi}|${castle.floors}|${this.tones.mid[1]}` : '';
+  syncCastle(castle: { lo: number; hi: number; floors: number; flare: number } | null): boolean {
+    const key = castle ? `${castle.lo}|${castle.hi}|${castle.floors}|${castle.flare}|${this.tones.mid[1]}` : '';
     if (key === this.castleKey) return false;
     this.castleKey = key;
     const L = this.layers.mid;
     L.removeGroup('castle');
     if (!castle) return true;
     L.group('castle');
-    const art = keepArt(castle.lo, castle.hi, castle.floors, this.tones.mid[0], this.tones.mid[1]);
-    const left = castle.lo * TILE - TOWER_W - KEEP_MARGIN_X;
+    const art = keepArt(castle.lo, castle.hi, castle.floors, this.tones.mid[0], this.tones.mid[1], castle.flare);
+    const left = castle.lo * TILE - keepLeft(castle.floors, castle.flare) - KEEP_MARGIN_X;
     const SLICE = 16;
     for (let x0 = 0; x0 < art.width; x0 += SLICE) {
       const w = Math.min(SLICE, art.width - x0);

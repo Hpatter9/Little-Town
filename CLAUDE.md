@@ -132,7 +132,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     same castle every time) of round `turret`s with needle spires, a great tower with a `roseWindow`, a steep hall roof,
     little gables along the battlements, `buttress`es, `gargoyle`s, corbelled corner turrets on the stair towers, and a
     crag with a round flanking tower each side (the picture is `KEEP_MARGIN_X` wider each side than the keep).
-  - The keep widens each era (`castleWidth`: 16 tiles, 4 more per era). Nothing that belongs inside sprawls: with no
+  - The keep is narrow at the foot and reaches out as it rises (`s.keep`: 12 tiles on the ground floor, 4 more per era,
+    each floor up `flare` 1 tile further out on each side, on corbels, up to `CASTLE_FLOORS` 6). The stair towers stand
+    just past the ground floor's ends and run up through the wider floors; `inKeep` keeps rooms off them. `castleReach`
+    (the top floor) is kept clear of other buildings. Castles from older saves (no `s.keep`) keep the old 16 tiles
+    straight up. The crown spreads across the top floor, with a great corner tower at each end.
+  - Inside the keep everyone is drawn at `INSIDE_SCALE` (0.6, `peopleView.ts`; raiders too, in `raidersView.ts`, who
+    count as inside on its ground floor too), about their feet: only the drawing, so they walk at the same pace.
+  - The keep widens each era (`castleWidth`: 4 more tiles per era). Nothing that belongs inside sprawls: with no
     room in the keep the planner clears the keep's ground or waits for it to grow. Wells, stables and racks are rooms
     too (`OUTSIDE` keeps only mines, the graveyard and the launch site out).
   - Floors are real: `Person.floor`/`climb` and `Raider.floor`/`climb`. A stair tower stands at each end of the keep

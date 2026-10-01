@@ -13,10 +13,16 @@ import { rulesOf } from '../data/origins';
 import { campX, type Building, type GameState, type Person } from './state';
 import { TICK_HZ } from './time';
 
-/** The keep: this many tiles wide at first, over the camp (wider each era), and at most this many floors. */
-export const CASTLE_TILES = 16;
+/** The keep: its ground floor this many tiles wide at first, over the camp (wider each era), and at most this many
+ *  floors, each reaching CASTLE_FLARE tiles further out on each side than the one below (on corbels, over the stair
+ *  towers, which stand just past the ground floor's ends and run up through the floors above). */
+export const CASTLE_TILES = 12;
 export const CASTLE_GROWS = 4;
-export const CASTLE_FLOORS = 5;
+export const CASTLE_FLOORS = 6;
+export const CASTLE_FLARE = 1;
+/** The keep in castles from before it flared (older saves): wider, straight up. */
+const OLD_KEEP = { tiles: 16, flare: 0 };
+const keepOf = (s: Pick<GameState, 'keep'>) => s.keep ?? OLD_KEEP;
 /** Seconds to climb (or go down) one floor of the stair towers. */
 export const CLIMB_SECONDS = 3;
 /** How it's drawn (px): each floor's height (a person stands 48 high), the towers past each end, the roof and spires
@@ -33,15 +39,41 @@ const OUTSIDE = new Set(['graveyard', 'mine', 'coal_mine', 'deep_mine', 'oil_der
 
 export const castleOn = (s: Pick<GameState, 'origin'>) => !!rulesOf(s).castle;
 
-/** How many tiles wide the keep stands in an era. */
-export const castleWidth = (era: Era) => CASTLE_TILES + CASTLE_GROWS * Math.max(0, ERAS.indexOf(era));
+/** How many tiles wide the keep's ground floor stands in an era. */
+export const castleWidth = (era: Era, tiles = CASTLE_TILES) => tiles + CASTLE_GROWS * Math.max(0, ERAS.indexOf(era));
 
-/** The keep's tiles: [lo, hi). */
-export function castleSpan(s: GameState): [number, number] {
-  const w = castleWidth(s.era);
+/** A floor's tiles: [lo, hi) (the ground floor's by default; each floor up reaches further out). */
+export function castleSpan(s: GameState, floor = 0): [number, number] {
+  const k = keepOf(s);
+  const w = castleWidth(s.era, k.tiles);
   const lo = Math.floor(campX(s) / TILE) - w / 2;
-  return [lo, lo + w];
+  return [lo - floor * k.flare, lo + w + floor * k.flare];
 }
+
+/** How far each floor reaches out past the one below, in tiles (for the renderer). */
+export const keepFlare = (s: Pick<GameState, 'keep'>) => keepOf(s).flare;
+
+/** The keep's widest reach (its top floor): nothing else is built under it. */
+export const castleReach = (s: GameState) => castleSpan(s, CASTLE_FLOORS - 1);
+
+/** The tiles the stair towers stand on (just past each end of the ground floor). */
+const stairTiles = (s: GameState): [number, number] => {
+  const [lo, hi] = castleSpan(s);
+  return [lo - 1, hi];
+};
+
+/** Whether a room of this width can stand at `tile` on a floor: inside the floor, and clear of the stair towers. */
+export function inKeep(s: GameState, tile: number, width: number, floor: number): boolean {
+  const [lo, hi] = castleSpan(s, floor);
+  if (tile < lo || tile + width > hi) return false;
+  return floor === 0 || !stairTiles(s).some((t) => tile <= t && t < tile + width);
+}
+
+/** How many tiles of rooms a floor holds. */
+export const floorRoom = (s: GameState, floor: number) => {
+  const [lo, hi] = castleSpan(s, floor);
+  return hi - lo - (floor > 0 ? 2 : 0);
+};
 
 /** Whether a kind of building goes inside, as a room. */
 export const roomKind = (s: Pick<GameState, 'origin'>, def: BuildingDef) => castleOn(s) && def.layer === 'mid' && !OUTSIDE.has(def.id) && def.width <= CASTLE_TILES;
@@ -112,7 +144,7 @@ export function floorFill(s: Pick<GameState, 'buildings'>, floor: number): numbe
 /** The floors a new room may go on now: the ground floor, and each floor up while the one below is mostly built. */
 export function openFloors(s: GameState): number[] {
   const out = [0];
-  for (let f = 1; f < CASTLE_FLOORS && floorFill(s, f - 1) >= castleWidth(s.era) * FLOOR_BELOW; f++) out.push(f);
+  for (let f = 1; f < CASTLE_FLOORS && floorFill(s, f - 1) >= floorRoom(s, f - 1) * FLOOR_BELOW; f++) out.push(f);
   return out;
 }
 

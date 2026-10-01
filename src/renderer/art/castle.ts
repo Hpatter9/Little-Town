@@ -420,6 +420,10 @@ function shifted(p: Painter, dx: number): Painter {
   } as unknown as Painter;
 }
 
+/** How far left of the keep's ground floor (its first tile) the keep's picture reaches before its margin: the stair
+ *  tower, or the top floor's reach if that's further. */
+export const keepLeft = (floors: number, flare: number) => Math.max(TOWER_W, flare * Math.max(0, floors - 1) * TILE);
+
 /** A small seeded random stream: the keep's skyline is drawn the same every time for the same span. */
 function seeded(seed: number): () => number {
   let a = seed >>> 0 || 1;
@@ -491,34 +495,40 @@ function roseWindow(p: Painter, cx: number, cy: number, r: number): void {
 
 /** The keep for `floors` floors over the tiles [lo, hi): everything but the rooms (drawn over it). Its left edge is
  *  TOWER_W left of `lo`; its bottom is the ground. Cut open: where there's no room yet, an empty chamber. */
-export function keepArt(lo: number, hi: number, floors: number, tone: Tone, toneKey: string): PixelArt {
-  const key = `keep2|${lo}|${hi}|${floors}|${toneKey}`;
+export function keepArt(lo: number, hi: number, floors: number, tone: Tone, toneKey: string, flare = 0): PixelArt {
+  const key = `keep3|${lo}|${hi}|${floors}|${flare}|${toneKey}`;
   let art = cache.get(key);
   if (art) return art;
   const inner = (hi - lo) * TILE;
   const M = KEEP_MARGIN_X;
+  // (each floor up reaches `flare` tiles further out on each side: the top floor's reach past the ground floor, and
+  // the crown spread across the top floor)
+  const ext = flare * (floors - 1) * TILE;
+  const L = keepLeft(floors, flare);
+  const topL = TOWER_W - ext;
+  const topW = inner + 2 * ext;
   const w = inner + TOWER_W * 2;
   const bodyH = floors * ROOM_H + PLINTH;
   const h = bodyH + ROOF_H + 26;
   const rnd = seeded(lo * 7919 + hi * 104729);
-  art = paint(w + M * 2, h, tone, (q) => {
+  art = paint(inner + 2 * L + M * 2, h, tone, (q) => {
     // (everything is laid out from the keep's own left edge; the crag and flanking towers spill into the margins)
-    const p = shifted(q, M);
+    const p = shifted(q, M + L - TOWER_W);
     const ground = h;
     const top = ground - bodyH;
     const crown = top - 6; // (the roof's stone cut through, over the top floor)
 
     // far behind: the dark shapes of more spires, for depth
     for (let k = 0; k < 4; k++) {
-      const fx = TOWER_W + inner * (0.15 + 0.23 * k) + rnd() * 20;
+      const fx = topL + topW * (0.15 + 0.23 * k) + rnd() * 20;
       const fh = 30 + rnd() * 40;
       p.rect(fx - 5, crown - fh, 10, fh, '#221a28');
       for (let y = 0; y < 24; y++) p.rect(fx - (6 * y) / 24, crown - fh - 24 + y, (12 * y) / 24, 1, '#1c1622');
     }
 
     // a great hall's steep roof behind the battlements, with lit dormers and iron cresting
-    const hallW = Math.max(56, inner * 0.28);
-    const hx = TOWER_W + inner * (0.15 + rnd() * 0.5);
+    const hallW = Math.max(56, topW * 0.28);
+    const hx = topL + topW * (0.15 + rnd() * 0.5);
     const hallH = Math.min(ROOF_H - 14, hallW * 1.1);
     for (let y = 0; y < hallH; y++) {
       const half = (hallW / 2) * ((y + 1) / hallH);
@@ -536,8 +546,10 @@ export function keepArt(lo: number, hi: number, floors: number, tone: Tone, tone
     // hatched where the cut runs through them; the rooms are drawn over it where they are
     for (let f = 0; f < floors; f++) {
       const y0 = ground - PLINTH - (f + 1) * ROOM_H;
-      p.rect(TOWER_W, y0, inner, ROOM_H, '#1c1420');
-      for (let x = TOWER_W + 6; x < TOWER_W + inner - 20; x += 34) {
+      const fx0 = TOWER_W - f * flare * TILE;
+      const fw = inner + 2 * f * flare * TILE;
+      p.rect(fx0, y0, fw, ROOM_H, '#1c1420');
+      for (let x = fx0 + 6; x < fx0 + fw - 20; x += 34) {
         // a pointed arch on the back wall, an alcove in shadow
         const aw = 18;
         const ay = y0 + 14;
@@ -545,18 +557,29 @@ export function keepArt(lo: number, hi: number, floors: number, tone: Tone, tone
         p.rect(x, ay + (aw / 2) * 0.8, aw, ROOM_H - 20 - (aw / 2) * 0.8, '#2c2230');
         p.rect(x + 3, ay + (aw / 2) * 0.8 + 2, aw - 6, ROOM_H - 24 - (aw / 2) * 0.8, '#120c14');
       }
-      p.rect(TOWER_W, y0 + ROOM_H - 3, inner, 3, STONE_DARK); // (bare floor)
-      section(p, TOWER_W, y0, inner, 5);
+      p.rect(fx0, y0 + ROOM_H - 3, fw, 3, STONE_DARK); // (bare floor)
+      section(p, fx0, y0, fw, 5);
+      if (f > 0 && flare) {
+        // the outer walls cut through, and corbels under the floor where it reaches out past the one below
+        section(p, fx0, y0, 3, ROOM_H);
+        section(p, fx0 + fw - 3, y0, 3, ROOM_H);
+        for (const [cx0, dir] of [[fx0, 1], [fx0 + fw, -1]] as const) {
+          for (let k = 0; k < flare * TILE; k += 8) {
+            const bx = cx0 + dir * k + (dir < 0 ? -6 : 0);
+            for (let j = 0; j < 4; j++) p.rect(bx + (dir > 0 ? j : 0), y0 + ROOM_H + j * 2, 6 - j, 2, j ? STONE_DARK : STONE_LIGHT);
+          }
+        }
+      }
     }
     // the roof over the top floor, cut through, and battlements on it (gaps where towers stand)
-    section(p, TOWER_W, crown, inner, 7);
-    for (let x = TOWER_W; x < TOWER_W + inner; x += 8) {
+    section(p, topL, crown, topW, 7);
+    for (let x = topL; x < topL + topW; x += 8) {
       const mh = 4 + ((x * 13) % 3);
       p.rect(x, crown - mh, 5, mh, STONE);
       p.px(x, crown - mh, STONE_LIGHT);
     }
     // little pointed gables along the battlements, each with a slit of light
-    for (let x = TOWER_W + 20 + rnd() * 20; x < TOWER_W + inner - 24; x += 46 + rnd() * 20) {
+    for (let x = topL + 20 + rnd() * 20; x < topL + topW - 24; x += 46 + rnd() * 20) {
       for (let y = 0; y < 14; y++) p.rect(x + 9 - (y * 9) / 14, crown - 4 - 14 + y, (y * 18) / 14, 1, y < 2 ? STONE_LIGHT : STONE);
       p.rect(x + 8, crown - 12, 2, 6, '#c05030');
       p.rect(x + 8.5, crown - 22, 1, 4, IRON); // a spike on the gable
@@ -566,11 +589,11 @@ export function keepArt(lo: number, hi: number, floors: number, tone: Tone, tone
 
     // round turrets along the roof, of different heights, some joined to the keep by flying buttresses, and the great
     // tower among them with its rose window
-    const greatX = TOWER_W + inner * (0.3 + rnd() * 0.4);
-    const count = Math.max(3, Math.floor(inner / 70));
+    const greatX = topL + topW * (0.3 + rnd() * 0.4);
+    const count = Math.max(3, Math.floor(topW / 70));
     const spots: number[] = [];
     for (let k = 0; k < count; k++) {
-      const x = TOWER_W + 16 + ((inner - 32) * (k + 0.5)) / count + (rnd() - 0.5) * 30;
+      const x = topL + 16 + ((topW - 32) * (k + 0.5)) / count + (rnd() - 0.5) * 30;
       if (Math.abs(x - greatX) > 34) spots.push(x);
     }
     for (const x of spots) {
@@ -606,6 +629,7 @@ export function keepArt(lo: number, hi: number, floors: number, tone: Tone, tone
         if ((x * 11) % 7 === 0) p.rect(at, top2 + 4, 1, 3, '#43383e');
         p.px(at, top2, '#4a4048');
       }
+      if (flare) continue; // (a flaring keep's upper floors reach out over where these would stand)
       const fx = out - side * (M / 2 + 2);
       const fBase = ground - cragH + 6;
       const fTall = Math.round(bodyH * (0.45 + rnd() * 0.25));
@@ -648,11 +672,22 @@ export function keepArt(lo: number, hi: number, floors: number, tone: Tone, tone
       gothicWindow(p, tx + TOWER_W / 2 - 3, tTop + 6, 6, 12, MOON, MOON_LIGHT);
       cone(p, tx + TOWER_W / 2, tTop - 4, TOWER_W / 2 + 2, 34 + Math.round(rnd() * 10));
       pennon(p, tx + TOWER_W / 2 + (side > 0 ? 0 : -1), tTop - 54, 9);
-      // the corner turret, hung out over the drop on corbels
+      // the corner turret, hung out over the drop on corbels (on a straight keep; a flaring one has its great corner
+      // towers up top instead)
       const bx = side < 0 ? tx + 4 : tx + TOWER_W - 4;
-      for (let k = 0; k < 4; k++) p.rect(bx - 4 + k, tTop + 20 + k * 2, 8 - k * 2, 2, STONE_DARK);
-      turret(p, bx, tTop + 20, 4, 14, 14, MOON, MOON_LIGHT, false);
-      gargoyle(p, side < 0 ? TOWER_W + 2 : w - TOWER_W - 9, crown - 1, side < 0 ? -1 : 1);
+      if (!flare) {
+        for (let k = 0; k < 4; k++) p.rect(bx - 4 + k, tTop + 20 + k * 2, 8 - k * 2, 2, STONE_DARK);
+        turret(p, bx, tTop + 20, 4, 14, 14, MOON, MOON_LIGHT, false);
+      }
+      gargoyle(p, side < 0 ? topL + 2 : topL + topW - 7, crown - 1, side < 0 ? -1 : 1);
+    }
+    // a flaring keep's great corner towers: rising from the ends of its widest floor, the tallest of the skyline
+    if (flare) {
+      for (const side of [-1, 1] as const) {
+        const cx = side < 0 ? topL + 12 : topL + topW - 12;
+        turret(p, cx, crown, 12, ROOF_H - 28 - Math.round(rnd() * 12), 34 + Math.round(rnd() * 10), MOON, MOON_LIGHT, true);
+        buttress(p, cx - side * 12, crown - 30, cx - side * 26, crown - 2);
+      }
     }
     // a great door at the foot of each tower (the way in, for townsfolk and raiders alike): pointed, iron-banded
     for (const tx of [0, w - TOWER_W]) {
@@ -665,7 +700,7 @@ export function keepArt(lo: number, hi: number, floors: number, tone: Tone, tone
     }
     // bats about the spires
     for (let k = 0; k < 5; k++) {
-      const bx = TOWER_W + rnd() * inner;
+      const bx = topL + rnd() * topW;
       const by = crown - 20 - rnd() * (ROOF_H - 10);
       p.rect(bx, by, 2, 2, '#140c18');
       p.rect(bx - 3, by - 1, 3, 1, '#140c18');
