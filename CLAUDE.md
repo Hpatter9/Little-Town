@@ -361,6 +361,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   the town and steal, kidnap or burn as now. Origin powers become spells the player aims at the map, with cooldowns.
   Origin twists: the vampire keep is climbed floor by floor, nomads fight inside the wagon circle, machine turrets are
   towers.
+  - Length: a battle lasts 1 to 2 minutes; bigger raids (big towns, rival armies, bosses, war) run longer, in several
+    waves with a short breather between them (re-place the fighters, the fallen carried off, spells recharging).
+  - **Auto-watch:** a toggle (on the battle screen, remembered) where the town places everyone and casts the spells
+    itself and the player only watches; the player can still step in at any moment.
+  - **The map is the town:** built from the town as it stands, so it changes as the town grows. The trail runs past
+    the town's own buildings, drawn in its origin's style (`buildingArt` with the style), with its real walls and gate
+    (wall spots), towers and defences (fixed towers), fields and pens on the outskirts, and the biome and season
+    around it. Each origin's map has its own shape: the vampire keep climbed floor by floor, the nomads' wagon circle
+    (then the caravan city), the druids' grove with living hedges, the dwarves' hold in the rock, the merfolk's
+    shore and jetties, the machines' turrets, and so on. A bigger town means a longer trail with more bends, more wall
+    spots and more towers.
   - The player places every fighter in a placing phase before the raiders come. Whoever isn't placed when it runs out,
     and every raid that plays out without the player (`Raid.alone`, the forecast, tests), is placed by the town's own
     placement, so the sim never waits forever.
