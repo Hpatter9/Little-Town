@@ -6,6 +6,7 @@ import type { PersonView } from '../../shared/sim/snapshot';
 import { poolSize } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
+import { glowTexture } from './layer';
 import { CREATURE_FRAME, creatureFrame, creatureSize } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, type Emote } from '../art/effects';
 
@@ -41,6 +42,8 @@ interface Drawn {
   view: PersonView;
   visitor: boolean;
   sprite: Sprite;
+  /** A soft shadow at their feet. */
+  shadow: Sprite;
   horse: Sprite;
   load: Graphics;
   bubble: Graphics;
@@ -99,13 +102,16 @@ export class PeopleView {
       seen.add(p.id);
       let d = this.drawn.get(p.id);
       if (!d) {
+        const shadow = this.layer.addChildAt(new Sprite(glowTexture()), 0); // (under everyone)
+        shadow.anchor.set(0.5);
+        shadow.tint = 0x000000;
         const load = this.layer.addChild(bundle());
         const horse = this.layer.addChild(new Sprite());
         horse.scale.set(HORSE_SCALE);
         horse.visible = false;
         const sprite = this.layer.addChild(new Sprite());
         const bubble = this.layer.addChild(questionBubble());
-        d = { view: p, visitor: isVisitor, sprite, horse, load, bubble, fromX: p.x, toX: p.x, at: now, x: p.x, walked: 0, animStart: now, lastActivity: p.activity };
+        d = { view: p, visitor: isVisitor, sprite, shadow, horse, load, bubble, fromX: p.x, toX: p.x, at: now, x: p.x, walked: 0, animStart: now, lastActivity: p.activity };
         this.drawn.set(p.id, d);
       }
       d.fromX = d.x;
@@ -125,6 +131,7 @@ export class PeopleView {
     for (const [id, d] of this.drawn) {
       if (!seen.has(id)) {
         d.sprite.destroy();
+        d.shadow.destroy();
         d.horse.destroy();
         d.load.destroy();
         d.bubble.destroy();
@@ -139,7 +146,8 @@ export class PeopleView {
   /** Someone's look and what they wear: their everyday clothes (wardrobe) and armour over them. Strangers passing
    *  through wear what they came in. */
   private dressed(v: PersonView): [PersonView['look'], string[]] {
-    if (v.typeName === 'Traveller') return [v.look, wornLayers(v.gear, v.gearQ)];
+    // (strangers wear what they came in; a ready-made founder, their own clothes: lpcCompose puts those on)
+    if (v.typeName === 'Traveller' || v.look.wear) return [v.look, wornLayers(v.gear, v.gearQ)];
     const w = wardrobe({ id: v.id, gender: v.look.gender, typeName: v.typeName, gear: v.gear, coins: v.coins, child: v.growsUpIn !== null, founder: v.id === this.founderId }, this.theme, this.weave);
     return [{ ...v.look, outfit: w.outfit }, [...w.wear, ...wornLayers(v.gear, v.gearQ)]];
   }
@@ -221,7 +229,7 @@ export class PeopleView {
       const [look, wear] = this.dressed(d.view);
       d.sprite.texture = lpcFrame(look, anim, frame, held, wear);
       const flip = d.view.dir < 0;
-      const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.floor !== null ? INSIDE_SCALE : 1); // children are drawn smaller (and everyone, in a castle)
+      const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.floor !== null ? INSIDE_SCALE : 1) * (d.view.look.height ?? 1); // children are drawn smaller (and everyone, in a castle)
       d.sprite.scale.set(flip ? -k : k, k);
       d.sprite.x = Math.round(x) + (flip ? (CENTRE_X + 1) * k : -CENTRE_X * k);
       d.sprite.y = WALK_Y - FEET_Y * k;
@@ -314,7 +322,13 @@ export class PeopleView {
       const dt = Math.min(0.1, (now - (d.liftAt ?? now)) / 1000);
       d.liftAt = now;
       d.lift = (d.lift ?? want) + Math.sign(want - (d.lift ?? want)) * Math.min(Math.abs(want - (d.lift ?? want)), CLIMB_SPEED * dt);
-      if (d.lift) for (const o of [d.sprite, d.load, d.bubble, d.levelUp, d.emote, d.blood]) if (o?.visible) o.y -= Math.round(d.lift);
+      // their shadow on the ground (or the floor they're on): wider under a rider
+      d.shadow.visible = !hidden;
+      d.shadow.width = (coat !== null ? 34 : 18) * k;
+      d.shadow.height = 6 * k;
+      d.shadow.alpha = 0.42;
+      d.shadow.position.set(Math.round(x), WALK_Y + 1);
+      if (d.lift) for (const o of [d.sprite, d.shadow, d.load, d.bubble, d.levelUp, d.emote, d.blood]) if (o?.visible) o.y -= Math.round(d.lift);
     }
   }
 

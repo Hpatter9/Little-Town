@@ -18,6 +18,14 @@ export interface Look {
   beard: boolean;
   /** Colour of the hide tunic. */
   outfit: string;
+  /** A ready-made founder's own pieces (data/founders.ts): another body (bone, or a machine's frame tinted by
+   *  `skin`), ears, eyes, what they always wear (worn over and instead of the everyday clothes), and how tall they're
+   *  drawn (a dwarf is shorter). */
+  body?: 'skeleton' | 'orc';
+  ears?: 'elf' | 'big';
+  eyes?: 'red';
+  wear?: string[];
+  height?: number;
 }
 
 // Townsfolk are rolled from these (natural colours). The founder can also be given the extra hair dyes and cloth

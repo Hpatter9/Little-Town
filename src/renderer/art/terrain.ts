@@ -54,6 +54,10 @@ function speckle(p: Painter, x0: number, y0: number, w: number, h: number, seed:
       const r = hash(seed, wx + x, y);
       if (r < density / 2) p.px(x, y, dark);
       else if (r < density) p.px(x, y, light);
+      // (and as much again on the fine grid, so the ground is grained finer than its pixels)
+      const f = hash(seed ^ 0x9e, wx + x, y);
+      if (f < density / 2) p.fpx(x + 0.5, y + 0.5, dark);
+      else if (f < density) p.fpx(x, y + (f < density * 0.75 ? 0.5 : 0), light);
     }
   }
 }
@@ -65,8 +69,11 @@ function blades(p: Painter, x0: number, w: number, ground: number, seed: number,
     if (r > thick) continue;
     const h = 1 + Math.floor(hash(seed, wx + x, 8) * tall);
     const col = r < thick * 0.35 ? PAL.grassDark : r < thick * 0.75 ? PAL.grass : PAL.grassLight;
-    p.rect(x, ground - h, 1, h, col);
-    if (h >= 3) p.px(x, ground - h, PAL.grassTip);
+    // a blade on the fine grid: half a pixel wide, with a second, shorter one beside it leaning the other way
+    p.frect(x, ground - h, 0.5, h, col);
+    p.frect(x + 0.5, ground - h + 1, 0.5, h - 1, r < thick * 0.5 ? PAL.grassDark : col);
+    if (h >= 3) p.fpx(x, ground - h - 0.5, PAL.grassTip);
+    if (h >= 2 && hash(seed, wx + x, 9) < 0.5) p.fpx(x + 0.5, ground - h - 0.5, col);
   }
 }
 
@@ -77,6 +84,8 @@ function pebble(p: Painter, x: number, y: number, big: boolean): void {
   p.rect(x, y, w, 1, PAL.rock);
   p.px(x, y, PAL.rockLight);
   if (big) p.px(x + 1, y - 1, PAL.rockTip);
+  p.fpx(x, y - 0.5, PAL.rockTip); // (the glint on top, and its shadow tucked under)
+  p.frect(x + 0.5, y + 2, w - 0.5, 0.5, shade(PAL.rockDark, -0.3));
 }
 
 /* ------------------------------------------------------------ the walkway */
@@ -171,8 +180,8 @@ export function foreTileArt(seed: number, c: number, cleared: boolean, leftOpen:
     }
     // the ragged top edge: blades along the ground line
     blades(p, 0, TILE, 1, seed ^ 0x33, wx, LIP - 1, cleared ? 0.55 : 0.8);
-    p.ctx.setTransform(1, 0, 0, 1, 0, 0);
-  });
+    p.reset();
+  }, 1, { tile: true, stuff: false });
 }
 
 /* ------------------------------------------------------------ the midground's strip of land */
@@ -239,7 +248,7 @@ export function midTileArt(seed: number, c: number, kind: MidTerrain): PixelArt 
         break;
       }
     }
-  });
+  }, 1, { tile: true, stuff: false });
 }
 
 /** Where a midground tile's art goes: its bottom row sits at this local y. */

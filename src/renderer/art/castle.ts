@@ -11,7 +11,7 @@
 
 import { TILE } from '../../shared/constants';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
-import { paint, type Painter, type PixelArt, type Tone } from './pixelArt';
+import { paint, type Painter, type PixelArt, type Tone, mixHex } from './pixelArt';
 
 import { PLINTH, ROOF_H, ROOM_H, TOWER_W } from '../../shared/sim/castle';
 
@@ -386,10 +386,15 @@ export function roomArt(defId: string, tone: Tone, toneKey: string): PixelArt {
 function blocks(p: Painter, x0: number, y0: number, w: number, h: number): void {
   p.rect(x0, y0, w, h, STONE);
   for (let y = y0; y < y0 + h; y += 5) {
-    p.rect(x0, y, w, 1, STONE_DARK);
+    // (on the fine grid: thin mortar, each block lit along its top and left and shaded at its foot, a few chipped)
+    p.frect(x0, y, w, 0.5, STONE_DARK);
+    p.frect(x0, y + 0.5, w, 0.5, STONE_LIGHT);
+    p.frect(x0, y + 4.5, w, 0.5, mixHex(STONE, STONE_DARK, 0.5));
     for (let x = x0 + ((y - y0) / 5) % 2 * 4; x < x0 + w; x += 9) {
-      p.rect(x, y + 1, 1, 4, STONE_DARK);
+      p.frect(x, y + 0.5, 0.5, 4.5, STONE_DARK);
+      p.frect(x + 0.5, y + 1, 0.5, 3.5, mixHex(STONE, STONE_LIGHT, 0.5));
       if ((x * 3 + y) % 7 === 0) p.rect(x + 1, y + 1, 7, 1, STONE_LIGHT);
+      if ((x * 5 + y * 3) % 11 === 0) p.frect(x + 3, y + 2, 1, 0.5, STONE_DARK);
     }
   }
 }
@@ -417,6 +422,11 @@ function shifted(p: Painter, dx: number): Painter {
     px: (x: number, y: number, c: string) => p.px(x + dx, y, c),
     ellipse: (cx: number, cy: number, rx: number, ry: number, c: string) => p.ellipse(cx + dx, cy, rx, ry, c),
     disc: (cx: number, cy: number, r: number, c: string) => p.disc(cx + dx, cy, r, c),
+    frect: (x: number, y: number, w: number, h: number, c: string) => p.frect(x + dx, y, w, h, c),
+    fpx: (x: number, y: number, c: string) => p.fpx(x + dx, y, c),
+    fline: (x0: number, y0: number, x1: number, y1: number, c: string) => p.fline(x0 + dx, y0, x1 + dx, y1, c),
+    toned: (c: string) => p.toned(c),
+    k: p.k,
   } as unknown as Painter;
 }
 

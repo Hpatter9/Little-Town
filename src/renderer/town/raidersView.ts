@@ -1,6 +1,7 @@
 ﻿// Draws raiders in town, on the walkway. Positions arrive at the sim's tick rate and are interpolated.
 
 import { INSIDE_SCALE } from './peopleView';
+import { glowTexture } from './layer';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { ENEMIES } from '../../shared/data/enemies';
 import type { RaiderView } from '../../shared/sim/snapshot';
@@ -21,6 +22,8 @@ const FLOOR_LIFT = WALK_Y + 2 + PLINTH + 3;
 interface Drawn {
   view: RaiderView;
   sprite: Sprite;
+  /** A soft shadow at its feet. */
+  shadow: Sprite;
   bar: Graphics;
   load: Graphics;
   spark: Sprite;
@@ -45,6 +48,9 @@ export class RaidersView {
       seen.add(r.id);
       let d = this.drawn.get(r.id);
       if (!d) {
+        const shadow = this.layer.addChildAt(new Sprite(glowTexture()), 0); // (under them all)
+        shadow.anchor.set(0.5);
+        shadow.tint = 0x000000;
         const load = this.layer.addChild(bundle());
         const sprite = this.layer.addChild(new Sprite());
         const bar = this.layer.addChild(new Graphics());
@@ -55,7 +61,7 @@ export class RaidersView {
         blast.scale.set(1.5);
         const magic = this.layer.addChild(new Sprite());
         magic.visible = false;
-        d = { view: r, sprite, bar, load, spark, blast, magic, fromX: r.x, toX: r.x, at: now, x: r.x, walked: 0 };
+        d = { view: r, sprite, shadow, bar, load, spark, blast, magic, fromX: r.x, toX: r.x, at: now, x: r.x, walked: 0 };
         this.drawn.set(r.id, d);
       }
       d.fromX = d.x;
@@ -66,6 +72,7 @@ export class RaidersView {
     for (const [id, d] of this.drawn) {
       if (seen.has(id)) continue;
       d.sprite.destroy();
+      d.shadow.destroy();
       d.bar.destroy();
       d.load.destroy();
       d.spark.destroy();
@@ -187,6 +194,12 @@ export class RaidersView {
       }
       // up a castle's keep: lifted to the floor it has climbed to
       const lift = r.floor !== null ? Math.round(FLOOR_LIFT + r.floor * ROOM_H) : 0;
+      // its shadow: as wide as it is, a little more than half (none for a hoverer's, which floats above it)
+      d.shadow.visible = s.visible;
+      d.shadow.width = Math.max(10, Math.abs(s.width) * 0.6);
+      d.shadow.height = Math.max(4, Math.abs(s.width) * 0.12);
+      d.shadow.alpha = r.down ? 0.25 : 0.42;
+      d.shadow.position.set(Math.round(x), WALK_Y + 2 - lift);
       for (const o of [s, d.spark, d.blast, d.magic, d.load]) o.y -= lift;
       d.bar.y = -lift;
     }

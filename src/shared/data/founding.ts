@@ -2,6 +2,7 @@
 // starts from. Chosen in the New town panel; anything left out is rolled from the seed as before.
 
 import { BIOMES, DIFFICULTIES, type Biome, type Difficulty } from './biomes';
+import { FOUNDER_BY_ID } from './founders';
 import { HAIR_CHOICES, HAIR_STYLES, OUTFIT_CHOICES, SKINS, TRAITS, type Look } from './people';
 import type { Material } from './materials';
 import { ORIGINS, type OriginId } from './origins';
@@ -39,6 +40,9 @@ export const MAX_FOUNDER_TRAITS = 2;
 export const MAX_NAME_LENGTH = 16;
 
 export interface FounderSpec {
+  /** A ready-made founder (data/founders.ts): their background, traits, look and name (unless `name` is given) are
+   *  used, and the rest of the spec is ignored. */
+  pick?: string;
   /** Blank: a name is rolled. */
   name?: string;
   /** Left out: a look is rolled. */
@@ -117,6 +121,12 @@ export function cleanLook(raw: unknown): Look | null {
 export function cleanFounder(raw: unknown): FounderSpec | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const o = raw as Record<string, unknown>;
+  const name0 = typeof o.name === 'string' ? o.name.replace(/[^\p{L}\p{N} '\-]/gu, '').trim().slice(0, MAX_NAME_LENGTH) : '';
+  // (a ready-made founder brings everything but, perhaps, a new name)
+  if (o.pick !== undefined) {
+    const def = typeof o.pick === 'string' ? FOUNDER_BY_ID[o.pick] : undefined;
+    return def ? { pick: def.id, background: def.background.id, traits: [], ...(name0 ? { name: name0 } : {}) } : null;
+  }
   if (typeof o.background !== 'string' || !BACKGROUND_BY_ID[o.background]) return null;
   const traits = Array.isArray(o.traits) ? [...new Set(o.traits.filter((t): t is string => typeof t === 'string'))] : [];
   if (traits.length > MAX_FOUNDER_TRAITS) return null;
@@ -124,7 +134,7 @@ export function cleanFounder(raw: unknown): FounderSpec | null {
     const def = TRAITS.find((d) => d.id === t);
     if (!def || traits.some((u) => def.excludes?.includes(u))) return null;
   }
-  const name = typeof o.name === 'string' ? o.name.replace(/[^\p{L}\p{N} '\-]/gu, '').trim().slice(0, MAX_NAME_LENGTH) : '';
+  const name = name0;
   const look = o.look === undefined ? null : cleanLook(o.look);
   if (o.look !== undefined && !look) return null;
   return { background: o.background, traits, ...(name ? { name } : {}), ...(look ? { look } : {}) };

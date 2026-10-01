@@ -4,6 +4,7 @@
 //   fore  : the walkway where townsfolk move (dirt path on cleared land, rough trail elsewhere)
 
 import { Container, Graphics, Sprite } from 'pixi.js';
+import { airFor, ChimneySmoke, Mist } from './ambientView';
 import { BACK_GROUND_Y, BACK_PAD_TILES, BACK_SCALE, FORE_TOP_Y, MID_GROUND_Y, STRIP_HEIGHT, TILE, WORLD_WIDTH } from '../../shared/constants';
 import { Rng } from '../../shared/rng';
 import type { BuildLayer } from '../../shared/data/buildings';
@@ -44,6 +45,16 @@ const multiplyTint = (a: number, b: number) => {
 
 export class TownView {
   readonly root = new Container();
+  /** Everything in the day-and-night tint: the sky, the land, the town, its people and the weather. */
+  readonly scene = new Container();
+  /** Lights at night (windows, fires), over the tinted scene so they shine: each layer's glows, kept in step with it. */
+  readonly lights = new Container();
+  private readonly smokeBack = new ChimneySmoke();
+  private readonly smokeMid = new ChimneySmoke();
+  private readonly mistBack = new Mist([{ y: BACK_GROUND_Y + 8, h: 30 }, { y: BACK_GROUND_Y + 16, h: 22 }]);
+  private readonly mistMid = new Mist([{ y: MID_GROUND_Y - 2, h: 26 }]);
+  /** The far land sits back in a pale haze (always a little; more in the wet). */
+  private readonly haze = new Mist([{ y: BACK_GROUND_Y - 22, h: 70 }]);
   /** People are drawn here: on the walkway, in front of the foreground scenery. */
   readonly people = new Container();
   private readonly back: Layer;
@@ -78,7 +89,12 @@ export class TownView {
     this.fore.root.y = FORE_TOP_Y;
     this.mid.root.addChild(this.highlight, this.markers);
     this.fore.root.addChild(this.people);
-    this.root.addChild(this.back.root, this.mid.root, this.fore.root);
+    this.scene.addChild(this.back.root, this.haze.root, this.mistBack.root, this.mid.root, this.mistMid.root, this.fore.root);
+    this.back.root.addChild(this.smokeBack.root);
+    this.mid.root.addChild(this.smokeMid.root);
+    this.lights.addChild(this.back.glow, this.mid.glow, this.fore.glow);
+    this.lights.visible = false;
+    this.root.addChild(this.scene, this.lights);
 
     this.far = far;
     this.buildBack();
@@ -209,6 +225,10 @@ export class TownView {
     const centre = this.camX + screenW / 2;
     this.backX = Math.round(screenW / 2 - centre * BACK_SCALE);
     this.back.root.x = this.backX;
+    for (const l of [this.back, this.mid, this.fore]) {
+      l.glow.position.copyFrom(l.root.position);
+      l.glow.scale.copyFrom(l.root.scale);
+    }
 
     this.mid.cull(this.camX, this.camX + screenW);
     this.fore.cull(this.camX, this.camX + screenW);
@@ -250,6 +270,22 @@ export class TownView {
   /** (The palette the scenery was drawn in: main.ts applies the starting season before the town is built.) */
   season: string | null = null;
 
+  /** The air: hearth smoke, mist and haze, for the hour, season and weather (call every frame). */
+  air(dt: number, hour: number, season: string, weather: string, screenW: number): void {
+    const a = airFor(hour, season, weather);
+    const wind = weather === 'storm' ? 14 : weather === 'rain' ? 7 : 3;
+    const chimneys = this.buildings.chimneys();
+    for (const [smoke, layer] of [[this.smokeBack, 'back'], [this.smokeMid, 'mid']] as const) {
+      smoke.amount = weather === 'rain' || weather === 'storm' ? a.smoke * 0.6 : a.smoke;
+      smoke.wind = wind;
+      smoke.update(dt, chimneys.filter((c) => c.layer === layer));
+    }
+    this.mistBack.thickness = a.mist;
+    this.mistMid.thickness = a.mist * 0.6;
+    this.haze.thickness = 0.2 + (weather === 'fog' ? 0.3 : weather === 'rain' ? 0.1 : 0);
+    for (const m of [this.mistBack, this.mistMid, this.haze]) m.render(dt, screenW);
+  }
+
   /** Light the town for the time of day: 1 = full daylight, 0 = moonlit night. In a Deep Freeze everything
    *  takes an icy blue cast. */
   setDaylight(daylight: number, frost = false): void {
@@ -258,7 +294,11 @@ export class TownView {
     this.daylight = d;
     this.frost = frost;
     const t = daylightTint(d);
-    this.root.tint = frost ? multiplyTint(t, FROST_TINT) : t;
+    this.scene.tint = frost ? multiplyTint(t, FROST_TINT) : t;
+    // (lights come on at dusk and are brightest in the dead of night)
+    const glow = Math.max(0, Math.min(1, (0.82 - d) / 0.55));
+    this.lights.alpha = glow;
+    this.lights.visible = glow > 0.02;
   }
   private frost = false;
 

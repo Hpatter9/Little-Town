@@ -129,6 +129,13 @@ async function start(): Promise<void> {
   });
   document.body.appendChild(app.canvas);
   const canvas = app.canvas;
+  // On the phone the page shows the strip scaled up (a CSS transform on its frame), which would stretch the drawn
+  // picture and blur it: the page tells the strip its scale, and it draws at that resolution instead, so every pixel of
+  // the art lands on whole pixels of the screen (mobile.ts snaps the scale to make it so).
+  const sharpen = (scale: number) => app.renderer.resize(app.screen.width, app.screen.height, (window.devicePixelRatio || 1) * scale);
+  Object.assign(window, { __setStripScale: sharpen });
+  const asked = (window as unknown as { __stripScale?: number }).__stripScale;
+  if (asked) sharpen(asked);
 
   const town = new TownView(world, first.tiles, first.buildings);
   town.season = first.calendar.season;
@@ -139,15 +146,15 @@ async function start(): Promise<void> {
   const spells = new SpellsView();
   const pane = new ExpeditionPane(world.seedHash);
   const snow = new SnowView();
-  town.root.addChild(snow.root); // (over everything in the town, in screen space)
+  town.scene.addChild(snow.root); // (over everything in the town, in screen space)
   const leaves = new LeavesView();
-  town.root.addChild(leaves.root);
+  town.scene.addChild(leaves.root);
   // On the phone the strip has no desktop behind it, so it draws a whole sky, and weather in front of the town.
   const fullSky = !!hostBridge();
   const sky = new SkyView(fullSky);
   const weather = fullSky ? new WeatherView() : null;
-  if (weather) town.root.addChild(weather.root);
-  town.root.addChildAt(sky.root, 0); // (behind the hills, so the sun and moon rise and set behind the land)
+  if (weather) town.scene.addChild(weather.root);
+  town.scene.addChildAt(sky.root, 0); // (behind the hills, so the sun and moon rise and set behind the land)
   const townMask = new Graphics(); // used only as a mask (never added to the stage, or it would draw)
   app.stage.addChild(town.root, spells.root, pane.root);
 
@@ -887,6 +894,7 @@ async function start(): Promise<void> {
     const walk = town.people.getGlobalPosition();
     spells.root.position.set(walk.x - app.stage.x, walk.y - app.stage.y);
     spells.render(performance.now());
+    town.air(ticker.deltaMS / 1000, snap.calendar.hour, snap.calendar.season, snap.weather.kind, w);
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);
     sky.render(performance.now(), w);

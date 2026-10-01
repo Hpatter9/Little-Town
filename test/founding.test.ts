@@ -124,3 +124,43 @@ test('the moon keeps its phase all night, and the drawn full moon is the werewol
   for (let d = 1; d <= FULL_MOON_DAYS; d++) seen.add(moonPhaseOf(nightDay(at(d, 22))));
   assert.equal(seen.size, FULL_MOON_DAYS, 'a different phase each night of the cycle');
 });
+test('every origin has three ready-made founders, each one the rules allow and the drawing can dress', async () => {
+  const { FOUNDERS, FOUNDER_BY_ID } = await import('../src/shared/data/founders');
+  const { ORIGINS } = await import('../src/shared/data/origins');
+  const { TRAITS } = await import('../src/shared/data/people');
+  const { MAX_NAME_LENGTH, MAX_FOUNDER_TRAITS } = await import('../src/shared/data/founding');
+  const { readFileSync } = await import('node:fs');
+  const lpc = JSON.parse(readFileSync('src/renderer/art/lpc/lpcData.json', 'utf8')) as { layers: Record<string, string>; alias: Record<string, string> };
+  const has = (id: string) => !!lpc.layers[id] || !!lpc.layers[lpc.alias[id] ?? ''];
+  const ids = new Set<string>();
+  for (const o of ORIGINS) {
+    assert.equal(FOUNDERS[o].length, 3, `${o} has three`);
+    for (const f of FOUNDERS[o]) {
+      assert.ok(!ids.has(f.id), `${f.id} is unique`);
+      ids.add(f.id);
+      assert.equal(FOUNDER_BY_ID[f.id], f);
+      assert.ok(f.name.length <= MAX_NAME_LENGTH, `${f.name} fits`);
+      assert.ok(f.traits.length <= MAX_FOUNDER_TRAITS && f.traits.every((t) => TRAITS.some((d) => d.id === t)), `${f.id}'s traits`);
+      const g = f.look.gender;
+      for (const part of [`body_${f.look.body ?? 'light'}_${g}`, ...(f.look.ears ? [`ears_${f.look.ears}_${g}`] : []), ...(f.look.eyes ? [`eyes_${f.look.eyes}_${g}`] : []), ...(f.look.hair === 'none' ? [] : [`hair_${f.look.hair}_${g}`]), ...(f.look.wear ?? []).map((w) => `${w.split(':')[0]}_${g}`)])
+        assert.ok(has(part), `${f.id} wears ${part}`);
+    }
+  }
+});
+
+test('a ready-made founder founds the town as they are (only the name can change)', async () => {
+  const { FOUNDER_BY_ID } = await import('../src/shared/data/founders');
+  const { cleanFounder } = await import('../src/shared/data/founding');
+  const def = FOUNDER_BY_ID.morvain;
+  const spec = cleanFounder({ pick: 'morvain', background: 'forager', traits: ['lazy'] })!;
+  const s = newGame('ready-made', { origin: 'lich', founder: spec });
+  const main = s.people.find((p) => p.id === s.mainId)!;
+  assert.equal(main.name, 'Morvain');
+  assert.equal(main.look.body, 'skeleton');
+  assert.deepEqual(main.traits, def.traits);
+  assert.equal(main.skills.research.level, 5);
+  assert.deepEqual(main.passions, def.background.passions);
+  const renamed = newGame('ready-made', { origin: 'lich', founder: cleanFounder({ pick: 'morvain', name: 'Mortimer' })! });
+  assert.equal(renamed.people.find((p) => p.id === renamed.mainId)!.name, 'Mortimer');
+  assert.equal(cleanFounder({ pick: 'nobody' }), null, 'an unknown founder is refused');
+});
