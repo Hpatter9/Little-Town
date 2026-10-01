@@ -22,6 +22,7 @@ import { TICKS_PER_HOUR } from './time';
 
 export type { Era } from '../data/eras';
 import type { Era } from '../data/eras';
+import type { Battle as TownBattle, RaiderBattle } from './battle';
 import { BACKGROUND_BY_ID, founderSkills, SCENARIO_BY_ID, type FounderSpec } from '../data/founding';
 import { FOUNDER_BY_ID } from '../data/founders';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -233,6 +234,8 @@ export interface Raider {
   /** How much harder it is than its kind (a big town draws hardened raiders: raids.ts), for its blows (its health
    *  is scaled when it's made). */
   might?: number;
+  /** Its part in the battle on the trail (sim/battle.ts). */
+  bt?: RaiderBattle;
   /** The side it came from and flees back to, when not the raid's own (a flanking party, raids.ts). */
   side?: -1 | 1;
   /** A townsperson being carried off (taken out of the town while carried). */
@@ -266,6 +269,8 @@ export interface Raid {
    *  and `alone` once it has been left to play out without them. */
   waiting?: number;
   alone?: boolean;
+  /** The tower-defence battle on the trail (sim/battle.ts), while it's on and after. */
+  battle?: TownBattle;
 }
 
 export interface Needs {
@@ -586,6 +591,10 @@ export interface GameState {
   plan?: TownPlan;
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
+  /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
+   *  places its fighters and fights by itself (sim/battle.ts). */
+  battles?: boolean;
+  autoBattle?: boolean;
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];

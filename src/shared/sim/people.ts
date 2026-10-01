@@ -72,7 +72,7 @@ const TEND_SETBACK_TICKS = TICKS_PER_HOUR / 4;
 /** Each level of Medicine counts as being this much nearer, when working out who goes to tend someone. */
 const TEND_SKILL_PX = 40;
 /** Ticks between a defender's strikes. */
-const DEFEND_INTERVAL = Math.round(1.2 * TICK_HZ);
+export const DEFEND_INTERVAL = Math.round(1.2 * TICK_HZ);
 
 /** Per-tick bookkeeping shared by everyone updated this tick (work stacking). */
 export interface TickContext {

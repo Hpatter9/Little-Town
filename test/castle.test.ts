@@ -99,6 +99,7 @@ test('the keep has stairs: to reach a room up the keep, you walk to a stair towe
 test('raiders who get into the keep climb its stairs to reach the townsfolk upstairs', () => {
   const s = newGame('siege', { origin: 'vampire' });
   s.autopilot = false;
+  s.battles = false; // (in the town itself, not on the battle map)
   const [lo] = castleSpan(s);
   s.buildings.push({ id: s.nextId++, def: 'workbench', tile: lo + 6, status: 'done', delivered: {}, progress: 1, store: {}, room: true, floor: 1 });
   s.people = s.people.slice(0, 1);

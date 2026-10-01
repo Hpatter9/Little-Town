@@ -59,6 +59,12 @@ export type Command =
   | { type: 'follow'; person: number | null }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
   | { type: 'rally'; person: number }
+  /** The battle on the trail (sim/battle.ts): put a fighter on a spot (or off: null), send the raiders on now, auto-watch
+   *  on or off, and cast a power at a point on the map. */
+  | { type: 'battlePlace'; person: number; spot: number | null }
+  | { type: 'battleGo' }
+  | { type: 'battleAuto'; on: boolean }
+  | { type: 'battleCast'; power: string; x: number; y: number }
   /** Turn a party around. */
   | { type: 'recallExpedition'; expedition: number }
   /** Let the waiting visitor join, or send them on their way. */
@@ -150,6 +156,14 @@ export function parseCommand(raw: unknown): Command | null {
       return c.person === null || Number.isInteger(c.person) ? { type: 'follow', person: c.person as number | null } : null;
     case 'rally':
       return Number.isInteger(c.person) ? { type: 'rally', person: c.person as number } : null;
+    case 'battlePlace':
+      return Number.isInteger(c.person) && (c.spot === null || Number.isInteger(c.spot)) ? { type: 'battlePlace', person: c.person as number, spot: c.spot as number | null } : null;
+    case 'battleGo':
+      return { type: 'battleGo' };
+    case 'battleAuto':
+      return typeof c.on === 'boolean' ? { type: 'battleAuto', on: c.on } : null;
+    case 'battleCast':
+      return typeof c.power === 'string' && Number.isFinite(c.x) && Number.isFinite(c.y) ? { type: 'battleCast', power: c.power, x: c.x as number, y: c.y as number } : null;
     case 'answerPrompt':
       return Number.isInteger(c.prompt) && Number.isInteger(c.option) ? { type: 'answerPrompt', prompt: c.prompt as number, option: c.option as number } : null;
     case 'recallExpedition':

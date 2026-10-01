@@ -66,7 +66,7 @@ import { bindTheDead, sicken } from './doom';
 import { bossArrives, bossBlow, bossesInRaid } from './bosses';
 import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
 import { flammable, setFire } from './fire';
-import { killPerson, knockDown, stabilize } from './health';
+import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { campEdgeX, gainSkill } from './townsfolk';
@@ -78,6 +78,7 @@ import { lurkersBeaten } from './lurkers';
 import { caveBearBeaten } from './caveBear';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
+import { battlesOn, startBattle, stepBattle } from './battle';
 
 /** Raiders start this far beyond the edge of the world. */
 const OFF_MAP = 40;
@@ -362,17 +363,23 @@ export function updateRaid(s: GameState, rng: Rng): void {
     notify(s, `The ${kind.name.toLowerCase()} ${kind.plural ? 'are' : 'is'} here!`);
     summonForRaid(s, r);
     for (const kind of new Set(r.raiders.filter((q) => ENEMIES[q.kind].kit && !q.ally).map((q) => q.kind))) bossArrives(s, kind);
+    // (they come down the trail on the battle map first: battle.ts)
+    if (battlesOn(s)) startBattle(s, r);
   }
   classesInRaid(s, r);
   bossesInRaid(s, r);
   rivalsInRaid(s, r, rng);
   const step = kind.speed / TICK_HZ;
   fireDefenses(s, rng);
+  // the battle on the trail; the raiders still in it are its business (those through it come on into the town)
+  const battling = stepBattle(s, r, rng);
 
   for (const rd of r.raiders) {
     if (rd.down && rd.captive) release(s, rd); // cut down while carrying someone off: they're dropped
     if (rd.down || rd.gone) continue;
+    if (rd.bt && !rd.bt.out) continue;
     if (rd.ally) {
+      if (battling) continue; // (the town's allies are on the battle map)
       allyAct(s, r, rd, rng, step);
       continue;
     }
@@ -531,7 +538,8 @@ function steal(rd: Raider, st: Building, what: 'food' | 'valuables'): void {
   rd.fleeing = true;
 }
 
-function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng): void {
+/** A raider strikes someone. `area`: who a boss's sweep can reach (the battle map picks them; in town, by distance). */
+export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area?: Person[]): void {
   const def = ENEMIES[rd.kind];
   rd.cooldown = Math.round(def.interval * TICK_HZ);
   rd.lastAction = s.tick;
@@ -542,7 +550,7 @@ function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng): void {
     return hitDamage({ damage: def.damage, ammo: 0, ammoBonus: 0, ammoUsed: 0, beastDamage: 0 }, { kind: 'person', armor: Math.min(0.6, g.armor), block: g.block, tough: q.traits.includes('tough') }, rng);
   };
   // an epic boss rages, and now and then sweeps everyone near it
-  const mult = def.kit ? bossBlow(s, rd, s.people.filter((q) => exposed(q)), blow) : 1;
+  const mult = def.kit ? bossBlow(s, rd, area ?? s.people.filter((q) => exposed(q)), blow, !!area) : 1;
   if (!mult) return;
   // (a rival lord's frenzy: harder, and sooner again)
   const frenzy = frenzyOf(s);
@@ -554,7 +562,8 @@ function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng): void {
   if (dmg > 0 && (rd.kind === 'plague_rat' || rd.kind === 'rat_king') && !tireless(p) && !p.sick && rng.chance(RAT_BITE_SICKNESS)) sicken(s, p, rng);
   if (p.hp === 0) {
     // (a killing blow: no lying wounded waiting to be tended)
-    const odds = p.id === s.mainId ? FOUNDER_KILLING_BLOW : def.kit || def.boss ? BOSS_KILLING_BLOW : KILLING_BLOW;
+    // (the founder only when someone could take the town on: a lone founder's camp isn't ended by one blow)
+    const odds = p.id === s.mainId ? (heirOf(s, p) ? FOUNDER_KILLING_BLOW : 0) : def.kit || def.boss ? BOSS_KILLING_BLOW : KILLING_BLOW;
     if (rng.chance(odds)) {
       const by = /^the /i.test(def.name) ? def.name : `${/^[aeiou]/i.test(def.name) ? 'an' : 'a'} ${def.name.toLowerCase()}`;
       killPerson(s, p, `at the hands of ${by}`);

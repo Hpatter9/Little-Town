@@ -21,5 +21,6 @@ export function plainGame(seed: string): GameState {
   s.buildings.find((b) => b.def === 'campfire')!.store = {};
   s.autopilot = false; // (the town's own planner stays out of tests of single mechanics)
   s.nextEventTick = Number.MAX_SAFE_INTEGER; // (and so do the choice events)
+  s.battles = false; // (and raids are fought in the town, not on the battle map: battle.test.ts tests that)
   return s;
 }

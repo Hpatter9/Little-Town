@@ -4,6 +4,8 @@
 import { openGate } from './raidWait';
 import { maybeEvent } from './events';
 import { rally } from './rally';
+import { battleGo, placeFighter, setAutoBattle } from './battle';
+import { castAt } from './powers';
 import { Rng } from '../rng';
 import { generateWorld, type World } from '../world';
 import { demolish, discardStock, placeBlueprint, upgrade } from './buildings';
@@ -246,6 +248,18 @@ export class Sim {
       }
       case 'rally':
         rally(s, c.person);
+        break;
+      case 'battlePlace':
+        placeFighter(s, c.person, c.spot);
+        break;
+      case 'battleGo':
+        battleGo(s);
+        break;
+      case 'battleAuto':
+        setAutoBattle(s, c.on);
+        break;
+      case 'battleCast':
+        castAt(s, c.power, this.rng, [c.x, c.y]);
         break;
       case 'follow':
         s.hero = c.person !== null && s.people.some((p) => p.id === c.person) ? c.person : undefined;
