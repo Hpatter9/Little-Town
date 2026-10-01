@@ -2,7 +2,7 @@
 // walk in from one end of the world. Beasts go for anyone they can see, then the food; rival scouts go for
 // the food and run. Walls and gates stop them until broken. Defenders fight; everyone else shelters.
 
-import { WORLD_WIDTH } from '../constants';
+import { TILE, WORLD_WIDTH } from '../constants';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
 import { eraReached, type Era } from '../data/eras';
@@ -610,8 +610,25 @@ export function nearestRaider(s: GameState, x: number): Raider | null {
   return best;
 }
 
-/** Where defenders gather before the raiders show up. */
-export const rallyX = (s: GameState) => campEdgeX(s, s.raid?.side ?? 1);
+/** How far past its outermost building the town's edge lies. */
+export const TOWN_MARGIN = TILE;
+
+/** The town's edge on one side: just past its outermost building (walls and gates included; not the fields
+ *  behind), or the edge of the camp's cleared ground if it has none yet. Defenders hold the town here: they gather at
+ *  it before a raid, and never go out past it after the raiders (they meet them as they come in, or shoot from it). */
+export function townEdgeX(s: GameState, side: -1 | 1): number {
+  let edge: number | null = null;
+  for (const b of s.buildings) {
+    const def = BUILDING_BY_ID[b.def];
+    if (!def || def.layer === 'back') continue;
+    const x = side < 0 ? b.tile * TILE : (b.tile + def.width) * TILE;
+    edge = edge === null ? x : side < 0 ? Math.min(edge, x) : Math.max(edge, x);
+  }
+  return edge === null ? campEdgeX(s, side) : edge + side * TOWN_MARGIN;
+}
+
+/** Where defenders gather before the raiders show up: the town's edge on the side they're coming from. */
+export const rallyX = (s: GameState) => townEdgeX(s, s.raid?.side ?? 1);
 
 function endRaid(s: GameState, rng: Rng): void {
   const r = s.raid!;

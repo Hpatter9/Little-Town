@@ -277,6 +277,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Settlers stay lowest (about 23): they start with one person where the others start with three.
 - **Lighter nights:** the town's night tint (`NIGHT_TINT` in `town/townView.ts`) is a moonlit `0x8a96c8` (it was `0x4a5688`, about a
   third of the light), and the night sky in `town/skyColors.ts` is lifted to match.
+- **Defenders hold the town's edge:** `townEdgeX` in `raids.ts` (just past the outermost building, walls included, not the
+  fields; else the camp's cleared ground). Defenders gather there before a raid (`rallyX`) and in a fight go no further out
+  (`doDefend` in `people.ts`), except as far as `THROW_RANGE` after an enemy archer shooting in. Raiders fleeing with loot
+  or a captive get away once past it. Soak: growth up a little, about 45% fewer deaths (raids may want toughening).
 - **Night windows:** `ShopView.night`; the shop's and tavern's windows show the night sky.
 
 ## Planned (owner's requests, not started)
