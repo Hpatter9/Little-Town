@@ -351,7 +351,24 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 
 ## Planned (owner's requests, not started)
 
-Nothing waiting.
+- **Tower-defence raids** (the owner's choices: every raid, the player places everyone, a battle lasts 1 to 2 minutes).
+  When raiders arrive the screen switches to a battle map: a trail winding from the map's edge to the town's gate, built
+  from the town (longer and bendier as it grows; walls become wall spots for ranged fighters, defence buildings become
+  fixed towers; biome and season looks). Townsfolk are the towers: melee fighters block the trail (each holds a few
+  raiders), archers stand on wall spots, mages later (the class system), the founder is a hero. Skill, gear and traits
+  set their damage, health and range; deaths stay real (killing blows, bleeding out). Raiders walk the trail with
+  their own speeds and fighting (enemy archers shoot fighters, bosses, flanking raids down a second trail); leakers reach
+  the town and steal, kidnap or burn as now. Origin powers become spells the player aims at the map, with cooldowns.
+  Origin twists: the vampire keep is climbed floor by floor, nomads fight inside the wagon circle, machine turrets are
+  towers.
+  - The player places every fighter in a placing phase before the raiders come. Whoever isn't placed when it runs out,
+    and every raid that plays out without the player (`Raid.alone`, the forecast, tests), is placed by the town's own
+    placement, so the sim never waits forever.
+  - The battle is part of the deterministic sim (raids play out offline, in the forecast and in tests); the renderer
+    only shows it. Upright, the trail winds down the screen; sideways, across. The old raids stay switchable until the
+    new ones are balanced (soak deaths per origin as now).
+  - Steps: (1) the battle sim headless (map, placement, trail movement, blocking, ranged, outcomes), soaked; (2) the
+    battle screen (first playable); (3) placing and spell aiming; (4) origin maps and spells; (5) mages.
 
 ## Known problem (fixed, watch)
 
