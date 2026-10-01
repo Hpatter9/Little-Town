@@ -622,7 +622,8 @@ function fireDefenses(s: GameState, rng: Rng): void {
 }
 
 /** A defender's attack on the nearest raider in reach (called from the defend task). Returns true if they struck. */
-export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bonus = 0): void {
+/** `mult`: a battle's chosen ground (battle.ts) makes each blow count for more. */
+export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bonus = 0, mult = 1): void {
   // (held by a rival lord's hex, they lose the moment)
   if (heldBack(s, p, rng)) return;
   // a shooter at home takes a stone or arrow from storage for each shot, while there are any
@@ -634,7 +635,7 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   gainSkill(p, f.ranged ? 'ranged' : 'melee', 6);
   const captain = operatorSkill(s, 'watchtower') * CAPTAIN_PER_LEVEL; // a guard captain drills the defenders
   if (rng.next() >= f.accuracy + captain - fogAim(s) - dodge) return;
-  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1));
+  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
   // a Blood Knight hits harder when hurt, and heals from what they deal
   if (p.cls === 'blood_knight') {
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);

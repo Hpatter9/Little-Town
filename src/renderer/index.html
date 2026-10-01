@@ -344,6 +344,109 @@
         transition: width 0.5s;
       }
 
+      /* the battle on the trail: a bar of what's happening at the top, fighters or spells along the bottom */
+      body.in-battle #clock,
+      body.in-battle #prompt,
+      body.in-battle #away,
+      body.in-battle #banner,
+      body.in-battle #raid-flash,
+      body.in-battle #tip {
+        display: none !important;
+      }
+      #battle-top,
+      #battle-bar {
+        position: absolute;
+        left: 6px;
+        right: 6px;
+        z-index: 5;
+        padding: 5px 8px;
+        background: var(--wood);
+        border: 2px solid #c79a55;
+        border-radius: 6px;
+        zoom: var(--ui-zoom, 1);
+      }
+      #battle-top {
+        top: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2px 10px;
+      }
+      #battle-top[hidden],
+      #battle-bar[hidden] {
+        display: none;
+      }
+      #battle-top .battle-title {
+        font-family: var(--font-display);
+        font-weight: 700;
+      }
+      #battle-top .battle-status {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      #battle-top .battle-row {
+        display: flex;
+        gap: 6px;
+      }
+      #battle-top .battle-row .tab {
+        padding: 3px 9px;
+      }
+      #battle-top .battle-auto.on {
+        border-color: #8cc05a;
+        color: #c8f0a0;
+      }
+      #battle-bar {
+        bottom: 6px;
+      }
+      #battle-bar .battle-hint {
+        font-size: 11px;
+        color: var(--text-dim);
+        margin-bottom: 4px;
+      }
+      #battle-bar .battle-chips {
+        display: flex;
+        gap: 5px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .battle-chip {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 4px 8px;
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid #6a4a2a;
+        border-radius: 4px;
+      }
+      .battle-chip.placed {
+        opacity: 0.55;
+      }
+      .battle-chip.on {
+        opacity: 1;
+        border-color: #f0d080;
+        box-shadow: 0 0 0 1px #f0d080;
+      }
+      .battle-chip:disabled {
+        opacity: 0.45;
+      }
+      .battle-hp {
+        display: block;
+        width: 100%;
+        height: 2px;
+        background: rgba(0, 0, 0, 0.5);
+      }
+      .battle-hp span {
+        display: block;
+        height: 100%;
+        background: #8cc05a;
+      }
       #prompt {
         position: absolute;
         top: 6px;
@@ -629,6 +732,11 @@
       }
       body.embedded .toast {
         align-self: flex-end;
+      }
+      /* (in a battle, notices go just under its top bar, clear of the fighters along the bottom) */
+      body.in-battle #toasts {
+        top: calc(var(--battle-top-h, 60px) + 12px);
+        bottom: auto;
       }
       /* zoomed out on the phone, the town is drawn smaller but the clock bar and the cards stay readable
          (the page around the strip sets --ui-zoom) */

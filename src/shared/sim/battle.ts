@@ -59,8 +59,9 @@ export interface BattleMap {
   /** Water along one side (the merfolk's shore), rock (the dwarves' hold): drawn, and no spots there. */
   water?: number;
   rock?: boolean;
-  /** The town's look (its origin), for drawing. */
+  /** The town's look (its origin), for drawing; and what its walls are made of (its best wall). */
   style: string;
+  wall?: string;
 }
 
 /** A fighter on a spot: a townsperson (`person`), or one of the town's allies (`ally`: a raider fighting for it). */
@@ -69,6 +70,8 @@ export interface BattleUnit {
   ally?: number;
   spot: number;
   cooldown: number;
+  /** The tick of its last blow (for the drawing). */
+  lastAt?: number;
 }
 
 /** A raider's part in the battle (on the Raider): how far along its trail, which trail, who's holding it. */
@@ -124,7 +127,9 @@ const MELEE_CELLS = 1.3;
 const SHOT_CELLS = THROW_RANGE / TILE;
 const WALL_REACH = 1.5;
 /** Ticks between a fighter's blows (as in town), and a hero's extra damage. */
-const INTERVAL = Math.round(1.2 * TICK_HZ);
+const INTERVAL = Math.round(1.0 * TICK_HZ);
+/** On ground the town chose (each where they were placed), a fighter's blows count for this much more than in a scramble. */
+const GROUND = 1.5;
 const HERO_BONUS = 4;
 /** How close (cells) a blocker must be on the trail to stop a raider. */
 const BLOCK_NEAR = 0.7;
@@ -183,7 +188,7 @@ export function layOut(s: GameState, flank: boolean): BattleMap {
   const back = done.filter((b) => BUILDING_BY_ID[b.def]?.layer === 'back');
   const span = mid.reduce((n, b) => n + BUILDING_BY_ID[b.def].width, 0) + back.reduce((n, b) => n + BUILDING_BY_ID[b.def].width, 0);
   // (a bigger town: a longer trail, and more bends in it)
-  const len = Math.max(20, Math.min(46, Math.round(18 + span * 0.4)));
+  const len = Math.max(18, Math.min(36, Math.round(16 + span * 0.3)));
   const wid = shape.wid;
   const water = shape.water ? 2 : 0; // (the shore: the first rows across are sea)
   const lo = 1.5 + water;
@@ -307,7 +312,9 @@ export function layOut(s: GameState, flank: boolean): BattleMap {
     }
   }
 
-  return { len, wid, paths, spots, decor, walls, gate, ...(water ? { water } : {}), ...(shape.rock ? { rock: true } : {}), style: s.origin ?? 'settlers' };
+  const wallOrder = ['force_wall', 'concrete_wall', 'brick_wall', 'stone_wall', 'palisade_wall'];
+  const wall = shape.wagons && !done.some((b) => wallDef(b.def)) ? 'wagon_circle' : wallOrder.find((w) => done.some((b) => b.def === w));
+  return { len, wid, paths, spots, decor, walls, gate, ...(wall ? { wall } : {}), ...(water ? { water } : {}), ...(shape.rock ? { rock: true } : {}), style: s.origin ?? 'settlers' };
 }
 
 /** The cells a trail runs through (its corners are joined by straight runs along or across). */
@@ -544,7 +551,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       bt.held = undefined;
     }
     if (bt.back) {
-      bt.d -= pace * 1.2;
+      bt.d -= pace * 3; // (a rout is quick: the wave doesn't wait on it)
       rd.dir = -1;
       if (bt.d <= 0) {
         rd.gone = true;
@@ -607,10 +614,11 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const inReach = wave.filter((rd) => !rd.down && !rd.gone && !rd.bt!.out && rd.bt!.d >= 0 && dist(foeAt(map, rd), pos) <= reach);
     if (!inReach.length) continue;
     const target = inReach.sort((a, c) => (c.bt!.held === u.spot ? 1 : 0) - (a.bt!.held === u.spot ? 1 : 0) || c.bt!.d - a.bt!.d)[0];
+    u.lastAt = s.tick;
     if (p) {
       u.cooldown = rallied(s, p) ? Math.round(INTERVAL / RALLY_SPEED) : INTERVAL;
       const before = target.hp;
-      defenderAttack(s, p, target, rng, p.id === s.mainId ? HERO_BONUS : 0);
+      defenderAttack(s, p, target, rng, p.id === s.mainId ? HERO_BONUS : 0, GROUND);
       if (shooter) shot(b, s, pos, foeAt(map, target), 'arrow');
       if (target.down && before > 0) fell(b, target);
     } else {
@@ -644,7 +652,9 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
   if (b.casts) b.casts = b.casts.filter((x) => s.tick - x.tick < 3 * TICK_HZ);
 
   // the wave is over when every raider in it has fallen, run, or got through
-  if (wave.every((rd) => rd.down || rd.gone || rd.bt!.out)) {
+  // (those turned back count as beaten: they're seen off the map as the next wave comes, or the battle ends)
+  if (wave.every((rd) => rd.down || rd.gone || rd.bt!.out || rd.bt!.back)) {
+    for (const rd of wave) if (rd.bt!.back && !rd.down) rd.gone = true;
     if (b.wave + 1 < b.waves) {
       b.wave++;
       b.phase = 'breather';
@@ -743,3 +753,56 @@ export const inBattle = (s: GameState) => !!s.raid?.battle && s.raid.battle.phas
 
 /** The founder's (and everyone's) max health, for the battle view. */
 export const healthOf = (p: Person) => ({ hp: p.hp, max: maxHp(p) });
+
+/* ------------------------------------------------------------ what the screen sees */
+
+export interface BattleView {
+  map: BattleMap;
+  phase: Battle['phase'];
+  /** Real seconds left to place (placing, between waves), else null. */
+  secondsLeft: number | null;
+  wave: number;
+  waves: number;
+  auto: boolean;
+  through: number;
+  killed: number;
+  /** Raiders still to come (this wave and the ones after). */
+  coming: number;
+  units: { spot: number; person: number | null; ally: number | null; sinceAction: number }[];
+  foes: { id: number; x: number; y: number; held: boolean; back: boolean; sinceAction: number; hit: number | null }[];
+  /** Who can fight, placed or not (for the placing bar). */
+  roster: { id: number; name: string; ranged: boolean; hp: number; maxHp: number; spot: number | null; hero: boolean }[];
+  /** The origin's spells that strike raiders: aimed at the map by the player. */
+  spells: { id: string; name: string; readyIn: number; affordable: boolean }[];
+  casts: { x: number; y: number; power: string; age: number }[];
+  shots: { from: [number, number]; to: [number, number]; age: number; kind: 'arrow' | 'bolt' | 'tower' }[];
+}
+
+/** The battle as the screen sees it (null when there's none on). `spells`: the origin's aimable powers (powers.ts
+ *  passes them in, to keep this module free of it). */
+export function battleView(s: GameState, spells: BattleView['spells']): BattleView | null {
+  const r = s.raid;
+  const b = r?.battle;
+  if (!r || !b || b.phase === 'done') return null;
+  const foes = r.raiders.filter((rd) => !rd.ally && rd.bt && !rd.bt.out && rd.bt.d >= 0 && !rd.gone && !rd.down);
+  return {
+    map: b.map,
+    phase: b.phase,
+    secondsLeft: b.phase === 'placing' || b.phase === 'breather' ? Math.max(0, (b.until - s.tick) / TICK_HZ) : null,
+    wave: b.wave,
+    waves: b.waves,
+    auto: b.auto,
+    through: b.through,
+    killed: b.killed,
+    coming: r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone && rd.bt && !rd.bt.out && rd.bt.d < 0).length,
+    units: b.units.map((u) => ({ spot: u.spot, person: u.person ?? null, ally: u.ally ?? null, sinceAction: s.tick - (u.lastAt ?? -999) })),
+    foes: foes.map((rd) => {
+      const [x, y] = foeAt(b.map, rd);
+      return { id: rd.id, x, y, held: rd.bt!.held !== undefined, back: !!rd.bt!.back, sinceAction: s.tick - rd.lastAction, hit: rd.bt!.hit ?? null };
+    }),
+    roster: fighters(s).map((p) => ({ id: p.id, name: p.name, ranged: ranged(p), hp: p.hp, maxHp: maxHp(p), spot: b.units.find((u) => u.person === p.id)?.spot ?? null, hero: p.id === s.mainId })),
+    spells,
+    casts: (b.casts ?? []).map((c) => ({ x: c.at[0], y: c.at[1], power: c.power, age: (s.tick - c.tick) / TICK_HZ })),
+    shots: (b.shots ?? []).map((x) => ({ from: x.from, to: x.to, kind: x.kind, age: (s.tick - x.tick) / TICK_HZ })),
+  };
+}

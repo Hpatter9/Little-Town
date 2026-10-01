@@ -669,3 +669,10 @@ export function powersView(s: GameState): { id: string; name: string; descriptio
     };
   });
 }
+
+/** The origin's powers that strike raiders (aimed on the battle map), and when each is ready (real seconds). */
+export function aimableSpells(s: GameState): { id: string; name: string; readyIn: number; affordable: boolean }[] {
+  return originOf(s)
+    .powers.filter((id) => TOUCH[id]?.[0] === 'foes' && POWERS[id])
+    .map((id) => ({ id, name: POWERS[id].name, readyIn: Math.max(0, ((s.powers?.[id] ?? 0) - s.tick) / TICK_HZ), affordable: !!payable(s, POWERS[id]) }));
+}
