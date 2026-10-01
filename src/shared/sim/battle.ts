@@ -135,7 +135,7 @@ const WALL_REACH = 1.5;
 /** Ticks between a fighter's blows (as in town), and a hero's extra damage. */
 const INTERVAL = Math.round(1.0 * TICK_HZ);
 /** On ground the town chose (each where they were placed), a fighter's blows count for this much more than in a scramble. */
-const GROUND = 1.5;
+const GROUND = 1.2;
 const HERO_BONUS = 4;
 /** A mage casts slower than a bow shoots, but its fire bursts over those within this many cells of where it lands. */
 const MAGE_INTERVAL = Math.round(1.6 * TICK_HZ);
@@ -143,7 +143,9 @@ const MAGE_BURST = 1.3;
 /** How close (cells) a blocker must be on the trail to stop a raider. */
 const BLOCK_NEAR = 0.7;
 /** A fighter this hurt (a share of their health) falls back off the line. */
-const FALL_BACK = 0.25;
+const FALL_BACK = 0.12;
+/** A raider this hurt (a share of its health) turns and runs. */
+const ROUT = 0.15;
 /** A spell's reach (cells) round where it's aimed. */
 export const AIM_RADIUS = 2.6;
 /** How many raiders a wave holds before the raid is split into more. */
@@ -595,7 +597,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const end = cum[cum.length - 1];
     rd.cooldown--;
     // breaking: back down the trail and away
-    const coward = !def.kit && rd.hp < rd.maxHp * 0.25;
+    const coward = !def.kit && rd.hp < rd.maxHp * ROUT;
     if (!bt.back && (coward || s.tick >= r.leavesTick)) {
       bt.back = true;
       bt.held = undefined;
