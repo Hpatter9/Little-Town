@@ -349,9 +349,47 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Menu themes leave colour swatches and cards alone:** the button rules in `theme.ts` and `skins.ts` skip `.swatch`
   and `.card` (they once painted the colour choices blank and made the Fae's pick cards unreadable).
 
+- **Tower-defence raids (done):** every raid is a battle on a map built from the town (`src/shared/sim/battle.ts`,
+  part of the deterministic sim: `Raid.battle`, `Raider.bt`). `startBattle` runs when a raid turns active (`battlesOn`:
+  `s.battles !== false`; the tests' `plainGame` turns it off), `stepBattle` each tick from `updateRaid`; raiders through
+  the trail (`bt.out`) come on into the town as before, and the in-town loop skips the rest.
+  - The map (`layOut`): a zigzag trail (longer and bendier as the town grows, `len` 18 to 36 cells) to the gate, block
+    spots on it every 3 cells, wall spots from the town's walls (an outer line too with many), towers beside it from
+    defence buildings, traps on it, ground spots for shooters, the town's buildings along it (`decor`, drawn in its style),
+    a second trail for a raid that splits. Each origin's shape (`SHAPES`): the dwarves' rock, the merfolk's shore
+    (`water`), the nomads' wagons (wall spots), the druids' hedges (`hedges`), and a castle town's keep (`keep`: through
+    its gate and up its floors, `KEEP_BAND` cells each, a carpeted run across and the stairs at its end, murder-hole wall
+    spots on the floor above).
+  - Phases: `placing` (`PLACE_TICKS`, 30 s; `battleGo` starts at once), `fighting`, `breather` between waves (bigger raids
+    come in up to 4 waves of `WAVE_SIZE`), `done`. Whoever isn't placed is placed by `autoPlace` (blockers by cover,
+    shooters walls first; the badly hurt kept back); `autoBattle` (`s.autoBattle`, remembered) and `Raid.alone` place
+    everyone at once and cast the spells at `bestAim`.
+  - Fighting: raiders walk the trail (`PACE`), held by a blocker with room (`capacity`: melee skill, the founder one more),
+    shoot fighters in reach, rout below a quarter health (`back`, quickly; the wave doesn't wait). Fighters strike on
+    `INTERVAL` with `GROUND` (1.5) on their blows; they fall back below `FALL_BACK`; deaths are real (`attackPerson`).
+  - Spells: `aimableSpells` (powers that touch foes); the player taps one and the trail (`battleCast` → `castAt`, which
+    aims `foes()` through `b.aim` at `AIM_RADIUS`).
+  - Mages: the class `mage` (`data/classes.ts`, research The Arcane Arts, Medieval) is not rare: one for every
+    `perPeople` (5), and the planner trains them itself (`trainMages`). They fight from range; their fire (`mageFire` in
+    raids.ts, `MAGE_*` in data/raids.ts) ignores armour and bursts over those beside the target for half, in town and on
+    the battle map (`MAGE_INTERVAL`, `MAGE_BURST`). Drawn as the sage sheet's blue wizard (`CLASS_LOOK` in peopleView).
+  - The screen: `src/renderer/battle/battleView.ts` (`BattleScene`: the ground painted by `art/battleArt.ts`, the decor,
+    scenery beyond the map's sides, fighters with green bars, raiders with red bars and a red glow, shots, casts in each
+    spell's look, mage fire bursts; it follows the raiders unless dragged) and `battleHud.ts` (top bar: wave, phase,
+    count, Fight now, Auto; bottom bar: fighters to place or spells to aim, hidden when there's nothing to pick).
+    `main.ts` routes taps (place, move, aim) and drags. On the phone the battle takes the whole screen (`body.battle` in
+    `mobile.ts`, the feed hidden); the map fits between the bars (`insets`). `window.__battle` is the scene (for previews:
+    `screenOf`, `leadScreen`).
+  - Tuning: `GROUND` 1.2, `FALL_BACK` 0.12, raiders rout at `ROUT` 0.15 (the first cut, at 1.5 and a quarter,
+    roughly halved deaths: settlers 2 where it was 8 with battles off). Soak (4 towns per origin, 15 days, people and
+    deaths): settlers 23.8/10, vampires 28.3/12, druids 25.5/3, dwarves 34.0/2, werewolves 27.3/2, knights 32.0/1,
+    liches 24.8/3, merfolk 31.0/6, nomads 31.0/3, fae 31.5/3, alchemists 28.3/5, machines 25.8/0; no town died out;
+    battles about 80 to 125 s; about 4 mages a town by day 15. The planner values a topic that teaches a common calling
+    (+12, +24 raided or on defence).
+
 ## Planned (owner's requests, not started)
 
-Nothing waiting.
+- Nothing waiting.
 
 ## Known problem (fixed, watch)
 

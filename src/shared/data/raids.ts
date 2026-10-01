@@ -152,3 +152,11 @@ export const FINISH_OFF_CHANCE = 0.3;
 /** Reach of melee and thrown attacks, in px. */
 export const MELEE_RANGE = 22;
 export const THROW_RANGE = 120;
+
+/** A mage's fire (sim/raids.ts mageFire): its chance to land, its damage (plus more per level of Research), the share
+ *  it does to those beside the one hit, and how near (px in town) they must be. */
+export const MAGE_ACCURACY = 0.85;
+export const MAGE_DAMAGE: [number, number] = [6, 10];
+export const MAGE_PER_LEVEL = 1.2;
+export const MAGE_SPLASH = 0.5;
+export const MAGE_BURST_PX = 24;

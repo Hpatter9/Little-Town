@@ -1,6 +1,8 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { BattleScene } from './battle/battleView';
+import { createBattleHud } from './battle/battleHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
 import { Application, Graphics, TextureStyle } from 'pixi.js';
@@ -187,6 +189,21 @@ async function start(): Promise<void> {
   town.scene.addChildAt(sky.root, 0); // (behind the hills, so the sun and moon rise and set behind the land)
   const townMask = new Graphics(); // used only as a mask (never added to the stage, or it would draw)
   app.stage.addChild(town.root, spells.root, pane.root);
+  // a raid's battle on the trail takes over the strip while it's on (battle/battleView.ts)
+  const battle = new BattleScene();
+  app.stage.addChild(battle.root);
+  (window as unknown as { __battle?: BattleScene }).__battle = battle; // (for previews: where a spot is on screen)
+  const battleHud = createBattleHud({
+    go: () => bridge.command({ type: 'battleGo' }),
+    auto: (on) => bridge.command({ type: 'battleAuto', on }),
+    pick: (person) => {
+      battle.selectedPerson = person;
+    },
+    spell: (id) => {
+      battle.aiming = id;
+      battle.lastAim = null;
+    },
+  });
 
   /** Where the town ends and the expedition pane (if showing) begins, in screen x. */
   let paneX = Infinity;
@@ -714,7 +731,41 @@ async function start(): Promise<void> {
     const [a, b] = [...touches.values()];
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
+  // (in a battle, the map has the pointer: drags scroll it along, taps place fighters and aim spells)
+  let battlePress: { x: number; y: number; id: number; moved: boolean; last: number } | null = null;
+  const battleAlong = (e: PointerEvent) => (battle.vertical ? e.clientY : e.clientX);
+  const battleTap = (x: number, y: number) => {
+    const b = snap.battle;
+    if (!b) return;
+    if (battle.aiming) {
+      const at = battle.toMap(x, y);
+      if (!at) return;
+      bridge.command({ type: 'battleCast', power: battle.aiming, x: at[0], y: at[1] });
+      battleHud.aiming = battle.aiming = null;
+      battle.lastAim = null;
+      battleHud.update(b, snap.raid?.name ?? 'Raiders');
+      return;
+    }
+    const spot = battle.spotAt(x, y);
+    if (spot === null) return;
+    const on = b.units.find((u) => u.spot === spot);
+    const picked = battleHud.picked;
+    if (picked !== null) {
+      // (their own spot again: off it)
+      const mine = b.roster.find((r) => r.id === picked)?.spot === spot;
+      bridge.command({ type: 'battlePlace', person: picked, spot: mine ? null : spot });
+      battleHud.picked = battle.selectedPerson = null;
+    } else if (on?.person !== null && on?.person !== undefined) {
+      battleHud.picked = battle.selectedPerson = on.person; // (pick up who's there, to move them)
+    }
+    battleHud.update(b, snap.raid?.name ?? 'Raiders');
+  };
   canvas.addEventListener('pointerdown', (e) => {
+    if (battle.shown) {
+      battlePress = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, last: battleAlong(e) };
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
     if (e.pointerType === 'touch') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2 && bridge.pinch) {
@@ -738,6 +789,16 @@ async function start(): Promise<void> {
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (battle.shown) {
+      if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
+      if (!battlePress || e.pointerId !== battlePress.id) return;
+      if (Math.hypot(e.clientX - battlePress.x, e.clientY - battlePress.y) > DRAG_THRESHOLD) battlePress.moved = true;
+      if (battlePress.moved) {
+        battle.dragBy(battleAlong(e) - battlePress.last);
+        battlePress.last = battleAlong(e);
+      }
+      return;
+    }
     if (touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pinchFrom !== null && touches.size >= 2) return bridge.pinch?.('move', Math.max(20, spread()));
@@ -751,6 +812,13 @@ async function start(): Promise<void> {
     camera.dragTo(e.clientX, e.timeStamp);
   });
   const release = (e: PointerEvent) => {
+    if (battle.shown || battlePress) {
+      const p = battlePress;
+      battlePress = null;
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+      if (p && e.pointerId === p.id && !p.moved && e.type === 'pointerup' && battle.shown) battleTap(e.clientX, e.clientY);
+      return;
+    }
     touches.delete(e.pointerId);
     if (pinchFrom !== null && touches.size < 2) {
       bridge.pinch?.('end', 0);
@@ -813,6 +881,12 @@ async function start(): Promise<void> {
   let lastCamp: number | null = null;
   let buildStyle = 'town';
   const applySnapshot = (next: Snapshot) => {
+    // the battle on the trail, while there is one: it takes over the strip
+    battle.update(next, buildStyle || 'town');
+    battleHud.update(next.battle, next.raid?.name ?? 'Raiders');
+    battle.selectedPerson = battleHud.picked;
+    battle.aiming = battleHud.aiming;
+    town.root.visible = !next.battle;
     showNotices(next);
     const tilesChanged = next.tileRev !== snap.tileRev;
     snap = next;
@@ -930,13 +1004,17 @@ async function start(): Promise<void> {
     sky.render(performance.now(), w);
     weather?.render(performance.now(), w);
     pane.render(performance.now(), ticker.deltaMS / 1000);
+    if (battle.shown) {
+      battle.resize(app.screen.width, app.screen.height, ...battleHud.insets());
+      battle.render(performance.now(), ticker.deltaMS / 1000, snap);
+    }
     // the art under a still mouse changes while the camera moves
     if (moving) {
       refreshHover();
       if (selected) showActions();
     }
     if (selectedPerson !== null) showPersonCard(); // follow them as they walk
-    app.ticker.maxFPS = interactive || moving ? FPS_ACTIVE : FPS_IDLE;
+    app.ticker.maxFPS = interactive || moving || battle.shown ? FPS_ACTIVE : FPS_IDLE;
   });
 }
 

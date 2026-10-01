@@ -62,15 +62,16 @@ export function bossesInRaid(s: GameState, r: Raid): void {
 
 /** A boss's blow in town. Raging bosses hit harder; every few blows, a sweeping attack hits everyone near
  *  (and fire-breathers set the nearest building alight). Returns the damage multiplier for the main blow. */
-export function bossBlow(s: GameState, rd: Raider, targets: Person[], hit: (p: Person) => number): number {
+export function bossBlow(s: GameState, rd: Raider, targets: Person[], hit: (p: Person) => number, near = false): number {
   const kit = kitOf(rd.kind);
   if (!kit) return 1;
   const rage = rd.enraged ? BOSS_RAGE : 1;
   if (!kit.area) return rage;
   rd.bossAttacks = (rd.bossAttacks ?? 0) + 1;
   if (rd.bossAttacks % kit.area.every !== 0) return rage;
-  const near = targets.filter((p) => Math.abs(p.x - rd.x) <= AREA_REACH).slice(0, kit.area.targets);
-  for (const p of near) {
+  // (`near`: the targets are already those in reach)
+  const hitNow = (near ? targets : targets.filter((p) => Math.abs(p.x - rd.x) <= AREA_REACH)).slice(0, kit.area.targets);
+  for (const p of hitNow) {
     p.hp = Math.max(0, p.hp - Math.round(hit(p) * rage));
     if (p.hp === 0 && !p.downed) knockDown(s, p);
   }

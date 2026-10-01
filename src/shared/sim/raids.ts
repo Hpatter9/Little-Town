@@ -53,6 +53,11 @@ import {
   PATROL_WARNING_MINUTES,
   type RaidGoal,
   type RaidKind,
+  MAGE_ACCURACY,
+  MAGE_BURST_PX,
+  MAGE_DAMAGE,
+  MAGE_PER_LEVEL,
+  MAGE_SPLASH,
 } from '../data/raids';
 import type { Rng } from '../rng';
 import { buildingCentreX, defOf, depositNear, storages, totalStock } from './buildings';
@@ -66,7 +71,7 @@ import { bindTheDead, sicken } from './doom';
 import { bossArrives, bossBlow, bossesInRaid } from './bosses';
 import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
 import { flammable, setFire } from './fire';
-import { killPerson, knockDown, stabilize } from './health';
+import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { campEdgeX, gainSkill } from './townsfolk';
@@ -78,6 +83,7 @@ import { lurkersBeaten } from './lurkers';
 import { caveBearBeaten } from './caveBear';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
+import { battlesOn, startBattle, stepBattle } from './battle';
 
 /** Raiders start this far beyond the edge of the world. */
 const OFF_MAP = 40;
@@ -362,17 +368,23 @@ export function updateRaid(s: GameState, rng: Rng): void {
     notify(s, `The ${kind.name.toLowerCase()} ${kind.plural ? 'are' : 'is'} here!`);
     summonForRaid(s, r);
     for (const kind of new Set(r.raiders.filter((q) => ENEMIES[q.kind].kit && !q.ally).map((q) => q.kind))) bossArrives(s, kind);
+    // (they come down the trail on the battle map first: battle.ts)
+    if (battlesOn(s)) startBattle(s, r);
   }
   classesInRaid(s, r);
   bossesInRaid(s, r);
   rivalsInRaid(s, r, rng);
   const step = kind.speed / TICK_HZ;
   fireDefenses(s, rng);
+  // the battle on the trail; the raiders still in it are its business (those through it come on into the town)
+  const battling = stepBattle(s, r, rng);
 
   for (const rd of r.raiders) {
     if (rd.down && rd.captive) release(s, rd); // cut down while carrying someone off: they're dropped
     if (rd.down || rd.gone) continue;
+    if (rd.bt && !rd.bt.out) continue;
     if (rd.ally) {
+      if (battling) continue; // (the town's allies are on the battle map)
       allyAct(s, r, rd, rng, step);
       continue;
     }
@@ -531,7 +543,8 @@ function steal(rd: Raider, st: Building, what: 'food' | 'valuables'): void {
   rd.fleeing = true;
 }
 
-function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng): void {
+/** A raider strikes someone. `area`: who a boss's sweep can reach (the battle map picks them; in town, by distance). */
+export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area?: Person[]): void {
   const def = ENEMIES[rd.kind];
   rd.cooldown = Math.round(def.interval * TICK_HZ);
   rd.lastAction = s.tick;
@@ -542,7 +555,7 @@ function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng): void {
     return hitDamage({ damage: def.damage, ammo: 0, ammoBonus: 0, ammoUsed: 0, beastDamage: 0 }, { kind: 'person', armor: Math.min(0.6, g.armor), block: g.block, tough: q.traits.includes('tough') }, rng);
   };
   // an epic boss rages, and now and then sweeps everyone near it
-  const mult = def.kit ? bossBlow(s, rd, s.people.filter((q) => exposed(q)), blow) : 1;
+  const mult = def.kit ? bossBlow(s, rd, area ?? s.people.filter((q) => exposed(q)), blow, !!area) : 1;
   if (!mult) return;
   // (a rival lord's frenzy: harder, and sooner again)
   const frenzy = frenzyOf(s);
@@ -554,7 +567,8 @@ function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng): void {
   if (dmg > 0 && (rd.kind === 'plague_rat' || rd.kind === 'rat_king') && !tireless(p) && !p.sick && rng.chance(RAT_BITE_SICKNESS)) sicken(s, p, rng);
   if (p.hp === 0) {
     // (a killing blow: no lying wounded waiting to be tended)
-    const odds = p.id === s.mainId ? FOUNDER_KILLING_BLOW : def.kit || def.boss ? BOSS_KILLING_BLOW : KILLING_BLOW;
+    // (the founder only when someone could take the town on: a lone founder's camp isn't ended by one blow)
+    const odds = p.id === s.mainId ? (heirOf(s, p) ? FOUNDER_KILLING_BLOW : 0) : def.kit || def.boss ? BOSS_KILLING_BLOW : KILLING_BLOW;
     if (rng.chance(odds)) {
       const by = /^the /i.test(def.name) ? def.name : `${/^[aeiou]/i.test(def.name) ? 'an' : 'a'} ${def.name.toLowerCase()}`;
       killPerson(s, p, `at the hands of ${by}`);
@@ -612,10 +626,12 @@ function fireDefenses(s: GameState, rng: Rng): void {
   }
 }
 
-/** A defender's attack on the nearest raider in reach (called from the defend task). Returns true if they struck. */
-export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bonus = 0): void {
+/** A defender's attack on the nearest raider in reach (called from the defend task). `mult`: a battle's chosen ground
+ *  (battle.ts) makes each blow count for more; `near`: who a mage's fire bursts over (in town, those beside the one hit). */
+export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bonus = 0, mult = 1, near?: Raider[]): void {
   // (held by a rival lord's hex, they lose the moment)
   if (heldBack(s, p, rng)) return;
+  if (p.cls === 'mage') return mageFire(s, p, rd, rng, mult, near ?? (s.raid?.raiders ?? []).filter((o) => o !== rd && !o.ally && !o.down && !o.gone && Math.abs(o.x - rd.x) <= MAGE_BURST_PX && level(o) === level(rd)));
   // a shooter at home takes a stone or arrow from storage for each shot, while there are any
   const kind = ammoOf(p);
   const store = kind ? storages(s).find((b) => (b.store[kind] ?? 0) > 0) : undefined;
@@ -625,7 +641,7 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   gainSkill(p, f.ranged ? 'ranged' : 'melee', 6);
   const captain = operatorSkill(s, 'watchtower') * CAPTAIN_PER_LEVEL; // a guard captain drills the defenders
   if (rng.next() >= f.accuracy + captain - fogAim(s) - dodge) return;
-  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1));
+  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
   // a Blood Knight hits harder when hurt, and heals from what they deal
   if (p.cls === 'blood_knight') {
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);
@@ -638,8 +654,23 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   if (rd.hp === 0) rd.down = true;
 }
 
-/** How far a defender can strike from: thrown stones for the better throwers, fists and clubs otherwise. */
+/** A mage's fire bolt: it strikes the one aimed at (study makes it hotter; armour and dodging don't help) and bursts
+ *  over those beside it for half. */
+function mageFire(s: GameState, p: Person, rd: Raider, rng: Rng, mult: number, near: Raider[]): void {
+  gainSkill(p, 'research', 6);
+  if (rng.next() >= MAGE_ACCURACY - fogAim(s)) return;
+  const dmg = (rng.int(MAGE_DAMAGE[0], MAGE_DAMAGE[1]) + p.skills.research.level * MAGE_PER_LEVEL) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult;
+  for (const [o, k] of [[rd, 1] as const, ...near.map((o) => [o, MAGE_SPLASH] as const)]) {
+    o.hp = Math.max(0, o.hp - Math.round(dmg * k));
+    o.lastHit = s.tick;
+    o.hitFx = 'fire';
+    if (o.hp === 0) o.down = true;
+  }
+}
+
+/** How far a defender can strike from: thrown stones for the better throwers (and a mage's fire), fists and clubs otherwise. */
 export function defenderReach(p: Person): number {
+  if (p.cls === 'mage') return THROW_RANGE;
   const sling = !!p.gear.weapon && !!ITEM_BY_ID[p.gear.weapon]?.effects.ranged;
   return sling || p.skills.ranged.level > p.skills.melee.level + 2 ? THROW_RANGE : MELEE_RANGE;
 }

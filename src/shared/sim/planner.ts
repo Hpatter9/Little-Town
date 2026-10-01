@@ -3,6 +3,8 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { trainMages } from './classes';
+import { CLASS_DEFS } from '../data/classes';
 import { buildOrigin, nomadic } from './nomads';
 import { adoptRooms, castleOn, castleReach, castleSpan, inKeep, openFloors, roomKind } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -187,6 +189,8 @@ function topicScore(t: Topic, n: Needs): number {
   if (ITEMS.some((i) => i.ware && n.wareGaps.includes(i.ware.tier) && i.research.includes(t.id))) score += n.direction === 'trade' ? 30 : 15;
   const items = ITEMS.filter((i) => i.research.includes(t.id)).length;
   score += Math.min(12, items * 3);
+  // (a calling the town trains for itself: mages for the walls)
+  if (Object.values(CLASS_DEFS).some((c) => c.perPeople && c.research === t.id)) score += n.raided || n.direction === 'defense' ? 24 : 12;
   for (const e of t.effects) {
     if (e.type === 'eraCapstone') score += 30;
     else if (e.type === 'researchSpeed' || e.type === 'researchSlots') score += n.direction === 'knowledge' ? 18 : 8;
@@ -871,5 +875,6 @@ export function runPlanner(s: GameState, back: readonly BackTerrain[]): void {
   planGathering(s, needs(s), plan, clear, craftWants);
   planVisitor(s);
   planShop(s);
+  trainMages(s);
   s.plan = plan;
 }

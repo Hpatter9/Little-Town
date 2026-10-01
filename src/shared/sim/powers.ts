@@ -18,6 +18,7 @@ import { fullMoon } from './monsters';
 import { shopOf, tavernOf } from './shop';
 import { researchMods } from './research';
 import { wardOf } from './rivals';
+import { aimedFoes, bestAim, inBattle } from './battle';
 import { addStock, campX, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
 import { WORLD_WIDTH } from '../constants';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
@@ -42,7 +43,9 @@ export interface PowerDef {
 /* ------------------------------------------------------------ helpers */
 
 const raidOn = (s: GameState) => s.raid?.phase === 'active' && s.raid.raiders.some((r) => !r.ally && !r.down && !r.gone);
-const foes = (s: GameState): Raider[] => (s.raid?.phase === 'active' ? s.raid.raiders.filter((r) => !r.ally && !r.down && !r.gone) : []);
+/** The raiders a spell can reach: where it's aimed on the battle map, else every one on the field (on the trail or in
+ *  the town; not those still waiting to come on). */
+const foes = (s: GameState): Raider[] => aimedFoes(s) ?? (s.raid?.phase === 'active' ? s.raid.raiders.filter((r) => !r.ally && !r.down && !r.gone && !(r.bt && !r.bt.out && r.bt.d < 0)) : []);
 const home = (s: GameState) => s.people.filter((p) => p.away === null);
 const founder = (s: GameState) => s.people.find((p) => p.id === s.mainId);
 const hurt = (s: GameState) => home(s).filter((p) => p.hp < maxHp(p) * 0.7 || p.downed);
@@ -594,8 +597,27 @@ export function castPowers(s: GameState, rng: Rng): void {
     if (id === s.heldPower) continue;
     const p = POWERS[id];
     if (!p || (s.powers?.[id] ?? 0) > s.tick || !p.when(s)) continue;
+    // on the battle map a spell that strikes raiders is aimed: by the player in their own battle, else by the town,
+    // where they're most bunched
+    if (inBattle(s) && TOUCH[id]?.[0] === 'foes') {
+      const b = s.raid!.battle!;
+      const at = b.auto ? bestAim(s) : null;
+      if (at) castAt(s, id, rng, at);
+      continue;
+    }
     castPower(s, id, rng);
   }
+}
+
+/** Cast a power at a point on the battle map (the player's aim, or the town's). Returns whether it was cast. */
+export function castAt(s: GameState, id: string, rng: Rng, at: [number, number]): boolean {
+  const b = s.raid?.battle;
+  if (!b || !originOf(s).powers.includes(id) || (s.powers?.[id] ?? 0) > s.tick) return false;
+  b.aim = at;
+  const ok = castPower(s, id, rng);
+  b.aim = undefined;
+  if (ok) (b.casts ??= []).push({ at, power: id, tick: s.tick });
+  return ok;
 }
 
 /** Cast one of the town's powers now, if it can be paid for. Returns whether it was cast. */
@@ -646,4 +668,11 @@ export function powersView(s: GameState): { id: string; name: string; descriptio
       activeHours: Math.max(0, ((s.buffs?.[id] ?? 0) - s.tick) / TICKS_PER_HOUR),
     };
   });
+}
+
+/** The origin's powers that strike raiders (aimed on the battle map), and when each is ready (real seconds). */
+export function aimableSpells(s: GameState): { id: string; name: string; readyIn: number; affordable: boolean }[] {
+  return originOf(s)
+    .powers.filter((id) => TOUCH[id]?.[0] === 'foes' && POWERS[id])
+    .map((id) => ({ id, name: POWERS[id].name, readyIn: Math.max(0, ((s.powers?.[id] ?? 0) - s.tick) / TICK_HZ), affordable: !!payable(s, POWERS[id]) }));
 }

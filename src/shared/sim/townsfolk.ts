@@ -298,7 +298,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   // a rare wanderer is already trained in a special class (decided by the seed, so no randomness shifts)
   const roll = mixSeed(hashSeed(s.seed), person.id * 7919);
   // (one of each calling in a town: never one the town already has)
-  const open = CLASSES.filter((k) => !s.people.some((p) => p.cls === k));
+  const open = CLASSES.filter((k) => !CLASS_DEFS[k].perPeople && !s.people.some((p) => p.cls === k));
   if (!monster && open.length && roll % 1000 < RARE_CLASS_CHANCE * 1000) person.cls = open[Math.floor(roll / 1000) % open.length];
   person.dir = side < 0 ? 1 : -1;
   s.visitor = { person, waitX: campEdgeX(s, side), leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };

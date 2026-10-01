@@ -13,7 +13,8 @@ import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
 import { HERDS } from '../data/livestock';
 import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
-import { POWERS, powersView } from './powers';
+import { aimableSpells, POWERS, powersView } from './powers';
+import { battleView, type BattleView } from './battle';
 
 /** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
 export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
@@ -428,6 +429,8 @@ export interface Snapshot {
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's keep (sim/castle.ts): its tiles and how many floors it stands. */
   castle: { lo: number; hi: number; floors: number; flare: number } | null;
+  /** The tower-defence battle on the trail, while it's on (sim/battle.ts). */
+  battle: BattleView | null;
   /** A town walled at both ends: the tiles its walls span, and what they're built of (drawn as a far wall round it). */
   enclosure: { lo: number; hi: number; wall: string } | null;
   /** A full-moon night: werewolves show what they are. */
@@ -528,6 +531,7 @@ export function snapshot(s: GameState): Snapshot {
     theme: themeOf(s),
     origin: { id: originOf(s).id, name: originOf(s).name, town: s.lich ? ORIGIN_DEFS.lich.town : originOf(s).town },
     powers: powersView(s),
+    battle: battleView(s, aimableSpells(s)),
     powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
     lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,

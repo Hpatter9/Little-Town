@@ -227,8 +227,9 @@ test('the shop window: layout, furnishings and the log reach the snapshot', () =
 test('left alone in the desert, a town builds a shop, furnishes it, and earns coins', () => {
   const sim = new Sim(newGame('d3', { biome: 'desert' }));
   const s = sim.state;
-  // (it starts bare, and every piece has to be paid for out of what travellers spend)
-  for (let t = 0; t < 20 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
+  // (it starts bare, and every piece has to be paid for out of what travellers spend; a lone founder's town in the
+  // sand, raided on the battle map, gets there in about three weeks)
+  for (let t = 0; t < 24 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   const shop = s.buildings.find((b) => b.def === 'trading_post');
   assert.ok(shop, 'a Trading Post');
   assert.ok((shop!.shop?.pieces.length ?? 0) >= 1, 'something set out in it');

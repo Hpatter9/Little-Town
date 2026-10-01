@@ -24,15 +24,31 @@ export function canTrain(s: GameState, p: Person, cls: ClassId, stock = totalSto
   if (p.bornTick != null) return { ok: false, reason: 'Too young' };
   if (p.away !== null) return { ok: false, reason: 'Away' };
   if (!s.research.done.includes(def.research)) return { ok: false, reason: `Needs research: ${TOPIC_BY_ID[def.research]?.name ?? def.research}` };
-  // one of each calling in a town at a time
-  const holder = s.people.find((q) => q.cls === cls);
-  if (holder) return { ok: false, reason: `The town already has a ${def.name}: ${holder.name}` };
+  // one of each rare calling in a town at a time (mages: one for every few people)
+  const holders = s.people.filter((q) => q.cls === cls);
+  if (def.perPeople) {
+    if (holders.length >= mageRoom(s, def.perPeople)) return { ok: false, reason: `The town has all the ${def.name}s it can keep (one for every ${def.perPeople} people)` };
+  } else if (holders.length) return { ok: false, reason: `The town already has a ${def.name}: ${holders[0].name}` };
   if (p.skills[def.skill].level < def.level) return { ok: false, reason: `Needs ${SKILL_NAMES[def.skill]} ${def.level}` };
   const deed = deedUnmet(s, p, cls);
   if (deed) return { ok: false, reason: deed };
   const short = (Object.entries(def.cost) as [Material, number][]).filter(([m, n]) => (stock[m] ?? 0) < n);
   if (short.length) return { ok: false, reason: `Needs ${short.map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`).join(', ')}` };
   return { ok: true };
+}
+
+/** How many of a common calling the town can keep: one for every `per` of its people (at least one). */
+const mageRoom = (s: GameState, per: number) => Math.max(1, Math.floor(s.people.length / per));
+
+/** The town trains its own mages (hands-off): its best at study who isn't needed as something else, while it has room
+ *  for another and the makings. Called by the planner. */
+export function trainMages(s: GameState): void {
+  if (!s.research.done.includes(CLASS_DEFS.mage.research)) return;
+  const stock = totalStock(s);
+  const best = s.people
+    .filter((p) => !p.cls && p.id !== s.mainId && canTrain(s, p, 'mage', stock).ok)
+    .sort((a, b) => b.skills.research.level - a.skills.research.level)[0];
+  if (best) train(s, best.id, 'mage');
 }
 
 /** What the calling's deed still asks (null when it's been done). */

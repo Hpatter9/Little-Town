@@ -70,15 +70,18 @@ sheet.append(panel);
 /** A castle town's keep: its floors (0: not a castle), and the strip height it needs beyond the keep itself (the
  *  walkway under it, and a little sky over its spires). */
 let castle = 0;
+/** A raid's battle is on screen. */
+let battleOn = false;
 const KEEP_MARGIN = STRIP_HEIGHT - MID_GROUND_Y + 24;
 
 function layout(): void {
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
   // (upright, the town has the lower part and the feed the rest; on its side, everything under the tabs)
-  const room = sideways.matches ? free : Math.round(free * UPRIGHT_TOWN);
+  // (in a battle the map has all of it, the feed hidden: the strip draws the battle at its own scale)
+  const room = sideways.matches || battleOn ? free : Math.round(free * UPRIGHT_TOWN);
   // (a castle town stands tall: the strip is zoomed out enough to show all of the keep)
   const need = castle ? keepHeight(castle) + KEEP_MARGIN : 0;
-  const fit = Math.min(zoom, room / STRIP_HEIGHT, need ? room / need : Infinity); // (never taller than there's room for)
+  const fit = battleOn ? 1 : Math.min(zoom, room / STRIP_HEIGHT, need ? room / need : Infinity); // (never taller than there's room for)
   // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
   const dpr = window.devicePixelRatio || 1;
   // (and, where it costs little, an even number: the art has detail on a grid twice as fine, pixelArt.ts FINE)
@@ -163,6 +166,13 @@ const tabButtons = PANELS.map((p) => {
   return { id: p.id, b, label, name: p.label };
 });
 // the necropolis look, once the founder is a lich (and the menus' new names)
+bridge.onSnapshot((snap) => {
+  if (!!snap.battle !== battleOn) {
+    battleOn = !!snap.battle;
+    document.body.classList.toggle('battle', battleOn);
+    layout();
+  }
+});
 bridge.onSnapshot((snap) => {
   if ((snap.castle?.floors ?? 0) !== castle) {
     castle = snap.castle?.floors ?? 0;
