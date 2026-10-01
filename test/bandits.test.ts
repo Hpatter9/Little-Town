@@ -88,6 +88,7 @@ test('an arsonist sets fires; a thief takes the valuables first', () => {
   const sim2 = new Sim(plainGame('thief'));
   const s2 = sim2.state;
   s2.people[0].priorities.defend = 0;
+  s2.people[0].x = (camp(s2) - 20) * 32; // (out of the thief's way: this is about what's taken)
   campfire(s2).store = { berries: 10, iron: 3, cloth: 2 };
   const raid = banditsNow(sim2, 'steal');
   runUntil(sim2, () => (raid.raiders[0].carrying.iron ?? 0) > 0, 2 * TICKS_PER_HOUR);

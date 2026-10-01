@@ -17,6 +17,9 @@ export interface FounderDef {
   background: Background;
   traits: string[];
   look: Look;
+  /** Who comes with them (recruit types), beyond the origin's own companions: a settler founder brings a friend, so
+   *  the classic town doesn't start a person short of the others. */
+  brings?: string[];
 }
 
 const bg = (id: string, name: string, description: string, skills: Background['skills'], passions: Background['passions']): Background => ({ id, name, description, skills, passions });
@@ -27,27 +30,30 @@ export const FOUNDERS: Readonly<Record<OriginId, readonly FounderDef[]>> = {
       id: 'maren',
       name: 'Maren Holt',
       title: 'the Hearth-Keeper',
-      story: 'Left a burned village with seed corn sewn into her hem, and means to plant it.',
+      story: 'Left a burned village with her brother and seed corn sewn into her hem, and means to plant it.',
       background: bg('homesteader', 'Homesteader', 'Green fields early and full stores.', { farming: 5, cooking: 4, gathering: 3 }, ['farming', 'cooking']),
       traits: ['green_thumb'],
+      brings: ['gatherer'],
       look: { gender: 'f', skin: '#e3b890', hair: 'ponytail', hairColor: '#6e4a2c', beard: false, outfit: '#5a7a3a', wear: ['torso_dress:#5a7a3a', 'belt_cloth:#c8a868'] },
     },
     {
       id: 'tobin',
       name: 'Tobin Ashford',
       title: 'the Wayfinder',
-      story: 'A trapper who knows every trail for three valleys, and every wolf on them.',
+      story: 'A trapper who knows every trail for three valleys, come down from the hills with his hunting partner.',
       background: bg('wayfinder', 'Wayfinder', 'Keeps the town fed and safe with spear and bow.', { ranged: 5, melee: 4, animals: 3 }, ['ranged', 'animals']),
       traits: ['tough'],
+      brings: ['hunter'],
       look: { gender: 'm', skin: '#d6a67c', hair: 'unkempt', hairColor: '#4a3020', beard: true, outfit: '#6a5a3a', wear: ['torso_leather:#7a5a3a', 'feet_boots', 'back_quiver'] },
     },
     {
       id: 'edda',
       name: 'Edda Brightwater',
       title: 'the Learned',
-      story: 'A schoolmistress with a satchel of books and more questions than answers.',
+      story: 'A schoolmistress with a satchel of books, a handy old friend, and more questions than answers.',
       background: bg('teacher', 'Teacher', 'Researches quickly; not much of a fighter.', { research: 5, medicine: 3, social: 3, melee: 1 }, ['research', 'social']),
       traits: ['quick_learner'],
+      brings: ['crafter'],
       look: { gender: 'f', skin: '#f0cfa8', hair: 'bangs', hairColor: '#b88a58', beard: false, outfit: '#3a5a8a', wear: ['torso_robe:#3a5a8a', 'legs_robeskirt:#3a5a8a'] },
     },
   ],

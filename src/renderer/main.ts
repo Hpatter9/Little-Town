@@ -132,8 +132,38 @@ async function start(): Promise<void> {
   // On the phone the page shows the strip scaled up (a CSS transform on its frame), which would stretch the drawn
   // picture and blur it: the page tells the strip its scale, and it draws at that resolution instead, so every pixel of
   // the art lands on whole pixels of the screen (mobile.ts snaps the scale to make it so).
-  const sharpen = (scale: number) => app.renderer.resize(app.screen.width, app.screen.height, (window.devicePixelRatio || 1) * scale);
+  // (quality 2: everything; 1: no smoke or mist; 0: and drawn at the screen's plain resolution, as before)
+  let quality = 2;
+  let stripScale = 1;
+  const sharpen = (scale: number) => {
+    stripScale = scale;
+    app.renderer.resize(app.screen.width, app.screen.height, (window.devicePixelRatio || 1) * (quality > 0 ? scale : 1));
+  };
   Object.assign(window, { __setStripScale: sharpen });
+  // A phone that can't keep up steps the quality down (watched in ten-second spells while the town is on screen,
+  // from fifteen seconds after it starts): first the smoke and mist go, then the extra resolution.
+  {
+    let frames = 0;
+    let since = performance.now() + 15_000;
+    app.ticker.add(() => {
+      const now = performance.now();
+      if (document.hidden || now < since) {
+        frames = 0;
+        if (document.hidden) since = now + 3000;
+        return;
+      }
+      frames++;
+      if (now - since < 10_000) return;
+      const fps = (frames * 1000) / (now - since);
+      frames = 0;
+      since = now;
+      if (fps >= 28 || quality === 0) return;
+      quality--;
+      town.calm = quality < 2;
+      sharpen(stripScale);
+      console.info(`[quality] ${fps.toFixed(0)} fps: down to ${quality}`);
+    });
+  }
   const asked = (window as unknown as { __stripScale?: number }).__stripScale;
   if (asked) sharpen(asked);
 

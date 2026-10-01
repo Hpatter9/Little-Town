@@ -1,6 +1,7 @@
 // LPC character frames as Pixi textures (cached). The composing itself is in lpcCompose.ts.
 
-import { Texture } from 'pixi.js';
+import type { Texture } from 'pixi.js';
+import { fineTexture } from '../pixelArt';
 import type { Look } from '../../../shared/data/people';
 import { FRAME_COUNT, lookKey, lpcCanvas, type LpcAnim, type LpcWeapon } from './lpcCompose';
 
@@ -14,7 +15,7 @@ export function lpcFrame(look: Look, anim: LpcAnim, frame: number, weapon: LpcWe
   const key = `${lookKey(look)}|${anim}|${f}|${weapon ?? ''}|${wear.join(',')}`;
   const hit = textures.get(key);
   if (hit) return hit;
-  const tex = Texture.from(lpcCanvas(look, anim, f, weapon, wear));
+  const tex = fineTexture(lpcCanvas(look, anim, f, weapon, wear)); // (on the fine grid, like the painted art)
   textures.set(key, tex);
   return tex;
 }
