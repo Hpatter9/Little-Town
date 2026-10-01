@@ -13,7 +13,7 @@ import { buildingArt, type CropLook } from '../art/buildings';
 import { haze, mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
 import { campfireFrames } from '../art/sprites';
 import { Rng } from '../../shared/rng';
-import type { Layer } from './layer';
+import { glowTexture, type Layer } from './layer';
 
 /** What a field looks like now: bare, sprouting, tall, or ripe. */
 function cropLook(b: Building): CropLook | undefined {
@@ -48,6 +48,8 @@ interface Drawn {
   overlay?: Graphics;
   flames?: Container;
   smoke?: Sprite[];
+  /** A home's chimney (or smoke hole): where its hearth's smoke rises, in its layer's coordinates. */
+  chimney?: { layer: BuildLayer; x: number; y: number };
 }
 
 /** Smoke frames are 96px; the dust cloud is pinned at its base (from the pack's manifest). */
@@ -173,12 +175,29 @@ export class BuildingsView {
     const rect: LocalRect = { layer: def.layer, x: left, y: top, w: art.width, h: art.height };
 
     if (b.status === 'done') {
+      // (a soft shadow where it meets the ground)
+      if (!b.room && b.def !== 'campfire') {
+        const sh = L.add(new Sprite(glowTexture()), cx, 'ground');
+        sh.anchor.set(0.5);
+        sh.position.set(cx + 2, bottom - 1);
+        sh.width = art.width + 12;
+        sh.height = 9;
+        sh.tint = 0x000000;
+        sh.alpha = 0.5;
+      }
       if (b.def === 'campfire') L.placeAnimated(this.fireFrames, cx, bottom, 7);
       else L.place(art, cx, bottom);
-      return { sig: sigOf(b), rect };
+      // (a home's hearth smokes from the top of its roof)
+      let chimney: Drawn['chimney'];
+      if (defOf(b).housing && !b.room) {
+        let c = 0;
+        for (let i = 1; i < art.width; i++) if (art.tops[i] < art.tops[c]) c = i;
+        chimney = { layer: def.layer, x: left + c, y: top + art.tops[c] };
+      }
+      return { sig: sigOf(b), rect, chimney };
     }
-    // blueprint: a faint full outline, plus the finished art masked to the progress so far
-    const faint = L.place(art, cx, bottom);
+    // blueprint: a faint full outline, plus the finished art masked to the progress so far (it gives no light yet)
+    const faint = L.place({ ...art, lights: undefined, shimmer: undefined }, cx, bottom);
     faint.alpha = 0.35;
     faint.tint = BLUEPRINT_TINT;
     const solid = L.add(new Sprite(art.texture), cx);
@@ -285,10 +304,16 @@ export class BuildingsView {
     const SLICE = 16;
     for (let x0 = 0; x0 < art.width; x0 += SLICE) {
       const w = Math.min(SLICE, art.width - x0);
-      const slice: PixelArt = { texture: new Texture({ source: art.texture.source, frame: new Rectangle(x0, 0, w, art.height) }), width: w, height: art.height, tops: art.tops.slice(x0, x0 + w) };
+      const lights = art.lights?.filter((l) => l.x >= x0 && l.x < x0 + w).map((l) => ({ ...l, x: l.x - x0 }));
+      const slice: PixelArt = { texture: new Texture({ source: art.texture.source, frame: new Rectangle(x0, 0, w, art.height) }), width: w, height: art.height, tops: art.tops.slice(x0, x0 + w), ...(lights?.length ? { lights } : {}) };
       L.place(slice, left + x0 + w / 2, BASE_Y.mid, false, 'ground');
     }
     return true;
+  }
+
+  /** Where homes' hearths smoke from. */
+  chimneys(): { layer: BuildLayer; x: number; y: number }[] {
+    return [...this.drawn.values()].flatMap((d) => (d.chimney ? [d.chimney] : []));
   }
 
   /** Local rects of every drawn building (for hit-testing). */

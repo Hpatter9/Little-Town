@@ -146,15 +146,15 @@ async function start(): Promise<void> {
   const spells = new SpellsView();
   const pane = new ExpeditionPane(world.seedHash);
   const snow = new SnowView();
-  town.root.addChild(snow.root); // (over everything in the town, in screen space)
+  town.scene.addChild(snow.root); // (over everything in the town, in screen space)
   const leaves = new LeavesView();
-  town.root.addChild(leaves.root);
+  town.scene.addChild(leaves.root);
   // On the phone the strip has no desktop behind it, so it draws a whole sky, and weather in front of the town.
   const fullSky = !!hostBridge();
   const sky = new SkyView(fullSky);
   const weather = fullSky ? new WeatherView() : null;
-  if (weather) town.root.addChild(weather.root);
-  town.root.addChildAt(sky.root, 0); // (behind the hills, so the sun and moon rise and set behind the land)
+  if (weather) town.scene.addChild(weather.root);
+  town.scene.addChildAt(sky.root, 0); // (behind the hills, so the sun and moon rise and set behind the land)
   const townMask = new Graphics(); // used only as a mask (never added to the stage, or it would draw)
   app.stage.addChild(town.root, spells.root, pane.root);
 
@@ -894,6 +894,7 @@ async function start(): Promise<void> {
     const walk = town.people.getGlobalPosition();
     spells.root.position.set(walk.x - app.stage.x, walk.y - app.stage.y);
     spells.render(performance.now());
+    town.air(ticker.deltaMS / 1000, snap.calendar.hour, snap.calendar.season, snap.weather.kind, w);
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);
     sky.render(performance.now(), w);

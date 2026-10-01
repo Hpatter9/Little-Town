@@ -5,7 +5,7 @@
 // pennants, mushrooms, flasks, heraldry).
 
 import type { ThemeId } from '../../shared/sim/snapshot';
-import type { Painter } from './pixelArt';
+import { registerLamps, type Painter } from './pixelArt';
 import { cityHome, nomadArt } from './nomadArt';
 
 type Draw = (p: Painter, w: number, h: number) => void;
@@ -714,6 +714,9 @@ const SWAP: Record<Style, string[]> = {
   alchemists: ['#4a9a80', '#2a7a60', '#9a9090', '#aaa0a0', '#8a6a5a', '#5a4040', '#a47a64', '#6a5a4a', '#8a6a4a', '#3a2a20', '#80f060'],
   knights: ['#8a3a30', '#6a2a24', '#a09a8a', '#b0aa9a', '#8a8a90', '#5a5a64', '#9a9aa2', '#4a3420', '#6a4a2a', '#2a1e14', '#f0d890'],
 };
+
+// (each origin's window glow gives light at night, like the usual one)
+registerLamps(...Object.values(SWAP).map((s) => s[s.length - 1]));
 
 /** Swap the usual materials for the origin's: their exact colours, and the shades of them the fine detail adds (a
  *  colour close to a material is moved by the same step, keeping its difference); everything else is left alone. */

@@ -9,7 +9,28 @@ export interface PixelArt {
   height: number;
   /** For each column, the first opaque row from the top (height if the column is empty). Used for hit-testing. */
   tops: Int16Array;
+  /** Where it gives light at night (windows, candles, fires: art pixels from its top left), how big, and its colour. */
+  lights?: Light[];
+  /** Frames of glints over its water, to play over it. */
+  shimmer?: Texture[];
 }
+
+export interface Light {
+  x: number;
+  y: number;
+  /** Radius of the glow, in art pixels. */
+  r: number;
+  color: number;
+}
+
+/** Colours that give light at night (a window's glow, a candle, flame): painted art with these lights up after dark.
+ *  Art modules add their own (registerLamps). */
+const LAMPS = new Set<number>(['#f0d890', '#ffd87a', '#f0d080', '#ffd96e', '#ffb347', '#f29434'].map((h) => parseInt(h.slice(1), 16)));
+export function registerLamps(...hex: string[]): void {
+  for (const h of hex) LAMPS.add(parseInt(h.slice(1), 16));
+}
+/** Colours of water, which glints. */
+const WATER = new Set<number>(['#4382b8', '#86b9e0', '#7ea6c4', '#dcebf6'].map((h) => parseInt(h.slice(1), 16)));
 
 /** Colour transform applied to every colour a painter uses (e.g. haze for the background layer). */
 export type Tone = (hex: string) => string;
@@ -301,6 +322,7 @@ export function paint(width: number, height: number, tone: Tone, draw: (p: Paint
   draw(new Painter(ctx, width, height, tone, k));
   const W = canvas.width;
   const H = canvas.height;
+  const found = W > 0 && H > 0 ? findLights(ctx.getImageData(0, 0, W, H), k, tone) : { lights: [], water: [] };
   if (grainAmount > 0 && W > 0 && H > 0) {
     const img = ctx.getImageData(0, 0, W, H);
     detail(img, k, grainSeed, opts);
@@ -321,7 +343,80 @@ export function paint(width: number, height: number, tone: Tone, draw: (p: Paint
       }
     }
   }
-  return { texture: new Texture({ source: new CanvasSource({ resource: canvas, resolution: k }) }), width, height, tops };
+  const art: PixelArt = { texture: new Texture({ source: new CanvasSource({ resource: canvas, resolution: k }) }), width, height, tops };
+  if (found.lights.length) art.lights = found.lights;
+  if (found.water.length > 6) art.shimmer = shimmerFrames(width, height, found.water, k);
+  return art;
+}
+
+/** The lamps (clumps of light-giving colour) and the water in a painting, by its art pixels. */
+function findLights(img: ImageData, k: number, tone: Tone): { lights: Light[]; water: [number, number][] } {
+  const { data, width: W } = img;
+  const aw = Math.floor(img.width / k);
+  const ah = Math.floor(img.height / k);
+  const toned = (set: Set<number>) => new Set([...set].map((c) => parseInt(tone('#' + c.toString(16).padStart(6, '0')).slice(1), 16)));
+  const lamps = tone === noTone ? LAMPS : toned(LAMPS);
+  const wet = tone === noTone ? WATER : toned(WATER);
+  const lit = new Int32Array(aw * ah).fill(-1);
+  const water: [number, number][] = [];
+  for (let y = 0; y < ah; y++)
+    for (let x = 0; x < aw; x++) {
+      const i = (y * k * W + x * k) * 4;
+      if (data[i + 3] < 200) continue;
+      const c = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+      if (lamps.has(c)) lit[y * aw + x] = c;
+      else if (wet.has(c)) water.push([x, y]);
+    }
+  // clumps of lit pixels, each one light
+  const lights: Light[] = [];
+  const seen = new Uint8Array(aw * ah);
+  for (let s = 0; s < lit.length; s++) {
+    if (lit[s] < 0 || seen[s]) continue;
+    let n = 0;
+    let sx = 0;
+    let sy = 0;
+    const stack = [s];
+    seen[s] = 1;
+    while (stack.length) {
+      const q = stack.pop()!;
+      const x = q % aw;
+      const y = (q - x) / aw;
+      n++;
+      sx += x;
+      sy += y;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const j = ny * aw + nx;
+        if (nx < 0 || ny < 0 || nx >= aw || ny >= ah || seen[j] || lit[j] < 0) continue;
+        seen[j] = 1;
+        stack.push(j);
+      }
+    }
+    if (n < 2) continue;
+    lights.push({ x: sx / n + 0.5, y: sy / n + 0.5, r: Math.min(26, 5 + Math.sqrt(n) * 2.2), color: lit[s] });
+  }
+  return { lights, water };
+}
+
+/** Three frames of glints over water: a few fine bright pixels, different each frame. */
+function shimmerFrames(width: number, height: number, water: [number, number][], k: number): Texture[] {
+  const out: Texture[] = [];
+  for (let f = 0; f < 3; f++) {
+    const c = document.createElement('canvas');
+    c.width = width * k;
+    c.height = height * k;
+    const g = c.getContext('2d')!;
+    for (let i = 0; i < water.length; i++) {
+      const [x, y] = water[i];
+      const r = ((x * 73856093) ^ (y * 19349663) ^ (f * 83492791)) >>> 0;
+      if (r % 23 !== 0) continue;
+      g.fillStyle = r % 2 ? 'rgba(255,255,255,0.85)' : 'rgba(220,240,255,0.6)';
+      g.fillRect(x * k + (r % k), y * k, r % 3 ? 2 : 1, 1); // (a fine dash of light)
+    }
+    out.push(new Texture({ source: new CanvasSource({ resource: c, resolution: k }) }));
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------ colour helpers */

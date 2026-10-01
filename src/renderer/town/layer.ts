@@ -2,8 +2,8 @@
 // and every placed shape records its top edge in a skyline so hover hit-testing knows where the art is opaque.
 // Content is added in keyed groups (e.g. one per tile) so a group can be torn down and rebuilt on its own.
 
-import { AnimatedSprite, Container, Graphics, Sprite } from 'pixi.js';
-import type { PixelArt } from '../art/pixelArt';
+import { AnimatedSprite, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import type { Light, PixelArt } from '../art/pixelArt';
 
 export const CHUNK_WIDTH = 512;
 
@@ -60,8 +60,27 @@ interface Group {
 
 export type GroupKey = string | number;
 
+/** A soft round glow (white, drawn tinted and added to what's under it). */
+let glowTex: Texture | null = null;
+export function glowTexture(): Texture {
+  if (glowTex) return glowTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.25, 'rgba(255,255,255,0.45)');
+  grad.addColorStop(0.6, 'rgba(255,255,255,0.12)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  return (glowTex = Texture.from(c));
+}
+
 export class Layer {
   readonly root = new Container();
+  /** Glows at night: kept out of the town's day-and-night tint (TownView mounts it over the town), so they shine. */
+  readonly glow = new Container();
   readonly skyline: Skyline;
   private readonly chunks: Chunk[] = [];
   private readonly groups = new Map<GroupKey, Group>();
@@ -148,7 +167,35 @@ export class Layer {
     this.current.objects.push(sprite);
     this.current.arts.push({ art, left, top, flip });
     this.markArt(art, left, top, flip);
+    this.dress(art, left, top, flip, x, depth);
     return sprite;
+  }
+
+  /** What goes with a placed picture: its lights' glows, and glints playing over its water. */
+  private dress(art: PixelArt, left: number, top: number, flip: boolean, x: number, depth: Depth): void {
+    for (const l of art.lights ?? []) this.addGlow(l, flip ? left + art.width - l.x : left + l.x, top + l.y);
+    if (art.shimmer) {
+      const s = new AnimatedSprite(art.shimmer);
+      s.position.set(flip ? left + art.width : left, top);
+      if (flip) s.scale.x = -1;
+      s.animationSpeed = 0.04 + ((left * 7) % 5) * 0.004;
+      s.gotoAndPlay((left >> 3) % 3);
+      this.part(x, depth).addChild(s);
+      this.current.objects.push(s);
+    }
+  }
+
+  /** A glow at (x, y), in the light's colour. */
+  addGlow(l: Pick<Light, 'r' | 'color'>, x: number, y: number): Sprite {
+    const g = new Sprite(glowTexture());
+    g.anchor.set(0.5);
+    g.position.set(x, y);
+    g.width = g.height = l.r * 2;
+    g.tint = l.color;
+    g.blendMode = 'add';
+    this.glow.addChild(g);
+    this.current.objects.push(g);
+    return g;
   }
 
   placeAnimated(frames: PixelArt[], x: number, bottom: number, fps: number): AnimatedSprite {
@@ -165,6 +212,7 @@ export class Layer {
       this.current.arts.push({ art: f, left, top, flip: false });
       this.markArt(f, left, top, false);
     }
+    this.dress(art, left, top, false, x, 'objects');
     return anim;
   }
 
