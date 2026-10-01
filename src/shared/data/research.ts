@@ -192,6 +192,7 @@ export const TOPICS: readonly Topic[] = [
   { id: 'necromancy', name: 'Necromancy', branch: 'occult', hidden: true, era: 'medieval', seconds: 1200, prereqs: ['resurrection_rites'], unlocks: 'Train a Necromancer (Townsfolk)', effects: [] },
   { id: 'summoning', name: 'Summoning', branch: 'occult', hidden: true, seconds: 900, prereqs: ['blood_rite'], unlocks: 'Train a Summoner (Townsfolk)', effects: [] },
   { id: 'blood_oath', name: 'The Blood Oath', branch: 'occult', hidden: true, seconds: 900, prereqs: ['blood_rite'], unlocks: 'Train a Blood Knight (Townsfolk)', effects: [] },
+  { id: 'arcane_arts', name: 'The Arcane Arts', branch: 'military', era: 'medieval', seconds: 480, prereqs: ['archery'], unlocks: 'Mages (the town trains its own): fire from the walls in a raid', effects: [] },
   { id: 'beast_lore', name: 'Beast Lore', branch: 'military', seconds: 300, prereqs: ['spear_hunting'], unlocks: 'Train a Beast Tamer (Townsfolk)', effects: [] },
   { id: 'moon_rite', name: 'The Moon Rite', branch: 'occult', hidden: true, seconds: 600, prereqs: ['spirit_binding', 'beast_lore'], unlocks: 'The founder may become a werewolf', effects: [] },
   { id: 'town_charter', name: 'Town Charter', branch: 'society', era: 'medieval', seconds: 1200, prereqs: ['writing', 'guilds'], requiresCount: 12, unlocks: 'Building the Town Hall opens the Industrial era', effects: [{ type: 'eraCapstone' }] },

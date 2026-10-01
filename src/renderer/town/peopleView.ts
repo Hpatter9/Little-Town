@@ -1,3 +1,4 @@
+import type { ClassId } from '../../shared/data/classes';
 // Draws people on the walkway. Positions arrive at the sim's tick rate and are interpolated per frame.
 
 import { ROOM_H, PLINTH } from '../art/castle';
@@ -7,7 +8,7 @@ import { poolSize } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { glowTexture } from './layer';
-import { CREATURE_FRAME, creatureFrame, creatureSize } from '../art/creatures';
+import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, type Emote } from '../art/effects';
 
 /** Emotes in bursts: shown for EMOTE_FOR seconds out of every EMOTE_EVERY. */
@@ -73,6 +74,15 @@ interface Drawn {
  *  ground behind the walkway), and how fast people climb (px a second). */
 const FLOOR_LIFT = WALK_Y + 2 + PLINTH + 3;
 const CLIMB_SPEED = 90;
+
+/** Each class's Pixel Champions hero: its sheet and block (a mage is the sage sheet's blue-robed wizard). */
+export const CLASS_LOOK: Record<ClassId, [CreatureSheet, number]> = {
+  necromancer: ['champ_necromancer', 0],
+  summoner: ['champ_summoner', 0],
+  beast_tamer: ['champ_beast_tamer', 0],
+  blood_knight: ['champ_blood_knight', 0],
+  mage: ['champ_sage', 4],
+};
 
 export class PeopleView {
   private readonly drawn = new Map<number, Drawn>();
@@ -241,8 +251,8 @@ export class PeopleView {
       if (d.view.cls && !hidden) {
         const facing = d.view.dir < 0 ? 'left' : 'right';
         const moving = Math.abs(d.toX - d.fromX) > 0.5;
-        const sheet = `champ_${d.view.cls}` as const;
-        d.sprite.texture = creatureFrame(sheet, 0, facing, moving ? Math.floor(d.walked / 5) : 1);
+        const [sheet, block] = CLASS_LOOK[d.view.cls];
+        d.sprite.texture = creatureFrame(sheet, block, facing, moving ? Math.floor(d.walked / 5) : 1);
         const size = creatureSize(sheet);
         d.sprite.scale.set(2 * k, 2 * k);
         d.sprite.x = Math.round(x - size.w * k);

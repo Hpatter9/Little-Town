@@ -349,37 +349,42 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Menu themes leave colour swatches and cards alone:** the button rules in `theme.ts` and `skins.ts` skip `.swatch`
   and `.card` (they once painted the colour choices blank and made the Fae's pick cards unreadable).
 
+- **Tower-defence raids (done):** every raid is a battle on a map built from the town (`src/shared/sim/battle.ts`,
+  part of the deterministic sim: `Raid.battle`, `Raider.bt`). `startBattle` runs when a raid turns active (`battlesOn`:
+  `s.battles !== false`; the tests' `plainGame` turns it off), `stepBattle` each tick from `updateRaid`; raiders through
+  the trail (`bt.out`) come on into the town as before, and the in-town loop skips the rest.
+  - The map (`layOut`): a zigzag trail (longer and bendier as the town grows, `len` 18 to 36 cells) to the gate, block
+    spots on it every 3 cells, wall spots from the town's walls (an outer line too with many), towers beside it from
+    defence buildings, traps on it, ground spots for shooters, the town's buildings along it (`decor`, drawn in its style),
+    a second trail for a raid that splits. Each origin's shape (`SHAPES`): the dwarves' rock, the merfolk's shore
+    (`water`), the nomads' wagons (wall spots), the druids' hedges (`hedges`), and a castle town's keep (`keep`: through
+    its gate and up its floors, `KEEP_BAND` cells each, a carpeted run across and the stairs at its end, murder-hole wall
+    spots on the floor above).
+  - Phases: `placing` (`PLACE_TICKS`, 30 s; `battleGo` starts at once), `fighting`, `breather` between waves (bigger raids
+    come in up to 4 waves of `WAVE_SIZE`), `done`. Whoever isn't placed is placed by `autoPlace` (blockers by cover,
+    shooters walls first; the badly hurt kept back); `autoBattle` (`s.autoBattle`, remembered) and `Raid.alone` place
+    everyone at once and cast the spells at `bestAim`.
+  - Fighting: raiders walk the trail (`PACE`), held by a blocker with room (`capacity`: melee skill, the founder one more),
+    shoot fighters in reach, rout below a quarter health (`back`, quickly; the wave doesn't wait). Fighters strike on
+    `INTERVAL` with `GROUND` (1.5) on their blows; they fall back below `FALL_BACK`; deaths are real (`attackPerson`).
+  - Spells: `aimableSpells` (powers that touch foes); the player taps one and the trail (`battleCast` → `castAt`, which
+    aims `foes()` through `b.aim` at `AIM_RADIUS`).
+  - Mages: the class `mage` (`data/classes.ts`, research The Arcane Arts, Medieval) is not rare: one for every
+    `perPeople` (5), and the planner trains them itself (`trainMages`). They fight from range; their fire (`mageFire` in
+    raids.ts, `MAGE_*` in data/raids.ts) ignores armour and bursts over those beside the target for half, in town and on
+    the battle map (`MAGE_INTERVAL`, `MAGE_BURST`). Drawn as the sage sheet's blue wizard (`CLASS_LOOK` in peopleView).
+  - The screen: `src/renderer/battle/battleView.ts` (`BattleScene`: the ground painted by `art/battleArt.ts`, the decor,
+    scenery beyond the map's sides, fighters with green bars, raiders with red bars and a red glow, shots, casts in each
+    spell's look, mage fire bursts; it follows the raiders unless dragged) and `battleHud.ts` (top bar: wave, phase,
+    count, Fight now, Auto; bottom bar: fighters to place or spells to aim, hidden when there's nothing to pick).
+    `main.ts` routes taps (place, move, aim) and drags. On the phone the battle takes the whole screen (`body.battle` in
+    `mobile.ts`, the feed hidden); the map fits between the bars (`insets`). `window.__battle` is the scene (for previews:
+    `screenOf`, `leadScreen`).
+  - Soak (4 towns per origin, 15 days, battles on vs off): SOAK_RESULTS
+
 ## Planned (owner's requests, not started)
 
-- **Tower-defence raids** (the owner's choices: every raid, the player places everyone, a battle lasts 1 to 2 minutes).
-  When raiders arrive the screen switches to a battle map: a trail winding from the map's edge to the town's gate, built
-  from the town (longer and bendier as it grows; walls become wall spots for ranged fighters, defence buildings become
-  fixed towers; biome and season looks). Townsfolk are the towers: melee fighters block the trail (each holds a few
-  raiders), archers stand on wall spots, mages later (the class system), the founder is a hero. Skill, gear and traits
-  set their damage, health and range; deaths stay real (killing blows, bleeding out). Raiders walk the trail with
-  their own speeds and fighting (enemy archers shoot fighters, bosses, flanking raids down a second trail); leakers reach
-  the town and steal, kidnap or burn as now. Origin powers become spells the player aims at the map, with cooldowns.
-  Origin twists: the vampire keep is climbed floor by floor, nomads fight inside the wagon circle, machine turrets are
-  towers.
-  - Length: a battle lasts 1 to 2 minutes; bigger raids (big towns, rival armies, bosses, war) run longer, in several
-    waves with a short breather between them (re-place the fighters, the fallen carried off, spells recharging).
-  - **Auto-watch:** a toggle (on the battle screen, remembered) where the town places everyone and casts the spells
-    itself and the player only watches; the player can still step in at any moment.
-  - **The map is the town:** built from the town as it stands, so it changes as the town grows. The trail runs past
-    the town's own buildings, drawn in its origin's style (`buildingArt` with the style), with its real walls and gate
-    (wall spots), towers and defences (fixed towers), fields and pens on the outskirts, and the biome and season
-    around it. Each origin's map has its own shape: the vampire keep climbed floor by floor, the nomads' wagon circle
-    (then the caravan city), the druids' grove with living hedges, the dwarves' hold in the rock, the merfolk's
-    shore and jetties, the machines' turrets, and so on. A bigger town means a longer trail with more bends, more wall
-    spots and more towers.
-  - The player places every fighter in a placing phase before the raiders come. Whoever isn't placed when it runs out,
-    and every raid that plays out without the player (`Raid.alone`, the forecast, tests), is placed by the town's own
-    placement, so the sim never waits forever.
-  - The battle is part of the deterministic sim (raids play out offline, in the forecast and in tests); the renderer
-    only shows it. Upright, the trail winds down the screen; sideways, across. The old raids stay switchable until the
-    new ones are balanced (soak deaths per origin as now).
-  - Steps: (1) the battle sim headless (map, placement, trail movement, blocking, ranged, outcomes), soaked; (2) the
-    battle screen (first playable); (3) placing and spell aiming; (4) origin maps and spells; (5) mages.
+- Nothing waiting.
 
 ## Known problem (fixed, watch)
 

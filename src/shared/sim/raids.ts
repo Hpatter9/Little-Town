@@ -53,6 +53,11 @@ import {
   PATROL_WARNING_MINUTES,
   type RaidGoal,
   type RaidKind,
+  MAGE_ACCURACY,
+  MAGE_BURST_PX,
+  MAGE_DAMAGE,
+  MAGE_PER_LEVEL,
+  MAGE_SPLASH,
 } from '../data/raids';
 import type { Rng } from '../rng';
 import { buildingCentreX, defOf, depositNear, storages, totalStock } from './buildings';
@@ -621,11 +626,12 @@ function fireDefenses(s: GameState, rng: Rng): void {
   }
 }
 
-/** A defender's attack on the nearest raider in reach (called from the defend task). Returns true if they struck. */
-/** `mult`: a battle's chosen ground (battle.ts) makes each blow count for more. */
-export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bonus = 0, mult = 1): void {
+/** A defender's attack on the nearest raider in reach (called from the defend task). `mult`: a battle's chosen ground
+ *  (battle.ts) makes each blow count for more; `near`: who a mage's fire bursts over (in town, those beside the one hit). */
+export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bonus = 0, mult = 1, near?: Raider[]): void {
   // (held by a rival lord's hex, they lose the moment)
   if (heldBack(s, p, rng)) return;
+  if (p.cls === 'mage') return mageFire(s, p, rd, rng, mult, near ?? (s.raid?.raiders ?? []).filter((o) => o !== rd && !o.ally && !o.down && !o.gone && Math.abs(o.x - rd.x) <= MAGE_BURST_PX && level(o) === level(rd)));
   // a shooter at home takes a stone or arrow from storage for each shot, while there are any
   const kind = ammoOf(p);
   const store = kind ? storages(s).find((b) => (b.store[kind] ?? 0) > 0) : undefined;
@@ -648,8 +654,23 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   if (rd.hp === 0) rd.down = true;
 }
 
-/** How far a defender can strike from: thrown stones for the better throwers, fists and clubs otherwise. */
+/** A mage's fire bolt: it strikes the one aimed at (study makes it hotter; armour and dodging don't help) and bursts
+ *  over those beside it for half. */
+function mageFire(s: GameState, p: Person, rd: Raider, rng: Rng, mult: number, near: Raider[]): void {
+  gainSkill(p, 'research', 6);
+  if (rng.next() >= MAGE_ACCURACY - fogAim(s)) return;
+  const dmg = (rng.int(MAGE_DAMAGE[0], MAGE_DAMAGE[1]) + p.skills.research.level * MAGE_PER_LEVEL) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult;
+  for (const [o, k] of [[rd, 1] as const, ...near.map((o) => [o, MAGE_SPLASH] as const)]) {
+    o.hp = Math.max(0, o.hp - Math.round(dmg * k));
+    o.lastHit = s.tick;
+    o.hitFx = 'fire';
+    if (o.hp === 0) o.down = true;
+  }
+}
+
+/** How far a defender can strike from: thrown stones for the better throwers (and a mage's fire), fists and clubs otherwise. */
 export function defenderReach(p: Person): number {
+  if (p.cls === 'mage') return THROW_RANGE;
   const sling = !!p.gear.weapon && !!ITEM_BY_ID[p.gear.weapon]?.effects.ranged;
   return sling || p.skills.ranged.level > p.skills.melee.level + 2 ? THROW_RANGE : MELEE_RANGE;
 }

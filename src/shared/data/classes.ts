@@ -17,7 +17,7 @@ export type ClassDeed =
   /** Nothing more than the skill. */
   | { kind: 'none' };
 
-export const CLASSES = ['necromancer', 'summoner', 'beast_tamer', 'blood_knight'] as const;
+export const CLASSES = ['necromancer', 'summoner', 'beast_tamer', 'blood_knight', 'mage'] as const;
 export type ClassId = (typeof CLASSES)[number];
 
 export interface ClassDef {
@@ -32,6 +32,8 @@ export interface ClassDef {
   deed: ClassDeed;
   /** The deed, said for the Train button. */
   deedText: string;
+  /** Not a rare calling: a town may have one for every `perPeople` of its people (the town trains them itself). */
+  perPeople?: number;
 }
 
 export const CLASS_DEFS: Record<ClassId, ClassDef> = {
@@ -74,6 +76,17 @@ export const CLASS_DEFS: Record<ClassId, ClassDef> = {
     level: 7,
     deed: { kind: 'scarred' },
     deedText: 'Only someone who has been cut down in battle and lived.',
+  },
+  mage: {
+    name: 'Mage',
+    description: 'Hurls fire from the walls: each bolt bursts over every raider round where it lands.',
+    research: 'arcane_arts',
+    cost: { herbs: 8 },
+    skill: 'research',
+    level: 4,
+    deed: { kind: 'none' },
+    deedText: 'A mind for study.',
+    perPeople: 5,
   },
 };
 

@@ -115,7 +115,7 @@ export interface Battle {
   /** Spells cast at the map, for the drawing: where, what, when. */
   casts?: { at: [number, number]; power: string; tick: number }[];
   /** Arrows and bolts in flight, for the drawing (from a spot or a raider, to a raider or a person). */
-  shots?: { from: [number, number]; to: [number, number]; tick: number; kind: 'arrow' | 'bolt' | 'tower' }[];
+  shots?: { from: [number, number]; to: [number, number]; tick: number; kind: 'arrow' | 'bolt' | 'tower' | 'fire' }[];
 }
 
 /* ------------------------------------------------------------ tuning */
@@ -137,6 +137,9 @@ const INTERVAL = Math.round(1.0 * TICK_HZ);
 /** On ground the town chose (each where they were placed), a fighter's blows count for this much more than in a scramble. */
 const GROUND = 1.5;
 const HERO_BONUS = 4;
+/** A mage casts slower than a bow shoots, but its fire bursts over those within this many cells of where it lands. */
+const MAGE_INTERVAL = Math.round(1.6 * TICK_HZ);
+const MAGE_BURST = 1.3;
 /** How close (cells) a blocker must be on the trail to stop a raider. */
 const BLOCK_NEAR = 0.7;
 /** A fighter this hurt (a share of their health) falls back off the line. */
@@ -663,11 +666,16 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const target = inReach.sort((a, c) => (c.bt!.held === u.spot ? 1 : 0) - (a.bt!.held === u.spot ? 1 : 0) || c.bt!.d - a.bt!.d)[0];
     u.lastAt = s.tick;
     if (p) {
-      u.cooldown = rallied(s, p) ? Math.round(INTERVAL / RALLY_SPEED) : INTERVAL;
-      const before = target.hp;
-      defenderAttack(s, p, target, rng, p.id === s.mainId ? HERO_BONUS : 0, GROUND);
-      if (shooter) shot(b, s, pos, foeAt(map, target), 'arrow');
-      if (target.down && before > 0) fell(b, target);
+      const mage = p.cls === 'mage';
+      const every = mage ? MAGE_INTERVAL : INTERVAL;
+      u.cooldown = rallied(s, p) ? Math.round(every / RALLY_SPEED) : every;
+      // (a mage's fire bursts over those round the one it's aimed at)
+      const at = foeAt(map, target);
+      const near = mage ? wave.filter((o) => o !== target && !o.down && !o.gone && !o.bt!.out && o.bt!.d >= 0 && dist(foeAt(map, o), at) <= MAGE_BURST) : undefined;
+      const hit = [target, ...(near ?? [])].map((o) => [o, o.down] as const);
+      defenderAttack(s, p, target, rng, p.id === s.mainId ? HERO_BONUS : 0, GROUND, near);
+      if (shooter) shot(b, s, pos, at, mage ? 'fire' : 'arrow');
+      for (const [o, was] of hit) if (o.down && !was) fell(b, o);
     } else {
       const a = r.raiders.find((q) => q.id === u.ally)!;
       const ad = ENEMIES[a.kind];
@@ -733,7 +741,7 @@ function fell(b: Battle, rd: Raider): void {
   if (rd.bt) rd.bt.held = undefined;
 }
 
-function shot(b: Battle, s: GameState, from: [number, number], to: [number, number], kind: 'arrow' | 'bolt' | 'tower'): void {
+function shot(b: Battle, s: GameState, from: [number, number], to: [number, number], kind: 'arrow' | 'bolt' | 'tower' | 'fire'): void {
   (b.shots ??= []).push({ from, to, tick: s.tick, kind });
   if (b.shots.length > 40) b.shots.splice(0, b.shots.length - 40);
 }
@@ -818,11 +826,11 @@ export interface BattleView {
   units: { spot: number; person: number | null; ally: number | null; sinceAction: number }[];
   foes: { id: number; x: number; y: number; held: boolean; back: boolean; sinceAction: number; hit: number | null }[];
   /** Who can fight, placed or not (for the placing bar). */
-  roster: { id: number; name: string; ranged: boolean; hp: number; maxHp: number; spot: number | null; hero: boolean }[];
+  roster: { id: number; name: string; ranged: boolean; mage: boolean; hp: number; maxHp: number; spot: number | null; hero: boolean }[];
   /** The origin's spells that strike raiders: aimed at the map by the player. */
   spells: { id: string; name: string; readyIn: number; affordable: boolean }[];
   casts: { x: number; y: number; power: string; age: number }[];
-  shots: { from: [number, number]; to: [number, number]; age: number; kind: 'arrow' | 'bolt' | 'tower' }[];
+  shots: { from: [number, number]; to: [number, number]; age: number; kind: 'arrow' | 'bolt' | 'tower' | 'fire' }[];
 }
 
 /** The battle as the screen sees it (null when there's none on). `spells`: the origin's aimable powers (powers.ts
@@ -847,7 +855,7 @@ export function battleView(s: GameState, spells: BattleView['spells']): BattleVi
       const [x, y] = foeAt(b.map, rd);
       return { id: rd.id, x, y, held: rd.bt!.held !== undefined, back: !!rd.bt!.back, sinceAction: s.tick - rd.lastAction, hit: rd.bt!.hit ?? null };
     }),
-    roster: fighters(s).map((p) => ({ id: p.id, name: p.name, ranged: ranged(p), hp: p.hp, maxHp: maxHp(p), spot: b.units.find((u) => u.person === p.id)?.spot ?? null, hero: p.id === s.mainId })),
+    roster: fighters(s).map((p) => ({ id: p.id, name: p.name, ranged: ranged(p), mage: p.cls === 'mage', hp: p.hp, maxHp: maxHp(p), spot: b.units.find((u) => u.person === p.id)?.spot ?? null, hero: p.id === s.mainId })),
     spells,
     casts: (b.casts ?? []).map((c) => ({ x: c.at[0], y: c.at[1], power: c.power, age: (s.tick - c.tick) / TICK_HZ })),
     shots: (b.shots ?? []).map((x) => ({ from: x.from, to: x.to, kind: x.kind, age: (s.tick - x.tick) / TICK_HZ })),

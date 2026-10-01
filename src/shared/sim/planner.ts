@@ -3,6 +3,7 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { trainMages } from './classes';
 import { buildOrigin, nomadic } from './nomads';
 import { adoptRooms, castleOn, castleReach, castleSpan, inKeep, openFloors, roomKind } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -871,5 +872,6 @@ export function runPlanner(s: GameState, back: readonly BackTerrain[]): void {
   planGathering(s, needs(s), plan, clear, craftWants);
   planVisitor(s);
   planShop(s);
+  trainMages(s);
   s.plan = plan;
 }

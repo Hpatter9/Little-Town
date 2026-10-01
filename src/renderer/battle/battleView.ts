@@ -12,7 +12,7 @@ import type { PersonView, RaiderView, Snapshot } from '../../shared/sim/snapshot
 import { buildingArt } from '../art/buildings';
 import { battleGround, CELL, toArt, trailCells } from '../art/battleArt';
 import { creatureFeet, creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
-import { castFrame, impactFrame, AREA_SIZE, IMPACT_SIZE } from '../art/effects';
+import { blastFrame, castFrame, impactFrame, AREA_SIZE, BLAST_SIZE, IMPACT_SIZE } from '../art/effects';
 import { heldWeapon, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { machineFrame, machineSize } from '../art/machines';
@@ -22,6 +22,7 @@ import { makeSpriteSet, type SpriteSet } from '../art/sprites';
 import { stillTexture } from '../art/stills';
 import { PAL } from '../art/palette';
 import { glowTexture } from '../town/layer';
+import { CLASS_LOOK } from '../town/peopleView';
 import { LOOKS } from '../town/spellLooks';
 import { SHEETS } from '../town/spellsView';
 
@@ -29,6 +30,8 @@ import { SHEETS } from '../town/spellsView';
 const FIGURE = 0.4;
 /** After the player drags the map, it waits this long before following the raiders again. */
 const FOLLOW_WAIT_MS = 4000;
+/** How far a mage's fire is drawn bursting (cells: as the sim's burst). */
+const MAGE_BURST_DRAWN = 1.3;
 
 interface Moving {
   sprite: Sprite;
@@ -370,12 +373,24 @@ export class BattleScene {
       if (u.person !== null) {
         const p = people.get(u.person);
         if (!p) continue;
-        const anim: LpcAnim = acting ? (p.gear.weapon && /bow|sling/.test(p.gear.weapon) ? 'shoot' : 'slash') : 'walk';
-        const frame = acting ? Math.min(FRAME_COUNT[anim] - 1, Math.floor(u.sinceAction * 1.2)) : 0;
-        m.sprite.texture = lpcFrame(p.look, anim, frame, heldWeapon(p.gear, 'fight'), [...(p.look.wear ? [] : []), ...wornLayers(p.gear, p.gearQ)]);
-        const k = FIGURE * (p.look.height ?? 1) * (p.growsUpIn !== null ? 0.7 : 1);
-        m.sprite.scale.set(k * m.facing, k);
-        m.sprite.position.set(Math.round(fx - (m.facing > 0 ? CENTRE_X : -CENTRE_X - 1) * k), Math.round(fy - FEET_Y * k));
+        if (p.cls) {
+          // (one who's taken up a class looks the part, as in the town: its Pixel Champions hero)
+          const [sheet, block] = CLASS_LOOK[p.cls];
+          const facing = m.facing < 0 ? 'left' : 'right';
+          m.sprite.texture = creatureFrame(sheet, block, facing, acting ? Math.floor(u.sinceAction) : Math.floor(now / 500), acting);
+          const size = creatureSize(sheet);
+          const flip = creatureFlip(sheet, facing);
+          const k = FIGURE * 2;
+          m.sprite.scale.set(k * flip, k);
+          m.sprite.position.set(Math.round(fx - ((size.w * k) / 2) * flip), Math.round(fy - size.h * k));
+        } else {
+          const anim: LpcAnim = acting ? (p.gear.weapon && /bow|sling/.test(p.gear.weapon) ? 'shoot' : 'slash') : 'walk';
+          const frame = acting ? Math.min(FRAME_COUNT[anim] - 1, Math.floor(u.sinceAction * 1.2)) : 0;
+          m.sprite.texture = lpcFrame(p.look, anim, frame, heldWeapon(p.gear, 'fight'), wornLayers(p.gear, p.gearQ));
+          const k = FIGURE * (p.look.height ?? 1) * (p.growsUpIn !== null ? 0.7 : 1);
+          m.sprite.scale.set(k * m.facing, k);
+          m.sprite.position.set(Math.round(fx - (m.facing > 0 ? CENTRE_X : -CENTRE_X - 1) * k), Math.round(fy - FEET_Y * k));
+        }
         m.sprite.tint = p.rally === 'on' ? 0xffe070 : 0xffffff;
         hp = p.hp / Math.max(1, p.maxHp);
       } else {
@@ -412,6 +427,12 @@ export class BattleScene {
       const [bx, by] = this.px(s.to[0], s.to[1] - 0.4);
       const x = ax + (bx - ax) * t;
       const y = ay + (by - ay) * t - Math.sin(t * Math.PI) * (s.kind === 'arrow' ? 6 : 2);
+      if (s.kind === 'fire') {
+        // a mage's fire: a ball with a tail of sparks, then a burst where it lands
+        this.fx.circle(x, y, 2).fill({ color: 0xffb040 }).circle(x, y, 1).fill({ color: 0xfff0a0 });
+        for (let k = 1; k <= 3; k++) this.fx.circle(ax + (bx - ax) * (t - k * 0.06), ay + (by - ay) * (t - k * 0.06), 1.4 - k * 0.3).fill({ color: 0xff7020, alpha: 0.6 - k * 0.15 });
+        continue;
+      }
       const ang = Math.atan2(by - ay, bx - ax);
       const len = s.kind === 'arrow' ? 4 : 5;
       this.fx
@@ -420,6 +441,14 @@ export class BattleScene {
         .stroke({ width: s.kind === 'bolt' ? 1.5 : 1, color: s.kind === 'bolt' ? 0x9ae8ff : s.kind === 'tower' ? 0xf0d080 : 0xe8dcc0 });
     }
     for (const c of this.fxSprites.removeChildren()) c.destroy();
+    for (const s of b.shots) {
+      if (s.kind !== 'fire' || s.age < 0.25 || s.age > 0.7) continue;
+      const [bx, by] = this.px(s.to[0], s.to[1] - 0.4);
+      const k = (s.age - 0.25) / 0.45;
+      this.fx.circle(bx, by, CELL * MAGE_BURST_DRAWN * (0.3 + 0.7 * k)).fill({ color: 0xff8030, alpha: 0.45 * (1 - k) });
+      const tex = blastFrame(k * 12);
+      if (tex) this.effect(tex, bx, by, BLAST_SIZE * 0.35);
+    }
     for (const c of b.casts) {
       // (each spell in its own colours and effect, as in the town: town/spellLooks.ts)
       const look = LOOKS[c.power];

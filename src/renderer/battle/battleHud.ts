@@ -91,7 +91,7 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; pick(
           ...b.roster.map((r) => {
             const c = document.createElement('button');
             c.className = `battle-chip${r.spot !== null ? ' placed' : ''}${hud.picked === r.id ? ' on' : ''}`;
-            const mark = r.hero ? '★' : r.ranged ? '🏹' : '⚔';
+            const mark = r.hero ? '★' : r.mage ? '✦' : r.ranged ? '🏹' : '⚔';
             c.textContent = `${mark} ${r.name.split(' ')[0]}`;
             const hp = document.createElement('span');
             hp.className = 'battle-hp';

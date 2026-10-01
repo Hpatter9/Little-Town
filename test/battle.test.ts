@@ -4,6 +4,8 @@ import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
 import { autoPlace, fighters, layOut, placeFighter, ranged, startBattle } from '../src/shared/sim/battle';
 import { castAt } from '../src/shared/sim/powers';
+import { trainMages } from '../src/shared/sim/classes';
+import { defenderAttack } from '../src/shared/sim/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { Sim } from '../src/shared/sim/sim';
 import { makePerson, newGame, type Building, type GameState } from '../src/shared/sim/state';
@@ -172,4 +174,33 @@ test("each origin's map: a castle town's raiders climb its keep floor by floor; 
   assert.ok(map.spots.some((q) => q.kind === 'wall' && q.x > map.keep!.from), 'and shot down on from the floor above');
   assert.ok(!layOut(newGame('plain', { origin: 'knights' }), false).keep, 'no keep for a town without a castle');
   assert.ok(layOut(newGame('grove', { origin: 'druid' }), false).hedges);
+});
+
+test('mages: the town trains its own (one for every five people), and their fire bursts over the raiders round the one hit', () => {
+  const s = town('mages', 10);
+  s.research.done.push('arcane_arts');
+  for (const p of s.people) p.skills.research.level = 5;
+  const store = add(s, 'stockpile', camp(s) + 2);
+  store.store = { herbs: 40 };
+  trainMages(s);
+  trainMages(s);
+  trainMages(s);
+  const mages = s.people.filter((p) => p.cls === 'mage');
+  assert.equal(mages.length, 2, 'ten people: two mages');
+  assert.ok(!mages.some((p) => p.id === s.mainId), 'not the founder');
+  assert.ok(mages.every(ranged), 'they fight from range');
+  // three raiders bunched on the trail: one bolt hurts all of them
+  const r = startRaid(s, RAID_KIND_BY_ID.bandits, 120, new Rng(5));
+  r.phase = 'active';
+  startBattle(s, r);
+  const foes = r.raiders.filter((rd) => !rd.ally).slice(0, 3);
+  assert.equal(foes.length, 3);
+  for (const rd of r.raiders) rd.bt!.d = 4;
+  const before = foes.map((rd) => rd.hp);
+  let hurt = 0;
+  for (let i = 0; i < 20 && !hurt; i++) {
+    defenderAttack(s, mages[0], foes[0], new Rng(i), 0, 1, foes.slice(1));
+    hurt = foes.filter((rd, k) => rd.hp < before[k]).length;
+  }
+  assert.equal(hurt, 3, 'all three burnt');
 });
