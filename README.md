@@ -184,6 +184,9 @@ To install it on Android, open the hosted address in Chrome and choose ⋮ → A
   its fields few and big: with the Ard Plough it ploughs two garden plots side by side into one Open Field, and with
   Crop Rotation an open field becomes an Estate Farm with a barn. Fields lie on the rising ground behind the town, so
   their crops show over the roofs.
+- **The phone held upright:** the town fills the lower half, with one slim row of menu tabs under it. Above it, a
+  live feed of what the town is up to: raids, disasters and questions waiting, the townsperson you follow, and the
+  latest news, each with a picture of who or what it's about.
 - **Roomy shops and taverns:** the shop and the tavern are big rooms with aisles kept clear from the door to the
   counter. The keeper fills no more than half the floor; once it's that full the town saves up and pays to extend the
   place (up to five times), rather than cramming more in.

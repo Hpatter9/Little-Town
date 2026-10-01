@@ -98,6 +98,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs
   itself, so there's little to watch while a menu is open. The tabs stay visible (along the bottom upright).
+- **The phone held upright:** a slim title bar; a live **feed** (`src/renderer/mobile/feed.ts`): cards for what wants
+  attention now (raid, disaster, a question), the hero being followed, and the latest happenings (the Journal, the
+  day's small change left out: `CHATTER`), each with a picture borrowed from the strip (`window.__picture` in
+  `main.ts`: the townsperson's head, or the building in the town's style) or a mark for the kind of news; the town,
+  bigger, in the lower `UPRIGHT_TOWN` (55%) of the height (`layout()` in `mobile.ts`: the strip fills its room, sky over
+  the town; upright zoom key `littletown.zoom3`, default 1.5); and one slim row of tabs along the bottom (a mark over a
+  short name: `TAB_ICONS`, `SHORT_LABELS`). Sideways is as it was.
 - **Phase 3 is done** (the Tavern: see above).
 - **Origins are done:** `src/shared/data/origins.ts` (defs: start, rules, powers), applied at founding in
   `newGame`; the rule multipliers are in `src/shared/sim/origin.ts` (asked for by people, farming, raids, crafting, the
