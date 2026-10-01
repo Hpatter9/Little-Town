@@ -389,7 +389,42 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 
 ## Planned (owner's requests, not started)
 
-- Nothing waiting.
+- **Weapons, ten times over, with +N** (the owner's choices):
+  - About 160 weapons (from 16): every era gets several of each kind (swords, axes, maces, spears, daggers, bows,
+    crossbows, slings, staves, wands, guns...), with different damage, accuracy, speed and quirks (reach, armour
+    piercing, bleeding, stun, splash, beast or undead bane), so fights vary. Drawn from the icon sheets already used.
+  - **+0 to +5** on crafted weapons and armour, rolled when made from the crafter's Crafting skill and luck, **on top
+    of** the quality grade (Poor to Divine). +4 and +5 are very rare. A basic weapon at +5 is about as good as one
+    three tiers up (+N adds to its damage and accuracy; the grade multiplies as now).
+  - **Unique weapons** that come only from bosses and quests (named, one of each, with special effects), many more
+    than the 7 relics.
+- **Dungeon delves** (the owner's choices: the player picks the party members):
+  - Exploring the region with expeditions (a new scouting kind) reveals new areas on the world map, and with them
+    dungeons; this is also how more of the map opens up.
+  - A delve is like an expedition but longer (several hours to a few game days) and more involved: the party goes
+    room by room, fights what turns up, and ends in a boss fight with great loot. Dozens of new bosses.
+  - **Watching it:** tap the delve (on the Expeditions tab or a feed card) and the town view is replaced by the
+    party walking to the right through the dungeon, fighting what comes, until the player goes back to the town.
+  - Several locations and dungeon types (crypt, goblin warren, flooded temple, deep mine, wizard's tower, fey hollow,
+    spider nest, sunken ship, ice cave, volcanic forge, machine vault, dragon's den...), each with its look, monsters
+    and bosses. Sometimes a quest is tied to one.
+  - **Varied rooms:** traps (scouts spot them), treasure rooms, shrines (blessings or curses), puzzle doors (Research),
+    rest camps, forks (riskier or safer way).
+  - **Run modifiers and elites:** each delve rolls a twist (Haunted, Flooded, Rich Veins, Cursed: no healing...);
+    some monsters are elites with affixes (fiery, armoured, swift, vampiric...).
+  - **Supplies and retreat:** torches and rations; running low or losing too many turns the party back with what
+    it found.
+  - **Depth and respawn:** a cleared dungeon goes quiet, then reawakens weeks later deeper and harder.
+  - **Quests:** rescue a captive (they join), bounties on named monsters, relic hunts for a visitor or tavern guest,
+    a fallen delver's gear to recover; offered through events and the tavern.
+  - **Trophy hall:** a building showing boss trophies and uniques; each adds renown and draws travellers.
+  - **Rival adventurers:** another party sometimes races for the same dungeon (beat them, help them and they may
+    join, or fight them for the loot).
+  - **Phone alerts:** the boss reached, a unique found, someone lost, home again.
+  - Deterministic sim like everything else (delves play out offline and in tests); deaths are real.
+- Steps: (1) weapons and +N; (2) uniques and the bosses' loot tables; (3) scouting and the opened map; (4) the delve
+  sim (rooms, fights, supplies, retreat, the boss, loot); (5) the delve view; (6) dungeon types, modifiers, elites,
+  dozens of bosses; (7) quests, rivals, the trophy hall, respawn, alerts; soak, phone checks, PR.
 
 ## Known problem (fixed, watch)
 
