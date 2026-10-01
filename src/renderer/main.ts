@@ -129,6 +129,13 @@ async function start(): Promise<void> {
   });
   document.body.appendChild(app.canvas);
   const canvas = app.canvas;
+  // On the phone the page shows the strip scaled up (a CSS transform on its frame), which would stretch the drawn
+  // picture and blur it: the page tells the strip its scale, and it draws at that resolution instead, so every pixel of
+  // the art lands on whole pixels of the screen (mobile.ts snaps the scale to make it so).
+  const sharpen = (scale: number) => app.renderer.resize(app.screen.width, app.screen.height, (window.devicePixelRatio || 1) * scale);
+  Object.assign(window, { __setStripScale: sharpen });
+  const asked = (window as unknown as { __stripScale?: number }).__stripScale;
+  if (asked) sharpen(asked);
 
   const town = new TownView(world, first.tiles, first.buildings);
   town.season = first.calendar.season;

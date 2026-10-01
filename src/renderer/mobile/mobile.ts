@@ -78,12 +78,21 @@ function layout(): void {
   const room = sideways.matches ? free : Math.round(free * UPRIGHT_TOWN);
   // (a castle town stands tall: the strip is zoomed out enough to show all of the keep)
   const need = castle ? keepHeight(castle) + KEEP_MARGIN : 0;
-  const z = Math.min(zoom, room / STRIP_HEIGHT, need ? room / need : Infinity); // (never taller than there's room for)
+  const fit = Math.min(zoom, room / STRIP_HEIGHT, need ? room / need : Infinity); // (never taller than there's room for)
+  // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
+  const dpr = window.devicePixelRatio || 1;
+  const z = Math.max(1, Math.floor(fit * dpr + 0.01)) / dpr;
   // (it fills its room, the town along the bottom and sky over it)
   const height = room / z;
   strip.style.width = `${stripBox.clientWidth / z}px`;
   strip.style.height = `${height}px`;
   strip.style.transform = `scale(${z})`;
+  // (and the strip draws at that scale, rather than being stretched to it)
+  const win = strip.contentWindow as (Window & { __stripScale?: number; __setStripScale?: (z: number) => void }) | null;
+  if (win) {
+    win.__stripScale = z;
+    win.__setStripScale?.(z);
+  }
   document.documentElement.style.setProperty('--strip-h', `${height * z}px`);
   strip.contentDocument?.documentElement?.style.setProperty('--ui-zoom', String(Math.max(1, 1 / z)));
 }
