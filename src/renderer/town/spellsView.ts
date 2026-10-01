@@ -42,7 +42,7 @@ interface Live {
 
 /** Each effect sheet: a frame at a time (null once it's over), its size, frames a second, and where its foot sits
  *  in the frame (from the bottom). */
-const SHEETS: Record<SpriteFx, { frame: (i: number) => Texture | null; size: number; fps: number; foot: number; scale?: number; glow?: boolean }> = {
+export const SHEETS: Record<SpriteFx, { frame: (i: number) => Texture | null; size: number; fps: number; foot: number; scale?: number; glow?: boolean }> = {
   blood: { frame: bloodFrame, size: BLOOD_SIZE, fps: 14, foot: 20 },
   vampire: { frame: (i) => spellFrame('vampire', i), size: SPELL_SIZE, fps: 10, foot: 14 },
   undead: { frame: (i) => spellFrame('undead', i), size: SPELL_SIZE, fps: 10, foot: 14 },

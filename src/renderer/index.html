@@ -392,6 +392,7 @@
       }
       #battle-top .battle-row .tab {
         padding: 3px 9px;
+        white-space: nowrap;
       }
       #battle-top .battle-auto.on {
         border-color: #8cc05a;
@@ -399,6 +400,17 @@
       }
       #battle-bar {
         bottom: 6px;
+      }
+      /* (the desktop's strip is short: the bars stay small, the hints go) */
+      @media (max-height: 260px) {
+        #battle-top,
+        #battle-bar {
+          padding: 2px 6px;
+          font-size: 11px;
+        }
+        #battle-bar .battle-hint {
+          display: none;
+        }
       }
       #battle-bar .battle-hint {
         font-size: 11px;

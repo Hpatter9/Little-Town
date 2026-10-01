@@ -156,3 +156,20 @@ test('the town places its blockers on the trail and its shooters on the walls fi
   }
   assert.ok(updateRaid);
 });
+
+test("each origin's map: a castle town's raiders climb its keep floor by floor; the druids' trail runs between hedges", () => {
+  const v = newGame('keep', { origin: 'vampire' });
+  for (let f = 0; f < 3; f++) {
+    const room = add(v, 'lean_to', camp(v));
+    room.room = true;
+    room.floor = f;
+  }
+  const map = layOut(v, false);
+  assert.ok(map.keep && map.keep.floors === 3, `three floors (${JSON.stringify(map.keep)})`);
+  const path = map.paths[0];
+  assert.ok(path[path.length - 1][0] > map.keep.from + 6, 'the trail goes on up through the keep');
+  assert.ok(map.spots.some((q) => q.kind === 'block' && q.x > map.keep!.from), 'the stairs can be held');
+  assert.ok(map.spots.some((q) => q.kind === 'wall' && q.x > map.keep!.from), 'and shot down on from the floor above');
+  assert.ok(!layOut(newGame('plain', { origin: 'knights' }), false).keep, 'no keep for a town without a castle');
+  assert.ok(layOut(newGame('grove', { origin: 'druid' }), false).hedges);
+});

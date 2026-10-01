@@ -56,14 +56,19 @@ export function battleGround(map: BattleMap, vertical: boolean, seed: number): P
           else if (r < 0.14) p.rect(x, y, 2, 2, PAL.grassLight);
           else if (r < 0.145) p.px(x, y, PAL.flowers[Math.floor(hash(seed ^ 3, x, y) * PAL.flowers.length)]);
         }
-      // each cell: sea, rock, trail, wall
+      // each cell: sea, rock, trail, wall (and a castle's keep at the end)
+      const spotCells = new Set(map.spots.map((q) => `${Math.floor(q.x)},${Math.floor(q.y)}`));
+      const keepFrom = map.keep?.from ?? Infinity;
       for (let cx = 0; cx < map.len; cx++)
         for (let cy = 0; cy < map.wid; cy++) {
           const [ax, ay] = toArt(vertical, cx, cy);
           const key = `${cx},${cy}`;
-          if (cy < water) seaCell(p, ax, ay, cx, cy, cy === water - 1, vertical, seed);
+          if (cx >= keepFrom) keepCell(p, ax, ay, cx - keepFrom, cy, trail.has(key), trail, cx, vertical, map.len - 1 - keepFrom, seed);
+          else if (cy < water) seaCell(p, ax, ay, cx, cy, cy === water - 1, vertical, seed);
           else if (map.rock && (cy === 0 || cy === map.wid - 1) && !trail.has(key)) rockCell(p, ax, ay, seed ^ (cx * 31 + cy));
           else if (trail.has(key)) trailCell(p, ax, ay, cx, cy, trail, vertical, seed);
+          else if (map.hedges && !spotCells.has(key) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => trail.has(`${cx + dx},${cy + dy}`)))
+            hedgeCell(p, ax, ay, seed ^ (cx * 31 + cy * 7));
         }
       // the walls over it all (the gate where the trail runs through a wall line)
       const lines = new Set(map.walls.map(([x]) => x));
@@ -186,4 +191,88 @@ function gateCell(p: Painter, x: number, y: number, vertical: boolean, kind: str
     p.rect(x, y + CELL - 3, CELL, 3, w.dark);
     p.rect(x + 1, y + 3, CELL - 2, 2, w.light);
   }
+}
+
+/** The keep's stone, its carpet and its lamps (the vampires' colours). */
+const KEEP = { dark: '#2a2430', wall: '#4a4250', stone: '#5e5666', light: '#76707e', mortar: '#3e3846', carpet: '#7a1a24', carpetLight: '#9a2a30', gold: '#c8a040', flame: '#ffb040' };
+
+/** A cell of the keep, `rel` cells in from its front wall: the front wall (the gate where the trail goes in), then each
+ *  floor's band (KEEP_BAND, sim/battle.ts): the floor, the run across (a red carpet), and the wall under the next
+ *  floor (cut through where the stairs climb), up to the lord's hall at the top (`last`: its back wall). */
+function keepCell(p: Painter, x: number, y: number, rel: number, cy: number, onTrail: boolean, trail: Set<string>, cx: number, vertical: boolean, last: number, seed: number): void {
+  const band = (rel - 1) % 3;
+  // flagstones
+  p.rect(x, y, CELL, CELL, KEEP.stone);
+  for (let k = 0; k < CELL; k += 8) {
+    p.rect(x, y + k, CELL, 1, KEEP.mortar);
+    p.rect(x + ((k / 8) % 2 ? 4 : 12), y + k, 1, 8, KEEP.mortar);
+  }
+  if (hash(seed, cx, cy) < 0.3) p.rect(x + 3, y + 10, 3, 2, KEEP.light);
+  const wallRow = rel === 0 || rel === last || band === 2;
+  if (wallRow && !onTrail) {
+    // the wall, cut through: its stone in section, hatched
+    p.rect(x, y, CELL, CELL, KEEP.wall);
+    for (let k = -CELL; k < CELL; k += 4) for (let j = 0; j < CELL; j++) if (k + j >= 0 && k + j < CELL) p.px(x + k + j, y + j, KEEP.dark);
+    if (vertical) p.rect(x, y + CELL - 2, CELL, 2, KEEP.dark), p.rect(x, y, CELL, 1, KEEP.light);
+    else p.rect(x + CELL - 2, y, 2, CELL, KEEP.dark), p.rect(x, y, 1, CELL, KEEP.light);
+    // a lamp on the wall now and then
+    if (hash(seed ^ 5, cx, cy) < 0.25) {
+      p.rect(x + 7, y + 6, 2, 3, KEEP.gold);
+      p.rect(x + 7, y + 4, 2, 2, KEEP.flame);
+    }
+    return;
+  }
+  if (onTrail) {
+    if (rel === 0) {
+      // the keep's gate: the portcullis raised, its teeth over the way in
+      p.rect(x, y, CELL, CELL, KEEP.dark);
+      for (let k = 1; k < CELL; k += 3) vertical ? p.rect(x + k, y, 1, 5, KEEP.light) : p.rect(x, y + k, 5, 1, KEEP.light);
+      return;
+    }
+    if (band === 2) {
+      // the stairs up: steps across the way
+      for (let k = 0; k < CELL; k += 3) vertical ? p.rect(x, y + k, CELL, 2, KEEP.light) : p.rect(x + k, y, 2, CELL, KEEP.light);
+      return;
+    }
+    // the carpet down the middle of the way, gold at its edges
+    const edge = (dx: number, dy: number) => !trail.has(`${cx + dx},${cy + dy}`);
+    p.rect(x + 2, y + 2, CELL - 4, CELL - 4, KEEP.carpet);
+    p.rect(x + 4, y + 4, CELL - 8, CELL - 8, KEEP.carpetLight);
+    const [up, down, left, right] = vertical ? [edge(-1, 0), edge(1, 0), edge(0, -1), edge(0, 1)] : [edge(0, -1), edge(0, 1), edge(-1, 0), edge(1, 0)];
+    if (!up) p.rect(x + 2, y, CELL - 4, 2, KEEP.carpet);
+    if (!down) p.rect(x + 2, y + CELL - 2, CELL - 4, 2, KEEP.carpet);
+    if (!left) p.rect(x, y + 2, 2, CELL - 4, KEEP.carpet);
+    if (!right) p.rect(x + CELL - 2, y + 2, 2, CELL - 4, KEEP.carpet);
+    if (up) p.rect(x + 2, y + 2, CELL - 4, 1, KEEP.gold);
+    if (down) p.rect(x + 2, y + CELL - 3, CELL - 4, 1, KEEP.gold);
+    if (left) p.rect(x + 2, y + 2, 1, CELL - 4, KEEP.gold);
+    if (right) p.rect(x + CELL - 3, y + 2, 1, CELL - 4, KEEP.gold);
+    return;
+  }
+  // the rooms along each floor: a rug, a chest, a candle stand
+  const r = hash(seed ^ 11, cx, cy);
+  if (r < 0.15) {
+    p.rect(x + 2, y + 3, 12, 10, '#2e3456');
+    p.rect(x + 3, y + 4, 10, 8, '#444c78');
+  } else if (r < 0.25) {
+    p.rect(x + 4, y + 6, 8, 6, '#5a3a20');
+    p.rect(x + 4, y + 6, 8, 1, KEEP.gold);
+  } else if (r < 0.33) {
+    p.rect(x + 7, y + 6, 2, 7, KEEP.dark);
+    p.rect(x + 7, y + 4, 2, 2, KEEP.flame);
+  }
+}
+
+/** A clipped hedge beside the trail (the druids' grove): evergreen, one row with its neighbours, round leafy clumps
+ *  over a dark heart, a shadow along its foot. */
+const HEDGE = { dark: '#1e3a1c', heart: '#2b5028', leaf: '#3e7234', light: '#5a9443', tip: '#7ab45a' };
+function hedgeCell(p: Painter, x: number, y: number, seed: number): void {
+  p.rect(x, y + 1, CELL, CELL - 2, HEDGE.heart);
+  for (let k = 0; k < 10; k++) {
+    const hx = x + Math.floor(hash(seed, k, 1) * 13);
+    const hy = y + 1 + Math.floor(hash(seed, k, 2) * 10);
+    p.disc(hx + 1.5, hy + 1.5, 2.2, k % 3 ? HEDGE.leaf : HEDGE.light);
+  }
+  for (let k = 0; k < 3; k++) p.px(x + 2 + Math.floor(hash(seed, k, 3) * 12), y + 2 + Math.floor(hash(seed, k, 4) * 8), HEDGE.tip);
+  p.rect(x, y + CELL - 2, CELL, 2, HEDGE.dark);
 }

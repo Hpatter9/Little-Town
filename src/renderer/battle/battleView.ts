@@ -7,7 +7,7 @@
 import { Container, Graphics, Sprite, Text, type Texture } from 'pixi.js';
 import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from '../../shared/data/enemies';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
-import type { BattleMap, BattleView as BattleSnap } from '../../shared/sim/battle';
+import { AIM_RADIUS, type BattleMap, type BattleView as BattleSnap } from '../../shared/sim/battle';
 import type { PersonView, RaiderView, Snapshot } from '../../shared/sim/snapshot';
 import { buildingArt } from '../art/buildings';
 import { battleGround, CELL, toArt, trailCells } from '../art/battleArt';
@@ -22,6 +22,8 @@ import { makeSpriteSet, type SpriteSet } from '../art/sprites';
 import { stillTexture } from '../art/stills';
 import { PAL } from '../art/palette';
 import { glowTexture } from '../town/layer';
+import { LOOKS } from '../town/spellLooks';
+import { SHEETS } from '../town/spellsView';
 
 /** Characters are drawn at this share of their town size (a cell is half a town tile). */
 const FIGURE = 0.4;
@@ -235,7 +237,7 @@ export class BattleScene {
     const sc = this.scenery;
     const desert = snap.biome === 'desert';
     // (and beyond its sides, where the screen is wider than the map)
-    for (let x = 0; x < map.len; x++)
+    for (let x = 0; x < (map.keep?.from ?? map.len); x++)
       for (let y = map.water ? map.water : -3; y < map.wid + 3; y++) {
         if (taken.has(`${x},${y}`) || this.near(x, y)) continue;
         const r = rand(seed, x, y);
@@ -419,11 +421,28 @@ export class BattleScene {
     }
     for (const c of this.fxSprites.removeChildren()) c.destroy();
     for (const c of b.casts) {
+      // (each spell in its own colours and effect, as in the town: town/spellLooks.ts)
+      const look = LOOKS[c.power];
+      const colour = look?.color ?? 0xc080ff;
       const [cx, cy] = this.px(c.x, c.y);
       const k = Math.min(1, c.age / 0.6);
-      this.fx.circle(cx, cy, 2.6 * CELL * (0.4 + 0.6 * k)).fill({ color: 0xc080ff, alpha: 0.25 * (1 - c.age / 3) });
-      const tex = castFrame((c.age + (now % 1000) / 1000) * 8);
-      if (tex) this.effect(tex, cx, cy, AREA_SIZE * 0.6);
+      const r = AIM_RADIUS * CELL;
+      this.fx.circle(cx, cy, r * (0.4 + 0.6 * k)).fill({ color: colour, alpha: 0.22 * (1 - c.age / 3) });
+      this.fx.circle(cx, cy, r * (0.4 + 0.6 * k)).stroke({ width: 1, color: colour, alpha: 0.7 * (1 - c.age / 3) });
+      const sheet = look?.sprite ? SHEETS[look.sprite] : null;
+      if (sheet) {
+        // (played over the ground it struck: in the middle, and either side)
+        const at: [number, number][] = [[0, 0], [-0.45, -0.3], [0.45, 0.3]];
+        at.forEach(([dx, dy], i) => {
+          const f = sheet.frame((c.age - i * 0.12) * sheet.fps);
+          if (!f || c.age < i * 0.12) return;
+          const size = sheet.size * (sheet.scale ?? 1) * 0.5;
+          this.effect(f, cx + dx * r, cy + dy * r - size * 0.3, size, !!sheet.glow);
+        });
+      } else {
+        const tex = castFrame((c.age + (now % 1000) / 1000) * 8);
+        if (tex) this.effect(tex, cx, cy, AREA_SIZE * 0.6, true);
+      }
     }
     // a hit landing on a fighter (a burst where a raider's blow fell)
     for (const f of b.foes) {
@@ -437,7 +456,7 @@ export class BattleScene {
     // the aim: a ring where a spell would land
     if (this.aiming && this.lastAim) {
       const [cx, cy] = this.px(this.lastAim[0], this.lastAim[1]);
-      this.fx.circle(cx, cy, 2.6 * CELL).stroke({ width: 1, color: 0xe0b0ff, alpha: 0.8 });
+      this.fx.circle(cx, cy, AIM_RADIUS * CELL).stroke({ width: 1, color: LOOKS[this.aiming]?.color ?? 0xe0b0ff, alpha: 0.8 });
     }
     // follow the raiders furthest along (unless the player has just moved the map)
     if (performance.now() - this.draggedAt > FOLLOW_WAIT_MS && b.foes.length) {
@@ -452,12 +471,12 @@ export class BattleScene {
   /** Where the player is aiming a spell (map cells), for the ring. */
   lastAim: [number, number] | null = null;
 
-  private effect(tex: Texture, cx: number, cy: number, size: number): void {
+  private effect(tex: Texture, cx: number, cy: number, size: number, glow = true): void {
     const s = new Sprite(tex);
     s.anchor.set(0.5);
     s.width = s.height = size;
     s.position.set(cx, cy);
-    s.blendMode = 'add';
+    s.blendMode = glow ? 'add' : 'normal';
     this.fxSprites.addChild(s);
   }
 

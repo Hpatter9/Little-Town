@@ -17,6 +17,7 @@ import { ENEMIES } from '../data/enemies';
 import { RAID_KIND_BY_ID, THROW_RANGE } from '../data/raids';
 import { WORLD_WIDTH, TILE } from '../constants';
 import type { Rng } from '../rng';
+import { castleFloors, castleOn } from './castle';
 import { attackPerson, defenderAttack, defenderReach, townEdgeX } from './raids';
 import { fogAim, turretsDown, wardOf } from './rivals';
 import { rallied, RALLY_SPEED } from './rally';
@@ -59,6 +60,11 @@ export interface BattleMap {
   /** Water along one side (the merfolk's shore), rock (the dwarves' hold): drawn, and no spots there. */
   water?: number;
   rock?: boolean;
+  /** Hedges line the trail (the druids' grove). */
+  hedges?: boolean;
+  /** A castle town's keep, at the end of the map: from its front wall (`from`, along), its floors climbed one by one
+   *  (each a band of `KEEP_BAND` cells: a run across, then the stairs up at its end) to the lord's hall at the top. */
+  keep?: { from: number; floors: number };
   /** The town's look (its origin), for drawing; and what its walls are made of (its best wall). */
   style: string;
   wall?: string;
@@ -166,14 +172,19 @@ interface Shape {
   rock?: boolean;
   /** Wall spots it always has (the nomads' wagons). */
   wagons?: number;
+  hedges?: boolean;
 }
 const SHAPES: Partial<Record<string, Shape>> = {
   vampire: { wid: 9, bendEvery: 5 }, // (the climb up to the keep: switchbacks)
   dwarves: { wid: 7, bendEvery: 7, rock: true }, // (a cut through the rock to the hold's gate)
   merfolk: { wid: 10, bendEvery: 8, water: true }, // (along the shore)
   nomads: { wid: 9, bendEvery: 8, wagons: 4 }, // (the wagons drawn up across the trail)
-  druid: { wid: 9, bendEvery: 6 }, // (through the grove's hedges)
+  druid: { wid: 9, bendEvery: 6, hedges: true }, // (through the grove's hedges)
 };
+/** Cells along each floor of the keep takes on the map (the run across, the floor beside it, the wall under the next). */
+export const KEEP_BAND = 3;
+/** The most floors of a keep the battle climbs. */
+const KEEP_FLOORS = 4;
 const shapeOf = (s: GameState): Shape => SHAPES[s.origin ?? 'settlers'] ?? { wid: 9, bendEvery: 7 };
 
 const wallDef = (id: string) => !!BUILDING_BY_ID[id]?.hp && BUILDING_BY_ID[id]?.layer === 'fore';
@@ -206,6 +217,20 @@ export function layOut(s: GameState, flank: boolean): BattleMap {
   }
   const gate: [number, number] = [len, Math.round((lo + hi) / 2) + 0.5];
   path.push([len - 3, y], [len - 3, gate[1]], gate);
+  // a castle town: through the keep's gate, and up it floor by floor (across each, then the stairs at its end)
+  const floors = castleOn(s) ? Math.max(1, Math.min(KEEP_FLOORS, castleFloors(s))) : 0;
+  let total = len;
+  if (floors) {
+    let side = lo + 0.5;
+    path.push([len + 2.5, gate[1]], [len + 2.5, side]);
+    for (let f = 1; f < floors; f++) {
+      const fx = len + 2.5 + f * KEEP_BAND;
+      path.push([fx, side]);
+      side = side < (lo + hi) / 2 ? hi - 0.5 : lo + 0.5;
+      path.push([fx, side]);
+    }
+    total = len + 1 + floors * KEEP_BAND;
+  }
   const paths = [path];
   // a second way in, for a raid that splits: in from the edge of the map, across to the main trail half way along
   if (flank) {
@@ -312,9 +337,31 @@ export function layOut(s: GameState, flank: boolean): BattleMap {
     }
   }
 
+  // the keep: archers on each floor shoot down through the floor at the stairs below (murder holes)
+  if (floors)
+    for (let f = 0; f < floors - 1; f++) {
+      const wx = len + 1 + f * KEEP_BAND + 2;
+      const cells = [...Array(wid).keys()].filter((cy) => cy >= water && !taken.has(key(wx, cy))).sort((a, b) => Math.abs(a + 0.5 - wid / 2) - Math.abs(b + 0.5 - wid / 2));
+      for (const cy of cells.slice(0, 2)) spot('wall', wx + 0.5, cy + 0.5);
+    }
+
   const wallOrder = ['force_wall', 'concrete_wall', 'brick_wall', 'stone_wall', 'palisade_wall'];
   const wall = shape.wagons && !done.some((b) => wallDef(b.def)) ? 'wagon_circle' : wallOrder.find((w) => done.some((b) => b.def === w));
-  return { len, wid, paths, spots, decor, walls, gate, ...(wall ? { wall } : {}), ...(water ? { water } : {}), ...(shape.rock ? { rock: true } : {}), style: s.origin ?? 'settlers' };
+  return {
+    len: total,
+    wid,
+    paths,
+    spots,
+    decor,
+    walls,
+    gate,
+    ...(wall ? { wall } : {}),
+    ...(water ? { water } : {}),
+    ...(shape.rock ? { rock: true } : {}),
+    ...(shape.hedges ? { hedges: true } : {}),
+    ...(floors ? { keep: { from: len, floors } } : {}),
+    style: s.origin ?? 'settlers',
+  };
 }
 
 /** The cells a trail runs through (its corners are joined by straight runs along or across). */
