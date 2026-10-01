@@ -49,6 +49,28 @@ export function makeSpriteSet(seed: number, tone: Tone): SpriteSet {
   };
 }
 
+/** A small hash for fine detail that mustn't use up the sprite's random numbers (so shapes stay as they were). */
+const fh = (a: number, b: number, c: number) => {
+  let h = (a * 374761393 + b * 668265263 + c * 2246822519) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return ((h ^ (h >>> 16)) & 1023) / 1023;
+};
+
+/** Leaves on the fine grid over a crown: tiny two-tone leaves, lit up and to the left, shaded down and to the right. */
+function fineLeaves(p: Painter, cx: number, cy: number, rx: number, ry: number, n: number, seed: number, deep: string): void {
+  for (let i = 0; i < n; i++) {
+    const a = fh(i, seed, 1) * Math.PI * 2;
+    const d = Math.sqrt(fh(i, seed, 2));
+    const x = cx + Math.cos(a) * d * rx;
+    const y = cy + Math.sin(a) * d * ry;
+    const up = (y - cy) / ry - (x - cx) / rx / 2; // (-: toward the light)
+    const col = up < -0.35 ? (fh(i, seed, 3) < 0.5 ? PAL.leafTip : PAL.leafLight) : up > 0.45 ? deep : fh(i, seed, 3) < 0.5 ? PAL.leaf : PAL.leafDark;
+    p.frect(x, y, 1, 0.5, col);
+    p.fpx(x + (fh(i, seed, 4) < 0.5 ? 0 : 0.5), y - 0.5, col);
+    if (up < 0) p.fpx(x, y + 0.5, PAL.leafDark); // (each leaf's own shadow)
+  }
+}
+
 /** Bark: vertical grain lines and a knot or two down a trunk. */
 function bark(p: Painter, rng: Rng, x: number, y: number, w: number, h: number): void {
   for (let i = 0; i < Math.max(2, w - 2); i++) {
@@ -56,6 +78,12 @@ function bark(p: Painter, rng: Rng, x: number, y: number, w: number, h: number):
     const gy = y + rng.int(0, Math.max(0, h - 6));
     p.rect(gx, gy, 1, rng.int(3, 7), PAL.trunkDark);
   }
+  // (finer furrows between, and a pale ridge beside each)
+  for (let fx = x + 1.5; fx < x + w - 1; fx += 1.5)
+    for (let fy = y + fh(fx * 2, y, 9) * 4; fy < y + h - 2; fy += 3 + fh(fx * 2, fy, 8) * 3) {
+      p.frect(fx, fy, 0.5, 1.5, PAL.trunkDark);
+      p.frect(fx - 0.5, fy, 0.5, 1, PAL.trunkLight);
+    }
   if (h > 10 && rng.chance(0.7)) {
     const ky = y + rng.int(2, h - 6);
     p.rect(x + Math.floor(w / 2) - 1, ky, 2, 2, PAL.trunkDark);
@@ -106,6 +134,7 @@ function broadleafTree(rng: Rng, tone: Tone): PixelArt {
       p.px(x + 1, y, col);
       p.px(x, y - 1, col);
     }
+    fineLeaves(p, cx, cy, R, R * 0.82, 260, w * 31 + h, deep);
     // a gap or two in the crown, the sky showing through, with a branch across it
     if (rng.chance(0.5)) {
       const gx = cx + rng.int(-R / 2, R / 2);
@@ -145,6 +174,10 @@ function pineTree(rng: Rng, tone: Tone): PixelArt {
         if (half > 3 && rng.chance(0.5)) p.px(cx - half - 1, y, PAL.pine);
         if (half > 3 && rng.chance(0.5)) p.px(cx + half, y, PAL.pineDark);
         if (half > 4 && rng.chance(0.35)) p.px(cx + rng.int(-half + 1, half - 2), y, rng.chance(0.5) ? PAL.pineLight : deep);
+        // needles on the fine grid: little slanting tufts along the row, lit on the left
+        for (let nx = -half; nx < half; nx += 1.5) if (fh(nx * 2 + 99, y * 2, w) < 0.4) p.frect(cx + nx, y + 0.5, 0.5, 0.5, nx < -half * 0.3 ? PAL.pineLight : nx > half * 0.3 ? deep : PAL.pineDark);
+        p.fpx(cx - half - 0.5, y + 0.5, PAL.pine);
+        p.fpx(cx + half, y + 0.5, PAL.pineDark);
       }
       // drooping dark fringe along the bottom of the tier, and the shadow it casts on the tier below
       for (let x = -maxHalf; x < maxHalf; x += 3) p.rect(cx + x, y0 + rows, 2, 1, PAL.pineDark);
@@ -169,6 +202,7 @@ function bush(rng: Rng, tone: Tone): PixelArt {
       p.rect(x - 3, h - r * 2 + 2, 3, 1, PAL.leafLight);
     }
     for (let i = 0; i < 16; i++) p.px(rng.int(2, w - 3), rng.int(2, h - 3), rng.chance(0.5) ? PAL.leafLight : deep);
+    fineLeaves(p, w / 2, h * 0.55, w / 2 - 2, h * 0.42, 70, w * 17 + h, deep);
     p.rect(2, h - 1, w - 4, 1, deep);
     if (rng.chance(0.5)) for (let i = 0; i < 5; i++) p.px(rng.int(3, w - 4), rng.int(h - 12, h - 4), rng.chance(0.7) ? '#c9453b' : '#4a3a8a');
   });
@@ -191,6 +225,13 @@ function boulder(rng: Rng, tone: Tone): PixelArt {
       let y = rng.int(h - ry, h - 4);
       for (let k = 0; k < 4; k++, x++, y += rng.int(-1, 1)) p.px(x, y, shade(PAL.rockDark, -0.2));
     }
+    // on the fine grid: hairline cracks, a sparkle of mica, and pits
+    for (let i = 0; i < 4; i++) {
+      let x = 3 + fh(i, w, 1) * (w - 8);
+      let y = h - ry * 1.6 + fh(i, h, 2) * ry;
+      for (let k = 0; k < 8; k++, x += 0.5, y += fh(i, k, 3) < 0.5 ? 0.5 : 0) p.fpx(x, y, shade(PAL.rockDark, -0.3));
+    }
+    for (let i = 0; i < 14; i++) p.fpx(3 + fh(i, w, 4) * (w - 6), h - ry * 1.8 + fh(i, h, 5) * ry * 1.6, fh(i, 1, 6) < 0.5 ? PAL.rockTip : shade(PAL.rockDark, -0.15));
     if (rng.chance(0.7)) for (let i = 0; i < 7; i++) p.rect(rng.int(3, w - 5), h - rng.int(2, 5), 2, 1, rng.chance(0.5) ? PAL.moss : PAL.grass);
     p.rect(2, h - 1, w - 4, 1, shade(PAL.rockDark, -0.3));
   });

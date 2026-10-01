@@ -618,8 +618,8 @@ const wall: Record<Style, (p: Painter, w: number, h: number, strong: boolean, ga
 
 /** The first opaque row in a column (the building's roofline), or -1. */
 function topAt(p: Painter, x: number): number {
-  const col = p.ctx.getImageData(Math.round(x), 0, 1, p.height).data;
-  for (let y = 0; y < p.height; y++) if (col[y * 4 + 3] > 40) return y;
+  const col = p.pixels(Math.round(x), 0, 1, p.height);
+  for (let y = 0; y < col.height; y++) if (col.data[y * col.width * 4 + 3] > 40) return Math.floor(y / p.k);
   return -1;
 }
 
@@ -715,16 +715,36 @@ const SWAP: Record<Style, string[]> = {
   knights: ['#8a3a30', '#6a2a24', '#a09a8a', '#b0aa9a', '#8a8a90', '#5a5a64', '#9a9aa2', '#4a3420', '#6a4a2a', '#2a1e14', '#f0d890'],
 };
 
-/** Swap the usual materials for the origin's (exact colours only: everything else is left alone). */
+/** Swap the usual materials for the origin's: their exact colours, and the shades of them the fine detail adds (a
+ *  colour close to a material is moved by the same step, keeping its difference); everything else is left alone. */
 function reclad(p: Painter, st: Style): void {
-  const img = p.ctx.getImageData(0, 0, p.width, p.height);
+  const img = p.pixels();
   const d = img.data;
   const rgb = (hex: string) => parseInt(hex.slice(1), 16);
-  const map = new Map(MATERIALS.map((m, i) => [rgb(p.toned(m)), rgb(p.toned(SWAP[st][i]))]));
+  const pairs = MATERIALS.map((m, i) => [rgb(p.toned(m)), rgb(p.toned(SWAP[st][i]))] as const);
+  const ch = (c: number, s: number) => (c >> s) & 255;
+  const seen = new Map<number, number>();
+  const NEAR = 40 * 40;
+  const swap = (c: number): number => {
+    let out = seen.get(c);
+    if (out !== undefined) return out;
+    out = -1;
+    let best = NEAR;
+    for (const [from, to] of pairs) {
+      const dist = (ch(c, 16) - ch(from, 16)) ** 2 + (ch(c, 8) - ch(from, 8)) ** 2 + (ch(c, 0) - ch(from, 0)) ** 2;
+      if (dist > best) continue;
+      best = dist;
+      const k = (s: number) => Math.max(0, Math.min(255, ch(to, s) + ch(c, s) - ch(from, s)));
+      out = (k(16) << 16) | (k(8) << 8) | k(0);
+      if (dist === 0) break;
+    }
+    seen.set(c, out);
+    return out;
+  };
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] === 0) continue;
-    const to = map.get((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
-    if (to === undefined) continue;
+    const to = swap((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+    if (to < 0) continue;
     d[i] = to >> 16;
     d[i + 1] = (to >> 8) & 255;
     d[i + 2] = to & 255;

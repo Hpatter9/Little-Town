@@ -81,7 +81,10 @@ function layout(): void {
   const fit = Math.min(zoom, room / STRIP_HEIGHT, need ? room / need : Infinity); // (never taller than there's room for)
   // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
   const dpr = window.devicePixelRatio || 1;
-  const z = Math.max(1, Math.floor(fit * dpr + 0.01)) / dpr;
+  // (and, where it costs little, an even number: the art has detail on a grid twice as fine, pixelArt.ts FINE)
+  const whole = Math.max(1, Math.floor(fit * dpr + 0.01));
+  const even = Math.floor(whole / 2) * 2;
+  const z = (even >= 2 && even >= whole * 0.75 ? even : whole) / dpr;
   // (it fills its room, the town along the bottom and sky over it)
   const height = room / z;
   strip.style.width = `${stripBox.clientWidth / z}px`;

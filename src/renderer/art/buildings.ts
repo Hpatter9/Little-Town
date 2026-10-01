@@ -6,7 +6,7 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { PAL } from './palette';
 import { stillImage } from './stills';
 import { DECO_HEAD, styled } from './originStyles';
-import { paint, type Painter, type PixelArt, type Tone } from './pixelArt';
+import { mixHex as mix, paint, type Painter, type PixelArt, type Tone } from './pixelArt';
 
 const HIDE = '#a88258';
 const HIDE_DARK = '#7c5c3c';
@@ -26,24 +26,43 @@ export type CropLook = 'fallow' | 'sprout' | 'tall' | 'ripe';
 
 type Draw = (p: Painter, w: number, h: number, stage?: CropLook) => void;
 
-/** Vertical log with a lit edge. */
+/** Vertical log with a lit edge, and bark on the fine grid: furrows down it, and the odd knot. */
 function log(p: Painter, x: number, y: number, w: number, h: number): void {
   p.rect(x, y, w, h, PAL.trunk);
   p.rect(x, y, 1, h, PAL.trunkLight);
   p.rect(x + w - 1, y, 1, h, PAL.trunkDark);
+  if (w >= 3) {
+    const s = (x * 7 + y * 3) % 5;
+    for (let fx = x + 1; fx < x + w - 1; fx += 1.5) {
+      // a furrow, broken now and then
+      for (let fy = y + ((fx * 3 + s) % 3); fy < y + h - 1; fy += 4.5) p.frect(fx, fy, 0.5, 2.5, PAL.trunkDark);
+    }
+    p.frect(x + 0.5, y, 0.5, h, mix(PAL.trunkLight, '#ffffff', 0.15)); // (the lit edge's own highlight)
+    if (h > 10 && s < 2) p.frect(x + w / 2 - 0.5, y + h * 0.4 + s * 3, 1, 1, PAL.trunkDark);
+  }
 }
 
-/** Horizontal log. */
+/** Horizontal log: grain along it on the fine grid, and its cut end showing rings. */
 function beam(p: Painter, x: number, y: number, w: number, h = 3): void {
   p.rect(x, y, w, h, PAL.trunk);
   p.rect(x, y, w, 1, PAL.trunkLight);
   p.rect(x, y + h - 1, w, 1, PAL.trunkDark);
+  if (h >= 3) {
+    const s = (x * 5 + y * 11) % 7;
+    for (let gx = x + 1 + (s % 3); gx < x + w - 2; gx += 5 + (s % 2)) p.frect(gx, y + h / 2 - 0.25, 2.5, 0.5, PAL.trunkDark);
+    p.frect(x, y + 0.5, w, 0.5, mix(PAL.trunkLight, '#ffffff', 0.12));
+    // the end grain: a paler disc with a ring
+    p.frect(x + w - 1, y + 0.5, 1, h - 1, mix(PAL.trunkLight, '#d8b080', 0.5));
+    p.fpx(x + w - 0.5, y + h / 2 - 0.5, PAL.trunkDark);
+  }
 }
 
 function stones(p: Painter, x0: number, x1: number, y: number): void {
   for (let x = x0; x < x1; x += 5) {
     p.ellipse(x + 2, y, 3, 2.5, PAL.rockDark);
     p.rect(x + 1, y - 2, 2, 1, PAL.rockLight);
+    p.frect(x + 0.5, y - 2.5, 1.5, 0.5, PAL.rockTip); // (the glint along the top)
+    p.frect(x + 3, y + 1, 1.5, 0.5, mix(PAL.rockDark, '#000000', 0.3));
   }
 }
 
@@ -117,8 +136,15 @@ function roof(p: Painter, x0: number, x1: number, base: number, peak: number, co
     const half = ((y - peak) / (base - peak)) * (x1 - x0) / 2;
     p.rect(mid - half, y, half, 1, color);
     p.rect(mid, y, half, 1, dark);
-    if ((y - peak) % 4 === 0) p.rect(mid - half, y, half * 2, 1, dark);
+    if ((y - peak) % 4 === 0) {
+      p.rect(mid - half, y, half * 2, 1, dark);
+      // (the course above it catches the light: a fine bright line, and straw ends poking out)
+      p.frect(mid - half, y + 1, half * 2, 0.5, mix(color, '#ffffff', 0.18));
+      for (let sx = mid - half + 1; sx < mid + half - 1; sx += 2.5) p.frect(sx, y - 0.5, 0.5, 1, (sx * 2) % 3 < 1 ? dark : mix(color, '#ffffff', 0.25));
+    }
   }
+  // the eaves: a ragged fringe of straw on the fine grid
+  for (let sx = x0 + 0.5; sx < x1; sx += 1) p.frect(sx, base + 1, 0.5, ((sx * 7) % 3) / 2 + 0.5, (sx * 3) % 2 < 1 ? dark : color);
 }
 
 const ART: Record<string, { h: number; draw: Draw }> = {
@@ -1498,12 +1524,25 @@ function concrete(p: Painter, x0: number, y0: number, w: number, h: number): voi
   p.rect(x0, y0, w, h, '#9a9a94');
   p.rect(x0, y0, w, 1, '#b4b4ae');
   p.rect(x0 + w - 1, y0, 1, h, '#74746e');
+  // (the lines of the forms it was poured in, and a few weather streaks)
+  for (let y = y0 + 4; y < y0 + h - 1; y += 5) p.frect(x0, y, w - 1, 0.5, '#8a8a84');
+  for (let x = x0 + 3; x < x0 + w - 2; x += 7) p.frect(x, y0 + 1, 0.5, Math.min(h - 2, 3 + (x % 4)), '#86867f');
 }
 
 /** A brick wall face. */
 function bricks(p: Painter, x0: number, y0: number, w: number, h: number): void {
   p.rect(x0, y0, w, h, BRICK_DARK);
-  for (let y = y0; y < y0 + h; y += 4) for (let x = x0 + (((y - y0) / 4) % 2 ? -3 : 0); x < x0 + w; x += 7) p.rect(Math.max(x0, x + 1), y + 1, Math.min(6, x0 + w - x - 1), 3, (x + y) % 5 ? BRICK : BRICK_LIGHT);
+  // (on the fine grid the mortar is a thin line, and each brick has a lit top and a shaded foot)
+  for (let y = y0; y < y0 + h; y += 4)
+    for (let x = x0 + (((y - y0) / 4) % 2 ? -3 : 0); x < x0 + w; x += 7) {
+      const bx = Math.max(x0, x + 0.5);
+      const bw = Math.min(6.5, x0 + w - bx);
+      if (bw <= 0) continue;
+      const c = (x + y) % 5 ? BRICK : BRICK_LIGHT;
+      p.frect(bx, y + 0.5, bw, 3.5, c);
+      p.frect(bx, y + 0.5, bw, 0.5, mix(c, '#ffffff', 0.18));
+      p.frect(bx, y + 3.5, bw, 0.5, mix(c, '#000000', 0.18));
+    }
 }
 
 /** For a building with no art yet: a plain timber shed. */
@@ -1531,7 +1570,7 @@ export function buildingArt(defId: string, tone: Tone, toneKey: string, stage?: 
     art = paint(w, spec.h + head, tone, (p) => {
       p.ctx.translate(0, head);
       spec.draw(p, w, spec.h, stage);
-      p.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      p.reset();
       own?.dress?.(p, w, spec.h + head);
     });
     cache.set(key, art);
