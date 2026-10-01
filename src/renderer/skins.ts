@@ -23,7 +23,7 @@ function parts(T: string) {
     header: `${T} header`,
     title: `${T} h1`,
     main: `${T}.page-panel main`,
-    btn: all('button:not(#close), .place, .tab, #tabs button, #menu-btn, .chip'),
+    btn: all('button:not(#close):not(.swatch):not(.card), .place, .tab, #tabs button, #menu-btn, .chip'),
     on: all('.place.on, .tab.on, #tabs button.on, button.primary, .tab.default, .card.pick.on'),
     card: all('.card, .queue-row, #inspect, #menu, #prompt, #person-card, #banner, #away, #tip'),
     h2: all('h2, .era-head'),

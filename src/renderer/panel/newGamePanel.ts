@@ -110,7 +110,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
       row.append(el('span', 'look-label', label), colours);
       return row;
     };
-    const style = el('div', 'look-row');
+    const style = el('div', 'look-row hair-row');
     const i = HAIR_STYLES.indexOf(look.hair);
     const step = (d: number) => () => ((look = { ...look, hair: HAIR_STYLES[(i + d + HAIR_STYLES.length) % HAIR_STYLES.length] }), drawLooks(), drawPreview());
     style.append(el('span', 'look-label', 'Hair'), button('‹', step(-1), { cls: 'place small' }), el('span', 'look-value', `Style ${i + 1} of ${HAIR_STYLES.length}`), button('›', step(1), { cls: 'place small' }));
