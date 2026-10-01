@@ -23,7 +23,7 @@ export const CLIMB_SECONDS = 3;
  *  over the top floor, and the plinth under the ground floor. The whole keep stands keepHeight() tall. */
 export const ROOM_H = 56;
 export const TOWER_W = 24;
-export const ROOF_H = 58;
+export const ROOF_H = 96;
 export const PLINTH = 4;
 export const keepHeight = (floors: number) => floors * ROOM_H + PLINTH + ROOF_H + 26;
 /** A floor is open to build on once the one below is at least this full. */

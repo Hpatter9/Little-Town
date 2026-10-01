@@ -2,7 +2,7 @@
 // ground up as work progresses, with scaffolding and a progress bar), and the placement ghost.
 
 import { Container, Graphics, Rectangle, Sprite, Texture, Ticker } from 'pixi.js';
-import { keepArt, PLINTH, ROOM_H, roomArt, TOWER_W } from '../art/castle';
+import { KEEP_MARGIN_X, keepArt, PLINTH, ROOM_H, roomArt, TOWER_W } from '../art/castle';
 import { dustFrame, FLAME_SIZE, flameFrame, smokeFrame } from '../art/effects';
 import { TILE } from '../../shared/constants';
 import type { BuildLayer } from '../../shared/data/buildings';
@@ -281,7 +281,7 @@ export class BuildingsView {
     if (!castle) return true;
     L.group('castle');
     const art = keepArt(castle.lo, castle.hi, castle.floors, this.tones.mid[0], this.tones.mid[1]);
-    const left = castle.lo * TILE - TOWER_W;
+    const left = castle.lo * TILE - TOWER_W - KEEP_MARGIN_X;
     const SLICE = 16;
     for (let x0 = 0; x0 < art.width; x0 += SLICE) {
       const w = Math.min(SLICE, art.width - x0);

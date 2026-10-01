@@ -127,6 +127,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   checks overlap per floor), `openFloors`, `roomOf` (the room someone's in: `PersonView.floor`), `adoptRooms` for
   older saves. The planner's `roomSpot` fills it. Drawn by `src/renderer/art/castle.ts` (`roomArt` cutaways, `keepArt`
   shell, sliced per 16px in `BuildingsView.syncCastle`); `mobile.ts` zooms and grows the strip so the keep fits.
+  - The look is Castlevania and cut open: rooms and empty chambers seen in section (`section()` hatches the stone the
+    cut runs through: the floors between rooms, the walls between them), and a seeded skyline (`seeded(lo, hi)`: the
+    same castle every time) of round `turret`s with needle spires, a great tower with a `roseWindow`, a steep hall roof,
+    little gables along the battlements, `buttress`es, `gargoyle`s, corbelled corner turrets on the stair towers, and a
+    crag with a round flanking tower each side (the picture is `KEEP_MARGIN_X` wider each side than the keep).
   - The keep widens each era (`castleWidth`: 16 tiles, 4 more per era). Nothing that belongs inside sprawls: with no
     room in the keep the planner clears the keep's ground or waits for it to grow. Wells, stables and racks are rooms
     too (`OUTSIDE` keeps only mines, the graveyard and the launch site out).
