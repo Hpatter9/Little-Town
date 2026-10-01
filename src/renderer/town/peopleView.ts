@@ -139,7 +139,8 @@ export class PeopleView {
   /** Someone's look and what they wear: their everyday clothes (wardrobe) and armour over them. Strangers passing
    *  through wear what they came in. */
   private dressed(v: PersonView): [PersonView['look'], string[]] {
-    if (v.typeName === 'Traveller') return [v.look, wornLayers(v.gear, v.gearQ)];
+    // (strangers wear what they came in; a ready-made founder, their own clothes: lpcCompose puts those on)
+    if (v.typeName === 'Traveller' || v.look.wear) return [v.look, wornLayers(v.gear, v.gearQ)];
     const w = wardrobe({ id: v.id, gender: v.look.gender, typeName: v.typeName, gear: v.gear, coins: v.coins, child: v.growsUpIn !== null, founder: v.id === this.founderId }, this.theme, this.weave);
     return [{ ...v.look, outfit: w.outfit }, [...w.wear, ...wornLayers(v.gear, v.gearQ)]];
   }
@@ -221,7 +222,7 @@ export class PeopleView {
       const [look, wear] = this.dressed(d.view);
       d.sprite.texture = lpcFrame(look, anim, frame, held, wear);
       const flip = d.view.dir < 0;
-      const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.floor !== null ? INSIDE_SCALE : 1); // children are drawn smaller (and everyone, in a castle)
+      const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.floor !== null ? INSIDE_SCALE : 1) * (d.view.look.height ?? 1); // children are drawn smaller (and everyone, in a castle)
       d.sprite.scale.set(flip ? -k : k, k);
       d.sprite.x = Math.round(x) + (flip ? (CENTRE_X + 1) * k : -CENTRE_X * k);
       d.sprite.y = WALK_Y - FEET_Y * k;

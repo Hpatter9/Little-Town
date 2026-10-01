@@ -300,6 +300,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`doDefend` in `people.ts`), except as far as `THROW_RANGE` after an enemy archer shooting in. Raiders fleeing with loot
   or a captive get away once past it. Soak: growth up a little, about 45% fewer deaths (raids may want toughening).
 - **Night windows:** `ShopView.night`; the shop's and tavern's windows show the night sky.
+- **Ready-made founders:** `src/shared/data/founders.ts` (`FOUNDERS`: three per origin, each with a name and title, a
+  line of story, a background named for the origin, a trait or two, and a look). The New Town screen shows the
+  origin's three as cards with their pictures (only the name can be changed); the old look editor, background and trait
+  pickers are gone. `FounderSpec.pick` (checked by `cleanFounder`) makes `makeFounder` in `state.ts` use the def.
+  `Look` has optional founder pieces: `body` (`skeleton`: liches and machines, tinted by `skin`), `ears`, `eyes`
+  (`red`), `wear` (always worn: `layersFor` in `lpcCompose.ts` puts it first, and `peopleView` skips the rolled
+  wardrobe) and `height` (dwarves 0.86). The skeleton body and red eyes were added to `lpcData.json` from the LPC
+  sheet (rows 3, 7, 11, 15, 19, 20 are the right-facing rows the data keeps). Children take a parent's `ears`.
+- **Menu themes leave colour swatches and cards alone:** the button rules in `theme.ts` and `skins.ts` skip `.swatch`
+  and `.card` (they once painted the colour choices blank and made the Fae's pick cards unreadable).
 
 ## Planned (owner's requests, not started)
 

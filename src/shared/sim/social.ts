@@ -146,7 +146,8 @@ function welcomeChild(s: GameState, a: Person, b: Person, rng: Rng): void {
   const parent = rng.chance(0.5) ? a : b;
   const passion = parent.passions.length ? rng.pick(parent.passions) : rng.pick(SKILLS);
   const skills = Object.fromEntries(SKILLS.map((k) => [k, { level: 1, xp: 0 }])) as Record<Skill, SkillLevel>;
-  const look = { ...randomLook(rng), skin: rng.chance(0.5) ? a.look.skin : b.look.skin, hairColor: rng.chance(0.5) ? a.look.hairColor : b.look.hairColor };
+  const ears = a.look.ears ?? b.look.ears; // (a fae's or a merfolk founder's children have their ears)
+  const look = { ...randomLook(rng), skin: rng.chance(0.5) ? a.look.skin : b.look.skin, hairColor: rng.chance(0.5) ? a.look.hairColor : b.look.hairColor, ...(ears ? { ears } : {}) };
   const child: Person = {
     id: s.nextId++,
     name: rng.pick(free.length ? free : NAMES),

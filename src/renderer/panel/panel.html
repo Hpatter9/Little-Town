@@ -644,8 +644,43 @@
       }
       .founder {
         display: flex;
-        gap: 14px;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .card.pick.founder-card {
+        flex-direction: row;
         align-items: flex-start;
+        gap: 10px;
+      }
+      .founder-art {
+        width: 72px;
+        height: 72px;
+        flex: none;
+        image-rendering: pixelated;
+        background: radial-gradient(#3b2b1e, #211811 70%);
+        border: 1px solid rgba(0, 0, 0, 0.45);
+        border-radius: 4px;
+      }
+      .founder-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .founder-title {
+        font-style: italic;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .founder-skills {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .card.pick.on .founder-title,
+      .card.pick.on .founder-skills,
+      .card.pick.on .purpose {
+        color: var(--text);
       }
       .founder-side {
         display: flex;

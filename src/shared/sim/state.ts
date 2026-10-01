@@ -23,6 +23,7 @@ import { TICKS_PER_HOUR } from './time';
 export type { Era } from '../data/eras';
 import type { Era } from '../data/eras';
 import { BACKGROUND_BY_ID, founderSkills, SCENARIO_BY_ID, type FounderSpec } from '../data/founding';
+import { FOUNDER_BY_ID } from '../data/founders';
 import { BUILDING_BY_ID } from '../data/buildings';
 import type { Direction, TownPlan } from './planner';
 
@@ -740,14 +741,16 @@ export interface NewGameOptions {
 }
 
 /** Give the rolled founder the player's choices. */
-function makeFounder(p: Person, f: FounderSpec): void {
-  const bg = BACKGROUND_BY_ID[f.background] ?? BACKGROUND_BY_ID.forager;
+function makeFounder(p: Person, spec: FounderSpec): void {
+  const def = spec.pick ? FOUNDER_BY_ID[spec.pick] : undefined;
+  const f: FounderSpec = def ? { background: def.background.id, traits: def.traits, look: def.look, name: spec.name || def.name } : spec;
+  const bg = def?.background ?? BACKGROUND_BY_ID[f.background] ?? BACKGROUND_BY_ID.forager;
   const levels = founderSkills(bg);
   p.skills = Object.fromEntries(SKILLS.map((k) => [k, { level: levels[k], xp: 0 }])) as Record<Skill, SkillLevel>;
   p.passions = [...bg.passions];
   p.traits = [...f.traits];
   if (f.name) p.name = f.name;
-  if (f.look) p.look = { ...f.look };
+  if (f.look) p.look = { ...f.look, ...(f.look.wear ? { wear: [...f.look.wear] } : {}) };
   p.priorities = autoPriorities(p.skills);
   p.hp = maxHp(p);
 }
@@ -821,7 +824,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   const f = origin.rules.founder;
   if (f === 'machine') main.machine = true;
   else if (f === 'vampire' || f === 'werewolf') turnMonster(main, f, 0);
-  else if (f === 'lich') main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
+  else if (f === 'lich' && !main.look.body) main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
   // what the fire can't hold waits in a stockpile just past it
   if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: world.camp + BUILDING_BY_ID.campfire.width + 1, status: 'done', delivered: {}, progress: 1, store: extra });
   // (a nomad tribe has a summer pasture a day's ride along the land, on the side the seed picks)

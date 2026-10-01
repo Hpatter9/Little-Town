@@ -11,7 +11,9 @@ entries (lpc.opengameart.org). The layers are dual licensed **CC-BY-SA 3.0** and
   [assets/lpc-credits/gpl-3.0.txt](assets/lpc-credits/gpl-3.0.txt)
 
 The layer data (`src/renderer/art/lpc/lpcData.json`) was imported from the Little Wayfarers project with
-`tools/import-lpc.mjs`; it is recoloured in code.
+`tools/import-lpc.mjs`; it is recoloured in code. The skeleton body and the red eyes (worn by some of the ready-made
+founders) were added from the same spritesheet (`body/male/skeleton.png`, `body/*/eyes/red.png`; authors as listed in
+its AUTHORS.txt).
 
 ## Creatures
 

@@ -125,13 +125,16 @@ function layersFor(look: Look, weapon: LpcWeapon, wear: readonly string[]): Laye
     const id = resolve(`${base}_${look.gender}`);
     if (id) out.push({ id, tint, mode });
   };
-  const items = wear.map((w) => {
+  // (a ready-made founder's own clothes come first, so they're what's worn)
+  const items = [...(look.wear ?? []), ...wear].map((w) => {
     const [base, tint] = w.split(':');
     return { base, tint: tint || null };
   });
   const find = (re: RegExp) => items.find((w) => re.test(w.base));
   for (const w of items) if (w.base.startsWith('back_')) push(w.base, w.tint);
-  push('body_light', look.skin, 'skin');
+  push(`body_${look.body ?? 'light'}`, look.skin, 'skin');
+  if (look.ears) push(`ears_${look.ears}`, look.skin, 'skin');
+  if (look.eyes) push(`eyes_${look.eyes}`, null);
   const legs = find(/^legs_/);
   push(legs?.base ?? 'legs_pants', legs ? legs.tint : mix(look.outfit, '#20180f', 0.35));
   const feet = find(/^feet_/);
@@ -157,7 +160,7 @@ function layersFor(look: Look, weapon: LpcWeapon, wear: readonly string[]): Laye
 /* ------------------------------------------------------------ frames */
 
 export function lookKey(look: Look): string {
-  return [look.gender, look.skin, look.hair, look.hairColor, look.beard ? 1 : 0, look.outfit].join('|');
+  return [look.gender, look.skin, look.hair, look.hairColor, look.beard ? 1 : 0, look.outfit, look.body ?? '', look.ears ?? '', look.eyes ?? '', (look.wear ?? []).join(',')].join('|');
 }
 
 /** One composed 64x64 frame on a new canvas. `wear` adds armour layers (e.g. 'torso_chain', 'head_helm'). */
