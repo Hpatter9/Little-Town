@@ -5,7 +5,7 @@
 // pennants, mushrooms, flasks, heraldry).
 
 import type { ThemeId } from '../../shared/sim/snapshot';
-import { registerLamps, type Painter } from './pixelArt';
+import { registerLamps, type Painter, mixHex } from './pixelArt';
 import { cityHome, nomadArt } from './nomadArt';
 
 type Draw = (p: Painter, w: number, h: number) => void;
@@ -33,8 +33,13 @@ function roof(p: Painter, x0: number, x1: number, base: number, peak: number, li
     const half = (((y - peak) / Math.max(1, base - peak)) * (x1 - x0)) / 2;
     p.rect(mid - half, y, half, 1, light);
     p.rect(mid, y, half, 1, dark);
-    if (bands && (y - peak) % bands === 0) p.rect(mid - half, y, half * 2, 1, dark);
+    if (bands && (y - peak) % bands === 0) {
+      p.rect(mid - half, y, half * 2, 1, dark);
+      p.frect(mid - half, y + 1, half * 2, 0.5, mixHex(light, '#ffffff', 0.16)); // (each course's lit edge)
+      for (let sx = mid - half + 1.5; sx < mid + half - 1; sx += 3) p.frect(sx, y + 1.5, 0.5, 1, mixHex(dark, '#000000', 0.2)); // (and its joints)
+    }
   }
+  p.frect(x0, base + 0.5, x1 - x0, 0.5, mixHex(dark, '#000000', 0.35)); // the eaves' shadow
 }
 
 /** A dome (top half of an ellipse), lit on the left. */
@@ -43,11 +48,17 @@ function dome(p: Painter, cx: number, base: number, rx: number, ry: number, ligh
     const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
     p.rect(cx - half, base - dy, half, 1, light);
     p.rect(cx, base - dy, half, 1, dark);
+    // (on the fine grid: a soft glint up its left shoulder, and ribs down it)
+    if (dy > ry * 0.3 && dy < ry * 0.85) p.frect(cx - half * 0.6, base - dy, 1, 0.5, mixHex(light, '#ffffff', 0.3));
+    if (dy % 2 === 0) for (const f of [-0.5, 0.5]) p.fpx(cx + f * half, base - dy, mixHex(f < 0 ? light : dark, '#000000', 0.15));
   }
 }
 
 /** A round-topped (or pointed) doorway or window. */
 function arch(p: Painter, x: number, y: number, w: number, h: number, color: string, pointed = false): void {
+  // (a fine frame of shadow round the opening, a little in from its edge)
+  p.frect(x - 0.5, y + w / 2, 0.5, h - w / 2, mixHex(color, '#000000', 0.4));
+  p.frect(x + w, y + w / 2, 0.5, h - w / 2, mixHex(color, '#ffffff', 0.12));
   p.rect(x, y + w / 2, w, h - w / 2, color);
   for (let i = 0; i < w / 2; i++) {
     const inset = pointed ? w / 2 - i - 1 : Math.round(w / 2 - Math.sqrt((w / 2) ** 2 - (w / 2 - i - 0.5) ** 2));

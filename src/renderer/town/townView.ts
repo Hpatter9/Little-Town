@@ -270,9 +270,12 @@ export class TownView {
   /** (The palette the scenery was drawn in: main.ts applies the starting season before the town is built.) */
   season: string | null = null;
 
+  /** A device that can't keep up: no smoke or mist (main.ts steps the quality down). */
+  calm = false;
+
   /** The air: hearth smoke, mist and haze, for the hour, season and weather (call every frame). */
   air(dt: number, hour: number, season: string, weather: string, screenW: number): void {
-    const a = airFor(hour, season, weather);
+    const a = this.calm ? { smoke: 0, mist: 0 } : airFor(hour, season, weather);
     const wind = weather === 'storm' ? 14 : weather === 'rain' ? 7 : 3;
     const chimneys = this.buildings.chimneys();
     for (const [smoke, layer] of [[this.smokeBack, 'back'], [this.smokeMid, 'mid']] as const) {

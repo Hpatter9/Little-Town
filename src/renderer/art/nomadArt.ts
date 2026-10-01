@@ -4,7 +4,7 @@
 // the Industrial age its home ground becomes a caravan city: the same buildings built again in adobe, with domes,
 // arcades and awnings over the doors. (Homes and walls are in originStyles.ts; the city's homes are here too.)
 
-import type { Painter } from './pixelArt';
+import { mixHex, type Painter } from './pixelArt';
 
 type Draw = (p: Painter, w: number, h: number) => void;
 
@@ -45,6 +45,8 @@ function peak(p: Painter, x0: number, x1: number, base: number, top: number, a: 
   for (let y = top; y <= base; y++) {
     const half = (((y - top) / Math.max(1, base - top)) * (x1 - x0)) / 2;
     for (let x = Math.floor(mid - half); x < mid + half; x++) p.px(x, y, Math.floor((x - x0) / stripe) % 2 ? a : b);
+    // (seams between the stripes, stitched on the fine grid)
+    if (y % 2 === 0) for (let x = x0 + stripe; x < x1; x += stripe) if (Math.abs(x - mid) < half) p.fpx(x - 0.5, y, mixHex(a, '#000000', 0.35));
   }
   p.rect(mid - 0.5, top - 3, 1, 4, POLE_DARK);
 }
@@ -53,6 +55,8 @@ function peak(p: Painter, x0: number, x1: number, base: number, top: number, a: 
 function valance(p: Painter, x0: number, x1: number, y: number, color: string): void {
   p.rect(x0, y, x1 - x0, 2, color);
   for (let x = x0; x < x1; x += 6) p.disc(x + 3, y + 2, 2, color);
+  for (let x = x0 + 0.5; x < x1; x += 1.5) p.fpx(x, y + 0.5, mixHex(color, '#ffffff', 0.3)); // (a stitched hem)
+  for (let x = x0; x < x1; x += 6) p.fpx(x + 3, y + 4, GOLD); // (a tassel at each scallop)
 }
 
 /** A flat awning on poles, with room to work underneath. */
@@ -74,6 +78,9 @@ function pavilion(p: Painter, w: number, h: number, wallH: number, peaks: number
   for (let x = 2; x < w - 2; x += 8) p.rect(x, base, 4, wallH, FELT_LIGHT);
   p.rect(2, base + 2, w - 4, 2, a);
   p.rect(2, h - 3, w - 4, 1, FELT_DARK);
+  // (felt on the fine grid: stitches along the band, and the weave of the cloth)
+  for (let x = 2.5; x < w - 2; x += 2) p.frect(x, base + 2.5, 1, 0.5, mixHex(a, '#ffffff', 0.35));
+  for (let y = base + 5; y < h - 3; y += 1.5) for (let x = 3 + ((y * 2) % 2); x < w - 3; x += 3) p.fpx(x, y, mixHex(FELT, '#000000', 0.12));
   const each = (w - 4) / peaks;
   for (let i = 0; i < peaks; i++) {
     const x0 = 2 + i * each;
@@ -93,6 +100,7 @@ function rug(p: Painter, x: number, y: number, w: number, h: number, a: string, 
   p.rect(x + 1, y + 1, w - 2, h - 2, b);
   for (let k = y + 2; k < y + h - 2; k += 3) p.rect(x + 2, k, w - 4, 1, a);
   for (let k = x; k < x + w; k += 2) p.px(k, y + h, GOLD);
+  for (let k = x + 0.5; k < x + w; k += 1) p.frect(k, y + h, 0.5, 1.5, k % 2 < 1 ? a : GOLD); // (a finer fringe)
 }
 
 function pot(p: Painter, x: number, y: number, color: string): void {
@@ -333,6 +341,9 @@ function adobeWall(p: Painter, x0: number, x1: number, top: number, bottom: numb
   p.rect(x0, top, 2, bottom - top, ADOBE_LIGHT);
   p.rect(x1 - 2, top, 2, bottom - top, ADOBE_DARK);
   for (let y = top + 6; y < bottom; y += 9) for (let x = x0 + ((y / 9) % 2 ? 3 : 8); x < x1 - 3; x += 14) p.rect(x, y, 3, 1, ADOBE_DARK);
+  // (mud plaster on the fine grid: straw flecks and hairline cracks)
+  for (let y = top + 2; y < bottom - 1; y += 2.5) for (let x = x0 + 2 + ((y * 3) % 5); x < x1 - 2; x += 5) p.frect(x, y, 1, 0.5, (x + y) % 3 < 1 ? ADOBE_DARK : ADOBE_LIGHT);
+  for (let x = x0 + 9; x < x1 - 4; x += 23) p.fline(x, top + 3, x + 1.5, top + 9, ADOBE_DARK);
   p.rect(x0 - 1, top - 2, x1 - x0 + 2, 2, ADOBE_LIGHT); // the parapet
   for (let x = x0 + 4; x < x1 - 2; x += 10) p.rect(x, top - 4, 4, 2, ADOBE_LIGHT);
 }
@@ -342,6 +353,7 @@ function dome(p: Painter, cx: number, base: number, r: number, color = DOME, dar
     const half = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / r) ** 2)));
     p.rect(cx - half, base - dy, half, 1, color);
     p.rect(cx, base - dy, half, 1, dark);
+    if (dy > r * 0.3 && dy < r * 0.85) p.frect(cx - half * 0.6, base - dy, 1, 0.5, mixHex(color, '#ffffff', 0.3)); // (a glint)
   }
   p.rect(cx - 0.5, base - r - 5, 1, 5, GOLD);
   p.disc(cx, base - r - 6, 1, GOLD);

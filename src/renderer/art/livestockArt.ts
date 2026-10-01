@@ -57,6 +57,8 @@ function drawAnimal(p: Painter, look: Look, c: Coat, step: 0 | 1, graze: boolean
       p.px(7, hy - 1, c.head); // comb
       p.px(8, hy + 1, '#e0a030'); // beak
       p.px(7, hy, '#1a1a1a');
+      p.fpx(7.5, hy, '#ffffff'); // (a glint in its eye)
+      for (let i = 0; i < 3; i++) p.frect(2.5 + i, h - 6 + i * 0.5, 2, 0.5, c.shade); // (the folded wing's feathers)
       break;
     }
     case 'goat':
@@ -76,6 +78,9 @@ function drawAnimal(p: Painter, look: Look, c: Coat, step: 0 | 1, graze: boolean
       p.rect(hx, hy, 3, 4, c.head);
       p.rect(hx + 3, hy + 1, 1, 2, c.head);
       p.px(hx + 2, hy + 1, '#1a1a1a');
+      p.fpx(hx + 2.5, hy + 1, '#ffffff');
+      if (sheep) for (let x = 2; x < 13; x += 1.5) for (let y = h - 11; y < h - 5; y += 1.5) p.fpx(x + ((y * 2) % 2) * 0.5, y, (x + y) % 3 < 1.5 ? c.light : c.shade); // (the curls of the fleece)
+      else for (let x = 2; x < 12; x += 1) p.fpx(x + 0.5, h - 6, c.shade); // (the lie of the coat)
       if (!sheep) {
         p.rect(hx, hy - 2, 1, 2, '#8a8070'); // horns
         p.px(hx + 1, hy + 4, c.shade); // beard
@@ -95,6 +100,9 @@ function drawAnimal(p: Painter, look: Look, c: Coat, step: 0 | 1, graze: boolean
       p.rect(15, hy + 1, 1, 2, c.shade); // snout
       p.px(13, hy - 2, c.shade); // ear
       p.px(14, hy, '#1a1a1a');
+      p.fpx(14.5, hy, '#ffffff');
+      p.fpx(15.5, hy + 1.5, '#5a3030'); // (a nostril)
+      for (let x = 3; x < 12; x += 2) p.frect(x, h - 5, 1, 0.5, c.light); // (bristle on the flank)
       break;
     }
     case 'cow': {
@@ -115,6 +123,10 @@ function drawAnimal(p: Painter, look: Look, c: Coat, step: 0 | 1, graze: boolean
       p.px(18, hy - 1, '#e8e0cc'); // horns
       p.px(20, hy - 1, '#e8e0cc');
       p.px(19, hy + 1, '#1a1a1a');
+      p.fpx(19.5, hy + 1, '#ffffff');
+      p.fpx(20.5, hy + 3.5, '#8a5050'); // (nostrils)
+      p.fpx(21, hy + 3.5, '#8a5050');
+      for (let x = 4; x < 16; x += 1.5) p.fpx(x, h - 6.5, c.shade); // (the belly's shadow line)
       break;
     }
   }

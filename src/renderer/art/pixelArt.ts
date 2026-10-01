@@ -136,20 +136,33 @@ let grainSeed = 1;
 function grain(img: ImageData, strength: number, k = 1): void {
   const { data, width, height } = img;
   const seed = (grainSeed = (grainSeed * 1103515245 + 12345) >>> 0);
-  const h = (x: number, y: number, k: number) => {
-    let n = (x * 374761393 + y * 668265263 + seed * 2246822519 + k * 3266489917) >>> 0;
-    n = Math.imul(n ^ (n >>> 13), 1274126177) >>> 0;
-    return ((n ^ (n >>> 16)) & 1023) / 1023 - 0.5;
+  const h = (x: number, y: number, n: number) => {
+    let v = (x * 374761393 + y * 668265263 + seed * 2246822519 + n * 3266489917) >>> 0;
+    v = Math.imul(v ^ (v >>> 13), 1274126177) >>> 0;
+    return ((v ^ (v >>> 16)) & 1023) / 1023 - 0.5;
   };
+  // (the clumps, two and three art pixels across, are worked out once per cell along each row, not per pixel)
+  const c2w = 2 * k;
+  const c3w = 3 * k;
+  const row2 = new Float32Array(Math.ceil(width / c2w) + 1);
+  const row3 = new Float32Array(Math.ceil(width / c3w) + 1);
+  let y2 = -1;
+  let y3 = -1;
+  const fine = GRAIN.fine * 2 * strength;
+  const clump = GRAIN.clump * strength;
   for (let y = 0; y < height; y++) {
+    const cy2 = Math.floor(y / c2w);
+    const cy3 = Math.floor(y / c3w);
+    if (cy2 !== y2) for (let i = 0, y2_ = (y2 = cy2); i < row2.length; i++) row2[i] = h(i, y2_, 2);
+    if (cy3 !== y3) for (let i = 0, y3_ = (y3 = cy3); i < row3.length; i++) row3[i] = h(i, y3_, 3);
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
       if (data[i + 3] < 200) continue;
       // (fine noise on every canvas pixel; clumps two and three art pixels across)
-      const f = 1 + strength * (GRAIN.fine * 2 * h(x, y, 1) + GRAIN.clump * (h(Math.floor(x / (2 * k)), Math.floor(y / (2 * k)), 2) + h(Math.floor(x / (3 * k)), Math.floor(y / (3 * k)), 3)));
-      data[i] = Math.max(0, Math.min(255, data[i] * f));
-      data[i + 1] = Math.max(0, Math.min(255, data[i + 1] * f));
-      data[i + 2] = Math.max(0, Math.min(255, data[i + 2] * f));
+      const f = 1 + fine * h(x, y, 1) + clump * (row2[(x / c2w) | 0] + row3[(x / c3w) | 0]);
+      data[i] = data[i] * f;
+      data[i + 1] = data[i + 1] * f;
+      data[i + 2] = data[i + 2] * f;
     }
   }
 }
@@ -197,6 +210,8 @@ function stuffOf(c: number): Stuff {
 export interface DetailOpts {
   tile?: boolean;
   stuff?: boolean;
+  /** No light and shade on edges, nor creases (art that has its own, like the LPC characters): only rounded steps. */
+  shapeOnly?: boolean;
 }
 
 function detail(img: ImageData, k: number, seed: number, opts: DetailOpts = {}): void {
@@ -270,7 +285,7 @@ function detail(img: ImageData, k: number, seed: number, opts: DetailOpts = {}):
           if (e3 !== P) set(x0 + 1, y0 + 1, e3);
         }
       }
-      if (P === 0) continue;
+      if (P === 0 || opts.shapeOnly) continue;
       // light and shade on the edges of shapes
       for (let i = 0; i < k; i++) {
         if (A === 0) scale(x0 + i, y0, 1.16);
@@ -444,4 +459,20 @@ export function haze(amount: number): Tone {
     }
     return out;
   };
+}
+
+/** Pixel art from elsewhere (a composed LPC character frame) on the fine grid: doubled, with its steps rounded the
+ *  way painted art's are, as a texture the same size as the original. */
+export function fineTexture(src: HTMLCanvasElement): Texture {
+  const k = FINE;
+  const c = document.createElement('canvas');
+  c.width = src.width * k;
+  c.height = src.height * k;
+  const g = c.getContext('2d', { willReadFrequently: true })!;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(src, 0, 0, c.width, c.height);
+  const img = g.getImageData(0, 0, c.width, c.height);
+  detail(img, k, 1, { shapeOnly: true });
+  g.putImageData(img, 0, 0);
+  return new Texture({ source: new CanvasSource({ resource: c, resolution: k }) });
 }

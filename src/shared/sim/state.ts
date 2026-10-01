@@ -230,6 +230,8 @@ export interface Raider {
   hitFx?: RaiderHitFx | null;
   /** What this one is after (older saves: the raid's main goal). */
   goal?: RaidGoal;
+  /** The side it came from and flees back to, when not the raid's own (a flanking party, raids.ts). */
+  side?: -1 | 1;
   /** A townsperson being carried off (taken out of the town while carried). */
   captive?: Person | null;
   /** Fires this one has set. */
@@ -806,7 +808,9 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   }
   // the origin: its own companions, stores, knowledge and buildings, and who the founder (and everyone) is
   const origin = ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers;
-  for (const type of origin.start.companions ?? []) {
+  // (and whoever a ready-made founder brings)
+  const brings = opts.founder?.pick ? (FOUNDER_BY_ID[opts.founder.pick]?.brings ?? []) : [];
+  for (const type of [...(origin.start.companions ?? []), ...brings]) {
     const x = (world.camp + 0.5) * TILE + (people.length % 2 ? 1 : -1) * Math.ceil(people.length / 2) * TILE;
     people.push(makePerson(rng, nextId++, type, x, people.map((q) => q.name)));
   }

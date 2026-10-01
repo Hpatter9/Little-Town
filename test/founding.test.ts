@@ -164,3 +164,10 @@ test('a ready-made founder founds the town as they are (only the name can change
   assert.equal(renamed.people.find((p) => p.id === renamed.mainId)!.name, 'Mortimer');
   assert.equal(cleanFounder({ pick: 'nobody' }), null, 'an unknown founder is refused');
 });
+
+test("a settler founder brings a friend (the town doesn't start a person short of the other origins)", async () => {
+  const { cleanFounder } = await import('../src/shared/data/founding');
+  const s = newGame('brings', { origin: 'settlers', founder: cleanFounder({ pick: 'maren' })! });
+  assert.equal(s.people.length, 2);
+  assert.equal(newGame('brings', { origin: 'settlers' }).people.length, 1, 'the classic lone start without a ready-made founder');
+});

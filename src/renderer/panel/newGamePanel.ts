@@ -83,6 +83,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
           el('span', 'purpose', f.story),
           el('span', 'founder-skills', `${f.background.name}: ${skills}`),
           ...(traitNames ? [el('span', 'founder-skills', traitNames)] : []),
+          ...(f.brings?.length ? [el('span', 'founder-skills', `Comes with ${f.brings.map((b) => `${/^[aeiou]/.test(b) ? 'an' : 'a'} ${b}`).join(' and ')}`)] : []),
         );
         c.append(art, body);
         c.addEventListener('click', () => ((pick = f.id), drawFounders()));

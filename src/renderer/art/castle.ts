@@ -73,6 +73,9 @@ function gothicWindow(p: Painter, x: number, y: number, w: number, h: number, gl
   p.rect(x, y + h / 2 + 2, w, 1, STONE_DARK);
   p.px(x + 1, y + w / 2 + 1, light);
   p.px(x + 2, y + w / 2 + 2, light);
+  // (lead cames between the panes, on the fine grid)
+  for (let yy = y + w / 2 + 1.5; yy < y + h - 1; yy += 2) p.frect(x, yy, w, 0.5, mixHex(glass, '#000000', 0.45));
+  for (let xx = x + 1; xx < x + w; xx += 2) if (Math.abs(xx - (x + w / 2)) > 0.6) p.frect(xx, y + w / 2, 0.5, h - w / 2, mixHex(glass, '#000000', 0.3));
 }
 
 function sconce(p: Painter, x: number, y: number): void {
@@ -132,6 +135,8 @@ function chandelier(p: Painter, x: number): void {
   for (const dx of [-8, -4, 0, 4, 8]) {
     p.rect(x + dx, 8, 1, 3, BONE);
     p.px(x + dx, 7, CANDLE);
+    p.fpx(x + dx + 0.25, 6.5, '#fff4c0'); // (the flame's bright tip)
+    p.frect(x + dx + 0.5, 9, 0.5, 2, '#c8c0a8'); // (wax run down the candle)
   }
 }
 
@@ -156,6 +161,7 @@ function rug(p: Painter, x: number, floor: number, w: number): void {
   p.rect(x, floor - 1, w, 2, BLOOD);
   p.rect(x + 1, floor - 1, w - 2, 1, '#701020');
   for (let k = x + 2; k < x + w - 2; k += 4) p.px(k, floor, GOLD);
+  for (let k = x + 1; k < x + w - 1; k += 1.5) p.fpx(k, floor - 0.5, k % 3 < 1.5 ? GOLD : '#501018'); // (a woven border)
 }
 
 function bookshelf(p: Painter, x: number, floor: number, w: number): void {
@@ -163,6 +169,12 @@ function bookshelf(p: Painter, x: number, floor: number, w: number): void {
   for (let y = floor - 24; y < floor - 2; y += 6) {
     p.rect(x + 1, y, w - 2, 5, '#1e140e');
     for (let bx = x + 1; bx < x + w - 2; bx += 2) p.rect(bx, y + 1 + ((bx * 7) % 3 === 0 ? 1 : 0), 1, 4 - ((bx * 7) % 3 === 0 ? 1 : 0), ['#6a2030', '#2a4a6a', '#6a5a2a', '#3a5a3a', '#5a3a6a'][(bx + y) % 5]);
+    // (each spine's gilt bands, and the gap between books)
+    for (let bx = x + 1; bx < x + w - 2; bx += 2) {
+      p.frect(bx, y + 2, 1, 0.5, GOLD);
+      p.frect(bx + 0.5, y + 1, 0.5, 4, '#140c08');
+    }
+    p.frect(x + 1, y + 5, w - 2, 0.5, OAK_LIGHT); // (the shelf's lit edge)
   }
 }
 
