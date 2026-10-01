@@ -19,7 +19,7 @@ import { TILE } from '../constants';
 import { BUILDING_BY_ID, type Venue } from '../data/buildings';
 import { FARE_NAMES, ITEM_BY_ID, ITEMS, type FareKind, type ItemDef } from '../data/items';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
-import { COMMON, qualityMult, qualityOf } from '../data/quality';
+import { COMMON, pieceLabel, qualityMult, qualityOf } from '../data/quality';
 import {
   APPEAL_HALVES_WAIT,
   APPEAL_SPEND,
@@ -303,7 +303,7 @@ function setOut(s: GameState, b: Building): void {
     const old = spot ? undefined : replaceable(b, item, qualitiesOf(s, item.id)[0]);
     if (!spot && !old) continue;
     const q = takeItem(s, item.id, 'best') ?? COMMON;
-    const name = `${q !== COMMON ? qualityOf(q).name + ' ' : ''}${item.name}`;
+    const name = pieceLabel(item.name, q);
     if (old) {
       // (the old piece goes to whoever wants it: it isn't kept)
       old.item = item.id;
@@ -621,7 +621,7 @@ function talkChance(s: GameState, b: Building, t: Traveller): number {
   return Math.max(0, Math.min(UPSELL_MAX, (skill - 2) * UPSELL_PER_LEVEL + temperOf(t.temper).upsell));
 }
 
-export const pieceName = (o: { item: ItemDef; q: number }) => `${o.q !== COMMON ? qualityOf(o.q).name + ' ' : ''}${o.item.name}`;
+export const pieceName = (o: { item: ItemDef; q: number }) => pieceLabel(o.item.name, o.q);
 
 /** Remember a want that went unmet (the town makes what's asked for). */
 function asked(b: Building, key: string): void {

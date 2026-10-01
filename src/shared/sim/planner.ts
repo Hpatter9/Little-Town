@@ -187,8 +187,10 @@ function topicScore(t: Topic, n: Needs): number {
   }
   // (wares for the grand customers the shop draws, which it has nothing to sell yet)
   if (ITEMS.some((i) => i.ware && n.wareGaps.includes(i.ware.tier) && i.research.includes(t.id))) score += n.direction === 'trade' ? 30 : 15;
-  const items = ITEMS.filter((i) => i.research.includes(t.id)).length;
-  score += Math.min(12, items * 3);
+  // (the armoury's weapons count for little: nearly every topic opens one, and they'd drown out the rest)
+  const items = ITEMS.filter((i) => i.research.includes(t.id) && !i.family).length;
+  const arms = ITEMS.filter((i) => i.research.includes(t.id) && i.family).length;
+  score += Math.min(12, items * 3) + Math.min(3, arms) * (n.raided || n.direction === 'defense' ? 2 : 0);
   // (a calling the town trains for itself: mages for the walls)
   if (Object.values(CLASS_DEFS).some((c) => c.perPeople && c.research === t.id)) score += n.raided || n.direction === 'defense' ? 24 : 12;
   for (const e of t.effects) {
@@ -261,6 +263,15 @@ function bestMakeable(s: GameState, pred: (i: ItemDef) => boolean, power: (i: It
     .sort((a, b) => power(b) - power(a))[0];
 }
 
+/** How much the town wants a weapon: what it does (damage, aim, quickness, its quirks), less for each one of its family
+ *  the town already has, so its fighters carry a mix (axes and spears, bows and crossbows) rather than all one kind. */
+function weaponWorth(s: GameState, i: ItemDef): number {
+  const e = i.effects;
+  const quirks = (e.crit ?? 0) * 8 + (e.pierce ?? 0) * 3 + (e.cleave ?? 0) * 4 + (e.stun ?? 0) * 6 + (e.reach ? 1 : 0) + ((e.beastDamage ?? 0) + (e.undeadDamage ?? 0) + (e.machineDamage ?? 0)) * 0.2;
+  const owned = [...Object.keys(s.items), ...s.people.map((p) => p.gear.weapon ?? '')].filter((id) => id && ITEM_BY_ID[id]?.family === i.family).length;
+  return ((e.damage ?? 0) / (e.speed ?? 1) + (e.accuracy ?? 0) * 20 + quirks) * (i.family ? 0.85 ** owned : 1);
+}
+
 /** Decide what to make. Returns the materials it wanted but lacked (so they can be gathered). Nothing is queued
  *  until its makings are in store, so an order never sits blocking the queue. */
 function planCrafting(s: GameState, n: Needs): Stock {
@@ -306,7 +317,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
       if (!room()) return want;
       const is = (i: ItemDef) => i.slot === slot;
       if (ordered(s, is) || kept(s, is) >= adults) continue;
-      tryMake(bestMakeable(s, is, (i) => (i.effects.damage ?? 0) + (i.effects.armor ?? 0) * 10));
+      tryMake(bestMakeable(s, is, slot === 'weapon' ? (i) => weaponWorth(s, i) : (i) => (i.effects.armor ?? 0) * 10));
     }
   }
   // 4. a few bandages or poultices, and pots when the stores are filling up

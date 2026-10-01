@@ -387,6 +387,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     battles about 80 to 125 s; about 4 mages a town by day 15. The planner values a topic that teaches a common calling
     (+12, +24 raided or on defence).
 
+- **The armoury (in progress, see Planned):** `data/weapons.ts` (`FAMILIES`: 23 families with their quirks; `ROWS`:
+  name, family, tier, era, research, icon; stats, cost and station worked out from those; `tierDamage`), `data/armour.ts`
+  (`SETS` per era: cloth, light, medium, heavy body and head pieces, three shields, two trinkets; `ArmourWeight` on
+  `ItemDef.weight`). New effects: `speed`, `crit`, `pierce`, `cleave`, `stun`, `reach`, `undeadDamage`, `machineDamage`
+  (weapons), `dodge`, `power` (armour). **+N:** a piece's number holds its grade and its +N (`piece`, `gradeOf`,
+  `plusOf`, `pieceLabel` in `data/quality.ts`; `rollPlus` from Crafting, `PLUS_STEP` per +), rolled in `finishPiece` for
+  `ARMS` slots. `weaponOf` (combat.ts) is the weapon's stats with grade and +N; `hitDamage` and `afterBlow` apply the
+  quirks (also in raids' `defenderAttack` and on the battle map). Foes have a `natureOf` (beast, undead, machine,
+  person) and `enemyArmor`. The planner's `weaponWorth` favours a mix of families. Crafting has Weapons and Armour hide
+  toggles.
+
 ## Planned (owner's requests, not started)
 
 - **Weapons, ten times over, with +N** (the owner's choices):
@@ -422,9 +433,28 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     join, or fight them for the loot).
   - **Phone alerts:** the boss reached, a unique found, someone lost, home again.
   - Deterministic sim like everything else (delves play out offline and in tests); deaths are real.
-- Steps: (1) weapons and +N; (2) uniques and the bosses' loot tables; (3) scouting and the opened map; (4) the delve
-  sim (rooms, fights, supplies, retreat, the boss, loot); (5) the delve view; (6) dungeon types, modifiers, elites,
-  dozens of bosses; (7) quests, rivals, the trophy hall, respawn, alerts; soak, phone checks, PR.
+- **Classes, levels, spells and skills** (the owner's choices):
+  - **125 classes:** 25 base classes (knight, ranger, beast tamer, archer, sorcerer, witch, white mage, monk,
+    assassin, and so on; the five classes there are now fold in), each evolving four times as it levels, so five
+    stages per line. A grown-up is given a class once, at random, weighted by their skills and traits; some classes
+    are much rarer. Never switched after.
+  - **One level from all XP** (work and fighting both feed it, fighting faster): it unlocks the class's skills and
+    spells and its evolutions.
+  - **Gear by class:** each class wears certain kinds (cloth, light, medium, heavy armour; shields; weapon families),
+    overlapping: mages cloth only, knights heavy, assassins light. About 100 armour pieces (robes, hats, leathers,
+    mail, plate, shields), all with +N.
+  - **160 spells and 200 skills** across the classes; a few general ones every class can have, most unique to a class.
+    A caster has 3 spells ready at a time, swapped for better ones as they level, each on a cooldown (the best on
+    long ones, so they're used sparingly).
+  - **Fights in the style of the old Final Fantasy games** (the owner's picture: foes on the left, the party on the
+    right, a box naming the action, a panel of names and health along the bottom): automatic, watched if the player
+    wants. Used for expedition and delve fights. The tower-defence raids stay maps, but their fighters use their
+    classes, skills and spells.
+- Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
+  skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
+  tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)
+  the delve view; (10) dungeon types, modifiers, elites, dozens of bosses; (11) quests, rivals, the trophy hall,
+  respawn, alerts; soak, phone checks, PR.
 
 ## Known problem (fixed, watch)
 

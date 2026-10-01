@@ -6,7 +6,7 @@
 import { BUILDING_BY_ID, type Venue } from './buildings';
 import type { Era } from './eras';
 import { ITEM_BY_ID, ITEMS, type ItemDef, type WareTier } from './items';
-import { qualityMult } from './quality';
+import { plusOf, qualityMult } from './quality';
 import { WORTH } from './trade';
 import type { Material } from './materials';
 import { caravanGoods } from './trade';
@@ -172,7 +172,8 @@ export function saleValue(i: ItemDef, q: number | undefined): number {
     (Object.entries(i.cost) as [Material, number][]).reduce((n, [m, k]) => n + WORTH[m] * k, 0) +
     Object.entries(i.items ?? {}).reduce((n, [id, k]) => n + saleValue(ITEM_BY_ID[id], undefined) * k, 0);
   const base = i.ware ? i.ware.price : i.fare ? i.fare.price : made * GEAR_MARKUP;
-  return Math.max(2, Math.round(base * qualityMult(q)));
+  // (a +N piece is worth more again: each + about a fifth)
+  return Math.max(2, Math.round(base * qualityMult(q) * 1.2 ** plusOf(q)));
 }
 
 /** A crafter is paid this share of what a piece they make to sell is worth (all of it, for a furnishing: the town

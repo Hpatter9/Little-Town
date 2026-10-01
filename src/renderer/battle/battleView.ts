@@ -7,6 +7,7 @@
 import { Container, Graphics, Sprite, Text, type Texture } from 'pixi.js';
 import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from '../../shared/data/enemies';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
+import { ITEM_BY_ID } from '../../shared/data/items';
 import { AIM_RADIUS, type BattleMap, type BattleView as BattleSnap } from '../../shared/sim/battle';
 import type { PersonView, RaiderView, Snapshot } from '../../shared/sim/snapshot';
 import { buildingArt } from '../art/buildings';
@@ -384,7 +385,7 @@ export class BattleScene {
           m.sprite.scale.set(k * flip, k);
           m.sprite.position.set(Math.round(fx - ((size.w * k) / 2) * flip), Math.round(fy - size.h * k));
         } else {
-          const anim: LpcAnim = acting ? (p.gear.weapon && /bow|sling/.test(p.gear.weapon) ? 'shoot' : 'slash') : 'walk';
+          const anim: LpcAnim = acting ? (p.gear.weapon && ITEM_BY_ID[p.gear.weapon]?.effects.ranged ? (/st|wd/.test(ITEM_BY_ID[p.gear.weapon].family ?? '') ? 'spell' : 'shoot') : 'slash') : 'walk';
           const frame = acting ? Math.min(FRAME_COUNT[anim] - 1, Math.floor(u.sinceAction * 1.2)) : 0;
           m.sprite.texture = lpcFrame(p.look, anim, frame, heldWeapon(p.gear, 'fight'), wornLayers(p.gear, p.gearQ));
           const k = FIGURE * (p.look.height ?? 1) * (p.growsUpIn !== null ? 0.7 : 1);

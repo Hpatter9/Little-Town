@@ -347,6 +347,83 @@ export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
     p.rect(14, 7, 2, 1, GLOW);
     p.rect(8, 7, 3, 1, GLOW);
   },
+  // (the weapons of data/weapons.ts that DawnLike doesn't draw)
+  pistol: (p) => {
+    p.rect(3, 6, 10, 2, STEEL);
+    p.rect(3, 6, 10, 1, STEEL_LIGHT);
+    p.rect(3, 8, 3, 5, WOOD);
+    p.rect(6, 8, 2, 2, DARK);
+    p.px(13, 6, DARK);
+  },
+  revolver: (p) => {
+    p.rect(5, 6, 9, 2, STEEL);
+    p.rect(5, 6, 9, 1, STEEL_LIGHT);
+    p.rect(4, 5, 4, 4, DARK);
+    p.px(5, 6, STEEL_LIGHT);
+    p.rect(2, 8, 3, 5, WOOD);
+    p.px(14, 6, DARK);
+  },
+  shotgun: (p) => {
+    p.rect(1, 8, 5, 3, WOOD);
+    p.rect(1, 10, 2, 3, WOOD_DARK);
+    p.rect(5, 6, 10, 2, DARK);
+    p.rect(5, 8, 9, 1, STEEL);
+    p.rect(8, 8, 4, 2, WOOD);
+    p.px(15, 6, STEEL_LIGHT);
+  },
+  smg: (p) => {
+    p.rect(3, 6, 10, 3, DARK);
+    p.rect(3, 6, 10, 1, STEEL);
+    p.rect(6, 9, 2, 5, DARK);
+    p.rect(10, 9, 2, 2, DARK);
+    p.rect(1, 7, 2, 2, STEEL);
+    p.px(14, 7, STEEL_LIGHT);
+  },
+  gatling: (p) => {
+    p.rect(2, 5, 6, 6, '#b08a48');
+    for (let k = 0; k < 3; k++) p.rect(8, 5 + k * 2, 7, 1, k === 1 ? STEEL_LIGHT : STEEL);
+    p.rect(3, 11, 2, 3, WOOD_DARK);
+    p.rect(1, 6, 1, 3, DARK);
+  },
+  bomb: (p) => {
+    p.disc(7.5, 9.5, 4.5, DARK);
+    p.rect(5, 7, 2, 2, '#5a5a66');
+    p.rect(9, 3, 2, 3, '#b08a48');
+    p.px(11, 2, '#ffb040');
+    p.px(12, 1, '#ffe080');
+  },
+  flamer: (p) => {
+    p.rect(1, 7, 4, 5, '#c04a2a');
+    p.rect(1, 7, 4, 1, '#e8704a');
+    p.rect(5, 8, 8, 2, STEEL);
+    p.rect(7, 10, 2, 3, DARK);
+    p.px(13, 8, '#ffb040');
+    p.px(14, 8, '#ffe080');
+    p.px(14, 7, '#ff7030');
+  },
+  laser_pistol: (p) => {
+    p.rect(3, 6, 9, 3, '#9aa4b8');
+    p.rect(3, 6, 9, 1, '#d0d8e8');
+    p.rect(3, 9, 3, 4, '#4a5264');
+    p.rect(12, 7, 2, 1, GLOW);
+    p.rect(6, 7, 3, 1, GLOW);
+  },
+  plasma_rifle: (p) => {
+    p.rect(1, 8, 4, 3, '#3a4a3a');
+    p.rect(4, 6, 10, 3, '#6a8a6a');
+    p.rect(4, 6, 10, 1, '#a8d0a0');
+    p.rect(7, 9, 2, 3, '#3a4a3a');
+    p.disc(10, 7.5, 1.5, '#9aff9a');
+    p.rect(14, 7, 2, 1, '#9aff9a');
+  },
+  railgun: (p) => {
+    p.rect(1, 8, 4, 3, '#4a5264');
+    p.rect(4, 6, 12, 1, '#d0d8e8');
+    p.rect(4, 9, 12, 1, '#d0d8e8');
+    p.rect(4, 7, 11, 2, '#2a3048');
+    p.rect(6, 7, 8, 1, GLOW);
+    p.rect(6, 10, 2, 3, '#4a5264');
+  },
   pistols: (p) => {
     for (const [x, y] of [[1, 3], [6, 8]] as const) {
       p.rect(x, y, 8, 2, STEEL);

@@ -4,7 +4,7 @@
 
 import { TILE, WORLD_WIDTH } from '../constants';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { ENEMIES } from '../data/enemies';
+import { ENEMIES, enemyArmor } from '../data/enemies';
 import { eraReached, type Era } from '../data/eras';
 import { HORSE_THEFT } from '../data/trade';
 import { RAT_BITE_SICKNESS, WAR_RAID_BUDGET } from '../data/doom';
@@ -63,7 +63,7 @@ import type { Rng } from '../rng';
 import { buildingCentreX, defOf, depositNear, storages, totalStock } from './buildings';
 import { castleOn, floorOf, moveOnFloors, stairXs } from './castle';
 import { rallied, RALLY_DAMAGE } from './rally';
-import { ammoOf, hitDamage, personFighter } from './combat';
+import { afterBlow, ammoOf, hitDamage, personFighter } from './combat';
 import { gearEffects } from './crafting';
 import { recallExpedition } from './expeditions';
 import { classesInRaid, summonForRaid } from './classes';
@@ -641,7 +641,7 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   gainSkill(p, f.ranged ? 'ranged' : 'melee', 6);
   const captain = operatorSkill(s, 'watchtower') * CAPTAIN_PER_LEVEL; // a guard captain drills the defenders
   if (rng.next() >= f.accuracy + captain - fogAim(s) - dodge) return;
-  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
+  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: enemyArmor(rd.kind), block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
   // a Blood Knight hits harder when hurt, and heals from what they deal
   if (p.cls === 'blood_knight') {
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);
@@ -649,10 +649,19 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   }
   rd.hp = Math.max(0, rd.hp - dmg);
   rd.lastHit = s.tick;
+  // (a stunning weapon may cost the raider its next blow; a cleaving one carries into one beside it)
+  const beside = near ?? (s.raid?.raiders ?? []).filter((o) => o !== rd && !o.ally && !o.down && !o.gone && Math.abs(o.x - rd.x) <= CLEAVE_PX && level(o) === level(rd));
+  const pace = { cooldown: rd.cooldown, interval: Math.round(ENEMIES[rd.kind].interval * TICK_HZ) };
+  const cleft = afterBlow(f.quirks, dmg, pace, beside, rng);
+  rd.cooldown = pace.cooldown;
+  if (cleft) (cleft as Raider).lastHit = s.tick;
   // (a Blood Knight's blow bursts with blood; a gunshot with fire, a laser with lightning)
   rd.hitFx = p.cls === 'blood_knight' ? 'blood' : store && kind === 'power_cells' ? 'lightning' : store && (kind === 'shot' || kind === 'cartridges') ? 'fire' : null;
   if (rd.hp === 0) rd.down = true;
 }
+
+/** How near (px) a raider must be to the one struck for a cleaving blow to carry into it. */
+const CLEAVE_PX = 20;
 
 /** A mage's fire bolt: it strikes the one aimed at (study makes it hotter; armour and dodging don't help) and bursts
  *  over those beside it for half. */

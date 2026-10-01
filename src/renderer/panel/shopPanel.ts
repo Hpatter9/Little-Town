@@ -4,7 +4,7 @@
 // what's been asked for, and what's happened lately. It only shows: the town runs its venues itself.
 
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
-import { qualityOf } from '../../shared/data/quality';
+import { pieceLabel, qualityOf } from '../../shared/data/quality';
 import { APPEAL_HALVES_WAIT, TRAVELLER_EVERY } from '../../shared/data/shop';
 import type { Look } from '../../shared/data/people';
 import type { ShopView, Snapshot } from '../../shared/sim/snapshot';
@@ -153,7 +153,7 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
     if (!v.gear.length) info.push(el('p', 'empty', 'None spare.'));
     else {
       const gear = el('div', 'shop-pieces');
-      for (const g of v.gear) gear.append(qualityChip(`${g.q !== 1 ? qualityOf(g.q).name + ' ' : ''}${g.name}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q));
+      for (const g of v.gear) gear.append(qualityChip(`${pieceLabel(g.name, g.q)}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q));
       info.push(gear);
     }
     info.push(el('div', 'hint', `Travellers buy it, and so do the townsfolk, with their wages (${s.wageBill} coins a day in all), for a little less.`));

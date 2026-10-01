@@ -1,6 +1,6 @@
 // Townsfolk panel: the wanderer waiting to be let in, the job priority grid, and everyone's details.
 
-import { qualityOf } from '../../shared/data/quality';
+import { pieceLabel, qualityOf } from '../../shared/data/quality';
 import { ITEM_BY_ID, SLOT_NAMES, SLOTS } from '../../shared/data/items';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
@@ -249,7 +249,7 @@ function gearRow(p: PersonView): HTMLElement {
     const def = ITEM_BY_ID[p.gear[slot]!];
     const q = qualityOf(p.gearQ[slot]);
     const icon = itemIcon(def, 2);
-    icon.title = `${SLOT_NAMES[slot]}: ${q.name} ${def.name} (${def.description})`;
+    icon.title = `${SLOT_NAMES[slot]}: ${q.name} ${pieceLabel(def.name, p.gearQ[slot]).replace(q.name + ' ', '')} (${def.description})`;
     icon.style.outline = `2px solid ${q.color}`;
     icon.style.borderRadius = '3px';
     g.append(icon);

@@ -18,6 +18,7 @@ import { RAID_KIND_BY_ID, THROW_RANGE } from '../data/raids';
 import { WORLD_WIDTH, TILE } from '../constants';
 import type { Rng } from '../rng';
 import { castleFloors, castleOn } from './castle';
+import { weaponOf } from './combat';
 import { attackPerson, defenderAttack, defenderReach, townEdgeX } from './raids';
 import { fogAim, turretsDown, wardOf } from './rivals';
 import { rallied, RALLY_SPEED } from './rally';
@@ -140,6 +141,8 @@ const HERO_BONUS = 4;
 /** A mage casts slower than a bow shoots, but its fire bursts over those within this many cells of where it lands. */
 const MAGE_INTERVAL = Math.round(1.6 * TICK_HZ);
 const MAGE_BURST = 1.3;
+/** A cleaving blow carries into a raider within this many cells of the one struck. */
+const CLEAVE_CELLS = 1;
 /** How close (cells) a blocker must be on the trail to stop a raider. */
 const BLOCK_NEAR = 0.7;
 /** A fighter this hurt (a share of their health) falls back off the line. */
@@ -584,7 +587,8 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
   const capacity = (u: BattleUnit) => {
     if (u.ally !== undefined) return 2;
     const p = people.get(u.person!)!;
-    return Math.min(3, 1 + Math.floor(p.skills.melee.level / 4)) + (p.id === s.mainId ? 1 : 0);
+    // (a spear or polearm keeps one more at its point)
+    return Math.min(3, 1 + Math.floor(p.skills.melee.level / 4)) + (p.id === s.mainId ? 1 : 0) + (weaponOf(p).reach ? 1 : 0);
   };
 
   // the raiders
@@ -669,11 +673,12 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     u.lastAt = s.tick;
     if (p) {
       const mage = p.cls === 'mage';
-      const every = mage ? MAGE_INTERVAL : INTERVAL;
+      // (a quick weapon strikes more often, a heavy one less)
+      const every = Math.round((mage ? MAGE_INTERVAL : INTERVAL) * weaponOf(p).speed);
       u.cooldown = rallied(s, p) ? Math.round(every / RALLY_SPEED) : every;
-      // (a mage's fire bursts over those round the one it's aimed at)
+      // (a mage's fire bursts over those round the one it's aimed at; a cleaving blow carries into one beside it)
       const at = foeAt(map, target);
-      const near = mage ? wave.filter((o) => o !== target && !o.down && !o.gone && !o.bt!.out && o.bt!.d >= 0 && dist(foeAt(map, o), at) <= MAGE_BURST) : undefined;
+      const near = wave.filter((o) => o !== target && !o.down && !o.gone && !o.bt!.out && o.bt!.d >= 0 && dist(foeAt(map, o), at) <= (mage ? MAGE_BURST : CLEAVE_CELLS));
       const hit = [target, ...(near ?? [])].map((o) => [o, o.down] as const);
       defenderAttack(s, p, target, rng, p.id === s.mainId ? HERO_BONUS : 0, GROUND, near);
       if (shooter) shot(b, s, pos, at, mage ? 'fire' : 'arrow');

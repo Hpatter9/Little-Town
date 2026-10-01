@@ -4,10 +4,11 @@
 // aim, armour and blocking.
 
 import { BLOOD_FURY, BLOOD_LIFESTEAL, NECRO_RAISES, type ClassId } from '../data/classes';
-import { ENEMIES, type EnemyGroup } from '../data/enemies';
+import { ENEMIES, enemyArmor, natureOf, type EnemyGroup } from '../data/enemies';
 import { WEREWOLF_DAMAGE } from '../data/monsters';
 import type { Role } from '../data/expeditions';
-import { AMMO_DAMAGE, ITEM_BY_ID } from '../data/items';
+import { AMMO_DAMAGE, ITEM_BY_ID, type ItemDef } from '../data/items';
+import { plusMult, plusOf, qualityMult } from '../data/quality';
 import type { Material, Stock } from '../data/materials';
 import type { Rng } from '../rng';
 import { gearEffects } from './crafting';
@@ -48,6 +49,9 @@ export interface Fighter {
   armor: number;
   block: number;
   beastDamage: number;
+  /** A weapon's quirks (data/weapons.ts): chance to strike true for double, armour ignored, a share that cleaves into
+   *  another foe, chance to stun, extra against the dead and against machines. */
+  quirks?: Quirks;
   /** Ammunition: what kind, how much on hand, the extra damage each shot adds, and how many were used. */
   ammoType?: Material | null;
   ammo: number;
@@ -70,6 +74,34 @@ export const ammoOf = (p: Person): Material | null => (p.gear.weapon ? (ITEM_BY_
 
 export const isBeast = (kind: string) => !!ENEMIES[kind] && 'sheet' in ENEMIES[kind].sprite;
 
+export interface Quirks {
+  crit: number;
+  pierce: number;
+  cleave: number;
+  stun: number;
+  undead: number;
+  machine: number;
+}
+
+/** What someone's weapon adds in a fight, made finer by its grade and its +N (quality.ts): damage, aim, its time
+ *  between blows (a share), and its quirks. Nothing without a weapon. */
+export function weaponOf(p: Person): { def?: ItemDef; damage: number; accuracy: number; speed: number; reach: boolean; quirks: Quirks } {
+  const def = p.gear.weapon ? ITEM_BY_ID[p.gear.weapon] : undefined;
+  const fx = def?.effects ?? {};
+  const q = p.gearQ?.weapon;
+  const k = qualityMult(q) * plusMult(q);
+  return {
+    def,
+    damage: (fx.damage ?? 0) * k,
+    accuracy: (fx.accuracy ?? 0) * qualityMult(q) + plusOf(q) * PLUS_AIM,
+    speed: fx.speed ?? 1,
+    reach: !!fx.reach,
+    quirks: { crit: fx.crit ?? 0, pierce: fx.pierce ?? 0, cleave: fx.cleave ?? 0, stun: fx.stun ?? 0, undead: (fx.undeadDamage ?? 0) * k, machine: (fx.machineDamage ?? 0) * k },
+  };
+}
+/** Each + on a weapon steadies the aim this much. */
+const PLUS_AIM = 0.015;
+
 export interface Battle {
   fighters: Fighter[];
   tick: number;
@@ -88,14 +120,17 @@ const PERSON_INTERVAL = 1.2;
 export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo = 0): Fighter {
   const melee = p.skills.melee.level;
   const ranged = p.skills.ranged.level;
-  const weapon = p.gear.weapon ? ITEM_BY_ID[p.gear.weapon] : undefined;
+  const w = weaponOf(p);
+  const weapon = w.def;
   const knife = p.gear.tool ? (ITEM_BY_ID[p.gear.tool]?.effects.damage ?? 0) : 0;
   const sling = !!weapon?.effects.ranged;
-  const useRanged = sling || row === 'back' || ranged > melee + 2;
+  // (a mage fights from range with their fire, whatever they hold)
+  const useRanged = sling || row === 'back' || ranged > melee + 2 || p.cls === 'mage';
   const skill = useRanged ? ranged : melee;
   // the weapon only helps in the way it's used
-  const bonus = useRanged ? (sling ? (weapon!.effects.damage ?? 0) : 0) : sling || !weapon ? knife : (weapon.effects.damage ?? 0);
-  const aim = weapon && sling === useRanged ? (weapon.effects.accuracy ?? 0) : 0;
+  const bonus = Math.round(useRanged ? (sling ? w.damage : 0) : sling || !weapon ? knife : w.damage);
+  const used = !!weapon && sling === useRanged;
+  const aim = used ? w.accuracy : 0;
   const base: [number, number] = useRanged ? [Math.round(2 + ranged * 0.5), Math.round(4 + ranged * 0.5)] : [Math.round(3 + melee * 0.6), Math.round(5 + melee * 0.6)];
   const wolf = p.monster === 'werewolf' ? WEREWOLF_DAMAGE : 0; // (a werewolf fights with more than a weapon)
   const damage: [number, number] = [base[0] + bonus + wolf, base[1] + bonus + wolf];
@@ -111,8 +146,8 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     ranged: useRanged,
     damage: role === 'porter' ? [0, 0] : damage,
     accuracy: 0.55 + skill * 0.025 + aim,
-    dodge: 0.05 + melee * 0.01,
-    interval: Math.round(PERSON_INTERVAL * TICK_HZ),
+    dodge: 0.05 + melee * 0.01 + g.dodge,
+    interval: Math.round(PERSON_INTERVAL * TICK_HZ * (used ? w.speed : 1) * g.slow),
     cooldown: 0,
     down: p.hp <= 0,
     role,
@@ -125,6 +160,7 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     armor: Math.min(0.6, g.armor),
     block: g.block,
     beastDamage: g.beastDamage,
+    ...(used ? { quirks: w.quirks } : {}),
     ammoType: ammoOf(p),
     ammo: ammoOf(p) ? ammo : 0,
     ammoBonus: AMMO_DAMAGE[ammoOf(p) ?? 'wood'] ?? 0,
@@ -135,7 +171,7 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
 
 /** Damage one attack does to a target, after ammo, beast bonus, blocking, armour and toughness. Uses the
  *  attacker's ammo. Returns 0 for a blocked blow. */
-export function hitDamage(f: Pick<Fighter, 'damage' | 'ammo' | 'ammoBonus' | 'ammoUsed' | 'beastDamage'>, target: { kind: string; armor: number; block: number; tough: boolean }, rng: Rng): number {
+export function hitDamage(f: Pick<Fighter, 'damage' | 'ammo' | 'ammoBonus' | 'ammoUsed' | 'beastDamage' | 'quirks'>, target: { kind: string; armor: number; block: number; tough: boolean }, rng: Rng): number {
   let dmg = rng.int(f.damage[0], f.damage[1]);
   if (f.ammoBonus && f.ammo > 0) {
     f.ammo--;
@@ -143,9 +179,32 @@ export function hitDamage(f: Pick<Fighter, 'damage' | 'ammo' | 'ammoBonus' | 'am
     dmg += f.ammoBonus;
   }
   if (isBeast(target.kind)) dmg += f.beastDamage;
+  const q = f.quirks;
+  if (q) {
+    const nature = natureOf(target.kind);
+    if (nature === 'undead') dmg += q.undead;
+    if (nature === 'machine') dmg += q.machine;
+    // (a true strike: double)
+    if (q.crit && rng.chance(q.crit)) dmg *= 2;
+  }
   if (target.block && rng.chance(target.block)) return 0;
-  return Math.max(1, Math.round(dmg * (1 - target.armor) * (target.tough ? 0.85 : 1)));
+  const armor = target.armor * (1 - (q?.pierce ?? 0));
+  return Math.max(1, Math.round(dmg * (1 - armor) * (target.tough ? 0.85 : 1)));
 }
+
+/** After a blow lands: a stunning weapon may cost the foe its next blow, a cleaving one carries into another foe
+ *  beside it (any of `beside`, for that share of the blow). Returns who the cleave struck. */
+export function afterBlow(q: Quirks | undefined, dmg: number, target: { cooldown: number; interval?: number }, beside: { hp: number; down: boolean }[], rng: Rng): { hp: number; down: boolean } | null {
+  if (!q) return null;
+  if (q.stun && rng.chance(q.stun)) target.cooldown += target.interval ?? STUN_TICKS;
+  if (!q.cleave || !beside.length) return null;
+  const o = beside[rng.int(0, beside.length - 1)];
+  o.hp = Math.max(0, o.hp - Math.max(1, Math.round(dmg * q.cleave)));
+  if (o.hp === 0) o.down = true;
+  return o;
+}
+/** How long a stun holds a foe whose pace isn't known (ticks). */
+const STUN_TICKS = 12;
 
 function enemyFighters(group: EnemyGroup): Fighter[] {
   const out: Fighter[] = [];
@@ -178,7 +237,7 @@ export function unitFighter(id: string, side: Fighter['side'], ref: number): Fig
     lastAction: -99,
     lastHit: -99,
     attacks: 0,
-    armor: 0,
+    armor: enemyArmor(id),
     block: 0,
     beastDamage: 0,
     ammo: 0,
@@ -276,6 +335,8 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
     }
     target.hp = Math.max(0, target.hp - dmg);
     target.lastHit = b.tick;
+    const cleft = afterBlow(f.quirks, dmg, target, foes.filter((o) => o !== target && o.row === target.row), rng) as Fighter | null;
+    if (cleft) cleft.lastHit = b.tick;
     target.hitFx = f.cls === 'blood_knight' ? 'blood' : f.ranged && f.ammoType === 'power_cells' ? 'lightning' : f.ranged && (f.ammoType === 'shot' || f.ammoType === 'cartridges') ? 'fire' : null;
     bossHurt(b, target);
     if (target.hp === 0) {

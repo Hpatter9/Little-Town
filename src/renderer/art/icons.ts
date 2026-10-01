@@ -22,6 +22,8 @@ import Shield from './items/Shield.png';
 import ShortWep from './items/ShortWep.png';
 import Tool from './items/Tool.png';
 import Magic from './items/Magic.png';
+import Wand from './items/Wand.png';
+import Ring from './items/Ring.png';
 import Plate from './items/plate.png';
 import { CUSTOM_ORDER, CUSTOM_ROWS, customSheetUrl } from './customIcons';
 
@@ -44,6 +46,8 @@ const SHEETS: Record<IconSheet, { url: string; rows: number; cols?: number }> = 
   Flesh: { url: Flesh, rows: 9 },
   Money: { url: Money, rows: 8 },
   Ammo: { url: Ammo, rows: 6 },
+  Wand: { url: Wand, rows: 7 },
+  Ring: { url: Ring, rows: 6 },
   Scroll: { url: Scroll, rows: 6 },
   Chest1: { url: Chest1, rows: 3 },
   Custom: { url: '', rows: CUSTOM_ROWS },

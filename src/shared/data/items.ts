@@ -7,6 +7,8 @@
 // and get eaten or packed like any other.
 
 import type { Material } from './materials';
+import { WEAPONS, type FamilyId } from './weapons';
+import { ARMOUR, type ArmourWeight } from './armour';
 import type { WorkAnim } from './terrain';
 
 export type Slot = 'tool' | 'weapon' | 'offhand' | 'head' | 'body' | 'charm' | 'pack';
@@ -64,6 +66,21 @@ export interface ItemEffects {
   ranged?: boolean;
   /** What it shoots: each shot uses one, for extra damage (see AMMO_DAMAGE). */
   ammo?: Material;
+  /** A weapon's quirks (data/weapons.ts): its time between blows (a share: under 1 is quicker), a chance to strike
+   *  true for double, a share of armour it ignores, a share of its blow that cleaves into a foe beside, a chance to
+   *  stun (the foe loses its next blow), and a reach that strikes first and holds a foe more on the trail. */
+  speed?: number;
+  crit?: number;
+  pierce?: number;
+  cleave?: number;
+  stun?: number;
+  reach?: boolean;
+  /** Extra damage against the dead and against machines (beasts: `beastDamage`). */
+  undeadDamage?: number;
+  machineDamage?: number;
+  /** Armour's own: a share of blows dodged (light), a share more spell power (cloth). */
+  dodge?: number;
+  power?: number;
   /** Extra carrying room. */
   carry?: number;
   morale?: number;
@@ -90,6 +107,10 @@ export interface ItemDef {
   icon: { sheet: IconSheet; x: number; y: number; name?: string };
   /** A relic: never crafted, only found on expeditions (DESIGN §9 special items). */
   relic?: boolean;
+  /** A weapon's family and tier (data/weapons.ts); armour's weight (data/armour.ts). */
+  family?: FamilyId;
+  tier?: number;
+  weight?: ArmourWeight;
   /** Shop furnishings (see data/shop.ts): what it is, how many cells of the shop floor it takes, and how much it
    *  draws travellers in. The shopkeeper sets it out once it's made. */
   furnish?: Furnish;
@@ -137,10 +158,12 @@ export type IconSheet =
   | 'Ammo'
   | 'Scroll'
   | 'Magic'
+  | 'Wand'
+  | 'Ring'
   | 'Plate'
   | 'Custom';
 
-export const ITEMS: readonly ItemDef[] = [
+const BASE_ITEMS: readonly ItemDef[] = [
   // tools
   { id: 'flint_knife', name: 'Flint Knife', slot: 'tool', station: 'campfire', cost: { flint: 2, wood: 1 }, seconds: 30, research: ['flint_knapping'], effects: { gather: { forage: 1.25 }, damage: 1 }, description: 'Forage 25% faster. A little bite in a fight.', icon: { sheet: 'ShortWep', x: 2, y: 1 } },
   { id: 'stone_axe', name: 'Stone Axe', slot: 'tool', station: 'workbench', cost: { flint: 2, wood: 2, fiber: 1 }, seconds: 45, research: ['woodcutting'], effects: { gather: { chop: 1.5 } }, description: 'Chop wood 50% faster.', icon: { sheet: 'MedWep', x: 0, y: 1 } },
@@ -309,6 +332,9 @@ export const ITEMS: readonly ItemDef[] = [
   { id: 'wheelbarrow', name: 'Wheelbarrow', slot: 'pack', station: 'workbench', cost: { lumber: 4, iron: 1 }, seconds: 80, research: ['carts'], effects: { carry: 12 }, description: 'Carry 12 more.', icon: { sheet: 'Chest1', x: 3, y: 0 } },
   { id: 'bandage', name: 'Bandage', slot: null, station: 'loom', cost: { cloth: 1, herbs: 1 }, seconds: 30, research: ['physick'], effects: {}, description: 'Like a poultice but better: stops bleeding, +35 health.', icon: { sheet: 'Scroll', x: 5, y: 4 } },
 ];
+
+/** Everything that can be made or found: the first items, and the armoury of data/weapons.ts. */
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS, ...WEAPONS, ...ARMOUR];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

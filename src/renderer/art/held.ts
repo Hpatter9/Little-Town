@@ -1,8 +1,10 @@
 // What someone visibly holds and wears: their weapon in a fight, the tool that fits the work otherwise,
 // and armour drawn as LPC layers. Only items with an LPC layer to show are listed.
 
-import type { Slot } from '../../shared/data/items';
+import { ITEM_BY_ID, type Slot } from '../../shared/data/items';
+import type { FamilyId } from '../../shared/data/weapons';
 import type { LpcWeapon } from './lpc/lpc';
+import { gradeOf } from '../../shared/data/quality';
 
 const LPC_OF: Record<string, LpcWeapon> = {
   spear: 'spear',
@@ -23,11 +25,15 @@ const LPC_OF: Record<string, LpcWeapon> = {
 const AXES = new Set(['stone_axe', 'iron_axe', 'steel_axe', 'chainsaw', 'plasma_cutter']);
 const HAMMERS = new Set(['stone_hammer', 'iron_hammer', 'iron_pick', 'steel_pick', 'power_drill', 'plasma_cutter']);
 
+/** A weapon of the armoury (data/weapons.ts) is drawn as the nearest LPC weapon of its family. */
+const BY_FAMILY: Partial<Record<FamilyId, LpcWeapon>> = { dg: 'dagger', cl: 'dagger', sw: 'sword', gs: 'sword', ax: 'axe', mc: 'mace', fl: 'mace', sp: 'spear', pl: 'spear', sc: 'spear', st: 'spear', bw: 'bow', lb: 'bow', cb: 'bow' };
+const lpcOf = (id: string): LpcWeapon => LPC_OF[id] ?? BY_FAMILY[ITEM_BY_ID[id]?.family as FamilyId] ?? null;
+
 export function heldWeapon(gear: Partial<Record<Slot, string>>, activity: string): LpcWeapon {
   const tool = gear.tool ?? '';
   switch (activity) {
     case 'fight':
-      return LPC_OF[gear.weapon ?? ''] ?? LPC_OF[tool] ?? null;
+      return (gear.weapon ? lpcOf(gear.weapon) : null) ?? LPC_OF[tool] ?? null;
     case 'chop':
       return AXES.has(tool) ? 'axe' : null;
     case 'mine':
@@ -69,7 +75,7 @@ const GOLD = '#e8c060';
 export function wornLayers(gear: Partial<Record<Slot, string>>, quality: Partial<Record<Slot, number>> = {}): string[] {
   const out: string[] = [];
   for (const slot of ['body', 'head', 'weapon'] as const) {
-    const q = quality[slot] ?? 1;
+    const q = gradeOf(quality[slot] ?? 1);
     for (const [layer, tint] of WORN[gear[slot] ?? ''] ?? []) {
       const metal = /plate|chain|helm|metal|gold/.test(layer) && slot !== 'weapon';
       const t = metal && q >= GILDED ? GOLD : q === 0 && slot !== 'weapon' ? '#7a7066' : tint;
