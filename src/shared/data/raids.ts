@@ -96,6 +96,30 @@ export const RAID_BUDGET_BASE = 12;
 export const RAID_BUDGET_PER_DAY = 2;
 export const RAID_BUDGET_PER_WEALTH = 1 / 25;
 export const RAID_MAX_SIZE = 6;
+/** A big town draws hardened raiders: health and blows up by this much per grown-up beyond RAID_MIGHT_FREE, up to
+ *  RAID_MIGHT_MAX times. */
+export const RAID_MIGHT_PER_PERSON = 0.03;
+export const RAID_MIGHT_FREE = 8;
+export const RAID_MIGHT_MAX = 2;
+/** Struck down by a raider, someone may die there and then (a boss's blow more often; the founder less, since the town
+ *  passes to an heir), rather than lying wounded to be tended. */
+export const KILLING_BLOW = 0.3;
+export const BOSS_KILLING_BLOW = 0.6;
+export const FOUNDER_KILLING_BLOW = 0.12;
+/** ...and a bigger town draws a bigger raid: one more raider for every RAID_SIZE_PER_PEOPLE grown-ups beyond
+ *  RAID_SIZE_FREE, up to RAID_SIZE_CAP. */
+export const RAID_SIZE_PER_PEOPLE = 4;
+export const RAID_SIZE_FREE = 8;
+export const RAID_SIZE_CAP = 16;
+/** The raid grows with the town: budget per grown-up living there (beyond the first few). */
+export const RAID_BUDGET_PER_PERSON = 1.5;
+export const RAID_BUDGET_FREE_PEOPLE = 4;
+/** A bigger raid (at least FLANK_MIN raiders) may split: a party comes round to the other end of the town, where nobody
+ *  is waiting. The chance grows a little each day, up to FLANK_MAX. */
+export const FLANK_MIN = 4;
+export const FLANK_CHANCE = 0.2;
+export const FLANK_PER_DAY = 0.02;
+export const FLANK_MAX = 0.5;
 /** Warning before raiders appear: without and with a Lookout Platform (game minutes). */
 export const WARNING_MINUTES = 10;
 export const LOOKOUT_WARNING_MINUTES = 60;

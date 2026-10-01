@@ -298,7 +298,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Defenders hold the town's edge:** `townEdgeX` in `raids.ts` (just past the outermost building, walls included, not the
   fields; else the camp's cleared ground). Defenders gather there before a raid (`rallyX`) and in a fight go no further out
   (`doDefend` in `people.ts`), except as far as `THROW_RANGE` after an enemy archer shooting in. Raiders fleeing with loot
-  or a captive get away once past it. Soak: growth up a little, about 45% fewer deaths (raids may want toughening).
+  or a captive get away once past it. Soak: growth up a little, about 45% fewer deaths (toughened again: see below).
+- **Raids bite again** (`raids.ts`, constants in `data/raids.ts`): the budget grows with the town's grown-ups
+  (`RAID_BUDGET_PER_PERSON`), so does the raid's size (`RAID_SIZE_*`: one more raider per 4 beyond 8, up to 16) and its
+  raiders' `might` (health and blows, `RAID_MIGHT_*`: 3% per grown-up beyond 8, up to double). A raid of people of at
+  least `FLANK_MIN` may split (`FLANK_CHANCE`, more each day): a party comes round the other end (`Raider.side`, which it
+  also flees back to), where nobody is waiting. Struck down by a raider, someone may die on the spot (`KILLING_BLOW`
+  0.3, bosses 0.6, the founder 0.12) instead of lying wounded to be tended. Soak (4 towns, 15 days): raid deaths back to
+  the old rate or above (settlers alone 8, vampires 2, druids 4, dwarves 5, liches 5); knights and werewolves still
+  rarely lose anyone (they didn't before either: armoured and fierce).
 - **Night windows:** `ShopView.night`; the shop's and tavern's windows show the night sky.
 - **Ready-made founders:** `src/shared/data/founders.ts` (`FOUNDERS`: three per origin, each with a name and title, a
   line of story, a background named for the origin, a trait or two, and a look). The New Town screen shows the
@@ -328,6 +336,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `setDaylight`. `town/ambientView.ts`: `ChimneySmoke` from homes' chimneys (`BuildingsView.chimneys()`, the top of the
   roof), `Mist` bands (dawn and wet), a steady haze over the far land, all from `airFor(hour, season, weather)` via
   `town.air()` each frame. Soft shadows (the `glowTexture` tinted black) under people, raiders and finished buildings.
+- **Finer townsfolk:** `lpcFrame` (`art/lpc/lpc.ts`) puts each composed character frame on the fine grid through
+  `fineTexture` (`pixelArt.ts`: doubled, the steps rounded by `detail` with `shapeOnly`).
+- **More hand detail:** origin roofs, domes and arches (`originStyles.ts`), nomad tents and adobe (`nomadArt.ts`), the
+  castle's windows, shelves, candles and rugs (`castle.ts`), the farm animals (`livestockArt.ts`).
+- **Quality steps down on a slow device** (`main.ts`): from 15 s after start, in 10 s spells while visible, under 28 fps
+  drops to quality 1 (no smoke or mist: `TownView.calm`), then 0 (the plain screen resolution).
+- **Settlers bring a friend:** a ready-made founder can bring companions (`FounderDef.brings`, added in `newGame`); each
+  settler founder brings one, so the classic town no longer starts a person short (soak: about 21.5 people at day 15,
+  where a lone founder reaches about 15 with the tougher raids). A town founded without a ready-made founder (the tests)
+  still starts alone.
 - **Menu themes leave colour swatches and cards alone:** the button rules in `theme.ts` and `skins.ts` skip `.swatch`
   and `.card` (they once painted the colour choices blank and made the Fae's pick cards unreadable).
 

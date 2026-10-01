@@ -21,6 +21,21 @@ import {
   MELEE_RANGE,
   FINISH_OFF_CHANCE,
   RAID_BUDGET_BASE,
+  RAID_BUDGET_PER_PERSON,
+  RAID_MIGHT_PER_PERSON,
+  RAID_MIGHT_FREE,
+  RAID_MIGHT_MAX,
+  KILLING_BLOW,
+  BOSS_KILLING_BLOW,
+  FOUNDER_KILLING_BLOW,
+  RAID_SIZE_PER_PEOPLE,
+  RAID_SIZE_FREE,
+  RAID_SIZE_CAP,
+  RAID_BUDGET_FREE_PEOPLE,
+  FLANK_MIN,
+  FLANK_CHANCE,
+  FLANK_PER_DAY,
+  FLANK_MAX,
   RAID_BUDGET_PER_DAY,
   RAID_BUDGET_PER_WEALTH,
   RAID_INTERVAL_HOURS,
@@ -84,7 +99,9 @@ export function wealth(s: GameState): number {
 export function raidBudget(s: GameState): number {
   const day = Math.floor(s.tick / TICKS_PER_DAY);
   const war = s.doom?.kind === 'war' && s.doom.phase === 'active' ? WAR_RAID_BUDGET : 1;
-  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH)) * war * difficultyOf(s).raidStrength);
+  // (and with how many it has to get past)
+  const people = Math.max(0, s.people.filter((p) => p.away === null && p.type !== 'child').length - RAID_BUDGET_FREE_PEOPLE);
+  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength);
 }
 
 /** The building giving the longest raid warning, if any. */
@@ -153,7 +170,9 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   const cheapest = Math.min(...costs.map(([, c]) => c));
   // (a rival's lord always leads its army: it takes its share of the budget)
   let left = kind.leader ? Math.max(0, budget - RIVAL_LEADER_COST) : budget;
-  while (raiders.length < RAID_MAX_SIZE && (left >= cheapest || raiders.length === 0)) {
+  const grown = s.people.filter((p) => p.away === null && p.type !== 'child').length;
+  const most = Math.min(RAID_SIZE_CAP, RAID_MAX_SIZE + Math.max(0, Math.floor((grown - RAID_SIZE_FREE) / RAID_SIZE_PER_PEOPLE)));
+  while (raiders.length < most && (left >= cheapest || raiders.length === 0)) {
     const affordable = costs.filter(([, c]) => c <= left);
     const [id, cost] = affordable.length ? rng.pick(affordable) : costs.find(([, c]) => c === cheapest)!;
     left -= cost;
@@ -180,6 +199,26 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
     const hp = lordHp(s, kind.leader);
     const last = raiders[raiders.length - 1];
     raiders.push({ ...last, id: s.nextId++, kind: kind.leader, hp, maxHp: hp, goal: 'harm', x: last.x + (side < 0 ? -30 : 30), carrying: {} });
+  }
+  // a big town draws hardened raiders: tougher, and harder hitting
+  const might = Math.min(RAID_MIGHT_MAX, 1 + Math.max(0, grown - RAID_MIGHT_FREE) * RAID_MIGHT_PER_PERSON);
+  if (might > 1)
+    for (const rd of raiders) {
+      rd.might = might;
+      rd.hp = rd.maxHp = Math.round(rd.maxHp * might);
+    }
+  // a big enough raid of people may split: some come round to the other end of the town
+  const day = s.tick / TICKS_PER_DAY;
+  let flank = 0;
+  if (inside === undefined && kind.steals !== undefined && raiders.length >= FLANK_MIN && rng.chance(Math.min(FLANK_MAX, FLANK_CHANCE + day * FLANK_PER_DAY))) {
+    const other = -side as -1 | 1;
+    const party = raiders.filter((rd) => !ENEMIES[rd.kind].kit).slice(-Math.floor(raiders.length / 3));
+    party.forEach((rd, i) => {
+      rd.side = other;
+      rd.dir = other < 0 ? 1 : -1;
+      rd.x = other < 0 ? -OFF_MAP - i * 24 : WORLD_WIDTH + OFF_MAP + i * 24;
+    });
+    flank = party.length;
   }
   // (a lich founder may command most of the dead)
   if (kind.id === 'zombies') bindTheDead(s, raiders);
@@ -211,7 +250,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
     kind: 'raid' as const,
     expedition: null,
     title: `${kind.name} spotted!`,
-    text: `${raiders.length} ${raiders.length === 1 ? 'raider is' : 'raiders are'} coming from the ${where}${lookout ? ` (seen from the ${BUILDING_BY_ID[lookout.def].name.toLowerCase()})` : ''}.`,
+    text: `${raiders.length - flank} ${raiders.length - flank === 1 ? 'raider is' : 'raiders are'} coming from the ${where}${flank ? `, and ${flank} more from the ${side < 0 ? 'east' : 'west'}` : ''}${lookout ? ` (seen from the ${BUILDING_BY_ID[lookout.def].name.toLowerCase()})` : ''}.`,
     options,
     defaultOption: 0,
     expiresTick: raid.arrivesTick,
@@ -221,7 +260,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   s.raid = raid;
   // (a wandering tribe draws its wagons up across the camp)
   circleWagons(s, []);
-  notify(s, `${kind.name} ${kind.plural ? 'are' : 'is'} coming from the ${where}!`);
+  notify(s, `${kind.name} ${kind.plural ? 'are' : 'is'} coming from the ${where}${flank ? ', and round the other side' : ''}!`);
   return raid;
 }
 
@@ -328,7 +367,6 @@ export function updateRaid(s: GameState, rng: Rng): void {
   bossesInRaid(s, r);
   rivalsInRaid(s, r, rng);
   const step = kind.speed / TICK_HZ;
-  const edge = r.side < 0 ? -OFF_MAP : WORLD_WIDTH + OFF_MAP;
   fireDefenses(s, rng);
 
   for (const rd of r.raiders) {
@@ -344,6 +382,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
     // (an epic boss never runs from a fight: only time drives it off)
     const coward = !ENEMIES[rd.kind].kit && rd.hp < rd.maxHp * RAIDER_FLEE[goal];
     if (!rd.fleeing && (coward || s.tick >= r.leavesTick || poolSize(rd.carrying) >= RAIDER_CARRY)) rd.fleeing = true;
+    const edge = (rd.side ?? r.side) < 0 ? -OFF_MAP : WORLD_WIDTH + OFF_MAP; // (each back the way it came)
     if (rd.fleeing && level(rd) > 0) {
       moveOnFloors(s, rd, edge, 0, step * 1.2); // (down the stairs of the keep first)
       continue;
@@ -508,12 +547,19 @@ function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng): void {
   // (a rival lord's frenzy: harder, and sooner again)
   const frenzy = frenzyOf(s);
   if (frenzy > 1) rd.cooldown = Math.round(rd.cooldown / frenzy);
-  const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s));
+  const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s) * (rd.might ?? 1));
   p.hp = Math.max(0, p.hp - dmg);
   if (dmg > 0 && (rd.kind === 'ice_mage' || rd.kind === 'frost_archmage')) personFx(s, p.id, 'frost'); // (a burst of ice)
   // a plague rat's bite can carry the sickness
   if (dmg > 0 && (rd.kind === 'plague_rat' || rd.kind === 'rat_king') && !tireless(p) && !p.sick && rng.chance(RAT_BITE_SICKNESS)) sicken(s, p, rng);
   if (p.hp === 0) {
+    // (a killing blow: no lying wounded waiting to be tended)
+    const odds = p.id === s.mainId ? FOUNDER_KILLING_BLOW : def.kit || def.boss ? BOSS_KILLING_BLOW : KILLING_BLOW;
+    if (rng.chance(odds)) {
+      const by = /^the /i.test(def.name) ? def.name : `${/^[aeiou]/i.test(def.name) ? 'an' : 'a'} ${def.name.toLowerCase()}`;
+      killPerson(s, p, `at the hands of ${by}`);
+      return;
+    }
     knockDown(s, p);
     notify(s, `${p.name} was struck down!`);
   }

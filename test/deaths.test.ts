@@ -349,3 +349,23 @@ test('defenders hold the edge of the town: they go no further out after the raid
   assert.ok(furthest <= edge + 1, `went out to ${Math.round(furthest)} past the edge at ${Math.round(edge)}`);
   assert.ok(furthest > edge - 3 * 32, 'but went to the edge to meet it');
 });
+
+test('a bigger town draws a bigger raid, and a big raid may split and come round the other side', () => {
+  const s = plainGame('big-raid');
+  for (let i = 0; i < 28; i++) s.people.push(makePerson(new Rng(i), s.nextId++, 'gatherer', s.people[0].x, s.people.map((p) => p.name)));
+  s.tick = 15 * 24 * TICKS_PER_HOUR;
+  const raid = startRaid(s, RAID_KIND_BY_ID.bandits, 999, new Rng(1));
+  assert.ok(raid.raiders.length > 6 && raid.raiders.length <= 16, `${raid.raiders.length} raiders for a town of 29`);
+  // (over a few raids, one splits: a party from the other end, which flees back that way)
+  let split = false;
+  for (let seed = 0; seed < 12 && !split; seed++) {
+    s.raid = null;
+    const r = startRaid(s, RAID_KIND_BY_ID.bandits, 999, new Rng(seed));
+    const flank = r.raiders.filter((rd) => rd.side === -r.side);
+    if (!flank.length) continue;
+    split = true;
+    assert.ok(flank.every((rd) => (r.side < 0 ? rd.x > 0 : rd.x < 0)), 'they start at the other end');
+    assert.ok(s.prompts.find((p) => p.id === r.prompt)!.text.includes('more from the'), 'the warning says so');
+  }
+  assert.ok(split, 'some raid came round the other side');
+});

@@ -230,6 +230,9 @@ export interface Raider {
   hitFx?: RaiderHitFx | null;
   /** What this one is after (older saves: the raid's main goal). */
   goal?: RaidGoal;
+  /** How much harder it is than its kind (a big town draws hardened raiders: raids.ts), for its blows (its health
+   *  is scaled when it's made). */
+  might?: number;
   /** The side it came from and flees back to, when not the raid's own (a flanking party, raids.ts). */
   side?: -1 | 1;
   /** A townsperson being carried off (taken out of the town while carried). */
