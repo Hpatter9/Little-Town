@@ -9,7 +9,7 @@ export function renderAlerts(bridge: Bridge | undefined): HTMLElement[] {
     el(
       'div',
       'hint',
-      'Get a push on your phone when raiders reach the town while you\'re away: they wait at the gate for you to watch the fight (up to 12 hours). Install the free ntfy app, subscribe to a topic name only you know, and enter the same name here. When you leave the game, it looks ahead and books the alerts.',
+      'Get a push on your phone when raiders reach the town while you\'re away: they wait at the gate for you to watch the fight (up to 12 hours), and when a choice comes up (the town pauses until you answer). Install the free ntfy app, subscribe to a topic name only you know, and enter the same name here. Then tap Send a test alert. When you leave the game, it looks ahead and books the alerts.',
     ),
   );
   const form = el('div', 'alerts-form');
@@ -59,7 +59,7 @@ export function renderAlerts(bridge: Bridge | undefined): HTMLElement[] {
         check('Deaths and kidnappings', 'deaths'),
         check('Big moments of the one you follow', 'hero'),
         check('Expeditions coming home', 'expeditions'),
-        check('Questions waiting for an answer', 'choices'),
+        check('Other questions (answered for you after an hour)', 'choices'),
         button('Send a test alert', async () => {
           status.textContent = 'Sending…';
           status.textContent = await bridge.testAlert();

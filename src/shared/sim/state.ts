@@ -599,7 +599,8 @@ export interface GameState {
   /** Choice events (sim/events.ts): the one being asked now (its def, prompt and the townsperson it's about), when the
    *  next may come, the last few drawn (not drawn again soon), the marks answers left on the town (a lever or
    *  everyone's morale, until a tick), and effects still to come. */
-  event?: { def: string; prompt: number; who?: number };
+  /** The choice event waiting for an answer; `held` once it has paused the town during time away (offline.ts). */
+  event?: { def: string; prompt: number; who?: number; held?: boolean };
   /** The townsperson the player follows (the camera keeps them in view; their big moments send phone alerts). */
   hero?: number;
   /** The origin power the player keeps back to cast themselves (sim/powers.ts castHeld). */

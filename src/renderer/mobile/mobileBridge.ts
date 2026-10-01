@@ -2,7 +2,7 @@
 // keeps the town in the browser's storage, and catches up on the time the app was closed or in the background.
 
 import { type AlertSettings, type Bridge, type InspectInfo, type StripState } from '../../shared/ipc';
-import { cancelAlerts, cleanAlerts, scheduleAlerts, testAlert } from '../../shared/alerts';
+import { AHEAD_TICKS, cancelAlerts, cleanAlerts, scheduleAlerts, startForecast, testAlert, type Ahead, type ForecastJob } from '../../shared/alerts';
 import { GameLoop } from '../../shared/gameLoop';
 import { parseSave, serialize } from '../../shared/sim/save';
 import type { Snapshot } from '../../shared/sim/snapshot';
@@ -16,6 +16,10 @@ const SETTINGS_KEY = 'littletown.settings';
 const ALERTS_KEY = 'littletown.alerts';
 /** ntfy messages booked on the way out (dropped on the way back, where the server allows). */
 const SCHEDULED_KEY = 'littletown.scheduledAlerts';
+/** The look ahead for phone alerts: ticks per slice, the rest between slices, and how often it's made again (ms). */
+const LOOK_SLICE = 60;
+const LOOK_PAUSE_MS = 40;
+const LOOK_AGAIN_MS = 60_000;
 const AUTOSAVE_MS = 30_000;
 
 /** Browser storage can be missing or full; the game carries on either way. */
@@ -77,10 +81,27 @@ export function mobileBridge(): Bridge {
     write(SCHEDULED_KEY, '[]');
     void cancelAlerts(alerts, ids);
   };
+  // Looking a day ahead takes seconds on a phone, and a page sent to the background may be frozen in moments: so it's
+  // worked out while the game is open, a little at a time, and kept fresh; leaving, the alerts go straight out.
+  let ahead: Ahead | null = null;
+  let looking: ForecastJob | null = null;
+  const lookAhead = () => {
+    if (alerts.enabled && !document.hidden && !game.catchingUp) {
+      looking ??= startForecast(game.state, AHEAD_TICKS);
+      if (looking.run(LOOK_SLICE)) {
+        ahead = looking;
+        looking = null;
+        return setTimeout(lookAhead, LOOK_AGAIN_MS);
+      }
+    }
+    setTimeout(lookAhead, LOOK_PAUSE_MS);
+  };
+  setTimeout(lookAhead, LOOK_AGAIN_MS);
   const book = () => {
     if (!alerts.enabled || game.catchingUp) return;
     dropBooked();
-    void scheduleAlerts(alerts, game.state).then((ids) => write(SCHEDULED_KEY, JSON.stringify(ids)));
+    // (what's been looked at so far, if the first look isn't finished yet)
+    void scheduleAlerts(alerts, game.state, ahead ?? looking ?? undefined).then((ids) => write(SCHEDULED_KEY, JSON.stringify(ids)));
   };
   dropBooked();
 

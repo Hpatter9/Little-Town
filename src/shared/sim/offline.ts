@@ -7,7 +7,7 @@ import { blueprintCount, totalStock } from './buildings';
 import type { Sim } from './sim';
 import { addJournal, notify, type GameState } from './state';
 import { holdAtGate, openGate, RAID_WAIT_MS, raidAtGate } from './raidWait';
-import { holdEventClock } from './events';
+import { holdEventClock, holdForEvent } from './events';
 import { highlights } from './highlights';
 import { TICK_MS, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
@@ -77,7 +77,8 @@ export function startCatchUp(sim: Sim, awayMs: number): CatchUpJob {
     },
     run(ticks) {
       for (let i = 0; i < ticks && job.left > 0; i++, job.left--) {
-        if (s.gameOver || s.paused) {
+        // (a choice event stops the town till the player answers: at most one while away)
+        if (s.gameOver || s.paused || holdForEvent(s)) {
           job.left = 0;
           break;
         }
@@ -128,6 +129,7 @@ function report(s: GameState, awayMs: number, before: { tick: number; stock: Sto
   const stock = stockChange(before.stock, totalStock(s));
   if (stock) lines.push(`Stores: ${stock}.`);
   if (s.prompts.some((p) => p.kind === 'gate')) lines.push('Raiders are at the gate: the town waits for you to watch the fight.');
+  if (s.event?.held) lines.push('A choice is waiting: the town is paused until you answer it.');
   const idle = idleNote(s);
   if (idle) lines.push(idle);
   if (!lines.length) lines.push('A quiet time. Nothing much happened.');

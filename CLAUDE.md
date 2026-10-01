@@ -195,7 +195,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   apps: `src/shared/alerts.ts` (`plan` looks one absence ahead with the forecast, stops at the first raid, and times
   them by the away pace, `awayRealMs`); the phone page books them when it goes to the background and drops them when
   it comes back (`mobileBridge.ts`, keys `littletown.alerts`, `littletown.scheduledAlerts`); the panel is in the ☰
-  menu.
+  menu. The look ahead takes seconds on a phone, so the page works it out while open, in slices (`startForecast`,
+  redone every minute), and on leaving sends the alerts at once, all together, as plain `keepalive` requests (title,
+  tags, priority and time in the query string). The phone page's CSP has `connect-src 'self' https:` for ntfy: before
+  it, every alert was blocked.
+- **One choice event while away:** during catch-up a choice event pauses the town (`holdForEvent` in `events.ts`:
+  `s.event.held`, `s.paused`) and the catch-up stops; answering it (`answerEvent`) sets the town going. The forecast
+  stops at it too (kind `event`), and its alert is always sent when alerts are on (high priority).
 - **Hide toggles:** `panel/hide.ts` (`HidePrefs`): Research, Build and Crafting each have a "Hide:" row, kept in
   `localStorage` (`littletown.researchHide`, `buildHide`, `craftHide`).
 - **Upgrades and fewer homes:** `UPGRADES` in `data/buildings.ts` (homes: lean-to or hide tent → longhouse →
