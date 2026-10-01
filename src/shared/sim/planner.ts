@@ -4,7 +4,7 @@
 // and why, is kept in `s.plan` for the panels to show.
 
 import { buildOrigin, nomadic } from './nomads';
-import { adoptRooms, castleOn, castleSpan, openFloors, roomKind } from './castle';
+import { adoptRooms, castleOn, castleReach, castleSpan, inKeep, openFloors, roomKind } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { HERDS } from '../data/livestock';
@@ -413,7 +413,8 @@ const campTile = (s: GameState) => Math.floor(campX(s) / TILE);
 function findSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): number | null {
   // (a wandering tribe builds its great works on its home ground)
   const c = buildOrigin(s, def.id) ?? campTile(s);
-  const [lo, hi] = castleOn(s) && def.layer === 'mid' ? castleSpan(s) : [0, 0];
+  // (nothing under the keep's overhanging upper floors either)
+  const [lo, hi] = castleOn(s) && def.layer === 'mid' ? castleReach(s) : [0, 0];
   for (let d = 0; d < s.tiles.length; d++) {
     for (const t of d === 0 ? [c] : [c + d, c - d - def.width + 1]) {
       if (t < hi && t + def.width > lo) continue;
@@ -425,10 +426,12 @@ function findSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef):
 
 /** Where a castle's next room goes: the lowest open floor with space, nearest the middle of the keep. */
 function roomSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): { tile: number; floor: number } | null {
-  const [lo, hi] = castleSpan(s);
-  const mid = (lo + hi - def.width) / 2;
-  const tiles = Array.from({ length: hi - lo - def.width + 1 }, (_, i) => lo + i).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
-  for (const floor of openFloors(s)) for (const tile of tiles) if (canPlace(s, back, def, tile, floor).ok) return { tile, floor };
+  for (const floor of openFloors(s)) {
+    const [lo, hi] = castleSpan(s, floor);
+    const mid = (lo + hi - def.width) / 2;
+    const tiles = Array.from({ length: Math.max(0, hi - lo - def.width + 1) }, (_, i) => lo + i).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+    for (const tile of tiles) if (inKeep(s, tile, def.width, floor) && canPlace(s, back, def, tile, floor).ok) return { tile, floor };
+  }
   return null;
 }
 
@@ -698,7 +701,8 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
   }
   if (blocked && roomKind(s, blocked)) {
     // (a castle's room: the keep's own ground cleared, or it waits for the keep to grow)
-    const [lo, hi] = castleSpan(s);
+    // (the ground under its widest floor too: the upper floors overhang it)
+    const [lo, hi] = castleReach(s);
     const wild = s.tiles.map((t, i) => ({ t, i })).filter(({ t, i }) => i >= lo && i < hi && t.terrain !== 'clear');
     plan.waiting.push(wild.length ? `No room in the keep for a ${blocked.name}: clearing its ground` : `The keep is full: the ${blocked.name} waits for it to grow`);
     for (const { i } of wild.slice(0, blocked.width + 1)) clear.push(i);

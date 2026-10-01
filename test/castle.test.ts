@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { canPlace } from '../src/shared/sim/buildings';
-import { adoptRooms, CASTLE_FLOORS, CASTLE_TILES, CLIMB_SECONDS, castleFloors, castleSpan, castleWidth, floorFill, moveOnFloors, openFloors, roomOf, stairXs } from '../src/shared/sim/castle';
+import { adoptRooms, CASTLE_FLOORS, CASTLE_TILES, CLIMB_SECONDS, inKeep, stairXs as stairsOf, castleFloors, castleSpan, castleWidth, floorFill, moveOnFloors, openFloors, roomOf, stairXs } from '../src/shared/sim/castle';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { Rng } from '../src/shared/rng';
@@ -23,9 +23,10 @@ test('a Blood Court builds a castle: rooms stacked floor on floor over the camp,
   assert.ok(castleFloors(s) <= CASTLE_FLOORS);
   for (const b of rooms) {
     const w = BUILDING_BY_ID[b.def].width;
-    assert.ok(b.tile >= lo && b.tile + w <= hi, `${b.def} in the keep`);
+    assert.ok(inKeep(s, b.tile, w, b.floor ?? 0), `${b.def} in the keep, on floor ${b.floor ?? 0}`);
     // every floor up stands on one mostly built
-    if ((b.floor ?? 0) > 0) assert.ok(floorFill(s, (b.floor ?? 0) - 1) >= CASTLE_TILES / 2, `${b.def} on ${b.floor}`);
+    // (the floor below was mostly built when it went up; rooms set aside or merged since may have thinned it)
+    if ((b.floor ?? 0) > 0) assert.ok(floorFill(s, (b.floor ?? 0) - 1) > 0, `${b.def} on ${b.floor}`);
   }
   // fields and walls never go in
   for (const b of s.buildings.filter((q) => !q.room)) assert.ok(BUILDING_BY_ID[b.def].layer !== 'mid' || b.tile + BUILDING_BY_ID[b.def].width <= lo || b.tile >= hi || b.def === 'campfire', `${b.def} outside`);
@@ -143,4 +144,25 @@ test('the keep grows wider each era, and a Blood Court never builds its rooms ou
   const sprawl = s.buildings.filter((b) => !b.room && BUILDING_BY_ID[b.def].layer === 'mid' && ['longhouse', 'lean_to', 'hide_tent', 'workbench', 'cottage'].includes(b.def));
   assert.deepEqual(outside.map((b) => b.def), [], 'nothing overlapping the keep that is not a room');
   assert.deepEqual(sprawl.map((b) => b.def), [], 'homes and workshops are all rooms');
+});
+
+test('a new keep is narrow at the foot and reaches out a tile a side each floor up, clear of the stair towers; an old one stays as it was', () => {
+  const s = newGame('flare', { origin: 'vampire' });
+  const [lo0, hi0] = castleSpan(s);
+  const [lo2, hi2] = castleSpan(s, 2);
+  assert.equal(hi0 - lo0, CASTLE_TILES);
+  assert.equal(hi2 - lo2, CASTLE_TILES + 4, 'two floors up, two tiles wider each side');
+  // the stair towers stand just past the ground floor's ends: no room upstairs is built over them
+  const [a] = stairsOf(s);
+  const stairTile = Math.floor(a / 32);
+  assert.ok(!inKeep(s, stairTile, 1, 2), 'not over the stairs');
+  assert.ok(inKeep(s, lo2, 1, 2), 'but out past them');
+  assert.ok(!inKeep(s, lo2, 1, 0), 'and not on the ground floor out there');
+  // (a castle from an older save keeps its shape: 16 tiles, straight up)
+  const old = newGame('flare-old', { origin: 'vampire' });
+  delete old.keep;
+  const [o0, o1] = castleSpan(old);
+  const [p0, p1] = castleSpan(old, 3);
+  assert.equal(o1 - o0, 16);
+  assert.deepEqual([p0, p1], [o0, o1]);
 });

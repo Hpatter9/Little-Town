@@ -22,8 +22,9 @@ import { Layer } from './layer';
 const MID_BAND_TOP = -8; // mid ground strip, local y
 const FORE_DEPTH = STRIP_HEIGHT - FORE_TOP_Y;
 const BACK_BAND_DEPTH = Math.ceil((FORE_TOP_Y - BACK_GROUND_Y) / BACK_SCALE) + 4;
-/** Colour the whole town is multiplied by at full night. */
-const NIGHT_TINT = 0x4a5688;
+/** Colour the whole town is multiplied by at full night: a moonlit blue, light enough to watch the town by (it was
+ *  0x4a5688, about a third of the light, and the owner found the nights too dark). */
+const NIGHT_TINT = 0x8a96c8;
 /** y (fore-local) where people's feet touch the walkway. */
 export const WALK_Y = 20;
 
@@ -134,7 +135,7 @@ export class TownView {
   /* ------------------------------------------------------------ buildings */
 
   /** A castle town's keep (drawn round its rooms). */
-  syncCastle(castle: { lo: number; hi: number; floors: number } | null): void {
+  syncCastle(castle: { lo: number; hi: number; floors: number; flare: number } | null): void {
     if (!this.buildings.syncCastle(castle)) return;
     this.mid.rebuildSkyline();
   }

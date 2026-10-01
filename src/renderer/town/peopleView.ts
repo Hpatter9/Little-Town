@@ -26,6 +26,8 @@ const BLEED_MINUTES = 120;
 
 /** Children are drawn at this size. */
 const CHILD_SCALE = 0.7;
+/** Inside a castle's keep everyone is drawn smaller, in proportion to its rooms (they walk at the same pace). */
+export const INSIDE_SCALE = 0.6;
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { WALK_Y } from './townView';
 
@@ -219,7 +221,7 @@ export class PeopleView {
       const [look, wear] = this.dressed(d.view);
       d.sprite.texture = lpcFrame(look, anim, frame, held, wear);
       const flip = d.view.dir < 0;
-      const k = d.view.growsUpIn !== null ? CHILD_SCALE : 1; // children are drawn smaller
+      const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.floor !== null ? INSIDE_SCALE : 1); // children are drawn smaller (and everyone, in a castle)
       d.sprite.scale.set(flip ? -k : k, k);
       d.sprite.x = Math.round(x) + (flip ? (CENTRE_X + 1) * k : -CENTRE_X * k);
       d.sprite.y = WALK_Y - FEET_Y * k;

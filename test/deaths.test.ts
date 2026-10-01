@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { killPerson, knockDown } from '../src/shared/sim/health';
-import { startRaid, updateRaid } from '../src/shared/sim/raids';
+import { startRaid, townEdgeX, updateRaid } from '../src/shared/sim/raids';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Sim } from '../src/shared/sim/sim';
 import { makePerson, type Building, type GameState } from '../src/shared/sim/state';
@@ -325,4 +325,27 @@ test('with the Elder\'s Council learned and no totem fetched, the Cave Bear come
   t.tick = TICKS_PER_HOUR * 10;
   caveBear(t, rng);
   assert.equal(t.caveBearTick, undefined);
+});
+
+test('defenders hold the edge of the town: they go no further out after the raiders', () => {
+  const sim = new Sim(plainGame('hold-the-edge'));
+  const s = sim.state;
+  const p = s.people[0];
+  p.priorities.defend = 1;
+  const wave = startRaid(s, RAID_KIND_BY_ID.wolves, 8, new Rng(3));
+  wave.phase = 'active';
+  wave.raiders.splice(1);
+  const wolf = wave.raiders[0];
+  const edge = townEdgeX(s, 1);
+  // (a wolf prowling well outside the town, never coming nearer)
+  let furthest = -Infinity;
+  for (let i = 0; i < 600; i++) {
+    wolf.x = edge + 400;
+    wolf.dir = -1;
+    sim.step();
+    if (!s.raid) break;
+    furthest = Math.max(furthest, p.x);
+  }
+  assert.ok(furthest <= edge + 1, `went out to ${Math.round(furthest)} past the edge at ${Math.round(edge)}`);
+  assert.ok(furthest > edge - 3 * 32, 'but went to the edge to meet it');
 });

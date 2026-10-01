@@ -6,6 +6,7 @@
 
 import { DEFAULT_ALERTS, validServer, validTopic, type AlertSettings } from './ipc';
 import { forecast, type ForecastEvent } from './sim/forecast';
+export { startForecast, type ForecastJob } from './sim/forecast';
 import { awayRealMs, MAX_OFFLINE_MS } from './sim/offline';
 import type { GameState } from './sim/state';
 import { TICK_MS } from './sim/time';
@@ -13,16 +14,16 @@ import { TICK_MS } from './sim/time';
 const MIN_DELAY_MS = 30_000;
 const TIMEOUT_MS = 5_000;
 
-const TAGS: Record<ForecastEvent['kind'], string> = { raid: 'crossed_swords', death: 'skull', expedition: 'compass', choice: 'question', hero: 'star' };
+const TAGS: Record<ForecastEvent['kind'], string> = { raid: 'crossed_swords', death: 'skull', expedition: 'compass', choice: 'question', event: 'question', hero: 'star' };
 
 function url(a: AlertSettings): string {
   return `${a.server}/${encodeURIComponent(a.topic)}`;
 }
 
 async function post(a: AlertSettings, title: string, body: string, at?: number): Promise<string | null> {
-  const headers: Record<string, string> = { Title: title, Tags: 'house' };
-  if (at) headers.At = String(Math.round(at / 1000));
-  const res = await fetch(url(a), { method: 'POST', body, headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  const q = new URLSearchParams({ title, tags: 'house' });
+  if (at) q.set('at', String(Math.round(at / 1000)));
+  const res = await fetch(`${url(a)}?${q}`, { method: 'POST', body, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`ntfy answered ${res.status}`);
   const json = (await res.json().catch(() => ({}))) as { id?: string };
   return json.id ?? null;
@@ -39,16 +40,27 @@ export async function testAlert(a: AlertSettings): Promise<string> {
   }
 }
 
-/** The alerts worth sending for this forecast, with when each should arrive (wall-clock ms). */
-export function plan(a: AlertSettings, state: GameState, now: number): { at: number; event: ForecastEvent }[] {
+/** Events already looked ahead (startForecast, worked out while the game was open), from the tick they start at. */
+export interface Ahead {
+  from: number;
+  events: ForecastEvent[];
+}
+
+/** The forecast an alert plan reads: a whole absence ahead. */
+export const AHEAD_TICKS = Math.floor(MAX_OFFLINE_MS / TICK_MS);
+
+/** The alerts worth sending for this forecast, with when each should arrive (wall-clock ms). `ahead` is a forecast
+ *  already made (it may be a little old: what's already past is dropped); without it, one is made now. */
+export function plan(a: AlertSettings, state: GameState, now: number, ahead?: Ahead): { at: number; event: ForecastEvent }[] {
   if (!a.enabled || !a.topic) return [];
-  const want = { raid: a.raids, death: a.deaths, expedition: a.expeditions, choice: a.choices, hero: a.hero };
-  // (no further than one absence can take the town, and nothing past the first raid: the town waits for the player
-  // at the gate; sim/raidWait.ts)
-  const events = forecast(state, Math.floor(MAX_OFFLINE_MS / TICK_MS));
-  const firstRaid = events.find((e) => e.kind === 'raid')?.tick ?? Infinity;
+  // (a choice event always: the town pauses for it, and the alert is how you hear it's waiting)
+  const want = { raid: a.raids, death: a.deaths, expedition: a.expeditions, choice: a.choices, event: true, hero: a.hero };
+  const events = ahead ? ahead.events : forecast(state, AHEAD_TICKS);
+  // (no further than one absence can take the town, and nothing past the first raid or choice event: the town waits
+  // for the player there; sim/raidWait.ts, offline.ts)
+  const stop = events.find((e) => e.kind === 'raid' || e.kind === 'event')?.tick ?? Infinity;
   return events
-    .filter((e) => want[e.kind] && e.tick <= firstRaid)
+    .filter((e) => want[e.kind] && e.tick <= stop && e.tick >= state.tick)
     .map((event) => {
       const when = now + awayRealMs((event.tick - state.tick) * TICK_MS);
       // (a raid sooner than the lead time: as soon as ntfy allows)
@@ -58,26 +70,27 @@ export function plan(a: AlertSettings, state: GameState, now: number): { at: num
     .map(({ event, at }) => ({ event, at }));
 }
 
-/** Schedule the alerts for the time away. Returns the ids of the scheduled messages. */
-export async function scheduleAlerts(a: AlertSettings, state: GameState): Promise<string[]> {
-  const ids: string[] = [];
-  for (const { at, event } of plan(a, state, Date.now())) {
-    try {
+/** Schedule the alerts for the time away. Returns the ids of the scheduled messages. All are sent at once, as the page
+ *  goes to the background (a phone may freeze it a moment later). */
+export async function scheduleAlerts(a: AlertSettings, state: GameState, ahead?: Ahead): Promise<string[]> {
+  const sent = await Promise.all(
+    plan(a, state, Date.now(), ahead).map(({ at, event }) => {
       const lead = event.kind === 'raid' && a.leadMinutes ? ` (in about ${a.leadMinutes} min)` : '';
-      const id = await postTagged(a, event, lead, at);
-      if (id) ids.push(id);
-    } catch (err) {
-      console.warn('[alerts] could not schedule:', (err as Error).message);
-      break;
-    }
-  }
-  return ids;
+      return postTagged(a, event, lead, at).catch((err) => {
+        console.warn('[alerts] could not schedule:', (err as Error).message);
+        return null;
+      });
+    }),
+  );
+  return sent.filter((id): id is string => !!id);
 }
 
+/** One alert, booked for `at`. Everything rides in the address (ntfy reads title, tags, priority and time from it), so
+ *  it's a plain request with no preflight, and `keepalive` lets it finish if the page is frozen or closed meanwhile. */
 async function postTagged(a: AlertSettings, e: ForecastEvent, lead: string, at: number): Promise<string | null> {
-  const headers: Record<string, string> = { Title: `Chronos Settlement: ${e.title}`, Tags: TAGS[e.kind], At: String(Math.round(at / 1000)) };
-  if (e.kind === 'raid') headers.Priority = 'high';
-  const res = await fetch(url(a), { method: 'POST', body: `${e.text}${lead}`, headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  const q = new URLSearchParams({ title: `Chronos Settlement: ${e.title}`, tags: TAGS[e.kind], at: String(Math.round(at / 1000)) });
+  if (e.kind === 'raid' || e.kind === 'event') q.set('priority', 'high');
+  const res = await fetch(`${url(a)}?${q}`, { method: 'POST', body: `${e.text}${lead}`, keepalive: true, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`ntfy answered ${res.status}`);
   const json = (await res.json().catch(() => ({}))) as { id?: string };
   return json.id ?? null;

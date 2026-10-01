@@ -19,8 +19,8 @@ export function mix(a: number, b: number, t: number): number {
 
 /** The sky's colour at the top and down at the horizon. */
 export function skyColors(hours: number, daylight: number, cover: number): { top: number; horizon: number } {
-  let top = mix(0x0a0f26, 0x3f7fd0, daylight);
-  let horizon = mix(0x1a2242, 0xa8d2f2, daylight);
+  let top = mix(0x16204a, 0x3f7fd0, daylight);
+  let horizon = mix(0x2e3c6e, 0xa8d2f2, daylight);
   // dawn and dusk: a warm glow low down while the light comes and goes
   const twilight = daylight > 0 && daylight < 1 ? 1 - Math.abs(daylight * 2 - 1) : 0;
   const glow = hours < 12 ? 0xf2a070 : 0xf08050;

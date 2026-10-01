@@ -26,7 +26,9 @@ import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
 import { cropOf, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
 import { isPen, needsTending, penToTend, workPen } from './livestock';
 import { fightFire, fireToFight } from './fire';
-import { defenderAttack, defenderReach, nearestRaider, rallyX } from './raids';
+import { defenderAttack, defenderReach, nearestRaider, rallyX, townEdgeX } from './raids';
+import { ENEMIES } from '../data/enemies';
+import { THROW_RANGE } from '../data/raids';
 import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
 import { tireless, remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
@@ -341,8 +343,16 @@ function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' 
   const gap = rd.x - p.x;
   // (up in a castle's keep: only on the same floor)
   if (Math.abs(gap) > reach || (p.floor ?? 0) !== (rd.floor ?? 0)) {
+    // they go out no further than the town's edge: the raiders are met as they come in (or shot at from it); only an
+    // archer shooting in from just outside is gone out after, as far as it stands
+    const out = ENEMIES[rd.kind]?.ranged ? THROW_RANGE : 0;
+    const want = Math.max(townEdgeX(s, -1) - out, Math.min(townEdgeX(s, 1) + out, rd.x - Math.sign(gap) * (reach - 4)));
     // riders cover ground twice as fast
-    if (!goTo(s, p, rd.x - Math.sign(gap) * (reach - 4), rd.floor ?? 0) && mounted) goTo(s, p, rd.x - Math.sign(gap) * (reach - 4), rd.floor ?? 0);
+    const there = goTo(s, p, want, rd.floor ?? 0) || (mounted && goTo(s, p, want, rd.floor ?? 0));
+    if (there) {
+      p.dir = gap >= 0 ? 1 : -1; // (holding the edge, facing them)
+      p.activity = 'idle';
+    }
     return;
   }
   p.dir = gap >= 0 ? 1 : -1;

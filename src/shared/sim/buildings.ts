@@ -1,6 +1,6 @@
 // Building rules shared by the sim and the renderer (the placement ghost uses canPlace too).
 
-import { castleOn, castleSpan } from './castle';
+import { castleOn, inKeep } from './castle';
 import { BACK_PAD_TILES, TILE } from '../constants';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
@@ -188,8 +188,7 @@ export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: numbe
   for (const tile of grow > 0 ? [b.tile, b.tile - grow] : [b.tile]) {
     // (a castle's room grows within the keep)
     if (b.room && ((b.floor ?? 0) > 0 || castleOn(s))) {
-      const [lo, hi] = castleSpan(s);
-      if (tile < lo || tile + def.width > hi) continue;
+      if (!inKeep(s, tile, def.width, b.floor ?? 0)) continue;
     }
     if (canPlace(others, back, def, tile, b.floor ?? 0).ok) return { ok: true, to, tile };
   }

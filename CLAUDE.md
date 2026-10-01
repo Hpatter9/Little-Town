@@ -127,7 +127,19 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   checks overlap per floor), `openFloors`, `roomOf` (the room someone's in: `PersonView.floor`), `adoptRooms` for
   older saves. The planner's `roomSpot` fills it. Drawn by `src/renderer/art/castle.ts` (`roomArt` cutaways, `keepArt`
   shell, sliced per 16px in `BuildingsView.syncCastle`); `mobile.ts` zooms and grows the strip so the keep fits.
-  - The keep widens each era (`castleWidth`: 16 tiles, 4 more per era). Nothing that belongs inside sprawls: with no
+  - The look is Castlevania and cut open: rooms and empty chambers seen in section (`section()` hatches the stone the
+    cut runs through: the floors between rooms, the walls between them), and a seeded skyline (`seeded(lo, hi)`: the
+    same castle every time) of round `turret`s with needle spires, a great tower with a `roseWindow`, a steep hall roof,
+    little gables along the battlements, `buttress`es, `gargoyle`s, corbelled corner turrets on the stair towers, and a
+    crag with a round flanking tower each side (the picture is `KEEP_MARGIN_X` wider each side than the keep).
+  - The keep is narrow at the foot and reaches out as it rises (`s.keep`: 12 tiles on the ground floor, 4 more per era,
+    each floor up `flare` 1 tile further out on each side, on corbels, up to `CASTLE_FLOORS` 6). The stair towers stand
+    just past the ground floor's ends and run up through the wider floors; `inKeep` keeps rooms off them. `castleReach`
+    (the top floor) is kept clear of other buildings. Castles from older saves (no `s.keep`) keep the old 16 tiles
+    straight up. The crown spreads across the top floor, with a great corner tower at each end.
+  - Inside the keep everyone is drawn at `INSIDE_SCALE` (0.6, `peopleView.ts`; raiders too, in `raidersView.ts`, who
+    count as inside on its ground floor too), about their feet: only the drawing, so they walk at the same pace.
+  - The keep widens each era (`castleWidth`: 4 more tiles per era). Nothing that belongs inside sprawls: with no
     room in the keep the planner clears the keep's ground or waits for it to grow. Wells, stables and racks are rooms
     too (`OUTSIDE` keeps only mines, the graveyard and the launch site out).
   - Floors are real: `Person.floor`/`climb` and `Raider.floor`/`climb`. A stair tower stands at each end of the keep
@@ -183,7 +195,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   apps: `src/shared/alerts.ts` (`plan` looks one absence ahead with the forecast, stops at the first raid, and times
   them by the away pace, `awayRealMs`); the phone page books them when it goes to the background and drops them when
   it comes back (`mobileBridge.ts`, keys `littletown.alerts`, `littletown.scheduledAlerts`); the panel is in the ☰
-  menu.
+  menu. The look ahead takes seconds on a phone, so the page works it out while open, in slices (`startForecast`,
+  redone every minute), and on leaving sends the alerts at once, all together, as plain `keepalive` requests (title,
+  tags, priority and time in the query string). The phone page's CSP has `connect-src 'self' https:` for ntfy: before
+  it, every alert was blocked.
+- **One choice event while away:** during catch-up a choice event pauses the town (`holdForEvent` in `events.ts`:
+  `s.event.held`, `s.paused`) and the catch-up stops; answering it (`answerEvent`) sets the town going. The forecast
+  stops at it too (kind `event`), and its alert is always sent when alerts are on (high priority).
 - **Hide toggles:** `panel/hide.ts` (`HidePrefs`): Research, Build and Crafting each have a "Hide:" row, kept in
   `localStorage` (`littletown.researchHide`, `buildHide`, `craftHide`).
 - **Upgrades and fewer homes:** `UPGRADES` in `data/buildings.ts` (homes: lean-to or hide tent → longhouse →
@@ -275,6 +293,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`shelveStalled`: refunded, their kind not tried again for `SHELF_HOURS`), so they don't hold every build slot. Soak
   (8 per origin, 15 days): alchemists 29.0 (was 24.8), druids 32.4 (28.1), vampires 32.6 (29.5), the rest steady.
   Settlers stay lowest (about 23): they start with one person where the others start with three.
+- **Lighter nights:** the town's night tint (`NIGHT_TINT` in `town/townView.ts`) is a moonlit `0x8a96c8` (it was `0x4a5688`, about a
+  third of the light), and the night sky in `town/skyColors.ts` is lifted to match.
+- **Defenders hold the town's edge:** `townEdgeX` in `raids.ts` (just past the outermost building, walls included, not the
+  fields; else the camp's cleared ground). Defenders gather there before a raid (`rallyX`) and in a fight go no further out
+  (`doDefend` in `people.ts`), except as far as `THROW_RANGE` after an enemy archer shooting in. Raiders fleeing with loot
+  or a captive get away once past it. Soak: growth up a little, about 45% fewer deaths (raids may want toughening).
 - **Night windows:** `ShopView.night`; the shop's and tavern's windows show the night sky.
 
 ## Planned (owner's requests, not started)
