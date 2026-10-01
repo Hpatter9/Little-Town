@@ -164,7 +164,7 @@ ${P.header} { position: relative; background: ${FUR}, linear-gradient(#5a4430, #
 ${P.header}::after { content: ''; position: absolute; right: 40px; top: 2px; width: 26px; height: 22px; background: ${CLAWS}; }
 ${P.btn} { clip-path: ${torn}; border-radius: 0 !important; padding-bottom: 7px !important; background: ${FUR}, linear-gradient(#6a5438, #4a3a28) !important; color: #f0e4cc !important; border: 0 !important; }
 ${P.on} { background: ${FUR}, linear-gradient(#a88a58, #6a4a28) !important; box-shadow: none; filter: drop-shadow(0 0 5px rgba(240, 230, 190, 0.5)); }
-${P.card} { position: relative; background: ${CLAWS} right 8px top 6px / 26px 22px no-repeat, ${FUR}, rgba(40, 30, 20, 0.95) !important; border: 2px solid #1a100a !important; border-radius: 2px; }
+${P.card} { background: ${CLAWS} right 8px top 6px / 26px 22px no-repeat, ${FUR}, rgba(40, 30, 20, 0.95) !important; border: 2px solid #1a100a !important; border-radius: 2px; }
 ${P.h2} { padding-left: 18px; background: ${MOON} 0 50% / 12px 12px no-repeat; }
 ${T} #tabs { background: ${FUR}, linear-gradient(#4a3a28, #2a2018); }
 ${T} #clock { background: ${FUR}, linear-gradient(#4a3a28, #2a2018) !important; }
