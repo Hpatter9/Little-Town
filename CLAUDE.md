@@ -380,7 +380,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     `main.ts` routes taps (place, move, aim) and drags. On the phone the battle takes the whole screen (`body.battle` in
     `mobile.ts`, the feed hidden); the map fits between the bars (`insets`). `window.__battle` is the scene (for previews:
     `screenOf`, `leadScreen`).
-  - Soak (4 towns per origin, 15 days, battles on vs off): SOAK_RESULTS
+  - Tuning: `GROUND` 1.2, `FALL_BACK` 0.12, raiders rout at `ROUT` 0.15 (the first cut, at 1.5 and a quarter,
+    roughly halved deaths: settlers 2 where it was 8 with battles off). Soak (4 towns per origin, 15 days, people and
+    deaths): settlers 23.8/10, vampires 28.3/12, druids 25.5/3, dwarves 34.0/2, werewolves 27.3/2, knights 32.0/1,
+    liches 24.8/3, merfolk 31.0/6, nomads 31.0/3, fae 31.5/3, alchemists 28.3/5, machines 25.8/0; no town died out;
+    battles about 80 to 125 s; about 4 mages a town by day 15. The planner values a topic that teaches a common calling
+    (+12, +24 raided or on defence).
 
 ## Planned (owner's requests, not started)
 
