@@ -275,6 +275,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`shelveStalled`: refunded, their kind not tried again for `SHELF_HOURS`), so they don't hold every build slot. Soak
   (8 per origin, 15 days): alchemists 29.0 (was 24.8), druids 32.4 (28.1), vampires 32.6 (29.5), the rest steady.
   Settlers stay lowest (about 23): they start with one person where the others start with three.
+- **Lighter nights:** the town's night tint (`NIGHT_TINT` in `town/townView.ts`) is a moonlit `0x8a96c8` (it was `0x4a5688`, about a
+  third of the light), and the night sky in `town/skyColors.ts` is lifted to match.
 - **Night windows:** `ShopView.night`; the shop's and tavern's windows show the night sky.
 
 ## Planned (owner's requests, not started)
