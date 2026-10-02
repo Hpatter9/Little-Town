@@ -21,6 +21,7 @@ import { noTone, type PixelArt } from '../art/pixelArt';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { makeSpriteSet, type SpriteSet } from '../art/sprites';
 import { stillTexture } from '../art/stills';
+import { propTextures, PROP_FINE, type PropSet } from '../art/props';
 import { PAL } from '../art/palette';
 import { glowTexture } from '../town/layer';
 import { CLASS_LOOK } from '../town/peopleView';
@@ -72,6 +73,8 @@ export class BattleScene {
   private readonly foes = new Map<number, Moving>();
   private readonly units = new Map<string, Moving>();
   private scenery: SpriteSet | null = null;
+  /** The top-down scenery sets, once loaded. */
+  private readonly props = new Map<PropSet, Texture[]>();
   /** The spot the player has picked a fighter for, and which spots are shown as free. */
   selectedPerson: number | null = null;
   aiming: string | null = null;
@@ -238,26 +241,80 @@ export class BattleScene {
       const [fx, fy] = this.px(q.x, q.y + 0.5);
       this.figure(art, fx, fy, q.kind === 'trap' ? 0.3 : 0.36);
     }
-    // the wild: trees and rocks on the open ground (thicker further from the town)
+    // the wild: trees and rocks on the open ground (thicker further from the town), from the top-down packs by the
+    // land (art/props.ts), or the town's own side-on ones until those have loaded
     const sc = this.scenery;
     const desert = snap.biome === 'desert';
+    const sets = this.propSets(map, snap);
+    const want: PropSet[] = map.water ? [...sets, 'sea'] : sets;
+    const props = sets.map((set) => this.props.get(set));
+    if (want.some((set) => !this.props.has(set))) {
+      // (loaded, the map is set out again with them)
+      Promise.all(want.map((set) => propTextures(set).then((t) => this.props.set(set, t))))
+        .then(() => {
+          if (this.mapKey === key) this.mapKey = '';
+        })
+        .catch(() => {});
+    }
+    const ready = props.every((t) => t) ? (props as Texture[][]) : null;
     // (and beyond its sides, where the screen is wider than the map)
     for (let x = 0; x < (map.keep?.from ?? map.len); x++)
       for (let y = map.water ? map.water : -3; y < map.wid + 3; y++) {
         if (taken.has(`${x},${y}`) || this.near(x, y)) continue;
         const r = rand(seed, x, y);
         const wild = 1 - x / map.len; // (the outskirts are wilder)
-        if (r > 0.1 + wild * 0.22) continue;
+        // (the packs' objects are smaller than the town's own: a few more of them)
+        if (r > (this.props.size ? 0.14 + wild * 0.26 : 0.1 + wild * 0.22)) continue;
         const pick = rand(seed + 1, x, y);
+        const [fx, fy] = this.px(x + 0.5, y + 0.9);
+        if (ready) {
+          // (the first set is the land's; a second, where there is one, is mixed in a third of the time)
+          const list = ready[ready.length > 1 && pick < 0.33 ? 1 : 0];
+          const tex = list[Math.floor(rand(seed + 2, x, y) * list.length)];
+          this.prop(tex, fx, fy);
+          continue;
+        }
         const list = map.rock ? sc.boulder : desert ? (pick < 0.7 ? sc.boulder : sc.bush) : pick < 0.45 ? sc.broadleaf : pick < 0.7 ? sc.pine : pick < 0.88 ? sc.bush : sc.boulder;
         const art = list[Math.floor(rand(seed + 2, x, y) * list.length)];
-        const [fx, fy] = this.px(x + 0.5, y + 0.9);
         this.figure(art, fx, fy, list === sc.broadleaf || list === sc.pine ? 0.42 : 0.5);
       }
+    // under the merfolk's water: corals, shells and starfish, seen through it
+    const sea = this.props.get('sea');
+    if (map.water && sea)
+      for (let x = 0; x < map.len; x++)
+        for (let y = -3; y < map.water - 1; y++) {
+          if (rand(seed + 5, x, y) > 0.12) continue;
+          const tex = sea[Math.floor(rand(seed + 6, x, y) * sea.length)];
+          const [fx, fy] = this.px(x + 0.5, y + 0.9);
+          const sp = this.prop(tex, fx, fy);
+          sp.alpha = 0.55;
+          sp.zIndex = -1000;
+        }
     this.fit();
     // (start where the raiders come in)
     this.scroll = 0;
     this.place();
+  }
+
+  /** The sets of top-down scenery for the town's land: its own first, then one mixed in (the sea's go under water). */
+  private propSets(map: BattleMap, snap: Snapshot): PropSet[] {
+    const winter = snap.calendar.season === 'winter' || snap.biome === 'tundra';
+    const base: PropSet = map.rock ? 'cave' : snap.biome === 'desert' ? 'desert' : winter ? 'winter' : snap.biome === 'coast' ? 'coast' : 'wild';
+    const sets: PropSet[] = [base];
+    if (this.style === 'fae' || this.style === 'druid') sets.push('grove');
+    else if (base === 'coast' || base === 'cave') sets.push(base === 'coast' ? 'wild' : 'desert');
+    return sets;
+  }
+
+  /** A top-down object standing on the map with its foot at (fx, fy). */
+  private prop(tex: Texture, fx: number, fy: number): Sprite {
+    const s = new Sprite(tex);
+    s.anchor.set(0.5, 0.95);
+    s.scale.set(1 / PROP_FINE);
+    s.position.set(Math.round(fx), Math.round(fy));
+    s.zIndex = fy;
+    this.things.addChild(s);
+    return s;
   }
 
   /** Whether a cell is right beside the trail (kept clear, so the fighting can be seen). */

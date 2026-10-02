@@ -37,6 +37,13 @@ The spells' and skills' effects in the watched fights and on the raid's battle m
 and `slash_*.png`, built by `tools/compose-effects.cjs`) are from **Craftpix.net**'s free Pixel Magic Sprite Effects pack
 and free Magic Slash Effects pack.
 
+## Craftpix top-down objects (the raid map's scenery)
+
+The trees, bushes, rocks, mushrooms, crystals, bones, idols, corals and shells scattered over the raid's battle map
+(`src/renderer/art/props/`, built by `tools/compose-props.cjs`) are from **Craftpix.net**'s free Tree, Bush, Rocks,
+Rocky Area Objects, Forest Objects, Top-Down Cave Objects, Top-Down Seabed Objects and Fields Tileset (tower defence)
+packs.
+
 ## Craftpix parallax backgrounds (the fights' backdrops)
 
 The watched fights' backdrops (`src/renderer/art/backdrops/`, built by `tools/compose-backdrops.cjs`) come from free

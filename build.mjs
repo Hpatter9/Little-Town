@@ -25,6 +25,8 @@ copyFileSync('assets/World map.jpg', 'out/renderer/world-map.jpg');
 cpSync('src/renderer/art/creatures/packs', 'out/renderer/packs', { recursive: true });
 // and the fights' painted backdrops (tools/compose-backdrops.cjs), fetched when first shown
 cpSync('src/renderer/art/backdrops', 'out/renderer/backdrops', { recursive: true });
+// and the raid map's scenery atlases (tools/compose-props.cjs)
+cpSync('src/renderer/art/props', 'out/renderer/props', { recursive: true });
 // music is streamed from files, not inlined
 mkdirSync('out/renderer/music', { recursive: true });
 for (const f of ['town.ogg', 'battle.ogg']) copyFileSync(`src/renderer/music/${f}`, `out/renderer/music/${f}`);

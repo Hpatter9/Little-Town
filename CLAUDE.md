@@ -479,6 +479,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   glow, a blessing a ward. The watched fight (`FightScene`, timed from when each act is first seen; `window.__fxSlow`
   slows them for previews) and the raid's battle map (`BattleView.acts`) both play them. Sheets are cut by
   `tools/compose-effects.cjs`.
+- **The raid map's scenery from the packs:** `tools/compose-props.cjs` cuts Craftpix's top-down objects to what's drawn,
+  scales them to the map (twice its 16px cells) and packs them by set into `src/renderer/art/props/<set>.png` (frames
+  in `art/props.json`, loaded by `art/props.ts`, files beside the page): `wild`, `winter` (tundra, and winter
+  anywhere), `desert`, `coast`, `cave` (the dwarves' rock), `grove` (mixed in for the fae and druids) and `sea` (under
+  the merfolk's water, seen through it). `BattleScene.propSets` picks them; until loaded, the town's side-on scenery
+  stands in.
 - **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
   `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
   (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.
