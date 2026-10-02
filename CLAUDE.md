@@ -708,6 +708,19 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     - Tests: `test/helpers.ts` has `camp`, `row` (free ground two rows below the camp), `put`, `freeSpot`, `wildsNear`/
       `nearestWild`, `makeWild`, `clearAround`, `poolOf`, `isWild`, `campPx`. Soak (10 days, one town each): settlers 22,
       vampires 20, druids 20, nomads 28, dwarves 21.
+  - **Phase 3, the top-down renderer (first cut, in progress):** `src/renderer/map/`. `mapView.ts` (`MapView`): the
+    land's ground painted in 8-cell chunks (`groundArt.ts`: each ground kind by season, roads as beaten-earth paths, water
+    with lighter edges, the land beyond `land.open` dimmed by distance and black past `FOG_BAND`), the wild cells' trees,
+    rocks, bushes and plants from the props atlases (`art/propKinds.json`, written by `tools/compose-props.cjs`: each
+    object's kind; `PROPS_ON` says what stands on each ground), the buildings on their footprints (the old front-on
+    `buildingArt`, feet on the footprint's bottom edge, sorted by it; fields and pens as flat plots from `fieldArt.ts`;
+    the campfire animated; blueprints masked to progress with `drawSite`), the marked cells outlined, a placement ghost,
+    and the day's tint on `world`. `mapPeople.ts`/`mapRaiders.ts` are the people and raider views in 2D (side-on LPC
+    sprites facing left or right, sorted by their feet). `mapCamera.ts` pans in 2D (drag, momentum, wheel, follow).
+    `main.ts` drives it (hover kinds: person, building, `cell`, raider, pane); the sky, spells, animals, herds and the old
+    strip views are no longer drawn (the old `town/` files stay until the map is complete). The phone page shows the map
+    at zoom 0.5 by default (keys `littletown.zoom4*`, 0.25 to 2.6), filling the strip's room. Still to do in this phase:
+    homes and workshops from the top-down packs, the keep's walls, the nomads' camp, animals, spell effects.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

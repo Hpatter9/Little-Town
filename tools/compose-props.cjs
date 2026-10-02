@@ -31,6 +31,15 @@ function pick(dir, re, k, skip) {
     .sort()
     .map((f) => [path.join(dir, f), k]);
 }
+/** What kind of thing a source file shows (for the town map: trees on forest cells, rocks on rock, and so on). */
+function kindOf(file) {
+  const f = file.toLowerCase();
+  if (/mushroom|chanterelle|flower|grass|fern|liana|coral|seaweed|algae|kelp/.test(f)) return 'plant';
+  if (/tree|birch|fir|conifer|palm|willow|ent_|idol|gazebo|totem|cocoon/.test(f)) return 'tree';
+  if (/rock|stone|stalagmite|crystal|boulder|canyon|ice/.test(f)) return 'rock';
+  if (/bush/.test(f) || f.includes('/9 bush/') || f.includes('bush-assets')) return 'bush';
+  return 'other';
+}
 const TREES = path.join(dirOf('free-tree-pixel-art'), 'PNG');
 const BUSH = path.join(dirOf('free-bush-assets'), 'PNG');
 const ROCK = path.join(dirOf('free-rocks-pixel-art'), 'PNG');
@@ -94,6 +103,7 @@ const SETS = {
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
   const page = await browser.newPage();
   const manifest = {};
+  const kinds = {};
   for (const [set, list] of Object.entries(SETS)) {
     if (!list.length) throw new Error(set + ': empty');
     const items = list.map(([f, k]) => ({ src: 'data:image/png;base64,' + fs.readFileSync(f).toString('base64'), k: k * FINE }));
@@ -114,7 +124,7 @@ const SETS = {
           }
           if (x1 < 0) continue;
           const w = Math.max(1, Math.round((x1 - x0 + 1) * it.k)), h = Math.max(1, Math.round((y1 - y0 + 1) * it.k));
-          cut.push({ im, sx: x0, sy: y0, sw: x1 - x0 + 1, sh: y1 - y0 + 1, w, h });
+          cut.push({ im, sx: x0, sy: y0, sw: x1 - x0 + 1, sh: y1 - y0 + 1, w, h, i: items.indexOf(it) });
         }
         // shelves, tallest first
         const order = cut.map((c, i) => i).sort((a, b) => cut[b].h - cut[a].h);
@@ -133,14 +143,17 @@ const SETS = {
         g.imageSmoothingEnabled = true;
         g.imageSmoothingQuality = 'high';
         cut.forEach((q, i) => g.drawImage(q.im, q.sx, q.sy, q.sw, q.sh, at[i][0], at[i][1], at[i][2], at[i][3]));
-        return { url: c.toDataURL('image/png'), frames: at };
+        return { url: c.toDataURL('image/png'), frames: at, kept: cut.map((q) => q.i) };
       },
       { items, W: ATLAS_W },
     );
     fs.writeFileSync(path.join(OUT, set + '.png'), Buffer.from(res.url.split(',')[1], 'base64'));
     manifest[set] = res.frames;
+    // (an object cut to nothing is left out of the frames: keep the kinds in step)
+    kinds[set] = res.kept.map((i) => kindOf(list[i][0]));
     console.log(set, res.frames.length, 'objects');
   }
   fs.writeFileSync(path.join(OUT, '../props.json'), JSON.stringify(manifest) + '\n');
+  fs.writeFileSync(path.join(OUT, '../propKinds.json'), JSON.stringify(kinds) + '\n');
   await browser.close();
 })();

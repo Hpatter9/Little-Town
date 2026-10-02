@@ -484,6 +484,8 @@ export interface Snapshot {
   castle: { lo: number; hi: number; floors: number; flare: number; rect: { x: number; y: number; w: number; h: number } } | null;
   /** The middle of the camp on the land (px). */
   camp: { x: number; y: number };
+  /** A castle town's keep: the wings it has grown (sim/castle.ts). */
+  keepGrown?: number;
   /** The tower-defence battle on the trail, while it's on (sim/battle.ts). */
   battle: BattleView | null;
   /** A town walled at both ends: the tiles its walls span, and what they're built of (drawn as a far wall round it). */
@@ -686,6 +688,7 @@ export function snapshot(s: GameState): Snapshot {
     impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
     campX: campX(s),
     camp: campXY(s),
+    keepGrown: s.keepGrown,
     nomad: s.nomad
       ? {
           site: s.nomad.camp === s.nomad.home ? 'home' : 'pasture',
