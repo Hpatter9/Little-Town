@@ -13,7 +13,7 @@ export interface BattleHud {
   insets(): [number, number];
 }
 
-export function createBattleHud(on: { go(): void; auto(on: boolean): void; pick(person: number | null): void; spell(id: string | null): void }): BattleHud {
+export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed(n: number): void; pick(person: number | null): void; spell(id: string | null): void }): BattleHud {
   const top = document.createElement('div');
   top.id = 'battle-top';
   top.setAttribute('data-hit', '');
@@ -30,7 +30,11 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; pick(
   auto.addEventListener('click', () => on.auto(!last?.auto));
   const row = document.createElement('div');
   row.className = 'battle-row';
-  row.append(go, auto);
+  // how fast it plays: each tap goes up a step, round from 3x to 1x
+  const speed = document.createElement('button');
+  speed.className = 'tab battle-speed';
+  speed.addEventListener('click', () => on.speed(((last?.speed ?? 1) % 3) + 1));
+  row.append(go, speed, auto);
   top.append(title, status, row);
 
   const bar = document.createElement('div');
@@ -74,6 +78,9 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; pick(
       status.textContent = `${wave} · ${doing}${time} · ${b.killed} down${b.through ? ` · ${b.through} through` : ''}${b.coming ? ` · ${b.coming} to come` : ''}`;
       go.hidden = !placing;
       auto.textContent = b.auto ? 'Auto: on' : 'Auto: off';
+      speed.textContent = `${b.speed}×`;
+      speed.title = 'Battle speed: tap for 1×, 2× or 3×';
+      speed.classList.toggle('on', b.speed > 1);
       auto.classList.toggle('on', b.auto);
       // (a placed fighter who's gone, or a spell no more: let go of them)
       if (hud.picked !== null && !b.roster.some((r) => r.id === hud.picked)) hud.picked = null;

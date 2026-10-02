@@ -390,10 +390,21 @@
         display: flex;
         gap: 6px;
       }
+      #battle-top .battle-row {
+        flex: none;
+        margin-left: auto;
+      }
       #battle-top .battle-row .tab {
+        flex: none; /* (never squeezed until its words are cut: the row drops to a line of its own instead) */
+        width: auto;
         padding: 3px 9px;
         white-space: nowrap;
       }
+      #battle-top .battle-speed {
+        min-width: 38px;
+        font-variant-numeric: tabular-nums;
+      }
+      #battle-top .battle-speed.on,
       #battle-top .battle-auto.on {
         border-color: #8cc05a;
         color: #c8f0a0;

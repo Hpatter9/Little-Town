@@ -202,6 +202,7 @@ async function start(): Promise<void> {
   const battleHud = createBattleHud({
     go: () => bridge.command({ type: 'battleGo' }),
     auto: (on) => bridge.command({ type: 'battleAuto', on }),
+    speed: (n) => bridge.command({ type: 'battleSpeed', speed: n }),
     pick: (person) => {
       battle.selectedPerson = person;
     },

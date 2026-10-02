@@ -605,6 +605,8 @@ export interface GameState {
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
   autoBattle?: boolean;
+  /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */
+  battleSpeed?: number;
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];

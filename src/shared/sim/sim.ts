@@ -4,7 +4,7 @@
 import { openGate } from './raidWait';
 import { maybeEvent } from './events';
 import { rally } from './rally';
-import { battleGo, placeFighter, setAutoBattle } from './battle';
+import { battleGo, placeFighter, setAutoBattle, setBattleSpeed } from './battle';
 import { castAt } from './powers';
 import { Rng } from '../rng';
 import { generateWorld, type World } from '../world';
@@ -253,6 +253,9 @@ export class Sim {
         break;
       case 'battleAuto':
         setAutoBattle(s, c.on);
+        break;
+      case 'battleSpeed':
+        setBattleSpeed(s, c.speed);
         break;
       case 'battleCast':
         castAt(s, c.power, this.rng, [c.x, c.y]);

@@ -63,6 +63,7 @@ export type Command =
   | { type: 'battlePlace'; person: number; spot: number | null }
   | { type: 'battleGo' }
   | { type: 'battleAuto'; on: boolean }
+  | { type: 'battleSpeed'; speed: number }
   | { type: 'battleCast'; power: string; x: number; y: number }
   /** Turn a party around. */
   | { type: 'recallExpedition'; expedition: number }
@@ -159,6 +160,8 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.person) && (c.spot === null || Number.isInteger(c.spot)) ? { type: 'battlePlace', person: c.person as number, spot: c.spot as number | null } : null;
     case 'battleGo':
       return { type: 'battleGo' };
+    case 'battleSpeed':
+      return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'battleSpeed', speed: c.speed } : null;
     case 'battleAuto':
       return typeof c.on === 'boolean' ? { type: 'battleAuto', on: c.on } : null;
     case 'battleCast':

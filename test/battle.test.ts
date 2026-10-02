@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
-import { autoPlace, fighters, layOut, placeFighter, ranged, startBattle } from '../src/shared/sim/battle';
+import { autoPlace, battleSpeedNow, battleView, fighters, layOut, placeFighter, ranged, startBattle } from '../src/shared/sim/battle';
 import { castAt } from '../src/shared/sim/powers';
 import { defenderAttack } from '../src/shared/sim/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
+import { parseCommand } from '../src/shared/sim/commands';
 import { Sim } from '../src/shared/sim/sim';
 import { makePerson, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -194,4 +195,24 @@ test('mages: their fire bursts over the raiders round the one hit', () => {
     hurt = foes.filter((rd, k) => rd.hp < before[k]).length;
   }
   assert.equal(hurt, 3, 'all three burnt');
+});
+
+test('a battle can be played at 2 or 3 times, only while it is on, and the choice is kept', () => {
+  const sim = new Sim(town('speed', 4));
+  const s = sim.state;
+  assert.equal(battleSpeedNow(s), 1);
+  assert.equal(parseCommand({ type: 'battleSpeed', speed: 5 }), null, 'only 1, 2 or 3');
+  sim.command(parseCommand({ type: 'battleSpeed', speed: 3 })!);
+  assert.equal(battleSpeedNow(s), 1, 'no battle on: the town runs at its own pace');
+  const r = raidNow(s, 40);
+  sim.step();
+  assert.ok(r.battle);
+  assert.equal(battleSpeedNow(s), 3);
+  assert.equal(battleView(s, [])!.speed, 3);
+  sim.command({ type: 'battleSpeed', speed: 2 });
+  sim.step();
+  assert.equal(battleSpeedNow(s), 2);
+  r.battle!.phase = 'done';
+  assert.equal(battleSpeedNow(s), 1, 'over: back to the town pace');
+  assert.equal(s.battleSpeed, 2, 'kept for the next battle');
 });

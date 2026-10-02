@@ -534,6 +534,20 @@ export function battleGo(s: GameState): void {
   if (b && (b.phase === 'placing' || b.phase === 'breather')) b.until = s.tick;
 }
 
+/** The speeds a battle can be played at (the top bar's button cycles through them). */
+export const BATTLE_SPEEDS = [1, 2, 3] as const;
+
+/** The player sets how fast battles play (kept for later battles). */
+export function setBattleSpeed(s: GameState, speed: number): void {
+  s.battleSpeed = (BATTLE_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
+}
+
+/** How many times real time the game runs now: the battle speed while a battle is on, else 1 (GameLoop reads it). */
+export function battleSpeedNow(s: GameState): number {
+  const b = s.raid?.battle;
+  return b && b.phase !== 'done' ? (s.battleSpeed ?? 1) : 1;
+}
+
 /** The player sets auto-watch (kept for later battles): on, the town places and fights by itself. */
 export function setAutoBattle(s: GameState, on: boolean): void {
   s.autoBattle = on;
@@ -949,6 +963,8 @@ export interface BattleView {
   wave: number;
   waves: number;
   auto: boolean;
+  /** How fast it plays (1, 2 or 3 times). */
+  speed: number;
   through: number;
   killed: number;
   /** Raiders still to come (this wave and the ones after). */
@@ -977,6 +993,7 @@ export function battleView(s: GameState, spells: BattleView['spells']): BattleVi
     wave: b.wave,
     waves: b.waves,
     auto: b.auto,
+    speed: s.battleSpeed ?? 1,
     through: b.through,
     killed: b.killed,
     coming: r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone && rd.bt && !rd.bt.out && rd.bt.d < 0).length,
