@@ -101,6 +101,8 @@ function layout(): void {
   }
   document.documentElement.style.setProperty('--strip-h', `${height * z}px`);
   strip.contentDocument?.documentElement?.style.setProperty('--ui-zoom', String(Math.max(1, 1 / z)));
+  // (while the feed is showing, its cards carry the news: the strip's own pop-up notices would only repeat them)
+  strip.contentDocument?.body?.classList.toggle('feed-shown', !sideways.matches && !battleOn);
 }
 function setZoom(z: number): void {
   zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));

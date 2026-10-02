@@ -865,6 +865,10 @@
       body.embedded .toast {
         align-self: flex-end;
       }
+      /* (upright on the phone the feed above the town shows the same news) */
+      body.embedded.feed-shown #toasts {
+        display: none;
+      }
       /* (in a battle, notices go just under its top bar, clear of the fighters along the bottom) */
       body.in-battle #toasts {
         top: calc(var(--battle-top-h, 60px) + 12px);
