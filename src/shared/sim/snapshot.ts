@@ -416,6 +416,8 @@ export interface Snapshot {
   hero: number | null;
   /** The expedition the player is watching, in place of the town. */
   watch: ExpeditionView | null;
+  /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
+  uniques: { id: string; holder: string | null }[];
   raid: RaidView | null;
   reputation: number;
   gameOver: { text: string; won: boolean } | null;
@@ -578,6 +580,7 @@ export function snapshot(s: GameState): Snapshot {
       ...partyView(s, d.id),
     })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
+    uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({

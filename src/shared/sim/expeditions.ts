@@ -398,7 +398,7 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
   switch (b.outcome) {
     case 'won': {
       // a boss slain: its trophy comes home with the party
-      for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.kit) bossSlain(s, f.kind);
+      for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.boss) bossSlain(s, f.kind);
       const drops = battleLoot(b);
       const room = partyCarry(s, e) - poolSize(e.loot);
       let taken = 0;

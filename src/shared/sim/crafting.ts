@@ -295,7 +295,8 @@ export function equip(s: GameState, p: Person, slot: Slot, itemId: string | null
  * and the rest to whoever has nothing in that slot. Better spare items replace worse ones.
  */
 export function equipAll(s: GameState): void {
-  if (moneyTown(s)) return; // (they buy it now)
+  // (in a town with coin they buy their own gear; only its treasures, the relics and uniques, are still handed out)
+  const treasuresOnly = moneyTown(s);
   const fightSkill = (p: Person) => Math.max(p.skills.melee.level, p.skills.ranged.level) + (p.id === s.mainId ? 0.5 : 0) + (p.priorities.defend ? 3 : 0);
   for (const slot of SLOTS) {
     const combat = slot === 'weapon' || slot === 'offhand' || slot === 'head' || slot === 'body';
@@ -303,7 +304,7 @@ export function equipAll(s: GameState): void {
     for (const p of people) {
       // (only what their class lets them wear or wield)
       const spare = Object.entries(s.items)
-        .filter(([id, n]) => n > 0 && ITEM_BY_ID[id]?.slot === slot && canWear(p, id))
+        .filter(([id, n]) => n > 0 && ITEM_BY_ID[id]?.slot === slot && (!treasuresOnly || ITEM_BY_ID[id].relic) && canWear(p, id))
         .map(([id]) => ({ def: ITEM_BY_ID[id], q: qualitiesOf(s, id)[0] }))
         .sort((a, b) => scoreQ(b.def, b.q) - scoreQ(a.def, a.q))[0]?.def;
       if (!spare) continue;

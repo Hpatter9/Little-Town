@@ -10,6 +10,7 @@ import { BESTIARY_TROPHIES } from './bestiary';
 import type { Material } from './materials';
 import { WEAPONS, type FamilyId } from './weapons';
 import { ARMOUR, type ArmourWeight } from './armour';
+import { UNIQUES } from './uniques';
 import type { WorkAnim } from './terrain';
 
 export type Slot = 'tool' | 'weapon' | 'offhand' | 'head' | 'body' | 'charm' | 'pack';
@@ -79,6 +80,8 @@ export interface ItemEffects {
   /** Extra damage against the dead and against machines (beasts: `beastDamage`). */
   undeadDamage?: number;
   machineDamage?: number;
+  /** A share of each blow's damage that heals whoever struck it (some uniques). */
+  lifesteal?: number;
   /** Armour's own: a share of blows dodged (light), a share more spell power (cloth). */
   dodge?: number;
   power?: number;
@@ -108,6 +111,8 @@ export interface ItemDef {
   icon: { sheet: IconSheet; x: number; y: number; name?: string };
   /** A relic: never crafted, only found on expeditions (DESIGN §9 special items). */
   relic?: boolean;
+  /** A unique weapon (data/uniques.ts): one in the world, from a boss or a quest. */
+  unique?: boolean;
   /** A weapon's family and tier (data/weapons.ts); armour's weight (data/armour.ts). */
   family?: FamilyId;
   tier?: number;
@@ -375,7 +380,7 @@ const FIRST: Record<string, Pick<ItemDef, 'family' | 'tier' | 'weight'>> = {
 };
 
 /** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. */
-export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES];
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

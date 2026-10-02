@@ -5,11 +5,14 @@
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
 import { ITEM_BY_ID } from '../data/items';
+import { bossLoot } from '../data/uniques';
+import { hashSeed, mixSeed, Rng } from '../rng';
 import { buildingCentreX } from './buildings';
 import { BOSS_RAGE } from './combat';
 import { setFire } from './fire';
 import { knockDown } from './health';
-import { notify, type GameState, type Person, type Raid, type Raider } from './state';
+import { addItems } from './crafting';
+import { earn, notify, type GameState, type Person, type Raid, type Raider } from './state';
 import { TICK_HZ, TICKS_PER_HOUR } from './time';
 
 /** How long the town is shaken by a boss's roar, and cheered by its death (game hours), and by how much. */
@@ -34,8 +37,7 @@ export function bossArrives(s: GameState, kind: string): void {
 /** Every tick of a raid, for each boss in it: rage and call for help below half health; drop the trophy on death. */
 export function bossesInRaid(s: GameState, r: Raid): void {
   for (const rd of r.raiders) {
-    const kit = kitOf(rd.kind);
-    if (!kit || rd.ally) continue;
+    if (rd.ally || !ENEMIES[rd.kind]?.boss) continue;
     if (rd.down) {
       if (!rd.trophyGiven) {
         rd.trophyGiven = true;
@@ -43,6 +45,8 @@ export function bossesInRaid(s: GameState, r: Raid): void {
       }
       continue;
     }
+    const kit = kitOf(rd.kind);
+    if (!kit) continue;
     if (rd.hp >= rd.maxHp / 2) continue;
     if (!rd.enraged) {
       rd.enraged = true;
@@ -86,8 +90,28 @@ export function bossBlow(s: GameState, rd: Raider, targets: Person[], hit: (p: P
   return 0; // (the sweep is the blow)
 }
 
+/** A slain boss's loot table (data/uniques.ts): its purse, and a chance at one of its uniques no one has yet (each is
+ *  one of a kind: once found it never drops again). The roll is the town's own, from its seed, the hour and the boss. */
+export function dropLoot(s: GameState, kind: string): string | null {
+  const def = ENEMIES[kind];
+  if (!def?.boss) return null;
+  const table = bossLoot(kind, def.hp);
+  const rng = new Rng(mixSeed(hashSeed(s.seed), s.tick, [...kind].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)));
+  const coins = rng.int(table.coins[0], table.coins[1]);
+  s.coins = (s.coins ?? 0) + coins;
+  earn(s, 'events', coins);
+  const left = table.uniques.filter((u) => !(s.uniques ?? []).includes(u));
+  if (!left.length || !rng.chance(table.chance)) return null;
+  const id = left[rng.int(0, left.length - 1)];
+  (s.uniques ??= []).push(id);
+  addItems(s, id, 1);
+  notify(s, `${def.name} dropped ${ITEM_BY_ID[id].name}, a unique ${ITEM_BY_ID[id].family ? 'weapon' : 'treasure'}! There is no other like it.`, true);
+  return id;
+}
+
 /** A boss is dead: the trophy is the town's, and everyone takes heart. */
 export function bossSlain(s: GameState, kind: string): void {
+  dropLoot(s, kind);
   const kit = kitOf(kind);
   if (!kit) return;
   s.items[kit.trophy] = (s.items[kit.trophy] ?? 0) + 1;

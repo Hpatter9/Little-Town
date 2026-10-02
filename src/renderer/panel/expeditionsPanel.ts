@@ -10,6 +10,9 @@ import type { DestinationView, ExpeditionView, Snapshot } from '../../shared/sim
 import { bleedLeft, tripProgress } from '../../shared/format';
 import { button, duration, el } from './dom';
 import { WorldMapView } from './worldMapView';
+import { ITEM_BY_ID } from '../../shared/data/items';
+import { ENEMIES } from '../../shared/data/enemies';
+import { UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
 
 /** The destination picked on the world map (or by tapping its card): flagged, with the route out to it. */
 let mapPick: string | null = null;
@@ -38,6 +41,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.items.truck,
     s.stock.fuel,
     s.horses,
+    s.uniques,
   ]);
 
 const listStock = (st: Stock) =>
@@ -74,6 +78,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     grid.append(card);
   }
   out.push(grid);
+  out.push(...treasures(s));
   out.push(el('div', 'hint', 'Fighters stand in front; scouts, medics and porters in back. Parties fall back when hurt past their stance, or when you are badly hurt. The downed bleed out unless a medic tends them.'));
   return out;
 }
@@ -158,3 +163,27 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
   return c;
 }
 
+/** The unique weapons found so far, who carries each, and how many are still out there (with the bosses). */
+function treasures(s: Snapshot): HTMLElement[] {
+  const out: HTMLElement[] = [el('h2', '', `Unique weapons ${s.uniques.length}/${UNIQUES.length}`)];
+  if (!s.uniques.length) {
+    out.push(el('div', 'hint', 'Every boss carries something: a purse of coins, its trophy, and now and then a unique weapon, one of a kind in all the world. Slay them, on the road or at the gate.'));
+    return out;
+  }
+  const grid = el('div', 'cards wide');
+  for (const u of s.uniques) {
+    const d = ITEM_BY_ID[u.id];
+    if (!d) continue;
+    const c = el('div', 'card unique');
+    const top = el('div', 'card-top');
+    const from = (UNIQUE_FROM[u.id] ?? []).map((b) => ENEMIES[b]?.name).filter(Boolean);
+    top.append(el('span', 'card-name', d.name), el('span', 'card-size', u.holder ? `Carried by ${u.holder}` : 'In storage'));
+    c.append(top, el('div', 'purpose', d.description));
+    if (from.length) c.append(el('div', 'lock short', `From ${from.join(' or ')}`));
+    grid.append(c);
+  }
+  out.push(grid);
+  const left = UNIQUES.length - s.uniques.length;
+  if (left) out.push(el('div', 'hint', `${left} more are still out there, carried by bosses, or waiting at the end of a quest.`));
+  return out;
+}

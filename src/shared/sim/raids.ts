@@ -70,7 +70,7 @@ import { gearEffects } from './crafting';
 import { recallExpedition } from './expeditions';
 import { classesInRaid, summonForRaid } from './classes';
 import { bindTheDead, sicken } from './doom';
-import { bossArrives, bossBlow, bossesInRaid } from './bosses';
+import { bossArrives, bossBlow, bossesInRaid, bossSlain } from './bosses';
 import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
 import { levelOf } from '../data/levels';
 import { flammable, setFire } from './fire';
@@ -368,7 +368,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
   if (r.phase === 'warning') {
     if (s.tick < r.arrivesTick) return;
     r.phase = 'active';
-    notify(s, `The ${kind.name.toLowerCase()} ${kind.plural ? 'are' : 'is'} here!`);
+    notify(s, `The ${theName(kind.name)} ${kind.plural ? 'are' : 'is'} here!`);
     summonForRaid(s, r);
     for (const kind of new Set(r.raiders.filter((q) => ENEMIES[q.kind].kit && !q.ally).map((q) => q.kind))) bossArrives(s, kind);
     // (they come down the trail on the battle map first: battle.ts)
@@ -650,6 +650,7 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);
     p.hp = Math.min(maxHp(p), p.hp + Math.round(dmg * BLOOD_LIFESTEAL));
   }
+  if (f.quirks?.drain) p.hp = Math.min(maxHp(p), p.hp + Math.round(Math.min(dmg, rd.hp) * f.quirks.drain)); // (a unique that drinks life)
   rd.hp = Math.max(0, rd.hp - dmg);
   rd.lastHit = s.tick;
   // (a stunning weapon may cost the raider its next blow; a cleaving one carries into one beside it)
@@ -719,11 +720,20 @@ export function townEdgeX(s: GameState, side: -1 | 1): number {
 /** Where defenders gather before the raiders show up: the town's edge on the side they're coming from. */
 export const rallyX = (s: GameState) => townEdgeX(s, s.raid?.side ?? 1);
 
+/** A raid's name to follow "the" (a name of its own, like The Cave Bear, keeps its capitals and loses its "The"). */
+const theName = (name: string) => (/^the /i.test(name) ? name.slice(4) : name.toLowerCase());
+
 function endRaid(s: GameState, rng: Rng): void {
   const r = s.raid!;
   s.raid = null;
   const kind = RAID_KIND_BY_ID[r.kind];
   if (r.kind === 'hunters') guildDefeated(s);
+  // (a boss struck down as the raid ended, on the battle map, hasn't had its loot yet: bossesInRaid looks before the battle)
+  for (const rd of r.raiders)
+    if (!rd.ally && rd.down && ENEMIES[rd.kind]?.boss && !rd.trophyGiven) {
+      rd.trophyGiven = true;
+      bossSlain(s, rd.kind);
+    }
   lurkersBeaten(s, r);
   caveBearBeaten(s, r);
   // thieves who got away may have led off a horse, too
@@ -764,7 +774,7 @@ function endRaid(s: GameState, rng: Rng): void {
         : took.length
           ? 'They got away.'
           : 'They were driven off.';
-  notify(s, `Raid by the ${kind.name.toLowerCase()} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
+  notify(s, `Raid by the ${theName(kind.name)} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
 }
 
 /** Raiders come as seasoned as the town: its grown-ups' average level makes them tougher and harder hitting. */

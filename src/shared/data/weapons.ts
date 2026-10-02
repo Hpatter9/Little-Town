@@ -318,6 +318,7 @@ export function quirkWords(fx: ItemEffects): string[] {
   if (fx.beastDamage) out.push(`+${fx.beastDamage} against beasts`);
   if (fx.undeadDamage) out.push(`+${fx.undeadDamage} against the dead`);
   if (fx.machineDamage) out.push(`+${fx.machineDamage} against machines`);
+  if (fx.lifesteal) out.push(`drinks ${Math.round(fx.lifesteal * 100)}% of its blows as life`);
   return out;
 }
 

@@ -94,6 +94,8 @@ export interface Quirks {
   undeadShare?: number;
   machineShare?: number;
   critDamage?: number;
+  /** A share of each blow drunk as life (a unique's). */
+  drain?: number;
 }
 
 /** What someone's weapon adds in a fight, made finer by its grade and its +N (quality.ts): damage, aim, its time
@@ -109,7 +111,7 @@ export function weaponOf(p: Person): { def?: ItemDef; damage: number; accuracy: 
     accuracy: (fx.accuracy ?? 0) * qualityMult(q) + plusOf(q) * PLUS_AIM,
     speed: fx.speed ?? 1,
     reach: !!fx.reach,
-    quirks: { crit: fx.crit ?? 0, pierce: fx.pierce ?? 0, cleave: fx.cleave ?? 0, stun: fx.stun ?? 0, undead: (fx.undeadDamage ?? 0) * k, machine: (fx.machineDamage ?? 0) * k },
+    quirks: { crit: fx.crit ?? 0, pierce: fx.pierce ?? 0, cleave: fx.cleave ?? 0, stun: fx.stun ?? 0, undead: (fx.undeadDamage ?? 0) * k, machine: (fx.machineDamage ?? 0) * k, ...(fx.lifesteal ? { drain: fx.lifesteal } : {}) },
   };
 }
 const NO_QUIRKS: Quirks = { crit: 0, pierce: 0, cleave: 0, stun: 0, undead: 0, machine: 0 };
@@ -411,6 +413,8 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
     }
     // (through shields, protection and the rest: actions.ts; the armour's already counted)
     dmg = strike(arena, f, target, dmg, true, true);
+    // (a unique that drinks life heals by a share of the blow)
+    if (f.quirks?.drain && dmg > 0) f.hp = Math.min(f.maxHp, f.hp + Math.round(dmg * f.quirks.drain));
     // a guard strikes back
     if (!f.ranged && !target.down && target.kit?.passive.counter && rng.chance(target.kit.passive.counter)) strike(arena, target, f, hitDamage(target, f, rng), true, true);
     const cleft = afterBlow(f.quirks, dmg, target, foes.filter((o) => o !== target && o.row === target.row), rng) as Fighter | null;

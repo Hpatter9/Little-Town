@@ -493,6 +493,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **The raid map's ground from the tower-defence tilesets:** `art/tdTiles.ts` (the Fields tileset's cobbles, the
   Village tileset's tower pads, in `art/td/`); `battleGround(..., td)` lays a cobble tile per trail cell and a pad under
   each shooter's spot. The battle view loads them and lays the map out again when they come.
+- **Unique weapons and boss loot (step 6, done):** `src/shared/data/uniques.ts`: 51 named weapons, one of each in the
+  world (`ItemDef.unique`, also `relic`: never made or sold), each a family and tier hitting `UNIQUE_EDGE` (1.35) times a
+  made one, with the family's quirks and its own (new quirk `lifesteal`: a share of each blow heals the striker, as
+  `Quirks.drain` in combat.ts and raids' `defenderAttack`). `UNIQUE_FROM` says which bosses drop each; the 8 with none
+  (`QUEST_UNIQUES`) are kept for quests. Every boss has a loot table (`bossLoot`: its uniques, `UNIQUE_CHANCE` 0.5 of one
+  a kill, a purse of coins by its health); `dropLoot` in `sim/bosses.ts`, from `bossSlain` (raids and expedition fights,
+  kitless bosses too), rolls it deterministically and records `s.uniques`, so none drops twice. A town that buys its gear
+  still has its treasures (relics, uniques) handed out by `equipAll`. The Expeditions tab lists the uniques found and who
+  carries them (`snapshot.uniques`). A boss struck down on the battle map as the raid ends is paid out by `endRaid` (it used
+  to lose its trophy). Soak (4 towns, 15 days): about half the towns win Ursine Claws from the Cave Bear; growth and
+  deaths as before.
 - **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
   `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
   (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.
@@ -501,7 +512,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 
 ## Planned (owner's requests, not started)
 
-- **Weapons, ten times over, with +N** (the owner's choices):
+- **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):
   - About 160 weapons (from 16): every era gets several of each kind (swords, axes, maces, spears, daggers, bows,
     crossbows, slings, staves, wands, guns...), with different damage, accuracy, speed and quirks (reach, armour
     piercing, bleeding, stun, splash, beast or undead bane), so fights vary. Drawn from the icon sheets already used.

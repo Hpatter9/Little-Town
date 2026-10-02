@@ -555,6 +555,8 @@ export interface GameState {
   /** Items not being worn, by item id (they take no storage room), and the quality of each piece, best first (kept in
    *  step with the counts by crafting.ts's qualitiesOf; Common when left out). */
   items: Record<string, number>;
+  /** The unique weapons the town has found (data/uniques.ts), in the order found: each drops once in the world. */
+  uniques?: string[];
   itemQ?: Record<string, number[]>;
   /** The craft queue, worked front to back. */
   crafting: CraftOrder[];
