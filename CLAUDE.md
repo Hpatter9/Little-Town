@@ -12,6 +12,8 @@ taskbar. TypeScript + PixiJS. `DESIGN.md` is the original design, and `README.md
   (`src/shared/sim/planner.ts`). The player only sets the town's **direction** (Growth, Defence, Trade or
   Knowledge, in the Plan tab) and sends **expeditions**. Don't add chores or manual controls.
 - **Deaths should be common.** Raids, disasters and hunger are meant to bite.
+- **Use the assets.** From here on, use any and all of the asset packs wherever they fit: the game should look better
+  for using them (the owner's words). Prefer a pack's sprite to a code-drawn one when its style suits the pixel art.
 - **Assets.** The project is free and private, so any sprite from the asset packs may be used. Credit the source
   in `CREDITS.md`. The packs live in the private repo `hpatter9/chronos-assets` (clone it next to this one, at
   `../chronos-assets`); copy in only the individual sprites the game uses, never whole packs. Sprites the game uses
@@ -593,6 +595,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `SpriteSet` once loaded; TownView redraws through `setSeason` when they arrive (`packed`), and the expedition pane takes
   them too. The sky's clouds are the pack's (`skyView`, half scale), still tinted by the hour. Until the atlas loads (or
   if it can't), the painted ones stand in. Frame rate unchanged (the headless browser gives the same with and without).
+
+- **Construction sites:** `art/constructionSite.ts` (`drawSite`, from `BuildingsView.updateBlueprint`; the walls still rise
+  from the ground as the finished picture is masked to the progress). Before work, the plot is staked out with a string
+  line and the materials pile up as delivered; then scaffolding climbs a lift ahead of the walls (uprights, ledgers,
+  braces, boards), with a ladder, a gin-pole hoist whose load goes up and down, and the site's gear (stacked lumber,
+  stone or bricks, a mortar tub, a sawhorse, a wheelbarrow, crates, barrels, sacks). The kit by the era of what's built
+  (`eraOfResearch`): lashed poles, timber, steel tubes with couplers, green safety netting in the modern eras. The
+  medieval field-work pack's props were tried and left out: their cartoon outlines don't sit with the pixel art.
 
 ## Planned (owner's requests)
 

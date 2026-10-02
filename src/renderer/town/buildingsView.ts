@@ -14,6 +14,8 @@ import { haze, mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt'
 import { campfireFrames } from '../art/sprites';
 import { Rng } from '../../shared/rng';
 import { glowTexture, type Layer } from './layer';
+import { drawSite } from '../art/constructionSite';
+import { eraOfResearch } from '../../shared/data/research';
 
 /** What a field looks like now: bare, sprouting, tall, or ripe. */
 function cropLook(b: Building): CropLook | undefined {
@@ -215,10 +217,15 @@ export class BuildingsView {
 
     const g = d.overlay!.clear();
     const { x, y, w, h } = d.rect;
-    if (b.progress > 0) {
-      // scaffolding: poles at each end and a couple of cross bars
-      for (const px of [x + 1, x + w - 3]) g.rect(px, y - 2, 2, h + 2).fill(0x8a6a44);
-      for (let py = y + 6; py < y + h; py += 14) g.rect(x, py, w, 1).fill(0x6a5034);
+    const def = defOf(b);
+    if (b.room) {
+      // (a castle's room: just a pair of poles, inside the keep)
+      if (b.progress > 0) for (const px of [x + 1, x + w - 3]) g.rect(px, y - 2, 2, h + 2).fill(0x8a6a44);
+    } else {
+      // a real construction site: staked out, materials piling up, scaffolding climbing ahead of the walls
+      const left = stillNeeded(b);
+      const delivered = Object.fromEntries(Object.entries(def.cost).map(([m, n]) => [m, Math.max(0, (n ?? 0) - ((left as Record<string, number>)[m] ?? 0))]));
+      drawSite(g, { x, y, w, h, progress: b.progress, delivered, cost: def.cost, era: eraOfResearch(def.research), seed: b.id, now: performance.now() }, this.tones[def.layer][0]);
     }
     // bar: brown while materials arrive, yellow while building
     const bw = Math.max(20, w - 8);
