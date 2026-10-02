@@ -7,7 +7,7 @@ import { Sim } from '../src/shared/sim/sim';
 import { addStock, makePerson, poolSize, type GameState, type Person } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, campPx, nearestWild, poolOf } from './helpers';
 
 const runUntil = (sim: Sim, done: () => boolean, maxSeconds = 7200) => {
   let t = 0;
@@ -19,7 +19,7 @@ const runUntil = (sim: Sim, done: () => boolean, maxSeconds = 7200) => {
 };
 const campfire = (s: GameState) => s.buildings.find((b) => b.def === 'campfire')!;
 function addPerson(s: GameState, type = 'gatherer'): Person {
-  const p = makePerson(new Rng(s.nextId * 31), s.nextId++, type, (Math.floor(s.tiles.length / 2) + 0.5) * 32, s.people.map((q) => q.name));
+  const p = makePerson(new Rng(s.nextId * 31), s.nextId++, type, campPx(s), s.people.map((q) => q.name));
   p.traits = [];
   p.needs = { food: 1, rest: 1 };
   s.people.push(p);
@@ -58,7 +58,7 @@ test('a party goes to the Berry Thicket and comes home with loot it can carry', 
 });
 
 test('loot is limited by what the party can carry', () => {
-  const sim = new Sim(plainGame('carry'));
+  const sim = new Sim(plainGame('carry-2')); // (a seed whose quarry is quiet: no fight sends them home early)
   const s = sim.state;
   const p = s.people[0];
   p.skills.gathering.level = 20; // works very fast: the carry limit is what stops it
@@ -107,12 +107,12 @@ test('away members do no town work and eat from their packs', () => {
   const p = s.people[0];
   p.needs.food = 0.45;
   addStock(campfire(s).store, 'berries', 10);
-  const forest = s.tiles.findIndex((t) => t.terrain === 'forest');
-  sim.command({ type: 'toggleGather', tile: forest });
+  const forest = nearestWild(s, 'forest');
+  sim.command({ type: 'toggleGather', cell: forest });
   sim.command({ type: 'sendExpedition', dest: 'riverbank', members: [p.id] });
-  const pool = poolSize(s.tiles[forest].pool);
+  const pool = poolSize(poolOf(s, forest));
   runUntil(sim, () => s.expeditions[0]?.phase === 'back');
-  assert.equal(poolSize(s.tiles[forest].pool), pool, 'nobody gathered');
+  assert.equal(poolSize(poolOf(s, forest)), pool, 'nobody gathered');
   assert.ok(p.needs.food > 0.4, `ate on the road (food ${p.needs.food})`);
 });
 

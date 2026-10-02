@@ -6,7 +6,7 @@ import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { addStock, MAX_JOURNAL, newGame, notify, type GameState } from '../src/shared/sim/state';
 import { TICK_MS, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { plainGame } from './helpers';
+import { plainGame, row, nearestWild } from './helpers';
 
 const HOUR_MS = 3_600_000;
 const run = (sim: Sim, ticks: number) => {
@@ -25,9 +25,9 @@ function busyTown(seed: string): Sim {
   s.cheats.unlockAll = true;
   const campfire = s.buildings[0];
   addStock(campfire.store, 'berries', 20);
-  const forest = s.tiles.findIndex((t, i) => i > campfire.tile && t.terrain === 'forest');
-  sim.command({ type: 'toggleGather', tile: forest });
-  sim.command({ type: 'placeBuilding', def: 'stockpile', tile: campfire.tile + 2 });
+  const forest = nearestWild(s, 'forest');
+  sim.command({ type: 'toggleGather', cell: forest });
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: campfire.tile + 2, y: row(s) });
   sim.command({ type: 'queueResearch', topic: 'basic_shelter' });
   run(sim, 2 * TICKS_PER_HOUR);
   sim.command({ type: 'sendExpedition', dest: 'berry_thicket', members: [s.mainId] });

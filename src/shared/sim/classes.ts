@@ -11,7 +11,7 @@ import type { Skill } from '../data/skills';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import { isBeast, unitFighter, type Fighter } from './combat';
 import { isChild } from './social';
-import { notify, type GameState, type Person, type Raid, type Raider } from './state';
+import { campXY, notify, type GameState, type Person, type Raid, type Raider } from './state';
 import { TICK_HZ, TICKS_PER_DAY } from './time';
 
 /* ------------------------------------------------------------ who gets which class */
@@ -138,9 +138,9 @@ export function classAllies(members: Person[]): Fighter[] {
 const inTown = (s: GameState, cls: ClassId) => s.people.filter((p) => p.cls === cls && p.away === null && !p.downed);
 
 /** An ally raider (summoned, raised or tamed) next to x. */
-export function ally(s: GameState, kind: string, x: number, dir: 1 | -1): Raider {
+export function ally(s: GameState, kind: string, x: number, dir: 1 | -1, y = campXY(s).y): Raider {
   const d = ENEMIES[kind];
-  return { id: s.nextId++, kind, x, dir, hp: d.hp, maxHp: d.hp, cooldown: 5, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm', ally: true, conjuredAt: s.tick };
+  return { id: s.nextId++, kind, x, y, dir, hp: d.hp, maxHp: d.hp, cooldown: 5, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm', ally: true, conjuredAt: s.tick };
 }
 
 /** When raiders arrive: each Summoner in town calls a spirit; each Necromancer calls one of the town's own dead up

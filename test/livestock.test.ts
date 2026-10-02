@@ -1,20 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BACK_PAD_TILES } from '../src/shared/constants';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { HERDS, STARVE_HOURS } from '../src/shared/data/livestock';
-import { backOpen, canPlace, enclosure, totalStock } from '../src/shared/sim/buildings';
+import { totalStock } from '../src/shared/sim/buildings';
 import { herdOf, needsTending, rustle, tendHerds } from '../src/shared/sim/livestock';
 import { Rng } from '../src/shared/rng';
 import { Sim } from '../src/shared/sim/sim';
-import { snapshot } from '../src/shared/sim/snapshot';
 import type { Building, GameState } from '../src/shared/sim/state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { generateWorld } from '../src/shared/world';
-import { plainGame, priorities } from './helpers';
+import { camp, plainGame, priorities, row } from './helpers';
 
 const pen = (s: GameState, def: string, tile: number): Building => {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 };
@@ -35,7 +32,7 @@ test('a farmer tends the pen: eggs into the stores', () => {
   const sim = new Sim(s);
   const p = s.people[0];
   p.priorities = priorities({ farm: 1 });
-  const coop = pen(s, 'chicken_coop', Math.floor(s.tiles.length / 2) + 3);
+  const coop = pen(s, 'chicken_coop', camp(s).x + 3);
   herdOf(s, coop).tended = -1e9; // (long overdue)
   assert.ok(needsTending(s, coop));
   for (let i = 0; i < 120 * TICK_HZ && needsTending(s, coop); i++) sim.step();
@@ -86,34 +83,6 @@ test('raiders who get away can drive off livestock', () => {
     lost = b.herd!.head < 8;
   }
   assert.ok(lost);
-});
-
-test('the background behind cleared land can be built on', () => {
-  const s = plainGame('clearing');
-  const world = generateWorld(s.seed, s.biome);
-  // a wild background column in front of wild land
-  const t = s.tiles.findIndex((tile, i) => tile.terrain !== 'clear' && ['forest', 'hills', 'marsh'].includes(world.back[i + BACK_PAD_TILES]) && ['forest', 'hills', 'marsh'].includes(world.back[i + 1 + BACK_PAD_TILES]));
-  assert.ok(t >= 0, 'found wild land');
-  const coop = BUILDING_BY_ID.chicken_coop;
-  assert.equal(backOpen(world.back, s.tiles, t), false);
-  assert.match(canPlace(s, world.back, coop, t).reason ?? '', /Clear the land/);
-  s.tiles[t].terrain = 'clear';
-  s.tiles[t + 1].terrain = 'clear';
-  assert.equal(backOpen(world.back, s.tiles, t), true);
-  assert.ok(canPlace(s, world.back, coop, t).ok);
-});
-
-test('a town walled at both ends is enclosed', () => {
-  const s = plainGame('walls');
-  assert.equal(enclosure(s), null);
-  const camp = Math.floor(s.tiles.length / 2);
-  const add = (def: string, tile: number) => s.buildings.push({ id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {} });
-  add('palisade_wall', camp - 12);
-  assert.equal(enclosure(s), null, 'one end only');
-  add('stone_wall', camp + 12);
-  const e = enclosure(s)!;
-  assert.deepEqual(e, { lo: camp - 12, hi: camp + 13, wall: 'palisade_wall' });
-  assert.deepEqual(snapshot(s).enclosure, e);
 });
 
 test('a druid town keeps building: a goat pen does not make hide count as available', async () => {

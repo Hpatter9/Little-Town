@@ -2,13 +2,13 @@
 // someone they can't stand, or give up and walk out of town. A break lets off steam: morale recovers a
 // little afterwards. The main character never leaves (they sulk instead).
 
-import { WORLD_WIDTH } from '../constants';
 import { FOOD_VALUE } from '../data/people';
 import type { Material } from '../data/materials';
 import type { Rng } from '../rng';
 import { storages } from './buildings';
 import { relationsChanged, rivalsOf } from './social';
-import { addStock, notify, type GameState, type Person } from './state';
+import { addStock, dist, edgeXY, notify, sideOf, type GameState, type Person } from './state';
+import type { Pt } from './land';
 import { TICKS_PER_HOUR } from './time';
 
 /** Morale at or below which a break can come, after this many hours there, with this chance an hour. */
@@ -111,13 +111,13 @@ export function checkDespair(s: GameState): void {
   }
 }
 
-/** Where someone leaving town walks to. */
-export const leaveX = (p: Person) => (p.x < WORLD_WIDTH / 2 ? 0 : WORLD_WIDTH);
+/** Where someone leaving town walks to: off the land's edge on their side. */
+export const leavePt = (s: GameState, p: Person): Pt => edgeXY(s, sideOf(s, p));
 
 /** Every tick: someone walking out who has reached the edge is gone for good. */
 export function checkLeavers(s: GameState): void {
   for (const p of s.people) {
-    if (p.breakdown?.kind !== 'wander' || Math.abs(p.x - leaveX(p)) > 1) continue;
+    if (p.breakdown?.kind !== 'wander' || dist(p, leavePt(s, p)) > 1) continue;
     s.people = s.people.filter((q) => q !== p);
     if (p.partner != null) {
       const partner = s.people.find((q) => q.id === p.partner);

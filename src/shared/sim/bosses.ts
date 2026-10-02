@@ -57,7 +57,7 @@ export function bossesInRaid(s: GameState, r: Raid): void {
       rd.summoned = true;
       const d = ENEMIES[kit.summon.kind];
       for (let i = 0; i < kit.summon.count; i++) {
-        r.raiders.push({ id: s.nextId++, kind: kit.summon.kind, x: rd.x - rd.dir * (20 + i * 16), dir: rd.dir, hp: d.hp, maxHp: d.hp, cooldown: 10, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm' });
+        r.raiders.push({ id: s.nextId++, kind: kit.summon.kind, x: rd.x - rd.dir * (20 + i * 16), y: rd.y, dir: rd.dir, hp: d.hp, maxHp: d.hp, cooldown: 10, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm' });
       }
       notify(s, kit.summon.text, true);
     }

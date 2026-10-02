@@ -7,10 +7,10 @@ import { delvesHourly } from '../src/shared/sim/delves';
 import { destinationUnlocked, sendDelve } from '../src/shared/sim/expeditions';
 import { questsDone, questsHourly } from '../src/shared/sim/quests';
 import { attractiveness, TROPHY_RENOWN, treasuresHeld } from '../src/shared/sim/shop';
-import { type Building, type GameState } from '../src/shared/sim/state';
+import { type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row, campPx } from './helpers';
 
 function town(seed: string): GameState {
   const s = plainGame(seed);
@@ -18,7 +18,7 @@ function town(seed: string): GameState {
   s.regions = DUNGEONS.map((d) => d.region);
   return s;
 }
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 
 test('of an evening, someone offers a quest on a dungeon the town knows; open quests lapse', () => {
   const s = town('quests');
@@ -50,7 +50,7 @@ test('a cleared dungeon pays every quest on it: a captive joins, a bounty, a rel
   const people = s.people.length;
   const coins = s.coins ?? 0;
   const items = Object.values(s.items).reduce((a, b) => a + b, 0);
-  questsDone(s, 'barrow_crypt', camp(s) * 32, new Rng(3));
+  questsDone(s, 'barrow_crypt', campPx(s), new Rng(3));
   assert.equal(s.people.length, people + 1, 'the captive joins');
   assert.equal((s.coins ?? 0) - coins, 80, 'the bounty');
   assert.ok(s.uniques?.includes('sunblade') && s.items.sunblade === 1, 'the relic');
@@ -92,13 +92,13 @@ test('now and then a rival party is down there too', () => {
 
 test('a Trophy Hall shows off the town\'s treasures, and each one draws more travellers', () => {
   const s = town('trophies');
-  const shop: Building = { id: s.nextId++, def: 'trading_post', tile: camp(s) + 3, status: 'done', delivered: {}, progress: 1, store: {} };
+  const shop: Building = { id: s.nextId++, def: 'trading_post', tile: camp(s) + 3, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(shop);
   s.items.black_blade = 1;
   s.uniques = ['masterless'];
   s.items.masterless = 1;
   assert.equal(treasuresHeld(s), 2);
   const before = attractiveness(s, shop);
-  s.buildings.push({ id: s.nextId++, def: 'trophy_hall', tile: camp(s) - 6, status: 'done', delivered: {}, progress: 1, store: {} });
+  s.buildings.push({ id: s.nextId++, def: 'trophy_hall', tile: camp(s) - 6, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} });
   assert.equal(attractiveness(s, shop), before + 2 * TROPHY_RENOWN);
 });

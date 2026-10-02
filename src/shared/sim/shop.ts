@@ -15,7 +15,6 @@
 // remembered, and the town makes it. The town also spends its coins on its venues: extensions (a bigger floor) and
 // levels on the pieces set out. What it sells, buys, makes and spends on is the planner's call (planner.ts).
 
-import { TILE } from '../constants';
 import { BUILDING_BY_ID, type Venue } from '../data/buildings';
 import { FARE_NAMES, ITEM_BY_ID, ITEMS, type FareKind, type ItemDef } from '../data/items';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
@@ -81,13 +80,14 @@ import { WORTH } from '../data/trade';
 import { biomeOf } from '../data/biomes';
 import { randomLook } from '../data/people';
 import type { Rng } from '../rng';
-import { buildingCentreX, depositNear, storages, totalCapacity, totalStock } from './buildings';
+import { buildingCentreX, buildingDoor, depositNear, footprint as plotOf, storages, totalCapacity, totalStock } from './buildings';
 import { addItems, itemUnlocked, qualitiesOf, takeItem } from './crafting';
 import { operatorOf, operatorSkill } from './operators';
-import { addStock, earn, notify, poolSize, remember, type Building, type GameState, type ShopPiece, type Traveller, type Want } from './state';
+import { addStock, earn, edgeXY, notify, poolSize, remember, type Building, type GameState, type ShopPiece, type Traveller, type Want } from './state';
 import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { gainSkill } from './townsfolk';
 import { priceRate, travellerRate } from './origin';
+import { walk } from './walk';
 
 /* ------------------------------------------------------------ the venues and their floors */
 
@@ -383,8 +383,6 @@ export const SALE_GEAR: readonly ItemDef[] = ITEMS.filter((i) => i.slot && !i.re
 
 /* ------------------------------------------------------------ strangers */
 
-const worldWidth = (s: GameState) => s.tiles.length * TILE;
-
 /** Game ticks until the next stranger, for a venue this attractive. */
 export function travellerGap(s: GameState, rng: Rng, attract: number): number {
   const hours = rng.range(TRAVELLER_EVERY[0], TRAVELLER_EVERY[1]) / (1 + attract / APPEAL_HALVES_WAIT) / (biomeOf(s).caravans ?? 1) / travellerRate(s);
@@ -515,13 +513,7 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
       if (s.tick >= t.until) leave(s, t);
       continue;
     }
-    const d = t.toX - t.x;
-    t.dir = d >= 0 ? 1 : -1;
-    if (Math.abs(d) > step) {
-      t.x += t.dir * step;
-      continue;
-    }
-    t.x = t.toX;
+    if (!walk(s, t, { x: t.toX, y: t.toY }, step, venue ? plotOf(venue) : undefined, s.tick)) continue;
     if (t.phase === 'leaving') travellers.splice(travellers.indexOf(t), 1);
     else if (venue) {
       t.phase = 'shopping';
@@ -561,10 +553,11 @@ function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown): void {
     temper,
     venue: kind,
     look,
-    x: side < 0 ? -TILE : worldWidth(s) + TILE,
+    ...edgeXY(s, side),
     dir: side < 0 ? 1 : -1,
     phase: 'arriving',
-    toX: buildingCentreX(open),
+    toX: buildingDoor(open).x,
+    toY: buildingDoor(open).y,
     until: 0,
     purse: Math.round(purse),
   });
@@ -597,7 +590,9 @@ function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown): void {
 /** On their way out of town, the way they were going. */
 function leave(s: GameState, t: Traveller): void {
   t.phase = 'leaving';
-  t.toX = t.dir > 0 ? worldWidth(s) + TILE : -TILE;
+  const out = edgeXY(s, t.dir > 0 ? 1 : -1);
+  t.toX = out.x;
+  t.toY = out.y;
 }
 
 /** One piece on offer: which item, at what quality, and what it costs. */

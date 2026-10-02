@@ -2,18 +2,18 @@
 // commands from the same state must always produce the same result.
 
 import { FOUNDER_CLASS } from '../data/founderClasses';
+import { CELL, makeLand, type LandMap, type Pt } from './land';
 import type { Delve } from './delves';
 import type { Quest } from './quests';
-import { TILE } from '../constants';
 import type { Material, Stock } from '../data/materials';
 import { JOB_SKILL, JOBS, NAMES, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
 import { SKILLS, type Skill, type SkillLevel } from '../data/skills';
 import { DESTINATIONS, type Role, type Stance } from '../data/expeditions';
 import { ITEM_BY_ID, type FareKind, type Slot } from '../data/items';
 import { RAID_GRACE_HOURS, type RaidGoal } from '../data/raids';
-import { TERRAIN, type WorkAnim } from '../data/terrain';
+import type { WorkAnim } from '../data/terrain';
 import { hashSeed, mixSeed, Rng } from '../rng';
-import { generateWorld, type MidTerrain } from '../world';
+import type { MidTerrain } from '../world';
 import type { Biome, Difficulty } from '../data/biomes';
 import type { ClassId } from '../data/classes';
 import { hpMult } from '../data/levels';
@@ -56,11 +56,12 @@ export interface Building {
   id: number;
   /** BuildingDef id. */
   def: string;
-  /** Leftmost tile on its layer's grid. */
+  /** Its footprint's top-left cell on the land (sim/land.ts): `tile` the column, `row` the row; its size is its
+   *  def's `width` by `depthOf(def)` (sim/buildings.ts). */
   tile: number;
-  /** A room of a castle (sim/castle.ts), and the floor it's on (0: the ground floor). */
+  row: number;
+  /** A room of a castle (sim/castle.ts: inside the keep). */
   room?: boolean;
-  floor?: number;
   /** A blueprint is waiting for materials or being built; progress > 0 once work has started. */
   status: 'blueprint' | 'done';
   /** Materials hauled to the site so far. */
@@ -128,10 +129,15 @@ export interface Traveller {
   req?: number;
   look: Look;
   x: number;
+  y: number;
   dir: 1 | -1;
   /** Walking in to the shop, inside it, or on their way out of town (to `toX`, then gone). */
   phase: 'arriving' | 'shopping' | 'leaving';
   toX: number;
+  toY: number;
+  /** The way there (walk.ts). */
+  path?: Pt[];
+  goal?: Pt;
   /** When they're done shopping. */
   until: number;
   /** Coins they can spend. */
@@ -141,9 +147,10 @@ export interface Traveller {
 }
 
 export type Task =
-  | { type: 'wander'; targetX: number }
+  | { type: 'wander'; targetX: number; targetY: number }
   | { type: 'idle'; untilTick: number }
-  /** Work a marked tile; or (scrounge) pick just the wild berries off any tile, to keep from starving. */
+  /** Work a marked cell (`tile` is its index on the land); or (scrounge) pick just the wild berries off any cell, to
+   *  keep from starving. */
   | { type: 'gather'; tile: number; progress: number; scrounge?: boolean }
   /** Walk to a storage building and put down what you carry. */
   | { type: 'store'; building: number }
@@ -162,7 +169,7 @@ export type Task =
   /** Raid: go after a raider and fight (ticks until the next strike). */
   | { type: 'defend'; cooldown: number }
   /** Guard duty between raids (with a Barracks): walking the town from end to end. */
-  | { type: 'patrol'; targetX: number }
+  | { type: 'patrol'; targetX: number; targetY: number }
   /** Raid: hide in your bed (safe), or huddle by the fire if you have none. */
   | { type: 'shelter' }
   /** Stop someone's bleeding (an attempt takes a while; it may fail). */
@@ -216,10 +223,8 @@ export interface Raider {
   /** Enemy def id. */
   kind: string;
   x: number;
+  y: number;
   dir: 1 | -1;
-  /** Up a castle's keep (sim/castle.ts): the floor they're on, and how far up or down the stairs to the next. */
-  floor?: number;
-  climb?: number;
   hp: number;
   maxHp: number;
   cooldown: number;
@@ -290,12 +295,13 @@ export interface Person {
   /** RecruitType id. */
   type: string;
   look: Look;
-  /** World x in pixels, along the walkway. */
+  /** Where they stand on the land, in world px. */
   x: number;
+  y: number;
   dir: 1 | -1;
-  /** Up a castle's keep (sim/castle.ts): the floor they're on, and how far up or down the stairs to the next. */
-  floor?: number;
-  climb?: number;
+  /** The way they're walking (cells still to pass, nearest first) and where to (px); dropped when the goal changes. */
+  path?: Pt[];
+  goal?: Pt;
   /** Rallied by the player in a fight until this tick (sim/rally.ts). */
   rallied?: number;
   skills: Record<Skill, SkillLevel>;
@@ -479,15 +485,16 @@ export interface Visitor {
   person: Person;
   /** Where they stop and wait. */
   waitX: number;
+  waitY: number;
   /** They give up and leave at this tick. */
   leavesTick: number;
-  /** Once turned away (or tired of waiting) they walk off to this x and vanish. */
-  leavingTo: number | null;
+  /** Once turned away (or tired of waiting) they walk off to this point and vanish. */
+  leavingTo: Pt | null;
 }
 
 export interface GameState {
-  version: 15;
-  /** World seed (initial terrain is regenerated from it; changes live in `tiles`). */
+  version: 16;
+  /** World seed (the land is made from it; changes live in `land`). */
   seed: string;
   /** Ticks simulated since the game began. */
   tick: number;
@@ -495,10 +502,8 @@ export interface GameState {
   rngState: number;
   paused: boolean;
   era: Era;
-  /** Midground tiles, one per world column. */
-  tiles: TileState[];
-  /** Bumped whenever any tile changes, so renderers know to redraw terrain. */
-  tileRev: number;
+  /** The land, seen from above (sim/land.ts): its cells, pools, roads, the open area and the camp. */
+  land: LandMap;
   /** Every building and blueprint, in placement order (which is also construction priority). */
   buildings: Building[];
   people: Person[];
@@ -511,9 +516,6 @@ export interface GameState {
   /** When the Cave Bear comes down for its totem, if the town has learned the Elder's Council and nobody has fetched it
    *  (sim/caveBear.ts). */
   caveBearTick?: number;
-  /** A castle town's keep (sim/castle.ts): its ground floor's width at first, and how far each floor up reaches out.
-   *  Left out (castles from older saves): the old shape, 16 tiles straight up, so their rooms stay where they are. */
-  keep?: { tiles: number; flare: number };
   /** Destinations visited at least once (their loot is known). */
   scouted: string[];
   /** The regions of the world map the town's scouts have mapped (data/regions.ts; home is always known). */
@@ -592,7 +594,7 @@ export interface GameState {
   triumph?: { until: number; name: string } | null;
   bossShake?: number;
   /** Where townsfolk fell and were buried (the latest few). */
-  graves?: { x: number; name: string }[];
+  graves?: { x: number; y: number; name: string }[];
   /** How many of its own the town has buried, ever (a Necromancer's calling needs some). */
   burials?: number;
   /** The last person brought back from death, and when (for the glow). */
@@ -601,10 +603,12 @@ export interface GameState {
   fx?: { tick: number; id: number; kind: PersonFx }[];
   /** Where meteors struck lately (for the impact bursts). */
   impacts?: { tick: number; x: number }[];
+  /** A castle town's keep (sim/castle.ts): how many wings it has grown beyond its era's size, as its rooms needed room. */
+  keepGrown?: number;
   /** A nomad tribe's seasonal round (sim/nomads.ts): its home ground and summer pasture (tiles), where the camp is
    *  now, when it last moved and from where, whether it has settled for good, and where the tents stood at the camp it
    *  left (px: the marks they left on the ground). */
-  nomad?: { home: number; pasture: number; camp: number; movedAt?: number; from?: number; settled?: boolean; left?: { x: number; w: number }[] };
+  nomad?: { home: Pt; pasture: Pt; camp: Pt; movedAt?: number; from?: Pt; settled?: boolean; left?: { x: number; y: number; w: number }[] };
   /** Spells cast lately (the town's powers and rival lords'), for the renderer to draw (see castSpellFx). */
   spellFx?: SpellFx[];
   /** The living are frightened (someone was turned) until this tick. */
@@ -820,32 +824,25 @@ function makeChild(p: Person): void {
 }
 
 export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
-  const world = generateWorld(seed, opts.biome);
+  const land = makeLand(seed, opts.biome);
   const rng = new Rng(mixSeed(hashSeed(seed), 0x5eed));
+  const camp = land.camp;
+  const campPx = (dx: number, dy = 0): Pt => ({ x: (camp.x + 0.5 + dx) * CELL, y: (camp.y + 0.5 + dy) * CELL });
+  /** Where the next person stands: about the fire. */
+  const standing = (n: number): Pt => campPx((n % 2 ? 1 : -1) * Math.ceil(n / 2) * 0.9, 1.6 + (n % 3) * 0.3);
 
-  const tiles: TileState[] = world.mid.map((terrain) => {
-    const pool: Stock = {};
-    if (terrain !== 'clear') {
-      for (const [m, [lo, hi]] of Object.entries(TERRAIN[terrain].pool) as [Material, [number, number]][]) {
-        const n = rng.int(lo, hi);
-        if (n > 0) pool[m] = n;
-      }
-    }
-    return { terrain, pool, designated: false };
-  });
-
-  const main = makePerson(rng, 1, 'founder', (world.camp + 0.5) * TILE - TILE, []);
+  const main = makePerson(rng, 1, 'founder', campPx(-1, 1.6), []);
   if (opts.founder) makeFounder(main, opts.founder);
   // The camp starts with its fire, which doubles as a small cache, and a little food (more, and company, in
   // some scenarios).
   const scenario = SCENARIO_BY_ID[opts.scenario ?? 'lone'] ?? SCENARIO_BY_ID.lone;
-  const campfire: Building = { id: 2, def: 'campfire', tile: world.camp, status: 'done', delivered: {}, progress: 1, store: {} };
+  // (the fire's footprint is 2 by 2, the camp's centre cell its front left)
+  const campfire: Building = { id: 2, def: 'campfire', tile: camp.x, row: camp.y - 1, status: 'done', delivered: {}, progress: 1, store: {} };
   const buildings = [campfire];
   const people = [main];
   let nextId = 3;
   for (const type of scenario.companions) {
-    const x = (world.camp + 0.5) * TILE + (people.length % 2 ? 1 : -1) * Math.ceil(people.length / 2) * TILE;
-    const p = makePerson(rng, nextId++, type, x, people.map((q) => q.name));
+    const p = makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name));
     if (type === 'child') makeChild(p);
     people.push(p);
   }
@@ -862,8 +859,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   // (and whoever a ready-made founder brings)
   const brings = opts.founder?.pick ? (FOUNDER_BY_ID[opts.founder.pick]?.brings ?? []) : [];
   for (const type of [...(origin.start.companions ?? []), ...brings]) {
-    const x = (world.camp + 0.5) * TILE + (people.length % 2 ? 1 : -1) * Math.ceil(people.length / 2) * TILE;
-    people.push(makePerson(rng, nextId++, type, x, people.map((q) => q.name)));
+    people.push(makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name)));
   }
   for (const [m, n] of Object.entries(origin.start.stores ?? {}) as [Material, number][]) {
     const here = Math.min(n, room);
@@ -881,26 +877,27 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   else if (f === 'vampire' || f === 'werewolf') turnMonster(main, f, 0);
   else if (f === 'lich' && !main.look.body) main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
   // what the fire can't hold waits in a stockpile just past it
-  if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: world.camp + BUILDING_BY_ID.campfire.width + 1, status: 'done', delivered: {}, progress: 1, store: extra });
-  // (a nomad tribe has a summer pasture a day's ride along the land, on the side the seed picks)
-  const nomad = origin.rules.nomadic ? { home: world.camp, pasture: Math.max(12, Math.min(world.tiles - 13, world.camp + (hashSeed(seed) % 2 ? 1 : -1) * NOMAD_PASTURE_TILES)), camp: world.camp } : undefined;
-  // (and anything the origin starts with standing, the other side of the fire)
-  let at = world.camp - 1;
+  if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: camp.x + 3, row: camp.y - 1, status: 'done', delivered: {}, progress: 1, store: extra });
+  // (a nomad tribe has a summer pasture a day's ride across the land, the way the seed picks)
+  const pastureSide = hashSeed(seed) % 4;
+  const pasture: Pt = { x: Math.max(8, Math.min(land.w - 9, camp.x + (pastureSide === 0 ? NOMAD_PASTURE_TILES : pastureSide === 1 ? -NOMAD_PASTURE_TILES : 0))), y: Math.max(8, Math.min(land.h - 9, camp.y + (pastureSide === 2 ? NOMAD_PASTURE_TILES : pastureSide === 3 ? -NOMAD_PASTURE_TILES : 0))) };
+  const nomad = origin.rules.nomadic ? { home: { ...camp }, pasture, camp: { ...camp } } : undefined;
+  // (and anything the origin starts with standing, west of the fire in a row)
+  let at = camp.x - 2;
   for (const def of origin.start.buildings ?? []) {
     at -= BUILDING_BY_ID[def].width;
-    buildings.push({ id: nextId++, def, tile: at, status: 'done', delivered: {}, progress: 1, store: {} });
+    buildings.push({ id: nextId++, def, tile: at, row: camp.y - 1, status: 'done', delivered: {}, progress: 1, store: {}, ...(origin.rules.castle && BUILDING_BY_ID[def].layer === 'mid' ? { room: true } : {}) });
     at -= 1;
   }
 
   return {
-    version: 15,
+    version: 16,
     seed,
     tick: 0,
     rngState: rng.state,
     paused: false,
     era: 'neolithic',
-    tiles,
-    tileRev: 0,
+    land,
     buildings,
     ...(nomad ? { nomad } : {}),
     people,
@@ -936,8 +933,6 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     ...(opts.difficulty && opts.difficulty !== 'normal' ? { difficulty: opts.difficulty } : {}),
     ...(origin.id !== 'settlers' ? { origin: origin.id } : {}),
     ...(f === 'lich' ? { lich: true } : {}),
-    // (a castle town's keep: narrow at the foot, reaching out a tile a side each floor up)
-    ...(origin.rules.castle ? { keep: { tiles: 12, flare: 1 } } : {}),
   };
 }
 
@@ -950,7 +945,7 @@ function turnMonster(p: Person, kind: MonsterKind, tick: number): void {
 }
 
 /** A new person of a recruit type: skills from its ranges, 1-3 passions, 1-2 traits, a name not in use. */
-export function makePerson(rng: Rng, id: number, typeId: string, x: number, takenNames: readonly string[]): Person {
+export function makePerson(rng: Rng, id: number, typeId: string, at: Pt, takenNames: readonly string[]): Person {
   const type = RECRUIT_TYPES[typeId];
   const skills = Object.fromEntries(
     SKILLS.map((k) => {
@@ -979,7 +974,8 @@ export function makePerson(rng: Rng, id: number, typeId: string, x: number, take
     name: rng.pick(free.length ? free : NAMES),
     type: typeId,
     look: randomLook(rng, typeId === 'elder'),
-    x,
+    x: at.x,
+    y: at.y,
     dir: 1,
     skills,
     passions,
@@ -1030,12 +1026,27 @@ export function autoPriorities(skills: Record<Skill, SkillLevel>): Record<Job, P
 /** How far a nomad tribe's summer pasture is from its home ground (tiles). */
 export const NOMAD_PASTURE_TILES = 42;
 
-export function campX(s: GameState): number {
-  return tileCentreX(s.nomad?.camp ?? Math.floor(s.tiles.length / 2));
+/** The camp's centre cell (a nomad tribe's wherever it's pitched), and the same in world px. */
+export const campCell = (s: Pick<GameState, 'land' | 'nomad'>): Pt => s.nomad?.camp ?? s.land.camp;
+export function campXY(s: Pick<GameState, 'land' | 'nomad'>): Pt {
+  const c = campCell(s);
+  return { x: (c.x + 0.5) * CELL, y: (c.y + 0.5) * CELL };
 }
+export function campX(s: Pick<GameState, 'land' | 'nomad'>): number {
+  return campXY(s).x;
+}
+/** The land's edge on the camp's row, one cell out, on a side (where strangers come in and go out), in px. */
+export function edgeXY(s: Pick<GameState, 'land' | 'nomad'>, side: -1 | 1): Pt {
+  return { x: side < 0 ? -CELL / 2 : (s.land.w + 0.5) * CELL, y: campXY(s).y };
+}
+/** Which side of the camp a point lies. */
+export const sideOf = (s: Pick<GameState, 'land' | 'nomad'>, p: Pt): -1 | 1 => (p.x < campX(s) ? -1 : 1);
+/** The distance between two points on the land (px). */
+export const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, b.y - a.y);
 
-export function tileCentreX(tile: number): number {
-  return (tile + 0.5) * TILE;
+/** A cell index's centre on the land, in px. */
+export function cellXY(s: Pick<GameState, 'land'>, i: number): Pt {
+  return { x: ((i % s.land.w) + 0.5) * CELL, y: (Math.floor(i / s.land.w) + 0.5) * CELL };
 }
 
 /** Total units in a stock. */

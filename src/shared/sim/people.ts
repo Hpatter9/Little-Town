@@ -2,10 +2,8 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
-import { castleOn, floorOf, moveOnFloors } from './castle';
 import { rallied, RALLY_SPEED } from './rally';
 import { ADJACENT_TILES, NEAR_SOURCE, NEAR_SOURCE_BONUS } from '../data/buildings';
-import { TILE } from '../constants';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
 import { BEDROLL_SLEEP, ITEM_BY_ID } from '../data/items';
 import { FOOD_VALUE, JOBS, type Job } from '../data/people';
@@ -15,9 +13,11 @@ import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { buildingCentreX, defOf, stillNeeded, storageFree, storages } from './buildings';
+import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius } from './buildings';
+import { CELL, cellAt, groundAt, isMarked, setGround, type Pt } from './land';
+import { walk } from './walk';
 import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickTool, stationFor, takeItemInputs, toolSpeed } from './crafting';
-import { leaveX } from './breaks';
+import { leavePt } from './breaks';
 import { onBuilt } from './era';
 import { doomForage } from './doom';
 import { biomeOf } from '../data/biomes';
@@ -26,11 +26,11 @@ import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
 import { cropOf, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
 import { isPen, needsTending, penToTend, workPen } from './livestock';
 import { fightFire, fireToFight } from './fire';
-import { defenderAttack, defenderReach, nearestRaider, rallyX, townEdgeX } from './raids';
+import { defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } from './raids';
 import { ENEMIES } from '../data/enemies';
 import { THROW_RANGE } from '../data/raids';
 import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
-import { tireless, remember, addStock, campX, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, tileCentreX, type Building, type GameState, type Person, type Task } from './state';
+import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
@@ -44,7 +44,7 @@ const GATHER_XP = 10;
 const BUILD_XP_PER_SEC = 2;
 const CRAFT_XP_PER_SEC = 2;
 const RESEARCH_XP_PER_SEC = 2;
-/** How far from camp an idle person wanders, in tiles. */
+/** How far from camp an idle person wanders, in cells. */
 const WANDER_TILES = 3;
 /** Each extra person on the same site or topic adds this fraction of the one before (diminishing returns). */
 const STACKING = 0.7;
@@ -101,19 +101,22 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     const next = chooseTask(s, p);
     if (next && (loafing || rank(next, p) < rank(p.task!, p))) p.task = next;
   }
-  if (!p.task) p.task = { type: 'wander', targetX: campX(s) + rng.range(-WANDER_TILES, WANDER_TILES) * TILE };
+  if (!p.task) {
+    const c = campXY(s);
+    p.task = { type: 'wander', targetX: c.x + rng.range(-WANDER_TILES, WANDER_TILES) * CELL, targetY: c.y + rng.range(-WANDER_TILES, WANDER_TILES) * CELL };
+  }
 
   const task = p.task;
   switch (task.type) {
     case 'wander':
-      if (goTo(s, p, task.targetX)) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ };
+      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ };
       break;
     case 'idle':
       p.activity = 'idle';
       if (s.tick >= task.untilTick) p.task = null;
       break;
     case 'gather':
-      if (goTo(s, p, tileCentreX(task.tile))) {
+      if (goTo(s, p, cellXY(s, task.tile))) {
         if (task.scrounge) scrounge(s, p, task);
         else workGather(s, p, task, rng);
       }
@@ -230,14 +233,14 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       doDefend(s, p, task, rng);
       break;
     case 'patrol':
-      if (goTo(s, p, task.targetX)) p.task = null; // then back the other way
+      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = null; // then back the other way
       break;
     case 'tend':
       doTend(s, p, task, rng);
       break;
     case 'shelter': {
       const bed = p.bed === null ? undefined : byId(s, p.bed);
-      if (!goTo(s, p, bed ? buildingCentreX(bed) : campX(s), bed ? floorOf(bed) : 0)) break;
+      if (!(bed ? goToB(s, p, bed) : goTo(s, p, campXY(s)))) break;
       p.activity = bed ? 'sleep' : 'idle'; // inside, out of sight; or huddled by the fire
       break;
     }
@@ -275,7 +278,7 @@ function doTend(s: GameState, p: Person, task: Extract<Task, { type: 'tend' }>, 
     p.task = null;
     return;
   }
-  if (!goTo(s, p, q.x, q.floor ?? 0)) return;
+  if (!goTo(s, p, q)) return;
   p.dir = q.x >= p.x ? 1 : -1;
   p.activity = 'forage';
   task.progress += (skillSpeed(p.skills.medicine.level) * workFactor(s, p)) / (TEND_SECONDS * TICK_HZ);
@@ -314,12 +317,19 @@ export function onShift(s: GameState, p: Person): boolean {
   return (p.id % 2 === 0) === day;
 }
 
-/** The far end of the built town from where a guard is. */
-function patrolEnd(s: GameState, p: Person): number {
-  const xs = s.buildings.filter((b) => b.status === 'done').map((b) => buildingCentreX(b));
-  const lo = Math.min(...xs) - TILE;
-  const hi = Math.max(...xs) + TILE;
-  return Math.abs(p.x - lo) > Math.abs(p.x - hi) ? lo : hi;
+/** The far end of the built town from where a guard is: the door of the building farthest from them. */
+function patrolEnd(s: GameState, p: Person): Pt {
+  let best: Pt = campXY(s);
+  let far = -1;
+  for (const b of s.buildings) {
+    if (b.status !== 'done') continue;
+    const d = distToBuilding(b, p);
+    if (d > far) {
+      far = d;
+      best = buildingDoor(b);
+    }
+  }
+  return best;
 }
 
 /** Cavalry (DESIGN §10): the fit horses at home carry the first defenders on High into a fight. Horse coat by rider. */
@@ -333,22 +343,23 @@ export function cavalry(s: GameState): Map<number, number> {
 }
 
 function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' }>, rng: Rng): void {
-  const rd = nearestRaider(s, p.x);
+  const rd = nearestRaider(s, p);
   const mounted = cavalry(s).has(p.id);
   if (!rd) {
-    if (goTo(s, p, rallyX(s)) || (mounted && goTo(s, p, rallyX(s)))) p.activity = 'idle'; // wait for them at the edge of camp
+    const rally = rallyPoint(s);
+    if (goTo(s, p, rally) || (mounted && goTo(s, p, rally))) p.activity = 'idle'; // wait for them at the edge of camp
     return;
   }
   const reach = defenderReach(p);
   const gap = rd.x - p.x;
-  // (up in a castle's keep: only on the same floor)
-  if (Math.abs(gap) > reach || (p.floor ?? 0) !== (rd.floor ?? 0)) {
+  const away = dist(p, rd);
+  if (away > reach) {
     // they go out no further than the town's edge: the raiders are met as they come in (or shot at from it); only an
     // archer shooting in from just outside is gone out after, as far as it stands
     const out = ENEMIES[rd.kind]?.ranged ? THROW_RANGE : 0;
-    const want = Math.max(townEdgeX(s, -1) - out, Math.min(townEdgeX(s, 1) + out, rd.x - Math.sign(gap) * (reach - 4)));
+    const want = heldToTown(s, { x: rd.x - ((rd.x - p.x) / away) * (reach - 4), y: rd.y - ((rd.y - p.y) / away) * (reach - 4) }, out);
     // riders cover ground twice as fast
-    const there = goTo(s, p, want, rd.floor ?? 0) || (mounted && goTo(s, p, want, rd.floor ?? 0));
+    const there = goTo(s, p, want) || (mounted && goTo(s, p, want));
     if (there) {
       p.dir = gap >= 0 ? 1 : -1; // (holding the edge, facing them)
       p.activity = 'idle';
@@ -436,14 +447,13 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
 function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'research' }>): void {
   const r = s.research;
   const building = task.station != null ? byId(s, task.station) : undefined;
-  const at = building ? buildingCentreX(building) : campX(s);
   // (a topic finished by someone else, or cancelled: on to the next)
   if (!task.topic || !r.queue.includes(task.topic)) task.topic = topicFor(s, p);
   if (!task.topic) {
     p.task = null;
     return;
   }
-  if (!goTo(s, p, at, building ? floorOf(building) : 0)) return;
+  if (!(building ? goToB(s, p, building) : goTo(s, p, campXY(s)))) return;
   p.activity = 'research';
   const topic = TOPIC_BY_ID[task.topic];
   const mult = building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1;
@@ -474,13 +484,16 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
 function nearSource(s: GameState, station: Building): number {
   const sources = NEAR_SOURCE[station.def];
   if (!sources) return 1;
-  const near = s.buildings.some((b) => b.status === 'done' && sources.includes(b.def) && Math.abs(b.tile - station.tile) <= ADJACENT_TILES);
+  const near = s.buildings.some((b) => b.status === 'done' && sources.includes(b.def) && distToBuilding(b, buildingCentre(station)) <= ADJACENT_TILES * CELL);
   return near ? NEAR_SOURCE_BONUS : 1;
 }
 
 function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather' }>, rng: Rng): void {
-  const tile = s.tiles[task.tile];
-  const def = TERRAIN[tile.terrain as keyof typeof TERRAIN];
+  const def = TERRAIN[groundAt(s.land, cellAt(s.land, task.tile).x, cellAt(s.land, task.tile).y) as keyof typeof TERRAIN];
+  if (!def) {
+    p.task = null;
+    return;
+  }
   if (p.activity !== def.anim) pickTool(s, p, def.anim);
   p.activity = def.anim;
   const speed = skillSpeed(p.skills.gathering.level) * modifiers(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
@@ -495,22 +508,23 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
 
 /** Hungry with nothing in storage: pick the wild berries off a tile (the trees stay standing), then eat them. */
 function scrounge(s: GameState, p: Person, task: Extract<Task, { type: 'gather' }>): void {
-  const tile = s.tiles[task.tile];
+  const pool = s.land.pools[task.tile];
+  if (!pool) {
+    p.task = null;
+    return;
+  }
   p.activity = 'forage';
   task.progress += (skillSpeed(p.skills.gathering.level) * doomForage(s) * biomeOf(s).forage * forageSpeed(s)) / (SCROUNGE_SECONDS * TICK_HZ);
   if (task.progress < 1) return;
   task.progress = 0;
-  addStock(tile.pool, 'berries', -1);
+  addStock(pool, 'berries', -1);
   addStock(p.carrying, 'berries', 1);
   gainSkill(p, 'gathering', GATHER_XP);
-  // (picked bare, with nothing else left on it: the tile is clear now)
-  if (poolSize(tile.pool) === 0) {
-    tile.terrain = 'clear';
-    tile.designated = false;
-    s.tileRev++;
-  }
+  // (picked bare, with nothing else left on it: the cell is clear now)
+  const bare = (pool.berries ?? 0) <= 0;
+  if (poolSize(pool) === 0) clearCell(s, task.tile);
   // eat on the spot once there's enough for a meal, or once the bush is bare
-  if ((tile.pool.berries ?? 0) <= 0 || (p.carrying.berries ?? 0) >= 2) {
+  if (bare || (p.carrying.berries ?? 0) >= 2) {
     const n = p.carrying.berries ?? 0;
     p.needs.food = Math.min(1, p.needs.food + n * FOOD_VALUE.berries!);
     addStock(p.carrying, 'berries', -n);
@@ -518,28 +532,39 @@ function scrounge(s: GameState, p: Person, task: Extract<Task, { type: 'gather' 
   }
 }
 
-/** The nearest tile with wild berries on it (for someone about to starve), if any. */
+/** A wild cell worked out is open ground now (sand in the desert). */
+export function clearCell(s: GameState, i: number): void {
+  const c = cellAt(s.land, i);
+  setGround(s.land, c.x, c.y, s.biome === 'desert' ? 'sand' : 'grass');
+}
+
+/** The nearest cell with wild berries on it (for someone about to starve), if any. Only the open land counts. */
 function wildFood(s: GameState, p: Person): number | null {
   let best: number | null = null;
-  s.tiles.forEach((t, i) => {
-    if ((t.pool.berries ?? 0) > 0 && (best === null || Math.abs(tileCentreX(i) - p.x) < Math.abs(tileCentreX(best) - p.x))) best = i;
-  });
+  let bestD = Infinity;
+  for (const [k, pool] of Object.entries(s.land.pools)) {
+    if ((pool.berries ?? 0) <= 0) continue;
+    const i = Number(k);
+    const d = dist(cellXY(s, i), p);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
   return best;
 }
 
-/** Take one unit from the tile's pool (weighted by what's left). Clears the tile when the pool runs out. */
+/** Take one unit from the cell's pool (weighted by what's left). Clears the cell when the pool runs out. */
 function gatherUnit(s: GameState, p: Person, tileIndex: number, rng: Rng): void {
-  const tile = s.tiles[tileIndex];
-  const entries = (Object.entries(tile.pool) as [Material, number][]).filter(([, n]) => n > 0);
-  if (!entries.length) {
+  const pool = s.land.pools[tileIndex];
+  const entries = pool ? (Object.entries(pool) as [Material, number][]).filter(([, n]) => n > 0) : [];
+  if (!pool || !entries.length) {
     // (nothing left on it after all: it's clear)
-    tile.terrain = 'clear';
-    tile.designated = false;
+    clearCell(s, tileIndex);
     p.task = null;
-    s.tileRev++;
     return;
   }
-  let r = rng.next() * poolSize(tile.pool);
+  let r = rng.next() * poolSize(pool);
   let pick = entries[entries.length - 1][0];
   for (const [m, n] of entries) {
     if ((r -= n) < 0) {
@@ -547,16 +572,14 @@ function gatherUnit(s: GameState, p: Person, tileIndex: number, rng: Rng): void 
       break;
     }
   }
-  addStock(tile.pool, pick, -1);
+  addStock(pool, pick, -1);
   addStock(p.carrying, pick, 1);
   gainSkill(p, 'gathering', GATHER_XP);
 
-  if (poolSize(tile.pool) === 0) {
-    tile.terrain = 'clear';
-    tile.designated = false;
+  if (poolSize(pool) === 0) {
+    clearCell(s, tileIndex);
     p.task = null;
     p.activity = 'idle';
-    s.tileRev++;
   }
 }
 
@@ -581,7 +604,7 @@ function doEat(s: GameState, p: Person, task: Extract<Task, { type: 'eat' }>): v
 
 function doSleep(s: GameState, p: Person, task: Extract<Task, { type: 'sleep' }>): void {
   const bed = task.building === null ? undefined : byId(s, task.building);
-  if (!goTo(s, p, bed ? buildingCentreX(bed) : campX(s) - TILE, bed ? floorOf(bed) : 0)) return;
+  if (!(bed ? goToB(s, p, bed) : goTo(s, p, { x: campXY(s).x - CELL, y: campXY(s).y + CELL }))) return;
   p.activity = 'sleep';
   const bedroll = !bed && hasBedroll(s, p);
   p.needs.rest = Math.min(1, p.needs.rest + (SLEEP_PER_HOUR * (bed ? 1 : bedroll ? BEDROLL_SLEEP : GROUND_SLEEP)) / TICKS_PER_HOUR);
@@ -663,11 +686,14 @@ function chooseTask(s: GameState, p: Person): Task | null {
   const fire = fireToFight(s, p);
   if (fire) return p.task?.type === 'extinguish' && p.task.building === fire.id ? p.task : { type: 'extinguish', building: fire.id };
   // Walking out of town (a mental break): nothing else matters.
-  if (p.breakdown?.kind === 'wander') return { type: 'wander', targetX: leaveX(p) };
+  if (p.breakdown?.kind === 'wander') {
+    const out = leavePt(s, p);
+    return { type: 'wander', targetX: out.x, targetY: out.y };
+  }
   // Needs.
   if (p.task?.type === 'sleep' || wantsSleep(s, p)) return { type: 'sleep', building: p.bed };
   if (p.needs.food < HUNGRY) {
-    const st = nearestStorage(s, p.x, (b) => !!foodIn(b));
+    const st = nearestStorage(s, p, (b) => !!foodIn(b));
     if (st) return { type: 'eat', building: st.id, until: null };
     // nothing in the stores, but food in their own hands (a harvest they couldn't put away): eat that
     const own = FOODS.find((m) => (p.carrying[m] ?? 0) > 0);
@@ -692,7 +718,7 @@ function chooseTask(s: GameState, p: Person): Task | null {
     // Straight to a blueprint that needs it, skipping storage.
     const site = s.buildings.find((b) => b.status === 'blueprint' && MATERIALS.some((m) => (p.carrying[m] ?? 0) > 0 && (unreserved(s, p, b)[m] ?? 0) > 0));
     if (site) return { type: 'deliver', building: site.id };
-    const st = nearestStorage(s, p.x, (b) => storageFree(s, b) > 0);
+    const st = nearestStorage(s, p, (b) => storageFree(s, b) > 0);
     if (st) return { type: 'store', building: st.id };
     // Nowhere to put it. If a blueprint is waiting on materials, leave it on the ground so hauling and
     // gathering can go on; otherwise keep holding it (building and research still work) and say so.
@@ -733,7 +759,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
         if (b.status !== 'blueprint') continue;
         const need = unreserved(s, p, b);
         if (!poolSize(need)) continue;
-        const from = nearestStorage(s, p.x, (st) => (Object.keys(need) as Material[]).some((m) => (st.store[m] ?? 0) > 0));
+        const from = nearestStorage(s, p, (st) => (Object.keys(need) as Material[]).some((m) => (st.store[m] ?? 0) > 0));
         if (!from) continue;
         const amounts: Stock = {};
         let room = carryCapacity(s, p);
@@ -755,7 +781,9 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
     }
     case 'defend':
       // (fighting only happens in raids, see chooseTask; between them, guards on shift patrol)
-      return onShift(s, p) ? { type: 'patrol', targetX: patrolEnd(s, p) } : null;
+      if (!onShift(s, p)) return null;
+      const end = patrolEnd(s, p);
+      return { type: 'patrol', targetX: end.x, targetY: end.y };
     case 'research': {
       // (one person to a station: with every one taken, they find other work)
       if (!s.research.queue.length) return null;
@@ -790,7 +818,7 @@ function findCraft(s: GameState, p: Person): Task | null {
     if (!poolSize(need)) return { type: 'craft', order: o.id, phase: 'work', from: null };
     // already holding some of it (say, after a nap): take it over first
     if (MATERIALS.some((m) => (need[m] ?? 0) > 0 && (p.carrying[m] ?? 0) > 0)) return { type: 'craft', order: o.id, phase: 'deliver', from: null };
-    const from = nearestStorage(s, p.x, (st) => MATERIALS.some((m) => (need[m] ?? 0) > 0 && (st.store[m] ?? 0) > 0));
+    const from = nearestStorage(s, p, (st) => MATERIALS.some((m) => (need[m] ?? 0) > 0 && (st.store[m] ?? 0) > 0));
     if (from) return { type: 'craft', order: o.id, phase: 'fetch', from: from.id };
   }
   return null;
@@ -807,22 +835,21 @@ function unreserved(s: GameState, p: Person, b: Building): Stock {
   return need;
 }
 
-/** The nearest marked tile, preferring ones fewer people are already working. */
+/** The nearest marked cell, preferring ones fewer people are already working. */
 function bestGatherTile(s: GameState, p: Person): number | null {
   const workers = new Map<number, number>();
   for (const o of s.people) if (o !== p && o.task?.type === 'gather') workers.set(o.task.tile, (workers.get(o.task.tile) ?? 0) + 1);
   let best: number | null = null;
   let bestCost = Infinity;
-  s.tiles.forEach((t, i) => {
-    if (!t.designated) return;
+  for (const i of s.land.marked) {
     const w = workers.get(i) ?? 0;
-    if (w >= MAX_PER_TILE) return;
-    const cost = Math.abs(tileCentreX(i) - p.x) + w * 20 * TILE;
+    if (w >= MAX_PER_TILE) continue;
+    const cost = dist(cellXY(s, i), p) + w * 20 * CELL;
     if (cost < bestCost) {
       bestCost = cost;
       best = i;
     }
-  });
+  }
   return best;
 }
 
@@ -831,9 +858,9 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
   const site = 'building' in t && t.building !== null ? byId(s, t.building) : undefined;
   switch (t.type) {
     case 'gather': {
-      const tile = s.tiles[t.tile];
-      if (t.scrounge) return (tile.pool.berries ?? 0) > 0;
-      return tile.designated && tile.terrain !== 'clear' && p.priorities.gather !== 0;
+      const pool = s.land.pools[t.tile];
+      if (t.scrounge) return (pool?.berries ?? 0) > 0;
+      return !!pool && isMarked(s.land, t.tile) && p.priorities.gather !== 0;
     }
     case 'store':
       return !!site && storageFree(s, site) > 0;
@@ -888,28 +915,26 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 
 /* ------------------------------------------------------------ helpers */
 
-/** Step toward x on a floor (a castle town's keep: via the stair towers). Returns true once there. */
-function goTo(s: GameState, p: Person, x: number, floor = 0): boolean {
-  if (!castleOn(s)) return walkTo(p, x);
-  const there = moveOnFloors(s, p, x, floor, STEP);
+/** Step toward a point along a path over the land. Returns true once there. */
+function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {
+  const there = walk(s, p, to, STEP, through, s.tick);
   if (!there) p.activity = 'walk';
   return there;
 }
 
-/** Step toward a building (up in the keep, if it's a room there). */
-const goToB = (s: GameState, p: Person, b: Building) => goTo(s, p, buildingCentreX(b), floorOf(b));
+/** Step toward a building: to its door. */
+const goToB = (s: GameState, p: Person, b: Building) => goTo(s, p, buildingDoor(b), footprint(b));
 
-/** Step toward x. Returns true once there. */
-export function walkTo(p: Person, x: number): boolean {
-  const d = x - p.x;
-  if (Math.abs(d) <= STEP) {
-    p.x = x;
-    return true;
-  }
-  p.dir = d > 0 ? 1 : -1;
-  p.x += p.dir * STEP;
-  p.activity = 'walk';
-  return false;
+/** Step toward a point (for visitors and the like). Returns true once there. */
+export function walkTo(s: GameState, p: Person, to: Pt): boolean {
+  return goTo(s, p, to);
+}
+
+/** A point held back to within the town's edge (plus `out` px): where defenders go no further than. */
+function heldToTown(s: GameState, want: Pt, out: number): Pt {
+  const c = campXY(s);
+  const r = (townRadius(s) + 1) * CELL + out;
+  return { x: Math.max(townEdgeX(s, -1) - out, Math.min(townEdgeX(s, 1) + out, want.x)), y: Math.max(c.y - r, Math.min(c.y + r, want.y)) };
 }
 
 const listCarried = (p: Person) =>
@@ -921,11 +946,11 @@ function byId(s: GameState, id: number): Building | undefined {
   return s.buildings.find((b) => b.id === id);
 }
 
-function nearestStorage(s: GameState, x: number, ok: (b: Building) => boolean): Building | null {
+function nearestStorage(s: GameState, at: Pt, ok: (b: Building) => boolean): Building | null {
   let best: Building | null = null;
   for (const b of storages(s)) {
     if (!ok(b)) continue;
-    if (!best || Math.abs(buildingCentreX(b) - x) < Math.abs(buildingCentreX(best) - x)) best = b;
+    if (!best || distToBuilding(b, at) < distToBuilding(best, at)) best = b;
   }
   return best;
 }

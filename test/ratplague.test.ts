@@ -8,7 +8,7 @@ import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { makePerson, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, campPx } from './helpers';
 
 function plagued(seed: string): GameState {
   const s = plainGame(seed);
@@ -16,7 +16,7 @@ function plagued(seed: string): GameState {
   s.tick = 20 * TICKS_PER_DAY;
   s.doom = { kind: 'rat_plague', phase: 'active', untilTick: s.tick + 90 * TICKS_PER_HOUR };
   s.nextRaidTick = s.tick + 1000 * TICKS_PER_HOUR;
-  for (let i = 0; i < 3; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', 3200 + i * 20, s.people.map((q) => q.name)));
+  for (let i = 0; i < 3; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', campPx(s), s.people.map((q) => q.name)));
   return s;
 }
 const hours = (s: GameState, n: number, rng: Rng) => {

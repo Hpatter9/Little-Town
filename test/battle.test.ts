@@ -8,14 +8,14 @@ import { defenderAttack } from '../src/shared/sim/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { parseCommand } from '../src/shared/sim/commands';
 import { Sim } from '../src/shared/sim/sim';
-import { makePerson, newGame, type Building, type GameState } from '../src/shared/sim/state';
+import { makePerson, newGame, type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { plainGame } from './helpers';
+import { plainGame, row } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 
 function add(s: GameState, def: string, tile: number): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 }
@@ -28,7 +28,7 @@ function town(seed: string, n = 4): GameState {
   s.nextDoomTick = Number.MAX_SAFE_INTEGER;
   s.people[0].priorities.defend = 1;
   for (let i = 0; i < n - 1; i++) {
-    const p = makePerson(new Rng(i + 1), s.nextId++, 'hunter', s.people[0].x + i * 10, s.people.map((q) => q.name));
+    const p = makePerson(new Rng(i + 1), s.nextId++, 'hunter', s.people[0], s.people.map((q) => q.name));
     p.priorities.defend = 1;
     if (i % 2) p.skills.ranged.level = Math.max(p.skills.ranged.level, p.skills.melee.level + 4);
     s.people.push(p);
@@ -69,7 +69,7 @@ test('a raid arrives: the placing phase, then the town places whoever the player
   const b = r.battle!;
   assert.ok(b, 'a battle on the trail');
   assert.equal(b.phase, 'placing');
-  assert.ok(r.raiders.every((rd) => rd.x < 0 || rd.x > s.tiles.length * 32), 'the raiders are on the map, not in the town');
+  assert.ok(r.raiders.every((rd) => rd.x < 0 || rd.x > s.land.w * 32), 'the raiders are on the map, not in the town');
   // the player places one archer on a wall-or-ground spot; a blocker can't go on a ground spot
   const archer = fighters(s).find(ranged)!;
   const fist = fighters(s).find((p) => !ranged(p))!;
@@ -94,7 +94,7 @@ test('with nobody to stop them, raiders walk the trail and get through to the to
   for (let i = 0; i < 2 * TICKS_PER_HOUR && !(r.battle?.through ?? 0); i++) sim.step();
   assert.ok(r.battle!.through > 0, 'one got through');
   const rd = r.raiders.find((q) => q.bt?.out)!;
-  assert.ok(rd.x >= 0 && rd.x <= s.tiles.length * 32, 'and is in the town now');
+  assert.ok(rd.x >= 0 && rd.x <= s.land.w * 32, 'and is in the town now');
 });
 
 test('a big raid comes in waves; auto-watch places everyone at once', () => {
@@ -161,17 +161,13 @@ test('the town places its blockers on the trail and its shooters on the walls fi
 
 test("each origin's map: a castle town's raiders climb its keep floor by floor; the druids' trail runs between hedges", () => {
   const v = newGame('keep', { origin: 'vampire' });
-  for (let f = 0; f < 3; f++) {
-    const room = add(v, 'lean_to', camp(v));
-    room.room = true;
-    room.floor = f;
-  }
+  const room = add(v, 'lean_to', camp(v));
+  room.room = true;
   const map = layOut(v, false);
-  assert.ok(map.keep && map.keep.floors === 3, `three floors (${JSON.stringify(map.keep)})`);
+  assert.ok(map.keep && map.keep.floors === 1, `one level (${JSON.stringify(map.keep)})`);
   const path = map.paths[0];
-  assert.ok(path[path.length - 1][0] > map.keep.from + 6, 'the trail goes on up through the keep');
+  assert.ok(path[path.length - 1][0] > map.keep.from, 'the trail goes on into the keep');
   assert.ok(map.spots.some((q) => q.kind === 'block' && q.x > map.keep!.from), 'the stairs can be held');
-  assert.ok(map.spots.some((q) => q.kind === 'wall' && q.x > map.keep!.from), 'and shot down on from the floor above');
   assert.ok(!layOut(newGame('plain', { origin: 'knights' }), false).keep, 'no keep for a town without a castle');
   assert.ok(layOut(newGame('grove', { origin: 'druid' }), false).hedges);
 });

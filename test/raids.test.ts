@@ -5,10 +5,10 @@ import { RAID_GRACE_HOURS, RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { totalStock } from '../src/shared/sim/buildings';
 import { startRaid } from '../src/shared/sim/raids';
 import { Sim } from '../src/shared/sim/sim';
-import { addStock, makePerson, maxHp, poolSize, type Building, type GameState, type Person } from '../src/shared/sim/state';
+import { addStock, makePerson, maxHp, poolSize, type Building, type GameState, type Person, campCell } from '../src/shared/sim/state';
 import { TICK_HZ, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row, campPx } from './helpers';
 
 const runUntil = (sim: Sim, done: () => boolean, maxSeconds = 7200) => {
   let t = 0;
@@ -18,10 +18,10 @@ const runUntil = (sim: Sim, done: () => boolean, maxSeconds = 7200) => {
   }
   return t / TICK_HZ;
 };
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 const campfire = (s: GameState) => s.buildings.find((b) => b.def === 'campfire')!;
 function addPerson(s: GameState, melee: number): Person {
-  const p = makePerson(new Rng(s.nextId * 13), s.nextId++, 'hunter', (camp(s) + 0.5) * 32, s.people.map((q) => q.name));
+  const p = makePerson(new Rng(s.nextId * 13), s.nextId++, 'hunter', campPx(s), s.people.map((q) => q.name));
   p.traits = ['tough'];
   p.hp = maxHp(p);
   p.needs = { food: 1, rest: 1 };
@@ -31,8 +31,8 @@ function addPerson(s: GameState, melee: number): Person {
   s.people.push(p);
   return p;
 }
-function addBuilding(s: GameState, def: string, tile: number): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {}, hp: BUILDING_BY_ID[def].hp };
+function addBuilding(s: GameState, def: string, tile: number, y = row(s)): Building {
+  const b: Building = { id: s.nextId++, def, tile, row: y, status: 'done', delivered: {}, progress: 1, store: {}, hp: BUILDING_BY_ID[def].hp };
   s.buildings.push(b);
   return b;
 }
@@ -103,9 +103,9 @@ test('a palisade stops raiders until broken; builders repair it afterwards', () 
   const p = s.people[0];
   p.priorities.defend = 0;
   addStock(campfire(s).store, 'berries', 10);
-  // walls on both sides of camp, raiders from the east
-  const east = addBuilding(s, 'palisade_wall', camp(s) + 6);
-  addBuilding(s, 'palisade_wall', camp(s) - 7);
+  // walls on both sides of camp, across the raiders' way in (the camp's row), raiders from the east
+  const east = addBuilding(s, 'palisade_wall', camp(s) + 6, campCell(s).y);
+  addBuilding(s, 'palisade_wall', camp(s) - 7, campCell(s).y);
   raidNow(sim, 'wolves', 8, 1);
   runUntil(sim, () => (east.hp ?? 0) < 150, 600);
   assert.ok((east.hp ?? 0) < 150, 'the wall took the damage');

@@ -1,3 +1,4 @@
+import { row, wildsNear } from './helpers';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { cleanNewGameOptions, SCENARIO_BY_ID, SCENARIOS } from '../src/shared/data/founding';
@@ -88,10 +89,9 @@ test("a site with all its materials gets built before any more gathering (the fo
     if (background === 'farmer') f.skills.gathering.level = 7; // (a skilled gatherer: gathering ranks high)
     f.priorities = autoPriorities(f.skills);
     const camp = s.buildings[0].tile;
-    const wild = s.tiles.map((t, i) => ({ t, i })).filter(({ t }) => t.terrain !== 'clear').sort((a, b) => Math.abs(a.i - camp) - Math.abs(b.i - camp));
-    for (const { i } of wild.slice(0, 6)) sim.command({ type: 'toggleGather', tile: i });
+    for (const i of wildsNear(s).slice(0, 6)) sim.command({ type: 'toggleGather', cell: i });
     for (const dx of [3, 4, 5, -5, -6, 6, 7, -7]) {
-      sim.command({ type: 'placeBuilding', def: 'stockpile', tile: camp + dx });
+      sim.command({ type: 'placeBuilding', def: 'stockpile', x: camp + dx, y: row(s) });
       sim.step();
       if (s.buildings.some((b) => b.def === 'stockpile')) break;
     }

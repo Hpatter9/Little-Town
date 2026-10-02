@@ -48,9 +48,10 @@ import { checkBleeding, killPerson, knockDown, stabilize } from './health';
 import { rollRoadEvent } from './roadEvents';
 import { prereqsMet } from './research';
 import { occultRevealed, revealOccult } from './occult';
+import type { Pt } from './land';
 import { addStock, carryCapacity, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
-import { assignBeds, campEdgeX, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
+import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
 /** XP per unit of loot brought in, and per attack made in a fight. */
 const LOOT_XP = 10;
@@ -528,7 +529,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   if (e.horses?.length) s.horses.push(...e.horses);
   if (e.truck) s.items.truck = (s.items.truck ?? 0) + 1;
   const side = s.destSides[d.id] ?? 1;
-  const x = campEdgeX(s, side);
+  const at = campEdge(s, side);
   // Share out the loot and leftover food; they'll haul it to storage like anything else.
   const haul: Stock = { ...e.loot };
   for (const m of MATERIALS) if (e.supplies[m]) addStock(haul, m, e.supplies[m]!);
@@ -536,7 +537,8 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   const each = bearers.length ? Math.ceil(poolSize(haul) / bearers.length) : 0;
   for (const [i, p] of members.entries()) {
     p.away = null;
-    p.x = x - side * i * 20;
+    p.x = at.x - side * i * 20;
+    p.y = at.y;
     p.dir = side > 0 ? -1 : 1;
     p.task = null;
     p.activity = 'idle';
@@ -550,15 +552,15 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
       }
     }
   }
-  if (poolSize(haul)) depositNear(s, x, haul); // nobody to carry it: dropped at the nearest store
+  if (poolSize(haul)) depositNear(s, at, haul); // nobody to carry it: dropped at the nearest store
   if (!s.scouted.includes(d.id)) s.scouted.push(d.id);
   const mapped = regionScouted(d.id);
   if (mapped && !e.recalled) mapRegion(s, mapped);
   const found = listStock(e.loot);
   notify(s, `${The(d.name)} party is back${e.recalled ? ' (recalled)' : ''}: ${found || 'empty-handed'}.`, true);
-  if (!e.recalled) specialOutcome(s, e, d, x, rng);
+  if (!e.recalled) specialOutcome(s, e, d, at, rng);
   // (a delve: quests on a cleared dungeon, and a rival won over)
-  delveHome(s, e, rng, { quests: (id) => questsDone(s, id, x, rng), join: () => joinTown(s, x, rng) });
+  delveHome(s, e, rng, { quests: (id) => questsDone(s, id, at, rng), join: () => joinTown(s, at, rng) });
   if (!e.recalled) findRelic(s, e, d, rng);
 }
 
@@ -574,7 +576,7 @@ function findRelic(s: GameState, e: Expedition, d: Destination, rng: Rng): void 
 }
 
 /** What some kinds of trip bring back besides loot. */
-function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, rng: Rng): void {
+function specialOutcome(s: GameState, e: Expedition, d: Destination, at: Pt, rng: Rng): void {
   switch (d.type) {
     case 'clear':
       if (!e.cleared) return;
@@ -583,7 +585,8 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, 
       if (s.captives.length) {
         const freed = s.captives.splice(0);
         for (const p of freed) {
-          p.x = x;
+          p.x = at.x;
+          p.y = at.y;
           p.away = null;
           p.task = null;
           s.people.push(p);
@@ -612,7 +615,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, 
       const joined: Person[] = [];
       for (let i = 0; i < n; i++) {
         const type = rng.weighted(ARRIVING_TYPES);
-        const p = makePerson(rng, s.nextId++, type, x, s.people.map((q) => q.name));
+        const p = makePerson(rng, s.nextId++, type, at, s.people.map((q) => q.name));
         s.people.push(p);
         joined.push(p);
       }

@@ -8,7 +8,7 @@ import { addStock, autoPriorities, makePerson, newGame, type Building, type Game
 import { TICK_HZ } from '../src/shared/sim/time';
 import { gainSkill, housingCapacity, mood, workFactor } from '../src/shared/sim/townsfolk';
 import { Rng } from '../src/shared/rng';
-import { plainGame, priorities } from './helpers';
+import { camp, campPx, nearestWild, plainGame, priorities, row, wildsNear } from './helpers';
 
 const run = (sim: Sim, seconds: number) => {
   for (let i = 0; i < seconds * TICK_HZ; i++) sim.step();
@@ -21,15 +21,14 @@ const runUntil = (sim: Sim, done: () => boolean, maxSeconds = 7200) => {
   }
   return t / TICK_HZ;
 };
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
 const campfire = (s: GameState) => s.buildings.find((b) => b.def === 'campfire')!;
 function addBuilding(s: GameState, def: string, tile: number): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 }
 function addPerson(s: GameState, type = 'wanderer', traits: string[] = []): Person {
-  const p = makePerson(new Rng(s.nextId * 7919), s.nextId++, type, (camp(s) + 0.5) * 32, s.people.map((q) => q.name));
+  const p = makePerson(new Rng(s.nextId * 7919), s.nextId++, type, campPx(s), s.people.map((q) => q.name));
   p.traits = traits;
   p.needs = { food: 1, rest: 1 };
   s.people.push(p);
@@ -40,7 +39,7 @@ test('recruits: skills follow their type, passions are unique, conflicting trait
   const rng = new Rng(1);
   for (let i = 0; i < 300; i++) {
     const type = rng.pick(Object.keys(RECRUIT_TYPES));
-    const p = makePerson(rng, i, type, 0, []);
+    const p = makePerson(rng, i, type, { x: 0, y: 0 }, []);
     for (const [k, [lo, hi]] of Object.entries(RECRUIT_TYPES[type].skills)) {
       const lvl = p.skills[k as keyof typeof p.skills].level;
       assert.ok(lvl >= lo && lvl <= hi, `${type} ${k} ${lvl}`);
@@ -57,8 +56,8 @@ test('wanderers only come while a bed is free; accepting adds them with a bed', 
   const s = sim.state;
   run(sim, 30 * 60); // 30 game hours, no housing
   assert.equal(s.visitor, null, 'no bed, no visitors');
-  addBuilding(s, 'lean_to', camp(s) - 6);
-  addBuilding(s, 'lean_to', camp(s) - 4);
+  addBuilding(s, 'lean_to', camp(s).x - 6);
+  addBuilding(s, 'lean_to', camp(s).x - 4);
   const waited = runUntil(sim, () => s.visitor !== null, 200 * 60);
   assert.ok(s.visitor, `someone came (after ${waited}s)`);
   runUntil(sim, () => Math.abs(s.visitor!.person.x - s.visitor!.waitX) < 1, 600);
@@ -73,8 +72,8 @@ test('wanderers only come while a bed is free; accepting adds them with a bed', 
 test('visitors turned away, or kept waiting too long, walk off', () => {
   const sim = new Sim(plainGame('away'));
   const s = sim.state;
-  addBuilding(s, 'lean_to', camp(s) - 6); // the founder's bed
-  addBuilding(s, 'lean_to', camp(s) - 4); // a free one
+  addBuilding(s, 'lean_to', camp(s).x - 6); // the founder's bed
+  addBuilding(s, 'lean_to', camp(s).x - 4); // a free one
   runUntil(sim, () => s.visitor !== null, 400 * 60);
   assert.ok(s.visitor);
   sim.command({ type: 'rejectVisitor' });
@@ -104,7 +103,7 @@ test('people sleep at night: in their bed if they have one, else on the ground',
   assert.equal(noBed.state.people[0].lastSlept, 'ground');
 
   const withBed = new Sim(plainGame('sleep'));
-  addBuilding(withBed.state, 'lean_to', camp(withBed.state) - 6);
+  addBuilding(withBed.state, 'lean_to', camp(withBed.state).x - 6);
   runUntil(withBed, () => withBed.state.people[0].lastSlept !== null, 30 * 60);
   assert.equal(withBed.state.people[0].lastSlept, 'bed');
   const m = mood(withBed.state, withBed.state.people[0]);
@@ -132,8 +131,7 @@ test('job priorities: Off is never done; High is done first', () => {
   const p = s.people[0];
   sim.command({ type: 'setPriority', person: p.id, job: 'research', priority: 0 });
   sim.command({ type: 'queueResearch', topic: 'fire_keeping' });
-  const forest = s.tiles.findIndex((t, i) => i > camp(s) && t.terrain === 'forest');
-  sim.command({ type: 'toggleGather', tile: forest });
+  sim.command({ type: 'toggleGather', cell: nearestWild(s, 'forest') });
   run(sim, 20);
   assert.equal(p.autoPriorities, false);
   assert.equal(p.task?.type, 'gather', 'research is off');
@@ -151,8 +149,8 @@ test('two haulers never over-deliver, and materials are conserved', () => {
   addPerson(s);
   addStock(campfire(s).store, 'wood', 30);
   // two stockpiles (6 wood each) for two haulers to race over
-  sim.command({ type: 'placeBuilding', def: 'stockpile', tile: campfire(s).tile + 2 });
-  sim.command({ type: 'placeBuilding', def: 'stockpile', tile: campfire(s).tile + 5 });
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: camp(s).x - 4, y: row(s) });
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: camp(s).x, y: row(s) });
   for (let i = 0; i < 300 * TICK_HZ; i++) {
     sim.step();
     for (const b of s.buildings) for (const [m, n] of Object.entries(b.delivered)) assert.ok(n! <= 6, `${b.def} got ${n} ${m}`);
@@ -167,8 +165,8 @@ test('two gatherers spread over two marked tiles', () => {
   const s = sim.state;
   const other = addPerson(s);
   other.priorities = priorities({ gather: 1 });
-  const forest = s.tiles.map((t, i) => (t.terrain === 'forest' && i > camp(s) ? i : -1)).filter((i) => i >= 0).slice(0, 2);
-  for (const tile of forest) sim.command({ type: 'toggleGather', tile });
+  const forest = wildsNear(s, 'forest', 1).slice(0, 2);
+  for (const cell of forest) sim.command({ type: 'toggleGather', cell });
   run(sim, 20);
   const tiles = s.people.map((p) => (p.task?.type === 'gather' ? p.task.tile : -1));
   assert.notEqual(tiles[0], tiles[1]);
@@ -185,7 +183,7 @@ test('one person studies at a station at a time: a second researcher needs a sec
       p.priorities.research = 1;
     }
     s.people[0].priorities.research = 1;
-    for (let k = 1; k < stations; k++) s.buildings.push({ id: s.nextId++, def: 'storytellers_circle', tile: Math.floor(s.tiles.length / 2) + 6 * k, status: 'done', delivered: {}, progress: 1, store: {} });
+    for (let k = 1; k < stations; k++) addBuilding(s, 'storytellers_circle', camp(s).x - 8 + 5 * k);
     sim.command({ type: 'queueResearch', topic: 'flint_knapping' });
     sim.command({ type: 'queueResearch', topic: 'fire_keeping' });
     for (let t = 0; t < 600; t++) sim.step();
@@ -228,8 +226,7 @@ test('with a barracks, guards on Defend High walk patrols on their shift, and of
   const { calendar, TICKS_PER_HOUR } = await import('../src/shared/sim/time');
   const sim = new Sim(plainGame('patrol'));
   const s = sim.state;
-  const camp = Math.floor(s.tiles.length / 2);
-  s.buildings.push({ id: s.nextId++, def: 'barracks', tile: camp + 4, status: 'done', delivered: {}, progress: 1, store: {} });
+  addBuilding(s, 'barracks', camp(s).x + 2);
   const p = s.people[0];
   p.priorities = priorities({ defend: 1 });
   p.autoPriorities = false;

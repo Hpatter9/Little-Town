@@ -5,14 +5,14 @@ import { totalStock } from '../src/shared/sim/buildings';
 import { partyCarry } from '../src/shared/sim/expeditions';
 import { Sim } from '../src/shared/sim/sim';
 import { canTrade, newHorse } from '../src/shared/sim/trade';
-import { type Building, type GameState } from '../src/shared/sim/state';
+import { type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 function addBuilding(s: GameState, def: string, tile: number): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 }

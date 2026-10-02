@@ -4,10 +4,10 @@ import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { flammable, setFire } from '../src/shared/sim/fire';
 import { startRaid } from '../src/shared/sim/raids';
 import { Sim } from '../src/shared/sim/sim';
-import { makePerson, maxHp, type Building, type GameState, type Person } from '../src/shared/sim/state';
+import { makePerson, maxHp, type Building, type GameState, type Person, campCell } from '../src/shared/sim/state';
 import { TICK_HZ, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame, priorities } from './helpers';
+import { plainGame, priorities, row, campPx } from './helpers';
 
 const runUntil = (sim: Sim, done: () => boolean, maxTicks: number) => {
   let t = 0;
@@ -17,15 +17,15 @@ const runUntil = (sim: Sim, done: () => boolean, maxTicks: number) => {
   }
   return t;
 };
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 const campfire = (s: GameState) => s.buildings.find((b) => b.def === 'campfire')!;
 function addBuilding(s: GameState, def: string, tile: number): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 }
 function villager(s: GameState, x: number): Person {
-  const p = makePerson(new Rng(s.nextId * 11), s.nextId++, 'wanderer', x, s.people.map((q) => q.name));
+  const p = makePerson(new Rng(s.nextId * 11), s.nextId++, 'wanderer', { x, y: campPx(s).y }, s.people.map((q) => q.name));
   p.traits = [];
   p.hp = maxHp(p);
   p.needs = { food: 1, rest: 1 };

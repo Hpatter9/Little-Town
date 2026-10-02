@@ -682,6 +682,32 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     places and events, fights through the party picker and the FF screen; (5) raids fought on the town's own map;
     (6) origins: the castle as one level of rooms, the nomads, the merfolk later; more pack art; (7) soak, phone checks,
     PR.
+  - **Phases 1 and 2 are done** (the sim runs on the land; the old strip renderer still draws it sideways until phase 3):
+    - `sim/land.ts`: `LandMap` (96x96 cells of `Ground`: grass, forest, rock, marsh, hill, water, fertile, sand; `pools`
+      on the wild cells; `roads`; `marked` cells to gather; the `camp` and how far the land is `open`), `makeLand` (noise,
+      exactly half wild, a river with fertile banks, the coast's sea, the camp's clearing, and `MIN_KIND_NEAR` of each
+      wild kind within reach: a town must find wood near by), `fits`/`spiralSpot`/`doorOf`/`roadDistance`, `findPath` (A*,
+      eight ways, roads cheap, water and footprints impassable). Save version 16: older saves are refused (`old-version`).
+    - Buildings stand on footprints (`tile`, `row`; `depthOf` the def; `footprint`, `buildingDoor` at the middle of the
+      bottom edge, `buildingCentre`); `placeBlueprint(s, def, x, y)` lays a road to the door (`connectRoad`). People,
+      raiders, travellers and the visitor have `y`; everyone walks by `sim/walk.ts` (`walk`: a path kept on the walker,
+      found again every `REPLAN_TICKS` or for a new goal; straight at it when there's no way); raiders go straight
+      (`moveToward` in raids.ts) along the camp's row and break the walls across their line (`wallBetween`). Gather tasks
+      hold a cell index (`land.pools`, `land.marked`; `clearCell` when a pool runs out). `campXY`, `edgeXY` (off the
+      land's edge on the camp's row, where strangers come and go), `campEdge` (the town's edge on a side), `dist`, `cellXY`
+      in state.ts.
+    - The planner: `findSpot` spirals out from the camp preferring spots near a road (`spiralSpot`'s `prefer`), walls go on
+      the camp's row past the last building (`wallSpot`), rooms inside the keep (`roomSpot`); `openLand` grows the known
+      land with the town (`townRadius` + `OPEN_BEYOND`) and further when a wanted material has run out within it; a store
+      full of the harvest no longer stops wood being gathered (the reserve rule in `planGathering`); fields are never
+      upgraded by the quiet-spell loop (only `consolidateFields`), and the "learned to build it" loop skips food fields and
+      anything already rebuilt into something better (`planned` through `UPGRADES`); no second campfire as a desk.
+    - The castle is one level: `keepRect` over the camp (its era's size plus the wings it has grown: `s.keepGrown`,
+      `growKeep` when a room finds no place, up to `KEEP_MAX`); rooms (`roomKind`) go inside, everything else outside
+      (`canPlace`). Floors, stairs and climbing are gone. The nomads' camps are points (`s.nomad.home/pasture/camp`).
+    - Tests: `test/helpers.ts` has `camp`, `row` (free ground two rows below the camp), `put`, `freeSpot`, `wildsNear`/
+      `nearestWild`, `makeWild`, `clearAround`, `poolOf`, `isWild`, `campPx`. Soak (10 days, one town each): settlers 22,
+      vampires 20, druids 20, nomads 28, dwarves 21.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

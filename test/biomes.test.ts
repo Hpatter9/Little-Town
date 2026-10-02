@@ -32,7 +32,7 @@ test('every biome makes a playable start, and the biome is saved', () => {
   for (const biome of BIOMES) {
     const s = newGame(`b-${biome}`, { biome });
     assert.equal(s.biome ?? 'forest', biome);
-    assert.ok(s.tiles.some((t) => t.terrain === 'clear'));
+    assert.ok(s.land.cells.includes('.') || s.land.cells.includes('s'), 'some open ground');
     const back = parseSave(serialize(s, 1));
     assert.ok(back.ok && (back.save.state.biome ?? 'forest') === biome);
     const sim = new Sim(s);

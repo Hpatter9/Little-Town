@@ -13,12 +13,11 @@ import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { newGame, type Building, type GameState, type Want } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { generateWorld } from '../src/shared/world';
-import { plainGame } from './helpers';
+import { camp, plainGame, row } from './helpers';
+import { cellAt, setGround } from '../src/shared/sim/land';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
 function addBuilding(s: GameState, def: string, tile: number, store = {}): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store };
   s.buildings.push(b);
   return b;
 }
@@ -31,17 +30,17 @@ function wanting(s: GameState, tier: number, want: Want): void {
 
 /** Nothing wild left to gather: no fiber (or anything else) from the land. */
 const bareLand = (s: GameState) => {
-  for (const t of s.tiles) {
-    t.terrain = 'clear';
-    t.pool = {};
+  for (const k of Object.keys(s.land.pools)) {
+    const c = cellAt(s.land, Number(k));
+    setGround(s.land, c.x, c.y, 'grass');
   }
 };
 
 test('travellers stop at an open shop, buy what the town has spare for coins, and walk on out of town', () => {
   const sim = new Sim(plainGame('shop-sell'));
   const s = sim.state;
-  addBuilding(s, 'trading_post', camp(s) + 3);
-  addBuilding(s, 'stockpile', camp(s) - 6, { stone: 90, clay: 40, berries: 3, totem: 1 });
+  addBuilding(s, 'trading_post', camp(s).x + 3);
+  addBuilding(s, 'stockpile', camp(s).x - 6, { stone: 90, clay: 40, berries: 3, totem: 1 });
   let t = 0;
   while (!(s.coins ?? 0) && t++ < 2 * TICKS_PER_DAY) sim.step();
   assert.ok((s.coins ?? 0) > 0, 'a traveller bought something');
@@ -60,7 +59,7 @@ test("nobody to keep it, no travellers: a shop with no shopkeeper stays shut", (
   const sim = new Sim(plainGame('shop-shut'));
   const s = sim.state;
   s.people[0].away = 999; // (the only person is off on an expedition)
-  addBuilding(s, 'trading_post', camp(s) + 3);
+  addBuilding(s, 'trading_post', camp(s).x + 3);
   for (let k = 0; k < TICKS_PER_DAY; k++) sim.step();
   assert.equal((s.travellers ?? []).length, 0);
   assert.equal(s.coins ?? 0, 0);
@@ -70,8 +69,8 @@ test('with no fiber on the land, the town buys it from travellers, whatever it c
   const sim = new Sim(plainGame('shop-fiber'));
   const s = sim.state;
   bareLand(s);
-  addBuilding(s, 'trading_post', camp(s) + 3);
-  addBuilding(s, 'stockpile', camp(s) - 6, { wood: 30, stone: 30 });
+  addBuilding(s, 'trading_post', camp(s).x + 3);
+  addBuilding(s, 'stockpile', camp(s).x - 6, { wood: 30, stone: 30 });
   s.coins = 6; // (not enough to keep a reserve back: fiber is essential)
   const want = shoppingList(s).find((w) => w.m === 'fiber');
   assert.ok(want?.essential, 'fiber is on the list, as something only travellers can sell');
@@ -84,7 +83,7 @@ test('with no fiber on the land, the town buys it from travellers, whatever it c
 
 test('what it could gather itself, it buys only for a building it is waiting on, and keeps coins back', () => {
   const s = plainGame('shop-thrifty');
-  addBuilding(s, 'trading_post', camp(s) + 3);
+  addBuilding(s, 'trading_post', camp(s).x + 3);
   s.coins = 5;
   // wood grows here: it isn't essential, and with no blueprint waiting on it the town doesn't buy it
   assert.ok(!shoppingList(s).some((w) => w.m === 'wood' && w.essential));
@@ -94,7 +93,7 @@ test('what it could gather itself, it buys only for a building it is waiting on,
 test('the shopkeeper sets out what the town makes: on the floor, clear of the counter, the door and each other', () => {
   const sim = new Sim(plainGame('shop-furnish'));
   const s = sim.state;
-  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+  const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   for (const f of FURNISHINGS) s.items[f.id] = 3;
   for (let k = 0; k < 40 * TICKS_PER_HOUR; k++) sim.step();
   const pieces = shop.shop!.pieces;
@@ -122,7 +121,7 @@ test('a better-furnished shop draws more travellers', () => {
   const visits = (furnish: boolean) => {
     const sim = new Sim(plainGame('shop-appeal'));
     const s = sim.state;
-    const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+    const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
     if (furnish) shop.shop = { pieces: [{ item: 'trestle_table', x: 0, y: 1 }, { item: 'plank_shelf', x: 0, y: 0 }, { item: 'herb_planter', x: 5, y: 3 }, { item: 'clay_urns', x: 5, y: 2 }, { item: 'trestle_table', x: 3, y: 2 }] };
     let seen = 0;
     for (let k = 0; k < 4 * TICKS_PER_DAY; k++) {
@@ -140,7 +139,7 @@ test('a better-furnished shop draws more travellers', () => {
 
 test('a second piece just like one already out adds half its appeal', () => {
   const s = plainGame('shop-variety');
-  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+  const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   shop.shop = { pieces: [{ item: 'plank_shelf', x: 0, y: 0 }] };
   const one = appeal(shop);
   shop.shop.pieces.push({ item: 'plank_shelf', x: 0, y: 3 });
@@ -150,7 +149,7 @@ test('a second piece just like one already out adds half its appeal', () => {
 test('rebuilt bigger, the shop keeps its furnishings, and what no longer fits goes back to be set out again', () => {
   const sim = new Sim(plainGame('shop-grow'));
   const s = sim.state;
-  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+  const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   shop.shop = { pieces: [{ item: 'plank_shelf', x: 0, y: 0 }, { item: 'crate_stand', x: 5, y: 3 }] };
   shop.def = 'general_store'; // (as if the upgrade just finished: 8 x 5, the counter further along)
   shop.shop.pieces.push({ item: 'crate_stand', x: 5, y: 1 }); // (right where the bigger shop's counter now stands)
@@ -163,18 +162,17 @@ test('rebuilt bigger, the shop keeps its furnishings, and what no longer fits go
 
 test('the planner: with the land out of fiber, it studies Barter and builds a Trading Post, and then its homes get built', () => {
   const s = newGame('shop-plan', { biome: 'desert' });
-  const back = generateWorld(s.seed, s.biome).back;
   bareLand(s);
   s.research.done.push('fire_keeping', 'basic_shelter', 'flint_knapping', 'foraging');
   s.buildings[0].store = { wood: 25, stone: 25, berries: 5 };
   s.tick = PLAN_TICKS * 10;
-  runPlanner(s, back);
+  runPlanner(s);
   assert.equal(s.research.queue[0], 'barter', `researching ${s.research.queue.join(', ')}`);
   assert.match(s.plan!.research!.why, /fiber/);
   s.research.done.push('barter');
   s.research.queue = [];
   s.tick += PLAN_TICKS;
-  runPlanner(s, back);
+  runPlanner(s);
   const post = s.buildings.find((b) => b.def === 'trading_post');
   assert.ok(post, 'a Trading Post planned');
   assert.match(s.plan!.build!.why, /fiber/);
@@ -182,13 +180,13 @@ test('the planner: with the land out of fiber, it studies Barter and builds a Tr
   post!.status = 'done';
   post!.progress = 1;
   s.tick += PLAN_TICKS;
-  runPlanner(s, back);
+  runPlanner(s);
   assert.ok(s.buildings.some((b) => b.def === 'lean_to'), s.buildings.map((b) => b.def).join(','));
 });
 
 test('the shop sells only what is spare: food beyond several days, never the totem, nothing a blueprint needs', () => {
   const s = plainGame('shop-spare');
-  addBuilding(s, 'stockpile', camp(s) - 6, { wood: 100, berries: 4, totem: 1 });
+  addBuilding(s, 'stockpile', camp(s).x - 6, { wood: 100, berries: 4, totem: 1 });
   const spare = forSale(s);
   assert.ok((spare.wood ?? 0) > 0);
   assert.equal(spare.berries, undefined, 'food short: none of it is for sale');
@@ -214,7 +212,7 @@ test('old saves (from before the shop) load and play on, with an empty purse', (
 test('the shop window: layout, furnishings and the log reach the snapshot', () => {
   const sim = new Sim(plainGame('shop-view'));
   const s = sim.state;
-  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+  const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   shop.shop = { pieces: [{ item: 'plank_shelf', x: 0, y: 0 }] };
   sim.step();
   const v = snapshot(s).shop!;
@@ -240,7 +238,7 @@ test('left alone in the desert, a town builds a shop, furnishes it, and earns co
 
 /** A shop dressed up to draw a given crowd: its renown set so its attractiveness is at least `attract`. */
 function grandShop(s: GameState, attract: number): Building {
-  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+  const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   shop.shop = { pieces: [], renown: attract };
   return shop;
 }
@@ -307,8 +305,7 @@ test('ordinary travellers never buy the finer wares; the grand buy the finest th
 test('coins go into the shop: a crowded floor is extended, and pieces are improved a level at a time', () => {
   const s = plainGame('shop-spend');
   s.autopilot = true;
-  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
-  const back = generateWorld(s.seed).back;
+  const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   const { cols, rows } = shopLayout(shop);
   // crates set out till the floor's as full as the keeper will have it (half of it: the rest is room to walk)
   shop.shop = { pieces: [] };
@@ -316,30 +313,30 @@ test('coins go into the shop: a crowded floor is extended, and pieces are improv
   assert.ok(fill(shop) >= FILL_MAX && shop.shop.pieces.length < cols * rows * 0.6, `${shop.shop.pieces.length} of ${cols * rows}`);
   s.coins = 1000;
   s.tick = TICKS_PER_HOUR * 10; // (the planner spends on the hour)
-  runPlanner(s, back);
+  runPlanner(s);
   assert.equal(shop.shop.extensions, 1, 'extended');
   assert.equal(s.coins, 1000 - 60, 'paid for it');
   assert.equal(shopLayout(shop).cols, cols + 2);
   // not crowded now: next it improves the cheapest piece
   s.tick += TICKS_PER_HOUR;
   const before = appeal(shop);
-  runPlanner(s, back);
+  runPlanner(s);
   assert.ok(shop.shop.pieces.some((p) => p.level === 2), 'a piece improved');
   assert.ok(appeal(shop) >= before);
   // a poor town keeps its coins
   const poor = plainGame('shop-poor');
   poor.autopilot = true;
-  const p2 = addBuilding(poor, 'trading_post', camp(poor) + 3);
+  const p2 = addBuilding(poor, 'trading_post', camp(poor).x + 3);
   p2.shop = { pieces: [{ item: 'plank_shelf', x: 0, y: 0 }] };
   poor.coins = 20;
   poor.tick = TICKS_PER_HOUR * 10;
-  runPlanner(poor, back);
+  runPlanner(poor);
   assert.equal(poor.coins, 20);
 });
 
 test('an improved piece adds half its appeal again per level', () => {
   const s = plainGame('shop-levels');
-  const shop = addBuilding(s, 'trading_post', camp(s) + 3);
+  const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
   shop.shop = { pieces: [{ item: 'trestle_table', x: 0, y: 1 }] };
   const base = appeal(shop);
   shop.shop.pieces[0].level = 3;
@@ -348,14 +345,13 @@ test('an improved piece adds half its appeal again per level', () => {
 
 test('the town makes wares from what it has spare, never from what it can only buy', () => {
   const s = newGame('shop-wares', { biome: 'desert' });
-  const back = generateWorld(s.seed, s.biome).back;
   bareLand(s);
   s.research.done.push('fire_keeping', 'flint_knapping', 'foraging', 'cordage', 'barter', 'herbalism');
-  addBuilding(s, 'trading_post', camp(s) + 3);
+  addBuilding(s, 'trading_post', camp(s).x + 3);
   s.buildings[0].store = { fiber: 20, berries: 25, wood: 5 }; // (bought fiber: not to be woven into baskets)
-  addBuilding(s, 'stockpile', camp(s) - 8, { bone: 40, herbs: 40, meat: 20 });
+  addBuilding(s, 'stockpile', camp(s).x - 8, { bone: 40, herbs: 40, meat: 20 });
   s.tick = PLAN_TICKS * 10;
-  runPlanner(s, back);
+  runPlanner(s);
   const wares = s.crafting.filter((o) => ITEM_BY_ID[o.item].ware).map((o) => o.item);
   assert.ok(wares.length === 1, `one ware at a time: ${wares}`);
   assert.notEqual(wares[0], 'reed_basket');
@@ -363,14 +359,13 @@ test('the town makes wares from what it has spare, never from what it can only b
 
 test('drawing customers it has no wares for, the town studies what makes them', () => {
   const s = newGame('shop-study');
-  const back = generateWorld(s.seed).back;
   s.era = 'medieval';
   s.direction = 'trade';
   s.research.done = TOPICS.filter((t) => !t.era && !t.hidden && t.branch !== 'occult').map((t) => t.id).concat(['mining']);
-  addBuilding(s, 'trading_post', camp(s) + 3);
+  addBuilding(s, 'trading_post', camp(s).x + 3);
   s.buildings.find((b) => b.def === 'trading_post')!.shop = { pieces: [], renown: 50 }; // (nobles come: no noble's ware can be made yet)
   s.buildings[0].store = { wood: 25, stone: 25, berries: 25 };
   s.tick = PLAN_TICKS * 10;
-  runPlanner(s, back);
+  runPlanner(s);
   assert.ok(s.research.queue.includes('iron_working'), `queue ${s.research.queue}`);
 });

@@ -1,10 +1,10 @@
 // The save file format: the whole GameState (plain JSON by design) plus when it was written, which is
 // how offline time is measured on the next start.
 
-import { autoPriorities, type GameState } from './state';
+import type { GameState } from './state';
 
 export const SAVE_FORMAT = 'little-town-save';
-export const SAVE_VERSION: GameState['version'] = 15;
+export const SAVE_VERSION: GameState['version'] = 16;
 
 export interface SaveFile {
   format: typeof SAVE_FORMAT;
@@ -20,44 +20,10 @@ export function serialize(state: GameState, savedAt: number): string {
 
 export type ParsedSave = { ok: true; save: SaveFile } | { ok: false; reason: 'corrupt' | 'old-version'; version?: number };
 
-/**
- * Bring an older save up to date, one version at a time. Each step fills in what that version added with
- * the values a new game would have.
- */
+/** Bring an older save up to date, one version at a time (none can be, since the top-down town). */
 const MIGRATIONS: Record<number, (s: Record<string, any>) => void> = {
-  // 9 -> 10: crafting (items, the craft queue, worn gear, the Craft job)
-  9: (s) => {
-    s.items = {};
-    s.crafting = [];
-    for (const e of s.expeditions) e.waterskins = 0;
-    for (const p of [...s.people, ...(s.visitor ? [s.visitor.person] : [])]) {
-      p.gear = {};
-      p.priorities.craft = p.autoPriorities ? autoPriorities(p.skills).craft : 2;
-    }
-  },
-  // 10 -> 11: farming (the Farm job; fields start fallow when first looked at)
-  10: (s) => {
-    for (const p of [...s.people, ...(s.visitor ? [s.visitor.person] : [])]) p.priorities.farm = p.autoPriorities ? autoPriorities(p.skills).farm : 2;
-  },
-  // 11 -> 12: the Medieval era (captives of bandits)
-  11: (s) => {
-    s.captives = [];
-  },
-  // 12 -> 13: relationships and families
-  12: (s) => {
-    s.relations = {};
-    s.celebrationUntil = 0;
-  },
-  // 13 -> 14: horses and trade caravans
-  13: (s) => {
-    s.horses = [];
-    s.caravan = null;
-    s.nextCaravanTick = 0;
-  },
-  // 14 -> 15: prisoners
-  14: (s) => {
-    s.prisoners = [];
-  },
+  // (none: the top-down town (version 16) is a new world, and saves from the side-on town can't be carried over; a
+  // new town is founded instead)
 };
 
 /** Read a save. Corrupt files and saves from a version that can't be migrated are refused (never half-loaded). */
@@ -85,7 +51,7 @@ export function parseSave(text: string): ParsedSave {
     typeof s.seed === 'string' &&
     Number.isInteger(s.tick) &&
     Number.isInteger(s.rngState) &&
-    Array.isArray(s.tiles) &&
+    typeof s.land === 'object' && typeof s.land?.cells === 'string' &&
     Array.isArray(s.buildings) &&
     Array.isArray(s.people) &&
     Array.isArray(s.journal) &&

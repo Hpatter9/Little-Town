@@ -2,7 +2,7 @@
 // ground up as work progresses, with scaffolding and a progress bar), and the placement ghost.
 
 import { Container, Graphics, Rectangle, Sprite, Texture, Ticker } from 'pixi.js';
-import { KEEP_MARGIN_X, keepArt, keepLeft, PLINTH, ROOM_H, roomArt } from '../art/castle';
+import { KEEP_MARGIN_X, keepArt, keepLeft, PLINTH, roomArt } from '../art/castle';
 import { dustFrame, FLAME_SIZE, flameFrame, smokeFrame } from '../art/effects';
 import { TILE } from '../../shared/constants';
 import type { BuildLayer } from '../../shared/data/buildings';
@@ -28,7 +28,7 @@ function cropLook(b: Building): CropLook | undefined {
   return c.growth < 0.4 ? 'sprout' : 'tall';
 }
 
-const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.status}|${cropLook(b) ?? ''}|${b.room ? `room${b.floor ?? 0}` : ''}`;
+const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.status}|${cropLook(b) ?? ''}|${b.room ? 'room' : ''}`;
 
 /** Where building bottoms sit in each layer's local coordinates. */
 const BASE_Y: Record<BuildLayer, number> = { fore: 14, mid: 0, back: 6 };
@@ -171,7 +171,7 @@ export class BuildingsView {
     // (a castle's room is drawn in cutaway, up on its floor)
     const art = b.room ? roomArt(b.def, this.tones[def.layer][0], this.tones[def.layer][1]) : this.art(b.def, def.layer, b.status === 'done' ? cropLook(b) : undefined);
     const cx = (b.tile + def.width / 2) * TILE;
-    const bottom = BASE_Y[def.layer] - (b.room ? PLINTH + (b.floor ?? 0) * ROOM_H : 0);
+    const bottom = BASE_Y[def.layer] - (b.room ? PLINTH : 0);
     const left = Math.round(cx - art.width / 2);
     const top = bottom - art.height;
     const rect: LocalRect = { layer: def.layer, x: left, y: top, w: art.width, h: art.height };

@@ -6,10 +6,10 @@ import { QUEST_UNIQUES, UNIQUE_FROM, UNIQUES } from '../src/shared/data/uniques'
 import { WEAPONS } from '../src/shared/data/weapons';
 import { bossSlain, dropLoot } from '../src/shared/sim/bosses';
 import { equipAll } from '../src/shared/sim/crafting';
-import { type Building, type GameState } from '../src/shared/sim/state';
-import { plainGame } from './helpers';
+import { type Building, type GameState, campCell } from '../src/shared/sim/state';
+import { plainGame, row } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 
 test('every unique is a named weapon of a real family, harder-hitting than a made one of its tier, from real bosses', () => {
   assert.ok(UNIQUES.length >= 45, 'about fifty uniques');
@@ -58,7 +58,7 @@ test('bosses without a trophy still pay out, and the trophy still comes with the
 
 test('a town that buys its gear still hands its treasures to its fighters', () => {
   const s = plainGame('uniques4');
-  const shop: Building = { id: s.nextId++, def: 'trading_post', tile: camp(s) + 3, status: 'done', delivered: {}, progress: 1, store: {} };
+  const shop: Building = { id: s.nextId++, def: 'trading_post', tile: camp(s) + 3, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(shop);
   s.items.masterless = 1;
   equipAll(s);

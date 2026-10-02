@@ -10,7 +10,7 @@ function town(n: number) {
   const s = plainGame('stakes');
   s.buildings[0].store = { berries: 60 };
   const rng = new Rng(2);
-  while (s.people.length < n) s.people.push(makePerson(rng, s.nextId++, 'hunter', s.people[0].x, s.people.map((p) => p.name)));
+  while (s.people.length < n) s.people.push(makePerson(rng, s.nextId++, 'hunter', s.people[0], s.people.map((p) => p.name)));
   return s;
 }
 const first = DESTINATIONS.find((d) => !d.research)!;

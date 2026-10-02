@@ -6,10 +6,10 @@ import { Sim } from '../src/shared/sim/sim';
 import { makePerson, maxHp, type GameState, type Person } from '../src/shared/sim/state';
 import { TICK_HZ, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, campPx } from './helpers';
 
 function addPerson(s: GameState, type = 'hunter', melee = 5): Person {
-  const p = makePerson(new Rng(s.nextId * 97), s.nextId++, type, (Math.floor(s.tiles.length / 2) + 0.5) * 32, s.people.map((q) => q.name));
+  const p = makePerson(new Rng(s.nextId * 97), s.nextId++, type, campPx(s), s.people.map((q) => q.name));
   p.traits = [];
   p.hp = maxHp(p);
   p.needs = { food: 1, rest: 1 };

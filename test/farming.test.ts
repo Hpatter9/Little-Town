@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import { CROPS } from '../src/shared/data/crops';
 import { totalStock } from '../src/shared/sim/buildings';
 import { Sim } from '../src/shared/sim/sim';
-import { type Building, type GameState } from '../src/shared/sim/state';
+import { type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { plainGame, priorities } from './helpers';
+import { plainGame, priorities, row } from './helpers';
 
 const runUntil = (sim: Sim, done: () => boolean, maxTicks: number) => {
   let t = 0;
@@ -15,9 +15,9 @@ const runUntil = (sim: Sim, done: () => boolean, maxTicks: number) => {
   }
   return t;
 };
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 function field(s: GameState, def: string): Building {
-  const b: Building = { id: s.nextId++, def, tile: camp(s) + 2, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile: camp(s) + 2, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 }

@@ -123,7 +123,7 @@ function cast(s: GameState, r: Raid, rd: Raider, sp: RivalSpell, rng: Rng): Spel
       const came: SpellTarget[] = [];
       for (let i = 0; i < sp.power; i++) {
         came.push({ x: rd.x - rd.dir * (24 + i * 16), id: s.nextId, raider: true });
-        r.raiders.push({ id: s.nextId++, kind: sp.summons, x: rd.x - rd.dir * (24 + i * 16), dir: rd.dir, hp: d.hp, maxHp: d.hp, cooldown: 10, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm', conjuredAt: s.tick });
+        r.raiders.push({ id: s.nextId++, kind: sp.summons, x: rd.x - rd.dir * (24 + i * 16), y: rd.y, dir: rd.dir, hp: d.hp, maxHp: d.hp, cooldown: 10, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm', conjuredAt: s.tick });
       }
       return came;
     }

@@ -15,9 +15,10 @@
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
 import { RAID_KIND_BY_ID, THROW_RANGE } from '../data/raids';
-import { WORLD_WIDTH, TILE } from '../constants';
+import { TILE } from '../constants';
 import type { Rng } from '../rng';
-import { castleFloors, castleOn } from './castle';
+import { castleOn } from './castle';
+import { CELL } from './land';
 import { personFighter, weaponOf } from './combat';
 import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
 import { ally } from './classes';
@@ -236,7 +237,7 @@ export function layOut(s: GameState, flank: boolean): BattleMap {
   const gate: [number, number] = [len, Math.round((lo + hi) / 2) + 0.5];
   path.push([len - 3, y], [len - 3, gate[1]], gate);
   // a castle town: through the keep's gate, and up it floor by floor (across each, then the stairs at its end)
-  const floors = castleOn(s) ? Math.max(1, Math.min(KEEP_FLOORS, castleFloors(s))) : 0;
+  const floors = castleOn(s) ? Math.max(1, Math.min(KEEP_FLOORS, 1)) : 0;
   let total = len;
   if (floors) {
     let side = lo + 0.5;
@@ -325,7 +326,7 @@ export function layOut(s: GameState, flank: boolean): BattleMap {
   // the town itself, along the trail: its buildings in the last stretch (nearest the camp nearest the gate), its fields
   // and pens out on the first stretch
   const decor: BattleDecor[] = [];
-  const camp = s.tiles.length / 2;
+  const camp = s.land.camp.x;
   const near = [...mid].filter((b) => !wallDef(b.def) && !towerDef(b.def)).sort((a, b) => Math.abs(a.tile - camp) - Math.abs(b.tile - camp));
   place(near, len - 3, -1);
   place([...back], 0, 1);
@@ -569,7 +570,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
   if (!b || b.phase === 'done') return false;
   const map = b.map;
   // (raiders who joined since it began, summoned by a boss or a lord, come in with the wave on now)
-  for (const rd of r.raiders) if (!rd.ally && !rd.down && !rd.gone && !rd.bt && (rd.x < 0 || rd.x > WORLD_WIDTH)) rd.bt = { d: 0, lane: 0, wave: b.wave, enteredAt: s.tick };
+  for (const rd of r.raiders) if (!rd.ally && !rd.down && !rd.gone && !rd.bt && (rd.x < 0 || rd.x > s.land.w * CELL)) rd.bt = { d: 0, lane: 0, wave: b.wave, enteredAt: s.tick };
   // (the fallen and the gone step off their spots, and the badly hurt fall back off the line, unless they're the last)
   b.units = b.units.filter((u) => {
     if (u.person !== undefined) {

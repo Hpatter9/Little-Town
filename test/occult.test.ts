@@ -6,7 +6,7 @@ import { answerPrompt } from '../src/shared/sim/roadEvents';
 import { Rng } from '../src/shared/rng';
 import { canQueue } from '../src/shared/sim/research';
 import type { Building } from '../src/shared/sim/state';
-import { plainGame } from './helpers';
+import { plainGame, row } from './helpers';
 
 test('the Occult stays hidden until something reveals it', () => {
   const s = plainGame('occult');
@@ -32,7 +32,7 @@ test('a vampire founder rises once a night; a lich returns while the phylactery 
 
   const s2 = plainGame('lich');
   const lich = s2.people[0];
-  const phyl: Building = { id: s2.nextId++, def: 'phylactery', tile: 95, status: 'done', delivered: {}, progress: 1, store: {} };
+  const phyl: Building = { id: s2.nextId++, def: 'phylactery', tile: 95, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s2.buildings.push(phyl);
   for (let i = 0; i < 3; i++) killPerson(s2, lich, 'over and over');
   assert.equal(s2.gameOver, null, 'always returns');
@@ -45,7 +45,7 @@ test('a Spirit Totem, then a Resurrection Shrine, bring the founder back; after 
   const s = plainGame('revive');
   const main = s.people[0];
   s.items.spirit_totem = 1;
-  const shrine: Building = { id: s.nextId++, def: 'resurrection_shrine', tile: 90, status: 'done', delivered: {}, progress: 1, store: {} };
+  const shrine: Building = { id: s.nextId++, def: 'resurrection_shrine', tile: 90, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(shrine);
 
   killPerson(s, main, 'in a fall');

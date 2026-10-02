@@ -7,7 +7,8 @@ import { Sim } from '../src/shared/sim/sim';
 import { makePerson, type Building, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { isMarked, setMarked } from '../src/shared/sim/land';
+import { camp, campPx, isWild, makeWild, plainGame, poolOf, row } from './helpers';
 import { caveBear, caveBearBeaten } from '../src/shared/sim/caveBear';
 import { totalStock } from '../src/shared/sim/buildings';
 
@@ -15,7 +16,7 @@ function town(seed: string): GameState {
   const s = plainGame(seed);
   s.nextRaidTick = Number.MAX_SAFE_INTEGER;
   s.nextDoomTick = Number.MAX_SAFE_INTEGER;
-  for (let i = 0; i < 3; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', 3200 + i * 20, s.people.map((p) => p.name)));
+  for (let i = 0; i < 3; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', { x: campPx(s).x + i * 20, y: campPx(s).y }, s.people.map((p) => p.name)));
   return s;
 }
 
@@ -105,7 +106,7 @@ test('after a raid an infirmary gets every one of the fallen to safety; without 
     let left = 0;
     for (let k = 0; k < 8; k++) {
       const s = town(`tend-${k}`);
-      if (infirmary) s.buildings.push({ id: s.nextId++, def: 'infirmary', tile: 90, status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+      if (infirmary) s.buildings.push({ id: s.nextId++, def: 'infirmary', tile: 90, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
       const wave = startRaid(s, RAID_KIND_BY_ID.wolves, 8, new Rng(k));
       wave.phase = 'active';
       for (const p of s.people.slice(1)) knockDown(s, p);
@@ -170,14 +171,12 @@ test('hungry with nothing in storage, people pick wild berries to eat (and leave
   s.people = s.people.slice(0, 1);
   const p = s.people[0];
   for (const b of s.buildings) b.store = {};
-  const i = s.tiles.findIndex((_, k) => Math.abs(k - Math.floor(s.tiles.length / 2)) < 8);
-  s.tiles[i].terrain = 'forest';
-  s.tiles[i].pool = { wood: 10, berries: 3 };
+  const i = makeWild(s, camp(s).x + 3, row(s), 'forest', { wood: 10, berries: 3 });
   p.needs.food = 0.1;
   for (let t = 0; t < TICKS_PER_HOUR && p.needs.food < 0.5; t++) sim.step();
   assert.ok(p.needs.food >= 0.5, `ate (food ${p.needs.food})`);
-  assert.equal(s.tiles[i].terrain, 'forest', 'the tree still stands');
-  assert.equal(s.tiles[i].pool.wood, 10);
+  assert.ok(isWild(s, i), 'the tree still stands');
+  assert.equal(poolOf(s, i).wood, 10);
 });
 
 test("the Bear Cave's totem is never dropped or thrown out, even with storage full", async () => {
@@ -187,7 +186,7 @@ test("the Bear Cave's totem is never dropped or thrown out, even with storage fu
   s.people = s.people.slice(0, 2);
   const st = storages(s)[0];
   st.store = { stone: 5000 };
-  s.buildings.push({ id: s.nextId++, def: 'lean_to', tile: 90, status: 'blueprint', delivered: {}, progress: 0, store: {} } as Building);
+  s.buildings.push({ id: s.nextId++, def: 'lean_to', tile: 90, row: row(s), status: 'blueprint', delivered: {}, progress: 0, store: {} } as Building);
   const p = s.people[1];
   p.carrying = { totem: 1, hide: 5 };
   for (let i = 0; i < 50; i++) sim.step();
@@ -224,7 +223,7 @@ test("the Hunter's Guild finishes off only monsters, never the ordinary folk the
 
 test("a Healer's Hut (Neolithic) slows the bleeding, but only an infirmary brings everyone in after a raid", () => {
   const s = town('hut');
-  s.buildings.push({ id: s.nextId++, def: 'healers_hut', tile: 90, status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+  s.buildings.push({ id: s.nextId++, def: 'healers_hut', tile: 90, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
   const p = s.people[1];
   knockDown(s, p);
   assert.equal(p.downed?.bleedUntil, s.tick + 3 * TICKS_PER_HOUR, 'three hours instead of two');
@@ -241,14 +240,12 @@ test('picking the last berries off a tile with nothing else on it clears it (so 
   const sim = new Sim(s);
   s.people = s.people.slice(0, 2);
   for (const b of s.buildings) b.store = {};
-  const i = s.tiles.findIndex((_, k) => Math.abs(k - Math.floor(s.tiles.length / 2)) < 8);
-  s.tiles[i].terrain = 'forest';
-  s.tiles[i].pool = { berries: 2 };
-  s.tiles[i].designated = true;
+  const i = makeWild(s, camp(s).x + 3, row(s), 'forest', { berries: 2 });
+  setMarked(s.land, i, true);
   s.people[0].needs.food = 0.1;
   for (let t = 0; t < TICKS_PER_HOUR; t++) sim.step();
-  assert.equal(s.tiles[i].terrain, 'clear');
-  assert.equal(s.tiles[i].designated, false);
+  assert.equal(isWild(s, i), false);
+  assert.equal(isMarked(s.land, i), false);
 });
 
 test('a skilled healer a little further off goes to the wounded, rather than a clumsy neighbour', () => {
@@ -286,9 +283,9 @@ test("the founder's death passes the town to an heir (their partner first); only
   const s = plainGame('succession');
   const founder = s.people[0];
   const rng = new Rng(3);
-  const a = makePerson(rng, s.nextId++, 'wanderer', founder.x, [founder.name]);
-  const b = makePerson(rng, s.nextId++, 'wanderer', founder.x, [founder.name, a.name]);
-  const kid = makePerson(rng, s.nextId++, 'wanderer', founder.x, [founder.name, a.name, b.name]);
+  const a = makePerson(rng, s.nextId++, 'wanderer', founder, [founder.name]);
+  const b = makePerson(rng, s.nextId++, 'wanderer', founder, [founder.name, a.name]);
+  const kid = makePerson(rng, s.nextId++, 'wanderer', founder, [founder.name, a.name, b.name]);
   kid.bornTick = s.tick;
   s.people.push(a, b, kid);
   founder.partner = b.id;
@@ -352,7 +349,7 @@ test('defenders hold the edge of the town: they go no further out after the raid
 
 test('a bigger town draws a bigger raid, and a big raid may split and come round the other side', () => {
   const s = plainGame('big-raid');
-  for (let i = 0; i < 28; i++) s.people.push(makePerson(new Rng(i), s.nextId++, 'gatherer', s.people[0].x, s.people.map((p) => p.name)));
+  for (let i = 0; i < 28; i++) s.people.push(makePerson(new Rng(i), s.nextId++, 'gatherer', s.people[0], s.people.map((p) => p.name)));
   s.tick = 15 * 24 * TICKS_PER_HOUR;
   const raid = startRaid(s, RAID_KIND_BY_ID.bandits, 999, new Rng(1));
   assert.ok(raid.raiders.length > 6 && raid.raiders.length <= 16, `${raid.raiders.length} raiders for a town of 29`);

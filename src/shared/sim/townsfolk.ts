@@ -1,7 +1,6 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
-import { TILE, WORLD_WIDTH } from '../constants';
 import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/buildings';
 import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
@@ -15,7 +14,8 @@ import { aCalling, assignClass, gainLevelXp } from './classes';
 const SEASONED_CHANCE = 0.08;
 /** Of those, the share who are legends: ascended to their class's last stage. */
 const LEGEND_CHANCE = 0.03;
-import { defOf } from './buildings';
+import { defOf, townRadius } from './buildings';
+import { CELL, type Pt } from './land';
 import { equipAll, gearEffects } from './crafting';
 import { friendsOf, hasGraveyard, isChild, rivalsOf } from './social';
 import { MOURNING_LAID_TO_REST, MOURNING_MORALE } from '../data/social';
@@ -28,7 +28,7 @@ import { DREAD_MORALE, TRIUMPH_MORALE } from './bosses';
 import { TAVERN_BASE, TAVERN_PER_LEVEL } from '../data/operators';
 import { ASH_MORALE, FALLOUT_MORALE, FREEZE_COLD_MORALE, FREEZE_MORALE, PLAGUE_MORALE, PLAGUE_WORK, SMOG_MORALE } from '../data/doom';
 import { isInjured } from './health';
-import { tireless, maxHp, campX, makePerson, notify, type GameState, type Person, type Visitor } from './state';
+import { tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { rulesOf } from '../data/origins';
 import { originWork, moraleMarks } from './origin';
@@ -274,11 +274,11 @@ export function assignBeds(s: GameState): void {
 
 /* ------------------------------------------------------------ wanderers */
 
-/** x at the edge of cleared land on one side of camp (where visitors wait). */
-export function campEdgeX(s: GameState, side: -1 | 1): number {
-  let t = Math.floor(s.tiles.length / 2);
-  while (t + side >= 0 && t + side < s.tiles.length && s.tiles[t + side].terrain === 'clear') t += side;
-  return (t + 0.5 - side) * TILE; // a step inside the cleared land
+/** The edge of the town on one side of camp, on its row (where visitors wait and parties come home), in px. */
+export function campEdge(s: GameState, side: -1 | 1): Pt {
+  const c = campXY(s);
+  const x = c.x + side * (townRadius(s) + 1.5) * CELL;
+  return { x: Math.max(CELL / 2, Math.min((s.land.w - 0.5) * CELL, x)), y: c.y };
 }
 
 /** Once per game hour, maybe a wanderer turns up (only while a bed is free). */
@@ -298,7 +298,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   if (!rng.chance(chance * (undeadShare(s) >= 0.5 && rulesOf(s).kin !== 'undead' ? UNDEAD_TOWN_ARRIVALS : 1))) return;
 
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
-  const edge = side < 0 ? 0 : WORLD_WIDTH;
+  const edge = edgeXY(s, side);
   // once the Occult is known, now and then a monster comes asking (the RNG is only drawn on then)
   const monster = occultRevealed(s) && rng.chance(MONSTER_ARRIVAL) ? rng.pick<MonsterKind>(['werewolf', 'vampire']) : null;
   const type = monster ?? rng.weighted(ARRIVING_TYPES);
@@ -319,28 +319,29 @@ export function maybeArrive(s: GameState, rng: Rng): void {
     }
   }
   person.dir = side < 0 ? 1 : -1;
-  s.visitor = { person, waitX: campEdgeX(s, side), leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
+  const wait = campEdge(s, side);
+  s.visitor = { person, waitX: wait.x, waitY: wait.y, leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
   const trained = person.cls ? ` (${aCalling(callingName(person, stageOf(person))!)}, level ${person.level}!)` : '';
   notify(s, `${/^[aeiou]/.test(type) ? 'An' : 'A'} ${type}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
 }
 
 /** Visitors walk in, wait, and walk off when turned away or tired of waiting. */
-export function updateVisitor(s: GameState, walkTo: (p: Person, x: number) => boolean): void {
+export function updateVisitor(s: GameState, walkTo: (p: Person, to: Pt) => boolean): void {
   const v = s.visitor;
   if (!v) return;
   if (v.leavingTo === null && s.tick >= v.leavesTick) {
-    v.leavingTo = edgeBehind(v);
+    v.leavingTo = edgeBehind(s, v);
     notify(s, `${v.person.name} got tired of waiting and moved on.`);
   }
   if (v.leavingTo !== null) {
     if (walkTo(v.person, v.leavingTo)) s.visitor = null;
-  } else if (walkTo(v.person, v.waitX)) {
+  } else if (walkTo(v.person, { x: v.waitX, y: v.waitY })) {
     v.person.activity = 'idle';
     v.person.dir = v.waitX < campX(s) ? 1 : -1; // face the camp
   }
 }
 
-const edgeBehind = (v: Visitor) => (v.waitX < WORLD_WIDTH / 2 ? 0 : WORLD_WIDTH);
+const edgeBehind = (s: GameState, v: Visitor) => edgeXY(s, sideOf(s, { x: v.waitX, y: v.waitY }));
 
 export function acceptVisitor(s: GameState): void {
   const v = s.visitor;
@@ -357,5 +358,5 @@ export function acceptVisitor(s: GameState): void {
 export function rejectVisitor(s: GameState): void {
   const v = s.visitor;
   if (!v || v.leavingTo !== null) return;
-  v.leavingTo = edgeBehind(v);
+  v.leavingTo = edgeBehind(s, v);
 }

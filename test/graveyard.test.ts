@@ -9,15 +9,15 @@ import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { buildingCentreX } from '../src/shared/sim/buildings';
 import { makePerson, type Building, type GameState } from '../src/shared/sim/state';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row, campPx } from './helpers';
 
 function town(seed: string): GameState {
   const s = plainGame(seed);
-  for (let i = 0; i < 4; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', 3000 + i * 40, s.people.map((p) => p.name)));
+  for (let i = 0; i < 4; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', campPx(s), s.people.map((p) => p.name)));
   return s;
 }
 const yard = (s: GameState): Building => {
-  const b = { id: s.nextId++, def: 'graveyard', tile: 90, status: 'done', delivered: {}, progress: 1, store: {} } as Building;
+  const b = { id: s.nextId++, def: 'graveyard', tile: 90, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building;
   s.buildings.push(b);
   return b;
 };

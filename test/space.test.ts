@@ -5,15 +5,15 @@ import { killPerson } from '../src/shared/sim/health';
 import { possibleDooms, updateDoom } from '../src/shared/sim/doom';
 import { canQueue } from '../src/shared/sim/research';
 import { Sim } from '../src/shared/sim/sim';
-import { maxHp, type Building, type GameState } from '../src/shared/sim/state';
+import { maxHp, type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, DAYS_PER_SEASON } from '../src/shared/sim/time';
 import { workFactor } from '../src/shared/sim/townsfolk';
 import { Rng } from '../src/shared/rng';
-import { plainGame, priorities } from './helpers';
+import { plainGame, priorities, row } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 function addBuilding(s: GameState, def: string, tile = camp(s) + 3): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 }

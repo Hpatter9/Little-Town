@@ -154,6 +154,7 @@ function welcomeChild(s: GameState, a: Person, b: Person, rng: Rng): void {
     type: 'child',
     look: { ...look, beard: false },
     x: a.x,
+    y: a.y,
     dir: 1,
     skills,
     passions: [passion],

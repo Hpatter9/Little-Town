@@ -18,6 +18,8 @@ export const LAND_H = 96;
 export const OPEN_START = 11;
 /** The camp's cleared ground, in cells from its centre. */
 export const CAMP_CLEAR = 5;
+/** At least this many cells of each wild kind lie within the open land at the start (wood, stone, clay and fiber). */
+export const MIN_KIND_NEAR = 10;
 
 export type Ground = 'grass' | 'forest' | 'rock' | 'marsh' | 'hill' | 'water' | 'fertile' | 'sand';
 const CODE: Record<Ground, string> = { grass: '.', forest: 'f', rock: 'r', marsh: 'm', hill: 'h', water: 'w', fertile: 'F', sand: 's' };
@@ -34,6 +36,8 @@ export interface LandMap {
   pools: Record<number, Partial<Record<Material, number>>>;
   /** Road cells, one character per cell ('#' road, '.' none). */
   roads: string;
+  /** Cells marked for gathering (clearing), by index. */
+  marked: number[];
   /** The camp's centre cell, and how far from it the land is open (cells). */
   camp: { x: number; y: number };
   open: number;
@@ -48,7 +52,19 @@ export interface Rect {
   h: number;
 }
 
+export interface Pt {
+  x: number;
+  y: number;
+}
 export const idx = (m: Pick<LandMap, 'w'>, x: number, y: number) => y * m.w + x;
+/** A cell index's cell. */
+export const cellAt = (m: Pick<LandMap, 'w'>, i: number): Pt => ({ x: i % m.w, y: Math.floor(i / m.w) });
+/** The cell a world point (px) is in, and a cell index's centre in px. */
+export const cellOf = (p: Pt): Pt => ({ x: Math.floor(p.x / CELL), y: Math.floor(p.y / CELL) });
+export const cellCentre = (m: Pick<LandMap, 'w'>, i: number): Pt => centreOf(i % m.w, Math.floor(i / m.w));
+/** Chessboard distance between cells. */
+export const cheb = (a: Pt, b: Pt) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+export const inRect = (r: Rect, x: number, y: number) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 export const inMap = (m: Pick<LandMap, 'w' | 'h'>, x: number, y: number) => x >= 0 && y >= 0 && x < m.w && y < m.h;
 export const groundAt = (m: LandMap, x: number, y: number): Ground => (inMap(m, x, y) ? GROUND[m.cells[idx(m, x, y)]] : 'water');
 export const isRoad = (m: LandMap, x: number, y: number) => inMap(m, x, y) && m.roads[idx(m, x, y)] === '#';
@@ -57,11 +73,23 @@ export const isOpen = (m: LandMap, x: number, y: number) => inMap(m, x, y) && Ma
 /** Ground that can be built on as it is. */
 export const buildable = (g: Ground) => g === 'grass' || g === 'fertile' || g === 'sand';
 
+/** Mark a cell for gathering, or unmark it. */
+export function setMarked(m: LandMap, i: number, on: boolean): void {
+  const at = m.marked.indexOf(i);
+  if (on && at < 0) m.marked.push(i);
+  else if (!on && at >= 0) m.marked.splice(at, 1);
+  m.version++;
+}
+export const isMarked = (m: LandMap, i: number) => m.marked.includes(i);
+
 /** Set one cell's ground (clearing a wild cell, say). */
 export function setGround(m: LandMap, x: number, y: number, g: Ground): void {
   const i = idx(m, x, y);
   m.cells = m.cells.slice(0, i) + CODE[g] + m.cells.slice(i + 1);
-  if (!WILD.includes(g)) delete m.pools[i];
+  if (!WILD.includes(g)) {
+    delete m.pools[i];
+    setMarked(m, i, false);
+  }
   m.version++;
 }
 
@@ -103,7 +131,7 @@ export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
   const def = BIOME_DEFS[biome];
   // how wild the land is (more so further out), and which wild kind, from two noise fields
   const wild = noise(seedHash ^ 0x11, 9);
-  const kind = noise(seedHash ^ 0x23, 14);
+  const kind = noise(seedHash ^ 0x23, 6);
   const weights = Object.entries(def.mid) as [Exclude<Ground, 'grass' | 'water' | 'fertile' | 'sand'>, number][];
   const total = weights.reduce((n, [, v]) => n + v, 0);
   const pickKind = (v: number) => {
@@ -182,6 +210,38 @@ export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
   for (let y = camp.y - CAMP_CLEAR; y <= camp.y + CAMP_CLEAR; y++)
     for (let x = camp.x - CAMP_CLEAR; x <= camp.x + CAMP_CLEAR; x++) if (Math.hypot(x - camp.x, y - camp.y) <= CAMP_CLEAR + 0.5) grid[y * w + x] = biome === 'desert' ? 'sand' : 'grass';
 
+  // every kind of wild land within reach of the camp: a town must find wood, stone, clay and fiber close by. A kind
+  // the open land is short of takes over a patch of the commonest kind, nearest the camp first.
+  const openWild = () => {
+    const out: number[] = [];
+    for (let y = camp.y - OPEN_START; y <= camp.y + OPEN_START; y++)
+      for (let x = camp.x - OPEN_START; x <= camp.x + OPEN_START; x++)
+        if (x >= 0 && y >= 0 && x < w && y < h && Math.hypot(x - camp.x, y - camp.y) <= OPEN_START && WILD.includes(grid[y * w + x])) out.push(y * w + x);
+    return out.sort((a, b) => Math.hypot((a % w) - camp.x, Math.floor(a / w) - camp.y) - Math.hypot((b % w) - camp.x, Math.floor(b / w) - camp.y) || a - b);
+  };
+  for (const [k] of weights) {
+    const cells = openWild();
+    const count = (g: Ground) => cells.filter((i) => grid[i] === g).length;
+    if (count(k) >= MIN_KIND_NEAR) continue;
+    const commonest = weights.map(([g]) => g).sort((a, b) => count(b) - count(a))[0];
+    if (commonest === k) continue;
+    // (a patch: the nearest cell of the commonest kind and its wild neighbours, until there's enough)
+    let need = MIN_KIND_NEAR - count(k);
+    for (const i of cells) {
+      if (need <= 0) break;
+      if (grid[i] !== commonest) continue;
+      const x0 = i % w;
+      const y0 = Math.floor(i / w);
+      for (let dy = -1; dy <= 1 && need > 0; dy++)
+        for (let dx = -1; dx <= 1 && need > 0; dx++) {
+          const j = (y0 + dy) * w + x0 + dx;
+          if (x0 + dx < 0 || x0 + dx >= w || y0 + dy < 0 || y0 + dy >= h || grid[j] !== commonest) continue;
+          grid[j] = k;
+          need--;
+        }
+    }
+  }
+
   // what the wild cells hold
   const pools: LandMap['pools'] = {};
   const poolRng = Rng.from(seedHash, 9);
@@ -195,7 +255,7 @@ export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
     pools[i] = pool;
   });
 
-  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), camp, open: OPEN_START, version: 0 };
+  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: OPEN_START, version: 0 };
 }
 
 /* ------------------------------------------------------------ building on it */
@@ -214,6 +274,51 @@ export const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w
 export const doorOf = (r: Rect) => ({ x: r.x + Math.floor(r.w / 2), y: r.y + r.h });
 /** A cell's centre in world px. */
 export const centreOf = (x: number, y: number) => ({ x: (x + 0.5) * CELL, y: (y + 0.5) * CELL });
+
+/** The cells at chessboard distance r round a cell (r 0: the cell itself). */
+export function ringCells(cx: number, cy: number, r: number): Pt[] {
+  if (r === 0) return [{ x: cx, y: cy }];
+  const out: Pt[] = [];
+  for (let x = cx - r; x <= cx + r; x++) out.push({ x, y: cy - r }, { x, y: cy + r });
+  for (let y = cy - r + 1; y <= cy + r - 1; y++) out.push({ x: cx - r, y }, { x: cx + r, y });
+  return out;
+}
+
+/** Whether a footprint's door cell is free to stand on (open, buildable or road, under nothing). */
+export function doorFree(m: LandMap, r: Rect, taken: readonly Rect[]): boolean {
+  const d = doorOf(r);
+  return isOpen(m, d.x, d.y) && (buildable(groundAt(m, d.x, d.y)) || isRoad(m, d.x, d.y)) && !taken.some((t) => inRect(t, d.x, d.y));
+}
+
+/** The nearest place out from `from` for a w by h footprint: rings outward, each ring's spots sorted by `prefer`
+ *  (lower first; nearer a road, say). `inside`: it must lie within this rectangle; `avoid`: and clear of this one.
+ *  Null if there's none within `maxR` rings. */
+export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean } = {}): Rect | null {
+  const maxR = opts.maxR ?? m.open + 2;
+  for (let r = 0; r <= maxR; r++) {
+    let best: Rect | null = null;
+    let bestScore = Infinity;
+    for (const c of ringCells(from.x, from.y, r)) {
+      const rect = { x: c.x - Math.floor(w / 2), y: c.y - Math.floor(h / 2), w, h };
+      if (opts.inside && !(rect.x >= opts.inside.x && rect.y >= opts.inside.y && rect.x + w <= opts.inside.x + opts.inside.w && rect.y + h <= opts.inside.y + opts.inside.h)) continue;
+      if (opts.avoid && overlaps(opts.avoid, rect)) continue;
+      if (!fits(m, rect, taken, { roads: opts.roads }) || !doorFree(m, rect, taken)) continue;
+      const score = opts.prefer ? opts.prefer(rect) : 0;
+      if (score < bestScore) {
+        bestScore = score;
+        best = rect;
+      }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
+/** Chessboard distance from a cell to the nearest road (up to `max`), for laying buildings along the roads. */
+export function roadDistance(m: LandMap, p: Pt, max = 6): number {
+  for (let r = 0; r <= max; r++) for (const c of ringCells(p.x, p.y, r)) if (isRoad(m, c.x, c.y)) return r;
+  return max + 1;
+}
 
 /* ------------------------------------------------------------ getting about */
 
@@ -244,7 +349,7 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
   if (from.x === to.x && from.y === to.y) return [];
   const W = m.w;
   const goal = to.y * W + to.x;
-  const cost = (x: number, y: number) => (y * W + x === goal ? Math.min(stepCost(m, x, y), 1) : stepCost(m, x, y, blocked));
+  const cost = (x: number, y: number) => (x === to.x && y === to.y ? Math.min(stepCost(m, x, y), 1) : stepCost(m, x, y, blocked));
   const g = new Map<number, number>();
   const came = new Map<number, number>();
   const start = from.y * W + from.x;

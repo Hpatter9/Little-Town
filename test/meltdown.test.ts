@@ -6,14 +6,14 @@ import { mood } from '../src/shared/sim/townsfolk';
 import { type Building } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row } from './helpers';
 
 test('a meltdown only threatens a Modern town with a power station; it sets the reactor alight, sickens the town and stops the fields', () => {
   const s = plainGame('meltdown');
   s.tick = 30 * TICKS_PER_DAY;
   s.era = 'modern';
   assert.ok(!possibleDooms(s).includes('meltdown'), 'no reactor, no meltdown');
-  const reactor = { id: s.nextId++, def: 'power_station', tile: 110, status: 'done', delivered: {}, progress: 1, store: {} } as Building;
+  const reactor = { id: s.nextId++, def: 'power_station', tile: 110, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building;
   s.buildings.push(reactor);
   assert.ok(possibleDooms(s).includes('meltdown'));
   s.doom = { kind: 'meltdown', phase: 'signs', untilTick: s.tick + TICKS_PER_HOUR };

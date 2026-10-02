@@ -3,54 +3,61 @@ import { test } from 'node:test';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { canPlace, placeBlueprint, totalCapacity, totalStock, upgrade } from '../src/shared/sim/buildings';
 import { Sim } from '../src/shared/sim/sim';
-import { plainGame } from './helpers';
+import { camp, freeSpot, isWild, nearestWild, plainGame, poolOf, put, row } from './helpers';
 import { addStock, newGame, poolSize, type GameState } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
-import { generateWorld } from '../src/shared/world';
+import { cellAt } from '../src/shared/sim/land';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
 const run = (sim: Sim, seconds: number) => {
   for (let i = 0; i < seconds * TICK_HZ; i++) sim.step();
 };
 const building = (s: GameState, def: string) => s.buildings.find((b) => b.def === def);
 const campfire = (s: GameState) => building(s, 'campfire')!;
-/** A free spot on cleared land for a fore building of `width`, right of the campfire. */
-const freeForeTile = (s: GameState) => campfire(s).tile + 2;
 
-test('placement: needs cleared land, no overlap, inside the town', () => {
+test('placement: needs cleared land, no overlap, inside the known land', () => {
   const s = newGame('place');
-  const back = generateWorld('place').back;
   const stockpile = BUILDING_BY_ID.stockpile;
-  assert.equal(canPlace(s, back, stockpile, freeForeTile(s)).ok, true);
-  assert.equal(canPlace(s, back, stockpile, campfire(s).tile - 1).ok, false, 'overlaps the campfire');
-  const wild = s.tiles.findIndex((t) => t.terrain !== 'clear');
-  assert.equal(canPlace(s, back, stockpile, wild).ok, false, 'wild land');
-  assert.equal(canPlace(s, back, stockpile, -1).ok, false);
-  assert.equal(canPlace(s, back, stockpile, s.tiles.length - 2).ok, false);
-  // a midground building may sit behind a foreground one
-  assert.equal(canPlace(s, back, BUILDING_BY_ID.lean_to, campfire(s).tile).ok, true);
+  const spot = freeSpot(s, 'stockpile');
+  assert.equal(canPlace(s, stockpile, spot.x, spot.y).ok, true);
+  assert.equal(canPlace(s, stockpile, campfire(s).tile - 1, campfire(s).row).ok, false, 'overlaps the campfire');
+  const wild = cellAt(s.land, nearestWild(s));
+  assert.equal(canPlace(s, stockpile, wild.x, wild.y).ok, false, 'wild land');
+  assert.equal(canPlace(s, stockpile, -1, camp(s).y).ok, false);
+  assert.equal(canPlace(s, stockpile, s.land.w - 2, camp(s).y).ok, false);
+  assert.equal(canPlace(s, stockpile, camp(s).x, 0).ok, false, 'beyond the known land');
 });
 
 test('placement: locked buildings need research (or the debug unlock); the queue has limited slots', () => {
   const s = newGame('locks');
-  const back = generateWorld('locks').back;
-  assert.equal(placeBlueprint(s, back, 'lean_to', camp(s) - 6).ok, false);
+  const at = freeSpot(s, 'lean_to');
+  assert.equal(placeBlueprint(s, 'lean_to', at.x, at.y).ok, false);
   s.cheats.unlockAll = true;
-  assert.equal(placeBlueprint(s, back, 'lean_to', camp(s) - 6).ok, true);
-  // fill the remaining slots with 1-wide racks on the cleared camp land
-  for (let i = 1; i < BUILD_QUEUE_SLOTS; i++) assert.equal(placeBlueprint(s, back, 'drying_rack', camp(s) - 6 - i).ok, true);
-  const full = placeBlueprint(s, back, 'stockpile', freeForeTile(s));
+  assert.equal(placeBlueprint(s, 'lean_to', at.x, at.y).ok, true);
+  // fill the remaining slots with racks on the cleared camp land
+  for (let i = 1; i < BUILD_QUEUE_SLOTS; i++) {
+    const r = freeSpot(s, 'drying_rack');
+    assert.equal(placeBlueprint(s, 'drying_rack', r.x, r.y).ok, true);
+  }
+  const sp = freeSpot(s, 'stockpile');
+  const full = placeBlueprint(s, 'stockpile', sp.x, sp.y);
   assert.equal(full.ok, false);
   assert.match(full.reason!, /queue/);
+});
+
+test('a blueprint gets a road to the camp', () => {
+  const s = newGame('road');
+  const at = freeSpot(s, 'stockpile');
+  assert.ok(placeBlueprint(s, 'stockpile', at.x, at.y).ok);
+  assert.ok(s.land.roads.includes('#'), 'a road was laid');
 });
 
 test('with storage full of stone, gathered wood goes straight to the blueprint', () => {
   const sim = new Sim(plainGame('full'));
   const s = sim.state;
   campfire(s).store = { stone: 30 };
-  sim.command({ type: 'placeBuilding', def: 'stockpile', tile: freeForeTile(s) });
-  const forest = s.tiles.findIndex((t, i) => i > camp(s) && t.terrain === 'forest');
-  sim.command({ type: 'toggleGather', tile: forest });
+  const at = freeSpot(s, 'stockpile');
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: at.x, y: at.y });
+  sim.command({ type: 'toggleGather', cell: nearestWild(s, 'forest') });
   run(sim, 40 * 60);
   assert.equal(building(s, 'stockpile')!.status, 'done');
   assert.equal(campfire(s).store.stone, 30, 'the stone was never touched');
@@ -68,16 +75,17 @@ test('throwing out a stored material frees the room', () => {
 test('a stockpile gets built from gathered wood: gather, store, fetch, deliver, build', () => {
   const sim = new Sim(plainGame('build'));
   const s = sim.state;
-  sim.command({ type: 'placeBuilding', def: 'stockpile', tile: freeForeTile(s) });
-  const forest = s.tiles.findIndex((t, i) => i > camp(s) && t.terrain === 'forest');
-  sim.command({ type: 'toggleGather', tile: forest });
+  const at = freeSpot(s, 'stockpile');
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: at.x, y: at.y });
+  const forest = nearestWild(s, 'forest');
+  const wood = poolOf(s, forest).wood!;
+  sim.command({ type: 'toggleGather', cell: forest });
   run(sim, 1);
   const sp = building(s, 'stockpile')!;
   assert.equal(sp.status, 'blueprint');
   run(sim, 40 * 60);
   assert.equal(sp.status, 'done', 'finished');
   assert.equal(totalCapacity(s), 130, 'campfire cache + stockpile');
-  const wood = newGame('build').tiles[forest].pool.wood!;
   assert.equal(totalStock(s).wood, wood - 6, 'the 6 wood went into the stockpile, the rest is stored');
   const mc = s.people[0];
   assert.ok(mc.skills.construction.xp > 0 || mc.skills.construction.level > newGame('build').people[0].skills.construction.level);
@@ -86,7 +94,8 @@ test('a stockpile gets built from gathered wood: gather, store, fetch, deliver, 
 test('construction waits for materials, then starts when they arrive', () => {
   const sim = new Sim(plainGame('wait'));
   const s = sim.state;
-  sim.command({ type: 'placeBuilding', def: 'stockpile', tile: freeForeTile(s) });
+  const at = freeSpot(s, 'stockpile');
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: at.x, y: at.y });
   run(sim, 120);
   assert.equal(building(s, 'stockpile')!.progress, 0, 'nothing to build with');
   addStock(campfire(s).store, 'wood', 6);
@@ -99,7 +108,8 @@ test('cancelling a blueprint refunds deliveries; demolishing refunds half the co
   const sim = new Sim(plainGame('demolish'));
   const s = sim.state;
   addStock(campfire(s).store, 'wood', 12);
-  sim.command({ type: 'placeBuilding', def: 'stockpile', tile: freeForeTile(s) });
+  const at = freeSpot(s, 'stockpile');
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: at.x, y: at.y });
   run(sim, 120);
   const sp = building(s, 'stockpile')!;
   assert.equal(sp.status, 'done');
@@ -109,7 +119,7 @@ test('cancelling a blueprint refunds deliveries; demolishing refunds half the co
   assert.equal(building(s, 'stockpile'), undefined);
   assert.equal(totalStock(s).wood, 9, '6 left + half of 6 back');
 
-  sim.command({ type: 'placeBuilding', def: 'stockpile', tile: freeForeTile(s) });
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: at.x, y: at.y });
   run(sim, 8); // long enough to fetch and deliver, not to finish
   const bp = building(s, 'stockpile')!;
   assert.equal(bp.status, 'blueprint');
@@ -122,51 +132,43 @@ test('with all storage full, gathering stops and the worker says so', () => {
   const sim = new Sim(plainGame('full'));
   const s = sim.state;
   addStock(campfire(s).store, 'stone', 30);
-  const forest = s.tiles.findIndex((t, i) => i > camp(s) && t.terrain === 'forest');
-  sim.command({ type: 'toggleGather', tile: forest });
+  const forest = nearestWild(s, 'forest');
+  sim.command({ type: 'toggleGather', cell: forest });
   run(sim, 600);
   const mc = s.people[0];
   assert.equal(poolSize(mc.carrying), 10, 'hands full');
   assert.equal(mc.blocked, true);
-  assert.ok(s.tiles[forest].terrain === 'forest', 'tile not cleared');
+  assert.ok(isWild(s, forest), 'cell not cleared');
 });
 
 test('upgrading in place: a lean-to becomes a longhouse where it stands, reusing half its materials', () => {
   const s = plainGame('upgrade');
-  const back = generateWorld('upgrade').back;
-  const lean = { id: s.nextId++, def: 'lean_to', tile: camp(s) + 3, status: 'done' as const, delivered: {}, progress: 1, store: {} };
-  s.buildings.push(lean);
-  assert.equal(upgrade(s, back, lean.id).ok, false, 'needs Oral Tradition');
+  const lean = put(s, 'lean_to', camp(s).x + 3);
+  assert.equal(upgrade(s, lean.id).ok, false, 'needs Oral Tradition');
   s.research.done.push('oral_tradition');
-  const r = upgrade(s, back, lean.id);
+  const r = upgrade(s, lean.id);
   assert.ok(r.ok, r.reason ?? '');
   assert.equal(lean.def, 'longhouse');
   assert.equal(lean.status, 'blueprint');
-  assert.deepEqual(lean.delivered, { wood: 4 }, 'half the lean-to\'s wood goes into the longhouse (its fiber to storage)');
+  assert.deepEqual(lean.delivered, { wood: 4 }, "half the lean-to's wood goes into the longhouse (its fiber to storage)");
 });
 test('merging: two lean-tos side by side with no room to widen become one longhouse', () => {
   const s = plainGame('merge');
-  const back = generateWorld('merge').back;
   s.research.done.push('oral_tradition');
-  const at = camp(s) + 3;
-  const lean = (tile: number) => {
-    const b = { id: s.nextId++, def: 'lean_to', tile, status: 'done' as const, delivered: {}, progress: 1, store: {} };
-    s.buildings.push(b);
-    return b;
-  };
-  const a = lean(at);
-  const b = lean(at + 2);
+  const at = camp(s).x + 3;
+  const a = put(s, 'lean_to', at);
+  const b = put(s, 'lean_to', at + 2);
   // hemmed in: a workbench on each side
-  s.buildings.push({ id: s.nextId++, def: 'workbench', tile: at - 2, status: 'done', delivered: {}, progress: 1, store: {} });
-  s.buildings.push({ id: s.nextId++, def: 'workbench', tile: at + 4, status: 'done', delivered: {}, progress: 1, store: {} });
-  assert.equal(upgrade(s, back, a.id).ok, false, 'no room on its own');
+  put(s, 'workbench', at - 2);
+  put(s, 'workbench', at + 4);
+  assert.equal(upgrade(s, a.id).ok, false, 'no room on its own');
   const before = s.buildings.length;
-  const r = upgrade(s, back, a.id, b.id);
+  const r = upgrade(s, a.id, b.id);
   assert.ok(r.ok, r.reason ?? '');
   assert.equal(s.buildings.length, before - 1, 'one home instead of two');
   assert.equal(a.def, 'longhouse');
   assert.ok(!s.buildings.includes(b));
-  assert.deepEqual(a.delivered, { wood: 8 }, 'both lean-tos\' wood goes into the longhouse');
+  assert.deepEqual(a.delivered, { wood: 8 }, "both lean-tos' wood goes into the longhouse");
 });
 
 test('a town short of beds rebuilds a small home bigger before building another', () => {
@@ -174,9 +176,7 @@ test('a town short of beds rebuilds a small home bigger before building another'
   const s = sim.state;
   s.research.done.push('basic_shelter', 'oral_tradition');
   for (const b of s.buildings.filter((q) => q.def === 'lean_to')) s.buildings.splice(s.buildings.indexOf(b), 1);
-  const c = camp(s);
-  s.buildings.push({ id: s.nextId++, def: 'lean_to', tile: c - 8, status: 'done', delivered: {}, progress: 1, store: {} });
-  const home = s.buildings[s.buildings.length - 1];
+  const home = put(s, 'lean_to', camp(s).x - 8, row(s));
   addStock(campfire(s).store, 'wood', 24);
   addStock(campfire(s).store, 'stone', 6);
   const homes = () => s.buildings.filter((b) => BUILDING_BY_ID[b.def].housing).length;

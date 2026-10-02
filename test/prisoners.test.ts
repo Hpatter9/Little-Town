@@ -6,7 +6,7 @@ import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
 import { plainGame } from './helpers';
 
-const fallen = (kind: string, id: number): Raider => ({ id, kind, x: 0, dir: 1, hp: 0, maxHp: 40, cooldown: 0, down: true, fleeing: false, gone: false, carrying: {}, lastAction: 0, lastHit: 0 });
+const fallen = (kind: string, id: number): Raider => ({ id, kind, x: 0, y: 0, dir: 1, hp: 0, maxHp: 40, cooldown: 0, down: true, fleeing: false, gone: false, carrying: {}, lastAction: 0, lastHit: 0 });
 
 test('fallen human raiders may be taken alive (never beasts); prisoners come round and join, or go free', () => {
   const s = plainGame('prisoners');

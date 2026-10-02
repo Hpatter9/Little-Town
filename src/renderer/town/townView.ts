@@ -8,7 +8,6 @@ import { airFor, ChimneySmoke, Mist } from './ambientView';
 import { BACK_GROUND_Y, BACK_PAD_TILES, BACK_SCALE, FORE_TOP_Y, MID_GROUND_Y, STRIP_HEIGHT, TILE, WORLD_WIDTH } from '../../shared/constants';
 import { Rng } from '../../shared/rng';
 import type { BuildLayer } from '../../shared/data/buildings';
-import { backNow } from '../../shared/sim/buildings';
 import type { Building, TileState } from '../../shared/sim/state';
 import type { BackTerrain, MidTerrain, World } from '../../shared/world';
 import { drawFarWall } from '../art/farWall';
@@ -115,22 +114,11 @@ export class TownView {
 
   /** The animals in the pens. */
   readonly herds = new HerdsView();
-  /** The midground terrain in the shape backNow() reads. */
-  private get terrainRows(): { terrain: MidTerrain }[] {
-    if (this.rowsFor !== this.terrain) {
-      this.rowsFor = this.terrain;
-      this.rows = this.terrain.map((terrain) => ({ terrain }));
-    }
-    return this.rows;
-  }
-  private rowsFor: MidTerrain[] | null = null;
-  private rows: { terrain: MidTerrain }[] = [];
   private far: SpriteSet;
 
-  /** The background as it is now: its wild land cleared where the land in front of it has been. */
+  /** The background as it is now (the old strip: the top-down map replaces it). */
   private backAt(i: number): BackTerrain | 'cleared' {
-    const t = i - BACK_PAD_TILES;
-    return t >= 0 && t < this.terrain.length ? backNow(this.world.back, this.terrainRows, t) : this.world.back[i];
+    return this.world.back[i];
   }
 
   /* ------------------------------------------------------------ the town's far wall */

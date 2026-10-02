@@ -4,7 +4,7 @@ import { BUILDING_BY_ID } from '../data/buildings';
 import { HEALER_PER_LEVEL } from '../data/operators';
 import { UNDEAD_HEAL } from '../data/monsters';
 import { operatorSkill } from './operators';
-import { buildingCentreX } from './buildings';
+import { buildingCentre } from './buildings';
 import { grieve, isChild } from './social';
 import { revealOccult, tryRevive } from './occult';
 import { tireless, notify, maxHp, personFx, type GameState, type Person } from './state';
@@ -115,7 +115,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
   // a grave in the graveyard, or where they fell if there isn't one (the oldest make way after a while)
   if (p.away === null) {
     s.burials = (s.burials ?? 0) + 1;
-    s.graves = [...(s.graves ?? []), { x: Math.round(p.x), name: p.name }].slice(-MAX_GRAVES);
+    s.graves = [...(s.graves ?? []), { x: Math.round(p.x), y: Math.round(p.y), name: p.name }].slice(-MAX_GRAVES);
     layOutGraves(s);
   }
   grieve(s, p);
@@ -123,7 +123,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
   // in an outbreak, those who fall in town among the dead get up again
   const r = s.raid;
   if (r && r.kind === 'zombies' && r.phase === 'active' && p.away === null) {
-    r.raiders.push({ id: s.nextId++, kind: 'zombie', x: p.x, dir: p.dir, hp: 45, maxHp: 45, cooldown: 20, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm', risenFrom: p.name, ally: s.doom?.kind === 'outbreak' && s.doom.commanded === true, conjuredAt: s.tick });
+    r.raiders.push({ id: s.nextId++, kind: 'zombie', x: p.x, y: p.y, dir: p.dir, hp: 45, maxHp: 45, cooldown: 20, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm', risenFrom: p.name, ally: s.doom?.kind === 'outbreak' && s.doom.commanded === true, conjuredAt: s.tick });
     notify(s, s.doom?.commanded ? `${p.name} rises again, and stands with the lich.` : `${p.name} rises again, one of the dead now.`, true);
   }
 }
@@ -133,8 +133,11 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
 export function layOutGraves(s: GameState): void {
   const yard = s.buildings.find((b) => b.def === 'graveyard' && b.status === 'done');
   if (!yard || !s.graves) return;
-  const cx = buildingCentreX(yard);
-  s.graves.forEach((g, i) => (g.x = Math.round(cx + ((i % 5) - 2) * 18 + Math.floor(i / 5) * 7)));
+  const c = buildingCentre(yard);
+  s.graves.forEach((g, i) => {
+    g.x = Math.round(c.x + ((i % 5) - 2) * 12);
+    g.y = Math.round(c.y - 8 + Math.floor(i / 5) * 10);
+  });
 }
 
 /** Bleeding out: die when the timer runs out. */

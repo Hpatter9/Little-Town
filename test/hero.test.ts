@@ -30,7 +30,7 @@ test('the player can follow a townsperson (and stop); only the living can be fol
 
 test("the one you follow: their big moments are foreseen, and come as phone alerts", () => {
   const s = plainGame('hero-alert');
-  s.people.push(makePerson(new Rng(3), s.nextId++, 'wanderer', s.people[0].x, s.people.map((p) => p.name)));
+  s.people.push(makePerson(new Rng(3), s.nextId++, 'wanderer', s.people[0], s.people.map((p) => p.name)));
   startEvent(s, EVENT_BY_ID.talking_animal, new Rng(1));
   s.hero = s.event!.who;
   const hero = s.people.find((p) => p.id === s.hero)!;

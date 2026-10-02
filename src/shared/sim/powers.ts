@@ -19,7 +19,7 @@ import { shopOf, tavernOf } from './shop';
 import { researchMods } from './research';
 import { wardOf } from './rivals';
 import { aimedFoes, bestAim, inBattle } from './battle';
-import { addStock, campX, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
+import { addStock, campX, campXY, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
 import { WORLD_WIDTH } from '../constants';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { housingCapacity, joinOrigin } from './townsfolk';
@@ -87,7 +87,7 @@ const cheer = (s: GameState, n: number) => home(s).forEach((p) => (p.morale = Ma
 
 /** A new townsperson, raised or built or charmed, at the camp. */
 function newcomer(s: GameState, rng: Rng, type: string, how: string): Person {
-  const p = makePerson(rng, s.nextId++, type, campX(s), s.people.map((q) => q.name));
+  const p = makePerson(rng, s.nextId++, type, campXY(s), s.people.map((q) => q.name));
   s.people.push(p);
   joinOrigin(s, p, rng);
   notify(s, `${p.name} ${how}`, true);
@@ -160,7 +160,7 @@ export const POWERS: Record<string, PowerDef> = {
       // and the grove's walking mushrooms wake to fight for it
       const f = founder(s);
       const x = f?.x ?? campX(s);
-      for (let i = 0; i < 2; i++) s.raid!.raiders.push(ally(s, 'shroom_folk', x + (i ? 16 : -16), f?.dir ?? 1));
+      for (let i = 0; i < 2; i++) s.raid!.raiders.push(ally(s, 'shroom_folk', x + (i ? 16 : -16), f?.dir ?? 1, f?.y));
       return `Roots burst up and hold ${foes(s).length} raiders fast, and the mushrooms walk.`;
     },
   },
@@ -246,7 +246,7 @@ export const POWERS: Record<string, PowerDef> = {
     cast: (s) => {
       const f = founder(s);
       const x = f?.x ?? campX(s);
-      for (let i = 0; i < 3; i++) s.raid!.raiders.push(ally(s, 'wolf', x + (i - 1) * 20, f?.dir ?? 1));
+      for (let i = 0; i < 3; i++) s.raid!.raiders.push(ally(s, 'wolf', x + (i - 1) * 20, f?.dir ?? 1, f?.y));
       return 'The founder howled, and the pack came running.';
     },
   },

@@ -51,17 +51,13 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, tileCentreX } from './state';
+import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, campXY } from './state';
+import { cellAt, groundAt, type LandMap } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
-import { castleFloors, castleOn, castleSpan, heightOf, keepFlare, roomOf } from './castle';
+import { castleOn, castleSpan, keepRect } from './castle';
 import { TILE } from '../constants';
 
-/** Whether x is within the keep's ground floor. */
-const inKeepX = (s: GameState, x: number) => {
-  const [lo, hi] = castleSpan(s);
-  return x >= lo * TILE && x <= hi * TILE;
-};
 import { rallyState } from './rally';
 import { daysToMove } from './nomads';
 import { RIVALS } from '../data/rivals';
@@ -87,6 +83,7 @@ export interface PersonView {
   typeName: string;
   look: Look;
   x: number;
+  y: number;
   dir: 1 | -1;
   activity: Activity;
   /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
@@ -225,6 +222,7 @@ export interface RaiderView {
   /** How high up a castle's keep it has climbed, in floors; null on the ground. */
   floor: number | null;
   x: number;
+  y: number;
   dir: 1 | -1;
   hp: number;
   maxHp: number;
@@ -403,6 +401,7 @@ export interface TravellerView {
   purse: number;
   look: Look;
   x: number;
+  y: number;
   dir: 1 | -1;
   phase: 'arriving' | 'shopping' | 'leaving';
   tier: number;
@@ -433,6 +432,9 @@ export interface Snapshot {
   stock: Stock;
   storageUsed: number;
   storageCapacity: number;
+  /** The land (sim/land.ts): the renderer reads it, never changes it. */
+  land: LandMap;
+  /** The old strip's tiles (empty now; the land replaces them). */
   tileRev: number;
   tiles: TileState[];
   buildings: Building[];
@@ -462,7 +464,7 @@ export interface Snapshot {
   /** The dead outnumber the living: ghosts walk at night. */
   undeadHaven: boolean;
   /** Graves of townsfolk who fell in town. */
-  graves: { x: number; name: string }[];
+  graves: { x: number; y: number; name: string }[];
   /** Someone just brought back from death: who, and ticks since (for the glow). */
   revived: { id: number; since: number } | null;
   /** Spells cast on townsfolk lately: who, what, and ticks since. */
@@ -478,8 +480,10 @@ export interface Snapshot {
   /** A nomad tribe's seasonal round (sim/nomads.ts): where it's camped, when it moves next, whether it has settled,
    *  and its last move (x from and to, and ticks since), for the caravan on the road. */
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
-  /** A castle town's keep (sim/castle.ts): its tiles and how many floors it stands. */
-  castle: { lo: number; hi: number; floors: number; flare: number } | null;
+  /** A castle town's keep (sim/castle.ts): its ground, in cells, and (for the old strip) its columns. */
+  castle: { lo: number; hi: number; floors: number; flare: number; rect: { x: number; y: number; w: number; h: number } } | null;
+  /** The middle of the camp on the land (px). */
+  camp: { x: number; y: number };
   /** The tower-defence battle on the trail, while it's on (sim/battle.ts). */
   battle: BattleView | null;
   /** A town walled at both ends: the tiles its walls span, and what they're built of (drawn as a far wall round it). */
@@ -586,15 +590,16 @@ export function snapshot(s: GameState): Snapshot {
     powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
     lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
-    travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
+    travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
     tick: s.tick,
     paused: s.paused,
     calendar: calendar(s.tick),
     stock,
     storageUsed: poolSize(stock),
     storageCapacity: totalCapacity(s),
-    tileRev: s.tileRev,
-    tiles: s.tiles.map((t) => ({ terrain: t.terrain, pool: { ...t.pool }, designated: t.designated })),
+    land: s.land,
+    tileRev: s.land.version,
+    tiles: [],
     buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}) })),
     people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
     visitor: v
@@ -646,9 +651,9 @@ export function snapshot(s: GameState): Snapshot {
             id: r.id,
             kind: r.kind,
             name: ENEMIES[r.kind].name,
-            // (inside the keep, even on its ground floor: drawn in the castle, at its scale)
-            floor: castleOn(s) && (heightOf(r) > 0 || inKeepX(s, r.x)) ? heightOf(r) : null,
+            floor: null,
             x: r.x,
+            y: r.y,
             dir: r.dir,
             hp: r.hp,
             maxHp: r.maxHp,
@@ -680,17 +685,18 @@ export function snapshot(s: GameState): Snapshot {
     launchSite: launchSiteView(s),
     impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
     campX: campX(s),
+    camp: campXY(s),
     nomad: s.nomad
       ? {
           site: s.nomad.camp === s.nomad.home ? 'home' : 'pasture',
           settled: !!s.nomad.settled,
           nextMoveDays: daysToMove(s),
           traces: s.nomad.settled ? [] : (s.nomad.left ?? []),
-          move: s.nomad.movedAt != null && s.nomad.from != null ? { from: tileCentreX(s.nomad.from), to: tileCentreX(s.nomad.camp), since: s.tick - s.nomad.movedAt } : null,
+          move: s.nomad.movedAt != null && s.nomad.from != null ? { from: (s.nomad.from.x + 0.5) * TILE, to: (s.nomad.camp.x + 0.5) * TILE, since: s.tick - s.nomad.movedAt } : null,
         }
       : null,
     enclosure: enclosure(s),
-    castle: castleOn(s) && castleFloors(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: castleFloors(s), flare: keepFlare(s) } : null,
+    castle: castleOn(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: 1, flare: 0, rect: keepRect(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),
@@ -866,6 +872,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     typeName: RECRUIT_TYPES[p.type]?.name ?? p.type,
     look: p.look,
     x: p.x,
+    y: p.y,
     dir: p.dir,
     activity: p.activity,
     mounted: null,
@@ -891,10 +898,9 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     priorities: { ...p.priorities },
     autoPriorities: p.autoPriorities,
     bed: bed ? defOf(bed).name : null,
-    floor: castleOn(s) && (heightOf(p) > 0 || roomOf(s, p)) ? heightOf(p) : null,
-    // (asleep in a castle's room, they're seen there, in their coffin)
+    floor: null,
     rally: rallyState(s, p),
-    indoors: !(castleOn(s) && roomOf(s, p)) && p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
+    indoors: p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
     away: p.away === null ? null : (DESTINATION_BY_ID[s.expeditions.find((e) => e.id === p.away)?.dest ?? '']?.name ?? 'expedition'),
     hp: p.hp,
     maxHp: maxHp(p),
@@ -1083,8 +1089,9 @@ function describe(s: GameState, p: Person): string {
       return p.morale < SULK_MORALE ? 'Sulking (morale too low to work)' : 'Idling at camp';
     case 'gather': {
       if (task.scrounge) return 'Hungry: picking wild berries (nothing in storage)';
-      const t = s.tiles[task.tile].terrain;
-      return t === 'clear' ? 'Idle' : `${TERRAIN[t].verb} (${TERRAIN[t].name.toLowerCase()})`;
+      const c = cellAt(s.land, task.tile);
+      const t = TERRAIN[groundAt(s.land, c.x, c.y) as keyof typeof TERRAIN];
+      return t ? `${t.verb} (${t.name.toLowerCase()})` : 'Idle';
     }
     case 'store':
       return `Hauling to the ${name(task.building).toLowerCase()}`;

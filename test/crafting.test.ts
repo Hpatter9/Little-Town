@@ -7,10 +7,10 @@ import { storageCapacity, totalStock } from '../src/shared/sim/buildings';
 import { parseSave, SAVE_VERSION, serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
-import { addStock, carryCapacity, makePerson, maxHp, newGame, type Building, type GameState } from '../src/shared/sim/state';
+import { addStock, carryCapacity, makePerson, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { TICK_HZ, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame, priorities } from './helpers';
+import { plainGame, priorities, row, isWild, nearestWild } from './helpers';
 
 const run = (sim: Sim, seconds: number) => {
   for (let i = 0; i < seconds * TICK_HZ; i++) sim.step();
@@ -34,7 +34,7 @@ function craftTown(seed: string): Sim {
   return sim;
 }
 function addBuilding(s: GameState, def: string, tile: number): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 }
@@ -112,9 +112,9 @@ test('tools: the right one is picked up for the job and speeds it', () => {
     s.cheats.unlockAll = true;
     s.items = withAxe ? { stone_axe: 1 } : {};
     if (withAxe) s.people[0].gear.tool = 'flint_knife';
-    const forest = s.tiles.findIndex((t, i) => i > campfire(s).tile && t.terrain === 'forest');
-    sim.command({ type: 'toggleGather', tile: forest });
-    const t = runUntil(sim, () => s.tiles[forest].terrain === 'clear', 7200);
+    const forest = nearestWild(s, 'forest');
+    sim.command({ type: 'toggleGather', cell: forest });
+    const t = runUntil(sim, () => !isWild(s, forest), 7200);
     return { t, tool: s.people[0].gear.tool, spare: s.items };
   };
   const bare = chop(false);
@@ -126,7 +126,7 @@ test('tools: the right one is picked up for the job and speeds it', () => {
 
 test('gear is handed out: weapons to the best fighter, a pack adds carry, pots add storage', () => {
   const s = plainGame('gear');
-  const hunter = makePerson(new Rng(9), s.nextId++, 'hunter', 0, []);
+  const hunter = makePerson(new Rng(9), s.nextId++, 'hunter', { x: 0, y: 0 }, []);
   hunter.skills.melee.level = 8;
   s.people.push(hunter);
   s.items = { spear: 1, wooden_club: 1, backpack: 1, hide_armor: 1 };
@@ -198,23 +198,13 @@ test('an expedition takes waterskins and sling stones, and brings the skins back
   assert.equal(s.items.waterskin, 1, 'back home');
 });
 
-test('a version 9 save is brought up to date', () => {
+test('a save from before the land (version 9) is refused as too old: a new town is founded', () => {
   const s = newGame('old') as unknown as Record<string, any>;
   s.version = 9;
   delete s.items;
   delete s.crafting;
-  for (const p of s.people) {
-    delete p.gear;
-    delete p.priorities.craft;
-    delete p.priorities.farm;
-  }
   const r = parseSave(serialize(s as unknown as GameState, 1));
-  assert.ok(r.ok);
-  const st = r.save.state;
-  assert.equal(st.version, SAVE_VERSION);
-  assert.ok([1, 2, 3].includes(st.people[0].priorities.farm));
-  assert.deepEqual(st.items, {});
-  assert.deepEqual(st.people[0].gear, {});
-  assert.ok([1, 2, 3].includes(st.people[0].priorities.craft));
-  assert.equal(maxHp(st.people[0]) > 0, true);
+  assert.equal(r.ok, false);
+  assert.equal(!r.ok && r.reason, 'old-version');
+  assert.equal(SAVE_VERSION, 16);
 });

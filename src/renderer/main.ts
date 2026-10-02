@@ -27,7 +27,7 @@ import { buildingTint } from './theme';
 /** A traveller, drawn like a townsperson (they're only passing through: most of a person's details don't apply). */
 function travellerPerson(t: TravellerView): PersonView {
   return {
-    id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, dir: t.dir,
+    id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
     activity: 'walk', cls: null, clsName: null, clsPast: [], clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
@@ -630,7 +630,7 @@ async function start(): Promise<void> {
   const checkPlacement = (def: BuildingDef, tile: number): PlaceCheck => {
     if (!isUnlocked({ unlockAll: snap.unlockAll, done: snap.research.done }, def)) return { ok: false, reason: 'Not researched yet' };
     if (blueprintCount(snap) >= snap.buildSlots) return { ok: false, reason: 'Construction queue is full' };
-    return canPlace(snap, world.back, def, tile);
+    return canPlace({ land: snap.land, buildings: snap.buildings, origin: snap.origin.id, era: snap.era }, def, tile, snap.land.camp.y);
   };
 
   const updateGhost = () => {
@@ -678,7 +678,7 @@ async function start(): Promise<void> {
       const confirmed = !touch || armedTile === placing.tile;
       armedTile = placing.tile;
       if (placing.check.ok && confirmed) {
-        bridge.command({ type: 'placeBuilding', def: placing.def.id, tile: placing.tile });
+        bridge.command({ type: 'placeBuilding', def: placing.def.id, x: placing.tile, y: snap.land.camp.y });
         stopPlacing();
       }
       return;

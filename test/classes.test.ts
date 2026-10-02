@@ -17,7 +17,7 @@ test('every grown-up is given a class once: weighted by their skills, some calli
   const s = plainGame('classes');
   const count: Record<string, number> = {};
   for (let i = 0; i < 4000; i++) {
-    const p = makePerson(new Rng(i), 1000 + i, 'hunter', 0, []);
+    const p = makePerson(new Rng(i), 1000 + i, 'hunter', { x: 0, y: 0 }, []);
     count[assignClass(s, p)] = (count[assignClass(s, p)] ?? 0) + 1;
   }
   assert.equal(Object.keys(count).length, CLASSES.length, 'every calling turns up');
@@ -26,10 +26,10 @@ test('every grown-up is given a class once: weighted by their skills, some calli
   let scholars = 0;
   let fighters = 0;
   for (let i = 0; i < 400; i++) {
-    const p = makePerson(new Rng(i), 9000 + i, 'hunter', 0, []);
+    const p = makePerson(new Rng(i), 9000 + i, 'hunter', { x: 0, y: 0 }, []);
     p.skills.research.level = 18;
     if (['mage', 'witch', 'chronomancer', 'summoner', 'necromancer', 'spellblade'].includes(assignClass(s, p))) scholars++;
-    const q = makePerson(new Rng(i), 19000 + i, 'hunter', 0, []);
+    const q = makePerson(new Rng(i), 19000 + i, 'hunter', { x: 0, y: 0 }, []);
     q.skills.melee.level = 18;
     if (['knight', 'warrior', 'samurai', 'blood_knight', 'guardian', 'monk'].includes(assignClass(s, q))) fighters++;
   }
@@ -45,9 +45,9 @@ test('every grown-up is given a class once: weighted by their skills, some calli
 });
 
 test('levels from all XP (fighting most); classes evolve at the stage levels; gear by class', () => {
-  const p = makePerson(new Rng(1), 1, 'hunter', 0, []);
+  const p = makePerson(new Rng(1), 1, 'hunter', { x: 0, y: 0 }, []);
   p.cls = 'mage';
-  const work = makePerson(new Rng(2), 2, 'hunter', 0, []);
+  const work = makePerson(new Rng(2), 2, 'hunter', { x: 0, y: 0 }, []);
   for (let i = 0; i < 200; i++) {
     gainSkill(p, 'melee', 10);
     gainSkill(work, 'farming', 10);
