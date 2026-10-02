@@ -533,6 +533,76 @@ export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
     p.ellipse(8, 8, 4, 4, '#ff6a3a');
     p.ellipse(8, 8, 2, 2, '#ffe0a0');
   },
+  // materials DawnLike has no picture for (the townsfolk's bag)
+  mat_wood: (p) => {
+    for (const [y, x] of [[9, 1], [9, 8], [4, 4]] as const) {
+      p.rect(x, y, 7, 4, WOOD);
+      p.rect(x, y, 7, 1, '#a87a48');
+      p.ellipse(x + 6, y + 2, 1, 2, '#d8b078');
+      p.px(x + 6, y + 2, WOOD_DARK);
+    }
+  },
+  mat_fiber: (p) => {
+    for (const x of [4, 6, 8, 10, 12]) p.rect(x - 1, 2 + (x % 4), 1, 12 - (x % 4), '#b8c070');
+    p.rect(3, 8, 10, 2, '#8a6a3a');
+  },
+  mat_lumber: (p) => {
+    for (const y of [4, 8, 12]) {
+      p.rect(1, y, 14, 3, '#c89a60');
+      p.rect(1, y, 14, 1, '#e0b878');
+      p.rect(1, y + 2, 14, 1, WOOD);
+    }
+  },
+  mat_cloth: (p) => {
+    p.rect(2, 5, 12, 4, '#d8d0c0');
+    p.rect(2, 9, 12, 4, '#c0b8a8');
+    p.rect(2, 9, 12, 1, '#a8a090');
+    p.rect(12, 5, 2, 8, '#b0a898');
+  },
+  mat_oil: (p) => {
+    p.rect(4, 3, 8, 11, '#2a2a30');
+    for (const y of [5, 11]) p.rect(4, y, 8, 1, '#5a5a66');
+    p.rect(6, 7, 3, 2, '#c8a030');
+  },
+  mat_fuel: (p) => {
+    p.rect(3, 4, 10, 10, '#b03028');
+    p.rect(3, 4, 10, 1, '#d85848');
+    p.rect(9, 1, 3, 3, DARK);
+    p.rect(5, 7, 6, 4, '#802018');
+  },
+  mat_plastic: (p) => {
+    p.rect(3, 4, 4, 10, '#3a8ad8');
+    p.rect(8, 6, 5, 8, '#e8d040');
+    p.rect(3, 4, 4, 1, '#8ac8f8');
+  },
+  mat_electronics: (p) => {
+    p.rect(2, 4, 12, 9, '#2a6a3a');
+    p.rect(5, 6, 6, 5, DARK);
+    for (const x of [6, 8, 10]) p.rect(x - 1, 3, 1, 1, STEEL_LIGHT);
+    p.rect(3, 11, 2, 1, '#e8c040');
+  },
+  mat_circuits: (p) => {
+    p.rect(3, 3, 10, 10, DARK);
+    p.rect(5, 5, 6, 6, '#3a3a48');
+    for (let i = 4; i < 13; i += 2) {
+      p.px(i, 2, STEEL_LIGHT);
+      p.px(i, 13, STEEL_LIGHT);
+    }
+    p.rect(7, 7, 2, 2, GLOW);
+  },
+  mat_power_cells: (p) => {
+    p.rect(5, 3, 6, 11, STEEL);
+    p.rect(7, 1, 2, 2, STEEL_LIGHT);
+    p.rect(6, 5, 4, 7, GLOW);
+    p.rect(6, 5, 4, 2, '#d8f8ff');
+  },
+  mat_totem: (p) => {
+    p.rect(5, 2, 6, 12, WOOD);
+    p.rect(6, 4, 1, 2, '#e8d8a0');
+    p.rect(9, 4, 1, 2, '#e8d8a0');
+    p.rect(6, 8, 4, 1, '#3a2010');
+    p.rect(3, 11, 10, 1, '#c03a2a');
+  },
 };
 
 export const CUSTOM_ORDER = Object.keys(CUSTOM_ICONS);
@@ -546,13 +616,13 @@ export function customSheetUrl(): string {
   canvas.width = 8 * 16;
   canvas.height = CUSTOM_ROWS * 16;
   const ctx = canvas.getContext('2d')!;
-  CUSTOM_ORDER.forEach((id, i) => CUSTOM_ICONS[id](new Painter(ctx, canvas.width, canvas.height, shift((i % 8) * 16, Math.floor(i / 8) * 16, ctx))));
+  CUSTOM_ORDER.forEach((id, i) => {
+    // (the painter puts the context back on the plain grid as it's made, so each icon is moved to its cell after)
+    const p = new Painter(ctx, canvas.width, canvas.height, noTone);
+    ctx.setTransform(1, 0, 0, 1, (i % 8) * 16, Math.floor(i / 8) * 16);
+    CUSTOM_ICONS[id](p);
+  });
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   url = canvas.toDataURL();
   return url;
-}
-
-/** (each icon is drawn at its cell's offset: the painter's tone hook can't move things, so the context is translated) */
-function shift(ox: number, oy: number, ctx: CanvasRenderingContext2D) {
-  ctx.setTransform(1, 0, 0, 1, ox, oy);
-  return noTone;
 }

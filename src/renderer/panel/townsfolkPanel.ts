@@ -1,7 +1,14 @@
-// Townsfolk panel: the wanderer waiting to be let in, the job priority grid, and everyone's details.
+// Townsfolk panel: the wanderer waiting to be let in, everyone in a short row each, and the job priority grid. Tap
+// someone to inspect them: their picture in what they wear, their gear laid out as in Diablo (each piece in its slot
+// round them, tap one for its stats), what they carry, how they fight, and everything else about them.
 
-import { pieceLabel, qualityOf } from '../../shared/data/quality';
-import { ITEM_BY_ID, SLOT_NAMES, SLOTS } from '../../shared/data/items';
+import { pieceLabel, plusOf, plusMult, qualityMult, qualityOf } from '../../shared/data/quality';
+import { ITEM_BY_ID, SLOT_NAMES, SLOTS, type ItemDef, type Slot } from '../../shared/data/items';
+import { MATERIAL_NAMES } from '../../shared/data/materials';
+import { quirkWords } from '../../shared/data/weapons';
+import { stockIcon } from '../art/materialIcons';
+import { CENTRE_X, FEET_Y, FRAME_SIZE, loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
+import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
 import { CLASS_DEFS } from '../../shared/data/classes';
@@ -29,13 +36,26 @@ export const townsfolkKey = (s: Snapshot) =>
     s.turnable,
     confirmTurn,
     s.research.done.length,
-    s.people.map((p) => [p.clsName, p.level, Math.round(p.levelProgress * 20)]),
+    s.people.map((p) => [p.clsName, p.level, Math.round(p.levelProgress * 20), p.away, p.battle, p.kit.length, p.carrying]),
+    inspecting,
+    chosenSlot,
+    s.theme,
+    lpcLoaded,
   ]);
+
+/** Who's being inspected (null: the list), and the slot whose piece is shown below their gear. */
+let inspecting: number | null = null;
+let chosenSlot: Slot | null = null;
 
 /** High -> Normal -> Low -> Off -> High. */
 const NEXT: Record<Priority, Priority> = { 1: 2, 2: 3, 3: 0, 0: 1 };
 
-export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
+export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => undefined): HTMLElement[] {
+  startLpc(rerender);
+  const who = inspecting === null ? undefined : s.people.find((p) => p.id === inspecting);
+  if (who) return inspectView(who, s, bridge, rerender);
+  inspecting = null;
+
   const out: HTMLElement[] = [];
   const head = el('div', 'panel-head');
   const food = (s.stock.berries ?? 0) + (s.stock.meat ?? 0);
@@ -46,20 +66,22 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined): HTMLEl
   }
   if (s.visitor) out.push(visitorCard(s.visitor, s));
 
+  out.push(el('h2', '', 'People'));
+  if (s.turnable.length) out.push(turningRow(s, bridge));
+  const list = el('div', 'folk-list');
+  for (const p of s.people) list.append(folkRow(p, s, () => {
+    inspecting = p.id;
+    chosenSlot = null;
+    listScroll = scroller()?.scrollTop ?? 0;
+    rerender();
+    const box = scroller();
+    if (box) box.scrollTop = 0;
+  }));
+  out.push(list);
+
   out.push(el('h2', '', 'Jobs'));
   out.push(priorityGrid(s, bridge));
   out.push(el('div', 'hint', 'Click a cell to cycle High, Normal, Low, Off. People do High jobs first. Auto sets them from skills. Defend: when raiders come, anyone not set to Off fights; the rest shelter (safest in a bed).'));
-
-  out.push(el('h2', '', 'People'));
-  if (s.turnable.length) out.push(turningRow(s, bridge));
-  for (const p of s.people) {
-    const card = personCard(p, p.id === s.mainId);
-    card.append(classRow(p, bridge));
-    const turn = turnButtons(p, s, bridge);
-    if (turn) card.append(turn);
-    if (p.monster) card.append(orderRow(p, bridge));
-    out.push(card);
-  }
 
   if (s.prisoners.length) {
     out.push(el('h2', '', 'Prisoners'));
@@ -73,6 +95,329 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined): HTMLEl
     }
   }
   return out;
+}
+
+/** The menu's scrolling body, and where the list was scrolled to before someone was inspected. */
+const scroller = () => document.getElementById('body');
+let listScroll = 0;
+
+/* ------------------------------------------------------------ the list */
+
+/** One short row: their face, name, calling and level, what they're up to, their health and spirits, and any
+ *  trouble. Tap for the rest. */
+function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
+  const row = el('button', 'folk-row');
+  row.addEventListener('click', open);
+  row.append(face(p, s));
+  const mid = el('span', 'folk-mid');
+  const name = el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`);
+  const what = el('span', 'folk-class', p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`);
+  const doing = el('span', 'folk-doing', p.away !== null ? `Away: ${p.away}` : p.doing);
+  mid.append(name, what, doing);
+  const right = el('span', 'folk-right');
+  right.append(miniBar(p.hp / p.maxHp, 'hp'), miniBar(p.morale / 100, 'mood'));
+  const flag = p.downed === 'bleeding' ? 'Bleeding!' : p.downed ? 'Down' : p.breakdown ? 'Upset' : p.sick ? 'Sick' : p.needs.food < 0.15 ? 'Hungry' : p.needs.rest < 0.15 ? 'Worn out' : '';
+  if (flag) right.append(el('span', 'folk-flag', flag));
+  row.append(mid, right, el('span', 'folk-go', '›'));
+  return row;
+}
+
+function miniBar(value: number, kind: 'hp' | 'mood'): HTMLElement {
+  const b = el('span', `mini-bar ${kind}`);
+  const f = el('span', value < 0.25 ? 'low' : '');
+  f.style.width = `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
+  b.title = kind === 'hp' ? 'Health' : 'Morale';
+  b.append(f);
+  return b;
+}
+
+/* ------------------------------------------------------------ inspecting someone */
+
+function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement[] {
+  const back = button('‹ Everyone', () => {
+    inspecting = null;
+    rerender();
+    const box = scroller();
+    if (box) box.scrollTop = listScroll;
+  }, { cls: 'place small quiet back-btn' });
+  // (upright: one column, who they are, their gear, the rest; sideways: their gear on the left, the rest beside it)
+  const layout = el('div', 'inspect-layout');
+  const whoBox = el('div', 'inspect-who');
+  const gearBox = el('div', 'inspect-gear');
+  const restBox = el('div', 'inspect-rest');
+  layout.append(whoBox, gearBox, restBox);
+
+  // who they are
+  const card = el('div', 'card person inspect');
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('span', 'card-size', `${p.typeName} · ${p.bed ? `bed: ${p.bed}` : 'no bed'}`));
+  card.append(top, el('div', 'lock', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
+  for (const d of p.detail) card.append(el('div', 'hint', d));
+  card.append(classRow(p, bridge));
+  whoBox.append(card);
+
+  // their gear, Diablo-style, the piece picked, and what they carry
+  gearBox.append(el('h2', '', 'Equipment'), paperDoll(p, s, rerender), pieceCard(p), el('h2', '', 'Inventory'), bag(p));
+
+  const out = restBox;
+  // how they fight
+  out.append(el('h2', '', 'In a fight'));
+  out.append(fightCard(p));
+
+  // body and spirits
+  out.append(el('h2', '', 'Health and spirits'));
+  const life = el('div', 'card person');
+  const bars = el('div', 'bars');
+  bars.append(
+    bar('Health', p.hp / p.maxHp, p.downed ? (p.downed === 'bleeding' ? `bleeding out: ${bleedLeft(p.bleedMinutes)} left!` : 'down, recovering') : `${Math.round(Math.min(p.hp, p.maxHp))}/${p.maxHp}`),
+    bar('Morale', p.morale / 100, `${Math.round(p.morale)} → ${Math.round(p.moodTarget)}`),
+    bar('Food', p.needs.food, ''),
+    bar('Rest', p.needs.rest, ''),
+  );
+  life.append(bars);
+  if (p.breakdown) life.append(el('div', 'lock short', p.breakdown));
+  if (p.sick) life.append(el('div', 'lock short', 'Sick.'));
+  if (p.moodReasons.length) {
+    const reasons = el('div', 'reasons');
+    for (const r of p.moodReasons) reasons.append(el('span', r.value >= 0 ? 'good' : 'bad', `${r.text} ${r.value > 0 ? '+' : ''}${r.value}`));
+    life.append(reasons);
+  }
+  out.append(life);
+
+  // skills, traits, people
+  out.append(el('h2', '', 'Skills and traits'));
+  const sk = el('div', 'card person');
+  sk.append(skillsList(p), traitsList(p));
+  out.append(sk);
+  const ties = relationsText(p);
+  if (ties || p.recent.length) {
+    out.append(el('h2', '', 'Life'));
+    const lifeCard = el('div', 'card person');
+    if (ties) lifeCard.append(el('div', 'lock', ties));
+    for (const r of p.recent.slice(0, 6)) lifeCard.append(el('div', 'hint', r));
+    out.append(lifeCard);
+  }
+
+  const turn = turnButtons(p, s, bridge);
+  if (turn) out.append(turn);
+  if (p.monster) out.append(orderRow(p, bridge));
+  return [back, layout];
+}
+
+/** Where each slot sits round the figure: left the head, body and weapon; right the charm, pack and off-hand; the
+ *  tool under their feet. */
+const DOLL: Record<Slot, string> = { head: 'head', body: 'body', weapon: 'weapon', charm: 'charm', pack: 'pack', offhand: 'offhand', tool: 'tool' };
+/** A mark drawn faintly in an empty slot. */
+const EMPTY_MARK: Record<Slot, string> = { head: '⛑', body: '🛡', weapon: '⚔', offhand: '◈', charm: '✧', pack: '🎒', tool: '⚒' };
+
+function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElement {
+  const doll = el('div', 'doll');
+  const fig = el('div', 'doll-figure');
+  fig.append(figure(p, s, 3));
+  fig.append(el('div', 'doll-level', p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`));
+  doll.append(fig);
+  const shown = chosenSlot ?? firstWorn(p);
+  for (const slot of SLOTS) {
+    const id = p.gear[slot];
+    const def = id ? ITEM_BY_ID[id] : undefined;
+    const cell = el('button', `doll-slot s-${DOLL[slot]}${def ? ' full' : ''}${shown === slot ? ' on' : ''}`);
+    cell.style.gridArea = DOLL[slot];
+    cell.title = def ? pieceLabel(def.name, p.gearQ[slot]) : `${SLOT_NAMES[slot]}: empty`;
+    if (def) {
+      const q = qualityOf(p.gearQ[slot]);
+      cell.style.setProperty('--q', q.color);
+      cell.append(itemIcon(def, slot === 'weapon' || slot === 'offhand' || slot === 'body' ? 3 : 2));
+      const plus = plusOf(p.gearQ[slot]);
+      if (plus) cell.append(el('span', 'doll-plus', `+${plus}`));
+    } else cell.append(el('span', 'doll-empty', EMPTY_MARK[slot]));
+    cell.append(el('span', 'doll-label', SLOT_NAMES[slot]));
+    cell.addEventListener('click', () => {
+      chosenSlot = slot;
+      rerender();
+    });
+    doll.append(cell);
+  }
+  return doll;
+}
+
+const firstWorn = (p: PersonView): Slot | null => (['weapon', 'body', 'head', 'offhand', 'tool', 'charm', 'pack'] as Slot[]).find((k) => p.gear[k]) ?? null;
+
+/** The piece in the chosen slot, as an item card: its name in its grade's colour, what it is, and what it does
+ *  (worked out at its grade and +N). */
+function pieceCard(p: PersonView): HTMLElement {
+  const slot = chosenSlot ?? firstWorn(p);
+  const box = el('div', 'card item-card');
+  if (!slot) {
+    box.append(el('div', 'lock short', 'Wears nothing worth the name yet. The town hands out gear from its stores (or, once it has money, they buy it with their wages).'));
+    return box;
+  }
+  const id = p.gear[slot];
+  const def = id ? ITEM_BY_ID[id] : undefined;
+  if (!def) {
+    box.append(el('div', 'lock short', `${SLOT_NAMES[slot]}: nothing in this slot.`));
+    return box;
+  }
+  const qn = p.gearQ[slot];
+  const q = qualityOf(qn);
+  const head = el('div', 'item-head');
+  head.append(itemIcon(def, 2));
+  const name = el('span', 'item-name', pieceLabel(def.name, qn));
+  name.style.color = q.color;
+  head.append(name);
+  box.append(head);
+  box.append(el('div', 'item-kind', `${SLOT_NAMES[slot]} · ${q.name}${plusOf(qn) ? ` +${plusOf(qn)}` : ''}${def.tier ? ` · tier ${def.tier}` : ''}${def.unique ? ' · unique' : def.relic ? ' · relic' : ''}`));
+  const lines = statLines(def, qn);
+  if (lines.length) {
+    const ul = el('div', 'item-stats');
+    for (const l of lines) ul.append(el('div', '', l));
+    box.append(ul);
+  }
+  box.append(el('div', 'hint', def.description));
+  return box;
+}
+
+function statLines(def: ItemDef, qn: number | undefined): string[] {
+  const fx = def.effects;
+  const k = qualityMult(qn) * plusMult(qn);
+  const pct = (v: number) => `${Math.round(v * k * 100)}%`;
+  const out: string[] = [];
+  if (fx.damage) out.push(`Damage +${(fx.damage * k).toFixed(1)}${fx.ranged ? ' (from range)' : ''}`);
+  if (fx.accuracy) out.push(`Aim +${pct(fx.accuracy)}`);
+  if (fx.armor) out.push(`Armour ${pct(fx.armor)}`);
+  if (fx.block) out.push(`Block ${pct(fx.block)}`);
+  if (fx.dodge) out.push(`Dodge ${pct(fx.dodge)}`);
+  if (fx.power) out.push(`Spell power +${pct(fx.power)}`);
+  if (fx.carry) out.push(`Carries +${Math.round(fx.carry * k)}`);
+  if (fx.morale) out.push(`Morale +${Math.round(fx.morale * k)}`);
+  if (fx.construct) out.push(`Builds ${Math.round((fx.construct - 1) * 100)}% faster`);
+  for (const [work, v] of Object.entries(fx.gather ?? {})) if (v) out.push(`${work[0].toUpperCase()}${work.slice(1)} ${Math.round((v - 1) * 100)}% faster`);
+  if (fx.ammo) out.push(`Shoots ${MATERIAL_NAMES[fx.ammo].toLowerCase()}`);
+  if (fx.speed !== undefined && def.slot !== 'weapon' && fx.speed > 1) out.push(`Slows the arm ${Math.round((fx.speed - 1) * 100)}%`);
+  for (const w of quirkWords(fx)) out.push(w[0].toUpperCase() + w.slice(1));
+  return out;
+}
+
+/** What they carry, in a grid of cells as in Diablo's bag: a stack to a cell, the rest empty; and their coins. */
+function bag(p: PersonView): HTMLElement {
+  const box = el('div', 'card');
+  const grid = el('div', 'bag');
+  const stacks = (Object.entries(p.carrying) as [Material, number][]).filter(([, n]) => n > 0);
+  const cells = Math.max(16, Math.ceil(stacks.length / 8) * 8);
+  for (let i = 0; i < cells; i++) {
+    const cell = el('div', 'bag-cell');
+    const st = stacks[i];
+    if (st) {
+      const [m, n] = st;
+      cell.classList.add('full');
+      cell.title = `${MATERIAL_NAMES[m]} ×${n}`;
+      const icon = stockIcon(m, 24);
+      cell.append(icon ?? el('span', 'bag-word', MATERIAL_NAMES[m].slice(0, 3)));
+      cell.append(el('span', 'bag-count', String(n)));
+    }
+    grid.append(cell);
+  }
+  box.append(grid);
+  const held = stacks.reduce((n, [, v]) => n + v, 0);
+  const foot = el('div', 'bag-foot');
+  foot.append(el('span', '', `Carrying ${held} of ${p.carryCapacity}`));
+  if (p.coins !== null) foot.append(el('span', 'coins', `● ${p.coins} coins`));
+  if (p.bedroll) foot.append(el('span', '', 'Sleeps on a bedroll'));
+  box.append(foot);
+  return box;
+}
+
+/** How they'd fight if raiders came now, and the spells and skills they'd use. */
+function fightCard(p: PersonView): HTMLElement {
+  const box = el('div', 'card');
+  const b = p.battle;
+  const grid = el('div', 'fight-stats');
+  const stat = (label: string, value: string) => {
+    const c = el('div', 'fight-stat');
+    c.append(el('span', 'fight-label', label), el('span', 'fight-value', value));
+    grid.append(c);
+  };
+  const pc = (v: number) => `${Math.round(v * 100)}%`;
+  stat('Health', `${Math.round(Math.min(p.hp, p.maxHp))}/${p.maxHp}`);
+  stat(b.ranged ? 'Damage (range)' : 'Damage', b.damage[0] === b.damage[1] ? String(b.damage[0]) : `${b.damage[0]}–${b.damage[1]}`);
+  stat('Aim', pc(Math.min(1, b.accuracy)));
+  stat('Strikes true', pc(b.crit));
+  stat('Armour', pc(b.armor));
+  stat('Block', pc(b.block));
+  stat('Dodge', pc(b.dodge));
+  box.append(grid);
+  if (p.kit.length) {
+    const kit = el('div', 'kit');
+    for (const a of p.kit) {
+      const c = el('span', `chip ${a.spell ? 'spell' : 'skill'}`, `${a.spell ? '✦' : '⚔'} ${a.name}`);
+      c.title = `${a.spell ? 'Spell' : 'Skill'}, learned at level ${a.level}`;
+      kit.append(c);
+    }
+    box.append(el('div', 'hint', 'Spells kept ready and skills learned:'), kit);
+  } else if (p.cls) box.append(el('div', 'hint', 'No spells or skills learned yet: they come with levels.'));
+  return box;
+}
+
+/* ------------------------------------------------------------ their picture */
+
+/** The character sheet, loaded once; the panel is drawn again when it comes. */
+let lpcLoading = false;
+let lpcLoaded = false;
+function startLpc(rerender: () => void): void {
+  if (lpcLoading) return;
+  lpcLoading = true;
+  loadLpc().then(
+    () => {
+      lpcLoaded = true;
+      rerender();
+    },
+    () => undefined,
+  );
+}
+
+/** Them as they look in the town, in what they wear and with their weapon in hand, standing; composed pictures kept. */
+const pictures = new Map<string, HTMLCanvasElement>();
+function picture(p: PersonView, s: Snapshot): HTMLCanvasElement | null {
+  if (!lpcLoaded) return null;
+  let look = p.look;
+  let wear: string[];
+  if (p.typeName === 'Traveller' || p.look.wear) wear = wornLayers(p.gear, p.gearQ);
+  else {
+    const w = wardrobe({ id: p.id, gender: p.look.gender, typeName: p.typeName, gear: p.gear, coins: p.coins, child: p.growsUpIn !== null, founder: p.id === s.mainId }, s.theme, s.research.done.includes('weaving'));
+    look = { ...p.look, outfit: w.outfit };
+    wear = [...w.wear, ...wornLayers(p.gear, p.gearQ)];
+  }
+  const weapon = heldWeapon(p.gear, 'fight');
+  const key = JSON.stringify([look, wear, weapon]);
+  let c = pictures.get(key);
+  if (!c) {
+    if (pictures.size > 200) pictures.clear();
+    c = lpcCanvas(look, 'walk', 0, weapon, wear);
+    pictures.set(key, c);
+  }
+  return c;
+}
+
+/** Their whole figure, `scale` times over. */
+function figure(p: PersonView, s: Snapshot, scale: number): HTMLElement {
+  const c = el('canvas', 'pixel-figure');
+  c.width = FRAME_SIZE;
+  c.height = FRAME_SIZE;
+  c.style.width = `${FRAME_SIZE * scale}px`;
+  c.style.height = `${FRAME_SIZE * scale}px`;
+  const src = picture(p, s);
+  if (src) c.getContext('2d')!.drawImage(src, 0, 0);
+  return c;
+}
+
+/** Their head and shoulders, for the list. */
+const FACE = 26;
+function face(p: PersonView, s: Snapshot): HTMLElement {
+  const c = el('canvas', 'pixel-figure folk-face');
+  c.width = c.height = FACE;
+  const src = picture(p, s);
+  // (the head sits about 40 pixels above the feet in a 64-pixel frame)
+  if (src) c.getContext('2d')!.drawImage(src, CENTRE_X - FACE / 2 + 1, FEET_Y - 52, FACE, FACE, 0, 0, FACE, FACE);
+  return c;
 }
 
 function visitorCard(v: VisitorView, s: Snapshot): HTMLElement {
@@ -130,33 +475,6 @@ function priorityGrid(s: Snapshot, bridge: Bridge | undefined): HTMLElement {
     t.append(tr);
   }
   return t;
-}
-
-function personCard(p: PersonView, isMain: boolean): HTMLElement {
-  const c = el('div', 'card person');
-  const top = el('div', 'card-top');
-  top.append(el('span', 'card-name', `${p.name}${isMain ? ' (you)' : ''}`), el('span', 'card-size', `${p.typeName} · ${p.bed ? `bed: ${p.bed}` : 'no bed'}`));
-  c.append(top, el('div', 'lock', p.doing));
-  for (const d of p.detail) c.append(el('div', 'hint', d));
-  if (p.recent.length) c.append(el('div', 'hint', `Lately: ${p.recent.slice(0, 3).join(' · ')}`));
-
-  const bars = el('div', 'bars');
-  bars.append(
-    bar('Morale', p.morale / 100, `${Math.round(p.morale)} → ${Math.round(p.moodTarget)}`),
-    bar('Health', p.hp / p.maxHp, p.downed ? (p.downed === 'bleeding' ? `bleeding out: ${bleedLeft(p.bleedMinutes)} left!` : 'down, recovering') : `${Math.round(p.hp)}/${p.maxHp}`),
-    bar('Food', p.needs.food, ''),
-    bar('Rest', p.needs.rest, ''),
-  );
-  c.append(bars);
-  if (p.moodReasons.length) {
-    const reasons = el('div', 'reasons');
-    for (const r of p.moodReasons) reasons.append(el('span', r.value >= 0 ? 'good' : 'bad', `${r.text} ${r.value > 0 ? '+' : ''}${r.value}`));
-    c.append(reasons);
-  }
-  c.append(skillsList(p), traitsList(p), gearRow(p));
-  const ties = relationsText(p);
-  if (ties) c.append(el('div', 'lock', ties));
-  return c;
 }
 
 /** What each curse gives and takes (the turning is hidden until a lich, vampire or werewolf is in town). */
@@ -234,27 +552,6 @@ function relationsText(p: PersonView): string {
   if (p.friends.length) parts.push(`Friends: ${p.friends.join(', ')}`);
   if (p.rivals.length) parts.push(`Can't stand: ${p.rivals.join(', ')}`);
   return parts.join(' · ');
-}
-
-/** What they wear, each piece ringed in its quality's colour (handed out from the stores before the town has money;
- *  bought with their wages after), and their coins. */
-function gearRow(p: PersonView): HTMLElement {
-  const g = el('div', 'gear');
-  const worn = SLOTS.filter((slot) => p.gear[slot]);
-  if (!worn.length) g.append(el('span', '', 'No gear'));
-  for (const slot of worn) {
-    const def = ITEM_BY_ID[p.gear[slot]!];
-    const q = qualityOf(p.gearQ[slot]);
-    const icon = itemIcon(def, 2);
-    icon.title = `${SLOT_NAMES[slot]}: ${q.name} ${pieceLabel(def.name, p.gearQ[slot]).replace(q.name + ' ', '')} (${def.description})`;
-    icon.style.outline = `2px solid ${q.color}`;
-    icon.style.borderRadius = '3px';
-    g.append(icon);
-  }
-  if (p.coins !== null) g.append(el('span', 'coins', `● ${p.coins} coins`));
-  if (p.bedroll) g.append(el('span', '', 'Sleeps on a bedroll'));
-  g.append(el('span', '', `Carries ${p.carryCapacity}`));
-  return g;
 }
 
 function skillsList(p: PersonView): HTMLElement {

@@ -6,6 +6,8 @@ import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import { className, type ClassId } from '../data/classes';
 import { levelOf, stageOf } from '../data/levels';
+import { personFighter } from './combat';
+import { kitOf } from './actions';
 import { levelProgress } from './classes';
 import { turnable, undeadShare } from './turning';
 import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
@@ -145,6 +147,11 @@ export interface PersonView {
   monster: string | null;
   order: string | null;
   sick: boolean;
+  /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
+   *  chance, dodge, armour and block, and the chance to strike true. */
+  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean };
+  /** The spells they keep ready and the skills they've learned (actives first). */
+  kit: { name: string; spell: boolean; level: number }[];
 }
 
 export interface CraftOrderView {
@@ -895,7 +902,25 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     monster: p.monster ?? null,
     order: p.monster ? (p.order ?? 'hide') : null,
     sick: !!p.sick,
+    ...fightView(p),
   };
+}
+
+/** Someone's fighting stats and kit, worked out again only when what they depend on changes. */
+const fightCache = new Map<number, { key: string; view: Pick<PersonView, 'battle' | 'kit'> }>();
+function fightView(p: Person): Pick<PersonView, 'battle' | 'kit'> {
+  const key = JSON.stringify([p.cls, levelOf(p), p.gear, p.gearQ, p.skills.melee.level, p.skills.ranged.level, p.traits, p.monster, Math.round(p.hp)]);
+  const hit = fightCache.get(p.id);
+  if (hit?.key === key) return hit.view;
+  if (fightCache.size > 500) fightCache.clear();
+  const f = personFighter(p, 'fighter', 'front');
+  const kit = kitOf(p);
+  const view = {
+    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged },
+    kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level })),
+  };
+  fightCache.set(p.id, { key, view });
+  return view;
 }
 
 /** A line or two more about someone: the building they run, how their work is getting on, and (for a crafter) what

@@ -562,6 +562,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **The keep's stairs stay clear:** when a new era widens the keep, `clearStairs` (castle.ts, from era.ts) moves any
   room left standing over a stair tower to the nearest clear spot.
 
+- **Townsfolk tab: short rows, and an inspect page:** `panel/townsfolkPanel.ts`. The list is one row per person (their
+  face cropped from the composed LPC sprite, name, class and level, what they're doing, mini health and morale bars, a
+  flag for trouble); tapping a row inspects them (`inspecting`; "‹ Everyone" goes back to where the list was scrolled).
+  The inspect page has their gear laid out as in Diablo (`paperDoll`: the figure in what they wear, weapon in hand, with
+  the seven slots round it, each ringed in its grade's colour with its +N; tap a slot for its item card, `pieceCard`,
+  stats worked out at grade and +N), their bag as a grid of cells (`bag`, `stockIcon` in `art/materialIcons.ts`: every
+  material now has a picture, from DawnLike's Food/Flesh/Ammo sheets or code-drawn `mat_*` icons), how they'd fight
+  (`PersonView.battle` and `.kit`, from `personFighter` and `kitOf`, cached in snapshot.ts's `fightView`), and the rest.
+  Sideways, the gear sits on the left and the rest beside it, and the list is two columns. The code-drawn icon sheet
+  (`customSheetUrl`) had drawn every icon into its first cell since the fine-grid painter (the Painter's constructor
+  reset the shift), so guns, tavern fare and furnishings showed blank: fixed.
+
 ## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):
