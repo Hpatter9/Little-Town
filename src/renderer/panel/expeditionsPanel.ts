@@ -42,6 +42,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.stock.fuel,
     s.horses,
     s.uniques,
+    s.regions,
   ]);
 
 const listStock = (st: Stock) =>
@@ -56,11 +57,13 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
   head.append(el('span', '', `Expeditions out ${s.expeditions.length}/${MAX_EXPEDITIONS}`), el('span', '', `Parties of up to ${MAX_PARTY}`));
   out.push(head);
   // destinations from eras the town hasn't reached stay off the board (and off the map)
-  const shown = DESTINATIONS.filter((d) => s.unlockAll || eraReached(s.era, d.era));
+  // (and so do places in regions the scouts haven't mapped, and the scouting trips to regions they have)
+  const shown = DESTINATIONS.filter((d) => (s.unlockAll || eraReached(s.era, d.era)) && !s.destinations.find((v) => v.id === d.id)?.hidden);
   worldMap.update(
     shown.map((d) => ({ id: d.id, name: d.name, unlocked: !!s.destinations.find((v) => v.id === d.id)?.unlocked })),
     mapPick,
     s.expeditions,
+    s.regions,
   );
   out.push(worldMap.el, el('div', 'hint map-hint', 'Tap a place on the map, or a destination below, to mark it.'));
   for (const e of s.expeditions) {

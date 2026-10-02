@@ -4,6 +4,7 @@
 // trips lie near home and long ones far away.
 
 import { BESTIARY_SPOTS } from './bestiary';
+import { SCOUT_SPOTS } from './regions';
 
 export const MAP_SIZE = 768;
 
@@ -13,6 +14,8 @@ export const MAP_HOME = { x: 395, y: 410 };
 export const MAP_SPOTS: Readonly<Record<string, { x: number; y: number }>> = {
   // (the new bosses' lairs: data/bestiary.ts)
   ...BESTIARY_SPOTS,
+  // (each region's scouting trip goes to its middle: data/regions.ts)
+  ...SCOUT_SPOTS,
   berry_thicket: { x: 360, y: 470 },
   riverbank: { x: 275, y: 345 },
   deep_woods: { x: 530, y: 360 },

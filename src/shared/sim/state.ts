@@ -509,6 +509,8 @@ export interface GameState {
   keep?: { tiles: number; flare: number };
   /** Destinations visited at least once (their loot is known). */
   scouted: string[];
+  /** The regions of the world map the town's scouts have mapped (data/regions.ts; home is always known). */
+  regions?: string[];
   /** Which end of town each destination lies beyond (-1 left, 1 right). */
   destSides: Record<string, -1 | 1>;
   prompts: Prompt[];

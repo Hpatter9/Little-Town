@@ -4,10 +4,12 @@
 
 import { ENEMIES } from '../data/enemies';
 import { eraReached } from '../data/eras';
+import { HIDDEN_IN, HOME_REGION, REGION_BY_ID, regionScouted } from '../data/regions';
 import {
   CARRYING_WOUNDED_SLOWDOWN,
   CLEARED_RAID_DELAY_DAYS,
   DESTINATION_BY_ID,
+  DESTINATIONS,
   RESCUE_MAX,
   SALVAGE_NOTES_CHANCE,
   LOADED_SLOWDOWN,
@@ -61,8 +63,28 @@ const STRANGE_TOME_CHANCE = 0.35;
 const AMMO_PER_SHOOTER = 10;
 
 export function destinationUnlocked(s: GameState, d: Destination): boolean {
-  if (s.cheats.unlockAll) return true;
-  return eraReached(s.era, d.era) && (!d.research || s.research.done.includes(d.research));
+  if (s.cheats.unlockAll) return !destinationHidden(s, d.id);
+  return !destinationHidden(s, d.id) && eraReached(s.era, d.era) && (!d.research || s.research.done.includes(d.research));
+}
+
+/** Whether a region of the world map has been mapped (home always has). */
+export const regionKnown = (s: GameState, region: string) => region === HOME_REGION || (s.regions ?? []).includes(region);
+/** Whether a destination is off the board: a place in a region not yet mapped, or a region's scouting trip once it's
+ *  mapped. */
+export function destinationHidden(s: GameState, id: string): boolean {
+  const scouts = regionScouted(id);
+  if (scouts) return regionKnown(s, scouts);
+  const region = HIDDEN_IN[id];
+  return !!region && !regionKnown(s, region);
+}
+
+/** A scouting party is home: their region is on the map now, and whatever was hidden there with it. */
+function mapRegion(s: GameState, region: string): void {
+  if (regionKnown(s, region)) return;
+  (s.regions ??= []).push(region);
+  const found = DESTINATIONS.filter((d) => HIDDEN_IN[d.id] === region).map((d) => d.name);
+  const r = REGION_BY_ID[region];
+  notify(s, `The scouts have mapped ${r.name.replace(/^The /, 'the ')}${found.length ? `, and found ${found.length > 1 ? `${found.slice(0, -1).join(', ')} and ${found.at(-1)}` : found[0]}` : ''}.`, true);
 }
 
 /** The skill that decides how fast a member works this destination. */
@@ -487,6 +509,8 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   }
   if (poolSize(haul)) depositNear(s, x, haul); // nobody to carry it: dropped at the nearest store
   if (!s.scouted.includes(d.id)) s.scouted.push(d.id);
+  const mapped = regionScouted(d.id);
+  if (mapped && !e.recalled) mapRegion(s, mapped);
   const found = listStock(e.loot);
   notify(s, `The ${d.name} party is back${e.recalled ? ' (recalled)' : ''}: ${found || 'empty-handed'}.`, true);
   if (!e.recalled) specialOutcome(s, e, d, x, rng);

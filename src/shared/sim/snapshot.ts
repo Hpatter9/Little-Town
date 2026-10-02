@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import { className, type ClassId } from '../data/classes';
 import { levelOf, stageOf } from '../data/levels';
@@ -43,7 +44,7 @@ import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
-import { destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
+import { destinationHidden, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, tileCentreX } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
@@ -288,6 +289,8 @@ export interface DestinationView {
   id: string;
   unlocked: boolean;
   scouted: boolean;
+  /** Off the board and the map: in a region not yet mapped, or a region's scouting trip once it's mapped. */
+  hidden: boolean;
   /** Round trip in game seconds (unloaded). */
   tripSeconds: number;
   /** Food (need units) one member eats on the trip. */
@@ -416,6 +419,8 @@ export interface Snapshot {
   hero: number | null;
   /** The expedition the player is watching, in place of the town. */
   watch: ExpeditionView | null;
+  /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
+  regions: string[];
   /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
   uniques: { id: string; holder: string | null }[];
   raid: RaidView | null;
@@ -575,11 +580,13 @@ export function snapshot(s: GameState): Snapshot {
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
+      hidden: destinationHidden(s, d.id),
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
       ...partyView(s, d.id),
     })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
+    regions: [HOME_REGION, ...(s.regions ?? [])],
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,

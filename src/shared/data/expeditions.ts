@@ -1,11 +1,12 @@
 // Neolithic expedition destinations (DESIGN §8, §15). Times are the base round trip; numbers are for tuning.
 
 import { BESTIARY_LAIRS } from './bestiary';
+import { SCOUT_DESTINATIONS } from './regions';
 import type { EnemyGroup } from './enemies';
 import type { Era } from './eras';
 import type { Material } from './materials';
 
-export type ExpeditionType = 'gather' | 'hunt' | 'legendary' | 'salvage' | 'clear' | 'rescue';
+export type ExpeditionType = 'gather' | 'hunt' | 'legendary' | 'salvage' | 'clear' | 'rescue' | 'scout';
 
 export interface Encounters {
   /** Chance of a fight on arrival. */
@@ -371,11 +372,13 @@ export const DESTINATIONS: readonly Destination[] = [
   { id: 'pirate_flagship', name: 'The Pirate Flagship', type: 'legendary', outSeconds: 320, workSeconds: 200, secondsPerUnit: 7, loot: { alloys: 3, circuits: 3, power_cells: 10 }, guaranteed: { alloys: 12 }, threats: 'The Pirate King and the Star Reaver (bosses)', encounters: { arrival: 1, ambush: 0, groups: [{ enemies: { pirate_king: 1, star_mech: 1 }, weight: 1 }] }, recommendedParty: 3, research: 'energy_weapons', era: 'space', scenery: 'quarry', description: 'The pirates crashed their flagship here. Their king is still aboard.' },
   // the new bosses' lairs (data/bestiary.ts)
   ...BESTIARY_LAIRS,
+  // (the scouting trips that map the fogged regions: data/regions.ts)
+  ...SCOUT_DESTINATIONS,
 ];
 
 export const DESTINATION_BY_ID: Readonly<Record<string, Destination>> = Object.fromEntries(DESTINATIONS.map((d) => [d.id, d]));
 
-export const EXPEDITION_TYPE_NAMES: Record<ExpeditionType, string> = { gather: 'Gather', hunt: 'Hunt', legendary: 'Legendary', salvage: 'Salvage', clear: 'Clear a threat', rescue: 'Rescue' };
+export const EXPEDITION_TYPE_NAMES: Record<ExpeditionType, string> = { gather: 'Gather', hunt: 'Hunt', legendary: 'Legendary', salvage: 'Salvage', clear: 'Clear a threat', rescue: 'Rescue', scout: 'Scout' };
 
 /** Clearing the bandit camp keeps raids away this many game days. */
 export const CLEARED_RAID_DELAY_DAYS = 3;
