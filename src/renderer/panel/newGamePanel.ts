@@ -2,6 +2,7 @@
 // found it, how dangerous the world is, and ironman. Opened from the tray's "New game…", the game-over card,
 // and on a first run. (It replaced a chain of Windows message boxes.)
 
+import { FOUNDER_CLASS } from '../../shared/data/founderClasses';
 import type { Bridge } from '../../shared/ipc';
 import { BIOME_DEFS, BIOMES, DIFFICULTIES, DIFFICULTY_DEFS, type Biome, type Difficulty } from '../../shared/data/biomes';
 import { founderSkills, MAX_NAME_LENGTH, SCENARIOS, type FounderSpec } from '../../shared/data/founding';
@@ -82,6 +83,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
           el('span', 'founder-title', f.title),
           el('span', 'purpose', f.story),
           el('span', 'founder-skills', `${f.background.name}: ${skills}`),
+          ...(FOUNDER_CLASS[f.id] ? [el('span', 'founder-skills founder-calling', `Calling: ${FOUNDER_CLASS[f.id].stages[0]} (theirs alone)`)] : []),
           ...(traitNames ? [el('span', 'founder-skills', traitNames)] : []),
           ...(f.brings?.length ? [el('span', 'founder-skills', `Comes with ${f.brings.map((b) => `${/^[aeiou]/.test(b) ? 'an' : 'a'} ${b}`).join(' and ')}`)] : []),
         );

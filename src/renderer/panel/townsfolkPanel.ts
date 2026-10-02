@@ -537,18 +537,19 @@ function classRow(p: PersonView, _bridge: Bridge | undefined, rerender: () => vo
   const chip = button(`${open ? '▾' : '▸'} ${p.clsName} · Lv ${p.level}`, () => {
     classOpen = open ? null : p.id;
     rerender();
-  }, { cls: 'chip class-chip', title: 'Their calling: tap for the path so far' });
+  }, { cls: `chip class-chip${p.founderCalling ? ' founder' : ''}`, title: 'Their calling: tap for the path so far' });
   row.append(chip, bar);
   const box = el('div', '');
   box.append(row);
   if (open) {
     const path = el('div', 'class-path');
-    const past = def.stages.slice(0, p.stage);
+    const past = p.clsPast;
+    if (p.founderCalling) path.append(el('div', 'hint founder-calling', 'A founder\'s calling: theirs alone, and no one else\'s.'));
     path.append(el('div', 'hint', past.length ? `The path so far: ${past.join(' → ')} → ${p.clsName} (now)` : `${p.clsName} is where their path begins.`));
     path.append(el('div', 'lock short', nextStage(p)));
     box.append(path);
   }
-  box.append(el('div', 'hint', `${def.description} Wears ${def.armour.map((w) => WEIGHT_NAMES[w].toLowerCase()).join(', ')}; wields ${def.weapons.map((f) => FAMILIES[f].name.toLowerCase() + 's').join(', ')}.`));
+  box.append(el('div', 'hint', `${p.clsText} Wears ${def.armour.map((w) => WEIGHT_NAMES[w].toLowerCase()).join(', ')}; wields ${def.weapons.map((f) => FAMILIES[f].name.toLowerCase() + 's').join(', ')}.`));
   return box;
 }
 

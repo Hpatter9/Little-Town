@@ -574,6 +574,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`customSheetUrl`) had drawn every icon into its first cell since the fine-grid painter (the Painter's constructor
   reset the shift), so guns, tavern fare and furnishings showed blank: fixed.
 
+- **Founders' own callings and looks:** `src/shared/data/founderClasses.ts` (`FOUNDER_CLASSES`: one line of five stages
+  for each of the 36 ready-made founders, standing on a `base` class for gear, spells and skills, with signature
+  `stats` and `FOUNDER_EDGE` in `classStat`). `Person.fcls` holds it (set in `makeFounder`; older towns' founder,
+  person 1, adopts theirs by look in `adoptFounderCalling`). Names come from `callingName`/`callingText` everywhere
+  (snapshot `clsName`, `clsPast`, `clsText`, `founderCalling`; journal lines via `aCalling`). The Townsfolk tab names
+  only the current calling; tapped, it shows the stages passed and what the next needs (`???`, its level, an
+  ascension for the last). Founders' outfits are fuller (capes, crowns, hoods, gloves), and in the town they're drawn
+  `FOUNDER_SCALE` (1.14) bigger with a soft aura in their origin's colour (`AURA` in peopleView), and never swapped
+  for a class's stock sprite (`CLASS_LOOK`). The New Town cards name each founder's first calling.
+
 ## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):
@@ -630,6 +640,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   coasts) that only a boat reaches, or that it reaches faster than walking. Likely a boatyard on the coast or river,
   boats as built things (rowboat → sailing ship → steamer by era), a party sailing (watched like a trip, at sea), and
   dangers of their own (storms, sea monsters, pirates). Not designed yet.
+- **Merfolk rework** (the owner's request, for later): the merfolk need much more of an ocean and merfolk feel. Likely:
+  a shoreline or reef town (water in front of the town, tide pools, docks and coral), merfolk who look like merfolk
+  (tails or fins and scales in the water, sea colours; not just elf ears and blue skin), sea-themed buildings and
+  homes, the Craftpix ocean and underwater backdrops and seabed props, sea food and materials (kelp, pearls, coral),
+  and sea raiders and beasts. Not designed yet.
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)

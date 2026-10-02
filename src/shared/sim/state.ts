@@ -1,6 +1,7 @@
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
+import { FOUNDER_CLASS } from '../data/founderClasses';
 import type { Delve } from './delves';
 import type { Quest } from './quests';
 import { TILE } from '../constants';
@@ -342,6 +343,8 @@ export interface Person {
   monster?: MonsterKind | null;
   /** Their class (data/classes.ts): given once when they're grown, for life. */
   cls?: ClassId | null;
+  /** A founder's own calling (data/founderClasses.ts: the founder's id), standing on `cls` as its base. */
+  fcls?: string | null;
   /** Their level (levels.ts: from all they do, fighting most), and the XP toward the next. Left out: level 1. */
   level?: number;
   lvXp?: number;
@@ -373,7 +376,7 @@ export const TOUGH_HP = 20;
 export const FRAIL_HP = 12;
 export const MIN_HP = 24;
 
-export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; level?: number }): number {
+export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; fcls?: string | null; level?: number }): number {
   const frail = p.traits.filter((t) => t === 'frail').length * FRAIL_HP;
   const base = Math.max(MIN_HP, BASE_HP + (p.traits.includes('tough') ? TOUGH_HP : 0) + (p.monster ? MONSTER_HP : 0) - frail);
   // (a class and its stage, and every level, add to it: levels.ts)
@@ -794,6 +797,14 @@ function makeFounder(p: Person, spec: FounderSpec): void {
   if (f.name) p.name = f.name;
   if (f.look) p.look = { ...f.look, ...(f.look.wear ? { wear: [...f.look.wear] } : {}) };
   p.priorities = autoPriorities(p.skills);
+  // (a ready-made founder's calling is their own, on its base class)
+  const calling = def ? FOUNDER_CLASS[def.id] : undefined;
+  if (calling) {
+    p.cls = calling.base;
+    p.fcls = calling.id;
+    p.level = 1;
+    p.stageSeen = 0;
+  }
   p.hp = maxHp(p);
 }
 

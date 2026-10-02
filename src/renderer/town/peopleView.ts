@@ -58,6 +58,8 @@ interface Drawn {
   levels?: number;
   levelAt?: number;
   levelUp?: Sprite;
+  /** A founder's aura (made when first needed). */
+  aura?: Sprite;
   /** How far up they're drawn (in a castle's room), and when it was last eased. */
   lift?: number;
   liftAt?: number;
@@ -76,6 +78,10 @@ const FLOOR_LIFT = WALK_Y + 2 + PLINTH + 3;
 const CLIMB_SPEED = 90;
 
 /** Each class's Pixel Champions hero: its sheet and block (a mage is the sage sheet's blue-robed wizard). */
+/** A founder is drawn this much bigger than the townsfolk, with an aura in their origin's colour. */
+const FOUNDER_SCALE = 1.14;
+const AURA: Record<string, number> = { town: 0xffd860, lich: 0x9a6aff, druid: 0x7ae070, vampire: 0xff3048, werewolf: 0xc8d8ff, robot: 0x60e0ff, dwarves: 0xffa040, merfolk: 0x40e0e0, nomads: 0xffc060, fae: 0xff90f0, alchemists: 0x80ff90, knights: 0xfff0a0 };
+
 export const CLASS_LOOK: Partial<Record<ClassId, [CreatureSheet, number]>> = {
   necromancer: ['champ_necromancer', 0],
   summoner: ['champ_summoner', 0],
@@ -148,6 +154,7 @@ export class PeopleView {
         d.blood?.destroy();
         d.emote?.destroy();
         d.levelUp?.destroy();
+        d.aura?.destroy();
         this.drawn.delete(id);
       }
     }
@@ -239,7 +246,8 @@ export class PeopleView {
       const [look, wear] = this.dressed(d.view);
       d.sprite.texture = lpcFrame(look, anim, frame, held, wear);
       const flip = d.view.dir < 0;
-      const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.floor !== null ? INSIDE_SCALE : 1) * (d.view.look.height ?? 1); // children are drawn smaller (and everyone, in a castle)
+      const founder = d.view.founderCalling;
+      const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.floor !== null ? INSIDE_SCALE : 1) * (d.view.look.height ?? 1) * (founder ? FOUNDER_SCALE : 1); // children are drawn smaller (and everyone, in a castle; a founder bigger)
       d.sprite.scale.set(flip ? -k : k, k);
       d.sprite.x = Math.round(x) + (flip ? (CENTRE_X + 1) * k : -CENTRE_X * k);
       d.sprite.y = WALK_Y - FEET_Y * k;
@@ -248,7 +256,7 @@ export class PeopleView {
       const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : null;
       d.sprite.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
       // someone who's taken up a special class looks the part (a Pixel Champions hero, at twice size)
-      if (d.view.cls && CLASS_LOOK[d.view.cls] && !hidden) {
+      if (d.view.cls && CLASS_LOOK[d.view.cls] && !hidden && !founder) {
         const facing = d.view.dir < 0 ? 'left' : 'right';
         const moving = Math.abs(d.toX - d.fromX) > 0.5;
         const [sheet, block] = CLASS_LOOK[d.view.cls]!;
@@ -338,7 +346,20 @@ export class PeopleView {
       d.shadow.height = 6 * k;
       d.shadow.alpha = 0.42;
       d.shadow.position.set(Math.round(x), WALK_Y + 1);
-      if (d.lift) for (const o of [d.sprite, d.shadow, d.load, d.bubble, d.levelUp, d.emote, d.blood]) if (o?.visible) o.y -= Math.round(d.lift);
+      // a founder stands out: a soft aura in their origin's colour, breathing slowly behind them
+      if (founder && !d.aura) {
+        d.aura = this.layer.addChildAt(new Sprite(glowTexture()), 0);
+        d.aura.anchor.set(0.5);
+      }
+      if (d.aura) {
+        d.aura.visible = founder && !hidden;
+        d.aura.tint = AURA[this.theme] ?? AURA.town;
+        d.aura.width = 52 * k;
+        d.aura.height = 72 * k;
+        d.aura.alpha = 0.5 + 0.15 * Math.sin(now / 700);
+        d.aura.position.set(Math.round(x), WALK_Y - 22 * k);
+      }
+      if (d.lift) for (const o of [d.sprite, d.shadow, d.load, d.bubble, d.levelUp, d.emote, d.blood, d.aura]) if (o?.visible) o.y -= Math.round(d.lift);
     }
   }
 

@@ -6,9 +6,10 @@ import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/bu
 import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
 import { hashSeed, mixSeed, type Rng } from '../rng';
-import { className, STAGE_LEVELS } from '../data/classes';
+import { STAGE_LEVELS } from '../data/classes';
+import { callingName } from '../data/founderClasses';
 import { stageOf } from '../data/levels';
-import { assignClass, gainLevelXp } from './classes';
+import { aCalling, assignClass, gainLevelXp } from './classes';
 
 /** Chance a wanderer arrives seasoned: a few levels in, their class already theirs. */
 const SEASONED_CHANCE = 0.08;
@@ -319,7 +320,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   }
   person.dir = side < 0 ? 1 : -1;
   s.visitor = { person, waitX: campEdgeX(s, side), leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
-  const trained = person.cls ? ` (${/^[AEIOU]/.test(className(person.cls, stageOf(person))) ? 'an' : 'a'} ${className(person.cls, stageOf(person))}, level ${person.level}!)` : '';
+  const trained = person.cls ? ` (${aCalling(callingName(person, stageOf(person))!)}, level ${person.level}!)` : '';
   notify(s, `${/^[aeiou]/.test(type) ? 'An' : 'A'} ${type}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
 }
 

@@ -4,8 +4,9 @@ import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
 import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
-import { className, type ClassId } from '../data/classes';
+import type { ClassId } from '../data/classes';
 import { levelOf, stageOf } from '../data/levels';
+import { callingName, callingText } from '../data/founderClasses';
 import { personFighter } from './combat';
 import { kitOf } from './actions';
 import { levelProgress } from './classes';
@@ -91,6 +92,11 @@ export interface PersonView {
   /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
   clsName: string | null;
+  /** The stages they've come through (names, oldest first), what their calling is about, and whether it's a founder's
+   *  own (data/founderClasses.ts). What's to come isn't sent: it stays a mystery. */
+  clsPast: string[];
+  clsText: string;
+  founderCalling: boolean;
   /** Which of their class's five stages they're at (0 to 4), and whether they've ascended (the last needs it). */
   stage: number;
   ascended: boolean;
@@ -864,7 +870,10 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     activity: p.activity,
     mounted: null,
     cls: p.cls ?? null,
-    clsName: p.cls ? className(p.cls, stageOf(p)) : null,
+    clsName: callingName(p, stageOf(p)),
+    clsPast: p.cls ? [0, 1, 2, 3].filter((i) => i < stageOf(p)).map((i) => callingName(p, i)!) : [],
+    clsText: callingText(p),
+    founderCalling: !!p.fcls,
     stage: stageOf(p),
     ascended: !!p.ascended,
     level: levelOf(p),
@@ -1024,7 +1033,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           hitFx: f.hitFx ?? null,
           atb: f.down ? 0 : Math.max(0, Math.min(1, 1 - f.cooldown / Math.max(1, f.interval))),
           statuses: Object.entries(f.st ?? {}).filter(([, v]) => v!.until > e.battle!.tick).map(([k]) => k),
-          clsName: f.side === 'party' ? ((q) => (q?.cls ? className(q.cls, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
+          clsName: f.side === 'party' ? ((q) => (q ? callingName(q, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
           level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
           pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
           conjured: !!f.conjured,

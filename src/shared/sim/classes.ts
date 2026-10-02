@@ -3,6 +3,8 @@
 
 import { ASCEND_DAILY, CLASS_DEFS, CLASSES, className, NECRO_RANGE, STAGE_LEVELS, TAME_EVERY, TAME_RANGE, type ClassId } from '../data/classes';
 import { ENEMIES } from '../data/enemies';
+import { FOUNDERS } from '../data/founders';
+import { callingName, FOUNDER_CLASS } from '../data/founderClasses';
 import { ITEM_BY_ID, type ItemDef } from '../data/items';
 import { LEVEL_SHARE_FIGHT, LEVEL_SHARE_WORK, levelOf, MAX_LEVEL, stageOf, xpToLevel } from '../data/levels';
 import type { Skill } from '../data/skills';
@@ -46,12 +48,14 @@ export function ascend(s: GameState, p: Person, why = 'Their power has grown pas
   if (p.ascended || !p.cls) return;
   p.ascended = true;
   p.stageSeen = stageOf(p);
-  notify(s, `${why}: ${p.name} ascends, and is now ${/^[AEIOU]/.test(className(p.cls, stageOf(p))) ? 'an' : 'a'} ${className(p.cls, stageOf(p))}!`, true);
+  const name = callingName(p, stageOf(p))!;
+  notify(s, `${why}: ${p.name} ascends, and is now ${aCalling(name)}!`, true);
 }
 
 /** Every hour: grown-ups without a class are given one (newcomers, the newly grown, towns from before classes), and
  *  those whose class has evolved are announced. */
 export function classesHourly(s: GameState): void {
+  adoptFounderCalling(s);
   for (const p of s.people) {
     if (isChild(p) || p.away !== null) continue;
     if (!p.cls) {
@@ -65,9 +69,28 @@ export function classesHourly(s: GameState): void {
     const st = stageOf(p);
     if (st > (p.stageSeen ?? 0)) {
       p.stageSeen = st;
-      notify(s, `${p.name} has become ${/^[AEIOU]/.test(className(p.cls, st)) ? 'an' : 'a'} ${className(p.cls, st)} (level ${levelOf(p)})!`, true);
+      const name = callingName(p, st)!;
+      notify(s, `${p.name} has become ${aCalling(name)} (level ${levelOf(p)})!`, true);
     }
   }
+}
+
+/** A calling's name with 'a' or 'an' before it ('The Eternal Hearth' as it is). */
+export const aCalling = (name: string) => (/^The /.test(name) ? name : `${/^[AEIOU]/.test(name) ? 'an' : 'a'} ${name}`);
+
+/** A town founded before founders had callings of their own: its founder (always the first person) takes theirs,
+ *  found by their look, keeping their level. */
+function adoptFounderCalling(s: GameState): void {
+  const p = s.people.find((q) => q.id === 1);
+  if (!p || p.fcls !== undefined) return;
+  const look = JSON.stringify(p.look);
+  const def = Object.values(FOUNDERS).flat().find((f) => JSON.stringify(f.look) === look);
+  const calling = def ? FOUNDER_CLASS[def.id] : undefined;
+  p.fcls = calling?.id ?? null;
+  if (!calling) return;
+  p.cls = calling.base;
+  p.level ??= 1;
+  p.stageSeen = stageOf(p);
 }
 
 /* ------------------------------------------------------------ levels */
