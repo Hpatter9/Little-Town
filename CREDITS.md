@@ -37,6 +37,13 @@ The spells' and skills' effects in the watched fights and on the raid's battle m
 and `slash_*.png`, built by `tools/compose-effects.cjs`) are from **Craftpix.net**'s free Pixel Magic Sprite Effects pack
 and free Magic Slash Effects pack.
 
+## Craftpix interiors and tower-defence tiles
+
+The shop's and tavern's furnishings (shelves of jars, glass cabinets, tables, planters, crates, rugs, the counters) and
+the brick hearth's furnace (`src/renderer/art/interior/`) are from **Craftpix.net**'s free Glassblower's Workshop
+top-down pack. The raid map's cobbled trail and the pads under the shooters' spots (`src/renderer/art/td/`) are from its
+free Fields Tileset and Village Tileset for top-down tower defence.
+
 ## Craftpix top-down objects (the raid map's scenery)
 
 The trees, bushes, rocks, mushrooms, crystals, bones, idols, corals and shells scattered over the raid's battle map

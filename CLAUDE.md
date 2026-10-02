@@ -485,6 +485,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   anywhere), `desert`, `coast`, `cave` (the dwarves' rock), `grove` (mixed in for the fae and druids) and `sea` (under
   the merfolk's water, seen through it). `BattleScene.propSets` picks them; until loaded, the town's side-on scenery
   stands in.
+- **Shop and tavern from the packs:** `shopPanel.ts` draws the furnishings from the Glassblower's Workshop sheet
+  (`art/interior/workshop.png`; `WORKSHOP` boxes, `SPRITE_OF` per item, laid across the footprint by `sprites()`), the
+  counters as its long board (ends and a repeated middle), and the brick hearth as its animated furnace (`FORGE`). Pieces
+  without a picture, and all of them until the sheet loads, are painted as before. The Trade tab has a button for each
+  venue once built (`venue-row`), besides tapping them in the town.
+- **The raid map's ground from the tower-defence tilesets:** `art/tdTiles.ts` (the Fields tileset's cobbles, the
+  Village tileset's tower pads, in `art/td/`); `battleGround(..., td)` lays a cobble tile per trail cell and a pad under
+  each shooter's spot. The battle view loads them and lays the map out again when they come.
 - **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
   `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
   (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.
@@ -543,6 +551,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     right, a box naming the action, a panel of names and health along the bottom): automatic, watched if the player
     wants. Used for expedition and delve fights. The tower-defence raids stay maps, but their fighters use their
     classes, skills and spells.
+- **Boats** (the owner's idea, for later): boats for long journeys: far destinations over water (islands, other
+  coasts) that only a boat reaches, or that it reaches faster than walking. Likely a boatyard on the coast or river,
+  boats as built things (rowboat → sailing ship → steamer by era), a party sailing (watched like a trip, at sea), and
+  dangers of their own (storms, sea monsters, pirates). Not designed yet.
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)

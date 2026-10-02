@@ -21,6 +21,7 @@ import { noTone, type PixelArt } from '../art/pixelArt';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { makeSpriteSet, type SpriteSet } from '../art/sprites';
 import { stillTexture } from '../art/stills';
+import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { propTextures, PROP_FINE, type PropSet } from '../art/props';
 import { PAL } from '../art/palette';
 import { glowTexture } from '../town/layer';
@@ -211,7 +212,10 @@ export class BattleScene {
     this.map = map;
     this.trail = trailCells(map);
     const seed = map.len * 131 + map.wid * 17 + map.decor.length;
-    this.ground.texture = battleGround(map, this.vertical, seed).texture;
+    // (the tower-defence tiles, once loaded: until then it's painted, and set out again when they come)
+    const td = tdTiles();
+    if (!td) loadTdTiles().then(() => (this.mapKey === key ? (this.mapKey = '') : undefined), () => undefined);
+    this.ground.texture = battleGround(map, this.vertical, seed, td).texture;
     this.scenery ??= makeSpriteSet(0xba77e, noTone);
     for (const c of [...this.things.children]) c.destroy();
     this.foes.clear();
