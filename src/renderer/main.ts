@@ -173,6 +173,7 @@ async function start(): Promise<void> {
 
   // the town, top-down (map/mapView.ts): the land, the buildings on their footprints, and everyone on it
   const map = new MapView();
+  (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
   const people = new MapPeople(map.things);
   const raiders = new MapRaiders(map.things);
   const pane = new ExpeditionPane(seedHash);
@@ -294,6 +295,7 @@ async function start(): Promise<void> {
     return { kind: 'cell', cell };
   };
 
+  (window as unknown as { __hitTest?: typeof hitTest }).__hitTest = hitTest; // (for previews)
   const refreshHover = () => {
     if (camera.dragging || press) return;
     const overUi = mouse?.target instanceof Element && !!mouse.target.closest('[data-hit]');
@@ -996,7 +998,7 @@ async function start(): Promise<void> {
     const hero = snap.hero !== null ? people.posOf(snap.hero) : null;
     if (hero) camera.follow(hero, w, h, performance.now(), FOLLOW_WAIT_MS);
     const moving = camera.update(ticker.deltaMS / 1000, w, h);
-    map.setCamera(camera.x, camera.y);
+    map.setCamera(camera.x, camera.y, w, h);
     // screen shake (a boss's roar or sweeping attack)
     const shaking = performance.now() < shakeUntil;
     app.stage.position.set(shaking ? Math.round((Math.random() - 0.5) * 6) : 0, shaking ? Math.round((Math.random() - 0.5) * 4) : 0);

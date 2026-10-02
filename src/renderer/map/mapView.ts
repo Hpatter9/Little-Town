@@ -23,6 +23,9 @@ import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
 
+/** Things this far outside the view are still drawn (so nothing pops at the edge). */
+const CULL_MARGIN = 64;
+
 /** Multiply colour for a daylight level: white by day, moonlit blue at night. */
 const NIGHT_TINT = 0x8a96c8;
 export function daylightTint(daylight: number): number {
@@ -76,7 +79,7 @@ export class MapView {
   /** Screen space (the camera moves `world`). */
   readonly root = new Container();
   readonly world = new Container();
-  private readonly ground = new Container();
+  readonly ground = new Container();
   private readonly marks = new Graphics();
   /** Everything that stands on the ground, sorted by its foot's y. */
   readonly things = new Container();
@@ -113,9 +116,23 @@ export class MapView {
     loadTdTiles().then(() => this.repaint(), () => undefined);
   }
 
-  /** The camera: world position of the screen's top-left. */
-  setCamera(x: number, y: number): void {
+  /** The camera: world position of the screen's top-left, and the screen's size. Only what's in view is drawn:
+   *  the ground's chunks and everything standing on it outside the view are skipped (Pixi draws all else). */
+  setCamera(x: number, y: number, w: number, h: number): void {
     this.world.position.set(-Math.round(x), -Math.round(y));
+    const x0 = x - CULL_MARGIN;
+    const y0 = y - CULL_MARGIN;
+    const x1 = x + w + CULL_MARGIN;
+    const y1 = y + h + CULL_MARGIN;
+    const side = CHUNK * CELL;
+    for (const c of this.chunks.values()) {
+      const s = c.sprite;
+      s.renderable = s.x + side > x0 && s.x < x1 && s.y + side > y0 && s.y < y1;
+    }
+    for (const t of this.things.children) {
+      // (anything standing on the map is at most a few cells wide and some taller than wide)
+      t.renderable = t.x > x0 - 96 && t.x < x1 + 96 && t.y > y0 - 32 && t.y < y1 + 160;
+    }
   }
 
   /** Screen to world, and back. */

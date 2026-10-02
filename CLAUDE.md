@@ -719,8 +719,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     sprites facing left or right, sorted by their feet). `mapCamera.ts` pans in 2D (drag, momentum, wheel, follow).
     `main.ts` drives it (hover kinds: person, building, `cell`, raider, pane); the sky, spells, animals, herds and the old
     strip views are no longer drawn (the old `town/` files stay until the map is complete). The phone page shows the map
-    at zoom 0.5 by default (keys `littletown.zoom4*`, 0.25 to 2.6), filling the strip's room. Still to do in this phase:
-    homes and workshops from the top-down packs, the keep's walls, the nomads' camp, animals, spell effects.
+    at zoom 0.5 by default (keys `littletown.zoom4*`, 0.25 to 2.6), filling the strip's room. `setCamera` culls the
+    chunks and things outside the view (Pixi draws everything else). `window.__map` and `window.__hitTest` are for
+    previews. Still to do later (phases 6 and 7): homes and workshops from the top-down packs, the keep's walls, the
+    nomads' camp, animals, spell effects, people facing up and down, and deleting the old `town/` views (battleView and
+    fightView still import spellsView, spellLooks and peopleView's constants).
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
