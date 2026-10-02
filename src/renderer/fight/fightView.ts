@@ -16,20 +16,13 @@ import { impactFrame, IMPACT_SIZE } from '../art/effects';
 import { heldWeapon, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { machineFrame, machineSize } from '../art/machines';
-import { PAL } from '../art/palette';
-import { mixHex, noTone, paint, type Painter } from '../art/pixelArt';
+import { BACK_H, BACK_HORIZON, BACK_W, fightBackdrop, FRONT_H } from '../art/fightBackdrop';
 import { attackAnim, enemyLook } from '../art/rivals';
-import { makeSpriteSet } from '../art/sprites';
 import { stillTexture } from '../art/stills';
-import { hash } from '../art/terrain';
 
 /** How much of the scene is seen at least (art px): it's scaled so this fits, and shows more where there's room. */
 const SEE_W = 170;
 const SEE_H = 150;
-/** The backdrop's size, and the row of it where the land meets the sky. */
-const BACK_W = 320;
-const BACK_H = 320;
-const BACK_HORIZON = 200;
 /** How much land shows below the horizon at most (the rest is sky). */
 const LAND = 110;
 const MARCH = 30;
@@ -57,7 +50,9 @@ export class FightScene {
   /** The whole screen behind the scene, so nothing of the town shows round it. */
   private readonly cover = new Graphics();
   private readonly clip = new Graphics();
-  private readonly back = new TilingSprite({ width: BACK_W, height: BACK_H });
+  /** The scenery's layers, back to front, and how fast each scrolls by as the party walks. */
+  private readonly layers = [new TilingSprite({ width: BACK_W, height: BACK_H }), new TilingSprite({ width: BACK_W, height: BACK_H }), new TilingSprite({ width: BACK_W, height: BACK_H }), new TilingSprite({ width: BACK_W, height: FRONT_H })];
+  private static readonly PACE = [0.12, 0.45, 1, 1.5];
   /** What's seen (art px), and where the horizon is in it. */
   private vw = SEE_W;
   private vh = SEE_H;
@@ -68,13 +63,14 @@ export class FightScene {
   private readonly figs = new Map<string, Figure>();
   private sceneKey = '';
   private scroll = 0;
+  private drift = 0;
   private view: ExpeditionView | null = null;
   /** Spell and skill ids by name (the sim logs names; the flash wants the element). */
   private readonly idByName = new Map<string, string>();
 
   constructor() {
     this.root.visible = false;
-    this.world.addChild(this.back, this.figures, this.fx);
+    this.world.addChild(...this.layers.slice(0, 3), this.layers[3], this.figures, this.fx);
     this.world.mask = this.clip;
     this.root.addChild(this.clip);
     this.root.addChild(this.cover, this.world);
@@ -97,8 +93,9 @@ export class FightScene {
     this.world.scale.set(k);
     this.world.position.set(0, top);
     this.clip.clear().rect(0, top, w, room).fill(0xffffff);
-    this.back.width = this.vw + 2;
-    this.back.y = this.hy - BACK_HORIZON;
+    for (const l of this.layers) l.width = this.vw + 2;
+    for (const l of this.layers.slice(0, 3)) l.y = this.hy - BACK_HORIZON;
+    this.layers[3].y = Math.round(this.vh - FRONT_H + 8);
   }
 
   update(v: ExpeditionView | null): void {
@@ -108,8 +105,8 @@ export class FightScene {
     const key = `${v.id}|${v.scenery}`;
     if (key !== this.sceneKey) {
       this.sceneKey = key;
-      const art = backdrop(v.scenery, v.id);
-      this.back.texture = art.texture;
+      const art = fightBackdrop(v.scenery, v.id);
+      [art.far, art.mid, art.near, art.front].forEach((a, i) => (this.layers[i].texture = a.texture));
       for (const f of this.figs.values()) f.sprite.destroy();
       this.figures.removeChildren();
       this.figs.clear();
@@ -122,8 +119,10 @@ export class FightScene {
     const fighting = !!v.battle?.length;
     // the ground scrolls under a party on the move (not while they fight or work)
     const walking = !fighting && (v.phase === 'out' || v.phase === 'back');
-    if (walking) this.scroll = (this.scroll + MARCH * dt) % BACK_W;
-    this.back.tilePosition.x = -Math.round(this.scroll);
+    if (walking) this.scroll += MARCH * dt;
+    // (the clouds drift a little even while they stand)
+    this.drift += dt * 1.5;
+    this.layers.forEach((l, i) => (l.tilePosition.x = -Math.round((this.scroll * FightScene.PACE[i] + (i === 0 ? this.drift : 0)) % BACK_W)));
     this.fx.clear();
     const seen = new Set<string>();
     if (fighting) this.drawFight(v.battle!, v, now, seen);
@@ -298,49 +297,3 @@ export class FightScene {
     s.position.set(Math.round(x - (flip > 0 ? CENTRE_X : -CENTRE_X - 1) * k), Math.round(y - FEET_Y * k));
   }
 }
-
-/* ------------------------------------------------------------ the backdrop */
-
-/** The scenery behind a fight: sky and far land over a ground that runs back, in the colours of where they are. */
-function backdrop(scenery: string, seed: number) {
-  const cave = scenery === 'cave';
-  const rocky = cave || scenery === 'quarry';
-  const sky = cave ? ['#1a1620', '#2a2430'] : ['#5a8ac8', '#a8c8e8'];
-  const ground = rocky ? PAL.rock : scenery === 'woods' ? PAL.grassDark : PAL.grass;
-  const set = makeSpriteSet(0x5ee0 + seed, noTone);
-  return paint(
-    BACK_W,
-    BACK_H,
-    noTone,
-    (p: Painter) => {
-      // sky, banded
-      const horizon = BACK_HORIZON;
-      for (let y = 0; y < horizon; y++) p.rect(0, y, BACK_W, 1, mixHex(sky[0], sky[1], y / horizon));
-      // far land: hills or a cave's back wall
-      for (let x = 0; x < BACK_W; x++) {
-        // (whole waves across the width, so it tiles as it scrolls)
-        const t = (x / BACK_W) * Math.PI * 2;
-        const h = Math.round(12 + 9 * Math.sin(t * 2 + seed) + 5 * Math.sin(t * 9 + seed * 3) + hash(seed, x, 1) * 2);
-        p.rect(x, horizon - h, 1, h, cave ? '#3a3440' : mixHex(PAL.grassDark, sky[1], 0.45));
-      }
-      // the ground running back: lighter far, darker near, with streaks along it
-      for (let y = horizon; y < BACK_H; y++) p.rect(0, y, BACK_W, 1, mixHex(mixHex(ground, sky[1], 0.25), ground, (y - horizon) / (BACK_H - horizon)));
-      for (let k = 0; k < 220; k++) {
-        const x = Math.floor(hash(seed, k, 3) * BACK_W);
-        const y = horizon + 2 + Math.floor(hash(seed, k, 4) ** 0.7 * (BACK_H - horizon - 3));
-        p.rect(x, y, 2 + Math.floor((y - horizon) / 18), 1, hash(seed, k, 5) < 0.5 ? (rocky ? PAL.rockDark : PAL.grassDark) : rocky ? PAL.rockLight : PAL.grassLight);
-      }
-      if (scenery === 'river') for (let y = horizon + 4; y < horizon + 12; y++) p.rect(0, y, BACK_W, 1, mixHex(PAL.water, PAL.waterLight, (y - horizon - 4) / 8));
-      // a few trees or rocks on the far edge (the scenery set's own)
-      const list = rocky ? set.boulder : scenery === 'woods' ? set.pine : set.broadleaf;
-      for (let k = 0; k < 6; k++) {
-        const art = list[k % list.length];
-        const x = Math.floor(hash(seed, k, 7) * (BACK_W - 20));
-        p.ctx.drawImage(art.texture.source.resource as CanvasImageSource, x, horizon - Math.round(art.height * 0.6) + 3, art.width * 0.6, art.height * 0.6);
-      }
-    },
-    1,
-    { stuff: false, tile: true },
-  );
-}
-

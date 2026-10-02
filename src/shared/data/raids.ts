@@ -103,8 +103,8 @@ export const RAID_MIGHT_FREE = 8;
 export const RAID_MIGHT_MAX = 2;
 /** A seasoned town (its grown-ups' levels, data/levels.ts) draws seasoned raiders too: this much more might per level of
  *  the grown-ups' average beyond the first, up to RAID_SEASONED_MAX times (on top of the above). */
-export const RAID_MIGHT_PER_LEVEL = 0.05;
-export const RAID_SEASONED_MAX = 2;
+export const RAID_MIGHT_PER_LEVEL = 0.07;
+export const RAID_SEASONED_MAX = 2.5;
 /** Struck down by a raider, someone may die there and then (a boss's blow more often; the founder less, since the town
  *  passes to an heir), rather than lying wounded to be tended. */
 export const KILLING_BLOW = 0.3;
