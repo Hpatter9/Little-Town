@@ -57,6 +57,12 @@ The trees, bushes, rocks, mushrooms, crystals, bones, idols, corals and shells s
 Rocky Area Objects, Forest Objects, Top-Down Cave Objects, Top-Down Seabed Objects and Fields Tileset (tower defence)
 packs.
 
+## Craftpix trees, bushes, rocks and clouds (the town)
+
+The town's trees, bushes and rocks and the sky's clouds (`src/renderer/art/scenery/`, built by
+`tools/compose-scenery.cjs`) are from **Craftpix.net**'s free Tree Pixel Art, Bush Assets, Rocks Pixel Art and Clouds
+Pixel Art packs.
+
 ## Craftpix parallax backgrounds (the fights' backdrops)
 
 The watched fights' backdrops (`src/renderer/art/backdrops/`, built by `tools/compose-backdrops.cjs`) come from free
@@ -129,7 +135,8 @@ Horses are from **whtdragon**'s RPG Maker MV animal sprites (see Creatures above
 
 ## Terrain and scenery
 
-Terrain, trees, rocks and the campfire are placeholder pixel art drawn in code for this project.
+Terrain, the campfire and the smaller scenery (grass, flowers, stumps, ferns...) are pixel art drawn in code for this
+project; the trees, bushes, rocks and clouds drawn in code stand in until the Craftpix ones (above) have loaded.
 
 ## Rival armies and spells
 

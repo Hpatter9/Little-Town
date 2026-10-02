@@ -27,6 +27,7 @@ cpSync('src/renderer/art/creatures/packs', 'out/renderer/packs', { recursive: tr
 cpSync('src/renderer/art/backdrops', 'out/renderer/backdrops', { recursive: true });
 // and the raid map's scenery atlases (tools/compose-props.cjs)
 cpSync('src/renderer/art/props', 'out/renderer/props', { recursive: true });
+cpSync('src/renderer/art/scenery', 'out/renderer/scenery', { recursive: true }); // (the town's trees, bushes and rocks: tools/compose-scenery.cjs)
 // music is streamed from files, not inlined
 mkdirSync('out/renderer/music', { recursive: true });
 for (const f of ['town.ogg', 'battle.ogg']) copyFileSync(`src/renderer/music/${f}`, `out/renderer/music/${f}`);

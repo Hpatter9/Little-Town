@@ -15,6 +15,7 @@ import { drawFarWall } from '../art/farWall';
 import { applySeasonPalette, PAL } from '../art/palette';
 import { haze, hexToNum, noTone, type PixelArt, type Tone } from '../art/pixelArt';
 import { makeSpriteSet, markerFlag, type SpriteSet } from '../art/sprites';
+import { loadScenery, sceneryReady, withPackScenery } from '../art/scenery';
 import { foreTileArt, hash, MID_ART_BASE, midTileArt, shade } from '../art/terrain';
 import { BuildingsView } from './buildingsView';
 import { HerdsView } from './herdsView';
@@ -77,6 +78,7 @@ export class TownView {
   ) {
     this.near = makeSpriteSet(world.seedHash ^ 0x51, noTone);
     const far = makeSpriteSet(world.seedHash ^ 0x52, haze(0.32));
+    void loadScenery(); // (the packs' trees and rocks: drawn in at the next setSeason once here)
     this.flag = markerFlag(noTone);
     this.terrain = tiles.map((t) => t.terrain);
 
@@ -235,19 +237,22 @@ export class TownView {
     this.back.cull(-this.backX / BACK_SCALE, (screenW - this.backX) / BACK_SCALE);
   }
 
-  /** Redraw the land's scenery for a new season (its colours come from the palette: see applySeasonPalette).
-   *  The shapes are drawn from the same seeds, so the land looks the same, only the colours turn. */
   /** The origin's building style: a tint (or none), redrawn at the next sync. */
   setBuildingStyle(tint: [string, number] | null, style = 'town'): void {
     this.buildings.setStyle(tint, style);
   }
 
+  /** Redraw the land's scenery for a new season (its colours come from the palette: see applySeasonPalette), and again
+   *  once the packs' trees, bushes and rocks have loaded (art/scenery.ts), or the land is first known. */
   setSeason(biome: string, season: string): void {
-    if (season === this.season) return;
+    const packed = sceneryReady();
+    if (season === this.season && biome === this.biome && packed === this.packed) return;
     this.season = season;
+    this.biome = biome;
+    this.packed = packed;
     applySeasonPalette(biome, season);
-    this.near = makeSpriteSet(this.world.seedHash ^ 0x51, noTone);
-    this.far = makeSpriteSet(this.world.seedHash ^ 0x52, haze(0.32));
+    this.near = this.withPack(makeSpriteSet(this.world.seedHash ^ 0x51, noTone), noTone, 'near');
+    this.far = this.withPack(makeSpriteSet(this.world.seedHash ^ 0x52, haze(0.32)), haze(0.32), 'far');
     this.clearBack();
     this.buildBack();
     const wall = this.wallKey;
@@ -269,6 +274,14 @@ export class TownView {
   }
   /** (The palette the scenery was drawn in: main.ts applies the starting season before the town is built.) */
   season: string | null = null;
+  /** The land, and whether the packs' scenery was in when it was last drawn. */
+  private biome = '';
+  private packed = false;
+
+  /** The painted trees, bushes and boulders swapped for the packs' (when loaded), for the land and season. */
+  private withPack(set: SpriteSet, tone: Tone, toneKey: string): SpriteSet {
+    return withPackScenery(set, tone, toneKey, this.biome, this.season ?? 'summer');
+  }
 
   /** A device that can't keep up: no smoke or mist (main.ts steps the quality down). */
   calm = false;

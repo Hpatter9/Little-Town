@@ -7,6 +7,8 @@
 // through the day (blue by day, warm at dawn and dusk, deep blue at night, greyer under cloud), clouds drifting on
 // the wind, birds crossing by day and bats at dusk, and a rainbow when the rain clears.
 
+import { loadScenery, sceneryArts } from '../art/scenery';
+import { noTone } from '../art/pixelArt';
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { BACK_GROUND_Y, STRIP_HEIGHT } from '../../shared/constants';
 import { FULL_MOON_DAYS } from '../../shared/data/monsters';
@@ -106,6 +108,15 @@ export class SkyView {
         this.clouds.addChild(sprite);
         this.cloudList.push({ sprite, x: Math.random(), speed: 0.004 + Math.random() * 0.006, alpha: 0 });
       }
+      // (the packs' clouds take over once loaded: art/scenery.ts; white, so the time of day still tints them)
+      void loadScenery().then(() => {
+        const arts = sceneryArts('cloud', noTone, 'sky');
+        if (arts.length)
+          for (const [i, c] of this.cloudList.entries()) {
+            c.sprite.texture = arts[(i * 3) % arts.length].texture;
+            c.sprite.scale.set(SCALE / 2); // (about the size of the painted ones)
+          }
+      });
     }
   }
 

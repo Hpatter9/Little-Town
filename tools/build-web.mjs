@@ -16,6 +16,7 @@ cpSync('out/renderer/music', `${OUT}/music`, { recursive: true });
 cpSync('out/renderer/packs', `${OUT}/packs`, { recursive: true });
 cpSync('out/renderer/backdrops', `${OUT}/backdrops`, { recursive: true });
 cpSync('out/renderer/props', `${OUT}/props`, { recursive: true });
+cpSync('out/renderer/scenery', `${OUT}/scenery`, { recursive: true });
 cpSync('out/renderer/fonts', `${OUT}/fonts`, { recursive: true });
 
 // the phone page that holds them

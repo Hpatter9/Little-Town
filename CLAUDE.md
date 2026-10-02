@@ -584,6 +584,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `FOUNDER_SCALE` (1.14) bigger with a soft aura in their origin's colour (`AURA` in peopleView), and never swapped
   for a class's stock sprite (`CLASS_LOOK`). The New Town cards name each founder's first calling.
 
+- **The town's scenery from the packs:** `tools/compose-scenery.cjs` (run by hand) cuts Craftpix's side-on trees,
+  bushes, rocks and clouds into one atlas, pixel for pixel (`src/renderer/art/scenery/scenery.png`, beside the page;
+  frames by set in `art/scenery.json`). `art/scenery.ts` draws them at half size, so each of their pixels is one
+  fine-grid pixel, through the layer's tone (the far land's haze) and turned for autumn (`autumn()`: broadleaf trees and
+  bushes only). `scenerySets` (`art/scenerySets.ts`) picks by land and season: leafy, conifer, snowy (winter, and the
+  tundra always), dry (desert); bushes bare in winter; rocks snowy or desert. `withPackScenery` swaps them into a
+  `SpriteSet` once loaded; TownView redraws through `setSeason` when they arrive (`packed`), and the expedition pane takes
+  them too. The sky's clouds are the pack's (`skyView`, half scale), still tinted by the hour. Until the atlas loads (or
+  if it can't), the painted ones stand in. Frame rate unchanged (the headless browser gives the same with and without).
+
 ## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):
