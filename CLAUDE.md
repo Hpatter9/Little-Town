@@ -665,26 +665,24 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (tails or fins and scales in the water, sea colours; not just elf ears and blue skin), sea-themed buildings and
   homes, the Craftpix ocean and underwater backdrops and seabed props, sea food and materials (kelp, pearls, coral),
   and sea raiders and beasts. Not designed yet.
-- **A top-down town** (the owner's idea, to be planned before any work; not started): the side-on strip becomes a
-  sprawling top-down map like the raid's battle map. The town builds outward with roads and buildings laid out sensibly;
-  the local map grows with it, revealing areas, special minerals, caves and map events (a burnt-out trader's cart that
-  starts a quest, a strong beast to put down). A map event that needs a fight offers to go: the player picks the
-  townsfolk, and it's fought as a Final Fantasy-style battle (the watched fight). Assessment and proposed phases:
-  - It's the biggest change yet: the sim is one-dimensional (tiles in a row, buildings by tile and width, people
-    walking along x, the back/mid/fore layers, `townEdgeX`, castle floors, the nomads' camp, fields on the slope), so
-    its space has to become a 2D grid; the economy, research, people, classes, fights, delves and events carry over.
-  - (0) A look first: draw a town top-down from today's state with the packs' top-down tiles (DawnLike, Tiny RPG Town,
-    the village, fields, path and road, undead and green zone tilesets), to settle the look before the sim changes.
-    (1) The 2D sim core: grid map in chunks, footprints, roads, pathfinding (roads quicker), people moving in 2D.
-    (2) The planner lays the town out: a road network, homes along roads, workshops by their materials, fields and pens
-    outside, walls round the edge. (3) The growing map and fog: rings open as the town grows and by era; veins, caves
-    and sites placed by the seed. (4) Map events: quests, beasts and finds; fights through the party picker and the FF
-    screen. (5) Raids on the real map (the tower-defence battle becomes the town itself). (6) Top-down art for every
-    origin's buildings; townsfolk in four directions (the LPC sheets have them; the data keeps only the right-facing
-    rows now). (7) Old saves laid out on the grid, the castle (vertical) and nomads rethought, phone pan and pinch,
-    speed on the phone.
-  - To decide first: replace the side view or keep it as a street view; whether existing towns carry over; how the
-    vampire castle works top-down.
+- **The top-down town (decided, in progress):** the side-on strip is replaced entirely by a sprawling top-down map in
+  the raid map's style (Craftpix's top-down village, fields, path and road tilesets and the props atlases; buildings
+  stand on their footprints, drawn front-on, sorted by depth). The town builds outward with roads and buildings laid
+  out sensibly; the local map opens up as it grows (minerals, caves, map events: a burnt-out trader's cart that starts a
+  quest, a strong beast to put down; a fight is offered with townsfolk the player picks, fought on the FF screen).
+  - The owner's decisions: no side view kept; **a new save is required** (old towns aren't carried over: a new town is
+    founded); the vampire town is **one level**: a castle that adds rooms as it grows, not a sprawling town; pack
+    sprites are welcome even where their style is a little bulky (more detail than the code-drawn ones; removed later
+    if they don't work).
+  - Phases: (1) the land: a 2D map of 32px cells (`sim/land.ts`: terrain, pools, rivers, the open area, footprints,
+    roads, pathfinding), tested on its own; (2) the sim moved onto it (buildings by cell and footprint, people moving
+    in 2D along paths, gathering on cells, the planner laying out roads and districts; the old `tiles`, layers and
+    `World` retired; save version bumped); (3) the top-down renderer replacing TownView (ground, roads, scenery props,
+    buildings, people in four directions, fog, pan and pinch on the phone, the feed); (4) the map growing and its
+    places and events, fights through the party picker and the FF screen; (5) raids fought on the town's own map;
+    (6) origins: the castle as one level of rooms, the nomads, the merfolk later; more pack art; (7) soak, phone checks,
+    PR.
+
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)
