@@ -178,6 +178,14 @@ export interface FighterView {
   sinceHit: number;
   /** What the last hit was, if special (a Blood Knight's, a gunshot's, a laser's). */
   hitFx: 'blood' | 'fire' | 'lightning' | null;
+  /** How near their next turn is (0 to 1: the old games' time gauge), their statuses, their class (party), and the
+   *  last number to pop up over them (ticks ago). */
+  atb: number;
+  statuses: string[];
+  clsName: string | null;
+  level: number | null;
+  pop: { age: number; amount: number; heal: boolean } | null;
+  conjured: boolean;
 }
 
 export interface RaiderView {
@@ -269,8 +277,9 @@ export interface ExpeditionView {
   /** What the player staked on it: a safe or a risky trip (older ones: none). */
   stakes: 'safe' | 'risky' | null;
   roles: Record<number, string>;
-  /** A fight in progress, if any. */
+  /** A fight in progress, if any, and the spells and skills used in it lately (ticks ago). */
   battle: FighterView[] | null;
+  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[] }[];
   /** Waiting on a question for the player. */
   waiting: boolean;
 }
@@ -405,6 +414,8 @@ export interface Snapshot {
   rallyIn: number;
   /** The townsperson the player follows (the camera keeps them in view), while they live. */
   hero: number | null;
+  /** The expedition the player is watching, in place of the town. */
+  watch: ExpeditionView | null;
   raid: RaidView | null;
   reputation: number;
   gameOver: { text: string; won: boolean } | null;
@@ -567,6 +578,7 @@ export function snapshot(s: GameState): Snapshot {
       ...partyView(s, d.id),
     })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
+    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,
@@ -945,8 +957,15 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           sinceHit: e.battle!.tick - f.lastHit,
           sinceArea: f.lastArea != null ? e.battle!.tick - f.lastArea : 999,
           hitFx: f.hitFx ?? null,
+          atb: f.down ? 0 : Math.max(0, Math.min(1, 1 - f.cooldown / Math.max(1, f.interval))),
+          statuses: Object.entries(f.st ?? {}).filter(([, v]) => v!.until > e.battle!.tick).map(([k]) => k),
+          clsName: f.side === 'party' ? ((q) => (q?.cls ? className(q.cls, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
+          level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
+          pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
+          conjured: !!f.conjured,
         }))
       : null,
+    acts: (e.battle?.acts ?? []).map((a) => ({ age: e.battle!.tick - a.tick, side: a.side, ref: a.ref, name: a.name, targets: a.targets })),
     waiting: e.prompt !== null,
   };
 }

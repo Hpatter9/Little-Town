@@ -69,6 +69,7 @@ export interface Fighter {
   kit?: Kit;
   st?: Statuses;
   conjured?: boolean;
+  pop?: { tick: number; amount: number; heal: boolean };
   /** Epic bosses: raging yet, called for help yet, attacks made (for the sweeping attack). */
   enraged?: boolean;
   summoned?: boolean;

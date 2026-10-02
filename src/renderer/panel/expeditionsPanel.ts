@@ -111,6 +111,17 @@ function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined):
   c.append(bar);
   c.append(el('div', 'purpose', `Loot ${e.lootSize}/${e.carry}${e.lootSize ? ': ' + listStock(e.loot) : ''}`));
   c.append(el('div', 'purpose', `Packed food: ${listStock(e.supplies) || 'none'}`));
+  // (watch them: the town view gives way to the party on the road and their fights, as in the old games)
+  c.append(
+    button(
+      'Watch',
+      () => {
+        bridge?.command({ type: 'watch', expedition: e.id });
+        bridge?.closePanel();
+      },
+      { title: 'Follow the party on the road and watch their fights.' },
+    ),
+  );
   if (e.phase !== 'back' && !e.battle) c.append(button('Recall', () => bridge?.command({ type: 'recallExpedition', expedition: e.id }), { cls: 'place quiet', title: 'Turn them around. They still have to walk back.' }));
   return c;
 }

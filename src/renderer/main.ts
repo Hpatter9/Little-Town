@@ -3,6 +3,8 @@
 
 import { BattleScene } from './battle/battleView';
 import { createBattleHud } from './battle/battleHud';
+import { FightScene } from './fight/fightView';
+import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
 import { Application, Graphics, TextureStyle } from 'pixi.js';
@@ -192,6 +194,10 @@ async function start(): Promise<void> {
   const battle = new BattleScene();
   app.stage.addChild(battle.root);
   (window as unknown as { __battle?: BattleScene }).__battle = battle; // (for previews: where a spot is on screen)
+  // watching a party away, as in the old games (fight/fightView.ts): it takes over the strip too
+  const fight = new FightScene();
+  app.stage.addChild(fight.root);
+  const fightHud = createFightHud({ back: () => bridge.command({ type: 'watch', expedition: null }) });
   const battleHud = createBattleHud({
     go: () => bridge.command({ type: 'battleGo' }),
     auto: (on) => bridge.command({ type: 'battleAuto', on }),
@@ -885,7 +891,11 @@ async function start(): Promise<void> {
     battleHud.update(next.battle, next.raid?.name ?? 'Raiders');
     battle.selectedPerson = battleHud.picked;
     battle.aiming = battleHud.aiming;
-    town.root.visible = !next.battle;
+    // (a raid's battle comes first: watching waits behind it)
+    const watched = next.battle ? null : next.watch;
+    fight.update(watched);
+    fightHud.update(watched);
+    town.root.visible = !next.battle && !watched;
     showNotices(next);
     const tilesChanged = next.tileRev !== snap.tileRev;
     snap = next;
@@ -1007,13 +1017,17 @@ async function start(): Promise<void> {
       battle.resize(app.screen.width, app.screen.height, ...battleHud.insets());
       battle.render(performance.now(), ticker.deltaMS / 1000, snap);
     }
+    if (fight.shown) {
+      fight.resize(app.screen.width, app.screen.height, ...fightHud.insets());
+      fight.render(performance.now(), ticker.deltaMS / 1000);
+    }
     // the art under a still mouse changes while the camera moves
     if (moving) {
       refreshHover();
       if (selected) showActions();
     }
     if (selectedPerson !== null) showPersonCard(); // follow them as they walk
-    app.ticker.maxFPS = interactive || moving || battle.shown ? FPS_ACTIVE : FPS_IDLE;
+    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown ? FPS_ACTIVE : FPS_IDLE;
   });
 }
 

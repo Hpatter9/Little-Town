@@ -257,6 +257,9 @@ export class Sim {
       case 'battleCast':
         castAt(s, c.power, this.rng, [c.x, c.y]);
         break;
+      case 'watch':
+        s.watching = c.expedition !== null && s.expeditions.some((e) => e.id === c.expedition) ? c.expedition : undefined;
+        break;
       case 'follow':
         s.hero = c.person !== null && s.people.some((p) => p.id === c.person) ? c.person : undefined;
         break;

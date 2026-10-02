@@ -56,6 +56,8 @@ export interface Combatant {
   lastAction?: number;
   /** Called up by a spell (a summoned beast or spirit). */
   conjured?: boolean;
+  /** The last number to pop up over them (damage, or healing): for the watcher. */
+  pop?: { tick: number; amount: number; heal: boolean };
 }
 
 /** What a fight gives the engine: everyone in it, the tick, a way to call up a summoned ally, and a log of what was
@@ -181,6 +183,7 @@ export function tickStatuses(a: Arena, f: Combatant): void {
 }
 
 function wound(a: Arena, f: Combatant, dmg: number): void {
+  f.pop = { tick: a.tick, amount: dmg, heal: false };
   f.hp = Math.max(0, f.hp - dmg);
   f.lastHit = a.tick;
   if (f.hp === 0) f.down = true;
@@ -331,7 +334,10 @@ function apply(a: Arena, f: Combatant, act: KitAction, e: Effect): Combatant[] {
     case 'heal': {
       const targets = pick(a, f, e.target);
       const amount = power * (e.power ?? 1) * 1.6 * (1 + (p?.healing ?? 0));
-      for (const t of targets) t.hp = Math.min(t.maxHp, t.hp + Math.round(amount));
+      for (const t of targets) {
+        t.pop = { tick: a.tick, amount: Math.min(t.maxHp - t.hp, Math.round(amount)), heal: true };
+        t.hp = Math.min(t.maxHp, t.hp + Math.round(amount));
+      }
       return targets;
     }
     case 'revive': {
@@ -392,6 +398,7 @@ export function strike(a: Arena, from: Combatant, to: Combatant, raw: number, ph
     dmg -= soak;
     if (shield.power <= 0) delete to.st!.shield;
   }
+  to.pop = { tick: a.tick, amount: dmg, heal: false };
   if (dmg > 0) {
     to.hp = Math.max(0, to.hp - dmg);
     to.lastHit = a.tick;

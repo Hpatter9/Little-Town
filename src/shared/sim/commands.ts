@@ -55,6 +55,7 @@ export type Command =
   | { type: 'castHeld' }
   /** Follow a townsperson (null: nobody). */
   | { type: 'follow'; person: number | null }
+  | { type: 'watch'; expedition: number | null }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
   | { type: 'rally'; person: number }
   /** The battle on the trail (sim/battle.ts): put a fighter on a spot (or off: null), send the raiders on now, auto-watch
@@ -148,6 +149,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.power === null || typeof c.power === 'string' ? { type: 'holdPower', power: c.power as string | null } : null;
     case 'castHeld':
       return { type: 'castHeld' };
+    case 'watch':
+      return c.expedition === null || Number.isInteger(c.expedition) ? { type: 'watch', expedition: c.expedition as number | null } : null;
     case 'follow':
       return c.person === null || Number.isInteger(c.person) ? { type: 'follow', person: c.person as number | null } : null;
     case 'rally':

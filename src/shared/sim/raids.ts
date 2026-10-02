@@ -25,6 +25,8 @@ import {
   RAID_MIGHT_PER_PERSON,
   RAID_MIGHT_FREE,
   RAID_MIGHT_MAX,
+  RAID_MIGHT_PER_LEVEL,
+  RAID_SEASONED_MAX,
   KILLING_BLOW,
   BOSS_KILLING_BLOW,
   FOUNDER_KILLING_BLOW,
@@ -70,6 +72,7 @@ import { classesInRaid, summonForRaid } from './classes';
 import { bindTheDead, sicken } from './doom';
 import { bossArrives, bossBlow, bossesInRaid } from './bosses';
 import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
+import { levelOf } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider } from './state';
@@ -207,7 +210,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
     raiders.push({ ...last, id: s.nextId++, kind: kind.leader, hp, maxHp: hp, goal: 'harm', x: last.x + (side < 0 ? -30 : 30), carrying: {} });
   }
   // a big town draws hardened raiders: tougher, and harder hitting
-  const might = Math.min(RAID_MIGHT_MAX, 1 + Math.max(0, grown - RAID_MIGHT_FREE) * RAID_MIGHT_PER_PERSON);
+  const might = Math.min(RAID_MIGHT_MAX, 1 + Math.max(0, grown - RAID_MIGHT_FREE) * RAID_MIGHT_PER_PERSON) * seasonedMight(s);
   if (might > 1)
     for (const rd of raiders) {
       rd.might = might;
@@ -762,4 +765,12 @@ function endRaid(s: GameState, rng: Rng): void {
           ? 'They got away.'
           : 'They were driven off.';
   notify(s, `Raid by the ${kind.name.toLowerCase()} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
+}
+
+/** Raiders come as seasoned as the town: its grown-ups' average level makes them tougher and harder hitting. */
+export function seasonedMight(s: GameState): number {
+  const adults = s.people.filter((p) => p.type !== 'child');
+  if (!adults.length) return 1;
+  const avg = adults.reduce((t, p) => t + levelOf(p), 0) / adults.length;
+  return Math.min(RAID_SEASONED_MAX, 1 + (avg - 1) * RAID_MIGHT_PER_LEVEL);
 }

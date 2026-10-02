@@ -628,6 +628,8 @@ export interface GameState {
   event?: { def: string; prompt: number; who?: number; held?: boolean };
   /** The townsperson the player follows (the camera keeps them in view; their big moments send phone alerts). */
   hero?: number;
+  /** The expedition (or delve) the player is watching, in place of the town (snapshot.watch). */
+  watching?: number;
   /** The origin power the player keeps back to cast themselves (sim/powers.ts castHeld). */
   heldPower?: string;
   /** When the player can rally a defender again (sim/rally.ts). */
