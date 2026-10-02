@@ -23,6 +23,7 @@ import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
+import { onPackArt, packArt, packDressing } from './packBuildings';
 import { CARPET_W, cornerTower, floorTile, MERLON, northWall, sideWalkTile, southWall, TOWER_H, TOWER_W, WALL_FACE, WALL_T } from './keepArt';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
@@ -65,6 +66,8 @@ interface DrawnBuilding {
   /** Where it stands (world px): its picture's box. */
   rect: { x: number; y: number; w: number; h: number };
   progress: number;
+  /** Street furniture from the pack beside it (map/packBuildings.ts). */
+  extras?: Sprite[];
 }
 
 function cropLook(b: Building): CropLook | undefined {
@@ -117,6 +120,8 @@ export class MapView {
    *  things; `wide` sprites span the view and are never culled. */
   private castle: { key: string; under: Container; things: Container[] } | null = null;
   private readonly wide = new Set<Container>();
+  /** Bumped when a pack picture loads: every building is drawn again with it. */
+  private artGen = 0;
 
   constructor() {
     this.things.sortableChildren = true;
@@ -126,6 +131,7 @@ export class MapView {
     this.world.addChild(this.ground, this.marks, this.under, this.things, this.over, this.ghost);
     this.root.addChild(this.world);
     loadTdTiles().then(() => this.repaint(), () => undefined);
+    onPackArt(() => this.artGen++);
   }
 
   /** The camera: world position of the screen's top-left, and the screen's size. Only what's in view is drawn:
@@ -411,7 +417,8 @@ export class MapView {
     if (b.def === 'campfire') return this.fire[0];
     const f = footprint(b);
     if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey);
-    return buildingArt(b.def, this.tone, this.toneKey, cropLook(b), this.style);
+    // (a pack picture where one suits the look: map/packBuildings.ts)
+    return packArt(b.def, f.w, this.style) ?? buildingArt(b.def, this.tone, this.toneKey, cropLook(b), this.style);
   }
 
   /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */
@@ -482,7 +489,7 @@ export class MapView {
     for (const b of list) {
       seen.add(b.id);
       let d = this.buildings.get(b.id);
-      const sig = sigOf(b);
+      const sig = `${sigOf(b)}|${this.artGen}`;
       if (d && d.sig !== sig) {
         this.destroy(d);
         this.buildings.delete(b.id);
@@ -508,6 +515,7 @@ export class MapView {
     d.faint?.destroy();
     d.mask?.destroy();
     d.site?.destroy();
+    for (const e of d.extras ?? []) e.destroy();
   }
 
   private draw(b: Building, sig: string): DrawnBuilding {
@@ -536,6 +544,17 @@ export class MapView {
     sprite.position.set(left, top);
     sprite.zIndex = flat ? top - 1e6 : bottom;
     const d: DrawnBuilding = { sig, sprite, shadow, art, rect, progress: -1 };
+    if (b.status === 'done') {
+      // (a lantern post, a barrel, a cart by a pack-drawn house's corners)
+      const x0 = f.x * CELL;
+      const y0 = (f.y + f.h) * CELL;
+      for (const e of packDressing(b.def, b.id, f.w, this.style)) {
+        const sp = this.things.addChild(new Sprite(e.texture));
+        sp.position.set(Math.round(x0 + e.dx), Math.round(y0 + e.dy - e.h));
+        sp.zIndex = y0 + e.dy + 0.2;
+        (d.extras ??= []).push(sp);
+      }
+    }
     if (b.status === 'blueprint') {
       // a faint outline of the whole, the finished picture masked to the progress, and the construction site over it
       const faint = this.things.addChild(new Sprite(art.texture));

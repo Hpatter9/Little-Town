@@ -48,7 +48,8 @@ Props and Objects pack.
 The shop's and tavern's furnishings (shelves of jars, glass cabinets, tables, planters, crates, rugs, the counters) and
 the brick hearth's furnace (`src/renderer/art/interior/`) are from **Craftpix.net**'s free Glassblower's Workshop
 top-down pack. The raid map's cobbled trail and the pads under the shooters' spots (`src/renderer/art/td/`) are from its
-free Fields Tileset and Village Tileset for top-down tower defence.
+free Fields Tileset and Village Tileset for top-down tower defence. The Village Tileset's half-timbered houses and striped
+awnings also stand for the medieval town's cottages, row houses, inn, trading post and stalls on the town map.
 
 ## Craftpix top-down objects (the raid map's scenery)
 

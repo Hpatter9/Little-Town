@@ -755,6 +755,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     and `art/battleArt.ts` are gone. The phone page keeps the town's zoom in a battle (`watchOn` alone draws at 1).
     Soak (3 towns per origin, 10 days, people/deaths): settlers 17–24/1–2, druids 16–24/2, vampires 20–24/0–1, knights
     21–24/0–1; no town lost.
+  - **Phase 6, origins and pack art on the map (in progress):** the vampire keep is dressed by `src/renderer/map/keepArt.ts`
+    and `MapView.syncCastle` (from `snapshot.castle.rect`): a flagstone floor (a tiling sprite) with a carpet from the gate,
+    the curtain wall seen like the buildings (walk above, face below, battlements), a gatehouse in the south wall, round
+    corner towers; the floor and side walks in MapView's `under`, the walls among the `things` (the north wall's zIndex at
+    its walk, so rooms by it stand in front; `wide` sprites are never culled). The rooms are the ordinary building
+    pictures. `src/renderer/map/packBuildings.ts`: Craftpix's Village tileset houses and awnings (`src/renderer/art/village/`,
+    bundled as data URLs) stand for the cottage, row houses, inn and tavern, trading post, stall and general store in the
+    base and knights looks (`PICKS`, `STYLES`), scaled to the footprint plus `OVERHANG` on the fine grid (`packArt`; the
+    code-drawn picture stands until the image loads, then `onPackArt` bumps `artGen` and the buildings are drawn again),
+    with street furniture at a finished one's front corners (`packDressing`: lantern posts, barrels, crates, carts,
+    signboards, by the building's id; `DrawnBuilding.extras`).
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
