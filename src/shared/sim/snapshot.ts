@@ -32,7 +32,7 @@ import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../da
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
-import { atPlace, DESTINATION_BY_ID, DESTINATIONS, ROLES } from '../data/expeditions';
+import { atPlace, DESTINATIONS, ROLES } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry } from './people';
 import type { Era } from '../data/eras';
@@ -49,7 +49,7 @@ import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
-import { destinationHidden, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
+import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, campXY } from './state';
 import { cellAt, groundAt, type LandMap } from './land';
@@ -60,6 +60,9 @@ import { TILE } from '../constants';
 
 import { rallyState } from './rally';
 import { daysToMove } from './nomads';
+import { describeFoes, placeDestination, placeDestinations, placeXY } from './places';
+import { isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
+import type { Destination } from '../data/expeditions';
 import { RIVALS } from '../data/rivals';
 
 const spellName = (spell: string): string => {
@@ -305,6 +308,22 @@ export interface ExpeditionView {
   delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
 }
 
+/** A place on the town's land. */
+export interface PlaceView {
+  id: number;
+  kind: PlaceKind;
+  name: string;
+  text: string;
+  /** Its middle, in px. */
+  x: number;
+  y: number;
+  found: boolean;
+  state: 'waiting' | 'done' | 'gone';
+  /** A fight waiting: who, and the trip to send a party on (the board's destination), with the full destination. */
+  foes: string | null;
+  dest: Destination | null;
+}
+
 export interface DestinationView {
   id: string;
   unlocked: boolean;
@@ -443,6 +462,8 @@ export interface Snapshot {
   housing: { beds: number; people: number };
   expeditions: ExpeditionView[];
   destinations: DestinationView[];
+  /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
+  places: PlaceView[];
   prompts: PromptView[];
   /** Seconds until the player can rally a defender again (0: now). */
   rallyIn: number;
@@ -614,18 +635,19 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: DESTINATIONS.map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
       hidden: destinationHidden(s, d.id),
-      ...(d.type === 'delve'
+      ...(d.type === 'delve' || isPlaceDest(d.id)
         ? { candidates: s.people.filter((p) => p.away === null && !p.downed && !isChild(p) && p.hp >= maxHp(p) * 0.4).map((p) => p.id), cleared: s.delved?.[d.id] ?? 0, quietHours: quietHours(s, d.id) }
         : {}),
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
       ...partyView(s, d.id),
     })),
+    places: placeViews(s),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
     quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
@@ -852,6 +874,21 @@ function askedText(key: string): string {
 }
 
 /** The party the town would plan for a destination, for the Expedition Board. */
+/** The places on the land, for the map and the feed. */
+function placeViews(s: GameState): PlaceView[] {
+  return (s.places ?? []).map((p) => ({
+    id: p.id,
+    kind: p.kind,
+    name: PLACE_DEFS[p.kind].name,
+    text: PLACE_DEFS[p.kind].found,
+    ...placeXY(p),
+    found: p.found !== null,
+    state: p.state,
+    foes: p.foes ? describeFoes(p.foes) : null,
+    dest: p.foes && p.state === 'waiting' && p.found !== null ? placeDestination(s, p) : null,
+  }));
+}
+
 function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
   const plan = planParty(s, dest);
   const party = plan.members.map((id) => {
@@ -904,7 +941,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     floor: null,
     rally: rallyState(s, p),
     indoors: p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
-    away: p.away === null ? null : (DESTINATION_BY_ID[s.expeditions.find((e) => e.id === p.away)?.dest ?? '']?.name ?? 'expedition'),
+    away: p.away === null ? null : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     maxHp: maxHp(p),
     downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
@@ -994,7 +1031,7 @@ function craftView(s: GameState, o: CraftOrder): CraftOrderView {
 }
 
 function expeditionView(s: GameState, e: Expedition): ExpeditionView {
-  const d = DESTINATION_BY_ID[e.dest];
+  const d = destinationOf(s, e.dest)!;
   const len = e.phase === 'out' ? e.outTicks : e.phase === 'work' ? e.workTicks : e.backTicks;
   let left = e.phase === 'out' ? e.outTicks - e.elapsed + e.workTicks + e.outTicks : e.phase === 'work' ? e.workTicks - e.elapsed + e.outTicks : e.backTicks - e.elapsed;
   // (a delve's time inside goes by the rooms: how far down they are, out of how many)
@@ -1168,7 +1205,7 @@ function bossBar(s: GameState): Snapshot['bossBar'] {
   if (raider) return { name: ENEMIES[raider.kind].name, hp: raider.hp, maxHp: raider.maxHp, enraged: !!raider.enraged, where: 'in town' };
   for (const e of s.expeditions) {
     const f = e.battle?.fighters.find((q) => q.side === 'enemy' && ENEMIES[q.kind]?.kit && !q.down);
-    if (f) return { name: f.name, hp: f.hp, maxHp: f.maxHp, enraged: !!f.enraged, where: atPlace(DESTINATION_BY_ID[e.dest]?.name ?? 'expedition') };
+    if (f) return { name: f.name, hp: f.hp, maxHp: f.maxHp, enraged: !!f.enraged, where: atPlace(destinationOf(s, e.dest)?.name ?? 'expedition') };
   }
   return null;
 }

@@ -34,6 +34,15 @@ function pick(dir, re, k, skip) {
 /** What kind of thing a source file shows (for the town map: trees on forest cells, rocks on rock, and so on). */
 function kindOf(file) {
   const f = file.toLowerCase();
+  // (the town map's places: sim/places.ts)
+  if (/cave_entrance/.test(f)) return 'cave';
+  if (/dragon_bones|dinosaur_skeleton/.test(f)) return 'bones';
+  if (/magic_circle/.test(f)) return 'circle';
+  if (/demon_scull/.test(f)) return 'skull';
+  if (/white_crystal/.test(f)) return 'crystal';
+  if (/3 decor\/(1|2)\.png$/.test(f)) return 'cart';
+  if (/8 camp\//.test(f)) return 'camp';
+  if (/building1_light/.test(f)) return 'ruin';
   if (/mushroom|chanterelle|flower|grass|fern|liana|coral|seaweed|algae|kelp/.test(f)) return 'plant';
   if (/tree|birch|fir|conifer|palm|willow|ent_|idol|gazebo|totem|cocoon/.test(f)) return 'tree';
   if (/rock|stone|stalagmite|crystal|boulder|canyon|ice/.test(f)) return 'rock';
@@ -50,6 +59,7 @@ const SEA = path.join(dirOf('top-down-seabed-objects'), 'PNG/Objects_separately'
 const FIELDS = path.join(dirOf('fields-tileset-pixel-art-for-tower'), '2 Objects');
 const bushes = fs.readdirSync(BUSH).flatMap((d) => pick(path.join(BUSH, d), /./, 0.17));
 const fields = (d, re = /./) => pick(path.join(FIELDS, d), re, 0.5);
+const VILLAGE = path.join(dirOf('village-pixel-tileset'), '2 Objects');
 
 // (the small saplings at the start of each tree row are left out)
 const SETS = {
@@ -91,6 +101,14 @@ const SETS = {
   ],
   // under the merfolk's water
   sea: pick(SEA, /shadow1\.png$/, 0.2, /Ship|Mermaid_house|Dragon_bones|Monster_fish/),
+  // the places on the town's land (sim/places.ts): cave mouths, great bones, carts, a camp, a shrine, crystals
+  places: [
+    ...pick(ROCKY, /^Cave_entrance\d_ground_shadow/, 0.26),
+    ...pick(ROCKY, /^Dragon_bones_full_ground_shadow/, 0.2),
+    ...pick(path.join(CAVE, '128'), /Dinosaur_skeleton_part1_light|Demon_scull_light|white_crystal_light_shadow2|magic_circle_light|Building1_light/, 0.26),
+    ...pick(path.join(VILLAGE, '3 Decor'), /^(1|2)\.png$/, 0.5),
+    ...pick(path.join(FIELDS, '8 Camp'), /^(1|2|3|4)\.png$/, 0.5),
+  ],
   // the fae's and druids' groves
   grove: [
     ...pick(FOREST, /Luminous|balls_tree|Swirling|White_tree|Tree_idol|Ent_|gazebo|Mega_tree/, 0.2),

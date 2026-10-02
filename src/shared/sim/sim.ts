@@ -27,6 +27,7 @@ import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
 import { questsHourly } from './quests';
 import { delvesHourly } from './delves';
+import { placesHourly } from './places';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
 import { maybeStartRaid, startGuildRaid, updateRaid } from './raids';
@@ -144,6 +145,7 @@ export class Sim {
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     questsHourly(s);
     delvesHourly(s);
+    placesHourly(s, this.rng);
     drillGuards(s);
     updateAdvice(s);
     maybeArrive(s, this.rng);

@@ -90,7 +90,7 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
   // anything that wants attention now
   let nowKey = '';
   const drawNow = (s: Snapshot) => {
-    const cards: { cls: string; mark: string; title: string; text: string; watch?: number }[] = [];
+    const cards: { cls: string; mark: string; title: string; text: string; watch?: number; panel?: string }[] = [];
     if (s.raid) {
       const foes = s.raid.raiders.filter((r) => !r.ally);
       const standing = foes.filter((r) => !r.down && !r.fleeing && !r.gone).length;
@@ -108,6 +108,8 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
       const where = e.phase === 'out' ? 'On the way' : e.phase === 'back' ? (d.cleared ? 'Cleared it! Coming home' : 'Coming home') : d.room ? `Room ${d.room} of ${d.rooms} · ${d.torches} torches` : 'At the door';
       cards.push({ cls: 'delve', mark: '⛏', title: `${e.destName}: ${where}`, text: `${e.battle?.length ? 'Fighting! ' : ''}${(e.phase === 'work' && d.log.at(-1)) || e.members.map((m) => m.name).join(', ')} · tap to watch`, watch: e.id });
     }
+    // something found on the town's land that wants a party (tap: the Expedition Board)
+    for (const p of s.places) if (p.dest) cards.push({ cls: 'place', mark: '⚑', title: `${p.name} found`, text: `${p.foes} there. Pick a party under Expeditions.`, panel: 'expeditions' });
     const q = s.prompts[0];
     // (the raid's own question is the raid card already)
     if (q && !(s.raid && q.title.includes(s.raid.name))) cards.push({ cls: 'ask', mark: '?', title: q.title, text: 'A choice waits for you on the town below.' });
@@ -132,6 +134,7 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
         body.append(t, x);
         d.append(m, body);
         if (c.watch != null) d.addEventListener('click', () => bridge.command?.({ type: 'watch', expedition: c.watch! }));
+        if (c.panel) d.addEventListener('click', () => bridge.openPanel(c.panel!));
         return d;
       }),
     );

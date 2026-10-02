@@ -12,6 +12,7 @@ import { DESTINATIONS, type Role, type Stance } from '../data/expeditions';
 import { ITEM_BY_ID, type FareKind, type Slot } from '../data/items';
 import { RAID_GRACE_HOURS, type RaidGoal } from '../data/raids';
 import type { WorkAnim } from '../data/terrain';
+import type { MapPlace } from './places';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import type { MidTerrain } from '../world';
 import type { Biome, Difficulty } from '../data/biomes';
@@ -526,6 +527,8 @@ export interface GameState {
   dungeonQuiet?: Record<string, number>;
   /** Quests open (sim/quests.ts). */
   quests?: Quest[];
+  /** The places on the town's own land (sim/places.ts): seeded on first use, found as the land opens. */
+  places?: MapPlace[];
   /** Which end of town each destination lies beyond (-1 left, 1 right). */
   destSides: Record<string, -1 | 1>;
   prompts: Prompt[];

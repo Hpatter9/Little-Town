@@ -724,6 +724,20 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     previews. Still to do later (phases 6 and 7): homes and workshops from the top-down packs, the keep's walls, the
     nomads' camp, animals, spell effects, people facing up and down, and deleting the old `town/` views (battleView and
     fightView still import spellsView, spellLooks and peopleView's constants).
+  - **Phase 4, the land's places (done):** `src/shared/data/places.ts` (`PLACE_DEFS`: ore vein, cave, trader's cart,
+    beast's lair, old ruins, great bones; `PLACE_FOES` by era, `BIOME_BEASTS`) and `src/shared/sim/places.ts`
+    (`s.places`, seeded from the seed on first use by `seedPlaces`: `PLACE_COUNT` of them `PLACE_NEAR`..`PLACE_FAR` cells
+    from the camp, `PLACE_APART`). `placesHourly`: a place inside `land.open` is found (a journal line naming the
+    direction); the peaceful ones the town looks over `LOOK_HOURS` later (`lookOver`: a vein turns its cells to rich rock
+    with iron ore and coal in the pools, ruins half the topic being studied and give coins, a cart coins and goods,
+    bones bone); a cave, a lair, and `CART_ROBBED` of carts have foes (`rollFoes`) and wait: each is a destination on the
+    Expedition Board (`placeDestination`, id `place:<n>`, type `clear`; `destinationOf(s, id)` in expeditions.ts finds
+    these beside `DESTINATION_BY_ID`), the player picks the party as for a dungeon (`sendDelve` takes them; the panel's
+    `delveControls` with Fight: careful / all out), the fight is on the way and watched on the FF screen, and
+    `placeCleared` (from `finishBattle`) adds the hoard and coins; a beast left `BEAST_DAYS` wanders off. Snapshot
+    `places` (`PlaceView`); the map draws them from the `places` props set (compose-props: cave mouths, dragon bones, a
+    skull, a shrine, crystals, carts, camp tents; `renderPlaces` pulses a ring round a fight waiting), tap: a card with
+    "Pick a party…"; the feed has a card per fight waiting. Tests: `test/places.test.ts`.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

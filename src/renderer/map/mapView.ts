@@ -14,6 +14,7 @@ import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
 import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
+import type { PlaceView } from '../../shared/sim/snapshot';
 import { buildingArt, type CropLook } from '../art/buildings';
 import { drawSite } from '../art/constructionSite';
 import { mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
@@ -41,7 +42,7 @@ const multiplyTint = (a: number, b: number) => {
 };
 const BLUEPRINT_TINT = 0x9fc6ff;
 
-type PropKind = 'tree' | 'bush' | 'rock' | 'plant' | 'other';
+type PropKind = 'tree' | 'bush' | 'rock' | 'plant' | 'other' | 'cave' | 'bones' | 'circle' | 'skull' | 'crystal' | 'cart' | 'camp' | 'ruin';
 const KINDS = propKinds as Record<PropSet, PropKind[]>;
 
 /** What stands on each kind of wild cell: the kinds of object, with their odds. */
@@ -90,6 +91,9 @@ export class MapView {
   private propsWanted: PropSet[] = [];
   private propsKey = '';
   private readonly buildings = new Map<number, DrawnBuilding>();
+  private readonly placesDrawn = new Map<number, { sprite: Sprite; ring: Graphics; key: string; view: PlaceView }>();
+  private placeTex: Texture[] | null = null;
+  private placesSeen: PlaceView[] = [];
   private readonly fire: PixelArt[] = campfireFrames(Rng.from(1, 0xf2), noTone);
   private style = 'town';
   private tone: Tone = noTone;
@@ -322,6 +326,75 @@ export class MapView {
     const y = Math.floor(wy / CELL);
     if (x < 0 || y < 0 || x >= m.w || y >= m.h || visibility(m, x, y) === 0) return null;
     return y * m.w + x;
+  }
+
+  /* ------------------------------------------------------------ places */
+
+  /** The places found on the land (sim/places.ts): a cave mouth, great bones, a cart, a lair, a shrine, crystals,
+   *  each from the packs; a fight waiting there has a ring pulsing round it. */
+  syncPlaces(list: PlaceView[]): void {
+    this.placesSeen = list;
+    if (!this.placeTex) {
+      this.placeTex = [];
+      propTextures('places').then((t) => {
+        this.placeTex = t;
+        this.syncPlaces(this.placesSeen);
+      }, () => undefined);
+      return;
+    }
+    const seen = new Set<number>();
+    for (const p of list) {
+      if (!p.found) continue;
+      seen.add(p.id);
+      const key = `${p.kind}|${p.state}|${this.placeTex.length}`;
+      let d = this.placesDrawn.get(p.id);
+      if (d && d.key === key) {
+        d.view = p;
+        continue;
+      }
+      if (!d) {
+        const sprite = this.things.addChild(new Sprite());
+        sprite.anchor.set(0.5, 0.9);
+        const ring = this.things.addChild(new Graphics());
+        d = { sprite, ring, key: '', view: p };
+        this.placesDrawn.set(p.id, d);
+      }
+      d.key = key;
+      d.view = p;
+      const kind: PropKind = p.kind === 'vein' ? 'crystal' : p.kind === 'cave' ? 'cave' : p.kind === 'cart' ? 'cart' : p.kind === 'ruin' ? 'ruin' : p.kind === 'bones' ? 'bones' : p.state === 'waiting' ? 'skull' : 'bones';
+      const choices = this.placeTex.filter((_, i) => KINDS.places?.[i] === kind);
+      const tex = choices[p.id % Math.max(1, choices.length)];
+      d.sprite.visible = !!tex && !(p.kind === 'vein' && p.state !== 'waiting');
+      if (tex) d.sprite.texture = tex;
+      d.sprite.position.set(Math.round(p.x), Math.round(p.y + 12));
+      d.sprite.zIndex = p.y + 12;
+      d.sprite.alpha = p.state === 'done' && p.kind !== 'cave' ? 0.8 : 1;
+      d.sprite.tint = p.state === 'waiting' ? 0xffffff : 0xb8b8c8;
+      d.ring.position.set(Math.round(p.x), Math.round(p.y + 12));
+      d.ring.zIndex = p.y - 1e5; // (on the ground)
+      d.ring.visible = p.state === 'waiting' && !!p.dest;
+    }
+    for (const [id, d] of this.placesDrawn)
+      if (!seen.has(id)) {
+        d.sprite.destroy();
+        d.ring.destroy();
+        this.placesDrawn.delete(id);
+      }
+  }
+
+  /** Each frame: the rings pulse. */
+  renderPlaces(now: number): void {
+    for (const d of this.placesDrawn.values()) {
+      if (!d.ring.visible) continue;
+      const k = 0.5 + 0.5 * Math.sin(now / 350);
+      d.ring.clear().ellipse(0, 0, 22 + k * 4, 11 + k * 2).stroke({ color: 0xff6050, width: 2, alpha: 0.5 + 0.4 * k });
+    }
+  }
+
+  /** The place under a world point, if any (found ones only). */
+  placeAt(wx: number, wy: number): PlaceView | null {
+    for (const d of this.placesDrawn.values()) if (Math.abs(wx - d.view.x) <= 28 && wy <= d.view.y + 16 && wy >= d.view.y - 40) return d.view;
+    return null;
   }
 
   /* ------------------------------------------------------------ buildings */

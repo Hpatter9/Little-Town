@@ -86,6 +86,7 @@ type Hover =
   | { kind: 'person'; person: PersonView }
   | { kind: 'building'; id: number }
   | { kind: 'cell'; cell: number }
+  | { kind: 'place'; id: number }
   | { kind: 'scenery' }
   | { kind: 'pane' }
   | { kind: 'raider'; id: number }
@@ -290,6 +291,8 @@ async function start(): Promise<void> {
     if (person) return { kind: 'person', person };
     const building = map.buildingAt(w.x, w.y);
     if (building !== null) return { kind: 'building', id: building };
+    const place = map.placeAt(w.x, w.y);
+    if (place) return { kind: 'place', id: place.id };
     const cell = map.cellAt(w.x, w.y);
     if (cell === null) return { kind: 'scenery' };
     return { kind: 'cell', cell };
@@ -308,7 +311,7 @@ async function start(): Promise<void> {
     }
     hover = mouse && !overUi && active ? hitTest(mouse.x, mouse.y) : null;
     setInteractive(overUi || hover !== null);
-    const clickable = hover?.kind === 'building' || hover?.kind === 'pane' || (hover?.kind === 'cell' && wildCell(hover.cell));
+    const clickable = hover?.kind === 'building' || hover?.kind === 'pane' || hover?.kind === 'place' || (hover?.kind === 'cell' && wildCell(hover.cell));
     canvas.style.cursor = clickable ? 'pointer' : hover ? 'grab' : 'default';
     if (phone) {
       // no tooltips on the phone: the top card says it all (and the selected patch of land stays lit)
@@ -407,6 +410,13 @@ async function start(): Promise<void> {
           }
         }
         return { title: def.name + (b.status === 'blueprint' ? ' (blueprint)' : ''), lines, hint: 'Click for options', y: r.y };
+      }
+      case 'place': {
+        const p = snap.places.find((q) => q.id === h.id);
+        if (!p) return null;
+        const y = map.screenOf(p.x, p.y).y - 40;
+        if (p.dest) return { title: p.name, lines: [p.text, `${p.foes} there.`], hint: 'Click to pick a party', y };
+        return { title: p.name, lines: [p.state === 'done' ? `${p.text} The town has been over it.` : p.state === 'gone' ? 'Whatever lived here has gone.' : `${p.text} The town will look it over soon.`], y };
       }
       case 'cell': {
         const c = cellAt(snap.land, h.cell);
@@ -569,6 +579,10 @@ async function start(): Promise<void> {
         if (following) lines.unshift('You follow them: their big moments come as phone alerts.');
         return { title: d.title, lines, actions: [...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
+      case 'place': {
+        const p = snap.places.find((q) => q.id === h.id);
+        return { title: d.title, lines: d.lines, actions: p?.dest ? [act('party', 'Pick a party…', () => bridge.openPanel('expeditions'), { primary: true })] : [] };
+      }
       case 'caravan':
         return { title: d.title, lines: d.lines, actions: [act('trade', 'Trade…', () => bridge.openPanel('trade'), { primary: true })] };
       case 'pane':
@@ -695,6 +709,7 @@ async function start(): Promise<void> {
     if (phone) return inspectTarget(h); // (the phone's top card shows it, and holds its buttons)
     if (tapped) return;
     if (h?.kind === 'pane') return bridge.openPanel('expeditions');
+    if (h?.kind === 'place') return snap.places.find((q) => q.id === h.id)?.dest ? bridge.openPanel('expeditions') : undefined;
     if (h?.kind === 'caravan') return bridge.openPanel('trade');
     if (h?.kind === 'person') {
       if (snap.visitor?.id === h.person.id) return bridge.openPanel('townsfolk');
@@ -957,6 +972,7 @@ async function start(): Promise<void> {
     }
     map.syncLand(next.land, next.calendar.season, next.biome); // (paints again only what changed)
     map.syncBuildings(next.buildings);
+    map.syncPlaces(next.places);
     // (a nomad tribe that moved camp: the view goes to the new camp)
     if (lastCamp !== null && (next.camp.x !== lastCamp.x || next.camp.y !== lastCamp.y)) camera.centreOn(next.camp, app.screen.width, app.screen.height);
     lastCamp = next.camp;
@@ -1004,6 +1020,7 @@ async function start(): Promise<void> {
     app.stage.position.set(shaking ? Math.round((Math.random() - 0.5) * 6) : 0, shaking ? Math.round((Math.random() - 0.5) * 4) : 0);
     people.render(performance.now());
     raiders.render(performance.now());
+    map.renderPlaces(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);
     weather?.render(performance.now(), w);
