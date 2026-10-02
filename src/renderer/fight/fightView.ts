@@ -16,7 +16,8 @@ import { impactFrame, IMPACT_SIZE } from '../art/effects';
 import { heldWeapon, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { machineFrame, machineSize } from '../art/machines';
-import { BACK_H, BACK_HORIZON, BACK_W, fightBackdrop, FRONT_H } from '../art/fightBackdrop';
+import { BACK_H, BACK_HORIZON, BACK_W, fightBackdrop, FRONT_H, sceneFor, type Backdrop, type SceneId } from '../art/fightBackdrop';
+import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { stillTexture } from '../art/stills';
 
@@ -52,7 +53,7 @@ export class FightScene {
   private readonly clip = new Graphics();
   /** The scenery's layers, back to front, and how fast each scrolls by as the party walks. */
   private readonly layers = [new TilingSprite({ width: BACK_W, height: BACK_H }), new TilingSprite({ width: BACK_W, height: BACK_H }), new TilingSprite({ width: BACK_W, height: BACK_H }), new TilingSprite({ width: BACK_W, height: FRONT_H })];
-  private static readonly PACE = [0.12, 0.45, 1, 1.5];
+  private backdrop: Backdrop | null = null;
   /** What's seen (art px), and where the horizon is in it. */
   private vw = SEE_W;
   private vh = SEE_H;
@@ -89,7 +90,8 @@ export class FightScene {
     const k = Math.max(1, Math.min(w / SEE_W, room / SEE_H));
     this.vw = w / k;
     this.vh = room / k;
-    this.hy = Math.round(this.vh - Math.min(this.vh * 0.6, LAND));
+    // (indoors, a little more of the wall shows: that's where the torches and banners are)
+    this.hy = Math.round(this.vh - Math.min(this.vh * (this.backdrop?.indoor ? 0.5 : 0.6), LAND));
     this.world.scale.set(k);
     this.world.position.set(0, top);
     this.clip.clear().rect(0, top, w, room).fill(0xffffff);
@@ -98,14 +100,18 @@ export class FightScene {
     this.layers[3].y = Math.round(this.vh - FRONT_H + 8);
   }
 
-  update(v: ExpeditionView | null): void {
+  update(v: ExpeditionView | null, biome?: Biome): void {
     this.root.visible = !!v;
     this.view = v;
     if (!v) return;
-    const key = `${v.id}|${v.scenery}`;
+    // (on the road it's the land on the way; arrived at a dungeon, it's inside)
+    // (`window.__scene` shows any scene, for previews)
+    const scene = (window as unknown as { __scene?: SceneId }).__scene ?? sceneFor(v.dest, v.scenery, v.phase, biome);
+    const key = `${v.id}|${scene}`;
     if (key !== this.sceneKey) {
       this.sceneKey = key;
-      const art = fightBackdrop(v.scenery, v.id);
+      const art = fightBackdrop(scene, v.id);
+      this.backdrop = art;
       [art.far, art.mid, art.near, art.front].forEach((a, i) => (this.layers[i].texture = a.texture));
       for (const f of this.figs.values()) f.sprite.destroy();
       this.figures.removeChildren();
@@ -122,7 +128,8 @@ export class FightScene {
     if (walking) this.scroll += MARCH * dt;
     // (the clouds drift a little even while they stand)
     this.drift += dt * 1.5;
-    this.layers.forEach((l, i) => (l.tilePosition.x = -Math.round((this.scroll * FightScene.PACE[i] + (i === 0 ? this.drift : 0)) % BACK_W)));
+    const b = this.backdrop;
+    if (b) this.layers.forEach((l, i) => (l.tilePosition.x = -Math.round((this.scroll * b.pace[i] + (i === 0 && !b.indoor ? this.drift : 0)) % BACK_W)));
     this.fx.clear();
     const seen = new Set<string>();
     if (fighting) this.drawFight(v.battle!, v, now, seen);

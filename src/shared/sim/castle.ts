@@ -69,6 +69,31 @@ export function inKeep(s: GameState, tile: number, width: number, floor: number)
   return floor === 0 || !stairTiles(s).some((t) => tile <= t && t < tile + width);
 }
 
+/** When the keep widens (a new era), its stair towers move out with its ends, and can come up under a room already
+ *  standing on a floor above. Such a room is moved along its floor to the nearest clear spot (else to another floor),
+ *  so nothing stands on the stairs. */
+export function clearStairs(s: GameState): void {
+  if (!castleOn(s)) return;
+  const clear = (b: Building, tile: number, w: number, floor: number) =>
+    inKeep(s, tile, w, floor) &&
+    !s.buildings.some((o) => o !== b && o.room && (o.floor ?? 0) === floor && BUILDING_BY_ID[o.def].layer === 'mid' && o.tile < tile + w && tile < o.tile + BUILDING_BY_ID[o.def].width);
+  for (const b of s.buildings) {
+    if (!b.room) continue;
+    const w = BUILDING_BY_ID[b.def].width;
+    const floor = b.floor ?? 0;
+    if (inKeep(s, b.tile, w, floor)) continue;
+    const floors = [floor, ...Array.from({ length: CASTLE_FLOORS }, (_, i) => i).filter((f) => f !== floor)];
+    search: for (const f of floors)
+      for (let d = 1; d <= 40; d++)
+        for (const t of [b.tile + d, b.tile - d]) {
+          if (!clear(b, t, w, f)) continue;
+          b.tile = t;
+          b.floor = f;
+          break search;
+        }
+  }
+}
+
 /** How many tiles of rooms a floor holds. */
 export const floorRoom = (s: GameState, floor: number) => {
   const [lo, hi] = castleSpan(s, floor);

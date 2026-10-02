@@ -408,6 +408,25 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   and `hue` (icon). Spells (`data/spells.ts`, 160, `spellsKnown`) and skills (`data/abilities.ts`, 200,
   `abilitiesKnown`) are data so far, with effects from `data/effects.ts`.
 
+- **Watching a party's fights (done):** the Expeditions tab's **Watch** (the `watch` command, `s.watching`,
+  `snapshot.watch`) swaps the town for `src/renderer/fight/fightView.ts` (`FightScene`): the party walking right between
+  fights, and in a fight the foes on the left and the party on the right, as in the old Final Fantasy games (numbers,
+  hit flashes, each spell's element colour), with blue windows from `fight/fightHud.ts` (the action's name, the foes,
+  the party's health and time gauges, Back to town). On the phone it takes the whole screen like a raid's battle.
+  - **25 scenes** (`src/shared/data/scenes.ts`: `SCENES`, `ROUTES` per destination, `sceneFor`): 17 outdoors and 8
+    inside dungeons (cave, keep, dragon's den, crypt, machine vault, ship's hold, factory, bunker). On the road it's the
+    land on the way; arrived at a dungeon, it's inside. The town's biome swaps the green ones (dunes, tundra, coast).
+    Painted by `src/renderer/art/fightBackdrop.ts` (each scene a recipe in `OUT`/`IN`: sky, far land, middle features,
+    ground, path, water, props, front; walls, decor, columns, roof, floor) in four layers that scroll at their own
+    pace (`Backdrop.pace`). `window.__scene` forces one, for previews.
+- **Raiders as seasoned as the town:** `seasonedMight` in raids.ts (`RAID_MIGHT_PER_LEVEL` 0.07 per level of the
+  grown-ups' average, up to `RAID_SEASONED_MAX`), since classes, spells and skills made defenders much stronger. Levels
+  past `LEVEL_STEEP` (25) cost `LEVEL_STEEPNESS` (1.12) more each, so the last evolution stays rare: by day 15 the best
+  in a town is about level 21 to 29. Soak (4 towns, 15 days, people/deaths): knights 33.0/2, liches 26.8/7, settlers
+  17.3/8, vampires 29.5/5.
+- **The keep's stairs stay clear:** when a new era widens the keep, `clearStairs` (castle.ts, from era.ts) moves any
+  room left standing over a stair tower to the nearest clear spot.
+
 ## Planned (owner's requests, not started)
 
 - **Weapons, ten times over, with +N** (the owner's choices):

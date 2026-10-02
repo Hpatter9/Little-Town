@@ -5,6 +5,7 @@
 
 import { ERA_NAMES, nextEra } from '../data/eras';
 import { notify, type Building, type GameState } from './state';
+import { clearStairs } from './castle';
 import { layOutGraves } from './health';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
@@ -30,6 +31,8 @@ export function onBuilt(s: GameState, b: Building): void {
   if (!next) return;
   s.era = next;
   s.eraReady = false;
+  // (a castle's keep widens with the age: its stair towers move out, and rooms above them step aside)
+  clearStairs(s);
   notify(s, `A new age begins: the ${ERA_NAMES[next]} era. New research is open, and work takes longer but builds greater things.`, true);
 }
 
