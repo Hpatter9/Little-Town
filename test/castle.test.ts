@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { canPlace } from '../src/shared/sim/buildings';
-import { adoptRooms, CASTLE_FLOORS, CASTLE_TILES, CLIMB_SECONDS, inKeep, stairXs as stairsOf, castleFloors, castleSpan, castleWidth, floorFill, moveOnFloors, openFloors, roomOf, stairXs } from '../src/shared/sim/castle';
+import { adoptRooms, clearStairs, CASTLE_FLOORS, CASTLE_TILES, CLIMB_SECONDS, inKeep, stairXs as stairsOf, castleFloors, castleSpan, castleWidth, floorFill, moveOnFloors, openFloors, roomOf, stairXs } from '../src/shared/sim/castle';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { Rng } from '../src/shared/rng';
@@ -166,4 +166,17 @@ test('a new keep is narrow at the foot and reaches out a tile a side each floor 
   const [p0, p1] = castleSpan(old, 3);
   assert.equal(o1 - o0, 16);
   assert.deepEqual([p0, p1], [o0, o1]);
+});
+
+test('when the keep widens, a room left standing over a stair tower steps aside', () => {
+  const s = newGame('stairs-move', { origin: 'vampire' });
+  const [lo] = castleSpan(s);
+  // (on the fourth floor, out where the keep reaches past the stairs: fine, until the keep widens under it)
+  s.buildings.push({ id: s.nextId++, def: 'healers_hut', tile: lo - 3, status: 'done', progress: 1, room: true, floor: 3 } as (typeof s.buildings)[number]);
+  const room = s.buildings[s.buildings.length - 1];
+  assert.ok(inKeep(s, room.tile, 2, 3));
+  s.era = 'medieval';
+  assert.ok(!inKeep(s, room.tile, 2, room.floor ?? 0), 'the stairs moved out under it');
+  clearStairs(s);
+  assert.ok(inKeep(s, room.tile, 2, room.floor ?? 0), `moved to ${room.tile} on floor ${room.floor}`);
 });

@@ -14,7 +14,7 @@ import { TICK_MS } from './sim/time';
 const MIN_DELAY_MS = 30_000;
 const TIMEOUT_MS = 5_000;
 
-const TAGS: Record<ForecastEvent['kind'], string> = { raid: 'crossed_swords', death: 'skull', expedition: 'compass', choice: 'question', event: 'question', hero: 'star' };
+const TAGS: Record<ForecastEvent['kind'], string> = { raid: 'crossed_swords', death: 'skull', expedition: 'compass', choice: 'question', event: 'question', hero: 'star', delve: 'dragon_face' };
 
 function url(a: AlertSettings): string {
   return `${a.server}/${encodeURIComponent(a.topic)}`;
@@ -54,7 +54,7 @@ export const AHEAD_TICKS = Math.floor(MAX_OFFLINE_MS / TICK_MS);
 export function plan(a: AlertSettings, state: GameState, now: number, ahead?: Ahead): { at: number; event: ForecastEvent }[] {
   if (!a.enabled || !a.topic) return [];
   // (a choice event always: the town pauses for it, and the alert is how you hear it's waiting)
-  const want = { raid: a.raids, death: a.deaths, expedition: a.expeditions, choice: a.choices, event: true, hero: a.hero };
+  const want = { raid: a.raids, death: a.deaths, expedition: a.expeditions, choice: a.choices, event: true, hero: a.hero, delve: a.delves };
   const events = ahead ? ahead.events : forecast(state, AHEAD_TICKS);
   // (no further than one absence can take the town, and nothing past the first raid or choice event: the town waits
   // for the player there; sim/raidWait.ts, offline.ts)
@@ -124,5 +124,6 @@ export function cleanAlerts(a: unknown): AlertSettings {
     expeditions: bool(x.expeditions, DEFAULT_ALERTS.expeditions),
     choices: bool(x.choices, DEFAULT_ALERTS.choices),
     hero: bool(x.hero, DEFAULT_ALERTS.hero),
+    delves: bool(x.delves, DEFAULT_ALERTS.delves),
   };
 }

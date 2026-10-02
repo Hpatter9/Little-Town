@@ -6,18 +6,19 @@
 
 import { BUILDINGS } from '../../shared/data/buildings';
 import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
+// (the small change of the day, left to the Journal: the feed keeps to what's worth telling)
+import { CHATTER } from '../chatter';
 
 type Picture = (p: { person?: number; building?: string }) => HTMLCanvasElement | null;
 interface FeedBridge {
   onSnapshot(cb: (s: Snapshot) => void): void;
   getJournal(): Promise<JournalEntryView[]>;
   openPanel(id: string): void;
+  command?(c: { type: 'watch'; expedition: number }): void;
 }
 
 /** How many happenings the feed lists. */
 const SHOWN = 14;
-/** The small change of the day, left to the Journal: the feed keeps to what's worth telling. */
-const CHATTER = /no room in storage|^crafted:|^bought |^sold |^made |set out a|put out a|^the town paid|dropped /i;
 
 /** Buildings by name, longest first (so "Stone Wall" is found before "Wall"). */
 const BUILDING_NAMES = [...BUILDINGS].sort((a, b) => b.name.length - a.name.length).map((b) => ({ id: b.id, name: b.name.toLowerCase() }));
@@ -89,7 +90,7 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
   // anything that wants attention now
   let nowKey = '';
   const drawNow = (s: Snapshot) => {
-    const cards: { cls: string; mark: string; title: string; text: string }[] = [];
+    const cards: { cls: string; mark: string; title: string; text: string; watch?: number }[] = [];
     if (s.raid) {
       const foes = s.raid.raiders.filter((r) => !r.ally);
       const standing = foes.filter((r) => !r.down && !r.fleeing && !r.gone).length;
@@ -100,6 +101,13 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
       );
     }
     if (s.doom) cards.push({ cls: 'doom', mark: '☁', title: s.doom.name, text: s.doom.phase === 'signs' ? `Signs of it: about ${Math.ceil(s.doom.hoursLeft)} hours off.` : s.doom.hoursLeft < 1 ? 'Under way, and nearly over.' : `Under way: ${Math.ceil(s.doom.hoursLeft)} hours to go.` });
+    // a delve under way: where they are down there (tap to watch them)
+    for (const e of s.expeditions) {
+      const d = e.delve;
+      if (!d) continue;
+      const where = e.phase === 'out' ? 'On the way' : e.phase === 'back' ? (d.cleared ? 'Cleared it! Coming home' : 'Coming home') : d.room ? `Room ${d.room} of ${d.rooms} · ${d.torches} torches` : 'At the door';
+      cards.push({ cls: 'delve', mark: '⛏', title: `${e.destName}: ${where}`, text: `${e.battle?.length ? 'Fighting! ' : ''}${(e.phase === 'work' && d.log.at(-1)) || e.members.map((m) => m.name).join(', ')} · tap to watch`, watch: e.id });
+    }
     const q = s.prompts[0];
     // (the raid's own question is the raid card already)
     if (q && !(s.raid && q.title.includes(s.raid.name))) cards.push({ cls: 'ask', mark: '?', title: q.title, text: 'A choice waits for you on the town below.' });
@@ -123,6 +131,7 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
         x.textContent = c.text;
         body.append(t, x);
         d.append(m, body);
+        if (c.watch != null) d.addEventListener('click', () => bridge.command?.({ type: 'watch', expedition: c.watch! }));
         return d;
       }),
     );

@@ -6,7 +6,11 @@
 // waterskins go with expeditions. Food and ammo are made as materials instead, so they sit in storage
 // and get eaten or packed like any other.
 
+import { BESTIARY_TROPHIES } from './bestiary';
 import type { Material } from './materials';
+import { WEAPONS, type FamilyId } from './weapons';
+import { ARMOUR, type ArmourWeight } from './armour';
+import { UNIQUES } from './uniques';
 import type { WorkAnim } from './terrain';
 
 export type Slot = 'tool' | 'weapon' | 'offhand' | 'head' | 'body' | 'charm' | 'pack';
@@ -64,6 +68,23 @@ export interface ItemEffects {
   ranged?: boolean;
   /** What it shoots: each shot uses one, for extra damage (see AMMO_DAMAGE). */
   ammo?: Material;
+  /** A weapon's quirks (data/weapons.ts): its time between blows (a share: under 1 is quicker), a chance to strike
+   *  true for double, a share of armour it ignores, a share of its blow that cleaves into a foe beside, a chance to
+   *  stun (the foe loses its next blow), and a reach that strikes first and holds a foe more on the trail. */
+  speed?: number;
+  crit?: number;
+  pierce?: number;
+  cleave?: number;
+  stun?: number;
+  reach?: boolean;
+  /** Extra damage against the dead and against machines (beasts: `beastDamage`). */
+  undeadDamage?: number;
+  machineDamage?: number;
+  /** A share of each blow's damage that heals whoever struck it (some uniques). */
+  lifesteal?: number;
+  /** Armour's own: a share of blows dodged (light), a share more spell power (cloth). */
+  dodge?: number;
+  power?: number;
   /** Extra carrying room. */
   carry?: number;
   morale?: number;
@@ -90,6 +111,15 @@ export interface ItemDef {
   icon: { sheet: IconSheet; x: number; y: number; name?: string };
   /** A relic: never crafted, only found on expeditions (DESIGN §9 special items). */
   relic?: boolean;
+  /** A unique weapon (data/uniques.ts): one in the world, from a boss or a quest. */
+  unique?: boolean;
+  /** A weapon's family and tier (data/weapons.ts); armour's weight (data/armour.ts). */
+  family?: FamilyId;
+  tier?: number;
+  weight?: ArmourWeight;
+  /** Armour's colour: worn (an LPC tint) and on its icon (a hue turn), so pieces sharing a look differ. */
+  tint?: string;
+  hue?: number;
   /** Shop furnishings (see data/shop.ts): what it is, how many cells of the shop floor it takes, and how much it
    *  draws travellers in. The shopkeeper sets it out once it's made. */
   furnish?: Furnish;
@@ -137,10 +167,12 @@ export type IconSheet =
   | 'Ammo'
   | 'Scroll'
   | 'Magic'
+  | 'Wand'
+  | 'Ring'
   | 'Plate'
   | 'Custom';
 
-export const ITEMS: readonly ItemDef[] = [
+const BASE_ITEMS: readonly ItemDef[] = [
   // tools
   { id: 'flint_knife', name: 'Flint Knife', slot: 'tool', station: 'campfire', cost: { flint: 2, wood: 1 }, seconds: 30, research: ['flint_knapping'], effects: { gather: { forage: 1.25 }, damage: 1 }, description: 'Forage 25% faster. A little bite in a fight.', icon: { sheet: 'ShortWep', x: 2, y: 1 } },
   { id: 'stone_axe', name: 'Stone Axe', slot: 'tool', station: 'workbench', cost: { flint: 2, wood: 2, fiber: 1 }, seconds: 45, research: ['woodcutting'], effects: { gather: { chop: 1.5 } }, description: 'Chop wood 50% faster.', icon: { sheet: 'MedWep', x: 0, y: 1 } },
@@ -309,6 +341,46 @@ export const ITEMS: readonly ItemDef[] = [
   { id: 'wheelbarrow', name: 'Wheelbarrow', slot: 'pack', station: 'workbench', cost: { lumber: 4, iron: 1 }, seconds: 80, research: ['carts'], effects: { carry: 12 }, description: 'Carry 12 more.', icon: { sheet: 'Chest1', x: 3, y: 0 } },
   { id: 'bandage', name: 'Bandage', slot: null, station: 'loom', cost: { cloth: 1, herbs: 1 }, seconds: 30, research: ['physick'], effects: {}, description: 'Like a poultice but better: stops bleeding, +35 health.', icon: { sheet: 'Scroll', x: 5, y: 4 } },
 ];
+
+/** The first weapons and armour, given their family and weight so classes know what they may use. */
+const FIRST: Record<string, Pick<ItemDef, 'family' | 'tier' | 'weight'>> = {
+  wooden_club: { family: 'mc', tier: 1 },
+  spear: { family: 'sp', tier: 3 },
+  fire_spear: { family: 'sp', tier: 4 },
+  sling: { family: 'sl', tier: 2 },
+  bow: { family: 'bw', tier: 4 },
+  iron_sword: { family: 'sw', tier: 6 },
+  musket: { family: 'lg', tier: 7 },
+  rifle: { family: 'lg', tier: 9 },
+  laser_rifle: { family: 'en', tier: 10 },
+  black_blade: { family: 'sw', tier: 10 },
+  barons_pistols: { family: 'pi', tier: 10 },
+  staff_of_rime: { family: 'st', tier: 10 },
+  archdruid_staff: { family: 'st', tier: 9 },
+  thane_hammer: { family: 'mc', tier: 10 },
+  tide_trident: { family: 'sp', tier: 10 },
+  khan_bow: { family: 'bw', tier: 10 },
+  hide_cap: { weight: 'light' },
+  hide_armor: { weight: 'light' },
+  leather_cap: { weight: 'light' },
+  leather_armor: { weight: 'light' },
+  bearskin_cloak: { weight: 'light' },
+  iron_helm: { weight: 'heavy' },
+  chainmail: { weight: 'medium' },
+  steel_cuirass: { weight: 'heavy' },
+  kevlar_vest: { weight: 'medium' },
+  combat_helmet: { weight: 'medium' },
+  powered_armor: { weight: 'heavy' },
+  visor_helmet: { weight: 'heavy' },
+  dragonscale_armor: { weight: 'heavy' },
+  tank_plating: { weight: 'heavy' },
+  wicker_shield: { weight: 'shield' },
+  iron_shield: { weight: 'shield' },
+  energy_shield: { weight: 'shield' },
+};
+
+/** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. */
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

@@ -17,6 +17,35 @@ taskbar. TypeScript + PixiJS. `DESIGN.md` is the original design, and `README.md
   `../chronos-assets`); copy in only the individual sprites the game uses, never whole packs. Sprites the game uses
   are in `src`. Images load through `art/loadImage.ts` (a refused `decode()` falls back to the load event).
 
+## The asset packs (`../chronos-assets`)
+
+- The original packs are at the repo's top level (DawnLike, LPC, Pixel Champions, pvfx, Alenia, Golems, Robot
+  Warfare, Tiny RPG, the mining and industrial tilesets...).
+- **`assets/`** (added later): about 60 free Craftpix packs, one folder each, the pack's own layout kept.
+  - Characters: samurai (Samurai, Archer, Commander), ninja (Kunoichi, Monk, Peasant), wizards, robots (Destroyer,
+    Infantryman, Swordsman), tiny heroes, yokai.
+  - Monsters: werewolves (black, red, white), gorgons, minotaurs and satyrs (three each), forest bosses (3),
+    top-down defence enemies (3 sets), top-down boss creatures, pirate bosses.
+  - Effects: pixel magic effects and icons, magic slashes.
+  - Tilesets: top-down dungeon, village, undead, fields, path and road, green zone, glassblower's workshop; a
+    platformer medieval field work set.
+  - Objects: trees, bushes, rocks, rocky area, forest, cave, seabed, bridges, dungeon props.
+  - Parallax backgrounds: nature, forest and trees, summer, autumn, winter, desert oasis, mountain, mountain
+    peak, crystal cave, ancient temple, sky and clouds, cloudscape, ocean, city, futuristic city, city ruins,
+    post-apocalyptic, abandoned places, fantasy battlegrounds.
+- **More Craftpix packs at the top level** (added at the same time, outside `assets/`): knight character sprites,
+  skeleton sprite sheets, a platformer tileset, and winter, underwater, moon, steampunk city and cloud-and-sky
+  backgrounds. One more pack is unpacked loose at the top level (`1 Tiles`, `2 Background` (Day/Night),
+  `3 Objects` (tubes, decoration, power lines), `4 Animated objects` (card, chest, money, trap), with its `PSD/`,
+  `License.txt`, `Font.txt`).
+- Check a pack's folder before using it: frame sizes, animation names, and split frames or whole sheets vary.
+  Within a pack, pick either the split frames or the sheet and keep to it.
+- Use the PNGs only. Ignore `__MACOSX/`, `COUPON.*`, `.url`, and `.psd`/`.ai`/`.eps` files.
+- Vector-only packs, with no PNGs to use: crystal caves, tower defence, tropical medieval city, underwater game
+  objects.
+- Never change the assets repo. Copy only the sprites used into this repo, and credit them in `CREDITS.md`.
+  Craftpix's free licence allows use in the game, but not redistributing the raw files.
+
 ## Commands
 
 ```bash
@@ -387,9 +416,213 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     battles about 80 to 125 s; about 4 mages a town by day 15. The planner values a topic that teaches a common calling
     (+12, +24 raided or on defence).
 
-## Planned (owner's requests, not started)
+- **The armoury (in progress, see Planned):** `data/weapons.ts` (`FAMILIES`: 23 families with their quirks; `ROWS`:
+  name, family, tier, era, research, icon; stats, cost and station worked out from those; `tierDamage`), `data/armour.ts`
+  (`SETS` per era: cloth, light, medium, heavy body and head pieces, three shields, two trinkets; `ArmourWeight` on
+  `ItemDef.weight`). New effects: `speed`, `crit`, `pierce`, `cleave`, `stun`, `reach`, `undeadDamage`, `machineDamage`
+  (weapons), `dodge`, `power` (armour). **+N:** a piece's number holds its grade and its +N (`piece`, `gradeOf`,
+  `plusOf`, `pieceLabel` in `data/quality.ts`; `rollPlus` from Crafting, `PLUS_STEP` per +), rolled in `finishPiece` for
+  `ARMS` slots. `weaponOf` (combat.ts) is the weapon's stats with grade and +N; `hitDamage` and `afterBlow` apply the
+  quirks (also in raids' `defenderAttack` and on the battle map). Foes have a `natureOf` (beast, undead, machine,
+  person) and `enemyArmor`. The planner's `weaponWorth` favours a mix of families. Crafting has Weapons and Armour hide
+  toggles.
 
-- Nothing waiting.
+- **Classes and levels (in progress):** `data/classes.ts` (25 lines, `stages` five names each, all 125 distinct; role,
+  `ranged`, `rarity`, `affinity`, `armour` weights and `weapons` families allowed, `stats`), `data/levels.ts` (`levelOf`,
+  `stageOf`, `classStat`, `hpMult`, `levelPower`; `xpToLevel`, `LEVEL_SHARE_*`), `sim/classes.ts` (`assignClass` once,
+  weighted by `classPull` and decided by the seed; `classesHourly` gives classes and announces evolutions; `gainLevelXp`
+  from `gainSkill`; `canWear` used by `equipAll`, `buyGear` and the planner's `wielders`). The last stage needs
+  `p.ascended` (`ascend`: a small daily chance from level 45, `ASCEND_DAILY`; a rare legendary wanderer; quests and
+  events later). Class stats feed `personFighter`, `maxHp`. Armour pieces have a `tint` (worn, `BY_WEIGHT` in held.ts)
+  and `hue` (icon). Spells (`data/spells.ts`, 160, `spellsKnown`) and skills (`data/abilities.ts`, 200,
+  `abilitiesKnown`) are data so far, with effects from `data/effects.ts`.
+
+- **Watching a party's fights (done):** the Expeditions tab's **Watch** (the `watch` command, `s.watching`,
+  `snapshot.watch`) swaps the town for `src/renderer/fight/fightView.ts` (`FightScene`): the party walking right between
+  fights, and in a fight the foes on the left and the party on the right, as in the old Final Fantasy games (numbers,
+  hit flashes, each spell's element colour), with blue windows from `fight/fightHud.ts` (the action's name, the foes,
+  the party's health and time gauges, Back to town). On the phone it takes the whole screen like a raid's battle.
+  - **25 scenes** (`src/shared/data/scenes.ts`: `SCENES`, `ROUTES` per destination, `sceneFor`): 17 outdoors and 8
+    inside dungeons (cave, keep, dragon's den, crypt, machine vault, ship's hold, factory, bunker). On the road it's the
+    land on the way; arrived at a dungeon, it's inside. The town's biome swaps the green ones (dunes, tundra, coast).
+    Painted by `src/renderer/art/fightBackdrop.ts` (each scene a recipe in `OUT`/`IN`: sky, far land, middle features,
+    ground, path, water, props, front; walls, decor, columns, roof, floor) in four layers that scroll at their own
+    pace (`Backdrop.pace`). `window.__scene` forces one, for previews.
+- **Raiders as seasoned as the town:** `seasonedMight` in raids.ts (`RAID_MIGHT_PER_LEVEL` 0.07 per level of the
+  grown-ups' average, up to `RAID_SEASONED_MAX`), since classes, spells and skills made defenders much stronger. Levels
+  past `LEVEL_STEEP` (25) cost `LEVEL_STEEPNESS` (1.12) more each, so the last evolution stays rare: by day 15 the best
+  in a town is about level 21 to 29. Soak (4 towns, 15 days, people/deaths): knights 33.0/2, liches 26.8/7, settlers
+  17.3/8, vampires 29.5/5.
+- **Battle speed:** the raid battle's top bar has a speed button (1×, 2×, 3×; the `battleSpeed` command,
+  `s.battleSpeed`, kept for later battles). `battleSpeedNow` (battle.ts) is read by `GameLoop.pump`, which runs that
+  much more sim time while a battle is on; back to the town's pace when it's over.
+- **The bestiary (from the Craftpix packs):** `tools/compose-sheets.cjs` (run by hand; needs Playwright's Chromium)
+  turns each pack's per-animation strips (or the painted bosses' frame folders, scaled down) into one sheet per
+  creature in `src/renderer/art/creatures/packs/` (rows: walk, attack, idle, hurt, dead; frames cropped to the creature,
+  feet on the bottom edge), with `packs.json`/`packs.ts` (layout) and `src/shared/data/packSheets.ts` (sheet ids and
+  figure heights). The sheets are files beside the page (copied by `build.mjs` and `build-web.mjs`), not inlined.
+  `creatures.ts` folds them in (`PACK_DEFS`); `creatureFrame` takes a pose (`idle`, `hurt`, `dead`: the fallen lie down).
+  `src/shared/data/bestiary.ts`: about 40 foes, 12 bosses with kits and relic trophies, 14 raid kinds, and 12 lairs
+  (legendary destinations with map spots and scenes), merged into ENEMIES, RAID_KINDS, ITEMS, DESTINATIONS,
+  MAP_SPOTS and ROUTES. `test/bestiary.test.ts` checks every pack sheet is used. `atPlace` (data/expeditions.ts) says
+  "at The Labyrinth" rather than "at the The Labyrinth".
+- **Painted backdrops from the packs:** `tools/compose-backdrops.cjs` stacks each parallax background's layers (far
+  to near; packs that number "Plan 1.." near to far are reversed) into one WebP per background in
+  `src/renderer/art/backdrops/` (114 of them; `backdrops.json`, `src/shared/data/backdrops.ts`). Not precached: the
+  service worker keeps each once a fight has fetched it. `SCENE_LOOKS` in data/scenes.ts lists each scene's looks
+  (`painted`, a backdrop, or `sky:` a sky pack over the painted land), `lookFor` picks one per trip (the green scenes
+  take autumn and winter ones in season). `FightScene.setLook` loads it (`art/backdropImages.ts`) and tiles its layers,
+  the near ones scrolling faster; `window.__look` forces one, for previews.
+- **Spell and skill effects in fights:** `src/renderer/fight/actLooks.ts` (`actSprite`) picks the sheet that plays
+  where a spell or skill lands: a striking skill is a slash in its element (`slash_*`, Craftpix's Magic Slash pack), a
+  spell a magic sheet for its element (`mg_*`, the Pixel Magic pack, or the older pvfx/Alenia ones), mending the healing
+  glow, a blessing a ward. The watched fight (`FightScene`, timed from when each act is first seen; `window.__fxSlow`
+  slows them for previews) and the raid's battle map (`BattleView.acts`) both play them. Sheets are cut by
+  `tools/compose-effects.cjs`.
+- **The raid map's scenery from the packs:** `tools/compose-props.cjs` cuts Craftpix's top-down objects to what's drawn,
+  scales them to the map (twice its 16px cells) and packs them by set into `src/renderer/art/props/<set>.png` (frames
+  in `art/props.json`, loaded by `art/props.ts`, files beside the page): `wild`, `winter` (tundra, and winter
+  anywhere), `desert`, `coast`, `cave` (the dwarves' rock), `grove` (mixed in for the fae and druids) and `sea` (under
+  the merfolk's water, seen through it). `BattleScene.propSets` picks them; until loaded, the town's side-on scenery
+  stands in.
+- **Shop and tavern from the packs:** `shopPanel.ts` draws the furnishings from the Glassblower's Workshop sheet
+  (`art/interior/workshop.png`; `WORKSHOP` boxes, `SPRITE_OF` per item, laid across the footprint by `sprites()`), the
+  counters as its long board (ends and a repeated middle), and the brick hearth as its animated furnace (`FORGE`). Pieces
+  without a picture, and all of them until the sheet loads, are painted as before. The Trade tab has a button for each
+  venue once built (`venue-row`), besides tapping them in the town.
+- **The raid map's ground from the tower-defence tilesets:** `art/tdTiles.ts` (the Fields tileset's cobbles, the
+  Village tileset's tower pads, in `art/td/`); `battleGround(..., td)` lays a cobble tile per trail cell and a pad under
+  each shooter's spot. The battle view loads them and lays the map out again when they come.
+- **Unique weapons and boss loot (step 6, done):** `src/shared/data/uniques.ts`: 51 named weapons, one of each in the
+  world (`ItemDef.unique`, also `relic`: never made or sold), each a family and tier hitting `UNIQUE_EDGE` (1.35) times a
+  made one, with the family's quirks and its own (new quirk `lifesteal`: a share of each blow heals the striker, as
+  `Quirks.drain` in combat.ts and raids' `defenderAttack`). `UNIQUE_FROM` says which bosses drop each; the 8 with none
+  (`QUEST_UNIQUES`) are kept for quests. Every boss has a loot table (`bossLoot`: its uniques, `UNIQUE_CHANCE` 0.5 of one
+  a kill, a purse of coins by its health); `dropLoot` in `sim/bosses.ts`, from `bossSlain` (raids and expedition fights,
+  kitless bosses too), rolls it deterministically and records `s.uniques`, so none drops twice. A town that buys its gear
+  still has its treasures (relics, uniques) handed out by `equipAll`. The Expeditions tab lists the uniques found and who
+  carries them (`snapshot.uniques`). A boss struck down on the battle map as the raid ends is paid out by `endRaid` (it used
+  to lose its trophy). Soak (4 towns, 15 days): about half the towns win Ursine Claws from the Cave Bear; growth and
+  deaths as before.
+- **Scouting and the opened map (step 7, done):** `src/shared/data/regions.ts`: the world map's 8 regions (`REGIONS`:
+  centre, fog radius, era, the scouts' loot and foes, scene). Home (`HOME_REGION`, the Heartland) is known; the rest are
+  fogged until a scouting party maps them (`s.regions`). Each region has a scouting trip (`SCOUT_DESTINATIONS`, type
+  `scout`, `scoutId`; merged into DESTINATIONS, MAP_SPOTS, ROUTES). `HIDDEN_IN` keeps places (the 12 lairs now, the
+  dungeons later) off the board and map until their region is mapped; old destinations are never hidden.
+  `destinationHidden`/`regionKnown` in `sim/expeditions.ts` (`destinationUnlocked` refuses hidden ones); a scouting party
+  home maps its region (`mapRegion`, a milestone naming what it found), and its trip leaves the board. The map
+  (`worldMapView.ts`) lays soft fog (`.map-fog`) and a faint name over each unmapped region; scouting trips are ringed
+  dots. Map dots are left out of the menu themes' button rules (they drew as big grey buttons).
+- **Dungeon delves (step 8, done):** `src/shared/data/dungeons.ts` (`DUNGEONS`: region, era, research, rooms, foes, boss,
+  loot, hoard, road and inside scenes, map spot, `threat`; `ROOM_SECONDS`; each a destination of type `delve` merged into
+  DESTINATIONS, MAP_SPOTS, ROUTES and `HIDDEN_IN`). A delve is an expedition with `e.delve` (`sim/delves.ts`): the party
+  is picked by the player (`sendDelve`, the `sendDelve` command, up to `MAX_DELVERS` 5; roles by `rolesFor`), its rooms
+  rolled from the town's seed and the trip (`startDelve`: a fight first, a camp before the boss, else fights, traps,
+  treasure, shrines, puzzle doors, camps and forks), and a torch packed a room plus `SPARE_TORCHES`, each cut from a
+  unit of wood. In the work phase `stepDelve` goes room by room (`DelveHooks`: back, fight, room): more foes deeper, a
+  scout may spot a trap, a puzzle door to the cleverest, a risky party takes the darker fork (more foes, more gold). No
+  torches, or half the party down: they turn back. The boss beaten, its hoard comes home and `s.delved` counts the clear.
+  The Expeditions tab's dungeon cards have a chip a fighter to pick the party (`delvePicks`, ticked when picked) and
+  Delve: safe / risky; an active delve shows its room, torches and latest line (`ExpeditionView.delve`). Place names in
+  the trips' notices go through `the`/`The` (data/expeditions.ts), and foes through `describeGroup` (bosses by name,
+  "wolves"), so no more "the The Labyrinth".
+- **Watching a delve (step 9, done):** the Watch view (`FightScene`) follows a delve down the dungeon's inside scene:
+  the party walks on between rooms and stops (`STOP`, the first 30% of a room) at each room's thing, drawn by
+  `drawDelve` from `art/delveProps.ts` (Craftpix's 2D Top-Down Dungeon pack seen side-on: a door and a chest opening,
+  a gate for a fork, braziers at camps, wall torches along the corridor; its Dungeon Props pack's skull altar at
+  shrines and guillotine at traps), left behind as they walk on (`propAt`). The light dims as the torches run low. The
+  HUD's top window has the delve's latest line, and the foes' window the room and torches between fights
+  (`ExpeditionView.delve.progress`). The phone feed has a card for each delve under way; tapping it watches the party.
+- **Dungeon types, twists, elites and dozens of bosses (step 10, done):** 12 dungeons, one of each `DungeonType`
+  (crypt, warren, mine, fey, temple, tower, nest, wreck, ice, forge, vault, den) across the fogged regions and the eras.
+  Each has a pool of bosses (`bosses`; one rolled per delve into `Delve.boss`, named by `bossName`), among them 27 new
+  ones in `src/shared/data/dungeonBosses.ts` (`DUNGEON_BOSSES`, merged into ENEMIES): drawn from the existing sheets,
+  bigger, with a `look` the fight view applies as a colour filter (`lookFilter` in fightView.ts: hue turned, greyed,
+  brightened; a tint only darkens). Their kits have no trophy (`BossKit.trophy` is optional); each carries a unique of its
+  own (27 more rows in uniques.ts). Every delve rolls a twist (`TWISTS`: Haunted, Flooded, Rich Veins, Cursed, Swarming,
+  Pitch Dark, Blessed, Champions, or none), which changes rooms' time (`delveRoomTicks`), torches, fights, treasure and
+  healing. Foes in a delve's fights may be elites (`raiseElites`: `ELITES` fiery, armoured, swift, vampiric, giant;
+  `Fighter.elite`, named and tinted), more often deeper down, for a risky party and in a Champions run. The card, the
+  HUD and the feed show the twist.
+- **Quests, rivals, the trophy hall, respawn, alerts (step 11, done):** `src/shared/sim/quests.ts`: of an evening
+  (`questsHourly`, hour 19) a tavern guest (or a stranger at the edge of town) may offer a quest on a dungeon the town
+  knows (`s.quests`, at most `MAX_QUESTS` 2, lapsing after `QUEST_DAYS` 6): a rescue (the captive joins), a bounty
+  (coins), a relic hunt (one of `QUEST_UNIQUES`) or a fallen delver's gear (a fine weapon of the dungeon's era). They
+  pay when the party that cleared the dungeon is home (`questsDone`, from `delveHome`). Rival delvers (`RIVALS` by era,
+  `RIVAL_CHANCE`) wait at a `rival` room halfway down: a risky party fights them for their finds, a safe one shares the
+  way and may win one over (`joinTown`). A cleared dungeon is quiet for `QUIET_DAYS` (`s.dungeonQuiet`, not on the board
+  meanwhile), then wakes (`delvesHourly`) `DEEPER_ROOMS` deeper with one more foe a fight per clear. The Trophy Hall
+  (`trophy_hall`, Writing; the planner builds it once the town holds 2 treasures) adds `TROPHY_RENOWN` per relic or
+  unique held to the venues' attractiveness (`trophyRenown` in shop.ts). Phone alerts: the `delves` setting (forecast
+  kind `delve`: the boss met, cleared, a unique, a dungeon woken). The Expeditions tab lists open quests and marks
+  dungeons with a quest or lying quiet. Tests: `test/quests.test.ts`.
+- **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
+  `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
+  (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.
+- **The keep's stairs stay clear:** when a new era widens the keep, `clearStairs` (castle.ts, from era.ts) moves any
+  room left standing over a stair tower to the nearest clear spot.
+
+## Planned (owner's requests)
+
+- **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):
+  - About 160 weapons (from 16): every era gets several of each kind (swords, axes, maces, spears, daggers, bows,
+    crossbows, slings, staves, wands, guns...), with different damage, accuracy, speed and quirks (reach, armour
+    piercing, bleeding, stun, splash, beast or undead bane), so fights vary. Drawn from the icon sheets already used.
+  - **+0 to +5** on crafted weapons and armour, rolled when made from the crafter's Crafting skill and luck, **on top
+    of** the quality grade (Poor to Divine). +4 and +5 are very rare. A basic weapon at +5 is about as good as one
+    three tiers up (+N adds to its damage and accuracy; the grade multiplies as now).
+  - **Unique weapons** that come only from bosses and quests (named, one of each, with special effects), many more
+    than the 7 relics.
+- **Dungeon delves** (the owner's choices: the player picks the party members; done, steps 7 to 11):
+  - Exploring the region with expeditions (a new scouting kind) reveals new areas on the world map, and with them
+    dungeons; this is also how more of the map opens up.
+  - A delve is like an expedition but longer (several hours to a few game days) and more involved: the party goes
+    room by room, fights what turns up, and ends in a boss fight with great loot. Dozens of new bosses.
+  - **Watching it:** tap the delve (on the Expeditions tab or a feed card) and the town view is replaced by the
+    party walking to the right through the dungeon, fighting what comes, until the player goes back to the town.
+  - Several locations and dungeon types (crypt, goblin warren, flooded temple, deep mine, wizard's tower, fey hollow,
+    spider nest, sunken ship, ice cave, volcanic forge, machine vault, dragon's den...), each with its look, monsters
+    and bosses. Sometimes a quest is tied to one.
+  - **Varied rooms:** traps (scouts spot them), treasure rooms, shrines (blessings or curses), puzzle doors (Research),
+    rest camps, forks (riskier or safer way).
+  - **Run modifiers and elites:** each delve rolls a twist (Haunted, Flooded, Rich Veins, Cursed: no healing...);
+    some monsters are elites with affixes (fiery, armoured, swift, vampiric...).
+  - **Supplies and retreat:** torches and rations; running low or losing too many turns the party back with what
+    it found.
+  - **Depth and respawn:** a cleared dungeon goes quiet, then reawakens weeks later deeper and harder.
+  - **Quests:** rescue a captive (they join), bounties on named monsters, relic hunts for a visitor or tavern guest,
+    a fallen delver's gear to recover; offered through events and the tavern.
+  - **Trophy hall:** a building showing boss trophies and uniques; each adds renown and draws travellers.
+  - **Rival adventurers:** another party sometimes races for the same dungeon (beat them, help them and they may
+    join, or fight them for the loot).
+  - **Phone alerts:** the boss reached, a unique found, someone lost, home again.
+  - Deterministic sim like everything else (delves play out offline and in tests); deaths are real.
+- **Classes, levels, spells and skills** (the owner's choices; done, steps 2 to 5):
+  - **125 classes:** 25 base classes (knight, ranger, beast tamer, archer, sorcerer, witch, white mage, monk,
+    assassin, and so on; the five classes there are now fold in), each evolving four times as it levels, so five
+    stages per line. A grown-up is given a class once, at random, weighted by their skills and traits; some classes
+    are much rarer. Never switched after.
+  - **One level from all XP** (work and fighting both feed it, fighting faster): it unlocks the class's skills and
+    spells and its evolutions.
+  - **Gear by class:** each class wears certain kinds (cloth, light, medium, heavy armour; shields; weapon families),
+    overlapping: mages cloth only, knights heavy, assassins light. About 100 armour pieces (robes, hats, leathers,
+    mail, plate, shields), all with +N.
+  - **160 spells and 200 skills** across the classes; a few general ones every class can have, most unique to a class.
+    A caster has 3 spells ready at a time, swapped for better ones as they level, each on a cooldown (the best on
+    long ones, so they're used sparingly).
+  - **Fights in the style of the old Final Fantasy games** (the owner's picture: foes on the left, the party on the
+    right, a box naming the action, a panel of names and health along the bottom): automatic, watched if the player
+    wants. Used for expedition and delve fights. The tower-defence raids stay maps, but their fighters use their
+    classes, skills and spells.
+- **Boats** (the owner's idea, for later): boats for long journeys: far destinations over water (islands, other
+  coasts) that only a boat reaches, or that it reaches faster than walking. Likely a boatyard on the coast or river,
+  boats as built things (rowboat → sailing ship → steamer by era), a party sailing (watched like a trip, at sea), and
+  dangers of their own (storms, sea monsters, pirates). Not designed yet.
+- Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
+  skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
+  tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)
+  the delve view; (10) dungeon types, modifiers, elites, dozens of bosses; (11) quests, rivals, the trophy hall,
+  respawn, alerts; soak, phone checks, PR. All eleven are done; boats are what's left.
 
 ## Known problem (fixed, watch)
 

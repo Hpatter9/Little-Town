@@ -3,7 +3,6 @@
 
 import type { MonsterKind } from '../data/monsters';
 const TURN_KINDS: readonly string[] = ['undead', 'vampire', 'werewolf'];
-import { CLASSES, type ClassId } from '../data/classes';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { DESTINATION_BY_ID, ROLES, STANCES, type Role, type Stance } from '../data/expeditions';
 import { ITEM_BY_ID, SLOTS, type Slot } from '../data/items';
@@ -35,11 +34,11 @@ export type Command =
   | { type: 'sendExpedition'; dest: string; members: number[]; roles?: Record<number, Role>; stance?: Stance; horses?: number; truck?: boolean }
   /** Send a party the town plans, at the stakes the player picks (safe or risky). */
   | { type: 'sendParty'; dest: string; stakes: 'safe' | 'risky' }
+  | { type: 'sendDelve'; dest: string; members: number[]; stakes: 'safe' | 'risky' }
   /** Pass on a curse (hidden): turn one person, or everyone who can be. */
   | { type: 'turnPerson'; person: number; kind: MonsterKind }
   | { type: 'turnTown'; kind: MonsterKind }
   /** Train someone into a special class. */
-  | { type: 'trainClass'; person: number; cls: ClassId }
   /** Rebuild a finished building as its upgrade, in place. */
   | { type: 'upgrade'; building: number }
   /** Take a caravan's offer. */
@@ -57,6 +56,7 @@ export type Command =
   | { type: 'castHeld' }
   /** Follow a townsperson (null: nobody). */
   | { type: 'follow'; person: number | null }
+  | { type: 'watch'; expedition: number | null }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
   | { type: 'rally'; person: number }
   /** The battle on the trail (sim/battle.ts): put a fighter on a spot (or off: null), send the raiders on now, auto-watch
@@ -64,6 +64,7 @@ export type Command =
   | { type: 'battlePlace'; person: number; spot: number | null }
   | { type: 'battleGo' }
   | { type: 'battleAuto'; on: boolean }
+  | { type: 'battleSpeed'; speed: number }
   | { type: 'battleCast'; power: string; x: number; y: number }
   /** Turn a party around. */
   | { type: 'recallExpedition'; expedition: number }
@@ -108,8 +109,6 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.person) && TURN_KINDS.includes(c.kind as MonsterKind) ? { type: 'turnPerson', person: c.person as number, kind: c.kind as MonsterKind } : null;
     case 'turnTown':
       return TURN_KINDS.includes(c.kind as MonsterKind) ? { type: 'turnTown', kind: c.kind as MonsterKind } : null;
-    case 'trainClass':
-      return Number.isInteger(c.person) && CLASSES.includes(c.cls as ClassId) ? { type: 'trainClass', person: c.person as number, cls: c.cls as ClassId } : null;
     case 'upgrade':
       return Number.isInteger(c.building) ? { type: 'upgrade', building: c.building as number } : null;
     case 'discardStock':
@@ -128,6 +127,8 @@ export function parseCommand(raw: unknown): Command | null {
     case 'cancelResearch':
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
+    case 'sendDelve':
+      return typeof c.dest === 'string' && Array.isArray(c.members) && c.members.every((m: unknown) => typeof m === 'number') && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendDelve', dest: c.dest, members: c.members as number[], stakes: c.stakes } : null;
     case 'sendParty':
       return typeof c.dest === 'string' && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendParty', dest: c.dest, stakes: c.stakes } : null;
     case 'sendExpedition': {
@@ -152,6 +153,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.power === null || typeof c.power === 'string' ? { type: 'holdPower', power: c.power as string | null } : null;
     case 'castHeld':
       return { type: 'castHeld' };
+    case 'watch':
+      return c.expedition === null || Number.isInteger(c.expedition) ? { type: 'watch', expedition: c.expedition as number | null } : null;
     case 'follow':
       return c.person === null || Number.isInteger(c.person) ? { type: 'follow', person: c.person as number | null } : null;
     case 'rally':
@@ -160,6 +163,8 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.person) && (c.spot === null || Number.isInteger(c.spot)) ? { type: 'battlePlace', person: c.person as number, spot: c.spot as number | null } : null;
     case 'battleGo':
       return { type: 'battleGo' };
+    case 'battleSpeed':
+      return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'battleSpeed', speed: c.speed } : null;
     case 'battleAuto':
       return typeof c.on === 'boolean' ? { type: 'battleAuto', on: c.on } : null;
     case 'battleCast':

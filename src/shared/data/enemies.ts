@@ -1,6 +1,9 @@
 // Enemies by era (DESIGN §15 and on). Numbers are starting points for tuning.
 
+import { DUNGEON_BOSSES } from './dungeonBosses';
 import type { Stock } from './materials';
+import { BESTIARY_ENEMIES } from './bestiary';
+import type { PackSheetId } from './packSheets';
 
 /** How a human enemy is drawn: which outfit, and what they hold (an LPC weapon layer, or none). */
 export interface HumanSprite {
@@ -9,7 +12,7 @@ export interface HumanSprite {
 }
 
 /** Creature sheets (see renderer/art/creatures.ts). */
-export type CreatureSheetId = 'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'golems2' | 'snowmonkey' | 'ghosts' | 'mouse' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon' | 'lions' | 'wilddogs' | 'crocodiles' | 'behemoth' | 'tomes' | 'bats' | 'camel' | 'shrooms' | 'mimic';
+export type CreatureSheetId = 'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'golems2' | 'snowmonkey' | 'ghosts' | 'mouse' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon' | 'lions' | 'wilddogs' | 'crocodiles' | 'behemoth' | 'tomes' | 'bats' | 'camel' | 'shrooms' | 'mimic' | PackSheetId;
 
 /** A single still image (see renderer/art/stills.ts); hover ones bob in the air. */
 export interface StillSprite {
@@ -42,8 +45,8 @@ export interface BossKit {
   area?: { every: number; targets: number; name: string; burns?: boolean; fx: AreaFx };
   /** At half health it calls for help. */
   summon?: { kind: string; count: number; text: string };
-  /** The unique item it drops. */
-  trophy: string;
+  /** The unique item it drops (a dungeon's boss has none: it guards the hoard). */
+  trophy?: string;
 }
 
 export interface EnemyDef {
@@ -67,9 +70,33 @@ export interface EnemyDef {
   sprite: { sheet: CreatureSheetId; block: number; scale: number } | HumanSprite | MachineSprite | StillSprite;
   /** Drawn tinted (a rival origin's colours: sea-green merfolk, pale thralls). */
   tint?: number;
+  /** Recoloured in the watched fights (a tint only darkens): its hue turned (degrees), greyed, or brightened. */
+  look?: { hue?: number; grey?: boolean; bright?: number };
+  /** What it is, when its id doesn't say (natureOf), and the share of each blow its hide or plate takes away. */
+  nature?: Nature;
+  armor?: number;
 }
 
+/** What a foe is, for the weapons made against such things (data/weapons.ts: banes). */
+export type Nature = 'beast' | 'undead' | 'machine' | 'person';
+const UNDEAD = /zombie|skelet|ghost|wraith|mummy|lich|grave|bone|ghoul|vampire|revenant|abomination|thrall|spectre|banshee/;
+const MACHINE = /drone|bot\b|_bot|mech|sentry|machine|tank|rogue_ai|turret|overmind|eagle|sentinel|automaton/;
+const ARMOURED = /knight|baron|soldier|golem|sentry|guard|warlord|mech|tank|war_bot/;
+export function natureOf(kind: string): Nature {
+  const d = ENEMIES[kind];
+  if (d?.nature) return d.nature;
+  if (UNDEAD.test(kind)) return 'undead';
+  if (MACHINE.test(kind) || (d && 'machine' in d.sprite)) return 'machine';
+  return d && 'sheet' in d.sprite ? 'beast' : 'person';
+}
+/** The share of a blow a foe's hide or plate takes away (weapons that pierce get past some of it). */
+export const enemyArmor = (kind: string) => ENEMIES[kind]?.armor ?? (ARMOURED.test(kind) ? 0.2 : natureOf(kind) === 'machine' ? 0.25 : 0);
+
 export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
+  // (the Craftpix packs' foes and bosses: data/bestiary.ts)
+  ...BESTIARY_ENEMIES,
+  // (the dungeons' bosses: data/dungeonBosses.ts)
+  ...DUNGEON_BOSSES,
   wolf: { id: 'wolf', name: 'Wolf', hp: 28, damage: [3, 6], accuracy: 0.7, dodge: 0.12, interval: 1.1, ranged: false, loot: { hide: 1, meat: 1, bone: 1 }, sprite: { sheet: 'wolf', block: 1, scale: 1 } },
   wolf_alpha: { id: 'wolf_alpha', name: 'Wolf Pack Alpha', hp: 55, damage: [5, 9], accuracy: 0.75, dodge: 0.15, interval: 1.0, ranged: false, loot: { hide: 2, meat: 2, bone: 1 }, sprite: { sheet: 'wolf', block: 2, scale: 1.2 } },
   boar: { id: 'boar', name: 'Boar', hp: 45, damage: [5, 10], accuracy: 0.6, dodge: 0.08, interval: 1.5, ranged: false, loot: { meat: 3, hide: 1, bone: 1 }, sprite: { sheet: 'boar', block: 0, scale: 1 } },

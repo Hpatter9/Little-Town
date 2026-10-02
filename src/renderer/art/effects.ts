@@ -66,6 +66,27 @@ import aleniaDarkFlames from './effects/spell_dark_flames.png';
 import aleniaGoldVortex from './effects/spell_gold_vortex.png';
 import aleniaLifeFountain from './effects/spell_life_fountain.png';
 import aleniaChaosStorm from './effects/spell_chaos_storm.png';
+import mgGroundFireUrl from './effects/mg_ground_fire.png';
+import mgGroundFire2Url from './effects/mg_ground_fire2.png';
+import mgSigilUrl from './effects/mg_sigil.png';
+import mgBeamUrl from './effects/mg_beam.png';
+import mgStrikeUrl from './effects/mg_strike.png';
+import mgBoltUrl from './effects/mg_bolt.png';
+import mgBolt2Url from './effects/mg_bolt2.png';
+import mgPopUrl from './effects/mg_pop.png';
+import mgSparksUrl from './effects/mg_sparks.png';
+import mgFlameUrl from './effects/mg_flame.png';
+import mgFlareUrl from './effects/mg_flare.png';
+import mgSpikesUrl from './effects/mg_spikes.png';
+import mgCreepUrl from './effects/mg_creep.png';
+import mgPuffUrl from './effects/mg_puff.png';
+import mgShardsUrl from './effects/mg_shards.png';
+import slashWindUrl from './effects/slash_wind.png';
+import slashFireUrl from './effects/slash_fire.png';
+import slashLightningUrl from './effects/slash_lightning.png';
+import slashPoisonUrl from './effects/slash_poison.png';
+import slashGoldUrl from './effects/slash_gold.png';
+import slashWaterUrl from './effects/slash_water.png';
 import type { AreaFx } from '../../shared/data/enemies';
 
 /** A 7-frame impact burst, 48px square, played over whoever was just hit. */
@@ -157,6 +178,28 @@ const SPELL_SHEET_DEFS = {
   gold_vortex: [aleniaGoldVortex, 112, 16, 4],
   life_fountain: [aleniaLifeFountain, 128, 20, 5],
   chaos_storm: [aleniaChaosStorm, 112, 16, 4],
+  // (Craftpix's Pixel Magic Sprite Effects: 72px strips; and its Magic Slash pack, cut to 96px by tools/compose-effects.cjs)
+  mg_ground_fire: [mgGroundFireUrl, 72, 8, 8],
+  mg_ground_fire2: [mgGroundFire2Url, 72, 8, 8],
+  mg_sigil: [mgSigilUrl, 72, 8, 8],
+  mg_beam: [mgBeamUrl, 72, 8, 8],
+  mg_strike: [mgStrikeUrl, 72, 8, 8],
+  mg_bolt: [mgBoltUrl, 72, 4, 4],
+  mg_bolt2: [mgBolt2Url, 72, 4, 4],
+  mg_pop: [mgPopUrl, 72, 4, 4],
+  mg_sparks: [mgSparksUrl, 72, 8, 8],
+  mg_flame: [mgFlameUrl, 72, 4, 4],
+  mg_flare: [mgFlareUrl, 72, 4, 4],
+  mg_spikes: [mgSpikesUrl, 72, 8, 8],
+  mg_creep: [mgCreepUrl, 72, 8, 8],
+  mg_puff: [mgPuffUrl, 72, 8, 8],
+  mg_shards: [mgShardsUrl, 72, 6, 6],
+  slash_wind: [slashWindUrl, 96, 18, 5],
+  slash_fire: [slashFireUrl, 96, 12, 5],
+  slash_lightning: [slashLightningUrl, 96, 12, 5],
+  slash_poison: [slashPoisonUrl, 96, 24, 5],
+  slash_gold: [slashGoldUrl, 96, 20, 5],
+  slash_water: [slashWaterUrl, 96, 12, 5],
 } as const;
 export type SpellSheet = keyof typeof SPELL_SHEET_DEFS;
 const spellSheets = Object.fromEntries(Object.keys(SPELL_SHEET_DEFS).map((k) => [k, [] as Texture[]])) as Record<SpellSheet, Texture[]>;

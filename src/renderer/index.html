@@ -390,10 +390,21 @@
         display: flex;
         gap: 6px;
       }
+      #battle-top .battle-row {
+        flex: none;
+        margin-left: auto;
+      }
       #battle-top .battle-row .tab {
+        flex: none; /* (never squeezed until its words are cut: the row drops to a line of its own instead) */
+        width: auto;
         padding: 3px 9px;
         white-space: nowrap;
       }
+      #battle-top .battle-speed {
+        min-width: 38px;
+        font-variant-numeric: tabular-nums;
+      }
+      #battle-top .battle-speed.on,
       #battle-top .battle-auto.on {
         border-color: #8cc05a;
         color: #c8f0a0;
@@ -458,6 +469,127 @@
         display: block;
         height: 100%;
         background: #8cc05a;
+      }
+      /* watching a party away (fight/fightHud.ts): the old games' blue windows */
+      body.in-fight #clock,
+      body.in-fight #prompt,
+      body.in-fight #away,
+      body.in-fight #banner,
+      body.in-fight #raid-flash,
+      body.in-fight #toasts,
+      body.in-fight #boss-bar,
+      body.in-fight #exp-header,
+      body.in-fight #person-card,
+      body.in-fight #actions,
+      body.in-fight #tip {
+        display: none !important;
+      }
+      .ff-window {
+        background: linear-gradient(180deg, #2a3a9a, #10186a);
+        border: 2px solid #e8e8f0;
+        border-radius: 5px;
+        box-shadow: 0 0 0 1px #10104a;
+        color: #fff;
+        text-shadow: 1px 1px 0 #000;
+        padding: 4px 8px;
+        font-size: 12px;
+      }
+      #fight-top,
+      #fight-bottom {
+        position: absolute;
+        left: 6px;
+        right: 6px;
+        z-index: 5;
+        zoom: var(--ui-zoom, 1);
+      }
+      #fight-top {
+        top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      #fight-bottom {
+        bottom: 6px;
+        display: flex;
+        gap: 4px;
+      }
+      #fight-top[hidden],
+      #fight-bottom[hidden] {
+        display: none;
+      }
+      .ff-message {
+        flex: 1 1 auto;
+        min-width: 0;
+        text-align: center;
+        font-family: var(--font-display);
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ff-back {
+        flex: none;
+        font: inherit;
+        font-size: 11px;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid #c8c8e0;
+        border-radius: 4px;
+        padding: 2px 8px;
+      }
+      .ff-foes {
+        flex: 0 0 38%;
+        min-width: 0;
+      }
+      .ff-party {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .ff-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        line-height: 1.5;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ff-row.ff-dim {
+        color: #a8b0d8;
+      }
+      .ff-row.low .ff-hp {
+        color: #ffe060;
+      }
+      .ff-row.down {
+        color: #a0a0b8;
+      }
+      .ff-row.down .ff-hp {
+        color: #ff7070;
+      }
+      .ff-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ff-hp {
+        flex: none;
+        font-variant-numeric: tabular-nums;
+      }
+      .ff-atb {
+        flex: none;
+        width: 34px;
+        height: 4px;
+        background: #0a0a30;
+        border: 1px solid #8890c0;
+      }
+      .ff-atb i {
+        display: block;
+        height: 100%;
+        background: #c8c8f0;
+      }
+      .ff-atb i.full {
+        background: #f0e070;
       }
       #prompt {
         position: absolute;

@@ -36,9 +36,11 @@ export interface AlertSettings {
   choices: boolean;
   /** The hero's big moments (the townsperson the player follows). */
   hero: boolean;
+  /** Delves: the boss reached, a dungeon cleared, a unique found, a dungeon waking again. */
+  delves: boolean;
 }
 
-export const DEFAULT_ALERTS: AlertSettings = { enabled: false, server: 'https://ntfy.sh', topic: '', leadMinutes: 10, raids: true, deaths: true, expeditions: false, choices: false, hero: true };
+export const DEFAULT_ALERTS: AlertSettings = { enabled: false, server: 'https://ntfy.sh', topic: '', leadMinutes: 10, raids: true, deaths: true, expeditions: false, choices: false, hero: true, delves: true };
 
 /** A valid ntfy topic name. */
 export const validTopic = (t: string) => /^[A-Za-z0-9_-]{1,64}$/.test(t);

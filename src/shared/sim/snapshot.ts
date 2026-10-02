@@ -1,13 +1,17 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
+import { bossName, delveRoomTicks, quietHours } from './delves';
+import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
-import { CLASS_DEFS, CLASSES, type ClassId } from '../data/classes';
-import { canTrain } from './classes';
+import { className, type ClassId } from '../data/classes';
+import { levelOf, stageOf } from '../data/levels';
+import { levelProgress } from './classes';
 import { turnable, undeadShare } from './turning';
 import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
 import { weatherAt, type WeatherNow } from './weather';
 import { directionOf, forSale, shoppingList, type Direction, type TownPlan } from './planner';
-import { appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect } from './shop';
+import { appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect, trophyRenown } from './shop';
 import { moneyTown, wageBill } from './wages';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
@@ -25,7 +29,7 @@ import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../da
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
-import { DESTINATION_BY_ID, DESTINATIONS, ROLES } from '../data/expeditions';
+import { atPlace, DESTINATION_BY_ID, DESTINATIONS, ROLES } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry } from './people';
 import type { Era } from '../data/eras';
@@ -35,14 +39,14 @@ import { CROPS } from '../data/crops';
 import { craftNeeded, craftSlots, hasBedroll, missingItems, stationFor, stationName } from './crafting';
 import { CHILD_HOURS } from '../data/social';
 import { DOOMS, type DoomKind } from '../data/doom';
-import { friendsOf, rivalsOf } from './social';
+import { friendsOf, isChild, rivalsOf } from './social';
 import { canTrade, stalls } from './trade';
 import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
-import { destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
+import { destinationHidden, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, tileCentreX } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
@@ -82,10 +86,11 @@ export interface PersonView {
   x: number;
   dir: 1 | -1;
   activity: Activity;
-  /** A special class, if they have one. */
+  /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
-  /** The callings the town has studied, and why they can't take each up yet (null: they can). */
-  trainable: { cls: ClassId; reason: string | null }[];
+  clsName: string | null;
+  level: number;
+  levelProgress: number;
   /** Riding into a fight (cavalry): the horse's coat. */
   mounted: number | null;
   /** Short description of what they're doing, for tooltips. */
@@ -176,6 +181,16 @@ export interface FighterView {
   sinceHit: number;
   /** What the last hit was, if special (a Blood Knight's, a gunshot's, a laser's). */
   hitFx: 'blood' | 'fire' | 'lightning' | null;
+  /** How near their next turn is (0 to 1: the old games' time gauge), their statuses, their class (party), and the
+   *  last number to pop up over them (ticks ago). */
+  atb: number;
+  statuses: string[];
+  clsName: string | null;
+  level: number | null;
+  pop: { age: number; amount: number; heal: boolean } | null;
+  conjured: boolean;
+  /** A delve's elite: its affix (drawn with a tint). */
+  elite: string | null;
 }
 
 export interface RaiderView {
@@ -267,16 +282,26 @@ export interface ExpeditionView {
   /** What the player staked on it: a safe or a risky trip (older ones: none). */
   stakes: 'safe' | 'risky' | null;
   roles: Record<number, string>;
-  /** A fight in progress, if any. */
+  /** A fight in progress, if any, and the spells and skills used in it lately (ticks ago). */
   battle: FighterView[] | null;
+  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[] }[];
   /** Waiting on a question for the player. */
   waiting: boolean;
+  /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
+  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
 }
 
 export interface DestinationView {
   id: string;
   unlocked: boolean;
   scouted: boolean;
+  /** Off the board and the map: in a region not yet mapped, or a region's scouting trip once it's mapped. */
+  hidden: boolean;
+  /** A dungeon: who the player may pick to delve it (grown, at home, on their feet), and how many times it's been cleared. */
+  candidates?: number[];
+  cleared?: number;
+  /** A cleared dungeon lying quiet: hours until it wakes again. */
+  quietHours?: number;
   /** Round trip in game seconds (unloaded). */
   tripSeconds: number;
   /** Food (need units) one member eats on the trip. */
@@ -311,6 +336,8 @@ export interface ShopView {
   /** The floor's appeal, the shop's renown, and the two together (which decides who comes). */
   appeal: number;
   renown: number;
+  /** What the Trophy Hall's treasures add. */
+  trophies: number;
   attractiveness: number;
   /** Extensions bought, most there can be, and what the next costs. */
   extensions: number;
@@ -403,6 +430,14 @@ export interface Snapshot {
   rallyIn: number;
   /** The townsperson the player follows (the camera keeps them in view), while they live. */
   hero: number | null;
+  /** The expedition the player is watching, in place of the town. */
+  watch: ExpeditionView | null;
+  /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
+  quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number }[];
+  /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
+  regions: string[];
+  /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
+  uniques: { id: string; holder: string | null }[];
   raid: RaidView | null;
   reputation: number;
   gameOver: { text: string; won: boolean } | null;
@@ -560,11 +595,19 @@ export function snapshot(s: GameState): Snapshot {
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
+      hidden: destinationHidden(s, d.id),
+      ...(d.type === 'delve'
+        ? { candidates: s.people.filter((p) => p.away === null && !p.downed && !isChild(p) && p.hp >= maxHp(p) * 0.4).map((p) => p.id), cleared: s.delved?.[d.id] ?? 0, quietHours: quietHours(s, d.id) }
+        : {}),
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
       ...partyView(s, d.id),
     })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
+    regions: [HOME_REGION, ...(s.regions ?? [])],
+    quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
+    uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
+    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,
@@ -714,6 +757,7 @@ function venueView(s: GameState, venue: 'shop' | 'tavern'): ShopView | null {
     }),
     appeal: appeal(b),
     renown: Math.floor(renownOf(b)),
+    trophies: trophyRenown(s),
     attractiveness: attractiveness(s, b),
     extensions: extensionsOf(b),
     maxExtensions: MAX_EXTENSIONS,
@@ -797,7 +841,7 @@ function awayView(s: GameState): JournalEntryView | null {
   return e ? entryView(e) : null;
 }
 
-function personView(s: GameState, p: Person, stock?: Stock): PersonView {
+function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
   const m = mood(s, p);
   const bed = p.bed === null ? undefined : s.buildings.find((b) => b.id === p.bed);
   return {
@@ -810,12 +854,9 @@ function personView(s: GameState, p: Person, stock?: Stock): PersonView {
     activity: p.activity,
     mounted: null,
     cls: p.cls ?? null,
-    trainable: p.cls
-      ? []
-      : CLASSES.filter((k) => s.research.done.includes(CLASS_DEFS[k].research)).map((k) => {
-          const r = canTrain(s, p, k, stock);
-          return { cls: k, reason: r.ok ? null : (r.reason ?? null) };
-        }),
+    clsName: p.cls ? className(p.cls, stageOf(p)) : null,
+    level: levelOf(p),
+    levelProgress: levelProgress(p),
     doing: describe(s, p),
     carrying: { ...p.carrying },
     skills: Object.fromEntries(
@@ -907,14 +948,19 @@ function craftView(s: GameState, o: CraftOrder): CraftOrderView {
 function expeditionView(s: GameState, e: Expedition): ExpeditionView {
   const d = DESTINATION_BY_ID[e.dest];
   const len = e.phase === 'out' ? e.outTicks : e.phase === 'work' ? e.workTicks : e.backTicks;
-  const left = e.phase === 'out' ? e.outTicks - e.elapsed + e.workTicks + e.outTicks : e.phase === 'work' ? e.workTicks - e.elapsed + e.outTicks : e.backTicks - e.elapsed;
+  let left = e.phase === 'out' ? e.outTicks - e.elapsed + e.workTicks + e.outTicks : e.phase === 'work' ? e.workTicks - e.elapsed + e.outTicks : e.backTicks - e.elapsed;
+  // (a delve's time inside goes by the rooms: how far down they are, out of how many)
+  const v = e.delve;
+  const roomTicks = ROOM_SECONDS * TICK_HZ * ERA_MULTIPLIER[s.era];
+  const down = v ? (Math.max(0, v.at) + Math.min(1, v.ticks / roomTicks)) / v.rooms.length : 0;
+  if (v && e.phase === 'work') left = (v.rooms.length - Math.max(0, v.at)) * roomTicks + e.outTicks;
   return {
     id: e.id,
     dest: e.dest,
     destName: d.name,
     scenery: d.scenery,
     phase: e.phase,
-    phaseProgress: Math.min(1, e.elapsed / Math.max(1, len)),
+    phaseProgress: v && e.phase === 'work' ? Math.min(1, down) : Math.min(1, e.elapsed / Math.max(1, len)),
     secondsLeft: Math.max(0, left) / TICK_HZ,
     members: e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p).map((p) => ({ id: p.id, name: p.name, look: p.look, gear: { ...p.gear } })),
     horses: (e.horses ?? []).map((h) => h.coat),
@@ -946,9 +992,18 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           sinceHit: e.battle!.tick - f.lastHit,
           sinceArea: f.lastArea != null ? e.battle!.tick - f.lastArea : 999,
           hitFx: f.hitFx ?? null,
+          atb: f.down ? 0 : Math.max(0, Math.min(1, 1 - f.cooldown / Math.max(1, f.interval))),
+          statuses: Object.entries(f.st ?? {}).filter(([, v]) => v!.until > e.battle!.tick).map(([k]) => k),
+          clsName: f.side === 'party' ? ((q) => (q?.cls ? className(q.cls, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
+          level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
+          pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
+          conjured: !!f.conjured,
+          elite: f.elite ?? null,
         }))
       : null,
+    acts: (e.battle?.acts ?? []).map((a) => ({ age: e.battle!.tick - a.tick, side: a.side, ref: a.ref, name: a.name, targets: a.targets })),
     waiting: e.prompt !== null,
+    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,
   };
 }
 
@@ -1064,7 +1119,7 @@ function bossBar(s: GameState): Snapshot['bossBar'] {
   if (raider) return { name: ENEMIES[raider.kind].name, hp: raider.hp, maxHp: raider.maxHp, enraged: !!raider.enraged, where: 'in town' };
   for (const e of s.expeditions) {
     const f = e.battle?.fighters.find((q) => q.side === 'enemy' && ENEMIES[q.kind]?.kit && !q.down);
-    if (f) return { name: f.name, hp: f.hp, maxHp: f.maxHp, enraged: !!f.enraged, where: `at the ${DESTINATION_BY_ID[e.dest]?.name ?? 'expedition'}` };
+    if (f) return { name: f.name, hp: f.hp, maxHp: f.maxHp, enraged: !!f.enraged, where: atPlace(DESTINATION_BY_ID[e.dest]?.name ?? 'expedition') };
   }
   return null;
 }

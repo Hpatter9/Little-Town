@@ -18,6 +18,10 @@ import { RAID_KIND_BY_ID, THROW_RANGE } from '../data/raids';
 import { WORLD_WIDTH, TILE } from '../constants';
 import type { Rng } from '../rng';
 import { castleFloors, castleOn } from './castle';
+import { personFighter, weaponOf } from './combat';
+import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
+import { ally } from './classes';
+import { enemyArmor } from '../data/enemies';
 import { attackPerson, defenderAttack, defenderReach, townEdgeX } from './raids';
 import { fogAim, turretsDown, wardOf } from './rivals';
 import { rallied, RALLY_SPEED } from './rally';
@@ -78,6 +82,9 @@ export interface BattleUnit {
   cooldown: number;
   /** The tick of its last blow (for the drawing). */
   lastAt?: number;
+  /** A townsperson's spells and skills (actions.ts), and the statuses on them. */
+  kit?: Kit;
+  st?: Statuses;
 }
 
 /** A raider's part in the battle (on the Raider): how far along its trail, which trail, who's holding it. */
@@ -94,6 +101,8 @@ export interface RaiderBattle {
   /** When it came onto the trail; and `out`: through to the town (raids.ts has it now). */
   enteredAt?: number;
   out?: boolean;
+  /** Statuses on it (actions.ts: stunned, slowed, poisoned...). */
+  st?: Statuses;
 }
 
 export interface Battle {
@@ -116,6 +125,8 @@ export interface Battle {
   casts?: { at: [number, number]; power: string; tick: number }[];
   /** Arrows and bolts in flight, for the drawing (from a spot or a raider, to a raider or a person). */
   shots?: { from: [number, number]; to: [number, number]; tick: number; kind: 'arrow' | 'bolt' | 'tower' | 'fire' }[];
+  /** The spells and skills used lately: by whom (a person id), what, and on which raiders (for the drawing). */
+  acts?: { tick: number; ref: number; name: string; at: number[] }[];
 }
 
 /* ------------------------------------------------------------ tuning */
@@ -140,6 +151,8 @@ const HERO_BONUS = 4;
 /** A mage casts slower than a bow shoots, but its fire bursts over those within this many cells of where it lands. */
 const MAGE_INTERVAL = Math.round(1.6 * TICK_HZ);
 const MAGE_BURST = 1.3;
+/** A cleaving blow carries into a raider within this many cells of the one struck. */
+const CLEAVE_CELLS = 1;
 /** How close (cells) a blocker must be on the trail to stop a raider. */
 const BLOCK_NEAR = 0.7;
 /** A fighter this hurt (a share of their health) falls back off the line. */
@@ -521,6 +534,20 @@ export function battleGo(s: GameState): void {
   if (b && (b.phase === 'placing' || b.phase === 'breather')) b.until = s.tick;
 }
 
+/** The speeds a battle can be played at (the top bar's button cycles through them). */
+export const BATTLE_SPEEDS = [1, 2, 3] as const;
+
+/** The player sets how fast battles play (kept for later battles). */
+export function setBattleSpeed(s: GameState, speed: number): void {
+  s.battleSpeed = (BATTLE_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
+}
+
+/** How many times real time the game runs now: the battle speed while a battle is on, else 1 (GameLoop reads it). */
+export function battleSpeedNow(s: GameState): number {
+  const b = s.raid?.battle;
+  return b && b.phase !== 'done' ? (s.battleSpeed ?? 1) : 1;
+}
+
 /** The player sets auto-watch (kept for later battles): on, the town places and fights by itself. */
 export function setAutoBattle(s: GameState, on: boolean): void {
   s.autoBattle = on;
@@ -584,13 +611,19 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
   const capacity = (u: BattleUnit) => {
     if (u.ally !== undefined) return 2;
     const p = people.get(u.person!)!;
-    return Math.min(3, 1 + Math.floor(p.skills.melee.level / 4)) + (p.id === s.mainId ? 1 : 0);
+    // (a spear or polearm keeps one more at its point)
+    return Math.min(3, 1 + Math.floor(p.skills.melee.level / 4)) + (p.id === s.mainId ? 1 : 0) + (weaponOf(p).reach ? 1 : 0);
   };
+
+  // lingering statuses (poison, regeneration...)
+  mapStatuses(s, b, wave, people, rng);
 
   // the raiders
   for (const rd of wave) {
     const bt = rd.bt!;
     if (rd.down || rd.gone || bt.d < 0) continue;
+    // stunned, asleep, frozen, stopped, charmed: it stands where it is
+    if (bt.st && held({ st: bt.st } as Combatant, s.tick)) continue;
     const def = ENEMIES[rd.kind];
     const path = map.paths[bt.lane] ?? map.paths[0];
     const cum = cumulative(path);
@@ -629,7 +662,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     }
     if (bt.held !== undefined) continue;
     // on along the trail, unless a blocker with room stops it
-    const next = Math.min(end, bt.d + pace);
+    const next = Math.min(end, bt.d + pace * ((bt.st?.slow?.until ?? 0) > s.tick ? 0.5 : 1) * ((bt.st?.haste?.until ?? 0) > s.tick ? 1.5 : 1));
     const at = pointAt(path, cum, next);
     const blocker = b.units.find((u) => {
       const q = spotOf.get(u.spot)!;
@@ -664,16 +697,32 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const reach = shooter ? SHOT_CELLS + (sp.kind === 'wall' ? WALL_REACH : 0) : MELEE_CELLS;
     // (a blocker hits what it's holding first; a shooter the one furthest along, the nearest to getting through)
     const inReach = wave.filter((rd) => !rd.down && !rd.gone && !rd.bt!.out && rd.bt!.d >= 0 && dist(foeAt(map, rd), pos) <= reach);
+    const mage = p?.cls === 'mage';
+    // (a quick weapon strikes more often, a heavy one less; hastened or slowed by a spell)
+    const quick = (u.st?.haste?.until ?? 0) > s.tick ? 0.65 : 1;
+    const every = p ? Math.round((mage ? MAGE_INTERVAL : INTERVAL) * weaponOf(p).speed * quick) : 0;
+    // a spell or a skill, when one is ready and worth it: on the raiders in reach (a spell reaches further) and the
+    // town's own fighters
+    if (p && (u.kit ??= kitOf(p))) {
+      const spellReach = Math.max(reach, SHOT_CELLS);
+      const near = wave.filter((rd) => !rd.down && !rd.gone && !rd.bt!.out && rd.bt!.d >= 0 && dist(foeAt(map, rd), pos) <= spellReach);
+      const arena = mapArena(s, b, r, u, p, near, people, rng);
+      const was = near.map((rd) => [rd, rd.down] as const);
+      if ((near.length || u.kit.actions.some((x) => x.use === 'heal' || x.use === 'support')) && takeTurn(arena, arena.me)) {
+        u.cooldown = rallied(s, p) ? Math.round(every / RALLY_SPEED) : every;
+        u.lastAt = s.tick;
+        for (const [o, d] of was) if (o.down && !d) fell(b, o);
+        continue;
+      }
+    }
     if (!inReach.length) continue;
     const target = inReach.sort((a, c) => (c.bt!.held === u.spot ? 1 : 0) - (a.bt!.held === u.spot ? 1 : 0) || c.bt!.d - a.bt!.d)[0];
     u.lastAt = s.tick;
     if (p) {
-      const mage = p.cls === 'mage';
-      const every = mage ? MAGE_INTERVAL : INTERVAL;
       u.cooldown = rallied(s, p) ? Math.round(every / RALLY_SPEED) : every;
-      // (a mage's fire bursts over those round the one it's aimed at)
+      // (a mage's fire bursts over those round the one it's aimed at; a cleaving blow carries into one beside it)
       const at = foeAt(map, target);
-      const near = mage ? wave.filter((o) => o !== target && !o.down && !o.gone && !o.bt!.out && o.bt!.d >= 0 && dist(foeAt(map, o), at) <= MAGE_BURST) : undefined;
+      const near = wave.filter((o) => o !== target && !o.down && !o.gone && !o.bt!.out && o.bt!.d >= 0 && dist(foeAt(map, o), at) <= (mage ? MAGE_BURST : CLEAVE_CELLS));
       const hit = [target, ...(near ?? [])].map((o) => [o, o.down] as const);
       defenderAttack(s, p, target, rng, p.id === s.mainId ? HERO_BONUS : 0, GROUND, near);
       if (shooter) shot(b, s, pos, at, mage ? 'fire' : 'arrow');
@@ -725,6 +774,99 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     }
   }
   return true;
+}
+
+/* ------------------------------------------------------------ spells and skills on the map */
+
+/** A raid map as the spells and skills see it (actions.ts): this fighter and the town's others, the raiders in their
+ *  reach. Each is a stand-in whose health and statuses are the real person's, unit's or raider's. */
+function mapArena(s: GameState, b: Battle, r: Raid, u: BattleUnit, p: Person, near: Raider[], people: Map<number, Person>, rng: Rng): Arena & { me: Combatant } {
+  const asPerson = (unit: BattleUnit, q: Person): Combatant => {
+    const f = personFighter(q, 'fighter', 'front');
+    return {
+      side: 'party',
+      ref: q.id,
+      kind: 'person',
+      name: q.name,
+      get hp() { return q.hp; },
+      set hp(v) { q.hp = Math.max(0, Math.round(v)); },
+      maxHp: f.maxHp,
+      get down() { return !!q.downed || q.hp <= 0; },
+      set down(_v) { /* (a townsperson falls through attackPerson, not here) */ },
+      damage: f.damage,
+      accuracy: f.accuracy,
+      dodge: f.dodge,
+      armor: f.armor,
+      interval: f.interval,
+      cooldown: unit.cooldown,
+      ranged: f.ranged,
+      st: (unit.st ??= {}),
+      kit: unit.kit,
+    };
+  };
+  const asRaider = (rd: Raider): Combatant => {
+    const d = ENEMIES[rd.kind];
+    return {
+      side: 'enemy',
+      ref: rd.id,
+      kind: rd.kind,
+      name: d.name,
+      get hp() { return rd.hp; },
+      set hp(v) { rd.hp = Math.max(0, Math.round(v)); },
+      maxHp: rd.maxHp,
+      get down() { return rd.down; },
+      set down(v) { rd.down = v; },
+      damage: d.damage,
+      accuracy: d.accuracy,
+      dodge: d.dodge,
+      armor: enemyArmor(rd.kind),
+      interval: Math.round(d.interval * TICK_HZ),
+      get cooldown() { return rd.cooldown; },
+      set cooldown(v) { rd.cooldown = v; },
+      ranged: d.ranged,
+      st: rd.bt ? (rd.bt.st ??= {}) : {},
+    };
+  };
+  const me = asPerson(u, p);
+  const friends = b.units.filter((o) => o !== u && o.person !== undefined && people.get(o.person)).map((o) => asPerson(o, people.get(o.person!)!));
+  const foes = near.map(asRaider);
+  return {
+    me,
+    tick: s.tick,
+    rng,
+    all: () => [me, ...friends, ...foes],
+    summon: (_user, kind) => {
+      if (!ENEMIES[kind]) return null;
+      // (called up beside the caster: it fights from their spot for the rest of the battle)
+      const a = ally(s, kind, townEdgeX(s, r.side) + r.side * 8, -r.side as 1 | -1);
+      a.conjuredAt = s.tick;
+      r.raiders.push(a);
+      b.units.push({ ally: a.id, spot: u.spot, cooldown: 5 });
+      return asRaider(a);
+    },
+    log: (user: Combatant, name: string, targets: Combatant[]) => {
+      (b.acts ??= []).push({ tick: s.tick, ref: user.ref, name, at: targets.filter((t) => t.side === 'enemy').map((t) => t.ref) });
+      if (b.acts.length > 12) b.acts.shift();
+    },
+  };
+}
+
+/** Each tick on the map: the raiders' lingering statuses (poison, burning) and the fighters' (regeneration). */
+function mapStatuses(s: GameState, b: Battle, wave: Raider[], people: Map<number, Person>, rng: Rng): void {
+  const arena: Arena = { tick: s.tick, rng, all: () => [], summon: () => null, log: () => {} };
+  for (const rd of wave) {
+    if (rd.down || rd.gone || !rd.bt?.st) continue;
+    const was = rd.down;
+    const proxy = { get hp() { return rd.hp; }, set hp(v: number) { rd.hp = Math.max(0, Math.round(v)); }, get down() { return rd.down; }, set down(v: boolean) { rd.down = v; }, maxHp: rd.maxHp, kind: rd.kind, st: rd.bt.st } as unknown as Combatant;
+    tickStatuses(arena, proxy);
+    if (rd.down && !was) fell(b, rd);
+  }
+  for (const u of b.units) {
+    const p = u.person !== undefined ? people.get(u.person) : undefined;
+    if (!p || !u.st) continue;
+    const proxy = { get hp() { return p.hp; }, set hp(v: number) { p.hp = Math.max(1, Math.round(v)); }, down: false, maxHp: maxHp(p), kind: 'person', st: u.st, kit: u.kit } as unknown as Combatant;
+    tickStatuses(arena, proxy);
+  }
 }
 
 /** A raider is hurt (by a tower, a trap, an ally, a spell): down at 0. */
@@ -821,6 +963,8 @@ export interface BattleView {
   wave: number;
   waves: number;
   auto: boolean;
+  /** How fast it plays (1, 2 or 3 times). */
+  speed: number;
   through: number;
   killed: number;
   /** Raiders still to come (this wave and the ones after). */
@@ -833,6 +977,8 @@ export interface BattleView {
   spells: { id: string; name: string; readyIn: number; affordable: boolean }[];
   casts: { x: number; y: number; power: string; age: number }[];
   shots: { from: [number, number]; to: [number, number]; age: number; kind: 'arrow' | 'bolt' | 'tower' | 'fire' }[];
+  /** The fighters' spells and skills just used (by name), on which raiders (ids), and how long ago (s). */
+  acts: { name: string; at: number[]; age: number }[];
 }
 
 /** The battle as the screen sees it (null when there's none on). `spells`: the origin's aimable powers (powers.ts
@@ -849,6 +995,7 @@ export function battleView(s: GameState, spells: BattleView['spells']): BattleVi
     wave: b.wave,
     waves: b.waves,
     auto: b.auto,
+    speed: s.battleSpeed ?? 1,
     through: b.through,
     killed: b.killed,
     coming: r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone && rd.bt && !rd.bt.out && rd.bt.d < 0).length,
@@ -861,5 +1008,6 @@ export function battleView(s: GameState, spells: BattleView['spells']): BattleVi
     spells,
     casts: (b.casts ?? []).map((c) => ({ x: c.at[0], y: c.at[1], power: c.power, age: (s.tick - c.tick) / TICK_HZ })),
     shots: (b.shots ?? []).map((x) => ({ from: x.from, to: x.to, kind: x.kind, age: (s.tick - x.tick) / TICK_HZ })),
+    acts: (b.acts ?? []).filter((a) => s.tick - a.tick < 3 * TICK_HZ).map((a) => ({ name: a.name, at: a.at, age: (s.tick - a.tick) / TICK_HZ })),
   };
 }

@@ -13,6 +13,9 @@ mkdirSync(OUT, { recursive: true });
 copyFileSync('out/renderer/index.html', `${OUT}/strip.html`);
 for (const f of ['panel.html', 'renderer.js', 'panel.js', 'world-map.jpg']) copyFileSync(`out/renderer/${f}`, `${OUT}/${f}`);
 cpSync('out/renderer/music', `${OUT}/music`, { recursive: true });
+cpSync('out/renderer/packs', `${OUT}/packs`, { recursive: true });
+cpSync('out/renderer/backdrops', `${OUT}/backdrops`, { recursive: true });
+cpSync('out/renderer/props', `${OUT}/props`, { recursive: true });
 cpSync('out/renderer/fonts', `${OUT}/fonts`, { recursive: true });
 
 // the phone page that holds them
@@ -59,7 +62,8 @@ const walk = (dir) => {
   for (const f of readdirSync(dir)) {
     const p = path.join(dir, f);
     if (statSync(p).isDirectory()) walk(p);
-    else files.push(path.relative(OUT, p).replaceAll('\\', '/'));
+    // (the fights' backdrops are many and big: each is cached when a fight first shows it, see sw.js)
+    else if (!path.relative(OUT, p).startsWith('backdrops')) files.push(path.relative(OUT, p).replaceAll('\\', '/'));
   }
 };
 walk(OUT);

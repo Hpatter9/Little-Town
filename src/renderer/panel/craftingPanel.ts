@@ -72,6 +72,8 @@ export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined, rerende
       [
         ['have', 'Already have', 'Hide the things the town already has one of (in store or worn)'],
         ['locked', "Can't make yet", 'Hide the recipes still waiting on research or on their workshop'],
+        ['weapons', 'Weapons', 'Hide the weapons'],
+        ['armour', 'Armour', 'Hide the armour, shields, rings and amulets'],
       ],
       rerender,
     ),
@@ -82,7 +84,7 @@ export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined, rerende
   for (const station of STATIONS) {
     // recipes from eras the town hasn't reached stay hidden
     const known = ITEMS.filter((d) => !d.relic && d.station === station && (s.unlockAll || d.research.every((r) => eraReached(s.era, TOPIC_BY_ID[r]?.era) && topicKnown(s, r))));
-    const defs = known.filter((d) => !(hide.has('have') && have(d)) && !(hide.has('locked') && !canMake(d)));
+    const defs = known.filter((d) => !(hide.has('have') && have(d)) && !(hide.has('locked') && !canMake(d)) && !(hide.has('weapons') && d.slot === 'weapon') && !(hide.has('armour') && !!d.weight));
     hidden += known.length - defs.length;
     if (!defs.length) continue;
     const name = BUILDING_BY_ID[station]?.name ?? station;
@@ -96,7 +98,7 @@ export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined, rerende
 }
 
 /** What to hide in the list of recipes (kept across visits, per phone). */
-const hide = new HidePrefs('littletown.craftHide', ['have', 'locked'] as const);
+const hide = new HidePrefs('littletown.craftHide', ['have', 'locked', 'weapons', 'armour'] as const);
 
 function orderRow(o: CraftOrderView): HTMLElement {
   const def = ITEM_BY_ID[o.item];

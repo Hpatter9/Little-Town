@@ -4,7 +4,7 @@
 
 import { TILE, WORLD_WIDTH } from '../constants';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { ENEMIES } from '../data/enemies';
+import { ENEMIES, enemyArmor } from '../data/enemies';
 import { eraReached, type Era } from '../data/eras';
 import { HORSE_THEFT } from '../data/trade';
 import { RAT_BITE_SICKNESS, WAR_RAID_BUDGET } from '../data/doom';
@@ -25,6 +25,8 @@ import {
   RAID_MIGHT_PER_PERSON,
   RAID_MIGHT_FREE,
   RAID_MIGHT_MAX,
+  RAID_MIGHT_PER_LEVEL,
+  RAID_SEASONED_MAX,
   KILLING_BLOW,
   BOSS_KILLING_BLOW,
   FOUNDER_KILLING_BLOW,
@@ -63,13 +65,14 @@ import type { Rng } from '../rng';
 import { buildingCentreX, defOf, depositNear, storages, totalStock } from './buildings';
 import { castleOn, floorOf, moveOnFloors, stairXs } from './castle';
 import { rallied, RALLY_DAMAGE } from './rally';
-import { ammoOf, hitDamage, personFighter } from './combat';
+import { afterBlow, ammoOf, hitDamage, personFighter } from './combat';
 import { gearEffects } from './crafting';
 import { recallExpedition } from './expeditions';
 import { classesInRaid, summonForRaid } from './classes';
 import { bindTheDead, sicken } from './doom';
-import { bossArrives, bossBlow, bossesInRaid } from './bosses';
+import { bossArrives, bossBlow, bossesInRaid, bossSlain } from './bosses';
 import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
+import { levelOf } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider } from './state';
@@ -207,7 +210,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
     raiders.push({ ...last, id: s.nextId++, kind: kind.leader, hp, maxHp: hp, goal: 'harm', x: last.x + (side < 0 ? -30 : 30), carrying: {} });
   }
   // a big town draws hardened raiders: tougher, and harder hitting
-  const might = Math.min(RAID_MIGHT_MAX, 1 + Math.max(0, grown - RAID_MIGHT_FREE) * RAID_MIGHT_PER_PERSON);
+  const might = Math.min(RAID_MIGHT_MAX, 1 + Math.max(0, grown - RAID_MIGHT_FREE) * RAID_MIGHT_PER_PERSON) * seasonedMight(s);
   if (might > 1)
     for (const rd of raiders) {
       rd.might = might;
@@ -365,7 +368,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
   if (r.phase === 'warning') {
     if (s.tick < r.arrivesTick) return;
     r.phase = 'active';
-    notify(s, `The ${kind.name.toLowerCase()} ${kind.plural ? 'are' : 'is'} here!`);
+    notify(s, `The ${theName(kind.name)} ${kind.plural ? 'are' : 'is'} here!`);
     summonForRaid(s, r);
     for (const kind of new Set(r.raiders.filter((q) => ENEMIES[q.kind].kit && !q.ally).map((q) => q.kind))) bossArrives(s, kind);
     // (they come down the trail on the battle map first: battle.ts)
@@ -641,18 +644,28 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   gainSkill(p, f.ranged ? 'ranged' : 'melee', 6);
   const captain = operatorSkill(s, 'watchtower') * CAPTAIN_PER_LEVEL; // a guard captain drills the defenders
   if (rng.next() >= f.accuracy + captain - fogAim(s) - dodge) return;
-  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: 0, block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
+  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: enemyArmor(rd.kind), block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
   // a Blood Knight hits harder when hurt, and heals from what they deal
   if (p.cls === 'blood_knight') {
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);
     p.hp = Math.min(maxHp(p), p.hp + Math.round(dmg * BLOOD_LIFESTEAL));
   }
+  if (f.quirks?.drain) p.hp = Math.min(maxHp(p), p.hp + Math.round(Math.min(dmg, rd.hp) * f.quirks.drain)); // (a unique that drinks life)
   rd.hp = Math.max(0, rd.hp - dmg);
   rd.lastHit = s.tick;
+  // (a stunning weapon may cost the raider its next blow; a cleaving one carries into one beside it)
+  const beside = near ?? (s.raid?.raiders ?? []).filter((o) => o !== rd && !o.ally && !o.down && !o.gone && Math.abs(o.x - rd.x) <= CLEAVE_PX && level(o) === level(rd));
+  const pace = { cooldown: rd.cooldown, interval: Math.round(ENEMIES[rd.kind].interval * TICK_HZ) };
+  const cleft = afterBlow(f.quirks, dmg, pace, beside, rng);
+  rd.cooldown = pace.cooldown;
+  if (cleft) (cleft as Raider).lastHit = s.tick;
   // (a Blood Knight's blow bursts with blood; a gunshot with fire, a laser with lightning)
   rd.hitFx = p.cls === 'blood_knight' ? 'blood' : store && kind === 'power_cells' ? 'lightning' : store && (kind === 'shot' || kind === 'cartridges') ? 'fire' : null;
   if (rd.hp === 0) rd.down = true;
 }
+
+/** How near (px) a raider must be to the one struck for a cleaving blow to carry into it. */
+const CLEAVE_PX = 20;
 
 /** A mage's fire bolt: it strikes the one aimed at (study makes it hotter; armour and dodging don't help) and bursts
  *  over those beside it for half. */
@@ -707,11 +720,20 @@ export function townEdgeX(s: GameState, side: -1 | 1): number {
 /** Where defenders gather before the raiders show up: the town's edge on the side they're coming from. */
 export const rallyX = (s: GameState) => townEdgeX(s, s.raid?.side ?? 1);
 
+/** A raid's name to follow "the" (a name of its own, like The Cave Bear, keeps its capitals and loses its "The"). */
+const theName = (name: string) => (/^the /i.test(name) ? name.slice(4) : name.toLowerCase());
+
 function endRaid(s: GameState, rng: Rng): void {
   const r = s.raid!;
   s.raid = null;
   const kind = RAID_KIND_BY_ID[r.kind];
   if (r.kind === 'hunters') guildDefeated(s);
+  // (a boss struck down as the raid ended, on the battle map, hasn't had its loot yet: bossesInRaid looks before the battle)
+  for (const rd of r.raiders)
+    if (!rd.ally && rd.down && ENEMIES[rd.kind]?.boss && !rd.trophyGiven) {
+      rd.trophyGiven = true;
+      bossSlain(s, rd.kind);
+    }
   lurkersBeaten(s, r);
   caveBearBeaten(s, r);
   // thieves who got away may have led off a horse, too
@@ -752,5 +774,13 @@ function endRaid(s: GameState, rng: Rng): void {
         : took.length
           ? 'They got away.'
           : 'They were driven off.';
-  notify(s, `Raid by the ${kind.name.toLowerCase()} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
+  notify(s, `Raid by the ${theName(kind.name)} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
+}
+
+/** Raiders come as seasoned as the town: its grown-ups' average level makes them tougher and harder hitting. */
+export function seasonedMight(s: GameState): number {
+  const adults = s.people.filter((p) => p.type !== 'child');
+  if (!adults.length) return 1;
+  const avg = adults.reduce((t, p) => t + levelOf(p), 0) / adults.length;
+  return Math.min(RAID_SEASONED_MAX, 1 + (avg - 1) * RAID_MIGHT_PER_LEVEL);
 }

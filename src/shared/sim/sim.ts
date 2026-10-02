@@ -4,7 +4,7 @@
 import { openGate } from './raidWait';
 import { maybeEvent } from './events';
 import { rally } from './rally';
-import { battleGo, placeFighter, setAutoBattle } from './battle';
+import { battleGo, placeFighter, setAutoBattle, setBattleSpeed } from './battle';
 import { castAt } from './powers';
 import { Rng } from '../rng';
 import { generateWorld, type World } from '../world';
@@ -21,10 +21,12 @@ import { assignOperators, cycleOperator } from './operators';
 import { releasePrisoner, updatePrisoners } from './prisoners';
 import { updateDoom } from './doom';
 import { updateMonsters } from './monsters';
-import { recallExpedition, sendExpedition, updateExpeditions , sendParty } from './expeditions';
+import { recallExpedition, sendDelve, sendExpedition, updateExpeditions , sendParty } from './expeditions';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
-import { train } from './classes';
+import { classesHourly } from './classes';
+import { questsHourly } from './quests';
+import { delvesHourly } from './delves';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
 import { maybeStartRaid, startGuildRaid, updateRaid } from './raids';
@@ -141,6 +143,9 @@ export class Sim {
     updateShop(s, this.rng, SHOP_TOWN);
     updateWages(s);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
+    if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
+    questsHourly(s);
+    delvesHourly(s);
     drillGuards(s);
     updateAdvice(s);
     maybeArrive(s, this.rng);
@@ -191,11 +196,6 @@ export class Sim {
       case 'turnTown':
         turnTown(s, c.kind);
         break;
-      case 'trainClass': {
-        const r = train(s, c.person, c.cls);
-        if (!r.ok) notify(s, `Can't train: ${r.reason}.`);
-        break;
-      }
       case 'upgrade': {
         const r = upgrade(s, this.world.back, c.building);
         if (!r.ok) notify(s, `Can't upgrade: ${r.reason}.`);
@@ -227,6 +227,11 @@ export class Sim {
       case 'sendExpedition':
         sendExpedition(s, c.dest, c.members, c.roles, c.stance, c.horses, c.truck === true);
         break;
+      case 'sendDelve': {
+        const r = sendDelve(s, c.dest, c.members, c.stakes);
+        if (!r.ok) notify(s, `Can't send the delvers: ${r.reason}.`);
+        break;
+      }
       case 'sendParty': {
         const r = sendParty(s, c.dest, c.stakes);
         if (!r.ok) notify(s, `Can't send a party: ${r.reason}.`);
@@ -258,8 +263,14 @@ export class Sim {
       case 'battleAuto':
         setAutoBattle(s, c.on);
         break;
+      case 'battleSpeed':
+        setBattleSpeed(s, c.speed);
+        break;
       case 'battleCast':
         castAt(s, c.power, this.rng, [c.x, c.y]);
+        break;
+      case 'watch':
+        s.watching = c.expedition !== null && s.expeditions.some((e) => e.id === c.expedition) ? c.expedition : undefined;
         break;
       case 'follow':
         s.hero = c.person !== null && s.people.some((p) => p.id === c.person) ? c.person : undefined;

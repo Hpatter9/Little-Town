@@ -4,13 +4,16 @@
 // what's been asked for, and what's happened lately. It only shows: the town runs its venues itself.
 
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
-import { qualityOf } from '../../shared/data/quality';
+import { pieceLabel, qualityOf } from '../../shared/data/quality';
 import { APPEAL_HALVES_WAIT, TRAVELLER_EVERY } from '../../shared/data/shop';
 import type { Look } from '../../shared/data/people';
 import type { ShopView, Snapshot } from '../../shared/sim/snapshot';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, loadLpc, lookKey, lpcCanvas } from '../art/lpc/lpcCompose';
 import { materialIcon } from '../art/materialIcons';
 import { el } from './dom';
+import { loadImage } from '../art/loadImage';
+import workshopUrl from '../art/interior/workshop.png';
+import forgeUrl from '../art/interior/forge.png';
 
 type VenueId = 'shop' | 'tavern';
 
@@ -98,8 +101,8 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
       'div',
       'hint',
       (tavern
-        ? `Comfort ${v.appeal}: guests used to more walk out, and the better-off need more. Renown ${v.renown} brings them more often.`
-        : `Attractiveness ${v.attractiveness}: the furnishings' appeal (${v.appeal}) and the shop's renown (${v.renown}).`) +
+        ? `Comfort ${v.appeal}: guests used to more walk out, and the better-off need more. Renown ${v.renown}${v.trophies ? ` and the Trophy Hall's ${v.trophies}` : ''} bring${v.trophies ? '' : 's'} them more often.`
+        : `Attractiveness ${v.attractiveness}: the furnishings' appeal (${v.appeal}), the shop's renown (${v.renown})${v.trophies ? ` and the Trophy Hall's treasures (${v.trophies})` : ''}.`) +
         ` Someone comes about every ${every} hours` +
         (v.nextHours !== null ? ` (the next in about ${Math.max(1, Math.ceil(v.nextHours))}h)` : '') +
         '.',
@@ -153,7 +156,7 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
     if (!v.gear.length) info.push(el('p', 'empty', 'None spare.'));
     else {
       const gear = el('div', 'shop-pieces');
-      for (const g of v.gear) gear.append(qualityChip(`${g.q !== 1 ? qualityOf(g.q).name + ' ' : ''}${g.name}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q));
+      for (const g of v.gear) gear.append(qualityChip(`${pieceLabel(g.name, g.q)}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q));
       info.push(gear);
     }
     info.push(el('div', 'hint', `Travellers buy it, and so do the townsfolk, with their wages (${s.wageBill} coins a day in all), for a little less.`));
@@ -292,6 +295,35 @@ const ROOMS: Record<string, Room> = {
   tavern: { floor: '#7a4e2a', seam: '#5e3a1e', wall: '#a4543a', wallLight: '#bc6a48', wallDark: '#5a2e1e', build: 'brick' },
 };
 
+/** Furnishings drawn from Craftpix's Glassblower's Workshop (a three-quarter interior on the same 16px grid): where
+ *  each picture is in the sheet (x, y, w, h), and which pieces use them (laid side by side across the footprint).
+ *  The rest are painted in code, as are all of them until the sheet has loaded. */
+const WORKSHOP: Record<string, [number, number, number, number]> = {
+  counter_shop: [15, 4, 163, 25], counter_bar: [15, 44, 163, 17],
+  cabinet_l: [2, 70, 36, 58], cabinet_r: [58, 70, 36, 58],
+  shelf_a: [12, 131, 36, 53], shelf_b: [64, 131, 36, 53], shelf_c: [118, 131, 36, 53], shelf_d: [166, 131, 36, 53],
+  planter: [178, 313, 25, 35], crates: [68, 321, 36, 50],
+  rug: [8, 331, 52, 43], table_pair: [8, 397, 53, 30],
+  table_wares: [182, 402, 22, 28], wares_pair: [70, 393, 53, 30], table: [164, 467, 24, 24], cloth_table: [129, 477, 29, 30],
+  urn: [40, 566, 14, 19], urn2: [103, 567, 18, 17], flowers: [7, 567, 17, 18],
+};
+const SPRITE_OF: Record<string, string[]> = {
+  plank_shelf: ['shelf_b', 'shelf_d'], oak_shelves: ['shelf_a', 'shelf_c'], glass_cabinet: ['cabinet_l', 'cabinet_r'],
+  trestle_table: ['wares_pair'], display_table: ['table_wares', 'cloth_table'], log_table: ['table', 'table'], oak_table: ['table_pair'],
+  clay_urns: ['urn', 'urn2'], herb_planter: ['planter'], crate_stand: ['crates'], wool_rug: ['rug'],
+};
+/** The forge, for the brick hearth: 6 frames of its fire, 64 apart; the furnace's box in each. */
+const FORGE = { x: 8, y: 14, w: 45, h: 78, step: 64, frames: 6 };
+let workshop: HTMLImageElement | null = null;
+let forge: HTMLImageElement | null = null;
+let workshopAsked = false;
+function loadWorkshop(): void {
+  if (workshopAsked) return;
+  workshopAsked = true;
+  loadImage(workshopUrl).then((im) => (workshop = im), () => undefined);
+  loadImage(forgeUrl).then((im) => (forge = im), () => undefined);
+}
+
 /** How tall each piece stands off the floor (pixels), by item, then by kind. */
 const TALL: Record<string, number> = {
   log_table: 9, oak_table: 10, stone_hearth: 26, brick_hearth: 28, barrels: 14, upright_piano: 24, clay_urns: 12, herb_planter: 7,
@@ -302,6 +334,7 @@ const ON_WALL = new Set(['tapestry', 'neon_sign']);
 const PAL_WOOD = '#8a5a30';
 
 function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
+  loadWorkshop();
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
   const pal = ROOMS[v.def] ?? ROOMS.trading_post;
@@ -552,6 +585,27 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
 
   function counter(x: number, y0: number, w: number): void {
     const h = TALL.counter;
+    if (workshop) {
+      // (the long counter from the pack: its two ends, and the middle repeated to fit; the shop's has jars on it)
+      const [sx, sy, sw, sh] = WORKSHOP[v.venue === 'tavern' ? 'counter_bar' : 'counter_shop'];
+      const top = y0 + DEPTH - 2 - sh;
+      const cap = 12;
+      g.fillStyle = 'rgba(0,0,0,0.22)';
+      g.fillRect(Math.round(x + 1), Math.round(y0 + DEPTH - 3), Math.round(w), 2);
+      g.drawImage(workshop, sx, sy, cap, sh, Math.round(x), Math.round(top), cap, sh);
+      for (let k = cap; k < w - cap; k += sw - cap * 2) {
+        const run = Math.min(sw - cap * 2, w - cap - k);
+        g.drawImage(workshop, sx + cap, sy, run, sh, Math.round(x + k), Math.round(top), run, sh);
+      }
+      g.drawImage(workshop, sx + sw - cap, sy, cap, sh, Math.round(x + w - cap), Math.round(top), cap, sh);
+      if (v.venue === 'tavern')
+        for (const dx of [6, 15, 25]) {
+          if (dx + 3 > w - 4) continue;
+          rect(x + dx, top - 2, 3, 5, '#c8a050'); // tankards
+          rect(x + dx, top - 3, 3, 1, '#f0f0e0');
+        }
+      return;
+    }
     box(x, y0, w, DEPTH - 2, h, '#8a5a30', '#5a3a22');
     for (let k = x + 3; k < x + w - 2; k += 6) rect(k, y0 + DEPTH - 2 - h + 3, 1, h - 4, '#4a2e1a'); // panels
     const top = y0 - h;
@@ -598,6 +652,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     const y = rowY(p.y);
     const w = p.w * CELL;
     const d = p.h * DEPTH;
+    if (sprites(p, x, y, w, d, true)) return;
     if (p.item === 'hide_rug') {
       oval(x + w / 2, y + d / 2, w / 2 - 2, d / 2 - 1, '#a88258');
       oval(x + w / 2, y + d / 2, w / 2 - 5, d / 2 - 3, '#b8926a');
@@ -622,6 +677,34 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     if (p.level > 2 && Math.sin(t * 2 + p.x) > 0.9) rect(x + 1 + ((t * 20) % Math.max(1, w - 3)), y, 2, 1, '#fff8d0');
   }
 
+  /** Draw a piece from the workshop sheet, if it has pictures there: side by side across its footprint, each shrunk to
+   *  fit, standing on the front edge (or, `flat`, laid over the footprint). False to paint it instead. */
+  function sprites(p: ShopView['pieces'][number], x: number, y0: number, w: number, d: number, flat: boolean): boolean {
+    const names = SPRITE_OF[p.item];
+    if (!workshop || !names) return false;
+    if (flat) {
+      const [sx, sy, sw, sh] = WORKSHOP[names[0]];
+      g.drawImage(workshop, sx, sy, sw, sh, Math.round(x + 1), Math.round(y0), Math.round(w - 2), Math.round(d));
+      if (p.level > 1) rect(x + 2, y0 + 1, w - 4, 1, p.level > 2 ? '#f0c848' : '#b08a3a');
+      return true;
+    }
+    const slot = w / names.length;
+    const base = y0 + d - 1;
+    let top = base;
+    g.fillStyle = 'rgba(0,0,0,0.22)';
+    g.fillRect(Math.round(x + 2), Math.round(base - 1), Math.round(w - 3), 2);
+    names.forEach((n, i) => {
+      const [sx, sy, sw, sh] = WORKSHOP[n];
+      const k = Math.min(1, (slot - 1) / sw);
+      const dw = sw * k;
+      const dh = sh * k;
+      top = Math.min(top, base - dh);
+      g.drawImage(workshop!, sx, sy, sw, sh, Math.round(x + i * slot + (slot - dw) / 2), Math.round(base - dh), Math.round(dw), Math.round(dh));
+    });
+    trim(p, x + 1, top, w - 2, 2);
+    return true;
+  }
+
   function piece(p: ShopView['pieces'][number]): void {
     const goods = Object.keys(v.forSale).map((m) => GOODS[m as Material] ?? '#c8a060');
     // (a town with only a kind or two to sell still stocks its shelves with odds and ends)
@@ -632,6 +715,19 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     const w = p.w * CELL;
     const d = p.h * DEPTH;
     const h = TALL[p.item] ?? TALL[p.kind] ?? 10;
+    if (p.item === 'brick_hearth' && forge) {
+      // (a furnace from the pack, its fire flickering)
+      const f = Math.floor(t * 8 + p.x) % FORGE.frames;
+      const k = Math.min(1, (w - 2) / FORGE.w);
+      const fw = FORGE.w * k;
+      const fh = FORGE.h * k;
+      g.fillStyle = 'rgba(0,0,0,0.22)';
+      g.fillRect(Math.round(x + 2), Math.round(y0 + d - 3), Math.round(w - 2), 2);
+      g.drawImage(forge, FORGE.x + f * FORGE.step, FORGE.y, FORGE.w, FORGE.h, Math.round(x + (w - fw) / 2), Math.round(y0 + d - fh), Math.round(fw), Math.round(fh));
+      trim(p, x + (w - fw) / 2, y0 + d - fh, fw, 2);
+      return;
+    }
+    if (sprites(p, x, y0, w, d, false)) return;
     switch (p.item) {
       case 'log_table':
       case 'oak_table': {

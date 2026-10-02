@@ -21,7 +21,7 @@ import type { WorkAnim } from '../data/terrain';
 import type { Rng } from '../rng';
 import { earlier, type Era } from '../data/eras';
 import { eraOfResearch } from '../data/research';
-import { COMMON, MAX_QUALITY, qualityMult, qualityOf, rollQuality, typicalQuality } from '../data/quality';
+import { COMMON, MAX_QUALITY, piece, pieceLabel, plusMult, qualityMult, rollPlus, rollQuality, typicalQuality } from '../data/quality';
 import { PIECE_RATE, PURSE_SCALE, saleValue } from '../data/shop';
 import { FOOD_VALUE } from '../data/people';
 import { buildingCentreX, depositNear } from './buildings';
@@ -31,6 +31,7 @@ import { modifiers } from './research';
 import { addStock, campX, earn, ERA_MULTIPLIER, maxHp, notify, remember, type Building, type CraftOrder, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { qualityBonus } from './origin';
+import { canWear } from './classes';
 
 /* ------------------------------------------------------------ what can be made, and where */
 
@@ -161,9 +162,12 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
     // (how well it's made depends on who made it)
     const level = p.skills.crafting.level;
     // (and on the town: dwarves make finer things, druids coarser, and a forge blessing helps)
-    const q = Math.max(0, Math.min(MAX_QUALITY, (rng ? rollQuality(rng, level) : Math.round(typicalQuality(level))) + Math.round(qualityBonus(s))));
+    const grade = Math.max(0, Math.min(MAX_QUALITY, (rng ? rollQuality(rng, level) : Math.round(typicalQuality(level))) + Math.round(qualityBonus(s))));
+    // (and arms and armour may come out +1 to +5 on top: rarer the higher)
+    const plus = rng && ARMS.has(def.slot!) ? rollPlus(rng, level) : 0;
+    const q = piece(grade, plus);
     addItems(s, def.id, 1, q);
-    if (q >= 5) notify(s, `${p.name} made a ${qualityOf(q).name} ${def.name}!`, true);
+    if (grade >= 5 || plus >= 3) notify(s, `${p.name} made a ${pieceLabel(def.name, q)}!`, true);
     payCrafter(s, def, q, p);
   }
   o.delivered = {};
@@ -188,7 +192,7 @@ function payCrafter(s: GameState, def: ItemDef, q: number, p: Person): void {
   s.coins = (s.coins ?? 0) - pay;
   p.coins = (p.coins ?? 0) + pay;
   earn(s, 'crafters', -pay);
-  const what = `${q !== COMMON ? qualityOf(q).name + ' ' : ''}${def.name}`;
+  const what = pieceLabel(def.name, q);
   remember(s, p, `Was paid ${pay} coins for a ${what}`);
   if (def.furnish) notify(s, `The town bought a ${what} from ${p.name} for ${pay} coins.`);
 }
@@ -196,13 +200,13 @@ function payCrafter(s: GameState, def: ItemDef, q: number, p: Person): void {
 /* ------------------------------------------------------------ gear */
 
 /** Combined effects of everything someone wears. */
-export function gearEffects(p: Person): Required<Pick<ItemEffects, 'damage' | 'beastDamage' | 'accuracy' | 'armor' | 'block' | 'carry' | 'morale'>> & { ranged: boolean } {
-  const e = { damage: 0, beastDamage: 0, accuracy: 0, armor: 0, block: 0, carry: 0, morale: 0, ranged: false };
+export function gearEffects(p: Person): Required<Pick<ItemEffects, 'damage' | 'beastDamage' | 'accuracy' | 'armor' | 'block' | 'carry' | 'morale' | 'dodge' | 'power'>> & { ranged: boolean; slow: number } {
+  const e = { damage: 0, beastDamage: 0, accuracy: 0, armor: 0, block: 0, carry: 0, morale: 0, dodge: 0, power: 0, ranged: false, slow: 1 };
   for (const [slot, id] of Object.entries(p.gear) as [Slot, string][]) {
     const fx = ITEM_BY_ID[id]?.effects;
     if (!fx) continue;
-    // (a finer piece does more)
-    const k = qualityMult(p.gearQ?.[slot]);
+    // (a finer piece does more; arms and armour more again for each +)
+    const k = qualityMult(p.gearQ?.[slot]) * plusMult(p.gearQ?.[slot]);
     // a knife only helps in a fight when there's no real weapon
     if (fx.damage && !(ITEM_BY_ID[id].slot === 'tool' && p.gear.weapon)) e.damage += fx.damage * k;
     e.beastDamage += (fx.beastDamage ?? 0) * k;
@@ -211,11 +215,16 @@ export function gearEffects(p: Person): Required<Pick<ItemEffects, 'damage' | 'b
     e.block += (fx.block ?? 0) * k;
     e.carry += Math.round((fx.carry ?? 0) * k);
     e.morale += (fx.morale ?? 0) * k;
+    e.dodge += (fx.dodge ?? 0) * k;
+    e.power += (fx.power ?? 0) * k;
+    // (plate and a tower shield slow the arm: the weapon's own pace is the weapon's business)
+    if (slot !== 'weapon' && fx.speed) e.slow *= fx.speed;
     if (fx.ranged) e.ranged = true;
   }
   // (however fine the armour, some blows still land)
   e.armor = Math.min(ARMOR_CAP, e.armor);
   e.block = Math.min(BLOCK_CAP, e.block);
+  e.dodge = Math.min(DODGE_CAP, e.dodge);
   return e;
 }
 
@@ -248,9 +257,12 @@ const finer = (speed: number, q: number | undefined) => 1 + (speed - 1) * qualit
 /** However fine the gear, some blows still land. */
 const ARMOR_CAP = 0.8;
 const BLOCK_CAP = 0.6;
+const DODGE_CAP = 0.3;
 
 /** How much an item is worth in its slot, to hand out the best first (times its quality's worth). */
-export const gearScore = (def: ItemDef, q: number | undefined) => score(def) * qualityMult(q);
+export const gearScore = (def: ItemDef, q: number | undefined) => score(def) * qualityMult(q) * (ARMS.has(def.slot!) ? plusMult(q) : 1);
+/** The slots whose pieces can be made +1 to +5. */
+export const ARMS: ReadonlySet<Slot> = new Set<Slot>(['weapon', 'offhand', 'head', 'body']);
 const scoreQ = gearScore;
 
 /** Once the town has a shop (and so money), townsfolk buy their gear with their wages (see wages.ts) instead of
@@ -259,7 +271,7 @@ const moneyTown = (s: GameState) => s.buildings.some((b) => b.status === 'done' 
 function score(def: ItemDef): number {
   const e = def.effects;
   const gather = Object.values(e.gather ?? {}).reduce((a, b) => a + (b - 1), 0);
-  return (e.damage ?? 0) + (e.beastDamage ?? 0) * 0.5 + (e.accuracy ?? 0) * 20 + (e.armor ?? 0) * 30 + (e.block ?? 0) * 30 + (e.carry ?? 0) + (e.morale ?? 0) + gather * 10 + ((e.construct ?? 1) - 1) * 10;
+  return (e.damage ?? 0) + (e.beastDamage ?? 0) * 0.5 + (e.accuracy ?? 0) * 20 + (e.armor ?? 0) * 30 + (e.block ?? 0) * 30 + (e.dodge ?? 0) * 30 + (e.power ?? 0) * 10 + (e.carry ?? 0) + (e.morale ?? 0) + gather * 10 + ((e.construct ?? 1) - 1) * 10;
 }
 
 /** Put an item from the inventory on someone, returning what they wore to the inventory. */
@@ -283,17 +295,19 @@ export function equip(s: GameState, p: Person, slot: Slot, itemId: string | null
  * and the rest to whoever has nothing in that slot. Better spare items replace worse ones.
  */
 export function equipAll(s: GameState): void {
-  if (moneyTown(s)) return; // (they buy it now)
+  // (in a town with coin they buy their own gear; only its treasures, the relics and uniques, are still handed out)
+  const treasuresOnly = moneyTown(s);
   const fightSkill = (p: Person) => Math.max(p.skills.melee.level, p.skills.ranged.level) + (p.id === s.mainId ? 0.5 : 0) + (p.priorities.defend ? 3 : 0);
   for (const slot of SLOTS) {
     const combat = slot === 'weapon' || slot === 'offhand' || slot === 'head' || slot === 'body';
     const people = s.people.filter((p) => p.away === null).sort((a, b) => (combat ? fightSkill(b) - fightSkill(a) : a.id - b.id));
     for (const p of people) {
+      // (only what their class lets them wear or wield)
       const spare = Object.entries(s.items)
-        .filter(([id, n]) => n > 0 && ITEM_BY_ID[id]?.slot === slot)
+        .filter(([id, n]) => n > 0 && ITEM_BY_ID[id]?.slot === slot && (!treasuresOnly || ITEM_BY_ID[id].relic) && canWear(p, id))
         .map(([id]) => ({ def: ITEM_BY_ID[id], q: qualitiesOf(s, id)[0] }))
         .sort((a, b) => scoreQ(b.def, b.q) - scoreQ(a.def, a.q))[0]?.def;
-      if (!spare) break;
+      if (!spare) continue;
       const worn = p.gear[slot] ? ITEM_BY_ID[p.gear[slot]!] : undefined;
       // a torch and a shield share a hand: fighters keep the shield
       if (worn && scoreQ(spare, qualitiesOf(s, spare.id)[0]) <= scoreQ(worn, p.gearQ?.[slot])) continue;

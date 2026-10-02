@@ -1,6 +1,8 @@
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
+import type { Delve } from './delves';
+import type { Quest } from './quests';
 import { TILE } from '../constants';
 import type { Material, Stock } from '../data/materials';
 import { JOB_SKILL, JOBS, NAMES, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
@@ -13,6 +15,7 @@ import { hashSeed, mixSeed, Rng } from '../rng';
 import { generateWorld, type MidTerrain } from '../world';
 import type { Biome, Difficulty } from '../data/biomes';
 import type { ClassId } from '../data/classes';
+import { hpMult } from '../data/levels';
 import type { Battle } from './combat';
 import type { Doom } from './doom';
 import { MONSTER_HP, type MonsterKind, type StandingOrder } from '../data/monsters';
@@ -337,8 +340,15 @@ export interface Person {
   lowMoraleHours?: number;
   /** A monster (werewolf or vampire), its standing order for the Hunter's Guild, and when it last fed. */
   monster?: MonsterKind | null;
-  /** A special class they've trained in (or arrived with). */
+  /** Their class (data/classes.ts): given once when they're grown, for life. */
   cls?: ClassId | null;
+  /** Their level (levels.ts: from all they do, fighting most), and the XP toward the next. Left out: level 1. */
+  level?: number;
+  lvXp?: number;
+  /** The class stage last announced (an evolution is told once). */
+  stageSeen?: number;
+  /** Has reached their class's last stage (classes.ts ascend): rare and late. */
+  ascended?: boolean;
   /** Cut down and come back from it at least once (a Blood Knight's oath needs it). */
   scarred?: boolean;
   order?: StandingOrder;
@@ -363,9 +373,11 @@ export const TOUGH_HP = 20;
 export const FRAIL_HP = 12;
 export const MIN_HP = 24;
 
-export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null }): number {
+export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; level?: number }): number {
   const frail = p.traits.filter((t) => t === 'frail').length * FRAIL_HP;
-  return Math.max(MIN_HP, BASE_HP + (p.traits.includes('tough') ? TOUGH_HP : 0) + (p.monster ? MONSTER_HP : 0) - frail);
+  const base = Math.max(MIN_HP, BASE_HP + (p.traits.includes('tough') ? TOUGH_HP : 0) + (p.monster ? MONSTER_HP : 0) - frail);
+  // (a class and its stage, and every level, add to it: levels.ts)
+  return Math.round(base * hpMult(p));
 }
 
 /** A raider taken alive (see prisoners.ts). */
@@ -455,6 +467,8 @@ export interface Expedition {
   horses?: Horse[];
   /** A truck taken along (Modern). */
   truck?: boolean;
+  /** A dungeon delve's progress room by room (sim/delves.ts). */
+  delve?: Delve;
 }
 
 /** Someone waiting at the edge of town to be let in. */
@@ -499,6 +513,14 @@ export interface GameState {
   keep?: { tiles: number; flare: number };
   /** Destinations visited at least once (their loot is known). */
   scouted: string[];
+  /** The regions of the world map the town's scouts have mapped (data/regions.ts; home is always known). */
+  regions?: string[];
+  /** How many times the town has cleared each dungeon (data/dungeons.ts). */
+  delved?: Record<string, number>;
+  /** A cleared dungeon lies quiet until this tick, then reawakens deeper (sim/delves.ts). */
+  dungeonQuiet?: Record<string, number>;
+  /** Quests open (sim/quests.ts). */
+  quests?: Quest[];
   /** Which end of town each destination lies beyond (-1 left, 1 right). */
   destSides: Record<string, -1 | 1>;
   prompts: Prompt[];
@@ -545,6 +567,8 @@ export interface GameState {
   /** Items not being worn, by item id (they take no storage room), and the quality of each piece, best first (kept in
    *  step with the counts by crafting.ts's qualitiesOf; Common when left out). */
   items: Record<string, number>;
+  /** The unique weapons the town has found (data/uniques.ts), in the order found: each drops once in the world. */
+  uniques?: string[];
   itemQ?: Record<string, number[]>;
   /** The craft queue, worked front to back. */
   crafting: CraftOrder[];
@@ -595,6 +619,8 @@ export interface GameState {
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
   autoBattle?: boolean;
+  /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */
+  battleSpeed?: number;
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];
@@ -618,6 +644,8 @@ export interface GameState {
   event?: { def: string; prompt: number; who?: number; held?: boolean };
   /** The townsperson the player follows (the camera keeps them in view; their big moments send phone alerts). */
   hero?: number;
+  /** The expedition (or delve) the player is watching, in place of the town (snapshot.watch). */
+  watching?: number;
   /** The origin power the player keeps back to cast themselves (sim/powers.ts castHeld). */
   heldPower?: string;
   /** When the player can rally a defender again (sim/rally.ts). */

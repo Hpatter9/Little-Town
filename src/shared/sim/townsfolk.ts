@@ -6,7 +6,14 @@ import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/bu
 import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
 import { hashSeed, mixSeed, type Rng } from '../rng';
-import { CLASS_DEFS, CLASSES, RARE_CLASS_CHANCE } from '../data/classes';
+import { className, STAGE_LEVELS } from '../data/classes';
+import { stageOf } from '../data/levels';
+import { assignClass, gainLevelXp } from './classes';
+
+/** Chance a wanderer arrives seasoned: a few levels in, their class already theirs. */
+const SEASONED_CHANCE = 0.08;
+/** Of those, the share who are legends: ascended to their class's last stage. */
+const LEGEND_CHANCE = 0.03;
 import { defOf } from './buildings';
 import { equipAll, gearEffects } from './crafting';
 import { friendsOf, hasGraveyard, isChild, rivalsOf } from './social';
@@ -236,6 +243,7 @@ export function workFactor(s: GameState, p: Person): number {
 export function gainSkill(p: Person, skill: Skill, xp: number): void {
   const k = (p.passions.includes(skill) ? XP_BOOST : 1) * (p.traits.includes('quick_learner') ? XP_BOOST : 1);
   gainXp(p.skills[skill], xp * k);
+  gainLevelXp(p, skill, xp * k);
 }
 
 export const traitNames = (p: Person) => p.traits.map((t) => TRAIT_BY_ID[t]?.name ?? t);
@@ -298,11 +306,20 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   // a rare wanderer is already trained in a special class (decided by the seed, so no randomness shifts)
   const roll = mixSeed(hashSeed(s.seed), person.id * 7919);
   // (one of each calling in a town: never one the town already has)
-  const open = CLASSES.filter((k) => !CLASS_DEFS[k].perPeople && !s.people.some((p) => p.cls === k));
-  if (!monster && open.length && roll % 1000 < RARE_CLASS_CHANCE * 1000) person.cls = open[Math.floor(roll / 1000) % open.length];
+  // (a seasoned wanderer: some levels behind them, and their class from the start)
+  if (!monster && roll % 1000 < SEASONED_CHANCE * 1000) {
+    person.level = 3 + (Math.floor(roll / 1000) % 10);
+    assignClass(s, person);
+    // (once in a long while, a legend walks in: high level, and ascended)
+    if (roll % 100000 < LEGEND_CHANCE * 100000) {
+      person.level = STAGE_LEVELS[4] + (roll % 5);
+      person.ascended = true;
+      person.stageSeen = stageOf(person);
+    }
+  }
   person.dir = side < 0 ? 1 : -1;
   s.visitor = { person, waitX: campEdgeX(s, side), leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
-  const trained = person.cls ? ` (a ${CLASS_DEFS[person.cls].name}!)` : '';
+  const trained = person.cls ? ` (${/^[AEIOU]/.test(className(person.cls, stageOf(person))) ? 'an' : 'a'} ${className(person.cls, stageOf(person))}, level ${person.level}!)` : '';
   notify(s, `${/^[aeiou]/.test(type) ? 'An' : 'A'} ${type}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
 }
 

@@ -40,7 +40,7 @@ export function renderAlerts(bridge: Bridge | undefined): HTMLElement[] {
     lead.max = '120';
     lead.value = String(cur.leadMinutes);
     lead.addEventListener('change', () => void save({ leadMinutes: Number(lead.value) }));
-    const check = (label: string, key: 'enabled' | 'raids' | 'deaths' | 'expeditions' | 'choices' | 'hero') => {
+    const check = (label: string, key: 'enabled' | 'raids' | 'deaths' | 'expeditions' | 'choices' | 'hero' | 'delves') => {
       const l = el('label', 'check');
       const box = el('input');
       box.type = 'checkbox';
@@ -59,6 +59,7 @@ export function renderAlerts(bridge: Bridge | undefined): HTMLElement[] {
         check('Deaths and kidnappings', 'deaths'),
         check('Big moments of the one you follow', 'hero'),
         check('Expeditions coming home', 'expeditions'),
+        check('Delves: the boss reached, a dungeon cleared, a unique found', 'delves'),
         check('Other questions (answered for you after an hour)', 'choices'),
         button('Send a test alert', async () => {
           status.textContent = 'Sending…';

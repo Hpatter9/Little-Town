@@ -3,6 +3,7 @@
 // goes and comes back. It's one element kept between renders, so the map image doesn't reload each time.
 
 import { MAP_HOME, MAP_SIZE, MAP_SPOTS } from '../../shared/data/worldMap';
+import { regionScouted, REGIONS } from '../../shared/data/regions';
 import type { ExpeditionView } from '../../shared/sim/snapshot';
 import { tripProgress } from '../../shared/format';
 import { el } from './dom';
@@ -28,12 +29,21 @@ export class WorldMapView {
     this.el.append(this.svg, this.marks);
   }
 
-  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[]): void {
-    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase])]);
+  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[]): void {
+    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known]);
     if (key === this.key) return;
     this.key = key;
     this.svg.replaceChildren();
     this.marks.replaceChildren();
+
+    // fog over the regions the scouts haven't mapped (soft-edged, so the land shows faintly through it), named faintly
+    for (const r of REGIONS) {
+      if (known.includes(r.id)) continue;
+      const fog = el('div', 'map-fog');
+      place(fog, r);
+      fog.style.width = fog.style.height = pct(r.r * 2);
+      this.marks.append(fog, label(r.name, { x: r.x, y: r.y + 14 }, 'fogged'));
+    }
 
     // routes: to the picked destination, and each party's
     const route = (to: { x: number; y: number }, cls: string) => {
@@ -53,7 +63,7 @@ export class WorldMapView {
     for (const d of dests) {
       const at = MAP_SPOTS[d.id];
       if (!at) continue;
-      const dot = el('button', `map-dot${d.unlocked ? '' : ' locked'}${d.id === picked ? ' on' : ''}`);
+      const dot = el('button', `map-dot${d.unlocked ? '' : ' locked'}${regionScouted(d.id) ? ' scout' : ''}${d.id === picked ? ' on' : ''}`);
       dot.title = d.name;
       dot.setAttribute('aria-label', d.name);
       place(dot, at);

@@ -3,6 +3,7 @@
 // it in what they're built of, the gate where the trail goes through, the sea along a shore town's map and rock along a
 // hold's. Each cell is CELL art pixels; the map is painted along the screen's width (sideways) or down it (upright).
 
+import type { TdTiles } from './tdTiles';
 import type { BattleMap } from '../../shared/sim/battle';
 import { PAL } from './palette';
 import { mixHex, noTone, paint, type Painter, type PixelArt } from './pixelArt';
@@ -36,7 +37,9 @@ const WALLS: Record<string, { face: string; light: string; dark: string; laid: '
   wagon_circle: { face: '#7a5230', light: '#9a7040', dark: '#4a3018', laid: 'wagon' },
 };
 
-export function battleGround(map: BattleMap, vertical: boolean, seed: number): PixelArt {
+/** The map's ground. With the tower-defence tiles (art/tdTiles.ts) the trail is cobbled from them and the shooters'
+ *  spots are cleared pads; without them, both are painted. */
+export function battleGround(map: BattleMap, vertical: boolean, seed: number, td: TdTiles | null = null): PixelArt {
   const W = (vertical ? map.wid : map.len) * CELL;
   const H = (vertical ? map.len : map.wid) * CELL;
   const trail = trailCells(map);
@@ -66,9 +69,18 @@ export function battleGround(map: BattleMap, vertical: boolean, seed: number): P
           if (cx >= keepFrom) keepCell(p, ax, ay, cx - keepFrom, cy, trail.has(key), trail, cx, vertical, map.len - 1 - keepFrom, seed);
           else if (cy < water) seaCell(p, ax, ay, cx, cy, cy === water - 1, vertical, seed);
           else if (map.rock && (cy === 0 || cy === map.wid - 1) && !trail.has(key)) rockCell(p, ax, ay, seed ^ (cx * 31 + cy));
-          else if (trail.has(key)) trailCell(p, ax, ay, cx, cy, trail, vertical, seed);
+          else if (trail.has(key)) trailCell(p, ax, ay, cx, cy, trail, vertical, seed, td);
           else if (map.hedges && !spotCells.has(key) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => trail.has(`${cx + dx},${cy + dy}`)))
             hedgeCell(p, ax, ay, seed ^ (cx * 31 + cy * 7));
+        }
+      // (a cleared pad under each shooter's spot)
+      if (td)
+        for (const q of map.spots) {
+          if (q.kind !== 'ground') continue;
+          const [ax, ay] = toArt(vertical, q.x, q.y);
+          const pad = td.pads[Math.floor(hash(seed ^ 5, q.x * 8, q.y * 8) * td.pads.length)];
+          const size = CELL * 1.25;
+          p.ctx.drawImage(pad, ax - size / 2, ay - size / 2, size, size);
         }
       // the walls over it all (the gate where the trail runs through a wall line)
       const lines = new Set(map.walls.map(([x]) => x));
@@ -115,7 +127,19 @@ function rockCell(p: Painter, x: number, y: number, seed: number): void {
   p.rect(x, y, CELL, 1, PAL.rockTip);
 }
 
-function trailCell(p: Painter, x: number, y: number, cx: number, cy: number, trail: Set<string>, vertical: boolean, seed: number): void {
+function trailCell(p: Painter, x: number, y: number, cx: number, cy: number, trail: Set<string>, vertical: boolean, seed: number, td: TdTiles | null): void {
+  if (td) {
+    // (a cobbled tile from the pack, picked by the cell; its 32px drawn on the fine grid)
+    p.ctx.drawImage(td.cobbles[Math.floor(hash(seed ^ 11, cx, cy) * td.cobbles.length)], x, y, CELL, CELL);
+    const edge = (dx: number, dy: number) => !trail.has(`${cx + dx},${cy + dy}`);
+    const [up, down, left, right] = vertical ? [edge(-1, 0), edge(1, 0), edge(0, -1), edge(0, 1)] : [edge(0, -1), edge(0, 1), edge(-1, 0), edge(1, 0)];
+    // (a grass verge where it meets the grass)
+    if (up) p.rect(x, y, CELL, 1, PAL.grassDark);
+    if (down) p.rect(x, y + CELL - 1, CELL, 1, PAL.grassDark);
+    if (left) p.rect(x, y, 1, CELL, PAL.grassDark);
+    if (right) p.rect(x + CELL - 1, y, 1, CELL, PAL.grassDark);
+    return;
+  }
   p.rect(x, y, CELL, CELL, PAL.dirt);
   // ruts and stones along it, and a worn edge where it meets the grass
   for (let k = 0; k < 4; k++) {

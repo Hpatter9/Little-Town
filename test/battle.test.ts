@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
-import { autoPlace, fighters, layOut, placeFighter, ranged, startBattle } from '../src/shared/sim/battle';
+import { autoPlace, battleSpeedNow, battleView, fighters, layOut, placeFighter, ranged, startBattle } from '../src/shared/sim/battle';
 import { castAt } from '../src/shared/sim/powers';
-import { trainMages } from '../src/shared/sim/classes';
 import { defenderAttack } from '../src/shared/sim/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
+import { parseCommand } from '../src/shared/sim/commands';
 import { Sim } from '../src/shared/sim/sim';
 import { makePerson, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -176,18 +176,10 @@ test("each origin's map: a castle town's raiders climb its keep floor by floor; 
   assert.ok(layOut(newGame('grove', { origin: 'druid' }), false).hedges);
 });
 
-test('mages: the town trains its own (one for every five people), and their fire bursts over the raiders round the one hit', () => {
+test('mages: their fire bursts over the raiders round the one hit', () => {
   const s = town('mages', 10);
-  s.research.done.push('arcane_arts');
-  for (const p of s.people) p.skills.research.level = 5;
-  const store = add(s, 'stockpile', camp(s) + 2);
-  store.store = { herbs: 40 };
-  trainMages(s);
-  trainMages(s);
-  trainMages(s);
-  const mages = s.people.filter((p) => p.cls === 'mage');
-  assert.equal(mages.length, 2, 'ten people: two mages');
-  assert.ok(!mages.some((p) => p.id === s.mainId), 'not the founder');
+  const mages = s.people.slice(1, 3);
+  for (const p of mages) p.cls = 'mage';
   assert.ok(mages.every(ranged), 'they fight from range');
   // three raiders bunched on the trail: one bolt hurts all of them
   const r = startRaid(s, RAID_KIND_BY_ID.bandits, 120, new Rng(5));
@@ -203,4 +195,24 @@ test('mages: the town trains its own (one for every five people), and their fire
     hurt = foes.filter((rd, k) => rd.hp < before[k]).length;
   }
   assert.equal(hurt, 3, 'all three burnt');
+});
+
+test('a battle can be played at 2 or 3 times, only while it is on, and the choice is kept', () => {
+  const sim = new Sim(town('speed', 4));
+  const s = sim.state;
+  assert.equal(battleSpeedNow(s), 1);
+  assert.equal(parseCommand({ type: 'battleSpeed', speed: 5 }), null, 'only 1, 2 or 3');
+  sim.command(parseCommand({ type: 'battleSpeed', speed: 3 })!);
+  assert.equal(battleSpeedNow(s), 1, 'no battle on: the town runs at its own pace');
+  const r = raidNow(s, 40);
+  sim.step();
+  assert.ok(r.battle);
+  assert.equal(battleSpeedNow(s), 3);
+  assert.equal(battleView(s, [])!.speed, 3);
+  sim.command({ type: 'battleSpeed', speed: 2 });
+  sim.step();
+  assert.equal(battleSpeedNow(s), 2);
+  r.battle!.phase = 'done';
+  assert.equal(battleSpeedNow(s), 1, 'over: back to the town pace');
+  assert.equal(s.battleSpeed, 2, 'kept for the next battle');
 });

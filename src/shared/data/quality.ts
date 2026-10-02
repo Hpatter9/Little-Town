@@ -28,8 +28,39 @@ export const QUALITIES: readonly Quality[] = [
 export const COMMON = 1;
 export const MAX_QUALITY = QUALITIES.length - 1;
 
-export const qualityOf = (q: number | undefined): Quality => QUALITIES[Math.max(0, Math.min(MAX_QUALITY, q ?? COMMON))];
+/* A piece's number holds its grade and its +N together: grade + GRADES * plus (so 3 is a Rare piece, 19 a Rare +2).
+ * Pieces from before +N existed are +0, and everything that only cares about the grade reads it through gradeOf. */
+const GRADES = QUALITIES.length;
+export const gradeOf = (q: number | undefined) => Math.max(0, Math.min(MAX_QUALITY, (q ?? COMMON) % GRADES));
+export const plusOf = (q: number | undefined) => Math.max(0, Math.min(MAX_PLUS, Math.floor((q ?? COMMON) / GRADES)));
+export const piece = (grade: number, plus: number) => grade + GRADES * plus;
+
+export const qualityOf = (q: number | undefined): Quality => QUALITIES[gradeOf(q)];
 export const qualityMult = (q: number | undefined) => qualityOf(q).mult;
+
+/** A piece's name: its grade (unless Common), the thing, and its +N. */
+export const pieceLabel = (name: string, q: number | undefined) => `${gradeOf(q) !== COMMON ? qualityOf(q).name + ' ' : ''}${name}${plusOf(q) ? ` +${plusOf(q)}` : ''}`;
+
+/* ------------------------------------------------------------ +N */
+
+/** Weapons and armour are made +0 to +5 on top of their grade: each + makes them about this much better at what they
+ *  do (damage, aim, armour), so a +5 is worth about three tiers (data/weapons.ts: each tier is 1.28 times the last). */
+export const MAX_PLUS = 5;
+export const PLUS_STEP = 1.14;
+export const plusMult = (q: number | undefined) => PLUS_STEP ** plusOf(q);
+/** The chance of the first +, from a novice to a master; each further + is that times PLUS_FADE again, so a master
+ *  makes a +1 about one time in three, a +3 about one in a hundred and a +5 about one in fifteen thousand; a novice
+ *  all but never gets past +1. */
+export const PLUS_FIRST: [number, number] = [0.05, 0.35];
+export const PLUS_FADE = 0.65;
+
+/** Roll a piece's +N from its crafter's Crafting level (and a little luck). */
+export function rollPlus(rng: Rng, level: number): number {
+  const first = PLUS_FIRST[0] + ((PLUS_FIRST[1] - PLUS_FIRST[0]) * (Math.max(1, level) - 1)) / (MAX_SKILL - 1);
+  let n = 0;
+  while (n < MAX_PLUS && rng.chance(first * PLUS_FADE ** n)) n++;
+  return n;
+}
 
 /** What a crafter of this Crafting level usually makes (the middle of their range), from Poor-to-Common at level 1
  *  to Epic-to-Legendary at the top. */

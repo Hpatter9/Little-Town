@@ -21,6 +21,51 @@ Wolves, boars and the Cave Bear use **whtdragon**'s RPG Maker MV animal sprites
 (`src/renderer/art/creatures/`, copied from the Little Wayfarers assets). The pack folder has no licence file:
 check whtdragon's posted terms of use before any public release.
 
+## Craftpix packs (the bestiary)
+
+The foes and bosses in `src/shared/data/bestiary.ts` are drawn from free **Craftpix.net** packs (craftpix.net,
+free licence: use in games allowed, no redistributing the raw files). `tools/compose-sheets.cjs` builds one small
+sheet per creature (`src/renderer/art/creatures/packs/`) from the packs kept in the private assets repository:
+Free Werewolf, Gorgon, Minotaur and Satyr Sprite Sheets; Free Forest Bosses; Free Samurai, Ninja, Wizard, Robot,
+Knight and Skeleton Sprite Sheets; Free Yokai Character Sprites; Free Tiny Hero Sprites; Free Enemy Pixel Pack for
+Top-Down Defense; Free Fantasy RPG Top-Down Boss Creatures (Boar King, Devil Leader, Shaman King) and Pirate Boss
+Characters (Pirate Leader, Pirate Zombie, Squidman).
+
+## Craftpix magic effects (spells and skills in fights)
+
+The spells' and skills' effects in the watched fights and on the raid's battle map (`src/renderer/art/effects/mg_*.png`
+and `slash_*.png`, built by `tools/compose-effects.cjs`) are from **Craftpix.net**'s free Pixel Magic Sprite Effects pack
+and free Magic Slash Effects pack.
+
+## Craftpix dungeon props (the watched delves)
+
+The doors, chests, gate, wall torches and braziers seen down a dungeon (`src/renderer/art/delve/`) are from
+**Craftpix.net**'s free 2D Top-Down Pixel Dungeon pack; the skull altar and the guillotine from its free Pixel Dungeon
+Props and Objects pack.
+
+## Craftpix interiors and tower-defence tiles
+
+The shop's and tavern's furnishings (shelves of jars, glass cabinets, tables, planters, crates, rugs, the counters) and
+the brick hearth's furnace (`src/renderer/art/interior/`) are from **Craftpix.net**'s free Glassblower's Workshop
+top-down pack. The raid map's cobbled trail and the pads under the shooters' spots (`src/renderer/art/td/`) are from its
+free Fields Tileset and Village Tileset for top-down tower defence.
+
+## Craftpix top-down objects (the raid map's scenery)
+
+The trees, bushes, rocks, mushrooms, crystals, bones, idols, corals and shells scattered over the raid's battle map
+(`src/renderer/art/props/`, built by `tools/compose-props.cjs`) are from **Craftpix.net**'s free Tree, Bush, Rocks,
+Rocky Area Objects, Forest Objects, Top-Down Cave Objects, Top-Down Seabed Objects and Fields Tileset (tower defence)
+packs.
+
+## Craftpix parallax backgrounds (the fights' backdrops)
+
+The watched fights' backdrops (`src/renderer/art/backdrops/`, built by `tools/compose-backdrops.cjs`) come from free
+**Craftpix.net** packs: Free Nature Pixel Backgrounds, 4 Free Seamless Nature Backgrounds, Forest and Trees, Summer,
+Autumn, Mountain, Mountain Peak, Winter Nature, Winter, Ancient Temple, Crystal Cave, Desert Oasis, Abandoned Places,
+City Ruins, Ocean and Clouds, City, Futuristic City, Steampunk Cityscape, Underwater World, Moon, Seamless Cloudscape,
+Sky with Parallax Clouds, Sky with Clouds, Cloud and Sky, Post-Apocalyptic, and Fantasy 2D Battlegrounds backgrounds,
+and the industrial platformer pack's Day and Night backgrounds.
+
 ## Item icons
 
 Crafted items use icons from **DawnLike** (16x16 universal roguelike tileset) by **DragonDePlatino**, on

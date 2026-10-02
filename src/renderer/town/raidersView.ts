@@ -99,7 +99,7 @@ export class RaidersView {
         const sp = def.sprite as { sheet: CreatureSheet; block: number; scale: number };
         const frame = r.down ? 1 : moving ? Math.floor(d.walked / 6) : Math.floor(secs * 2);
         const facing = r.dir < 0 ? 'left' : 'right';
-        s.texture = creatureFrame(sp.sheet, sp.block, facing, frame, r.sinceAction < 6 && !r.down);
+        s.texture = creatureFrame(sp.sheet, sp.block, facing, frame, r.sinceAction < 6 && !r.down, r.down ? 'dead' : !moving && r.sinceAction >= 6 ? 'idle' : undefined);
         const size = creatureSize(sp.sheet);
         const flip = creatureFlip(sp.sheet, facing);
         s.scale.set(sp.scale * flip, sp.scale);

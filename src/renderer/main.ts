@@ -1,8 +1,11 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { CHATTER } from './chatter';
 import { BattleScene } from './battle/battleView';
 import { createBattleHud } from './battle/battleHud';
+import { FightScene } from './fight/fightView';
+import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
 import { Application, Graphics, TextureStyle } from 'pixi.js';
@@ -14,7 +17,6 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../shared/
 import { CROPS } from '../shared/data/crops';
 import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
-import { CLASS_DEFS } from '../shared/data/classes';
 import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
 import { blueprintCount, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
@@ -26,7 +28,7 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, dir: t.dir,
-    activity: 'walk', cls: null, trainable: [], mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', cls: null, clsName: null, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
@@ -193,9 +195,14 @@ async function start(): Promise<void> {
   const battle = new BattleScene();
   app.stage.addChild(battle.root);
   (window as unknown as { __battle?: BattleScene }).__battle = battle; // (for previews: where a spot is on screen)
+  // watching a party away, as in the old games (fight/fightView.ts): it takes over the strip too
+  const fight = new FightScene();
+  app.stage.addChild(fight.root);
+  const fightHud = createFightHud({ back: () => bridge.command({ type: 'watch', expedition: null }) });
   const battleHud = createBattleHud({
     go: () => bridge.command({ type: 'battleGo' }),
     auto: (on) => bridge.command({ type: 'battleAuto', on }),
+    speed: (n) => bridge.command({ type: 'battleSpeed', speed: n }),
     pick: (person) => {
       battle.selectedPerson = person;
     },
@@ -535,7 +542,7 @@ async function start(): Promise<void> {
         if (v && v.id === h.person.id) {
           return {
             title: d.title,
-            lines: [...d.lines, bestSkills(v), ...(v.cls ? [`A rare ${CLASS_DEFS[v.cls].name}!`] : [])],
+            lines: [...d.lines, bestSkills(v), ...(v.cls ? [`${v.clsName}, level ${v.level}`] : [])],
             // (the town lets newcomers in itself, when there's a bed for them)
             actions: [act('more', 'More…', () => bridge.openPanel('townsfolk'))],
           };
@@ -550,7 +557,7 @@ async function start(): Promise<void> {
         if (p.coins !== null) lines.push(`${p.coins} coins`);
         if (p.recent.length) lines.push(`Lately: ${p.recent.slice(0, 2).join('; ')}`);
         lines.push(`Health ${Math.round(p.hp)}/${p.maxHp} · Morale ${Math.round(p.morale)} · Food ${Math.round(p.needs.food * 100)}% · Rest ${Math.round(p.needs.rest * 100)}%`);
-        lines.push(`${p.typeName}${p.cls ? `, ${CLASS_DEFS[p.cls].name}` : ''} · ${bestSkills(p)}`);
+        lines.push(`${p.clsName ? `${p.clsName} · Lv ${p.level}` : p.typeName} · ${bestSkills(p)}`);
         // in a fight: rally them (a burst of courage), when the town's rally is ready
         if (p.rally === 'on') lines.unshift('Rallied: fighting like ten!');
         else if (p.rally === 'wait') lines.unshift(`Rally again in ${snap.rallyIn}s`);
@@ -872,7 +879,9 @@ async function start(): Promise<void> {
   const showNotices = (next: Snapshot) => {
     const caughtUp = !!next.away && next.away.id > lastAway;
     if (next.away) lastAway = Math.max(lastAway, next.away.id);
-    if (!caughtUp) for (const n of next.notices) if (n.id > lastNotice) toasts.push(n.text);
+    // (upright on the phone the feed above the town shows the news: the strip pops up only what the feed leaves out)
+    const feedShown = document.body.classList.contains('feed-shown');
+    if (!caughtUp) for (const n of next.notices) if (n.id > lastNotice && (!feedShown || CHATTER.test(n.text))) toasts.push(n.text);
     lastNotice = Math.max(lastNotice, next.notices.at(-1)?.id ?? 0);
   };
 
@@ -886,7 +895,11 @@ async function start(): Promise<void> {
     battleHud.update(next.battle, next.raid?.name ?? 'Raiders');
     battle.selectedPerson = battleHud.picked;
     battle.aiming = battleHud.aiming;
-    town.root.visible = !next.battle;
+    // (a raid's battle comes first: watching waits behind it)
+    const watched = next.battle ? null : next.watch;
+    fight.update(watched, next.biome, next.calendar.season);
+    fightHud.update(watched);
+    town.root.visible = !next.battle && !watched;
     showNotices(next);
     const tilesChanged = next.tileRev !== snap.tileRev;
     snap = next;
@@ -1008,13 +1021,17 @@ async function start(): Promise<void> {
       battle.resize(app.screen.width, app.screen.height, ...battleHud.insets());
       battle.render(performance.now(), ticker.deltaMS / 1000, snap);
     }
+    if (fight.shown) {
+      fight.resize(app.screen.width, app.screen.height, ...fightHud.insets());
+      fight.render(performance.now(), ticker.deltaMS / 1000);
+    }
     // the art under a still mouse changes while the camera moves
     if (moving) {
       refreshHover();
       if (selected) showActions();
     }
     if (selectedPerson !== null) showPersonCard(); // follow them as they walk
-    app.ticker.maxFPS = interactive || moving || battle.shown ? FPS_ACTIVE : FPS_IDLE;
+    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown ? FPS_ACTIVE : FPS_IDLE;
   });
 }
 

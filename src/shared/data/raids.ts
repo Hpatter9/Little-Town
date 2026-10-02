@@ -1,6 +1,7 @@
 // Raids by era (DESIGN §10, §15): wolf packs, boar charges, rival tribe scouting parties; then bandits and
 // warbands. Numbers are starting points for tuning.
 
+import { BESTIARY_RAIDS } from './bestiary';
 import type { Era } from './eras';
 
 /** What a raider is after (DESIGN §10): hurting people, stealing, setting fires, carrying someone off. */
@@ -81,6 +82,8 @@ export const RAID_KINDS: readonly RaidKind[] = [
   { id: 'rival_fae', name: 'The Wild Hunt', goal: 'kidnap', goals: { kidnap: 3, harm: 2, steal: 1 }, steals: 'food', enemies: { wisp: 6, redcap: 10, crystal_fiend: 22 }, fromDay: 8, weight: 0.3, speed: 70, bribable: false, plural: false, origin: 'fae', leader: 'hunt_queen' },
   { id: 'rival_alchemists', name: 'The Mad Alchemist\'s experiments', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { acid_slime: 7, homunculus: 16, fire_elemental: 20 }, fromDay: 8, weight: 0.3, speed: 40, bribable: false, plural: true, origin: 'alchemists', leader: 'mad_alchemist' },
   { id: 'rival_knights', name: 'The Order', goal: 'harm', goals: { harm: 3, burn: 1, steal: 1 }, steals: 'valuables', enemies: { order_knight: 18, order_crossbow: 12 }, fromDay: 8, weight: 0.3, speed: 55, bribable: true, plural: false, origin: 'knights', leader: 'grand_master' },
+  // the Craftpix packs' foes (data/bestiary.ts)
+  ...BESTIARY_RAIDS,
 ];
 
 export const RAID_KIND_BY_ID: Readonly<Record<string, RaidKind>> = Object.fromEntries(RAID_KINDS.map((k) => [k.id, k]));
@@ -101,6 +104,10 @@ export const RAID_MAX_SIZE = 6;
 export const RAID_MIGHT_PER_PERSON = 0.03;
 export const RAID_MIGHT_FREE = 8;
 export const RAID_MIGHT_MAX = 2;
+/** A seasoned town (its grown-ups' levels, data/levels.ts) draws seasoned raiders too: this much more might per level of
+ *  the grown-ups' average beyond the first, up to RAID_SEASONED_MAX times (on top of the above). */
+export const RAID_MIGHT_PER_LEVEL = 0.07;
+export const RAID_SEASONED_MAX = 2.5;
 /** Struck down by a raider, someone may die there and then (a boss's blow more often; the founder less, since the town
  *  passes to an heir), rather than lying wounded to be tended. */
 export const KILLING_BLOW = 0.3;

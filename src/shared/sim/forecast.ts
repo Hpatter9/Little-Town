@@ -8,7 +8,7 @@ import type { GameState } from './state';
 
 /** `event`: a choice event, which pauses the town while you're away until you answer it (offline.ts), so it's where
  *  the forecast stops. */
-export type ForecastKind = 'raid' | 'death' | 'expedition' | 'choice' | 'event' | 'hero';
+export type ForecastKind = 'raid' | 'death' | 'expedition' | 'choice' | 'event' | 'hero' | 'delve';
 
 export interface ForecastEvent {
   kind: ForecastKind;
@@ -65,6 +65,8 @@ export function startForecast(state: GameState, ticks: number, max = 12): Foreca
           // (the hero's big moments: anything that makes the journal's milestones with their name in it)
           if (hero && n.text.includes(hero) && s.journal.some((j) => j.id === n.id && j.key)) out.push({ kind: 'hero', tick: n.tick, title: hero, text: n.text });
           else if (/has died|carried off|camp breaks apart/.test(n.text)) out.push({ kind: 'death', tick: n.tick, title: 'Bad news', text: n.text });
+          // (a delve's big moments: the boss reached, the dungeon cleared, a unique found, a dungeon woken again)
+          else if (/rises to meet them|is cleared!|a unique (weapon|treasure)|one of a kind|has woken/.test(n.text)) out.push({ kind: 'delve', tick: n.tick, title: 'Down the dungeon', text: n.text });
           else if (/party is back|No one came back/.test(n.text)) out.push({ kind: 'expedition', tick: n.tick, title: 'Expedition', text: n.text });
         }
         lastNotice = s.notices.at(-1)?.id ?? lastNotice;

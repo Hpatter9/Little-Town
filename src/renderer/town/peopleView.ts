@@ -76,7 +76,7 @@ const FLOOR_LIFT = WALK_Y + 2 + PLINTH + 3;
 const CLIMB_SPEED = 90;
 
 /** Each class's Pixel Champions hero: its sheet and block (a mage is the sage sheet's blue-robed wizard). */
-export const CLASS_LOOK: Record<ClassId, [CreatureSheet, number]> = {
+export const CLASS_LOOK: Partial<Record<ClassId, [CreatureSheet, number]>> = {
   necromancer: ['champ_necromancer', 0],
   summoner: ['champ_summoner', 0],
   beast_tamer: ['champ_beast_tamer', 0],
@@ -248,10 +248,10 @@ export class PeopleView {
       const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : null;
       d.sprite.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
       // someone who's taken up a special class looks the part (a Pixel Champions hero, at twice size)
-      if (d.view.cls && !hidden) {
+      if (d.view.cls && CLASS_LOOK[d.view.cls] && !hidden) {
         const facing = d.view.dir < 0 ? 'left' : 'right';
         const moving = Math.abs(d.toX - d.fromX) > 0.5;
-        const [sheet, block] = CLASS_LOOK[d.view.cls];
+        const [sheet, block] = CLASS_LOOK[d.view.cls]!;
         d.sprite.texture = creatureFrame(sheet, block, facing, moving ? Math.floor(d.walked / 5) : 1);
         const size = creatureSize(sheet);
         d.sprite.scale.set(2 * k, 2 * k);

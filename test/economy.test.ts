@@ -199,6 +199,7 @@ test('guests who come of an evening take a bed for the night and leave in the mo
   const run = (beds: boolean) => {
     const sim = new Sim(plainGame(beds ? 'lodging' : 'no-beds'));
     const s = sim.state;
+    s.nextRaidTick = Number.MAX_SAFE_INTEGER; // (a raid sends lodgers off in the night)
     s.research.done.push('barter', 'hospitality');
     const inn = addBuilding(s, 'fireside_inn', camp(s) + 3);
     inn.shop = { pieces: beds ? [{ item: 'straw_pallet', x: 0, y: -1 }, { item: 'box_bed', x: 1, y: -1 }] : [] };
@@ -206,8 +207,13 @@ test('guests who come of an evening take a bed for the night and leave in the mo
     const lodgers = new Set<number>();
     const left = new Set<number>();
     let morning = true;
-    for (let k = 0; k < 4 * TICKS_PER_DAY; k++) {
+    let paid = false;
+    let askedBed = 0;
+    for (let k = 0; k < 10 * TICKS_PER_DAY; k++) {
       sim.step();
+      // (the inn's log keeps only its latest lines: look as it goes)
+      if (k % 600 === 0) paid ||= (inn.shop?.log ?? []).some((l) => l.text.includes('for the night ('));
+      askedBed = Math.max(askedBed, inn.shop?.asked?.bed ?? 0); // (wants fade day by day)
       for (const t of s.travellers ?? []) {
         if (!t.bed) continue;
         lodgers.add(t.id);
@@ -219,15 +225,15 @@ test('guests who come of an evening take a bed for the night and leave in the mo
       }
     }
     const lodged = lodgers.size;
-    return { s, inn, lodged, morning };
+    return { s, inn, lodged, morning, paid, askedBed };
   };
   const withBeds = run(true);
   assert.ok(withBeds.lodged > 0, 'someone stayed the night');
   assert.ok(withBeds.morning, 'and left in the morning');
-  assert.ok(withBeds.inn.shop!.log!.some((l) => l.text.includes('for the night (')));
+  assert.ok(withBeds.paid, 'and paid for it');
   const bare = run(false);
   assert.equal(bare.lodged, 0);
-  assert.ok((bare.inn.shop?.asked?.bed ?? 0) > 0, 'guests asked for a bed');
+  assert.ok(bare.askedBed > 0, 'guests asked for a bed');
 });
 
 test('a tavern has guest rooms upstairs, one bed to a room, and more rooms as it is extended', () => {

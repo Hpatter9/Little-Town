@@ -1,11 +1,13 @@
 // Townsfolk panel: the wanderer waiting to be let in, the job priority grid, and everyone's details.
 
-import { qualityOf } from '../../shared/data/quality';
+import { pieceLabel, qualityOf } from '../../shared/data/quality';
 import { ITEM_BY_ID, SLOT_NAMES, SLOTS } from '../../shared/data/items';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
 import { CLASS_DEFS } from '../../shared/data/classes';
-import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
+import { WEIGHT_NAMES } from '../../shared/data/armour';
+import { FAMILIES } from '../../shared/data/weapons';
+import type { Material } from '../../shared/data/materials';
 import { MONSTER_NAMES, ORDER_NAMES, type MonsterKind, type StandingOrder } from '../../shared/data/monsters';
 import { SKILL_NAMES, SKILLS } from '../../shared/data/skills';
 import type { Bridge } from '../../shared/ipc';
@@ -27,7 +29,7 @@ export const townsfolkKey = (s: Snapshot) =>
     s.turnable,
     confirmTurn,
     s.research.done.length,
-    s.people.map((p) => p.trainable.map((c) => c.reason)), // (what's missing for a calling changes with the town)
+    s.people.map((p) => [p.clsName, p.level, Math.round(p.levelProgress * 20)]),
   ]);
 
 /** High -> Normal -> Low -> Off -> High. */
@@ -78,7 +80,7 @@ function visitorCard(v: VisitorView, s: Snapshot): HTMLElement {
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', `${v.name}, ${v.typeName.toLowerCase()}`), el('span', 'card-size', v.leaving ? 'Leaving' : `Leaves in ${Math.ceil(v.hoursLeft)}h`));
   c.append(el('div', 'lock', 'Is at the edge of town and asks to join.'), top, skillsList(v), traitsList(v));
-  if (v.cls) c.append(el('div', 'lock short', `A rare ${CLASS_DEFS[v.cls].name}: ${CLASS_DEFS[v.cls].description}`));
+  if (v.cls) c.append(el('div', 'lock short', `${v.clsName}, level ${v.level}: ${CLASS_DEFS[v.cls].description}`));
   if (!v.leaving) {
     // (the town lets newcomers in itself, when a bed is free for them)
     const noBed = s.housing.beds <= s.housing.people;
@@ -195,29 +197,24 @@ function turnButtons(p: PersonView, s: Snapshot, bridge: Bridge | undefined): HT
   return row;
 }
 
-/** Their special class, or the classes the town has studied that they could train in. */
-function classRow(p: PersonView, bridge: Bridge | undefined): HTMLElement {
-  const row = el('div', 'row');
-  if (p.cls) {
-    const def = CLASS_DEFS[p.cls];
-    row.append(el('span', 'chip', def.name), el('span', 'lock', def.description));
+/** Their class and level: the stage they're at among the five, the way to the next level, and what they wear and wield. */
+function classRow(p: PersonView, _bridge: Bridge | undefined): HTMLElement {
+  const row = el('div', 'row class-row');
+  if (!p.cls) {
+    if (p.growsUpIn === null) row.append(el('span', 'lock short', `Level ${p.level}. Their calling will come to them soon.`));
     return row;
   }
-  if (p.growsUpIn !== null) return row;
-  // (a calling is rare: one of each in a town, a master of its skill, and a deed done first; the button says
-  // what's still missing)
-  for (const { cls: k, reason } of p.trainable) {
-    const def = CLASS_DEFS[k];
-    const cost = (Object.entries(def.cost) as [Material, number][]).map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`).join(', ');
-    row.append(
-      button(`Train as ${def.name}`, () => bridge?.command({ type: 'trainClass', person: p.id, cls: k }), {
-        cls: 'place small quiet',
-        disabled: reason !== null,
-        title: `${def.description} Needs ${SKILL_NAMES[def.skill]} ${def.level}. ${def.deedText} Uses ${cost}. Only one in a town.${reason ? `\nNot yet: ${reason}.` : ''}`,
-      }),
-    );
-  }
-  return row;
+  const def = CLASS_DEFS[p.cls];
+  const bar = el('span', 'skill-bar');
+  const fill = el('span', '');
+  fill.style.width = `${Math.round(p.levelProgress * 100)}%`;
+  bar.append(fill);
+  row.append(el('span', 'chip', `${p.clsName} · Lv ${p.level}`), bar);
+  const stages = el('div', 'hint', def.stages.map((n) => (n === p.clsName ? `[${n}]` : n)).join(' → '));
+  const gear = el('div', 'hint', `${def.description} Wears ${def.armour.map((w) => WEIGHT_NAMES[w].toLowerCase()).join(', ')}; wields ${def.weapons.map((f) => FAMILIES[f].name.toLowerCase() + 's').join(', ')}.`);
+  const box = el('div', '');
+  box.append(row, stages, gear);
+  return box;
 }
 
 /** A monster's standing order for the Hunter's Guild. */
@@ -249,7 +246,7 @@ function gearRow(p: PersonView): HTMLElement {
     const def = ITEM_BY_ID[p.gear[slot]!];
     const q = qualityOf(p.gearQ[slot]);
     const icon = itemIcon(def, 2);
-    icon.title = `${SLOT_NAMES[slot]}: ${q.name} ${def.name} (${def.description})`;
+    icon.title = `${SLOT_NAMES[slot]}: ${q.name} ${pieceLabel(def.name, p.gearQ[slot]).replace(q.name + ' ', '')} (${def.description})`;
     icon.style.outline = `2px solid ${q.color}`;
     icon.style.borderRadius = '3px';
     g.append(icon);

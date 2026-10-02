@@ -2,6 +2,7 @@
 // and on the phone (web) version in the page itself.
 
 import type { Command } from './sim/commands';
+import { battleSpeedNow } from './sim/battle';
 import { startCatchUp, type CatchUpJob, type CatchUpResult } from './sim/offline';
 import { MAX_TICKS_PER_ADVANCE, Sim } from './sim/sim';
 import { journalView, snapshot, type JournalEntryView, type Snapshot } from './sim/snapshot';
@@ -83,9 +84,11 @@ export class GameLoop {
     }
     this.lastWall = Date.now();
     const now = performance.now();
-    const ms = (now - this.last) * this.speed;
+    // (a raid's battle can be played at 2 or 3 times: the sim simply runs that much more time)
+    const fast = this.speed * battleSpeedNow(this.sim.state);
+    const ms = (now - this.last) * fast;
     this.last = now;
-    if (this.sim.advance(ms, MAX_TICKS_PER_ADVANCE * this.speed) > 0) this.onTicks(this.snapshot());
+    if (this.sim.advance(ms, MAX_TICKS_PER_ADVANCE * fast) > 0) this.onTicks(this.snapshot());
   }
 
   private catchUpSlice(): void {

@@ -863,6 +863,30 @@ const ART: Record<string, { h: number; draw: Draw }> = {
       p.disc(w / 2, h - 56, 4, PAL.leafLight); // (a green herb sign)
     },
   },
+  // the trophy hall: a stone hall with a high door, banners each side, and a dragon's skull over the lintel
+  trophy_hall: {
+    h: 70,
+    draw: (p, w, h) => {
+      for (let y = h - 46; y < h; y += 5) for (let x = (y / 5) % 2 ? 5 : 0; x < w - 4; x += 10) p.rect(x + 2, y, 9, 4, (x + y) % 3 ? '#a8a090' : '#b8b0a0');
+      roof(p, 0, w, h - 46, h - 64, '#6a2a2a', '#4a1c1c');
+      // the banners
+      for (const x of [8, w - 16]) {
+        p.rect(x, h - 42, 8, 22, '#8a2a3a');
+        p.rect(x + 2, h - 36, 4, 6, '#d8b048');
+        p.rect(x, h - 21, 2, 2, '#8a2a3a');
+        p.rect(x + 6, h - 21, 2, 2, '#8a2a3a');
+      }
+      // the door, and a great skull over it
+      p.rect(w / 2 - 10, h - 24, 20, 24, '#3a2a1c');
+      p.rect(w / 2 - 10, h - 24, 20, 2, '#d8b048');
+      p.rect(w / 2 - 9, h - 36, 18, 9, '#e8dcc0');
+      p.rect(w / 2 - 6, h - 33, 3, 3, '#2a1a10');
+      p.rect(w / 2 + 3, h - 33, 3, 3, '#2a1a10');
+      p.rect(w / 2 - 12, h - 38, 4, 3, '#e8dcc0'); // horns
+      p.rect(w / 2 + 8, h - 38, 4, 3, '#e8dcc0');
+      for (let x = w / 2 - 7; x < w / 2 + 7; x += 3) p.rect(x, h - 28, 2, 2, '#f0e8d8'); // teeth
+    },
+  },
   library: {
     h: 72,
     draw: (p, w, h) => {
