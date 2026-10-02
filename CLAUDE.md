@@ -526,6 +526,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Delve: safe / risky; an active delve shows its room, torches and latest line (`ExpeditionView.delve`). Place names in
   the trips' notices go through `the`/`The` (data/expeditions.ts), and foes through `describeGroup` (bosses by name,
   "wolves"), so no more "the The Labyrinth".
+- **Watching a delve (step 9, done):** the Watch view (`FightScene`) follows a delve down the dungeon's inside scene:
+  the party walks on between rooms and stops (`STOP`, the first 30% of a room) at each room's thing, drawn by
+  `drawDelve` from `art/delveProps.ts` (Craftpix's 2D Top-Down Dungeon pack seen side-on: a door and a chest opening,
+  a gate for a fork, braziers at camps, wall torches along the corridor; its Dungeon Props pack's skull altar at
+  shrines and guillotine at traps), left behind as they walk on (`propAt`). The light dims as the torches run low. The
+  HUD's top window has the delve's latest line, and the foes' window the room and torches between fights
+  (`ExpeditionView.delve.progress`). The phone feed has a card for each delve under way; tapping it watches the party.
 - **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
   `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
   (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.

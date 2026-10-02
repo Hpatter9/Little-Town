@@ -50,10 +50,19 @@ export function createFightHud(on: { back(): void }): FightHud {
       // the latest action, held a moment; else where they are
       const act = v.acts.find((a) => a.age < 25);
       if (act) lastMessage = act.name;
+      // (a delve's fight: what they ran into, as the log has it)
+      else if (fight && v.delve && v.phase === 'work') lastMessage = v.delve.log.at(-1) ?? lastMessage;
+      else if (!fight && v.delve && v.phase === 'work') lastMessage = v.delve.log.at(-1) ?? `Into ${v.destName}`;
       else if (!fight) lastMessage = `${PHASE_WORDS[v.phase] ?? ''} ${v.destName}`.trim();
       message.textContent = lastMessage || (fight ? 'Fight!' : v.destName);
       if (!fight) {
-        foes.replaceChildren(line('ff-dim', 'No foes in sight'));
+        // (down a dungeon: how deep, and how much light is left)
+        const d = v.delve && v.phase === 'work' ? v.delve : null;
+        foes.replaceChildren(
+          ...(d
+            ? [line('', d.room ? `Room ${d.room} of ${d.rooms}` : 'At the door'), line(d.torches <= 2 ? 'ff-dim' : '', `${d.torches} torch${d.torches === 1 ? '' : 'es'} left`)]
+            : [line('ff-dim', 'No foes in sight')]),
+        );
         party.replaceChildren(...v.members.map((m) => line('', m.name)));
         return;
       }

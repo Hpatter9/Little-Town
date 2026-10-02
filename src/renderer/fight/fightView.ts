@@ -13,6 +13,7 @@ import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
 import { creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { impactFrame, IMPACT_SIZE } from '../art/effects';
+import { loadDelveProps, propFrame, propLoop, type DelveProp } from '../art/delveProps';
 import { SHEETS } from '../town/spellsView';
 import { actSprite } from './actLooks';
 import { heldWeapon, wornLayers } from '../art/held';
@@ -32,6 +33,8 @@ const SEE_H = 150;
 /** How much land shows below the horizon at most (the rest is sky). */
 const LAND = 110;
 const MARCH = 30;
+/** Down a dungeon, the share of each room's time the party stands at its thing before walking on. */
+const STOP = 0.3;
 
 /** Each element's colour for the flash where a spell or skill lands. */
 const ELEMENT_COLOUR: Record<Element, number> = {
@@ -66,6 +69,14 @@ export class FightScene {
   private readonly world = new Container();
   private readonly figures = new Container();
   private readonly fx = new Graphics();
+  /** Down a dungeon: what's in the room (a chest, a door, a trap...), torches along the walls, and the dark closing in as
+   *  the party's own torches run low. */
+  private readonly roomProp = new Sprite();
+  private readonly wallTorches = new Container();
+  private readonly dark = new Graphics();
+  /** Where the party stopped for the room's thing (the scroll then), so it slides away as they walk on. */
+  private propAt = 0;
+  private propRoom = -1;
   /** The spells' and skills' effects playing where they landed (a pool, reused frame to frame), and when each act was
    *  first seen (ms: the sim's ages are whole ticks, so the frames are timed here). */
   private readonly effects = new Container();
@@ -86,7 +97,7 @@ export class FightScene {
 
   constructor() {
     this.root.visible = false;
-    this.world.addChild(this.photo, ...this.layers.slice(0, 3), this.layers[3], this.figures, this.fx, this.effects);
+    this.world.addChild(this.photo, ...this.layers.slice(0, 3), this.wallTorches, this.roomProp, this.layers[3], this.figures, this.fx, this.effects, this.dark);
     this.world.mask = this.clip;
     this.root.addChild(this.clip);
     this.root.addChild(this.cover, this.world);
@@ -182,8 +193,11 @@ export class FightScene {
     const v = this.view;
     if (!v) return;
     const fighting = !!v.battle?.length;
+    // down a dungeon they walk on between rooms, and stop a while at each room's thing (a chest, a trap, a shrine...)
+    const delve = v.delve && v.phase === 'work' ? v.delve : null;
+    const stops = !!delve && !!delve.kind && !['fight', 'boss'].includes(delve.kind) && delve.progress < STOP;
     // the ground scrolls under a party on the move (not while they fight or work)
-    const walking = !fighting && (v.phase === 'out' || v.phase === 'back');
+    const walking = !fighting && (v.phase === 'out' || v.phase === 'back' || (!!delve && !stops));
     if (walking) this.scroll += MARCH * dt;
     // (the clouds drift a little even while they stand)
     this.drift += dt * 1.5;
@@ -195,6 +209,7 @@ export class FightScene {
       const pace = this.photoMode === 'sky' ? 0.08 : 0.08 + (0.92 * i) / Math.max(1, n - 1);
       l.tilePosition.x = -Math.round((this.scroll * pace + (i === 0 ? this.drift : 0)) / l.tileScale.x);
     });
+    this.drawDelve(delve, fighting, now);
     this.fx.clear();
     const seen = new Set<string>();
     if (fighting) this.drawFight(v.battle!, v, now, seen);
@@ -223,6 +238,59 @@ export class FightScene {
     return f;
   }
 
+  /** A delve: the room's thing ahead of the party (it stays where they stopped, sliding off as they walk on), wall torches
+   *  burning along the corridor, and the dark closing in as their own torches run low. */
+  private drawDelve(d: ExpeditionView['delve'] | null, fighting: boolean, now: number): void {
+    this.dark.clear();
+    this.wallTorches.visible = this.roomProp.visible = !!d;
+    if (!d) return;
+    loadDelveProps();
+    const k = 0.75;
+    // (wall torches every so far along, at the ground's pace)
+    const gap = 110;
+    const want = Math.ceil(this.vw / gap) + 2;
+    while (this.wallTorches.children.length < want) this.wallTorches.addChild(new Sprite());
+    const off = ((this.scroll % gap) + gap) % gap;
+    this.wallTorches.children.forEach((c, i) => {
+      const t = c as Sprite;
+      const tex = propLoop('torch', now / 110 + i * 2);
+      t.visible = !!tex && i < want;
+      if (!tex) return;
+      t.texture = tex;
+      t.scale.set(k);
+      t.position.set(Math.round(i * gap - off - 20), Math.round(this.hy - 44));
+    });
+    // the room's thing: placed as the party reaches the room, then left behind as they walk on
+    if (d.room !== this.propRoom) {
+      this.propRoom = d.room;
+      this.propAt = this.scroll;
+    }
+    const kind = d.kind ?? '';
+    const t = Math.min(1, d.progress / STOP);
+    const solved = d.log.at(-1)?.includes('works it out') ?? false;
+    const show: [DelveProp, number] | null =
+      kind === 'treasure' ? ['chest', t * 6]
+      : kind === 'puzzle' ? ['door', solved ? t * 6 : 0]
+      : kind === 'fork' ? ['gate', t * 6]
+      : kind === 'trap' ? ['blade', now / 70]
+      : kind === 'shrine' ? ['skull', now / 160]
+      : kind === 'camp' ? ['brazier', now / 110]
+      : null;
+    const loops = kind === 'trap' || kind === 'shrine' || kind === 'camp';
+    const tex = show ? (loops ? propLoop(show[0], show[1]) : propFrame(show[0], show[1])) : null;
+    this.roomProp.visible = !!tex && !fighting;
+    if (tex) {
+      this.roomProp.texture = tex;
+      const size = kind === 'treasure' || kind === 'puzzle' || kind === 'fork' ? 1.3 : kind === 'camp' ? 1.5 : 1;
+      this.roomProp.scale.set(k * size);
+      const x = this.vw / 2 + 34 - (this.scroll - this.propAt);
+      this.roomProp.position.set(Math.round(x), Math.round(this.hy + 40 - tex.height * k * size));
+    }
+    // (the light failing as the torches run out)
+    const dim = d.torches <= 0 ? 0.55 : d.torches <= 2 ? 0.35 : d.torches <= 4 ? 0.15 : 0;
+    if (dim) this.dark.rect(0, 0, this.vw, this.vh).fill({ color: 0x05040a, alpha: dim });
+  }
+
   /** Between fights: the party in a line, walking to the right (or working at the site). */
   private drawMarch(v: ExpeditionView, now: number, walking: boolean, seen: Set<string>): void {
     for (const sp of this.fxPool) sp.visible = false;
@@ -233,7 +301,11 @@ export class FightScene {
       const f = this.fig(key);
       const x = this.vw / 2 + (n - 1) * 9 - i * 18;
       const frame = walking ? 1 + (Math.floor(now / 100 + i * 3) % 8) : 0;
-      f.sprite.texture = lpcFrame(m.look, walking ? 'walk' : 'thrust', walking ? frame : Math.floor(now / 160 + i) % FRAME_COUNT.thrust, heldWeapon(m.gear, 'walk'), wornLayers(m.gear));
+      // (stopped down a dungeon they stand and look; at the site they work it)
+      const still = !walking && v.delve && v.phase === 'work';
+      f.sprite.texture = still
+        ? lpcFrame(m.look, 'walk', 0, heldWeapon(m.gear, 'walk'), wornLayers(m.gear))
+        : lpcFrame(m.look, walking ? 'walk' : 'thrust', walking ? frame : Math.floor(now / 160 + i) % FRAME_COUNT.thrust, heldWeapon(m.gear, 'walk'), wornLayers(m.gear));
       const k = 0.75;
       f.sprite.scale.set(k);
       f.sprite.position.set(Math.round(x - CENTRE_X * k), Math.round(this.hy + 40 - FEET_Y * k));

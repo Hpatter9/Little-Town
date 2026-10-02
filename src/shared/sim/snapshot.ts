@@ -285,7 +285,7 @@ export interface ExpeditionView {
   /** Waiting on a question for the player. */
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
-  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean } | null;
+  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number } | null;
 }
 
 export interface DestinationView {
@@ -991,7 +991,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
       : null,
     acts: (e.battle?.acts ?? []).map((a) => ({ age: e.battle!.tick - a.tick, side: a.side, ref: a.ref, name: a.name, targets: a.targets })),
     waiting: e.prompt !== null,
-    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared } : null,
+    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / roomTicks) } : null,
   };
 }
 

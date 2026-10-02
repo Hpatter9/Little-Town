@@ -37,6 +37,12 @@ The spells' and skills' effects in the watched fights and on the raid's battle m
 and `slash_*.png`, built by `tools/compose-effects.cjs`) are from **Craftpix.net**'s free Pixel Magic Sprite Effects pack
 and free Magic Slash Effects pack.
 
+## Craftpix dungeon props (the watched delves)
+
+The doors, chests, gate, wall torches and braziers seen down a dungeon (`src/renderer/art/delve/`) are from
+**Craftpix.net**'s free 2D Top-Down Pixel Dungeon pack; the skull altar and the guillotine from its free Pixel Dungeon
+Props and Objects pack.
+
 ## Craftpix interiors and tower-defence tiles
 
 The shop's and tavern's furnishings (shelves of jars, glass cabinets, tables, planters, crates, rugs, the counters) and
