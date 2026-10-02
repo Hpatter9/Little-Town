@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { CHATTER } from './chatter';
 import { BattleScene } from './battle/battleView';
 import { createBattleHud } from './battle/battleHud';
 import { FightScene } from './fight/fightView';
@@ -877,7 +878,9 @@ async function start(): Promise<void> {
   const showNotices = (next: Snapshot) => {
     const caughtUp = !!next.away && next.away.id > lastAway;
     if (next.away) lastAway = Math.max(lastAway, next.away.id);
-    if (!caughtUp) for (const n of next.notices) if (n.id > lastNotice) toasts.push(n.text);
+    // (upright on the phone the feed above the town shows the news: the strip pops up only what the feed leaves out)
+    const feedShown = document.body.classList.contains('feed-shown');
+    if (!caughtUp) for (const n of next.notices) if (n.id > lastNotice && (!feedShown || CHATTER.test(n.text))) toasts.push(n.text);
     lastNotice = Math.max(lastNotice, next.notices.at(-1)?.id ?? 0);
   };
 

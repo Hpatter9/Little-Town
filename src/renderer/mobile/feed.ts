@@ -6,6 +6,8 @@
 
 import { BUILDINGS } from '../../shared/data/buildings';
 import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
+// (the small change of the day, left to the Journal: the feed keeps to what's worth telling)
+import { CHATTER } from '../chatter';
 
 type Picture = (p: { person?: number; building?: string }) => HTMLCanvasElement | null;
 interface FeedBridge {
@@ -16,8 +18,6 @@ interface FeedBridge {
 
 /** How many happenings the feed lists. */
 const SHOWN = 14;
-/** The small change of the day, left to the Journal: the feed keeps to what's worth telling. */
-const CHATTER = /no room in storage|^crafted:|^bought |^sold |^made |set out a|put out a|^the town paid|dropped /i;
 
 /** Buildings by name, longest first (so "Stone Wall" is found before "Wall"). */
 const BUILDING_NAMES = [...BUILDINGS].sort((a, b) => b.name.length - a.name.length).map((b) => ({ id: b.id, name: b.name.toLowerCase() }));
