@@ -91,6 +91,8 @@ export function itemIcon(def: ItemDef, scale = 2): HTMLElement {
     backgroundSize: `${(sheet.cols ?? 8) * size}px ${sheet.rows * size}px`,
     backgroundPosition: `-${cx * size}px -${cy * size}px`,
     imageRendering: 'pixelated',
+    // (armour sharing an icon is told apart by its colour)
+    ...(def.hue ? { filter: `hue-rotate(${def.hue}deg) saturate(1.15)` } : {}),
   });
   e.title = def.name;
   return e;

@@ -1,63 +1,69 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { canTrain, classAllies, train } from '../src/shared/sim/classes';
+import { ascend, assignClass, canWear, classAllies, classesHourly } from '../src/shared/sim/classes';
+import { CLASSES, className, STAGE_LEVELS } from '../src/shared/data/classes';
+import { levelOf, stageOf } from '../src/shared/data/levels';
+import { gainSkill } from '../src/shared/sim/townsfolk';
 import { startBattle, stepBattle } from '../src/shared/sim/combat';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
-import { maxHp, type Building, type GameState } from '../src/shared/sim/state';
+import { makePerson, maxHp } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
 import { plainGame } from './helpers';
 
-const campfire = (s: GameState) => s.buildings.find((b) => b.def === 'campfire') as Building;
 
-test('training a class needs its research, a master of the skill, and the materials (which it uses up)', () => {
-  const s = plainGame('train');
-  const p = s.people[0];
-  assert.match(canTrain(s, p, 'beast_tamer').reason!, /research/i);
-  s.research.done.push('beast_lore');
-  p.skills.animals.level = 5;
-  assert.match(canTrain(s, p, 'beast_tamer').reason!, /Animal Handling 6/);
-  p.skills.animals.level = 6;
-  assert.match(canTrain(s, p, 'beast_tamer').reason!, /meat/);
-  campfire(s).store = { meat: 22, hide: 11 };
-  assert.equal(train(s, p.id, 'beast_tamer').ok, true);
-  assert.equal(p.cls, 'beast_tamer');
-  assert.deepEqual(campfire(s).store, { meat: 2, hide: 1 });
-  assert.equal(canTrain(s, p, 'summoner').ok, false, 'one class each');
+test('every grown-up is given a class once: weighted by their skills, some callings rare, never switched', () => {
+  const s = plainGame('classes');
+  const count: Record<string, number> = {};
+  for (let i = 0; i < 4000; i++) {
+    const p = makePerson(new Rng(i), 1000 + i, 'hunter', 0, []);
+    count[assignClass(s, p)] = (count[assignClass(s, p)] ?? 0) + 1;
+  }
+  assert.equal(Object.keys(count).length, CLASSES.length, 'every calling turns up');
+  assert.ok((count.necromancer ?? 0) * 4 < (count.knight ?? 0), `necromancers rare (${count.necromancer} to ${count.knight} knights)`);
+  // a born scholar leans to the arcane, a born fighter to the blade
+  let scholars = 0;
+  let fighters = 0;
+  for (let i = 0; i < 400; i++) {
+    const p = makePerson(new Rng(i), 9000 + i, 'hunter', 0, []);
+    p.skills.research.level = 18;
+    if (['mage', 'witch', 'chronomancer', 'summoner', 'necromancer', 'spellblade'].includes(assignClass(s, p))) scholars++;
+    const q = makePerson(new Rng(i), 19000 + i, 'hunter', 0, []);
+    q.skills.melee.level = 18;
+    if (['knight', 'warrior', 'samurai', 'blood_knight', 'guardian', 'monk'].includes(assignClass(s, q))) fighters++;
+  }
+  assert.ok(scholars > 150 && fighters > 200, `scholars ${scholars}, fighters ${fighters}`);
+  // the hourly round gives classes to the classless grown-ups, and leaves them be after
+  s.people[0].cls = null;
+  classesHourly(s);
+  const cls = s.people[0].cls;
+  assert.ok(cls);
+  s.people[0].skills.research.level = 20;
+  classesHourly(s);
+  assert.equal(s.people[0].cls, cls, 'never switched');
 });
 
-test('callings are rare: one of each in a town, and each asks its deed first', () => {
-  const s = plainGame('deeds');
-  const [a] = s.people;
-  const b = { ...structuredClone(a), id: s.nextId++, name: 'Other', cls: null };
-  s.people.push(b);
-  s.research.done.push('beast_lore', 'necromancy', 'summoning', 'blood_oath');
-  for (const p of [a, b]) for (const k of ['animals', 'research', 'melee'] as const) p.skills[k].level = 8;
-  campfire(s).store = { meat: 50, hide: 30 };
-  s.buildings.push({ id: s.nextId++, def: 'stockpile', tile: campfire(s).tile + 4, status: 'done', delivered: {}, progress: 1, store: { bone: 30, herbs: 30, fiber: 20 } } as Building);
-
-  // one of each
-  assert.equal(train(s, a.id, 'beast_tamer').ok, true);
-  assert.match(canTrain(s, b, 'beast_tamer').reason!, /already has a Beast Tamer: /);
-
-  // the Necromancer: the town must have buried its dead
-  assert.match(canTrain(s, b, 'necromancer').reason!, /buried 0/);
-  s.burials = 3;
-  assert.equal(canTrain(s, b, 'necromancer').ok, true);
-
-  // the Summoner: gives up a Spirit Totem
-  assert.match(canTrain(s, b, 'summoner').reason!, /Spirit Totem/);
-  s.items.spirit_totem = 1;
-  assert.equal(train(s, b.id, 'summoner').ok, true);
-  assert.equal(s.items.spirit_totem ?? 0, 0, 'the totem is given up');
-
-  // the Blood Knight: only the blooded
-  const c = { ...structuredClone(a), id: s.nextId++, name: 'Third', cls: null, scarred: false };
-  s.people.push(c);
-  assert.match(canTrain(s, c, 'blood_knight').reason!, /never been cut down/);
-  c.scarred = true;
-  assert.equal(canTrain(s, c, 'blood_knight').ok, true);
+test('levels from all XP (fighting most); classes evolve at the stage levels; gear by class', () => {
+  const p = makePerson(new Rng(1), 1, 'hunter', 0, []);
+  p.cls = 'mage';
+  const work = makePerson(new Rng(2), 2, 'hunter', 0, []);
+  for (let i = 0; i < 200; i++) {
+    gainSkill(p, 'melee', 10);
+    gainSkill(work, 'farming', 10);
+  }
+  assert.ok(levelOf(p) > levelOf(work) && levelOf(work) > 1, `fighting ${levelOf(p)}, farming ${levelOf(work)}`);
+  p.level = STAGE_LEVELS[2];
+  assert.equal(stageOf(p), 2);
+  assert.equal(className('mage', stageOf(p)), 'Sorcerer');
+  // a mage: cloth and a staff, never plate or an axe; a knight the other way round
+  assert.ok(canWear(p, 'linen_robe') && canWear(p, 'oak_staff'));
+  assert.ok(!canWear(p, 'full_plate') && !canWear(p, 'battle_axe'));
+  assert.ok(canWear({ cls: 'knight' }, 'full_plate') && canWear({ cls: 'knight' }, 'tower_shield') && !canWear({ cls: 'knight' }, 'linen_robe'));
+  assert.ok(canWear(p, 'bone_charm'), 'charms for anyone');
+  // stronger by class and level: a guardian has more health than a mage, a level 30 more than a level 1
+  assert.ok(maxHp({ traits: [], cls: 'guardian' }) > maxHp({ traits: [], cls: 'mage' }));
+  assert.ok(maxHp({ traits: [], cls: 'mage', level: 30 }) > maxHp({ traits: [], cls: 'mage', level: 1 }));
 });
 
 test('in battle: a summoner brings a spirit, a necromancer raises the fallen, a blood knight heals as they hit', () => {
@@ -102,4 +108,29 @@ test('in a raid at home, a beast tamer turns a wolf against the pack', () => {
     updateRaid(s, rng);
   }
   assert.ok(r.raiders.some((w) => w.ally), 'one was tamed');
+});
+
+test('the last stage is rare and late: levels alone stop a stage short; an ascension takes them there', () => {
+  const s = plainGame('ascend');
+  const p = s.people[0];
+  p.cls = 'mage';
+  p.level = 50;
+  assert.equal(stageOf(p), 3, 'level 50, still one stage short');
+  assert.equal(className('mage', stageOf(p)), 'Archmage');
+  ascend(s, p, 'A quest fulfilled');
+  assert.equal(stageOf(p), 4);
+  assert.equal(className('mage', stageOf(p)), 'Arcanist');
+  // the daily chance is small: few of a hundred level-45s ascend in a week
+  let rose = 0;
+  for (let i = 0; i < 100; i++) {
+    const q = plainGame(`ascend-${i}`);
+    q.people[0].cls = 'knight';
+    q.people[0].level = 45;
+    for (let d = 1; d <= 7; d++) {
+      q.tick = d * 24 * 600;
+      classesHourly(q);
+    }
+    if (q.people[0].ascended) rose++;
+  }
+  assert.ok(rose < 25, `${rose} of 100 ascended in a week`);
 });

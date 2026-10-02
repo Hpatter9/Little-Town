@@ -13,6 +13,7 @@ import { hashSeed, mixSeed, Rng } from '../rng';
 import { generateWorld, type MidTerrain } from '../world';
 import type { Biome, Difficulty } from '../data/biomes';
 import type { ClassId } from '../data/classes';
+import { hpMult } from '../data/levels';
 import type { Battle } from './combat';
 import type { Doom } from './doom';
 import { MONSTER_HP, type MonsterKind, type StandingOrder } from '../data/monsters';
@@ -337,8 +338,15 @@ export interface Person {
   lowMoraleHours?: number;
   /** A monster (werewolf or vampire), its standing order for the Hunter's Guild, and when it last fed. */
   monster?: MonsterKind | null;
-  /** A special class they've trained in (or arrived with). */
+  /** Their class (data/classes.ts): given once when they're grown, for life. */
   cls?: ClassId | null;
+  /** Their level (levels.ts: from all they do, fighting most), and the XP toward the next. Left out: level 1. */
+  level?: number;
+  lvXp?: number;
+  /** The class stage last announced (an evolution is told once). */
+  stageSeen?: number;
+  /** Has reached their class's last stage (classes.ts ascend): rare and late. */
+  ascended?: boolean;
   /** Cut down and come back from it at least once (a Blood Knight's oath needs it). */
   scarred?: boolean;
   order?: StandingOrder;
@@ -363,9 +371,11 @@ export const TOUGH_HP = 20;
 export const FRAIL_HP = 12;
 export const MIN_HP = 24;
 
-export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null }): number {
+export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; level?: number }): number {
   const frail = p.traits.filter((t) => t === 'frail').length * FRAIL_HP;
-  return Math.max(MIN_HP, BASE_HP + (p.traits.includes('tough') ? TOUGH_HP : 0) + (p.monster ? MONSTER_HP : 0) - frail);
+  const base = Math.max(MIN_HP, BASE_HP + (p.traits.includes('tough') ? TOUGH_HP : 0) + (p.monster ? MONSTER_HP : 0) - frail);
+  // (a class and its stage, and every level, add to it: levels.ts)
+  return Math.round(base * hpMult(p));
 }
 
 /** A raider taken alive (see prisoners.ts). */

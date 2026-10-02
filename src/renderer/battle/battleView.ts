@@ -374,9 +374,9 @@ export class BattleScene {
       if (u.person !== null) {
         const p = people.get(u.person);
         if (!p) continue;
-        if (p.cls) {
+        if (p.cls && CLASS_LOOK[p.cls]) {
           // (one who's taken up a class looks the part, as in the town: its Pixel Champions hero)
-          const [sheet, block] = CLASS_LOOK[p.cls];
+          const [sheet, block] = CLASS_LOOK[p.cls]!;
           const facing = m.facing < 0 ? 'left' : 'right';
           m.sprite.texture = creatureFrame(sheet, block, facing, acting ? Math.floor(u.sinceAction) : Math.floor(now / 500), acting);
           const size = creatureSize(sheet);

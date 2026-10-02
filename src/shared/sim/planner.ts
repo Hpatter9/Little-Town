@@ -3,8 +3,8 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
-import { trainMages } from './classes';
-import { CLASS_DEFS } from '../data/classes';
+import { canWear } from './classes';
+import { isChild } from './social';
 import { buildOrigin, nomadic } from './nomads';
 import { adoptRooms, castleOn, castleReach, castleSpan, inKeep, openFloors, roomKind } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -191,8 +191,6 @@ function topicScore(t: Topic, n: Needs): number {
   const items = ITEMS.filter((i) => i.research.includes(t.id) && !i.family).length;
   const arms = ITEMS.filter((i) => i.research.includes(t.id) && i.family).length;
   score += Math.min(12, items * 3) + Math.min(3, arms) * (n.raided || n.direction === 'defense' ? 2 : 0);
-  // (a calling the town trains for itself: mages for the walls)
-  if (Object.values(CLASS_DEFS).some((c) => c.perPeople && c.research === t.id)) score += n.raided || n.direction === 'defense' ? 24 : 12;
   for (const e of t.effects) {
     if (e.type === 'eraCapstone') score += 30;
     else if (e.type === 'researchSpeed' || e.type === 'researchSlots') score += n.direction === 'knowledge' ? 18 : 8;
@@ -263,6 +261,12 @@ function bestMakeable(s: GameState, pred: (i: ItemDef) => boolean, power: (i: It
     .sort((a, b) => power(b) - power(a))[0];
 }
 
+/** The share of the town's grown-ups whose class lets them use a piece (none: it isn't worth making). */
+function wielders(s: GameState, i: ItemDef): number {
+  const grown = s.people.filter((p) => !isChild(p));
+  return grown.length ? grown.filter((p) => canWear(p, i)).length / grown.length : 1;
+}
+
 /** How much the town wants a weapon: what it does (damage, aim, quickness, its quirks), less for each one of its family
  *  the town already has, so its fighters carry a mix (axes and spears, bows and crossbows) rather than all one kind. */
 function weaponWorth(s: GameState, i: ItemDef): number {
@@ -313,11 +317,13 @@ function planCrafting(s: GameState, n: Needs): Stock {
   if (!ordered(s, isTool) && kept(s, isTool) < adults) tryMake(bestMakeable(s, isTool, toolPower));
   // 3. arms and armour once raiders have come (or when the town is set on defence)
   if (n.raided || n.direction === 'defense') {
-    for (const slot of ['weapon', 'body'] as const) {
+    for (const slot of ['weapon', 'body', 'head', 'offhand'] as const) {
       if (!room()) return want;
       const is = (i: ItemDef) => i.slot === slot;
       if (ordered(s, is) || kept(s, is) >= adults) continue;
-      tryMake(bestMakeable(s, is, slot === 'weapon' ? (i) => weaponWorth(s, i) : (i) => (i.effects.armor ?? 0) * 10));
+      // (made for the classes the town has: plate for its knights, robes for its mages)
+      const worth = slot === 'weapon' ? (i: ItemDef) => weaponWorth(s, i) : (i: ItemDef) => (i.effects.armor ?? 0) * 10 + (i.effects.block ?? 0) * 10 + (i.effects.dodge ?? 0) * 10 + (i.effects.power ?? 0) * 5;
+      tryMake(bestMakeable(s, is, (i) => worth(i) * wielders(s, i)));
     }
   }
   // 4. a few bandages or poultices, and pots when the stores are filling up
@@ -886,6 +892,5 @@ export function runPlanner(s: GameState, back: readonly BackTerrain[]): void {
   planGathering(s, needs(s), plan, clear, craftWants);
   planVisitor(s);
   planShop(s);
-  trainMages(s);
   s.plan = plan;
 }

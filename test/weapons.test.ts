@@ -74,6 +74,7 @@ test('armour in four weights, shields and trinkets, about a hundred pieces, each
   for (const w of ['cloth', 'light', 'medium', 'heavy', 'shield', 'trinket']) assert.ok(armour.some((a) => a.weight === w), w);
   const topics = new Set(TOPICS.map((t) => t.id));
   for (const a of armour) {
+    if (a.relic) continue;
     assert.ok(a.research.every((r) => topics.has(r)), `${a.id}: research`);
     assert.ok(STATIONS.includes(a.station), `${a.id}: station ${a.station}`);
     assert.ok(Object.keys(a.cost).every((m) => (MATERIALS as readonly string[]).includes(m)), `${a.id}: cost`);

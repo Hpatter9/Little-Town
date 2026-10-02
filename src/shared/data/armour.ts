@@ -135,6 +135,27 @@ function station(weight: ArmourWeight, era: Era): Station {
   }
 }
 
+/** Colours each weight comes in (worn); a piece takes one by its name, so two pieces sharing an icon differ. */
+const TINTS: Record<ArmourWeight, string[]> = {
+  cloth: ['#8a2a3a', '#2a4a8a', '#5a2a7a', '#2a6a4a', '#b08a2a', '#3a3a4a', '#a85a2a', '#e0d8c0', '#2a7a8a', '#7a1a5a'],
+  light: ['#6a4a2a', '#3a2a1a', '#4a5a2a', '#7a2a1a', '#2a2a2a', '#8a6a4a', '#3a4a5a', '#5a3a4a'],
+  medium: ['#9aa0a8', '#7a6a4a', '#5a6a7a', '#8a5a3a', '#4a4a50', '#6a7a5a', '#a08a5a'],
+  heavy: ['#b0b8c0', '#c8a040', '#6a7088', '#8a3a3a', '#3a3a44', '#b07a40', '#4a6a8a', '#d0d0d8'],
+  shield: ['#8a6a3a', '#5a6a8a', '#8a2a2a', '#4a7a4a', '#c8a040'],
+  trinket: ['#c8a040', '#b0b8c0', '#8a3a8a', '#3a8a8a'],
+};
+const hashName = (name: string) => [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+/** A colour's hue, as a turn to give an icon (most DawnLike armour is drawn warm). */
+function hueTurn(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max - min < 0.08) return 0; // (greys and steels stay as drawn)
+  const h = max === r ? ((g - b) / (max - min)) % 6 : max === g ? (b - r) / (max - min) + 2 : (r - g) / (max - min) + 4;
+  return Math.round(((h * 60 + 360) % 360) - 30);
+}
+
 const idOf = (name: string) => name.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
 function piece(name: string, slot: Slot, weight: ArmourWeight, tier: number, era: Era, research: string[], effects: ItemEffects, icon: Icon, note: string): ItemDef {
@@ -155,6 +176,7 @@ function piece(name: string, slot: Slot, weight: ArmourWeight, tier: number, era
     tier,
     description: `${WEIGHT_NAMES[weight]}${weight === 'shield' || weight === 'trinket' ? '' : ' armour'}, tier ${tier}: ${note}.`,
     icon: { sheet: icon[0], x: icon[1], y: icon[2] },
+    ...((t) => ({ tint: t, ...(hueTurn(t) ? { hue: hueTurn(t) } : {}) }))(TINTS[weight][hashName(name) % TINTS[weight].length]),
   };
 }
 

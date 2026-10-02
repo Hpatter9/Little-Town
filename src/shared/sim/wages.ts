@@ -6,7 +6,8 @@
 // shop, gear is still shared out from the common store for free (see crafting.ts equipAll).
 
 import { ITEM_BY_ID, SLOTS, type ItemDef, type Slot } from '../data/items';
-import { COMMON } from '../data/quality';
+import { COMMON, gradeOf } from '../data/quality';
+import { canWear } from './classes';
 import { FARE, PURSE_SCALE } from '../data/shop';
 import { SKILLS } from '../data/skills';
 import { addItems, gearScore } from './crafting';
@@ -106,7 +107,7 @@ export function buyGear(s: GameState): void {
     for (const p of buyers) {
       const worn = p.gear[slot] ? ITEM_BY_ID[p.gear[slot]!] : undefined;
       const now = worn ? gearScore(worn, p.gearQ?.[slot]) : 0;
-      const pick = offers(s, SALE_GEAR.filter((i) => i.slot === slot), localPrice)
+      const pick = offers(s, SALE_GEAR.filter((i) => i.slot === slot && canWear(p, i)), localPrice)
         .filter((o) => o.price <= (p.coins ?? 0) && gearScore(o.item, o.q) > Math.max(0.01, now * WORTH_BUYING))
         .sort((a, b) => gearScore(b.item, b.q) - gearScore(a.item, a.q))[0];
       if (pick) buyPiece(s, p, slot, pick);
@@ -132,5 +133,5 @@ function buyPiece(s: GameState, p: Person, slot: Slot, o: Offer): void {
   p.gear[slot] = o.item.id;
   (p.gearQ ??= {})[slot] = o.q;
   remember(s, p, `Bought a ${pieceName(o)} at the shop for ${o.price} coins`);
-  if (o.q >= RARE) notify(s, `${p.name} bought a ${pieceName(o)} for ${o.price} coins.`);
+  if (gradeOf(o.q) >= RARE) notify(s, `${p.name} bought a ${pieceName(o)} for ${o.price} coins.`);
 }

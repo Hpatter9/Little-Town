@@ -1,8 +1,9 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
 import type { Biome } from '../data/biomes';
-import { CLASS_DEFS, CLASSES, type ClassId } from '../data/classes';
-import { canTrain } from './classes';
+import { className, type ClassId } from '../data/classes';
+import { levelOf, stageOf } from '../data/levels';
+import { levelProgress } from './classes';
 import { turnable, undeadShare } from './turning';
 import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
 import { weatherAt, type WeatherNow } from './weather';
@@ -82,10 +83,11 @@ export interface PersonView {
   x: number;
   dir: 1 | -1;
   activity: Activity;
-  /** A special class, if they have one. */
+  /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
-  /** The callings the town has studied, and why they can't take each up yet (null: they can). */
-  trainable: { cls: ClassId; reason: string | null }[];
+  clsName: string | null;
+  level: number;
+  levelProgress: number;
   /** Riding into a fight (cavalry): the horse's coat. */
   mounted: number | null;
   /** Short description of what they're doing, for tooltips. */
@@ -797,7 +799,7 @@ function awayView(s: GameState): JournalEntryView | null {
   return e ? entryView(e) : null;
 }
 
-function personView(s: GameState, p: Person, stock?: Stock): PersonView {
+function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
   const m = mood(s, p);
   const bed = p.bed === null ? undefined : s.buildings.find((b) => b.id === p.bed);
   return {
@@ -810,12 +812,9 @@ function personView(s: GameState, p: Person, stock?: Stock): PersonView {
     activity: p.activity,
     mounted: null,
     cls: p.cls ?? null,
-    trainable: p.cls
-      ? []
-      : CLASSES.filter((k) => s.research.done.includes(CLASS_DEFS[k].research)).map((k) => {
-          const r = canTrain(s, p, k, stock);
-          return { cls: k, reason: r.ok ? null : (r.reason ?? null) };
-        }),
+    clsName: p.cls ? className(p.cls, stageOf(p)) : null,
+    level: levelOf(p),
+    levelProgress: levelProgress(p),
     doing: describe(s, p),
     carrying: { ...p.carrying },
     skills: Object.fromEntries(

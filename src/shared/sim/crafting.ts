@@ -31,6 +31,7 @@ import { modifiers } from './research';
 import { addStock, campX, earn, ERA_MULTIPLIER, maxHp, notify, remember, type Building, type CraftOrder, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { qualityBonus } from './origin';
+import { canWear } from './classes';
 
 /* ------------------------------------------------------------ what can be made, and where */
 
@@ -300,11 +301,12 @@ export function equipAll(s: GameState): void {
     const combat = slot === 'weapon' || slot === 'offhand' || slot === 'head' || slot === 'body';
     const people = s.people.filter((p) => p.away === null).sort((a, b) => (combat ? fightSkill(b) - fightSkill(a) : a.id - b.id));
     for (const p of people) {
+      // (only what their class lets them wear or wield)
       const spare = Object.entries(s.items)
-        .filter(([id, n]) => n > 0 && ITEM_BY_ID[id]?.slot === slot)
+        .filter(([id, n]) => n > 0 && ITEM_BY_ID[id]?.slot === slot && canWear(p, id))
         .map(([id]) => ({ def: ITEM_BY_ID[id], q: qualitiesOf(s, id)[0] }))
         .sort((a, b) => scoreQ(b.def, b.q) - scoreQ(a.def, a.q))[0]?.def;
-      if (!spare) break;
+      if (!spare) continue;
       const worn = p.gear[slot] ? ITEM_BY_ID[p.gear[slot]!] : undefined;
       // a torch and a shield share a hand: fighters keep the shield
       if (worn && scoreQ(spare, qualitiesOf(s, spare.id)[0]) <= scoreQ(worn, p.gearQ?.[slot])) continue;

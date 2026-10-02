@@ -111,6 +111,9 @@ export interface ItemDef {
   family?: FamilyId;
   tier?: number;
   weight?: ArmourWeight;
+  /** Armour's colour: worn (an LPC tint) and on its icon (a hue turn), so pieces sharing a look differ. */
+  tint?: string;
+  hue?: number;
   /** Shop furnishings (see data/shop.ts): what it is, how many cells of the shop floor it takes, and how much it
    *  draws travellers in. The shopkeeper sets it out once it's made. */
   furnish?: Furnish;
@@ -333,8 +336,45 @@ const BASE_ITEMS: readonly ItemDef[] = [
   { id: 'bandage', name: 'Bandage', slot: null, station: 'loom', cost: { cloth: 1, herbs: 1 }, seconds: 30, research: ['physick'], effects: {}, description: 'Like a poultice but better: stops bleeding, +35 health.', icon: { sheet: 'Scroll', x: 5, y: 4 } },
 ];
 
-/** Everything that can be made or found: the first items, and the armoury of data/weapons.ts. */
-export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS, ...WEAPONS, ...ARMOUR];
+/** The first weapons and armour, given their family and weight so classes know what they may use. */
+const FIRST: Record<string, Pick<ItemDef, 'family' | 'tier' | 'weight'>> = {
+  wooden_club: { family: 'mc', tier: 1 },
+  spear: { family: 'sp', tier: 3 },
+  fire_spear: { family: 'sp', tier: 4 },
+  sling: { family: 'sl', tier: 2 },
+  bow: { family: 'bw', tier: 4 },
+  iron_sword: { family: 'sw', tier: 6 },
+  musket: { family: 'lg', tier: 7 },
+  rifle: { family: 'lg', tier: 9 },
+  laser_rifle: { family: 'en', tier: 10 },
+  black_blade: { family: 'sw', tier: 10 },
+  barons_pistols: { family: 'pi', tier: 10 },
+  staff_of_rime: { family: 'st', tier: 10 },
+  archdruid_staff: { family: 'st', tier: 9 },
+  thane_hammer: { family: 'mc', tier: 10 },
+  tide_trident: { family: 'sp', tier: 10 },
+  khan_bow: { family: 'bw', tier: 10 },
+  hide_cap: { weight: 'light' },
+  hide_armor: { weight: 'light' },
+  leather_cap: { weight: 'light' },
+  leather_armor: { weight: 'light' },
+  bearskin_cloak: { weight: 'light' },
+  iron_helm: { weight: 'heavy' },
+  chainmail: { weight: 'medium' },
+  steel_cuirass: { weight: 'heavy' },
+  kevlar_vest: { weight: 'medium' },
+  combat_helmet: { weight: 'medium' },
+  powered_armor: { weight: 'heavy' },
+  visor_helmet: { weight: 'heavy' },
+  dragonscale_armor: { weight: 'heavy' },
+  tank_plating: { weight: 'heavy' },
+  wicker_shield: { weight: 'shield' },
+  iron_shield: { weight: 'shield' },
+  energy_shield: { weight: 'shield' },
+};
+
+/** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. */
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

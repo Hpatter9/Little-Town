@@ -4,7 +4,6 @@ import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
 import { autoPlace, fighters, layOut, placeFighter, ranged, startBattle } from '../src/shared/sim/battle';
 import { castAt } from '../src/shared/sim/powers';
-import { trainMages } from '../src/shared/sim/classes';
 import { defenderAttack } from '../src/shared/sim/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { Sim } from '../src/shared/sim/sim';
@@ -176,18 +175,10 @@ test("each origin's map: a castle town's raiders climb its keep floor by floor; 
   assert.ok(layOut(newGame('grove', { origin: 'druid' }), false).hedges);
 });
 
-test('mages: the town trains its own (one for every five people), and their fire bursts over the raiders round the one hit', () => {
+test('mages: their fire bursts over the raiders round the one hit', () => {
   const s = town('mages', 10);
-  s.research.done.push('arcane_arts');
-  for (const p of s.people) p.skills.research.level = 5;
-  const store = add(s, 'stockpile', camp(s) + 2);
-  store.store = { herbs: 40 };
-  trainMages(s);
-  trainMages(s);
-  trainMages(s);
-  const mages = s.people.filter((p) => p.cls === 'mage');
-  assert.equal(mages.length, 2, 'ten people: two mages');
-  assert.ok(!mages.some((p) => p.id === s.mainId), 'not the founder');
+  const mages = s.people.slice(1, 3);
+  for (const p of mages) p.cls = 'mage';
   assert.ok(mages.every(ranged), 'they fight from range');
   // three raiders bunched on the trail: one bolt hurts all of them
   const r = startRaid(s, RAID_KIND_BY_ID.bandits, 120, new Rng(5));

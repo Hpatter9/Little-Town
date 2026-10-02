@@ -14,7 +14,6 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../shared/
 import { CROPS } from '../shared/data/crops';
 import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
-import { CLASS_DEFS } from '../shared/data/classes';
 import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
 import { blueprintCount, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
@@ -26,7 +25,7 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, dir: t.dir,
-    activity: 'walk', cls: null, trainable: [], mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', cls: null, clsName: null, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
@@ -535,7 +534,7 @@ async function start(): Promise<void> {
         if (v && v.id === h.person.id) {
           return {
             title: d.title,
-            lines: [...d.lines, bestSkills(v), ...(v.cls ? [`A rare ${CLASS_DEFS[v.cls].name}!`] : [])],
+            lines: [...d.lines, bestSkills(v), ...(v.cls ? [`${v.clsName}, level ${v.level}`] : [])],
             // (the town lets newcomers in itself, when there's a bed for them)
             actions: [act('more', 'More…', () => bridge.openPanel('townsfolk'))],
           };
@@ -550,7 +549,7 @@ async function start(): Promise<void> {
         if (p.coins !== null) lines.push(`${p.coins} coins`);
         if (p.recent.length) lines.push(`Lately: ${p.recent.slice(0, 2).join('; ')}`);
         lines.push(`Health ${Math.round(p.hp)}/${p.maxHp} · Morale ${Math.round(p.morale)} · Food ${Math.round(p.needs.food * 100)}% · Rest ${Math.round(p.needs.rest * 100)}%`);
-        lines.push(`${p.typeName}${p.cls ? `, ${CLASS_DEFS[p.cls].name}` : ''} · ${bestSkills(p)}`);
+        lines.push(`${p.clsName ? `${p.clsName} · Lv ${p.level}` : p.typeName} · ${bestSkills(p)}`);
         // in a fight: rally them (a burst of courage), when the town's rally is ready
         if (p.rally === 'on') lines.unshift('Rallied: fighting like ten!');
         else if (p.rally === 'wait') lines.unshift(`Rally again in ${snap.rallyIn}s`);

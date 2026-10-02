@@ -398,6 +398,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   person) and `enemyArmor`. The planner's `weaponWorth` favours a mix of families. Crafting has Weapons and Armour hide
   toggles.
 
+- **Classes and levels (in progress):** `data/classes.ts` (25 lines, `stages` five names each, all 125 distinct; role,
+  `ranged`, `rarity`, `affinity`, `armour` weights and `weapons` families allowed, `stats`), `data/levels.ts` (`levelOf`,
+  `stageOf`, `classStat`, `hpMult`, `levelPower`; `xpToLevel`, `LEVEL_SHARE_*`), `sim/classes.ts` (`assignClass` once,
+  weighted by `classPull` and decided by the seed; `classesHourly` gives classes and announces evolutions; `gainLevelXp`
+  from `gainSkill`; `canWear` used by `equipAll`, `buyGear` and the planner's `wielders`). The last stage needs
+  `p.ascended` (`ascend`: a small daily chance from level 45, `ASCEND_DAILY`; a rare legendary wanderer; quests and
+  events later). Class stats feed `personFighter`, `maxHp`. Armour pieces have a `tint` (worn, `BY_WEIGHT` in held.ts)
+  and `hue` (icon). Spells (`data/spells.ts`, 160, `spellsKnown`) and skills (`data/abilities.ts`, 200,
+  `abilitiesKnown`) are data so far, with effects from `data/effects.ts`.
+
 ## Planned (owner's requests, not started)
 
 - **Weapons, ten times over, with +N** (the owner's choices):

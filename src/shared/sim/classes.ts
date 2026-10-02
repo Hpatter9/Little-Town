@@ -1,93 +1,102 @@
-// Special classes (see data/classes.ts): training someone into one, the allies they bring to a fight, and
-// what they do in raids at home.
+// Classes and levels (see data/classes.ts, data/levels.ts): who is given which class, the level XP that everything
+// earns, evolutions, what each class may wear and wield, the allies some bring to a fight, and what they do in raids.
 
-import { CLASS_DEFS, NECRO_RANGE, TAME_EVERY, TAME_RANGE, type ClassId } from '../data/classes';
+import { ASCEND_DAILY, CLASS_DEFS, CLASSES, className, NECRO_RANGE, STAGE_LEVELS, TAME_EVERY, TAME_RANGE, type ClassId } from '../data/classes';
 import { ENEMIES } from '../data/enemies';
-import { MATERIAL_NAMES, type Material } from '../data/materials';
-import { TOPIC_BY_ID } from '../data/research';
-import { SKILL_NAMES } from '../data/skills';
-import { totalStock, storages } from './buildings';
-import { addItems } from './crafting';
+import { ITEM_BY_ID, type ItemDef } from '../data/items';
+import { LEVEL_SHARE_FIGHT, LEVEL_SHARE_WORK, levelOf, MAX_LEVEL, stageOf, xpToLevel } from '../data/levels';
+import type { Skill } from '../data/skills';
+import { hashSeed, mixSeed, Rng } from '../rng';
 import { isBeast, unitFighter, type Fighter } from './combat';
-import { addStock, notify, type GameState, type Person, type Raid, type Raider } from './state';
-import { TICK_HZ } from './time';
+import { isChild } from './social';
+import { notify, type GameState, type Person, type Raid, type Raider } from './state';
+import { TICK_HZ, TICKS_PER_DAY } from './time';
 
-export interface TrainCheck {
-  ok: boolean;
-  reason?: string;
+/* ------------------------------------------------------------ who gets which class */
+
+/** How strongly a class draws someone: its rarity, and how good they are at the skills it's drawn to. */
+export function classPull(p: Person, cls: ClassId): number {
+  const d = CLASS_DEFS[cls];
+  const fit = 1 + Object.entries(d.affinity).reduce((n, [k, a]) => n + (a ?? 0) * (p.skills[k as Skill]?.level ?? 0), 0) / 6;
+  return d.rarity * fit * fit;
 }
 
-export function canTrain(s: GameState, p: Person, cls: ClassId, stock = totalStock(s)): TrainCheck {
-  const def = CLASS_DEFS[cls];
-  if (!def) return { ok: false, reason: 'Unknown class' };
-  if (p.cls) return { ok: false, reason: `${p.name} is already a ${CLASS_DEFS[p.cls].name}` };
-  if (p.bornTick != null) return { ok: false, reason: 'Too young' };
-  if (p.away !== null) return { ok: false, reason: 'Away' };
-  if (!s.research.done.includes(def.research)) return { ok: false, reason: `Needs research: ${TOPIC_BY_ID[def.research]?.name ?? def.research}` };
-  // one of each rare calling in a town at a time (mages: one for every few people)
-  const holders = s.people.filter((q) => q.cls === cls);
-  if (def.perPeople) {
-    if (holders.length >= mageRoom(s, def.perPeople)) return { ok: false, reason: `The town has all the ${def.name}s it can keep (one for every ${def.perPeople} people)` };
-  } else if (holders.length) return { ok: false, reason: `The town already has a ${def.name}: ${holders[0].name}` };
-  if (p.skills[def.skill].level < def.level) return { ok: false, reason: `Needs ${SKILL_NAMES[def.skill]} ${def.level}` };
-  const deed = deedUnmet(s, p, cls);
-  if (deed) return { ok: false, reason: deed };
-  const short = (Object.entries(def.cost) as [Material, number][]).filter(([m, n]) => (stock[m] ?? 0) < n);
-  if (short.length) return { ok: false, reason: `Needs ${short.map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`).join(', ')}` };
-  return { ok: true };
-}
-
-/** How many of a common calling the town can keep: one for every `per` of its people (at least one). */
-const mageRoom = (s: GameState, per: number) => Math.max(1, Math.floor(s.people.length / per));
-
-/** The town trains its own mages (hands-off): its best at study who isn't needed as something else, while it has room
- *  for another and the makings. Called by the planner. */
-export function trainMages(s: GameState): void {
-  if (!s.research.done.includes(CLASS_DEFS.mage.research)) return;
-  const stock = totalStock(s);
-  const best = s.people
-    .filter((p) => !p.cls && p.id !== s.mainId && canTrain(s, p, 'mage', stock).ok)
-    .sort((a, b) => b.skills.research.level - a.skills.research.level)[0];
-  if (best) train(s, best.id, 'mage');
-}
-
-/** What the calling's deed still asks (null when it's been done). */
-function deedUnmet(s: GameState, p: Person, cls: ClassId): string | null {
-  const deed = CLASS_DEFS[cls].deed;
-  switch (deed.kind) {
-    case 'burials': {
-      const buried = s.burials ?? s.graves?.length ?? 0; // (older saves only know the graves still standing)
-      return buried >= deed.count ? null : `The town has buried ${buried} of its own; a Necromancer needs ${deed.count}`;
-    }
-    case 'totem':
-      return (s.items.spirit_totem ?? 0) > 0 ? null : 'Needs a Spirit Totem to give up';
-    case 'scarred':
-      return p.scarred ? null : `${p.name} has never been cut down and lived`;
-    default:
-      return null;
-  }
-}
-
-/** Train someone into a class, using up its materials. */
-export function train(s: GameState, personId: number, cls: ClassId): TrainCheck {
-  const p = s.people.find((q) => q.id === personId);
-  if (!p) return { ok: false, reason: 'Unknown person' };
-  const check = canTrain(s, p, cls);
-  if (!check.ok) return check;
-  for (const [m, n] of Object.entries(CLASS_DEFS[cls].cost) as [Material, number][]) {
-    let left = n;
-    for (const st of storages(s)) {
-      const k = Math.min(left, st.store[m] ?? 0);
-      if (k > 0) {
-        addStock(st.store, m, -k);
-        left -= k;
-      }
+/** Give someone their class, once and for life: at random, weighted by classPull (decided by the seed, so a town plays
+ *  the same every time). */
+export function assignClass(s: GameState, p: Person): ClassId {
+  const rng = new Rng(mixSeed(hashSeed(s.seed), p.id * 7907 + 13));
+  const pulls = CLASSES.map((c) => classPull(p, c));
+  let roll = rng.next() * pulls.reduce((a, b) => a + b, 0);
+  let cls: ClassId = CLASSES[0];
+  for (let i = 0; i < CLASSES.length; i++) {
+    roll -= pulls[i];
+    if (roll <= 0) {
+      cls = CLASSES[i];
+      break;
     }
   }
-  if (CLASS_DEFS[cls].deed.kind === 'totem') addItems(s, 'spirit_totem', -1);
   p.cls = cls;
-  notify(s, `${p.name} has become a ${CLASS_DEFS[cls].name}.`, true);
-  return { ok: true };
+  p.level ??= 1;
+  p.stageSeen = stageOf(p);
+  return cls;
+}
+
+/** Someone rises to their class's last stage (from the daily chance, a quest or an event). */
+export function ascend(s: GameState, p: Person, why = 'Their power has grown past all measure'): void {
+  if (p.ascended || !p.cls) return;
+  p.ascended = true;
+  p.stageSeen = stageOf(p);
+  notify(s, `${why}: ${p.name} ascends, and is now ${/^[AEIOU]/.test(className(p.cls, stageOf(p))) ? 'an' : 'a'} ${className(p.cls, stageOf(p))}!`, true);
+}
+
+/** Every hour: grown-ups without a class are given one (newcomers, the newly grown, towns from before classes), and
+ *  those whose class has evolved are announced. */
+export function classesHourly(s: GameState): void {
+  for (const p of s.people) {
+    if (isChild(p) || p.away !== null) continue;
+    if (!p.cls) {
+      const cls = assignClass(s, p);
+      const rare = CLASS_DEFS[cls].rarity < 0.25;
+      notify(s, `${p.name} is ${/^[AEIOU]/.test(className(cls, 0)) ? 'an' : 'a'} ${className(cls, stageOf(p))}${rare ? ': a rare calling!' : '.'}`, rare);
+      continue;
+    }
+    // (at the last stage's level, each day a small chance to ascend to it: decided by the seed)
+    if (!p.ascended && levelOf(p) >= STAGE_LEVELS[4] && s.tick % TICKS_PER_DAY === 0 && new Rng(mixSeed(hashSeed(s.seed), p.id, s.tick)).chance(ASCEND_DAILY)) ascend(s, p);
+    const st = stageOf(p);
+    if (st > (p.stageSeen ?? 0)) {
+      p.stageSeen = st;
+      notify(s, `${p.name} has become ${/^[AEIOU]/.test(className(p.cls, st)) ? 'an' : 'a'} ${className(p.cls, st)} (level ${levelOf(p)})!`, true);
+    }
+  }
+}
+
+/* ------------------------------------------------------------ levels */
+
+/** Level XP from skill XP (gainSkill calls it): fighting counts for more than work. */
+export function gainLevelXp(p: Person, skill: Skill, xp: number): void {
+  if (levelOf(p) >= MAX_LEVEL) return;
+  p.lvXp = (p.lvXp ?? 0) + xp * (skill === 'melee' || skill === 'ranged' ? LEVEL_SHARE_FIGHT : LEVEL_SHARE_WORK);
+  p.level ??= 1;
+  while (p.level < MAX_LEVEL && p.lvXp >= xpToLevel(p.level)) {
+    p.lvXp -= xpToLevel(p.level);
+    p.level++;
+  }
+}
+
+/** The share of the way to the next level. */
+export const levelProgress = (p: Person) => (levelOf(p) >= MAX_LEVEL ? 1 : Math.min(1, (p.lvXp ?? 0) / xpToLevel(levelOf(p))));
+
+/* ------------------------------------------------------------ gear by class */
+
+/** Whether someone's class lets them wear or wield a piece: weapons by family, armour by weight (tools, torches,
+ *  cloaks and charms, and anyone without a class yet: anything). */
+export function canWear(p: Pick<Person, 'cls'>, def: ItemDef | string): boolean {
+  const d = typeof def === 'string' ? ITEM_BY_ID[def] : def;
+  if (!p.cls || !d) return true;
+  const c = CLASS_DEFS[p.cls];
+  if (d.slot === 'weapon' && d.family) return c.weapons.includes(d.family);
+  if (d.weight && d.weight !== 'trinket') return c.armour.includes(d.weight);
+  return true;
 }
 
 /** Allies a party brings into a battle: a Summoner's spirit, a Beast Tamer's wolf. */

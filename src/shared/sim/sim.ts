@@ -24,7 +24,7 @@ import { updateMonsters } from './monsters';
 import { recallExpedition, sendExpedition, updateExpeditions , sendParty } from './expeditions';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
-import { train } from './classes';
+import { classesHourly } from './classes';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
 import { maybeStartRaid, startGuildRaid, updateRaid } from './raids';
@@ -141,6 +141,7 @@ export class Sim {
     updateShop(s, this.rng, SHOP_TOWN);
     updateWages(s);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
+    if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     drillGuards(s);
     updateAdvice(s);
     maybeArrive(s, this.rng);
@@ -191,11 +192,6 @@ export class Sim {
       case 'turnTown':
         turnTown(s, c.kind);
         break;
-      case 'trainClass': {
-        const r = train(s, c.person, c.cls);
-        if (!r.ok) notify(s, `Can't train: ${r.reason}.`);
-        break;
-      }
       case 'upgrade': {
         const r = upgrade(s, this.world.back, c.building);
         if (!r.ok) notify(s, `Can't upgrade: ${r.reason}.`);

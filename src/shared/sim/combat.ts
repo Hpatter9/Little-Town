@@ -3,7 +3,8 @@
 // ranged attacks reach anyone. Medics heal instead of attacking; porters stay out of it. Gear adds damage,
 // aim, armour and blocking.
 
-import { BLOOD_FURY, BLOOD_LIFESTEAL, NECRO_RAISES, type ClassId } from '../data/classes';
+import { BLOOD_FURY, BLOOD_LIFESTEAL, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
+import { classStat, levelPower } from '../data/levels';
 import { ENEMIES, enemyArmor, natureOf, type EnemyGroup } from '../data/enemies';
 import { WEREWOLF_DAMAGE } from '../data/monsters';
 import type { Role } from '../data/expeditions';
@@ -99,6 +100,7 @@ export function weaponOf(p: Person): { def?: ItemDef; damage: number; accuracy: 
     quirks: { crit: fx.crit ?? 0, pierce: fx.pierce ?? 0, cleave: fx.cleave ?? 0, stun: fx.stun ?? 0, undead: (fx.undeadDamage ?? 0) * k, machine: (fx.machineDamage ?? 0) * k },
   };
 }
+const NO_QUIRKS: Quirks = { crit: 0, pierce: 0, cleave: 0, stun: 0, undead: 0, machine: 0 };
 /** Each + on a weapon steadies the aim this much. */
 const PLUS_AIM = 0.015;
 
@@ -119,13 +121,16 @@ const PERSON_INTERVAL = 1.2;
  *  throwing) they throw stones; otherwise hand to hand, with their weapon or knife. */
 export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo = 0): Fighter {
   const melee = p.skills.melee.level;
-  const ranged = p.skills.ranged.level;
+  const cls = p.cls ? CLASS_DEFS[p.cls] : undefined;
+  // (a caster's aim is their study: their staff or their bare hands carry their spells)
+  const caster = cls?.role === 'caster' || cls?.role === 'healer';
+  const ranged = caster ? Math.max(p.skills.ranged.level, p.skills.research.level) : p.skills.ranged.level;
   const w = weaponOf(p);
   const weapon = w.def;
   const knife = p.gear.tool ? (ITEM_BY_ID[p.gear.tool]?.effects.damage ?? 0) : 0;
   const sling = !!weapon?.effects.ranged;
-  // (a mage fights from range with their fire, whatever they hold)
-  const useRanged = sling || row === 'back' || ranged > melee + 2 || p.cls === 'mage';
+  // (a class that fights from range does, whatever they hold)
+  const useRanged = sling || row === 'back' || ranged > melee + 2 || !!cls?.ranged;
   const skill = useRanged ? ranged : melee;
   // the weapon only helps in the way it's used
   const bonus = Math.round(useRanged ? (sling ? w.damage : 0) : sling || !weapon ? knife : w.damage);
@@ -133,7 +138,9 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
   const aim = used ? w.accuracy : 0;
   const base: [number, number] = useRanged ? [Math.round(2 + ranged * 0.5), Math.round(4 + ranged * 0.5)] : [Math.round(3 + melee * 0.6), Math.round(5 + melee * 0.6)];
   const wolf = p.monster === 'werewolf' ? WEREWOLF_DAMAGE : 0; // (a werewolf fights with more than a weapon)
-  const damage: [number, number] = [base[0] + bonus + wolf, base[1] + bonus + wolf];
+  // (their class, its stage and their level make them stronger: casters by their spell power)
+  const k = (caster ? classStat(p, 'power') : classStat(p, 'damage')) * levelPower(p);
+  const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k), Math.round((base[1] + bonus + wolf) * k)];
   const g = gearEffects(p);
   return {
     side: 'party',
@@ -145,9 +152,9 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     row,
     ranged: useRanged,
     damage: role === 'porter' ? [0, 0] : damage,
-    accuracy: 0.55 + skill * 0.025 + aim,
-    dodge: 0.05 + melee * 0.01 + g.dodge,
-    interval: Math.round(PERSON_INTERVAL * TICK_HZ * (used ? w.speed : 1) * g.slow),
+    accuracy: 0.55 + skill * 0.025 + aim + classStat(p, 'accuracy'),
+    dodge: 0.05 + melee * 0.01 + g.dodge + classStat(p, 'dodge'),
+    interval: Math.round(PERSON_INTERVAL * TICK_HZ * (used ? w.speed : 1) * g.slow * classStat(p, 'speed')),
     cooldown: 0,
     down: p.hp <= 0,
     role,
@@ -157,10 +164,10 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     lastAction: -99,
     lastHit: -99,
     attacks: 0,
-    armor: Math.min(0.6, g.armor),
+    armor: Math.min(0.7, g.armor + classStat(p, 'armor')),
     block: g.block,
     beastDamage: g.beastDamage,
-    ...(used ? { quirks: w.quirks } : {}),
+    ...(used || classStat(p, 'crit') ? { quirks: { ...(used ? w.quirks : NO_QUIRKS), crit: (used ? w.quirks.crit : 0) + classStat(p, 'crit') } } : {}),
     ammoType: ammoOf(p),
     ammo: ammoOf(p) ? ammo : 0,
     ammoBonus: AMMO_DAMAGE[ammoOf(p) ?? 'wood'] ?? 0,

@@ -3,7 +3,6 @@
 
 import type { MonsterKind } from '../data/monsters';
 const TURN_KINDS: readonly string[] = ['undead', 'vampire', 'werewolf'];
-import { CLASSES, type ClassId } from '../data/classes';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { DESTINATION_BY_ID, ROLES, STANCES, type Role, type Stance } from '../data/expeditions';
 import { ITEM_BY_ID, SLOTS, type Slot } from '../data/items';
@@ -39,7 +38,6 @@ export type Command =
   | { type: 'turnPerson'; person: number; kind: MonsterKind }
   | { type: 'turnTown'; kind: MonsterKind }
   /** Train someone into a special class. */
-  | { type: 'trainClass'; person: number; cls: ClassId }
   /** Rebuild a finished building as its upgrade, in place. */
   | { type: 'upgrade'; building: number }
   /** Take a caravan's offer. */
@@ -108,8 +106,6 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.person) && TURN_KINDS.includes(c.kind as MonsterKind) ? { type: 'turnPerson', person: c.person as number, kind: c.kind as MonsterKind } : null;
     case 'turnTown':
       return TURN_KINDS.includes(c.kind as MonsterKind) ? { type: 'turnTown', kind: c.kind as MonsterKind } : null;
-    case 'trainClass':
-      return Number.isInteger(c.person) && CLASSES.includes(c.cls as ClassId) ? { type: 'trainClass', person: c.person as number, cls: c.cls as ClassId } : null;
     case 'upgrade':
       return Number.isInteger(c.building) ? { type: 'upgrade', building: c.building as number } : null;
     case 'discardStock':

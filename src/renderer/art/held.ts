@@ -71,12 +71,26 @@ const WORN: Record<string, [string, string?][]> = {
 const GILDED = 5;
 const GOLD = '#e8c060';
 
+/** The armoury's armour (data/armour.ts) worn, by its weight: robes, leathers, mail, plate; hoods, caps, coifs, helms. */
+const BY_WEIGHT: Record<string, Partial<Record<'body' | 'head', string[]>>> = {
+  cloth: { body: ['torso_longsleeve', 'legs_robeskirt'], head: ['head_hood'] },
+  light: { body: ['torso_leather'], head: ['head_cap'] },
+  medium: { body: ['torso_chain'], head: ['head_chainhood'] },
+  heavy: { body: ['torso_plate', 'torso_platearms', 'legs_metal'], head: ['head_helm'] },
+};
+const wornOf = (id: string, slot: 'body' | 'head' | 'weapon'): [string, string?][] => {
+  if (WORN[id]) return WORN[id];
+  const d = ITEM_BY_ID[id];
+  if (!d?.weight || slot === 'weapon') return [];
+  return (BY_WEIGHT[d.weight]?.[slot] ?? []).map((l) => [l, d.tint]);
+};
+
 /** Armour layers for what someone wears (each 'layer' or 'layer:#tint'; see lpcCompose). */
 export function wornLayers(gear: Partial<Record<Slot, string>>, quality: Partial<Record<Slot, number>> = {}): string[] {
   const out: string[] = [];
   for (const slot of ['body', 'head', 'weapon'] as const) {
     const q = gradeOf(quality[slot] ?? 1);
-    for (const [layer, tint] of WORN[gear[slot] ?? ''] ?? []) {
+    for (const [layer, tint] of wornOf(gear[slot] ?? '', slot)) {
       const metal = /plate|chain|helm|metal|gold/.test(layer) && slot !== 'weapon';
       const t = metal && q >= GILDED ? GOLD : q === 0 && slot !== 'weapon' ? '#7a7066' : tint;
       out.push(t ? `${layer}:${t}` : layer);
