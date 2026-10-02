@@ -5,7 +5,7 @@
 // this only shows it. The bars over and under it (the action's name, the names, health and time gauges) are in
 // fightHud.ts.
 
-import { Container, Graphics, Sprite, Text, TilingSprite } from 'pixi.js';
+import { ColorMatrixFilter, Container, Graphics, Sprite, Text, TilingSprite } from 'pixi.js';
 import { ABILITY_BY_ID } from '../../shared/data/abilities';
 import type { Element } from '../../shared/data/effects';
 import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from '../../shared/data/enemies';
@@ -13,6 +13,7 @@ import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
 import { creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { impactFrame, IMPACT_SIZE } from '../art/effects';
+import { ELITES, type EliteAffix } from '../../shared/data/dungeons';
 import { loadDelveProps, propFrame, propLoop, type DelveProp } from '../art/delveProps';
 import { SHEETS } from '../town/spellsView';
 import { actSprite } from './actLooks';
@@ -386,7 +387,8 @@ export class FightScene {
       this.pose(g.sprite, f, p[0] + step, p[1], acting, now);
       g.sprite.zIndex = p[1];
       g.sprite.alpha = f.down && f.side === 'enemy' ? Math.max(0, 1 - f.sinceHit / 20) : 1;
-      g.sprite.tint = f.sinceHit < 3 && !f.down ? 0xff8080 : f.conjured || (f.side === 'party' && f.kind !== 'person') ? 0xa8f0b8 : 0xffffff;
+      // (an elite wears its affix's colour; a boss its own)
+      g.sprite.tint = f.sinceHit < 3 && !f.down ? 0xff8080 : f.conjured || (f.side === 'party' && f.kind !== 'person') ? 0xa8f0b8 : f.elite ? (ELITES[f.elite as EliteAffix]?.tint ?? 0xffffff) : (ENEMIES[f.kind]?.tint ?? 0xffffff);
       // the number over them: damage white, healing green, rising and fading
       const pop = f.pop && f.pop.age < 14 ? f.pop : null;
       g.pop.visible = !!pop && (pop.amount > 0 || !pop.heal);
@@ -412,6 +414,9 @@ export class FightScene {
   /** A fighter's picture: a townsperson (or a raised foe) as an LPC figure, a creature, a still or a machine. */
   private pose(s: Sprite, f: FighterView, x: number, y: number, acting: boolean, now: number): void {
     const unit = f.kind === 'person' ? null : ENEMIES[f.kind];
+    // (some foes are recoloured: a dungeon's boss in its own colours)
+    const filter = unit?.look ? lookFilter(unit.look) : null;
+    if ((s.filters?.[0] ?? null) !== filter) s.filters = filter ? [filter] : [];
     // (the party faces left, toward the foes; foes face right)
     const faceLeft = f.side === 'party';
     const k = 0.75;
@@ -467,4 +472,19 @@ export class FightScene {
     s.scale.set(k * flip, k);
     s.position.set(Math.round(x - (flip > 0 ? CENTRE_X : -CENTRE_X - 1) * k), Math.round(y - FEET_Y * k));
   }
+}
+
+/** A colour filter for a foe's look (hue turned, greyed, brightened), one per look. */
+const lookFilters = new Map<string, ColorMatrixFilter>();
+function lookFilter(look: { hue?: number; grey?: boolean; bright?: number }): ColorMatrixFilter {
+  const key = JSON.stringify(look);
+  let f = lookFilters.get(key);
+  if (!f) {
+    f = new ColorMatrixFilter();
+    if (look.grey) f.desaturate();
+    if (look.hue) f.hue(look.hue, true);
+    if (look.bright) f.brightness(look.bright, true);
+    lookFilters.set(key, f);
+  }
+  return f;
 }

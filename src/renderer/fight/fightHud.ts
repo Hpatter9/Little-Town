@@ -60,7 +60,7 @@ export function createFightHud(on: { back(): void }): FightHud {
         const d = v.delve && v.phase === 'work' ? v.delve : null;
         foes.replaceChildren(
           ...(d
-            ? [line('', d.room ? `Room ${d.room} of ${d.rooms}` : 'At the door'), line(d.torches <= 2 ? 'ff-dim' : '', `${d.torches} torch${d.torches === 1 ? '' : 'es'} left`)]
+            ? [line('', d.room ? `Room ${d.room} of ${d.rooms}` : 'At the door'), line(d.torches <= 2 ? 'ff-dim' : '', `${d.torches} torch${d.torches === 1 ? '' : 'es'} left`), ...(d.twist ? [line('ff-dim', d.twist)] : [])]
             : [line('ff-dim', 'No foes in sight')]),
         );
         party.replaceChildren(...v.members.map((m) => line('', m.name)));

@@ -13,10 +13,11 @@ import { TICK_HZ } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
 import { plainGame } from './helpers';
 
-test('every epic boss has a trophy that exists, and a lair to face it in', () => {
-  const kits = Object.values(ENEMIES).filter((e) => e.kit);
+test('every epic boss with a trophy has one that exists, and a lair to face it in', () => {
+  // (a dungeon's bosses carry none: they guard its hoard)
+  const kits = Object.values(ENEMIES).filter((e) => e.kit?.trophy);
   assert.ok(kits.length >= 9);
-  for (const e of kits) assert.ok(ITEM_BY_ID[e.kit!.trophy]?.relic, `${e.id} -> ${e.kit!.trophy}`);
+  for (const e of kits) assert.ok(ITEM_BY_ID[e.kit!.trophy!]?.relic, `${e.id} -> ${e.kit!.trophy}`);
   for (const id of ['dragon', 'iron_colossus', 'war_machine', 'star_mech', 'black_knight']) assert.ok(DESTINATIONS.some((d) => d.encounters.groups.some((g) => g.enemies[id])), id);
 });
 

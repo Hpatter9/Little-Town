@@ -114,10 +114,10 @@ export function bossSlain(s: GameState, kind: string): void {
   dropLoot(s, kind);
   const kit = kitOf(kind);
   if (!kit) return;
-  s.items[kit.trophy] = (s.items[kit.trophy] ?? 0) + 1;
+  if (kit.trophy) s.items[kit.trophy] = (s.items[kit.trophy] ?? 0) + 1;
   s.triumph = { until: s.tick + TRIUMPH_HOURS * TICKS_PER_HOUR, name: ENEMIES[kind].name };
   s.dreadUntil = 0;
-  notify(s, `${ENEMIES[kind].name} is slain! The town takes ${ITEM_BY_ID[kit.trophy]?.name ?? 'a trophy'} as a trophy.`, true);
+  notify(s, kit.trophy ? `${ENEMIES[kind].name} is slain! The town takes ${ITEM_BY_ID[kit.trophy]?.name ?? 'a trophy'} as a trophy.` : `${ENEMIES[kind].name} is slain!`, true);
   // with the Archmage dead, the Deep Freeze breaks (at the next hour's check)
   if (kind === 'frost_archmage' && s.doom?.kind === 'deep_freeze' && s.doom.phase === 'active') s.doom.untilTick = s.tick;
   // and with the Rat King dead, the rats scatter

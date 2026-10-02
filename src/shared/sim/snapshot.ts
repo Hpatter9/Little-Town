@@ -1,6 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
-import { ROOM_SECONDS } from '../data/dungeons';
+import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
+import { bossName, delveRoomTicks } from './delves';
 import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import { className, type ClassId } from '../data/classes';
@@ -188,6 +189,8 @@ export interface FighterView {
   level: number | null;
   pop: { age: number; amount: number; heal: boolean } | null;
   conjured: boolean;
+  /** A delve's elite: its affix (drawn with a tint). */
+  elite: string | null;
 }
 
 export interface RaiderView {
@@ -285,7 +288,7 @@ export interface ExpeditionView {
   /** Waiting on a question for the player. */
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
-  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number } | null;
+  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
 }
 
 export interface DestinationView {
@@ -987,11 +990,12 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
           pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
           conjured: !!f.conjured,
+          elite: f.elite ?? null,
         }))
       : null,
     acts: (e.battle?.acts ?? []).map((a) => ({ age: e.battle!.tick - a.tick, side: a.side, ref: a.ref, name: a.name, targets: a.targets })),
     waiting: e.prompt !== null,
-    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / roomTicks) } : null,
+    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,
   };
 }
 

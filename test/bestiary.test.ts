@@ -34,7 +34,7 @@ test('the new raids and lairs bring foes that exist; every boss drops a trophy t
   }
   for (const e of Object.values(BESTIARY_ENEMIES)) {
     if (!e.kit) continue;
-    assert.ok(ITEM_BY_ID[e.kit.trophy]?.relic, `${e.id}'s trophy ${e.kit.trophy}`);
+    assert.ok(ITEM_BY_ID[e.kit.trophy!]?.relic, `${e.id}'s trophy ${e.kit.trophy}`);
     if (e.kit.summon) assert.ok(ENEMIES[e.kit.summon.kind], `${e.id} summons ${e.kit.summon.kind}`);
   }
   for (const t of BESTIARY_TROPHIES) assert.ok(Object.values(BESTIARY_ENEMIES).some((e) => e.kit?.trophy === t.id), `${t.id} drops from a boss`);

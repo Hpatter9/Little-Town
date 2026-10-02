@@ -5,7 +5,9 @@
 // and the boss at the bottom, whose hoard comes home. The party turns back when the torches run out or half of them
 // are down; a lost or fled fight sends them home as on any trip (expeditions.ts). Deaths are real.
 
-import { DUNGEON_BY_ID, ROOM_SECONDS, type DungeonDef, type RoomKind } from '../data/dungeons';
+import { DUNGEON_BY_ID, ELITE_BASE, ELITE_PER_ROOM, ELITE_RISKY, ELITES, ROOM_SECONDS, TWISTS, type DungeonDef, type EliteAffix, type RoomKind, type TwistId } from '../data/dungeons';
+import { ENEMIES } from '../data/enemies';
+import type { Battle } from './combat';
 import { the, The } from '../data/expeditions';
 import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
 import { hashSeed, mixSeed, Rng } from '../rng';
@@ -18,6 +20,9 @@ import { gainSkill } from './townsfolk';
 export interface Delve {
   /** The rooms, top to bottom; the last is the boss's. */
   rooms: RoomKind[];
+  /** Who waits at the bottom (a boss and its guard), and the run's twist (data/dungeons.ts), rolled as they set off. */
+  boss: Record<string, number>;
+  twist: TwistId;
   /** The room they're in (-1: at the door), and how long they've been in it (ticks). */
   at: number;
   ticks: number;
@@ -74,17 +79,22 @@ export function startDelve(s: GameState, e: Expedition, take: (m: Material, n: n
     }
   }
   rooms.push('boss');
+  const boss = { ...d.bosses[rng.int(0, d.bosses.length - 1)] };
+  const twists = Object.entries(TWISTS) as [TwistId, (typeof TWISTS)[TwistId]][];
+  let r = rng.next() * twists.reduce((n, [, t]) => n + t.weight, 0);
+  const twist = twists.find(([, t]) => (r -= t.weight) < 0)?.[0] ?? 'none';
   const want = rooms.length + SPARE_TORCHES;
   const torches = take('wood', want);
-  e.delve = { rooms, at: -1, ticks: 0, torches, log: [] };
+  e.delve = { rooms, boss, twist, at: -1, ticks: 0, torches, log: [] };
+  if (twist !== 'none') say(s, e.delve, `Word of ${the(d.name)}: ${TWISTS[twist].name}. ${TWISTS[twist].text}`);
   if (torches < want) notify(s, `There wasn't wood for all the torches: ${the(d.name)} party has ${torches} for ${rooms.length} rooms.`);
 }
 
 export interface DelveHooks {
   /** Turn for home (expeditions.ts startBack). */
   back: () => void;
-  /** Start a fight with this group (expeditions.ts, as on the road). */
-  fight: (group: Record<string, number>, boss: boolean) => void;
+  /** Start a fight with this group (expeditions.ts, as on the road); the fight it started. */
+  fight: (group: Record<string, number>, boss: boolean) => Battle | null;
   /** What one can carry home. */
   room: () => number;
 }
@@ -94,7 +104,7 @@ export function stepDelve(s: GameState, e: Expedition, members: Person[], hooks:
   const v = e.delve;
   const d = DUNGEON_BY_ID[e.dest];
   if (!v || !d) return hooks.back();
-  const roomTicks = Math.round(ROOM_SECONDS * TICK_HZ * ERA_MULTIPLIER[s.era]);
+  const roomTicks = delveRoomTicks(s, v);
   if (v.at >= 0 && v.ticks < roomTicks) {
     v.ticks++;
     return;
@@ -116,7 +126,8 @@ export function stepDelve(s: GameState, e: Expedition, members: Person[], hooks:
   }
   v.at++;
   v.ticks = 0;
-  v.torches--;
+  // (in the pitch dark a torch burns through twice as fast)
+  v.torches = Math.max(0, v.torches - (v.twist === 'dark' ? 2 : 1));
   enter(s, e, d, v, members, hooks);
 }
 
@@ -129,18 +140,22 @@ function enter(s: GameState, e: Expedition, d: DungeonDef, v: Delve, members: Pe
     case 'fight': {
       const group = { ...d.foes[rng.int(0, d.foes.length - 1)] };
       // (more of them further down, and more again past a darker fork)
-      const extra = Math.floor(v.at / 3) + (v.deeper ? 1 : 0);
+      const extra = Math.floor(v.at / 3) + (v.deeper ? 1 : 0) + (v.twist === 'swarming' ? 1 : 0);
       const first = Object.keys(group)[0];
       if (extra && first) group[first] += extra;
+      if (v.twist === 'haunted') group.grave_ghost = (group.grave_ghost ?? 0) + 1;
       say(s, v, `${where}: something moves in the dark.`);
-      hooks.fight(group, false);
+      const b = hooks.fight(group, false);
+      if (b) raiseElites(s, e, v, b, rng);
       return;
     }
-    case 'boss':
+    case 'boss': {
       v.bossFought = true;
-      say(s, v, `${where}: the bottom of ${the(d.name)}, and ${d.threat} rises to meet them!`, true);
-      hooks.fight({ ...d.boss }, true);
+      say(s, v, `${where}: the bottom of ${the(d.name)}, and ${bossName(v)} rises to meet them!`, true);
+      const b = hooks.fight({ ...v.boss }, true);
+      if (b) raiseElites(s, e, v, b, rng, true);
       return;
+    }
     case 'trap': {
       const scout = up.filter((p) => e.roles[p.id] === 'scout').sort((a, b) => b.skills.ranged.level - a.skills.ranged.level)[0];
       if (scout && rng.chance(SPOT_TRAP + scout.skills.ranged.level * 0.03)) {
@@ -159,17 +174,19 @@ function enter(s: GameState, e: Expedition, d: DungeonDef, v: Delve, members: Pe
       return;
     }
     case 'treasure': {
-      const got = gather(e, d, 2 + Math.floor(depth / 3), hooks, rng);
-      const coins = rng.int(4, 10) * (1 + Math.floor(depth / 4));
+      const rich = v.twist === 'rich' ? 2 : 1;
+      const got = gather(e, d, (2 + Math.floor(depth / 3)) * rich, hooks, rng);
+      const coins = Math.round(rng.int(4, 10) * (1 + Math.floor(depth / 4)) * rich * (v.twist === 'swarming' ? 1.5 : 1));
       s.coins = (s.coins ?? 0) + coins;
       say(s, v, `${where}: a forgotten hoard: ${got || 'nothing they can carry'}, and ${coins} coins.`);
       return;
     }
     case 'shrine':
-      if (rng.chance(SHRINE_BLESS)) {
+      if (v.twist !== 'cursed' && rng.chance(SHRINE_BLESS)) {
+        const k = v.twist === 'blessed' ? 2 : 1;
         for (const p of members) {
           if (p.downed) stabilize(p);
-          p.hp = Math.min(maxHp(p), p.hp + Math.round(maxHp(p) * 0.35));
+          p.hp = Math.min(maxHp(p), p.hp + Math.round(maxHp(p) * 0.35 * k));
         }
         say(s, v, `${where}: an old shrine. They kneel, and rise mended.`);
       } else {
@@ -181,15 +198,19 @@ function enter(s: GameState, e: Expedition, d: DungeonDef, v: Delve, members: Pe
       const wit = [...up].sort((a, b) => b.skills.research.level - a.skills.research.level)[0];
       if (wit && rng.chance(PUZZLE_BASE + wit.skills.research.level * PUZZLE_PER_LEVEL)) {
         gainSkill(wit, 'research', 30);
-        const got = gather(e, d, 4 + Math.floor(depth / 2), hooks, rng);
+        const got = gather(e, d, (4 + Math.floor(depth / 2)) * (v.twist === 'rich' ? 2 : 1), hooks, rng);
         say(s, v, `${where}: a door of turning rings. ${wit.name} works it out: behind it, ${got || 'an empty vault'}.`);
       } else say(s, v, `${where}: a door of turning rings that won't open for them.`);
       return;
     }
     case 'camp':
+      if (v.twist === 'cursed') {
+        say(s, v, `${where}: a corner to rest in, but the curse gives no rest. Their wounds stay open.`);
+        return;
+      }
       for (const p of members) {
         if (p.downed) stabilize(p);
-        else p.hp = Math.min(maxHp(p), p.hp + Math.round(maxHp(p) * CAMP_HEAL));
+        else p.hp = Math.min(maxHp(p), p.hp + Math.round(maxHp(p) * CAMP_HEAL * (v.twist === 'blessed' ? 2 : 1)));
       }
       say(s, v, `${where}: a dry corner to rest in. They bind their wounds and eat.`);
       return;
@@ -206,6 +227,46 @@ function enter(s: GameState, e: Expedition, d: DungeonDef, v: Delve, members: Pe
       return;
     }
   }
+}
+
+/** How long a room takes in this delve (ticks): half again as long when it's flooded. */
+export const delveRoomTicks = (s: GameState, v: Delve) => Math.round(ROOM_SECONDS * TICK_HZ * ERA_MULTIPLIER[s.era] * (v.twist === 'flooded' ? 1.5 : 1));
+/** The name of who waits at the bottom of a delve. */
+export const bossName = (v: Delve) => ENEMIES[Object.keys(v.boss).find((k) => ENEMIES[k]?.boss) ?? '']?.name ?? 'something terrible';
+
+/** Some of the foes in a delve's fight are elites (more the deeper they go, for a risky party, and in a Champions
+ *  run): fiery (harder blows), armoured, swift, vampiric (they drink what they deal) or giant (much tougher). A boss can
+ *  be one too, but more rarely. */
+function raiseElites(s: GameState, e: Expedition, v: Delve, b: Battle, rng: Rng, boss = false): void {
+  const p = (ELITE_BASE + v.at * ELITE_PER_ROOM + (e.stakes === 'risky' ? ELITE_RISKY : 0)) * (v.twist === 'elite' ? 2 : 1) * (boss ? 0.5 : 1);
+  const affixes = Object.keys(ELITES) as EliteAffix[];
+  const named: string[] = [];
+  for (const f of b.fighters) {
+    if (f.side !== 'enemy' || !rng.chance(p)) continue;
+    const a = affixes[rng.int(0, affixes.length - 1)];
+    f.elite = a;
+    f.name = `${ELITES[a].name} ${f.name}`;
+    switch (a) {
+      case 'fiery':
+        f.damage = [Math.round(f.damage[0] * 1.35), Math.round(f.damage[1] * 1.35)];
+        break;
+      case 'armoured':
+        f.armor = Math.min(0.7, f.armor + 0.25);
+        break;
+      case 'swift':
+        f.interval = Math.max(2, Math.round(f.interval * 0.65));
+        break;
+      case 'vampiric':
+        f.quirks = { ...(f.quirks ?? { crit: 0, pierce: 0, cleave: 0, stun: 0, undead: 0, machine: 0 }), drain: 0.35 };
+        break;
+      case 'giant':
+        f.hp = f.maxHp = Math.round(f.maxHp * 1.8);
+        f.damage = [Math.round(f.damage[0] * 1.2), Math.round(f.damage[1] * 1.2)];
+        break;
+    }
+    named.push(f.name);
+  }
+  if (named.length) say(s, v, `Among them: ${names(named)}!`);
 }
 
 /** The boss is dead: its hoard comes home (as much as they can carry), and the dungeon is the town's. */

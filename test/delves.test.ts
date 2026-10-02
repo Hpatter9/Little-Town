@@ -44,8 +44,8 @@ test('every dungeon is a delve on the board, on the map, with scenes, hidden in 
     assert.equal(DESTINATION_BY_ID[d.id]?.type, 'delve');
     assert.ok(MAP_SPOTS[d.id] && ROUTES[d.id], `${d.id} has a spot and scenes`);
     assert.equal(HIDDEN_IN[d.id], d.region);
-    for (const g of [...d.foes, d.boss]) for (const id of Object.keys(g)) assert.ok(ENEMIES[id], `${d.id}: ${id} is a foe`);
-    assert.ok(Object.keys(d.boss).some((id) => ENEMIES[id].boss), `${d.id} ends in a boss`);
+    for (const g of [...d.foes, ...d.bosses]) for (const id of Object.keys(g)) assert.ok(ENEMIES[id], `${d.id}: ${id} is a foe`);
+    for (const b of d.bosses) assert.ok(Object.keys(b).some((id) => ENEMIES[id].boss), `${d.id} ends in a boss`);
   }
 });
 
@@ -88,4 +88,35 @@ test('only dungeons can be delved, by up to five', () => {
   assert.equal(sendDelve(s, 'berry_thicket', [party[0].id], 'safe').ok, false);
   const six = [...party, hero(s), hero(s)];
   assert.equal(sendDelve(s, 'fey_hollow', six.map((p) => p.id), 'safe').ok, false);
+});
+
+test('each delve rolls its boss from its dungeon and a twist; the twists come up, and change the run', () => {
+  const twists = new Set<string>();
+  for (let i = 0; i < 40; i++) {
+    const { s, party } = delveTown(`twist${i}`, 30);
+    sendDelve(s, 'ice_cave', party.map((p) => p.id), 'safe');
+    const v = s.expeditions[0].delve!;
+    twists.add(v.twist);
+    assert.ok(DUNGEON_BY_ID.ice_cave.bosses.some((b) => JSON.stringify(b) === JSON.stringify(v.boss)), 'a boss from its pool');
+  }
+  assert.ok(twists.size >= 6, `twists seen: ${[...twists].join(', ')}`);
+
+  // in the pitch dark a torch burns two rooms' worth
+  const { sim, s, party } = delveTown('dark2', 30);
+  sendDelve(s, 'barrow_crypt', party.map((p) => p.id), 'safe');
+  const e = s.expeditions[0];
+  e.delve!.twist = 'dark';
+  const start = e.delve!.torches;
+  for (let t = 0; t < 20000 * TICK_HZ && e.delve!.at < 1; t++) sim.step();
+  assert.equal(e.delve!.torches, start - 4, 'two rooms, four torches');
+});
+
+test('a Champions run down a deep dungeon meets elites, named for their affix', () => {
+  const { sim, s, party } = delveTown('elites', 30);
+  sendDelve(s, 'deep_mine', party.map((p) => p.id), 'risky');
+  const e = s.expeditions[0];
+  e.delve!.twist = 'elite';
+  e.delve!.rooms = e.delve!.rooms.map((r, i, all) => (i < all.length - 1 ? 'fight' : r));
+  runHome(sim);
+  assert.ok(s.journal.some((j) => /Among them: (Fiery|Armoured|Swift|Vampiric|Giant) /.test(j.text)), 'elites were met');
 });

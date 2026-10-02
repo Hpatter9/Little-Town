@@ -39,7 +39,7 @@ import { skillSpeed, type Skill } from '../data/skills';
 import type { Rng } from '../rng';
 import { depositNear, storages, totalStock } from './buildings';
 import { isChild } from './social';
-import { ammoOf, battleLoot, startBattle, stepBattle } from './combat';
+import { ammoOf, battleLoot, startBattle, stepBattle, type Battle } from './combat';
 import { classAllies } from './classes';
 import { bossSlain } from './bosses';
 import { startDelve, stepDelve } from './delves';
@@ -431,13 +431,14 @@ function maybeFight(s: GameState, e: Expedition, d: Destination, members: Person
 }
 
 /** A fight with a group of foes (on the road, at the site, or in a delve's room). */
-function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person[], group: Record<string, number>, _boss: boolean, rng: Rng): void {
+function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person[], group: Record<string, number>, _boss: boolean, rng: Rng): Battle {
   e.battle = startBattle(members, e.roles, group, rng, e.supplies);
   // summoned spirits and tamed wolves join in (they act on their own first beat)
   for (const f of classAllies(members)) e.battle.fighters.push({ ...f, cooldown: f.interval });
   // an epic boss announces itself
   for (const kind of new Set(Object.keys(group))) if (ENEMIES[kind]?.kit) notify(s, `At ${the(d.name)}: ${ENEMIES[kind].kit!.roar}`, true);
   notify(s, `${The(d.name)} party is attacked by ${describeGroup(group)}!`);
+  return e.battle;
 }
 
 function finishBattle(s: GameState, e: Expedition, d: Destination, members: Person[], rng: Rng): void {

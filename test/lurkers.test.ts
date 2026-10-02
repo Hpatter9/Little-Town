@@ -38,7 +38,7 @@ test("the land's own beasts come only in their own lands; the Behemoth now and t
   assert.ok(!forest.get('lions') && !forest.get('crocodiles') && !forest.get('wild_dogs'));
   assert.ok((forest.get('behemoth') ?? 0) + (desert.get('behemoth') ?? 0) > 0, 'the Behemoth came');
   assert.ok(!raidsIn('forest', 2, 150).get('behemoth'), 'not in the first days');
-  assert.ok(ITEM_BY_ID[ENEMIES.behemoth.kit!.trophy]?.relic);
+  assert.ok(ITEM_BY_ID[ENEMIES.behemoth.kit!.trophy!]?.relic);
 });
 
 function withShop(s: GameState): GameState {

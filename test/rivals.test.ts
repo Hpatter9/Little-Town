@@ -45,7 +45,7 @@ test('every origin but the settlers is a rival: an army, a lord with a trophy, s
     for (const e of Object.keys(kind.enemies)) assert.ok(ENEMIES[e], `${id}: ${e}`);
     const lord = ENEMIES[rv.leader];
     assert.ok(lord?.kit, id);
-    assert.ok(ITEM_BY_ID[lord.kit!.trophy]?.relic, `${id} trophy`);
+    assert.ok(ITEM_BY_ID[lord.kit!.trophy!]?.relic, `${id} trophy`);
     assert.ok(rv.spells.length >= 2, id);
     for (const sp of rv.spells) if (sp.summons) assert.ok(ENEMIES[sp.summons], sp.id);
   }

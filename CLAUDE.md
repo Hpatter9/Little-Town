@@ -533,6 +533,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   shrines and guillotine at traps), left behind as they walk on (`propAt`). The light dims as the torches run low. The
   HUD's top window has the delve's latest line, and the foes' window the room and torches between fights
   (`ExpeditionView.delve.progress`). The phone feed has a card for each delve under way; tapping it watches the party.
+- **Dungeon types, twists, elites and dozens of bosses (step 10, done):** 12 dungeons, one of each `DungeonType`
+  (crypt, warren, mine, fey, temple, tower, nest, wreck, ice, forge, vault, den) across the fogged regions and the eras.
+  Each has a pool of bosses (`bosses`; one rolled per delve into `Delve.boss`, named by `bossName`), among them 27 new
+  ones in `src/shared/data/dungeonBosses.ts` (`DUNGEON_BOSSES`, merged into ENEMIES): drawn from the existing sheets,
+  bigger, with a `look` the fight view applies as a colour filter (`lookFilter` in fightView.ts: hue turned, greyed,
+  brightened; a tint only darkens). Their kits have no trophy (`BossKit.trophy` is optional); each carries a unique of its
+  own (27 more rows in uniques.ts). Every delve rolls a twist (`TWISTS`: Haunted, Flooded, Rich Veins, Cursed, Swarming,
+  Pitch Dark, Blessed, Champions, or none), which changes rooms' time (`delveRoomTicks`), torches, fights, treasure and
+  healing. Foes in a delve's fights may be elites (`raiseElites`: `ELITES` fiery, armoured, swift, vampiric, giant;
+  `Fighter.elite`, named and tinted), more often deeper down, for a risky party and in a Champions run. The card, the
+  HUD and the feed show the twist.
 - **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
   `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
   (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.

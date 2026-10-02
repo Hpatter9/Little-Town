@@ -127,6 +127,7 @@ function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined):
   if (e.delve) {
     const kind = e.delve.kind ? ROOM_NAMES[e.delve.kind] ?? e.delve.kind : null;
     c.append(el('div', 'purpose', e.delve.cleared ? 'Cleared! Heading home with the hoard.' : e.delve.room ? `Room ${e.delve.room} of ${e.delve.rooms}${kind ? ` (${kind})` : ''} · ${e.delve.torches} torch${e.delve.torches === 1 ? '' : 'es'} left` : `${e.delve.torches} torches packed for ${e.delve.rooms} rooms`));
+    if (e.delve.twist) c.append(el('div', 'lock short', `${e.delve.twist}: ${e.delve.twistText}`));
     const last = e.delve.log.at(-1);
     if (last) c.append(el('div', 'lock short', last));
   }

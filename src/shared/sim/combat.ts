@@ -3,6 +3,7 @@
 // ranged attacks reach anyone. Medics heal instead of attacking; porters stay out of it. Gear adds damage,
 // aim, armour and blocking.
 
+import type { EliteAffix } from '../data/dungeons';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { classStat, levelPower } from '../data/levels';
 import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type Arena, type Kit, type Statuses } from './actions';
@@ -18,6 +19,8 @@ import { maxHp, type Person } from './state';
 import { TICK_HZ } from './time';
 
 export interface Fighter {
+  /** A delve's elite (data/dungeons.ts ELITES): its affix, also in its name. */
+  elite?: EliteAffix;
   side: 'party' | 'enemy';
   /** Person id (party) or enemy index (enemy). */
   ref: number;
