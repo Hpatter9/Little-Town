@@ -26,6 +26,7 @@ import { glowTexture } from '../town/layer';
 import { CLASS_LOOK } from '../town/peopleView';
 import { LOOKS } from '../town/spellLooks';
 import { SHEETS } from '../town/spellsView';
+import { actIdOf, actSprite } from '../fight/actLooks';
 
 /** Characters are drawn at this share of their town size (a cell is half a town tile). */
 const FIGURE = 0.4;
@@ -473,6 +474,19 @@ export class BattleScene {
         const tex = castFrame((c.age + (now % 1000) / 1000) * 8);
         if (tex) this.effect(tex, cx, cy, AREA_SIZE * 0.6, true);
       }
+    }
+    // the fighters' spells and skills, on the raiders they touched (fight/actLooks.ts: a slash or a spell's effect)
+    for (const a of b.acts) {
+      const sheet = SHEETS[actSprite(actIdOf(a.name))];
+      a.at.forEach((id, i) => {
+        const m = this.foes.get(id);
+        const t = a.age + ((now % 100) / 1000) - i * 0.08;
+        const f = m && t >= 0 ? sheet.frame(t * sheet.fps) : null;
+        if (!m || !f) return;
+        const [fx, fy] = this.px(m.x, m.y + 0.3);
+        const size = sheet.size * (sheet.scale ?? 1) * 0.45;
+        this.effect(f, fx, fy - size / 2 + sheet.foot * (sheet.scale ?? 1) * 0.45, size, !!sheet.glow);
+      });
     }
     // a hit landing on a fighter (a burst where a raider's blow fell)
     for (const f of b.foes) {

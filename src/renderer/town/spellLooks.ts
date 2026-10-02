@@ -9,7 +9,10 @@ export type SpriteFx =
   // (the spell sheets: pvfx-foundry and the Alenia Star Magic Pack)
   | 'roots' | 'rain' | 'leaves' | 'bloom' | 'venom_ward' | 'parry' | 'counterfall' | 'prism' | 'void' | 'moths' | 'suture' | 'charge'
   | 'splash' | 'foam' | 'hourglass' | 'mercury' | 'spines' | 'orchid' | 'missile'
-  | 'blood_bubble' | 'blood_storm' | 'dark_flames' | 'gold_vortex' | 'life_fountain' | 'chaos_storm';
+  | 'blood_bubble' | 'blood_storm' | 'dark_flames' | 'gold_vortex' | 'life_fountain' | 'chaos_storm'
+  // (Craftpix's magic strips and magic slashes)
+  | 'mg_ground_fire' | 'mg_ground_fire2' | 'mg_sigil' | 'mg_beam' | 'mg_strike' | 'mg_bolt' | 'mg_bolt2' | 'mg_pop' | 'mg_sparks' | 'mg_flame' | 'mg_flare' | 'mg_spikes' | 'mg_creep' | 'mg_puff' | 'mg_shards'
+  | 'slash_wind' | 'slash_fire' | 'slash_lightning' | 'slash_poison' | 'slash_gold' | 'slash_water';
 export interface Look {
   kind: Kind;
   /** Played with it, from the effect sheets; `onCaster`: over the caster instead of the targets. */

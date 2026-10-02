@@ -13,6 +13,8 @@ import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
 import { creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { impactFrame, IMPACT_SIZE } from '../art/effects';
+import { SHEETS } from '../town/spellsView';
+import { actSprite } from './actLooks';
 import { heldWeapon, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { machineFrame, machineSize } from '../art/machines';
@@ -64,6 +66,11 @@ export class FightScene {
   private readonly world = new Container();
   private readonly figures = new Container();
   private readonly fx = new Graphics();
+  /** The spells' and skills' effects playing where they landed (a pool, reused frame to frame), and when each act was
+   *  first seen (ms: the sim's ages are whole ticks, so the frames are timed here). */
+  private readonly effects = new Container();
+  private readonly fxPool: Sprite[] = [];
+  private readonly actSeen = new Map<string, number>();
   private readonly figs = new Map<string, Figure>();
   private sceneKey = '';
   /** A painted backdrop from the packs, when the trip's look is one: its layers, far to near, and whether it is the
@@ -79,7 +86,7 @@ export class FightScene {
 
   constructor() {
     this.root.visible = false;
-    this.world.addChild(this.photo, ...this.layers.slice(0, 3), this.layers[3], this.figures, this.fx);
+    this.world.addChild(this.photo, ...this.layers.slice(0, 3), this.layers[3], this.figures, this.fx, this.effects);
     this.world.mask = this.clip;
     this.root.addChild(this.clip);
     this.root.addChild(this.cover, this.world);
@@ -218,6 +225,7 @@ export class FightScene {
 
   /** Between fights: the party in a line, walking to the right (or working at the site). */
   private drawMarch(v: ExpeditionView, now: number, walking: boolean, seen: Set<string>): void {
+    for (const sp of this.fxPool) sp.visible = false;
     const n = v.members.length;
     v.members.forEach((m, i) => {
       const key = `m${m.id}`;
@@ -255,18 +263,45 @@ export class FightScene {
       // a slanting column, as in the old games
       at.set(`party:${f.ref}`, [Math.round(vw * 0.7) + i * 8 + (f.row === 'back' ? 12 : 0), Math.round(hy + 16 + i * partyGap)]);
     });
-    // the spells and skills just used: a flash of their colour on whoever they touched
+    // the spells and skills just used: a flash of their colour and their effect on whoever they touched
+    let used = 0;
+    const live = new Set<string>();
     for (const act of v.acts) {
-      if (act.age > 8) continue;
-      const colour = ELEMENT_COLOUR[elementOf(this.idByName.get(act.name) ?? '')];
-      for (const ref of act.targets) {
-        const p = at.get(`enemy:${ref}`) ?? at.get(`party:${ref}`);
-        if (!p) continue;
+      const id = this.idByName.get(act.name) ?? '';
+      const key = `${act.side}:${act.ref}:${act.name}:${act.targets.join(',')}`;
+      live.add(key);
+      let start = this.actSeen.get(key);
+      if (start === undefined) this.actSeen.set(key, (start = now - act.age * 100));
+      // (`window.__fxSlow` slows them, for previews)
+      const t = (now - start) / 1000 / ((window as unknown as { __fxSlow?: number }).__fxSlow ?? 1);
+      if (act.age <= 8) {
+        const colour = ELEMENT_COLOUR[elementOf(id)];
         const k = act.age / 8;
-        this.fx.circle(p[0], p[1] - 10, 6 + 10 * k).fill({ color: colour, alpha: 0.45 * (1 - k) });
-        this.fx.circle(p[0], p[1] - 10, 3 + 14 * k).stroke({ width: 1, color: colour, alpha: 0.8 * (1 - k) });
+        for (const ref of act.targets) {
+          const p = at.get(`enemy:${ref}`) ?? at.get(`party:${ref}`);
+          if (!p) continue;
+          this.fx.circle(p[0], p[1] - 10, 6 + 10 * k).fill({ color: colour, alpha: 0.3 * (1 - k) });
+        }
       }
+      const sh = SHEETS[actSprite(id)];
+      act.targets.forEach((ref, i) => {
+        const p = at.get(`enemy:${ref}`) ?? at.get(`party:${ref}`);
+        const tex = p ? sh.frame((t - i * 0.08) * sh.fps) : null;
+        if (!p || !tex || t - i * 0.08 < 0) return;
+        const sp = (this.fxPool[used] ??= this.effects.addChild(new Sprite()));
+        used++;
+        sp.visible = true;
+        sp.texture = tex;
+        sp.blendMode = sh.glow ? 'add' : 'normal';
+        // (drawn at the fighters' size; the party's blows come from the right, so their slashes are turned)
+        const k = (sh.scale ?? 1) * 0.6;
+        const flip = act.side === 'party' ? -1 : 1;
+        sp.scale.set(k * flip, k);
+        sp.position.set(Math.round(p[0] - (sh.size * k * flip) / 2), Math.round(p[1] + sh.foot * k - sh.size * k));
+      });
     }
+    for (let i = used; i < this.fxPool.length; i++) this.fxPool[i].visible = false;
+    for (const k of this.actSeen.keys()) if (!live.has(k)) this.actSeen.delete(k);
     for (const f of fighters) {
       const key = `${f.side}:${f.ref}`;
       const p = at.get(key);

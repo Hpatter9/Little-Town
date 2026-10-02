@@ -81,6 +81,28 @@ export const SHEETS: Record<SpriteFx, { frame: (i: number) => Texture | null; si
   gold_vortex: { frame: (i) => spellSheetFrame('gold_vortex', i), size: spellSheetSize('gold_vortex'), fps: 10, foot: 36, glow: true },
   life_fountain: { frame: (i) => spellSheetFrame('life_fountain', i), size: spellSheetSize('life_fountain'), fps: 12, foot: 54, glow: true },
   chaos_storm: { frame: (i) => spellSheetFrame('chaos_storm', i), size: spellSheetSize('chaos_storm'), fps: 10, foot: 36, glow: true },
+  // (the magic strips are small: drawn half again as big; the slashes centred on the body)
+  mg_ground_fire: { frame: (i) => spellSheetFrame('mg_ground_fire', i), size: spellSheetSize('mg_ground_fire'), fps: 14, foot: 1, scale: 1.5 },
+  mg_ground_fire2: { frame: (i) => spellSheetFrame('mg_ground_fire2', i), size: spellSheetSize('mg_ground_fire2'), fps: 14, foot: 1, scale: 1.5 },
+  mg_sigil: { frame: (i) => spellSheetFrame('mg_sigil', i), size: spellSheetSize('mg_sigil'), fps: 14, foot: 6, scale: 1.5 },
+  mg_beam: { frame: (i) => spellSheetFrame('mg_beam', i), size: spellSheetSize('mg_beam'), fps: 14, foot: 22, scale: 1.5 },
+  mg_strike: { frame: (i) => spellSheetFrame('mg_strike', i), size: spellSheetSize('mg_strike'), fps: 14, foot: 1, scale: 1.5 },
+  mg_bolt: { frame: (i) => spellSheetFrame('mg_bolt', i), size: spellSheetSize('mg_bolt'), fps: 12, foot: 24, scale: 1.5 },
+  mg_bolt2: { frame: (i) => spellSheetFrame('mg_bolt2', i), size: spellSheetSize('mg_bolt2'), fps: 12, foot: 20, scale: 1.5 },
+  mg_pop: { frame: (i) => spellSheetFrame('mg_pop', i), size: spellSheetSize('mg_pop'), fps: 12, foot: 22, scale: 1.5 },
+  mg_sparks: { frame: (i) => spellSheetFrame('mg_sparks', i), size: spellSheetSize('mg_sparks'), fps: 14, foot: 28, scale: 1.5 },
+  mg_flame: { frame: (i) => spellSheetFrame('mg_flame', i), size: spellSheetSize('mg_flame'), fps: 10, foot: 30, scale: 1.5 },
+  mg_flare: { frame: (i) => spellSheetFrame('mg_flare', i), size: spellSheetSize('mg_flare'), fps: 10, foot: 30, scale: 1.5 },
+  mg_spikes: { frame: (i) => spellSheetFrame('mg_spikes', i), size: spellSheetSize('mg_spikes'), fps: 14, foot: 1, scale: 1.5 },
+  mg_creep: { frame: (i) => spellSheetFrame('mg_creep', i), size: spellSheetSize('mg_creep'), fps: 14, foot: 1, scale: 1.5 },
+  mg_puff: { frame: (i) => spellSheetFrame('mg_puff', i), size: spellSheetSize('mg_puff'), fps: 14, foot: 1, scale: 1.5 },
+  mg_shards: { frame: (i) => spellSheetFrame('mg_shards', i), size: spellSheetSize('mg_shards'), fps: 14, foot: 1, scale: 1.5 },
+  slash_wind: { frame: (i) => spellSheetFrame('slash_wind', i), size: spellSheetSize('slash_wind'), fps: 24, foot: 22, glow: true },
+  slash_fire: { frame: (i) => spellSheetFrame('slash_fire', i), size: spellSheetSize('slash_fire'), fps: 24, foot: 22, glow: true },
+  slash_lightning: { frame: (i) => spellSheetFrame('slash_lightning', i), size: spellSheetSize('slash_lightning'), fps: 24, foot: 22, glow: true },
+  slash_poison: { frame: (i) => spellSheetFrame('slash_poison', i), size: spellSheetSize('slash_poison'), fps: 24, foot: 22, glow: true },
+  slash_gold: { frame: (i) => spellSheetFrame('slash_gold', i), size: spellSheetSize('slash_gold'), fps: 24, foot: 22, glow: true },
+  slash_water: { frame: (i) => spellSheetFrame('slash_water', i), size: spellSheetSize('slash_water'), fps: 24, foot: 22, glow: true },
 };
 
 export class SpellsView {

@@ -473,6 +473,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`painted`, a backdrop, or `sky:` a sky pack over the painted land), `lookFor` picks one per trip (the green scenes
   take autumn and winter ones in season). `FightScene.setLook` loads it (`art/backdropImages.ts`) and tiles its layers,
   the near ones scrolling faster; `window.__look` forces one, for previews.
+- **Spell and skill effects in fights:** `src/renderer/fight/actLooks.ts` (`actSprite`) picks the sheet that plays
+  where a spell or skill lands: a striking skill is a slash in its element (`slash_*`, Craftpix's Magic Slash pack), a
+  spell a magic sheet for its element (`mg_*`, the Pixel Magic pack, or the older pvfx/Alenia ones), mending the healing
+  glow, a blessing a ward. The watched fight (`FightScene`, timed from when each act is first seen; `window.__fxSlow`
+  slows them for previews) and the raid's battle map (`BattleView.acts`) both play them. Sheets are cut by
+  `tools/compose-effects.cjs`.
 - **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
   `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
   (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.

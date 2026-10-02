@@ -31,6 +31,12 @@ Knight and Skeleton Sprite Sheets; Free Yokai Character Sprites; Free Tiny Hero 
 Top-Down Defense; Free Fantasy RPG Top-Down Boss Creatures (Boar King, Devil Leader, Shaman King) and Pirate Boss
 Characters (Pirate Leader, Pirate Zombie, Squidman).
 
+## Craftpix magic effects (spells and skills in fights)
+
+The spells' and skills' effects in the watched fights and on the raid's battle map (`src/renderer/art/effects/mg_*.png`
+and `slash_*.png`, built by `tools/compose-effects.cjs`) are from **Craftpix.net**'s free Pixel Magic Sprite Effects pack
+and free Magic Slash Effects pack.
+
 ## Craftpix parallax backgrounds (the fights' backdrops)
 
 The watched fights' backdrops (`src/renderer/art/backdrops/`, built by `tools/compose-backdrops.cjs`) come from free

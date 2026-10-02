@@ -977,6 +977,8 @@ export interface BattleView {
   spells: { id: string; name: string; readyIn: number; affordable: boolean }[];
   casts: { x: number; y: number; power: string; age: number }[];
   shots: { from: [number, number]; to: [number, number]; age: number; kind: 'arrow' | 'bolt' | 'tower' | 'fire' }[];
+  /** The fighters' spells and skills just used (by name), on which raiders (ids), and how long ago (s). */
+  acts: { name: string; at: number[]; age: number }[];
 }
 
 /** The battle as the screen sees it (null when there's none on). `spells`: the origin's aimable powers (powers.ts
@@ -1006,5 +1008,6 @@ export function battleView(s: GameState, spells: BattleView['spells']): BattleVi
     spells,
     casts: (b.casts ?? []).map((c) => ({ x: c.at[0], y: c.at[1], power: c.power, age: (s.tick - c.tick) / TICK_HZ })),
     shots: (b.shots ?? []).map((x) => ({ from: x.from, to: x.to, kind: x.kind, age: (s.tick - x.tick) / TICK_HZ })),
+    acts: (b.acts ?? []).filter((a) => s.tick - a.tick < 3 * TICK_HZ).map((a) => ({ name: a.name, at: a.at, age: (s.tick - a.tick) / TICK_HZ })),
   };
 }
