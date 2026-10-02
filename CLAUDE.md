@@ -17,6 +17,35 @@ taskbar. TypeScript + PixiJS. `DESIGN.md` is the original design, and `README.md
   `../chronos-assets`); copy in only the individual sprites the game uses, never whole packs. Sprites the game uses
   are in `src`. Images load through `art/loadImage.ts` (a refused `decode()` falls back to the load event).
 
+## The asset packs (`../chronos-assets`)
+
+- The original packs are at the repo's top level (DawnLike, LPC, Pixel Champions, pvfx, Alenia, Golems, Robot
+  Warfare, Tiny RPG, the mining and industrial tilesets...).
+- **`assets/`** (added later): about 60 free Craftpix packs, one folder each, the pack's own layout kept.
+  - Characters: samurai (Samurai, Archer, Commander), ninja (Kunoichi, Monk, Peasant), wizards, robots (Destroyer,
+    Infantryman, Swordsman), tiny heroes, yokai.
+  - Monsters: werewolves (black, red, white), gorgons, minotaurs and satyrs (three each), forest bosses (3),
+    top-down defence enemies (3 sets), top-down boss creatures, pirate bosses.
+  - Effects: pixel magic effects and icons, magic slashes.
+  - Tilesets: top-down dungeon, village, undead, fields, path and road, green zone, glassblower's workshop; a
+    platformer medieval field work set.
+  - Objects: trees, bushes, rocks, rocky area, forest, cave, seabed, bridges, dungeon props.
+  - Parallax backgrounds: nature, forest and trees, summer, autumn, winter, desert oasis, mountain, mountain
+    peak, crystal cave, ancient temple, sky and clouds, cloudscape, ocean, city, futuristic city, city ruins,
+    post-apocalyptic, abandoned places, fantasy battlegrounds.
+- **More Craftpix packs at the top level** (added at the same time, outside `assets/`): knight character sprites,
+  skeleton sprite sheets, a platformer tileset, and winter, underwater, moon, steampunk city and cloud-and-sky
+  backgrounds. One more pack is unpacked loose at the top level (`1 Tiles`, `2 Background` (Day/Night),
+  `3 Objects` (tubes, decoration, power lines), `4 Animated objects` (card, chest, money, trap), with its `PSD/`,
+  `License.txt`, `Font.txt`).
+- Check a pack's folder before using it: frame sizes, animation names, and split frames or whole sheets vary.
+  Within a pack, pick either the split frames or the sheet and keep to it.
+- Use the PNGs only. Ignore `__MACOSX/`, `COUPON.*`, `.url`, and `.psd`/`.ai`/`.eps` files.
+- Vector-only packs, with no PNGs to use: crystal caves, tower defence, tropical medieval city, underwater game
+  objects.
+- Never change the assets repo. Copy only the sprites used into this repo, and credit them in `CREDITS.md`.
+  Craftpix's free licence allows use in the game, but not redistributing the raw files.
+
 ## Commands
 
 ```bash
