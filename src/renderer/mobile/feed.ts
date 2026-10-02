@@ -109,7 +109,15 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
       cards.push({ cls: 'delve', mark: '⛏', title: `${e.destName}: ${where}`, text: `${e.battle?.length ? 'Fighting! ' : ''}${(e.phase === 'work' && d.log.at(-1)) || e.members.map((m) => m.name).join(', ')} · tap to watch`, watch: e.id });
     }
     // something found on the town's land that wants a party (tap: the Expedition Board)
-    for (const p of s.places) if (p.dest) cards.push({ cls: 'place', mark: '⚑', title: `${p.name} found`, text: `${p.foes} there. Pick a party under Expeditions.`, panel: 'expeditions' });
+    // (the fights waiting on the land, alike ones as one card: "Beast's Lair found ×2")
+    const waiting = new Map<string, { name: string; foes: string; n: number }>();
+    for (const p of s.places) if (p.dest) {
+      const k = `${p.name}|${p.foes ?? ''}`;
+      const w = waiting.get(k);
+      if (w) w.n++;
+      else waiting.set(k, { name: p.name, foes: p.foes ?? 'Something', n: 1 });
+    }
+    for (const w of waiting.values()) cards.push({ cls: 'place', mark: '⚑', title: `${w.name} found${w.n > 1 ? ` ×${w.n}` : ''}`, text: `${w.foes} there. Pick a party under Expeditions.`, panel: 'expeditions' });
     const q = s.prompts[0];
     // (the raid's own question is the raid card already)
     if (q && !(s.raid && q.title.includes(s.raid.name))) cards.push({ cls: 'ask', mark: '?', title: q.title, text: 'A choice waits for you on the town below.' });

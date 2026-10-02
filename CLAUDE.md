@@ -766,6 +766,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     code-drawn picture stands until the image loads, then `onPackArt` bumps `artGen` and the buildings are drawn again),
     with street furniture at a finished one's front corners (`packDressing`: lantern posts, barrels, crates, carts,
     signboards, by the building's id; `DrawnBuilding.extras`).
+    The pens' animals amble inside their footprints (`src/renderer/map/mapHerds.ts`, `MapHerds`, the painted farm animals
+    of `art/livestockArt.ts`, sorted by their feet among the things). The feed shows alike fights waiting on the land as
+    one card ("Beast's Lair found ×2").
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

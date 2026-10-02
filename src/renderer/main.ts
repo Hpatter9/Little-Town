@@ -3,6 +3,7 @@
 
 import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
+import { MapHerds } from './map/mapHerds';
 import { createBattleHud } from './battle/battleHud';
 import { FightScene } from './fight/fightView';
 import { createFightHud } from './fight/fightHud';
@@ -177,6 +178,7 @@ async function start(): Promise<void> {
   (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
   const people = new MapPeople(map.things);
   const raiders = new MapRaiders(map.things);
+  const herds = new MapHerds(map.things);
   const pane = new ExpeditionPane(seedHash);
   const snow = new SnowView();
   const leaves = new LeavesView();
@@ -962,6 +964,7 @@ async function start(): Promise<void> {
     }
     map.syncLand(next.land, next.calendar.season, next.biome); // (paints again only what changed)
     map.syncBuildings(next.buildings);
+    herds.update(next.buildings);
     map.syncCastle(next.castle?.rect ?? null);
     map.syncPlaces(next.places);
     // (a nomad tribe that moved camp: the view goes to the new camp)
@@ -1013,6 +1016,7 @@ async function start(): Promise<void> {
     app.stage.position.set(shaking ? Math.round((Math.random() - 0.5) * 6) : 0, shaking ? Math.round((Math.random() - 0.5) * 4) : 0);
     people.render(performance.now());
     raiders.render(performance.now());
+    herds.render(performance.now(), ticker.deltaMS / 1000);
     map.renderPlaces(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);
