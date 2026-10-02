@@ -4,13 +4,12 @@
 // when something in it changes (the land's version, the open radius, the season).
 
 import { Texture } from 'pixi.js';
-import { CELL, groundAt, isRoad, type LandMap } from '../../shared/sim/land';
+import { CELL, groundAt, isRoad, type LandMap, FOG_BAND } from '../../shared/sim/land';
 import type { TdTiles } from '../art/tdTiles';
 
 /** Cells to a chunk's side. */
 export const CHUNK = 8;
-/** Beyond the open land, this many cells are seen dimly; past them, nothing. */
-export const FOG_BAND = 6;
+export { FOG_BAND };
 
 interface Pal {
   grass: [string, string, string];

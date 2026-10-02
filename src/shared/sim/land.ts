@@ -20,6 +20,8 @@ export const OPEN_START = 11;
 export const CAMP_CLEAR = 5;
 /** At least this many cells of each wild kind lie within the open land at the start (wood, stone, clay and fiber). */
 export const MIN_KIND_NEAR = 10;
+/** Beyond the open land, this many cells are seen dimly (the renderer's fog); past them, nothing. */
+export const FOG_BAND = 6;
 
 export type Ground = 'grass' | 'forest' | 'rock' | 'marsh' | 'hill' | 'water' | 'fertile' | 'sand';
 const CODE: Record<Ground, string> = { grass: '.', forest: 'f', rock: 'r', marsh: 'm', hill: 'h', water: 'w', fertile: 'F', sand: 's' };
@@ -343,13 +345,26 @@ export function stepCost(m: LandMap, x: number, y: number, blocked?: (x: number,
   }
 }
 
+/** Limits on a path search: how many cells to look at, and what wading through water costs (none: it can't be). */
+export interface PathOpts {
+  maxNodes?: number;
+  ford?: number;
+}
+
 /** The cheapest way from one cell to another (cells, the start left out), or null if there's none. Eight ways, no
  *  corner-cutting past what can't be crossed; `blocked` marks cells stood on (buildings), the goal always allowed. */
-export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: number; y: number }, blocked?: (x: number, y: number) => boolean, maxNodes = 12000): { x: number; y: number }[] | null {
+export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: number; y: number }, blocked?: (x: number, y: number) => boolean, limits: number | PathOpts = 12000): { x: number; y: number }[] | null {
   if (from.x === to.x && from.y === to.y) return [];
+  const opts: PathOpts = typeof limits === 'number' ? { maxNodes: limits } : limits;
+  const maxNodes = opts.maxNodes ?? 12000;
   const W = m.w;
   const goal = to.y * W + to.x;
-  const cost = (x: number, y: number) => (x === to.x && y === to.y ? Math.min(stepCost(m, x, y), 1) : stepCost(m, x, y, blocked));
+  const raw = (x: number, y: number, b?: typeof blocked) => {
+    const c = stepCost(m, x, y, b);
+    // (a raiding party wades a river where it must: water costs `ford`, not everything)
+    return c === Infinity && opts.ford !== undefined && inMap(m, x, y) && groundAt(m, x, y) === 'water' && !b?.(x, y) ? opts.ford : c;
+  };
+  const cost = (x: number, y: number) => (x === to.x && y === to.y ? Math.min(raw(x, y), 1) : raw(x, y, blocked));
   const g = new Map<number, number>();
   const came = new Map<number, number>();
   const start = from.y * W + from.x;

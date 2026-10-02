@@ -384,13 +384,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   part of the deterministic sim: `Raid.battle`, `Raider.bt`). `startBattle` runs when a raid turns active (`battlesOn`:
   `s.battles !== false`; the tests' `plainGame` turns it off), `stepBattle` each tick from `updateRaid`; raiders through
   the trail (`bt.out`) come on into the town as before, and the in-town loop skips the rest.
-  - The map (`layOut`): a zigzag trail (longer and bendier as the town grows, `len` 18 to 36 cells) to the gate, block
-    spots on it every 3 cells, wall spots from the town's walls (an outer line too with many), towers beside it from
-    defence buildings, traps on it, ground spots for shooters, the town's buildings along it (`decor`, drawn in its style),
-    a second trail for a raid that splits. Each origin's shape (`SHAPES`): the dwarves' rock, the merfolk's shore
-    (`water`), the nomads' wagons (wall spots), the druids' hedges (`hedges`), and a castle town's keep (`keep`: through
-    its gate and up its floors, `KEEP_BAND` cells each, a carpeted run across and the stairs at its end, murder-hole wall
-    spots on the floor above).
+  - The map (`layOut`): since the top-down town it is laid on the town's own land (see "Phase 5" under the top-down
+    town below): the trail from the fog to the gate, spots in land cells. (It was a zigzag trail on a map of its own,
+    with the town's buildings as decor and an origin's shape; that is gone.)
   - Phases: `placing` (`PLACE_TICKS`, 30 s; `battleGo` starts at once), `fighting`, `breather` between waves (bigger raids
     come in up to 4 waves of `WAVE_SIZE`), `done`. Whoever isn't placed is placed by `autoPlace` (blockers by cover,
     shooters walls first; the badly hurt kept back); `autoBattle` (`s.autoBattle`, remembered) and `Raid.alone` place
@@ -401,7 +397,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - Spells: `aimableSpells` (powers that touch foes); the player taps one and the trail (`battleCast` → `castAt`, which
     aims `foes()` through `b.aim` at `AIM_RADIUS`).
   - Mages: the class `mage` (`data/classes.ts`, research The Arcane Arts, Medieval) is not rare: one for every
-    `perPeople` (5), and the planner trains them itself (`trainMages`). They fight from range; their fire (`mageFire` in
+    `perPeople` (5), given out like every calling (`assignClass` in sim/classes.ts). They fight from range; their fire (`mageFire` in
     raids.ts, `MAGE_*` in data/raids.ts) ignores armour and bursts over those beside the target for half, in town and on
     the battle map (`MAGE_INTERVAL`, `MAGE_BURST`). Drawn as the sage sheet's blue wizard (`CLASS_LOOK` in peopleView).
   - The screen: `src/renderer/battle/battleView.ts` (`BattleScene`: the ground painted by `art/battleArt.ts`, the decor,
@@ -738,6 +734,27 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     `places` (`PlaceView`); the map draws them from the `places` props set (compose-props: cave mouths, dragon bones, a
     skull, a shrine, crystals, carts, camp tents; `renderPlaces` pulses a ring round a fight waiting), tap: a card with
     "Pick a party…"; the feed has a card per fight waiting. Tests: `test/places.test.ts`.
+  - **Phase 5, raids fought on the town's own map (done):** `layOut(s, side, flank)` in `sim/battle.ts` lays the battle
+    on the land: the trail is `trail(s, side)`, the cheapest path (`findPath` with `PathOpts.ford`: a river is waded at
+    cost `FORD` where it must be; buildings gone round) from where the raiders come out of the fog (`landEdge`:
+    `TRAIL_FROM` cells past `land.open` on the camp's row, at least `MIN_TRAIL` from the gate) to the gate (`gateCell`:
+    `townEdgeX` on the camp's row), straight runs folded; the flank is the same from the other side. Spots are land cells:
+    blocks along the trail (closer together on a short one, none in a ford), ground spots on free cells beside it, wall
+    spots on the town's walls within `WALL_NEAR` of it, towers on defence buildings within their range + `TOWER_NEAR`,
+    traps where the trail crosses them. `BattleMap` is `len`, `paths`, `spots`, `gate`, `style`, `wall` (the old decor,
+    walls, keep, hedges and water are gone: the land itself is the scenery). Each tick the raiders' px follow `foeAt`
+    (and allies stand at their spots), so MapRaiders draws them on the trail; `through` puts one at the gate. A placed
+    fighter walks to their spot (`doDefend` in people.ts) and fights, holds and is struck only once within `IN_PLACE`
+    of it (`inPlace` in `stepBattle`); the unplaced wait at the gate, and `nearestRaider` skips raiders still on the
+    trail. `src/renderer/map/mapBattle.ts` (`MapBattle`) draws over the map (MapView's `under` and `over` containers):
+    the trail lit the whole way (it runs into the dark), its rut, rings for the spots (lit while placing, filled when
+    held, white round the picked fighter's), the gate, shots, bursts, casts and the fighters' act sheets at the raiders'
+    px, and the aim ring; `toMap`/`spotAt`/`screenOf`/`leadScreen` for main.ts and previews (`window.__battle`). main.ts
+    routes a tap to `battleTap` first (aim, place, pick up), the camera centres on the gate as a battle begins and
+    follows the lead raider (`MapBattle.lead`); the HUD bars (`battleHud.ts`) are unchanged. The old `battle/battleView.ts`
+    and `art/battleArt.ts` are gone. The phone page keeps the town's zoom in a battle (`watchOn` alone draws at 1).
+    Soak (3 towns per origin, 10 days, people/deaths): settlers 17–24/1–2, druids 16–24/2, vampires 20–24/0–1, knights
+    21–24/0–1; no town lost.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

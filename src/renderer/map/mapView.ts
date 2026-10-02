@@ -84,6 +84,9 @@ export class MapView {
   private readonly marks = new Graphics();
   /** Everything that stands on the ground, sorted by its foot's y. */
   readonly things = new Container();
+  /** Marks on the ground under everything standing (a battle's trail and spots), and effects over it all. */
+  readonly under = new Container();
+  readonly over = new Container();
   private readonly ghost = new Sprite();
   private readonly chunks = new Map<string, { sprite: Sprite; key: string }>();
   private readonly props = new Map<number, { sprite: Sprite; key: string }>();
@@ -115,7 +118,7 @@ export class MapView {
     this.ghost.visible = false;
     this.ghost.anchor.set(0.5, 1);
     this.ghost.zIndex = 1e9;
-    this.world.addChild(this.ground, this.marks, this.things, this.ghost);
+    this.world.addChild(this.ground, this.marks, this.under, this.things, this.over, this.ghost);
     this.root.addChild(this.world);
     loadTdTiles().then(() => this.repaint(), () => undefined);
   }

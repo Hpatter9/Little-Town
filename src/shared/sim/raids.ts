@@ -705,13 +705,14 @@ export function defenderReach(p: Person): number {
   return sling || p.skills.ranged.level > p.skills.melee.level + 2 ? THROW_RANGE : MELEE_RANGE;
 }
 
-/** The raider a defender should go after: the nearest one on the map. */
+/** The raider a defender should go after: the nearest one in the town (those still on the battle's trail are the
+ *  battle's: battle.ts). */
 export function nearestRaider(s: GameState, at: Pt): Raider | null {
   const r = s.raid;
   if (!r || r.phase !== 'active') return null;
   let best: Raider | null = null;
   for (const rd of r.raiders) {
-    if (rd.down || rd.gone || rd.ally || rd.x < 0 || rd.x > worldW(s)) continue;
+    if (rd.down || rd.gone || rd.ally || rd.x < 0 || rd.x > worldW(s) || (rd.bt && !rd.bt.out)) continue;
     if (!best || dist(rd, at) < dist(best, at)) best = rd;
   }
   return best;

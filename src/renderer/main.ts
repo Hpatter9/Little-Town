@@ -2,7 +2,7 @@
 // should capture the mouse.
 
 import { CHATTER } from './chatter';
-import { BattleScene } from './battle/battleView';
+import { MapBattle } from './map/mapBattle';
 import { createBattleHud } from './battle/battleHud';
 import { FightScene } from './fight/fightView';
 import { createFightHud } from './fight/fightHud';
@@ -187,10 +187,9 @@ async function start(): Promise<void> {
   app.stage.addChild(map.root);
   if (weather) app.stage.addChild(weather.root);
   app.stage.addChild(snow.root, leaves.root, pane.root);
-  // a raid's battle on the trail takes over the strip while it's on (battle/battleView.ts)
-  const battle = new BattleScene();
-  app.stage.addChild(battle.root);
-  (window as unknown as { __battle?: BattleScene }).__battle = battle; // (for previews: where a spot is on screen)
+  // a raid's battle is fought on the town's own map (map/mapBattle.ts draws the trail, the spots and the shots over it)
+  const battle = new MapBattle(map);
+  (window as unknown as { __battle?: MapBattle }).__battle = battle; // (for previews: where a spot is on screen)
   // watching a party away, as in the old games (fight/fightView.ts): it takes over the strip too
   const fight = new FightScene();
   app.stage.addChild(fight.root);
@@ -701,6 +700,7 @@ async function start(): Promise<void> {
       }
       return;
     }
+    if (battleTap(x, y)) return;
     const h = hitTest(x, y);
     // the shop or tavern (or a stranger on their way to one) opens its bird's-eye window
     const tapped = h?.kind === 'person' ? snap.travellers.find((t) => t.id === h.person.id) : undefined;
@@ -741,7 +741,7 @@ async function start(): Promise<void> {
   window.addEventListener(
     'wheel',
     (e) => {
-      if (!hover && !placing) return;
+      if (!hover && !placing && !snap.battle) return;
       const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? window.innerWidth : 1;
       // (a plain wheel scrolls the map up and down; with shift, or a sideways wheel, across)
       if (e.shiftKey && !e.deltaX) camera.scrollBy(e.deltaY * unit * WHEEL_SPEED, 0);
@@ -759,25 +759,28 @@ async function start(): Promise<void> {
     const [a, b] = [...touches.values()];
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
-  // (in a battle, the map has the pointer: drags scroll it along, taps place fighters and aim spells)
-  let battlePress: { x: number; y: number; id: number; moved: boolean; last: number } | null = null;
-  const battleAlong = (e: PointerEvent) => (battle.vertical ? e.clientY : e.clientX);
-  const battleTap = (x: number, y: number) => {
+  // (in a battle, taps place fighters and aim spells; drags scroll the map as ever)
+  const battleTap = (x: number, y: number): boolean => {
     const b = snap.battle;
-    if (!b) return;
+    if (!b) return false;
     if (battle.aiming) {
       const at = battle.toMap(x, y);
-      if (!at) return;
+      if (!at) return true;
       bridge.command({ type: 'battleCast', power: battle.aiming, x: at[0], y: at[1] });
       battleHud.aiming = battle.aiming = null;
       battle.lastAim = null;
       battleHud.update(b, snap.raid?.name ?? 'Raiders');
-      return;
+      return true;
     }
     const spot = battle.spotAt(x, y);
-    if (spot === null) return;
-    const on = b.units.find((u) => u.spot === spot);
     const picked = battleHud.picked;
+    if (spot === null) {
+      if (picked === null) return false;
+      battleHud.picked = battle.selectedPerson = null; // (a tap elsewhere puts them down again)
+      battleHud.update(b, snap.raid?.name ?? 'Raiders');
+      return true;
+    }
+    const on = b.units.find((u) => u.spot === spot);
     if (picked !== null) {
       // (their own spot again: off it)
       const mine = b.roster.find((r) => r.id === picked)?.spot === spot;
@@ -785,15 +788,11 @@ async function start(): Promise<void> {
       battleHud.picked = battle.selectedPerson = null;
     } else if (on?.person !== null && on?.person !== undefined) {
       battleHud.picked = battle.selectedPerson = on.person; // (pick up who's there, to move them)
-    }
+    } else return false;
     battleHud.update(b, snap.raid?.name ?? 'Raiders');
+    return true;
   };
   canvas.addEventListener('pointerdown', (e) => {
-    if (battle.shown) {
-      battlePress = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, last: battleAlong(e) };
-      canvas.setPointerCapture(e.pointerId);
-      return;
-    }
     if (e.pointerType === 'touch') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2 && bridge.pinch) {
@@ -812,21 +811,12 @@ async function start(): Promise<void> {
       refreshHover();
     }
     // (a finger can drag the town from anywhere, sky included; on the desktop the sky is click-through)
-    if ((!hover && !placing && e.pointerType === 'mouse') || e.button !== 0) return;
+    if ((!hover && !placing && !snap.battle && e.pointerType === 'mouse') || e.button !== 0) return; // (in a battle, any spot of ground may be tapped)
     press = { x: e.clientX, y: e.clientY, id: e.pointerId };
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (battle.shown) {
-      if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
-      if (!battlePress || e.pointerId !== battlePress.id) return;
-      if (Math.hypot(e.clientX - battlePress.x, e.clientY - battlePress.y) > DRAG_THRESHOLD) battlePress.moved = true;
-      if (battlePress.moved) {
-        battle.dragBy(battleAlong(e) - battlePress.last);
-        battlePress.last = battleAlong(e);
-      }
-      return;
-    }
+    if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
     if (touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pinchFrom !== null && touches.size >= 2) return bridge.pinch?.('move', Math.max(20, spread()));
@@ -840,13 +830,6 @@ async function start(): Promise<void> {
     camera.dragTo(e.clientX, e.clientY, e.timeStamp);
   });
   const release = (e: PointerEvent) => {
-    if (battle.shown || battlePress) {
-      const p = battlePress;
-      battlePress = null;
-      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-      if (p && e.pointerId === p.id && !p.moved && e.type === 'pointerup' && battle.shown) battleTap(e.clientX, e.clientY);
-      return;
-    }
     touches.delete(e.pointerId);
     if (pinchFrom !== null && touches.size < 2) {
       bridge.pinch?.('end', 0);
@@ -911,16 +894,23 @@ async function start(): Promise<void> {
   let lastCamp: { x: number; y: number } | null = null;
   let buildStyle = 'town';
   const applySnapshot = (next: Snapshot) => {
-    // the battle on the trail, while there is one: it takes over the strip
-    battle.update(next, buildStyle || 'town');
+    // a raid's battle, while there is one: drawn over the town's map; the camera looks to the gate as it begins
+    const begun = !!next.battle && !snap.battle;
+    battle.update(next);
     battleHud.update(next.battle, next.raid?.name ?? 'Raiders');
     battle.selectedPerson = battleHud.picked;
     battle.aiming = battleHud.aiming;
+    if (begun) {
+      const g = battle.gate();
+      if (g) camera.centreOn(g, app.screen.width, app.screen.height);
+      select(null);
+      selectPerson(null);
+    }
     // (a raid's battle comes first: watching waits behind it)
     const watched = next.battle ? null : next.watch;
     fight.update(watched, next.biome, next.calendar.season);
     fightHud.update(watched);
-    map.root.visible = !next.battle && !watched;
+    map.root.visible = !watched;
     showNotices(next);
     snap = next;
     hud.update(next);
@@ -1011,7 +1001,9 @@ async function start(): Promise<void> {
       viewH = h;
     }
     // following someone: keep them in view (after the player has looked around a few seconds on their own)
-    const hero = snap.hero !== null ? people.posOf(snap.hero) : null;
+    // (in a battle, the raiders furthest along the trail)
+    const lead = battle.shown ? battle.lead() : null;
+    const hero = lead ?? (snap.hero !== null ? people.posOf(snap.hero) : null);
     if (hero) camera.follow(hero, w, h, performance.now(), FOLLOW_WAIT_MS);
     const moving = camera.update(ticker.deltaMS / 1000, w, h);
     map.setCamera(camera.x, camera.y, w, h);
@@ -1025,10 +1017,7 @@ async function start(): Promise<void> {
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);
     weather?.render(performance.now(), w);
     pane.render(performance.now(), ticker.deltaMS / 1000);
-    if (battle.shown) {
-      battle.resize(app.screen.width, app.screen.height, ...battleHud.insets());
-      battle.render(performance.now(), ticker.deltaMS / 1000, snap);
-    }
+    if (battle.shown) battle.render(performance.now());
     if (fight.shown) {
       fight.resize(app.screen.width, app.screen.height, ...fightHud.insets());
       fight.render(performance.now(), ticker.deltaMS / 1000);

@@ -2,23 +2,18 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
-import { autoPlace, battleSpeedNow, battleView, fighters, layOut, placeFighter, ranged, startBattle } from '../src/shared/sim/battle';
+import { autoPlace, battleSpeedNow, battleView, cumulative, fighters, foeAt, layOut, placeFighter, pointAt, ranged, startBattle } from '../src/shared/sim/battle';
 import { castAt } from '../src/shared/sim/powers';
 import { defenderAttack } from '../src/shared/sim/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { parseCommand } from '../src/shared/sim/commands';
 import { Sim } from '../src/shared/sim/sim';
-import { makePerson, newGame, type Building, type GameState, campCell } from '../src/shared/sim/state';
+import { makePerson, newGame, type GameState, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { plainGame, row } from './helpers';
+import { plainGame, put } from './helpers';
+import { groundAt, setGround } from '../src/shared/sim/land';
 
 const camp = (s: GameState) => campCell(s).x;
-
-function add(s: GameState, def: string, tile: number): Building {
-  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
-  s.buildings.push(b);
-  return b;
-}
 
 /** A town of `n` fighters (half of them shooters), with battles on and no raid of its own coming. */
 function town(seed: string, n = 4): GameState {
@@ -44,21 +39,33 @@ function raidNow(s: GameState, budget = 30, seed = 1) {
   return r;
 }
 
-test('the battle map is built from the town: bigger towns get longer trails, walls give wall spots, towers are towers', () => {
-  const small = town('map-small');
-  const big = town('map-big');
-  for (let i = 0; i < 14; i++) add(big, 'lean_to', camp(big) + 3 + i * 2);
-  for (let i = 0; i < 4; i++) add(big, 'palisade_wall', camp(big) - 10 - i);
-  add(big, 'guard_tower', camp(big) - 6);
-  const a = layOut(small, false);
-  const b = layOut(big, false);
-  assert.ok(b.len > a.len, `a bigger town, a longer trail (${a.len} -> ${b.len})`);
+test('the battle is laid out on the land: the trail runs from its edge to the gate, walls overlooking it give wall spots, a tower in reach is a tower', () => {
+  const plain = town('map-small');
+  const walled = town('map-big');
+  const c = camp(walled);
+  const y = campCell(walled).y;
+  // a wall across the west, a tower behind it, homes further in
+  for (let i = 0; i < 4; i++) put(walled, 'palisade_wall', c - 8 - i, y + 1);
+  put(walled, 'guard_tower', c - 7, y);
+  for (let i = 0; i < 6; i++) put(walled, 'lean_to', c + 3 + i * 2, y + 3);
+  const a = layOut(plain, -1, false);
+  const b = layOut(walled, -1, false);
+  for (const map of [a, b]) {
+    const path = map.paths[0];
+    assert.ok(path[0][0] < c - plain.land.open && Math.hypot(path[0][0] - 0.5 - c, path[0][1] - 0.5 - y) >= plain.land.open, 'in from the fog to the west');
+    assert.ok(map.len > 6, `a trail of ${map.len} cells`);
+    const [gx, gy] = map.gate;
+    assert.equal(gy, y + 0.5, 'to the gate on the camp row');
+    assert.ok(gx < c, 'at the town\'s west edge');
+    assert.ok(path.every(([px, py]) => !walled.buildings.some((q) => q.status === 'done' && px >= q.tile && px < q.tile + 1 && py >= (q.row ?? 0) && py < (q.row ?? 0) + 1)), 'round the buildings');
+  }
+  assert.ok(b.gate[0] < a.gate[0], 'the walled town\'s gate is further out');
   assert.equal(a.spots.filter((q) => q.kind === 'wall').length, 0, 'no walls, no wall spots');
-  assert.ok(b.spots.filter((q) => q.kind === 'wall').length >= 4, 'wall spots from the walls');
+  assert.equal(b.spots.filter((q) => q.kind === 'wall').length, 4, 'a wall spot on each wall');
   assert.equal(b.spots.filter((q) => q.kind === 'tower').length, 1, 'the tower');
-  assert.ok(b.decor.some((d) => d.def === 'lean_to'), 'the homes are on the map');
   assert.ok(a.spots.some((q) => q.kind === 'block') && a.spots.some((q) => q.kind === 'ground'));
-  assert.ok(layOut(big, true).paths.length === 2, 'a second way in for a raid that splits');
+  assert.ok(layOut(walled, -1, true).paths.length === 2, 'a second way in for a raid that splits');
+  assert.ok(layOut(walled, -1, true).paths[1][0][0] > c + walled.land.open, 'from the east');
 });
 
 test('a raid arrives: the placing phase, then the town places whoever the player has not, and they hold the trail', () => {
@@ -124,8 +131,7 @@ test('a spell cast on the map strikes only the raiders where it is aimed', () =>
   foes.forEach((rd, i) => (rd.bt!.d = i === 0 ? 2 : 14)); // one near the start, the rest far along
   const near = foes[0];
   const before = foes.map((rd) => rd.hp);
-  const path = b.map.paths[0];
-  assert.ok(castAt(s, 'drain_life', new Rng(1), [path[0][0] + 2, path[0][1]]), 'cast');
+  assert.ok(castAt(s, 'drain_life', new Rng(1), foeAt(b.map, near)), 'cast');
   assert.ok(near.hp < before[0], 'the one where it was aimed is hurt');
   assert.ok(foes.slice(1).every((rd, i) => rd.hp === before[i + 1]), 'the others are not');
   assert.ok(b.casts?.length === 1, 'and the cast is shown on the map');
@@ -143,7 +149,8 @@ test('the same battle plays out the same every time (it is part of the sim)', ()
 
 test('the town places its blockers on the trail and its shooters on the walls first', () => {
   const s = town('walls', 6);
-  for (let i = 0; i < 6; i++) add(s, 'palisade_wall', camp(s) - 10 - i);
+  for (let i = 0; i < 3; i++) put(s, 'palisade_wall', camp(s) - 8 - i, campCell(s).y + 1);
+  for (let i = 0; i < 3; i++) put(s, 'palisade_wall', camp(s) + 8 + i, campCell(s).y + 1);
   const r = startRaid(s, RAID_KIND_BY_ID.bandits, 30, new Rng(5));
   r.phase = 'active';
   s.autoBattle = false;
@@ -159,17 +166,42 @@ test('the town places its blockers on the trail and its shooters on the walls fi
   assert.ok(updateRaid);
 });
 
-test("each origin's map: a castle town's raiders climb its keep floor by floor; the druids' trail runs between hedges", () => {
-  const v = newGame('keep', { origin: 'vampire' });
-  const room = add(v, 'lean_to', camp(v));
-  room.room = true;
-  const map = layOut(v, false);
-  assert.ok(map.keep && map.keep.floors === 1, `one level (${JSON.stringify(map.keep)})`);
+test('the trail fords a river where it must, and never crosses water otherwise', () => {
+  const s = town('ford');
+  const m = s.land;
+  // a river right across the land, west of the camp
+  const rx = camp(s) - 6;
+  for (let y = 0; y < m.h; y++) setGround(m, rx, y, 'water');
+  const map = layOut(s, -1, false);
   const path = map.paths[0];
-  assert.ok(path[path.length - 1][0] > map.keep.from, 'the trail goes on into the keep');
-  assert.ok(map.spots.some((q) => q.kind === 'block' && q.x > map.keep!.from), 'the stairs can be held');
-  assert.ok(!layOut(newGame('plain', { origin: 'knights' }), false).keep, 'no keep for a town without a castle');
-  assert.ok(layOut(newGame('grove', { origin: 'druid' }), false).hedges);
+  let wet = 0;
+  for (let d = 0; d < map.len; d += 0.5) {
+    const [px, py] = pointAt(path, cumulative(path), d);
+    if (groundAt(m, Math.floor(px), Math.floor(py)) === 'water') wet++;
+  }
+  assert.ok(wet > 0 && wet <= 4, `wades the river once (${wet} wet steps)`);
+  assert.ok(map.spots.every((q) => groundAt(m, Math.floor(q.x), Math.floor(q.y)) !== 'water'), 'no spot stands in the water');
+});
+
+test('the raiders walk the trail over the land, and the fighters walk out to their spots before they fight', () => {
+  const sim = new Sim(town('walk', 4));
+  const s = sim.state;
+  const r = raidNow(s, 30);
+  sim.step();
+  const b = r.battle!;
+  const far = b.map.spots.filter((q) => q.kind === 'block').sort((p, q) => p.x - q.x)[r.side < 0 ? 0 : b.map.spots.filter((q) => q.kind === 'block').length - 1];
+  const fist = fighters(s).find((p) => !ranged(p))!;
+  assert.ok(placeFighter(s, fist.id, far.id));
+  const before = { x: fist.x, y: fist.y };
+  for (let i = 0; i < 50; i++) sim.step();
+  assert.ok(Math.hypot(fist.x - before.x, fist.y - before.y) > 32, 'on their way');
+  for (let i = 0; i < 1500 && Math.hypot(fist.x / 32 - far.x, fist.y / 32 - far.y) > 1.2; i++) sim.step();
+  assert.ok(Math.hypot(fist.x / 32 - far.x, fist.y / 32 - far.y) <= 1.2, 'at the spot');
+  for (let i = 0; i < 400 && b.phase === 'placing'; i++) sim.step();
+  for (let i = 0; i < 200 && !r.raiders.some((rd) => rd.bt!.d > 1); i++) sim.step();
+  const rd = r.raiders.find((q) => q.bt!.d > 1)!;
+  const [cx, cy] = foeAt(b.map, rd);
+  assert.ok(Math.abs(rd.x - cx * 32) < 1 && Math.abs(rd.y - cy * 32) < 1, 'a raider stands on the land where it is on the trail');
 });
 
 test('mages: their fire bursts over the raiders round the one hit', () => {

@@ -30,7 +30,7 @@ import { defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } f
 import { ENEMIES } from '../data/enemies';
 import { THROW_RANGE } from '../data/raids';
 import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
-import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Task } from './state';
+import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Raider, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
@@ -343,8 +343,22 @@ export function cavalry(s: GameState): Map<number, number> {
 }
 
 function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' }>, rng: Rng): void {
-  const rd = nearestRaider(s, p);
   const mounted = cavalry(s).has(p.id);
+  // the battle on the trail (battle.ts): a placed fighter walks to their spot and fights from it; the rest wait at
+  // the gate for whoever gets through
+  const b = s.raid?.battle;
+  const unit = b && b.phase !== 'done' ? b.units.find((u) => u.person === p.id) : undefined;
+  if (unit) {
+    const q = b!.map.spots.find((x) => x.id === unit.spot)!;
+    const at = { x: q.x * CELL, y: q.y * CELL };
+    if (goTo(s, p, at) || (mounted && goTo(s, p, at))) {
+      p.activity = s.tick - (unit.lastAt ?? -999) < 6 ? 'fight' : 'idle';
+      const foe = nearestOnTrail(s, p);
+      if (foe && Math.abs(foe.x - p.x) > 1) p.dir = foe.x > p.x ? 1 : -1;
+    }
+    return;
+  }
+  const rd = nearestRaider(s, p);
   if (!rd) {
     const rally = rallyPoint(s);
     if (goTo(s, p, rally) || (mounted && goTo(s, p, rally))) p.activity = 'idle'; // wait for them at the edge of camp
@@ -371,6 +385,16 @@ function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' 
   if (--task.cooldown > 0) return;
   task.cooldown = rallied(s, p) ? Math.round(DEFEND_INTERVAL / RALLY_SPEED) : DEFEND_INTERVAL;
   defenderAttack(s, p, rd, rng, mounted ? CAVALRY_DAMAGE : 0);
+}
+
+/** The nearest raider on the battle's trail (still to get through), to face. */
+function nearestOnTrail(s: GameState, at: Pt): Raider | null {
+  let best: Raider | null = null;
+  for (const rd of s.raid?.raiders ?? []) {
+    if (rd.down || rd.gone || rd.ally || !rd.bt || rd.bt.out || rd.bt.d < 0) continue;
+    if (!best || dist(rd, at) < dist(best, at)) best = rd;
+  }
+  return best;
 }
 
 /* ------------------------------------------------------------ work */

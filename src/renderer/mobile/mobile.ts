@@ -66,16 +66,17 @@ sheet.append(panel);
  * tabs, the town along the bottom and more sky over it the further out it's zoomed. The clock bar and cards in the
  * strip are scaled back up, so they stay readable however far out it goes.
  */
-/** A raid's battle is on screen. */
+/** A raid's battle, or a party's fight, is on screen (the map has all of it); a fight is drawn at its own scale. */
 let battleOn = false;
+let watchOn = false;
 
 function layout(): void {
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
   // (upright, the town has the lower part and the feed the rest; on its side, everything under the tabs)
-  // (in a battle the map has all of it, the feed hidden: the strip draws the battle at its own scale)
+  // (in a battle the map has all of it, the feed hidden; watching a party's fight too, drawn at its own scale)
   const room = sideways.matches || battleOn ? free : Math.round(free * UPRIGHT_TOWN);
-  // (the top-down town fills its room at the zoom; a battle is drawn at its own scale)
-  const fit = battleOn ? 1 : zoom;
+  // (the top-down town fills its room at the zoom, a raid's battle on it; a party's fight is drawn at its own scale)
+  const fit = watchOn ? 1 : zoom;
   // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
   const dpr = window.devicePixelRatio || 1;
   // (and, where it costs little, an even number: the art has detail on a grid twice as fine, pixelArt.ts FINE)
@@ -164,8 +165,9 @@ const tabButtons = PANELS.map((p) => {
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)
-  if (!!(snap.battle || snap.watch) !== battleOn) {
+  if (!!(snap.battle || snap.watch) !== battleOn || !!snap.watch !== watchOn) {
     battleOn = !!(snap.battle || snap.watch);
+    watchOn = !!snap.watch;
     document.body.classList.toggle('battle', battleOn);
     layout();
   }
