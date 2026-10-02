@@ -11,7 +11,7 @@ import { CENTRE_X, FEET_Y, FRAME_SIZE, loadLpc, lpcCanvas } from '../art/lpc/lpc
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
-import { CLASS_DEFS } from '../../shared/data/classes';
+import { CLASS_DEFS, STAGE_LEVELS } from '../../shared/data/classes';
 import { WEIGHT_NAMES } from '../../shared/data/armour';
 import { FAMILIES } from '../../shared/data/weapons';
 import type { Material } from '../../shared/data/materials';
@@ -36,9 +36,10 @@ export const townsfolkKey = (s: Snapshot) =>
     s.turnable,
     confirmTurn,
     s.research.done.length,
-    s.people.map((p) => [p.clsName, p.level, Math.round(p.levelProgress * 20), p.away, p.battle, p.kit.length, p.carrying]),
+    s.people.map((p) => [p.clsName, p.stage, p.level, Math.round(p.levelProgress * 20), p.away, p.battle, p.kit.length, p.carrying]),
     inspecting,
     chosenSlot,
+    classOpen,
     s.theme,
     lpcLoaded,
   ]);
@@ -46,6 +47,8 @@ export const townsfolkKey = (s: Snapshot) =>
 /** Who's being inspected (null: the list), and the slot whose piece is shown below their gear. */
 let inspecting: number | null = null;
 let chosenSlot: Slot | null = null;
+/** Whose class path is open (tapped on their class). */
+let classOpen: number | null = null;
 
 /** High -> Normal -> Low -> Off -> High. */
 const NEXT: Record<Priority, Priority> = { 1: 2, 2: 3, 3: 0, 0: 1 };
@@ -153,7 +156,7 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
   top.append(el('span', 'card-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('span', 'card-size', `${p.typeName} · ${p.bed ? `bed: ${p.bed}` : 'no bed'}`));
   card.append(top, el('div', 'lock', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
   for (const d of p.detail) card.append(el('div', 'hint', d));
-  card.append(classRow(p, bridge));
+  card.append(classRow(p, bridge, rerender));
   whoBox.append(card);
 
   // their gear, Diablo-style, the piece picked, and what they carry
@@ -515,8 +518,10 @@ function turnButtons(p: PersonView, s: Snapshot, bridge: Bridge | undefined): HT
   return row;
 }
 
-/** Their class and level: the stage they're at among the five, the way to the next level, and what they wear and wield. */
-function classRow(p: PersonView, _bridge: Bridge | undefined): HTMLElement {
+/** Their class and level, and the way to the next level. Only the class they are now is named; tapped, it opens
+ *  the path they've come along (the stages they've passed) and what the next one needs, left unnamed: what they'll
+ *  become is a mystery until it comes. */
+function classRow(p: PersonView, _bridge: Bridge | undefined, rerender: () => void = () => undefined): HTMLElement {
   const row = el('div', 'row class-row');
   if (!p.cls) {
     if (p.growsUpIn === null) row.append(el('span', 'lock short', `Level ${p.level}. Their calling will come to them soon.`));
@@ -527,12 +532,38 @@ function classRow(p: PersonView, _bridge: Bridge | undefined): HTMLElement {
   const fill = el('span', '');
   fill.style.width = `${Math.round(p.levelProgress * 100)}%`;
   bar.append(fill);
-  row.append(el('span', 'chip', `${p.clsName} · Lv ${p.level}`), bar);
-  const stages = el('div', 'hint', def.stages.map((n) => (n === p.clsName ? `[${n}]` : n)).join(' → '));
-  const gear = el('div', 'hint', `${def.description} Wears ${def.armour.map((w) => WEIGHT_NAMES[w].toLowerCase()).join(', ')}; wields ${def.weapons.map((f) => FAMILIES[f].name.toLowerCase() + 's').join(', ')}.`);
+  bar.title = `${Math.round(p.levelProgress * 100)}% of the way to level ${p.level + 1}`;
+  const open = classOpen === p.id;
+  const chip = button(`${open ? '▾' : '▸'} ${p.clsName} · Lv ${p.level}`, () => {
+    classOpen = open ? null : p.id;
+    rerender();
+  }, { cls: 'chip class-chip', title: 'Their calling: tap for the path so far' });
+  row.append(chip, bar);
   const box = el('div', '');
-  box.append(row, stages, gear);
+  box.append(row);
+  if (open) {
+    const path = el('div', 'class-path');
+    const past = def.stages.slice(0, p.stage);
+    path.append(el('div', 'hint', past.length ? `The path so far: ${past.join(' → ')} → ${p.clsName} (now)` : `${p.clsName} is where their path begins.`));
+    path.append(el('div', 'lock short', nextStage(p)));
+    box.append(path);
+  }
+  box.append(el('div', 'hint', `${def.description} Wears ${def.armour.map((w) => WEIGHT_NAMES[w].toLowerCase()).join(', ')}; wields ${def.weapons.map((f) => FAMILIES[f].name.toLowerCase() + 's').join(', ')}.`));
   return box;
+}
+
+/** What it takes to reach their next stage, without saying what it is. */
+function nextStage(p: PersonView): string {
+  const last = STAGE_LEVELS.length - 1;
+  if (p.stage >= last) return 'The last of their line: there is nothing further to become.';
+  const at = STAGE_LEVELS[p.stage + 1];
+  if (p.stage + 1 < last) {
+    return p.level >= at ? 'Their next calling is upon them: it comes within the hour.' : `Next: ??? — they change at level ${at} (now ${p.level}, ${at - p.level} to go).`;
+  }
+  // (the last stage takes an ascension too)
+  return p.level >= at
+    ? `Next: ??? — they've reached level ${at}; now it takes an ascension: a small chance each day, or a deed worthy of legend.`
+    : `Next: ??? — it takes level ${at} (now ${p.level}, ${at - p.level} to go), and then an ascension: a small chance each day, or a deed worthy of legend.`;
 }
 
 /** A monster's standing order for the Hunter's Guild. */

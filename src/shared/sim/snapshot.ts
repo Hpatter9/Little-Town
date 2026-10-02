@@ -91,6 +91,9 @@ export interface PersonView {
   /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
   clsName: string | null;
+  /** Which of their class's five stages they're at (0 to 4), and whether they've ascended (the last needs it). */
+  stage: number;
+  ascended: boolean;
   level: number;
   levelProgress: number;
   /** Riding into a fight (cavalry): the horse's coat. */
@@ -862,6 +865,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     mounted: null,
     cls: p.cls ?? null,
     clsName: p.cls ? className(p.cls, stageOf(p)) : null,
+    stage: stageOf(p),
+    ascended: !!p.ascended,
     level: levelOf(p),
     levelProgress: levelProgress(p),
     doing: describe(s, p),

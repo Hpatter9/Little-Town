@@ -1036,6 +1036,36 @@
       .back-btn {
         margin-bottom: 8px;
       }
+      .class-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 4px 0;
+      }
+      .class-chip {
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .class-row .skill-bar {
+        display: block;
+        flex: 1;
+        max-width: 140px;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+      }
+      .class-row .skill-bar span {
+        display: block;
+        height: 100%;
+        background: #8ab0ff;
+      }
+      .class-path {
+        margin: 2px 0 4px;
+        padding-left: 8px;
+        border-left: 2px solid rgba(255, 224, 138, 0.4);
+      }
       .inspect-layout {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
