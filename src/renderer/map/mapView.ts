@@ -4,7 +4,7 @@
 // being placed. People and raiders are drawn into `things` by mapPeople.ts and mapRaiders.ts, sorted the same way.
 // The whole world is tinted for the time of day.
 
-import { AnimatedSprite, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { AnimatedSprite, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { Rng } from '../../shared/rng';
 import { campfireFrames } from '../art/sprites';
 import { fieldArt, isPlot } from './fieldArt';
@@ -12,7 +12,7 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
-import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap } from '../../shared/sim/land';
+import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap, type Rect } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import type { PlaceView } from '../../shared/sim/snapshot';
 import { buildingArt, type CropLook } from '../art/buildings';
@@ -23,6 +23,7 @@ import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
+import { CARPET_W, cornerTower, floorTile, MERLON, northWall, sideWalkTile, southWall, TOWER_H, TOWER_W, WALL_FACE, WALL_T } from './keepArt';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
 const CULL_MARGIN = 64;
@@ -112,6 +113,10 @@ export class MapView {
   height = 0;
   /** A slower phone: fewer props. */
   calm = false;
+  /** A castle town's keep (map/keepArt.ts): its floor and side walks under everything, its walls and towers among the
+   *  things; `wide` sprites span the view and are never culled. */
+  private castle: { key: string; under: Container; things: Container[] } | null = null;
+  private readonly wide = new Set<Container>();
 
   constructor() {
     this.things.sortableChildren = true;
@@ -137,8 +142,8 @@ export class MapView {
       s.renderable = s.x + side > x0 && s.x < x1 && s.y + side > y0 && s.y < y1;
     }
     for (const t of this.things.children) {
-      // (anything standing on the map is at most a few cells wide and some taller than wide)
-      t.renderable = t.x > x0 - 96 && t.x < x1 + 96 && t.y > y0 - 32 && t.y < y1 + 160;
+      // (anything standing on the map is at most a few cells wide and some taller than wide, but for the keep's walls)
+      t.renderable = this.wide.has(t) || (t.x > x0 - 96 && t.x < x1 + 96 && t.y > y0 - 32 && t.y < y1 + 160);
     }
   }
 
@@ -409,6 +414,69 @@ export class MapView {
     return buildingArt(b.def, this.tone, this.toneKey, cropLook(b), this.style);
   }
 
+  /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */
+  syncCastle(rect: Rect | null): void {
+    const key = rect ? `${rect.x},${rect.y},${rect.w},${rect.h}|${this.toneKey}` : '';
+    if (this.castle?.key === key) return;
+    if (this.castle) {
+      this.castle.under.destroy({ children: true });
+      for (const t of this.castle.things) {
+        this.wide.delete(t);
+        t.destroy({ children: true });
+      }
+      this.castle = null;
+    }
+    if (!rect) return;
+    const left = rect.x * CELL;
+    const top = rect.y * CELL;
+    const w = rect.w * CELL;
+    const h = rect.h * CELL;
+    const bottom = top + h;
+    const under = this.under.addChild(new Container());
+    // the floor, and the carpet from the gate up to the middle
+    const floor = under.addChild(new TilingSprite({ texture: floorTile(this.tone, this.toneKey).texture, width: w, height: h }));
+    floor.position.set(left, top);
+    floor.tileScale.set(1 / FINE_SCALE(floor.texture));
+    const carpet = under.addChild(new Graphics());
+    const cx = left + w / 2;
+    carpet.rect(cx - CARPET_W / 2, top + h / 2, CARPET_W, h / 2).fill({ color: 0xa01828 });
+    carpet.rect(cx - CARPET_W / 2 + 2, top + h / 2 + 2, CARPET_W - 4, h / 2 - 2).fill({ color: 0x8a1424 });
+    carpet.rect(cx - CARPET_W / 2 + 2, top + h / 2, CARPET_W - 4, 2).fill({ color: 0xd8b050 });
+    // the side walks
+    const walkTex = sideWalkTile(this.tone, this.toneKey).texture;
+    for (const x of [left, left + w - WALL_T]) {
+      const side = under.addChild(new TilingSprite({ texture: walkTex, width: WALL_T, height: h - 2 * WALL_T }));
+      side.position.set(x, top + WALL_T);
+      side.tileScale.set(1 / FINE_SCALE(walkTex));
+    }
+    // the walls among the things: the north wall's face looks into the keep (rooms by it stand in front), the south
+    // wall and its gatehouse stand in front of everything inside
+    const things: Container[] = [];
+    const north = this.things.addChild(new Sprite(northWall(w, this.tone, this.toneKey).texture));
+    north.position.set(left, top - MERLON);
+    north.zIndex = top + WALL_T;
+    const southArt = southWall(w, this.tone, this.toneKey);
+    const south = this.things.addChild(new Sprite(southArt.texture));
+    south.position.set(left, bottom + WALL_FACE - southArt.height);
+    south.zIndex = bottom + 1;
+    things.push(north, south);
+    this.wide.add(north).add(south);
+    // the corner towers, their feet on the walks
+    const towerTex = cornerTower(this.tone, this.toneKey).texture;
+    for (const [x, y] of [
+      [left, top + WALL_T],
+      [left + w, top + WALL_T],
+      [left, bottom],
+      [left + w, bottom],
+    ]) {
+      const t = this.things.addChild(new Sprite(towerTex));
+      t.position.set(x - TOWER_W / 2, y - TOWER_H + 2);
+      t.zIndex = y + (y === bottom ? 2 : 0);
+      things.push(t);
+    }
+    this.castle = { key, under, things };
+  }
+
   syncBuildings(list: Building[]): void {
     const seen = new Set<number>();
     for (const b of list) {
@@ -562,4 +630,9 @@ function darkTexture(): Texture {
   g.fillStyle = '#0b0d14';
   g.fillRect(0, 0, c.width, c.height);
   return (dark = Texture.from(c));
+}
+
+/** A painted texture's resolution (pixelArt.ts FINE): a tiling sprite scales its tile back to art pixels by it. */
+function FINE_SCALE(tex: Texture): number {
+  return tex.source.resolution || 1;
 }

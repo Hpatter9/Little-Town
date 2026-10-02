@@ -962,6 +962,7 @@ async function start(): Promise<void> {
     }
     map.syncLand(next.land, next.calendar.season, next.biome); // (paints again only what changed)
     map.syncBuildings(next.buildings);
+    map.syncCastle(next.castle?.rect ?? null);
     map.syncPlaces(next.places);
     // (a nomad tribe that moved camp: the view goes to the new camp)
     if (lastCamp !== null && (next.camp.x !== lastCamp.x || next.camp.y !== lastCamp.y)) camera.centreOn(next.camp, app.screen.width, app.screen.height);
