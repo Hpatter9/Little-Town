@@ -1,7 +1,7 @@
 // Expedition Board: parties that are out, and where you can send one next.
 
 import { eraReached } from '../../shared/data/eras';
-import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
+import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_DELVERS, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../../shared/data/materials';
 import { FOOD_VALUE } from '../../shared/data/people';
 import { TOPIC_BY_ID } from '../../shared/data/research';
@@ -13,6 +13,9 @@ import { WorldMapView } from './worldMapView';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { ENEMIES } from '../../shared/data/enemies';
 import { UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
+
+/** Each kind of room, as the card names it. */
+const ROOM_NAMES: Record<string, string> = { fight: 'a fight', trap: 'a trap', treasure: 'treasure', shrine: 'a shrine', puzzle: 'a puzzle door', camp: 'a rest camp', fork: 'a fork', boss: 'the boss' };
 
 /** The destination picked on the world map (or by tapping its card): flagged, with the route out to it. */
 let mapPick: string | null = null;
@@ -29,9 +32,13 @@ const pick = (id: string) => {
   rerenderBoard();
 };
 
+/** Who the player has picked for each dungeon's delve (until sent). */
+const delvePicks = new Map<string, Set<number>>();
+
 export const expeditionsKey = (s: Snapshot) =>
   JSON.stringify([
     mapPick,
+    [...delvePicks].map(([k, v]) => [k, [...v]]),
     s.expeditions.map((e) => [e.id, e.phase, Math.floor(e.phaseProgress * 50), e.lootSize, e.recalled, e.waiting, e.battle?.map((f) => [f.hp, f.down])]),
     s.era,
     s.destinations,
@@ -117,6 +124,12 @@ function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined):
   fill.style.width = `${Math.round(whole * 100)}%`;
   bar.append(fill);
   c.append(bar);
+  if (e.delve) {
+    const kind = e.delve.kind ? ROOM_NAMES[e.delve.kind] ?? e.delve.kind : null;
+    c.append(el('div', 'purpose', e.delve.cleared ? 'Cleared! Heading home with the hoard.' : e.delve.room ? `Room ${e.delve.room} of ${e.delve.rooms}${kind ? ` (${kind})` : ''} · ${e.delve.torches} torch${e.delve.torches === 1 ? '' : 'es'} left` : `${e.delve.torches} torches packed for ${e.delve.rooms} rooms`));
+    const last = e.delve.log.at(-1);
+    if (last) c.append(el('div', 'lock short', last));
+  }
   c.append(el('div', 'purpose', `Loot ${e.lootSize}/${e.carry}${e.lootSize ? ': ' + listStock(e.loot) : ''}`));
   c.append(el('div', 'purpose', `Packed food: ${listStock(e.supplies) || 'none'}`));
   // (watch them: the town view gives way to the party on the road and their fights, as in the old games)
@@ -148,6 +161,7 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
     c.append(el('div', 'lock short', `Needs research: ${TOPIC_BY_ID[d.research!]?.name ?? d.research}`));
     return c;
   }
+  if (d.type === 'delve') return delveControls(c, d, v, s, bridge);
 
   // The town plans the party (who goes, their roles, horses, a truck); the player picks only the stakes
   const party = v.party;
@@ -161,6 +175,44 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
   row.append(
     button(full ? 'Too many out' : 'Send: safe', () => send('safe'), { disabled: full || !party.length, title: 'A cautious party: packs light, keeps clear of trouble, and falls back early.' }),
     button(full ? 'Too many out' : 'Send: risky', () => send('risky'), { disabled: full || !party.length, cls: 'place danger', title: 'A bold party: loads up half again as much, and goes looking for trouble.' }),
+  );
+  c.append(row);
+  return c;
+}
+
+/** A dungeon's card: the player picks who delves it (up to MAX_DELVERS, the strongest first by default), then the stakes. */
+function delveControls(c: HTMLElement, d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
+  const able = (v.candidates ?? []).map((id) => s.people.find((p) => p.id === id)).filter((p): p is Snapshot['people'][number] => !!p);
+  let picked = delvePicks.get(d.id);
+  if (!picked) {
+    picked = new Set([...able].sort((a, b) => b.level - a.level).slice(0, Math.min(d.recommendedParty, MAX_DELVERS)).map((p) => p.id));
+    delvePicks.set(d.id, picked);
+  }
+  for (const id of [...picked]) if (!able.some((p) => p.id === id)) picked.delete(id);
+  if (v.cleared) c.append(el('div', 'purpose', `Cleared ${v.cleared} time${v.cleared === 1 ? '' : 's'}.`));
+  c.append(el('div', 'purpose', `Pick the delvers (up to ${MAX_DELVERS}): ${picked.size} chosen.`));
+  const chips = el('div', 'row delvers');
+  for (const p of able) {
+    const on = picked.has(p.id);
+    // (a tick on the picked: the menu themes paint chips their own way)
+    const chip = button(`${on ? '✓ ' : ''}${p.name} · Lv ${p.level}${p.clsName ? ` ${p.clsName}` : ''}`, () => {
+      if (on) picked!.delete(p.id);
+      else if (picked!.size < MAX_DELVERS) picked!.add(p.id);
+      rerenderBoard();
+    }, { cls: `chip${on ? ' on' : ''}` });
+    chips.append(chip);
+  }
+  c.append(chips);
+  if (!able.length) c.append(el('div', 'lock short', 'Nobody at home is fit to go.'));
+  const full = s.expeditions.length >= MAX_EXPEDITIONS;
+  const go = (stakes: 'safe' | 'risky') => {
+    bridge?.command({ type: 'sendDelve', dest: d.id, members: [...picked!], stakes });
+    delvePicks.delete(d.id);
+  };
+  const row = el('div', 'row stakes');
+  row.append(
+    button(full ? 'Too many out' : 'Delve: safe', () => go('safe'), { disabled: full || !picked.size, title: 'Take the safer ways at the forks, and fall back early.' }),
+    button(full ? 'Too many out' : 'Delve: risky', () => go('risky'), { disabled: full || !picked.size, cls: 'place danger', title: 'Take the darker ways: more foes, more gold.' }),
   );
   c.append(row);
   return c;

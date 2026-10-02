@@ -34,6 +34,7 @@ export type Command =
   | { type: 'sendExpedition'; dest: string; members: number[]; roles?: Record<number, Role>; stance?: Stance; horses?: number; truck?: boolean }
   /** Send a party the town plans, at the stakes the player picks (safe or risky). */
   | { type: 'sendParty'; dest: string; stakes: 'safe' | 'risky' }
+  | { type: 'sendDelve'; dest: string; members: number[]; stakes: 'safe' | 'risky' }
   /** Pass on a curse (hidden): turn one person, or everyone who can be. */
   | { type: 'turnPerson'; person: number; kind: MonsterKind }
   | { type: 'turnTown'; kind: MonsterKind }
@@ -126,6 +127,8 @@ export function parseCommand(raw: unknown): Command | null {
     case 'cancelResearch':
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
+    case 'sendDelve':
+      return typeof c.dest === 'string' && Array.isArray(c.members) && c.members.every((m: unknown) => typeof m === 'number') && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendDelve', dest: c.dest, members: c.members as number[], stakes: c.stakes } : null;
     case 'sendParty':
       return typeof c.dest === 'string' && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendParty', dest: c.dest, stakes: c.stakes } : null;
     case 'sendExpedition': {

@@ -2,11 +2,12 @@
 
 import { BESTIARY_LAIRS } from './bestiary';
 import { SCOUT_DESTINATIONS } from './regions';
+import { DUNGEON_DESTINATIONS } from './dungeons';
 import type { EnemyGroup } from './enemies';
 import type { Era } from './eras';
 import type { Material } from './materials';
 
-export type ExpeditionType = 'gather' | 'hunt' | 'legendary' | 'salvage' | 'clear' | 'rescue' | 'scout';
+export type ExpeditionType = 'gather' | 'hunt' | 'legendary' | 'salvage' | 'clear' | 'rescue' | 'scout' | 'delve';
 
 export interface Encounters {
   /** Chance of a fight on arrival. */
@@ -44,6 +45,9 @@ export interface Destination {
 
 /** "at the Riverbank", but "at The Labyrinth" (a place whose name has its own "The"). */
 export const atPlace = (name: string) => (/^the /i.test(name) ? `at ${name}` : `at the ${name}`);
+/** "the Riverbank", but "The Labyrinth" (its own "The" kept); and the same at the start of a sentence. */
+export const the = (name: string) => (/^the /i.test(name) ? name : `the ${name}`);
+export const The = (name: string) => (/^the /i.test(name) ? name : `The ${name}`);
 
 export const DESTINATIONS: readonly Destination[] = [
   {
@@ -374,11 +378,13 @@ export const DESTINATIONS: readonly Destination[] = [
   ...BESTIARY_LAIRS,
   // (the scouting trips that map the fogged regions: data/regions.ts)
   ...SCOUT_DESTINATIONS,
+  // (the dungeons to delve: data/dungeons.ts)
+  ...DUNGEON_DESTINATIONS,
 ];
 
 export const DESTINATION_BY_ID: Readonly<Record<string, Destination>> = Object.fromEntries(DESTINATIONS.map((d) => [d.id, d]));
 
-export const EXPEDITION_TYPE_NAMES: Record<ExpeditionType, string> = { gather: 'Gather', hunt: 'Hunt', legendary: 'Legendary', salvage: 'Salvage', clear: 'Clear a threat', rescue: 'Rescue', scout: 'Scout' };
+export const EXPEDITION_TYPE_NAMES: Record<ExpeditionType, string> = { gather: 'Gather', hunt: 'Hunt', legendary: 'Legendary', salvage: 'Salvage', clear: 'Clear a threat', rescue: 'Rescue', scout: 'Scout', delve: 'Delve' };
 
 /** Clearing the bandit camp keeps raids away this many game days. */
 export const CLEARED_RAID_DELAY_DAYS = 3;
@@ -396,6 +402,8 @@ export const TRUCK_LOST_ON_LOSS = 0.5;
 
 /** Party size limit (research will raise it later) and how many expeditions can be out at once. */
 export const MAX_PARTY = 3;
+/** A delving party may be bigger (the player picks it). */
+export const MAX_DELVERS = 5;
 export const MAX_EXPEDITIONS = 2;
 /** A fully loaded party walks home this much slower. */
 export const LOADED_SLOWDOWN = 0.25;

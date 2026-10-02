@@ -4,7 +4,7 @@
 import { openGate } from './raidWait';
 import { answerEvent } from './events';
 import { answerLich } from './doom';
-import { DESTINATION_BY_ID } from '../data/expeditions';
+import { DESTINATION_BY_ID, the, The } from '../data/expeditions';
 import { FOOD_VALUE } from '../data/people';
 import type { Material } from '../data/materials';
 import type { Rng } from '../rng';
@@ -35,7 +35,7 @@ export function rollRoadEvent(s: GameState, e: Expedition, members: Person[], rn
       const n = Math.min(rng.int(2, 4), partyCarry(s, e) - poolSize(e.loot));
       if (n <= 0) return;
       addStock(e.loot, m, n);
-      notify(s, `The ${d.name} party found a hidden cache: ${n} ${m}.`);
+      notify(s, `${The(d.name)} party found a hidden cache: ${n} ${m}.`);
       return;
     }
     case 'sprain': {
@@ -58,14 +58,14 @@ export function rollRoadEvent(s: GameState, e: Expedition, members: Person[], rn
         kind: 'strangers',
         expedition: e.id,
         title: 'Strangers on the road',
-        text: `The ${d.name} party meets a ragged family on the road. They look hungry.`,
+        text: `${The(d.name)} party meets a ragged family on the road. They look hungry.`,
         options: STRANGER_OPTIONS,
         defaultOption,
         expiresTick: s.tick + PROMPT_TICKS,
       };
       s.prompts.push(prompt);
       e.prompt = prompt.id;
-      notify(s, `${prompt.title}: the ${d.name} party needs a decision.`);
+      notify(s, `${prompt.title}: ${the(d.name)} party needs a decision.`);
       return;
     }
   }

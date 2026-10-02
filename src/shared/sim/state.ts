@@ -1,6 +1,7 @@
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
+import type { Delve } from './delves';
 import { TILE } from '../constants';
 import type { Material, Stock } from '../data/materials';
 import { JOB_SKILL, JOBS, NAMES, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
@@ -465,6 +466,8 @@ export interface Expedition {
   horses?: Horse[];
   /** A truck taken along (Modern). */
   truck?: boolean;
+  /** A dungeon delve's progress room by room (sim/delves.ts). */
+  delve?: Delve;
 }
 
 /** Someone waiting at the edge of town to be let in. */
@@ -511,6 +514,8 @@ export interface GameState {
   scouted: string[];
   /** The regions of the world map the town's scouts have mapped (data/regions.ts; home is always known). */
   regions?: string[];
+  /** How many times the town has cleared each dungeon (data/dungeons.ts). */
+  delved?: Record<string, number>;
   /** Which end of town each destination lies beyond (-1 left, 1 right). */
   destSides: Record<string, -1 | 1>;
   prompts: Prompt[];

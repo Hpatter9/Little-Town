@@ -10,6 +10,7 @@ import {
   CLEARED_RAID_DELAY_DAYS,
   DESTINATION_BY_ID,
   DESTINATIONS,
+  MAX_DELVERS,
   RESCUE_MAX,
   SALVAGE_NOTES_CHANCE,
   LOADED_SLOWDOWN,
@@ -26,6 +27,8 @@ import {
   type Destination,
   type Role,
   type Stance,
+  the,
+  The,
 } from '../data/expeditions';
 import { WATERSKIN_SPEEDUP } from '../data/items';
 import { HORSE_CARRY, HORSE_DIE_ON_LOSS, HORSE_HP, HORSE_HURT, HORSE_HURT_ON_RETREAT, HORSE_SPEEDUP } from '../data/trade';
@@ -39,6 +42,7 @@ import { isChild } from './social';
 import { ammoOf, battleLoot, startBattle, stepBattle } from './combat';
 import { classAllies } from './classes';
 import { bossSlain } from './bosses';
+import { startDelve, stepDelve } from './delves';
 import { checkBleeding, killPerson, knockDown, stabilize } from './health';
 import { rollRoadEvent } from './roadEvents';
 import { prereqsMet } from './research';
@@ -112,7 +116,8 @@ export function canSend(s: GameState, destId: string, memberIds: readonly number
   if (!destinationUnlocked(s, d)) return { ok: false, reason: 'Not discovered yet' };
   if (s.expeditions.length >= MAX_EXPEDITIONS) return { ok: false, reason: `At most ${MAX_EXPEDITIONS} expeditions at once` };
   if (memberIds.length < 1) return { ok: false, reason: 'Pick someone to go' };
-  if (memberIds.length > MAX_PARTY) return { ok: false, reason: `Parties are at most ${MAX_PARTY} people` };
+  const most = d.type === 'delve' ? MAX_DELVERS : MAX_PARTY;
+  if (memberIds.length > most) return { ok: false, reason: `Parties are at most ${most} people` };
   if (new Set(memberIds).size !== memberIds.length) return { ok: false, reason: 'Someone is listed twice' };
   for (const id of memberIds) {
     const p = s.people.find((q) => q.id === id);
@@ -193,13 +198,15 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     ...(truck ? { truck: true } : {}),
   };
   s.expeditions.push(e);
+  // (a delve: its rooms rolled and its torches packed)
+  if (d.type === 'delve') startDelve(s, e, (m, n) => takeFromStorage(s, m, n));
   for (const p of members) {
     p.away = e.id;
     p.task = null;
     p.activity = 'walk';
     p.blocked = false;
   }
-  notify(s, `${names(members)} set out for the ${d.name}.`);
+  notify(s, `${names(members)} set out for ${the(d.name)}.`);
   return { ok: true };
 }
 
@@ -271,6 +278,15 @@ export function planParty(s: GameState, destId: string): { members: number[]; ro
   const score = (p: Person) => (d?.type === 'gather' ? p.skills.gathering.level * 2 + Math.max(p.skills.melee.level, p.skills.ranged.level) : Math.max(p.skills.melee.level, p.skills.ranged.level) * 2 + p.hp / 20);
   // (the founder stays home unless there's nobody else)
   const members = [...able].sort((a, b) => Number(a.id === s.mainId) - Number(b.id === s.mainId) || score(b) - score(a)).slice(0, able.length ? room : 0);
+  const roles = rolesFor(members, d);
+  const horses = Math.min(members.length, s.horses.filter((h) => h.hp >= HORSE_HP / 2).length);
+  const truck = (s.items.truck ?? 0) > 0 && (totalStock(s).fuel ?? 0) >= TRUCK_FUEL;
+  return { members: members.map((p) => p.id), roles, horses, truck };
+}
+
+/** Who does what in a party: the best healer of three or more tends the rest, a gatherer's last carries, the sharp-eyed
+ *  scout ahead, and the rest fight. */
+export function rolesFor(members: Person[], d: Destination | undefined): Record<number, Role> {
   const roles: Record<number, Role> = {};
   const medic = members.length >= 3 ? [...members].sort((a, b) => b.skills.medicine.level - a.skills.medicine.level)[0] : undefined;
   for (const p of members) {
@@ -279,9 +295,18 @@ export function planParty(s: GameState, destId: string): { members: number[]; ro
     else if (p.skills.ranged.level > p.skills.melee.level + 1) roles[p.id] = 'scout';
     else roles[p.id] = 'fighter';
   }
-  const horses = Math.min(members.length, s.horses.filter((h) => h.hp >= HORSE_HP / 2).length);
-  const truck = (s.items.truck ?? 0) > 0 && (totalStock(s).fuel ?? 0) >= TRUCK_FUEL;
-  return { members: members.map((p) => p.id), roles, horses, truck };
+  return roles;
+}
+
+/** Send a delving party the player picked (who goes is theirs to choose; the town sets the roles), at the stakes chosen. */
+export function sendDelve(s: GameState, destId: string, memberIds: readonly number[], stakes: Stakes): SendCheck {
+  const d = DESTINATION_BY_ID[destId];
+  if (d?.type !== 'delve') return { ok: false, reason: 'Not a dungeon' };
+  const members = memberIds.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
+  const plan = planParty(s, destId);
+  const r = sendExpedition(s, destId, members.map((p) => p.id), rolesFor(members, d), STAKES[stakes].stance, Math.min(plan.horses, members.length), plan.truck);
+  if (r.ok) s.expeditions[s.expeditions.length - 1].stakes = stakes;
+  return r;
 }
 
 /** Send a party the town planned, at the stakes the player chose. */
@@ -316,7 +341,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
     members = membersOf(s, e);
     if (!members.length) {
       s.expeditions = s.expeditions.filter((q) => q !== e);
-      notify(s, `No one came back from the ${d.name}.`, true);
+      notify(s, `No one came back from ${the(d.name)}.`, true);
       continue;
     }
 
@@ -326,7 +351,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
       stepBattle(e.battle, rng, { retreatAt: STANCES[e.stance].retreatAt, mainId: members.some((p) => p.id === s.mainId) ? s.mainId : null });
       // what the bosses did, for the Journal
       if (e.battle.shouts?.length) {
-        for (const t of e.battle.shouts) notify(s, `At the ${d.name}: ${t}`, true);
+        for (const t of e.battle.shouts) notify(s, `At ${the(d.name)}: ${t}`, true);
         e.battle.shouts = [];
       }
       if (e.battle.outcome) finishBattle(s, e, d, members, rng);
@@ -347,6 +372,15 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
         }
         break;
       case 'work': {
+        // (a delve goes room by room instead: sim/delves.ts)
+        if (e.delve) {
+          stepDelve(s, e, members, {
+            back: () => startBack(s, e, e.outTicks),
+            fight: (group, boss) => fightGroup(s, e, d, members, group, boss, rng),
+            room: () => partyCarry(s, e) - poolSize(e.loot),
+          });
+          break;
+        }
         const cap = partyCarry(s, e);
         const lodge = d.type === 'hunt' && s.buildings.some((b) => b.def === 'hunters_lodge' && b.status === 'done') ? HUNTERS_LODGE_BONUS : 1;
         for (const p of members) {
@@ -393,12 +427,17 @@ function maybeFight(s: GameState, e: Expedition, d: Destination, members: Person
     notify(s, `${scout.name} spotted ${describeGroup(group)} ahead, and the party slipped past.`);
     return;
   }
+  fightGroup(s, e, d, members, group, boss, rng);
+}
+
+/** A fight with a group of foes (on the road, at the site, or in a delve's room). */
+function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person[], group: Record<string, number>, _boss: boolean, rng: Rng): void {
   e.battle = startBattle(members, e.roles, group, rng, e.supplies);
   // summoned spirits and tamed wolves join in (they act on their own first beat)
   for (const f of classAllies(members)) e.battle.fighters.push({ ...f, cooldown: f.interval });
   // an epic boss announces itself
-  for (const kind of new Set(Object.keys(group))) if (ENEMIES[kind]?.kit) notify(s, `At the ${d.name}: ${ENEMIES[kind].kit!.roar}`, true);
-  notify(s, `The ${d.name} party is attacked by ${describeGroup(group)}!`);
+  for (const kind of new Set(Object.keys(group))) if (ENEMIES[kind]?.kit) notify(s, `At ${the(d.name)}: ${ENEMIES[kind].kit!.roar}`, true);
+  notify(s, `${The(d.name)} party is attacked by ${describeGroup(group)}!`);
 }
 
 function finishBattle(s: GameState, e: Expedition, d: Destination, members: Person[], rng: Rng): void {
@@ -429,13 +468,13 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
         if (k > 0) addStock(e.loot, m, k);
         taken += Math.max(0, k);
       }
-      notify(s, `The ${d.name} party won the fight${taken ? ` and took ${listStock(drops)}` : ''}.`);
+      notify(s, `${The(d.name)} party won the fight${taken ? ` and took ${listStock(drops)}` : ''}.`);
       if (d.type === 'clear' && e.phase === 'work') e.cleared = true;
       break;
     }
     case 'retreated':
       for (const h of e.horses ?? []) if (rng.chance(HORSE_HURT_ON_RETREAT)) h.hp = Math.max(1, h.hp - HORSE_HURT);
-      notify(s, `The ${d.name} party fell back from the fight and is heading home.`);
+      notify(s, `${The(d.name)} party fell back from the fight and is heading home.`);
       if (e.phase !== 'back') startBack(s, e, e.phase === 'out' ? e.elapsed : e.outTicks);
       break;
     case 'lost': {
@@ -460,7 +499,7 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
         notify(s, `The truck was wrecked ${atPlace(d.name)}.`, true);
       }
       if (!membersOf(s, e).length) return; // handled next tick ("no one came back")
-      notify(s, `The ${d.name} party was overrun. The survivors are crawling home.`, true);
+      notify(s, `${The(d.name)} party was overrun. The survivors are crawling home.`, true);
       if (e.phase !== 'back') startBack(s, e, e.phase === 'out' ? e.elapsed : e.outTicks);
       break;
     }
@@ -512,7 +551,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   const mapped = regionScouted(d.id);
   if (mapped && !e.recalled) mapRegion(s, mapped);
   const found = listStock(e.loot);
-  notify(s, `The ${d.name} party is back${e.recalled ? ' (recalled)' : ''}: ${found || 'empty-handed'}.`, true);
+  notify(s, `${The(d.name)} party is back${e.recalled ? ' (recalled)' : ''}: ${found || 'empty-handed'}.`, true);
   if (!e.recalled) specialOutcome(s, e, d, x, rng);
   if (!e.recalled) findRelic(s, e, d, rng);
 }
@@ -525,7 +564,7 @@ function findRelic(s: GameState, e: Expedition, d: Destination, rng: Rng): void 
   if (!odds || (d.type === 'clear' && !e.cleared)) return;
   if (!rng.chance(odds[1])) return;
   s.items[odds[0]] = (s.items[odds[0]] ?? 0) + 1;
-  notify(s, odds[0] === 'deaths_bargain' ? `At the ${d.name} the party found an old coin, cold as the grave: Death's Bargain.` : `At the ${d.name} the party found a feather that glows like embers: a Phoenix Feather!`, true);
+  notify(s, odds[0] === 'deaths_bargain' ? `At ${the(d.name)} the party found an old coin, cold as the grave: Death's Bargain.` : `At ${the(d.name)} the party found a feather that glows like embers: a Phoenix Feather!`, true);
 }
 
 /** What some kinds of trip bring back besides loot. */
@@ -534,7 +573,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, 
     case 'clear':
       if (!e.cleared) return;
       s.nextRaidTick = Math.max(s.nextRaidTick, s.tick + CLEARED_RAID_DELAY_DAYS * TICKS_PER_DAY);
-      notify(s, `With the ${d.name} broken up, the roads are quiet: no raids for ${CLEARED_RAID_DELAY_DAYS} days.`, true);
+      notify(s, `With ${the(d.name)} broken up, the roads are quiet: no raids for ${CLEARED_RAID_DELAY_DAYS} days.`, true);
       if (s.captives.length) {
         const freed = s.captives.splice(0);
         for (const p of freed) {
@@ -549,7 +588,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, 
       return;
     case 'salvage': {
       if (!occultRevealed(s) && rng.chance(STRANGE_TOME_CHANCE)) {
-        revealOccult(s, `Among the rubble of the ${d.name} the party found a strange, cold tome.`);
+        revealOccult(s, `Among the rubble of ${the(d.name)} the party found a strange, cold tome.`);
         return;
       }
       if (!rng.chance(SALVAGE_NOTES_CHANCE)) return;
@@ -559,7 +598,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, 
       if (!topic) return;
       const p = r.progress[topic] ?? 0;
       r.progress[topic] = p + (1 - p) / 2;
-      notify(s, `Old writings from the ${d.name}: research on ${TOPIC_BY_ID[topic].name} is half done.`, true);
+      notify(s, `Old writings from ${the(d.name)}: research on ${TOPIC_BY_ID[topic].name} is half done.`, true);
       return;
     }
     case 'rescue': {
@@ -572,7 +611,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, 
         joined.push(p);
       }
       assignBeds(s);
-      notify(s, `${names(joined)} from the ${d.name} came home with the party and joined the town.`, true);
+      notify(s, `${names(joined)} from ${the(d.name)} came home with the party and joined the town.`, true);
       return;
     }
   }
@@ -584,9 +623,18 @@ function pickIndex(weights: number[], rng: Rng): number {
   return weights.length - 1;
 }
 
+/** A foe's name in the plural ("wolves", "skeleton warriors", "giant rats"). */
+const plural = (name: string) => (/(wolf|elf|thief)$/.test(name) ? `${name.slice(0, -1)}ves` : /(s|x|ch|sh)$/.test(name) ? `${name}es` : `${name}s`);
+
 function describeGroup(group: Record<string, number>): string {
   return Object.entries(group)
-    .map(([id, n]) => (n === 1 ? `a ${ENEMIES[id].name.toLowerCase()}` : `${n} ${ENEMIES[id].name.toLowerCase()}s`))
+    .map(([id, n]) => {
+      const name = ENEMIES[id].name;
+      // (a named one keeps its name: "The Queen of the Wild Hunt", not "a the queen...")
+      if (/^the /i.test(name) || ENEMIES[id].boss) return n === 1 ? name : `${n} of ${name}`;
+      const low = name.toLowerCase();
+      return n === 1 ? `${/^[aeiou]/.test(low) ? 'an' : 'a'} ${low}` : `${n} ${plural(low)}`;
+    })
     .join(' and ');
 }
 

@@ -7,6 +7,7 @@ import type { Era } from './eras';
 import type { Destination } from './expeditions';
 import type { Material } from './materials';
 import type { SceneId } from './scenes';
+import { DUNGEONS } from './dungeons';
 
 export interface Region {
   id: string;
@@ -53,6 +54,8 @@ export const HIDDEN_IN: Readonly<Record<string, string>> = {
   sunken_galleon: 'the_sea',
   fox_shrine: 'far_isles',
   iron_citadel: 'far_isles',
+  // (and every dungeon, in its own region)
+  ...Object.fromEntries(DUNGEONS.map((d) => [d.id, d.region])),
 };
 
 /** A region's scouting trip: its destination id, and the region a scouting destination maps. */

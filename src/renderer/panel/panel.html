@@ -473,6 +473,23 @@
       .short {
         color: #f0a080;
       }
+      /* a dungeon's party picker: a chip a fighter, lit when picked */
+      .row.delvers {
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 4px 0;
+      }
+      .row.delvers .chip {
+        padding: 6px 10px;
+        border: 1px solid #22170f;
+        color: #c8b89a;
+        cursor: pointer;
+      }
+      .row.delvers .chip.on {
+        background: #6a4a1e;
+        border-color: #ffd84a;
+        color: #ffe8a8;
+      }
       .place {
         align-self: flex-start;
         margin-top: 2px;

@@ -5,6 +5,7 @@
 import type { BackdropId } from './backdrops';
 import { BESTIARY_ROUTES } from './bestiary';
 import { SCOUT_ROUTES } from './regions';
+import { DUNGEON_ROUTES } from './dungeons';
 import type { Biome } from './biomes';
 
 export const SCENES = [
@@ -21,6 +22,7 @@ export const ROUTES: Record<string, [SceneId, SceneId]> = {
   // (the new bosses' lairs: data/bestiary.ts)
   ...BESTIARY_ROUTES,
   ...SCOUT_ROUTES,
+  ...DUNGEON_ROUTES,
   berry_thicket: ['meadow', 'meadow'],
   riverbank: ['riverbank', 'riverbank'],
   deep_woods: ['pinewoods', 'pinewoods'],

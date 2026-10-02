@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { ROOM_SECONDS } from '../data/dungeons';
 import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import { className, type ClassId } from '../data/classes';
@@ -37,7 +38,7 @@ import { CROPS } from '../data/crops';
 import { craftNeeded, craftSlots, hasBedroll, missingItems, stationFor, stationName } from './crafting';
 import { CHILD_HOURS } from '../data/social';
 import { DOOMS, type DoomKind } from '../data/doom';
-import { friendsOf, rivalsOf } from './social';
+import { friendsOf, isChild, rivalsOf } from './social';
 import { canTrade, stalls } from './trade';
 import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
@@ -283,6 +284,8 @@ export interface ExpeditionView {
   acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[] }[];
   /** Waiting on a question for the player. */
   waiting: boolean;
+  /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
+  delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean } | null;
 }
 
 export interface DestinationView {
@@ -291,6 +294,9 @@ export interface DestinationView {
   scouted: boolean;
   /** Off the board and the map: in a region not yet mapped, or a region's scouting trip once it's mapped. */
   hidden: boolean;
+  /** A dungeon: who the player may pick to delve it (grown, at home, on their feet), and how many times it's been cleared. */
+  candidates?: number[];
+  cleared?: number;
   /** Round trip in game seconds (unloaded). */
   tripSeconds: number;
   /** Food (need units) one member eats on the trip. */
@@ -581,6 +587,9 @@ export function snapshot(s: GameState): Snapshot {
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
       hidden: destinationHidden(s, d.id),
+      ...(d.type === 'delve'
+        ? { candidates: s.people.filter((p) => p.away === null && !p.downed && !isChild(p) && p.hp >= maxHp(p) * 0.4).map((p) => p.id), cleared: s.delved?.[d.id] ?? 0 }
+        : {}),
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
       ...partyView(s, d.id),
@@ -928,14 +937,19 @@ function craftView(s: GameState, o: CraftOrder): CraftOrderView {
 function expeditionView(s: GameState, e: Expedition): ExpeditionView {
   const d = DESTINATION_BY_ID[e.dest];
   const len = e.phase === 'out' ? e.outTicks : e.phase === 'work' ? e.workTicks : e.backTicks;
-  const left = e.phase === 'out' ? e.outTicks - e.elapsed + e.workTicks + e.outTicks : e.phase === 'work' ? e.workTicks - e.elapsed + e.outTicks : e.backTicks - e.elapsed;
+  let left = e.phase === 'out' ? e.outTicks - e.elapsed + e.workTicks + e.outTicks : e.phase === 'work' ? e.workTicks - e.elapsed + e.outTicks : e.backTicks - e.elapsed;
+  // (a delve's time inside goes by the rooms: how far down they are, out of how many)
+  const v = e.delve;
+  const roomTicks = ROOM_SECONDS * TICK_HZ * ERA_MULTIPLIER[s.era];
+  const down = v ? (Math.max(0, v.at) + Math.min(1, v.ticks / roomTicks)) / v.rooms.length : 0;
+  if (v && e.phase === 'work') left = (v.rooms.length - Math.max(0, v.at)) * roomTicks + e.outTicks;
   return {
     id: e.id,
     dest: e.dest,
     destName: d.name,
     scenery: d.scenery,
     phase: e.phase,
-    phaseProgress: Math.min(1, e.elapsed / Math.max(1, len)),
+    phaseProgress: v && e.phase === 'work' ? Math.min(1, down) : Math.min(1, e.elapsed / Math.max(1, len)),
     secondsLeft: Math.max(0, left) / TICK_HZ,
     members: e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p).map((p) => ({ id: p.id, name: p.name, look: p.look, gear: { ...p.gear } })),
     horses: (e.horses ?? []).map((h) => h.coat),
@@ -977,6 +991,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
       : null,
     acts: (e.battle?.acts ?? []).map((a) => ({ age: e.battle!.tick - a.tick, side: a.side, ref: a.ref, name: a.name, targets: a.targets })),
     waiting: e.prompt !== null,
+    delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared } : null,
   };
 }
 

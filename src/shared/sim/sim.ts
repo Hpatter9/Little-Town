@@ -21,7 +21,7 @@ import { assignOperators, cycleOperator } from './operators';
 import { releasePrisoner, updatePrisoners } from './prisoners';
 import { updateDoom } from './doom';
 import { updateMonsters } from './monsters';
-import { recallExpedition, sendExpedition, updateExpeditions , sendParty } from './expeditions';
+import { recallExpedition, sendDelve, sendExpedition, updateExpeditions , sendParty } from './expeditions';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
@@ -223,6 +223,11 @@ export class Sim {
       case 'sendExpedition':
         sendExpedition(s, c.dest, c.members, c.roles, c.stance, c.horses, c.truck === true);
         break;
+      case 'sendDelve': {
+        const r = sendDelve(s, c.dest, c.members, c.stakes);
+        if (!r.ok) notify(s, `Can't send the delvers: ${r.reason}.`);
+        break;
+      }
       case 'sendParty': {
         const r = sendParty(s, c.dest, c.stakes);
         if (!r.ok) notify(s, `Can't send a party: ${r.reason}.`);
