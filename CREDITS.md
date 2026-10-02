@@ -31,6 +31,15 @@ Knight and Skeleton Sprite Sheets; Free Yokai Character Sprites; Free Tiny Hero 
 Top-Down Defense; Free Fantasy RPG Top-Down Boss Creatures (Boar King, Devil Leader, Shaman King) and Pirate Boss
 Characters (Pirate Leader, Pirate Zombie, Squidman).
 
+## Craftpix parallax backgrounds (the fights' backdrops)
+
+The watched fights' backdrops (`src/renderer/art/backdrops/`, built by `tools/compose-backdrops.cjs`) come from free
+**Craftpix.net** packs: Free Nature Pixel Backgrounds, 4 Free Seamless Nature Backgrounds, Forest and Trees, Summer,
+Autumn, Mountain, Mountain Peak, Winter Nature, Winter, Ancient Temple, Crystal Cave, Desert Oasis, Abandoned Places,
+City Ruins, Ocean and Clouds, City, Futuristic City, Steampunk Cityscape, Underwater World, Moon, Seamless Cloudscape,
+Sky with Parallax Clouds, Sky with Clouds, Cloud and Sky, Post-Apocalyptic, and Fantasy 2D Battlegrounds backgrounds,
+and the industrial platformer pack's Day and Night backgrounds.
+
 ## Item icons
 
 Crafted items use icons from **DawnLike** (16x16 universal roguelike tileset) by **DragonDePlatino**, on

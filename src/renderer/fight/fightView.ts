@@ -17,6 +17,9 @@ import { heldWeapon, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { machineFrame, machineSize } from '../art/machines';
 import { BACK_H, BACK_HORIZON, BACK_W, fightBackdrop, FRONT_H, sceneFor, type Backdrop, type SceneId } from '../art/fightBackdrop';
+import { BACKDROP_H, loadBackdrop } from '../art/backdropImages';
+import { lookFor, type SceneLook } from '../../shared/data/scenes';
+import type { BackdropId } from '../../shared/data/backdrops';
 import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { stillTexture } from '../art/stills';
@@ -63,6 +66,11 @@ export class FightScene {
   private readonly fx = new Graphics();
   private readonly figs = new Map<string, Figure>();
   private sceneKey = '';
+  /** A painted backdrop from the packs, when the trip's look is one: its layers, far to near, and whether it is the
+   *  whole scene (`full`) or only the sky over the painted land (`sky`). */
+  private readonly photo = new Container();
+  private photoLayers: TilingSprite[] = [];
+  private photoMode: 'full' | 'sky' | null = null;
   private scroll = 0;
   private drift = 0;
   private view: ExpeditionView | null = null;
@@ -71,7 +79,7 @@ export class FightScene {
 
   constructor() {
     this.root.visible = false;
-    this.world.addChild(...this.layers.slice(0, 3), this.layers[3], this.figures, this.fx);
+    this.world.addChild(this.photo, ...this.layers.slice(0, 3), this.layers[3], this.figures, this.fx);
     this.world.mask = this.clip;
     this.root.addChild(this.clip);
     this.root.addChild(this.cover, this.world);
@@ -92,6 +100,9 @@ export class FightScene {
     this.vh = room / k;
     // (indoors, a little more of the wall shows: that's where the torches and banners are)
     this.hy = Math.round(this.vh - Math.min(this.vh * (this.backdrop?.indoor ? 0.5 : 0.6), LAND));
+    // (a painted backdrop has its own ground along its foot: the fighters stand down there)
+    if (this.photoMode === 'full') this.hy = Math.round(this.vh - Math.min(72, this.vh * 0.32));
+    this.placePhoto();
     this.world.scale.set(k);
     this.world.position.set(0, top);
     this.clip.clear().rect(0, top, w, room).fill(0xffffff);
@@ -100,22 +111,63 @@ export class FightScene {
     this.layers[3].y = Math.round(this.vh - FRONT_H + 8);
   }
 
-  update(v: ExpeditionView | null, biome?: Biome): void {
+  update(v: ExpeditionView | null, biome?: Biome, season?: string): void {
     this.root.visible = !!v;
     this.view = v;
     if (!v) return;
     // (on the road it's the land on the way; arrived at a dungeon, it's inside)
     // (`window.__scene` shows any scene, for previews)
     const scene = (window as unknown as { __scene?: SceneId }).__scene ?? sceneFor(v.dest, v.scenery, v.phase, biome);
-    const key = `${v.id}|${scene}`;
+    // (and painted by hand, or a painted backdrop from the packs: `window.__look` forces one, for previews)
+    const look = (window as unknown as { __look?: SceneLook }).__look ?? lookFor(scene, v.id, season);
+    const key = `${v.id}|${scene}|${look}`;
     if (key !== this.sceneKey) {
       this.sceneKey = key;
+      this.setLook(look, key);
       const art = fightBackdrop(scene, v.id);
       this.backdrop = art;
       [art.far, art.mid, art.near, art.front].forEach((a, i) => (this.layers[i].texture = a.texture));
       for (const f of this.figs.values()) f.sprite.destroy();
       this.figures.removeChildren();
       this.figs.clear();
+    }
+  }
+
+  /** Show the trip's look: the painted scene, or a backdrop from the packs over (or instead of) it, once loaded. */
+  private setLook(look: SceneLook, key: string): void {
+    for (const l of this.photoLayers) l.destroy();
+    this.photoLayers = [];
+    this.photoMode = null;
+    this.showPainted();
+    if (look === 'painted') return;
+    const sky = look.startsWith('sky:');
+    const id = (sky ? look.slice(4) : look) as BackdropId;
+    loadBackdrop(id)
+      .then((textures) => {
+        if (this.sceneKey !== key) return;
+        this.photoLayers = textures.map((t) => new TilingSprite({ texture: t, width: 10, height: BACKDROP_H }));
+        this.photo.addChild(...this.photoLayers);
+        this.photoMode = sky ? 'sky' : 'full';
+        this.showPainted();
+        this.placePhoto();
+      })
+      .catch(() => {}); // (offline and never fetched: the painted scene stays)
+  }
+
+  private showPainted(): void {
+    const mode = this.photoMode;
+    this.layers.forEach((l, i) => (l.visible = mode === 'full' ? false : mode === 'sky' ? i > 0 : true));
+  }
+
+  /** Lay the backdrop's layers over the view: a whole scene covers it, a sky sits down on the horizon. */
+  private placePhoto(): void {
+    const { vw, vh, hy } = this;
+    for (const l of this.photoLayers) {
+      const s = this.photoMode === 'full' ? vh / BACKDROP_H : Math.max(0.4, (hy + 6) / BACKDROP_H);
+      l.tileScale.set(s);
+      l.width = vw + 2;
+      l.height = BACKDROP_H * s;
+      l.y = this.photoMode === 'full' ? 0 : Math.round(hy + 6 - BACKDROP_H * s);
     }
   }
 
@@ -130,6 +182,12 @@ export class FightScene {
     this.drift += dt * 1.5;
     const b = this.backdrop;
     if (b) this.layers.forEach((l, i) => (l.tilePosition.x = -Math.round((this.scroll * b.pace[i] + (i === 0 && !b.indoor ? this.drift : 0)) % BACK_W)));
+    // (the backdrop's layers: the far ones barely move, the near ones as fast as the ground)
+    const n = this.photoLayers.length;
+    this.photoLayers.forEach((l, i) => {
+      const pace = this.photoMode === 'sky' ? 0.08 : 0.08 + (0.92 * i) / Math.max(1, n - 1);
+      l.tilePosition.x = -Math.round((this.scroll * pace + (i === 0 ? this.drift : 0)) / l.tileScale.x);
+    });
     this.fx.clear();
     const seen = new Set<string>();
     if (fighting) this.drawFight(v.battle!, v, now, seen);

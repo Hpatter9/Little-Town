@@ -23,6 +23,8 @@ copyFileSync('src/renderer/panel/panel.html', 'out/renderer/panel.html');
 copyFileSync('assets/World map.jpg', 'out/renderer/world-map.jpg');
 // the creature sheets built from the Craftpix packs (tools/compose-sheets.cjs) are loaded as files, not inlined
 cpSync('src/renderer/art/creatures/packs', 'out/renderer/packs', { recursive: true });
+// and the fights' painted backdrops (tools/compose-backdrops.cjs), fetched when first shown
+cpSync('src/renderer/art/backdrops', 'out/renderer/backdrops', { recursive: true });
 // music is streamed from files, not inlined
 mkdirSync('out/renderer/music', { recursive: true });
 for (const f of ['town.ogg', 'battle.ogg']) copyFileSync(`src/renderer/music/${f}`, `out/renderer/music/${f}`);

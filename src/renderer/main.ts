@@ -897,7 +897,7 @@ async function start(): Promise<void> {
     battle.aiming = battleHud.aiming;
     // (a raid's battle comes first: watching waits behind it)
     const watched = next.battle ? null : next.watch;
-    fight.update(watched, next.biome);
+    fight.update(watched, next.biome, next.calendar.season);
     fightHud.update(watched);
     town.root.visible = !next.battle && !watched;
     showNotices(next);

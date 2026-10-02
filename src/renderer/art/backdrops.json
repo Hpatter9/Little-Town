@@ -1,0 +1,458 @@
+{
+ "nature_1": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "nature_2": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "nature_3": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "nature_4": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "meadows_1": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "meadows_2": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "meadows_3": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "meadows_4": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "forest_1": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "forest_2": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "forest_3": {
+  "layers": 8,
+  "ext": "webp"
+ },
+ "forest_4": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "forest_5": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "summer_1": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "summer_2": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "summer_3": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "summer_4": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "summer_5": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "autumn_1": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "autumn_2": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "autumn_3": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "autumn_4": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "peaks_1": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "peaks_2": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "peaks_3": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "peaks_4": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "mountains_1": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "mountains_2": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "mountains_3": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "mountains_4": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "mountains_5": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "snowfield_1": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "snowfield_2": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "snowfield_3": {
+  "layers": 10,
+  "ext": "webp"
+ },
+ "snowfield_4": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "winter_1": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "winter_2": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "winter_3": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "winter_4": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "winter_5": {
+  "layers": 11,
+  "ext": "webp"
+ },
+ "winter_6": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "winter_7": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "temple_1": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "temple_2": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "temple_3": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "temple_4": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "crystal_1": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "crystal_2": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "crystal_3": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "crystal_4": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "oasis_1": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "oasis_2": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "oasis_3": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "oasis_4": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "abandoned_1": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "abandoned_2": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "abandoned_3": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "abandoned_4": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "ruins_1": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "ruins_2": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "ruins_3": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "ruins_4": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "ocean_1": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "ocean_2": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "ocean_3": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "ocean_4": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "ocean_5": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "city_1": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "city_2": {
+  "layers": 8,
+  "ext": "webp"
+ },
+ "city_3": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "city_4": {
+  "layers": 8,
+  "ext": "webp"
+ },
+ "city_5": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "future_1": {
+  "layers": 11,
+  "ext": "webp"
+ },
+ "future_2": {
+  "layers": 10,
+  "ext": "webp"
+ },
+ "future_3": {
+  "layers": 9,
+  "ext": "webp"
+ },
+ "future_4": {
+  "layers": 10,
+  "ext": "webp"
+ },
+ "steampunk_1": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "steampunk_2": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "steampunk_3": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "steampunk_4": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "underwater_1": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "underwater_2": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "underwater_3": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "underwater_4": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "moon_1": {
+  "layers": 2,
+  "ext": "webp"
+ },
+ "moon_2": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "moon_3": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "moon_4": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "cloudscape_1": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "cloudscape_2": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "cloudscape_3": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "cloudscape_4": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "skies_1": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "skies_2": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "skies_3": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "skies_4": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "clouds_1": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "clouds_2": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "clouds_3": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "clouds_4": {
+  "layers": 4,
+  "ext": "webp"
+ },
+ "clouds_5": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "heights_1": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "heights_2": {
+  "layers": 2,
+  "ext": "webp"
+ },
+ "heights_3": {
+  "layers": 6,
+  "ext": "webp"
+ },
+ "heights_4": {
+  "layers": 3,
+  "ext": "webp"
+ },
+ "industrial_day": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "industrial_night": {
+  "layers": 5,
+  "ext": "webp"
+ },
+ "wasteland_1": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "wasteland_2": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "wasteland_3": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "battle_ruins": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "battle_hall": {
+  "layers": 7,
+  "ext": "webp"
+ },
+ "battle_jungle": {
+  "layers": 8,
+  "ext": "webp"
+ },
+ "battle_graves": {
+  "layers": 8,
+  "ext": "webp"
+ }
+}

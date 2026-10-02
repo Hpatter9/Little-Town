@@ -18,5 +18,18 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then((hit) => hit ?? fetch(e.request)));
+  // (anything not cached on install, like a fight's backdrop, is kept once it has been fetched)
+  e.respondWith(
+    caches.match(e.request, { ignoreSearch: true }).then(
+      (hit) =>
+        hit ??
+        fetch(e.request).then((res) => {
+          if (res.ok && new URL(e.request.url).origin === self.location.origin) {
+            const copy = res.clone();
+            caches.open(VERSION).then((c) => c.put(e.request, copy));
+          }
+          return res;
+        }),
+    ),
+  );
 });
