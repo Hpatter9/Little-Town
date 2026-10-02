@@ -101,8 +101,8 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
       'div',
       'hint',
       (tavern
-        ? `Comfort ${v.appeal}: guests used to more walk out, and the better-off need more. Renown ${v.renown} brings them more often.`
-        : `Attractiveness ${v.attractiveness}: the furnishings' appeal (${v.appeal}) and the shop's renown (${v.renown}).`) +
+        ? `Comfort ${v.appeal}: guests used to more walk out, and the better-off need more. Renown ${v.renown}${v.trophies ? ` and the Trophy Hall's ${v.trophies}` : ''} bring${v.trophies ? '' : 's'} them more often.`
+        : `Attractiveness ${v.attractiveness}: the furnishings' appeal (${v.appeal}), the shop's renown (${v.renown})${v.trophies ? ` and the Trophy Hall's treasures (${v.trophies})` : ''}.`) +
         ` Someone comes about every ${every} hours` +
         (v.nextHours !== null ? ` (the next in about ${Math.max(1, Math.ceil(v.nextHours))}h)` : '') +
         '.',

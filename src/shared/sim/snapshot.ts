@@ -1,7 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
-import { bossName, delveRoomTicks } from './delves';
+import { bossName, delveRoomTicks, quietHours } from './delves';
 import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import { className, type ClassId } from '../data/classes';
@@ -11,7 +11,7 @@ import { turnable, undeadShare } from './turning';
 import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
 import { weatherAt, type WeatherNow } from './weather';
 import { directionOf, forSale, shoppingList, type Direction, type TownPlan } from './planner';
-import { appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect } from './shop';
+import { appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect, trophyRenown } from './shop';
 import { moneyTown, wageBill } from './wages';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
@@ -300,6 +300,8 @@ export interface DestinationView {
   /** A dungeon: who the player may pick to delve it (grown, at home, on their feet), and how many times it's been cleared. */
   candidates?: number[];
   cleared?: number;
+  /** A cleared dungeon lying quiet: hours until it wakes again. */
+  quietHours?: number;
   /** Round trip in game seconds (unloaded). */
   tripSeconds: number;
   /** Food (need units) one member eats on the trip. */
@@ -334,6 +336,8 @@ export interface ShopView {
   /** The floor's appeal, the shop's renown, and the two together (which decides who comes). */
   appeal: number;
   renown: number;
+  /** What the Trophy Hall's treasures add. */
+  trophies: number;
   attractiveness: number;
   /** Extensions bought, most there can be, and what the next costs. */
   extensions: number;
@@ -428,6 +432,8 @@ export interface Snapshot {
   hero: number | null;
   /** The expedition the player is watching, in place of the town. */
   watch: ExpeditionView | null;
+  /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
+  quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number }[];
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
   regions: string[];
   /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
@@ -591,7 +597,7 @@ export function snapshot(s: GameState): Snapshot {
       scouted: s.scouted.includes(d.id),
       hidden: destinationHidden(s, d.id),
       ...(d.type === 'delve'
-        ? { candidates: s.people.filter((p) => p.away === null && !p.downed && !isChild(p) && p.hp >= maxHp(p) * 0.4).map((p) => p.id), cleared: s.delved?.[d.id] ?? 0 }
+        ? { candidates: s.people.filter((p) => p.away === null && !p.downed && !isChild(p) && p.hp >= maxHp(p) * 0.4).map((p) => p.id), cleared: s.delved?.[d.id] ?? 0, quietHours: quietHours(s, d.id) }
         : {}),
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
@@ -599,6 +605,7 @@ export function snapshot(s: GameState): Snapshot {
     })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
+    quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
@@ -750,6 +757,7 @@ function venueView(s: GameState, venue: 'shop' | 'tavern'): ShopView | null {
     }),
     appeal: appeal(b),
     renown: Math.floor(renownOf(b)),
+    trophies: trophyRenown(s),
     attractiveness: attractiveness(s, b),
     extensions: extensionsOf(b),
     maxExtensions: MAX_EXTENSIONS,

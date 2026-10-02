@@ -8,7 +8,23 @@ import type { Era } from './eras';
 import type { Material } from './materials';
 import type { SceneId } from './scenes';
 
-export type RoomKind = 'fight' | 'trap' | 'treasure' | 'shrine' | 'puzzle' | 'camp' | 'fork' | 'boss';
+export type RoomKind = 'fight' | 'trap' | 'treasure' | 'shrine' | 'puzzle' | 'camp' | 'fork' | 'rival' | 'boss';
+
+/** A cleared dungeon lies quiet this many game days, then reawakens: `DEEPER_ROOMS` more rooms each clear, and one more
+ *  foe in every fight. */
+export const QUIET_DAYS = 8;
+export const DEEPER_ROOMS = 2;
+/** The chance another party of delvers is down there too, racing the town's. */
+export const RIVAL_CHANCE = 0.3;
+/** Rival parties, by era: who they are, and who fights for them. */
+export const RIVALS: readonly { name: string; era: string; fighters: Record<string, number> }[] = [
+  { name: 'the Grey Company', era: 'neolithic', fighters: { bandit: 2, wolf: 1 } },
+  { name: 'the Silver Fangs', era: 'neolithic', fighters: { bandit: 3 } },
+  { name: 'the Order of the Lamp', era: 'medieval', fighters: { fallen_knight: 1, knight_captain: 1 } },
+  { name: 'the Masterless Five', era: 'medieval', fighters: { ronin: 2, ronin_archer: 1 } },
+  { name: "Hollin's Raiders", era: 'industrial', fighters: { rifleman: 2, gangster: 1 } },
+  { name: 'the Salvage Crew', era: 'modern', fighters: { trooper: 2, raider: 1 } },
+];
 
 /** The kinds of dungeon (each with its own look inside, its own foes, and its own bosses). */
 export type DungeonType = 'crypt' | 'warren' | 'mine' | 'fey' | 'temple' | 'tower' | 'nest' | 'wreck' | 'ice' | 'forge' | 'vault' | 'den';

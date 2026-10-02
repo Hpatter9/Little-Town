@@ -3,6 +3,7 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { treasuresHeld } from './shop';
 import { canWear } from './classes';
 import { isChild } from './social';
 import { buildOrigin, nomadic } from './nomads';
@@ -547,6 +548,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   for (const d of [...BUILDINGS].sort((a, b) => order(a) - order(b))) {
     if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || CAPSTONES.includes(d.id)) continue;
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
+    if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
     if (venueOfDef(d.id)) continue; // (one shop and one tavern, which grow by being rebuilt bigger)
     add(d.id, HERDS[d.id] ? `to keep ${HERDS[d.id].plural}` : WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
   }

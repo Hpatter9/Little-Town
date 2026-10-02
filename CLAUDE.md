@@ -544,13 +544,25 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   healing. Foes in a delve's fights may be elites (`raiseElites`: `ELITES` fiery, armoured, swift, vampiric, giant;
   `Fighter.elite`, named and tinted), more often deeper down, for a risky party and in a Champions run. The card, the
   HUD and the feed show the twist.
+- **Quests, rivals, the trophy hall, respawn, alerts (step 11, done):** `src/shared/sim/quests.ts`: of an evening
+  (`questsHourly`, hour 19) a tavern guest (or a stranger at the edge of town) may offer a quest on a dungeon the town
+  knows (`s.quests`, at most `MAX_QUESTS` 2, lapsing after `QUEST_DAYS` 6): a rescue (the captive joins), a bounty
+  (coins), a relic hunt (one of `QUEST_UNIQUES`) or a fallen delver's gear (a fine weapon of the dungeon's era). They
+  pay when the party that cleared the dungeon is home (`questsDone`, from `delveHome`). Rival delvers (`RIVALS` by era,
+  `RIVAL_CHANCE`) wait at a `rival` room halfway down: a risky party fights them for their finds, a safe one shares the
+  way and may win one over (`joinTown`). A cleared dungeon is quiet for `QUIET_DAYS` (`s.dungeonQuiet`, not on the board
+  meanwhile), then wakes (`delvesHourly`) `DEEPER_ROOMS` deeper with one more foe a fight per clear. The Trophy Hall
+  (`trophy_hall`, Writing; the planner builds it once the town holds 2 treasures) adds `TROPHY_RENOWN` per relic or
+  unique held to the venues' attractiveness (`trophyRenown` in shop.ts). Phone alerts: the `delves` setting (forecast
+  kind `delve`: the boss met, cleared, a unique, a dungeon woken). The Expeditions tab lists open quests and marks
+  dungeons with a quest or lying quiet. Tests: `test/quests.test.ts`.
 - **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
   `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
   (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.
 - **The keep's stairs stay clear:** when a new era widens the keep, `clearStairs` (castle.ts, from era.ts) moves any
   room left standing over a stair tower to the nearest clear spot.
 
-## Planned (owner's requests, not started)
+## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):
   - About 160 weapons (from 16): every era gets several of each kind (swords, axes, maces, spears, daggers, bows,
@@ -561,7 +573,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     three tiers up (+N adds to its damage and accuracy; the grade multiplies as now).
   - **Unique weapons** that come only from bosses and quests (named, one of each, with special effects), many more
     than the 7 relics.
-- **Dungeon delves** (the owner's choices: the player picks the party members):
+- **Dungeon delves** (the owner's choices: the player picks the party members; done, steps 7 to 11):
   - Exploring the region with expeditions (a new scouting kind) reveals new areas on the world map, and with them
     dungeons; this is also how more of the map opens up.
   - A delve is like an expedition but longer (several hours to a few game days) and more involved: the party goes
@@ -585,7 +597,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     join, or fight them for the loot).
   - **Phone alerts:** the boss reached, a unique found, someone lost, home again.
   - Deterministic sim like everything else (delves play out offline and in tests); deaths are real.
-- **Classes, levels, spells and skills** (the owner's choices):
+- **Classes, levels, spells and skills** (the owner's choices; done, steps 2 to 5):
   - **125 classes:** 25 base classes (knight, ranger, beast tamer, archer, sorcerer, witch, white mage, monk,
     assassin, and so on; the five classes there are now fold in), each evolving four times as it levels, so five
     stages per line. A grown-up is given a class once, at random, weighted by their skills and traits; some classes
@@ -610,7 +622,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)
   the delve view; (10) dungeon types, modifiers, elites, dozens of bosses; (11) quests, rivals, the trophy hall,
-  respawn, alerts; soak, phone checks, PR.
+  respawn, alerts; soak, phone checks, PR. All eleven are done; boats are what's left.
 
 ## Known problem (fixed, watch)
 

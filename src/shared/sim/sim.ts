@@ -25,6 +25,8 @@ import { recallExpedition, sendDelve, sendExpedition, updateExpeditions , sendPa
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
+import { questsHourly } from './quests';
+import { delvesHourly } from './delves';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
 import { maybeStartRaid, startGuildRaid, updateRaid } from './raids';
@@ -142,6 +144,8 @@ export class Sim {
     updateWages(s);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
+    questsHourly(s);
+    delvesHourly(s);
     drillGuards(s);
     updateAdvice(s);
     maybeArrive(s, this.rng);

@@ -42,7 +42,8 @@ import { isChild } from './social';
 import { ammoOf, battleLoot, startBattle, stepBattle, type Battle } from './combat';
 import { classAllies } from './classes';
 import { bossSlain } from './bosses';
-import { startDelve, stepDelve } from './delves';
+import { delveHome, quietHours, startDelve, stepDelve } from './delves';
+import { joinTown, questsDone } from './quests';
 import { checkBleeding, killPerson, knockDown, stabilize } from './health';
 import { rollRoadEvent } from './roadEvents';
 import { prereqsMet } from './research';
@@ -67,6 +68,8 @@ const STRANGE_TOME_CHANCE = 0.35;
 const AMMO_PER_SHOOTER = 10;
 
 export function destinationUnlocked(s: GameState, d: Destination): boolean {
+  // (a dungeon lies quiet a while after it's cleared)
+  if (d.type === 'delve' && quietHours(s, d.id) > 0) return false;
   if (s.cheats.unlockAll) return !destinationHidden(s, d.id);
   return !destinationHidden(s, d.id) && eraReached(s.era, d.era) && (!d.research || s.research.done.includes(d.research));
 }
@@ -554,6 +557,8 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   const found = listStock(e.loot);
   notify(s, `${The(d.name)} party is back${e.recalled ? ' (recalled)' : ''}: ${found || 'empty-handed'}.`, true);
   if (!e.recalled) specialOutcome(s, e, d, x, rng);
+  // (a delve: quests on a cleared dungeon, and a rival won over)
+  delveHome(s, e, rng, { quests: (id) => questsDone(s, id, x, rng), join: () => joinTown(s, x, rng) });
   if (!e.recalled) findRelic(s, e, d, rng);
 }
 

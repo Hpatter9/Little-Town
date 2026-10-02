@@ -15,7 +15,7 @@ import { ENEMIES } from '../../shared/data/enemies';
 import { UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
 
 /** Each kind of room, as the card names it. */
-const ROOM_NAMES: Record<string, string> = { fight: 'a fight', trap: 'a trap', treasure: 'treasure', shrine: 'a shrine', puzzle: 'a puzzle door', camp: 'a rest camp', fork: 'a fork', boss: 'the boss' };
+const ROOM_NAMES: Record<string, string> = { rival: 'rival delvers', fight: 'a fight', trap: 'a trap', treasure: 'treasure', shrine: 'a shrine', puzzle: 'a puzzle door', camp: 'a rest camp', fork: 'a fork', boss: 'the boss' };
 
 /** The destination picked on the world map (or by tapping its card): flagged, with the route out to it. */
 let mapPick: string | null = null;
@@ -50,6 +50,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.horses,
     s.uniques,
     s.regions,
+    s.quests.map((q) => [q.id, Math.ceil(q.hoursLeft / 24)]),
   ]);
 
 const listStock = (st: Stock) =>
@@ -88,6 +89,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     grid.append(card);
   }
   out.push(grid);
+  out.push(...questList(s));
   out.push(...treasures(s));
   out.push(el('div', 'hint', 'Fighters stand in front; scouts, medics and porters in back. Parties fall back when hurt past their stance, or when you are badly hurt. The downed bleed out unless a medic tends them.'));
   return out;
@@ -159,7 +161,9 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
   c.append(el('div', 'purpose', `Loot: ${lootText}${extra.length ? ` + ${extra.join(', ')}` : ''}${v.scouted ? '' : ' (not scouted)'}`));
   c.append(el('div', 'lock', `Threats: ${d.threats} · Suggested party: ${d.recommendedParty}`));
   if (!v.unlocked) {
-    c.append(el('div', 'lock short', `Needs research: ${TOPIC_BY_ID[d.research!]?.name ?? d.research}`));
+    // (a cleared dungeon lies quiet a while; else it's waiting on research)
+    if (v.quietHours) c.append(el('div', 'lock short', `Cleared: it lies quiet now, and wakes again in about ${Math.ceil(v.quietHours / 24)} day${v.quietHours > 24 ? 's' : ''}.`));
+    else c.append(el('div', 'lock short', `Needs research: ${TOPIC_BY_ID[d.research!]?.name ?? d.research}`));
     return c;
   }
   if (d.type === 'delve') return delveControls(c, d, v, s, bridge);
@@ -190,7 +194,8 @@ function delveControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sn
     delvePicks.set(d.id, picked);
   }
   for (const id of [...picked]) if (!able.some((p) => p.id === id)) picked.delete(id);
-  if (v.cleared) c.append(el('div', 'purpose', `Cleared ${v.cleared} time${v.cleared === 1 ? '' : 's'}.`));
+  if (v.cleared) c.append(el('div', 'purpose', `Cleared ${v.cleared} time${v.cleared === 1 ? '' : 's'}: it wakes deeper each time.`));
+  for (const q of s.quests.filter((q) => q.dungeon === d.id)) c.append(el('div', 'lock', `Quest: ${q.title} (${Math.ceil(q.hoursLeft / 24)} days left)`));
   c.append(el('div', 'purpose', `Pick the delvers (up to ${MAX_DELVERS}): ${picked.size} chosen.`));
   const chips = el('div', 'row delvers');
   for (const p of able) {
@@ -217,6 +222,23 @@ function delveControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sn
   );
   c.append(row);
   return c;
+}
+
+/** The quests open, each for a dungeon: clear it while it's open, and the reward comes home with the party. */
+function questList(s: Snapshot): HTMLElement[] {
+  if (!s.quests.length) return [];
+  const out: HTMLElement[] = [el('h2', '', 'Quests')];
+  const grid = el('div', 'cards wide');
+  for (const q of s.quests) {
+    const c = el('div', 'card quest');
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', q.title), el('span', 'card-size', `${Math.ceil(q.hoursLeft / 24)} days left`));
+    c.append(top, el('div', 'purpose', q.text), el('div', 'lock short', 'Clear the dungeon while the quest is open; the reward comes home with the party.'));
+    c.addEventListener('click', () => pick(q.dungeon));
+    grid.append(c);
+  }
+  out.push(grid);
+  return out;
 }
 
 /** The unique weapons found so far, who carries each, and how many are still out there (with the bosses). */

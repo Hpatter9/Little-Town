@@ -5,7 +5,7 @@
 // and the boss at the bottom, whose hoard comes home. The party turns back when the torches run out or half of them
 // are down; a lost or fled fight sends them home as on any trip (expeditions.ts). Deaths are real.
 
-import { DUNGEON_BY_ID, ELITE_BASE, ELITE_PER_ROOM, ELITE_RISKY, ELITES, ROOM_SECONDS, TWISTS, type DungeonDef, type EliteAffix, type RoomKind, type TwistId } from '../data/dungeons';
+import { DEEPER_ROOMS, DUNGEON_BY_ID, QUIET_DAYS, RIVAL_CHANCE, RIVALS, ELITE_BASE, ELITE_PER_ROOM, ELITE_RISKY, ELITES, ROOM_SECONDS, TWISTS, type DungeonDef, type EliteAffix, type RoomKind, type TwistId } from '../data/dungeons';
 import { ENEMIES } from '../data/enemies';
 import type { Battle } from './combat';
 import { the, The } from '../data/expeditions';
@@ -13,7 +13,7 @@ import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import { knockDown, stabilize } from './health';
 import { addStock, ERA_MULTIPLIER, maxHp, notify, poolSize, type Expedition, type GameState, type Person } from './state';
-import { TICK_HZ } from './time';
+import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { gainSkill } from './townsfolk';
 
 /** A delve in progress (on its expedition). */
@@ -30,6 +30,10 @@ export interface Delve {
   torches: number;
   /** A risky party took the darker way at a fork: every fight after has one more foe. */
   deeper?: boolean;
+  /** How many times the dungeon had been cleared as they set off: deeper, and one more foe a fight for each. */
+  depth?: number;
+  /** Another party racing them down, met at the `rival` room; what came of it (fought them, or one of them joins). */
+  rival?: { name: string; fighters: Record<string, number>; fought?: boolean; joins?: boolean };
   /** The boss's fight has begun (and, if the party is still down here when the room's time is up, been won). */
   bossFought?: boolean;
   cleared?: boolean;
@@ -70,22 +74,30 @@ export function startDelve(s: GameState, e: Expedition, take: (m: Material, n: n
   const rng = rngOf(s, e, 1);
   const total = ODDS.reduce((n, [, w]) => n + w, 0);
   const rooms: RoomKind[] = [];
-  for (let i = 0; i < d.rooms; i++) {
+  // (a dungeon cleared before has reawakened deeper)
+  const depth = s.delved?.[d.id] ?? 0;
+  const count = d.rooms + depth * DEEPER_ROOMS;
+  for (let i = 0; i < count; i++) {
     if (i === 0) rooms.push('fight');
-    else if (i === d.rooms - 1) rooms.push('camp');
+    else if (i === count - 1) rooms.push('camp');
     else {
       let r = rng.next() * total;
       rooms.push(ODDS.find(([, w]) => (r -= w) < 0)?.[0] ?? 'fight');
     }
   }
   rooms.push('boss');
+  // (sometimes another party is down there too: met halfway)
+  const rivals = RIVALS.filter((r) => r.era === d.era || (d.era === 'space' && r.era === 'modern'));
+  const rival = rivals.length && rng.chance(RIVAL_CHANCE) ? rivals[rng.int(0, rivals.length - 1)] : null;
+  if (rival) rooms[Math.floor(count / 2)] = 'rival';
   const boss = { ...d.bosses[rng.int(0, d.bosses.length - 1)] };
   const twists = Object.entries(TWISTS) as [TwistId, (typeof TWISTS)[TwistId]][];
   let r = rng.next() * twists.reduce((n, [, t]) => n + t.weight, 0);
   const twist = twists.find(([, t]) => (r -= t.weight) < 0)?.[0] ?? 'none';
   const want = rooms.length + SPARE_TORCHES;
   const torches = take('wood', want);
-  e.delve = { rooms, boss, twist, at: -1, ticks: 0, torches, log: [] };
+  e.delve = { rooms, boss, twist, at: -1, ticks: 0, torches, log: [], depth, ...(rival ? { rival: { name: rival.name, fighters: { ...rival.fighters } } } : {}) };
+  if (depth) say(s, e.delve, `${The(d.name)} has woken again, and it goes deeper than before: ${rooms.length} rooms.`);
   if (twist !== 'none') say(s, e.delve, `Word of ${the(d.name)}: ${TWISTS[twist].name}. ${TWISTS[twist].text}`);
   if (torches < want) notify(s, `There wasn't wood for all the torches: ${the(d.name)} party has ${torches} for ${rooms.length} rooms.`);
 }
@@ -140,7 +152,7 @@ function enter(s: GameState, e: Expedition, d: DungeonDef, v: Delve, members: Pe
     case 'fight': {
       const group = { ...d.foes[rng.int(0, d.foes.length - 1)] };
       // (more of them further down, and more again past a darker fork)
-      const extra = Math.floor(v.at / 3) + (v.deeper ? 1 : 0) + (v.twist === 'swarming' ? 1 : 0);
+      const extra = Math.floor(v.at / 3) + (v.deeper ? 1 : 0) + (v.twist === 'swarming' ? 1 : 0) + (v.depth ?? 0);
       const first = Object.keys(group)[0];
       if (extra && first) group[first] += extra;
       if (v.twist === 'haunted') group.grave_ghost = (group.grave_ghost ?? 0) + 1;
@@ -201,6 +213,20 @@ function enter(s: GameState, e: Expedition, d: DungeonDef, v: Delve, members: Pe
         const got = gather(e, d, (4 + Math.floor(depth / 2)) * (v.twist === 'rich' ? 2 : 1), hooks, rng);
         say(s, v, `${where}: a door of turning rings. ${wit.name} works it out: behind it, ${got || 'an empty vault'}.`);
       } else say(s, v, `${where}: a door of turning rings that won't open for them.`);
+      return;
+    }
+    case 'rival': {
+      const r = v.rival;
+      if (!r) return;
+      // a risky party fights them for what they've found; a safe one shares the way, and may win one of them over
+      if (e.stakes === 'risky') {
+        r.fought = true;
+        say(s, v, `${where}: ${r.name}, another party of delvers, are down here too. Neither will turn back: steel is drawn!`, true);
+        hooks.fight({ ...r.fighters }, false);
+      } else {
+        r.joins = rng.chance(0.45);
+        say(s, v, `${where}: ${r.name}, another party of delvers, are down here too. They share a fire and the way on${r.joins ? ', and one of them likes the town\'s company' : ''}.`);
+      }
       return;
     }
     case 'camp':
@@ -283,6 +309,8 @@ function cleared(s: GameState, e: Expedition, d: DungeonDef, v: Delve, hooks: De
     got.push(`${k} ${MATERIAL_NAMES[m].toLowerCase()}`);
   }
   (s.delved ??= {})[d.id] = (s.delved[d.id] ?? 0) + 1;
+  // (the dungeon goes quiet, then wakes again, deeper)
+  (s.dungeonQuiet ??= {})[d.id] = s.tick + QUIET_DAYS * TICKS_PER_DAY;
   say(s, v, `${The(d.name)} is cleared! The party heads home with the hoard${got.length ? `: ${got.join(', ')}` : ''}.`, true);
   hooks.back();
 }
@@ -305,6 +333,36 @@ function say(s: GameState, v: Delve, text: string, key = false): void {
 }
 
 const names = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}` : xs[0]);
+
+/** A delving party is home: what they won besides the loot (quests on a cleared dungeon, a rival won over). */
+export function delveHome(s: GameState, e: Expedition, rng: Rng, hooks: { quests: (dungeon: string) => void; join: () => Person }): void {
+  const v = e.delve;
+  if (!v) return;
+  if (v.cleared) hooks.quests(e.dest);
+  if (v.rival?.fought && v.cleared) {
+    const coins = 20 + rng.int(0, 20);
+    s.coins = (s.coins ?? 0) + coins;
+    notify(s, `What ${v.rival.name} had found is the town's now: ${coins} coins.`);
+  }
+  if (v.rival?.joins) {
+    const p = hooks.join();
+    notify(s, `${p.name} of ${v.rival.name} came home with the party, and stays.`, true);
+  }
+}
+
+/** Once an hour: a quiet dungeon that wakes again. */
+export function delvesHourly(s: GameState): void {
+  if (s.tick % TICKS_PER_HOUR !== 0 || !s.dungeonQuiet) return;
+  for (const [id, until] of Object.entries(s.dungeonQuiet)) {
+    if (s.tick < until) continue;
+    delete s.dungeonQuiet[id];
+    const d = DUNGEON_BY_ID[id];
+    if (d) notify(s, `Something stirs in ${the(d.name)} again: it has woken, deeper than before.`, true);
+  }
+}
+
+/** Whether a cleared dungeon is still quiet, and for how many hours. */
+export const quietHours = (s: GameState, id: string) => Math.max(0, Math.ceil(((s.dungeonQuiet?.[id] ?? 0) - s.tick) / TICKS_PER_HOUR));
 
 /** How full a delving party's packs are (for the card). */
 export const delveLoad = (e: Expedition) => poolSize(e.loot);

@@ -2,6 +2,7 @@
 // commands from the same state must always produce the same result.
 
 import type { Delve } from './delves';
+import type { Quest } from './quests';
 import { TILE } from '../constants';
 import type { Material, Stock } from '../data/materials';
 import { JOB_SKILL, JOBS, NAMES, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
@@ -516,6 +517,10 @@ export interface GameState {
   regions?: string[];
   /** How many times the town has cleared each dungeon (data/dungeons.ts). */
   delved?: Record<string, number>;
+  /** A cleared dungeon lies quiet until this tick, then reawakens deeper (sim/delves.ts). */
+  dungeonQuiet?: Record<string, number>;
+  /** Quests open (sim/quests.ts). */
+  quests?: Quest[];
   /** Which end of town each destination lies beyond (-1 left, 1 right). */
   destSides: Record<string, -1 | 1>;
   prompts: Prompt[];

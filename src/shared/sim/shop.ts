@@ -273,7 +273,20 @@ export function addRenown(b: Building, n: number): void {
 }
 
 /** How attractive a venue is, all told: its floor and its renown. This decides who comes, and how often. */
-export const attractiveness = (_s: GameState, b: Building) => appeal(b) + Math.floor(renownOf(b));
+export const attractiveness = (s: GameState, b: Building) => appeal(b) + Math.floor(renownOf(b)) + trophyRenown(s);
+
+/** Renown each treasure on show in a Trophy Hall adds to every venue (a boss's trophy, a unique weapon). */
+export const TROPHY_RENOWN = 3;
+/** The town's treasures: the uniques it has found, and the relics (bosses' trophies) it holds or wears. */
+export function treasuresHeld(s: GameState): number {
+  const relics = new Set<string>();
+  for (const [id, n] of Object.entries(s.items)) if (n > 0 && ITEM_BY_ID[id]?.relic) relics.add(id);
+  for (const p of s.people) for (const id of Object.values(p.gear)) if (id && ITEM_BY_ID[id]?.relic) relics.add(id);
+  for (const u of s.uniques ?? []) relics.add(u);
+  return relics.size;
+}
+/** What a finished Trophy Hall adds to the venues' renown. */
+export const trophyRenown = (s: GameState) => (s.buildings.some((b) => b.def === 'trophy_hall' && b.status === 'done') ? treasuresHeld(s) * TROPHY_RENOWN : 0);
 
 /** Pieces that no longer fit (the building was rebuilt bigger and its counter moved, say) go back to the stores for
  *  the keeper to set out again. */
