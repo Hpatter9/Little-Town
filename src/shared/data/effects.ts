@@ -33,9 +33,10 @@ export interface Effect {
 }
 
 /** What the effect list mostly does, for choosing when to use it and which three spells to keep ready. */
-export type Use = 'attack' | 'heal' | 'support' | 'control';
+export type Use = 'attack' | 'heal' | 'support' | 'control' | 'summon';
 
 export function useOf(effects: readonly Effect[]): Use {
+  if (effects.some((e) => e.kind === 'summon')) return 'summon';
   if (effects.some((e) => e.kind === 'heal' || e.kind === 'revive' || e.kind === 'cleanse')) return 'heal';
   if (effects.some((e) => e.kind === 'damage' || e.kind === 'drain')) return 'attack';
   if (effects.some((e) => e.kind === 'status' && e.status && BAD_STATUS.has(e.status))) return 'control';

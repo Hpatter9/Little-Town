@@ -5,6 +5,7 @@
 
 import { BLOOD_FURY, BLOOD_LIFESTEAL, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { classStat, levelPower } from '../data/levels';
+import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type Arena, type Kit, type Statuses } from './actions';
 import { ENEMIES, enemyArmor, natureOf, type EnemyGroup } from '../data/enemies';
 import { WEREWOLF_DAMAGE } from '../data/monsters';
 import type { Role } from '../data/expeditions';
@@ -63,6 +64,11 @@ export interface Fighter {
   /** Fallen enemies this fighter has raised (necromancers), and who raised this one. */
   raised?: number;
   raisedBy?: number;
+  raiseChecked?: boolean;
+  /** Spells and skills (actions.ts): what they have ready, and the statuses on them. Conjured: called up by a spell. */
+  kit?: Kit;
+  st?: Statuses;
+  conjured?: boolean;
   /** Epic bosses: raging yet, called for help yet, attacks made (for the sweeping attack). */
   enraged?: boolean;
   summoned?: boolean;
@@ -82,6 +88,11 @@ export interface Quirks {
   stun: number;
   undead: number;
   machine: number;
+  /** Skills' banes: a share more against beasts, the dead, machines; a true strike's extra. */
+  beastShare?: number;
+  undeadShare?: number;
+  machineShare?: number;
+  critDamage?: number;
 }
 
 /** What someone's weapon adds in a fight, made finer by its grade and its +N (quality.ts): damage, aim, its time
@@ -111,6 +122,8 @@ export interface Battle {
   boss: boolean;
   /** What the bosses said and did, for the Journal (taken and cleared by the expedition). */
   shouts?: string[];
+  /** The spells and skills used lately (for the watcher's box naming the action). */
+  acts?: { tick: number; side: Fighter['side']; ref: number; name: string; targets: number[] }[];
 }
 
 /** Ticks before the first exchange can end in a retreat (so a party at least tries). */
@@ -142,19 +155,35 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
   const k = (caster ? classStat(p, 'power') : classStat(p, 'damage')) * levelPower(p);
   const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k), Math.round((base[1] + bonus + wolf) * k)];
   const g = gearEffects(p);
+  // (their skills: always-on passives, and the kit of spells and skills they use)
+  const ps = passiveStats(p);
+  const kit = role === 'porter' ? undefined : kitOf(p);
+  const most = Math.round(maxHp(p) * (1 + (ps.hp ?? 0)));
+  const wq = used ? w.quirks : NO_QUIRKS;
+  const quirks: Quirks = {
+    ...wq,
+    crit: wq.crit + classStat(p, 'crit') + (ps.crit ?? 0),
+    pierce: wq.pierce + (ps.pierce ?? 0),
+    cleave: wq.cleave + (ps.cleave ?? 0),
+    stun: wq.stun + (ps.stun ?? 0),
+    beastShare: ps.beast,
+    undeadShare: ps.undead,
+    machineShare: ps.machine,
+    critDamage: ps.critDamage,
+  };
   return {
     side: 'party',
     ref: p.id,
     kind: 'person',
     name: p.name,
-    hp: p.hp,
-    maxHp: maxHp(p),
+    hp: Math.min(p.hp, most),
+    maxHp: most,
     row,
     ranged: useRanged,
     damage: role === 'porter' ? [0, 0] : damage,
-    accuracy: 0.55 + skill * 0.025 + aim + classStat(p, 'accuracy'),
-    dodge: 0.05 + melee * 0.01 + g.dodge + classStat(p, 'dodge'),
-    interval: Math.round(PERSON_INTERVAL * TICK_HZ * (used ? w.speed : 1) * g.slow * classStat(p, 'speed')),
+    accuracy: 0.55 + skill * 0.025 + aim + classStat(p, 'accuracy') + (ps.accuracy ?? 0),
+    dodge: 0.05 + melee * 0.01 + g.dodge + classStat(p, 'dodge') + (ps.dodge ?? 0),
+    interval: Math.round(PERSON_INTERVAL * TICK_HZ * (used ? w.speed : 1) * g.slow * classStat(p, 'speed') * (1 - (ps.speed ?? 0))),
     cooldown: 0,
     down: p.hp <= 0,
     role,
@@ -164,10 +193,11 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     lastAction: -99,
     lastHit: -99,
     attacks: 0,
-    armor: Math.min(0.7, g.armor + classStat(p, 'armor')),
-    block: g.block,
+    armor: Math.min(0.7, g.armor + classStat(p, 'armor') + (ps.armor ?? 0)),
+    block: Math.min(0.6, g.block + (ps.block ?? 0)),
     beastDamage: g.beastDamage,
-    ...(used || classStat(p, 'crit') ? { quirks: { ...(used ? w.quirks : NO_QUIRKS), crit: (used ? w.quirks.crit : 0) + classStat(p, 'crit') } } : {}),
+    quirks,
+    ...(kit ? { kit } : {}),
     ammoType: ammoOf(p),
     ammo: ammoOf(p) ? ammo : 0,
     ammoBonus: AMMO_DAMAGE[ammoOf(p) ?? 'wood'] ?? 0,
@@ -189,10 +219,11 @@ export function hitDamage(f: Pick<Fighter, 'damage' | 'ammo' | 'ammoBonus' | 'am
   const q = f.quirks;
   if (q) {
     const nature = natureOf(target.kind);
-    if (nature === 'undead') dmg += q.undead;
-    if (nature === 'machine') dmg += q.machine;
-    // (a true strike: double)
-    if (q.crit && rng.chance(q.crit)) dmg *= 2;
+    if (nature === 'undead') dmg = (dmg + q.undead) * (1 + (q.undeadShare ?? 0));
+    if (nature === 'machine') dmg = (dmg + q.machine) * (1 + (q.machineShare ?? 0));
+    if (nature === 'beast') dmg *= 1 + (q.beastShare ?? 0);
+    // (a true strike: double, or more)
+    if (q.crit && rng.chance(q.crit)) dmg *= 2 + (q.critDamage ?? 0);
   }
   if (target.block && rng.chance(target.block)) return 0;
   const armor = target.armor * (1 - (q?.pierce ?? 0));
@@ -272,7 +303,7 @@ export function startBattle(members: Person[], roles: Record<number, Role>, grou
   });
   const fighters = [...party, ...enemyFighters(group)];
   // stagger first actions so nobody moves in lockstep
-  for (const f of fighters) f.cooldown = rng.int(1, f.interval);
+  for (const f of fighters) f.cooldown = f.kit?.passive.firstStrike ? 1 : rng.int(1, f.interval);
   return { fighters, tick: 0, outcome: null, boss: Object.keys(group).some((id) => ENEMIES[id].boss) };
 }
 
@@ -283,14 +314,44 @@ export interface BattleRules {
   mainId: number | null;
 }
 
+/** The fight as the spells and skills see it (actions.ts). */
+function arenaOf(b: Battle, rng: Rng): Arena {
+  return {
+    tick: b.tick,
+    rng,
+    all: () => b.fighters,
+    summon: (user, kind) => {
+      if (!ENEMIES[kind]) return null;
+      const f: Fighter = { ...unitFighter(kind, user.side, -5000 - b.fighters.length), conjured: true, cooldown: 5 };
+      if (user.side === 'party') f.role = 'fighter';
+      b.fighters.push(f);
+      return f;
+    },
+    log: (user, name, targets) => {
+      (b.acts ??= []).push({ tick: b.tick, side: user.side, ref: user.ref, name, targets: targets.map((t) => t.ref) });
+      if (b.acts.length > 12) b.acts.shift();
+    },
+  };
+}
+
 /** One tick of fighting. Sets `outcome` when it's over. */
 export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
   if (b.outcome) return;
   b.tick++;
+  const arena = arenaOf(b, rng);
+  for (const f of b.fighters) tickStatuses(arena, f);
   for (const f of b.fighters) {
     if (f.down || --f.cooldown > 0) continue;
-    f.cooldown = f.interval;
+    f.cooldown = pace(f, b.tick);
     if (f.role === 'porter') continue;
+    // stunned, asleep, frozen, stopped: the turn is lost
+    if (held(f, b.tick)) continue;
+    // a spell or a skill, when one is ready and worth it
+    if (takeTurn(arena, f)) {
+      f.attacks++;
+      continue;
+    }
+    if (afraid(f, b.tick)) continue;
     if (f.role === 'medic') {
       const hurt = b.fighters.filter((o) => o.side === f.side && !o.down && o.hp < o.maxHp).sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp)[0];
       if (hurt) {
@@ -308,7 +369,14 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
     if (!foes.length) break;
     const front = foes.filter((o) => o.row === 'front');
     const reachable = f.ranged || !front.length ? foes : front;
-    const target = f.ranged ? reachable.reduce((a, c) => (c.hp < a.hp ? c : a)) : reachable[rng.int(0, reachable.length - 1)];
+    let target = f.ranged ? reachable.reduce((a, c) => (c.hp < a.hp ? c : a)) : reachable[rng.int(0, reachable.length - 1)];
+    // a guardian steps in front of a friend who's badly hurt; a foe taunting draws the blow
+    const taunting = reachable.find((o) => (o.st?.taunt?.until ?? 0) > b.tick);
+    if (taunting) target = taunting;
+    else if (target.hp < target.maxHp * 0.5) {
+      const guard = foes.find((o) => o !== target && !o.down && o.kit?.passive.guard && rng.chance(o.kit.passive.guard));
+      if (guard) target = guard;
+    }
     f.lastAction = b.tick;
     f.attacks++;
     if (rng.next() >= f.accuracy - target.dodge) {
@@ -340,26 +408,17 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
       if (f.hp < f.maxHp / 2) dmg = Math.round(dmg * BLOOD_FURY);
       f.hp = Math.min(f.maxHp, f.hp + Math.round(dmg * BLOOD_LIFESTEAL));
     }
-    target.hp = Math.max(0, target.hp - dmg);
-    target.lastHit = b.tick;
+    // (through shields, protection and the rest: actions.ts; the armour's already counted)
+    dmg = strike(arena, f, target, dmg, true, true);
+    // a guard strikes back
+    if (!f.ranged && !target.down && target.kit?.passive.counter && rng.chance(target.kit.passive.counter)) strike(arena, target, f, hitDamage(target, f, rng), true, true);
     const cleft = afterBlow(f.quirks, dmg, target, foes.filter((o) => o !== target && o.row === target.row), rng) as Fighter | null;
     if (cleft) cleft.lastHit = b.tick;
     target.hitFx = f.cls === 'blood_knight' ? 'blood' : f.ranged && f.ammoType === 'power_cells' ? 'lightning' : f.ranged && (f.ammoType === 'shot' || f.ammoType === 'cartridges') ? 'fire' : null;
     bossHurt(b, target);
-    if (target.hp === 0) {
-      target.down = true;
-      // a Necromancer on the other side raises the fallen enemy to fight for them
-      const necro = target.side === 'enemy' ? b.fighters.find((o) => o.side === 'party' && o.cls === 'necromancer' && !o.down && (o.raised ?? 0) < NECRO_RAISES) : undefined;
-      if (necro && !ENEMIES[target.kind]?.boss) {
-        necro.raised = (necro.raised ?? 0) + 1;
-        target.side = 'party';
-        target.role = 'fighter';
-        target.down = false;
-        target.hp = Math.round(target.maxHp / 2);
-        target.raisedBy = necro.ref;
-      }
-    }
+    if (target.hp === 0) target.down = true;
   }
+  raiseFallen(b);
 
   const party = b.fighters.filter((f) => f.side === 'party');
   const enemies = b.fighters.filter((f) => f.side === 'enemy');
@@ -369,6 +428,22 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
     const hp = party.reduce((n, f) => n + f.hp, 0) / party.reduce((n, f) => n + f.maxHp, 0);
     const main = party.find((f) => f.ref === rules.mainId);
     if (hp < rules.retreatAt || (main && !main.down && main.hp < main.maxHp * 0.5) || (main && main.down)) b.outcome = 'retreated';
+  }
+}
+
+/** A Necromancer raises the enemies that fell, whatever felled them (a blow or a spell), to fight for their side. */
+function raiseFallen(b: Battle): void {
+  for (const target of b.fighters) {
+    if (!target.down || target.side !== 'enemy' || target.raiseChecked) continue;
+    target.raiseChecked = true;
+    const necro = b.fighters.find((o) => o.side === 'party' && o.cls === 'necromancer' && !o.down && (o.raised ?? 0) < NECRO_RAISES);
+    if (!necro || ENEMIES[target.kind]?.boss) continue;
+    necro.raised = (necro.raised ?? 0) + 1;
+    target.side = 'party';
+    target.role = 'fighter';
+    target.down = false;
+    target.hp = Math.round(target.maxHp / 2);
+    target.raisedBy = necro.ref;
   }
 }
 
