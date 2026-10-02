@@ -21,6 +21,16 @@ Wolves, boars and the Cave Bear use **whtdragon**'s RPG Maker MV animal sprites
 (`src/renderer/art/creatures/`, copied from the Little Wayfarers assets). The pack folder has no licence file:
 check whtdragon's posted terms of use before any public release.
 
+## Craftpix packs (the bestiary)
+
+The foes and bosses in `src/shared/data/bestiary.ts` are drawn from free **Craftpix.net** packs (craftpix.net,
+free licence: use in games allowed, no redistributing the raw files). `tools/compose-sheets.cjs` builds one small
+sheet per creature (`src/renderer/art/creatures/packs/`) from the packs kept in the private assets repository:
+Free Werewolf, Gorgon, Minotaur and Satyr Sprite Sheets; Free Forest Bosses; Free Samurai, Ninja, Wizard, Robot,
+Knight and Skeleton Sprite Sheets; Free Yokai Character Sprites; Free Tiny Hero Sprites; Free Enemy Pixel Pack for
+Top-Down Defense; Free Fantasy RPG Top-Down Boss Creatures (Boar King, Devil Leader, Shaman King) and Pirate Boss
+Characters (Pirate Leader, Pirate Zombie, Squidman).
+
 ## Item icons
 
 Crafted items use icons from **DawnLike** (16x16 universal roguelike tileset) by **DragonDePlatino**, on

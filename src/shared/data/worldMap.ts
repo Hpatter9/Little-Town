@@ -3,12 +3,16 @@
 // mountains, the Meteor Crater on the icy island to the north-east, and the Pirate Flagship out at sea. Short
 // trips lie near home and long ones far away.
 
+import { BESTIARY_SPOTS } from './bestiary';
+
 export const MAP_SIZE = 768;
 
 /** The town: in the green country east of the central lake, where the paths meet. */
 export const MAP_HOME = { x: 395, y: 410 };
 
 export const MAP_SPOTS: Readonly<Record<string, { x: number; y: number }>> = {
+  // (the new bosses' lairs: data/bestiary.ts)
+  ...BESTIARY_SPOTS,
   berry_thicket: { x: 360, y: 470 },
   riverbank: { x: 275, y: 345 },
   deep_woods: { x: 530, y: 360 },

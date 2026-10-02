@@ -456,6 +456,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Battle speed:** the raid battle's top bar has a speed button (1×, 2×, 3×; the `battleSpeed` command,
   `s.battleSpeed`, kept for later battles). `battleSpeedNow` (battle.ts) is read by `GameLoop.pump`, which runs that
   much more sim time while a battle is on; back to the town's pace when it's over.
+- **The bestiary (from the Craftpix packs):** `tools/compose-sheets.cjs` (run by hand; needs Playwright's Chromium)
+  turns each pack's per-animation strips (or the painted bosses' frame folders, scaled down) into one sheet per
+  creature in `src/renderer/art/creatures/packs/` (rows: walk, attack, idle, hurt, dead; frames cropped to the creature,
+  feet on the bottom edge), with `packs.json`/`packs.ts` (layout) and `src/shared/data/packSheets.ts` (sheet ids and
+  figure heights). The sheets are files beside the page (copied by `build.mjs` and `build-web.mjs`), not inlined.
+  `creatures.ts` folds them in (`PACK_DEFS`); `creatureFrame` takes a pose (`idle`, `hurt`, `dead`: the fallen lie down).
+  `src/shared/data/bestiary.ts`: about 40 foes, 12 bosses with kits and relic trophies, 14 raid kinds, and 12 lairs
+  (legendary destinations with map spots and scenes), merged into ENEMIES, RAID_KINDS, ITEMS, DESTINATIONS,
+  MAP_SPOTS and ROUTES. `test/bestiary.test.ts` checks every pack sheet is used. `atPlace` (data/expeditions.ts) says
+  "at The Labyrinth" rather than "at the The Labyrinth".
 - **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
   `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
   (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.

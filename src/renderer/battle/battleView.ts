@@ -519,8 +519,8 @@ export class BattleScene {
     if (!def) return;
     if ('sheet' in def.sprite) {
       const sp = def.sprite as { sheet: CreatureSheet; block: number; scale: number };
-      const frame = moving ? Math.floor(m.walked / 3) : Math.floor(now / 500);
-      s.texture = creatureFrame(sp.sheet, sp.block, facing, frame, acting);
+      const frame = moving ? Math.floor(m.walked / 3) : Math.floor(now / 200);
+      s.texture = creatureFrame(sp.sheet, sp.block, facing, frame, acting, !moving && !acting ? 'idle' : undefined);
       const size = creatureSize(sp.sheet);
       const flip = creatureFlip(sp.sheet, facing);
       const k = sp.scale * FIGURE;

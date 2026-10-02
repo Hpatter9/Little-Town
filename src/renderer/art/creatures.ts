@@ -42,8 +42,10 @@ import batsUrl from './creatures/bats.png';
 import camelUrl from './creatures/camel.png';
 import shroomsUrl from './creatures/shrooms.png';
 import mimicUrl from './creatures/mimic.png';
+import { PACK_LAYOUT, packUrl } from './creatures/packs';
+import type { PackSheetId } from '../../shared/data/packSheets';
 
-export type CreatureSheet = 'mouse' |'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'ghosts' | 'golems2' | 'snowmonkey' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon' | 'lions' | 'wilddogs' | 'crocodiles' | 'behemoth' | 'tomes' | 'bats' | 'camel' | 'shrooms' | 'mimic';
+export type CreatureSheet = 'mouse' |'wolf' | 'boar' | 'bear' | 'horse' | 'wyvern' | 'drakes' | 'golems' | 'skeleghouls' | 'zombieanimals' | 'wolfman' | 'horror' | 'dark_knight' | 'champ_necromancer' | 'champ_summoner' | 'champ_beast_tamer' | 'champ_blood_knight' | 'ghosts' | 'golems2' | 'snowmonkey' | 'blood_monster' | 'demon' | 'goblin' | 'slime' | 'champ_sage' | 'champ_mercenary' | 'champ_dragoon' | 'lions' | 'wilddogs' | 'crocodiles' | 'behemoth' | 'tomes' | 'bats' | 'camel' | 'shrooms' | 'mimic' | PackSheetId;
 
 interface SheetDef {
   url: string;
@@ -55,7 +57,7 @@ interface SheetDef {
   /** Recolour on load: green becomes red (the wyvern turned dragon). */
   redden?: boolean;
   /** An animation strip instead of facing rows: frames per row, and which frames walk and attack (it faces left). */
-  strip?: { perRow: number; walk: number[]; attack: number[]; idle: number[] };
+  strip?: { perRow: number; walk: number[]; attack: number[]; idle: number[]; hurt?: number[]; dead?: number[] };
   /** (strips face left unless this says otherwise) */
   facesRight?: boolean;
   /** Where the art starts, as a share of the frame's height from the top (for placing health bars over small
@@ -66,7 +68,28 @@ interface SheetDef {
   feet?: number;
 }
 
+/** The Craftpix packs' creatures (tools/compose-sheets.cjs): one sheet each, a row per animation (walk, attack, idle,
+ *  hurt, dying), each frame cropped to the creature with its feet on the bottom edge. */
+const PACK_DEFS = Object.fromEntries(
+  Object.entries(PACK_LAYOUT).map(([id, p]) => {
+    const row = (name: string) => {
+      const r = p.rows.indexOf(name);
+      return r < 0 ? undefined : Array.from({ length: p.counts[name] }, (_, i) => r * p.perRow + i);
+    };
+    const def: SheetDef = {
+      url: packUrl(id),
+      w: p.w,
+      h: p.h,
+      blocksAcross: 1,
+      facesRight: p.facesRight,
+      strip: { perRow: p.perRow, walk: row('walk')!, attack: row('attack')!, idle: row('idle')!, hurt: row('hurt'), dead: row('dead') },
+    };
+    return [id, def];
+  }),
+) as Record<PackSheetId, SheetDef>;
+
 const SHEETS: Record<CreatureSheet, SheetDef> = {
+  ...PACK_DEFS,
   wolf: { url: wolfUrl, w: 48, h: 48, blocksAcross: 4 },
   boar: { url: boarUrl, w: 48, h: 48, blocksAcross: 4 },
   bear: { url: bearUrl, w: 48, h: 48, blocksAcross: 4 },
@@ -172,13 +195,15 @@ export const creatureFlip = (sheet: CreatureSheet, facing: 'left' | 'right') => 
  * One frame of a creature, facing left or right. `frame` counts walk frames (0, 1, 2, ...); pass `attack`
  * for an attack pose on sheets that have one.
  */
-export function creatureFrame(sheet: CreatureSheet, block: number, facing: 'left' | 'right', frame: number, attack = false): Texture {
+export function creatureFrame(sheet: CreatureSheet, block: number, facing: 'left' | 'right', frame: number, attack = false, pose?: 'idle' | 'hurt' | 'dead'): Texture {
   const def = SHEETS[sheet];
   // (frame numbers keep counting up; wrap them before caching)
-  const seq = def.strip ? (attack ? def.strip.attack : def.strip.walk) : null;
+  const posed = pose && def.strip?.[pose];
+  const seq = def.strip ? (posed || (attack ? def.strip.attack : def.strip.walk)) : null;
   const n = seq ? seq.length : 3;
-  const f = ((Math.floor(frame) % n) + n) % n;
-  const key = `${sheet}|${block}|${facing}|${f}|${!!seq && attack}`;
+  // (the dying row is shown at its end: lying still)
+  const f = pose === 'dead' && posed ? n - 1 : ((Math.floor(frame) % n) + n) % n;
+  const key = `${sheet}|${block}|${facing}|${f}|${!!seq && attack}|${posed ? pose : ''}`;
   let t = frames.get(key);
   if (!t) {
     const base = sheets.get(sheet)!;
@@ -199,3 +224,8 @@ export function creatureFrame(sheet: CreatureSheet, block: number, facing: 'left
   }
   return t;
 }
+
+/** Whether a sheet has its own dying frames (the Craftpix packs): the fallen are drawn lying down. */
+export const creatureHasDeath = (sheet: CreatureSheet) => !!SHEETS[sheet].strip?.dead;
+/** The last frame of its dying row (lying still). */
+export const creatureDead = (sheet: CreatureSheet, facing: 'left' | 'right') => creatureFrame(sheet, 0, facing, (SHEETS[sheet].strip?.dead?.length ?? 1) - 1, false, 'dead');

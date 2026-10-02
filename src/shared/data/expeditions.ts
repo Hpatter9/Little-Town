@@ -1,5 +1,6 @@
 // Neolithic expedition destinations (DESIGN §8, §15). Times are the base round trip; numbers are for tuning.
 
+import { BESTIARY_LAIRS } from './bestiary';
 import type { EnemyGroup } from './enemies';
 import type { Era } from './eras';
 import type { Material } from './materials';
@@ -39,6 +40,9 @@ export interface Destination {
   scenery: 'thicket' | 'river' | 'woods' | 'quarry' | 'cave';
   description: string;
 }
+
+/** "at the Riverbank", but "at The Labyrinth" (a place whose name has its own "The"). */
+export const atPlace = (name: string) => (/^the /i.test(name) ? `at ${name}` : `at the ${name}`);
 
 export const DESTINATIONS: readonly Destination[] = [
   {
@@ -365,6 +369,8 @@ export const DESTINATIONS: readonly Destination[] = [
   { id: 'baron_manor', name: "The Baron's Works", type: 'legendary', outSeconds: 360, workSeconds: 200, secondsPerUnit: 7, loot: { steel: 4, glass: 4, coal: 6 }, guaranteed: { steel: 12 }, threats: 'The Iron Baron and his Iron Colossus (bosses)', encounters: { arrival: 1, ambush: 0, groups: [{ enemies: { iron_baron: 1, iron_colossus: 1 }, weight: 1 }] }, recommendedParty: 3, research: 'firearms', era: 'industrial', scenery: 'quarry', description: 'A robber baron and his hired guns. His vaults are full.' },
   { id: 'warlord_fort', name: "The Warlord's Fort", type: 'legendary', outSeconds: 340, workSeconds: 200, secondsPerUnit: 7, loot: { electronics: 3, fuel: 8, concrete: 6 }, guaranteed: { electronics: 10 }, threats: 'The Warlord and his War Machine (bosses)', encounters: { arrival: 1, ambush: 0, groups: [{ enemies: { warlord: 1, war_machine: 1 }, weight: 1 }] }, recommendedParty: 3, research: 'rifles', era: 'modern', scenery: 'woods', description: 'A warlord has carved out a kingdom in the hills.' },
   { id: 'pirate_flagship', name: 'The Pirate Flagship', type: 'legendary', outSeconds: 320, workSeconds: 200, secondsPerUnit: 7, loot: { alloys: 3, circuits: 3, power_cells: 10 }, guaranteed: { alloys: 12 }, threats: 'The Pirate King and the Star Reaver (bosses)', encounters: { arrival: 1, ambush: 0, groups: [{ enemies: { pirate_king: 1, star_mech: 1 }, weight: 1 }] }, recommendedParty: 3, research: 'energy_weapons', era: 'space', scenery: 'quarry', description: 'The pirates crashed their flagship here. Their king is still aboard.' },
+  // the new bosses' lairs (data/bestiary.ts)
+  ...BESTIARY_LAIRS,
 ];
 
 export const DESTINATION_BY_ID: Readonly<Record<string, Destination>> = Object.fromEntries(DESTINATIONS.map((d) => [d.id, d]));

@@ -26,7 +26,7 @@ import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../da
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
-import { DESTINATION_BY_ID, DESTINATIONS, ROLES } from '../data/expeditions';
+import { atPlace, DESTINATION_BY_ID, DESTINATIONS, ROLES } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry } from './people';
 import type { Era } from '../data/eras';
@@ -1082,7 +1082,7 @@ function bossBar(s: GameState): Snapshot['bossBar'] {
   if (raider) return { name: ENEMIES[raider.kind].name, hp: raider.hp, maxHp: raider.maxHp, enraged: !!raider.enraged, where: 'in town' };
   for (const e of s.expeditions) {
     const f = e.battle?.fighters.find((q) => q.side === 'enemy' && ENEMIES[q.kind]?.kit && !q.down);
-    if (f) return { name: f.name, hp: f.hp, maxHp: f.maxHp, enraged: !!f.enraged, where: `at the ${DESTINATION_BY_ID[e.dest]?.name ?? 'expedition'}` };
+    if (f) return { name: f.name, hp: f.hp, maxHp: f.maxHp, enraged: !!f.enraged, where: atPlace(DESTINATION_BY_ID[e.dest]?.name ?? 'expedition') };
   }
   return null;
 }

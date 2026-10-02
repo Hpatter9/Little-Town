@@ -2,6 +2,7 @@
 // inside dungeons. Which one: by the destination, whether the party is on the road (the land on the way) or there
 // (inside, for a dungeon), and the town's biome (the green ones become sand, snow or shore).
 
+import { BESTIARY_ROUTES } from './bestiary';
 import type { Biome } from './biomes';
 
 export const SCENES = [
@@ -15,6 +16,8 @@ export type SceneId = (typeof SCENES)[number];
 
 /** Each destination's scene on the road there, and at it (inside, for a dungeon). */
 export const ROUTES: Record<string, [SceneId, SceneId]> = {
+  // (the new bosses' lairs: data/bestiary.ts)
+  ...BESTIARY_ROUTES,
   berry_thicket: ['meadow', 'meadow'],
   riverbank: ['riverbank', 'riverbank'],
   deep_woods: ['pinewoods', 'pinewoods'],

@@ -188,11 +188,10 @@ export class FightScene {
     const land = this.vh - hy;
     const foeGap = Math.min(24, (land - 28) / 3);
     const partyGap = Math.min(16, (land - 24) / Math.max(1, party.length - 1));
+    // (in a staggered line back from the front, spaced so the big ones don't stand in each other)
+    const spacing = Math.min(40, (vw * 0.32) / Math.max(1, foes.length - 1));
     foes.forEach((f, i) => {
-      // two columns, the big ones at the back
-      const col = Math.floor(i / 3);
-      const row = i % 3;
-      at.set(`enemy:${f.ref}`, [Math.round(vw * 0.3) - col * 30 + (row % 2) * 9, Math.round(hy + 18 + row * foeGap)]);
+      at.set(`enemy:${f.ref}`, [Math.round(vw * 0.36 - i * spacing), Math.round(hy + 18 + (i % 2) * foeGap * 1.6)]);
     });
     party.forEach((f, i) => {
       // a slanting column, as in the old games
@@ -254,7 +253,7 @@ export class FightScene {
     if (unit && 'sheet' in unit.sprite) {
       const sp = unit.sprite as { sheet: CreatureSheet; block: number; scale: number };
       const facing = faceLeft ? 'left' : 'right';
-      s.texture = creatureFrame(sp.sheet, sp.block, facing, f.down ? 1 : Math.floor(now / 160 + f.ref), acting);
+      s.texture = creatureFrame(sp.sheet, sp.block, facing, f.down ? 1 : Math.floor(now / 160 + f.ref), acting, f.down ? 'dead' : acting ? undefined : 'idle');
       const size = creatureSize(sp.sheet);
       const flip = creatureFlip(sp.sheet, facing);
       const sc = sp.scale * k * 1.2;

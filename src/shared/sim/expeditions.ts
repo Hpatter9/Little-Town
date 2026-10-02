@@ -12,6 +12,7 @@ import {
   SALVAGE_NOTES_CHANCE,
   LOADED_SLOWDOWN,
   MAX_EXPEDITIONS,
+  atPlace,
   MAX_PARTY,
   PORTER_CARRY,
   SCOUT_AVOID,
@@ -423,7 +424,7 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
           p.downed = { bleedUntil: null };
           p.hp = 1;
         } else {
-          killPerson(s, p, `at the ${d.name}`);
+          killPerson(s, p, atPlace(d.name));
           if (s.gameOver) return;
         }
       }
@@ -434,7 +435,7 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
       }
       if (e.truck && rng.chance(TRUCK_LOST_ON_LOSS)) {
         e.truck = false;
-        notify(s, `The truck was wrecked at the ${d.name}.`, true);
+        notify(s, `The truck was wrecked ${atPlace(d.name)}.`, true);
       }
       if (!membersOf(s, e).length) return; // handled next tick ("no one came back")
       notify(s, `The ${d.name} party was overrun. The survivors are crawling home.`, true);

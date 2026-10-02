@@ -13,6 +13,7 @@ mkdirSync(OUT, { recursive: true });
 copyFileSync('out/renderer/index.html', `${OUT}/strip.html`);
 for (const f of ['panel.html', 'renderer.js', 'panel.js', 'world-map.jpg']) copyFileSync(`out/renderer/${f}`, `${OUT}/${f}`);
 cpSync('out/renderer/music', `${OUT}/music`, { recursive: true });
+cpSync('out/renderer/packs', `${OUT}/packs`, { recursive: true });
 cpSync('out/renderer/fonts', `${OUT}/fonts`, { recursive: true });
 
 // the phone page that holds them

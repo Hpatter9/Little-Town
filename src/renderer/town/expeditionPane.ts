@@ -259,7 +259,7 @@ export class ExpeditionPane {
       } else {
         const sp = ENEMIES[f.kind].sprite as { sheet: CreatureSheet; block: number; scale: number };
         const facing = faceLeft ? 'left' : 'right';
-        s.texture = creatureFrame(sp.sheet, sp.block, facing, f.down ? 1 : Math.floor(secs * 6 + f.ref), acting && !f.down);
+        s.texture = creatureFrame(sp.sheet, sp.block, facing, f.down ? 1 : Math.floor(secs * 6 + f.ref), acting && !f.down, f.down ? 'dead' : undefined);
         const size = creatureSize(sp.sheet);
         const flip = creatureFlip(sp.sheet, facing);
         s.scale.set(sp.scale * flip, sp.scale);
