@@ -60,7 +60,10 @@ const PROPS_ON: Partial<Record<Ground, [PropKind, number][]>> = {
   rock: [['rock', 0.9], ['plant', 0.1]],
   marsh: [['plant', 0.55], ['bush', 0.45]],
   hill: [['rock', 0.4], ['bush', 0.4], ['plant', 0.2]],
+  mountain: [['rock', 0.7], ['crystal', 0.3]],
 };
+/** How many of a kind's cells carry an object (every one unless said): the mountain's mass is mostly bare rock. */
+const PROPS_SHARE: Partial<Record<Ground, number>> = { mountain: 0.2 };
 
 /** A firefly: a tiny blinking glow in the lights layer, drifting over the grass on a warm, fair night. */
 interface Firefly {
@@ -329,6 +332,7 @@ export class MapView {
         const i = y * land.w + x;
         // (a slow phone: every other wild cell bare)
         if (this.calm && hash(5, x, y) < 0.5) continue;
+        if (PROPS_SHARE[g] !== undefined && hash(6, x, y) > PROPS_SHARE[g]!) continue;
         seen.add(i);
         const key = `${g}|${vis}|${this.propsWanted.join(',')}`;
         let p = this.props.get(i);

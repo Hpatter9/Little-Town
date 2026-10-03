@@ -10,6 +10,7 @@ import type { Era } from '../../shared/data/eras';
 import { drawRoadCell, drawWornPatch, ROAD_BY_ERA, roadTilesReady } from '../art/roadTiles';
 import { drawPatch, drawRipple, drawTuft, groundDetailReady, groundUnder, type Patch } from '../art/groundDetail';
 import { PROP_FINE, propFrames, propImage } from '../art/props';
+import { paintMountain, paintMountainEdge } from './mountainArt';
 
 /** How many of the shore's water cells show the bottom (the Seabed pack's corals, urchins, starfish and shells) through
  *  the water, on the coast. */
@@ -45,7 +46,7 @@ const SUMMER: Pal = {
   water: ['#4382b8', '#86b9e0'],
   road: ['#a58c66', '#8f7756', '#b89c76'],
   flowers: ['#f2e26a', '#e86e8a', '#f4f4f4', '#b983e0'],
-  mountain: ['#4e4a56', '#3a3642', '#6c6874'],
+  mountain: ['#5a5664', '#34303c', '#8a8694'],
   hall: ['#3c343c', '#463c44'],
 };
 const PALETTES: Record<string, Pal> = {
@@ -92,7 +93,9 @@ export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td:
     s += m.cells.slice(i0, i0 + CHUNK) + m.roads.slice(i0, i0 + CHUNK);
     // (footpaths, by how worn: a step either side too, since a path reaches toward its neighbours)
     if (m.wear) for (let x = cx * CHUNK - 1; x <= (cx + 1) * CHUNK; x++) s += wornLevel(m, x, y) || wornLevel(m, x, y - 1) || wornLevel(m, x, y + 1);
+    s += groundAt(m, cx * CHUNK - 1, y)[0] + groundAt(m, (cx + 1) * CHUNK, y)[0];
   }
+  for (let x = cx * CHUNK; x < (cx + 1) * CHUNK; x++) s += groundAt(m, x, cy * CHUNK - 1)[0] + groundAt(m, x, (cy + 1) * CHUNK)[0];
   return s;
 }
 
@@ -201,20 +204,10 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             // (cracks)
             rect(px + Math.floor(hash(seed ^ 31, x, y) * 20), py + Math.floor(hash(seed ^ 33, x, y) * 28), 10, 1, pal.rock[1]);
             break;
-          case 'mountain': {
-            // the mountain's mass: dark rock, seamed, and a lit cliff face along its foot where the terrain begins
-            cell(px, py, pal.mountain[0], pal.mountain[1], 0.22);
-            rect(px + Math.floor(hash(seed ^ 41, x, y) * 18), py + Math.floor(hash(seed ^ 43, x, y) * 26), 12 + Math.floor(hash(seed ^ 45, x, y) * 8), 1, pal.mountain[1]);
-            if (hash(seed ^ 47, x, y) < 0.3) rect(px + Math.floor(hash(seed ^ 49, x, y) * 24), py + Math.floor(hash(seed ^ 51, x, y) * 24), 2, 2, pal.mountain[2]);
-            const below = groundAt(m, x, y + 1);
-            if (below !== 'mountain' && below !== 'hall') {
-              rect(px, py + CELL - 12, CELL, 12, pal.mountain[2]);
-              rect(px, py + CELL - 12, CELL, 1, '#8c8894');
-              for (let k = 0; k < 4; k++) rect(px + 2 + k * 8 + Math.floor(hash(seed ^ (53 + k), x, y) * 3), py + CELL - 10, 1, 9, pal.mountain[1]);
-              rect(px, py + CELL - 1, CELL, 1, pal.mountain[1]);
-            }
+          case 'mountain':
+            // the mountain's mass in relief, snow on its heights, a cliff face at its foot (mountainArt.ts)
+            paintMountain(g, m, x, y, px, py, pal.mountain, season === 'winter');
             break;
-          }
           case 'hall':
             cell(px, py, pal.hall[0], pal.hall[1], 0.18);
             break;
@@ -248,6 +241,8 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             break;
           }
         }
+      // the mountain's jagged edge biting into the terrain beside it
+      if (kind !== 'mountain' && kind !== 'hall') paintMountainEdge(g, m, x, y, px, py, pal.mountain);
       // a footpath worn by walking: patches of bare earth along it, toward each worn (or road) neighbour
       const worn = wornLevel(m, x, y);
       if (worn && kind !== 'water' && roadTilesReady()) {

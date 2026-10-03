@@ -256,9 +256,11 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
   // ragged further off (the river and the shore are swallowed where they ran into it)
   if (shape === 'mountain') {
     const foot = noise(seedHash ^ 0x7a, 8);
+    const spur = noise(seedHash ^ 0x7b, 3);
     for (let x = 0; x < w; x++) {
       const off = Math.min(1, Math.max(0, (Math.abs(x - camp.x) - 7) / 12)); // (level by the gate, then ragged)
-      const line = camp.y - MOUNTAIN_FOOT - Math.round((foot(x, 0) - 0.5) * 8 * off);
+      // (the foot wanders by the broad noise, and the fine one throws spurs and gullies a row or two further)
+      const line = camp.y - MOUNTAIN_FOOT - Math.round(((foot(x, 0) - 0.5) * 10 + (spur(x, 0) - 0.5) * 4) * off);
       for (let y = 0; y <= line && y < h; y++) grid[y * w + x] = 'mountain';
     }
   }
