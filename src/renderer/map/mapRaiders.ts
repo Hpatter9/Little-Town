@@ -27,6 +27,8 @@ interface Drawn {
   x: number;
   y: number;
   walked: number;
+  /** Walking up or down the map (from the way they last moved), else side-on. */
+  face?: 'up' | 'down' | null;
 }
 
 export class MapRaiders {
@@ -120,9 +122,14 @@ export class MapRaiders {
           anim = attackAnim(hs, def.ranged);
           frame = Math.min(FRAME_COUNT[anim] - 1, Math.floor(r.sinceAction * (anim === 'shoot' ? 1.6 : 1)));
         }
-        s.texture = lpcFrame(look, anim, frame, hs.weapon, wear);
+        // up or down the map when that's mostly how they're moving (the trail runs every way)
+        const mdx = d.to.x - d.from.x;
+        const mdy = d.to.y - d.from.y;
+        if (moving) d.face = Math.abs(mdy) > Math.abs(mdx) * 1.2 ? (mdy < 0 ? 'up' : 'down') : null;
+        const faceWay = anim === 'walk' && d.face ? d.face : undefined;
+        s.texture = lpcFrame(look, anim, frame, hs.weapon, wear, faceWay);
         s.anchor.set(CENTRE_X / FRAME_SIZE, FEET_Y / FRAME_SIZE);
-        s.scale.set(r.dir < 0 ? -1 : 1, 1);
+        s.scale.set(r.dir < 0 && !faceWay ? -1 : 1, 1);
         s.position.set(Math.round(x + lunge), Math.round(y));
         top = y - 50;
       }
