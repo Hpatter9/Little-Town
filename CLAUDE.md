@@ -788,6 +788,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       (road4); grass-tufted edges on green ground, bare earth on sand, soil and rock, bare in winter. `paintChunk`
       paints the ground under, then the road over; the chunk key carries the era and whether the sheets have loaded
       (the painted path stands until then).
+    - **Plots, pens and the campfire (done):** `src/renderer/art/fieldTiles.ts` (the Fields tileset's soil tiles by
+      what they have grass on, `SOIL`, mirrored for the right-hand pieces; `drawSoil` edge-aware over a plot;
+      `drawFence` rails and posts round a pen with a gap for the gate; `campfirePack` the six flame frames).
+      `fieldArt` builds a `packedPlot` on them once loaded (`fieldTilesReady`; `onFieldTiles` bumps MapView's `artGen`),
+      the crop rows still drawn over the soil; MapView's campfire takes the pack's frames.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

@@ -51,7 +51,8 @@ top-down pack. The raid map's cobbled trail and the pads under the shooters' spo
 free Fields Tileset and Village Tileset for top-down tower defence. The Village Tileset's half-timbered houses and striped
 awnings also stand for the medieval town's cottages, row houses, inn, trading post and stalls on the town map.
 The town's roads on the map (`src/renderer/art/roads/`) are from its free Path and Road top-down pixel tileset: slabs,
-cobbles, bricks and paving by era, laid a quarter-tile at a time.
+cobbles, bricks and paving by era, laid a quarter-tile at a time. The plots' soil, the pens' rail fences and the town's campfire
+(`src/renderer/art/fields/`) are from its free Fields Tileset for tower defence.
 
 ## Craftpix top-down objects (the raid map's scenery)
 

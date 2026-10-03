@@ -25,6 +25,7 @@ import { glowTexture } from '../town/layer';
 import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
 import { onPackArt, packArt, packDressing } from './packBuildings';
 import { loadRoadTiles } from '../art/roadTiles';
+import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { CARPET_W, cornerTower, floorTile, MERLON, northWall, sideWalkTile, southWall, TOWER_H, TOWER_W, WALL_FACE, WALL_T } from './keepArt';
 
@@ -135,6 +136,8 @@ export class MapView {
     this.root.addChild(this.world);
     loadTdTiles().then(() => this.repaint(), () => undefined);
     loadRoadTiles().then(() => this.repaint(), () => undefined);
+    loadFieldTiles().then(() => undefined, () => undefined);
+    onFieldTiles(() => this.artGen++);
     onPackArt(() => this.artGen++);
   }
 
@@ -419,7 +422,7 @@ export class MapView {
   /* ------------------------------------------------------------ buildings */
 
   private art(b: Building): PixelArt {
-    if (b.def === 'campfire') return this.fire[0];
+    if (b.def === 'campfire') return (campfirePack() ?? this.fire)[0];
     const f = footprint(b);
     if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey);
     // (a pack picture where one suits the look: map/packBuildings.ts)
@@ -545,7 +548,7 @@ export class MapView {
       shadow.visible = false;
       shadow.zIndex = top;
     }
-    const sprite = this.things.addChild(b.def === 'campfire' && b.status === 'done' ? animated(this.fire) : new Sprite(art.texture));
+    const sprite = this.things.addChild(b.def === 'campfire' && b.status === 'done' ? animated(campfirePack() ?? this.fire) : new Sprite(art.texture));
     sprite.position.set(left, top);
     sprite.zIndex = flat ? top - 1e6 : bottom;
     const d: DrawnBuilding = { sig, sprite, shadow, art, rect, progress: -1 };
