@@ -23,9 +23,10 @@ export const ARRIVE = 2;
 /** A path is thrown away and found again after this many ticks (something may have been built across it). */
 const REPLAN_TICKS = 200;
 
-/** Whether a cell is inside a building (one that isn't `through`: the walker's own goal). */
+/** Whether a cell is inside a building (one that isn't `through`: the walker's own goal). A castle's rooms are walked
+ *  through: inside its walls, everyone goes from room to room. */
 export function blockedBy(s: Pick<GameState, 'buildings'>, through?: Rect): (x: number, y: number) => boolean {
-  const prints = s.buildings.map(footprint);
+  const prints = s.buildings.filter((b) => !b.room).map(footprint);
   return (x, y) => prints.some((r) => inRect(r, x, y) && !(through && inRect(through, x, y)));
 }
 

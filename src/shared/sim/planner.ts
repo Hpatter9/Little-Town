@@ -7,7 +7,7 @@ import { treasuresHeld } from './shop';
 import { canWear } from './classes';
 import { isChild } from './social';
 import { buildOrigin, nomadic } from './nomads';
-import { castleOn, clearKeepGround, growKeep, keepRect, roomKind } from './castle';
+import { castleCells, castleOn, joinsCastle, nearCastle, roomKind, sharedEdges } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { HERDS } from '../data/livestock';
@@ -17,7 +17,7 @@ import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
 import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade } from './buildings';
-import { cellAt, doorOf, groundAt, idx, inRect, isMarked, isOpen, roadDistance, setMarked, spiralSpot, WILD, type Pt } from './land';
+import { cellAt, doorOf, groundAt, idx, isMarked, isOpen, roadDistance, setMarked, spiralSpot, WILD, type Pt } from './land';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
@@ -468,19 +468,27 @@ function findSpot(s: GameState, def: BuildingDef): Pt | null {
   // (a wandering tribe builds its great works on its home ground)
   const from = buildOrigin(s, def.id) ?? campCell(s);
   const taken = footprints(s);
-  const keep = castleOn(s) ? keepRect(s) : undefined;
+  const castle = castleOn(s) ? castleCells(s) : null;
   const farm = !!CROPS[def.id] || !!HERDS[def.id];
   const r = spiralSpot(s.land, def.width, depthOf(def), taken, from, {
-    avoid: keep,
+    ok: castle ? (rect) => !nearCastle(castle, s.land, rect) : undefined,
     prefer: (rect) => roadDistance(s.land, doorOf(rect)) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0),
   });
   if (!r) return null;
   return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
 }
 
-/** Where a castle's next room goes: the nearest free spot to the middle of the keep, inside it. */
+/** Where a castle's next room goes: built on to the castle, as near the hall as may be, the snuggest spot of a ring
+ *  first (the more of its walls it shares, the more compact the castle stays). */
 function roomSpot(s: GameState, def: BuildingDef): Pt | null {
-  const r = spiralSpot(s.land, def.width, depthOf(def), footprints(s), campCell(s), { inside: keepRect(s), maxR: Math.max(keepRect(s).w, keepRect(s).h) });
+  const cells = castleCells(s);
+  const r = spiralSpot(s.land, def.width, depthOf(def), footprints(s), campCell(s), {
+    maxR: 40,
+    roads: true,
+    door: false,
+    ok: (rect) => joinsCastle(cells, s.land, rect),
+    prefer: (rect) => -sharedEdges(cells, s.land, rect),
+  });
   if (!r) return null;
   return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
 }
@@ -710,8 +718,7 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
     if (!affordable(s, def, n.stock)) continue;
     let at: Pt | null;
     if (roomKind(s, def)) {
-      // (a castle town builds it inside the keep, or waits: the keep grows each era, and the land under it is
-      // cleared first)
+      // (a castle town builds it on to the castle, or clears the land beside the castle for it)
       at = roomSpot(s, def);
       if (!at) {
         blocked ??= def;
@@ -751,20 +758,7 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
       return clear;
     }
   }
-  if (blocked && roomKind(s, blocked)) {
-    // (a castle's room: the keep's own ground cleared, or it waits for the keep to grow)
-    const keep = keepRect(s);
-    const wild = wildCells(s).filter(({ i }) => inRect(keep, cellAt(s.land, i).x, cellAt(s.land, i).y));
-    if (wild.length) {
-      plan.waiting.push(`No room in the keep for a ${blocked.name}: clearing its ground`);
-      for (const { i } of wild.slice(0, blocked.width * depthOf(blocked))) clear.push(i);
-    } else if (growKeep(s)) {
-      // (the wing takes the ground: a yard or field standing there is cleared away, its materials back in store)
-      clearKeepGround(s);
-      plan.waiting.push(`The keep grows a new wing, for a ${blocked.name}`);
-    }
-    else plan.waiting.push(`The keep can grow no more: no room for a ${blocked.name}`);
-  } else if (blocked) {
+  if (blocked) {
     plan.waiting.push(`No room for a ${blocked.name}: clearing land`);
     // the nearest wild land, out from the camp
     for (const { i } of wildCells(s).slice(0, blocked.width * depthOf(blocked) + 2)) clear.push(i);

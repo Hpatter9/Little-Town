@@ -663,7 +663,7 @@ async function start(): Promise<void> {
   const checkPlacement = (def: BuildingDef, x: number, y: number): PlaceCheck => {
     if (!isUnlocked({ unlockAll: snap.unlockAll, done: snap.research.done }, def)) return { ok: false, reason: 'Not researched yet' };
     if (blueprintCount(snap) >= snap.buildSlots) return { ok: false, reason: 'Construction queue is full' };
-    return canPlace({ land: snap.land, buildings: snap.buildings, origin: snap.origin.id, era: snap.era, keepGrown: snap.keepGrown }, def, x, y);
+    return canPlace({ land: snap.land, buildings: snap.buildings, origin: snap.origin.id, era: snap.era }, def, x, y);
   };
 
   const updateGhost = () => {
@@ -999,7 +999,7 @@ async function start(): Promise<void> {
     map.syncBuildings(next.buildings);
     herds.update(next.buildings);
     pools.sync(next.blood);
-    map.syncCastle(next.castle?.rect ?? null);
+    map.syncCastle(next.castle?.bounds ?? null);
     map.syncPlaces(next.places);
     // (a nomad tribe that moved camp: the view goes to the new camp)
     if (lastCamp !== null && (next.camp.x !== lastCamp.x || next.camp.y !== lastCamp.y)) camera.centreOn(next.camp, app.screen.width, app.screen.height);

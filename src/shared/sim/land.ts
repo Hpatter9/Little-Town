@@ -112,6 +112,14 @@ export function setRoad(m: LandMap, x: number, y: number, on = true): void {
   m.roads = m.roads.slice(0, i) + (on ? '#' : '.') + m.roads.slice(i + 1);
   m.version++;
 }
+/** Take a road up again (a castle's room built over it: the floor covers where it ran). */
+export function unsetRoad(m: LandMap, x: number, y: number): void {
+  if (!inMap(m, x, y)) return;
+  const i = idx(m, x, y);
+  if (m.roads[i] !== '#') return;
+  m.roads = m.roads.slice(0, i) + '.' + m.roads.slice(i + 1);
+  m.version++;
+}
 
 /* ------------------------------------------------------------ making the land */
 
@@ -304,9 +312,10 @@ export function doorFree(m: LandMap, r: Rect, taken: readonly Rect[]): boolean {
 }
 
 /** The nearest place out from `from` for a w by h footprint: rings outward, each ring's spots sorted by `prefer`
- *  (lower first; nearer a road, say). `inside`: it must lie within this rectangle; `avoid`: and clear of this one.
- *  Null if there's none within `maxR` rings. */
-export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean } = {}): Rect | null {
+ *  (lower first; nearer a road, say). `inside`: it must lie within this rectangle; `avoid`: and clear of this one;
+ *  `ok`: and pass this test; `door: false`: its door cell needn't be free (a castle's room). Null if there's none
+ *  within `maxR` rings. */
+export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean; ok?: (r: Rect) => boolean; door?: boolean } = {}): Rect | null {
   const maxR = opts.maxR ?? m.open + 2;
   for (let r = 0; r <= maxR; r++) {
     let best: Rect | null = null;
@@ -315,7 +324,8 @@ export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rec
       const rect = { x: c.x - Math.floor(w / 2), y: c.y - Math.floor(h / 2), w, h };
       if (opts.inside && !(rect.x >= opts.inside.x && rect.y >= opts.inside.y && rect.x + w <= opts.inside.x + opts.inside.w && rect.y + h <= opts.inside.y + opts.inside.h)) continue;
       if (opts.avoid && overlaps(opts.avoid, rect)) continue;
-      if (!fits(m, rect, taken, { roads: opts.roads }) || !doorFree(m, rect, taken)) continue;
+      if (!fits(m, rect, taken, { roads: opts.roads }) || (opts.door !== false && !doorFree(m, rect, taken))) continue;
+      if (opts.ok && !opts.ok(rect)) continue;
       const score = opts.prefer ? opts.prefer(rect) : 0;
       if (score < bestScore) {
         bestScore = score;

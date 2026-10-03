@@ -3,14 +3,14 @@
 // middle of its front (bottom) edge: that's where workers stand, and a road is laid from it to the nearest road (or
 // the camp) when it's placed, so the town grows along its roads.
 
-import { castleOn, inKeep, keepRect, roomKind } from './castle';
+import { castleCells, castleGate, castleOn, joinsCastle, nearCastle, roomKind } from './castle';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
 import { MAX_POTS, POT_STORAGE } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
 import { HERDS } from '../data/livestock';
-import { buildable, CELL, cellOf, doorOf, findPath, fits, groundAt, inMap, inRect, isRoad, overlaps, setRoad, type LandMap, type Pt, type Rect } from './land';
+import { buildable, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect } from './land';
 import { modifiers } from './research';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
 
@@ -33,9 +33,13 @@ export const footprints = (s: Pick<GameState, 'buildings'>, except?: Building): 
 /** Whether a cell is under a building. */
 export const builtOn = (s: Pick<GameState, 'buildings'>, x: number, y: number): Building | undefined => s.buildings.find((b) => inRect(footprint(b), x, y));
 
-/** The cell in front of a building's door, and the same in world px (where workers and callers stand). */
-export const doorCell = (b: Pick<Building, 'def' | 'tile' | 'row'>): Pt => doorOf(footprint(b));
-export function buildingDoor(b: Pick<Building, 'def' | 'tile' | 'row'>): Pt {
+/** The cell in front of a building's door, and the same in world px (where workers and callers stand). A castle's
+ *  room has no door cell outside: people walk in, and stand in its middle. */
+export function doorCell(b: Pick<Building, 'def' | 'tile' | 'row'> & { room?: boolean }): Pt {
+  const r = footprint(b);
+  return b.room ? { x: r.x + Math.floor(r.w / 2), y: r.y + Math.floor(r.h / 2) } : doorOf(r);
+}
+export function buildingDoor(b: Pick<Building, 'def' | 'tile' | 'row'> & { room?: boolean }): Pt {
   const d = doorCell(b);
   return { x: (d.x + 0.5) * CELL, y: (d.y + 0.5) * CELL };
 }
@@ -160,10 +164,12 @@ export interface PlaceCheck {
 }
 
 /** Whether `def` fits with its top-left cell at (x, y): on open, buildable ground, over no road, clear of every other
- *  building (but `except`); a castle's rooms inside the keep, and all else outside it. */
-export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad' | 'keepGrown'>, def: BuildingDef, x: number, y: number, except?: Building): PlaceCheck {
+ *  building (but `except`); a castle's rooms built on to the castle (over a road if need be: the floor covers it), and
+ *  all else a cell clear of it. */
+export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'>, def: BuildingDef, x: number, y: number, except?: Building): PlaceCheck {
   const r: Rect = { x, y, w: def.width, h: depthOf(def) };
   const m = s.land;
+  const room = castleOn(s) && roomKind(s, def);
   for (let cy = r.y; cy < r.y + r.h; cy++)
     for (let cx = r.x; cx < r.x + r.w; cx++) {
       if (!inMap(m, cx, cy)) return { ok: false, reason: 'Off the map' };
@@ -171,17 +177,16 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
       const g = groundAt(m, cx, cy);
       if (g === 'water') return { ok: false, reason: 'Water runs here' };
       if (!buildable(g)) return { ok: false, reason: 'Clear the land first' };
-      if (isRoad(m, cx, cy)) return { ok: false, reason: 'A road runs here' };
+      if (!room && isRoad(m, cx, cy)) return { ok: false, reason: 'A road runs here' };
     }
   for (const b of s.buildings) {
     if (b === except) continue;
     if (overlaps(footprint(b), r)) return { ok: false, reason: `Overlaps ${defOf(b).name}` };
   }
   if (castleOn(s)) {
-    const room = roomKind(s, def);
-    const inside = inKeep(s, r);
-    if (room && !inside) return { ok: false, reason: 'A room goes inside the keep' };
-    if (!room && overlaps(keepRect(s), r)) return { ok: false, reason: "The keep's ground" };
+    const cells = castleCells(s);
+    if (room && !joinsCastle(cells, m, r)) return { ok: false, reason: 'A room is built on to the castle' };
+    if (!room && nearCastle(cells, m, r)) return { ok: false, reason: "The castle's ground" };
   }
   return { ok: true };
 }
@@ -199,7 +204,11 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
   if (!check.ok) return check;
   const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}) };
   s.buildings.push(b);
-  connectRoad(s, b);
+  if (b.room) {
+    // (no roads inside the castle: a road that ran where the room now stands is taken up)
+    const f = footprint(b);
+    for (let cy = f.y; cy < f.y + f.h; cy++) for (let cx = f.x; cx < f.x + f.w; cx++) unsetRoad(s.land, cx, cy);
+  } else connectRoad(s, b);
   return { ok: true };
 }
 
@@ -226,16 +235,17 @@ export function connectRoad(s: GameState, b: Building): void {
       to = c;
     }
   }
+  const castle = castleOn(s) ? castleCells(s) : null;
   if (!to) {
     const camp = campCell(s);
-    to = { x: camp.x, y: camp.y + 1 }; // (the ground in front of the fire)
+    to = castle ? castleGate(s) : { x: camp.x, y: camp.y + 1 }; // (the ground in front of the fire, or the castle's gate)
   }
   if (to.x === from.x && to.y === from.y) {
     setRoad(m, from.x, from.y);
     return;
   }
   // (a road goes only over buildable ground, never through a building, and doesn't bridge water on its own)
-  const blocked = (x: number, y: number) => !buildable(groundAt(m, x, y)) || !!builtOn(s, x, y);
+  const blocked = (x: number, y: number) => !buildable(groundAt(m, x, y)) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
   const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y), 6000);
   if (!path || path.length > ROAD_REACH) return;
   setRoad(m, from.x, from.y);

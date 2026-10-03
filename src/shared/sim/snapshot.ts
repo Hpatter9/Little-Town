@@ -55,7 +55,7 @@ import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, po
 import { cellAt, groundAt, type LandMap } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
-import { castleOn, castleSpan, keepRect } from './castle';
+import { castleBounds, castleCells, castleGate, castleOn, coreRect } from './castle';
 import { TILE } from '../constants';
 
 import { rallyState } from './rally';
@@ -511,12 +511,11 @@ export interface Snapshot {
   /** A nomad tribe's seasonal round (sim/nomads.ts): where it's camped, when it moves next, whether it has settled,
    *  and its last move (x from and to, and ticks since), for the caravan on the road. */
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
-  /** A castle town's keep (sim/castle.ts): its ground, in cells, and (for the old strip) its columns. */
-  castle: { lo: number; hi: number; floors: number; flare: number; rect: { x: number; y: number; w: number; h: number } } | null;
+  /** A castle town's castle (sim/castle.ts): every cell of it (land indices), the hall's ground, the cell before the
+   *  gate, and the rectangle round the whole. */
+  castle: { cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number } } | null;
   /** The middle of the camp on the land (px). */
   camp: { x: number; y: number };
-  /** A castle town's keep: the wings it has grown (sim/castle.ts). */
-  keepGrown?: number;
   /** The tower-defence battle on the trail, while it's on (sim/battle.ts). */
   battle: BattleView | null;
   /** A town walled at both ends: the tiles its walls span, and what they're built of (drawn as a far wall round it). */
@@ -721,7 +720,6 @@ export function snapshot(s: GameState): Snapshot {
     impacts: (s.impacts ?? []).filter((m) => s.tick - m.tick < 30).map((m) => ({ x: m.x, since: s.tick - m.tick })),
     campX: campX(s),
     camp: campXY(s),
-    keepGrown: s.keepGrown,
     nomad: s.nomad
       ? {
           site: s.nomad.camp === s.nomad.home ? 'home' : 'pasture',
@@ -732,7 +730,7 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     enclosure: enclosure(s),
-    castle: castleOn(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: 1, flare: 0, rect: keepRect(s) } : null,
+    castle: castleOn(s) ? { cells: [...castleCells(s)], core: coreRect(s), gate: castleGate(s), bounds: castleBounds(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, y: f.y ?? null, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),
