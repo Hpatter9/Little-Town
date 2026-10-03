@@ -6,6 +6,7 @@ import { MapBattle } from './map/mapBattle';
 import { MapSpells } from './map/mapSpells';
 import { MapHerds } from './map/mapHerds';
 import { MapBirds } from './map/mapBirds';
+import { MapButterflies } from './map/mapButterflies';
 import { BloodPools } from './map/bloodPools';
 import { createBattleHud } from './battle/battleHud';
 import { FightScene } from './fight/fightView';
@@ -192,6 +193,7 @@ async function start(): Promise<void> {
   const herds = new MapHerds(map.things);
   const birds = new MapBirds(map.things, map);
   (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
+  const butterflies = new MapButterflies(map.things, map);
   const pane = new ExpeditionPane(seedHash);
   const snow = new SnowView();
   const leaves = new LeavesView();
@@ -943,6 +945,8 @@ async function start(): Promise<void> {
     birds.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.weather.kind !== 'snow' && !freeze;
     birds.winter = next.calendar.season === 'winter';
     birds.crowsOnly = buildStyle === 'lich' || buildStyle === 'vampire';
+    butterflies.on = birds.on && (next.calendar.season === 'spring' || next.calendar.season === 'summer') && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && next.biome !== 'tundra' && next.biome !== 'desert';
+    butterflies.land = next.land;
     birds.land = next.land;
     birds.folk = [...next.people.filter((p) => p.away === null && !p.indoors), ...next.travellers, ...(next.raid?.phase === 'active' ? next.raid.raiders : [])].map((p) => ({ x: p.x, y: p.y }));
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
@@ -1049,6 +1053,7 @@ async function start(): Promise<void> {
     raiders.render(performance.now());
     herds.render(performance.now(), ticker.deltaMS / 1000);
     birds.render(ticker.deltaMS / 1000, performance.now());
+    butterflies.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());
     map.renderAir(ticker.deltaMS / 1000);
     spells.render(performance.now());

@@ -942,7 +942,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       hole. The building `sig` carries the winter flag, so the town is redrawn once at the turn of the season. The
       vampire keep's walls and towers are capped too (`syncCastle`, its key carries the season). The old strip's
       `town/townView.ts`, `buildingsView.ts` and `herdsView.ts` are deleted (nothing drew with them); `spellsView.ts`
-      keeps its own `WALK_Y`. The notes above that name those files describe what the map views took over. **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
+      keeps its own `WALK_Y`. The notes above that name those files describe what the map views took over.
+    - **Butterflies (done):** `src/renderer/map/mapButterflies.ts` (`MapButterflies`, in `things`): by day in spring and
+      summer in fair weather (not the tundra or desert; `on` and `land` from main.ts), up to `MOST` (7) butterflies
+      (DawnLike's Pest sheets, two kinds, two frames, cut into `art/butterflies.png`) flutter about spots drifting over
+      the grass, fields, marsh and hills in view, each fading in, living 12 to 28 s and fading out; none when `calm`. **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
       the world origin and drew at world coordinates, and `setCamera` culls each thing by where it stands, so they were
       hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
 

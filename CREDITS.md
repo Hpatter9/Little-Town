@@ -93,7 +93,8 @@ and the industrial platformer pack's Day and Night backgrounds.
 Crafted items use icons from **DawnLike** (16x16 universal roguelike tileset) by **DragonDePlatino**, on
 **DawnBringer**'s palette, licensed **CC-BY 4.0** (`src/renderer/art/items/`, copied from
 `assets/DawnLike/Items` and `assets/DawnLike/Characters/Reptile0.png`; the small birds about the town on the map
-are its `Characters/Avian0.png` and `Avian1.png`, five of them cut into `src/renderer/art/birds.png`). As the author asks, Platino is
+are its `Characters/Avian0.png` and `Avian1.png`, five of them cut into `src/renderer/art/birds.png`, and the
+butterflies its `Pest0.png` and `Pest1.png`, two cut into `src/renderer/art/butterflies.png`). As the author asks, Platino is
 hidden somewhere in the game.
 
 ## Music
