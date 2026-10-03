@@ -7,7 +7,7 @@ import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
 import { FOG_AIM, FRENZY, HOLD_LOSS, RIVAL_HP_BASE, RIVAL_HP_PER_DAY, rivalOfLeader, WARD, type RivalSpell, type RivalSpellKind } from '../data/rivals';
 import type { Rng } from '../rng';
-import { buildingCentreX, defOf } from './buildings';
+import { buildingCentre, buildingCentreX, defOf } from './buildings';
 import { flammable, setFire } from './fire';
 import { knockDown } from './health';
 import { guardRate } from './origin';
@@ -50,8 +50,8 @@ export const lordHp = (s: GameState, kind: string) => Math.round(ENEMIES[kind].h
 const standing = (s: GameState) => s.people.filter((p) => p.away === null && !p.downed && !((p.task?.type === 'shelter' || p.task?.type === 'sleep') && p.bed !== null && p.activity === 'sleep'));
 const onField = (rd: Raider) => !rd.down && !rd.gone && !rd.ally;
 const onMap = (rd: Raider) => rd.x >= 0 && rd.x <= WORLD_WIDTH;
-const person = (p: Person): SpellTarget => ({ x: p.x, id: p.id });
-const raider = (q: Raider): SpellTarget => ({ x: q.x, id: q.id, raider: true });
+const person = (p: Person): SpellTarget => ({ x: p.x, y: p.y, id: p.id });
+const raider = (q: Raider): SpellTarget => ({ x: q.x, y: q.y, id: q.id, raider: true });
 /** How long each kind of spell's look lasts (seconds; hexes and blessings last as long as they do). */
 const SPELL_SECS: Partial<Record<RivalSpellKind, number>> = { drain: 2, storm: 1.5, raise: 2.5, mend: 2.5, summon: 2.5, dread: 3, shatter: 2, plunder: 2 };
 
@@ -122,7 +122,7 @@ function cast(s: GameState, r: Raid, rd: Raider, sp: RivalSpell, rng: Rng): Spel
       const d = ENEMIES[sp.summons];
       const came: SpellTarget[] = [];
       for (let i = 0; i < sp.power; i++) {
-        came.push({ x: rd.x - rd.dir * (24 + i * 16), id: s.nextId, raider: true });
+        came.push({ x: rd.x - rd.dir * (24 + i * 16), y: rd.y, id: s.nextId, raider: true });
         r.raiders.push({ id: s.nextId++, kind: sp.summons, x: rd.x - rd.dir * (24 + i * 16), y: rd.y, dir: rd.dir, hp: d.hp, maxHp: d.hp, cooldown: 10, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm', conjuredAt: s.tick });
       }
       return came;
@@ -157,7 +157,7 @@ function cast(s: GameState, r: Raid, rd: Raider, sp: RivalSpell, rng: Rng): Spel
         s.buildings = s.buildings.filter((b) => b !== wall);
         notify(s, `The ${defOf(wall).name.toLowerCase()} came down!`, true);
       }
-      return [{ x: buildingCentreX(wall) }];
+      return [{ x: buildingCentreX(wall), y: buildingCentre(wall).y }];
     }
     case 'plunder': {
       const n = Math.floor((s.coins ?? 0) * sp.power);
@@ -165,7 +165,7 @@ function cast(s: GameState, r: Raid, rd: Raider, sp: RivalSpell, rng: Rng): Spel
       s.coins = (s.coins ?? 0) - n;
       notify(s, `They made off with ${n} coins.`, true);
       const store = s.buildings.find((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.floor);
-      return [{ x: store ? buildingCentreX(store) : rd.x }];
+      return [{ x: store ? buildingCentreX(store) : rd.x, y: store ? buildingCentre(store).y : rd.y }];
     }
   }
 }

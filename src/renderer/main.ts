@@ -3,6 +3,7 @@
 
 import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
+import { MapSpells } from './map/mapSpells';
 import { MapHerds } from './map/mapHerds';
 import { BloodPools } from './map/bloodPools';
 import { createBattleHud } from './battle/battleHud';
@@ -197,6 +198,8 @@ async function start(): Promise<void> {
   app.stage.addChild(snow.root, leaves.root, pane.root);
   // a raid's battle is fought on the town's own map (map/mapBattle.ts draws the trail, the spots and the shots over it)
   const battle = new MapBattle(map);
+  // (spells on the map: the packs' effect sheets over whoever they touch, following people and raiders)
+  const spells = new MapSpells(map.over, (t) => (t.id === undefined ? null : t.raider ? raiders.posOf(t.id) : people.posOf(t.id)));
   (window as unknown as { __battle?: MapBattle }).__battle = battle; // (for previews: where a spot is on screen)
   // watching a party away, as in the old games (fight/fightView.ts): it takes over the strip too
   const fight = new FightScene();
@@ -992,6 +995,7 @@ async function start(): Promise<void> {
       performance.now(),
     );
     raiders.update(next.raid?.phase === 'active' ? next.raid.raiders : [], performance.now());
+    spells.update(next.spells, next.camp, performance.now());
     if (hover || placing) refreshHover(); // tooltip contents change as work progresses
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
@@ -1026,6 +1030,7 @@ async function start(): Promise<void> {
     raiders.render(performance.now());
     herds.render(performance.now(), ticker.deltaMS / 1000);
     map.renderPlaces(performance.now());
+    spells.render(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);
     weather?.render(performance.now(), w);

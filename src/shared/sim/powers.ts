@@ -9,7 +9,7 @@ import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
 import { DESTINATIONS } from '../data/expeditions';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { buildingCentreX, depositNear, storages, totalStock } from './buildings';
+import { buildingCentre, buildingCentreX, depositNear, storages, totalStock } from './buildings';
 import { ally } from './classes';
 import { destinationUnlocked } from './expeditions';
 import { cropOf } from './farming';
@@ -554,10 +554,10 @@ const TOUCH: Record<string, [Touch, number]> = {
 };
 
 function touched(s: GameState, touch: Touch): SpellTarget[] {
-  const person = (p: Person): SpellTarget => ({ x: p.x, id: p.id });
+  const person = (p: Person): SpellTarget => ({ x: p.x, y: p.y, id: p.id });
   switch (touch) {
     case 'foes':
-      return foes(s).filter((r) => r.x >= 0 && r.x <= WORLD_WIDTH).map((r) => ({ x: r.x, id: r.id, raider: true }));
+      return foes(s).filter((r) => r.x >= 0 && r.x <= WORLD_WIDTH).map((r) => ({ x: r.x, y: r.y, id: r.id, raider: true }));
     case 'home':
       return home(s).map(person);
     case 'hurt':
@@ -567,14 +567,14 @@ function touched(s: GameState, touch: Touch): SpellTarget[] {
       return (d.length ? d : home(s)).map(person);
     }
     case 'fields':
-      return s.buildings.filter((b) => b.crop?.stage === 'growing').map((b) => ({ x: buildingCentreX(b) }));
+      return s.buildings.filter((b) => b.crop?.stage === 'growing').map((b) => ({ x: buildingCentreX(b), y: buildingCentre(b).y }));
     case 'newest':
       return s.people.length ? [person(s.people[s.people.length - 1])] : [];
     case 'walls':
-      return s.buildings.filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def].hp).map((b) => ({ x: buildingCentreX(b) }));
+      return s.buildings.filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def].hp).map((b) => ({ x: buildingCentreX(b), y: buildingCentre(b).y }));
     case 'venue': {
       const v = shopOf(s) ?? tavernOf(s);
-      return v ? [{ x: buildingCentreX(v) }] : [];
+      return v ? [{ x: buildingCentreX(v), y: buildingCentre(v).y }] : [];
     }
     case 'caster':
       return [];
@@ -584,7 +584,7 @@ function touched(s: GameState, touch: Touch): SpellTarget[] {
 /** Who calls on the town's powers: the founder, when at home; else the camp. */
 function casterOf(s: GameState): SpellTarget {
   const f = founder(s);
-  return f && f.away === null ? { x: f.x, id: f.id } : { x: campX(s) };
+  return f && f.away === null ? { x: f.x, y: f.y, id: f.id } : { x: campX(s), y: campXY(s).y };
 }
 
 /** The town calls on its powers when the moment's right: once a second in a raid, else once a game hour. */

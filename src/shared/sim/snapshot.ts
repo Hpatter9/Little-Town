@@ -254,6 +254,7 @@ export interface SpellView {
   name: string;
   since: number;
   x: number;
+  y: number | null;
   by: SpellTarget | null;
   targets: SpellTarget[];
   secs: number;
@@ -732,7 +733,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     enclosure: enclosure(s),
     castle: castleOn(s) ? { lo: castleSpan(s)[0], hi: castleSpan(s)[1], floors: 1, flare: 0, rect: keepRect(s) } : null,
-    spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, by: f.by ?? null, targets: f.targets, secs: f.secs })),
+    spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, y: f.y ?? null, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),
     weather: weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null),

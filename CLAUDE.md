@@ -872,6 +872,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       trap); `topper` adds a cupola, a red cross, a barrel, antlers. Then `reclad` (now exported from originStyles.ts,
       with `Style`) swaps in the origin's materials. `window.__topDownArt` is for previews (a gallery script draws every
       building).
+    - **Spells on the map (done):** `src/renderer/map/mapSpells.ts` (`MapSpells`, in MapView's `over`): each cast in
+      `snapshot.spells` plays its look's effect sheet (`LOOKS` in town/spellLooks.ts, `SHEETS` in town/spellsView.ts:
+      the Pixel Magic, pvfx and Alenia sheets) over whoever it touched or over the caster, with the magic circle under
+      the caster and the name floating up; people and raiders are followed by id. Spell targets and casts now carry
+      `y` on the land (`SpellTarget.y`, `SpellFx.y`, `SpellView.y`; set in powers.ts and rivals.ts); older casts
+      without one are drawn at the camp's row. The old side-on `spellsView.ts` keeps the sheet table and the code-drawn
+      kinds the fight and battle views still use.
+    - **Deferred: people facing up and down.** `lpcData.json` holds right-facing rows only (it came from Little
+      Wayfarers' pre-cut data, `tools/import-lpc.mjs`); up and down walk rows would mean mapping each of the 162 layer
+      ids back to its sheet in `../chronos-assets/Universal-LPC-spritesheet-master` and re-cutting. Not done.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

@@ -691,6 +691,8 @@ export const fxTicks = (kind: PersonFx) => (kind === 'frost' ? 12 : FX_TICKS);
 /** Something a spell touched: a townsperson, a raider (by id: the renderer follows them), or a place. */
 export interface SpellTarget {
   x: number;
+  /** On the land (px): the renderer places the spell by it; older casts without one are drawn at the camp's row. */
+  y?: number;
   id?: number;
   raider?: boolean;
 }
@@ -701,6 +703,7 @@ export interface SpellFx {
   tick: number;
   spell: string;
   x: number;
+  y?: number;
   /** The caster, when it's someone (their id; a raider for a rival lord). */
   by?: SpellTarget;
   targets: SpellTarget[];
@@ -731,7 +734,7 @@ export function markBlood(s: GameState, x: number, y: number, from: 1 | -1): voi
 
 export function castSpellFx(s: GameState, spell: string, by: SpellTarget, targets: SpellTarget[], secs = 2): void {
   s.spellFx = (s.spellFx ?? []).filter((f) => s.tick - f.tick < SPELL_FX_TICKS);
-  s.spellFx.push({ n: (s.spellFx.at(-1)?.n ?? 0) + 1, tick: s.tick, spell, x: by.x, by: by.id !== undefined ? by : undefined, targets: targets.slice(0, 10), secs });
+  s.spellFx.push({ n: (s.spellFx.at(-1)?.n ?? 0) + 1, tick: s.tick, spell, x: by.x, y: by.y, by: by.id !== undefined ? by : undefined, targets: targets.slice(0, 10), secs });
   if (s.spellFx.length > 12) s.spellFx.splice(0, s.spellFx.length - 12);
 }
 
