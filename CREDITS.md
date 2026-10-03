@@ -52,7 +52,10 @@ free Fields Tileset and Village Tileset for top-down tower defence. The Village 
 awnings also stand for the medieval town's cottages, row houses, inn, trading post and stalls on the town map.
 The town's roads on the map (`src/renderer/art/roads/`) are from its free Path and Road top-down pixel tileset: slabs,
 cobbles, bricks and paving by era, laid a quarter-tile at a time. The plots' soil, the pens' rail fences and the town's campfire
-(`src/renderer/art/fields/`) are from its free Fields Tileset for tower defence.
+(`src/renderer/art/fields/`) are from its free Fields Tileset for tower defence. The stone wall and gate, the library's bookshelves, the
+healer's bench and the workbench on the town map are cut from its free 2D Top-Down Pixel Dungeon pack and Dungeon Props
+pack (`src/renderer/art/village/dwalls.png`, `dprops.png`); the graveyard's stones from its free Undead Tileset
+(`grave*.png`).
 
 ## Craftpix top-down objects (the raid map's scenery)
 

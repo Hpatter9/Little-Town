@@ -797,6 +797,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       `size`, or `any` of several by the building's id; `overhang`; `styles`, else every look but `OWN_TENTS`): the
       Fields pack's camp tents for the lean-to, hide tent and longhouse, its crates and logs heaped for the stockpile,
       the Village pack's palisade stakes and gate for the palisade wall and gate.
+      A `Part` may crop a sheet (`[url, x, y, sx, sy, sw, sh]`): the dungeon pack's stonework for the stone wall and
+      gate, its props' bookshelves for the library, an alchemist's bench for the healer's hut, a table for the
+      workbench, and the undead pack's graves for the graveyard.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

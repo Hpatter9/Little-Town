@@ -32,13 +32,22 @@ import palisade02 from '../art/village/palisade02.png';
 import palisade03 from '../art/village/palisade03.png';
 import palisade36 from '../art/village/palisade36.png';
 import palisade37 from '../art/village/palisade37.png';
+import dwalls from '../art/village/dwalls.png';
+import dprops from '../art/village/dprops.png';
+import grave1 from '../art/village/grave1.png';
+import grave2 from '../art/village/grave2.png';
+import grave3 from '../art/village/grave3.png';
+import grave4 from '../art/village/grave4.png';
+import grave5 from '../art/village/grave5.png';
 
 /** A pack picture for a building: one image, or several laid together (`parts`: image, x, y in source px, on a
  *  canvas `size`), hanging `overhang` px over the footprint each side, in the looks it suits (`styles`; none: all
  *  but the origins with their own tents and halls). */
+/** A part: an image at x, y (source px), the whole of it or a crop of it (sx, sy, sw, sh). */
+type Part = [string, number, number] | [string, number, number, number, number, number, number];
 interface Pick {
   url?: string;
-  parts?: [string, number, number][];
+  parts?: Part[];
   size?: [number, number];
   overhang?: number;
   styles?: Set<string>;
@@ -66,6 +75,15 @@ const PICKS: Record<string, Pick> = {
   // the Village pack's palisade stakes and gate
   palisade_wall: { any: [palisade01, palisade02, palisade03], overhang: 0 },
   palisade_gate: { parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0 },
+  // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
+  stone_wall: { parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
+  stone_gate: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
+  // the dungeon props: bookshelves for the library, an alchemist's bench for the healer, a plain table for the workbench
+  library: { parts: [[dprops, 0, 0, 16, 256, 48, 48], [dprops, 48, 0, 64, 256, 48, 48], [dprops, 96, 0, 112, 256, 48, 48]], size: [144, 48], overhang: 0 },
+  healers_hut: { parts: [[dprops, 0, 0, 16, 304, 48, 48]], size: [48, 48], overhang: 0 },
+  workbench: { parts: [[dprops, 0, 0, 80, 144, 64, 32]], size: [64, 32], overhang: 0 },
+  // the undead pack's graves for the graveyard
+  graveyard: { parts: [[grave1, 0, 0], [grave2, 34, 6], [grave3, 66, 0], [grave4, 16, 28], [grave5, 50, 30]], size: [98, 62], overhang: 0 },
 };
 /** How far a picture hangs over its footprint, each side (px), unless the pick says. */
 const OVERHANG = 6;
@@ -111,7 +129,17 @@ function source(pick: Pick, id: number): { draw: (g: CanvasRenderingContext2D, s
   if (waiting) return null;
   if (pick.parts) {
     const [w, h] = pick.size!;
-    return { w, h, draw: (g, k) => { for (const [u, x, y] of pick.parts!) { const im = images.get(u)!; g.drawImage(im, x * k, y * k, im.naturalWidth * k, im.naturalHeight * k); } } };
+    return {
+      w,
+      h,
+      draw: (g, k) => {
+        for (const part of pick.parts!) {
+          const im = images.get(part[0])!;
+          if (part.length === 7) g.drawImage(im, part[3], part[4], part[5], part[6], part[1] * k, part[2] * k, part[5] * k, part[6] * k);
+          else g.drawImage(im, part[1] * k, part[2] * k, im.naturalWidth * k, im.naturalHeight * k);
+        }
+      },
+    };
   }
   const im = images.get(urls[0])!;
   return { w: im.naturalWidth, h: im.naturalHeight, draw: (g, k) => g.drawImage(im, 0, 0, im.naturalWidth * k, im.naturalHeight * k) };
