@@ -608,6 +608,7 @@ export class MapView {
         (d.glows ??= []).push(g);
       }
       if (art.smoke) d.chimneys = art.smoke.map((c) => ({ x: left + c.x, y: top + c.y }));
+      else if (FIRES.has(b.def)) d.chimneys = [{ x: cx, y: bottom - (f.h * CELL) / 2 - 6 }]; // (an open fire smokes too)
       // (a lantern post, a barrel, a cart by a pack-drawn house's corners)
       const x0 = f.x * CELL;
       const y0 = (f.y + f.h) * CELL;
