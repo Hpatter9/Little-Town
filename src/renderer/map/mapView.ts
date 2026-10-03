@@ -426,7 +426,7 @@ export class MapView {
     const f = footprint(b);
     if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey);
     // (a pack picture where one suits the look: map/packBuildings.ts)
-    return packArt(b.def, f.w, this.style) ?? buildingArt(b.def, this.tone, this.toneKey, cropLook(b), this.style);
+    return packArt(b.def, f.w, this.style, b.id) ?? buildingArt(b.def, this.tone, this.toneKey, cropLook(b), this.style);
   }
 
   /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */

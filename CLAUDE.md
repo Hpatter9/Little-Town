@@ -793,6 +793,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       `drawFence` rails and posts round a pen with a gap for the gate; `campfirePack` the six flame frames).
       `fieldArt` builds a `packedPlot` on them once loaded (`fieldTilesReady`; `onFieldTiles` bumps MapView's `artGen`),
       the crop rows still drawn over the soil; MapView's campfire takes the pack's frames.
+    - **More picks (done):** `PICKS` in packBuildings.ts is a table of `Pick`s (one image, `parts` laid together on a
+      `size`, or `any` of several by the building's id; `overhang`; `styles`, else every look but `OWN_TENTS`): the
+      Fields pack's camp tents for the lean-to, hide tent and longhouse, its crates and logs heaped for the stockpile,
+      the Village pack's palisade stakes and gate for the palisade wall and gate.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
