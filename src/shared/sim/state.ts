@@ -246,6 +246,8 @@ export interface Raider {
   might?: number;
   /** Its part in the battle on the trail (sim/battle.ts). */
   bt?: RaiderBattle;
+  /** Its blood is on the ground already (marked once when it fell). */
+  bled?: boolean;
   /** The side it came from and flees back to, when not the raid's own (a flanking party, raids.ts). */
   side?: -1 | 1;
   /** A townsperson being carried off (taken out of the town while carried). */
@@ -305,6 +307,9 @@ export interface Person {
   goal?: Pt;
   /** Rallied by the player in a fight until this tick (sim/rally.ts). */
   rallied?: number;
+  /** The tick a blow last landed on them, and which side it came from (-1 the left): for the blood. */
+  lastHit?: number;
+  hitFrom?: 1 | -1;
   skills: Record<Skill, SkillLevel>;
   /** Skills they love: XP in these grows faster. */
   passions: Skill[];
@@ -529,6 +534,8 @@ export interface GameState {
   quests?: Quest[];
   /** The places on the town's own land (sim/places.ts): seeded on first use, found as the land opens. */
   places?: MapPlace[];
+  /** Blood on the ground where someone was struck down (`markBlood`). */
+  blood?: BloodMark[];
   /** Which end of town each destination lies beyond (-1 left, 1 right). */
   destSides: Record<string, -1 | 1>;
   prompts: Prompt[];
@@ -700,6 +707,25 @@ export interface SpellFx {
 export const SPELL_FX_TICKS = 300;
 
 /** Record a spell for the renderer (old ones are dropped). */
+/** Blood on the ground where someone was struck down (world px, their feet; `from` the side the blow came from). The
+ *  renderer draws them fading; they're kept `BLOOD_LASTS` ticks, at most `BLOOD_MOST` at a time. */
+export interface BloodMark {
+  x: number;
+  y: number;
+  from: 1 | -1;
+  tick: number;
+}
+export const BLOOD_LASTS = 3 * 600;
+export const BLOOD_MOST = 40;
+
+/** Someone (or something that bleeds) was struck down here. */
+export function markBlood(s: GameState, x: number, y: number, from: 1 | -1): void {
+  const list = (s.blood ??= []).filter((m) => s.tick - m.tick < BLOOD_LASTS);
+  list.push({ x: Math.round(x), y: Math.round(y), from, tick: s.tick });
+  while (list.length > BLOOD_MOST) list.shift();
+  s.blood = list;
+}
+
 export function castSpellFx(s: GameState, spell: string, by: SpellTarget, targets: SpellTarget[], secs = 2): void {
   s.spellFx = (s.spellFx ?? []).filter((f) => s.tick - f.tick < SPELL_FX_TICKS);
   s.spellFx.push({ n: (s.spellFx.at(-1)?.n ?? 0) + 1, tick: s.tick, spell, x: by.x, by: by.id !== undefined ? by : undefined, targets: targets.slice(0, 10), secs });

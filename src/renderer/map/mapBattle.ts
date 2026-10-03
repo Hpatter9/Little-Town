@@ -9,7 +9,7 @@ import { Container, Graphics, Sprite, type Texture } from 'pixi.js';
 import { AIM_RADIUS, type BattleSpot, type BattleView } from '../../shared/sim/battle';
 import { CELL } from '../../shared/sim/land';
 import type { RaiderView, Snapshot } from '../../shared/sim/snapshot';
-import { blastFrame, castFrame, impactFrame, AREA_SIZE, BLAST_SIZE, IMPACT_SIZE } from '../art/effects';
+import { blastFrame, castFrame, AREA_SIZE, BLAST_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
 import { actIdOf, actSprite } from '../fight/actLooks';
 import { LOOKS } from '../town/spellLooks';
 import { SHEETS } from '../town/spellsView';
@@ -255,8 +255,8 @@ export class MapBattle {
       if (f.hit === null || f.sinceAction > 4) continue;
       const q = b.map.spots.find((s) => s.id === f.hit);
       if (!q) continue;
-      const tex = impactFrame(f.sinceAction);
-      if (tex) this.effect(tex, q.x * CELL, (q.y - 0.4) * CELL, IMPACT_SIZE * 0.6);
+      const tex = splatFrame(f.sinceAction + 2);
+      if (tex) this.effect(tex, q.x * CELL, (q.y - 0.4) * CELL, SPLAT_SIZE * 0.6, false);
     }
   }
 

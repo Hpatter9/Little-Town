@@ -7,7 +7,7 @@ import { operatorSkill } from './operators';
 import { buildingCentre } from './buildings';
 import { grieve, isChild } from './social';
 import { revealOccult, tryRevive } from './occult';
-import { tireless, notify, maxHp, personFx, type GameState, type Person } from './state';
+import { tireless, notify, maxHp, markBlood, personFx, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 /** How long someone downed has before they bleed out, unless a medic (or the camp) tends them. */
@@ -30,7 +30,13 @@ const STARVE_HP_PER_HOUR = 1.2; // (a fit adult lasts about two days of real fam
 /** Below this share of health someone counts as injured. */
 export const INJURED = 0.5;
 
+/** Struck down by a blow just landed (not sickness, hunger or a fall): blood where they lie. */
+function bloodOf(s: GameState, p: Person): void {
+  if (p.lastHit !== undefined && s.tick - p.lastHit <= 2 && p.away === null) markBlood(s, p.x, p.y, p.hitFrom ?? 1);
+}
+
 export function knockDown(s: GameState, p: Person): void {
+  bloodOf(s, p);
   // an emergency medkit is used on the spot (in town)
   if (p.away === null && (s.items.medkit ?? 0) > 0) {
     s.items.medkit -= 1;
@@ -78,6 +84,7 @@ export function heirOf(s: GameState, dead: Person): Person | undefined {
 /** Remove someone who has died. The leader's death passes the town to an heir (it ends the game only if no grown-up
  *  is left to take over). */
 export function killPerson(s: GameState, p: Person, cause: string): void {
+  bloodOf(s, p);
   for (const e of s.expeditions) {
     e.members = e.members.filter((id) => id !== p.id);
     delete e.roles[p.id];

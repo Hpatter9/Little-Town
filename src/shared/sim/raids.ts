@@ -3,7 +3,7 @@
 // the food and run. Walls and gates stop them until broken. Defenders fight; everyone else shelters.
 
 import { BUILDING_BY_ID } from '../data/buildings';
-import { ENEMIES, enemyArmor } from '../data/enemies';
+import { ENEMIES, enemyArmor, natureOf } from '../data/enemies';
 import { eraReached, type Era } from '../data/eras';
 import { HORSE_THEFT } from '../data/trade';
 import { RAT_BITE_SICKNESS, WAR_RAID_BUDGET } from '../data/doom';
@@ -74,7 +74,7 @@ import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
 import { levelOf } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
-import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider } from './state';
+import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { campEdge, gainSkill } from './townsfolk';
 import { rulesOf } from '../data/origins';
@@ -394,6 +394,13 @@ export function updateRaid(s: GameState, rng: Rng): void {
   fireDefenses(s, rng);
   // the battle on the trail; the raiders still in it are its business (those through it come on into the town)
   const battling = stepBattle(s, r, rng);
+  // (whoever fell since last tick leaves blood where it lies, if it's the kind that bleeds)
+  for (const rd of r.raiders)
+    if (rd.down && !rd.bled) {
+      rd.bled = true;
+      const nature = natureOf(rd.kind);
+      if ((nature === 'person' || nature === 'beast') && rd.x >= 0 && rd.x <= worldW(s)) markBlood(s, rd.x, rd.y, rd.dir < 0 ? 1 : -1);
+    }
 
   for (const rd of r.raiders) {
     if (rd.down && rd.captive) release(s, rd); // cut down while carrying someone off: they're dropped
@@ -582,6 +589,10 @@ export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area
   if (frenzy > 1) rd.cooldown = Math.round(rd.cooldown / frenzy);
   const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s) * (rd.might ?? 1));
   p.hp = Math.max(0, p.hp - dmg);
+  if (dmg > 0) {
+    p.lastHit = s.tick;
+    p.hitFrom = rd.x < p.x ? -1 : 1;
+  }
   if (dmg > 0 && (rd.kind === 'ice_mage' || rd.kind === 'frost_archmage')) personFx(s, p.id, 'frost'); // (a burst of ice)
   // a plague rat's bite can carry the sickness
   if (dmg > 0 && (rd.kind === 'plague_rat' || rd.kind === 'rat_king') && !tireless(p) && !p.sick && rng.chance(RAT_BITE_SICKNESS)) sicken(s, p, rng);

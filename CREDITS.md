@@ -93,7 +93,8 @@ hidden somewhere in the game.
 
 ## Effects
 
-Hit sparks: **Super Pixel Effects Gigapack** — Will Tice / unTied Games (`src/renderer/art/effects/`,
+Hit sparks, and the blood (the red burst and directional splatters, `splat_*.png`, sprayed from a landing blow and left
+as a stain where someone falls): **Super Pixel Effects Gigapack** — Will Tice / unTied Games (`src/renderer/art/effects/`,
 bundled with the game as the licence allows; see http://untiedgames.com/files/license.txt).
 
 ## Horses

@@ -6,7 +6,8 @@ import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from 
 import type { RaiderView } from '../../shared/sim/snapshot';
 import { TICK_MS } from '../../shared/sim/time';
 import { creatureFeet, creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
-import { BLOOD_SIZE, bloodFrame, FLAME_SIZE, fireHitFrame, IMPACT_SIZE, impactFrame, lightningHitFrame, shockFrame, SPELL_SIZE } from '../art/effects';
+import { BLOOD_SIZE, bloodFrame, FLAME_SIZE, fireHitFrame, IMPACT_SIZE, impactFrame, lightningHitFrame, shockFrame, SPELL_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
+import { bleeds } from './bloodPools';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { machineFrame, machineSize } from '../art/machines';
 import { attackAnim, enemyLook } from '../art/rivals';
@@ -130,12 +131,17 @@ export class MapRaiders {
       s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : r.ally ? 0xa8f0b8 : (def.tint ?? 0xffffff);
       const since = r.sinceHit + t;
       const special = r.hitFx === 'blood' ? bloodFrame(since) : r.hitFx === 'shock' ? shockFrame(since * 1.5) : r.hitFx === 'fire' ? fireHitFrame(since * 1.2) : r.hitFx === 'lightning' ? lightningHitFrame(since * 1.2) : null;
-      const spark = r.hitFx ? special : impactFrame(r.sinceHit);
-      const size = r.hitFx === 'blood' ? BLOOD_SIZE : r.hitFx === 'shock' ? SPELL_SIZE : r.hitFx === 'fire' || r.hitFx === 'lightning' ? FLAME_SIZE : IMPACT_SIZE;
+      // (a plain blow: flesh sprays blood, the rest a spark)
+      const bloody = !r.hitFx && bleeds(r.kind);
+      const spark = r.hitFx ? special : bloody ? splatFrame(r.sinceHit + 2) : impactFrame(r.sinceHit);
+      const size = r.hitFx === 'blood' ? BLOOD_SIZE : r.hitFx === 'shock' ? SPELL_SIZE : r.hitFx === 'fire' || r.hitFx === 'lightning' ? FLAME_SIZE : bloody ? SPLAT_SIZE * 0.75 : IMPACT_SIZE;
       d.spark.visible = !!spark;
+      d.spark.scale.x = bloody ? -r.dir : 1; // (the spray flies back, away from whoever struck)
       if (spark) {
         d.spark.texture = spark;
-        d.spark.position.set(Math.round(x) - size / 2 - r.dir * 4, Math.round(r.hitFx === 'shock' ? y - size + 20 : top + 2 - (size - IMPACT_SIZE) / 2));
+        d.spark.width = size;
+        d.spark.height = size;
+        d.spark.position.set(Math.round(x) - (bloody ? -r.dir : 1) * (size / 2) - r.dir * 4 - (bloody && r.dir > 0 ? 0 : 0), Math.round(r.hitFx === 'shock' ? y - size + 20 : top + 2 - (size - IMPACT_SIZE) / 2));
         d.spark.zIndex = y + 0.3;
       }
       d.load.visible = (r.carrying > 0 || !!r.captive) && !r.down;

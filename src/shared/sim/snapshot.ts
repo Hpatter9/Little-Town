@@ -51,7 +51,7 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, campXY } from './state';
+import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, campXY, BLOOD_LASTS } from './state';
 import { cellAt, groundAt, type LandMap } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
@@ -89,6 +89,9 @@ export interface PersonView {
   y: number;
   dir: 1 | -1;
   activity: Activity;
+  /** Ticks since a blow last landed on them, and the side it came from (for the blood). */
+  sinceHit: number;
+  hitFrom: 1 | -1;
   /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
   clsName: string | null;
@@ -464,6 +467,8 @@ export interface Snapshot {
   destinations: DestinationView[];
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
   places: PlaceView[];
+  /** Blood on the ground where someone was struck down: where, the side the blow came from, and how old (ticks). */
+  blood: { x: number; y: number; from: 1 | -1; age: number; key: string }[];
   prompts: PromptView[];
   /** Seconds until the player can rally a defender again (0: now). */
   rallyIn: number;
@@ -648,6 +653,7 @@ export function snapshot(s: GameState): Snapshot {
       ...partyView(s, d.id),
     })),
     places: placeViews(s),
+    blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
     quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
@@ -915,6 +921,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     y: p.y,
     dir: p.dir,
     activity: p.activity,
+    sinceHit: s.tick - (p.lastHit ?? -999),
+    hitFrom: p.hitFrom ?? 1,
     mounted: null,
     cls: p.cls ?? null,
     clsName: callingName(p, stageOf(p)),

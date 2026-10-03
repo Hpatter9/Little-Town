@@ -18,6 +18,9 @@ import werewolfUrl from './effects/werewolf.png';
 import healUrl from './effects/heal.png';
 import shockUrl from './effects/shock.png';
 import bloodUrl from './effects/bloodburst.png';
+import splatSprayUrl from './effects/splat_spray.png';
+import splatBurstUrl from './effects/splat_burst.png';
+import splatGushUrl from './effects/splat_gush.png';
 import launchUrl from './effects/launch.png';
 import fireUrl from './effects/area_fire.png';
 import quakeUrl from './effects/area_quake.png';
@@ -105,6 +108,12 @@ export const BLOOD_SIZE = 56;
 export const LAUNCH_SIZE = 192;
 
 const impacts: Texture[] = [];
+/** Blood (the Gigapack's red splatters, 64px): a spray flung from a blow, a gush from a heavy one, a burst where
+ *  someone falls (its last frame is the stain left on the ground). */
+export const SPLAT_SIZE = 64;
+const splatSprays: Texture[] = [];
+const splatBursts: Texture[] = [];
+const splatGushes: Texture[] = [];
 const blasts: Texture[] = [];
 const conjures: Texture[] = [];
 const revives: Texture[] = [];
@@ -211,6 +220,9 @@ export async function loadEffects(): Promise<void> {
   await Promise.all([
     ...(Object.entries(SPELL_SHEET_DEFS) as [SpellSheet, readonly [string, number, number, number]][]).map(([id, [url, size, count, across]]) => cut(url, size, count, spellSheets[id], across)),
     cut(impactUrl, IMPACT_SIZE, IMPACT_FRAMES, impacts),
+    cut(splatSprayUrl, SPLAT_SIZE, 8, splatSprays),
+    cut(splatBurstUrl, SPLAT_SIZE, 10, splatBursts),
+    cut(splatGushUrl, SPLAT_SIZE, 7, splatGushes, 4),
     cut(blastUrl, BLAST_SIZE, BLAST_FRAMES, blasts),
     cut(conjureUrl, BLAST_SIZE, CONJURE_FRAMES, conjures),
     cut(reviveUrl, REVIVE_SIZE, 24, revives, 4),
@@ -251,6 +263,14 @@ const at = (list: Texture[], i: number): Texture | null => (i >= 0 && i < list.l
 
 /** Frame `i` of each effect (null once it's over, or before loading). */
 export const impactFrame = (i: number) => at(impacts, i);
+/** A frame of blood: `spray` for an ordinary blow, `gush` for a heavy one, `burst` for a fall (null once over). The
+ *  sprays fly to the right: flip them to fly away from the striker. */
+export function splatFrame(i: number, kind: 'spray' | 'gush' | 'burst' = 'spray'): Texture | null {
+  return at(kind === 'spray' ? splatSprays : kind === 'gush' ? splatGushes : splatBursts, i);
+}
+/** The stain a burst leaves (its widest frame, before the drops thin out), for the ground where someone fell; null
+ *  until loaded. */
+export const bloodPoolTexture = (): Texture | null => splatBursts[5] ?? null;
 export const blastFrame = (i: number) => at(blasts, i);
 export const conjureFrame = (i: number) => at(conjures, i);
 export const reviveFrame = (i: number) => at(revives, i);

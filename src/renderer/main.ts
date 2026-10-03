@@ -4,6 +4,7 @@
 import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
 import { MapHerds } from './map/mapHerds';
+import { BloodPools } from './map/bloodPools';
 import { createBattleHud } from './battle/battleHud';
 import { FightScene } from './fight/fightView';
 import { createFightHud } from './fight/fightHud';
@@ -29,7 +30,7 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
-    activity: 'walk', cls: null, clsName: null, clsPast: [], clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', sinceHit: 999, hitFrom: 1, cls: null, clsName: null, clsPast: [], clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
@@ -176,6 +177,8 @@ async function start(): Promise<void> {
   // the town, top-down (map/mapView.ts): the land, the buildings on their footprints, and everyone on it
   const map = new MapView();
   (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
+  const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
+  (window as unknown as { __pools?: BloodPools }).__pools = pools; // (for previews)
   const people = new MapPeople(map.things);
   const raiders = new MapRaiders(map.things);
   const herds = new MapHerds(map.things);
@@ -231,6 +234,7 @@ async function start(): Promise<void> {
   };
 
   const camera = new MapCamera(first.land.w * CELL, first.land.h * CELL);
+  (window as unknown as { __camera?: MapCamera }).__camera = camera; // (for previews)
   camera.centreOn(first.camp, app.screen.width, app.screen.height); // (a nomad tribe's camp may be away on its pasture)
 
   /** The expedition shown in the split view: the most recently sent one. */
@@ -965,6 +969,7 @@ async function start(): Promise<void> {
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
     map.syncBuildings(next.buildings);
     herds.update(next.buildings);
+    pools.sync(next.blood);
     map.syncCastle(next.castle?.rect ?? null);
     map.syncPlaces(next.places);
     // (a nomad tribe that moved camp: the view goes to the new camp)

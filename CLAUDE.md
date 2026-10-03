@@ -806,6 +806,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       fully at `WEAR_FULL`) as patches of the Path and Road pack's bare-earth blob (`drawWornPatch`, the grass sheet's
       round patch) at its middle and toward each worn or road neighbour, faded by how worn; the chunk key carries the
       worn levels a cell either side. Test: `test/footpaths.test.ts`.
+    - **Blood (done):** a blow that lands on a townsperson is remembered (`Person.lastHit`, `hitFrom` the side it came
+      from, set in `attackPerson`; `PersonView.sinceHit`/`hitFrom`); the Gigapack's red splatters (`effects/splat_*.png`,
+      `splatFrame` spray/gush/burst, `SPLAT_SIZE`) are sprayed away from the striker on the map (people in mapPeople,
+      flesh raiders in mapRaiders: `bleeds` = `natureOf` person or beast; the undead and machines still spark), on the
+      raid map's spots (mapBattle) and on the fight screen (fightView). Whoever is struck down leaves a stain: the sim
+      marks it (`markBlood` in state.ts, `s.blood`, `BLOOD_LASTS` 3 game hours, `BLOOD_MOST` 40; raiders when they fall
+      in `updateRaid` (`Raider.bled`), people in `knockDown`/`killPerson` when a blow just landed), `snapshot.blood`
+      carries them with their age, and `map/bloodPools.ts` (`BloodPools.sync`, in MapView's `under`) draws the burst's
+      widest frame flattened and darkened, fading as the mark ages. Tests: `test/blood.test.ts`.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

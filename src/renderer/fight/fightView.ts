@@ -12,7 +12,8 @@ import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from 
 import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
 import { creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
-import { impactFrame, IMPACT_SIZE } from '../art/effects';
+import { impactFrame, IMPACT_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
+import { bleeds } from '../map/bloodPools';
 import { ELITES, type EliteAffix } from '../../shared/data/dungeons';
 import { loadDelveProps, propFrame, propLoop, type DelveProp } from '../art/delveProps';
 import { SHEETS } from '../town/spellsView';
@@ -399,12 +400,17 @@ export class FightScene {
         g.pop.alpha = Math.min(1, (14 - pop.age) / 5);
         g.pop.zIndex = 999;
       }
-      const spark = f.sinceHit < 7 && !f.down ? impactFrame(f.sinceHit) : null;
+      // a blow landing: flesh sprays blood away from the striker (the party faces left, its foes right), the rest sparks
+      const bloody = f.kind === 'person' || bleeds(f.kind);
+      const spark = f.sinceHit < 7 && !f.down ? (bloody ? splatFrame(f.sinceHit + 2) : impactFrame(f.sinceHit)) : null;
       g.spark.visible = !!spark;
       if (spark) {
+        const size = bloody ? SPLAT_SIZE * 0.6 : IMPACT_SIZE * 0.6;
         g.spark.texture = spark;
-        g.spark.width = g.spark.height = IMPACT_SIZE * 0.6;
-        g.spark.position.set(p[0] - (IMPACT_SIZE * 0.3), p[1] - 26);
+        g.spark.anchor.set(0.5, 0.5);
+        g.spark.width = g.spark.height = size;
+        g.spark.scale.x = (bloody && f.side === 'enemy' ? -1 : 1) * Math.abs(g.spark.scale.x);
+        g.spark.position.set(p[0] + (bloody ? (f.side === 'party' ? 8 : -8) : 0), p[1] - 26 + IMPACT_SIZE * 0.3);
         g.spark.zIndex = 998;
       }
     }

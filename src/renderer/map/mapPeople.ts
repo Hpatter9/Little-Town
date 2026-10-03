@@ -8,7 +8,7 @@ import type { PersonView } from '../../shared/sim/snapshot';
 import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
-import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, type Emote } from '../art/effects';
+import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { glowTexture } from '../town/layer';
@@ -46,6 +46,8 @@ interface Drawn {
   bubble: Graphics;
   blood?: Graphics;
   bleedFrom?: number;
+  /** The spray of a blow landing. */
+  spray: Sprite;
   emote?: Sprite;
   levels?: number;
   levelAt?: number;
@@ -99,7 +101,10 @@ export class MapPeople {
         const sprite = this.layer.addChild(new Sprite());
         sprite.anchor.set(CENTRE_X / FRAME_SIZE, FEET_Y / FRAME_SIZE);
         const bubble = this.layer.addChild(questionBubble());
-        d = { view: p, visitor: isVisitor, sprite, shadow, horse, load, bubble, from: { x: p.x, y: p.y }, to: { x: p.x, y: p.y }, at: now, x: p.x, y: p.y, walked: 0, animStart: now, lastActivity: p.activity };
+        const spray = this.layer.addChild(new Sprite());
+        spray.anchor.set(0.5, 0.5);
+        spray.visible = false;
+        d = { view: p, visitor: isVisitor, sprite, shadow, horse, load, bubble, spray, from: { x: p.x, y: p.y }, to: { x: p.x, y: p.y }, at: now, x: p.x, y: p.y, walked: 0, animStart: now, lastActivity: p.activity };
         this.drawn.set(p.id, d);
       }
       d.from = { x: d.x, y: d.y };
@@ -117,7 +122,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.blood, d.emote, d.levelUp, d.aura]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -255,6 +260,16 @@ export class MapPeople {
           d.emote.position.set(Math.round(x) - EMOTE_SIZE / 2 + 6, Math.round(y) - 62 + Math.round(Math.sin(now / 400 + d.view.id) * 1.5));
           d.emote.zIndex = z + 0.2;
         }
+      }
+      // a blow landing: blood flung away from the striker
+      const splat = d.view.sinceHit < 6 && !hidden ? splatFrame(d.view.sinceHit + 2) : null;
+      d.spray.visible = !!splat;
+      if (splat) {
+        d.spray.texture = splat;
+        d.spray.width = d.spray.height = SPLAT_SIZE * 0.7;
+        d.spray.scale.x = -d.view.hitFrom * Math.abs(d.spray.scale.x);
+        d.spray.position.set(Math.round(x - d.view.hitFrom * 6), Math.round(y - 22));
+        d.spray.zIndex = z + 0.4;
       }
       const left = d.view.bleedMinutes;
       if (left === null) d.bleedFrom = undefined;
