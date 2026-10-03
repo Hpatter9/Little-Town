@@ -22,7 +22,7 @@ import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
-import { blueprintCount, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
+import { blueprintCount, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { venueOfDef } from '../shared/data/shop';
 import { buildingTint } from './theme';
@@ -53,8 +53,9 @@ import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
 import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
-import { buildingArt } from './art/buildings';
 import { topDownArt } from './art/topDown';
+import { packArt } from './map/packBuildings';
+import { airFor } from './town/ambientView';
 import { noTone, textureCanvas } from './art/pixelArt';
 import { MapCamera } from './map/mapCamera';
 import { MapView } from './map/mapView';
@@ -932,16 +933,22 @@ async function start(): Promise<void> {
     // (on the phone, heavy cloud dims the land a little)
     const gloom = fullSky ? ({ clear: 0, cloudy: 0.04, rain: 0.12, storm: 0.22, snow: 0.05, fog: 0.08 } as const)[next.weather.kind] : 0;
     map.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
+    map.smokeAmount = airFor(next.calendar.hour, next.calendar.season, next.weather.kind).smoke;
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
     // autumn leaves on the wind, in fair weather
     leaves.on = next.calendar.season === 'autumn' && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !freeze;
     snow.heavy = freeze && !!next.doom?.cold;
     pane.setDaylight(next.calendar.daylight);
-    // (the phone page's feed borrows the town's pictures: a townsperson, or a building in the town's own style)
+    // (the phone page's feed borrows the town's pictures: a townsperson, or a building in the town's own style, as the
+    // map draws it: the pack's picture where there is one, else the top-down painter's)
+    const cardArt = (id: string) => {
+      const def = BUILDING_BY_ID[id];
+      return packArt(id, def.width, buildStyle || 'town') ?? topDownArt(id, def.width, depthOf(def), noTone, 'card', buildStyle || 'town');
+    };
     (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {
       const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
       if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
-      if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(buildingArt(h.building, noTone, 'card', undefined, buildStyle || 'town').texture, 96, 64);
+      if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
       return null;
     };
     const q = next.prompts[0];
@@ -953,7 +960,7 @@ async function start(): Promise<void> {
         // the report card's pictures: the townsperson, or the building, in the town's own style
         const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
         if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
-        if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(buildingArt(h.building, noTone, 'card', undefined, buildStyle || 'town').texture, 96, 64);
+        if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
         return null;
       });
     else awayCard.hide();
@@ -1031,6 +1038,7 @@ async function start(): Promise<void> {
     raiders.render(performance.now());
     herds.render(performance.now(), ticker.deltaMS / 1000);
     map.renderPlaces(performance.now());
+    map.renderAir(ticker.deltaMS / 1000);
     spells.render(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);

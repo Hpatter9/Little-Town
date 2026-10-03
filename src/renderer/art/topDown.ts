@@ -105,8 +105,9 @@ export function topDownArt(defId: string, w: number, d: number, tone: Tone, tone
   const D = d * TILE;
   const tall = shape === 'tower' ? 44 : shape === 'dome' ? 10 : shape === 'pad' ? 0 : LIFT;
   const H = D + tall;
+  const smoke: { x: number; y: number }[] = [];
   art = paint(W, H, tone, (p) => {
-    const g = { p, defId, w, d, W, H, D, mats, era, shape, seed: hashOf(defId) };
+    const g: G = { p, smoke, defId, w, d, W, H, D, mats, era, shape, seed: hashOf(defId) };
     switch (shape) {
       case 'wall':
         drawWall(g);
@@ -136,12 +137,15 @@ export function topDownArt(defId: string, w: number, d: number, tone: Tone, tone
     const st = style === 'nomads_city' ? 'nomads' : style;
     if (st !== 'town' && st !== 'settlers') reclad(p, st as Style);
   });
+  if (smoke.length) art.smoke = smoke;
   cache.set(key, art);
   return art;
 }
 
 interface G {
   p: Painter;
+  /** Where smoke rises from (chimneys, stacks), filled in as they're drawn. */
+  smoke: { x: number; y: number }[];
   defId: string;
   w: number;
   d: number;
@@ -293,6 +297,7 @@ function drawHouse(g: G, hall: boolean): void {
     const cx = W - EAVE - 10 - (g.seed % 7);
     p.rect(cx, 2, 4, 9, g.era === 'industrial' ? '#6a3424' : '#73726b');
     p.rect(cx - 1, 1, 6, 2, '#5a5a56');
+    g.smoke.push({ x: cx + 2, y: 1 });
   }
 }
 
@@ -354,6 +359,7 @@ function drawWorks(g: G): void {
     p.rect(x, 0, 5, 14, g.era === 'industrial' ? '#6a3424' : '#5a6470');
     p.rect(x - 1, 0, 7, 2, '#3a3a3a');
     p.frect(x + 4, 0, 1, 14, mix('#6a3424', '#000000', 0.3));
+    g.smoke.push({ x: x + 2.5, y: 0 });
   }
 }
 

@@ -13,6 +13,8 @@ export interface PixelArt {
   lights?: Light[];
   /** Frames of glints over its water, to play over it. */
   shimmer?: Texture[];
+  /** Where its chimneys and stacks are (art pixels from its top left): smoke rises from them on the map. */
+  smoke?: { x: number; y: number }[];
 }
 
 export interface Light {

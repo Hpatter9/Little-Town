@@ -900,6 +900,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       leaving the trail is a danger rather than a refuge. With it: settlers 30.0/19 (18 at raiders' hands), vampires
       31.8/32 (every one at raiders' hands; their fighters fall back often, and now pay for it). Test:
       `test/battle.test.ts` (the parting blow). `KILLING_BLOW` and the rest of `data/raids.ts` are unchanged.
+    - **Lights and smoke on the map (done):** finished buildings' windows and fires glow after dark: MapView's
+      `lights` container stands beside `world` (so the night's tint doesn't dim it), follows the camera, and fades in
+      from dusk (`setDaylight`); a glow per lamp the painted art found (`PixelArt.lights`: the top-down painter's
+      `WINDOW` colour and each origin's, through `reclad`), and one fire glow (`FIRES`, `FIRE_GLOW`) for the campfire,
+      bloomery, kiln and storytellers' circle, whose pack pictures have no lamp colours. Pack houses have no glow
+      (their windows aren't lamp colours). Smoke rises from chimneys and stacks: the top-down painter records them
+      (`PixelArt.smoke`: the house chimney in the medieval and industrial eras, the works' stacks), MapView keeps a
+      `ChimneySmoke` (town/ambientView.ts, puffs `size` 1.6 for the map's distance) in `over`, fed by `renderAir(dt)`
+      each frame with `smokeAmount` from `airFor` (main.ts, per snapshot); off while `calm`. The feed's and report's
+      building pictures (`__picture` in main.ts, `cardArt`) are the map's now: the pack's picture, else the top-down
+      painter's.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

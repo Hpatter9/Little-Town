@@ -23,6 +23,7 @@ import { propTextures, type PropSet } from '../art/props';
 import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
+import { ChimneySmoke } from '../town/ambientView';
 import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
 import { onPackArt, packArt, packDressing } from './packBuildings';
 import { loadRoadTiles } from '../art/roadTiles';
@@ -73,7 +74,15 @@ interface DrawnBuilding {
   progress: number;
   /** Street furniture from the pack beside it (map/packBuildings.ts). */
   extras?: Sprite[];
+  /** Its windows' and fires' glows after dark (in MapView's `lights`). */
+  glows?: Sprite[];
+  /** Where its chimneys are (world px), for the smoke. */
+  chimneys?: { x: number; y: number }[];
 }
+
+/** Buildings whose fire glows at night though their picture (a pack's) has no lamp colours in it. */
+const FIRES = new Set(['campfire', 'bloomery', 'kiln', 'storytellers_circle']);
+const FIRE_GLOW = { r: 20, color: 0xffb347 };
 
 function cropLook(b: Building): CropLook | undefined {
   if (!CROPS[b.def] || b.status !== 'done') return undefined;
@@ -93,6 +102,12 @@ export class MapView {
   private readonly marks = new Graphics();
   /** Everything that stands on the ground, sorted by its foot's y. */
   readonly things = new Container();
+  /** The windows' and fires' glows: beside `world` (so the night's tint doesn't dim them), faded in after dusk. */
+  readonly lights = new Container();
+  /** Smoke from the chimneys and stacks (town/ambientView.ts), over everything standing. */
+  private readonly smoke = new ChimneySmoke();
+  /** How much the hearths are burning now (0 to 1: ambientView's `airFor`). */
+  smokeAmount = 0.5;
   /** Marks on the ground under everything standing (a battle's trail and spots), and effects over it all. */
   readonly under = new Container();
   readonly over = new Container();
@@ -135,7 +150,11 @@ export class MapView {
     this.ghost.anchor.set(0.5, 1);
     this.ghost.zIndex = 1e9;
     this.world.addChild(this.ground, this.marks, this.under, this.things, this.over, this.ghost);
-    this.root.addChild(this.world);
+    this.over.addChild(this.smoke.root);
+    this.smoke.size = 1.6;
+    this.lights.blendMode = 'add';
+    this.lights.alpha = 0;
+    this.root.addChild(this.world, this.lights);
     loadTdTiles().then(() => this.repaint(), () => undefined);
     loadRoadTiles().then(() => this.repaint(), () => undefined);
     loadGroundDetail().then(() => this.repaint(), () => undefined);
@@ -148,6 +167,7 @@ export class MapView {
    *  the ground's chunks and everything standing on it outside the view are skipped (Pixi draws all else). */
   setCamera(x: number, y: number, w: number, h: number): void {
     this.world.position.set(-Math.round(x), -Math.round(y));
+    this.lights.position.copyFrom(this.world.position);
     const x0 = x - CULL_MARGIN;
     const y0 = y - CULL_MARGIN;
     const x1 = x + w + CULL_MARGIN;
@@ -178,6 +198,8 @@ export class MapView {
     this.frost = frost;
     const t = daylightTint(d);
     this.world.tint = frost ? multiplyTint(t, FROST_TINT) : t;
+    // (the windows light up as the day goes: fully by deep dusk)
+    this.lights.alpha = Math.max(0, Math.min(1, (0.6 - d) / 0.35));
   }
 
   /** The buildings' style (an origin's look) and tint. */
@@ -535,6 +557,16 @@ export class MapView {
     d.mask?.destroy();
     d.site?.destroy();
     for (const e of d.extras ?? []) e.destroy();
+    for (const g of d.glows ?? []) g.destroy();
+  }
+
+  /** A frame of the air: smoke from the finished buildings' chimneys and stacks. */
+  renderAir(dt: number): void {
+    if (this.calm) return;
+    this.smoke.amount = this.smokeAmount;
+    const chimneys: { x: number; y: number }[] = [];
+    for (const d of this.buildings.values()) if (d.chimneys && d.sprite.renderable) chimneys.push(...d.chimneys);
+    this.smoke.update(dt, chimneys);
   }
 
   private draw(b: Building, sig: string): DrawnBuilding {
@@ -564,6 +596,18 @@ export class MapView {
     sprite.zIndex = flat ? top - 1e6 : bottom;
     const d: DrawnBuilding = { sig, sprite, shadow, art, rect, progress: -1 };
     if (b.status === 'done') {
+      // its windows and fires glow after dark (the picture's lamp colours, or a fire's own glow)
+      const lamps = art.lights?.length ? art.lights.map((l) => ({ x: left + l.x, y: top + l.y, r: l.r, color: l.color })) : FIRES.has(b.def) ? [{ x: cx, y: bottom - (f.h * CELL) / 2, ...FIRE_GLOW }] : [];
+      for (const l of lamps) {
+        const g = this.lights.addChild(new Sprite(glowTexture()));
+        g.anchor.set(0.5);
+        g.position.set(Math.round(l.x), Math.round(l.y));
+        g.width = g.height = l.r * 2.4;
+        g.tint = l.color;
+        g.alpha = 0.85;
+        (d.glows ??= []).push(g);
+      }
+      if (art.smoke) d.chimneys = art.smoke.map((c) => ({ x: left + c.x, y: top + c.y }));
       // (a lantern post, a barrel, a cart by a pack-drawn house's corners)
       const x0 = f.x * CELL;
       const y0 = (f.y + f.h) * CELL;

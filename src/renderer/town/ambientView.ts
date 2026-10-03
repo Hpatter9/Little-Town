@@ -24,6 +24,8 @@ export class ChimneySmoke {
   amount = 0.5;
   /** Drift across the land, in px a second (the wind). */
   wind = 3;
+  /** How big the puffs grow (1: the strip's; the map, seen from further off, uses more). */
+  size = 1;
 
   update(dt: number, chimneys: { x: number; y: number }[]): void {
     // each chimney puffs every so often
@@ -48,7 +50,7 @@ export class ChimneySmoke {
       const k = p.age / p.life;
       p.s.x += (p.vx + this.wind * k) * dt;
       p.s.y += p.vy * dt;
-      const size = 4 + p.grow * k;
+      const size = (4 + p.grow * k) * this.size;
       p.s.width = p.s.height = size;
       // (thin at the chimney, thickest a little way up, gone at the top)
       p.s.alpha = 0.8 * Math.min(1, k * 4) * (1 - k * k);
