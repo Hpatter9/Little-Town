@@ -2,7 +2,9 @@
 // onto plain canvases, so the panels can show a character too; lpc.ts turns frames into Pixi textures.
 // Layers of the Universal LPC spritesheet (CC-BY-SA 3.0 / GPL 3.0, see CREDITS.md) are recoloured and
 // stacked into one 64x64 frame per (look, animation, frame). The data holds right-facing rows only;
-// left-facing is a mirrored sprite.
+// left-facing is a mirrored sprite. The walk has up- and down-facing rows too (lpcFaces.json, a file beside the
+// page cut by tools/import-lpc-faces.mjs, loaded after the rest): `facing` picks them; until they're in, or for a
+// layer without them, the side view stands.
 
 import { loadImage } from '../loadImage';
 import type { Look } from '../../../shared/data/people';
@@ -22,6 +24,28 @@ const HAS = data.has as Record<string, boolean[]>;
 const ALIAS = data.alias as Record<string, string>;
 
 const images = new Map<string, HTMLImageElement>();
+/** The up- and down-facing walk rows (row 0 up, row 1 down), by layer, once loaded. */
+const faces = new Map<string, HTMLImageElement>();
+export type Facing = 'up' | 'down';
+let facesLoading: Promise<void> | null = null;
+
+/** Load the up- and down-facing walk rows (a file beside the page; nothing is drawn differently until they're in). */
+export function loadLpcFaces(): Promise<void> {
+  if (!facesLoading)
+    facesLoading = fetch('lpcFaces.json')
+      .then((r) => (r.ok ? (r.json() as Promise<{ layers: Record<string, string> }>) : Promise.reject(new Error(String(r.status)))))
+      .then(async (d) => {
+        await Promise.all(
+          Object.entries(d.layers).map(async ([id, src]) => {
+            const im = await loadImage(src);
+            faces.set(id, im);
+          }),
+        );
+      })
+      .catch(() => undefined);
+  return facesLoading;
+}
+export const lpcFacesReady = () => faces.size > 0;
 
 /** Decode the layer images. Call once before asking for frames. */
 export async function loadLpc(): Promise<void> {
@@ -53,10 +77,10 @@ function mix(a: string, b: string, t: number): string {
 }
 
 /** Recolour a layer by lightness so shading and outlines survive; 'skin' also leaves eyes alone. */
-function atlas(id: string, hex: string | null, mode: TintMode): CanvasImageSource {
-  const im = images.get(id)!;
+function atlas(id: string, hex: string | null, mode: TintMode, facing?: Facing): CanvasImageSource {
+  const im = (facing ? faces.get(id) : images.get(id))!;
   if (!hex) return im;
-  const key = `${id}|${hex}|${mode}`;
+  const key = `${id}|${hex}|${mode}|${facing ? 'f' : ''}`;
   const hit = tinted.get(key);
   if (hit) return hit;
 
@@ -67,7 +91,8 @@ function atlas(id: string, hex: string | null, mode: TintMode): CanvasImageSourc
   g.drawImage(im, 0, 0);
   const img = g.getImageData(0, 0, c.width, c.height);
   const p = img.data;
-  let ref = lightRef.get(id);
+  const refKey = facing ? `${id}|f` : id;
+  let ref = lightRef.get(refKey);
   if (ref === undefined) {
     let sum = 0;
     let n = 0;
@@ -80,7 +105,7 @@ function atlas(id: string, hex: string | null, mode: TintMode): CanvasImageSourc
       }
     }
     ref = n ? sum / n : 0.7;
-    lightRef.set(id, ref);
+    lightRef.set(refKey, ref);
   }
   const T = rgb(hex);
   for (let i = 0; i < p.length; i += 4) {
@@ -164,16 +189,31 @@ export function lookKey(look: Look): string {
 }
 
 /** One composed 64x64 frame on a new canvas. `wear` adds armour layers (e.g. 'torso_chain', 'head_helm'). */
-export function lpcCanvas(look: Look, anim: LpcAnim, frame: number, weapon: LpcWeapon = null, wear: readonly string[] = []): HTMLCanvasElement {
+export function lpcCanvas(look: Look, anim: LpcAnim, frame: number, weapon: LpcWeapon = null, wear: readonly string[] = [], facing?: Facing): HTMLCanvasElement {
   const f = Math.max(0, Math.min(FRAME_COUNT[anim] - 1, frame));
   const c = document.createElement('canvas');
   c.width = c.height = FRAME_SIZE;
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
+  const layers = layersFor(look, weapon, wear);
+  // (walking up or down: the facing rows, when every layer that shows has them; else the side view)
+  const faced = anim === 'walk' && facing && layers.every((l) => faces.has(l.id) || !HAS[l.id]?.[ROW.walk] || l.id.startsWith('w_'));
+  if (faced) {
+    const row = facing === 'up' ? 0 : 1;
+    for (const l of layers) {
+      if (!faces.has(l.id)) continue;
+      g.drawImage(atlas(l.id, l.tint, l.mode, facing), f * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, FRAME_SIZE, FRAME_SIZE);
+    }
+    return c;
+  }
   const row = ROW[anim];
-  for (const l of layersFor(look, weapon, wear)) {
+  for (const l of layers) {
     if (!HAS[l.id]?.[row]) continue;
     g.drawImage(atlas(l.id, l.tint, l.mode), f * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, FRAME_SIZE, FRAME_SIZE);
   }
   return c;
+}
+/** Whether a look can be drawn walking up or down (the facing rows are in for what it wears). */
+export function canFace(look: Look, wear: readonly string[] = []): boolean {
+  return faces.size > 0 && layersFor(look, null, wear).every((l) => faces.has(l.id) || !HAS[l.id]?.[ROW.walk]);
 }

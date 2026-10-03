@@ -52,7 +52,7 @@ import { CELL, cellAt, groundAt, isMarked, WILD } from '../shared/sim/land';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
-import { loadLpc, lpcFrame } from './art/lpc/lpc';
+import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
 import { buildingArt } from './art/buildings';
 import { topDownArt } from './art/topDown';
 import { noTone, textureCanvas } from './art/pixelArt';
@@ -123,6 +123,7 @@ async function start(): Promise<void> {
   const coarse = () => matchMedia('(pointer: coarse)').matches;
 
   const [first] = await Promise.all([bridge.getSnapshot(), loadLpc(), loadCreatures(), loadEffects(), loadStills()]);
+  void loadLpcFaces(); // (the townsfolk's up- and down-facing walk rows come in after; side-on until then)
   applySeasonPalette(first.biome, first.calendar.season); // (the land is drawn in the colours of the season)
   const seedHash = hashSeed(first.seed);
 

@@ -879,9 +879,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       `y` on the land (`SpellTarget.y`, `SpellFx.y`, `SpellView.y`; set in powers.ts and rivals.ts); older casts
       without one are drawn at the camp's row. The old side-on `spellsView.ts` keeps the sheet table and the code-drawn
       kinds the fight and battle views still use.
-    - **Deferred: people facing up and down.** `lpcData.json` holds right-facing rows only (it came from Little
-      Wayfarers' pre-cut data, `tools/import-lpc.mjs`); up and down walk rows would mean mapping each of the 162 layer
-      ids back to its sheet in `../chronos-assets/Universal-LPC-spritesheet-master` and re-cutting. Not done.
+    - **People facing up and down (done):** `tools/import-lpc-faces.mjs` (run by hand; Playwright's Chromium) finds
+      each LPC layer's sheet in `../chronos-assets/Universal-LPC-spritesheet-master` by name, picks the colour variant
+      whose walk-right row matches the data's best (all 136 non-weapon layers found, most exactly; hair differs only in
+      colour, which the lightness tint evens out), and cuts its walk-up and walk-down rows into
+      `src/renderer/art/lpc/lpcFaces.json` (a 1 MB file beside the page, copied by the builds, fetched by `loadLpcFaces`
+      after the rest loads; side-on until then). `lpcCanvas`/`lpcFrame` take a `facing` ('up' | 'down'), used for the
+      walk when every layer that shows has it (`canFace`); the facing rows are tinted with their own lightness
+      reference. The people view (`Drawn.face`) faces someone up or down the map when that's mostly how they moved
+      last, and keeps it while they stand; never when mounted or fighting. Raiders and travellers' LPC sprites stay
+      side-on (raiders don't walk the facing rows yet).
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

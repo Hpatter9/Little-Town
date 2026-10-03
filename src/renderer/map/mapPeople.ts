@@ -65,6 +65,8 @@ interface Drawn {
   y: number;
   walked: number;
   animStart: number;
+  /** Walking up or down the map (from the way they last moved), else side-on. */
+  face: 'up' | 'down' | null;
   lastActivity: string;
 }
 
@@ -109,7 +111,7 @@ export class MapPeople {
         const spray = this.layer.addChild(new Sprite());
         spray.anchor.set(0.5, 0.5);
         spray.visible = false;
-        d = { view: p, visitor: isVisitor, sprite, shadow, horse, load, bubble, spray, from: { x: p.x, y: p.y }, to: { x: p.x, y: p.y }, at: now, x: p.x, y: p.y, walked: 0, animStart: now, lastActivity: p.activity };
+        d = { view: p, visitor: isVisitor, sprite, shadow, horse, load, bubble, spray, from: { x: p.x, y: p.y }, to: { x: p.x, y: p.y }, at: now, x: p.x, y: p.y, walked: 0, animStart: now, lastActivity: p.activity, face: null };
         this.drawn.set(p.id, d);
       }
       d.from = { x: d.x, y: d.y };
@@ -209,9 +211,15 @@ export class MapPeople {
       }
       const [look, wear] = this.dressed(d.view);
       const s = d.sprite;
-      s.texture = lpcFrame(look, anim, frame, held, wear);
+      // which way they face: up or down the map when that's mostly how they're moving, else the side they look to
+      const mdx = d.to.x - d.from.x;
+      const mdy = d.to.y - d.from.y;
+      if (Math.hypot(mdx, mdy) > 0.5) d.face = Math.abs(mdy) > Math.abs(mdx) * 1.2 ? (mdy < 0 ? 'up' : 'down') : null;
+      else if (d.view.activity !== 'walk' && d.view.activity !== 'idle') d.face = null;
+      const faceWay = anim === 'walk' && d.face && !d.view.mounted ? d.face : undefined;
+      s.texture = lpcFrame(look, anim, frame, held, wear, faceWay);
       s.anchor.set(CENTRE_X / FRAME_SIZE, FEET_Y / FRAME_SIZE);
-      const flip = d.view.dir < 0;
+      const flip = d.view.dir < 0 && !faceWay;
       const founder = d.view.founderCalling;
       const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.look.height ?? 1) * (founder ? FOUNDER_SCALE : 1);
       s.scale.set(flip ? -k : k, k);
