@@ -913,7 +913,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       painter's.
       The pack's timber houses smoke too (`Pick.smoke` in packBuildings.ts: the chimney's top in source px, scaled
       with the picture), and their windows glow (`Pick.lamps`: the windows' centres, made `PixelArt.lights` in the
-      painter's window colour); the nomads' tipis and yurts smoke from their tops. **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
+      painter's window colour); the nomads' tipis and yurts smoke from their tops. **Shared props for every look:**
+      `OWN_TENTS` (the vampires, liches, machines, nomads and merfolk, with homes and walls of their own in
+      originStyles.ts) now keeps from them only the picks marked `own` (the Fields pack's tents, the hunters' and
+      barracks' tents, the palisade and stone walls and gates); the well, racks, logs, fire pits, benches, shelves,
+      graves, mines and the industrial plants suit them like everyone else (they were all withheld before). **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
       the world origin and drew at world coordinates, and `setCamera` culls each thing by where it stands, so they were
       hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
 

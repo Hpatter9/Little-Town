@@ -132,12 +132,15 @@ interface Pick {
   smoke?: [number, number][];
   /** The windows (their centres, in source px): they glow after dark like the painted art's lamp colours. */
   lamps?: [number, number][];
+  /** A tent or a wall: the origins with tents and walls of their own (`OWN_TENTS`) keep theirs instead. */
+  own?: true;
 }
 /** The glow of a pack house's window (the painter's window colour). */
 const WINDOW_GLOW = 0xf0d890;
 /** The looks the pack's timber houses suit. */
 const TIMBER = new Set(['town', 'settlers', 'knights']);
-/** The looks whose origins have tents and halls of their own: the Stone Age pieces are kept from them. */
+/** The looks whose origins have tents and walls of their own (originStyles.ts): the pack's tents and walls (`own`)
+ *  are kept from them; the shared props (the well, racks, fire pits, benches, plants) suit every look. */
 const OWN_TENTS = new Set(['vampire', 'lich', 'robot', 'nomads', 'merfolk', 'nomads_city']);
 /** The nomads' looks: the rocky-area pack's tipis and yurts stand for their homes. */
 const NOMAD = ['nomads', 'nomads_city'];
@@ -150,17 +153,17 @@ const PICKS: Record<string, Pick> = {
   market: { url: tent2, styles: TIMBER },
   general_store: { url: tent3, styles: TIMBER },
   // the Fields pack's camp: a small tent for the lean-to, a wide one for the hide tent, the long one for the longhouse
-  lean_to: { url: camp2, overhang: 2, variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4, smoke: [[29, 1]] } }] },
-  hide_tent: { url: camp1, variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[38, 2]] } }] },
-  longhouse: { url: camp4, overhang: 10, variants: [{ styles: NOMAD, pick: { url: rockyYurt1, overhang: 8, smoke: [[39, 1]] } }] },
+  lean_to: { own: true, url: camp2, overhang: 2, variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4, smoke: [[29, 1]] } }] },
+  hide_tent: { own: true, url: camp1, variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[38, 2]] } }] },
+  longhouse: { own: true, url: camp4, overhang: 10, variants: [{ styles: NOMAD, pick: { url: rockyYurt1, overhang: 8, smoke: [[39, 1]] } }] },
   // the stockpile: crates and logs heaped together
   stockpile: { parts: [[log3, 2, 14], [box1, 10, 4], [box2, 28, 8], [log1, 44, 6], [box1, 62, 10], [box2, 76, 2]], size: [96, 28], overhang: 0 },
   // the Village pack's palisade stakes and gate
-  palisade_wall: { any: [palisade01, palisade02, palisade03], overhang: 0 },
-  palisade_gate: { parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0 },
+  palisade_wall: { own: true, any: [palisade01, palisade02, palisade03], overhang: 0 },
+  palisade_gate: { own: true, parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0 },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
-  stone_wall: { parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
-  stone_gate: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
+  stone_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
+  stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
   // the dungeon props: bookshelves for the library, an alchemist's bench for the healer, a plain table for the workbench
   library: { parts: [[dprops, 0, 0, 16, 256, 48, 48], [dprops, 48, 0, 64, 256, 48, 48], [dprops, 96, 0, 112, 256, 48, 48]], size: [144, 48], overhang: 0 },
   healers_hut: { parts: [[dprops, 0, 0, 16, 304, 48, 48]], size: [48, 48], overhang: 0 },
@@ -179,8 +182,8 @@ const PICKS: Record<string, Pick> = {
   tannery: { parts: [[house3, 0, 0], [doBarrel, 122, 124], [vBucket, 108, 140], [vRack, 2, 110]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
   loom: { parts: [[house3, 0, 0], [vRack, 120, 112], [fBox1, 4, 134]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
   // the hunters' camp tent with a rack and the bow sign; the barracks' tents behind a palisade and the sword sign
-  hunters_lodge: { parts: [[camp3, 0, 4], [vRack, 58, 0], [vSignBow, 90, 18]], size: [114, 44], overhang: 0 },
-  barracks: { parts: [[camp3, 4, 0], [camp3, 64, 6], [vRack, 122, 2], [palisade05, 0, 30], [palisade05, 32, 30], [vSignSword, 110, 36]], size: [152, 62], overhang: 0 },
+  hunters_lodge: { own: true, parts: [[camp3, 0, 4], [vRack, 58, 0], [vSignBow, 90, 18]], size: [114, 44], overhang: 0 },
+  barracks: { own: true, parts: [[camp3, 4, 0], [camp3, 64, 6], [vRack, 122, 2], [palisade05, 0, 30], [palisade05, 32, 30], [vSignSword, 110, 36]], size: [152, 62], overhang: 0 },
   // fires in stone rings (the cave pack) for the bloomery and the kiln; the storytellers' fire with logs to sit on
   bloomery: { url: caveFire1, overhang: 0 },
   kiln: { url: caveFire2, overhang: 0 },
@@ -246,7 +249,7 @@ function fetch(url: string): void {
 /** The pack picture for a building `w` cells wide in a look, scaled to its footprint; null when there is none (or
  *  it hasn't loaded yet). */
 /** Whether a pick suits a look. */
-const suits = (pick: Pick, style: string) => (pick.styles ? pick.styles.has(style) : !OWN_TENTS.has(style));
+const suits = (pick: Pick, style: string) => (pick.styles ? pick.styles.has(style) : !(pick.own && OWN_TENTS.has(style)));
 
 /** The pick's source picture (an image, or its parts laid together), or null while something is still loading. */
 function source(pick: Pick, id: number): { draw: (g: CanvasRenderingContext2D, scale: number) => void; w: number; h: number } | null {
