@@ -7,7 +7,7 @@
 
 import type { BuildingDef } from '../data/buildings';
 import { rulesOf } from '../data/origins';
-import { idx, inMap, type LandMap, type Pt, type Rect } from './land';
+import { carvable, groundAt, idx, inMap, MOUNTAIN_FOOT, setGround, type LandMap, type Pt, type Rect } from './land';
 import { footprint } from './buildings';
 import { campCell, type GameState } from './state';
 
@@ -19,9 +19,13 @@ export const ROOM_MAX_W = 12;
 /** Built outside, never as rooms (the venues keep their own halls too: `floor` on the def). */
 const OUTSIDE = new Set(['graveyard', 'mine', 'coal_mine', 'deep_mine', 'oil_derrick', 'launch_site']);
 
-type CastleState = Pick<GameState, 'land' | 'nomad' | 'buildings'>;
+type CastleState = Pick<GameState, 'land' | 'nomad' | 'buildings' | 'origin'>;
 
-export const castleOn = (s: Pick<GameState, 'origin'>) => !!rulesOf(s).castle;
+/** What kind of hold the town is: a castle standing on the land (the vampires), a hold carved into the mountain (the
+ *  dwarves), or none. */
+export type Hold = 'castle' | 'mountain';
+export const holdOf = (s: Pick<GameState, 'origin'>): Hold | null => (rulesOf(s).castle ? 'castle' : rulesOf(s).hold === 'mountain' ? 'mountain' : null);
+export const castleOn = (s: Pick<GameState, 'origin'>) => holdOf(s) !== null;
 
 /** Whether a kind of building goes into the castle, as a room. */
 export const roomKind = (s: Pick<GameState, 'origin'>, def: BuildingDef) => castleOn(s) && def.layer === 'mid' && !OUTSIDE.has(def.id) && !def.floor && def.width <= ROOM_MAX_W;
@@ -29,10 +33,23 @@ export const roomKind = (s: Pick<GameState, 'origin'>, def: BuildingDef) => cast
 /** The castle's rooms (built or being built). */
 export const rooms = (s: Pick<GameState, 'buildings'>) => s.buildings.filter((b) => b.room);
 
-/** The hall's ground, in cells, over the camp. */
-export function coreRect(s: Pick<GameState, 'land' | 'nomad'>): Rect {
+/** The hall's ground, in cells: over the camp for a castle; cut into the mountain's foot above the camp for a mountain
+ *  hold, its gate opening onto the terrain. */
+export function coreRect(s: Pick<GameState, 'land' | 'nomad' | 'origin'>): Rect {
   const c = campCell(s);
+  if (holdOf(s) === 'mountain') return { x: c.x - Math.floor(CORE_W / 2), y: c.y - MOUNTAIN_FOOT - CORE_H + 1, w: CORE_W, h: CORE_H };
   return { x: c.x - Math.floor(CORE_W / 2), y: c.y - Math.floor(CORE_H / 2), w: CORE_W, h: CORE_H };
+}
+
+/** Cut a room's ground out of the mountain (a mountain hold: its cells become hall, walked through). */
+export function carve(s: Pick<GameState, 'land'>, r: Rect): void {
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(s.land, x, y) && groundAt(s.land, x, y) === 'mountain') setGround(s.land, x, y, 'hall');
+}
+
+/** Whether every cell of a footprint is the mountain's (or already cut), where a mountain hold's rooms go. */
+export function inMountain(m: LandMap, r: Rect): boolean {
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (!inMap(m, x, y) || !carvable(groundAt(m, x, y))) return false;
+  return true;
 }
 
 /** Every cell of the castle: the hall's and its rooms', as land indices. */
@@ -48,7 +65,7 @@ export function castleCells(s: CastleState): Set<number> {
 }
 
 /** The cell in front of the gate: outside the hall's south wall, in the middle (where the roads run to). */
-export function castleGate(s: Pick<GameState, 'land' | 'nomad'>): Pt {
+export function castleGate(s: Pick<GameState, 'land' | 'nomad' | 'origin'>): Pt {
   const c = coreRect(s);
   return { x: c.x + Math.floor(c.w / 2), y: c.y + c.h };
 }
@@ -93,7 +110,7 @@ export function nearCastle(cells: Set<number>, m: LandMap, r: Rect, gap = 1): bo
 }
 
 /** Whether a cell is the castle's (its hall or a room). */
-export const inCastle = (s: CastleState & Pick<GameState, 'origin'>, x: number, y: number) => castleOn(s) && inMap(s.land, x, y) && castleCells(s).has(idx(s.land, x, y));
+export const inCastle = (s: CastleState, x: number, y: number) => castleOn(s) && inMap(s.land, x, y) && castleCells(s).has(idx(s.land, x, y));
 
 /** How many cells the castle's rooms stand on. */
 export function roomCells(s: Pick<GameState, 'buildings'>): number {

@@ -202,7 +202,7 @@ function landEdge(s: GameState, side: -1 | 1, gate: Pt): Pt {
   const far = Math.max(Math.round(m.open + TRAIL_FROM), Math.abs(gate.x - m.camp.x) + MIN_TRAIL);
   const x = Math.max(0, Math.min(m.w - 1, m.camp.x + side * far));
   const y0 = m.camp.y;
-  for (let k = 0; k < m.h; k++) for (const y of k ? [y0 - k, y0 + k] : [y0]) if (inMap(m, x, y) && groundAt(m, x, y) !== 'water') return { x, y };
+  for (let k = 0; k < m.h; k++) for (const y of k ? [y0 - k, y0 + k] : [y0]) if (inMap(m, x, y) && groundAt(m, x, y) !== 'water' && groundAt(m, x, y) !== 'mountain') return { x, y };
   return { x, y: y0 };
 }
 

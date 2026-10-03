@@ -31,8 +31,8 @@ export const WEAR_DECAY = 1;
 /** Beyond the open land, this many cells are seen dimly (the renderer's fog); past them, nothing. */
 export const FOG_BAND = 6;
 
-export type Ground = 'grass' | 'forest' | 'rock' | 'marsh' | 'hill' | 'water' | 'fertile' | 'sand';
-const CODE: Record<Ground, string> = { grass: '.', forest: 'f', rock: 'r', marsh: 'm', hill: 'h', water: 'w', fertile: 'F', sand: 's' };
+export type Ground = 'grass' | 'forest' | 'rock' | 'marsh' | 'hill' | 'water' | 'fertile' | 'sand' | 'mountain' | 'hall';
+const CODE: Record<Ground, string> = { grass: '.', forest: 'f', rock: 'r', marsh: 'm', hill: 'h', water: 'w', fertile: 'F', sand: 's', mountain: 'M', hall: 'H' };
 const GROUND: Record<string, Ground> = Object.fromEntries(Object.entries(CODE).map(([g, c]) => [c, g as Ground]));
 /** The wild kinds, which must be cleared (gathered out) before building. */
 export const WILD: readonly Ground[] = ['forest', 'rock', 'marsh', 'hill'];
@@ -85,6 +85,13 @@ export const isRoad = (m: LandMap, x: number, y: number) => inMap(m, x, y) && m.
 export const isOpen = (m: LandMap, x: number, y: number) => inMap(m, x, y) && Math.hypot(x - m.camp.x, y - m.camp.y) <= m.open;
 /** Ground that can be built on as it is. */
 export const buildable = (g: Ground) => g === 'grass' || g === 'fertile' || g === 'sand';
+/** The mountain's rock, which a hold's rooms are carved into (`mountain`: solid, nothing crosses it), and the halls and
+ *  galleries already cut (`hall`: walked through). */
+export const carvable = (g: Ground) => g === 'mountain' || g === 'hall';
+/** How the land is shaped besides its biome: `mountain`, half of it solid rock north of the camp (the dwarves). */
+export type LandShape = 'mountain';
+/** The mountain's foot runs this many rows above the camp (level by the camp, ragged further off). */
+export const MOUNTAIN_FOOT = 3;
 
 /** Mark a cell for gathering, or unmark it. */
 export function setMarked(m: LandMap, i: number, on: boolean): void {
@@ -143,7 +150,7 @@ function noise(seed: number, scale: number) {
   return (x: number, y: number) => (one(x / scale, y / scale) * 0.6 + one(x / (scale / 2), y / (scale / 2)) * 0.3 + one(x / (scale / 4), y / (scale / 4)) * 0.1);
 }
 
-export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
+export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShape): LandMap {
   const seedHash = hashSeed(seed);
   const w = LAND_W;
   const h = LAND_H;
@@ -231,6 +238,17 @@ export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
   for (let y = camp.y - CAMP_CLEAR; y <= camp.y + CAMP_CLEAR; y++)
     for (let x = camp.x - CAMP_CLEAR; x <= camp.x + CAMP_CLEAR; x++) if (Math.hypot(x - camp.x, y - camp.y) <= CAMP_CLEAR + 0.5) grid[y * w + x] = biome === 'desert' ? 'sand' : 'grass';
 
+  // the mountain: solid rock over the whole north half, its foot MOUNTAIN_FOOT rows above the camp, level there and
+  // ragged further off (the river and the shore are swallowed where they ran into it)
+  if (shape === 'mountain') {
+    const foot = noise(seedHash ^ 0x7a, 8);
+    for (let x = 0; x < w; x++) {
+      const off = Math.min(1, Math.max(0, (Math.abs(x - camp.x) - 7) / 12)); // (level by the gate, then ragged)
+      const line = camp.y - MOUNTAIN_FOOT - Math.round((foot(x, 0) - 0.5) * 8 * off);
+      for (let y = 0; y <= line && y < h; y++) grid[y * w + x] = 'mountain';
+    }
+  }
+
   // every kind of wild land within reach of the camp: a town must find wood, stone, clay and fiber close by. A kind
   // the open land is short of takes over a patch of the commonest kind, nearest the camp first.
   const openWild = () => {
@@ -282,10 +300,10 @@ export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
 /* ------------------------------------------------------------ building on it */
 
 /** Whether a footprint can go here: inside the open land, on buildable ground, clear of roads and of `taken`. */
-export function fits(m: LandMap, r: Rect, taken: readonly Rect[] = [], opts: { roads?: boolean } = {}): boolean {
+export function fits(m: LandMap, r: Rect, taken: readonly Rect[] = [], opts: { roads?: boolean; carve?: boolean } = {}): boolean {
   for (let y = r.y; y < r.y + r.h; y++)
     for (let x = r.x; x < r.x + r.w; x++) {
-      if (!isOpen(m, x, y) || !buildable(groundAt(m, x, y))) return false;
+      if (!isOpen(m, x, y) || !(opts.carve ? carvable : buildable)(groundAt(m, x, y))) return false;
       if (!opts.roads && isRoad(m, x, y)) return false;
     }
   return !taken.some((t) => overlaps(t, r));
@@ -315,7 +333,7 @@ export function doorFree(m: LandMap, r: Rect, taken: readonly Rect[]): boolean {
  *  (lower first; nearer a road, say). `inside`: it must lie within this rectangle; `avoid`: and clear of this one;
  *  `ok`: and pass this test; `door: false`: its door cell needn't be free (a castle's room). Null if there's none
  *  within `maxR` rings. */
-export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean; ok?: (r: Rect) => boolean; door?: boolean } = {}): Rect | null {
+export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean; ok?: (r: Rect) => boolean; door?: boolean; carve?: boolean } = {}): Rect | null {
   const maxR = opts.maxR ?? m.open + 2;
   for (let r = 0; r <= maxR; r++) {
     let best: Rect | null = null;
@@ -324,7 +342,7 @@ export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rec
       const rect = { x: c.x - Math.floor(w / 2), y: c.y - Math.floor(h / 2), w, h };
       if (opts.inside && !(rect.x >= opts.inside.x && rect.y >= opts.inside.y && rect.x + w <= opts.inside.x + opts.inside.w && rect.y + h <= opts.inside.y + opts.inside.h)) continue;
       if (opts.avoid && overlaps(opts.avoid, rect)) continue;
-      if (!fits(m, rect, taken, { roads: opts.roads }) || (opts.door !== false && !doorFree(m, rect, taken))) continue;
+      if (!fits(m, rect, taken, { roads: opts.roads, carve: opts.carve }) || (opts.door !== false && !doorFree(m, rect, taken))) continue;
       if (opts.ok && !opts.ok(rect)) continue;
       const score = opts.prefer ? opts.prefer(rect) : 0;
       if (score < bestScore) {
@@ -361,6 +379,8 @@ export function stepCost(m: LandMap, x: number, y: number, blocked?: (x: number,
       return 1.8;
     case 'rock':
       return 2.4;
+    case 'mountain':
+      return Infinity;
     default:
       return 1;
   }

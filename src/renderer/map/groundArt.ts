@@ -30,6 +30,9 @@ interface Pal {
   water: [string, string];
   road: [string, string, string];
   flowers: string[];
+  /** The mountain's rock mass, its cracks, and its cliff face; the halls' bare floor. */
+  mountain: [string, string, string];
+  hall: [string, string];
 }
 const SUMMER: Pal = {
   grass: ['#5f9b3e', '#55893a', '#6fab48'],
@@ -42,12 +45,14 @@ const SUMMER: Pal = {
   water: ['#4382b8', '#86b9e0'],
   road: ['#a58c66', '#8f7756', '#b89c76'],
   flowers: ['#f2e26a', '#e86e8a', '#f4f4f4', '#b983e0'],
+  mountain: ['#4e4a56', '#3a3642', '#6c6874'],
+  hall: ['#3c343c', '#463c44'],
 };
 const PALETTES: Record<string, Pal> = {
   spring: { ...SUMMER, grass: ['#67a548', '#5b9440', '#7ab754'], flowers: ['#f2e26a', '#f0a0c0', '#ffffff', '#b983e0', '#ffb060'] },
   summer: SUMMER,
   autumn: { ...SUMMER, grass: ['#8d9a44', '#7f8a3c', '#a4a650'], forest: ['#5f6a2c', '#515b26'], hill: ['#8c8a46', '#7a783c'], flowers: ['#e0b040', '#c87040'] },
-  winter: { ...SUMMER, grass: ['#dfe6ec', '#d2dbe3', '#f0f4f8'], fertile: ['#cfd6dc', '#bec6ce'], forest: ['#c8d4da', '#b8c6cf'], marsh: ['#c4ccd0', '#b6bfc4', '#6f8fa8'], hill: ['#d6dde3', '#c7cfd6'], rock: ['#9b9c98', '#7d7e7a'], sand: ['#e4e0cc', '#d6d2bf'], flowers: [] },
+  winter: { ...SUMMER, mountain: ['#8e919c', '#6e7280', '#b4b8c2'], grass: ['#dfe6ec', '#d2dbe3', '#f0f4f8'], fertile: ['#cfd6dc', '#bec6ce'], forest: ['#c8d4da', '#b8c6cf'], marsh: ['#c4ccd0', '#b6bfc4', '#6f8fa8'], hill: ['#d6dde3', '#c7cfd6'], rock: ['#9b9c98', '#7d7e7a'], sand: ['#e4e0cc', '#d6d2bf'], flowers: [] },
 };
 
 /** The pack's patch band for each kind of ground, by season (none in winter: snow). */
@@ -195,6 +200,23 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             cell(px, py, pal.rock[0], pal.rock[1], 0.16);
             // (cracks)
             rect(px + Math.floor(hash(seed ^ 31, x, y) * 20), py + Math.floor(hash(seed ^ 33, x, y) * 28), 10, 1, pal.rock[1]);
+            break;
+          case 'mountain': {
+            // the mountain's mass: dark rock, seamed, and a lit cliff face along its foot where the terrain begins
+            cell(px, py, pal.mountain[0], pal.mountain[1], 0.22);
+            rect(px + Math.floor(hash(seed ^ 41, x, y) * 18), py + Math.floor(hash(seed ^ 43, x, y) * 26), 12 + Math.floor(hash(seed ^ 45, x, y) * 8), 1, pal.mountain[1]);
+            if (hash(seed ^ 47, x, y) < 0.3) rect(px + Math.floor(hash(seed ^ 49, x, y) * 24), py + Math.floor(hash(seed ^ 51, x, y) * 24), 2, 2, pal.mountain[2]);
+            const below = groundAt(m, x, y + 1);
+            if (below !== 'mountain' && below !== 'hall') {
+              rect(px, py + CELL - 12, CELL, 12, pal.mountain[2]);
+              rect(px, py + CELL - 12, CELL, 1, '#8c8894');
+              for (let k = 0; k < 4; k++) rect(px + 2 + k * 8 + Math.floor(hash(seed ^ (53 + k), x, y) * 3), py + CELL - 10, 1, 9, pal.mountain[1]);
+              rect(px, py + CELL - 1, CELL, 1, pal.mountain[1]);
+            }
+            break;
+          }
+          case 'hall':
+            cell(px, py, pal.hall[0], pal.hall[1], 0.18);
             break;
           case 'water': {
             cell(px, py, pal.water[0], pal.water[1], 0.05);

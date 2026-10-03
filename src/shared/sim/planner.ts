@@ -7,7 +7,7 @@ import { treasuresHeld } from './shop';
 import { canWear } from './classes';
 import { isChild } from './social';
 import { buildOrigin, nomadic } from './nomads';
-import { castleCells, castleOn, joinsCastle, nearCastle, roomKind, sharedEdges } from './castle';
+import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { HERDS } from '../data/livestock';
@@ -486,6 +486,7 @@ function roomSpot(s: GameState, def: BuildingDef): Pt | null {
     maxR: 40,
     roads: true,
     door: false,
+    carve: holdOf(s) === 'mountain',
     ok: (rect) => joinsCastle(cells, s.land, rect),
     prefer: (rect) => -sharedEdges(cells, s.land, rect),
   });

@@ -15,6 +15,7 @@ import { mixHex, paint, type PixelArt, type Tone } from '../art/pixelArt';
 import { snowCapped } from '../art/snowCap';
 import floorUrl from '../art/castle/floor.png';
 import gateUrl from '../art/castle/gate.png';
+import caveGateUrl from '../art/packs/cave_gate.png';
 import dpTable2 from '../art/packs/dp_table2.png';
 import dpChair1 from '../art/packs/dp_chair1.png';
 import dpChair2 from '../art/packs/dp_chair2.png';
@@ -26,6 +27,8 @@ import { packArt, pickArt, type Pick } from './packBuildings';
 
 /** What the renderer gets of the castle (snapshot.castle). */
 export interface CastleView {
+  /** A castle standing on the land, or a hold cut into the mountain (the rock is its outer wall, a carved gate its door). */
+  hold: 'castle' | 'mountain';
   cells: number[];
   core: Rect;
   gate: { x: number; y: number };
@@ -102,7 +105,30 @@ function pieces(tone: Tone, toneKey: string, winter: boolean) {
       for (let y = 1; y < CELL; y += 8) p.rect(OUTER_SIDE_T - 2, y, 2, 4, mixHex('#564658', '#000000', 0.25));
     }, 0.6))),
     tower: cap(cornerTower(tone, toneKey)),
+    // a mountain hold's outer walls are the living rock: rough, dark, seamed
+    rockN: piece(`rockN|${k}`, () => cap(paint(CELL, ROCK_T, tone, (p) => rock(p, CELL, ROCK_T, 1), 0.7))),
+    rockS: piece(`rockS|${k}`, () => cap(paint(CELL, ROCK_T + WALL_FACE, tone, (p) => {
+      rock(p, CELL, ROCK_T, 2);
+      // (the face below: the cliff the gate is cut into)
+      p.rect(0, ROCK_T, CELL, WALL_FACE, '#565260');
+      for (let x = 2; x < CELL; x += 8) p.rect(x, ROCK_T + 1, 1, WALL_FACE - 2, '#3a3642');
+      p.frect(0, ROCK_T, CELL, 0.5, '#7a7684');
+      p.rect(0, ROCK_T + WALL_FACE - 1, CELL, 1, '#2a2630');
+    }, 0.7))),
+    rockV: piece(`rockV|${k}`, () => cap(paint(ROCK_T, CELL, tone, (p) => rock(p, ROCK_T, CELL, 3), 0.7))),
   };
+}
+
+const ROCK_T = 12;
+/** Rough rock: a dark mass with lighter knobs and darker seams. */
+function rock(p: Parameters<typeof paint>[3] extends (q: infer Q) => void ? Q : never, w: number, h: number, seed: number): void {
+  p.rect(0, 0, w, h, '#3a3642');
+  for (let i = 0; i < (w * h) / 18; i++) {
+    const x = ((i * 37 + seed * 11) % (w - 2)) + 1;
+    const y = ((i * 53 + seed * 7) % (h - 2)) + 1;
+    p.rect(x, y, 2 + (i % 3), 1 + (i % 2), i % 3 === 0 ? '#2a2630' : '#4e4a58');
+  }
+  p.frect(0, 0, w, 0.5, '#5a5664');
 }
 
 const images = new Map<string, HTMLImageElement | null>();
@@ -209,7 +235,8 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
     things.push(sp);
     return sp;
   };
-  const gateTex = packTexture(gateUrl);
+  const mountain = castle.hold === 'mountain';
+  const gateTex = packTexture(mountain ? caveGateUrl : gateUrl);
   const towers = new Set<string>();
   for (const [i, id] of region) {
     const x = i % landW;
@@ -221,25 +248,32 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
     const w = at(x - 1, y);
     const e = at(x + 1, y);
     // north: the curtain wall's inside face, or a partition with the room above (drawn by the lower cell)
-    if (n === undefined) put(P.outerN.texture, px, py, py + MERLON + WALL_T + WALL_FACE);
-    else if (n !== id) put((doors.has(`${x},${y}|h`) ? P.doorH : P.partH).texture, px, py, py + PART_T + PART_FACE);
-    // south: the curtain wall's outer face hanging below the cell, the gate in it before the hall
+    if (n === undefined) {
+      if (mountain) put(P.rockN.texture, px, py, py + ROCK_T);
+      else put(P.outerN.texture, px, py, py + MERLON + WALL_T + WALL_FACE);
+    } else if (n !== id) put((doors.has(`${x},${y}|h`) ? P.doorH : P.partH).texture, px, py, py + PART_T + PART_FACE);
+    // south: the curtain wall's outer face hanging below the cell, the gate in it before the hall (a mountain hold's
+    // carved gate in the cliff)
     if (s === undefined) {
-      const sy = py + CELL - (MERLON + WALL_T);
-      put(P.outerS.texture, px, sy, py + CELL + WALL_FACE);
-      if (id === -1 && x === castle.gate.x) {
-        if (gateTex) {
+      if (mountain) put(P.rockS.texture, px, py + CELL - ROCK_T, py + CELL + WALL_FACE);
+      else put(P.outerS.texture, px, py + CELL - (MERLON + WALL_T), py + CELL + WALL_FACE);
+      if (id === -1 && x === castle.gate.x && gateTex) {
+        if (mountain) {
+          const g = put(gateTex, px + CELL / 2 - 28, py + CELL + WALL_FACE - 66, py + CELL + WALL_FACE + 1);
+          g.width = 56;
+          g.height = 66;
+        } else {
           const g = put(gateTex, px, py + CELL + WALL_FACE - 32, py + CELL + WALL_FACE + 1);
           g.width = g.height = 32;
         }
       }
     }
     // west: the curtain wall, or a partition with the room to the left (drawn by the right cell)
-    if (w === undefined) put(P.outerW.texture, px, py, py + CELL);
+    if (w === undefined) put((mountain ? P.rockV : P.outerW).texture, px, py, py + CELL);
     else if (w !== id) put((doors.has(`${x},${y}|v`) ? P.doorV : P.partV).texture, px, py, py + CELL);
-    if (e === undefined) put(P.outerE.texture, px + CELL - OUTER_SIDE_T, py, py + CELL);
-    // a round tower at each outer corner (where two outer edges meet)
-    for (const [cx, cy, a, b] of [
+    if (e === undefined) put((mountain ? P.rockV : P.outerE).texture, px + CELL - (mountain ? ROCK_T : OUTER_SIDE_T), py, py + CELL);
+    // a round tower at each outer corner (where two outer edges meet; the mountain needs none)
+    if (!mountain) for (const [cx, cy, a, b] of [
       [px, py, n, w],
       [px + CELL, py, n, e],
       [px, py + CELL, s, w],
@@ -266,7 +300,8 @@ const furniture = new Map<string, PixelArt>();
  *  crates and barrels for a store, and a table with chairs and a chest for the rest. */
 export function roomFurniture(def: BuildingDef, w: number, id: number, tone: Tone, toneKey: string, style: string): PixelArt | null {
   const inner = Math.max(1, w - 1);
-  const pack = packArt(def.id, inner, style, id);
+  // (a home in a castle or a hold is beds, never a tent)
+  const pack = def.housing ? null : packArt(def.id, inner, style, id);
   if (pack) return pack;
   if (def.housing) {
     const bw = 18;

@@ -49,6 +49,9 @@ export interface OriginRules {
   /** The town is a castle: its halls, workshops and bedchambers are rooms stacked up a keep that grows upward
    *  (sim/castle.ts); only yards, fields, mines and walls stay outside. */
   castle?: boolean;
+  /** The town is a hold carved into a mountain (sim/castle.ts with `hold: 'mountain'`): the land is half mountain,
+   *  the halls are rooms cut into the rock behind one gate, and the yards and fields lie outside on the terrain. */
+  hold?: 'mountain';
   /** The town moves with the seasons (sim/nomads.ts): its tents and wagons between a winter ground and a summer
    *  pasture, until it reaches this era and settles for good. */
   nomadic?: { until: Era };
@@ -141,10 +144,10 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     id: 'dwarves',
     name: 'Deep Hold',
     town: 'Chronos Hold',
-    description: 'Dwarves: master builders and crafters, poor farmers, stubborn in a fight.',
-    features: ['Build 30% faster; crafted things come out finer', 'Poor farmers: fields grow slower', 'Tough: take less harm in raids', 'Rituals: Deep Delve, Forge Blessing, Stone Skin'],
+    description: 'Dwarves of the mountain: master builders and crafters, poor farmers, stubborn in a fight. Their halls are carved into the rock behind one gate.',
+    features: ['The land is half mountain: the halls are rooms cut into the rock, behind a single gate; fields and yards lie outside', 'Build 30% faster; crafted things come out finer', 'Poor farmers: fields grow slower', 'Tough: take less harm in raids', 'Rituals: Deep Delve, Forge Blessing, Stone Skin'],
     start: { companions: ['crafter'], stores: { stone: 30, flint: 10, berries: 16 }, research: ['flint_knapping', 'stoneworking'] },
-    rules: { build: 1.3, quality: 1.5, crops: 0.7, guard: 0.85 },
+    rules: { build: 1.3, quality: 1.5, crops: 0.7, guard: 0.85, hold: 'mountain' },
     powers: ['deep_delve', 'forge_blessing', 'stone_skin'],
   },
   merfolk: {

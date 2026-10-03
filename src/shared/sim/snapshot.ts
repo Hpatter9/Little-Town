@@ -55,7 +55,7 @@ import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, po
 import { cellAt, groundAt, type LandMap } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
-import { castleBounds, castleCells, castleGate, castleOn, coreRect } from './castle';
+import { castleBounds, castleCells, castleGate, castleOn, coreRect, holdOf, type Hold } from './castle';
 import { TILE } from '../constants';
 
 import { rallyState } from './rally';
@@ -513,7 +513,7 @@ export interface Snapshot {
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's castle (sim/castle.ts): every cell of it (land indices), the hall's ground, the cell before the
    *  gate, and the rectangle round the whole. */
-  castle: { cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number } } | null;
+  castle: { hold: Hold; cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number } } | null;
   /** The middle of the camp on the land (px). */
   camp: { x: number; y: number };
   /** The tower-defence battle on the trail, while it's on (sim/battle.ts). */
@@ -730,7 +730,7 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     enclosure: enclosure(s),
-    castle: castleOn(s) ? { cells: [...castleCells(s)], core: coreRect(s), gate: castleGate(s), bounds: castleBounds(s) } : null,
+    castle: castleOn(s) ? { hold: holdOf(s)!, cells: [...castleCells(s)], core: coreRect(s), gate: castleGate(s), bounds: castleBounds(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, y: f.y ?? null, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),

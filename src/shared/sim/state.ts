@@ -2,7 +2,7 @@
 // commands from the same state must always produce the same result.
 
 import { FOUNDER_CLASS } from '../data/founderClasses';
-import { CELL, makeLand, type LandMap, type Pt } from './land';
+import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
 import type { Delve } from './delves';
 import type { Quest } from './quests';
 import type { Material, Stock } from '../data/materials';
@@ -859,7 +859,8 @@ function makeChild(p: Person): void {
 }
 
 export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
-  const land = makeLand(seed, opts.biome);
+  const hold = (ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers).rules.hold;
+  const land = makeLand(seed, opts.biome, hold);
   const rng = new Rng(mixSeed(hashSeed(seed), 0x5eed));
   const camp = land.camp;
   const campPx = (dx: number, dy = 0): Pt => ({ x: (camp.x + 0.5 + dx) * CELL, y: (camp.y + 0.5 + dy) * CELL });
@@ -872,7 +873,9 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   // some scenarios).
   const scenario = SCENARIO_BY_ID[opts.scenario ?? 'lone'] ?? SCENARIO_BY_ID.lone;
   // (the fire's footprint is 2 by 2, the camp's centre cell its front left)
-  const campfire: Building = { id: 2, def: 'campfire', tile: camp.x, row: camp.y - 1, status: 'done', delivered: {}, progress: 1, store: {} };
+  // (a mountain hold's camp lies at the mountain's foot, the fire and stores below the gate)
+  const campRow = hold === 'mountain' ? camp.y + 1 : camp.y - 1;
+  const campfire: Building = { id: 2, def: 'campfire', tile: camp.x, row: campRow, status: 'done', delivered: {}, progress: 1, store: {} };
   const buildings = [campfire];
   const people = [main];
   let nextId = 3;
@@ -912,16 +915,27 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   else if (f === 'vampire' || f === 'werewolf') turnMonster(main, f, 0);
   else if (f === 'lich' && !main.look.body) main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
   // what the fire can't hold waits in a stockpile just past it
-  if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: camp.x + 3, row: camp.y - 1, status: 'done', delivered: {}, progress: 1, store: extra });
+  if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: camp.x + 3, row: campRow, status: 'done', delivered: {}, progress: 1, store: extra });
   // (a nomad tribe has a summer pasture a day's ride across the land, the way the seed picks)
   const pastureSide = hashSeed(seed) % 4;
   const pasture: Pt = { x: Math.max(8, Math.min(land.w - 9, camp.x + (pastureSide === 0 ? NOMAD_PASTURE_TILES : pastureSide === 1 ? -NOMAD_PASTURE_TILES : 0))), y: Math.max(8, Math.min(land.h - 9, camp.y + (pastureSide === 2 ? NOMAD_PASTURE_TILES : pastureSide === 3 ? -NOMAD_PASTURE_TILES : 0))) };
   const nomad = origin.rules.nomadic ? { home: { ...camp }, pasture, camp: { ...camp } } : undefined;
   // (and anything the origin starts with standing, west of the fire in a row)
   let at = camp.x - 2;
+  // (a mountain hold: the entrance hall is cut into the mountain's foot above the camp, and the first halls beside it)
+  const core = hold === 'mountain' ? { x: camp.x - 3, y: camp.y - MOUNTAIN_FOOT - 4 + 1, w: 6, h: 4 } : null;
+  if (core) for (let y = core.y; y < core.y + core.h; y++) for (let x = core.x; x < core.x + core.w; x++) setGround(land, x, y, 'hall');
+  let hallAt = core ? core.x : 0;
   for (const def of origin.start.buildings ?? []) {
-    at -= BUILDING_BY_ID[def].width;
-    buildings.push({ id: nextId++, def, tile: at, row: camp.y - 1, status: 'done', delivered: {}, progress: 1, store: {}, ...(origin.rules.castle && BUILDING_BY_ID[def].layer === 'mid' ? { room: true } : {}) });
+    const d = BUILDING_BY_ID[def];
+    if (core && d.layer === 'mid') {
+      hallAt -= d.width;
+      for (let y = core.y; y < core.y + 2; y++) for (let x = hallAt; x < hallAt + d.width; x++) setGround(land, x, y, 'hall');
+      buildings.push({ id: nextId++, def, tile: hallAt, row: core.y, status: 'done', delivered: {}, progress: 1, store: {}, room: true });
+      continue;
+    }
+    at -= d.width;
+    buildings.push({ id: nextId++, def, tile: at, row: campRow, status: 'done', delivered: {}, progress: 1, store: {}, ...(origin.rules.castle && d.layer === 'mid' ? { room: true } : {}) });
     at -= 1;
   }
 
