@@ -542,6 +542,22 @@ export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
       p.px(x + 6, y + 2, WOOD_DARK);
     }
   },
+  blood_wine: (p) => {
+    // (a dark bottle with a red seal)
+    p.rect(6, 2, 4, 3, '#3a2a30');
+    p.rect(5, 5, 6, 9, '#2a1a22');
+    p.rect(6, 6, 1, 7, '#4a2a3a');
+    p.rect(6, 1, 4, 1, '#a01828');
+    p.rect(6, 9, 4, 3, '#8a1020');
+  },
+  mat_blood: (p) => {
+    // (a vial of blood)
+    p.rect(6, 2, 4, 2, '#c8b8a0');
+    p.rect(5, 4, 6, 10, '#e8e0d8');
+    p.rect(6, 7, 4, 6, '#a01828');
+    p.rect(6, 5, 1, 8, '#ffffff');
+    p.px(9, 8, '#d03040');
+  },
   mat_pearls: (p) => {
     // (three pearls in an open shell)
     p.ellipse(8, 11, 6, 3, '#c8b088');

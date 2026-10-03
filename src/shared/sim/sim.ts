@@ -25,6 +25,7 @@ import { destinationOf, recallExpedition, rolesFor, sendDelve, sendExpedition, u
 import { packHourly } from './pack';
 import { ageingHourly } from './ageing';
 import { replenishSea } from './sea';
+import { bloodHourly } from './vampires';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
@@ -153,6 +154,7 @@ export class Sim {
     placesHourly(s, this.rng);
     ageingHourly(s, this.rng);
     replenishSea(s, this.rng);
+    bloodHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(
       s,

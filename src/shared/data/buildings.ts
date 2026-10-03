@@ -5,6 +5,7 @@ import type { Era } from './eras';
 import type { OriginId } from './origins';
 import { SEAT_DEFS, SEAT_UPGRADES } from './seats';
 import { DEFENSE_BUILDINGS, ORIGIN_DEFENSES } from './defenses';
+import { BLOOD_FARM } from './vampires';
 
 export type BuildLayer = 'fore' | 'mid' | 'back';
 export type Venue = 'shop' | 'tavern';
@@ -164,7 +165,7 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'town_hall', name: 'Town Hall', layer: 'mid', width: 6, cost: { bricks: 40, lumber: 30, iron: 10, cloth: 10 }, buildSeconds: 3000, purpose: 'Era capstone: the seat of the town opens the Industrial era.', research: 'town_charter', morale: [6, 'A proper town'] },
 ];
 
-export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS];
+export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };

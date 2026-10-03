@@ -53,6 +53,7 @@ export const WORTH: Record<Material, number> = {
   fish: 2,
   kelp: 1,
   pearls: 14,
+  blood: 5,
 };
 
 /** What caravans bring to sell, by era (caravans only come from the Medieval era on). */

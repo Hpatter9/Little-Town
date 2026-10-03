@@ -11,6 +11,9 @@ import { addStock, makePerson, notify, type GameState, type Prisoner, type Raide
 import { campXY } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds } from './townsfolk';
+import { rulesOf } from '../data/origins';
+import { FARM_ESCAPE } from '../data/vampires';
+import { bloodTown, farmCells } from './vampires';
 
 /** Chance a fallen human raider is taken alive. */
 export const CAPTURE_CHANCE = 0.4;
@@ -26,7 +29,7 @@ export const isHuman = (kind: string) => !!ENEMIES[kind] && 'people' in ENEMIES[
 export function takePrisoners(s: GameState, raiders: Raider[], rng: Rng): number {
   let n = 0;
   for (const rd of raiders) {
-    if (!rd.down || !isHuman(rd.kind) || !rng.chance(CAPTURE_CHANCE)) continue;
+    if (!rd.down || !isHuman(rd.kind) || !rng.chance(Math.min(1, CAPTURE_CHANCE * (rulesOf(s).captives ?? 1)))) continue;
     const taken = [...s.people, ...s.prisoners].map((p) => p.name);
     const free = NAMES.filter((x) => !taken.includes(x));
     s.prisoners.push({ id: s.nextId++, enemy: rd.kind, name: rng.pick(free.length ? free : NAMES), conviction: 0, since: s.tick, hungry: false });
@@ -42,11 +45,14 @@ export function updatePrisoners(s: GameState, rng: Rng): void {
   const social = Math.max(1, ...s.people.filter((p) => p.away === null && p.bornTick == null).map((p) => p.skills.social.level));
   for (const pr of [...s.prisoners]) {
     if ((s.tick - pr.since) % TICKS_PER_DAY === 0) pr.hungry = !feed(s);
-    if (rng.chance((ESCAPE_PER_DAY * (pr.hungry ? 3 : 1)) / 24)) {
+    // (in the blood farm's cells few get away, and nobody is won over: the Court keeps them for their blood)
+    const celled = bloodTown(s) && s.prisoners.indexOf(pr) < farmCells(s);
+    if (rng.chance((ESCAPE_PER_DAY * (pr.hungry ? 3 : 1) * (celled ? FARM_ESCAPE : 1)) / 24)) {
       s.prisoners = s.prisoners.filter((q) => q !== pr);
       notify(s, `${pr.name} the prisoner escaped in the night.`, true);
       continue;
     }
+    if (bloodTown(s)) continue;
     pr.conviction += ((CONVERT_BASE + social * CONVERT_PER_SOCIAL) * (pr.hungry ? 0.3 : 1)) / 24;
     if (pr.conviction >= 1) convert(s, pr, rng);
   }

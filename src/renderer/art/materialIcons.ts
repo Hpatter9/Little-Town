@@ -70,7 +70,7 @@ const CELLS: Partial<Record<Material, ItemDef['icon']>> = {
   sling_stones: { sheet: 'Ammo', x: 5, y: 0 },
   shot: { sheet: 'Ammo', x: 6, y: 0 },
   cartridges: { sheet: 'Ammo', x: 0, y: 0 },
-  ...Object.fromEntries((['wood', 'fiber', 'lumber', 'cloth', 'oil', 'fuel', 'plastic', 'electronics', 'circuits', 'power_cells', 'totem', 'pearls'] as const).map((m) => [m, { sheet: 'Custom' as IconSheet, x: 0, y: 0, name: `mat_${m}` }])),
+  ...Object.fromEntries((['wood', 'fiber', 'lumber', 'cloth', 'oil', 'fuel', 'plastic', 'electronics', 'circuits', 'power_cells', 'totem', 'pearls', 'blood'] as const).map((m) => [m, { sheet: 'Custom' as IconSheet, x: 0, y: 0, name: `mat_${m}` }])),
   wool: { sheet: 'Custom', x: 0, y: 0, name: 'wool' },
 };
 

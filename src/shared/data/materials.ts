@@ -20,6 +20,8 @@ export const MATERIALS = [
   'gold', 'gems',
   // The sea (the merfolk's shore)
   'fish', 'kelp', 'pearls',
+  // The Blood Court's
+  'blood',
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 /** What the sea's cells hold (sim/land.ts `seaPool`): gathered by a shore town only. */
@@ -74,6 +76,7 @@ export const MATERIAL_NAMES: Record<Material, string> = {
   fish: 'Fish',
   kelp: 'Kelp',
   pearls: 'Pearls',
+  blood: 'Blood',
 };
 
 export type Stock = Partial<Record<Material, number>>;

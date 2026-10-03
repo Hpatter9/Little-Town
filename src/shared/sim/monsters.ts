@@ -22,6 +22,7 @@ import {
 } from '../data/monsters';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { BUILDING_BY_ID } from '../data/buildings';
+import { drinkBlood, tithed } from './vampires';
 import { GUILD_THRESHOLD as GUILD_CALL, TITHE_MORALE } from '../data/monsters';
 import type { Rng } from '../rng';
 import { grieve } from './social';
@@ -97,7 +98,9 @@ export function updateMonsters(s: GameState, rng: Rng, startGuildRaid: (target: 
       const pen = s.buildings.find((b) => b.status === 'done' && (b.herd?.head ?? 0) >= 2);
       const lodger = (s.travellers ?? []).find((t) => t.bed);
       const sleepers = victims.filter((p) => p.activity === 'sleep');
-      if (s.tithe) {
+      if (drinkBlood(s)) {
+        m.lastFed = s.tick;
+      } else if (tithed(s)) {
         m.lastFed = s.tick;
       } else if (s.prisoners.length) {
         m.lastFed = s.tick;

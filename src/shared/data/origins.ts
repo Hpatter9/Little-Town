@@ -39,6 +39,8 @@ export interface OriginRules {
   regrow?: boolean;
   /** Spirits never sink below this. */
   moraleFloor?: number;
+  /** The fallen are taken alive this many times as often (sim/prisoners.ts: the Blood Court keeps prisoners for blood). */
+  captives?: number;
   /** On a full moon everyone works and fights harder. */
   moonFury?: boolean;
   /** Townsfolk fight this much harder, and take this much less in a raid. */
@@ -120,9 +122,9 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     name: 'Blood Court',
     town: 'Chronos Nocturne',
     description: 'A vampire lord and their thralls, in a castle that climbs higher with every room. It comes alive at night; the Hunter\'s Guild never forgets.',
-    features: ['The founder is a vampire from the start', 'The town is a castle: every room is built on, floor by floor, up a growing keep', 'Everyone works hard by night, slower by day', 'Thralls: spirits never sink low', 'Spells: Mesmerise, Blood Feast, Night Terror'],
+    features: ['The founder is a vampire from the start', 'The town is a castle: every room is built on, floor by floor, up a growing keep', 'Everyone works hard by night, slower by day', 'Thralls: spirits never sink low', 'Blood is a resource: the thralls\' tithe each dusk, the pens, and prisoners kept and bled in the Blood Farm; the Court drinks from the store, and brews the rest into blood wine', 'The fallen are taken alive twice as often', 'Spells: Mesmerise, Blood Feast, Night Terror'],
     start: { companions: ['gatherer', 'hunter'], stores: { berries: 20 } },
-    rules: { founder: 'vampire', day: 0.85, night: 1.3, moraleFloor: 35, prices: 1.1, castle: true },
+    rules: { founder: 'vampire', day: 0.85, night: 1.3, moraleFloor: 35, prices: 1.1, castle: true, captives: 2 },
     powers: ['mesmerize', 'blood_feast', 'night_terror'],
   },
   werewolf: {
