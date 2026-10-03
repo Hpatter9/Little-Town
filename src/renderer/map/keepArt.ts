@@ -1,8 +1,7 @@
-// The vampire keep on the top-down map (sim/castle.ts `keepRect`: one level of rooms inside a walled ground). The
-// renderer dresses that ground: a flagstone floor with a carpet from the gate to the hall, a curtain wall round it
-// seen the way the buildings are (its walk from above, its face below, battlements over), round towers at the
-// corners, and a gatehouse in the south wall where the carpet begins. The rooms themselves are the town's own
-// building pictures, standing on the floor.
+// The vampire castle's stonework painters (map/castleArt.ts lays the castle out with them): dressed stone `blocks`,
+// a wall `walk` seen from above, `merlons`, and the round `cornerTower` with its slate cone that stands at each outer
+// corner. The older whole-keep pieces (a floor tile, side walks, a north and a south wall with the gatehouse) are kept
+// below but unused since the castle became a body of rooms.
 
 import { mixHex, paint, type Painter, type PixelArt, type Tone } from '../art/pixelArt';
 
@@ -47,7 +46,7 @@ function cached(key: string, make: () => PixelArt): PixelArt {
 type P = Painter;
 
 /** Dressed stone: thin mortar, each block lit along its top and left, a few chipped. */
-function blocks(p: P, x0: number, y0: number, w: number, h: number): void {
+export function blocks(p: P, x0: number, y0: number, w: number, h: number): void {
   p.rect(x0, y0, w, h, STONE);
   for (let y = y0; y < y0 + h; y += 5) {
     p.frect(x0, y, w, 0.5, STONE_DARK);
@@ -63,7 +62,7 @@ function blocks(p: P, x0: number, y0: number, w: number, h: number): void {
 }
 
 /** The wall-walk seen from above: paving between two parapets. */
-function walk(p: P, x0: number, y0: number, w: number, h: number, along: 'x' | 'y'): void {
+export function walk(p: P, x0: number, y0: number, w: number, h: number, along: 'x' | 'y'): void {
   p.rect(x0, y0, w, h, WALK);
   if (along === 'x') {
     p.frect(x0, y0, w, 1, WALK_LIGHT);
@@ -77,7 +76,7 @@ function walk(p: P, x0: number, y0: number, w: number, h: number, along: 'x' | '
 }
 
 /** Battlements along a wall's top: merlons with the embrasures between showing what's behind (nothing). */
-function merlons(p: P, x0: number, y0: number, w: number): void {
+export function merlons(p: P, x0: number, y0: number, w: number): void {
   for (let x = x0; x < x0 + w; x += 10) {
     const mw = Math.min(6, x0 + w - x);
     p.rect(x, y0, mw, MERLON, STONE);

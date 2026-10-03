@@ -155,7 +155,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `castPowers` (the `TOUCH` table in powers.ts says what each power touches) and `rivalsInRaid`; `snapshot.spells`
   carries them; `src/renderer/town/spellsView.ts` draws them (looks per spell in `town/spellLooks.ts`: bolts,
   streams, roots, rain, fog, rings, domes, arrows, flasks...), above the day-and-night tint so they glow.
-- **The vampire castle:** `castle` in an origin's rules (the Blood Court). `src/shared/sim/castle.ts`: the keep's span
+- **The vampire castle (the old strip's; superseded by "The castle as one body of rooms" under the top-down town):**
+  `castle` in an origin's rules (the Blood Court). `src/shared/sim/castle.ts`: the keep's span
   over the camp (`castleSpan`), which buildings are rooms (`roomKind`), floors (`Building.room`/`floor`; `canPlace`
   checks overlap per floor), `openFloors`, `roomOf` (the room someone's in: `PersonView.floor`), `adoptRooms` for
   older saves. The planner's `roomSpot` fills it. Drawn by `src/renderer/art/castle.ts` (`roomArt` cutaways, `keepArt`
@@ -951,6 +952,33 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
       The raiders' health bars (mapRaiders.ts) had the same fault and the same fix: anything drawn with a Graphics in
       `things` must stand where it draws.
+    - **The castle as one body of rooms (done; the owner's design):** the Blood Court's town is an ordinary land map with
+      one castle in the middle that grows outward as rooms are added, each room walled and furnished inside it, not a
+      separate building. `sim/castle.ts`: the castle is the hall at the camp (`coreRect`, `CORE_W` x `CORE_H`) plus every
+      room (`roomKind`: the `mid` buildings but `OUTSIDE` and the venues; the shop and tavern stay separate buildings
+      outside); `castleCells` is the set of all its cells; a new room must share a wall with it (`joinsCastle`,
+      `sharedEdges`: the planner's `roomSpot` takes the snuggest spot of the nearest ring, so the castle stays compact),
+      and nothing else may come within a cell of it (`nearCastle`; `canPlace`, `findSpot`). Inside, people walk through
+      the rooms (`blockedBy` in walk.ts skips rooms) and a room's door is its own middle (`doorCell`); roads run to the
+      gate before the hall's south wall (`castleGate`; `connectRoad` never crosses the castle) and a road a room is built
+      over is taken up (`unsetRoad`). The keep's eras, wings and limits are gone (`keepRect`, `growKeep`,
+      `clearKeepGround`, `keepGrown`), and the old strip's `art/castle.ts` with them. `snapshot.castle` is `{ cells, core,
+      gate, bounds }`. Tests: `test/castle.test.ts`. Soak (4 towns, 15 days): vampires 33.3 people / 25 deaths, as before.
+      - Drawn by `src/renderer/map/castleArt.ts` (`buildCastle`, from `MapView.syncCastle(castle, buildings)`, rebuilt
+        when a room is finished, the pack pictures load, or the look or season changes): the dungeon pack's flagstones
+        (`art/castle/floor.png`, a 2x2 quilt of its four tiles) tiled over the hall and every finished room, the carpet
+        from the gate; walls along each finished cell's edges, one piece a cell: the curtain wall where the castle ends
+        (battlements, walk and face: `outerN` looks in at the top of a cell, `outerS` stands at a cell's foot with its
+        face hanging outside, `outerW`/`outerE`), a thinner partition (`partH`, `partV`) where two regions meet (drawn by
+        the lower or the right cell), a doorway (`doorH`/`doorV`) cut in the middle of the longest run two regions
+        share, the pack's arched door (`gate.png`) in the hall's south wall, and keepArt's round `cornerTower` at every
+        outer corner; all sorted among the things by their feet so people walk behind and before them. keepArt.ts now
+        exports `blocks`, `walk`, `merlons` for it. A room's own picture is its furnishings (`roomFurniture`): the pack
+        picture that suits it (racks, shelves, the well, fire pits...; `pickArt`, the generalised `packArt`), else
+        painted beds for a home (one a sleeper, as many as fit, on a rug), crates and barrels for a store, or a table,
+        chairs and a chest; stood in the middle of the floor (`draw`: no shadow, the whole footprint tappable:
+        `DrawnBuilding.room`), with a candle's glow at night. A room under construction shows its furnishings' ghost and
+        the site; its floor and walls come when it is done.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

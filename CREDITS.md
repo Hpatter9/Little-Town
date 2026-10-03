@@ -39,7 +39,8 @@ and free Magic Slash Effects pack.
 
 ## Craftpix dungeon props (the watched delves)
 
-The doors, chests, gate, wall torches and braziers seen down a dungeon (`src/renderer/art/delve/`) are from
+The vampire castle's flagstone floor, its gate and the small arched door (`src/renderer/art/castle/`) are cut from the
+2D Top-Down Pixel Dungeon pack's walls-and-floor sheet. The doors, chests, gate, wall torches and braziers seen down a dungeon (`src/renderer/art/delve/`) are from
 **Craftpix.net**'s free 2D Top-Down Pixel Dungeon pack; the skull altar and the guillotine from its free Pixel Dungeon
 Props and Objects pack.
 

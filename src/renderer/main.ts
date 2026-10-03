@@ -999,7 +999,7 @@ async function start(): Promise<void> {
     map.syncBuildings(next.buildings);
     herds.update(next.buildings);
     pools.sync(next.blood);
-    map.syncCastle(next.castle?.bounds ?? null);
+    map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
     // (a nomad tribe that moved camp: the view goes to the new camp)
     if (lastCamp !== null && (next.camp.x !== lastCamp.x || next.camp.y !== lastCamp.y)) camera.centreOn(next.camp, app.screen.width, app.screen.height);

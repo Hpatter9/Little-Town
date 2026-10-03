@@ -118,7 +118,7 @@ import sf26 from '../art/packs/sf_26.png';
  *  but the origins with their own tents and halls). */
 /** A part: an image at x, y (source px), the whole of it or a crop of it (sx, sy, sw, sh). */
 type Part = [string, number, number] | [string, number, number, number, number, number, number];
-interface Pick {
+export interface Pick {
   url?: string;
   parts?: Part[];
   size?: [number, number];
@@ -293,9 +293,14 @@ function pickFor(def: string, style: string): Pick | null {
 export function packArt(def: string, w: number, style: string, id = 0): PixelArt | null {
   const pick = pickFor(def, style);
   if (!pick) return null;
+  return pickArt(pick, w, `${def}|${style}`, id);
+}
+
+/** Any pick's picture, scaled to `w` cells (the castle's furnishings use this too); `key` names it for the cache. */
+export function pickArt(pick: Pick, w: number, key0: string, id = 0): PixelArt | null {
   const src = source(pick, id);
   if (!src) return null;
-  const key = `${def}|${w}|${style}|${pick.any ? id % pick.any.length : 0}`;
+  const key = `${key0}|${w}|${pick.any ? id % pick.any.length : 0}`;
   let art = arts.get(key);
   if (!art) {
     const target = w * CELL + (pick.overhang ?? OVERHANG) * 2;

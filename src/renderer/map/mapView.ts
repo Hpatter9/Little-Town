@@ -4,7 +4,7 @@
 // being placed. People and raiders are drawn into `things` by mapPeople.ts and mapRaiders.ts, sorted the same way.
 // The whole world is tinted for the time of day.
 
-import { AnimatedSprite, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { AnimatedSprite, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { Rng } from '../../shared/rng';
 import { campfireFrames } from '../art/sprites';
 import { fieldArt, isPlot } from './fieldArt';
@@ -12,7 +12,7 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
-import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap, type Rect } from '../../shared/sim/land';
+import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import type { PlaceView } from '../../shared/sim/snapshot';
 import type { CropLook } from '../art/buildings';
@@ -31,7 +31,7 @@ import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
-import { CARPET_W, cornerTower, floorTile, MERLON, northWall, sideWalkTile, southWall, TOWER_H, TOWER_W, WALL_FACE, WALL_T } from './keepArt';
+import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
 const CULL_MARGIN = 64;
@@ -93,6 +93,8 @@ interface DrawnBuilding {
   glows?: Sprite[];
   /** Where its chimneys are (world px), for the smoke. */
   chimneys?: { x: number; y: number }[];
+  /** A castle's room: the furnishings on the floor, tapped anywhere on the room. */
+  room?: boolean;
 }
 
 /** Buildings whose fire glows at night though their picture (a pack's) has no lamp colours in it. */
@@ -181,6 +183,9 @@ export class MapView {
     loadFieldTiles().then(() => undefined, () => undefined);
     onFieldTiles(() => this.artGen++);
     onPackArt(() => this.artGen++);
+    onCastleArt(() => {
+      if (this.castle) this.castle.key = '';
+    });
   }
 
   /** The camera: world position of the screen's top-left, and the screen's size. Only what's in view is drawn:
@@ -478,14 +483,19 @@ export class MapView {
     if (b.def === 'campfire') return (campfirePack() ?? this.fire)[0];
     const f = footprint(b);
     if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey);
+    // (a castle's room: its furnishings, on the castle's floor: map/castleArt.ts)
+    if (b.room) return roomFurniture(BUILDING_BY_ID[b.def], f.w, b.id, this.tone, this.toneKey, this.style) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
     // (a pack picture where one suits the look: map/packBuildings.ts)
     // (else the top-down painter's: art/topDown.ts)
     return packArt(b.def, f.w, this.style, b.id) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
   }
 
   /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */
-  syncCastle(rect: Rect | null): void {
-    const key = rect ? `${rect.x},${rect.y},${rect.w},${rect.h}|${this.toneKey}|${this.season === 'winter' ? 'snow' : ''}` : '';
+  /** A castle town's castle (map/castleArt.ts): its floors and carpet under everything, its walls, gate and towers among
+   *  the things. Drawn again when a room is finished, the pack's floor and gate load, the look or the season change. */
+  syncCastle(castle: CastleView | null, list: Building[]): void {
+    const rooms = castle ? list.filter((b) => b.room && b.status === 'done') : [];
+    const key = castle && this.land ? `${castle.core.x},${castle.core.y}|${rooms.map((b) => `${b.id}:${b.tile},${b.row},${b.def}`).join(';')}|${this.toneKey}|${this.season === 'winter' ? 'snow' : ''}|${castleArtReady() ? 'p' : ''}` : '';
     if (this.castle?.key === key) return;
     if (this.castle) {
       this.castle.under.destroy({ children: true });
@@ -495,57 +505,11 @@ export class MapView {
       }
       this.castle = null;
     }
-    if (!rect) return;
-    const left = rect.x * CELL;
-    const top = rect.y * CELL;
-    const w = rect.w * CELL;
-    const h = rect.h * CELL;
-    const bottom = top + h;
-    const under = this.under.addChild(new Container());
-    // the floor, and the carpet from the gate up to the middle
-    const floor = under.addChild(new TilingSprite({ texture: floorTile(this.tone, this.toneKey).texture, width: w, height: h }));
-    floor.position.set(left, top);
-    floor.tileScale.set(1 / FINE_SCALE(floor.texture));
-    const carpet = under.addChild(new Graphics());
-    const cx = left + w / 2;
-    carpet.rect(cx - CARPET_W / 2, top + h / 2, CARPET_W, h / 2).fill({ color: 0xa01828 });
-    carpet.rect(cx - CARPET_W / 2 + 2, top + h / 2 + 2, CARPET_W - 4, h / 2 - 2).fill({ color: 0x8a1424 });
-    carpet.rect(cx - CARPET_W / 2 + 2, top + h / 2, CARPET_W - 4, 2).fill({ color: 0xd8b050 });
-    // the side walks
-    const walkTex = sideWalkTile(this.tone, this.toneKey).texture;
-    for (const x of [left, left + w - WALL_T]) {
-      const side = under.addChild(new TilingSprite({ texture: walkTex, width: WALL_T, height: h - 2 * WALL_T }));
-      side.position.set(x, top + WALL_T);
-      side.tileScale.set(1 / FINE_SCALE(walkTex));
-    }
-    // the walls among the things: the north wall's face looks into the keep (rooms by it stand in front), the south
-    // wall and its gatehouse stand in front of everything inside
-    const things: Container[] = [];
-    // (the walls and towers wear snow in winter, like the buildings)
-    const cap = (a: PixelArt) => (this.season === 'winter' ? snowCapped(a) : a);
-    const north = this.things.addChild(new Sprite(cap(northWall(w, this.tone, this.toneKey)).texture));
-    north.position.set(left, top - MERLON);
-    north.zIndex = top + WALL_T;
-    const southArt = cap(southWall(w, this.tone, this.toneKey));
-    const south = this.things.addChild(new Sprite(southArt.texture));
-    south.position.set(left, bottom + WALL_FACE - southArt.height);
-    south.zIndex = bottom + 1;
-    things.push(north, south);
-    this.wide.add(north).add(south);
-    // the corner towers, their feet on the walks
-    const towerTex = cap(cornerTower(this.tone, this.toneKey)).texture;
-    for (const [x, y] of [
-      [left, top + WALL_T],
-      [left + w, top + WALL_T],
-      [left, bottom],
-      [left + w, bottom],
-    ]) {
-      const t = this.things.addChild(new Sprite(towerTex));
-      t.position.set(x - TOWER_W / 2, y - TOWER_H + 2);
-      t.zIndex = y + (y === bottom ? 2 : 0);
-      things.push(t);
-    }
-    this.castle = { key, under, things };
+    if (!castle || !this.land) return;
+    const drawing = buildCastle(castle, rooms, footprint, this.land.w, this.tone, this.toneKey, this.season === 'winter');
+    this.under.addChild(drawing.under);
+    for (const t of drawing.things) this.things.addChild(t);
+    this.castle = { key, under: drawing.under, things: drawing.things };
   }
 
   syncBuildings(list: Building[]): void {
@@ -640,10 +604,11 @@ export class MapView {
     const art = this.season === 'winter' && b.status === 'done' && !isPlot(b.def) && b.def !== 'campfire' ? snowCapped(bare) : bare;
     const f = footprint(b);
     const cx = (f.x + f.w / 2) * CELL;
-    const bottom = (f.y + f.h) * CELL - 2;
+    // (a castle's room: its furnishings stand in the middle of the floor, clear of the south wall)
+    const bottom = b.room ? Math.round((f.y + f.h / 2) * CELL + Math.min(art.height / 2, (f.h * CELL) / 2 - 10)) : (f.y + f.h) * CELL - 2;
     const left = Math.round(cx - art.width / 2);
     const top = bottom - art.height;
-    const rect = { x: left, y: top, w: art.width, h: art.height };
+    const rect = b.room ? { x: f.x * CELL, y: f.y * CELL, w: f.w * CELL, h: f.h * CELL } : { x: left, y: top, w: art.width, h: art.height };
     const shadow = this.things.addChild(new Sprite(glowTexture()));
     shadow.anchor.set(0.5);
     shadow.tint = 0x000000;
@@ -653,6 +618,7 @@ export class MapView {
     shadow.position.set(cx + 2, bottom - 1);
     shadow.zIndex = bottom - 0.5;
     const flat = isPlot(b.def);
+    if (b.room) shadow.visible = false;
     if (flat) {
       // (a plot lies on the ground: no shadow, and everything standing on it is drawn over it)
       shadow.visible = false;
@@ -661,10 +627,16 @@ export class MapView {
     const sprite = this.things.addChild(b.def === 'campfire' && b.status === 'done' ? animated(campfirePack() ?? this.fire) : new Sprite(art.texture));
     sprite.position.set(left, top);
     sprite.zIndex = flat ? top - 1e6 : bottom;
-    const d: DrawnBuilding = { sig, sprite, shadow, art, rect, progress: -1 };
+    const d: DrawnBuilding = { sig, sprite, shadow, art, rect, progress: -1, ...(b.room ? { room: true } : {}) };
     if (b.status === 'done') {
-      // its windows and fires glow after dark (the picture's lamp colours, or a fire's own glow)
-      const lamps = art.lights?.length ? art.lights.map((l) => ({ x: left + l.x, y: top + l.y, r: l.r, color: l.color })) : FIRES.has(b.def) ? [{ x: cx, y: bottom - (f.h * CELL) / 2, ...FIRE_GLOW }] : [];
+      // its windows and fires glow after dark (the picture's lamp colours, or a fire's own glow; a candle in a room)
+      const lamps = art.lights?.length
+        ? art.lights.map((l) => ({ x: left + l.x, y: top + l.y, r: l.r, color: l.color }))
+        : FIRES.has(b.def)
+          ? [{ x: cx, y: bottom - (f.h * CELL) / 2, ...FIRE_GLOW }]
+          : b.room
+            ? [{ x: cx, y: (f.y + f.h / 2) * CELL, r: 9, color: parseInt(this.tone('#f0d890').slice(1), 16) }]
+            : [];
       for (const l of lamps) {
         const g = this.lights.addChild(new Sprite(glowTexture()));
         g.anchor.set(0.5);
@@ -734,9 +706,9 @@ export class MapView {
     for (const [id, d] of this.buildings) {
       const r = d.rect;
       if (wx < r.x || wx >= r.x + r.w || wy < r.y || wy >= r.y + r.h) continue;
-      // (through the clear parts of the picture: its top edge per column)
+      // (through the clear parts of the picture: its top edge per column; a room anywhere on its floor)
       const col = Math.floor(wx - r.x);
-      if (wy - r.y < d.art.tops[col]) continue;
+      if (!d.room && wy - r.y < d.art.tops[col]) continue;
       if (!best || d.sprite.zIndex > best.z) best = { id, z: d.sprite.zIndex };
     }
     return best?.id ?? null;
@@ -795,7 +767,3 @@ function darkTexture(): Texture {
   return (dark = Texture.from(c));
 }
 
-/** A painted texture's resolution (pixelArt.ts FINE): a tiling sprite scales its tile back to art pixels by it. */
-function FINE_SCALE(tex: Texture): number {
-  return tex.source.resolution || 1;
-}
