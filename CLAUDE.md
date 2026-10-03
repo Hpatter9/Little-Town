@@ -912,7 +912,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       building pictures (`__picture` in main.ts, `cardArt`) are the map's now: the pack's picture, else the top-down
       painter's.
       The pack's timber houses smoke too (`Pick.smoke` in packBuildings.ts: the chimney's top in source px, scaled
-      with the picture). **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
+      with the picture), and their windows glow (`Pick.lamps`: the windows' centres, made `PixelArt.lights` in the
+      painter's window colour); the nomads' tipis and yurts smoke from their tops. **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
       the world origin and drew at world coordinates, and `setCamera` culls each thing by where it stands, so they were
       hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
 

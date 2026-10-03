@@ -130,7 +130,11 @@ interface Pick {
   variants?: { styles: string[]; pick: Pick }[];
   /** Where smoke rises from (the chimneys' tops, in source px), for the map's smoke. */
   smoke?: [number, number][];
+  /** The windows (their centres, in source px): they glow after dark like the painted art's lamp colours. */
+  lamps?: [number, number][];
 }
+/** The glow of a pack house's window (the painter's window colour). */
+const WINDOW_GLOW = 0xf0d890;
 /** The looks the pack's timber houses suit. */
 const TIMBER = new Set(['town', 'settlers', 'knights']);
 /** The looks whose origins have tents and halls of their own: the Stone Age pieces are kept from them. */
@@ -138,17 +142,17 @@ const OWN_TENTS = new Set(['vampire', 'lich', 'robot', 'nomads', 'merfolk', 'nom
 /** The nomads' looks: the rocky-area pack's tipis and yurts stand for their homes. */
 const NOMAD = ['nomads', 'nomads_city'];
 const PICKS: Record<string, Pick> = {
-  cottage: { url: house1, styles: TIMBER, smoke: [[22, 7]], variants: [{ styles: NOMAD, pick: { url: rockyYurt2, overhang: 6 } }] },
-  rowhouse: { url: house2, styles: TIMBER, smoke: [[26, 31]], variants: [{ styles: NOMAD, pick: { parts: [[rockyYurt1, 0, 0], [rockyYurt2, 84, 4]], size: [164, 82], overhang: 6 } }] },
-  fireside_inn: { url: house4, styles: TIMBER, smoke: [[61, 10]] },
-  tavern: { url: house4, styles: TIMBER, smoke: [[61, 10]] },
+  cottage: { url: house1, styles: TIMBER, smoke: [[22, 7]], lamps: [[81, 51], [39, 85], [81, 85]], variants: [{ styles: NOMAD, pick: { url: rockyYurt2, overhang: 6, smoke: [[40, 1]] } }] },
+  rowhouse: { url: house2, styles: TIMBER, smoke: [[26, 31]], lamps: [[80, 74], [110, 74], [132, 74], [37, 106], [80, 106]], variants: [{ styles: NOMAD, pick: { parts: [[rockyYurt1, 0, 0], [rockyYurt2, 84, 4]], size: [164, 82], overhang: 6, smoke: [[39, 1], [124, 5]] } }] },
+  fireside_inn: { url: house4, styles: TIMBER, smoke: [[61, 10]], lamps: [[97, 87], [114, 122]] },
+  tavern: { url: house4, styles: TIMBER, smoke: [[61, 10]], lamps: [[97, 87], [114, 122]] },
   trading_post: { url: tent1, styles: TIMBER },
   market: { url: tent2, styles: TIMBER },
   general_store: { url: tent3, styles: TIMBER },
   // the Fields pack's camp: a small tent for the lean-to, a wide one for the hide tent, the long one for the longhouse
-  lean_to: { url: camp2, overhang: 2, variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4 } }] },
-  hide_tent: { url: camp1, variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4 } }] },
-  longhouse: { url: camp4, overhang: 10, variants: [{ styles: NOMAD, pick: { url: rockyYurt1, overhang: 8 } }] },
+  lean_to: { url: camp2, overhang: 2, variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4, smoke: [[29, 1]] } }] },
+  hide_tent: { url: camp1, variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[38, 2]] } }] },
+  longhouse: { url: camp4, overhang: 10, variants: [{ styles: NOMAD, pick: { url: rockyYurt1, overhang: 8, smoke: [[39, 1]] } }] },
   // the stockpile: crates and logs heaped together
   stockpile: { parts: [[log3, 2, 14], [box1, 10, 4], [box2, 28, 8], [log1, 44, 6], [box1, 62, 10], [box2, 76, 2]], size: [96, 28], overhang: 0 },
   // the Village pack's palisade stakes and gate
@@ -169,11 +173,11 @@ const PICKS: Record<string, Pick> = {
   drying_rack: { url: vRack, overhang: 0 },
   tanning_rack: { parts: [[vRack, 0, 0], [vRack, 30, 0], [vBucket, 22, 28]], size: [58, 48], overhang: 0 },
   // the medieval workshops: the pack's third timber house with each trade's gear at its door (the base and knights looks)
-  smithy: { parts: [[house3, 0, 0], [vAnvil, 122, 132], [vSignAnvil, 6, 118]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
-  bakery: { parts: [[house3, 0, 0], [fBox1, 118, 136], [doGold, 134, 128], [doGold, 6, 130]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
-  sawmill: { parts: [[house3, 0, 0], [fLog3, 100, 140], [vLogpile, 130, 116], [fLog1, 2, 128]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
-  tannery: { parts: [[house3, 0, 0], [doBarrel, 122, 124], [vBucket, 108, 140], [vRack, 2, 110]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
-  loom: { parts: [[house3, 0, 0], [vRack, 120, 112], [fBox1, 4, 134]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
+  smithy: { parts: [[house3, 0, 0], [vAnvil, 122, 132], [vSignAnvil, 6, 118]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  bakery: { parts: [[house3, 0, 0], [fBox1, 118, 136], [doGold, 134, 128], [doGold, 6, 130]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  sawmill: { parts: [[house3, 0, 0], [fLog3, 100, 140], [vLogpile, 130, 116], [fLog1, 2, 128]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  tannery: { parts: [[house3, 0, 0], [doBarrel, 122, 124], [vBucket, 108, 140], [vRack, 2, 110]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  loom: { parts: [[house3, 0, 0], [vRack, 120, 112], [fBox1, 4, 134]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
   // the hunters' camp tent with a rack and the bow sign; the barracks' tents behind a palisade and the sword sign
   hunters_lodge: { parts: [[camp3, 0, 4], [vRack, 58, 0], [vSignBow, 90, 18]], size: [114, 44], overhang: 0 },
   barracks: { parts: [[camp3, 4, 0], [camp3, 64, 6], [vRack, 122, 2], [palisade05, 0, 30], [palisade05, 32, 30], [vSignSword, 110, 36]], size: [152, 62], overhang: 0 },
@@ -315,6 +319,7 @@ export function packArt(def: string, w: number, style: string, id = 0): PixelArt
     }
     art = { texture: new Texture({ source: new CanvasSource({ resource: c, resolution: FINE }) }), width, height, tops };
     if (pick.smoke) art.smoke = pick.smoke.map(([x, y]) => ({ x: x * scale, y: y * scale }));
+    if (pick.lamps) art.lights = pick.lamps.map(([x, y]) => ({ x: x * scale, y: y * scale, r: 9 * scale + 3, color: WINDOW_GLOW }));
     arts.set(key, art);
   }
   return art;
