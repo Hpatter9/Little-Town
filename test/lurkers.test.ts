@@ -8,7 +8,7 @@ import { maybeStartRaid, updateRaid } from '../src/shared/sim/raids';
 import { campX, newGame, type GameState } from '../src/shared/sim/state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row } from './helpers';
 
 /** A rng whose every chance comes true (the rest as usual). */
 const lucky = (seed: number) => Object.assign(new Rng(seed), { chance: () => true }) as Rng;
@@ -43,7 +43,7 @@ test("the land's own beasts come only in their own lands; the Behemoth now and t
 
 function withShop(s: GameState): GameState {
   const tile = Math.floor(campX(s) / 32) + 4;
-  s.buildings.push({ id: s.nextId++, def: 'trading_post', tile, status: 'done', delivered: {}, progress: 1, store: {} });
+  s.buildings.push({ id: s.nextId++, def: 'trading_post', tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} });
   return s;
 }
 const atHour = (s: GameState, hour: number) => {
@@ -73,7 +73,7 @@ test('a chest left at the shop comes alive at night: a mimic inside the town, wi
 
 test("a library's tomes wake and fly at the scholars; beaten, they give up their secrets", () => {
   const s = plainGame('tomes');
-  const lib = { id: s.nextId++, def: 'library', tile: Math.floor(campX(s) / 32) + 5, status: 'done' as const, delivered: {}, progress: 1, store: {} };
+  const lib = { id: s.nextId++, def: 'library', tile: Math.floor(campX(s) / 32) + 5, row: row(s), status: 'done' as const, delivered: {}, progress: 1, store: {} };
   s.buildings.push(lib);
   const p = s.people[0];
   p.task = { type: 'research', station: lib.id, topic: 'pottery' };
@@ -89,7 +89,7 @@ test("a library's tomes wake and fly at the scholars; beaten, they give up their
 
 test("a druid grove's Entangle wakes walking mushrooms to fight for it", () => {
   const s = newGame('shrooms', { origin: 'druid' });
-  s.raid = { id: 1, kind: 'bandits', side: 1, phase: 'active', arrivesTick: 0, leavesTick: 99999, prompt: null, raiders: [{ id: 99, kind: 'bandit', x: campX(s) + 100, dir: -1, hp: 50, maxHp: 50, cooldown: 5, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm' }] };
+  s.raid = { id: 1, kind: 'bandits', side: 1, phase: 'active', arrivesTick: 0, leavesTick: 99999, prompt: null, raiders: [{ id: 99, kind: 'bandit', x: campX(s) + 100, y: 0, dir: -1, hp: 50, maxHp: 50, cooldown: 5, down: false, fleeing: false, gone: false, carrying: {}, lastAction: -999, lastHit: -999, goal: 'harm' }] };
   s.tick = 10;
   castPowers(s, new Rng(4));
   assert.equal(s.raid.raiders.filter((r) => r.ally && r.kind === 'shroom_folk').length, 2);

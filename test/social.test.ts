@@ -7,14 +7,14 @@ import { sendExpedition } from '../src/shared/sim/expeditions';
 import { mood } from '../src/shared/sim/townsfolk';
 import { chemistry, isChild, opinion } from '../src/shared/sim/social';
 import { Sim } from '../src/shared/sim/sim';
-import { makePerson, maxHp, type Building, type GameState, type Person } from '../src/shared/sim/state';
+import { makePerson, maxHp, type Building, type GameState, type Person, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row, campPx } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 function villager(s: GameState, seed: number): Person {
-  const p = makePerson(new Rng(seed), s.nextId++, 'wanderer', (camp(s) + 0.5) * 32, s.people.map((q) => q.name));
+  const p = makePerson(new Rng(seed), s.nextId++, 'wanderer', campPx(s), s.people.map((q) => q.name));
   p.traits = [];
   p.hp = maxHp(p);
   p.needs = { food: 1, rest: 1 };
@@ -22,7 +22,7 @@ function villager(s: GameState, seed: number): Person {
   return p;
 }
 function beds(s: GameState, n: number): void {
-  for (let i = 0; i < n; i++) s.buildings.push({ id: s.nextId++, def: 'hide_tent', tile: camp(s) - 8 - i * 3, status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+  for (let i = 0; i < n; i++) s.buildings.push({ id: s.nextId++, def: 'hide_tent', tile: camp(s) - 8 - i * 3, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
 }
 const key = (a: Person, b: Person) => (a.id < b.id ? `${a.id}-${b.id}` : `${b.id}-${a.id}`);
 
@@ -80,7 +80,7 @@ test('a school sends children into the world more skilled', () => {
   const grow = (school: boolean) => {
     const sim = new Sim(plainGame('school'));
     const s = sim.state;
-    if (school) s.buildings.push({ id: s.nextId++, def: 'school', tile: camp(s) + 4, status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+    if (school) s.buildings.push({ id: s.nextId++, def: 'school', tile: camp(s) + 4, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
     const kid = villager(s, 7);
     kid.bornTick = s.tick - CHILD_HOURS * TICKS_PER_HOUR;
     kid.passions = ['crafting'];

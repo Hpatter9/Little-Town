@@ -13,6 +13,7 @@ import { WorldMapView } from './worldMapView';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { ENEMIES } from '../../shared/data/enemies';
 import { UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
+import { isPlaceDest } from '../../shared/data/places';
 
 /** Each kind of room, as the card names it. */
 const ROOM_NAMES: Record<string, string> = { rival: 'rival delvers', fight: 'a fight', trap: 'a trap', treasure: 'treasure', shrine: 'a shrine', puzzle: 'a puzzle door', camp: 'a rest camp', fork: 'a fork', boss: 'the boss' };
@@ -78,6 +79,18 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     const card = activeCard(e, s, bridge);
     card.addEventListener('click', () => pick(e.dest));
     out.push(card);
+  }
+  // the places found on the town's own land that want a party (sim/places.ts)
+  const nearby = s.places.filter((p) => p.dest).map((p) => p.dest!);
+  if (nearby.length) {
+    out.push(el('h2', '', 'On the town\'s land'));
+    const near = el('div', 'cards wide');
+    for (const d of nearby) {
+      const card = destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge);
+      card.dataset.dest = d.id;
+      near.append(card);
+    }
+    out.push(near);
   }
   out.push(el('h2', '', 'Destinations'));
   const grid = el('div', 'cards wide');
@@ -166,7 +179,7 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
     else c.append(el('div', 'lock short', `Needs research: ${TOPIC_BY_ID[d.research!]?.name ?? d.research}`));
     return c;
   }
-  if (d.type === 'delve') return delveControls(c, d, v, s, bridge);
+  if (d.type === 'delve' || isPlaceDest(d.id)) return delveControls(c, d, v, s, bridge);
 
   // The town plans the party (who goes, their roles, horses, a truck); the player picks only the stakes
   const party = v.party;
@@ -196,7 +209,8 @@ function delveControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sn
   for (const id of [...picked]) if (!able.some((p) => p.id === id)) picked.delete(id);
   if (v.cleared) c.append(el('div', 'purpose', `Cleared ${v.cleared} time${v.cleared === 1 ? '' : 's'}: it wakes deeper each time.`));
   for (const q of s.quests.filter((q) => q.dungeon === d.id)) c.append(el('div', 'lock', `Quest: ${q.title} (${Math.ceil(q.hoursLeft / 24)} days left)`));
-  c.append(el('div', 'purpose', `Pick the delvers (up to ${MAX_DELVERS}): ${picked.size} chosen.`));
+  const fight = isPlaceDest(d.id);
+  c.append(el('div', 'purpose', `Pick ${fight ? 'who goes' : 'the delvers'} (up to ${MAX_DELVERS}): ${picked.size} chosen.`));
   const chips = el('div', 'row delvers');
   for (const p of able) {
     const on = picked.has(p.id);
@@ -217,8 +231,8 @@ function delveControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sn
   };
   const row = el('div', 'row stakes');
   row.append(
-    button(full ? 'Too many out' : 'Delve: safe', () => go('safe'), { disabled: full || !picked.size, title: 'Take the safer ways at the forks, and fall back early.' }),
-    button(full ? 'Too many out' : 'Delve: risky', () => go('risky'), { disabled: full || !picked.size, cls: 'place danger', title: 'Take the darker ways: more foes, more gold.' }),
+    button(full ? 'Too many out' : fight ? 'Fight: careful' : 'Delve: safe', () => go('safe'), { disabled: full || !picked.size, title: fight ? 'Fall back early if it goes badly.' : 'Take the safer ways at the forks, and fall back early.' }),
+    button(full ? 'Too many out' : fight ? 'Fight: all out' : 'Delve: risky', () => go('risky'), { disabled: full || !picked.size, cls: 'place danger', title: fight ? 'Fight on however it goes.' : 'Take the darker ways: more foes, more gold.' }),
   );
   c.append(row);
   return c;

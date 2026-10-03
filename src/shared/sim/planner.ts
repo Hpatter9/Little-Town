@@ -7,7 +7,7 @@ import { treasuresHeld } from './shop';
 import { canWear } from './classes';
 import { isChild } from './social';
 import { buildOrigin, nomadic } from './nomads';
-import { adoptRooms, castleOn, castleReach, castleSpan, inKeep, openFloors, roomKind } from './castle';
+import { castleCells, castleOn, joinsCastle, nearCastle, roomKind, sharedEdges } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { HERDS } from '../data/livestock';
@@ -16,13 +16,12 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/ma
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
-import type { BackTerrain } from '../world';
-import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, unlockInfo, upgrade } from './buildings';
+import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade } from './buildings';
+import { cellAt, doorOf, groundAt, idx, isMarked, isOpen, roadDistance, setMarked, spiralSpot, WILD, type Pt } from './land';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
-import { tireless, addStock, campX, poolSize, type Building, type GameState } from './state';
-import { TILE } from '../constants';
+import { tireless, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
@@ -130,7 +129,14 @@ const GATHERABLE = new Set<Material>(Object.values(TERRAIN).flatMap((t) => Objec
 const RECIPES_FOR = (m: Material) => ITEMS.filter((i) => i.makes && (i.makes as Stock)[m]);
 
 const unlocked = (s: GameState, id: string) => !!BUILDING_BY_ID[id] && isUnlocked(unlockInfo(s), BUILDING_BY_ID[id]);
-const planned = (s: GameState, id: string) => s.buildings.some((b) => b.def === id);
+/** A kind and everything it can be rebuilt into (garden plot, open field, estate farm). */
+const chainOf = (id: string): string[] => {
+  const out = [id];
+  for (let c = id; UPGRADES[c] && !out.includes(UPGRADES[c]); c = UPGRADES[c]) out.push(UPGRADES[c]);
+  return out;
+};
+/** Whether the town has one (or what one was rebuilt into). */
+const planned = (s: GameState, id: string) => s.buildings.some((b) => chainOf(id).includes(b.def));
 
 /** Whether the town has a way to get a material: from the land, a field, a mine, or a recipe it can make (its
  *  station built or at least unlocked, and the recipe's own inputs obtainable), or (unless `buy` is off) from the
@@ -138,7 +144,7 @@ const planned = (s: GameState, id: string) => s.buildings.some((b) => b.def === 
 function sourceable(s: GameState, m: Material, depth = 0, buy = true): boolean {
   if (depth > 3) return false;
   if (buy && buyable(s, m)) return true;
-  if (GATHERABLE.has(m) && s.tiles.some((t) => t.terrain !== 'clear' && (t.pool[m] ?? 0) > 0)) return true;
+  if (GATHERABLE.has(m) && wildCells(s).some(({ pool }) => (pool[m] ?? 0) > 0)) return true;
   for (const [id, c] of Object.entries(CROPS)) if (c.material === m && unlocked(s, id)) return true;
   for (const [id, w] of Object.entries(WORKPLACES)) if ((w.outputs as Stock)[m] && unlocked(s, id)) return true;
   for (const [id, h] of Object.entries(HERDS)) if ((h.yields[m] || (h.forMeat && h.cull[m])) && unlocked(s, id)) return true;
@@ -427,53 +433,86 @@ const CAPSTONES = ['elder_lodge', 'town_hall', 'power_station', 'mission_control
 /** Never built by the planner: tied to hidden choices, or one-off rescue machines the player earns. */
 const NEVER = new Set(['phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_vat', 'palisade_gate', 'stone_gate']);
 
-/** The camp's tile (where the town grows out from). */
-const campTile = (s: GameState) => Math.floor(campX(s) / TILE);
+/** How far beyond the town's reach the land is known (cells), and the furthest it opens on its own (the rest is for the
+ *  map's own events to open, later). */
+const OPEN_BEYOND = 6;
+const OPEN_MAX = 40;
 
-/** The nearest free spot for a building, out from the camp on either side (null if there's no room). In a castle
- *  town the keep's ground is the castle's: everything else goes outside it. */
-function findSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): number | null {
-  // (a wandering tribe builds its great works on its home ground)
-  const c = buildOrigin(s, def.id) ?? campTile(s);
-  // (nothing under the keep's overhanging upper floors either)
-  const [lo, hi] = castleOn(s) && def.layer === 'mid' ? castleReach(s) : [0, 0];
-  for (let d = 0; d < s.tiles.length; d++) {
-    for (const t of d === 0 ? [c] : [c + d, c - d - def.width + 1]) {
-      if (t < hi && t + def.width > lo) continue;
-      if (canPlace(s, back, def, t).ok) return t;
-    }
-  }
-  return null;
+/** The known land grows with the town, and reaches further when what the town needs has run out within it. */
+function openLand(s: GameState, further = false): boolean {
+  const want = Math.min(OPEN_MAX, Math.max(s.land.open, townRadius(s) + OPEN_BEYOND, further ? s.land.open + 2 : 0));
+  if (want <= s.land.open) return false;
+  s.land.open = want;
+  s.land.version++;
+  return true;
 }
 
-/** Where a castle's next room goes: the lowest open floor with space, nearest the middle of the keep. */
-function roomSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): { tile: number; floor: number } | null {
-  for (const floor of openFloors(s)) {
-    const [lo, hi] = castleSpan(s, floor);
-    const mid = (lo + hi - def.width) / 2;
-    const tiles = Array.from({ length: Math.max(0, hi - lo - def.width + 1) }, (_, i) => lo + i).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
-    for (const tile of tiles) if (inKeep(s, tile, def.width, floor) && canPlace(s, back, def, tile, floor).ok) return { tile, floor };
+/** The wild cells of the open land, with what they hold, nearest the camp first. */
+function wildCells(s: GameState): { i: number; pool: Stock; d: number }[] {
+  const m = s.land;
+  const c = campCell(s);
+  const out: { i: number; pool: Stock; d: number }[] = [];
+  for (const [k, pool] of Object.entries(m.pools)) {
+    const i = Number(k);
+    const at = cellAt(m, i);
+    if (!isOpen(m, at.x, at.y)) continue;
+    out.push({ i, pool, d: Math.hypot(at.x - c.x, at.y - c.y) });
   }
-  return null;
+  return out.sort((a, b) => a.d - b.d || a.i - b.i);
+}
+
+/** The nearest free spot for a building, out from the camp in rings, each ring's spots nearest a road first, so the
+ *  town grows along its roads (null if there's no room). In a castle town the keep's ground is the castle's:
+ *  everything else goes outside it. Fields and pens keep a little further out than the houses. */
+function findSpot(s: GameState, def: BuildingDef): Pt | null {
+  // (a wandering tribe builds its great works on its home ground)
+  const from = buildOrigin(s, def.id) ?? campCell(s);
+  const taken = footprints(s);
+  const castle = castleOn(s) ? castleCells(s) : null;
+  const farm = !!CROPS[def.id] || !!HERDS[def.id];
+  const r = spiralSpot(s.land, def.width, depthOf(def), taken, from, {
+    ok: castle ? (rect) => !nearCastle(castle, s.land, rect) : undefined,
+    prefer: (rect) => roadDistance(s.land, doorOf(rect)) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0),
+  });
+  if (!r) return null;
+  return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
+}
+
+/** Where a castle's next room goes: built on to the castle, as near the hall as may be, the snuggest spot of a ring
+ *  first (the more of its walls it shares, the more compact the castle stays). */
+function roomSpot(s: GameState, def: BuildingDef): Pt | null {
+  const cells = castleCells(s);
+  const r = spiralSpot(s.land, def.width, depthOf(def), footprints(s), campCell(s), {
+    maxR: 40,
+    roads: true,
+    door: false,
+    ok: (rect) => joinsCastle(cells, s.land, rect),
+    prefer: (rect) => -sharedEdges(cells, s.land, rect),
+  });
+  if (!r) return null;
+  return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
 }
 
 const isWall = (d: BuildingDef | undefined) => !!d && !!d.hp && d.width === 1 && !d.defense;
 
-/** Where a wall goes: just past the last building at an end of town that has no wall out there yet (raiders come in
- *  from the ends). Returns the tile, or the tile that has to be cleared first (`clear`), or null (both ends walled). */
-function wallSpot(s: GameState, back: readonly BackTerrain[], def: BuildingDef): { tile: number; clear: boolean } | null {
+/** Where a wall goes: on the camp's row, just past the last building at an end of town that has no wall out there
+ *  yet (raiders come in along it, from the ends). Returns the cell, or the cell that has to be cleared first
+ *  (`clear`), or null (both ends walled). */
+function wallSpot(s: GameState, def: BuildingDef): { at: Pt; clear: boolean } | null {
   const town = s.buildings.filter((b) => BUILDING_BY_ID[b.def].layer !== 'back' && !isWall(BUILDING_BY_ID[b.def]));
   if (!town.length) return null;
+  const row = campCell(s).y;
   const lo = Math.min(...town.map((b) => b.tile)) - 2;
   const hi = Math.max(...town.map((b) => b.tile + BUILDING_BY_ID[b.def].width)) + 1;
   const walls = s.buildings.filter((b) => isWall(BUILDING_BY_ID[b.def]));
-  for (const [tile, done] of [
+  for (const [x, done] of [
     [lo, walls.some((w) => w.tile <= lo)],
     [hi, walls.some((w) => w.tile >= hi)],
   ] as [number, boolean][]) {
-    if (done || tile < 0 || tile >= s.tiles.length) continue;
-    if (canPlace(s, back, def, tile).ok) return { tile, clear: false };
-    if (s.tiles[tile].terrain !== 'clear') return { tile, clear: true };
+    if (done || x < 0 || x >= s.land.w) continue;
+    const at = { x, y: row };
+    if (canPlace(s, def, x, row).ok) return { at, clear: false };
+    if (WILD.includes(groundAt(s.land, x, row))) return { at, clear: true };
   }
   return null;
 }
@@ -538,7 +577,8 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const stations = s.buildings.filter((b) => RESEARCH_STATIONS[b.def]).length;
   const grown = s.people.filter((p) => p.bornTick == null).length;
   const wantStations = Math.min(modifiers(s.research).researchSlots, 1 + Math.floor(grown / 4));
-  if (station && stations < wantStations) add(station[0], `a desk for another researcher (${stations} for ${grown} people)`);
+  // (never a second campfire: another desk waits for a real place of study)
+  if (station && station[0] !== 'campfire' && stations < wantStations) add(station[0], `a desk for another researcher (${stations} for ${grown} people)`);
   // the next era, once the town can manage it
   for (const id of CAPSTONES) if (BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id]) && !planned(s, id)) add(id, 'the way to the next era');
   if (!shopPlanned && can(firstShop)) add(firstShop.id, 'to sell to travellers for coins');
@@ -547,6 +587,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const order = n.direction === 'trade' ? (d: BuildingDef) => (d.stalls || d.id === 'tavern' || ITEMS.some((i) => i.station === d.id) ? 0 : 1) : () => 0;
   for (const d of [...BUILDINGS].sort((a, b) => order(a) - order(b))) {
     if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || CAPSTONES.includes(d.id)) continue;
+    if (CROPS[d.id] && FOOD_VALUE[CROPS[d.id].material]) continue; // (food fields come of wanting food, above)
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
     if (venueOfDef(d.id)) continue; // (one shop and one tavern, which grow by being rebuilt bigger)
@@ -562,7 +603,7 @@ const plotsWorth = (id: string) => (CROPS[id].yield * (FOOD_VALUE[CROPS[id].mate
 /** Fewer, bigger fields: two garden plots side by side, both lying fallow, are ploughed into one open field (and an
  *  open field grows into an estate farm where it stands, if there's room). In winter, when nothing's in the ground
  *  anyway, or whenever more food is wanted. */
-function consolidateFields(s: GameState, back: readonly BackTerrain[], n: Needs, plan: TownPlan, needFood = false): boolean {
+function consolidateFields(s: GameState, n: Needs, plan: TownPlan, needFood = false): boolean {
   if (!needFood && calendar(s.tick).season !== 'winter' && n.foodDays < 4) return false;
   const fallow = (b: Building) => b.status === 'done' && (b.crop?.stage ?? 'fallow') === 'fallow';
   for (const b of s.buildings) {
@@ -572,12 +613,12 @@ function consolidateFields(s: GameState, back: readonly BackTerrain[], n: Needs,
     let absorb: Building | undefined;
     if (to.width > from.width) {
       // (a garden plot's width doubles: it takes its neighbour in)
-      absorb = s.buildings.find((q) => q !== b && q.def === b.def && fallow(q) && q.tile === b.tile + from.width);
-      if (!absorb || !canUpgrade(s, back, b.id, absorb.id).ok) continue;
-    } else if (!canUpgrade(s, back, b.id).ok) continue;
+      absorb = s.buildings.find((q) => q !== b && q.def === b.def && fallow(q) && q.tile === b.tile + from.width && q.row === b.row);
+      if (!absorb || !canUpgrade(s, b.id, absorb.id).ok) continue;
+    } else if (!canUpgrade(s, b.id).ok) continue;
     const was = absorb ? `two ${from.name.toLowerCase()}s` : `the ${from.name.toLowerCase()}`;
     const crop = b.crop;
-    if (upgrade(s, back, b.id, absorb?.id).ok) {
+    if (upgrade(s, b.id, absorb?.id).ok) {
       // (the ground keeps its soil)
       if (crop) b.crop = { stage: 'fallow', growth: 0, work: 0, soil: Math.min(crop.soil ?? 1, absorb?.crop?.soil ?? 1) };
       plan.build = { def: to.id, why: `${was} made into one ${to.name.toLowerCase()}` };
@@ -623,7 +664,7 @@ const SLEEP_ROUGH = 2;
 
 /** Keeps the town from sprawling into small houses: with beds to spare, the smallest home is rebuilt as the next
  *  kind up, where it stands (its people sleep in the spare beds meanwhile). One at a time, once fed. */
-function consolidateHomes(s: GameState, back: readonly BackTerrain[], n: Needs, plan: TownPlan, needBeds = false): boolean {
+function consolidateHomes(s: GameState, n: Needs, plan: TownPlan, needBeds = false): boolean {
   // (for more beds, any time a new home would do; otherwise only in a quiet spell, with nothing else being built)
   if (!needBeds && (n.people < 4 || n.foodDays < 3 || blueprintCount(s) > 0)) return false;
   const homes = s.buildings
@@ -635,14 +676,14 @@ function consolidateHomes(s: GameState, back: readonly BackTerrain[], n: Needs, 
     if (!to?.housing || to.housing <= from.housing! || !affordable(s, to, n.stock)) continue;
     // where it stands if there's room; else pulled down with the same kind of home next door, the two made one
     let absorb: Building | undefined;
-    if (!canUpgrade(s, back, b.id).ok) {
-      absorb = s.buildings.find((q) => q !== b && q.def === b.def && q.status === 'done' && (q.floor ?? 0) === (b.floor ?? 0) && (q.tile === b.tile + from.width || q.tile + from.width === b.tile));
+    if (!canUpgrade(s, b.id).ok) {
+      absorb = s.buildings.find((q) => q !== b && q.def === b.def && q.status === 'done' && q.row === b.row && (q.tile === b.tile + from.width || q.tile + from.width === b.tile));
       // (more beds are wanted: only if the one home has more than the two)
-      if (!absorb || (needBeds && to.housing <= 2 * from.housing!) || !canUpgrade(s, back, b.id, absorb.id).ok) continue;
+      if (!absorb || (needBeds && to.housing <= 2 * from.housing!) || !canUpgrade(s, b.id, absorb.id).ok) continue;
     }
     if (displaces(s, b, SLEEP_ROUGH - (absorb ? from.housing! : 0))) continue;
     const was = absorb ? `two ${from.name}s` : `the ${from.name}`;
-    if (upgrade(s, back, b.id, absorb?.id).ok) {
+    if (upgrade(s, b.id, absorb?.id).ok) {
       plan.build = { def: to.id, why: needBeds ? `more beds: ${was} rebuilt bigger` : `a better home than ${was}` };
       plan.lastHome = s.tick;
       plan.lastHomeBeds = to.housing - from.housing! * (absorb ? 2 : 1);
@@ -654,12 +695,11 @@ function consolidateHomes(s: GameState, back: readonly BackTerrain[], n: Needs, 
 
 /** Place the next building the town wants (one at a time), or upgrade one. Returns wild tiles to clear for a
  *  building it wanted but had no room for (or for a wall's spot at the end of town). */
-function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan: TownPlan): number[] {
-  adoptRooms(s);
+function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
-  if (consolidateHomes(s, back, n, plan)) return clear;
-  if (consolidateFields(s, back, n, plan)) return clear;
+  if (consolidateHomes(s, n, plan)) return clear;
+  if (consolidateFields(s, n, plan)) return clear;
   let blocked: BuildingDef | null = null;
   let triedUpgrade = false;
   let triedFields = false;
@@ -668,41 +708,37 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
     // (beds wanted: a bigger home where a small one stands comes before another home beside it)
     if (def.housing && !triedUpgrade) {
       triedUpgrade = true;
-      if (consolidateHomes(s, back, n, plan, true)) return clear;
+      if (consolidateHomes(s, n, plan, true)) return clear;
     }
     // (more food wanted: a bigger field where two small ones lie comes first)
     if (CROPS[def.id] && FOOD_VALUE[CROPS[def.id].material] && !triedFields) {
       triedFields = true;
-      if (consolidateFields(s, back, n, plan, true)) return clear;
+      if (consolidateFields(s, n, plan, true)) return clear;
     }
     if (!affordable(s, def, n.stock)) continue;
-    let tile: number | null;
-    let room: { floor: number } | undefined;
+    let at: Pt | null;
     if (roomKind(s, def)) {
-      // (a castle town builds it inside the keep, or waits: the keep grows wider each era, and the land under it is
-      // cleared first)
-      const spot = roomSpot(s, back, def);
-      if (!spot) {
+      // (a castle town builds it on to the castle, or clears the land beside the castle for it)
+      at = roomSpot(s, def);
+      if (!at) {
         blocked ??= def;
         continue;
       }
-      tile = spot.tile;
-      room = { floor: spot.floor };
     } else if (isWall(def)) {
       if (nomadic(s)) continue; // (no walls while the tribe wanders: the wagons do)
-      const spot = wallSpot(s, back, def);
+      const spot = wallSpot(s, def);
       if (!spot) continue;
       if (spot.clear) {
-        clear.push(spot.tile);
+        clear.push(idx(s.land, spot.at.x, spot.at.y));
         continue;
       }
-      tile = spot.tile;
-    } else tile = findSpot(s, back, def);
-    if (tile === null) {
-      blocked ??= def; // (clearing the land in front of the fields clears the ground behind it too)
+      at = spot.at;
+    } else at = findSpot(s, def);
+    if (at === null) {
+      blocked ??= def;
       continue;
     }
-    if (placeBlueprint(s, back, def.id, tile, room).ok) {
+    if (placeBlueprint(s, def.id, at.x, at.y).ok) {
       plan.build = w;
       if (def.housing) {
         plan.lastHome = s.tick;
@@ -711,30 +747,21 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
       return clear;
     }
   }
-  // nothing new to build: improve what's there
+  // nothing new to build: improve what's there (fields only through consolidateFields: when fallow, and wanted)
   for (const b of s.buildings) {
-    if (b.status !== 'done' || !UPGRADES[b.def]) continue;
+    if (b.status !== 'done' || !UPGRADES[b.def] || CROPS[b.def]) continue;
     const to = BUILDING_BY_ID[UPGRADES[b.def]];
-    if (!to || !affordable(s, to, n.stock) || displaces(s, b) || !canUpgrade(s, back, b.id).ok) continue;
+    if (!to || !affordable(s, to, n.stock) || displaces(s, b) || !canUpgrade(s, b.id).ok) continue;
     const was = BUILDING_BY_ID[b.def].name;
-    if (upgrade(s, back, b.id).ok) {
+    if (upgrade(s, b.id).ok) {
       plan.build = { def: to.id, why: `a better ${was}` };
       return clear;
     }
   }
-  if (blocked && roomKind(s, blocked)) {
-    // (a castle's room: the keep's own ground cleared, or it waits for the keep to grow)
-    // (the ground under its widest floor too: the upper floors overhang it)
-    const [lo, hi] = castleReach(s);
-    const wild = s.tiles.map((t, i) => ({ t, i })).filter(({ t, i }) => i >= lo && i < hi && t.terrain !== 'clear');
-    plan.waiting.push(wild.length ? `No room in the keep for a ${blocked.name}: clearing its ground` : `The keep is full: the ${blocked.name} waits for it to grow`);
-    for (const { i } of wild.slice(0, blocked.width + 1)) clear.push(i);
-  } else if (blocked) {
+  if (blocked) {
     plan.waiting.push(`No room for a ${blocked.name}: clearing land`);
     // the nearest wild land, out from the camp
-    const c = campTile(s);
-    const wild = s.tiles.map((t, i) => ({ t, i })).filter(({ t }) => t.terrain !== 'clear').sort((a, b) => Math.abs(a.i - c) - Math.abs(b.i - c));
-    for (const { i } of wild.slice(0, blocked.width + 1)) clear.push(i);
+    for (const { i } of wildCells(s).slice(0, blocked.width * depthOf(blocked) + 2)) clear.push(i);
   }
   return clear;
 }
@@ -744,14 +771,12 @@ function planBuilding(s: GameState, back: readonly BackTerrain[], n: Needs, plan
 /** Mark wild land for what the town is short of (nearest first: for building, for crafting, food when it's low), and
  *  to clear room for a building it wants. */
 function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], craftWants: Stock): void {
-  const c = campTile(s);
-  const byDistance = s.tiles.map((t, i) => ({ t, i })).filter(({ t }) => t.terrain !== 'clear').sort((a, b) => Math.abs(a.i - c) - Math.abs(b.i - c));
-  let marked = s.tiles.filter((t) => t.designated).length;
+  let byDistance = wildCells(s);
+  let marked = s.land.marked.length;
   const cap = BASE_MARKED + s.people.filter((p) => p.bornTick == null).length;
   const mark = (i: number) => {
-    if (s.tiles[i].designated || marked >= cap) return false;
-    s.tiles[i].designated = true;
-    s.tileRev++;
+    if (isMarked(s.land, i) || marked >= cap || !s.land.pools[i]) return false;
+    setMarked(s.land, i, true);
     marked++;
     return true;
   };
@@ -759,16 +784,19 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
     if (!GATHERABLE.has(m)) continue;
     let short = Math.max((n.demand[m] ?? 0) - (n.stock[m] ?? 0), craftWants[m] ?? 0);
     if (m === 'berries' && n.foodDays < 3) short = Math.max(short, n.people * 3);
-    // (the reserve isn't worth gathering into full stores; what building, crafting or hunger needs still is)
-    if (n.storageFill > 0.95 && !(craftWants[m] ?? 0) && !s.buildings.some((b) => b.status === 'blueprint' && (stillNeeded(b)[m] ?? 0) > 0) && m !== 'berries') continue;
+    // (the reserve isn't worth gathering into full stores; what building, crafting or hunger needs still is, and so is
+    // a basic the town has run right out of: a store full of the harvest once left a town with no wood to build more)
+    if (n.storageFill > 0.95 && (n.stock[m] ?? 0) >= (RESERVE[m] ?? 0) / 2 && !(craftWants[m] ?? 0) && !s.buildings.some((b) => b.status === 'blueprint' && (stillNeeded(b)[m] ?? 0) > 0) && m !== 'berries') continue;
     if (short <= 0) continue;
     // what's already marked counts toward it
-    short -= s.tiles.filter((t) => t.designated).reduce((k, t) => k + (t.pool[m] ?? 0), 0);
+    short -= s.land.marked.reduce((k, i) => k + (s.land.pools[i]?.[m] ?? 0), 0);
     if (!plan.gathering.includes(MATERIAL_NAMES[m])) plan.gathering.push(MATERIAL_NAMES[m]);
-    for (const { t, i } of byDistance) {
+    // (none left within the known land: the town looks further afield)
+    while (!byDistance.some(({ pool, i }) => (pool[m] ?? 0) > 0 && !isMarked(s.land, i)) && openLand(s, true)) byDistance = wildCells(s);
+    for (const { pool, i } of byDistance) {
       if (short <= 0) break;
-      if ((t.pool[m] ?? 0) <= 0 || t.designated) continue;
-      if (mark(i)) short -= t.pool[m] ?? 0;
+      if ((pool[m] ?? 0) <= 0 || isMarked(s.land, i)) continue;
+      if (mark(i)) short -= pool[m] ?? 0;
     }
   }
   for (const i of clear) mark(i);
@@ -882,15 +910,16 @@ function planVisitor(s: GameState): void {
 
 /* ------------------------------------------------------------ the whole plan */
 
-export function runPlanner(s: GameState, back: readonly BackTerrain[]): void {
+export function runPlanner(s: GameState): void {
   if (s.gameOver || s.autopilot === false || s.tick % PLAN_TICKS !== 0) return;
+  openLand(s);
   const n = needs(s);
   makeRoom(s, n);
   const plan: TownPlan = { build: s.plan?.build ?? null, research: null, gathering: [], waiting: [], lastHome: s.plan?.lastHome, lastHomeBeds: s.plan?.lastHomeBeds, shelved: s.plan?.shelved, moved: s.plan?.moved };
   shelveStalled(s, n, plan);
   planResearch(s, n, plan);
   const craftWants = planCrafting(s, n);
-  const clear = planBuilding(s, back, n, plan);
+  const clear = planBuilding(s, n, plan);
   planGathering(s, needs(s), plan, clear, craftWants);
   planVisitor(s);
   planShop(s);

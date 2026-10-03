@@ -6,8 +6,8 @@ import { TOPIC_BY_ID, TOPICS } from '../src/shared/data/research';
 import { totalCapacity } from '../src/shared/sim/buildings';
 import { canQueue, cancelResearch, modifiers, queueResearch } from '../src/shared/sim/research';
 import { Sim } from '../src/shared/sim/sim';
-import { plainGame } from './helpers';
-import { addStock, carryCapacity, newGame, type GameState } from '../src/shared/sim/state';
+import { plainGame, row, freeSpot } from './helpers';
+import { addStock, carryCapacity, newGame, type GameState, campCell } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
 
 const main = (s: GameState) => s.people[0];
@@ -70,8 +70,8 @@ test('research takes about seconds / speed and unlocks its buildings', () => {
   const expected = TOPIC_BY_ID.basic_shelter.seconds / skillSpeed(newGame('time').people[0].skills.research.level);
   assert.ok(took > expected * 0.9 && took < expected + 20, `took ${took}s, expected about ${expected}s`);
   assert.equal(s.notices.at(-1)?.text, 'Research complete: Basic Shelter');
-  const camp = Math.floor(s.tiles.length / 2);
-  sim.command({ type: 'placeBuilding', def: 'lean_to', tile: camp - 6 });
+  const at = freeSpot(s, 'lean_to');
+  sim.command({ type: 'placeBuilding', def: 'lean_to', x: at.x, y: at.y });
   sim.step();
   assert.ok(s.buildings.some((b) => b.def === 'lean_to'), 'lean-to can be placed now');
 });
@@ -80,7 +80,7 @@ test("a Storyteller's Circle makes research faster", () => {
   const time = (withCircle: boolean) => {
     const sim = new Sim(plainGame('station'));
     const s = sim.state;
-    if (withCircle) s.buildings.push({ id: 99, def: 'storytellers_circle', tile: Math.floor(s.tiles.length / 2) - 5, status: 'done', delivered: {}, progress: 1, store: {} });
+    if (withCircle) s.buildings.push({ id: 99, def: 'storytellers_circle', tile: campCell(s).x - 5, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} });
     sim.command({ type: 'queueResearch', topic: 'fire_keeping' });
     return runUntil(sim, () => s.research.done.includes('fire_keeping'));
   };
@@ -97,7 +97,7 @@ test('construction interrupts research; research resumes where it left off', () 
   const before = s.research.progress.flint_knapping;
   const fire = s.buildings.find((b) => b.def === 'campfire')!;
   addStock(fire.store, 'wood', 6);
-  sim.command({ type: 'placeBuilding', def: 'stockpile', tile: fire.tile + 2 });
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: fire.tile + 2, y: row(s) });
   runUntil(sim, () => main(s).task?.type !== 'research', 5);
   assert.notEqual(main(s).task?.type, 'research', 'switched to construction');
   runUntil(sim, () => s.buildings.some((b) => b.def === 'stockpile' && b.status === 'done'));

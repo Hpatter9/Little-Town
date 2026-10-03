@@ -2,14 +2,19 @@
 // should capture the mouse.
 
 import { CHATTER } from './chatter';
-import { BattleScene } from './battle/battleView';
+import { MapBattle } from './map/mapBattle';
+import { MapSpells } from './map/mapSpells';
+import { MapHerds } from './map/mapHerds';
+import { MapBirds } from './map/mapBirds';
+import { MapButterflies } from './map/mapButterflies';
+import { BloodPools } from './map/bloodPools';
 import { createBattleHud } from './battle/battleHud';
 import { FightScene } from './fight/fightView';
 import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
 import { Application, Graphics, TextureStyle } from 'pixi.js';
-import { STRIP_HEIGHT, WORLD_WIDTH } from '../shared/constants';
+import { STRIP_HEIGHT } from '../shared/constants';
 import { BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../shared/data/buildings';
 import { eraReached } from '../shared/data/eras';
 import { TOPIC_BY_ID } from '../shared/data/research';
@@ -19,7 +24,7 @@ import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
-import { blueprintCount, canPlace, defOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
+import { blueprintCount, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { venueOfDef } from '../shared/data/shop';
 import { buildingTint } from './theme';
@@ -27,14 +32,15 @@ import { buildingTint } from './theme';
 /** A traveller, drawn like a townsperson (they're only passing through: most of a person's details don't apply). */
 function travellerPerson(t: TravellerView): PersonView {
   return {
-    id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, dir: t.dir,
-    activity: 'walk', cls: null, clsName: null, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
+    id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
+    activity: 'walk', sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, cls: null, clsName: null, clsPast: [], clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, monster: null, order: null, sick: false,
+    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false }, kit: [],
   };
 }
 const travellerDoing = (t: TravellerView) => {
@@ -43,29 +49,29 @@ const travellerDoing = (t: TravellerView) => {
 };
 import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
-import { generateWorld } from '../shared/world';
+import { hashSeed } from '../shared/rng';
+import { CELL, cellAt, groundAt, isMarked, WILD } from '../shared/sim/land';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
-import { loadLpc, lpcFrame } from './art/lpc/lpc';
-import { buildingArt } from './art/buildings';
+import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
+import { topDownArt } from './art/topDown';
+import { packArt } from './map/packBuildings';
+import { airFor } from './town/ambientView';
 import { noTone, textureCanvas } from './art/pixelArt';
-import { Camera } from './camera';
+import { MapCamera } from './map/mapCamera';
+import { MapView } from './map/mapView';
+import { MapPeople } from './map/mapPeople';
+import { MapRaiders } from './map/mapRaiders';
 import { createHud } from './hud';
 import { hostBridge, localBridge } from './localBridge';
 import { createMusic } from './music';
 import { createActionBar, createAwayCard, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
 import { createTooltip } from './tooltip';
 import { ExpeditionPane } from './town/expeditionPane';
-import { PeopleView } from './town/peopleView';
-import { AnimalsView, CARAVAN_TICKS } from './town/animalsView';
 import { SnowView } from './town/snowView';
 import { LeavesView } from './town/leavesView';
-import { SkyView } from './town/skyView';
 import { WeatherView } from './town/weatherView';
-import { RaidersView } from './town/raidersView';
-import { SpellsView } from './town/spellsView';
-import { TownView } from './town/townView';
 
 declare global {
   interface Window {
@@ -74,8 +80,6 @@ declare global {
   }
 }
 
-/** Pixels above the art's top edge that still count as "over the town". */
-const HIT_MARGIN = 3;
 /** Pointer travel before a press becomes a drag; shorter presses are clicks. */
 const DRAG_THRESHOLD = 4;
 const WHEEL_SPEED = 1.5;
@@ -88,7 +92,8 @@ const SHAKE_MS = 450;
 type Hover =
   | { kind: 'person'; person: PersonView }
   | { kind: 'building'; id: number }
-  | { kind: 'tile'; tile: number }
+  | { kind: 'cell'; cell: number }
+  | { kind: 'place'; id: number }
   | { kind: 'scenery' }
   | { kind: 'pane' }
   | { kind: 'raider'; id: number }
@@ -107,6 +112,9 @@ const listStock = (s: Stock) =>
     .map((m) => `${MATERIAL_NAMES[m]} ${s[m]}`)
     .join(' · ');
 
+/** Names for the open kinds of ground (the wild kinds are named by TERRAIN). */
+const GROUND_NAMES: Record<string, string> = { grass: 'Open ground', fertile: 'Rich soil', sand: 'Sand', water: 'Water' };
+
 async function start(): Promise<void> {
   TextureStyle.defaultOptions.scaleMode = 'nearest';
   const bridge = window.bridge ?? (window.bridge = hostBridge() ?? localBridge());
@@ -118,8 +126,9 @@ async function start(): Promise<void> {
   const coarse = () => matchMedia('(pointer: coarse)').matches;
 
   const [first] = await Promise.all([bridge.getSnapshot(), loadLpc(), loadCreatures(), loadEffects(), loadStills()]);
+  void loadLpcFaces(); // (the townsfolk's up- and down-facing walk rows come in after; side-on until then)
   applySeasonPalette(first.biome, first.calendar.season); // (the land is drawn in the colours of the season)
-  const world = generateWorld(first.seed, first.biome);
+  const seedHash = hashSeed(first.seed);
 
   const app = new Application();
   await app.init({
@@ -163,7 +172,7 @@ async function start(): Promise<void> {
       since = now;
       if (fps >= 28 || quality === 0) return;
       quality--;
-      town.calm = quality < 2;
+      map.calm = quality < 2;
       sharpen(stripScale);
       console.info(`[quality] ${fps.toFixed(0)} fps: down to ${quality}`);
     });
@@ -171,30 +180,35 @@ async function start(): Promise<void> {
   const asked = (window as unknown as { __stripScale?: number }).__stripScale;
   if (asked) sharpen(asked);
 
-  const town = new TownView(world, first.tiles, first.buildings);
-  town.season = first.calendar.season;
-  const people = new PeopleView(town.people);
-  const raiders = new RaidersView(town.people);
-  const animals = new AnimalsView(town.people);
-  // (spells sit over the town, out of its day-and-night tint, so they glow in the dark; they follow the walkway)
-  const spells = new SpellsView();
-  const pane = new ExpeditionPane(world.seedHash);
+  // the town, top-down (map/mapView.ts): the land, the buildings on their footprints, and everyone on it
+  const map = new MapView();
+  (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
+  (window as unknown as { __topDownArt?: typeof topDownArt }).__topDownArt = topDownArt; // (for previews: a gallery of the painted buildings)
+  const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
+  (window as unknown as { __pools?: BloodPools }).__pools = pools; // (for previews)
+  const people = new MapPeople(map.things);
+  people.lights = map.lights;
+  (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
+  const raiders = new MapRaiders(map.things);
+  const herds = new MapHerds(map.things);
+  const birds = new MapBirds(map.things, map);
+  (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
+  const butterflies = new MapButterflies(map.things, map);
+  const pane = new ExpeditionPane(seedHash);
   const snow = new SnowView();
-  town.scene.addChild(snow.root); // (over everything in the town, in screen space)
   const leaves = new LeavesView();
-  town.scene.addChild(leaves.root);
-  // On the phone the strip has no desktop behind it, so it draws a whole sky, and weather in front of the town.
+  // On the phone the strip has no desktop behind it: weather falls over the town.
   const fullSky = !!hostBridge();
-  const sky = new SkyView(fullSky);
   const weather = fullSky ? new WeatherView() : null;
-  if (weather) town.scene.addChild(weather.root);
-  town.scene.addChildAt(sky.root, 0); // (behind the hills, so the sun and moon rise and set behind the land)
   const townMask = new Graphics(); // used only as a mask (never added to the stage, or it would draw)
-  app.stage.addChild(town.root, spells.root, pane.root);
-  // a raid's battle on the trail takes over the strip while it's on (battle/battleView.ts)
-  const battle = new BattleScene();
-  app.stage.addChild(battle.root);
-  (window as unknown as { __battle?: BattleScene }).__battle = battle; // (for previews: where a spot is on screen)
+  app.stage.addChild(map.root);
+  if (weather) app.stage.addChild(weather.root);
+  app.stage.addChild(snow.root, leaves.root, pane.root);
+  // a raid's battle is fought on the town's own map (map/mapBattle.ts draws the trail, the spots and the shots over it)
+  const battle = new MapBattle(map);
+  // (spells on the map: the packs' effect sheets over whoever they touch, following people and raiders)
+  const spells = new MapSpells(map.over, (t) => (t.id === undefined ? null : t.raider ? raiders.posOf(t.id) : people.posOf(t.id)));
+  (window as unknown as { __battle?: MapBattle }).__battle = battle; // (for previews: where a spot is on screen)
   // watching a party away, as in the old games (fight/fightView.ts): it takes over the strip too
   const fight = new FightScene();
   app.stage.addChild(fight.root);
@@ -222,19 +236,20 @@ async function start(): Promise<void> {
     if (!pane.visible || x0 < PANE_MIN) {
       paneX = Infinity;
       paneW = 0;
-      town.root.mask = null;
+      map.root.mask = null;
       return w;
     }
     paneX = x0;
     paneW = want;
     pane.layout(x0, want, app.screen.height);
     townMask.clear().rect(0, 0, x0, app.screen.height).fill(0xffffff);
-    town.root.mask = townMask;
+    map.root.mask = townMask;
     return x0;
   };
 
-  const camera = new Camera(WORLD_WIDTH);
-  camera.centreOn(first.campX ?? town.campX, app.screen.width); // (a nomad tribe's camp may be away on its pasture)
+  const camera = new MapCamera(first.land.w * CELL, first.land.h * CELL);
+  (window as unknown as { __camera?: MapCamera }).__camera = camera; // (for previews)
+  camera.centreOn(first.camp, app.screen.width, app.screen.height); // (a nomad tribe's camp may be away on its pasture)
 
   /** The expedition shown in the split view: the most recently sent one. */
   const shownExpedition = () => snap.expeditions.at(-1) ?? null;
@@ -258,6 +273,13 @@ async function start(): Promise<void> {
   const toasts = createToasts();
   let view: StripState = { mode: 'full', hidden: false, panel: null, music: false };
   let snap: Snapshot = first;
+  /** Whether a cell is wild land (something to gather on it). */
+  const wildCell = (i: number) => {
+    const c = cellAt(snap.land, i);
+    return WILD.includes(groundAt(snap.land, c.x, c.y));
+  };
+  /** The screen y a tooltip hangs at, over someone's head (or over the pointer, if they can't be found). */
+  const overheadY = (at: { x: number; y: number } | null, up: number) => (at ? map.screenOf(at.x, at.y).y - up : (mouse?.y ?? 0) - up);
 
   /* -------------------------------------------------------- state of the pointer */
 
@@ -268,7 +290,7 @@ async function start(): Promise<void> {
   /** A selected building, and which of its sub-menus is open. */
   let selected: { id: number; menu: 'main' | 'demolish' | 'empty' } | null = null;
   let selectedPerson: number | null = null;
-  let placing: { def: BuildingDef; tile: number; check: PlaceCheck } | null = null;
+  let placing: { def: BuildingDef; x: number; y: number; check: PlaceCheck } | null = null;
 
   const banner = createBanner(() => stopPlacing());
 
@@ -281,20 +303,21 @@ async function start(): Promise<void> {
   /** What in the town (or the expedition pane) is under a screen point. */
   const hitTest = (x: number, y: number): Hover => {
     if (x >= paneX) return x < paneX + paneW && y >= app.screen.height - STRIP_HEIGHT + PANE_HIT_TOP ? { kind: 'pane' } : null;
-    const local = town.toForeLocal(x, y);
-    const raider = raiders.raiderAt(local.x, local.y);
+    const w = map.worldOf(x, y);
+    const raider = raiders.raiderAt(w.x, w.y);
     if (raider) return { kind: 'raider', id: raider.id };
-    if (animals.caravanAt(local.x, local.y, snap)) return { kind: 'caravan' };
-    const person = people.personAt(local.x, local.y);
+    const person = people.personAt(w.x, w.y);
     if (person) return { kind: 'person', person };
-    const building = town.buildingAt(x, y);
+    const building = map.buildingAt(w.x, w.y);
     if (building !== null) return { kind: 'building', id: building };
-    if (y < town.skylineAt(x) - HIT_MARGIN) return null;
-    const tile = town.tileAt(x);
-    if (tile === null || y < town.nearSkylineAt(x) - HIT_MARGIN) return { kind: 'scenery' };
-    return { kind: 'tile', tile };
+    const place = map.placeAt(w.x, w.y);
+    if (place) return { kind: 'place', id: place.id };
+    const cell = map.cellAt(w.x, w.y);
+    if (cell === null) return { kind: 'scenery' };
+    return { kind: 'cell', cell };
   };
 
+  (window as unknown as { __hitTest?: typeof hitTest }).__hitTest = hitTest; // (for previews)
   const refreshHover = () => {
     if (camera.dragging || press) return;
     const overUi = mouse?.target instanceof Element && !!mouse.target.closest('[data-hit]');
@@ -307,11 +330,11 @@ async function start(): Promise<void> {
     }
     hover = mouse && !overUi && active ? hitTest(mouse.x, mouse.y) : null;
     setInteractive(overUi || hover !== null);
-    const clickable = hover?.kind === 'building' || hover?.kind === 'pane' || (hover?.kind === 'tile' && snap.tiles[hover.tile].terrain !== 'clear');
+    const clickable = hover?.kind === 'building' || hover?.kind === 'pane' || hover?.kind === 'place' || (hover?.kind === 'cell' && wildCell(hover.cell));
     canvas.style.cursor = clickable ? 'pointer' : hover ? 'grab' : 'default';
     if (phone) {
       // no tooltips on the phone: the top card says it all (and the selected patch of land stays lit)
-      town.setHighlight(inspected?.kind === 'tile' ? inspected.tile : null);
+      map.setHighlight(inspected?.kind === 'cell' ? inspected.cell : null);
       return tip.hide();
     }
     showHover();
@@ -327,13 +350,13 @@ async function start(): Promise<void> {
         const r = snap.raid?.raiders.find((q) => q.id === h.id);
         if (!r) return null;
         const doing = r.captive ? `Carrying off ${r.captive}! Stop them!` : r.fleeing ? (r.carrying ? 'Running off with your goods!' : 'Fleeing') : 'Raiding';
-        return { title: r.name, lines: [`${doing} · health ${r.hp}/${r.maxHp}`], y: town.foreScreenY(-54) };
+        return { title: r.name, lines: [`${doing} · health ${r.hp}/${r.maxHp}`], y: overheadY(raiders.posOf(r.id), 54) };
       }
       case 'caravan': {
         const c = snap.caravan;
         if (!c) return null;
         const open = c.offers.filter((o) => !o.done).length;
-        return { title: 'Trade caravan', lines: [`${open} deal${open === 1 ? '' : 's'} on offer · leaves in ${Math.ceil(c.hoursLeft)}h`], hint: 'Click to trade', y: town.foreScreenY(-60) };
+        return { title: 'Trade caravan', lines: [`${open} deal${open === 1 ? '' : 's'} on offer · leaves in ${Math.ceil(c.hoursLeft)}h`], hint: 'Click to trade', y: (mouse?.y ?? 0) - 60 };
       }
       case 'pane': {
         const e = shownExpedition();
@@ -345,7 +368,7 @@ async function start(): Promise<void> {
         if (snap.visitor?.id === id) {
           const v = snap.visitor;
           const when = v.leaving ? 'Leaving' : `Waiting to be let in (leaves in ${Math.ceil(v.hoursLeft)}h)`;
-          return { title: `${v.name}, ${v.typeName.toLowerCase()}`, lines: [when], hint: 'Click to decide', y: town.foreScreenY(-66) };
+          return { title: `${v.name}, ${v.typeName.toLowerCase()}`, lines: [when], hint: 'Click to decide', y: overheadY(people.posOf(id), 66) };
         }
         const traveller = snap.travellers.find((q) => q.id === id);
         if (traveller)
@@ -353,17 +376,17 @@ async function start(): Promise<void> {
             title: `${traveller.name}, a ${traveller.kind}`,
             lines: [`${travellerDoing(traveller)} · after ${traveller.wants}${traveller.temper ? ` · ${traveller.temper}` : ''}`, `A stranger passing through, with ${traveller.purse} coins to spend`],
             hint: `Click to see the ${traveller.venue}`,
-            y: town.foreScreenY(-50),
+            y: overheadY(people.posOf(id), 50),
           };
         const p = snap.people.find((q) => q.id === id) ?? h.person; // latest data for the person
         const lines = [p.doing, ...p.detail.slice(0, 1)];
         if (poolSize(p.carrying) > 0) lines.push(`Carrying ${listStock(p.carrying)}`);
         lines.push(`Morale ${Math.round(p.morale)} · ${p.typeName}${p.coins !== null ? ` · ${p.coins} coins` : ''}`);
-        return { title: `${p.name}${p.id === snap.mainId ? ' (you)' : ''}`, lines, hint: 'Click for details', y: town.foreScreenY(-50) };
+        return { title: `${p.name}${p.id === snap.mainId ? ' (you)' : ''}`, lines, hint: 'Click for details', y: overheadY(people.posOf(id), 50) };
       }
       case 'building': {
         const b = snap.buildings.find((q) => q.id === h.id);
-        const r = town.buildingScreenRect(h.id);
+        const r = map.buildingScreenRect(h.id);
         if (!b || !r) return null;
         const def = defOf(b);
         const lines: string[] = [];
@@ -407,12 +430,20 @@ async function start(): Promise<void> {
         }
         return { title: def.name + (b.status === 'blueprint' ? ' (blueprint)' : ''), lines, hint: 'Click for options', y: r.y };
       }
-      case 'tile': {
-        const t = snap.tiles[h.tile];
-        const y = town.tileTopScreenY(h.tile);
-        if (t.terrain === 'clear') return { title: 'Cleared land', lines: ['Open the Build panel to put something here'], y };
-        const def = TERRAIN[t.terrain];
-        return { title: def.name, lines: [listStock(t.pool) + ' left'], hint: t.designated ? 'Marked for gathering — click to cancel' : 'Click to gather and clear', y };
+      case 'place': {
+        const p = snap.places.find((q) => q.id === h.id);
+        if (!p) return null;
+        const y = map.screenOf(p.x, p.y).y - 40;
+        if (p.dest) return { title: p.name, lines: [p.text, `${p.foes} there.`], hint: 'Click to pick a party', y };
+        return { title: p.name, lines: [p.state === 'done' ? `${p.text} The town has been over it.` : p.state === 'gone' ? 'Whatever lived here has gone.' : `${p.text} The town will look it over soon.`], y };
+      }
+      case 'cell': {
+        const c = cellAt(snap.land, h.cell);
+        const y = map.screenOf(c.x * CELL, c.y * CELL).y;
+        const g = groundAt(snap.land, c.x, c.y);
+        const def = TERRAIN[g as keyof typeof TERRAIN];
+        if (!def) return { title: GROUND_NAMES[g] ?? 'Open land', lines: [g === 'water' ? 'The river' : 'The town builds here when it needs to'], y };
+        return { title: def.name, lines: [listStock(snap.land.pools[h.cell] ?? {}) + ' left'], hint: isMarked(snap.land, h.cell) ? 'The town is clearing it' : 'The town will gather here when it needs to', y };
       }
       default:
         return null;
@@ -420,7 +451,7 @@ async function start(): Promise<void> {
   };
 
   const showHover = () => {
-    town.setHighlight(hover?.kind === 'tile' ? hover.tile : null);
+    map.setHighlight(hover?.kind === 'cell' ? hover.cell : null);
     if (!hover || hover.kind === 'scenery' || !mouse) return tip.hide();
     // (a selected building shows its action bar instead, and a selected person their card)
     if ((hover.kind === 'building' && selected?.id === hover.id) || (hover.kind === 'person' && selectedPerson === hover.person.id && snap.visitor?.id !== hover.person.id)) return tip.hide();
@@ -433,7 +464,7 @@ async function start(): Promise<void> {
 
   const showActions = () => {
     const b = selected && snap.buildings.find((q) => q.id === selected!.id);
-    const r = selected && town.buildingScreenRect(selected.id);
+    const r = selected && map.buildingScreenRect(selected.id);
     if (!selected || !b || !r || view.mode !== 'full') {
       if (selected && !b) selected = null;
       return actions.hide();
@@ -518,13 +549,12 @@ async function start(): Promise<void> {
     const d = describe(h);
     if (!d) return null;
     switch (h.kind) {
-      case 'tile': {
-        const t = snap.tiles[h.tile];
+      case 'cell': {
         // (the town decides what to build and where to gather now: the card says what it's up to here)
-        if (t.terrain === 'clear') return { title: d.title, lines: ['Open ground: the town builds here when it needs to.'], actions: [act('plan', 'Town plan…', () => bridge.openPanel('build'))] };
+        if (!wildCell(h.cell)) return { title: d.title, lines: ['Open ground: the town builds here when it needs to.'], actions: [act('plan', 'Town plan…', () => bridge.openPanel('build'))] };
         return {
           title: d.title,
-          lines: [...d.lines, t.designated ? 'The town is gathering here, and will clear the land.' : 'The town will gather here when it needs what grows here, or the room.'],
+          lines: [...d.lines, isMarked(snap.land, h.cell) ? 'The town is gathering here, and will clear the land.' : 'The town will gather here when it needs what grows here, or the room.'],
           actions: [],
         };
       }
@@ -568,6 +598,10 @@ async function start(): Promise<void> {
         if (following) lines.unshift('You follow them: their big moments come as phone alerts.');
         return { title: d.title, lines, actions: [...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
+      case 'place': {
+        const p = snap.places.find((q) => q.id === h.id);
+        return { title: d.title, lines: d.lines, actions: p?.dest ? [act('party', 'Pick a party…', () => bridge.openPanel('expeditions'), { primary: true })] : [] };
+      }
       case 'caravan':
         return { title: d.title, lines: d.lines, actions: [act('trade', 'Trade…', () => bridge.openPanel('trade'), { primary: true })] };
       case 'pane':
@@ -606,12 +640,12 @@ async function start(): Promise<void> {
 
   const showPersonCard = () => {
     const p = selectedPerson !== null ? snap.people.find((q) => q.id === selectedPerson) : undefined;
-    const x = selectedPerson !== null ? people.xOf(selectedPerson) : null;
-    if (!p || x === null || view.mode !== 'full') {
+    const at = selectedPerson !== null ? people.posOf(selectedPerson) : null;
+    if (!p || at === null || view.mode !== 'full') {
       if (selectedPerson !== null && !p) selectedPerson = null;
       return personCard.hide();
     }
-    personCard.show(p, p.id === snap.mainId, town.toScreenX(x));
+    personCard.show(p, p.id === snap.mainId, map.screenOf(at.x, at.y).x);
   };
 
   const selectPerson = (id: number | null) => {
@@ -626,23 +660,26 @@ async function start(): Promise<void> {
 
   /* -------------------------------------------------------- placing buildings */
 
-  const checkPlacement = (def: BuildingDef, tile: number): PlaceCheck => {
+  const checkPlacement = (def: BuildingDef, x: number, y: number): PlaceCheck => {
     if (!isUnlocked({ unlockAll: snap.unlockAll, done: snap.research.done }, def)) return { ok: false, reason: 'Not researched yet' };
     if (blueprintCount(snap) >= snap.buildSlots) return { ok: false, reason: 'Construction queue is full' };
-    return canPlace(snap, world.back, def, tile);
+    return canPlace({ land: snap.land, buildings: snap.buildings, origin: snap.origin.id, era: snap.era }, def, x, y);
   };
 
   const updateGhost = () => {
     if (!placing) return;
     if (!mouse || mouse.target instanceof Element && mouse.target.closest('[data-hit]')) {
-      town.hideGhost();
+      map.hideGhost();
       tip.hide();
       return;
     }
     const { def } = placing;
-    placing.tile = town.placementTile(def.layer, mouse.x, def.width);
-    placing.check = checkPlacement(def, placing.tile);
-    town.showGhost(def.id, def.layer, placing.tile, def.width, placing.check.ok);
+    const w = map.worldOf(mouse.x, mouse.y);
+    const at = map.placementCell(w.x, w.y, def.id);
+    placing.x = at.x;
+    placing.y = at.y;
+    placing.check = checkPlacement(def, at.x, at.y);
+    map.showGhost(def.id, at.x, at.y, placing.check.ok);
     canvas.style.cursor = placing.check.ok ? 'copy' : 'not-allowed';
     if (placing.check.ok) tip.hide();
     else tip.show("Can't build here", [placing.check.reason ?? ''], mouse.x, mouse.y - 16);
@@ -652,16 +689,16 @@ async function start(): Promise<void> {
     const def = BUILDING_BY_ID[defId];
     if (!def) return;
     select(null);
-    placing = { def, tile: 0, check: { ok: false } };
+    placing = { def, x: 0, y: 0, check: { ok: false } };
     banner.show(`Placing: ${def.name}`, coarse() ? 'Tap where it goes, then tap it again to build · long-press to cancel' : 'Click to place · right-click to cancel');
     refreshHover();
   };
 
   const stopPlacing = () => {
     placing = null;
-    armedTile = null;
+    armedCell = null;
     banner.hide();
-    town.hideGhost();
+    map.hideGhost();
     tip.hide();
     refreshHover();
   };
@@ -670,18 +707,20 @@ async function start(): Promise<void> {
   /* -------------------------------------------------------- clicks */
 
   /** On a touch screen the first tap only shows where the building would go; a second tap there builds it. */
-  let armedTile: number | null = null;
+  let armedCell: string | null = null;
   const click = (x: number, y: number, touch = false) => {
     if (placing) {
       updateGhost();
-      const confirmed = !touch || armedTile === placing.tile;
-      armedTile = placing.tile;
+      const key = `${placing.x},${placing.y}`;
+      const confirmed = !touch || armedCell === key;
+      armedCell = key;
       if (placing.check.ok && confirmed) {
-        bridge.command({ type: 'placeBuilding', def: placing.def.id, tile: placing.tile });
+        bridge.command({ type: 'placeBuilding', def: placing.def.id, x: placing.x, y: placing.y });
         stopPlacing();
       }
       return;
     }
+    if (battleTap(x, y)) return;
     const h = hitTest(x, y);
     // the shop or tavern (or a stranger on their way to one) opens its bird's-eye window
     const tapped = h?.kind === 'person' ? snap.travellers.find((t) => t.id === h.person.id) : undefined;
@@ -690,6 +729,7 @@ async function start(): Promise<void> {
     if (phone) return inspectTarget(h); // (the phone's top card shows it, and holds its buttons)
     if (tapped) return;
     if (h?.kind === 'pane') return bridge.openPanel('expeditions');
+    if (h?.kind === 'place') return snap.places.find((q) => q.id === h.id)?.dest ? bridge.openPanel('expeditions') : undefined;
     if (h?.kind === 'caravan') return bridge.openPanel('trade');
     if (h?.kind === 'person') {
       if (snap.visitor?.id === h.person.id) return bridge.openPanel('townsfolk');
@@ -721,10 +761,11 @@ async function start(): Promise<void> {
   window.addEventListener(
     'wheel',
     (e) => {
-      if (!hover && !placing) return;
+      if (!hover && !placing && !snap.battle) return;
       const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? window.innerWidth : 1;
-      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      camera.scrollBy(d * unit * WHEEL_SPEED);
+      // (a plain wheel scrolls the map up and down; with shift, or a sideways wheel, across)
+      if (e.shiftKey && !e.deltaX) camera.scrollBy(e.deltaY * unit * WHEEL_SPEED, 0);
+      else camera.scrollBy(e.deltaX * unit * WHEEL_SPEED, e.deltaY * unit * WHEEL_SPEED);
     },
     { passive: true },
   );
@@ -738,25 +779,28 @@ async function start(): Promise<void> {
     const [a, b] = [...touches.values()];
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
-  // (in a battle, the map has the pointer: drags scroll it along, taps place fighters and aim spells)
-  let battlePress: { x: number; y: number; id: number; moved: boolean; last: number } | null = null;
-  const battleAlong = (e: PointerEvent) => (battle.vertical ? e.clientY : e.clientX);
-  const battleTap = (x: number, y: number) => {
+  // (in a battle, taps place fighters and aim spells; drags scroll the map as ever)
+  const battleTap = (x: number, y: number): boolean => {
     const b = snap.battle;
-    if (!b) return;
+    if (!b) return false;
     if (battle.aiming) {
       const at = battle.toMap(x, y);
-      if (!at) return;
+      if (!at) return true;
       bridge.command({ type: 'battleCast', power: battle.aiming, x: at[0], y: at[1] });
       battleHud.aiming = battle.aiming = null;
       battle.lastAim = null;
       battleHud.update(b, snap.raid?.name ?? 'Raiders');
-      return;
+      return true;
     }
     const spot = battle.spotAt(x, y);
-    if (spot === null) return;
-    const on = b.units.find((u) => u.spot === spot);
     const picked = battleHud.picked;
+    if (spot === null) {
+      if (picked === null) return false;
+      battleHud.picked = battle.selectedPerson = null; // (a tap elsewhere puts them down again)
+      battleHud.update(b, snap.raid?.name ?? 'Raiders');
+      return true;
+    }
+    const on = b.units.find((u) => u.spot === spot);
     if (picked !== null) {
       // (their own spot again: off it)
       const mine = b.roster.find((r) => r.id === picked)?.spot === spot;
@@ -764,15 +808,11 @@ async function start(): Promise<void> {
       battleHud.picked = battle.selectedPerson = null;
     } else if (on?.person !== null && on?.person !== undefined) {
       battleHud.picked = battle.selectedPerson = on.person; // (pick up who's there, to move them)
-    }
+    } else return false;
     battleHud.update(b, snap.raid?.name ?? 'Raiders');
+    return true;
   };
   canvas.addEventListener('pointerdown', (e) => {
-    if (battle.shown) {
-      battlePress = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, last: battleAlong(e) };
-      canvas.setPointerCapture(e.pointerId);
-      return;
-    }
     if (e.pointerType === 'touch') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2 && bridge.pinch) {
@@ -791,41 +831,25 @@ async function start(): Promise<void> {
       refreshHover();
     }
     // (a finger can drag the town from anywhere, sky included; on the desktop the sky is click-through)
-    if ((!hover && !placing && e.pointerType === 'mouse') || e.button !== 0) return;
+    if ((!hover && !placing && !snap.battle && e.pointerType === 'mouse') || e.button !== 0) return; // (in a battle, any spot of ground may be tapped)
     press = { x: e.clientX, y: e.clientY, id: e.pointerId };
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (battle.shown) {
-      if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
-      if (!battlePress || e.pointerId !== battlePress.id) return;
-      if (Math.hypot(e.clientX - battlePress.x, e.clientY - battlePress.y) > DRAG_THRESHOLD) battlePress.moved = true;
-      if (battlePress.moved) {
-        battle.dragBy(battleAlong(e) - battlePress.last);
-        battlePress.last = battleAlong(e);
-      }
-      return;
-    }
+    if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
     if (touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pinchFrom !== null && touches.size >= 2) return bridge.pinch?.('move', Math.max(20, spread()));
     }
     if (!press || e.pointerId !== press.id) return;
-    if (!camera.dragging && Math.abs(e.clientX - press.x) >= DRAG_THRESHOLD) {
-      camera.beginDrag(press.x, e.timeStamp);
+    if (!camera.dragging && Math.hypot(e.clientX - press.x, e.clientY - press.y) >= DRAG_THRESHOLD) {
+      camera.beginDrag(press.x, press.y, e.timeStamp);
       canvas.style.cursor = 'grabbing';
       tip.hide();
     }
-    camera.dragTo(e.clientX, e.timeStamp);
+    camera.dragTo(e.clientX, e.clientY, e.timeStamp);
   });
   const release = (e: PointerEvent) => {
-    if (battle.shown || battlePress) {
-      const p = battlePress;
-      battlePress = null;
-      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-      if (p && e.pointerId === p.id && !p.moved && e.type === 'pointerup' && battle.shown) battleTap(e.clientX, e.clientY);
-      return;
-    }
     touches.delete(e.pointerId);
     if (pinchFrom !== null && touches.size < 2) {
       bridge.pinch?.('end', 0);
@@ -887,38 +911,59 @@ async function start(): Promise<void> {
 
   let lastShake: number | null = null;
   let shakeUntil = 0;
-  let lastCamp: number | null = null;
+  let lastCamp: { x: number; y: number } | null = null;
   let buildStyle = 'town';
   const applySnapshot = (next: Snapshot) => {
-    // the battle on the trail, while there is one: it takes over the strip
-    battle.update(next, buildStyle || 'town');
+    // a raid's battle, while there is one: drawn over the town's map; the camera looks to the gate as it begins
+    const begun = !!next.battle && !snap.battle;
+    battle.update(next);
     battleHud.update(next.battle, next.raid?.name ?? 'Raiders');
     battle.selectedPerson = battleHud.picked;
     battle.aiming = battleHud.aiming;
+    if (begun) {
+      const g = battle.gate();
+      if (g) camera.centreOn(g, app.screen.width, app.screen.height);
+      select(null);
+      selectPerson(null);
+    }
     // (a raid's battle comes first: watching waits behind it)
     const watched = next.battle ? null : next.watch;
     fight.update(watched, next.biome, next.calendar.season);
     fightHud.update(watched);
-    town.root.visible = !next.battle && !watched;
+    map.root.visible = !watched;
     showNotices(next);
-    const tilesChanged = next.tileRev !== snap.tileRev;
     snap = next;
     hud.update(next);
     music.update(view.music && !view.hidden, next.raid?.phase === 'active');
     const freeze = next.doom?.kind === 'deep_freeze' && next.doom.phase === 'active';
     // (on the phone, heavy cloud dims the land a little)
     const gloom = fullSky ? ({ clear: 0, cloudy: 0.04, rain: 0.12, storm: 0.22, snow: 0.05, fog: 0.08 } as const)[next.weather.kind] : 0;
-    town.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
+    map.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
+    map.smokeAmount = airFor(next.calendar.hour, next.calendar.season, next.weather.kind).smoke;
+    map.weather = next.weather.kind;
+    // the birds come down by day in fair enough weather; everyone about scares them off
+    birds.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.weather.kind !== 'snow' && !freeze;
+    birds.winter = next.calendar.season === 'winter';
+    birds.crowsOnly = buildStyle === 'lich' || buildStyle === 'vampire';
+    butterflies.on = birds.on && (next.calendar.season === 'spring' || next.calendar.season === 'summer') && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && next.biome !== 'tundra' && next.biome !== 'desert';
+    butterflies.land = next.land;
+    birds.land = next.land;
+    birds.folk = [...next.people.filter((p) => p.away === null && !p.indoors), ...next.travellers, ...(next.raid?.phase === 'active' ? next.raid.raiders : [])].map((p) => ({ x: p.x, y: p.y }));
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
     // autumn leaves on the wind, in fair weather
     leaves.on = next.calendar.season === 'autumn' && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !freeze;
     snow.heavy = freeze && !!next.doom?.cold;
     pane.setDaylight(next.calendar.daylight);
-    // (the phone page's feed borrows the town's pictures: a townsperson, or a building in the town's own style)
+    // (the phone page's feed borrows the town's pictures: a townsperson, or a building in the town's own style, as the
+    // map draws it: the pack's picture where there is one, else the top-down painter's)
+    const cardArt = (id: string) => {
+      const def = BUILDING_BY_ID[id];
+      return packArt(id, def.width, buildStyle || 'town') ?? topDownArt(id, def.width, depthOf(def), noTone, 'card', buildStyle || 'town');
+    };
     (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {
       const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
       if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
-      if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(buildingArt(h.building, noTone, 'card', undefined, buildStyle || 'town').texture, 96, 64);
+      if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
       return null;
     };
     const q = next.prompts[0];
@@ -930,7 +975,7 @@ async function start(): Promise<void> {
         // the report card's pictures: the townsperson, or the building, in the town's own style
         const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
         if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
-        if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(buildingArt(h.building, noTone, 'card', undefined, buildStyle || 'town').texture, 96, 64);
+        if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
         return null;
       });
     else awayCard.hide();
@@ -944,30 +989,26 @@ async function start(): Promise<void> {
     pane.show(view.mode === 'full' ? e : null);
     if (e && pane.visible && paneX < Infinity) expHeader.show(e, next.expeditions.length - 1, paneX, paneW);
     else expHeader.hide();
-    if (tilesChanged) town.updateTiles(next.tiles);
-    town.setSeason(next.biome, next.calendar.season); // (redraws the land when the season turns)
-    town.syncBuildings(next.buildings);
     // the buildings' style: the town's origin (and a nomad tribe's, once settled, its caravan city)
     const style = next.theme === 'nomads' && next.nomad?.settled ? 'nomads_city' : next.theme;
     if (style !== buildStyle) {
       buildStyle = style;
-      town.setBuildingStyle(buildingTint(next.theme), style);
+      map.setBuildingStyle(buildingTint(next.theme), style);
     }
-    town.syncCastle(next.castle);
-    town.syncEnclosure(next.enclosure);
-    town.herds.update(next.buildings);
-    // (a nomad tribe on the road: the view rides along with the caravan, and comes to rest at the new camp)
-    const move = next.nomad?.move;
-    if (move && move.since >= 0 && move.since <= CARAVAN_TICKS && lastCamp !== null) camera.centreOn(move.from + (move.to - move.from) * Math.min(1, move.since / CARAVAN_TICKS), app.screen.width);
-    // (and if it moved while no one was watching, say in the background, the view just goes to the new camp)
-    else if (lastCamp !== null && next.campX !== lastCamp) camera.centreOn(next.campX, app.screen.width);
-    lastCamp = next.campX;
+    map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
+    map.syncBuildings(next.buildings);
+    herds.update(next.buildings);
+    pools.sync(next.blood);
+    map.syncCastle(next.castle ?? null, next.buildings);
+    map.syncPlaces(next.places);
+    // (a nomad tribe that moved camp: the view goes to the new camp)
+    if (lastCamp !== null && (next.camp.x !== lastCamp.x || next.camp.y !== lastCamp.y)) camera.centreOn(next.camp, app.screen.width, app.screen.height);
+    lastCamp = next.camp;
     people.moon = next.moonNight;
     people.theme = next.theme;
     people.weave = next.research.done.includes('weaving');
     people.founderId = next.mainId;
     publishInspect(); // (the phone's top card keeps up with what it shows)
-    sky.update(next.calendar, next.moonPhase, next.weather);
     weather?.update(next.calendar, next.weather);
     people.revived = next.revived ? { ...next.revived, at: performance.now() } : null;
     people.fx = next.fx.map((f) => ({ ...f, at: performance.now() }));
@@ -977,8 +1018,7 @@ async function start(): Promise<void> {
       performance.now(),
     );
     raiders.update(next.raid?.phase === 'active' ? next.raid.raiders : [], performance.now());
-    animals.update(next);
-    spells.update(next, performance.now());
+    spells.update(next.spells, next.camp, performance.now());
     if (hover || placing) refreshHover(); // tooltip contents change as work progresses
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
@@ -989,38 +1029,39 @@ async function start(): Promise<void> {
   /* -------------------------------------------------------- frame loop */
 
   let viewW = 0;
+  let viewH = 0;
   app.ticker.add((ticker) => {
     const w = layoutSplit(); // the town's share of the width
     // zoomed (the strip got wider or narrower): keep the middle of the view where it was
-    if (w !== viewW) {
-      if (viewW) camera.shift((viewW - w) / 2);
+    const h = app.screen.height;
+    if (w !== viewW || h !== viewH) {
+      if (viewW) camera.shift((viewW - w) / 2, (viewH - h) / 2);
       viewW = w;
+      viewH = h;
     }
     // following someone: keep them in view (after the player has looked around a few seconds on their own)
-    const heroX = snap.hero !== null ? people.xOf(snap.hero) : null;
-    if (heroX !== null) camera.follow(heroX, w, performance.now(), FOLLOW_WAIT_MS);
-    const moving = camera.update(ticker.deltaMS / 1000, w);
-    town.setCamera(camera.x, w, app.screen.height);
+    // (in a battle, the raiders furthest along the trail)
+    const lead = battle.shown ? battle.lead() : null;
+    const hero = lead ?? (snap.hero !== null ? people.posOf(snap.hero) : null);
+    if (hero) camera.follow(hero, w, h, performance.now(), FOLLOW_WAIT_MS);
+    const moving = camera.update(ticker.deltaMS / 1000, w, h);
+    map.setCamera(camera.x, camera.y, w, h);
     // screen shake (a boss's roar or sweeping attack)
     const shaking = performance.now() < shakeUntil;
     app.stage.position.set(shaking ? Math.round((Math.random() - 0.5) * 6) : 0, shaking ? Math.round((Math.random() - 0.5) * 4) : 0);
     people.render(performance.now());
     raiders.render(performance.now());
-    animals.render(performance.now());
-    town.herds.render(performance.now(), ticker.deltaMS / 1000);
-    const walk = town.people.getGlobalPosition();
-    spells.root.position.set(walk.x - app.stage.x, walk.y - app.stage.y);
+    herds.render(performance.now(), ticker.deltaMS / 1000);
+    birds.render(ticker.deltaMS / 1000, performance.now());
+    butterflies.render(ticker.deltaMS / 1000, performance.now());
+    map.renderPlaces(performance.now());
+    map.renderAir(ticker.deltaMS / 1000);
     spells.render(performance.now());
-    town.air(ticker.deltaMS / 1000, snap.calendar.hour, snap.calendar.season, snap.weather.kind, w);
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);
-    sky.render(performance.now(), w);
     weather?.render(performance.now(), w);
     pane.render(performance.now(), ticker.deltaMS / 1000);
-    if (battle.shown) {
-      battle.resize(app.screen.width, app.screen.height, ...battleHud.insets());
-      battle.render(performance.now(), ticker.deltaMS / 1000, snap);
-    }
+    if (battle.shown) battle.render(performance.now());
     if (fight.shown) {
       fight.resize(app.screen.width, app.screen.height, ...fightHud.insets());
       fight.render(performance.now(), ticker.deltaMS / 1000);

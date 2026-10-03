@@ -23,7 +23,7 @@ test('every epic boss with a trophy has one that exists, and a lair to face it i
 
 test('in battle a dragon breathes fire on several at once, and rages below half health', () => {
   const s = plainGame('dragon');
-  const party = [0, 1, 2].map((i) => makePerson(new Rng(i + 5), 100 + i, 'hunter', 0, []));
+  const party = [0, 1, 2].map((i) => makePerson(new Rng(i + 5), 100 + i, 'hunter', { x: 0, y: 0 }, []));
   for (const p of party) {
     p.skills.melee.level = 15;
     p.gear = { weapon: 'iron_sword', body: 'chainmail' };

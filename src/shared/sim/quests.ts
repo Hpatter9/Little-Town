@@ -11,6 +11,7 @@ import { piece } from '../data/quality';
 import { QUEST_UNIQUES } from '../data/uniques';
 import { WEAPONS } from '../data/weapons';
 import { hashSeed, mixSeed, Rng } from '../rng';
+import type { Pt } from './land';
 import { addItems } from './crafting';
 import { destinationHidden, destinationUnlocked } from './expeditions';
 import { earn, makePerson, notify, type GameState, type Person } from './state';
@@ -89,14 +90,14 @@ export function questsHourly(s: GameState): void {
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** A delving party home from a dungeon they cleared: every open quest on it pays. `x`: where they came in. */
-export function questsDone(s: GameState, dungeon: string, x: number, rng: Rng): void {
+export function questsDone(s: GameState, dungeon: string, at: Pt, rng: Rng): void {
   const done = (s.quests ?? []).filter((q) => q.dungeon === dungeon);
   if (!done.length) return;
   s.quests = (s.quests ?? []).filter((q) => q.dungeon !== dungeon);
   for (const q of done) {
     switch (q.kind) {
       case 'rescue': {
-        const p = makePerson(rng, s.nextId++, rng.weighted(ARRIVING_TYPES), x, s.people.map((o) => o.name));
+        const p = makePerson(rng, s.nextId++, rng.weighted(ARRIVING_TYPES), at, s.people.map((o) => o.name));
         s.people.push(p);
         assignBeds(s);
         notify(s, `${p.name}, rescued from ${DUNGEON_BY_ID[dungeon].name}, comes home with the party and stays.`, true);
@@ -133,8 +134,8 @@ function fallenGear(_s: GameState, dungeon: string, rng: Rng): string {
 }
 
 /** Someone a delving party met who comes home with them (a rival delver won over). */
-export function joinTown(s: GameState, x: number, rng: Rng): Person {
-  const p = makePerson(rng, s.nextId++, rng.weighted(ARRIVING_TYPES), x, s.people.map((o) => o.name));
+export function joinTown(s: GameState, at: Pt, rng: Rng): Person {
+  const p = makePerson(rng, s.nextId++, rng.weighted(ARRIVING_TYPES), at, s.people.map((o) => o.name));
   s.people.push(p);
   assignBeds(s);
   return p;

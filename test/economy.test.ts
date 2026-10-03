@@ -7,16 +7,15 @@ import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
 import { appeal, roomsOf, spotFor, tavernOf } from '../src/shared/sim/shop';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
-import { type Building, type GameState } from '../src/shared/sim/state';
+import { type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { buyGear, nightOut, payWages, wageBill } from '../src/shared/sim/wages';
 import { Rng } from '../src/shared/rng';
-import { generateWorld } from '../src/shared/world';
-import { plainGame } from './helpers';
+import { plainGame, row } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 function addBuilding(s: GameState, def: string, tile: number, store = {}): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store };
   s.buildings.push(b);
   return b;
 }
@@ -103,14 +102,13 @@ test('venues start bare, and the town only commissions a furnishing it can pay f
   addBuilding(s, 'workbench', camp(s) - 4);
   addBuilding(s, 'stockpile', camp(s) - 8, { wood: 200, stone: 100, berries: 200 });
   assert.equal(appeal(shop), 0, 'bare');
-  const back = generateWorld(s.seed).back;
   s.coins = 0;
   s.tick = PLAN_TICKS * 40;
-  runPlanner(s, back);
+  runPlanner(s);
   assert.ok(!s.crafting.some((o) => ITEM_BY_ID[o.item].furnish), 'no coins, no furniture');
   s.coins = 500;
   s.tick += PLAN_TICKS;
-  runPlanner(s, back);
+  runPlanner(s);
   const order = s.crafting.find((o) => ITEM_BY_ID[o.item].furnish);
   assert.ok(order, 'a furnishing commissioned');
   assert.equal(order!.for?.venue, 'shop');
@@ -144,7 +142,7 @@ test("a crafter working a commission says who it's for, who asked, and the price
 /* ------------------------------------------------------------ the tavern */
 
 test('a tavern guest used to more comfort walks out; one it suits eats, and pays', () => {
-  const sim = new Sim(plainGame('tavern-guests'));
+  const sim = new Sim(plainGame('tavern-guests-3')); // (a seed that brings a guest or two used to nothing better)
   const s = sim.state;
   s.research.done.push('barter', 'hospitality');
   const inn = addBuilding(s, 'fireside_inn', camp(s) + 3);

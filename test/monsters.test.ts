@@ -4,14 +4,14 @@ import { GUILD_THRESHOLD } from '../src/shared/data/monsters';
 import { becomeMonster, updateMonsters } from '../src/shared/sim/monsters';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
 import { startGuildRaid } from '../src/shared/sim/raids';
-import { makePerson, maxHp, type GameState, type Person } from '../src/shared/sim/state';
+import { makePerson, maxHp, type GameState, type Person, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, campPx } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 function recruit(s: GameState, type: string): Person {
-  const p = makePerson(new Rng(s.nextId), s.nextId++, type, (camp(s) + 1) * 32, s.people.map((q) => q.name));
+  const p = makePerson(new Rng(s.nextId), s.nextId++, type, { x: (camp(s) + 1) * 32, y: campPx(s).y }, s.people.map((q) => q.name));
   p.traits = [];
   s.people.push(p);
   return p;

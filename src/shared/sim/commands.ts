@@ -16,10 +16,10 @@ export type Command =
   | { type: 'setPaused'; paused: boolean }
   /** Where the self-running town puts its effort. */
   | { type: 'setDirection'; direction: Direction }
-  /** Mark a wild tile for gathering (clearing it), or unmark it. */
-  | { type: 'toggleGather'; tile: number }
-  /** Place a blueprint with its left edge on `tile` of the building's layer. */
-  | { type: 'placeBuilding'; def: string; tile: number }
+  /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
+  | { type: 'toggleGather'; cell: number }
+  /** Place a blueprint with its top-left cell at (x, y). */
+  | { type: 'placeBuilding'; def: string; x: number; y: number }
   /** Cancel a blueprint or demolish a finished building. */
   | { type: 'demolish'; building: number }
   /** Throw out everything of one material held in a storage building (to make room). */
@@ -100,9 +100,9 @@ export function parseCommand(raw: unknown): Command | null {
     case 'setDirection':
       return DIRECTIONS.includes(c.direction as Direction) ? { type: 'setDirection', direction: c.direction as Direction } : null;
     case 'toggleGather':
-      return Number.isInteger(c.tile) ? { type: 'toggleGather', tile: c.tile as number } : null;
+      return Number.isInteger(c.cell) ? { type: 'toggleGather', cell: c.cell as number } : null;
     case 'placeBuilding':
-      return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && Number.isInteger(c.tile) ? { type: 'placeBuilding', def: c.def, tile: c.tile as number } : null;
+      return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && Number.isInteger(c.x) && Number.isInteger(c.y) ? { type: 'placeBuilding', def: c.def, x: c.x as number, y: c.y as number } : null;
     case 'demolish':
       return Number.isInteger(c.building) ? { type: 'demolish', building: c.building as number } : null;
     case 'turnPerson':
@@ -132,7 +132,7 @@ export function parseCommand(raw: unknown): Command | null {
     case 'sendParty':
       return typeof c.dest === 'string' && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendParty', dest: c.dest, stakes: c.stakes } : null;
     case 'sendExpedition': {
-      if (typeof c.dest !== 'string' || !DESTINATION_BY_ID[c.dest] || !Array.isArray(c.members) || !c.members.every(Number.isInteger)) return null;
+      if (typeof c.dest !== 'string' || !(DESTINATION_BY_ID[c.dest] || c.dest.startsWith('place:')) || !Array.isArray(c.members) || !c.members.every(Number.isInteger)) return null;
       const stance = (typeof c.stance === 'string' && c.stance in STANCES ? c.stance : 'balanced') as Stance;
       const roles: Record<number, Role> = {};
       if (c.roles && typeof c.roles === 'object') {

@@ -5,15 +5,14 @@ import { CROPS, SOIL } from '../src/shared/data/crops';
 import { totalStock } from '../src/shared/sim/buildings';
 import { fieldToWork, ripensInTime, tendFields, workField } from '../src/shared/sim/farming';
 import type { Rng } from '../src/shared/rng';
-import { type Building, type GameState } from '../src/shared/sim/state';
+import { type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { calendar, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { plainGame } from './helpers';
+import { plainGame, row, clearAround } from './helpers';
 import { runPlanner, PLAN_TICKS } from '../src/shared/sim/planner';
-import { generateWorld } from '../src/shared/world';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 function field(s: GameState, def: string, at = 2): Building {
-  const b: Building = { id: s.nextId++, def, tile: camp(s) + at, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile: camp(s) + at, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 }
@@ -132,13 +131,13 @@ test('two garden plots side by side, lying fallow, are ploughed into one open fi
   s.autopilot = true;
   s.research.done.push('early_agriculture', 'woodcutting', 'ard_plough');
   s.buildings.find((b) => b.def === 'campfire')!.store = { wood: 60, fiber: 30, grain: 200 };
-  const world = generateWorld(s.seed);
+  clearAround(s, 12);
   const a = field(s, 'garden_plot', 2);
   const b = field(s, 'garden_plot', 6);
   a.crop = { stage: 'fallow', growth: 0, work: 0, soil: 0.8 };
   b.crop = { stage: 'fallow', growth: 0, work: 0, soil: 0.6 };
   s.tick = tickAt('winter', 1, 8) - (tickAt('winter', 1, 8) % PLAN_TICKS) + PLAN_TICKS;
-  runPlanner(s, world.back);
+  runPlanner(s);
   assert.equal(a.def, 'open_field');
   assert.ok(!s.buildings.includes(b), 'the neighbour was taken in');
   assert.equal(a.crop?.soil, 0.6);

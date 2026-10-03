@@ -5,7 +5,6 @@ import { answerRite, LICH_YES, offerLichRite, watchLich } from '../src/shared/si
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { newGame } from '../src/shared/sim/state';
-import { generateWorld } from '../src/shared/world';
 import { plainGame } from './helpers';
 
 test('Lichcraft learned: the founder is offered the rite, and the offer stays open on the Plan tab if put off', () => {
@@ -28,7 +27,7 @@ test('chosen: the town builds the phylactery first; once it stands the founder i
   assert.ok(s.lichChosen);
   assert.equal(snapshot(s).lichOffer, false, 'no longer on offer');
   s.tick = PLAN_TICKS * 10;
-  runPlanner(s, generateWorld(s.seed).back);
+  runPlanner(s);
   const phylactery = s.buildings.find((b) => b.def === 'phylactery');
   assert.ok(phylactery, s.buildings.map((b) => b.def).join(','));
   assert.match(s.plan!.build!.why, /soul/);

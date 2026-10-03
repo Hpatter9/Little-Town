@@ -1,55 +1,63 @@
-// Building rules shared by the sim and the renderer (the placement ghost uses canPlace too).
+// Building rules shared by the sim and the renderer. Every building stands on a footprint of the land's cells
+// (sim/land.ts): `tile` by `row` is its top-left cell, its def's `width` by `depthOf(def)` cells. Its door is the
+// middle of its front (bottom) edge: that's where workers stand, and a road is laid from it to the nearest road (or
+// the camp) when it's placed, so the town grows along its roads.
 
-import { castleOn, inKeep } from './castle';
-import { BACK_PAD_TILES, TILE } from '../constants';
+import { castleCells, castleGate, castleOn, joinsCastle, nearCastle, roomKind } from './castle';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
 import { MAX_POTS, POT_STORAGE } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
-import type { BackTerrain } from '../world';
+import { CROPS } from '../data/crops';
+import { HERDS } from '../data/livestock';
+import { buildable, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect } from './land';
 import { modifiers } from './research';
-import { addStock, notify, poolSize, type Building, type GameState, type TileState } from './state';
-
-/** Background terrain a background building can go on. */
-const BACK_BUILDABLE: ReadonlySet<BackTerrain> = new Set(['meadow', 'fertile']);
-/** Background wilds that are cleared along with the land in front of them (a river never is). */
-const BACK_CLEARABLE: ReadonlySet<BackTerrain> = new Set(['forest', 'hills', 'marsh']);
-
-/** The background column behind tile t as it is now: its forest, hills or marsh are gone once the land in front of it
- *  has been cleared (the town clears outward, the fields behind it too). */
-export function backNow(back: readonly BackTerrain[], tiles: readonly Pick<TileState, 'terrain'>[], t: number): BackTerrain | 'cleared' {
-  const kind = back[t + BACK_PAD_TILES];
-  return BACK_CLEARABLE.has(kind) && tiles[t]?.terrain === 'clear' ? 'cleared' : kind;
-}
-
-/** Whether a background building can stand behind tile t. */
-export const backOpen = (back: readonly BackTerrain[], tiles: readonly Pick<TileState, 'terrain'>[], t: number) => {
-  const k = backNow(back, tiles, t);
-  return k === 'cleared' || BACK_BUILDABLE.has(k);
-};
-
-/** A town walled at both ends: the span between its outermost finished walls, and the best wall kind among them (for
- *  the far wall drawn round it), or null. */
-export function enclosure(s: GameState): { lo: number; hi: number; wall: string } | null {
-  // (a nomad camp's wagon circle doesn't count: it's drawn up only while raiders are about)
-  const isWall = (d: BuildingDef | undefined) => !!d && !!d.hp && d.width === 1 && !d.defense && !d.never;
-  const town = s.buildings.filter((b) => defOf(b)?.layer !== 'back' && !isWall(defOf(b)) && !defOf(b)?.never);
-  const walls = s.buildings.filter((b) => b.status === 'done' && isWall(defOf(b)));
-  if (!town.length || walls.length < 2) return null;
-  const lo = Math.min(...town.map((b) => b.tile));
-  const hi = Math.max(...town.map((b) => b.tile + defOf(b).width));
-  const left = walls.filter((w) => w.tile < lo).sort((a, b) => a.tile - b.tile)[0];
-  const right = walls.filter((w) => w.tile >= hi).sort((a, b) => b.tile - a.tile)[0];
-  if (!left || !right) return null;
-  const best = [left, right].map(defOf).sort((a, b) => (a.hp ?? 0) - (b.hp ?? 0))[0]; // (the weaker end is what it's walled with)
-  return { lo: left.tile, hi: right.tile + 1, wall: best.id };
-}
+import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
 
 export const defOf = (b: { def: string }): BuildingDef => BUILDING_BY_ID[b.def];
 
-/** World x of a building's centre (where workers stand). Background tiles line up with world columns. */
-export function buildingCentreX(b: { def: string; tile: number }): number {
-  return (b.tile + defOf(b).width / 2) * TILE;
+/** How many cells deep a kind of building stands: walls, traps and turrets one; small ones two; the big halls four;
+ *  fields and pens as wide as they are long, near enough. */
+export function depthOf(def: BuildingDef): number {
+  if (def.depth) return def.depth;
+  if (def.hp && def.width <= 2 && !def.housing) return 1; // (walls and gates)
+  if (def.defense && def.width === 1) return 1;
+  if (CROPS[def.id] || HERDS[def.id]) return Math.max(2, Math.min(4, Math.round(def.width * 0.6)));
+  return def.width <= 3 ? 2 : def.width <= 5 ? 3 : 4;
+}
+
+/** A building's footprint on the land, in cells. */
+export const footprint = (b: Pick<Building, 'def' | 'tile' | 'row'>): Rect => ({ x: b.tile, y: b.row, w: defOf(b).width, h: depthOf(defOf(b)) });
+/** Every building's footprint (but `except`'s). */
+export const footprints = (s: Pick<GameState, 'buildings'>, except?: Building): Rect[] => s.buildings.filter((b) => b !== except).map(footprint);
+/** Whether a cell is under a building. */
+export const builtOn = (s: Pick<GameState, 'buildings'>, x: number, y: number): Building | undefined => s.buildings.find((b) => inRect(footprint(b), x, y));
+
+/** The cell in front of a building's door, and the same in world px (where workers and callers stand). A castle's
+ *  room has no door cell outside: people walk in, and stand in its middle. */
+export function doorCell(b: Pick<Building, 'def' | 'tile' | 'row'> & { room?: boolean }): Pt {
+  const r = footprint(b);
+  return b.room ? { x: r.x + Math.floor(r.w / 2), y: r.y + Math.floor(r.h / 2) } : doorOf(r);
+}
+export function buildingDoor(b: Pick<Building, 'def' | 'tile' | 'row'> & { room?: boolean }): Pt {
+  const d = doorCell(b);
+  return { x: (d.x + 0.5) * CELL, y: (d.y + 0.5) * CELL };
+}
+/** The building's middle, in world px. */
+export function buildingCentre(b: Pick<Building, 'def' | 'tile' | 'row'>): Pt {
+  const r = footprint(b);
+  return { x: (r.x + r.w / 2) * CELL, y: (r.y + r.h / 2) * CELL };
+}
+/** World x of a building's middle. */
+export function buildingCentreX(b: Pick<Building, 'def' | 'tile' | 'row'>): number {
+  return buildingCentre(b).x;
+}
+/** How far a point is from the nearest edge of a building (px; 0 inside). */
+export function distToBuilding(b: Pick<Building, 'def' | 'tile' | 'row'>, p: Pt): number {
+  const r = footprint(b);
+  const dx = Math.max(r.x * CELL - p.x, 0, p.x - (r.x + r.w) * CELL);
+  const dy = Math.max(r.y * CELL - p.y, 0, p.y - (r.y + r.h) * CELL);
+  return Math.hypot(dx, dy);
 }
 
 /** Whether a building can be placed: its research is done (or the debug unlock is on). */
@@ -58,6 +66,23 @@ export function isUnlocked(u: { unlockAll: boolean; done: readonly string[] }, d
 }
 
 export const unlockInfo = (s: GameState) => ({ unlockAll: s.cheats.unlockAll, done: s.research.done });
+
+/** The town's reach: the furthest any of its buildings (fields too) stands from the camp, in cells (chessboard), at
+ *  least the camp's own ground. */
+export function townRadius(s: Pick<GameState, 'buildings' | 'land' | 'nomad'>): number {
+  const c = campCell(s);
+  let r = 3;
+  for (const b of s.buildings) {
+    const f = footprint(b);
+    r = Math.max(r, Math.abs(f.x - c.x), Math.abs(f.x + f.w - 1 - c.x), Math.abs(f.y - c.y), Math.abs(f.y + f.h - 1 - c.y));
+  }
+  return r;
+}
+
+/** A town walled all round: the walls' kind, or null. (Walls stand on a ring now; a full ring is a later phase.) */
+export function enclosure(_s: GameState): { lo: number; hi: number; wall: string } | null {
+  return null;
+}
 
 /* ------------------------------------------------------------ storage */
 
@@ -89,10 +114,11 @@ export function totalCapacity(s: GameState): number {
   return storages(s).reduce((n, b) => n + storageCapacity(s, b), 0);
 }
 
-/** Put materials into storage, nearest to x first. Returns what didn't fit. */
-export function depositNear(s: GameState, x: number, stock: Stock): Stock {
+/** Put materials into storage, nearest to a point first (an x alone: on the camp's row). Returns what didn't fit. */
+export function depositNear(s: GameState, at: Pt | number, stock: Stock): Stock {
+  const p: Pt = typeof at === 'number' ? { x: at, y: campXY(s).y } : at;
   const left: Stock = { ...stock };
-  const byDistance = storages(s).sort((a, b) => Math.abs(buildingCentreX(a) - x) - Math.abs(buildingCentreX(b) - x));
+  const byDistance = storages(s).sort((a, b) => dist(buildingDoor(a), p) - dist(buildingDoor(b), p));
   for (const st of byDistance) {
     for (const m of MATERIALS) {
       const n = Math.min(left[m] ?? 0, storageFree(s, st));
@@ -137,43 +163,98 @@ export interface PlaceCheck {
   reason?: string;
 }
 
-/** Whether `def` fits with its left edge on `tile` (terrain, bounds, overlap), on a castle floor (0: the ground). */
-export function canPlace(
-  view: { tiles: readonly Pick<TileState, 'terrain'>[]; buildings: readonly Pick<Building, 'def' | 'tile' | 'floor'>[] },
-  back: readonly BackTerrain[],
-  def: BuildingDef,
-  tile: number,
-  floor = 0,
-): PlaceCheck {
-  if (tile < 0 || tile + def.width > view.tiles.length) return { ok: false, reason: 'Outside the town' };
-  for (let t = tile; t < tile + def.width; t++) {
-    if (def.layer === 'back') {
-      if (!backOpen(back, view.tiles, t)) return { ok: false, reason: back[t + BACK_PAD_TILES] === 'river' ? 'The river runs here' : 'Clear the land in front of it first' };
-    } else if (view.tiles[t].terrain !== 'clear') {
-      return { ok: false, reason: 'Clear the land first' };
+/** Whether `def` fits with its top-left cell at (x, y): on open, buildable ground, over no road, clear of every other
+ *  building (but `except`); a castle's rooms built on to the castle (over a road if need be: the floor covers it), and
+ *  all else a cell clear of it. */
+export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'>, def: BuildingDef, x: number, y: number, except?: Building): PlaceCheck {
+  const r: Rect = { x, y, w: def.width, h: depthOf(def) };
+  const m = s.land;
+  const room = castleOn(s) && roomKind(s, def);
+  for (let cy = r.y; cy < r.y + r.h; cy++)
+    for (let cx = r.x; cx < r.x + r.w; cx++) {
+      if (!inMap(m, cx, cy)) return { ok: false, reason: 'Off the map' };
+      if (Math.hypot(cx - m.camp.x, cy - m.camp.y) > m.open) return { ok: false, reason: 'Beyond the known land' };
+      const g = groundAt(m, cx, cy);
+      if (g === 'water') return { ok: false, reason: 'Water runs here' };
+      if (!buildable(g)) return { ok: false, reason: 'Clear the land first' };
+      if (!room && isRoad(m, cx, cy)) return { ok: false, reason: 'A road runs here' };
     }
+  for (const b of s.buildings) {
+    if (b === except) continue;
+    if (overlaps(footprint(b), r)) return { ok: false, reason: `Overlaps ${defOf(b).name}` };
   }
-  for (const b of view.buildings) {
-    const d = defOf(b);
-    if (d.layer === def.layer && (b.floor ?? 0) === floor && b.tile < tile + def.width && tile < b.tile + d.width) return { ok: false, reason: `Overlaps ${d.name}` };
+  if (castleOn(s)) {
+    const cells = castleCells(s);
+    if (room && !joinsCastle(cells, m, r)) return { ok: false, reason: 'A room is built on to the castle' };
+    if (!room && nearCastle(cells, m, r)) return { ok: false, reason: "The castle's ground" };
   }
   return { ok: true };
 }
 
-/** Place a blueprint (a castle's room: on a floor). Returns the reason on failure. */
-export function placeBlueprint(s: GameState, back: readonly BackTerrain[], defId: string, tile: number, room?: { floor: number }): PlaceCheck {
+/** Whether `def` fits at (x, y) given the land and footprints alone (the renderer's placement ghost). */
+export const fitsAt = (m: LandMap, taken: readonly Rect[], def: BuildingDef, x: number, y: number) => fits(m, { x, y, w: def.width, h: depthOf(def) }, taken);
+
+/** Place a blueprint with its top-left cell at (x, y). Returns the reason on failure. A road is laid to its door. */
+export function placeBlueprint(s: GameState, defId: string, x: number, y: number): PlaceCheck {
   const def = BUILDING_BY_ID[defId];
   if (!def || def.never) return { ok: false, reason: 'Unknown building' };
   if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: 'Not researched yet' };
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
-  const check = canPlace(s, back, def, tile, room?.floor ?? 0);
+  const check = canPlace(s, def, x, y);
   if (!check.ok) return check;
-  s.buildings.push({ id: s.nextId++, def: defId, tile, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(room ? { room: true, floor: room.floor } : {}) });
+  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}) };
+  s.buildings.push(b);
+  if (b.room) {
+    // (no roads inside the castle: a road that ran where the room now stands is taken up)
+    const f = footprint(b);
+    for (let cy = f.y; cy < f.y + f.h; cy++) for (let cx = f.x; cx < f.x + f.w; cx++) unsetRoad(s.land, cx, cy);
+  } else connectRoad(s, b);
   return { ok: true };
 }
 
-/** Whether a finished building can be upgraded in place now, and to what. */
-export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: number, absorb?: number): PlaceCheck & { to?: string; tile?: number } {
+/** Kinds that get no road of their own (the road runs past the fields, not into them). */
+const NO_ROAD = (def: BuildingDef) => !!CROPS[def.id] || !!HERDS[def.id] || (!!def.hp && !def.housing) || !!def.defense || def.id === 'campfire';
+
+/** Lay a road from a building's door to the nearest road, or to the camp (the first road of all runs to the fire):
+ *  the cheapest way over open buildable ground, round every footprint. Up to `ROAD_REACH` cells. */
+export const ROAD_REACH = 40;
+export function connectRoad(s: GameState, b: Building): void {
+  if (NO_ROAD(defOf(b))) return;
+  const m = s.land;
+  const from = doorCell(b);
+  if (!inMap(m, from.x, from.y)) return;
+  // the nearest road cell (or the camp's own ground when there's none yet)
+  let to: Pt | null = null;
+  let best = Infinity;
+  for (let i = 0; i < m.roads.length; i++) {
+    if (m.roads[i] !== '#') continue;
+    const c = { x: i % m.w, y: Math.floor(i / m.w) };
+    const d = Math.abs(c.x - from.x) + Math.abs(c.y - from.y);
+    if (d < best) {
+      best = d;
+      to = c;
+    }
+  }
+  const castle = castleOn(s) ? castleCells(s) : null;
+  if (!to) {
+    const camp = campCell(s);
+    to = castle ? castleGate(s) : { x: camp.x, y: camp.y + 1 }; // (the ground in front of the fire, or the castle's gate)
+  }
+  if (to.x === from.x && to.y === from.y) {
+    setRoad(m, from.x, from.y);
+    return;
+  }
+  // (a road goes only over buildable ground, never through a building, and doesn't bridge water on its own)
+  const blocked = (x: number, y: number) => !buildable(groundAt(m, x, y)) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
+  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y), 6000);
+  if (!path || path.length > ROAD_REACH) return;
+  setRoad(m, from.x, from.y);
+  for (const c of path) if (!builtOn(s, c.x, c.y) && buildable(groundAt(m, c.x, c.y))) setRoad(m, c.x, c.y);
+}
+
+/** Whether a finished building can be upgraded in place now, and to what. A bigger upgrade keeps its top-left where
+ *  it can, else shifts left or up to make room. */
+export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceCheck & { to?: string; tile?: number; row?: number } {
   const b = s.buildings.find((q) => q.id === id);
   const to = b && UPGRADES[b.def];
   if (!b || !to || b.status !== 'done') return { ok: false, reason: 'Nothing to upgrade to' };
@@ -181,16 +262,19 @@ export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: numbe
   if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: `Needs research: ${TOPIC_BY_ID[def.research!]?.name ?? def.research}`, to };
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full', to };
   if (b.fire !== undefined) return { ok: false, reason: 'It is on fire', to };
-  // it may grow: keep its left edge if there's room, else grow to the left
   // (absorbing a neighbour: it's pulled down to make room, so it doesn't count as in the way)
-  const others = { tiles: s.tiles, buildings: s.buildings.filter((q) => q !== b && q.id !== absorb) };
-  const grow = def.width - defOf(b).width;
-  for (const tile of grow > 0 ? [b.tile, b.tile - grow] : [b.tile]) {
-    // (a castle's room grows within the keep)
-    if (b.room && ((b.floor ?? 0) > 0 || castleOn(s))) {
-      if (!inKeep(s, tile, def.width, b.floor ?? 0)) continue;
-    }
-    if (canPlace(others, back, def, tile, b.floor ?? 0).ok) return { ok: true, to, tile };
+  const merged = absorb === undefined ? undefined : s.buildings.find((q) => q.id === absorb);
+  const others = { ...s, buildings: s.buildings.filter((q) => q !== b && q !== merged) };
+  const growW = def.width - defOf(b).width;
+  const growH = depthOf(def) - depthOf(defOf(b));
+  // (the road at its door is in the way of growing downward, so it grows up and left first)
+  const spots: Pt[] = [];
+  for (const dy of growH > 0 ? [-growH, 0] : [0]) for (const dx of growW > 0 ? [0, -growW, -Math.ceil(growW / 2)] : [0]) spots.push({ x: b.tile + dx, y: b.row + dy });
+  // (and over the neighbour it swallows, whichever side it stands)
+  if (merged) spots.push({ x: Math.min(b.tile, merged.tile), y: Math.min(b.row, merged.row) });
+  for (const p of spots) {
+    const ok = canPlace(others, def, p.x, p.y);
+    if (ok.ok) return { ok: true, to, tile: p.x, row: p.y };
   }
   return { ok: false, reason: `No room for the ${def.name}`, to };
 }
@@ -199,8 +283,8 @@ export function canUpgrade(s: GameState, back: readonly BackTerrain[], id: numbe
  * Rebuild a finished building as its upgrade, where it stands: half the old building's materials go into
  * the new one, and it's a blueprint (not working) until finished.
  */
-export function upgrade(s: GameState, back: readonly BackTerrain[], id: number, absorb?: number): PlaceCheck {
-  const check = canUpgrade(s, back, id, absorb);
+export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
+  const check = canUpgrade(s, id, absorb);
   if (!check.ok) return check;
   const b = s.buildings.find((q) => q.id === id)!;
   const next = BUILDING_BY_ID[check.to!];
@@ -221,16 +305,21 @@ export function upgrade(s: GameState, back: readonly BackTerrain[], id: number, 
       addStock(salvage, m, -k);
     }
   }
-  const x = buildingCentreX(b);
+  const at = buildingDoor(b);
   b.def = next.id;
   b.tile = check.tile!;
+  b.row = check.row!;
   b.status = 'blueprint';
   b.progress = 0;
   b.delivered = delivered;
   b.store = {};
   delete b.hp;
   delete b.readyTick;
-  depositNear(s, x, salvage);
+  // (a road over the new footprint is lifted; its door gets one again)
+  const f = footprint(b);
+  for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (isRoad(s.land, x, y)) setRoad(s.land, x, y, false);
+  connectRoad(s, b);
+  depositNear(s, at, salvage);
   notify(s, `Upgrading to a ${next.name}.`);
   return { ok: true };
 }
@@ -249,5 +338,11 @@ export function demolish(s: GameState, id: number): void {
     for (const m of MATERIALS) if (b.store[m]) addStock(refund, m, b.store[m]!);
   }
   s.buildings.splice(i, 1);
-  depositNear(s, buildingCentreX(b), refund);
+  depositNear(s, buildingDoor(b), refund);
+}
+
+/** The building a world point (px) is over, if any. */
+export function buildingAt(s: Pick<GameState, 'buildings'>, p: Pt): Building | undefined {
+  const c = cellOf(p);
+  return builtOn(s, c.x, c.y);
 }

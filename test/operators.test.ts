@@ -3,15 +3,15 @@ import { test } from 'node:test';
 import { TAVERN_BASE, TAVERN_PER_LEVEL } from '../src/shared/data/operators';
 import { killPerson } from '../src/shared/sim/health';
 import { Sim } from '../src/shared/sim/sim';
-import { makePerson, maxHp, type Building, type GameState, type Person } from '../src/shared/sim/state';
+import { makePerson, maxHp, type Building, type GameState, type Person, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { mood } from '../src/shared/sim/townsfolk';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row, campPx } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 function villager(s: GameState, social: number): Person {
-  const p = makePerson(new Rng(s.nextId), s.nextId++, 'wanderer', (camp(s) + 0.5) * 32, s.people.map((q) => q.name));
+  const p = makePerson(new Rng(s.nextId), s.nextId++, 'wanderer', campPx(s), s.people.map((q) => q.name));
   p.traits = [];
   p.hp = maxHp(p);
   p.skills.social.level = social;
@@ -25,7 +25,7 @@ test('the best-suited person runs the tavern, their skill sets its morale, and t
   s.people[0].skills.social.level = 1;
   const star = villager(s, 9);
   const other = villager(s, 3);
-  const tavern: Building = { id: s.nextId++, def: 'tavern', tile: camp(s) + 4, status: 'done', delivered: {}, progress: 1, store: {} };
+  const tavern: Building = { id: s.nextId++, def: 'tavern', tile: camp(s) + 4, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(tavern);
   for (let i = 0; i < TICKS_PER_HOUR; i++) sim.step();
   assert.equal(tavern.operator, star.id);

@@ -57,7 +57,7 @@ interface SheetDef {
   /** Recolour on load: green becomes red (the wyvern turned dragon). */
   redden?: boolean;
   /** An animation strip instead of facing rows: frames per row, and which frames walk and attack (it faces left). */
-  strip?: { perRow: number; walk: number[]; attack: number[]; idle: number[]; hurt?: number[]; dead?: number[] };
+  strip?: { perRow: number; walk: number[]; attack: number[]; idle: number[]; hurt?: number[]; dead?: number[]; attack2?: number[]; defend?: number[] };
   /** (strips face left unless this says otherwise) */
   facesRight?: boolean;
   /** Where the art starts, as a share of the frame's height from the top (for placing health bars over small
@@ -82,7 +82,7 @@ const PACK_DEFS = Object.fromEntries(
       h: p.h,
       blocksAcross: 1,
       facesRight: p.facesRight,
-      strip: { perRow: p.perRow, walk: row('walk')!, attack: row('attack')!, idle: row('idle')!, hurt: row('hurt'), dead: row('dead') },
+      strip: { perRow: p.perRow, walk: row('walk')!, attack: row('attack')!, idle: row('idle')!, hurt: row('hurt'), dead: row('dead'), attack2: row('attack2'), defend: row('defend') },
     };
     return [id, def];
   }),
@@ -195,7 +195,12 @@ export const creatureFlip = (sheet: CreatureSheet, facing: 'left' | 'right') => 
  * One frame of a creature, facing left or right. `frame` counts walk frames (0, 1, 2, ...); pass `attack`
  * for an attack pose on sheets that have one.
  */
-export function creatureFrame(sheet: CreatureSheet, block: number, facing: 'left' | 'right', frame: number, attack = false, pose?: 'idle' | 'hurt' | 'dead'): Texture {
+/** A pack sheet's rows besides walking and attacking (the heroes have a second attack and a guard too). */
+export type CreaturePose = 'idle' | 'hurt' | 'dead' | 'attack2' | 'defend';
+/** How many frames a sheet's row has (0: it has no such row). */
+export const creaturePoseFrames = (sheet: CreatureSheet, pose: CreaturePose | 'walk' | 'attack'): number => SHEETS[sheet].strip?.[pose]?.length ?? 0;
+
+export function creatureFrame(sheet: CreatureSheet, block: number, facing: 'left' | 'right', frame: number, attack = false, pose?: CreaturePose): Texture {
   const def = SHEETS[sheet];
   // (frame numbers keep counting up; wrap them before caching)
   const posed = pose && def.strip?.[pose];

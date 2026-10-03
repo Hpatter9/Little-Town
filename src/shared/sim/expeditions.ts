@@ -48,9 +48,12 @@ import { checkBleeding, killPerson, knockDown, stabilize } from './health';
 import { rollRoadEvent } from './roadEvents';
 import { prereqsMet } from './research';
 import { occultRevealed, revealOccult } from './occult';
+import type { Pt } from './land';
+import { isPlaceDest } from '../data/places';
+import { placeCleared, placeDestination, placeOfDest } from './places';
 import { addStock, carryCapacity, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
-import { assignBeds, campEdgeX, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
+import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
 /** XP per unit of loot brought in, and per attack made in a fight. */
 const LOOT_XP = 10;
@@ -67,7 +70,21 @@ const STRANGE_TOME_CHANCE = 0.35;
 /** Ammunition packed per shooter. */
 const AMMO_PER_SHOOTER = 10;
 
+/** A destination by id: the world's, or one of the places on the town's own land (sim/places.ts). */
+export function destinationOf(s: GameState, id: string): Destination | undefined {
+  if (isPlaceDest(id)) {
+    const p = placeOfDest(s, id);
+    return p ? placeDestination(s, p) : undefined;
+  }
+  return DESTINATION_BY_ID[id];
+}
+
 export function destinationUnlocked(s: GameState, d: Destination): boolean {
+  // (a place on the town's land: while it's found and waiting)
+  if (isPlaceDest(d.id)) {
+    const p = placeOfDest(s, d.id);
+    return !!p && p.found !== null && p.state === 'waiting';
+  }
   // (a dungeon lies quiet a while after it's cleared)
   if (d.type === 'delve' && quietHours(s, d.id) > 0) return false;
   if (s.cheats.unlockAll) return !destinationHidden(s, d.id);
@@ -114,12 +131,12 @@ export interface SendCheck {
 }
 
 export function canSend(s: GameState, destId: string, memberIds: readonly number[]): SendCheck {
-  const d = DESTINATION_BY_ID[destId];
+  const d = destinationOf(s, destId);
   if (!d) return { ok: false, reason: 'Unknown destination' };
   if (!destinationUnlocked(s, d)) return { ok: false, reason: 'Not discovered yet' };
   if (s.expeditions.length >= MAX_EXPEDITIONS) return { ok: false, reason: `At most ${MAX_EXPEDITIONS} expeditions at once` };
   if (memberIds.length < 1) return { ok: false, reason: 'Pick someone to go' };
-  const most = d.type === 'delve' ? MAX_DELVERS : MAX_PARTY;
+  const most = d.type === 'delve' || isPlaceDest(d.id) ? MAX_DELVERS : MAX_PARTY;
   if (memberIds.length > most) return { ok: false, reason: `Parties are at most ${most} people` };
   if (new Set(memberIds).size !== memberIds.length) return { ok: false, reason: 'Someone is listed twice' };
   for (const id of memberIds) {
@@ -147,7 +164,7 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     const t = truckReady(s);
     if (!t.ok) return t;
   }
-  const d = DESTINATION_BY_ID[destId];
+  const d = destinationOf(s, destId)!;
   const members = memberIds.map((id) => s.people.find((p) => p.id === id)!);
 
   // Drop off what they're carrying, then pack food for the trip.
@@ -275,7 +292,7 @@ const KEEP_HOME = 0.5;
 /** The town plans a party for a destination: who goes (the fittest, best at what the trip needs, leaving enough at
  *  home), in what role, and the horses and truck it can spare. */
 export function planParty(s: GameState, destId: string): { members: number[]; roles: Record<number, Role>; horses: number; truck: boolean } {
-  const d = DESTINATION_BY_ID[destId];
+  const d = destinationOf(s, destId)!;
   const able = s.people.filter((p) => p.away === null && !p.downed && !isChild(p) && !p.sick && p.hp >= maxHp(p) * 0.6);
   const room = Math.max(1, Math.min(MAX_PARTY, d?.recommendedParty ?? 1, able.length - Math.ceil(s.people.length * KEEP_HOME)));
   const score = (p: Person) => (d?.type === 'gather' ? p.skills.gathering.level * 2 + Math.max(p.skills.melee.level, p.skills.ranged.level) : Math.max(p.skills.melee.level, p.skills.ranged.level) * 2 + p.hp / 20);
@@ -303,8 +320,9 @@ export function rolesFor(members: Person[], d: Destination | undefined): Record<
 
 /** Send a delving party the player picked (who goes is theirs to choose; the town sets the roles), at the stakes chosen. */
 export function sendDelve(s: GameState, destId: string, memberIds: readonly number[], stakes: Stakes): SendCheck {
-  const d = DESTINATION_BY_ID[destId];
-  if (d?.type !== 'delve') return { ok: false, reason: 'Not a dungeon' };
+  const d = destinationOf(s, destId);
+  // (a dungeon, or a fight at one of the places on the town's land: the player picks who goes)
+  if (d?.type !== 'delve' && !(d && isPlaceDest(d.id))) return { ok: false, reason: 'Not a dungeon' };
   const members = memberIds.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
   const plan = planParty(s, destId);
   const r = sendExpedition(s, destId, members.map((p) => p.id), rolesFor(members, d), STAKES[stakes].stance, Math.min(plan.horses, members.length), plan.truck);
@@ -329,7 +347,7 @@ const medicUp = (e: Expedition, members: Person[]) => members.some((p) => e.role
 export function updateExpeditions(s: GameState, rng: Rng): void {
   for (const e of [...s.expeditions]) {
     if (s.gameOver) return;
-    const d = DESTINATION_BY_ID[e.dest];
+    const d = destinationOf(s, e.dest)!;
     let members = membersOf(s, e);
     for (const p of members) {
       // On the road they rest when they can; food comes out of the packs.
@@ -473,7 +491,10 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
         taken += Math.max(0, k);
       }
       notify(s, `${The(d.name)} party won the fight${taken ? ` and took ${listStock(drops)}` : ''}.`);
-      if (d.type === 'clear' && e.phase === 'work') e.cleared = true;
+      if (d.type === 'clear' && e.phase === 'work') {
+        e.cleared = true;
+        placeCleared(s, e.dest, e.loot, rng); // (a place on the town's land: its hoard too)
+      }
       break;
     }
     case 'retreated':
@@ -528,7 +549,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   if (e.horses?.length) s.horses.push(...e.horses);
   if (e.truck) s.items.truck = (s.items.truck ?? 0) + 1;
   const side = s.destSides[d.id] ?? 1;
-  const x = campEdgeX(s, side);
+  const at = campEdge(s, side);
   // Share out the loot and leftover food; they'll haul it to storage like anything else.
   const haul: Stock = { ...e.loot };
   for (const m of MATERIALS) if (e.supplies[m]) addStock(haul, m, e.supplies[m]!);
@@ -536,7 +557,8 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   const each = bearers.length ? Math.ceil(poolSize(haul) / bearers.length) : 0;
   for (const [i, p] of members.entries()) {
     p.away = null;
-    p.x = x - side * i * 20;
+    p.x = at.x - side * i * 20;
+    p.y = at.y;
     p.dir = side > 0 ? -1 : 1;
     p.task = null;
     p.activity = 'idle';
@@ -550,15 +572,15 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
       }
     }
   }
-  if (poolSize(haul)) depositNear(s, x, haul); // nobody to carry it: dropped at the nearest store
+  if (poolSize(haul)) depositNear(s, at, haul); // nobody to carry it: dropped at the nearest store
   if (!s.scouted.includes(d.id)) s.scouted.push(d.id);
   const mapped = regionScouted(d.id);
   if (mapped && !e.recalled) mapRegion(s, mapped);
   const found = listStock(e.loot);
   notify(s, `${The(d.name)} party is back${e.recalled ? ' (recalled)' : ''}: ${found || 'empty-handed'}.`, true);
-  if (!e.recalled) specialOutcome(s, e, d, x, rng);
+  if (!e.recalled) specialOutcome(s, e, d, at, rng);
   // (a delve: quests on a cleared dungeon, and a rival won over)
-  delveHome(s, e, rng, { quests: (id) => questsDone(s, id, x, rng), join: () => joinTown(s, x, rng) });
+  delveHome(s, e, rng, { quests: (id) => questsDone(s, id, at, rng), join: () => joinTown(s, at, rng) });
   if (!e.recalled) findRelic(s, e, d, rng);
 }
 
@@ -574,7 +596,7 @@ function findRelic(s: GameState, e: Expedition, d: Destination, rng: Rng): void 
 }
 
 /** What some kinds of trip bring back besides loot. */
-function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, rng: Rng): void {
+function specialOutcome(s: GameState, e: Expedition, d: Destination, at: Pt, rng: Rng): void {
   switch (d.type) {
     case 'clear':
       if (!e.cleared) return;
@@ -583,7 +605,8 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, 
       if (s.captives.length) {
         const freed = s.captives.splice(0);
         for (const p of freed) {
-          p.x = x;
+          p.x = at.x;
+          p.y = at.y;
           p.away = null;
           p.task = null;
           s.people.push(p);
@@ -612,7 +635,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, x: number, 
       const joined: Person[] = [];
       for (let i = 0; i < n; i++) {
         const type = rng.weighted(ARRIVING_TYPES);
-        const p = makePerson(rng, s.nextId++, type, x, s.people.map((q) => q.name));
+        const p = makePerson(rng, s.nextId++, type, at, s.people.map((q) => q.name));
         s.people.push(p);
         joined.push(p);
       }

@@ -39,7 +39,8 @@ and free Magic Slash Effects pack.
 
 ## Craftpix dungeon props (the watched delves)
 
-The doors, chests, gate, wall torches and braziers seen down a dungeon (`src/renderer/art/delve/`) are from
+The vampire castle's flagstone floor, its gate and the small arched door (`src/renderer/art/castle/`) are cut from the
+2D Top-Down Pixel Dungeon pack's walls-and-floor sheet. The doors, chests, gate, wall torches and braziers seen down a dungeon (`src/renderer/art/delve/`) are from
 **Craftpix.net**'s free 2D Top-Down Pixel Dungeon pack; the skull altar and the guillotine from its free Pixel Dungeon
 Props and Objects pack.
 
@@ -48,7 +49,23 @@ Props and Objects pack.
 The shop's and tavern's furnishings (shelves of jars, glass cabinets, tables, planters, crates, rugs, the counters) and
 the brick hearth's furnace (`src/renderer/art/interior/`) are from **Craftpix.net**'s free Glassblower's Workshop
 top-down pack. The raid map's cobbled trail and the pads under the shooters' spots (`src/renderer/art/td/`) are from its
-free Fields Tileset and Village Tileset for top-down tower defence.
+free Fields Tileset and Village Tileset for top-down tower defence. The Village Tileset's half-timbered houses and striped
+awnings also stand for the medieval town's cottages, row houses, inn, trading post and stalls on the town map.
+The town's roads on the map (`src/renderer/art/roads/`) are from its free Path and Road top-down pixel tileset: slabs,
+cobbles, bricks and paving by era, laid a quarter-tile at a time. The plots' soil, the pens' rail fences and the town's campfire
+(`src/renderer/art/fields/`) are from its free Fields Tileset for tower defence. The stone wall and gate, the library's bookshelves, the
+healer's bench and the workbench on the town map are cut from its free 2D Top-Down Pixel Dungeon pack and Dungeon Props
+pack (`src/renderer/art/village/dwalls.png`, `dprops.png`); the graveyard's stones from its free Undead Tileset
+(`grave*.png`). The ground's detail on the map is the Path and Road pack's ground patches (`roads/ground_grass.png`), the
+Fields Tileset's grass tufts, flowers and small stones (`fields/tuft*.png`, `flower*.png`, `pebble*.png`), and the Undead
+Tileset's water ripples, recoloured to the water (`src/renderer/art/water/ripples.png`). More of the town's buildings on the map
+are the packs' objects (`src/renderer/art/packs/`): the Village Tileset's well, carts, anvil, rack, log pile, bucket and
+trade signs and its third timber house (the workshops), the Fields Tileset's logs, crate, stump and camp tents, the
+Top-Down Cave Objects' fire pits, crystals, carved gates, skull altar, statue and totems, the Rocky Area Objects' cave
+mouths, tipis and yurts (the nomads' homes), the Dungeon Props' glass tanks, shelves, desks, chairs and benches, the
+2D Top-Down Pixel Dungeon pack's barrel and sacks, and the loose futuristic objects pack's tanks, transformer, consoles,
+server racks and screens (the later eras' plants). The liches' and vampires' land takes the Undead Tileset's dead and
+broken trees, thorns, pale weeds, bones, skull piles, rocks and crystals as its scenery (`src/renderer/art/props/undead.png`).
 
 ## Craftpix top-down objects (the raid map's scenery)
 
@@ -56,6 +73,12 @@ The trees, bushes, rocks, mushrooms, crystals, bones, idols, corals and shells s
 (`src/renderer/art/props/`, built by `tools/compose-props.cjs`) are from **Craftpix.net**'s free Tree, Bush, Rocks,
 Rocky Area Objects, Forest Objects, Top-Down Cave Objects, Top-Down Seabed Objects and Fields Tileset (tower defence)
 packs.
+
+## Craftpix trees, bushes, rocks and clouds (the town)
+
+The town's trees, bushes and rocks and the sky's clouds (`src/renderer/art/scenery/`, built by
+`tools/compose-scenery.cjs`) are from **Craftpix.net**'s free Tree Pixel Art, Bush Assets, Rocks Pixel Art and Clouds
+Pixel Art packs.
 
 ## Craftpix parallax backgrounds (the fights' backdrops)
 
@@ -70,7 +93,9 @@ and the industrial platformer pack's Day and Night backgrounds.
 
 Crafted items use icons from **DawnLike** (16x16 universal roguelike tileset) by **DragonDePlatino**, on
 **DawnBringer**'s palette, licensed **CC-BY 4.0** (`src/renderer/art/items/`, copied from
-`assets/DawnLike/Items` and `assets/DawnLike/Characters/Reptile0.png`). As the author asks, Platino is
+`assets/DawnLike/Items` and `assets/DawnLike/Characters/Reptile0.png`; the small birds about the town on the map
+are its `Characters/Avian0.png` and `Avian1.png`, five of them cut into `src/renderer/art/birds.png`, and the
+butterflies its `Pest0.png` and `Pest1.png`, two cut into `src/renderer/art/butterflies.png`). As the author asks, Platino is
 hidden somewhere in the game.
 
 ## Music
@@ -80,7 +105,8 @@ hidden somewhere in the game.
 
 ## Effects
 
-Hit sparks: **Super Pixel Effects Gigapack** — Will Tice / unTied Games (`src/renderer/art/effects/`,
+Hit sparks, and the blood (the red burst and directional splatters, `splat_*.png`, sprayed from a landing blow and left
+as a stain where someone falls): **Super Pixel Effects Gigapack** — Will Tice / unTied Games (`src/renderer/art/effects/`,
 bundled with the game as the licence allows; see http://untiedgames.com/files/license.txt).
 
 ## Horses
@@ -129,7 +155,8 @@ Horses are from **whtdragon**'s RPG Maker MV animal sprites (see Creatures above
 
 ## Terrain and scenery
 
-Terrain, trees, rocks and the campfire are placeholder pixel art drawn in code for this project.
+Terrain, the campfire and the smaller scenery (grass, flowers, stumps, ferns...) are pixel art drawn in code for this
+project; the trees, bushes, rocks and clouds drawn in code stand in until the Craftpix ones (above) have loaded.
 
 ## Rival armies and spells
 

@@ -1,3 +1,5 @@
+import { cellAt, groundAt, setGround } from '../src/shared/sim/land';
+import { row } from './helpers';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ORIGIN_DEFS, ORIGINS } from '../src/shared/data/origins';
@@ -7,7 +9,7 @@ import { castPowers, POWERS } from '../src/shared/sim/powers';
 import { ally } from '../src/shared/sim/classes';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
-import { newGame, type GameState } from '../src/shared/sim/state';
+import { newGame, type GameState, campCell } from '../src/shared/sim/state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { drainNeeds, joinOrigin, workFactor } from '../src/shared/sim/townsfolk';
 import { Rng } from '../src/shared/rng';
@@ -65,12 +67,14 @@ test('machines: they never eat or tire, nobody wanders in, and new units are ass
 test('druid: fields grow faster, and cleared forest grows back', () => {
   const sim = new Sim(newGame('druid-town', { origin: 'druid' }));
   const s = sim.state;
-  // clear every forest tile, then wait
-  const forest = s.tiles.map((t, i) => (t.terrain === 'forest' ? i : -1)).filter((i) => i >= 0);
-  for (const i of forest) s.tiles[i] = { terrain: 'clear', pool: {}, designated: false };
+  // clear every forest cell, then wait
+  for (const k of Object.keys(s.land.pools)) {
+    const c = cellAt(s.land, Number(k));
+    if (groundAt(s.land, c.x, c.y) === 'forest') setGround(s.land, c.x, c.y, 'grass');
+  }
   s.autopilot = false;
   for (let t = 0; t < TICKS_PER_DAY; t++) sim.step();
-  assert.ok(s.tiles.some((t) => t.terrain === 'forest'), 'the forest came back');
+  assert.ok(s.land.cells.includes('f'), 'the forest came back');
 });
 
 test('vampire: a vampire founder, and the town works harder by night than by day', () => {
@@ -122,7 +126,7 @@ test('dwarves make finer things than druids', () => {
     const sim = new Sim(newGame('quality-origin', { origin }));
     const s = sim.state;
     s.autopilot = false;
-    s.buildings.push({ id: s.nextId++, def: 'stockpile', tile: Math.floor(s.tiles.length / 2) + 6, status: 'done', delivered: {}, progress: 1, store: { wood: 200 } });
+    s.buildings.push({ id: s.nextId++, def: 'stockpile', tile: campCell(s).x + 6, row: row(s), status: 'done', delivered: {}, progress: 1, store: { wood: 200 } });
     for (const p of s.people) p.priorities.craft = 1;
     s.crafting.push({ id: s.nextId++, item: 'wooden_club', count: 12, delivered: {}, itemsTaken: false, progress: 0, made: 0 });
     for (let t = 0; t < 3 * TICKS_PER_DAY && s.crafting.length; t++) sim.step();

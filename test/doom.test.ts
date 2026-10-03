@@ -4,12 +4,12 @@ import { DOOMS } from '../src/shared/data/doom';
 import { doomGrowth, possibleDooms, updateDoom } from '../src/shared/sim/doom';
 import { raidBudget } from '../src/shared/sim/raids';
 import { hourlyItems } from '../src/shared/sim/crafting';
-import { makePerson, maxHp, type Building, type GameState } from '../src/shared/sim/state';
+import { makePerson, maxHp, type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row, campPx } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 /** Run the doom clock hour by hour. */
 function hours(s: GameState, n: number, rng: Rng): void {
   for (let i = 0; i < n; i++) {
@@ -31,7 +31,7 @@ test('a drought gives a day of warning, stops the fields (a well keeps them goin
   hours(s, DOOMS.drought.warnHours, rng);
   assert.equal(doom()?.phase, 'active');
   assert.equal(doomGrowth(s), 0);
-  s.buildings.push({ id: s.nextId++, def: 'well', tile: camp(s) + 3, status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+  s.buildings.push({ id: s.nextId++, def: 'well', tile: camp(s) + 3, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
   assert.ok(doomGrowth(s) > 0, 'the well helps');
   hours(s, 100, rng);
   assert.equal(s.doom, null, 'over');
@@ -42,7 +42,7 @@ test('plague spreads between people near each other, dressings shorten it, and i
   const s = plainGame('plague');
   const rng = new Rng(2);
   for (let i = 0; i < 4; i++) {
-    const p = makePerson(new Rng(i + 5), s.nextId++, 'wanderer', (camp(s) + i) * 32, s.people.map((q) => q.name));
+    const p = makePerson(new Rng(i + 5), s.nextId++, 'wanderer', { x: (camp(s) + i) * 32, y: campPx(s).y }, s.people.map((q) => q.name));
     p.traits = [];
     p.hp = maxHp(p);
     s.people.push(p);
@@ -79,7 +79,7 @@ test('later disasters come with the eras: ash winter, smog (only with smoky work
 test('ash winter stops every field (a well is no help); smog wears people down but never kills', () => {
   const s = plainGame('ash');
   const rng = new Rng(2);
-  s.buildings.push({ id: s.nextId++, def: 'well', tile: camp(s) + 3, status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+  s.buildings.push({ id: s.nextId++, def: 'well', tile: camp(s) + 3, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
   s.doom = { kind: 'ash_winter', phase: 'active', untilTick: s.tick + 10 * TICKS_PER_HOUR };
   assert.equal(doomGrowth(s), 0);
   s.doom = { kind: 'smog', phase: 'active', untilTick: s.tick + 400 * TICKS_PER_HOUR };
@@ -118,7 +118,7 @@ test('a zombie outbreak sends waves of the dead, the fallen rise, and the Abomin
   const { RAID_KIND_BY_ID } = await import('../src/shared/data/raids');
   const wave = startRaid(s, RAID_KIND_BY_ID.zombies, 30, rng);
   wave.phase = 'active';
-  const victim = makePerson(new Rng(1), s.nextId++, 'hunter', 3000, []);
+  const victim = makePerson(new Rng(1), s.nextId++, 'hunter', campPx(s), []);
   s.people.push(victim);
   const before = wave.raiders.length;
   killPerson(s, victim, 'to the dead');

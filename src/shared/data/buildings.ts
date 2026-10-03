@@ -9,8 +9,10 @@ export interface BuildingDef {
   id: string;
   name: string;
   layer: BuildLayer;
-  /** Width in tiles of its layer's grid. */
+  /** Its footprint on the land: this many cells wide, and `depth` deep (worked out from the width when left out:
+   *  sim/buildings.ts depthOf). */
   width: number;
+  depth?: number;
   cost: Stock;
   /** Base seconds of construction work (before era multiplier and worker speed). */
   buildSeconds: number;

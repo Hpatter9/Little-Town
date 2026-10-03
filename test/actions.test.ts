@@ -11,7 +11,7 @@ import { makePerson, maxHp } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
 
 const hero = (cls: (typeof CLASSES)[number], level: number, id = 1) => {
-  const p = makePerson(new Rng(id), id, 'hunter', 0, []);
+  const p = makePerson(new Rng(id), id, 'hunter', { x: 0, y: 0 }, []);
   p.cls = cls;
   p.level = level;
   p.skills.melee.level = 8;

@@ -12,6 +12,10 @@ taskbar. TypeScript + PixiJS. `DESIGN.md` is the original design, and `README.md
   (`src/shared/sim/planner.ts`). The player only sets the town's **direction** (Growth, Defence, Trade or
   Knowledge, in the Plan tab) and sends **expeditions**. Don't add chores or manual controls.
 - **Deaths should be common.** Raids, disasters and hunger are meant to bite.
+- **Use the assets, not code-drawn art.** The owner doesn't like the look of the textures and sprites the code paints.
+  From here on, wherever an uploaded asset (the packs in `../chronos-assets`) can stand in for something code-drawn,
+  use the asset: buildings, ground tiles, fields and pens, props, effects, creatures. Code-drawn art is the fallback
+  only where no pack has the thing. Prefer a pack's sprite even where its style is a little bulky.
 - **Assets.** The project is free and private, so any sprite from the asset packs may be used. Credit the source
   in `CREDITS.md`. The packs live in the private repo `hpatter9/chronos-assets` (clone it next to this one, at
   `../chronos-assets`); copy in only the individual sprites the game uses, never whole packs. Sprites the game uses
@@ -151,7 +155,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `castPowers` (the `TOUCH` table in powers.ts says what each power touches) and `rivalsInRaid`; `snapshot.spells`
   carries them; `src/renderer/town/spellsView.ts` draws them (looks per spell in `town/spellLooks.ts`: bolts,
   streams, roots, rain, fog, rings, domes, arrows, flasks...), above the day-and-night tint so they glow.
-- **The vampire castle:** `castle` in an origin's rules (the Blood Court). `src/shared/sim/castle.ts`: the keep's span
+- **The vampire castle (the old strip's; superseded by "The castle as one body of rooms" under the top-down town):**
+  `castle` in an origin's rules (the Blood Court). `src/shared/sim/castle.ts`: the keep's span
   over the camp (`castleSpan`), which buildings are rooms (`roomKind`), floors (`Building.room`/`floor`; `canPlace`
   checks overlap per floor), `openFloors`, `roomOf` (the room someone's in: `PersonView.floor`), `adoptRooms` for
   older saves. The planner's `roomSpot` fills it. Drawn by `src/renderer/art/castle.ts` (`roomArt` cutaways, `keepArt`
@@ -382,13 +387,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   part of the deterministic sim: `Raid.battle`, `Raider.bt`). `startBattle` runs when a raid turns active (`battlesOn`:
   `s.battles !== false`; the tests' `plainGame` turns it off), `stepBattle` each tick from `updateRaid`; raiders through
   the trail (`bt.out`) come on into the town as before, and the in-town loop skips the rest.
-  - The map (`layOut`): a zigzag trail (longer and bendier as the town grows, `len` 18 to 36 cells) to the gate, block
-    spots on it every 3 cells, wall spots from the town's walls (an outer line too with many), towers beside it from
-    defence buildings, traps on it, ground spots for shooters, the town's buildings along it (`decor`, drawn in its style),
-    a second trail for a raid that splits. Each origin's shape (`SHAPES`): the dwarves' rock, the merfolk's shore
-    (`water`), the nomads' wagons (wall spots), the druids' hedges (`hedges`), and a castle town's keep (`keep`: through
-    its gate and up its floors, `KEEP_BAND` cells each, a carpeted run across and the stairs at its end, murder-hole wall
-    spots on the floor above).
+  - The map (`layOut`): since the top-down town it is laid on the town's own land (see "Phase 5" under the top-down
+    town below): the trail from the fog to the gate, spots in land cells. (It was a zigzag trail on a map of its own,
+    with the town's buildings as decor and an origin's shape; that is gone.)
   - Phases: `placing` (`PLACE_TICKS`, 30 s; `battleGo` starts at once), `fighting`, `breather` between waves (bigger raids
     come in up to 4 waves of `WAVE_SIZE`), `done`. Whoever isn't placed is placed by `autoPlace` (blockers by cover,
     shooters walls first; the badly hurt kept back); `autoBattle` (`s.autoBattle`, remembered) and `Raid.alone` place
@@ -399,7 +400,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - Spells: `aimableSpells` (powers that touch foes); the player taps one and the trail (`battleCast` → `castAt`, which
     aims `foes()` through `b.aim` at `AIM_RADIUS`).
   - Mages: the class `mage` (`data/classes.ts`, research The Arcane Arts, Medieval) is not rare: one for every
-    `perPeople` (5), and the planner trains them itself (`trainMages`). They fight from range; their fire (`mageFire` in
+    `perPeople` (5), given out like every calling (`assignClass` in sim/classes.ts). They fight from range; their fire (`mageFire` in
     raids.ts, `MAGE_*` in data/raids.ts) ignores armour and bursts over those beside the target for half, in town and on
     the battle map (`MAGE_INTERVAL`, `MAGE_BURST`). Drawn as the sage sheet's blue wizard (`CLASS_LOOK` in peopleView).
   - The screen: `src/renderer/battle/battleView.ts` (`BattleScene`: the ground painted by `art/battleArt.ts`, the decor,
@@ -562,6 +563,46 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **The keep's stairs stay clear:** when a new era widens the keep, `clearStairs` (castle.ts, from era.ts) moves any
   room left standing over a stair tower to the nearest clear spot.
 
+- **Townsfolk tab: short rows, and an inspect page:** `panel/townsfolkPanel.ts`. The list is one row per person (their
+  face cropped from the composed LPC sprite, name, class and level, what they're doing, mini health and morale bars, a
+  flag for trouble); tapping a row inspects them (`inspecting`; "‹ Everyone" goes back to where the list was scrolled).
+  The inspect page has their gear laid out as in Diablo (`paperDoll`: the figure in what they wear, weapon in hand, with
+  the seven slots round it, each ringed in its grade's colour with its +N; tap a slot for its item card, `pieceCard`,
+  stats worked out at grade and +N), their bag as a grid of cells (`bag`, `stockIcon` in `art/materialIcons.ts`: every
+  material now has a picture, from DawnLike's Food/Flesh/Ammo sheets or code-drawn `mat_*` icons), how they'd fight
+  (`PersonView.battle` and `.kit`, from `personFighter` and `kitOf`, cached in snapshot.ts's `fightView`), and the rest.
+  Sideways, the gear sits on the left and the rest beside it, and the list is two columns. The code-drawn icon sheet
+  (`customSheetUrl`) had drawn every icon into its first cell since the fine-grid painter (the Painter's constructor
+  reset the shift), so guns, tavern fare and furnishings showed blank: fixed.
+
+- **Founders' own callings and looks:** `src/shared/data/founderClasses.ts` (`FOUNDER_CLASSES`: one line of five stages
+  for each of the 36 ready-made founders, standing on a `base` class for gear, spells and skills, with signature
+  `stats` and `FOUNDER_EDGE` in `classStat`). `Person.fcls` holds it (set in `makeFounder`; older towns' founder,
+  person 1, adopts theirs by look in `adoptFounderCalling`). Names come from `callingName`/`callingText` everywhere
+  (snapshot `clsName`, `clsPast`, `clsText`, `founderCalling`; journal lines via `aCalling`). The Townsfolk tab names
+  only the current calling; tapped, it shows the stages passed and what the next needs (`???`, its level, an
+  ascension for the last). Founders' outfits are fuller (capes, crowns, hoods, gloves), and in the town they're drawn
+  `FOUNDER_SCALE` (1.14) bigger with a soft aura in their origin's colour (`AURA` in peopleView), and never swapped
+  for a class's stock sprite (`CLASS_LOOK`). The New Town cards name each founder's first calling.
+
+- **The town's scenery from the packs:** `tools/compose-scenery.cjs` (run by hand) cuts Craftpix's side-on trees,
+  bushes, rocks and clouds into one atlas, pixel for pixel (`src/renderer/art/scenery/scenery.png`, beside the page;
+  frames by set in `art/scenery.json`). `art/scenery.ts` draws them at half size, so each of their pixels is one
+  fine-grid pixel, through the layer's tone (the far land's haze) and turned for autumn (`autumn()`: broadleaf trees and
+  bushes only). `scenerySets` (`art/scenerySets.ts`) picks by land and season: leafy, conifer, snowy (winter, and the
+  tundra always), dry (desert); bushes bare in winter; rocks snowy or desert. `withPackScenery` swaps them into a
+  `SpriteSet` once loaded; TownView redraws through `setSeason` when they arrive (`packed`), and the expedition pane takes
+  them too. The sky's clouds are the pack's (`skyView`, half scale), still tinted by the hour. Until the atlas loads (or
+  if it can't), the painted ones stand in. Frame rate unchanged (the headless browser gives the same with and without).
+
+- **Construction sites:** `art/constructionSite.ts` (`drawSite`, from `BuildingsView.updateBlueprint`; the walls still rise
+  from the ground as the finished picture is masked to the progress). Before work, the plot is staked out with a string
+  line and the materials pile up as delivered; then scaffolding climbs a lift ahead of the walls (uprights, ledgers,
+  braces, boards), with a ladder, a gin-pole hoist whose load goes up and down, and the site's gear (stacked lumber,
+  stone or bricks, a mortar tub, a sawhorse, a wheelbarrow, crates, barrels, sacks). The kit by the era of what's built
+  (`eraOfResearch`): lashed poles, timber, steel tubes with couplers, green safety netting in the modern eras. The
+  medieval field-work pack's props were tried and left out: their cartoon outlines don't sit with the pixel art.
+
 ## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):
@@ -618,6 +659,324 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   coasts) that only a boat reaches, or that it reaches faster than walking. Likely a boatyard on the coast or river,
   boats as built things (rowboat → sailing ship → steamer by era), a party sailing (watched like a trip, at sea), and
   dangers of their own (storms, sea monsters, pirates). Not designed yet.
+- **Merfolk rework** (the owner's request, for later): the merfolk need much more of an ocean and merfolk feel. Likely:
+  a shoreline or reef town (water in front of the town, tide pools, docks and coral), merfolk who look like merfolk
+  (tails or fins and scales in the water, sea colours; not just elf ears and blue skin), sea-themed buildings and
+  homes, the Craftpix ocean and underwater backdrops and seabed props, sea food and materials (kelp, pearls, coral),
+  and sea raiders and beasts. Not designed yet.
+- **The top-down town (decided, in progress):** the side-on strip is replaced entirely by a sprawling top-down map in
+  the raid map's style (Craftpix's top-down village, fields, path and road tilesets and the props atlases; buildings
+  stand on their footprints, drawn front-on, sorted by depth). The town builds outward with roads and buildings laid
+  out sensibly; the local map opens up as it grows (minerals, caves, map events: a burnt-out trader's cart that starts a
+  quest, a strong beast to put down; a fight is offered with townsfolk the player picks, fought on the FF screen).
+  - The owner's decisions: no side view kept; **a new save is required** (old towns aren't carried over: a new town is
+    founded); the vampire town is **one level**: a castle that adds rooms as it grows, not a sprawling town; pack
+    sprites are welcome even where their style is a little bulky (more detail than the code-drawn ones; removed later
+    if they don't work).
+  - Phases: (1) the land: a 2D map of 32px cells (`sim/land.ts`: terrain, pools, rivers, the open area, footprints,
+    roads, pathfinding), tested on its own; (2) the sim moved onto it (buildings by cell and footprint, people moving
+    in 2D along paths, gathering on cells, the planner laying out roads and districts; the old `tiles`, layers and
+    `World` retired; save version bumped); (3) the top-down renderer replacing TownView (ground, roads, scenery props,
+    buildings, people in four directions, fog, pan and pinch on the phone, the feed); (4) the map growing and its
+    places and events, fights through the party picker and the FF screen; (5) raids fought on the town's own map;
+    (6) origins: the castle as one level of rooms, the nomads, the merfolk later; more pack art; (7) soak, phone checks,
+    PR.
+  - **Phases 1 and 2 are done** (the sim runs on the land; the old strip renderer still draws it sideways until phase 3):
+    - `sim/land.ts`: `LandMap` (96x96 cells of `Ground`: grass, forest, rock, marsh, hill, water, fertile, sand; `pools`
+      on the wild cells; `roads`; `marked` cells to gather; the `camp` and how far the land is `open`), `makeLand` (noise,
+      exactly half wild, a river with fertile banks, the coast's sea, the camp's clearing, and `MIN_KIND_NEAR` of each
+      wild kind within reach: a town must find wood near by), `fits`/`spiralSpot`/`doorOf`/`roadDistance`, `findPath` (A*,
+      eight ways, roads cheap, water and footprints impassable). Save version 16: older saves are refused (`old-version`).
+    - Buildings stand on footprints (`tile`, `row`; `depthOf` the def; `footprint`, `buildingDoor` at the middle of the
+      bottom edge, `buildingCentre`); `placeBlueprint(s, def, x, y)` lays a road to the door (`connectRoad`). People,
+      raiders, travellers and the visitor have `y`; everyone walks by `sim/walk.ts` (`walk`: a path kept on the walker,
+      found again every `REPLAN_TICKS` or for a new goal; straight at it when there's no way); raiders go straight
+      (`moveToward` in raids.ts) along the camp's row and break the walls across their line (`wallBetween`). Gather tasks
+      hold a cell index (`land.pools`, `land.marked`; `clearCell` when a pool runs out). `campXY`, `edgeXY` (off the
+      land's edge on the camp's row, where strangers come and go), `campEdge` (the town's edge on a side), `dist`, `cellXY`
+      in state.ts.
+    - The planner: `findSpot` spirals out from the camp preferring spots near a road (`spiralSpot`'s `prefer`), walls go on
+      the camp's row past the last building (`wallSpot`), rooms inside the keep (`roomSpot`); `openLand` grows the known
+      land with the town (`townRadius` + `OPEN_BEYOND`) and further when a wanted material has run out within it; a store
+      full of the harvest no longer stops wood being gathered (the reserve rule in `planGathering`); fields are never
+      upgraded by the quiet-spell loop (only `consolidateFields`), and the "learned to build it" loop skips food fields and
+      anything already rebuilt into something better (`planned` through `UPGRADES`); no second campfire as a desk.
+    - The castle is one level (first a `keepRect` over the camp that grew by era and wing; now a body of rooms built on
+      to the hall: see "The castle as one body of rooms" below). Floors, stairs and climbing are gone. The nomads' camps
+      are points (`s.nomad.home/pasture/camp`).
+    - Tests: `test/helpers.ts` has `camp`, `row` (free ground two rows below the camp), `put`, `freeSpot`, `wildsNear`/
+      `nearestWild`, `makeWild`, `clearAround`, `poolOf`, `isWild`, `campPx`. Soak (10 days, one town each): settlers 22,
+      vampires 20, druids 20, nomads 28, dwarves 21.
+  - **Phase 3, the top-down renderer (first cut, in progress):** `src/renderer/map/`. `mapView.ts` (`MapView`): the
+    land's ground painted in 8-cell chunks (`groundArt.ts`: each ground kind by season, roads as beaten-earth paths, water
+    with lighter edges, the land beyond `land.open` dimmed by distance and black past `FOG_BAND`), the wild cells' trees,
+    rocks, bushes and plants from the props atlases (`art/propKinds.json`, written by `tools/compose-props.cjs`: each
+    object's kind; `PROPS_ON` says what stands on each ground), the buildings on their footprints (the old front-on
+    `buildingArt`, feet on the footprint's bottom edge, sorted by it; fields and pens as flat plots from `fieldArt.ts`;
+    the campfire animated; blueprints masked to progress with `drawSite`), the marked cells outlined, a placement ghost,
+    and the day's tint on `world`. `mapPeople.ts`/`mapRaiders.ts` are the people and raider views in 2D (side-on LPC
+    sprites facing left or right, sorted by their feet). `mapCamera.ts` pans in 2D (drag, momentum, wheel, follow).
+    `main.ts` drives it (hover kinds: person, building, `cell`, raider, pane); the sky, spells, animals, herds and the old
+    strip views are no longer drawn (the old `town/` files stay until the map is complete). The phone page shows the map
+    at zoom 0.5 by default (keys `littletown.zoom4*`, 0.25 to 2.6), filling the strip's room. `setCamera` culls the
+    chunks and things outside the view (Pixi draws everything else). `window.__map` and `window.__hitTest` are for
+    previews. Still to do later (phases 6 and 7): homes and workshops from the top-down packs, the keep's walls, the
+    nomads' camp, animals, spell effects, people facing up and down, and deleting the old `town/` views (battleView and
+    fightView still import spellsView, spellLooks and peopleView's constants).
+  - **Phase 4, the land's places (done):** `src/shared/data/places.ts` (`PLACE_DEFS`: ore vein, cave, trader's cart,
+    beast's lair, old ruins, great bones; `PLACE_FOES` by era, `BIOME_BEASTS`) and `src/shared/sim/places.ts`
+    (`s.places`, seeded from the seed on first use by `seedPlaces`: `PLACE_COUNT` of them `PLACE_NEAR`..`PLACE_FAR` cells
+    from the camp, `PLACE_APART`). `placesHourly`: a place inside `land.open` is found (a journal line naming the
+    direction); the peaceful ones the town looks over `LOOK_HOURS` later (`lookOver`: a vein turns its cells to rich rock
+    with iron ore and coal in the pools, ruins half the topic being studied and give coins, a cart coins and goods,
+    bones bone); a cave, a lair, and `CART_ROBBED` of carts have foes (`rollFoes`) and wait: each is a destination on the
+    Expedition Board (`placeDestination`, id `place:<n>`, type `clear`; `destinationOf(s, id)` in expeditions.ts finds
+    these beside `DESTINATION_BY_ID`), the player picks the party as for a dungeon (`sendDelve` takes them; the panel's
+    `delveControls` with Fight: careful / all out), the fight is on the way and watched on the FF screen, and
+    `placeCleared` (from `finishBattle`) adds the hoard and coins; a beast left `BEAST_DAYS` wanders off. Snapshot
+    `places` (`PlaceView`); the map draws them from the `places` props set (compose-props: cave mouths, dragon bones, a
+    skull, a shrine, crystals, carts, camp tents; `renderPlaces` pulses a ring round a fight waiting), tap: a card with
+    "Pick a party…"; the feed has a card per fight waiting. Tests: `test/places.test.ts`.
+  - **Phase 5, raids fought on the town's own map (done):** `layOut(s, side, flank)` in `sim/battle.ts` lays the battle
+    on the land: the trail is `trail(s, side)`, the cheapest path (`findPath` with `PathOpts.ford`: a river is waded at
+    cost `FORD` where it must be; buildings gone round) from where the raiders come out of the fog (`landEdge`:
+    `TRAIL_FROM` cells past `land.open` on the camp's row, at least `MIN_TRAIL` from the gate) to the gate (`gateCell`:
+    `townEdgeX` on the camp's row), straight runs folded; the flank is the same from the other side. Spots are land cells:
+    blocks along the trail (closer together on a short one, none in a ford), ground spots on free cells beside it, wall
+    spots on the town's walls within `WALL_NEAR` of it, towers on defence buildings within their range + `TOWER_NEAR`,
+    traps where the trail crosses them. `BattleMap` is `len`, `paths`, `spots`, `gate`, `style`, `wall` (the old decor,
+    walls, keep, hedges and water are gone: the land itself is the scenery). Each tick the raiders' px follow `foeAt`
+    (and allies stand at their spots), so MapRaiders draws them on the trail; `through` puts one at the gate. A placed
+    fighter walks to their spot (`doDefend` in people.ts) and fights, holds and is struck only once within `IN_PLACE`
+    of it (`inPlace` in `stepBattle`); the unplaced wait at the gate, and `nearestRaider` skips raiders still on the
+    trail. `src/renderer/map/mapBattle.ts` (`MapBattle`) draws over the map (MapView's `under` and `over` containers):
+    the trail lit the whole way (it runs into the dark), its rut, rings for the spots (lit while placing, filled when
+    held, white round the picked fighter's), the gate, shots, bursts, casts and the fighters' act sheets at the raiders'
+    px, and the aim ring; `toMap`/`spotAt`/`screenOf`/`leadScreen` for main.ts and previews (`window.__battle`). main.ts
+    routes a tap to `battleTap` first (aim, place, pick up), the camera centres on the gate as a battle begins and
+    follows the lead raider (`MapBattle.lead`); the HUD bars (`battleHud.ts`) are unchanged. The old `battle/battleView.ts`
+    and `art/battleArt.ts` are gone. The phone page keeps the town's zoom in a battle (`watchOn` alone draws at 1).
+    Soak (3 towns per origin, 10 days, people/deaths): settlers 17–24/1–2, druids 16–24/2, vampires 20–24/0–1, knights
+    21–24/0–1; no town lost.
+  - **Phase 6, origins and pack art on the map (in progress):** the vampire keep was first dressed as a walled rectangle
+    (`keepArt.ts`, from `snapshot.castle.rect`, the rooms the ordinary building pictures); that is superseded by "The
+    castle as one body of rooms" below, which draws the castle from its cells with `map/castleArt.ts`. `src/renderer/map/packBuildings.ts`: Craftpix's Village tileset houses and awnings (`src/renderer/art/village/`,
+    bundled as data URLs) stand for the cottage, row houses, inn and tavern, trading post, stall and general store in the
+    base and knights looks (`PICKS`, `STYLES`), scaled to the footprint plus `OVERHANG` on the fine grid (`packArt`; the
+    code-drawn picture stands until the image loads, then `onPackArt` bumps `artGen` and the buildings are drawn again),
+    with street furniture at a finished one's front corners (`packDressing`: lantern posts, barrels, crates, carts,
+    signboards, by the building's id; `DrawnBuilding.extras`).
+    The pens' animals amble inside their footprints (`src/renderer/map/mapHerds.ts`, `MapHerds`, the painted farm animals
+    of `art/livestockArt.ts`, sorted by their feet among the things). The feed shows alike fights waiting on the land as
+    one card ("Beast's Lair found ×2").
+    The side-on views nothing drew with any more are gone (`town/peopleView.ts`, `raidersView.ts`, `animalsView.ts`,
+    `skyView.ts`, `renderer/camera.ts`); the notes above that name them describe what the map views took over.
+    Soak after phase 6 (2 towns per origin, 15 days, people/deaths): settlers 30–32/0–4, liches 32/0, druids 22–32/1–3,
+    vampires 32–34/1–2, werewolves 31–37/0–1, machines 29–31/0–1, dwarves 32/0, merfolk 32–34/1–4, nomads 37–39/0, fae
+    34–35/4–7, alchemists 28–36/0–2, knights 30–34/0–1; no town lost. (Those death counts, and the earlier soaks', were
+    undercounts: the soak scripts watched the journal's length, and the journal is capped at `MAX_JOURNAL` 400 entries, so
+    nothing was counted once a town's journal had filled a few days in. Counted properly, deaths were never rare: see the
+    deaths pass below.)
+  - **Phase 7 (next): the asset pass.** The owner's standing order (see Priorities): replace the code-drawn map art with the
+    packs wherever one has the thing: the ground (the Fields, Path and Road, Green Zone and Village tilesets' grass,
+    soil, roads, water edges), fields and pens (the Fields tileset), more buildings for every era and origin (the
+    Undead tileset for the liches and vampires, the Dungeon and Cave packs for the dwarves), props and effects.
+    - **Roads (done):** `src/renderer/art/roadTiles.ts` lays Craftpix's Path and Road tiles (16px, a road two tiles
+      wide, so a 32px road cell is four quarter-tiles): `roads/roadTiles.json` maps each quarter's case (road on past
+      its two outer sides, across its outer corner) to a tile, worked out from the sheets by sampling them (a missing
+      inner corner falls back to the full tile). `ROAD_BY_ERA`: slabs (road5), cobbles (road1), bricks (road2), paving
+      (road4); grass-tufted edges on green ground, bare earth on sand, soil and rock, bare in winter. `paintChunk`
+      paints the ground under, then the road over; the chunk key carries the era and whether the sheets have loaded
+      (the painted path stands until then).
+    - **Plots, pens and the campfire (done):** `src/renderer/art/fieldTiles.ts` (the Fields tileset's soil tiles by
+      what they have grass on, `SOIL`, mirrored for the right-hand pieces; `drawSoil` edge-aware over a plot;
+      `drawFence` rails and posts round a pen with a gap for the gate; `campfirePack` the six flame frames).
+      `fieldArt` builds a `packedPlot` on them once loaded (`fieldTilesReady`; `onFieldTiles` bumps MapView's `artGen`),
+      the crop rows still drawn over the soil; MapView's campfire takes the pack's frames.
+    - **More picks (done):** `PICKS` in packBuildings.ts is a table of `Pick`s (one image, `parts` laid together on a
+      `size`, or `any` of several by the building's id; `overhang`; `styles`, else every look but `OWN_TENTS`): the
+      Fields pack's camp tents for the lean-to, hide tent and longhouse, its crates and logs heaped for the stockpile,
+      the Village pack's palisade stakes and gate for the palisade wall and gate.
+      A `Part` may crop a sheet (`[url, x, y, sx, sy, sw, sh]`): the dungeon pack's stonework for the stone wall and
+      gate, its props' bookshelves for the library, an alchemist's bench for the healer's hut, a table for the
+      workbench, and the undead pack's graves for the graveyard.
+    - **Footpaths (done):** the land remembers foot traffic (`LandMap.wear`, one character per cell: `addWear` when a
+      walker steps into a new cell (`tread` in walk.ts, `Walker.cell`), never a road; `decayWear` hourly from sim.ts,
+      the field dropped when nothing is worn; `WEAR_*` in land.ts). `paintChunk` draws a worn cell (from `WEAR_SHOW`,
+      fully at `WEAR_FULL`) as patches of the Path and Road pack's bare-earth blob (`drawWornPatch`, the grass sheet's
+      round patch) at its middle and toward each worn or road neighbour, faded by how worn; the chunk key carries the
+      worn levels a cell either side. Test: `test/footpaths.test.ts`.
+    - **Blood (done):** a blow that lands on a townsperson is remembered (`Person.lastHit`, `hitFrom` the side it came
+      from, set in `attackPerson`; `PersonView.sinceHit`/`hitFrom`); the Gigapack's red splatters (`effects/splat_*.png`,
+      `splatFrame` spray/gush/burst, `SPLAT_SIZE`) are sprayed away from the striker on the map (people in mapPeople,
+      flesh raiders in mapRaiders: `bleeds` = `natureOf` person or beast; the undead and machines still spark), on the
+      raid map's spots (mapBattle) and on the fight screen (fightView). Whoever is struck down leaves a stain: the sim
+      marks it (`markBlood` in state.ts, `s.blood`, `BLOOD_LASTS` 3 game hours, `BLOOD_MOST` 40; raiders when they fall
+      in `updateRaid` (`Raider.bled`), people in `knockDown`/`killPerson` when a blow just landed), `snapshot.blood`
+      carries them with their age, and `map/bloodPools.ts` (`BloodPools.sync`, in MapView's `under`) draws the burst's
+      widest frame flattened and darkened, fading as the mark ages. Tests: `test/blood.test.ts`.
+    - **Combat actions (done):** `src/renderer/art/combatPoses.ts`, shared by the map (mapPeople) and the fight screen
+      (fightView). The sim remembers a defender's blow (`Person.lastBlow`, set in `defenderAttack` whether or not it
+      lands) and a raider's blow turned on armour or a shield (`lastBlock`, in `attackPerson`); `PersonView.sinceBlow`/
+      `sinceBlock`. `fightAnim` picks the LPC row by the weapon's family (`ANIM_BY_FAMILY`: spears, polearms and
+      daggers thrust; bows, crossbows, slings, thrown and guns shoot; staves, wands and a ranged calling cast; the rest
+      swing); `fightPose` plays it over `BLOW_TICKS` (`SHOOT_TICKS` for a bow) after a blow, a flinch (the hurt row's
+      first frames) when just struck, the hurt row's last frame when down, else standing ready (no more endless
+      thrusting). The fighting callings take a **combat form** while they fight and for `HERO_LINGER` after
+      (`HERO_FORM`: knights and guardians the Craftpix knights, warriors and dragoons the samurai commander, samurai
+      and spellblades the samurai, archers, rangers and hunters the samurai archer, monks the ninja monk, assassins and
+      dancers the kunoichi, witches, shamans and chronomancers the wizards; `heroSheet` by the person's id, scaled to
+      `HERO_HEIGHT`): `heroFrame` plays dying, hurt, one of two attacks (`attack2`), the guard (`defend`, after a block),
+      the walk or the idle. `tools/compose-sheets.cjs` gives those sheets the two extra rows (`hero()`; the new rows come
+      after the five every sheet has, so the layout of the rest is unchanged); `creaturePoseFrames` and the
+      `CreaturePose` type in creatures.ts. The Pixel Champions looks (`CLASS_LOOK`) and founders keep their own
+      sprites. Test: `test/combatPoses.test.ts`.
+    - **The plain ground (done):** `src/renderer/art/groundDetail.ts`. The top-down packs draw their ground as a flat
+      colour with lighter patches on it, so that is how the map paints it now: the Path and Road pack's patch sheet
+      (`ground_grass.png`: five bands, two flat colours each: `Patch` kinds grass, meadow, teal, leaf, olive, soil, loam,
+      chalk, sand, peat) gives each kind of ground its patches (`PATCH_OF` by season in groundArt.ts, none in winter) and
+      its plain colour (`groundUnder`: the patch's colour darkened; sand and rock keep the palette's, the marsh is dark
+      green with teal pools, `BASE_FROM`), the Fields pack's tufts, flowers and pebbles are scattered on the grass and
+      hills (`drawTuft`; pebbles on rock), and the Undead pack's ripples (`water/ripples.png`, the first row of its
+      sheet) lie on the water recoloured to its light (`drawRipple`, where there's open water to the right). The chunk
+      key carries `groundDetailReady`; until the images load the old speckled ground stands.
+    - **More buildings from the packs (done):** about 40 more `PICKS` in packBuildings.ts, the sprites cropped from the
+      packs' sheets by hand into `src/renderer/art/packs/` (the cropping is one-off, with the scratch scripts; no tool
+      kept). A `Pick` may have `variants` (`styles` and a pick of their own, tried first: `pickFor`), which is how the
+      nomads get the rocky-area pack's tipis and yurts for their homes, the dwarves the cave pack's carved gates for
+      every mine and its totems and statue for the storytellers' circle, and the liches a green crystal phylactery.
+      Base and knights looks: the Village pack's third timber house with each trade's gear at its door (smithy,
+      bakery, sawmill, tannery, loom). Every look: the stone well, carts (wagon circle), racks, the hunters' camp tent
+      and the barracks' tents behind a palisade, the cave pack's fire pits for the bloomery and kiln, the storytellers'
+      fire with logs round it, the herb garden on soil tiles, mine mouths, the skull altar shrine, crystal phylactery,
+      the dungeon props' furniture (scriptorium, school, glassworks, infirmary, hospital), and the futuristic objects
+      pack's tanks, transformer, consoles, racks and screens for the industrial and later plants (power station,
+      refinery, oil derrick, battery plant, electronics plant, chip fab, AI core, mission control, robot workshop).
+      Still code-drawn: the towers, the windmill, the elder lodge and town hall, the trophy hall, the factory and
+      garage, and the origin halls (no pack has them).
+    - **The undead's land (done):** a props set `undead` (compose-props.cjs: the Undead pack's dead and broken trees as
+      trees, thorns as bushes, pale weeds as plants, bones, skull piles, rocks and crystals as rocks; one shadow direction
+      of each), the only set on the liches' and vampires' land (`MapView.blighted()`, plus `winter` when it snows), and
+      their ground is blighted (`paintChunk(..., blight)`: `BLIGHT_PATCH`/`BLIGHT_FROM` in groundArt.ts: olive grass and
+      peat woods on peat, no flowers; the chunk key carries it).
+    - **Code-drawn buildings from the map's angle (done):** `src/renderer/art/topDown.ts` (`topDownArt(def, w, d, tone,
+      toneKey, style)`) replaces the side-on `buildingArt` on the map (MapView's `art` and the placement ghost; the feed
+      and report cards keep the side-on pictures) for every building without a pack pick: a roof plane seen from above
+      (`roofPlane`: foreshortened, lit at the ridge, shaded to the eaves, covered in the era's way: thatch bands, tile or
+      slate courses, metal panels) over the front wall on the footprint's bottom edge (`frontWall`: wattle, half-timber,
+      brick or panels by `eraOfResearch`, a door and lit windows), `EAVE` px over the footprint each side and `LIFT` px
+      above it. Shapes by id (`SHAPES`): house, hall (taller walls, a front gable with a window, columns), flat (a
+      parapet, vents, a skylight, a glass band), works (a sawtooth roof with glazing and stacks), tower (a drum with a
+      platform seen from above: battlements, a thatched cap on the lookouts, a mast, a barrel, the windmill's sails),
+      dome (shaded rings, ribs, a glint), wall (walk and face), pad (the launch pad with its rocket standing, the spike
+      trap); `topper` adds a cupola, a red cross, a barrel, antlers. Then `reclad` (now exported from originStyles.ts,
+      with `Style`) swaps in the origin's materials. `window.__topDownArt` is for previews (a gallery script draws every
+      building).
+    - **Spells on the map (done):** `src/renderer/map/mapSpells.ts` (`MapSpells`, in MapView's `over`): each cast in
+      `snapshot.spells` plays its look's effect sheet (`LOOKS` in town/spellLooks.ts, `SHEETS` in town/spellsView.ts:
+      the Pixel Magic, pvfx and Alenia sheets) over whoever it touched or over the caster, with the magic circle under
+      the caster and the name floating up; people and raiders are followed by id. Spell targets and casts now carry
+      `y` on the land (`SpellTarget.y`, `SpellFx.y`, `SpellView.y`; set in powers.ts and rivals.ts); older casts
+      without one are drawn at the camp's row. The old side-on `spellsView.ts` keeps the sheet table and the code-drawn
+      kinds the fight and battle views still use.
+    - **People facing up and down (done):** `tools/import-lpc-faces.mjs` (run by hand; Playwright's Chromium) finds
+      each LPC layer's sheet in `../chronos-assets/Universal-LPC-spritesheet-master` by name, picks the colour variant
+      whose walk-right row matches the data's best (all 136 non-weapon layers found, most exactly; hair differs only in
+      colour, which the lightness tint evens out), and cuts its walk-up and walk-down rows into
+      `src/renderer/art/lpc/lpcFaces.json` (a 1 MB file beside the page, copied by the builds, fetched by `loadLpcFaces`
+      after the rest loads; side-on until then). `lpcCanvas`/`lpcFrame` take a `facing` ('up' | 'down'), used for the
+      walk when every layer that shows has it (`canFace`); the facing rows are tinted with their own lightness
+      reference. The people view (`Drawn.face`) faces someone up or down the map when that's mostly how they moved
+      last, and keeps it while they stand; never when mounted or fighting. Raiders and travellers' LPC sprites stay
+      side-on (raiders don't walk the facing rows yet).
+    - **Deaths pass (done):** the "deaths run low" watch item was mostly a counting bug (above). A soak must count journal
+      entries by identity (a `WeakSet` of the entry objects seen, scanning `s.journal` each tick), never by its length,
+      since the journal is capped. Counted that way (4 towns per origin, 15 days, people/deaths): settlers 26.8/20 (15
+      at raiders' hands, 1 of wounds, 4 of plague), knights 34.3/—, vampires 35.0/14, liches 32.5/—. One rule added
+      all the same: **a fighter who falls back off the line takes a parting blow** from each raider they were holding
+      (`stepBattle` in battle.ts: the raiders held at that spot strike once at their back as they go, then walk on), so
+      leaving the trail is a danger rather than a refuge. With it: settlers 30.0/19 (18 at raiders' hands), vampires
+      31.8/32 (every one at raiders' hands; their fighters fall back often, and now pay for it). Test:
+      `test/battle.test.ts` (the parting blow). `KILLING_BLOW` and the rest of `data/raids.ts` are unchanged.
+    - **Lights and smoke on the map (done):** finished buildings' windows and fires glow after dark: MapView's
+      `lights` container stands beside `world` (so the night's tint doesn't dim it), follows the camera, and fades in
+      from dusk (`setDaylight`); a glow per lamp the painted art found (`PixelArt.lights`: the top-down painter's
+      `WINDOW` colour and each origin's, through `reclad`), and one fire glow (`FIRES`, `FIRE_GLOW`) for the campfire,
+      bloomery, kiln and storytellers' circle, whose pack pictures have no lamp colours. Pack houses have no glow
+      (their windows aren't lamp colours). Smoke rises from chimneys and stacks: the top-down painter records them
+      (`PixelArt.smoke`: the house chimney in the medieval and industrial eras, the works' stacks), MapView keeps a
+      `ChimneySmoke` (town/ambientView.ts, puffs `size` 1.6 for the map's distance) in `over`, fed by `renderAir(dt)`
+      each frame with `smokeAmount` from `airFor` (main.ts, per snapshot); off while `calm`. The feed's and report's
+      building pictures (`__picture` in main.ts, `cardArt`) are the map's now: the pack's picture, else the top-down
+      painter's.
+      The pack's timber houses smoke too (`Pick.smoke` in packBuildings.ts: the chimney's top in source px, scaled
+      with the picture), and their windows glow (`Pick.lamps`: the windows' centres, made `PixelArt.lights` in the
+      painter's window colour); the nomads' tipis and yurts smoke from their tops. **Shared props for every look:**
+      `OWN_TENTS` (the vampires, liches, machines, nomads and merfolk, with homes and walls of their own in
+      originStyles.ts) now keeps from them only the picks marked `own` (the Fields pack's tents, the hunters' and
+      barracks' tents, the palisade and stone walls and gates); the well, racks, logs, fire pits, benches, shelves,
+      graves, mines and the industrial plants suit them like everyone else (they were all withheld before).
+      The open fires (`FIRES`: campfire, bloomery, kiln, storytellers' circle) smoke as well as glow.
+    - **Night life (done):** everyone out after dark carries a lantern: `MapPeople.lights` (the map's lights layer, set
+      by main.ts) holds a warm glow per person (`Drawn.lamp`) at their feet, hidden indoors; the layer's dusk fade
+      makes it night-only. **Fireflies** (`MapView.fireflies`, from `renderAir`): on spring and summer nights in fair
+      weather (`MapView.weather`, per snapshot), not in the tundra or desert, up to `FLIES_MAX` tiny green-yellow glows
+      drift over the grass, forest, marsh and hills in view (`FLY_GROUND`, not in the dark beyond the open land), each
+      blinking a few times and winking out; none on a slow phone (`calm`).
+    - **Birds by day (done):** `src/renderer/map/mapBirds.ts` (`MapBirds`, in `things`, fed by main.ts per snapshot:
+      `on` by daylight in fair enough weather, `winter`, `land`, `folk` = everyone about, raiders too): little flocks of
+      sparrows, a robin, a grey bird, or a lone crow (DawnLike's Avian sheets, two frames each, cut into
+      `art/birds.png`) come down (`landingSpot`: lit open ground, a road or a field in view with nothing standing on it,
+      `MapView.standingAt`), hop about pecking, and take wing when someone comes within `SCARE` px or when they've had
+      enough, climbing and shrinking with a shadow left behind. At most `MOST` (9, `MOST_WINTER` 4), none when `calm`.
+      `window.__birds` for previews; `MapView.view` is public (the view in world px).
+    - **The shallows (done):** on the coast, half the shore's water cells (`SHALLOWS` in groundArt.ts) show the bottom
+      through the water: a coral, urchin, starfish or shell of the Seabed props set (`propImage('sea')`, `propFrames` in
+      art/props.ts: the atlas image itself, painted onto the chunk's canvas at 0.42 alpha, under the ripples; the set's
+      drowned statues left out); the chunk key carries whether the atlas has loaded. The old WeatherView fireflies (screen-wide pixels) are gone: the map's are the fireflies now.
+    - **Snow on the buildings (done):** `art/snowCap.ts` (`snowCapped`): in winter every finished building but the plots
+      and the campfire is drawn from a capped copy of its picture (cached per picture): white blended along each
+      column's first opaque pixels (`tops`), `DEEP` (5 px) where the edge runs level, thinner down a slope, stopping at a
+      hole. The building `sig` carries the winter flag, so the town is redrawn once at the turn of the season. The
+      vampire keep's walls and towers are capped too (`syncCastle`, its key carries the season). The old strip's
+      `town/townView.ts`, `buildingsView.ts` and `herdsView.ts` are deleted (nothing drew with them); `spellsView.ts`
+      keeps its own `WALK_Y`. The notes above that name those files describe what the map views took over.
+    - **Butterflies (done):** `src/renderer/map/mapButterflies.ts` (`MapButterflies`, in `things`): by day in spring and
+      summer in fair weather (not the tundra or desert; `on` and `land` from main.ts), up to `MOST` (7) butterflies
+      (DawnLike's Pest sheets, two kinds, two frames, cut into `art/butterflies.png`) flutter about spots drifting over
+      the grass, fields, marsh and hills in view, each fading in, living 12 to 28 s and fading out; none when `calm`. **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
+      the world origin and drew at world coordinates, and `setCamera` culls each thing by where it stands, so they were
+      hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
+      The raiders' health bars (mapRaiders.ts) had the same fault and the same fix: anything drawn with a Graphics in
+      `things` must stand where it draws.
+    - **The castle as one body of rooms (done; the owner's design):** the Blood Court's town is an ordinary land map with
+      one castle in the middle that grows outward as rooms are added, each room walled and furnished inside it, not a
+      separate building. `sim/castle.ts`: the castle is the hall at the camp (`coreRect`, `CORE_W` x `CORE_H`) plus every
+      room (`roomKind`: the `mid` buildings but `OUTSIDE` and the venues; the shop and tavern stay separate buildings
+      outside); `castleCells` is the set of all its cells; a new room must share a wall with it (`joinsCastle`,
+      `sharedEdges`: the planner's `roomSpot` takes the snuggest spot of the nearest ring, so the castle stays compact),
+      and nothing else may come within a cell of it (`nearCastle`; `canPlace`, `findSpot`). Inside, people walk through
+      the rooms (`blockedBy` in walk.ts skips rooms) and a room's door is its own middle (`doorCell`); roads run to the
+      gate before the hall's south wall (`castleGate`; `connectRoad` never crosses the castle) and a road a room is built
+      over is taken up (`unsetRoad`). The keep's eras, wings and limits are gone (`keepRect`, `growKeep`,
+      `clearKeepGround`, `keepGrown`), and the old strip's `art/castle.ts` with them. `snapshot.castle` is `{ cells, core,
+      gate, bounds }`. Tests: `test/castle.test.ts`. Soak (4 towns, 15 days): vampires 33.3 people / 25 deaths, as before.
+      - Drawn by `src/renderer/map/castleArt.ts` (`buildCastle`, from `MapView.syncCastle(castle, buildings)`, rebuilt
+        when a room is finished, the pack pictures load, or the look or season changes): the dungeon pack's flagstones
+        (`art/castle/floor.png`, a 2x2 quilt of its four tiles) tiled over the hall and every finished room, the carpet
+        from the gate; walls along each finished cell's edges, one piece a cell: the curtain wall where the castle ends
+        (battlements, walk and face: `outerN` looks in at the top of a cell, `outerS` stands at a cell's foot with its
+        face hanging outside, `outerW`/`outerE`), a thinner partition (`partH`, `partV`) where two regions meet (drawn by
+        the lower or the right cell), a doorway (`doorH`/`doorV`) cut in the middle of the longest run two regions
+        share, the pack's arched door (`gate.png`) in the hall's south wall, and keepArt's round `cornerTower` at every
+        outer corner; all sorted among the things by their feet so people walk behind and before them. keepArt.ts now
+        exports `blocks`, `walk`, `merlons` for it. A room's own picture is its furnishings (`roomFurniture`): the pack
+        picture that suits it (racks, shelves, the well, fire pits...; `pickArt`, the generalised `packArt`), else
+        painted beds for a home (one a sleeper, as many as fit, on a rug), crates and barrels for a store, or a table,
+        chairs and a chest; stood in the middle of the floor (`draw`: no shadow, the whole footprint tappable:
+        `DrawnBuilding.room`), with a candle's glow at night. A room under construction shows its furnishings' ghost and
+        the site; its floor and walls come when it is done.
+
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)

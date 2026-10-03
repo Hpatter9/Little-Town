@@ -7,8 +7,8 @@ import { rally } from './rally';
 import { battleGo, placeFighter, setAutoBattle, setBattleSpeed } from './battle';
 import { castAt } from './powers';
 import { Rng } from '../rng';
-import { generateWorld, type World } from '../world';
-import { demolish, discardStock, placeBlueprint, upgrade } from './buildings';
+import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
+import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt, decayWear } from './land';
 import type { Command } from './commands';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
 import { growCrops, tendFields } from './farming';
@@ -27,13 +27,15 @@ import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
 import { questsHourly } from './quests';
 import { delvesHourly } from './delves';
+import { placesHourly } from './places';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
 import { maybeStartRaid, startGuildRaid, updateRaid } from './raids';
 import { answerPrompt, expirePrompts } from './roadEvents';
 import { newTickContext, updatePerson, walkTo } from './people';
+import type { Person } from './state';
 import { cancelResearch, queueResearch, researchNext } from './research';
-import { autoPriorities, notify, type GameState } from './state';
+import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { forSale, runPlanner, shoppingList } from './planner';
@@ -60,14 +62,11 @@ export const MAX_TICKS_PER_ADVANCE = 600;
 
 export class Sim {
   private readonly rng: Rng;
-  /** Initial terrain, regenerated from the seed (the background never changes yet). */
-  private readonly world: World;
   private pending: Command[] = [];
   private carryMs = 0;
 
   constructor(readonly state: GameState) {
     this.rng = new Rng(state.rngState);
-    this.world = generateWorld(state.seed, state.biome);
   }
 
   /** Queue a command for the start of the next tick. */
@@ -115,7 +114,7 @@ export class Sim {
     maybeStartRaid(s, this.rng);
     lurkers(s, this.rng);
     caveBear(s, this.rng);
-    updateNomads(s, this.world.back);
+    updateNomads(s);
     updateRaid(s, this.rng);
     updateFires(s, this.rng);
     expirePrompts(s, this.rng);
@@ -144,46 +143,54 @@ export class Sim {
     updateWages(s);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
+    if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)
     questsHourly(s);
     delvesHourly(s);
+    placesHourly(s, this.rng);
     drillGuards(s);
     updateAdvice(s);
     maybeArrive(s, this.rng);
     maybeEvent(s, this.rng);
-    updateVisitor(s, walkTo);
+    updateVisitor(s, (p: Person, to: Pt) => walkTo(s, p, to));
     // the town decides for itself what to research, make, build and gather
-    runPlanner(s, this.world.back);
+    runPlanner(s);
 
     s.rngState = this.rng.state;
   }
 
-  /** A druid town's cleared forest grows back: now and then, a tree comes up on a clear tile that was forest once,
-   *  away from any building. */
+  /** A druid town's cleared forest grows back: now and then, a tree comes up on a grass cell beyond the town's
+   *  edge, in the open land, away from any building and road. */
   private regrow(): void {
     const s = this.state;
     if (!rulesOf(s).regrow || s.tick % REGROW_TICKS !== 0) return;
-    const covered = (i: number) =>
-      s.buildings.some((b) => {
-        const d = BUILDING_BY_ID[b.def];
-        return d.layer !== 'back' && i >= b.tile - 1 && i <= b.tile + d.width;
-      });
-    const spots = s.tiles.map((_, i) => i).filter((i) => s.tiles[i].terrain === 'clear' && this.world.mid[i] === 'forest' && !covered(i));
+    const m = s.land;
+    const camp = campCell(s);
+    const near = townRadius(s) + 2;
+    const spots: number[] = [];
+    for (let y = Math.max(0, camp.y - m.open); y <= Math.min(m.h - 1, camp.y + m.open); y++)
+      for (let x = Math.max(0, camp.x - m.open); x <= Math.min(m.w - 1, camp.x + m.open); x++) {
+        const d = Math.hypot(x - camp.x, y - camp.y);
+        if (d <= near || d > m.open || groundAt(m, x, y) !== 'grass' || m.roads[y * m.w + x] === '#') continue;
+        if (s.buildings.some((b) => Math.abs(b.tile - x) <= BUILDING_BY_ID[b.def].width && Math.abs(b.row - y) <= 3)) continue;
+        spots.push(y * m.w + x);
+      }
     if (!spots.length) return;
     const i = this.rng.pick(spots);
     const pool: Stock = {};
-    for (const [m, [lo, hi]] of Object.entries(TERRAIN.forest.pool) as [Material, [number, number]][]) {
+    for (const [mat, [lo, hi]] of Object.entries(TERRAIN.forest.pool) as [Material, [number, number]][]) {
       const n = this.rng.int(lo, hi);
-      if (n > 0) pool[m] = n;
+      if (n > 0) pool[mat] = n;
     }
-    s.tiles[i] = { terrain: 'forest', pool, designated: false };
-    s.tileRev++;
+    const c = cellAt(m, i);
+    setGround(m, c.x, c.y, 'forest');
+    m.pools[i] = pool;
   }
 
   private apply(c: Command): void {
     const s = this.state;
     switch (c.type) {
       case 'placeBuilding':
-        placeBlueprint(s, this.world.back, c.def, c.tile);
+        placeBlueprint(s, c.def, c.x, c.y);
         break;
       case 'demolish':
         demolish(s, c.building);
@@ -197,7 +204,7 @@ export class Sim {
         turnTown(s, c.kind);
         break;
       case 'upgrade': {
-        const r = upgrade(s, this.world.back, c.building);
+        const r = upgrade(s, c.building);
         if (!r.ok) notify(s, `Can't upgrade: ${r.reason}.`);
         break;
       }
@@ -325,10 +332,8 @@ export class Sim {
         s.plan = undefined; // (it decides afresh)
         break;
       case 'toggleGather': {
-        const t = s.tiles[c.tile];
-        if (!t || t.terrain === 'clear') return;
-        t.designated = !t.designated;
-        s.tileRev++;
+        if (!s.land.pools[c.cell]) return;
+        setMarked(s.land, c.cell, !isMarked(s.land, c.cell));
         break;
       }
     }

@@ -156,7 +156,7 @@ function stockChange(a: Stock, b: Stock): string {
 
 /** Nothing left to do: the player should set up the next batch. */
 function idleNote(s: GameState): string | null {
-  const gathering = s.tiles.some((t) => t.designated);
+  const gathering = s.land.marked.length > 0;
   if (gathering || blueprintCount(s) > 0 || s.research.queue.length > 0) return null;
   return 'The queues ran dry: no building, research or gathering is waiting.';
 }

@@ -4,12 +4,12 @@
 import { openGate } from './raidWait';
 import { answerEvent } from './events';
 import { answerLich } from './doom';
-import { DESTINATION_BY_ID, the, The } from '../data/expeditions';
+import { the, The } from '../data/expeditions';
 import { FOOD_VALUE } from '../data/people';
 import type { Material } from '../data/materials';
 import type { Rng } from '../rng';
 import { startBattle } from './combat';
-import { partyCarry } from './expeditions';
+import { destinationOf, partyCarry } from './expeditions';
 import { answerRaidPrompt } from './raids';
 import { answerRite } from './occult';
 import { addStock, notify, poolSize, type Expedition, type GameState, type Person, type Prompt } from './state';
@@ -28,7 +28,7 @@ const STRANGER_OPTIONS = ['Help (share food)', 'Ignore them', 'Rob them'];
 
 export function rollRoadEvent(s: GameState, e: Expedition, members: Person[], rng: Rng): void {
   if (!rng.chance(ROAD_EVENT_CHANCE) || !members.length) return;
-  const d = DESTINATION_BY_ID[e.dest];
+  const d = destinationOf(s, e.dest)!;
   switch (rng.weighted(EVENT_ODDS)) {
     case 'cache': {
       const m = rng.pick<Material>(['stone', 'flint', 'fiber']);

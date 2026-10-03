@@ -50,7 +50,7 @@ test('+N: rare, rarer for a novice; a basic weapon at +5 is about as good as one
 });
 
 test('weapons fight their own way: grade and + raise the damage; quirks strike true, pierce, stun and cleave', () => {
-  const p = makePerson(new Rng(1), 1, 'hunter', 0, []);
+  const p = makePerson(new Rng(1), 1, 'hunter', { x: 0, y: 0 }, []);
   p.gear.weapon = 'iron_sword';
   p.gearQ = { weapon: piece(1, 0) };
   const plain = weaponOf(p).damage;

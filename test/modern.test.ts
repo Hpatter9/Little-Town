@@ -1,3 +1,4 @@
+import { campCell } from '../src/shared/sim/state';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
@@ -15,12 +16,12 @@ import { Rng } from '../src/shared/rng';
 import { Sim } from '../src/shared/sim/sim';
 import type { Building, GameState } from '../src/shared/sim/state';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
-import { plainGame, priorities } from './helpers';
+import { plainGame, priorities, row } from './helpers';
 
-const camp = (s: GameState) => Math.floor(s.tiles.length / 2);
+const camp = (s: GameState) => campCell(s).x;
 const campfire = (s: GameState) => s.buildings.find((b) => b.def === 'campfire')!;
 function addBuilding(s: GameState, def: string, tile: number): Building {
-  const b: Building = { id: s.nextId++, def, tile, status: 'done', delivered: {}, progress: 1, store: {} };
+  const b: Building = { id: s.nextId++, def, tile, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} };
   s.buildings.push(b);
   return b;
 }
@@ -93,7 +94,7 @@ test('a gun turret fires on raiders in range, and never runs out', () => {
   const s = sim.state;
   s.era = 'modern';
   s.people[0].priorities = priorities({});
-  const turret = addBuilding(s, 'gun_turret', camp(s) + 1);
+  const turret = addBuilding(s, 'gun_turret', camp(s) + 4); // (right by the stores' door)
   addBuilding(s, 'stockpile', camp(s) + 3).store = { electronics: 10, fuel: 20 };
   const raid = startRaid(s, RAID_KIND_BY_ID.marauders, 60, new Rng(5));
   raid.arrivesTick = s.tick;

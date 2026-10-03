@@ -2,14 +2,12 @@
 // in two frames: the town strip along the bottom, scaled up for fingers, and the menus in a sheet above it.
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
-import { MID_GROUND_Y, STRIP_HEIGHT } from '../../shared/constants';
 import { startFeed } from './feed';
 import { PANELS, type StripState } from '../../shared/ipc';
 import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
 import { css, mix, skyColors, weatherCover } from '../town/skyColors';
 import { applyTheme, panelLabel } from '../theme';
-import { keepHeight } from '../../shared/sim/castle';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -20,9 +18,10 @@ const orientation = (): Orientation => (sideways.matches ? 'sideways' : 'upright
 /** How big the town is drawn (1 = the desktop strip's own size), zoomed out by default to see more of it. Upright
  *  and on its side are kept apart: on its side the height goes to sky as it zooms out, so it starts less far out.
  *  (New keys: the old one held the earlier, bigger sizes.) */
-const ZOOM_KEYS: Record<Orientation, string> = { upright: 'littletown.zoom3', sideways: 'littletown.zoom2.side' };
-const DEFAULT_ZOOMS: Record<Orientation, number> = { upright: 1.5, sideways: 1.2 };
-const MIN_ZOOM = 0.5;
+// (new keys again: the top-down town is seen from further out than the strip was)
+const ZOOM_KEYS: Record<Orientation, string> = { upright: 'littletown.zoom4', sideways: 'littletown.zoom4.side' };
+const DEFAULT_ZOOMS: Record<Orientation, number> = { upright: 0.5, sideways: 0.5 };
+const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.6;
 /** Upright, the town takes this share of the height between the title bar and the tabs (the feed has the rest). */
 const UPRIGHT_TOWN = 0.55;
@@ -67,21 +66,17 @@ sheet.append(panel);
  * tabs, the town along the bottom and more sky over it the further out it's zoomed. The clock bar and cards in the
  * strip are scaled back up, so they stay readable however far out it goes.
  */
-/** A castle town's keep: its floors (0: not a castle), and the strip height it needs beyond the keep itself (the
- *  walkway under it, and a little sky over its spires). */
-let castle = 0;
-/** A raid's battle is on screen. */
+/** A raid's battle, or a party's fight, is on screen (the map has all of it); a fight is drawn at its own scale. */
 let battleOn = false;
-const KEEP_MARGIN = STRIP_HEIGHT - MID_GROUND_Y + 24;
+let watchOn = false;
 
 function layout(): void {
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
   // (upright, the town has the lower part and the feed the rest; on its side, everything under the tabs)
-  // (in a battle the map has all of it, the feed hidden: the strip draws the battle at its own scale)
+  // (in a battle the map has all of it, the feed hidden; watching a party's fight too, drawn at its own scale)
   const room = sideways.matches || battleOn ? free : Math.round(free * UPRIGHT_TOWN);
-  // (a castle town stands tall: the strip is zoomed out enough to show all of the keep)
-  const need = castle ? keepHeight(castle) + KEEP_MARGIN : 0;
-  const fit = battleOn ? 1 : Math.min(zoom, room / STRIP_HEIGHT, need ? room / need : Infinity); // (never taller than there's room for)
+  // (the top-down town fills its room at the zoom, a raid's battle on it; a party's fight is drawn at its own scale)
+  const fit = watchOn ? 1 : zoom;
   // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
   const dpr = window.devicePixelRatio || 1;
   // (and, where it costs little, an even number: the art has detail on a grid twice as fine, pixelArt.ts FINE)
@@ -170,16 +165,10 @@ const tabButtons = PANELS.map((p) => {
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)
-  if (!!(snap.battle || snap.watch) !== battleOn) {
+  if (!!(snap.battle || snap.watch) !== battleOn || !!snap.watch !== watchOn) {
     battleOn = !!(snap.battle || snap.watch);
+    watchOn = !!snap.watch;
     document.body.classList.toggle('battle', battleOn);
-    layout();
-  }
-});
-bridge.onSnapshot((snap) => {
-  if ((snap.castle?.floors ?? 0) !== castle) {
-    castle = snap.castle?.floors ?? 0;
-    document.body.classList.toggle('castle', castle > 0);
     layout();
   }
 });

@@ -8,7 +8,7 @@ import type { Material } from '../data/materials';
 import type { Rng } from '../rng';
 import { storages } from './buildings';
 import { addStock, makePerson, notify, type GameState, type Prisoner, type Raider } from './state';
-import { campX } from './state';
+import { campXY } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds } from './townsfolk';
 
@@ -67,7 +67,7 @@ function feed(s: GameState): boolean {
 
 function convert(s: GameState, pr: Prisoner, rng: Rng): void {
   s.prisoners = s.prisoners.filter((q) => q !== pr);
-  const p = makePerson(rng, s.nextId++, 'hunter', campX(s), s.people.map((q) => q.name));
+  const p = makePerson(rng, s.nextId++, 'hunter', campXY(s), s.people.map((q) => q.name));
   p.name = pr.name;
   s.people.push(p);
   assignBeds(s);

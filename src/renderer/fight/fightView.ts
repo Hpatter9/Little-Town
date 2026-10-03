@@ -12,7 +12,8 @@ import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from 
 import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
 import { creatureFlip, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
-import { impactFrame, IMPACT_SIZE } from '../art/effects';
+import { impactFrame, IMPACT_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
+import { bleeds } from '../map/bloodPools';
 import { ELITES, type EliteAffix } from '../../shared/data/dungeons';
 import { loadDelveProps, propFrame, propLoop, type DelveProp } from '../art/delveProps';
 import { SHEETS } from '../town/spellsView';
@@ -26,6 +27,7 @@ import { lookFor, type SceneLook } from '../../shared/data/scenes';
 import type { BackdropId } from '../../shared/data/backdrops';
 import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
+import { fightAnim, heroFrame, heroScale, heroSheet } from '../art/combatPoses';
 import { stillTexture } from '../art/stills';
 
 /** How much of the scene is seen at least (art px): it's scaled so this fits, and shows more where there's room. */
@@ -399,12 +401,17 @@ export class FightScene {
         g.pop.alpha = Math.min(1, (14 - pop.age) / 5);
         g.pop.zIndex = 999;
       }
-      const spark = f.sinceHit < 7 && !f.down ? impactFrame(f.sinceHit) : null;
+      // a blow landing: flesh sprays blood away from the striker (the party faces left, its foes right), the rest sparks
+      const bloody = f.kind === 'person' || bleeds(f.kind);
+      const spark = f.sinceHit < 7 && !f.down ? (bloody ? splatFrame(f.sinceHit + 2) : impactFrame(f.sinceHit)) : null;
       g.spark.visible = !!spark;
       if (spark) {
+        const size = bloody ? SPLAT_SIZE * 0.6 : IMPACT_SIZE * 0.6;
         g.spark.texture = spark;
-        g.spark.width = g.spark.height = IMPACT_SIZE * 0.6;
-        g.spark.position.set(p[0] - (IMPACT_SIZE * 0.3), p[1] - 26);
+        g.spark.anchor.set(0.5, 0.5);
+        g.spark.width = g.spark.height = size;
+        g.spark.scale.x = (bloody && f.side === 'enemy' ? -1 : 1) * Math.abs(g.spark.scale.x);
+        g.spark.position.set(p[0] + (bloody ? (f.side === 'party' ? 8 : -8) : 0), p[1] - 26 + IMPACT_SIZE * 0.3);
         g.spark.zIndex = 998;
       }
     }
@@ -457,17 +464,32 @@ export class FightScene {
     const look = f.look ?? enemy?.look;
     if (!look) return;
     const wear = enemy ? enemy.wear : wornLayers(f.gear);
+    // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
+    const hero = !hs ? heroSheet(f.cls, f.ref) : null;
+    if (hero) {
+      const facing = faceLeft ? 'left' : 'right';
+      s.texture = heroFrame(hero, { facing, moving: false, walked: 0, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, sinceBlock: 999, down: f.down, now, ref: f.ref });
+      const sc = heroScale(hero) * k;
+      const flip = creatureFlip(hero, facing);
+      s.anchor.set(0.5, 1);
+      s.scale.set(sc * flip, sc);
+      s.position.set(Math.round(x), Math.round(y));
+      return;
+    }
     const weapon = hs ? hs.weapon : heldWeapon(f.gear, 'fight');
     let anim: LpcAnim = 'walk';
     let frame = 0;
     if (f.down) {
       anim = 'hurt';
       frame = FRAME_COUNT.hurt - 1;
+    } else if (f.sinceHit < 3) {
+      anim = 'hurt';
+      frame = f.sinceHit < 2 ? 0 : 1;
     } else if (acting) {
-      anim = hs ? attackAnim(hs, f.ranged) : weapon === 'bow' ? 'shoot' : f.ranged ? 'spell' : weapon === 'spear' ? 'thrust' : 'slash';
+      anim = hs ? attackAnim(hs, f.ranged) : fightAnim(f.gear, f.ranged);
       frame = Math.min(FRAME_COUNT[anim] - 1, Math.floor(f.sinceAction * (anim === 'shoot' ? 1.6 : 1)));
     }
-    s.texture = lpcFrame(look, anim, frame, f.ranged && weapon !== 'bow' ? null : weapon, wear);
+    s.texture = lpcFrame(look, anim, frame, anim === 'spell' ? null : weapon, wear);
     const flip = faceLeft ? -1 : 1;
     s.scale.set(k * flip, k);
     s.position.set(Math.round(x - (flip > 0 ? CENTRE_X : -CENTRE_X - 1) * k), Math.round(y - FEET_Y * k));

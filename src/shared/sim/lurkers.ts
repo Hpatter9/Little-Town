@@ -7,7 +7,7 @@ import { BUILDING_BY_ID } from '../data/buildings';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { RESEARCH_STATIONS } from '../data/research';
 import type { Rng } from '../rng';
-import { buildingCentreX } from './buildings';
+import { buildingDoor } from './buildings';
 import { startRaid } from './raids';
 import { shopOf } from './shop';
 import { notify, type GameState, type Raid } from './state';
@@ -27,7 +27,7 @@ export function lurkers(s: GameState, rng: Rng): void {
   const hour = calendar(s.tick).hour;
   const shop = shopOf(s);
   if (shop && (hour >= 22 || hour < 4) && rng.chance(MIMIC_PER_NIGHT_HOUR)) {
-    startRaid(s, RAID_KIND_BY_ID.mimic, 30, rng, buildingCentreX(shop));
+    startRaid(s, RAID_KIND_BY_ID.mimic, 30, rng, buildingDoor(shop));
     notify(s, `A chest a traveller left at the ${BUILDING_BY_ID[shop.def].name} has teeth! A Mimic!`, true);
     return;
   }
@@ -35,7 +35,7 @@ export function lurkers(s: GameState, rng: Rng): void {
     (b) => b.status === 'done' && (RESEARCH_STATIONS[b.def]?.mult ?? 0) >= 2 && s.people.some((p) => p.away === null && p.task?.type === 'research' && p.task.station === b.id),
   );
   if (study && rng.chance(TOMES_PER_HOUR)) {
-    startRaid(s, RAID_KIND_BY_ID.tomes, 24, rng, buildingCentreX(study));
+    startRaid(s, RAID_KIND_BY_ID.tomes, 24, rng, buildingDoor(study));
     notify(s, `The books of the ${BUILDING_BY_ID[study.def].name} tear themselves off the shelves and fly at the scholars!`, true);
   }
 }

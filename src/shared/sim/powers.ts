@@ -9,7 +9,7 @@ import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
 import { DESTINATIONS } from '../data/expeditions';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { buildingCentreX, depositNear, storages, totalStock } from './buildings';
+import { buildingCentre, buildingCentreX, depositNear, storages, totalStock } from './buildings';
 import { ally } from './classes';
 import { destinationUnlocked } from './expeditions';
 import { cropOf } from './farming';
@@ -19,7 +19,7 @@ import { shopOf, tavernOf } from './shop';
 import { researchMods } from './research';
 import { wardOf } from './rivals';
 import { aimedFoes, bestAim, inBattle } from './battle';
-import { addStock, campX, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
+import { addStock, campX, campXY, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
 import { WORLD_WIDTH } from '../constants';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { housingCapacity, joinOrigin } from './townsfolk';
@@ -87,7 +87,7 @@ const cheer = (s: GameState, n: number) => home(s).forEach((p) => (p.morale = Ma
 
 /** A new townsperson, raised or built or charmed, at the camp. */
 function newcomer(s: GameState, rng: Rng, type: string, how: string): Person {
-  const p = makePerson(rng, s.nextId++, type, campX(s), s.people.map((q) => q.name));
+  const p = makePerson(rng, s.nextId++, type, campXY(s), s.people.map((q) => q.name));
   s.people.push(p);
   joinOrigin(s, p, rng);
   notify(s, `${p.name} ${how}`, true);
@@ -160,7 +160,7 @@ export const POWERS: Record<string, PowerDef> = {
       // and the grove's walking mushrooms wake to fight for it
       const f = founder(s);
       const x = f?.x ?? campX(s);
-      for (let i = 0; i < 2; i++) s.raid!.raiders.push(ally(s, 'shroom_folk', x + (i ? 16 : -16), f?.dir ?? 1));
+      for (let i = 0; i < 2; i++) s.raid!.raiders.push(ally(s, 'shroom_folk', x + (i ? 16 : -16), f?.dir ?? 1, f?.y));
       return `Roots burst up and hold ${foes(s).length} raiders fast, and the mushrooms walk.`;
     },
   },
@@ -246,7 +246,7 @@ export const POWERS: Record<string, PowerDef> = {
     cast: (s) => {
       const f = founder(s);
       const x = f?.x ?? campX(s);
-      for (let i = 0; i < 3; i++) s.raid!.raiders.push(ally(s, 'wolf', x + (i - 1) * 20, f?.dir ?? 1));
+      for (let i = 0; i < 3; i++) s.raid!.raiders.push(ally(s, 'wolf', x + (i - 1) * 20, f?.dir ?? 1, f?.y));
       return 'The founder howled, and the pack came running.';
     },
   },
@@ -554,10 +554,10 @@ const TOUCH: Record<string, [Touch, number]> = {
 };
 
 function touched(s: GameState, touch: Touch): SpellTarget[] {
-  const person = (p: Person): SpellTarget => ({ x: p.x, id: p.id });
+  const person = (p: Person): SpellTarget => ({ x: p.x, y: p.y, id: p.id });
   switch (touch) {
     case 'foes':
-      return foes(s).filter((r) => r.x >= 0 && r.x <= WORLD_WIDTH).map((r) => ({ x: r.x, id: r.id, raider: true }));
+      return foes(s).filter((r) => r.x >= 0 && r.x <= WORLD_WIDTH).map((r) => ({ x: r.x, y: r.y, id: r.id, raider: true }));
     case 'home':
       return home(s).map(person);
     case 'hurt':
@@ -567,14 +567,14 @@ function touched(s: GameState, touch: Touch): SpellTarget[] {
       return (d.length ? d : home(s)).map(person);
     }
     case 'fields':
-      return s.buildings.filter((b) => b.crop?.stage === 'growing').map((b) => ({ x: buildingCentreX(b) }));
+      return s.buildings.filter((b) => b.crop?.stage === 'growing').map((b) => ({ x: buildingCentreX(b), y: buildingCentre(b).y }));
     case 'newest':
       return s.people.length ? [person(s.people[s.people.length - 1])] : [];
     case 'walls':
-      return s.buildings.filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def].hp).map((b) => ({ x: buildingCentreX(b) }));
+      return s.buildings.filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def].hp).map((b) => ({ x: buildingCentreX(b), y: buildingCentre(b).y }));
     case 'venue': {
       const v = shopOf(s) ?? tavernOf(s);
-      return v ? [{ x: buildingCentreX(v) }] : [];
+      return v ? [{ x: buildingCentreX(v), y: buildingCentre(v).y }] : [];
     }
     case 'caster':
       return [];
@@ -584,7 +584,7 @@ function touched(s: GameState, touch: Touch): SpellTarget[] {
 /** Who calls on the town's powers: the founder, when at home; else the camp. */
 function casterOf(s: GameState): SpellTarget {
   const f = founder(s);
-  return f && f.away === null ? { x: f.x, id: f.id } : { x: campX(s) };
+  return f && f.away === null ? { x: f.x, y: f.y, id: f.id } : { x: campX(s), y: campXY(s).y };
 }
 
 /** The town calls on its powers when the moment's right: once a second in a raid, else once a game hour. */

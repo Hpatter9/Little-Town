@@ -9,12 +9,14 @@ import { AREA_SIZE, areaFrame, spellSheetFrame, spellSheetSize, BLAST_SIZE, BLOO
 import type { Snapshot, SpellView } from '../../shared/sim/snapshot';
 import type { SpellTarget } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
-import { WALK_Y } from './townView';
 import { fontStacks } from '../fonts';
 import { currentTheme } from '../theme';
 import { BONE, GREEN_DEAD, LOOKS, type Kind, type SpriteFx } from './spellLooks';
 
 /** The top of the sky a spell reaches (fore-local y). */
+/** The old strip's walkway line (its TownView is gone): the fight screen and the map still use this file's sheets and
+ *  looks, placed about it. */
+const WALK_Y = 20;
 const SKY = WALK_Y - 125;
 /** The magic circle and the name show for this long (seconds). */
 const CIRCLE_SECS = 1.3;

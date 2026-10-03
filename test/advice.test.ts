@@ -24,6 +24,6 @@ test('a town left to itself researches, marks land and plans a building within t
   const sim = new Sim(s);
   for (let i = 0; i < 3 * TICKS_PER_HOUR; i++) sim.step();
   assert.ok(s.research.queue.length + s.research.done.length > 0, 'it picked research');
-  assert.ok(s.tiles.some((t) => t.designated) || s.buildings.length > 1, 'it set to gathering or building');
+  assert.ok(s.land.marked.length > 0 || s.buildings.length > 1, 'it set to gathering or building');
   assert.ok(s.plan, 'its plan is there for the panels');
 });

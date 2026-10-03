@@ -6,18 +6,30 @@ import { Rectangle, Texture } from 'pixi.js';
 import { loadImage } from './loadImage';
 import manifest from './props.json';
 
-export type PropSet = 'wild' | 'winter' | 'desert' | 'coast' | 'cave' | 'sea' | 'grove';
+export type PropSet = 'wild' | 'winter' | 'desert' | 'coast' | 'cave' | 'sea' | 'grove' | 'places' | 'undead';
 /** Each object's frame in its atlas: x, y, w, h (atlas px: twice art px). */
 const FRAMES = manifest as Record<PropSet, [number, number, number, number][]>;
 /** Atlas px per art px. */
 export const PROP_FINE = 2;
 
 const loaded = new Map<PropSet, Promise<Texture[]>>();
+const images = new Map<PropSet, HTMLImageElement>();
+
+/** A set's atlas image, for painting its objects straight onto a canvas (the ground's shallows): null until it has
+ *  loaded (asked for, if it hasn't been). */
+export function propImage(set: PropSet): HTMLImageElement | null {
+  const im = images.get(set);
+  if (!im && !loaded.has(set)) propTextures(set).catch(() => undefined);
+  return im ?? null;
+}
+/** A set's frames (atlas px). */
+export const propFrames = (set: PropSet) => FRAMES[set];
 /** A set's objects (loaded once). */
 export function propTextures(set: PropSet): Promise<Texture[]> {
   let p = loaded.get(set);
   if (!p) {
     p = loadImage(`props/${set}.png`).then((im) => {
+      images.set(set, im);
       const source = Texture.from(im).source;
       return FRAMES[set].map(([x, y, w, h]) => new Texture({ source, frame: new Rectangle(x, y, w, h) }));
     });

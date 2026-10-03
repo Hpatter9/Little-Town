@@ -11,11 +11,11 @@ import { Sim } from '../src/shared/sim/sim';
 import { addStock, makePerson, maxHp, type GameState, type Person } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, campPx } from './helpers';
 
 const campfire = (s: GameState) => s.buildings.find((b) => b.def === 'campfire')!;
 function hero(s: GameState): Person {
-  const p = makePerson(new Rng(s.nextId * 31), s.nextId++, 'gatherer', (Math.floor(s.tiles.length / 2) + 0.5) * 32, s.people.map((q) => q.name));
+  const p = makePerson(new Rng(s.nextId * 31), s.nextId++, 'gatherer', campPx(s), s.people.map((q) => q.name));
   p.traits = [];
   p.needs = { food: 1, rest: 1 };
   p.skills.melee.level = 25;

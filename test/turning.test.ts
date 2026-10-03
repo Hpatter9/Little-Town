@@ -9,14 +9,14 @@ import { FX_TICKS, makePerson, type Building, type GameState } from '../src/shar
 import { snapshot } from '../src/shared/sim/snapshot';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row, campPx } from './helpers';
 
 function town(seed: string, n = 3): GameState {
   const s = plainGame(seed);
-  for (let i = 0; i < n; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', 3200 + i * 20, s.people.map((p) => p.name)));
+  for (let i = 0; i < n; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', campPx(s), s.people.map((p) => p.name)));
   return s;
 }
-const phylactery = (s: GameState) => s.buildings.push({ id: s.nextId++, def: 'phylactery', tile: 102, status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+const phylactery = (s: GameState) => s.buildings.push({ id: s.nextId++, def: 'phylactery', tile: 102, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
 
 test('turning is hidden until a lich, vampire or werewolf can pass it on', () => {
   const s = town('turn-hidden');

@@ -9,7 +9,7 @@ import { snapshot } from '../src/shared/sim/snapshot';
 import { makePerson, type Building, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, row, campPx } from './helpers';
 
 function frozen(seed: string): GameState {
   const s = plainGame(seed);
@@ -18,7 +18,7 @@ function frozen(seed: string): GameState {
   s.nextRaidTick = s.tick + 1000 * TICKS_PER_HOUR;
   for (const st of storages(s)) st.store = {};
   // a town of four: one unit of heat an hour
-  for (let i = 0; i < 3; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', 3200 + i * 20, s.people.map((q) => q.name)));
+  for (let i = 0; i < 3; i++) s.people.push(makePerson(new Rng(i + 1), s.nextId++, 'hunter', campPx(s), s.people.map((q) => q.name)));
   return s;
 }
 const hours = (s: GameState, n: number, rng: Rng) => {
@@ -60,7 +60,7 @@ test('with nothing to burn the town freezes: health drains (never below 1) and s
   hours(s, 200, rng);
   assert.ok(p.hp >= 1, 'the cold weakens but never kills');
   s.doom = { kind: 'deep_freeze', phase: 'active', untilTick: s.tick + 90 * TICKS_PER_HOUR };
-  s.buildings.push({ id: s.nextId++, def: 'power_station', tile: 104, status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+  s.buildings.push({ id: s.nextId++, def: 'power_station', tile: 104, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
   hours(s, 1, rng);
   assert.equal(s.doom?.cold, false, 'the power station keeps the town warm');
 });

@@ -943,6 +943,339 @@
         color: var(--text-dim);
         white-space: nowrap;
       }
+      /* the townsfolk list: a short row each; tap one to inspect them */
+      .folk-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+      .folk-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 4px 8px 4px 4px;
+        text-align: left;
+        font: inherit;
+        color: var(--text);
+        background: rgba(0, 0, 0, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .folk-row:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .pixel-figure {
+        image-rendering: pixelated;
+        flex: none;
+      }
+      .folk-face {
+        width: 40px;
+        height: 40px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.35);
+      }
+      .folk-mid {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        flex: 1;
+        line-height: 1.25;
+      }
+      .folk-name {
+        font-weight: 700;
+      }
+      .folk-class {
+        font-size: 11px;
+        color: #ffe08a;
+      }
+      .folk-doing {
+        font-size: 11px;
+        color: var(--text-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .folk-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 3px;
+        flex: none;
+      }
+      .mini-bar {
+        display: block;
+        width: 52px;
+        height: 5px;
+        border-radius: 2px;
+        background: rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+      }
+      .mini-bar span {
+        display: block;
+        height: 100%;
+        background: #6cbf4a;
+      }
+      .mini-bar.mood span {
+        background: #e0b84a;
+      }
+      .mini-bar span.low {
+        background: #e06040;
+      }
+      .folk-flag {
+        font-size: 10px;
+        color: #f0a080;
+      }
+      .folk-go {
+        font-size: 20px;
+        color: var(--text-dim);
+        flex: none;
+      }
+      .back-btn {
+        margin-bottom: 8px;
+      }
+      .class-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 4px 0;
+      }
+      .class-chip {
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .class-chip.founder {
+        box-shadow: 0 0 0 1px #ffd860, 0 0 8px rgba(255, 216, 96, 0.5);
+      }
+      .founder-calling {
+        color: #ffd860;
+      }
+      .class-row .skill-bar {
+        display: block;
+        flex: 1;
+        max-width: 140px;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+      }
+      .class-row .skill-bar span {
+        display: block;
+        height: 100%;
+        background: #8ab0ff;
+      }
+      .class-path {
+        margin: 2px 0 4px;
+        padding-left: 8px;
+        border-left: 2px solid rgba(255, 224, 138, 0.4);
+      }
+      .inspect-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: 'who' 'gear' 'rest';
+      }
+      .inspect-who {
+        grid-area: who;
+      }
+      .inspect-gear {
+        grid-area: gear;
+      }
+      .inspect-rest {
+        grid-area: rest;
+      }
+      /* wide (a phone on its side): their gear on the left, who they are and the rest beside it */
+      @media (min-aspect-ratio: 3/2) {
+        .inspect-layout {
+          grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+          grid-template-rows: auto 1fr;
+          grid-template-areas: 'gear who' 'gear rest';
+          gap: 0 16px;
+          align-items: start;
+        }
+        .folk-list {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        }
+        .inspect-gear h2:first-child {
+          margin-top: 0;
+        }
+      }
+      /* their gear laid out round them, as in Diablo */
+      .doll {
+        display: grid;
+        grid-template-columns: 76px minmax(0, 1fr) 76px;
+        grid-template-rows: 64px 96px 96px 64px;
+        grid-template-areas:
+          'head figure charm'
+          'body figure pack'
+          'weapon figure offhand'
+          '. tool .';
+        gap: 6px;
+        padding: 10px;
+        max-width: 380px;
+        margin: 0 auto 8px;
+        box-sizing: border-box;
+        background: radial-gradient(ellipse at 50% 45%, rgba(120, 90, 50, 0.25), transparent 60%), #120d09;
+        border: 2px solid #5a4630;
+        border-radius: 4px;
+        box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.8);
+      }
+      .doll-figure {
+        grid-area: figure;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+      }
+      .doll-figure .pixel-figure {
+        max-width: 100%;
+        height: auto !important;
+      }
+      .doll-level {
+        font-size: 11px;
+        color: #ffe08a;
+        text-align: center;
+      }
+      .doll-slot {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        min-width: 0;
+        cursor: pointer;
+        background: linear-gradient(#1c1510, #0a0705);
+        border: 2px solid #3a2e22;
+        border-radius: 3px;
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.9);
+        color: var(--text-dim);
+        font: inherit;
+      }
+      .doll-slot.full {
+        border-color: var(--q, #8a7a60);
+        box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.9), 0 0 6px color-mix(in srgb, var(--q, #8a7a60) 45%, transparent);
+      }
+      .doll-slot.on {
+        outline: 2px solid #ffe08a;
+        outline-offset: 1px;
+      }
+      .doll-empty {
+        font-size: 22px;
+        opacity: 0.25;
+      }
+      .doll-label {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 1px;
+        font-size: 9px;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.4);
+        pointer-events: none;
+      }
+      .doll-plus {
+        position: absolute;
+        top: 1px;
+        right: 3px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #8ad0ff;
+        text-shadow: 0 1px 0 #000;
+      }
+      .item-card {
+        max-width: 380px;
+        margin: 0 auto 8px;
+        box-sizing: border-box;
+        background: #0e0a07;
+        border: 1px solid #5a4630;
+      }
+      .item-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .item-name {
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .item-kind {
+        font-size: 11px;
+        color: var(--text-dim);
+        margin: 2px 0 4px;
+      }
+      .item-stats {
+        color: #8ab0ff;
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+      /* what they carry: a grid of cells, as in Diablo's bag */
+      .bag {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 3px;
+        width: 100%;
+        max-width: 380px;
+        margin: 0 auto;
+      }
+      .bag-cell {
+        position: relative;
+        aspect-ratio: 1;
+        min-height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0c0806;
+        border: 1px solid #3a2e22;
+        box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.9);
+      }
+      .bag-cell.full {
+        border-color: #6e5a40;
+      }
+      .bag-word {
+        font-size: 10px;
+      }
+      .bag-count {
+        position: absolute;
+        right: 2px;
+        bottom: 0;
+        font-size: 10px;
+        font-weight: 700;
+        text-shadow: 0 1px 0 #000;
+      }
+      .bag-foot {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        justify-content: center;
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .fight-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+        gap: 4px 12px;
+        font-size: 12px;
+      }
+      .fight-stat {
+        display: flex;
+        justify-content: space-between;
+      }
+      .fight-label {
+        color: var(--text-dim);
+      }
+      .fight-value {
+        font-weight: 700;
+      }
+      .kit {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
     </style>
   </head>
   <body>

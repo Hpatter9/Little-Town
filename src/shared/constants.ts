@@ -13,7 +13,7 @@ export const PANEL_HEIGHT = 440;
 export const TILE = 32;
 
 /** Number of tile columns in the town world. */
-export const WORLD_TILES = 200;
+export const WORLD_TILES = 96; // (the land's width in cells: sim/land.ts LAND_W)
 export const WORLD_WIDTH = WORLD_TILES * TILE;
 
 /** Background layer is drawn at this scale and scrolls at this parallax rate. */

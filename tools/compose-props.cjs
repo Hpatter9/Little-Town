@@ -31,6 +31,28 @@ function pick(dir, re, k, skip) {
     .sort()
     .map((f) => [path.join(dir, f), k]);
 }
+/** What kind of thing a source file shows (for the town map: trees on forest cells, rocks on rock, and so on). */
+function kindOf(file) {
+  const f = file.toLowerCase();
+  // (the town map's places: sim/places.ts)
+  if (/cave_entrance/.test(f)) return 'cave';
+  if (/dragon_bones|dinosaur_skeleton/.test(f)) return 'bones';
+  if (/magic_circle/.test(f)) return 'circle';
+  if (/demon_scull/.test(f)) return 'skull';
+  if (/white_crystal/.test(f)) return 'crystal';
+  if (/3 decor\/(1|2)\.png$/.test(f)) return 'cart';
+  if (/8 camp\//.test(f)) return 'camp';
+  if (/building1_light/.test(f)) return 'ruin';
+  // (the undead pack: thorns stand for bushes, bones and skulls for rocks, its pale weeds for plants)
+  if (/thorn_p/.test(f)) return 'bush';
+  if (/\/bones_|pile_sculls/.test(f)) return 'rock';
+  if (/\/plant_+shadow/.test(f)) return 'plant';
+  if (/mushroom|chanterelle|flower|grass|fern|liana|coral|seaweed|algae|kelp/.test(f)) return 'plant';
+  if (/tree|birch|fir|conifer|palm|willow|ent_|idol|gazebo|totem|cocoon/.test(f)) return 'tree';
+  if (/rock|stone|stalagmite|crystal|boulder|canyon|ice/.test(f)) return 'rock';
+  if (/bush/.test(f) || f.includes('/9 bush/') || f.includes('bush-assets')) return 'bush';
+  return 'other';
+}
 const TREES = path.join(dirOf('free-tree-pixel-art'), 'PNG');
 const BUSH = path.join(dirOf('free-bush-assets'), 'PNG');
 const ROCK = path.join(dirOf('free-rocks-pixel-art'), 'PNG');
@@ -41,6 +63,8 @@ const SEA = path.join(dirOf('top-down-seabed-objects'), 'PNG/Objects_separately'
 const FIELDS = path.join(dirOf('fields-tileset-pixel-art-for-tower'), '2 Objects');
 const bushes = fs.readdirSync(BUSH).flatMap((d) => pick(path.join(BUSH, d), /./, 0.17));
 const fields = (d, re = /./) => pick(path.join(FIELDS, d), re, 0.5);
+const VILLAGE = path.join(dirOf('village-pixel-tileset'), '2 Objects');
+const UNDEAD = path.join(dirOf('undead-tileset-top-down'), 'PNG/Objects_separately');
 
 // (the small saplings at the start of each tree row are left out)
 const SETS = {
@@ -82,6 +106,21 @@ const SETS = {
   ],
   // under the merfolk's water
   sea: pick(SEA, /shadow1\.png$/, 0.2, /Ship|Mermaid_house|Dragon_bones|Monster_fish/),
+  // the places on the town's land (sim/places.ts): cave mouths, great bones, carts, a camp, a shrine, crystals
+  places: [
+    ...pick(ROCKY, /^Cave_entrance\d_ground_shadow/, 0.26),
+    ...pick(ROCKY, /^Dragon_bones_full_ground_shadow/, 0.2),
+    ...pick(path.join(CAVE, '128'), /Dinosaur_skeleton_part1_light|Demon_scull_light|white_crystal_light_shadow2|magic_circle_light|Building1_light/, 0.26),
+    ...pick(path.join(VILLAGE, '3 Decor'), /^(1|2)\.png$/, 0.5),
+    ...pick(path.join(FIELDS, '8 Camp'), /^(1|2|3|4)\.png$/, 0.5),
+  ],
+  // the liches' and vampires' blighted land (one shadow direction of each object)
+  undead: [
+    ...pick(UNDEAD, /^(Dead_tree|Broken_tree|Tree)_shadow1_/, 0.2),
+    ...pick(UNDEAD, /^Thorn_plant_shadow1_/, 0.2),
+    ...pick(UNDEAD, /^Plant_shadow1_/, 0.2),
+    ...pick(UNDEAD, /^(Bones_shadow1_|Pile_sculls_shadow1|Rock_shadow1_|Crystal_shadow1_)/, 0.2),
+  ],
   // the fae's and druids' groves
   grove: [
     ...pick(FOREST, /Luminous|balls_tree|Swirling|White_tree|Tree_idol|Ent_|gazebo|Mega_tree/, 0.2),
@@ -94,6 +133,7 @@ const SETS = {
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
   const page = await browser.newPage();
   const manifest = {};
+  const kinds = {};
   for (const [set, list] of Object.entries(SETS)) {
     if (!list.length) throw new Error(set + ': empty');
     const items = list.map(([f, k]) => ({ src: 'data:image/png;base64,' + fs.readFileSync(f).toString('base64'), k: k * FINE }));
@@ -114,7 +154,7 @@ const SETS = {
           }
           if (x1 < 0) continue;
           const w = Math.max(1, Math.round((x1 - x0 + 1) * it.k)), h = Math.max(1, Math.round((y1 - y0 + 1) * it.k));
-          cut.push({ im, sx: x0, sy: y0, sw: x1 - x0 + 1, sh: y1 - y0 + 1, w, h });
+          cut.push({ im, sx: x0, sy: y0, sw: x1 - x0 + 1, sh: y1 - y0 + 1, w, h, i: items.indexOf(it) });
         }
         // shelves, tallest first
         const order = cut.map((c, i) => i).sort((a, b) => cut[b].h - cut[a].h);
@@ -133,14 +173,17 @@ const SETS = {
         g.imageSmoothingEnabled = true;
         g.imageSmoothingQuality = 'high';
         cut.forEach((q, i) => g.drawImage(q.im, q.sx, q.sy, q.sw, q.sh, at[i][0], at[i][1], at[i][2], at[i][3]));
-        return { url: c.toDataURL('image/png'), frames: at };
+        return { url: c.toDataURL('image/png'), frames: at, kept: cut.map((q) => q.i) };
       },
       { items, W: ATLAS_W },
     );
     fs.writeFileSync(path.join(OUT, set + '.png'), Buffer.from(res.url.split(',')[1], 'base64'));
     manifest[set] = res.frames;
+    // (an object cut to nothing is left out of the frames: keep the kinds in step)
+    kinds[set] = res.kept.map((i) => kindOf(list[i][0]));
     console.log(set, res.frames.length, 'objects');
   }
   fs.writeFileSync(path.join(OUT, '../props.json'), JSON.stringify(manifest) + '\n');
+  fs.writeFileSync(path.join(OUT, '../propKinds.json'), JSON.stringify(kinds) + '\n');
   await browser.close();
 })();

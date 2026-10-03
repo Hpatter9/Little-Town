@@ -4,8 +4,7 @@ import { Sim } from '../src/shared/sim/sim';
 import { newGame } from '../src/shared/sim/state';
 import { housingCapacity } from '../src/shared/sim/townsfolk';
 import { runPlanner, PLAN_TICKS, STALL_HOURS } from '../src/shared/sim/planner';
-import { plainGame } from './helpers';
-import { generateWorld } from '../src/shared/world';
+import { camp, plainGame, row } from './helpers';
 import { ITEM_BY_ID } from '../src/shared/data/items';
 import { TOPIC_BY_ID } from '../src/shared/data/research';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -49,7 +48,7 @@ test('full stores: surplus wood and stone are cleared out, food never is', () =>
   const fire = s.buildings[0];
   fire.store = { wood: 200, stone: 200, berries: 25 };
   s.tick = PLAN_TICKS * 10;
-  runPlanner(s, generateWorld(s.seed).back);
+  runPlanner(s);
   assert.ok((fire.store.wood ?? 0) < 200 && (fire.store.stone ?? 0) < 200, JSON.stringify(fire.store));
   assert.equal(fire.store.berries, 25);
 });
@@ -60,7 +59,7 @@ test('its direction steers it: set on defence, it studies fighting or healing fi
     s.direction = direction;
     s.research.done.push('flint_knapping', 'foraging', 'basic_shelter', 'fire_keeping');
     s.tick = PLAN_TICKS;
-    runPlanner(s, generateWorld(s.seed).back);
+    runPlanner(s);
     return s.research.queue.map((id) => TOPIC_BY_ID[id].branch);
   };
   assert.ok(['military', 'medicine'].includes(pick('defense')[0]), pick('defense')[0]);
@@ -70,24 +69,22 @@ test('its direction steers it: set on defence, it studies fighting or healing fi
 test('autopilot off: the planner leaves the town alone', () => {
   const s = { ...newGame('ant-farm-off'), autopilot: false };
   s.tick = PLAN_TICKS;
-  runPlanner(s, generateWorld(s.seed).back);
+  runPlanner(s);
   assert.equal(s.research.queue.length, 0);
-  assert.ok(!s.tiles.some((t) => t.designated));
+  assert.equal(s.land.marked.length, 0);
 });
 
 test('a blueprint stuck for want of what nobody has is set aside, its slot freed and its materials back', () => {
   const s = plainGame('stalled');
   s.autopilot = true;
-  const back = generateWorld(s.seed).back;
-  const camp = Math.floor(s.tiles.length / 2);
-  const bp = { id: s.nextId++, def: 'barracks', tile: camp + 6, status: 'blueprint' as const, delivered: { stone: 5 }, progress: 0, store: {} };
+  const bp = { id: s.nextId++, def: 'barracks', tile: camp(s).x + 1, row: row(s), status: 'blueprint' as const, delivered: { stone: 5 }, progress: 0, store: {} };
   s.buildings.push(bp);
   s.tick = PLAN_TICKS * 10;
-  runPlanner(s, back);
+  runPlanner(s);
   assert.ok(s.buildings.includes(bp), 'not at first');
   s.tick += STALL_HOURS * TICKS_PER_HOUR + PLAN_TICKS;
   s.tick -= s.tick % PLAN_TICKS;
-  runPlanner(s, back);
+  runPlanner(s);
   assert.ok(!s.buildings.includes(bp), 'set aside');
   assert.ok(s.plan?.shelved?.barracks !== undefined);
   assert.ok(s.plan?.waiting.some((w) => w.includes('Barracks')));

@@ -13,6 +13,7 @@ import { attackAnim, enemyLook } from '../art/rivals';
 import { BLOOD_SIZE, bloodFrame, fireHitFrame, FLAME_SIZE, IMPACT_SIZE, impactFrame, lightningHitFrame, placeArea } from '../art/effects';
 import { PAL } from '../art/palette';
 import { haze, hexToNum, noTone } from '../art/pixelArt';
+import { loadScenery, withPackScenery } from '../art/scenery';
 import { heldWeapon, wornLayers } from '../art/held';
 
 const HORSE_SCALE = 0.85;
@@ -21,7 +22,7 @@ import type { HumanSprite, MachineSprite, StillSprite } from '../../shared/data/
 import { stillTexture } from '../art/stills';
 import { machineFrame, machineSize } from '../art/machines';
 import { makeSpriteSet, type SpriteSet } from '../art/sprites';
-import { daylightTint } from './townView';
+import { daylightTint } from '../map/mapView';
 
 /** Width of one repeat of the scenery. */
 const LOOP = 768;
@@ -44,8 +45,8 @@ export class ExpeditionPane {
   private battleKey = '';
   private readonly fighterSprites = new Map<string, { sprite: Sprite; bar: Graphics; spark: Sprite; blast: Sprite }>();
   private readonly frame = new Graphics();
-  private readonly sprites: SpriteSet;
-  private readonly farSprites: SpriteSet;
+  private sprites: SpriteSet;
+  private farSprites: SpriteSet;
   private shownId: number | null = null;
   private view: ExpeditionView | null = null;
   private scroll = 0;
@@ -57,6 +58,11 @@ export class ExpeditionPane {
   constructor(seedHash: number) {
     this.sprites = makeSpriteSet(seedHash ^ 0x61, noTone);
     this.farSprites = makeSpriteSet(seedHash ^ 0x62, FAR_TONE);
+    // (the packs' trees, bushes and rocks take over once loaded: art/scenery.ts)
+    void loadScenery().then(() => {
+      this.sprites = withPackScenery(this.sprites, noTone, 'near', 'forest', 'summer');
+      this.farSprites = withPackScenery(this.farSprites, FAR_TONE, 'pane-far', 'forest', 'summer');
+    });
     this.root.addChild(this.far, this.near, this.landmark, this.party, this.battleLayer, this.frame, this.mask);
     this.root.mask = this.mask;
     this.root.visible = false;
