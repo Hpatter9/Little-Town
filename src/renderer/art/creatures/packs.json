@@ -316,21 +316,25 @@
  },
  "samurai": {
   "w": 192,
-  "h": 71,
+  "h": 105,
   "perRow": 9,
   "rows": [
    "walk",
    "attack",
    "idle",
    "hurt",
-   "dead"
+   "dead",
+   "attack2",
+   "defend"
   ],
   "counts": {
    "walk": 9,
    "attack": 4,
    "idle": 6,
    "hurt": 3,
-   "dead": 6
+   "dead": 6,
+   "attack2": 5,
+   "defend": 2
   },
   "figure": 69,
   "facesRight": true
@@ -344,56 +348,64 @@
    "attack",
    "idle",
    "hurt",
-   "dead"
+   "dead",
+   "attack2"
   ],
   "counts": {
    "walk": 8,
    "attack": 14,
    "idle": 9,
    "hurt": 3,
-   "dead": 5
+   "dead": 5,
+   "attack2": 5
   },
   "figure": 103,
   "facesRight": true
  },
  "samurai_commander": {
-  "w": 122,
-  "h": 97,
+  "w": 130,
+  "h": 105,
   "perRow": 9,
   "rows": [
    "walk",
    "attack",
    "idle",
    "hurt",
-   "dead"
+   "dead",
+   "attack2",
+   "defend"
   ],
   "counts": {
    "walk": 9,
    "attack": 4,
    "idle": 5,
    "hurt": 2,
-   "dead": 6
+   "dead": 6,
+   "attack2": 5,
+   "defend": 2
   },
   "figure": 92,
   "facesRight": true
  },
  "kunoichi": {
   "w": 136,
-  "h": 86,
+  "h": 89,
   "perRow": 9,
   "rows": [
    "walk",
    "attack",
    "idle",
    "hurt",
-   "dead"
+   "dead",
+   "attack2"
   ],
   "counts": {
    "walk": 8,
    "attack": 6,
    "idle": 9,
    "hurt": 2,
-   "dead": 5
+   "dead": 5,
+   "attack2": 8
   },
   "figure": 64,
   "facesRight": true
@@ -407,14 +419,16 @@
    "attack",
    "idle",
    "hurt",
-   "dead"
+   "dead",
+   "attack2"
   ],
   "counts": {
    "walk": 7,
    "attack": 5,
    "idle": 7,
    "hurt": 4,
-   "dead": 5
+   "dead": 5,
+   "attack2": 5
   },
   "figure": 71,
   "facesRight": true
@@ -631,63 +645,75 @@
  },
  "knight_1": {
   "w": 180,
-  "h": 75,
+  "h": 76,
   "perRow": 8,
   "rows": [
    "walk",
    "attack",
    "idle",
    "hurt",
-   "dead"
+   "dead",
+   "attack2",
+   "defend"
   ],
   "counts": {
    "walk": 8,
    "attack": 5,
    "idle": 4,
    "hurt": 2,
-   "dead": 6
+   "dead": 6,
+   "attack2": 4,
+   "defend": 5
   },
   "figure": 64,
   "facesRight": true
  },
  "knight_2": {
   "w": 172,
-  "h": 75,
+  "h": 76,
   "perRow": 8,
   "rows": [
    "walk",
    "attack",
    "idle",
    "hurt",
-   "dead"
+   "dead",
+   "attack2",
+   "defend"
   ],
   "counts": {
    "walk": 8,
    "attack": 5,
    "idle": 4,
    "hurt": 2,
-   "dead": 6
+   "dead": 6,
+   "attack2": 4,
+   "defend": 5
   },
   "figure": 64,
   "facesRight": true
  },
  "knight_3": {
   "w": 158,
-  "h": 75,
+  "h": 76,
   "perRow": 8,
   "rows": [
    "walk",
    "attack",
    "idle",
    "hurt",
-   "dead"
+   "dead",
+   "attack2",
+   "defend"
   ],
   "counts": {
    "walk": 8,
    "attack": 5,
    "idle": 4,
    "hurt": 2,
-   "dead": 6
+   "dead": 6,
+   "attack2": 4,
+   "defend": 5
   },
   "figure": 64,
   "facesRight": true

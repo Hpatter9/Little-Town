@@ -592,7 +592,7 @@ export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area
   if (dmg > 0) {
     p.lastHit = s.tick;
     p.hitFrom = rd.x < p.x ? -1 : 1;
-  }
+  } else p.lastBlock = s.tick; // (turned on a shield or armour: the guarding pose)
   if (dmg > 0 && (rd.kind === 'ice_mage' || rd.kind === 'frost_archmage')) personFx(s, p.id, 'frost'); // (a burst of ice)
   // a plague rat's bite can carry the sickness
   if (dmg > 0 && (rd.kind === 'plague_rat' || rd.kind === 'rat_king') && !tireless(p) && !p.sick && rng.chance(RAT_BITE_SICKNESS)) sicken(s, p, rng);
@@ -662,6 +662,7 @@ function fireDefenses(s: GameState, rng: Rng): void {
 export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bonus = 0, mult = 1, near?: Raider[]): void {
   // (held by a rival lord's hex, they lose the moment)
   if (heldBack(s, p, rng)) return;
+  p.lastBlow = s.tick;
   if (p.cls === 'mage') return mageFire(s, p, rd, rng, mult, near ?? (s.raid?.raiders ?? []).filter((o) => o !== rd && !o.ally && !o.down && !o.gone && dist(o, rd) <= MAGE_BURST_PX));
   // a shooter at home takes a stone or arrow from storage for each shot, while there are any
   const kind = ammoOf(p);

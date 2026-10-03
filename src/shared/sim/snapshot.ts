@@ -92,6 +92,9 @@ export interface PersonView {
   /** Ticks since a blow last landed on them, and the side it came from (for the blood). */
   sinceHit: number;
   hitFrom: 1 | -1;
+  /** Ticks since they last struck at a foe, and since they last turned a blow (the fighting poses). */
+  sinceBlow: number;
+  sinceBlock: number;
   /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
   clsName: string | null;
@@ -205,6 +208,7 @@ export interface FighterView {
   atb: number;
   statuses: string[];
   clsName: string | null;
+  cls: ClassId | null;
   level: number | null;
   pop: { age: number; amount: number; heal: boolean } | null;
   conjured: boolean;
@@ -923,6 +927,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     activity: p.activity,
     sinceHit: s.tick - (p.lastHit ?? -999),
     hitFrom: p.hitFrom ?? 1,
+    sinceBlow: s.tick - (p.lastBlow ?? -999),
+    sinceBlock: s.tick - (p.lastBlock ?? -999),
     mounted: null,
     cls: p.cls ?? null,
     clsName: callingName(p, stageOf(p)),
@@ -1088,6 +1094,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           atb: f.down ? 0 : Math.max(0, Math.min(1, 1 - f.cooldown / Math.max(1, f.interval))),
           statuses: Object.entries(f.st ?? {}).filter(([, v]) => v!.until > e.battle!.tick).map(([k]) => k),
           clsName: f.side === 'party' ? ((q) => (q ? callingName(q, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
+          cls: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.cls ?? null) : null,
           level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
           pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
           conjured: !!f.conjured,

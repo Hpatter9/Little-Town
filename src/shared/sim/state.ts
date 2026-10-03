@@ -310,6 +310,9 @@ export interface Person {
   /** The tick a blow last landed on them, and which side it came from (-1 the left): for the blood. */
   lastHit?: number;
   hitFrom?: 1 | -1;
+  /** The tick they last struck at a foe, and last turned a blow (blocked or parried): for the fighting poses. */
+  lastBlow?: number;
+  lastBlock?: number;
   skills: Record<Skill, SkillLevel>;
   /** Skills they love: XP in these grows faster. */
   passions: Skill[];

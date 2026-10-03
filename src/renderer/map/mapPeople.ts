@@ -9,6 +9,8 @@ import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
+import { fightAnim, fightPose, heroFrame, heroScale, heroSheet, SHOOT_TICKS } from '../art/combatPoses';
+import { creatureFlip } from '../art/creatures';
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { glowTexture } from '../town/layer';
@@ -26,6 +28,9 @@ const HIT_H = 50;
 /** A founder is drawn this much bigger than the townsfolk, with an aura in their origin's colour. */
 const FOUNDER_SCALE = 1.14;
 const AURA: Record<string, number> = { town: 0xffd860, lich: 0x9a6aff, druid: 0x7ae070, vampire: 0xff3048, werewolf: 0xc8d8ff, robot: 0x60e0ff, dwarves: 0xffa040, merfolk: 0x40e0e0, nomads: 0xffc060, fae: 0xff90e0, knights: 0xf0f0ff, alchemists: 0x80ff80, settlers: 0xffd860 };
+
+/** How long after their last blow or wound a fighting calling keeps its combat form (ticks). */
+const HERO_LINGER = 50;
 
 /** Each class's Pixel Champions hero: its sheet and block (a mage is the sage sheet's blue-robed wizard). */
 const CLASS_LOOK: Partial<Record<ClassId, [CreatureSheet, number]>> = {
@@ -194,8 +199,14 @@ export class MapPeople {
       d.sprite.visible = !hidden;
       const held = heldWeapon(d.view.gear, d.view.activity);
       let [anim, frame] = this.pose(d, now);
-      if (anim === 'thrust' && held === 'bow') [anim, frame] = ['shoot', cycle((now - d.animStart) / 1000, 1.2, FRAME_COUNT.shoot)];
-      else if (anim === 'thrust' && held && held !== 'spear') [anim, frame] = ['slash', cycle((now - d.animStart) / 1000, 1.0, FRAME_COUNT.slash)];
+      if (anim === 'thrust' && held && held !== 'spear') [anim, frame] = ['slash', cycle((now - d.animStart) / 1000, 1.0, FRAME_COUNT.slash)];
+      // fighting: the blow their weapon strikes (art/combatPoses.ts), a flinch when struck, lying when down
+      const v = d.view;
+      const fighting = v.activity === 'fight' || v.sinceBlow < SHOOT_TICKS || v.sinceHit < 3 || v.downed !== null;
+      if (fighting) {
+        const fp = fightPose({ sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null }, fightAnim(v.gear, v.battle.ranged));
+        if (v.activity === 'fight' || fp[0] !== 'walk') [anim, frame] = fp;
+      }
       const [look, wear] = this.dressed(d.view);
       const s = d.sprite;
       s.texture = lpcFrame(look, anim, frame, held, wear);
@@ -210,6 +221,15 @@ export class MapPeople {
       s.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
       const moving = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) > 0.5;
       const facing = d.view.dir < 0 ? 'left' : 'right';
+      // a fighting calling takes its combat form (a Craftpix hero) while it fights, and a little after
+      const hero = heroSheet(v.cls, v.id);
+      const inCombat = v.activity === 'fight' || v.sinceBlow < HERO_LINGER || v.sinceHit < HERO_LINGER;
+      if (hero && inCombat && !hidden && !founder && !(v.cls && CLASS_LOOK[v.cls])) {
+        s.texture = heroFrame(hero, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
+        const hk = heroScale(hero) * k;
+        s.anchor.set(0.5, 1);
+        s.scale.set(hk * creatureFlip(hero, facing), hk);
+      }
       // someone who's taken up a special class looks the part (a Pixel Champions hero, at twice size)
       if (d.view.cls && CLASS_LOOK[d.view.cls] && !hidden && !founder) {
         const [sheet, block] = CLASS_LOOK[d.view.cls]!;
@@ -333,7 +353,7 @@ export class MapPeople {
       case 'eat':
         return ['spell', Math.floor(secs * 3) % 2];
       case 'fight':
-        return ['thrust', cycle(secs, 1.2, FRAME_COUNT.thrust)];
+        return ['walk', 0]; // (standing ready: the blows come from fightPose)
       case 'sleep':
         return ['hurt', FRAME_COUNT.hurt - 1];
       default:

@@ -27,6 +27,7 @@ import { lookFor, type SceneLook } from '../../shared/data/scenes';
 import type { BackdropId } from '../../shared/data/backdrops';
 import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
+import { fightAnim, heroFrame, heroScale, heroSheet } from '../art/combatPoses';
 import { stillTexture } from '../art/stills';
 
 /** How much of the scene is seen at least (art px): it's scaled so this fits, and shows more where there's room. */
@@ -463,17 +464,32 @@ export class FightScene {
     const look = f.look ?? enemy?.look;
     if (!look) return;
     const wear = enemy ? enemy.wear : wornLayers(f.gear);
+    // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
+    const hero = !hs ? heroSheet(f.cls, f.ref) : null;
+    if (hero) {
+      const facing = faceLeft ? 'left' : 'right';
+      s.texture = heroFrame(hero, { facing, moving: false, walked: 0, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, sinceBlock: 999, down: f.down, now, ref: f.ref });
+      const sc = heroScale(hero) * k;
+      const flip = creatureFlip(hero, facing);
+      s.anchor.set(0.5, 1);
+      s.scale.set(sc * flip, sc);
+      s.position.set(Math.round(x), Math.round(y));
+      return;
+    }
     const weapon = hs ? hs.weapon : heldWeapon(f.gear, 'fight');
     let anim: LpcAnim = 'walk';
     let frame = 0;
     if (f.down) {
       anim = 'hurt';
       frame = FRAME_COUNT.hurt - 1;
+    } else if (f.sinceHit < 3) {
+      anim = 'hurt';
+      frame = f.sinceHit < 2 ? 0 : 1;
     } else if (acting) {
-      anim = hs ? attackAnim(hs, f.ranged) : weapon === 'bow' ? 'shoot' : f.ranged ? 'spell' : weapon === 'spear' ? 'thrust' : 'slash';
+      anim = hs ? attackAnim(hs, f.ranged) : fightAnim(f.gear, f.ranged);
       frame = Math.min(FRAME_COUNT[anim] - 1, Math.floor(f.sinceAction * (anim === 'shoot' ? 1.6 : 1)));
     }
-    s.texture = lpcFrame(look, anim, frame, f.ranged && weapon !== 'bow' ? null : weapon, wear);
+    s.texture = lpcFrame(look, anim, frame, anim === 'spell' ? null : weapon, wear);
     const flip = faceLeft ? -1 : 1;
     s.scale.set(k * flip, k);
     s.position.set(Math.round(x - (flip > 0 ? CENTRE_X : -CENTRE_X - 1) * k), Math.round(y - FEET_Y * k));

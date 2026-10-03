@@ -17,10 +17,12 @@ const ASSETS = process.env.ASSETS || path.join(__dirname, '../../chronos-assets'
 const OUT = path.join(__dirname, '../src/renderer/art/creatures/packs');
 const A = 'assets/';
 
-// rows: walk, attack, idle, hurt, dead. A strip is a file of square frames (its height); a sequence is a folder of
+// rows: walk, attack, idle, hurt, dead (heroes: attack2 and defend too). A strip is a file of square frames (its height); a sequence is a folder of
 // frames (`seq`, taking every `every`th, scaled by `scale`).
 const strip = (id, dir, rows, extra = {}) => ({ id, dir, rows, ...extra });
 const std = (id, dir, attack = 'Attack_1', walk = 'Walk', dead = 'Dead') => strip(id, dir, { walk, attack, idle: 'Idle', hurt: 'Hurt', dead });
+// a hero (a townsperson's combat form): a second attack and a guard besides
+const hero = (id, dir, attack, attack2, defend, walk = 'Walk', dead = 'Dead') => strip(id, dir, { walk, attack, attack2, defend, idle: 'Idle', hurt: 'Hurt', dead });
 const WOLF = A + 'craftpix-net-248468-free-werewolf-sprite-sheets-pixel-art/';
 const GORGON = A + 'craftpix-net-280097-free-gorgon-pixel-art-character-sprite-sheets/';
 const MINO = A + 'craftpix-net-170637-free-minotaur-sprite-sheet-pixel-art-pack/';
@@ -64,11 +66,11 @@ const SPECS = [
   { ...std('forest_boss_1', FOREST + '1', 'Attack1', 'Walk', 'Death'), facesLeft: true },
   { ...std('forest_boss_2', FOREST + '2', 'Attack1', 'Walk', 'Death'), facesLeft: true },
   { ...std('forest_boss_3', FOREST + '3', 'Attack1', 'Walk', 'Death'), facesLeft: true },
-  std('samurai', SAMURAI + 'Samurai'),
-  std('samurai_archer', SAMURAI + 'Samurai_Archer', 'Shot'),
-  std('samurai_commander', SAMURAI + 'Samurai_Commander'),
-  std('kunoichi', NINJA + 'Kunoichi'),
-  std('ninja_monk', NINJA + 'Ninja_Monk'),
+  hero('samurai', SAMURAI + 'Samurai', 'Attack_1', 'Attack_2', 'Protection'),
+  hero('samurai_archer', SAMURAI + 'Samurai_Archer', 'Shot', 'Attack_1'),
+  hero('samurai_commander', SAMURAI + 'Samurai_Commander', 'Attack_1', 'Attack_2', 'Protect'),
+  hero('kunoichi', NINJA + 'Kunoichi', 'Attack_1', 'Attack_2'),
+  hero('ninja_monk', NINJA + 'Ninja_Monk', 'Attack_1', 'Attack_2'),
   std('ninja_peasant', NINJA + 'Ninja_Peasant', 'Shot'),
   std('fire_wizard', WIZARD + 'Fire Wizard', 'Fireball'),
   std('lightning_mage', WIZARD + 'Lightning Mage', 'Light_ball'),
@@ -79,9 +81,9 @@ const SPECS = [
   std('karasu_tengu', YOKAI + 'Karasu_tengu'),
   std('kitsune', YOKAI + 'Kitsune'),
   std('yamabushi_tengu', YOKAI + 'Yamabushi_tengu'),
-  std('knight_1', KNIGHT + 'Knight_1', 'Attack 1'),
-  std('knight_2', KNIGHT + 'Knight_2', 'Attack 1'),
-  std('knight_3', KNIGHT + 'Knight_3', 'Attack 1'),
+  hero('knight_1', KNIGHT + 'Knight_1', 'Attack 1', 'Attack 2', 'Defend'),
+  hero('knight_2', KNIGHT + 'Knight_2', 'Attack 1', 'Attack 2', 'Defend'),
+  hero('knight_3', KNIGHT + 'Knight_3', 'Attack 1', 'Attack 2', 'Defend'),
   std('skeleton_archer', SKELETON + 'Skeleton_Archer', 'Shot_1'),
   std('skeleton_spearman', SKELETON + 'Skeleton_Spearman'),
   std('skeleton_warrior', SKELETON + 'Skeleton_Warrior'),
@@ -99,7 +101,8 @@ const SPECS = [
   seq('squidman', PIRATES + 'Squidman'),
 ];
 
-const ROWS = ['walk', 'attack', 'idle', 'hurt', 'dead'];
+// (the heroes' extra rows come after the five every sheet has)
+const ROWS = ['walk', 'attack', 'idle', 'hurt', 'dead', 'attack2', 'defend'];
 const only = process.argv.slice(2);
 
 (async () => {
