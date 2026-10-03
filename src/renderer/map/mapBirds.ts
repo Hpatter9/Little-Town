@@ -65,6 +65,8 @@ export class MapBirds {
   /** Daylight and fair enough weather (main.ts, per snapshot). */
   on = false;
   winter = false;
+  /** The blighted land (the liches' and vampires'): only crows come down. */
+  crowsOnly = false;
   land: LandMap | null = null;
   /** Everyone about (world px), who scares them off. */
   folk: { x: number; y: number }[] = [];
@@ -87,8 +89,8 @@ export class MapBirds {
       this.nextFlock = 3 + Math.random() * 5;
       const spot = this.landingSpot(x, y, w, h);
       if (spot) {
-        const crow = Math.random() < 0.18;
-        const n = crow ? 1 : Math.min(2 + Math.floor(Math.random() * 3), want - this.birds.length);
+        const crow = this.crowsOnly || Math.random() < 0.18;
+        const n = crow ? (this.crowsOnly ? 1 + Math.floor(Math.random() * 2) : 1) : Math.min(2 + Math.floor(Math.random() * 3), want - this.birds.length);
         const kind = crow ? CROW : Math.floor(Math.random() * CROW);
         for (let i = 0; i < n; i++) this.hatch(kind, spot.x + (Math.random() - 0.5) * 28, spot.y + (Math.random() - 0.5) * 16);
       }

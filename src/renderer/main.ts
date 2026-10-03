@@ -942,6 +942,7 @@ async function start(): Promise<void> {
     // the birds come down by day in fair enough weather; everyone about scares them off
     birds.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.weather.kind !== 'snow' && !freeze;
     birds.winter = next.calendar.season === 'winter';
+    birds.crowsOnly = buildStyle === 'lich' || buildStyle === 'vampire';
     birds.land = next.land;
     birds.folk = [...next.people.filter((p) => p.away === null && !p.indoors), ...next.travellers, ...(next.raid?.phase === 'active' ? next.raid.raiders : [])].map((p) => ({ x: p.x, y: p.y }));
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
