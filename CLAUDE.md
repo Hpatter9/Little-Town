@@ -12,8 +12,10 @@ taskbar. TypeScript + PixiJS. `DESIGN.md` is the original design, and `README.md
   (`src/shared/sim/planner.ts`). The player only sets the town's **direction** (Growth, Defence, Trade or
   Knowledge, in the Plan tab) and sends **expeditions**. Don't add chores or manual controls.
 - **Deaths should be common.** Raids, disasters and hunger are meant to bite.
-- **Use the assets.** From here on, use any and all of the asset packs wherever they fit: the game should look better
-  for using them (the owner's words). Prefer a pack's sprite to a code-drawn one when its style suits the pixel art.
+- **Use the assets, not code-drawn art.** The owner doesn't like the look of the textures and sprites the code paints.
+  From here on, wherever an uploaded asset (the packs in `../chronos-assets`) can stand in for something code-drawn,
+  use the asset: buildings, ground tiles, fields and pens, props, effects, creatures. Code-drawn art is the fallback
+  only where no pack has the thing. Prefer a pack's sprite even where its style is a little bulky.
 - **Assets.** The project is free and private, so any sprite from the asset packs may be used. Credit the source
   in `CREDITS.md`. The packs live in the private repo `hpatter9/chronos-assets` (clone it next to this one, at
   `../chronos-assets`); copy in only the individual sprites the game uses, never whole packs. Sprites the game uses
@@ -771,6 +773,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     one card ("Beast's Lair found ×2").
     The side-on views nothing drew with any more are gone (`town/peopleView.ts`, `raidersView.ts`, `animalsView.ts`,
     `skyView.ts`, `renderer/camera.ts`); the notes above that name them describe what the map views took over.
+    Soak after phase 6 (2 towns per origin, 15 days, people/deaths): settlers 30–32/0–4, liches 32/0, druids 22–32/1–3,
+    vampires 32–34/1–2, werewolves 31–37/0–1, machines 29–31/0–1, dwarves 32/0, merfolk 32–34/1–4, nomads 37–39/0, fae
+    34–35/4–7, alchemists 28–36/0–2, knights 30–34/0–1; no town lost. Deaths run lower than before the top-down raids
+    (fighters only fight once at their spots, and towns are bigger): a watch item for the next tuning pass.
+  - **Phase 7 (next): the asset pass.** The owner's standing order (see Priorities): replace the code-drawn map art with the
+    packs wherever one has the thing: the ground (the Fields, Path and Road, Green Zone and Village tilesets' grass,
+    soil, roads, water edges), fields and pens (the Fields tileset), more buildings for every era and origin (the
+    Undead tileset for the liches and vampires, the Dungeon and Cave packs for the dwarves), props and effects.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
