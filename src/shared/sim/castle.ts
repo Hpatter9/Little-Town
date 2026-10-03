@@ -52,7 +52,8 @@ export function inMountain(m: LandMap, r: Rect): boolean {
   return true;
 }
 
-/** Every cell of the castle: the hall's and its rooms', as land indices. */
+/** Every cell of the castle: the hall's and its rooms', as land indices; in a mountain hold every cell cut out of the
+ *  rock besides (the galleries dug for ore), since a new hall may be carved off a gallery. */
 export function castleCells(s: CastleState): Set<number> {
   const m = s.land;
   const out = new Set<number>();
@@ -61,6 +62,7 @@ export function castleCells(s: CastleState): Set<number> {
   };
   add(coreRect(s));
   for (const b of rooms(s)) add(footprint(b));
+  if (holdOf(s) === 'mountain') for (let i = 0; i < m.cells.length; i++) if (m.cells[i] === 'H') out.add(i);
   return out;
 }
 
@@ -89,19 +91,33 @@ const SIDES = [
   [0, -1],
 ] as const;
 
-/** How many of a footprint's cell edges lie against the castle (its snugness), or -1 if it overlaps it. */
-export function sharedEdges(cells: Set<number>, m: LandMap, r: Rect): number {
+/** The castle's cells that nothing may be built over: the hall's and its rooms' (a mountain hold's galleries may be
+ *  carved into a room). */
+export function solidCells(s: CastleState): Set<number> {
+  const m = s.land;
+  const out = new Set<number>();
+  const add = (r: Rect) => {
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(m, x, y)) out.add(idx(m, x, y));
+  };
+  add(coreRect(s));
+  for (const b of rooms(s)) add(footprint(b));
+  return out;
+}
+
+/** How many of a footprint's cell edges lie against the castle (its snugness), or -1 if it overlaps what may not be
+ *  built over (`solid`: the castle's cells themselves, unless given). */
+export function sharedEdges(cells: Set<number>, m: LandMap, r: Rect, solid: Set<number> = cells): number {
   let n = 0;
   for (let y = r.y; y < r.y + r.h; y++)
     for (let x = r.x; x < r.x + r.w; x++) {
-      if (inMap(m, x, y) && cells.has(idx(m, x, y))) return -1;
+      if (inMap(m, x, y) && solid.has(idx(m, x, y))) return -1;
       for (const [dx, dy] of SIDES) if (inMap(m, x + dx, y + dy) && cells.has(idx(m, x + dx, y + dy))) n++;
     }
   return n;
 }
 
 /** Whether a footprint can be built on to the castle: clear of its cells, sharing at least one wall with it. */
-export const joinsCastle = (cells: Set<number>, m: LandMap, r: Rect) => sharedEdges(cells, m, r) > 0;
+export const joinsCastle = (cells: Set<number>, m: LandMap, r: Rect, solid?: Set<number>) => sharedEdges(cells, m, r, solid) > 0;
 
 /** Whether a footprint comes within `gap` cells of the castle (where nothing but a room may stand). */
 export function nearCastle(cells: Set<number>, m: LandMap, r: Rect, gap = 1): boolean {

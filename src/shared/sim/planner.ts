@@ -3,11 +3,12 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { hashSeed, Rng } from '../rng';
 import { treasuresHeld } from './shop';
 import { canWear } from './classes';
 import { isChild } from './social';
 import { buildOrigin, nomadic } from './nomads';
-import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges } from './castle';
+import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { HERDS } from '../data/livestock';
@@ -17,7 +18,7 @@ import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
 import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade } from './buildings';
-import { cellAt, doorOf, groundAt, idx, isMarked, isOpen, roadDistance, setMarked, spiralSpot, WILD, type Pt } from './land';
+import { type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot, WILD } from './land';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
@@ -90,7 +91,7 @@ interface Needs {
 }
 
 /** A small stock the town likes to keep of each basic material it can get (so building never waits long). */
-const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber: 8, lumber: 12, bricks: 10, cloth: 4, iron: 4 };
+const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber: 8, lumber: 12, bricks: 10, cloth: 4, iron: 4, gold: 0, gems: 0 };
 
 function needs(s: GameState): Needs {
   const stock = totalStock(s);
@@ -482,13 +483,14 @@ function findSpot(s: GameState, def: BuildingDef): Pt | null {
  *  first (the more of its walls it shares, the more compact the castle stays). */
 function roomSpot(s: GameState, def: BuildingDef): Pt | null {
   const cells = castleCells(s);
+  const solid = solidCells(s);
   const r = spiralSpot(s.land, def.width, depthOf(def), footprints(s), campCell(s), {
     maxR: 40,
     roads: true,
     door: false,
     carve: holdOf(s) === 'mountain',
-    ok: (rect) => joinsCastle(cells, s.land, rect),
-    prefer: (rect) => -sharedEdges(cells, s.land, rect),
+    ok: (rect) => joinsCastle(cells, s.land, rect, solid),
+    prefer: (rect) => -sharedEdges(cells, s.land, rect, solid),
   });
   if (!r) return null;
   return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
@@ -771,7 +773,37 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
 
 /** Mark wild land for what the town is short of (nearest first: for building, for crafting, food when it's low), and
  *  to clear room for a building it wants. */
+/** A mountain hold digs on: every face of rock beside its halls and galleries, within the known land, is given what
+ *  it holds (sim/land.ts `delvePool`: stone, coal and iron, gold and gems the deeper in), so the gathering below can
+ *  mark it like any wild cell; a face dug out becomes a gallery, and the faces beyond it open. */
+function openFaces(s: GameState): void {
+  if (holdOf(s) !== 'mountain') return;
+  const m = s.land;
+  const seed = hashSeed(s.seed);
+  for (let y = 0; y < m.h; y++)
+    for (let x = 0; x < m.w; x++) {
+      if (groundAt(m, x, y) !== 'hall') continue;
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (!inMap(m, nx, ny) || groundAt(m, nx, ny) !== 'mountain' || !isOpen(m, nx, ny)) continue;
+        const i = idx(m, nx, ny);
+        if (m.pools[i]) continue;
+        m.pools[i] = delvePool(delveDepth(m, ny), Rng.from(seed, 0x4d1 + i));
+      }
+    }
+}
+
+/** A mountain hold keeps this much gold and gems coming: it digs for them whenever it holds less (the shop sells them). */
+const DELVE_WANT = 10;
+
 function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], craftWants: Stock): void {
+  openFaces(s);
   let byDistance = wildCells(s);
   let marked = s.land.marked.length;
   const cap = BASE_MARKED + s.people.filter((p) => p.bornTick == null).length;
@@ -785,6 +817,7 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
     if (!GATHERABLE.has(m)) continue;
     let short = Math.max((n.demand[m] ?? 0) - (n.stock[m] ?? 0), craftWants[m] ?? 0);
     if (m === 'berries' && n.foodDays < 3) short = Math.max(short, n.people * 3);
+    if ((m === 'gold' || m === 'gems') && holdOf(s) === 'mountain') short = Math.max(short, DELVE_WANT - (n.stock[m] ?? 0));
     // (the reserve isn't worth gathering into full stores; what building, crafting or hunger needs still is, and so is
     // a basic the town has run right out of: a store full of the harvest once left a town with no wood to build more)
     if (n.storageFill > 0.95 && (n.stock[m] ?? 0) >= (RESERVE[m] ?? 0) / 2 && !(craftWants[m] ?? 0) && !s.buildings.some((b) => b.status === 'blueprint' && (stillNeeded(b)[m] ?? 0) > 0) && m !== 'berries') continue;

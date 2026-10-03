@@ -16,6 +16,8 @@ export const MATERIALS = [
   'oil', 'fuel', 'plastic', 'concrete', 'electronics', 'cartridges',
   // Robotic & Space
   'rare_minerals', 'alloys', 'circuits', 'power_cells',
+  // The mountain's deep veins (the dwarves' hold)
+  'gold', 'gems',
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -63,6 +65,8 @@ export const MATERIAL_NAMES: Record<Material, string> = {
   alloys: 'Alloys',
   circuits: 'Circuits',
   power_cells: 'Power cells',
+  gold: 'Gold',
+  gems: 'Gems',
 };
 
 export type Stock = Partial<Record<Material, number>>;

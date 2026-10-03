@@ -977,6 +977,29 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
         `DrawnBuilding.room`), with a candle's glow at night. A room under construction shows its furnishings' ghost and
         the site; its floor and walls come when it is done.
 
+    - **The dwarves' hold (done; the owner's design):** the Deep Hold's land is half mountain (`rules.hold: 'mountain'` in
+      `data/origins.ts`; `holdOf(s)` in `sim/castle.ts` is `'castle'`, `'mountain'` or null, and the castle rules below
+      hold for both). `makeLand(seed, biome, 'mountain')` makes the north half `mountain` ground (code 'M', impassable,
+      level by the camp and ragged beyond); the hall (`coreRect`) is cut into its foot `MOUNTAIN_FOOT` rows in, the camp
+      fire and stockpile stand on the terrain before it, and rooms are carved into the rock (`carvable`, `carve`: the
+      cells become `hall` ground, code 'H'; `canPlace`, `placeBlueprint` and `upgrade` carve; `spiralSpot`'s `carve`
+      option) sharing a wall with the hold as a castle's rooms do. The one way in is the gate in the hall's south wall.
+      Drawn by `groundArt.ts` (the mountain mass with seams and a lit cliff face where it meets the ground, halls as a
+      dark floor) and `castleArt.ts`'s mountain style (rock walls, the cave pack's carved gate, no towers); hold homes
+      show painted beds, never the camp tents.
+      - **Digging deeper:** the mountain is mined like the wild land. `openFaces` (planner.ts, each planning pass) gives
+        every mountain cell beside a hall within the open land a pool from `delvePool(depth)` (land.ts: stone always,
+        coal and iron ore from depth 2, gold from `GOLD_DEPTH` 6, gems from `GEM_DEPTH` 9, richer the deeper;
+        `delveDepth` counts rows in from the mountain's foot); dug out (`clearCell`) a face becomes a gallery (`hall`,
+        and part of `castleCells`, so rooms may be carved over galleries: `solidCells` is what may not be built over).
+        The hold keeps `DELVE_WANT` gold and gems coming (`planGathering`), and the shop sells the rest (`RESERVE` 0).
+        Materials `gold` and `gems` (`data/materials.ts`, worth 9 and 16 in `data/trade.ts`, DawnLike icons). Selling
+        ore ran the shop away (coins bought appeal, appeal drew more and bigger purses): attractiveness past
+        `APPEAL_CAP` (100, `data/shop.ts`) adds nothing more to purses or the traveller rate. Probe at day 13 (4 seeds): dwarves
+        hold 500 to 6000 coins (their shop takes 1000 to 3000 a day, nearly all gold and gems) where settlers hold 100
+        to 300; it was 10 000 to 18 000 before the cap. Tests: `test/castle.test.ts` (the hold, its growth, the veins,
+        the galleries).
+
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)

@@ -47,6 +47,8 @@ export function materialIcon(m: Material, size = 14): HTMLElement | null {
 
 /** Where the other materials' pictures are: a cell of a DawnLike sheet, or a code-drawn icon (customIcons.ts). */
 const CELLS: Partial<Record<Material, ItemDef['icon']>> = {
+  gold: { sheet: 'Money', x: 1, y: 0 },
+  gems: { sheet: 'Rock', x: 1, y: 0 },
   berries: { sheet: 'Food', x: 7, y: 2 },
   fruit: { sheet: 'Food', x: 0, y: 2 },
   vegetables: { sheet: 'Food', x: 0, y: 3 },

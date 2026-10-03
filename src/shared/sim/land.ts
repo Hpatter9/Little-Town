@@ -92,6 +92,20 @@ export const carvable = (g: Ground) => g === 'mountain' || g === 'hall';
 export type LandShape = 'mountain';
 /** The mountain's foot runs this many rows above the camp (level by the camp, ragged further off). */
 export const MOUNTAIN_FOOT = 3;
+/** How deep into the mountain a cell lies (rows above its foot by the camp; 1 at the foot), where the veins run richer. */
+export const delveDepth = (m: Pick<LandMap, 'camp'>, y: number) => m.camp.y - MOUNTAIN_FOOT - y + 1;
+/** What a cell of the mountain holds when a hold digs into it: stone throughout, coal and iron from a little way in,
+ *  gold from `GOLD_DEPTH`, gems from `GEM_DEPTH`, and more of each the deeper the cell lies. */
+export const GOLD_DEPTH = 6;
+export const GEM_DEPTH = 9;
+export function delvePool(depth: number, rng: { int(lo: number, hi: number): number; chance(p: number): boolean }): Partial<Record<Material, number>> {
+  const pool: Partial<Record<Material, number>> = { stone: rng.int(5, 9) };
+  if (depth >= 2 && rng.chance(0.5)) pool.coal = rng.int(1, 3);
+  if (depth >= 2 && rng.chance(0.6)) pool.iron_ore = rng.int(1, 3);
+  if (depth >= GOLD_DEPTH && rng.chance(Math.min(0.5, 0.15 + (depth - GOLD_DEPTH) * 0.05))) pool.gold = rng.int(1, 1 + Math.floor((depth - GOLD_DEPTH) / 6));
+  if (depth >= GEM_DEPTH && rng.chance(Math.min(0.35, 0.08 + (depth - GEM_DEPTH) * 0.04))) pool.gems = rng.int(1, 1 + Math.floor((depth - GEM_DEPTH) / 8));
+  return pool;
+}
 
 /** Mark a cell for gathering, or unmark it. */
 export function setMarked(m: LandMap, i: number, on: boolean): void {

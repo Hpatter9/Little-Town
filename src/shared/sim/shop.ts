@@ -21,6 +21,7 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/ma
 import { COMMON, pieceLabel, qualityMult, qualityOf } from '../data/quality';
 import {
   APPEAL_HALVES_WAIT,
+  APPEAL_CAP,
   APPEAL_SPEND,
   ASKED_KEEP,
   BUY_MARKUP,
@@ -385,7 +386,7 @@ export const SALE_GEAR: readonly ItemDef[] = ITEMS.filter((i) => i.slot && !i.re
 
 /** Game ticks until the next stranger, for a venue this attractive. */
 export function travellerGap(s: GameState, rng: Rng, attract: number): number {
-  const hours = rng.range(TRAVELLER_EVERY[0], TRAVELLER_EVERY[1]) / (1 + attract / APPEAL_HALVES_WAIT) / (biomeOf(s).caravans ?? 1) / travellerRate(s);
+  const hours = rng.range(TRAVELLER_EVERY[0], TRAVELLER_EVERY[1]) / (1 + Math.min(attract, APPEAL_CAP) / APPEAL_HALVES_WAIT) / (biomeOf(s).caravans ?? 1) / travellerRate(s);
   return Math.round(hours * TICKS_PER_HOUR);
 }
 
@@ -566,7 +567,7 @@ function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown): void {
     // who comes: any tier the shop is attractive enough for, the grander ones less often
     const tier = weighted(rng, tiersDrawn(attract).map((c) => [c, c.weight] as [(typeof CUSTOMER_TIERS)[number], number]));
     if (tier.outfit) look.outfit = tier.outfit; // (dressed for their station)
-    const purse = rng.int(PURSE[0], PURSE[1]) * PURSE_SCALE[s.era] * tier.purse * (1 + attract * APPEAL_SPEND) * (1 + keeper) * temperOf(temper).purse * priceRate(s);
+    const purse = rng.int(PURSE[0], PURSE[1]) * PURSE_SCALE[s.era] * tier.purse * (1 + Math.min(attract, APPEAL_CAP) * APPEAL_SPEND) * (1 + keeper) * temperOf(temper).purse * priceRate(s);
     t = stranger(rng.pick(tier.kinds), tier.tier, purse);
     t.want = shopWant(s, rng, tier.tier, town.forSale(s));
     if (tier.tier > 1 && !(open.shop?.seen ?? []).includes(tier.tier)) {

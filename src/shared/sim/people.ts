@@ -556,9 +556,14 @@ function scrounge(s: GameState, p: Person, task: Extract<Task, { type: 'gather' 
   }
 }
 
-/** A wild cell worked out is open ground now (sand in the desert). */
+/** A wild cell worked out is open ground now (sand in the desert); a cell of the mountain dug out is a gallery of the
+ *  hold (hall), which the dwarves walk and dig on from. */
 export function clearCell(s: GameState, i: number): void {
   const c = cellAt(s.land, i);
+  if (groundAt(s.land, c.x, c.y) === 'mountain') {
+    setGround(s.land, c.x, c.y, 'hall');
+    return;
+  }
   setGround(s.land, c.x, c.y, s.biome === 'desert' ? 'sand' : 'grass');
 }
 

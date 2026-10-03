@@ -3,7 +3,7 @@
 // middle of its front (bottom) edge: that's where workers stand, and a road is laid from it to the nearest road (or
 // the camp) when it's placed, so the town grows along its roads.
 
-import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind } from './castle';
+import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
 import { MAX_POTS, POT_STORAGE } from '../data/items';
@@ -189,7 +189,7 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
   }
   if (castleOn(s)) {
     const cells = castleCells(s);
-    if (room && !joinsCastle(cells, m, r)) return { ok: false, reason: 'A room is built on to the castle' };
+    if (room && !joinsCastle(cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };
     if (!room && nearCastle(cells, m, r)) return { ok: false, reason: "The castle's ground" };
   }
   return { ok: true };
