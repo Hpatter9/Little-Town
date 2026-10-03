@@ -535,12 +535,14 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
   // (raiders who joined since it began, summoned by a boss or a lord, come in with the wave on now)
   for (const rd of r.raiders) if (!rd.ally && !rd.down && !rd.gone && !rd.bt && (rd.x < 0 || rd.x > s.land.w * CELL)) rd.bt = { d: 0, lane: 0, wave: b.wave, enteredAt: s.tick };
   // (the fallen and the gone step off their spots, and the badly hurt fall back off the line, unless they're the last)
+  const fallingBack: BattleUnit[] = [];
   b.units = b.units.filter((u) => {
     if (u.person !== undefined) {
       const p = s.people.find((q) => q.id === u.person);
       if (!p || p.downed || p.away !== null) return false;
       if (p.hp < maxHp(p) * FALL_BACK && b.units.length > 1) {
         notify(s, `${p.name} falls back, badly hurt.`);
+        fallingBack.push(u);
         return false;
       }
       return true;
@@ -571,6 +573,16 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const q = spotOf.get(u.spot)!;
     return [q.x, q.y];
   };
+  // a fighter falling back turns their back on the raiders they were holding: each gets a parting blow at it as they
+  // go (so leaving the line is a danger, not a refuge), and then walks on
+  for (const u of fallingBack)
+    for (const rd of r.raiders) {
+      if (rd.ally || rd.down || rd.gone || !rd.bt || rd.bt.out || rd.bt.held !== u.spot) continue;
+      rd.bt.held = undefined;
+      const p = people.get(u.person!);
+      if (!p || p.downed) continue;
+      strikeUnit(s, r, rd, u, rng, b, unitPos);
+    }
   const holding = (u: BattleUnit) => wave.filter((rd) => rd.bt!.held === u.spot && !rd.down && !rd.gone).length;
   const capacity = (u: BattleUnit) => {
     if (u.ally !== undefined) return 2;

@@ -244,3 +244,35 @@ test('a battle can be played at 2 or 3 times, only while it is on, and the choic
   assert.equal(battleSpeedNow(s), 1, 'over: back to the town pace');
   assert.equal(s.battleSpeed, 2, 'kept for the next battle');
 });
+
+test('a fighter who falls back off the line takes a parting blow from each raider they were holding', () => {
+  const s = town('parting', 4);
+  s.autoBattle = false;
+  const r = startRaid(s, RAID_KIND_BY_ID.bandits, 30, new Rng(6));
+  r.phase = 'active';
+  startBattle(s, r);
+  const b = r.battle!;
+  autoPlace(s, b, r);
+  b.phase = 'fighting';
+  b.until = s.tick;
+  const u = b.units.find((x) => x.person !== undefined && b.map.spots.find((q) => q.id === x.spot)!.kind === 'block')!;
+  const p = s.people.find((q) => q.id === u.person)!;
+  const spot = b.map.spots.find((q) => q.id === u.spot)!;
+  p.x = spot.x * 32;
+  p.y = spot.y * 32;
+  // two bandits held at their spear point, and the fighter all but spent
+  const held = r.raiders.filter((rd) => !rd.ally).slice(0, 2);
+  for (const rd of held) {
+    rd.bt!.d = 1;
+    rd.bt!.held = u.spot;
+    rd.cooldown = 50;
+  }
+  p.hp = 1;
+  const tick = s.tick;
+  updateRaid(s, new Rng(7));
+  assert.ok(!b.units.some((x) => x.person === p.id), 'they left the line');
+  assert.equal(held[0].lastAction, tick, 'the first raider struck at their back as they went');
+  // (the second strikes too, unless the first blow already laid the fighter out)
+  assert.ok(p.downed || held[1].lastAction === tick, 'and the second, if there was anyone left to strike');
+  for (const rd of held) assert.equal(rd.bt!.held, undefined, 'and none is held any longer');
+});
