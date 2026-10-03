@@ -674,6 +674,20 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   off everyone once), the Guild called (hostility to its threshold: hunters at the next noon), or nothing said. Tests:
   `test/strangers.test.ts`.
 
+- **Natures (done; the owner's ask: villagers with personalities of their own):** `src/shared/data/natures.ts`:
+  fourteen natures (cheerful, grumpy, shy, bold, dreamy, pious, greedy, kind, proud, curious, gloomy, jolly, stern,
+  restless), each with a name and a line, a `mood` nudge to the morale they settle at (`driftMorale`), a `work` pace
+  (`workFactor`), `friction` and `likes`/`clashes` (`natureFit`, added to the pair's `chemistry` in `updateSocial`,
+  so like warms to like and some natures grate), and lines to `say` on each `Topic` (greet, work, cold, hot, rain,
+  night, hungry, tired, raid, friend, rival, idle, sea, sick, old, child; `ANYONE` fills a gap). `natureOf(p)` is
+  decided by the id (`Person.nature` overrides; no save change). **Speech bubbles:** `src/renderer/map/speech.ts`
+  (`topicFor` from the person's view and what's going on, `lineNow`, `makeBubble`: a white box with a tail, the
+  look's body face) and `MapPeople.speak`: each person has a slot of `SPEECH_EVERY` (48 s, offset by id) and speaks
+  in `SPEECH_SHARE` of them for `SPEECH_FOR`; someone within `TALK_NEAR` answers `REPLY_AFTER` later; never asleep,
+  fighting, just struck, indoors or a visitor. main.ts feeds `weather`, `season`, `hour` and `raid`;
+  `window.__talk = 1` makes everyone talk (previews: glowshot's TALK=1). The Townsfolk rows, the inspect page and the
+  tap card name the nature (`PersonView.nature`, `natureName`, `natureLine`). Tests: `test/natures.test.ts`.
+
 ## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):

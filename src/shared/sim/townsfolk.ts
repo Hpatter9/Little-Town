@@ -33,6 +33,7 @@ import { isInjured } from './health';
 import { tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { ORIGIN_DEFS, rulesOf } from '../data/origins';
+import { natureOf } from '../data/natures';
 import { makeStranger, oneOf, strangerOrigin, welcomes } from './strangers';
 import { originWork, moraleMarks } from './origin';
 
@@ -169,7 +170,8 @@ export function driftMorale(s: GameState, p: Person): void {
     p.morale = MACHINE_MORALE;
     return;
   }
-  const { target } = mood(s, p);
+  // (their nature nudges where their spirits settle: data/natures.ts)
+  const target = Math.max(0, Math.min(100, mood(s, p).target + natureOf(p).mood));
   const step = (MORALE_DRIFT_PER_HOUR / TICKS_PER_HOUR) * MORALE_EVERY;
   p.morale = p.morale < target ? Math.min(target, p.morale + step) : Math.max(target, p.morale - step);
   // (some origins' folk never sink too low: thralls, the fair folk)
@@ -221,7 +223,7 @@ export const MAX_BOTS = 10;
 
 /** Multiplier on work speed from traits, morale, hunger, tiredness and the hour. */
 export function workFactor(s: GameState, p: Person): number {
-  let f = 1;
+  let f = natureOf(p).work;
   if (p.traits.includes('hard_worker')) f *= 1.2;
   if (p.traits.includes('lazy')) f *= 0.8;
   if (p.traits.includes('night_owl')) {

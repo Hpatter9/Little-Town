@@ -16,6 +16,7 @@ import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { glowTexture } from '../town/layer';
 import { TAIL_H, TAIL_W, tailTexture, WAIST } from '../art/merTail';
+import { hash01, lineNow, makeBubble, REPLY_AFTER, SPEECH_EVERY, SPEECH_FOR, SPEECH_SHARE, TALK_NEAR, type SpeechContext } from './speech';
 
 const EMOTE_EVERY = 11;
 const EMOTE_FOR = 3;
@@ -64,6 +65,11 @@ interface Drawn {
   lamp?: Sprite;
   /** A merfolk's tail, while they swim (art/merTail.ts). */
   tail?: Sprite;
+  /** What they're saying (map/speech.ts), and the slot it was said in. */
+  speech?: Container;
+  speechSlot?: number;
+  /** Answering someone beside them until this time. */
+  replyUntil?: number;
   from: { x: number; y: number };
   to: { x: number; y: number };
   at: number;
@@ -80,6 +86,12 @@ export class MapPeople {
   private readonly drawn = new Map<number, Drawn>();
   moon = false;
   theme = 'town';
+  /** What's going on, for what people say (main.ts, per snapshot), and the camera's zoom (bubbles stay readable). */
+  weather = 'clear';
+  season = 'spring';
+  hour = 12;
+  raid = false;
+  zoom = 1;
   /** The map's lights layer (main.ts): everyone out after dark carries a lantern's glow there. */
   lights: Container | null = null;
   weave = false;
@@ -137,7 +149,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -146,6 +158,52 @@ export class MapPeople {
     if (v.typeName === 'Traveller' || v.look.wear) return [v.look, wornLayers(v.gear, v.gearQ)];
     const w = wardrobe({ id: v.id, gender: v.look.gender, typeName: v.typeName, gear: v.gear, coins: v.coins, child: v.growsUpIn !== null, founder: v.id === this.founderId }, this.theme, this.weave);
     return [{ ...v.look, outfit: w.outfit }, [...w.wear, ...wornLayers(v.gear, v.gearQ)]];
+  }
+
+  /** Now and then someone says a line in their nature's voice (map/speech.ts): in a slot of their own by their id,
+   *  a share of the time; someone standing by answers a moment later. */
+  private speak(d: Drawn, now: number, x: number, y: number, z: number, hidden: boolean): void {
+    const v = d.view;
+    const t = now + v.id * 7331;
+    const slot = Math.floor(t / SPEECH_EVERY);
+    const into = t - slot * SPEECH_EVERY;
+    const quiet = hidden || d.visitor || v.activity === 'sleep' || v.activity === 'fight' || v.downed !== null || v.sinceHit < 20;
+    // someone near: a friend, a rival, a child, anyone (and whether this one is the answerer, a little later)
+    let nearFriend = false;
+    let nearRival = false;
+    let nearChild = false;
+    let nearAnyone = false;
+    let answering = false;
+    for (const o of this.drawn.values()) {
+      if (o === d || o.view.indoors || Math.hypot(o.x - d.x, o.y - d.y) > TALK_NEAR) continue;
+      nearAnyone = true;
+      if (v.friends.includes(o.view.name)) nearFriend = true;
+      if (v.rivals.includes(o.view.name)) nearRival = true;
+      if (o.view.growsUpIn !== null) nearChild = true;
+      if (o.speech?.visible && o.speechSlot !== undefined && now - (o.speechSlot * SPEECH_EVERY - o.view.id * 7331) < REPLY_AFTER + 400 && now - (o.speechSlot * SPEECH_EVERY - o.view.id * 7331) >= REPLY_AFTER) answering = true;
+    }
+    const share = (window as unknown as { __talk?: number }).__talk ?? SPEECH_SHARE; // (previews: everyone talks)
+    const talk = (window as unknown as { __talk?: number }).__talk;
+    // (an answer, once begun, stays up its full time)
+    if (answering && !quiet && (d.replyUntil === undefined || now > d.replyUntil + SPEECH_EVERY / 4)) d.replyUntil = now + SPEECH_FOR;
+    const replying = d.replyUntil !== undefined && now < d.replyUntil;
+    const speaks = !quiet && ((into < (talk ? SPEECH_EVERY : SPEECH_FOR) && hash01(v.id, slot) < share) || replying);
+    if (!speaks) {
+      if (d.speech) d.speech.visible = false;
+      return;
+    }
+    const key = replying && !(into < SPEECH_FOR && hash01(v.id, slot) < share) ? Math.floor((d.replyUntil ?? 0) / 1000) + 100000 : slot;
+    if (d.speechSlot !== key || !d.speech) {
+      d.speech?.destroy();
+      const c: SpeechContext = { weather: this.weather, season: this.season, hour: this.hour, raid: this.raid, nearFriend, nearRival, nearChild, nearAnyone };
+      d.speech = this.layer.addChild(makeBubble(lineNow(v, c, key)));
+      d.speechSlot = key;
+    }
+    const k = Math.min(2.2, Math.max(1, 1 / Math.max(0.25, this.zoom)));
+    d.speech.visible = true;
+    d.speech.scale.set(k);
+    d.speech.position.set(Math.round(x), Math.round(y) - 64 - (v.swimming ? -16 : 0));
+    d.speech.zIndex = z + 1e7;
   }
 
   private emoteFor(d: Drawn, now: number): Emote | null {
@@ -308,6 +366,7 @@ export class MapPeople {
           d.levelUp.zIndex = z + 0.2;
         }
       }
+      this.speak(d, now, x, y, z, hidden);
       const emote = hidden || d.visitor || d.view.bleedMinutes !== null ? null : this.emoteFor(d, now);
       if (emote && !d.emote) d.emote = this.layer.addChild(new Sprite());
       if (d.emote) {

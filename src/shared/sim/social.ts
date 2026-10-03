@@ -3,6 +3,7 @@
 // researched, couples marry and may welcome children, who grow up over about a week of real time and
 // take after a parent. Losing someone close hits hard.
 
+import { natureFit, natureOf } from '../data/natures';
 import { NAMES, randomLook } from '../data/people';
 import {
   CHILD_CHANCE,
@@ -100,7 +101,8 @@ export function updateSocial(s: GameState, rng: Rng): void {
       if (Math.abs(a.x - b.x) > NEAR_PX) continue;
       const social = 1 + (a.skills.social.level + b.skills.social.level) / 20;
       const loner = a.traits.includes('loner') || b.traits.includes('loner') ? 0.5 : 1;
-      let v = adjust(s, a.id, b.id, WARM_PER_HOUR * chemistry(s, a.id, b.id) * social * loner);
+      // (their natures weigh in: like warms to like, and some natures grate: data/natures.ts)
+      let v = adjust(s, a.id, b.id, WARM_PER_HOUR * (chemistry(s, a.id, b.id) + natureFit(natureOf(a), natureOf(b))) * social * loner);
       if (rng.chance(FRICTION_CHANCE * (1 + friction(a) + friction(b)))) v = adjust(s, a.id, b.id, -FRICTION);
       if (v >= COUPLE && canPair(a) && canPair(b) && rng.chance(COUPLE_CHANCE)) {
         a.partner = b.id;
@@ -120,7 +122,7 @@ export function chemistry(s: GameState, a: number, b: number): number {
 }
 
 /** Traits that rub people the wrong way. */
-const friction = (p: Person) => ['lazy', 'glutton', 'coward', 'loner'].filter((t) => p.traits.includes(t)).length * 0.5;
+const friction = (p: Person) => ['lazy', 'glutton', 'coward', 'loner'].filter((t) => p.traits.includes(t)).length * 0.5 + natureOf(p).friction;
 
 const canPair = (p: Person) => !isChild(p) && (p.partner ?? null) === null && !tireless(p);
 

@@ -1,6 +1,7 @@
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
+import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
 import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
 import { SEAT_D, seatId } from '../data/seats';
@@ -367,6 +368,8 @@ export interface Person {
   lowMoraleHours?: number;
   /** Their people, when not the town's (sim/strangers.ts): their lifespan and look are theirs. */
   origin?: OriginId;
+  /** Their nature (data/natures.ts), when not the one their id decides. */
+  nature?: NatureId | null;
   /** A monster (werewolf or vampire), its standing order for the Hunter's Guild, and when it last fed. */
   monster?: MonsterKind | null;
   /** Their class (data/classes.ts): given once when they're grown, for life. */

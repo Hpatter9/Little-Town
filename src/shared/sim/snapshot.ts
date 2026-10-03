@@ -2,6 +2,7 @@
 
 import { RESEARCH_PACE } from '../data/pace';
 import { swims } from './sea';
+import { natureOf, type NatureId } from '../data/natures';
 import { ageDays, ageLine, ageYears, isElder, lifeStage, type LifeStage } from './ageing';
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
@@ -166,6 +167,10 @@ export interface PersonView {
    *  life, a line about it, and an elder (slower, and old age may take them). */
   /** In the sea (a merfolk swimming: drawn with a tail). */
   swimming: boolean;
+  /** Their nature (data/natures.ts): id, name and a line about it. */
+  nature: NatureId;
+  natureName: string;
+  natureLine: string;
   ageDays: number;
   ageYears: number;
   lifeStage: LifeStage;
@@ -993,6 +998,9 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     rivals: rivalsOf(s, p).map((f) => f.name),
     growsUpIn: p.bornTick != null ? Math.max(0, CHILD_HOURS - (s.tick - p.bornTick) / TICKS_PER_HOUR) : null,
     breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,
+    nature: natureOf(p).id,
+    natureName: natureOf(p).name,
+    natureLine: natureOf(p).line,
     swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
     ageDays: Math.floor(ageDays(s, p)),
     ageYears: Math.floor(ageYears(s, p)),
