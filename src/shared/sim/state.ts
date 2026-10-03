@@ -3,6 +3,7 @@
 
 import { FOUNDER_CLASS } from '../data/founderClasses';
 import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
+import { SEAT_D, seatId } from '../data/seats';
 import type { Delve } from './delves';
 import type { Quest } from './quests';
 import type { Material, Stock } from '../data/materials';
@@ -926,6 +927,14 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   const core = hold === 'mountain' ? { x: camp.x - 3, y: camp.y - MOUNTAIN_FOOT - 4 + 1, w: 6, h: 4 } : null;
   if (core) for (let y = core.y; y < core.y + core.h; y++) for (let x = core.x; x < core.x + core.w; x++) setGround(land, x, y, 'hall');
   let hallAt = core ? core.x : 0;
+  // the seat of the town (data/seats.ts): a hold's stands on its hall (the castle's over the camp, the mountain's cut
+  // into its foot); everyone else's just beyond the fire
+  const seatCore = core ?? (origin.rules.castle ? { x: camp.x - 3, y: camp.y - 2 } : null);
+  buildings.push(
+    seatCore
+      ? { id: nextId++, def: seatId(origin.id, 1), tile: seatCore.x, row: seatCore.y, status: 'done', delivered: {}, progress: 1, store: {}, room: true }
+      : { id: nextId++, def: seatId(origin.id, 1), tile: camp.x - 2, row: campRow - 1 - SEAT_D, status: 'done', delivered: {}, progress: 1, store: {} },
+  );
   for (const def of origin.start.buildings ?? []) {
     const d = BUILDING_BY_ID[def];
     if (core && d.layer === 'mid') {

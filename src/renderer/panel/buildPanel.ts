@@ -156,7 +156,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     const shown = known.filter(
       (b) =>
         !(hide.has('built') && s.buildings.some((q) => q.def === b.id && q.status === 'done')) &&
-        !(hide.has('locked') && !isUnlocked({ unlockAll: s.unlockAll, done: s.research.done }, b)),
+        !(hide.has('locked') && !isUnlocked({ unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id }, b)),
     );
     hidden += known.length - shown.length;
     if (!shown.length) continue;
@@ -174,7 +174,7 @@ const hide = new HidePrefs('littletown.buildHide', ['built', 'locked'] as const)
 
 function card(def: BuildingDef, s: Snapshot): HTMLElement {
 
-  const unlocked = isUnlocked({ unlockAll: s.unlockAll, done: s.research.done }, def);
+  const unlocked = isUnlocked({ unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id }, def);
   const c = el('div', unlocked ? 'card' : 'card locked');
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', def.name), el('span', 'card-size', `${def.width} wide · ~${duration(def.buildSeconds * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(def.research))])} of work`));

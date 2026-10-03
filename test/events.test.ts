@@ -93,6 +93,7 @@ test('away, a choice event pauses the town: at most one comes, and answering it 
   const sim = new Sim(town());
   const s = sim.state;
   s.nextEventTick = s.tick + 2 * TICKS_PER_HOUR;
+  s.nextRaidTick = Number.MAX_SAFE_INTEGER; // (no raid to reach the gate first)
   const start = s.tick;
   const { ticks } = catchUp(sim, 3 * 3600_000);
   assert.ok(s.event?.held, 'an event came and holds the town');

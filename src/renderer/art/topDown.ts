@@ -13,24 +13,24 @@ import { reclad, type Style } from './originStyles';
 import { mixHex as mix, paint, type Painter, type PixelArt, type Tone } from './pixelArt';
 
 /** The eaves' overhang past the footprint, each side (px). */
-const EAVE = 4;
+export const EAVE = 4;
 /** How far the ridge stands above the footprint's top edge (px): the roof's height, seen at this angle. */
-const LIFT = 12;
+export const LIFT = 12;
 /** The lit window colour (pixelArt.ts LAMPS: it glows at night). */
-const WINDOW = '#f0d890';
+export const WINDOW = '#f0d890';
 
-type Shape = 'house' | 'hall' | 'flat' | 'tower' | 'dome' | 'wall' | 'pad' | 'works';
+export type Shape = 'house' | 'hall' | 'flat' | 'tower' | 'dome' | 'wall' | 'pad' | 'works';
 
 /** The materials of an era: roof (light, dark), wall (light, dark), trim. The usual colours: originStyles.ts swaps
  *  them for each origin's. */
-interface Mats {
+export interface Mats {
   roof: [string, string];
   wall: [string, string];
   trim: string;
   /** How the roof is covered: thatch bands, tile courses, slate courses, flat panels. */
   cover: 'thatch' | 'tile' | 'slate' | 'panel';
 }
-const MATS: Record<Era, Mats> = {
+export const MATS: Record<Era, Mats> = {
   neolithic: { roof: ['#b89a58', '#8a7040'], wall: ['#d8c8a8', '#77502f'], trim: '#5a3a22', cover: 'thatch' },
   medieval: { roof: ['#a4543a', '#6a3424'], wall: ['#d8c8a8', '#e8dcc0'], trim: '#5a3a22', cover: 'tile' },
   industrial: { roof: ['#6a6e78', '#454a54'], wall: ['#a4543a', '#6a3424'], trim: '#3b2616', cover: 'slate' },
@@ -88,7 +88,7 @@ const SHAPES: Record<string, Shape> = {
 };
 
 /** Whether an era is `at` or later. */
-const since = (era: Era, at: Era) => ERAS.indexOf(era) >= ERAS.indexOf(at);
+export const since = (era: Era, at: Era) => ERAS.indexOf(era) >= ERAS.indexOf(at);
 
 const cache = new Map<string, PixelArt>();
 
@@ -142,7 +142,7 @@ export function topDownArt(defId: string, w: number, d: number, tone: Tone, tone
   return art;
 }
 
-interface G {
+export interface G {
   p: Painter;
   /** Where smoke rises from (chimneys, stacks), filled in as they're drawn. */
   smoke: { x: number; y: number }[];
@@ -169,7 +169,7 @@ const rnd = (seed: number, i: number) => ((Math.sin(seed * 12.9898 + i * 78.233)
 
 /** A roof plane from the ridge (y0, inset `inset` each side) down to the eaves (y1, the full width), covered in the
  *  era's way: bands of thatch, courses of tile or slate, or metal panels; lit at the ridge, shaded at the eaves. */
-function roofPlane(g: G, x0: number, x1: number, y0: number, y1: number, inset: number, hip = true): void {
+export function roofPlane(g: G, x0: number, x1: number, y0: number, y1: number, inset: number, hip = true): void {
   const { p, mats } = g;
   const [light, dark] = mats.roof;
   const rows = y1 - y0;
@@ -201,7 +201,7 @@ function roofPlane(g: G, x0: number, x1: number, y0: number, y1: number, inset: 
 }
 
 /** The front wall from y0 to the bottom: plaster, timber, brick or panels by era, with a door and windows. */
-function frontWall(g: G, x0: number, x1: number, y0: number, y1: number, door = true, windows = true): void {
+export function frontWall(g: G, x0: number, x1: number, y0: number, y1: number, door = true, windows = true): void {
   const { p, mats, era } = g;
   const [light, dark] = mats.wall;
   const h = y1 - y0;

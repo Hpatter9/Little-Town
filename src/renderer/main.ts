@@ -1,6 +1,8 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { seatArt } from './art/seatArt';
+import { SEAT_STAGE } from '../shared/data/seats';
 import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
 import { MapSpells } from './map/mapSpells';
@@ -958,6 +960,8 @@ async function start(): Promise<void> {
     // map draws it: the pack's picture where there is one, else the top-down painter's)
     const cardArt = (id: string) => {
       const def = BUILDING_BY_ID[id];
+      const seat = SEAT_STAGE[id];
+      if (seat) return seatArt(seat.origin, seat.stage, def.width, depthOf(def), noTone, 'card');
       return packArt(id, def.width, buildStyle || 'town') ?? topDownArt(id, def.width, depthOf(def), noTone, 'card', buildStyle || 'town');
     };
     (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {

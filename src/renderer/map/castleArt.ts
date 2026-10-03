@@ -6,6 +6,8 @@
 // hall's south wall where the carpet begins, and a round tower at each outer corner. The rooms' furnishings are their
 // own sprites (`roomFurniture`): a pack picture where one suits the room, else beds, or a table, chairs and a chest.
 
+import { seatInterior } from '../art/seatArt';
+import { SEAT_STAGE } from '../../shared/data/seats';
 import { Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import type { BuildingDef } from '../../shared/data/buildings';
 import { CELL, type Rect } from '../../shared/sim/land';
@@ -299,6 +301,9 @@ const furniture = new Map<string, PixelArt>();
  *  there is one (shelves, benches, racks, a well, a fire pit...), else beds for a home (one a sleeper, as many as fit),
  *  crates and barrels for a store, and a table with chairs and a chest for the rest. */
 export function roomFurniture(def: BuildingDef, w: number, id: number, tone: Tone, toneKey: string, style: string): PixelArt | null {
+  // (the seat of the hold: the throne room's furnishings, art/seatArt.ts)
+  const seat = SEAT_STAGE[def.id];
+  if (seat) return seatInterior(seat.origin, seat.stage, w, tone, toneKey);
   const inner = Math.max(1, w - 1);
   // (a home in a castle or a hold is beds, never a tent)
   const pack = def.housing ? null : packArt(def.id, inner, style, id);

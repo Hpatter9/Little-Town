@@ -10,6 +10,7 @@ import { isChild } from './social';
 import { buildOrigin, nomadic } from './nomads';
 import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
+import { isSeat, seatOf } from '../data/seats';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { HERDS } from '../data/livestock';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
@@ -603,6 +604,19 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
 const PLOT_FOOD = CROPS.garden_plot.yield * FOOD_VALUE.grain!;
 const plotsWorth = (id: string) => (CROPS[id].yield * (FOOD_VALUE[CROPS[id].material] ?? 0)) / PLOT_FOOD;
 
+/** The seat of the town (data/seats.ts) is rebuilt grander as soon as a new era opens its next stage and the town can
+ *  find the materials: it is never built new, only rebuilt where it stands. */
+function planSeat(s: GameState, n: Needs, plan: TownPlan): boolean {
+  const seat = seatOf(s.buildings);
+  if (!seat || seat.status !== 'done') return false;
+  const to = UPGRADES[seat.def];
+  const def = to ? BUILDING_BY_ID[to] : undefined;
+  if (!def || !isUnlocked(unlockInfo(s), def) || !affordable(s, def, n.stock)) return false;
+  if (!upgrade(s, seat.id).ok) return false;
+  plan.build = { def: def.id, why: 'the seat of the town, rebuilt grander for the new age' };
+  return true;
+}
+
 /** Fewer, bigger fields: two garden plots side by side, both lying fallow, are ploughed into one open field (and an
  *  open field grows into an estate farm where it stands, if there's room). In winter, when nothing's in the ground
  *  anyway, or whenever more food is wanted. */
@@ -646,7 +660,7 @@ function shelveStalled(s: GameState, n: Needs, plan: TownPlan): void {
       moved[b.id] = { tick: s.tick, sig };
       continue;
     }
-    if (s.tick - m.tick < STALL_HOURS * TICKS_PER_HOUR || CAPSTONES.includes(b.def) || b.progress > 0) continue;
+    if (s.tick - m.tick < STALL_HOURS * TICKS_PER_HOUR || CAPSTONES.includes(b.def) || isSeat(b.def) || b.progress > 0) continue;
     const missing = (Object.keys(stillNeeded(b)) as Material[]).filter((k) => (n.stock[k] ?? 0) === 0);
     if (!missing.length) continue;
     demolish(s, b.id);
@@ -701,6 +715,7 @@ function consolidateHomes(s: GameState, n: Needs, plan: TownPlan, needBeds = fal
 function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
+  if (planSeat(s, n, plan)) return clear;
   if (consolidateHomes(s, n, plan)) return clear;
   if (consolidateFields(s, n, plan)) return clear;
   let blocked: BuildingDef | null = null;

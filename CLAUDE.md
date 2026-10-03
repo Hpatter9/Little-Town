@@ -1000,6 +1000,29 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
         to 300; it was 10 000 to 18 000 before the cap. Tests: `test/castle.test.ts` (the hold, its growth, the veins,
         the galleries).
 
+    - **The mountain's look (done):** `src/renderer/map/mountainArt.ts`: the mass in relief (ridged noise shaded from the
+      north-west, posterised to five shades, snow on the high crests, cracks where the slope breaks: `paintMountain`), a
+      cliff face at its foot lit with a jagged brow and buttresses that reach down into the cell below, spurs biting in
+      from the sides (`paintMountainEdge`, called for every terrain cell); cave rocks and crystals scattered over the mass
+      (`PROPS_ON.mountain`, thinned by `PROPS_SHARE`). The land's foot line wanders with two noises (`makeLand`). The
+      chunk key carries the ring of cells round a chunk, since the edge reaches into its neighbours.
+    - **The seat of the town (done; the owner's request):** every origin has one central building, standing from the
+      founding and rebuilt grander as each era comes: `src/shared/data/seats.ts` (`SEATS`: five stage names and lines per
+      origin, a morale reason, a `boon`: wanderers, healing, raid warning or a deep store; `SEAT_DEFS` generated and
+      merged into BUILDINGS, chained by `SEAT_UPGRADES` in UPGRADES; `SEAT_STAGE`, `isSeat`, `seatOf`). A stage is a
+      building def with `era` (opens with the era), `origin` (another people's is never theirs: `isUnlocked` takes both,
+      `unlockInfo` passes them) and `seat` (1..5), `never` built new: `newGame` founds stage 1 just beyond the fire
+      (5x3; a hold's on its hall, 6x4, as a room: `seatCore`), the planner's `planSeat` rebuilds it as soon as the next
+      stage is open and affordable (`shelveStalled` leaves it alone), and `canUpgrade` keeps a building no bigger than
+      what stands where it is without asking `canPlace` (so a hold's seat is rebuilt on its hall, campfire and all). The
+      nomads' first two seats are portable. Pictures: `src/renderer/art/seatArt.ts` (`seatArt(origin, stage, w, d)`, one
+      painter per origin growing with the stage: moot hall to council spire, bone altar to throne of unlife, standing
+      stones to world tree, den to howling hall, core pad to overmind, tide pool to pearl palace, yurt to palace of the
+      horde, faerie ring to court of seasons, still house to philosopher's tower, motte to citadel; the holds' throne
+      rooms `seatInterior`, drawn by `roomFurniture` at `THRONE_K`; `window.__seatArt`/`__seatInterior` for previews),
+      used by MapView's `art`, the feed's `cardArt`. topDown.ts exports its pieces (`roofPlane`, `frontWall`, `MATS`,
+      `G`). Tests: `test/seats.test.ts`.
+
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)

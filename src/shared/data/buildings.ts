@@ -1,6 +1,9 @@
 // Buildings by era (DESIGN §15 and on). Costs and times are starting points for tuning.
 
 import type { Stock } from './materials';
+import type { Era } from './eras';
+import type { OriginId } from './origins';
+import { SEAT_DEFS, SEAT_UPGRADES } from './seats';
 
 export type BuildLayer = 'fore' | 'mid' | 'back';
 export type Venue = 'shop' | 'tavern';
@@ -42,9 +45,15 @@ export interface BuildingDef {
   floor?: { venue: Venue; cols: number; rows: number; appeal: number };
   /** Traps and turrets: they hit the nearest raider in range (px from the building's centre) every interval seconds. */
   defense?: { damage: [number, number]; range: number; interval: number; accuracy: number };
+  /** Opens only once the town has reached this era (beside any research). */
+  era?: Era;
+  /** One origin's own (data/seats.ts): another people never build it. */
+  origin?: OriginId;
+  /** A seat of the town (data/seats.ts), and which of its five stages. */
+  seat?: number;
 }
 
-export const BUILDINGS: readonly BuildingDef[] = [
+const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'campfire', name: 'Campfire', layer: 'fore', width: 2, cost: { wood: 4, stone: 3 }, buildSeconds: 20, purpose: 'Cooking, warmth and morale. Doubles as a small camp cache.', storage: 30 },
   { id: 'stockpile', name: 'Stockpile', layer: 'fore', width: 3, cost: { wood: 6 }, buildSeconds: 20, purpose: 'Stores materials. Put them near the work to cut hauling.', storage: 100 },
   { id: 'lean_to', name: 'Lean-to', layer: 'mid', width: 2, cost: { wood: 8, fiber: 4 }, buildSeconds: 30, purpose: 'Houses 1.', research: 'basic_shelter', housing: 1 },
@@ -153,6 +162,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'town_hall', name: 'Town Hall', layer: 'mid', width: 6, cost: { bricks: 40, lumber: 30, iron: 10, cloth: 10 }, buildSeconds: 3000, purpose: 'Era capstone: the seat of the town opens the Industrial era.', research: 'town_charter', morale: [6, 'A proper town'] },
 ];
 
+export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...SEAT_DEFS];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };
@@ -187,6 +197,7 @@ export const UPGRADES: Readonly<Record<string, string>> = {
   radio_tower: 'drone_hub',
   gun_nest: 'gun_turret',
   gun_turret: 'laser_turret',
+  ...SEAT_UPGRADES,
 };
 
 /** Adjacency bonuses (DESIGN §4): a workshop near its raw material works faster; a tavern near the market cheers more. */

@@ -6,6 +6,8 @@
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
+import { ERA_NAMES, eraReached, type Era } from '../data/eras';
+import type { OriginId } from '../data/origins';
 import { MAX_POTS, POT_STORAGE } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
@@ -61,11 +63,14 @@ export function distToBuilding(b: Pick<Building, 'def' | 'tile' | 'row'>, p: Pt)
 }
 
 /** Whether a building can be placed: its research is done (or the debug unlock is on). */
-export function isUnlocked(u: { unlockAll: boolean; done: readonly string[] }, def: BuildingDef): boolean {
-  return !def.research || u.unlockAll || u.done.includes(def.research);
+export function isUnlocked(u: { unlockAll: boolean; done: readonly string[]; era?: Era; origin?: OriginId }, def: BuildingDef): boolean {
+  if (def.origin && u.origin && def.origin !== u.origin) return false;
+  if (u.unlockAll) return true;
+  if (def.era && u.era && !eraReached(u.era, def.era)) return false;
+  return !def.research || u.done.includes(def.research);
 }
 
-export const unlockInfo = (s: GameState) => ({ unlockAll: s.cheats.unlockAll, done: s.research.done });
+export const unlockInfo = (s: GameState) => ({ unlockAll: s.cheats.unlockAll, done: s.research.done, era: s.era, origin: s.origin });
 
 /** The town's reach: the furthest any of its buildings (fields too) stands from the camp, in cells (chessboard), at
  *  least the camp's own ground. */
@@ -265,7 +270,7 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
   const to = b && UPGRADES[b.def];
   if (!b || !to || b.status !== 'done') return { ok: false, reason: 'Nothing to upgrade to' };
   const def = BUILDING_BY_ID[to];
-  if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: `Needs research: ${TOPIC_BY_ID[def.research!]?.name ?? def.research}`, to };
+  if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: def.era && !eraReached(s.era, def.era) ? `Opens in the ${ERA_NAMES[def.era]} era` : `Needs research: ${TOPIC_BY_ID[def.research!]?.name ?? def.research}`, to };
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full', to };
   if (b.fire !== undefined) return { ok: false, reason: 'It is on fire', to };
   // (absorbing a neighbour: it's pulled down to make room, so it doesn't count as in the way)
@@ -273,6 +278,8 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
   const others = { ...s, buildings: s.buildings.filter((q) => q !== b && q !== merged) };
   const growW = def.width - defOf(b).width;
   const growH = depthOf(def) - depthOf(defOf(b));
+  // (no bigger than what stands: it is rebuilt where it is, whatever stands about it: a hold's seat on its hall)
+  if (growW <= 0 && growH <= 0 && !merged) return { ok: true, to, tile: b.tile, row: b.row };
   // (the road at its door is in the way of growing downward, so it grows up and left first)
   const spots: Pt[] = [];
   for (const dy of growH > 0 ? [-growH, 0] : [0]) for (const dx of growW > 0 ? [0, -growW, -Math.ceil(growW / 2)] : [0]) spots.push({ x: b.tile + dx, y: b.row + dy });
