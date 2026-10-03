@@ -5,6 +5,7 @@ import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
 import { MapSpells } from './map/mapSpells';
 import { MapHerds } from './map/mapHerds';
+import { MapBirds } from './map/mapBirds';
 import { BloodPools } from './map/bloodPools';
 import { createBattleHud } from './battle/battleHud';
 import { FightScene } from './fight/fightView';
@@ -189,6 +190,8 @@ async function start(): Promise<void> {
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
   const raiders = new MapRaiders(map.things);
   const herds = new MapHerds(map.things);
+  const birds = new MapBirds(map.things, map);
+  (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
   const pane = new ExpeditionPane(seedHash);
   const snow = new SnowView();
   const leaves = new LeavesView();
@@ -936,6 +939,11 @@ async function start(): Promise<void> {
     map.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
     map.smokeAmount = airFor(next.calendar.hour, next.calendar.season, next.weather.kind).smoke;
     map.weather = next.weather.kind;
+    // the birds come down by day in fair enough weather; everyone about scares them off
+    birds.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.weather.kind !== 'snow' && !freeze;
+    birds.winter = next.calendar.season === 'winter';
+    birds.land = next.land;
+    birds.folk = [...next.people.filter((p) => p.away === null && !p.indoors), ...next.travellers, ...(next.raid?.phase === 'active' ? next.raid.raiders : [])].map((p) => ({ x: p.x, y: p.y }));
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
     // autumn leaves on the wind, in fair weather
     leaves.on = next.calendar.season === 'autumn' && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !freeze;
@@ -1039,6 +1047,7 @@ async function start(): Promise<void> {
     people.render(performance.now());
     raiders.render(performance.now());
     herds.render(performance.now(), ticker.deltaMS / 1000);
+    birds.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());
     map.renderAir(ticker.deltaMS / 1000);
     spells.render(performance.now());

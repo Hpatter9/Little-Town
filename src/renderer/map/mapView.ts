@@ -153,8 +153,8 @@ export class MapView {
   calm = false;
   /** The weather (main.ts, per snapshot): the fireflies come out only in fair weather. */
   weather = 'clear';
-  /** The view the camera last showed (world px): where the fireflies live. */
-  private view = { x: 0, y: 0, w: 0, h: 0 };
+  /** The view the camera last showed (world px): where the fireflies live, and the birds (mapBirds.ts). */
+  view = { x: 0, y: 0, w: 0, h: 0 };
   private readonly flies: Firefly[] = [];
   /** A castle town's keep (map/keepArt.ts): its floor and side walks under everything, its walls and towers among the
    *  things; `wide` sprites span the view and are never culled. */
@@ -712,6 +712,15 @@ export class MapView {
     const left = stillNeeded(b);
     const delivered = Object.fromEntries(Object.entries(def.cost).map(([m, n]) => [m, Math.max(0, (n ?? 0) - ((left as Record<string, number>)[m] ?? 0))]));
     drawSite(d.site!.clear(), { x: 0, y: 0, w, h, progress: b.progress, delivered, cost: def.cost, era: eraOfResearch(def.research), seed: b.id, now: performance.now() }, this.tone);
+  }
+
+  /** Whether something standing (not a plot) is drawn under a world point: where a bird can't come down. */
+  standingAt(wx: number, wy: number): boolean {
+    for (const d of this.buildings.values()) {
+      const r = d.rect;
+      if (wx >= r.x && wx < r.x + r.w && wy >= r.y && wy < r.y + r.h && !isPlot(d.sig.slice(0, d.sig.indexOf('|')))) return true;
+    }
+    return false;
   }
 
   /** The building whose picture is under a world point (the one standing furthest down first). */

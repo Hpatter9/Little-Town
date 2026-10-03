@@ -924,7 +924,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       makes it night-only. **Fireflies** (`MapView.fireflies`, from `renderAir`): on spring and summer nights in fair
       weather (`MapView.weather`, per snapshot), not in the tundra or desert, up to `FLIES_MAX` tiny green-yellow glows
       drift over the grass, forest, marsh and hills in view (`FLY_GROUND`, not in the dark beyond the open land), each
-      blinking a few times and winking out; none on a slow phone (`calm`). **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
+      blinking a few times and winking out; none on a slow phone (`calm`).
+    - **Birds by day (done):** `src/renderer/map/mapBirds.ts` (`MapBirds`, in `things`, fed by main.ts per snapshot:
+      `on` by daylight in fair enough weather, `winter`, `land`, `folk` = everyone about, raiders too): little flocks of
+      sparrows, a robin, a grey bird, or a lone crow (DawnLike's Avian sheets, two frames each, cut into
+      `art/birds.png`) come down (`landingSpot`: lit open ground, a road or a field in view with nothing standing on it,
+      `MapView.standingAt`), hop about pecking, and take wing when someone comes within `SCARE` px or when they've had
+      enough, climbing and shrinking with a shadow left behind. At most `MOST` (9, `MOST_WINTER` 4), none when `calm`.
+      `window.__birds` for previews; `MapView.view` is public (the view in world px). **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
       the world origin and drew at world coordinates, and `setCamera` culls each thing by where it stands, so they were
       hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
 
