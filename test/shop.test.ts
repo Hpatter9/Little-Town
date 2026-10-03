@@ -228,7 +228,8 @@ test('left alone in the desert, a town builds a shop, furnishes it, and earns co
   // (it starts bare, and every piece has to be paid for out of what travellers spend; a lone founder's town in the
   // sand, raided on the battle map, gets there in about three weeks)
   for (let t = 0; t < 24 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
-  const shop = s.buildings.find((b) => b.def === 'trading_post');
+  // (a quick town has rebuilt it as a General Store by then)
+  const shop = s.buildings.find((b) => b.def === 'trading_post' || b.def === 'general_store' || b.def === 'emporium');
   assert.ok(shop, 'a Trading Post');
   assert.ok((shop!.shop?.pieces.length ?? 0) >= 1, 'something set out in it');
   assert.ok(logOf(s).length, 'travellers have come by');

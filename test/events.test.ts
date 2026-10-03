@@ -22,8 +22,8 @@ function town(): GameState {
   return JSON.parse(grown);
 }
 
-test('the events: a hundred, each with two or three answers and exactly one default', () => {
-  assert.equal(EVENTS.length, 100);
+test('the events: five hundred, each with two or three answers and exactly one default', () => {
+  assert.equal(EVENTS.length, 500);
   assert.equal(new Set(EVENTS.map((e) => e.id)).size, EVENTS.length);
   for (const e of EVENTS) {
     assert.ok(e.options.length >= 2 && e.options.length <= 3, e.id);

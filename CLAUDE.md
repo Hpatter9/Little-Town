@@ -245,7 +245,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   small home bigger before building another; in a quiet spell it upgrades one anyway (up to `SLEEP_ROUGH` sleep out
   meanwhile). New homes are paced by beds (`lastHomeBeds`), so bigger homes don't speed growth. Soak: about 10 homes
   (mostly longhouses) for 30 people at day 15, where it was about 28.
-- **Choice events:** the 100 of `EVENTS.md` are data in `src/shared/data/events.ts` (`EVENTS`: title, text, `who`
+- **Choice events:** 500 in all (the owner's ask): the 100 of `EVENTS.md` in `src/shared/data/events.ts` and 400 more in
+  `moreEvents1.ts` (daily life, weather and seasons, the shop and tavern, fields and pens, the wilds), `moreEvents2.ts`
+  (eight or so per origin, and prisoners), `moreEvents3.ts` (the Medieval, Industrial, Modern and Space ages) and
+  `moreEvents4.ts` (faith and omens, crime and law, children, elders and the dead, the land and the roads, war); the
+  types, shorthands and `when` helpers (`season`, `biome`, `children`, `elders`, `tavern`, `sea`, `library`, `walls`,
+  `mines`, `graveyard`, `hero`, `pack`, `monsters`, `strangers`, `prisoners`, `horses`) are in `eventKit.ts`. A `later`
+  effect waits at most 72 hours (the test gives it three days). The data: (`EVENTS`: title, text, `who`
   for a townsperson in it, `when`, two or three options with one `default`, each a list of `EventEffect`s: notes,
   morale and lever marks, gains and losses, coins, renown, newcomers, leaving, deaths and wounds, sickness, raids
   sooner or later, research, the Occult, chances and `later` effects). `src/shared/sim/events.ts`: `maybeEvent` hourly
