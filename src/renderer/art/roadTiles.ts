@@ -15,6 +15,7 @@ import road4Grass from './roads/road4_grass.png';
 import road4Ground from './roads/road4_ground.png';
 import road5Grass from './roads/road5_grass.png';
 import road5Ground from './roads/road5_ground.png';
+import groundGrass from './roads/ground_grass.png';
 
 export type RoadStyle = 'road1' | 'road2' | 'road4' | 'road5';
 /** Which road each era lays: beaten slabs, then cobbles, then bricks, then paving. */
@@ -30,6 +31,7 @@ const URLS: Record<string, string> = {
   road4_ground: road4Ground,
   road5_grass: road5Grass,
   road5_ground: road5Ground,
+  ground: groundGrass,
 };
 const TABLES = tables as unknown as Record<string, Record<string, [number, number]>>;
 
@@ -66,5 +68,19 @@ export function drawRoadCell(g: CanvasRenderingContext2D, px: number, py: number
   quarter('ne', px + TILE, py, has(0, -1), has(1, 0), has(1, -1));
   quarter('sw', px, py + TILE, has(0, 1), has(-1, 0), has(-1, 1));
   quarter('se', px + TILE, py + TILE, has(0, 1), has(1, 0), has(1, 1));
+  return true;
+}
+
+/** The bare-earth patch on the pack's grass sheet (a round, grass-edged blob). */
+const PATCH: [number, number, number, number] = [154, 26, 29, 29];
+
+/** A worn patch of earth centred at (cx, cy) on a 2D canvas, `size` px across, faded by `alpha`: footpaths are
+ *  strings of these where people walk. False until the sheet has loaded. */
+export function drawWornPatch(g: CanvasRenderingContext2D, cx: number, cy: number, size: number, alpha: number): boolean {
+  const im = images.get('ground');
+  if (!im) return false;
+  g.globalAlpha = alpha;
+  g.drawImage(im, PATCH[0], PATCH[1], PATCH[2], PATCH[3], Math.round(cx - size / 2), Math.round(cy - size / 2), size, size);
+  g.globalAlpha = 1;
   return true;
 }

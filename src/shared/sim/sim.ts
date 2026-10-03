@@ -8,7 +8,7 @@ import { battleGo, placeFighter, setAutoBattle, setBattleSpeed } from './battle'
 import { castAt } from './powers';
 import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
-import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt } from './land';
+import { cellAt, groundAt, isMarked, setGround, setMarked, type Pt, decayWear } from './land';
 import type { Command } from './commands';
 import { equip, hourlyItems, queueCraft, reduceCraft } from './crafting';
 import { growCrops, tendFields } from './farming';
@@ -143,6 +143,7 @@ export class Sim {
     updateWages(s);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
+    if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);

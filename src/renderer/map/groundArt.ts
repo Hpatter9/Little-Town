@@ -4,10 +4,10 @@
 // when something in it changes (the land's version, the open radius, the season).
 
 import { Texture } from 'pixi.js';
-import { CELL, groundAt, isRoad, type LandMap, FOG_BAND } from '../../shared/sim/land';
+import { CELL, groundAt, isRoad, type LandMap, FOG_BAND, wearAt, WEAR_FULL, WEAR_SHOW } from '../../shared/sim/land';
 import type { TdTiles } from '../art/tdTiles';
 import type { Era } from '../../shared/data/eras';
-import { drawRoadCell, ROAD_BY_ERA, roadTilesReady } from '../art/roadTiles';
+import { drawRoadCell, drawWornPatch, ROAD_BY_ERA, roadTilesReady } from '../art/roadTiles';
 
 /** Cells to a chunk's side. */
 export const CHUNK = 8;
@@ -63,9 +63,20 @@ export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td:
   for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {
     const i0 = y * m.w + cx * CHUNK;
     s += m.cells.slice(i0, i0 + CHUNK) + m.roads.slice(i0, i0 + CHUNK);
+    // (footpaths, by how worn: a step either side too, since a path reaches toward its neighbours)
+    if (m.wear) for (let x = cx * CHUNK - 1; x <= (cx + 1) * CHUNK; x++) s += wornLevel(m, x, y) || wornLevel(m, x, y - 1) || wornLevel(m, x, y + 1);
   }
   return s;
 }
+
+/** How worn a cell shows: 0 not at all, 1 faintly, 2 plainly, 3 a bare path. */
+function wornLevel(m: LandMap, x: number, y: number): number {
+  if (x < 0 || y < 0 || x >= m.w || y >= m.h || isRoad(m, x, y)) return 0;
+  const v = wearAt(m, y * m.w + x);
+  if (v < WEAR_SHOW) return 0;
+  return v >= WEAR_FULL ? 3 : v >= (WEAR_SHOW + WEAR_FULL) / 2 ? 2 : 1;
+}
+const WORN_ALPHA = [0, 0.4, 0.7, 1];
 
 /** Paint one chunk (a 2D canvas, one canvas pixel per world pixel). */
 export function paintChunk(m: LandMap, cx: number, cy: number, season: string, biome: string, td: TdTiles | null, era: Era = 'neolithic'): Texture {
@@ -151,6 +162,18 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             break;
           }
         }
+      // a footpath worn by walking: patches of bare earth along it, toward each worn (or road) neighbour
+      const worn = wornLevel(m, x, y);
+      if (worn && kind !== 'water' && roadTilesReady()) {
+        const a = WORN_ALPHA[worn];
+        drawWornPatch(g, px + CELL / 2, py + CELL / 2, 22, a);
+        for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1]] as const) {
+          const nx = x + dx;
+          const ny = y + dy;
+          const other = isRoad(m, nx, ny) ? 3 : wornLevel(m, nx, ny);
+          if (other) drawWornPatch(g, px + CELL / 2 + (dx * CELL) / 2, py + CELL / 2 + (dy * CELL) / 2, 18, Math.min(a, WORN_ALPHA[other]));
+        }
+      }
       if (packRoad) {
         const grassy = kind === 'grass' || kind === 'forest' || kind === 'marsh' || kind === 'hill';
         drawRoadCell(g, px, py, ROAD_BY_ERA[era], grassy && season !== 'winter', (dx, dy) => isRoad(m, x + dx, y + dy));

@@ -800,6 +800,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       A `Part` may crop a sheet (`[url, x, y, sx, sy, sw, sh]`): the dungeon pack's stonework for the stone wall and
       gate, its props' bookshelves for the library, an alchemist's bench for the healer's hut, a table for the
       workbench, and the undead pack's graves for the graveyard.
+    - **Footpaths (done):** the land remembers foot traffic (`LandMap.wear`, one character per cell: `addWear` when a
+      walker steps into a new cell (`tread` in walk.ts, `Walker.cell`), never a road; `decayWear` hourly from sim.ts,
+      the field dropped when nothing is worn; `WEAR_*` in land.ts). `paintChunk` draws a worn cell (from `WEAR_SHOW`,
+      fully at `WEAR_FULL`) as patches of the Path and Road pack's bare-earth blob (`drawWornPatch`, the grass sheet's
+      round patch) at its middle and toward each worn or road neighbour, faded by how worn; the chunk key carries the
+      worn levels a cell either side. Test: `test/footpaths.test.ts`.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

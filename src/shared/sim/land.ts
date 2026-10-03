@@ -20,6 +20,14 @@ export const OPEN_START = 11;
 export const CAMP_CLEAR = 5;
 /** At least this many cells of each wild kind lie within the open land at the start (wood, stone, clay and fiber). */
 export const MIN_KIND_NEAR = 10;
+/** Footpaths: the most a cell wears, how worn it is before a path shows (and shows fully), what one walker stepping
+ *  into a cell adds, and what an hour's rest takes off. */
+export const WEAR_MAX = 60;
+export const WEAR_SHOW = 6;
+export const WEAR_FULL = 24;
+export const WEAR_STEP = 2;
+export const WEAR_DECAY = 1;
+
 /** Beyond the open land, this many cells are seen dimly (the renderer's fog); past them, nothing. */
 export const FOG_BAND = 6;
 
@@ -45,6 +53,9 @@ export interface LandMap {
   open: number;
   /** Bumped whenever the ground, the roads or what stands on them change (pathfinding caches by it). */
   version: number;
+  /** Foot traffic, one character per cell: '0' plus how worn (up to `WEAR_MAX`). A worn footpath shows from
+   *  `WEAR_SHOW`, fully at `WEAR_FULL`; every hour each cell grasses over by `WEAR_DECAY`. Absent until someone walks. */
+  wear?: string;
 }
 
 export interface Rect {
@@ -436,4 +447,31 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
   const out: { x: number; y: number }[] = [];
   for (let c = goal; c !== start; c = came.get(c)!) out.push({ x: c % W, y: Math.floor(c / W) });
   return out.reverse();
+}
+
+/* ------------------------------------------------------------ footpaths */
+
+/** How worn a cell is by walking (0..WEAR_MAX). */
+export const wearAt = (m: Pick<LandMap, 'wear'>, i: number): number => (m.wear ? m.wear.charCodeAt(i) - 48 : 0);
+
+/** Someone stepped into a cell: it wears a little more (never a road, which is already made). */
+export function addWear(m: LandMap, i: number, n = WEAR_STEP): void {
+  if (i < 0 || i >= m.w * m.h || m.roads[i] === '#') return;
+  if (!m.wear) m.wear = '0'.repeat(m.w * m.h);
+  const v = Math.min(WEAR_MAX, wearAt(m, i) + n);
+  m.wear = m.wear.slice(0, i) + String.fromCharCode(48 + v) + m.wear.slice(i + 1);
+}
+
+/** An hour passes: every worn cell grasses over a little; with nothing worn the field is dropped. */
+export function decayWear(m: LandMap): void {
+  if (!m.wear) return;
+  let out = '';
+  let any = false;
+  for (let i = 0; i < m.wear.length; i++) {
+    const v = Math.max(0, m.wear.charCodeAt(i) - 48 - WEAR_DECAY);
+    if (v > 0) any = true;
+    out += String.fromCharCode(48 + v);
+  }
+  if (any) m.wear = out;
+  else delete m.wear;
 }

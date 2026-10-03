@@ -4,7 +4,7 @@
 // new one. With no way through (an island, a walled yard) it walks straight at the goal, so nobody is ever stuck.
 
 import { footprint } from './buildings';
-import { CELL, cellOf, centreOf, findPath, inRect, type Pt, type Rect } from './land';
+import { addWear, CELL, cellOf, centreOf, findPath, idx, inMap, inRect, type Pt, type Rect } from './land';
 import type { GameState } from './state';
 
 export interface Walker {
@@ -14,6 +14,8 @@ export interface Walker {
   /** The cells still to walk (px centres), and the goal they lead to. */
   path?: Pt[];
   goal?: Pt;
+  /** The cell last stepped into (its index): each new one wears a footpath a little (land.ts `addWear`). */
+  cell?: number;
 }
 
 /** Close enough to a goal to count as there (px). */
@@ -77,12 +79,24 @@ export function walk(s: Pick<GameState, 'buildings' | 'land'>, w: Walker, to: Pt
       left = 0;
     }
   }
+  tread(s.land, w);
   if (!w.path.length) {
     delete w.path;
     delete w.goal;
     return Math.hypot(to.x - w.x, to.y - w.y) <= ARRIVE;
   }
   return false;
+}
+
+/** Stepping into a new cell wears it (a worn footpath, where people walk often). */
+function tread(m: Pick<GameState, 'land'>['land'], w: Walker): void {
+  const c = cellOf(w);
+  if (!inMap(m, c.x, c.y)) return;
+  const i = idx(m, c.x, c.y);
+  if (w.cell === i) return;
+  const first = w.cell === undefined; // (the cell stood in to begin with isn't stepped into)
+  w.cell = i;
+  if (!first) addWear(m, i);
 }
 
 /** Straight at a point, no path (raiders in the open, things that fly). True once there. */
