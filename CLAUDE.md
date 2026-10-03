@@ -831,6 +831,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       after the five every sheet has, so the layout of the rest is unchanged); `creaturePoseFrames` and the
       `CreaturePose` type in creatures.ts. The Pixel Champions looks (`CLASS_LOOK`) and founders keep their own
       sprites. Test: `test/combatPoses.test.ts`.
+    - **The plain ground (done):** `src/renderer/art/groundDetail.ts`. The top-down packs draw their ground as a flat
+      colour with lighter patches on it, so that is how the map paints it now: the Path and Road pack's patch sheet
+      (`ground_grass.png`: five bands, two flat colours each: `Patch` kinds grass, meadow, teal, leaf, olive, soil, loam,
+      chalk, sand, peat) gives each kind of ground its patches (`PATCH_OF` by season in groundArt.ts, none in winter) and
+      its plain colour (`groundUnder`: the patch's colour darkened; sand and rock keep the palette's, the marsh is dark
+      green with teal pools, `BASE_FROM`), the Fields pack's tufts, flowers and pebbles are scattered on the grass and
+      hills (`drawTuft`; pebbles on rock), and the Undead pack's ripples (`water/ripples.png`, the first row of its
+      sheet) lie on the water recoloured to its light (`drawRipple`, where there's open water to the right). The chunk
+      key carries `groundDetailReady`; until the images load the old speckled ground stands.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

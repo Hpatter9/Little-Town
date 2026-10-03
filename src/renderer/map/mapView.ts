@@ -25,6 +25,7 @@ import { glowTexture } from '../town/layer';
 import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
 import { onPackArt, packArt, packDressing } from './packBuildings';
 import { loadRoadTiles } from '../art/roadTiles';
+import { loadGroundDetail } from '../art/groundDetail';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { CARPET_W, cornerTower, floorTile, MERLON, northWall, sideWalkTile, southWall, TOWER_H, TOWER_W, WALL_FACE, WALL_T } from './keepArt';
@@ -136,6 +137,7 @@ export class MapView {
     this.root.addChild(this.world);
     loadTdTiles().then(() => this.repaint(), () => undefined);
     loadRoadTiles().then(() => this.repaint(), () => undefined);
+    loadGroundDetail().then(() => this.repaint(), () => undefined);
     loadFieldTiles().then(() => undefined, () => undefined);
     onFieldTiles(() => this.artGen++);
     onPackArt(() => this.artGen++);

@@ -8,6 +8,7 @@ import { CELL, groundAt, isRoad, type LandMap, FOG_BAND, wearAt, WEAR_FULL, WEAR
 import type { TdTiles } from '../art/tdTiles';
 import type { Era } from '../../shared/data/eras';
 import { drawRoadCell, drawWornPatch, ROAD_BY_ERA, roadTilesReady } from '../art/roadTiles';
+import { drawPatch, drawRipple, drawTuft, groundDetailReady, groundUnder, type Patch } from '../art/groundDetail';
 
 /** Cells to a chunk's side. */
 export const CHUNK = 8;
@@ -44,6 +45,19 @@ const PALETTES: Record<string, Pal> = {
   winter: { ...SUMMER, grass: ['#dfe6ec', '#d2dbe3', '#f0f4f8'], fertile: ['#cfd6dc', '#bec6ce'], forest: ['#c8d4da', '#b8c6cf'], marsh: ['#c4ccd0', '#b6bfc4', '#6f8fa8'], hill: ['#d6dde3', '#c7cfd6'], rock: ['#9b9c98', '#7d7e7a'], sand: ['#e4e0cc', '#d6d2bf'], flowers: [] },
 };
 
+/** The pack's patch band for each kind of ground, by season (none in winter: snow). */
+const PATCH_OF: Partial<Record<string, Partial<Record<string, Patch>>>> = {
+  spring: { grass: 'meadow', forest: 'leaf', marsh: 'teal', hill: 'olive', fertile: 'loam', sand: 'sand', rock: 'peat' },
+  summer: { grass: 'meadow', forest: 'leaf', marsh: 'teal', hill: 'olive', fertile: 'loam', sand: 'sand', rock: 'peat' },
+  autumn: { grass: 'grass', forest: 'olive', marsh: 'teal', hill: 'grass', fertile: 'loam', sand: 'sand', rock: 'peat' },
+};
+/** Kinds that keep their own base colour under the patches (the patch is a darker spot on them). */
+const BASE_OWN: Partial<Record<string, boolean>> = { sand: true, rock: true };
+/** Kinds whose plain ground is another band's, darkened: the marsh is dark green with teal pools on it. */
+const BASE_FROM: Partial<Record<string, [Patch, number]>> = { marsh: ['leaf', 0.24] };
+/** How likely each of a cell's two patch slots is filled. */
+const PATCH_SHARE: Partial<Record<string, number>> = { grass: 0.22, forest: 0.4, marsh: 0.45, hill: 0.3, fertile: 0.35, sand: 0.18, rock: 0.25 };
+
 /** A quick deterministic hash of a point (0..1). */
 export function hash(seed: number, x: number, y: number): number {
   let h = (seed * 374761393 + x * 668265263 + y * 2147483647) | 0;
@@ -59,7 +73,7 @@ export function visibility(m: LandMap, x: number, y: number): 0 | 1 | 2 {
 
 /** A key for what a chunk shows (painted again when it changes). */
 export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean, era: Era = 'neolithic'): string {
-  let s = `${season}|${td ? 1 : 0}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|`;
+  let s = `${season}|${td ? 1 : 0}|${groundDetailReady() ? 1 : 0}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|`;
   for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {
     const i0 = y * m.w + cx * CHUNK;
     s += m.cells.slice(i0, i0 + CHUNK) + m.roads.slice(i0, i0 + CHUNK);
@@ -89,6 +103,7 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
   const x0 = cx * CHUNK;
   const y0 = cy * CHUNK;
   const seed = (cx * 73 + cy * 151) | 0;
+  const pack = groundDetailReady();
   const rect = (x: number, y: number, w: number, h: number, c: string) => {
     g.fillStyle = c;
     g.fillRect(x, y, w, h);
@@ -117,6 +132,27 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         if (down || !across) rect(px + 12, py, 8, CELL, pal.road[2]);
         for (let k = 0; k < 3; k++) if (hash(seed ^ (41 + k), x, y) < 0.5) rect(px + Math.floor(hash(seed ^ (51 + k), x, y) * 30), py + Math.floor(hash(seed ^ (61 + k), x, y) * 30), 2, 2, pal.rock[1]);
         void td;
+      } else if (pack && kind !== 'water' && PATCH_OF[season]?.[kind]) {
+        // the pack's ground: a plain colour with its patches, and on the grass its tufts, flowers and pebbles
+        const patch = PATCH_OF[season]![kind]!;
+        const from = BASE_FROM[kind];
+        const base = BASE_OWN[kind] ? (pal[kind as 'sand' | 'rock'] as [string, string])[0] : from ? groundUnder(from[0], from[1]) : groundUnder(patch);
+        rect(px, py, CELL, CELL, base);
+        for (let k = 0; k < 2; k++)
+          if (hash(seed ^ (71 + k), x, y) < (PATCH_SHARE[kind] ?? 0.3)) {
+            const n = Math.floor(hash(seed ^ (81 + k), x, y) * 4);
+            const ox = Math.floor(hash(seed ^ (91 + k), x, y) * 12) - 2;
+            const oy = Math.floor(hash(seed ^ (101 + k), x, y) * 12) - 2;
+            drawPatch(g, patch, n, px + Math.max(0, ox), py + Math.max(0, oy));
+          }
+        if (kind === 'grass' || kind === 'hill') {
+          const r = hash(seed ^ 111, x, y);
+          const tx = px + 4 + Math.floor(hash(seed ^ 113, x, y) * 24);
+          const ty = py + 4 + Math.floor(hash(seed ^ 115, x, y) * 24);
+          if (r < 0.3) drawTuft(g, 'tuft', Math.floor(r * 100), tx, ty);
+          else if (r < 0.42 && season !== 'autumn') drawTuft(g, 'flower', Math.floor(r * 100), tx, ty);
+          else if (r < 0.48) drawTuft(g, 'pebble', Math.floor(r * 100), tx, ty);
+        } else if (kind === 'rock' && hash(seed ^ 117, x, y) < 0.35) drawTuft(g, 'pebble', Math.floor(hash(seed ^ 119, x, y) * 6), px + 6 + Math.floor(hash(seed ^ 121, x, y) * 20), py + 6 + Math.floor(hash(seed ^ 123, x, y) * 20));
       } else
         switch (kind) {
           case 'grass':
@@ -159,6 +195,12 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             if (edge(0, 1)) rect(px, py + CELL - 3, CELL, 3, pal.water[1]);
             if (edge(-1, 0)) rect(px, py, 3, CELL, pal.water[1]);
             if (edge(1, 0)) rect(px + CELL - 3, py, 3, CELL, pal.water[1]);
+            // (the pack's ripples, in the water's light, where there's open water to the right)
+            if (pack && hash(seed ^ 131, x, y) < 0.45) {
+              let room = CELL;
+              for (let k = 1; k < 4 && !edge(k, 0); k++) room += CELL;
+              drawRipple(g, Math.floor(hash(seed ^ 133, x, y) * 3), px + 2, py + 6 + Math.floor(hash(seed ^ 135, x, y) * 18), pal.water[1], room - 4);
+            }
             break;
           }
         }

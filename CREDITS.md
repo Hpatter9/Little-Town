@@ -55,7 +55,9 @@ cobbles, bricks and paving by era, laid a quarter-tile at a time. The plots' soi
 (`src/renderer/art/fields/`) are from its free Fields Tileset for tower defence. The stone wall and gate, the library's bookshelves, the
 healer's bench and the workbench on the town map are cut from its free 2D Top-Down Pixel Dungeon pack and Dungeon Props
 pack (`src/renderer/art/village/dwalls.png`, `dprops.png`); the graveyard's stones from its free Undead Tileset
-(`grave*.png`).
+(`grave*.png`). The ground's detail on the map is the Path and Road pack's ground patches (`roads/ground_grass.png`), the
+Fields Tileset's grass tufts, flowers and small stones (`fields/tuft*.png`, `flower*.png`, `pebble*.png`), and the Undead
+Tileset's water ripples, recoloured to the water (`src/renderer/art/water/ripples.png`).
 
 ## Craftpix top-down objects (the raid map's scenery)
 
