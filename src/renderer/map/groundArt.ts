@@ -9,6 +9,11 @@ import type { TdTiles } from '../art/tdTiles';
 import type { Era } from '../../shared/data/eras';
 import { drawRoadCell, drawWornPatch, ROAD_BY_ERA, roadTilesReady } from '../art/roadTiles';
 import { drawPatch, drawRipple, drawTuft, groundDetailReady, groundUnder, type Patch } from '../art/groundDetail';
+import { PROP_FINE, propFrames, propImage } from '../art/props';
+
+/** How many of the shore's water cells show the bottom (the Seabed pack's corals, urchins, starfish and shells) through
+ *  the water, on the coast. */
+const SHALLOWS = 0.5;
 
 /** Cells to a chunk's side. */
 export const CHUNK = 8;
@@ -76,7 +81,7 @@ export function visibility(m: LandMap, x: number, y: number): 0 | 1 | 2 {
 
 /** A key for what a chunk shows (painted again when it changes). */
 export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean, era: Era = 'neolithic', blight = false): string {
-  let s = `${season}|${td ? 1 : 0}|${groundDetailReady() ? 1 : 0}|${blight ? 'b' : ''}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|`;
+  let s = `${season}|${td ? 1 : 0}|${groundDetailReady() ? 1 : 0}|${blight ? 'b' : ''}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|${propImage('sea') ? 's' : ''}|`;
   for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {
     const i0 = y * m.w + cx * CHUNK;
     s += m.cells.slice(i0, i0 + CHUNK) + m.roads.slice(i0, i0 + CHUNK);
@@ -199,6 +204,19 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             if (edge(0, 1)) rect(px, py + CELL - 3, CELL, 3, pal.water[1]);
             if (edge(-1, 0)) rect(px, py, 3, CELL, pal.water[1]);
             if (edge(1, 0)) rect(px + CELL - 3, py, 3, CELL, pal.water[1]);
+            // the bottom seen through the shallows: weed, shells and stones faint under the water along the shore
+            // (the sea's things, so on the coast only; the set's first two, the drowned statues, are left out)
+            const sea = biome === 'coast' ? propImage('sea') : null;
+            if (sea && hash(seed ^ 141, x, y) < SHALLOWS && (edge(0, -1) || edge(0, 1) || edge(-1, 0) || edge(1, 0))) {
+              const frames = propFrames('sea');
+              const f = frames[2 + Math.floor(hash(seed ^ 142, x, y) * (frames.length - 2))];
+              const k = 0.55 / PROP_FINE;
+              const w = Math.round(f[2] * k);
+              const h = Math.round(f[3] * k);
+              g.globalAlpha = 0.42;
+              g.drawImage(sea, f[0], f[1], f[2], f[3], px + 3 + Math.floor(hash(seed ^ 143, x, y) * Math.max(1, CELL - 6 - w)), py + CELL - 4 - h - Math.floor(hash(seed ^ 144, x, y) * 6), w, h);
+              g.globalAlpha = 1;
+            }
             // (the pack's ripples, in the water's light, where there's open water to the right)
             if (pack && hash(seed ^ 131, x, y) < 0.45) {
               let room = CELL;

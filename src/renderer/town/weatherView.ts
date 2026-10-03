@@ -1,5 +1,5 @@
 // Weather in front of the town, on the phone (where the strip has a sky of its own): rain slanting down, storms
-// with lightning, drifting fog, autumn leaves on the wind, and fireflies on summer nights. (Snow is SnowView's.)
+// with lightning, drifting fog, and autumn leaves on the wind. (Snow is SnowView's; the fireflies are the map's.)
 // It's only for looks; the sim's weather is in shared/sim/weather.ts.
 
 import { Container, Graphics } from 'pixi.js';
@@ -9,7 +9,6 @@ import type { WeatherNow } from '../../shared/sim/weather';
 
 const DROPS = 420;
 const LEAVES = 18;
-const FLIES = 22;
 const GROUND = STRIP_HEIGHT - 6;
 
 interface Mote {
@@ -28,7 +27,6 @@ export class WeatherView {
   private readonly flash = new Graphics();
   private drops: Mote[] = [];
   private leaves: Mote[] = [];
-  private flies: Mote[] = [];
   private weather: WeatherNow = { kind: 'clear', through: 1, before: 'clear' };
   private season: Season = 'spring';
   private daylight = 1;
@@ -44,7 +42,6 @@ export class WeatherView {
     const leafColors = [0xd0602a, 0xe0a030, 0xb8401e, 0xc88a2a, 0x9a5a24];
     for (let i = 0; i < DROPS; i++) this.drops.push({ x: Math.random(), y: Math.random() * GROUND, speed: 260 + Math.random() * 120, phase: 0, color: 0 });
     for (let i = 0; i < LEAVES; i++) this.leaves.push({ x: Math.random(), y: Math.random() * GROUND, speed: 14 + Math.random() * 14, phase: Math.random() * 6.3, color: leafColors[i % leafColors.length] });
-    for (let i = 0; i < FLIES; i++) this.flies.push({ x: Math.random(), y: GROUND - 10 - Math.random() * 50, speed: 0.4 + Math.random() * 0.8, phase: Math.random() * 6.3, color: 0 });
   }
 
   update(c: Calendar, weather: WeatherNow): void {
@@ -106,18 +103,6 @@ export class WeatherView {
         b.rect(x, Math.round(l.y), flip ? 2 : 1, flip ? 1 : 2).fill({ color: l.color });
       }
     }
-    // summer nights: fireflies blinking low over the ground
-    if (this.season === 'summer' && this.daylight < 0.3 && this.wet < 0.2) {
-      for (const fl of this.flies) {
-        const x = Math.round(fl.x * width + Math.sin(t * fl.speed + fl.phase) * 14);
-        const y = Math.round(fl.y + Math.sin(t * fl.speed * 1.7 + fl.phase) * 6);
-        const glow = Math.max(0, Math.sin(t * 1.6 + fl.phase * 3));
-        if (glow < 0.2) continue;
-        b.rect(x - 1, y - 1, 3, 3).fill({ color: 0xd8ff70, alpha: 0.18 * glow * (1 - this.daylight * 3) });
-        b.rect(x, y, 1, 1).fill({ color: 0xf0ffa0, alpha: glow * (1 - this.daylight * 3) });
-      }
-    }
-
     // storms: lightning, a jagged bolt and the whole sky lit for a moment
     const fl = this.flash.clear();
     if (w === 'storm') {

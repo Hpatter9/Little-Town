@@ -931,7 +931,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       `art/birds.png`) come down (`landingSpot`: lit open ground, a road or a field in view with nothing standing on it,
       `MapView.standingAt`), hop about pecking, and take wing when someone comes within `SCARE` px or when they've had
       enough, climbing and shrinking with a shadow left behind. At most `MOST` (9, `MOST_WINTER` 4), none when `calm`.
-      `window.__birds` for previews; `MapView.view` is public (the view in world px). **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
+      `window.__birds` for previews; `MapView.view` is public (the view in world px).
+    - **The shallows (done):** on the coast, half the shore's water cells (`SHALLOWS` in groundArt.ts) show the bottom
+      through the water: a coral, urchin, starfish or shell of the Seabed props set (`propImage('sea')`, `propFrames` in
+      art/props.ts: the atlas image itself, painted onto the chunk's canvas at 0.42 alpha, under the ripples; the set's
+      drowned statues left out); the chunk key carries whether the atlas has loaded. The old WeatherView fireflies (screen-wide pixels) are gone: the map's are the fireflies now. **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
       the world origin and drew at world coordinates, and `setCamera` culls each thing by where it stands, so they were
       hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
 
