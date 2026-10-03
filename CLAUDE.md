@@ -775,8 +775,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     `skyView.ts`, `renderer/camera.ts`); the notes above that name them describe what the map views took over.
     Soak after phase 6 (2 towns per origin, 15 days, people/deaths): settlers 30–32/0–4, liches 32/0, druids 22–32/1–3,
     vampires 32–34/1–2, werewolves 31–37/0–1, machines 29–31/0–1, dwarves 32/0, merfolk 32–34/1–4, nomads 37–39/0, fae
-    34–35/4–7, alchemists 28–36/0–2, knights 30–34/0–1; no town lost. Deaths run lower than before the top-down raids
-    (fighters only fight once at their spots, and towns are bigger): a watch item for the next tuning pass.
+    34–35/4–7, alchemists 28–36/0–2, knights 30–34/0–1; no town lost. (Those death counts, and the earlier soaks', were
+    undercounts: the soak scripts watched the journal's length, and the journal is capped at `MAX_JOURNAL` 400 entries, so
+    nothing was counted once a town's journal had filled a few days in. Counted properly, deaths were never rare: see the
+    deaths pass below.)
   - **Phase 7 (next): the asset pass.** The owner's standing order (see Priorities): replace the code-drawn map art with the
     packs wherever one has the thing: the ground (the Fields, Path and Road, Green Zone and Village tilesets' grass,
     soil, roads, water edges), fields and pens (the Fields tileset), more buildings for every era and origin (the
@@ -889,6 +891,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       reference. The people view (`Drawn.face`) faces someone up or down the map when that's mostly how they moved
       last, and keeps it while they stand; never when mounted or fighting. Raiders and travellers' LPC sprites stay
       side-on (raiders don't walk the facing rows yet).
+    - **Deaths pass (done):** the "deaths run low" watch item was mostly a counting bug (above). A soak must count journal
+      entries by identity (a `WeakSet` of the entry objects seen, scanning `s.journal` each tick), never by its length,
+      since the journal is capped. Counted that way (4 towns per origin, 15 days, people/deaths): settlers 26.8/20 (15
+      at raiders' hands, 1 of wounds, 4 of plague), knights 34.3/—, vampires 35.0/14, liches 32.5/—. One rule added
+      all the same: **a fighter who falls back off the line takes a parting blow** from each raider they were holding
+      (`stepBattle` in battle.ts: the raiders held at that spot strike once at their back as they go, then walk on), so
+      leaving the trail is a danger rather than a refuge. With it: settlers 30.0/19 (18 at raiders' hands), vampires
+      31.8/32 (every one at raiders' hands; their fighters fall back often, and now pay for it). Test:
+      `test/battle.test.ts` (the parting blow). `KILLING_BLOW` and the rest of `data/raids.ts` are unchanged.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
