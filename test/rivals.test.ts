@@ -1,3 +1,4 @@
+import { DANGER_PACE } from '../src/shared/data/pace';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { WORLD_WIDTH } from '../src/shared/constants';
@@ -65,7 +66,7 @@ test('a rival army always marches behind its lord, and the lord grows stronger w
 
 test('a rival never raids a town founded its own way', () => {
   const s = newGame('own-kind', { origin: 'lich' });
-  s.tick = 12 * TICKS_PER_DAY;
+  s.tick = 12 * DANGER_PACE * TICKS_PER_DAY; // (the dangers count a paced day: data/pace.ts)
   const seen = new Set<string>();
   for (let i = 0; i < 300; i++) {
     s.raid = null;

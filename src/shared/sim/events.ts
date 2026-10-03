@@ -138,7 +138,9 @@ function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: n
     else if ('join' in e) for (let i = 0; i < e.join; i++) newcomer(s, rng, e.type);
     else if ('leave' in e) {
       const p = target(s, e.leave, whoId, rng);
-      if (p) {
+      // (the founder is never sent away: a lone founder exiled once left an empty town with no end to it)
+      if (p && p.id === s.mainId) notify(s, `${p.name} stays: the town cannot do without them.`);
+      else if (p) {
         s.people = s.people.filter((q) => q !== p);
         assignBeds(s);
         notify(s, `${p.name} left the town.`, true);

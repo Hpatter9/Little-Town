@@ -1,3 +1,4 @@
+import { CHILD_DAYS } from './pace';
 // Relationships and families (DESIGN §7). All numbers are starting points for tuning.
 
 /** Opinion runs -100..100. At or above FRIEND they're friends; at or below RIVAL, rivals. */
@@ -12,7 +13,7 @@ export const MARRY_CHANCE = 0.02;
 export const CHILD_CHANCE = 0.01;
 export const MAX_CHILDREN = 2;
 /** Children grow up after about a week of real time (a game hour is a real minute). */
-export const CHILD_HOURS = 7 * 24 * 60;
+export const CHILD_HOURS = CHILD_DAYS * 24;
 /** Skill levels a School adds to every skill when a child grows up. */
 export const SCHOOL_BONUS = 2;
 

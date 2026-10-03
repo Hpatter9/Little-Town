@@ -12,7 +12,7 @@ import { flammable, setFire } from './fire';
 import { knockDown } from './health';
 import { guardRate } from './origin';
 import { castSpellFx, notify, type GameState, type Person, type Raid, type Raider, type SpellTarget } from './state';
-import { TICK_HZ, TICKS_PER_DAY } from './time';
+import { TICK_HZ, paceDay } from './time';
 
 /** The hexes and blessings a lord can lay on a fight. */
 export type HexKind = Extract<RivalSpellKind, 'hold' | 'fog' | 'emp' | 'frenzy' | 'ward'>;
@@ -44,7 +44,7 @@ export const frenzyOf = (s: GameState) => (hexOn(s, 'frenzy') ? FRENZY : 1);
 export const turretsDown = (s: GameState) => hexOn(s, 'emp');
 
 /** A rival lord's health, grown with the days (set when the raid is gathered). */
-export const lordHp = (s: GameState, kind: string) => Math.round(ENEMIES[kind].hp * (RIVAL_HP_BASE + (s.tick / TICKS_PER_DAY) * RIVAL_HP_PER_DAY));
+export const lordHp = (s: GameState, kind: string) => Math.round(ENEMIES[kind].hp * (RIVAL_HP_BASE + paceDay(s.tick) * RIVAL_HP_PER_DAY));
 
 /** The townsfolk a spell can reach: in town, standing, not hidden in bed. */
 const standing = (s: GameState) => s.people.filter((p) => p.away === null && !p.downed && !((p.task?.type === 'shelter' || p.task?.type === 'sleep') && p.bed !== null && p.activity === 'sleep'));

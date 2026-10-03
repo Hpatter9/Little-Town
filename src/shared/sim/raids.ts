@@ -75,7 +75,7 @@ import { levelOf } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood } from './state';
-import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICK_HZ, TICKS_PER_HOUR, paceDay } from './time';
 import { campEdge, gainSkill } from './townsfolk';
 import { rulesOf } from '../data/origins';
 import { fightRate, guardRate } from './origin';
@@ -84,6 +84,7 @@ import { RIVAL_LEADER_COST } from '../data/rivals';
 import { lurkersBeaten } from './lurkers';
 import { caveBearBeaten } from './caveBear';
 import { packRaidBeaten } from './pack';
+import { fireAt, speedOf, tickBurns } from './defenses';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
 import { battlesOn, startBattle, stepBattle } from './battle';
@@ -98,7 +99,7 @@ const offMap = (s: GameState, side: -1 | 1, i = 0): Pt => ({ x: side < 0 ? -OFF_
 /* ------------------------------------------------------------ scheduling */
 
 export function scheduleNextRaid(s: GameState, rng: Rng): void {
-  const days = s.tick / TICKS_PER_DAY;
+  const days = paceDay(s.tick);
   const hours = Math.max(RAID_INTERVAL_MIN, RAID_INTERVAL_HOURS - days * 0.5) + rng.range(-RAID_INTERVAL_JITTER, RAID_INTERVAL_JITTER);
   // like everything else, the gaps between raids stretch with the era
   s.nextRaidTick = s.tick + Math.round(Math.max(RAID_INTERVAL_MIN, hours) * ERA_MULTIPLIER[s.era] * difficultyOf(s).raidGap * TICKS_PER_HOUR);
@@ -110,7 +111,7 @@ export function wealth(s: GameState): number {
 }
 
 export function raidBudget(s: GameState): number {
-  const day = Math.floor(s.tick / TICKS_PER_DAY);
+  const day = Math.floor(paceDay(s.tick));
   const war = s.doom?.kind === 'war' && s.doom.phase === 'active' ? WAR_RAID_BUDGET : 1;
   // (and with how many it has to get past)
   const people = Math.max(0, s.people.filter((p) => p.away === null && p.type !== 'child').length - RAID_BUDGET_FREE_PEOPLE);
@@ -131,7 +132,7 @@ export const shielded = (s: GameState) => s.buildings.some((b) => b.def === 'shi
 /** Start a raid if one is due. */
 export function maybeStartRaid(s: GameState, rng: Rng): void {
   if (s.raid || s.tick < s.nextRaidTick) return;
-  const day = Math.floor(s.tick / TICKS_PER_DAY);
+  const day = Math.floor(paceDay(s.tick));
   // while the machines have risen, every raid is theirs
   const uprising = s.doom?.kind === 'rogue_ai' && s.doom.phase === 'active';
   const outbreak = s.doom?.kind === 'outbreak' && s.doom.phase === 'active';
@@ -221,7 +222,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
       rd.hp = rd.maxHp = Math.round(rd.maxHp * might);
     }
   // a big enough raid of people may split: some come round to the other end of the town
-  const day = s.tick / TICKS_PER_DAY;
+  const day = paceDay(s.tick);
   let flank = 0;
   if (inside === undefined && kind.steals !== undefined && raiders.length >= FLANK_MIN && rng.chance(Math.min(FLANK_MAX, FLANK_CHANCE + day * FLANK_PER_DAY))) {
     const other = -side as -1 | 1;
@@ -391,8 +392,9 @@ export function updateRaid(s: GameState, rng: Rng): void {
   classesInRaid(s, r);
   bossesInRaid(s, r);
   rivalsInRaid(s, r, rng);
-  const step = kind.speed / TICK_HZ;
+  const stepFor = kind.speed / TICK_HZ;
   fireDefenses(s, rng);
+  tickBurns(s, r.raiders, (rd, dmg) => hurtInTown(s, rd, dmg));
   // the battle on the trail; the raiders still in it are its business (those through it come on into the town)
   const battling = stepBattle(s, r, rng);
   // (whoever fell since last tick leaves blood where it lies, if it's the kind that bleeds)
@@ -406,6 +408,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
   for (const rd of r.raiders) {
     if (rd.down && rd.captive) release(s, rd); // cut down while carrying someone off: they're dropped
     if (rd.down || rd.gone) continue;
+    const step = stepFor * speedOf(rd, s.tick); // (slowed by a trap, it limps)
     if (rd.bt && !rd.bt.out) continue;
     if (rd.ally) {
       if (battling) continue; // (the town's allies are on the battle map)
@@ -414,6 +417,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
     }
     const def = ENEMIES[rd.kind];
     const goal = rd.goal ?? kind.goal;
+    if (rd.routed && !rd.fleeing) rd.fleeing = true; // (turned about by a glamour)
     rd.cooldown--;
     // (an epic boss never runs from a fight: only time drives it off)
     const coward = !ENEMIES[rd.kind].kit && rd.hp < rd.maxHp * RAIDER_FLEE[goal];
@@ -650,12 +654,17 @@ function fireDefenses(s: GameState, rng: Rng): void {
     const target = s.raid!.raiders.filter((rd) => !rd.down && !rd.gone && !rd.ally && dist(rd, at) <= d.range).sort((a, c) => dist(a, at) - dist(c, at))[0];
     if (!target) continue;
     b.readyTick = s.tick + Math.round(d.interval * TICK_HZ);
-    if (rng.next() >= d.accuracy - fogAim(s) - ENEMIES[target.kind].dodge / 2) continue;
-    target.hp = Math.max(0, target.hp - Math.round(rng.int(d.damage[0], d.damage[1]) * wardOf(s)));
-    target.lastHit = s.tick;
-    target.hitFx = b.def === 'laser_turret' ? 'shock' : null;
-    if (target.hp === 0) target.down = true;
+    const volley = fireAt(s, rng, d, target, (rd, px) => s.raid!.raiders.filter((q) => q !== rd && dist(q, rd) <= px), (rd, dmg) => hurtInTown(s, rd, dmg));
+    for (const { rd } of volley.struck) rd.hitFx = b.def === 'laser_turret' || b.def === 'tesla_coil' ? 'shock' : null;
   }
+}
+
+/** A blow on a raider in the town. */
+function hurtInTown(s: GameState, rd: Raider, dmg: number): void {
+  if (rd.down || rd.gone) return;
+  rd.hp = Math.max(0, rd.hp - Math.round(dmg));
+  rd.lastHit = s.tick;
+  if (rd.hp === 0) rd.down = true;
 }
 
 /** A defender's attack on the nearest raider in reach (called from the defend task). `mult`: a battle's chosen ground

@@ -188,6 +188,7 @@ function growUp(s: GameState): void {
   for (const p of s.people) {
     if (!isChild(p) || s.tick - p.bornTick! < CHILD_HOURS * TICKS_PER_HOUR) continue;
     p.bornTick = null;
+    p.grownAt = s.tick;
     p.type = 'wanderer';
     const school = s.buildings.some((b) => b.def === 'school' && b.status === 'done') ? SCHOOL_BONUS : 0;
     for (const k of SKILLS) p.skills[k].level = (p.passions.includes(k) ? 5 : 2) + school;

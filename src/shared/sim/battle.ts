@@ -14,6 +14,7 @@
 // the tests. The map is laid out when the battle starts (from the land and the town as they stand then) and kept on
 // the raid. Spots, trails and aims are in the land's cells (CELL px each); the raiders' px positions follow them.
 
+import { fireAt, speedOf } from './defenses';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
 import { RAID_KIND_BY_ID, THROW_RANGE } from '../data/raids';
@@ -27,7 +28,7 @@ import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type K
 import { ally } from './classes';
 import { enemyArmor } from '../data/enemies';
 import { attackPerson, defenderAttack, defenderReach, townEdgeX } from './raids';
-import { fogAim, turretsDown, wardOf } from './rivals';
+import { turretsDown } from './rivals';
 import { rallied, RALLY_SPEED } from './rally';
 import { isChild } from './social';
 import { maxHp, notify, type Building, type GameState, type Person, type Raid, type Raider } from './state';
@@ -567,6 +568,8 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
   }
   const kind = RAID_KIND_BY_ID[r.kind];
   const pace = (kind?.speed ?? 40) * PACE / TICK_HZ;
+  // (the raiders within so many px of one, along the trail, for a splash or a chained bolt)
+  const nearOnTrail = (rd: Raider, px: number) => wave.filter((q) => q !== rd && !q.down && !q.gone && q.bt && !q.bt.out && q.bt.d >= 0 && dist(foeAt(map, q), foeAt(map, rd)) * CELL <= px);
   const people = new Map(s.people.map((p) => [p.id, p]));
   const spotOf = new Map(map.spots.map((q) => [q.id, q]));
   const unitPos = (u: BattleUnit): [number, number] => {
@@ -613,7 +616,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const end = cum[cum.length - 1];
     rd.cooldown--;
     // breaking: back down the trail and away
-    const coward = !def.kit && rd.hp < rd.maxHp * ROUT;
+    const coward = !def.kit && (rd.hp < rd.maxHp * ROUT || !!rd.routed);
     if (!bt.back && (coward || s.tick >= r.leavesTick)) {
       bt.back = true;
       bt.held = undefined;
@@ -644,7 +647,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     }
     if (bt.held !== undefined) continue;
     // on along the trail, unless a blocker with room stops it
-    const next = Math.min(end, bt.d + pace * ((bt.st?.slow?.until ?? 0) > s.tick ? 0.5 : 1) * ((bt.st?.haste?.until ?? 0) > s.tick ? 1.5 : 1));
+    const next = Math.min(end, bt.d + pace * speedOf(rd, s.tick) * ((bt.st?.slow?.until ?? 0) > s.tick ? 0.5 : 1) * ((bt.st?.haste?.until ?? 0) > s.tick ? 1.5 : 1));
     const at = pointAt(path, cum, next);
     const blocker = b.units.find((u) => {
       const q = spotOf.get(u.spot)!;
@@ -662,7 +665,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       const d = tb && BUILDING_BY_ID[tb.def]?.defense;
       if (!d || (tb!.readyTick ?? 0) > s.tick || turretsDown(s)) continue;
       tb!.readyTick = s.tick + Math.round(d.interval * TICK_HZ);
-      hurt(rd, rng.int(d.damage[0], d.damage[1]) * wardOf(s), s);
+      fireAt(s, rng, { ...d, accuracy: 2 }, rd, nearOnTrail, (x, dmg) => hurt(x, dmg, s, b)); // (a trap never misses what steps in it)
     }
     if (bt.d >= end) through(s, r, b, rd);
     if (bt.out) continue;
@@ -748,10 +751,9 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       const target = wave.filter((rd) => !rd.down && !rd.gone && !rd.bt!.out && rd.bt!.d >= 0 && dist(foeAt(map, rd), [q.x, q.y]) <= reach).sort((a, c) => c.bt!.d - a.bt!.d)[0];
       if (!target) continue;
       tb!.readyTick = s.tick + Math.round(d.interval * TICK_HZ);
-      shot(b, s, [q.x, q.y], foeAt(map, target), tb!.def === 'laser_turret' ? 'bolt' : 'tower');
-      if (rng.next() >= d.accuracy - fogAim(s) - ENEMIES[target.kind].dodge / 2) continue;
-      target.hitFx = tb!.def === 'laser_turret' ? 'shock' : null;
-      hurt(target, rng.int(d.damage[0], d.damage[1]) * wardOf(s), s, b);
+      shot(b, s, [q.x, q.y], foeAt(map, target), tb!.def === 'laser_turret' || tb!.def === 'tesla_coil' ? 'bolt' : 'tower');
+      const volley = fireAt(s, rng, d, target, nearOnTrail, (x, dmg) => hurt(x, dmg, s, b));
+      for (const { rd } of volley.struck) rd.hitFx = tb!.def === 'laser_turret' || tb!.def === 'tesla_coil' ? 'shock' : null;
     }
 
   // (spent shots and old casts are cleared away)

@@ -1,5 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { RESEARCH_PACE } from '../data/pace';
+import { ageDays, isElder } from './ageing';
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
 import { HOME_REGION } from '../data/regions';
@@ -159,6 +161,9 @@ export interface PersonView {
   growsUpIn: number | null;
   /** A mental break in progress, described. */
   breakdown: string | null;
+  /** Age (sim/ageing.ts): days grown, and an elder (slower, and old age may take them). */
+  ageDays: number;
+  elder: boolean;
   /** Monsters: what they are and their standing order for the Hunter's Guild. */
   monster: string | null;
   order: string | null;
@@ -978,6 +983,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     rivals: rivalsOf(s, p).map((f) => f.name),
     growsUpIn: p.bornTick != null ? Math.max(0, CHILD_HOURS - (s.tick - p.bornTick) / TICKS_PER_HOUR) : null,
     breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,
+    ageDays: Math.floor(ageDays(s, p)),
+    elder: isElder(s, p),
     monster: p.monster ?? null,
     order: p.monster ? (p.order ?? 'hide') : null,
     sick: !!p.sick,
@@ -1131,7 +1138,7 @@ function researchView(s: GameState): ResearchView {
       const topic = who?.task?.type === 'research' && who.task.topic ? (TOPIC_BY_ID[who.task.topic]?.name ?? null) : null;
       return { label: st.label, mult: st.mult, who: who?.name ?? null, topic };
     }),
-    speed: ((main ? skillSpeed(main.skills.research.level) : 1) * station.mult * mods.researchSpeed) / RESEARCH_MULTIPLIER[s.era],
+    speed: ((main ? skillSpeed(main.skills.research.level) : 1) * station.mult * mods.researchSpeed) / (RESEARCH_MULTIPLIER[s.era] * RESEARCH_PACE[s.era]),
   };
 }
 

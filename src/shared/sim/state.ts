@@ -250,6 +250,11 @@ export interface Raider {
   bt?: RaiderBattle;
   /** Its blood is on the ground already (marked once when it fell). */
   bled?: boolean;
+  /** A defence piece's quirks on it (sim/defenses.ts): slowed by this share until a tick, burning, turned about. */
+  slow?: number;
+  slowUntil?: number;
+  burn?: { until: number; dps: number };
+  routed?: boolean;
   /** The side it came from and flees back to, when not the raid's own (a flanking party, raids.ts). */
   side?: -1 | 1;
   /** A townsperson being carried off (taken out of the town while carried). */
@@ -350,6 +355,8 @@ export interface Person {
   /** Children: when they were born (they grow up after CHILD_HOURS), and their parents. */
   bornTick?: number | null;
   parents?: number[];
+  /** When they came of age (sim/ageing.ts): elders and old age count from it. */
+  grownAt?: number;
   /** Grieving someone close, until a tick. */
   grief?: { until: number; value: number; text: string } | null;
   /** A mental break in progress (see breaks.ts). */

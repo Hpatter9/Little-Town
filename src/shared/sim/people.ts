@@ -2,6 +2,7 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
 import { ADJACENT_TILES, NEAR_SOURCE, NEAR_SOURCE_BONUS } from '../data/buildings';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
@@ -478,11 +479,16 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
     return;
   }
   if (!(building ? goToB(s, p, building) : goTo(s, p, campXY(s)))) return;
+  if (s.tick % TICKS_PER_HOUR === 0 && researchCanWait(s, p)) {
+    p.task = null;
+    return;
+  }
   p.activity = 'research';
   const topic = TOPIC_BY_ID[task.topic];
   const mult = building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1;
   const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p) * researchSpeed(s);
-  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * TICK_HZ);
+  // (and the game's pace: a town takes generations to learn it all, data/pace.ts)
+  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * RESEARCH_PACE[topic.era ?? 'neolithic'] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   if (r.progress[topic.id] < 1) return;
 
@@ -781,6 +787,22 @@ function chooseTask(s: GameState, p: Person): Task | null {
   return null;
 }
 
+/** Study is spare-time work while the town is small: a handful of people build and gather before they sit down
+ *  to think, and in any town a site ready to build with nobody on it comes first (research takes generations now:
+ *  data/pace.ts, so a topic can't be left to finish first). */
+export function researchCanWait(s: GameState, p: Person): boolean {
+  const sites = s.buildings.filter((b) => b.status === 'blueprint');
+  if (!sites.length) return false;
+  const ready = sites.some((b) => poolSize(stillNeeded(b)) === 0 || b.progress > 0);
+  const grown = s.people.filter((q) => q.away === null && q.bornTick == null && !q.downed).length;
+  // (a handful of people: anything they could build or gather for comes first; a site waiting on what the land can't
+  // give (a desert's fiber) doesn't keep them from their books)
+  if (grown <= SMALL_TOWN) return ready || s.land.marked.length > 0;
+  return ready && !s.people.some((q) => q !== p && q.task?.type === 'build');
+}
+/** Up to this many grown-ups, building and gathering come before study. */
+const SMALL_TOWN = 3;
+
 function findJob(s: GameState, p: Person, job: Job): Task | null {
   switch (job) {
     case 'haul':
@@ -815,7 +837,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       return { type: 'patrol', targetX: end.x, targetY: end.y };
     case 'research': {
       // (one person to a station: with every one taken, they find other work)
-      if (!s.research.queue.length) return null;
+      if (!s.research.queue.length || researchCanWait(s, p)) return null;
       const station = freeStation(s, p);
       return station === undefined ? null : { type: 'research', station, topic: topicFor(s, p) };
     }

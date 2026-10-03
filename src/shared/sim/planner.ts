@@ -3,6 +3,8 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { eraOfResearch } from '../data/research';
+import { ERAS } from '../data/eras';
 import { hashSeed, Rng } from '../rng';
 import { treasuresHeld } from './shop';
 import { canWear } from './classes';
@@ -71,7 +73,9 @@ export interface TownPlan {
 /** A blueprint that hasn't moved for this long, waiting on something the town has none of, is shelved (its slot is
  *  wanted for something that can be built), and its kind isn't tried again for SHELF_HOURS. */
 export const STALL_HOURS = 12;
-export const SHELF_HOURS = 24;
+export /** One defence piece for every this many grown-ups, besides what a raid or the Defence direction asks. */
+const DEFENSE_PER_PEOPLE = 8;
+const SHELF_HOURS = 24;
 
 /* ------------------------------------------------------------ what the town needs */
 
@@ -529,6 +533,22 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const shelved = (id: string) => s.tick - (s.plan?.shelved?.[id] ?? -Infinity) < SHELF_HOURS * TICKS_PER_HOUR;
   const can = (d: BuildingDef) => !d.never && !shelved(d.id) && unlocked(s, d.id) && (!NEVER.has(d.id) || (d.id === 'phylactery' && !!s.lichChosen));
   const count = (id: string) => s.buildings.filter((b) => b.def === id).length;
+  const grown = s.people.filter((p) => p.bornTick == null).length;
+  /** Defence pieces (data/defenses.ts): about one for every DEFENSE_PER_PEOPLE grown-ups (plus `extra`), the best kinds the
+   *  town can build first (its own origin's, then the latest era's), one of each kind before a second of any. */
+  function planDefenses(extra: number): void {
+    const have = s.buildings.filter((b) => BUILDING_BY_ID[b.def]?.defense).length;
+    const want = extra + Math.floor(grown / DEFENSE_PER_PEOPLE);
+    if (have >= want) return;
+    const kinds = BUILDINGS.filter((d) => d.defense && can(d)).sort((a, b) => Number(!!b.origin) - Number(!!a.origin) || ERAS.indexOf(eraOfResearch(b.research)) - ERAS.indexOf(eraOfResearch(a.research)) || (b.defense!.damage[1] - a.defense!.damage[1]));
+    for (let round = 1; round <= 2; round++) {
+      const d = kinds.find((k) => count(k.id) < round);
+      if (d) {
+        add(d.id, 'raiders have to be kept out');
+        return;
+      }
+    }
+  }
 
   // (every kind that would do, best first: if the best can't be had, the next is tried)
   const options = (pred: (d: BuildingDef) => boolean, power: (d: BuildingDef) => number, why: string) => {
@@ -567,11 +587,13 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   if (n.storageFill > 0.8 && stores < 2 + Math.floor(n.people / 4)) options((d) => !!d.storage && d.id !== 'campfire', (d) => d.storage!, 'the stores are nearly full');
   // defence first, if that's the aim or raiders keep coming
   if (n.direction === 'defense' || n.raided) {
-    for (const d of BUILDINGS) if (can(d) && d.defense && count(d.id) < (n.direction === 'defense' ? 2 : 1)) add(d.id, 'raiders have to be kept out');
+    planDefenses(n.direction === 'defense' ? 2 : 1);
     for (const d of BUILDINGS) if (can(d) && d.warningMinutes && !planned(s, d.id)) add(d.id, 'to see raiders coming');
     const walls = s.buildings.filter((b) => isWall(BUILDING_BY_ID[b.def])).length;
     if (walls < 4) options((d) => isWall(d), (d) => d.hp!, 'a wall at each end of town');
   }
+  // (in quieter times too, a piece or two as the town grows)
+  planDefenses(0);
   // a shop to sell to travellers (sooner when the town is set on trade)
   if (!shopPlanned && can(firstShop) && n.direction === 'trade') add(firstShop.id, 'to sell to travellers for coins');
   // a better place to research, and more of them as the town grows (one person studies at each: about one station for
@@ -579,7 +601,6 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const station = Object.entries(RESEARCH_STATIONS).filter(([id]) => BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id])).sort((a, b) => b[1].mult - a[1].mult)[0];
   if (station && !planned(s, station[0])) add(station[0], 'somewhere better to study');
   const stations = s.buildings.filter((b) => RESEARCH_STATIONS[b.def]).length;
-  const grown = s.people.filter((p) => p.bornTick == null).length;
   const wantStations = Math.min(modifiers(s.research).researchSlots, 1 + Math.floor(grown / 4));
   // (never a second campfire: another desk waits for a real place of study)
   if (station && station[0] !== 'campfire' && stations < wantStations) add(station[0], `a desk for another researcher (${stations} for ${grown} people)`);

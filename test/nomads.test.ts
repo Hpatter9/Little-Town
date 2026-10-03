@@ -27,15 +27,18 @@ test('the camp moves with the seasons: tents go on the wagons, rooted things sta
   const sim = new Sim(newGame('seasons', { origin: 'nomads' }));
   const s = sim.state;
   const n = s.nomad!;
+  // (no raid or plague to end the tribe mid-round: a dead town's clock stands still, and the loops below wait on it)
+  s.nextRaidTick = Number.MAX_SAFE_INTEGER;
+  s.nextDoomTick = Number.MAX_SAFE_INTEGER;
   // a rooted work on the home ground, and a tent
   const kiln = put(s, 'kiln', n.home.x - 6, n.home.y + 2);
   const tent = put(s, 'hide_tent', n.home.x + 4, n.home.y + 2);
   s.autopilot = false;
-  while (calendar(s.tick).season !== 'summer') sim.step();
+  while (calendar(s.tick).season !== 'summer' && !s.gameOver) sim.step();
   // (they set out by day: not in the small hours)
   for (let i = 0; i < 3 * TICKS_PER_HOUR; i++) sim.step();
   assert.ok(same(n.camp, n.home), 'waiting for first light');
-  while (same(n.camp, n.home) && calendar(s.tick).season === 'summer') sim.step();
+  while (same(n.camp, n.home) && calendar(s.tick).season === 'summer' && !s.gameOver) sim.step();
   assert.ok(same(n.camp, n.pasture), 'at the summer pasture');
   const hour = calendar(s.tick).hour;
   assert.ok(hour >= 7 && hour < 16, `set out by day (${hour})`);
@@ -47,8 +50,9 @@ test('the camp moves with the seasons: tents go on the wagons, rooted things sta
   const fire = s.buildings.find((b) => b.def === 'campfire')!;
   assert.ok(cheb({ x: fire.tile, y: fire.row }, n.pasture) <= 14 && fire.status === 'done', 'the fire lit again at once');
   assert.ok(snapshot(s).nomad?.site === 'pasture');
-  while (calendar(s.tick).season !== 'winter') sim.step();
-  while (!same(n.camp, n.home) && calendar(s.tick).season === 'winter') sim.step();
+  while (calendar(s.tick).season !== 'winter' && !s.gameOver) sim.step();
+  while (!same(n.camp, n.home) && calendar(s.tick).season === 'winter' && !s.gameOver) sim.step();
+  assert.equal(s.gameOver, null, 'the tribe lives');
   assert.ok(same(n.camp, n.home), 'home for the winter');
 });
 

@@ -1049,6 +1049,38 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       hunts each (the full moons of days 6 and 12), renown 3 to 6, one town raided by the Ash Pack; no pack broken on
       its own, since only a player-sent war party breaks one at its lair.
 
+    - **Tower defence, deeper (done; the owner's request):** `src/shared/data/defenses.ts`: traps and engines for every
+      era (`DEFENSE_BUILDINGS`: the pit trap from Trapmaking; caltrops and boiling oil from Fortification; the ballista
+      and catapult from Siege Engines (new topics in data/research.ts); the cannon and land mine from Firearms; the
+      flame turret and mortar pit from Rifles; the Tesla coil from Energy Weapons) and one piece of each origin's own
+      (`ORIGIN_DEFENSES`, `origin` + `era: 'medieval'`: militia post, bone spire, bramble snare, gargoyle perch, wolf
+      trap, sentry bot, rune bolt thrower, tide pool trap, arrow wagon, glamour ring, acid sprayer, crossbow bastion),
+      merged into BUILDINGS. `BuildingDef.defense` has quirks: `splash` (px; those beside take `SPLASH_SHARE`), `slow`
+      (share of speed for `SLOW_SECONDS`), `burn` (a second for `BURN_SECONDS`), `chain` (leaps `CHAIN_REACH` px to that
+      many more, `CHAIN_SHARE` each), `night` (multiplier after dark), `rout` (chance the struck one runs). `sim/defenses.ts`
+      applies them: `fireAt` (shared by raids.ts `fireDefenses` in the town and battle.ts towers and traps on the trail,
+      the latter never missing), `speedOf` (a slowed raider's step, in town and on the trail), `tickBurns` (from
+      updateRaid). `Raider.slow/slowUntil/burn/routed`; a routed raider flees in town and breaks on the trail. The planner's
+      `planDefenses` keeps about one piece for every `DEFENSE_PER_PEOPLE` grown-ups (more when raided or set on Defence),
+      the best kinds first (its own origin's, then the latest era's), one of each before a second. Looks: `topDown.ts`
+      (`SHAPES`: traps on pads drawn by `drawTrap`, engines on low mounts (`ENGINES`) with their own toppers).
+      Tests: `test/defenses.test.ts`.
+    - **A game of generations (done; the owner's call: about three months of real time):** `src/shared/data/pace.ts`.
+      Research takes `RESEARCH_PACE` times longer by the topic's era (10, 5, 4, 3, 2), and the dangers that grow with
+      the day count `paceDay` (sim/time.ts: the day over `DANGER_PACE` 2.5): the raid budget and interval shortening,
+      the raid kinds' `fromDay`, boss and Behemoth raids, flanking, the lords' health. Study is spare-time work in a
+      town of up to `SMALL_TOWN` grown-ups and never comes before a site ready to build with nobody on it
+      (`researchCanWait` in people.ts; a researcher puts the topic down on the hour, its progress kept). Townsfolk
+      **age** (`sim/ageing.ts`): `Person.grownAt` (children when they grow up; founders and wanderers up to
+      `PRIME_SPREAD` days into their prime, by their id), elders from `ELDER_DAYS` 50 (`ELDER_WORK` 0.8, shown in the
+      Townsfolk tab; `PersonView.ageDays`, `elder`), and from `OLD_AGE_DAYS` 65 each night may be their last
+      (`OLD_AGE_DAILY` 0.05 + `OLD_AGE_DAILY_PER_DAY`; "has died of old age, full of days"); the undead, machines,
+      vampires and a lich never age. Children grow up in `CHILD_DAYS` 18 (`CHILD_HOURS` was 420 days, so nobody ever
+      did) and Family Life is a Stone Age topic now, so generations turn over. An event's `leave` never sends the
+      founder away (a lone founder exiled once left an empty town with no end). Tests paced: research time, rival and
+      beast raid days. Wanderers come less as a town fills and none past `POP_SOFT_CAP` (60): a 50-day knights' town
+      had reached 105 people before it.
+
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)

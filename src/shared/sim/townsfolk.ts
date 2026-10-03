@@ -1,6 +1,8 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
+import { ageWork } from './ageing';
+import { POP_SOFT_CAP } from '../data/pace';
 import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/buildings';
 import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
@@ -231,6 +233,7 @@ export function workFactor(s: GameState, p: Person): number {
   if (p.needs.rest <= 0.02) f *= 0.7;
   if (isInjured(p)) f *= 0.8;
   if (p.sick) f *= PLAGUE_WORK;
+  f *= ageWork(s, p); // (elders slow down)
   // vampires come alive at night
   if (p.monster === 'vampire') {
     const h = calendar(s.tick).hour;
@@ -298,7 +301,9 @@ export function maybeArrive(s: GameState, rng: Rng): void {
     Math.min(ARRIVAL_REPUTATION_MAX, s.reputation * ARRIVAL_PER_REPUTATION);
   // wanderers shy away from a town where the dead outnumber the living
   // (unless the town was founded by the dead: then they're raised on joining anyway)
-  if (!rng.chance(chance * (undeadShare(s) >= 0.5 && rulesOf(s).kin !== 'undead' ? UNDEAD_TOWN_ARRIVALS : 1))) return;
+  // (and fewer come as a town fills: past POP_SOFT_CAP it grows only by its own children: data/pace.ts)
+  const room = Math.max(0, 1 - s.people.length / POP_SOFT_CAP);
+  if (!rng.chance(chance * room * (undeadShare(s) >= 0.5 && rulesOf(s).kin !== 'undead' ? UNDEAD_TOWN_ARRIVALS : 1))) return;
 
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
   const edge = edgeXY(s, side);
