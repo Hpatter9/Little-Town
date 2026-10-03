@@ -781,6 +781,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     packs wherever one has the thing: the ground (the Fields, Path and Road, Green Zone and Village tilesets' grass,
     soil, roads, water edges), fields and pens (the Fields tileset), more buildings for every era and origin (the
     Undead tileset for the liches and vampires, the Dungeon and Cave packs for the dwarves), props and effects.
+    - **Roads (done):** `src/renderer/art/roadTiles.ts` lays Craftpix's Path and Road tiles (16px, a road two tiles
+      wide, so a 32px road cell is four quarter-tiles): `roads/roadTiles.json` maps each quarter's case (road on past
+      its two outer sides, across its outer corner) to a tile, worked out from the sheets by sampling them (a missing
+      inner corner falls back to the full tile). `ROAD_BY_ERA`: slabs (road5), cobbles (road1), bricks (road2), paving
+      (road4); grass-tufted edges on green ground, bare earth on sand, soil and rock, bare in winter. `paintChunk`
+      paints the ground under, then the road over; the chunk key carries the era and whether the sheets have loaded
+      (the painted path stands until then).
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

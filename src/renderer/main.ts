@@ -962,7 +962,7 @@ async function start(): Promise<void> {
       buildStyle = style;
       map.setBuildingStyle(buildingTint(next.theme), style);
     }
-    map.syncLand(next.land, next.calendar.season, next.biome); // (paints again only what changed)
+    map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
     map.syncBuildings(next.buildings);
     herds.update(next.buildings);
     map.syncCastle(next.castle?.rect ?? null);

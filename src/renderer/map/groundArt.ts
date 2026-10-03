@@ -6,6 +6,8 @@
 import { Texture } from 'pixi.js';
 import { CELL, groundAt, isRoad, type LandMap, FOG_BAND } from '../../shared/sim/land';
 import type { TdTiles } from '../art/tdTiles';
+import type { Era } from '../../shared/data/eras';
+import { drawRoadCell, ROAD_BY_ERA, roadTilesReady } from '../art/roadTiles';
 
 /** Cells to a chunk's side. */
 export const CHUNK = 8;
@@ -56,8 +58,8 @@ export function visibility(m: LandMap, x: number, y: number): 0 | 1 | 2 {
 }
 
 /** A key for what a chunk shows (painted again when it changes). */
-export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean): string {
-  let s = `${season}|${td ? 1 : 0}|${m.open}|`;
+export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean, era: Era = 'neolithic'): string {
+  let s = `${season}|${td ? 1 : 0}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|`;
   for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {
     const i0 = y * m.w + cx * CHUNK;
     s += m.cells.slice(i0, i0 + CHUNK) + m.roads.slice(i0, i0 + CHUNK);
@@ -66,7 +68,7 @@ export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td:
 }
 
 /** Paint one chunk (a 2D canvas, one canvas pixel per world pixel). */
-export function paintChunk(m: LandMap, cx: number, cy: number, season: string, biome: string, td: TdTiles | null): Texture {
+export function paintChunk(m: LandMap, cx: number, cy: number, season: string, biome: string, td: TdTiles | null, era: Era = 'neolithic'): Texture {
   const pal = PALETTES[season] ?? SUMMER;
   const size = CHUNK * CELL;
   const canvas = document.createElement('canvas');
@@ -92,8 +94,11 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         continue;
       }
       const kind = groundAt(m, x, y);
-      if (isRoad(m, x, y)) {
-        // a beaten earth path, worn pale down the middle, with the odd pebble (the cobbles come with later eras)
+      const road = isRoad(m, x, y);
+      // the pack's road tiles (art/roadTiles.ts) over the ground, once loaded: the ground is painted first below
+      const packRoad = road && roadTilesReady();
+      if (road && !packRoad) {
+        // a beaten earth path, worn pale down the middle, with the odd pebble (until the pack's tiles load)
         cell(px, py, pal.road[0], pal.road[1], 0.12, pal.road[2], 0.1);
         const across = isRoad(m, x - 1, y) || isRoad(m, x + 1, y);
         const down = isRoad(m, x, y - 1) || isRoad(m, x, y + 1);
@@ -146,6 +151,10 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             break;
           }
         }
+      if (packRoad) {
+        const grassy = kind === 'grass' || kind === 'forest' || kind === 'marsh' || kind === 'hill';
+        drawRoadCell(g, px, py, ROAD_BY_ERA[era], grassy && season !== 'winter', (dx, dy) => isRoad(m, x + dx, y + dy));
+      }
       // beyond the open land the ground fades into the dark, further out the darker
       if (vis === 1) {
         const d = Math.hypot(x - m.camp.x, y - m.camp.y) - m.open;

@@ -24,6 +24,8 @@ import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
 import { onPackArt, packArt, packDressing } from './packBuildings';
+import { loadRoadTiles } from '../art/roadTiles';
+import type { Era } from '../../shared/data/eras';
 import { CARPET_W, cornerTower, floorTile, MERLON, northWall, sideWalkTile, southWall, TOWER_H, TOWER_W, WALL_FACE, WALL_T } from './keepArt';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
@@ -110,6 +112,7 @@ export class MapView {
   private highlight: number | null = null;
   private land: LandMap | null = null;
   private season = 'summer';
+  private era: Era = 'neolithic';
   private biome = 'forest';
   /** The land's size in px (the camera's bounds). */
   width = 0;
@@ -131,6 +134,7 @@ export class MapView {
     this.world.addChild(this.ground, this.marks, this.under, this.things, this.over, this.ghost);
     this.root.addChild(this.world);
     loadTdTiles().then(() => this.repaint(), () => undefined);
+    loadRoadTiles().then(() => this.repaint(), () => undefined);
     onPackArt(() => this.artGen++);
   }
 
@@ -191,7 +195,8 @@ export class MapView {
   /* ------------------------------------------------------------ the land */
 
   /** The land as it is now: ground chunks painted again where they changed, props on the wild cells. */
-  syncLand(land: LandMap, season: string, biome: string): void {
+  syncLand(land: LandMap, season: string, biome: string, era: Era = 'neolithic'): void {
+    this.era = era;
     this.land = land;
     this.season = season;
     this.biome = biome;
@@ -206,7 +211,7 @@ export class MapView {
         const id = `${cx},${cy}`;
         // (chunks wholly out of sight are one black square)
         const near = Math.hypot((cx + 0.5) * CHUNK - land.camp.x, (cy + 0.5) * CHUNK - land.camp.y) <= reach;
-        const key = near ? chunkKey(land, cx, cy, season, !!td) : 'dark';
+        const key = near ? chunkKey(land, cx, cy, season, !!td, era) : 'dark';
         let c = this.chunks.get(id);
         if (c && c.key === key) continue;
         if (!c) {
@@ -215,7 +220,7 @@ export class MapView {
           this.chunks.set(id, c);
         }
         const old = c.sprite.texture;
-        c.sprite.texture = near ? paintChunk(land, cx, cy, season, biome, td) : darkTexture();
+        c.sprite.texture = near ? paintChunk(land, cx, cy, season, biome, td, era) : darkTexture();
         if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
         c.key = key;
       }
@@ -226,7 +231,7 @@ export class MapView {
   /** Paint everything again (the cobble tiles arrived). */
   private repaint(): void {
     for (const c of this.chunks.values()) c.key = '';
-    if (this.land) this.syncLand(this.land, this.season, this.biome);
+    if (this.land) this.syncLand(this.land, this.season, this.biome, this.era);
   }
 
   /** The sets of objects for this land and season (the sea's under water is for later). */
