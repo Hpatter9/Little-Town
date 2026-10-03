@@ -6,7 +6,7 @@ import { Rectangle, Texture } from 'pixi.js';
 import { loadImage } from './loadImage';
 import manifest from './props.json';
 
-export type PropSet = 'wild' | 'winter' | 'desert' | 'coast' | 'cave' | 'sea' | 'grove' | 'places';
+export type PropSet = 'wild' | 'winter' | 'desert' | 'coast' | 'cave' | 'sea' | 'grove' | 'places' | 'undead';
 /** Each object's frame in its atlas: x, y, w, h (atlas px: twice art px). */
 const FRAMES = manifest as Record<PropSet, [number, number, number, number][]>;
 /** Atlas px per art px. */

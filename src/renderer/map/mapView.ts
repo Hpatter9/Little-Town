@@ -216,7 +216,7 @@ export class MapView {
         const id = `${cx},${cy}`;
         // (chunks wholly out of sight are one black square)
         const near = Math.hypot((cx + 0.5) * CHUNK - land.camp.x, (cy + 0.5) * CHUNK - land.camp.y) <= reach;
-        const key = near ? chunkKey(land, cx, cy, season, !!td, era) : 'dark';
+        const key = near ? chunkKey(land, cx, cy, season, !!td, era, this.blighted()) : 'dark';
         let c = this.chunks.get(id);
         if (c && c.key === key) continue;
         if (!c) {
@@ -225,7 +225,7 @@ export class MapView {
           this.chunks.set(id, c);
         }
         const old = c.sprite.texture;
-        c.sprite.texture = near ? paintChunk(land, cx, cy, season, biome, td, era) : darkTexture();
+        c.sprite.texture = near ? paintChunk(land, cx, cy, season, biome, td, era, this.blighted()) : darkTexture();
         if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
         c.key = key;
       }
@@ -240,9 +240,16 @@ export class MapView {
   }
 
   /** The sets of objects for this land and season (the sea's under water is for later). */
+  /** Whether the land is the undead's (the liches' and vampires'): blighted ground and dead trees. */
+  private blighted(): boolean {
+    return this.style === 'lich' || this.style === 'vampire';
+  }
+
   private propSets(season: string, biome: string): PropSet[] {
     const winter = season === 'winter' || biome === 'tundra';
     const base: PropSet = biome === 'desert' ? 'desert' : winter ? 'winter' : biome === 'coast' ? 'coast' : 'wild';
+    // (the liches' and vampires' land is blighted: dead trees, thorns and bones, and snow when it snows)
+    if (this.blighted()) return winter ? ['undead', 'winter'] : ['undead'];
     const sets: PropSet[] = [base];
     if (this.style === 'fae' || this.style === 'druid') sets.push('grove');
     if (base !== 'wild') sets.push('wild');

@@ -43,6 +43,10 @@ function kindOf(file) {
   if (/3 decor\/(1|2)\.png$/.test(f)) return 'cart';
   if (/8 camp\//.test(f)) return 'camp';
   if (/building1_light/.test(f)) return 'ruin';
+  // (the undead pack: thorns stand for bushes, bones and skulls for rocks, its pale weeds for plants)
+  if (/thorn_p/.test(f)) return 'bush';
+  if (/\/bones_|pile_sculls/.test(f)) return 'rock';
+  if (/\/plant_+shadow/.test(f)) return 'plant';
   if (/mushroom|chanterelle|flower|grass|fern|liana|coral|seaweed|algae|kelp/.test(f)) return 'plant';
   if (/tree|birch|fir|conifer|palm|willow|ent_|idol|gazebo|totem|cocoon/.test(f)) return 'tree';
   if (/rock|stone|stalagmite|crystal|boulder|canyon|ice/.test(f)) return 'rock';
@@ -60,6 +64,7 @@ const FIELDS = path.join(dirOf('fields-tileset-pixel-art-for-tower'), '2 Objects
 const bushes = fs.readdirSync(BUSH).flatMap((d) => pick(path.join(BUSH, d), /./, 0.17));
 const fields = (d, re = /./) => pick(path.join(FIELDS, d), re, 0.5);
 const VILLAGE = path.join(dirOf('village-pixel-tileset'), '2 Objects');
+const UNDEAD = path.join(dirOf('undead-tileset-top-down'), 'PNG/Objects_separately');
 
 // (the small saplings at the start of each tree row are left out)
 const SETS = {
@@ -108,6 +113,13 @@ const SETS = {
     ...pick(path.join(CAVE, '128'), /Dinosaur_skeleton_part1_light|Demon_scull_light|white_crystal_light_shadow2|magic_circle_light|Building1_light/, 0.26),
     ...pick(path.join(VILLAGE, '3 Decor'), /^(1|2)\.png$/, 0.5),
     ...pick(path.join(FIELDS, '8 Camp'), /^(1|2|3|4)\.png$/, 0.5),
+  ],
+  // the liches' and vampires' blighted land (one shadow direction of each object)
+  undead: [
+    ...pick(UNDEAD, /^(Dead_tree|Broken_tree|Tree)_shadow1_/, 0.2),
+    ...pick(UNDEAD, /^Thorn_plant_shadow1_/, 0.2),
+    ...pick(UNDEAD, /^Plant_shadow1_/, 0.2),
+    ...pick(UNDEAD, /^(Bones_shadow1_|Pile_sculls_shadow1|Rock_shadow1_|Crystal_shadow1_)/, 0.2),
   ],
   // the fae's and druids' groves
   grove: [

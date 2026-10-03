@@ -63,7 +63,8 @@ trade signs and its third timber house (the workshops), the Fields Tileset's log
 Top-Down Cave Objects' fire pits, crystals, carved gates, skull altar, statue and totems, the Rocky Area Objects' cave
 mouths, tipis and yurts (the nomads' homes), the Dungeon Props' glass tanks, shelves, desks, chairs and benches, the
 2D Top-Down Pixel Dungeon pack's barrel and sacks, and the loose futuristic objects pack's tanks, transformer, consoles,
-server racks and screens (the later eras' plants).
+server racks and screens (the later eras' plants). The liches' and vampires' land takes the Undead Tileset's dead and
+broken trees, thorns, pale weeds, bones, skull piles, rocks and crystals as its scenery (`src/renderer/art/props/undead.png`).
 
 ## Craftpix top-down objects (the raid map's scenery)
 

@@ -51,6 +51,9 @@ const PATCH_OF: Partial<Record<string, Partial<Record<string, Patch>>>> = {
   summer: { grass: 'meadow', forest: 'leaf', marsh: 'teal', hill: 'olive', fertile: 'loam', sand: 'sand', rock: 'peat' },
   autumn: { grass: 'grass', forest: 'olive', marsh: 'teal', hill: 'grass', fertile: 'loam', sand: 'sand', rock: 'peat' },
 };
+/** The liches' and vampires' blighted land: olive and peat where the grass and woods would be. */
+const BLIGHT_PATCH: Partial<Record<string, Patch>> = { grass: 'olive', forest: 'peat', marsh: 'teal', hill: 'olive', fertile: 'loam', sand: 'sand', rock: 'peat' };
+const BLIGHT_FROM: Partial<Record<string, [Patch, number]>> = { grass: ['peat', 0.08], forest: ['peat', 0.34], hill: ['peat', 0.16], marsh: ['peat', 0.3] };
 /** Kinds that keep their own base colour under the patches (the patch is a darker spot on them). */
 const BASE_OWN: Partial<Record<string, boolean>> = { sand: true, rock: true };
 /** Kinds whose plain ground is another band's, darkened: the marsh is dark green with teal pools on it. */
@@ -72,8 +75,8 @@ export function visibility(m: LandMap, x: number, y: number): 0 | 1 | 2 {
 }
 
 /** A key for what a chunk shows (painted again when it changes). */
-export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean, era: Era = 'neolithic'): string {
-  let s = `${season}|${td ? 1 : 0}|${groundDetailReady() ? 1 : 0}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|`;
+export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean, era: Era = 'neolithic', blight = false): string {
+  let s = `${season}|${td ? 1 : 0}|${groundDetailReady() ? 1 : 0}|${blight ? 'b' : ''}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|`;
   for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {
     const i0 = y * m.w + cx * CHUNK;
     s += m.cells.slice(i0, i0 + CHUNK) + m.roads.slice(i0, i0 + CHUNK);
@@ -93,7 +96,7 @@ function wornLevel(m: LandMap, x: number, y: number): number {
 const WORN_ALPHA = [0, 0.4, 0.7, 1];
 
 /** Paint one chunk (a 2D canvas, one canvas pixel per world pixel). */
-export function paintChunk(m: LandMap, cx: number, cy: number, season: string, biome: string, td: TdTiles | null, era: Era = 'neolithic'): Texture {
+export function paintChunk(m: LandMap, cx: number, cy: number, season: string, biome: string, td: TdTiles | null, era: Era = 'neolithic', blight = false): Texture {
   const pal = PALETTES[season] ?? SUMMER;
   const size = CHUNK * CELL;
   const canvas = document.createElement('canvas');
@@ -132,10 +135,11 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         if (down || !across) rect(px + 12, py, 8, CELL, pal.road[2]);
         for (let k = 0; k < 3; k++) if (hash(seed ^ (41 + k), x, y) < 0.5) rect(px + Math.floor(hash(seed ^ (51 + k), x, y) * 30), py + Math.floor(hash(seed ^ (61 + k), x, y) * 30), 2, 2, pal.rock[1]);
         void td;
-      } else if (pack && kind !== 'water' && PATCH_OF[season]?.[kind]) {
+      } else if (pack && kind !== 'water' && (blight && season !== 'winter' ? BLIGHT_PATCH : PATCH_OF[season])?.[kind]) {
         // the pack's ground: a plain colour with its patches, and on the grass its tufts, flowers and pebbles
-        const patch = PATCH_OF[season]![kind]!;
-        const from = BASE_FROM[kind];
+        const blighted = blight && season !== 'winter';
+        const patch = (blighted ? BLIGHT_PATCH : PATCH_OF[season]!)[kind]!;
+        const from = blighted ? BLIGHT_FROM[kind] : BASE_FROM[kind];
         const base = BASE_OWN[kind] ? (pal[kind as 'sand' | 'rock'] as [string, string])[0] : from ? groundUnder(from[0], from[1]) : groundUnder(patch);
         rect(px, py, CELL, CELL, base);
         for (let k = 0; k < 2; k++)
@@ -150,7 +154,7 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
           const tx = px + 4 + Math.floor(hash(seed ^ 113, x, y) * 24);
           const ty = py + 4 + Math.floor(hash(seed ^ 115, x, y) * 24);
           if (r < 0.3) drawTuft(g, 'tuft', Math.floor(r * 100), tx, ty);
-          else if (r < 0.42 && season !== 'autumn') drawTuft(g, 'flower', Math.floor(r * 100), tx, ty);
+          else if (r < 0.42 && season !== 'autumn' && !blighted) drawTuft(g, 'flower', Math.floor(r * 100), tx, ty);
           else if (r < 0.48) drawTuft(g, 'pebble', Math.floor(r * 100), tx, ty);
         } else if (kind === 'rock' && hash(seed ^ 117, x, y) < 0.35) drawTuft(g, 'pebble', Math.floor(hash(seed ^ 119, x, y) * 6), px + 6 + Math.floor(hash(seed ^ 121, x, y) * 20), py + 6 + Math.floor(hash(seed ^ 123, x, y) * 20));
       } else

@@ -854,6 +854,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       refinery, oil derrick, battery plant, electronics plant, chip fab, AI core, mission control, robot workshop).
       Still code-drawn: the towers, the windmill, the elder lodge and town hall, the trophy hall, the factory and
       garage, and the origin halls (no pack has them).
+    - **The undead's land (done):** a props set `undead` (compose-props.cjs: the Undead pack's dead and broken trees as
+      trees, thorns as bushes, pale weeds as plants, bones, skull piles, rocks and crystals as rocks; one shadow direction
+      of each), the only set on the liches' and vampires' land (`MapView.blighted()`, plus `winter` when it snows), and
+      their ground is blighted (`paintChunk(..., blight)`: `BLIGHT_PATCH`/`BLIGHT_FROM` in groundArt.ts: olive grass and
+      peat woods on peat, no flowers; the chunk key carries it).
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
