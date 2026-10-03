@@ -17,7 +17,7 @@ type AgeState = Pick<GameState, 'tick' | 'lich' | 'mainId' | 'origin'>;
 export const ages = (s: Pick<GameState, 'lich' | 'mainId'>, p: Person) => !isChild(p) && !tireless(p) && p.monster !== 'vampire' && !(s.lich && p.id === s.mainId);
 
 /** The span someone lives by: their town's people's, or the curse's. */
-export const lifespanOf = (s: Pick<GameState, 'origin'>, p: Pick<Person, 'monster'>): Lifespan => (p.monster === 'werewolf' ? CURSED_LIFESPAN : LIFESPANS[s.origin ?? 'settlers']);
+export const lifespanOf = (s: Pick<GameState, 'origin'>, p: Pick<Person, 'monster' | 'origin'>): Lifespan => (p.monster === 'werewolf' ? CURSED_LIFESPAN : LIFESPANS[p.origin ?? s.origin ?? 'settlers']);
 
 /** Founders and wanderers arrive up to this many days into their prime. */
 export const primeSpread = (life: Lifespan) => Math.round(life.elderDays * 0.4);

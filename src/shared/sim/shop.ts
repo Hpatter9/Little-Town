@@ -86,7 +86,8 @@ import { addItems, itemUnlocked, qualitiesOf, takeItem } from './crafting';
 import { operatorOf, operatorSkill } from './operators';
 import { addStock, earn, edgeXY, notify, poolSize, remember, type Building, type GameState, type ShopPiece, type Traveller, type Want } from './state';
 import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
-import { gainSkill } from './townsfolk';
+import { gainSkill, housingCapacity } from './townsfolk';
+import { offerToSettle, strangerLook, strangerOrigin } from './strangers';
 import { priceRate, travellerRate } from './origin';
 import { walk } from './walk';
 
@@ -511,7 +512,14 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
     // raiders, or nowhere to go: they hurry on
     if (t.phase !== 'leaving' && (!venue || s.raid?.phase === 'active')) leave(s, t);
     if (t.phase === 'shopping') {
-      if (s.tick >= t.until) leave(s, t);
+      if (s.tick >= t.until) {
+        // (a traveller well served may ask to settle: sim/strangers.ts)
+        if (!t.bed && offerToSettle(s, t, rng, housingCapacity(s) > s.people.length)) {
+          travellers.splice(travellers.indexOf(t), 1);
+          continue;
+        }
+        leave(s, t);
+      }
       continue;
     }
     if (!walk(s, t, { x: t.toX, y: t.toY }, step, venue ? plotOf(venue) : undefined, s.tick)) continue;
@@ -546,7 +554,10 @@ function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown): void {
   const temper = weighted(rng, Object.entries(TEMPERS).map(([id, t]) => [id, t.weight] as [string, number]));
   const look = randomLook(rng);
   const keeper = operatorSkill(s, open.def) * KEEPER_SPEND;
-  const stranger = (what: string, tier: number, purse: number): Traveller => ({
+  // (a traveller may be of another people: their look is theirs, sim/strangers.ts)
+  const origin = strangerOrigin(s, rng, true);
+  const stranger = (what: string, tier: number, purse: number): Traveller => {
+    const t: Traveller = {
     id: s.nextId++,
     name: strangerName(s, rng),
     kind: what,
@@ -561,7 +572,10 @@ function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown): void {
     toY: buildingDoor(open).y,
     until: 0,
     purse: Math.round(purse),
-  });
+    };
+    if (origin) strangerLook(t, origin);
+    return t;
+  };
   let t: Traveller;
   if (kind === 'shop') {
     // who comes: any tier the shop is attractive enough for, the grander ones less often

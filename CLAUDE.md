@@ -651,6 +651,23 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   raised dead take the Craftpix skeleton forms (`skeletonSheet` in art/combatPoses.ts: the archer for a shooter, the
   warrior or the spearman by id; mapPeople and fightView through `FighterView.undead`). Tests: `test/kin.test.ts`.
 
+- **Strangers of other peoples, xenophobia, the hidden vampire's thirst (done; the owner's request):**
+  `src/shared/data/strangers.ts` and `src/shared/sim/strangers.ts`. `Person.origin` and `Traveller.origin` (their
+  people when not the town's; `peopleOf`): a wanderer is of another people `STRANGER_CHANCE` of the time, a traveller
+  `TRAVELLER_STRANGER_CHANCE` (`strangerOrigin` from `STRANGER_ORIGINS`, never the town's own, the dead and machines
+  never), with their people's look (`strangerLook`: dwarves short, the fae and merfolk long-eared, the merfolk
+  sea-skinned, the Blood Court pale) and lifespan (`lifespanOf` reads `p.origin`); a stranger of the Blood Court comes
+  as a vampire in hiding, of the Moon Pack as a werewolf (`makeStranger`). A traveller who leaves the shop well served
+  may ask to settle (`offerToSettle`, `SETTLE_CHANCE`, a bed free: they become the town's visitor, taken in or sent
+  on as any wanderer). The `xenophobic` rule (data/origins.ts: the Deep Hold) turns strangers from the gate
+  (`welcomes`), wanderers and settlers alike. **The thirst:** a hidden vampire feeds the quiet ways first
+  (`updateMonsters`: the town's blood tithe, a prisoner, a beast of a full pen (sometimes drained), a lodger at the
+  tavern (who leaves pale, half their purse)), townsfolk last: a bite stirs the Guild `GUILD_BITE` and counts
+  (`s.bites`), and after `THIRST_BITES` the town speaks of it: a prompt of kind `thirst` ("A thirst in the dark",
+  `askThirst`/`answerThirst`, `THIRST_OPTIONS`): a blood tithe (`s.tithe`: fed cleanly from then on, `TITHE_MORALE`
+  off everyone once), the Guild called (hostility to its threshold: hunters at the next noon), or nothing said. Tests:
+  `test/strangers.test.ts`.
+
 ## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):

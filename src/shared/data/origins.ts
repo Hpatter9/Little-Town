@@ -55,6 +55,8 @@ export interface OriginRules {
   /** The land's shape besides (sim/land.ts `LandShape`): `sea`, half the land sea south of the camp, the town always on
    *  the coast, its people swimming and building in the water (sim/sea.ts; the merfolk). */
   shape?: 'sea';
+  /** Keeps to its own: strangers of other peoples are turned from the gate (sim/strangers.ts). */
+  xenophobic?: true;
   /** The town moves with the seasons (sim/nomads.ts): its tents and wagons between a winter ground and a summer
    *  pasture, until it reaches this era and settles for good. */
   nomadic?: { until: Era };
@@ -148,9 +150,9 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     name: 'Deep Hold',
     town: 'Chronos Hold',
     description: 'Dwarves of the mountain: master builders and crafters, poor farmers, stubborn in a fight. Their halls are carved into the rock behind one gate.',
-    features: ['The land is half mountain: the halls are rooms cut into the rock, behind a single gate; fields and yards lie outside', 'Build 30% faster; crafted things come out finer', 'Poor farmers: fields grow slower', 'Tough: take less harm in raids', 'Rituals: Deep Delve, Forge Blessing, Stone Skin'],
+    features: ['The land is half mountain: the halls are rooms cut into the rock, behind a single gate; fields and yards lie outside', 'Build 30% faster; crafted things come out finer', 'Poor farmers: fields grow slower', 'Tough: take less harm in raids', 'Keep to their own: strangers of other peoples are turned from the gate', 'Rituals: Deep Delve, Forge Blessing, Stone Skin'],
     start: { companions: ['crafter'], stores: { stone: 30, flint: 10, berries: 16 }, research: ['flint_knapping', 'stoneworking'] },
-    rules: { build: 1.3, quality: 1.5, crops: 0.7, guard: 0.85, hold: 'mountain' },
+    rules: { build: 1.3, quality: 1.5, crops: 0.7, guard: 0.85, hold: 'mountain', xenophobic: true },
     powers: ['deep_delve', 'forge_blessing', 'stone_skin'],
   },
   merfolk: {

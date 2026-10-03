@@ -1,6 +1,7 @@
 // Things that happen on the road (DESIGN §8): mostly settled by the party's stance, sometimes a question
 // for the player with a timer and a default.
 
+import { answerThirst } from './monsters';
 import { openGate } from './raidWait';
 import { answerEvent } from './events';
 import { answerLich } from './doom';
@@ -81,6 +82,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'lich') return answerLich(s, prompt.options[option]);
   if (prompt.kind === 'gate') return openGate(s);
   if (prompt.kind === 'event') return answerEvent(s, option, rng);
+  if (prompt.kind === 'thirst') return answerThirst(s, prompt.options[option]);
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   if (!e) return;
   e.prompt = null;

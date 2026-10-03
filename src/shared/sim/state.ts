@@ -131,6 +131,8 @@ export interface Traveller {
   temper?: string;
   req?: number;
   look: Look;
+  /** Their people, when not the town's (sim/strangers.ts). */
+  origin?: OriginId;
   x: number;
   y: number;
   dir: 1 | -1;
@@ -363,6 +365,8 @@ export interface Person {
   breakdown?: { kind: 'sulk' | 'binge' | 'brawl' | 'wander'; until: number; target?: number } | null;
   /** Game hours their morale has been at breaking point. */
   lowMoraleHours?: number;
+  /** Their people, when not the town's (sim/strangers.ts): their lifespan and look are theirs. */
+  origin?: OriginId;
   /** A monster (werewolf or vampire), its standing order for the Hunter's Guild, and when it last fed. */
   monster?: MonsterKind | null;
   /** Their class (data/classes.ts): given once when they're grown, for life. */
@@ -446,7 +450,7 @@ export interface Caravan {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst';
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -589,6 +593,12 @@ export interface GameState {
   /** The Hunter's Guild's hostility (0..100; see monsters.ts), and the monster its raid is after. */
   guild?: number;
   guildTarget?: number | null;
+  /** A hidden vampire's bites on townsfolk since the town last spoke of it, and whether the town keeps a blood tithe
+   *  for its vampires (sim/monsters.ts: fed cleanly, no more bites). */
+  bites?: number;
+  tithe?: boolean;
+  /** When the town last said someone dropped a load for want of storage (once an hour at most). */
+  dropNoted?: number;
   /** A world-dooming event on its way or under way, and when the next is due (see doom.ts). */
   doom?: Doom | null;
   nextDoomTick?: number;

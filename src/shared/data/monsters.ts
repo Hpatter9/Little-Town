@@ -16,6 +16,11 @@ export const FULL_MOON_DAYS = 6;
 export const MAUL_DAMAGE = 14;
 /** Vampires: feed every this many game hours, taking health from a sleeper; everyone sleeps uneasy. */
 export const FEED_HOURS = 48;
+/** A bite on a townsperson stirs the Guild this much; after THIRST_BITES of them the town speaks of it (a prompt:
+ *  a blood tithe, the Guild called, or nothing said). A tithe is a little morale off everyone. */
+export const GUILD_BITE = 4;
+export const THIRST_BITES = 2;
+export const TITHE_MORALE = -3;
 export const BITE_DAMAGE = 12;
 export const UNEASY_MORALE = -3;
 

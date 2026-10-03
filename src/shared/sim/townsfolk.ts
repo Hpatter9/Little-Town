@@ -32,7 +32,8 @@ import { ASH_MORALE, FALLOUT_MORALE, FREEZE_COLD_MORALE, FREEZE_MORALE, PLAGUE_M
 import { isInjured } from './health';
 import { tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
-import { rulesOf } from '../data/origins';
+import { ORIGIN_DEFS, rulesOf } from '../data/origins';
+import { makeStranger, oneOf, strangerOrigin, welcomes } from './strangers';
 import { originWork, moraleMarks } from './origin';
 
 /** Need drain per game hour. Food lasts about a day; rest about 18 waking hours. */
@@ -312,6 +313,16 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   const type = monster ?? rng.weighted(ARRIVING_TYPES);
   const person = makePerson(rng, s.nextId++, type, edge, [...s.people.map((p) => p.name)]);
   if (monster) becomeMonster(s, person, monster);
+  // a stranger of another people (sim/strangers.ts): their look and span are theirs; a xenophobic town turns them away
+  const origin = monster ? null : strangerOrigin(s, rng);
+  if (origin) {
+    makeStranger(s, person, origin);
+    if (!welcomes(s, origin)) {
+      s.nextId--;
+      notify(s, `A wanderer, ${oneOf(origin)}, was turned from the gate: ${ORIGIN_DEFS[s.origin!].name} keep to their own.`);
+      return;
+    }
+  }
   // a rare wanderer is already trained in a special class (decided by the seed, so no randomness shifts)
   const roll = mixSeed(hashSeed(s.seed), person.id * 7919);
   // (one of each calling in a town: never one the town already has)
@@ -330,7 +341,8 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   const wait = campEdge(s, side);
   s.visitor = { person, waitX: wait.x, waitY: wait.y, leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
   const trained = person.cls ? ` (${aCalling(callingName(person, stageOf(person))!)}, level ${person.level}!)` : '';
-  notify(s, `${/^[aeiou]/.test(type) ? 'An' : 'A'} ${type}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
+  const who = origin ? `${oneOf(origin)} (a ${type})` : `${/^[aeiou]/.test(type) ? 'an' : 'a'} ${type}`;
+  notify(s, `${who[0].toUpperCase()}${who.slice(1)}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
 }
 
 /** Visitors walk in, wait, and walk off when turned away or tired of waiting. */

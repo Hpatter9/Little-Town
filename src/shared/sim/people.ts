@@ -770,7 +770,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
     if (s.buildings.some((b) => b.status === 'blueprint' && poolSize(unreserved(s, p, b)) > 0) && poolSize(p.carrying) > keep.reduce((n, m) => n + p.carrying[m]!, 0)) {
       const kept = Object.fromEntries(keep.map((m) => [m, p.carrying[m]!])) as Stock;
       for (const m of keep) delete p.carrying[m];
-      notify(s, `${p.name} dropped ${listCarried(p)}: no room in storage.`);
+      // (said once an hour at most: a full store once filled the journal with nothing else)
+      if ((s.dropNoted ?? -1e9) + TICKS_PER_HOUR <= s.tick) {
+        s.dropNoted = s.tick;
+        notify(s, `${p.name} dropped ${listCarried(p)}: no room in storage.`);
+      }
       p.carrying = kept;
       if (keep.length) {
         p.blocked = true;
