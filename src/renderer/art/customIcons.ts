@@ -542,6 +542,16 @@ export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
       p.px(x + 6, y + 2, WOOD_DARK);
     }
   },
+  mat_pearls: (p) => {
+    // (three pearls in an open shell)
+    p.ellipse(8, 11, 6, 3, '#c8b088');
+    p.ellipse(8, 10, 5, 2, '#e8d8b8');
+    for (const [x, y] of [[5, 8], [9, 7], [11, 10]] as const) {
+      p.ellipse(x, y, 2, 2, '#f4f0ea');
+      p.px(x - 1, y - 1, '#ffffff');
+      p.px(x + 1, y + 1, '#c8c0d8');
+    }
+  },
   mat_fiber: (p) => {
     for (const x of [4, 6, 8, 10, 12]) p.rect(x - 1, 2 + (x % 4), 1, 12 - (x % 4), '#b8c070');
     p.rect(3, 8, 10, 2, '#8a6a3a');

@@ -50,6 +50,9 @@ export const WORTH: Record<Material, number> = {
   power_cells: 8,
   gold: 9,
   gems: 16,
+  fish: 2,
+  kelp: 1,
+  pearls: 14,
 };
 
 /** What caravans bring to sell, by era (caravans only come from the Medieval era on). */

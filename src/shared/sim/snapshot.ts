@@ -1,6 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
 import { RESEARCH_PACE } from '../data/pace';
+import { swims } from './sea';
 import { ageDays, ageLine, ageYears, isElder, lifeStage, type LifeStage } from './ageing';
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
@@ -54,7 +55,7 @@ import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStoc
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, campXY, BLOOD_LASTS } from './state';
-import { cellAt, groundAt, type LandMap } from './land';
+import { cellAt, groundAt, type LandMap , wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
 import { castleBounds, castleCells, castleGate, castleOn, coreRect, holdOf, type Hold } from './castle';
@@ -163,6 +164,8 @@ export interface PersonView {
   breakdown: string | null;
   /** Age (sim/ageing.ts): days grown, years old by their people's reckoning (data/lifespans.ts), the stage of
    *  life, a line about it, and an elder (slower, and old age may take them). */
+  /** In the sea (a merfolk swimming: drawn with a tail). */
+  swimming: boolean;
   ageDays: number;
   ageYears: number;
   lifeStage: LifeStage;
@@ -989,6 +992,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     rivals: rivalsOf(s, p).map((f) => f.name),
     growsUpIn: p.bornTick != null ? Math.max(0, CHILD_HOURS - (s.tick - p.bornTick) / TICKS_PER_HOUR) : null,
     breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,
+    swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
     ageDays: Math.floor(ageDays(s, p)),
     ageYears: Math.floor(ageYears(s, p)),
     lifeStage: lifeStage(s, p),

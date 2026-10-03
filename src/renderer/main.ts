@@ -42,7 +42,7 @@ function travellerPerson(t: TravellerView): PersonView {
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, ageDays: 0,
-  ageYears: 0, lifeStage: 'prime', ageText: '', elder: false,
+  ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false,
   monster: null, order: null, sick: false,
     battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false }, kit: [],
   };

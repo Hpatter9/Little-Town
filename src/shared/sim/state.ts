@@ -872,8 +872,11 @@ function makeChild(p: Person): void {
 }
 
 export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
-  const hold = (ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers).rules.hold;
-  const land = makeLand(seed, opts.biome, hold);
+  const rules = (ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers).rules;
+  const hold = rules.hold;
+  // (a shore town is always on the coast)
+  const biome = rules.shape === 'sea' ? 'coast' : opts.biome;
+  const land = makeLand(seed, biome, hold ?? rules.shape);
   const rng = new Rng(mixSeed(hashSeed(seed), 0x5eed));
   const camp = land.camp;
   const campPx = (dx: number, dy = 0): Pt => ({ x: (camp.x + 0.5 + dx) * CELL, y: (camp.y + 0.5 + dy) * CELL });
@@ -999,7 +1002,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     unreadAway: null,
     eraReady: false,
     cheats: { unlockAll: false },
-    ...(opts.biome && opts.biome !== 'forest' ? { biome: opts.biome } : {}),
+    ...(biome && biome !== 'forest' ? { biome } : {}),
     ...(opts.ironman ? { ironman: true } : {}),
     ...(opts.difficulty && opts.difficulty !== 'normal' ? { difficulty: opts.difficulty } : {}),
     ...(origin.id !== 'settlers' ? { origin: origin.id } : {}),

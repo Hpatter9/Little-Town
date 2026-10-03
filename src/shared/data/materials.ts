@@ -18,8 +18,12 @@ export const MATERIALS = [
   'rare_minerals', 'alloys', 'circuits', 'power_cells',
   // The mountain's deep veins (the dwarves' hold)
   'gold', 'gems',
+  // The sea (the merfolk's shore)
+  'fish', 'kelp', 'pearls',
 ] as const;
 export type Material = (typeof MATERIALS)[number];
+/** What the sea's cells hold (sim/land.ts `seaPool`): gathered by a shore town only. */
+export const SEA_MATERIALS: readonly Material[] = ['fish', 'kelp', 'pearls'];
 
 export const MATERIAL_NAMES: Record<Material, string> = {
   wood: 'Wood',
@@ -67,6 +71,9 @@ export const MATERIAL_NAMES: Record<Material, string> = {
   power_cells: 'Power cells',
   gold: 'Gold',
   gems: 'Gems',
+  fish: 'Fish',
+  kelp: 'Kelp',
+  pearls: 'Pearls',
 };
 
 export type Stock = Partial<Record<Material, number>>;

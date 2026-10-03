@@ -2,7 +2,7 @@
 // tick rate and are interpolated per frame; everyone stands in `things`, sorted by their feet. The LPC sprites are
 // side-on: they face the way they're going, left or right.
 
-import { Container, Graphics, Sprite } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { ClassId } from '../../shared/data/classes';
 import type { PersonView } from '../../shared/sim/snapshot';
 import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
@@ -15,6 +15,7 @@ import { creatureFlip } from '../art/creatures';
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { glowTexture } from '../town/layer';
+import { TAIL_H, TAIL_W, tailTexture, WAIST } from '../art/merTail';
 
 const EMOTE_EVERY = 11;
 const EMOTE_FOR = 3;
@@ -61,6 +62,8 @@ interface Drawn {
   aura?: Sprite;
   /** Their lantern's glow (in the map's lights layer, so it shows after dark). */
   lamp?: Sprite;
+  /** A merfolk's tail, while they swim (art/merTail.ts). */
+  tail?: Sprite;
   from: { x: number; y: number };
   to: { x: number; y: number };
   at: number;
@@ -134,7 +137,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -261,6 +264,23 @@ export class MapPeople {
         s.anchor.set(0.5, 1);
         s.scale.set(wk * creatureFlip(wolf, facing), wk);
       }
+      // in the sea a merrow shows to the waist, their tail curling below (art/merTail.ts)
+      const swimming = v.swimming && !hidden && v.downed === null;
+      if (swimming) {
+        const bob = Math.sin(now / 420 + v.id) * 1.5;
+        s.texture = waistUp(s.texture);
+        s.anchor.set(CENTRE_X / FRAME_SIZE, 1);
+        s.position.set(Math.round(x), Math.round(y - 4 + bob));
+        if (!d.tail) d.tail = this.layer.addChild(new Sprite());
+        d.tail.texture = tailTexture(v.id);
+        d.tail.anchor.set(5 / TAIL_W, 0);
+        d.tail.scale.set(facing === 'left' ? -k : k, k);
+        d.tail.rotation = Math.sin(now / 300 + v.id) * 0.12 * (facing === 'left' ? -1 : 1);
+        d.tail.position.set(Math.round(x), Math.round(y - 6 + bob));
+        d.tail.zIndex = z - 0.05;
+        d.tail.visible = true;
+        void TAIL_H;
+      } else if (d.tail) d.tail.visible = false;
       // cavalry: the rider sits on a horse
       const coat = d.view.mounted;
       d.horse.visible = coat !== null && !hidden;
@@ -329,7 +349,7 @@ export class MapPeople {
           d.blood.zIndex = z + 0.2;
         }
       }
-      d.shadow.visible = !hidden;
+      d.shadow.visible = !hidden && !swimming;
       d.shadow.width = (coat !== null ? 34 : 18) * k;
       d.shadow.height = 6 * k;
       d.shadow.alpha = 0.42;
@@ -416,4 +436,16 @@ function questionBubble(): Graphics {
 function cycle(secs: number, period: number, frames: number): number {
   const phase = (secs % period) / period;
   return phase < 0.7 ? Math.floor((phase / 0.7) * frames) : 0;
+}
+
+/** A person's frame cut off at the waist (for swimming), one cut per frame. */
+const waists = new Map<Texture, Texture>();
+function waistUp(tex: Texture): Texture {
+  let t = waists.get(tex);
+  if (!t) {
+    const f = tex.frame;
+    t = new Texture({ source: tex.source, frame: new Rectangle(f.x, f.y, f.width, Math.round(f.height * WAIST)) });
+    waists.set(tex, t);
+  }
+  return t;
 }

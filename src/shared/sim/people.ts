@@ -15,8 +15,9 @@ import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius } from './buildings';
-import { CELL, cellAt, groundAt, isMarked, setGround, type Pt } from './land';
+import { CELL, cellAt, groundAt, isMarked, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
+import { swims } from './sea';
 import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickTool, stationFor, takeItemInputs, toolSpeed } from './crafting';
 import { leavePt } from './breaks';
 import { onBuilt } from './era';
@@ -566,6 +567,13 @@ function scrounge(s: GameState, p: Person, task: Extract<Task, { type: 'gather' 
  *  hold (hall), which the dwarves walk and dig on from. */
 export function clearCell(s: GameState, i: number): void {
   const c = cellAt(s.land, i);
+  // (a cell of the sea fished out stays the sea: it gives again at dawn, sim/sea.ts)
+  if (wet(groundAt(s.land, c.x, c.y))) {
+    delete s.land.pools[i];
+    setMarked(s.land, i, false);
+    s.land.version++;
+    return;
+  }
   if (groundAt(s.land, c.x, c.y) === 'mountain') {
     setGround(s.land, c.x, c.y, 'hall');
     return;
@@ -968,7 +976,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 
 /** Step toward a point along a path over the land. Returns true once there. */
 function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {
-  const there = walk(s, p, to, STEP, through, s.tick);
+  const there = walk(s, p, to, STEP, through, s.tick, swims(s, p));
   if (!there) p.activity = 'walk';
   return there;
 }

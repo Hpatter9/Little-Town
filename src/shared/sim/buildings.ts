@@ -4,6 +4,7 @@
 // the camp) when it's placed, so the town grows along its roads.
 
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
+import { seaBuild } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
@@ -12,7 +13,7 @@ import { MAX_POTS, POT_STORAGE } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
 import { HERDS } from '../data/livestock';
-import { buildable, carvable, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect } from './land';
+import { buildable, carvable, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet } from './land';
 import { modifiers } from './research';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
 
@@ -181,7 +182,11 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
       if (!inMap(m, cx, cy)) return { ok: false, reason: 'Off the map' };
       if (Math.hypot(cx - m.camp.x, cy - m.camp.y) > m.open) return { ok: false, reason: 'Beyond the known land' };
       const g = groundAt(m, cx, cy);
-      if (g === 'water') return { ok: false, reason: 'Water runs here' };
+      if (wet(g)) {
+        // (a shore town's homes, seat and defences stand in the sea: sim/sea.ts)
+        if (!seaBuild(s, def)) return { ok: false, reason: g === 'water' ? 'Water runs here' : 'The shallows run here' };
+        continue;
+      }
       if (carved) {
         if (!carvable(g)) return { ok: false, reason: 'A hall is cut into the mountain' };
       } else if (g === 'mountain') return { ok: false, reason: 'The mountain stands here' };

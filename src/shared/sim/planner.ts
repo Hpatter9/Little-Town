@@ -10,13 +10,14 @@ import { treasuresHeld } from './shop';
 import { canWear } from './classes';
 import { isChild } from './social';
 import { buildOrigin, nomadic } from './nomads';
+import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { isSeat, seatOf } from '../data/seats';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { HERDS } from '../data/livestock';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
-import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
+import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } from '../data/materials';
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
@@ -96,7 +97,7 @@ interface Needs {
 }
 
 /** A small stock the town likes to keep of each basic material it can get (so building never waits long). */
-const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber: 8, lumber: 12, bricks: 10, cloth: 4, iron: 4, gold: 0, gems: 0 };
+const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber: 8, lumber: 12, bricks: 10, cloth: 4, iron: 4, gold: 0, gems: 0, pearls: 0 };
 
 function needs(s: GameState): Needs {
   const stock = totalStock(s);
@@ -131,7 +132,11 @@ function needs(s: GameState): Needs {
 
 /* ------------------------------------------------------------ where materials come from */
 
-const GATHERABLE = new Set<Material>(Object.values(TERRAIN).flatMap((t) => Object.keys(t.pool) as Material[]));
+const GATHERABLE = new Set<Material>([...Object.values(TERRAIN).flatMap((t) => Object.keys(t.pool) as Material[]), ...SEA_MATERIALS]);
+/** How much a shore town would rather build in the sea than on the land (a ring's spots are scored by this). */
+const SEA_PREFER = 20;
+/** A shore town fishes when food is short, and keeps this many pearls coming (the shop sells them). */
+const PEARLS_WANT = 6;
 const RECIPES_FOR = (m: Material) => ITEMS.filter((i) => i.makes && (i.makes as Stock)[m]);
 
 const unlocked = (s: GameState, id: string) => !!BUILDING_BY_ID[id] && isUnlocked(unlockInfo(s), BUILDING_BY_ID[id]);
@@ -476,9 +481,12 @@ function findSpot(s: GameState, def: BuildingDef): Pt | null {
   const taken = footprints(s);
   const castle = castleOn(s) ? castleCells(s) : null;
   const farm = !!CROPS[def.id] || !!HERDS[def.id];
+  // (a shore town puts what may stand in the sea there first: its homes in the shallows, the yards on the strand)
+  const sea = seaBuild(s, def);
   const r = spiralSpot(s.land, def.width, depthOf(def), taken, from, {
     ok: castle ? (rect) => !nearCastle(castle, s.land, rect) : undefined,
-    prefer: (rect) => roadDistance(s.land, doorOf(rect)) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0),
+    water: sea,
+    prefer: (rect) => (sea ? (inSea(s.land, rect) ? 0 : SEA_PREFER) : roadDistance(s.land, doorOf(rect))) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0),
   });
   if (!r) return null;
   return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
@@ -853,6 +861,10 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
     if (!GATHERABLE.has(m)) continue;
     let short = Math.max((n.demand[m] ?? 0) - (n.stock[m] ?? 0), craftWants[m] ?? 0);
     if (m === 'berries' && n.foodDays < 3) short = Math.max(short, n.people * 3);
+    if (seaTown(s)) {
+      if (m === 'fish' && n.foodDays < 4) short = Math.max(short, n.people * 3);
+      if (m === 'pearls') short = Math.min(1, Math.max(short, PEARLS_WANT - (n.stock[m] ?? 0))); // (one pearl cell at a time: never a cap's worth)
+    } else if (SEA_MATERIALS.includes(m)) continue;
     if ((m === 'gold' || m === 'gems') && holdOf(s) === 'mountain') short = Math.max(short, DELVE_WANT - (n.stock[m] ?? 0));
     // (the reserve isn't worth gathering into full stores; what building, crafting or hunger needs still is, and so is
     // a basic the town has run right out of: a store full of the harvest once left a town with no wood to build more)

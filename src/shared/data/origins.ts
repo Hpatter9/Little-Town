@@ -52,6 +52,9 @@ export interface OriginRules {
   /** The town is a hold carved into a mountain (sim/castle.ts with `hold: 'mountain'`): the land is half mountain,
    *  the halls are rooms cut into the rock behind one gate, and the yards and fields lie outside on the terrain. */
   hold?: 'mountain';
+  /** The land's shape besides (sim/land.ts `LandShape`): `sea`, half the land sea south of the camp, the town always on
+   *  the coast, its people swimming and building in the water (sim/sea.ts; the merfolk). */
+  shape?: 'sea';
   /** The town moves with the seasons (sim/nomads.ts): its tents and wagons between a winter ground and a summer
    *  pasture, until it reaches this era and settles for good. */
   nomadic?: { until: Era };
@@ -154,10 +157,10 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     id: 'merfolk',
     name: 'Tide Clan',
     town: 'Chronos Harbour',
-    description: 'Merfolk of the shore. They fish and forage well, and ships bring far more travellers; so do pirates.',
-    features: ['Foraging 50% faster; the sea gives fish', 'Travellers come half again as often', 'Pirates come more; fields grow slower', 'Spells: Tide Call, Whirlpool, Sea Fog'],
+    description: 'Merfolk of the shore. Half their land is the sea: they swim it, fish it for fish, kelp and pearls, and build their homes in the shallows. Ships bring far more travellers; so do pirates.',
+    features: ['Always on the coast: the south half of the land is sea, with shallows along the shore', 'Everyone swims; homes, the seat and the defences stand in the water', 'The sea gives fish, kelp and pearls, and gives again each dawn', 'Foraging 50% faster; travellers come half again as often', 'Pirates come more; fields grow slower', 'Spells: Tide Call, Whirlpool, Sea Fog'],
     start: { companions: ['gatherer'], stores: { berries: 20, meat: 6 }, research: ['foraging'] },
-    rules: { forage: 1.5, crops: 0.8, travellers: 1.5, raids: { pirates: 2 } },
+    rules: { forage: 1.5, crops: 0.8, travellers: 1.5, raids: { pirates: 2 }, shape: 'sea' },
     powers: ['tide_call', 'whirlpool', 'sea_fog'],
   },
   nomads: {

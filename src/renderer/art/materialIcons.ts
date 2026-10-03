@@ -49,6 +49,8 @@ export function materialIcon(m: Material, size = 14): HTMLElement | null {
 const CELLS: Partial<Record<Material, ItemDef['icon']>> = {
   gold: { sheet: 'Money', x: 1, y: 0 },
   gems: { sheet: 'Rock', x: 1, y: 0 },
+  fish: { sheet: 'Flesh', x: 6, y: 0 },
+  kelp: { sheet: 'Food', x: 4, y: 3 },
   berries: { sheet: 'Food', x: 7, y: 2 },
   fruit: { sheet: 'Food', x: 0, y: 2 },
   vegetables: { sheet: 'Food', x: 0, y: 3 },
@@ -68,7 +70,7 @@ const CELLS: Partial<Record<Material, ItemDef['icon']>> = {
   sling_stones: { sheet: 'Ammo', x: 5, y: 0 },
   shot: { sheet: 'Ammo', x: 6, y: 0 },
   cartridges: { sheet: 'Ammo', x: 0, y: 0 },
-  ...Object.fromEntries((['wood', 'fiber', 'lumber', 'cloth', 'oil', 'fuel', 'plastic', 'electronics', 'circuits', 'power_cells', 'totem'] as const).map((m) => [m, { sheet: 'Custom' as IconSheet, x: 0, y: 0, name: `mat_${m}` }])),
+  ...Object.fromEntries((['wood', 'fiber', 'lumber', 'cloth', 'oil', 'fuel', 'plastic', 'electronics', 'circuits', 'power_cells', 'totem', 'pearls'] as const).map((m) => [m, { sheet: 'Custom' as IconSheet, x: 0, y: 0, name: `mat_${m}` }])),
   wool: { sheet: 'Custom', x: 0, y: 0, name: 'wool' },
 };
 

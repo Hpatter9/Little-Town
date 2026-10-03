@@ -12,6 +12,7 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
+import { inSea } from '../../shared/sim/sea';
 import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import type { PlaceView } from '../../shared/sim/snapshot';
@@ -628,6 +629,14 @@ export class MapView {
     shadow.zIndex = bottom - 0.5;
     const flat = isPlot(b.def);
     if (b.room) shadow.visible = false;
+    // (a building standing in the sea: a ring of foam about its foot instead of a shadow)
+    if (this.land && inSea(this.land, f)) {
+      shadow.tint = 0xffffff;
+      shadow.alpha = 0.5;
+      shadow.width = art.width + 18;
+      shadow.height = 16;
+      shadow.position.set(cx, bottom - 4);
+    }
     if (flat) {
       // (a plot lies on the ground: no shadow, and everything standing on it is drawn over it)
       shadow.visible = false;
