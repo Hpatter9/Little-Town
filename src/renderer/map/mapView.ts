@@ -18,6 +18,7 @@ import type { PlaceView } from '../../shared/sim/snapshot';
 import type { CropLook } from '../art/buildings';
 import { topDownArt } from '../art/topDown';
 import { drawSite } from '../art/constructionSite';
+import { snowCapped } from '../art/snowCap';
 import { mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
 import { propTextures, type PropSet } from '../art/props';
 import propKinds from '../art/propKinds.json';
@@ -550,7 +551,7 @@ export class MapView {
     for (const b of list) {
       seen.add(b.id);
       let d = this.buildings.get(b.id);
-      const sig = `${sigOf(b)}|${this.artGen}`;
+      const sig = `${sigOf(b)}|${this.artGen}|${this.season === 'winter' ? 'snow' : ''}`;
       if (d && d.sig !== sig) {
         this.destroy(d);
         this.buildings.delete(b.id);
@@ -632,7 +633,9 @@ export class MapView {
   }
 
   private draw(b: Building, sig: string): DrawnBuilding {
-    const art = this.art(b);
+    // (in winter the finished buildings wear a cap of snow along their tops: art/snowCap.ts)
+    const bare = this.art(b);
+    const art = this.season === 'winter' && b.status === 'done' && !isPlot(b.def) && b.def !== 'campfire' ? snowCapped(bare) : bare;
     const f = footprint(b);
     const cx = (f.x + f.w / 2) * CELL;
     const bottom = (f.y + f.h) * CELL - 2;
