@@ -485,7 +485,7 @@ export class MapView {
 
   /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */
   syncCastle(rect: Rect | null): void {
-    const key = rect ? `${rect.x},${rect.y},${rect.w},${rect.h}|${this.toneKey}` : '';
+    const key = rect ? `${rect.x},${rect.y},${rect.w},${rect.h}|${this.toneKey}|${this.season === 'winter' ? 'snow' : ''}` : '';
     if (this.castle?.key === key) return;
     if (this.castle) {
       this.castle.under.destroy({ children: true });
@@ -521,17 +521,19 @@ export class MapView {
     // the walls among the things: the north wall's face looks into the keep (rooms by it stand in front), the south
     // wall and its gatehouse stand in front of everything inside
     const things: Container[] = [];
-    const north = this.things.addChild(new Sprite(northWall(w, this.tone, this.toneKey).texture));
+    // (the walls and towers wear snow in winter, like the buildings)
+    const cap = (a: PixelArt) => (this.season === 'winter' ? snowCapped(a) : a);
+    const north = this.things.addChild(new Sprite(cap(northWall(w, this.tone, this.toneKey)).texture));
     north.position.set(left, top - MERLON);
     north.zIndex = top + WALL_T;
-    const southArt = southWall(w, this.tone, this.toneKey);
+    const southArt = cap(southWall(w, this.tone, this.toneKey));
     const south = this.things.addChild(new Sprite(southArt.texture));
     south.position.set(left, bottom + WALL_FACE - southArt.height);
     south.zIndex = bottom + 1;
     things.push(north, south);
     this.wide.add(north).add(south);
     // the corner towers, their feet on the walks
-    const towerTex = cornerTower(this.tone, this.toneKey).texture;
+    const towerTex = cap(cornerTower(this.tone, this.toneKey)).texture;
     for (const [x, y] of [
       [left, top + WALL_T],
       [left + w, top + WALL_T],

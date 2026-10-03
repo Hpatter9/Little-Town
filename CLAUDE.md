@@ -939,7 +939,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     - **Snow on the buildings (done):** `art/snowCap.ts` (`snowCapped`): in winter every finished building but the plots
       and the campfire is drawn from a capped copy of its picture (cached per picture): white blended along each
       column's first opaque pixels (`tops`), `DEEP` (5 px) where the edge runs level, thinner down a slope, stopping at a
-      hole. The building `sig` carries the winter flag, so the town is redrawn once at the turn of the season. **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
+      hole. The building `sig` carries the winter flag, so the town is redrawn once at the turn of the season. The
+      vampire keep's walls and towers are capped too (`syncCastle`, its key carries the season). The old strip's
+      `town/townView.ts`, `buildingsView.ts` and `herdsView.ts` are deleted (nothing drew with them); `spellsView.ts`
+      keeps its own `WALK_Y`. The notes above that name those files describe what the map views took over. **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
       the world origin and drew at world coordinates, and `setCamera` culls each thing by where it stands, so they were
       hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
 

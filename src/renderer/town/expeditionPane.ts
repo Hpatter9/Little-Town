@@ -22,7 +22,7 @@ import type { HumanSprite, MachineSprite, StillSprite } from '../../shared/data/
 import { stillTexture } from '../art/stills';
 import { machineFrame, machineSize } from '../art/machines';
 import { makeSpriteSet, type SpriteSet } from '../art/sprites';
-import { daylightTint } from './townView';
+import { daylightTint } from '../map/mapView';
 
 /** Width of one repeat of the scenery. */
 const LOOP = 768;
