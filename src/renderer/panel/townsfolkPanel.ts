@@ -114,7 +114,7 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   row.append(face(p, s));
   const mid = el('span', 'folk-mid');
   const name = el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`);
-  const what = el('span', 'folk-class', `${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`}${p.elder ? ' · Elder' : ''}`);
+  const what = el('span', 'folk-class', `${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}`);
   const doing = el('span', 'folk-doing', p.away !== null ? `Away: ${p.away}` : p.doing);
   mid.append(name, what, doing);
   const right = el('span', 'folk-right');
@@ -217,7 +217,8 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   const doll = el('div', 'doll');
   const fig = el('div', 'doll-figure');
   fig.append(figure(p, s, 3));
-  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`}${p.elder ? ' · Elder' : p.growsUpIn === null ? ` · ${p.ageDays} days grown` : ''}`));
+  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`} · Aged ${p.ageYears}${p.elder ? ' · Elder' : ''}`));
+  fig.append(el('div', 'hint doll-age', p.ageText));
   doll.append(fig);
   const shown = chosenSlot ?? firstWorn(p);
   for (const slot of SLOTS) {

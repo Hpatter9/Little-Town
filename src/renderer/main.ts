@@ -42,7 +42,7 @@ function travellerPerson(t: TravellerView): PersonView {
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, ageDays: 0,
-  elder: false,
+  ageYears: 0, lifeStage: 'prime', ageText: '', elder: false,
   monster: null, order: null, sick: false,
     battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false }, kit: [],
   };
@@ -591,7 +591,7 @@ async function start(): Promise<void> {
         if (p.coins !== null) lines.push(`${p.coins} coins`);
         if (p.recent.length) lines.push(`Lately: ${p.recent.slice(0, 2).join('; ')}`);
         lines.push(`Health ${Math.round(p.hp)}/${p.maxHp} · Morale ${Math.round(p.morale)} · Food ${Math.round(p.needs.food * 100)}% · Rest ${Math.round(p.needs.rest * 100)}%`);
-        lines.push(`${p.clsName ? `${p.clsName} · Lv ${p.level}` : p.typeName} · ${bestSkills(p)}`);
+        lines.push(`${p.clsName ? `${p.clsName} · Lv ${p.level}` : p.typeName} · ${p.ageYears} years${p.elder ? ', an elder' : ''} · ${bestSkills(p)}`);
         // in a fight: rally them (a burst of courage), when the town's rally is ready
         if (p.rally === 'on') lines.unshift('Rallied: fighting like ten!');
         else if (p.rally === 'wait') lines.unshift(`Rally again in ${snap.rallyIn}s`);

@@ -27,7 +27,7 @@ import { lookFor, type SceneLook } from '../../shared/data/scenes';
 import type { BackdropId } from '../../shared/data/backdrops';
 import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
-import { fightAnim, heroFrame, heroScale, heroSheet } from '../art/combatPoses';
+import { fightAnim, heroFrame, heroScale, heroSheet, WOLF_FORMS } from '../art/combatPoses';
 import { stillTexture } from '../art/stills';
 
 /** How much of the scene is seen at least (art px): it's scaled so this fits, and shows more where there's room. */
@@ -465,11 +465,12 @@ export class FightScene {
     if (!look) return;
     const wear = enemy ? enemy.wear : wornLayers(f.gear);
     // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
-    const hero = !hs ? heroSheet(f.cls, f.ref) : null;
+    // (a werewolf fights in wolf form: the Craftpix werewolves, by who they are)
+    const hero = !hs ? (f.wolf ? WOLF_FORMS[f.ref % WOLF_FORMS.length] : heroSheet(f.cls, f.ref)) : null;
     if (hero) {
       const facing = faceLeft ? 'left' : 'right';
       s.texture = heroFrame(hero, { facing, moving: false, walked: 0, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, sinceBlock: 999, down: f.down, now, ref: f.ref });
-      const sc = heroScale(hero) * k;
+      const sc = heroScale(hero) * k; // (a wolf form at a hero's height: the rows are close on the fight screen)
       const flip = creatureFlip(hero, facing);
       s.anchor.set(0.5, 1);
       s.scale.set(sc * flip, sc);

@@ -1,7 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
 import { RESEARCH_PACE } from '../data/pace';
-import { ageDays, isElder } from './ageing';
+import { ageDays, ageLine, ageYears, isElder, lifeStage, type LifeStage } from './ageing';
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
 import { HOME_REGION } from '../data/regions';
@@ -161,8 +161,12 @@ export interface PersonView {
   growsUpIn: number | null;
   /** A mental break in progress, described. */
   breakdown: string | null;
-  /** Age (sim/ageing.ts): days grown, and an elder (slower, and old age may take them). */
+  /** Age (sim/ageing.ts): days grown, years old by their people's reckoning (data/lifespans.ts), the stage of
+   *  life, a line about it, and an elder (slower, and old age may take them). */
   ageDays: number;
+  ageYears: number;
+  lifeStage: LifeStage;
+  ageText: string;
   elder: boolean;
   /** Monsters: what they are and their standing order for the Hunter's Guild. */
   monster: string | null;
@@ -220,6 +224,8 @@ export interface FighterView {
   conjured: boolean;
   /** A delve's elite: its affix (drawn with a tint). */
   elite: string | null;
+  /** A party member who is a werewolf (drawn in wolf form as they fight). */
+  wolf: boolean;
 }
 
 export interface RaiderView {
@@ -984,6 +990,9 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     growsUpIn: p.bornTick != null ? Math.max(0, CHILD_HOURS - (s.tick - p.bornTick) / TICKS_PER_HOUR) : null,
     breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,
     ageDays: Math.floor(ageDays(s, p)),
+    ageYears: Math.floor(ageYears(s, p)),
+    lifeStage: lifeStage(s, p),
+    ageText: ageLine(s, p),
     elder: isElder(s, p),
     monster: p.monster ?? null,
     order: p.monster ? (p.order ?? 'hide') : null,
@@ -1107,6 +1116,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           statuses: Object.entries(f.st ?? {}).filter(([, v]) => v!.until > e.battle!.tick).map(([k]) => k),
           clsName: f.side === 'party' ? ((q) => (q ? callingName(q, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
           cls: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.cls ?? null) : null,
+          wolf: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'werewolf',
           level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
           pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
           conjured: !!f.conjured,

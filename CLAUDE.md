@@ -603,6 +603,22 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`eraOfResearch`): lashed poles, timber, steel tubes with couplers, green safety netting in the modern eras. The
   medieval field-work pack's props were tried and left out: their cartoon outlines don't sit with the pixel art.
 
+- **Age and lifespan (done; the owner's request):** every townsperson has an age in years and a lifespan of their
+  people's. `src/shared/data/lifespans.ts` (`LIFESPANS` per origin: `grown` and `old` in years, `elderDays` and
+  `oldDays` as a grown-up: settlers and knights 50/65 days, 18 to 70 years; nomads shorter; alchemists and druids
+  longer; merfolk 90 days to 120 years; dwarves 130 days to 250 years; the fae 200 days to 600 years; a werewolf's
+  curse 50 days to 52 years whatever the town, `CURSED_LIFESPAN`). `sim/ageing.ts`: `lifespanOf(s, p)`, `ageYears`
+  (a child's years climb to `grown` over `CHILD_DAYS`), `lifeStage` (child, young, prime, elder, old, deathless),
+  `ageLine` ("A dwarf of 112 years, in their prime. Dwarves grow old at about 250."); the old-age odds past
+  `oldDays` climb scaled to the span (`HUMAN_OLD_DAYS`), and founders arrive up to `primeSpread` (40% of the elder
+  days) into their prime. The Townsfolk rows show the years (`· 64y`), the inspect page `Aged N` and the line, the
+  tap card the years. Snapshot: `ageYears`, `lifeStage`, `ageText`. Tests: `test/ageing.test.ts`.
+- **Werewolves wear the pack's sprites:** `WOLF_FORMS`/`WOLF_SCALE` in `art/combatPoses.ts` (Craftpix's black, red
+  and white werewolves, by who they are): a werewolf townsperson takes wolf form on the map under the full moon and
+  whenever they fight (mapPeople), and on the fight screen in every fight (`FighterView.wolf`, at a hero's height);
+  the `werewolf` raider and `the_alpha` (data/enemies.ts, `packSprite`) are the pack's too, so the Moon Pack's raid,
+  the Alpha's summons and the rival packs all match. The old `wolfman` sheet is left for nothing but its type.
+
 ## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):

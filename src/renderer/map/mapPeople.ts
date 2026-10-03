@@ -9,13 +9,9 @@ import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
-import { fightAnim, fightPose, heroFrame, heroScale, heroSheet, SHOOT_TICKS } from '../art/combatPoses';
+import { fightAnim, fightPose, heroFrame, heroScale, heroSheet, SHOOT_TICKS, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
-import type { PackSheetId } from '../../shared/data/packSheets';
 
-/** A werewolf's shape under the full moon (Craftpix's werewolf sheets), and how much bigger than a person they stand. */
-const WOLF_FORMS: PackSheetId[] = ['werewolf_black', 'werewolf_red', 'werewolf_white'];
-const WOLF_SCALE = 1.2;
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { glowTexture } from '../town/layer';
@@ -256,8 +252,8 @@ export class MapPeople {
         s.scale.set(2 * k, 2 * k);
         void size;
       }
-      // on a full-moon night, werewolves show what they are
-      if (d.view.monster === 'werewolf' && this.moon && !hidden) {
+      // on a full-moon night, and whenever they fight, werewolves show what they are
+      if (d.view.monster === 'werewolf' && (this.moon || inCombat) && !hidden) {
         // (the Craftpix werewolves: black, red or white by who they are)
         const wolf = WOLF_FORMS[v.id % WOLF_FORMS.length];
         s.texture = heroFrame(wolf, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });

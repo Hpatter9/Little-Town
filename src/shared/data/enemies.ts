@@ -4,7 +4,10 @@ import { DUNGEON_BOSSES } from './dungeonBosses';
 import { PACK_BOSSES } from './pack';
 import type { Stock } from './materials';
 import { BESTIARY_ENEMIES } from './bestiary';
-import type { PackSheetId } from './packSheets';
+import { PACK_SHEETS, type PackSheetId } from './packSheets';
+
+/** A Craftpix pack sheet (packSheets.ts) scaled to stand so many px tall. */
+const packSprite = (sheet: PackSheetId, height: number) => ({ sheet, block: 0, scale: +(height / PACK_SHEETS[sheet]).toFixed(2) });
 
 /** How a human enemy is drawn: which outfit, and what they hold (an LPC weapon layer, or none). */
 export interface HumanSprite {
@@ -188,8 +191,8 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   thrall: { id: 'thrall', name: 'Blood Fiend', hp: 50, damage: [5, 9], accuracy: 0.66, dodge: 0.1, interval: 1.2, ranged: false, loot: { cloth: 1 }, sprite: { sheet: 'blood_monster', block: 0, scale: 2 } },
   night_shade: { id: 'night_shade', name: 'Demon', hp: 40, damage: [5, 9], accuracy: 0.72, dodge: 0.35, interval: 1.2, ranged: false, loot: {}, sprite: { sheet: 'demon', block: 0, scale: 2 } },
   // (the Alpha and the pack)
-  the_alpha: { id: 'the_alpha', name: 'The Alpha', hp: 320, damage: [12, 18], accuracy: 0.78, dodge: 0.18, interval: 1.1, ranged: false, boss: true, loot: { hide: 6, meat: 4, bone: 2 }, sprite: { sheet: 'wolfman', block: 4, scale: 1.4 }, kit: { roar: 'A howl, then a hundred. The Alpha has come to hunt!', enrage: 'Hurt, the Alpha goes mad with blood!', area: { every: 4, targets: 2, name: 'tears through the line', fx: 'quake' }, summon: { kind: 'werewolf', count: 2, text: 'Werewolves bound out of the dark to the Alpha\'s side!' }, trophy: 'alpha_pelt' } },
-  werewolf: { id: 'werewolf', name: 'Werewolf', hp: 80, damage: [7, 12], accuracy: 0.72, dodge: 0.16, interval: 1.1, ranged: false, loot: { hide: 2, meat: 1 }, sprite: { sheet: 'wolfman', block: 2, scale: 1.1 } },
+  the_alpha: { id: 'the_alpha', name: 'The Alpha', hp: 320, damage: [12, 18], accuracy: 0.78, dodge: 0.18, interval: 1.1, ranged: false, boss: true, loot: { hide: 6, meat: 4, bone: 2 }, sprite: packSprite('werewolf_black', 74), kit: { roar: 'A howl, then a hundred. The Alpha has come to hunt!', enrage: 'Hurt, the Alpha goes mad with blood!', area: { every: 4, targets: 2, name: 'tears through the line', fx: 'quake' }, summon: { kind: 'werewolf', count: 2, text: 'Werewolves bound out of the dark to the Alpha\'s side!' }, trophy: 'alpha_pelt' } },
+  werewolf: { id: 'werewolf', name: 'Werewolf', hp: 80, damage: [7, 12], accuracy: 0.72, dodge: 0.16, interval: 1.1, ranged: false, loot: { hide: 2, meat: 1 }, sprite: packSprite('werewolf_red', 58) }, // (the Craftpix werewolves, as the townsfolk's wolf forms)
   // (the Overmind and its machines)
   overmind: { id: 'overmind', name: 'The Overmind', hp: 300, damage: [10, 16], accuracy: 0.84, dodge: 0.08, interval: 1.4, ranged: true, boss: true, loot: { alloys: 6, circuits: 4 }, tint: 0xa8e0ff, sprite: { still: 'drone', scale: 0.7, hover: true }, kit: { roar: 'A voice in every direction: "THIS SETTLEMENT WILL BE OPTIMISED."', enrage: '"DAMAGE CRITICAL. ALL UNITS: PRIORITY ZERO."', area: { every: 3, targets: 3, name: 'sweeps a beam across the town', fx: 'beam' }, summon: { kind: 'iron_sentry', count: 2, text: 'The Overmind prints two more sentries!' }, trophy: 'overmind_core' } },
   iron_sentry: { id: 'iron_sentry', name: 'Iron Sentry', hp: 90, damage: [8, 13], accuracy: 0.72, dodge: 0.02, interval: 1.5, ranged: false, loot: { stone: 2, iron: 1 }, sprite: { still: 'elem_iron_sentry', scale: 0.55 } },
