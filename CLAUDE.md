@@ -840,6 +840,20 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       hills (`drawTuft`; pebbles on rock), and the Undead pack's ripples (`water/ripples.png`, the first row of its
       sheet) lie on the water recoloured to its light (`drawRipple`, where there's open water to the right). The chunk
       key carries `groundDetailReady`; until the images load the old speckled ground stands.
+    - **More buildings from the packs (done):** about 40 more `PICKS` in packBuildings.ts, the sprites cropped from the
+      packs' sheets by hand into `src/renderer/art/packs/` (the cropping is one-off, with the scratch scripts; no tool
+      kept). A `Pick` may have `variants` (`styles` and a pick of their own, tried first: `pickFor`), which is how the
+      nomads get the rocky-area pack's tipis and yurts for their homes, the dwarves the cave pack's carved gates for
+      every mine and its totems and statue for the storytellers' circle, and the liches a green crystal phylactery.
+      Base and knights looks: the Village pack's third timber house with each trade's gear at its door (smithy,
+      bakery, sawmill, tannery, loom). Every look: the stone well, carts (wagon circle), racks, the hunters' camp tent
+      and the barracks' tents behind a palisade, the cave pack's fire pits for the bloomery and kiln, the storytellers'
+      fire with logs round it, the herb garden on soil tiles, mine mouths, the skull altar shrine, crystal phylactery,
+      the dungeon props' furniture (scriptorium, school, glassworks, infirmary, hospital), and the futuristic objects
+      pack's tanks, transformer, consoles, racks and screens for the industrial and later plants (power station,
+      refinery, oil derrick, battery plant, electronics plant, chip fab, AI core, mission control, robot workshop).
+      Still code-drawn: the towers, the windmill, the elder lodge and town hall, the trophy hall, the factory and
+      garage, and the origin halls (no pack has them).
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

@@ -57,7 +57,13 @@ healer's bench and the workbench on the town map are cut from its free 2D Top-Do
 pack (`src/renderer/art/village/dwalls.png`, `dprops.png`); the graveyard's stones from its free Undead Tileset
 (`grave*.png`). The ground's detail on the map is the Path and Road pack's ground patches (`roads/ground_grass.png`), the
 Fields Tileset's grass tufts, flowers and small stones (`fields/tuft*.png`, `flower*.png`, `pebble*.png`), and the Undead
-Tileset's water ripples, recoloured to the water (`src/renderer/art/water/ripples.png`).
+Tileset's water ripples, recoloured to the water (`src/renderer/art/water/ripples.png`). More of the town's buildings on the map
+are the packs' objects (`src/renderer/art/packs/`): the Village Tileset's well, carts, anvil, rack, log pile, bucket and
+trade signs and its third timber house (the workshops), the Fields Tileset's logs, crate, stump and camp tents, the
+Top-Down Cave Objects' fire pits, crystals, carved gates, skull altar, statue and totems, the Rocky Area Objects' cave
+mouths, tipis and yurts (the nomads' homes), the Dungeon Props' glass tanks, shelves, desks, chairs and benches, the
+2D Top-Down Pixel Dungeon pack's barrel and sacks, and the loose futuristic objects pack's tanks, transformer, consoles,
+server racks and screens (the later eras' plants).
 
 ## Craftpix top-down objects (the raid map's scenery)
 
