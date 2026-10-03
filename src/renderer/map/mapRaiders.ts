@@ -154,13 +154,15 @@ export class MapRaiders {
       d.load.visible = (r.carrying > 0 || !!r.captive) && !r.down;
       d.load.position.set(Math.round(x) - r.dir * 8 - 4, Math.round(top) + 10);
       d.load.zIndex = y + 0.1;
+      // (the bar stands over the raider and draws about itself: the map culls each thing by where it stands)
       const w = 20;
       d.bar.clear();
+      d.bar.position.set(Math.round(x), Math.round(top));
       if (!r.down) {
         d.bar
-          .rect(x - w / 2 - 1, top - 5, w + 2, 4)
+          .rect(-w / 2 - 1, -5, w + 2, 4)
           .fill({ color: 0x1a120c, alpha: 0.85 })
-          .rect(x - w / 2, top - 4, Math.max(1, Math.round((w * r.hp) / r.maxHp)), 2)
+          .rect(-w / 2, -4, Math.max(1, Math.round((w * r.hp) / r.maxHp)), 2)
           .fill(r.ally ? 0x8cc05a : 0xe06040);
       }
       d.bar.zIndex = y + 0.4;
