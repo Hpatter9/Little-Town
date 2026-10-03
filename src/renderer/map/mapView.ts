@@ -625,9 +625,12 @@ export class MapView {
       faint.alpha = 0.35;
       faint.tint = BLUEPRINT_TINT;
       faint.zIndex = bottom - 0.2;
+      // (both stand at the picture's corner and draw from there: the culling goes by where a thing stands)
       const mask = this.things.addChild(new Graphics());
+      mask.position.set(left, top);
       sprite.mask = mask;
       const site = this.things.addChild(new Graphics());
+      site.position.set(left, top);
       site.zIndex = bottom + 0.1;
       d.faint = faint;
       d.mask = mask;
@@ -639,13 +642,13 @@ export class MapView {
 
   private updateBlueprint(b: Building, d: DrawnBuilding): void {
     d.progress = b.progress;
-    const { x, y, w, h } = d.rect;
+    const { w, h } = d.rect;
     const built = Math.round(h * b.progress);
-    d.mask!.clear().rect(x, y + h - built, w, built).fill(0xffffff);
+    d.mask!.clear().rect(0, h - built, w, built).fill(0xffffff);
     const def = BUILDING_BY_ID[b.def];
     const left = stillNeeded(b);
     const delivered = Object.fromEntries(Object.entries(def.cost).map(([m, n]) => [m, Math.max(0, (n ?? 0) - ((left as Record<string, number>)[m] ?? 0))]));
-    drawSite(d.site!.clear(), { x, y, w, h, progress: b.progress, delivered, cost: def.cost, era: eraOfResearch(def.research), seed: b.id, now: performance.now() }, this.tone);
+    drawSite(d.site!.clear(), { x: 0, y: 0, w, h, progress: b.progress, delivered, cost: def.cost, era: eraOfResearch(def.research), seed: b.id, now: performance.now() }, this.tone);
   }
 
   /** The building whose picture is under a world point (the one standing furthest down first). */

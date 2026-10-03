@@ -911,6 +911,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       each frame with `smokeAmount` from `airFor` (main.ts, per snapshot); off while `calm`. The feed's and report's
       building pictures (`__picture` in main.ts, `cardArt`) are the map's now: the pack's picture, else the top-down
       painter's.
+      The pack's timber houses smoke too (`Pick.smoke` in packBuildings.ts: the chimney's top in source px, scaled
+      with the picture). **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
+      the world origin and drew at world coordinates, and `setCamera` culls each thing by where it stands, so they were
+      hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

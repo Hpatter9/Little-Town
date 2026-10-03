@@ -128,6 +128,8 @@ interface Pick {
   any?: string[];
   /** Other pictures for particular looks (the nomads' tents, the dwarves' gates), tried before the pick itself. */
   variants?: { styles: string[]; pick: Pick }[];
+  /** Where smoke rises from (the chimneys' tops, in source px), for the map's smoke. */
+  smoke?: [number, number][];
 }
 /** The looks the pack's timber houses suit. */
 const TIMBER = new Set(['town', 'settlers', 'knights']);
@@ -136,10 +138,10 @@ const OWN_TENTS = new Set(['vampire', 'lich', 'robot', 'nomads', 'merfolk', 'nom
 /** The nomads' looks: the rocky-area pack's tipis and yurts stand for their homes. */
 const NOMAD = ['nomads', 'nomads_city'];
 const PICKS: Record<string, Pick> = {
-  cottage: { url: house1, styles: TIMBER, variants: [{ styles: NOMAD, pick: { url: rockyYurt2, overhang: 6 } }] },
-  rowhouse: { url: house2, styles: TIMBER, variants: [{ styles: NOMAD, pick: { parts: [[rockyYurt1, 0, 0], [rockyYurt2, 84, 4]], size: [164, 82], overhang: 6 } }] },
-  fireside_inn: { url: house4, styles: TIMBER },
-  tavern: { url: house4, styles: TIMBER },
+  cottage: { url: house1, styles: TIMBER, smoke: [[22, 7]], variants: [{ styles: NOMAD, pick: { url: rockyYurt2, overhang: 6 } }] },
+  rowhouse: { url: house2, styles: TIMBER, smoke: [[26, 31]], variants: [{ styles: NOMAD, pick: { parts: [[rockyYurt1, 0, 0], [rockyYurt2, 84, 4]], size: [164, 82], overhang: 6 } }] },
+  fireside_inn: { url: house4, styles: TIMBER, smoke: [[61, 10]] },
+  tavern: { url: house4, styles: TIMBER, smoke: [[61, 10]] },
   trading_post: { url: tent1, styles: TIMBER },
   market: { url: tent2, styles: TIMBER },
   general_store: { url: tent3, styles: TIMBER },
@@ -167,11 +169,11 @@ const PICKS: Record<string, Pick> = {
   drying_rack: { url: vRack, overhang: 0 },
   tanning_rack: { parts: [[vRack, 0, 0], [vRack, 30, 0], [vBucket, 22, 28]], size: [58, 48], overhang: 0 },
   // the medieval workshops: the pack's third timber house with each trade's gear at its door (the base and knights looks)
-  smithy: { parts: [[house3, 0, 0], [vAnvil, 122, 132], [vSignAnvil, 6, 118]], size: [160, 160], styles: TIMBER },
-  bakery: { parts: [[house3, 0, 0], [fBox1, 118, 136], [doGold, 134, 128], [doGold, 6, 130]], size: [160, 160], styles: TIMBER },
-  sawmill: { parts: [[house3, 0, 0], [fLog3, 100, 140], [vLogpile, 130, 116], [fLog1, 2, 128]], size: [160, 160], styles: TIMBER },
-  tannery: { parts: [[house3, 0, 0], [doBarrel, 122, 124], [vBucket, 108, 140], [vRack, 2, 110]], size: [160, 160], styles: TIMBER },
-  loom: { parts: [[house3, 0, 0], [vRack, 120, 112], [fBox1, 4, 134]], size: [160, 160], styles: TIMBER },
+  smithy: { parts: [[house3, 0, 0], [vAnvil, 122, 132], [vSignAnvil, 6, 118]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
+  bakery: { parts: [[house3, 0, 0], [fBox1, 118, 136], [doGold, 134, 128], [doGold, 6, 130]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
+  sawmill: { parts: [[house3, 0, 0], [fLog3, 100, 140], [vLogpile, 130, 116], [fLog1, 2, 128]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
+  tannery: { parts: [[house3, 0, 0], [doBarrel, 122, 124], [vBucket, 108, 140], [vRack, 2, 110]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
+  loom: { parts: [[house3, 0, 0], [vRack, 120, 112], [fBox1, 4, 134]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]] },
   // the hunters' camp tent with a rack and the bow sign; the barracks' tents behind a palisade and the sword sign
   hunters_lodge: { parts: [[camp3, 0, 4], [vRack, 58, 0], [vSignBow, 90, 18]], size: [114, 44], overhang: 0 },
   barracks: { parts: [[camp3, 4, 0], [camp3, 64, 6], [vRack, 122, 2], [palisade05, 0, 30], [palisade05, 32, 30], [vSignSword, 110, 36]], size: [152, 62], overhang: 0 },
@@ -312,6 +314,7 @@ export function packArt(def: string, w: number, style: string, id = 0): PixelArt
       tops[x] = top;
     }
     art = { texture: new Texture({ source: new CanvasSource({ resource: c, resolution: FINE }) }), width, height, tops };
+    if (pick.smoke) art.smoke = pick.smoke.map(([x, y]) => ({ x: x * scale, y: y * scale }));
     arts.set(key, art);
   }
   return art;
