@@ -642,6 +642,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   so the wild stuff is further; watch it). Still to come for the merfolk: sea raiders landing from the water, merfolk looks (scales, fins) on land,
   the ocean backdrops for their trips.
 
+- **The undead village (done; the owner's call: only the dead in a lich town):** `keepKin` in `sim/townsfolk.ts`,
+  hourly from sim.ts: whoever is in a kin town and not of its kin is made kin, by whatever door they came (a wanderer,
+  a captive brought home, a raider come round, a rival won over, a quest's captive; a lich town once held three living
+  and a vampire by day 10). In a lich town they are raised (`monster` undead, "is dead, and risen") and look it
+  (`raisedLook`: the LPC `skeleton` body in a bone tint by id, no hair, the clothes they died in; the founding
+  companions too); the lich keeps their own shape. A pack bites its newcomers, a colony remakes them. In a fight the
+  raised dead take the Craftpix skeleton forms (`skeletonSheet` in art/combatPoses.ts: the archer for a shooter, the
+  warrior or the spearman by id; mapPeople and fightView through `FighterView.undead`). Tests: `test/kin.test.ts`.
+
 ## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):

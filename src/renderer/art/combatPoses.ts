@@ -87,6 +87,10 @@ export const heroScale = (sheet: PackSheetId) => HERO_HEIGHT / PACK_SHEETS[sheet
 export const WOLF_FORMS: PackSheetId[] = ['werewolf_black', 'werewolf_red', 'werewolf_white'];
 export const WOLF_SCALE = 1.2;
 
+/** The raised dead's shape in a fight (Craftpix's skeleton sheets): an archer for a shooter, else a warrior or a
+ *  spearman by who they are. */
+export const skeletonSheet = (ranged: boolean, id: number): PackSheetId => (ranged ? 'skeleton_archer' : id % 2 ? 'skeleton_spearman' : 'skeleton_warrior');
+
 export interface HeroState {
   facing: 'left' | 'right';
   /** Walking, and how far they've walked (px) for the stride. */

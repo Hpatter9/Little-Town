@@ -9,7 +9,7 @@ import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
-import { fightAnim, fightPose, heroFrame, heroScale, heroSheet, SHOOT_TICKS, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
+import { fightAnim, fightPose, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
 
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
@@ -238,7 +238,8 @@ export class MapPeople {
       const moving = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) > 0.5;
       const facing = d.view.dir < 0 ? 'left' : 'right';
       // a fighting calling takes its combat form (a Craftpix hero) while it fights, and a little after
-      const hero = heroSheet(v.cls, v.id);
+      // (the raised dead fight as the pack's skeletons, whatever their calling)
+      const hero = v.monster === 'undead' ? skeletonSheet(v.battle.ranged, v.id) : heroSheet(v.cls, v.id);
       const inCombat = v.activity === 'fight' || v.sinceBlow < HERO_LINGER || v.sinceHit < HERO_LINGER;
       if (hero && inCombat && !hidden && !founder && !(v.cls && CLASS_LOOK[v.cls])) {
         s.texture = heroFrame(hero, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });

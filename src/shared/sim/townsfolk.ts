@@ -368,3 +368,46 @@ export function rejectVisitor(s: GameState): void {
   if (!v || v.leavingTo !== null) return;
   v.leavingTo = edgeBehind(s, v);
 }
+
+/* ------------------------------------------------------------ the town's kin, kept */
+
+/** The bone tints of the raised dead, by who they are. */
+const BONE: string[] = ['#d8d0b8', '#c8c0a8', '#b8b8a4', '#a8b0a0', '#e0d8c4'];
+
+/** The look of one raised from the dead: the LPC skeleton body in a bone tint, no hair; the clothes they died in. */
+export function raisedLook(p: Person): void {
+  p.look.body = 'skeleton';
+  p.look.skin = BONE[p.id % BONE.length];
+  p.look.hair = 'none';
+  p.look.beard = false;
+}
+
+/** Each hour the town's kin rule is kept (the owner's call: the lich's village is the dead alone): whoever came in
+ *  living, by whatever door (a wanderer, a captive brought home, a raider come round, a rival won over, a quest's
+ *  captive, a child), is made kin: raised in a lich town (and looks it), bitten in a pack, remade in a colony. The lich
+ *  themself is left as they are. */
+export function keepKin(s: GameState): void {
+  const kin = rulesOf(s).kin;
+  if (!kin) return;
+  for (const p of s.people) {
+    if (s.lich && p.id === s.mainId) continue;
+    if (kin === 'undead') {
+      if (p.monster !== 'undead') {
+        p.monster = 'undead';
+        delete p.lastFed;
+        p.hp = maxHp(p);
+        notify(s, `${p.name} is dead, and risen: the dead welcome the dead.`, true);
+      }
+      if (p.look.body !== 'skeleton') raisedLook(p);
+    } else if (kin === 'werewolf') {
+      if (p.monster !== 'werewolf') {
+        p.monster = 'werewolf';
+        p.hp = maxHp(p);
+        notify(s, `${p.name} was bitten under the moon, and runs with the pack now.`, true);
+      }
+    } else if (kin === 'machine' && !p.machine) {
+      p.machine = true;
+      notify(s, `${p.name} was remade: a machine of the colony now.`, true);
+    }
+  }
+}

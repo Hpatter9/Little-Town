@@ -41,7 +41,7 @@ import type { Person } from './state';
 import { cancelResearch, queueResearch, researchNext } from './research';
 import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
-import { acceptVisitor, assignBeds, drillGuards, driftMorale, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
+import { acceptVisitor, assignBeds, drillGuards, driftMorale, keepKin, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { forSale, runPlanner, shoppingList } from './planner';
 import { chooseLich, watchLich } from './occult';
 import { castHeld, castPowers, holdPower } from './powers';
@@ -153,6 +153,7 @@ export class Sim {
     placesHourly(s, this.rng);
     ageingHourly(s, this.rng);
     replenishSea(s, this.rng);
+    if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(
       s,
       this.rng,

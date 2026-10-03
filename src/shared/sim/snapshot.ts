@@ -227,8 +227,9 @@ export interface FighterView {
   conjured: boolean;
   /** A delve's elite: its affix (drawn with a tint). */
   elite: string | null;
-  /** A party member who is a werewolf (drawn in wolf form as they fight). */
+  /** A party member who is a werewolf (drawn in wolf form as they fight), or one of the raised dead (a skeleton). */
   wolf: boolean;
+  undead: boolean;
 }
 
 export interface RaiderView {
@@ -1121,6 +1122,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           clsName: f.side === 'party' ? ((q) => (q ? callingName(q, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
           cls: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.cls ?? null) : null,
           wolf: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'werewolf',
+          undead: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'undead',
           level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
           pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
           conjured: !!f.conjured,
