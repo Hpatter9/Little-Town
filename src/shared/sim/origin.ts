@@ -1,6 +1,7 @@
 // How the town's origin (data/origins.ts) and the powers it has cast (powers.ts) bend each system: the multipliers
 // the rest of the sim asks for. Settlers, with nothing cast, get 1 everywhere.
 
+import { RENOWN_FIGHT, RENOWN_FIGHT_MAX } from '../data/pack';
 import type { Lever } from '../data/events';
 import { rulesOf } from '../data/origins';
 import { FULL_MOON_PHASE, moonPhaseOf } from './monsters';
@@ -54,7 +55,9 @@ export const priceRate = (s: GameState) => (rulesOf(s).prices ?? 1) * learned(s)
 /** Townsfolk's blows in a raid, and the harm they take. */
 export function fightRate(s: GameState): number {
   const r = rulesOf(s);
-  return (r.fight ?? 1) * learned(s).fight * (r.moonFury && fullMoonNow(s) ? 1.3 : 1) * (buffOn(s, 'rally') ? 1.3 : 1) * (buffOn(s, 'moon_frenzy') ? 1.25 : 1) * markMult(s, 'fight');
+  // (the Moon Pack's renown is in every blow: data/pack.ts)
+  const pack = s.origin === 'werewolf' && s.pack ? 1 + Math.min(RENOWN_FIGHT_MAX, s.pack.renown * RENOWN_FIGHT) : 1;
+  return (r.fight ?? 1) * learned(s).fight * (r.moonFury && fullMoonNow(s) ? 1.3 : 1) * (buffOn(s, 'rally') ? 1.3 : 1) * (buffOn(s, 'moon_frenzy') ? 1.25 : 1) * markMult(s, 'fight') * pack;
 }
 export function guardRate(s: GameState): number {
   return (rulesOf(s).guard ?? 1) * learned(s).guard * (buffOn(s, 'stone_skin') || buffOn(s, 'shield_wall') || buffOn(s, 'bone_ward') ? 0.6 : 1) * markMult(s, 'guard');

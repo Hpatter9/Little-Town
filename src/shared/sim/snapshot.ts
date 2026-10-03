@@ -61,6 +61,7 @@ import { TILE } from '../constants';
 import { rallyState } from './rally';
 import { daysToMove } from './nomads';
 import { describeFoes, placeDestination, placeDestinations, placeXY } from './places';
+import { packDestinations, packView, type PackView } from './pack';
 import { isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
 import { RIVALS } from '../data/rivals';
@@ -314,6 +315,8 @@ export interface ExpeditionView {
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
   delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
+  /** The Moon Pack's full-moon hunt. */
+  hunt: boolean;
 }
 
 /** A place on the town's land. */
@@ -472,6 +475,8 @@ export interface Snapshot {
   destinations: DestinationView[];
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
   places: PlaceView[];
+  /** The Moon Pack's standing (sim/pack.ts), for a werewolf town. */
+  pack: PackView | null;
   /** Blood on the ground where someone was struck down: where, the side the blow came from, and how old (ticks). */
   blood: { x: number; y: number; from: 1 | -1; age: number; key: string }[];
   prompts: PromptView[];
@@ -644,7 +649,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -657,6 +662,7 @@ export function snapshot(s: GameState): Snapshot {
       ...partyView(s, d.id),
     })),
     places: placeViews(s),
+    pack: packView(s),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
@@ -1102,6 +1108,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
       : null,
     acts: (e.battle?.acts ?? []).map((a) => ({ age: e.battle!.tick - a.tick, side: a.side, ref: a.ref, name: a.name, targets: a.targets })),
     waiting: e.prompt !== null,
+    hunt: !!e.hunt,
     delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,
   };
 }

@@ -105,7 +105,8 @@ export function updateMonsters(s: GameState, rng: Rng, startGuildRaid: (target: 
   if (packHunted) notify(s, 'Under the full moon the pack ran down game in the hills and brought back meat.');
   // the Guild, once a day
   if (hour !== 12) return;
-  const n = monsters(s).length;
+  // (a pack is no business of the Guild's: the Moon Pack's werewolves don't count)
+  const n = monsters(s).filter((m) => !(m.monster === 'werewolf' && s.origin === 'werewolf')).length;
   s.guild = Math.max(0, Math.min(100, (s.guild ?? 0) + (n ? n * GUILD_PER_MONSTER_DAY : -GUILD_DECAY_DAY)));
   if (n && (s.guild ?? 0) >= GUILD_THRESHOLD && !s.raid) {
     const target = rng.pick(monsters(s).filter((m) => m.away === null));

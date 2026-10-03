@@ -14,7 +14,7 @@ export type OriginId = (typeof ORIGINS)[number];
 export interface OriginRules {
   /** Who joins the town: the raised dead (they never eat, sleep or sicken, heal slowly, never marry), machines (the
    *  same, and their spirits never waver), or the living. */
-  kin?: 'undead' | 'machine';
+  kin?: 'undead' | 'machine' | 'werewolf';
   /** Nobody wanders in: the town makes its own people (a power does). */
   noWanderers?: boolean;
   /** The founder is one of these from the start. */
@@ -125,9 +125,9 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     name: 'Moon Pack',
     town: 'Chronos Den',
     description: 'A werewolf and their pack. Wolves run with them, and the full moon makes them fierce.',
-    features: ['The founder is a werewolf from the start', 'Wolves never raid; on a full moon everyone works and fights harder', 'Great hunters: foraging and fighting', 'Spells: Howl, Pack Hunt, Moon Frenzy'],
+    features: ['Everyone is a werewolf: the pack hunts under every full moon', 'Three rival packs hold the hills: break them, and they are your hunting grounds', 'The strongest may challenge the Alpha; the Great Hunt wins the game', 'Spells: Howl, Pack Hunt, Moon Frenzy'],
     start: { companions: ['hunter', 'hunter'], stores: { berries: 12, meat: 12 } },
-    rules: { founder: 'werewolf', raids: { wolves: 0 }, moonFury: true, fight: 1.15, forage: 1.15 },
+    rules: { founder: 'werewolf', kin: 'werewolf', raids: { wolves: 0 }, moonFury: true, fight: 1.15, forage: 1.15 },
     powers: ['howl', 'pack_hunt', 'moon_frenzy'],
   },
   robot: {

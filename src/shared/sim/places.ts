@@ -13,6 +13,7 @@ import { CELL, groundAt, inMap, isOpen, setGround, WILD, type LandMap, type Pt }
 import { addStock, campCell, earn, notify, type GameState } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { depositNear } from './buildings';
+import { packLairCleared } from './pack';
 
 export interface MapPlace {
   id: number;
@@ -96,6 +97,7 @@ function lookOver(s: GameState, p: MapPlace, rng: Rng): void {
   const camp = campCell(s);
   const where = directionName(p.x - camp.x, p.y - camp.y);
   p.state = 'done';
+  if (p.kind === 'beast') packLairCleared(s); // (a beast's lair: renown for the Moon Pack)
   const at = { x: (p.x + 0.5) * CELL, y: (p.y + 0.5) * CELL };
   switch (p.kind) {
     case 'vein': {

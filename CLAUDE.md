@@ -1023,6 +1023,32 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       used by MapView's `art`, the feed's `cardArt`. topDown.ts exports its pieces (`roofPlane`, `frontWall`, `MATS`,
       `G`). Tests: `test/seats.test.ts`.
 
+    - **The Moon Pack (done; the owner's design, the Great Hunt win his call):** `src/shared/data/pack.ts` and
+      `src/shared/sim/pack.ts`. Everyone in a werewolf town is a werewolf (`kin: 'werewolf'`; `joinOrigin` turns
+      newcomers; the Hunter's Guild doesn't count them). `s.pack` (`PackState`): **renown** (a hunt +1, a beast raid
+      beaten +2, a beast's lair cleared on the land +3, a rival pack broken +6, the Great Beast +10: `PACK_RENOWN`,
+      `gainRenown`), which is in every blow (`fightRate`: `RENOWN_FIGHT` per point up to `RENOWN_FIGHT_MAX`). **The
+      full-moon hunt:** at `HUNT_HOUR` of a full-moon night (`packHourly`, from sim.ts) the pack runs out as an
+      expedition the town sends itself (`sendHunt`: the Alpha first, then by level, `HUNT_KEEP_HOME` of them left to
+      guard; `Expedition.hunt`; destination `HUNT_DEST`, `huntDestination`, up to `HUNT_PARTY` 8), fights beasts on the
+      FF screen (watchable; a feed card), and is home by morning. **Rival packs** (`RIVAL_PACKS`: the Ash Pack, the Red
+      Fang, the Winter Wolves, each with an alpha boss in `PACK_BOSSES`, merged into ENEMIES): one raids at a full
+      moon's dusk (`PACK_RAIDS` raid kinds, weight 0, started by `packHourly`; the alpha leads), and each lair is a
+      destination on the Expedition Board (`packDestId`, `packDestination`, resolved by `destinationOf`; the player
+      picks the war party as for a dungeon). A pack is **broken** when its alpha falls, at its lair (one or two
+      survivors join the town) or at the gate (`packRaidBeaten`); its hills become a hunting ground (`grounds`:
+      `GROUNDS_YIELD` meat and hide each dawn). **The Alpha:** the morning after a full moon one of the pack
+      `CHALLENGE_LEVEL_EDGE` levels above the Alpha may challenge (`challenge`, `CHALLENGE_CHANCE`, never within
+      `CHALLENGE_GAP_DAYS`): a roll of level, melee and health; the winner is `s.mainId`, the loser left at a quarter
+      health. **The Great Hunt:** once renown reaches `GREAT_BEAST_RENOWN` the Pale Behemoth (`GREAT_BEAST`, the
+      behemoth sheet greyed and brightened) joins the hunt's encounters; with it slain and every rival pack broken the
+      game is won (`checkGreatHunt`, `s.gameOver.won`); the launch still wins too. Snapshot `pack` (`PackView`) drives
+      "The pack" block on the Expedition Board (renown, hunts, grounds, the moon, the beast, the lairs' cards). On the
+      map, werewolves under the full moon are the Craftpix werewolf sheets (`WOLF_FORMS` in mapPeople.ts, by id,
+      through `heroFrame`). Tests: `test/pack.test.ts`. Soak (3 towns, 15 days): 33 to 37 people, 1 to 4 deaths, two
+      hunts each (the full moons of days 6 and 12), renown 3 to 6, one town raided by the Ash Pack; no pack broken on
+      its own, since only a player-sent war party breaks one at its lair.
+
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)

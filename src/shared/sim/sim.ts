@@ -21,7 +21,9 @@ import { assignOperators, cycleOperator } from './operators';
 import { releasePrisoner, updatePrisoners } from './prisoners';
 import { updateDoom } from './doom';
 import { updateMonsters } from './monsters';
-import { recallExpedition, sendDelve, sendExpedition, updateExpeditions , sendParty } from './expeditions';
+import { destinationOf, recallExpedition, rolesFor, sendDelve, sendExpedition, updateExpeditions, sendParty } from './expeditions';
+import { packHourly } from './pack';
+import { RAID_KIND_BY_ID } from '../data/raids';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
@@ -30,7 +32,7 @@ import { delvesHourly } from './delves';
 import { placesHourly } from './places';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
-import { maybeStartRaid, startGuildRaid, updateRaid } from './raids';
+import { maybeStartRaid, startGuildRaid, startRaid, updateRaid } from './raids';
 import { answerPrompt, expirePrompts } from './roadEvents';
 import { newTickContext, updatePerson, walkTo } from './people';
 import type { Person } from './state';
@@ -147,6 +149,16 @@ export class Sim {
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);
+    packHourly(
+      s,
+      this.rng,
+      (dest, members) => {
+        const d = destinationOf(s, dest);
+        const r = sendExpedition(s, dest, members, rolesFor(members.map((id) => s.people.find((p) => p.id === id)!), d), 'bold');
+        return r.ok ? s.expeditions[s.expeditions.length - 1] : null;
+      },
+      (kind, budget) => startRaid(s, RAID_KIND_BY_ID[kind], budget, this.rng),
+    );
     drillGuards(s);
     updateAdvice(s);
     maybeArrive(s, this.rng);

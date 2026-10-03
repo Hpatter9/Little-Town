@@ -5,6 +5,7 @@ import { FOUNDER_CLASS } from '../data/founderClasses';
 import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
 import { SEAT_D, seatId } from '../data/seats';
 import type { Delve } from './delves';
+import type { PackState } from './pack';
 import type { Quest } from './quests';
 import type { Material, Stock } from '../data/materials';
 import { JOB_SKILL, JOBS, NAMES, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
@@ -488,6 +489,8 @@ export interface Expedition {
   truck?: boolean;
   /** A dungeon delve's progress room by room (sim/delves.ts). */
   delve?: Delve;
+  /** The Moon Pack's full-moon hunt (sim/pack.ts). */
+  hunt?: boolean;
 }
 
 /** Someone waiting at the edge of town to be let in. */
@@ -658,6 +661,8 @@ export interface GameState {
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
   buffs?: Record<string, number>;
+  /** The Moon Pack's standing (sim/pack.ts). */
+  pack?: PackState;
   /** Choice events (sim/events.ts): the one being asked now (its def, prompt and the townsperson it's about), when the
    *  next may come, the last few drawn (not drawn again soon), the marks answers left on the town (a lever or
    *  everyone's morale, until a tick), and effects still to come. */
@@ -910,6 +915,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   for (const p of people) {
     if (k === 'machine') p.machine = true;
     else if (k === 'undead' && p !== main) turnMonster(p, 'undead', 0);
+    else if (k === 'werewolf' && p !== main) turnMonster(p, 'werewolf', 0);
   }
   const f = origin.rules.founder;
   if (f === 'machine') main.machine = true;

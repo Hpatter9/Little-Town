@@ -197,6 +197,9 @@ export function joinOrigin(s: GameState, p: Person, rng?: Rng): void {
   if (r.kin === 'undead' && !p.monster) {
     p.monster = 'undead';
     p.hp = maxHp(p);
+  } else if (r.kin === 'werewolf' && !p.monster) {
+    p.monster = 'werewolf';
+    p.hp = maxHp(p);
   } else if (r.kin === 'machine') p.machine = true;
   if (r.mutate) {
     // (a trait they don't have, decided by who they are, so no randomness shifts)
