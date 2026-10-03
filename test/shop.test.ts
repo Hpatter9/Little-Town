@@ -22,7 +22,7 @@ function addBuilding(s: GameState, def: string, tile: number, store = {}): Build
   return b;
 }
 /** The shop's log (newest last). */
-const logOf = (s: GameState) => s.buildings.find((b) => b.def === 'trading_post')?.shop?.log ?? [];
+const logOf = (s: GameState) => s.buildings.find((b) => b.def === 'trading_post' || b.def === 'general_store' || b.def === 'emporium')?.shop?.log ?? [];
 /** Strangers of a tier on their way in are made to want something. */
 function wanting(s: GameState, tier: number, want: Want): void {
   for (const t of s.travellers ?? []) if (t.phase === 'arriving' && (t.tier ?? 1) === tier) t.want = want;
