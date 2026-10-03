@@ -701,9 +701,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       full of the harvest no longer stops wood being gathered (the reserve rule in `planGathering`); fields are never
       upgraded by the quiet-spell loop (only `consolidateFields`), and the "learned to build it" loop skips food fields and
       anything already rebuilt into something better (`planned` through `UPGRADES`); no second campfire as a desk.
-    - The castle is one level: `keepRect` over the camp (its era's size plus the wings it has grown: `s.keepGrown`,
-      `growKeep` when a room finds no place, up to `KEEP_MAX`); rooms (`roomKind`) go inside, everything else outside
-      (`canPlace`). Floors, stairs and climbing are gone. The nomads' camps are points (`s.nomad.home/pasture/camp`).
+    - The castle is one level (first a `keepRect` over the camp that grew by era and wing; now a body of rooms built on
+      to the hall: see "The castle as one body of rooms" below). Floors, stairs and climbing are gone. The nomads' camps
+      are points (`s.nomad.home/pasture/camp`).
     - Tests: `test/helpers.ts` has `camp`, `row` (free ground two rows below the camp), `put`, `freeSpot`, `wildsNear`/
       `nearestWild`, `makeWild`, `clearAround`, `poolOf`, `isWild`, `campPx`. Soak (10 days, one town each): settlers 22,
       vampires 20, druids 20, nomads 28, dwarves 21.
@@ -758,12 +758,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     and `art/battleArt.ts` are gone. The phone page keeps the town's zoom in a battle (`watchOn` alone draws at 1).
     Soak (3 towns per origin, 10 days, people/deaths): settlers 17–24/1–2, druids 16–24/2, vampires 20–24/0–1, knights
     21–24/0–1; no town lost.
-  - **Phase 6, origins and pack art on the map (in progress):** the vampire keep is dressed by `src/renderer/map/keepArt.ts`
-    and `MapView.syncCastle` (from `snapshot.castle.rect`): a flagstone floor (a tiling sprite) with a carpet from the gate,
-    the curtain wall seen like the buildings (walk above, face below, battlements), a gatehouse in the south wall, round
-    corner towers; the floor and side walks in MapView's `under`, the walls among the `things` (the north wall's zIndex at
-    its walk, so rooms by it stand in front; `wide` sprites are never culled). The rooms are the ordinary building
-    pictures. `src/renderer/map/packBuildings.ts`: Craftpix's Village tileset houses and awnings (`src/renderer/art/village/`,
+  - **Phase 6, origins and pack art on the map (in progress):** the vampire keep was first dressed as a walled rectangle
+    (`keepArt.ts`, from `snapshot.castle.rect`, the rooms the ordinary building pictures); that is superseded by "The
+    castle as one body of rooms" below, which draws the castle from its cells with `map/castleArt.ts`. `src/renderer/map/packBuildings.ts`: Craftpix's Village tileset houses and awnings (`src/renderer/art/village/`,
     bundled as data URLs) stand for the cottage, row houses, inn and tavern, trading post, stall and general store in the
     base and knights looks (`PICKS`, `STYLES`), scaled to the footprint plus `OVERHANG` on the fine grid (`packArt`; the
     code-drawn picture stands until the image loads, then `onPackArt` bumps `artGen` and the buildings are drawn again),
