@@ -185,6 +185,7 @@ async function start(): Promise<void> {
   const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
   (window as unknown as { __pools?: BloodPools }).__pools = pools; // (for previews)
   const people = new MapPeople(map.things);
+  people.lights = map.lights;
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
   const raiders = new MapRaiders(map.things);
   const herds = new MapHerds(map.things);
@@ -934,6 +935,7 @@ async function start(): Promise<void> {
     const gloom = fullSky ? ({ clear: 0, cloudy: 0.04, rain: 0.12, storm: 0.22, snow: 0.05, fog: 0.08 } as const)[next.weather.kind] : 0;
     map.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
     map.smokeAmount = airFor(next.calendar.hour, next.calendar.season, next.weather.kind).smoke;
+    map.weather = next.weather.kind;
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
     // autumn leaves on the wind, in fair weather
     leaves.on = next.calendar.season === 'autumn' && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !freeze;

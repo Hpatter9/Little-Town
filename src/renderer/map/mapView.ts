@@ -61,6 +61,20 @@ const PROPS_ON: Partial<Record<Ground, [PropKind, number][]>> = {
   hill: [['rock', 0.4], ['bush', 0.4], ['plant', 0.2]],
 };
 
+/** A firefly: a tiny blinking glow in the lights layer, drifting over the grass on a warm, fair night. */
+interface Firefly {
+  s: Sprite;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  phase: number;
+  rate: number;
+  life: number;
+}
+const FLIES_MAX = 36;
+const FLY_GROUND = new Set<Ground>(['grass', 'forest', 'marsh', 'fertile', 'hill']);
+
 interface DrawnBuilding {
   sig: string;
   sprite: Sprite;
@@ -137,6 +151,11 @@ export class MapView {
   height = 0;
   /** A slower phone: fewer props. */
   calm = false;
+  /** The weather (main.ts, per snapshot): the fireflies come out only in fair weather. */
+  weather = 'clear';
+  /** The view the camera last showed (world px): where the fireflies live. */
+  private view = { x: 0, y: 0, w: 0, h: 0 };
+  private readonly flies: Firefly[] = [];
   /** A castle town's keep (map/keepArt.ts): its floor and side walks under everything, its walls and towers among the
    *  things; `wide` sprites span the view and are never culled. */
   private castle: { key: string; under: Container; things: Container[] } | null = null;
@@ -168,6 +187,7 @@ export class MapView {
   setCamera(x: number, y: number, w: number, h: number): void {
     this.world.position.set(-Math.round(x), -Math.round(y));
     this.lights.position.copyFrom(this.world.position);
+    this.view = { x, y, w, h };
     const x0 = x - CULL_MARGIN;
     const y0 = y - CULL_MARGIN;
     const x1 = x + w + CULL_MARGIN;
@@ -560,13 +580,55 @@ export class MapView {
     for (const g of d.glows ?? []) g.destroy();
   }
 
-  /** A frame of the air: smoke from the finished buildings' chimneys and stacks. */
+  /** A frame of the air: smoke from the finished buildings' chimneys and stacks, and the fireflies. */
   renderAir(dt: number): void {
+    this.fireflies(dt);
     if (this.calm) return;
     this.smoke.amount = this.smokeAmount;
     const chimneys: { x: number; y: number }[] = [];
     for (const d of this.buildings.values()) if (d.chimneys && d.sprite.renderable) chimneys.push(...d.chimneys);
     this.smoke.update(dt, chimneys);
+  }
+
+  /** Fireflies over the grass in view on warm, fair nights (the lights layer is dark by day): each drifts, blinks a
+   *  few times and winks out, and another comes. */
+  private fireflies(dt: number): void {
+    const warm = (this.season === 'spring' || this.season === 'summer') && this.biome !== 'tundra' && this.biome !== 'desert';
+    const fair = this.weather === 'clear' || this.weather === 'cloudy';
+    const want = !this.calm && warm && fair && this.lights.alpha > 0.2 && this.land ? FLIES_MAX : 0;
+    const { x, y, w, h } = this.view;
+    while (this.flies.length > want) this.flies.pop()!.s.destroy();
+    for (let tries = 0; this.flies.length < want && tries < 12; tries++) {
+      const fx = x + Math.random() * w;
+      const fy = y + Math.random() * h;
+      const cx = Math.floor(fx / CELL);
+      const cy = Math.floor(fy / CELL);
+      if (!FLY_GROUND.has(groundAt(this.land!, cx, cy)) || visibility(this.land!, cx, cy) === 0) continue;
+      const sp = this.lights.addChild(new Sprite(glowTexture()));
+      sp.anchor.set(0.5);
+      sp.width = sp.height = 7;
+      sp.tint = 0xd8ff78;
+      sp.alpha = 0;
+      this.flies.push({ s: sp, x: fx, y: fy, vx: 0, vy: 0, phase: Math.random() * Math.PI * 2, rate: 1.5 + Math.random() * 2, life: 4 + Math.random() * 8 });
+    }
+    for (let i = this.flies.length - 1; i >= 0; i--) {
+      const f = this.flies[i];
+      f.life -= dt;
+      f.phase += dt * f.rate;
+      f.vx = (f.vx + (Math.random() - 0.5) * 40 * dt) * 0.98;
+      f.vy = (f.vy + (Math.random() - 0.5) * 40 * dt) * 0.98;
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+      const out = f.x < x - 20 || f.x > x + w + 20 || f.y < y - 20 || f.y > y + h + 20;
+      if (f.life <= 0 || out) {
+        f.s.destroy();
+        this.flies.splice(i, 1);
+        continue;
+      }
+      const blink = Math.max(0, Math.sin(f.phase));
+      f.s.alpha = blink * blink * Math.min(1, f.life);
+      f.s.position.set(f.x, f.y);
+    }
   }
 
   private draw(b: Building, sig: string): DrawnBuilding {

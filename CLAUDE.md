@@ -918,7 +918,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       originStyles.ts) now keeps from them only the picks marked `own` (the Fields pack's tents, the hunters' and
       barracks' tents, the palisade and stone walls and gates); the well, racks, logs, fire pits, benches, shelves,
       graves, mines and the industrial plants suit them like everyone else (they were all withheld before).
-      The open fires (`FIRES`: campfire, bloomery, kiln, storytellers' circle) smoke as well as glow. **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
+      The open fires (`FIRES`: campfire, bloomery, kiln, storytellers' circle) smoke as well as glow.
+    - **Night life (done):** everyone out after dark carries a lantern: `MapPeople.lights` (the map's lights layer, set
+      by main.ts) holds a warm glow per person (`Drawn.lamp`) at their feet, hidden indoors; the layer's dusk fade
+      makes it night-only. **Fireflies** (`MapView.fireflies`, from `renderAir`): on spring and summer nights in fair
+      weather (`MapView.weather`, per snapshot), not in the tundra or desert, up to `FLIES_MAX` tiny green-yellow glows
+      drift over the grass, forest, marsh and hills in view (`FLY_GROUND`, not in the dark beyond the open land), each
+      blinking a few times and winking out; none on a slow phone (`calm`). **Construction sites were invisible on the map:** the site's and the mask's Graphics stood at
       the world origin and drew at world coordinates, and `setCamera` culls each thing by where it stands, so they were
       hidden wherever the camera wasn't at the map's corner. They stand at the picture's corner now and draw from there.
 

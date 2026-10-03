@@ -58,6 +58,8 @@ interface Drawn {
   levelAt?: number;
   levelUp?: Sprite;
   aura?: Sprite;
+  /** Their lantern's glow (in the map's lights layer, so it shows after dark). */
+  lamp?: Sprite;
   from: { x: number; y: number };
   to: { x: number; y: number };
   at: number;
@@ -74,6 +76,8 @@ export class MapPeople {
   private readonly drawn = new Map<number, Drawn>();
   moon = false;
   theme = 'town';
+  /** The map's lights layer (main.ts): everyone out after dark carries a lantern's glow there. */
+  lights: Container | null = null;
   weave = false;
   founderId = -1;
   revived: { id: number; since: number; at: number } | null = null;
@@ -129,7 +133,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -327,6 +331,18 @@ export class MapPeople {
       d.shadow.alpha = 0.42;
       d.shadow.position.set(Math.round(x), Math.round(y) + 1);
       d.shadow.zIndex = z - 0.5;
+      // a lantern: a warm pool of light about their feet (the lights layer fades up after dusk and is dark by day)
+      if (this.lights) {
+        if (!d.lamp) {
+          d.lamp = this.lights.addChild(new Sprite(glowTexture()));
+          d.lamp.anchor.set(0.5);
+          d.lamp.width = d.lamp.height = 36;
+          d.lamp.tint = 0xffc070;
+          d.lamp.alpha = 0.5;
+        }
+        d.lamp.visible = !hidden;
+        d.lamp.position.set(Math.round(x), Math.round(y) - 12);
+      }
       if (founder && !d.aura) {
         d.aura = this.layer.addChild(new Sprite(glowTexture()));
         d.aura.anchor.set(0.5);
