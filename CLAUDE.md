@@ -859,6 +859,19 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       of each), the only set on the liches' and vampires' land (`MapView.blighted()`, plus `winter` when it snows), and
       their ground is blighted (`paintChunk(..., blight)`: `BLIGHT_PATCH`/`BLIGHT_FROM` in groundArt.ts: olive grass and
       peat woods on peat, no flowers; the chunk key carries it).
+    - **Code-drawn buildings from the map's angle (done):** `src/renderer/art/topDown.ts` (`topDownArt(def, w, d, tone,
+      toneKey, style)`) replaces the side-on `buildingArt` on the map (MapView's `art` and the placement ghost; the feed
+      and report cards keep the side-on pictures) for every building without a pack pick: a roof plane seen from above
+      (`roofPlane`: foreshortened, lit at the ridge, shaded to the eaves, covered in the era's way: thatch bands, tile or
+      slate courses, metal panels) over the front wall on the footprint's bottom edge (`frontWall`: wattle, half-timber,
+      brick or panels by `eraOfResearch`, a door and lit windows), `EAVE` px over the footprint each side and `LIFT` px
+      above it. Shapes by id (`SHAPES`): house, hall (taller walls, a front gable with a window, columns), flat (a
+      parapet, vents, a skylight, a glass band), works (a sawtooth roof with glazing and stacks), tower (a drum with a
+      platform seen from above: battlements, a thatched cap on the lookouts, a mast, a barrel, the windmill's sails),
+      dome (shaded rings, ribs, a glint), wall (walk and face), pad (the launch pad with its rocket standing, the spike
+      trap); `topper` adds a cupola, a red cross, a barrel, antlers. Then `reclad` (now exported from originStyles.ts,
+      with `Style`) swaps in the origin's materials. `window.__topDownArt` is for previews (a gallery script draws every
+      building).
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

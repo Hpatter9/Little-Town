@@ -53,6 +53,7 @@ import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
 import { loadLpc, lpcFrame } from './art/lpc/lpc';
 import { buildingArt } from './art/buildings';
+import { topDownArt } from './art/topDown';
 import { noTone, textureCanvas } from './art/pixelArt';
 import { MapCamera } from './map/mapCamera';
 import { MapView } from './map/mapView';
@@ -177,6 +178,7 @@ async function start(): Promise<void> {
   // the town, top-down (map/mapView.ts): the land, the buildings on their footprints, and everyone on it
   const map = new MapView();
   (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
+  (window as unknown as { __topDownArt?: typeof topDownArt }).__topDownArt = topDownArt; // (for previews: a gallery of the painted buildings)
   const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
   (window as unknown as { __pools?: BloodPools }).__pools = pools; // (for previews)
   const people = new MapPeople(map.things);

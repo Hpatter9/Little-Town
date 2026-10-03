@@ -15,7 +15,8 @@ import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
 import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap, type Rect } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import type { PlaceView } from '../../shared/sim/snapshot';
-import { buildingArt, type CropLook } from '../art/buildings';
+import type { CropLook } from '../art/buildings';
+import { topDownArt } from '../art/topDown';
 import { drawSite } from '../art/constructionSite';
 import { mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
 import { propTextures, type PropSet } from '../art/props';
@@ -435,7 +436,8 @@ export class MapView {
     const f = footprint(b);
     if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey);
     // (a pack picture where one suits the look: map/packBuildings.ts)
-    return packArt(b.def, f.w, this.style, b.id) ?? buildingArt(b.def, this.tone, this.toneKey, cropLook(b), this.style);
+    // (else the top-down painter's: art/topDown.ts)
+    return packArt(b.def, f.w, this.style, b.id) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
   }
 
   /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */
@@ -635,7 +637,8 @@ export class MapView {
 
   showGhost(defId: string, x: number, y: number, valid: boolean): void {
     const def = BUILDING_BY_ID[defId];
-    const art = buildingArt(defId, this.tone, this.toneKey, undefined, this.style);
+    const gdef = BUILDING_BY_ID[defId];
+    const art = packArt(defId, gdef.width, this.style) ?? topDownArt(defId, gdef.width, depthOf(gdef), this.tone, this.toneKey, this.style);
     this.ghost.texture = art.texture;
     this.ghost.visible = true;
     this.ghost.alpha = 0.7;

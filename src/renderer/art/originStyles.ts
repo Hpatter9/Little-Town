@@ -9,7 +9,7 @@ import { registerLamps, type Painter, mixHex } from './pixelArt';
 import { cityHome, nomadArt } from './nomadArt';
 
 type Draw = (p: Painter, w: number, h: number) => void;
-type Style = Exclude<ThemeId, 'town'>;
+export type Style = Exclude<ThemeId, 'town'>;
 
 /** Homes by size: lean-to, tent, cottage, row houses (and their heights). */
 const HOMES = ['lean_to', 'hide_tent', 'cottage', 'rowhouse'] as const;
@@ -731,7 +731,7 @@ registerLamps(...Object.values(SWAP).map((s) => s[s.length - 1]));
 
 /** Swap the usual materials for the origin's: their exact colours, and the shades of them the fine detail adds (a
  *  colour close to a material is moved by the same step, keeping its difference); everything else is left alone. */
-function reclad(p: Painter, st: Style): void {
+export function reclad(p: Painter, st: Style): void {
   const img = p.pixels();
   const d = img.data;
   const rgb = (hex: string) => parseInt(hex.slice(1), 16);
