@@ -62,6 +62,9 @@ export function rollPlus(rng: Rng, level: number): number {
   return n;
 }
 
+/** The further luck each grade from Rare up takes (applied in turn, so they compound). */
+export const GRADE_LUCK: Record<number, number> = { 3: 0.5, 4: 0.4, 5: 0.3, 6: 0.25, 7: 0.15 };
+
 /** What a crafter of this Crafting level usually makes (the middle of their range), from Poor-to-Common at level 1
  *  to Epic-to-Legendary at the top. */
 export const typicalQuality = (level: number) => 0.6 + (4.6 * (Math.max(1, level) - 1)) / (MAX_SKILL - 1);
@@ -73,7 +76,8 @@ export function rollQuality(rng: Rng, level: number): number {
   const spread = (rng.next() + rng.next() + rng.next() - 1.5) * 1.6;
   let q = Math.round(typicalQuality(level) + spread);
   q = Math.max(0, Math.min(MAX_QUALITY, q));
-  if (q >= 6 && !rng.chance(0.4)) q = 5;
-  if (q >= 7 && !rng.chance(0.35)) q = 6;
+  // (the owner's call: the high grades are very rare. Each from Rare up takes a further stroke of luck, so even a
+  // master's Legendary is one in dozens, a Mythic one in hundreds, and a Divine one in thousands)
+  for (let g = 3; g <= MAX_QUALITY; g++) if (q >= g && !rng.chance(GRADE_LUCK[g])) q = g - 1;
   return q;
 }

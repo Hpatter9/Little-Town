@@ -89,7 +89,7 @@ export const CLASS_DEFS: Readonly<Record<ClassId, ClassDef>> = {
 };
 
 /** The levels at which each stage is reached (levels.ts: a class evolves into its next stage there). */
-export const STAGE_LEVELS = [1, 8, 18, 30, 45] as const;
+export const STAGE_LEVELS = [1, 12, 30, 55, 85] as const;
 /** The last stage: from its level on, the chance each day someone ascends to it (otherwise only a quest or an event
  *  brings it, or a wanderer who already has). */
 export const ASCEND_DAILY = 0.015;

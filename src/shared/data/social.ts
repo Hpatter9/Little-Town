@@ -19,11 +19,11 @@ export const SCHOOL_BONUS = 2;
 
 /** Each game hour near each other: opinion gained (times the pair's chemistry, more with Social skill),
  *  and the chance of friction. Chemistry is fixed per pair, from -0.4 (they clash) to 1.4. */
-export const WARM_PER_HOUR = 0.6;
+export const WARM_PER_HOUR = 1.2;
 export const FRICTION_CHANCE = 0.03;
 export const FRICTION = 3;
 /** People count as together within this many pixels. */
-export const NEAR_PX = 5 * 32;
+export const NEAR_PX = 6 * 32;
 
 /** Grief: for a partner, a friend (morale and game hours). */
 export const GRIEF_PARTNER: [number, number] = [-20, 72];

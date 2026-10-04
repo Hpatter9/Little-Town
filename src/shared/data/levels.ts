@@ -5,12 +5,12 @@
 import { CLASS_DEFS, STAGE_LEVELS, STAGE_STEP, type ClassId, type ClassStats } from './classes';
 import { FOUNDER_CLASS, FOUNDER_EDGE } from './founderClasses';
 
-export const MAX_LEVEL = 50;
+export const MAX_LEVEL = 100;
 /** XP to go from a level to the next: grows with the level, and much faster past LEVEL_STEEP (so the last stage's
  *  levels, and with them the last evolution, come late and to few). */
 export const xpToLevel = (level: number) => Math.round(LEVEL_BASE * level ** LEVEL_GROWTH * LEVEL_STEEPNESS ** Math.max(0, level - LEVEL_STEEP));
-export const LEVEL_STEEP = 25;
-export const LEVEL_STEEPNESS = 1.12;
+export const LEVEL_STEEP = 40;
+export const LEVEL_STEEPNESS = 1.08;
 export const LEVEL_BASE = 18;
 export const LEVEL_GROWTH = 1.3;
 /** Of each bit of skill XP, the share that goes to the level: fighting (melee, ranged) counts for more than work. */

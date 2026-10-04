@@ -114,8 +114,8 @@ test('the last stage is rare and late: levels alone stop a stage short; an ascen
   const s = plainGame('ascend');
   const p = s.people[0];
   p.cls = 'mage';
-  p.level = 50;
-  assert.equal(stageOf(p), 3, 'level 50, still one stage short');
+  p.level = 100;
+  assert.equal(stageOf(p), 3, 'level 100, still one stage short');
   assert.equal(className('mage', stageOf(p)), 'Archmage');
   ascend(s, p, 'A quest fulfilled');
   assert.equal(stageOf(p), 4);

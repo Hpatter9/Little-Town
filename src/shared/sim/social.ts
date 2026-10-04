@@ -99,7 +99,7 @@ export function updateSocial(s: GameState, rng: Rng): void {
     for (let j = i + 1; j < here.length; j++) {
       const a = here[i];
       const b = here[j];
-      if (Math.abs(a.x - b.x) > NEAR_PX) continue;
+      if (Math.abs(a.x - b.x) > NEAR_PX || Math.abs(a.y - b.y) > NEAR_PX) continue;
       const social = 1 + (a.skills.social.level + b.skills.social.level) / 20;
       const loner = a.traits.includes('loner') || b.traits.includes('loner') ? 0.5 : 1;
       // (their natures weigh in: like warms to like, and some natures grate: data/natures.ts)

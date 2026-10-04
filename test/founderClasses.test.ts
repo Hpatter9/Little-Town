@@ -1,3 +1,4 @@
+import { STAGE_LEVELS } from '../src/shared/data/classes';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CLASS_DEFS, CLASSES } from '../src/shared/data/classes';
@@ -36,7 +37,7 @@ test('a founder starts in their calling, stronger than its base, and the snapsho
       const better = k === 'speed' ? classStat(p, k) < classStat(plainMate, k) : classStat(p, k) > classStat(plainMate, k);
       assert.ok(better, `${origin}: ${k} beats the base class`);
     }
-    p.level = 20;
+    p.level = STAGE_LEVELS[2];
     const v = snapshot(s).people.find((q) => q.id === p.id)!;
     assert.equal(v.clsName, FOUNDER_CLASS[f.id].stages[2]);
     assert.deepEqual(v.clsPast, FOUNDER_CLASS[f.id].stages.slice(0, 2));
