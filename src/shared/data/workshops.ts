@@ -138,7 +138,7 @@ export const WORKSHOP_ITEMS: readonly ItemDef[] = [
   ware('books', 'Bound Books', 'print_shop', { cloth: 2, lumber: 2 }, 150, ['printing'], 3, 70, 'a shelf of bound books.', ic('Scroll', 1, 0)),
   // the clockmaker
   ware('music_box', 'Music Box', 'clockmaker', { steel: 1, lumber: 2 }, 150, ['clockwork'], 3, 85, 'a box that plays a tune when wound.', ic('Tool', 3, 0)),
-  ware('pocket_watch', 'Pocket Watch', 'clockmaker', { steel: 1, glass: 1 }, 200, ['clockwork'], 4, 160, 'a watch on a chain.', ic('Tool', 4, 0)),
+  ware('gold_watch', 'Gold Watch', 'clockmaker', { steel: 1, glass: 1 }, 200, ['clockwork'], 4, 160, 'a watch on a chain.', ic('Tool', 4, 0)),
   furnish('mantel_clock', 'Mantel Clock', 'clockmaker', { steel: 1, lumber: 2, glass: 1 }, 180, ['clockwork', 'hospitality'], 'decor', 8, 'a clock that chimes the hour.', ic('Tool', 5, 0)),
   // the cannery
   makes('canned_vegetables', 'Tinned Vegetables', 'cannery', { vegetables: 3, steel: 1 }, 60, ['canning'], { rations: 4 }, 'Vegetables sealed in tins: 4 rations.', ic('Food', 0, 3)),
