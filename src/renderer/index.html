@@ -591,6 +591,113 @@
       .ff-atb i.full {
         background: #f0e070;
       }
+      .ff-pools {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        flex: none;
+        width: 34px;
+        margin-left: 4px;
+      }
+      .ff-bar {
+        display: block;
+        height: 3px;
+        background: #0a0a30;
+        border: 1px solid #5860a0;
+      }
+      .ff-bar i {
+        display: block;
+        height: 100%;
+      }
+      .ff-bar.mp i {
+        background: #60a0ff;
+      }
+      .ff-bar.sp i {
+        background: #70e080;
+      }
+      .ff-bar.limit i {
+        background: #ff9040;
+      }
+      .ff-bar.limit i.full {
+        background: #ffe060;
+        box-shadow: 0 0 4px #ffe060;
+      }
+      /* the banner over a watched fight: who uses what */
+      #fight-banner {
+        position: absolute;
+        left: 50%;
+        top: 34%;
+        transform: translate(-50%, -50%);
+        z-index: 30;
+        pointer-events: none;
+        text-align: center;
+        font-family: var(--font-display);
+        color: #fff;
+        text-shadow: 0 0 6px #000, 2px 2px 0 #000;
+        opacity: 0;
+      }
+      #fight-banner[hidden] {
+        display: none;
+      }
+      #fight-banner.show {
+        animation: ff-banner 1.5s ease-out forwards;
+      }
+      #fight-banner.ult.show {
+        animation: ff-banner-ult 2.6s ease-out forwards;
+      }
+      #fight-banner .ff-who {
+        display: block;
+        font-size: 13px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        opacity: 0.9;
+      }
+      #fight-banner .ff-act {
+        display: block;
+        font-size: 26px;
+        font-weight: bold;
+        line-height: 1.1;
+        padding: 2px 14px;
+        background: linear-gradient(90deg, rgba(16, 24, 106, 0) 0%, rgba(16, 24, 106, 0.85) 20%, rgba(16, 24, 106, 0.85) 80%, rgba(16, 24, 106, 0) 100%);
+      }
+      #fight-banner.spell .ff-act {
+        color: #b8d8ff;
+      }
+      #fight-banner.skill .ff-act {
+        color: #c8ffd0;
+      }
+      #fight-banner.ult .ff-act {
+        font-size: 36px;
+        color: #ffe060;
+        text-shadow: 0 0 12px #ff9040, 0 0 24px #ff6020, 2px 2px 0 #000;
+        background: linear-gradient(90deg, rgba(120, 30, 0, 0) 0%, rgba(120, 30, 0, 0.9) 20%, rgba(120, 30, 0, 0.9) 80%, rgba(120, 30, 0, 0) 100%);
+      }
+      #fight-banner .ff-cost {
+        display: block;
+        font-size: 11px;
+        letter-spacing: 2px;
+        margin-top: 2px;
+        color: #e8e8f0;
+      }
+      #fight-banner.ult .ff-cost {
+        color: #ffe060;
+        font-weight: bold;
+      }
+      @keyframes ff-banner {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+        12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+        20% { transform: translate(-50%, -50%) scale(1); }
+        80% { opacity: 1; }
+        100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+      }
+      @keyframes ff-banner-ult {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(1.8); filter: blur(4px); }
+        10% { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
+        14% { transform: translate(-48%, -51%) scale(1.04); }
+        18% { transform: translate(-52%, -49%) scale(1); }
+        85% { opacity: 1; }
+        100% { opacity: 0; transform: translate(-50%, -58%) scale(1.1); }
+      }
       #prompt {
         position: absolute;
         top: 6px;

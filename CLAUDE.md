@@ -734,6 +734,28 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   always did); raids' trails end at the ring's gate on their side (`ringGate` in battle.ts `gateCell`), raiders break
   the gate or wall as before (`wallBetween`), and shooters stand on the ring's pieces near the trail (wall spots). The
   planner's old end walls (`wallSpot`, "a wall at each end of town") are gone. Tests: `test/ringWall.test.ts`.
+- **Turn-based fights where stats matter (done; the owner's ask):** `src/shared/data/attributes.ts` and
+  `sim/attributes.ts`: everyone has Strength, Dexterity, Vitality, Intellect and Wisdom (`Attrs`; `attributesOf(p)`:
+  `ATTR_BASE` 8, a class's growth by level in its own proportions (`CLASS_ATTRS`), the work skills' part, traits, a
+  founder's edge). In `personFighter`: Strength (or Intellect for a caster) in the blow, Dexterity in aim, dodge and the
+  time between turns (`speedOfDex`), Vitality in health; a fighter's health is the same share at the fight's reckoning
+  and scaled back after (`finishBattle`). **Turns:** `stepBattle` lets one fighter act a tick and waits `TURN_BEAT`
+  (6) ticks after each action (`Battle.beat`; `ULT_BEAT` after an ultimate), so turns come one at a time and the quick
+  come round more often; fights run about twice as long as before (the dragon test waits 180 s). **Costs:** spells draw
+  mana (`maxManaOf`, `spellCost` by the level learned), skills stamina (`maxStaminaOf`, `skillCost`); both return a
+  little each turn (`manaRegenOf`, `staminaRegenOf`) and a plain blow gives `STAMINA_PER_BLOW` back; `KitAction.cost`/
+  `pool`, `canPay`/`pay` in actions.ts; a fighter without pools (a raider on the map, a creature) pays nothing.
+  **Ultimates:** every class's twentieth skill or so (`AbilityDef.ultimate`, the rows marked `'ult'` in
+  `data/moreAbilities.ts`, learned by level 25) costs the **limit gauge** (`Combatant.limit`, 0 to 1: filled by hurt
+  taken, `LIMIT_FROM_HURT`, and less by hurt dealt, capped a tenth a blow, `fillLimit` from `strike`); full, it is the
+  thing to do (`takeTurn` adds 100 to its worth), the gauge empties, a shout goes to the Journal. **Twenty skills a
+  class:** `data/moreAbilities.ts` (`MORE_ABILITIES`, merged into each class's list in abilities.ts): 12 or 13 more
+  each, ten general ones besides (a skill that shares a spell's name carries `_art` on its id: ids are unique across
+  both lists); `test/turns.test.ts` counts them. **Seeing it:** `Battle.acts` carry `ActMeta`
+  (spell, ult, cost, pool); the snapshot's `acts` add `who`; `fightHud.ts` shows a **banner** (`#fight-banner`: who,
+  the act, its cost; gold and bigger for an ultimate, CSS in index.html) and MP, SP and limit bars under each party
+  member's time gauge (`.ff-pools`); `fightView.ts` shakes the scene and flashes white on an ultimate. The Townsfolk
+  inspect page shows the five attributes, MP and SP, and each skill's cost (`PersonView.battle.attrs`, `kit[].cost`).
 - **A hard cap on births:** `POP_HARD_CAP` (90, data/pace.ts): no child is born past it (wanderers already stop at
   `POP_SOFT_CAP`); the 200-day soaks had settlers at 71 by day 40 and climbing.
 - **The Court's tithe stops at a reserve:** `BLOOD_KEEP` (30) in data/vampires.ts: with that much blood in store the

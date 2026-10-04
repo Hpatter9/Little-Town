@@ -20,10 +20,10 @@ const hero = (cls: (typeof CLASSES)[number], level: number, id = 1) => {
   return p;
 };
 
-test('the lists: 160 spells and 200 skills, a few for anyone and most a class\'s own, all well formed', () => {
+test('the lists: 160 spells and 510 skills (ten for anyone, twenty a class), all well formed', () => {
   assert.equal(SPELLS.length, 160);
-  assert.equal(ABILITIES.length, 200);
-  assert.equal(new Set([...SPELLS, ...ABILITIES].map((x) => x.id)).size, 360, 'no id twice');
+  assert.equal(ABILITIES.length, 510);
+  assert.equal(new Set([...SPELLS, ...ABILITIES].map((x) => x.id)).size, 670, 'no id twice');
   assert.ok(SPELLS.filter((s) => s.cls === null).length < 10 && ABILITIES.filter((a) => a.cls === null).length < 15, 'only a few general');
   for (const cls of CLASSES) assert.ok(ABILITIES.some((a) => a.cls === cls), `${cls} has skills`);
   for (const x of [...SPELLS, ...ABILITIES.flatMap((a) => (a.active ? [a.active] : []))])
@@ -48,6 +48,8 @@ test('in a fight: a white mage mends the hurt, a sorcerer burns the pack, a summ
   const mage = hero('mage', 26, 3);
   const caller = hero('summoner', 6, 4);
   const b = startBattle([knight, healer, mage, caller], {}, { wolf_alpha: 4, boar: 2 }, rng);
+  // (turn-based fights: a hardier pack, so the fight lasts long enough for everyone to show what they do)
+  for (const f of b.fighters) if (f.side === 'enemy') f.hp = f.maxHp = f.maxHp * 4;
   const k = b.fighters.find((f) => f.ref === knight.id)!;
   const start = k.hp;
   let mended = false;

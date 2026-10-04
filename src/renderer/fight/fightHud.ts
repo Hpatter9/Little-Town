@@ -24,6 +24,10 @@ export function createFightHud(on: { back(): void }): FightHud {
   back.textContent = 'Back to town';
   back.addEventListener('click', () => on.back());
   top.append(message, back);
+  // the banner: who uses what (a skill or spell, with its cost), big and brief; an ultimate bigger still
+  const banner = document.createElement('div');
+  banner.id = 'fight-banner';
+  banner.hidden = true;
 
   const bottom = document.createElement('div');
   bottom.id = 'fight-bottom';
@@ -33,10 +37,13 @@ export function createFightHud(on: { back(): void }): FightHud {
   const party = document.createElement('div');
   party.className = 'ff-window ff-party';
   bottom.append(foes, party);
-  document.body.append(top, bottom);
+  document.body.append(top, banner, bottom);
   top.hidden = bottom.hidden = true;
 
   let lastMessage = '';
+  let bannerKey = '';
+  let bannerUntil = 0;
+  const POOL_NAMES = { mp: 'MP', sp: 'SP', limit: 'LIMIT' } as const;
   return {
     insets() {
       if (top.hidden) return [0, 0];
@@ -50,6 +57,30 @@ export function createFightHud(on: { back(): void }): FightHud {
       // the latest action, held a moment; else where they are
       const act = v.acts.find((a) => a.age < 25);
       if (act) lastMessage = act.name;
+      // (the banner: the latest spell, skill or ultimate, held about a second and a half, longer for an ultimate)
+      const shown = [...v.acts].reverse().find((a) => a.pool && a.age < 40);
+      const key = shown ? `${shown.side}:${shown.ref}:${shown.name}:${shown.age - (shown.age % 100)}` : '';
+      if (shown && key !== bannerKey) {
+        bannerKey = key;
+        bannerUntil = performance.now() + (shown.ult ? 2600 : 1500);
+        banner.className = shown.ult ? 'ult' : shown.spell ? 'spell' : 'skill';
+        banner.replaceChildren();
+        const who = document.createElement('span');
+        who.className = 'ff-who';
+        who.textContent = shown.ult ? `${shown.who} unleashes` : shown.who;
+        const name = document.createElement('span');
+        name.className = 'ff-act';
+        name.textContent = shown.name;
+        const cost = document.createElement('span');
+        cost.className = 'ff-cost';
+        cost.textContent = shown.ult ? 'ULTIMATE' : `${shown.cost} ${POOL_NAMES[shown.pool!]}`;
+        banner.append(who, name, cost);
+        banner.hidden = false;
+        banner.classList.remove('show');
+        void banner.offsetWidth; // (restart the animation)
+        banner.classList.add('show');
+      }
+      if (performance.now() > bannerUntil) banner.hidden = true;
       // (a delve's fight: what they ran into, as the log has it)
       else if (fight && v.delve && v.phase === 'work') lastMessage = v.delve.log.at(-1) ?? lastMessage;
       else if (!fight && v.delve && v.phase === 'work') lastMessage = v.delve.log.at(-1) ?? `Into ${v.destName}`;
@@ -90,6 +121,23 @@ export function createFightHud(on: { back(): void }): FightHud {
             if (f.atb >= 0.99 && !f.down) fill.className = 'full';
             gauge.append(fill);
             row.append(name, hp, gauge);
+            // mana, stamina and the limit gauge (a person's)
+            if (f.maxMp !== null && f.maxSp !== null) {
+              const pools = document.createElement('span');
+              pools.className = 'ff-pools';
+              const bar = (cls: string, share: number, title: string) => {
+                const b = document.createElement('span');
+                b.className = `ff-bar ${cls}`;
+                b.title = title;
+                const i = document.createElement('i');
+                i.style.width = `${Math.round(Math.max(0, Math.min(1, share)) * 100)}%`;
+                if (cls === 'limit' && share >= 1) i.className = 'full';
+                b.append(i);
+                return b;
+              };
+              pools.append(bar('mp', (f.mp ?? 0) / Math.max(1, f.maxMp), `MP ${Math.round(f.mp ?? 0)}/${f.maxMp}`), bar('sp', (f.sp ?? 0) / Math.max(1, f.maxSp), `SP ${Math.round(f.sp ?? 0)}/${f.maxSp}`), bar('limit', f.limit ?? 0, `Limit ${Math.round((f.limit ?? 0) * 100)}%`));
+              row.append(pools);
+            }
             return row;
           }),
       );

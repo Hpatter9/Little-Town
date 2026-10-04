@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import type { Attrs } from '../data/attributes';
 import { RESEARCH_PACE } from '../data/pace';
 import { swims } from './sea';
 import { natureOf, type NatureId } from '../data/natures';
@@ -182,9 +183,9 @@ export interface PersonView {
   sick: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
    *  chance, dodge, armour and block, and the chance to strike true. */
-  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean };
-  /** The spells they keep ready and the skills they've learned (actives first). */
-  kit: { name: string; spell: boolean; level: number }[];
+  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number };
+  /** The spells they keep ready and the skills they've learned (actives first), with what each costs. */
+  kit: { name: string; spell: boolean; level: number; cost: number; pool: 'mp' | 'sp' | 'limit' }[];
 }
 
 export interface CraftOrderView {
@@ -224,6 +225,12 @@ export interface FighterView {
   /** How near their next turn is (0 to 1: the old games' time gauge), their statuses, their class (party), and the
    *  last number to pop up over them (ticks ago). */
   atb: number;
+  /** Mana, stamina and the limit gauge (people only; data/attributes.ts). */
+  mp: number | null;
+  maxMp: number | null;
+  sp: number | null;
+  maxSp: number | null;
+  limit: number | null;
   statuses: string[];
   clsName: string | null;
   cls: ClassId | null;
@@ -330,7 +337,7 @@ export interface ExpeditionView {
   roles: Record<number, string>;
   /** A fight in progress, if any, and the spells and skills used in it lately (ticks ago). */
   battle: FighterView[] | null;
-  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[] }[];
+  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[]; spell: boolean; ult: boolean; cost: number; pool: 'mp' | 'sp' | 'limit' | null; who: string }[];
   /** Waiting on a question for the player. */
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
@@ -1024,8 +1031,8 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit'> {
   const f = personFighter(p, 'fighter', 'front');
   const kit = kitOf(p);
   const view = {
-    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged },
-    kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level })),
+    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval },
+    kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool })),
   };
   fightCache.set(p.id, { key, view });
   return view;
@@ -1126,6 +1133,11 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           sinceArea: f.lastArea != null ? e.battle!.tick - f.lastArea : 999,
           hitFx: f.hitFx ?? null,
           atb: f.down ? 0 : Math.max(0, Math.min(1, 1 - f.cooldown / Math.max(1, f.interval))),
+          mp: f.mp ?? null,
+          maxMp: f.maxMp ?? null,
+          sp: f.sp ?? null,
+          maxSp: f.maxSp ?? null,
+          limit: f.limit ?? null,
           statuses: Object.entries(f.st ?? {}).filter(([, v]) => v!.until > e.battle!.tick).map(([k]) => k),
           clsName: f.side === 'party' ? ((q) => (q ? callingName(q, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
           cls: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.cls ?? null) : null,
@@ -1137,7 +1149,18 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           elite: f.elite ?? null,
         }))
       : null,
-    acts: (e.battle?.acts ?? []).map((a) => ({ age: e.battle!.tick - a.tick, side: a.side, ref: a.ref, name: a.name, targets: a.targets })),
+    acts: (e.battle?.acts ?? []).map((a) => ({
+      age: e.battle!.tick - a.tick,
+      side: a.side,
+      ref: a.ref,
+      name: a.name,
+      targets: a.targets,
+      spell: !!a.meta?.spell,
+      ult: !!a.meta?.ult,
+      cost: a.meta?.cost ?? 0,
+      pool: a.meta?.pool ?? null,
+      who: e.battle!.fighters.find((f) => f.side === a.side && f.ref === a.ref)?.name ?? '',
+    })),
     waiting: e.prompt !== null,
     hunt: !!e.hunt,
     delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,

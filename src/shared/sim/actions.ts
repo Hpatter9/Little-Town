@@ -5,6 +5,7 @@
 // to look like (battle.ts), so both fight the same way.
 
 import { abilitiesKnown, type Passive } from '../data/abilities';
+import { LIMIT_FROM_DEALT, LIMIT_FROM_HURT, skillCost, spellCost, WIS_HEALING, ATTR_BASE, type Attrs } from '../data/attributes';
 import { CLASS_DEFS, type ClassId } from '../data/classes';
 import { BAD_STATUS, type Effect, type Element, type Status, type Target, type Use } from '../data/effects';
 import { ENEMIES, natureOf } from '../data/enemies';
@@ -27,6 +28,9 @@ export interface KitAction {
   ready: number;
   effects: readonly Effect[];
   use: Use;
+  /** What it costs: mana (a spell), stamina (a skill), or the limit gauge (an ultimate). */
+  cost: number;
+  pool: 'mp' | 'sp' | 'limit';
 }
 
 export interface Kit {
@@ -58,6 +62,22 @@ export interface Combatant {
   conjured?: boolean;
   /** The last number to pop up over them (damage, or healing): for the watcher. */
   pop?: { tick: number; amount: number; heal: boolean };
+  /** Their attributes (data/attributes.ts), and the pools their spells and skills draw on: mana, stamina and the
+   *  limit gauge (0 to 1). A fighter without them (a raider on the map) pays nothing. */
+  attrs?: Attrs;
+  mp?: number;
+  maxMp?: number;
+  sp?: number;
+  maxSp?: number;
+  limit?: number;
+}
+
+/** What was done, for the watcher: the box naming it, the banner for a skill, the fanfare for an ultimate. */
+export interface ActMeta {
+  spell: boolean;
+  ult: boolean;
+  cost: number;
+  pool: 'mp' | 'sp' | 'limit';
 }
 
 /** What a fight gives the engine: everyone in it, the tick, a way to call up a summoned ally, and a log of what was
@@ -67,7 +87,7 @@ export interface Arena {
   all: () => Combatant[];
   rng: Rng;
   summon: (user: Combatant, kind: string) => Combatant | null;
-  log: (user: Combatant, name: string, targets: Combatant[]) => void;
+  log: (user: Combatant, name: string, targets: Combatant[], meta?: ActMeta) => void;
 }
 
 const secs = (n: number) => Math.round(n * TICK_HZ);
@@ -101,10 +121,10 @@ export function kitOf(p: Pick<Person, 'cls' | 'level'>): Kit | undefined {
   if (!p.cls) return undefined;
   const lv = levelOf(p);
   const actions: KitAction[] = [];
-  for (const s of readySpells(p.cls, lv)) actions.push({ id: s.id, name: s.name, spell: true, level: s.level, cooldown: secs(s.cooldown), ready: 0, effects: s.effects, use: s.use });
+  for (const s of readySpells(p.cls, lv)) actions.push({ id: s.id, name: s.name, spell: true, level: s.level, cooldown: secs(s.cooldown), ready: 0, effects: s.effects, use: s.use, cost: spellCost(s.level), pool: 'mp' });
   const passive = NO_PASSIVE();
   for (const a of abilitiesKnown(p.cls, lv)) {
-    if (a.active) actions.push({ id: a.id, name: a.name, spell: false, level: a.level, cooldown: secs(a.active.cooldown), ready: 0, effects: a.active.effects, use: a.use as Use });
+    if (a.active) actions.push({ id: a.id, name: a.name, spell: false, level: a.level, cooldown: secs(a.active.cooldown), ready: 0, effects: a.active.effects, use: a.use as Use, cost: a.ultimate ? 1 : skillCost(a.level), pool: a.ultimate ? 'limit' : 'sp' });
     if (a.passive) {
       const q = a.passive;
       for (const k of ['damage', 'power', 'healing', 'crit', 'critDamage', 'counter', 'lifesteal', 'thorns', 'guard', 'resist', 'regen', 'lastStand'] as const) passive[k] += q[k] ?? 0;
@@ -246,7 +266,10 @@ export function takeTurn(a: Arena, f: Combatant): boolean {
   for (const act of kit.actions) {
     if (act.ready > a.tick || (act.spell && silenced)) continue;
     if (afraid(f, a.tick) && act.use === 'attack') continue;
-    const w = worth(a, f, act);
+    if (!canPay(f, act)) continue;
+    let w = worth(a, f, act);
+    // (an ultimate, once the gauge is full, is the thing to do)
+    if (act.pool === 'limit' && w > 0) w += 100;
     if (w > bestW) {
       best = act;
       bestW = w;
@@ -254,11 +277,33 @@ export function takeTurn(a: Arena, f: Combatant): boolean {
   }
   if (!best) return false;
   best.ready = a.tick + best.cooldown;
+  pay(f, best);
   f.lastAction = a.tick;
   const struck = new Set<Combatant>();
   for (const e of best.effects) for (const t of apply(a, f, best, e)) struck.add(t);
-  a.log(f, best.name, [...struck]);
+  if (best.pool === 'limit') f.limit = 0; // (the ultimate's own blows don't refill the gauge)
+  a.log(f, best.name, [...struck], { spell: best.spell, ult: best.pool === 'limit', cost: best.cost, pool: best.pool });
   return true;
+}
+
+/** Whether they can afford it: the pool it draws on (none: free, as a raider's or a boss's are). */
+export function canPay(f: Combatant, act: KitAction): boolean {
+  if (act.pool === 'limit') return (f.limit ?? 0) >= 1;
+  if (act.pool === 'mp') return f.mp === undefined || f.mp >= act.cost;
+  return f.sp === undefined || f.sp >= act.cost;
+}
+function pay(f: Combatant, act: KitAction): void {
+  if (act.pool === 'limit') f.limit = 0;
+  else if (act.pool === 'mp' && f.mp !== undefined) f.mp = Math.max(0, f.mp - act.cost);
+  else if (act.pool === 'sp' && f.sp !== undefined) f.sp = Math.max(0, f.sp - act.cost);
+}
+
+/** The limit gauge fills from hurt taken, and less from hurt dealt (what the blow took, not the overkill, and no more
+ *  than a tenth a blow). */
+export function fillLimit(to: Combatant, from: Combatant, dmg: number, before: number): void {
+  const share = Math.min(dmg, before) / Math.max(1, to.maxHp);
+  if (to.limit !== undefined) to.limit = Math.min(1, to.limit + share * LIMIT_FROM_HURT);
+  if (from !== to && from.limit !== undefined) from.limit = Math.min(1, from.limit + Math.min(0.1, share * LIMIT_FROM_DEALT));
 }
 
 /* ------------------------------------------------------------ doing */
@@ -333,7 +378,7 @@ function apply(a: Arena, f: Combatant, act: KitAction, e: Effect): Combatant[] {
     }
     case 'heal': {
       const targets = pick(a, f, e.target);
-      const amount = power * (e.power ?? 1) * 1.6 * (1 + (p?.healing ?? 0));
+      const amount = power * (e.power ?? 1) * 1.6 * (1 + (p?.healing ?? 0) + Math.max(0, (f.attrs?.wis ?? ATTR_BASE) - ATTR_BASE) * WIS_HEALING);
       for (const t of targets) {
         t.pop = { tick: a.tick, amount: Math.min(t.maxHp - t.hp, Math.round(amount)), heal: true };
         t.hp = Math.min(t.maxHp, t.hp + Math.round(amount));
@@ -400,8 +445,10 @@ export function strike(a: Arena, from: Combatant, to: Combatant, raw: number, ph
   }
   to.pop = { tick: a.tick, amount: dmg, heal: false };
   if (dmg > 0) {
+    const before = to.hp;
     to.hp = Math.max(0, to.hp - dmg);
     to.lastHit = a.tick;
+    fillLimit(to, from, dmg, before);
     if (to.hp === 0) to.down = true;
     // a hit sleeper wakes
     if (to.st?.sleep) delete to.st.sleep;

@@ -477,7 +477,7 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
     const p = members.find((q) => q.id === f.ref);
     if (!p) continue;
     if (f.down && !p.downed) knockDown(s, p);
-    else if (!f.down) p.hp = f.hp;
+    else if (!f.down) p.hp = Math.max(1, Math.min(maxHp(p), Math.round((f.hp * maxHp(p)) / Math.max(1, f.maxHp)))); // (back to the town's reckoning of their health)
     if (f.attacks) gainSkill(p, f.ranged ? 'ranged' : 'melee', f.attacks * FIGHT_XP);
     if (e.roles[p.id] === 'medic' && f.lastAction >= 0) gainSkill(p, 'medicine', FIGHT_XP * 3);
   }

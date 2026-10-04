@@ -6,7 +6,9 @@
 import type { EliteAffix } from '../data/dungeons';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { classStat, levelPower } from '../data/levels';
-import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type Arena, type Kit, type Statuses } from './actions';
+import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type ActMeta, type Arena, type Kit, type Statuses } from './actions';
+import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxManaOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs } from '../data/attributes';
+import { attributesOf } from './attributes';
 import { ENEMIES, enemyArmor, natureOf, type EnemyGroup } from '../data/enemies';
 import { WEREWOLF_DAMAGE } from '../data/monsters';
 import type { Role } from '../data/expeditions';
@@ -73,6 +75,13 @@ export interface Fighter {
   st?: Statuses;
   conjured?: boolean;
   pop?: { tick: number; amount: number; heal: boolean };
+  /** Attributes and the pools (data/attributes.ts): people only; a creature pays nothing and has no limit. */
+  attrs?: Attrs;
+  mp?: number;
+  maxMp?: number;
+  sp?: number;
+  maxSp?: number;
+  limit?: number;
   /** Epic bosses: raging yet, called for help yet, attacks made (for the sweeping attack). */
   enraged?: boolean;
   summoned?: boolean;
@@ -128,9 +137,15 @@ export interface Battle {
   boss: boolean;
   /** What the bosses said and did, for the Journal (taken and cleared by the expedition). */
   shouts?: string[];
-  /** The spells and skills used lately (for the watcher's box naming the action). */
-  acts?: { tick: number; side: Fighter['side']; ref: number; name: string; targets: number[] }[];
+  /** The spells and skills used lately (for the watcher's box naming the action), with what each was. */
+  acts?: { tick: number; side: Fighter['side']; ref: number; name: string; targets: number[]; meta?: ActMeta }[];
+  /** Turn-based: ticks until the next fighter may act (a beat after each action, so turns come one at a time). */
+  beat?: number;
 }
+
+/** Ticks between one fighter's turn and the next's (the beat of a turn-based fight), longer after an ultimate. */
+export const TURN_BEAT = 6;
+export const ULT_BEAT = 14;
 
 /** Ticks before the first exchange can end in a retreat (so a party at least tries). */
 const MIN_TICKS_BEFORE_RETREAT = 2 * TICK_HZ;
@@ -157,14 +172,19 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
   const aim = used ? w.accuracy : 0;
   const base: [number, number] = useRanged ? [Math.round(2 + ranged * 0.5), Math.round(4 + ranged * 0.5)] : [Math.round(3 + melee * 0.6), Math.round(5 + melee * 0.6)];
   const wolf = p.monster === 'werewolf' ? WEREWOLF_DAMAGE : 0; // (a werewolf fights with more than a weapon)
+  // (their attributes: a caster's blows by their Intellect, anyone else's by their Strength; Dexterity in their aim,
+  // their footwork and how often their turn comes; Vitality in their health)
+  const at = attributesOf(p);
+  const over = (k: keyof Attrs) => Math.max(0, at[k] - ATTR_BASE);
+  const attrK = 1 + (caster ? over('int') * INT_POWER : over('str') * STR_DAMAGE);
   // (their class, its stage and their level make them stronger: casters by their spell power)
-  const k = (caster ? classStat(p, 'power') : classStat(p, 'damage')) * levelPower(p);
+  const k = (caster ? classStat(p, 'power') : classStat(p, 'damage')) * levelPower(p) * attrK;
   const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k), Math.round((base[1] + bonus + wolf) * k)];
   const g = gearEffects(p);
   // (their skills: always-on passives, and the kit of spells and skills they use)
   const ps = passiveStats(p);
   const kit = role === 'porter' ? undefined : kitOf(p);
-  const most = Math.round(maxHp(p) * (1 + (ps.hp ?? 0)));
+  const most = Math.round(maxHp(p) * (1 + (ps.hp ?? 0) + over('vit') * VIT_HP));
   const wq = used ? w.quirks : NO_QUIRKS;
   const quirks: Quirks = {
     ...wq,
@@ -182,14 +202,14 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     ref: p.id,
     kind: 'person',
     name: p.name,
-    hp: Math.min(p.hp, most),
+    hp: Math.min(most, Math.round((p.hp * most) / Math.max(1, maxHp(p)))), // (the same share of their health, at the fight's reckoning)
     maxHp: most,
     row,
     ranged: useRanged,
     damage: role === 'porter' ? [0, 0] : damage,
-    accuracy: 0.55 + skill * 0.025 + aim + classStat(p, 'accuracy') + (ps.accuracy ?? 0),
-    dodge: 0.05 + melee * 0.01 + g.dodge + classStat(p, 'dodge') + (ps.dodge ?? 0),
-    interval: Math.round(PERSON_INTERVAL * TICK_HZ * (used ? w.speed : 1) * g.slow * classStat(p, 'speed') * (1 - (ps.speed ?? 0))),
+    accuracy: 0.55 + skill * 0.025 + aim + classStat(p, 'accuracy') + (ps.accuracy ?? 0) + over('dex') * DEX_AIM,
+    dodge: 0.05 + melee * 0.01 + g.dodge + classStat(p, 'dodge') + (ps.dodge ?? 0) + over('dex') * DEX_DODGE,
+    interval: Math.max(3, Math.round(PERSON_INTERVAL * TICK_HZ * (used ? w.speed : 1) * g.slow * classStat(p, 'speed') * (1 - (ps.speed ?? 0)) * speedOfDex(at.dex))),
     cooldown: 0,
     down: p.hp <= 0,
     role,
@@ -209,6 +229,12 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     ammoBonus: AMMO_DAMAGE[ammoOf(p) ?? 'wood'] ?? 0,
     ammoUsed: 0,
     cls: p.cls ?? null,
+    attrs: at,
+    mp: maxManaOf(at),
+    maxMp: maxManaOf(at),
+    sp: maxStaminaOf(at),
+    maxSp: maxStaminaOf(at),
+    limit: 0,
   };
 }
 
@@ -333,8 +359,12 @@ function arenaOf(b: Battle, rng: Rng): Arena {
       b.fighters.push(f);
       return f;
     },
-    log: (user, name, targets) => {
-      (b.acts ??= []).push({ tick: b.tick, side: user.side, ref: user.ref, name, targets: targets.map((t) => t.ref) });
+    log: (user, name, targets, meta) => {
+      (b.acts ??= []).push({ tick: b.tick, side: user.side, ref: user.ref, name, targets: targets.map((t) => t.ref), ...(meta ? { meta } : {}) });
+      if (meta?.ult) {
+        (b.shouts ??= []).push(`${user.name} unleashes ${name}!`);
+        b.beat = ULT_BEAT;
+      }
       if (b.acts.length > 12) b.acts.shift();
     },
   };
@@ -346,9 +376,22 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
   b.tick++;
   const arena = arenaOf(b, rng);
   for (const f of b.fighters) tickStatuses(arena, f);
-  for (const f of b.fighters) {
-    if (f.down || --f.cooldown > 0) continue;
+  // Turn-based: everyone's gauge fills (cooldown runs down), but only one acts a tick, and a beat passes after each
+  // action before the next may (so turns come one at a time, and the quick, by Dexterity, come round more often).
+  for (const f of b.fighters) if (!f.down) f.cooldown--; // (below zero while they wait their turn: the longest waiting goes first)
+  if ((b.beat ?? 0) > 0) {
+    b.beat!--;
+    return endCheck(b, rules);
+  }
+  const ready = b.fighters.filter((f) => !f.down && f.cooldown <= 0).sort((x, y) => x.cooldown - y.cooldown || (y.attrs?.dex ?? 0) - (x.attrs?.dex ?? 0));
+  for (const f of ready.slice(0, 1)) {
     f.cooldown = pace(f, b.tick);
+    b.beat = TURN_BEAT;
+    // (mana and stamina come back a little each turn)
+    if (f.attrs) {
+      if (f.mp !== undefined && f.maxMp !== undefined) f.mp = Math.min(f.maxMp, f.mp + manaRegenOf(f.attrs));
+      if (f.sp !== undefined && f.maxSp !== undefined) f.sp = Math.min(f.maxSp, f.sp + staminaRegenOf(f.attrs));
+    }
     if (f.role === 'porter') continue;
     // stunned, asleep, frozen, stopped: the turn is lost
     if (held(f, b.tick)) continue;
@@ -385,6 +428,7 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
     }
     f.lastAction = b.tick;
     f.attacks++;
+    if (f.sp !== undefined && f.maxSp !== undefined) f.sp = Math.min(f.maxSp, f.sp + STAMINA_PER_BLOW); // (a plain blow steadies the breath)
     if (rng.next() >= f.accuracy - target.dodge) {
       if (f.ammoBonus && f.ammo > 0) (f.ammo--, f.ammoUsed++); // a stone thrown is a stone gone
       continue; // miss
@@ -427,7 +471,11 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
     if (target.hp === 0) target.down = true;
   }
   raiseFallen(b);
+  endCheck(b, rules);
+}
 
+/** Whether the fight is over: won, lost, or the party pulling out. */
+function endCheck(b: Battle, rules: BattleRules): void {
   const party = b.fighters.filter((f) => f.side === 'party');
   const enemies = b.fighters.filter((f) => f.side === 'enemy');
   if (enemies.every((f) => f.down)) b.outcome = 'won';

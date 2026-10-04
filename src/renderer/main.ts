@@ -44,7 +44,7 @@ function travellerPerson(t: TravellerView): PersonView {
     partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, ageDays: 0,
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '',
   monster: null, order: null, sick: false,
-    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false }, kit: [],
+    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8 }, mp: 0, sp: 0, interval: 12 }, kit: [],
   };
 }
 const travellerDoing = (t: TravellerView) => {
