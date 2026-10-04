@@ -113,6 +113,8 @@ export interface PersonView {
   hitFrom: 1 | -1;
   /** Ticks since they last struck at a foe, and since they last turned a blow (the fighting poses). */
   sinceBlow: number;
+  /** Under arms in a raid (the defend task): a fighting calling keeps its combat form the whole fight. */
+  defending: boolean;
   sinceBlock: number;
   /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
@@ -1170,6 +1172,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     hitFrom: p.hitFrom ?? 1,
     sinceBlow: s.tick - (p.lastBlow ?? -999),
     sinceBlock: s.tick - (p.lastBlock ?? -999),
+    defending: !!s.raid && p.task?.type === 'defend',
     mounted: null,
     cls: p.cls ?? null,
     clsName: callingName(p, stageOf(p)),

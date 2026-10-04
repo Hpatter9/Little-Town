@@ -719,6 +719,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       if ((near.length || u.kit.actions.some((x) => x.use === 'heal' || x.use === 'support')) && takeTurn(arena, arena.me)) {
         u.cooldown = rallied(s, p) ? Math.round(every / RALLY_SPEED) : every;
         u.lastAt = s.tick;
+        p.lastBlow = s.tick; // (a spell or a skill plays the striking pose, as a blow does)
         for (const [o, d] of was) if (o.down && !d) fell(b, o);
         continue;
       }

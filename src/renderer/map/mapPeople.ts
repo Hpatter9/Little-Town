@@ -320,7 +320,8 @@ export class MapPeople {
       // a fighting calling takes its combat form (a Craftpix hero) while it fights, and a little after
       // (the raised dead fight as the pack's skeletons, whatever their calling)
       const hero = v.monster === 'undead' ? skeletonSheet(v.battle.ranged, v.id) : heroSheet(v.cls, v.id);
-      const inCombat = v.activity === 'fight' || v.sinceBlow < HERO_LINGER || v.sinceHit < HERO_LINGER;
+      // (a defender keeps the form the whole raid: switching only while striking made it flicker between turns)
+      const inCombat = v.defending || v.activity === 'fight' || v.sinceBlow < HERO_LINGER || v.sinceHit < HERO_LINGER;
       if (hero && inCombat && !hidden && !founder && !(v.cls && CLASS_LOOK[v.cls])) {
         plain = false;
         s.texture = heroFrame(hero, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });

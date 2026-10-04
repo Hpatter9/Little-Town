@@ -1642,6 +1642,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   pack's stone archway with its doors open (`HOLD_GATE` from `art/delve/doors.png`, 48 px), not the skull-faced cave
   gate. Tests in `test/castle.test.ts`.
 
+- **No flicker between forms in a fight (the owner's complaint):** the fighting callings took their combat form only
+  while striking or for `HERO_LINGER` after, and on the raid map a turn can come round less often than that (and a
+  spell or skill set no blow), so a fighter flipped between townsperson and hero each turn. Now `PersonView.defending`
+  (the defend task in a raid) keeps the form the whole fight (mapPeople's `inCombat`), and a cast on the battle map sets
+  `p.lastBlow` so it plays the striking pose.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be
