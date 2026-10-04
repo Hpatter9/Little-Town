@@ -7,7 +7,7 @@ import { FOOD_VALUE, NAMES } from '../data/people';
 import type { Material } from '../data/materials';
 import type { Rng } from '../rng';
 import { storages } from './buildings';
-import { addStock, makePerson, notify, type GameState, type Prisoner, type Raider } from './state';
+import { townFull, addStock, makePerson, notify, type GameState, type Prisoner, type Raider } from './state';
 import { campXY } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds } from './townsfolk';
@@ -54,7 +54,7 @@ export function updatePrisoners(s: GameState, rng: Rng): void {
     }
     if (bloodTown(s)) continue;
     pr.conviction += ((CONVERT_BASE + social * CONVERT_PER_SOCIAL) * (pr.hungry ? 0.3 : 1)) / 24;
-    if (pr.conviction >= 1) convert(s, pr, rng);
+    if (pr.conviction >= 1 && !townFull(s)) convert(s, pr, rng);
   }
 }
 

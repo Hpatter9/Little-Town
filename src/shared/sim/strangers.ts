@@ -5,7 +5,7 @@ import { SETTLE_CHANCE, STRANGER_CHANCE, STRANGER_ORIGINS, TRAVELLER_STRANGER_CH
 import { LIFESPANS } from '../data/lifespans';
 import type { Rng } from '../rng';
 import { becomeMonster } from './monsters';
-import { makePerson, notify, sideOf, type GameState, type Person, type Traveller } from './state';
+import { townFull, makePerson, notify, sideOf, type GameState, type Person, type Traveller } from './state';
 import { askVisitor, campEdge } from './townsfolk';
 import { TICKS_PER_HOUR } from './time';
 
@@ -55,7 +55,7 @@ const SETTLE_WAIT_HOURS = 6;
 /** A traveller leaving the shop well served may ask to settle (a bed free, nobody else waiting at the gate): they
  *  become the town's visitor, to be taken in or sent on (a xenophobic town sends a stranger on at once). */
 export function offerToSettle(s: GameState, t: Traveller, rng: Rng, housingFree: boolean): boolean {
-  if (s.visitor || !housingFree || !rng.chance(SETTLE_CHANCE)) return false;
+  if (s.visitor || !housingFree || townFull(s) || !rng.chance(SETTLE_CHANCE)) return false;
   const origin = t.origin ?? null;
   if (!welcomes(s, origin)) {
     notify(s, `${t.name}, ${oneOf(origin!)}, asked to stay, and was sent on: ${ORIGIN_DEFS[s.origin!].name} keep to their own.`);

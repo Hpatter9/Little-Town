@@ -191,3 +191,14 @@ test('a Deep Hold digs on into the mountain: faces beside its halls open, dug ou
     if (groundAt(m, c.x, c.y) === 'mountain') assert.ok(m.pools[i].stone !== undefined || Object.keys(m.pools[i]).length > 0, 'a face holds something');
   }
 });
+
+test('a dwarf town is always founded at the foot of its mountain, whatever the land', () => {
+  for (const biome of ['forest', 'desert', 'tundra', 'coast'] as const)
+    for (const seed of ['m1', 'm2']) {
+      const s = newGame(`hold-${seed}`, { origin: 'dwarves', biome } as never);
+      const cells = s.land.cells;
+      const mountain = [...cells].filter((c) => c === 'M').length;
+      assert.ok(mountain > s.land.w * s.land.h * 0.3, `${biome}: a mountain to carve (${mountain} cells)`);
+      assert.ok([...cells].some((c) => c === 'H'), `${biome}: the hall cut into it`);
+    }
+});

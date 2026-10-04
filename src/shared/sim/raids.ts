@@ -110,12 +110,17 @@ export function wealth(s: GameState): number {
   return poolSize(totalStock(s)) + 5 * s.buildings.filter((b) => b.status === 'done').length;
 }
 
+/** The town size (the player's choice) below which raids grow more slowly with the days. */
+export const RAID_SMALL_TOWN = 20;
+
 export function raidBudget(s: GameState): number {
   const day = Math.floor(paceDay(s.tick));
   const war = s.doom?.kind === 'war' && s.doom.phase === 'active' ? WAR_RAID_BUDGET : 1;
   // (and with how many it has to get past)
   const people = Math.max(0, s.people.filter((p) => p.away === null && p.type !== 'child').length - RAID_BUDGET_FREE_PEOPLE);
-  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength);
+  // (a town kept small by the player's choice draws raids that grow more slowly: they come for what it's worth)
+  const small = s.popTarget === undefined ? 1 : Math.min(1, s.popTarget / RAID_SMALL_TOWN);
+  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY * small + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength);
 }
 
 /** The building giving the longest raid warning, if any. */

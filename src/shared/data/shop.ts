@@ -10,10 +10,31 @@ import { plusOf, qualityMult } from './quality';
 import { WORTH } from './trade';
 import type { Material } from './materials';
 import { caravanGoods } from './trade';
+import { SHOP_LINES, type ShopLine } from './stores';
 
 /** Every kind of shop, smallest first (each upgrades into the next). */
 export const SHOPS: readonly string[] = ['trading_post', 'general_store', 'emporium'];
-export const isShop = (def: string) => BUILDING_BY_ID[def]?.floor?.venue === 'shop';
+/** The general store's chain (a specialty shop is a venue of the shop kind too, but not one of these). */
+export const isShop = (def: string) => BUILDING_BY_ID[def]?.floor?.venue === 'shop' && !BUILDING_BY_ID[def]?.floor?.line;
+/** What a specialty shop sells (undefined for the general store and the tavern). */
+export const lineOfDef = (def: string): ShopLine | undefined => BUILDING_BY_ID[def]?.floor?.line;
+/** The medicines (apothecary's line besides its wares). */
+const MEDICINES = new Set(['bandage', 'poultice', 'antibiotics', 'medkit']);
+const MEDICINE_STATIONS = new Set(['apothecary', 'pharmacy', 'herb_press', 'alembic']);
+const ARMOUR_SLOTS = new Set(['body', 'head', 'offhand']);
+/** Which line an item belongs to, if any: furnishings, weapons, armour (and shields), medicine. */
+export function lineOfItem(i: ItemDef): ShopLine | undefined {
+  if (i.relic || i.unique) return undefined;
+  if (i.furnish) return 'furniture';
+  if (i.slot === 'weapon') return 'weapons';
+  if (i.slot && ARMOUR_SLOTS.has(i.slot)) return 'armour';
+  if (MEDICINES.has(i.id) || (i.ware && MEDICINE_STATIONS.has(i.station))) return 'medicine';
+  return undefined;
+}
+/** Every item of a line. */
+export const LINE_ITEMS: Readonly<Record<ShopLine, readonly ItemDef[]>> = Object.fromEntries(
+  SHOP_LINES.map((l) => [l, ITEMS.filter((i) => lineOfItem(i) === l)]),
+) as unknown as Record<ShopLine, readonly ItemDef[]>;
 export const isTavern = (def: string) => BUILDING_BY_ID[def]?.floor?.venue === 'tavern';
 export const venueOfDef = (def: string): Venue | undefined => BUILDING_BY_ID[def]?.floor?.venue;
 /** Every kind of tavern, smallest first. */

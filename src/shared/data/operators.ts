@@ -3,6 +3,7 @@
 
 import type { Skill } from './skills';
 import { STATIONS } from './items';
+import { LINES } from './stores';
 
 export interface OperatorRole {
   title: string;
@@ -39,6 +40,7 @@ export const OPERATORS: Readonly<Record<string, OperatorRole>> = {
   trading_post: { title: 'Shopkeeper', skill: 'social', effect: 'Sets out the furnishings; talks customers into more' },
   general_store: { title: 'Shopkeeper', skill: 'social', effect: 'Sets out the furnishings; talks customers into more' },
   emporium: { title: 'Shopkeeper', skill: 'social', effect: 'Sets out the furnishings; talks customers into more' },
+  ...Object.fromEntries(Object.values(LINES).map((l) => [l.store, { title: l.keeper, skill: 'social' as Skill, effect: 'Sets out the shelves and racks; talks customers into more' }])),
   market: { title: 'Merchant', skill: 'social', effect: 'Better prices from caravans' },
   infirmary: { title: 'Healer', skill: 'medicine', effect: 'Wounds heal faster still' },
   watchtower: { title: 'Guard Captain', skill: 'melee', effect: 'Defenders hit harder and more often' },

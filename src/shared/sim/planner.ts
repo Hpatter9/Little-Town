@@ -3,6 +3,7 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { LINES, LINE_STOCK, SHOP_LINES, STORE_PEOPLE } from '../data/stores';
 import { eraOfResearch } from '../data/research';
 import { ERAS } from '../data/eras';
 import { hashSeed, Rng } from '../rng';
@@ -34,9 +35,9 @@ import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
 import { tireless, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
-import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
+import { LINE_ITEMS, lineOfDef, COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
-import { attractiveness, extend, extensionPrice, furnishValue, improve, levelPrice, SALE_GEAR, shopOf, spotFor, tavernOf, venueKind, wouldFurnish } from './shop';
+import { attractiveness, extend, extensionPrice, furnishValue, improve, levelPrice, SALE_GEAR, shopOf, spotFor, storeOf, tavernOf, venueKind, wouldFurnish } from './shop';
 import { gearScore } from './crafting';
 
 /* ------------------------------------------------------------ the town's direction */
@@ -228,6 +229,8 @@ function topicScore(t: Topic, n: Needs): number {
     else if (e.type === 'rule' || e.type === 'quality' || e.type === 'powers') score += 8;
     else score += 6;
   }
+  // (children are how a town grows now that newcomers are few: it learns family life once there are a few of it)
+  if (t.id === 'family_life') score += n.people >= 4 ? 40 : 10;
   if (DIRECTION_DEFS[n.direction].branches.includes(BRANCH_OF(t))) score *= 1.6;
   if (t.branch === 'heritage') score *= 1.25; // (what the town's people are good at, they like to study)
   if (t.branch === 'occult') score *= 0.35; // (the town dabbles, but it's not what it's for)
@@ -405,7 +408,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
   // 5. a furnishing for each venue, one at a time (they start bare): the one that adds the most that would improve it
   // (room for it, or it beats a piece already out), and not yet another of a kind it has plenty of
   const isFurnishing = (i: ItemDef) => !!i.furnish;
-  for (const venue of [shopOf(s), tavernOf(s)]) {
+  for (const venue of [shopOf(s), tavernOf(s), ...SHOP_LINES.map((l) => storeOf(s, l))]) {
     if (!venue || !room() || !settled) continue;
     const mine = (i: ItemDef) => furnishes(i, venueKind(venue));
     if (ordered(s, (i) => isFurnishing(i) && mine(i)) || kept(s, (i) => isFurnishing(i) && mine(i))) continue;
@@ -427,10 +430,12 @@ function planCrafting(s: GameState, n: Needs): Stock {
     commission(shop, before);
   }
   // 7. gear customers came for and didn't find (the most asked-for first), a couple of each kind kept in stock
-  if (shop && room() && settled && !ordered(s, (i) => SALE_GEAR.includes(i))) {
+  for (const seller of [shop, storeOf(s, 'weapons'), storeOf(s, 'armour')]) {
+  if (!seller || !room() || !settled || ordered(s, (i) => SALE_GEAR.includes(i))) continue;
+  {
     const before = queued();
     const options: ItemDef[] = [];
-    for (const [key] of Object.entries(shop.shop?.asked ?? {}).sort((a, b) => b[1] - a[1])) {
+    for (const [key] of Object.entries(seller.shop?.asked ?? {}).sort((a, b) => b[1] - a[1])) {
       const [kind, what] = key.split(':');
       const slots = kind === 'gear' ? what.split(',') : kind === 'item' ? [ITEM_BY_ID[what]?.slot] : [];
       if (!slots.length) continue;
@@ -440,7 +445,19 @@ function planCrafting(s: GameState, n: Needs): Stock {
       else options.push(...SALE_GEAR.filter((i) => slots.includes(i.slot!) && makeable(i) && !i.items).sort((a, b) => gearScore(b, undefined) - gearScore(a, undefined)));
     }
     makeFirst(options);
-    commission(shop, before);
+    commission(seller, before);
+  }
+  }
+  // 7b. a specialty shop's line kept in stock (a few pieces of it on its shelves: furniture, weapons, armour, medicine),
+  // made from what's spare, the finest the town can make first
+  for (const line of SHOP_LINES) {
+    const store = storeOf(s, line);
+    const isLine = (i: ItemDef) => LINE_ITEMS[line].includes(i);
+    if (!store || !room() || !settled || ordered(s, isLine)) continue;
+    if (LINE_ITEMS[line].reduce((k, i) => k + (s.items[i.id] ?? 0), 0) >= LINE_STOCK) continue;
+    const before = queued();
+    makeFirst(LINE_ITEMS[line].filter((i) => makeable(i) && !i.items && (s.items[i.id] ?? 0) < 2).sort((a, b) => saleValue(b, undefined) - saleValue(a, undefined)));
+    commission(store, before);
   }
   // 8. fare for the tavern, one order at a time: the kind guests asked for most (or have least of), a few of each
   const tavern = tavernOf(s);
@@ -535,6 +552,7 @@ const isWall = (d: BuildingDef | undefined) => !!d && !!d.hp && d.width === 1 &&
 
 
 /** What the town would like built next, most wanted first, each with its reason. */
+/** What the town would like to build next, in order (exported for the tests: `townWishes`). */
 function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const out: { def: string; why: string }[] = [];
   const add = (def: string | undefined, why: string) => def && !out.some((w) => w.def === def) && out.push({ def, why });
@@ -622,6 +640,11 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (CROPS[d.id] && FOOD_VALUE[CROPS[d.id].material]) continue; // (food fields come of wanting food, above)
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
+    // (a specialty shop once the general store stands and the town is big enough to keep one)
+    if (lineOfDef(d.id)) {
+      if (shopOf(s) && grown >= STORE_PEOPLE) add(d.id, `to sell ${LINES[lineOfDef(d.id)!].banner.toLowerCase()} to travellers`);
+      continue;
+    }
     if (venueOfDef(d.id)) continue; // (one shop and one tavern, which grow by being rebuilt bigger)
     add(d.id, HERDS[d.id] ? `to keep ${HERDS[d.id].plural}` : WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
   }
@@ -948,7 +971,7 @@ const names = (ms: readonly Material[]) => ms.map((m) => MATERIAL_NAMES[m].toLow
  *  crowded (no room for another shelf or table), else a level on the piece that's cheapest to improve. */
 function planShop(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  for (const venue of [shopOf(s), tavernOf(s)]) {
+  for (const venue of [shopOf(s), tavernOf(s), ...SHOP_LINES.map((l) => storeOf(s, l))]) {
     if (!venue) continue;
     // (a good reserve, and tomorrow's wages, are kept back)
     const spare = (s.coins ?? 0) - 2 * COIN_RESERVE * PURSE_SCALE[s.era] - wageBill(s);
@@ -1058,3 +1081,6 @@ export function runPlanner(s: GameState): void {
   planPens(s);
   s.plan = plan;
 }
+
+/** The town's building wishes as it stands (for the tests). */
+export const townWishes = (s: GameState) => wishes(s, needs(s));

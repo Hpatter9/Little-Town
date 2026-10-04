@@ -19,7 +19,7 @@ import { shopOf, tavernOf } from './shop';
 import { researchMods } from './research';
 import { wardOf } from './rivals';
 import { aimedFoes, bestAim, inBattle } from './battle';
-import { addStock, campX, campXY, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
+import { townFull, addStock, campX, campXY, castSpellFx, makePerson, maxHp, notify, personFx, type GameState, type Person, type Raider, type SpellTarget } from './state';
 import { WORLD_WIDTH } from '../constants';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { housingCapacity, joinOrigin } from './townsfolk';
@@ -110,7 +110,7 @@ export const POWERS: Record<string, PowerDef> = {
     description: 'Bone and a word of command: a new townsperson rises, one of the dead.',
     cooldown: 12,
     costs: [{ bone: 6 }],
-    when: () => true,
+    when: (s) => !townFull(s),
     cast: (s, rng) => newcomer(s, rng, rng.pick(['gatherer', 'crafter', 'hunter', 'wanderer']), 'rises from the grave, ready to work.').name + ' was raised.',
   },
   bone_ward: {
@@ -278,7 +278,7 @@ export const POWERS: Record<string, PowerDef> = {
     description: 'A new unit is built: from ship salvage while it lasts, then from iron, or stone and wood.',
     cooldown: 12,
     costs: [{ alloys: 2, circuits: 1 }, { iron: 4, stone: 10 }, { stone: 18, wood: 10 }],
-    when: () => true,
+    when: (s) => !townFull(s),
     cast: (s, rng) => newcomer(s, rng, rng.pick(['gatherer', 'crafter', 'hunter', 'wanderer']), 'comes online.').name + ' was assembled.',
   },
   overclock: {
@@ -417,7 +417,7 @@ export const POWERS: Record<string, PowerDef> = {
     name: 'Changeling',
     description: 'A charmed traveller forgets the road, and stays.',
     cooldown: 60,
-    when: (s) => (s.travellers ?? []).some((t) => t.phase === 'shopping') && housingCapacity(s) > s.people.length,
+    when: (s) => (s.travellers ?? []).some((t) => t.phase === 'shopping') && housingCapacity(s) > s.people.length && !townFull(s),
     cast: (s, rng) => {
       const t = (s.travellers ?? []).find((q) => q.phase === 'shopping')!;
       s.travellers = (s.travellers ?? []).filter((q) => q !== t);

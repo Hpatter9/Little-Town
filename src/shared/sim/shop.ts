@@ -73,11 +73,14 @@ import {
   UPSELL_PER_LEVEL,
   UPSELL_XP,
   venueOfDef,
+  lineOfDef,
+  LINE_ITEMS,
   WANT_SLOTS,
   WARES,
   type ShopWantKind,
 } from '../data/shop';
 import { WORTH } from '../data/trade';
+import { LINES, SHOP_LINES, type ShopLine } from '../data/stores';
 import { biomeOf } from '../data/biomes';
 import { randomLook } from '../data/people';
 import type { Rng } from '../rng';
@@ -94,7 +97,16 @@ import { walk } from './walk';
 /* ------------------------------------------------------------ the venues and their floors */
 
 /** The town's venue of a kind, once built (there's only ever one of each). */
-export const venueOf = (s: GameState, venue: Venue): Building | undefined => s.buildings.find((b) => b.status === 'done' && venueOfDef(b.def) === venue);
+export const venueOf = (s: GameState, venue: Venue): Building | undefined => s.buildings.find((b) => b.status === 'done' && venueOfDef(b.def) === venue && !lineOfDef(b.def));
+/** The town's specialty shop of a line (data/stores.ts), once built. */
+export const storeOf = (s: GameState, line: ShopLine): Building | undefined => s.buildings.find((b) => b.status === 'done' && lineOfDef(b.def) === line);
+/** Open: built, and its keeper at home and on their feet. */
+export const storeOpen = (s: GameState, line: ShopLine): Building | undefined => {
+  const b = storeOf(s, line);
+  return b && operatorOf(s, b.def) ? b : undefined;
+};
+/** Where a traveller is headed: their specialty shop, or the general store or the tavern. */
+const venueFor = (s: GameState, t: Traveller) => (t.line ? storeOf(s, t.line) : venueOf(s, t.venue ?? 'shop'));
 /** Open: built, and someone to keep it (at home and on their feet). */
 export const venueOpen = (s: GameState, venue: Venue): Building | undefined => {
   const b = venueOf(s, venue);
@@ -414,6 +426,20 @@ function weighted<T>(rng: Rng, list: [T, number][]): T {
   return (list.find(([, w]) => (roll -= w) < 0) ?? list[0])[0];
 }
 
+/** What a specialty shop's customer comes for: a weapon or armour (of their standing's quality), or anything of its
+ *  line (furniture, medicine). */
+function lineWant(line: ShopLine, tier: number): Want {
+  const minQ = tier >= 4 ? 4 : tier >= 3 ? 3 : tier >= 2 ? 2 : 0;
+  if (line === 'weapons') return { kind: 'gear', slots: [...WANT_SLOTS.weapon], label: 'a weapon', minQ };
+  if (line === 'armour') return { kind: 'gear', slots: [...WANT_SLOTS.armor], label: 'armour', minQ };
+  return { kind: 'line', line, minQ };
+}
+/** Whether an item is sold by a specialty shop the town has open (the general store leaves it to them). */
+function lineOfItemOpen(s: GameState, i: ItemDef): boolean {
+  for (const line of SHOP_LINES) if (LINE_ITEMS[line].includes(i) && storeOpen(s, line)) return true;
+  return false;
+}
+
 /** What a shop customer of a tier comes for. A piece in particular is something the town knows how to make (or a
  *  customer would only ever be disappointed); a material is one of the goods of the town's era. The grand want finer
  *  things. */
@@ -423,10 +449,14 @@ function shopWant(s: GameState, rng: Rng, tier: number, forSale: Stock): Want {
   switch (kind) {
     case 'tool':
     case 'weapon':
-    case 'armor':
+    case 'armor': {
+      // (with a Weapons Store or an Armour Store open, those customers go there: the general store sells tools)
+      const elsewhere = (kind === 'weapon' && storeOpen(s, 'weapons')) || (kind === 'armor' && storeOpen(s, 'armour'));
+      if (elsewhere) return { kind: 'gear', slots: ['tool'], label: 'a tool', minQ };
       return { kind: 'gear', slots: [...WANT_SLOTS[kind]], label: kind === 'armor' ? 'armour' : `a ${kind}`, minQ };
+    }
     case 'item': {
-      const known = SALE_GEAR.filter((i) => itemUnlocked(s, i));
+      const known = SALE_GEAR.filter((i) => itemUnlocked(s, i) && !(lineOfItemOpen(s, i)));
       if (known.length) return { kind: 'item', item: rng.pick(known).id, minQ };
       return { kind: 'gear', slots: ['tool'], label: 'a tool', minQ };
     }
@@ -467,6 +497,8 @@ export function wantText(w: Want): string {
       return FARE_NAMES[w.fare];
     case 'dish':
       return ITEM_BY_ID[w.item]?.name ?? w.item;
+    case 'line':
+      return LINES[w.line].label + fine(w.minQ);
   }
 }
 
@@ -485,6 +517,8 @@ export function wantKey(w: Want, tier = 1): string {
       return `fare:${w.fare}`;
     case 'dish':
       return `dish:${w.item}`;
+    case 'line':
+      return `line:${w.line}`;
   }
 }
 
@@ -508,7 +542,7 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
   const travellers = (s.travellers ??= []);
   const step = TRAVELLER_SPEED / TICK_HZ;
   for (const t of [...travellers]) {
-    const venue = venueOf(s, t.venue ?? 'shop');
+    const venue = venueFor(s, t);
     // raiders, or nowhere to go: they hurry on
     if (t.phase !== 'leaving' && (!venue || s.raid?.phase === 'active')) leave(s, t);
     if (t.phase === 'shopping') {
@@ -533,22 +567,24 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
   }
   arrive(s, rng, 'shop', town);
   arrive(s, rng, 'tavern', town);
+  for (const line of SHOP_LINES) arrive(s, rng, 'shop', town, line);
 }
 
 /** A new stranger on the road, if one's due for a venue. */
-function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown): void {
-  const open = venueOpen(s, kind);
+function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown, line?: ShopLine): void {
+  const open = line ? storeOpen(s, line) : venueOpen(s, kind);
   if (!open) return;
   const travellers = s.travellers!;
   const attract = attractiveness(s, open);
-  const due = kind === 'shop' ? s.nextTravellerTick : s.nextGuestTick;
+  const due = line ? s.nextStoreTick?.[line] : kind === 'shop' ? s.nextTravellerTick : s.nextGuestTick;
   const schedule = () => {
     const next = s.tick + travellerGap(s, rng, attract);
-    if (kind === 'shop') s.nextTravellerTick = next;
+    if (line) (s.nextStoreTick ??= {})[line] = next;
+    else if (kind === 'shop') s.nextTravellerTick = next;
     else s.nextGuestTick = next;
   };
   if (due === undefined) return schedule();
-  if (s.tick < due || s.raid || travellers.filter((t) => (t.venue ?? 'shop') === kind).length >= MAX_TRAVELLERS) return;
+  if (s.tick < due || s.raid || travellers.filter((t) => (t.venue ?? 'shop') === kind && t.line === line).length >= MAX_TRAVELLERS) return;
   schedule();
   const side = rng.chance(0.5) ? -1 : 1;
   const temper = weighted(rng, Object.entries(TEMPERS).map(([id, t]) => [id, t.weight] as [string, number]));
@@ -583,7 +619,8 @@ function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown): void {
     if (tier.outfit) look.outfit = tier.outfit; // (dressed for their station)
     const purse = rng.int(PURSE[0], PURSE[1]) * PURSE_SCALE[s.era] * tier.purse * (1 + Math.min(attract, APPEAL_CAP) * APPEAL_SPEND) * (1 + keeper) * temperOf(temper).purse * priceRate(s);
     t = stranger(rng.pick(tier.kinds), tier.tier, purse);
-    t.want = shopWant(s, rng, tier.tier, town.forSale(s));
+    t.want = line ? lineWant(line, tier.tier) : shopWant(s, rng, tier.tier, town.forSale(s));
+    if (line) t.line = line;
     if (tier.tier > 1 && !(open.shop?.seen ?? []).includes(tier.tier)) {
       ((open.shop ??= { pieces: [] }).seen ??= []).push(tier.tier);
       notify(s, `Word of the ${BUILDING_BY_ID[open.def].name} has spread: ${tier.plural.toLowerCase()} have started to come. They want finer things.`, true);
@@ -685,6 +722,10 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
     const it = ITEM_BY_ID[want.item];
     matches = offers(s, [it], itemPrice).filter((o) => o.q >= (want.minQ ?? 0));
     instead = offers(s, SALE_GEAR.filter((i) => i.slot === it.slot), itemPrice).filter((o) => !matches.includes(o));
+  } else if (want.kind === 'line') {
+    const all = offers(s, LINE_ITEMS[want.line], itemPrice);
+    matches = all.filter((o) => o.q >= (want.minQ ?? 0));
+    instead = all.filter((o) => o.q < (want.minQ ?? 0));
   } else if (want.kind === 'ware') {
     const all = offers(s, WARES.filter((w) => w.ware!.tier <= tier.tier), itemPrice);
     matches = all.filter((o) => o.item.ware!.tier === tier.tier);
@@ -723,8 +764,10 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
     }
   }
   // satisfied: talked into something more (a ware on the side, or a better price)
+  const line = lineOfDef(shop.def);
   if (met && !talked && rng.chance(chance)) {
-    const extra = offers(s, WARES.filter((w) => w.ware!.tier <= tier.tier), itemPrice).find(afford);
+    // (a specialty shop sells another of its own line on the side; the general store a ware)
+    const extra = offers(s, line ? LINE_ITEMS[line] : WARES.filter((w) => w.ware!.tier <= tier.tier), itemPrice).find(afford);
     if (extra) {
       buy(extra);
       talked = `${keeperName} sold them the ${pieceName(extra)} on the side`;
@@ -746,8 +789,9 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
     asked(shop, wantKey(want, tier.tier));
   }
 
-  // they pick up something spare too, with half what's left (the grand only refined goods)
-  const spare = town.forSale(s);
+  // they pick up something spare too, with half what's left (the grand only refined goods; a specialty shop sells
+  // only its line, and doesn't buy)
+  const spare = line ? {} : town.forSale(s);
   const sold: Stock = {};
   const goods = (Object.entries(spare) as [Material, number][])
     .filter(([m, n]) => n > 0 && (tier.tier === 1 || WORTH[m] >= 3) && !(want.kind === 'material' && m === want.m))
@@ -775,7 +819,7 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
   if (keeper) remember(s, keeper, met ? `Served ${t.name} the ${t.kind}: ${bought.join(', ')} (${spent} coins)${talked ? ', talked them round' : ''}` : `Had nothing for ${t.name}, who wanted ${wantText(want)}`);
   if (first && spent > 0) notify(s, `The ${BUILDING_BY_ID[shop.def].name} made its first sale: ${text}`, true);
 
-  buyFrom(s, shop, t, town, who);
+  if (!line) buyFrom(s, shop, t, town, who);
 }
 
 /** At the tavern: a guest used to more comfort than the place has walks out. The rest order what they came for (or,

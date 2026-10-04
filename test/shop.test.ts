@@ -5,7 +5,7 @@ import { ITEM_BY_ID, ITEMS } from '../src/shared/data/items';
 import { FURNISHINGS } from '../src/shared/data/shop';
 import { TOPICS } from '../src/shared/data/research';
 import { totalStock } from '../src/shared/sim/buildings';
-import { forSale, runPlanner, shoppingList, PLAN_TICKS } from '../src/shared/sim/planner';
+import { forSale, runPlanner, shoppingList, PLAN_TICKS, townWishes } from '../src/shared/sim/planner';
 import { parseSave, serialize } from '../src/shared/sim/save';
 import { appeal, fill, renownOf, shopLayout, spotFor } from '../src/shared/sim/shop';
 import { FILL_MAX } from '../src/shared/data/shop';
@@ -370,4 +370,31 @@ test('drawing customers it has no wares for, the town studies what makes them', 
   runPlanner(s);
   // (any topic that opens a noble's ware: Iron Working's brooch, or Weaving's gowns and dyed bolts since the workshops)
   assert.ok(s.research.queue.some((id) => ITEMS.some((i) => i.ware?.tier === 3 && i.research.includes(id))), `queue ${s.research.queue}`);
+});
+
+test('a specialty shop: its own customers come for its line, buy what the town has of it, and its stock is on show', () => {
+  const sim = new Sim(plainGame('store-weapons'));
+  const s = sim.state;
+  const store = addBuilding(s, 'weapon_store', camp(s).x + 3);
+  const blade = ITEMS.find((i) => i.slot === 'weapon' && !i.relic && !i.unique)!;
+  s.items[blade.id] = 4;
+  const view = snapshot(s).stores.find((v) => v.line === 'weapons');
+  assert.ok(view, 'the store has its own view');
+  assert.ok(view!.stock.some((p) => p.item === blade.id), 'the weapons in stock are on show');
+  let t = 0;
+  while (!(s.coins ?? 0) && t++ < 3 * TICKS_PER_DAY) sim.step();
+  assert.ok((s.coins ?? 0) > 0, 'a customer bought something');
+  assert.ok((s.items[blade.id] ?? 0) < 4, 'a weapon was sold');
+  assert.ok((store.shop?.log ?? []).some((l) => /came for a weapon/.test(l.text)), 'they came for a weapon');
+  assert.ok((s.travellers ?? []).every((tr) => tr.line === 'weapons'), 'only the store\'s own customers came (there is no general store)');
+});
+
+test('the planner opens a specialty shop once it has a general store, the craft and enough people', () => {
+  const s = newGame('store-plan');
+  s.research.done.push('barter', 'iron_working');
+  addBuilding(s, 'trading_post', camp(s).x + 3);
+  for (let i = 0; i < 6; i++) s.people.push({ ...s.people[0], id: s.nextId++, name: `Helper ${i}`, partner: null });
+  assert.ok(townWishes(s).some((w) => w.def === 'weapon_store'), 'a Weapons Store is wished for');
+  s.people.splice(2);
+  assert.ok(!townWishes(s).some((w) => w.def === 'weapon_store'), 'not in a town of two');
 });

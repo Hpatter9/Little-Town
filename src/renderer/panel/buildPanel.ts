@@ -1,6 +1,7 @@
 // Town plan (the Build tab): the town builds for itself now. At the top, where it's putting its effort (the one thing
 // the player sets), what it's building and what it decided next and why; below, every building it knows, for reference.
 
+import { TOWN_SIZES } from '../../shared/sim/state';
 import { ADJACENT_TILES, BUILDING_BY_ID, BUILDINGS, LAYER_NAMES, NEAR_SOURCE, NEAR_SOURCE_BONUS, RIVER_GROWTH, TAVERN_MARKET_MORALE, type BuildLayer, type BuildingDef } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { earlier, eraReached } from '../../shared/data/eras';
@@ -80,6 +81,28 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     );
   }
   out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description));
+
+  // how big the player wants the town: a handful to know by name, or as many as come
+  out.push(el('h2', '', 'Town size'));
+  const sizes = el('div', 'row directions');
+  for (const n of [...TOWN_SIZES, null]) {
+    sizes.append(
+      button(n === null ? 'No limit' : `${n}`, () => bridge?.command({ type: 'setTownSize', size: n }), {
+        cls: `place small${s.townSize === n ? ' on' : ' quiet'}`,
+        title: n === null ? 'Anyone who comes may stay, if you let them' : `Nobody joins or is born once the town holds ${n}`,
+      }),
+    );
+  }
+  out.push(
+    sizes,
+    el(
+      'div',
+      'hint',
+      s.townSize === null
+        ? `${s.people.length} people. No limit: the town grows as far as newcomers and children take it.`
+        : `${s.people.length} of ${s.townSize}. Once the town holds ${s.townSize}, nobody more joins and no child is born; it grows again only to fill a place left empty.${s.townSize < 20 ? ' A small town draws smaller raids.' : ''}`,
+    ),
+  );
 
   // the town's money: travellers bring it in at the shop and the tavern, and it goes on wages, crafters and the venues
   if (s.shop || s.tavern || s.coins) {

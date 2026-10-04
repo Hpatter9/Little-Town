@@ -31,7 +31,7 @@ import type { Rng } from '../rng';
 import { depositNear } from './buildings';
 import { becomeMonster, fullMoon, moonPhaseOf, FULL_MOON_PHASE } from './monsters';
 import { isChild } from './social';
-import { campXY, makePerson, maxHp, notify, type Expedition, type GameState, type Person, type Raid } from './state';
+import { townFull, campXY, makePerson, maxHp, notify, type Expedition, type GameState, type Person, type Raid } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
 export interface PackState {
@@ -133,8 +133,8 @@ export function breakPack(s: GameState, id: string, rng: Rng, atLair: boolean): 
   if (!def || p.broken.includes(id)) return;
   p.broken.push(id);
   p.grounds++;
-  if (atLair) {
-    const n = 1 + rng.int(0, 1);
+  if (atLair && !townFull(s)) {
+    const n = Math.min(1 + rng.int(0, 1), s.popTarget === undefined ? 2 : s.popTarget - s.people.length);
     const names: string[] = [];
     for (let i = 0; i < n; i++) {
       const q = makePerson(rng, s.nextId++, 'hunter', campXY(s), s.people.map((o) => o.name));

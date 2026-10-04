@@ -16,6 +16,7 @@ export type Command =
   | { type: 'setPaused'; paused: boolean }
   /** Where the self-running town puts its effort. */
   | { type: 'setDirection'; direction: Direction }
+  | { type: 'setTownSize'; size: number | null }
   /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
   | { type: 'toggleGather'; cell: number }
   /** Place a blueprint with its top-left cell at (x, y). */
@@ -101,6 +102,8 @@ export function parseCommand(raw: unknown): Command | null {
       return { type: 'becomeLich' };
     case 'setDirection':
       return DIRECTIONS.includes(c.direction as Direction) ? { type: 'setDirection', direction: c.direction as Direction } : null;
+    case 'setTownSize':
+      return c.size === null || (Number.isInteger(c.size) && (c.size as number) >= 1 && (c.size as number) <= 200) ? { type: 'setTownSize', size: c.size as number | null } : null;
     case 'toggleGather':
       return Number.isInteger(c.cell) ? { type: 'toggleGather', cell: c.cell as number } : null;
     case 'placeBuilding':

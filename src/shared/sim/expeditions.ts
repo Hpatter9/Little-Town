@@ -55,7 +55,7 @@ import { TRADE_HIDDEN } from '../data/minerals';
 import { placeCleared, placeDestination, placeOfDest } from './places';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
-import { addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
+import { townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
@@ -663,13 +663,17 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, at: Pt, rng
     case 'rescue': {
       const n = rng.int(1, RESCUE_MAX);
       const joined: Person[] = [];
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < n && !townFull(s); i++) {
         const type = rng.weighted(ARRIVING_TYPES);
         const p = makePerson(rng, s.nextId++, type, at, s.people.map((q) => q.name));
         s.people.push(p);
         joined.push(p);
       }
       assignBeds(s);
+      if (!joined.length) {
+        notify(s, `The captives from ${the(d.name)} thank the party and go home: the town is as big as you want it.`, true);
+        return;
+      }
       notify(s, `${names(joined)} from ${the(d.name)} came home with the party and joined the town.`, true);
       return;
     }

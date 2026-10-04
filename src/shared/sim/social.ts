@@ -28,7 +28,7 @@ import {
 } from '../data/social';
 import { SKILLS, type Skill, type SkillLevel } from '../data/skills';
 import { hashSeed, mixSeed, type Rng } from '../rng';
-import { tireless, maxHp, notify, type GameState, type Person } from './state';
+import { townFull, tireless, maxHp, notify, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { housingCapacity } from './townsfolk';
 
@@ -139,7 +139,7 @@ function families(s: GameState, rng: Rng): void {
       continue;
     }
     const kids = s.people.filter((k) => k.parents?.includes(a.id) && k.parents.includes(b.id)).length;
-    if (a.married && kids < MAX_CHILDREN && housingCapacity(s) > s.people.length && s.people.length < POP_HARD_CAP && rng.chance(CHILD_CHANCE)) welcomeChild(s, a, b, rng);
+    if (a.married && kids < MAX_CHILDREN && housingCapacity(s) > s.people.length && s.people.length < POP_HARD_CAP && !townFull(s) && rng.chance(CHILD_CHANCE)) welcomeChild(s, a, b, rng);
   }
 }
 

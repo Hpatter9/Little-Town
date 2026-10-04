@@ -32,7 +32,8 @@ import { battleView, type BattleView } from './battle';
 export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
 const themeOf = (s: GameState): ThemeId => (s.lich ? 'lich' : !s.origin || s.origin === 'settlers' ? 'town' : s.origin);
 import { itemUnlocked, qualitiesOf } from './crafting';
-import { FARE, furnishes, MAX_EXTENSIONS, temperOf, tierOf, venueOfDef, WARES } from '../data/shop';
+import { FARE, furnishes, LINE_ITEMS, lineOfDef, MAX_EXTENSIONS, temperOf, tierOf, venueOfDef, WARES } from '../data/shop';
+import { LINES, SHOP_LINES, type ShopLine } from '../data/stores';
 import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../data/items';
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
@@ -41,7 +42,7 @@ import { atPlace, DESTINATIONS, ROLES } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry } from './people';
 import type { Era } from '../data/eras';
-import { ITEM_BY_ID, type Slot } from '../data/items';
+import { ITEM_BY_ID, ITEMS, type Slot } from '../data/items';
 import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
 import { craftNeeded, craftSlots, hasBedroll, missingItems, stationFor, stationName } from './crafting';
@@ -416,6 +417,12 @@ export interface VisitorView extends PersonView {
 /** A venue (the shop or the tavern), as its bird's-eye window shows it. A tavern's `appeal` is its comfort. */
 export interface ShopView {
   venue: 'shop' | 'tavern';
+  /** A specialty shop's line (data/stores.ts), else null (the general store, the tavern). */
+  line: ShopLine | null;
+  /** What's on show inside, for the picture to set on its shelves, racks and tables: pieces of its line (or, at the
+   *  general store, its wares and spare gear), each quality once, and (the general store) materials spare to sell. */
+  stock: { item: string; q: number; n: number }[];
+  stockMats: { m: Material; n: number }[];
   building: number;
   def: string;
   name: string;
@@ -492,6 +499,8 @@ export interface Snapshot {
   /** The town's coins (from selling to travellers), its shop (once one's planned), and the travellers in town. */
   coins: number;
   shop: ShopView | null;
+  /** The specialty shops built (data/stores.ts). */
+  stores: ShopView[];
   tavern: ShopView | null;
   /** How the game looks: the town, or (once the founder is a lich) the necropolis; and whether the founder can
    *  choose to become a lich now (Lichcraft learned, not yet chosen). */
@@ -585,6 +594,8 @@ export interface Snapshot {
   weather: WeatherNow;
   /** The self-running town: where it's putting its effort, and what it last decided (and why). */
   direction: Direction;
+  /** How many people the player wants the town to hold, or null for no limit. */
+  townSize: number | null;
   plan: TownPlan | null;
   /** The tick of the last big boss moment (a roar, a sweeping attack): the strip shakes. */
   bossShake: number;
@@ -670,6 +681,7 @@ export function snapshot(s: GameState): Snapshot {
     coins: Math.floor(s.coins ?? 0),
     shop: venueView(s, 'shop'),
     tavern: venueView(s, 'tavern'),
+    stores: SHOP_LINES.map((l) => venueView(s, 'shop', l)).filter((v): v is ShopView => !!v),
     wageBill: moneyTown(s) ? wageBill(s) : 0,
     // (a lich founder turns any town into a necropolis; otherwise the origin's own look)
     theme: themeOf(s),
@@ -795,6 +807,7 @@ export function snapshot(s: GameState): Snapshot {
     moonPhase: moonPhaseOf(nightDay(s.tick)),
     weather: weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null),
     direction: directionOf(s),
+    townSize: s.popTarget ?? null,
     plan: s.plan ?? null,
     ironman: !!s.ironman,
     launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
@@ -843,10 +856,13 @@ export function snapshot(s: GameState): Snapshot {
 let dealsCache: { state: GameState; tick: number; forSale: Stock; wants: ShopView['wants'] } | null = null;
 const DEALS_EVERY = 10;
 
-function venueView(s: GameState, venue: 'shop' | 'tavern'): ShopView | null {
-  const b = s.buildings.find((q) => venueOfDef(q.def) === venue);
+function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): ShopView | null {
+  const b = s.buildings.find((q) => venueOfDef(q.def) === venue && lineOfDef(q.def) === line);
   if (!b) return null;
-  const inside = (s.travellers ?? []).filter((t) => (t.venue ?? 'shop') === venue);
+  const inside = (s.travellers ?? []).filter((t) => (t.venue ?? 'shop') === venue && t.line === line);
+  // (what this shop sells: its line; the general store its wares and the gear no specialty shop has taken)
+  const elsewhere = new Set(SHOP_LINES.filter((l) => !line && s.buildings.some((q) => q.status === 'done' && lineOfDef(q.def) === l)));
+  const sells = (i: ItemDef) => (line ? LINE_ITEMS[line].includes(i) : !!i.ware || (SALE_GEAR.includes(i) && ![...elsewhere].some((l) => LINE_ITEMS[l].includes(i))));
   const needs = (w: ItemDef) => {
     const missing = w.research.filter((r) => !s.research.done.includes(r)).map((r) => TOPIC_BY_ID[r]?.name ?? r);
     return missing.length ? `needs ${missing.join(' and ')}` : !itemUnlocked(s, w) ? 'not yet' : !stationFor(s, w) ? `needs a ${BUILDING_BY_ID[w.station]?.name ?? w.station}` : null;
@@ -859,8 +875,12 @@ function venueView(s: GameState, venue: 'shop' | 'tavern'): ShopView | null {
   const next = UPGRADES[b.def] ? BUILDING_BY_ID[UPGRADES[b.def]] : undefined;
   const mine = (id: string) => !!ITEM_BY_ID[id] && furnishes(ITEM_BY_ID[id], venue);
   const making = s.crafting.find((o) => mine(o.item));
+  const shown = venue === 'tavern' ? [] : ITEMS.filter((i) => (s.items[i.id] ?? 0) > 0 && sells(i));
   return {
     venue,
+    line: line ?? null,
+    stock: shown.flatMap((i) => [...new Set(qualitiesOf(s, i.id))].map((q) => ({ item: i.id, q, n: qualitiesOf(s, i.id).filter((x) => x === q).length }))).slice(0, 40),
+    stockMats: venue === 'shop' && !line ? (Object.entries(dealsCache!.forSale) as [Material, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([m, n]) => ({ m, n })) : [],
     building: b.id,
     def: b.def,
     name: def.name,
@@ -906,12 +926,12 @@ function venueView(s: GameState, venue: 'shop' | 'tavern'): ShopView | null {
         : [],
     gear:
       venue === 'shop'
-        ? SALE_GEAR.flatMap((i) => [...new Set(qualitiesOf(s, i.id))].map((q) => ({ name: i.name, q, n: qualitiesOf(s, i.id).filter((x) => x === q).length, price: itemPrice(i, q) })))
+        ? SALE_GEAR.filter(sells).flatMap((i) => [...new Set(qualitiesOf(s, i.id))].map((q) => ({ name: i.name, q, n: qualitiesOf(s, i.id).filter((x) => x === q).length, price: itemPrice(i, q) })))
         : [],
-    forSale: venue === 'shop' ? dealsCache.forSale : {},
-    wants: venue === 'shop' ? dealsCache.wants : [],
+    forSale: venue === 'shop' && !line ? dealsCache.forSale : {},
+    wants: venue === 'shop' && !line ? dealsCache.wants : [],
     log: (b.shop?.log ?? []).map((l) => ({ when: entryView({ id: 0, tick: l.tick, text: '' }).when, text: l.text })),
-    nextHours: ((due) => (open && due !== undefined ? Math.max(0, (due - s.tick) / TICKS_PER_HOUR) : null))(venue === 'shop' ? s.nextTravellerTick : s.nextGuestTick),
+    nextHours: ((due) => (open && due !== undefined ? Math.max(0, (due - s.tick) / TICKS_PER_HOUR) : null))(line ? s.nextStoreTick?.[line] : venue === 'shop' ? s.nextTravellerTick : s.nextGuestTick),
     making: making ? ITEM_BY_ID[making.item].name : null,
     waiting: Object.entries(s.items).filter(([id, n]) => n > 0 && mine(id)).map(([id, n]) => (n > 1 ? `${ITEM_BY_ID[id].name} ×${n}` : ITEM_BY_ID[id].name)),
     grows: next ? { name: next.name, research: next.research && !s.research.done.includes(next.research) ? (TOPIC_BY_ID[next.research]?.name ?? next.research) : null } : null,
@@ -937,6 +957,8 @@ function askedText(key: string): string {
       return 'more comfort';
     case 'bed':
       return 'a bed for the night';
+    case 'line':
+      return LINES[what as ShopLine]?.label ?? what;
     default:
       return key;
   }

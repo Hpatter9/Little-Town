@@ -8,6 +8,7 @@ import { DEFENSE_BUILDINGS, ORIGIN_DEFENSES } from './defenses';
 import { BLOOD_FARM } from './vampires';
 import { WORKSHOP_BUILDINGS } from './workshops';
 import { MINERAL_BUILDINGS } from './minerals';
+import { STORE_BUILDINGS, type ShopLine } from './stores';
 
 export type BuildLayer = 'fore' | 'mid' | 'back';
 export type Venue = 'shop' | 'tavern';
@@ -46,7 +47,8 @@ export interface BuildingDef {
   stalls?: number;
   /** Venues (see data/shop.ts): a shop or a tavern, the size of the one room it starts with, in cells (more rooms are
    *  bought with coins), and the appeal (a shop) or comfort (a tavern) it has bare: none, as they all start bare. */
-  floor?: { venue: Venue; cols: number; rows: number; appeal: number };
+  /** A venue's floor; a specialty shop's `line` is what it sells (data/stores.ts). */
+  floor?: { venue: Venue; line?: ShopLine; cols: number; rows: number; appeal: number };
   /** Traps and turrets: they hit the nearest raider in range (px from the building's centre) every interval seconds,
    *  with the quirks of data/defenses.ts (splash px, slow share, burn a second, chain count, night multiplier, rout chance). */
   defense?: { damage: [number, number]; range: number; interval: number; accuracy: number; splash?: number; slow?: number; burn?: number; chain?: number; night?: number; rout?: number };
@@ -170,7 +172,7 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'town_hall', name: 'Town Hall', layer: 'mid', width: 6, cost: { bricks: 40, lumber: 30, iron: 10, cloth: 10 }, buildSeconds: 3000, purpose: 'Era capstone: the seat of the town opens the Industrial era.', research: 'town_charter', morale: [6, 'A proper town'] },
 ];
 
-export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS];
+export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };

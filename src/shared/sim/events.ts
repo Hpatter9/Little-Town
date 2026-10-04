@@ -20,7 +20,7 @@ import { sicken } from './doom';
 import { killPerson } from './health';
 import { revealOccult } from './occult';
 import { equipAll } from './crafting';
-import { addStock, campX, campXY, earn, makePerson, maxHp, notify, type GameState, type Person } from './state';
+import { townFull, addStock, campX, campXY, earn, makePerson, maxHp, notify, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { assignBeds, joinOrigin } from './townsfolk';
 import { isChild } from './social';
@@ -236,6 +236,10 @@ function take(s: GameState, what: 'food' | 'stores' | 'coins', share: number): v
 
 /** Someone takes up the town's offer and joins (a bed is found if there's one). */
 function newcomer(s: GameState, rng: Rng, type?: string): void {
+  if (townFull(s)) {
+    notify(s, 'Someone would have stayed, but the town is as big as you want it: they go on their way.');
+    return;
+  }
   const p = makePerson(rng, s.nextId++, type ?? rng.weighted(ARRIVING_TYPES), campXY(s), s.people.map((q) => q.name));
   s.people.push(p);
   joinOrigin(s, p, rng);

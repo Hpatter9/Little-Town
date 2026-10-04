@@ -245,3 +245,20 @@ test('with a barracks, guards on Defend High walk patrols on their shift, and of
   }
   assert.ok(patrolled > 0, 'they patrolled');
 });
+test('the town size the player picks: nobody joins past it, and it can be lifted', () => {
+  const sim = new Sim(plainGame('size'));
+  const s = sim.state;
+  addBuilding(s, 'lean_to', camp(s).x - 6);
+  addBuilding(s, 'lean_to', camp(s).x - 4); // (a bed free, so only the size holds them back)
+  sim.command({ type: 'setTownSize', size: 1 });
+  sim.step();
+  assert.equal(s.popTarget, 1);
+  run(sim, 72 * 60 * 60 / 60); // three game days
+  assert.equal(s.visitor, null, 'no wanderer comes to a town as big as the player wants');
+  assert.equal(s.people.length, 1);
+  sim.command({ type: 'setTownSize', size: null });
+  sim.step();
+  assert.equal(s.popTarget, undefined);
+  runUntil(sim, () => s.visitor !== null, 72 * 60);
+  assert.ok(s.visitor, 'with no limit, wanderers come again');
+});

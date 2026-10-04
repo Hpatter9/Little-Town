@@ -14,7 +14,7 @@ import { hashSeed, mixSeed, Rng } from '../rng';
 import type { Pt } from './land';
 import { addItems } from './crafting';
 import { destinationHidden, destinationUnlocked } from './expeditions';
-import { earn, makePerson, notify, type GameState, type Person } from './state';
+import { townFull, earn, makePerson, notify, type GameState, type Person } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds } from './townsfolk';
 
@@ -97,6 +97,10 @@ export function questsDone(s: GameState, dungeon: string, at: Pt, rng: Rng): voi
   for (const q of done) {
     switch (q.kind) {
       case 'rescue': {
+        if (townFull(s)) {
+          notify(s, `The captive rescued from ${DUNGEON_BY_ID[dungeon].name} thanks the party and goes home: the town is as big as you want it.`, true);
+          break;
+        }
         const p = makePerson(rng, s.nextId++, rng.weighted(ARRIVING_TYPES), at, s.people.map((o) => o.name));
         s.people.push(p);
         assignBeds(s);

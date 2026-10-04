@@ -1,6 +1,7 @@
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
+import type { ShopLine } from '../data/stores';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
 import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
@@ -124,7 +125,9 @@ export type Want =
   | { kind: 'ware' }
   | { kind: 'material'; m: Material; n: number }
   | { kind: 'fare'; fare: FareKind }
-  | { kind: 'dish'; item: string };
+  | { kind: 'dish'; item: string }
+  /** Anything of a specialty shop's line (data/stores.ts): a piece of furniture, a medicine. */
+  | { kind: 'line'; line: ShopLine; minQ?: number };
 
 /** Someone passing through who stops at the town's shop or tavern (see shop.ts). */
 export interface Traveller {
@@ -136,6 +139,8 @@ export interface Traveller {
   /** Where they're going (the shop when left out), what they want, their temper (see data/shop.ts TEMPERS), and, at
    *  the tavern, the comfort they're used to. */
   venue?: 'shop' | 'tavern';
+  /** A specialty shop's customer: the line they came for (its shop is where they go). */
+  line?: ShopLine;
   want?: Want;
   temper?: string;
   req?: number;
@@ -701,6 +706,8 @@ export interface GameState {
   lich?: boolean;
   /** When the next guest is due at the tavern. */
   nextGuestTick?: number;
+  /** When the next customer for each specialty shop is due. */
+  nextStoreTick?: Partial<Record<ShopLine, number>>;
   /** Who founded the town (see data/origins.ts; Settlers when left out), when each of its powers is ready again, what
    *  it has cast lately (newest last), and the spells still in effect (by id, until a tick). */
   origin?: OriginId;
@@ -730,6 +737,8 @@ export interface GameState {
   /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than
    *  VISIT_GAP_HOURS apart). */
   lastVisit?: number;
+  /** How many people the player wants the town to hold (unset: as many as come). Nobody joins or is born past it. */
+  popTarget?: number;
   eventLog?: string[];
   marks?: { lever: string; value: number; until: number; text: string }[];
   eventLater?: { tick: number; event: string; option: number; index: number; who?: number }[];
@@ -1181,3 +1190,8 @@ export function addStock(to: Stock, m: Material, n: number): void {
   if (v > 0) to[m] = v;
   else delete to[m];
 }
+
+/** The town is as big as the player wants it (`popTarget`): nobody more joins, by any door, and no child is born. */
+export const townFull = (s: Pick<GameState, 'popTarget' | 'people'>) => s.popTarget !== undefined && s.people.length >= s.popTarget;
+/** The sizes the player can pick for the town (the Plan tab); `undefined` is no limit. */
+export const TOWN_SIZES = [5, 10, 20, 40] as const;

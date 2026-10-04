@@ -30,7 +30,7 @@ import { DREAD_MORALE, TRIUMPH_MORALE } from './bosses';
 import { TAVERN_BASE, TAVERN_PER_LEVEL } from '../data/operators';
 import { ASH_MORALE, FALLOUT_MORALE, FREEZE_COLD_MORALE, FREEZE_MORALE, PLAGUE_MORALE, PLAGUE_WORK, SMOG_MORALE } from '../data/doom';
 import { isInjured } from './health';
-import { tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
+import { townFull, tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { ORIGIN_DEFS, rulesOf } from '../data/origins';
 import { natureOf } from '../data/natures';
@@ -294,6 +294,7 @@ export function campEdge(s: GameState, side: -1 | 1): Pt {
 export function maybeArrive(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.visitor) return;
   if (rulesOf(s).noWanderers) return; // (a town that makes its own people)
+  if (townFull(s)) return; // (as big as the player wants it)
   if (housingCapacity(s) <= s.people.length) return;
   // (the owner's rule: people join by the player's leave, a prisoner won over, or birth; so wanderers come seldom,
   // and each is a question. A town whose gates are free (the horde) takes them in itself, as often as they come.)

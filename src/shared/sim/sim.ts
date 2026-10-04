@@ -353,6 +353,10 @@ export class Sim {
         s.direction = c.direction;
         s.plan = undefined; // (it decides afresh)
         break;
+      case 'setTownSize':
+        if (c.size === null) delete s.popTarget;
+        else s.popTarget = c.size;
+        break;
       case 'toggleGather': {
         if (!s.land.pools[c.cell]) return;
         setMarked(s.land, c.cell, !isMarked(s.land, c.cell));
