@@ -23,8 +23,19 @@ const ZOOM_KEYS: Record<Orientation, string> = { upright: 'littletown.zoom4', si
 const DEFAULT_ZOOMS: Record<Orientation, number> = { upright: 0.5, sideways: 0.5 };
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.6;
-/** Upright, the town takes this share of the height between the title bar and the tabs (the feed has the rest). */
+/** Upright, the town takes at least this share of the height between the title bar and the tabs (the feed has the
+ *  rest), and up to UPRIGHT_TOWN_MOST while the feed holds little: the map has the room until there's news. */
 const UPRIGHT_TOWN = 0.55;
+const UPRIGHT_TOWN_MOST = 0.82;
+/** The town's share upright, by how much the feed has to show (in steps of a twentieth, so it doesn't twitch). */
+function townShare(free: number): number {
+  const feed = document.getElementById('feed');
+  if (!feed || free <= 0) return UPRIGHT_TOWN;
+  let need = 12;
+  for (const c of Array.from(feed.children) as HTMLElement[]) if (c.offsetHeight) need += c.offsetHeight + 6;
+  const share = Math.round((1 - need / free) * 20) / 20;
+  return Math.min(UPRIGHT_TOWN_MOST, Math.max(UPRIGHT_TOWN, share));
+}
 
 const bridge = mobileBridge();
 window.bridge = bridge;
@@ -74,7 +85,7 @@ function layout(): void {
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
   // (upright, the town has the lower part and the feed the rest; on its side, everything under the tabs)
   // (in a battle the map has all of it, the feed hidden; watching a party's fight too, drawn at its own scale)
-  const room = sideways.matches || battleOn ? free : Math.round(free * UPRIGHT_TOWN);
+  const room = sideways.matches || battleOn ? free : Math.round(free * townShare(free));
   // (the top-down town fills its room at the zoom, a raid's battle on it; a party's fight is drawn at its own scale)
   const fit = watchOn ? 1 : zoom;
   // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
@@ -244,6 +255,25 @@ void bridge.getState().then(applyState); // (a first run opens on the New town p
 /* ------------------------------------------------------------ the feed (upright) */
 
 startFeed($('feed'), bridge, strip);
+// (as the feed fills or empties, the town gives up room or takes it back)
+{
+  let share = -1;
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      if (sideways.matches) return;
+      const free = window.innerHeight - $('tabs').offsetHeight - $('top').offsetHeight;
+      const now = townShare(free);
+      if (now !== share) {
+        share = now;
+        layout();
+      }
+    });
+  }).observe($('feed'), { childList: true, subtree: true, characterData: true });
+}
 
 /* ------------------------------------------------------------ the selected thing's card */
 

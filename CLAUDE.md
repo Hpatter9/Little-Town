@@ -1285,6 +1285,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   beyond the open land is per 4px block by its own distance, black by the band's end, so its edge is round. The
   strip's HUD keeps its on-screen size at every zoom (`--ui-zoom` is `1 / z`; it only counter-scaled when zoomed out,
   so a big pinch grew the clock bar).
+- **The map takes the feed's empty room (upright):** `townShare` in mobile.ts sizes the town by what the feed has to
+  show (its children's heights), from `UPRIGHT_TOWN` 0.55 up to `UPRIGHT_TOWN_MOST` 0.82, in twentieths; a
+  MutationObserver on `#feed` lays the page out again when the share changes. A new town opens with the map filling
+  most of the screen, and the feed takes its room back as the news comes.
 - **Roads run edge to edge (done; the owner's ask):** `connectRoad` finds its way four ways (`PathOpts.four` in
   `findPath`: no diagonal steps, since the road tiles join along their edges) and `squareRoads` gives any diagonal step in
   an older road a cell beside it. Test in `test/land.test.ts`.
