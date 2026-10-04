@@ -83,3 +83,21 @@ test('the sea gives again at dawn: fished-out cells get new pools', () => {
   }
   assert.ok(got, 'the shallows filled again');
 });
+
+test('raiders from the sea: only against a shore town, out of the deep water, swimming ashore to the strand', async () => {
+  const { RAID_KINDS, RAID_KIND_BY_ID } = await import('../src/shared/data/raids');
+  const { startRaid } = await import('../src/shared/sim/raids');
+  const { trail } = await import('../src/shared/sim/battle');
+  const sea = RAID_KINDS.filter((k) => k.fromSea);
+  assert.ok(sea.length >= 3, 'raids that come by sea');
+  const s = newGame('sea-raid', { origin: 'merfolk' });
+  assert.ok(seaTown(s));
+  const r = startRaid(s, RAID_KIND_BY_ID.tide_beasts, 60, new Rng(3));
+  for (const rd of r.raiders) assert.ok(wet(groundAt(s.land, Math.floor(rd.x / 32), Math.floor(rd.y / 32))), 'they start in the water');
+  assert.ok(r.raiders.every((rd) => rd.side === undefined || rd.side === r.side), 'no party round the other end');
+  const path = trail(s, r.side, true);
+  const [fx, fy] = path[0];
+  const [tx, ty] = path[path.length - 1];
+  assert.ok(wet(groundAt(s.land, Math.floor(fx), Math.floor(fy))), 'the trail starts at sea');
+  assert.ok(!wet(groundAt(s.land, Math.floor(tx), Math.floor(ty))), 'and ends on dry land');
+});

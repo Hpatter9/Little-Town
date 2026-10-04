@@ -76,9 +76,9 @@ const BASE_FROM: Partial<Record<string, [Patch, number]>> = { marsh: ['leaf', 0.
 const PATCH_SHARE: Partial<Record<string, number>> = { grass: 0.22, forest: 0.4, marsh: 0.45, hill: 0.3, fertile: 0.35, sand: 0.18, rock: 0.25 };
 
 /** How far (px) the borders between kinds of ground wander from the cells' edges, so the land doesn't read as squares. */
-const WARP = 11;
+const WARP = 15;
 /** The size (px) of the borders' wiggles. */
-const WARP_SCALE = 14;
+const WARP_SCALE = 20;
 
 /** Smooth value noise over world px (0..1), the same across chunks. */
 function smooth(seed: number, x: number, y: number, scale: number): number {
@@ -174,13 +174,17 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
   const bases = new Map<string, number[] | null>();
   const water = rgb(pal.water[0]);
   const shore = rgb(pal.water[1]);
+  // (the shallows join the wandering borders too: clear water over sand, foam where they meet the strand)
+  const shallow = rgb(pal.shallows[0]);
+  const foam = rgb(pal.shallows[2]);
+  const glint = rgb(pal.shallows[1]);
   const softAt = (x: number, y: number): number[] | null => {
     if (x < 0 || y < 0 || x >= m.w || y >= m.h || visibility(m, x, y) === 0) return null;
     const kind = groundAt(m, x, y);
     let c = bases.get(kind);
     if (c === undefined) {
       const b = pack ? (kind === 'water' ? pal.water[0] : softBase(kind)) : null;
-      c = kind === 'water' ? (pack ? water : null) : b ? rgb(b) : null;
+      c = kind === 'water' ? (pack ? water : null) : kind === 'shallows' ? (pack ? shallow : null) : b ? rgb(b) : null;
       bases.set(kind, c);
     }
     return c;
@@ -198,7 +202,7 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
     const d = img.data;
     const landAt = (wx: number, wy: number) => {
       const c = warped(wx, wy);
-      return !!c && c !== water;
+      return !!c && c !== water && c !== shallow;
     };
     for (let py = 0; py < size; py += 2)
       for (let px = 0; px < size; px += 2) {
@@ -208,6 +212,8 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         if (!c) continue;
         // (the water lighter where it meets the land, and here and there a glint)
         if (c === water && (landAt(wx - 2, wy) || landAt(wx + 2, wy) || landAt(wx, wy - 2) || landAt(wx, wy + 2) || landAt(wx, wy - 4) || hash(seed, wx, wy) < 0.04)) c = shore;
+        else if (c === shallow && (landAt(wx - 2, wy) || landAt(wx + 2, wy) || landAt(wx, wy - 2) || landAt(wx, wy + 2) || landAt(wx, wy - 4))) c = foam;
+        else if (c === shallow && hash(seed, wx, wy) < 0.05) c = glint;
         for (let k = 0; k < 4; k++) {
           const i = ((py + (k >> 1)) * size + px + (k & 1)) * 4;
           d[i] = c[0];
@@ -307,7 +313,8 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             break;
           case 'shallows': {
             // the shallows: clear water over the sand, the seabed's weed and shells showing through, foam at the strand
-            cell(px, py, pal.shallows[0], pal.shallows[1], 0.08);
+            // (once the pack has loaded the shallows are laid above, their edges wandering, foam at the strand)
+            if (!pack) cell(px, py, pal.shallows[0], pal.shallows[1], 0.08);
             const land = (ox: number, oy: number) => !wet(groundAt(m, x + ox, y + oy));
             const sea = propImage('sea');
             if (sea && hash(seed ^ 151, x, y) < 0.7) {
@@ -320,10 +327,12 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
               g.drawImage(sea, f[0], f[1], f[2], f[3], px + 3 + Math.floor(hash(seed ^ 153, x, y) * Math.max(1, CELL - 6 - w)), py + 3 + Math.floor(hash(seed ^ 154, x, y) * Math.max(1, CELL - 6 - h)), w, h);
               g.globalAlpha = 1;
             }
-            if (land(0, -1)) rect(px, py, CELL, 3, pal.shallows[2]);
-            if (land(0, 1)) rect(px, py + CELL - 3, CELL, 3, pal.shallows[2]);
-            if (land(-1, 0)) rect(px, py, 3, CELL, pal.shallows[2]);
-            if (land(1, 0)) rect(px + CELL - 3, py, 3, CELL, pal.shallows[2]);
+            if (!pack) {
+              if (land(0, -1)) rect(px, py, CELL, 3, pal.shallows[2]);
+              if (land(0, 1)) rect(px, py + CELL - 3, CELL, 3, pal.shallows[2]);
+              if (land(-1, 0)) rect(px, py, 3, CELL, pal.shallows[2]);
+              if (land(1, 0)) rect(px + CELL - 3, py, 3, CELL, pal.shallows[2]);
+            }
             if (pack && hash(seed ^ 131, x, y) < 0.5) {
               let room = CELL;
               for (let k = 1; k < 4 && groundAt(m, x + k, y) === 'shallows'; k++) room += CELL;

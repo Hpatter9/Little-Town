@@ -36,6 +36,9 @@ export interface RaidKind {
   leader?: string;
   /** Only in these lands (data/biomes.ts); anywhere if unset. */
   biomes?: string[];
+  /** Comes out of the sea, and only to a shore town (the merfolk: sim/sea.ts `seaTown`): its raiders start in deep
+   *  water south of the town and swim ashore (battle.ts `trail`; raids.ts `offSea`). */
+  fromSea?: boolean;
 }
 
 const BASE_RAID_KINDS: readonly RaidKind[] = [

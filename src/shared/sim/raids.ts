@@ -68,6 +68,7 @@ import {
 import type { Rng } from '../rng';
 import { buildingCentre, buildingDoor, defOf, depositNear, storages, totalStock } from './buildings';
 import { CELL, type Pt } from './land';
+import { seaTown } from './sea';
 import { rallied, RALLY_DAMAGE } from './rally';
 import { afterBlow, ammoOf, hitDamage, personFighter } from './combat';
 import { gearEffects } from './crafting';
@@ -102,6 +103,15 @@ const OFF_MAP = 40;
 const worldW = (s: Pick<GameState, 'land'>) => s.land.w * CELL;
 /** Where a raid's side of the land begins (beyond its edge, on the camp's row). */
 const offMap = (s: GameState, side: -1 | 1, i = 0): Pt => ({ x: side < 0 ? -OFF_MAP - i * 24 : worldW(s) + OFF_MAP + i * 24, y: campXY(s).y });
+/** Where a raid from the sea starts: in the deep water south of the camp, past what the town knows (battle.ts lays its
+ *  trail from there), spread along the swell. */
+export function offSea(s: GameState, i = 0): Pt {
+  const m = s.land;
+  const row = Math.min(m.h - 1, m.camp.y + Math.round(m.open) + SEA_OUT);
+  return { x: (m.camp.x + 0.5) * CELL + ((i % 5) - 2) * 18, y: (row + 0.5) * CELL + Math.floor(i / 5) * 18 };
+}
+/** How many cells past the known land a raid from the sea starts. */
+const SEA_OUT = 4;
 
 /* ------------------------------------------------------------ scheduling */
 
@@ -154,7 +164,7 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
   const freeze = s.doom?.kind === 'deep_freeze' && s.doom.phase === 'active';
   const rats = s.doom?.kind === 'rat_plague' && s.doom.phase === 'active';
   // (the land's own beasts come only in their own lands)
-  const kinds = uprising ? [RAID_KIND_BY_ID.drones] : outbreak ? [RAID_KIND_BY_ID.zombies] : freeze ? [RAID_KIND_BY_ID.frost] : rats ? [RAID_KIND_BY_ID.rats] : raidKindsFor(s.era, day).filter((k) => !k.biomes || k.biomes.includes(s.biome ?? 'forest'));
+  const kinds = uprising ? [RAID_KIND_BY_ID.drones] : outbreak ? [RAID_KIND_BY_ID.zombies] : freeze ? [RAID_KIND_BY_ID.frost] : rats ? [RAID_KIND_BY_ID.rats] : raidKindsFor(s.era, day).filter((k) => (!k.biomes || k.biomes.includes(s.biome ?? 'forest')) && (!k.fromSea || seaTown(s)));
   // (the land, and who founded the town, make some raiders likelier, and some never come)
   const odds = biomeOf(s).raids ?? {};
   const own = rulesOf(s).raids ?? {};
@@ -209,7 +219,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
     raiders.push({
       id: s.nextId++,
       kind: id,
-      ...offMap(s, side, raiders.length),
+      ...(kind.fromSea ? offSea(s, raiders.length) : offMap(s, side, raiders.length)),
       dir: side < 0 ? 1 : -1,
       hp: d.hp,
       maxHp: d.hp,
@@ -239,7 +249,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   // a big enough raid of people may split: some come round to the other end of the town
   const day = paceDay(s.tick);
   let flank = 0;
-  if (inside === undefined && kind.steals !== undefined && raiders.length >= FLANK_MIN && rng.chance(Math.min(FLANK_MAX, FLANK_CHANCE + day * FLANK_PER_DAY))) {
+  if (inside === undefined && !kind.fromSea && kind.steals !== undefined && raiders.length >= FLANK_MIN && rng.chance(Math.min(FLANK_MAX, FLANK_CHANCE + day * FLANK_PER_DAY))) {
     const other = -side as -1 | 1;
     const party = raiders.filter((rd) => !ENEMIES[rd.kind].kit).slice(-Math.floor(raiders.length / 3));
     party.forEach((rd, i) => {

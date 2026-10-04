@@ -21,6 +21,10 @@ const foe = (id: string, s: Stats): EnemyDef => {
 const PERSON = 46;
 
 export const BESTIARY_ENEMIES: Record<string, EnemyDef> = {
+  // Out of the sea, against a shore town (the merfolk): reavers off a black-sailed ship, the drowned, the deep's spawn
+  sea_reaver: foe('sea_reaver', { name: 'Sea Reaver', hp: 50, damage: [6, 10], accuracy: 0.7, dodge: 0.12, interval: 1.1, ranged: false, loot: { cloth: 1, pearls: 1 }, sheet: 'pirate_leader', height: PERSON }),
+  drowned_sailor: foe('drowned_sailor', { name: 'Drowned Sailor', hp: 46, damage: [5, 9], accuracy: 0.64, dodge: 0.04, interval: 1.3, ranged: false, loot: { cloth: 1 }, sheet: 'pirate_zombie', height: PERSON, nature: 'undead' }),
+  squid_spawn: foe('squid_spawn', { name: 'Squid Spawn', hp: 58, damage: [6, 11], accuracy: 0.66, dodge: 0.1, interval: 1.2, ranged: false, loot: { meat: 2 }, sheet: 'squidman', height: PERSON - 4, nature: 'beast' }),
   // Stone Age: gremlins that raid the stores, giant rats, the woods' satyrs
   pink_gremlin: foe('pink_gremlin', { name: 'Pink Gremlin', hp: 18, damage: [2, 4], accuracy: 0.66, dodge: 0.25, interval: 0.9, ranged: false, loot: { berries: 1 }, sheet: 'imp_pink', height: 22 }),
   owlet_gremlin: foe('owlet_gremlin', { name: 'Owlet Gremlin', hp: 16, damage: [2, 4], accuracy: 0.7, dodge: 0.3, interval: 0.9, ranged: true, loot: { fiber: 1 }, sheet: 'imp_owlet', height: 22 }),
@@ -115,6 +119,10 @@ export const BESTIARY_ENEMIES: Record<string, EnemyDef> = {
 
 /** Raids by the new foes (picked at random like the rest, by era, day and land). */
 export const BESTIARY_RAIDS: readonly RaidKind[] = [
+  // out of the sea, only against a shore town: they swim ashore to the town's strand
+  { id: 'tide_beasts', name: 'Things from the deep', goal: 'harm', goals: { harm: 3, steal: 1 }, steals: 'food', enemies: { squid_spawn: 13, crocodile: 12 }, fromDay: 1, weight: 2, speed: 55, bribable: false, plural: true, fromSea: true },
+  { id: 'sea_reavers', name: 'Sea reavers', goal: 'steal', goals: { steal: 3, kidnap: 1, harm: 1 }, steals: 'valuables', enemies: { sea_reaver: 14, squid_spawn: 13 }, fromDay: 2, weight: 2, speed: 60, bribable: true, plural: true, fromSea: true },
+  { id: 'drowned_crew', name: 'The drowned crew', goal: 'harm', goals: { harm: 3, kidnap: 1 }, enemies: { drowned_sailor: 12, sea_reaver: 14 }, fromDay: 3, era: 'medieval', weight: 1.5, speed: 45, bribable: false, plural: false, fromSea: true },
   { id: 'gremlins', name: 'Gremlins', goal: 'steal', goals: { steal: 4, harm: 1 }, steals: 'food', enemies: { pink_gremlin: 4, owlet_gremlin: 4, blue_gremlin: 5 }, fromDay: 2, untilEra: 'medieval', weight: 1.5, speed: 85, bribable: false, plural: true },
   { id: 'giant_rats', name: 'Giant rats', goal: 'steal', goals: { steal: 3, harm: 2 }, steals: 'food', enemies: { giant_rat: 5 }, fromDay: 1, untilEra: 'industrial', weight: 1, speed: 70, bribable: false, plural: true },
   { id: 'satyrs', name: 'Satyr revel', goal: 'kidnap', goals: { kidnap: 2, steal: 2, harm: 1 }, steals: 'food', enemies: { satyr: 12, satyr_reveller: 13, satyr_shaman: 16 }, fromDay: 4, untilEra: 'medieval', weight: 1.5, speed: 60, bribable: true, plural: false, biomes: ['forest', 'coast'] },

@@ -1648,6 +1648,22 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (the defend task in a raid) keeps the form the whole fight (mapPeople's `inCombat`), and a cast on the battle map sets
   `p.lastBlow` so it plays the striking pose.
 
+## The merfolk rework (in progress; the owner's request)
+
+- **Raiders from the sea (step 1, done):** raid kinds with `fromSea` (data/raids.ts) come only to a shore town
+  (`seaTown`; the pick in raids.ts filters the rest out): `tide_beasts` (squid spawn and crocodiles, from day 1),
+  `sea_reavers` (the pirate pack's captain sheet as reavers, with squid spawn; bribable, after valuables) and
+  `drowned_crew` (the pirate zombie as drowned sailors, Medieval on); the foes `sea_reaver`, `drowned_sailor`,
+  `squid_spawn` are in bestiary.ts. Their raiders start in the deep water south of the camp (`offSea` in raids.ts,
+  `SEA_OUT` cells past the known land) and never split to flank; on the battle map the trail runs from the sea
+  (`seaEdge` in battle.ts) to the strand (`strandCell`: the first dry cell north of it) or the ring's gate on that side,
+  found with `swim` so they come straight through the water. `RaiderView.swimming` (in the water) draws them from the
+  waist up, bobbing (`waistCrop` in mapRaiders.ts). The shallows take part in the ground's wandering borders, with foam
+  where they meet the strand, and the borders wander a little wider (`WARP` 15, `WARP_SCALE` 20). Test in
+  `test/sea.test.ts`.
+- Still to come: merfolk looks on land (fins and scales), sea buildings (docks, coral dressing on the homes in the
+  water, tide pools), and the ocean and underwater backdrops for their trips.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

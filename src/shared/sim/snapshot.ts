@@ -70,7 +70,7 @@ import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStoc
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS } from './state';
-import { cellAt, groundAt, type LandMap , wet, CELL } from './land';
+import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
 import { castleBounds, castleCells, castleGate, castleLayout, castleOn, coreRect, galleryCells, holdOf, type Hold } from './castle';
@@ -277,6 +277,8 @@ export interface FighterView {
 
 export interface RaiderView {
   id: number;
+  /** In the water (a raid from the sea coming ashore): drawn from the waist up. */
+  swimming: boolean;
   /** Fighting for the town (summoned, raised or tamed). */
   ally: boolean;
   /** Ticks since its last sweeping attack (bosses), and since it was summoned, raised or tamed. */
@@ -824,6 +826,7 @@ export function snapshot(s: GameState): Snapshot {
             sinceConjured: r.conjuredAt != null ? s.tick - r.conjuredAt : 999,
             sinceCast: r.lastCast != null ? s.tick - r.lastCast : 999,
             hitFx: r.hitFx ?? null,
+            swimming: wetAt(s, r.x, r.y),
           })),
         }
       : null,
@@ -1067,6 +1070,13 @@ function mineView(s: GameState): MineView | null {
     }),
     miners: miners.map((q) => ({ ...person(q), digging: at(q) })),
   };
+}
+
+/** Whether a point on the land is in the water (the sea or a river). */
+function wetAt(s: GameState, x: number, y: number): boolean {
+  const cx = Math.floor(x / CELL);
+  const cy = Math.floor(y / CELL);
+  return inMap(s.land, cx, cy) && wet(groundAt(s.land, cx, cy));
 }
 
 function bodyView(p: Person): PersonView['body'] {
