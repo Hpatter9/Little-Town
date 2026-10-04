@@ -1548,15 +1548,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 ## Deaths made common again (the owner's call: all three levers)
 
 - The first economy soak had 5 townsfolk deaths across all twelve towns in 15 days: towns are smaller since arrivals
-  became the player's choice, and raids scale with the town. The owner asked for all three: **raids bite small towns**
-  (`RAID_BUDGET_BASE` 18, was 12; `RAID_BUDGET_PER_DAY` 3, was 2; `KILLING_BLOW` 0.45, was 0.3; and, since a probe
-  showed small towns' raids downing nobody at all, every budget times `RAID_BITE` and every raider's blow times
-  `RAID_FEROCITY`, both 1.4: at 1.6 a settlers' town fell to one person, at 1.3 four towns lost five), **bolder parties**
-  (`DARE` 1.15 and `DARE_BOLD` 0.8, were 1.6 and 1.1; out at `FIT_HP` 0.75, was 0.9), and **more and deadlier
-  disasters** (`DOOM_FIRST_DAY` 4, was 5; `DOOM_EVERY_DAYS` 4 to 7, was 6 to 10; `PLAGUE_SPREAD` 0.06, was 0.04;
-  `PLAGUE_HP_PER_HOUR` 1.6, was 1.2). **Every town has an adventurer early** (`ADVENTURER_WANTED` in data/ambitions.ts):
-  while none is in town, the next grown-up whose ambition is settled takes to the road (never the founder), so a
-  settlers' founding companion is one.
+  became the player's choice, and a probe showed small towns' raids (two or three beasts) downing nobody at all. The
+  owner asked for all three levers. **Raids:** `RAID_BUDGET_BASE` 18 (was 12), `RAID_BUDGET_PER_DAY` 3 (was 2),
+  `KILLING_BLOW` 0.38 (was 0.3), every budget times `RAID_BITE` 1.4 and every raider's blow times `RAID_FEROCITY` 1.25,
+  a kidnapper's blow never kills (they want captives alive), and the two only from `RAID_BITE_FROM` (3) grown-ups (`biteOf` in raids.ts: a founder alone or with one companion meets the
+  raids of old). **Parties:** `DARE` 1.15 and `DARE_BOLD` 0.8 (were 1.6 and 1.1), out at `FIT_HP` 0.75 (was 0.9).
+  **Disasters:** `DOOM_FIRST_DAY` 4 (was 5), `DOOM_EVERY_DAYS` 5 to 8 (was 6 to 10), `PLAGUE_SPREAD` 0.06 (was 0.04),
+  `PLAGUE_HP_PER_HOUR` 1.3 (was 1.2). Tried and dropped: bite and ferocity 1.6 (a settlers' town fell to one person), 1.4
+  with a 0.45 killing blow (a settlers' town fell to two, alchemists to three, with the injuries in). Soak (15 days, 8
+  towns: settlers on 4 seeds, the others 1): 0 to 4 deaths a town, about 1.5 on average, none fell below 6 people.
+  **Every town has an adventurer early** (`ADVENTURER_WANTED` in data/ambitions.ts): while none is in town, the next
+  grown-up whose ambition is settled takes to the road (never the founder), so a settlers' founding companion is one.
 - **The care of the hurt is researched (the owner's ask):** a research effect `care` (`heal`, `bleed`, `feet` in
   `data/research.ts`; `careHeal`, `careBleed`, `careFeet` in `researchMods`) read by `knockDown` (how long the downed
   have before they bleed out) and `heal` (the healing pace, and the share of health the downed get up at) in

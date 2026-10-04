@@ -618,7 +618,8 @@ export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area
   if (p.hp === 0) {
     // (a killing blow: no lying wounded waiting to be tended)
     // (the founder only when someone could take the town on: a lone founder's camp isn't ended by one blow)
-    const odds = p.id === s.mainId ? (heirOf(s, p) ? FOUNDER_KILLING_BLOW : 0) : def.kit || def.boss ? BOSS_KILLING_BLOW : KILLING_BLOW;
+    // (a kidnapper wants them alive)
+    const odds = rd.goal === 'kidnap' ? 0 : p.id === s.mainId ? (heirOf(s, p) ? FOUNDER_KILLING_BLOW : 0) : def.kit || def.boss ? BOSS_KILLING_BLOW : KILLING_BLOW;
     if (rng.chance(odds)) {
       const by = /^the /i.test(def.name) ? def.name : `${/^[aeiou]/i.test(def.name) ? 'an' : 'a'} ${def.name.toLowerCase()}`;
       killPerson(s, p, `at the hands of ${by}`);
