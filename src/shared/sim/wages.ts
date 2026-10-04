@@ -11,6 +11,7 @@ import { FARE, PURSE_SCALE } from '../data/shop';
 import { addItems, gearScore } from './crafting';
 import { farePrice, itemPrice, log, offers, pieceName, SALE_GEAR, takeOffer, venueOpen, type Offer } from './shop';
 import { moneyTown } from './economy';
+import { SAVINGS_KEEP } from '../data/economy';
 import { isChild } from './social';
 import { earn, notify, remember, type GameState, type Person } from './state';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -55,8 +56,9 @@ export function nightOut(s: GameState): void {
   if (!tavern) return;
   let guests = 0;
   let takings = 0;
-  for (const p of s.people.filter((q) => q.away === null && !isChild(q) && !q.downed && (q.coins ?? 0) > 0)) {
-    const menu = offers(s, FARE, (i, q) => Math.max(1, Math.round(farePrice(s, i, q) * LOCAL_PRICE))).filter((o) => o.price <= (p.coins ?? 0));
+  // (people keep a little back: data/economy.ts SAVINGS_KEEP, so they can save for land)
+  for (const p of s.people.filter((q) => q.away === null && !isChild(q) && !q.downed && (q.coins ?? 0) > SAVINGS_KEEP)) {
+    const menu = offers(s, FARE, (i, q) => Math.max(1, Math.round(farePrice(s, i, q) * LOCAL_PRICE))).filter((o) => o.price <= (p.coins ?? 0) - SAVINGS_KEEP);
     const pick = menu.filter((o) => o.item.fare!.kind === 'drink').at(-1) ?? menu.at(-1);
     if (!pick || !takeOffer(s, pick)) continue;
     p.coins = (p.coins ?? 0) - pick.price;
@@ -82,7 +84,7 @@ export function buyGear(s: GameState): void {
       const worn = p.gear[slot] ? ITEM_BY_ID[p.gear[slot]!] : undefined;
       const now = worn ? gearScore(worn, p.gearQ?.[slot]) : 0;
       const pick = offers(s, SALE_GEAR.filter((i) => i.slot === slot && canWear(p, i)), localPrice)
-        .filter((o) => o.price <= (p.coins ?? 0) && gearScore(o.item, o.q) > Math.max(0.01, now * WORTH_BUYING))
+        .filter((o) => o.price <= (p.coins ?? 0) - SAVINGS_KEEP && gearScore(o.item, o.q) > Math.max(0.01, now * WORTH_BUYING))
         .sort((a, b) => gearScore(b.item, b.q) - gearScore(a.item, a.q))[0];
       if (pick) buyPiece(s, p, slot, pick);
     }

@@ -3,6 +3,7 @@
 
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
+import type { TaxRate } from '../data/economy';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
 import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
@@ -99,6 +100,8 @@ export interface Building {
   readyTick?: number;
   /** Who runs it (buildings with an operator role), and whether the player picked them. */
   operator?: number | null;
+  /** Who owns it (sim/property.ts): a person, or the treasury when left out. */
+  owner?: number;
   /** A pen widened for its herd: this many columns more than its def's width (sim/livestock.ts `growPen`). */
   wide?: number;
   operatorChosen?: boolean;
@@ -371,6 +374,13 @@ export interface Person {
   /** Their income (sim/economy.ts): today's and yesterday's coins, pay owed for work by the hour not yet a whole
    *  coin, and what the last hourly pay was for (the Townsfolk tab). */
   pay?: { day: number; today: number; yesterday: number };
+  /** Rent they couldn't pay, and rent paid in all (sim/property.ts). */
+  debt?: number;
+  rentPaid?: number;
+  taxPaid?: number;
+  /** A guard hired by the treasury (sim/treasury.ts), and the days running it couldn't pay them. */
+  guard?: boolean;
+  guardUnpaid?: number;
   owed?: number;
   paidFor?: { line: string; n: number };
   /** Set when the person can't put down what they carry because all storage is full. */
@@ -756,6 +766,9 @@ export interface GameState {
   lastVisit?: number;
   /** How many people the player wants the town to hold (unset: as many as come). Nobody joins or is born past it. */
   popTarget?: number;
+  /** The tax lever (data/economy.ts TAX; fair when left out), and since when it has been heavy. */
+  tax?: TaxRate;
+  taxHeavySince?: number;
   eventLog?: string[];
   marks?: { lever: string; value: number; until: number; text: string }[];
   eventLater?: { tick: number; event: string; option: number; index: number; who?: number }[];
@@ -851,7 +864,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */

@@ -49,6 +49,20 @@ export function accruePay(s: GameState, p: Person, perHour: number, line: Ledger
   if (paid) p.paidFor = { line: why, n: (p.paidFor?.line === why ? p.paidFor.n : 0) + paid };
 }
 
+/** Work by the hour paid by another person (an owner hiring builders): what they can't pay goes unpaid, and the
+ *  worker moves on (sim/property.ts `canWork`). */
+export function accruePayFrom(s: GameState, payer: Person, p: Person, perHour: number, why: string, ticksPerHour: number): void {
+  p.owed = (p.owed ?? 0) + (perHour * PURSE_SCALE[s.era]) / ticksPerHour;
+  if (p.owed < 1) return;
+  const whole = Math.floor(p.owed);
+  const n = Math.min(whole, payer.coins ?? 0);
+  p.owed -= whole;
+  if (n <= 0) return;
+  payer.coins = (payer.coins ?? 0) - n;
+  giveCoins(s, p, n);
+  p.paidFor = { line: why, n: (p.paidFor?.line === why ? p.paidFor.n : 0) + n };
+}
+
 /** What a load brought into the stores is worth to whoever brings it (GATHER_SHARE of its worth). */
 export function loadPrice(s: GameState, load: Stock): number {
   let n = 0;

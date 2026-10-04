@@ -22,6 +22,9 @@ import { directionOf, forSale, shoppingList, type Direction, type TownPlan } fro
 import { decorPrice, appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect, trophyRenown } from './shop';
 import { moneyTown, wageBill } from './wages';
 import { incomeOf } from './economy';
+import { propertyOf } from './property';
+import { guardsOf, guardsWanted, guardWage, taxRate } from './treasury';
+import type { TaxRate } from '../data/economy';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
 import { HERDS } from '../data/livestock';
@@ -153,6 +156,9 @@ export interface PersonView {
   coins: number | null;
   /** Their income (sim/economy.ts): today, yesterday, and what their last hourly pay was for. */
   income: { today: number; yesterday: number; last: string | null } | null;
+  /** What they own (sim/property.ts), and rent owed. */
+  owns: string[];
+  debt: number;
   /** A little more about them: the role they fill, how their work is going, what their crafting is like. */
   detail: string[];
   /** What they've done lately, newest first. */
@@ -604,6 +610,9 @@ export interface Snapshot {
   direction: Direction;
   /** How many people the player wants the town to hold, or null for no limit. */
   townSize: number | null;
+  /** The tax lever, and the treasury's guards (sim/treasury.ts). */
+  tax: TaxRate;
+  guards: { n: number; wanted: number; wage: number; names: string[] };
   plan: TownPlan | null;
   /** The tick of the last big boss moment (a roar, a sweeping attack): the strip shakes. */
   bossShake: number;
@@ -816,6 +825,8 @@ export function snapshot(s: GameState): Snapshot {
     weather: weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null),
     direction: directionOf(s),
     townSize: s.popTarget ?? null,
+    tax: taxRate(s),
+    guards: { n: guardsOf(s).length, wanted: guardsWanted(s), wage: guardWage(s), names: guardsOf(s).map((g) => g.name) },
     plan: s.plan ?? null,
     ironman: !!s.ironman,
     launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
@@ -1087,6 +1098,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     gearQ: { ...(p.gearQ ?? {}) },
     coins: p.coins ?? (moneyTown(s) ? 0 : null),
     income: moneyTown(s) ? { ...incomeOf(s, p), last: p.paidFor?.line ?? null } : null,
+    owns: propertyOf(s, p),
+    debt: p.debt ?? 0,
     detail: personDetail(s, p),
     recent: [...(p.recent ?? [])].reverse().map((r) => r.text),
     bedroll: hasBedroll(s, p),
@@ -1133,6 +1146,7 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit'> {
 
 /** The job someone holds: the role's title and the building's name. */
 function jobView(s: GameState, p: Person): { title: string; at: string } | null {
+  if (p.guard) return { title: 'Guard', at: 'the town' };
   const b = s.buildings.find((q) => q.operator === p.id && q.status === 'done' && !!OPERATORS[q.def]);
   return b ? { title: OPERATORS[b.def].title, at: BUILDING_BY_ID[b.def].name } : null;
 }

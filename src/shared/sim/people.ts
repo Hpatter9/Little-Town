@@ -40,8 +40,9 @@ import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
 import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
-import { accruePay, loadPrice, moneyTown, payFromTreasury } from './economy';
-import { BUILD_PER_HOUR, STUDY_PER_HOUR, TREASURY_KEEP } from '../data/economy';
+import { accruePay, accruePayFrom, loadPrice, moneyTown, payFromTreasury } from './economy';
+import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, TREASURY_KEEP } from '../data/economy';
+import { canWork } from './property';
 import { isChild } from './social';
 
 /** Walking speed in world pixels per second. */
@@ -181,10 +182,16 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (!goToB(s, p, site)) break;
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
-      const speed = skillSpeed(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
-      site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
+      // (a steep curve by skill, and slower than it was: data/economy.ts)
+      const speed = buildPower(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
+      site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
-      accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
+      // (paid by the hour: by the treasury for its works, by the owner for theirs; an owner works for nothing)
+      if (site.owner === undefined) accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
+      else if (site.owner !== p.id) {
+        const owner = s.people.find((q) => q.id === site.owner);
+        if (owner) accruePayFrom(s, owner, p, HIRE_PER_HOUR, `building for ${owner.name}`, TICKS_PER_HOUR);
+      }
       if (site.progress >= 1) {
         site.progress = 1;
         site.status = 'done';
@@ -328,7 +335,8 @@ export const alarmRaised = (s: GameState) => {
 /** Patrol shifts (DESIGN §10): with a Barracks, guards on Defend High take day or night shifts (by turns). */
 export function onShift(s: GameState, p: Person): boolean {
   if (p.priorities.defend !== 1 || p.bornTick != null) return false;
-  if (!s.buildings.some((b) => b.def === 'barracks' && b.status === 'done')) return false;
+  // (a hired guard (sim/treasury.ts) keeps watch without a barracks)
+  if (!p.guard && !s.buildings.some((b) => b.def === 'barracks' && b.status === 'done')) return false;
   const h = calendar(s.tick).hour;
   const day = h >= 6 && h < 18;
   return (p.id % 2 === 0) === day;
@@ -856,7 +864,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       }
       return null;
     case 'construct': {
-      const b = s.buildings.find((q) => q.status === 'blueprint' && poolSize(stillNeeded(q)) === 0);
+      const b = s.buildings.find((q) => q.status === 'blueprint' && poolSize(stillNeeded(q)) === 0 && canWork(s, p, q));
       if (b) return { type: 'build', building: b.id };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
@@ -973,7 +981,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
     case 'deliver':
       return site?.status === 'blueprint';
     case 'build':
-      return site?.status === 'blueprint' && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0;
+      return site?.status === 'blueprint' && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0 && canWork(s, p, site);
     case 'research':
       // (still their station: built, standing, and nobody else's)
       return (

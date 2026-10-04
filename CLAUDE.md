@@ -1448,6 +1448,35 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   line is "Pay for work". `PersonView.income`; the inspect page's purse line says what they earned today and yesterday.
   `moneyTown` (economy.ts) is true once the town has a venue or ever had coins.
 
+- **Step 2a, building, land and rent (done):** `src/shared/sim/property.ts`. **Building is slower and needs skill:**
+  `BUILD_PACE` (3) on every site; a site needs `buildSkill(def)` Construction of whoever works it
+  (`BUILD_SKILL_BY_ERA` 1/8/20/35/50 by the era of what's built, a little more past `BUILD_SKILL_FREE_CELLS`), else
+  `canWork` keeps them off it (the `construct` job and the task's validity); a builder's pace is `buildPower(level)`
+  (0.5 + level/10: a steep curve, so skill matters). **Ownership:** `Building.owner` (a person; the treasury when left
+  out). **Homes by the people:** `planHomes` (hourly, `propertyHourly` from sim.ts, money towns only): a grown-up with no
+  home of their own and coins for a plot (`landPrice`: `LAND_PRICE_PER_CELL` a cell) and the materials (`materialsPrice`:
+  their worth, bought from the stores) has the best home they can afford placed and owned (`findSpot` is exported from
+  the planner for it); the owner works their own site for nothing and pays whoever else works on it `HIRE_PER_HOUR`
+  (`accruePayFrom` in economy.ts; unpaid, nobody else takes it); `assignBeds` gives owners their own home first. The
+  treasury still builds a home to rent whenever fewer than one bed is free (a newcomer only comes to a town with a bed
+  free, so building to rent only when someone slept rough deadlocked a full town).
+  **Rent:** at dawn (`collectRent`) everyone with a bed in a home that isn't theirs pays `rentOf` (`RENT_PER_BED` a day)
+  to its owner or the treasury (ledger line `rent`, which also books land sold); short of it, `Person.debt` grows and
+  `RENT_MORALE` bites. `PersonView.owns`/`.debt` on the inspect page. Tests: `test/property.test.ts`.
+
+- **Step 2b, tax and guards (done):** `src/shared/sim/treasury.ts`. **Tax:** the Plan tab's lever (`s.tax`: `TAX` in
+  data/economy.ts: low 5%, fair 15%, heavy 30% of yesterday's income, each with its morale in `mood()`; the `setTax`
+  command); `collectTax` at dawn; heavy tax kept `TAX_LEAVE_DAYS` and each dawn one of the grown-ups (never the
+  founder) may leave (`TAX_LEAVE_CHANCE`). **Guards:** a standing paid calling (`Person.guard`): `assignGuards` hourly
+  hires the best fighter free (not a post's holder) up to `guardsWanted` (one per `GUARD_PER_PEOPLE`, one more on
+  Defence or raided in the last 3 days) and what the treasury can pay a day (`GUARD_WAGE`; ledger `guards`);
+  `payGuards` at dawn, and a guard unpaid `GUARD_UNPAID_DAYS` running stands down. A guard has `priorities.defend` 1
+  and keeps watch by turns without a barracks (`onShift`), and goes first on the raid map (`autoPlace`'s strength).
+  The Townsfolk tab's job is "Guard"; the Plan tab has the Treasury (the tax lever, the guards, the ledger with
+  `tax` and `guards` lines). **Thrift:** people keep `SAVINGS_KEEP` back before buying gear or a night out, so they
+  can save for land. The Townsfolk rows show each person's coins and a 🏠 for a home of their own. **Tuning:** `BUILD_PACE` 2 and `buildPower` 0.7 + level/10 (3 and 0.5 stalled a knights' town);
+  the ring wall waits for `RING_MIN_PEOPLE` (4) grown-ups even when raided. Tests: `test/treasury.test.ts`.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

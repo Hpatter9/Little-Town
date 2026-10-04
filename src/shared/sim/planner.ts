@@ -479,6 +479,8 @@ function planCrafting(s: GameState, n: Needs): Stock {
 /* ------------------------------------------------------------ building */
 
 /** The era capstones, and the launch at the end: built when the town can. */
+/** No ring wall at all under this many grown-ups (the first days go on shelter, food and the shop). */
+const RING_MIN_PEOPLE = 4;
 const CAPSTONES = ['elder_lodge', 'town_hall', 'power_station', 'mission_control', 'launch_site'];
 /** Never built by the planner: tied to hidden choices, or one-off rescue machines the player earns. */
 const NEVER = new Set(['phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_vat', 'palisade_gate', 'stone_gate']);
@@ -514,7 +516,7 @@ function wildCells(s: GameState): { i: number; pool: Stock; d: number }[] {
 /** The nearest free spot for a building, out from the camp in rings, each ring's spots nearest a road first, so the
  *  town grows along its roads (null if there's no room). In a castle town the keep's ground is the castle's:
  *  everything else goes outside it. Fields and pens keep a little further out than the houses. */
-function findSpot(s: GameState, def: BuildingDef): Pt | null {
+export function findSpot(s: GameState, def: BuildingDef): Pt | null {
   // (a wandering tribe builds its great works on its home ground)
   const from = buildOrigin(s, def.id) ?? campCell(s);
   const taken = footprints(s);
@@ -588,6 +590,8 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const fieldsNow = s.buildings.filter((b) => foodField(b.def)).reduce((n, b) => n + plotsWorth(b.def), 0);
   const fed = n.people < 4 || (n.foodDays >= 2 && fieldsNow >= Math.ceil(n.people / 2) - 1);
   const paced = n.people < 4 || s.tick - (s.plan?.lastHome ?? -Infinity) >= HOME_EVERY * Math.max(1, s.plan?.lastHomeBeds ?? 1);
+  // (people build their own homes too (sim/property.ts); the treasury keeps a bed spare to rent, since a newcomer
+  // only comes to a town with a bed free)
   if (n.freeBeds < 1 && fed && paced) options((d) => !!d.housing, (d) => d.housing!, `${n.people} people and ${n.people + n.freeBeds} beds`);
   // food: a field for every two people (one or two more when stores are low; never a field per person)
   const fields = fieldsNow;
@@ -774,7 +778,8 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   const grownUps = s.people.filter((p) => !isChild(p)).length;
   // (a town that can't gather what it builds with waits for its shop before it walls itself: the shop comes first)
   const shopFirst = n.unsourced.length > 0 && !s.buildings.some((b) => isShop(b.def));
-  if (!shopFirst) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
+  // (a handful of people can't wall a town and build it too: the ring waits for RING_MIN_PEOPLE, raided or not)
+  if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
   if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
   if (blueprintCount(s) >= buildSlots(s)) return clear;
   let blocked: BuildingDef | null = null;

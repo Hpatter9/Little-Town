@@ -1,6 +1,7 @@
 // Player actions. The UI never edits state directly: it sends commands, and the sim applies them at the
 // start of the next tick so every change happens at a well-defined point in sim time.
 
+import { TAX_RATES, type TaxRate } from '../data/economy';
 import type { MonsterKind } from '../data/monsters';
 const TURN_KINDS: readonly string[] = ['undead', 'vampire', 'werewolf'];
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -17,6 +18,7 @@ export type Command =
   /** Where the self-running town puts its effort. */
   | { type: 'setDirection'; direction: Direction }
   | { type: 'setTownSize'; size: number | null }
+  | { type: 'setTax'; rate: TaxRate }
   /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
   | { type: 'toggleGather'; cell: number }
   /** Place a blueprint with its top-left cell at (x, y). */
@@ -102,6 +104,8 @@ export function parseCommand(raw: unknown): Command | null {
       return { type: 'becomeLich' };
     case 'setDirection':
       return DIRECTIONS.includes(c.direction as Direction) ? { type: 'setDirection', direction: c.direction as Direction } : null;
+    case 'setTax':
+      return TAX_RATES.includes(c.rate as TaxRate) ? { type: 'setTax', rate: c.rate as TaxRate } : null;
     case 'setTownSize':
       return c.size === null || (Number.isInteger(c.size) && (c.size as number) >= 1 && (c.size as number) <= 200) ? { type: 'setTownSize', size: c.size as number | null } : null;
     case 'toggleGather':

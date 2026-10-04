@@ -1,6 +1,9 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
+import { TAX } from '../data/economy';
+import { moneyTown } from './economy';
+import { taxRate } from './treasury';
 import { ageWork } from './ageing';
 import { POP_SOFT_CAP } from '../data/pace';
 import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/buildings';
@@ -124,6 +127,9 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
     })
     .sort((a, b) => b[0] - a[0])[0];
   if (best) add(best[1], best[0]);
+  // (the tax lever, data/economy.ts: once there's money to tax)
+  if (moneyTown(s) && p.bornTick == null && TAX[taxRate(s)].morale) add(`${TAX[taxRate(s)].name} taxes`, TAX[taxRate(s)].morale);
+  if (p.guard) add('Paid to keep watch', 2);
   if (p.traits.includes('loner') && s.people.length > 4) add('Too many people (Loner)', -10);
   if (p.downed) add('Badly hurt', -12);
   else if (isInjured(p)) add('Injured', -6);
@@ -271,6 +277,14 @@ export function assignBeds(s: GameState): void {
     const b = p.bed === null ? undefined : s.buildings.find((q) => q.id === p.bed);
     if (!b || b.status !== 'done' || !defOf(b).housing) p.bed = null;
     else used.set(b.id, (used.get(b.id) ?? 0) + 1);
+  }
+  // (whoever owns a home sleeps in it: the rest take what's free)
+  for (const p of s.people) {
+    if (p.bed !== null) continue;
+    const own = s.buildings.find((b) => b.owner === p.id && b.status === 'done' && (defOf(b).housing ?? 0) > (used.get(b.id) ?? 0));
+    if (!own) continue;
+    p.bed = own.id;
+    used.set(own.id, (used.get(own.id) ?? 0) + 1);
   }
   for (const p of s.people) {
     if (p.bed !== null) continue;

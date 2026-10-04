@@ -54,7 +54,8 @@ test('Medieval research stays closed until the Elder Lodge is finished, then the
   const lodge = addBuilding(s, 'elder_lodge', camp(s) + 3, 'blueprint');
   lodge.delivered = { wood: 40, stone: 30, hide: 10, totem: 1 };
   s.people[0].priorities = priorities({ construct: 1 });
-  runUntil(sim, () => lodge.status === 'done', 2 * TICKS_PER_DAY);
+  s.people[0].skills.construction.level = 10; // (building needs skill now: data/economy.ts)
+  runUntil(sim, () => lodge.status === 'done', 4 * TICKS_PER_DAY);
   assert.equal(s.era, 'medieval');
   assert.ok(s.notices.some((n) => n.text.includes('Medieval era')));
   assert.equal(canQueue(r, 'mining', s.era).ok, true);

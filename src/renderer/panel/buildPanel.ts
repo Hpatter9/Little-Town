@@ -1,7 +1,10 @@
 // Town plan (the Build tab): the town builds for itself now. At the top, where it's putting its effort (the one thing
 // the player sets), what it's building and what it decided next and why; below, every building it knows, for reference.
 
+import { BUILD_PACE } from '../../shared/data/economy';
+import { buildSkill } from '../../shared/sim/property';
 import { TOWN_SIZES } from '../../shared/sim/state';
+import { TAX, TAX_RATES } from '../../shared/data/economy';
 import { ADJACENT_TILES, BUILDING_BY_ID, BUILDINGS, LAYER_NAMES, NEAR_SOURCE, NEAR_SOURCE_BONUS, RIVER_GROWTH, TAVERN_MARKET_MORALE, type BuildLayer, type BuildingDef } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { earlier, eraReached } from '../../shared/data/eras';
@@ -106,7 +109,15 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
 
   // the town's money: travellers bring it in at the shop and the tavern, and it goes on wages, crafters and the venues
   if (s.shop || s.tavern || s.coins) {
-    out.push(el('h2', '', `Coins: ${s.coins}`));
+    out.push(el('h2', '', `Treasury: ${s.coins} coins`));
+    out.push(el('div', 'hint', 'The founder\'s purse. The townsfolk keep their own: they earn by their work, buy land and build, and pay rent and tax. The treasury pays for the public works, the study, and the guards.'));
+    // the tax lever
+    const taxes = el('div', 'row directions');
+    for (const r of TAX_RATES)
+      taxes.append(button(TAX[r].name, () => bridge?.command({ type: 'setTax', rate: r }), { cls: `place small${s.tax === r ? ' on' : ' quiet'}`, title: TAX[r].text }));
+    out.push(el('h2', '', 'Tax'), taxes, el('div', 'hint', TAX[s.tax].text));
+    out.push(el('h2', '', `Guards: ${s.guards.n} of ${s.guards.wanted}`));
+    out.push(el('div', 'hint', s.guards.n ? `${s.guards.names.join(', ')}: ${s.guards.wage} coins a day each, on watch by turns, first to the wall when raiders come.` : s.guards.wanted ? `The treasury hires a guard (${s.guards.wage} coins a day) when it can pay one.` : 'A town this size keeps no guards; one is hired for every six grown-ups, one more on Defence or after a raid.'));
     const l = s.ledger;
     if (!l) out.push(el('div', 'hint', 'Travellers passing through fund the town: they buy at the shop and eat and drink at the tavern. A day\'s takings show here from tomorrow.'));
     else {
@@ -119,6 +130,9 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
         ['venues', 'Rooms and improvements'],
         ['goods', 'Goods bought from travellers'],
         ['events', 'Choices the town made (events)'],
+        ['rent', 'Rent, and land sold'],
+        ['tax', 'Tax'],
+        ['guards', 'The guards\' wages'],
       ];
       const t = el('table', 'grid ledger');
       let net = 0;
@@ -200,7 +214,7 @@ function card(def: BuildingDef, s: Snapshot): HTMLElement {
   const unlocked = isUnlocked({ unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id }, def);
   const c = el('div', unlocked ? 'card' : 'card locked');
   const top = el('div', 'card-top');
-  top.append(el('span', 'card-name', def.name), el('span', 'card-size', `${def.width} wide · ~${duration(def.buildSeconds * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(def.research))])} of work`));
+  top.append(el('span', 'card-name', def.name), el('span', 'card-size', `${def.width} wide · ~${duration(def.buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(def.research))])} of work · Construction ${buildSkill(def)}+`));
   const cost = el('div', 'cost');
   for (const [m, n] of Object.entries(def.cost) as [Material, number][]) {
     const chip = el('span', (s.stock[m] ?? 0) >= n ? 'chip' : 'chip short', `${MATERIAL_NAMES[m]} ${n}`);

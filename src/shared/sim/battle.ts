@@ -479,7 +479,8 @@ export function autoPlace(s: GameState, b: Battle, r: Raid): void {
     return n + (q.kind === 'wall' ? 100 : 0);
   };
   const shoots = shooterSpots.filter((q) => !taken.has(q.id)).sort((a, c) => sees(c) - sees(a));
-  const strength = (p: Person) => p.skills.melee.level + p.skills.ranged.level + p.hp / 20 + (p.id === s.mainId ? 5 : 0);
+  // (the hired guards first: it's what they're paid for)
+  const strength = (p: Person) => p.skills.melee.level + p.skills.ranged.level + p.hp / 20 + (p.id === s.mainId ? 5 : 0) + (p.guard ? 50 : 0);
   // (the town doesn't send the badly hurt back out)
   const left = fighters(s).filter((p) => !placed.has(p.id) && p.hp >= maxHp(p) * FALL_BACK * 1.6).sort((a, c) => strength(c) - strength(a));
   for (const p of left) {
