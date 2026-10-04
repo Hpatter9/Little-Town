@@ -34,6 +34,10 @@ export const NATURE_AMBITION: Readonly<Partial<Record<NatureId, AmbitionId>>> = 
   kind: 'homebody', stern: 'guard', proud: 'keeper', jolly: 'keeper', cheerful: 'farmer', pious: 'farmer', gloomy: 'crafter',
 };
 
+/** Every town has an adventurer early: while none is in town, the next grown-up whose ambition is settled (never the
+ *  founder) takes to the road, so one is among the first few (`settleAmbitions`). */
+export const ADVENTURER_WANTED = true;
+
 /** A post that matches someone's ambition counts this many skill levels more when posts are handed out. */
 export const JOB_PULL = 4;
 /** An adventurer this rich after this many trips settles down to a shop of their own. */

@@ -76,7 +76,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
   // parties form themselves: who would set out next, and why not
   out.push(el('h2', '', 'Parties'));
   out.push(el('div', 'purpose', s.trips.forming));
-  out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away · treasury ${s.coins ?? 0} coins. Adventurers choose where to go; a bounty draws anyone fit. Forbid a place to keep them from it.`));
+  out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away · treasury ${s.coins ?? 0} coins. Adventurers choose where to go, and a bounty draws them to a place. Forbid a place to keep them from it.`));
   for (const e of s.expeditions) {
     const card = activeCard(e, s, bridge);
     card.addEventListener('click', () => pick(e.dest));
@@ -225,7 +225,7 @@ function tripControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sna
     }),
     button(v.bounty ? `Raise bounty +${step}` : `Post bounty ${step}`, () => bridge?.command({ type: 'bounty', dest: d.id, post: true }), {
       disabled: v.vetoed || (s.coins ?? 0) < step,
-      title: `The treasury sets ${step} coins aside for the party that does the job here. Anyone fit may go after a bounty, not just the adventurers.`,
+      title: `The treasury sets ${step} coins aside for the party that does the job here. The adventurers go after the biggest bounty they can take on.`,
     }),
   );
   if (v.bounty) row.append(button('Withdraw', () => bridge?.command({ type: 'bounty', dest: d.id, post: false }), { cls: 'place quiet', title: 'The coins go back to the treasury.' }));

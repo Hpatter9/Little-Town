@@ -1085,9 +1085,9 @@ function tripsView(s: GameState): TripsView {
     const others = plan.members.length - 1;
     forming = `${lead.name}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''} would set out for ${the(d.name)}${plan.stakes === 'risky' ? ', boldly' : ''}.`;
   } else if (s.expeditions.length >= MAX_EXPEDITIONS) forming = 'As many parties are out as can be.';
-  else if (!room) forming = 'Half the town is away already: nobody else goes.';
+  else if (!room) forming = s.people.filter((p) => !isChild(p)).length < 3 ? 'The town is too small to send anyone out.' : 'Half the town is away already: nobody else goes.';
   else if (!fit) forming = 'Nobody is fit to go: they rest and heal first.';
-  else if (!adventurers && !Object.keys(s.bounties ?? {}).length) forming = 'No adventurers in town. Post a bounty to draw a party.';
+  else if (!adventurers) forming = 'No adventurers in town: nobody goes out until one comes.';
   else forming = 'No party is strong enough for anywhere they want to go yet.';
   return { forming, fit, room, bountyStep: bountyStep(s), adventurers };
 }

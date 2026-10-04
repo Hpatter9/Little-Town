@@ -1503,8 +1503,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `SET_OUT_UNTIL`, `PARTY_GAP_HOURS` apart): `proposeParty` takes the fit (`fitToGo`: healed to `FIT_HP`, rested, fed,
   `TRIP_REST_HOURS` since their last trip came home, `Person.homeAt`) who may go (`mayGo`: not a guard, a keeper of a
   venue or healer's post, or the founder), the half of the town that may be away (`roomAway`), and the places on the
-  board not forbidden nor already visited by a party (`boardDestinations`, `choosable`). An adventurer leads (anyone,
-  for a bounty), choosing by `pull` (a bounty, somewhere unseen, a fight); `recruit` fills the wanted roles in turn
+  board not forbidden nor already visited by a party (`boardDestinations`, `choosable`). Only an adventurer leads (the
+  owner's call: no adventurer, no trips; and none from a town under `MIN_TOWN_FOR_TRIPS` 3 grown-ups), choosing by `pull` (a bounty, somewhere unseen, a fight); `recruit` fills the wanted roles in turn
   (`WANTS`: front, healer, damage, scout, by the calling's `ClassRole`, `partRole`) by liking, never an enemy of anyone
   going, the devoted first; the party goes only if `strengthOf` (health raised by level) beats `dangerOf` (the heaviest
   foe group, a dungeon's boss) times `DARE` (`DARE_BOLD` for a bold leader, who also goes risky). `Expedition.leader`.
@@ -1545,15 +1545,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   watchtowers (`art/packs/su_*.png`, shrunk from the pack's vector PNGs; `PICKS` in packBuildings.ts). Still code-drawn:
   the factory and garage, the radio tower and drone hub, and the origin halls (no pack has them).
 
-## Watch: deaths are rare again
+## Deaths made common again (the owner's call: all three levers)
 
-- The economy soak (one town per origin, 15 days, counting "has died" in the journal by entry): 5 townsfolk died across
-  all twelve towns (druids, dwarves and werewolves 1 each, nomads 2), and every death had its funeral. Towns are smaller
-  since arrivals became the player's choice (9 to 21 people at day 15, the lich, machine and nomad towns 28 to 47), and
-  raids scale with people, buildings and stores, so they are smaller too. A stronger raid baseline
-  (`RAID_BUDGET_BASE` 18, `RAID_BUDGET_PER_DAY` 3) was tried and changed little (3 deaths in four towns); it was left
-  out. The owner wants deaths common: this needs a decision on what should bite harder (raids on small towns, the
-  parties' daring, disease).
+- The first economy soak had 5 townsfolk deaths across all twelve towns in 15 days: towns are smaller since arrivals
+  became the player's choice, and raids scale with the town. The owner asked for all three: **raids bite small towns**
+  (`RAID_BUDGET_BASE` 18, was 12; `RAID_BUDGET_PER_DAY` 3, was 2; `KILLING_BLOW` 0.45, was 0.3), **bolder parties**
+  (`DARE` 1.15 and `DARE_BOLD` 0.8, were 1.6 and 1.1; out at `FIT_HP` 0.75, was 0.9), and **more and deadlier
+  disasters** (`DOOM_FIRST_DAY` 4, was 5; `DOOM_EVERY_DAYS` 4 to 7, was 6 to 10; `PLAGUE_SPREAD` 0.06, was 0.04;
+  `PLAGUE_HP_PER_HOUR` 1.6, was 1.2). **Every town has an adventurer early** (`ADVENTURER_WANTED` in data/ambitions.ts):
+  while none is in town, the next grown-up whose ambition is settled takes to the road (never the founder), so a
+  settlers' founding companion is one.
 
 ## Known problem (fixed, watch)
 

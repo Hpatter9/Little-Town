@@ -4,7 +4,7 @@
 // it themselves, pays the keeper's cut. An adventurer back from enough trips with a fat purse settles down
 // (`retireHome`).
 
-import { AMBITIONS, BUSINESS_DAYS, NATURE_AMBITION, OWNER_KEEP, PERSON_SELLS_AT, RETIRE_COINS, RETIRE_TRIPS, type AmbitionId } from '../data/ambitions';
+import { ADVENTURER_WANTED, AMBITIONS, BUSINESS_DAYS, NATURE_AMBITION, OWNER_KEEP, PERSON_SELLS_AT, RETIRE_COINS, RETIRE_TRIPS, type AmbitionId } from '../data/ambitions';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { KEEPER_CUT } from '../data/economy';
 import { natureOf } from '../data/natures';
@@ -30,7 +30,12 @@ export function ambitionOf(p: Person): AmbitionId {
 }
 /** Decide it for good once they're grown (an hourly pass). */
 export function settleAmbitions(s: GameState): void {
-  for (const p of s.people) if (!p.ambition && p.bornTick == null) p.ambition = ambitionOf(p);
+  for (const p of s.people) {
+    if (p.ambition || p.bornTick != null) continue;
+    // (no adventurer in town: this one takes to the road, never the founder)
+    const none = !s.people.some((q) => q.ambition === 'adventurer' && q.bornTick == null);
+    p.ambition = ADVENTURER_WANTED && none && p.id !== s.mainId ? 'adventurer' : ambitionOf(p);
+  }
 }
 
 /* ------------------------------------------------------------ businesses */

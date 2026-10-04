@@ -103,9 +103,15 @@ test('enemies never go together; the devoted go along', () => {
   assert.ok(plan!.members.includes(dear.id), 'the devoted friend comes, weak as they are');
 });
 
-test('a bounty: set aside from the treasury, draws anyone fit, and is paid to the party that does the job', () => {
+test('a bounty: set aside from the treasury, draws the adventurers, and is paid to the party that does the job', () => {
   const s = town('party6', 6);
   onlyThicket(s);
+  // (no adventurer: a bounty alone sends nobody)
+  s.coins = 999;
+  postBounty(s, 'berry_thicket');
+  assert.equal(proposeParty(s), null, 'nobody leads without an adventurer');
+  withdrawBounty(s, 'berry_thicket');
+  s.people[1].ambition = 'adventurer';
   const step = bountyStep(s);
   s.coins = step * 3;
   assert.ok(postBounty(s, 'berry_thicket').ok);
@@ -113,7 +119,7 @@ test('a bounty: set aside from the treasury, draws anyone fit, and is paid to th
   assert.equal(bountyOn(s, 'berry_thicket'), step);
   s.autopilot = undefined;
   partiesHourly(s);
-  assert.equal(s.expeditions.length, 1, 'a farmer goes for the bounty');
+  assert.equal(s.expeditions.length, 1, 'the adventurer goes for the bounty');
   const e = s.expeditions[0];
   const members = e.members.map((id) => s.people.find((p) => p.id === id)!);
   const before = members.reduce((n, p) => n + (p.coins ?? 0), 0);
@@ -132,6 +138,7 @@ test('a bounty: set aside from the treasury, draws anyone fit, and is paid to th
 
 test('a recalled party earns no bounty', () => {
   const s = town('party7', 4);
+  s.people[1].ambition = 'adventurer';
   onlyThicket(s);
   s.coins = 500;
   postBounty(s, 'berry_thicket');
@@ -162,4 +169,25 @@ test('enemies side by side may come to blows', () => {
   assert.ok(fought, 'a brawl in 200 hours');
   assert.ok(a.hp < maxHp(a) && a.hp >= 1, 'hurt, never felled');
   assert.ok(opinion(s, a.id, b.id) <= ENEMY);
+});
+
+test('a founder and one companion stay home', () => {
+  const s = town('party9', 1);
+  s.people[1].ambition = 'adventurer';
+  onlyThicket(s);
+  assert.equal(proposeParty(s), null);
+  const t = town('party10', 2);
+  t.people[1].ambition = 'adventurer';
+  onlyThicket(t);
+  assert.ok(proposeParty(t), 'three grown-ups: one may go');
+});
+
+test('every town has an adventurer early: the first grown-up settled after the founder, while there is none', async () => {
+  const { settleAmbitions } = await import('../src/shared/sim/ambition');
+  const s = town('party11', 4);
+  for (const p of s.people) p.ambition = undefined;
+  settleAmbitions(s);
+  assert.notEqual(s.people[0].ambition, 'adventurer', 'never the founder by this rule');
+  assert.equal(s.people[1].ambition, 'adventurer', 'the first companion takes to the road');
+  assert.equal(s.people.filter((p) => p.ambition === 'adventurer' && p.id !== s.mainId).length >= 1, true);
 });

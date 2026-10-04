@@ -1,9 +1,10 @@
 // Parties that form themselves (PLAN.md step 5, data/parties.ts). Once an hour in the morning, an adventurer at home
-// (or anyone, for a bounty) who is rested and healed proposes a trip to a place the player hasn't forbidden; they
+// who is rested and healed proposes a trip to a place the player hasn't forbidden; they
 // recruit a balanced party (a front line, a healer, someone to deal the damage, a scout) from those fit to go,
 // leaning on friendship, never taking two enemies together, and bringing whoever is devoted to someone going. The
 // town keeps its guards, its keepers, the founder and half its grown-ups home. If the party isn't strong enough for
-// the place, it doesn't go. A bounty the treasury posts is held aside and paid to the party that does the job.
+// the place, it doesn't go. A bounty the treasury posts draws the adventurers to a place, is held aside, and is paid to the party that does the
+// job.
 
 import { BUILDING_BY_ID } from '../data/buildings';
 import { CLASS_DEFS, type ClassRole } from '../data/classes';
@@ -25,6 +26,7 @@ import {
   FIT_HP,
   FIT_REST,
   KEEP_HOME_SHARE,
+  MIN_TOWN_FOR_TRIPS,
   PARTY_GAP_HOURS,
   PULL_BOUNTY,
   PULL_FIGHT,
@@ -126,6 +128,7 @@ export const mayGo = (s: GameState, p: Person) => fitToGo(s, p) && !p.guard && p
 /** How many more may be away now, leaving half the grown-ups home. */
 export function roomAway(s: GameState): number {
   const grown = s.people.filter((p) => !isChild(p));
+  if (grown.length < MIN_TOWN_FOR_TRIPS) return 0;
   const away = grown.filter((p) => p.away !== null).length;
   return Math.max(0, Math.floor(grown.length * (1 - KEEP_HOME_SHARE)) - away);
 }
@@ -235,13 +238,11 @@ export function proposeParty(s: GameState): PartyPlan | null {
   if (!pool.length) return null;
   const places = choosable(s);
   if (!places.length) return null;
-  const bounties = places.filter((d) => bountyOn(s, d.id) > 0);
-  // the leaders: the adventurers among the fit (anyone, for a bounty), the most seasoned first
-  const leaders = pool.filter((p) => ambitionOf(p) === 'adventurer' || bounties.length).sort((a, b) => levelOf(b) - levelOf(a) || a.id - b.id);
+  // the leaders: the adventurers among the fit (nobody else leads a party), the most seasoned first
+  const leaders = pool.filter((p) => ambitionOf(p) === 'adventurer').sort((a, b) => levelOf(b) - levelOf(a) || a.id - b.id);
   for (const leader of leaders) {
     const ranked = [...places].sort((a, b) => pull(s, leader, b) - pull(s, leader, a) || a.id.localeCompare(b.id));
     for (const d of ranked) {
-      if (ambitionOf(leader) !== 'adventurer' && !bountyOn(s, d.id)) continue;
       const size = Math.max(1, Math.min(room, mostFor(d), Math.max(d.recommendedParty, dangerOf(d) ? 3 : 1)));
       const party = recruit(s, leader, d, pool, size);
       if (!dares(leader, party, d)) continue;

@@ -97,8 +97,8 @@ export const RAID_INTERVAL_HOURS = 30;
 export const RAID_INTERVAL_MIN = 14;
 export const RAID_INTERVAL_JITTER = 6;
 /** Strength budget: base + per day survived + per 25 points of wealth (stock units, 5 per building). */
-export const RAID_BUDGET_BASE = 12;
-export const RAID_BUDGET_PER_DAY = 2;
+export const RAID_BUDGET_BASE = 18;
+export const RAID_BUDGET_PER_DAY = 3;
 export const RAID_BUDGET_PER_WEALTH = 1 / 25;
 export const RAID_MAX_SIZE = 6;
 /** A big town draws hardened raiders: health and blows up by this much per grown-up beyond RAID_MIGHT_FREE, up to
@@ -112,7 +112,7 @@ export const RAID_MIGHT_PER_LEVEL = 0.07;
 export const RAID_SEASONED_MAX = 2.5;
 /** Struck down by a raider, someone may die there and then (a boss's blow more often; the founder less, since the town
  *  passes to an heir), rather than lying wounded to be tended. */
-export const KILLING_BLOW = 0.3;
+export const KILLING_BLOW = 0.45;
 export const BOSS_KILLING_BLOW = 0.6;
 export const FOUNDER_KILLING_BLOW = 0.12;
 /** ...and a bigger town draws a bigger raid: one more raider for every RAID_SIZE_PER_PEOPLE grown-ups beyond
