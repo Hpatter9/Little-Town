@@ -1057,8 +1057,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       after the rest loads; side-on until then). `lpcCanvas`/`lpcFrame` take a `facing` ('up' | 'down'), used for the
       walk when every layer that shows has it (`canFace`); the facing rows are tinted with their own lightness
       reference. The people view (`Drawn.face`) faces someone up or down the map when that's mostly how they moved
-      last, and keeps it while they stand; never when mounted or fighting. Raiders and travellers' LPC sprites stay
-      side-on (raiders don't walk the facing rows yet).
+      last, and keeps it while they stand; never when mounted or fighting. Travellers are drawn by the same view, and
+      raiders' LPC sprites face the same way in mapRaiders.ts.
     - **Deaths pass (done):** the "deaths run low" watch item was mostly a counting bug (above). A soak must count journal
       entries by identity (a `WeakSet` of the entry objects seen, scanning `s.journal` each tick), never by its length,
       since the journal is capped. Counted that way (4 towns per origin, 15 days, people/deaths): settlers 26.8/20 (15
