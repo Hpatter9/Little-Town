@@ -192,7 +192,7 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
         if (!carvable(g)) return { ok: false, reason: 'A hall is cut into the mountain' };
       } else if (g === 'mountain') return { ok: false, reason: 'The mountain stands here' };
       else if (!buildable(g)) return { ok: false, reason: 'Clear the land first' };
-      if (!room && isRoad(m, cx, cy)) return { ok: false, reason: 'A road runs here' };
+      if (!room && isRoad(m, cx, cy) && !isGate(def.id)) return { ok: false, reason: 'A road runs here' }; // (a gate stands on the road)
     }
   for (const b of s.buildings) {
     if (b === except) continue;
