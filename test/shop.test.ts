@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
-import { ITEM_BY_ID } from '../src/shared/data/items';
+import { ITEM_BY_ID, ITEMS } from '../src/shared/data/items';
 import { FURNISHINGS } from '../src/shared/data/shop';
 import { TOPICS } from '../src/shared/data/research';
 import { totalStock } from '../src/shared/sim/buildings';
@@ -368,5 +368,6 @@ test('drawing customers it has no wares for, the town studies what makes them', 
   s.buildings[0].store = { wood: 25, stone: 25, berries: 25 };
   s.tick = PLAN_TICKS * 10;
   runPlanner(s);
-  assert.ok(s.research.queue.includes('iron_working'), `queue ${s.research.queue}`);
+  // (any topic that opens a noble's ware: Iron Working's brooch, or Weaving's gowns and dyed bolts since the workshops)
+  assert.ok(s.research.queue.some((id) => ITEMS.some((i) => i.ware?.tier === 3 && i.research.includes(id))), `queue ${s.research.queue}`);
 });
