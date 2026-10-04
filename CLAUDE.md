@@ -1348,8 +1348,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   is a question (`askVisitor` in townsfolk.ts: a prompt of kind `visitor`, "Take them in" / "Send them on",
   `answerVisitor`), and the Townsfolk card has the same two buttons; the planner no longer lets them in itself
   (`planVisitor`), except where the gates are free (`freeJoin` in an origin's rules: the nomads' horde). Wanderers come no
-  oftener than `VISIT_GAP_HOURS` (36) apart (`s.lastVisit`). Left unanswered, someone with a bed waiting is let in (so a
-  town whose player is away still grows); else they're sent on. Otherwise people come by events, prisoners won over,
+  oftener than `VISIT_GAP_HOURS` (24) apart (`s.lastVisit`). Left unanswered till their wait is up, they're let in while the
+  stores hold a day's food a head (`foodPerHead`; the prompt's default, applied by `updateVisitor`), so a town whose
+  player is away still grows; else they're sent on. Otherwise people come by events, prisoners won over,
   and birth.
 - **The town's inventory in tabs (done; the owner's ask):** the Crafting tab's Inventory lists every material in store and
   every item (in store or worn) with tabs by kind (`INV_TABS`: All, Weapons, Armour, Tools, Materials, Food, Furniture,

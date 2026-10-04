@@ -4,7 +4,7 @@
 import { ageWork } from './ageing';
 import { POP_SOFT_CAP } from '../data/pace';
 import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/buildings';
-import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID } from '../data/people';
+import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID, FOOD_VALUE } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
 import { hashSeed, mixSeed, type Rng } from '../rng';
 import { STAGE_LEVELS } from '../data/classes';
@@ -353,7 +353,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
 }
 
 /** The question a wanderer at the gate puts to the player (unless the town's gates are free): in, or on their way.
- *  Unanswered, they're sent on when their wait is up. */
+ *  Unanswered, they're taken in when their wait is up if the stores hold a day's food a head, else sent on. */
 export function askVisitor(s: GameState, who: string, trained: string): void {
   const v = s.visitor;
   if (!v) return;
@@ -370,15 +370,22 @@ export function askVisitor(s: GameState, who: string, trained: string): void {
     title: `${v.person.name} asks to join`,
     text: `${who[0].toUpperCase()}${who.slice(1)}${trained} stands at the edge of town and asks to stay. Best at ${skills}. ${housingCapacity(s) > s.people.length ? 'There is a bed for them.' : 'There is no bed free.'}`,
     options: VISITOR_OPTIONS,
-    // (left unanswered, a newcomer with a bed waiting is let in: a town whose player is away still grows; the choice
-    // is the player's whenever they answer)
-    defaultOption: housingCapacity(s) > s.people.length ? 0 : 1,
+    // (left unanswered, a newcomer is let in unless the stores are nearly bare: a town whose player is away still grows,
+    // and builds them a home; the choice is the player's whenever they answer)
+    defaultOption: foodPerHead(s) >= 1 ? 0 : 1,
     expiresTick: v.leavesTick + TICKS_PER_HOUR, // (they tire of waiting first, and take their question with them)
   });
 }
 export const VISITOR_OPTIONS = ['Take them in', 'Send them on'];
 /** Game hours between one wanderer at the gate and the next (a town whose gates are free has no such wait). */
-export const VISIT_GAP_HOURS = 36;
+export const VISIT_GAP_HOURS = 24;
+
+/** Days of food in store a head (a newcomer's question defaults to no when it's under one). */
+function foodPerHead(s: GameState): number {
+  let food = 0;
+  for (const b of s.buildings) for (const [m, n] of Object.entries(b.store)) food += (FOOD_VALUE[m] ?? 0) * (n ?? 0);
+  return food / Math.max(1, s.people.length);
+}
 
 /** The player's answer to a wanderer's asking. */
 export function answerVisitor(s: GameState, option: string): void {
@@ -391,6 +398,12 @@ export function updateVisitor(s: GameState, walkTo: (p: Person, to: Pt) => boole
   const v = s.visitor;
   if (!v) return;
   if (v.leavingTo === null && s.tick >= v.leavesTick) {
+    // (left unanswered, the question's default stands: in, when the stores can feed one more)
+    const asked = s.prompts.find((q) => q.kind === 'visitor');
+    if (asked && asked.defaultOption === 0) {
+      acceptVisitor(s);
+      return;
+    }
     v.leavingTo = edgeBehind(s, v);
     s.prompts = s.prompts.filter((q) => q.kind !== 'visitor');
     notify(s, `${v.person.name} got tired of waiting and moved on.`);

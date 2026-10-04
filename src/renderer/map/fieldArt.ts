@@ -150,19 +150,19 @@ function packedPlot(defId: string, w: number, h: number, stage: CropLook | undef
             }
           } else if (stage === 'sprout') rect(x, y - 1, 2, 1, pale);
           else if (stage === 'young') {
-            rect(x, y - 3, 1, 3, leaf);
-            rect(x + 1, y - 2, 1, 1, pale);
+            rect(x, y - 3, 2, 3, leaf);
+            rect(x + 1, y - 4, 1, 1, pale);
           } else if (stage === 'tall') {
-            rect(x, y - 5, 1, 5, leaf);
-            rect(x + 1, y - 4 + (kk > 0 ? 1 : 0), 1, 2, leaf);
-            rect(x - 1, y - 3, 1, 1, dark);
+            rect(x, y - 5, 2, 5, leaf);
+            rect(x + 2, y - 4 + (kk > 0 ? 1 : 0), 1, 2, pale);
+            rect(x - 1, y - 3, 1, 2, dark);
           } else if (stage === 'heading') {
-            rect(x, y - 6, 1, 6, leaf);
-            rect(x + 1, y - 5, 1, 3, leaf);
-            rect(x, y - 7, 2, 1, turning);
+            rect(x, y - 6, 2, 6, leaf);
+            rect(x + 2, y - 5, 1, 3, pale);
+            rect(x - 1, y - 7, 3, 2, turning);
           } else {
-            rect(x, y - 6, 1, 6, dark);
-            rect(x + 1, y - 5, 1, 3, leaf);
+            rect(x, y - 6, 2, 6, dark);
+            rect(x + 2, y - 5, 1, 3, leaf);
             rect(x - 1 + (kk > 0 ? 1 : 0), y - 8, 3, 2, head);
             rect(x, y - 9, 2, 1, head);
           }
