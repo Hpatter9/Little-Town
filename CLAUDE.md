@@ -1300,6 +1300,32 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   they're at home and free for them nobody else takes that station's orders (`findCraft`'s `holderOf` check; with the
   holder on one order, others may take the station's others). `PersonView.job` ({title, at}) is shown first in the
   Townsfolk rows and on the inspect page. Test in `test/operators.test.ts`.
+- **Minerals (done; the owner's ask: minerals to mine, trade for and buy):** `src/shared/data/minerals.ts`. Materials
+  `copper_ore`, `tin_ore`, `silver_ore`, `sulphur`, `copper`, `bronze`, `silver` (worth in data/trade.ts; the mining icon
+  pack's pictures in `art/materials/`). Topics Bronze Working (Stone Age, after Pottery) and Silversmithing (Medieval,
+  after Jewellery); recipes `smelt_copper` and `cast_bronze` at the kiln, `smelt_silver` at the bloomery; wares (copper
+  kettle, bronze mirror, silver ring and chalice, sulphur salve) and the Bell Tower (morale, bronze). The planner keeps a
+  reserve of the ores and metals (`RESERVE`: it smelts to it) and sells the rest.
+  - **Mines:** a cave cleared by a party opens as a mine (`openMine` from `placeCleared`, `MapPlace.mine`: depth, ores,
+    the eight wall cells round the mouth): the walls are rock with pools of ore (copper and tin always; silver and
+    sulphur by chance), dug like any wild cell (the pick animation), and when every wall is dug to the stone the next
+    level opens on the hour (`deepenMine`, richer; gold from level 3, gems at `MINE_DEPTH` 4, then it's worked out).
+    The planner wants `MINE_WANT` (8) of each ore while it has a mine (`ORES` are `GATHERABLE`). Tap a mine for its
+    level and what's left, and **Enter the mine** (`watchMine` command, `s.watchingMine`, `snapshot.mine`: `MineView`):
+    `src/renderer/fight/mineView.ts` (`MineScene`) takes the screen like a watched fight: the cave scene, a seam per wall
+    cell flecked in its ores' colours with a bar of what's left, the diggers at their seams swinging picks with dust
+    where they land, those on the way walking in; the fight HUD's top window (`FightHud.mine`) names it. The phone's
+    `watchOn` counts it.
+  - **Buying:** travellers sell copper and tin ore from the start (`EVERYDAY`), the era's caravan goods carry the ores and
+    metals from the Medieval age (`CARAVAN_GOODS`). **Other peoples' caravans:** `FACTION_CARAVAN` (0.75) of the market's
+    caravans are another people's (`Caravan.faction`, never the town's own): one of `FACTION_GOODS` is always on the
+    blanket (the hold's ores, gold and gems; the shore's pearls; the alchemists' sulphur...), named in the notice, the Trade
+    tab and the tap card.
+  - **Trade caravans:** `TRADE_DESTINATIONS` (type `trade`, one per region: the Heartland's Crossroads Market from Barter,
+    the rest once the region is mapped: `TRADE_HIDDEN`): a party takes the town's purse (`Destination.coins`, refused
+    without it, spent as it sets out) and works the market with Social, bringing the region's minerals home as loot.
+    The board shows the purse. Tests: `test/minerals.test.ts`. Probe (forest, a mine from day 3): the first level dug
+    out in two days by 3 to 8 diggers, level 3 by day 11; silver and sulphur sold for a few hundred coins.
 
 ## Known problem (fixed, watch)
 

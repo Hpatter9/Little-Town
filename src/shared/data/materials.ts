@@ -22,6 +22,8 @@ export const MATERIALS = [
   'fish', 'kelp', 'pearls',
   // The Blood Court's
   'blood',
+  // Minerals (the land's caves dug as mines, travellers, caravans and trade caravans; data/minerals.ts)
+  'copper_ore', 'tin_ore', 'silver_ore', 'sulphur', 'copper', 'bronze', 'silver',
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 /** What the sea's cells hold (sim/land.ts `seaPool`): gathered by a shore town only. */
@@ -77,6 +79,13 @@ export const MATERIAL_NAMES: Record<Material, string> = {
   kelp: 'Kelp',
   pearls: 'Pearls',
   blood: 'Blood',
+  copper_ore: 'Copper ore',
+  tin_ore: 'Tin ore',
+  silver_ore: 'Silver ore',
+  sulphur: 'Sulphur',
+  copper: 'Copper',
+  bronze: 'Bronze',
+  silver: 'Silver',
 };
 
 export type Stock = Partial<Record<Material, number>>;

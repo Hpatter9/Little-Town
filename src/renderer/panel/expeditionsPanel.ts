@@ -197,7 +197,7 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
   const lootText = v.scouted ? loot.map((m) => MATERIAL_NAMES[m]).join(', ') : loot.map((m) => `${MATERIAL_NAMES[m]}?`).join(', ');
   const extra = Object.keys(d.guaranteed ?? {}).map((m) => MATERIAL_NAMES[m as Material]);
   c.append(el('div', 'purpose', `Loot: ${lootText}${extra.length ? ` + ${extra.join(', ')}` : ''}${v.scouted ? '' : ' (not scouted)'}`));
-  c.append(el('div', 'lock', `Threats: ${d.threats} · Suggested party: ${d.recommendedParty}`));
+  c.append(el('div', 'lock', `Threats: ${d.threats} · Suggested party: ${d.recommendedParty}${d.coins ? ` · Purse: ${d.coins} coins${(s.coins ?? 0) < d.coins ? ` (the town has ${s.coins ?? 0})` : ''}` : ''}`));
   if (!v.unlocked) {
     // (a cleared dungeon lies quiet a while; else it's waiting on research)
     if (v.quietHours) c.append(el('div', 'lock short', `Cleared: it lies quiet now, and wakes again in about ${Math.ceil(v.quietHours / 24)} day${v.quietHours > 24 ? 's' : ''}.`));

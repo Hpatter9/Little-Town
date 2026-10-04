@@ -187,9 +187,9 @@ const tabButtons = PANELS.map((p) => {
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)
-  if (!!(snap.battle || snap.watch) !== battleOn || !!snap.watch !== watchOn) {
-    battleOn = !!(snap.battle || snap.watch);
-    watchOn = !!snap.watch;
+  if (!!(snap.battle || snap.watch || snap.mine) !== battleOn || !!(snap.watch || snap.mine) !== watchOn) {
+    battleOn = !!(snap.battle || snap.watch || snap.mine);
+    watchOn = !!(snap.watch || snap.mine);
     document.body.classList.toggle('battle', battleOn);
     layout();
   }

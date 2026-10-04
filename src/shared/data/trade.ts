@@ -2,6 +2,7 @@
 
 import type { Era } from './eras';
 import type { Material } from './materials';
+import type { OriginId } from './origins';
 
 /** What a unit of each material is worth in barter. */
 export const WORTH: Record<Material, number> = {
@@ -54,15 +55,40 @@ export const WORTH: Record<Material, number> = {
   kelp: 1,
   pearls: 14,
   blood: 5,
+  copper_ore: 3,
+  tin_ore: 4,
+  silver_ore: 6,
+  sulphur: 4,
+  copper: 7,
+  bronze: 12,
+  silver: 15,
 };
 
 /** What caravans bring to sell, by era (caravans only come from the Medieval era on). */
 export const CARAVAN_GOODS: Partial<Record<Era, Material[]>> = {
-  medieval: ['iron', 'cloth', 'leather', 'bread', 'lumber', 'bricks', 'iron_ore', 'herbs', 'arrows', 'grain'],
-  industrial: ['steel', 'glass', 'coal', 'iron', 'bricks', 'lumber', 'cloth', 'bread', 'shot', 'leather'],
-  modern: ['fuel', 'plastic', 'electronics', 'concrete', 'steel', 'glass', 'oil', 'cartridges', 'bread', 'cloth'],
-  space: ['rare_minerals', 'alloys', 'circuits', 'power_cells', 'electronics', 'plastic', 'fuel', 'concrete', 'bread', 'steel'],
+  medieval: ['iron', 'cloth', 'leather', 'bread', 'lumber', 'bricks', 'iron_ore', 'herbs', 'arrows', 'grain', 'copper_ore', 'tin_ore'],
+  industrial: ['steel', 'glass', 'coal', 'iron', 'bricks', 'lumber', 'cloth', 'bread', 'shot', 'leather', 'copper', 'silver_ore', 'sulphur'],
+  modern: ['fuel', 'plastic', 'electronics', 'concrete', 'steel', 'glass', 'oil', 'cartridges', 'bread', 'cloth', 'silver', 'sulphur'],
+  space: ['rare_minerals', 'alloys', 'circuits', 'power_cells', 'electronics', 'plastic', 'fuel', 'concrete', 'bread', 'steel', 'silver'],
 };
+/** What another people's caravan brings besides the era's goods (data/minerals.ts has the minerals; the caravan is
+ *  named for its people: "a caravan of the Deep Hold"). */
+export const FACTION_GOODS: Partial<Record<OriginId, Material[]>> = {
+  settlers: ['grain', 'bread', 'cloth', 'copper_ore'],
+  lich: ['bone', 'silver_ore', 'herbs'],
+  druid: ['herbs', 'wood', 'fruit', 'tin_ore'],
+  vampire: ['cloth', 'leather', 'silver'],
+  werewolf: ['hide', 'meat', 'bone'],
+  robot: ['copper', 'tin_ore', 'sulphur'],
+  dwarves: ['iron_ore', 'copper_ore', 'tin_ore', 'gold', 'gems'],
+  merfolk: ['fish', 'kelp', 'pearls'],
+  nomads: ['hide', 'wool', 'milk', 'meat'],
+  fae: ['herbs', 'fruit', 'silver_ore'],
+  alchemists: ['sulphur', 'glass', 'herbs', 'copper'],
+  knights: ['iron', 'bronze', 'bricks'],
+};
+/** Most caravans are another people's. */
+export const FACTION_CARAVAN = 0.75;
 export const caravanGoods = (era: Era): Material[] => CARAVAN_GOODS[era] ?? CARAVAN_GOODS.modern!;
 /** Offers are worth more in later eras. */
 export const OFFER_SCALE: Partial<Record<Era, number>> = { industrial: 2, modern: 3, space: 4 };

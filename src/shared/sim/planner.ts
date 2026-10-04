@@ -16,6 +16,8 @@ import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, share
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { isSeat, seatOf } from '../data/seats';
 import { CROPS, WORKPLACES } from '../data/crops';
+import { ORES } from '../data/minerals';
+import { mines } from './places';
 import { HERDS } from '../data/livestock';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } from '../data/materials';
@@ -98,7 +100,7 @@ interface Needs {
 }
 
 /** A small stock the town likes to keep of each basic material it can get (so building never waits long). */
-const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber: 8, lumber: 12, bricks: 10, cloth: 4, iron: 4, gold: 0, gems: 0, pearls: 0 };
+const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber: 8, lumber: 12, bricks: 10, cloth: 4, iron: 4, gold: 0, gems: 0, pearls: 0, copper_ore: 6, tin_ore: 3, silver_ore: 0, sulphur: 0, copper: 6, bronze: 6, silver: 3 };
 
 function needs(s: GameState): Needs {
   const stock = totalStock(s);
@@ -133,7 +135,7 @@ function needs(s: GameState): Needs {
 
 /* ------------------------------------------------------------ where materials come from */
 
-const GATHERABLE = new Set<Material>([...Object.values(TERRAIN).flatMap((t) => Object.keys(t.pool) as Material[]), ...SEA_MATERIALS]);
+const GATHERABLE = new Set<Material>([...Object.values(TERRAIN).flatMap((t) => Object.keys(t.pool) as Material[]), ...SEA_MATERIALS, ...ORES]);
 /** How much a shore town would rather build in the sea than on the land (a ring's spots are scored by this). */
 const SEA_PREFER = 20;
 /** A shore town fishes when food is short, and keeps this many pearls coming (the shop sells them). */
@@ -839,6 +841,8 @@ function openFaces(s: GameState): void {
 
 /** A mountain hold keeps this much gold and gems coming: it digs for them whenever it holds less (the shop sells them). */
 const DELVE_WANT = 10;
+/** A town with a mine keeps this much of each ore coming. */
+const MINE_WANT = 8;
 
 function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], craftWants: Stock): void {
   openFaces(s);
@@ -860,6 +864,8 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
       if (m === 'pearls') short = Math.min(1, Math.max(short, PEARLS_WANT - (n.stock[m] ?? 0))); // (one pearl cell at a time: never a cap's worth)
     } else if (SEA_MATERIALS.includes(m)) continue;
     if ((m === 'gold' || m === 'gems') && holdOf(s) === 'mountain') short = Math.max(short, DELVE_WANT - (n.stock[m] ?? 0));
+    // (a mine on the land is worked for what it holds: the shop sells what the crafts don't take)
+    if (ORES.includes(m) && mines(s).length) short = Math.max(short, MINE_WANT - (n.stock[m] ?? 0));
     // (the reserve isn't worth gathering into full stores; what building, crafting or hunger needs still is, and so is
     // a basic the town has run right out of: a store full of the harvest once left a town with no wood to build more)
     if (n.storageFill > 0.95 && (n.stock[m] ?? 0) >= (RESERVE[m] ?? 0) / 2 && !(craftWants[m] ?? 0) && !s.buildings.some((b) => b.status === 'blueprint' && (stillNeeded(b)[m] ?? 0) > 0) && m !== 'berries') continue;

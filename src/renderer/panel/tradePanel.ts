@@ -8,7 +8,7 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, el } from './dom';
 
 export const tradeKey = (s: Snapshot) =>
-  JSON.stringify([s.caravan && [Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, s.shop?.name, s.tavern?.name]);
+  JSON.stringify([s.caravan && [s.caravan.faction, Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, s.shop?.name, s.tavern?.name]);
 
 const list = (st: Stock) =>
   (Object.entries(st) as [Material, number][])
@@ -18,7 +18,7 @@ const list = (st: Stock) =>
 export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const out: HTMLElement[] = [];
   const head = el('div', 'panel-head');
-  head.append(el('span', '', s.caravan ? `Caravan at the market: leaves in ${Math.ceil(s.caravan.hoursLeft)}h` : 'No caravan in town'), el('span', '', `Stored ${s.storageUsed}/${s.storageCapacity}`));
+  head.append(el('span', '', s.caravan ? `${s.caravan.faction ? `A caravan of ${s.caravan.faction}` : 'Caravan'} at the market: leaves in ${Math.ceil(s.caravan.hoursLeft)}h` : 'No caravan in town'), el('span', '', `Stored ${s.storageUsed}/${s.storageCapacity}`));
   out.push(head);
 
   // (once built: a way in to see them, besides tapping them in the town)

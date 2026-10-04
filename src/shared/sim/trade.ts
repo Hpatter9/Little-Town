@@ -10,6 +10,8 @@ import {
   caravanGoods,
   OFFER_SCALE,
   CARAVAN_STAY_HOURS,
+  FACTION_CARAVAN,
+  FACTION_GOODS,
   HORSE_HEAL,
   HORSE_HP,
   HORSE_NAMES,
@@ -25,6 +27,7 @@ import { operatorSkill } from './operators';
 import { addStock, ERA_MULTIPLIER, notify, poolSize, type Caravan, type GameState, type Horse, type Offer } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { biomeOf } from '../data/biomes';
+import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../data/origins';
 
 const market = (s: GameState) => s.buildings.find((b) => b.def === 'market' && b.status === 'done');
 
@@ -51,8 +54,10 @@ export function updateTrade(s: GameState, rng: Rng): void {
   if (s.tick < s.nextCaravanTick) return;
   // caravans stay (and come) on the era's clock
   const stay = CARAVAN_STAY_HOURS * ERA_MULTIPLIER[s.era];
-  s.caravan = { x: buildingCentreX(m), leavesTick: s.tick + Math.round(stay * TICKS_PER_HOUR), offers: makeOffers(s, rng) };
-  notify(s, `A trade caravan has arrived at the market. It stays ${Math.round(stay)} hours: see the Trade tab.`, true);
+  // (most caravans are another people's, with their own goods besides the era's: data/trade.ts FACTION_GOODS)
+  const faction = rng.chance(FACTION_CARAVAN) ? rng.pick(ORIGINS.filter((o) => o !== (s.origin ?? 'settlers') && FACTION_GOODS[o])) : undefined;
+  s.caravan = { x: buildingCentreX(m), leavesTick: s.tick + Math.round(stay * TICKS_PER_HOUR), offers: makeOffers(s, rng, faction), faction };
+  notify(s, `${faction ? `A caravan of ${ORIGIN_DEFS[faction].name}` : 'A trade caravan'} has arrived at the market. It stays ${Math.round(stay)} hours: see the Trade tab.`, true);
 }
 
 function scheduleCaravan(s: GameState, rng: Rng): void {
@@ -60,7 +65,7 @@ function scheduleCaravan(s: GameState, rng: Rng): void {
 }
 
 /** A few deals: they sell goods (maybe a horse) for what you have most of, and buy your surplus. */
-export function makeOffers(s: GameState, rng: Rng): Offer[] {
+export function makeOffers(s: GameState, rng: Rng, faction?: OriginId): Offer[] {
   const stock = totalStock(s);
   // a merchant haggles: better prices both ways
   const haggle = operatorSkill(s, 'market') * MERCHANT_PER_LEVEL;
@@ -73,10 +78,18 @@ export function makeOffers(s: GameState, rng: Rng): Offer[] {
     return { [m]: Math.max(1, Math.ceil(worth / WORTH[m])) };
   };
   const offers: Offer[] = [];
-  const all = caravanGoods(s.era);
+  const theirs = faction ? FACTION_GOODS[faction] ?? [] : [];
+  const all = [...new Set([...caravanGoods(s.era), ...theirs])];
   const scale = OFFER_SCALE[s.era] ?? 1;
-  const goods = [...all];
-  for (let i = 0; i < 3; i++) {
+  // (another people's caravan always has one of its own goods on the blanket, then the era's)
+  const goods = [...caravanGoods(s.era)];
+  if (theirs.length) {
+    const g = rng.pick(theirs);
+    const worth = rng.int(OFFER_WORTH[0], OFFER_WORTH[1]) * scale;
+    const n = Math.max(1, Math.round(worth / WORTH[g]));
+    offers.push({ id: s.nextId++, gives: { [g]: n }, horse: false, wants: payWith(n * WORTH[g] * markup), done: false });
+  }
+  for (let i = 0; i < (theirs.length ? 2 : 3); i++) {
     const g = goods.splice(rng.int(0, goods.length - 1), 1)[0];
     const worth = rng.int(OFFER_WORTH[0], OFFER_WORTH[1]) * scale;
     const n = Math.max(1, Math.round(worth / WORTH[g]));

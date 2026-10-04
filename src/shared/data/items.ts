@@ -12,6 +12,7 @@ import { WEAPONS, type FamilyId } from './weapons';
 import { ARMOUR, type ArmourWeight } from './armour';
 import { UNIQUES } from './uniques';
 import { WORKSHOP_ITEMS } from './workshops';
+import { MINERAL_ITEMS } from './minerals';
 import type { WorkAnim } from './terrain';
 
 export type Slot = 'tool' | 'weapon' | 'offhand' | 'head' | 'body' | 'charm' | 'pack';
@@ -388,7 +389,7 @@ const FIRST: Record<string, Pick<ItemDef, 'family' | 'tier' | 'weight'>> = {
 };
 
 /** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. */
-export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...WORKSHOP_ITEMS];
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...WORKSHOP_ITEMS, ...MINERAL_ITEMS];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

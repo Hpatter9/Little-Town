@@ -56,7 +56,7 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, campXY, BLOOD_LASTS } from './state';
+import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS } from './state';
 import { cellAt, groundAt, type LandMap , wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
@@ -65,9 +65,9 @@ import { TILE } from '../constants';
 
 import { rallyState } from './rally';
 import { daysToMove } from './nomads';
-import { describeFoes, placeDestination, placeDestinations, placeXY } from './places';
+import { describeFoes, MINE_DEPTH, mineLeft, minersAt, placeById, placeDestination, placeDestinations, placeXY } from './places';
 import { packDestinations, packView, type PackView } from './pack';
-import { isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
+import { directionName, isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
 import { RIVALS } from '../data/rivals';
 
@@ -367,6 +367,22 @@ export interface PlaceView {
   /** A fight waiting: who, and the trip to send a party on (the board's destination), with the full destination. */
   foes: string | null;
   dest: Destination | null;
+  /** A cleared cave dug as a mine: its level, what its walls still hold, and who is digging. */
+  mine: { depth: number; last: boolean; left: Stock; diggers: number } | null;
+}
+
+/** The mine the player has gone into (sim/places.ts): what's there to watch. */
+export interface MineView {
+  id: number;
+  name: string;
+  depth: number;
+  last: boolean;
+  ores: Material[];
+  left: Stock;
+  /** The ore each wall cell holds (one wall a cell, in the mine's order), and who stands at it. */
+  walls: { cell: number; left: Stock; digger: { id: number; name: string; look: Look; gear: Partial<Record<Slot, string>> } | null }[];
+  /** Everyone working the mine (digging, or on their way to it). */
+  miners: { id: number; name: string; look: Look; gear: Partial<Record<Slot, string>>; digging: boolean }[];
 }
 
 export interface DestinationView {
@@ -520,6 +536,8 @@ export interface Snapshot {
   hero: number | null;
   /** The expedition the player is watching, in place of the town. */
   watch: ExpeditionView | null;
+  /** The mine the player has gone into, in place of the town (sim/places.ts). */
+  mine: MineView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number }[];
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
@@ -592,7 +610,7 @@ export interface Snapshot {
   horses: { id: number; name: string; hp: number; coat: number; away: boolean }[];
   stalls: number;
   /** A trade caravan at the market (and its deals), or when the next is due. */
-  caravan: { x: number; hoursLeft: number; offers: { id: number; gives: Stock; horse: boolean; wants: Stock; done: boolean; ok: boolean; reason?: string }[] } | null;
+  caravan: { x: number; hoursLeft: number; /** Whose caravan ("the Deep Hold"), if another people's. */ faction: string | null; offers: { id: number; gives: Stock; horse: boolean; wants: Stock; done: boolean; ok: boolean; reason?: string }[] } | null;
   marketBuilt: boolean;
   nextCaravanHours: number | null;
   prisoners: { id: number; name: string; was: string; conviction: number; hungry: boolean }[];
@@ -703,6 +721,7 @@ export function snapshot(s: GameState): Snapshot {
     quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
+    mine: mineView(s),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,
@@ -797,6 +816,7 @@ export function snapshot(s: GameState): Snapshot {
       ? {
           x: s.caravan.x,
           hoursLeft: Math.max(0, (s.caravan.leavesTick - s.tick) / TICKS_PER_HOUR),
+          faction: s.caravan.faction ? ORIGIN_DEFS[s.caravan.faction].name : null,
           offers: s.caravan.offers.map((o) => ({ ...o, gives: { ...o.gives }, wants: { ...o.wants }, ...canTrade(s, o.id) })),
         }
       : null,
@@ -935,7 +955,30 @@ function placeViews(s: GameState): PlaceView[] {
     state: p.state,
     foes: p.foes ? describeFoes(p.foes) : null,
     dest: p.foes && p.state === 'waiting' && p.found !== null ? placeDestination(s, p) : null,
+    mine: p.mine && p.state === 'done' ? { depth: p.mine.depth, last: p.mine.depth >= MINE_DEPTH, left: mineLeft(s, p), diggers: minersAt(s, p).length } : null,
   }));
+}
+
+function mineView(s: GameState): MineView | null {
+  const p = s.watchingMine !== undefined ? placeById(s, s.watchingMine) : undefined;
+  if (!p?.mine || p.state !== 'done') return null;
+  const camp = campCell(s);
+  const miners = minersAt(s, p);
+  const person = (q: Person) => ({ id: q.id, name: q.name, look: q.look, gear: { ...q.gear } });
+  const at = (q: Person) => Math.hypot(q.x - (p.x + 0.5) * CELL, q.y - (p.y + 0.5) * CELL) < CELL * 2.2;
+  return {
+    id: p.id,
+    name: `The mine to the ${directionName(p.x - camp.x, p.y - camp.y)}`,
+    depth: p.mine.depth,
+    last: p.mine.depth >= MINE_DEPTH,
+    ores: [...p.mine.ores],
+    left: mineLeft(s, p),
+    walls: p.mine.cells.map((cell) => {
+      const q = miners.find((m) => m.task?.type === 'gather' && m.task.tile === cell && at(m));
+      return { cell, left: { ...(s.land.pools[cell] ?? {}) }, digger: q ? person(q) : null };
+    }),
+    miners: miners.map((q) => ({ ...person(q), digging: at(q) })),
+  };
 }
 
 function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {

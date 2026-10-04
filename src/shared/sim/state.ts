@@ -454,6 +454,8 @@ export interface Caravan {
   x: number;
   leavesTick: number;
   offers: Offer[];
+  /** Another people's caravan (data/trade.ts FACTION_GOODS), named for them. */
+  faction?: OriginId;
 }
 
 /** A question waiting for the player, answered by default when the timer runs out. */
@@ -714,6 +716,8 @@ export interface GameState {
   hero?: number;
   /** The expedition (or delve) the player is watching, in place of the town (snapshot.watch). */
   watching?: number;
+  /** The mine (a place id, sim/places.ts) the player has gone into, in place of the town (snapshot.mine). */
+  watchingMine?: number;
   /** The origin power the player keeps back to cast themselves (sim/powers.ts castHeld). */
   heldPower?: string;
   /** When the player can rally a defender again (sim/rally.ts). */

@@ -298,6 +298,9 @@ export class Sim {
       case 'watch':
         s.watching = c.expedition !== null && s.expeditions.some((e) => e.id === c.expedition) ? c.expedition : undefined;
         break;
+      case 'watchMine':
+        s.watchingMine = c.place !== null && (s.places ?? []).some((p) => p.id === c.place && p.mine) ? c.place : undefined;
+        break;
       case 'follow':
         s.hero = c.person !== null && s.people.some((p) => p.id === c.person) ? c.person : undefined;
         break;

@@ -150,7 +150,7 @@ test('two haulers never over-deliver, and materials are conserved', () => {
   addStock(campfire(s).store, 'wood', 30);
   // two stockpiles (6 wood each) for two haulers to race over
   sim.command({ type: 'placeBuilding', def: 'stockpile', x: camp(s).x - 4, y: row(s) });
-  sim.command({ type: 'placeBuilding', def: 'stockpile', x: camp(s).x, y: row(s) });
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: camp(s).x + 4, y: row(s) }); // (the road to the first runs four ways now, up through the camp's column)
   for (let i = 0; i < 300 * TICK_HZ; i++) {
     sim.step();
     for (const b of s.buildings) for (const [m, n] of Object.entries(b.delivered)) assert.ok(n! <= 6, `${b.def} got ${n} ${m}`);

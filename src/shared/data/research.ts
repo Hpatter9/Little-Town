@@ -4,6 +4,7 @@ import { ERAS, type Era } from './eras';
 import type { OriginId } from './origins';
 import type { WorkAnim } from './terrain';
 import { WORKSHOP_TOPICS } from './workshops';
+import { MINERAL_TOPICS } from './minerals';
 
 export type Branch = 'construction' | 'crafting' | 'agriculture' | 'military' | 'medicine' | 'logistics' | 'society' | 'occult' | 'heritage';
 
@@ -334,6 +335,7 @@ export const TOPICS: readonly Topic[] = [
     ['star_knights', 'Star Knights', [R('fight', 1.15), R('guard', 0.9)]],
   ]),
   ...WORKSHOP_TOPICS,
+  ...MINERAL_TOPICS,
 ];
 
 /** What a finished topic's lasting effects do, in words. */

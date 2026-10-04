@@ -113,7 +113,7 @@ export const COIN_RESERVE = 15;
 export const SHOP_LOG = 8;
 
 /** What travellers carry to sell: everyday goods, and whatever caravans bring in the town's era. */
-const EVERYDAY: readonly Material[] = ['fiber', 'wood', 'stone', 'hide', 'clay', 'flint', 'herbs', 'berries', 'bone'];
+const EVERYDAY: readonly Material[] = ['fiber', 'wood', 'stone', 'hide', 'clay', 'flint', 'herbs', 'berries', 'bone', 'copper_ore', 'tin_ore'];
 export function travellerGoods(era: Era): Material[] {
   return [...new Set([...EVERYDAY, ...(era === 'neolithic' ? [] : caravanGoods(era))])];
 }

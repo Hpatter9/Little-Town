@@ -2,11 +2,13 @@
 // of what was just done (or where the party is going); along the bottom, the foes' names on the left, and the party on
 // the right, each with health and the time gauge till their next turn. "Back to town" stops watching.
 
-import type { ExpeditionView } from '../../shared/sim/snapshot';
+import type { ExpeditionView, MineView } from '../../shared/sim/snapshot';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 
 export interface FightHud {
   update(v: ExpeditionView | null): void;
+  /** Inside a mine (fight/mineView.ts): the top window names it and what its walls hold; the back button leaves. */
+  mine(v: MineView | null): void;
   /** How much of the screen's top and bottom the windows cover (px). */
   insets(): [number, number];
 }
@@ -126,10 +128,34 @@ export function createFightHud(on: { back(): void }): FightHud {
     requestAnimationFrame(fadeBanner);
   };
   const POOL_NAMES = { mp: 'MP', sp: 'SP', limit: 'LIMIT' } as const;
+  let mineKey = '';
   return {
+    mine(v) {
+      if (!v) {
+        if (mineKey) {
+          mineKey = '';
+          document.body.classList.remove('in-fight');
+          top.classList.remove('mine');
+          top.hidden = true;
+        }
+        return;
+      }
+      document.body.classList.add('in-fight');
+      top.classList.add('mine');
+      top.hidden = false;
+      bottom.hidden = true;
+      leave.hidden = true;
+      result.hidden = true;
+      const left = (Object.entries(v.left) as [Material, number][]).filter(([m, n]) => m !== 'stone' && n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`);
+      const key = `${v.id}:${v.depth}:${left.join(',')}:${v.miners.length}`;
+      if (key === mineKey) return;
+      mineKey = key;
+      const digging = v.miners.filter((m) => m.digging).length;
+      message.textContent = `${v.name} · level ${v.depth}${v.last ? ' (the last)' : ''} · ${left.length ? `in the walls: ${left.join(', ')}` : 'dug out to the rock'} · ${digging ? `${digging} digging` : v.miners.length ? `${v.miners.length} on the way` : 'nobody here'}`;
+    },
     insets() {
       if (top.hidden) return [0, 0];
-      return [Math.round(top.getBoundingClientRect().bottom), Math.round(window.innerHeight - bottom.getBoundingClientRect().top)];
+      return [Math.round(top.getBoundingClientRect().bottom), bottom.hidden ? 0 : Math.round(window.innerHeight - bottom.getBoundingClientRect().top)];
     },
     update(v) {
       document.body.classList.toggle('in-fight', !!v);

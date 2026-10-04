@@ -16,6 +16,13 @@ import ironOre from './materials/iron_ore.png';
 import rareMinerals from './materials/rare_minerals.png';
 import steel from './materials/steel.png';
 import stone from './materials/stone.png';
+import copperOre from './materials/copper_ore.png';
+import copper from './materials/copper.png';
+import tinOre from './materials/tin_ore.png';
+import bronze from './materials/bronze.png';
+import silverOre from './materials/silver_ore.png';
+import silver from './materials/silver.png';
+import sulphur from './materials/sulphur.png';
 
 const URLS: Partial<Record<Material, string>> = {
   alloys: alloys,
@@ -30,6 +37,13 @@ const URLS: Partial<Record<Material, string>> = {
   rare_minerals: rareMinerals,
   steel: steel,
   stone: stone,
+  copper_ore: copperOre,
+  copper: copper,
+  tin_ore: tinOre,
+  bronze: bronze,
+  silver_ore: silverOre,
+  silver: silver,
+  sulphur: sulphur,
 };
 
 /** A small icon for a material (null if it has none). */

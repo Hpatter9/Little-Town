@@ -51,10 +51,11 @@ import { prereqsMet } from './research';
 import { occultRevealed, revealOccult } from './occult';
 import type { Pt } from './land';
 import { isPlaceDest } from '../data/places';
+import { TRADE_HIDDEN } from '../data/minerals';
 import { placeCleared, placeDestination, placeOfDest } from './places';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
-import { addStock, carryCapacity, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
+import { addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
@@ -104,7 +105,7 @@ export const regionKnown = (s: GameState, region: string) => region === HOME_REG
 export function destinationHidden(s: GameState, id: string): boolean {
   const scouts = regionScouted(id);
   if (scouts) return regionKnown(s, scouts);
-  const region = HIDDEN_IN[id];
+  const region = HIDDEN_IN[id] ?? TRADE_HIDDEN[id];
   return !!region && !regionKnown(s, region);
 }
 
@@ -112,7 +113,7 @@ export function destinationHidden(s: GameState, id: string): boolean {
 function mapRegion(s: GameState, region: string): void {
   if (regionKnown(s, region)) return;
   (s.regions ??= []).push(region);
-  const found = DESTINATIONS.filter((d) => HIDDEN_IN[d.id] === region).map((d) => d.name);
+  const found = DESTINATIONS.filter((d) => (HIDDEN_IN[d.id] ?? TRADE_HIDDEN[d.id]) === region).map((d) => d.name);
   const r = REGION_BY_ID[region];
   notify(s, `The scouts have mapped ${r.name.replace(/^The /, 'the ')}${found.length ? `, and found ${found.length > 1 ? `${found.slice(0, -1).join(', ')} and ${found.at(-1)}` : found[0]}` : ''}.`, true);
 }
@@ -120,6 +121,7 @@ function mapRegion(s: GameState, region: string): void {
 /** The skill that decides how fast a member works this destination. */
 function workSkill(d: Destination, p: Person): Skill {
   if (d.type === 'gather') return 'gathering';
+  if (d.type === 'trade') return 'social';
   return p.skills.ranged.level >= p.skills.melee.level ? 'ranged' : 'melee';
 }
 
@@ -142,6 +144,7 @@ export function canSend(s: GameState, destId: string, memberIds: readonly number
   if (!destinationUnlocked(s, d)) return { ok: false, reason: 'Not discovered yet' };
   if (s.expeditions.length >= MAX_EXPEDITIONS) return { ok: false, reason: `At most ${MAX_EXPEDITIONS} expeditions at once` };
   if (memberIds.length < 1) return { ok: false, reason: 'Pick someone to go' };
+  if (d.coins && (s.coins ?? 0) < d.coins) return { ok: false, reason: `Needs ${d.coins} coins for the purse` };
   const most = d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : MAX_PARTY;
   if (memberIds.length > most) return { ok: false, reason: `Parties are at most ${most} people` };
   if (new Set(memberIds).size !== memberIds.length) return { ok: false, reason: 'Someone is listed twice' };
@@ -172,6 +175,11 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
   }
   const d = destinationOf(s, destId)!;
   const members = memberIds.map((id) => s.people.find((p) => p.id === id)!);
+  // (a trade caravan takes its purse with it: spent at the market, what it buys comes home as loot)
+  if (d.coins) {
+    s.coins = (s.coins ?? 0) - d.coins;
+    earn(s, 'goods', -d.coins);
+  }
 
   // Drop off what they're carrying, then pack food for the trip.
   for (const p of members) {
