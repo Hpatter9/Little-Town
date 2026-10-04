@@ -4,6 +4,7 @@
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
 import type { TaxRate } from '../data/economy';
+import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
 import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
@@ -119,6 +120,8 @@ export interface Building {
     started?: boolean;
     /** The décor direction its keeper chose, and how far it has been taken (data/decor.ts). */
     decor?: { style: DecorId; level: number };
+    /** What it took today and yesterday (sim/ambition.ts: a business's price). */
+    takings?: { day: number; today: number; yesterday: number };
   };
 }
 
@@ -378,6 +381,9 @@ export interface Person {
   debt?: number;
   rentPaid?: number;
   taxPaid?: number;
+  /** Their life's goal (data/ambitions.ts), decided once they're grown; trips made (sim/ambition.ts). */
+  ambition?: AmbitionId;
+  trips?: number;
   /** A guard hired by the treasury (sim/treasury.ts), and the days running it couldn't pay them. */
   guard?: boolean;
   guardUnpaid?: number;

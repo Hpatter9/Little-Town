@@ -3,6 +3,7 @@
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
 import { payParty } from './economy';
+import { homeFromTrip } from './ambition';
 import { levelOf, xpToLevel } from '../data/levels';
 import { ENEMIES } from '../data/enemies';
 import { eraReached } from '../data/eras';
@@ -593,6 +594,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   const each = bearers.length ? Math.ceil(poolSize(haul) / bearers.length) : 0;
   for (const [i, p] of members.entries()) {
     p.away = null;
+    homeFromTrip(s, p); // (a trip counted: an adventurer may settle down, sim/ambition.ts)
     p.x = at.x - side * i * 20;
     p.y = at.y;
     p.dir = side > 0 ? -1 : 1;

@@ -83,8 +83,7 @@ import { WORTH } from '../data/trade';
 import { LINES, SHOP_LINES, type ShopLine } from '../data/stores';
 import { DECOR_APPEAL, DECOR_COST, DECOR_LEVELS, DECOR_MAX, DECOR_OF_NATURE, DECOR_STYLES, STARTERS } from '../data/decor';
 import { natureOf } from '../data/natures';
-import { KEEPER_CUT } from '../data/economy';
-import { payFromTreasury } from './economy';
+import { payForVenue, takeSale } from './ambition';
 import { biomeOf } from '../data/biomes';
 import { randomLook } from '../data/people';
 import type { Rng } from '../rng';
@@ -367,9 +366,7 @@ export function levelPrice(p: ShopPiece): number | null {
 /** Pay to make the floor bigger. */
 export function extend(s: GameState, b: Building): boolean {
   const price = extensionPrice(s, b);
-  if (price === null || (s.coins ?? 0) < price) return false;
-  s.coins = (s.coins ?? 0) - price;
-  earn(s, 'venues', -price);
+  if (price === null || !payForVenue(s, b, price)) return false;
   (b.shop ??= { pieces: [] }).extensions = extensionsOf(b) + 1;
   log(s, b, `The ${BUILDING_BY_ID[b.def].name} was extended: more floor for more furnishings (${price} coins).`);
   notify(s, `The town paid ${price} coins to extend its ${BUILDING_BY_ID[b.def].name}.`, true);
@@ -379,9 +376,7 @@ export function extend(s: GameState, b: Building): boolean {
 /** Pay to improve one piece a level. */
 export function improve(s: GameState, b: Building, p: ShopPiece): boolean {
   const price = levelPrice(p);
-  if (price === null || (s.coins ?? 0) < price) return false;
-  s.coins = (s.coins ?? 0) - price;
-  earn(s, 'venues', -price);
+  if (price === null || !payForVenue(s, b, price)) return false;
   p.level = (p.level ?? 1) + 1;
   const name = ITEM_BY_ID[p.item].name;
   log(s, b, p.level === 2 ? `The ${name} was built up a second tier (${price} coins).` : `The ${name} was polished and trimmed in brass (${price} coins).`);
@@ -426,9 +421,7 @@ export function decorPrice(s: GameState, b: Building): number | null {
 export function redecorate(s: GameState, b: Building): boolean {
   const price = decorPrice(s, b);
   const d = b.shop?.decor;
-  if (!d || price === null || (s.coins ?? 0) < price) return false;
-  s.coins = (s.coins ?? 0) - price;
-  earn(s, 'venues', -price);
+  if (!d || price === null || !payForVenue(s, b, price)) return false;
   d.level++;
   const step = DECOR_LEVELS[d.level - 1];
   log(s, b, `${step.name}: ${step.text}, in the ${DECOR_STYLES[d.style].name.toLowerCase()} style (${price} coins).`);
@@ -861,12 +854,8 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
     extra += n * WORTH[m];
   }
   spent += extra;
-  if (spent > 0) {
-    s.coins = (s.coins ?? 0) + spent;
-    earn(s, 'shop', spent);
-    // (the keeper's cut of the sale: data/economy.ts)
-    if (keeper) payFromTreasury(s, keeper, Math.round(spent * KEEPER_CUT), 'wages', `Kept the ${BUILDING_BY_ID[shop.def].name}: a cut of ${t.name}'s ${spent} coins`);
-  }
+  // (to the owner's purse, or the treasury's; the keeper's cut out of it: sim/ambition.ts)
+  takeSale(s, shop, spent, keeper, 'shop', t.name);
   const also = poolSize(sold) ? list(sold) : '';
   const text = met
     ? `${who} came for ${wantText(want)}: bought ${[...bought, ...(also ? [also] : [])].join(', ')}${talked ? `. ${talked}` : ''} (${spent} coins).`
@@ -945,11 +934,7 @@ function serveGuest(s: GameState, tavern: Building, t: Traveller, rng: Rng): voi
     addRenown(tavern, -RENOWN_LOSS / 2);
     asked(tavern, wantKey(want));
   }
-  if (spent > 0) {
-    s.coins = (s.coins ?? 0) + spent;
-    earn(s, 'tavern', spent);
-    if (keeper) payFromTreasury(s, keeper, Math.round(spent * KEEPER_CUT), 'wages', `Kept the ${BUILDING_BY_ID[tavern.def].name}: a cut of ${t.name}'s ${spent} coins`);
-  }
+  takeSale(s, tavern, spent, keeper, 'tavern', t.name);
   const text = met
     ? `${who} wanted ${wantText(want)}: had the ${had.join(' and the ')}${talked ? `. ${talked}` : ''} (${spent} coins).`
     : `${who} wanted ${wantText(want)}, found nothing to their taste, and left hungry.`;

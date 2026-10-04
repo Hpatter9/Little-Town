@@ -1,5 +1,8 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { AMBITIONS } from '../data/ambitions';
+import { TICKS_PER_DAY } from './time';
+import { ambitionOf, businessPrice } from './ambition';
 import type { Attrs } from '../data/attributes';
 import { RESEARCH_PACE } from '../data/pace';
 import { swims } from './sea';
@@ -185,6 +188,9 @@ export interface PersonView {
   /** Their town job, if they hold one ("Smith", "Shopkeeper"), and where. */
   job: { title: string; at: string } | null;
   natureLine: string;
+  /** Their life's goal (data/ambitions.ts), and trips made. */
+  ambition: { name: string; line: string } | null;
+  trips: number;
   ageDays: number;
   ageYears: number;
   lifeStage: LifeStage;
@@ -460,6 +466,10 @@ export interface ShopView {
    *  stock, and what the town still needs to make them). */
   tiers: { tier: number; name: string; plural: string; from: number; drawn: boolean; wares: { name: string; price: number; have: number; needs: string | null }[] }[];
   keeperName: string | null;
+  /** Who owns it (sim/ambition.ts; null: the town), what it's worth, and what it took yesterday. */
+  ownerName: string | null;
+  worth: number;
+  takings: number;
   keeperLook: Look | null;
   /** Strangers inside now: who they are, what they came for, their temper, and (at the tavern) the comfort they need. */
   customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean }[];
@@ -937,6 +947,9 @@ function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): Sho
       wares: WARES.filter((w) => w.ware!.tier === c.tier).map((w) => ({ name: w.name, price: w.ware!.price, have: s.items[w.id] ?? 0, needs: needs(w) })),
     })),
     keeperName: keeper?.name ?? null,
+    ownerName: b.owner === undefined ? null : (s.people.find((q) => q.id === b.owner)?.name ?? null),
+    worth: businessPrice(s, b),
+    takings: (() => { const t = b.shop?.takings; const day = Math.floor(s.tick / TICKS_PER_DAY); return !t ? 0 : t.day === day ? t.yesterday : t.day === day - 1 ? t.today : 0; })(),
     keeperLook: keeper?.look ?? null,
     customers: inside
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
@@ -1114,6 +1127,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     natureName: natureOf(p).name,
     job: jobView(s, p),
     natureLine: natureOf(p).line,
+    ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
+    trips: p.trips ?? 0,
     swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
     ageDays: Math.floor(ageDays(s, p)),
     ageYears: Math.floor(ageYears(s, p)),

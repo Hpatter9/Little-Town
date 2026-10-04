@@ -3,6 +3,7 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { venuePurse } from './ambition';
 import { LINES, LINE_STOCK, SHOP_LINES, STORE_PEOPLE } from '../data/stores';
 import { eraOfResearch } from '../data/research';
 import { ERAS } from '../data/eras';
@@ -979,7 +980,8 @@ function planShop(s: GameState): void {
   for (const venue of [shopOf(s), tavernOf(s), ...SHOP_LINES.map((l) => storeOf(s, l))]) {
     if (!venue) continue;
     // (a good reserve, and tomorrow's wages, are kept back)
-    const spare = (s.coins ?? 0) - 2 * COIN_RESERVE * PURSE_SCALE[s.era] - wageBill(s);
+    // (the owner's purse for a business someone owns: sim/ambition.ts)
+    const spare = venuePurse(s, venue, (s.coins ?? 0) - 2 * COIN_RESERVE * PURSE_SCALE[s.era] - wageBill(s));
     const ext = extensionPrice(s, venue);
     const table = venueKind(venue) === 'tavern' ? ITEM_BY_ID.log_table : ITEM_BY_ID.trestle_table;
     const crowded = !spotFor(venue, ITEM_BY_ID.clay_urns) && !spotFor(venue, table);

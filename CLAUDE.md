@@ -1477,6 +1477,23 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   can save for land. The Townsfolk rows show each person's coins and a 🏠 for a home of their own. **Tuning:** `BUILD_PACE` 2 and `buildPower` 0.7 + level/10 (3 and 0.5 stalled a knights' town);
   the ring wall waits for `RING_MIN_PEOPLE` (4) grown-ups even when raided. Tests: `test/treasury.test.ts`.
 
+- **Step 3, ambitions and businesses (done):** `src/shared/data/ambitions.ts` and `src/shared/sim/ambition.ts`. Every
+  grown-up has an **ambition** (`AmbitionId`: farmer, crafter, keeper, adventurer, scholar, guard, homebody, wealthy;
+  `ambitionOf`: their nature's lean `NATURE_AMBITION`, else their best skill, by their id; settled on
+  `Person.ambition` once grown, `settleAmbitions`). It steers posts (`skillOf` in operators.ts adds `JOB_PULL` for a
+  post of their ambition's skill; the treasury hires would-be guards first). **Businesses:** a venue may be owned
+  (`Building.owner`); every sale goes through `takeSale`: to the owner's purse (taxed like any income) with the
+  keeper's cut (`KEEPER_CUT`) paid by the owner when someone else keeps it, else to the treasury as before; its
+  upgrades (extensions, levels, décor) are paid by `payForVenue` from the owner's purse above `OWNER_KEEP`
+  (`venuePurse` in `planShop`). `bookTakings` keeps `b.shop.takings`; `businessPrice` is the makings and plot plus
+  `BUSINESS_DAYS` of its takings (a busy shop is dear: the founder sells the town's at that price), a person's at
+  `PERSON_SELLS_AT` more, and a keeper at heart never sells. `buyBusinesses` (hourly, `ambitionHourly`): keepers then
+  the would-be rich buy the dearest they can afford, one sale an hour, and keep it themselves unless they hold
+  another post (else the keeper stays on as their hand). **Retiring:** `homeFromTrip` (from the party's homecoming)
+  counts `Person.trips`; an adventurer `RETIRE_TRIPS` trips in with `RETIRE_COINS` settles down as a keeper. The
+  inspect page names the ambition; the venue window says who owns it, its worth and yesterday's takings. Tests:
+  `test/ambition.test.ts`.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

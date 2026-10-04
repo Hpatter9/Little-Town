@@ -9,6 +9,7 @@ import { OPERATORS } from '../data/operators';
 import { Rng } from '../rng';
 import { hashSeed, mixSeed } from '../rng';
 import { giveCoins, incomeOf, moneyTown } from './economy';
+import { ambitionOf } from './ambition';
 import { directionOf } from './planner';
 import { earn, notify, remember, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
@@ -89,7 +90,7 @@ export function assignGuards(s: GameState): void {
   remember(s, pick, `Hired as a guard (${guardWage(s)} coins a day)`);
   notify(s, `${pick.name} was hired as a guard: ${guardWage(s)} coins a day from the treasury.`, true);
 }
-const fight = (p: Person) => Math.max(p.skills.melee.level, p.skills.ranged.level) * 2 + p.hp / 20;
+const fight = (p: Person) => Math.max(p.skills.melee.level, p.skills.ranged.level) * 2 + p.hp / 20 + (ambitionOf(p) === 'guard' ? 10 : 0);
 
 /** The guards' wages at dawn; a guard the treasury can't pay two days running stands down. */
 export function payGuards(s: GameState): void {

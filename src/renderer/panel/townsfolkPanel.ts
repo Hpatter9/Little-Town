@@ -221,6 +221,7 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   fig.append(el('div', 'hint doll-age', p.ageText));
   if (p.job) fig.append(el('div', 'hint doll-age', `${p.job.title} at the ${p.job.at}`));
   fig.append(el('div', 'hint doll-age', `${p.natureName}: ${p.natureLine}`));
+  if (p.ambition) fig.append(el('div', 'hint doll-age', `Dreams of ${p.ambition.name.charAt(0).toLowerCase()}${p.ambition.name.slice(1)}: ${p.ambition.line}${p.trips ? ` ${p.trips} trip${p.trips > 1 ? 's' : ''} made.` : ''}`));
   doll.append(fig);
   const shown = chosenSlot ?? firstWorn(p);
   for (const slot of SLOTS) {

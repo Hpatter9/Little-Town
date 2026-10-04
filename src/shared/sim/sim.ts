@@ -60,6 +60,7 @@ import { updateShop, type ShopTown } from './shop';
 import { updateWages } from './wages';
 import { propertyHourly } from './property';
 import { treasuryHourly } from './treasury';
+import { ambitionHourly } from './ambition';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -150,6 +151,7 @@ export class Sim {
     updateWages(s);
     propertyHourly(s);
     treasuryHourly(s, this.rng);
+    ambitionHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)

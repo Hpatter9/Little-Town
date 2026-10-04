@@ -2,6 +2,8 @@
 // can pick someone else (from the building's action bar), which sticks until they're gone.
 
 import { OPERATORS } from '../data/operators';
+import { AMBITIONS, JOB_PULL } from '../data/ambitions';
+import { ambitionOf } from './ambition';
 import { isChild } from './social';
 import { notify, type Building, type GameState, type Person } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
@@ -30,7 +32,9 @@ function candidates(s: GameState, b: Building): Person[] {
 const skillOf = (p: Person, b: Building) => {
   const role = OPERATORS[b.def];
   // a guard captain's worth is their better fighting skill
-  return role.skill === 'melee' ? Math.max(p.skills.melee.level, p.skills.ranged.level) : p.skills[role.skill].level;
+  const level = role.skill === 'melee' ? Math.max(p.skills.melee.level, p.skills.ranged.level) : p.skills[role.skill].level;
+  // (a post of the kind they dream of counts for more: data/ambitions.ts)
+  return level + (AMBITIONS[ambitionOf(p)].skill === role.skill ? JOB_PULL : 0);
 };
 
 /** The operator of a building, if there is one and they're at home and on their feet. */
