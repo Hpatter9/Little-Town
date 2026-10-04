@@ -3,6 +3,8 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { prostheticsWanted } from './injuries';
+import { PROSTHETIC_BY_ITEM } from '../data/injuries';
 import { venuePurse } from './ambition';
 import { LINES, LINE_STOCK, SHOP_LINES, STORE_PEOPLE } from '../data/stores';
 import { eraOfResearch } from '../data/research';
@@ -90,6 +92,9 @@ const SHELF_HOURS = 24;
 
 interface Needs {
   people: number;
+  /** Someone is missing a part (a prosthetic wanted), or someone is wounded. */
+  limbless: boolean;
+  wounded: boolean;
   freeBeds: number;
   foodDays: number;
   storageFill: number;
@@ -134,6 +139,8 @@ function needs(s: GameState): Needs {
     stock,
     demand,
     raided: s.journal.some((j) => j.text.startsWith('Raid by')),
+    limbless: prostheticsWanted(s).length > 0,
+    wounded: s.people.some((p) => (p.wounds?.length ?? 0) > 0),
     direction: directionOf(s),
   };
 }
@@ -232,6 +239,10 @@ function topicScore(t: Topic, n: Needs): number {
   }
   // (children are how a town grows now that newcomers are few: it learns family life once there are a few of it)
   if (t.id === 'family_life') score += n.people >= 4 ? 40 : 10;
+  // (someone has lost a limb or an eye: learn to make them good)
+  if ((t.id === 'peg_and_hook' || t.id === 'prosthetics' || t.id === 'bionics') && n.limbless) score += 30;
+  // (the town has been bleeding: learn to tend the hurt)
+  if (t.effects.some((e) => e.type === 'care') && n.wounded) score += 6;
   if (DIRECTION_DEFS[n.direction].branches.includes(BRANCH_OF(t))) score *= 1.6;
   if (t.branch === 'heritage') score *= 1.25; // (what the town's people are good at, they like to study)
   if (t.branch === 'occult') score *= 0.35; // (the town dabbles, but it's not what it's for)
@@ -373,6 +384,13 @@ function planCrafting(s: GameState, n: Needs): Stock {
   // 4. a few bandages or poultices, and pots when the stores are filling up
   const isMedicine = (i: ItemDef) => i.id === 'poultice' || i.id === 'bandage';
   if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
+  // 4b. a prosthetic for each lost part waiting on one: the best the town can make (the healer fits it: sim/injuries.ts)
+  for (const fits of new Set(prostheticsWanted(s))) {
+    if (!room()) break;
+    const is = (i: ItemDef) => PROSTHETIC_BY_ITEM[i.id]?.fits === fits;
+    const best = bestMakeable(s, is, (i) => PROSTHETIC_BY_ITEM[i.id].rank);
+    if (best && !ordered(s, (i) => i.id === best.id) && (s.items[best.id] ?? 0) === 0) tryMake(best);
+  }
   // (one pot on order at a time: the crafters have other work)
   // Everything made to sell or to dress a venue is made only from what the town has spare (beyond what it needs, a
   // reserve, and several days' food), never from what it can only buy (like a desert's fiber); nothing is gathered for

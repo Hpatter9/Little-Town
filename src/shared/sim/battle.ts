@@ -28,7 +28,7 @@ import { personFighter, weaponOf } from './combat';
 import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
 import { ally } from './classes';
 import { enemyArmor } from '../data/enemies';
-import { attackPerson, defenderAttack, defenderReach, townEdgeX } from './raids';
+import { attackPerson, biteOf, defenderAttack, defenderReach, townEdgeX } from './raids';
 import { turretsDown } from './rivals';
 import { rallied, RALLY_SPEED } from './rally';
 import { isChild } from './social';
@@ -915,7 +915,7 @@ function strikeUnit(s: GameState, r: Raid, rd: Raider, u: BattleUnit, rng: Rng, 
   const a = r.raiders.find((q) => q.id === u.ally);
   if (!a) return;
   const def = ENEMIES[rd.kind];
-  if (rng.next() < def.accuracy - ENEMIES[a.kind].dodge) hurt(a, rng.int(def.damage[0], def.damage[1]) * (rd.might ?? 1) * RAID_FEROCITY, s);
+  if (rng.next() < def.accuracy - ENEMIES[a.kind].dodge) hurt(a, rng.int(def.damage[0], def.damage[1]) * (rd.might ?? 1) * biteOf(s, RAID_FEROCITY), s);
 }
 
 /** A raider has got to the end of the trail: it's through, into the town (raids.ts takes it on from the town's edge). */

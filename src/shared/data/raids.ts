@@ -101,7 +101,9 @@ export const RAID_INTERVAL_JITTER = 6;
  *  became the player's choice drew raids of two or three beasts that never downed anyone). */
 export const RAID_BITE = 1.4;
 /** Raiders' blows land this much harder, in town and on the battle map (with RAID_BITE: raids that down people). */
-export const RAID_FEROCITY = 1.4;
+export const RAID_FEROCITY = 1.25;
+/** Both bite only from this many grown-ups: a founder alone or with one companion meets the raids of old. */
+export const RAID_BITE_FROM = 3;
 export const RAID_BUDGET_BASE = 18;
 export const RAID_BUDGET_PER_DAY = 3;
 export const RAID_BUDGET_PER_WEALTH = 1 / 25;
@@ -117,7 +119,7 @@ export const RAID_MIGHT_PER_LEVEL = 0.07;
 export const RAID_SEASONED_MAX = 2.5;
 /** Struck down by a raider, someone may die there and then (a boss's blow more often; the founder less, since the town
  *  passes to an heir), rather than lying wounded to be tended. */
-export const KILLING_BLOW = 0.45;
+export const KILLING_BLOW = 0.38;
 export const BOSS_KILLING_BLOW = 0.6;
 export const FOUNDER_KILLING_BLOW = 0.12;
 /** ...and a bigger town draws a bigger raid: one more raider for every RAID_SIZE_PER_PEOPLE grown-ups beyond

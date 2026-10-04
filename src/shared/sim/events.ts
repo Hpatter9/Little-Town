@@ -14,6 +14,7 @@ import { BUILDING_BY_ID } from '../data/buildings';
 import { isSeat } from '../data/seats';
 import { demolish } from './buildings';
 import { setFire } from './fire';
+import { minorWound } from './injuries';
 import { canQueue } from './research';
 import type { Rng } from '../rng';
 import { depositNear, storages } from './buildings';
@@ -186,7 +187,10 @@ function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: n
       if (p && rng.chance(e.chance ?? 1)) killPerson(s, p, fill(s, e.cause, who));
     } else if ('wound' in e) {
       const hurt = e.wound === 'all' ? grownUps(s) : [target(s, e.wound, whoId, rng, false)].filter((p): p is Person => !!p);
-      for (const p of hurt) p.hp = Math.max(1, p.hp - e.hp);
+      for (const p of hurt) {
+        p.hp = Math.max(1, p.hp - e.hp);
+        minorWound(s, p, e.hp, rng); // (a wound to show for it: sim/injuries.ts)
+      }
     } else if ('sick' in e) {
       const pool = grownUps(s);
       for (let i = 0; i < e.sick && pool.length; i++) sicken(s, pool.splice(Math.floor(rng.next() * pool.length), 1)[0], rng);

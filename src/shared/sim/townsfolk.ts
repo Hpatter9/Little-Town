@@ -1,6 +1,7 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
+import { injuryMood, injuryWork } from './injuries';
 import { TAX } from '../data/economy';
 import { moneyTown } from './economy';
 import { taxRate } from './treasury';
@@ -139,6 +140,11 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   }
   if (p.grief && s.tick < p.grief.until) add(p.grief.text, p.grief.value);
   if (p.sore && s.tick < p.sore.until) add(p.sore.text, p.sore.value);
+  {
+    const im = injuryMood(p);
+    if (im.pain) add('In pain', im.pain);
+    if (im.comfort) add('A glass eye', im.comfort);
+  }
   if (p.sick) add('Sick with the plague', PLAGUE_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'ash_winter') add('Ash blots out the sun', ASH_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'smog' && p.away === null) add('Choking smog', SMOG_MORALE);
@@ -242,6 +248,7 @@ export function workFactor(s: GameState, p: Person): number {
   if (p.needs.food <= 0.02) f *= 0.7;
   if (p.needs.rest <= 0.02) f *= 0.7;
   if (isInjured(p)) f *= 0.8;
+  f *= injuryWork(p); // (what their wounds, scars and lost parts leave them: sim/injuries.ts)
   if (p.sick) f *= PLAGUE_WORK;
   f *= ageWork(s, p); // (elders slow down)
   // vampires come alive at night

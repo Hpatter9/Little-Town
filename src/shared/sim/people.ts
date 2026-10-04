@@ -3,6 +3,7 @@
 // within a level: haul, construct, research, gather) > loaf around camp.
 
 import { attending } from './ceremonies';
+import { injuryPace } from './injuries';
 import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
 import { ADJACENT_TILES, NEAR_SOURCE, NEAR_SOURCE_BONUS } from '../data/buildings';
@@ -1074,7 +1075,7 @@ export const busyNow = (s: GameState, p: Person) => !!s.busy && s.tick < s.busy.
 
 /** Step toward a point along a path over the land. Returns true once there. */
 function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {
-  const there = walk(s, p, to, STEP, through, s.tick, swims(s, p));
+  const there = walk(s, p, to, STEP * injuryPace(p), through, s.tick, swims(s, p)); // (a lame leg slows them: sim/injuries.ts)
   if (!there) p.activity = 'walk';
   return there;
 }

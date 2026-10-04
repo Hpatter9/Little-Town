@@ -3,6 +3,7 @@
 // the food and run. Walls and gates stop them until broken. Defenders fight; everyone else shelters.
 
 import { victoryFeast } from './ceremonies';
+import { woundFor, woundPerson } from './injuries';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES, enemyArmor, natureOf } from '../data/enemies';
 import { eraReached, type Era } from '../data/eras';
@@ -49,6 +50,7 @@ import {
   RAID_MAX_SIZE,
   RAID_BITE,
   RAID_FEROCITY,
+  RAID_BITE_FROM,
   RAIDER_CARRY,
   LOOT_VALUE,
   RAIDER_FLEE,
@@ -116,6 +118,9 @@ export function wealth(s: GameState): number {
 /** The town size (the player's choice) below which raids grow more slowly with the days. */
 export const RAID_SMALL_TOWN = 20;
 
+/** A raid's bite (RAID_BITE, RAID_FEROCITY), once the town is RAID_BITE_FROM grown-ups strong. */
+export const biteOf = (s: GameState, bite: number) => (s.people.filter((p) => p.bornTick == null).length >= RAID_BITE_FROM ? bite : 1);
+
 export function raidBudget(s: GameState): number {
   const day = Math.floor(paceDay(s.tick));
   const war = s.doom?.kind === 'war' && s.doom.phase === 'active' ? WAR_RAID_BUDGET : 1;
@@ -123,7 +128,7 @@ export function raidBudget(s: GameState): number {
   const people = Math.max(0, s.people.filter((p) => p.away === null && p.type !== 'child').length - RAID_BUDGET_FREE_PEOPLE);
   // (a town kept small by the player's choice draws raids that grow more slowly: they come for what it's worth)
   const small = s.popTarget === undefined ? 1 : Math.min(1, s.popTarget / RAID_SMALL_TOWN);
-  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY * small + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength * RAID_BITE);
+  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY * small + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength * biteOf(s, RAID_BITE));
 }
 
 /** The building giving the longest raid warning, if any. */
@@ -600,9 +605,10 @@ export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area
   // (a rival lord's frenzy: harder, and sooner again)
   const frenzy = frenzyOf(s);
   if (frenzy > 1) rd.cooldown = Math.round(rd.cooldown / frenzy);
-  const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s) * (rd.might ?? 1) * RAID_FEROCITY);
+  const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s) * (rd.might ?? 1) * biteOf(s, RAID_FEROCITY));
   p.hp = Math.max(0, p.hp - dmg);
   if (dmg > 0) {
+    woundPerson(s, p, dmg, (sev) => woundFor(rd.kind, sev, rng), rng); // (a wound where it landed: sim/injuries.ts)
     p.lastHit = s.tick;
     p.hitFrom = rd.x < p.x ? -1 : 1;
   } else p.lastBlock = s.tick; // (turned on a shield or armour: the guarding pose)

@@ -5,6 +5,7 @@
 import { payParty } from './economy';
 import { homeFromTrip } from './ambition';
 import { payBounty } from './parties';
+import { woundFor, woundPerson } from './injuries';
 import { levelOf, xpToLevel } from '../data/levels';
 import { ENEMIES } from '../data/enemies';
 import { eraReached } from '../data/eras';
@@ -490,8 +491,17 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
     if (f.ammoUsed && f.ammoType) addStock(e.supplies, f.ammoType, -f.ammoUsed);
     const p = members.find((q) => q.id === f.ref);
     if (!p) continue;
+    const was = p.hp;
     if (f.down && !p.downed) knockDown(s, p);
     else if (!f.down) p.hp = Math.max(1, Math.min(maxHp(p), Math.round((f.hp * maxHp(p)) / Math.max(1, f.maxHp)))); // (back to the town's reckoning of their health)
+    // (the fight's harm, as wounds on the body: one or two, from what they fought: sim/injuries.ts)
+    const harm = f.down ? Math.max(was, maxHp(p) * 0.5) : was - p.hp;
+    const foes = b.fighters.filter((x) => x.side === 'enemy');
+    if (harm > 0 && foes.length) {
+      const by = rng.pick(foes).kind;
+      const blows = harm > maxHp(p) * 0.3 ? 2 : 1;
+      for (let i = 0; i < blows; i++) woundPerson(s, p, harm / blows, (sev) => woundFor(by, sev, rng), rng);
+    }
     const levelFrom = levelOf(p);
     const xpFrom = p.lvXp ?? 0;
     if (f.attacks) gainSkill(p, f.ranged ? 'ranged' : 'melee', f.attacks * FIGHT_XP);

@@ -57,6 +57,8 @@ import { craftNeeded, craftSlots, hasBedroll, missingItems, stationFor, stationN
 import { CHILD_HOURS } from '../data/social';
 import { DOOMS, type DoomKind } from '../data/doom';
 import { devotedOf, enemiesOf, friendsOf, isChild, opinion, rivalsOf } from './social';
+import { capacities, woundText } from './injuries';
+import { PARTS, type BodyPart } from '../data/injuries';
 import { bountyOn, bountyStep, mayGo, proposeParty, roomAway, vetoed } from './parties';
 import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
@@ -176,6 +178,9 @@ export interface PersonView {
   married: boolean;
   friends: string[];
   rivals: string[];
+  /** Their body (sim/injuries.ts): wounds in words, lasting scars and lost parts, prosthetics fitted, and what they can
+   *  still do (1 sound). */
+  body: { wounds: string[]; lasting: string[]; fitted: string[]; sight: number; handling: number; moving: number; pain: number };
   /** Enemies (they won't go on a trip together, and may come to blows) and the devoted (who go where they go). */
   enemies: string[];
   devoted: string[];
@@ -1062,6 +1067,19 @@ function mineView(s: GameState): MineView | null {
   };
 }
 
+function bodyView(p: Person): PersonView['body'] {
+  const c = capacities(p);
+  return {
+    wounds: (p.wounds ?? []).map(woundText),
+    lasting: (p.lasting ?? []).map((l) => (l.kind === 'lost' ? `lost ${PARTS[l.part].name}` : `scarred ${PARTS[l.part].name}`)),
+    fitted: Object.entries(p.fitted ?? {}).map(([part, item]) => `${ITEM_BY_ID[item!]?.name ?? item} (${PARTS[part as BodyPart].name})`),
+    sight: c.sight,
+    handling: c.handling,
+    moving: c.moving,
+    pain: c.pain,
+  };
+}
+
 export interface TripsView {
   /** The party that would form now ("Name and 2 others for the Berry Thicket"), or why none would. */
   forming: string;
@@ -1168,6 +1186,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     friends: friendsOf(s, p).filter((f) => f.id !== p.partner).map((f) => f.name),
     rivals: rivalsOf(s, p).filter((f) => opinion(s, p.id, f.id) > ENEMY).map((f) => f.name),
     enemies: enemiesOf(s, p).map((f) => f.name),
+    body: bodyView(p),
     devoted: devotedOf(s, p).filter((f) => f.id !== p.partner).map((f) => f.name),
     growsUpIn: p.bornTick != null ? Math.max(0, CHILD_HOURS - (s.tick - p.bornTick) / TICKS_PER_HOUR) : null,
     breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,

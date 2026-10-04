@@ -25,7 +25,7 @@ import { button, el } from './dom';
 /** Changes whenever something this panel shows changes (needs and morale to the whole percent). */
 export const townsfolkKey = (s: Snapshot) =>
   JSON.stringify([
-    s.people.map((p) => [p.id, p.job, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.owns, p.debt, p.income, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.enemies, p.devoted, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
+    s.people.map((p) => [p.id, p.job, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.owns, p.debt, p.income, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.enemies, p.devoted, p.body.wounds, p.body.lasting, p.body.fitted, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
     s.visitor && [s.visitor.id, Math.ceil(s.visitor.hoursLeft), s.visitor.leaving],
     s.housing,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 100), p.hungry]),
@@ -180,6 +180,15 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
   life.append(bars);
   if (p.breakdown) life.append(el('div', 'lock short', p.breakdown));
   if (p.sick) life.append(el('div', 'lock short', 'Sick.'));
+  // their body: wounds, lasting harm, prosthetics, and what they can still do (sim/injuries.ts)
+  const b = p.body;
+  if (b.wounds.length) life.append(el('div', 'lock short', `Wounds: ${b.wounds.join(', ')}`));
+  if (b.lasting.length) life.append(el('div', 'lock', `For good: ${b.lasting.join(', ')}`));
+  if (b.fitted.length) life.append(el('div', 'purpose', `Fitted: ${b.fitted.join(', ')}`));
+  if (b.wounds.length || b.lasting.length) {
+    const pct = (v: number) => `${Math.round(v * 100)}%`;
+    life.append(el('div', 'hint', `Sight ${pct(b.sight)} · Hands ${pct(b.handling)} · Moving ${pct(b.moving)}${b.pain > 0.04 ? ` · Pain ${pct(b.pain)}` : ''}`));
+  }
   if (p.moodReasons.length) {
     const reasons = el('div', 'reasons');
     for (const r of p.moodReasons) reasons.append(el('span', r.value >= 0 ? 'good' : 'bad', `${r.text} ${r.value > 0 ? '+' : ''}${r.value}`));

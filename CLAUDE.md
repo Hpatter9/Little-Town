@@ -1564,6 +1564,30 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   no effect behind it), and six topics are new: Bonesetting and Field Dressing (Stone Age), Barber-Surgeons and
   Convalescence (Medieval), Antiseptics (Industrial), Triage (Modern). Tests: `test/care.test.ts`.
 
+## Injuries, lasting harm, prosthetics and surgery (done; the owner's ask, after RimWorld)
+
+- `src/shared/data/injuries.ts` and `src/shared/sim/injuries.ts`. **The body:** ten parts (`PARTS`: head, two eyes,
+  torso, two arms, two hands, two legs; each a hit `weight`, the capacity it `serves`, whether it can be lost, and what
+  goes with it: a hand with its arm). **Wounds** (`Person.wounds`: part, `WoundKind` cut, bite, bruise, fracture or burn,
+  severity and peak): a blow that lands (`attackPerson` in raids.ts, on the town and the battle map) wounds a part
+  (`woundPerson`: severity `SEVERITY_PER_SHARE` times the blow's share of their health; `woundFor` picks the kind by the
+  foe: beasts bite, fire burns, heavy blows break bones, blades cut); a party's fight carries its harm home as one or two
+  wounds by what they fought (`finishBattle`); an event's wound is a bruise or a cut (`minorWound`). A crushing blow
+  (`LOSE_AT`, `LOSE_CHANCE`) may take a limb or an eye for good (`losePart`, `Person.lasting` kind `lost`).
+  **Healing:** `injuriesHourly` (from sim.ts): each wound heals over its kind's `days`, `TENDED` (2) times as fast with a
+  healer's hut, infirmary, hospital or trauma center standing and the person in town, and by the care research
+  (`careHeal`); healed, a bad one may scar (`WOUNDS[k].scar` times how bad it got, less with the care research; a scar
+  works at `SCAR_WORKS` and hurts `SCAR_PAIN`). **What it does** (`capacities`: sight, handling, moving, pain):
+  `injuryWork` in `workFactor`, `injuryPace` on the walk (`goTo` in people.ts), `injuryFight` in `personFighter` (blows by
+  handling, aim by sight), `injuryMood` in `mood()` ("In pain"). **Prosthetics** (`PROSTHETICS`: works and rank per kind
+  of part; items in data/items.ts): Peg and Hook (Medieval: peg leg, hook hand, wooden arm), Prosthetics (Industrial: a
+  glass eye, jointed legs, hands and arms), Bionics (Space: better than flesh). The planner orders the best it can make
+  for each lost part (`prostheticsWanted`; and studies those topics +30 while anyone waits); the healer (the operator of a
+  healer's hut, infirmary, hospital or trauma center) fits one in surgery on the hour (`surgery`: odds `SURGERY_BASE`
+  plus `SURGERY_PER_LEVEL` a Medicine level; botched, the piece is ruined and the patient cut). A better piece replaces
+  a worse. The inspect page's health card lists wounds, what's gone for good, what's fitted, and sight, hands, moving
+  and pain (`PersonView.body`). Tests: `test/injuries.test.ts`.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

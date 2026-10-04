@@ -415,6 +415,11 @@ export interface Person {
   grownAt?: number;
   /** Grieving someone close, until a tick. */
   grief?: { until: number; value: number; text: string } | null;
+  /** Wounds on the body, lasting scars and lost parts, prosthetics fitted for them, and a surgery's rest (sim/injuries.ts). */
+  wounds?: { part: import('../data/injuries').BodyPart; kind: import('../data/injuries').WoundKind; sev: number; peak: number }[];
+  lasting?: { part: import('../data/injuries').BodyPart; kind: 'scar' | 'lost' }[];
+  fitted?: Partial<Record<import('../data/injuries').BodyPart, string>>;
+  surgeryUntil?: number;
   /** A brawl with an enemy smarting still (sim/social.ts). */
   sore?: { until: number; value: number; text: string } | null;
   /** A mental break in progress (see breaks.ts). */

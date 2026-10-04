@@ -62,6 +62,7 @@ import { propertyHourly } from './property';
 import { treasuryHourly } from './treasury';
 import { ambitionHourly } from './ambition';
 import { ceremoniesHourly } from './ceremonies';
+import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
@@ -156,6 +157,7 @@ export class Sim {
     ambitionHourly(s);
     partiesHourly(s);
     ceremoniesHourly(s);
+    injuriesHourly(s, this.rng);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)
