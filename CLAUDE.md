@@ -1610,6 +1610,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   a worse. The inspect page's health card lists wounds, what's gone for good, what's fitted, and sight, hands, moving
   and pain (`PersonView.body`). Tests: `test/injuries.test.ts`.
 
+- **Harm that shows (the owner's ask):** `PersonView.body.marks` (`bodyMarks` in snapshot.ts: each lost part bare or
+  made good, by the prosthetic's rank: `patch`, `gone`, `peg`, `hook`, `wood`, `metal`, `glass`, `bionic`; and a
+  `bandage` over a wound of `BANDAGE_AT` 0.25 or worse) are drawn over the side-on LPC sprite by
+  `src/renderer/map/bodyMarks.ts` (`drawMarks`, in art px about the feet, mirrored with the sprite; redrawn when
+  `marksKey` changes): an eye patch and strap, a peg, a jointed or bionic leg, a crutch for a leg gone, a hook, a
+  wooden arm, bandages on the head, chest, arm or knee. Not over a hero, wolf, class or swimming form, nor someone
+  down. Hurt legs limp (`limpDip` by `body.moving`, a dip on alternate steps).
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

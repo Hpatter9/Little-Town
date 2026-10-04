@@ -58,7 +58,7 @@ import { CHILD_HOURS } from '../data/social';
 import { DOOMS, type DoomKind } from '../data/doom';
 import { devotedOf, enemiesOf, friendsOf, isChild, opinion, rivalsOf } from './social';
 import { capacities, woundText } from './injuries';
-import { PARTS, type BodyPart } from '../data/injuries';
+import { PARTS, PROSTHETIC_BY_ITEM, fitsOf, type BodyPart } from '../data/injuries';
 import { bountyOn, bountyStep, mayGo, proposeParty, roomAway, vetoed } from './parties';
 import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
@@ -180,7 +180,7 @@ export interface PersonView {
   rivals: string[];
   /** Their body (sim/injuries.ts): wounds in words, lasting scars and lost parts, prosthetics fitted, and what they can
    *  still do (1 sound). */
-  body: { wounds: string[]; lasting: string[]; fitted: string[]; sight: number; handling: number; moving: number; pain: number };
+  body: { wounds: string[]; lasting: string[]; fitted: string[]; sight: number; handling: number; moving: number; pain: number; marks: BodyMark[] };
   /** Enemies (they won't go on a trip together, and may come to blows) and the devoted (who go where they go). */
   enemies: string[];
   devoted: string[];
@@ -1077,7 +1077,37 @@ function bodyView(p: Person): PersonView['body'] {
     handling: c.handling,
     moving: c.moving,
     pain: c.pain,
+    marks: bodyMarks(p),
   };
+}
+
+/** What shows of someone's harm in the town (map/bodyMarks.ts): a lost part bare or made good (a peg, a hook, a
+ *  wooden or jointed limb, a bionic one; an eye patched, glass or bionic), and a bandage over a bad wound. */
+export type BodyMarkLook = 'gone' | 'patch' | 'peg' | 'hook' | 'wood' | 'metal' | 'bionic' | 'glass' | 'bandage';
+export interface BodyMark {
+  part: BodyPart;
+  look: BodyMarkLook;
+}
+/** A wound this bad or worse is bandaged. */
+export const BANDAGE_AT = 0.25;
+
+function bodyMarks(p: Person): BodyMark[] {
+  const out: BodyMark[] = [];
+  for (const l of p.lasting ?? []) {
+    if (l.kind !== 'lost') continue;
+    const item = p.fitted?.[l.part];
+    const pro = item ? PROSTHETIC_BY_ITEM[item] : undefined;
+    const fits = fitsOf(l.part);
+    let look: BodyMarkLook;
+    if (!pro) look = fits === 'eye' ? 'patch' : 'gone';
+    else if (pro.rank >= 3) look = 'bionic';
+    else if (fits === 'eye') look = 'glass';
+    else if (pro.rank === 2) look = 'metal';
+    else look = fits === 'leg' ? 'peg' : fits === 'hand' ? 'hook' : 'wood';
+    out.push({ part: l.part, look });
+  }
+  for (const w of p.wounds ?? []) if (w.sev >= BANDAGE_AT && !out.some((m) => m.part === w.part)) out.push({ part: w.part, look: 'bandage' });
+  return out;
 }
 
 export interface TripsView {

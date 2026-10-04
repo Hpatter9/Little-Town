@@ -7,6 +7,7 @@ import type { ClassId } from '../../shared/data/classes';
 import type { PersonView } from '../../shared/sim/snapshot';
 import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
+import { drawMarks, limpDip, marksKey } from './bodyMarks';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
 import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
@@ -73,6 +74,9 @@ interface Drawn {
   levelAt?: number;
   levelUp?: Sprite;
   aura?: Sprite;
+  /** Their harm as it shows (map/bodyMarks.ts): a patch, a peg, a hook, a crutch, a bandage; and what's drawn. */
+  marks?: Graphics;
+  marksKey?: string;
   /** Their lantern's glow (in the map's lights layer, so it shows after dark). */
   lamp?: Sprite;
   /** A merfolk's tail, while they swim (art/merTail.ts). */
@@ -161,7 +165,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -308,12 +312,17 @@ export class MapPeople {
       const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : null;
       s.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
       const moving = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) > 0.5;
+      // (hurt legs: a hitch in the walk)
+      if (moving) s.y += limpDip(v.body.moving, d.walked);
       const facing = d.view.dir < 0 ? 'left' : 'right';
+      // (the side-on townsperson's sprite, which their harm is drawn over; a hero, wolf or class form isn't)
+      let plain = true;
       // a fighting calling takes its combat form (a Craftpix hero) while it fights, and a little after
       // (the raised dead fight as the pack's skeletons, whatever their calling)
       const hero = v.monster === 'undead' ? skeletonSheet(v.battle.ranged, v.id) : heroSheet(v.cls, v.id);
       const inCombat = v.activity === 'fight' || v.sinceBlow < HERO_LINGER || v.sinceHit < HERO_LINGER;
       if (hero && inCombat && !hidden && !founder && !(v.cls && CLASS_LOOK[v.cls])) {
+        plain = false;
         s.texture = heroFrame(hero, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
         const hk = heroScale(hero) * k;
         s.anchor.set(0.5, 1);
@@ -325,6 +334,7 @@ export class MapPeople {
         const sheet = founderSheet(v.cls, v.id, v.battle.ranged, (v.battle.attrs?.int ?? 0) > (v.battle.attrs?.str ?? 0));
         const working = WORK_SWING.has(v.activity);
         const swing = working ? Math.floor((now / 100) % 14) : 999;
+        plain = false;
         s.texture = heroFrame(sheet, { facing, moving, walked: d.walked, sinceBlow: inCombat ? v.sinceBlow : swing, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
         const hk = heroScale(sheet) * k;
         s.anchor.set(0.5, 1);
@@ -333,6 +343,7 @@ export class MapPeople {
       // someone who's taken up a special class looks the part (a Pixel Champions hero, at twice size)
       if (d.view.cls && CLASS_LOOK[d.view.cls] && !hidden && !founder) {
         const [sheet, block] = CLASS_LOOK[d.view.cls]!;
+        plain = false;
         s.texture = creatureFrame(sheet, block, facing, moving ? Math.floor(d.walked / 5) : 1);
         const size = creatureSize(sheet);
         s.anchor.set(0.5, 1);
@@ -343,6 +354,7 @@ export class MapPeople {
       if (d.view.monster === 'werewolf' && (this.moon || inCombat) && !hidden) {
         // (the Craftpix werewolves: black, red or white by who they are)
         const wolf = WOLF_FORMS[v.id % WOLF_FORMS.length];
+        plain = false;
         s.texture = heroFrame(wolf, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
         const wk = heroScale(wolf) * k * WOLF_SCALE;
         s.anchor.set(0.5, 1);
@@ -352,6 +364,7 @@ export class MapPeople {
       const swimming = v.swimming && !hidden && v.downed === null;
       if (swimming) {
         const bob = Math.sin(now / 420 + v.id) * 1.5;
+        plain = false;
         s.texture = waistUp(s.texture);
         s.anchor.set(CENTRE_X / FRAME_SIZE, 1);
         s.position.set(Math.round(x), Math.round(y - 4 + bob));
@@ -374,6 +387,24 @@ export class MapPeople {
         d.horse.zIndex = z - 0.1;
         s.y -= SADDLE_LIFT;
         if (anim === 'walk') s.texture = lpcFrame(look, 'walk', 0, held, wear);
+      }
+      // their harm, over the sprite (bodyMarks.ts)
+      const marks = v.body.marks;
+      const showMarks = plain && !hidden && marks.length > 0 && v.downed === null;
+      if (showMarks && !d.marks) d.marks = this.layer.addChild(new Graphics());
+      if (d.marks) {
+        d.marks.visible = showMarks;
+        if (showMarks) {
+          const sway = moving ? (Math.floor(d.walked / 8) % 2) : 0;
+          const key = marksKey(marks, v.dir, sway);
+          if (key !== d.marksKey) {
+            d.marksKey = key;
+            drawMarks(d.marks, marks, sway);
+          }
+          d.marks.position.set(s.x, s.y);
+          d.marks.scale.set(flip ? -k : k, k);
+          d.marks.zIndex = z + 0.05;
+        }
       }
       d.load.visible = !hidden && poolSize(d.view.carrying) > 0;
       d.load.position.set(Math.round(x) - d.view.dir * 7 - 4, Math.round(y) - 40);
