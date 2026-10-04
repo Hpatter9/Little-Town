@@ -1493,6 +1493,57 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   counts `Person.trips`; an adventurer `RETIRE_TRIPS` trips in with `RETIRE_COINS` settles down as a keeper. The
   inspect page names the ambition; the venue window says who owns it, its worth and yesterday's takings. Tests:
   `test/ambition.test.ts`.
+- **Step 4, relationships that bite** (`data/social.ts`, `sim/social.ts`): **enemies** at `ENEMY` (-60) or below
+  (`enemiesOf`) never go in one party and, near each other, may come to blows (`brawl`: `BRAWL_CHANCE` an hour within
+  `BRAWL_NEAR`, `BRAWL_HURT` of their health, never to the ground, and `Person.sore` for a day: a mood line);
+  the **devoted** at `DEVOTED` (80) or above, or partners (`devotedOf`), go where the other goes and grieve
+  `DEVOTED_GRIEF` times as long. The inspect page's relations line names both (`PersonView.enemies`, `.devoted`).
+- **Step 5, parties that form themselves** (`data/parties.ts`, `sim/parties.ts`; the owner's decision: a veto and a
+  bounty for the player, nothing to pick). `partiesHourly` (from sim.ts; the autopilot on, `SET_OUT_FROM` to
+  `SET_OUT_UNTIL`, `PARTY_GAP_HOURS` apart): `proposeParty` takes the fit (`fitToGo`: healed to `FIT_HP`, rested, fed,
+  `TRIP_REST_HOURS` since their last trip came home, `Person.homeAt`) who may go (`mayGo`: not a guard, a keeper of a
+  venue or healer's post, or the founder), the half of the town that may be away (`roomAway`), and the places on the
+  board not forbidden nor already visited by a party (`boardDestinations`, `choosable`). An adventurer leads (anyone,
+  for a bounty), choosing by `pull` (a bounty, somewhere unseen, a fight); `recruit` fills the wanted roles in turn
+  (`WANTS`: front, healer, damage, scout, by the calling's `ClassRole`, `partRole`) by liking, never an enemy of anyone
+  going, the devoted first; the party goes only if `strengthOf` (health raised by level) beats `dangerOf` (the heaviest
+  foe group, a dungeon's boss) times `DARE` (`DARE_BOLD` for a bold leader, who also goes risky). `Expedition.leader`.
+  **Veto and bounty:** `s.vetoed` (`setVeto`, the `veto` command; forbidding takes its bounty back), `s.bounties`
+  (`postBounty`/`withdrawBounty`, the `bounty` command: `BOUNTY_STEP` coins a step up to `BOUNTY_MOST`, set aside from
+  the treasury at once, ledger line `bounties`), paid by `payBounty` (from `comeHome`) to the party if it did the job
+  (`jobDone`: a dungeon cleared, a threat put down, else home unrecalled). The Expeditions tab: a Parties block
+  (`snapshot.trips`: who would set out next or why nobody would, the fit, the room, the adventurers) and on each card
+  Forbid/Allow and Post/Raise/Withdraw bounty in place of the old send buttons and the delvers' picker (the `sendParty`
+  and `sendDelve` commands stay, for tests and previews). Tests: `test/parties.test.ts`.
+- **Step 6, events with weight** (`data/eventKit.ts`, `sim/events.ts`): new effects `busy` (`busy(hours, share, text,
+  anim, at)`: that share of the grown-ups, guards aside, held to one job at the town's edge or the camp: `s.busy`; in
+  `chooseTask` a held person (`busyNow`) eats when hungry and otherwise toils, the `toil` task, walking to their spot
+  on the line and working there with the job's animation; nothing else gets done) and `follow` (another event is put
+  to the player as soon as this one is answered: `s.eventNext`, started by `maybeEvent` past the usual gap). A `later`
+  inside a `chance` now works (kept with its effects on `s.eventLater`). **The fire** (`great_fire` in
+  fatefulEvents.ts): cut a fireline (one roof lost, the whole town at it for a day), save the stores (three roofs, half
+  the town hauling), or let it burn (even odds: it dies down with one roof, or takes four and maybe a life, and six
+  hours later may reach the town: the `fire_spreads` event, never by chance: a bucket line with wounds and smoke
+  deaths, houses pulled down in its path, or run for the fields and lose six roofs and likely lives). Fire spreads
+  between buildings by their footprints on the land (`gap` in fire.ts, across and down: it was the old strip's tiles),
+  and townsfolk fight the nearest fire by true distance. **What there is to pay with:** an event that asks for coins
+  says what the treasury holds (`coinsLine`), and each answer that costs coins says how much on its button
+  (`costOf`: "(20 coins)", "(about 35 coins)" for a share). Tests in `test/events.test.ts`.
+- **Step 7, life's ceremonies** (`data/ceremonies.ts`, `sim/ceremonies.ts`, `ceremoniesHourly` from sim.ts; off with
+  the autopilot, like events). A death is remembered with who was close (`mournFor` in `killPerson`, before the
+  relations go: partner, kin, friends; `s.funeralsDue`), and at the next `GATHER_HOUR` (18) they hold a funeral at the
+  graveyard or the fire for `FUNERAL_HOURS` (nobody close: the whole town buries them); `GREAT_FUNERAL_DEATHS` (3) or more since the last make it a **great
+  funeral**: the whole town, `GREAT_FUNERAL_HOURS`. Afterwards those who came grieve half as hard (`FUNERAL_EASE`) and
+  the town carries a mark ("Laid to rest", "We buried our dead together"). A **wedding** (`weddingFeast`, from
+  `families`) is feasted that evening; the town **feasts** at midsummer (`MIDSUMMER_DAY`) and after a raid driven off
+  with nothing taken (`victoryFeast` from `endRaid`), never within `FEAST_GAP_HOURS`, and only if the stores hold
+  `FEAST_FOOD_DAYS` after it (`FEAST_FOOD` a head eaten; a wedding is kept regardless); at a tavern someone owns, the
+  treasury pays the house `FEAST_COIN` a head (`takeSale`). A gathering is `s.gathering`; those at it (`attending`) take
+  the `attend` task: they walk to their place in a ring round the spot and stand there (they still eat), and the
+  Townsfolk tab says where they are. Tests: `test/ceremonies.test.ts`.
+- **Step 8, art:** the windmill, the watchtower and the lookout are the Simple Summer top-down pack's windmill and timber
+  watchtowers (`art/packs/su_*.png`, shrunk from the pack's vector PNGs; `PICKS` in packBuildings.ts). Still code-drawn:
+  the factory and garage, the radio tower and drone hub, and the origin halls (no pack has them).
 
 ## Known problem (fixed, watch)
 

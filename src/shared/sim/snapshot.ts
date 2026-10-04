@@ -46,7 +46,7 @@ import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../da
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
-import { atPlace, DESTINATIONS, ROLES } from '../data/expeditions';
+import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry } from './people';
 import type { Era } from '../data/eras';
@@ -56,7 +56,9 @@ import { CROPS } from '../data/crops';
 import { craftNeeded, craftSlots, hasBedroll, missingItems, stationFor, stationName } from './crafting';
 import { CHILD_HOURS } from '../data/social';
 import { DOOMS, type DoomKind } from '../data/doom';
-import { friendsOf, isChild, rivalsOf } from './social';
+import { devotedOf, enemiesOf, friendsOf, isChild, opinion, rivalsOf } from './social';
+import { bountyOn, bountyStep, mayGo, proposeParty, roomAway, vetoed } from './parties';
+import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
 import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
@@ -174,6 +176,9 @@ export interface PersonView {
   married: boolean;
   friends: string[];
   rivals: string[];
+  /** Enemies (they won't go on a trip together, and may come to blows) and the devoted (who go where they go). */
+  enemies: string[];
+  devoted: string[];
   /** Children: game hours until they grow up. */
   growsUpIn: number | null;
   /** A mental break in progress, described. */
@@ -336,6 +341,9 @@ export interface ExpeditionView {
   id: number;
   dest: string;
   destName: string;
+  /** Who gathered the party (a party that formed itself), and the bounty it's after. */
+  leader?: string;
+  bounty?: number;
   scenery: string;
   phase: ExpeditionPhase;
   /** 0..1 through the current phase. */
@@ -421,6 +429,9 @@ export interface DestinationView {
   party: string[];
   partyHorses: number;
   partyTruck: boolean;
+  /** The player forbids parties to go there; the treasury's bounty on it. */
+  vetoed: boolean;
+  bounty: number;
 }
 
 export interface VisitorView extends PersonView {
@@ -556,6 +567,8 @@ export interface Snapshot {
   housing: { beds: number; people: number };
   expeditions: ExpeditionView[];
   destinations: DestinationView[];
+  /** Parties forming themselves: the next that would set out, who's fit to go, and the bounty step. */
+  trips: TripsView;
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
   places: PlaceView[];
   /** The Moon Pack's standing (sim/pack.ts), for a werewolf town. */
@@ -751,7 +764,10 @@ export function snapshot(s: GameState): Snapshot {
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
       ...partyView(s, d.id),
+      vetoed: vetoed(s, d.id),
+      bounty: bountyOn(s, d.id),
     })),
+    trips: tripsView(s),
     places: placeViews(s),
     pack: packView(s),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
@@ -1046,6 +1062,36 @@ function mineView(s: GameState): MineView | null {
   };
 }
 
+export interface TripsView {
+  /** The party that would form now ("Name and 2 others for the Berry Thicket"), or why none would. */
+  forming: string;
+  /** Grown-ups fit to go and free to (not guards, keepers or the founder), and how many more may be away. */
+  fit: number;
+  room: number;
+  bountyStep: number;
+  /** Adventurers in the town (who form parties of their own accord). */
+  adventurers: number;
+}
+
+function tripsView(s: GameState): TripsView {
+  const plan = proposeParty(s);
+  const fit = s.people.filter((p) => mayGo(s, p)).length;
+  const room = roomAway(s);
+  const adventurers = s.people.filter((p) => !isChild(p) && ambitionOf(p) === 'adventurer').length;
+  let forming: string;
+  if (plan) {
+    const lead = s.people.find((p) => p.id === plan.leader)!;
+    const d = destinationOf(s, plan.dest)!;
+    const others = plan.members.length - 1;
+    forming = `${lead.name}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''} would set out for ${the(d.name)}${plan.stakes === 'risky' ? ', boldly' : ''}.`;
+  } else if (s.expeditions.length >= MAX_EXPEDITIONS) forming = 'As many parties are out as can be.';
+  else if (!room) forming = 'Half the town is away already: nobody else goes.';
+  else if (!fit) forming = 'Nobody is fit to go: they rest and heal first.';
+  else if (!adventurers && !Object.keys(s.bounties ?? {}).length) forming = 'No adventurers in town. Post a bounty to draw a party.';
+  else forming = 'No party is strong enough for anywhere they want to go yet.';
+  return { forming, fit, room, bountyStep: bountyStep(s), adventurers };
+}
+
 function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
   const plan = planParty(s, dest);
   const party = plan.members.map((id) => {
@@ -1120,7 +1166,9 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     partner: p.partner == null ? null : (s.people.find((q) => q.id === p.partner)?.name ?? null),
     married: !!p.married,
     friends: friendsOf(s, p).filter((f) => f.id !== p.partner).map((f) => f.name),
-    rivals: rivalsOf(s, p).map((f) => f.name),
+    rivals: rivalsOf(s, p).filter((f) => opinion(s, p.id, f.id) > ENEMY).map((f) => f.name),
+    enemies: enemiesOf(s, p).map((f) => f.name),
+    devoted: devotedOf(s, p).filter((f) => f.id !== p.partner).map((f) => f.name),
     growsUpIn: p.bornTick != null ? Math.max(0, CHILD_HOURS - (s.tick - p.bornTick) / TICKS_PER_HOUR) : null,
     breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,
     nature: natureOf(p).id,
@@ -1226,6 +1274,8 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     id: e.id,
     dest: e.dest,
     destName: d.name,
+    ...(e.leader != null ? { leader: s.people.find((p) => p.id === e.leader)?.name } : {}),
+    ...(bountyOn(s, e.dest) ? { bounty: bountyOn(s, e.dest) } : {}),
     scenery: d.scenery,
     phase: e.phase,
     phaseProgress: v && e.phase === 'work' ? Math.min(1, down) : Math.min(1, e.elapsed / Math.max(1, len)),
@@ -1368,6 +1418,10 @@ function describe(s: GameState, p: Person): string {
       return 'Digging in the mine';
     case 'extinguish':
       return `Fighting the fire at the ${name(task.building).toLowerCase()}!`;
+    case 'toil':
+      return s.busy?.text ?? 'Hard at work for the town';
+    case 'attend':
+      return s.gathering?.text ?? 'With the town';
     case 'tend': {
       const q = s.people.find((x) => x.id === task.patient);
       return `Tending ${q?.name ?? 'the wounded'}'s wounds!`;

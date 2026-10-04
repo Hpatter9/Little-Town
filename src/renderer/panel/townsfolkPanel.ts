@@ -25,7 +25,7 @@ import { button, el } from './dom';
 /** Changes whenever something this panel shows changes (needs and morale to the whole percent). */
 export const townsfolkKey = (s: Snapshot) =>
   JSON.stringify([
-    s.people.map((p) => [p.id, p.job, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.owns, p.debt, p.income, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
+    s.people.map((p) => [p.id, p.job, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.owns, p.debt, p.income, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.enemies, p.devoted, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
     s.visitor && [s.visitor.id, Math.ceil(s.visitor.hoursLeft), s.visitor.leaving],
     s.housing,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 100), p.hungry]),
@@ -608,8 +608,11 @@ function relationsText(p: PersonView): string {
   const parts: string[] = [];
   if (p.growsUpIn !== null) parts.push(`A child: grows up in ${Math.ceil(p.growsUpIn / 24)} game days`);
   if (p.partner) parts.push(`${p.married ? 'Married to' : 'Together with'} ${p.partner}`);
-  if (p.friends.length) parts.push(`Friends: ${p.friends.join(', ')}`);
+  if (p.devoted.length) parts.push(`Devoted to ${p.devoted.join(', ')} (goes where they go)`);
+  const friends = p.friends.filter((n) => !p.devoted.includes(n));
+  if (friends.length) parts.push(`Friends: ${friends.join(', ')}`);
   if (p.rivals.length) parts.push(`Can't stand: ${p.rivals.join(', ')}`);
+  if (p.enemies.length) parts.push(`Enemies: ${p.enemies.join(', ')} (never in one party; may come to blows)`);
   return parts.join(' · ');
 }
 

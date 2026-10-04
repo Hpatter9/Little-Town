@@ -1,5 +1,6 @@
 // Health: injury, being downed, bleeding out, death, and healing in town (DESIGN §3).
 
+import { mournFor } from './ceremonies';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { HEALER_PER_LEVEL } from '../data/operators';
 import { UNDEAD_HEAL } from '../data/monsters';
@@ -125,6 +126,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
     s.graves = [...(s.graves ?? []), { x: Math.round(p.x), y: Math.round(p.y), name: p.name }].slice(-MAX_GRAVES);
     layOutGraves(s);
   }
+  mournFor(s, p); // (a funeral at the next evening: sim/ceremonies.ts)
   grieve(s, p);
   notify(s, `${p.name} has died ${cause}.`, true);
   // in an outbreak, those who fall in town among the dead get up again

@@ -19,6 +19,7 @@ import { DESTINATIONS, type Role, type Stance } from '../data/expeditions';
 import { ITEM_BY_ID, type FareKind, type Slot } from '../data/items';
 import { RAID_GRACE_HOURS, type RaidGoal } from '../data/raids';
 import type { WorkAnim } from '../data/terrain';
+import type { EventEffect } from '../data/eventKit';
 import type { MapPlace } from './places';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import type { MidTerrain } from '../world';
@@ -215,6 +216,10 @@ export type Task =
   | { type: 'repair'; building: number }
   /** Beat out a fire. */
   | { type: 'extinguish'; building: number }
+  /** Held to the town's work by an event (cutting a fireline, the long night's watch: `s.busy`, sim/events.ts). */
+  | { type: 'toil' }
+  /** At a funeral or a feast (sim/ceremonies.ts). */
+  | { type: 'attend' }
   /** Sow a fallow field or harvest a ripe one. */
   | { type: 'farm'; building: number }
   /** Dig at a mine until your hands are full. */
@@ -384,6 +389,8 @@ export interface Person {
   /** Their life's goal (data/ambitions.ts), decided once they're grown; trips made (sim/ambition.ts). */
   ambition?: AmbitionId;
   trips?: number;
+  /** When their last trip came home (sim/parties.ts: rested before the next). */
+  homeAt?: number;
   /** A guard hired by the treasury (sim/treasury.ts), and the days running it couldn't pay them. */
   guard?: boolean;
   guardUnpaid?: number;
@@ -408,6 +415,8 @@ export interface Person {
   grownAt?: number;
   /** Grieving someone close, until a tick. */
   grief?: { until: number; value: number; text: string } | null;
+  /** A brawl with an enemy smarting still (sim/social.ts). */
+  sore?: { until: number; value: number; text: string } | null;
   /** A mental break in progress (see breaks.ts). */
   breakdown?: { kind: 'sulk' | 'binge' | 'brawl' | 'wander'; until: number; target?: number } | null;
   /** Game hours their morale has been at breaking point. */
@@ -530,6 +539,8 @@ export interface Expedition {
   dest: string;
   /** What the player staked on it as it left (sim/expeditions.ts STAKES): a safe or a risky trip. */
   stakes?: 'safe' | 'risky';
+  /** Who gathered the party, when it formed itself (sim/parties.ts). */
+  leader?: number;
   /** Person ids, leader first. */
   members: number[];
   phase: ExpeditionPhase;
@@ -723,6 +734,21 @@ export interface GameState {
   ring?: Ring;
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
+  /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
+   *  formed itself (sim/parties.ts). */
+  vetoed?: string[];
+  /** An event holds some of the town to one job for a while (a fireline cut, the bridge rebuilt): who, where, till when. */
+  /** Life's ceremonies (sim/ceremonies.ts): the dead to bury at the next funeral (with who was close), a feast due, the
+   *  gathering under way, and when the last feast was. */
+  funeralsDue?: { name: string; close: number[]; tick: number }[];
+  feastDue?: { kind: 'wedding' | 'feast'; text: string };
+  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; ids: number[]; until: number; text: string; x: number; y: number };
+  lastFeast?: number;
+  /** An event to put to the player next, once the one open now is answered (`follow`). */
+  eventNext?: string;
+  busy?: { until: number; ids: number[]; text: string; x: number; y: number; anim: 'chop' | 'build' | 'mine' };
+  bounties?: Record<string, number>;
+  lastParty?: number;
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
@@ -777,7 +803,8 @@ export interface GameState {
   taxHeavySince?: number;
   eventLog?: string[];
   marks?: { lever: string; value: number; until: number; text: string }[];
-  eventLater?: { tick: number; event: string; option: number; index: number; who?: number }[];
+  /** Effects waiting their hour: a top-level `later` of an answer (by its place), or one met deeper (its effects kept). */
+  eventLater?: { tick: number; event: string; option: number; index: number; who?: number; effects?: EventEffect[] }[];
   /** Where the town's coins came from and went, today and yesterday (see earn). */
   ledger?: { day: number; today: Ledger; yesterday: Ledger | null };
 }
@@ -870,7 +897,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */

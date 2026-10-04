@@ -2,6 +2,7 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { attending } from './ceremonies';
 import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
 import { ADJACENT_TILES, NEAR_SOURCE, NEAR_SOURCE_BONUS } from '../data/buildings';
@@ -237,6 +238,33 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (!goToB(s, p, b)) break;
       p.activity = 'build';
       if (fightFire(s, p, b)) p.task = null;
+      break;
+    }
+    case 'attend': {
+      const g = s.gathering;
+      if (!g || !attending(s, p)) {
+        p.task = null;
+        break;
+      }
+      // (in a ring round the spot, each to their own place)
+      const i = g.ids.indexOf(p.id);
+      const a = (i / Math.max(1, g.ids.length)) * Math.PI * 2;
+      const r = 26 + (g.ids.length > 8 ? 18 : 0);
+      if (!goTo(s, p, { x: g.x + Math.cos(a) * r, y: g.y + Math.sin(a) * r * 0.7 })) break;
+      p.activity = 'idle';
+      p.dir = Math.cos(a) > 0 ? -1 : 1;
+      break;
+    }
+    case 'toil': {
+      const b = s.busy;
+      if (!b || !busyNow(s, p)) {
+        p.task = null;
+        break;
+      }
+      // (spread out along the line, each to their own spot)
+      const spot = { x: b.x + ((p.id % 7) - 3) * 22, y: b.y + ((Math.floor(p.id / 7) % 3) - 1) * 22 };
+      if (!goTo(s, p, spot)) break;
+      p.activity = b.anim;
       break;
     }
     case 'mine': {
@@ -697,6 +725,10 @@ function rank(t: Task, p?: Person): number {
       return -2.7;
     case 'extinguish':
       return -2.5;
+    case 'toil':
+      return -2.4;
+    case 'attend':
+      return -2.3;
     case 'eat':
     case 'sleep':
       return -2;
@@ -722,6 +754,8 @@ function jobOf(t: Task): Job {
     case 'build':
     case 'repair':
     case 'extinguish':
+    case 'toil':
+    case 'attend':
       return 'construct';
     case 'defend':
     case 'patrol':
@@ -752,6 +786,10 @@ function chooseTask(s: GameState, p: Person): Task | null {
   // Fire! Everyone who can drops what they're doing and beats it out.
   const fire = fireToFight(s, p);
   if (fire) return p.task?.type === 'extinguish' && p.task.building === fire.id ? p.task : { type: 'extinguish', building: fire.id };
+  // At a funeral or a feast: they stand together till it's over (they still eat).
+  if (attending(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'attend' ? p.task : { type: 'attend' };
+  // Held to the town's work by an event (sim/events.ts `busy`): they eat when they must, and otherwise toil on.
+  if (busyNow(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'toil' ? p.task : { type: 'toil' };
   // Walking out of town (a mental break): nothing else matters.
   if (p.breakdown?.kind === 'wander') {
     const out = leavePt(s, p);
@@ -1014,6 +1052,10 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       return site?.status === 'done' && p.priorities.gather !== 0;
     case 'extinguish':
       return !!site && site.fire !== undefined && !alarmRaised(s);
+    case 'toil':
+      return busyNow(s, p) && !alarmRaised(s);
+    case 'attend':
+      return attending(s, p) && !alarmRaised(s);
     case 'tend': {
       // (while the alarm is up, everyone fights or shelters: the wounded wait)
       // (and step aside if someone nearer has come to help)
@@ -1026,6 +1068,9 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 }
 
 /* ------------------------------------------------------------ helpers */
+
+/** Held to the town's work by an event, now (not in a raid). */
+export const busyNow = (s: GameState, p: Person) => !!s.busy && s.tick < s.busy.until && s.busy.ids.includes(p.id) && p.away === null && !p.downed && !alarmRaised(s);
 
 /** Step toward a point along a path over the land. Returns true once there. */
 function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {

@@ -61,6 +61,8 @@ import { updateWages } from './wages';
 import { propertyHourly } from './property';
 import { treasuryHourly } from './treasury';
 import { ambitionHourly } from './ambition';
+import { ceremoniesHourly } from './ceremonies';
+import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -152,6 +154,8 @@ export class Sim {
     propertyHourly(s);
     treasuryHourly(s, this.rng);
     ambitionHourly(s);
+    partiesHourly(s);
+    ceremoniesHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)
@@ -358,6 +362,15 @@ export class Sim {
       case 'setDirection':
         s.direction = c.direction;
         s.plan = undefined; // (it decides afresh)
+        break;
+      case 'veto':
+        setVeto(s, c.dest, c.on);
+        break;
+      case 'bounty':
+        if (c.post) {
+          const r = postBounty(s, c.dest);
+          if (!r.ok) notify(s, `Can't post a bounty: ${r.reason}.`);
+        } else withdrawBounty(s, c.dest);
         break;
       case 'setTax':
         s.tax = c.rate;

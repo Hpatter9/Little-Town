@@ -6,6 +6,7 @@
 // The events are data (data/events.ts); what each answer does is a list of effects, applied here.
 
 import { EVENTS, EVENT_BY_ID, type EventDef, type EventEffect } from '../data/events';
+import type { EventOption } from '../data/eventKit';
 import { MATERIALS, type Material } from '../data/materials';
 import { ARRIVING_TYPES, FOOD_VALUE } from '../data/people';
 import { TOPIC_BY_ID, TOPICS } from '../data/research';
@@ -22,7 +23,7 @@ import { revealOccult } from './occult';
 import { equipAll } from './crafting';
 import { townFull, addStock, campX, campXY, earn, makePerson, maxHp, notify, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
-import { assignBeds, joinOrigin } from './townsfolk';
+import { assignBeds, campEdge, joinOrigin } from './townsfolk';
 import { isChild } from './social';
 
 /** Game hours an event waits for an answer before the default is taken (in play; it waits while you're away). */
@@ -44,8 +45,18 @@ export function maybeEvent(s: GameState, rng: Rng): void {
   for (const l of [...(s.eventLater ?? [])]) {
     if (l.tick > s.tick) continue;
     s.eventLater = s.eventLater!.filter((q) => q !== l);
+    if (l.effects) {
+      apply(s, l.effects, rng, l.who);
+      continue;
+    }
     const e = EVENT_BY_ID[l.event]?.options[l.option]?.effects[l.index];
     if (e && 'later' in e) apply(s, e.effects, rng, l.who);
+  }
+  // (a follow-up waits for nothing but the open question)
+  if (!s.event && s.eventNext) {
+    const next = EVENT_BY_ID[s.eventNext];
+    s.eventNext = undefined;
+    if (next && grownUps(s).length) return startEvent(s, next, rng);
   }
   if (s.event || s.tick < (s.nextEventTick ?? hours(EVENT_GRACE_HOURS)) || !grownUps(s).length) return;
   const seen = s.eventLog ?? [];
@@ -65,8 +76,8 @@ export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
     kind: 'event',
     expedition: null,
     title: `${def.fateful ? '⚡ ' : ''}${fill(s, def.title, who)}`,
-    text: fill(s, def.text, who),
-    options: def.options.map((o) => fill(s, o.label, who)),
+    text: fill(s, def.text, who) + coinsLine(s, def),
+    options: def.options.map((o) => fill(s, o.label, who) + costOf(s, o)),
     defaultOption: def.options.findIndex((o) => o.default),
     expiresTick: s.tick + hours(EVENT_HOURS),
   });
@@ -75,6 +86,25 @@ export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
   s.eventLog = [...(s.eventLog ?? []), def.id].slice(-NO_REPEAT);
   s.nextEventTick = s.tick + hours(rng.int(EVENT_GAP_HOURS[0], EVENT_GAP_HOURS[1]));
   notify(s, fill(s, def.title, who), true);
+}
+
+/** What an answer costs the treasury, said on its button: " (20 coins)", " (about 35 coins)". */
+export function costOf(s: GameState, o: EventOption): string {
+  let paid = 0;
+  let share = 0;
+  for (const e of o.effects) {
+    if ('coins' in e && e.coins < 0) paid += -e.coins;
+    if ('take' in e && e.take === 'coins') share += e.share;
+  }
+  const n = paid + Math.floor((s.coins ?? 0) * share);
+  if (!paid && !share) return '';
+  return share ? ` (about ${n} coins)` : ` (${n} coins)`;
+}
+
+/** Said under an event that asks for coins: what the treasury holds (the owner's ask: to know what there is to pay with). */
+export function coinsLine(s: GameState, def: EventDef): string {
+  const asks = def.options.some((o) => o.effects.some((e) => ('coins' in e && e.coins < 0) || ('take' in e && e.take === 'coins')));
+  return asks ? ` (The treasury holds ${s.coins ?? 0} coins.)` : '';
 }
 
 /** The player answered (or the time ran out and the default was taken). */
@@ -212,7 +242,16 @@ function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: n
       notify(s, 'Everyone is whole again.', true);
     } else if ('herdLoss' in e) {
       for (const b of s.buildings) if (b.herd) b.herd.head = 0;
-    }
+    } else if ('busy' in e) {
+      const pool = grownUps(s).filter((p) => p.away === null && !p.guard);
+      const n = Math.max(1, Math.round(pool.length * e.share));
+      const ids = [...pool].sort((a, b) => a.id - b.id).filter((_, i) => i < n).map((p) => p.id);
+      const at = e.at === 'camp' ? campXY(s) : campEdge(s, rng.chance(0.5) ? 1 : -1);
+      s.busy = { until: s.tick + hours(e.busy), ids, text: e.text, x: at.x, y: at.y, anim: e.anim ?? 'chop' };
+      notify(s, `${ids.length === grownUps(s).length ? 'The whole town' : `${ids.length} of the town`} ${ids.length === 1 ? 'is' : 'are'} at it for the next ${e.busy} hours: ${e.text.toLowerCase()}.`, true);
+    } else if ('follow' in e) s.eventNext = e.follow;
+    // (a later met inside a chance: kept with its effects)
+    else if ('later' in e) (s.eventLater ??= []).push({ tick: s.tick + hours(e.later), event: '', option: 0, index: 0, who: whoId, effects: e.effects });
   }
 }
 

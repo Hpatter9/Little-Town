@@ -80,6 +80,12 @@ The town's trees, bushes and rocks and the sky's clouds (`src/renderer/art/scene
 `tools/compose-scenery.cjs`) are from **Craftpix.net**'s free Tree Pixel Art, Bush Assets, Rocks Pixel Art and Clouds
 Pixel Art packs.
 
+## Craftpix windmill and watchtowers (the town)
+
+The windmill and the two timber watchtowers on the map (`src/renderer/art/packs/su_windmill.png`, `su_watchtower.png`,
+`su_lookout.png`, scaled down) are from **Craftpix.net**'s free Simple Summer Top-Down Vector Tileset, used under
+Craftpix's free licence (use in the game; the raw files are not redistributed).
+
 ## Craftpix parallax backgrounds (the fights' backdrops)
 
 The watched fights' backdrops (`src/renderer/art/backdrops/`, built by `tools/compose-backdrops.cjs`) come from free

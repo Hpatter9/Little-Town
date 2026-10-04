@@ -4,6 +4,7 @@
 
 import { payParty } from './economy';
 import { homeFromTrip } from './ambition';
+import { payBounty } from './parties';
 import { levelOf, xpToLevel } from '../data/levels';
 import { ENEMIES } from '../data/enemies';
 import { eraReached } from '../data/eras';
@@ -595,6 +596,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   for (const [i, p] of members.entries()) {
     p.away = null;
     homeFromTrip(s, p); // (a trip counted: an adventurer may settle down, sim/ambition.ts)
+    p.homeAt = s.tick; // (rested before the next: sim/parties.ts)
     p.x = at.x - side * i * 20;
     p.y = at.y;
     p.dir = side > 0 ? -1 : 1;
@@ -621,6 +623,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   const party = e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
   delveHome(s, e, rng, { quests: (id) => questsDone(s, id, at, rng, party), join: () => joinTown(s, at, rng) });
   packHome(s, e, rng);
+  payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);
 }
 

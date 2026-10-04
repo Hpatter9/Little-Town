@@ -46,7 +46,7 @@ function travellerPerson(t: TravellerView): PersonView {
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
-    partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, ageDays: 0,
+    partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], growsUpIn: null, breakdown: null, ageDays: 0,
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', job: null,
   monster: null, order: null, sick: false,
     battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8 }, mp: 0, sp: 0, interval: 12 }, kit: [],
@@ -457,7 +457,7 @@ async function start(): Promise<void> {
         const p = snap.places.find((q) => q.id === h.id);
         if (!p) return null;
         const y = map.screenOf(p.x, p.y).y - 40;
-        if (p.dest) return { title: p.name, lines: [p.text, `${p.foes} there.`], hint: 'Click to pick a party', y };
+        if (p.dest) return { title: p.name, lines: [p.text, `${p.foes} there.`], hint: 'Click to post a bounty or forbid it', y };
         if (p.mine) {
           const left = (Object.entries(p.mine.left) as [Material, number][]).filter(([m, n]) => m !== 'stone' && n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`);
           return { title: 'Mine', lines: [`Level ${p.mine.depth}${p.mine.last ? ' (the last)' : ''}: ${left.length ? `${left.join(', ')} in the walls` : 'dug out to the rock'}.`, p.mine.diggers ? `${p.mine.diggers} digging.` : 'Nobody digging now.'], hint: 'Click to go in', y };
@@ -627,7 +627,7 @@ async function start(): Promise<void> {
       }
       case 'place': {
         const p = snap.places.find((q) => q.id === h.id);
-        const actions = p?.dest ? [act('party', 'Pick a party…', () => bridge.openPanel('expeditions'), { primary: true })] : p?.mine ? [act('enter', 'Enter the mine', () => bridge.command({ type: 'watchMine', place: p.id }), { primary: true })] : [];
+        const actions = p?.dest ? [act('party', 'Bounty or forbid…', () => bridge.openPanel('expeditions'), { primary: true })] : p?.mine ? [act('enter', 'Enter the mine', () => bridge.command({ type: 'watchMine', place: p.id }), { primary: true })] : [];
         return { title: d.title, lines: d.lines, actions };
       }
       case 'caravan':

@@ -1,9 +1,8 @@
 // Expedition Board: parties that are out, and where you can send one next.
 
 import { eraReached } from '../../shared/data/eras';
-import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_DELVERS, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
+import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../../shared/data/materials';
-import { FOOD_VALUE } from '../../shared/data/people';
 import { TOPIC_BY_ID } from '../../shared/data/research';
 import type { Bridge } from '../../shared/ipc';
 import type { DestinationView, ExpeditionView, Snapshot } from '../../shared/sim/snapshot';
@@ -13,8 +12,7 @@ import { WorldMapView } from './worldMapView';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { ENEMIES } from '../../shared/data/enemies';
 import { UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
-import { isPlaceDest } from '../../shared/data/places';
-import { isPackDest, packDestination, RIVAL_PACK_BY_ID } from '../../shared/data/pack';
+import { packDestination, RIVAL_PACK_BY_ID } from '../../shared/data/pack';
 import { FULL_MOON_PHASE } from '../../shared/sim/monsters';
 
 /** Each kind of room, as the card names it. */
@@ -35,13 +33,11 @@ const pick = (id: string) => {
   rerenderBoard();
 };
 
-/** Who the player has picked for each dungeon's delve (until sent). */
-const delvePicks = new Map<string, Set<number>>();
-
 export const expeditionsKey = (s: Snapshot) =>
   JSON.stringify([
     mapPick,
-    [...delvePicks].map(([k, v]) => [k, [...v]]),
+    s.trips,
+    s.coins,
     s.expeditions.map((e) => [e.id, e.phase, Math.floor(e.phaseProgress * 50), e.lootSize, e.recalled, e.waiting, e.battle?.map((f) => [f.hp, f.down])]),
     s.era,
     s.destinations,
@@ -77,6 +73,10 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     s.regions,
   );
   out.push(worldMap.el, el('div', 'hint map-hint', 'Tap a place on the map, or a destination below, to mark it.'));
+  // parties form themselves: who would set out next, and why not
+  out.push(el('h2', '', 'Parties'));
+  out.push(el('div', 'purpose', s.trips.forming));
+  out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away · treasury ${s.coins ?? 0} coins. Adventurers choose where to go; a bounty draws anyone fit. Forbid a place to keep them from it.`));
   for (const e of s.expeditions) {
     const card = activeCard(e, s, bridge);
     card.addEventListener('click', () => pick(e.dest));
@@ -154,6 +154,7 @@ function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined):
     return `${m.name} · ${ROLES[(e.roles[m.id] ?? 'fighter') as Role].name}${hp}`;
   });
   c.append(top, el('div', 'lock', `${who.join(' | ')} · ${e.stakes ? (e.stakes === 'risky' ? 'Risky' : 'Safe') : STANCES[e.stance as Stance].name}${e.truck ? ' · by truck' : ''}`));
+  if (e.leader || e.bounty) c.append(el('div', 'purpose', `${e.leader ? `Led by ${e.leader}` : ''}${e.leader && e.bounty ? ' · ' : ''}${e.bounty ? `after a bounty of ${e.bounty} coins` : ''}`));
   if (e.battle) {
     const foes = e.battle.filter((f) => f.side === 'enemy');
     c.append(el('div', 'lock short', `Against: ${foes.map((f) => `${f.name}${f.down ? ' (down)' : ` ${f.hp}/${f.maxHp}`}`).join(', ')}`));
@@ -204,61 +205,30 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
     else c.append(el('div', 'lock short', `Needs research: ${TOPIC_BY_ID[d.research!]?.name ?? d.research}`));
     return c;
   }
-  if (d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id)) return delveControls(c, d, v, s, bridge);
-
-  // The town plans the party (who goes, their roles, horses, a truck); the player picks only the stakes
-  const party = v.party;
-  const extras = [v.partyHorses ? `${v.partyHorses} horse${v.partyHorses === 1 ? '' : 's'}` : '', v.partyTruck ? 'a truck' : ''].filter(Boolean);
-  c.append(el('div', 'purpose', party.length ? `The town would send ${party.join(', ')}${extras.length ? `, with ${extras.join(' and ')}` : ''}.` : 'Nobody is fit to go (the town keeps half its people at home).'));
-  const foodHave = (Object.keys(FOOD_VALUE) as Material[]).reduce((n, m) => n + (s.stock[m] ?? 0) * FOOD_VALUE[m]!, 0);
-  if (party.length && foodHave < v.foodPerMember * party.length) c.append(el('div', 'lock short', 'Not enough food in storage: they will go hungry on the road'));
-  const full = s.expeditions.length >= MAX_EXPEDITIONS;
-  const row = el('div', 'row stakes');
-  const send = (stakes: 'safe' | 'risky') => bridge?.command({ type: 'sendParty', dest: d.id, stakes });
-  row.append(
-    button(full ? 'Too many out' : 'Send: safe', () => send('safe'), { disabled: full || !party.length, title: 'A cautious party: packs light, keeps clear of trouble, and falls back early.' }),
-    button(full ? 'Too many out' : 'Send: risky', () => send('risky'), { disabled: full || !party.length, cls: 'place danger', title: 'A bold party: loads up half again as much, and goes looking for trouble.' }),
-  );
-  c.append(row);
-  return c;
+  return tripControls(c, d, v, s, bridge);
 }
 
-/** A dungeon's card: the player picks who delves it (up to MAX_DELVERS, the strongest first by default), then the stakes. */
-function delveControls(c: HTMLElement, d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
-  const able = (v.candidates ?? []).map((id) => s.people.find((p) => p.id === id)).filter((p): p is Snapshot['people'][number] => !!p);
-  let picked = delvePicks.get(d.id);
-  if (!picked) {
-    picked = new Set([...able].sort((a, b) => b.level - a.level).slice(0, Math.min(d.recommendedParty, MAX_DELVERS)).map((p) => p.id));
-    delvePicks.set(d.id, picked);
-  }
-  for (const id of [...picked]) if (!able.some((p) => p.id === id)) picked.delete(id);
+/** Parties form themselves (sim/parties.ts): the player may forbid a place, or have the treasury post a bounty on it. */
+function tripControls(c: HTMLElement, d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   if (v.cleared) c.append(el('div', 'purpose', `Cleared ${v.cleared} time${v.cleared === 1 ? '' : 's'}: it wakes deeper each time.`));
   for (const q of s.quests.filter((q) => q.dungeon === d.id)) c.append(el('div', 'lock', `Quest: ${q.title} (${Math.ceil(q.hoursLeft / 24)} days left)`));
-  const fight = isPlaceDest(d.id) || isPackDest(d.id);
-  c.append(el('div', 'purpose', `Pick ${fight ? 'who goes' : 'the delvers'} (up to ${MAX_DELVERS}): ${picked.size} chosen.`));
-  const chips = el('div', 'row delvers');
-  for (const p of able) {
-    const on = picked.has(p.id);
-    // (a tick on the picked: the menu themes paint chips their own way)
-    const chip = button(`${on ? '✓ ' : ''}${p.name} · Lv ${p.level}${p.clsName ? ` ${p.clsName}` : ''}`, () => {
-      if (on) picked!.delete(p.id);
-      else if (picked!.size < MAX_DELVERS) picked!.add(p.id);
-      rerenderBoard();
-    }, { cls: `chip${on ? ' on' : ''}` });
-    chips.append(chip);
-  }
-  c.append(chips);
-  if (!able.length) c.append(el('div', 'lock short', 'Nobody at home is fit to go.'));
-  const full = s.expeditions.length >= MAX_EXPEDITIONS;
-  const go = (stakes: 'safe' | 'risky') => {
-    bridge?.command({ type: 'sendDelve', dest: d.id, members: [...picked!], stakes });
-    delvePicks.delete(d.id);
-  };
+  const going = s.expeditions.find((e) => e.dest === d.id);
+  if (v.vetoed) c.append(el('div', 'lock short', 'Forbidden: no party will go here.'));
+  else if (going) c.append(el('div', 'purpose', `A party is there now${going.leader ? `, led by ${going.leader}` : ''}.`));
+  if (v.bounty) c.append(el('div', 'purpose', `Bounty: ${v.bounty} coins from the treasury, paid to the party that does the job.`));
+  const step = s.trips.bountyStep;
   const row = el('div', 'row stakes');
   row.append(
-    button(full ? 'Too many out' : fight ? 'Fight: careful' : 'Delve: safe', () => go('safe'), { disabled: full || !picked.size, title: fight ? 'Fall back early if it goes badly.' : 'Take the safer ways at the forks, and fall back early.' }),
-    button(full ? 'Too many out' : fight ? 'Fight: all out' : 'Delve: risky', () => go('risky'), { disabled: full || !picked.size, cls: 'place danger', title: fight ? 'Fight on however it goes.' : 'Take the darker ways: more foes, more gold.' }),
+    button(v.vetoed ? 'Allow' : 'Forbid', () => bridge?.command({ type: 'veto', dest: d.id, on: !v.vetoed }), {
+      cls: v.vetoed ? 'place' : 'place quiet',
+      title: v.vetoed ? 'Let parties choose this place again.' : 'No party will choose this place (a bounty on it is taken back).',
+    }),
+    button(v.bounty ? `Raise bounty +${step}` : `Post bounty ${step}`, () => bridge?.command({ type: 'bounty', dest: d.id, post: true }), {
+      disabled: v.vetoed || (s.coins ?? 0) < step,
+      title: `The treasury sets ${step} coins aside for the party that does the job here. Anyone fit may go after a bounty, not just the adventurers.`,
+    }),
   );
+  if (v.bounty) row.append(button('Withdraw', () => bridge?.command({ type: 'bounty', dest: d.id, post: false }), { cls: 'place quiet', title: 'The coins go back to the treasury.' }));
   c.append(row);
   return c;
 }

@@ -138,6 +138,7 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
     else add('Mourning a death', MOURNING_MORALE);
   }
   if (p.grief && s.tick < p.grief.until) add(p.grief.text, p.grief.value);
+  if (p.sore && s.tick < p.sore.until) add(p.sore.text, p.sore.value);
   if (p.sick) add('Sick with the plague', PLAGUE_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'ash_winter') add('Ash blots out the sun', ASH_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'smog' && p.away === null) add('Choking smog', SMOG_MORALE);

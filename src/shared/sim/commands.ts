@@ -19,6 +19,9 @@ export type Command =
   | { type: 'setDirection'; direction: Direction }
   | { type: 'setTownSize'; size: number | null }
   | { type: 'setTax'; rate: TaxRate }
+  /** Forbid a destination to the town's parties, or allow it again; post (raise) or withdraw a bounty on one. */
+  | { type: 'veto'; dest: string; on: boolean }
+  | { type: 'bounty'; dest: string; post: boolean }
   /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
   | { type: 'toggleGather'; cell: number }
   /** Place a blueprint with its top-left cell at (x, y). */
@@ -106,6 +109,10 @@ export function parseCommand(raw: unknown): Command | null {
       return DIRECTIONS.includes(c.direction as Direction) ? { type: 'setDirection', direction: c.direction as Direction } : null;
     case 'setTax':
       return TAX_RATES.includes(c.rate as TaxRate) ? { type: 'setTax', rate: c.rate as TaxRate } : null;
+    case 'veto':
+      return typeof c.dest === 'string' && typeof c.on === 'boolean' ? { type: 'veto', dest: c.dest, on: c.on } : null;
+    case 'bounty':
+      return typeof c.dest === 'string' && typeof c.post === 'boolean' ? { type: 'bounty', dest: c.dest, post: c.post } : null;
     case 'setTownSize':
       return c.size === null || (Number.isInteger(c.size) && (c.size as number) >= 1 && (c.size as number) <= 200) ? { type: 'setTownSize', size: c.size as number | null } : null;
     case 'toggleGather':

@@ -2,6 +2,7 @@
 // walk in from one end of the world. Beasts go for anyone they can see, then the food; rival scouts go for
 // the food and run. Walls and gates stop them until broken. Defenders fight; everyone else shelters.
 
+import { victoryFeast } from './ceremonies';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES, enemyArmor, natureOf } from '../data/enemies';
 import { eraReached, type Era } from '../data/eras';
@@ -822,6 +823,7 @@ function endRaid(s: GameState, rng: Rng): void {
           ? 'They got away.'
           : 'They were driven off.';
   notify(s, `Raid by the ${theName(kind.name)} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
+  if (killed && !took.length) victoryFeast(s); // (driven off with nothing: the town feasts it, sim/ceremonies.ts)
 }
 
 /** Raiders come as seasoned as the town: its grown-ups' average level makes them tougher and harder hitting. */

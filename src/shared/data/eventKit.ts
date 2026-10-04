@@ -56,7 +56,13 @@ export type EventEffect =
   /** Everyone mended. */
   | { heal: number }
   /** Every pen emptied (the herds slaughtered: the food is in the event's `gain`). */
-  | { herdLoss: number };
+  | { herdLoss: number }
+  /* ---- events with weight (PLAN.md step 6) */
+  /** A share of the grown-ups held to one job for so many game hours (they eat, and otherwise toil on: a fireline cut,
+   *  the town's goods hauled to safety), at the town's edge or by the fire. */
+  | { busy: number; share: number; text: string; anim?: 'chop' | 'build' | 'mine'; at?: 'edge' | 'camp' }
+  /** Another event follows: put to the player as soon as this one is done (a fire that spreads). */
+  | { follow: string };
 
 export interface EventOption {
   label: string;
@@ -86,6 +92,8 @@ export const mod = (lever: Lever, mult: number, hours: number, text: string): Ev
 export const gain = (stock: Stock): EventEffect => ({ gain: stock });
 export const chance = (p: number, then: EventEffect[], otherwise: EventEffect[] = []): EventEffect => ({ chance: p, then, else: otherwise });
 export const later = (hours: number, ...effects: EventEffect[]): EventEffect => ({ later: hours, effects });
+export const busy = (hours: number, share: number, text: string, anim: 'chop' | 'build' | 'mine' = 'chop', at: 'edge' | 'camp' = 'edge'): EventEffect => ({ busy: hours, share, text, anim, at });
+export const follow = (event: string): EventEffect => ({ follow: event });
 export const opt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, effects });
 export const dflt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, default: true, effects });
 

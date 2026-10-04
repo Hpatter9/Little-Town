@@ -5,7 +5,7 @@ import { BUILDING_BY_ID } from '../data/buildings';
 import { BURN_HOURS, EXTINGUISH_SECONDS, SPREAD_PER_HOUR } from '../data/raids';
 import { skillSpeed } from '../data/skills';
 import type { Rng } from '../rng';
-import { buildingCentreX, defOf } from './buildings';
+import { buildingCentre, defOf, footprint } from './buildings';
 import { notify, type Building, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_HOUR } from './time';
 import { workFactor } from './townsfolk';
@@ -34,7 +34,7 @@ export function updateFires(s: GameState, rng: Rng): void {
   for (const b of burning(s)) {
     b.fire! += 1 / (BURN_HOURS * TICKS_PER_HOUR);
     if (rng.chance(SPREAD_PER_HOUR / TICKS_PER_HOUR)) {
-      const next = s.buildings.find((o) => o !== b && o.fire === undefined && defOf(o).layer === defOf(b).layer && gap(o, b) <= 1 && flammable(o) && o.status === 'done');
+      const next = s.buildings.find((o) => o !== b && o.fire === undefined && gap(o, b) <= 1 && flammable(o) && o.status === 'done');
       if (next) setFire(s, next);
     }
     if (b.fire! >= 1) {
@@ -44,16 +44,23 @@ export function updateFires(s: GameState, rng: Rng): void {
   }
 }
 
-/** Tiles between two buildings on the same layer (0 = touching). */
-function gap(a: Building, b: Building): number {
-  const [l, r] = a.tile < b.tile ? [a, b] : [b, a];
-  return r.tile - (l.tile + defOf(l).width);
+/** Cells between two buildings' footprints on the land (0 = touching), across and down both. */
+export function gap(a: Building, b: Building): number {
+  const p = footprint(a);
+  const q = footprint(b);
+  const dx = Math.max(0, q.x - (p.x + p.w), p.x - (q.x + q.w));
+  const dy = Math.max(0, q.y - (p.y + p.h), p.y - (q.y + q.h));
+  return Math.max(dx, dy);
 }
 
 /** The nearest fire to put out. */
 export function fireToFight(s: GameState, p: Person): Building | null {
   let best: Building | null = null;
-  for (const b of burning(s)) if (!best || Math.abs(buildingCentreX(b) - p.x) < Math.abs(buildingCentreX(best) - p.x)) best = b;
+  const far = (b: Building) => {
+    const c = buildingCentre(b);
+    return Math.hypot(c.x - p.x, c.y - p.y);
+  };
+  for (const b of burning(s)) if (!best || far(b) < far(best)) best = b;
   return best;
 }
 

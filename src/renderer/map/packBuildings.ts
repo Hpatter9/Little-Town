@@ -122,6 +122,9 @@ import sf20 from '../art/packs/sf_20.png';
 import sf24 from '../art/packs/sf_24.png';
 import sf25 from '../art/packs/sf_25.png';
 import sf26 from '../art/packs/sf_26.png';
+import suWindmill from '../art/packs/su_windmill.png';
+import suWatchtower from '../art/packs/su_watchtower.png';
+import suLookout from '../art/packs/su_lookout.png';
 
 /** A pack picture for a building: one image, or several laid together (`parts`: image, x, y in source px, on a
  *  canvas `size`), hanging `overhang` px over the footprint each side, in the looks it suits (`styles`; none: all
@@ -211,6 +214,10 @@ const PICKS: Record<string, Pick> = {
   graveyard: { parts: [[grave1, 0, 0], [grave2, 34, 6], [grave3, 66, 0], [grave4, 16, 28], [grave5, 50, 30]], size: [98, 62], overhang: 0 },
   // the Village pack's stone well, its carts, its drying rack and its market awning
   well: { url: vWell, overhang: 2 },
+  // (the Simple Summer pack's windmill and timber watchtowers)
+  windmill: { url: suWindmill, overhang: 8 },
+  watchtower: { url: suWatchtower, overhang: 3 },
+  lookout: { url: suLookout, overhang: 3 },
   wagon_circle: { url: vCart2, overhang: 2 },
   drying_rack: { url: vRack, overhang: 0 },
   tanning_rack: { parts: [[vRack, 0, 0], [vRack, 30, 0], [vBucket, 22, 28]], size: [58, 48], overhang: 0 },
