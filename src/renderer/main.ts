@@ -1,6 +1,8 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { seatArt } from './art/seatArt';
+import { SEAT_STAGE } from '../shared/data/seats';
 import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
 import { MapSpells } from './map/mapSpells';
@@ -39,8 +41,10 @@ function travellerPerson(t: TravellerView): PersonView {
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
-    partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, monster: null, order: null, sick: false,
-    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false }, kit: [],
+    partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, ageDays: 0,
+  ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '',
+  monster: null, order: null, sick: false,
+    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8 }, mp: 0, sp: 0, interval: 12 }, kit: [],
   };
 }
 const travellerDoing = (t: TravellerView) => {
@@ -587,7 +591,7 @@ async function start(): Promise<void> {
         if (p.coins !== null) lines.push(`${p.coins} coins`);
         if (p.recent.length) lines.push(`Lately: ${p.recent.slice(0, 2).join('; ')}`);
         lines.push(`Health ${Math.round(p.hp)}/${p.maxHp} · Morale ${Math.round(p.morale)} · Food ${Math.round(p.needs.food * 100)}% · Rest ${Math.round(p.needs.rest * 100)}%`);
-        lines.push(`${p.clsName ? `${p.clsName} · Lv ${p.level}` : p.typeName} · ${bestSkills(p)}`);
+        lines.push(`${p.natureName} · ${p.clsName ? `${p.clsName} · Lv ${p.level}` : p.typeName} · ${p.ageYears} years${p.elder ? ', an elder' : ''} · ${bestSkills(p)}`);
         // in a fight: rally them (a burst of courage), when the town's rally is ready
         if (p.rally === 'on') lines.unshift('Rallied: fighting like ten!');
         else if (p.rally === 'wait') lines.unshift(`Rally again in ${snap.rallyIn}s`);
@@ -958,6 +962,8 @@ async function start(): Promise<void> {
     // map draws it: the pack's picture where there is one, else the top-down painter's)
     const cardArt = (id: string) => {
       const def = BUILDING_BY_ID[id];
+      const seat = SEAT_STAGE[id];
+      if (seat) return seatArt(seat.origin, seat.stage, def.width, depthOf(def), noTone, 'card');
       return packArt(id, def.width, buildStyle || 'town') ?? topDownArt(id, def.width, depthOf(def), noTone, 'card', buildStyle || 'town');
     };
     (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {
@@ -1006,6 +1012,11 @@ async function start(): Promise<void> {
     lastCamp = next.camp;
     people.moon = next.moonNight;
     people.theme = next.theme;
+    people.weather = next.weather.kind;
+    people.season = next.calendar.season;
+    people.hour = next.calendar.hour;
+    people.raid = !!next.raid && next.raid.phase === 'active';
+    people.zoom = stripScale; // (the phone page's scale: bubbles stay readable)
     people.weave = next.research.done.includes('weaving');
     people.founderId = next.mainId;
     publishInspect(); // (the phone's top card keeps up with what it shows)

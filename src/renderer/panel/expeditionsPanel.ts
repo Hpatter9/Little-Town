@@ -14,6 +14,8 @@ import { ITEM_BY_ID } from '../../shared/data/items';
 import { ENEMIES } from '../../shared/data/enemies';
 import { UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
 import { isPlaceDest } from '../../shared/data/places';
+import { isPackDest, packDestination, RIVAL_PACK_BY_ID } from '../../shared/data/pack';
+import { FULL_MOON_PHASE } from '../../shared/sim/monsters';
 
 /** Each kind of room, as the card names it. */
 const ROOM_NAMES: Record<string, string> = { rival: 'rival delvers', fight: 'a fight', trap: 'a trap', treasure: 'treasure', shrine: 'a shrine', puzzle: 'a puzzle door', camp: 'a rest camp', fork: 'a fork', boss: 'the boss' };
@@ -91,6 +93,29 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
       near.append(card);
     }
     out.push(near);
+  }
+  // the Moon Pack: its renown, the moon, the rival packs' lairs a war party can break (sim/pack.ts)
+  if (s.pack) {
+    const k = s.pack;
+    const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
+    out.push(el('h2', '', 'The pack'));
+    const nights = FULL_MOON_PHASE - k.moon;
+    out.push(el('div', 'hint', `Renown ${k.renown} · ${k.hunts} hunt${k.hunts === 1 ? '' : 's'} run · ${k.grounds} hunting ground${k.grounds === 1 ? '' : 's'} · the moon is ${nights === 0 ? 'full tonight: the pack hunts' : `full in ${nights} night${nights === 1 ? '' : 's'}`}.`));
+    out.push(el('div', 'hint', k.beast === 'slain' ? 'The Pale Behemoth has fallen to the pack.' : k.beast === 'due' ? 'The Pale Behemoth is abroad: the next hunt may meet it.' : 'The Pale Behemoth will show itself once the pack\'s renown reaches 10. Break every rival pack and bring it down to win the Great Hunt.'));
+    const lairs = el('div', 'cards wide');
+    for (const r of k.packs) {
+      if (r.broken) {
+        out.push(el('div', 'hint', `${cap(r.name)}: broken. Their hills are the pack's hunting ground.`));
+        continue;
+      }
+      const d = packDestination(RIVAL_PACK_BY_ID[r.id]);
+      const v = s.destinations.find((q) => q.id === d.id);
+      if (!v) continue;
+      const card = destinationCard(d, v, s, bridge);
+      card.dataset.dest = d.id;
+      lairs.append(card);
+    }
+    if (lairs.childElementCount) out.push(lairs);
   }
   out.push(el('h2', '', 'Destinations'));
   const grid = el('div', 'cards wide');
@@ -179,7 +204,7 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
     else c.append(el('div', 'lock short', `Needs research: ${TOPIC_BY_ID[d.research!]?.name ?? d.research}`));
     return c;
   }
-  if (d.type === 'delve' || isPlaceDest(d.id)) return delveControls(c, d, v, s, bridge);
+  if (d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id)) return delveControls(c, d, v, s, bridge);
 
   // The town plans the party (who goes, their roles, horses, a truck); the player picks only the stakes
   const party = v.party;
@@ -209,7 +234,7 @@ function delveControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sn
   for (const id of [...picked]) if (!able.some((p) => p.id === id)) picked.delete(id);
   if (v.cleared) c.append(el('div', 'purpose', `Cleared ${v.cleared} time${v.cleared === 1 ? '' : 's'}: it wakes deeper each time.`));
   for (const q of s.quests.filter((q) => q.dungeon === d.id)) c.append(el('div', 'lock', `Quest: ${q.title} (${Math.ceil(q.hoursLeft / 24)} days left)`));
-  const fight = isPlaceDest(d.id);
+  const fight = isPlaceDest(d.id) || isPackDest(d.id);
   c.append(el('div', 'purpose', `Pick ${fight ? 'who goes' : 'the delvers'} (up to ${MAX_DELVERS}): ${picked.size} chosen.`));
   const chips = el('div', 'row delvers');
   for (const p of able) {

@@ -1,9 +1,12 @@
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
+import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
-import { CELL, makeLand, type LandMap, type Pt } from './land';
+import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
+import { SEAT_D, seatId } from '../data/seats';
 import type { Delve } from './delves';
+import type { PackState } from './pack';
 import type { Quest } from './quests';
 import type { Material, Stock } from '../data/materials';
 import { JOB_SKILL, JOBS, NAMES, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
@@ -32,6 +35,7 @@ import { BACKGROUND_BY_ID, founderSkills, SCENARIO_BY_ID, type FounderSpec } fro
 import { FOUNDER_BY_ID } from '../data/founders';
 import { BUILDING_BY_ID } from '../data/buildings';
 import type { Direction, TownPlan } from './planner';
+import type { Ring } from './ringWall';
 
 /** DESIGN §2: every timed action takes BaseTime x EraMultiplier / WorkerSpeed. */
 export const ERA_MULTIPLIER: Record<Era, number> = { neolithic: 1, medieval: 2.5, industrial: 6, modern: 15, space: 40 };
@@ -73,6 +77,8 @@ export interface Building {
   store: Stock;
   /** Walls and gates: current health (set when finished). */
   hp?: number;
+  /** A piece of the town's ring wall (sim/ringWall.ts): which ring. */
+  ring?: number;
   /** Fields: what's in the ground. `growth` runs 0..1 while growing; `work` is sowing or harvest progress. */
   /** A field's crop. `soil`: how good the ground is (1 when left out; see SOIL in data/crops.ts). `bearing`: an
    *  orchard's trees have come into fruit. */
@@ -129,6 +135,8 @@ export interface Traveller {
   temper?: string;
   req?: number;
   look: Look;
+  /** Their people, when not the town's (sim/strangers.ts). */
+  origin?: OriginId;
   x: number;
   y: number;
   dir: 1 | -1;
@@ -248,6 +256,11 @@ export interface Raider {
   bt?: RaiderBattle;
   /** Its blood is on the ground already (marked once when it fell). */
   bled?: boolean;
+  /** A defence piece's quirks on it (sim/defenses.ts): slowed by this share until a tick, burning, turned about. */
+  slow?: number;
+  slowUntil?: number;
+  burn?: { until: number; dps: number };
+  routed?: boolean;
   /** The side it came from and flees back to, when not the raid's own (a flanking party, raids.ts). */
   side?: -1 | 1;
   /** A townsperson being carried off (taken out of the town while carried). */
@@ -348,12 +361,18 @@ export interface Person {
   /** Children: when they were born (they grow up after CHILD_HOURS), and their parents. */
   bornTick?: number | null;
   parents?: number[];
+  /** When they came of age (sim/ageing.ts): elders and old age count from it. */
+  grownAt?: number;
   /** Grieving someone close, until a tick. */
   grief?: { until: number; value: number; text: string } | null;
   /** A mental break in progress (see breaks.ts). */
   breakdown?: { kind: 'sulk' | 'binge' | 'brawl' | 'wander'; until: number; target?: number } | null;
   /** Game hours their morale has been at breaking point. */
   lowMoraleHours?: number;
+  /** Their people, when not the town's (sim/strangers.ts): their lifespan and look are theirs. */
+  origin?: OriginId;
+  /** Their nature (data/natures.ts), when not the one their id decides. */
+  nature?: NatureId | null;
   /** A monster (werewolf or vampire), its standing order for the Hunter's Guild, and when it last fed. */
   monster?: MonsterKind | null;
   /** Their class (data/classes.ts): given once when they're grown, for life. */
@@ -437,7 +456,7 @@ export interface Caravan {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst';
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -487,6 +506,8 @@ export interface Expedition {
   truck?: boolean;
   /** A dungeon delve's progress room by room (sim/delves.ts). */
   delve?: Delve;
+  /** The Moon Pack's full-moon hunt (sim/pack.ts). */
+  hunt?: boolean;
 }
 
 /** Someone waiting at the edge of town to be let in. */
@@ -578,6 +599,12 @@ export interface GameState {
   /** The Hunter's Guild's hostility (0..100; see monsters.ts), and the monster its raid is after. */
   guild?: number;
   guildTarget?: number | null;
+  /** A hidden vampire's bites on townsfolk since the town last spoke of it, and whether the town keeps a blood tithe
+   *  for its vampires (sim/monsters.ts: fed cleanly, no more bites). */
+  bites?: number;
+  tithe?: boolean;
+  /** When the town last said someone dropped a load for want of storage (once an hour at most). */
+  dropNoted?: number;
   /** A world-dooming event on its way or under way, and when the next is due (see doom.ts). */
   doom?: Doom | null;
   nextDoomTick?: number;
@@ -633,6 +660,8 @@ export interface GameState {
   /** Where the self-running town puts its effort (growth when left out), and what it last decided. */
   direction?: Direction;
   plan?: TownPlan;
+  /** The ring wall round the town (sim/ringWall.ts). */
+  ring?: Ring;
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
@@ -657,6 +686,8 @@ export interface GameState {
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
   buffs?: Record<string, number>;
+  /** The Moon Pack's standing (sim/pack.ts). */
+  pack?: PackState;
   /** Choice events (sim/events.ts): the one being asked now (its def, prompt and the townsperson it's about), when the
    *  next may come, the last few drawn (not drawn again soon), the marks answers left on the town (a lever or
    *  everyone's morale, until a tick), and effects still to come. */
@@ -859,7 +890,11 @@ function makeChild(p: Person): void {
 }
 
 export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
-  const land = makeLand(seed, opts.biome);
+  const rules = (ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers).rules;
+  const hold = rules.hold;
+  // (a shore town is always on the coast)
+  const biome = rules.shape === 'sea' ? 'coast' : opts.biome;
+  const land = makeLand(seed, biome, hold ?? rules.shape);
   const rng = new Rng(mixSeed(hashSeed(seed), 0x5eed));
   const camp = land.camp;
   const campPx = (dx: number, dy = 0): Pt => ({ x: (camp.x + 0.5 + dx) * CELL, y: (camp.y + 0.5 + dy) * CELL });
@@ -872,7 +907,9 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   // some scenarios).
   const scenario = SCENARIO_BY_ID[opts.scenario ?? 'lone'] ?? SCENARIO_BY_ID.lone;
   // (the fire's footprint is 2 by 2, the camp's centre cell its front left)
-  const campfire: Building = { id: 2, def: 'campfire', tile: camp.x, row: camp.y - 1, status: 'done', delivered: {}, progress: 1, store: {} };
+  // (a mountain hold's camp lies at the mountain's foot, the fire and stores below the gate)
+  const campRow = hold === 'mountain' ? camp.y + 1 : camp.y - 1;
+  const campfire: Building = { id: 2, def: 'campfire', tile: camp.x, row: campRow, status: 'done', delivered: {}, progress: 1, store: {} };
   const buildings = [campfire];
   const people = [main];
   let nextId = 3;
@@ -906,22 +943,42 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   for (const p of people) {
     if (k === 'machine') p.machine = true;
     else if (k === 'undead' && p !== main) turnMonster(p, 'undead', 0);
+    else if (k === 'werewolf' && p !== main) turnMonster(p, 'werewolf', 0);
   }
   const f = origin.rules.founder;
   if (f === 'machine') main.machine = true;
   else if (f === 'vampire' || f === 'werewolf') turnMonster(main, f, 0);
   else if (f === 'lich' && !main.look.body) main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
   // what the fire can't hold waits in a stockpile just past it
-  if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: camp.x + 3, row: camp.y - 1, status: 'done', delivered: {}, progress: 1, store: extra });
+  if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: camp.x + 3, row: campRow, status: 'done', delivered: {}, progress: 1, store: extra });
   // (a nomad tribe has a summer pasture a day's ride across the land, the way the seed picks)
   const pastureSide = hashSeed(seed) % 4;
   const pasture: Pt = { x: Math.max(8, Math.min(land.w - 9, camp.x + (pastureSide === 0 ? NOMAD_PASTURE_TILES : pastureSide === 1 ? -NOMAD_PASTURE_TILES : 0))), y: Math.max(8, Math.min(land.h - 9, camp.y + (pastureSide === 2 ? NOMAD_PASTURE_TILES : pastureSide === 3 ? -NOMAD_PASTURE_TILES : 0))) };
   const nomad = origin.rules.nomadic ? { home: { ...camp }, pasture, camp: { ...camp } } : undefined;
   // (and anything the origin starts with standing, west of the fire in a row)
   let at = camp.x - 2;
+  // (a mountain hold: the entrance hall is cut into the mountain's foot above the camp, and the first halls beside it)
+  const core = hold === 'mountain' ? { x: camp.x - 3, y: camp.y - MOUNTAIN_FOOT - 4 + 1, w: 6, h: 4 } : null;
+  if (core) for (let y = core.y; y < core.y + core.h; y++) for (let x = core.x; x < core.x + core.w; x++) setGround(land, x, y, 'hall');
+  let hallAt = core ? core.x : 0;
+  // the seat of the town (data/seats.ts): a hold's stands on its hall (the castle's over the camp, the mountain's cut
+  // into its foot); everyone else's just beyond the fire
+  const seatCore = core ?? (origin.rules.castle ? { x: camp.x - 3, y: camp.y - 2 } : null);
+  buildings.push(
+    seatCore
+      ? { id: nextId++, def: seatId(origin.id, 1), tile: seatCore.x, row: seatCore.y, status: 'done', delivered: {}, progress: 1, store: {}, room: true }
+      : { id: nextId++, def: seatId(origin.id, 1), tile: camp.x - 2, row: campRow - 1 - SEAT_D, status: 'done', delivered: {}, progress: 1, store: {} },
+  );
   for (const def of origin.start.buildings ?? []) {
-    at -= BUILDING_BY_ID[def].width;
-    buildings.push({ id: nextId++, def, tile: at, row: camp.y - 1, status: 'done', delivered: {}, progress: 1, store: {}, ...(origin.rules.castle && BUILDING_BY_ID[def].layer === 'mid' ? { room: true } : {}) });
+    const d = BUILDING_BY_ID[def];
+    if (core && d.layer === 'mid') {
+      hallAt -= d.width;
+      for (let y = core.y; y < core.y + 2; y++) for (let x = hallAt; x < hallAt + d.width; x++) setGround(land, x, y, 'hall');
+      buildings.push({ id: nextId++, def, tile: hallAt, row: core.y, status: 'done', delivered: {}, progress: 1, store: {}, room: true });
+      continue;
+    }
+    at -= d.width;
+    buildings.push({ id: nextId++, def, tile: at, row: campRow, status: 'done', delivered: {}, progress: 1, store: {}, ...(origin.rules.castle && d.layer === 'mid' ? { room: true } : {}) });
     at -= 1;
   }
 
@@ -963,7 +1020,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     unreadAway: null,
     eraReady: false,
     cheats: { unlockAll: false },
-    ...(opts.biome && opts.biome !== 'forest' ? { biome: opts.biome } : {}),
+    ...(biome && biome !== 'forest' ? { biome } : {}),
     ...(opts.ironman ? { ironman: true } : {}),
     ...(opts.difficulty && opts.difficulty !== 'normal' ? { difficulty: opts.difficulty } : {}),
     ...(origin.id !== 'settlers' ? { origin: origin.id } : {}),

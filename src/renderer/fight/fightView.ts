@@ -27,7 +27,7 @@ import { lookFor, type SceneLook } from '../../shared/data/scenes';
 import type { BackdropId } from '../../shared/data/backdrops';
 import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
-import { fightAnim, heroFrame, heroScale, heroSheet } from '../art/combatPoses';
+import { fightAnim, heroFrame, heroScale, heroSheet, skeletonSheet, WOLF_FORMS } from '../art/combatPoses';
 import { stillTexture } from '../art/stills';
 
 /** How much of the scene is seen at least (art px): it's scaled so this fits, and shows more where there's room. */
@@ -70,6 +70,7 @@ export class FightScene {
   private vh = SEE_H;
   private hy = SEE_H - LAND;
   private readonly world = new Container();
+  private worldTop = 0;
   private readonly figures = new Container();
   private readonly fx = new Graphics();
   /** Down a dungeon: what's in the room (a chest, a door, a trap...), torches along the walls, and the dark closing in as
@@ -126,6 +127,7 @@ export class FightScene {
     this.placePhoto();
     this.world.scale.set(k);
     this.world.position.set(0, top);
+    this.worldTop = top;
     this.clip.clear().rect(0, top, w, room).fill(0xffffff);
     for (const l of this.layers) l.width = this.vw + 2;
     for (const l of this.layers.slice(0, 3)) l.y = this.hy - BACK_HORIZON;
@@ -192,10 +194,28 @@ export class FightScene {
     }
   }
 
+  /** The drama of an ultimate: the screen shakes and flashes white when one is loosed. */
+  private ultSeen = '';
+  private ultAt = -1e9;
+
   render(now: number, dt: number): void {
     const v = this.view;
     if (!v) return;
     const fighting = !!v.battle?.length;
+    // an ultimate just loosed: a shake and a flash (the banner is the HUD's)
+    const ult = v.acts.find((a) => a.ult && a.age < 30);
+    if (ult) {
+      const key = `${ult.side}:${ult.ref}:${ult.name}:${ult.age - (ult.age % 100)}`;
+      if (key !== this.ultSeen) {
+        this.ultSeen = key;
+        this.ultAt = now;
+      }
+    }
+    const since = (now - this.ultAt) / 1000;
+    if (since < 0.8) {
+      const k = (1 - since / 0.8) * 7;
+      this.world.position.set(Math.round((Math.random() - 0.5) * k), this.worldTop + Math.round((Math.random() - 0.5) * k));
+    } else this.world.position.set(0, this.worldTop);
     // down a dungeon they walk on between rooms, and stop a while at each room's thing (a chest, a trap, a shrine...)
     const delve = v.delve && v.phase === 'work' ? v.delve : null;
     const stops = !!delve && !!delve.kind && !['fight', 'boss'].includes(delve.kind) && delve.progress < STOP;
@@ -292,6 +312,9 @@ export class FightScene {
     // (the light failing as the torches run out)
     const dim = d.torches <= 0 ? 0.55 : d.torches <= 2 ? 0.35 : d.torches <= 4 ? 0.15 : 0;
     if (dim) this.dark.rect(0, 0, this.vw, this.vh).fill({ color: 0x05040a, alpha: dim });
+    // (the white flash of an ultimate, fading over a third of a second)
+    const flash = (performance.now() - this.ultAt) / 1000;
+    if (flash >= 0 && flash < 0.35) this.dark.rect(0, 0, this.vw, this.vh).fill({ color: 0xffffff, alpha: 0.7 * (1 - flash / 0.35) });
   }
 
   /** Between fights: the party in a line, walking to the right (or working at the site). */
@@ -465,11 +488,12 @@ export class FightScene {
     if (!look) return;
     const wear = enemy ? enemy.wear : wornLayers(f.gear);
     // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
-    const hero = !hs ? heroSheet(f.cls, f.ref) : null;
+    // (a werewolf fights in wolf form: the Craftpix werewolves, by who they are)
+    const hero = !hs ? (f.wolf ? WOLF_FORMS[f.ref % WOLF_FORMS.length] : f.undead ? skeletonSheet(f.ranged, f.ref) : heroSheet(f.cls, f.ref)) : null;
     if (hero) {
       const facing = faceLeft ? 'left' : 'right';
       s.texture = heroFrame(hero, { facing, moving: false, walked: 0, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, sinceBlock: 999, down: f.down, now, ref: f.ref });
-      const sc = heroScale(hero) * k;
+      const sc = heroScale(hero) * k; // (a wolf form at a hero's height: the rows are close on the fight screen)
       const flip = creatureFlip(hero, facing);
       s.anchor.set(0.5, 1);
       s.scale.set(sc * flip, sc);

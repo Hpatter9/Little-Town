@@ -114,7 +114,7 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   row.append(face(p, s));
   const mid = el('span', 'folk-mid');
   const name = el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`);
-  const what = el('span', 'folk-class', p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`);
+  const what = el('span', 'folk-class', `${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}`);
   const doing = el('span', 'folk-doing', p.away !== null ? `Away: ${p.away}` : p.doing);
   mid.append(name, what, doing);
   const right = el('span', 'folk-right');
@@ -217,7 +217,9 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   const doll = el('div', 'doll');
   const fig = el('div', 'doll-figure');
   fig.append(figure(p, s, 3));
-  fig.append(el('div', 'doll-level', p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`));
+  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`} · Aged ${p.ageYears}${p.elder ? ' · Elder' : ''}`));
+  fig.append(el('div', 'hint doll-age', p.ageText));
+  fig.append(el('div', 'hint doll-age', `${p.natureName}: ${p.natureLine}`));
   doll.append(fig);
   const shown = chosenSlot ?? firstWorn(p);
   for (const slot of SLOTS) {
@@ -348,14 +350,34 @@ function fightCard(p: PersonView): HTMLElement {
   stat('Block', pc(b.block));
   stat('Dodge', pc(b.dodge));
   box.append(grid);
+  // their attributes (data/attributes.ts): what their turns, blows, spells and pools come of
+  const at = b.attrs;
+  if (at) {
+    const attrs = el('div', 'fight-stats attrs');
+    const one = (label: string, v: number, title: string) => {
+      const c = el('div', 'fight-stat');
+      c.title = title;
+      c.append(el('span', 'fight-label', label), el('span', 'fight-value', String(Math.round(v))));
+      attrs.append(c);
+    };
+    one('STR', at.str, 'Strength: the weight of a blow');
+    one('DEX', at.dex, `Dexterity: aim, footwork, and how often their turn comes (every ${(b.interval / 10).toFixed(1)} s)`);
+    one('VIT', at.vit, 'Vitality: health and stamina');
+    one('INT', at.int, 'Intellect: spell power and mana');
+    one('WIS', at.wis, 'Wisdom: healing, and mana coming back');
+    one('MP', b.mp, 'Mana: spells draw on it');
+    one('SP', b.sp, 'Stamina: skills draw on it; a plain blow brings some back');
+    box.append(attrs);
+  }
   if (p.kit.length) {
     const kit = el('div', 'kit');
     for (const a of p.kit) {
-      const c = el('span', `chip ${a.spell ? 'spell' : 'skill'}`, `${a.spell ? '✦' : '⚔'} ${a.name}`);
-      c.title = `${a.spell ? 'Spell' : 'Skill'}, learned at level ${a.level}`;
+      const ult = a.pool === 'limit';
+      const c = el('span', `chip ${ult ? 'ult' : a.spell ? 'spell' : 'skill'}`, `${ult ? '★' : a.spell ? '✦' : '⚔'} ${a.name}${ult ? '' : ` · ${a.cost} ${a.pool === 'mp' ? 'MP' : 'SP'}`}`);
+      c.title = ult ? `Ultimate: loosed when the limit gauge is full (learned at level ${a.level})` : `${a.spell ? 'Spell' : 'Skill'}, learned at level ${a.level}: costs ${a.cost} ${a.pool === 'mp' ? 'mana' : 'stamina'}`;
       kit.append(c);
     }
-    box.append(el('div', 'hint', 'Spells kept ready and skills learned:'), kit);
+    box.append(el('div', 'hint', 'Spells kept ready, skills learned, and the ultimate:'), kit);
   } else if (p.cls) box.append(el('div', 'hint', 'No spells or skills learned yet: they come with levels.'));
   return box;
 }

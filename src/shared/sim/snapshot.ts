@@ -1,5 +1,10 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import type { Attrs } from '../data/attributes';
+import { RESEARCH_PACE } from '../data/pace';
+import { swims } from './sea';
+import { natureOf, type NatureId } from '../data/natures';
+import { ageDays, ageLine, ageYears, isElder, lifeStage, type LifeStage } from './ageing';
 import { ROOM_SECONDS, TWISTS } from '../data/dungeons';
 import { bossName, delveRoomTicks, quietHours } from './delves';
 import { HOME_REGION } from '../data/regions';
@@ -52,15 +57,16 @@ import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStoc
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campX, campXY, BLOOD_LASTS } from './state';
-import { cellAt, groundAt, type LandMap } from './land';
+import { cellAt, groundAt, type LandMap , wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
-import { castleBounds, castleCells, castleGate, castleOn, coreRect } from './castle';
+import { castleBounds, castleCells, castleGate, castleOn, coreRect, holdOf, type Hold } from './castle';
 import { TILE } from '../constants';
 
 import { rallyState } from './rally';
 import { daysToMove } from './nomads';
 import { describeFoes, placeDestination, placeDestinations, placeXY } from './places';
+import { packDestinations, packView, type PackView } from './pack';
 import { isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
 import { RIVALS } from '../data/rivals';
@@ -158,15 +164,28 @@ export interface PersonView {
   growsUpIn: number | null;
   /** A mental break in progress, described. */
   breakdown: string | null;
+  /** Age (sim/ageing.ts): days grown, years old by their people's reckoning (data/lifespans.ts), the stage of
+   *  life, a line about it, and an elder (slower, and old age may take them). */
+  /** In the sea (a merfolk swimming: drawn with a tail). */
+  swimming: boolean;
+  /** Their nature (data/natures.ts): id, name and a line about it. */
+  nature: NatureId;
+  natureName: string;
+  natureLine: string;
+  ageDays: number;
+  ageYears: number;
+  lifeStage: LifeStage;
+  ageText: string;
+  elder: boolean;
   /** Monsters: what they are and their standing order for the Hunter's Guild. */
   monster: string | null;
   order: string | null;
   sick: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
    *  chance, dodge, armour and block, and the chance to strike true. */
-  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean };
-  /** The spells they keep ready and the skills they've learned (actives first). */
-  kit: { name: string; spell: boolean; level: number }[];
+  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number };
+  /** The spells they keep ready and the skills they've learned (actives first), with what each costs. */
+  kit: { name: string; spell: boolean; level: number; cost: number; pool: 'mp' | 'sp' | 'limit' }[];
 }
 
 export interface CraftOrderView {
@@ -206,6 +225,12 @@ export interface FighterView {
   /** How near their next turn is (0 to 1: the old games' time gauge), their statuses, their class (party), and the
    *  last number to pop up over them (ticks ago). */
   atb: number;
+  /** Mana, stamina and the limit gauge (people only; data/attributes.ts). */
+  mp: number | null;
+  maxMp: number | null;
+  sp: number | null;
+  maxSp: number | null;
+  limit: number | null;
   statuses: string[];
   clsName: string | null;
   cls: ClassId | null;
@@ -214,6 +239,9 @@ export interface FighterView {
   conjured: boolean;
   /** A delve's elite: its affix (drawn with a tint). */
   elite: string | null;
+  /** A party member who is a werewolf (drawn in wolf form as they fight), or one of the raised dead (a skeleton). */
+  wolf: boolean;
+  undead: boolean;
 }
 
 export interface RaiderView {
@@ -309,11 +337,13 @@ export interface ExpeditionView {
   roles: Record<number, string>;
   /** A fight in progress, if any, and the spells and skills used in it lately (ticks ago). */
   battle: FighterView[] | null;
-  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[] }[];
+  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[]; spell: boolean; ult: boolean; cost: number; pool: 'mp' | 'sp' | 'limit' | null; who: string }[];
   /** Waiting on a question for the player. */
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
   delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
+  /** The Moon Pack's full-moon hunt. */
+  hunt: boolean;
 }
 
 /** A place on the town's land. */
@@ -472,6 +502,8 @@ export interface Snapshot {
   destinations: DestinationView[];
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
   places: PlaceView[];
+  /** The Moon Pack's standing (sim/pack.ts), for a werewolf town. */
+  pack: PackView | null;
   /** Blood on the ground where someone was struck down: where, the side the blow came from, and how old (ticks). */
   blood: { x: number; y: number; from: 1 | -1; age: number; key: string }[];
   prompts: PromptView[];
@@ -513,7 +545,7 @@ export interface Snapshot {
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's castle (sim/castle.ts): every cell of it (land indices), the hall's ground, the cell before the
    *  gate, and the rectangle round the whole. */
-  castle: { cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number } } | null;
+  castle: { hold: Hold; cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number } } | null;
   /** The middle of the camp on the land (px). */
   camp: { x: number; y: number };
   /** The tower-defence battle on the trail, while it's on (sim/battle.ts). */
@@ -644,7 +676,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -657,6 +689,7 @@ export function snapshot(s: GameState): Snapshot {
       ...partyView(s, d.id),
     })),
     places: placeViews(s),
+    pack: packView(s),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
@@ -730,7 +763,7 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     enclosure: enclosure(s),
-    castle: castleOn(s) ? { cells: [...castleCells(s)], core: coreRect(s), gate: castleGate(s), bounds: castleBounds(s) } : null,
+    castle: castleOn(s) ? { hold: holdOf(s)!, cells: [...castleCells(s)], core: coreRect(s), gate: castleGate(s), bounds: castleBounds(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, y: f.y ?? null, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),
@@ -972,6 +1005,15 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     rivals: rivalsOf(s, p).map((f) => f.name),
     growsUpIn: p.bornTick != null ? Math.max(0, CHILD_HOURS - (s.tick - p.bornTick) / TICKS_PER_HOUR) : null,
     breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,
+    nature: natureOf(p).id,
+    natureName: natureOf(p).name,
+    natureLine: natureOf(p).line,
+    swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
+    ageDays: Math.floor(ageDays(s, p)),
+    ageYears: Math.floor(ageYears(s, p)),
+    lifeStage: lifeStage(s, p),
+    ageText: ageLine(s, p),
+    elder: isElder(s, p),
     monster: p.monster ?? null,
     order: p.monster ? (p.order ?? 'hide') : null,
     sick: !!p.sick,
@@ -989,8 +1031,8 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit'> {
   const f = personFighter(p, 'fighter', 'front');
   const kit = kitOf(p);
   const view = {
-    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged },
-    kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level })),
+    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval },
+    kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool })),
   };
   fightCache.set(p.id, { key, view });
   return view;
@@ -1091,17 +1133,36 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           sinceArea: f.lastArea != null ? e.battle!.tick - f.lastArea : 999,
           hitFx: f.hitFx ?? null,
           atb: f.down ? 0 : Math.max(0, Math.min(1, 1 - f.cooldown / Math.max(1, f.interval))),
+          mp: f.mp ?? null,
+          maxMp: f.maxMp ?? null,
+          sp: f.sp ?? null,
+          maxSp: f.maxSp ?? null,
+          limit: f.limit ?? null,
           statuses: Object.entries(f.st ?? {}).filter(([, v]) => v!.until > e.battle!.tick).map(([k]) => k),
           clsName: f.side === 'party' ? ((q) => (q ? callingName(q, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
           cls: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.cls ?? null) : null,
+          wolf: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'werewolf',
+          undead: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'undead',
           level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
           pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
           conjured: !!f.conjured,
           elite: f.elite ?? null,
         }))
       : null,
-    acts: (e.battle?.acts ?? []).map((a) => ({ age: e.battle!.tick - a.tick, side: a.side, ref: a.ref, name: a.name, targets: a.targets })),
+    acts: (e.battle?.acts ?? []).map((a) => ({
+      age: e.battle!.tick - a.tick,
+      side: a.side,
+      ref: a.ref,
+      name: a.name,
+      targets: a.targets,
+      spell: !!a.meta?.spell,
+      ult: !!a.meta?.ult,
+      cost: a.meta?.cost ?? 0,
+      pool: a.meta?.pool ?? null,
+      who: e.battle!.fighters.find((f) => f.side === a.side && f.ref === a.ref)?.name ?? '',
+    })),
     waiting: e.prompt !== null,
+    hunt: !!e.hunt,
     delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,
   };
 }
@@ -1124,7 +1185,7 @@ function researchView(s: GameState): ResearchView {
       const topic = who?.task?.type === 'research' && who.task.topic ? (TOPIC_BY_ID[who.task.topic]?.name ?? null) : null;
       return { label: st.label, mult: st.mult, who: who?.name ?? null, topic };
     }),
-    speed: ((main ? skillSpeed(main.skills.research.level) : 1) * station.mult * mods.researchSpeed) / RESEARCH_MULTIPLIER[s.era],
+    speed: ((main ? skillSpeed(main.skills.research.level) : 1) * station.mult * mods.researchSpeed) / (RESEARCH_MULTIPLIER[s.era] * RESEARCH_PACE[s.era]),
   };
 }
 

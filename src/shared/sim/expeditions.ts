@@ -51,6 +51,8 @@ import { occultRevealed, revealOccult } from './occult';
 import type { Pt } from './land';
 import { isPlaceDest } from '../data/places';
 import { placeCleared, placeDestination, placeOfDest } from './places';
+import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
+import { packDestinationOf, packDestUnlocked, packHome } from './pack';
 import { addStock, carryCapacity, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
@@ -76,10 +78,13 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
     const p = placeOfDest(s, id);
     return p ? placeDestination(s, p) : undefined;
   }
+  if (isPackDest(id) || id === HUNT_DEST) return packDestinationOf(s, id);
   return DESTINATION_BY_ID[id];
 }
 
 export function destinationUnlocked(s: GameState, d: Destination): boolean {
+  // (the Moon Pack's hunt, and the rival packs' lairs while they stand)
+  if (isPackDest(d.id) || d.id === HUNT_DEST) return packDestUnlocked(s, d.id);
   // (a place on the town's land: while it's found and waiting)
   if (isPlaceDest(d.id)) {
     const p = placeOfDest(s, d.id);
@@ -136,7 +141,7 @@ export function canSend(s: GameState, destId: string, memberIds: readonly number
   if (!destinationUnlocked(s, d)) return { ok: false, reason: 'Not discovered yet' };
   if (s.expeditions.length >= MAX_EXPEDITIONS) return { ok: false, reason: `At most ${MAX_EXPEDITIONS} expeditions at once` };
   if (memberIds.length < 1) return { ok: false, reason: 'Pick someone to go' };
-  const most = d.type === 'delve' || isPlaceDest(d.id) ? MAX_DELVERS : MAX_PARTY;
+  const most = d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : MAX_PARTY;
   if (memberIds.length > most) return { ok: false, reason: `Parties are at most ${most} people` };
   if (new Set(memberIds).size !== memberIds.length) return { ok: false, reason: 'Someone is listed twice' };
   for (const id of memberIds) {
@@ -322,7 +327,7 @@ export function rolesFor(members: Person[], d: Destination | undefined): Record<
 export function sendDelve(s: GameState, destId: string, memberIds: readonly number[], stakes: Stakes): SendCheck {
   const d = destinationOf(s, destId);
   // (a dungeon, or a fight at one of the places on the town's land: the player picks who goes)
-  if (d?.type !== 'delve' && !(d && isPlaceDest(d.id))) return { ok: false, reason: 'Not a dungeon' };
+  if (d?.type !== 'delve' && !(d && (isPlaceDest(d.id) || isPackDest(d.id)))) return { ok: false, reason: 'Not a dungeon' };
   const members = memberIds.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
   const plan = planParty(s, destId);
   const r = sendExpedition(s, destId, members.map((p) => p.id), rolesFor(members, d), STAKES[stakes].stance, Math.min(plan.horses, members.length), plan.truck);
@@ -472,7 +477,7 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
     const p = members.find((q) => q.id === f.ref);
     if (!p) continue;
     if (f.down && !p.downed) knockDown(s, p);
-    else if (!f.down) p.hp = f.hp;
+    else if (!f.down) p.hp = Math.max(1, Math.min(maxHp(p), Math.round((f.hp * maxHp(p)) / Math.max(1, f.maxHp)))); // (back to the town's reckoning of their health)
     if (f.attacks) gainSkill(p, f.ranged ? 'ranged' : 'melee', f.attacks * FIGHT_XP);
     if (e.roles[p.id] === 'medic' && f.lastAction >= 0) gainSkill(p, 'medicine', FIGHT_XP * 3);
   }
@@ -581,6 +586,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   if (!e.recalled) specialOutcome(s, e, d, at, rng);
   // (a delve: quests on a cleared dungeon, and a rival won over)
   delveHome(s, e, rng, { quests: (id) => questsDone(s, id, at, rng), join: () => joinTown(s, at, rng) });
+  packHome(s, e, rng);
   if (!e.recalled) findRelic(s, e, d, rng);
 }
 

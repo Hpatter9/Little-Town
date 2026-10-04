@@ -13,24 +13,24 @@ import { reclad, type Style } from './originStyles';
 import { mixHex as mix, paint, type Painter, type PixelArt, type Tone } from './pixelArt';
 
 /** The eaves' overhang past the footprint, each side (px). */
-const EAVE = 4;
+export const EAVE = 4;
 /** How far the ridge stands above the footprint's top edge (px): the roof's height, seen at this angle. */
-const LIFT = 12;
+export const LIFT = 12;
 /** The lit window colour (pixelArt.ts LAMPS: it glows at night). */
-const WINDOW = '#f0d890';
+export const WINDOW = '#f0d890';
 
-type Shape = 'house' | 'hall' | 'flat' | 'tower' | 'dome' | 'wall' | 'pad' | 'works';
+export type Shape = 'house' | 'hall' | 'flat' | 'tower' | 'dome' | 'wall' | 'pad' | 'works';
 
 /** The materials of an era: roof (light, dark), wall (light, dark), trim. The usual colours: originStyles.ts swaps
  *  them for each origin's. */
-interface Mats {
+export interface Mats {
   roof: [string, string];
   wall: [string, string];
   trim: string;
   /** How the roof is covered: thatch bands, tile courses, slate courses, flat panels. */
   cover: 'thatch' | 'tile' | 'slate' | 'panel';
 }
-const MATS: Record<Era, Mats> = {
+export const MATS: Record<Era, Mats> = {
   neolithic: { roof: ['#b89a58', '#8a7040'], wall: ['#d8c8a8', '#77502f'], trim: '#5a3a22', cover: 'thatch' },
   medieval: { roof: ['#a4543a', '#6a3424'], wall: ['#d8c8a8', '#e8dcc0'], trim: '#5a3a22', cover: 'tile' },
   industrial: { roof: ['#6a6e78', '#454a54'], wall: ['#a4543a', '#6a3424'], trim: '#3b2616', cover: 'slate' },
@@ -63,12 +63,38 @@ const SHAPES: Record<string, Shape> = {
   cryo_pod: 'dome',
   clone_vat: 'dome',
   brick_wall: 'wall',
+  brick_gate: 'wall',
+  concrete_gate: 'wall',
+  force_gate: 'wall',
   concrete_wall: 'wall',
   force_wall: 'wall',
   palisade_wall: 'wall',
   stone_wall: 'wall',
   launch_site: 'pad',
   spike_trap: 'pad',
+  // the defence pieces (data/defenses.ts): traps on the ground, engines and posts as towers
+  pit_trap: 'pad',
+  caltrops: 'pad',
+  land_mine: 'pad',
+  flame_turret: 'tower',
+  mortar_pit: 'pad',
+  bramble_snare: 'pad',
+  wolf_trap: 'pad',
+  tide_pool_trap: 'pad',
+  glamour_ring: 'pad',
+  boiling_oil: 'tower',
+  ballista: 'tower',
+  catapult: 'tower',
+  cannon: 'tower',
+  tesla_coil: 'tower',
+  militia_post: 'tower',
+  bone_spire: 'tower',
+  gargoyle_perch: 'tower',
+  sentry_bot: 'tower',
+  rune_bolt_thrower: 'tower',
+  arrow_wagon: 'tower',
+  acid_sprayer: 'tower',
+  crossbow_bastion: 'tower',
   factory: 'works',
   steelworks: 'works',
   alloy_foundry: 'works',
@@ -87,8 +113,11 @@ const SHAPES: Record<string, Shape> = {
   mission_control: 'flat',
 };
 
+/** Engines and posts stand on a low mount, not a tall tower. */
+const ENGINES = new Set(['ballista', 'catapult', 'cannon', 'boiling_oil', 'acid_sprayer', 'sentry_bot', 'arrow_wagon', 'tesla_coil', 'flame_turret', 'rune_bolt_thrower']);
+
 /** Whether an era is `at` or later. */
-const since = (era: Era, at: Era) => ERAS.indexOf(era) >= ERAS.indexOf(at);
+export const since = (era: Era, at: Era) => ERAS.indexOf(era) >= ERAS.indexOf(at);
 
 const cache = new Map<string, PixelArt>();
 
@@ -103,7 +132,7 @@ export function topDownArt(defId: string, w: number, d: number, tone: Tone, tone
   const mats = MATS[era];
   const W = w * TILE + EAVE * 2;
   const D = d * TILE;
-  const tall = shape === 'tower' ? 44 : shape === 'dome' ? 10 : shape === 'pad' ? 0 : LIFT;
+  const tall = shape === 'tower' ? (ENGINES.has(defId) ? 16 : 44) : shape === 'dome' ? 10 : shape === 'pad' ? 0 : LIFT;
   const H = D + tall;
   const smoke: { x: number; y: number }[] = [];
   art = paint(W, H, tone, (p) => {
@@ -142,7 +171,7 @@ export function topDownArt(defId: string, w: number, d: number, tone: Tone, tone
   return art;
 }
 
-interface G {
+export interface G {
   p: Painter;
   /** Where smoke rises from (chimneys, stacks), filled in as they're drawn. */
   smoke: { x: number; y: number }[];
@@ -169,7 +198,7 @@ const rnd = (seed: number, i: number) => ((Math.sin(seed * 12.9898 + i * 78.233)
 
 /** A roof plane from the ridge (y0, inset `inset` each side) down to the eaves (y1, the full width), covered in the
  *  era's way: bands of thatch, courses of tile or slate, or metal panels; lit at the ridge, shaded at the eaves. */
-function roofPlane(g: G, x0: number, x1: number, y0: number, y1: number, inset: number, hip = true): void {
+export function roofPlane(g: G, x0: number, x1: number, y0: number, y1: number, inset: number, hip = true): void {
   const { p, mats } = g;
   const [light, dark] = mats.roof;
   const rows = y1 - y0;
@@ -201,7 +230,7 @@ function roofPlane(g: G, x0: number, x1: number, y0: number, y1: number, inset: 
 }
 
 /** The front wall from y0 to the bottom: plaster, timber, brick or panels by era, with a door and windows. */
-function frontWall(g: G, x0: number, x1: number, y0: number, y1: number, door = true, windows = true): void {
+export function frontWall(g: G, x0: number, x1: number, y0: number, y1: number, door = true, windows = true): void {
   const { p, mats, era } = g;
   const [light, dark] = mats.wall;
   const h = y1 - y0;
@@ -395,6 +424,53 @@ function drawTower(g: G): void {
   } else if (defId === 'drone_hub') {
     p.ellipse(cx, topY - 1, rx * 0.7, ry * 0.7, '#80e0ff');
     p.ellipse(cx, topY - 1, rx * 0.4, ry * 0.4, '#3a4450');
+  } else if (defId === 'ballista' || defId === 'rune_bolt_thrower' || defId === 'crossbow_bastion') {
+    // a crossbow on a mount: the bow across, the stock along
+    p.rect(cx - 1, topY - 10, 3, 12, '#5a3a22');
+    p.rect(cx - 9, topY - 7, 19, 2, defId === 'rune_bolt_thrower' ? '#8a8694' : '#8a7040');
+    p.fline(cx - 9, topY - 6.5, cx, topY - 1, '#d8c8a8');
+    p.fline(cx + 10, topY - 6.5, cx, topY - 1, '#d8c8a8');
+    if (defId === 'rune_bolt_thrower') for (let y = topY + 4; y < H - ry - 2; y += 6) p.fpx(cx, y, '#7ae8f0');
+  } else if (defId === 'catapult') {
+    // the arm, cocked back, a stone in its cup
+    p.rect(cx - 8, topY - 3, 16, 3, '#5a3a22');
+    p.fline(cx - 6, topY - 3, cx + 7, topY - 14, '#8a7040');
+    p.disc(cx + 7, topY - 15, 2.5, '#7d7e7a');
+  } else if (defId === 'cannon') {
+    p.rect(cx - 2, topY - 12, 5, 12, '#3a3a3a');
+    p.rect(cx - 3, topY - 13, 7, 2, '#5a5a5a');
+    p.ellipse(cx, topY - 1, 5, 3, '#5a3a22');
+  } else if (defId === 'tesla_coil') {
+    p.rect(cx - 1, topY - 14, 3, 14, '#b87333');
+    p.disc(cx, topY - 16, 4, '#9a9a94');
+    for (const dx of [-5, 5]) p.fline(cx, topY - 16, cx + dx, topY - 22, '#7ae8f0');
+  } else if (defId === 'flame_turret') {
+    // a tank with a nozzle, and a pilot flame
+    p.ellipse(cx - 3, topY - 3, 5, 3, '#8a3a2a');
+    p.rect(cx + 1, topY - 4, 9, 2, '#3a3a3a');
+    p.fpx(cx + 10, topY - 3.5, '#ffb347');
+  } else if (defId === 'sentry_bot') {
+    p.ellipse(cx, topY - 2, rx * 0.6, ry * 0.6, '#5a6470');
+    p.rect(cx - 6, topY - 4, 12, 2, '#3a3a3a');
+    p.fpx(cx, topY - 3, '#ff4040');
+  } else if (defId === 'boiling_oil' || defId === 'acid_sprayer') {
+    p.ellipse(cx, topY - 3, 6, 4, defId === 'acid_sprayer' ? '#3f6a2a' : '#3a3a3a');
+    p.ellipse(cx, topY - 5, 5, 2, defId === 'acid_sprayer' ? '#7ad040' : '#8a6a20');
+    p.rect(cx - 8, topY - 10, 16, 1, '#5a3a22');
+  } else if (defId === 'gargoyle_perch') {
+    p.rect(cx - 3, topY - 10, 6, 8, '#5c5d5a');
+    for (const dx of [-7, 4]) p.rect(cx + dx, topY - 11, 3, 6, '#4a4a50');
+    p.fpx(cx - 1, topY - 8, '#e0506a');
+    p.fpx(cx + 1, topY - 8, '#e0506a');
+  } else if (defId === 'bone_spire') {
+    for (let y = 0; y < 16; y++) p.rect(cx - 2 + Math.floor(y / 8), topY - 16 + y, 4 - Math.floor(y / 8) * 2, 1, y % 3 ? '#e8e0d0' : '#b8b0a0');
+    p.fpx(cx, topY - 17, '#7cff9a');
+  } else if (defId === 'militia_post' || defId === 'arrow_wagon') {
+    // a thatched roof on posts, and a rack of bows
+    const [light, dark] = mats.roof;
+    p.ellipse(cx, topY - 6, rx * 0.8, ry * 0.8, dark);
+    p.ellipse(cx - 1, topY - 7, rx * 0.6, ry * 0.6, light);
+    if (defId === 'arrow_wagon') for (const dx of [-rx + 2, rx - 4]) p.ellipse(cx + dx, H - ry + 1, 3, 3, '#3a2616');
   } else if (defId === 'windmill') {
     // a cap and the sails, seen edge-on from above: a cross over the tower
     p.ellipse(cx, topY - 2, rx * 0.7, ry * 0.7, mats.roof[1]);
@@ -477,6 +553,7 @@ function drawWall(g: G): void {
 /** Something flat on the ground: the launch pad with its rocket, the spike trap's spikes. */
 function drawPad(g: G): void {
   const { p, W, H, D, defId } = g;
+  if (drawTrap(g)) return;
   if (defId === 'spike_trap') {
     p.rect(2, H - D + 2, W - 4, D - 4, '#5a4a3a');
     for (let x = 4; x < W - 4; x += 5) for (let y = H - D + 4; y < H - 3; y += 6) {
@@ -506,6 +583,71 @@ function drawPad(g: G): void {
   p.rect(cx + 9, foot - rh + 4, 3, rh - 4, '#6a6e78');
   for (let y = foot - rh + 6; y < foot; y += 6) p.frect(cx + 4, y, 6, 0.5, '#9a9a94');
   p.frect(cx + 9, foot - rh + 4, 3, 0.5, '#9a9a94');
+}
+
+/** The traps (data/defenses.ts), each its own thing on the ground: a covered pit, strewn caltrops, a buried mine, a
+ *  mortar in its sandbagged pit, brambles, iron jaws, a tide pool, a ring of toadstools. True when one was drawn. */
+function drawTrap(g: G): boolean {
+  const { p, W, H, D, defId } = g;
+  const x0 = 2;
+  const y0 = H - D + 2;
+  const w = W - 4;
+  const h = D - 4;
+  const cx = W / 2;
+  const cy = H - D / 2;
+  switch (defId) {
+    case 'pit_trap':
+      p.rect(x0, y0, w, h, '#6a5a44');
+      p.ellipse(cx, cy, w * 0.38, h * 0.3, '#2a2016');
+      for (let x = x0 + 2; x < x0 + w - 2; x += 4) p.frect(x, cy - 1, 3, 0.5, '#b89a58'); // (sticks laid over it)
+      return true;
+    case 'caltrops':
+      for (let i = 0; i < 9; i++) {
+        const x = x0 + 3 + ((i * 7) % (w - 6));
+        const y = y0 + 3 + ((i * 11) % (h - 6));
+        p.fline(x - 2, y + 2, x + 2, y - 2, '#4a4a50');
+        p.fline(x - 2, y - 2, x + 2, y + 2, '#6a6a70');
+        p.fpx(x, y - 3, '#9a9aa0');
+      }
+      return true;
+    case 'land_mine':
+      p.ellipse(cx, cy, 6, 4, '#5a4a3a');
+      p.ellipse(cx, cy - 1, 5, 3, '#3a3a3a');
+      p.fpx(cx, cy - 3, '#c84040');
+      return true;
+    case 'mortar_pit':
+      p.ellipse(cx, cy, w * 0.45, h * 0.4, '#8a7a5a'); // (the sandbags)
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 5) p.ellipse(cx + Math.cos(a) * w * 0.4, cy + Math.sin(a) * h * 0.35, 3, 2, '#a89868');
+      p.ellipse(cx, cy, 4, 3, '#3a3a3a');
+      p.rect(cx - 1, cy - 9, 3, 9, '#5a6068');
+      return true;
+    case 'bramble_snare':
+      for (let i = 0; i < 6; i++) p.fline(x0 + (i * 5) % w, y0 + h, x0 + ((i * 5 + 7) % w), y0 + 2 + (i % 3) * 3, '#3f6a2a');
+      for (let i = 0; i < 7; i++) p.fpx(x0 + 2 + ((i * 9) % (w - 4)), y0 + 2 + ((i * 5) % (h - 4)), '#c0392b');
+      return true;
+    case 'wolf_trap':
+      p.ellipse(cx, cy, 7, 4, '#6a6a70');
+      p.ellipse(cx, cy, 5, 2.5, '#4a4a50');
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) p.fpx(cx + Math.cos(a) * 6, cy + Math.sin(a) * 3.5, '#c8c8c0');
+      p.rect(cx + 6, cy, 6, 1, '#3a3a3a'); // (the chain)
+      return true;
+    case 'tide_pool_trap':
+      p.ellipse(cx, cy, w * 0.42, h * 0.36, '#7d7e7a');
+      p.ellipse(cx, cy, w * 0.34, h * 0.28, '#2a6a9a');
+      p.ellipse(cx - 2, cy - 1, w * 0.16, h * 0.1, '#5aa0c8');
+      return true;
+    case 'glamour_ring':
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+        const x = cx + Math.cos(a) * w * 0.36;
+        const y = cy + Math.sin(a) * h * 0.3;
+        p.rect(x - 1, y - 2, 2, 3, '#e8dcc0');
+        p.ellipse(x, y - 2, 2.5, 1.5, '#c0392b');
+        p.fpx(x, y - 3, '#fff5e0');
+      }
+      p.fpx(cx, cy, '#f8b0ff');
+      return true;
+  }
+  return false;
 }
 
 /** A topper or two by the building's id, on top of its shape. */

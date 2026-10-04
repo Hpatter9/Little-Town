@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
-import { ITEM_BY_ID } from '../src/shared/data/items';
+import { ITEM_BY_ID, ITEMS } from '../src/shared/data/items';
 import { FURNISHINGS } from '../src/shared/data/shop';
 import { TOPICS } from '../src/shared/data/research';
 import { totalStock } from '../src/shared/sim/buildings';
@@ -22,7 +22,7 @@ function addBuilding(s: GameState, def: string, tile: number, store = {}): Build
   return b;
 }
 /** The shop's log (newest last). */
-const logOf = (s: GameState) => s.buildings.find((b) => b.def === 'trading_post')?.shop?.log ?? [];
+const logOf = (s: GameState) => s.buildings.find((b) => b.def === 'trading_post' || b.def === 'general_store' || b.def === 'emporium')?.shop?.log ?? [];
 /** Strangers of a tier on their way in are made to want something. */
 function wanting(s: GameState, tier: number, want: Want): void {
   for (const t of s.travellers ?? []) if (t.phase === 'arriving' && (t.tier ?? 1) === tier) t.want = want;
@@ -228,7 +228,8 @@ test('left alone in the desert, a town builds a shop, furnishes it, and earns co
   // (it starts bare, and every piece has to be paid for out of what travellers spend; a lone founder's town in the
   // sand, raided on the battle map, gets there in about three weeks)
   for (let t = 0; t < 24 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
-  const shop = s.buildings.find((b) => b.def === 'trading_post');
+  // (a quick town has rebuilt it as a General Store by then)
+  const shop = s.buildings.find((b) => b.def === 'trading_post' || b.def === 'general_store' || b.def === 'emporium');
   assert.ok(shop, 'a Trading Post');
   assert.ok((shop!.shop?.pieces.length ?? 0) >= 1, 'something set out in it');
   assert.ok(logOf(s).length, 'travellers have come by');
@@ -367,5 +368,6 @@ test('drawing customers it has no wares for, the town studies what makes them', 
   s.buildings[0].store = { wood: 25, stone: 25, berries: 25 };
   s.tick = PLAN_TICKS * 10;
   runPlanner(s);
-  assert.ok(s.research.queue.includes('iron_working'), `queue ${s.research.queue}`);
+  // (any topic that opens a noble's ware: Iron Working's brooch, or Weaving's gowns and dyed bolts since the workshops)
+  assert.ok(s.research.queue.some((id) => ITEMS.some((i) => i.ware?.tier === 3 && i.research.includes(id))), `queue ${s.research.queue}`);
 });

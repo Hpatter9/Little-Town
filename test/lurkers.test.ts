@@ -1,3 +1,4 @@
+import { DANGER_PACE } from '../src/shared/data/pace';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ENEMIES } from '../src/shared/data/enemies';
@@ -16,7 +17,7 @@ const lucky = (seed: number) => Object.assign(new Rng(seed), { chance: () => tru
 const raidsIn = (biome: 'forest' | 'desert' | 'coast', day: number, n = 250) => {
   const seen = new Map<string, number>();
   const s = newGame(`beasts-${biome}`, { biome });
-  s.tick = day * TICKS_PER_DAY;
+  s.tick = day * DANGER_PACE * TICKS_PER_DAY; // (the dangers count a paced day: data/pace.ts)
   for (let i = 0; i < n; i++) {
     s.raid = null;
     s.prompts = [];

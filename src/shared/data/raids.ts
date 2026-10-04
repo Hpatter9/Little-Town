@@ -1,6 +1,7 @@
 // Raids by era (DESIGN §10, §15): wolf packs, boar charges, rival tribe scouting parties; then bandits and
 // warbands. Numbers are starting points for tuning.
 
+import { PACK_RAIDS } from './pack';
 import { BESTIARY_RAIDS } from './bestiary';
 import type { Era } from './eras';
 
@@ -37,7 +38,7 @@ export interface RaidKind {
   biomes?: string[];
 }
 
-export const RAID_KINDS: readonly RaidKind[] = [
+const BASE_RAID_KINDS: readonly RaidKind[] = [
   { id: 'wolves', name: 'Wolf pack', goal: 'harm', enemies: { wolf: 8, wolf_alpha: 20 }, fromDay: 0, untilEra: 'industrial', weight: 3, speed: 80, bribable: false, plural: false },
   { id: 'boars', name: 'Boar charge', goal: 'harm', enemies: { boar: 11 }, fromDay: 0, untilEra: 'medieval', weight: 2, speed: 60, bribable: false, plural: false },
   { id: 'rivals', name: 'Rival tribe scouts', goal: 'steal', enemies: { rival_spear: 12, rival_slinger: 10 }, fromDay: 3, untilEra: 'neolithic', weight: 2, speed: 50, bribable: true, plural: true },
@@ -86,6 +87,7 @@ export const RAID_KINDS: readonly RaidKind[] = [
   ...BESTIARY_RAIDS,
 ];
 
+export const RAID_KINDS: readonly RaidKind[] = [...BASE_RAID_KINDS, ...PACK_RAIDS];
 export const RAID_KIND_BY_ID: Readonly<Record<string, RaidKind>> = Object.fromEntries(RAID_KINDS.map((k) => [k.id, k]));
 
 /** No raids before this many game hours. */

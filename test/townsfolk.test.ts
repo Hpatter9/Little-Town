@@ -205,6 +205,7 @@ test('traits: Hard Worker works faster, Lazy slower; Quick Learner and passions 
   const s = newGame('traits');
   const p = addPerson(s);
   p.morale = 50;
+  p.nature = 'cheerful'; // (a nature with an even pace: data/natures.ts)
   p.traits = ['hard_worker'];
   assert.equal(workFactor(s, p), 1.2);
   p.traits = ['lazy'];

@@ -1,6 +1,12 @@
 // Buildings by era (DESIGN §15 and on). Costs and times are starting points for tuning.
 
 import type { Stock } from './materials';
+import type { Era } from './eras';
+import type { OriginId } from './origins';
+import { SEAT_DEFS, SEAT_UPGRADES } from './seats';
+import { DEFENSE_BUILDINGS, ORIGIN_DEFENSES } from './defenses';
+import { BLOOD_FARM } from './vampires';
+import { WORKSHOP_BUILDINGS } from './workshops';
 
 export type BuildLayer = 'fore' | 'mid' | 'back';
 export type Venue = 'shop' | 'tavern';
@@ -40,11 +46,18 @@ export interface BuildingDef {
   /** Venues (see data/shop.ts): a shop or a tavern, the size of the one room it starts with, in cells (more rooms are
    *  bought with coins), and the appeal (a shop) or comfort (a tavern) it has bare: none, as they all start bare. */
   floor?: { venue: Venue; cols: number; rows: number; appeal: number };
-  /** Traps and turrets: they hit the nearest raider in range (px from the building's centre) every interval seconds. */
-  defense?: { damage: [number, number]; range: number; interval: number; accuracy: number };
+  /** Traps and turrets: they hit the nearest raider in range (px from the building's centre) every interval seconds,
+   *  with the quirks of data/defenses.ts (splash px, slow share, burn a second, chain count, night multiplier, rout chance). */
+  defense?: { damage: [number, number]; range: number; interval: number; accuracy: number; splash?: number; slow?: number; burn?: number; chain?: number; night?: number; rout?: number };
+  /** Opens only once the town has reached this era (beside any research). */
+  era?: Era;
+  /** One origin's own (data/seats.ts): another people never build it. */
+  origin?: OriginId;
+  /** A seat of the town (data/seats.ts), and which of its five stages. */
+  seat?: number;
 }
 
-export const BUILDINGS: readonly BuildingDef[] = [
+const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'campfire', name: 'Campfire', layer: 'fore', width: 2, cost: { wood: 4, stone: 3 }, buildSeconds: 20, purpose: 'Cooking, warmth and morale. Doubles as a small camp cache.', storage: 30 },
   { id: 'stockpile', name: 'Stockpile', layer: 'fore', width: 3, cost: { wood: 6 }, buildSeconds: 20, purpose: 'Stores materials. Put them near the work to cut hauling.', storage: 100 },
   { id: 'lean_to', name: 'Lean-to', layer: 'mid', width: 2, cost: { wood: 8, fiber: 4 }, buildSeconds: 30, purpose: 'Houses 1.', research: 'basic_shelter', housing: 1 },
@@ -148,11 +161,15 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'ai_core', name: 'AI Core', layer: 'mid', width: 3, cost: { circuits: 16, alloys: 8, power_cells: 8 }, buildSeconds: 480, purpose: 'Research workstation (tier 5): research eight times as fast.', research: 'artificial_intelligence' },
   { id: 'laser_turret', name: 'Laser Turret', layer: 'fore', width: 1, cost: { alloys: 6, circuits: 3, power_cells: 6 }, buildSeconds: 260, purpose: 'Burns raiders in range, and rarely misses.', research: 'energy_weapons', defense: { damage: [22, 32], range: 230, interval: 1.0, accuracy: 0.85 } },
   { id: 'force_wall', name: 'Force Wall', layer: 'fore', width: 1, cost: { alloys: 10, power_cells: 6 }, buildSeconds: 200, purpose: 'The strongest wall there is.', research: 'energy_shields', hp: 3000 },
+  { id: 'brick_gate', name: 'Brick Gate', layer: 'fore', width: 2, cost: { bricks: 24, steel: 4, lumber: 6 }, buildSeconds: 170, purpose: 'The gate in a brick ring wall: townsfolk pass through it.', research: 'urban_housing', hp: 650 },
+  { id: 'concrete_gate', name: 'Concrete Gate', layer: 'fore', width: 2, cost: { concrete: 28, steel: 8 }, buildSeconds: 200, purpose: 'A steel-barred gate in a concrete wall.', research: 'concrete', hp: 1300 },
+  { id: 'force_gate', name: 'Force Gate', layer: 'fore', width: 2, cost: { alloys: 12, power_cells: 8 }, buildSeconds: 220, purpose: 'A gap in the force wall that opens for the town\'s own.', research: 'energy_shields', hp: 2400 },
   { id: 'launch_site', name: 'Launch Site', layer: 'mid', width: 8, cost: { alloys: 120, circuits: 60, power_cells: 80, fuel: 150, concrete: 100 }, buildSeconds: 30000, purpose: 'Build the ship, and the town leaves for the stars. The end of the game (a win).', research: 'starship_design' },
   { id: 'phylactery', name: 'Phylactery', layer: 'mid', width: 1, cost: { bone: 12, iron: 6, herbs: 6, cloth: 2 }, buildSeconds: 300, purpose: 'The founder becomes a lich and always returns here after death. If it burns, the next death is final.', research: 'lichcraft' },
   { id: 'town_hall', name: 'Town Hall', layer: 'mid', width: 6, cost: { bricks: 40, lumber: 30, iron: 10, cloth: 10 }, buildSeconds: 3000, purpose: 'Era capstone: the seat of the town opens the Industrial era.', research: 'town_charter', morale: [6, 'A proper town'] },
 ];
 
+export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };
@@ -175,6 +192,9 @@ export const UPGRADES: Readonly<Record<string, string>> = {
   brick_wall: 'concrete_wall',
   concrete_wall: 'force_wall',
   palisade_gate: 'stone_gate',
+  stone_gate: 'brick_gate',
+  brick_gate: 'concrete_gate',
+  concrete_gate: 'force_gate',
   lookout: 'watchtower',
   infirmary: 'hospital',
   hospital: 'trauma_center',
@@ -187,6 +207,7 @@ export const UPGRADES: Readonly<Record<string, string>> = {
   radio_tower: 'drone_hub',
   gun_nest: 'gun_turret',
   gun_turret: 'laser_turret',
+  ...SEAT_UPGRADES,
 };
 
 /** Adjacency bonuses (DESIGN §4): a workshop near its raw material works faster; a tavern near the market cheers more. */

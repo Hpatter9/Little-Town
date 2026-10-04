@@ -16,6 +16,8 @@ export const CELL = 32;
 export const LAND_W = 96;
 export const LAND_H = 96;
 export const OPEN_START = 11;
+/** A shore town's known land reaches further: half of it is sea, so the wild stuff is further off. */
+export const OPEN_START_SEA = 15;
 /** The camp's cleared ground, in cells from its centre. */
 export const CAMP_CLEAR = 5;
 /** At least this many cells of each wild kind lie within the open land at the start (wood, stone, clay and fiber). */
@@ -31,8 +33,8 @@ export const WEAR_DECAY = 1;
 /** Beyond the open land, this many cells are seen dimly (the renderer's fog); past them, nothing. */
 export const FOG_BAND = 6;
 
-export type Ground = 'grass' | 'forest' | 'rock' | 'marsh' | 'hill' | 'water' | 'fertile' | 'sand';
-const CODE: Record<Ground, string> = { grass: '.', forest: 'f', rock: 'r', marsh: 'm', hill: 'h', water: 'w', fertile: 'F', sand: 's' };
+export type Ground = 'grass' | 'forest' | 'rock' | 'marsh' | 'hill' | 'water' | 'fertile' | 'sand' | 'mountain' | 'hall' | 'shallows';
+const CODE: Record<Ground, string> = { grass: '.', forest: 'f', rock: 'r', marsh: 'm', hill: 'h', water: 'w', fertile: 'F', sand: 's', mountain: 'M', hall: 'H', shallows: 'S' };
 const GROUND: Record<string, Ground> = Object.fromEntries(Object.entries(CODE).map(([g, c]) => [c, g as Ground]));
 /** The wild kinds, which must be cleared (gathered out) before building. */
 export const WILD: readonly Ground[] = ['forest', 'rock', 'marsh', 'hill'];
@@ -85,6 +87,42 @@ export const isRoad = (m: LandMap, x: number, y: number) => inMap(m, x, y) && m.
 export const isOpen = (m: LandMap, x: number, y: number) => inMap(m, x, y) && Math.hypot(x - m.camp.x, y - m.camp.y) <= m.open;
 /** Ground that can be built on as it is. */
 export const buildable = (g: Ground) => g === 'grass' || g === 'fertile' || g === 'sand';
+/** The sea: the shallows along the shore (waded by anyone, slowly) and the open water (swum only). The merfolk build
+ *  on both (sim/sea.ts), and gather from their pools (fish, kelp, pearls). */
+export const wet = (g: Ground) => g === 'water' || g === 'shallows';
+/** The mountain's rock, which a hold's rooms are carved into (`mountain`: solid, nothing crosses it), and the halls and
+ *  galleries already cut (`hall`: walked through). */
+export const carvable = (g: Ground) => g === 'mountain' || g === 'hall';
+/** How the land is shaped besides its biome: `mountain`, half of it solid rock north of the camp (the dwarves);
+ *  `sea`, half of it sea south of the camp, shallows along its shore (the merfolk). */
+export type LandShape = 'mountain' | 'sea';
+/** The shore runs this many rows below the camp, and the shallows reach this many rows out into the sea. */
+export const SEA_FOOT = 3;
+export const SHALLOW_ROWS = 4;
+/** What a cell of the sea holds (the merfolk gather it: sim/sea.ts): fish everywhere, kelp in the shallows, and here
+ *  and there a pearl, more often in deeper water. The sea gives again (`replenishSea`). */
+export function seaPool(g: Ground, rng: { int(lo: number, hi: number): number; chance(p: number): boolean }): Partial<Record<Material, number>> {
+  const pool: Partial<Record<Material, number>> = { fish: g === 'shallows' ? rng.int(2, 4) : rng.int(3, 6) };
+  if (g === 'shallows' && rng.chance(0.7)) pool.kelp = rng.int(1, 3);
+  if (rng.chance(g === 'shallows' ? 0.08 : 0.2)) pool.pearls = 1;
+  return pool;
+}
+/** The mountain's foot runs this many rows above the camp (level by the camp, ragged further off). */
+export const MOUNTAIN_FOOT = 3;
+/** How deep into the mountain a cell lies (rows above its foot by the camp; 1 at the foot), where the veins run richer. */
+export const delveDepth = (m: Pick<LandMap, 'camp'>, y: number) => m.camp.y - MOUNTAIN_FOOT - y + 1;
+/** What a cell of the mountain holds when a hold digs into it: stone throughout, coal and iron from a little way in,
+ *  gold from `GOLD_DEPTH`, gems from `GEM_DEPTH`, and more of each the deeper the cell lies. */
+export const GOLD_DEPTH = 6;
+export const GEM_DEPTH = 9;
+export function delvePool(depth: number, rng: { int(lo: number, hi: number): number; chance(p: number): boolean }): Partial<Record<Material, number>> {
+  const pool: Partial<Record<Material, number>> = { stone: rng.int(5, 9) };
+  if (depth >= 2 && rng.chance(0.5)) pool.coal = rng.int(1, 3);
+  if (depth >= 2 && rng.chance(0.6)) pool.iron_ore = rng.int(1, 3);
+  if (depth >= GOLD_DEPTH && rng.chance(Math.min(0.5, 0.15 + (depth - GOLD_DEPTH) * 0.05))) pool.gold = rng.int(1, 1 + Math.floor((depth - GOLD_DEPTH) / 6));
+  if (depth >= GEM_DEPTH && rng.chance(Math.min(0.35, 0.08 + (depth - GEM_DEPTH) * 0.04))) pool.gems = rng.int(1, 1 + Math.floor((depth - GEM_DEPTH) / 8));
+  return pool;
+}
 
 /** Mark a cell for gathering, or unmark it. */
 export function setMarked(m: LandMap, i: number, on: boolean): void {
@@ -99,7 +137,7 @@ export const isMarked = (m: LandMap, i: number) => m.marked.includes(i);
 export function setGround(m: LandMap, x: number, y: number, g: Ground): void {
   const i = idx(m, x, y);
   m.cells = m.cells.slice(0, i) + CODE[g] + m.cells.slice(i + 1);
-  if (!WILD.includes(g)) {
+  if (!WILD.includes(g) && !wet(g)) {
     delete m.pools[i];
     setMarked(m, i, false);
   }
@@ -143,7 +181,7 @@ function noise(seed: number, scale: number) {
   return (x: number, y: number) => (one(x / scale, y / scale) * 0.6 + one(x / (scale / 2), y / (scale / 2)) * 0.3 + one(x / (scale / 4), y / (scale / 4)) * 0.1);
 }
 
-export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
+export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShape): LandMap {
   const seedHash = hashSeed(seed);
   const w = LAND_W;
   const h = LAND_H;
@@ -215,8 +253,8 @@ export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
         if (near || grid[j] === 'grass' || grid[j] === 'sand') grid[j] = biome !== 'desert' && rng.chance(0.12) ? 'marsh' : 'fertile';
       }
   }
-  // the coast: the sea along one edge, a strip of sand inland of it
-  if (biome === 'coast') {
+  // the coast: the sea along one edge, a strip of sand inland of it (a sea-shaped land has its own sea below)
+  if (biome === 'coast' && shape !== 'sea') {
     const edge = rng.int(0, 3);
     const shore = noise(seedHash ^ 0x5e, 7);
     for (let y = 0; y < h; y++)
@@ -230,6 +268,36 @@ export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
   // the camp's clearing (and a little fertile ground just beside it, for the first fields)
   for (let y = camp.y - CAMP_CLEAR; y <= camp.y + CAMP_CLEAR; y++)
     for (let x = camp.x - CAMP_CLEAR; x <= camp.x + CAMP_CLEAR; x++) if (Math.hypot(x - camp.x, y - camp.y) <= CAMP_CLEAR + 0.5) grid[y * w + x] = biome === 'desert' ? 'sand' : 'grass';
+
+  // the mountain: solid rock over the whole north half, its foot MOUNTAIN_FOOT rows above the camp, level there and
+  // ragged further off (the river and the shore are swallowed where they ran into it)
+  if (shape === 'mountain') {
+    const foot = noise(seedHash ^ 0x7a, 8);
+    const spur = noise(seedHash ^ 0x7b, 3);
+    for (let x = 0; x < w; x++) {
+      const off = Math.min(1, Math.max(0, (Math.abs(x - camp.x) - 7) / 12)); // (level by the gate, then ragged)
+      // (the foot wanders by the broad noise, and the fine one throws spurs and gullies a row or two further)
+      const line = camp.y - MOUNTAIN_FOOT - Math.round(((foot(x, 0) - 0.5) * 10 + (spur(x, 0) - 0.5) * 4) * off);
+      for (let y = 0; y <= line && y < h; y++) grid[y * w + x] = 'mountain';
+    }
+  }
+  // the sea: the whole south half, its shore SEA_FOOT rows below the camp, level by the camp and wandering further
+  // off; shallows for the first rows out, a strip of sand along the strand (the river runs into it)
+  if (shape === 'sea') {
+    const shore = noise(seedHash ^ 0x8a, 8);
+    const bay = noise(seedHash ^ 0x8b, 3);
+    const reef = noise(seedHash ^ 0x8c, 5);
+    for (let x = 0; x < w; x++) {
+      const off = Math.min(1, Math.max(0, (Math.abs(x - camp.x) - 7) / 12));
+      const line = camp.y + SEA_FOOT + Math.round(((shore(x, 0) - 0.5) * 10 + (bay(x, 0) - 0.5) * 4) * off);
+      const band = SHALLOW_ROWS + Math.round((reef(x, 0) - 0.5) * 3);
+      for (let y = Math.max(0, line - 2); y < h; y++) {
+        if (y < line) {
+          if (grid[y * w + x] !== 'water') grid[y * w + x] = 'sand';
+        } else grid[y * w + x] = y < line + band ? 'shallows' : 'water';
+      }
+    }
+  }
 
   // every kind of wild land within reach of the camp: a town must find wood, stone, clay and fiber close by. A kind
   // the open land is short of takes over a patch of the commonest kind, nearest the camp first.
@@ -267,6 +335,10 @@ export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
   const pools: LandMap['pools'] = {};
   const poolRng = Rng.from(seedHash, 9);
   grid.forEach((g, i) => {
+    if (shape === 'sea' && wet(g)) {
+      pools[i] = seaPool(g, poolRng);
+      return;
+    }
     if (!WILD.includes(g)) return;
     const pool: Partial<Record<Material, number>> = {};
     for (const [mat, [lo, hi]] of Object.entries(TERRAIN[g as keyof typeof TERRAIN].pool) as [Material, [number, number]][]) {
@@ -276,16 +348,17 @@ export function makeLand(seed: string, biome: Biome = 'forest'): LandMap {
     pools[i] = pool;
   });
 
-  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: OPEN_START, version: 0 };
+  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: shape === 'sea' ? OPEN_START_SEA : OPEN_START, version: 0 };
 }
 
 /* ------------------------------------------------------------ building on it */
 
 /** Whether a footprint can go here: inside the open land, on buildable ground, clear of roads and of `taken`. */
-export function fits(m: LandMap, r: Rect, taken: readonly Rect[] = [], opts: { roads?: boolean } = {}): boolean {
+export function fits(m: LandMap, r: Rect, taken: readonly Rect[] = [], opts: { roads?: boolean; carve?: boolean; water?: boolean } = {}): boolean {
   for (let y = r.y; y < r.y + r.h; y++)
     for (let x = r.x; x < r.x + r.w; x++) {
-      if (!isOpen(m, x, y) || !buildable(groundAt(m, x, y))) return false;
+      const g = groundAt(m, x, y);
+      if (!isOpen(m, x, y) || !((opts.carve ? carvable : buildable)(g) || (opts.water && wet(g)))) return false;
       if (!opts.roads && isRoad(m, x, y)) return false;
     }
   return !taken.some((t) => overlaps(t, r));
@@ -306,16 +379,17 @@ export function ringCells(cx: number, cy: number, r: number): Pt[] {
 }
 
 /** Whether a footprint's door cell is free to stand on (open, buildable or road, under nothing). */
-export function doorFree(m: LandMap, r: Rect, taken: readonly Rect[]): boolean {
+export function doorFree(m: LandMap, r: Rect, taken: readonly Rect[], water = false): boolean {
   const d = doorOf(r);
-  return isOpen(m, d.x, d.y) && (buildable(groundAt(m, d.x, d.y)) || isRoad(m, d.x, d.y)) && !taken.some((t) => inRect(t, d.x, d.y));
+  const g = groundAt(m, d.x, d.y);
+  return isOpen(m, d.x, d.y) && (buildable(g) || isRoad(m, d.x, d.y) || (water && wet(g))) && !taken.some((t) => inRect(t, d.x, d.y));
 }
 
 /** The nearest place out from `from` for a w by h footprint: rings outward, each ring's spots sorted by `prefer`
  *  (lower first; nearer a road, say). `inside`: it must lie within this rectangle; `avoid`: and clear of this one;
  *  `ok`: and pass this test; `door: false`: its door cell needn't be free (a castle's room). Null if there's none
  *  within `maxR` rings. */
-export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean; ok?: (r: Rect) => boolean; door?: boolean } = {}): Rect | null {
+export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean; ok?: (r: Rect) => boolean; door?: boolean; carve?: boolean; water?: boolean } = {}): Rect | null {
   const maxR = opts.maxR ?? m.open + 2;
   for (let r = 0; r <= maxR; r++) {
     let best: Rect | null = null;
@@ -324,7 +398,7 @@ export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rec
       const rect = { x: c.x - Math.floor(w / 2), y: c.y - Math.floor(h / 2), w, h };
       if (opts.inside && !(rect.x >= opts.inside.x && rect.y >= opts.inside.y && rect.x + w <= opts.inside.x + opts.inside.w && rect.y + h <= opts.inside.y + opts.inside.h)) continue;
       if (opts.avoid && overlaps(opts.avoid, rect)) continue;
-      if (!fits(m, rect, taken, { roads: opts.roads }) || (opts.door !== false && !doorFree(m, rect, taken))) continue;
+      if (!fits(m, rect, taken, { roads: opts.roads, carve: opts.carve, water: opts.water }) || (opts.door !== false && !doorFree(m, rect, taken, opts.water))) continue;
       if (opts.ok && !opts.ok(rect)) continue;
       const score = opts.prefer ? opts.prefer(rect) : 0;
       if (score < bestScore) {
@@ -353,6 +427,8 @@ export function stepCost(m: LandMap, x: number, y: number, blocked?: (x: number,
   switch (groundAt(m, x, y)) {
     case 'water':
       return Infinity;
+    case 'shallows':
+      return 1.6; // (waded)
     case 'forest':
       return 1.7;
     case 'marsh':
@@ -361,16 +437,22 @@ export function stepCost(m: LandMap, x: number, y: number, blocked?: (x: number,
       return 1.8;
     case 'rock':
       return 2.4;
+    case 'mountain':
+      return Infinity;
     default:
       return 1;
   }
 }
 
-/** Limits on a path search: how many cells to look at, and what wading through water costs (none: it can't be). */
+/** Limits on a path search: how many cells to look at, what wading through water costs (none: it can't be), and what
+ *  a swimmer's stroke through the sea costs (the merfolk: quicker than walking). */
 export interface PathOpts {
   maxNodes?: number;
   ford?: number;
+  swim?: number;
 }
+/** What a cell of the sea costs a swimmer. */
+export const SWIM_COST = 0.8;
 
 /** The cheapest way from one cell to another (cells, the start left out), or null if there's none. Eight ways, no
  *  corner-cutting past what can't be crossed; `blocked` marks cells stood on (buildings), the goal always allowed. */
@@ -381,6 +463,8 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
   const W = m.w;
   const goal = to.y * W + to.x;
   const raw = (x: number, y: number, b?: typeof blocked) => {
+    // (a swimmer slips through the water, shallow or deep)
+    if (opts.swim !== undefined && inMap(m, x, y) && wet(groundAt(m, x, y)) && !b?.(x, y) && !isRoad(m, x, y)) return opts.swim;
     const c = stepCost(m, x, y, b);
     // (a raiding party wades a river where it must: water costs `ford`, not everything)
     return c === Infinity && opts.ford !== undefined && inMap(m, x, y) && groundAt(m, x, y) === 'water' && !b?.(x, y) ? opts.ford : c;

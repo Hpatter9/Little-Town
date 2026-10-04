@@ -1,10 +1,12 @@
-// Skills (abilities, to keep them apart from the work skills of data/skills.ts): two hundred of them, ten any class
-// learns and the rest each class's own, learned as their people level. A passive skill is always at work (a little
+// Skills (abilities, to keep them apart from the work skills of data/skills.ts): ten any class learns and twenty of
+// each class's own (the later ones in data/moreAbilities.ts, one of them the class's ultimate), learned as their people
+// level. A passive skill is always at work (a little
 // more health, a counter-blow, a chance to strike true); an active one is used in a fight when it's ready and worth it
 // (sim/actions.ts), then waits out its cooldown.
 
 import type { ClassId } from './classes';
 import { cleanse, drain, grant, heal, hit, inflict, summon, useOf, type Effect, type Use } from './effects';
+import { MORE_ABILITIES } from './moreAbilities';
 
 /** What a passive skill adds: shares (damage 0.1: a tenth more) or chances (counter 0.2: one blow in five). */
 export interface Passive {
@@ -54,9 +56,11 @@ export interface AbilityDef {
   passive?: Passive;
   active?: { cooldown: number; effects: readonly Effect[] };
   use: Use | 'passive';
+  /** The class's ultimate: loosed when the limit gauge is full (sim/actions.ts), not on a cooldown. */
+  ultimate?: boolean;
 }
 
-type Row = [string, string, number, Passive | [number, Effect[]]];
+type Row = [string, string, number, Passive | [number, Effect[]], 'ult'?];
 const P = (p: Passive) => p;
 const A = (cooldown: number, effects: Effect[]): [number, Effect[]] => [cooldown, effects];
 
@@ -394,8 +398,8 @@ const LISTS: [ClassId | null, Row[]][] = [
 ];
 
 export const ABILITIES: readonly AbilityDef[] = LISTS.flatMap(([cls, rows]) =>
-  rows.map(([id, name, level, what]) =>
-    Array.isArray(what) ? { id, name, cls, level, active: { cooldown: what[0], effects: what[1] }, use: useOf(what[1]) } : { id, name, cls, level, passive: what, use: 'passive' as const },
+  [...rows, ...(cls ? MORE_ABILITIES[cls] : [])].map(([id, name, level, what, ult]) =>
+    Array.isArray(what) ? { id, name, cls, level, active: { cooldown: what[0], effects: what[1] }, use: useOf(what[1]), ...(ult ? { ultimate: true } : {}) } : { id, name, cls, level, passive: what, use: 'passive' as const },
   ),
 );
 export const ABILITY_BY_ID: Readonly<Record<string, AbilityDef>> = Object.fromEntries(ABILITIES.map((a) => [a.id, a]));

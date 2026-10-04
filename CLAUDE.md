@@ -245,7 +245,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   small home bigger before building another; in a quiet spell it upgrades one anyway (up to `SLEEP_ROUGH` sleep out
   meanwhile). New homes are paced by beds (`lastHomeBeds`), so bigger homes don't speed growth. Soak: about 10 homes
   (mostly longhouses) for 30 people at day 15, where it was about 28.
-- **Choice events:** the 100 of `EVENTS.md` are data in `src/shared/data/events.ts` (`EVENTS`: title, text, `who`
+- **Choice events:** 500 in all (the owner's ask): the 100 of `EVENTS.md` in `src/shared/data/events.ts` and 400 more in
+  `moreEvents1.ts` (daily life, weather and seasons, the shop and tavern, fields and pens, the wilds), `moreEvents2.ts`
+  (eight or so per origin, and prisoners), `moreEvents3.ts` (the Medieval, Industrial, Modern and Space ages) and
+  `moreEvents4.ts` (faith and omens, crime and law, children, elders and the dead, the land and the roads, war); the
+  types, shorthands and `when` helpers (`season`, `biome`, `children`, `elders`, `tavern`, `sea`, `library`, `walls`,
+  `mines`, `graveyard`, `hero`, `pack`, `monsters`, `strangers`, `prisoners`, `horses`) are in `eventKit.ts`. A `later`
+  effect waits at most 72 hours (the test gives it three days). The data: (`EVENTS`: title, text, `who`
   for a townsperson in it, `when`, two or three options with one `default`, each a list of `EventEffect`s: notes,
   morale and lever marks, gains and losses, coins, renown, newcomers, leaving, deaths and wounds, sickness, raids
   sooner or later, research, the Occult, chances and `later` effects). `src/shared/sim/events.ts`: `maybeEvent` hourly
@@ -602,6 +608,167 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   stone or bricks, a mortar tub, a sawhorse, a wheelbarrow, crates, barrels, sacks). The kit by the era of what's built
   (`eraOfResearch`): lashed poles, timber, steel tubes with couplers, green safety netting in the modern eras. The
   medieval field-work pack's props were tried and left out: their cartoon outlines don't sit with the pixel art.
+
+- **Age and lifespan (done; the owner's request):** every townsperson has an age in years and a lifespan of their
+  people's. `src/shared/data/lifespans.ts` (`LIFESPANS` per origin: `grown` and `old` in years, `elderDays` and
+  `oldDays` as a grown-up: settlers and knights 50/65 days, 18 to 70 years; nomads shorter; alchemists and druids
+  longer; merfolk 90 days to 120 years; dwarves 130 days to 250 years; the fae 200 days to 600 years; a werewolf's
+  curse 50 days to 52 years whatever the town, `CURSED_LIFESPAN`). `sim/ageing.ts`: `lifespanOf(s, p)`, `ageYears`
+  (a child's years climb to `grown` over `CHILD_DAYS`), `lifeStage` (child, young, prime, elder, old, deathless),
+  `ageLine` ("A dwarf of 112 years, in their prime. Dwarves grow old at about 250."); the old-age odds past
+  `oldDays` climb scaled to the span (`HUMAN_OLD_DAYS`), and founders arrive up to `primeSpread` (40% of the elder
+  days) into their prime. The Townsfolk rows show the years (`· 64y`), the inspect page `Aged N` and the line, the
+  tap card the years. Snapshot: `ageYears`, `lifeStage`, `ageText`. Tests: `test/ageing.test.ts`.
+- **Werewolves wear the pack's sprites:** `WOLF_FORMS`/`WOLF_SCALE` in `art/combatPoses.ts` (Craftpix's black, red
+  and white werewolves, by who they are): a werewolf townsperson takes wolf form on the map under the full moon and
+  whenever they fight (mapPeople), and on the fight screen in every fight (`FighterView.wolf`, at a hero's height);
+  the `werewolf` raider and `the_alpha` (data/enemies.ts, `packSprite`) are the pack's too, so the Moon Pack's raid,
+  the Alpha's summons and the rival packs all match. The old `wolfman` sheet is left for nothing but its type.
+
+- **The merfolk's shore (done; the owner's call: coast only, half sea, building on land and in the water, swimming):**
+  the Tide Clan's land is shaped by the sea (`rules.shape: 'sea'` in data/origins.ts; `LandShape` in land.ts; a shore
+  town is always founded on the coast: `newGame` forces the biome, the New Town screen says so instead of the biome
+  cards). `makeLand(seed, 'coast', 'sea')`: the south half is `water`, its shore `SEA_FOOT` rows below the camp and
+  wandering further off, `shallows` (ground 'S', `SHALLOW_ROWS` out, waded by anyone at a cost) along it, sand on the
+  strand; the biome's own edge-sea is left out. Every cell of the sea holds a pool (`seaPool`: fish, kelp in the
+  shallows, now and then a pearl; `fish`, `kelp`, `pearls` in data/materials.ts, fish and kelp food, pearls worth 14),
+  gathered as `Fishing` (`TERRAIN.shallows`/`water` in data/terrain.ts: a gather task on a sea cell once dropped
+  itself for want of an entry, and the marked pearl cells then clogged the marking cap); a fished-out cell stays the
+  sea (`clearCell`) and gives again each dawn (`replenishSea` in `sim/sea.ts`, `SEA_REFILL`). `sim/sea.ts`: `seaTown`,
+  `swims` (everyone of a shore town: `walk`/`pathTo` take `swim`, `PathOpts.swim` = `SWIM_COST` 0.8 a cell of water),
+  `seaBuild` (homes, the seat, defences, the shrine, well, tower, circle, graveyard may stand in the sea: `canPlace`
+  allows wet ground for them, `fits`/`doorFree`/`spiralSpot` take `water`, the planner's `findSpot` prefers the sea for
+  them by `SEA_PREFER`; fields, pens and workshops stay on the strand), `inSea`. The planner fishes when food is under
+  4 days and keeps one pearl cell marked (`PEARLS_WANT`, `RESERVE` 0: sold). The map: `shallows` in the ground palette
+  (clear water over sand, the Seabed props showing through, foam at the strand, ripples); a merrow in the sea
+  (`PersonView.swimming`) is drawn to the waist (`waistUp` crops the frame to `WAIST`) over a code-drawn tail
+  (`art/merTail.ts`, four sea colours by id, swaying; no shadow); a building in the sea has a ring of foam for its
+  shadow. Tests: `test/sea.test.ts`. Probe (5 days): 11 people, 11 lean-tos in the shallows, fish, kelp and pearls
+  in store. Soak (15 days, one town): 18 people, 2 deaths (slower than the old merfolk's 31: half the land is sea now,
+  so the wild stuff is further; watch it). Still to come for the merfolk: sea raiders landing from the water, merfolk looks (scales, fins) on land,
+  the ocean backdrops for their trips.
+
+- **The undead village (done; the owner's call: only the dead in a lich town):** `keepKin` in `sim/townsfolk.ts`,
+  hourly from sim.ts: whoever is in a kin town and not of its kin is made kin, by whatever door they came (a wanderer,
+  a captive brought home, a raider come round, a rival won over, a quest's captive; a lich town once held three living
+  and a vampire by day 10). In a lich town they are raised (`monster` undead, "is dead, and risen") and look it
+  (`raisedLook`: the LPC `skeleton` body in a bone tint by id, no hair, the clothes they died in; the founding
+  companions too); the lich keeps their own shape. A pack bites its newcomers, a colony remakes them. In a fight the
+  raised dead take the Craftpix skeleton forms (`skeletonSheet` in art/combatPoses.ts: the archer for a shooter, the
+  warrior or the spearman by id; mapPeople and fightView through `FighterView.undead`). Tests: `test/kin.test.ts`.
+
+- **Strangers of other peoples, xenophobia, the hidden vampire's thirst (done; the owner's request):**
+  `src/shared/data/strangers.ts` and `src/shared/sim/strangers.ts`. `Person.origin` and `Traveller.origin` (their
+  people when not the town's; `peopleOf`): a wanderer is of another people `STRANGER_CHANCE` of the time, a traveller
+  `TRAVELLER_STRANGER_CHANCE` (`strangerOrigin` from `STRANGER_ORIGINS`, never the town's own, the dead and machines
+  never), with their people's look (`strangerLook`: dwarves short, the fae and merfolk long-eared, the merfolk
+  sea-skinned, the Blood Court pale) and lifespan (`lifespanOf` reads `p.origin`); a stranger of the Blood Court comes
+  as a vampire in hiding, of the Moon Pack as a werewolf (`makeStranger`). A traveller who leaves the shop well served
+  may ask to settle (`offerToSettle`, `SETTLE_CHANCE`, a bed free: they become the town's visitor, taken in or sent
+  on as any wanderer). The `xenophobic` rule (data/origins.ts: the Deep Hold) turns strangers from the gate
+  (`welcomes`), wanderers and settlers alike. **The thirst:** a hidden vampire feeds the quiet ways first
+  (`updateMonsters`: the town's blood tithe, a prisoner, a beast of a full pen (sometimes drained), a lodger at the
+  tavern (who leaves pale, half their purse)), townsfolk last: a bite stirs the Guild `GUILD_BITE` and counts
+  (`s.bites`), and after `THIRST_BITES` the town speaks of it: a prompt of kind `thirst` ("A thirst in the dark",
+  `askThirst`/`answerThirst`, `THIRST_OPTIONS`): a blood tithe (`s.tithe`: fed cleanly from then on, `TITHE_MORALE`
+  off everyone once), the Guild called (hostility to its threshold: hunters at the next noon), or nothing said. Tests:
+  `test/strangers.test.ts`.
+
+- **Natures (done; the owner's ask: villagers with personalities of their own):** `src/shared/data/natures.ts`:
+  fourteen natures (cheerful, grumpy, shy, bold, dreamy, pious, greedy, kind, proud, curious, gloomy, jolly, stern,
+  restless), each with a name and a line, a `mood` nudge to the morale they settle at (`driftMorale`), a `work` pace
+  (`workFactor`), `friction` and `likes`/`clashes` (`natureFit`, added to the pair's `chemistry` in `updateSocial`,
+  so like warms to like and some natures grate), and lines to `say` on each `Topic` (greet, work, cold, hot, rain,
+  night, hungry, tired, raid, friend, rival, idle, sea, sick, old, child; `ANYONE` fills a gap). `natureOf(p)` is
+  decided by the id (`Person.nature` overrides; no save change). **Speech bubbles:** `src/renderer/map/speech.ts`
+  (`topicFor` from the person's view and what's going on, `lineNow`, `makeBubble`: a white box with a tail, the
+  look's body face) and `MapPeople.speak`: each person has a slot of `SPEECH_EVERY` (48 s, offset by id) and speaks
+  in `SPEECH_SHARE` of them for `SPEECH_FOR`; someone within `TALK_NEAR` answers `REPLY_AFTER` later; never asleep,
+  fighting, just struck, indoors or a visitor. main.ts feeds `weather`, `season`, `hour` and `raid`;
+  `window.__talk = 1` makes everyone talk (previews: glowshot's TALK=1). The Townsfolk rows, the inspect page and the
+  tap card name the nature (`PersonView.nature`, `natureName`, `natureLine`). Tests: `test/natures.test.ts`.
+
+- **The Blood Court's blood (done; the owner's request: blood as a resource, a blood farm, tithes, prisoners kept and
+  bled):** `blood` is a material (data/materials.ts, worth 5; the planner keeps `RESERVE` of it like any other and
+  sells the surplus). `src/shared/data/vampires.ts` and `src/shared/sim/vampires.ts`: each dusk (`TITHE_HOUR`,
+  `bloodHourly` from sim.ts) a blood town (`bloodTown`: the Court; it keeps the tithe from its founding, `tithed`)
+  gets `TITHE_PER_THRALL` from every living grown thrall, `BLOOD_PER_HEAD` from the pens' beasts and
+  `BLOOD_PER_PRISONER` from each prisoner in the **Blood Farm**'s cells (`BLOOD_FARM`, `origin` vampire from the
+  Medieval age, merged into BUILDINGS; `FARM_CELLS` 4 a farm, escapes `FARM_ESCAPE` as likely); the vampires drink
+  from the store before any other way (`drinkBlood`, first in `updateMonsters`' order, in any town with blood in
+  store), and the surplus is brewed into `blood_wine` (a tier-2 ware, 3 blood, 18 coins; code-drawn icons
+  `blood_wine` and `mat_blood`). The Court's prisoners are kept, never won over (`updatePrisoners` skips conviction
+  in a blood town), and its thralls take the fallen alive `captives` times as often (the rule in data/origins.ts, 2;
+  `takePrisoners`). Tests: `test/bloodCourt.test.ts`.
+
+- **More buildings and crafting stations (done; the owner's ask):** `src/shared/data/workshops.ts`: 29 workshops, each a
+  station of its own (`WORKSHOP_BUILDINGS`, merged into BUILDINGS; their ids in the `Station` union and `STATIONS`), with
+  about 70 recipes (`WORKSHOP_ITEMS`, merged into ITEMS: wares for the shop, fare for the tavern, furnishings for either
+  venue, and material recipes) and six new topics (`WORKSHOP_TOPICS`: Jewellery, Printing, Clockwork, Canning, Household
+  Appliances, Biofabrication; the rest hang on topics the game had). By age: the smokehouse, bone carver and basket weaver
+  (Stone Age); brewery, tailor, jeweller, cooperage, apothecary, chandlery, dyeworks (Medieval); printing press,
+  clockmaker, cannery, textile mill (Industrial); appliance plant, pharmacy (Modern); biofabrication lab, nanoforge
+  (Space); and one of each people's own from the Medieval age (`origin` + `era`: the Court's blood cellar, the liches'
+  bone forge, the hold's gem cutter, the druids' bower, the merfolk's pearl works, the nomads' felt works, the fae's
+  glamour loom, the alchemists' alembic, the machines' assembler, the knights' armourer, the pack's pelt house). Three
+  comforts besides: the granary (150 storage), the theatre and the bathhouse (morale). The planner builds one of each it
+  has learned ("a new workshop") and sells their wares. Pictures: `PICKS` in packBuildings.ts (the medieval trades in the
+  pack's timber house with their gear at the door; the rest from the camp's racks and fires, the dungeon props and the
+  futuristic objects). `isUnlocked` now reads a settlers' town's missing `origin` as settlers, so another people's
+  buildings (the blood farm, the origin defences) are never theirs. Tests: `test/workshops.test.ts`.
+- **The ring wall (done; the owner's ask: a wall round the town that grows with it):** `src/shared/sim/ringWall.ts`.
+  An open town (not a castle or the hold, which have walls of their own, nor a tribe on the move) walls itself all
+  round once it is `RING_PEOPLE` (6) grown-ups strong (sooner when raided or set on Defence): `wantRect` is the box
+  round every building but the fields, pens and old walls, `RING_PAD` (3) out and each side stepped out from the camp to
+  a multiple of `RING_STEP` (4), at least `RING_MIN` (6) each way; `ringCells` its perimeter; `gateCells` a gate on the
+  camp's row on the west and east (where raids come in) and wherever a road crosses the ring. `s.ring` (`Ring`: gen,
+  rect, wall, gate, gates, done) is the ring under way; its pieces are ordinary wall and gate buildings tagged
+  `Building.ring` with the generation (the best wall learned, `bestWall`; gates for every wall now: brick, concrete and
+  force gates added to data/buildings.ts and UPGRADES). `planRing` (from `planBuilding` each pass, before the wishes)
+  places the gates first, then the walls (`missingPieces`: a cell with water, mountain or another building is left as
+  the wall there; wild cells are cleared first), at most `RING_AT_ONCE` (2) on the queue with a slot always left for the
+  rest, only while the stores hold `RING_SPARE` (3) times a piece's cost, none while food is under 2 days; when the town grows past the ring (`contains`) a wider one is started outside
+  it (a new gen), and once the new ring stands all round (`ringComplete`) the older pieces, and the old strip's end
+  walls, are demolished (half refunded). The known land is opened to the ring's corners. Townsfolk walk out through the
+  gates (`blockedBy` in walk.ts and `connectRoad` let gates through; a sealed town walks straight through, as `walk`
+  always did); raids' trails end at the ring's gate on their side (`ringGate` in battle.ts `gateCell`), raiders break
+  the gate or wall as before (`wallBetween`), and shooters stand on the ring's pieces near the trail (wall spots). The
+  planner's old end walls (`wallSpot`, "a wall at each end of town") are gone. **Continuous walls:** a one-cell wall
+  piece's picture is chosen by how it joins its neighbours (`MapView.wallJoin`: along a row, down a column, a corner,
+  alone; in the building's `sig`, so a piece is redrawn when a neighbour goes up): `Pick.joins` in packBuildings.ts
+  gives the palisade the Village pack's post pair (`palisade24`, `palisade14`) down a column, a single post at corners
+  and a short post alone. Tests: `test/ringWall.test.ts`.
+- **Turn-based fights where stats matter (done; the owner's ask):** `src/shared/data/attributes.ts` and
+  `sim/attributes.ts`: everyone has Strength, Dexterity, Vitality, Intellect and Wisdom (`Attrs`; `attributesOf(p)`:
+  `ATTR_BASE` 8, a class's growth by level in its own proportions (`CLASS_ATTRS`), the work skills' part, traits, a
+  founder's edge). In `personFighter`: Strength (or Intellect for a caster) in the blow, Dexterity in aim, dodge and the
+  time between turns (`speedOfDex`), Vitality in health; a fighter's health is the same share at the fight's reckoning
+  and scaled back after (`finishBattle`). **Turns:** `stepBattle` lets one fighter act a tick and waits `TURN_BEAT`
+  (6) ticks after each action (`Battle.beat`; `ULT_BEAT` after an ultimate), so turns come one at a time and the quick
+  come round more often; fights run about twice as long as before (the dragon test waits 180 s). **Costs:** spells draw
+  mana (`maxManaOf`, `spellCost` by the level learned), skills stamina (`maxStaminaOf`, `skillCost`); both return a
+  little each turn (`manaRegenOf`, `staminaRegenOf`) and a plain blow gives `STAMINA_PER_BLOW` back; `KitAction.cost`/
+  `pool`, `canPay`/`pay` in actions.ts; a fighter without pools (a raider on the map, a creature) pays nothing.
+  **Ultimates:** every class's twentieth skill or so (`AbilityDef.ultimate`, the rows marked `'ult'` in
+  `data/moreAbilities.ts`, learned by level 25) costs the **limit gauge** (`Combatant.limit`, 0 to 1: filled by hurt
+  taken, `LIMIT_FROM_HURT`, and less by hurt dealt, capped a tenth a blow, `fillLimit` from `strike`); full, it is the
+  thing to do (`takeTurn` adds 100 to its worth), the gauge empties, a shout goes to the Journal. **Twenty skills a
+  class:** `data/moreAbilities.ts` (`MORE_ABILITIES`, merged into each class's list in abilities.ts): 12 or 13 more
+  each, ten general ones besides (a skill that shares a spell's name carries `_art` on its id: ids are unique across
+  both lists); `test/turns.test.ts` counts them. **Seeing it:** `Battle.acts` carry `ActMeta`
+  (spell, ult, cost, pool); the snapshot's `acts` add `who`; `fightHud.ts` shows a **banner** (`#fight-banner`: who,
+  a floating FF-style window lower in the scene naming the act and who used it at what cost, faded and lifted by
+  the clock in `fadeBanner` since the strip's CSS animations never advanced; gold and bigger for an ultimate; CSS in
+  index.html), a wide **turn gauge** under each party member's name (`.ff-turn`, lit when full; a thin red one per
+  foe kind) with MP, SP and limit bars beside it (`.ff-pools`), and in a fight the top window gives way to a small
+  corner button out (`#fight-leave`); `fightView.ts` shakes the scene and flashes white on an ultimate. The Townsfolk
+  inspect page shows the five attributes, MP and SP, and each skill's cost (`PersonView.battle.attrs`, `kit[].cost`).
+- **A hard cap on births:** `POP_HARD_CAP` (90, data/pace.ts): no child is born past it (wanderers already stop at
+  `POP_SOFT_CAP`); the 200-day soaks had settlers at 71 by day 40 and climbing.
+- **The Court's tithe stops at a reserve:** `BLOOD_KEEP` (30) in data/vampires.ts: with that much blood in store the
+  thralls are spared (the pens and the cells still give).
+- **A shore town knows more of its land:** `OPEN_START_SEA` (15, where a dry land opens 11) in land.ts, since half of a
+  sea-shaped land is sea. Soak (15 days): merfolk 22 people (was 18).
 
 ## Planned (owner's requests)
 
@@ -976,6 +1143,110 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
         chairs and a chest; stood in the middle of the floor (`draw`: no shadow, the whole footprint tappable:
         `DrawnBuilding.room`), with a candle's glow at night. A room under construction shows its furnishings' ghost and
         the site; its floor and walls come when it is done.
+
+    - **The dwarves' hold (done; the owner's design):** the Deep Hold's land is half mountain (`rules.hold: 'mountain'` in
+      `data/origins.ts`; `holdOf(s)` in `sim/castle.ts` is `'castle'`, `'mountain'` or null, and the castle rules below
+      hold for both). `makeLand(seed, biome, 'mountain')` makes the north half `mountain` ground (code 'M', impassable,
+      level by the camp and ragged beyond); the hall (`coreRect`) is cut into its foot `MOUNTAIN_FOOT` rows in, the camp
+      fire and stockpile stand on the terrain before it, and rooms are carved into the rock (`carvable`, `carve`: the
+      cells become `hall` ground, code 'H'; `canPlace`, `placeBlueprint` and `upgrade` carve; `spiralSpot`'s `carve`
+      option) sharing a wall with the hold as a castle's rooms do. The one way in is the gate in the hall's south wall.
+      Drawn by `groundArt.ts` (the mountain mass with seams and a lit cliff face where it meets the ground, halls as a
+      dark floor) and `castleArt.ts`'s mountain style (rock walls, the cave pack's carved gate, no towers); hold homes
+      show painted beds, never the camp tents.
+      - **Digging deeper:** the mountain is mined like the wild land. `openFaces` (planner.ts, each planning pass) gives
+        every mountain cell beside a hall within the open land a pool from `delvePool(depth)` (land.ts: stone always,
+        coal and iron ore from depth 2, gold from `GOLD_DEPTH` 6, gems from `GEM_DEPTH` 9, richer the deeper;
+        `delveDepth` counts rows in from the mountain's foot); dug out (`clearCell`) a face becomes a gallery (`hall`,
+        and part of `castleCells`, so rooms may be carved over galleries: `solidCells` is what may not be built over).
+        The hold keeps `DELVE_WANT` gold and gems coming (`planGathering`), and the shop sells the rest (`RESERVE` 0).
+        Materials `gold` and `gems` (`data/materials.ts`, worth 9 and 16 in `data/trade.ts`, DawnLike icons). Selling
+        ore ran the shop away (coins bought appeal, appeal drew more and bigger purses): attractiveness past
+        `APPEAL_CAP` (100, `data/shop.ts`) adds nothing more to purses or the traveller rate. Probe at day 13 (4 seeds): dwarves
+        hold 500 to 6000 coins (their shop takes 1000 to 3000 a day, nearly all gold and gems) where settlers hold 100
+        to 300; it was 10 000 to 18 000 before the cap. Tests: `test/castle.test.ts` (the hold, its growth, the veins,
+        the galleries).
+
+    - **The mountain's look (done):** `src/renderer/map/mountainArt.ts`: the mass in relief (ridged noise shaded from the
+      north-west, posterised to five shades, snow on the high crests, cracks where the slope breaks: `paintMountain`), a
+      cliff face at its foot lit with a jagged brow and buttresses that reach down into the cell below, spurs biting in
+      from the sides (`paintMountainEdge`, called for every terrain cell); cave rocks and crystals scattered over the mass
+      (`PROPS_ON.mountain`, thinned by `PROPS_SHARE`). The land's foot line wanders with two noises (`makeLand`). The
+      chunk key carries the ring of cells round a chunk, since the edge reaches into its neighbours.
+    - **The seat of the town (done; the owner's request):** every origin has one central building, standing from the
+      founding and rebuilt grander as each era comes: `src/shared/data/seats.ts` (`SEATS`: five stage names and lines per
+      origin, a morale reason, a `boon`: wanderers, healing, raid warning or a deep store; `SEAT_DEFS` generated and
+      merged into BUILDINGS, chained by `SEAT_UPGRADES` in UPGRADES; `SEAT_STAGE`, `isSeat`, `seatOf`). A stage is a
+      building def with `era` (opens with the era), `origin` (another people's is never theirs: `isUnlocked` takes both,
+      `unlockInfo` passes them) and `seat` (1..5), `never` built new: `newGame` founds stage 1 just beyond the fire
+      (5x3; a hold's on its hall, 6x4, as a room: `seatCore`), the planner's `planSeat` rebuilds it as soon as the next
+      stage is open and affordable (`shelveStalled` leaves it alone), and `canUpgrade` keeps a building no bigger than
+      what stands where it is without asking `canPlace` (so a hold's seat is rebuilt on its hall, campfire and all). The
+      nomads' first two seats are portable. Pictures: `src/renderer/art/seatArt.ts` (`seatArt(origin, stage, w, d)`, one
+      painter per origin growing with the stage: moot hall to council spire, bone altar to throne of unlife, standing
+      stones to world tree, den to howling hall, core pad to overmind, tide pool to pearl palace, yurt to palace of the
+      horde, faerie ring to court of seasons, still house to philosopher's tower, motte to citadel; the holds' throne
+      rooms `seatInterior`, drawn by `roomFurniture` at `THRONE_K`; `window.__seatArt`/`__seatInterior` for previews),
+      used by MapView's `art`, the feed's `cardArt`. topDown.ts exports its pieces (`roofPlane`, `frontWall`, `MATS`,
+      `G`). Tests: `test/seats.test.ts`.
+
+    - **The Moon Pack (done; the owner's design, the Great Hunt win his call):** `src/shared/data/pack.ts` and
+      `src/shared/sim/pack.ts`. Everyone in a werewolf town is a werewolf (`kin: 'werewolf'`; `joinOrigin` turns
+      newcomers; the Hunter's Guild doesn't count them). `s.pack` (`PackState`): **renown** (a hunt +1, a beast raid
+      beaten +2, a beast's lair cleared on the land +3, a rival pack broken +6, the Great Beast +10: `PACK_RENOWN`,
+      `gainRenown`), which is in every blow (`fightRate`: `RENOWN_FIGHT` per point up to `RENOWN_FIGHT_MAX`). **The
+      full-moon hunt:** at `HUNT_HOUR` of a full-moon night (`packHourly`, from sim.ts) the pack runs out as an
+      expedition the town sends itself (`sendHunt`: the Alpha first, then by level, `HUNT_KEEP_HOME` of them left to
+      guard; `Expedition.hunt`; destination `HUNT_DEST`, `huntDestination`, up to `HUNT_PARTY` 8), fights beasts on the
+      FF screen (watchable; a feed card), and is home by morning. **Rival packs** (`RIVAL_PACKS`: the Ash Pack, the Red
+      Fang, the Winter Wolves, each with an alpha boss in `PACK_BOSSES`, merged into ENEMIES): one raids at a full
+      moon's dusk (`PACK_RAIDS` raid kinds, weight 0, started by `packHourly`; the alpha leads), and each lair is a
+      destination on the Expedition Board (`packDestId`, `packDestination`, resolved by `destinationOf`; the player
+      picks the war party as for a dungeon). A pack is **broken** when its alpha falls, at its lair (one or two
+      survivors join the town) or at the gate (`packRaidBeaten`); its hills become a hunting ground (`grounds`:
+      `GROUNDS_YIELD` meat and hide each dawn). **The Alpha:** the morning after a full moon one of the pack
+      `CHALLENGE_LEVEL_EDGE` levels above the Alpha may challenge (`challenge`, `CHALLENGE_CHANCE`, never within
+      `CHALLENGE_GAP_DAYS`): a roll of level, melee and health; the winner is `s.mainId`, the loser left at a quarter
+      health. **The Great Hunt:** once renown reaches `GREAT_BEAST_RENOWN` the Pale Behemoth (`GREAT_BEAST`, the
+      behemoth sheet greyed and brightened) joins the hunt's encounters; with it slain and every rival pack broken the
+      game is won (`checkGreatHunt`, `s.gameOver.won`); the launch still wins too. Snapshot `pack` (`PackView`) drives
+      "The pack" block on the Expedition Board (renown, hunts, grounds, the moon, the beast, the lairs' cards). On the
+      map, werewolves under the full moon are the Craftpix werewolf sheets (`WOLF_FORMS` in mapPeople.ts, by id,
+      through `heroFrame`). Tests: `test/pack.test.ts`. Soak (3 towns, 15 days): 33 to 37 people, 1 to 4 deaths, two
+      hunts each (the full moons of days 6 and 12), renown 3 to 6, one town raided by the Ash Pack; no pack broken on
+      its own, since only a player-sent war party breaks one at its lair.
+
+    - **Tower defence, deeper (done; the owner's request):** `src/shared/data/defenses.ts`: traps and engines for every
+      era (`DEFENSE_BUILDINGS`: the pit trap from Trapmaking; caltrops and boiling oil from Fortification; the ballista
+      and catapult from Siege Engines (new topics in data/research.ts); the cannon and land mine from Firearms; the
+      flame turret and mortar pit from Rifles; the Tesla coil from Energy Weapons) and one piece of each origin's own
+      (`ORIGIN_DEFENSES`, `origin` + `era: 'medieval'`: militia post, bone spire, bramble snare, gargoyle perch, wolf
+      trap, sentry bot, rune bolt thrower, tide pool trap, arrow wagon, glamour ring, acid sprayer, crossbow bastion),
+      merged into BUILDINGS. `BuildingDef.defense` has quirks: `splash` (px; those beside take `SPLASH_SHARE`), `slow`
+      (share of speed for `SLOW_SECONDS`), `burn` (a second for `BURN_SECONDS`), `chain` (leaps `CHAIN_REACH` px to that
+      many more, `CHAIN_SHARE` each), `night` (multiplier after dark), `rout` (chance the struck one runs). `sim/defenses.ts`
+      applies them: `fireAt` (shared by raids.ts `fireDefenses` in the town and battle.ts towers and traps on the trail,
+      the latter never missing), `speedOf` (a slowed raider's step, in town and on the trail), `tickBurns` (from
+      updateRaid). `Raider.slow/slowUntil/burn/routed`; a routed raider flees in town and breaks on the trail. The planner's
+      `planDefenses` keeps about one piece for every `DEFENSE_PER_PEOPLE` grown-ups (more when raided or set on Defence),
+      the best kinds first (its own origin's, then the latest era's), one of each before a second. Looks: `topDown.ts`
+      (`SHAPES`: traps on pads drawn by `drawTrap`, engines on low mounts (`ENGINES`) with their own toppers).
+      Tests: `test/defenses.test.ts`.
+    - **A game of generations (done; the owner's call: about three months of real time):** `src/shared/data/pace.ts`.
+      Research takes `RESEARCH_PACE` times longer by the topic's era (10, 5, 4, 3, 2), and the dangers that grow with
+      the day count `paceDay` (sim/time.ts: the day over `DANGER_PACE` 2.5): the raid budget and interval shortening,
+      the raid kinds' `fromDay`, boss and Behemoth raids, flanking, the lords' health. Study is spare-time work in a
+      town of up to `SMALL_TOWN` grown-ups and never comes before a site ready to build with nobody on it
+      (`researchCanWait` in people.ts; a researcher puts the topic down on the hour, its progress kept). Townsfolk
+      **age** (`sim/ageing.ts`): `Person.grownAt` (children when they grow up; founders and wanderers up to
+      `PRIME_SPREAD` days into their prime, by their id), elders from `ELDER_DAYS` 50 (`ELDER_WORK` 0.8, shown in the
+      Townsfolk tab; `PersonView.ageDays`, `elder`), and from `OLD_AGE_DAYS` 65 each night may be their last
+      (`OLD_AGE_DAILY` 0.05 + `OLD_AGE_DAILY_PER_DAY`; "has died of old age, full of days"); the undead, machines,
+      vampires and a lich never age. Children grow up in `CHILD_DAYS` 18 (`CHILD_HOURS` was 420 days, so nobody ever
+      did) and Family Life is a Stone Age topic now, so generations turn over. An event's `leave` never sends the
+      founder away (a lone founder exiled once left an empty town with no end). Tests paced: research time, rival and
+      beast raid days. Wanderers come less as a town fills and none past `POP_SOFT_CAP` (60): a 50-day knights' town
+      had reached 105 people before it.
 
 - Steps: (1) weapons and +N; (2) armour and gear kinds; (3) levels and the 125 classes; (4) the 160 spells and 200
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot

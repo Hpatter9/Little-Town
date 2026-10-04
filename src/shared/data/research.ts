@@ -3,6 +3,7 @@
 import { ERAS, type Era } from './eras';
 import type { OriginId } from './origins';
 import type { WorkAnim } from './terrain';
+import { WORKSHOP_TOPICS } from './workshops';
 
 export type Branch = 'construction' | 'crafting' | 'agriculture' | 'military' | 'medicine' | 'logistics' | 'society' | 'occult' | 'heritage';
 
@@ -102,6 +103,7 @@ export const TOPICS: readonly Topic[] = [
   { id: 'scouting', name: 'Scouting', branch: 'logistics', seconds: 240, prereqs: ['cordage'], unlocks: 'Scout expeditions, more destinations', effects: [] },
   { id: 'palisades', name: 'Palisades', branch: 'military', seconds: 240, prereqs: ['woodcutting'], unlocks: '', effects: [] },
   { id: 'lookout', name: 'Lookout', branch: 'military', seconds: 240, prereqs: ['palisades'], unlocks: 'Raid warning', effects: [] },
+  { id: 'trapmaking', name: 'Trapmaking', branch: 'military', seconds: 240, prereqs: ['palisades'], unlocks: 'Pit traps on the way in', effects: [] },
   { id: 'early_agriculture', name: 'Early Agriculture', branch: 'agriculture', seconds: 240, prereqs: ['foraging'], unlocks: 'Wild grain', effects: [] },
   { id: 'flax_growing', name: 'Flax Growing', branch: 'agriculture', seconds: 210, prereqs: ['early_agriculture', 'cordage'], unlocks: 'Fiber from fields', effects: [] },
   { id: 'market_gardens', name: 'Garden Crops', branch: 'agriculture', seconds: 210, prereqs: ['early_agriculture'], unlocks: 'Vegetables', effects: [] },
@@ -128,12 +130,13 @@ export const TOPICS: readonly Topic[] = [
   { id: 'physick', name: 'Physick', branch: 'medicine', era: 'medieval', seconds: 420, prereqs: ['weaving'], unlocks: 'Faster healing', effects: [] },
   { id: 'archery', name: 'Archery', branch: 'military', era: 'medieval', seconds: 360, prereqs: ['carpentry'], unlocks: '', effects: [] },
   { id: 'armoring', name: 'Armoring', branch: 'military', era: 'medieval', seconds: 540, prereqs: ['iron_working', 'leatherworking'], unlocks: '', effects: [] },
-  { id: 'fortification', name: 'Fortification', branch: 'military', era: 'medieval', seconds: 480, prereqs: ['masonry'], unlocks: 'Two hours of raid warning', effects: [] },
+  { id: 'fortification', name: 'Fortification', branch: 'military', era: 'medieval', seconds: 480, prereqs: ['masonry'], unlocks: 'Two hours of raid warning; caltrops and boiling oil', effects: [] },
+  { id: 'siege_engines', name: 'Siege Engines', branch: 'military', era: 'medieval', seconds: 480, prereqs: ['fortification'], unlocks: 'The ballista and the catapult', effects: [] },
   { id: 'carts', name: 'Carts', branch: 'logistics', era: 'medieval', seconds: 420, prereqs: ['carpentry', 'iron_working'], unlocks: '+5 carry, +20% storage', effects: [{ type: 'carry', add: 5 }, { type: 'storage', mult: 1.2 }] },
   { id: 'writing', name: 'Writing', branch: 'society', era: 'medieval', seconds: 480, prereqs: ['weaving'], unlocks: '+1 research queue slot', effects: [{ type: 'researchSlots', add: 1 }] },
   { id: 'brewing', name: 'Brewing', branch: 'society', era: 'medieval', seconds: 420, prereqs: ['milling'], unlocks: 'Morale, and more wanderers', effects: [] },
   { id: 'trade', name: 'Trade', branch: 'society', era: 'medieval', seconds: 480, prereqs: ['carpentry', 'weaving'], unlocks: 'Trade caravans', effects: [] },
-  { id: 'family_life', name: 'Family Life', branch: 'society', era: 'medieval', seconds: 420, prereqs: [], unlocks: 'Couples marry and raise children', effects: [] },
+  { id: 'family_life', name: 'Family Life', branch: 'society', era: 'neolithic', seconds: 300, prereqs: [], unlocks: 'Couples marry and raise children', effects: [] },
   { id: 'schooling', name: 'Schooling', branch: 'society', era: 'medieval', seconds: 420, prereqs: ['writing', 'family_life'], unlocks: 'Children grow up more skilled', effects: [] },
   { id: 'guilds', name: 'Guilds', branch: 'logistics', era: 'medieval', seconds: 480, prereqs: ['writing'], unlocks: '+1 craft and build queue slot', effects: [{ type: 'queueSlots', add: 1 }] },
   // Industrial (times stretched 6x)
@@ -330,6 +333,7 @@ export const TOPICS: readonly Topic[] = [
     ['combined_arms', 'Combined Arms', [R('guard', 0.9)]],
     ['star_knights', 'Star Knights', [R('fight', 1.15), R('guard', 0.9)]],
   ]),
+  ...WORKSHOP_TOPICS,
 ];
 
 /** What a finished topic's lasting effects do, in words. */

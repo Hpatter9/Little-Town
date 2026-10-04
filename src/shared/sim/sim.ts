@@ -21,7 +21,12 @@ import { assignOperators, cycleOperator } from './operators';
 import { releasePrisoner, updatePrisoners } from './prisoners';
 import { updateDoom } from './doom';
 import { updateMonsters } from './monsters';
-import { recallExpedition, sendDelve, sendExpedition, updateExpeditions , sendParty } from './expeditions';
+import { destinationOf, recallExpedition, rolesFor, sendDelve, sendExpedition, updateExpeditions, sendParty } from './expeditions';
+import { packHourly } from './pack';
+import { ageingHourly } from './ageing';
+import { replenishSea } from './sea';
+import { bloodHourly } from './vampires';
+import { RAID_KIND_BY_ID } from '../data/raids';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
@@ -30,14 +35,14 @@ import { delvesHourly } from './delves';
 import { placesHourly } from './places';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
-import { maybeStartRaid, startGuildRaid, updateRaid } from './raids';
+import { maybeStartRaid, startGuildRaid, startRaid, updateRaid } from './raids';
 import { answerPrompt, expirePrompts } from './roadEvents';
 import { newTickContext, updatePerson, walkTo } from './people';
 import type { Person } from './state';
 import { cancelResearch, queueResearch, researchNext } from './research';
 import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
-import { acceptVisitor, assignBeds, drillGuards, driftMorale, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
+import { acceptVisitor, assignBeds, drillGuards, driftMorale, keepKin, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
 import { forSale, runPlanner, shoppingList } from './planner';
 import { chooseLich, watchLich } from './occult';
 import { castHeld, castPowers, holdPower } from './powers';
@@ -147,6 +152,20 @@ export class Sim {
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);
+    ageingHourly(s, this.rng);
+    replenishSea(s, this.rng);
+    bloodHourly(s);
+    if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
+    packHourly(
+      s,
+      this.rng,
+      (dest, members) => {
+        const d = destinationOf(s, dest);
+        const r = sendExpedition(s, dest, members, rolesFor(members.map((id) => s.people.find((p) => p.id === id)!), d), 'bold');
+        return r.ok ? s.expeditions[s.expeditions.length - 1] : null;
+      },
+      (kind, budget) => startRaid(s, RAID_KIND_BY_ID[kind], budget, this.rng),
+    );
     drillGuards(s);
     updateAdvice(s);
     maybeArrive(s, this.rng);

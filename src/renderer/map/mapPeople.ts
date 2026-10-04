@@ -2,18 +2,21 @@
 // tick rate and are interpolated per frame; everyone stands in `things`, sorted by their feet. The LPC sprites are
 // side-on: they face the way they're going, left or right.
 
-import { Container, Graphics, Sprite } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { ClassId } from '../../shared/data/classes';
 import type { PersonView } from '../../shared/sim/snapshot';
 import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
-import { fightAnim, fightPose, heroFrame, heroScale, heroSheet, SHOOT_TICKS } from '../art/combatPoses';
+import { fightAnim, fightPose, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
+
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { glowTexture } from '../town/layer';
+import { TAIL_H, TAIL_W, tailTexture, WAIST } from '../art/merTail';
+import { hash01, lineNow, makeBubble, REPLY_AFTER, SPEECH_EVERY, SPEECH_FOR, SPEECH_SHARE, TALK_NEAR, type SpeechContext } from './speech';
 
 const EMOTE_EVERY = 11;
 const EMOTE_FOR = 3;
@@ -60,6 +63,13 @@ interface Drawn {
   aura?: Sprite;
   /** Their lantern's glow (in the map's lights layer, so it shows after dark). */
   lamp?: Sprite;
+  /** A merfolk's tail, while they swim (art/merTail.ts). */
+  tail?: Sprite;
+  /** What they're saying (map/speech.ts), and the slot it was said in. */
+  speech?: Container;
+  speechSlot?: number;
+  /** Answering someone beside them until this time. */
+  replyUntil?: number;
   from: { x: number; y: number };
   to: { x: number; y: number };
   at: number;
@@ -76,6 +86,12 @@ export class MapPeople {
   private readonly drawn = new Map<number, Drawn>();
   moon = false;
   theme = 'town';
+  /** What's going on, for what people say (main.ts, per snapshot), and the camera's zoom (bubbles stay readable). */
+  weather = 'clear';
+  season = 'spring';
+  hour = 12;
+  raid = false;
+  zoom = 1;
   /** The map's lights layer (main.ts): everyone out after dark carries a lantern's glow there. */
   lights: Container | null = null;
   weave = false;
@@ -133,7 +149,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -142,6 +158,52 @@ export class MapPeople {
     if (v.typeName === 'Traveller' || v.look.wear) return [v.look, wornLayers(v.gear, v.gearQ)];
     const w = wardrobe({ id: v.id, gender: v.look.gender, typeName: v.typeName, gear: v.gear, coins: v.coins, child: v.growsUpIn !== null, founder: v.id === this.founderId }, this.theme, this.weave);
     return [{ ...v.look, outfit: w.outfit }, [...w.wear, ...wornLayers(v.gear, v.gearQ)]];
+  }
+
+  /** Now and then someone says a line in their nature's voice (map/speech.ts): in a slot of their own by their id,
+   *  a share of the time; someone standing by answers a moment later. */
+  private speak(d: Drawn, now: number, x: number, y: number, z: number, hidden: boolean): void {
+    const v = d.view;
+    const t = now + v.id * 7331;
+    const slot = Math.floor(t / SPEECH_EVERY);
+    const into = t - slot * SPEECH_EVERY;
+    const quiet = hidden || d.visitor || v.activity === 'sleep' || v.activity === 'fight' || v.downed !== null || v.sinceHit < 20;
+    // someone near: a friend, a rival, a child, anyone (and whether this one is the answerer, a little later)
+    let nearFriend = false;
+    let nearRival = false;
+    let nearChild = false;
+    let nearAnyone = false;
+    let answering = false;
+    for (const o of this.drawn.values()) {
+      if (o === d || o.view.indoors || Math.hypot(o.x - d.x, o.y - d.y) > TALK_NEAR) continue;
+      nearAnyone = true;
+      if (v.friends.includes(o.view.name)) nearFriend = true;
+      if (v.rivals.includes(o.view.name)) nearRival = true;
+      if (o.view.growsUpIn !== null) nearChild = true;
+      if (o.speech?.visible && o.speechSlot !== undefined && now - (o.speechSlot * SPEECH_EVERY - o.view.id * 7331) < REPLY_AFTER + 400 && now - (o.speechSlot * SPEECH_EVERY - o.view.id * 7331) >= REPLY_AFTER) answering = true;
+    }
+    const share = (window as unknown as { __talk?: number }).__talk ?? SPEECH_SHARE; // (previews: everyone talks)
+    const talk = (window as unknown as { __talk?: number }).__talk;
+    // (an answer, once begun, stays up its full time)
+    if (answering && !quiet && (d.replyUntil === undefined || now > d.replyUntil + SPEECH_EVERY / 4)) d.replyUntil = now + SPEECH_FOR;
+    const replying = d.replyUntil !== undefined && now < d.replyUntil;
+    const speaks = !quiet && ((into < (talk ? SPEECH_EVERY : SPEECH_FOR) && hash01(v.id, slot) < share) || replying);
+    if (!speaks) {
+      if (d.speech) d.speech.visible = false;
+      return;
+    }
+    const key = replying && !(into < SPEECH_FOR && hash01(v.id, slot) < share) ? Math.floor((d.replyUntil ?? 0) / 1000) + 100000 : slot;
+    if (d.speechSlot !== key || !d.speech) {
+      d.speech?.destroy();
+      const c: SpeechContext = { weather: this.weather, season: this.season, hour: this.hour, raid: this.raid, nearFriend, nearRival, nearChild, nearAnyone };
+      d.speech = this.layer.addChild(makeBubble(lineNow(v, c, key)));
+      d.speechSlot = key;
+    }
+    const k = Math.min(2.2, Math.max(1, 1 / Math.max(0.25, this.zoom)));
+    d.speech.visible = true;
+    d.speech.scale.set(k);
+    d.speech.position.set(Math.round(x), Math.round(y) - 64 - (v.swimming ? -16 : 0));
+    d.speech.zIndex = z + 1e7;
   }
 
   private emoteFor(d: Drawn, now: number): Emote | null {
@@ -234,7 +296,8 @@ export class MapPeople {
       const moving = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) > 0.5;
       const facing = d.view.dir < 0 ? 'left' : 'right';
       // a fighting calling takes its combat form (a Craftpix hero) while it fights, and a little after
-      const hero = heroSheet(v.cls, v.id);
+      // (the raised dead fight as the pack's skeletons, whatever their calling)
+      const hero = v.monster === 'undead' ? skeletonSheet(v.battle.ranged, v.id) : heroSheet(v.cls, v.id);
       const inCombat = v.activity === 'fight' || v.sinceBlow < HERO_LINGER || v.sinceHit < HERO_LINGER;
       if (hero && inCombat && !hidden && !founder && !(v.cls && CLASS_LOOK[v.cls])) {
         s.texture = heroFrame(hero, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
@@ -251,12 +314,32 @@ export class MapPeople {
         s.scale.set(2 * k, 2 * k);
         void size;
       }
-      // on a full-moon night, werewolves show what they are
-      if (d.view.monster === 'werewolf' && this.moon && !hidden) {
-        s.texture = creatureFrame('wolfman', 1, facing, moving ? Math.floor(d.walked / 6) : 1);
+      // on a full-moon night, and whenever they fight, werewolves show what they are
+      if (d.view.monster === 'werewolf' && (this.moon || inCombat) && !hidden) {
+        // (the Craftpix werewolves: black, red or white by who they are)
+        const wolf = WOLF_FORMS[v.id % WOLF_FORMS.length];
+        s.texture = heroFrame(wolf, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
+        const wk = heroScale(wolf) * k * WOLF_SCALE;
         s.anchor.set(0.5, 1);
-        s.scale.set(k, k);
+        s.scale.set(wk * creatureFlip(wolf, facing), wk);
       }
+      // in the sea a merrow shows to the waist, their tail curling below (art/merTail.ts)
+      const swimming = v.swimming && !hidden && v.downed === null;
+      if (swimming) {
+        const bob = Math.sin(now / 420 + v.id) * 1.5;
+        s.texture = waistUp(s.texture);
+        s.anchor.set(CENTRE_X / FRAME_SIZE, 1);
+        s.position.set(Math.round(x), Math.round(y - 4 + bob));
+        if (!d.tail) d.tail = this.layer.addChild(new Sprite());
+        d.tail.texture = tailTexture(v.id);
+        d.tail.anchor.set(5 / TAIL_W, 0);
+        d.tail.scale.set(facing === 'left' ? -k : k, k);
+        d.tail.rotation = Math.sin(now / 300 + v.id) * 0.12 * (facing === 'left' ? -1 : 1);
+        d.tail.position.set(Math.round(x), Math.round(y - 6 + bob));
+        d.tail.zIndex = z - 0.05;
+        d.tail.visible = true;
+        void TAIL_H;
+      } else if (d.tail) d.tail.visible = false;
       // cavalry: the rider sits on a horse
       const coat = d.view.mounted;
       d.horse.visible = coat !== null && !hidden;
@@ -283,6 +366,7 @@ export class MapPeople {
           d.levelUp.zIndex = z + 0.2;
         }
       }
+      this.speak(d, now, x, y, z, hidden);
       const emote = hidden || d.visitor || d.view.bleedMinutes !== null ? null : this.emoteFor(d, now);
       if (emote && !d.emote) d.emote = this.layer.addChild(new Sprite());
       if (d.emote) {
@@ -325,7 +409,7 @@ export class MapPeople {
           d.blood.zIndex = z + 0.2;
         }
       }
-      d.shadow.visible = !hidden;
+      d.shadow.visible = !hidden && !swimming;
       d.shadow.width = (coat !== null ? 34 : 18) * k;
       d.shadow.height = 6 * k;
       d.shadow.alpha = 0.42;
@@ -412,4 +496,16 @@ function questionBubble(): Graphics {
 function cycle(secs: number, period: number, frames: number): number {
   const phase = (secs % period) / period;
   return phase < 0.7 ? Math.floor((phase / 0.7) * frames) : 0;
+}
+
+/** A person's frame cut off at the waist (for swimming), one cut per frame. */
+const waists = new Map<Texture, Texture>();
+function waistUp(tex: Texture): Texture {
+  let t = waists.get(tex);
+  if (!t) {
+    const f = tex.frame;
+    t = new Texture({ source: tex.source, frame: new Rectangle(f.x, f.y, f.width, Math.round(f.height * WAIST)) });
+    waists.set(tex, t);
+  }
+  return t;
 }

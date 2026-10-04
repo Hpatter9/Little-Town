@@ -95,6 +95,9 @@ export const PURSE: [number, number] = [6, 14];
 export const PURSE_SCALE: Record<Era, number> = { neolithic: 1, medieval: 2, industrial: 4, modern: 6, space: 8 };
 /** Each point of attractiveness adds this share to what a traveller spends; each Social level of the shopkeeper this. */
 export const APPEAL_SPEND = 0.02;
+/** Attractiveness past this adds nothing more to a purse or to how often travellers come (a town selling gold once had
+ *  both climb without end: the coins went on the shop, the shop drew more and bigger purses, and so on). */
+export const APPEAL_CAP = 100;
 export const KEEPER_SPEND = 0.03;
 /** Most of one good a traveller buys, and most kinds of goods. */
 export const MAX_BUY_EACH = 12;

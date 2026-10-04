@@ -1,3 +1,4 @@
+import { DANGER_PACE } from '../data/pace';
 // Fixed tick rate and the in-game calendar. Every timing constant here is a starting value to tune.
 
 export const TICK_HZ = 10;
@@ -59,3 +60,7 @@ function daylight(h: number): number {
 function smooth(x: number): number {
   return x * x * (3 - 2 * x);
 }
+
+/** The day as the dangers count it (data/pace.ts): the game runs to generations, so what grows with the day grows
+ *  DANGER_PACE times slower. */
+export const paceDay = (tick: number) => tick / TICKS_PER_DAY / DANGER_PACE;

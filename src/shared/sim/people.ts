@@ -2,6 +2,7 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
 import { ADJACENT_TILES, NEAR_SOURCE, NEAR_SOURCE_BONUS } from '../data/buildings';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
@@ -14,8 +15,9 @@ import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius } from './buildings';
-import { CELL, cellAt, groundAt, isMarked, setGround, type Pt } from './land';
+import { CELL, cellAt, groundAt, isMarked, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
+import { swims } from './sea';
 import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickTool, stationFor, takeItemInputs, toolSpeed } from './crafting';
 import { leavePt } from './breaks';
 import { onBuilt } from './era';
@@ -478,11 +480,16 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
     return;
   }
   if (!(building ? goToB(s, p, building) : goTo(s, p, campXY(s)))) return;
+  if (s.tick % TICKS_PER_HOUR === 0 && researchCanWait(s, p)) {
+    p.task = null;
+    return;
+  }
   p.activity = 'research';
   const topic = TOPIC_BY_ID[task.topic];
   const mult = building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1;
   const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p) * researchSpeed(s);
-  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * TICK_HZ);
+  // (and the game's pace: a town takes generations to learn it all, data/pace.ts)
+  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * RESEARCH_PACE[topic.era ?? 'neolithic'] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   if (r.progress[topic.id] < 1) return;
 
@@ -556,9 +563,21 @@ function scrounge(s: GameState, p: Person, task: Extract<Task, { type: 'gather' 
   }
 }
 
-/** A wild cell worked out is open ground now (sand in the desert). */
+/** A wild cell worked out is open ground now (sand in the desert); a cell of the mountain dug out is a gallery of the
+ *  hold (hall), which the dwarves walk and dig on from. */
 export function clearCell(s: GameState, i: number): void {
   const c = cellAt(s.land, i);
+  // (a cell of the sea fished out stays the sea: it gives again at dawn, sim/sea.ts)
+  if (wet(groundAt(s.land, c.x, c.y))) {
+    delete s.land.pools[i];
+    setMarked(s.land, i, false);
+    s.land.version++;
+    return;
+  }
+  if (groundAt(s.land, c.x, c.y) === 'mountain') {
+    setGround(s.land, c.x, c.y, 'hall');
+    return;
+  }
   setGround(s.land, c.x, c.y, s.biome === 'desert' ? 'sand' : 'grass');
 }
 
@@ -751,7 +770,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
     if (s.buildings.some((b) => b.status === 'blueprint' && poolSize(unreserved(s, p, b)) > 0) && poolSize(p.carrying) > keep.reduce((n, m) => n + p.carrying[m]!, 0)) {
       const kept = Object.fromEntries(keep.map((m) => [m, p.carrying[m]!])) as Stock;
       for (const m of keep) delete p.carrying[m];
-      notify(s, `${p.name} dropped ${listCarried(p)}: no room in storage.`);
+      // (said once an hour at most: a full store once filled the journal with nothing else)
+      if ((s.dropNoted ?? -1e9) + TICKS_PER_HOUR <= s.tick) {
+        s.dropNoted = s.tick;
+        notify(s, `${p.name} dropped ${listCarried(p)}: no room in storage.`);
+      }
       p.carrying = kept;
       if (keep.length) {
         p.blocked = true;
@@ -775,6 +798,22 @@ function chooseTask(s: GameState, p: Person): Task | null {
   }
   return null;
 }
+
+/** Study is spare-time work while the town is small: a handful of people build and gather before they sit down
+ *  to think, and in any town a site ready to build with nobody on it comes first (research takes generations now:
+ *  data/pace.ts, so a topic can't be left to finish first). */
+export function researchCanWait(s: GameState, p: Person): boolean {
+  const sites = s.buildings.filter((b) => b.status === 'blueprint');
+  if (!sites.length) return false;
+  const ready = sites.some((b) => poolSize(stillNeeded(b)) === 0 || b.progress > 0);
+  const grown = s.people.filter((q) => q.away === null && q.bornTick == null && !q.downed).length;
+  // (a handful of people: anything they could build or gather for comes first; a site waiting on what the land can't
+  // give (a desert's fiber) doesn't keep them from their books)
+  if (grown <= SMALL_TOWN) return ready || s.land.marked.length > 0;
+  return ready && !s.people.some((q) => q !== p && q.task?.type === 'build');
+}
+/** Up to this many grown-ups, building and gathering come before study. */
+const SMALL_TOWN = 3;
 
 function findJob(s: GameState, p: Person, job: Job): Task | null {
   switch (job) {
@@ -810,7 +849,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       return { type: 'patrol', targetX: end.x, targetY: end.y };
     case 'research': {
       // (one person to a station: with every one taken, they find other work)
-      if (!s.research.queue.length) return null;
+      if (!s.research.queue.length || researchCanWait(s, p)) return null;
       const station = freeStation(s, p);
       return station === undefined ? null : { type: 'research', station, topic: topicFor(s, p) };
     }
@@ -941,7 +980,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 
 /** Step toward a point along a path over the land. Returns true once there. */
 function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {
-  const there = walk(s, p, to, STEP, through, s.tick);
+  const there = walk(s, p, to, STEP, through, s.tick, swims(s, p));
   if (!there) p.activity = 'walk';
   return there;
 }

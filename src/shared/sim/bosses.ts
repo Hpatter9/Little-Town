@@ -2,6 +2,7 @@
 // help, sweeping attacks that hit several defenders (and can set buildings alight), and the unique trophy
 // each drops. The town celebrates a boss slain.
 
+import { packBossSlain } from './pack';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
 import { ITEM_BY_ID } from '../data/items';
@@ -112,6 +113,7 @@ export function dropLoot(s: GameState, kind: string): string | null {
 /** A boss is dead: the trophy is the town's, and everyone takes heart. */
 export function bossSlain(s: GameState, kind: string): void {
   dropLoot(s, kind);
+  packBossSlain(s, kind);
   const kit = kitOf(kind);
   if (!kit) return;
   if (kit.trophy) s.items[kit.trophy] = (s.items[kit.trophy] ?? 0) + 1;

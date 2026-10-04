@@ -16,8 +16,9 @@ const look = { gender: 'f', skin: '#c9956a', hair: 'long', hairColor: '#8a3a22',
 test('a plain new game is the same lone founder and campfire as ever', () => {
   const s = newGame('same-as-ever');
   assert.equal(s.people.length, 1);
-  assert.deepEqual(s.buildings.map((b) => [b.def, b.store]), [['campfire', { berries: 8 }]]);
-  assert.equal(s.nextId, 3);
+  // (and, since the seats, the settlers' meeting stone beyond the fire)
+  assert.deepEqual(s.buildings.map((b) => [b.def, b.store]), [['campfire', { berries: 8 }], ['seat_settlers_1', {}]]);
+  assert.equal(s.nextId, 4);
   assert.deepEqual(s.research.done, []);
 });
 

@@ -32,6 +32,10 @@ import palisade02 from '../art/village/palisade02.png';
 import palisade03 from '../art/village/palisade03.png';
 import palisade36 from '../art/village/palisade36.png';
 import palisade37 from '../art/village/palisade37.png';
+import palisade14 from '../art/village/palisade14.png';
+import palisade19 from '../art/village/palisade19.png';
+import palisade21 from '../art/village/palisade21.png';
+import palisade24 from '../art/village/palisade24.png';
 import dwalls from '../art/village/dwalls.png';
 import dprops from '../art/village/dprops.png';
 import grave1 from '../art/village/grave1.png';
@@ -61,6 +65,7 @@ import vWell from '../art/packs/v_well.png';
 import vSignAnvil from '../art/packs/v_sign_anvil.png';
 import vSignBow from '../art/packs/v_sign_bow.png';
 import vSignSword from '../art/packs/v_sign_sword.png';
+import vSignShield from '../art/packs/v_sign_shield.png';
 import fLog1 from '../art/packs/f_log1.png';
 import fLog2 from '../art/packs/f_log2.png';
 import fLog3 from '../art/packs/f_log3.png';
@@ -96,6 +101,9 @@ import dpBench from '../art/packs/dp_bench.png';
 import dpBench2 from '../art/packs/dp_bench2.png';
 import doBarrel from '../art/packs/do_barrel.png';
 import doGold from '../art/packs/do_gold.png';
+import doJug from '../art/packs/do_jug.png';
+import doChest from '../art/packs/do_chest.png';
+import doCrates from '../art/packs/do_crates.png';
 import sf8 from '../art/packs/sf_8.png';
 import sf9 from '../art/packs/sf_9.png';
 import sf10 from '../art/packs/sf_10.png';
@@ -134,7 +142,12 @@ export interface Pick {
   lamps?: [number, number][];
   /** A tent or a wall: the origins with tents and walls of their own (`OWN_TENTS`) keep theirs instead. */
   own?: true;
+  /** A wall piece's picture by how it joins its neighbours (the ring wall: sim/ringWall.ts): along a row (`h`), down a
+   *  column (`v`), at a corner, or standing alone (`end`); the pick itself when a join has none. */
+  joins?: Partial<Record<Join, Pick>>;
 }
+/** How a wall piece joins the pieces about it (map/mapView.ts `wallJoin`). */
+export type Join = 'h' | 'v' | 'nw' | 'ne' | 'sw' | 'se' | 'end';
 /** The glow of a pack house's window (the painter's window colour). */
 const WINDOW_GLOW = 0xf0d890;
 /** The looks the pack's timber houses suit. */
@@ -159,11 +172,19 @@ const PICKS: Record<string, Pick> = {
   // the stockpile: crates and logs heaped together
   stockpile: { parts: [[log3, 2, 14], [box1, 10, 4], [box2, 28, 8], [log1, 44, 6], [box1, 62, 10], [box2, 76, 2]], size: [96, 28], overhang: 0 },
   // the Village pack's palisade stakes and gate
-  palisade_wall: { own: true, any: [palisade01, palisade02, palisade03], overhang: 0 },
+  palisade_wall: {
+    own: true,
+    any: [palisade01, palisade02, palisade03],
+    overhang: 0,
+    // (a run down a column is the pack's post pair; a corner or a lone piece a single post)
+    joins: { v: { any: [palisade24, palisade14], overhang: 0 }, nw: { url: palisade19, overhang: 0 }, ne: { url: palisade19, overhang: 0 }, sw: { url: palisade19, overhang: 0 }, se: { url: palisade19, overhang: 0 }, end: { url: palisade21, overhang: 0 } },
+  },
   palisade_gate: { own: true, parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0 },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
   stone_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
   stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
+  brick_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
+  concrete_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
   // the dungeon props: bookshelves for the library, an alchemist's bench for the healer, a plain table for the workbench
   library: { parts: [[dprops, 0, 0, 16, 256, 48, 48], [dprops, 48, 0, 64, 256, 48, 48], [dprops, 96, 0, 112, 256, 48, 48]], size: [144, 48], overhang: 0 },
   healers_hut: { parts: [[dprops, 0, 0, 16, 304, 48, 48]], size: [48, 48], overhang: 0 },
@@ -220,6 +241,41 @@ const PICKS: Record<string, Pick> = {
   ai_core: { parts: [[sf9, 0, 8], [sf12, 38, 8], [sf11, 66, 6], [sf10, 82, 6], [sf9, 96, 8]], size: [132, 28], overhang: 0 },
   mission_control: { parts: [[sf19, 40, 0], [sf20, 110, 0], [sf19, 170, 0], [sf13, 0, 22], [sf14, 60, 22], [sf15, 120, 22], [sf16, 180, 22], [sf8, 240, 20]], size: [260, 48], overhang: 0 },
   robot_workshop: { parts: [[sf26, 0, 0], [sf17, 70, 32], [sf12, 80, 6], [sf8, 140, 22]], size: [160, 50], overhang: 0 },
+  // the workshops of data/workshops.ts: the Stone Age ones from the camp's racks, fires and crates; the medieval trades
+  // in the pack's third timber house with their gear at the door (the base and knights looks); the industrial and later
+  // plants from the futuristic objects and the dungeon props; each people's own from the props that suit it
+  smokehouse: { parts: [[vRack, 0, 0], [caveFire1, 20, 10], [vRack, 76, 0]], size: [104, 74], overhang: 0 },
+  bone_carver: { parts: [[dpDesk, 0, 0], [dpChair1, 40, 0], [fBox1, 64, 24]], size: [82, 43], overhang: 0 },
+  basketry: { parts: [[doCrates, 0, 8], [fBox1, 48, 16], [fBox1, 66, 8], [vRack, 86, 0]], size: [114, 42], overhang: 0 },
+  brewery: { parts: [[house3, 0, 0], [doBarrel, 118, 124], [doJug, 2, 126]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  tailor: { parts: [[house3, 0, 0], [vRack, 120, 112], [fBox1, 6, 136]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  jeweller: { parts: [[house3, 0, 0], [doGold, 134, 130], [doChest, 6, 132]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  cooper: { parts: [[house3, 0, 0], [doBarrel, 118, 124], [doBarrel, 2, 126], [fLog1, 128, 112]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  apothecary: { parts: [[house3, 0, 0], [doJug, 122, 124], [vBucket, 8, 136]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  chandlery: { parts: [[house3, 0, 0], [lantern, 128, 112], [lantern, 6, 112]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  dyeworks: { parts: [[house3, 0, 0], [vBucket, 120, 138], [vBucket, 134, 136], [vRack, 2, 110]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  clockmaker: { parts: [[house3, 0, 0], [doGold, 134, 130], [sign, 4, 128]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  print_shop: { parts: [[dpShelf1, 0, 0], [dpDesk, 26, 4], [dpBooks, 66, 22], [dpShelf2, 94, 0]], size: [120, 44], overhang: 0 },
+  cannery: { parts: [[sf24, 0, 0], [doCrates, 72, 44], [sf17, 72, 20]], size: [138, 76], overhang: 0 },
+  textile_mill: { parts: [[sf26, 0, 0], [vRack, 72, 4], [vRack, 104, 4], [sf17, 72, 48]], size: [138, 64], overhang: 0 },
+  appliance_plant: { parts: [[sf13, 0, 6], [sf14, 60, 6], [sf9, 120, 12], [sf12, 158, 14]], size: [184, 32], overhang: 0 },
+  pharmacy: { parts: [[dpTank2, 0, 4], [dpDesk, 34, 0], [dpTank3, 74, 12]], size: [100, 40], overhang: 0 },
+  bio_lab: { parts: [[dpTank1, 0, 0], [dpTank4, 38, 0], [sf12, 78, 30]], size: [104, 50], overhang: 0 },
+  nanoforge: { parts: [[sf15, 0, 0], [sf11, 60, 8], [sf10, 76, 10], [sf8, 90, 2]], size: [110, 26], overhang: 0 },
+  blood_cellar: { parts: [[doBarrel, 0, 0], [doBarrel, 28, 2], [doJug, 58, 0]], size: [84, 32], overhang: 0 },
+  bone_forge: { parts: [[caveTotem, 0, 10], [caveFire2, 48, 0], [caveTotem, 116, 10]], size: [166, 64], overhang: 0 },
+  gem_cutter: { parts: [[caveGem, 0, 10], [dpDesk, 46, 0], [caveGem, 86, 10]], size: [130, 56], overhang: 0 },
+  herb_press: { parts: [[soil05, 0, 0], [soil07, 32, 0], [flower1, 6, 8], [flower5, 40, 14], [flower9, 20, 20], [flower3, 50, 6], [fBox1, 46, 14]], size: [64, 32], overhang: 0 },
+  pearl_works: { parts: [[dpDesk, 0, 0], [vBucket, 40, 18], [doChest, 58, 20]], size: [78, 40], overhang: 0 },
+  felt_works: { parts: [[vRack, 0, 0], [vRack, 30, 0], [fBox1, 62, 22]], size: [80, 42], overhang: 0 },
+  glamour_loom: { parts: [[vRack, 0, 0], [flower9, 32, 14], [flower3, 44, 24], [flower1, 36, 30]], size: [54, 42], overhang: 0 },
+  alembic: { parts: [[dpTank3, 0, 10], [dpTank2, 28, 0], [dpTank3, 62, 10]], size: [88, 37], overhang: 0 },
+  assembler: { parts: [[sf12, 0, 10], [dpDesk, 30, 0], [sf8, 70, 10]], size: [90, 40], overhang: 0 },
+  armourer: { parts: [[house3, 0, 0], [vAnvil, 122, 132], [vSignShield, 6, 118]], size: [160, 160], smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] }, // (the knights' alone, a timber look)
+  pelt_house: { parts: [[vRack, 0, 0], [vRack, 30, 0], [vRack, 60, 0]], size: [88, 42], overhang: 0 },
+  granary: { parts: [[doCrates, 0, 0], [doCrates, 0, 24], [doCrates, 46, 12], [fBox1, 94, 20]], size: [112, 48], overhang: 0 },
+  theatre: { url: house4, styles: TIMBER, smoke: [[61, 10]], lamps: [[97, 87], [114, 122]] },
+  bathhouse: { parts: [[house3, 0, 0], [vBucket, 122, 138], [vBucket, 8, 138]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
 };
 /** How far a picture hangs over its footprint, each side (px), unless the pick says. */
 const OVERHANG = 6;
@@ -290,10 +346,11 @@ function pickFor(def: string, style: string): Pick | null {
   return suits(pick, style) ? pick : null;
 }
 
-export function packArt(def: string, w: number, style: string, id = 0): PixelArt | null {
-  const pick = pickFor(def, style);
+export function packArt(def: string, w: number, style: string, id = 0, join?: Join): PixelArt | null {
+  let pick = pickFor(def, style);
   if (!pick) return null;
-  return pickArt(pick, w, `${def}|${style}`, id);
+  if (join && pick.joins?.[join]) pick = pick.joins[join]!;
+  return pickArt(pick, w, `${def}|${style}|${join ?? ''}`, id);
 }
 
 /** Any pick's picture, scaled to `w` cells (the castle's furnishings use this too); `key` names it for the cache. */

@@ -3,6 +3,8 @@
 // researched, couples marry and may welcome children, who grow up over about a week of real time and
 // take after a parent. Losing someone close hits hard.
 
+import { natureFit, natureOf } from '../data/natures';
+import { POP_HARD_CAP } from '../data/pace';
 import { NAMES, randomLook } from '../data/people';
 import {
   CHILD_CHANCE,
@@ -100,7 +102,8 @@ export function updateSocial(s: GameState, rng: Rng): void {
       if (Math.abs(a.x - b.x) > NEAR_PX) continue;
       const social = 1 + (a.skills.social.level + b.skills.social.level) / 20;
       const loner = a.traits.includes('loner') || b.traits.includes('loner') ? 0.5 : 1;
-      let v = adjust(s, a.id, b.id, WARM_PER_HOUR * chemistry(s, a.id, b.id) * social * loner);
+      // (their natures weigh in: like warms to like, and some natures grate: data/natures.ts)
+      let v = adjust(s, a.id, b.id, WARM_PER_HOUR * (chemistry(s, a.id, b.id) + natureFit(natureOf(a), natureOf(b))) * social * loner);
       if (rng.chance(FRICTION_CHANCE * (1 + friction(a) + friction(b)))) v = adjust(s, a.id, b.id, -FRICTION);
       if (v >= COUPLE && canPair(a) && canPair(b) && rng.chance(COUPLE_CHANCE)) {
         a.partner = b.id;
@@ -120,7 +123,7 @@ export function chemistry(s: GameState, a: number, b: number): number {
 }
 
 /** Traits that rub people the wrong way. */
-const friction = (p: Person) => ['lazy', 'glutton', 'coward', 'loner'].filter((t) => p.traits.includes(t)).length * 0.5;
+const friction = (p: Person) => ['lazy', 'glutton', 'coward', 'loner'].filter((t) => p.traits.includes(t)).length * 0.5 + natureOf(p).friction;
 
 const canPair = (p: Person) => !isChild(p) && (p.partner ?? null) === null && !tireless(p);
 
@@ -136,7 +139,7 @@ function families(s: GameState, rng: Rng): void {
       continue;
     }
     const kids = s.people.filter((k) => k.parents?.includes(a.id) && k.parents.includes(b.id)).length;
-    if (a.married && kids < MAX_CHILDREN && housingCapacity(s) > s.people.length && rng.chance(CHILD_CHANCE)) welcomeChild(s, a, b, rng);
+    if (a.married && kids < MAX_CHILDREN && housingCapacity(s) > s.people.length && s.people.length < POP_HARD_CAP && rng.chance(CHILD_CHANCE)) welcomeChild(s, a, b, rng);
   }
 }
 
@@ -188,6 +191,7 @@ function growUp(s: GameState): void {
   for (const p of s.people) {
     if (!isChild(p) || s.tick - p.bornTick! < CHILD_HOURS * TICKS_PER_HOUR) continue;
     p.bornTick = null;
+    p.grownAt = s.tick;
     p.type = 'wanderer';
     const school = s.buildings.some((b) => b.def === 'school' && b.status === 'done') ? SCHOOL_BONUS : 0;
     for (const k of SKILLS) p.skills[k].level = (p.passions.includes(k) ? 5 : 2) + school;
