@@ -31,7 +31,7 @@ export function depthOf(def: BuildingDef): number {
 }
 
 /** A building's footprint on the land, in cells. */
-export const footprint = (b: Pick<Building, 'def' | 'tile' | 'row'> & { turned?: boolean }): Rect => ({ x: b.tile, y: b.row, w: b.turned ? depthOf(defOf(b)) : defOf(b).width, h: b.turned ? defOf(b).width : depthOf(defOf(b)) });
+export const footprint = (b: Pick<Building, 'def' | 'tile' | 'row'> & { turned?: boolean; wide?: number }): Rect => ({ x: b.tile, y: b.row, w: b.turned ? depthOf(defOf(b)) : defOf(b).width + (b.wide ?? 0), h: b.turned ? defOf(b).width : depthOf(defOf(b)) });
 /** Every building's footprint (but `except`'s). */
 export const footprints = (s: Pick<GameState, 'buildings'>, except?: Building): Rect[] => s.buildings.filter((b) => b !== except).map(footprint);
 /** Whether a cell is under a building. */

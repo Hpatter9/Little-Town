@@ -97,6 +97,8 @@ export interface Building {
   readyTick?: number;
   /** Who runs it (buildings with an operator role), and whether the player picked them. */
   operator?: number | null;
+  /** A pen widened for its herd: this many columns more than its def's width (sim/livestock.ts `growPen`). */
+  wide?: number;
   operatorChosen?: boolean;
   /** Venues (a shop or a tavern): the furnishings set out on the floor, extensions bought with coins (each makes the
    *  floor bigger), its renown, what customers asked for and didn't find (fading day by day), the tiers of customer

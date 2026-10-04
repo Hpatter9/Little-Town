@@ -21,6 +21,7 @@ import { STRIP_HEIGHT } from '../shared/constants';
 import { BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../shared/data/buildings';
 import { eraReached } from '../shared/data/eras';
 import { TOPIC_BY_ID } from '../shared/data/research';
+import { HERDS, PEN_ROOM_PER_COL } from '../shared/data/livestock';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../shared/data/materials';
 import { CROPS } from '../shared/data/crops';
 import { OPERATORS } from '../shared/data/operators';
@@ -417,6 +418,12 @@ async function start(): Promise<void> {
           if (def.storage) lines.push(`Stored ${poolSize(b.store)}/${def.storage}${poolSize(b.store) ? ': ' + listStock(b.store) : ''}`);
           if (def.hp) lines.push(`Health ${Math.round(b.hp ?? def.hp)}/${def.hp}${(b.hp ?? def.hp) < def.hp ? ' (builders will repair it)' : ''}`);
           if (b.def === 'graveyard') lines.push(snap.graves.length ? `Here lie: ${snap.graves.map((g) => g.name).join(', ')}` : 'Nobody lies here yet.');
+          if (HERDS[b.def] && b.status === 'done') {
+            const herd = HERDS[b.def];
+            const head = b.herd?.head ?? 0;
+            const room = herd.room + (b.wide ?? 0) * PEN_ROOM_PER_COL;
+            lines.push(head ? `${head} ${head === 1 ? herd.animal : herd.plural} of room for ${room}${b.wide ? ` (fenced wider ${b.wide} times)` : ''}` : `Empty: the town will buy ${herd.start} ${herd.plural} from a drover (${herd.price} coins each).`);
+          }
           if (CROPS[b.def]) {
             const c = b.crop;
             const crop = CROPS[b.def];

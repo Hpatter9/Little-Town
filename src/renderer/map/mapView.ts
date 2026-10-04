@@ -117,7 +117,7 @@ function cropLook(b: Building): CropLook | undefined {
   // (five stages the plot is redrawn at as the crop grows: the owner wanted to see it grow)
   return c.growth < 0.2 ? 'sprout' : c.growth < 0.45 ? 'young' : c.growth < 0.7 ? 'tall' : 'heading';
 }
-const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${b.room ? 'room' : ''}`;
+const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${b.room ? 'room' : ''}|${b.wide ?? 0}`;
 
 export class MapView {
   /** Screen space (the camera moves `world`). */

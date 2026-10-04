@@ -1358,6 +1358,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   young, tall, heading, ripe; `cropLook` in mapView.ts by the crop's growth): the rows taller and fuller each stage,
   pale green to deep, the heads turning, then ripe; an orchard from saplings to round trees in fruit (`packedPlot` in
   fieldArt.ts). The herb garden and every field show it.
+- **Pens bought, bred, sold and widened (done; the owner's ask):** a pen is built empty (`herdOf` starts at 0); the
+  planner's `planPens` buys its first animals from a drover (`stockPen`: up to the herd's `start`, `price` coins a head
+  from `HerdDef`, paid in coins above `COIN_RESERVE`, else in spare goods at `BARTER_MARKUP` 1.3 over their worth,
+  `payFor`). The herd breeds as before; a pen nearly full is fenced wider a column at a time (`growPen`: right, else left,
+  over open buildable ground off the roads; `Building.wide`, which `footprint` adds to the width; up to `PEN_GROW_MAX`
+  6), each column holding `PEN_ROOM_PER_COL` (3) more (`penRoom`). A full pen that can't grow sells a head at
+  `SELL_SHARE` (0.7) of its price while food lasts `SELL_FOOD_DAYS` (4), else slaughters one (meat pens cull each
+  tending, down to a pair). The map redraws a widened pen (its `wide` in the building's sig) and the animals roam the new
+  ground (mapHerds recomputes the box); the tap card says the head against the room, or that it's waiting to be stocked.
+  Test in `test/livestock.test.ts`.
 
 ## Known problem (fixed, watch)
 

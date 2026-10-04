@@ -20,6 +20,8 @@ import { CROPS, WORKPLACES } from '../data/crops';
 import { ORES } from '../data/minerals';
 import { mines } from './places';
 import { HERDS } from '../data/livestock';
+import { growPen, herdOf, stockPen } from './livestock';
+import { WORTH } from '../data/trade';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } from '../data/materials';
 import { FOOD_VALUE } from '../data/people';
@@ -993,6 +995,51 @@ function planVisitor(s: GameState): void {
   if (housingCapacity(s) > s.people.length || v.person.cls) acceptVisitor(s);
 }
 
+/* ------------------------------------------------------------ the pens */
+
+/** Goods paid for animals cost this much over their worth (a drover's price for barter). */
+const BARTER_MARKUP = 1.3;
+
+/** An empty pen is stocked from a drover (a breeding pair or so: coins while the town has them, else spare goods), and
+ *  a pen its herd has filled is fenced wider (sim/livestock.ts). */
+function planPens(s: GameState): void {
+  for (const b of s.buildings) {
+    if (b.status !== 'done' || !HERDS[b.def]) continue;
+    const h = herdOf(s, b);
+    if (h.head < 2) stockPen(s, b, (coins) => payFor(s, coins));
+    else growPen(s, b);
+  }
+}
+
+/** Pay a price: in coins if the town can spare them, else in what it has spare to sell (at a markup). */
+function payFor(s: GameState, coins: number): boolean {
+  if ((s.coins ?? 0) >= coins + COIN_RESERVE) {
+    s.coins! -= coins;
+    return true;
+  }
+  const spare = forSale(s);
+  let owed = coins * BARTER_MARKUP;
+  const take: Stock = {};
+  for (const m of (Object.keys(spare) as Material[]).sort((a, b) => (spare[b] ?? 0) * WORTH[b] - (spare[a] ?? 0) * WORTH[a])) {
+    if (owed <= 0) break;
+    const n = Math.min(spare[m] ?? 0, Math.ceil(owed / WORTH[m]));
+    if (n <= 0) continue;
+    take[m] = n;
+    owed -= n * WORTH[m];
+  }
+  if (owed > 0) return false;
+  for (const [m, n] of Object.entries(take) as [Material, number][]) {
+    let left = n;
+    for (const st of storages(s)) {
+      const k = Math.min(left, st.store[m] ?? 0);
+      st.store[m] = (st.store[m] ?? 0) - k;
+      left -= k;
+      if (!left) break;
+    }
+  }
+  return true;
+}
+
 /* ------------------------------------------------------------ the whole plan */
 
 export function runPlanner(s: GameState): void {
@@ -1008,5 +1055,6 @@ export function runPlanner(s: GameState): void {
   planGathering(s, needs(s), plan, clear, craftWants);
   planVisitor(s);
   planShop(s);
+  planPens(s);
   s.plan = plan;
 }
