@@ -202,7 +202,8 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     case 'farm': {
       const field = byId(s, task.building)!;
       if (!goToB(s, p, field)) break;
-      p.activity = 'forage';
+      // (a sickle for the harvest, a hoe for the sowing; the pens are tended by hand)
+      p.activity = isPen(field) ? 'forage' : field.crop?.stage === 'ripe' ? 'reap' : 'till';
       if (isPen(field) ? workPen(s, p, field) : workField(s, p, field)) p.task = null;
       break;
     }

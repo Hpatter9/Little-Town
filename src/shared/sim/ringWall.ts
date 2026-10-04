@@ -13,6 +13,7 @@ import { holdOf } from './castle';
 import { groundAt, idx, inMap, isRoad, WILD, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
 import { campCell, type Building, type GameState } from './state';
+import { TICKS_PER_HOUR } from './time';
 
 /** Cells between the outermost building and the wall; the ring grows in steps of this many cells a side. */
 export const RING_PAD = 3;
@@ -25,6 +26,9 @@ export const RING_PEOPLE = 6;
 export const RING_AT_ONCE = 2;
 /** A piece is placed only while the town holds this many times its cost (the wall never takes the last wood). */
 export const RING_SPARE = 3;
+/** Hours after a ring stands all round before a wider one is begun (a town that has grown past it waits; a raid
+ *  brings the new ring on at once). */
+export const RING_REGROW_HOURS = 72;
 /** Wild cells cleared ahead of the ring at a time. */
 export const RING_CLEAR = 4;
 
@@ -44,8 +48,9 @@ export interface Ring {
   gate: string;
   /** The ring cells the gates stand on. */
   gates: Pt[];
-  /** Standing all round (the older rings are down). */
+  /** Standing all round (the older rings are down), and since when. */
   done?: boolean;
+  doneAt?: number;
 }
 
 /** Whether a town walls itself with a ring: not a castle or a hold (walls of their own), not a tribe on the move. */
@@ -166,17 +171,20 @@ export const ringComplete = (s: GameState, ring: Ring) => !missingPieces(s, ring
  *  `RING_AT_ONCE` on the queue, a slot left for the rest, only while the stores hold `RING_SPARE` times a piece's cost),
  *  take the old ring down once the new one stands. Returns
  *  the wild cells to clear for it. */
-export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<string, number>> = {}): number[] {
+export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<string, number>> = {}, raided = false): number[] {
   const clear: number[] = [];
   if (!ringTown(s)) return clear;
   const wall = bestWall(s);
   if (!wall) return clear;
   const want = wantRect(s);
   const cur = s.ring;
+  // (a wider ring only once the last stands and has stood a while: a town growing fast would rebuild its wall every
+  // other day; raided, it widens at once)
+  const mayRegrow = !cur || (!!cur.done && (raided || s.tick - (cur.doneAt ?? 0) >= RING_REGROW_HOURS * TICKS_PER_HOUR));
   if (!cur) {
     if (!wanted) return clear;
     s.ring = { gen: 1, rect: want, wall, gate: GATE_OF[wall], gates: gateCells(s, want) };
-  } else if (!contains(cur.rect, want)) {
+  } else if (!contains(cur.rect, want) && mayRegrow) {
     // (the town has grown past its wall: a wider ring outside it; the gates where the roads cross now)
     s.ring = { gen: cur.gen + 1, rect: want, wall, gate: GATE_OF[wall], gates: gateCells(s, want) };
   } else if (cur.wall !== wall) {
@@ -196,10 +204,17 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
       // (standing all round: the older rings, and the old end walls, come down)
       for (const b of s.buildings.filter((q) => isRingPiece(q.def) && q.ring !== ring.gen)) demolish(s, b.id);
       ring.done = true;
+      ring.doneAt = s.tick;
     }
     return clear;
   }
   const queued = s.buildings.filter((b) => b.ring === ring.gen && b.status === 'blueprint').length;
+  // (what the other sites still wait on is theirs: the wall never takes the shop's last logs)
+  const owed: Record<string, number> = {};
+  for (const b of s.buildings) {
+    if (b.status !== 'blueprint' || isRingPiece(b.def)) continue;
+    for (const [m, n] of Object.entries(BUILDING_BY_ID[b.def]?.cost ?? {})) owed[m] = (owed[m] ?? 0) + Math.max(0, (n ?? 0) - (b.delivered[m as keyof typeof b.delivered] ?? 0));
+  }
   let room = Math.min(RING_AT_ONCE - queued, buildSlots(s) - 1 - blueprintCount(s));
   for (const piece of missing) {
     if (piece.clear) {
@@ -208,7 +223,7 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     }
     if (room <= 0) continue;
     const cost = BUILDING_BY_ID[piece.def].cost;
-    if (Object.entries(cost).some(([m, n]) => (stock[m] ?? 0) < (n ?? 0) * RING_SPARE)) continue;
+    if (Object.entries(cost).some(([m, n]) => (stock[m] ?? 0) - (owed[m] ?? 0) < (n ?? 0) * RING_SPARE)) continue;
     if (placeBlueprint(s, piece.def, piece.at.x, piece.at.y, !!piece.turned).ok) {
       s.buildings[s.buildings.length - 1].ring = ring.gen;
       room--;

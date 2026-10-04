@@ -12,6 +12,7 @@ import {
   SLOTS,
   SNARE_BREAK,
   SNARE_CATCH,
+  STATIONS,
   type ItemDef,
   type ItemEffects,
   type Slot,
@@ -64,8 +65,15 @@ export function missingItems(s: GameState, o: CraftOrder): string[] {
     .map(([id]) => ITEM_BY_ID[id].name);
 }
 
-/** Craft orders allowed at once (research adds more). */
-export const craftSlots = (s: Pick<GameState, 'research'>) => CRAFT_QUEUE_SLOTS + modifiers(s.research).queueSlots;
+/** Orders a crafting station can hold at once. */
+export const PER_STATION = 3;
+/** Craft orders allowed at once: `PER_STATION` for every station standing (research adds more; never fewer than the
+ *  campfire's few). */
+export const craftSlots = (s: Pick<GameState, 'research' | 'buildings'>) => Math.max(CRAFT_QUEUE_SLOTS, PER_STATION * s.buildings.filter((b) => b.status === 'done' && (STATIONS as readonly string[]).includes(b.def)).length) + modifiers(s.research).queueSlots;
+/** Orders a station of this kind can take: `PER_STATION` for each standing (one's worth before any stands). */
+export const stationSlots = (s: Pick<GameState, 'buildings'>, station: string) => PER_STATION * Math.max(1, s.buildings.filter((b) => b.status === 'done' && b.def === station).length);
+/** Orders queued at a station. */
+export const stationQueued = (s: Pick<GameState, 'crafting'>, station: string) => s.crafting.filter((o) => ITEM_BY_ID[o.item]?.station === station).length;
 
 export interface QueueCheck {
   ok: boolean;
@@ -78,6 +86,7 @@ export function canQueueCraft(s: GameState, itemId: string): QueueCheck {
   if (!itemUnlocked(s, def)) return { ok: false, reason: 'Not researched yet' };
   const same = s.crafting.find((o) => o.item === itemId && o.count < MAX_ORDER);
   if (!same && s.crafting.length >= craftSlots(s)) return { ok: false, reason: 'Craft queue is full' };
+  if (!same && stationQueued(s, def.station) >= stationSlots(s, def.station)) return { ok: false, reason: `${stationName(def)} has its ${PER_STATION} orders` };
   return { ok: true };
 }
 

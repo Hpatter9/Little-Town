@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ITEM_BY_ID, POT_STORAGE } from '../src/shared/data/items';
 import { hitDamage, personFighter } from '../src/shared/sim/combat';
-import { equipAll, hasBedroll } from '../src/shared/sim/crafting';
+import { canQueueCraft, craftSlots, equipAll, hasBedroll } from '../src/shared/sim/crafting';
 import { storageCapacity, totalStock } from '../src/shared/sim/buildings';
 import { parseSave, SAVE_VERSION, serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
@@ -71,6 +71,21 @@ test('orders wait for their station, their ingredients and their materials, and 
   run(sim, 1);
   assert.equal(s.crafting.length, 3);
   assert.equal(s.crafting[2].count, 2);
+});
+
+test('every crafting station standing holds three orders of its own', () => {
+  const sim = craftTown('stations');
+  const s = sim.state;
+  assert.equal(craftSlots(s), 3, 'the campfire alone: three');
+  // a second station: three more, but only for its own recipes
+  addBuilding(s, 'workbench', campfire(s).tile + 4);
+  assert.equal(craftSlots(s), 6);
+  for (const item of ['wooden_club', 'rope', 'torch']) sim.command({ type: 'queueCraft', item });
+  run(sim, 1);
+  assert.equal(s.crafting.length, 3);
+  assert.equal(canQueueCraft(s, 'sling_stones').ok, false, 'the campfire has its three');
+  assert.ok(canQueueCraft(s, 'sling_stones').reason?.includes('Campfire'));
+  assert.equal(canQueueCraft(s, 'stone_axe').ok, true, 'the workbench has room');
 });
 
 test('item ingredients come out of the inventory: rope, then a snare from it', () => {

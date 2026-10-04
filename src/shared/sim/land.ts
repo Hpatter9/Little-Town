@@ -448,6 +448,8 @@ export function stepCost(m: LandMap, x: number, y: number, blocked?: (x: number,
  *  a swimmer's stroke through the sea costs (the merfolk: quicker than walking). */
 export interface PathOpts {
   maxNodes?: number;
+  /** Four ways only (a road: its tiles join along edges, so a diagonal step would break it). */
+  four?: boolean;
   ford?: number;
   swim?: number;
 }
@@ -522,6 +524,7 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
     for (let dy = -1; dy <= 1; dy++)
       for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
+        if (opts.four && dx && dy) continue;
         const nx = cx + dx;
         const ny = cy + dy;
         const step = cost(nx, ny);

@@ -22,8 +22,6 @@ const LPC_OF: Record<string, LpcWeapon> = {
   bow: 'bow',
 };
 
-const AXES = new Set(['stone_axe', 'iron_axe', 'steel_axe', 'chainsaw', 'plasma_cutter']);
-const HAMMERS = new Set(['stone_hammer', 'iron_hammer', 'iron_pick', 'steel_pick', 'power_drill', 'plasma_cutter']);
 
 /** A weapon of the armoury (data/weapons.ts) is drawn as the nearest LPC weapon of its family. */
 const BY_FAMILY: Partial<Record<FamilyId, LpcWeapon>> = { dg: 'dagger', cl: 'dagger', sw: 'sword', gs: 'sword', ax: 'axe', mc: 'mace', fl: 'mace', sp: 'spear', pl: 'spear', sc: 'spear', st: 'spear', bw: 'bow', lb: 'bow', cb: 'bow' };
@@ -34,11 +32,18 @@ export function heldWeapon(gear: Partial<Record<Slot, string>>, activity: string
   switch (activity) {
     case 'fight':
       return (gear.weapon ? lpcOf(gear.weapon) : null) ?? LPC_OF[tool] ?? null;
+    // (the work shows its tool whether or not the town has made one: an axe to chop, a pick to mine, a hammer to
+    // build, a sickle to reap and a hoe to sow)
     case 'chop':
-      return AXES.has(tool) ? 'axe' : null;
+      return 'axe';
     case 'mine':
+      return 'pick';
     case 'build':
-      return HAMMERS.has(tool) ? 'mace' : null;
+      return 'mace';
+    case 'reap':
+      return 'sickle';
+    case 'till':
+      return 'hoe';
     default:
       return null;
   }

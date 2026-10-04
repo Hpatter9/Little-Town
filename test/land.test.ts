@@ -88,3 +88,17 @@ test('paths go round water and buildings, and prefer roads', () => {
   setRoad(m, water!.x, water!.y);
   assert.ok(stepCost(m, water!.x, water!.y) < 1, 'a bridge');
 });
+
+test('a four-way path never steps diagonally (roads join edge to edge)', () => {
+  const m = makeLand('four');
+  const from = { x: m.camp.x, y: m.camp.y };
+  const to = { x: m.camp.x + 6, y: m.camp.y + 5 };
+  const path = findPath(m, from, to, undefined, { four: true })!;
+  assert.ok(path && path.length >= 11, 'the long way round, by edges');
+  let last = from;
+  for (const c of path) {
+    assert.equal(Math.abs(c.x - last.x) + Math.abs(c.y - last.y), 1, `a straight step to ${c.x},${c.y}`);
+    last = c;
+  }
+  assert.deepEqual(last, to);
+});

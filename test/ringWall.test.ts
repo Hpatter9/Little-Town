@@ -102,3 +102,16 @@ test('when the town grows past its wall a wider ring goes up outside, and the ol
   assert.ok(s.ring!.rect.x + s.ring!.rect.w > first.rect.x + first.rect.w, 'wider to the east');
   assert.equal(s.buildings.filter((b) => isRingPiece(b.def) && b.ring !== s.ring!.gen).length, 0, 'the old ring is down');
 });
+
+test('the wall leaves the other sites the materials they still wait on', () => {
+  const s = walledTown('ring-owed');
+  // a shop's site waits on 12 wood; the store holds just enough for it and one wall piece
+  s.buildings.push({ id: s.nextId++, def: 'trading_post', tile: campCell(s).x + 6, row: campCell(s).y + 3, status: 'blueprint', delivered: {}, progress: 0, store: {} } as Building);
+  s.buildings[0].store = { wood: 12 + BUILDING_BY_ID.palisade_wall.cost.wood! * 3 - 1, stone: 500 };
+  s.tick += PLAN_TICKS;
+  runPlanner(s);
+  assert.equal(s.buildings.filter((b) => isRingPiece(b.def) && b.status === 'blueprint').length, 0, 'no wall piece queued over the shop');
+  s.buildings[0].store = { wood: 3000, stone: 500 };
+  raise(s, 1, 30);
+  assert.ok(s.buildings.some((b) => isRingPiece(b.def)), 'with wood to spare, the wall goes up');
+});

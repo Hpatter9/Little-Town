@@ -310,6 +310,9 @@ export interface PromptView {
   secondsLeft: number | null;
 }
 
+/** How long a fight's victory screen stays up (ticks). */
+export const RESULT_TICKS = 80;
+
 export interface ExpeditionView {
   id: number;
   dest: string;
@@ -344,6 +347,8 @@ export interface ExpeditionView {
   delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
   /** The Moon Pack's full-moon hunt. */
   hunt: boolean;
+  /** The last fight's outcome, while fresh (the victory screen): how long ago it ended, in ticks. */
+  result: { age: number; outcome: 'won' | 'retreated' | 'lost'; members: { id: number; name: string; xp: number; levelFrom: number; levelTo: number; down: boolean }[]; loot: Stock; coins: number; foes: string[]; boss: string | null } | null;
 }
 
 /** A place on the town's land. */
@@ -1163,6 +1168,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     })),
     waiting: e.prompt !== null,
     hunt: !!e.hunt,
+    result: e.result && s.tick - e.result.tick < RESULT_TICKS ? { ...e.result, age: s.tick - e.result.tick } : null,
     delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,
   };
 }

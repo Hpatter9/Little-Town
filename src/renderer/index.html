@@ -681,6 +681,71 @@
         color: #ffd090;
         font-weight: bold;
       }
+      /* the victory screen after a watched fight */
+      #fight-result {
+        position: absolute;
+        left: 50%;
+        top: 46%;
+        transform: translate(-50%, -50%);
+        z-index: 32;
+        min-width: 220px;
+        max-width: 86%;
+        padding: 8px 14px 10px;
+        text-align: center;
+        zoom: var(--ui-zoom, 1);
+        animation: ff-result-in 0.5s ease-out;
+      }
+      #fight-result[hidden] {
+        display: none;
+      }
+      #fight-result .ff-result-title {
+        font-family: var(--font-display);
+        font-size: 24px;
+        font-weight: bold;
+        color: #ffe060;
+        text-shadow: 0 0 8px #ff9040, 2px 2px 0 #000;
+        margin-bottom: 6px;
+      }
+      #fight-result.retreated .ff-result-title {
+        color: #c8c8e8;
+        text-shadow: 2px 2px 0 #000;
+      }
+      #fight-result.lost .ff-result-title {
+        color: #ff7070;
+        text-shadow: 2px 2px 0 #000;
+      }
+      .ff-result-row {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 1px 0;
+        font-size: 13px;
+      }
+      .ff-result-row.down {
+        opacity: 0.6;
+      }
+      .ff-result-row .ff-xp {
+        color: #a8ffb8;
+        font-weight: bold;
+      }
+      .ff-result-row .ff-levelup {
+        color: #ffe060;
+        font-weight: bold;
+        font-size: 11px;
+        letter-spacing: 1px;
+      }
+      .ff-result-loot {
+        margin-top: 6px;
+        font-size: 12px;
+        color: #e8e8f0;
+        border-top: 1px solid #5860a0;
+        padding-top: 5px;
+      }
+      @keyframes ff-result-in {
+        0% { opacity: 0; transform: translate(-50%, -40%) scale(0.9); }
+        100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
       /* the small corner button out of a fight */
       #fight-leave {
         position: absolute;

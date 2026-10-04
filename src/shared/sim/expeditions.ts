@@ -2,6 +2,7 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
+import { levelOf, xpToLevel } from '../data/levels';
 import { ENEMIES } from '../data/enemies';
 import { eraReached } from '../data/eras';
 import { HIDDEN_IN, HOME_REGION, REGION_BY_ID, regionScouted } from '../data/regions';
@@ -53,7 +54,7 @@ import { isPlaceDest } from '../data/places';
 import { placeCleared, placeDestination, placeOfDest } from './places';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
-import { addStock, carryCapacity, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type GameState, type Person } from './state';
+import { addStock, carryCapacity, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
@@ -470,6 +471,8 @@ function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person
 function finishBattle(s: GameState, e: Expedition, d: Destination, members: Person[], rng: Rng): void {
   const b = e.battle!;
   e.battle = null;
+  // the victory screen's tally: each member's experience and levels before and after
+  const result: FightResult = { tick: s.tick, outcome: b.outcome ?? 'won', members: [], loot: {}, coins: 0, foes: [...new Set(b.fighters.filter((f) => f.side === 'enemy').map((f) => f.name))], boss: b.fighters.find((f) => f.side === 'enemy' && ENEMIES[f.kind]?.boss)?.name ?? null };
   // carry the fight's wounds back to the people (and count the stones thrown)
   for (const f of b.fighters) {
     if (f.side !== 'party' || f.kind !== 'person') continue; // (allies and the raised go back where they came from)
@@ -478,21 +481,34 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
     if (!p) continue;
     if (f.down && !p.downed) knockDown(s, p);
     else if (!f.down) p.hp = Math.max(1, Math.min(maxHp(p), Math.round((f.hp * maxHp(p)) / Math.max(1, f.maxHp)))); // (back to the town's reckoning of their health)
+    const levelFrom = levelOf(p);
+    const xpFrom = p.lvXp ?? 0;
     if (f.attacks) gainSkill(p, f.ranged ? 'ranged' : 'melee', f.attacks * FIGHT_XP);
     if (e.roles[p.id] === 'medic' && f.lastAction >= 0) gainSkill(p, 'medicine', FIGHT_XP * 3);
+    // (the experience shown: what the level gained, levels crossed counted whole)
+    const levelTo = levelOf(p);
+    let xp = (p.lvXp ?? 0) - xpFrom;
+    for (let l = levelFrom; l < levelTo; l++) xp += xpToLevel(l);
+    result.members.push({ id: p.id, name: p.name, xp: Math.round(xp), levelFrom, levelTo, down: f.down });
   }
+  e.result = result;
   if (medicUp(e, members)) for (const p of members) if (p.downed) stabilize(p);
 
   switch (b.outcome) {
     case 'won': {
-      // a boss slain: its trophy comes home with the party
+      // a boss slain: its trophy comes home with the party (its purse goes to the town: shown on the victory screen)
+      const coinsBefore = s.coins ?? 0;
       for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.boss) bossSlain(s, f.kind);
+      result.coins = (s.coins ?? 0) - coinsBefore;
       const drops = battleLoot(b);
       const room = partyCarry(s, e) - poolSize(e.loot);
       let taken = 0;
       for (const [m, n] of Object.entries(drops) as [Material, number][]) {
         const k = Math.min(n, room - taken);
-        if (k > 0) addStock(e.loot, m, k);
+        if (k > 0) {
+          addStock(e.loot, m, k);
+          addStock(result.loot, m, k);
+        }
         taken += Math.max(0, k);
       }
       notify(s, `${The(d.name)} party won the fight${taken ? ` and took ${listStock(drops)}` : ''}.`);

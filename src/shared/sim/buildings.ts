@@ -265,10 +265,28 @@ export function connectRoad(s: GameState, b: Building): void {
   const blocked = (x: number, y: number) => !buildable(groundAt(m, x, y)) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
   // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
   const gate = (x: number, y: number) => isGate(builtOn(s, x, y)?.def ?? '');
-  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !gate(x, y), 6000);
+  // (four ways: a road's tiles join along their edges, so it never steps diagonally)
+  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !gate(x, y), { maxNodes: 6000, four: true });
   if (!path || path.length > ROAD_REACH) return;
   setRoad(m, from.x, from.y);
   for (const c of path) if (!builtOn(s, c.x, c.y) && buildable(groundAt(m, c.x, c.y))) setRoad(m, c.x, c.y);
+  squareRoads(s);
+}
+
+/** Roads laid before they kept to four ways step diagonally here and there: each such step gets a cell beside it, so
+ *  every road runs on edge to edge. */
+export function squareRoads(s: GameState): void {
+  const m = s.land;
+  const free = (x: number, y: number) => inMap(m, x, y) && buildable(groundAt(m, x, y)) && !builtOn(s, x, y);
+  for (let y = 0; y < m.h - 1; y++)
+    for (let x = 0; x < m.w; x++) {
+      if (!isRoad(m, x, y)) continue;
+      for (const dx of [-1, 1]) {
+        if (!inMap(m, x + dx, y + 1) || !isRoad(m, x + dx, y + 1) || isRoad(m, x + dx, y) || isRoad(m, x, y + 1)) continue;
+        if (free(x, y + 1)) setRoad(m, x, y + 1);
+        else if (free(x + dx, y)) setRoad(m, x + dx, y);
+      }
+    }
 }
 
 /** Whether a finished building can be upgraded in place now, and to what. A bigger upgrade keeps its top-left where

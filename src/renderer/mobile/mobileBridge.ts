@@ -120,10 +120,10 @@ export function mobileBridge(): Bridge {
   // the strip's selection, shown in the card at the top of the page (and the card's buttons, back to the strip)
   const inspectListeners = new Set<(info: InspectInfo | null) => void>();
   const actionListeners = new Set<(id: string) => void>();
-  const pinchListeners = new Set<(phase: 'start' | 'move' | 'end', ratio: number) => void>();
+  const pinchListeners = new Set<(phase: 'start' | 'move' | 'end', spread: number, mx: number, my: number) => void>();
 
   return {
-    pinch: (phase, ratio) => pinchListeners.forEach((f) => f(phase, ratio)),
+    pinch: (phase, spread, mx = 0, my = 0) => pinchListeners.forEach((f) => f(phase, spread, mx, my)),
     onPinch: (cb) => {
       pinchListeners.add(cb);
       return () => pinchListeners.delete(cb);

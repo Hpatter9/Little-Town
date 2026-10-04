@@ -199,8 +199,10 @@ function topicScore(t: Topic, n: Needs): number {
     if (WORKPLACES[b.id]) score += 10;
     if (b.healing) score += 8;
     if (b.hp || b.defense) score += n.raided || n.direction === 'defense' ? 14 : 2;
-    // (a wall round the town once it is big enough to wall: sim/ringWall.ts)
-    if (b.hp && !b.defense && n.people >= RING_PEOPLE) score += 12;
+    // (a wall round the town once it is big enough to wall: sim/ringWall.ts; a shop to sell its surplus once it has
+    // hands to spare: the two come about together, the shop first)
+    if (b.hp && !b.defense && n.people >= RING_PEOPLE) score += 8;
+    if (isShop(b.id) && n.people >= 8) score += 15;
     if (b.stalls || b.id === 'tavern') score += n.direction === 'trade' ? 12 : 3;
     // (a shop is the only way to get what the land doesn't give: without it the town can't build at all)
     if (isShop(b.id)) score += (n.unsourced.length ? 60 : 0) + (n.direction === 'trade' ? 12 : 3);
@@ -240,17 +242,29 @@ function whyTopic(t: Topic, n: Needs): string {
 
 /** People a town needs before it studies refinements (topics that only make it better at what it does). */
 const REFINE_AT = 4;
+/** How much of a wanted topic's worth the one topic it still waits on inherits. */
+const LEADS_SHARE = 0.85;
 
 function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
   const slots = modifiers(s.research).researchSlots;
   while (s.research.queue.length < slots) {
     let best: Topic | null = null;
     let bestScore = -Infinity;
+    // (a topic that stands in the way of a wanted one counts most of that one's worth: Fire Keeping opens nothing
+    // itself, but Barter and the shop wait on it, and a desert town once studied round it for weeks)
+    const done = new Set(s.research.done);
+    const leads = new Map<string, number>();
+    for (const t of TOPICS) {
+      if (done.has(t.id) || (t.origin && t.origin !== s.origin) || ERAS.indexOf(eraOfResearch(t.id)) > ERAS.indexOf(s.era)) continue;
+      const open = t.prereqs.filter((q) => !done.has(q));
+      if (open.length !== 1) continue;
+      leads.set(open[0], Math.max(leads.get(open[0]) ?? 0, topicScore(t, n) * LEADS_SHARE));
+    }
     for (const t of TOPICS) {
       // (refinements wait until the town is a few people strong: its first days go on shelter and food)
       if (t.refinement && n.people < REFINE_AT) continue;
       if (!canQueue(s.research, t.id, s.era, s.origin).ok) continue;
-      const sc = topicScore(t, n);
+      const sc = Math.max(topicScore(t, n), leads.get(t.id) ?? 0);
       if (sc > bestScore) {
         best = t;
         bestScore = sc;
@@ -732,7 +746,7 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   const grownUps = s.people.filter((p) => !isChild(p)).length;
   // (a town that can't gather what it builds with waits for its shop before it walls itself: the shop comes first)
   const shopFirst = n.unsourced.length > 0 && !s.buildings.some((b) => isShop(b.def));
-  if (!shopFirst) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock));
+  if (!shopFirst) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
   if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
   if (blueprintCount(s) >= buildSlots(s)) return clear;
   let blocked: BuildingDef | null = null;

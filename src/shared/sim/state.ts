@@ -214,7 +214,7 @@ export interface CraftOrder {
 }
 
 /** What a person is visibly doing (drives their animation). */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | WorkAnim;
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | WorkAnim;
 
 export interface Raider {
   id: number;
@@ -471,6 +471,17 @@ export interface Prompt {
 
 export type ExpeditionPhase = 'out' | 'work' | 'back';
 
+/** How a fight ended, for the victory screen. */
+export interface FightResult {
+  tick: number;
+  outcome: 'won' | 'retreated' | 'lost';
+  members: { id: number; name: string; xp: number; levelFrom: number; levelTo: number; down: boolean }[];
+  loot: Stock;
+  coins: number;
+  foes: string[];
+  boss: string | null;
+}
+
 export interface Expedition {
   id: number;
   /** Destination id. */
@@ -511,6 +522,9 @@ export interface Expedition {
   delve?: Delve;
   /** The Moon Pack's full-moon hunt (sim/pack.ts). */
   hunt?: boolean;
+  /** The last fight's outcome, for the watcher's victory screen (sim/expeditions.ts finishBattle): when, how it
+   *  went, each member's experience and levels, and what was taken. */
+  result?: FightResult;
 }
 
 /** Someone waiting at the edge of town to be let in. */

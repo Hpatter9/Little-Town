@@ -3,6 +3,7 @@
 // the right, each with health and the time gauge till their next turn. "Back to town" stops watching.
 
 import type { ExpeditionView } from '../../shared/sim/snapshot';
+import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 
 export interface FightHud {
   update(v: ExpeditionView | null): void;
@@ -45,9 +46,62 @@ export function createFightHud(on: { back(): void }): FightHud {
   const party = document.createElement('div');
   party.className = 'ff-window ff-party';
   bottom.append(foes, party);
-  document.body.append(top, banner, leave, bottom);
+  // the victory screen: how the fight went, each member's experience and levels, the spoils
+  const result = document.createElement('div');
+  result.id = 'fight-result';
+  result.className = 'ff-window';
+  result.hidden = true;
+  document.body.append(top, banner, leave, result, bottom);
   top.hidden = bottom.hidden = true;
 
+  let resultKey = '';
+  /** The victory screen, built once per fight and shown while the result is fresh. */
+  const showResult = (r: ExpeditionView['result']) => {
+    if (!r || r.age > 70) {
+      result.hidden = true;
+      resultKey = '';
+      return;
+    }
+    const key = `${r.outcome}:${r.members.map((m) => `${m.id}:${m.xp}`).join(',')}`;
+    if (key === resultKey) return;
+    resultKey = key;
+    result.replaceChildren();
+    result.className = `ff-window ${r.outcome}`;
+    const title = document.createElement('div');
+    title.className = 'ff-result-title';
+    title.textContent = r.outcome === 'won' ? (r.boss ? `${r.boss} falls!` : 'Victory!') : r.outcome === 'retreated' ? 'Fell back' : 'Defeat';
+    result.append(title);
+    const rows = document.createElement('div');
+    rows.className = 'ff-result-rows';
+    for (const m of r.members) {
+      const row = document.createElement('div');
+      row.className = 'ff-result-row' + (m.down ? ' down' : '');
+      const name = document.createElement('span');
+      name.className = 'ff-name';
+      name.textContent = m.name;
+      const xp = document.createElement('span');
+      xp.className = 'ff-xp';
+      xp.textContent = m.down ? 'fallen' : `+${m.xp} EXP`;
+      row.append(name, xp);
+      if (m.levelTo > m.levelFrom) {
+        const up = document.createElement('span');
+        up.className = 'ff-levelup';
+        up.textContent = `LEVEL UP! ${m.levelFrom} → ${m.levelTo}`;
+        row.append(up);
+      }
+      rows.append(row);
+    }
+    result.append(rows);
+    const spoils = Object.entries(r.loot).filter(([, n]) => (n ?? 0) > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m as Material] ?? m}`);
+    if (r.coins > 0) spoils.unshift(`${r.coins} coins`);
+    if (r.outcome === 'won') {
+      const got = document.createElement('div');
+      got.className = 'ff-result-loot';
+      got.textContent = spoils.length ? `Spoils: ${spoils.join(', ')}` : 'No spoils';
+      result.append(got);
+    }
+    result.hidden = false;
+  };
   let lastMessage = '';
   let bannerKey = '';
   let bannerShown = 0;
@@ -87,6 +141,7 @@ export function createFightHud(on: { back(): void }): FightHud {
       const fight = v.battle?.length ? v.battle : null;
       top.hidden = !!fight;
       leave.hidden = !fight;
+      showResult(v.result);
       // the latest action, held a moment; else where they are
       const act = v.acts.find((a) => a.age < 25);
       if (act) lastMessage = act.name;

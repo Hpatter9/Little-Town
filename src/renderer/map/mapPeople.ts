@@ -449,11 +449,15 @@ export class MapPeople {
       case 'walk':
         return ['walk', 1 + (Math.floor(d.walked / PX_PER_WALK_FRAME) % 8)];
       case 'chop':
-        return ['slash', cycle(secs, 0.9, FRAME_COUNT.slash)];
+        return ['slash', cycle(secs, 0.9, FRAME_COUNT.slash)]; // (an axe swung at the trunk)
       case 'build':
         return ['slash', cycle(secs, 0.6, FRAME_COUNT.slash)];
       case 'mine':
-        return ['thrust', cycle(secs, 1.0, FRAME_COUNT.thrust)];
+        return ['slash', cycle(secs, 1.1, FRAME_COUNT.slash)]; // (a pick swung overhead at the rock)
+      case 'reap':
+        return ['slash', cycle(secs, 1.3, FRAME_COUNT.slash)]; // (a sickle through the stalks)
+      case 'till':
+        return ['slash', cycle(secs, 1.0, FRAME_COUNT.slash)]; // (a hoe into the soil)
       case 'forage':
         return ['spell', cycle(secs, 1.4, FRAME_COUNT.spell)];
       case 'research':

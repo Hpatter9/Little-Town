@@ -783,6 +783,10 @@ async function start(): Promise<void> {
     const [a, b] = [...touches.values()];
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
+  const between = (): [number, number] => {
+    const [a, b] = [...touches.values()];
+    return [(a.x + b.x) / 2, (a.y + b.y) / 2];
+  };
   // (in a battle, taps place fighters and aim spells; drags scroll the map as ever)
   const battleTap = (x: number, y: number): boolean => {
     const b = snap.battle;
@@ -824,7 +828,7 @@ async function start(): Promise<void> {
         if (camera.dragging) camera.endDrag(e.timeStamp);
         press = null;
         pinchFrom = Math.max(20, spread());
-        bridge.pinch('start', pinchFrom);
+        bridge.pinch('start', pinchFrom, ...between());
         return;
       }
       if (pinchFrom !== null || afterPinch) return;
@@ -843,7 +847,7 @@ async function start(): Promise<void> {
     if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
     if (touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pinchFrom !== null && touches.size >= 2) return bridge.pinch?.('move', Math.max(20, spread()));
+      if (pinchFrom !== null && touches.size >= 2) return bridge.pinch?.('move', Math.max(20, spread()), ...between());
     }
     if (!press || e.pointerId !== press.id) return;
     if (!camera.dragging && Math.hypot(e.clientX - press.x, e.clientY - press.y) >= DRAG_THRESHOLD) {
@@ -1041,6 +1045,13 @@ async function start(): Promise<void> {
 
   let viewW = 0;
   let viewH = 0;
+  // The page zooms the strip about the point between the fingers (mobile.ts): once the strip is laid out again at
+  // the new scale, the view is moved so what was under the fingers stays there (mx, my: the point in the strip's old
+  // pixels; from, to: the scales the strip was and is shown at). The resize below keeps the middle still; this is the
+  // rest, for a point off the middle.
+  Object.assign(window, {
+    __zoomAbout: (mx: number, my: number, from: number, to: number) => camera.shift((mx - viewW / 2) * (1 - from / to), (my - viewH / 2) * (1 - from / to)),
+  });
   app.ticker.add((ticker) => {
     const w = layoutSplit(); // the town's share of the width
     // zoomed (the strip got wider or narrower): keep the middle of the view where it was
@@ -1070,7 +1081,7 @@ async function start(): Promise<void> {
     spells.render(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);
-    weather?.render(performance.now(), w);
+    weather?.render(performance.now(), w, app.screen.height);
     pane.render(performance.now(), ticker.deltaMS / 1000);
     if (battle.shown) battle.render(performance.now());
     if (fight.shown) {

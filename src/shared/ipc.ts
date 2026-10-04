@@ -120,9 +120,10 @@ export interface Bridge {
   inspectAction?(id: string): void;
   onInspectAction?(cb: (id: string) => void): () => void;
   /** Phone only: two fingers pinching the town, to zoom it in and out (spread: how far apart the fingers are, in the
-   *  strip's own pixels; the page knows the zoom, so it can tell how far apart they are on the screen). */
-  pinch?(phase: 'start' | 'move' | 'end', spread: number): void;
-  onPinch?(cb: (phase: 'start' | 'move' | 'end', spread: number) => void): () => void;
+   *  strip's own pixels; the page knows the zoom, so it can tell how far apart they are on the screen; `mx`, `my`: the
+   *  point between the fingers, in the strip's pixels, which the zoom keeps still). */
+  pinch?(phase: 'start' | 'move' | 'end', spread: number, mx?: number, my?: number): void;
+  onPinch?(cb: (phase: 'start' | 'move' | 'end', spread: number, mx: number, my: number) => void): () => void;
 }
 
 /** What the phone's top card shows about the selected thing. */

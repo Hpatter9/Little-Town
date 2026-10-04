@@ -1258,6 +1258,38 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   the delve view; (10) dungeon types, modifiers, elites, dozens of bosses; (11) quests, rivals, the trophy hall,
   respawn, alerts; soak, phone checks, PR. All eleven are done; boats are what's left.
 
+- **Victory screen (done; the owner's ask):** a party's fight won, `finishBattle` (expeditions.ts) fills `Expedition.result`
+  (`FightResult`: each member's experience and levels gained, the loot by name, the coins) and the snapshot carries it for
+  `RESULT_TICKS` (80) as `ExpeditionView.result`; the fight HUD's `showResult` draws it as a blue window over the scene
+  (`#fight-result`: "Victory!", a row a member with their experience and a level-up mark, the spoils). The skill banner
+  floats lower (`#fight-banner`, JS-faded) with no buttons; `#fight-leave` is the one corner button.
+- **Pinch to zoom, smooth and under the fingers (done; the owner's complaint):** while two fingers are down, `mobile.ts`
+  only scales the strip on the screen (a CSS `translate(...) scale(...)` about the point between the fingers, which the
+  strip reports with the spread: `bridge.pinch(phase, spread, mx, my)`; `#strip-box.pinching` clips it); when they lift,
+  `setZoom` lays it out again, sharp, and the strip's `__zoomAbout(mx, my, from, to)` (main.ts) moves the camera so what
+  was under the fingers stays there (the ticker's resize keeps the middle; this adds the rest). The snap below two of the
+  screen's pixels allows halves (`layout()`), so the first steps aren't a doubling. The old way laid the strip out again
+  on every move, snapped to whole pixels, and zoomed about the corner.
+- **Roads run edge to edge (done; the owner's ask):** `connectRoad` finds its way four ways (`PathOpts.four` in
+  `findPath`: no diagonal steps, since the road tiles join along their edges) and `squareRoads` gives any diagonal step in
+  an older road a cell beside it. Test in `test/land.test.ts`.
+- **Rain over the whole map (done):** `WeatherView.render` takes the screen's height (it rained over the old strip's height
+  only, the top half of the phone's map).
+- **Three orders a station (done; the owner's ask):** `craftSlots` is `PER_STATION` (3) for every crafting station standing
+  (never fewer than the campfire's three; research still adds), and `canQueueCraft` refuses a recipe whose station has
+  its three (`stationSlots`, `stationQueued`: "Campfire has its 3 orders"). Test in `test/crafting.test.ts`.
+- **Tools in hand (done; the owner's complaint that the harvest looked wrong):** the work shows its tool whether or not the
+  town has made one (`heldWeapon` in art/held.ts): an axe to chop, a pick to mine, a hammer to build, a sickle to reap and
+  a hoe to sow; all of them swung (`slash`) at their own pace in mapPeople's `pose`. A field's work is `reap` when the crop
+  is ripe and `till` otherwise (new `Activity` values, set in people.ts; pens are tended by hand). The pick, sickle and hoe
+  layers (`w_pick_*`, `w_sickle_*`, `w_hoe_*` in `lpcData.json`) are made from the LPC axe layer by
+  `tools/make-lpc-tools.cjs` (run by hand; the axe head taken off the haft, the tool's head drawn at its end, frame by
+  frame).
+- **The desert shop (fixed):** a desert town never studied Fire Keeping (it opens nothing itself and scored lowest), so
+  Barter and the shop never came, and the ring wall took every log. `planResearch` lets the one unlearned topic a wanted
+  topic waits on inherit `LEADS_SHARE` (0.85) of its score; `planRing` leaves the other sites the materials they still
+  wait on (`owed`) and a wider ring waits `RING_REGROW_HOURS` (72) after the last stands. The desert probe: shop by day 6.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be
