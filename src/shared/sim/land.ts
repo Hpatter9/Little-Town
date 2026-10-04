@@ -452,6 +452,9 @@ export interface PathOpts {
   four?: boolean;
   ford?: number;
   swim?: number;
+  /** Whether a step from one cell to a side neighbour is allowed (walls between cells: a castle's, sim/castle.ts
+   *  `castleStep`). A diagonal step must be allowed both ways round. */
+  edge?: (ax: number, ay: number, bx: number, by: number) => boolean;
 }
 /** What a cell of the sea costs a swimmer. */
 export const SWIM_COST = 0.8;
@@ -531,6 +534,8 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
         if (step === Infinity) continue;
         // (no cutting a corner past something that can't be crossed)
         if (dx && dy && (cost(cx + dx, cy) === Infinity || cost(cx, cy + dy) === Infinity)) continue;
+        const e = opts.edge;
+        if (e && (dx && dy ? !(e(cx, cy, nx, cy) && e(nx, cy, nx, ny) && e(cx, cy, cx, ny) && e(cx, ny, nx, ny)) : !e(cx, cy, nx, ny))) continue;
         const n = ny * W + nx;
         const ng = gc + step * (dx && dy ? 1.414 : 1);
         if (ng < (g.get(n) ?? Infinity)) {

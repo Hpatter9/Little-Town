@@ -524,7 +524,7 @@ export class MapView {
    *  the things. Drawn again when a room is finished, the pack's floor and gate load, the look or the season change. */
   syncCastle(castle: CastleView | null, list: Building[]): void {
     const rooms = castle ? list.filter((b) => b.room && b.status === 'done') : [];
-    const key = castle && this.land ? `${castle.core.x},${castle.core.y}|${rooms.map((b) => `${b.id}:${b.tile},${b.row},${b.def}`).join(';')}|${this.toneKey}|${this.season === 'winter' ? 'snow' : ''}|${castleArtReady() ? 'p' : ''}` : '';
+    const key = castle && this.land ? `${castle.core.x},${castle.core.y}|${rooms.map((b) => `${b.id}:${b.tile},${b.row},${b.def}`).join(';')}|${this.toneKey}|${this.season === 'winter' ? 'snow' : ''}|${castleArtReady() ? 'p' : ''}|${castle.doors.join(' ')}|${castle.galleries.length}` : '';
     if (this.castle?.key === key) return;
     if (this.castle) {
       this.castle.under.destroy({ children: true });

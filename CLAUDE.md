@@ -1629,6 +1629,19 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   and dropped: it cost lone founders about half a person by day 10. Probe (12 lone founders, 10 days): 4.4 people
   where it was 4.1. Test: `test/hunger.test.ts`.
 
+- **Walls that hold, and a gate to the hold (the owner's ask: realistic pathing):** a castle's or a hold's walls are
+  real for walking now. `castleLayout` (sim/castle.ts, cached per tick and on the rooms and `land.version`) gives each
+  castle cell its region (the hall -1, each room its id, each separate run of a hold's dug galleries -2, -3...), the
+  doorways between regions (`doorsOf`: one in the middle of the longest straight run of wall two regions share), and the
+  gate (the cell before it and the hall's cell inside it). `castleStep` allows a step within a region or outside, between
+  two regions only at their doorway, in or out only through the gate, and onto raw rock (a face being dug).
+  `findPath` takes it as `PathOpts.edge` (a diagonal must pass both ways round); `pathTo` in walk.ts passes it for every
+  walker, and raiders in a castle town walk by `walk` too (`moveToward` in raids.ts). The map draws the same doorways
+  (`snapshot.castle.doors`, and `galleries` walled and doored like rooms), and the gate is drawn at the cell inside it
+  whatever room covers it (a hold's seat is built over its hall, which hid the gate). A hold's gate is the dungeon
+  pack's stone archway with its doors open (`HOLD_GATE` from `art/delve/doors.png`, 48 px), not the skull-faced cave
+  gate. Tests in `test/castle.test.ts`.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { canPlace, doorCell, footprint, placeBlueprint } from '../src/shared/sim/buildings';
-import { castleBounds, castleCells, castleGate, coreRect, joinsCastle, roomKind, rooms, sharedEdges } from '../src/shared/sim/castle';
+import { castleBounds, castleCells, castleGate, castleLayout, castleStep, coreRect, joinsCastle, roomKind, rooms, sharedEdges } from '../src/shared/sim/castle';
 import { delvePool, GEM_DEPTH, GOLD_DEPTH, groundAt, idx, inMap, isRoad, MOUNTAIN_FOOT } from '../src/shared/sim/land';
 import { Rng } from '../src/shared/rng';
 import { Sim } from '../src/shared/sim/sim';
@@ -92,18 +92,38 @@ test('a room must share a wall with the castle; nothing else may come within a c
   assert.equal(sharedEdges(cells, s.land, { x: west.x, y: west.y, w: 1, h: 1 }), -1, 'overlapping');
 });
 
-test('people walk through the rooms, round other buildings', () => {
+test('inside the walls people go room to room by the doorways, and in and out by the gate', () => {
   const s = newGame('through', { origin: 'vampire' });
   const core = coreRect(s);
-  // a long room right across the hall's south side, and the goal beyond it
-  const room = put(s, 'longhouse', core.x, core.y + core.h, { room: true });
+  // a room built on to the hall's east side
+  const room = put(s, 'longhouse', core.x + core.w, core.y, { room: true });
   const f = footprint(room);
-  const from = { x: (core.x + 2.5) * 32, y: (core.y + 1.5) * 32 };
-  const to = { x: (core.x + 2.5) * 32, y: (f.y + f.h + 1.5) * 32 };
-  const path = pathTo(s, from, to);
-  assert.ok(path, 'a way');
-  const throughRoom = path!.some((p) => p.y >= f.y * 32 && p.y < (f.y + f.h) * 32 && p.x >= f.x * 32 && p.x < (f.x + f.w) * 32);
-  assert.ok(throughRoom, 'straight through the room');
+  const layout = castleLayout(s)!;
+  const ok = castleStep(s, layout);
+  const cellOfPt = (p: { x: number; y: number }) => ({ x: Math.floor(p.x / 32), y: Math.floor(p.y / 32) });
+  const walkFrom = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const path = pathTo(s, from, to);
+    assert.ok(path, 'a way');
+    // every step keeps to the walls: no crossing a wall but at a doorway or the gate
+    let prev = cellOfPt(from);
+    for (const p of path!) {
+      const c = cellOfPt(p);
+      if (c.x !== prev.x && c.y !== prev.y) assert.ok(ok(prev.x, prev.y, c.x, prev.y) && ok(c.x, prev.y, c.x, c.y), `diagonal ${prev.x},${prev.y} to ${c.x},${c.y}`);
+      else if (c.x !== prev.x || c.y !== prev.y) assert.ok(ok(prev.x, prev.y, c.x, c.y), `step ${prev.x},${prev.y} to ${c.x},${c.y}`);
+      prev = c;
+    }
+    return path!;
+  };
+  // from the hall into the room: through the one doorway between them
+  const doorV = [...layout.doors].find((k) => k.endsWith('|v') && Number(k.split(',')[0]) === f.x);
+  assert.ok(doorV, 'a doorway in the wall the hall and the room share');
+  walkFrom({ x: (core.x + 1.5) * 32, y: (core.y + 1.5) * 32 }, { x: (f.x + f.w - 1.5) * 32, y: (f.y + 1.5) * 32 });
+  // from the room out to the land below: back through the hall and out of the gate
+  const gate = castleGate(s);
+  const out = walkFrom({ x: (f.x + f.w - 1.5) * 32, y: (f.y + 1.5) * 32 }, { x: (f.x + f.w - 1.5) * 32, y: (f.y + f.h + 4.5) * 32 });
+  assert.ok(out.some((p) => cellOfPt(p).x === gate.x && cellOfPt(p).y === gate.y), 'out by the gate');
+  // and the walls really are shut: no step out of the room's south side
+  assert.equal(ok(f.x + 1, f.y + f.h - 1, f.x + 1, f.y + f.h), false);
 });
 
 test('a Deep Hold is cut into the mountain: half the land is rock, the halls carved into it behind one gate', () => {
@@ -201,4 +221,22 @@ test('a dwarf town is always founded at the foot of its mountain, whatever the l
       assert.ok(mountain > s.land.w * s.land.h * 0.3, `${biome}: a mountain to carve (${mountain} cells)`);
       assert.ok([...cells].some((c) => c === 'H'), `${biome}: the hall cut into it`);
     }
+});
+
+test('into a Deep Hold only by its gate: the rock and the hall\'s walls are never walked through', () => {
+  const s = newGame('hold-gate', { origin: 'dwarves' });
+  const core = coreRect(s);
+  const gate = castleGate(s);
+  const layout = castleLayout(s)!;
+  const ok = castleStep(s, layout);
+  // from the land to the far corner of the hall
+  const from = { x: (core.x - 3.5) * 32, y: (gate.y + 2.5) * 32 };
+  const to = { x: (core.x + 0.5) * 32, y: (core.y + 0.5) * 32 };
+  const path = pathTo(s, from, to);
+  assert.ok(path, 'a way in');
+  const cells = path!.map((p) => ({ x: Math.floor(p.x / 32), y: Math.floor(p.y / 32) }));
+  assert.ok(cells.some((c) => c.x === gate.x && c.y === gate.y), 'by the gate');
+  // nobody steps through the hall's front wall beside the gate
+  assert.equal(ok(gate.x - 1, gate.y, gate.x - 1, gate.y - 1), false);
+  assert.equal(ok(gate.x, gate.y, gate.x, gate.y - 1), true);
 });

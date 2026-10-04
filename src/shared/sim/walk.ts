@@ -3,6 +3,7 @@
 // A walker keeps its path and the goal it was found for; a new goal, or a building put up across the way, finds a
 // new one. With no way through (an island, a walled yard) it walks straight at the goal, so nobody is ever stuck.
 
+import { castleLayout, castleStep } from './castle';
 import { isGate } from './ringWall';
 import { footprint } from './buildings';
 import { addWear, CELL, cellOf, centreOf, findPath, idx, inMap, inRect, SWIM_COST, type Pt, type Rect } from './land';
@@ -39,11 +40,13 @@ export function blockedBy(s: Pick<GameState, 'buildings'>, through?: Rect): (x: 
 }
 
 /** A path from a point to another, as px centres of the cells on the way, ending on `to` itself (null: no way). */
-export function pathTo(s: Pick<GameState, 'buildings' | 'land'>, from: Pt, to: Pt, through?: Rect, swim = false): Pt[] | null {
+export function pathTo(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin'>, from: Pt, to: Pt, through?: Rect, swim = false): Pt[] | null {
   const a = cellOf(from);
   const b = cellOf(to);
   const clamp = (c: Pt) => ({ x: Math.max(0, Math.min(s.land.w - 1, c.x)), y: Math.max(0, Math.min(s.land.h - 1, c.y)) });
-  const cells = findPath(s.land, clamp(a), clamp(b), blockedBy(s, through), swim ? { swim: SWIM_COST } : 12000);
+  // (a castle's walls: from room to room through the doorways, in and out through the gate)
+  const layout = castleLayout(s);
+  const cells = findPath(s.land, clamp(a), clamp(b), blockedBy(s, through), { maxNodes: 12000, ...(swim ? { swim: SWIM_COST } : {}), ...(layout ? { edge: castleStep(s, layout) } : {}) });
   if (!cells) return null;
   const pts = cells.map((c) => centreOf(c.x, c.y));
   // (the goal lies in the last cell: straight to it, not by way of the cell's middle)
@@ -57,7 +60,7 @@ const same = (a: Pt | undefined, b: Pt) => !!a && Math.abs(a.x - b.x) < 1 && Mat
 /** One tick's walk towards `to` at `step` px. True once there. `through` is a footprint the walker may enter (where
  *  it's going). `tick` lets the path be looked at again now and then. A swimmer (`swim`: the merfolk) goes through the
  *  sea as readily as over the land. */
-export function walk(s: Pick<GameState, 'buildings' | 'land'>, w: Walker, to: Pt, step: number, through?: Rect, tick = 0, swim = false): boolean {
+export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin'>, w: Walker, to: Pt, step: number, through?: Rect, tick = 0, swim = false): boolean {
   if (Math.hypot(to.x - w.x, to.y - w.y) <= Math.max(ARRIVE, step)) {
     w.x = to.x;
     w.y = to.y;

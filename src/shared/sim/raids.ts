@@ -80,6 +80,8 @@ import { levelOf } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood } from './state';
+import { castleOn } from './castle';
+import { walk, type Walker } from './walk';
 import { TICK_HZ, TICKS_PER_HOUR, paceDay } from './time';
 import { campEdge, gainSkill } from './townsfolk';
 import { rulesOf } from '../data/origins';
@@ -437,7 +439,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
     if (!rd.fleeing && (coward || s.tick >= r.leavesTick || poolSize(rd.carrying) >= RAIDER_CARRY)) rd.fleeing = true;
     const edge = offMap(s, rd.side ?? r.side); // (each back the way it came)
     if (rd.fleeing) {
-      if (moveToward(rd, { x: edge.x, y: rd.y }, step * (rd.captive ? 0.8 : 1.2))) {
+      if (moveToward(s, rd, { x: edge.x, y: rd.y }, step * (rd.captive ? 0.8 : 1.2))) {
         rd.gone = true;
         if (rd.captive) carriedOff(s, rd, kind.name);
       }
@@ -452,7 +454,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
         continue;
       }
       if (fallen && !s.people.some((p) => exposed(p, kind.id) && dist(p, rd) <= reach)) {
-        moveToward(rd, fallen, step); // go and pick them up (unless someone's in the way)
+        moveToward(s, rd, fallen, step); // go and pick them up (unless someone's in the way)
         continue;
       }
     }
@@ -501,12 +503,12 @@ export function updateRaid(s: GameState, rng: Rng): void {
       const d = dist(rd, c);
       const stand = (defOf(wall).width * CELL) / 2 + 6;
       const at = d > 0 ? { x: c.x + ((rd.x - c.x) / d) * stand, y: c.y + ((rd.y - c.y) / d) * stand } : rd;
-      if (dist(rd, at) > step) moveToward(rd, at, step);
+      if (dist(rd, at) > step) moveToward(s, rd, at, step);
       else if (rd.cooldown <= 0) attackWall(s, rd, wall, rng);
       continue;
     }
     if (dist(target, rd) > step) {
-      moveToward(rd, target, step);
+      moveToward(s, rd, target, step);
       continue;
     }
     if (target.burn) {
@@ -560,7 +562,9 @@ function carriedOff(s: GameState, rd: Raider, by: string): void {
 }
 
 /** Straight at a point (raiders don't keep to the paths). True once there. */
-function moveToward(rd: Raider, to: Pt, step: number): boolean {
+function moveToward(s: GameState, rd: Raider, to: Pt, step: number): boolean {
+  // (in a castle or a hold they keep to its walls like anyone: in by the gate, room to room by the doorways)
+  if (castleOn(s)) return walk(s, rd as Raider & Walker, to, step, undefined, s.tick);
   const dx = to.x - rd.x;
   const dy = to.y - rd.y;
   const d = Math.hypot(dx, dy);
@@ -649,7 +653,7 @@ function allyAct(s: GameState, r: Raid, rd: Raider, rng: Rng, step: number): voi
   rd.dir = foe.x >= rd.x ? 1 : -1;
   const reach = def.ranged ? THROW_RANGE : MELEE_RANGE;
   if (dist(foe, rd) > reach) {
-    moveToward(rd, foe, step);
+    moveToward(s, rd, foe, step);
     return;
   }
   if (--rd.cooldown > 0) return;
