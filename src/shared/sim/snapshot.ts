@@ -171,6 +171,8 @@ export interface PersonView {
   /** Their nature (data/natures.ts): id, name and a line about it. */
   nature: NatureId;
   natureName: string;
+  /** Their town job, if they hold one ("Smith", "Shopkeeper"), and where. */
+  job: { title: string; at: string } | null;
   natureLine: string;
   ageDays: number;
   ageYears: number;
@@ -1012,6 +1014,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,
     nature: natureOf(p).id,
     natureName: natureOf(p).name,
+    job: jobView(s, p),
     natureLine: natureOf(p).line,
     swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
     ageDays: Math.floor(ageDays(s, p)),
@@ -1041,6 +1044,12 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit'> {
   };
   fightCache.set(p.id, { key, view });
   return view;
+}
+
+/** The job someone holds: the role's title and the building's name. */
+function jobView(s: GameState, p: Person): { title: string; at: string } | null {
+  const b = s.buildings.find((q) => q.operator === p.id && q.status === 'done' && !!OPERATORS[q.def]);
+  return b ? { title: OPERATORS[b.def].title, at: BUILDING_BY_ID[b.def].name } : null;
 }
 
 /** A line or two more about someone: the building they run, how their work is getting on, and (for a crafter) what

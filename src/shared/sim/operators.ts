@@ -4,7 +4,20 @@
 import { OPERATORS } from '../data/operators';
 import { isChild } from './social';
 import { notify, type Building, type GameState, type Person } from './state';
-import { TICKS_PER_HOUR } from './time';
+import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+
+/** A job's holder: the person running the building, if they're at home and on their feet. */
+export function holderOf(s: GameState, b: Building): Person | undefined {
+  if (b.operator == null || b.status !== 'done' || !OPERATORS[b.def]) return undefined;
+  const p = s.people.find((q) => q.id === b.operator);
+  return p && p.away === null && !p.downed ? p : undefined;
+}
+/** The building someone holds the job at, if any. */
+export const jobOf = (s: GameState, p: Person): Building | undefined => s.buildings.find((b) => b.operator === p.id && b.status === 'done' && !!OPERATORS[b.def]);
+/** Whether someone is this building's job holder (they work there first, and `HOLDER_EDGE` faster). */
+export const holds = (p: Person, b: Building | undefined) => !!b && b.operator === p.id;
+/** A free hand this much better than an unchosen holder takes the job over (once a day). */
+const TAKE_OVER_EDGE = 2;
 
 const roleOf = (b: Building) => (b.status === 'done' ? OPERATORS[b.def] : undefined);
 
@@ -34,15 +47,27 @@ export function operatorSkill(s: GameState, def: string): number {
   return p && b ? skillOf(p, b) : 0;
 }
 
-/** Once an hour: fill empty roles with the best free person; drop operators who are gone. */
+/** Once an hour: fill empty roles with the best free person (the venues, the infirmary and the tower first, then
+ *  the stations, the newest kinds first); drop operators who are gone. Once a day a much better free hand takes an
+ *  unchosen job over. */
 export function assignOperators(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  for (const b of s.buildings) {
-    const role = roleOf(b);
-    if (!role) continue;
+  const daily = s.tick % TICKS_PER_DAY === 0;
+  const worth = (b: Building) => (OPERATORS[b.def].skill === 'crafting' || OPERATORS[b.def].skill === 'gathering' ? 0 : 10) + s.buildings.indexOf(b) / 1000;
+  for (const b of [...s.buildings].filter((q) => roleOf(q)).sort((x, y) => worth(y) - worth(x))) {
+    const role = roleOf(b)!;
     if (b.operator != null && !s.people.some((p) => p.id === b.operator)) {
       b.operator = null;
       b.operatorChosen = false;
+    }
+    if (b.operator != null && daily && !b.operatorChosen) {
+      const now = s.people.find((p) => p.id === b.operator)!;
+      const better = candidates(s, b).sort((x, y) => skillOf(y, b) - skillOf(x, b))[0];
+      if (better && better !== now && skillOf(better, b) >= skillOf(now, b) + TAKE_OVER_EDGE) {
+        b.operator = better.id;
+        notify(s, `${better.name} is the ${role.title.toLowerCase()} now, in ${now.name}'s place.`);
+      }
+      continue;
     }
     if (b.operator != null) continue;
     const best = candidates(s, b).sort((x, y) => skillOf(y, b) - skillOf(x, b))[0];

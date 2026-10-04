@@ -1289,6 +1289,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Barter and the shop never came, and the ring wall took every log. `planResearch` lets the one unlearned topic a wanted
   topic waits on inherit `LEADS_SHARE` (0.85) of its score; `planRing` leaves the other sites the materials they still
   wait on (`owed`) and a wider ring waits `RING_REGROW_HOURS` (72) after the last stands. The desert probe: shop by day 6.
+- **Town jobs (done; the owner's ask: people whose job is a station, by how good they are):** built on the operator roles
+  (`data/operators.ts`): every crafting station but the campfire (titles in `CRAFT_TITLES`: Smith, Tanner, Weaver,
+  Baker...; the origins' own are artisans too), the mines (Miner, Driller), the hunters' lodge (Hunter) and the studies
+  (Scholar) have a role beside the keepers, healer and captain; the fields have none (the Farm priorities already send
+  the best farmers, and a field a person would take the whole town). `assignOperators` fills the worthiest roles first
+  (venues, infirmary, tower, then the stations) with the most skilled free grown-up, one job a person, and once a day a
+  free hand `TAKE_OVER_EDGE` (2) levels better takes an unchosen job over. A holder works their own post first
+  (`ownWork` in people.ts: the station's orders, the mine, the desk), `HOLDER_EDGE` (1.15) faster (`holds`), and while
+  they're at home and free for them nobody else takes that station's orders (`findCraft`'s `holderOf` check; with the
+  holder on one order, others may take the station's others). `PersonView.job` ({title, at}) is shown first in the
+  Townsfolk rows and on the inspect page. Test in `test/operators.test.ts`.
 
 ## Known problem (fixed, watch)
 
