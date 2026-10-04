@@ -733,7 +733,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   gates (`blockedBy` in walk.ts and `connectRoad` let gates through; a sealed town walks straight through, as `walk`
   always did); raids' trails end at the ring's gate on their side (`ringGate` in battle.ts `gateCell`), raiders break
   the gate or wall as before (`wallBetween`), and shooters stand on the ring's pieces near the trail (wall spots). The
-  planner's old end walls (`wallSpot`, "a wall at each end of town") are gone. Tests: `test/ringWall.test.ts`.
+  planner's old end walls (`wallSpot`, "a wall at each end of town") are gone. **Continuous walls:** a one-cell wall
+  piece's picture is chosen by how it joins its neighbours (`MapView.wallJoin`: along a row, down a column, a corner,
+  alone; in the building's `sig`, so a piece is redrawn when a neighbour goes up): `Pick.joins` in packBuildings.ts
+  gives the palisade the Village pack's post pair (`palisade24`, `palisade14`) down a column, a single post at corners
+  and a short post alone. Tests: `test/ringWall.test.ts`.
 - **Turn-based fights where stats matter (done; the owner's ask):** `src/shared/data/attributes.ts` and
   `sim/attributes.ts`: everyone has Strength, Dexterity, Vitality, Intellect and Wisdom (`Attrs`; `attributesOf(p)`:
   `ATTR_BASE` 8, a class's growth by level in its own proportions (`CLASS_ATTRS`), the work skills' part, traits, a
@@ -753,8 +757,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   each, ten general ones besides (a skill that shares a spell's name carries `_art` on its id: ids are unique across
   both lists); `test/turns.test.ts` counts them. **Seeing it:** `Battle.acts` carry `ActMeta`
   (spell, ult, cost, pool); the snapshot's `acts` add `who`; `fightHud.ts` shows a **banner** (`#fight-banner`: who,
-  the act, its cost; gold and bigger for an ultimate, CSS in index.html) and MP, SP and limit bars under each party
-  member's time gauge (`.ff-pools`); `fightView.ts` shakes the scene and flashes white on an ultimate. The Townsfolk
+  a floating FF-style window lower in the scene naming the act and who used it at what cost, faded and lifted by
+  the clock in `fadeBanner` since the strip's CSS animations never advanced; gold and bigger for an ultimate; CSS in
+  index.html), a wide **turn gauge** under each party member's name (`.ff-turn`, lit when full; a thin red one per
+  foe kind) with MP, SP and limit bars beside it (`.ff-pools`), and in a fight the top window gives way to a small
+  corner button out (`#fight-leave`); `fightView.ts` shakes the scene and flashes white on an ultimate. The Townsfolk
   inspect page shows the five attributes, MP and SP, and each skill's cost (`PersonView.battle.attrs`, `kit[].cost`).
 - **A hard cap on births:** `POP_HARD_CAP` (90, data/pace.ts): no child is born past it (wanderers already stop at
   `POP_SOFT_CAP`); the 200-day soaks had settlers at 71 by day 40 and climbing.

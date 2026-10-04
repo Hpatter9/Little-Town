@@ -622,81 +622,137 @@
         background: #ffe060;
         box-shadow: 0 0 4px #ffe060;
       }
-      /* the banner over a watched fight: who uses what */
+      /* the floating window over a watched fight naming what was just done (fight/fightHud.ts fades and lifts it by
+         the clock): lower in the scene, as the old games had it; gold for an ultimate */
       #fight-banner {
         position: absolute;
         left: 50%;
-        top: 34%;
+        top: 54%;
         transform: translate(-50%, -50%);
         z-index: 30;
         pointer-events: none;
         text-align: center;
         font-family: var(--font-display);
         color: #fff;
-        text-shadow: 0 0 6px #000, 2px 2px 0 #000;
+        text-shadow: 1px 1px 0 #000;
+        background: linear-gradient(180deg, #2a3a9a, #10186a);
+        border: 2px solid #e8e8f0;
+        border-radius: 5px;
+        box-shadow: 0 0 0 1px #10104a, 0 4px 12px rgba(0, 0, 0, 0.5);
+        padding: 5px 16px 4px;
+        min-width: 120px;
         opacity: 0;
+        zoom: var(--ui-zoom, 1);
       }
       #fight-banner[hidden] {
         display: none;
       }
-      #fight-banner.show {
-        animation: ff-banner 1.5s ease-out forwards;
-      }
-      #fight-banner.ult.show {
-        animation: ff-banner-ult 2.6s ease-out forwards;
-      }
-      #fight-banner .ff-who {
-        display: block;
-        font-size: 13px;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        opacity: 0.9;
-      }
       #fight-banner .ff-act {
         display: block;
-        font-size: 26px;
+        font-size: 18px;
         font-weight: bold;
-        line-height: 1.1;
-        padding: 2px 14px;
-        background: linear-gradient(90deg, rgba(16, 24, 106, 0) 0%, rgba(16, 24, 106, 0.85) 20%, rgba(16, 24, 106, 0.85) 80%, rgba(16, 24, 106, 0) 100%);
+        line-height: 1.15;
+        white-space: nowrap;
       }
       #fight-banner.spell .ff-act {
-        color: #b8d8ff;
+        color: #c8e0ff;
       }
       #fight-banner.skill .ff-act {
-        color: #c8ffd0;
-      }
-      #fight-banner.ult .ff-act {
-        font-size: 36px;
-        color: #ffe060;
-        text-shadow: 0 0 12px #ff9040, 0 0 24px #ff6020, 2px 2px 0 #000;
-        background: linear-gradient(90deg, rgba(120, 30, 0, 0) 0%, rgba(120, 30, 0, 0.9) 20%, rgba(120, 30, 0, 0.9) 80%, rgba(120, 30, 0, 0) 100%);
+        color: #d8ffe0;
       }
       #fight-banner .ff-cost {
         display: block;
-        font-size: 11px;
-        letter-spacing: 2px;
-        margin-top: 2px;
-        color: #e8e8f0;
+        font-size: 10px;
+        letter-spacing: 1px;
+        color: #c8c8e8;
+        white-space: nowrap;
+      }
+      #fight-banner.ult {
+        border-color: #ffe060;
+        background: linear-gradient(180deg, #7a2a08, #3a1004);
+        box-shadow: 0 0 0 1px #4a1800, 0 0 18px #ff9040;
+      }
+      #fight-banner.ult .ff-act {
+        font-size: 26px;
+        color: #ffe060;
+        text-shadow: 0 0 10px #ff9040, 2px 2px 0 #000;
       }
       #fight-banner.ult .ff-cost {
-        color: #ffe060;
+        color: #ffd090;
         font-weight: bold;
       }
-      @keyframes ff-banner {
-        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
-        12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
-        20% { transform: translate(-50%, -50%) scale(1); }
-        80% { opacity: 1; }
-        100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+      /* the small corner button out of a fight */
+      #fight-leave {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        z-index: 31;
+        width: 30px;
+        height: 30px;
+        border-radius: 5px;
+        border: 2px solid #e8e8f0;
+        background: linear-gradient(180deg, #2a3a9a, #10186a);
+        color: #fff;
+        font-size: 15px;
+        line-height: 1;
+        padding: 0;
+        zoom: var(--ui-zoom, 1);
       }
-      @keyframes ff-banner-ult {
-        0% { opacity: 0; transform: translate(-50%, -50%) scale(1.8); filter: blur(4px); }
-        10% { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); }
-        14% { transform: translate(-48%, -51%) scale(1.04); }
-        18% { transform: translate(-52%, -49%) scale(1); }
-        85% { opacity: 1; }
-        100% { opacity: 0; transform: translate(-50%, -58%) scale(1.1); }
+      #fight-leave[hidden] {
+        display: none;
+      }
+      /* the party's rows: name and health, then the turn gauge with the pools beside it */
+      .ff-member {
+        display: block;
+      }
+      .ff-head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .ff-head .ff-name {
+        flex: 1;
+      }
+      .ff-under {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin: 1px 0 3px;
+      }
+      .ff-turn {
+        flex: 1;
+        height: 6px;
+        background: #0a0a30;
+        border: 1px solid #8890c0;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .ff-turn i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #8890d0, #d8d8ff);
+      }
+      .ff-turn i.full {
+        background: #f0e070;
+        box-shadow: 0 0 6px #f0e070;
+      }
+      .ff-member.ready .ff-name {
+        color: #fff0a0;
+      }
+      .ff-turn.foe {
+        display: block;
+        flex: none;
+        width: 60px;
+        height: 3px;
+        margin-top: 1px;
+        border-color: #a05060;
+      }
+      .ff-turn.foe i {
+        background: #e08090;
+      }
+      .ff-turn.foe i.full {
+        background: #ff5060;
+        box-shadow: 0 0 4px #ff5060;
       }
       #prompt {
         position: absolute;

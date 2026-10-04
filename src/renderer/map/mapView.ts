@@ -12,6 +12,7 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
+import { inRect } from '../../shared/sim/land';
 import { inSea } from '../../shared/sim/sea';
 import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
@@ -27,7 +28,7 @@ import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { ChimneySmoke } from '../town/ambientView';
 import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
-import { onPackArt, packArt, packDressing } from './packBuildings';
+import { onPackArt, packArt, packDressing, type Join } from './packBuildings';
 import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
@@ -497,7 +498,23 @@ export class MapView {
     if (seat) return seatArt(seat.origin, seat.stage, f.w, f.h, this.tone, this.toneKey);
     // (a pack picture where one suits the look: map/packBuildings.ts)
     // (else the top-down painter's: art/topDown.ts)
-    return packArt(b.def, f.w, this.style, b.id) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
+    return packArt(b.def, f.w, this.style, b.id, this.wallJoin(b)) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
+  }
+
+  /** How a one-cell wall piece joins the walls and gates about it: along a row, down a column, at a corner, or alone
+   *  (undefined for anything but a wall, so other pictures are untouched). */
+  private wallJoin(b: Building): Join | undefined {
+    const def = BUILDING_BY_ID[b.def];
+    if (!def?.hp || def.width !== 1 || def.defense) return undefined;
+    const wallAt = (x: number, y: number) => this.simBuildings.some((o) => o !== b && !!BUILDING_BY_ID[o.def]?.hp && !BUILDING_BY_ID[o.def]?.defense && inRect(footprint(o), x, y));
+    const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);
+    if ((l || r) && !(u || d)) return 'h';
+    if ((u || d) && !(l || r)) return 'v';
+    if (r && d) return 'nw';
+    if (l && d) return 'ne';
+    if (r && u) return 'sw';
+    if (l && u) return 'se';
+    return l || r ? 'h' : u || d ? 'v' : 'end';
   }
 
   /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */
@@ -522,12 +539,16 @@ export class MapView {
     this.castle = { key, under: drawing.under, things: drawing.things };
   }
 
+  /** The town's buildings as last synced (a wall piece's picture depends on its neighbours: `wallJoin`). */
+  private simBuildings: Building[] = [];
+
   syncBuildings(list: Building[]): void {
+    this.simBuildings = list;
     const seen = new Set<number>();
     for (const b of list) {
       seen.add(b.id);
       let d = this.buildings.get(b.id);
-      const sig = `${sigOf(b)}|${this.artGen}|${this.season === 'winter' ? 'snow' : ''}`;
+      const sig = `${sigOf(b)}|${this.artGen}|${this.season === 'winter' ? 'snow' : ''}|${this.wallJoin(b) ?? ''}`;
       if (d && d.sig !== sig) {
         this.destroy(d);
         this.buildings.delete(b.id);

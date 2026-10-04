@@ -32,6 +32,10 @@ import palisade02 from '../art/village/palisade02.png';
 import palisade03 from '../art/village/palisade03.png';
 import palisade36 from '../art/village/palisade36.png';
 import palisade37 from '../art/village/palisade37.png';
+import palisade14 from '../art/village/palisade14.png';
+import palisade19 from '../art/village/palisade19.png';
+import palisade21 from '../art/village/palisade21.png';
+import palisade24 from '../art/village/palisade24.png';
 import dwalls from '../art/village/dwalls.png';
 import dprops from '../art/village/dprops.png';
 import grave1 from '../art/village/grave1.png';
@@ -138,7 +142,12 @@ export interface Pick {
   lamps?: [number, number][];
   /** A tent or a wall: the origins with tents and walls of their own (`OWN_TENTS`) keep theirs instead. */
   own?: true;
+  /** A wall piece's picture by how it joins its neighbours (the ring wall: sim/ringWall.ts): along a row (`h`), down a
+   *  column (`v`), at a corner, or standing alone (`end`); the pick itself when a join has none. */
+  joins?: Partial<Record<Join, Pick>>;
 }
+/** How a wall piece joins the pieces about it (map/mapView.ts `wallJoin`). */
+export type Join = 'h' | 'v' | 'nw' | 'ne' | 'sw' | 'se' | 'end';
 /** The glow of a pack house's window (the painter's window colour). */
 const WINDOW_GLOW = 0xf0d890;
 /** The looks the pack's timber houses suit. */
@@ -163,7 +172,13 @@ const PICKS: Record<string, Pick> = {
   // the stockpile: crates and logs heaped together
   stockpile: { parts: [[log3, 2, 14], [box1, 10, 4], [box2, 28, 8], [log1, 44, 6], [box1, 62, 10], [box2, 76, 2]], size: [96, 28], overhang: 0 },
   // the Village pack's palisade stakes and gate
-  palisade_wall: { own: true, any: [palisade01, palisade02, palisade03], overhang: 0 },
+  palisade_wall: {
+    own: true,
+    any: [palisade01, palisade02, palisade03],
+    overhang: 0,
+    // (a run down a column is the pack's post pair; a corner or a lone piece a single post)
+    joins: { v: { any: [palisade24, palisade14], overhang: 0 }, nw: { url: palisade19, overhang: 0 }, ne: { url: palisade19, overhang: 0 }, sw: { url: palisade19, overhang: 0 }, se: { url: palisade19, overhang: 0 }, end: { url: palisade21, overhang: 0 } },
+  },
   palisade_gate: { own: true, parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0 },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
   stone_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
@@ -331,10 +346,11 @@ function pickFor(def: string, style: string): Pick | null {
   return suits(pick, style) ? pick : null;
 }
 
-export function packArt(def: string, w: number, style: string, id = 0): PixelArt | null {
-  const pick = pickFor(def, style);
+export function packArt(def: string, w: number, style: string, id = 0, join?: Join): PixelArt | null {
+  let pick = pickFor(def, style);
   if (!pick) return null;
-  return pickArt(pick, w, `${def}|${style}`, id);
+  if (join && pick.joins?.[join]) pick = pick.joins[join]!;
+  return pickArt(pick, w, `${def}|${style}|${join ?? ''}`, id);
 }
 
 /** Any pick's picture, scaled to `w` cells (the castle's furnishings use this too); `key` names it for the cache. */
