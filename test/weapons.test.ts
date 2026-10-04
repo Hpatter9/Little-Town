@@ -1,3 +1,4 @@
+import { MAX_SKILL } from '../src/shared/data/skills';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ITEMS, ITEM_BY_ID, STATIONS } from '../src/shared/data/items';
@@ -34,7 +35,7 @@ test('+N: rare, rarer for a novice; a basic weapon at +5 is about as good as one
     return n;
   };
   const novice = count(1);
-  const master = count(20);
+  const master = count(MAX_SKILL);
   assert.ok(novice[0] > 90000 && novice[2] < 300, `novice ${novice}`);
   assert.ok(master[1] > 20000 && master[3] < 1600 && master[5] < 40, `master ${master}`);
   assert.ok(master[3] > novice[3]);

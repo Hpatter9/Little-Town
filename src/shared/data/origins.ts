@@ -14,9 +14,12 @@ export type OriginId = (typeof ORIGINS)[number];
 export interface OriginRules {
   /** Who joins the town: the raised dead (they never eat, sleep or sicken, heal slowly, never marry), machines (the
    *  same, and their spirits never waver), or the living. */
-  kin?: 'undead' | 'machine';
+  kin?: 'undead' | 'machine' | 'werewolf';
   /** Nobody wanders in: the town makes its own people (a power does). */
   noWanderers?: boolean;
+  /** Newcomers at the gate are let in by the town itself (the horde gathers whoever comes); everyone else's
+   *  wanderers are a question to the player (people join only by their leave, a prisoner won over, or birth). */
+  freeJoin?: boolean;
   /** The founder is one of these from the start. */
   founder?: MonsterKind | 'lich' | 'machine';
   /** Everyone works this much faster (or slower) by day and by night. */
@@ -39,6 +42,8 @@ export interface OriginRules {
   regrow?: boolean;
   /** Spirits never sink below this. */
   moraleFloor?: number;
+  /** The fallen are taken alive this many times as often (sim/prisoners.ts: the Blood Court keeps prisoners for blood). */
+  captives?: number;
   /** On a full moon everyone works and fights harder. */
   moonFury?: boolean;
   /** Townsfolk fight this much harder, and take this much less in a raid. */
@@ -49,6 +54,14 @@ export interface OriginRules {
   /** The town is a castle: its halls, workshops and bedchambers are rooms stacked up a keep that grows upward
    *  (sim/castle.ts); only yards, fields, mines and walls stay outside. */
   castle?: boolean;
+  /** The town is a hold carved into a mountain (sim/castle.ts with `hold: 'mountain'`): the land is half mountain,
+   *  the halls are rooms cut into the rock behind one gate, and the yards and fields lie outside on the terrain. */
+  hold?: 'mountain';
+  /** The land's shape besides (sim/land.ts `LandShape`): `sea`, half the land sea south of the camp, the town always on
+   *  the coast, its people swimming and building in the water (sim/sea.ts; the merfolk). */
+  shape?: 'sea';
+  /** Keeps to its own: strangers of other peoples are turned from the gate (sim/strangers.ts). */
+  xenophobic?: true;
   /** The town moves with the seasons (sim/nomads.ts): its tents and wagons between a winter ground and a summer
    *  pasture, until it reaches this era and settles for good. */
   nomadic?: { until: Era };
@@ -112,9 +125,9 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     name: 'Blood Court',
     town: 'Chronos Nocturne',
     description: 'A vampire lord and their thralls, in a castle that climbs higher with every room. It comes alive at night; the Hunter\'s Guild never forgets.',
-    features: ['The founder is a vampire from the start', 'The town is a castle: every room is built on, floor by floor, up a growing keep', 'Everyone works hard by night, slower by day', 'Thralls: spirits never sink low', 'Spells: Mesmerise, Blood Feast, Night Terror'],
+    features: ['The founder is a vampire from the start', 'The town is a castle: every room is built on, floor by floor, up a growing keep', 'Everyone works hard by night, slower by day', 'Thralls: spirits never sink low', 'Blood is a resource: the thralls\' tithe each dusk, the pens, and prisoners kept and bled in the Blood Farm; the Court drinks from the store, and brews the rest into blood wine', 'The fallen are taken alive twice as often', 'Spells: Mesmerise, Blood Feast, Night Terror'],
     start: { companions: ['gatherer', 'hunter'], stores: { berries: 20 } },
-    rules: { founder: 'vampire', day: 0.85, night: 1.3, moraleFloor: 35, prices: 1.1, castle: true },
+    rules: { founder: 'vampire', day: 0.85, night: 1.3, moraleFloor: 35, prices: 1.1, castle: true, captives: 2 },
     powers: ['mesmerize', 'blood_feast', 'night_terror'],
   },
   werewolf: {
@@ -122,9 +135,9 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     name: 'Moon Pack',
     town: 'Chronos Den',
     description: 'A werewolf and their pack. Wolves run with them, and the full moon makes them fierce.',
-    features: ['The founder is a werewolf from the start', 'Wolves never raid; on a full moon everyone works and fights harder', 'Great hunters: foraging and fighting', 'Spells: Howl, Pack Hunt, Moon Frenzy'],
+    features: ['Everyone is a werewolf: the pack hunts under every full moon', 'Three rival packs hold the hills: break them, and they are your hunting grounds', 'The strongest may challenge the Alpha; the Great Hunt wins the game', 'Spells: Howl, Pack Hunt, Moon Frenzy'],
     start: { companions: ['hunter', 'hunter'], stores: { berries: 12, meat: 12 } },
-    rules: { founder: 'werewolf', raids: { wolves: 0 }, moonFury: true, fight: 1.15, forage: 1.15 },
+    rules: { founder: 'werewolf', kin: 'werewolf', raids: { wolves: 0 }, moonFury: true, fight: 1.15, forage: 1.15 },
     powers: ['howl', 'pack_hunt', 'moon_frenzy'],
   },
   robot: {
@@ -141,20 +154,20 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     id: 'dwarves',
     name: 'Deep Hold',
     town: 'Chronos Hold',
-    description: 'Dwarves: master builders and crafters, poor farmers, stubborn in a fight.',
-    features: ['Build 30% faster; crafted things come out finer', 'Poor farmers: fields grow slower', 'Tough: take less harm in raids', 'Rituals: Deep Delve, Forge Blessing, Stone Skin'],
+    description: 'Dwarves of the mountain: master builders and crafters, poor farmers, stubborn in a fight. Their halls are carved into the rock behind one gate.',
+    features: ['The land is half mountain: the halls are rooms cut into the rock, behind a single gate; fields and yards lie outside', 'Build 30% faster; crafted things come out finer', 'Poor farmers: fields grow slower', 'Tough: take less harm in raids', 'Keep to their own: strangers of other peoples are turned from the gate', 'Rituals: Deep Delve, Forge Blessing, Stone Skin'],
     start: { companions: ['crafter'], stores: { stone: 30, flint: 10, berries: 16 }, research: ['flint_knapping', 'stoneworking'] },
-    rules: { build: 1.3, quality: 1.5, crops: 0.7, guard: 0.85 },
+    rules: { build: 1.3, quality: 1.5, crops: 0.7, guard: 0.85, hold: 'mountain', xenophobic: true },
     powers: ['deep_delve', 'forge_blessing', 'stone_skin'],
   },
   merfolk: {
     id: 'merfolk',
     name: 'Tide Clan',
     town: 'Chronos Harbour',
-    description: 'Merfolk of the shore. They fish and forage well, and ships bring far more travellers; so do pirates.',
-    features: ['Foraging 50% faster; the sea gives fish', 'Travellers come half again as often', 'Pirates come more; fields grow slower', 'Spells: Tide Call, Whirlpool, Sea Fog'],
+    description: 'Merfolk of the shore. Half their land is the sea: they swim it, fish it for fish, kelp and pearls, and build their homes in the shallows. Ships bring far more travellers; so do pirates.',
+    features: ['Always on the coast: the south half of the land is sea, with shallows along the shore', 'Everyone swims; homes, the seat and the defences stand in the water', 'The sea gives fish, kelp and pearls, and gives again each dawn', 'Foraging 50% faster; travellers come half again as often', 'Pirates come more; fields grow slower', 'Spells: Tide Call, Whirlpool, Sea Fog'],
     start: { companions: ['gatherer'], stores: { berries: 20, meat: 6 }, research: ['foraging'] },
-    rules: { forage: 1.5, crops: 0.8, travellers: 1.5, raids: { pirates: 2 } },
+    rules: { forage: 1.5, crops: 0.8, travellers: 1.5, raids: { pirates: 2 }, shape: 'sea' },
     powers: ['tide_call', 'whirlpool', 'sea_fog'],
   },
   nomads: {
@@ -164,7 +177,7 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     description: 'A tribe that follows the seasons: summer on the pasture, winter on the home ground, until the Industrial age, when their home ground becomes a caravan city. Quick to pitch camp, great traders, restless.',
     features: ['The camp moves with the seasons: tents, workshops, shop and tavern go on the wagons; the great works stay on the home ground', 'No walls while they wander: the wagons are drawn into a circle when raiders come', 'Settle for good in the Industrial age', 'Build 40% faster; travellers come twice as often, and pay more', 'Research slower; fields left behind at each move', 'Rituals: Trade Road, Swift Riders, Scouting Party'],
     start: { companions: ['hunter', 'gatherer'], stores: { hide: 10, berries: 25 }, research: ['foraging'] },
-    rules: { build: 1.4, travellers: 2, prices: 1.15, research: 0.85, nomadic: { until: 'industrial' } },
+    rules: { build: 1.4, travellers: 2, prices: 1.15, research: 0.85, nomadic: { until: 'industrial' }, freeJoin: true },
     powers: ['trade_road', 'swift_riders', 'scouting'],
   },
   fae: {

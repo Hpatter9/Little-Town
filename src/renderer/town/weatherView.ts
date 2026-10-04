@@ -50,7 +50,7 @@ export class WeatherView {
     this.daylight = c.daylight;
   }
 
-  render(now: number, width: number): void {
+  render(now: number, width: number, height = GROUND): void {
     const dt = this.lastNow ? Math.min(0.1, (now - this.lastNow) / 1000) : 0;
     this.lastNow = now;
     const w = this.weather.kind;
@@ -67,7 +67,7 @@ export class WeatherView {
       const d = this.drops[i];
       d.y += d.speed * (0.8 + this.wet * 0.5) * dt;
       d.x += (wind * dt) / Math.max(1, width);
-      if (d.y > GROUND) {
+      if (d.y > height) {
         d.y = -6;
         d.x = Math.random();
       }
@@ -85,7 +85,7 @@ export class WeatherView {
         f.roundRect(x - 200, y, width * 0.7, 22, 11).fill({ color: this.daylight > 0.3 ? 0xdde2e8 : 0x6a7080, alpha: 0.13 * this.foggy });
         f.roundRect(x + width * 0.4, y + 6, width * 0.6, 18, 9).fill({ color: this.daylight > 0.3 ? 0xdde2e8 : 0x6a7080, alpha: 0.1 * this.foggy });
       }
-      f.rect(0, 60, width, GROUND - 60).fill({ color: this.daylight > 0.3 ? 0xd0d6de : 0x505868, alpha: 0.12 * this.foggy });
+      f.rect(0, 60, width, height - 60).fill({ color: this.daylight > 0.3 ? 0xd0d6de : 0x505868, alpha: 0.12 * this.foggy });
     }
 
     const b = this.bits.clear();
@@ -94,7 +94,7 @@ export class WeatherView {
       for (const l of this.leaves) {
         l.y += l.speed * dt;
         l.x += ((wind * 0.6 + Math.sin(t * 1.3 + l.phase) * 20) * dt) / Math.max(1, width);
-        if (l.y > GROUND) {
+        if (l.y > height) {
           l.y = -4;
           l.x = Math.random();
         }
@@ -115,7 +115,7 @@ export class WeatherView {
         if (age > 0.45) this.bolt = null;
         else {
           const on = age < 0.08 || (age > 0.16 && age < 0.22); // a double flicker
-          fl.rect(0, 0, width, STRIP_HEIGHT).fill({ color: 0xeef2ff, alpha: on ? 0.35 : 0.08 * (1 - age / 0.45) });
+          fl.rect(0, 0, width, height).fill({ color: 0xeef2ff, alpha: on ? 0.35 : 0.08 * (1 - age / 0.45) });
           if (on) {
             const [first, ...rest] = this.bolt.path;
             fl.moveTo(first[0], first[1]);

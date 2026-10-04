@@ -80,7 +80,8 @@ test('visitors turned away, or kept waiting too long, walk off', () => {
   runUntil(sim, () => s.visitor === null, 600);
   assert.equal(s.visitor, null);
   assert.equal(s.people.length, 1);
-  runUntil(sim, () => s.visitor !== null, 400 * 60);
+  for (const b of s.buildings) b.store = {}; // (bare stores: an unanswered newcomer is sent on)
+  runUntil(sim, () => s.visitor !== null, 80 * 60 * 60); // (wanderers come no oftener than VISIT_GAP_HOURS apart now)
   assert.ok(s.visitor, 'another one came');
   const left = runUntil(sim, () => s.visitor === null, 20 * 60 * 60);
   assert.ok(left > 5 * 60, `waited about 6 game hours before leaving (${left}s)`);
@@ -150,7 +151,7 @@ test('two haulers never over-deliver, and materials are conserved', () => {
   addStock(campfire(s).store, 'wood', 30);
   // two stockpiles (6 wood each) for two haulers to race over
   sim.command({ type: 'placeBuilding', def: 'stockpile', x: camp(s).x - 4, y: row(s) });
-  sim.command({ type: 'placeBuilding', def: 'stockpile', x: camp(s).x, y: row(s) });
+  sim.command({ type: 'placeBuilding', def: 'stockpile', x: camp(s).x + 4, y: row(s) }); // (the road to the first runs four ways now, up through the camp's column)
   for (let i = 0; i < 300 * TICK_HZ; i++) {
     sim.step();
     for (const b of s.buildings) for (const [m, n] of Object.entries(b.delivered)) assert.ok(n! <= 6, `${b.def} got ${n} ${m}`);
@@ -205,6 +206,7 @@ test('traits: Hard Worker works faster, Lazy slower; Quick Learner and passions 
   const s = newGame('traits');
   const p = addPerson(s);
   p.morale = 50;
+  p.nature = 'cheerful'; // (a nature with an even pace: data/natures.ts)
   p.traits = ['hard_worker'];
   assert.equal(workFactor(s, p), 1.2);
   p.traits = ['lazy'];
@@ -242,4 +244,21 @@ test('with a barracks, guards on Defend High walk patrols on their shift, and of
     }
   }
   assert.ok(patrolled > 0, 'they patrolled');
+});
+test('the town size the player picks: nobody joins past it, and it can be lifted', () => {
+  const sim = new Sim(plainGame('size'));
+  const s = sim.state;
+  addBuilding(s, 'lean_to', camp(s).x - 6);
+  addBuilding(s, 'lean_to', camp(s).x - 4); // (a bed free, so only the size holds them back)
+  sim.command({ type: 'setTownSize', size: 1 });
+  sim.step();
+  assert.equal(s.popTarget, 1);
+  run(sim, 72 * 60 * 60 / 60); // three game days
+  assert.equal(s.visitor, null, 'no wanderer comes to a town as big as the player wants');
+  assert.equal(s.people.length, 1);
+  sim.command({ type: 'setTownSize', size: null });
+  sim.step();
+  assert.equal(s.popTarget, undefined);
+  runUntil(sim, () => s.visitor !== null, 72 * 60);
+  assert.ok(s.visitor, 'with no limit, wanderers come again');
 });

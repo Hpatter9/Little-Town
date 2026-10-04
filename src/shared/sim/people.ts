@@ -2,20 +2,23 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
 import { ADJACENT_TILES, NEAR_SOURCE, NEAR_SOURCE_BONUS } from '../data/buildings';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
-import { BEDROLL_SLEEP, ITEM_BY_ID } from '../data/items';
+import { BEDROLL_SLEEP, ITEM_BY_ID, STATIONS } from '../data/items';
 import { FOOD_VALUE, JOBS, type Job } from '../data/people';
 import { eraOfResearch, RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
+import { WORKPLACES } from '../data/crops';
 import { earlier } from '../data/eras';
 import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius } from './buildings';
-import { CELL, cellAt, groundAt, isMarked, setGround, type Pt } from './land';
+import { CELL, cellAt, groundAt, isMarked, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
+import { swims } from './sea';
 import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickTool, stationFor, takeItemInputs, toolSpeed } from './crafting';
 import { leavePt } from './breaks';
 import { onBuilt } from './era';
@@ -30,6 +33,8 @@ import { defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } f
 import { ENEMIES } from '../data/enemies';
 import { THROW_RANGE } from '../data/raids';
 import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
+import { holderOf, holds, jobOf as heldJob } from './operators';
+import { HOLDER_EDGE } from '../data/operators';
 import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Raider, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
@@ -200,7 +205,8 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     case 'farm': {
       const field = byId(s, task.building)!;
       if (!goToB(s, p, field)) break;
-      p.activity = 'forage';
+      // (a sickle for the harvest, a hoe for the sowing; the pens are tended by hand)
+      p.activity = isPen(field) ? 'forage' : field.crop?.stage === 'ripe' ? 'reap' : 'till';
       if (isPen(field) ? workPen(s, p, field) : workField(s, p, field)) p.task = null;
       break;
     }
@@ -455,7 +461,7 @@ function doCraft(s: GameState, p: Person, task: Extract<Task, { type: 'craft' }>
       // a steam factory speeds every station's work
       const built = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
       const factory = (built('factory') ? 2 : 1) * (built('fusion_reactor') ? 1.5 : 1);
-      const speed = skillSpeed(p.skills.crafting.level) * workFactor(s, p) * factory * nearSource(s, station) * craftSpeed(s);
+      const speed = skillSpeed(p.skills.crafting.level) * workFactor(s, p) * factory * nearSource(s, station) * craftSpeed(s) * (holds(p, station) ? HOLDER_EDGE : 1);
       o.progress += speed / (craftSeconds(def, s.era) * TICK_HZ);
       gainSkill(p, 'crafting', CRAFT_XP_PER_SEC / TICK_HZ);
       if (o.progress >= 1) {
@@ -478,11 +484,16 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
     return;
   }
   if (!(building ? goToB(s, p, building) : goTo(s, p, campXY(s)))) return;
+  if (s.tick % TICKS_PER_HOUR === 0 && researchCanWait(s, p)) {
+    p.task = null;
+    return;
+  }
   p.activity = 'research';
   const topic = TOPIC_BY_ID[task.topic];
-  const mult = building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1;
+  const mult = (building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1) * (holds(p, building) ? HOLDER_EDGE : 1);
   const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p) * researchSpeed(s);
-  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * TICK_HZ);
+  // (and the game's pace: a town takes generations to learn it all, data/pace.ts)
+  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * RESEARCH_PACE[topic.era ?? 'neolithic'] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   if (r.progress[topic.id] < 1) return;
 
@@ -556,9 +567,21 @@ function scrounge(s: GameState, p: Person, task: Extract<Task, { type: 'gather' 
   }
 }
 
-/** A wild cell worked out is open ground now (sand in the desert). */
+/** A wild cell worked out is open ground now (sand in the desert); a cell of the mountain dug out is a gallery of the
+ *  hold (hall), which the dwarves walk and dig on from. */
 export function clearCell(s: GameState, i: number): void {
   const c = cellAt(s.land, i);
+  // (a cell of the sea fished out stays the sea: it gives again at dawn, sim/sea.ts)
+  if (wet(groundAt(s.land, c.x, c.y))) {
+    delete s.land.pools[i];
+    setMarked(s.land, i, false);
+    s.land.version++;
+    return;
+  }
+  if (groundAt(s.land, c.x, c.y) === 'mountain') {
+    setGround(s.land, c.x, c.y, 'hall');
+    return;
+  }
   setGround(s.land, c.x, c.y, s.biome === 'desert' ? 'sand' : 'grass');
 }
 
@@ -751,7 +774,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
     if (s.buildings.some((b) => b.status === 'blueprint' && poolSize(unreserved(s, p, b)) > 0) && poolSize(p.carrying) > keep.reduce((n, m) => n + p.carrying[m]!, 0)) {
       const kept = Object.fromEntries(keep.map((m) => [m, p.carrying[m]!])) as Stock;
       for (const m of keep) delete p.carrying[m];
-      notify(s, `${p.name} dropped ${listCarried(p)}: no room in storage.`);
+      // (said once an hour at most: a full store once filled the journal with nothing else)
+      if ((s.dropNoted ?? -1e9) + TICKS_PER_HOUR <= s.tick) {
+        s.dropNoted = s.tick;
+        notify(s, `${p.name} dropped ${listCarried(p)}: no room in storage.`);
+      }
       p.carrying = kept;
       if (keep.length) {
         p.blocked = true;
@@ -765,6 +792,9 @@ function chooseTask(s: GameState, p: Person): Task | null {
   if (p.morale < SULK_MORALE || p.breakdown) return null; // sulking (or in the middle of a break)
   // (hands already full, whatever they're doing: no more gathering or fetching on top)
   if (poolSize(p.carrying) >= carryCapacity(s, p)) handsFull = true;
+  // Their own post first: the smith works the smithy's orders, the miner digs, the scholar studies at their desk.
+  const own = ownWork(s, p, handsFull);
+  if (own) return own;
   // Jobs, by the person's priorities.
   for (const level of [1, 2, 3]) {
     for (const job of JOBS) {
@@ -775,6 +805,22 @@ function chooseTask(s: GameState, p: Person): Task | null {
   }
   return null;
 }
+
+/** Study is spare-time work while the town is small: a handful of people build and gather before they sit down
+ *  to think, and in any town a site ready to build with nobody on it comes first (research takes generations now:
+ *  data/pace.ts, so a topic can't be left to finish first). */
+export function researchCanWait(s: GameState, p: Person): boolean {
+  const sites = s.buildings.filter((b) => b.status === 'blueprint');
+  if (!sites.length) return false;
+  const ready = sites.some((b) => poolSize(stillNeeded(b)) === 0 || b.progress > 0);
+  const grown = s.people.filter((q) => q.away === null && q.bornTick == null && !q.downed).length;
+  // (a handful of people: anything they could build or gather for comes first; a site waiting on what the land can't
+  // give (a desert's fiber) doesn't keep them from their books)
+  if (grown <= SMALL_TOWN) return ready || s.land.marked.length > 0;
+  return ready && !s.people.some((q) => q !== p && q.task?.type === 'build');
+}
+/** Up to this many grown-ups, building and gathering come before study. */
+const SMALL_TOWN = 3;
 
 function findJob(s: GameState, p: Person, job: Job): Task | null {
   switch (job) {
@@ -810,7 +856,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       return { type: 'patrol', targetX: end.x, targetY: end.y };
     case 'research': {
       // (one person to a station: with every one taken, they find other work)
-      if (!s.research.queue.length) return null;
+      if (!s.research.queue.length || researchCanWait(s, p)) return null;
       const station = freeStation(s, p);
       return station === undefined ? null : { type: 'research', station, topic: topicFor(s, p) };
     }
@@ -830,14 +876,36 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
   }
 }
 
+/** The work at the building someone holds the job at (sim/operators.ts), if there is any for them now. */
+function ownWork(s: GameState, p: Person, handsFull: boolean): Task | null {
+  const b = heldJob(s, p);
+  if (!b) return null;
+  if (!handsFull && p.priorities.craft !== 0 && (STATIONS as readonly string[]).includes(b.def)) return findCraft(s, p, b.def);
+  if (!handsFull && WORKPLACES[b.def] && p.priorities.gather !== 0) {
+    const diggers = s.people.filter((o) => o !== p && o.task?.type === 'mine' && o.task.building === b.id).length;
+    return diggers < WORKPLACES[b.def].workers ? { type: 'mine', building: b.id, work: 0 } : null;
+  }
+  if (RESEARCH_STATIONS[b.def] && p.priorities.research !== 0 && s.research.queue.length && !researchCanWait(s, p) && !studyingAt(s, b.id, p)) return { type: 'research', station: b.id, topic: topicFor(s, p) };
+  return null;
+}
+
 /**
  * The first craft order someone can work on: its station is built, nobody else has it, and its item
  * ingredients are in the inventory. Fetch what's missing from the nearest store that has any, or make it.
+ * A station's job holder has first pick of its orders: while they're at home and free for them, nobody else takes
+ * one (`station`: only that station's orders).
  */
-function findCraft(s: GameState, p: Person): Task | null {
+function findCraft(s: GameState, p: Person, station?: string): Task | null {
   for (const o of s.crafting) {
+    const def = ITEM_BY_ID[o.item];
+    if (station && def.station !== station) continue;
     if (s.people.some((q) => q !== p && q.task?.type === 'craft' && q.task.order === o.id)) continue;
-    if (!stationFor(s, ITEM_BY_ID[o.item]) || missingItems(s, o).length) continue;
+    const at = stationFor(s, def);
+    if (!at || missingItems(s, o).length) continue;
+    if (!station) {
+      const holder = holderOf(s, at);
+      if (holder && holder !== p && holder.task?.type !== 'craft') continue;
+    }
     const need = craftNeeded(o);
     if (!poolSize(need)) return { type: 'craft', order: o.id, phase: 'work', from: null };
     // already holding some of it (say, after a nap): take it over first
@@ -941,7 +1009,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 
 /** Step toward a point along a path over the land. Returns true once there. */
 function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {
-  const there = walk(s, p, to, STEP, through, s.tick);
+  const there = walk(s, p, to, STEP, through, s.tick, swims(s, p));
   if (!there) p.activity = 'walk';
   return there;
 }

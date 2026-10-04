@@ -6,6 +6,8 @@
 import {
   BITE_DAMAGE,
   FEED_HOURS,
+  GUILD_BITE,
+  THIRST_BITES,
   FULL_MOON_DAYS,
   GUILD_DECAY_DAY,
   GUILD_PER_MONSTER_DAY,
@@ -19,6 +21,9 @@ import {
   type StandingOrder,
 } from '../data/monsters';
 import { RAID_KIND_BY_ID } from '../data/raids';
+import { BUILDING_BY_ID } from '../data/buildings';
+import { drinkBlood, tithed } from './vampires';
+import { GUILD_THRESHOLD as GUILD_CALL, TITHE_MORALE } from '../data/monsters';
 import type { Rng } from '../rng';
 import { grieve } from './social';
 import { depositNear } from './buildings';
@@ -88,15 +93,34 @@ export function updateMonsters(s: GameState, rng: Rng, startGuildRaid: (target: 
     }
     // a vampire, hungry, in the small hours: a sleeper, a prisoner, or nobody (and then they thirst)
     if (m.monster === 'vampire' && hour === 2 && s.tick - (m.lastFed ?? 0) >= FEED_HOURS * TICKS_PER_HOUR) {
+      // the quiet ways first (the owner's ask: a hidden vampire has ways to feed): the town's tithe, a prisoner, a
+      // beast of the pens, a stranger lodging at the tavern; townsfolk last, and that stirs the town and the Guild
+      const pen = s.buildings.find((b) => b.status === 'done' && (b.herd?.head ?? 0) >= 2);
+      const lodger = (s.travellers ?? []).find((t) => t.bed);
       const sleepers = victims.filter((p) => p.activity === 'sleep');
-      if (victims.length) {
-        const v = rng.pick(sleepers.length ? sleepers : victims);
-        v.hp = Math.max(1, v.hp - BITE_DAMAGE);
+      if (drinkBlood(s)) {
         m.lastFed = s.tick;
-        notify(s, `${v.name} woke pale and weak. Something fed on them in the night.`, true);
+      } else if (tithed(s)) {
+        m.lastFed = s.tick;
       } else if (s.prisoners.length) {
         m.lastFed = s.tick;
         notify(s, `${m.name} fed on a prisoner in the night.`);
+      } else if (pen) {
+        m.lastFed = s.tick;
+        if (rng.chance(0.3)) pen.herd!.head--;
+        notify(s, `A beast in the ${BUILDING_BY_ID[pen.def].name} was found drained in the morning.`);
+      } else if (lodger) {
+        m.lastFed = s.tick;
+        lodger.purse = Math.round(lodger.purse * 0.5);
+        notify(s, `${lodger.name} left the tavern pale and shaken, and told nobody why.`);
+      } else if (victims.length) {
+        const v = rng.pick(sleepers.length ? sleepers : victims);
+        v.hp = Math.max(1, v.hp - BITE_DAMAGE);
+        m.lastFed = s.tick;
+        s.guild = Math.min(100, (s.guild ?? 0) + GUILD_BITE);
+        s.bites = (s.bites ?? 0) + 1;
+        notify(s, `${v.name} woke pale and weak. Something fed on them in the night.`, true);
+        if (s.bites >= THIRST_BITES && !s.prompts.some((q) => q.kind === 'thirst')) askThirst(s, m);
       }
     }
     // with no blood to be had, a vampire weakens
@@ -105,7 +129,8 @@ export function updateMonsters(s: GameState, rng: Rng, startGuildRaid: (target: 
   if (packHunted) notify(s, 'Under the full moon the pack ran down game in the hills and brought back meat.');
   // the Guild, once a day
   if (hour !== 12) return;
-  const n = monsters(s).length;
+  // (a pack is no business of the Guild's: the Moon Pack's werewolves don't count)
+  const n = monsters(s).filter((m) => !(m.monster === 'werewolf' && s.origin === 'werewolf')).length;
   s.guild = Math.max(0, Math.min(100, (s.guild ?? 0) + (n ? n * GUILD_PER_MONSTER_DAY : -GUILD_DECAY_DAY)));
   if (n && (s.guild ?? 0) >= GUILD_THRESHOLD && !s.raid) {
     const target = rng.pick(monsters(s).filter((m) => m.away === null));
@@ -152,3 +177,36 @@ export function guildDefeated(s: GameState): void {
 }
 
 export const HUNTERS = RAID_KIND_BY_ID.hunters;
+
+/* ------------------------------------------------------------ a thirst in the dark */
+
+export const THIRST_OPTIONS = ['Keep a blood tithe', 'Call the Hunter\'s Guild', 'Say nothing'];
+
+/** After enough bites the town speaks of it: a prompt. The default follows the vampire's standing order (one in
+ *  hiding would rather the town kept a tithe than called the hunters). */
+function askThirst(s: GameState, m: Person): void {
+  s.prompts.push({
+    id: s.nextId++,
+    kind: 'thirst',
+    expedition: null,
+    title: 'A thirst in the dark',
+    text: 'Someone wakes pale and weak most mornings, and the town whispers of a vampire. A blood tithe (everyone gives a little, in turn) would keep it fed and the biting would stop; the Hunter\'s Guild would come hunting; or say nothing, and let it feed as it will.',
+    options: THIRST_OPTIONS,
+    defaultOption: m.order === 'fight' ? 2 : 0,
+    expiresTick: s.tick + 12 * TICKS_PER_HOUR,
+  });
+}
+
+/** The town's answer: a tithe (its vampires fed cleanly from now on, a little morale off everyone), the Guild called
+ *  (the hunters come at the next noon), or nothing said (the bites go on, and the town speaks of it again later). */
+export function answerThirst(s: GameState, label: string): void {
+  s.bites = 0;
+  if (label === THIRST_OPTIONS[0]) {
+    s.tithe = true;
+    for (const p of s.people) if (!p.monster) p.morale = Math.max(0, p.morale + TITHE_MORALE);
+    notify(s, 'The town keeps a blood tithe: a little from each, in turn, and nobody wakes pale again.', true);
+  } else if (label === THIRST_OPTIONS[1]) {
+    s.guild = Math.max(s.guild ?? 0, GUILD_CALL);
+    notify(s, 'Word is sent to the Hunter\'s Guild. Hunters are coming.', true);
+  } else notify(s, 'Nothing is said. The pale mornings go on.');
+}

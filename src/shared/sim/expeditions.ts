@@ -2,6 +2,7 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
+import { levelOf, xpToLevel } from '../data/levels';
 import { ENEMIES } from '../data/enemies';
 import { eraReached } from '../data/eras';
 import { HIDDEN_IN, HOME_REGION, REGION_BY_ID, regionScouted } from '../data/regions';
@@ -50,8 +51,11 @@ import { prereqsMet } from './research';
 import { occultRevealed, revealOccult } from './occult';
 import type { Pt } from './land';
 import { isPlaceDest } from '../data/places';
+import { TRADE_HIDDEN } from '../data/minerals';
 import { placeCleared, placeDestination, placeOfDest } from './places';
-import { addStock, carryCapacity, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type GameState, type Person } from './state';
+import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
+import { packDestinationOf, packDestUnlocked, packHome } from './pack';
+import { townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
@@ -76,10 +80,13 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
     const p = placeOfDest(s, id);
     return p ? placeDestination(s, p) : undefined;
   }
+  if (isPackDest(id) || id === HUNT_DEST) return packDestinationOf(s, id);
   return DESTINATION_BY_ID[id];
 }
 
 export function destinationUnlocked(s: GameState, d: Destination): boolean {
+  // (the Moon Pack's hunt, and the rival packs' lairs while they stand)
+  if (isPackDest(d.id) || d.id === HUNT_DEST) return packDestUnlocked(s, d.id);
   // (a place on the town's land: while it's found and waiting)
   if (isPlaceDest(d.id)) {
     const p = placeOfDest(s, d.id);
@@ -98,7 +105,7 @@ export const regionKnown = (s: GameState, region: string) => region === HOME_REG
 export function destinationHidden(s: GameState, id: string): boolean {
   const scouts = regionScouted(id);
   if (scouts) return regionKnown(s, scouts);
-  const region = HIDDEN_IN[id];
+  const region = HIDDEN_IN[id] ?? TRADE_HIDDEN[id];
   return !!region && !regionKnown(s, region);
 }
 
@@ -106,7 +113,7 @@ export function destinationHidden(s: GameState, id: string): boolean {
 function mapRegion(s: GameState, region: string): void {
   if (regionKnown(s, region)) return;
   (s.regions ??= []).push(region);
-  const found = DESTINATIONS.filter((d) => HIDDEN_IN[d.id] === region).map((d) => d.name);
+  const found = DESTINATIONS.filter((d) => (HIDDEN_IN[d.id] ?? TRADE_HIDDEN[d.id]) === region).map((d) => d.name);
   const r = REGION_BY_ID[region];
   notify(s, `The scouts have mapped ${r.name.replace(/^The /, 'the ')}${found.length ? `, and found ${found.length > 1 ? `${found.slice(0, -1).join(', ')} and ${found.at(-1)}` : found[0]}` : ''}.`, true);
 }
@@ -114,6 +121,7 @@ function mapRegion(s: GameState, region: string): void {
 /** The skill that decides how fast a member works this destination. */
 function workSkill(d: Destination, p: Person): Skill {
   if (d.type === 'gather') return 'gathering';
+  if (d.type === 'trade') return 'social';
   return p.skills.ranged.level >= p.skills.melee.level ? 'ranged' : 'melee';
 }
 
@@ -136,7 +144,8 @@ export function canSend(s: GameState, destId: string, memberIds: readonly number
   if (!destinationUnlocked(s, d)) return { ok: false, reason: 'Not discovered yet' };
   if (s.expeditions.length >= MAX_EXPEDITIONS) return { ok: false, reason: `At most ${MAX_EXPEDITIONS} expeditions at once` };
   if (memberIds.length < 1) return { ok: false, reason: 'Pick someone to go' };
-  const most = d.type === 'delve' || isPlaceDest(d.id) ? MAX_DELVERS : MAX_PARTY;
+  if (d.coins && (s.coins ?? 0) < d.coins) return { ok: false, reason: `Needs ${d.coins} coins for the purse` };
+  const most = d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : MAX_PARTY;
   if (memberIds.length > most) return { ok: false, reason: `Parties are at most ${most} people` };
   if (new Set(memberIds).size !== memberIds.length) return { ok: false, reason: 'Someone is listed twice' };
   for (const id of memberIds) {
@@ -166,6 +175,11 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
   }
   const d = destinationOf(s, destId)!;
   const members = memberIds.map((id) => s.people.find((p) => p.id === id)!);
+  // (a trade caravan takes its purse with it: spent at the market, what it buys comes home as loot)
+  if (d.coins) {
+    s.coins = (s.coins ?? 0) - d.coins;
+    earn(s, 'goods', -d.coins);
+  }
 
   // Drop off what they're carrying, then pack food for the trip.
   for (const p of members) {
@@ -322,7 +336,7 @@ export function rolesFor(members: Person[], d: Destination | undefined): Record<
 export function sendDelve(s: GameState, destId: string, memberIds: readonly number[], stakes: Stakes): SendCheck {
   const d = destinationOf(s, destId);
   // (a dungeon, or a fight at one of the places on the town's land: the player picks who goes)
-  if (d?.type !== 'delve' && !(d && isPlaceDest(d.id))) return { ok: false, reason: 'Not a dungeon' };
+  if (d?.type !== 'delve' && !(d && (isPlaceDest(d.id) || isPackDest(d.id)))) return { ok: false, reason: 'Not a dungeon' };
   const members = memberIds.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
   const plan = planParty(s, destId);
   const r = sendExpedition(s, destId, members.map((p) => p.id), rolesFor(members, d), STAKES[stakes].stance, Math.min(plan.horses, members.length), plan.truck);
@@ -465,6 +479,8 @@ function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person
 function finishBattle(s: GameState, e: Expedition, d: Destination, members: Person[], rng: Rng): void {
   const b = e.battle!;
   e.battle = null;
+  // the victory screen's tally: each member's experience and levels before and after
+  const result: FightResult = { tick: s.tick, outcome: b.outcome ?? 'won', members: [], loot: {}, coins: 0, foes: [...new Set(b.fighters.filter((f) => f.side === 'enemy').map((f) => f.name))], boss: b.fighters.find((f) => f.side === 'enemy' && ENEMIES[f.kind]?.boss)?.name ?? null };
   // carry the fight's wounds back to the people (and count the stones thrown)
   for (const f of b.fighters) {
     if (f.side !== 'party' || f.kind !== 'person') continue; // (allies and the raised go back where they came from)
@@ -472,22 +488,35 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
     const p = members.find((q) => q.id === f.ref);
     if (!p) continue;
     if (f.down && !p.downed) knockDown(s, p);
-    else if (!f.down) p.hp = f.hp;
+    else if (!f.down) p.hp = Math.max(1, Math.min(maxHp(p), Math.round((f.hp * maxHp(p)) / Math.max(1, f.maxHp)))); // (back to the town's reckoning of their health)
+    const levelFrom = levelOf(p);
+    const xpFrom = p.lvXp ?? 0;
     if (f.attacks) gainSkill(p, f.ranged ? 'ranged' : 'melee', f.attacks * FIGHT_XP);
     if (e.roles[p.id] === 'medic' && f.lastAction >= 0) gainSkill(p, 'medicine', FIGHT_XP * 3);
+    // (the experience shown: what the level gained, levels crossed counted whole)
+    const levelTo = levelOf(p);
+    let xp = (p.lvXp ?? 0) - xpFrom;
+    for (let l = levelFrom; l < levelTo; l++) xp += xpToLevel(l);
+    result.members.push({ id: p.id, name: p.name, xp: Math.round(xp), levelFrom, levelTo, down: f.down });
   }
+  e.result = result;
   if (medicUp(e, members)) for (const p of members) if (p.downed) stabilize(p);
 
   switch (b.outcome) {
     case 'won': {
-      // a boss slain: its trophy comes home with the party
+      // a boss slain: its trophy comes home with the party (its purse goes to the town: shown on the victory screen)
+      const coinsBefore = s.coins ?? 0;
       for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.boss) bossSlain(s, f.kind);
+      result.coins = (s.coins ?? 0) - coinsBefore;
       const drops = battleLoot(b);
       const room = partyCarry(s, e) - poolSize(e.loot);
       let taken = 0;
       for (const [m, n] of Object.entries(drops) as [Material, number][]) {
         const k = Math.min(n, room - taken);
-        if (k > 0) addStock(e.loot, m, k);
+        if (k > 0) {
+          addStock(e.loot, m, k);
+          addStock(result.loot, m, k);
+        }
         taken += Math.max(0, k);
       }
       notify(s, `${The(d.name)} party won the fight${taken ? ` and took ${listStock(drops)}` : ''}.`);
@@ -581,6 +610,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   if (!e.recalled) specialOutcome(s, e, d, at, rng);
   // (a delve: quests on a cleared dungeon, and a rival won over)
   delveHome(s, e, rng, { quests: (id) => questsDone(s, id, at, rng), join: () => joinTown(s, at, rng) });
+  packHome(s, e, rng);
   if (!e.recalled) findRelic(s, e, d, rng);
 }
 
@@ -633,13 +663,17 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, at: Pt, rng
     case 'rescue': {
       const n = rng.int(1, RESCUE_MAX);
       const joined: Person[] = [];
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < n && !townFull(s); i++) {
         const type = rng.weighted(ARRIVING_TYPES);
         const p = makePerson(rng, s.nextId++, type, at, s.people.map((q) => q.name));
         s.people.push(p);
         joined.push(p);
       }
       assignBeds(s);
+      if (!joined.length) {
+        notify(s, `The captives from ${the(d.name)} thank the party and go home: the town is as big as you want it.`, true);
+        return;
+      }
       notify(s, `${names(joined)} from ${the(d.name)} came home with the party and joined the town.`, true);
       return;
     }

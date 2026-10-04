@@ -80,7 +80,9 @@ function layout(): void {
   // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
   const dpr = window.devicePixelRatio || 1;
   // (and, where it costs little, an even number: the art has detail on a grid twice as fine, pixelArt.ts FINE)
-  const whole = Math.max(1, Math.floor(fit * dpr + 0.01));
+  // (below two of the screen's pixels the steps would be a doubling, so halves are allowed there)
+  const steps = fit * dpr + 0.01;
+  const whole = steps < 2 ? Math.max(1, Math.floor(steps * 2) / 2) : Math.floor(steps);
   const even = Math.floor(whole / 2) * 2;
   const z = (even >= 2 && even >= whole * 0.75 ? even : whole) / dpr;
   // (it fills its room, the town along the bottom and sky over it)
@@ -116,16 +118,36 @@ sideways.addEventListener('change', () => {
 strip.addEventListener('load', layout); // (for the strip's --ui-zoom)
 layout();
 
-// Two fingers pinching the town zoom it (the strip reports the pinch; the zooming happens here). The strip measures
-// the fingers in its own pixels, which shrink and grow with the zoom, so they're turned into screen pixels first.
-let pinchBase = { zoom, screen: 1 };
-bridge.onPinch?.((phase, spread) => {
-  const z = parseFloat(strip.style.transform.replace('scale(', '')) || zoom; // (what the strip is shown at now)
-  if (phase === 'start') pinchBase = { zoom, screen: spread * z };
-  else if (phase === 'move') {
-    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchBase.zoom * ((spread * z) / pinchBase.screen)));
-    layout();
-  } else setZoom(zoom); // (saved once the fingers lift)
+// Two fingers pinching the town zoom it (the strip reports the pinch; the zooming happens here). While the fingers
+// are down the strip is only scaled on the screen (a CSS transform about the point between them: cheap and smooth);
+// when they lift it is laid out again at the new zoom, drawn sharp, and its view moved so what was under the fingers
+// stays there. The strip measures the fingers in its own pixels, which shrink and grow with the scale it's shown at,
+// so they're turned into screen pixels by that scale.
+let pinch: { zoom: number; z: number; screen: number; mx: number; my: number; shown: number } | null = null;
+bridge.onPinch?.((phase, spread, mx, my) => {
+  if (phase === 'start') {
+    const z = parseFloat(strip.style.transform.replace('scale(', '')) || zoom; // (what the strip is shown at now)
+    pinch = { zoom, z, screen: spread * z, mx, my, shown: z };
+    stripBox.classList.add('pinching'); // (the strip, scaled past its box, is clipped to it)
+  } else if (phase === 'move') {
+    if (!pinch) return;
+    // (the fingers' spread on the screen, against where they began: how much to zoom by)
+    const k = Math.min(MAX_ZOOM / pinch.zoom, Math.max(MIN_ZOOM / pinch.zoom, (spread * pinch.shown) / pinch.screen));
+    pinch.shown = pinch.z * k;
+    // (the point between the fingers stays put: the strip grows about it)
+    const sx = pinch.mx * pinch.z;
+    const sy = pinch.my * pinch.z;
+    strip.style.transform = `translate(${sx * (1 - k)}px, ${sy * (1 - k)}px) scale(${pinch.shown})`;
+    zoom = pinch.zoom * k;
+  } else {
+    if (!pinch) return;
+    const { mx, my, z } = pinch;
+    pinch = null;
+    stripBox.classList.remove('pinching');
+    setZoom(zoom); // (laid out again, sharp, and saved)
+    const now = parseFloat(strip.style.transform.replace('scale(', '')) || zoom;
+    (strip.contentWindow as (Window & { __zoomAbout?: (mx: number, my: number, from: number, to: number) => void }) | null)?.__zoomAbout?.(mx, my, z, now);
+  }
 });
 
 /* ------------------------------------------------------------ the tab bar (the desktop strip's dock) */
@@ -165,9 +187,9 @@ const tabButtons = PANELS.map((p) => {
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)
-  if (!!(snap.battle || snap.watch) !== battleOn || !!snap.watch !== watchOn) {
-    battleOn = !!(snap.battle || snap.watch);
-    watchOn = !!snap.watch;
+  if (!!(snap.battle || snap.watch || snap.mine) !== battleOn || !!(snap.watch || snap.mine) !== watchOn) {
+    battleOn = !!(snap.battle || snap.watch || snap.mine);
+    watchOn = !!(snap.watch || snap.mine);
     document.body.classList.toggle('battle', battleOn);
     layout();
   }

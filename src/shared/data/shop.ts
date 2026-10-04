@@ -10,10 +10,31 @@ import { plusOf, qualityMult } from './quality';
 import { WORTH } from './trade';
 import type { Material } from './materials';
 import { caravanGoods } from './trade';
+import { SHOP_LINES, type ShopLine } from './stores';
 
 /** Every kind of shop, smallest first (each upgrades into the next). */
 export const SHOPS: readonly string[] = ['trading_post', 'general_store', 'emporium'];
-export const isShop = (def: string) => BUILDING_BY_ID[def]?.floor?.venue === 'shop';
+/** The general store's chain (a specialty shop is a venue of the shop kind too, but not one of these). */
+export const isShop = (def: string) => BUILDING_BY_ID[def]?.floor?.venue === 'shop' && !BUILDING_BY_ID[def]?.floor?.line;
+/** What a specialty shop sells (undefined for the general store and the tavern). */
+export const lineOfDef = (def: string): ShopLine | undefined => BUILDING_BY_ID[def]?.floor?.line;
+/** The medicines (apothecary's line besides its wares). */
+const MEDICINES = new Set(['bandage', 'poultice', 'antibiotics', 'medkit']);
+const MEDICINE_STATIONS = new Set(['apothecary', 'pharmacy', 'herb_press', 'alembic']);
+const ARMOUR_SLOTS = new Set(['body', 'head', 'offhand']);
+/** Which line an item belongs to, if any: furnishings, weapons, armour (and shields), medicine. */
+export function lineOfItem(i: ItemDef): ShopLine | undefined {
+  if (i.relic || i.unique) return undefined;
+  if (i.furnish) return 'furniture';
+  if (i.slot === 'weapon') return 'weapons';
+  if (i.slot && ARMOUR_SLOTS.has(i.slot)) return 'armour';
+  if (MEDICINES.has(i.id) || (i.ware && MEDICINE_STATIONS.has(i.station))) return 'medicine';
+  return undefined;
+}
+/** Every item of a line. */
+export const LINE_ITEMS: Readonly<Record<ShopLine, readonly ItemDef[]>> = Object.fromEntries(
+  SHOP_LINES.map((l) => [l, ITEMS.filter((i) => lineOfItem(i) === l)]),
+) as unknown as Record<ShopLine, readonly ItemDef[]>;
 export const isTavern = (def: string) => BUILDING_BY_ID[def]?.floor?.venue === 'tavern';
 export const venueOfDef = (def: string): Venue | undefined => BUILDING_BY_ID[def]?.floor?.venue;
 /** Every kind of tavern, smallest first. */
@@ -95,6 +116,9 @@ export const PURSE: [number, number] = [6, 14];
 export const PURSE_SCALE: Record<Era, number> = { neolithic: 1, medieval: 2, industrial: 4, modern: 6, space: 8 };
 /** Each point of attractiveness adds this share to what a traveller spends; each Social level of the shopkeeper this. */
 export const APPEAL_SPEND = 0.02;
+/** Attractiveness past this adds nothing more to a purse or to how often travellers come (a town selling gold once had
+ *  both climb without end: the coins went on the shop, the shop drew more and bigger purses, and so on). */
+export const APPEAL_CAP = 100;
 export const KEEPER_SPEND = 0.03;
 /** Most of one good a traveller buys, and most kinds of goods. */
 export const MAX_BUY_EACH = 12;
@@ -110,7 +134,7 @@ export const COIN_RESERVE = 15;
 export const SHOP_LOG = 8;
 
 /** What travellers carry to sell: everyday goods, and whatever caravans bring in the town's era. */
-const EVERYDAY: readonly Material[] = ['fiber', 'wood', 'stone', 'hide', 'clay', 'flint', 'herbs', 'berries', 'bone'];
+const EVERYDAY: readonly Material[] = ['fiber', 'wood', 'stone', 'hide', 'clay', 'flint', 'herbs', 'berries', 'bone', 'copper_ore', 'tin_ore'];
 export function travellerGoods(era: Era): Material[] {
   return [...new Set([...EVERYDAY, ...(era === 'neolithic' ? [] : caravanGoods(era))])];
 }

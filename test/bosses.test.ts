@@ -32,7 +32,8 @@ test('in battle a dragon breathes fire on several at once, and rages below half 
   const rng = new Rng(7);
   const b = startBattle(party, {}, { dragon: 1 }, rng);
   const dragon = b.fighters.find((f) => f.kind === 'dragon')!;
-  for (let i = 0; i < 60 * TICK_HZ && !b.outcome; i++) stepBattle(b, rng, { retreatAt: 0, mainId: null });
+  // (turn-based fights take longer: one action a beat)
+  for (let i = 0; i < 180 * TICK_HZ && !b.outcome; i++) stepBattle(b, rng, { retreatAt: 0, mainId: null });
   assert.ok(b.shouts?.some((t) => /breathes fire/.test(t)), 'fire breath');
   assert.ok(dragon.enraged || dragon.down, 'it raged (or fell first)');
   void s;

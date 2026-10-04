@@ -3,14 +3,18 @@
 // middle of its front (bottom) edge: that's where workers stand, and a road is laid from it to the nearest road (or
 // the camp) when it's placed, so the town grows along its roads.
 
-import { castleCells, castleGate, castleOn, joinsCastle, nearCastle, roomKind } from './castle';
+import { isGate } from './ringWall';
+import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
+import { seaBuild } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
+import { ERA_NAMES, eraReached, type Era } from '../data/eras';
+import type { OriginId } from '../data/origins';
 import { MAX_POTS, POT_STORAGE } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
 import { HERDS } from '../data/livestock';
-import { buildable, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect } from './land';
+import { buildable, carvable, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet } from './land';
 import { modifiers } from './research';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
 
@@ -27,7 +31,7 @@ export function depthOf(def: BuildingDef): number {
 }
 
 /** A building's footprint on the land, in cells. */
-export const footprint = (b: Pick<Building, 'def' | 'tile' | 'row'>): Rect => ({ x: b.tile, y: b.row, w: defOf(b).width, h: depthOf(defOf(b)) });
+export const footprint = (b: Pick<Building, 'def' | 'tile' | 'row'> & { turned?: boolean; wide?: number }): Rect => ({ x: b.tile, y: b.row, w: b.turned ? depthOf(defOf(b)) : defOf(b).width + (b.wide ?? 0), h: b.turned ? defOf(b).width : depthOf(defOf(b)) });
 /** Every building's footprint (but `except`'s). */
 export const footprints = (s: Pick<GameState, 'buildings'>, except?: Building): Rect[] => s.buildings.filter((b) => b !== except).map(footprint);
 /** Whether a cell is under a building. */
@@ -61,11 +65,14 @@ export function distToBuilding(b: Pick<Building, 'def' | 'tile' | 'row'>, p: Pt)
 }
 
 /** Whether a building can be placed: its research is done (or the debug unlock is on). */
-export function isUnlocked(u: { unlockAll: boolean; done: readonly string[] }, def: BuildingDef): boolean {
-  return !def.research || u.unlockAll || u.done.includes(def.research);
+export function isUnlocked(u: { unlockAll: boolean; done: readonly string[]; era?: Era; origin?: OriginId }, def: BuildingDef): boolean {
+  if (def.origin && def.origin !== (u.origin ?? 'settlers')) return false; // (a settlers' town has no `origin` set)
+  if (u.unlockAll) return true;
+  if (def.era && u.era && !eraReached(u.era, def.era)) return false;
+  return !def.research || u.done.includes(def.research);
 }
 
-export const unlockInfo = (s: GameState) => ({ unlockAll: s.cheats.unlockAll, done: s.research.done });
+export const unlockInfo = (s: GameState) => ({ unlockAll: s.cheats.unlockAll, done: s.research.done, era: s.era, origin: s.origin });
 
 /** The town's reach: the furthest any of its buildings (fields too) stands from the camp, in cells (chessboard), at
  *  least the camp's own ground. */
@@ -166,18 +173,26 @@ export interface PlaceCheck {
 /** Whether `def` fits with its top-left cell at (x, y): on open, buildable ground, over no road, clear of every other
  *  building (but `except`); a castle's rooms built on to the castle (over a road if need be: the floor covers it), and
  *  all else a cell clear of it. */
-export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'>, def: BuildingDef, x: number, y: number, except?: Building): PlaceCheck {
-  const r: Rect = { x, y, w: def.width, h: depthOf(def) };
+export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'>, def: BuildingDef, x: number, y: number, except?: Building, turned = false): PlaceCheck {
+  const r: Rect = { x, y, w: turned ? depthOf(def) : def.width, h: turned ? def.width : depthOf(def) };
   const m = s.land;
   const room = castleOn(s) && roomKind(s, def);
+  const carved = room && holdOf(s) === 'mountain';
   for (let cy = r.y; cy < r.y + r.h; cy++)
     for (let cx = r.x; cx < r.x + r.w; cx++) {
       if (!inMap(m, cx, cy)) return { ok: false, reason: 'Off the map' };
       if (Math.hypot(cx - m.camp.x, cy - m.camp.y) > m.open) return { ok: false, reason: 'Beyond the known land' };
       const g = groundAt(m, cx, cy);
-      if (g === 'water') return { ok: false, reason: 'Water runs here' };
-      if (!buildable(g)) return { ok: false, reason: 'Clear the land first' };
-      if (!room && isRoad(m, cx, cy)) return { ok: false, reason: 'A road runs here' };
+      if (wet(g)) {
+        // (a shore town's homes, seat and defences stand in the sea: sim/sea.ts)
+        if (!seaBuild(s, def)) return { ok: false, reason: g === 'water' ? 'Water runs here' : 'The shallows run here' };
+        continue;
+      }
+      if (carved) {
+        if (!carvable(g)) return { ok: false, reason: 'A hall is cut into the mountain' };
+      } else if (g === 'mountain') return { ok: false, reason: 'The mountain stands here' };
+      else if (!buildable(g)) return { ok: false, reason: 'Clear the land first' };
+      if (!room && isRoad(m, cx, cy) && !isGate(def.id)) return { ok: false, reason: 'A road runs here' }; // (a gate stands on the road)
     }
   for (const b of s.buildings) {
     if (b === except) continue;
@@ -185,7 +200,7 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
   }
   if (castleOn(s)) {
     const cells = castleCells(s);
-    if (room && !joinsCastle(cells, m, r)) return { ok: false, reason: 'A room is built on to the castle' };
+    if (room && !joinsCastle(cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };
     if (!room && nearCastle(cells, m, r)) return { ok: false, reason: "The castle's ground" };
   }
   return { ok: true };
@@ -195,19 +210,21 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
 export const fitsAt = (m: LandMap, taken: readonly Rect[], def: BuildingDef, x: number, y: number) => fits(m, { x, y, w: def.width, h: depthOf(def) }, taken);
 
 /** Place a blueprint with its top-left cell at (x, y). Returns the reason on failure. A road is laid to its door. */
-export function placeBlueprint(s: GameState, defId: string, x: number, y: number): PlaceCheck {
+export function placeBlueprint(s: GameState, defId: string, x: number, y: number, turned = false): PlaceCheck {
   const def = BUILDING_BY_ID[defId];
   if (!def || def.never) return { ok: false, reason: 'Unknown building' };
   if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: 'Not researched yet' };
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
-  const check = canPlace(s, def, x, y);
+  const check = canPlace(s, def, x, y, undefined, turned);
   if (!check.ok) return check;
-  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}) };
+  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}), ...(turned ? { turned: true } : {}) };
   s.buildings.push(b);
   if (b.room) {
-    // (no roads inside the castle: a road that ran where the room now stands is taken up)
+    // (no roads inside the castle: a road that ran where the room now stands is taken up; a mountain hold's room is
+    // cut out of the rock)
     const f = footprint(b);
     for (let cy = f.y; cy < f.y + f.h; cy++) for (let cx = f.x; cx < f.x + f.w; cx++) unsetRoad(s.land, cx, cy);
+    if (holdOf(s) === 'mountain') carve(s, f);
   } else connectRoad(s, b);
   return { ok: true };
 }
@@ -246,10 +263,30 @@ export function connectRoad(s: GameState, b: Building): void {
   }
   // (a road goes only over buildable ground, never through a building, and doesn't bridge water on its own)
   const blocked = (x: number, y: number) => !buildable(groundAt(m, x, y)) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
-  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y), 6000);
+  // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
+  const gate = (x: number, y: number) => isGate(builtOn(s, x, y)?.def ?? '');
+  // (four ways: a road's tiles join along their edges, so it never steps diagonally)
+  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !gate(x, y), { maxNodes: 6000, four: true });
   if (!path || path.length > ROAD_REACH) return;
   setRoad(m, from.x, from.y);
   for (const c of path) if (!builtOn(s, c.x, c.y) && buildable(groundAt(m, c.x, c.y))) setRoad(m, c.x, c.y);
+  squareRoads(s);
+}
+
+/** Roads laid before they kept to four ways step diagonally here and there: each such step gets a cell beside it, so
+ *  every road runs on edge to edge. */
+export function squareRoads(s: GameState): void {
+  const m = s.land;
+  const free = (x: number, y: number) => inMap(m, x, y) && buildable(groundAt(m, x, y)) && !builtOn(s, x, y);
+  for (let y = 0; y < m.h - 1; y++)
+    for (let x = 0; x < m.w; x++) {
+      if (!isRoad(m, x, y)) continue;
+      for (const dx of [-1, 1]) {
+        if (!inMap(m, x + dx, y + 1) || !isRoad(m, x + dx, y + 1) || isRoad(m, x + dx, y) || isRoad(m, x, y + 1)) continue;
+        if (free(x, y + 1)) setRoad(m, x, y + 1);
+        else if (free(x + dx, y)) setRoad(m, x + dx, y);
+      }
+    }
 }
 
 /** Whether a finished building can be upgraded in place now, and to what. A bigger upgrade keeps its top-left where
@@ -259,7 +296,7 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
   const to = b && UPGRADES[b.def];
   if (!b || !to || b.status !== 'done') return { ok: false, reason: 'Nothing to upgrade to' };
   const def = BUILDING_BY_ID[to];
-  if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: `Needs research: ${TOPIC_BY_ID[def.research!]?.name ?? def.research}`, to };
+  if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: def.era && !eraReached(s.era, def.era) ? `Opens in the ${ERA_NAMES[def.era]} era` : `Needs research: ${TOPIC_BY_ID[def.research!]?.name ?? def.research}`, to };
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full', to };
   if (b.fire !== undefined) return { ok: false, reason: 'It is on fire', to };
   // (absorbing a neighbour: it's pulled down to make room, so it doesn't count as in the way)
@@ -267,6 +304,8 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
   const others = { ...s, buildings: s.buildings.filter((q) => q !== b && q !== merged) };
   const growW = def.width - defOf(b).width;
   const growH = depthOf(def) - depthOf(defOf(b));
+  // (no bigger than what stands: it is rebuilt where it is, whatever stands about it: a hold's seat on its hall)
+  if (growW <= 0 && growH <= 0 && !merged) return { ok: true, to, tile: b.tile, row: b.row };
   // (the road at its door is in the way of growing downward, so it grows up and left first)
   const spots: Pt[] = [];
   for (const dy of growH > 0 ? [-growH, 0] : [0]) for (const dx of growW > 0 ? [0, -growW, -Math.ceil(growW / 2)] : [0]) spots.push({ x: b.tile + dx, y: b.row + dy });
@@ -317,8 +356,11 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
   delete b.readyTick;
   // (a road over the new footprint is lifted; its door gets one again)
   const f = footprint(b);
-  for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (isRoad(s.land, x, y)) setRoad(s.land, x, y, false);
-  connectRoad(s, b);
+  if (!isGate(b.def)) for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (isRoad(s.land, x, y)) setRoad(s.land, x, y, false); // (the road runs on under a gate)
+  if (b.room) {
+    // (a hold's room grows into the rock, no road to it)
+    if (holdOf(s) === 'mountain') carve(s, footprint(b));
+  } else connectRoad(s, b);
   depositNear(s, at, salvage);
   notify(s, `Upgrading to a ${next.name}.`);
   return { ok: true };

@@ -1,6 +1,14 @@
 // Buildings by era (DESIGN §15 and on). Costs and times are starting points for tuning.
 
 import type { Stock } from './materials';
+import type { Era } from './eras';
+import type { OriginId } from './origins';
+import { SEAT_DEFS, SEAT_UPGRADES } from './seats';
+import { DEFENSE_BUILDINGS, ORIGIN_DEFENSES } from './defenses';
+import { BLOOD_FARM } from './vampires';
+import { WORKSHOP_BUILDINGS } from './workshops';
+import { MINERAL_BUILDINGS } from './minerals';
+import { STORE_BUILDINGS, type ShopLine } from './stores';
 
 export type BuildLayer = 'fore' | 'mid' | 'back';
 export type Venue = 'shop' | 'tavern';
@@ -39,12 +47,20 @@ export interface BuildingDef {
   stalls?: number;
   /** Venues (see data/shop.ts): a shop or a tavern, the size of the one room it starts with, in cells (more rooms are
    *  bought with coins), and the appeal (a shop) or comfort (a tavern) it has bare: none, as they all start bare. */
-  floor?: { venue: Venue; cols: number; rows: number; appeal: number };
-  /** Traps and turrets: they hit the nearest raider in range (px from the building's centre) every interval seconds. */
-  defense?: { damage: [number, number]; range: number; interval: number; accuracy: number };
+  /** A venue's floor; a specialty shop's `line` is what it sells (data/stores.ts). */
+  floor?: { venue: Venue; line?: ShopLine; cols: number; rows: number; appeal: number };
+  /** Traps and turrets: they hit the nearest raider in range (px from the building's centre) every interval seconds,
+   *  with the quirks of data/defenses.ts (splash px, slow share, burn a second, chain count, night multiplier, rout chance). */
+  defense?: { damage: [number, number]; range: number; interval: number; accuracy: number; splash?: number; slow?: number; burn?: number; chain?: number; night?: number; rout?: number };
+  /** Opens only once the town has reached this era (beside any research). */
+  era?: Era;
+  /** One origin's own (data/seats.ts): another people never build it. */
+  origin?: OriginId;
+  /** A seat of the town (data/seats.ts), and which of its five stages. */
+  seat?: number;
 }
 
-export const BUILDINGS: readonly BuildingDef[] = [
+const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'campfire', name: 'Campfire', layer: 'fore', width: 2, cost: { wood: 4, stone: 3 }, buildSeconds: 20, purpose: 'Cooking, warmth and morale. Doubles as a small camp cache.', storage: 30 },
   { id: 'stockpile', name: 'Stockpile', layer: 'fore', width: 3, cost: { wood: 6 }, buildSeconds: 20, purpose: 'Stores materials. Put them near the work to cut hauling.', storage: 100 },
   { id: 'lean_to', name: 'Lean-to', layer: 'mid', width: 2, cost: { wood: 8, fiber: 4 }, buildSeconds: 30, purpose: 'Houses 1.', research: 'basic_shelter', housing: 1 },
@@ -59,8 +75,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'herb_garden', name: 'Herb Garden', layer: 'back', width: 3, cost: { wood: 4, fiber: 4, herbs: 3 }, buildSeconds: 45, purpose: 'Grows herbs: sown and harvested by farmers. Nothing grows in winter.', research: 'herbalism' },
   { id: 'garden_plot', name: 'Garden Plot', layer: 'back', width: 4, cost: { wood: 6, fiber: 4 }, buildSeconds: 60, purpose: 'Grows wild grain (food): sown and harvested by farmers. Nothing grows in winter.', research: 'early_agriculture' },
   { id: 'flax_field', name: 'Flax Field', layer: 'back', width: 3, cost: { wood: 4, fiber: 2 }, buildSeconds: 45, purpose: 'Grows flax for fiber: sown and harvested by farmers. Nothing grows in winter.', research: 'flax_growing' },
-  { id: 'chicken_coop', name: 'Chicken Coop', layer: 'back', width: 2, cost: { wood: 8, fiber: 4 }, buildSeconds: 40, purpose: 'Hens (3 to start, up to 8): eggs every few hours. They breed in spring and summer and need grain in winter.', research: 'domestication' },
-  { id: 'goat_pen', name: 'Goat Pen', layer: 'back', width: 3, cost: { wood: 12, fiber: 4 }, buildSeconds: 50, purpose: 'Goats (2 to start, up to 6): milk twice a day, and meat and hide when the pen is full.', research: 'domestication' },
+  { id: 'chicken_coop', name: 'Chicken Coop', layer: 'back', width: 2, cost: { wood: 8, fiber: 4 }, buildSeconds: 40, purpose: 'Hens (bought in, 3 to start; the pen is fenced wider as the herd grows): eggs every few hours. They breed in spring and summer and need grain in winter.', research: 'domestication' },
+  { id: 'goat_pen', name: 'Goat Pen', layer: 'back', width: 3, cost: { wood: 12, fiber: 4 }, buildSeconds: 50, purpose: 'Goats (bought in, 2 to start; the pen is fenced wider as the herd grows): milk twice a day, and meat and hide when the pen is full.', research: 'domestication' },
   { id: 'healers_hut', name: "Healer's Hut", layer: 'mid', width: 2, cost: { wood: 12, hide: 4, herbs: 6 }, buildSeconds: 90, purpose: 'Herbs and a fire for the hurt: wounds heal half again as fast, and the downed take longer to bleed out.', research: 'herbalism', healing: 1.5 },
   { id: 'graveyard', name: 'Graveyard', layer: 'mid', width: 3, cost: { wood: 10, stone: 8 }, buildSeconds: 60, purpose: 'The dead are laid to rest here: mourning weighs less and grief passes sooner. (A Necromancer may find other uses for it.)' },
   { id: 'well', name: 'Well', layer: 'mid', width: 1, cost: { stone: 12, wood: 4 }, buildSeconds: 60, purpose: 'Fields keep growing (slower) through a drought.', research: 'early_agriculture' },
@@ -97,9 +113,9 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'estate_farm', name: 'Estate Farm', layer: 'back', width: 8, cost: { lumber: 12, stone: 6 }, buildSeconds: 150, purpose: 'Grain (food) from a farm run in rotation, with a barn: a bigger harvest than an open field, quicker to work.', research: 'crop_rotation' },
   { id: 'vegetable_patch', name: 'Vegetable Patch', layer: 'back', width: 3, cost: { wood: 6, stone: 2 }, buildSeconds: 50, purpose: 'Grows vegetables (food): hardy, they grow on through the autumn at full speed.', research: 'market_gardens' },
   { id: 'orchard', name: 'Orchard', layer: 'back', width: 5, cost: { wood: 14, fiber: 4 }, buildSeconds: 90, purpose: 'Fruit trees (food): slow to come into bearing, then they fruit again and again without sowing, and never tire the soil.', research: 'orcharding' },
-  { id: 'pig_sty', name: 'Pig Sty', layer: 'back', width: 3, cost: { wood: 10, stone: 6 }, buildSeconds: 60, purpose: 'Pigs (2 to start, up to 6): they breed fast and are kept for meat, hide and bone.', research: 'animal_husbandry' },
-  { id: 'sheep_fold', name: 'Sheep Fold', layer: 'back', width: 4, cost: { lumber: 12, stone: 6 }, buildSeconds: 90, purpose: 'Sheep (3 to start, up to 8): wool once a day, woven into cloth at the loom.', research: 'animal_husbandry' },
-  { id: 'cattle_pasture', name: 'Cattle Pasture', layer: 'back', width: 5, cost: { lumber: 16, fiber: 8 }, buildSeconds: 120, purpose: 'Cattle (2 to start, up to 6): plenty of milk, and a great deal of meat and hide. Slow to breed; hungry in winter.', research: 'animal_husbandry' },
+  { id: 'pig_sty', name: 'Pig Sty', layer: 'back', width: 3, cost: { wood: 10, stone: 6 }, buildSeconds: 60, purpose: 'Pigs (bought in, 2 to start; the pen is fenced wider as the herd grows): they breed fast and are kept for meat, hide and bone.', research: 'animal_husbandry' },
+  { id: 'sheep_fold', name: 'Sheep Fold', layer: 'back', width: 4, cost: { lumber: 12, stone: 6 }, buildSeconds: 90, purpose: 'Sheep (bought in, 3 to start; the pen is fenced wider as the herd grows): wool once a day, woven into cloth at the loom.', research: 'animal_husbandry' },
+  { id: 'cattle_pasture', name: 'Cattle Pasture', layer: 'back', width: 5, cost: { lumber: 16, fiber: 8 }, buildSeconds: 120, purpose: 'Cattle (bought in, 2 to start; the pen is fenced wider as the herd grows): plenty of milk, and a great deal of meat and hide. Slow to breed; hungry in winter.', research: 'animal_husbandry' },
   { id: 'stable', name: 'Stable', layer: 'mid', width: 4, cost: { lumber: 20, stone: 6, fiber: 10 }, buildSeconds: 180, purpose: 'Keeps up to 4 horses. Buy them from caravans.', research: 'animal_husbandry', stalls: 4 },
   { id: 'school', name: 'School', layer: 'mid', width: 4, cost: { lumber: 16, bricks: 8, cloth: 2 }, buildSeconds: 180, purpose: 'Children grow up with better skills.', research: 'schooling' },
   { id: 'general_store', name: 'General Store', layer: 'mid', width: 4, cost: { lumber: 16, stone: 8, cloth: 2 }, buildSeconds: 180, purpose: 'A bigger shop, with room for more furnishings: more travellers stop, and they spend more.', research: 'carpentry', floor: { venue: 'shop', cols: 11, rows: 6, appeal: 0 } },
@@ -148,11 +164,15 @@ export const BUILDINGS: readonly BuildingDef[] = [
   { id: 'ai_core', name: 'AI Core', layer: 'mid', width: 3, cost: { circuits: 16, alloys: 8, power_cells: 8 }, buildSeconds: 480, purpose: 'Research workstation (tier 5): research eight times as fast.', research: 'artificial_intelligence' },
   { id: 'laser_turret', name: 'Laser Turret', layer: 'fore', width: 1, cost: { alloys: 6, circuits: 3, power_cells: 6 }, buildSeconds: 260, purpose: 'Burns raiders in range, and rarely misses.', research: 'energy_weapons', defense: { damage: [22, 32], range: 230, interval: 1.0, accuracy: 0.85 } },
   { id: 'force_wall', name: 'Force Wall', layer: 'fore', width: 1, cost: { alloys: 10, power_cells: 6 }, buildSeconds: 200, purpose: 'The strongest wall there is.', research: 'energy_shields', hp: 3000 },
+  { id: 'brick_gate', name: 'Brick Gate', layer: 'fore', width: 2, cost: { bricks: 24, steel: 4, lumber: 6 }, buildSeconds: 170, purpose: 'The gate in a brick ring wall: townsfolk pass through it.', research: 'urban_housing', hp: 650 },
+  { id: 'concrete_gate', name: 'Concrete Gate', layer: 'fore', width: 2, cost: { concrete: 28, steel: 8 }, buildSeconds: 200, purpose: 'A steel-barred gate in a concrete wall.', research: 'concrete', hp: 1300 },
+  { id: 'force_gate', name: 'Force Gate', layer: 'fore', width: 2, cost: { alloys: 12, power_cells: 8 }, buildSeconds: 220, purpose: 'A gap in the force wall that opens for the town\'s own.', research: 'energy_shields', hp: 2400 },
   { id: 'launch_site', name: 'Launch Site', layer: 'mid', width: 8, cost: { alloys: 120, circuits: 60, power_cells: 80, fuel: 150, concrete: 100 }, buildSeconds: 30000, purpose: 'Build the ship, and the town leaves for the stars. The end of the game (a win).', research: 'starship_design' },
   { id: 'phylactery', name: 'Phylactery', layer: 'mid', width: 1, cost: { bone: 12, iron: 6, herbs: 6, cloth: 2 }, buildSeconds: 300, purpose: 'The founder becomes a lich and always returns here after death. If it burns, the next death is final.', research: 'lichcraft' },
   { id: 'town_hall', name: 'Town Hall', layer: 'mid', width: 6, cost: { bricks: 40, lumber: 30, iron: 10, cloth: 10 }, buildSeconds: 3000, purpose: 'Era capstone: the seat of the town opens the Industrial era.', research: 'town_charter', morale: [6, 'A proper town'] },
 ];
 
+export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };
@@ -175,6 +195,9 @@ export const UPGRADES: Readonly<Record<string, string>> = {
   brick_wall: 'concrete_wall',
   concrete_wall: 'force_wall',
   palisade_gate: 'stone_gate',
+  stone_gate: 'brick_gate',
+  brick_gate: 'concrete_gate',
+  concrete_gate: 'force_gate',
   lookout: 'watchtower',
   infirmary: 'hospital',
   hospital: 'trauma_center',
@@ -187,6 +210,7 @@ export const UPGRADES: Readonly<Record<string, string>> = {
   radio_tower: 'drone_hub',
   gun_nest: 'gun_turret',
   gun_turret: 'laser_turret',
+  ...SEAT_UPGRADES,
 };
 
 /** Adjacency bonuses (DESIGN §4): a workshop near its raw material works faster; a tavern near the market cheers more. */

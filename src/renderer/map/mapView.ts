@@ -12,6 +12,8 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
+import { inRect } from '../../shared/sim/land';
+import { inSea } from '../../shared/sim/sea';
 import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import type { PlaceView } from '../../shared/sim/snapshot';
@@ -26,12 +28,14 @@ import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { ChimneySmoke } from '../town/ambientView';
 import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
-import { onPackArt, packArt, packDressing } from './packBuildings';
+import { onPackArt, packArt, packDressing, type Join } from './packBuildings';
 import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
+import { seatArt } from '../art/seatArt';
+import { SEAT_STAGE } from '../../shared/data/seats';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
 const CULL_MARGIN = 64;
@@ -60,7 +64,10 @@ const PROPS_ON: Partial<Record<Ground, [PropKind, number][]>> = {
   rock: [['rock', 0.9], ['plant', 0.1]],
   marsh: [['plant', 0.55], ['bush', 0.45]],
   hill: [['rock', 0.4], ['bush', 0.4], ['plant', 0.2]],
+  mountain: [['rock', 0.7], ['crystal', 0.3]],
 };
+/** How many of a kind's cells carry an object (every one unless said): the mountain's mass is mostly bare rock. */
+const PROPS_SHARE: Partial<Record<Ground, number>> = { mountain: 0.2 };
 
 /** A firefly: a tiny blinking glow in the lights layer, drifting over the grass on a warm, fair night. */
 interface Firefly {
@@ -106,10 +113,11 @@ function cropLook(b: Building): CropLook | undefined {
   const c = b.crop;
   if (!c || c.stage === 'fallow') return 'fallow';
   if (c.stage === 'ripe') return 'ripe';
-  if (CROPS[b.def].establishHours) return c.bearing ? 'tall' : 'sprout';
-  return c.growth < 0.4 ? 'sprout' : 'tall';
+  if (CROPS[b.def].establishHours) return c.bearing ? (c.growth < 0.5 ? 'tall' : 'heading') : c.growth < 0.5 ? 'sprout' : 'young';
+  // (five stages the plot is redrawn at as the crop grows: the owner wanted to see it grow)
+  return c.growth < 0.2 ? 'sprout' : c.growth < 0.45 ? 'young' : c.growth < 0.7 ? 'tall' : 'heading';
 }
-const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${b.room ? 'room' : ''}`;
+const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${b.room ? 'room' : ''}|${b.wide ?? 0}`;
 
 export class MapView {
   /** Screen space (the camera moves `world`). */
@@ -329,6 +337,7 @@ export class MapView {
         const i = y * land.w + x;
         // (a slow phone: every other wild cell bare)
         if (this.calm && hash(5, x, y) < 0.5) continue;
+        if (PROPS_SHARE[g] !== undefined && hash(6, x, y) > PROPS_SHARE[g]!) continue;
         seen.add(i);
         const key = `${g}|${vis}|${this.propsWanted.join(',')}`;
         let p = this.props.get(i);
@@ -485,9 +494,29 @@ export class MapView {
     if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey);
     // (a castle's room: its furnishings, on the castle's floor: map/castleArt.ts)
     if (b.room) return roomFurniture(BUILDING_BY_ID[b.def], f.w, b.id, this.tone, this.toneKey, this.style) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
+    // (the seat of the town: its own picture, by origin and stage: art/seatArt.ts)
+    const seat = SEAT_STAGE[b.def];
+    if (seat) return seatArt(seat.origin, seat.stage, f.w, f.h, this.tone, this.toneKey);
     // (a pack picture where one suits the look: map/packBuildings.ts)
     // (else the top-down painter's: art/topDown.ts)
-    return packArt(b.def, f.w, this.style, b.id) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
+    return packArt(b.def, f.w, this.style, b.id, this.wallJoin(b)) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
+  }
+
+  /** How a one-cell wall piece joins the walls and gates about it: along a row, down a column, at a corner, or alone
+   *  (undefined for anything but a wall, so other pictures are untouched). */
+  private wallJoin(b: Building): Join | undefined {
+    const def = BUILDING_BY_ID[b.def];
+    if (b.turned && def?.hp) return 'v'; // (a gate standing down a column)
+    if (!def?.hp || def.width !== 1 || def.defense) return undefined;
+    const wallAt = (x: number, y: number) => this.simBuildings.some((o) => o !== b && !!BUILDING_BY_ID[o.def]?.hp && !BUILDING_BY_ID[o.def]?.defense && inRect(footprint(o), x, y));
+    const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);
+    if ((l || r) && !(u || d)) return 'h';
+    if ((u || d) && !(l || r)) return 'v';
+    if (r && d) return 'nw';
+    if (l && d) return 'ne';
+    if (r && u) return 'sw';
+    if (l && u) return 'se';
+    return l || r ? 'h' : u || d ? 'v' : 'end';
   }
 
   /** A castle town's keep on its ground (cells), or none: the floor, the carpet, the curtain wall and its towers. */
@@ -512,12 +541,16 @@ export class MapView {
     this.castle = { key, under: drawing.under, things: drawing.things };
   }
 
+  /** The town's buildings as last synced (a wall piece's picture depends on its neighbours: `wallJoin`). */
+  private simBuildings: Building[] = [];
+
   syncBuildings(list: Building[]): void {
+    this.simBuildings = list;
     const seen = new Set<number>();
     for (const b of list) {
       seen.add(b.id);
       let d = this.buildings.get(b.id);
-      const sig = `${sigOf(b)}|${this.artGen}|${this.season === 'winter' ? 'snow' : ''}`;
+      const sig = `${sigOf(b)}|${this.artGen}|${this.season === 'winter' ? 'snow' : ''}|${this.wallJoin(b) ?? ''}`;
       if (d && d.sig !== sig) {
         this.destroy(d);
         this.buildings.delete(b.id);
@@ -619,6 +652,14 @@ export class MapView {
     shadow.zIndex = bottom - 0.5;
     const flat = isPlot(b.def);
     if (b.room) shadow.visible = false;
+    // (a building standing in the sea: a ring of foam about its foot instead of a shadow)
+    if (this.land && inSea(this.land, f)) {
+      shadow.tint = 0xffffff;
+      shadow.alpha = 0.5;
+      shadow.width = art.width + 18;
+      shadow.height = 16;
+      shadow.position.set(cx, bottom - 4);
+    }
     if (flat) {
       // (a plot lies on the ground: no shadow, and everything standing on it is drawn over it)
       shadow.visible = false;

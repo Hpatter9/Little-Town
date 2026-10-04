@@ -133,7 +133,8 @@ interface LayerRef {
 }
 
 /** Weapons drawn on top of the character (the LPC data has right-facing weapon rows). */
-export type LpcWeapon = 'spear' | 'dagger' | 'bow' | 'mace' | 'axe' | 'sword' | null;
+export type LpcWeapon = 'spear' | 'dagger' | 'bow' | 'mace' | 'axe' | 'sword' | 'pick' | 'sickle' | 'hoe' | null;
+// (pick, sickle and hoe are made from the axe layer by tools/make-lpc-tools.cjs)
 
 /** Garments that are someone's clothes (they replace the plain shirt, trousers, shoes or belt), as opposed to armour
  *  drawn over them. */

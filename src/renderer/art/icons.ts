@@ -72,6 +72,16 @@ export function platino(): HTMLElement {
   return e;
 }
 
+/** Where an item's icon is, for drawing on a canvas: the sheet's url and the cell (16px) in it; `whole` for a sheet
+ *  that is one big picture. */
+export function iconSpot(def: Pick<ItemDef, 'icon' | 'hue'>): { url: string; sx: number; sy: number; whole: boolean; hue?: number } {
+  const sheet = SHEETS[def.icon.sheet];
+  const custom = def.icon.sheet === 'Custom' ? Math.max(0, CUSTOM_ORDER.indexOf(def.icon.name ?? '')) : -1;
+  const cx = custom >= 0 ? custom % 8 : def.icon.x;
+  const cy = custom >= 0 ? Math.floor(custom / 8) : def.icon.y;
+  return { url: custom >= 0 ? customSheetUrl() : sheet.url, sx: cx * CELL, sy: cy * CELL, whole: (sheet.cols ?? 8) === 1 && sheet.rows === 1, hue: def.hue };
+}
+
 /** A pixelated icon element for an item, `scale` times its 16px size. */
 export function itemIcon(def: ItemDef, scale = 2): HTMLElement {
   const sheet = SHEETS[def.icon.sheet];

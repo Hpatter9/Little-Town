@@ -45,7 +45,10 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const drawScenarios = () =>
     scenarios.replaceChildren(...SCENARIOS.map((sc) => pickCard(sc.id === scenario, sc.name, sc.description, () => ((scenario = sc.id), drawScenarios()))));
   const drawPlaces = () => {
-    biomes.replaceChildren(...BIOMES.map((b) => pickCard(b === biome, BIOME_DEFS[b].name, BIOME_DEFS[b].description, () => ((biome = b), drawPlaces()))));
+    // (a shore people settles the coast and nowhere else: sim/sea.ts)
+    const shore = ORIGIN_DEFS[origin].rules.shape === 'sea';
+    if (shore) biome = 'coast';
+    biomes.replaceChildren(...(shore ? [el('div', 'hint', `${ORIGIN_DEFS[origin].name} settle the coast: half their land is the sea.`)] : BIOMES.map((b) => pickCard(b === biome, BIOME_DEFS[b].name, BIOME_DEFS[b].description, () => ((biome = b), drawPlaces())))));
     dangers.replaceChildren(...DIFFICULTIES.map((d) => pickCard(d === difficulty, DIFFICULTY_DEFS[d].name, DIFFICULTY_DEFS[d].description, () => ((difficulty = d), drawPlaces()))));
     found.textContent = origin === 'settlers' ? `Found a ${BIOME_DEFS[biome].name.toLowerCase()} town` : `Found ${ORIGIN_DEFS[origin].town} (${BIOME_DEFS[biome].name.toLowerCase()})`;
   };

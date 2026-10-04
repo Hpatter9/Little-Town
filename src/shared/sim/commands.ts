@@ -16,6 +16,7 @@ export type Command =
   | { type: 'setPaused'; paused: boolean }
   /** Where the self-running town puts its effort. */
   | { type: 'setDirection'; direction: Direction }
+  | { type: 'setTownSize'; size: number | null }
   /** Mark a wild cell of the land for gathering (clearing it), or unmark it. */
   | { type: 'toggleGather'; cell: number }
   /** Place a blueprint with its top-left cell at (x, y). */
@@ -57,6 +58,8 @@ export type Command =
   /** Follow a townsperson (null: nobody). */
   | { type: 'follow'; person: number | null }
   | { type: 'watch'; expedition: number | null }
+  /** Go into a mine on the land and watch the digging (null: back to the town). */
+  | { type: 'watchMine'; place: number | null }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
   | { type: 'rally'; person: number }
   /** The battle on the trail (sim/battle.ts): put a fighter on a spot (or off: null), send the raiders on now, auto-watch
@@ -99,6 +102,8 @@ export function parseCommand(raw: unknown): Command | null {
       return { type: 'becomeLich' };
     case 'setDirection':
       return DIRECTIONS.includes(c.direction as Direction) ? { type: 'setDirection', direction: c.direction as Direction } : null;
+    case 'setTownSize':
+      return c.size === null || (Number.isInteger(c.size) && (c.size as number) >= 1 && (c.size as number) <= 200) ? { type: 'setTownSize', size: c.size as number | null } : null;
     case 'toggleGather':
       return Number.isInteger(c.cell) ? { type: 'toggleGather', cell: c.cell as number } : null;
     case 'placeBuilding':
@@ -155,6 +160,8 @@ export function parseCommand(raw: unknown): Command | null {
       return { type: 'castHeld' };
     case 'watch':
       return c.expedition === null || Number.isInteger(c.expedition) ? { type: 'watch', expedition: c.expedition as number | null } : null;
+    case 'watchMine':
+      return c.place === null || Number.isInteger(c.place) ? { type: 'watchMine', place: c.place as number | null } : null;
     case 'follow':
       return c.person === null || Number.isInteger(c.person) ? { type: 'follow', person: c.person as number | null } : null;
     case 'rally':

@@ -3,86 +3,15 @@
 // list of effects (EventEffect). {who} in a text is a townsperson picked for the event (an event with `who`), and
 // {founder} the town's founder. Numbers are starting points for tuning.
 
-import type { GameState } from '../sim/state';
-import { ERAS, type Era } from './eras';
-import type { Stock } from './materials';
-import type { OriginId } from './origins';
+import { chance, coins, dflt, eraAt, eraIs, fields, gain, has, later, mod, mood, note, opt, origin, pens, people, shop, type EventDef } from './eventKit';
+import { LIFE_EVENTS } from './moreEvents1';
+import { ORIGIN_EVENTS } from './moreEvents2';
+import { ERA_EVENTS } from './moreEvents3';
+import { WORLD_EVENTS } from './moreEvents4';
+import { FATEFUL_EVENTS } from './fatefulEvents';
+export type { EventDef, EventEffect, EventOption, Lever } from './eventKit';
 
-/** What an event's mark can push: the same levers origins and research use (sim/origin.ts). */
-export type Lever = 'work' | 'build' | 'crops' | 'forage' | 'research' | 'craft' | 'travellers' | 'prices' | 'fight' | 'guard';
-
-export type EventEffect =
-  | { note: string }
-  /** Everyone's morale, this much, for so many game hours. */
-  | { mood: number; hours: number; text: string }
-  /** A lever multiplied, for so many game hours. */
-  | { mod: Lever; mult: number; hours: number; text: string }
-  | { gain: Stock }
-  /** A share of the town's food, of everything in store, or of its coins, lost. */
-  | { take: 'food' | 'stores' | 'coins'; share: number }
-  | { coins: number }
-  | { renown: number }
-  | { reputation: number }
-  /** Newcomers (a type from data/people.ts, or a wanderer of any sort). */
-  | { join: number; type?: string }
-  /** The event's person, or someone at random, leaves; dies (with a chance); is hurt (or everyone is). The founder is
-   *  never picked at random to leave or die. */
-  | { leave: 'who' | 'random' }
-  | { kill: 'who' | 'random'; chance?: number; cause: string }
-  | { wound: 'who' | 'random' | 'all'; hp: number }
-  /** So many fall sick (the plague's sickness). */
-  | { sick: number }
-  /** The next raid comes within so many game hours; or none comes for so many. */
-  | { raid: number }
-  | { calm: number }
-  /** Seconds of work on the topic being researched. */
-  | { research: number }
-  /** The Occult is revealed. */
-  | { occult: string }
-  | { chance: number; then: EventEffect[]; else?: EventEffect[] }
-  /** Effects that come after so many game hours (only at the top of an answer). */
-  | { later: number; effects: EventEffect[] };
-
-export interface EventOption {
-  label: string;
-  default?: boolean;
-  effects: EventEffect[];
-}
-
-export interface EventDef {
-  id: string;
-  title: string;
-  text: string;
-  /** A townsperson is picked for it ({who}). */
-  who?: boolean;
-  weight?: number;
-  /** When it can happen (always, if left out). */
-  when?: (s: GameState) => boolean;
-  options: EventOption[];
-}
-
-/* ------------------------------------------------------------ shorthands */
-
-const note = (note: string): EventEffect => ({ note });
-const mood = (mood: number, hours: number, text: string): EventEffect => ({ mood, hours, text });
-const mod = (lever: Lever, mult: number, hours: number, text: string): EventEffect => ({ mod: lever, mult, hours, text });
-const gain = (stock: Stock): EventEffect => ({ gain: stock });
-const chance = (p: number, then: EventEffect[], otherwise: EventEffect[] = []): EventEffect => ({ chance: p, then, else: otherwise });
-const later = (hours: number, ...effects: EventEffect[]): EventEffect => ({ later: hours, effects });
-const opt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, effects });
-const dflt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, default: true, effects });
-
-const has = (s: GameState, ...ids: string[]) => s.buildings.some((b) => ids.includes(b.def) && b.status === 'done');
-const eraAt = (s: GameState, e: Era) => ERAS.indexOf(s.era) >= ERAS.indexOf(e);
-const eraIs = (s: GameState, e: Era) => s.era === e;
-const origin = (s: GameState, ...ids: OriginId[]) => ids.includes(s.origin ?? 'settlers');
-const people = (s: GameState, n: number) => s.people.length >= n;
-const coins = (s: GameState, n: number) => (s.coins ?? 0) >= n;
-const shop = (s: GameState) => s.buildings.some((b) => !!b.shop);
-const pens = (s: GameState) => has(s, 'chicken_coop', 'goat_pen', 'pig_sty', 'sheep_fold', 'cattle_pasture');
-const fields = (s: GameState) => has(s, 'garden_plot', 'hydroponics_bay');
-
-export const EVENTS: readonly EventDef[] = [
+const BASE_EVENTS: readonly EventDef[] = [
   /* ---------------------------------------------------------- strangers and newcomers */
   {
     id: 'stranger', title: 'A stranger at the gate', text: 'A lone wanderer asks to join the town. They say little about where they came from.',
@@ -513,4 +442,6 @@ export const EVENTS: readonly EventDef[] = [
   },
 ];
 
+/** All five hundred (the owner's ask): the first hundred of EVENTS.md and the four hundred more of moreEvents*.ts. */
+export const EVENTS: readonly EventDef[] = [...BASE_EVENTS, ...LIFE_EVENTS, ...ORIGIN_EVENTS, ...ERA_EVENTS, ...WORLD_EVENTS, ...FATEFUL_EVENTS];
 export const EVENT_BY_ID: Readonly<Record<string, EventDef>> = Object.fromEntries(EVENTS.map((e) => [e.id, e]));

@@ -7,12 +7,13 @@
 import { Rng, hashSeed } from '../rng';
 import { BIOME_BEASTS, BEAST_DAYS, CART_ROBBED, LOOK_HOURS, PLACE_APART, PLACE_COUNT, PLACE_DEFS, PLACE_FAR, PLACE_FOES, PLACE_NEAR, PLACE_SECONDS_PER_CELL, directionName, isPlaceDest, placeDestId, placeIdOf, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
-import type { Material } from '../data/materials';
+import { MATERIAL_NAMES, type Material } from '../data/materials';
 import { ERAS } from '../data/eras';
 import { CELL, groundAt, inMap, isOpen, setGround, WILD, type LandMap, type Pt } from './land';
 import { addStock, campCell, earn, notify, type GameState } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { depositNear } from './buildings';
+import { packLairCleared } from './pack';
 
 export interface MapPlace {
   id: number;
@@ -27,7 +28,82 @@ export interface MapPlace {
   foes?: Record<string, number>;
   /** A peaceful place: when the town has looked it over. */
   lookedAt?: number;
+  /** A cleared cave dug as a mine (data/minerals.ts): how deep the galleries go, what the rock holds, and the cells
+   *  round the mouth that are its walls (pools the town digs like any wild cell; dug out, the next level is opened). */
+  mine?: { depth: number; ores: Material[]; cells: number[] };
 }
+
+/** How deep a mine goes before it's worked out, and what each level's walls hold (richer the deeper). */
+export const MINE_DEPTH = 4;
+const MINE_WALL = (m: Material, depth: number, rng: Rng): number => {
+  switch (m) {
+    case 'copper_ore':
+      return rng.int(4, 7) + depth;
+    case 'tin_ore':
+      return rng.int(2, 4) + depth;
+    case 'silver_ore':
+      return rng.int(1, 3) + depth;
+    case 'sulphur':
+      return rng.int(2, 4);
+    case 'gold':
+      return rng.int(1, 2);
+    case 'gems':
+      return 1;
+    default:
+      return rng.int(3, 6);
+  }
+};
+
+/** A cleared cave opens as a mine: its ores are rolled (copper and tin always; silver, sulphur, and deeper down gold
+ *  and gems by chance), and the rock round its mouth gets the first level's walls. */
+export function openMine(s: GameState, p: MapPlace, rng: Rng): void {
+  const ores: Material[] = ['copper_ore', 'tin_ore'];
+  if (rng.chance(0.5)) ores.push('silver_ore');
+  if (rng.chance(0.5)) ores.push('sulphur');
+  const cells: number[] = [];
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const x = p.x + dx;
+      const y = p.y + dy;
+      if (!inMap(s.land, x, y) || groundAt(s.land, x, y) === 'water' || groundAt(s.land, x, y) === 'mountain') continue;
+      cells.push(y * s.land.w + x);
+    }
+  p.mine = { depth: 0, ores, cells };
+  deepenMine(s, p, rng);
+}
+
+/** The next level of a mine: its walls filled again, richer, with gold from the third level and gems at the last. */
+export function deepenMine(s: GameState, p: MapPlace, rng: Rng): void {
+  const m = p.mine!;
+  m.depth++;
+  const ores = [...m.ores];
+  if (m.depth >= 3 && !ores.includes('gold')) ores.push('gold');
+  if (m.depth >= MINE_DEPTH && !ores.includes('gems')) ores.push('gems');
+  m.ores = ores;
+  for (const i of m.cells) {
+    const c = { x: i % s.land.w, y: Math.floor(i / s.land.w) };
+    if (!WILD.includes(groundAt(s.land, c.x, c.y))) setGround(s.land, c.x, c.y, 'rock');
+    const pool: Partial<Record<Material, number>> = { stone: rng.int(2, 4) };
+    for (const o of ores) if (rng.chance(o === 'gold' || o === 'gems' ? 0.5 : 0.8)) pool[o] = MINE_WALL(o, m.depth, rng);
+    s.land.pools[i] = pool;
+  }
+  s.land.version++;
+}
+
+/** Whether a wall still holds ore (stone alone is not worth a level). */
+const hasOre = (pool: Partial<Record<Material, number>> | undefined) => !!pool && (Object.entries(pool) as [Material, number][]).some(([m, n]) => m !== 'stone' && n > 0);
+
+/** What a mine's walls still hold, level by level. */
+export function mineLeft(s: GameState, p: MapPlace): Partial<Record<Material, number>> {
+  const out: Partial<Record<Material, number>> = {};
+  for (const i of p.mine?.cells ?? []) for (const [m, n] of Object.entries(s.land.pools[i] ?? {}) as [Material, number][]) out[m] = (out[m] ?? 0) + n;
+  return out;
+}
+/** The mines on the land (cleared caves). */
+export const mines = (s: GameState): MapPlace[] => (s.places ?? []).filter((p) => p.mine && p.state === 'done');
+/** Who is digging at a mine now (a gather task on one of its walls). */
+export const minersAt = (s: GameState, p: MapPlace) => s.people.filter((q) => q.task?.type === 'gather' && !!p.mine?.cells.includes(q.task.tile));
 
 /** The places a land holds, from the seed: scattered round the camp, none too near another, on dry land. */
 export function seedPlaces(land: LandMap, seed: string): MapPlace[] {
@@ -69,6 +145,13 @@ export function placesHourly(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver) return;
   const camp = campCell(s);
   for (const p of places(s)) {
+    // (a mine dug out to the rock: the next level opens, until it's worked out)
+    if (p.mine && p.state === 'done' && p.mine.depth < MINE_DEPTH && p.mine.cells.every((i) => !hasOre(s.land.pools[i]))) {
+      deepenMine(s, p, rng);
+      const where = directionName(p.x - camp.x, p.y - camp.y);
+      notify(s, `The mine to the ${where} goes deeper: level ${p.mine.depth}, and ${p.mine.depth >= MINE_DEPTH ? 'the last' : 'richer rock'}${p.mine.ores.includes('gold') ? ', with a glint of gold' : ''}.`, true);
+      continue;
+    }
     if (p.state !== 'waiting') continue;
     if (p.found === null) {
       if (!isOpen(s.land, p.x, p.y)) continue;
@@ -96,6 +179,7 @@ function lookOver(s: GameState, p: MapPlace, rng: Rng): void {
   const camp = campCell(s);
   const where = directionName(p.x - camp.x, p.y - camp.y);
   p.state = 'done';
+  if (p.kind === 'beast') packLairCleared(s); // (a beast's lair: renown for the Moon Pack)
   const at = { x: (p.x + 0.5) * CELL, y: (p.y + 0.5) * CELL };
   switch (p.kind) {
     case 'vein': {
@@ -183,6 +267,12 @@ export function placeCleared(s: GameState, dest: string, loot: Partial<Record<Ma
   const coins = rng.int(def.coins[0], def.coins[1]);
   if (coins) earn(s, 'events', coins);
   const camp = campCell(s);
+  // (a cave cleared is a mine: its walls hold ore for the digging)
+  if (p.kind === 'cave') {
+    openMine(s, p, rng);
+    notify(s, `The cave to the ${directionName(p.x - camp.x, p.y - camp.y)} is cleared${coins ? ` (${coins} coins among the leavings)` : ''}, and there's ore in its walls: ${p.mine!.ores.map((o) => MATERIAL_NAMES[o].toLowerCase()).join(', ')}. The town will dig it as a mine.`, true);
+    return;
+  }
   notify(s, `The ${def.name.toLowerCase()} to the ${directionName(p.x - camp.x, p.y - camp.y)} is cleared${coins ? `: ${coins} coins among the leavings` : ''}.`, true);
 }
 

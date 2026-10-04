@@ -52,6 +52,9 @@ export class MapHerds {
         };
         this.pens.set(b.id, pen);
       }
+      // (a pen widened for its herd: the animals roam the new ground too)
+      const f = footprint(b);
+      pen.box = { x0: f.x * CELL + INSET, y0: f.y * CELL + INSET + 8, x1: (f.x + f.w) * CELL - INSET, y1: (f.y + f.h) * CELL - INSET };
       while (pen.beasts.length < b.herd.head) pen.beasts.push(this.spawn(b.id * 31 + pen.beasts.length, pen));
       while (pen.beasts.length > b.herd.head) pen.beasts.pop()!.sprite.destroy();
     }

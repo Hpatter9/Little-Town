@@ -1,8 +1,10 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
+import { ageWork } from './ageing';
+import { POP_SOFT_CAP } from '../data/pace';
 import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/buildings';
-import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID } from '../data/people';
+import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID, FOOD_VALUE } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
 import { hashSeed, mixSeed, type Rng } from '../rng';
 import { STAGE_LEVELS } from '../data/classes';
@@ -28,9 +30,11 @@ import { DREAD_MORALE, TRIUMPH_MORALE } from './bosses';
 import { TAVERN_BASE, TAVERN_PER_LEVEL } from '../data/operators';
 import { ASH_MORALE, FALLOUT_MORALE, FREEZE_COLD_MORALE, FREEZE_MORALE, PLAGUE_MORALE, PLAGUE_WORK, SMOG_MORALE } from '../data/doom';
 import { isInjured } from './health';
-import { tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
+import { townFull, tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
-import { rulesOf } from '../data/origins';
+import { ORIGIN_DEFS, rulesOf } from '../data/origins';
+import { natureOf } from '../data/natures';
+import { makeStranger, oneOf, strangerOrigin, welcomes } from './strangers';
 import { originWork, moraleMarks } from './origin';
 
 /** Need drain per game hour. Food lasts about a day; rest about 18 waking hours. */
@@ -166,7 +170,8 @@ export function driftMorale(s: GameState, p: Person): void {
     p.morale = MACHINE_MORALE;
     return;
   }
-  const { target } = mood(s, p);
+  // (their nature nudges where their spirits settle: data/natures.ts)
+  const target = Math.max(0, Math.min(100, mood(s, p).target + natureOf(p).mood));
   const step = (MORALE_DRIFT_PER_HOUR / TICKS_PER_HOUR) * MORALE_EVERY;
   p.morale = p.morale < target ? Math.min(target, p.morale + step) : Math.max(target, p.morale - step);
   // (some origins' folk never sink too low: thralls, the fair folk)
@@ -197,6 +202,9 @@ export function joinOrigin(s: GameState, p: Person, rng?: Rng): void {
   if (r.kin === 'undead' && !p.monster) {
     p.monster = 'undead';
     p.hp = maxHp(p);
+  } else if (r.kin === 'werewolf' && !p.monster) {
+    p.monster = 'werewolf';
+    p.hp = maxHp(p);
   } else if (r.kin === 'machine') p.machine = true;
   if (r.mutate) {
     // (a trait they don't have, decided by who they are, so no randomness shifts)
@@ -215,7 +223,7 @@ export const MAX_BOTS = 10;
 
 /** Multiplier on work speed from traits, morale, hunger, tiredness and the hour. */
 export function workFactor(s: GameState, p: Person): number {
-  let f = 1;
+  let f = natureOf(p).work;
   if (p.traits.includes('hard_worker')) f *= 1.2;
   if (p.traits.includes('lazy')) f *= 0.8;
   if (p.traits.includes('night_owl')) {
@@ -228,6 +236,7 @@ export function workFactor(s: GameState, p: Person): number {
   if (p.needs.rest <= 0.02) f *= 0.7;
   if (isInjured(p)) f *= 0.8;
   if (p.sick) f *= PLAGUE_WORK;
+  f *= ageWork(s, p); // (elders slow down)
   // vampires come alive at night
   if (p.monster === 'vampire') {
     const h = calendar(s.tick).hour;
@@ -285,7 +294,11 @@ export function campEdge(s: GameState, side: -1 | 1): Pt {
 export function maybeArrive(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.visitor) return;
   if (rulesOf(s).noWanderers) return; // (a town that makes its own people)
+  if (townFull(s)) return; // (as big as the player wants it)
   if (housingCapacity(s) <= s.people.length) return;
+  // (the owner's rule: people join by the player's leave, a prisoner won over, or birth; so wanderers come seldom,
+  // and each is a question. A town whose gates are free (the horde) takes them in itself, as often as they come.)
+  if (!rulesOf(s).freeJoin && s.tick - (s.lastVisit ?? -Infinity) < VISIT_GAP_HOURS * TICKS_PER_HOUR) return;
   const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
   const chance =
     ARRIVAL_BASE +
@@ -295,7 +308,9 @@ export function maybeArrive(s: GameState, rng: Rng): void {
     Math.min(ARRIVAL_REPUTATION_MAX, s.reputation * ARRIVAL_PER_REPUTATION);
   // wanderers shy away from a town where the dead outnumber the living
   // (unless the town was founded by the dead: then they're raised on joining anyway)
-  if (!rng.chance(chance * (undeadShare(s) >= 0.5 && rulesOf(s).kin !== 'undead' ? UNDEAD_TOWN_ARRIVALS : 1))) return;
+  // (and fewer come as a town fills: past POP_SOFT_CAP it grows only by its own children: data/pace.ts)
+  const room = Math.max(0, 1 - s.people.length / POP_SOFT_CAP);
+  if (!rng.chance(chance * room * (undeadShare(s) >= 0.5 && rulesOf(s).kin !== 'undead' ? UNDEAD_TOWN_ARRIVALS : 1))) return;
 
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
   const edge = edgeXY(s, side);
@@ -304,6 +319,16 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   const type = monster ?? rng.weighted(ARRIVING_TYPES);
   const person = makePerson(rng, s.nextId++, type, edge, [...s.people.map((p) => p.name)]);
   if (monster) becomeMonster(s, person, monster);
+  // a stranger of another people (sim/strangers.ts): their look and span are theirs; a xenophobic town turns them away
+  const origin = monster ? null : strangerOrigin(s, rng);
+  if (origin) {
+    makeStranger(s, person, origin);
+    if (!welcomes(s, origin)) {
+      s.nextId--;
+      notify(s, `A wanderer, ${oneOf(origin)}, was turned from the gate: ${ORIGIN_DEFS[s.origin!].name} keep to their own.`);
+      return;
+    }
+  }
   // a rare wanderer is already trained in a special class (decided by the seed, so no randomness shifts)
   const roll = mixSeed(hashSeed(s.seed), person.id * 7919);
   // (one of each calling in a town: never one the town already has)
@@ -321,8 +346,52 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   person.dir = side < 0 ? 1 : -1;
   const wait = campEdge(s, side);
   s.visitor = { person, waitX: wait.x, waitY: wait.y, leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
+  s.lastVisit = s.tick;
   const trained = person.cls ? ` (${aCalling(callingName(person, stageOf(person))!)}, level ${person.level}!)` : '';
-  notify(s, `${/^[aeiou]/.test(type) ? 'An' : 'A'} ${type}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
+  const who = origin ? `${oneOf(origin)} (a ${type})` : `${/^[aeiou]/.test(type) ? 'an' : 'a'} ${type}`;
+  notify(s, `${who[0].toUpperCase()}${who.slice(1)}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
+  if (!rulesOf(s).freeJoin) askVisitor(s, who, trained);
+}
+
+/** The question a wanderer at the gate puts to the player (unless the town's gates are free): in, or on their way.
+ *  Unanswered, they're taken in when their wait is up if the stores hold a day's food a head, else sent on. */
+export function askVisitor(s: GameState, who: string, trained: string): void {
+  const v = s.visitor;
+  if (!v) return;
+  const skills = (['gathering', 'farming', 'crafting', 'construction', 'melee', 'ranged', 'research', 'medicine', 'social'] as const)
+    .map((k) => [k, v.person.skills[k].level] as const)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([k, l]) => `${k} ${l}`)
+    .join(', ');
+  s.prompts.push({
+    id: s.nextId++,
+    kind: 'visitor',
+    expedition: null,
+    title: `${v.person.name} asks to join`,
+    text: `${who[0].toUpperCase()}${who.slice(1)}${trained} stands at the edge of town and asks to stay. Best at ${skills}. ${housingCapacity(s) > s.people.length ? 'There is a bed for them.' : 'There is no bed free.'}`,
+    options: VISITOR_OPTIONS,
+    // (left unanswered, a newcomer is let in unless the stores are nearly bare: a town whose player is away still grows,
+    // and builds them a home; the choice is the player's whenever they answer)
+    defaultOption: foodPerHead(s) >= 1 ? 0 : 1,
+    expiresTick: v.leavesTick + TICKS_PER_HOUR, // (they tire of waiting first, and take their question with them)
+  });
+}
+export const VISITOR_OPTIONS = ['Take them in', 'Send them on'];
+/** Game hours between one wanderer at the gate and the next (a town whose gates are free has no such wait). */
+export const VISIT_GAP_HOURS = 48;
+
+/** Days of food in store a head (a newcomer's question defaults to no when it's under one). */
+function foodPerHead(s: GameState): number {
+  let food = 0;
+  for (const b of s.buildings) for (const [m, n] of Object.entries(b.store)) food += (FOOD_VALUE[m] ?? 0) * (n ?? 0);
+  return food / Math.max(1, s.people.length);
+}
+
+/** The player's answer to a wanderer's asking. */
+export function answerVisitor(s: GameState, option: string): void {
+  if (option === VISITOR_OPTIONS[0]) acceptVisitor(s);
+  else rejectVisitor(s);
 }
 
 /** Visitors walk in, wait, and walk off when turned away or tired of waiting. */
@@ -330,7 +399,14 @@ export function updateVisitor(s: GameState, walkTo: (p: Person, to: Pt) => boole
   const v = s.visitor;
   if (!v) return;
   if (v.leavingTo === null && s.tick >= v.leavesTick) {
+    // (left unanswered, the question's default stands: in, when the stores can feed one more)
+    const asked = s.prompts.find((q) => q.kind === 'visitor');
+    if (asked && asked.defaultOption === 0) {
+      acceptVisitor(s);
+      return;
+    }
     v.leavingTo = edgeBehind(s, v);
+    s.prompts = s.prompts.filter((q) => q.kind !== 'visitor');
     notify(s, `${v.person.name} got tired of waiting and moved on.`);
   }
   if (v.leavingTo !== null) {
@@ -348,6 +424,7 @@ export function acceptVisitor(s: GameState): void {
   if (!v || v.leavingTo !== null) return;
   s.people.push(v.person);
   s.visitor = null;
+  s.prompts = s.prompts.filter((q) => q.kind !== 'visitor');
   joinOrigin(s, v.person);
   assignBeds(s);
   equipAll(s);
@@ -359,4 +436,48 @@ export function rejectVisitor(s: GameState): void {
   const v = s.visitor;
   if (!v || v.leavingTo !== null) return;
   v.leavingTo = edgeBehind(s, v);
+  s.prompts = s.prompts.filter((q) => q.kind !== 'visitor');
+}
+
+/* ------------------------------------------------------------ the town's kin, kept */
+
+/** The bone tints of the raised dead, by who they are. */
+const BONE: string[] = ['#d8d0b8', '#c8c0a8', '#b8b8a4', '#a8b0a0', '#e0d8c4'];
+
+/** The look of one raised from the dead: the LPC skeleton body in a bone tint, no hair; the clothes they died in. */
+export function raisedLook(p: Person): void {
+  p.look.body = 'skeleton';
+  p.look.skin = BONE[p.id % BONE.length];
+  p.look.hair = 'none';
+  p.look.beard = false;
+}
+
+/** Each hour the town's kin rule is kept (the owner's call: the lich's village is the dead alone): whoever came in
+ *  living, by whatever door (a wanderer, a captive brought home, a raider come round, a rival won over, a quest's
+ *  captive, a child), is made kin: raised in a lich town (and looks it), bitten in a pack, remade in a colony. The lich
+ *  themself is left as they are. */
+export function keepKin(s: GameState): void {
+  const kin = rulesOf(s).kin;
+  if (!kin) return;
+  for (const p of s.people) {
+    if (s.lich && p.id === s.mainId) continue;
+    if (kin === 'undead') {
+      if (p.monster !== 'undead') {
+        p.monster = 'undead';
+        delete p.lastFed;
+        p.hp = maxHp(p);
+        notify(s, `${p.name} is dead, and risen: the dead welcome the dead.`, true);
+      }
+      if (p.look.body !== 'skeleton') raisedLook(p);
+    } else if (kin === 'werewolf') {
+      if (p.monster !== 'werewolf') {
+        p.monster = 'werewolf';
+        p.hp = maxHp(p);
+        notify(s, `${p.name} was bitten under the moon, and runs with the pack now.`, true);
+      }
+    } else if (kin === 'machine' && !p.machine) {
+      p.machine = true;
+      notify(s, `${p.name} was remade: a machine of the colony now.`, true);
+    }
+  }
 }

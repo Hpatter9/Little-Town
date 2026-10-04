@@ -1,6 +1,8 @@
 // Trade panel: the way into the shop and the tavern (once built), the caravan's deals (while one is at the market) and
 // the town's horses.
 
+import { storePanel } from '../../shared/ipc';
+const STORE_MARKS: Record<string, string> = { furniture: '🪑', weapons: '⚔️', armour: '🛡️', medicine: '⚗️' };
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import { HORSE_HP } from '../../shared/data/trade';
 import type { Bridge } from '../../shared/ipc';
@@ -8,7 +10,7 @@ import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, el } from './dom';
 
 export const tradeKey = (s: Snapshot) =>
-  JSON.stringify([s.caravan && [Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, s.shop?.name, s.tavern?.name]);
+  JSON.stringify([s.caravan && [s.caravan.faction, Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, s.shop?.name, s.tavern?.name]);
 
 const list = (st: Stock) =>
   (Object.entries(st) as [Material, number][])
@@ -18,14 +20,15 @@ const list = (st: Stock) =>
 export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const out: HTMLElement[] = [];
   const head = el('div', 'panel-head');
-  head.append(el('span', '', s.caravan ? `Caravan at the market: leaves in ${Math.ceil(s.caravan.hoursLeft)}h` : 'No caravan in town'), el('span', '', `Stored ${s.storageUsed}/${s.storageCapacity}`));
+  head.append(el('span', '', s.caravan ? `${s.caravan.faction ? `A caravan of ${s.caravan.faction}` : 'Caravan'} at the market: leaves in ${Math.ceil(s.caravan.hoursLeft)}h` : 'No caravan in town'), el('span', '', `Stored ${s.storageUsed}/${s.storageCapacity}`));
   out.push(head);
 
   // (once built: a way in to see them, besides tapping them in the town)
   const venues = (['shop', 'tavern'] as const).filter((v) => s[v]);
-  if (venues.length) {
+  if (venues.length || s.stores.length) {
     const row = el('div', 'venue-row');
     for (const v of venues) row.append(button(`${v === 'shop' ? '🛒' : '🍺'} ${s[v]!.name}`, () => bridge?.openPanel(v)));
+    for (const st of s.stores) row.append(button(`${STORE_MARKS[st.line!]} ${st.name}`, () => bridge?.openPanel(storePanel(st.line!))));
     out.push(row);
   }
 

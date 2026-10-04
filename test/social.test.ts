@@ -37,6 +37,7 @@ function goodMatch(prefix: string): Sim {
 test('people who spend their days together become friends (or, with no chemistry, rivals)', () => {
   const sim = goodMatch('friends');
   const s = sim.state;
+  s.nextRaidTick = Number.MAX_SAFE_INTEGER; // (a raid would cut the friendship short)
   const a = villager(s, 1);
   for (let i = 0; i < 4 * TICKS_PER_DAY; i++) sim.step();
   assert.ok(opinion(s, s.people[0].id, a.id) >= FRIEND, `opinion ${opinion(s, s.people[0].id, a.id)}`);

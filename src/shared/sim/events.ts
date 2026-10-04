@@ -8,14 +8,19 @@
 import { EVENTS, EVENT_BY_ID, type EventDef, type EventEffect } from '../data/events';
 import { MATERIALS, type Material } from '../data/materials';
 import { ARRIVING_TYPES, FOOD_VALUE } from '../data/people';
-import { TOPIC_BY_ID } from '../data/research';
+import { TOPIC_BY_ID, TOPICS } from '../data/research';
+import { BUILDING_BY_ID } from '../data/buildings';
+import { isSeat } from '../data/seats';
+import { demolish } from './buildings';
+import { setFire } from './fire';
+import { canQueue } from './research';
 import type { Rng } from '../rng';
 import { depositNear, storages } from './buildings';
 import { sicken } from './doom';
 import { killPerson } from './health';
 import { revealOccult } from './occult';
 import { equipAll } from './crafting';
-import { addStock, campX, campXY, earn, makePerson, notify, type GameState, type Person } from './state';
+import { townFull, addStock, campX, campXY, earn, makePerson, maxHp, notify, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { assignBeds, joinOrigin } from './townsfolk';
 import { isChild } from './social';
@@ -59,13 +64,14 @@ export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
     id,
     kind: 'event',
     expedition: null,
-    title: fill(s, def.title, who),
+    title: `${def.fateful ? '⚡ ' : ''}${fill(s, def.title, who)}`,
     text: fill(s, def.text, who),
     options: def.options.map((o) => fill(s, o.label, who)),
     defaultOption: def.options.findIndex((o) => o.default),
     expiresTick: s.tick + hours(EVENT_HOURS),
   });
   s.event = { def: def.id, prompt: id, who: who?.id };
+  if (def.fateful) s.lastFateful = s.tick;
   s.eventLog = [...(s.eventLog ?? []), def.id].slice(-NO_REPEAT);
   s.nextEventTick = s.tick + hours(rng.int(EVENT_GAP_HOURS[0], EVENT_GAP_HOURS[1]));
   notify(s, fill(s, def.title, who), true);
@@ -138,7 +144,9 @@ function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: n
     else if ('join' in e) for (let i = 0; i < e.join; i++) newcomer(s, rng, e.type);
     else if ('leave' in e) {
       const p = target(s, e.leave, whoId, rng);
-      if (p) {
+      // (the founder is never sent away: a lone founder exiled once left an empty town with no end to it)
+      if (p && p.id === s.mainId) notify(s, `${p.name} stays: the town cannot do without them.`);
+      else if (p) {
         s.people = s.people.filter((q) => q !== p);
         assignBeds(s);
         notify(s, `${p.name} left the town.`, true);
@@ -161,6 +169,50 @@ function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: n
       if (t) s.research.progress[topic] = Math.min(0.99, (s.research.progress[topic] ?? 0) + e.research / t.seconds);
     } else if ('occult' in e) revealOccult(s, e.occult);
     else if ('chance' in e) apply(s, rng.chance(e.chance) ? e.then : (e.else ?? []), rng, whoId);
+    // the fateful events' (data/fatefulEvents.ts)
+    else if ('burn' in e) {
+      const can = s.buildings.filter((b) => b.status === 'done' && b.fire === undefined && b.def !== 'campfire' && !isSeat(b.def));
+      for (let i = 0; i < e.burn && can.length; i++) setFire(s, can.splice(Math.floor(rng.next() * can.length), 1)[0], true);
+    } else if ('ruin' in e) {
+      const can = s.buildings.filter((b) => b.status === 'done' && b.def !== 'campfire' && !isSeat(b.def) && !b.room);
+      for (let i = 0; i < e.ruin && can.length; i++) {
+        const b = can.splice(Math.floor(rng.next() * can.length), 1)[0];
+        notify(s, `The ${BUILDING_BY_ID[b.def]?.name.toLowerCase() ?? b.def} is brought down.`, true);
+        demolish(s, b.id);
+      }
+    } else if ('exodus' in e) {
+      const pool = grownUps(s).filter((p) => p.id !== s.mainId && p.away === null);
+      const n = Math.round(pool.length * e.exodus);
+      const gone: Person[] = [];
+      for (let i = 0; i < n && pool.length; i++) gone.push(pool.splice(Math.floor(rng.next() * pool.length), 1)[0]);
+      if (gone.length) {
+        s.people = s.people.filter((p) => !gone.includes(p));
+        assignBeds(s);
+        notify(s, `${gone.length} left the town: ${gone.map((p) => p.name).join(', ')}.`, true);
+      }
+    } else if ('sickShare' in e) {
+      const pool = grownUps(s);
+      const n = Math.round(pool.length * e.sickShare);
+      for (let i = 0; i < n && pool.length; i++) sicken(s, pool.splice(Math.floor(rng.next() * pool.length), 1)[0], rng);
+    } else if ('learn' in e) {
+      for (let i = 0; i < e.learn; i++) {
+        const r = s.research;
+        const id = r.queue[0] ?? TOPICS.find((t) => !r.done.includes(t.id) && canQueue(r, t.id, s.era, s.origin).ok)?.id;
+        if (!id) break;
+        delete r.progress[id];
+        r.queue = r.queue.filter((q) => q !== id);
+        r.done.push(id);
+        notify(s, `Learned outright: ${TOPIC_BY_ID[id]?.name ?? id}.`, true);
+      }
+    } else if ('heal' in e) {
+      for (const p of s.people) {
+        p.hp = maxHp(p);
+        if (p.downed) p.downed = null;
+      }
+      notify(s, 'Everyone is whole again.', true);
+    } else if ('herdLoss' in e) {
+      for (const b of s.buildings) if (b.herd) b.herd.head = 0;
+    }
   }
 }
 
@@ -184,6 +236,10 @@ function take(s: GameState, what: 'food' | 'stores' | 'coins', share: number): v
 
 /** Someone takes up the town's offer and joins (a bed is found if there's one). */
 function newcomer(s: GameState, rng: Rng, type?: string): void {
+  if (townFull(s)) {
+    notify(s, 'Someone would have stayed, but the town is as big as you want it: they go on their way.');
+    return;
+  }
   const p = makePerson(rng, s.nextId++, type ?? rng.weighted(ARRIVING_TYPES), campXY(s), s.people.map((q) => q.name));
   s.people.push(p);
   joinOrigin(s, p, rng);

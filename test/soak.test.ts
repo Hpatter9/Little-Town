@@ -42,8 +42,14 @@ function medievalTown(seed: string): Sim {
 test('a Medieval town runs for days without anything breaking (and survives a save)', () => {
   for (const seed of ['soak1', 'soak2']) {
     let sim = medievalTown(seed);
+    // (the journal is capped at MAX_JOURNAL entries, so raids are counted as they come, never from the journal's length)
+    let raided = false;
+    const seen = new WeakSet<object>();
     for (let day = 0; day < 6; day++) {
-      for (let i = 0; i < TICKS_PER_DAY; i++) sim.step();
+      for (let i = 0; i < TICKS_PER_DAY; i++) {
+        sim.step();
+        if (i % TICKS_PER_HOUR === 0) for (const e of sim.state.journal) if (!seen.has(e)) { seen.add(e); if (/Raid by/.test(e.text)) raided = true; }
+      }
       const snap = snapshot(sim.state); // the renderers' view must always build
       assert.ok(snap.people.length >= 1);
       if (day === 2) {
@@ -54,8 +60,9 @@ test('a Medieval town runs for days without anything breaking (and survives a sa
       if (sim.state.gameOver) break;
     }
     const s = sim.state;
+    for (const e of s.journal) if (!seen.has(e) && /Raid by/.test(e.text)) raided = true;
     const text = s.journal.map((e) => e.text).join('\n');
-    assert.ok(/Raid by/.test(text) || s.raid, `raids happened in ${seed}`);
+    assert.ok(raided || !!s.raid, `raids happened in ${seed}`);
     assert.ok(s.buildings.some((b) => b.crop && b.crop.stage !== 'fallow') || /Harvest|grain/.test(text) || true);
   }
 });

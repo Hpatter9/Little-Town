@@ -8,6 +8,12 @@ import { pieceLabel, qualityOf } from '../../shared/data/quality';
 import { APPEAL_HALVES_WAIT, TRAVELLER_EVERY } from '../../shared/data/shop';
 import type { Look } from '../../shared/data/people';
 import type { ShopView, Snapshot } from '../../shared/sim/snapshot';
+import { STORE_PANELS, type StorePanelId } from '../../shared/ipc';
+import { LINES } from '../../shared/data/stores';
+import { DECOR_LEVELS, DECOR_STYLES } from '../../shared/data/decor';
+import { ITEM_BY_ID } from '../../shared/data/items';
+import { iconSpot } from '../art/icons';
+import { materialIconSpot } from '../art/materialIcons';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, loadLpc, lookKey, lpcCanvas } from '../art/lpc/lpcCompose';
 import { materialIcon } from '../art/materialIcons';
 import { el } from './dom';
@@ -15,12 +21,20 @@ import { loadImage } from '../art/loadImage';
 import workshopUrl from '../art/interior/workshop.png';
 import forgeUrl from '../art/interior/forge.png';
 
-type VenueId = 'shop' | 'tavern';
+/** The windows this panel draws: the shop, the tavern, and each specialty shop (`store_<line>`). */
+type VenueId = 'shop' | 'tavern' | StorePanelId;
+export const isVenuePanel = (id: string | null): id is VenueId => id === 'shop' || id === 'tavern' || (STORE_PANELS as readonly string[]).includes(id ?? '');
+/** The view a window shows (null until the venue is built). */
+export function venueView(s: Snapshot | null, id: VenueId): ShopView | null {
+  if (!s) return null;
+  if (id === 'shop' || id === 'tavern') return s[id];
+  return s.stores.find((v) => v.line === id.slice('store_'.length)) ?? null;
+}
 
 /** Changes whenever something the text shows changes (the picture animates on its own). */
-export const shopKey = (s: Snapshot, venue: VenueId = 'shop') => {
-  const v = s[venue];
-  return JSON.stringify(v && [s.coins, s.wageBill, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers, v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting, v.asked, v.menu, v.gear]);
+export const shopKey = (s: Snapshot, id: VenueId = 'shop') => {
+  const v = venueView(s, id);
+  return JSON.stringify(v && [s.coins, s.wageBill, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers, v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting, v.asked, v.menu, v.gear, v.stock, v.stockMats, v.decor]);
 };
 
 /** In the picture's own pixels (it's scaled up to fit): a floor cell's width and its depth (a row, foreshortened),
@@ -30,8 +44,33 @@ const DEPTH = 12;
 const WALL = 6;
 const BACK = 40;
 const SILL = 6;
-/** A tavern's guest rooms, drawn as a storey over the common room. */
-const UPSTAIRS_H = 32;
+/** A tavern's guest rooms: a wing beside the common room, each room this wide and three rows deep, off a hallway
+ *  that runs along their front from a doorway in the common room's side wall. */
+const ROOM_W = 30;
+const ROOM_D = DEPTH * 3;
+const wingWidth = (v: ShopView) => (v.rooms ? v.rooms * ROOM_W + WALL : 0);
+
+/** The icon sheets, for the stock on show (fetched as they're first wanted). */
+const icons = new Map<string, HTMLImageElement | null>();
+function iconImage(url: string): HTMLImageElement | null {
+  const im = icons.get(url);
+  if (im !== undefined) return im;
+  icons.set(url, null);
+  loadImage(url).then((i) => icons.set(url, i), () => undefined);
+  return null;
+}
+/** Lighten a hex colour a little (for a painted wall's lit edge). */
+function lighter(hex: string, k = 1.18): string {
+  const n = parseInt(hex.slice(1), 16);
+  const c = (v: number) => Math.min(255, Math.round(v * k)).toString(16).padStart(2, '0');
+  return `#${c(n >> 16)}${c((n >> 8) & 255)}${c(n & 255)}`;
+}
+/** The specialty shops' rooms (their colours in data/stores.ts). */
+const STORE_BUILD: Record<string, Room['build']> = { furniture: 'plaster', weapons: 'stone', armour: 'stone', medicine: 'plaster' };
+function storeRoom(line: keyof typeof LINES): Room {
+  const l = LINES[line];
+  return { floor: l.floor[0], seam: l.floor[1], wall: l.wall, wallLight: lighter(l.wall), wallDark: l.wallTrim, build: STORE_BUILD[line] };
+}
 /** The characters' size in the room, and where the top of a head is in a character's frame. */
 const SCALE = 0.5;
 const HEAD_Y = 16;
@@ -48,10 +87,10 @@ function qualityChip(text: string, q: number): HTMLElement {
   return c;
 }
 
-export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] {
-  const v = s[venue];
+export function renderShop(s: Snapshot, id: VenueId = 'shop'): HTMLElement[] {
+  const v = venueView(s, id);
   latest = v;
-  const tavern = venue === 'tavern';
+  const tavern = id === 'tavern';
   if (!v)
     return [
       el(
@@ -59,7 +98,9 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
         'empty',
         tavern
           ? 'The town has no tavern yet. Once it learns Hospitality (after Barter) it builds a Fireside Inn, and travellers stop for a meal and a drink.'
-          : 'The town has no shop yet. Once it learns Barter it builds a Trading Post, and travellers start stopping by.',
+          : id === 'shop'
+            ? 'The town has no shop yet. Once it learns Barter it builds a Trading Post, and travellers start stopping by.'
+            : 'The town has not built this shop yet.',
       ),
     ];
   const out: HTMLElement[] = [];
@@ -71,8 +112,8 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
   out.push(head);
 
   canvas ??= el('canvas', 'shop-floor');
-  const w = v.cols * CELL + WALL * 2;
-  const h = (v.rooms ? UPSTAIRS_H : 0) + BACK + v.rows * DEPTH + SILL;
+  const w = v.cols * CELL + WALL * 2 + wingWidth(v);
+  const h = BACK + v.rows * DEPTH + SILL;
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
@@ -132,8 +173,8 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
         'div',
         'hint',
         v.beds
-          ? `${v.rooms} rooms upstairs, ${v.beds} with a bed, ${v.lodgers} taken tonight. Guests who come in the evening may stay the night and pay for the bed (a finer bed fetches more), leaving in the morning.`
-          : `${v.rooms} rooms upstairs, none with a bed yet: guests who come in the evening have nowhere to stay the night. The town makes a bed once they ask.`,
+          ? `${v.rooms} rooms down the hall, ${v.beds} with a bed, ${v.lodgers} taken tonight. Guests who come in the evening may stay the night and pay for the bed (a finer bed fetches more), leaving in the morning.`
+          : `${v.rooms} rooms down the hall, none with a bed yet: guests who come in the evening have nowhere to stay the night. The town makes a bed once they ask.`,
       ),
     );
   } else {
@@ -152,8 +193,12 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
       if (t.tier > 1 && t.drawn && !t.wares.some((w) => w.have)) row.append(el('div', 'hint', `None in stock: ${t.plural.toLowerCase()} leave disappointed, and the shop's renown falls.`));
       info.push(row);
     }
-    info.push(el('h2', '', 'Gear in stock'));
-    if (!v.gear.length) info.push(el('p', 'empty', 'None spare.'));
+    info.push(el('h2', '', v.line ? 'On the shelves' : 'Gear in stock'));
+    if (v.line && v.stock.length) {
+      const row = el('div', 'shop-pieces');
+      for (const p of v.stock) row.append(qualityChip(`${pieceLabel(ITEM_BY_ID[p.item]?.name ?? p.item, p.q)}${p.n > 1 ? ` ×${p.n}` : ''}`, p.q));
+      info.push(row);
+    } else if (!v.gear.length) info.push(el('p', 'empty', v.line ? `Nothing of its line in stock: the town makes ${LINES[v.line].banner.toLowerCase()} for it from what it has spare.` : 'None spare.'));
     else {
       const gear = el('div', 'shop-pieces');
       for (const g of v.gear) gear.append(qualityChip(`${pieceLabel(g.name, g.q)}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q));
@@ -190,6 +235,17 @@ export function renderShop(s: Snapshot, venue: VenueId = 'shop'): HTMLElement[] 
   if (v.waiting.length) info.push(el('div', 'hint', `Made, waiting to be set out: ${v.waiting.join(', ')}.`));
   if (levelled) info.push(el('div', 'hint', `${levelled} improved with coins (★ a second tier, ★★ polished and trimmed in brass).`));
   info.push(el('div', 'hint', `${floorWord} counts each piece's quality. Floor ${v.cols}×${v.rows}` + (v.extensions ? `, extended ${v.extensions} of ${v.maxExtensions} times` : '') + (v.nextExtension !== null ? `. The town extends it (${v.nextExtension} coins) once it's crowded and it has coins to spare.` : '.')));
+  info.push(el('h2', '', 'Décor'));
+  if (!v.decor) info.push(el('div', 'hint', 'Plain as built. Once it has a keeper, they decide how the place will be dressed, and the town pays for it step by step.'));
+  else {
+    const d = v.decor;
+    const steps = el('div', 'shop-pieces');
+    DECOR_LEVELS.forEach((l, i) => steps.append(el('span', i < d.level ? 'chip' : 'chip dim', l.name)));
+    info.push(
+      el('div', 'hint', `${d.by ? `${d.by}'s` : 'The keeper\'s'} direction: ${d.name}, ${d.line}.` + (d.next ? ` Next: ${d.next.name.toLowerCase()} (${d.next.price} coins), once the town has coins to spare.` : ' Finished: as fine as it gets.')),
+      steps,
+    );
+  }
   if (v.grows) info.push(el('div', 'hint', `It grows into a ${v.grows.name}${v.grows.research ? ` once the town learns ${v.grows.research}` : ''}, with room for more.`));
 
   info.push(el('h2', '', 'Lately'));
@@ -337,10 +393,16 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   loadWorkshop();
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
-  const pal = ROOMS[v.def] ?? ROOMS.trading_post;
+  let pal: Room = v.line ? storeRoom(v.line) : (ROOMS[v.def] ?? ROOMS.trading_post);
+  // (the keeper's décor: painted walls from the first level, data/decor.ts)
+  const style = v.decor ? DECOR_STYLES[v.decor.style] : null;
+  const decor = v.decor?.level ?? 0;
+  if (style && decor >= 1) pal = { ...pal, wall: style.wall, wallLight: lighter(style.wall), wallDark: style.wallTrim, build: pal.build === 'logs' ? 'plaster' : pal.build };
   const W = c.width;
-  const up = v.rooms ? UPSTAIRS_H : 0;
-  const H = c.height - up;
+  /** The common room's width (the guest wing, if any, is beside it). */
+  const WR = v.cols * CELL + WALL * 2;
+  const up = 0;
+  const H = c.height;
   const rect = (x: number, y: number, w: number, h: number, col: string) => {
     g.fillStyle = col;
     g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
@@ -398,8 +460,10 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     rect(wx - 2, 23, CELL, 2, pal.wallLight); // the sill
   }
   rect(0, BACK - 3, W, 3, pal.wallDark); // skirting
+  decorWall();
   // what's hung on the wall
   for (const p of v.pieces) if (ON_WALL.has(p.item)) hang(p);
+  display();
   if (v.venue === 'tavern')
     for (let k = 0; k < v.keeper.w; k++) {
       // casks racked against the back wall, behind the barkeep
@@ -425,9 +489,9 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   }
   // the side walls, seen end-on
   rect(0, 0, WALL, H, pal.wall);
-  rect(W - WALL, 0, WALL, H, pal.wall);
+  rect(WR - WALL, 0, WALL, H, pal.wall);
   rect(WALL - 1, 0, 1, H, pal.wallDark);
-  rect(W - WALL, 0, 1, H, pal.wallDark);
+  rect(WR - WALL, 0, 1, H, pal.wallDark);
   // the front: a low sill with the doorway in it
   const doorX = cellX(v.door);
   rect(0, floorBottom, W, H - floorBottom, pal.wall);
@@ -435,7 +499,8 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   rect(doorX + 1, floorBottom, CELL - 2, H - floorBottom, '#8a3a2a'); // the doormat on the threshold
   rect(doorX + 1, floorBottom, CELL - 2, 1, '#a84a3a');
 
-  // rugs lie flat, under everything else
+  // rugs lie flat, under everything else (the décor's runner and rug first)
+  decorFloor();
   for (const p of v.pieces) if (p.y >= 0 && (p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat')) rug(p);
 
   // everything standing, back to front, with the people among it
@@ -484,9 +549,9 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     const w = wk;
     if (q.asleep && q.bed) {
       // (in bed: drawn with it, under the covers)
-      // (they're upstairs: when they come down in the morning, it's by the stairs at the back)
-      w.x = cellX(0) + 4;
-      w.y = rowY(0) + 3;
+      // (they're in their room: when they come out in the morning, it's through the hallway door)
+      w.x = WR - WALL - 6;
+      w.y = floorBottom - 6;
       w.tx = w.x;
       w.ty = w.y;
       sleepers.set(`${q.bed.x},${q.bed.y}`, q.look);
@@ -509,44 +574,76 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       g.fillRect(x - CELL * 2, y - CELL * 2, CELL * 4, CELL * 3);
     }
   g.restore();
-  if (up) upstairs();
+  if (v.rooms) wing();
 
-  /** The guest rooms, a storey over the common room: plastered rooms side by side, each with a window, and a bed if
-   *  the town has made one for it (with its guest asleep in it, of a night). */
-  function upstairs(): void {
+  /** The guest wing: a hallway from a doorway in the common room's side wall, with the rooms off it, each with its
+   *  own door, a window, and a bed if the town has made one (and its guest asleep in it, of a night). */
+  function wing(): void {
+    const x0 = WR;
     const rooms = v.rooms;
-    const rw = (W - WALL * 2) / rooms;
+    const xEnd = x0 + rooms * ROOM_W;
+    const front = BACK + ROOM_D; // the rooms' front wall
+    const hallTop = front + 5;
     const night = v.night;
-    rect(0, 0, W, up, pal.wallDark);
-    rect(WALL, 2, W - WALL * 2, up - 7, '#d8c8a8');
-    for (let y = 4; y < up - 7; y += 5) for (let x = WALL + ((y * 3) % 7); x < W - WALL; x += 9) rect(x, y, 1, 1, '#c8b898'); // (plaster)
-    rect(WALL, up - 5, W - WALL * 2, 3, pal.floor); // the floorboards
-    rect(WALL, up - 5, W - WALL * 2, 1, pal.seam);
-    rect(0, up - 2, W, 2, pal.wallDark); // the beam between the storeys
-    rect(0, 0, W, 2, pal.wallDark);
+    // the back wall carries on across the wing, and the hallway's floor runs in through the doorway
+    rect(x0 - WALL, 0, xEnd - x0 + WALL * 2, BACK, pal.wall);
+    for (let y = 2; y < BACK - 4; y += 5) for (let x = x0 + ((y * 3) % 7); x < xEnd; x += 9) rect(x, y, 1, 1, pal.wallDark);
+    rect(x0 - WALL, BACK - 3, xEnd - x0 + WALL, 3, pal.wallDark);
+    rect(x0, BACK, xEnd - x0, ROOM_D, pal.floor);
+    rect(x0 - WALL, hallTop, xEnd - x0 + WALL, floorBottom - hallTop, pal.floor);
+    for (let y = BACK; y < floorBottom; y += 4) rect(x0 - WALL, y, xEnd - x0 + WALL, 1, pal.seam);
+    rect(x0 - WALL - 1, hallTop - 9, WALL + 2, 3, pal.wallDark); // the doorway's lintel
+    rect(x0 - WALL - 1, hallTop - 6, 1, floorBottom - hallTop + 6, pal.wallDark);
+    rect(x0, hallTop - 6, 1, floorBottom - hallTop + 6, pal.wallDark);
+    // (the décor's runner down the hall)
+    if (style && decor >= 2) {
+      const mid = Math.round((hallTop + floorBottom) / 2);
+      rect(x0 - WALL + 1, mid - 4, xEnd - x0 + WALL - 2, 8, style.rug[0]);
+      rect(x0 - WALL + 1, mid - 4, xEnd - x0 + WALL - 2, 1, style.rug[1]);
+      rect(x0 - WALL + 1, mid + 3, xEnd - x0 + WALL - 2, 1, style.rug[1]);
+    }
     for (let i = 0; i < rooms; i++) {
-      const x0 = WALL + i * rw;
-      if (i > 0) rect(x0 - 1, 2, 2, up - 4, pal.wallDark); // the partition
-      // a little window (the moon out there, of a night)
-      const wx = x0 + rw - 9;
-      rect(wx - 1, 5, 7, 8, pal.wallDark);
-      rect(wx, 6, 5, 6, night ? '#2a3a5a' : '#86b9e0');
-      rect(wx + 2, 6, 1, 6, pal.wallDark);
+      const rx = x0 + i * ROOM_W;
+      if (i > 0) rect(rx - 1, 0, 2, front + 5, pal.wallDark); // the partition, ceiling to doorframe
+      // the window at the back
+      const wx = rx + ROOM_W / 2 - 3;
+      rect(wx - 1, 7, 8, 11, pal.wallDark);
+      rect(wx, 8, 6, 9, night ? '#1e2a48' : '#86b9e0');
+      rect(wx + 3, 8, 1, 9, pal.wallDark);
+      rect(wx - 2, 18, 10, 2, pal.wallLight);
+      // the room's front wall, with its door onto the hall (standing open)
+      rect(rx, front, ROOM_W, 5, pal.wallDark);
+      rect(rx, front, ROOM_W, 1, pal.wallLight);
+      const dx = rx + ROOM_W / 2 - 5;
+      rect(dx, front, 10, 5, pal.floor);
+      rect(dx - 1, front - 12, 1, 17, '#5a3a22');
+      rect(dx + 10, front - 12, 1, 17, '#5a3a22');
+      rect(dx - 1, front - 13, 12, 1, '#5a3a22');
+      rect(dx + 10, front - 11, 3, 15, '#6a4428'); // the door leaf, swung into the hall
+      rect(dx + 11, front - 5, 1, 1, '#c8a050');
+      if (style && decor >= 4) {
+        // a lamp by each door
+        rect(dx + 14, front - 11, 2, 2, '#3a3a40');
+        rect(dx + 14, front - 13, 2, 2, style.lamp);
+        g.fillStyle = `rgba(255, 200, 90, ${(night ? 0.22 : 0.08) + 0.04 * Math.sin(t * 5 + i)})`;
+        g.fillRect(Math.round(dx + 9), Math.round(front - 18), 12, 12);
+      }
       const bed = v.pieces.find((p) => p.y === -1 && p.x === i);
-      const yb = up - 5;
+      const yb = front - 4; // where the bed's foot stands
       if (!bed) {
-        // (empty: a stool, waiting for a bed)
-        rect(x0 + 5, yb - 4, 5, 1, PAL_WOOD);
-        rect(x0 + 5, yb - 3, 1, 3, PAL_WOOD);
-        rect(x0 + 9, yb - 3, 1, 3, PAL_WOOD);
+        // (empty: a stool and a candle, waiting for a bed)
+        rect(rx + 5, yb - 4, 5, 1, PAL_WOOD);
+        rect(rx + 5, yb - 3, 1, 3, PAL_WOOD);
+        rect(rx + 9, yb - 3, 1, 3, PAL_WOOD);
+        rect(rx + 7, yb - 6, 1, 2, '#f0e8c0');
         continue;
       }
       const feather = bed.item === 'feather_bed';
       const straw = bed.item === 'straw_pallet';
       const frame = straw ? '#b89a58' : feather ? '#6a3a22' : '#8a5a30';
       const cover = straw ? '#a88258' : feather ? '#8a2a3a' : '#7c5c3c';
-      const bx = x0 + 3;
-      const bl = Math.min(rw - 13, 22);
+      const bx = rx + 3;
+      const bl = ROOM_W - 9;
       const top = straw ? yb - 3 : yb - 5;
       if (feather) {
         for (const px of [bx, bx + bl - 1]) rect(px, yb - 18, 1, 18, '#4a2a18'); // posts
@@ -558,7 +655,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
         rect(bx, yb - 2, 1, 2, '#3b2616'); // legs
         rect(bx + bl - 1, yb - 2, 1, 2, '#3b2616');
       }
-      rect(bx, top, bl, straw ? 3 : 3, frame);
+      rect(bx, top, bl, 3, frame);
       rect(bx + 2, top - 3, 5, 3, '#e8e0cc'); // the pillow
       rect(bx + 7, top - 2, bl - 8, 2, cover); // the blanket
       rect(bx + 7, top - 2, bl - 8, 1, 'rgba(255,255,255,0.2)');
@@ -578,9 +675,139 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
         g.globalAlpha = 1;
         // (a candle left burning)
         g.fillStyle = `rgba(255, 200, 90, ${0.18 + 0.05 * Math.sin(t * 6 + i)})`;
-        g.fillRect(Math.round(x0 + 2), 3, Math.round(rw - 4), up - 8);
+        g.fillRect(Math.round(rx + 2), BACK + 2, ROOM_W - 4, ROOM_D - 4);
       }
     }
+    // the wing's far wall, and the sill across its front
+    rect(xEnd, 0, WALL, H, pal.wall);
+    rect(xEnd, 0, 1, H, pal.wallDark);
+    rect(x0 - WALL, floorBottom, xEnd - x0 + WALL * 2, H - floorBottom, pal.wall);
+    rect(x0 - WALL, floorBottom, xEnd - x0 + WALL * 2, 1, pal.wallLight);
+  }
+
+  /** An item's (or a material's) picture, `size` square, at (x, y); a plain block until its sheet has loaded. */
+  function drawIcon(spot: { url: string; sx: number; sy: number; whole: boolean; hue?: number } | null, x: number, y: number, size: number, fallback = '#c8a060'): void {
+    const im = spot && iconImage(spot.url);
+    if (!im) return rect(x + 2, y + 2, size - 4, size - 4, fallback);
+    if (spot!.hue) g.filter = `hue-rotate(${spot!.hue}deg) saturate(1.15)`;
+    if (spot!.whole) g.drawImage(im, Math.round(x), Math.round(y), size, size);
+    else g.drawImage(im, spot!.sx, spot!.sy, 16, 16, Math.round(x), Math.round(y), size, size);
+    g.filter = 'none';
+  }
+
+  /** The stock on show: a fixture along the back wall, dressed for what the shop sells (data/stores.ts), with each
+   *  piece in stock on it (its icon): a pegboard of weapons, armour on stands, the apothecary's shelves of jars and
+   *  bundled herbs, the furniture maker's long table, the general store's crates of goods and shelf of wares. */
+  function display(): void {
+    if (v.venue !== 'shop') return;
+    const x = cellX(0) + 2;
+    const w = Math.max(24, cellX(v.counter.x) - 6 - x);
+    const slot = 12;
+    const n = Math.floor((w - 4) / slot);
+    const items = v.stock.slice(0, n).map((p) => ({ spot: ITEM_BY_ID[p.item] ? iconSpot(ITEM_BY_ID[p.item]) : null, q: p.q }));
+    const mats = v.stockMats.map((m) => ({ spot: materialIconSpot(m.m), q: 1 }));
+    const wood = '#5a3a22';
+    const base = BACK - 4;
+    switch (v.line) {
+      case 'weapons': {
+        rect(x, base - 16, w, 15, '#3a2a20'); // the pegboard
+        for (let k = 0; k < w; k += 4) rect(x + k, base - 14, 1, 1, '#1a1210');
+        rect(x, base - 1, w, 2, wood);
+        items.forEach((it, i) => drawIcon(it.spot, x + 3 + i * slot, base - 14, 10, '#9aa0a8'));
+        break;
+      }
+      case 'armour': {
+        rect(x, base - 1, w, 2, wood);
+        items.forEach((it, i) => {
+          const sx = x + 3 + i * slot;
+          rect(sx + 4, base - 6, 2, 6, wood); // the stand
+          rect(sx + 1, base - 7, 8, 1, wood);
+          drawIcon(it.spot, sx, base - 17, 10, '#8a94a0');
+        });
+        break;
+      }
+      case 'medicine': {
+        rect(x, base - 12, w, 1, wood); // two shelves
+        rect(x, base - 1, w, 2, wood);
+        items.forEach((it, i) => drawIcon(it.spot, x + 3 + (i % n) * slot, i < n ? base - 22 : base - 11, 10, '#5a9443'));
+        for (let k = 0; k < 3; k++) {
+          const hx = cellX(v.counter.x) + 2 + k * 6; // herbs hung by the counter
+          rect(hx + 1, 2, 1, 6, '#c8b890');
+          oval(hx + 1.5, 10, 2, 3, k % 2 ? '#5a9443' : '#3e7234');
+        }
+        break;
+      }
+      case 'furniture': {
+        rect(x, base - 8, w, 8, '#8a5a30'); // the long table, with a cloth
+        rect(x, base - 8, w, 1, '#a8703a');
+        rect(x + 1, base - 7, w - 2, 3, '#a83a4a');
+        items.forEach((it, i) => drawIcon(it.spot, x + 2 + i * slot, base - 18, 10, '#a87a48'));
+        break;
+      }
+      default: {
+        // the general store: crates of goods along the floor's back edge, a shelf of wares and gear above
+        rect(x, base - 14, w, 1, wood);
+        items.forEach((it, i) => drawIcon(it.spot, x + 3 + i * slot, base - 24, 10, '#d8a050'));
+        mats.slice(0, n).forEach((m, i) => {
+          const cx = x + 1 + i * slot;
+          rect(cx, base - 9, 11, 10, '#8a6a44');
+          rect(cx, base - 9, 11, 1, '#a88258');
+          rect(cx + 1, base - 8, 9, 1, '#3b2616');
+          drawIcon(m.spot, cx + 1, base - 11, 9, '#c8a060');
+        });
+      }
+    }
+  }
+
+  /** The keeper's décor on the walls: hangings at the windows and a tapestry by the counter (level 3), sconces lit
+   *  after dark (4), trim along the skirting and the cornice (5). */
+  function decorWall(): void {
+    if (!style) return;
+    if (decor >= 3) {
+      for (let x = 1; x < v.cols - 3; x += 3) {
+        const wx = cellX(x) + 2;
+        rect(wx - 4, 5, CELL + 4, 2, style.hanging); // the pelmet
+        rect(wx - 3, 7, 3, 18, style.hanging);
+        rect(wx + CELL - 4, 7, 3, 18, style.hanging);
+      }
+      const hx = cellX(v.counter.x) + 2;
+      rect(hx - 1, 4, 14, 1, style.wallTrim);
+      rect(hx, 5, 12, 20, style.hanging);
+      rect(hx + 2, 8, 8, 14, style.rug[1]);
+      rect(hx + 4, 11, 4, 8, style.hanging);
+    }
+    if (decor >= 4)
+      for (let x = 3; x < v.cols - 2; x += 3) {
+        const sx = cellX(x) + 8;
+        rect(sx - 1, 15, 3, 2, '#3a3a40');
+        rect(sx, 11, 1, 4, '#3a3a40');
+        rect(sx - 1, 9, 3, 3, style.lamp);
+        g.fillStyle = `rgba(255, 210, 120, ${(v.night ? 0.22 : 0.07) + 0.04 * Math.sin(t * 5 + x)})`;
+        g.beginPath();
+        g.arc(sx, 11, 9, 0, Math.PI * 2);
+        g.fill();
+      }
+    if (decor >= 5) {
+      rect(0, BACK - 3, W, 1, style.trim);
+      rect(WALL, 0, WR - WALL * 2, 1, style.trim);
+      rect(WALL, 2, WR - WALL * 2, 1, style.trim);
+    }
+  }
+
+  /** The décor on the floor (level 2): a runner from the door to the counter, and a rug before it. */
+  function decorFloor(): void {
+    if (!style || decor < 2) return;
+    const cy = rowY(v.counter.y + 1);
+    const dx = cellX(v.door);
+    rect(dx + 3, cy + 2, CELL - 6, floorBottom - cy - 2, style.rug[0]);
+    rect(dx + 3, cy + 2, 1, floorBottom - cy - 2, style.rug[1]);
+    rect(dx + CELL - 4, cy + 2, 1, floorBottom - cy - 2, style.rug[1]);
+    const x0 = Math.min(dx, cellX(v.counter.x));
+    const x1 = Math.max(dx + CELL, cellX(v.counter.x + v.counter.w));
+    rect(x0 + 2, cy + 2, x1 - x0 - 4, DEPTH - 3, style.rug[0]);
+    rect(x0 + 2, cy + 2, x1 - x0 - 4, 1, style.rug[1]);
+    rect(x0 + 2, cy + DEPTH - 2, x1 - x0 - 4, 1, style.rug[1]);
+    for (let k = x0 + 5; k < x1 - 5; k += 6) rect(k, cy + DEPTH / 2, 2, 1, style.rug[1]);
   }
 
   function counter(x: number, y0: number, w: number): void {
@@ -864,9 +1091,12 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   /** Someone side-on (their own look, as in the town), feet at (x, y); walking, or standing. */
   function person(x: number, y: number, look: Look, walking: boolean, left: boolean, phase: number, tier = 1): void {
     oval(x, y, 5, 1.5, 'rgba(0,0,0,0.28)');
+    // (standing, they breathe and shift their weight, like everyone on the map: nobody is frozen)
+    if (!walking) y -= Math.sin(phase * 1.1) > 0.55 ? 1 : 0;
+    const fidget = !walking && (phase * 1000) % 4300 < 160 ? 1 : 0;
     const top = y - (FEET_Y - HEAD_Y) * SCALE; // (the top of the head)
     if (lpcLoaded) {
-      const f = walking ? 1 + (Math.floor(phase * 10) % (FRAME_COUNT.walk - 1)) : 0;
+      const f = walking ? 1 + (Math.floor(phase * 10) % (FRAME_COUNT.walk - 1)) : fidget;
       const s = FRAME_SIZE * SCALE;
       g.save();
       g.translate(Math.round(x), Math.round(y));

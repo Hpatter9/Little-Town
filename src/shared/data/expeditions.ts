@@ -2,12 +2,13 @@
 
 import { BESTIARY_LAIRS } from './bestiary';
 import { SCOUT_DESTINATIONS } from './regions';
+import { TRADE_DESTINATIONS } from './minerals';
 import { DUNGEON_DESTINATIONS } from './dungeons';
 import type { EnemyGroup } from './enemies';
 import type { Era } from './eras';
 import type { Material } from './materials';
 
-export type ExpeditionType = 'gather' | 'hunt' | 'legendary' | 'salvage' | 'clear' | 'rescue' | 'scout' | 'delve';
+export type ExpeditionType = 'gather' | 'hunt' | 'legendary' | 'salvage' | 'clear' | 'rescue' | 'scout' | 'delve' | 'trade';
 
 export interface Encounters {
   /** Chance of a fight on arrival. */
@@ -36,6 +37,8 @@ export interface Destination {
   recommendedParty: number;
   /** Research needed before it appears on the board. */
   research?: string;
+  /** A trade caravan: the coins it sets out with (spent when it leaves; what it buys comes home as loot). */
+  coins?: number;
   /** The era it opens in (neolithic when left out). */
   era?: Era;
   /** Scenery for the split view. */
@@ -378,13 +381,14 @@ export const DESTINATIONS: readonly Destination[] = [
   ...BESTIARY_LAIRS,
   // (the scouting trips that map the fogged regions: data/regions.ts)
   ...SCOUT_DESTINATIONS,
+  ...TRADE_DESTINATIONS,
   // (the dungeons to delve: data/dungeons.ts)
   ...DUNGEON_DESTINATIONS,
 ];
 
 export const DESTINATION_BY_ID: Readonly<Record<string, Destination>> = Object.fromEntries(DESTINATIONS.map((d) => [d.id, d]));
 
-export const EXPEDITION_TYPE_NAMES: Record<ExpeditionType, string> = { gather: 'Gather', hunt: 'Hunt', legendary: 'Legendary', salvage: 'Salvage', clear: 'Clear a threat', rescue: 'Rescue', scout: 'Scout', delve: 'Delve' };
+export const EXPEDITION_TYPE_NAMES: Record<ExpeditionType, string> = { gather: 'Gather', hunt: 'Hunt', legendary: 'Legendary', salvage: 'Salvage', clear: 'Clear a threat', rescue: 'Rescue', scout: 'Scout', delve: 'Delve', trade: 'Trade caravan' };
 
 /** Clearing the bandit camp keeps raids away this many game days. */
 export const CLEARED_RAID_DELAY_DAYS = 3;

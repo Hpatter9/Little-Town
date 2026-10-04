@@ -3,29 +3,41 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { LINES, LINE_STOCK, SHOP_LINES, STORE_PEOPLE } from '../data/stores';
+import { eraOfResearch } from '../data/research';
+import { ERAS } from '../data/eras';
+import { hashSeed, Rng } from '../rng';
 import { treasuresHeld } from './shop';
+import { rulesOf } from '../data/origins';
 import { canWear } from './classes';
 import { isChild } from './social';
-import { buildOrigin, nomadic } from './nomads';
-import { castleCells, castleOn, joinsCastle, nearCastle, roomKind, sharedEdges } from './castle';
+import { buildOrigin } from './nomads';
+import { isRingPiece, planRing, RING_PEOPLE } from './ringWall';
+import { inSea, seaBuild, seaTown } from './sea';
+import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
+import { isSeat, seatOf } from '../data/seats';
 import { CROPS, WORKPLACES } from '../data/crops';
+import { ORES } from '../data/minerals';
+import { mines } from './places';
 import { HERDS } from '../data/livestock';
+import { growPen, herdOf, stockPen } from './livestock';
+import { WORTH } from '../data/trade';
 import { ITEMS, ITEM_BY_ID, MAX_POTS, type ItemDef } from '../data/items';
-import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/materials';
+import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } from '../data/materials';
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
 import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade } from './buildings';
-import { cellAt, doorOf, groundAt, idx, isMarked, isOpen, roadDistance, setMarked, spiralSpot, WILD, type Pt } from './land';
+import { type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
 import { tireless, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
-import { COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
+import { LINE_ITEMS, lineOfDef, COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
-import { attractiveness, extend, extensionPrice, furnishValue, improve, levelPrice, SALE_GEAR, shopOf, spotFor, tavernOf, venueKind, wouldFurnish } from './shop';
+import { attractiveness, decorPrice, redecorate, extend, extensionPrice, furnishValue, improve, levelPrice, SALE_GEAR, shopOf, spotFor, storeOf, tavernOf, venueKind, wouldFurnish } from './shop';
 import { gearScore } from './crafting';
 
 /* ------------------------------------------------------------ the town's direction */
@@ -69,7 +81,9 @@ export interface TownPlan {
 /** A blueprint that hasn't moved for this long, waiting on something the town has none of, is shelved (its slot is
  *  wanted for something that can be built), and its kind isn't tried again for SHELF_HOURS. */
 export const STALL_HOURS = 12;
-export const SHELF_HOURS = 24;
+export /** One defence piece for every this many grown-ups, besides what a raid or the Defence direction asks. */
+const DEFENSE_PER_PEOPLE = 8;
+const SHELF_HOURS = 24;
 
 /* ------------------------------------------------------------ what the town needs */
 
@@ -90,7 +104,7 @@ interface Needs {
 }
 
 /** A small stock the town likes to keep of each basic material it can get (so building never waits long). */
-const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber: 8, lumber: 12, bricks: 10, cloth: 4, iron: 4 };
+const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber: 8, lumber: 12, bricks: 10, cloth: 4, iron: 4, gold: 0, gems: 0, pearls: 0, copper_ore: 6, tin_ore: 3, silver_ore: 0, sulphur: 0, copper: 6, bronze: 6, silver: 3 };
 
 function needs(s: GameState): Needs {
   const stock = totalStock(s);
@@ -125,7 +139,11 @@ function needs(s: GameState): Needs {
 
 /* ------------------------------------------------------------ where materials come from */
 
-const GATHERABLE = new Set<Material>(Object.values(TERRAIN).flatMap((t) => Object.keys(t.pool) as Material[]));
+const GATHERABLE = new Set<Material>([...Object.values(TERRAIN).flatMap((t) => Object.keys(t.pool) as Material[]), ...SEA_MATERIALS, ...ORES]);
+/** How much a shore town would rather build in the sea than on the land (a ring's spots are scored by this). */
+const SEA_PREFER = 20;
+/** A shore town fishes when food is short, and keeps this many pearls coming (the shop sells them). */
+const PEARLS_WANT = 6;
 const RECIPES_FOR = (m: Material) => ITEMS.filter((i) => i.makes && (i.makes as Stock)[m]);
 
 const unlocked = (s: GameState, id: string) => !!BUILDING_BY_ID[id] && isUnlocked(unlockInfo(s), BUILDING_BY_ID[id]);
@@ -187,6 +205,10 @@ function topicScore(t: Topic, n: Needs): number {
     if (WORKPLACES[b.id]) score += 10;
     if (b.healing) score += 8;
     if (b.hp || b.defense) score += n.raided || n.direction === 'defense' ? 14 : 2;
+    // (a wall round the town once it is big enough to wall: sim/ringWall.ts; a shop to sell its surplus once it has
+    // hands to spare: the two come about together, the shop first)
+    if (b.hp && !b.defense && n.people >= RING_PEOPLE) score += 8;
+    if (isShop(b.id) && n.people >= 8) score += 15;
     if (b.stalls || b.id === 'tavern') score += n.direction === 'trade' ? 12 : 3;
     // (a shop is the only way to get what the land doesn't give: without it the town can't build at all)
     if (isShop(b.id)) score += (n.unsourced.length ? 60 : 0) + (n.direction === 'trade' ? 12 : 3);
@@ -207,6 +229,8 @@ function topicScore(t: Topic, n: Needs): number {
     else if (e.type === 'rule' || e.type === 'quality' || e.type === 'powers') score += 8;
     else score += 6;
   }
+  // (children are how a town grows now that newcomers are few: it learns family life once there are a few of it)
+  if (t.id === 'family_life') score += n.people >= 4 ? 40 : 10;
   if (DIRECTION_DEFS[n.direction].branches.includes(BRANCH_OF(t))) score *= 1.6;
   if (t.branch === 'heritage') score *= 1.25; // (what the town's people are good at, they like to study)
   if (t.branch === 'occult') score *= 0.35; // (the town dabbles, but it's not what it's for)
@@ -226,17 +250,29 @@ function whyTopic(t: Topic, n: Needs): string {
 
 /** People a town needs before it studies refinements (topics that only make it better at what it does). */
 const REFINE_AT = 4;
+/** How much of a wanted topic's worth the one topic it still waits on inherits. */
+const LEADS_SHARE = 0.85;
 
 function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
   const slots = modifiers(s.research).researchSlots;
   while (s.research.queue.length < slots) {
     let best: Topic | null = null;
     let bestScore = -Infinity;
+    // (a topic that stands in the way of a wanted one counts most of that one's worth: Fire Keeping opens nothing
+    // itself, but Barter and the shop wait on it, and a desert town once studied round it for weeks)
+    const done = new Set(s.research.done);
+    const leads = new Map<string, number>();
+    for (const t of TOPICS) {
+      if (done.has(t.id) || (t.origin && t.origin !== s.origin) || ERAS.indexOf(eraOfResearch(t.id)) > ERAS.indexOf(s.era)) continue;
+      const open = t.prereqs.filter((q) => !done.has(q));
+      if (open.length !== 1) continue;
+      leads.set(open[0], Math.max(leads.get(open[0]) ?? 0, topicScore(t, n) * LEADS_SHARE));
+    }
     for (const t of TOPICS) {
       // (refinements wait until the town is a few people strong: its first days go on shelter and food)
       if (t.refinement && n.people < REFINE_AT) continue;
       if (!canQueue(s.research, t.id, s.era, s.origin).ok) continue;
-      const sc = topicScore(t, n);
+      const sc = Math.max(topicScore(t, n), leads.get(t.id) ?? 0);
       if (sc > bestScore) {
         best = t;
         bestScore = sc;
@@ -372,7 +408,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
   // 5. a furnishing for each venue, one at a time (they start bare): the one that adds the most that would improve it
   // (room for it, or it beats a piece already out), and not yet another of a kind it has plenty of
   const isFurnishing = (i: ItemDef) => !!i.furnish;
-  for (const venue of [shopOf(s), tavernOf(s)]) {
+  for (const venue of [shopOf(s), tavernOf(s), ...SHOP_LINES.map((l) => storeOf(s, l))]) {
     if (!venue || !room() || !settled) continue;
     const mine = (i: ItemDef) => furnishes(i, venueKind(venue));
     if (ordered(s, (i) => isFurnishing(i) && mine(i)) || kept(s, (i) => isFurnishing(i) && mine(i))) continue;
@@ -394,10 +430,12 @@ function planCrafting(s: GameState, n: Needs): Stock {
     commission(shop, before);
   }
   // 7. gear customers came for and didn't find (the most asked-for first), a couple of each kind kept in stock
-  if (shop && room() && settled && !ordered(s, (i) => SALE_GEAR.includes(i))) {
+  for (const seller of [shop, storeOf(s, 'weapons'), storeOf(s, 'armour')]) {
+  if (!seller || !room() || !settled || ordered(s, (i) => SALE_GEAR.includes(i))) continue;
+  {
     const before = queued();
     const options: ItemDef[] = [];
-    for (const [key] of Object.entries(shop.shop?.asked ?? {}).sort((a, b) => b[1] - a[1])) {
+    for (const [key] of Object.entries(seller.shop?.asked ?? {}).sort((a, b) => b[1] - a[1])) {
       const [kind, what] = key.split(':');
       const slots = kind === 'gear' ? what.split(',') : kind === 'item' ? [ITEM_BY_ID[what]?.slot] : [];
       if (!slots.length) continue;
@@ -407,7 +445,19 @@ function planCrafting(s: GameState, n: Needs): Stock {
       else options.push(...SALE_GEAR.filter((i) => slots.includes(i.slot!) && makeable(i) && !i.items).sort((a, b) => gearScore(b, undefined) - gearScore(a, undefined)));
     }
     makeFirst(options);
-    commission(shop, before);
+    commission(seller, before);
+  }
+  }
+  // 7b. a specialty shop's line kept in stock (a few pieces of it on its shelves: furniture, weapons, armour, medicine),
+  // made from what's spare, the finest the town can make first
+  for (const line of SHOP_LINES) {
+    const store = storeOf(s, line);
+    const isLine = (i: ItemDef) => LINE_ITEMS[line].includes(i);
+    if (!store || !room() || !settled || ordered(s, isLine)) continue;
+    if (LINE_ITEMS[line].reduce((k, i) => k + (s.items[i.id] ?? 0), 0) >= LINE_STOCK) continue;
+    const before = queued();
+    makeFirst(LINE_ITEMS[line].filter((i) => makeable(i) && !i.items && (s.items[i.id] ?? 0) < 2).sort((a, b) => saleValue(b, undefined) - saleValue(a, undefined)));
+    commission(store, before);
   }
   // 8. fare for the tavern, one order at a time: the kind guests asked for most (or have least of), a few of each
   const tavern = tavernOf(s);
@@ -470,9 +520,12 @@ function findSpot(s: GameState, def: BuildingDef): Pt | null {
   const taken = footprints(s);
   const castle = castleOn(s) ? castleCells(s) : null;
   const farm = !!CROPS[def.id] || !!HERDS[def.id];
+  // (a shore town puts what may stand in the sea there first: its homes in the shallows, the yards on the strand)
+  const sea = seaBuild(s, def);
   const r = spiralSpot(s.land, def.width, depthOf(def), taken, from, {
     ok: castle ? (rect) => !nearCastle(castle, s.land, rect) : undefined,
-    prefer: (rect) => roadDistance(s.land, doorOf(rect)) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0),
+    water: sea,
+    prefer: (rect) => (sea ? (inSea(s.land, rect) ? 0 : SEA_PREFER) : roadDistance(s.land, doorOf(rect))) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0),
   });
   if (!r) return null;
   return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
@@ -482,12 +535,14 @@ function findSpot(s: GameState, def: BuildingDef): Pt | null {
  *  first (the more of its walls it shares, the more compact the castle stays). */
 function roomSpot(s: GameState, def: BuildingDef): Pt | null {
   const cells = castleCells(s);
+  const solid = solidCells(s);
   const r = spiralSpot(s.land, def.width, depthOf(def), footprints(s), campCell(s), {
     maxR: 40,
     roads: true,
     door: false,
-    ok: (rect) => joinsCastle(cells, s.land, rect),
-    prefer: (rect) => -sharedEdges(cells, s.land, rect),
+    carve: holdOf(s) === 'mountain',
+    ok: (rect) => joinsCastle(cells, s.land, rect, solid),
+    prefer: (rect) => -sharedEdges(cells, s.land, rect, solid),
   });
   if (!r) return null;
   return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
@@ -495,29 +550,9 @@ function roomSpot(s: GameState, def: BuildingDef): Pt | null {
 
 const isWall = (d: BuildingDef | undefined) => !!d && !!d.hp && d.width === 1 && !d.defense;
 
-/** Where a wall goes: on the camp's row, just past the last building at an end of town that has no wall out there
- *  yet (raiders come in along it, from the ends). Returns the cell, or the cell that has to be cleared first
- *  (`clear`), or null (both ends walled). */
-function wallSpot(s: GameState, def: BuildingDef): { at: Pt; clear: boolean } | null {
-  const town = s.buildings.filter((b) => BUILDING_BY_ID[b.def].layer !== 'back' && !isWall(BUILDING_BY_ID[b.def]));
-  if (!town.length) return null;
-  const row = campCell(s).y;
-  const lo = Math.min(...town.map((b) => b.tile)) - 2;
-  const hi = Math.max(...town.map((b) => b.tile + BUILDING_BY_ID[b.def].width)) + 1;
-  const walls = s.buildings.filter((b) => isWall(BUILDING_BY_ID[b.def]));
-  for (const [x, done] of [
-    [lo, walls.some((w) => w.tile <= lo)],
-    [hi, walls.some((w) => w.tile >= hi)],
-  ] as [number, boolean][]) {
-    if (done || x < 0 || x >= s.land.w) continue;
-    const at = { x, y: row };
-    if (canPlace(s, def, x, row).ok) return { at, clear: false };
-    if (WILD.includes(groundAt(s.land, x, row))) return { at, clear: true };
-  }
-  return null;
-}
 
 /** What the town would like built next, most wanted first, each with its reason. */
+/** What the town would like to build next, in order (exported for the tests: `townWishes`). */
 function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const out: { def: string; why: string }[] = [];
   const add = (def: string | undefined, why: string) => def && !out.some((w) => w.def === def) && out.push({ def, why });
@@ -525,6 +560,22 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const shelved = (id: string) => s.tick - (s.plan?.shelved?.[id] ?? -Infinity) < SHELF_HOURS * TICKS_PER_HOUR;
   const can = (d: BuildingDef) => !d.never && !shelved(d.id) && unlocked(s, d.id) && (!NEVER.has(d.id) || (d.id === 'phylactery' && !!s.lichChosen));
   const count = (id: string) => s.buildings.filter((b) => b.def === id).length;
+  const grown = s.people.filter((p) => p.bornTick == null).length;
+  /** Defence pieces (data/defenses.ts): about one for every DEFENSE_PER_PEOPLE grown-ups (plus `extra`), the best kinds the
+   *  town can build first (its own origin's, then the latest era's), one of each kind before a second of any. */
+  function planDefenses(extra: number): void {
+    const have = s.buildings.filter((b) => BUILDING_BY_ID[b.def]?.defense).length;
+    const want = extra + Math.floor(grown / DEFENSE_PER_PEOPLE);
+    if (have >= want) return;
+    const kinds = BUILDINGS.filter((d) => d.defense && can(d)).sort((a, b) => Number(!!b.origin) - Number(!!a.origin) || ERAS.indexOf(eraOfResearch(b.research)) - ERAS.indexOf(eraOfResearch(a.research)) || (b.defense!.damage[1] - a.defense!.damage[1]));
+    for (let round = 1; round <= 2; round++) {
+      const d = kinds.find((k) => count(k.id) < round);
+      if (d) {
+        add(d.id, 'raiders have to be kept out');
+        return;
+      }
+    }
+  }
 
   // (every kind that would do, best first: if the best can't be had, the next is tried)
   const options = (pred: (d: BuildingDef) => boolean, power: (d: BuildingDef) => number, why: string) => {
@@ -563,11 +614,11 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   if (n.storageFill > 0.8 && stores < 2 + Math.floor(n.people / 4)) options((d) => !!d.storage && d.id !== 'campfire', (d) => d.storage!, 'the stores are nearly full');
   // defence first, if that's the aim or raiders keep coming
   if (n.direction === 'defense' || n.raided) {
-    for (const d of BUILDINGS) if (can(d) && d.defense && count(d.id) < (n.direction === 'defense' ? 2 : 1)) add(d.id, 'raiders have to be kept out');
+    planDefenses(n.direction === 'defense' ? 2 : 1);
     for (const d of BUILDINGS) if (can(d) && d.warningMinutes && !planned(s, d.id)) add(d.id, 'to see raiders coming');
-    const walls = s.buildings.filter((b) => isWall(BUILDING_BY_ID[b.def])).length;
-    if (walls < 4) options((d) => isWall(d), (d) => d.hp!, 'a wall at each end of town');
   }
+  // (in quieter times too, a piece or two as the town grows)
+  planDefenses(0);
   // a shop to sell to travellers (sooner when the town is set on trade)
   if (!shopPlanned && can(firstShop) && n.direction === 'trade') add(firstShop.id, 'to sell to travellers for coins');
   // a better place to research, and more of them as the town grows (one person studies at each: about one station for
@@ -575,7 +626,6 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const station = Object.entries(RESEARCH_STATIONS).filter(([id]) => BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id])).sort((a, b) => b[1].mult - a[1].mult)[0];
   if (station && !planned(s, station[0])) add(station[0], 'somewhere better to study');
   const stations = s.buildings.filter((b) => RESEARCH_STATIONS[b.def]).length;
-  const grown = s.people.filter((p) => p.bornTick == null).length;
   const wantStations = Math.min(modifiers(s.research).researchSlots, 1 + Math.floor(grown / 4));
   // (never a second campfire: another desk waits for a real place of study)
   if (station && station[0] !== 'campfire' && stations < wantStations) add(station[0], `a desk for another researcher (${stations} for ${grown} people)`);
@@ -590,6 +640,11 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (CROPS[d.id] && FOOD_VALUE[CROPS[d.id].material]) continue; // (food fields come of wanting food, above)
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
+    // (a specialty shop once the general store stands and the town is big enough to keep one)
+    if (lineOfDef(d.id)) {
+      if (shopOf(s) && grown >= STORE_PEOPLE) add(d.id, `to sell ${LINES[lineOfDef(d.id)!].banner.toLowerCase()} to travellers`);
+      continue;
+    }
     if (venueOfDef(d.id)) continue; // (one shop and one tavern, which grow by being rebuilt bigger)
     add(d.id, HERDS[d.id] ? `to keep ${HERDS[d.id].plural}` : WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
   }
@@ -599,6 +654,19 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
 /** A field's food as garden plots' worth (a garden plot is 1). */
 const PLOT_FOOD = CROPS.garden_plot.yield * FOOD_VALUE.grain!;
 const plotsWorth = (id: string) => (CROPS[id].yield * (FOOD_VALUE[CROPS[id].material] ?? 0)) / PLOT_FOOD;
+
+/** The seat of the town (data/seats.ts) is rebuilt grander as soon as a new era opens its next stage and the town can
+ *  find the materials: it is never built new, only rebuilt where it stands. */
+function planSeat(s: GameState, n: Needs, plan: TownPlan): boolean {
+  const seat = seatOf(s.buildings);
+  if (!seat || seat.status !== 'done') return false;
+  const to = UPGRADES[seat.def];
+  const def = to ? BUILDING_BY_ID[to] : undefined;
+  if (!def || !isUnlocked(unlockInfo(s), def) || !affordable(s, def, n.stock)) return false;
+  if (!upgrade(s, seat.id).ok) return false;
+  plan.build = { def: def.id, why: 'the seat of the town, rebuilt grander for the new age' };
+  return true;
+}
 
 /** Fewer, bigger fields: two garden plots side by side, both lying fallow, are ploughed into one open field (and an
  *  open field grows into an estate farm where it stands, if there's room). In winter, when nothing's in the ground
@@ -643,7 +711,7 @@ function shelveStalled(s: GameState, n: Needs, plan: TownPlan): void {
       moved[b.id] = { tick: s.tick, sig };
       continue;
     }
-    if (s.tick - m.tick < STALL_HOURS * TICKS_PER_HOUR || CAPSTONES.includes(b.def) || b.progress > 0) continue;
+    if (s.tick - m.tick < STALL_HOURS * TICKS_PER_HOUR || CAPSTONES.includes(b.def) || isSeat(b.def) || b.progress > 0) continue;
     const missing = (Object.keys(stillNeeded(b)) as Material[]).filter((k) => (n.stock[k] ?? 0) === 0);
     if (!missing.length) continue;
     demolish(s, b.id);
@@ -698,8 +766,17 @@ function consolidateHomes(s: GameState, n: Needs, plan: TownPlan, needBeds = fal
 function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
+  if (planSeat(s, n, plan)) return clear;
   if (consolidateHomes(s, n, plan)) return clear;
   if (consolidateFields(s, n, plan)) return clear;
+  // the ring wall round the town (sim/ringWall.ts): started once the town is a few people strong (sooner when raided or
+  // set on defence), widened as it grows, a slot always left for the rest
+  const grownUps = s.people.filter((p) => !isChild(p)).length;
+  // (a town that can't gather what it builds with waits for its shop before it walls itself: the shop comes first)
+  const shopFirst = n.unsourced.length > 0 && !s.buildings.some((b) => isShop(b.def));
+  if (!shopFirst) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
+  if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
+  if (blueprintCount(s) >= buildSlots(s)) return clear;
   let blocked: BuildingDef | null = null;
   let triedUpgrade = false;
   let triedFields = false;
@@ -724,16 +801,8 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
         blocked ??= def;
         continue;
       }
-    } else if (isWall(def)) {
-      if (nomadic(s)) continue; // (no walls while the tribe wanders: the wagons do)
-      const spot = wallSpot(s, def);
-      if (!spot) continue;
-      if (spot.clear) {
-        clear.push(idx(s.land, spot.at.x, spot.at.y));
-        continue;
-      }
-      at = spot.at;
-    } else at = findSpot(s, def);
+    } else if (isWall(def) || isRingPiece(def.id)) continue; // (walls and gates are the ring's: planRing)
+    else at = findSpot(s, def);
     if (at === null) {
       blocked ??= def;
       continue;
@@ -770,7 +839,39 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
 
 /** Mark wild land for what the town is short of (nearest first: for building, for crafting, food when it's low), and
  *  to clear room for a building it wants. */
+/** A mountain hold digs on: every face of rock beside its halls and galleries, within the known land, is given what
+ *  it holds (sim/land.ts `delvePool`: stone, coal and iron, gold and gems the deeper in), so the gathering below can
+ *  mark it like any wild cell; a face dug out becomes a gallery, and the faces beyond it open. */
+function openFaces(s: GameState): void {
+  if (holdOf(s) !== 'mountain') return;
+  const m = s.land;
+  const seed = hashSeed(s.seed);
+  for (let y = 0; y < m.h; y++)
+    for (let x = 0; x < m.w; x++) {
+      if (groundAt(m, x, y) !== 'hall') continue;
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (!inMap(m, nx, ny) || groundAt(m, nx, ny) !== 'mountain' || !isOpen(m, nx, ny)) continue;
+        const i = idx(m, nx, ny);
+        if (m.pools[i]) continue;
+        m.pools[i] = delvePool(delveDepth(m, ny), Rng.from(seed, 0x4d1 + i));
+      }
+    }
+}
+
+/** A mountain hold keeps this much gold and gems coming: it digs for them whenever it holds less (the shop sells them). */
+const DELVE_WANT = 10;
+/** A town with a mine keeps this much of each ore coming. */
+const MINE_WANT = 8;
+
 function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], craftWants: Stock): void {
+  openFaces(s);
   let byDistance = wildCells(s);
   let marked = s.land.marked.length;
   const cap = BASE_MARKED + s.people.filter((p) => p.bornTick == null).length;
@@ -784,6 +885,13 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
     if (!GATHERABLE.has(m)) continue;
     let short = Math.max((n.demand[m] ?? 0) - (n.stock[m] ?? 0), craftWants[m] ?? 0);
     if (m === 'berries' && n.foodDays < 3) short = Math.max(short, n.people * 3);
+    if (seaTown(s)) {
+      if (m === 'fish' && n.foodDays < 4) short = Math.max(short, n.people * 3);
+      if (m === 'pearls') short = Math.min(1, Math.max(short, PEARLS_WANT - (n.stock[m] ?? 0))); // (one pearl cell at a time: never a cap's worth)
+    } else if (SEA_MATERIALS.includes(m)) continue;
+    if ((m === 'gold' || m === 'gems') && holdOf(s) === 'mountain') short = Math.max(short, DELVE_WANT - (n.stock[m] ?? 0));
+    // (a mine on the land is worked for what it holds: the shop sells what the crafts don't take)
+    if (ORES.includes(m) && mines(s).length) short = Math.max(short, MINE_WANT - (n.stock[m] ?? 0));
     // (the reserve isn't worth gathering into full stores; what building, crafting or hunger needs still is, and so is
     // a basic the town has run right out of: a store full of the harvest once left a town with no wood to build more)
     if (n.storageFill > 0.95 && (n.stock[m] ?? 0) >= (RESERVE[m] ?? 0) / 2 && !(craftWants[m] ?? 0) && !s.buildings.some((b) => b.status === 'blueprint' && (stillNeeded(b)[m] ?? 0) > 0) && m !== 'berries') continue;
@@ -863,7 +971,7 @@ const names = (ms: readonly Material[]) => ms.map((m) => MATERIAL_NAMES[m].toLow
  *  crowded (no room for another shelf or table), else a level on the piece that's cheapest to improve. */
 function planShop(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  for (const venue of [shopOf(s), tavernOf(s)]) {
+  for (const venue of [shopOf(s), tavernOf(s), ...SHOP_LINES.map((l) => storeOf(s, l))]) {
     if (!venue) continue;
     // (a good reserve, and tomorrow's wages, are kept back)
     const spare = (s.coins ?? 0) - 2 * COIN_RESERVE * PURSE_SCALE[s.era] - wageBill(s);
@@ -874,7 +982,13 @@ function planShop(s: GameState): void {
       if (spare >= ext) extend(s, venue);
       continue; // (saving up for it)
     }
+    // (the keeper's décor comes before polishing single pieces, while it's the cheaper of the two)
     const cheapest = (venue.shop?.pieces ?? []).filter((p) => levelPrice(p) !== null).sort((a, b) => levelPrice(a)! - levelPrice(b)!)[0];
+    const decor = decorPrice(s, venue);
+    if (decor !== null && (!cheapest || decor <= levelPrice(cheapest)! * 1.5)) {
+      if (spare >= decor) redecorate(s, venue);
+      continue; // (saving up for it)
+    }
     if (cheapest && spare >= levelPrice(cheapest)!) improve(s, venue, cheapest);
   }
 }
@@ -905,7 +1019,54 @@ function makeRoom(s: GameState, n: Needs): void {
 function planVisitor(s: GameState): void {
   const v = s.visitor;
   if (!v || v.leavingTo) return;
+  // (most towns: the player decides, by the question at the gate; the horde's gates are free)
+  if (!rulesOf(s).freeJoin) return;
   if (housingCapacity(s) > s.people.length || v.person.cls) acceptVisitor(s);
+}
+
+/* ------------------------------------------------------------ the pens */
+
+/** Goods paid for animals cost this much over their worth (a drover's price for barter). */
+const BARTER_MARKUP = 1.3;
+
+/** An empty pen is stocked from a drover (a breeding pair or so: coins while the town has them, else spare goods), and
+ *  a pen its herd has filled is fenced wider (sim/livestock.ts). */
+function planPens(s: GameState): void {
+  for (const b of s.buildings) {
+    if (b.status !== 'done' || !HERDS[b.def]) continue;
+    const h = herdOf(s, b);
+    if (h.head < 2) stockPen(s, b, (coins) => payFor(s, coins));
+    else growPen(s, b);
+  }
+}
+
+/** Pay a price: in coins if the town can spare them, else in what it has spare to sell (at a markup). */
+function payFor(s: GameState, coins: number): boolean {
+  if ((s.coins ?? 0) >= coins + COIN_RESERVE) {
+    s.coins! -= coins;
+    return true;
+  }
+  const spare = forSale(s);
+  let owed = coins * BARTER_MARKUP;
+  const take: Stock = {};
+  for (const m of (Object.keys(spare) as Material[]).sort((a, b) => (spare[b] ?? 0) * WORTH[b] - (spare[a] ?? 0) * WORTH[a])) {
+    if (owed <= 0) break;
+    const n = Math.min(spare[m] ?? 0, Math.ceil(owed / WORTH[m]));
+    if (n <= 0) continue;
+    take[m] = n;
+    owed -= n * WORTH[m];
+  }
+  if (owed > 0) return false;
+  for (const [m, n] of Object.entries(take) as [Material, number][]) {
+    let left = n;
+    for (const st of storages(s)) {
+      const k = Math.min(left, st.store[m] ?? 0);
+      st.store[m] = (st.store[m] ?? 0) - k;
+      left -= k;
+      if (!left) break;
+    }
+  }
+  return true;
 }
 
 /* ------------------------------------------------------------ the whole plan */
@@ -923,5 +1084,9 @@ export function runPlanner(s: GameState): void {
   planGathering(s, needs(s), plan, clear, craftWants);
   planVisitor(s);
   planShop(s);
+  planPens(s);
   s.plan = plan;
 }
+
+/** The town's building wishes as it stands (for the tests). */
+export const townWishes = (s: GameState) => wishes(s, needs(s));

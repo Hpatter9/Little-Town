@@ -25,7 +25,7 @@ import { button, el } from './dom';
 /** Changes whenever something this panel shows changes (needs and morale to the whole percent). */
 export const townsfolkKey = (s: Snapshot) =>
   JSON.stringify([
-    s.people.map((p) => [p.id, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
+    s.people.map((p) => [p.id, p.job, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
     s.visitor && [s.visitor.id, Math.ceil(s.visitor.hoursLeft), s.visitor.leaving],
     s.housing,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 100), p.hungry]),
@@ -67,7 +67,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   if (s.housing.beds <= s.housing.people && !s.visitor) {
     out.push(el('div', 'hint', 'Wanderers only come while a bed is free. Build a Lean-to (Basic Shelter research).'));
   }
-  if (s.visitor) out.push(visitorCard(s.visitor, s));
+  if (s.visitor) out.push(visitorCard(s.visitor, s, bridge));
 
   out.push(el('h2', '', 'People'));
   if (s.turnable.length) out.push(turningRow(s, bridge));
@@ -114,7 +114,7 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   row.append(face(p, s));
   const mid = el('span', 'folk-mid');
   const name = el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`);
-  const what = el('span', 'folk-class', p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`);
+  const what = el('span', 'folk-class', `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}`);
   const doing = el('span', 'folk-doing', p.away !== null ? `Away: ${p.away}` : p.doing);
   mid.append(name, what, doing);
   const right = el('span', 'folk-right');
@@ -217,7 +217,10 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   const doll = el('div', 'doll');
   const fig = el('div', 'doll-figure');
   fig.append(figure(p, s, 3));
-  fig.append(el('div', 'doll-level', p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`));
+  fig.append(el('div', 'doll-level', `${p.cls ? `${p.clsName} · Lv ${p.level}` : `Level ${p.level}`} · Aged ${p.ageYears}${p.elder ? ' · Elder' : ''}`));
+  fig.append(el('div', 'hint doll-age', p.ageText));
+  if (p.job) fig.append(el('div', 'hint doll-age', `${p.job.title} at the ${p.job.at}`));
+  fig.append(el('div', 'hint doll-age', `${p.natureName}: ${p.natureLine}`));
   doll.append(fig);
   const shown = chosenSlot ?? firstWorn(p);
   for (const slot of SLOTS) {
@@ -348,14 +351,34 @@ function fightCard(p: PersonView): HTMLElement {
   stat('Block', pc(b.block));
   stat('Dodge', pc(b.dodge));
   box.append(grid);
+  // their attributes (data/attributes.ts): what their turns, blows, spells and pools come of
+  const at = b.attrs;
+  if (at) {
+    const attrs = el('div', 'fight-stats attrs');
+    const one = (label: string, v: number, title: string) => {
+      const c = el('div', 'fight-stat');
+      c.title = title;
+      c.append(el('span', 'fight-label', label), el('span', 'fight-value', String(Math.round(v))));
+      attrs.append(c);
+    };
+    one('STR', at.str, 'Strength: the weight of a blow');
+    one('DEX', at.dex, `Dexterity: aim, footwork, and how often their turn comes (every ${(b.interval / 10).toFixed(1)} s)`);
+    one('VIT', at.vit, 'Vitality: health and stamina');
+    one('INT', at.int, 'Intellect: spell power and mana');
+    one('WIS', at.wis, 'Wisdom: healing, and mana coming back');
+    one('MP', b.mp, 'Mana: spells draw on it');
+    one('SP', b.sp, 'Stamina: skills draw on it; a plain blow brings some back');
+    box.append(attrs);
+  }
   if (p.kit.length) {
     const kit = el('div', 'kit');
     for (const a of p.kit) {
-      const c = el('span', `chip ${a.spell ? 'spell' : 'skill'}`, `${a.spell ? '✦' : '⚔'} ${a.name}`);
-      c.title = `${a.spell ? 'Spell' : 'Skill'}, learned at level ${a.level}`;
+      const ult = a.pool === 'limit';
+      const c = el('span', `chip ${ult ? 'ult' : a.spell ? 'spell' : 'skill'}`, `${ult ? '★' : a.spell ? '✦' : '⚔'} ${a.name}${ult ? '' : ` · ${a.cost} ${a.pool === 'mp' ? 'MP' : 'SP'}`}`);
+      c.title = ult ? `Ultimate: loosed when the limit gauge is full (learned at level ${a.level})` : `${a.spell ? 'Spell' : 'Skill'}, learned at level ${a.level}: costs ${a.cost} ${a.pool === 'mp' ? 'mana' : 'stamina'}`;
       kit.append(c);
     }
-    box.append(el('div', 'hint', 'Spells kept ready and skills learned:'), kit);
+    box.append(el('div', 'hint', 'Spells kept ready, skills learned, and the ultimate:'), kit);
   } else if (p.cls) box.append(el('div', 'hint', 'No spells or skills learned yet: they come with levels.'));
   return box;
 }
@@ -423,16 +446,19 @@ function face(p: PersonView, s: Snapshot): HTMLElement {
   return c;
 }
 
-function visitorCard(v: VisitorView, s: Snapshot): HTMLElement {
+function visitorCard(v: VisitorView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   const c = el('div', 'card arrival');
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', `${v.name}, ${v.typeName.toLowerCase()}`), el('span', 'card-size', v.leaving ? 'Leaving' : `Leaves in ${Math.ceil(v.hoursLeft)}h`));
   c.append(el('div', 'lock', 'Is at the edge of town and asks to join.'), top, skillsList(v), traitsList(v));
   if (v.cls) c.append(el('div', 'lock short', `${v.clsName}, level ${v.level}: ${CLASS_DEFS[v.cls].description}`));
   if (!v.leaving) {
-    // (the town lets newcomers in itself, when a bed is free for them)
+    // (the player's call: people join only by their leave; a bed matters less than hands, but is said)
     const noBed = s.housing.beds <= s.housing.people;
-    c.append(el('div', noBed ? 'lock short' : 'lock', noBed ? 'No free bed yet: the town will let them in once a home is built (or they move on).' : 'The town is letting them in.'));
+    c.append(el('div', noBed ? 'lock short' : 'lock', noBed ? 'No free bed yet: taken in, they sleep rough until a home is built.' : 'Yours to decide: take them in, or send them on their way.'));
+    const row = el('div', 'row');
+    row.append(button('Take them in', () => bridge?.command({ type: 'acceptVisitor' })), button('Send them on', () => bridge?.command({ type: 'rejectVisitor' }), { cls: 'place quiet' }));
+    c.append(row);
     // another mouth to feed, when the stores are thin
     const eaters = s.people.filter((p) => p.monster !== 'undead' && p.away === null).length + 1;
     const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (s.stock[m] ?? 0) * v, 0);

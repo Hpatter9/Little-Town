@@ -22,7 +22,7 @@ const BRICK_DARK = '#6a3424';
 const BRICK_LIGHT = '#bc6a48';
 
 /** How far along a field's crop is (other buildings ignore it). */
-export type CropLook = 'fallow' | 'sprout' | 'tall' | 'ripe';
+export type CropLook = 'fallow' | 'sprout' | 'young' | 'tall' | 'heading' | 'ripe';
 
 type Draw = (p: Painter, w: number, h: number, stage?: CropLook) => void;
 

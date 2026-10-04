@@ -3,8 +3,9 @@
 // A walker keeps its path and the goal it was found for; a new goal, or a building put up across the way, finds a
 // new one. With no way through (an island, a walled yard) it walks straight at the goal, so nobody is ever stuck.
 
+import { isGate } from './ringWall';
 import { footprint } from './buildings';
-import { addWear, CELL, cellOf, centreOf, findPath, idx, inMap, inRect, type Pt, type Rect } from './land';
+import { addWear, CELL, cellOf, centreOf, findPath, idx, inMap, inRect, SWIM_COST, type Pt, type Rect } from './land';
 import type { GameState } from './state';
 
 export interface Walker {
@@ -26,16 +27,23 @@ const REPLAN_TICKS = 200;
 /** Whether a cell is inside a building (one that isn't `through`: the walker's own goal). A castle's rooms are walked
  *  through: inside its walls, everyone goes from room to room. */
 export function blockedBy(s: Pick<GameState, 'buildings'>, through?: Rect): (x: number, y: number) => boolean {
-  const prints = s.buildings.filter((b) => !b.room).map(footprint);
-  return (x, y) => prints.some((r) => inRect(r, x, y) && !(through && inRect(through, x, y)));
+  // (the cells inside buildings, as a set keyed by (x, y) packed into one number: a path search asks thousands of
+  // times, and a walled town has a hundred wall pieces; the ring wall's gates are walked through)
+  const cells = new Set<number>();
+  for (const b of s.buildings) {
+    if (b.room || isGate(b.def)) continue;
+    const r = footprint(b);
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (!(through && inRect(through, x, y))) cells.add(y * 4096 + x);
+  }
+  return (x, y) => cells.has(y * 4096 + x);
 }
 
 /** A path from a point to another, as px centres of the cells on the way, ending on `to` itself (null: no way). */
-export function pathTo(s: Pick<GameState, 'buildings' | 'land'>, from: Pt, to: Pt, through?: Rect): Pt[] | null {
+export function pathTo(s: Pick<GameState, 'buildings' | 'land'>, from: Pt, to: Pt, through?: Rect, swim = false): Pt[] | null {
   const a = cellOf(from);
   const b = cellOf(to);
   const clamp = (c: Pt) => ({ x: Math.max(0, Math.min(s.land.w - 1, c.x)), y: Math.max(0, Math.min(s.land.h - 1, c.y)) });
-  const cells = findPath(s.land, clamp(a), clamp(b), blockedBy(s, through));
+  const cells = findPath(s.land, clamp(a), clamp(b), blockedBy(s, through), swim ? { swim: SWIM_COST } : 12000);
   if (!cells) return null;
   const pts = cells.map((c) => centreOf(c.x, c.y));
   // (the goal lies in the last cell: straight to it, not by way of the cell's middle)
@@ -47,8 +55,9 @@ export function pathTo(s: Pick<GameState, 'buildings' | 'land'>, from: Pt, to: P
 const same = (a: Pt | undefined, b: Pt) => !!a && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
 
 /** One tick's walk towards `to` at `step` px. True once there. `through` is a footprint the walker may enter (where
- *  it's going). `tick` lets the path be looked at again now and then. */
-export function walk(s: Pick<GameState, 'buildings' | 'land'>, w: Walker, to: Pt, step: number, through?: Rect, tick = 0): boolean {
+ *  it's going). `tick` lets the path be looked at again now and then. A swimmer (`swim`: the merfolk) goes through the
+ *  sea as readily as over the land. */
+export function walk(s: Pick<GameState, 'buildings' | 'land'>, w: Walker, to: Pt, step: number, through?: Rect, tick = 0, swim = false): boolean {
   if (Math.hypot(to.x - w.x, to.y - w.y) <= Math.max(ARRIVE, step)) {
     w.x = to.x;
     w.y = to.y;
@@ -57,7 +66,7 @@ export function walk(s: Pick<GameState, 'buildings' | 'land'>, w: Walker, to: Pt
     return true;
   }
   if (!w.path || !same(w.goal, to) || (tick && tick % REPLAN_TICKS === 0)) {
-    w.path = pathTo(s, w, to, through) ?? [{ x: to.x, y: to.y }];
+    w.path = pathTo(s, w, to, through, swim) ?? [{ x: to.x, y: to.y }];
     w.goal = { x: to.x, y: to.y };
     // (the first cell is the one we stand in: skip it when we're past its centre already)
     if (w.path.length > 1 && Math.hypot(w.path[0].x - w.x, w.path[0].y - w.y) < CELL * 0.5) w.path.shift();

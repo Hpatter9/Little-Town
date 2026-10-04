@@ -131,7 +131,7 @@ Horses are from **whtdragon**'s RPG Maker MV animal sprites (see Creatures above
 - Revive sparkles and the conjuring swirl are from the **Super Pixel Effects Gigapack** (see Effects).
 - More tiny-rpg-town battle sprites: the Ogre and Hedge Wizard (warbands), the Mummy (outbreaks), the Bog Slime
   (an early raid) and the Metal Slug crawler bot (drone swarms).
-- **Free Mining Pixel Icons** (CraftPix): material icons on cost chips (`src/renderer/art/materials/`).
+- **Free Mining Pixel Icons** (CraftPix): material icons on cost chips (`src/renderer/art/materials/`), the minerals' (copper, tin, silver, sulphur and their ores) among them.
 - **DungeonItemsLite**: gravestones where townsfolk fell, the Stone Gate's archway, and the Steel Cuirass icon.
 - whtdragon's *ghosts* drift through an undead haven at night.
 - The War Machine is drawn in code.

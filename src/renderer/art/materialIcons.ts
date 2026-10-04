@@ -3,7 +3,7 @@
 
 import type { IconSheet, ItemDef } from '../../shared/data/items';
 import type { Material } from '../../shared/data/materials';
-import { itemIcon } from './icons';
+import { iconSpot, itemIcon } from './icons';
 import alloys from './materials/alloys.png';
 import bricks from './materials/bricks.png';
 import clay from './materials/clay.png';
@@ -16,6 +16,13 @@ import ironOre from './materials/iron_ore.png';
 import rareMinerals from './materials/rare_minerals.png';
 import steel from './materials/steel.png';
 import stone from './materials/stone.png';
+import copperOre from './materials/copper_ore.png';
+import copper from './materials/copper.png';
+import tinOre from './materials/tin_ore.png';
+import bronze from './materials/bronze.png';
+import silverOre from './materials/silver_ore.png';
+import silver from './materials/silver.png';
+import sulphur from './materials/sulphur.png';
 
 const URLS: Partial<Record<Material, string>> = {
   alloys: alloys,
@@ -30,6 +37,13 @@ const URLS: Partial<Record<Material, string>> = {
   rare_minerals: rareMinerals,
   steel: steel,
   stone: stone,
+  copper_ore: copperOre,
+  copper: copper,
+  tin_ore: tinOre,
+  bronze: bronze,
+  silver_ore: silverOre,
+  silver: silver,
+  sulphur: sulphur,
 };
 
 /** A small icon for a material (null if it has none). */
@@ -47,6 +61,10 @@ export function materialIcon(m: Material, size = 14): HTMLElement | null {
 
 /** Where the other materials' pictures are: a cell of a DawnLike sheet, or a code-drawn icon (customIcons.ts). */
 const CELLS: Partial<Record<Material, ItemDef['icon']>> = {
+  gold: { sheet: 'Money', x: 1, y: 0 },
+  gems: { sheet: 'Rock', x: 1, y: 0 },
+  fish: { sheet: 'Flesh', x: 6, y: 0 },
+  kelp: { sheet: 'Food', x: 4, y: 3 },
   berries: { sheet: 'Food', x: 7, y: 2 },
   fruit: { sheet: 'Food', x: 0, y: 2 },
   vegetables: { sheet: 'Food', x: 0, y: 3 },
@@ -66,9 +84,17 @@ const CELLS: Partial<Record<Material, ItemDef['icon']>> = {
   sling_stones: { sheet: 'Ammo', x: 5, y: 0 },
   shot: { sheet: 'Ammo', x: 6, y: 0 },
   cartridges: { sheet: 'Ammo', x: 0, y: 0 },
-  ...Object.fromEntries((['wood', 'fiber', 'lumber', 'cloth', 'oil', 'fuel', 'plastic', 'electronics', 'circuits', 'power_cells', 'totem'] as const).map((m) => [m, { sheet: 'Custom' as IconSheet, x: 0, y: 0, name: `mat_${m}` }])),
+  ...Object.fromEntries((['wood', 'fiber', 'lumber', 'cloth', 'oil', 'fuel', 'plastic', 'electronics', 'circuits', 'power_cells', 'totem', 'pearls', 'blood'] as const).map((m) => [m, { sheet: 'Custom' as IconSheet, x: 0, y: 0, name: `mat_${m}` }])),
   wool: { sheet: 'Custom', x: 0, y: 0, name: 'wool' },
 };
+
+/** Where a material's picture is, for drawing on a canvas: its own file (`whole`), or a cell of an icon sheet. */
+export function materialIconSpot(m: Material): { url: string; sx: number; sy: number; whole: boolean } | null {
+  const own = URLS[m];
+  if (own) return { url: own, sx: 0, sy: 0, whole: true };
+  const icon = CELLS[m];
+  return icon ? iconSpot({ icon }) : null;
+}
 
 /** Any material's picture, `size` pixels square: its own icon, else a borrowed one (null if neither). */
 export function stockIcon(m: Material, size = 16): HTMLElement | null {

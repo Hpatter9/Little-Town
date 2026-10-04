@@ -508,6 +508,11 @@
         align-items: center;
         gap: 8px;
       }
+      /* (inside a mine the window's line is long: let it wrap) */
+      #fight-top.mine .ff-message {
+        white-space: normal;
+        line-height: 1.3;
+      }
       #fight-bottom {
         bottom: 6px;
         display: flex;
@@ -590,6 +595,234 @@
       }
       .ff-atb i.full {
         background: #f0e070;
+      }
+      .ff-pools {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        flex: none;
+        width: 34px;
+        margin-left: 4px;
+      }
+      .ff-bar {
+        display: block;
+        height: 3px;
+        background: #0a0a30;
+        border: 1px solid #5860a0;
+      }
+      .ff-bar i {
+        display: block;
+        height: 100%;
+      }
+      .ff-bar.mp i {
+        background: #60a0ff;
+      }
+      .ff-bar.sp i {
+        background: #70e080;
+      }
+      .ff-bar.limit i {
+        background: #ff9040;
+      }
+      .ff-bar.limit i.full {
+        background: #ffe060;
+        box-shadow: 0 0 4px #ffe060;
+      }
+      /* the floating window over a watched fight naming what was just done (fight/fightHud.ts fades and lifts it by
+         the clock): lower in the scene, as the old games had it; gold for an ultimate */
+      #fight-banner {
+        position: absolute;
+        left: 50%;
+        top: 54%;
+        transform: translate(-50%, -50%);
+        z-index: 30;
+        pointer-events: none;
+        text-align: center;
+        font-family: var(--font-display);
+        color: #fff;
+        text-shadow: 1px 1px 0 #000;
+        background: linear-gradient(180deg, #2a3a9a, #10186a);
+        border: 2px solid #e8e8f0;
+        border-radius: 5px;
+        box-shadow: 0 0 0 1px #10104a, 0 4px 12px rgba(0, 0, 0, 0.5);
+        padding: 5px 16px 4px;
+        min-width: 120px;
+        opacity: 0;
+        zoom: var(--ui-zoom, 1);
+      }
+      #fight-banner[hidden] {
+        display: none;
+      }
+      #fight-banner .ff-act {
+        display: block;
+        font-size: 18px;
+        font-weight: bold;
+        line-height: 1.15;
+        white-space: nowrap;
+      }
+      #fight-banner.spell .ff-act {
+        color: #c8e0ff;
+      }
+      #fight-banner.skill .ff-act {
+        color: #d8ffe0;
+      }
+      #fight-banner .ff-cost {
+        display: block;
+        font-size: 10px;
+        letter-spacing: 1px;
+        color: #c8c8e8;
+        white-space: nowrap;
+      }
+      #fight-banner.ult {
+        border-color: #ffe060;
+        background: linear-gradient(180deg, #7a2a08, #3a1004);
+        box-shadow: 0 0 0 1px #4a1800, 0 0 18px #ff9040;
+      }
+      #fight-banner.ult .ff-act {
+        font-size: 26px;
+        color: #ffe060;
+        text-shadow: 0 0 10px #ff9040, 2px 2px 0 #000;
+      }
+      #fight-banner.ult .ff-cost {
+        color: #ffd090;
+        font-weight: bold;
+      }
+      /* the victory screen after a watched fight */
+      #fight-result {
+        position: absolute;
+        left: 50%;
+        top: 46%;
+        transform: translate(-50%, -50%);
+        z-index: 32;
+        min-width: 220px;
+        max-width: 86%;
+        padding: 8px 14px 10px;
+        text-align: center;
+        zoom: var(--ui-zoom, 1);
+        animation: ff-result-in 0.5s ease-out;
+      }
+      #fight-result[hidden] {
+        display: none;
+      }
+      #fight-result .ff-result-title {
+        font-family: var(--font-display);
+        font-size: 24px;
+        font-weight: bold;
+        color: #ffe060;
+        text-shadow: 0 0 8px #ff9040, 2px 2px 0 #000;
+        margin-bottom: 6px;
+      }
+      #fight-result.retreated .ff-result-title {
+        color: #c8c8e8;
+        text-shadow: 2px 2px 0 #000;
+      }
+      #fight-result.lost .ff-result-title {
+        color: #ff7070;
+        text-shadow: 2px 2px 0 #000;
+      }
+      .ff-result-row {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 1px 0;
+        font-size: 13px;
+      }
+      .ff-result-row.down {
+        opacity: 0.6;
+      }
+      .ff-result-row .ff-xp {
+        color: #a8ffb8;
+        font-weight: bold;
+      }
+      .ff-result-row .ff-levelup {
+        color: #ffe060;
+        font-weight: bold;
+        font-size: 11px;
+        letter-spacing: 1px;
+      }
+      .ff-result-loot {
+        margin-top: 6px;
+        font-size: 12px;
+        color: #e8e8f0;
+        border-top: 1px solid #5860a0;
+        padding-top: 5px;
+      }
+      @keyframes ff-result-in {
+        0% { opacity: 0; transform: translate(-50%, -40%) scale(0.9); }
+        100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      /* the small corner button out of a fight */
+      #fight-leave {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        z-index: 31;
+        width: 30px;
+        height: 30px;
+        border-radius: 5px;
+        border: 2px solid #e8e8f0;
+        background: linear-gradient(180deg, #2a3a9a, #10186a);
+        color: #fff;
+        font-size: 15px;
+        line-height: 1;
+        padding: 0;
+        zoom: var(--ui-zoom, 1);
+      }
+      #fight-leave[hidden] {
+        display: none;
+      }
+      /* the party's rows: name and health, then the turn gauge with the pools beside it */
+      .ff-member {
+        display: block;
+      }
+      .ff-head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .ff-head .ff-name {
+        flex: 1;
+      }
+      .ff-under {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin: 1px 0 3px;
+      }
+      .ff-turn {
+        flex: 1;
+        height: 6px;
+        background: #0a0a30;
+        border: 1px solid #8890c0;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .ff-turn i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #8890d0, #d8d8ff);
+      }
+      .ff-turn i.full {
+        background: #f0e070;
+        box-shadow: 0 0 6px #f0e070;
+      }
+      .ff-member.ready .ff-name {
+        color: #fff0a0;
+      }
+      .ff-turn.foe {
+        display: block;
+        flex: none;
+        width: 60px;
+        height: 3px;
+        margin-top: 1px;
+        border-color: #a05060;
+      }
+      .ff-turn.foe i {
+        background: #e08090;
+      }
+      .ff-turn.foe i.full {
+        background: #ff5060;
+        box-shadow: 0 0 4px #ff5060;
       }
       #prompt {
         position: absolute;

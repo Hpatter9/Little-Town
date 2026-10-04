@@ -77,10 +77,24 @@ export function heroSheet(cls: ClassId | null, id: number): PackSheetId | null {
   const list = cls ? HERO_FORM[cls] : undefined;
   return list ? list[id % list.length] : null;
 }
+/** A founder's form, worn always (the owner's ask: the founders stand out as special everywhere): their calling's
+ *  hero, else one by how they fight (a shooter the archer, a caster a wizard, the rest the samurai). */
+export function founderSheet(cls: ClassId | null, id: number, ranged: boolean, caster: boolean): PackSheetId {
+  return heroSheet(cls, id) ?? (caster ? (['fire_wizard', 'wanderer_mage', 'lightning_mage'] as PackSheetId[])[id % 3] : ranged ? 'samurai_archer' : 'samurai');
+}
 /** How tall a hero stands on screen (px, before the person's own scale): about an LPC townsperson's figure. */
 export const HERO_HEIGHT = 50;
 /** The scale that brings a hero sheet's figure to HERO_HEIGHT. */
 export const heroScale = (sheet: PackSheetId) => HERO_HEIGHT / PACK_SHEETS[sheet];
+
+/** A werewolf's shape (Craftpix's werewolf sheets: black, red or white by who they are), on the map under the full
+ *  moon and whenever they fight, and on the fight screen; and how much bigger than a person they stand. */
+export const WOLF_FORMS: PackSheetId[] = ['werewolf_black', 'werewolf_red', 'werewolf_white'];
+export const WOLF_SCALE = 1.2;
+
+/** The raised dead's shape in a fight (Craftpix's skeleton sheets): an archer for a shooter, else a warrior or a
+ *  spearman by who they are. */
+export const skeletonSheet = (ranged: boolean, id: number): PackSheetId => (ranged ? 'skeleton_archer' : id % 2 ? 'skeleton_spearman' : 'skeleton_warrior');
 
 export interface HeroState {
   facing: 'left' | 'right';

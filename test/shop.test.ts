@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
-import { ITEM_BY_ID } from '../src/shared/data/items';
+import { ITEM_BY_ID, ITEMS } from '../src/shared/data/items';
 import { FURNISHINGS } from '../src/shared/data/shop';
 import { TOPICS } from '../src/shared/data/research';
 import { totalStock } from '../src/shared/sim/buildings';
-import { forSale, runPlanner, shoppingList, PLAN_TICKS } from '../src/shared/sim/planner';
+import { forSale, runPlanner, shoppingList, PLAN_TICKS, townWishes } from '../src/shared/sim/planner';
 import { parseSave, serialize } from '../src/shared/sim/save';
 import { appeal, fill, renownOf, shopLayout, spotFor } from '../src/shared/sim/shop';
 import { FILL_MAX } from '../src/shared/data/shop';
@@ -22,7 +22,7 @@ function addBuilding(s: GameState, def: string, tile: number, store = {}): Build
   return b;
 }
 /** The shop's log (newest last). */
-const logOf = (s: GameState) => s.buildings.find((b) => b.def === 'trading_post')?.shop?.log ?? [];
+const logOf = (s: GameState) => s.buildings.find((b) => b.def === 'trading_post' || b.def === 'general_store' || b.def === 'emporium')?.shop?.log ?? [];
 /** Strangers of a tier on their way in are made to want something. */
 function wanting(s: GameState, tier: number, want: Want): void {
   for (const t of s.travellers ?? []) if (t.phase === 'arriving' && (t.tier ?? 1) === tier) t.want = want;
@@ -150,7 +150,7 @@ test('rebuilt bigger, the shop keeps its furnishings, and what no longer fits go
   const sim = new Sim(plainGame('shop-grow'));
   const s = sim.state;
   const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
-  shop.shop = { pieces: [{ item: 'plank_shelf', x: 0, y: 0 }, { item: 'crate_stand', x: 5, y: 3 }] };
+  shop.shop = { started: true, pieces: [{ item: 'plank_shelf', x: 0, y: 0 }, { item: 'crate_stand', x: 5, y: 3 }] };
   shop.def = 'general_store'; // (as if the upgrade just finished: 8 x 5, the counter further along)
   shop.shop.pieces.push({ item: 'crate_stand', x: 5, y: 1 }); // (right where the bigger shop's counter now stands)
   for (let k = 0; k < 2 * TICKS_PER_HOUR; k++) sim.step();
@@ -228,7 +228,8 @@ test('left alone in the desert, a town builds a shop, furnishes it, and earns co
   // (it starts bare, and every piece has to be paid for out of what travellers spend; a lone founder's town in the
   // sand, raided on the battle map, gets there in about three weeks)
   for (let t = 0; t < 24 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
-  const shop = s.buildings.find((b) => b.def === 'trading_post');
+  // (a quick town has rebuilt it as a General Store by then)
+  const shop = s.buildings.find((b) => b.def === 'trading_post' || b.def === 'general_store' || b.def === 'emporium');
   assert.ok(shop, 'a Trading Post');
   assert.ok((shop!.shop?.pieces.length ?? 0) >= 1, 'something set out in it');
   assert.ok(logOf(s).length, 'travellers have come by');
@@ -367,5 +368,33 @@ test('drawing customers it has no wares for, the town studies what makes them', 
   s.buildings[0].store = { wood: 25, stone: 25, berries: 25 };
   s.tick = PLAN_TICKS * 10;
   runPlanner(s);
-  assert.ok(s.research.queue.includes('iron_working'), `queue ${s.research.queue}`);
+  // (any topic that opens a noble's ware: Iron Working's brooch, or Weaving's gowns and dyed bolts since the workshops)
+  assert.ok(s.research.queue.some((id) => ITEMS.some((i) => i.ware?.tier === 3 && i.research.includes(id))), `queue ${s.research.queue}`);
+});
+
+test('a specialty shop: its own customers come for its line, buy what the town has of it, and its stock is on show', () => {
+  const sim = new Sim(plainGame('store-weapons'));
+  const s = sim.state;
+  const store = addBuilding(s, 'weapon_store', camp(s).x + 3);
+  const blade = ITEMS.find((i) => i.slot === 'weapon' && !i.relic && !i.unique)!;
+  s.items[blade.id] = 4;
+  const view = snapshot(s).stores.find((v) => v.line === 'weapons');
+  assert.ok(view, 'the store has its own view');
+  assert.ok(view!.stock.some((p) => p.item === blade.id), 'the weapons in stock are on show');
+  let t = 0;
+  while (!(s.coins ?? 0) && t++ < 3 * TICKS_PER_DAY) sim.step();
+  assert.ok((s.coins ?? 0) > 0, 'a customer bought something');
+  assert.ok((s.items[blade.id] ?? 0) < 4, 'a weapon was sold');
+  assert.ok((store.shop?.log ?? []).some((l) => /came for a weapon/.test(l.text)), 'they came for a weapon');
+  assert.ok((s.travellers ?? []).every((tr) => tr.line === 'weapons'), 'only the store\'s own customers came (there is no general store)');
+});
+
+test('the planner opens a specialty shop once it has a general store, the craft and enough people', () => {
+  const s = newGame('store-plan');
+  s.research.done.push('barter', 'iron_working');
+  addBuilding(s, 'trading_post', camp(s).x + 3);
+  for (let i = 0; i < 6; i++) s.people.push({ ...s.people[0], id: s.nextId++, name: `Helper ${i}`, partner: null });
+  assert.ok(townWishes(s).some((w) => w.def === 'weapon_store'), 'a Weapons Store is wished for');
+  s.people.splice(2);
+  assert.ok(!townWishes(s).some((w) => w.def === 'weapon_store'), 'not in a town of two');
 });

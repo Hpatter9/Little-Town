@@ -1,6 +1,8 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { seatArt } from './art/seatArt';
+import { SEAT_STAGE } from '../shared/data/seats';
 import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
 import { MapSpells } from './map/mapSpells';
@@ -10,6 +12,7 @@ import { MapButterflies } from './map/mapButterflies';
 import { BloodPools } from './map/bloodPools';
 import { createBattleHud } from './battle/battleHud';
 import { FightScene } from './fight/fightView';
+import { MineScene } from './fight/mineView';
 import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
@@ -18,6 +21,7 @@ import { STRIP_HEIGHT } from '../shared/constants';
 import { BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../shared/data/buildings';
 import { eraReached } from '../shared/data/eras';
 import { TOPIC_BY_ID } from '../shared/data/research';
+import { HERDS, PEN_ROOM_PER_COL } from '../shared/data/livestock';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../shared/data/materials';
 import { CROPS } from '../shared/data/crops';
 import { OPERATORS } from '../shared/data/operators';
@@ -26,7 +30,10 @@ import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
 import { blueprintCount, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, Snapshot, TravellerView } from '../shared/sim/snapshot';
-import { venueOfDef } from '../shared/data/shop';
+import { lineOfDef, venueOfDef } from '../shared/data/shop';
+import { storePanel, type PanelId } from '../shared/ipc';
+/** The window a venue's building opens (the shop, the tavern, or a specialty shop's). */
+const venuePanel = (def: string): PanelId | undefined => (lineOfDef(def) ? storePanel(lineOfDef(def)!) : venueOfDef(def));
 import { buildingTint } from './theme';
 
 /** A traveller, drawn like a townsperson (they're only passing through: most of a person's details don't apply). */
@@ -39,8 +46,10 @@ function travellerPerson(t: TravellerView): PersonView {
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
-    partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, monster: null, order: null, sick: false,
-    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false }, kit: [],
+    partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, ageDays: 0,
+  ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', job: null,
+  monster: null, order: null, sick: false,
+    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8 }, mp: 0, sp: 0, interval: 12 }, kit: [],
   };
 }
 const travellerDoing = (t: TravellerView) => {
@@ -212,7 +221,15 @@ async function start(): Promise<void> {
   // watching a party away, as in the old games (fight/fightView.ts): it takes over the strip too
   const fight = new FightScene();
   app.stage.addChild(fight.root);
-  const fightHud = createFightHud({ back: () => bridge.command({ type: 'watch', expedition: null }) });
+  // inside a mine on the land (fight/mineView.ts): the diggers at the seams
+  const mine = new MineScene();
+  app.stage.addChild(mine.root);
+  const fightHud = createFightHud({
+    back: () => {
+      bridge.command({ type: 'watch', expedition: null });
+      bridge.command({ type: 'watchMine', place: null });
+    },
+  });
   const battleHud = createBattleHud({
     go: () => bridge.command({ type: 'battleGo' }),
     auto: (on) => bridge.command({ type: 'battleAuto', on }),
@@ -356,7 +373,7 @@ async function start(): Promise<void> {
         const c = snap.caravan;
         if (!c) return null;
         const open = c.offers.filter((o) => !o.done).length;
-        return { title: 'Trade caravan', lines: [`${open} deal${open === 1 ? '' : 's'} on offer · leaves in ${Math.ceil(c.hoursLeft)}h`], hint: 'Click to trade', y: (mouse?.y ?? 0) - 60 };
+        return { title: c.faction ? `A caravan of ${c.faction}` : 'Trade caravan', lines: [`${open} deal${open === 1 ? '' : 's'} on offer · leaves in ${Math.ceil(c.hoursLeft)}h`], hint: 'Click to trade', y: (mouse?.y ?? 0) - 60 };
       }
       case 'pane': {
         const e = shownExpedition();
@@ -404,6 +421,12 @@ async function start(): Promise<void> {
           if (def.storage) lines.push(`Stored ${poolSize(b.store)}/${def.storage}${poolSize(b.store) ? ': ' + listStock(b.store) : ''}`);
           if (def.hp) lines.push(`Health ${Math.round(b.hp ?? def.hp)}/${def.hp}${(b.hp ?? def.hp) < def.hp ? ' (builders will repair it)' : ''}`);
           if (b.def === 'graveyard') lines.push(snap.graves.length ? `Here lie: ${snap.graves.map((g) => g.name).join(', ')}` : 'Nobody lies here yet.');
+          if (HERDS[b.def] && b.status === 'done') {
+            const herd = HERDS[b.def];
+            const head = b.herd?.head ?? 0;
+            const room = herd.room + (b.wide ?? 0) * PEN_ROOM_PER_COL;
+            lines.push(head ? `${head} ${head === 1 ? herd.animal : herd.plural} of room for ${room}${b.wide ? ` (fenced wider ${b.wide} times)` : ''}` : `Empty: the town will buy ${herd.start} ${herd.plural} from a drover (${herd.price} coins each).`);
+          }
           if (CROPS[b.def]) {
             const c = b.crop;
             const crop = CROPS[b.def];
@@ -435,6 +458,10 @@ async function start(): Promise<void> {
         if (!p) return null;
         const y = map.screenOf(p.x, p.y).y - 40;
         if (p.dest) return { title: p.name, lines: [p.text, `${p.foes} there.`], hint: 'Click to pick a party', y };
+        if (p.mine) {
+          const left = (Object.entries(p.mine.left) as [Material, number][]).filter(([m, n]) => m !== 'stone' && n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`);
+          return { title: 'Mine', lines: [`Level ${p.mine.depth}${p.mine.last ? ' (the last)' : ''}: ${left.length ? `${left.join(', ')} in the walls` : 'dug out to the rock'}.`, p.mine.diggers ? `${p.mine.diggers} digging.` : 'Nobody digging now.'], hint: 'Click to go in', y };
+        }
         return { title: p.name, lines: [p.state === 'done' ? `${p.text} The town has been over it.` : p.state === 'gone' ? 'Whatever lived here has gone.' : `${p.text} The town will look it over soon.`], y };
       }
       case 'cell': {
@@ -563,7 +590,7 @@ async function start(): Promise<void> {
         if (!b) return null;
         const list = buildingActions(b, inspectMenu, (m) => ((inspectMenu = m), publishInspect()), () => inspectTarget(null));
         const actions = list.map((a, i) => act(`b${i}`, a.label, a.onClick, { danger: a.danger }));
-        const venue = venueOfDef(b.def);
+        const venue = venuePanel(b.def);
         if (venue && inspectMenu === 'main') actions.unshift(act('venue', 'Look inside…', () => bridge.openPanel(venue), { primary: true }));
         return { title: d.title, lines: d.lines, actions };
       }
@@ -587,7 +614,7 @@ async function start(): Promise<void> {
         if (p.coins !== null) lines.push(`${p.coins} coins`);
         if (p.recent.length) lines.push(`Lately: ${p.recent.slice(0, 2).join('; ')}`);
         lines.push(`Health ${Math.round(p.hp)}/${p.maxHp} · Morale ${Math.round(p.morale)} · Food ${Math.round(p.needs.food * 100)}% · Rest ${Math.round(p.needs.rest * 100)}%`);
-        lines.push(`${p.clsName ? `${p.clsName} · Lv ${p.level}` : p.typeName} · ${bestSkills(p)}`);
+        lines.push(`${p.natureName} · ${p.clsName ? `${p.clsName} · Lv ${p.level}` : p.typeName} · ${p.ageYears} years${p.elder ? ', an elder' : ''} · ${bestSkills(p)}`);
         // in a fight: rally them (a burst of courage), when the town's rally is ready
         if (p.rally === 'on') lines.unshift('Rallied: fighting like ten!');
         else if (p.rally === 'wait') lines.unshift(`Rally again in ${snap.rallyIn}s`);
@@ -600,7 +627,8 @@ async function start(): Promise<void> {
       }
       case 'place': {
         const p = snap.places.find((q) => q.id === h.id);
-        return { title: d.title, lines: d.lines, actions: p?.dest ? [act('party', 'Pick a party…', () => bridge.openPanel('expeditions'), { primary: true })] : [] };
+        const actions = p?.dest ? [act('party', 'Pick a party…', () => bridge.openPanel('expeditions'), { primary: true })] : p?.mine ? [act('enter', 'Enter the mine', () => bridge.command({ type: 'watchMine', place: p.id }), { primary: true })] : [];
+        return { title: d.title, lines: d.lines, actions };
       }
       case 'caravan':
         return { title: d.title, lines: d.lines, actions: [act('trade', 'Trade…', () => bridge.openPanel('trade'), { primary: true })] };
@@ -724,12 +752,17 @@ async function start(): Promise<void> {
     const h = hitTest(x, y);
     // the shop or tavern (or a stranger on their way to one) opens its bird's-eye window
     const tapped = h?.kind === 'person' ? snap.travellers.find((t) => t.id === h.person.id) : undefined;
-    const venue = h?.kind === 'building' ? venueOfDef(snap.buildings.find((b) => b.id === h.id)?.def ?? '') : tapped?.venue;
-    if (venue && snap[venue]) bridge.openPanel(venue);
+    const venue = h?.kind === 'building' ? venuePanel(snap.buildings.find((b) => b.id === h.id)?.def ?? '') : tapped ? (tapped.line ? storePanel(tapped.line) : tapped.venue) : undefined;
+    if (venue) bridge.openPanel(venue);
     if (phone) return inspectTarget(h); // (the phone's top card shows it, and holds its buttons)
     if (tapped) return;
     if (h?.kind === 'pane') return bridge.openPanel('expeditions');
-    if (h?.kind === 'place') return snap.places.find((q) => q.id === h.id)?.dest ? bridge.openPanel('expeditions') : undefined;
+    if (h?.kind === 'place') {
+      const p = snap.places.find((q) => q.id === h.id);
+      if (p?.dest) return bridge.openPanel('expeditions');
+      if (p?.mine) return bridge.command({ type: 'watchMine', place: p.id });
+      return;
+    }
     if (h?.kind === 'caravan') return bridge.openPanel('trade');
     if (h?.kind === 'person') {
       if (snap.visitor?.id === h.person.id) return bridge.openPanel('townsfolk');
@@ -779,6 +812,10 @@ async function start(): Promise<void> {
     const [a, b] = [...touches.values()];
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
+  const between = (): [number, number] => {
+    const [a, b] = [...touches.values()];
+    return [(a.x + b.x) / 2, (a.y + b.y) / 2];
+  };
   // (in a battle, taps place fighters and aim spells; drags scroll the map as ever)
   const battleTap = (x: number, y: number): boolean => {
     const b = snap.battle;
@@ -820,7 +857,7 @@ async function start(): Promise<void> {
         if (camera.dragging) camera.endDrag(e.timeStamp);
         press = null;
         pinchFrom = Math.max(20, spread());
-        bridge.pinch('start', pinchFrom);
+        bridge.pinch('start', pinchFrom, ...between());
         return;
       }
       if (pinchFrom !== null || afterPinch) return;
@@ -839,7 +876,7 @@ async function start(): Promise<void> {
     if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
     if (touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pinchFrom !== null && touches.size >= 2) return bridge.pinch?.('move', Math.max(20, spread()));
+      if (pinchFrom !== null && touches.size >= 2) return bridge.pinch?.('move', Math.max(20, spread()), ...between());
     }
     if (!press || e.pointerId !== press.id) return;
     if (!camera.dragging && Math.hypot(e.clientX - press.x, e.clientY - press.y) >= DRAG_THRESHOLD) {
@@ -930,7 +967,11 @@ async function start(): Promise<void> {
     const watched = next.battle ? null : next.watch;
     fight.update(watched, next.biome, next.calendar.season);
     fightHud.update(watched);
-    map.root.visible = !watched;
+    // (a mine gone into: the same screen, unless a fight or battle has it)
+    const inMine = watched || next.battle ? null : next.mine;
+    mine.update(inMine);
+    fightHud.mine(inMine);
+    map.root.visible = !watched && !inMine;
     showNotices(next);
     snap = next;
     hud.update(next);
@@ -958,6 +999,8 @@ async function start(): Promise<void> {
     // map draws it: the pack's picture where there is one, else the top-down painter's)
     const cardArt = (id: string) => {
       const def = BUILDING_BY_ID[id];
+      const seat = SEAT_STAGE[id];
+      if (seat) return seatArt(seat.origin, seat.stage, def.width, depthOf(def), noTone, 'card');
       return packArt(id, def.width, buildStyle || 'town') ?? topDownArt(id, def.width, depthOf(def), noTone, 'card', buildStyle || 'town');
     };
     (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {
@@ -1006,6 +1049,11 @@ async function start(): Promise<void> {
     lastCamp = next.camp;
     people.moon = next.moonNight;
     people.theme = next.theme;
+    people.weather = next.weather.kind;
+    people.season = next.calendar.season;
+    people.hour = next.calendar.hour;
+    people.raid = !!next.raid && next.raid.phase === 'active';
+    people.zoom = stripScale; // (the phone page's scale: bubbles stay readable)
     people.weave = next.research.done.includes('weaving');
     people.founderId = next.mainId;
     publishInspect(); // (the phone's top card keeps up with what it shows)
@@ -1030,6 +1078,13 @@ async function start(): Promise<void> {
 
   let viewW = 0;
   let viewH = 0;
+  // The page zooms the strip about the point between the fingers (mobile.ts): once the strip is laid out again at
+  // the new scale, the view is moved so what was under the fingers stays there (mx, my: the point in the strip's old
+  // pixels; from, to: the scales the strip was and is shown at). The resize below keeps the middle still; this is the
+  // rest, for a point off the middle.
+  Object.assign(window, {
+    __zoomAbout: (mx: number, my: number, from: number, to: number) => camera.shift((mx - viewW / 2) * (1 - from / to), (my - viewH / 2) * (1 - from / to)),
+  });
   app.ticker.add((ticker) => {
     const w = layoutSplit(); // the town's share of the width
     // zoomed (the strip got wider or narrower): keep the middle of the view where it was
@@ -1059,12 +1114,16 @@ async function start(): Promise<void> {
     spells.render(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);
-    weather?.render(performance.now(), w);
+    weather?.render(performance.now(), w, app.screen.height);
     pane.render(performance.now(), ticker.deltaMS / 1000);
     if (battle.shown) battle.render(performance.now());
     if (fight.shown) {
       fight.resize(app.screen.width, app.screen.height, ...fightHud.insets());
       fight.render(performance.now(), ticker.deltaMS / 1000);
+    }
+    if (mine.shown) {
+      mine.resize(app.screen.width, app.screen.height, ...fightHud.insets());
+      mine.render(performance.now(), ticker.deltaMS / 1000);
     }
     // the art under a still mouse changes while the camera moves
     if (moving) {
@@ -1072,7 +1131,7 @@ async function start(): Promise<void> {
       if (selected) showActions();
     }
     if (selectedPerson !== null) showPersonCard(); // follow them as they walk
-    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown ? FPS_ACTIVE : FPS_IDLE;
+    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown || mine.shown ? FPS_ACTIVE : FPS_IDLE;
   });
 }
 

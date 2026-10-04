@@ -344,7 +344,7 @@ export function delveHome(s: GameState, e: Expedition, rng: Rng, hooks: { quests
     s.coins = (s.coins ?? 0) + coins;
     notify(s, `What ${v.rival.name} had found is the town's now: ${coins} coins.`);
   }
-  if (v.rival?.joins) {
+  if (v.rival?.joins && (s.popTarget === undefined || s.people.length < s.popTarget)) {
     const p = hooks.join();
     notify(s, `${p.name} of ${v.rival.name} came home with the party, and stays.`, true);
   }

@@ -5,6 +5,7 @@
 
 import { BESTIARY_SPOTS } from './bestiary';
 import { SCOUT_SPOTS } from './regions';
+import { TRADE_SPOTS } from './minerals';
 import { DUNGEON_SPOTS } from './dungeons';
 
 export const MAP_SIZE = 768;
@@ -17,6 +18,7 @@ export const MAP_SPOTS: Readonly<Record<string, { x: number; y: number }>> = {
   ...BESTIARY_SPOTS,
   // (each region's scouting trip goes to its middle: data/regions.ts)
   ...SCOUT_SPOTS,
+  ...TRADE_SPOTS,
   ...DUNGEON_SPOTS,
   berry_thicket: { x: 360, y: 470 },
   riverbank: { x: 275, y: 345 },

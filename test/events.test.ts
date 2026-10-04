@@ -22,8 +22,8 @@ function town(): GameState {
   return JSON.parse(grown);
 }
 
-test('the events: a hundred, each with two or three answers and exactly one default', () => {
-  assert.equal(EVENTS.length, 100);
+test('the events: five hundred and the fateful ones, each with two or three answers and exactly one default', () => {
+  assert.equal(EVENTS.length, 525); // (500, and the 25 fateful ones)
   assert.equal(new Set(EVENTS.map((e) => e.id)).size, EVENTS.length);
   for (const e of EVENTS) {
     assert.ok(e.options.length >= 2 && e.options.length <= 3, e.id);
@@ -93,6 +93,7 @@ test('away, a choice event pauses the town: at most one comes, and answering it 
   const sim = new Sim(town());
   const s = sim.state;
   s.nextEventTick = s.tick + 2 * TICKS_PER_HOUR;
+  s.nextRaidTick = Number.MAX_SAFE_INTEGER; // (no raid to reach the gate first)
   const start = s.tick;
   const { ticks } = catchUp(sim, 3 * 3600_000);
   assert.ok(s.event?.held, 'an event came and holds the town');
@@ -117,4 +118,38 @@ test('the phone alert for a choice event is sent, and nothing past it', async ()
   const p = plan({ ...DEFAULT_ALERTS, enabled: true, topic: 't' }, s, 1_000_000);
   assert.equal(p.at(-1)?.event.kind, 'event', 'the event is the last alert');
   assert.ok(!p.some((x) => x.event.kind === 'raid'), 'the raid after it never comes while away');
+});
+
+test('the fateful events: rare, no sooner than their gap, and their effects bite (fire, ruin, exodus, learning, healing)', async () => {
+  const { FATEFUL_EVENTS, FATEFUL_GAP_DAYS } = await import('../src/shared/data/fatefulEvents');
+  const { TICKS_PER_DAY } = await import('../src/shared/sim/time');
+  assert.ok(FATEFUL_EVENTS.length >= 20);
+  for (const e of FATEFUL_EVENTS) assert.ok(e.fateful && (e.weight ?? 0) > 1, e.id);
+  // not before day 3, and once one has come, not again for the gap
+  const s = town();
+  s.tick = TICKS_PER_DAY;
+  assert.ok(!FATEFUL_EVENTS.some((e) => !e.when || e.when(s)), 'none on day 1');
+  s.tick = 4 * TICKS_PER_DAY;
+  assert.ok(FATEFUL_EVENTS.some((e) => e.when!(s)), 'some by day 4');
+  s.lastFateful = s.tick - TICKS_PER_HOUR;
+  assert.ok(!FATEFUL_EVENTS.some((e) => e.when!(s)), 'none right after one');
+  s.lastFateful = s.tick - (FATEFUL_GAP_DAYS + 1) * TICKS_PER_DAY;
+  assert.ok(FATEFUL_EVENTS.some((e) => e.when!(s)), 'again after the gap');
+  // the effects: an exodus empties a share of the town, a fire sets roofs alight, a lesson is learned
+  const t = town();
+  for (let i = 0; i < 9; i++) t.people.push({ ...t.people[0], id: t.nextId++, name: `Hand ${i}` });
+  const rng = new Rng(3);
+  const before = t.people.length;
+  startEvent(t, EVENT_BY_ID.secession, rng);
+  answerEvent(t, 0, rng);
+  assert.ok(t.people.length < before - 1, `an exodus: ${before} to ${t.people.length}`);
+  assert.ok(t.people.some((p) => p.id === t.mainId), 'the founder stays');
+  const done = t.research.done.length;
+  startEvent(t, EVENT_BY_ID.lost_library, rng);
+  answerEvent(t, 0, rng);
+  assert.equal(t.research.done.length, done + 2, 'two topics learned outright');
+  t.people[0].hp = 3;
+  startEvent(t, EVENT_BY_ID.miracle, rng);
+  answerEvent(t, 0, rng);
+  assert.ok(t.people[0].hp > 3, 'healed');
 });

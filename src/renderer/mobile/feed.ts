@@ -108,6 +108,12 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
       const where = e.phase === 'out' ? 'On the way' : e.phase === 'back' ? (d.cleared ? 'Cleared it! Coming home' : 'Coming home') : d.room ? `Room ${d.room} of ${d.rooms} · ${d.torches} torches` : 'At the door';
       cards.push({ cls: 'delve', mark: '⛏', title: `${e.destName}: ${where}`, text: `${e.battle?.length ? 'Fighting! ' : ''}${(e.phase === 'work' && d.log.at(-1)) || e.members.map((m) => m.name).join(', ')} · tap to watch`, watch: e.id });
     }
+    // the Moon Pack's full-moon hunt, out in the hills (tap to watch them)
+    for (const e of s.expeditions) {
+      if (!e.hunt) continue;
+      const where = e.phase === 'out' ? 'Running out into the hills' : e.phase === 'back' ? 'Coming home with the kill' : 'Hunting';
+      cards.push({ cls: 'delve', mark: '☾', title: `The full-moon hunt: ${where}`, text: `${e.battle?.length ? 'Fighting! ' : ''}${e.members.map((m) => m.name).join(', ')} · tap to watch`, watch: e.id });
+    }
     // something found on the town's land that wants a party (tap: the Expedition Board)
     // (the fights waiting on the land, alike ones as one card: "Beast's Lair found ×2")
     const waiting = new Map<string, { name: string; foes: string; n: number }>();

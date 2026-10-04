@@ -1,3 +1,4 @@
+import { RESEARCH_PACE } from '../src/shared/data/pace';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDINGS } from '../src/shared/data/buildings';
@@ -67,8 +68,8 @@ test('research takes about seconds / speed and unlocks its buildings', () => {
   const s = sim.state;
   sim.command({ type: 'queueResearch', topic: 'basic_shelter' });
   const took = runUntil(sim, () => s.research.done.includes('basic_shelter'));
-  const expected = TOPIC_BY_ID.basic_shelter.seconds / skillSpeed(newGame('time').people[0].skills.research.level);
-  assert.ok(took > expected * 0.9 && took < expected + 20, `took ${took}s, expected about ${expected}s`);
+  const expected = (TOPIC_BY_ID.basic_shelter.seconds * RESEARCH_PACE.neolithic) / skillSpeed(newGame('time').people[0].skills.research.level);
+  assert.ok(took > expected * 0.6 && took < expected + 20, `took ${took}s, expected about ${expected}s`); // (the researcher gets quicker as they go: a long topic ends well under its first estimate)
   assert.equal(s.notices.at(-1)?.text, 'Research complete: Basic Shelter');
   const at = freeSpot(s, 'lean_to');
   sim.command({ type: 'placeBuilding', def: 'lean_to', x: at.x, y: at.y });

@@ -4,12 +4,13 @@
 // when something in it changes (the land's version, the open radius, the season).
 
 import { Texture } from 'pixi.js';
-import { CELL, groundAt, isRoad, type LandMap, FOG_BAND, wearAt, WEAR_FULL, WEAR_SHOW } from '../../shared/sim/land';
+import { CELL, groundAt, isRoad, type LandMap, FOG_BAND, wearAt, WEAR_FULL, WEAR_SHOW , wet } from '../../shared/sim/land';
 import type { TdTiles } from '../art/tdTiles';
 import type { Era } from '../../shared/data/eras';
 import { drawRoadCell, drawWornPatch, ROAD_BY_ERA, roadTilesReady } from '../art/roadTiles';
 import { drawPatch, drawRipple, drawTuft, groundDetailReady, groundUnder, type Patch } from '../art/groundDetail';
 import { PROP_FINE, propFrames, propImage } from '../art/props';
+import { paintMountain, paintMountainEdge } from './mountainArt';
 
 /** How many of the shore's water cells show the bottom (the Seabed pack's corals, urchins, starfish and shells) through
  *  the water, on the coast. */
@@ -28,8 +29,13 @@ interface Pal {
   hill: [string, string];
   rock: [string, string];
   water: [string, string];
+  /** The shallows along a shore town's strand: clear water over pale sand, and its foam. */
+  shallows: [string, string, string];
   road: [string, string, string];
   flowers: string[];
+  /** The mountain's rock mass, its cracks, and its cliff face; the halls' bare floor. */
+  mountain: [string, string, string];
+  hall: [string, string];
 }
 const SUMMER: Pal = {
   grass: ['#5f9b3e', '#55893a', '#6fab48'],
@@ -40,14 +46,17 @@ const SUMMER: Pal = {
   hill: ['#7f8f4b', '#6f7f40'],
   rock: ['#8d8c84', '#73726b'],
   water: ['#4382b8', '#86b9e0'],
+  shallows: ['#5aa6c6', '#8fd0dc', '#e8f6f4'],
   road: ['#a58c66', '#8f7756', '#b89c76'],
   flowers: ['#f2e26a', '#e86e8a', '#f4f4f4', '#b983e0'],
+  mountain: ['#5a5664', '#34303c', '#8a8694'],
+  hall: ['#3c343c', '#463c44'],
 };
 const PALETTES: Record<string, Pal> = {
   spring: { ...SUMMER, grass: ['#67a548', '#5b9440', '#7ab754'], flowers: ['#f2e26a', '#f0a0c0', '#ffffff', '#b983e0', '#ffb060'] },
   summer: SUMMER,
   autumn: { ...SUMMER, grass: ['#8d9a44', '#7f8a3c', '#a4a650'], forest: ['#5f6a2c', '#515b26'], hill: ['#8c8a46', '#7a783c'], flowers: ['#e0b040', '#c87040'] },
-  winter: { ...SUMMER, grass: ['#dfe6ec', '#d2dbe3', '#f0f4f8'], fertile: ['#cfd6dc', '#bec6ce'], forest: ['#c8d4da', '#b8c6cf'], marsh: ['#c4ccd0', '#b6bfc4', '#6f8fa8'], hill: ['#d6dde3', '#c7cfd6'], rock: ['#9b9c98', '#7d7e7a'], sand: ['#e4e0cc', '#d6d2bf'], flowers: [] },
+  winter: { ...SUMMER, mountain: ['#8e919c', '#6e7280', '#b4b8c2'], grass: ['#dfe6ec', '#d2dbe3', '#f0f4f8'], fertile: ['#cfd6dc', '#bec6ce'], forest: ['#c8d4da', '#b8c6cf'], marsh: ['#c4ccd0', '#b6bfc4', '#6f8fa8'], hill: ['#d6dde3', '#c7cfd6'], rock: ['#9b9c98', '#7d7e7a'], sand: ['#e4e0cc', '#d6d2bf'], flowers: [] },
 };
 
 /** The pack's patch band for each kind of ground, by season (none in winter: snow). */
@@ -87,7 +96,9 @@ export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td:
     s += m.cells.slice(i0, i0 + CHUNK) + m.roads.slice(i0, i0 + CHUNK);
     // (footpaths, by how worn: a step either side too, since a path reaches toward its neighbours)
     if (m.wear) for (let x = cx * CHUNK - 1; x <= (cx + 1) * CHUNK; x++) s += wornLevel(m, x, y) || wornLevel(m, x, y - 1) || wornLevel(m, x, y + 1);
+    s += groundAt(m, cx * CHUNK - 1, y)[0] + groundAt(m, (cx + 1) * CHUNK, y)[0];
   }
+  for (let x = cx * CHUNK; x < (cx + 1) * CHUNK; x++) s += groundAt(m, x, cy * CHUNK - 1)[0] + groundAt(m, x, (cy + 1) * CHUNK)[0];
   return s;
 }
 
@@ -140,7 +151,7 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         if (down || !across) rect(px + 12, py, 8, CELL, pal.road[2]);
         for (let k = 0; k < 3; k++) if (hash(seed ^ (41 + k), x, y) < 0.5) rect(px + Math.floor(hash(seed ^ (51 + k), x, y) * 30), py + Math.floor(hash(seed ^ (61 + k), x, y) * 30), 2, 2, pal.rock[1]);
         void td;
-      } else if (pack && kind !== 'water' && (blight && season !== 'winter' ? BLIGHT_PATCH : PATCH_OF[season])?.[kind]) {
+      } else if (pack && kind !== 'water' && kind !== 'shallows' && (blight && season !== 'winter' ? BLIGHT_PATCH : PATCH_OF[season])?.[kind]) {
         // the pack's ground: a plain colour with its patches, and on the grass its tufts, flowers and pebbles
         const blighted = blight && season !== 'winter';
         const patch = (blighted ? BLIGHT_PATCH : PATCH_OF[season]!)[kind]!;
@@ -196,10 +207,43 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             // (cracks)
             rect(px + Math.floor(hash(seed ^ 31, x, y) * 20), py + Math.floor(hash(seed ^ 33, x, y) * 28), 10, 1, pal.rock[1]);
             break;
+          case 'mountain':
+            // the mountain's mass in relief, snow on its heights, a cliff face at its foot (mountainArt.ts)
+            paintMountain(g, m, x, y, px, py, pal.mountain, season === 'winter');
+            break;
+          case 'hall':
+            cell(px, py, pal.hall[0], pal.hall[1], 0.18);
+            break;
+          case 'shallows': {
+            // the shallows: clear water over the sand, the seabed's weed and shells showing through, foam at the strand
+            cell(px, py, pal.shallows[0], pal.shallows[1], 0.08);
+            const land = (ox: number, oy: number) => !wet(groundAt(m, x + ox, y + oy));
+            const sea = propImage('sea');
+            if (sea && hash(seed ^ 151, x, y) < 0.7) {
+              const frames = propFrames('sea');
+              const f = frames[2 + Math.floor(hash(seed ^ 152, x, y) * (frames.length - 2))];
+              const k = 0.55 / PROP_FINE;
+              const w = Math.round(f[2] * k);
+              const h = Math.round(f[3] * k);
+              g.globalAlpha = 0.6;
+              g.drawImage(sea, f[0], f[1], f[2], f[3], px + 3 + Math.floor(hash(seed ^ 153, x, y) * Math.max(1, CELL - 6 - w)), py + 3 + Math.floor(hash(seed ^ 154, x, y) * Math.max(1, CELL - 6 - h)), w, h);
+              g.globalAlpha = 1;
+            }
+            if (land(0, -1)) rect(px, py, CELL, 3, pal.shallows[2]);
+            if (land(0, 1)) rect(px, py + CELL - 3, CELL, 3, pal.shallows[2]);
+            if (land(-1, 0)) rect(px, py, 3, CELL, pal.shallows[2]);
+            if (land(1, 0)) rect(px + CELL - 3, py, 3, CELL, pal.shallows[2]);
+            if (pack && hash(seed ^ 131, x, y) < 0.5) {
+              let room = CELL;
+              for (let k = 1; k < 4 && groundAt(m, x + k, y) === 'shallows'; k++) room += CELL;
+              drawRipple(g, Math.floor(hash(seed ^ 133, x, y) * 3), px + 2, py + 6 + Math.floor(hash(seed ^ 135, x, y) * 18), pal.shallows[2], room - 4);
+            }
+            break;
+          }
           case 'water': {
             cell(px, py, pal.water[0], pal.water[1], 0.05);
-            // (lighter where it meets the land)
-            const edge = (ox: number, oy: number) => groundAt(m, x + ox, y + oy) !== 'water';
+            // (lighter where it meets the land, not the shallows)
+            const edge = (ox: number, oy: number) => !wet(groundAt(m, x + ox, y + oy));
             if (edge(0, -1)) rect(px, py, CELL, 3, pal.water[1]);
             if (edge(0, 1)) rect(px, py + CELL - 3, CELL, 3, pal.water[1]);
             if (edge(-1, 0)) rect(px, py, 3, CELL, pal.water[1]);
@@ -226,9 +270,11 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             break;
           }
         }
+      // the mountain's jagged edge biting into the terrain beside it
+      if (kind !== 'mountain' && kind !== 'hall') paintMountainEdge(g, m, x, y, px, py, pal.mountain);
       // a footpath worn by walking: patches of bare earth along it, toward each worn (or road) neighbour
       const worn = wornLevel(m, x, y);
-      if (worn && kind !== 'water' && roadTilesReady()) {
+      if (worn && !wet(kind) && roadTilesReady()) {
         const a = WORN_ALPHA[worn];
         drawWornPatch(g, px + CELL / 2, py + CELL / 2, 22, a);
         for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1]] as const) {

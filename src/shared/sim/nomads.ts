@@ -19,7 +19,7 @@ import { calendar, TICKS_PER_HOUR } from './time';
 export const PORTABLE = new Set([
   'campfire', 'stockpile', 'lean_to', 'hide_tent', 'longhouse', 'cottage', 'rowhouse', 'workbench', 'drying_rack', 'tanning_rack',
   'hunters_lodge', 'storytellers_circle', 'healers_hut', 'loom', 'tannery', 'trading_post', 'general_store', 'emporium',
-  'fireside_inn', 'tavern', 'stable', 'barracks', 'market', 'lookout',
+  'fireside_inn', 'tavern', 'stable', 'barracks', 'market', 'lookout', 'seat_nomads_1', 'seat_nomads_2',
 ]);
 /** A pitched tent is this far along (the rest is the work of putting it up). */
 export const PITCHED = 0.6;

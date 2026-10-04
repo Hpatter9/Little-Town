@@ -11,6 +11,8 @@ import type { Material } from './materials';
 import { WEAPONS, type FamilyId } from './weapons';
 import { ARMOUR, type ArmourWeight } from './armour';
 import { UNIQUES } from './uniques';
+import { WORKSHOP_ITEMS } from './workshops';
+import { MINERAL_ITEMS } from './minerals';
 import type { WorkAnim } from './terrain';
 
 export type Slot = 'tool' | 'weapon' | 'offhand' | 'head' | 'body' | 'charm' | 'pack';
@@ -50,8 +52,14 @@ export type Station =
   | 'chip_fab'
   | 'battery_plant'
   | 'robot_workshop'
-  | 'tavern';
-export const STATIONS: readonly Station[] = ['campfire', 'workbench', 'tanning_rack', 'drying_rack', 'kiln', 'bloomery', 'smithy', 'sawmill', 'tannery', 'loom', 'windmill', 'bakery', 'steelworks', 'glassworks', 'gunsmith', 'refinery', 'cement_works', 'electronics_plant', 'garage', 'alloy_foundry', 'chip_fab', 'battery_plant', 'robot_workshop', 'tavern'];
+  | 'tavern'
+  // the workshops of data/workshops.ts
+  | 'smokehouse' | 'bone_carver' | 'basketry' | 'brewery' | 'tailor' | 'jeweller' | 'cooper' | 'apothecary' | 'chandlery' | 'dyeworks'
+  | 'print_shop' | 'clockmaker' | 'cannery' | 'textile_mill' | 'appliance_plant' | 'pharmacy' | 'bio_lab' | 'nanoforge'
+  | 'blood_cellar' | 'bone_forge' | 'gem_cutter' | 'herb_press' | 'pearl_works' | 'felt_works' | 'glamour_loom' | 'alembic' | 'assembler' | 'armourer' | 'pelt_house';
+export const STATIONS: readonly Station[] = ['campfire', 'workbench', 'tanning_rack', 'drying_rack', 'kiln', 'bloomery', 'smithy', 'sawmill', 'tannery', 'loom', 'windmill', 'bakery', 'steelworks', 'glassworks', 'gunsmith', 'refinery', 'cement_works', 'electronics_plant', 'garage', 'alloy_foundry', 'chip_fab', 'battery_plant', 'robot_workshop', 'tavern',
+  'smokehouse', 'bone_carver', 'basketry', 'brewery', 'tailor', 'jeweller', 'cooper', 'apothecary', 'chandlery', 'dyeworks', 'print_shop', 'clockmaker', 'cannery', 'textile_mill', 'appliance_plant', 'pharmacy', 'bio_lab', 'nanoforge',
+  'blood_cellar', 'bone_forge', 'gem_cutter', 'herb_press', 'pearl_works', 'felt_works', 'glamour_loom', 'alembic', 'assembler', 'armourer', 'pelt_house'];
 
 /** What an item does for whoever wears it (gear) or for the town (the rest). */
 export interface ItemEffects {
@@ -197,6 +205,7 @@ const BASE_ITEMS: readonly ItemDef[] = [
   { id: 'waterskin', name: 'Waterskin', slot: null, station: 'tanning_rack', cost: { hide: 2, fiber: 1 }, seconds: 40, research: ['tanning'], effects: {}, description: 'A party with one each walks 10% faster.', icon: { sheet: 'Potion', x: 1, y: 3 } },
   { id: 'bedroll', name: 'Bedroll', slot: null, station: 'tanning_rack', cost: { hide: 2, fiber: 2 }, seconds: 45, research: ['tanning'], effects: {}, description: 'Someone without a bed sleeps almost as well.', icon: { sheet: 'Armor', x: 3, y: 5 } },
   // wares: fine goods made to sell in the shop (the better the customers it draws, the finer the goods they want)
+  { id: 'blood_wine', name: 'Blood Wine', slot: null, station: 'campfire', cost: { blood: 3 }, seconds: 40, research: ['barter'], effects: {}, ware: { tier: 2, price: 18 }, description: 'A ware for the shop, of the Blood Court: a dark vintage, for those who know. Merchants pay 18 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'blood_wine' } },
   { id: 'bone_trinket', name: 'Bone Trinkets', slot: null, station: 'campfire', cost: { bone: 2 }, seconds: 30, research: ['barter'], effects: {}, ware: { tier: 1, price: 6 }, description: 'A ware for the shop: carved beads and toggles. Travellers pay 6 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'bone_trinket' } },
   { id: 'reed_basket', name: 'Reed Basket', slot: null, station: 'campfire', cost: { fiber: 4 }, seconds: 35, research: ['barter', 'cordage'], effects: {}, ware: { tier: 1, price: 7 }, description: 'A ware for the shop. Travellers pay 7 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'reed_basket' } },
   { id: 'clay_figurine', name: 'Clay Figurine', slot: null, station: 'kiln', cost: { clay: 3 }, seconds: 40, research: ['barter', 'pottery'], effects: {}, ware: { tier: 1, price: 8 }, description: 'A ware for the shop: a little fired beast. Travellers pay 8 coins.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'clay_figurine' } },
@@ -380,7 +389,7 @@ const FIRST: Record<string, Pick<ItemDef, 'family' | 'tier' | 'weight'>> = {
 };
 
 /** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. */
-export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES];
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...WORKSHOP_ITEMS, ...MINERAL_ITEMS];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

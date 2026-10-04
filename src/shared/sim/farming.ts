@@ -16,6 +16,8 @@ import type { Material, Stock } from '../data/materials';
 import { skillSpeed } from '../data/skills';
 import { buildingCentreX, depositNear, totalStock } from './buildings';
 import { toolSpeed } from './crafting';
+import { holds } from './operators';
+import { HOLDER_EDGE } from '../data/operators';
 import { modifiers } from './research';
 import { doomGrowth } from './doom';
 import { biomeOf } from '../data/biomes';
@@ -229,7 +231,7 @@ export function mineToWork(s: GameState, p: Person): Building | null {
 /** One tick of digging. Returns true when a load is dug out (it goes into the digger's hands). */
 export function workMine(s: GameState, p: Person, b: Building, progress: { work: number }): boolean {
   const w = WORKPLACES[b.def];
-  progress.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * modifiers(s.research).gather.mine * workFactor(s, p)) / (w.seconds * ERA_MULTIPLIER[earlier(s.era, eraOfResearch(BUILDING_BY_ID[b.def].research))] * TICK_HZ);
+  progress.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * modifiers(s.research).gather.mine * workFactor(s, p) * (holds(p, b) ? HOLDER_EDGE : 1)) / (w.seconds * ERA_MULTIPLIER[earlier(s.era, eraOfResearch(BUILDING_BY_ID[b.def].research))] * TICK_HZ);
   gainSkill(p, 'gathering', FARM_XP_PER_SEC / TICK_HZ);
   if (progress.work < 1) return false;
   progress.work = 0;

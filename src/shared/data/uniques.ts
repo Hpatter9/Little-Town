@@ -65,6 +65,11 @@ const ROWS: Row[] = [
   ['mindspike', 'Mindspike', 'wd', 8, O, { pierce: 0.6, stun: 0.2 }, 'A splinter of the Overmind. It still thinks for itself.', ['overmind']],
   ['reaver_lance', 'The Reaver Lance', 'en', 10, S, { pierce: 0.6, machineDamage: 10 }, 'Torn from the Star Reaver\'s chest, and still humming.', ['star_mech']],
   ['void_repeater', 'The Void Repeater', 'ag', 10, S, { speed: 0.5, lifesteal: 0.08 }, 'It fires bits of nothing, very fast.', ['star_mech']],
+  // the Moon Pack's rivals and the Great Beast (pack.ts)
+  ['grimfangs_jaw', "Grimfang's Jaw", 'dg', 4, N, { crit: 0.2, lifesteal: 0.05 }, "The Ash Pack alpha's own teeth, set in a hilt of ash.", ['ash_alpha']],
+  ['scarmaws_claws', "Scarmaw's Claws", 'ax', 5, M, { speed: 0.3, lifesteal: 0.08 }, "The Red Fang alpha's claws, bound to a haft. They want blood.", ['redfang_alpha']],
+  ['hoarfrosts_fang', "Hoarfrost's Fang", 'sp', 6, M, { pierce: 0.3, stun: 0.2 }, "A spear tipped with the Winter Wolves' alpha's tooth, cold as the cairn.", ['winter_alpha']],
+  ['pale_horn', 'The Pale Horn', 'mc', 6, M, { stun: 0.35, beastDamage: 8, cleave: 0.3 }, "The Pale Behemoth's horn. It still shakes the ground.", ['great_beast']],
   // the dungeons' bosses (dungeonBosses.ts)
   ['wightblade', 'Wightblade', 'sw', 5, N, { undeadDamage: 6, stun: 0.15 }, 'A barrow-king\'s sword, cold enough to numb the hand that holds it.', ['barrow_wight']],
   ['colossus_femur', 'The Colossus Femur', 'mc', 6, N, { stun: 0.3, undeadDamage: 4 }, 'A thighbone the length of a man, bound with grave-iron.', ['bone_colossus']],
