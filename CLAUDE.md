@@ -1661,8 +1661,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   waist up, bobbing (`waistCrop` in mapRaiders.ts). The shallows take part in the ground's wandering borders, with foam
   where they meet the strand, and the borders wander a little wider (`WARP` 15, `WARP_SCALE` 20). Test in
   `test/sea.test.ts`.
-- Still to come: merfolk looks on land (fins and scales), sea buildings (docks, coral dressing on the homes in the
-  water, tide pools), and the ocean and underwater backdrops for their trips.
+- **Piers and seabed dressing (step 2, done):** in a shore town a road runs out over the water as a pier
+  (`connectRoad` in sim/buildings.ts lays road on wet cells, with `PIER_COST` 2.5 a cell so piers stay short; a road
+  already bridges water for walking, `stepCost`), drawn as the Bridges pack's wooden planks with their rails
+  (`drawPier` in art/groundDetail.ts: `roads/pier_v.png`, `pier_h.png`, across when the road runs across). A finished
+  building whose front stands in the water is dressed with three of the Seabed set's corals, shells, crabs and weed at
+  its foot (`SEA_DRESS` in mapView.ts; the set is loaded for the merfolk's look and the town redrawn when it comes).
+- Still to come: merfolk looks on land (fins and scales), the homes themselves in a sea style, tide pools, and the
+  ocean and underwater backdrops for their trips.
 
 ## Known problem (fixed, watch)
 

@@ -207,3 +207,9 @@ Peral, Huerta Tipográfica), Pirata One (Rodrigo Fuenzalida, Nicolas Massi), IM 
 (Georg Duffner, Octavio Pardo), New Rocker (Impallari Type), Orbitron (Matt McInerney), Share Tech Mono (Carrois
 Apostrophe), Cinzel (Natanael Gama), Berkshire Swash (Astigmatic), Quicksand (Andrew Paglinawan), Marcellus SC (Brian J.
 Bonislawsky), Fondamento (Astigmatic) and MedievalSharp (Wojciech Kalinowski).
+
+## Craftpix bridges (the shore town's piers)
+
+The wooden pier planks (`src/renderer/art/roads/pier_v.png`, `pier_h.png`, cut from its bridge sheet) are from
+**Craftpix.net**'s free Bridges Top-Down Pixel Art Asset Pack, used under Craftpix's free licence (use in the game;
+the raw files are not redistributed).

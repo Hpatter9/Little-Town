@@ -7,6 +7,8 @@
 import { loadImage } from './loadImage';
 import groundGrass from './roads/ground_grass.png';
 import ripplesUrl from './water/ripples.png';
+import pierV from './roads/pier_v.png';
+import pierH from './roads/pier_h.png';
 import tuft1 from './fields/tuft1.png';
 import tuft2 from './fields/tuft2.png';
 import tuft3 from './fields/tuft3.png';
@@ -35,7 +37,7 @@ import pebble6 from './fields/pebble6.png';
 const TUFTS = [tuft1, tuft2, tuft3, tuft4, tuft5, tuft6];
 const FLOWERS = [flower1, flower2, flower3, flower4, flower5, flower6, flower7, flower8, flower9, flower10, flower11, flower12];
 const PEBBLES = [pebble1, pebble2, pebble3, pebble4, pebble5, pebble6];
-const ALL = [groundGrass, ripplesUrl, ...TUFTS, ...FLOWERS, ...PEBBLES];
+const ALL = [groundGrass, ripplesUrl, pierV, pierH, ...TUFTS, ...FLOWERS, ...PEBBLES];
 
 const images = new Map<string, HTMLImageElement>();
 let loading: Promise<void> | null = null;
@@ -129,5 +131,14 @@ export function drawRipple(g: CanvasRenderingContext2D, n: number, x: number, y:
     tinted.set(colour, c);
   }
   g.drawImage(c, r[0], r[1], r[2], r[3], x, y, r[2], r[3]);
+  return true;
+}
+
+/** A cell of pier (a shore town's road out over the water): the Bridges pack's wooden planks with their rails, running
+ *  across (`across`) or up and down, the cell's top-left at (x, y). */
+export function drawPier(g: CanvasRenderingContext2D, across: boolean, x: number, y: number): boolean {
+  const im = images.get(across ? pierH : pierV);
+  if (!im) return false;
+  g.drawImage(im, x, y + (across ? -2 : 0));
   return true;
 }

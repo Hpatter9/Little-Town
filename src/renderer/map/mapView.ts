@@ -22,7 +22,7 @@ import { topDownArt } from '../art/topDown';
 import { drawSite } from '../art/constructionSite';
 import { snowCapped } from '../art/snowCap';
 import { mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
-import { propTextures, type PropSet } from '../art/props';
+import { PROP_FINE, propTextures, type PropSet } from '../art/props';
 import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
@@ -38,6 +38,10 @@ import { seatArt } from '../art/seatArt';
 import { SEAT_STAGE } from '../../shared/data/seats';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
+/** Where the seabed things stand round a building in the sea (share of its width along, px below its foot), and their
+ *  size against the atlas's (which is drawn for the raid map, larger). */
+const SEA_DRESS: [number, number][] = [[0.04, 2], [0.96, 4], [0.55, 7]];
+const SEA_DRESS_K = 0.7;
 const CULL_MARGIN = 64;
 
 /** Multiply colour for a daylight level: white by day, moonlit blue at night. */
@@ -314,7 +318,17 @@ export class MapView {
     return sets;
   }
 
+  private seaAsked = false;
+
   private syncProps(land: LandMap, season: string, biome: string): void {
+    // (a shore town's buildings in the sea are dressed with the Seabed set's coral and shells: drawn again once it comes)
+    if (this.style === 'merfolk' && !this.propTex.has('sea') && !this.seaAsked) {
+      this.seaAsked = true;
+      propTextures('sea').then((t) => {
+        this.propTex.set('sea', t);
+        this.artGen++;
+      }, () => undefined);
+    }
     const sets = this.propSets(season, biome);
     const want = sets.join(',');
     if (want !== this.propsKey) {
@@ -692,6 +706,20 @@ export class MapView {
       // (a lantern post, a barrel, a cart by a pack-drawn house's corners)
       const x0 = f.x * CELL;
       const y0 = (f.y + f.h) * CELL;
+      // (standing in the sea: coral, shells and weed of the Seabed pack grown up round its foot; the set's first two,
+      // the drowned statues, are left out)
+      // (its front standing in the water is enough: a home on the shoreline has its back on the strand)
+      const sea = this.land && inSea(this.land, { x: f.x, y: f.y + f.h - 1, w: f.w, h: 1 }) ? this.propTex.get('sea') : undefined;
+      if (sea && sea.length > 2)
+        SEA_DRESS.forEach(([fx, fy], k) => {
+          const tex = sea[2 + ((b.id * 7 + k * 13) % (sea.length - 2))];
+          const sp = this.things.addChild(new Sprite(tex));
+          sp.scale.set(SEA_DRESS_K / PROP_FINE);
+          sp.anchor.set(0.5, 1);
+          sp.position.set(Math.round(x0 + fx * f.w * CELL), Math.round(y0 + fy));
+          sp.zIndex = y0 + fy + 0.1;
+          (d.extras ??= []).push(sp);
+        });
       for (const e of packDressing(b.def, b.id, f.w, this.style)) {
         const sp = this.things.addChild(new Sprite(e.texture));
         sp.position.set(Math.round(x0 + e.dx), Math.round(y0 + e.dy - e.h));
