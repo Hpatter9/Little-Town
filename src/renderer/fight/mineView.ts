@@ -13,6 +13,8 @@ import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame } from '../art/lpc/lpc';
 
 const SEE_W = 320;
 const SEE_H = 180;
+/** The cave is never shown taller than this (art px): upright the rest of the room stays dark. */
+const TALLEST = 240;
 /** Each ore's colour in the rock (the seams), and the stone itself. */
 const ORE_COLOUR: Partial<Record<Material, number>> = { copper_ore: 0xc8743a, tin_ore: 0xb8c0c8, silver_ore: 0xe8ecf4, sulphur: 0xe0d050, gold: 0xf0c020, gems: 0x60d0c0, stone: 0x8a8a94, iron_ore: 0x9a6a5a, coal: 0x303038 };
 /** How wide a seam is drawn, and how far apart the seams stand. */
@@ -63,11 +65,13 @@ export class MineScene {
     this.cover.clear().rect(0, 0, w, h).fill(0x08081e);
     const k = Math.max(1, Math.min(w / SEE_W, room / SEE_H));
     this.vw = w / k;
-    this.vh = room / k;
+    // (upright the room is tall: the cave is kept to a band and stood in the middle, dark above and below)
+    this.vh = Math.min(room / k, TALLEST);
+    const pad = Math.round((room - this.vh * k) / 2);
     this.hy = Math.round(this.vh - Math.min(this.vh * 0.5, 50));
     this.world.scale.set(k);
-    this.world.position.set(0, top);
-    this.clip.clear().rect(0, top, w, room).fill(0xffffff);
+    this.world.position.set(0, top + pad);
+    this.clip.clear().rect(0, top + pad, w, Math.round(this.vh * k)).fill(0xffffff);
     for (const l of this.layers) l.width = this.vw + 2;
     for (const l of this.layers.slice(0, 3)) l.y = this.hy - BACK_HORIZON;
     this.layers[3].y = Math.round(this.vh - FRONT_H + 8);
