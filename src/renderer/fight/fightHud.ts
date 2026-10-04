@@ -60,6 +60,7 @@ export function createFightHud(on: { back(): void }): FightHud {
       // (the banner: the latest spell, skill or ultimate, held about a second and a half, longer for an ultimate)
       const shown = [...v.acts].reverse().find((a) => a.pool && a.age < 40);
       const key = shown ? `${shown.side}:${shown.ref}:${shown.name}:${shown.age - (shown.age % 100)}` : '';
+      (window as unknown as { __banner?: unknown }).__banner = { key: bannerKey, until: bannerUntil, now: performance.now(), acts: v.acts.map((a) => [a.name, a.age, a.pool]) }; // (for previews)
       if (shown && key !== bannerKey) {
         bannerKey = key;
         bannerUntil = performance.now() + (shown.ult ? 2600 : 1500);
