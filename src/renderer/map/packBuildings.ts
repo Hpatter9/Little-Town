@@ -168,6 +168,8 @@ const PICKS: Record<string, Pick> = {
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
   stone_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
   stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
+  brick_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
+  concrete_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
   // the dungeon props: bookshelves for the library, an alchemist's bench for the healer, a plain table for the workbench
   library: { parts: [[dprops, 0, 0, 16, 256, 48, 48], [dprops, 48, 0, 64, 256, 48, 48], [dprops, 96, 0, 112, 256, 48, 48]], size: [144, 48], overhang: 0 },
   healers_hut: { parts: [[dprops, 0, 0, 16, 304, 48, 48]], size: [48, 48], overhang: 0 },

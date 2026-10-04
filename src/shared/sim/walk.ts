@@ -3,6 +3,7 @@
 // A walker keeps its path and the goal it was found for; a new goal, or a building put up across the way, finds a
 // new one. With no way through (an island, a walled yard) it walks straight at the goal, so nobody is ever stuck.
 
+import { isGate } from './ringWall';
 import { footprint } from './buildings';
 import { addWear, CELL, cellOf, centreOf, findPath, idx, inMap, inRect, SWIM_COST, type Pt, type Rect } from './land';
 import type { GameState } from './state';
@@ -26,7 +27,7 @@ const REPLAN_TICKS = 200;
 /** Whether a cell is inside a building (one that isn't `through`: the walker's own goal). A castle's rooms are walked
  *  through: inside its walls, everyone goes from room to room. */
 export function blockedBy(s: Pick<GameState, 'buildings'>, through?: Rect): (x: number, y: number) => boolean {
-  const prints = s.buildings.filter((b) => !b.room).map(footprint);
+  const prints = s.buildings.filter((b) => !b.room && !isGate(b.def)).map(footprint); // (the ring wall's gates are walked through)
   return (x, y) => prints.some((r) => inRect(r, x, y) && !(through && inRect(through, x, y)));
 }
 

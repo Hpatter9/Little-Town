@@ -9,7 +9,8 @@ import { hashSeed, Rng } from '../rng';
 import { treasuresHeld } from './shop';
 import { canWear } from './classes';
 import { isChild } from './social';
-import { buildOrigin, nomadic } from './nomads';
+import { buildOrigin } from './nomads';
+import { isRingPiece, planRing, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -22,7 +23,7 @@ import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
 import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade } from './buildings';
-import { type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot, WILD } from './land';
+import { type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
@@ -198,6 +199,8 @@ function topicScore(t: Topic, n: Needs): number {
     if (WORKPLACES[b.id]) score += 10;
     if (b.healing) score += 8;
     if (b.hp || b.defense) score += n.raided || n.direction === 'defense' ? 14 : 2;
+    // (a wall round the town once it is big enough to wall: sim/ringWall.ts)
+    if (b.hp && !b.defense && n.people >= RING_PEOPLE) score += 12;
     if (b.stalls || b.id === 'tavern') score += n.direction === 'trade' ? 12 : 3;
     // (a shop is the only way to get what the land doesn't give: without it the town can't build at all)
     if (isShop(b.id)) score += (n.unsourced.length ? 60 : 0) + (n.direction === 'trade' ? 12 : 3);
@@ -511,27 +514,6 @@ function roomSpot(s: GameState, def: BuildingDef): Pt | null {
 
 const isWall = (d: BuildingDef | undefined) => !!d && !!d.hp && d.width === 1 && !d.defense;
 
-/** Where a wall goes: on the camp's row, just past the last building at an end of town that has no wall out there
- *  yet (raiders come in along it, from the ends). Returns the cell, or the cell that has to be cleared first
- *  (`clear`), or null (both ends walled). */
-function wallSpot(s: GameState, def: BuildingDef): { at: Pt; clear: boolean } | null {
-  const town = s.buildings.filter((b) => BUILDING_BY_ID[b.def].layer !== 'back' && !isWall(BUILDING_BY_ID[b.def]));
-  if (!town.length) return null;
-  const row = campCell(s).y;
-  const lo = Math.min(...town.map((b) => b.tile)) - 2;
-  const hi = Math.max(...town.map((b) => b.tile + BUILDING_BY_ID[b.def].width)) + 1;
-  const walls = s.buildings.filter((b) => isWall(BUILDING_BY_ID[b.def]));
-  for (const [x, done] of [
-    [lo, walls.some((w) => w.tile <= lo)],
-    [hi, walls.some((w) => w.tile >= hi)],
-  ] as [number, boolean][]) {
-    if (done || x < 0 || x >= s.land.w) continue;
-    const at = { x, y: row };
-    if (canPlace(s, def, x, row).ok) return { at, clear: false };
-    if (WILD.includes(groundAt(s.land, x, row))) return { at, clear: true };
-  }
-  return null;
-}
 
 /** What the town would like built next, most wanted first, each with its reason. */
 function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
@@ -597,8 +579,6 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   if (n.direction === 'defense' || n.raided) {
     planDefenses(n.direction === 'defense' ? 2 : 1);
     for (const d of BUILDINGS) if (can(d) && d.warningMinutes && !planned(s, d.id)) add(d.id, 'to see raiders coming');
-    const walls = s.buildings.filter((b) => isWall(BUILDING_BY_ID[b.def])).length;
-    if (walls < 4) options((d) => isWall(d), (d) => d.hp!, 'a wall at each end of town');
   }
   // (in quieter times too, a piece or two as the town grows)
   planDefenses(0);
@@ -747,6 +727,12 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   if (planSeat(s, n, plan)) return clear;
   if (consolidateHomes(s, n, plan)) return clear;
   if (consolidateFields(s, n, plan)) return clear;
+  // the ring wall round the town (sim/ringWall.ts): started once the town is a few people strong (sooner when raided or
+  // set on defence), widened as it grows, a slot always left for the rest
+  const grownUps = s.people.filter((p) => !isChild(p)).length;
+  clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock));
+  if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
+  if (blueprintCount(s) >= buildSlots(s)) return clear;
   let blocked: BuildingDef | null = null;
   let triedUpgrade = false;
   let triedFields = false;
@@ -771,16 +757,8 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
         blocked ??= def;
         continue;
       }
-    } else if (isWall(def)) {
-      if (nomadic(s)) continue; // (no walls while the tribe wanders: the wagons do)
-      const spot = wallSpot(s, def);
-      if (!spot) continue;
-      if (spot.clear) {
-        clear.push(idx(s.land, spot.at.x, spot.at.y));
-        continue;
-      }
-      at = spot.at;
-    } else at = findSpot(s, def);
+    } else if (isWall(def) || isRingPiece(def.id)) continue; // (walls and gates are the ring's: planRing)
+    else at = findSpot(s, def);
     if (at === null) {
       blocked ??= def;
       continue;

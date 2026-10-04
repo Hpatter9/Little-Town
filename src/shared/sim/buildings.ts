@@ -3,6 +3,7 @@
 // middle of its front (bottom) edge: that's where workers stand, and a road is laid from it to the nearest road (or
 // the camp) when it's placed, so the town grows along its roads.
 
+import { isGate } from './ringWall';
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -262,7 +263,9 @@ export function connectRoad(s: GameState, b: Building): void {
   }
   // (a road goes only over buildable ground, never through a building, and doesn't bridge water on its own)
   const blocked = (x: number, y: number) => !buildable(groundAt(m, x, y)) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
-  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y), 6000);
+  // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
+  const gate = (x: number, y: number) => isGate(builtOn(s, x, y)?.def ?? '');
+  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !gate(x, y), 6000);
   if (!path || path.length > ROAD_REACH) return;
   setRoad(m, from.x, from.y);
   for (const c of path) if (!builtOn(s, c.x, c.y) && buildable(groundAt(m, c.x, c.y))) setRoad(m, c.x, c.y);

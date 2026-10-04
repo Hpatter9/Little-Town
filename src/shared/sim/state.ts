@@ -35,6 +35,7 @@ import { BACKGROUND_BY_ID, founderSkills, SCENARIO_BY_ID, type FounderSpec } fro
 import { FOUNDER_BY_ID } from '../data/founders';
 import { BUILDING_BY_ID } from '../data/buildings';
 import type { Direction, TownPlan } from './planner';
+import type { Ring } from './ringWall';
 
 /** DESIGN §2: every timed action takes BaseTime x EraMultiplier / WorkerSpeed. */
 export const ERA_MULTIPLIER: Record<Era, number> = { neolithic: 1, medieval: 2.5, industrial: 6, modern: 15, space: 40 };
@@ -76,6 +77,8 @@ export interface Building {
   store: Stock;
   /** Walls and gates: current health (set when finished). */
   hp?: number;
+  /** A piece of the town's ring wall (sim/ringWall.ts): which ring. */
+  ring?: number;
   /** Fields: what's in the ground. `growth` runs 0..1 while growing; `work` is sowing or harvest progress. */
   /** A field's crop. `soil`: how good the ground is (1 when left out; see SOIL in data/crops.ts). `bearing`: an
    *  orchard's trees have come into fruit. */
@@ -657,6 +660,8 @@ export interface GameState {
   /** Where the self-running town puts its effort (growth when left out), and what it last decided. */
   direction?: Direction;
   plan?: TownPlan;
+  /** The ring wall round the town (sim/ringWall.ts). */
+  ring?: Ring;
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town

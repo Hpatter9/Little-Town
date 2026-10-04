@@ -716,6 +716,24 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   pack's timber house with their gear at the door; the rest from the camp's racks and fires, the dungeon props and the
   futuristic objects). `isUnlocked` now reads a settlers' town's missing `origin` as settlers, so another people's
   buildings (the blood farm, the origin defences) are never theirs. Tests: `test/workshops.test.ts`.
+- **The ring wall (done; the owner's ask: a wall round the town that grows with it):** `src/shared/sim/ringWall.ts`.
+  An open town (not a castle or the hold, which have walls of their own, nor a tribe on the move) walls itself all
+  round once it is `RING_PEOPLE` (6) grown-ups strong (sooner when raided or set on Defence): `wantRect` is the box
+  round every building but the fields, pens and old walls, `RING_PAD` (3) out and each side stepped out from the camp to
+  a multiple of `RING_STEP` (4), at least `RING_MIN` (6) each way; `ringCells` its perimeter; `gateCells` a gate on the
+  camp's row on the west and east (where raids come in) and wherever a road crosses the ring. `s.ring` (`Ring`: gen,
+  rect, wall, gate, gates, done) is the ring under way; its pieces are ordinary wall and gate buildings tagged
+  `Building.ring` with the generation (the best wall learned, `bestWall`; gates for every wall now: brick, concrete and
+  force gates added to data/buildings.ts and UPGRADES). `planRing` (from `planBuilding` each pass, before the wishes)
+  places the gates first, then the walls (`missingPieces`: a cell with water, mountain or another building is left as
+  the wall there; wild cells are cleared first), at most `RING_AT_ONCE` (2) on the queue with a slot always left for the
+  rest, only while the stores hold `RING_SPARE` (3) times a piece's cost, none while food is under 2 days; when the town grows past the ring (`contains`) a wider one is started outside
+  it (a new gen), and once the new ring stands all round (`ringComplete`) the older pieces, and the old strip's end
+  walls, are demolished (half refunded). The known land is opened to the ring's corners. Townsfolk walk out through the
+  gates (`blockedBy` in walk.ts and `connectRoad` let gates through; a sealed town walks straight through, as `walk`
+  always did); raids' trails end at the ring's gate on their side (`ringGate` in battle.ts `gateCell`), raiders break
+  the gate or wall as before (`wallBetween`), and shooters stand on the ring's pieces near the trail (wall spots). The
+  planner's old end walls (`wallSpot`, "a wall at each end of town") are gone. Tests: `test/ringWall.test.ts`.
 - **A hard cap on births:** `POP_HARD_CAP` (90, data/pace.ts): no child is born past it (wanderers already stop at
   `POP_SOFT_CAP`); the 200-day soaks had settlers at 71 by day 40 and climbing.
 - **The Court's tithe stops at a reserve:** `BLOOD_KEEP` (30) in data/vampires.ts: with that much blood in store the

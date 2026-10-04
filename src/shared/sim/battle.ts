@@ -14,6 +14,7 @@
 // the tests. The map is laid out when the battle starts (from the land and the town as they stand then) and kept on
 // the raid. Spots, trails and aims are in the land's cells (CELL px each); the raiders' px positions follow them.
 
+import { ringGate } from './ringWall';
 import { fireAt, speedOf } from './defenses';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
@@ -210,6 +211,8 @@ function landEdge(s: GameState, side: -1 | 1, gate: Pt): Pt {
 /** The town's gate on one side: the town's edge there (townEdgeX) on the camp's row, as a cell. */
 function gateCell(s: GameState, side: -1 | 1): Pt {
   const m = s.land;
+  const ring = ringGate(s, side); // (a walled town: its ring's gate on that side)
+  if (ring) return ring;
   return { x: Math.max(0, Math.min(m.w - 1, Math.floor(townEdgeX(s, side) / CELL))), y: m.camp.y };
 }
 
