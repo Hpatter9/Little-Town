@@ -94,18 +94,16 @@ the owner says otherwise.
 8. **Art**: homes without tents, the halls redrawn or pulled from the packs.
 9. Soak across origins, phone checks, PR.
 
-## Decisions for the owner
+## Decisions (the owner's answers)
 
-- **Old towns.** The economy needs a new save version. Found a new town for it (as with the top-down map), or carry old
-  towns over with every purse at 0 and all buildings the treasury's?
-- **The player's hand on trips.** With parties forming themselves, does the player keep any say: a veto on a
-  destination, a bounty posted from the treasury, or nothing but watching?
-- **Tax.** One lever on the Plan tab (low / fair / heavy), or set by the direction (Trade low, Defence heavy)?
-- **Who builds homes.** People build their own on land they buy (slower growth, more character) or the treasury builds
-  and rents them out (the planner as now, rent as the income)? Both can exist; which comes first?
-- **Guards.** A standing calling anyone can take (paid daily), or the fighting classes on a roster (paid when they
-  stand watch)?
-- **The founder.** The founder's purse is the treasury? Or does the founder have their own purse too, and the treasury
-  is the town's (so a poor founder is possible)?
-- **Rich adventurers buying shops**: may they also buy out the general store the town built (then the treasury takes
-  the price), or only another person's business?
+1. **Old towns**: a new town for the economy (a new save version; old saves are refused as at the top-down change).
+2. **Trips**: parties form themselves; the player keeps a **veto** on a destination and the treasury can post a
+   **bounty** on one (recommended; building it so unless told otherwise).
+3. **Tax**: a lever on the Plan tab. More tax, more treasury, unhappier townsfolk; too much and people leave.
+4. **Homes and building**: townsfolk **buy land from the town and build on it**, with realistic weight: building takes
+   much longer than now, **skill makes a huge difference**, most buildings need a high enough Crafting (Construction)
+   to build at all, and a person can **hire builders** to go faster. The treasury still builds the public works.
+5. **Guards**: a standing paid calling.
+6. **The founder's purse is the treasury.**
+7. A rich townsperson **may buy the town's general store**, but only at a price that makes sense for the founder to
+   sell: a profitable shop is worth a great deal (its price from its takings).
