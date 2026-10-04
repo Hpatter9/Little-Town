@@ -40,6 +40,9 @@ import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
 import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
+import { accruePay, loadPrice, moneyTown, payFromTreasury } from './economy';
+import { BUILD_PER_HOUR, STUDY_PER_HOUR, TREASURY_KEEP } from '../data/economy';
+import { isChild } from './social';
 
 /** Walking speed in world pixels per second. */
 export const WALK_SPEED = 48;
@@ -129,12 +132,19 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     case 'store': {
       const st = byId(s, task.building)!;
       if (!goToB(s, p, st)) break;
+      const sold: Stock = {};
       for (const m of MATERIALS) {
         const n = Math.min(p.carrying[m] ?? 0, storageFree(s, st));
         if (n > 0) {
           addStock(st.store, m, n);
           addStock(p.carrying, m, -n);
+          sold[m] = n;
         }
+      }
+      // (what they bring in they sell to the town there and then: data/economy.ts)
+      if (moneyTown(s) && !isChild(p)) {
+        const price = loadPrice(s, sold);
+        if (price > 0) payFromTreasury(s, p, price, 'wages', `Sold ${Object.entries(sold).map(([m, n]) => `${n} ${MATERIAL_NAMES[m as Material].toLowerCase()}`).join(', ')} to the stores (${Math.min(price, Math.max(0, (s.coins ?? 0) - TREASURY_KEEP))} coins)`);
       }
       p.task = null;
       break;
@@ -174,6 +184,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       const speed = skillSpeed(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
       site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
+      accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
       if (site.progress >= 1) {
         site.progress = 1;
         site.status = 'done';
@@ -495,6 +506,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   // (and the game's pace: a town takes generations to learn it all, data/pace.ts)
   r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * RESEARCH_PACE[topic.era ?? 'neolithic'] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
+  accruePay(s, p, STUDY_PER_HOUR, 'wages', 'study', TICKS_PER_HOUR);
   if (r.progress[topic.id] < 1) return;
 
   delete r.progress[topic.id];

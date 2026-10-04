@@ -21,6 +21,7 @@ import { weatherAt, type WeatherNow } from './weather';
 import { directionOf, forSale, shoppingList, type Direction, type TownPlan } from './planner';
 import { decorPrice, appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect, trophyRenown } from './shop';
 import { moneyTown, wageBill } from './wages';
+import { incomeOf } from './economy';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
 import { HERDS } from '../data/livestock';
@@ -150,6 +151,8 @@ export interface PersonView {
   gearQ: Partial<Record<Slot, number>>;
   /** Their own coins (wages, for their gear), once the town has money. */
   coins: number | null;
+  /** Their income (sim/economy.ts): today, yesterday, and what their last hourly pay was for. */
+  income: { today: number; yesterday: number; last: string | null } | null;
   /** A little more about them: the role they fill, how their work is going, what their crafting is like. */
   detail: string[];
   /** What they've done lately, newest first. */
@@ -1083,6 +1086,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     gear: { ...p.gear },
     gearQ: { ...(p.gearQ ?? {}) },
     coins: p.coins ?? (moneyTown(s) ? 0 : null),
+    income: moneyTown(s) ? { ...incomeOf(s, p), last: p.paidFor?.line ?? null } : null,
     detail: personDetail(s, p),
     recent: [...(p.recent ?? [])].reverse().map((r) => r.text),
     bedroll: hasBedroll(s, p),

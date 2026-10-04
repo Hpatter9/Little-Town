@@ -326,7 +326,7 @@ function bag(p: PersonView): HTMLElement {
   const held = stacks.reduce((n, [, v]) => n + v, 0);
   const foot = el('div', 'bag-foot');
   foot.append(el('span', '', `Carrying ${held} of ${p.carryCapacity}`));
-  if (p.coins !== null) foot.append(el('span', 'coins', `● ${p.coins} coins`));
+  if (p.coins !== null) foot.append(el('span', 'coins', `● ${p.coins} coins${p.income ? ` · earned ${p.income.today} today${p.income.yesterday ? `, ${p.income.yesterday} yesterday` : ''}` : ''}`));
   if (p.bedroll) foot.append(el('span', '', 'Sleeps on a bedroll'));
   box.append(foot);
   return box;

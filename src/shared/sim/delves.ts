@@ -5,6 +5,9 @@
 // and the boss at the bottom, whose hoard comes home. The party turns back when the torches run out or half of them
 // are down; a lost or fled fight sends them home as on any trip (expeditions.ts). Deaths are real.
 
+import { payParty } from './economy';
+/** The party's people (still in the town's list while away). */
+const partyOf = (s: GameState, e: Expedition): Person[] => e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
 import { DEEPER_ROOMS, DUNGEON_BY_ID, QUIET_DAYS, RIVAL_CHANCE, RIVALS, ELITE_BASE, ELITE_PER_ROOM, ELITE_RISKY, ELITES, ROOM_SECONDS, TWISTS, type DungeonDef, type EliteAffix, type RoomKind, type TwistId } from '../data/dungeons';
 import { ENEMIES } from '../data/enemies';
 import type { Battle } from './combat';
@@ -189,7 +192,7 @@ function enter(s: GameState, e: Expedition, d: DungeonDef, v: Delve, members: Pe
       const rich = v.twist === 'rich' ? 2 : 1;
       const got = gather(e, d, (2 + Math.floor(depth / 3)) * rich, hooks, rng);
       const coins = Math.round(rng.int(4, 10) * (1 + Math.floor(depth / 4)) * rich * (v.twist === 'swarming' ? 1.5 : 1));
-      s.coins = (s.coins ?? 0) + coins;
+      payParty(s, partyOf(s, e), coins, 'A hoard found in the deep');
       say(s, v, `${where}: a forgotten hoard: ${got || 'nothing they can carry'}, and ${coins} coins.`);
       return;
     }
@@ -341,8 +344,8 @@ export function delveHome(s: GameState, e: Expedition, rng: Rng, hooks: { quests
   if (v.cleared) hooks.quests(e.dest);
   if (v.rival?.fought && v.cleared) {
     const coins = 20 + rng.int(0, 20);
-    s.coins = (s.coins ?? 0) + coins;
-    notify(s, `What ${v.rival.name} had found is the town's now: ${coins} coins.`);
+    payParty(s, partyOf(s, e), coins, `What ${v.rival.name} had found`);
+    notify(s, `What ${v.rival.name} had found is the party's now: ${coins} coins.`);
   }
   if (v.rival?.joins && (s.popTarget === undefined || s.people.length < s.popTarget)) {
     const p = hooks.join();

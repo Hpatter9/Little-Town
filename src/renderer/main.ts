@@ -40,7 +40,7 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
-    activity: 'walk', sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, cls: null, clsName: null, clsPast: [], clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, cls: null, clsName: null, clsPast: [], income: null, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)

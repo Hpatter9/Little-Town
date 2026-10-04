@@ -63,7 +63,7 @@ test('a strong party picked by the player delves room by room, kills the boss an
   assert.equal(s.expeditions.length, 0, 'home again');
   assert.equal(s.delved?.barrow_crypt, 1, 'the crypt is cleared');
   assert.ok(s.journal.some((j) => /Barrow Crypt is cleared/.test(j.text)));
-  assert.ok((s.coins ?? 0) > 0, 'the boss had a purse');
+  assert.ok(s.people.some((q) => (q.coins ?? 0) > 0), 'the boss had a purse, split among the party');
 });
 
 test('without torches a party turns back at the door', () => {

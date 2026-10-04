@@ -2,6 +2,7 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
+import { payParty } from './economy';
 import { levelOf, xpToLevel } from '../data/levels';
 import { ENEMIES } from '../data/enemies';
 import { eraReached } from '../data/eras';
@@ -508,6 +509,12 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
       const coinsBefore = s.coins ?? 0;
       for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.boss) bossSlain(s, f.kind);
       result.coins = (s.coins ?? 0) - coinsBefore;
+      // (a boss's purse is the party's, split among them: data/economy.ts)
+      if (result.coins > 0) {
+        s.coins = (s.coins ?? 0) - result.coins;
+        earn(s, 'events', -result.coins);
+        payParty(s, members.filter((p) => !p.downed || true), result.coins, 'A share of the spoils');
+      }
       const drops = battleLoot(b);
       const room = partyCarry(s, e) - poolSize(e.loot);
       let taken = 0;
@@ -609,7 +616,8 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   notify(s, `${The(d.name)} party is back${e.recalled ? ' (recalled)' : ''}: ${found || 'empty-handed'}.`, true);
   if (!e.recalled) specialOutcome(s, e, d, at, rng);
   // (a delve: quests on a cleared dungeon, and a rival won over)
-  delveHome(s, e, rng, { quests: (id) => questsDone(s, id, at, rng), join: () => joinTown(s, at, rng) });
+  const party = e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
+  delveHome(s, e, rng, { quests: (id) => questsDone(s, id, at, rng, party), join: () => joinTown(s, at, rng) });
   packHome(s, e, rng);
   if (!e.recalled) findRelic(s, e, d, rng);
 }

@@ -204,7 +204,7 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop'): HTMLElement[] {
       for (const g of v.gear) gear.append(qualityChip(`${pieceLabel(g.name, g.q)}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q));
       info.push(gear);
     }
-    info.push(el('div', 'hint', `Travellers buy it, and so do the townsfolk, with their wages (${s.wageBill} coins a day in all), for a little less.`));
+    info.push(el('div', 'hint', `Travellers buy it, and so do the townsfolk, with what they earn (about ${s.wageBill} coins a day in all), for a little less.`));
     info.push(el('h2', '', 'Spare to sell'));
     info.push(stockRow(v.forSale, 'Nothing spare: the town needs everything it has.'));
     info.push(el('h2', '', 'Wants to buy'));

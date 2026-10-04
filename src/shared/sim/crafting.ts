@@ -2,6 +2,7 @@
 // materials from storage, carries them to the item's station and makes it there. Items land in the town
 // inventory and are handed out as gear automatically; food and ammo go into storage as materials.
 
+import { payFromTreasury } from './economy';
 import { BUILDING_BY_ID } from '../data/buildings';
 import {
   BANDAGE_HP,
@@ -29,7 +30,7 @@ import { buildingCentreX, depositNear } from './buildings';
 import { stabilize } from './health';
 import { treatSickness } from './doom';
 import { modifiers } from './research';
-import { addStock, campX, earn, ERA_MULTIPLIER, maxHp, notify, remember, type Building, type CraftOrder, type GameState, type Person } from './state';
+import { addStock, campX, ERA_MULTIPLIER, maxHp, notify, type Building, type CraftOrder, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { qualityBonus } from './origin';
 import { canWear } from './classes';
@@ -196,13 +197,9 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
 function payCrafter(s: GameState, def: ItemDef, q: number, p: Person): void {
   if (!moneyTown(s) || !(def.furnish || def.ware || def.fare || def.slot)) return;
   const worth = saleValue(def, q) * (def.fare ? PURSE_SCALE[s.era] : 1);
-  const pay = Math.min(s.coins ?? 0, Math.round(def.furnish ? worth : worth * PIECE_RATE));
-  if (pay <= 0) return;
-  s.coins = (s.coins ?? 0) - pay;
-  p.coins = (p.coins ?? 0) + pay;
-  earn(s, 'crafters', -pay);
   const what = pieceLabel(def.name, q);
-  remember(s, p, `Was paid ${pay} coins for a ${what}`);
+  const pay = payFromTreasury(s, p, Math.round(def.furnish ? worth : worth * PIECE_RATE), 'crafters', `Was paid for a ${what}`);
+  if (pay <= 0) return;
   if (def.furnish) notify(s, `The town bought a ${what} from ${p.name} for ${pay} coins.`);
 }
 

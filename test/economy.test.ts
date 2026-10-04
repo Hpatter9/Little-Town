@@ -10,7 +10,9 @@ import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { buyGear, nightOut, payWages, wageBill } from '../src/shared/sim/wages';
+import { buyGear, nightOut } from '../src/shared/sim/wages';
+import { incomeOf, loadPrice, payFromTreasury, payParty } from '../src/shared/sim/economy';
+import { TREASURY_KEEP } from '../src/shared/data/economy';
 import { Rng } from '../src/shared/rng';
 import { plainGame, row } from './helpers';
 
@@ -86,16 +88,33 @@ test('before the town has money, gear is handed out; after, the townsfolk buy it
   assert.ok(p.recent?.some((r) => r.text.includes('Bought')), 'it shows on their card');
 });
 
-test('wages come out of the town purse, never more than half of it on one payday', () => {
-  const s = plainGame('wages-pay');
+test('people earn by their work: a load sold to the stores, pay from the treasury above its keep, loot split among a party', () => {
+  const s = plainGame('pay');
   addBuilding(s, 'trading_post', camp(s) + 3);
-  s.coins = 1000;
-  payWages(s);
-  assert.equal(s.coins, 1000 - wageBill(s));
-  assert.ok((s.people[0].coins ?? 0) > 0);
-  s.coins = 2; // (a poor town pays what it can)
-  payWages(s);
-  assert.ok(s.coins >= 1);
+  const store = addBuilding(s, 'stockpile', camp(s) - 6);
+  s.coins = 500;
+  const p = s.people[0];
+  p.carrying = { wood: 10 };
+  p.task = { type: 'store', building: store.id };
+  const sim = new Sim(s);
+  for (let k = 0; k < 3 * TICKS_PER_HOUR && !(p.coins ?? 0); k++) sim.step();
+  const price = loadPrice(s, { wood: 10 });
+  assert.ok(price > 0);
+  assert.equal(p.coins, price, 'the gatherer sold the load to the stores');
+  assert.equal(s.coins, 500 - price, 'and the treasury paid');
+  assert.equal(incomeOf(s, p).today, price);
+  assert.ok(p.recent?.some((r) => /Sold 10 wood/.test(r.text)));
+  // the treasury keeps a little back
+  s.coins = 10;
+  assert.equal(payFromTreasury(s, p, 50, 'wages'), 0);
+  s.coins = TREASURY_KEEP + 5;
+  assert.equal(payFromTreasury(s, p, 50, 'wages'), 5);
+  // a party's spoils are split, the odd coin to the first
+  const q = { ...p, id: 999, coins: 0, pay: undefined, recent: [] };
+  const before = (p.coins ?? 0);
+  payParty(s, [p, q], 7, 'Spoils');
+  assert.equal((p.coins ?? 0) - before, 4);
+  assert.equal(q.coins, 3);
 });
 
 test('venues start bare, and the town only commissions a furnishing it can pay for; the crafter is paid for it', () => {

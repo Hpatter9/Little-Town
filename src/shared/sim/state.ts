@@ -368,6 +368,11 @@ export interface Person {
   /** Worn items (item ids) by slot, and their quality (Common when left out; see data/quality.ts). */
   gear: Partial<Record<Slot, string>>;
   gearQ?: Partial<Record<Slot, number>>;
+  /** Their income (sim/economy.ts): today's and yesterday's coins, pay owed for work by the hour not yet a whole
+   *  coin, and what the last hourly pay was for (the Townsfolk tab). */
+  pay?: { day: number; today: number; yesterday: number };
+  owed?: number;
+  paidFor?: { line: string; n: number };
   /** Set when the person can't put down what they carry because all storage is full. */
   blocked: boolean;
   /** Expedition id while they're away from town (not simulated or drawn in town meanwhile). */
@@ -561,7 +566,7 @@ export interface Visitor {
 }
 
 export interface GameState {
-  version: 16;
+  version: 17;
   /** World seed (the land is made from it; changes live in `land`). */
   seed: string;
   /** Ticks simulated since the game began. */
@@ -1032,7 +1037,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   }
 
   return {
-    version: 16,
+    version: 17,
     seed,
     tick: 0,
     rngState: rng.state,

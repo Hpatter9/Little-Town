@@ -83,6 +83,8 @@ import { WORTH } from '../data/trade';
 import { LINES, SHOP_LINES, type ShopLine } from '../data/stores';
 import { DECOR_APPEAL, DECOR_COST, DECOR_LEVELS, DECOR_MAX, DECOR_OF_NATURE, DECOR_STYLES, STARTERS } from '../data/decor';
 import { natureOf } from '../data/natures';
+import { KEEPER_CUT } from '../data/economy';
+import { payFromTreasury } from './economy';
 import { biomeOf } from '../data/biomes';
 import { randomLook } from '../data/people';
 import type { Rng } from '../rng';
@@ -862,6 +864,8 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
   if (spent > 0) {
     s.coins = (s.coins ?? 0) + spent;
     earn(s, 'shop', spent);
+    // (the keeper's cut of the sale: data/economy.ts)
+    if (keeper) payFromTreasury(s, keeper, Math.round(spent * KEEPER_CUT), 'wages', `Kept the ${BUILDING_BY_ID[shop.def].name}: a cut of ${t.name}'s ${spent} coins`);
   }
   const also = poolSize(sold) ? list(sold) : '';
   const text = met
@@ -944,6 +948,7 @@ function serveGuest(s: GameState, tavern: Building, t: Traveller, rng: Rng): voi
   if (spent > 0) {
     s.coins = (s.coins ?? 0) + spent;
     earn(s, 'tavern', spent);
+    if (keeper) payFromTreasury(s, keeper, Math.round(spent * KEEPER_CUT), 'wages', `Kept the ${BUILDING_BY_ID[tavern.def].name}: a cut of ${t.name}'s ${spent} coins`);
   }
   const text = met
     ? `${who} wanted ${wantText(want)}: had the ${had.join(' and the ')}${talked ? `. ${talked}` : ''} (${spent} coins).`

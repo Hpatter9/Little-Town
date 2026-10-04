@@ -1433,6 +1433,21 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   with the signpost and barrels, the hall with crates) and the trophy hall its shop with the shield sign, in the base
   and knights looks; the painter's `hall` shape stays for the other origins.
 
+## The townsfolk's own economy (in progress; the owner's direction: see PLAN.md)
+
+- **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's
+  **treasury**. `src/shared/data/economy.ts` (`GATHER_SHARE`, `BUILD_PER_HOUR`, `STUDY_PER_HOUR`, `KEEPER_CUT`,
+  `TREASURY_KEEP`) and `src/shared/sim/economy.ts`: `giveCoins` (every coin into a purse goes through it, keeping
+  `Person.pay`: today and yesterday), `payFromTreasury` (only from what the treasury holds above its keep),
+  `accruePay` (work by the hour: `Person.owed` carries the fraction, `paidFor` names the last pay), `loadPrice`,
+  `payParty` (split evenly, the odd coins to the first), `incomeOf`. Who earns what: a load brought into the stores is
+  sold to the town on the spot (`'store'` in people.ts; the shop sells it on at full worth); builders and scholars by
+  the hour; crafters the piece rate (`payCrafter`); keepers a cut of each sale (serveCustomer, serveGuest); a boss's
+  purse, a delve's hoards and a quest's bounty go to the **party** (`finishBattle`, delves.ts, `questsDone(…, party)`).
+  The flat daily wage is gone (`payWages`; `wageBill` is now a reserve estimate, `PAY_A_HEAD`); the ledger's `wages`
+  line is "Pay for work". `PersonView.income`; the inspect page's purse line says what they earned today and yesterday.
+  `moneyTown` (economy.ts) is true once the town has a venue or ever had coins.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be
