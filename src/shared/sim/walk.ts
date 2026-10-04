@@ -27,8 +27,15 @@ const REPLAN_TICKS = 200;
 /** Whether a cell is inside a building (one that isn't `through`: the walker's own goal). A castle's rooms are walked
  *  through: inside its walls, everyone goes from room to room. */
 export function blockedBy(s: Pick<GameState, 'buildings'>, through?: Rect): (x: number, y: number) => boolean {
-  const prints = s.buildings.filter((b) => !b.room && !isGate(b.def)).map(footprint); // (the ring wall's gates are walked through)
-  return (x, y) => prints.some((r) => inRect(r, x, y) && !(through && inRect(through, x, y)));
+  // (the cells inside buildings, as a set keyed by (x, y) packed into one number: a path search asks thousands of
+  // times, and a walled town has a hundred wall pieces; the ring wall's gates are walked through)
+  const cells = new Set<number>();
+  for (const b of s.buildings) {
+    if (b.room || isGate(b.def)) continue;
+    const r = footprint(b);
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (!(through && inRect(through, x, y))) cells.add(y * 4096 + x);
+  }
+  return (x, y) => cells.has(y * 4096 + x);
 }
 
 /** A path from a point to another, as px centres of the cells on the way, ending on `to` itself (null: no way). */
