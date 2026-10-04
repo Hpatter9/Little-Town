@@ -113,8 +113,9 @@ function cropLook(b: Building): CropLook | undefined {
   const c = b.crop;
   if (!c || c.stage === 'fallow') return 'fallow';
   if (c.stage === 'ripe') return 'ripe';
-  if (CROPS[b.def].establishHours) return c.bearing ? 'tall' : 'sprout';
-  return c.growth < 0.4 ? 'sprout' : 'tall';
+  if (CROPS[b.def].establishHours) return c.bearing ? (c.growth < 0.5 ? 'tall' : 'heading') : c.growth < 0.5 ? 'sprout' : 'young';
+  // (five stages the plot is redrawn at as the crop grows: the owner wanted to see it grow)
+  return c.growth < 0.2 ? 'sprout' : c.growth < 0.45 ? 'young' : c.growth < 0.7 ? 'tall' : 'heading';
 }
 const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${b.room ? 'room' : ''}`;
 

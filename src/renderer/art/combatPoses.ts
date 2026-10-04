@@ -77,6 +77,11 @@ export function heroSheet(cls: ClassId | null, id: number): PackSheetId | null {
   const list = cls ? HERO_FORM[cls] : undefined;
   return list ? list[id % list.length] : null;
 }
+/** A founder's form, worn always (the owner's ask: the founders stand out as special everywhere): their calling's
+ *  hero, else one by how they fight (a shooter the archer, a caster a wizard, the rest the samurai). */
+export function founderSheet(cls: ClassId | null, id: number, ranged: boolean, caster: boolean): PackSheetId {
+  return heroSheet(cls, id) ?? (caster ? (['fire_wizard', 'wanderer_mage', 'lightning_mage'] as PackSheetId[])[id % 3] : ranged ? 'samurai_archer' : 'samurai');
+}
 /** How tall a hero stands on screen (px, before the person's own scale): about an LPC townsperson's figure. */
 export const HERO_HEIGHT = 50;
 /** The scale that brings a hero sheet's figure to HERO_HEIGHT. */

@@ -7,6 +7,7 @@ import { eraOfResearch } from '../data/research';
 import { ERAS } from '../data/eras';
 import { hashSeed, Rng } from '../rng';
 import { treasuresHeld } from './shop';
+import { rulesOf } from '../data/origins';
 import { canWear } from './classes';
 import { isChild } from './social';
 import { buildOrigin } from './nomads';
@@ -987,6 +988,8 @@ function makeRoom(s: GameState, n: Needs): void {
 function planVisitor(s: GameState): void {
   const v = s.visitor;
   if (!v || v.leavingTo) return;
+  // (most towns: the player decides, by the question at the gate; the horde's gates are free)
+  if (!rulesOf(s).freeJoin) return;
   if (housingCapacity(s) > s.people.length || v.person.cls) acceptVisitor(s);
 }
 

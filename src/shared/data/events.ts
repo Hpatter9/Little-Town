@@ -8,6 +8,7 @@ import { LIFE_EVENTS } from './moreEvents1';
 import { ORIGIN_EVENTS } from './moreEvents2';
 import { ERA_EVENTS } from './moreEvents3';
 import { WORLD_EVENTS } from './moreEvents4';
+import { FATEFUL_EVENTS } from './fatefulEvents';
 export type { EventDef, EventEffect, EventOption, Lever } from './eventKit';
 
 const BASE_EVENTS: readonly EventDef[] = [
@@ -442,5 +443,5 @@ const BASE_EVENTS: readonly EventDef[] = [
 ];
 
 /** All five hundred (the owner's ask): the first hundred of EVENTS.md and the four hundred more of moreEvents*.ts. */
-export const EVENTS: readonly EventDef[] = [...BASE_EVENTS, ...LIFE_EVENTS, ...ORIGIN_EVENTS, ...ERA_EVENTS, ...WORLD_EVENTS];
+export const EVENTS: readonly EventDef[] = [...BASE_EVENTS, ...LIFE_EVENTS, ...ORIGIN_EVENTS, ...ERA_EVENTS, ...WORLD_EVENTS, ...FATEFUL_EVENTS];
 export const EVENT_BY_ID: Readonly<Record<string, EventDef>> = Object.fromEntries(EVENTS.map((e) => [e.id, e]));

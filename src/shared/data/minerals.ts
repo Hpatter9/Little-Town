@@ -37,7 +37,7 @@ export const MINERAL_ITEMS: readonly ItemDef[] = [
   makes('smelt_silver', 'Silver', 'bloomery', { silver_ore: 2, coal: 1 }, 70, ['silversmithing'], { silver: 1 }, 'Silver ore smelted hot with coal: a bar of silver.', ic('Rock', 4, 0)),
   ware('copper_kettle', 'Copper Kettle', 'workbench', { copper: 2 }, 50, ['bronze_working'], 1, 14, 'a kettle beaten from copper.', ic('Tool', 1, 1)),
   ware('bronze_mirror', 'Bronze Mirror', 'workbench', { bronze: 2 }, 80, ['bronze_working'], 2, 26, 'a polished disc of bronze.', ic('Amulet', 4, 0)),
-  ware('silver_ring', 'Silver Ring', 'jeweller', { silver: 1 }, 100, ['silversmithing'], 3, 48, 'a ring of bright silver.', ic('Ring', 1, 0)),
+  ware('silver_band', 'Silver Band', 'jeweller', { silver: 1 }, 100, ['silversmithing'], 3, 48, 'a ring of bright silver.', ic('Ring', 1, 0)),
   ware('silver_chalice', 'Silver Chalice', 'jeweller', { silver: 2 }, 150, ['silversmithing'], 3, 70, 'a chalice chased with vines.', ic('Potion', 5, 0)),
   ware('sulphur_salve', 'Sulphur Salve', 'apothecary', { sulphur: 1, herbs: 2 }, 60, ['physick'], 2, 18, 'a salve for the skin.', ic('Potion', 6, 0)),
 ];

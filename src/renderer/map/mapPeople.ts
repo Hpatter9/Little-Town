@@ -9,7 +9,7 @@ import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
-import { fightAnim, fightPose, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
+import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
 
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
@@ -28,6 +28,8 @@ const CHILD_SCALE = 0.7;
 const PX_PER_WALK_FRAME = 4;
 const HIT_HALF_W = 11;
 const HIT_H = 50;
+/** At these a founder's hero swings their blow over and over (their work, in the only pose the sheets have for it). */
+const WORK_SWING = new Set(['chop', 'mine', 'build', 'reap', 'till', 'forage']);
 /** A founder is drawn this much bigger than the townsfolk, with an aura in their origin's colour. */
 const FOUNDER_SCALE = 1.14;
 const AURA: Record<string, number> = { town: 0xffd860, lich: 0x9a6aff, druid: 0x7ae070, vampire: 0xff3048, werewolf: 0xc8d8ff, robot: 0x60e0ff, dwarves: 0xffa040, merfolk: 0x40e0e0, nomads: 0xffc060, fae: 0xff90e0, knights: 0xf0f0ff, alchemists: 0x80ff80, settlers: 0xffd860 };
@@ -304,6 +306,17 @@ export class MapPeople {
         const hk = heroScale(hero) * k;
         s.anchor.set(0.5, 1);
         s.scale.set(hk * creatureFlip(hero, facing), hk);
+      }
+      // a founder wears their combat form always (the owner's ask): walking, standing, fighting, and at work the
+      // hero's blow swung over and over (chopping, digging, building, reaping)
+      if (founder && !hidden && v.monster !== 'undead') {
+        const sheet = founderSheet(v.cls, v.id, v.battle.ranged, (v.battle.attrs?.int ?? 0) > (v.battle.attrs?.str ?? 0));
+        const working = WORK_SWING.has(v.activity);
+        const swing = working ? Math.floor((now / 100) % 14) : 999;
+        s.texture = heroFrame(sheet, { facing, moving, walked: d.walked, sinceBlow: inCombat ? v.sinceBlow : swing, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
+        const hk = heroScale(sheet) * k;
+        s.anchor.set(0.5, 1);
+        s.scale.set(hk * creatureFlip(sheet, facing), hk);
       }
       // someone who's taken up a special class looks the part (a Pixel Champions hero, at twice size)
       if (d.view.cls && CLASS_LOOK[d.view.cls] && !hidden && !founder) {

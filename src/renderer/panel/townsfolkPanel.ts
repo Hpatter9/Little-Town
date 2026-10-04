@@ -67,7 +67,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   if (s.housing.beds <= s.housing.people && !s.visitor) {
     out.push(el('div', 'hint', 'Wanderers only come while a bed is free. Build a Lean-to (Basic Shelter research).'));
   }
-  if (s.visitor) out.push(visitorCard(s.visitor, s));
+  if (s.visitor) out.push(visitorCard(s.visitor, s, bridge));
 
   out.push(el('h2', '', 'People'));
   if (s.turnable.length) out.push(turningRow(s, bridge));
@@ -446,16 +446,19 @@ function face(p: PersonView, s: Snapshot): HTMLElement {
   return c;
 }
 
-function visitorCard(v: VisitorView, s: Snapshot): HTMLElement {
+function visitorCard(v: VisitorView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   const c = el('div', 'card arrival');
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', `${v.name}, ${v.typeName.toLowerCase()}`), el('span', 'card-size', v.leaving ? 'Leaving' : `Leaves in ${Math.ceil(v.hoursLeft)}h`));
   c.append(el('div', 'lock', 'Is at the edge of town and asks to join.'), top, skillsList(v), traitsList(v));
   if (v.cls) c.append(el('div', 'lock short', `${v.clsName}, level ${v.level}: ${CLASS_DEFS[v.cls].description}`));
   if (!v.leaving) {
-    // (the town lets newcomers in itself, when a bed is free for them)
+    // (the player's call: people join only by their leave; a bed matters less than hands, but is said)
     const noBed = s.housing.beds <= s.housing.people;
-    c.append(el('div', noBed ? 'lock short' : 'lock', noBed ? 'No free bed yet: the town will let them in once a home is built (or they move on).' : 'The town is letting them in.'));
+    c.append(el('div', noBed ? 'lock short' : 'lock', noBed ? 'No free bed yet: taken in, they sleep rough until a home is built.' : 'Yours to decide: take them in, or send them on their way.'));
+    const row = el('div', 'row');
+    row.append(button('Take them in', () => bridge?.command({ type: 'acceptVisitor' })), button('Send them on', () => bridge?.command({ type: 'rejectVisitor' }), { cls: 'place quiet' }));
+    c.append(row);
     // another mouth to feed, when the stores are thin
     const eaters = s.people.filter((p) => p.monster !== 'undead' && p.away === null).length + 1;
     const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (s.stock[m] ?? 0) * v, 0);

@@ -42,7 +42,21 @@ export type EventEffect =
   | { occult: string }
   | { chance: number; then: EventEffect[]; else?: EventEffect[] }
   /** Effects that come after so many game hours (only at the top of an answer). */
-  | { later: number; effects: EventEffect[] };
+  | { later: number; effects: EventEffect[] }
+  /* ---- the fateful events' (fatefulEvents.ts) */
+  /** So many buildings set alight; so many pulled down. */
+  | { burn: number }
+  | { ruin: number }
+  /** A share of the grown-ups leave the town (never the founder). */
+  | { exodus: number }
+  /** A share of the grown-ups fall sick. */
+  | { sickShare: number }
+  /** So many topics learned outright (the one being studied first, then whatever is open). */
+  | { learn: number }
+  /** Everyone mended. */
+  | { heal: number }
+  /** Every pen emptied (the herds slaughtered: the food is in the event's `gain`). */
+  | { herdLoss: number };
 
 export interface EventOption {
   label: string;
@@ -57,6 +71,8 @@ export interface EventDef {
   /** A townsperson is picked for it ({who}). */
   who?: boolean;
   weight?: number;
+  /** One of the fateful events: rare, and it turns the town's course (fatefulEvents.ts). */
+  fateful?: boolean;
   /** When it can happen (always, if left out). */
   when?: (s: GameState) => boolean;
   options: EventOption[];

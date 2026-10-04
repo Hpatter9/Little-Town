@@ -33,7 +33,7 @@ test('the minerals are materials with a worth, recipes, wares, a topic each and 
   assert.equal(ITEM_BY_ID.smelt_copper.makes?.copper, 1);
   assert.equal(ITEM_BY_ID.cast_bronze.makes?.bronze, 2);
   assert.equal(ITEM_BY_ID.smelt_silver.station, 'bloomery');
-  assert.ok(ITEM_BY_ID.copper_kettle.ware && ITEM_BY_ID.silver_ring.ware && ITEM_BY_ID.sulphur_salve.ware);
+  assert.ok(ITEM_BY_ID.copper_kettle.ware && ITEM_BY_ID.silver_band.ware && ITEM_BY_ID.sulphur_salve.ware);
   assert.equal(TOPIC_BY_ID.bronze_working.era, 'neolithic');
   assert.equal(BUILDING_BY_ID.bell_tower.cost.bronze, 4);
 });

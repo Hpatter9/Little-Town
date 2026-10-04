@@ -295,6 +295,9 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.visitor) return;
   if (rulesOf(s).noWanderers) return; // (a town that makes its own people)
   if (housingCapacity(s) <= s.people.length) return;
+  // (the owner's rule: people join by the player's leave, a prisoner won over, or birth; so wanderers come seldom,
+  // and each is a question. A town whose gates are free (the horde) takes them in itself, as often as they come.)
+  if (!rulesOf(s).freeJoin && s.tick - (s.lastVisit ?? -Infinity) < VISIT_GAP_HOURS * TICKS_PER_HOUR) return;
   const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
   const chance =
     ARRIVAL_BASE +
@@ -342,9 +345,45 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   person.dir = side < 0 ? 1 : -1;
   const wait = campEdge(s, side);
   s.visitor = { person, waitX: wait.x, waitY: wait.y, leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
+  s.lastVisit = s.tick;
   const trained = person.cls ? ` (${aCalling(callingName(person, stageOf(person))!)}, level ${person.level}!)` : '';
   const who = origin ? `${oneOf(origin)} (a ${type})` : `${/^[aeiou]/.test(type) ? 'an' : 'a'} ${type}`;
   notify(s, `${who[0].toUpperCase()}${who.slice(1)}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
+  if (!rulesOf(s).freeJoin) askVisitor(s, who, trained);
+}
+
+/** The question a wanderer at the gate puts to the player (unless the town's gates are free): in, or on their way.
+ *  Unanswered, they're sent on when their wait is up. */
+export function askVisitor(s: GameState, who: string, trained: string): void {
+  const v = s.visitor;
+  if (!v) return;
+  const skills = (['gathering', 'farming', 'crafting', 'construction', 'melee', 'ranged', 'research', 'medicine', 'social'] as const)
+    .map((k) => [k, v.person.skills[k].level] as const)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([k, l]) => `${k} ${l}`)
+    .join(', ');
+  s.prompts.push({
+    id: s.nextId++,
+    kind: 'visitor',
+    expedition: null,
+    title: `${v.person.name} asks to join`,
+    text: `${who[0].toUpperCase()}${who.slice(1)}${trained} stands at the edge of town and asks to stay. Best at ${skills}. ${housingCapacity(s) > s.people.length ? 'There is a bed for them.' : 'There is no bed free.'}`,
+    options: VISITOR_OPTIONS,
+    // (left unanswered, a newcomer with a bed waiting is let in: a town whose player is away still grows; the choice
+    // is the player's whenever they answer)
+    defaultOption: housingCapacity(s) > s.people.length ? 0 : 1,
+    expiresTick: v.leavesTick + TICKS_PER_HOUR, // (they tire of waiting first, and take their question with them)
+  });
+}
+export const VISITOR_OPTIONS = ['Take them in', 'Send them on'];
+/** Game hours between one wanderer at the gate and the next (a town whose gates are free has no such wait). */
+export const VISIT_GAP_HOURS = 36;
+
+/** The player's answer to a wanderer's asking. */
+export function answerVisitor(s: GameState, option: string): void {
+  if (option === VISITOR_OPTIONS[0]) acceptVisitor(s);
+  else rejectVisitor(s);
 }
 
 /** Visitors walk in, wait, and walk off when turned away or tired of waiting. */
@@ -353,6 +392,7 @@ export function updateVisitor(s: GameState, walkTo: (p: Person, to: Pt) => boole
   if (!v) return;
   if (v.leavingTo === null && s.tick >= v.leavesTick) {
     v.leavingTo = edgeBehind(s, v);
+    s.prompts = s.prompts.filter((q) => q.kind !== 'visitor');
     notify(s, `${v.person.name} got tired of waiting and moved on.`);
   }
   if (v.leavingTo !== null) {
@@ -370,6 +410,7 @@ export function acceptVisitor(s: GameState): void {
   if (!v || v.leavingTo !== null) return;
   s.people.push(v.person);
   s.visitor = null;
+  s.prompts = s.prompts.filter((q) => q.kind !== 'visitor');
   joinOrigin(s, v.person);
   assignBeds(s);
   equipAll(s);
@@ -381,6 +422,7 @@ export function rejectVisitor(s: GameState): void {
   const v = s.visitor;
   if (!v || v.leavingTo !== null) return;
   v.leavingTo = edgeBehind(s, v);
+  s.prompts = s.prompts.filter((q) => q.kind !== 'visitor');
 }
 
 /* ------------------------------------------------------------ the town's kin, kept */

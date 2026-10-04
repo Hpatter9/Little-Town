@@ -9,7 +9,8 @@ import type { Bridge } from '../../shared/ipc';
 import type { CraftOrderView, Snapshot } from '../../shared/sim/snapshot';
 import { craftSeconds } from '../../shared/sim/crafting';
 import { itemIcon } from '../art/icons';
-import { materialIcon } from '../art/materialIcons';
+import { materialIcon, stockIcon } from '../art/materialIcons';
+import { FOOD_VALUE } from '../../shared/data/people';
 import { duration, el } from './dom';
 import { hiddenNote, HidePrefs } from './hide';
 import { topicKnown } from './secrets';
@@ -45,25 +46,10 @@ export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined, rerende
     out.push(el('div', 'hint', 'Nothing on order. The town makes tools, weapons, medicine and materials as it needs them.'));
   }
 
-  // what's in town
-  const spare = Object.entries(s.items).filter(([, n]) => n > 0);
+  // what's in town: the inventory, with a tab for each kind (the owner's ask)
   const worn = new Map<string, number>();
   for (const p of s.people) for (const id of Object.values(p.gear)) worn.set(id!, (worn.get(id!) ?? 0) + 1);
-  if (spare.length || worn.size) {
-    out.push(el('h2', '', 'Items'));
-    const inv = el('div', 'inventory');
-    const ids = [...new Set([...spare.map(([id]) => id), ...worn.keys()])].filter((id) => ITEM_BY_ID[id]);
-    for (const id of ids) {
-      const def = ITEM_BY_ID[id];
-      const chip = el('div', 'inv-item');
-      const n = s.items[id] ?? 0;
-      const w = worn.get(id) ?? 0;
-      chip.append(itemIcon(def, 2), el('span', '', `${def.name} ${n ? `×${n}` : ''}${w ? `${n ? ' · ' : ''}${w} worn` : ''}`));
-      chip.title = def.description;
-      inv.append(chip);
-    }
-    out.push(inv);
-  }
+  out.push(el('h2', '', 'Inventory'), ...inventory(s, worn, rerender));
 
   const built = new Set(s.buildings.filter((b) => b.status === 'done').map((b) => b.def));
   out.push(
@@ -95,6 +81,82 @@ export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined, rerende
   }
   out.push(...hiddenNote(hidden));
   return out;
+}
+
+/* ------------------------------------------------------------ the inventory */
+
+type InvTab = 'all' | 'weapons' | 'armour' | 'tools' | 'materials' | 'food' | 'furniture' | 'wares' | 'medicine';
+const INV_TABS: [InvTab, string][] = [
+  ['all', 'All'],
+  ['weapons', 'Weapons'],
+  ['armour', 'Armour'],
+  ['tools', 'Tools'],
+  ['materials', 'Materials'],
+  ['food', 'Food'],
+  ['furniture', 'Furniture'],
+  ['wares', 'For sale'],
+  ['medicine', 'Medicine'],
+];
+const INV_KEY = 'littletown.invTab';
+let invTab: InvTab = (() => {
+  try {
+    const v = localStorage.getItem(INV_KEY) as InvTab | null;
+    return v && INV_TABS.some(([k]) => k === v) ? v : 'all';
+  } catch {
+    return 'all';
+  }
+})();
+/** Which tab an item belongs under. */
+function itemKind(def: ItemDef): InvTab {
+  if (def.slot === 'weapon') return 'weapons';
+  if (def.weight || def.slot === 'body' || def.slot === 'head' || def.slot === 'offhand' || def.slot === 'charm') return 'armour';
+  if (def.slot === 'tool') return 'tools';
+  if (def.furnish) return 'furniture';
+  if (def.ware || def.fare) return 'wares';
+  if (def.id === 'bandage' || def.id === 'poultice' || def.id === 'antibiotics' || def.id === 'medkit') return 'medicine';
+  return 'materials';
+}
+const materialKind = (m: Material): InvTab => (FOOD_VALUE[m] ? 'food' : 'materials');
+
+function inventory(s: Snapshot, worn: Map<string, number>, rerender: () => void): HTMLElement[] {
+  const tabs = el('div', 'row inv-tabs');
+  const items = [...new Set([...Object.keys(s.items).filter((id) => s.items[id] > 0), ...worn.keys()])].filter((id) => ITEM_BY_ID[id]);
+  const materials = (Object.keys(s.stock) as Material[]).filter((m) => (s.stock[m] ?? 0) > 0);
+  const count = (tab: InvTab) => (tab === 'all' ? items.length + materials.length : items.filter((id) => itemKind(ITEM_BY_ID[id]) === tab).length + materials.filter((m) => materialKind(m) === tab).length);
+  for (const [k, name] of INV_TABS) {
+    const n = count(k);
+    if (!n && k !== 'all') continue;
+    const b = el('button', `inv-tab${invTab === k ? ' on' : ''}`, `${name} ${n}`);
+    b.addEventListener('click', () => {
+      invTab = k;
+      try {
+        localStorage.setItem(INV_KEY, k);
+      } catch {}
+      rerender();
+    });
+    tabs.append(b);
+  }
+  const inv = el('div', 'inventory');
+  for (const m of materials) {
+    if (invTab !== 'all' && materialKind(m) !== invTab) continue;
+    const chip = el('div', 'inv-item');
+    const icon = stockIcon(m, 16);
+    if (icon) chip.append(icon);
+    chip.append(el('span', '', `${MATERIAL_NAMES[m]} ×${s.stock[m]}`));
+    inv.append(chip);
+  }
+  for (const id of items) {
+    const def = ITEM_BY_ID[id];
+    if (invTab !== 'all' && itemKind(def) !== invTab) continue;
+    const chip = el('div', 'inv-item');
+    const n = s.items[id] ?? 0;
+    const w = worn.get(id) ?? 0;
+    chip.append(itemIcon(def, 2), el('span', '', `${def.name} ${n ? `×${n}` : ''}${w ? `${n ? ' · ' : ''}${w} worn` : ''}`));
+    chip.title = def.description;
+    inv.append(chip);
+  }
+  if (!inv.childElementCount) inv.append(el('span', 'hint', 'Nothing here yet.'));
+  return [tabs, inv];
 }
 
 /** What to hide in the list of recipes (kept across visits, per phone). */

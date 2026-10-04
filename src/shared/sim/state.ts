@@ -461,7 +461,7 @@ export interface Caravan {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor';
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -723,6 +723,11 @@ export interface GameState {
   /** When the player can rally a defender again (sim/rally.ts). */
   rallyReady?: number;
   nextEventTick?: number;
+  /** When the last fateful event (data/fatefulEvents.ts) came. */
+  lastFateful?: number;
+  /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than
+   *  VISIT_GAP_HOURS apart). */
+  lastVisit?: number;
   eventLog?: string[];
   marks?: { lever: string; value: number; until: number; text: string }[];
   eventLater?: { tick: number; event: string; option: number; index: number; who?: number }[];

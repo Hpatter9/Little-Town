@@ -80,7 +80,7 @@ test('visitors turned away, or kept waiting too long, walk off', () => {
   runUntil(sim, () => s.visitor === null, 600);
   assert.equal(s.visitor, null);
   assert.equal(s.people.length, 1);
-  runUntil(sim, () => s.visitor !== null, 400 * 60);
+  runUntil(sim, () => s.visitor !== null, 48 * 60 * 60); // (wanderers come no oftener than VISIT_GAP_HOURS apart now)
   assert.ok(s.visitor, 'another one came');
   const left = runUntil(sim, () => s.visitor === null, 20 * 60 * 60);
   assert.ok(left > 5 * 60, `waited about 6 game hours before leaving (${left}s)`);

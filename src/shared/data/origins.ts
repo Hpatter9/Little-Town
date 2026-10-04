@@ -17,6 +17,9 @@ export interface OriginRules {
   kin?: 'undead' | 'machine' | 'werewolf';
   /** Nobody wanders in: the town makes its own people (a power does). */
   noWanderers?: boolean;
+  /** Newcomers at the gate are let in by the town itself (the horde gathers whoever comes); everyone else's
+   *  wanderers are a question to the player (people join only by their leave, a prisoner won over, or birth). */
+  freeJoin?: boolean;
   /** The founder is one of these from the start. */
   founder?: MonsterKind | 'lich' | 'machine';
   /** Everyone works this much faster (or slower) by day and by night. */
@@ -174,7 +177,7 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     description: 'A tribe that follows the seasons: summer on the pasture, winter on the home ground, until the Industrial age, when their home ground becomes a caravan city. Quick to pitch camp, great traders, restless.',
     features: ['The camp moves with the seasons: tents, workshops, shop and tavern go on the wagons; the great works stay on the home ground', 'No walls while they wander: the wagons are drawn into a circle when raiders come', 'Settle for good in the Industrial age', 'Build 40% faster; travellers come twice as often, and pay more', 'Research slower; fields left behind at each move', 'Rituals: Trade Road, Swift Riders, Scouting Party'],
     start: { companions: ['hunter', 'gatherer'], stores: { hide: 10, berries: 25 }, research: ['foraging'] },
-    rules: { build: 1.4, travellers: 2, prices: 1.15, research: 0.85, nomadic: { until: 'industrial' } },
+    rules: { build: 1.4, travellers: 2, prices: 1.15, research: 0.85, nomadic: { until: 'industrial' }, freeJoin: true },
     powers: ['trade_road', 'swift_riders', 'scouting'],
   },
   fae: {

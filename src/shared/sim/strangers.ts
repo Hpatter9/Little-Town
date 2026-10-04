@@ -1,12 +1,12 @@
 // Strangers of other peoples (data/strangers.ts): who a wanderer or traveller is, how they look, whether the town
 // takes them in, and a traveller asking to settle.
-import { ORIGIN_DEFS, type OriginId } from '../data/origins';
+import { ORIGIN_DEFS, type OriginId, rulesOf } from '../data/origins';
 import { SETTLE_CHANCE, STRANGER_CHANCE, STRANGER_ORIGINS, TRAVELLER_STRANGER_CHANCE } from '../data/strangers';
 import { LIFESPANS } from '../data/lifespans';
 import type { Rng } from '../rng';
 import { becomeMonster } from './monsters';
 import { makePerson, notify, sideOf, type GameState, type Person, type Traveller } from './state';
-import { campEdge } from './townsfolk';
+import { askVisitor, campEdge } from './townsfolk';
 import { TICKS_PER_HOUR } from './time';
 
 /** The people someone is of (their own, else the town's). */
@@ -70,6 +70,8 @@ export function offerToSettle(s: GameState, t: Traveller, rng: Rng, housingFree:
   const wait = campEdge(s, side);
   person.dir = side < 0 ? 1 : -1;
   s.visitor = { person, waitX: wait.x, waitY: wait.y, leavesTick: s.tick + SETTLE_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
+  s.lastVisit = s.tick;
   notify(s, `${t.name}, ${origin ? oneOf(origin) + ' and ' : ''}a ${t.kind.toLowerCase()}, asks to settle here. See Townsfolk.`, true);
+  if (!rulesOf(s).freeJoin) askVisitor(s, `${t.name}, ${origin ? oneOf(origin) + ' and ' : ''}a ${t.kind.toLowerCase()} who traded here`, '');
   return true;
 }

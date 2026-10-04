@@ -14,8 +14,10 @@ export const LEVEL_STEEPNESS = 1.12;
 export const LEVEL_BASE = 18;
 export const LEVEL_GROWTH = 1.3;
 /** Of each bit of skill XP, the share that goes to the level: fighting (melee, ranged) counts for more than work. */
-export const LEVEL_SHARE_FIGHT = 1.4;
-export const LEVEL_SHARE_WORK = 0.45;
+export const LEVEL_SHARE_FIGHT = 0.35;
+export const LEVEL_SHARE_WORK = 0.11;
+// (both a quarter of what they were: the owner found levelling far too fast; a town's best was level 21 to 29 by
+// day 15, and should be about 8 to 12)
 /** Each level past the first: health and strength (damage, spell power) a little up. */
 export const HP_PER_LEVEL = 0.015;
 export const POWER_PER_LEVEL = 0.02;

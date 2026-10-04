@@ -458,7 +458,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Raiders as seasoned as the town:** `seasonedMight` in raids.ts (`RAID_MIGHT_PER_LEVEL` 0.07 per level of the
   grown-ups' average, up to `RAID_SEASONED_MAX`), since classes, spells and skills made defenders much stronger. Levels
   past `LEVEL_STEEP` (25) cost `LEVEL_STEEPNESS` (1.12) more each, so the last evolution stays rare: by day 15 the best
-  in a town is about level 21 to 29. Soak (4 towns, 15 days, people/deaths): knights 33.0/2, liches 26.8/7, settlers
+  in a town is about level 13 to 16 since levelling was slowed (see "Slower levels"). Soak (4 towns, 15 days, people/deaths): knights 33.0/2, liches 26.8/7, settlers
   17.3/8, vampires 29.5/5.
 - **Battle speed:** the raid battle's top bar has a speed button (1×, 2×, 3×; the `battleSpeed` command,
   `s.battleSpeed`, kept for later battles). `battleSpeedNow` (battle.ts) is read by `GameLoop.pump`, which runs that
@@ -1328,6 +1328,36 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     out in two days by 3 to 8 diggers, level 3 by day 11; silver and sulphur sold for a few hundred coins. Soak (12 days,
     one town each): settlers 20 people / 8 deaths, dwarves 20/9, knights (desert) 21/9; all three learned Bronze
     Working, smelted copper and bronze to the reserve and built a bell tower.
+- **Fateful events (done; the owner's ask: events that change a town's course, toward fortune or ruin):**
+  `src/shared/data/fatefulEvents.ts`: 25 events (a great fire, the black fever, a royal patron, gold in the river, a
+  prophet who leads people off, the great blight, the lost library, the lost legion, an earthquake, a comet, the bandit
+  king's tribute, the fat years, the barrow's curse, the founder's vision, a dragon's hoard, rats, the merchant princes,
+  the town dividing, a miracle, the long winter, treasure under the hearth, war, a wanderer's gift, the wolves, a golden
+  age). Each is `fateful` (its title marked ⚡), weighs `FATEFUL_WEIGHT` (6) against an ordinary event's 1, and comes no
+  sooner than day `FATEFUL_FROM_DAY` (3) and no oftener than every `FATEFUL_GAP_DAYS` (4) (`s.lastFateful`). New effects
+  in eventKit.ts, applied in sim/events.ts: `burn` (buildings set alight), `ruin` (pulled down), `exodus` (a share of the
+  grown-ups leave, never the founder), `sickShare`, `learn` (topics learned outright), `heal`, `herdLoss`. Test in
+  `test/events.test.ts`. Soak: two in 15 days per town.
+- **Founders in their hero form always (done; the owner's ask):** on the map a founder is drawn with their combat sheet
+  everywhere (`founderSheet` in art/combatPoses.ts: their calling's hero, else the archer for a shooter, a wizard for a
+  caster, the samurai), walking, standing, fighting, and at work swinging the hero's blow (`WORK_SWING` in mapPeople).
+  The raid map draws people with mapPeople, so it shows there too.
+- **Slower levels (done; the owner's ask):** `LEVEL_SHARE_FIGHT` 0.35 and `LEVEL_SHARE_WORK` 0.11 (a quarter of before).
+  Soak (15 days): the best in a town is level 13 to 16, the average 6 to 12, where the best was 21 to 29.
+- **People join by the player's leave (done; the owner's ask):** a wanderer at the gate, or a traveller asking to settle,
+  is a question (`askVisitor` in townsfolk.ts: a prompt of kind `visitor`, "Take them in" / "Send them on",
+  `answerVisitor`), and the Townsfolk card has the same two buttons; the planner no longer lets them in itself
+  (`planVisitor`), except where the gates are free (`freeJoin` in an origin's rules: the nomads' horde). Wanderers come no
+  oftener than `VISIT_GAP_HOURS` (36) apart (`s.lastVisit`). Left unanswered, someone with a bed waiting is let in (so a
+  town whose player is away still grows); else they're sent on. Otherwise people come by events, prisoners won over,
+  and birth.
+- **The town's inventory in tabs (done; the owner's ask):** the Crafting tab's Inventory lists every material in store and
+  every item (in store or worn) with tabs by kind (`INV_TABS`: All, Weapons, Armour, Tools, Materials, Food, Furniture,
+  For sale, Medicine; empty ones hidden; the tab remembered in `littletown.invTab`).
+- **Crops grow before your eyes (done; the owner's ask):** a plot is redrawn at six stages (`CropLook`: fallow, sprout,
+  young, tall, heading, ripe; `cropLook` in mapView.ts by the crop's growth): the rows taller and fuller each stage,
+  pale green to deep, the heads turning, then ripe; an orchard from saplings to round trees in fruit (`packedPlot` in
+  fieldArt.ts). The herb garden and every field show it.
 
 ## Known problem (fixed, watch)
 
