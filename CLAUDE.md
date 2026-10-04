@@ -1325,7 +1325,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     the rest once the region is mapped: `TRADE_HIDDEN`): a party takes the town's purse (`Destination.coins`, refused
     without it, spent as it sets out) and works the market with Social, bringing the region's minerals home as loot.
     The board shows the purse. Tests: `test/minerals.test.ts`. Probe (forest, a mine from day 3): the first level dug
-    out in two days by 3 to 8 diggers, level 3 by day 11; silver and sulphur sold for a few hundred coins.
+    out in two days by 3 to 8 diggers, level 3 by day 11; silver and sulphur sold for a few hundred coins. Soak (12 days,
+    one town each): settlers 20 people / 8 deaths, dwarves 20/9, knights (desert) 21/9; all three learned Bronze
+    Working, smelted copper and bronze to the reserve and built a bell tower.
 
 ## Known problem (fixed, watch)
 
