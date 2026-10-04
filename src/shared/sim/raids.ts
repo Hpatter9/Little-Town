@@ -47,6 +47,8 @@ import {
   RAID_KINDS,
   RAID_MAX_HOURS,
   RAID_MAX_SIZE,
+  RAID_BITE,
+  RAID_FEROCITY,
   RAIDER_CARRY,
   LOOT_VALUE,
   RAIDER_FLEE,
@@ -121,7 +123,7 @@ export function raidBudget(s: GameState): number {
   const people = Math.max(0, s.people.filter((p) => p.away === null && p.type !== 'child').length - RAID_BUDGET_FREE_PEOPLE);
   // (a town kept small by the player's choice draws raids that grow more slowly: they come for what it's worth)
   const small = s.popTarget === undefined ? 1 : Math.min(1, s.popTarget / RAID_SMALL_TOWN);
-  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY * small + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength);
+  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY * small + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength * RAID_BITE);
 }
 
 /** The building giving the longest raid warning, if any. */
@@ -598,7 +600,7 @@ export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area
   // (a rival lord's frenzy: harder, and sooner again)
   const frenzy = frenzyOf(s);
   if (frenzy > 1) rd.cooldown = Math.round(rd.cooldown / frenzy);
-  const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s) * (rd.might ?? 1));
+  const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s) * (rd.might ?? 1) * RAID_FEROCITY);
   p.hp = Math.max(0, p.hp - dmg);
   if (dmg > 0) {
     p.lastHit = s.tick;

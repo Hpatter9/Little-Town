@@ -5,6 +5,7 @@ import { BUILDING_BY_ID } from '../data/buildings';
 import { HEALER_PER_LEVEL } from '../data/operators';
 import { UNDEAD_HEAL } from '../data/monsters';
 import { operatorSkill } from './operators';
+import { researchMods } from './research';
 import { buildingCentre } from './buildings';
 import { grieve, isChild } from './social';
 import { revealOccult, tryRevive } from './occult';
@@ -52,7 +53,8 @@ export function knockDown(s: GameState, p: Person): void {
   // (in town the founder is always carried to safety: losing them ends everything; an infirmary's healers slow
   // everyone else's bleeding, the better the infirmary the more)
   const slower = p.away === null ? bestHealing(s) : 1;
-  p.downed = { bleedUntil: p.id === s.mainId && p.away === null ? null : s.tick + BLEED_TICKS * slower };
+  // (and the town's learning in the care of the hurt: Field Dressing, Barber-Surgeons, Antiseptics, Triage)
+  p.downed = { bleedUntil: p.id === s.mainId && p.away === null ? null : s.tick + Math.round(BLEED_TICKS * slower * researchMods(s.research).careBleed) };
 }
 
 /** The town's best healing building (1 without one; an infirmary 2, a hospital 3, a trauma center 4). */
@@ -174,8 +176,9 @@ export function heal(s: GameState, p: Person): void {
   const rate = asleep ? (p.task?.type === 'sleep' && p.task.building !== null ? REGEN_BED : REGEN_GROUND) : REGEN_AWAKE;
   let infirmary = bestHealing(s);
   if (infirmary > 1) infirmary += operatorSkill(s, 'infirmary') * HEALER_PER_LEVEL; // a healer on hand
-  p.hp = Math.min(max, p.hp + (rate * infirmary * (tireless(p) ? UNDEAD_HEAL : 1)) / TICKS_PER_HOUR);
-  if (p.downed && p.downed.bleedUntil === null && p.hp >= max * BACK_ON_FEET) {
+  const care = researchMods(s.research);
+  p.hp = Math.min(max, p.hp + (rate * infirmary * care.careHeal * (tireless(p) ? UNDEAD_HEAL : 1)) / TICKS_PER_HOUR);
+  if (p.downed && p.downed.bleedUntil === null && p.hp >= max * BACK_ON_FEET * care.careFeet) {
     p.downed = null;
     p.scarred = true;
     notify(s, `${p.name} is back on their feet.`);

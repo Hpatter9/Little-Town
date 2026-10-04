@@ -1549,12 +1549,20 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 
 - The first economy soak had 5 townsfolk deaths across all twelve towns in 15 days: towns are smaller since arrivals
   became the player's choice, and raids scale with the town. The owner asked for all three: **raids bite small towns**
-  (`RAID_BUDGET_BASE` 18, was 12; `RAID_BUDGET_PER_DAY` 3, was 2; `KILLING_BLOW` 0.45, was 0.3), **bolder parties**
+  (`RAID_BUDGET_BASE` 18, was 12; `RAID_BUDGET_PER_DAY` 3, was 2; `KILLING_BLOW` 0.45, was 0.3; and, since a probe
+  showed small towns' raids downing nobody at all, every budget times `RAID_BITE` and every raider's blow times
+  `RAID_FEROCITY`, both 1.4: at 1.6 a settlers' town fell to one person, at 1.3 four towns lost five), **bolder parties**
   (`DARE` 1.15 and `DARE_BOLD` 0.8, were 1.6 and 1.1; out at `FIT_HP` 0.75, was 0.9), and **more and deadlier
   disasters** (`DOOM_FIRST_DAY` 4, was 5; `DOOM_EVERY_DAYS` 4 to 7, was 6 to 10; `PLAGUE_SPREAD` 0.06, was 0.04;
   `PLAGUE_HP_PER_HOUR` 1.6, was 1.2). **Every town has an adventurer early** (`ADVENTURER_WANTED` in data/ambitions.ts):
   while none is in town, the next grown-up whose ambition is settled takes to the road (never the founder), so a
   settlers' founding companion is one.
+- **The care of the hurt is researched (the owner's ask):** a research effect `care` (`heal`, `bleed`, `feet` in
+  `data/research.ts`; `careHeal`, `careBleed`, `careFeet` in `researchMods`) read by `knockDown` (how long the downed
+  have before they bleed out) and `heal` (the healing pace, and the share of health the downed get up at) in
+  `sim/health.ts`. Herbalism (+15% healing) and Physick (+25%) now do what they promised (Physick's "Faster healing" had
+  no effect behind it), and six topics are new: Bonesetting and Field Dressing (Stone Age), Barber-Surgeons and
+  Convalescence (Medieval), Antiseptics (Industrial), Triage (Modern). Tests: `test/care.test.ts`.
 
 ## Known problem (fixed, watch)
 

@@ -97,6 +97,11 @@ export const RAID_INTERVAL_HOURS = 30;
 export const RAID_INTERVAL_MIN = 14;
 export const RAID_INTERVAL_JITTER = 6;
 /** Strength budget: base + per day survived + per 25 points of wealth (stock units, 5 per building). */
+/** Every raid's budget is multiplied by this (the owner's call: deaths should be common, and small towns since arrivals
+ *  became the player's choice drew raids of two or three beasts that never downed anyone). */
+export const RAID_BITE = 1.4;
+/** Raiders' blows land this much harder, in town and on the battle map (with RAID_BITE: raids that down people). */
+export const RAID_FEROCITY = 1.4;
 export const RAID_BUDGET_BASE = 18;
 export const RAID_BUDGET_PER_DAY = 3;
 export const RAID_BUDGET_PER_WEALTH = 1 / 25;

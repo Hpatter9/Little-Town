@@ -34,6 +34,10 @@ export interface Modifiers {
   /** The wait before a power can be called again, and how long its effect lasts, as multipliers. */
   powerRecharge: number;
   powerLasts: number;
+  /** The care of the hurt: healing pace, bleeding-out time, and the share of health the downed get up at. */
+  careHeal: number;
+  careBleed: number;
+  careFeet: number;
 }
 
 /** Combined effects of every finished topic. */
@@ -51,6 +55,9 @@ export function modifiers(r: Pick<ResearchState, 'done'>): Modifiers {
     quality: 0,
     powerRecharge: 1,
     powerLasts: 1,
+    careHeal: 1,
+    careBleed: 1,
+    careFeet: 1,
   };
   for (const id of r.done) {
     for (const e of TOPIC_BY_ID[id]?.effects ?? []) {
@@ -88,6 +95,11 @@ export function modifiers(r: Pick<ResearchState, 'done'>): Modifiers {
         case 'powers':
           m.powerRecharge *= e.recharge;
           m.powerLasts *= e.lasts ?? 1;
+          break;
+        case 'care':
+          m.careHeal *= e.heal ?? 1;
+          m.careBleed *= e.bleed ?? 1;
+          m.careFeet *= e.feet ?? 1;
           break;
         case 'eraCapstone':
           break;

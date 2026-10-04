@@ -18,7 +18,7 @@ import { ringGate } from './ringWall';
 import { fireAt, speedOf } from './defenses';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
-import { RAID_KIND_BY_ID, THROW_RANGE } from '../data/raids';
+import { RAID_KIND_BY_ID, THROW_RANGE, RAID_FEROCITY } from '../data/raids';
 import { TILE } from '../constants';
 import type { Rng } from '../rng';
 import { footprint } from './buildings';
@@ -915,7 +915,7 @@ function strikeUnit(s: GameState, r: Raid, rd: Raider, u: BattleUnit, rng: Rng, 
   const a = r.raiders.find((q) => q.id === u.ally);
   if (!a) return;
   const def = ENEMIES[rd.kind];
-  if (rng.next() < def.accuracy - ENEMIES[a.kind].dodge) hurt(a, rng.int(def.damage[0], def.damage[1]) * (rd.might ?? 1), s);
+  if (rng.next() < def.accuracy - ENEMIES[a.kind].dodge) hurt(a, rng.int(def.damage[0], def.damage[1]) * (rd.might ?? 1) * RAID_FEROCITY, s);
 }
 
 /** A raider has got to the end of the trail: it's through, into the town (raids.ts takes it on from the town's edge). */
