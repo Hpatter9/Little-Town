@@ -75,6 +75,28 @@ const BASE_FROM: Partial<Record<string, [Patch, number]>> = { marsh: ['leaf', 0.
 /** How likely each of a cell's two patch slots is filled. */
 const PATCH_SHARE: Partial<Record<string, number>> = { grass: 0.22, forest: 0.4, marsh: 0.45, hill: 0.3, fertile: 0.35, sand: 0.18, rock: 0.25 };
 
+/** How far (px) the borders between kinds of ground wander from the cells' edges, so the land doesn't read as squares. */
+const WARP = 11;
+/** The size (px) of the borders' wiggles. */
+const WARP_SCALE = 14;
+
+/** Smooth value noise over world px (0..1), the same across chunks. */
+function smooth(seed: number, x: number, y: number, scale: number): number {
+  const gx = x / scale;
+  const gy = y / scale;
+  const ix = Math.floor(gx);
+  const iy = Math.floor(gy);
+  const fx = gx - ix;
+  const fy = gy - iy;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const a = hash(seed, ix, iy);
+  const b = hash(seed, ix + 1, iy);
+  const c = hash(seed, ix, iy + 1);
+  const d = hash(seed, ix + 1, iy + 1);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}
+
 /** A quick deterministic hash of a point (0..1). */
 export function hash(seed: number, x: number, y: number): number {
   let h = (seed * 374761393 + x * 668265263 + y * 2147483647) | 0;
@@ -86,6 +108,23 @@ export function hash(seed: number, x: number, y: number): number {
 export function visibility(m: LandMap, x: number, y: number): 0 | 1 | 2 {
   const d = Math.hypot(x - m.camp.x, y - m.camp.y);
   return d <= m.open ? 2 : d <= m.open + FOG_BAND ? 1 : 0;
+}
+
+/** The plain colour under a kind of ground's patches (null for the kinds painted their own way). */
+let softSeason = 'summer';
+let softBlight = false;
+function softBase(kind: string): string | null {
+  if (kind === 'water' || kind === 'shallows') return null;
+  const blighted = softBlight && softSeason !== 'winter';
+  const patch = (blighted ? BLIGHT_PATCH : PATCH_OF[softSeason])?.[kind];
+  if (!patch) return null;
+  const pal = PALETTES[softSeason] ?? SUMMER;
+  const from = blighted ? BLIGHT_FROM[kind] : BASE_FROM[kind];
+  return BASE_OWN[kind] ? (pal[kind as 'sand' | 'rock'] as [string, string])[0] : from ? groundUnder(from[0], from[1]) : groundUnder(patch);
+}
+function rgb(c: string): number[] {
+  if (c.startsWith('#')) return [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+  return c.match(/\d+/g)!.slice(0, 3).map(Number);
 }
 
 /** A key for what a chunk shows (painted again when it changes). */
@@ -123,10 +162,62 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
   const y0 = cy * CHUNK;
   const seed = (cx * 73 + cy * 151) | 0;
   const pack = groundDetailReady();
+  softSeason = season;
+  softBlight = blight;
   const rect = (x: number, y: number, w: number, h: number, c: string) => {
     g.fillStyle = c;
     g.fillRect(x, y, w, h);
   };
+  // the plain ground under the pack's patches, laid first for the whole chunk: each pixel takes the colour of the
+  // cell at a point nudged by smooth noise, so where two kinds of ground meet the border wanders (only between kinds
+  // painted this way: water, the mountain and the halls keep their cells' edges)
+  const bases = new Map<string, number[] | null>();
+  const water = rgb(pal.water[0]);
+  const shore = rgb(pal.water[1]);
+  const softAt = (x: number, y: number): number[] | null => {
+    if (x < 0 || y < 0 || x >= m.w || y >= m.h || visibility(m, x, y) === 0) return null;
+    const kind = groundAt(m, x, y);
+    let c = bases.get(kind);
+    if (c === undefined) {
+      const b = pack ? (kind === 'water' ? pal.water[0] : softBase(kind)) : null;
+      c = kind === 'water' ? (pack ? water : null) : b ? rgb(b) : null;
+      bases.set(kind, c);
+    }
+    return c;
+  };
+  // the colour at a world pixel: its cell's, or the cell's at a point nudged by smooth noise (null: not laid here)
+  const warped = (wx: number, wy: number): number[] | null => {
+    const own = softAt(Math.floor(wx / CELL), Math.floor(wy / CELL));
+    if (!own) return null;
+    const ux = wx + (smooth(0x51, wx, wy, WARP_SCALE) - 0.5) * 2 * WARP;
+    const uy = wy + (smooth(0x77, wx, wy, WARP_SCALE) - 0.5) * 2 * WARP;
+    return softAt(Math.floor(ux / CELL), Math.floor(uy / CELL)) ?? own;
+  };
+  if (pack) {
+    const img = g.createImageData(size, size);
+    const d = img.data;
+    const landAt = (wx: number, wy: number) => {
+      const c = warped(wx, wy);
+      return !!c && c !== water;
+    };
+    for (let py = 0; py < size; py += 2)
+      for (let px = 0; px < size; px += 2) {
+        const wx = x0 * CELL + px;
+        const wy = y0 * CELL + py;
+        let c = warped(wx, wy);
+        if (!c) continue;
+        // (the water lighter where it meets the land, and here and there a glint)
+        if (c === water && (landAt(wx - 2, wy) || landAt(wx + 2, wy) || landAt(wx, wy - 2) || landAt(wx, wy + 2) || landAt(wx, wy - 4) || hash(seed, wx, wy) < 0.04)) c = shore;
+        for (let k = 0; k < 4; k++) {
+          const i = ((py + (k >> 1)) * size + px + (k & 1)) * 4;
+          d[i] = c[0];
+          d[i + 1] = c[1];
+          d[i + 2] = c[2];
+          d[i + 3] = 255;
+        }
+      }
+    g.putImageData(img, 0, 0);
+  }
   for (let dy = 0; dy < CHUNK; dy++)
     for (let dx = 0; dx < CHUNK; dx++) {
       const x = x0 + dx;
@@ -155,15 +246,15 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         // the pack's ground: a plain colour with its patches, and on the grass its tufts, flowers and pebbles
         const blighted = blight && season !== 'winter';
         const patch = (blighted ? BLIGHT_PATCH : PATCH_OF[season]!)[kind]!;
-        const from = blighted ? BLIGHT_FROM[kind] : BASE_FROM[kind];
-        const base = BASE_OWN[kind] ? (pal[kind as 'sand' | 'rock'] as [string, string])[0] : from ? groundUnder(from[0], from[1]) : groundUnder(patch);
-        rect(px, py, CELL, CELL, base);
+        // (the plain ground is already laid, warped at the borders, above)
         for (let k = 0; k < 2; k++)
           if (hash(seed ^ (71 + k), x, y) < (PATCH_SHARE[kind] ?? 0.3)) {
             const n = Math.floor(hash(seed ^ (81 + k), x, y) * 4);
-            const ox = Math.floor(hash(seed ^ (91 + k), x, y) * 12) - 2;
-            const oy = Math.floor(hash(seed ^ (101 + k), x, y) * 12) - 2;
-            drawPatch(g, patch, n, px + Math.max(0, ox), py + Math.max(0, oy));
+            const ox = Math.floor(hash(seed ^ (91 + k), x, y) * 16) - 4;
+            const oy = Math.floor(hash(seed ^ (101 + k), x, y) * 16) - 4;
+            // (the blobs at a half to four-fifths of their size: a big one would swamp a cell)
+            const sc = 0.45 + hash(seed ^ (103 + k), x, y) * 0.35;
+            drawPatch(g, patch, n, px + ox, py + oy, sc, size);
           }
         if (kind === 'grass' || kind === 'hill') {
           const r = hash(seed ^ 111, x, y);
@@ -241,13 +332,16 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
             break;
           }
           case 'water': {
-            cell(px, py, pal.water[0], pal.water[1], 0.05);
-            // (lighter where it meets the land, not the shallows)
             const edge = (ox: number, oy: number) => !wet(groundAt(m, x + ox, y + oy));
-            if (edge(0, -1)) rect(px, py, CELL, 3, pal.water[1]);
-            if (edge(0, 1)) rect(px, py + CELL - 3, CELL, 3, pal.water[1]);
-            if (edge(-1, 0)) rect(px, py, 3, CELL, pal.water[1]);
-            if (edge(1, 0)) rect(px + CELL - 3, py, 3, CELL, pal.water[1]);
+            // (once the pack has loaded the water is laid above, its shore wandering with the land's borders)
+            if (!pack) {
+              cell(px, py, pal.water[0], pal.water[1], 0.05);
+              // (lighter where it meets the land, not the shallows)
+              if (edge(0, -1)) rect(px, py, CELL, 3, pal.water[1]);
+              if (edge(0, 1)) rect(px, py + CELL - 3, CELL, 3, pal.water[1]);
+              if (edge(-1, 0)) rect(px, py, 3, CELL, pal.water[1]);
+              if (edge(1, 0)) rect(px + CELL - 3, py, 3, CELL, pal.water[1]);
+            }
             // the bottom seen through the shallows: weed, shells and stones faint under the water along the shore
             // (the sea's things, so on the coast only; the set's first two, the drowned statues, are left out)
             const sea = biome === 'coast' ? propImage('sea') : null;
@@ -288,12 +382,21 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         const grassy = kind === 'grass' || kind === 'forest' || kind === 'marsh' || kind === 'hill';
         drawRoadCell(g, px, py, ROAD_BY_ERA[era], grassy && season !== 'winter', (dx, dy) => isRoad(m, x + dx, y + dy));
       }
-      // beyond the open land the ground fades into the dark, further out the darker
-      if (vis === 1) {
-        const d = Math.hypot(x - m.camp.x, y - m.camp.y) - m.open;
-        rect(px, py, CELL, CELL, `rgba(8, 10, 18, ${(0.3 + 0.55 * Math.min(1, d / FOG_BAND)).toFixed(2)})`);
-      }
     }
+  // beyond the open land the ground fades into the dark, smoothly (by each 4px block's own distance, not the cell's),
+  // further out the darker, black by the band's end
+  const cx0 = (m.camp.x + 0.5) * CELL;
+  const cy0 = (m.camp.y + 0.5) * CELL;
+  const near = Math.hypot(x0 * CELL + size / 2 - cx0, y0 * CELL + size / 2 - cy0) / CELL - m.open;
+  if (near > -CHUNK)
+    for (let py = 0; py < size; py += 4)
+      for (let px = 0; px < size; px += 4) {
+        const d = Math.hypot(x0 * CELL + px + 2 - cx0, y0 * CELL + py + 2 - cy0) / CELL - m.open;
+        if (d <= -0.5) continue;
+        // (fully dark before the band's last cells end, so the unseen cells' square edge never shows)
+        const a = Math.min(1, 0.15 + 0.85 * Math.max(0, (d + 0.5) / (FOG_BAND - 0.3)));
+        rect(px, py, 4, 4, a >= 1 ? '#0b0d14' : `rgba(8, 10, 18, ${a.toFixed(2)})`);
+      }
   // (the desert's sand under everything: the dunes' own grain)
   void biome;
   return Texture.from(canvas);

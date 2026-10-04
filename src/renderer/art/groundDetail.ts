@@ -60,20 +60,11 @@ const BANDS: Record<Patch, { band: number; side: 'l' | 'r'; colour: string }> = 
   sand: { band: 3, side: 'r', colour: '#c5b997' },
   peat: { band: 4, side: 'r', colour: '#7c7538' },
 };
-/** The shapes in a band (x, y within the band, w, h), the ones that fit inside a cell: left side in the first band
- *  (the rest sit 16px further right), right side the same in every band. */
-const LEFT: [number, number, number, number][] = [
-  [32, 48, 32, 25],
-  [80, 49, 32, 30],
-  [37, 70, 21, 10],
-  [117, 48, 11, 16],
-];
-const RIGHT: [number, number, number, number][] = [
-  [154, 10, 29, 29],
-  [160, 48, 32, 20],
-  [208, 56, 32, 16],
-  [172, 77, 8, 3],
-];
+/** The shapes in a band (x, y within the band, w, h) that stand alone as patches: the round blobs (left side in the first band; the rest sit 16px further right; right side the same in every band). The sheet's
+ *  other shapes are edge pieces (a square with a hole, an arch, a fringe with a straight side): laid loose they read
+ *  as squares on the ground, so they're left out. */
+const LEFT: [number, number, number, number][] = [[19, 3, 43, 43]];
+const RIGHT: [number, number, number, number][] = [[154, 10, 29, 29]];
 const BAND_H = 96;
 const BAND_Y0 = 16;
 
@@ -85,8 +76,9 @@ export function groundUnder(p: Patch, darken = 0.14): string {
   return `rgb(${v(1)}, ${v(3)}, ${v(5)})`;
 }
 
-/** Draw one of a kind's patches (`n` picks which) with its top-left at (x, y). False until the sheet has loaded. */
-export function drawPatch(g: CanvasRenderingContext2D, kind: Patch, n: number, x: number, y: number): { w: number; h: number } | null {
+/** Draw one of a kind's patches (`n` picks which) with its top-left at (x, y), at `scale`, kept inside a canvas of
+ *  `room` px (so a chunk's edge never cuts one off straight). Null until the sheet has loaded. */
+export function drawPatch(g: CanvasRenderingContext2D, kind: Patch, n: number, x: number, y: number, scale = 1, room = Infinity): { w: number; h: number } | null {
   const im = images.get(groundGrass);
   if (!im) return null;
   const b = BANDS[kind];
@@ -94,8 +86,12 @@ export function drawPatch(g: CanvasRenderingContext2D, kind: Patch, n: number, x
   const s = shapes[((n % shapes.length) + shapes.length) % shapes.length];
   const sx = s[0] + (b.side === 'l' && b.band ? 16 : 0);
   const sy = BAND_Y0 + b.band * BAND_H + s[1];
-  g.drawImage(im, sx, sy, s[2], s[3], x, y, s[2], s[3]);
-  return { w: s[2], h: s[3] };
+  const w = Math.max(4, Math.round(s[2] * scale));
+  const h = Math.max(4, Math.round(s[3] * scale));
+  const dx = Math.max(0, Math.min(x, room - w));
+  const dy = Math.max(0, Math.min(y, room - h));
+  g.drawImage(im, sx, sy, s[2], s[3], dx, dy, w, h);
+  return { w, h };
 }
 
 /** The Fields pack's small things on the grass: a tuft, a flower or a pebble (`n` picks which), its middle at (x, y). */

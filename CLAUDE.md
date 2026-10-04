@@ -1276,6 +1276,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Pinching leaves the clock bar alone (the owner's complaint):** while two fingers are down `mobile.ts` scales only the
   strip's map canvas (`body > canvas` in the strip iframe), about the point between the fingers; the HUD stays put. On
   release the strip is laid out again at the new zoom as before.
+- **Ground without squares (the owner's complaint):** `paintChunk` lays the plain ground for the whole chunk first, a
+  2px block at a time, each taking the colour of the cell at a point nudged by smooth noise (`smooth`, `WARP` 11 px,
+  `WARP_SCALE` 14), so where grass meets forest, rock, loam or water the border wanders; water joins in, with a pale
+  shoreline where the warped water meets land (`softBase`, `warped`). Only the pack sheet's round blobs are used as
+  patches (`LEFT`/`RIGHT` in groundDetail.ts: its square-with-a-hole, arch and fringe shapes are edge pieces, and laid
+  loose they were the squares), drawn at 0.45 to 0.8 size and kept inside the chunk (`drawPatch`'s `room`). The fog
+  beyond the open land is per 4px block by its own distance, black by the band's end, so its edge is round. The
+  strip's HUD keeps its on-screen size at every zoom (`--ui-zoom` is `1 / z`; it only counter-scaled when zoomed out,
+  so a big pinch grew the clock bar).
 - **Roads run edge to edge (done; the owner's ask):** `connectRoad` finds its way four ways (`PathOpts.four` in
   `findPath`: no diagonal steps, since the road tiles join along their edges) and `squareRoads` gives any diagonal step in
   an older road a cell beside it. Test in `test/land.test.ts`.
