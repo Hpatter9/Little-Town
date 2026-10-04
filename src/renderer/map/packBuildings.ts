@@ -25,9 +25,6 @@ import crate from '../art/village/crate.png';
 import lantern from '../art/village/lantern.png';
 import sign from '../art/village/sign.png';
 
-import camp1 from '../art/village/camp1.png';
-import camp2 from '../art/village/camp2.png';
-import camp4 from '../art/village/camp4.png';
 import box1 from '../art/village/box1.png';
 import box2 from '../art/village/box2.png';
 import log1 from '../art/village/log1.png';
@@ -180,10 +177,16 @@ const PICKS: Record<string, Pick> = {
   weapon_store: { parts: [[gbShop, 0, 0], [vSignSword, 2, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
   armour_store: { parts: [[gbShop, 0, 0], [vSignShield, 2, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
   apothecary_shop: { parts: [[gbShop, 0, 0], [gbBarrels, 80, 120]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
-  // the Fields pack's camp: a small tent for the lean-to, a wide one for the hide tent, the long one for the longhouse
-  lean_to: { own: true, url: camp2, overhang: 2, variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4, smoke: [[29, 1]] } }] },
-  hide_tent: { own: true, url: camp1, variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[38, 2]] } }] },
-  longhouse: { own: true, url: camp4, overhang: 10, variants: [{ styles: NOMAD, pick: { url: rockyYurt1, overhang: 8, smoke: [[39, 1]] } }] },
+  // the first homes: the nomads' tipis and yurts; everyone else's are the top-down painter's huts and the longhouse
+  // (the owner's call: tents are a nomad thing, not a settler's house). `styles` NOMAD alone, so the rest get no pick.
+  lean_to: { styles: new Set(NOMAD), url: rockyTipi2, overhang: 4, smoke: [[29, 1]] },
+  hide_tent: { styles: new Set(NOMAD), url: rockyTipi1, overhang: 4, smoke: [[38, 2]] },
+  longhouse: { styles: new Set(NOMAD), url: rockyYurt1, overhang: 8, smoke: [[39, 1]] },
+  // the great halls: the Glassblower pack's big house for the elder lodge and the town hall (the painter's hall shape
+  // was clunky), its shop with the shield sign for the trophy hall
+  elder_lodge: { parts: [[gbHouse, 0, 0], [gbSignpost, 2, 112], [gbBarrels, 104, 118]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
+  town_hall: { parts: [[gbHouse, 0, 0], [gbCrates, 120, 122]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
+  trophy_hall: { parts: [[gbShop, 0, 0], [vSignShield, 2, 118], [gbCrates, 84, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
   // the stockpile: crates and logs heaped together
   stockpile: { parts: [[log3, 2, 14], [box1, 10, 4], [box2, 28, 8], [log1, 44, 6], [box1, 62, 10], [box2, 76, 2]], size: [96, 28], overhang: 0 },
   // the Village pack's palisade stakes and gate

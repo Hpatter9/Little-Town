@@ -379,7 +379,7 @@ export function askVisitor(s: GameState, who: string, trained: string): void {
 }
 export const VISITOR_OPTIONS = ['Take them in', 'Send them on'];
 /** Game hours between one wanderer at the gate and the next (a town whose gates are free has no such wait). */
-export const VISIT_GAP_HOURS = 24;
+export const VISIT_GAP_HOURS = 48;
 
 /** Days of food in store a head (a newcomer's question defaults to no when it's under one). */
 function foodPerHead(s: GameState): number {

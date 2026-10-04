@@ -1091,9 +1091,12 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   /** Someone side-on (their own look, as in the town), feet at (x, y); walking, or standing. */
   function person(x: number, y: number, look: Look, walking: boolean, left: boolean, phase: number, tier = 1): void {
     oval(x, y, 5, 1.5, 'rgba(0,0,0,0.28)');
+    // (standing, they breathe and shift their weight, like everyone on the map: nobody is frozen)
+    if (!walking) y -= Math.sin(phase * 1.1) > 0.55 ? 1 : 0;
+    const fidget = !walking && (phase * 1000) % 4300 < 160 ? 1 : 0;
     const top = y - (FEET_Y - HEAD_Y) * SCALE; // (the top of the head)
     if (lpcLoaded) {
-      const f = walking ? 1 + (Math.floor(phase * 10) % (FRAME_COUNT.walk - 1)) : 0;
+      const f = walking ? 1 + (Math.floor(phase * 10) % (FRAME_COUNT.walk - 1)) : fidget;
       const s = FRAME_SIZE * SCALE;
       g.save();
       g.translate(Math.round(x), Math.round(y));

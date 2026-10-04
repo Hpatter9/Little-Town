@@ -1347,7 +1347,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   is a question (`askVisitor` in townsfolk.ts: a prompt of kind `visitor`, "Take them in" / "Send them on",
   `answerVisitor`), and the Townsfolk card has the same two buttons; the planner no longer lets them in itself
   (`planVisitor`), except where the gates are free (`freeJoin` in an origin's rules: the nomads' horde). Wanderers come no
-  oftener than `VISIT_GAP_HOURS` (24) apart (`s.lastVisit`). Left unanswered till their wait is up, they're let in while the
+  oftener than `VISIT_GAP_HOURS` (48) apart (`s.lastVisit`; the owner wants arrivals few and far between, so people are known by name). Left unanswered till their wait is up, they're let in while the
   stores hold a day's food a head (`foodPerHead`; the prompt's default, applied by `updateVisitor`), so a town whose
   player is away still grows; else they're sent on. Otherwise people come by events, prisoners won over,
   and birth.
@@ -1422,6 +1422,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Tapping one shows its card under the tree (`selected` in researchPanel.ts, in `researchKey`); the tree opens scrolled
   to the town's era and keeps its scroll after that (`scrollX`). The CSS is in panel.html (`.tree-*`, `.tn`). The
   Hide row is gone from the tab (`HidePrefs` stays for Build and Crafting).
+
+- **Nobody stands frozen (done; the owner's ask):** `idleBreath`/`idleFidget` in `map/mapPeople.ts`: anyone standing
+  (the walk's first frame, not fighting) rises a pixel on a slow breath and shifts their weight now and then (a step
+  frame for a moment), each on their own clock by id; the venue windows' keepers and browsers do the same (`person` in
+  shopPanel.ts). Founders and the fighting callings already had the hero sheets' idle animations.
+- **Homes without tents (done; the owner's call):** the Fields pack's camp tents are gone from the lean-to, hide tent
+  and longhouse (the nomads keep their tipis and yurts: those picks are `styles` NOMAD only); every other look draws them
+  with the top-down painter's house. The elder lodge and the town hall are the Glassblower pack's big house (the lodge
+  with the signpost and barrels, the hall with crates) and the trophy hall its shop with the shield sign, in the base
+  and knights looks; the painter's `hall` shape stays for the other origins.
 
 ## Known problem (fixed, watch)
 

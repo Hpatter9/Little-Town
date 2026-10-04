@@ -18,6 +18,16 @@ import { glowTexture } from '../town/layer';
 import { TAIL_H, TAIL_W, tailTexture, WAIST } from '../art/merTail';
 import { hash01, lineNow, makeBubble, REPLY_AFTER, SPEECH_EVERY, SPEECH_FOR, SPEECH_SHARE, TALK_NEAR, type SpeechContext } from './speech';
 
+/** Standing still, a person breathes (a pixel's rise every couple of seconds) and shifts their weight now and then
+ *  (a step frame for a moment every few seconds), each on their own clock, so nobody looks frozen. */
+export function idleBreath(now: number, id: number): number {
+  return Math.sin(now / 900 + id * 1.7) > 0.55 ? 1 : 0;
+}
+export function idleFidget(now: number, id: number): number {
+  const t = (now / 1000 + id * 2.3) % (4 + (id % 3));
+  return t < 0.18 ? 1 : t > 2.2 && t < 2.36 ? 8 : 0;
+}
+
 const EMOTE_EVERY = 11;
 const EMOTE_FOR = 3;
 const PILLAR_SCALE = 2;
@@ -291,7 +301,9 @@ export class MapPeople {
       const founder = d.view.founderCalling;
       const k = (d.view.growsUpIn !== null ? CHILD_SCALE : 1) * (d.view.look.height ?? 1) * (founder ? FOUNDER_SCALE : 1);
       s.scale.set(flip ? -k : k, k);
-      s.position.set(Math.round(x), Math.round(y));
+      // (nobody standing is frozen: a breath's rise and fall, and now and then a shift of weight: idleFidget)
+      const breath = anim === 'walk' && frame === 0 && !fighting ? idleBreath(now, d.view.id) : 0;
+      s.position.set(Math.round(x), Math.round(y) - breath);
       s.zIndex = z;
       const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : null;
       s.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
@@ -482,7 +494,7 @@ export class MapPeople {
       case 'sleep':
         return ['hurt', FRAME_COUNT.hurt - 1];
       default:
-        return ['walk', 0];
+        return ['walk', idleFidget(now, d.view.id)];
     }
   }
 
