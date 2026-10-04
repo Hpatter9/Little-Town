@@ -13,7 +13,7 @@ import { renderTownsfolk, townsfolkKey } from './townsfolkPanel';
 import { renderTrade, tradeKey } from './tradePanel';
 import { renderAlerts } from './alertsPanel';
 import { renderNewGame } from './newGamePanel';
-import { renderShop, shopKey } from './shopPanel';
+import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { applyTheme, currentTheme, panelLabel } from '../theme';
 
 declare global {
@@ -52,7 +52,7 @@ function render(): void {
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'
                   ? 't2' + tradeKey(snap)
-                  : shown === 'shop' || shown === 'tavern'
+                  : isVenuePanel(shown)
                     ? shown + shopKey(snap, shown)
                   : shown === 'newgame'
                     ? 'n' + !!snap.gameOver
@@ -60,7 +60,7 @@ function render(): void {
   if (key === renderedKey) return;
   renderedKey = key;
   const tab = PANELS.find((p) => p.id === shown);
-  title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'newgame' ? 'New town' : shown === 'shop' || shown === 'tavern' ? (snap?.[shown]?.name ?? (shown === 'shop' ? 'Shop' : 'Tavern')) : '');
+  title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'newgame' ? 'New town' : isVenuePanel(shown) ? (venueView(snap, shown)?.name ?? (shown === 'shop' ? 'Shop' : shown === 'tavern' ? 'Tavern' : 'Shop')) : '');
   const scroll = body.scrollTop;
   if (snap && shown === 'journal') {
     // fetched separately: the whole journal is too big to send with every snapshot
@@ -79,7 +79,7 @@ function render(): void {
   else if (snap && shown === 'crafting') body.replaceChildren(...renderCrafting(snap, bridge, render));
   else if (snap && shown === 'trade') body.replaceChildren(...renderTrade(snap, bridge));
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
-  else if (snap && (shown === 'shop' || shown === 'tavern')) body.replaceChildren(...renderShop(snap, shown));
+  else if (snap && isVenuePanel(shown)) body.replaceChildren(...renderShop(snap, shown));
   else if (snap && shown === 'newgame') body.replaceChildren(...renderNewGame(snap, bridge));
   else body.replaceChildren(el('p', 'empty', 'Loading…'));
   body.scrollTop = scroll;

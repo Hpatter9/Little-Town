@@ -150,7 +150,7 @@ test('rebuilt bigger, the shop keeps its furnishings, and what no longer fits go
   const sim = new Sim(plainGame('shop-grow'));
   const s = sim.state;
   const shop = addBuilding(s, 'trading_post', camp(s).x + 3);
-  shop.shop = { pieces: [{ item: 'plank_shelf', x: 0, y: 0 }, { item: 'crate_stand', x: 5, y: 3 }] };
+  shop.shop = { started: true, pieces: [{ item: 'plank_shelf', x: 0, y: 0 }, { item: 'crate_stand', x: 5, y: 3 }] };
   shop.def = 'general_store'; // (as if the upgrade just finished: 8 x 5, the counter further along)
   shop.shop.pieces.push({ item: 'crate_stand', x: 5, y: 1 }); // (right where the bigger shop's counter now stands)
   for (let k = 0; k < 2 * TICKS_PER_HOUR; k++) sim.step();

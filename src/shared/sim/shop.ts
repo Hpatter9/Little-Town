@@ -81,6 +81,8 @@ import {
 } from '../data/shop';
 import { WORTH } from '../data/trade';
 import { LINES, SHOP_LINES, type ShopLine } from '../data/stores';
+import { DECOR_APPEAL, DECOR_COST, DECOR_LEVELS, DECOR_MAX, DECOR_OF_NATURE, DECOR_STYLES, STARTERS } from '../data/decor';
+import { natureOf } from '../data/natures';
 import { biomeOf } from '../data/biomes';
 import { randomLook } from '../data/people';
 import type { Rng } from '../rng';
@@ -256,7 +258,7 @@ export function pieceAppeal(p: ShopPiece): number {
 export function appeal(b: Building): number {
   const byItem = new Map<string, number[]>();
   for (const p of b.shop?.pieces ?? []) byItem.set(p.item, [...(byItem.get(p.item) ?? []), pieceAppeal(p)]);
-  let n = BUILDING_BY_ID[b.def].floor?.appeal ?? 0;
+  let n = (BUILDING_BY_ID[b.def].floor?.appeal ?? 0) + decorLevel(b) * DECOR_APPEAL;
   for (const list of byItem.values()) list.sort((x, y) => y - x).forEach((a, i) => (n += a / 2 ** i));
   return Math.round(n);
 }
@@ -381,6 +383,54 @@ export function improve(s: GameState, b: Building, p: ShopPiece): boolean {
   p.level = (p.level ?? 1) + 1;
   const name = ITEM_BY_ID[p.item].name;
   log(s, b, p.level === 2 ? `The ${name} was built up a second tier (${price} coins).` : `The ${name} was polished and trimmed in brass (${price} coins).`);
+  return true;
+}
+
+/* ------------------------------------------------------------ the basic furnishings, and the keeper's décor */
+
+/** A venue opens with a few plain pieces (data/decor.ts STARTERS), set out once, where the keeper would put them. */
+function furnishStarters(b: Building): void {
+  const shop = (b.shop ??= { pieces: [] });
+  if (shop.started) return;
+  shop.started = true;
+  for (const id of STARTERS[b.def] ?? []) {
+    const item = ITEM_BY_ID[id];
+    if (!item?.furnish) continue;
+    const spot = spotFor(b, item);
+    if (spot) shop.pieces.push({ item: id, ...spot, q: COMMON });
+  }
+}
+
+/** The keeper, once there is one, decides how the place will be dressed: the direction their nature takes
+ *  (data/decor.ts DECOR_OF_NATURE). It's settled then: a later keeper keeps it. */
+function decideDecor(s: GameState, b: Building): void {
+  const shop = (b.shop ??= { pieces: [] });
+  if (shop.decor) return;
+  const keeper = operatorOf(s, b.def);
+  if (!keeper) return;
+  const style = DECOR_STYLES[DECOR_OF_NATURE[natureOf(keeper).id]];
+  shop.decor = { style: style.id, level: 0 };
+  log(s, b, `${keeper.name} has a plan for the place: ${style.name.toLowerCase()}, with ${style.line}. The town pays for it as it can.`);
+}
+
+export const decorLevel = (b: Pick<Building, 'shop'>) => b.shop?.decor?.level ?? 0;
+/** What the next step of the décor costs, or null when it's finished (or nobody has decided a direction yet). */
+export function decorPrice(s: GameState, b: Building): number | null {
+  const d = b.shop?.decor;
+  if (!d || d.level >= DECOR_MAX) return null;
+  return Math.round(DECOR_COST[d.level] * PURSE_SCALE[s.era]);
+}
+/** Pay for the next step of the décor. */
+export function redecorate(s: GameState, b: Building): boolean {
+  const price = decorPrice(s, b);
+  const d = b.shop?.decor;
+  if (!d || price === null || (s.coins ?? 0) < price) return false;
+  s.coins = (s.coins ?? 0) - price;
+  earn(s, 'venues', -price);
+  d.level++;
+  const step = DECOR_LEVELS[d.level - 1];
+  log(s, b, `${step.name}: ${step.text}, in the ${DECOR_STYLES[d.style].name.toLowerCase()} style (${price} coins).`);
+  notify(s, `The ${BUILDING_BY_ID[b.def].name} is finer: ${step.text} (${price} coins).`, true);
   return true;
 }
 
@@ -529,6 +579,8 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
     if (b.status !== 'done' || !venueOfDef(b.def)) continue;
     if (s.tick % TICKS_PER_HOUR === 0) {
       settle(s, b);
+      furnishStarters(b);
+      decideDecor(s, b);
       setOut(s, b);
     }
     if (s.tick % TICKS_PER_DAY === 0 && b.shop) {

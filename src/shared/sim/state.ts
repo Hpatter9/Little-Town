@@ -2,6 +2,7 @@
 // commands from the same state must always produce the same result.
 
 import type { ShopLine } from '../data/stores';
+import type { DecorId } from '../data/decor';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
 import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
@@ -104,7 +105,18 @@ export interface Building {
   /** Venues (a shop or a tavern): the furnishings set out on the floor, extensions bought with coins (each makes the
    *  floor bigger), its renown, what customers asked for and didn't find (fading day by day), the tiers of customer
    *  it has drawn, and what's happened there lately (newest last). */
-  shop?: { pieces: ShopPiece[]; extensions?: number; renown?: number; asked?: Record<string, number>; seen?: number[]; log?: { tick: number; text: string }[] };
+  shop?: {
+    pieces: ShopPiece[];
+    extensions?: number;
+    renown?: number;
+    asked?: Record<string, number>;
+    seen?: number[];
+    log?: { tick: number; text: string }[];
+    /** The basic furnishings have been set out (data/decor.ts STARTERS). */
+    started?: boolean;
+    /** The décor direction its keeper chose, and how far it has been taken (data/decor.ts). */
+    decor?: { style: DecorId; level: number };
+  };
 }
 
 export interface ShopPiece {

@@ -1370,6 +1370,48 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   ground (mapHerds recomputes the box); the tap card says the head against the room, or that it's waiting to be stocked.
   Test in `test/livestock.test.ts`.
 
+- **The town's size is the player's (done; the owner's ask):** `s.popTarget` (`setTownSize` command; the Plan tab's
+  Town size row: `TOWN_SIZES` 5, 10, 20, 40 or no limit; `snapshot.townSize`). `townFull` (state.ts) gates every door in:
+  wanderers at the gate, travellers asking to settle, events' newcomers, rescues and captives freed, prisoners won
+  over, quest and rival joiners, the pack's survivors, the raise-dead and assemble powers, the changeling, and births.
+  A town kept under `RAID_SMALL_TOWN` (20) draws raids whose day-by-day growth is scaled down (`raidBudget`).
+- **Couples and children:** `updateSocial` measured only x-distance (the old strip); it measures both ways now, and
+  `WARM_PER_HOUR` is 1.2 (was 0.6) within `NEAR_PX` 6 cells, since a town that takes few newcomers grows by birth. The
+  planner scores Family Life +40 once the town is 4 strong (it wasn't learned by day 15 at the slower research pace).
+  Probe: a couple by day 10, two children by day 13.
+- **Skills and levels run to 100 (done; the owner's call):** `MAX_SKILL` 100 (`SKILL_KNEE` 20, then each level costs
+  `SKILL_STEEPNESS` 1.06 more; `skillSpeed` saturates past 15), `MAX_LEVEL` 100 (`LEVEL_STEEP` 40, `LEVEL_STEEPNESS`
+  1.08), `STAGE_LEVELS` [1, 12, 30, 55, 85]. **The high grades are very rare:** `rollQuality` applies `GRADE_LUCK`
+  from Rare up (0.5, 0.4, 0.3, 0.25, 0.15, compounding), and `typicalQuality`/`rollPlus` scale by the 100-point skill,
+  so a level-20 crafter makes Common and Uncommon work.
+- **Five shops (done; the owner's ask):** `src/shared/data/stores.ts`: beside the general store's chain, a Furniture
+  Maker, Weapons Store, Armour Store and Apothecary Shop (`STORE_BUILDINGS`, merged into BUILDINGS; `floor.line` is
+  what each sells: `ShopLine`; `LINES` has each one's banner, keeper title and colours). `isShop` is the general store
+  only; `lineOfDef`, `lineOfItem`, `LINE_ITEMS` in data/shop.ts. In sim/shop.ts: `storeOf`/`storeOpen`; each store
+  draws its own customers (`arrive(..., line)`, `s.nextStoreTick`, `Traveller.line`, `lineWant`: a `line` want or gear
+  of the line), serves only its line and never buys; with a Weapons or Armour Store open the general store's
+  customers come for tools instead. The planner builds one of each once the general store stands and the town is
+  `STORE_PEOPLE` (6) strong, furnishes them, keeps `LINE_STOCK` (3) of each line made from spare materials, and spends
+  on them like any venue. `snapshot.stores` (`ShopView.line`, `.stock`, `.stockMats`: what's on show); the windows are
+  panels `store_<line>` (`STORE_PANELS` in ipc.ts; `venuePanel` in main.ts opens them, the Trade tab has a button
+  each). On the map every venue hangs a **banner** out front (`bannerOf` in packBuildings.ts: a pole and cloth in the
+  shop's colours with its emblem). **Exteriors from the pack:** the Glassblower's Workshop pack's shop fronts
+  (`src/renderer/art/shops/`: the big red-roofed house for the inn, tavern and emporium; the smaller shop for the
+  trading post, general store and the four stores, with its barrels, crates and signpost at the door).
+- **Inside the venues (done; the owner's ask):** every venue opens with basic furnishings (`STARTERS` in
+  `src/shared/data/decor.ts`, set out once by `furnishStarters`; `b.shop.started`). The keeper decides a **décor
+  direction** from their nature (`DECOR_OF_NATURE` → `DECOR_STYLES`: rustic, cosy, stately, austere, opulent, garden,
+  sombre, festive; `decideDecor`, `b.shop.decor`), and the town pays for it in five steps (`DECOR_LEVELS`: painted
+  walls, rugs, hangings, lamps, fine trim; `DECOR_COST`, `DECOR_APPEAL` each; `decorPrice`/`redecorate`; `planShop`
+  takes the décor before polishing single pieces). The panel (`shopPanel.ts`) paints it: the walls in the style, a
+  runner from the door and a rug before the counter, curtains and a hanging, sconces lit after dark, trim; the
+  stores' own rooms (`storeRoom` from `LINES`) with the **stock on show** (`display`: a pegboard of weapons, armour on
+  stands, the apothecary's shelves of jars and hung herbs, the furniture maker's long table, the general store's
+  crates and shelf; icons through `iconSpot`/`materialIconSpot`). **The inn's rooms are down a hallway:** the guest
+  wing (`wing()`, `ROOM_W`, `ROOM_D`) stands beside the common room, a doorway cut in its side wall onto a hall with
+  each room's door open on it, a window, its bed and sleeper; the storey upstairs is gone (beds still sit at `UPSTAIRS`
+  -1 with x the room). Tests: `test/shop.test.ts`.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

@@ -5,15 +5,20 @@
 // looks it suits (the base town and the knights). Until a picture has loaded, the code-drawn one stands.
 
 import { CanvasSource, Texture } from 'pixi.js';
+import { lineOfDef, venueOfDef } from '../../shared/data/shop';
+import { LINES } from '../../shared/data/stores';
 import { CELL } from '../../shared/sim/land';
 import { loadImage } from '../art/loadImage';
 import { FINE, type PixelArt } from '../art/pixelArt';
 import house1 from '../art/village/house1.png';
+import gbHouse from '../art/shops/gb_house.png';
+import gbShop from '../art/shops/gb_shop.png';
+import gbSignpost from '../art/shops/gb_signpost.png';
+import gbBarrels from '../art/shops/gb_barrels.png';
+import gbCrates from '../art/shops/gb_crates.png';
 import house2 from '../art/village/house2.png';
 import house4 from '../art/village/house4.png';
-import tent1 from '../art/village/tent1.png';
 import tent2 from '../art/village/tent2.png';
-import tent3 from '../art/village/tent3.png';
 import barrel from '../art/village/barrel.png';
 import cart from '../art/village/cart.png';
 import crate from '../art/village/crate.png';
@@ -162,11 +167,19 @@ const NOMAD = ['nomads', 'nomads_city'];
 const PICKS: Record<string, Pick> = {
   cottage: { url: house1, styles: TIMBER, smoke: [[22, 7]], lamps: [[81, 51], [39, 85], [81, 85]], variants: [{ styles: NOMAD, pick: { url: rockyYurt2, overhang: 6, smoke: [[40, 1]] } }] },
   rowhouse: { url: house2, styles: TIMBER, smoke: [[26, 31]], lamps: [[80, 74], [110, 74], [132, 74], [37, 106], [80, 106]], variants: [{ styles: NOMAD, pick: { parts: [[rockyYurt1, 0, 0], [rockyYurt2, 84, 4]], size: [164, 82], overhang: 6, smoke: [[39, 1], [124, 5]] } }] },
-  fireside_inn: { url: house4, styles: TIMBER, smoke: [[61, 10]], lamps: [[97, 87], [114, 122]] },
-  tavern: { url: house4, styles: TIMBER, smoke: [[61, 10]], lamps: [[97, 87], [114, 122]] },
-  trading_post: { url: tent1, styles: TIMBER },
+  // the shops and the tavern: the Glassblower's Workshop pack's shop fronts (the big red-roofed house with its chimney
+  // for the inn and the emporium, the smaller shop for the rest), with the pack's barrels, crates and signpost at the
+  // door; each venue's banner is hung out front by `packDressing`
+  fireside_inn: { parts: [[gbHouse, 0, 0], [gbBarrels, 104, 118]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
+  tavern: { parts: [[gbHouse, 0, 0], [gbBarrels, 104, 118], [gbSignpost, 2, 112]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
+  trading_post: { url: gbShop, styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
   market: { url: tent2, styles: TIMBER },
-  general_store: { url: tent3, styles: TIMBER },
+  general_store: { parts: [[gbShop, 0, 0], [gbCrates, 2, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
+  emporium: { parts: [[gbHouse, 0, 0], [gbCrates, 120, 122], [gbBarrels, 2, 118]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
+  furniture_store: { parts: [[gbShop, 0, 0], [gbCrates, 84, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
+  weapon_store: { parts: [[gbShop, 0, 0], [vSignSword, 2, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
+  armour_store: { parts: [[gbShop, 0, 0], [vSignShield, 2, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
+  apothecary_shop: { parts: [[gbShop, 0, 0], [gbBarrels, 80, 120]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
   // the Fields pack's camp: a small tent for the lean-to, a wide one for the hide tent, the long one for the longhouse
   lean_to: { own: true, url: camp2, overhang: 2, variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4, smoke: [[29, 1]] } }] },
   hide_tent: { own: true, url: camp1, variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[38, 2]] } }] },
@@ -414,11 +427,96 @@ export interface Dressing {
 
 const dressTex = new Map<string, Texture>();
 
+/* ------------------------------------------------------------ the venues' banners */
+
+const BANNER_W = 16;
+const BANNER_H = 36;
+const banners = new Map<string, Texture>();
+/** A venue's banner: a pole with a cloth hanging from its crossbar in the shop's colours, with its emblem on it (a
+ *  sword, a shield, a chair, a bottle; scales for the general store, a tankard for the tavern). Null for anything
+ *  that isn't a venue. */
+function bannerOf(def: string): Texture | null {
+  const line = lineOfDef(def);
+  const venue = venueOfDef(def);
+  if (!venue) return null;
+  const kind = line ?? venue;
+  let tex = banners.get(kind);
+  if (tex) return tex;
+  const l = line ? LINES[line] : null;
+  const cloth = l ? l.cloth : venue === 'tavern' ? 0x6a3a22 : 0x2e6a3a;
+  const trim = l ? l.trim : venue === 'tavern' ? 0xf0d080 : 0xf0e0a0;
+  const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
+  const c = document.createElement('canvas');
+  c.width = BANNER_W;
+  c.height = BANNER_H;
+  const g = c.getContext('2d')!;
+  const px = (x: number, y: number, w: number, h: number, col: string) => {
+    g.fillStyle = col;
+    g.fillRect(x, y, w, h);
+  };
+  px(1, 0, 2, BANNER_H, '#4a2e1a'); // the pole
+  px(1, 0, 1, BANNER_H, '#6a4428');
+  px(0, 1, 13, 2, '#4a2e1a'); // the crossbar
+  px(4, 3, 10, 20, hex(cloth)); // the cloth
+  px(4, 3, 10, 1, hex(trim));
+  px(4, 3, 1, 20, hex(trim));
+  px(13, 3, 1, 20, hex(trim));
+  px(4, 23, 4, 2, hex(cloth)); // the swallowtail
+  px(10, 23, 4, 2, hex(cloth));
+  px(4, 25, 3, 1, hex(cloth));
+  px(11, 25, 3, 1, hex(cloth));
+  const e = hex(trim);
+  switch (kind) {
+    case 'weapons': // a sword
+      px(8, 7, 2, 11, e);
+      px(6, 15, 6, 1, e);
+      px(8, 18, 2, 2, '#a07030');
+      break;
+    case 'armour': // a shield
+      px(6, 8, 6, 6, e);
+      px(7, 14, 4, 2, e);
+      px(8, 16, 2, 1, e);
+      px(8, 9, 1, 5, hex(cloth));
+      break;
+    case 'furniture': // a chair
+      px(6, 8, 2, 10, e);
+      px(6, 13, 6, 2, e);
+      px(10, 15, 2, 4, e);
+      px(6, 17, 1, 2, e);
+      break;
+    case 'medicine': // a bottle
+      px(8, 7, 2, 2, e);
+      px(7, 9, 4, 2, e);
+      px(6, 11, 6, 7, e);
+      px(7, 13, 2, 3, hex(cloth));
+      break;
+    case 'tavern': // a tankard
+      px(6, 9, 5, 9, e);
+      px(11, 11, 2, 5, e);
+      px(12, 12, 1, 3, hex(cloth));
+      px(6, 8, 5, 1, '#f8f8f0');
+      break;
+    default: // scales
+      px(8, 7, 2, 10, e);
+      px(5, 9, 8, 1, e);
+      px(4, 12, 3, 2, e);
+      px(11, 12, 3, 2, e);
+      px(6, 17, 6, 1, e);
+  }
+  tex = Texture.from(c);
+  tex.source.scaleMode = 'nearest';
+  banners.set(kind, tex);
+  return tex;
+}
+
 /** What stands by a building `w` cells wide (its picture from the pack) with this id, or nothing yet. */
 export function packDressing(def: string, id: number, w: number, style: string): Dressing[] {
-  const pick = pickFor(def, style);
-  if (!pick || pick.styles !== TIMBER) return [];
   const out: Dressing[] = [];
+  // (every shop and tavern hangs its banner out front, by the door, whatever the look: the owner's ask)
+  const banner = bannerOf(def);
+  if (banner) out.push({ texture: banner, dx: (w * CELL) / 2 - BANNER_W - 10, dy: 1, w: BANNER_W, h: BANNER_H });
+  const pick = pickFor(def, style);
+  if (!pick || pick.styles !== TIMBER) return out;
   const corners: [number, number][] = [
     [-2, 0],
     [w * CELL + 2, 0],

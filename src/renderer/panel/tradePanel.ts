@@ -1,6 +1,8 @@
 // Trade panel: the way into the shop and the tavern (once built), the caravan's deals (while one is at the market) and
 // the town's horses.
 
+import { storePanel } from '../../shared/ipc';
+const STORE_MARKS: Record<string, string> = { furniture: '🪑', weapons: '⚔️', armour: '🛡️', medicine: '⚗️' };
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import { HORSE_HP } from '../../shared/data/trade';
 import type { Bridge } from '../../shared/ipc';
@@ -23,9 +25,10 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
 
   // (once built: a way in to see them, besides tapping them in the town)
   const venues = (['shop', 'tavern'] as const).filter((v) => s[v]);
-  if (venues.length) {
+  if (venues.length || s.stores.length) {
     const row = el('div', 'venue-row');
     for (const v of venues) row.append(button(`${v === 'shop' ? '🛒' : '🍺'} ${s[v]!.name}`, () => bridge?.openPanel(v)));
+    for (const st of s.stores) row.append(button(`${STORE_MARKS[st.line!]} ${st.name}`, () => bridge?.openPanel(storePanel(st.line!))));
     out.push(row);
   }
 

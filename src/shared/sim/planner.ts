@@ -37,7 +37,7 @@ import { tireless, addStock, campCell, poolSize, type Building, type GameState }
 import { calendar, TICKS_PER_HOUR } from './time';
 import { LINE_ITEMS, lineOfDef, COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
-import { attractiveness, extend, extensionPrice, furnishValue, improve, levelPrice, SALE_GEAR, shopOf, spotFor, storeOf, tavernOf, venueKind, wouldFurnish } from './shop';
+import { attractiveness, decorPrice, redecorate, extend, extensionPrice, furnishValue, improve, levelPrice, SALE_GEAR, shopOf, spotFor, storeOf, tavernOf, venueKind, wouldFurnish } from './shop';
 import { gearScore } from './crafting';
 
 /* ------------------------------------------------------------ the town's direction */
@@ -982,7 +982,13 @@ function planShop(s: GameState): void {
       if (spare >= ext) extend(s, venue);
       continue; // (saving up for it)
     }
+    // (the keeper's décor comes before polishing single pieces, while it's the cheaper of the two)
     const cheapest = (venue.shop?.pieces ?? []).filter((p) => levelPrice(p) !== null).sort((a, b) => levelPrice(a)! - levelPrice(b)!)[0];
+    const decor = decorPrice(s, venue);
+    if (decor !== null && (!cheapest || decor <= levelPrice(cheapest)! * 1.5)) {
+      if (spare >= decor) redecorate(s, venue);
+      continue; // (saving up for it)
+    }
     if (cheapest && spare >= levelPrice(cheapest)!) improve(s, venue, cheapest);
   }
 }

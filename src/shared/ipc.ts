@@ -8,8 +8,12 @@ export type StripMode = 'full' | 'minimal';
 
 /** 'alerts' and 'newgame' are opened from the tray (or the game-over card), and 'shop' and 'tavern' (their bird's-eye
  *  views) by tapping them in town, not from the dock. */
-export type PanelId = 'build' | 'research' | 'expeditions' | 'townsfolk' | 'crafting' | 'trade' | 'journal' | 'alerts' | 'newgame' | 'shop' | 'tavern';
-export const PANEL_IDS: readonly PanelId[] = ['build', 'research', 'expeditions', 'townsfolk', 'crafting', 'trade', 'journal', 'alerts', 'newgame', 'shop', 'tavern'];
+export type PanelId = 'build' | 'research' | 'expeditions' | 'townsfolk' | 'crafting' | 'trade' | 'journal' | 'alerts' | 'newgame' | 'shop' | 'tavern' | StorePanelId;
+/** The specialty shops' windows (data/stores.ts): `store_` and the line. */
+export type StorePanelId = 'store_furniture' | 'store_weapons' | 'store_armour' | 'store_medicine';
+export const STORE_PANELS: readonly StorePanelId[] = ['store_furniture', 'store_weapons', 'store_armour', 'store_medicine'];
+export const storePanel = (line: string): StorePanelId => `store_${line}` as StorePanelId;
+export const PANEL_IDS: readonly PanelId[] = ['build', 'research', 'expeditions', 'townsfolk', 'crafting', 'trade', 'journal', 'alerts', 'newgame', 'shop', 'tavern', ...STORE_PANELS];
 
 export const PANELS: readonly { id: PanelId; label: string }[] = [
   { id: 'build', label: 'Plan' }, // (the town's plan: it builds for itself)

@@ -30,7 +30,10 @@ import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
 import { blueprintCount, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, Snapshot, TravellerView } from '../shared/sim/snapshot';
-import { venueOfDef } from '../shared/data/shop';
+import { lineOfDef, venueOfDef } from '../shared/data/shop';
+import { storePanel, type PanelId } from '../shared/ipc';
+/** The window a venue's building opens (the shop, the tavern, or a specialty shop's). */
+const venuePanel = (def: string): PanelId | undefined => (lineOfDef(def) ? storePanel(lineOfDef(def)!) : venueOfDef(def));
 import { buildingTint } from './theme';
 
 /** A traveller, drawn like a townsperson (they're only passing through: most of a person's details don't apply). */
@@ -587,7 +590,7 @@ async function start(): Promise<void> {
         if (!b) return null;
         const list = buildingActions(b, inspectMenu, (m) => ((inspectMenu = m), publishInspect()), () => inspectTarget(null));
         const actions = list.map((a, i) => act(`b${i}`, a.label, a.onClick, { danger: a.danger }));
-        const venue = venueOfDef(b.def);
+        const venue = venuePanel(b.def);
         if (venue && inspectMenu === 'main') actions.unshift(act('venue', 'Look inside…', () => bridge.openPanel(venue), { primary: true }));
         return { title: d.title, lines: d.lines, actions };
       }
@@ -749,8 +752,8 @@ async function start(): Promise<void> {
     const h = hitTest(x, y);
     // the shop or tavern (or a stranger on their way to one) opens its bird's-eye window
     const tapped = h?.kind === 'person' ? snap.travellers.find((t) => t.id === h.person.id) : undefined;
-    const venue = h?.kind === 'building' ? venueOfDef(snap.buildings.find((b) => b.id === h.id)?.def ?? '') : tapped?.venue;
-    if (venue && snap[venue]) bridge.openPanel(venue);
+    const venue = h?.kind === 'building' ? venuePanel(snap.buildings.find((b) => b.id === h.id)?.def ?? '') : tapped ? (tapped.line ? storePanel(tapped.line) : tapped.venue) : undefined;
+    if (venue) bridge.openPanel(venue);
     if (phone) return inspectTarget(h); // (the phone's top card shows it, and holds its buttons)
     if (tapped) return;
     if (h?.kind === 'pane') return bridge.openPanel('expeditions');

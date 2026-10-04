@@ -19,7 +19,7 @@ import { turnable, undeadShare } from './turning';
 import { FULL_MOON_PHASE, moonPhaseOf, nightDay } from './monsters';
 import { weatherAt, type WeatherNow } from './weather';
 import { directionOf, forSale, shoppingList, type Direction, type TownPlan } from './planner';
-import { appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect, trophyRenown } from './shop';
+import { decorPrice, appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect, trophyRenown } from './shop';
 import { moneyTown, wageBill } from './wages';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
@@ -34,6 +34,7 @@ const themeOf = (s: GameState): ThemeId => (s.lich ? 'lich' : !s.origin || s.ori
 import { itemUnlocked, qualitiesOf } from './crafting';
 import { FARE, furnishes, LINE_ITEMS, lineOfDef, MAX_EXTENSIONS, temperOf, tierOf, venueOfDef, WARES } from '../data/shop';
 import { LINES, SHOP_LINES, type ShopLine } from '../data/stores';
+import { DECOR_LEVELS, DECOR_MAX, DECOR_STYLES, type DecorId } from '../data/decor';
 import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../data/items';
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
@@ -423,6 +424,8 @@ export interface ShopView {
    *  general store, its wares and spare gear), each quality once, and (the general store) materials spare to sell. */
   stock: { item: string; q: number; n: number }[];
   stockMats: { m: Material; n: number }[];
+  /** The keeper's décor direction (data/decor.ts): the style, how far it's taken, what the next step is and costs. */
+  decor: { style: DecorId; name: string; line: string; level: number; max: number; next: { name: string; price: number } | null; by: string | null } | null;
   building: number;
   def: string;
   name: string;
@@ -482,6 +485,8 @@ export interface TravellerView {
   name: string;
   kind: string;
   venue: 'shop' | 'tavern';
+  /** A specialty shop's customer: its line. */
+  line: ShopLine | null;
   /** What they came for, in words, their temper, and the coins they have to spend. */
   wants: string;
   temper: string;
@@ -691,7 +696,7 @@ export function snapshot(s: GameState): Snapshot {
     powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
     lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
-    travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
+    travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', line: t.line ?? null, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
     tick: s.tick,
     paused: s.paused,
     calendar: calendar(s.tick),
@@ -880,6 +885,17 @@ function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): Sho
     venue,
     line: line ?? null,
     stock: shown.flatMap((i) => [...new Set(qualitiesOf(s, i.id))].map((q) => ({ item: i.id, q, n: qualitiesOf(s, i.id).filter((x) => x === q).length }))).slice(0, 40),
+    decor: b.shop?.decor
+      ? {
+          style: b.shop.decor.style,
+          name: DECOR_STYLES[b.shop.decor.style].name,
+          line: DECOR_STYLES[b.shop.decor.style].line,
+          level: b.shop.decor.level,
+          max: DECOR_MAX,
+          next: decorPrice(s, b) !== null ? { name: DECOR_LEVELS[b.shop.decor.level].name, price: decorPrice(s, b)! } : null,
+          by: keeper?.name ?? null,
+        }
+      : null,
     stockMats: venue === 'shop' && !line ? (Object.entries(dealsCache!.forSale) as [Material, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([m, n]) => ({ m, n })) : [],
     building: b.id,
     def: b.def,

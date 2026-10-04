@@ -3,7 +3,7 @@
 
 import type { IconSheet, ItemDef } from '../../shared/data/items';
 import type { Material } from '../../shared/data/materials';
-import { itemIcon } from './icons';
+import { iconSpot, itemIcon } from './icons';
 import alloys from './materials/alloys.png';
 import bricks from './materials/bricks.png';
 import clay from './materials/clay.png';
@@ -87,6 +87,14 @@ const CELLS: Partial<Record<Material, ItemDef['icon']>> = {
   ...Object.fromEntries((['wood', 'fiber', 'lumber', 'cloth', 'oil', 'fuel', 'plastic', 'electronics', 'circuits', 'power_cells', 'totem', 'pearls', 'blood'] as const).map((m) => [m, { sheet: 'Custom' as IconSheet, x: 0, y: 0, name: `mat_${m}` }])),
   wool: { sheet: 'Custom', x: 0, y: 0, name: 'wool' },
 };
+
+/** Where a material's picture is, for drawing on a canvas: its own file (`whole`), or a cell of an icon sheet. */
+export function materialIconSpot(m: Material): { url: string; sx: number; sy: number; whole: boolean } | null {
+  const own = URLS[m];
+  if (own) return { url: own, sx: 0, sy: 0, whole: true };
+  const icon = CELLS[m];
+  return icon ? iconSpot({ icon }) : null;
+}
 
 /** Any material's picture, `size` pixels square: its own icon, else a borrowed one (null if neither). */
 export function stockIcon(m: Material, size = 16): HTMLElement | null {
