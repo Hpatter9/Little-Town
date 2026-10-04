@@ -5,7 +5,7 @@ import { trail } from '../src/shared/sim/battle';
 import { footprint } from '../src/shared/sim/buildings';
 import { inRect } from '../src/shared/sim/land';
 import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
-import { gateCells, isGate, isRingPiece, RING_PAD, RING_STEP, ringCells, wantRect } from '../src/shared/sim/ringWall';
+import { gateAt, gateCells, gateTurned, isGate, isRingPiece, RING_PAD, RING_STEP, ringCells, wantRect } from '../src/shared/sim/ringWall';
 import { campCell, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { pathTo } from '../src/shared/sim/walk';
 import { CELL } from '../src/shared/sim/land';
@@ -66,6 +66,15 @@ test('the planner raises the ring all round, townsfolk get out through its gates
   const open = ringCells(r).filter((p) => !covered(p));
   assert.equal(open.length, 0, `gaps at ${JSON.stringify(open)}`);
   assert.ok(pieces.filter((b) => isGate(b.def)).length >= 2, 'gates');
+  // the west and east gates stand turned, down the column, covering two ring cells each
+  for (const g of s.ring!.gates.filter((p) => gateTurned(r, p))) {
+    const at = gateAt(r, g);
+    const gate = pieces.find((b) => isGate(b.def) && b.tile === at.x && b.row === at.y);
+    assert.ok(gate?.turned, `a turned gate at ${JSON.stringify(at)}`);
+    const f = footprint(gate!);
+    assert.deepEqual([f.w, f.h], [1, 2]);
+    assert.ok(covered({ x: at.x, y: at.y + 1 }), 'the cell below is the gate too');
+  }
   assert.ok(pieces.every((b) => b.status === 'done'));
   // out through a gate: a way from the camp to beyond the wall
   const c = campCell(s);

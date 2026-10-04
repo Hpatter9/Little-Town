@@ -505,6 +505,7 @@ export class MapView {
    *  (undefined for anything but a wall, so other pictures are untouched). */
   private wallJoin(b: Building): Join | undefined {
     const def = BUILDING_BY_ID[b.def];
+    if (b.turned && def?.hp) return 'v'; // (a gate standing down a column)
     if (!def?.hp || def.width !== 1 || def.defense) return undefined;
     const wallAt = (x: number, y: number) => this.simBuildings.some((o) => o !== b && !!BUILDING_BY_ID[o.def]?.hp && !BUILDING_BY_ID[o.def]?.defense && inRect(footprint(o), x, y));
     const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);

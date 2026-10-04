@@ -31,7 +31,7 @@ export function depthOf(def: BuildingDef): number {
 }
 
 /** A building's footprint on the land, in cells. */
-export const footprint = (b: Pick<Building, 'def' | 'tile' | 'row'>): Rect => ({ x: b.tile, y: b.row, w: defOf(b).width, h: depthOf(defOf(b)) });
+export const footprint = (b: Pick<Building, 'def' | 'tile' | 'row'> & { turned?: boolean }): Rect => ({ x: b.tile, y: b.row, w: b.turned ? depthOf(defOf(b)) : defOf(b).width, h: b.turned ? defOf(b).width : depthOf(defOf(b)) });
 /** Every building's footprint (but `except`'s). */
 export const footprints = (s: Pick<GameState, 'buildings'>, except?: Building): Rect[] => s.buildings.filter((b) => b !== except).map(footprint);
 /** Whether a cell is under a building. */
@@ -173,8 +173,8 @@ export interface PlaceCheck {
 /** Whether `def` fits with its top-left cell at (x, y): on open, buildable ground, over no road, clear of every other
  *  building (but `except`); a castle's rooms built on to the castle (over a road if need be: the floor covers it), and
  *  all else a cell clear of it. */
-export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'>, def: BuildingDef, x: number, y: number, except?: Building): PlaceCheck {
-  const r: Rect = { x, y, w: def.width, h: depthOf(def) };
+export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'>, def: BuildingDef, x: number, y: number, except?: Building, turned = false): PlaceCheck {
+  const r: Rect = { x, y, w: turned ? depthOf(def) : def.width, h: turned ? def.width : depthOf(def) };
   const m = s.land;
   const room = castleOn(s) && roomKind(s, def);
   const carved = room && holdOf(s) === 'mountain';
@@ -210,14 +210,14 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
 export const fitsAt = (m: LandMap, taken: readonly Rect[], def: BuildingDef, x: number, y: number) => fits(m, { x, y, w: def.width, h: depthOf(def) }, taken);
 
 /** Place a blueprint with its top-left cell at (x, y). Returns the reason on failure. A road is laid to its door. */
-export function placeBlueprint(s: GameState, defId: string, x: number, y: number): PlaceCheck {
+export function placeBlueprint(s: GameState, defId: string, x: number, y: number, turned = false): PlaceCheck {
   const def = BUILDING_BY_ID[defId];
   if (!def || def.never) return { ok: false, reason: 'Unknown building' };
   if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: 'Not researched yet' };
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
-  const check = canPlace(s, def, x, y);
+  const check = canPlace(s, def, x, y, undefined, turned);
   if (!check.ok) return check;
-  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}) };
+  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}), ...(turned ? { turned: true } : {}) };
   s.buildings.push(b);
   if (b.room) {
     // (no roads inside the castle: a road that ran where the room now stands is taken up; a mountain hold's room is
@@ -338,7 +338,7 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
   delete b.readyTick;
   // (a road over the new footprint is lifted; its door gets one again)
   const f = footprint(b);
-  for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (isRoad(s.land, x, y)) setRoad(s.land, x, y, false);
+  if (!isGate(b.def)) for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (isRoad(s.land, x, y)) setRoad(s.land, x, y, false); // (the road runs on under a gate)
   if (b.room) {
     // (a hold's room grows into the rock, no road to it)
     if (holdOf(s) === 'mountain') carve(s, footprint(b));

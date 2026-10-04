@@ -737,7 +737,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   piece's picture is chosen by how it joins its neighbours (`MapView.wallJoin`: along a row, down a column, a corner,
   alone; in the building's `sig`, so a piece is redrawn when a neighbour goes up): `Pick.joins` in packBuildings.ts
   gives the palisade the Village pack's post pair (`palisade24`, `palisade14`) down a column, a single post at corners
-  and a short post alone. Tests: `test/ringWall.test.ts`.
+  and a short post alone. **Gates in the wall:** a gate on the west or east run stands **turned** (`Building.turned`:
+  `footprint` swaps its width and depth; `canPlace`/`placeBlueprint` take `turned`; `gateTurned`/`gateAt` in
+  ringWall.ts cover the ring cell and the one below it), drawn from the gate pick's `joins.v`, the same parts with
+  `Pick.rotate` 90 (rotated in `pickArt`); `upgrade` keeps the road under a gate. Tests: `test/ringWall.test.ts`.
 - **Turn-based fights where stats matter (done; the owner's ask):** `src/shared/data/attributes.ts` and
   `sim/attributes.ts`: everyone has Strength, Dexterity, Vitality, Intellect and Wisdom (`Attrs`; `attributesOf(p)`:
   `ATTR_BASE` 8, a class's growth by level in its own proportions (`CLASS_ATTRS`), the work skills' part, traits, a

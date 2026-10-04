@@ -142,6 +142,8 @@ export interface Pick {
   lamps?: [number, number][];
   /** A tent or a wall: the origins with tents and walls of their own (`OWN_TENTS`) keep theirs instead. */
   own?: true;
+  /** Drawn turned a quarter clockwise (a gate standing down a column). */
+  rotate?: 90;
   /** A wall piece's picture by how it joins its neighbours (the ring wall: sim/ringWall.ts): along a row (`h`), down a
    *  column (`v`), at a corner, or standing alone (`end`); the pick itself when a join has none. */
   joins?: Partial<Record<Join, Pick>>;
@@ -179,12 +181,12 @@ const PICKS: Record<string, Pick> = {
     // (a run down a column is the pack's post pair; a corner or a lone piece a single post)
     joins: { v: { any: [palisade24, palisade14], overhang: 0 }, nw: { url: palisade19, overhang: 0 }, ne: { url: palisade19, overhang: 0 }, sw: { url: palisade19, overhang: 0 }, se: { url: palisade19, overhang: 0 }, end: { url: palisade21, overhang: 0 } },
   },
-  palisade_gate: { own: true, parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0 },
+  palisade_gate: { own: true, parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, joins: { v: { parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, rotate: 90 } } },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
   stone_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
-  stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
-  brick_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
-  concrete_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0 },
+  stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
+  brick_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
+  concrete_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
   // the dungeon props: bookshelves for the library, an alchemist's bench for the healer, a plain table for the workbench
   library: { parts: [[dprops, 0, 0, 16, 256, 48, 48], [dprops, 48, 0, 64, 256, 48, 48], [dprops, 96, 0, 112, 256, 48, 48]], size: [144, 48], overhang: 0 },
   healers_hut: { parts: [[dprops, 0, 0, 16, 304, 48, 48]], size: [48, 48], overhang: 0 },
@@ -360,15 +362,22 @@ export function pickArt(pick: Pick, w: number, key0: string, id = 0): PixelArt |
   const key = `${key0}|${w}|${pick.any ? id % pick.any.length : 0}`;
   let art = arts.get(key);
   if (!art) {
+    // (a turned picture: its source height stands across the cells)
+    const sw = pick.rotate ? src.h : src.w;
+    const sh = pick.rotate ? src.w : src.h;
     const target = w * CELL + (pick.overhang ?? OVERHANG) * 2;
-    const scale = target / src.w;
-    const width = Math.round(src.w * scale);
-    const height = Math.round(src.h * scale);
+    const scale = target / sw;
+    const width = Math.round(sw * scale);
+    const height = Math.round(sh * scale);
     const c = document.createElement('canvas');
     c.width = width * FINE;
     c.height = height * FINE;
     const g = c.getContext('2d')!;
     g.imageSmoothingEnabled = false;
+    if (pick.rotate) {
+      g.translate(c.width, 0);
+      g.rotate(Math.PI / 2);
+    }
     src.draw(g, scale * FINE);
     // (the first opaque row of each art column, for hit-testing, as the painter records it)
     const data = g.getImageData(0, 0, c.width, c.height).data;

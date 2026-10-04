@@ -95,18 +95,19 @@ export function ringCells(r: Rect): Pt[] {
 /** Which side of its ring a cell is on. */
 export const sideOf = (r: Rect, p: Pt): 'n' | 's' | 'w' | 'e' => (p.y === r.y ? 'n' : p.y === r.y + r.h - 1 ? 's' : p.x === r.x ? 'w' : 'e');
 
-/** Where a gate standing on a ring cell is placed (its top-left): a gate is two cells long, laid along the wall on
- *  the north and south sides, and across it (the ring cell and the one inside) on the west and east. */
+/** Where a gate standing on a ring cell is placed (its top-left): a gate is two cells long, laid along the wall:
+ *  across on the north and south sides, and turned (`Building.turned`) to stand down the column on the west and east. */
 export function gateAt(r: Rect, p: Pt): Pt {
   const side = sideOf(r, p);
   if (side === 'n' || side === 's') return { x: Math.min(p.x, r.x + r.w - 2), y: p.y };
-  return side === 'w' ? { x: p.x, y: p.y } : { x: p.x - 1, y: p.y };
+  return { x: p.x, y: Math.min(p.y, r.y + r.h - 2) };
 }
-/** The two ring cells a gate on the north or south side covers. */
+/** Whether a gate on a ring cell stands turned (down a column: the west and east sides). */
+export const gateTurned = (r: Rect, p: Pt) => sideOf(r, p) === 'w' || sideOf(r, p) === 'e';
+/** The two ring cells a gate covers. */
 const gateCovers = (r: Rect, g: Pt): Pt[] => {
-  const side = sideOf(r, g);
   const at = gateAt(r, g);
-  return side === 'n' || side === 's' ? [at, { x: at.x + 1, y: at.y }] : [g];
+  return gateTurned(r, g) ? [at, { x: at.x, y: at.y + 1 }] : [at, { x: at.x + 1, y: at.y }];
 };
 
 /** The ring cells that get gates: the camp's row on the west and east (raids come in there), and wherever a road
@@ -135,11 +136,11 @@ const pieceAt = (s: GameState, p: Pt): Building | undefined => {
 /** What the ring still needs: the gates first, then the walls; each with its cell to build on, or a wild cell to
  *  clear first. Cells with water, mountain or another building are left as they are (the river or a field is the
  *  wall there). */
-export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; clear: boolean }[] {
-  const out: { def: string; at: Pt; clear: boolean }[] = [];
+export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; clear: boolean; turned?: boolean }[] {
+  const out: { def: string; at: Pt; clear: boolean; turned?: boolean }[] = [];
   const m = s.land;
   const covered = new Set<number>();
-  const want = (def: string, at: Pt, cells: Pt[]) => {
+  const want = (def: string, at: Pt, cells: Pt[], turned = false) => {
     for (const c of cells) covered.add(idx(m, c.x, c.y));
     const there = cells.map((c) => pieceAt(s, c));
     if (there.some((b) => b && b.ring === ring.gen)) return;
@@ -150,10 +151,10 @@ export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; 
       out.push({ def, at: wild, clear: true });
       return;
     }
-    if (!canPlace(s, BUILDING_BY_ID[def], at.x, at.y).ok) return;
-    out.push({ def, at, clear: false });
+    if (!canPlace(s, BUILDING_BY_ID[def], at.x, at.y, undefined, turned).ok) return;
+    out.push({ def, at, clear: false, ...(turned ? { turned } : {}) });
   };
-  for (const g of ring.gates) want(ring.gate, gateAt(ring.rect, g), gateCovers(ring.rect, g));
+  for (const g of ring.gates) want(ring.gate, gateAt(ring.rect, g), gateCovers(ring.rect, g), gateTurned(ring.rect, g));
   for (const p of ringCells(ring.rect)) if (!covered.has(idx(m, p.x, p.y))) want(ring.wall, p, [p]);
   return out;
 }
@@ -208,7 +209,7 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     if (room <= 0) continue;
     const cost = BUILDING_BY_ID[piece.def].cost;
     if (Object.entries(cost).some(([m, n]) => (stock[m] ?? 0) < (n ?? 0) * RING_SPARE)) continue;
-    if (placeBlueprint(s, piece.def, piece.at.x, piece.at.y).ok) {
+    if (placeBlueprint(s, piece.def, piece.at.x, piece.at.y, !!piece.turned).ok) {
       s.buildings[s.buildings.length - 1].ring = ring.gen;
       room--;
     }

@@ -79,6 +79,9 @@ export interface Building {
   hp?: number;
   /** A piece of the town's ring wall (sim/ringWall.ts): which ring. */
   ring?: number;
+  /** Turned a quarter: its footprint is its depth wide and its width deep (a gate in the ring wall's west or east
+   *  run stands along the wall). */
+  turned?: boolean;
   /** Fields: what's in the ground. `growth` runs 0..1 while growing; `work` is sowing or harvest progress. */
   /** A field's crop. `soil`: how good the ground is (1 when left out; see SOIL in data/crops.ts). `bearing`: an
    *  orchard's trees have come into fruit. */
