@@ -12,6 +12,8 @@ export const BLOOD_PER_HEAD = 0.25;
 export const BLOOD_PER_PRISONER = 1;
 /** A vampire's feeding drinks this much from the store. */
 export const BLOOD_PER_FEED = 1;
+/** With this much blood in store the thralls are spared the tithe (the pens and the cells still give). */
+export const BLOOD_KEEP = 30;
 /** How many prisoners a blood farm's cells hold (bled daily, and hard to escape from). */
 export const FARM_CELLS = 4;
 /** Escapes from the cells are this much rarer. */

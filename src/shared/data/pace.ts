@@ -25,3 +25,5 @@ export const CHILD_DAYS = 18;
 /** Wanderers come less as a town fills, and none past this many people: a long game would swell a town past what a
  *  phone can draw, and generations should turn over, not pile up. */
 export const POP_SOFT_CAP = 60;
+/** No more children are born past this many people (a phone can only draw so many; the 200-day soaks passed 70 by day 40). */
+export const POP_HARD_CAP = 90;

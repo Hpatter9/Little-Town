@@ -701,6 +701,28 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   in a blood town), and its thralls take the fallen alive `captives` times as often (the rule in data/origins.ts, 2;
   `takePrisoners`). Tests: `test/bloodCourt.test.ts`.
 
+- **More buildings and crafting stations (done; the owner's ask):** `src/shared/data/workshops.ts`: 29 workshops, each a
+  station of its own (`WORKSHOP_BUILDINGS`, merged into BUILDINGS; their ids in the `Station` union and `STATIONS`), with
+  about 70 recipes (`WORKSHOP_ITEMS`, merged into ITEMS: wares for the shop, fare for the tavern, furnishings for either
+  venue, and material recipes) and six new topics (`WORKSHOP_TOPICS`: Jewellery, Printing, Clockwork, Canning, Household
+  Appliances, Biofabrication; the rest hang on topics the game had). By age: the smokehouse, bone carver and basket weaver
+  (Stone Age); brewery, tailor, jeweller, cooperage, apothecary, chandlery, dyeworks (Medieval); printing press,
+  clockmaker, cannery, textile mill (Industrial); appliance plant, pharmacy (Modern); biofabrication lab, nanoforge
+  (Space); and one of each people's own from the Medieval age (`origin` + `era`: the Court's blood cellar, the liches'
+  bone forge, the hold's gem cutter, the druids' bower, the merfolk's pearl works, the nomads' felt works, the fae's
+  glamour loom, the alchemists' alembic, the machines' assembler, the knights' armourer, the pack's pelt house). Three
+  comforts besides: the granary (150 storage), the theatre and the bathhouse (morale). The planner builds one of each it
+  has learned ("a new workshop") and sells their wares. Pictures: `PICKS` in packBuildings.ts (the medieval trades in the
+  pack's timber house with their gear at the door; the rest from the camp's racks and fires, the dungeon props and the
+  futuristic objects). `isUnlocked` now reads a settlers' town's missing `origin` as settlers, so another people's
+  buildings (the blood farm, the origin defences) are never theirs. Tests: `test/workshops.test.ts`.
+- **A hard cap on births:** `POP_HARD_CAP` (90, data/pace.ts): no child is born past it (wanderers already stop at
+  `POP_SOFT_CAP`); the 200-day soaks had settlers at 71 by day 40 and climbing.
+- **The Court's tithe stops at a reserve:** `BLOOD_KEEP` (30) in data/vampires.ts: with that much blood in store the
+  thralls are spared (the pens and the cells still give).
+- **A shore town knows more of its land:** `OPEN_START_SEA` (15, where a dry land opens 11) in land.ts, since half of a
+  sea-shaped land is sea. Soak (15 days): merfolk 22 people (was 18).
+
 ## Planned (owner's requests)
 
 - **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { Rng } from '../src/shared/rng';
 import { canPlace } from '../src/shared/sim/buildings';
-import { findPath, groundAt, idx, makeLand, SEA_FOOT, wet } from '../src/shared/sim/land';
+import { findPath, groundAt, idx, makeLand, OPEN_START, OPEN_START_SEA, SEA_FOOT, wet } from '../src/shared/sim/land';
 import { inSea, replenishSea, seaBuild, seaTown, swims } from '../src/shared/sim/sea';
 import { newGame } from '../src/shared/sim/state';
 import { START_HOUR, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -27,6 +27,12 @@ test('a sea-shaped land: the south half sea, shallows along the shore, the camp 
   assert.ok((m.pools[i]?.fish ?? 0) > 0, 'fish in the shallows');
   // the same seed, the same sea
   assert.equal(makeLand('tide', 'coast', 'sea').cells, m.cells);
+});
+
+test('a shore town knows its land further out than a dry one', () => {
+  assert.ok(OPEN_START_SEA > OPEN_START);
+  assert.equal(makeLand('tide', 'coast', 'sea').open, OPEN_START_SEA);
+  assert.equal(makeLand('tide', 'coast').open, OPEN_START);
 });
 
 test('the Tide Clan is a shore town on the coast whoever picked the forest; settlers are not', () => {

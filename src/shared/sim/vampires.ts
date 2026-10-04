@@ -1,6 +1,6 @@
 // The Blood Court's blood (data/vampires.ts): the tithe at dusk, the pens' and the prisoners' blood, and the vampires
 // drinking from the store.
-import { BLOOD_FARM, BLOOD_PER_FEED, BLOOD_PER_HEAD, BLOOD_PER_PRISONER, FARM_CELLS, TITHE_HOUR, TITHE_PER_THRALL } from '../data/vampires';
+import { BLOOD_FARM, BLOOD_KEEP, BLOOD_PER_FEED, BLOOD_PER_HEAD, BLOOD_PER_PRISONER, FARM_CELLS, TITHE_HOUR, TITHE_PER_THRALL } from '../data/vampires';
 import { depositNear, storages } from './buildings';
 import { isChild } from './social';
 import { addStock, campXY, notify, type GameState } from './state';
@@ -28,10 +28,12 @@ export function drinkBlood(s: GameState): boolean {
   return false;
 }
 
-/** Each dusk in a blood town: the thralls' tithe, the beasts' and the prisoners' blood go to the store. */
+/** Each dusk in a blood town: the thralls' tithe (while the store is under `BLOOD_KEEP`), the beasts' and the
+ *  prisoners' blood go to the store. */
 export function bloodHourly(s: GameState): void {
   if (!bloodTown(s) || s.tick % TICKS_PER_HOUR !== 0 || calendar(s.tick).hour !== TITHE_HOUR) return;
-  const thralls = s.people.filter((p) => p.away === null && !isChild(p) && !p.monster && !p.machine).length;
+  // Thralls are spared while the store holds enough (the Court bleeds its own only as far as it needs to).
+  const thralls = bloodInStore(s) >= BLOOD_KEEP ? 0 : s.people.filter((p) => p.away === null && !isChild(p) && !p.monster && !p.machine).length;
   const heads = s.buildings.reduce((n, b) => n + (b.status === 'done' ? (b.herd?.head ?? 0) : 0), 0);
   const bled = Math.min(s.prisoners.length, farmCells(s));
   const blood = Math.floor(thralls * TITHE_PER_THRALL + heads * BLOOD_PER_HEAD + bled * BLOOD_PER_PRISONER);

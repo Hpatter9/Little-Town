@@ -16,6 +16,8 @@ export const CELL = 32;
 export const LAND_W = 96;
 export const LAND_H = 96;
 export const OPEN_START = 11;
+/** A shore town's known land reaches further: half of it is sea, so the wild stuff is further off. */
+export const OPEN_START_SEA = 15;
 /** The camp's cleared ground, in cells from its centre. */
 export const CAMP_CLEAR = 5;
 /** At least this many cells of each wild kind lie within the open land at the start (wood, stone, clay and fiber). */
@@ -346,7 +348,7 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
     pools[i] = pool;
   });
 
-  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: OPEN_START, version: 0 };
+  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: shape === 'sea' ? OPEN_START_SEA : OPEN_START, version: 0 };
 }
 
 /* ------------------------------------------------------------ building on it */

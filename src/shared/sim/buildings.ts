@@ -65,7 +65,7 @@ export function distToBuilding(b: Pick<Building, 'def' | 'tile' | 'row'>, p: Pt)
 
 /** Whether a building can be placed: its research is done (or the debug unlock is on). */
 export function isUnlocked(u: { unlockAll: boolean; done: readonly string[]; era?: Era; origin?: OriginId }, def: BuildingDef): boolean {
-  if (def.origin && u.origin && def.origin !== u.origin) return false;
+  if (def.origin && def.origin !== (u.origin ?? 'settlers')) return false; // (a settlers' town has no `origin` set)
   if (u.unlockAll) return true;
   if (def.era && u.era && !eraReached(u.era, def.era)) return false;
   return !def.research || u.done.includes(def.research);

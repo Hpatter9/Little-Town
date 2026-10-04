@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { ITEM_BY_ID } from '../src/shared/data/items';
-import { BLOOD_PER_PRISONER, FARM_CELLS, TITHE_HOUR, TITHE_PER_THRALL } from '../src/shared/data/vampires';
+import { BLOOD_PER_PRISONER, FARM_CELLS, TITHE_HOUR, TITHE_PER_THRALL, BLOOD_KEEP } from '../src/shared/data/vampires';
 import { Rng } from '../src/shared/rng';
 import { updateMonsters } from '../src/shared/sim/monsters';
 import { updatePrisoners } from '../src/shared/sim/prisoners';
@@ -31,6 +31,13 @@ test('the Blood Court keeps the tithe from its founding, and at dusk the thralls
   const got = bloodInStore(s);
   assert.equal(got, Math.floor(thralls * TITHE_PER_THRALL + FARM_CELLS * BLOOD_PER_PRISONER), `blood ${got}`);
   assert.ok(s.journal.some((j) => /tithe/.test(j.text)));
+  // with the store full enough the thralls are spared; the cells still give
+  for (const b of s.buildings) b.store = {};
+  s.buildings[0].store.blood = BLOOD_KEEP;
+  s.tick = atHour(3, TITHE_HOUR);
+  bloodHourly(s);
+  assert.ok(bloodInStore(s) <= BLOOD_KEEP + FARM_CELLS * BLOOD_PER_PRISONER); // (the stores may be full before that)
+  assert.ok(s.journal.some((j) => /tithe: \d+ blood from 0 thralls/.test(j.text)));
   // a settlers' town has no tithe to take
   const t = newGame('plain');
   t.tick = atHour(2, TITHE_HOUR);

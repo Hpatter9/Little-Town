@@ -4,6 +4,7 @@
 // take after a parent. Losing someone close hits hard.
 
 import { natureFit, natureOf } from '../data/natures';
+import { POP_HARD_CAP } from '../data/pace';
 import { NAMES, randomLook } from '../data/people';
 import {
   CHILD_CHANCE,
@@ -138,7 +139,7 @@ function families(s: GameState, rng: Rng): void {
       continue;
     }
     const kids = s.people.filter((k) => k.parents?.includes(a.id) && k.parents.includes(b.id)).length;
-    if (a.married && kids < MAX_CHILDREN && housingCapacity(s) > s.people.length && rng.chance(CHILD_CHANCE)) welcomeChild(s, a, b, rng);
+    if (a.married && kids < MAX_CHILDREN && housingCapacity(s) > s.people.length && s.people.length < POP_HARD_CAP && rng.chance(CHILD_CHANCE)) welcomeChild(s, a, b, rng);
   }
 }
 
