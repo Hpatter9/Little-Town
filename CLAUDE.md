@@ -727,7 +727,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   force gates added to data/buildings.ts and UPGRADES). `planRing` (from `planBuilding` each pass, before the wishes)
   places the gates first, then the walls (`missingPieces`: a cell with water, mountain or another building is left as
   the wall there; wild cells are cleared first), at most `RING_AT_ONCE` (2) on the queue with a slot always left for the
-  rest, only while the stores hold `RING_SPARE` (3) times a piece's cost, none while food is under 2 days; when the town grows past the ring (`contains`) a wider one is started outside
+  rest, only while the stores hold `RING_SPARE` (3) times a piece's cost, none while food is under 2 days, and not
+  before the shop in a town that must buy what it builds with (`shopFirst`); when the town grows past the ring (`contains`) a wider one is started outside
   it (a new gen), and once the new ring stands all round (`ringComplete`) the older pieces, and the old strip's end
   walls, are demolished (half refunded). The known land is opened to the ring's corners. Townsfolk walk out through the
   gates (`blockedBy` in walk.ts and `connectRoad` let gates through; a sealed town walks straight through, as `walk`

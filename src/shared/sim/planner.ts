@@ -730,7 +730,9 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   // the ring wall round the town (sim/ringWall.ts): started once the town is a few people strong (sooner when raided or
   // set on defence), widened as it grows, a slot always left for the rest
   const grownUps = s.people.filter((p) => !isChild(p)).length;
-  clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock));
+  // (a town that can't gather what it builds with waits for its shop before it walls itself: the shop comes first)
+  const shopFirst = n.unsourced.length > 0 && !s.buildings.some((b) => isShop(b.def));
+  if (!shopFirst) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock));
   if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
   if (blueprintCount(s) >= buildSlots(s)) return clear;
   let blocked: BuildingDef | null = null;
