@@ -1269,6 +1269,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   was under the fingers stays there (the ticker's resize keeps the middle; this adds the rest). The snap below two of the
   screen's pixels allows halves (`layout()`), so the first steps aren't a doubling. The old way laid the strip out again
   on every move, snapped to whole pixels, and zoomed about the corner.
+- **New Town, a step at a time (done; the owner's ask):** `newGamePanel.ts` asks one question a page (`STEPS`: who
+  founds it, the founder, how it begins, where, how dangerous, then a summary with Found), with Back/Next in a row that
+  sticks to the bottom (`.wizard-nav`), "Step N of 6" and dots to jump back (`.wizard-dot`, left out of the theme button
+  rules). `step` is kept at module level so the panel's redraws don't lose it; founding resets it.
+- **Pinching leaves the clock bar alone (the owner's complaint):** while two fingers are down `mobile.ts` scales only the
+  strip's map canvas (`body > canvas` in the strip iframe), about the point between the fingers; the HUD stays put. On
+  release the strip is laid out again at the new zoom as before.
 - **Roads run edge to edge (done; the owner's ask):** `connectRoad` finds its way four ways (`PathOpts.four` in
   `findPath`: no diagonal steps, since the road tiles join along their edges) and `squareRoads` gives any diagonal step in
   an older road a cell beside it. Test in `test/land.test.ts`.

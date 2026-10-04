@@ -849,6 +849,65 @@
       .newgame-head:first-child {
         margin-top: 4px;
       }
+      /* the New Town steps (newGamePanel.ts): one question a page, Back and Next, and dots */
+      .wizard-step {
+        margin-top: 4px;
+        color: #a48a64;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .wizard .newgame-head {
+        margin-top: 2px;
+        font-size: 16px;
+      }
+      .wizard-nav {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 14px;
+        padding: 8px 0;
+        background: #211812;
+      }
+      .wizard-nav button {
+        flex: 1;
+        min-height: 40px;
+      }
+      .wizard-nav .found {
+        margin: 0;
+      }
+      .wizard-nav .next {
+        background: #6b4b25;
+        border-color: #c79a55;
+      }
+      .wizard-dots {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin: 12px 0 4px;
+      }
+      .wizard-dot {
+        width: 10px;
+        height: 10px;
+        min-height: 0;
+        padding: 0;
+        border-radius: 50%;
+        border: 1px solid #8a6a40;
+        background: transparent;
+      }
+      .wizard-dot.done {
+        background: #8a6a40;
+      }
+      .wizard-dot.on {
+        background: #e8c88a;
+        border-color: #e8c88a;
+      }
+      .wizard-summary {
+        margin-top: 4px;
+      }
       .card.pick .purpose {
         white-space: pre-line;
       }

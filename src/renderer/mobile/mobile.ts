@@ -119,31 +119,33 @@ strip.addEventListener('load', layout); // (for the strip's --ui-zoom)
 layout();
 
 // Two fingers pinching the town zoom it (the strip reports the pinch; the zooming happens here). While the fingers
-// are down the strip is only scaled on the screen (a CSS transform about the point between them: cheap and smooth);
-// when they lift it is laid out again at the new zoom, drawn sharp, and its view moved so what was under the fingers
-// stays there. The strip measures the fingers in its own pixels, which shrink and grow with the scale it's shown at,
-// so they're turned into screen pixels by that scale.
-let pinch: { zoom: number; z: number; screen: number; mx: number; my: number; shown: number } | null = null;
+// are down only the map's canvas inside the strip is scaled (a CSS transform about the point between them: cheap and
+// smooth), so the clock bar and the other overlays over the map stay as they are; when the fingers lift the strip is
+// laid out again at the new zoom, drawn sharp, and its view moved so what was under the fingers stays there. The strip
+// measures the fingers in its own pixels, which is what the canvas's transform is in too.
+let pinch: { zoom: number; z: number; screen: number; mx: number; my: number; k: number } | null = null;
+const mapCanvas = () => strip.contentDocument?.querySelector('body > canvas') as HTMLCanvasElement | null;
 bridge.onPinch?.((phase, spread, mx, my) => {
   if (phase === 'start') {
     const z = parseFloat(strip.style.transform.replace('scale(', '')) || zoom; // (what the strip is shown at now)
-    pinch = { zoom, z, screen: spread * z, mx, my, shown: z };
-    stripBox.classList.add('pinching'); // (the strip, scaled past its box, is clipped to it)
+    pinch = { zoom, z, screen: spread, mx, my, k: 1 };
+    const c = mapCanvas();
+    if (c) c.style.transformOrigin = '0 0';
   } else if (phase === 'move') {
     if (!pinch) return;
-    // (the fingers' spread on the screen, against where they began: how much to zoom by)
-    const k = Math.min(MAX_ZOOM / pinch.zoom, Math.max(MIN_ZOOM / pinch.zoom, (spread * pinch.shown) / pinch.screen));
-    pinch.shown = pinch.z * k;
-    // (the point between the fingers stays put: the strip grows about it)
-    const sx = pinch.mx * pinch.z;
-    const sy = pinch.my * pinch.z;
-    strip.style.transform = `translate(${sx * (1 - k)}px, ${sy * (1 - k)}px) scale(${pinch.shown})`;
+    // (the fingers' spread against where they began: how much to zoom by)
+    const k = Math.min(MAX_ZOOM / pinch.zoom, Math.max(MIN_ZOOM / pinch.zoom, spread / pinch.screen));
+    pinch.k = k;
+    // (the point between the fingers stays put: the map grows about it)
+    const c = mapCanvas();
+    if (c) c.style.transform = `translate(${pinch.mx * (1 - k)}px, ${pinch.my * (1 - k)}px) scale(${k})`;
     zoom = pinch.zoom * k;
   } else {
     if (!pinch) return;
     const { mx, my, z } = pinch;
     pinch = null;
-    stripBox.classList.remove('pinching');
+    const c = mapCanvas();
+    if (c) c.style.transform = '';
     setZoom(zoom); // (laid out again, sharp, and saved)
     const now = parseFloat(strip.style.transform.replace('scale(', '')) || zoom;
     (strip.contentWindow as (Window & { __zoomAbout?: (mx: number, my: number, from: number, to: number) => void }) | null)?.__zoomAbout?.(mx, my, z, now);
