@@ -1545,6 +1545,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   watchtowers (`art/packs/su_*.png`, shrunk from the pack's vector PNGs; `PICKS` in packBuildings.ts). Still code-drawn:
   the factory and garage, the radio tower and drone hub, and the origin halls (no pack has them).
 
+## Watch: deaths are rare again
+
+- The economy soak (one town per origin, 15 days, counting "has died" in the journal by entry): 5 townsfolk died across
+  all twelve towns (druids, dwarves and werewolves 1 each, nomads 2), and every death had its funeral. Towns are smaller
+  since arrivals became the player's choice (9 to 21 people at day 15, the lich, machine and nomad towns 28 to 47), and
+  raids scale with people, buildings and stores, so they are smaller too. A stronger raid baseline
+  (`RAID_BUDGET_BASE` 18, `RAID_BUDGET_PER_DAY` 3) was tried and changed little (3 deaths in four towns); it was left
+  out. The owner wants deaths common: this needs a decision on what should bite harder (raids on small towns, the
+  parties' daring, disease).
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be
