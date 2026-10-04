@@ -1562,8 +1562,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   the `attend` task: they walk to their place in a ring round the spot and stand there (they still eat), and the
   Townsfolk tab says where they are. Tests: `test/ceremonies.test.ts`.
 - **Step 8, art:** the windmill, the watchtower and the lookout are the Simple Summer top-down pack's windmill and timber
-  watchtowers (`art/packs/su_*.png`, shrunk from the pack's vector PNGs; `PICKS` in packBuildings.ts). Still code-drawn:
-  the factory and garage, the radio tower and drone hub, and the origin halls (no pack has them).
+  watchtowers (`art/packs/su_*.png`, shrunk from the pack's vector PNGs; `PICKS` in packBuildings.ts). Since then: the
+  factory (pipes, a transformer, a shuttered block and a tank), the garage (two shuttered bays), the radio tower (the
+  loose objects pack's lattice pylon, `sf_pylon.png`) and the drone hub (a block with a console) are picks too, and the
+  elder lodge, town hall and trophy hall have `hallVariants`: the Simple Summer stone keep for the liches and the Moon
+  Pack (`KEEP_HALL`), its crystal mage tower for the alchemists and the fae (`MAGE_HALL`). Still code-drawn: the other
+  origins' halls (the painter's `hall` shape, reclad).
 
 ## Deaths made common again (the owner's call: all three levers)
 

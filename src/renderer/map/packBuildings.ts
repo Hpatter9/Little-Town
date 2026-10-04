@@ -125,6 +125,11 @@ import sf26 from '../art/packs/sf_26.png';
 import suWindmill from '../art/packs/su_windmill.png';
 import suWatchtower from '../art/packs/su_watchtower.png';
 import suLookout from '../art/packs/su_lookout.png';
+import suCastle from '../art/packs/su_castle.png';
+import suMageTower from '../art/packs/su_magetower.png';
+import sfPylon from '../art/packs/sf_pylon.png';
+import sf27 from '../art/packs/sf_27.png';
+import sfTube4 from '../art/packs/sf_tube4.png';
 
 /** A pack picture for a building: one image, or several laid together (`parts`: image, x, y in source px, on a
  *  canvas `size`), hanging `overhang` px over the footprint each side, in the looks it suits (`styles`; none: all
@@ -164,6 +169,13 @@ const TIMBER = new Set(['town', 'settlers', 'knights']);
 const OWN_TENTS = new Set(['vampire', 'lich', 'robot', 'nomads', 'merfolk', 'nomads_city']);
 /** The nomads' looks: the rocky-area pack's tipis and yurts stand for their homes. */
 const NOMAD = ['nomads', 'nomads_city'];
+/** The looks whose halls are the Simple Summer pack's stone keep, and its crystal-crowned mage tower. */
+const KEEP_HALL = ['lich', 'werewolf'];
+const MAGE_HALL = ['alchemists', 'fae'];
+const hallVariants = (): { styles: string[]; pick: Pick }[] => [
+  { styles: KEEP_HALL, pick: { url: suCastle, overhang: 4 } },
+  { styles: MAGE_HALL, pick: { url: suMageTower, overhang: 4 } },
+];
 const PICKS: Record<string, Pick> = {
   cottage: { url: house1, styles: TIMBER, smoke: [[22, 7]], lamps: [[81, 51], [39, 85], [81, 85]], variants: [{ styles: NOMAD, pick: { url: rockyYurt2, overhang: 6, smoke: [[40, 1]] } }] },
   rowhouse: { url: house2, styles: TIMBER, smoke: [[26, 31]], lamps: [[80, 74], [110, 74], [132, 74], [37, 106], [80, 106]], variants: [{ styles: NOMAD, pick: { parts: [[rockyYurt1, 0, 0], [rockyYurt2, 84, 4]], size: [164, 82], overhang: 6, smoke: [[39, 1], [124, 5]] } }] },
@@ -187,9 +199,9 @@ const PICKS: Record<string, Pick> = {
   longhouse: { styles: new Set(NOMAD), url: rockyYurt1, overhang: 8, smoke: [[39, 1]] },
   // the great halls: the Glassblower pack's big house for the elder lodge and the town hall (the painter's hall shape
   // was clunky), its shop with the shield sign for the trophy hall
-  elder_lodge: { parts: [[gbHouse, 0, 0], [gbSignpost, 2, 112], [gbBarrels, 104, 118]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
-  town_hall: { parts: [[gbHouse, 0, 0], [gbCrates, 120, 122]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
-  trophy_hall: { parts: [[gbShop, 0, 0], [vSignShield, 2, 118], [gbCrates, 84, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
+  elder_lodge: { parts: [[gbHouse, 0, 0], [gbSignpost, 2, 112], [gbBarrels, 104, 118]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]], variants: hallVariants() },
+  town_hall: { parts: [[gbHouse, 0, 0], [gbCrates, 120, 122]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]], variants: hallVariants() },
+  trophy_hall: { parts: [[gbShop, 0, 0], [vSignShield, 2, 118], [gbCrates, 84, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]], variants: hallVariants() },
   // the stockpile: crates and logs heaped together
   stockpile: { parts: [[log3, 2, 14], [box1, 10, 4], [box2, 28, 8], [log1, 44, 6], [box1, 62, 10], [box2, 76, 2]], size: [96, 28], overhang: 0 },
   // the Village pack's palisade stakes and gate
@@ -260,6 +272,10 @@ const PICKS: Record<string, Pick> = {
   power_station: { parts: [[sf26, 0, 10], [sf24, 76, 0], [sf25, 150, 0], [sf19, 230, 30]], size: [262, 78], overhang: 0 },
   refinery: { parts: [[sf24, 0, 0], [sf25, 72, 0], [sf17, 20, 62], [sf18, 100, 64]], size: [150, 80], overhang: 0 },
   oil_derrick: { url: sf25, overhang: 0 },
+  factory: { parts: [[sfTube4, 40, 0], [sf26, 0, 28], [sf27, 68, 41], [sf24, 146, 0]], size: [214, 76], overhang: 0 },
+  garage: { parts: [[sf27, 0, 0], [sf27, 78, 0]], size: [156, 35], overhang: 0 },
+  radio_tower: { url: sfPylon, overhang: 3 },
+  drone_hub: { parts: [[sf27, 0, 10], [sf12, 48, 0]], size: [78, 45], overhang: 0 },
   battery_plant: { parts: [[sf24, 0, 0], [sf26, 72, 28]], size: [140, 76], overhang: 0 },
   electronics_plant: { parts: [[sf9, 0, 10], [sf12, 40, 10], [sf13, 70, 6], [sf14, 130, 6], [sf10, 190, 8]], size: [202, 32], overhang: 0 },
   chip_fab: { parts: [[sf15, 0, 0], [sf16, 60, 0], [sf11, 120, 8], [sf12, 136, 8], [sf9, 166, 10]], size: [202, 30], overhang: 0 },

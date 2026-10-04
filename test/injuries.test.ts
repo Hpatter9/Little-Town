@@ -76,3 +76,19 @@ test('bad wounds sometimes scar for good', () => {
   const scarred = folk.filter((p) => p.lasting?.some((l) => l.kind === 'scar')).length;
   assert.ok(scarred >= 3 && scarred < 30, `${scarred} of 30 scarred`);
 });
+
+test('what shows of the harm: a patch, a peg, a crutch and a bandage', async () => {
+  const { snapshot } = await import('../src/shared/sim/snapshot');
+  const s = plainGame('marks1');
+  const p = someone(s);
+  p.lasting = [{ part: 'eye_l', kind: 'lost' }, { part: 'leg_r', kind: 'lost' }, { part: 'leg_l', kind: 'lost' }];
+  p.fitted = { leg_r: 'peg_leg' };
+  p.wounds = [{ part: 'head', kind: 'cut', sev: 0.5, peak: 0.5 }, { part: 'arm_l', kind: 'bruise', sev: 0.1, peak: 0.1 }];
+  const v = snapshot(s).people.find((q) => q.id === p.id)!;
+  const look = (part: string) => v.body.marks.find((m) => m.part === part)?.look;
+  assert.equal(look('eye_l'), 'patch');
+  assert.equal(look('leg_r'), 'peg');
+  assert.equal(look('leg_l'), 'gone');
+  assert.equal(look('head'), 'bandage');
+  assert.equal(look('arm_l'), undefined, 'a light bruise isn\'t bandaged');
+});

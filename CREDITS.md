@@ -64,7 +64,8 @@ trade signs and its third timber house (the workshops), the Fields Tileset's log
 Top-Down Cave Objects' fire pits, crystals, carved gates, skull altar, statue and totems, the Rocky Area Objects' cave
 mouths, tipis and yurts (the nomads' homes), the Dungeon Props' glass tanks, shelves, desks, chairs and benches, the
 2D Top-Down Pixel Dungeon pack's barrel and sacks, and the loose futuristic objects pack's tanks, transformer, consoles,
-server racks and screens (the later eras' plants). The liches' and vampires' land takes the Undead Tileset's dead and
+server racks and screens (the later eras' plants), with its lattice pylon (the radio tower), shuttered block (the
+garage, the drone hub, the factory) and pipe run (the factory). The liches' and vampires' land takes the Undead Tileset's dead and
 broken trees, thorns, pale weeds, bones, skull piles, rocks and crystals as its scenery (`src/renderer/art/props/undead.png`).
 
 ## Craftpix top-down objects (the raid map's scenery)
@@ -83,7 +84,8 @@ Pixel Art packs.
 ## Craftpix windmill and watchtowers (the town)
 
 The windmill and the two timber watchtowers on the map (`src/renderer/art/packs/su_windmill.png`, `su_watchtower.png`,
-`su_lookout.png`, scaled down) are from **Craftpix.net**'s free Simple Summer Top-Down Vector Tileset, used under
+`su_lookout.png`, scaled down), and the stone keep and the crystal-crowned mage tower that stand for the halls of the
+liches, the Moon Pack, the alchemists and the fae (`su_castle.png`, `su_magetower.png`), are from **Craftpix.net**'s free Simple Summer Top-Down Vector Tileset, used under
 Craftpix's free licence (use in the game; the raw files are not redistributed).
 
 ## Craftpix parallax backgrounds (the fights' backdrops)
