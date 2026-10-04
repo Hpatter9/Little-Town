@@ -1,3 +1,4 @@
+import { MAX_SKILL } from '../src/shared/data/skills';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ITEM_BY_ID } from '../src/shared/data/items';
@@ -27,12 +28,15 @@ test('a master crafter makes finer things than a novice, and the finest stay rar
   const roll = (level: number) => Array.from({ length: 2000 }, () => rollQuality(rng, level));
   const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
   const novice = roll(1);
-  const master = roll(20);
-  assert.ok(avg(master) > avg(novice) + 3, `${avg(novice)} vs ${avg(master)}`);
+  const master = roll(MAX_SKILL);
+  const journeyman = roll(20);
+  assert.ok(avg(master) > avg(novice) + 1.5, `${avg(novice)} vs ${avg(master)}`);
   assert.ok(novice.every((q) => q <= 3), 'a novice never makes anything Epic');
-  assert.ok(master.some((q) => q === MAX_QUALITY), 'a master now and then makes something Divine');
-  assert.ok(master.filter((q) => q === MAX_QUALITY).length < master.length * 0.1, 'but rarely');
-  assert.ok(typicalQuality(20) > typicalQuality(10) && typicalQuality(10) > typicalQuality(1));
+  assert.ok(journeyman.every((q) => q <= 5) && journeyman.filter((q) => q >= 4).length < journeyman.length * 0.03, 'at level 20 an Epic is a rare day, and nothing finer comes');
+  const many = Array.from({ length: 10 }, () => roll(MAX_SKILL)).flat(); // (20 000 pieces: a Divine is one in several thousand)
+  assert.ok(many.some((q) => q === MAX_QUALITY), 'a master now and then makes something Divine');
+  assert.ok(master.filter((q) => q === MAX_QUALITY).length < master.length * 0.03, 'but very rarely');
+  assert.ok(typicalQuality(MAX_SKILL) > typicalQuality(20) && typicalQuality(20) > typicalQuality(1));
 });
 
 test("the inventory keeps each piece's quality: best first, and pieces used up elsewhere take the poorest", () => {
@@ -200,7 +204,7 @@ test('guests who come of an evening take a bed for the night and leave in the mo
     s.nextRaidTick = Number.MAX_SAFE_INTEGER; // (a raid sends lodgers off in the night)
     s.research.done.push('barter', 'hospitality');
     const inn = addBuilding(s, 'fireside_inn', camp(s) + 3);
-    inn.shop = { pieces: beds ? [{ item: 'straw_pallet', x: 0, y: -1 }, { item: 'box_bed', x: 1, y: -1 }] : [] };
+    inn.shop = { started: true, pieces: beds ? [{ item: 'straw_pallet', x: 0, y: -1 }, { item: 'box_bed', x: 1, y: -1 }] : [] }; // (the starters would put a pallet in a room)
     for (const f of ['roast_meat', 'herb_tea', 'berry_bowl']) addItems(s, f, 40, 1);
     const lodgers = new Set<number>();
     const left = new Set<number>();

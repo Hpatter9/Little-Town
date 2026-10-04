@@ -203,8 +203,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `describeEffects`). New effect kinds: `rule` (the origin levers: build, craft, travellers, prices, fight, guard,
   day, night; multiplied in by `sim/origin.ts` through the cached `researchMods`), `quality` and `powers` (recharge
   and duration, in `castPowers`). `prereqsMet`/`canQueue`/`queueResearch` take the town's origin; another origin's
-  heritage is refused (`foreignHeritage`). The Research tab's Hide toggles are kept in `localStorage`
-  (`littletown.researchHide`).
+  heritage is refused (`foreignHeritage`). (The Research tab's Hide toggles went with the tech tree: see below.)
 - **Animal husbandry (Phase 4):** pens in the background (`chicken_coop`, `goat_pen` from Domestication;
   `pig_sty`, `sheep_fold`, `cattle_pasture` from Animal Husbandry), their herds in `data/livestock.ts` (`HERDS`) and
   `sim/livestock.ts` (`b.herd`; `tendHerds` hourly: breeding, winter fodder, starving; `workPen`, tended through the
@@ -236,8 +235,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **One choice event while away:** during catch-up a choice event pauses the town (`holdForEvent` in `events.ts`:
   `s.event.held`, `s.paused`) and the catch-up stops; answering it (`answerEvent`) sets the town going. The forecast
   stops at it too (kind `event`), and its alert is always sent when alerts are on (high priority).
-- **Hide toggles:** `panel/hide.ts` (`HidePrefs`): Research, Build and Crafting each have a "Hide:" row, kept in
-  `localStorage` (`littletown.researchHide`, `buildHide`, `craftHide`).
+- **Hide toggles:** `panel/hide.ts` (`HidePrefs`): Build and Crafting each have a "Hide:" row, kept in
+  `localStorage` (`buildHide`, `craftHide`); the Research tab's went when it became a tree.
 - **Upgrades and fewer homes:** `UPGRADES` in `data/buildings.ts` (homes: lean-to or hide tent → longhouse →
   cottage → row houses → apartments → dome; research stations; healer's hut → infirmary; watchtower → radio tower →
   drone hub). `upgrade(s, back, id, absorb?)` in `sim/buildings.ts` can pull down a neighbour of the same kind and make
@@ -1411,6 +1410,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   wing (`wing()`, `ROOM_W`, `ROOM_D`) stands beside the common room, a doorway cut in its side wall onto a hall with
   each room's door open on it, a window, its bed and sleeper; the storey upstairs is gone (beds still sit at `UPSTAIRS`
   -1 with x the room). Tests: `test/shop.test.ts`.
+
+- **The tech tree (done; the owner's ask: the classic look):** `src/renderer/panel/techTree.ts` (`renderTree`), on the
+  Research tab under the queue and stations in place of the per-branch card lists. Read left to right: the eras are
+  column bands (`tree-era`, named at the top, the town's own lit, the ones ahead darkened), each split by a topic's
+  depth in its era's own chain of prerequisites (`depthOf`: one column right of its deepest same-era prerequisite), so
+  the tree branches out and gets more advanced to the right; the branches are the lanes top to bottom (`LANES`, the
+  town's heritage last, each with a name row `LANE_HEAD` that stays put as the tree scrolls); SVG curves run from each
+  prerequisite to what it opens (lit once the prerequisite is learned). Nodes (`.tn`) are green when learned, gold with
+  a progress bar when queued, lit when they can be studied next, dim when locked and fainter in an era not reached.
+  Tapping one shows its card under the tree (`selected` in researchPanel.ts, in `researchKey`); the tree opens scrolled
+  to the town's era and keeps its scroll after that (`scrollX`). The CSS is in panel.html (`.tree-*`, `.tn`). The
+  Hide row is gone from the tab (`HidePrefs` stays for Build and Crafting).
 
 ## Known problem (fixed, watch)
 

@@ -1,21 +1,20 @@
 // Research panel: what's being researched, the queue, and every topic by branch.
 
 import { BUILDINGS } from '../../shared/data/buildings';
-import { ERA_NAMES, ERAS, eraReached, nextEra } from '../../shared/data/eras';
+import { ERA_NAMES, nextEra } from '../../shared/data/eras';
 import { ITEMS } from '../../shared/data/items';
-import { BRANCH_NAMES, TOPICS, TOPIC_BY_ID, type Branch, type Topic } from '../../shared/data/research';
+import { TOPICS, TOPIC_BY_ID, type Topic } from '../../shared/data/research';
 import type { Bridge } from '../../shared/ipc';
-import { canQueue, foreignHeritage, prereqsMet } from '../../shared/sim/research';
+import { canQueue, prereqsMet } from '../../shared/sim/research';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, duration, el } from './dom';
-import { HidePrefs } from './hide';
-import { topicKnown } from './secrets';
+import { renderTree } from './techTree';
 
 /** Changes whenever something this panel shows changes (progress to the whole percent). */
 export const researchKey = (s: Snapshot) => {
   const r = s.research;
   const pct = Object.fromEntries(Object.entries(r.progress).map(([k, v]) => [k, Math.floor(v * 100)]));
-  return JSON.stringify([hide.key, s.era, s.unlockAll, r.done, r.revealed, r.queue, pct, r.slots, r.station, r.stations, r.speed, s.plan?.research]);
+  return JSON.stringify([selected, s.era, s.unlockAll, r.done, r.revealed, r.queue, pct, r.slots, r.station, r.stations, r.speed, s.plan?.research]);
 };
 
 /** Buildings and craftable items each topic unlocks, from their data. */
@@ -25,8 +24,8 @@ for (const i of ITEMS) for (const r of i.research) BUILDINGS_BY_TOPIC.set(r, [..
 
 const remaining = (s: Snapshot, t: Topic) => (t.seconds * (1 - (s.research.progress[t.id] ?? 0))) / s.research.speed;
 
-/** What to hide (kept across visits, per phone). */
-const hide = new HidePrefs('littletown.researchHide', ['done', 'locked'] as const);
+/** The topic tapped in the tree (its card shows under it). */
+let selected: string | null = null;
 
 export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const r = s.research;
@@ -64,37 +63,17 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
   }
   out.push(el('div', 'hint', 'One person studies at each station at a time. The town builds more, and better ones, as it grows.'));
 
-  // Every topic of the eras reached (newest era first), by branch; the town's own heritage first
+  // the tech tree (techTree.ts), and the card of the topic tapped in it
   const era = s.unlockAll ? 'space' : s.era;
-  const mine = (t: Topic) => topicKnown(s, t.id) && !foreignHeritage(t.id, s.origin.id);
-  const locked = (t: Topic) => !r.done.includes(t.id) && !r.queue.includes(t.id) && !prereqsMet(rsOf(s), t.id, era, s.origin.id).ok;
-  const shown = (t: Topic) => mine(t) && !(hide.has('done') && r.done.includes(t.id)) && !(hide.has('locked') && locked(t));
+  out.push(el('h2', '', 'Tech tree'));
+  out.push(el('div', 'hint', 'Left to right: the eras, each branching out as it goes. Green is learned, gold being studied, lit what the town can study next. Tap a topic for more.'));
   out.push(
-    hide.row(
-      [
-        ['done', 'Researched', 'Hide the topics already learned'],
-        ['locked', "Can't study yet", 'Hide the topics still waiting on others'],
-      ],
-      rerender,
-    ),
+    renderTree(s, selected, (id) => {
+      selected = selected === id ? null : id;
+      rerender();
+    }),
   );
-  const eras = ERAS.filter((e) => eraReached(era, e) && TOPICS.some((t) => (t.era ?? 'neolithic') === e)).reverse();
-  let hidden = 0;
-  for (const e of eras) {
-    const all = TOPICS.filter((t) => (t.era ?? 'neolithic') === e && mine(t));
-    const topics = all.filter(shown);
-    hidden += all.length - topics.length;
-    const allDone = all.every((t) => r.done.includes(t.id));
-    if (eras.length > 1 && (topics.length || allDone)) out.push(el('h1', 'era-head', `${ERA_NAMES[e]} era${allDone ? ' (all researched)' : ''}`));
-    const branches = ([...new Set(topics.map((t) => t.branch))] as Branch[]).sort((a, b) => +(b === 'heritage') - +(a === 'heritage'));
-    for (const branch of branches) {
-      out.push(el('h2', branch === 'heritage' ? 'heritage' : '', branch === 'heritage' ? `${s.origin.name} heritage` : BRANCH_NAMES[branch]));
-      const grid = el('div', 'cards');
-      for (const t of topics.filter((q) => q.branch === branch)) grid.append(card(t, s));
-      out.push(grid);
-    }
-  }
-  if (hidden) out.push(el('div', 'hint', `${hidden} topic${hidden === 1 ? '' : 's'} hidden.`));
+  if (selected && TOPIC_BY_ID[selected]) out.push(card(TOPIC_BY_ID[selected], s));
   const next = nextEra(era);
   if (next && TOPICS.some((t) => t.era === next)) out.push(el('div', 'hint', `More research opens in the ${ERA_NAMES[next]} era.`));
   return out;
