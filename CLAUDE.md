@@ -1622,6 +1622,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   wooden arm, bandages on the head, chest, arm or knee. Not over a hero, wolf, class or swimming form, nor someone
   down. Hurt legs limp (`limpDip` by `body.moving`, a dip on alternate steps).
 
+- **Nobody starves in bed (fixed):** a companion going to bed a little peckish (0.4) woke starving with berries in
+  store: bedtime came before the hunger check, and a night cost half a belly. Now hunger drains at `ASLEEP_HUNGER` (0.5)
+  while asleep (`drainNeeds` in townsfolk.ts), and someone asleep under `WAKE_TO_EAT` (0.12) gets up to eat while the
+  stores hold food (`chooseTask` in people.ts; eating ranks just over sleep, -2.1). A forced meal before bed was tried
+  and dropped: it cost lone founders about half a person by day 10. Probe (12 lone founders, 10 days): 4.4 people
+  where it was 4.1. Test: `test/hunger.test.ts`.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

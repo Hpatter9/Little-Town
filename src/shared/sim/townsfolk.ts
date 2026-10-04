@@ -67,10 +67,14 @@ const ARRIVAL_REPUTATION_MAX = 0.1;
 
 /* ------------------------------------------------------------ needs and mood */
 
+/** Hunger while asleep, as a share of awake. */
+export const ASLEEP_HUNGER = 0.5;
+
 export function drainNeeds(p: Person, asleep: boolean): void {
   if (tireless(p)) return; // (the dead, and machines, neither hunger nor tire)
   const glutton = p.traits.includes('glutton') ? 1.5 : 1;
-  p.needs.food = Math.max(0, p.needs.food - (FOOD_PER_HOUR * glutton) / TICKS_PER_HOUR);
+  // (asleep, they burn half as much: a night in bed no longer empties a belly that was merely peckish at bedtime)
+  p.needs.food = Math.max(0, p.needs.food - (FOOD_PER_HOUR * glutton * (asleep ? ASLEEP_HUNGER : 1)) / TICKS_PER_HOUR);
   if (!asleep) p.needs.rest = Math.max(0, p.needs.rest - REST_PER_HOUR / TICKS_PER_HOUR);
 }
 

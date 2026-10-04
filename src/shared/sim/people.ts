@@ -731,6 +731,7 @@ function rank(t: Task, p?: Person): number {
     case 'attend':
       return -2.3;
     case 'eat':
+      return -2.1; // (just over sleep: someone starving in the night gets up to eat)
     case 'sleep':
       return -2;
     case 'gather':
@@ -775,6 +776,9 @@ function jobOf(t: Task): Job {
   }
 }
 
+/** So hungry they get up in the night to eat. */
+export const WAKE_TO_EAT = 0.12;
+
 function chooseTask(s: GameState, p: Person): Task | null {
   p.blocked = false;
   // The badly hurt stay in bed until they're back on their feet.
@@ -796,8 +800,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
     const out = leavePt(s, p);
     return { type: 'wander', targetX: out.x, targetY: out.y };
   }
-  // Needs.
-  if (p.task?.type === 'sleep' || wantsSleep(s, p)) return { type: 'sleep', building: p.bed };
+  // Needs. Someone asleep and nearly empty gets up to eat (while the stores hold food).
+  if (p.task?.type === 'sleep' || wantsSleep(s, p)) {
+    const st = p.task?.type === 'sleep' && p.needs.food < WAKE_TO_EAT && !tireless(p) ? nearestStorage(s, p, (b) => !!foodIn(b)) : null;
+    return st ? { type: 'eat', building: st.id, until: null } : { type: 'sleep', building: p.bed };
+  }
   if (p.needs.food < HUNGRY) {
     const st = nearestStorage(s, p, (b) => !!foodIn(b));
     if (st) return { type: 'eat', building: st.id, until: null };
