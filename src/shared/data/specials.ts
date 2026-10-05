@@ -139,6 +139,8 @@ export const SPECIAL_IDS = Object.keys(SPECIALS) as SpecialId[];
 
 /** The odds a choice event is a secret stranger at the gate instead (the owner's call: 1 in 100 events, any day). */
 export const SPECIAL_ODDS = 100;
+/** And the share of ordinary wanderers who turn out to be one (any day). */
+export const SPECIAL_SHARE = 0.1;
 /** The daily chance a skilled townsperson sees through one (their margin over the need adds `SPOT_PER_LEVEL`). */
 export const SPOT_BASE = 0.3;
 export const SPOT_PER_LEVEL = 0.06;

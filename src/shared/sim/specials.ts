@@ -7,7 +7,7 @@
 // on the night before his clan rides in (a guard on watch may catch him at it), the exile's power breaks loose, the
 // crown's riders take their heir home. Everything here draws on its own seeded stream, so it never shifts the town's.
 
-import { CATCH_BASE, CATCH_PER_LEVEL, CURSE_DAILY, CURSE_PRICE, HEIR_REWARD, BOUNTY, SPECIALS, SPECIAL_IDS, SPECIAL_ODDS, SPOT_BASE, SPOT_HOUR, SPOT_MOST, SPOT_PER_LEVEL, SURGE_DAILY, THEFT_A_DAY, type SpecialDef, type SpecialId } from '../data/specials';
+import { CATCH_BASE, CATCH_PER_LEVEL, CURSE_DAILY, CURSE_PRICE, HEIR_REWARD, BOUNTY, SPECIALS, SPECIAL_IDS, SPECIAL_ODDS, SPECIAL_SHARE, SPOT_BASE, SPOT_HOUR, SPOT_MOST, SPOT_PER_LEVEL, SURGE_DAILY, THEFT_A_DAY, type SpecialDef, type SpecialId } from '../data/specials';
 import { RAID_KIND_BY_ID, type RaidKind } from '../data/raids';
 import { ENEMIES } from '../data/enemies';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -41,6 +41,9 @@ const mark = (s: GameState, value: number, h: number, text: string) => (s.marks 
 /** Whether this event's turn brings a secret stranger to the gate (1 in `SPECIAL_ODDS`; by the seed and the hour, so
  *  no draw from the town's stream). */
 export const strangerTurn = (s: GameState) => mixSeed(hashSeed(s.seed), s.tick, 0x5ec2e7) % SPECIAL_ODDS === 0;
+
+/** Whether a wanderer at the gate is secretly one (1 in 10; by the seed and their id). */
+export const secretWanderer = (s: GameState, p: Person) => (mixSeed(hashSeed(s.seed), p.id, 0x7a3d) % 1000) / 1000 < SPECIAL_SHARE;
 
 /** Which special a newcomer is: one the town hasn't met (each comes once; secrets may overlap). Never to a town of the
  *  dead or of machines (whose newcomers are remade), and the fever never to one who can't sicken. */

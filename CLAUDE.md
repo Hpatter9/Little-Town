@@ -1374,7 +1374,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   owner's call: 1 in `SPECIAL_ODDS` (100) events, any day, secrets may overlap): `maybeEvent` asks `strangerTurn` (by the
   seed and the hour: no draw from the town's stream) and `secretStranger` (townsfolk.ts) puts them at the gate in place
   of the event; `specialFor` picks a kind the town hasn't met (each once a town, `s.specialsSeen`; none in a town of the
-  dead or machines); ordinary wanderers carry no secrets. `makeSpecial`
+  dead or machines); besides, `SPECIAL_SHARE` (1 in 10) of ordinary wanderers are one (`secretWanderer`, by the seed
+  and their id, in `maybeArrive`). `makeSpecial`
   gives their skills, level and calling and `Person.secret` (`Secret`); the gate and the visitor's question show only the
   cover (`coverOf`), and the Townsfolk page shows the cover story and no calling until it's out (`specialStory`,
   `secretView`, `PersonView.secret`). Taken in (`secretJoined`), `specialsHourly` runs it: at `SPOT_HOUR` the best in

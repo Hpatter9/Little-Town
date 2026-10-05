@@ -201,3 +201,15 @@ test("a newcomer's calling stays hidden in the town's view until the secret is o
   assert.ok(view().clsName);
   assert.ok(view().secret!.name.includes('Champion'));
 });
+
+test('about one ordinary wanderer in ten is secretly a special too', async () => {
+  const { secretWanderer } = await import('../src/shared/sim/specials');
+  const s = plainGame('specials-wanderers');
+  const p = makePerson(new Rng(9), 1, 'wanderer', campXY(s), []);
+  let n = 0;
+  for (let id = 1; id <= 2000; id++) {
+    p.id = id;
+    if (secretWanderer(s, p)) n++;
+  }
+  assert.ok(n > 140 && n < 260, `secret ${n} of 2000`);
+});
