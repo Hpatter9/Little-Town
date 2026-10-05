@@ -40,3 +40,18 @@ test('every skill, spell and fighting skill has words for what it does', () => {
     assert.ok(!(a.active ? describeAct(a.active.effects) : '').includes('undefined'), a.id);
   }
 });
+
+test("the bar over someone's head shows how far along their work is, and only while they're at it", async () => {
+  const { snapshot } = await import('../src/shared/sim/snapshot');
+  const { put, camp } = await import('./helpers');
+  const s = plainGame('workbar');
+  const site = put(s, 'stockpile', camp(s).x + 3, camp(s).y + 3);
+  site.status = 'blueprint';
+  site.progress = 0.4;
+  const p = s.people[0];
+  p.task = { type: 'build', building: site.id };
+  p.activity = 'build';
+  assert.equal(snapshot(s).people[0].taskDone, 0.4);
+  p.activity = 'walk'; // (on the way: no bar)
+  assert.equal(snapshot(s).people[0].taskDone, null);
+});

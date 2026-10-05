@@ -114,6 +114,8 @@ export interface PersonView {
   y: number;
   dir: 1 | -1;
   activity: Activity;
+  /** How far along the work in hand is (0 to 1), while they're at it: the bar over their head. */
+  taskDone: number | null;
   /** Ticks since a blow last landed on them, and the side it came from (for the blood). */
   sinceHit: number;
   hitFrom: 1 | -1;
@@ -1211,6 +1213,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     y: p.y,
     dir: p.dir,
     activity: p.activity,
+    taskDone: taskDone(s, p),
     sinceHit: s.tick - (p.lastHit ?? -999),
     hitFrom: p.hitFrom ?? 1,
     sinceBlow: s.tick - (p.lastBlow ?? -999),
@@ -1284,6 +1287,39 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     sick: !!p.sick,
     ...fightView(p),
   };
+}
+
+/** How far along the work in hand is, for the bar over someone's head: a site's building, a repair, a craft order,
+ *  the topic studied, a field's sowing or reaping, a load being gathered or dug, a patient tended. Null while they walk
+ *  to it, or do anything else. */
+function taskDone(s: GameState, p: Person): number | null {
+  const t = p.task;
+  if (!t || p.away !== null || p.activity === 'walk' || p.activity === 'idle') return null;
+  const b = 'building' in t ? s.buildings.find((q) => q.id === t.building) : undefined;
+  const clamp = (v: number) => Math.max(0, Math.min(1, v));
+  switch (t.type) {
+    case 'build':
+      return b ? clamp(b.progress) : null;
+    case 'repair': {
+      const most = b ? (BUILDING_BY_ID[b.def]?.hp ?? 0) : 0;
+      return b && most ? clamp((b.hp ?? most) / most) : null;
+    }
+    case 'craft': {
+      const o = s.crafting.find((q) => q.id === t.order);
+      return o && t.phase === 'work' ? clamp(o.progress) : null;
+    }
+    case 'research':
+      return t.topic ? clamp(s.research.progress[t.topic] ?? 0) : null;
+    case 'farm':
+      return b?.crop ? clamp(b.crop.work ?? 0) : null;
+    case 'gather':
+    case 'tend':
+      return clamp(t.progress);
+    case 'mine':
+      return clamp(t.work);
+    default:
+      return null;
+  }
 }
 
 /** What a spell or fighting skill does, in a line, by its name (the fight banner's third line). */

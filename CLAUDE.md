@@ -1324,6 +1324,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Town status (the owner's ask: storage off the clock bar):** the clock bar shows people, beds and coins only; the
   Plan tab's Town status (`townStatus` in buildPanel.ts) has people, beds, food in days, the treasury, storage used
   against room with a bar, and every material in store with its picture.
+- **A work bar over their heads (the owner's ask):** `PersonView.taskDone` (`taskDone` in snapshot.ts: the site's
+  progress for building, health for a repair, the order for crafting at the station, the topic for study, the field's
+  sowing or reaping, the load being gathered or dug, a patient tended; null while walking or doing anything else) is
+  drawn by mapPeople as a small green bar (`WORK_W` 18 px, `WORK_ABOVE` 58 px over the feet), redrawn only when its fill
+  moves a pixel.
 - **Game speed (the owner's ask):** a 1×/2×/3× button on the clock bar (`hud.ts`, the `gameSpeed` command,
   `s.gameSpeed`, `snapshot.speed`); `battleSpeedNow` (battle.ts, read by `GameLoop.pump`) returns it outside a battle,
   and the battle's own speed during one. Time away is unaffected.

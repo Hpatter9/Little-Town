@@ -57,6 +57,10 @@ const CLASS_LOOK: Partial<Record<ClassId, [CreatureSheet, number]>> = {
   mage: ['champ_sage', 4],
 };
 
+/** The work bar over a head: its width (px) and how far above the feet it floats. */
+const WORK_W = 18;
+const WORK_ABOVE = 58;
+
 interface Drawn {
   view: PersonView;
   visitor: boolean;
@@ -79,6 +83,9 @@ interface Drawn {
   marksKey?: string;
   /** Their lantern's glow (in the map's lights layer, so it shows after dark). */
   lamp?: Sprite;
+  /** How far along the work in hand is, as a little bar over their head, and the fill last drawn. */
+  work?: Graphics;
+  workFill?: number;
   /** A merfolk's tail, while they swim (art/merTail.ts). */
   tail?: Sprite;
   /** What they're saying (map/speech.ts), and the slot it was said in. */
@@ -165,7 +172,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -412,6 +419,25 @@ export class MapPeople {
       d.load.visible = !hidden && poolSize(d.view.carrying) > 0;
       d.load.position.set(Math.round(x) - d.view.dir * 7 - 4, Math.round(y) - 40);
       d.load.zIndex = z + 0.1;
+      // the work in hand: a small bar over their head, filling as it goes (sites, orders, study, fields, loads)
+      const done = hidden || d.visitor ? null : d.view.taskDone;
+      if (done !== null && !d.work) d.work = this.layer.addChild(new Graphics());
+      if (d.work) {
+        d.work.visible = done !== null;
+        if (done !== null) {
+          const fill = Math.round(done * WORK_W);
+          if (fill !== d.workFill) {
+            d.workFill = fill;
+            d.work.clear();
+            d.work.rect(-1, -1, WORK_W + 2, 5).fill({ color: 0x14100c, alpha: 0.85 });
+            d.work.rect(0, 0, WORK_W, 3).fill({ color: 0x3a3226 });
+            if (fill > 0) d.work.rect(0, 0, fill, 3).fill({ color: 0x8ad860 });
+            if (fill > 0) d.work.rect(0, 0, fill, 1).fill({ color: 0xd0ffb0 });
+          }
+          d.work.position.set(Math.round(x) - WORK_W / 2, Math.round(y) - WORK_ABOVE);
+          d.work.zIndex = z + 0.15;
+        }
+      }
       d.bubble.visible = d.visitor;
       d.bubble.position.set(Math.round(x) - 5, Math.round(y) - 66 + Math.round(Math.sin(now / 300) * 1.5));
       d.bubble.zIndex = z + 0.2;
