@@ -6,6 +6,7 @@ import { buildKey, renderBuild } from './buildPanel';
 import { craftingKey, renderCrafting } from './craftingPanel';
 import { hostBridge, localBridge } from '../localBridge';
 import { el } from './dom';
+import { inTabs, tabKey } from './subtabs';
 import { expeditionsKey, renderExpeditions } from './expeditionsPanel';
 import { renderJournal } from './journalPanel';
 import { renderResearch, researchKey } from './researchPanel';
@@ -57,8 +58,9 @@ function render(): void {
                   : shown === 'newgame'
                     ? 'n' + !!snap.gameOver
                     : shown;
-  if (key === renderedKey) return;
-  renderedKey = key;
+  const keyed = `${key}|${tabKey(shown ?? '')}`;
+  if (keyed === renderedKey) return;
+  renderedKey = keyed;
   const tab = PANELS.find((p) => p.id === shown);
   title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'newgame' ? 'New town' : isVenuePanel(shown) ? (venueView(snap, shown)?.name ?? (shown === 'shop' ? 'Shop' : shown === 'tavern' ? 'Tavern' : 'Shop')) : '');
   const scroll = body.scrollTop;
@@ -72,12 +74,14 @@ function render(): void {
     });
     return;
   }
-  if (snap && shown === 'build') body.replaceChildren(...renderBuild(snap, bridge, render));
-  else if (snap && shown === 'research') body.replaceChildren(...renderResearch(snap, bridge, render));
-  else if (snap && shown === 'townsfolk') body.replaceChildren(...renderTownsfolk(snap, bridge, render));
-  else if (snap && shown === 'expeditions') body.replaceChildren(...renderExpeditions(snap, bridge, render));
-  else if (snap && shown === 'crafting') body.replaceChildren(...renderCrafting(snap, bridge, render));
-  else if (snap && shown === 'trade') body.replaceChildren(...renderTrade(snap, bridge));
+  // (each menu's sections in sub-tabs: subtabs.ts)
+  const tabbed = (els: HTMLElement[]) => inTabs(shown!, els, render);
+  if (snap && shown === 'build') body.replaceChildren(...tabbed(renderBuild(snap, bridge, render)));
+  else if (snap && shown === 'research') body.replaceChildren(...tabbed(renderResearch(snap, bridge, render)));
+  else if (snap && shown === 'townsfolk') body.replaceChildren(...tabbed(renderTownsfolk(snap, bridge, render)));
+  else if (snap && shown === 'expeditions') body.replaceChildren(...tabbed(renderExpeditions(snap, bridge, render)));
+  else if (snap && shown === 'crafting') body.replaceChildren(...tabbed(renderCrafting(snap, bridge, render)));
+  else if (snap && shown === 'trade') body.replaceChildren(...tabbed(renderTrade(snap, bridge)));
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
   else if (snap && isVenuePanel(shown)) body.replaceChildren(...renderShop(snap, shown));
   else if (snap && shown === 'newgame') body.replaceChildren(...renderNewGame(snap, bridge));

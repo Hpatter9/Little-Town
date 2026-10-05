@@ -1313,6 +1313,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **What a move does, on the fight banner:** the snapshot's fight `acts` carry `text` (`actText` in snapshot.ts: the
   first line of `describeAct` for the spell or skill of that name), shown as a third line on `#fight-banner` (`.ff-what`),
   which then stays 0.7 s longer.
+- **Every menu in sub-tabs (the owner's ask):** `src/renderer/panel/subtabs.ts` (`inTabs`, called from panel.ts on each
+  menu's elements): a menu's sections, each opened by an `h2`, are grouped under named tabs by the heading's words
+  (`GROUPS`: Plan: Direction, Town status, Powers, Treasury, Buildings; Studies: Stations, Tech tree; Expeditions:
+  Parties, Places (the map goes with them), Quests; Townsfolk: People, Jobs; Crafting: Inventory, Recipes; Trade: Deals,
+  Horses). A heading that opens no group stays in the one before; what comes before the first heading stays above the
+  tabs unless `intro` names a tab. Only the open tab is drawn; it's kept per menu (`littletown.subtab.<menu>`, part of
+  the redraw key through `tabKey`). A menu with under two groups to show is drawn as before (the Townsfolk inspect page
+  has its own tabs). A new section in a menu needs its heading matched in `GROUPS`, or it falls in the tab before it.
+- **Town status (the owner's ask: storage off the clock bar):** the clock bar shows people, beds and coins only; the
+  Plan tab's Town status (`townStatus` in buildPanel.ts) has people, beds, food in days, the treasury, storage used
+  against room with a bar, and every material in store with its picture.
 - **Game speed (the owner's ask):** a 1×/2×/3× button on the clock bar (`hud.ts`, the `gameSpeed` command,
   `s.gameSpeed`, `snapshot.speed`); `battleSpeedNow` (battle.ts, read by `GameLoop.pump`) returns it outside a battle,
   and the battle's own speed during one. Time away is unaffected.
