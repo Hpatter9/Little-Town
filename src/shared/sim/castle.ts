@@ -17,7 +17,7 @@ export const CORE_H = 4;
 /** The widest a room may be. */
 export const ROOM_MAX_W = 12;
 /** Built outside, never as rooms (the venues keep their own halls too: `floor` on the def). */
-const OUTSIDE = new Set(['graveyard', 'mine', 'coal_mine', 'deep_mine', 'oil_derrick', 'launch_site']);
+const OUTSIDE = new Set(['boatyard', 'graveyard', 'mine', 'coal_mine', 'deep_mine', 'oil_derrick', 'launch_site']);
 
 type CastleState = Pick<GameState, 'land' | 'nomad' | 'buildings' | 'origin'>;
 

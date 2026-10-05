@@ -4,6 +4,7 @@ import { BESTIARY_LAIRS } from './bestiary';
 import { SCOUT_DESTINATIONS } from './regions';
 import { TRADE_DESTINATIONS } from './minerals';
 import { DUNGEON_DESTINATIONS } from './dungeons';
+import { ISLANDS } from './boats';
 import type { EnemyGroup } from './enemies';
 import type { Era } from './eras';
 import type { Material } from './materials';
@@ -44,13 +45,18 @@ export interface Destination {
   /** Scenery for the split view. */
   scenery: 'thicket' | 'river' | 'woods' | 'quarry' | 'cave';
   description: string;
+  /** Only a boat reaches it: an island, a market over the sea (data/boats.ts). */
+  byBoat?: boolean;
 }
 
+/** Names that carry their own article, or are a doing rather than a place. */
+const OWN_ARTICLE = /^(the|scout|trade with) /i;
 /** "at the Riverbank", but "at The Labyrinth" (a place whose name has its own "The"). */
-export const atPlace = (name: string) => (/^the /i.test(name) ? `at ${name}` : `at the ${name}`);
-/** "the Riverbank", but "The Labyrinth" (its own "The" kept); and the same at the start of a sentence. */
-export const the = (name: string) => (/^the /i.test(name) ? name : `the ${name}`);
-export const The = (name: string) => (/^the /i.test(name) ? name : `The ${name}`);
+export const atPlace = (name: string) => (OWN_ARTICLE.test(name) ? `at ${name}` : `at the ${name}`);
+/** "the Riverbank", but "The Labyrinth" (a place whose name has its own "The"), and a trip named for what it does
+ *  ("Scout the Far Isles", "Trade with the hill folk") as it is; and the same at the start of a sentence. */
+export const the = (name: string) => (OWN_ARTICLE.test(name) ? name : `the ${name}`);
+export const The = (name: string) => (/^the /i.test(name) ? name : OWN_ARTICLE.test(name) ? name : `The ${name}`);
 
 export const DESTINATIONS: readonly Destination[] = [
   {
@@ -384,6 +390,7 @@ export const DESTINATIONS: readonly Destination[] = [
   ...TRADE_DESTINATIONS,
   // (the dungeons to delve: data/dungeons.ts)
   ...DUNGEON_DESTINATIONS,
+  ...ISLANDS,
 ];
 
 export const DESTINATION_BY_ID: Readonly<Record<string, Destination>> = Object.fromEntries(DESTINATIONS.map((d) => [d.id, d]));

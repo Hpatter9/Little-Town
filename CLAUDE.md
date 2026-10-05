@@ -825,10 +825,46 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     right, a box naming the action, a panel of names and health along the bottom): automatic, watched if the player
     wants. Used for expedition and delve fights. The tower-defence raids stay maps, but their fighters use their
     classes, skills and spells.
-- **Boats** (the owner's idea, for later): boats for long journeys: far destinations over water (islands, other
-  coasts) that only a boat reaches, or that it reaches faster than walking. Likely a boatyard on the coast or river,
-  boats as built things (rowboat → sailing ship → steamer by era), a party sailing (watched like a trip, at sea), and
-  dangers of their own (storms, sea monsters, pirates). Not designed yet.
+- **Boats (done; the owner's choices: every town by water sails, all four uses, real losses, the town sails on its
+  own with the player's veto and bounty):** `src/shared/data/boats.ts` and `src/shared/sim/boats.ts`.
+  - **The fleet:** `BOATS` by age (dugout canoe from Boatbuilding, longboat from Shipwrighting, carrack from
+    Navigation, steamer from Steamships, motor launch, hydrofoil; `BOAT_TOPICS` in the logistics branch): crew, `speed`
+    (a trip's legs divided by it), `hull`, `cargo` (on top of the party's packs), `catch` (fish a day at home). The
+    **Boatyard** (`BOATYARD`, `shore`: `canPlace` wants water or shallows beside its footprint, `touchesWater` in
+    land.ts; outside a castle's walls, `OUTSIDE` in castle.ts) builds them as crafting orders (station `boatyard`, items
+    `boat_<kind>` with `ItemDef.boat`); finished, `launch` puts her in `s.boats` (`Boat`: kind, name from
+    `BOAT_NAMES` in turn, hull, away) instead of the stores, and breaks up the worst past `FLEET_MOST` (3).
+  - **The plan** (`planBoats`, hourly from `boatsHourly`, autopilot on): a boatyard at `boatyardSpot` (the nearest spot
+    by water; with none in the known land the town opens its land 2 cells at a time, up to 40), then a boat when it
+    has none, a second at 6 grown-ups, a better kind as each age brings one; one order at a time, only with the makings
+    and 4 spare. The planner scores the boat topics +24 (a town of 4 or more; +16 more for Boatbuilding in a shore
+    town; Navigation and Steamships +10 on Trade). Probe (25 days): dwarves and knights learn it about day 9 or 10 and
+    sail by day 12; the merfolk by day 8.
+  - **At home:** each evening (`FISH_HOUR`) every boat at home brings in her catch, landed at the boatyard (half in
+    winter; `FISHING_STORM` a squall may batter her); each dawn she's mended `REPAIR_SHARE` of her hull for a unit of
+    lumber or wood. She sails only above `SEAWORTHY` (half).
+  - **Islands and sea trade** (`ISLANDS`, `Destination.byBoat`, spots in the world map's water, scenes the coast):
+    Gull Rocks and Turtle Atoll (Boatbuilding), the Seal Skerries and the Drowned Spires (Shipwrighting), the Kraken
+    Deep (Navigation: the Kraken, `BOAT_ENEMIES`, the squidman sheet huge and turned green) and Pirate Haven (a purse
+    goes further), the Spice Port (Steamships). `canSend` refuses an island without a seaworthy boat, and the party is
+    her crew (`mostFor` in parties.ts); parties choose islands only with a boat free.
+  - **Faster along the water:** `waterside` (the Riverbank, and every place in the island regions: the Southern Isle,
+    the Sea of Wrecks, the Far Isles, their scouting and trade trips) goes by boat when one is free (`sailsTo`).
+  - **At sea** (`seaHour`, each hour out and back for a party with `Expedition.boat`): a storm (`STORM_HOURLY` by
+    season, `STORM_HURT` of her hull, half for an iron hull; a bad one may sweep someone over the side, `OVERBOARD`),
+    pirates from the Medieval age (`PIRATE_HOURLY`), the sea's foes (`MONSTER_HOURLY`, `SEA_FOES` by age); her hull gone,
+    `wreck`: she's lost, the loot with her, each aboard drowns at `DROWN` (one who swims, a shore town's or a merrow,
+    `DROWN_SWIMMER`), and the rest make for home (`Expedition.wrecked`).
+  - **A hold has water too:** where the mountain swallowed every river, `makeLand` cuts a tarn below the hold
+    (`TARN_*`), so every town can sail.
+  - **Seen:** `snapshot.fleet`, `snapshot.mooring` (the water cell by the yard, never just behind it where the roof
+    hides her), `ExpeditionView.boat`/`wrecked`, `DestinationView.byBoat`/`boat` (`boatLine`). The map's moored boats
+    (`map/mapBoats.ts`, bobbing in a ring of ripples) and the watched voyage's hull under the party with open water over
+    the scene's ground (`drawSea`, `showHull` in fightView.ts; the sea's looks for any party afloat) are painted
+    (`art/boatArt.ts`: no pack has a working boat; the Seabed pack's two ships are wrecks). The Expeditions tab lists the
+    boats and says on each card which boat a trip would take. Inventory icons `boat_*` in customIcons.ts.
+  - Names that are a doing ("Scout the Far Isles", "Trade with ...") no longer take "the" (`OWN_ARTICLE` in
+    data/expeditions.ts). Tests: `test/boats.test.ts`.
 - **Merfolk rework** (the owner's request, for later): the merfolk need much more of an ocean and merfolk feel. Likely:
   a shoreline or reef town (water in front of the town, tide pools, docks and coral), merfolk who look like merfolk
   (tails or fins and scales in the water, sea colours; not just elf ears and blue skin), sea-themed buildings and
@@ -1691,7 +1727,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   a net and a string of shells. On the strand, `TIDE_POOLS` (0.22) of the sand cells within two of the shallows (only a
   shore town's land has them: `nearShallows`) hold a tide pool (`tidePool` in map/groundArt.ts): clear water in a ring
   of wet rocks, sometimes with one of the Seabed set's shells or starfish in it.
-- Still to come (not designed): boats, and the merfolk's sea beasts beyond the raids.
+- Still to come (not designed): the merfolk's sea beasts beyond the raids (the Kraken Deep is a first).
 
 ## Known problem (fixed, watch)
 

@@ -4,6 +4,7 @@ import { DUNGEON_BOSSES } from './dungeonBosses';
 import { PACK_BOSSES } from './pack';
 import type { Stock } from './materials';
 import { BESTIARY_ENEMIES } from './bestiary';
+import { BOAT_ENEMIES } from './boats';
 import { PACK_SHEETS, type PackSheetId } from './packSheets';
 
 /** A Craftpix pack sheet (packSheets.ts) scaled to stand so many px tall. */
@@ -102,6 +103,7 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   // (the dungeons' bosses: data/dungeonBosses.ts)
   ...DUNGEON_BOSSES,
   ...PACK_BOSSES,
+  ...BOAT_ENEMIES,
   wolf: { id: 'wolf', name: 'Wolf', hp: 28, damage: [3, 6], accuracy: 0.7, dodge: 0.12, interval: 1.1, ranged: false, loot: { hide: 1, meat: 1, bone: 1 }, sprite: { sheet: 'wolf', block: 1, scale: 1 } },
   wolf_alpha: { id: 'wolf_alpha', name: 'Wolf Pack Alpha', hp: 55, damage: [5, 9], accuracy: 0.75, dodge: 0.15, interval: 1.0, ranged: false, loot: { hide: 2, meat: 2, bone: 1 }, sprite: { sheet: 'wolf', block: 2, scale: 1.2 } },
   boar: { id: 'boar', name: 'Boar', hp: 45, damage: [5, 10], accuracy: 0.6, dodge: 0.08, interval: 1.5, ranged: false, loot: { meat: 3, hide: 1, bone: 1 }, sprite: { sheet: 'boar', block: 0, scale: 1 } },

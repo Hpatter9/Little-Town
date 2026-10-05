@@ -14,7 +14,7 @@ import { MAX_POTS, POT_STORAGE } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
 import { HERDS } from '../data/livestock';
-import { buildable, carvable, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet } from './land';
+import { buildable, carvable, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
 import { modifiers } from './research';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
 
@@ -198,6 +198,8 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
     if (b === except) continue;
     if (overlaps(footprint(b), r)) return { ok: false, reason: `Overlaps ${defOf(b).name}` };
   }
+  // (a boatyard stands at the water's edge)
+  if (def.shore && !touchesWater(m, r)) return { ok: false, reason: "A boatyard stands at the water's edge" };
   if (castleOn(s)) {
     const cells = castleCells(s);
     if (room && !joinsCastle(cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };

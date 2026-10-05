@@ -1,6 +1,7 @@
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
+import type { BoatKind } from '../data/boats';
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
 import type { TaxRate } from '../data/economy';
@@ -538,6 +539,17 @@ export interface FightResult {
   boss: string | null;
 }
 
+/** A boat of the town's fleet. */
+export interface Boat {
+  id: number;
+  kind: BoatKind;
+  name: string;
+  /** What's left of her hull (data/boats.ts `hull` when new). */
+  hull: number;
+  /** The expedition she's away with, or null at home. */
+  away: number | null;
+}
+
 export interface Expedition {
   id: number;
   /** Destination id. */
@@ -576,6 +588,10 @@ export interface Expedition {
   horses?: Horse[];
   /** A truck taken along (Modern). */
   truck?: boolean;
+  /** Their boat went down at sea (sim/boats.ts `wreck`): they come home with nothing. */
+  wrecked?: boolean;
+  /** The boat the party sails in (its id in `s.boats`): an island's trip, or a faster one along the water. */
+  boat?: number;
   /** A dungeon delve's progress room by room (sim/delves.ts). */
   delve?: Delve;
   /** The Moon Pack's full-moon hunt (sim/pack.ts). */
@@ -710,6 +726,10 @@ export interface GameState {
   bossShake?: number;
   /** Where townsfolk fell and were buried (the latest few). */
   graves?: { x: number; y: number; name: string }[];
+  /** The town's boats (data/boats.ts, sim/boats.ts): built at the boatyard, at home fishing or away with a party. */
+  boats?: Boat[];
+  /** Boats built so far (for their names, in turn). */
+  boatsBuilt?: number;
   /** How many of its own the town has buried, ever (a Necromancer's calling needs some). */
   burials?: number;
   /** The last person brought back from death, and when (for the glow). */

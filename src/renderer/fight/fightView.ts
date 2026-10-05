@@ -5,6 +5,7 @@
 // this only shows it. The bars over and under it (the action's name, the names, health and time gauges) are in
 // fightHud.ts.
 
+import { boatArt } from '../art/boatArt';
 import { ColorMatrixFilter, Container, Graphics, Sprite, Text, TilingSprite } from 'pixi.js';
 import { ABILITY_BY_ID } from '../../shared/data/abilities';
 import type { Element } from '../../shared/data/effects';
@@ -73,6 +74,8 @@ export class FightScene {
   private worldTop = 0;
   private readonly figures = new Container();
   private readonly fx = new Graphics();
+  /** Open water over the ground while a boat is at sea (the scene's own ground is the shore). */
+  private readonly sea = new Graphics();
   /** Down a dungeon: what's in the room (a chest, a door, a trap...), torches along the walls, and the dark closing in as
    *  the party's own torches run low. */
   private readonly roomProp = new Sprite();
@@ -87,6 +90,8 @@ export class FightScene {
   private readonly fxPool: Sprite[] = [];
   private readonly actSeen = new Map<string, number>();
   private readonly figs = new Map<string, Figure>();
+  /** Her hull under the party at sea (art/boatArt.ts). */
+  private readonly hull = new Sprite();
   private sceneKey = '';
   /** A painted backdrop from the packs, when the trip's look is one: its layers, far to near, and whether it is the
    *  whole scene (`full`) or only the sky over the painted land (`sky`). */
@@ -101,7 +106,11 @@ export class FightScene {
 
   constructor() {
     this.root.visible = false;
-    this.world.addChild(this.photo, ...this.layers.slice(0, 3), this.wallTorches, this.roomProp, this.layers[3], this.figures, this.fx, this.effects, this.dark);
+    this.world.addChild(this.photo, ...this.layers.slice(0, 3), this.wallTorches, this.roomProp, this.layers[3], this.sea, this.figures, this.fx, this.effects, this.dark);
+    this.figures.addChild(this.hull);
+    this.hull.anchor.set(0.5, 1);
+    this.hull.zIndex = -10;
+    this.hull.visible = false;
     this.world.mask = this.clip;
     this.root.addChild(this.clip);
     this.root.addChild(this.cover, this.world);
@@ -152,6 +161,7 @@ export class FightScene {
       [art.far, art.mid, art.near, art.front].forEach((a, i) => (this.layers[i].texture = a.texture));
       for (const f of this.figs.values()) f.sprite.destroy();
       this.figures.removeChildren();
+      this.figures.addChild(this.hull); // (her hull stays: it's shown or hidden each frame)
       this.figs.clear();
     }
   }
@@ -235,6 +245,9 @@ export class FightScene {
     this.drawDelve(delve, fighting, now);
     this.fx.clear();
     const seen = new Set<string>();
+    // (at sea the scroll keeps going: she sails on, fight or no fight)
+    if (this.afloat(v) && !walking) this.scroll += MARCH * dt * 0.5;
+    this.drawSea(this.afloat(v), now);
     if (fighting) this.drawFight(v.battle!, v, now, seen);
     else this.drawMarch(v, now, walking, seen);
     for (const [k, f] of this.figs) {
@@ -321,12 +334,17 @@ export class FightScene {
   private drawMarch(v: ExpeditionView, now: number, walking: boolean, seen: Set<string>): void {
     for (const sp of this.fxPool) sp.visible = false;
     const n = v.members.length;
+    // (at sea they stand on her deck as she rides the swell: the sea goes by, not their feet)
+    const afloat = this.afloat(v);
+    const bob = afloat ? Math.round(Math.sin(now / 600) * 1.5) : 0;
+    if (afloat) this.showHull(v, this.vw / 2, Math.round(this.hy + 40) + bob + 6, Math.max(96, n * 22 + 56), now);
+    else this.hull.visible = false;
     v.members.forEach((m, i) => {
       const key = `m${m.id}`;
       seen.add(key);
       const f = this.fig(key);
       const x = this.vw / 2 + (n - 1) * 9 - i * 18;
-      const frame = walking ? 1 + (Math.floor(now / 100 + i * 3) % 8) : 0;
+      const frame = walking && !afloat ? 1 + (Math.floor(now / 100 + i * 3) % 8) : 0;
       // (stopped down a dungeon they stand and look; at the site they work it)
       const still = !walking && v.delve && v.phase === 'work';
       f.sprite.texture = still
@@ -334,13 +352,47 @@ export class FightScene {
         : lpcFrame(m.look, walking ? 'walk' : 'thrust', walking ? frame : Math.floor(now / 160 + i) % FRAME_COUNT.thrust, heldWeapon(m.gear, 'walk'), wornLayers(m.gear));
       const k = 0.75;
       f.sprite.scale.set(k);
-      f.sprite.position.set(Math.round(x - CENTRE_X * k), Math.round(this.hy + 40 - FEET_Y * k));
+      f.sprite.position.set(Math.round(x - CENTRE_X * k), Math.round(this.hy + 40 - FEET_Y * k) + bob);
       f.sprite.zIndex = i;
       f.sprite.alpha = 1;
       f.sprite.tint = 0xffffff;
       f.pop.visible = false;
       f.spark.visible = false;
     });
+  }
+
+  /** The open sea from the horizon down, its swell rolling by as she sails (hidden ashore). */
+  private drawSea(on: boolean, now: number): void {
+    this.sea.clear();
+    this.sea.visible = on;
+    if (!on) return;
+    const top = this.hy - 6;
+    const h = this.vh - top;
+    const bands = [0x2a6a9a, 0x2f76a8, 0x3584b4, 0x3a8cbc];
+    bands.forEach((c, i) => this.sea.rect(0, top + (h * i) / bands.length, this.vw, h / bands.length + 1).fill(c));
+    // (the swell's lit crests, nearer and faster lower down)
+    for (let row = 0; row < 7; row++) {
+      const y = top + 4 + row * (h / 7);
+      const speed = 6 + row * 5;
+      const gap = 34 + row * 6;
+      const off = (this.scroll * speed * 0.06 + row * 13) % gap;
+      for (let x = -gap + (gap - off); x < this.vw + gap; x += gap) this.sea.rect(Math.round(x), Math.round(y + Math.sin(now / 700 + x * 0.05) * 1.5), 8 + row * 2, 1).fill({ color: 0xcfeaf4, alpha: 0.5 });
+    }
+    this.sea.rect(0, top, this.vw, 2).fill({ color: 0xe8f6f4, alpha: 0.6 });
+  }
+
+  /** Whether the party is at sea in a boat (out or back, not at the place itself). */
+  private afloat(v: ExpeditionView): boolean {
+    return !!v.boat && v.phase !== 'work';
+  }
+
+  /** Her hull, `length` px long, centred at x with her deck at y, rocking a little. */
+  private showHull(v: ExpeditionView, x: number, y: number, length: number, now: number): void {
+    const art = boatArt(v.boat!.kind, length);
+    this.hull.texture = art.texture;
+    this.hull.visible = true;
+    this.hull.position.set(Math.round(x), Math.round(y + art.height * 0.02));
+    this.hull.rotation = Math.sin(now / 900) * 0.015;
   }
 
   /** A fight: foes on the left, the party on the right facing them. */
@@ -361,6 +413,9 @@ export class FightScene {
       // a slanting column, as in the old games
       at.set(`party:${f.ref}`, [Math.round(vw * 0.7) + i * 8 + (f.row === 'back' ? 12 : 0), Math.round(hy + 16 + i * partyGap)]);
     });
+    // (a fight at sea: they stand on her deck, which runs under the whole column)
+    if (this.afloat(v)) this.showHull(v, Math.round(vw * 0.74), Math.round(hy + 16 + Math.max(0, party.length - 1) * partyGap) + 8, Math.max(110, party.length * 26 + 60), now);
+    else this.hull.visible = false;
     // the spells and skills just used: a flash of their colour and their effect on whoever they touched
     let used = 0;
     const live = new Set<string>();

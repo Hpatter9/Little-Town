@@ -42,6 +42,7 @@ import {
 } from '../data/parties';
 import { DEVOTED, ENEMY } from '../data/social';
 import { ambitionOf } from './ambition';
+import { boatDef, freeBoat } from './boats';
 import { payParty } from './economy';
 import { destinationOf, destinationUnlocked, rolesFor, STAKES, sendExpedition, planParty, type SendCheck, type Stakes } from './expeditions';
 import { placeDestinations } from './places';
@@ -159,7 +160,12 @@ export function dangerOf(d: Destination): number {
 }
 
 /** The most a party for this place may number. */
-const mostFor = (d: Destination) => (d.type === 'delve' || isPlaceDest(d.id) || d.id.startsWith('pack:') ? MAX_DELVERS : MAX_PARTY);
+const mostFor = (s: GameState, d: Destination) => {
+  // (an island's party is her crew)
+  const boat = d.byBoat ? freeBoat(s) : undefined;
+  if (boat) return Math.min(boatDef(boat).crew, MAX_DELVERS);
+  return d.type === 'delve' || isPlaceDest(d.id) || d.id.startsWith('pack:') ? MAX_DELVERS : MAX_PARTY;
+};
 
 /** Recruit a party round a leader for a destination: by the roles still wanted, by liking, never an enemy of anyone
  *  already going, and whoever is devoted to someone going comes too if there's room. */
@@ -218,7 +224,7 @@ function pull(s: GameState, leader: Person, d: Destination): number {
 function choosable(s: GameState): Destination[] {
   const going = new Set(s.expeditions.map((e) => e.dest));
   return boardDestinations(s).filter(
-    (d) => d.id !== HUNT_DEST && !vetoed(s, d.id) && !going.has(d.id) && destinationUnlocked(s, d) && (!d.coins || (s.coins ?? 0) >= d.coins * 2),
+    (d) => d.id !== HUNT_DEST && !vetoed(s, d.id) && !going.has(d.id) && destinationUnlocked(s, d) && (!d.coins || (s.coins ?? 0) >= d.coins * 2) && (!d.byBoat || !!freeBoat(s)),
   );
 }
 
@@ -243,7 +249,7 @@ export function proposeParty(s: GameState): PartyPlan | null {
   for (const leader of leaders) {
     const ranked = [...places].sort((a, b) => pull(s, leader, b) - pull(s, leader, a) || a.id.localeCompare(b.id));
     for (const d of ranked) {
-      const size = Math.max(1, Math.min(room, mostFor(d), Math.max(d.recommendedParty, dangerOf(d) ? 3 : 1)));
+      const size = Math.max(1, Math.min(room, mostFor(s, d), Math.max(d.recommendedParty, dangerOf(d) ? 3 : 1)));
       const party = recruit(s, leader, d, pool, size);
       if (!dares(leader, party, d)) continue;
       const bold = ['bold', 'restless', 'proud'].includes(natureOf(leader).id);

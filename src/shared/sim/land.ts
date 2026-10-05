@@ -181,6 +181,11 @@ function noise(seed: number, scale: number) {
   return (x: number, y: number) => (one(x / scale, y / scale) * 0.6 + one(x / (scale / 2), y / (scale / 2)) * 0.3 + one(x / (scale / 4), y / (scale / 4)) * 0.1);
 }
 
+/** A water-less hold's tarn: how far beside and below the camp, and its size (cells). */
+const TARN_OFF = 9;
+const TARN_DOWN = 5;
+const TARN_R = 2.6;
+
 export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShape): LandMap {
   const seedHash = hashSeed(seed);
   const w = LAND_W;
@@ -279,6 +284,15 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
       // (the foot wanders by the broad noise, and the fine one throws spurs and gullies a row or two further)
       const line = camp.y - MOUNTAIN_FOOT - Math.round(((foot(x, 0) - 0.5) * 10 + (spur(x, 0) - 0.5) * 4) * off);
       for (let y = 0; y <= line && y < h; y++) grid[y * w + x] = 'mountain';
+    }
+    // (where the mountain swallowed every river, a tarn below the hold, so even a hold has water for a boatyard)
+    if (!grid.includes('water')) {
+      const side = seedHash & 1 ? 1 : -1;
+      const tx = camp.x + side * TARN_OFF;
+      const ty = camp.y + TARN_DOWN;
+      for (let y = ty - 3; y <= ty + 3; y++)
+        for (let x = tx - 4; x <= tx + 4; x++)
+          if (x >= 0 && y >= 0 && x < w && y < h && Math.hypot((x - tx) / 1.4, y - ty) <= TARN_R) grid[y * w + x] = 'water';
     }
   }
   // the sea: the whole south half, its shore SEA_FOOT rows below the camp, level by the camp and wandering further
@@ -577,3 +591,16 @@ export function decayWear(m: LandMap): void {
   if (any) m.wear = out;
   else delete m.wear;
 }
+
+/** Whether a footprint has water (or the shallows) beside it: where a boatyard may stand. */
+export function touchesWater(m: LandMap, r: Rect): boolean {
+  for (let x = r.x - 1; x <= r.x + r.w; x++)
+    for (let y = r.y - 1; y <= r.y + r.h; y++) {
+      const inside = x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+      const corner = (x === r.x - 1 || x === r.x + r.w) && (y === r.y - 1 || y === r.y + r.h);
+      if (inside || corner) continue;
+      if (x >= 0 && y >= 0 && x < m.w && y < m.h && wet(groundAt(m, x, y))) return true;
+    }
+  return false;
+}
+

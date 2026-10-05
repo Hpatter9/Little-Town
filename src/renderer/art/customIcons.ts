@@ -629,7 +629,44 @@ export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
     p.rect(6, 8, 4, 1, '#3a2010');
     p.rect(3, 11, 10, 1, '#c03a2a');
   },
+  // the boats built at the boatyard (data/boats.ts), side-on on a line of water
+  boat_dugout: (p) => boatIcon(p, '#8a5a32', '#5a3a1e', () => p.rect(10, 6, 1, 6, '#6a4428')),
+  boat_longboat: (p) => boatIcon(p, '#9a6a3a', '#5e3e22', () => sail(p, 7, '#e8e0cc', '#b83a2a')),
+  boat_carrack: (p) => boatIcon(p, '#7a4e2a', '#4a2e18', () => {
+    sail(p, 9, '#ece4cc', '#d8ccb0');
+    sail(p, 5, '#ece4cc', '#d8ccb0', 3);
+    p.rect(1, 7, 4, 3, '#7a4e2a');
+  }),
+  boat_steamer: (p) => boatIcon(p, '#3a3e46', '#22252c', () => {
+    p.rect(4, 7, 8, 3, '#e8e0d0');
+    p.rect(8, 3, 2, 5, '#222428');
+    p.rect(8, 4, 2, 1, '#a83a2a');
+  }),
+  boat_motor_launch: (p) => boatIcon(p, '#e8e4dc', '#9a9890', () => {
+    p.rect(8, 6, 4, 4, '#f0ece4');
+    p.rect(9, 7, 2, 1, '#2a3a4a');
+  }),
+  boat_hydrofoil: (p) => boatIcon(p, '#c8d4dc', '#6a7a86', () => {
+    p.rect(6, 7, 6, 3, '#e8eef2');
+    p.rect(7, 8, 4, 1, '#2a3a4a');
+  }),
 };
+
+/** A boat icon: her hull over a line of water, and what stands on her deck. */
+function boatIcon(p: Painter, light: string, dark: string, deck: () => void): void {
+  deck();
+  p.rect(1, 10, 14, 2, light);
+  p.rect(2, 12, 12, 1, dark);
+  p.rect(14, 9, 1, 1, light);
+  p.rect(0, 13, 16, 1, '#5aa6c6');
+  p.rect(2, 14, 4, 1, '#8fd0dc');
+  p.rect(9, 14, 5, 1, '#8fd0dc');
+}
+function sail(p: Painter, x: number, cloth: string, stripe: string, top = 1): void {
+  p.rect(x, top, 1, 10 - top, '#4a3018');
+  p.rect(x - 3, top + 1, 7, 6, cloth);
+  p.rect(x - 3, top + 3, 7, 1, stripe);
+}
 
 export const CUSTOM_ORDER = Object.keys(CUSTOM_ICONS);
 export const CUSTOM_ROWS = Math.ceil(CUSTOM_ORDER.length / 8);
