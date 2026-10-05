@@ -60,7 +60,8 @@ import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
 import { CELL, cellAt, groundAt, isMarked, WILD } from '../shared/sim/land';
-import { loadCreatures } from './art/creatures';
+import { creatureFrame, loadCreatures } from './art/creatures';
+import { founderSheet } from './art/heroForms';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
 import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
@@ -1005,7 +1006,7 @@ async function start(): Promise<void> {
     };
     (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {
       const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
-      if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
+      if (who) return personPicture(who);
       if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
       return null;
     };
@@ -1017,7 +1018,7 @@ async function start(): Promise<void> {
       awayCard.show(next.away, (h) => {
         // the report card's pictures: the townsperson, or the building, in the town's own style
         const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
-        if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
+        if (who) return personPicture(who);
         if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
         return null;
       });
@@ -1139,3 +1140,21 @@ async function start(): Promise<void> {
 const FOLLOW_WAIT_MS = 4000;
 
 start().catch((err) => console.error('strip failed to start', err));
+
+/** A townsperson's picture for the feed and the report card: as the map draws them, so a founder (in their hero form
+ *  always, map/mapPeople.ts) is their hero sheet's idle frame, cut to a square about the figure; anyone else their LPC
+ *  figure. */
+function personPicture(who: PersonView): HTMLCanvasElement {
+  if (!who.founderCalling || who.monster === 'undead') return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
+  const sheet = founderSheet(who.cls, who.id, who.battle.ranged, (who.battle.attrs?.int ?? 0) > (who.battle.attrs?.str ?? 0));
+  const tex = creatureFrame(sheet, 0, 'right', 0, false, 'idle');
+  const f = tex.frame;
+  const r = tex.source.resolution;
+  const side = Math.min(f.width, f.height);
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(tex.source.resource as CanvasImageSource, (f.x + (f.width - side) / 2) * r, (f.y + f.height - side) * r, side * r, side * r, 0, 0, 64, 64);
+  return c;
+}

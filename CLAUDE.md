@@ -1648,6 +1648,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (the defend task in a raid) keeps the form the whole fight (mapPeople's `inCombat`), and a cast on the battle map sets
   `p.lastBlow` so it plays the striking pose.
 
+- **Founders pictured as the map draws them (the owner's complaint):** the New Town cards drew a founder's LPC look
+  while the map always draws them in their hero form. `art/heroForms.ts` (no Pixi, so the panel can use it; re-exported
+  by combatPoses.ts) holds `HERO_FORM`, `heroSheet` and `founderSheet`, which now decides a founder's form by their
+  class (`CLASS_DEFS`: ranged, caster or healer role), not by stats that shift as they level; `FOUNDER_ID` (1).
+  `drawFounderArt` in newGamePanel.ts draws the idle frame of that sheet (`PACK_LAYOUT`, `packUrl`) for the founder's
+  base class, and the feed's and report card's person pictures (`personPicture` in main.ts) do the same for a founder.
+
 ## The merfolk rework (in progress; the owner's request)
 
 - **Raiders from the sea (step 1, done):** raid kinds with `fromSea` (data/raids.ts) come only to a shore town

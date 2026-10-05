@@ -14,6 +14,9 @@ import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../../shared/data/origins';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
+import { FOUNDER_ID, founderSheet } from '../art/heroForms';
+import { PACK_LAYOUT, packUrl } from '../art/creatures/packs';
+import { loadImage } from '../art/loadImage';
 import { button, el } from './dom';
 
 
@@ -30,6 +33,36 @@ let step = 0;
 const STEPS = ['Who founds the town?', 'Your founder', 'How does it begin?', 'Where will you found your town?', 'How dangerous is the world?', 'Ready to found it?'] as const;
 
 let lpcReady: Promise<void> | null = null;
+
+/** The founder as the map draws them (map/mapPeople.ts: a founder wears their hero form always): the idle frame of
+ *  the hero sheet their calling's base class gives (`founderSheet`, the same choice), feet at the foot of the picture,
+ *  facing right. A founder with no calling, or until the sheet loads, is their LPC figure. */
+function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDERS)[OriginId][number]['look']): void {
+  const g = art.getContext('2d')!;
+  const lpc = () => void lpcReady!.then(() => g.drawImage(lpcCanvas(look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64));
+  const calling = FOUNDER_CLASS[id];
+  if (!calling) return lpc();
+  const sheet = founderSheet(calling.base, FOUNDER_ID, false, false);
+  const lay = PACK_LAYOUT[sheet];
+  if (!lay) return lpc();
+  void loadImage(packUrl(sheet))
+    .then((img) => {
+      const row = Math.max(0, lay.rows.indexOf('idle'));
+      const k = 60 / lay.figure;
+      const w = lay.w * k;
+      const h = lay.h * k;
+      g.clearRect(0, 0, 64, 64);
+      g.imageSmoothingEnabled = false;
+      g.save();
+      if (!lay.facesRight) {
+        g.translate(64, 0);
+        g.scale(-1, 1);
+      }
+      g.drawImage(img, 0, row * lay.h, lay.w, lay.h, 32 - w / 2, 62 - h, w, h);
+      g.restore();
+    })
+    .catch(lpc);
+}
 
 export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const origins = el('div', 'cards');
@@ -79,8 +112,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
         const c = el('button', `card pick founder-card${on ? ' on' : ''}`);
         const art = el('canvas', 'founder-art');
         art.width = art.height = 64;
-        // (the figure, cropped from its 64px frame to fill the picture)
-        void lpcReady!.then(() => art.getContext('2d')!.drawImage(lpcCanvas(f.look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64));
+        drawFounderArt(art, f.id, f.look);
         const body = el('div', 'founder-body');
         const top = el('div', 'card-top');
         top.append(el('span', 'card-name', f.name), el('span', 'card-size', on ? 'Chosen' : ''));
