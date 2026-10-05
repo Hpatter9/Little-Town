@@ -1859,6 +1859,20 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   and dropped: it cost lone founders about half a person by day 10. Probe (12 lone founders, 10 days): 4.4 people
   where it was 4.1. Test: `test/hunger.test.ts`.
 
+- **Rooms lived in (the owner's ask: a dwarves' hold felt empty, one piece a room):** `src/renderer/map/castleClutter.ts`
+  dresses the hall, every room and the dug galleries of a castle or a hold with the dungeon packs' small things
+  (`art/clutter/`, 48 sprites cut by hand, palette PNGs): tall things against the back wall (shelves, racks, crate
+  stacks), middling ones down the sides (barrels, crates, chests, tables), small ones in the corners and along the front
+  (jars, stools, books, flasks, gold), and a group or two on the open floor (`GROUPS`: a long table and stools, a desk and
+  stool, a heap of crates), by what the room is (`kindOf` in `map/roomKinds.ts`: hall, home, store, study, forge, healer,
+  kitchen, treasury for the seat, mine, work; `SETS`). Kept clear of each room's own piece (MapView's `occupied`: its
+  painted runs of columns from `PixelArt.tops`), the doorways and the gate's carpet; placed from a stream seeded by the
+  room, so it stays put. **Lights:** torches on the back walls and now and then in the galleries, braziers in the hall,
+  forges, kitchens and throne room, candles in homes and studies (`art/delve/fires.png`, `art/clutter/candles.png`,
+  animated), each with a warm pool on the floor that flickers (`flickerCastle`, from `renderAir`) and a glow in the
+  lights layer after dark. A room's own piece is never a whole building's outside any more (`packArtIndoors` in
+  packBuildings.ts: `EXTERIORS`, the trades' timber houses and shop fronts stood inside the hold). Test:
+  `test/clutter.test.ts`.
 - **Walls that hold, and a gate to the hold (the owner's ask: realistic pathing):** a castle's or a hold's walls are
   real for walking now. `castleLayout` (sim/castle.ts, cached per tick and on the rooms and `land.version`) gives each
   castle cell its region (the hall -1, each room its id, each separate run of a hold's dug galleries -2, -3...), the

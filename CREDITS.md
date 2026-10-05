@@ -37,6 +37,13 @@ The spells' and skills' effects in the watched fights and on the raid's battle m
 and `slash_*.png`, built by `tools/compose-effects.cjs`) are from **Craftpix.net**'s free Pixel Magic Sprite Effects pack
 and free Magic Slash Effects pack.
 
+## Craftpix dungeon props (the hold's rooms)
+
+The barrels, crates, jars, chests, heaps of gold, shields, stools, tables, desks, shelves, potion racks and books set
+about a hold's rooms (`src/renderer/art/clutter/`) are cut from **Craftpix.net**'s free 2D Top-Down Pixel Dungeon pack
+and free Pixel Dungeon Props and Objects pack; the flickering candles are the former's candle animation, and the wall
+torches and braziers its fire animation (already in `art/delve/fires.png`). https://craftpix.net, free licence.
+
 ## Craftpix dungeon props (the watched delves)
 
 The vampire castle's flagstone floor, its gate and the small arched door (`src/renderer/art/castle/`) are cut from the

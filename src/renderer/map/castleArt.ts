@@ -25,7 +25,7 @@ import doChest from '../art/packs/do_chest.png';
 import doBarrel from '../art/packs/do_barrel.png';
 import doCrates from '../art/packs/do_crates.png';
 import { blocks, cornerTower, merlons, TOWER_H, TOWER_W, walk } from './keepArt';
-import { packArt, pickArt, type Pick } from './packBuildings';
+import { packArtIndoors, pickArt, type Pick } from './packBuildings';
 
 /** What the renderer gets of the castle (snapshot.castle). */
 export interface CastleView {
@@ -291,7 +291,7 @@ export function roomFurniture(def: BuildingDef, w: number, id: number, tone: Ton
   if (seat) return seatInterior(seat.origin, seat.stage, w, tone, toneKey);
   const inner = Math.max(1, w - 1);
   // (a home in a castle or a hold is beds, never a tent)
-  const pack = def.housing ? null : packArt(def.id, inner, style, id);
+  const pack = def.housing ? null : packArtIndoors(def.id, inner, style, id);
   if (pack) return pack;
   if (def.housing) {
     const bw = 18;
