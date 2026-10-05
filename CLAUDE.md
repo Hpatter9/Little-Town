@@ -1310,6 +1310,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **What came of an answer, on a card (upright):** `tell` in sim/events.ts keeps the last answer on `s.eventOutcome`
   (title, the choice, what came of it); `snapshot.eventOutcome` carries it for `OUTCOME_HOURS` (4), and the feed shows
   it at the top as a green-edged card (`answered` in feed.ts). Sideways the same line pops up over the town as a notice.
+- **What a move does, on the fight banner:** the snapshot's fight `acts` carry `text` (`actText` in snapshot.ts: the
+  first line of `describeAct` for the spell or skill of that name), shown as a third line on `#fight-banner` (`.ff-what`),
+  which then stays 0.7 s longer.
 - **Game speed (the owner's ask):** a 1×/2×/3× button on the clock bar (`hud.ts`, the `gameSpeed` command,
   `s.gameSpeed`, `snapshot.speed`); `battleSpeedNow` (battle.ts, read by `GameLoop.pump`) returns it outside a battle,
   and the battle's own speed during one. Time away is unaffected.

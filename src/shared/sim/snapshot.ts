@@ -75,7 +75,8 @@ import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
-import { abilitiesKnown } from '../data/abilities';
+import { ABILITIES, abilitiesKnown } from '../data/abilities';
+import { SPELLS } from '../data/spells';
 import { describeAct, describePassive } from '../data/describe';
 import { hexesNow } from './rivals';
 import { castleBounds, castleCells, castleGate, castleLayout, castleOn, coreRect, galleryCells, holdOf, type Hold } from './castle';
@@ -391,7 +392,7 @@ export interface ExpeditionView {
   roles: Record<number, string>;
   /** A fight in progress, if any, and the spells and skills used in it lately (ticks ago). */
   battle: FighterView[] | null;
-  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[]; spell: boolean; ult: boolean; cost: number; pool: 'mp' | 'sp' | 'limit' | null; who: string }[];
+  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[]; spell: boolean; ult: boolean; cost: number; pool: 'mp' | 'sp' | 'limit' | null; who: string; text: string }[];
   /** Waiting on a question for the player. */
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
@@ -1285,6 +1286,17 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
   };
 }
 
+/** What a spell or fighting skill does, in a line, by its name (the fight banner's third line). */
+let ACT_TEXT: Map<string, string> | null = null;
+function actText(name: string): string {
+  if (!ACT_TEXT) {
+    ACT_TEXT = new Map();
+    for (const sp of SPELLS) if (!ACT_TEXT.has(sp.name)) ACT_TEXT.set(sp.name, describeAct(sp.effects).split('. ')[0].replace(/\.$/, ''));
+    for (const a of ABILITIES) if (a.active && !ACT_TEXT.has(a.name)) ACT_TEXT.set(a.name, describeAct(a.active.effects).split('. ')[0].replace(/\.$/, ''));
+  }
+  return ACT_TEXT.get(name) ?? '';
+}
+
 /** Someone's fighting stats and kit, worked out again only when what they depend on changes. */
 const fightCache = new Map<number, { key: string; view: Pick<PersonView, 'battle' | 'kit' | 'passives'> }>();
 function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives'> {
@@ -1436,6 +1448,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
       cost: a.meta?.cost ?? 0,
       pool: a.meta?.pool ?? null,
       who: e.battle!.fighters.find((f) => f.side === a.side && f.ref === a.ref)?.name ?? '',
+      text: a.meta?.pool ? actText(a.name) : '',
     })),
     waiting: e.prompt !== null,
     hunt: !!e.hunt,
