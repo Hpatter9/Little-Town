@@ -1422,13 +1422,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   ghost essence, monster heart, dragon's heart; worth in trade.ts, DawnLike icons), and the forge: seven unique weapons
   (rows of uniques.ts marked `FORGED`, their makings in `FORGE`) and six unique pieces of armour (`FORGED_ARMOUR`).
   `src/shared/sim/hunts.ts`: `huntsHourly` posts a hunt now and then while the guild stands (`HUNT_POST_CHANCE`,
-  `HUNT_EVERY_HOURS` apart, at most `MOST_HUNTS`, lapsing after `HUNT_DAYS`; stars up to `starsFor`: the town's size and
-  age), on the board as `mhunt:<id>` (type `clear`); parties take them up (`PULL_HUNT_STAR` a star); `huntHome` pays the
+  `HUNT_EVERY_HOURS` apart, at most `MOST_HUNTS`, lapsing after `HUNT_DAYS` (8); stars up to `starsFor`: the town's size and
+  age), on the board as `mhunt:<id>` (type `clear`); parties take them up (`PULL_HUNT_STAR` 5 a star: at 3 the adventurers went elsewhere and hunts lapsed); `huntHome` pays the
   party the purse and stores the parts. `planForge` orders each forged unique once its makings are in store (one at a
   time); `canQueueCraft` refuses a unique already made or queued, and `finishPiece` records it in `s.uniques`. The
   planner keeps parts the forge still wants out of `forSale` and leaves uniques out of `bestMakeable`. The Quests tab has
   Hunts (stars, purse, parts) and the Guild forge (each piece, its makings, who carries it). `window.__hunt(id)` posts
   one (previews). Tests: `test/hunts.test.ts`.
+- **Nobody stands on top of anyone (the owner's ask):** on the map, people standing still (`STILL_AFTER` 400 ms on one
+  spot) are stepped apart: `MapPeople.spread` (every `SPREAD_EVERY`), by id, keeps each on their spot unless someone
+  already placed is within `PERSONAL_SPACE` (32 px; up and down counts `SQUASH` 0.75), else gives them the nearest free
+  place on rings round it (`ASIDE`); the step is eased in at a walk (`Drawn.aside`, `.off`) and dropped once they move.
+  Walkers pass through each other. Drawing only: the sim's positions are untouched; `personAt` and `posOf` follow the step.
 - **The map's grip (upright; the owner's ask: the map full screen or half at will):** a grip on the map's top edge
   (`#map-grip`, mobile.ts): drag it up over the feed or down to half (`MAP_LEAST`), a tap flips between the whole
   room and half. Kept in `littletown.mapShare` (unset: the map follows the feed as before, `townShare`); at the whole

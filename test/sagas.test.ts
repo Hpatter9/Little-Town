@@ -112,7 +112,7 @@ test('nobody goes in time: the story bends (Wynn is lost, the boy stays)', () =>
   const s = town('sagas-late');
   beginSaga(s, 'burnt_cart');
   answer(s, /go after them/);
-  hoursPass(s, 4 * 24 + 1);
+  hoursPass(s, 5 * 24 + 1);
   assert.equal(s.sagasDone?.[0]?.outcome, 'bittersweet');
 });
 

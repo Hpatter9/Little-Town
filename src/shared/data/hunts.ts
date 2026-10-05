@@ -95,9 +95,9 @@ export const HUNT_PURSE: Record<number, number> = { 1: 40, 2: 80, 3: 150, 4: 260
 export const HUNT_EVERY_HOURS = 30;
 export const HUNT_POST_CHANCE = 0.25;
 export const MOST_HUNTS = 3;
-export const HUNT_DAYS = 6;
+export const HUNT_DAYS = 8;
 /** The pull of a hunt on a party choosing where to go: so much a star. */
-export const PULL_HUNT_STAR = 3;
+export const PULL_HUNT_STAR = 5;
 /** Seconds out to a hunt's ground (each way), by its stars. */
 export const HUNT_OUT = (stars: number) => 50 + stars * 15;
 

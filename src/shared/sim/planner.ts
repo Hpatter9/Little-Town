@@ -4,7 +4,7 @@
 // and why, is kept in `s.plan` for the panels to show.
 
 import { BOAT_TOPICS } from '../data/boats';
-import { FORGED_IDS } from '../data/hunts';
+import { COMPONENTS, FORGED_IDS } from '../data/hunts';
 import { prostheticsWanted } from './injuries';
 import { PROSTHETIC_BY_ITEM } from '../data/injuries';
 import { venuePurse } from './ambition';
@@ -963,7 +963,7 @@ export function forSale(s: GameState): Stock {
     const have = n.stock[m] ?? 0;
     if (m === 'totem' || have <= 0) continue;
     // (monster parts are kept while the guild's forge still wants them for something not yet made)
-    if (FORGED_IDS.some((id) => !(s.uniques ?? []).includes(id) && (ITEM_BY_ID[id]?.cost[m] ?? 0) > 0)) continue;
+    if ((COMPONENTS as readonly string[]).includes(m) && FORGED_IDS.some((id) => !(s.uniques ?? []).includes(id) && (ITEM_BY_ID[id]?.cost[m] ?? 0) > 0)) continue;
     let spare: number;
     const value = FOOD_VALUE[m];
     if (value) {

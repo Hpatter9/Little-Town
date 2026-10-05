@@ -103,7 +103,30 @@ interface Drawn {
   /** Walking up or down the map (from the way they last moved), else side-on. */
   face: 'up' | 'down' | null;
   lastActivity: string;
+  /** Standing still (snapshots in a row on the same spot), the step aside they're given so nobody stands on top of
+   *  anyone else (`spread`), and how far aside they are drawn now (eased toward it; back to nothing once they walk). */
+  stillSince?: number;
+  aside?: { x: number; y: number };
+  off?: { x: number; y: number };
 }
+
+/** Two people standing still closer than this (px) are stepped apart; walkers pass through each other. */
+const PERSONAL_SPACE = 32;
+/** Up and down the map counts this much of across (people stand closer front to back than side by side). */
+const SQUASH = 0.75;
+/** How long (ms) on one spot before someone counts as standing still, and how often the steps aside are worked out. */
+const STILL_AFTER = 400;
+const SPREAD_EVERY = 250;
+/** The places a step aside may take them: a ring round the spot, then a wider one. */
+const ASIDE: readonly [number, number][] = [0, 1, 2].flatMap((ring) =>
+  Array.from({ length: 6 + ring * 4 }, (_, k): [number, number] => {
+    const a = (k / (6 + ring * 4)) * Math.PI * 2 + ring * 0.4;
+    const r = PERSONAL_SPACE * (ring + 1);
+    return [Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r * SQUASH)];
+  }),
+);
+/** How quickly a step aside is taken (a share of the way each frame at 60 fps). */
+const ASIDE_EASE = 0.12;
 
 export class MapPeople {
   private readonly drawn = new Map<number, Drawn>();
@@ -157,6 +180,7 @@ export class MapPeople {
         d = { view: p, visitor: isVisitor, sprite, shadow, horse, load, bubble, spray, from: { x: p.x, y: p.y }, to: { x: p.x, y: p.y }, at: now, x: p.x, y: p.y, walked: 0, animStart: now, lastActivity: p.activity, face: null };
         this.drawn.set(p.id, d);
       }
+      if (d.stillSince === undefined || Math.abs(p.x - d.to.x) >= 0.5 || Math.abs(p.y - d.to.y) >= 0.5) d.stillSince = now;
       d.from = { x: d.x, y: d.y };
       d.to = { x: p.x, y: p.y };
       d.at = now;
@@ -175,6 +199,24 @@ export class MapPeople {
         for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work]) o?.destroy();
         this.drawn.delete(id);
       }
+  }
+
+  /** Nobody stands on top of anyone else: those standing still, by id, each keep their spot unless someone already
+   *  placed is within `PERSONAL_SPACE`, and then take the nearest free place round it (`ASIDE`). Walkers are left alone. */
+  private spreadAt = 0;
+  private spread(now: number): void {
+    if (now - this.spreadAt < SPREAD_EVERY) return;
+    this.spreadAt = now;
+    const placed: { x: number; y: number }[] = [];
+    const still = [...this.drawn.values()].filter((d) => !d.view.indoors && now - (d.stillSince ?? now) >= STILL_AFTER).sort((a, b) => a.view.id - b.view.id);
+    const free = (x: number, y: number) => placed.every((q) => Math.hypot(q.x - x, (q.y - y) / SQUASH) >= PERSONAL_SPACE);
+    for (const d of this.drawn.values()) if (!still.includes(d)) d.aside = undefined;
+    for (const d of still) {
+      const keep = d.aside && free(d.to.x + d.aside.x, d.to.y + d.aside.y) ? d.aside : null;
+      const step = keep ?? (free(d.to.x, d.to.y) ? { x: 0, y: 0 } : (ASIDE.map(([x, y]) => ({ x, y })).find((o) => free(d.to.x + o.x, d.to.y + o.y)) ?? { x: 0, y: 0 }));
+      d.aside = step;
+      placed.push({ x: d.to.x + step.x, y: d.to.y + step.y });
+    }
   }
 
   private dressed(v: PersonView): [PersonView['look'], string[]] {
@@ -278,13 +320,25 @@ export class MapPeople {
       this.pillar.position.set(Math.round(who.x - (HOLY_SIZE * PILLAR_SCALE) / 2), Math.round(who.y + 4 - HOLY_SIZE * PILLAR_SCALE));
     }
     this.drawSpells(now);
+    this.spread(now);
     for (const d of this.drawn.values()) {
       const t = Math.min(1, (now - d.at) / TICK_MS);
-      const x = d.from.x + (d.to.x - d.from.x) * t;
-      const y = d.from.y + (d.to.y - d.from.y) * t;
+      let x = d.from.x + (d.to.x - d.from.x) * t;
+      let y = d.from.y + (d.to.y - d.from.y) * t;
       d.walked += Math.hypot(x - d.x, y - d.y);
       d.x = x;
       d.y = y;
+      // (a step aside from anyone standing on the same spot, taken at a walk: see `spread`)
+      const want = d.aside ?? { x: 0, y: 0 };
+      const off = (d.off ??= { x: 0, y: 0 });
+      const ox = off.x;
+      const oy = off.y;
+      off.x += (want.x - off.x) * ASIDE_EASE;
+      off.y += (want.y - off.y) * ASIDE_EASE;
+      if (Math.abs(want.x - off.x) < 0.3 && Math.abs(want.y - off.y) < 0.3) [off.x, off.y] = [want.x, want.y];
+      d.walked += Math.hypot(off.x - ox, off.y - oy);
+      x += off.x;
+      y += off.y;
       const z = y;
       const hidden = d.view.indoors;
       d.sprite.visible = !hidden;
@@ -563,7 +617,9 @@ export class MapPeople {
     let best: Drawn | null = null;
     for (const d of this.drawn.values()) {
       if (d.view.indoors) continue;
-      if (Math.abs(wx - d.x) <= HIT_HALF_W && wy <= d.y + 2 && wy >= d.y - HIT_H && (!best || d.y > best.y)) best = d;
+      const x = d.x + (d.off?.x ?? 0);
+      const y = d.y + (d.off?.y ?? 0);
+      if (Math.abs(wx - x) <= HIT_HALF_W && wy <= y + 2 && wy >= y - HIT_H && (!best || y > best.y + (best.off?.y ?? 0))) best = d;
     }
     return best?.view ?? null;
   }
@@ -571,7 +627,7 @@ export class MapPeople {
   /** Where someone is drawn now (world px, at their feet). */
   posOf(id: number): { x: number; y: number } | null {
     const d = this.drawn.get(id);
-    return d ? { x: d.x, y: d.y } : null;
+    return d ? { x: d.x + (d.off?.x ?? 0), y: d.y + (d.off?.y ?? 0) } : null;
   }
 }
 
