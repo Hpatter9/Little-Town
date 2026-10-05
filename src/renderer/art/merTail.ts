@@ -16,6 +16,8 @@ const COLOURS: [string, string, string][] = [
   ['#b08a30', '#d4b050', '#f4e4a0'], // gold
 ];
 export const TAIL_KINDS = COLOURS.length;
+/** A merrow's sea colours (dark, mid, light) by kind: the tail's, and their fins' on land. */
+export const merColours = (kind: number) => COLOURS[((kind % TAIL_KINDS) + TAIL_KINDS) % TAIL_KINDS];
 
 const cache: Texture[] = [];
 

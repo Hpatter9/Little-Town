@@ -391,16 +391,18 @@ export class MapPeople {
       }
       // their harm, over the sprite (bodyMarks.ts)
       const marks = v.body.marks;
-      const showMarks = plain && !hidden && marks.length > 0 && v.downed === null;
+      // (a merrow on land wears their fins: the same overlay, in their tail's colours)
+      const mer = v.mer && !swimming ? v.id : -1;
+      const showMarks = plain && !hidden && (marks.length > 0 || mer >= 0) && v.downed === null;
       if (showMarks && !d.marks) d.marks = this.layer.addChild(new Graphics());
       if (d.marks) {
         d.marks.visible = showMarks;
         if (showMarks) {
           const sway = moving ? (Math.floor(d.walked / 8) % 2) : 0;
-          const key = marksKey(marks, v.dir, sway);
+          const key = marksKey(marks, v.dir, sway, mer);
           if (key !== d.marksKey) {
             d.marksKey = key;
-            drawMarks(d.marks, marks, sway);
+            drawMarks(d.marks, marks, sway, mer);
           }
           d.marks.position.set(s.x, s.y);
           d.marks.scale.set(flip ? -k : k, k);

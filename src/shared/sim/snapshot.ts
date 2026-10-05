@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { peopleOf } from './strangers';
 import { AMBITIONS } from '../data/ambitions';
 import { TICKS_PER_DAY } from './time';
 import { ambitionOf, businessPrice } from './ambition';
@@ -194,6 +195,8 @@ export interface PersonView {
    *  life, a line about it, and an elder (slower, and old age may take them). */
   /** In the sea (a merfolk swimming: drawn with a tail). */
   swimming: boolean;
+  /** Of the merfolk (their people, a stranger's or the town's): fins and scales on land (map/bodyMarks.ts). */
+  mer: boolean;
   /** Their nature (data/natures.ts): id, name and a line about it. */
   nature: NatureId;
   natureName: string;
@@ -1240,6 +1243,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
     trips: p.trips ?? 0,
     swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
+    mer: peopleOf(s, p) === 'merfolk' && !p.monster,
     ageDays: Math.floor(ageDays(s, p)),
     ageYears: Math.floor(ageYears(s, p)),
     lifeStage: lifeStage(s, p),

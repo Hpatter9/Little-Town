@@ -1667,8 +1667,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`drawPier` in art/groundDetail.ts: `roads/pier_v.png`, `pier_h.png`, across when the road runs across). A finished
   building whose front stands in the water is dressed with three of the Seabed set's corals, shells, crabs and weed at
   its foot (`SEA_DRESS` in mapView.ts; the set is loaded for the merfolk's look and the town redrawn when it comes).
-- Still to come: merfolk looks on land (fins and scales), the homes themselves in a sea style, tide pools, and the
-  ocean and underwater backdrops for their trips.
+- **Trips under the waves (step 3, done):** a shore town's outdoor fight scenes take `SEA_LOOKS` (data/scenes.ts: the
+  underwater backdrops, and the ocean ones under a sky pack; `lookFor(..., sea)`, `FightScene.update(..., sea)` from
+  main.ts).
+- **Merfolk on land (step 4, done):** `PersonView.mer` (`peopleOf` is merfolk, not raised): `drawFins` in
+  map/bodyMarks.ts draws a crest swept back from the crown, a fanned ear fin and glints of scale in sea colours by id
+  (`merColours` in art/merTail.ts, never its gold, which read as a crown), through the injury marks' overlay, so only on
+  the plain LPC sprite and never in the sea.
+- Still to come: the homes themselves in a sea style, tide pools.
 
 ## Known problem (fixed, watch)
 

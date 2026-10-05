@@ -5,6 +5,7 @@
 
 import type { Graphics } from 'pixi.js';
 import type { BodyMark } from '../../shared/sim/snapshot';
+import { merColours } from '../art/merTail';
 
 const WOOD = 0x8a5a2e;
 const WOOD_DARK = 0x5a3a1c;
@@ -25,11 +26,12 @@ const AT = {
 };
 
 /** A key for what's drawn (redraw only when it changes). */
-export const marksKey = (marks: readonly BodyMark[], dir: number, crutch: number) => marks.map((m) => m.part + m.look).join(',') + (dir < 0 ? 'l' : 'r') + crutch;
+export const marksKey = (marks: readonly BodyMark[], dir: number, crutch: number, mer = -1) => marks.map((m) => m.part + m.look).join(',') + (dir < 0 ? 'l' : 'r') + crutch + '|' + mer;
 
 /** Draw the marks into `g` (cleared first), in its own coordinates about the feet; `crutch` sways the crutch (0..1). */
-export function drawMarks(g: Graphics, marks: readonly BodyMark[], crutch = 0): void {
+export function drawMarks(g: Graphics, marks: readonly BodyMark[], crutch = 0, mer = -1): void {
   g.clear();
+  if (mer >= 0) drawFins(g, mer);
   for (const m of marks) {
     const part = m.part;
     if (m.look === 'bandage') {
@@ -75,4 +77,19 @@ export function limpDip(moving: number, walked: number): number {
   if (moving >= 0.9) return 0;
   const step = Math.floor(walked / 8) % 2;
   return step ? Math.min(3, Math.round((1 - moving) * 4)) : 0;
+}
+
+/** A merrow on land (the merfolk's own look, no pack has one): a fin swept back from the crown to the nape, a small
+ *  fanned fin where the ear is, and a glint of scales at the neck and forearm, in sea colours by `kind` (the tail's,
+ *  art/merTail.ts, but never its gold, which on the head read as a crown). */
+export function drawFins(g: Graphics, kind: number): void {
+  const [dark, mid, light] = merColours(kind % 3).map((c) => parseInt(c.slice(1), 16));
+  // the crest: a membrane from the crown down the back of the head, its rays raked back
+  g.poly([0, -47, -4, -49, -9, -47, -11, -42, -9, -39, -7, -42, -4, -45]).fill({ color: mid, alpha: 0.85 }).stroke({ width: 1, color: dark });
+  for (const [x, y] of [[-3, -48], [-6, -48], [-9, -45]]) g.moveTo(x, y).lineTo(x + 2, y + 3).stroke({ width: 1, color: dark, alpha: 0.5 });
+  // the ear fin, fanned back
+  g.poly([-3, -37, -7, -39, -8, -36, -6, -33, -3, -35]).fill({ color: light, alpha: 0.85 }).stroke({ width: 1, color: dark });
+  for (const y of [-38, -36, -34]) g.moveTo(-3, -36).lineTo(-7, y).stroke({ width: 1, color: mid, alpha: 0.8 });
+  // scales catching the light
+  for (const [x, y] of [[-1, -31], [1, -30], [3, -24], [4, -22], [-3, -16]]) g.rect(x, y, 1, 1).fill(light);
 }
