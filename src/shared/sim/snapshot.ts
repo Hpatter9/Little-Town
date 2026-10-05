@@ -21,7 +21,7 @@ import type { Biome } from '../data/biomes';
 import type { ClassId } from '../data/classes';
 import { levelOf, stageOf } from '../data/levels';
 import { callingName, callingText } from '../data/founderClasses';
-import { personFighter } from './combat';
+import { personFighter, weaponRange } from './combat';
 import { kitOf } from './actions';
 import { levelProgress } from './classes';
 import { turnable, undeadShare } from './turning';
@@ -39,7 +39,7 @@ import { OPERATORS } from '../data/operators';
 import { HERDS } from '../data/livestock';
 import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
 import { aimableSpells, POWERS, powersView } from './powers';
-import { battleView, type BattleView } from './battle';
+import { battleView, ranged, type BattleView } from './battle';
 
 /** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
 export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
@@ -235,7 +235,7 @@ export interface PersonView {
   sick: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
    *  chance, dodge, armour and block, and the chance to strike true. */
-  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number };
+  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number; range: number };
   /** The spells they keep ready and the skills they've learned (actives first), with what each costs. */
   kit: { name: string; spell: boolean; level: number; cost: number; pool: 'mp' | 'sp' | 'limit'; text: string }[];
   /** The passive skills they've learned (always on), with what each gives. */
@@ -1396,7 +1396,7 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives'> {
   const f = personFighter(p, 'fighter', 'front');
   const kit = kitOf(p);
   const view = {
-    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval },
+    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval, range: weaponRange(p, ranged(p)) },
     kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool, text: describeAct(a.effects, a.cooldown / TICK_HZ, a.pool === 'limit') })),
     passives: p.cls ? abilitiesKnown(p.cls, levelOf(p)).filter((a) => a.passive).map((a) => ({ name: a.name, level: a.level, text: describePassive(a.passive!) })) : [],
   };

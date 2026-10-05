@@ -411,6 +411,7 @@ function statLines(def: ItemDef, qn: number | undefined): string[] {
   const out: string[] = [];
   if (fx.damage) out.push(`Damage +${(fx.damage * k).toFixed(1)}${fx.ranged ? ' (from range)' : ''}`);
   if (fx.accuracy) out.push(`Aim +${pct(fx.accuracy)}`);
+  if (def.slot === 'weapon') out.push(`Range ${fx.range ?? (fx.ranged ? 4 : fx.reach ? 2.2 : 1.2)} cells${fx.ranged ? '' : fx.range && fx.range > 1.5 ? ' (a long reach)' : ''}`);
   if (fx.armor) out.push(`Armour ${pct(fx.armor)}`);
   if (fx.block) out.push(`Block ${pct(fx.block)}`);
   if (fx.dodge) out.push(`Dodge ${pct(fx.dodge)}`);
@@ -468,6 +469,7 @@ function fightCard(p: PersonView): HTMLElement {
   stat('Health', `${Math.round(Math.min(p.hp, p.maxHp))}/${p.maxHp}`);
   stat(b.ranged ? 'Damage (range)' : 'Damage', b.damage[0] === b.damage[1] ? String(b.damage[0]) : `${b.damage[0]}–${b.damage[1]}`);
   stat('Aim', pc(Math.min(1, b.accuracy)));
+  stat('Range', `${b.range} ${b.range === 1 ? 'cell' : 'cells'}`);
   stat('Strikes true', pc(b.crit));
   stat('Armour', pc(b.armor));
   stat('Block', pc(b.block));

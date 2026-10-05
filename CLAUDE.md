@@ -431,6 +431,32 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`Battle.settling`, `onTheWay`), never longer than `SETUP_MOST` (90 s) from the stage's start (`Battle.opened`; the
   breathers too). The battle bar says "Taking positions · N still on the way" (`BattleView.onTheWay`); on auto it
   shows that in place of the count. Test in `test/battle.test.ts`.
+- **Many ways in, winding (the owner's ask, after the RPG tower defences: Fantasica, Kingdom Rush, Arknights):** a
+  raid comes down `lanesFor(s)` ways from its side (2, then 3 at 6 fighters, 4 at 12: `LANE_PER_FIGHTERS`,
+  `LANES_MOST`), plus one from the other side for a flanking party (`BattleMap.sides`, `laneSide`; older battles read
+  the second trail as the flank). `lanesOf` in battle.ts: the first lane comes out of the fog where the straight trail
+  did, the others turned round the gate either side (`SPAWN_TURN`; a sea raid's shifted along the shore); each is a
+  `windingTrail`: `BENDS` (3) bends swung off the straight way, alternately either side, by random amounts (`SWING`,
+  the last one nearer the gate `SWING_NEAR` so the raiders zigzag in under the towers), kept outside the town (never
+  nearer the camp than the gate), each stretch the cheapest way over the land (`leg`). Seeded by the town and the tick
+  (`layOut(..., salt)`), so a raid replays the same and the next raid's trails differ. The raiders of each wave are
+  dealt over their side's lanes in turn. Out in the far reaches (more than `FAR_FROM_GATE`, twice `HOLD_REACH`, from
+  the gate) they walk `FAR_PACE` (1.8) as fast, since winding trails are long. **Shooters stand where they see the most
+  trail:** the ground spots are the free cells that have the most of the held stretches (out to `SHOOT_REACH` 1.25
+  `HOLD_REACH`) of every lane in bow range, `GROUND_PER_LANE` (3) a lane, `GROUND_APART` apart, never where a far
+  stretch runs nearer than a held one (the bends and crossroads, as the tower defences place their archers); the
+  town's placing (`autoPlace`) counts every lane. **Traps lie on the path:** a trap the town has built that no trail
+  crosses is laid on a way in for the battle (`TRAP_FROM_GATE` before the gate, the next on that lane `TRAP_APART`
+  further out, the lanes in turn), so every trap bites. Tests in `test/battle.test.ts`.
+- **Weapon range (the owner's ask):** every weapon has a `range` in battle-map cells (`ItemEffects.range`; by family in
+  `FAMILIES`: dagger and claws 1, sword, axe and mace 1.2, flail and great weapon 1.5, scythe 1.6, spear 2.2, polearm
+  2.6, thrown 3, sling, wand and pistol 3.5, staff 4, bow 4.5, crossbow and automatic 5, longbow and energy 6, long gun
+  and heavy 6.5; the older weapons in items.ts and the boss trophies by hand). `weaponRange(p, shooter)` in combat.ts:
+  the weapon's range; a shooter with no ranged weapon throws (`THROWN_RANGE` 3) or a mage casts (`MAGIC_RANGE` 4); bare
+  hands `UNARMED_RANGE` 1. On the battle map a fighter strikes only raiders within it (plus `WALL_REACH` for a shooter
+  on a wall), so a spear on a blocking spot reaches the raider stepping up behind the one it holds. Shown on each
+  weapon's card (`statLines`: "Range N cells") and the Character tab (`PersonView.battle.range`), and in the generated
+  weapons' descriptions. Test in `test/weapons.test.ts`.
 - **Battle speed:** the raid battle's top bar has a speed button (1×, 2×, 3×; the `battleSpeed` command,
   `s.battleSpeed`, kept for later battles). `battleSpeedNow` (battle.ts) is read by `GameLoop.pump`, which runs that
   much more sim time while a battle is on; back to the town's pace when it's over.

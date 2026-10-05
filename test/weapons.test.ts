@@ -7,7 +7,7 @@ import { gradeOf, MAX_PLUS, piece, pieceLabel, plusMult, plusOf, rollPlus } from
 import { TOPICS } from '../src/shared/data/research';
 import { FAMILIES, tierDamage } from '../src/shared/data/weapons';
 import { Rng } from '../src/shared/rng';
-import { afterBlow, hitDamage, weaponOf } from '../src/shared/sim/combat';
+import { afterBlow, hitDamage, THROWN_RANGE, UNARMED_RANGE, weaponOf, weaponRange } from '../src/shared/sim/combat';
 import { makePerson } from '../src/shared/sim/state';
 
 const weapons = ITEMS.filter((i) => i.slot === 'weapon');
@@ -84,4 +84,22 @@ test('armour in four weights, shields and trinkets, about a hundred pieces, each
   const tier = (w: string) => armour.find((a) => a.weight === w && a.slot === 'body' && a.tier === 6)!;
   assert.ok(tier('heavy').effects.armor! > tier('medium').effects.armor! && tier('medium').effects.armor! > tier('light').effects.armor! && tier('light').effects.armor! > tier('cloth').effects.armor!);
   assert.ok(tier('cloth').effects.power! > 0 && tier('light').effects.dodge! > 0);
+});
+
+test('every weapon has a range on the battle map: a spear or polearm reaches further than a sword, a bow far further', () => {
+  for (const it of ITEMS.filter((i) => i.slot === 'weapon')) assert.ok((it.effects.range ?? 0) > 0, `${it.id} has a range`);
+  const rangeOf = (fam: string) => FAMILIES[fam as keyof typeof FAMILIES].range;
+  assert.ok(rangeOf('sp') > rangeOf('sw') && rangeOf('pl') > rangeOf('sw'), 'long hafts reach further for a melee weapon');
+  assert.ok(rangeOf('dg') <= rangeOf('sw'), 'a dagger is at arm\'s length');
+  assert.ok(rangeOf('lb') > rangeOf('bw') && rangeOf('bw') > rangeOf('sp'), 'a longbow outreaches a bow, a bow a spear');
+  for (const [k, f] of Object.entries(FAMILIES)) if (f.ranged) assert.ok(f.range >= 2.5, `${k} shoots from range`);
+  // what someone in hand reaches: a weapon's range; a shooter with none throws, a mage casts; bare hands, arm's length
+  const p = makePerson(new Rng(5), 1, 'hunter', { x: 0, y: 0 }, []);
+  p.gear = {};
+  assert.equal(weaponRange(p), UNARMED_RANGE);
+  assert.equal(weaponRange(p, true), THROWN_RANGE);
+  p.gear.weapon = 'spear';
+  assert.equal(weaponRange(p), ITEM_BY_ID.spear.effects.range);
+  p.gear.weapon = 'bow';
+  assert.equal(weaponRange(p, true), ITEM_BY_ID.bow.effects.range);
 });
