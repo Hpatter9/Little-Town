@@ -226,7 +226,7 @@ function tripControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sna
   if (v.cleared) c.append(el('div', 'purpose', `Cleared ${v.cleared} time${v.cleared === 1 ? '' : 's'}: it wakes deeper each time.`));
   for (const q of s.quests.filter((q) => q.dungeon === d.id)) c.append(el('div', 'lock', `Quest: ${q.title} (${Math.ceil(q.hoursLeft / 24)} days left)`));
   const going = s.expeditions.find((e) => e.dest === d.id);
-  if (v.boat) c.append(el('div', v.byBoat && v.boat.startsWith('Needs') ? 'lock short' : 'purpose', v.boat));
+  if (v.boat && !s.expeditions.some((e) => e.dest === d.id)) c.append(el('div', v.byBoat && v.boat.startsWith('Needs') ? 'lock short' : 'purpose', v.boat));
   if (v.vetoed) c.append(el('div', 'lock short', 'Forbidden: no party will go here.'));
   else if (going) c.append(el('div', 'purpose', `A party is there now${going.leader ? `, led by ${going.leader}` : ''}.`));
   if (v.bounty) c.append(el('div', 'purpose', `Bounty: ${v.bounty} coins from the treasury, paid to the party that does the job.`));
