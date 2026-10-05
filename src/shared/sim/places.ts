@@ -9,7 +9,7 @@ import { BIOME_BEASTS, BEAST_DAYS, CART_ROBBED, LOOK_HOURS, PLACE_APART, PLACE_C
 import type { Destination } from '../data/expeditions';
 import { MATERIAL_NAMES, type Material } from '../data/materials';
 import { ERAS } from '../data/eras';
-import { CELL, groundAt, inMap, isOpen, setGround, WILD, type LandMap, type Pt } from './land';
+import { CELL, groundAt, inMap, isOpen, setGround, WILD, type LandMap, type Pt, wet } from './land';
 import { addStock, campCell, earn, notify, type GameState } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { depositNear } from './buildings';
@@ -124,6 +124,19 @@ export function seedPlaces(land: LandMap, seed: string): MapPlace[] {
     if ((kind === 'vein' || kind === 'cave') && !['rock', 'hill', 'forest'].includes(groundAt(land, x, y))) continue;
     out.push({ id: out.length + 1, kind, x, y, found: null, state: 'waiting' });
   }
+  // (a sea-shaped land: one sea beast laired out on the reef, in the water)
+  if (land.cells.includes('S')) {
+    for (let tries = 0; tries < 200; tries++) {
+      const a = rng.range(Math.PI * 0.15, Math.PI * 0.85); // (south of the camp: the sea's side)
+      const r = rng.range(PLACE_NEAR, PLACE_FAR);
+      const x = Math.round(camp.x + Math.cos(a) * r);
+      const y = Math.round(camp.y + Math.sin(a) * r);
+      if (!inMap(land, x, y) || !wet(groundAt(land, x, y))) continue;
+      if (out.some((p) => Math.hypot(p.x - x, p.y - y) < PLACE_APART)) continue;
+      out.push({ id: out.length + 1, kind: 'reef', x, y, found: null, state: 'waiting' });
+      break;
+    }
+  }
   return out;
 }
 
@@ -132,7 +145,7 @@ export const placeById = (s: GameState, id: number) => (s.places ?? []).find((p)
 
 /** The foes that wait at a fight place when it's found. */
 function rollFoes(s: GameState, kind: PlaceKind, rng: Rng): Record<string, number> {
-  const table = PLACE_FOES[kind as 'cave' | 'beast' | 'cart'];
+  const table = PLACE_FOES[kind as 'cave' | 'beast' | 'cart' | 'reef'];
   const era = ERAS.includes(s.era) ? s.era : 'neolithic';
   let groups = table[era] ?? table.neolithic!;
   if (kind === 'beast' && s.biome && BIOME_BEASTS[s.biome]) groups = [...groups, ...BIOME_BEASTS[s.biome]];

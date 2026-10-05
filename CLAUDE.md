@@ -1729,7 +1729,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   a net and a string of shells. On the strand, `TIDE_POOLS` (0.22) of the sand cells within two of the shallows (only a
   shore town's land has them: `nearShallows`) hold a tide pool (`tidePool` in map/groundArt.ts): clear water in a ring
   of wet rocks, sometimes with one of the Seabed set's shells or starfish in it.
-- Still to come (not designed): the merfolk's sea beasts beyond the raids (the Kraken Deep is a first).
+- **Sea beasts (done):** a sea-shaped land seeds one **Sea Beast's Reef** (`reef` in `PLACE_DEFS`, weight 0: placed
+  only by `seedPlaces` on a land with shallows, in the water south of the camp), found and fought like a beast's lair
+  (`PLACE_FOES.reef`: squid spawn and crocodiles, then Squidbeard, then the Kraken), drawn as the Seabed pack's broken
+  wreck (`sb_wreck.png`, half size, set down on its ring). **The Leviathan** (`leviathan` in bestiary.ts, from the
+  Medieval age, `fromSea`, `leader` the Kraken of the Kraken Deep, `BOAT_ENEMIES` in data/boats.ts) comes ashore at a
+  shore town with its spawn. Test in `test/sea.test.ts`.
 
 ## Known problem (fixed, watch)
 

@@ -85,8 +85,16 @@ Pixel Art packs.
 
 The windmill and the two timber watchtowers on the map (`src/renderer/art/packs/su_windmill.png`, `su_watchtower.png`,
 `su_lookout.png`, scaled down), and the stone keep and the crystal-crowned mage tower that stand for the halls of the
-liches, the Moon Pack, the alchemists and the fae (`su_castle.png`, `su_magetower.png`), are from **Craftpix.net**'s free Simple Summer Top-Down Vector Tileset, used under
-Craftpix's free licence (use in the game; the raw files are not redistributed).
+liches, the Moon Pack, the alchemists, the fae and the druids (`su_castle.png`, `su_magetower.png`), the round keep for the
+merfolk's halls (`su_roundcastle.png`) and the tent for the nomads' (`su_tent.png`), are from **Craftpix.net**'s free
+Simple Summer Top-Down Vector Tileset, used under Craftpix's free licence (use in the game; the raw files are not
+redistributed).
+
+## Craftpix seabed wreck (the sea beast's reef)
+
+The broken wreck a sea beast lairs on, off a shore town (`src/renderer/art/packs/sb_wreck.png`), is from
+**Craftpix.net**'s free Top-Down Seabed Objects pack. The town's boats are painted in code (`art/boatArt.ts`): no pack
+has a whole working boat.
 
 ## Craftpix parallax backgrounds (the fights' backdrops)
 

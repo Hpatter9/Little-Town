@@ -6,7 +6,7 @@
 import type { Era } from './eras';
 import type { Material } from './materials';
 
-export type PlaceKind = 'vein' | 'cave' | 'cart' | 'beast' | 'ruin' | 'bones';
+export type PlaceKind = 'vein' | 'cave' | 'cart' | 'beast' | 'ruin' | 'bones' | 'reef';
 
 export interface PlaceDef {
   kind: PlaceKind;
@@ -23,7 +23,7 @@ export interface PlaceDef {
   hoard: Partial<Record<Material, number>>;
   coins: [number, number];
   /** The scenery on the way and there. */
-  scenery: 'woods' | 'cave' | 'quarry' | 'thicket';
+  scenery: 'woods' | 'cave' | 'quarry' | 'thicket' | 'river';
   /** Suggested party. */
   party: number;
 }
@@ -34,11 +34,20 @@ export const PLACE_DEFS: Record<PlaceKind, PlaceDef> = {
   cart: { kind: 'cart', name: "Trader's Cart", weight: 3, found: 'A burnt-out cart by the way, its goods strewn about. Who did this is still near, perhaps.', fight: false, loot: { cloth: 2, rations: 2 }, hoard: { cloth: 2 }, coins: [10, 40], scenery: 'woods', party: 2 },
   beast: { kind: 'beast', name: "Beast's Lair", weight: 3, found: 'Gnawed bones and a trampled den: a great beast hunts from here.', fight: true, loot: { hide: 3, meat: 4, bone: 2 }, hoard: { hide: 2, meat: 3 }, coins: [0, 0], scenery: 'thicket', party: 3 },
   ruin: { kind: 'ruin', name: 'Old Ruins', weight: 2, found: 'Worked stones under the moss, older than anyone remembers. There may be something to learn here.', fight: false, loot: {}, hoard: { stone: 6 }, coins: [8, 30], scenery: 'quarry', party: 0 },
+  // (a shore town's sea beast, laired on a wreck out on the reef: seeded only on a sea-shaped land, sim/places.ts)
+  reef: { kind: 'reef', name: "Sea Beast's Reef", weight: 0, found: 'Out past the shallows the water boils over an old wreck on the reef: something big lairs there.', fight: true, loot: { fish: 4, kelp: 3, pearls: 1 }, hoard: { pearls: 2, fish: 4 }, coins: [10, 40], scenery: 'river', party: 3 },
   bones: { kind: 'bones', name: 'Great Bones', weight: 1, found: 'The bones of something vast, bleached white. Nothing has lived here for an age.', fight: false, loot: {}, hoard: { bone: 10 }, coins: [0, 0], scenery: 'quarry', party: 0 },
 };
 
 /** What waits at a fight place, by the era it's found in (a cave's or lair's dwellers, a cart's robbers). */
-export const PLACE_FOES: Record<'cave' | 'beast' | 'cart', Partial<Record<Era, Record<string, number>[]>>> = {
+export const PLACE_FOES: Record<'cave' | 'beast' | 'cart' | 'reef', Partial<Record<Era, Record<string, number>[]>>> = {
+  reef: {
+    neolithic: [{ squid_spawn: 2 }, { crocodile: 3 }],
+    medieval: [{ squidbeard: 1, squid_spawn: 1 }, { squid_spawn: 3 }],
+    industrial: [{ squidbeard: 1, squid_spawn: 2 }],
+    modern: [{ kraken: 1 }],
+    space: [{ kraken: 1, squid_spawn: 2 }],
+  },
   cave: {
     neolithic: [{ wolf: 3, wolf_alpha: 1 }, { boar: 2 }, { rival_spear: 2, rival_slinger: 1 }],
     medieval: [{ ogre: 1 }, { bandit: 2, bandit_archer: 1 }, { slime: 3 }, { wolf_alpha: 1, wolf: 3 }],

@@ -4,6 +4,8 @@
 // being placed. People and raiders are drawn into `things` by mapPeople.ts and mapRaiders.ts, sorted the same way.
 // The whole world is tinted for the time of day.
 
+import wreckUrl from '../art/packs/sb_wreck.png';
+import { loadImage } from '../art/loadImage';
 import { AnimatedSprite, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { Rng } from '../../shared/rng';
 import { campfireFrames } from '../art/sprites';
@@ -122,6 +124,10 @@ function cropLook(b: Building): CropLook | undefined {
   return c.growth < 0.2 ? 'sprout' : c.growth < 0.45 ? 'young' : c.growth < 0.7 ? 'tall' : 'heading';
 }
 const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${b.room ? 'room' : ''}|${b.wide ?? 0}`;
+
+/** The wreck a sea beast lairs on (a reef place), once loaded. */
+let wreckTex: Texture | null = null;
+let wreckAsked = false;
 
 export class MapView {
   /** Screen space (the camera moves `world`). */
@@ -437,6 +443,14 @@ export class MapView {
    *  each from the packs; a fight waiting there has a ring pulsing round it. */
   syncPlaces(list: PlaceView[]): void {
     this.placesSeen = list;
+    if (!wreckTex && !wreckAsked) {
+      wreckAsked = true;
+      void loadImage(wreckUrl).then((img) => {
+        wreckTex = Texture.from(img);
+        this.placesDrawn.forEach((d) => (d.key = ''));
+        this.syncPlaces(this.placesSeen);
+      }, () => undefined);
+    }
     if (!this.placeTex) {
       this.placeTex = [];
       propTextures('places').then((t) => {
@@ -466,10 +480,13 @@ export class MapView {
       d.view = p;
       const kind: PropKind = p.kind === 'vein' ? 'crystal' : p.kind === 'cave' ? 'cave' : p.kind === 'cart' ? 'cart' : p.kind === 'ruin' ? 'ruin' : p.kind === 'bones' ? 'bones' : p.state === 'waiting' ? 'skull' : 'bones';
       const choices = this.placeTex.filter((_, i) => KINDS.places?.[i] === kind);
-      const tex = choices[p.id % Math.max(1, choices.length)];
+      // (a sea beast's reef: the Seabed pack's broken wreck it lairs on, at half its size)
+      const tex = p.kind === 'reef' ? (wreckTex ?? undefined) : choices[p.id % Math.max(1, choices.length)];
+      d.sprite.scale.set(p.kind === 'reef' ? 0.5 : 1);
       d.sprite.visible = !!tex && !(p.kind === 'vein' && p.state !== 'waiting');
       if (tex) d.sprite.texture = tex;
-      d.sprite.position.set(Math.round(p.x), Math.round(p.y + 12));
+      // (the wreck's picture has room round it: set her down on her ring)
+      d.sprite.position.set(Math.round(p.x), Math.round(p.y + 12 + (p.kind === 'reef' ? 22 : 0)));
       d.sprite.zIndex = p.y + 12;
       d.sprite.alpha = p.state === 'done' && p.kind !== 'cave' ? 0.8 : 1;
       d.sprite.tint = p.state === 'waiting' ? 0xffffff : 0xb8b8c8;
