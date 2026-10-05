@@ -761,6 +761,8 @@ export interface GameState {
   lastSaga?: number;
   /** The Monster Hunters' Guild (sim/hunts.ts): hunts on its board, when it last posted one, and hunts won by quarry. */
   hunts?: Hunt[];
+  /** The kinds of foe the town has met, in raids or on the road (the Bestiary: `meet`). */
+  met?: string[];
   lastHunt?: number;
   huntsWon?: Record<string, number>;
   tithe?: boolean;
@@ -1020,6 +1022,12 @@ export function remember(s: GameState, p: Person, text: string): void {
   const r = (p.recent ??= []);
   r.push({ tick: s.tick, text });
   if (r.length > RECENT) r.splice(0, r.length - RECENT);
+}
+
+/** The town has met these kinds of foe (the Bestiary page lights them up). */
+export function meet(s: GameState, kinds: Iterable<string>): void {
+  const met = (s.met ??= []);
+  for (const k of kinds) if (!met.includes(k)) met.push(k);
 }
 
 /** Tell the player something: a toast on the strip and a line in the Journal. `key` marks milestones. */

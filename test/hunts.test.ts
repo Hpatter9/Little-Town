@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COMPONENTS, FORGE, FORGED_ARMOUR, FORGED_IDS, HUNT_DAYS, HUNT_PURSE, MOST_HUNTS, QUARRIES } from '../src/shared/data/hunts';
+import { COMPONENTS, FORGE, FORGED_ARMOUR, FORGED_IDS, HUNT_DAYS, HUNT_PURSE, MOST_HUNTS, QUARRIES, QUARRY_BY_ID } from '../src/shared/data/hunts';
 import { FORGED_UNIQUES } from '../src/shared/data/uniques';
 import { ENEMIES } from '../src/shared/data/enemies';
 import { ITEM_BY_ID } from '../src/shared/data/items';
@@ -58,7 +58,7 @@ test('hunts are posted now and then while the guild stands, up to the town; they
   }
   assert.ok(s.journal.some((j) => /posts a hunt/.test(j.text)), 'hunts posted');
   for (const x of s.hunts ?? []) assert.ok(s.tick < x.until, 'lapsed hunts come down');
-  for (const q of s.hunts ?? []) assert.ok(QUARRIES.find((z) => z.id === q.quarry)!.stars <= starsFor(s));
+  for (const q of s.hunts ?? []) assert.ok(QUARRY_BY_ID[q.quarry].stars <= starsFor(s));
 });
 
 test('a hunt won: the guild pays the party, and the parts come home', () => {

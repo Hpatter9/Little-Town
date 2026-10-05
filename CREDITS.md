@@ -114,6 +114,11 @@ are its `Characters/Avian0.png` and `Avian1.png`, five of them cut into `src/ren
 butterflies its `Pest0.png` and `Pest1.png`, two cut into `src/renderer/art/butterflies.png`). As the author asks, Platino is
 hidden somewhere in the game.
 
+The menagerie's 304 creatures (`src/shared/data/menagerie.ts`) are DawnLike's too: cells of its `Characters` sheets
+(Aquatic, Avian, Cat, Demon, Dog, Elemental, Humanoid, Misc, Pest, Plant, Quadraped, Reptile, Rodent, Slime and
+Undead; both animation frames, `0` and `1`), cut into `src/renderer/art/creatures/dawn.png` by
+`tools/compose-dawn.cjs`. Same licence, same credit: **DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**.
+
 ## Music
 
 "Tiny RPG" town and battle themes by **Luis Zuno (@ansimuz)** (`src/renderer/music/`, from

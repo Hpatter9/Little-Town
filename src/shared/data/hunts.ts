@@ -11,6 +11,7 @@ import type { ItemDef, ItemEffects, Slot } from './items';
 import type { Material, Stock } from './materials';
 import type { Topic } from './research';
 import type { ArmourWeight } from './armour';
+import { MENAGERIE_QUARRIES } from './menagerie';
 
 /** The monster parts a hunt brings home (in data/materials.ts too): what they're called, what they're worth. */
 export const COMPONENTS = ['beast_fang', 'thick_pelt', 'venom_sac', 'chitin', 'great_horn', 'wyrm_scale', 'gorgon_eye', 'ghost_essence', 'monster_heart', 'dragon_heart'] as const satisfies readonly Material[];
@@ -85,7 +86,9 @@ export const QUARRIES: readonly Quarry[] = [
   { id: 'ashen_wyrm', name: 'The Ashen Wyrm', stars: 5, era: M, foes: { ashen_wyrm: 1, drake: 2 }, parts: { wyrm_scale: 4, dragon_heart: 1 }, scenery: 'quarry', text: 'A grey dragon over the burnt hills, with its brood. The guild pays its best for this one.' },
 ];
 
-export const QUARRY_BY_ID: Record<string, Quarry> = Object.fromEntries(QUARRIES.map((q) => [q.id, q]));
+/** The hand-written hunts, and one for each creature of the menagerie (data/menagerie.ts) strong enough to post. */
+export const ALL_QUARRIES: readonly Quarry[] = [...QUARRIES, ...(MENAGERIE_QUARRIES as Quarry[])];
+export const QUARRY_BY_ID: Record<string, Quarry> = Object.fromEntries(ALL_QUARRIES.map((q) => [q.id, q]));
 
 /** The guild's purse for a hunt, by its stars. */
 export const HUNT_PURSE: Record<number, number> = { 1: 40, 2: 80, 3: 150, 4: 260, 5: 420 };

@@ -3,6 +3,7 @@
 
 import { PACK_RAIDS } from './pack';
 import { BESTIARY_RAIDS } from './bestiary';
+import { MENAGERIE_RAIDS } from './menagerie';
 import type { Era } from './eras';
 
 /** What a raider is after (DESIGN §10): hurting people, stealing, setting fires, carrying someone off. */
@@ -88,6 +89,8 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   { id: 'rival_knights', name: 'The Order', goal: 'harm', goals: { harm: 3, burn: 1, steal: 1 }, steals: 'valuables', enemies: { order_knight: 18, order_crossbow: 12 }, fromDay: 8, weight: 0.3, speed: 55, bribable: true, plural: false, origin: 'knights', leader: 'grand_master' },
   // the Craftpix packs' foes (data/bestiary.ts)
   ...BESTIARY_RAIDS,
+  // the menagerie's (data/menagerie.ts): one for each family, and the ice's, the dunes' and the deep's own
+  ...MENAGERIE_RAIDS,
 ];
 
 export const RAID_KINDS: readonly RaidKind[] = [...BASE_RAID_KINDS, ...PACK_RAIDS];

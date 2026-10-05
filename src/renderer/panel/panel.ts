@@ -48,7 +48,7 @@ function render(): void {
           : shown === 'expeditions'
             ? 'e' + expeditionsKey(snap)
             : shown === 'journal'
-              ? 'j' + snap.journalHead
+              ? 'j' + snap.journalHead + '|' + snap.met.length
               : shown === 'crafting'
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'
@@ -67,9 +67,9 @@ function render(): void {
   if (snap && shown === 'journal') {
     // fetched separately: the whole journal is too big to send with every snapshot
     void bridge.getJournal().then((entries) => {
-      if (renderedKey !== key) return; // moved on meanwhile
+      if (renderedKey !== keyed) return; // moved on meanwhile
       const top = body.scrollTop;
-      body.replaceChildren(...renderJournal(entries));
+      body.replaceChildren(...renderJournal(entries, snap?.met ?? []));
       body.scrollTop = top;
     });
     return;

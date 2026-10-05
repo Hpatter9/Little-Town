@@ -1429,6 +1429,26 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   planner keeps parts the forge still wants out of `forSale` and leaves uniques out of `bestMakeable`. The Quests tab has
   Hunts (stars, purse, parts) and the Guild forge (each piece, its makings, who carries it). `window.__hunt(id)` posts
   one (previews). Tests: `test/hunts.test.ts`.
+- **The menagerie (done; the owner's ask: 250 more creatures, from the assets):** 304 new foes, every one a DawnLike
+  creature (`src/shared/data/menagerie.ts`: a row each, its sheet and cell, a tier 1 to 10, a habitat, a family and flags:
+  ranged, small, big, huge, undead, person, machine, armoured, quick). `tools/compose-dawn.cjs` (run by hand) cuts their
+  two frames into `src/renderer/art/creatures/dawn.png` (`DAWN_ACROSS` pairs a row, 124 KB); the sheet `dawn` in
+  `art/creatureSheets.ts` has `pairs`, so `creatureFrame` takes a creature's two frames and `creatureFlip` mirrors it to
+  face right (the table of sheets moved out of creatures.ts into creatureSheets.ts, with no Pixi in it). Stats come from
+  the tier (`statsFor`: 25 health at tier 1 to 358 at 10, stretched for size), loot by family, and from tier 4 a monster
+  part for the guild. Where they turn up: a raid kind for each family (`MENAGERIE_RAIDS`, ids `m_<family>`, plus
+  `m_ice` in the tundra, `m_dunes` in the desert and `m_deep` from the sea; the raid budget keeps the great ones away
+  from small towns), half the land's lairs, caves and reefs (`rollFoes` in sim/places.ts: `placeHabitats` by the
+  biome, `TIERS_BY_ERA`), up to `DUNGEON_GROUPS` (6) groups in each dungeon by its type (`DUNGEON_HABITATS`,
+  `dungeonGroups`), and a guild hunt for each creature of tier 2 or more (`MENAGERIE_QUARRIES`, ids `m_<id>`, posted less
+  often than the hand-written ones). **The Bestiary:** the Chronicle's fourth tab (`panel/bestiaryPanel.ts`): every foe
+  (480) by family, tap a family to open it, met ones in colour and the rest as shadows, with their health, tier and
+  habitat. The town remembers each kind it meets (`meet` in state.ts, `s.met`, from `fightGroup` and `endRaid`;
+  `snapshot.met`). Pictures are CSS crops (`art/creatureThumbs.ts`) of the DawnLike sheet and the Craftpix pack sheets;
+  the older MV-sheet creatures show a mark. `window.__raid(kind)` starts a raid (previews). Tests:
+  `test/menagerie.test.ts` (every creature on the sheet, a foe, and turning up somewhere). **The Chronicle had been
+  blank** since the menus went into sub-tabs: its entries came back after the redraw key had changed (`renderedKey !==
+  key` in panel.ts); fixed.
 - **Nobody stands on top of anyone (the owner's ask):** on the map, people standing still (`STILL_AFTER` 400 ms on one
   spot) are stepped apart: `MapPeople.spread` (every `SPREAD_EVERY`), by id, keeps each on their spot unless someone
   already placed is within `PERSONAL_SPACE` (32 px; up and down counts `SQUASH` 0.75), else gives them the nearest free

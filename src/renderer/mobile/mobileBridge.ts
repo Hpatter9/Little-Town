@@ -11,6 +11,8 @@ import { cleanNewGameOptions } from '../../shared/data/founding';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { beginSaga } from '../../shared/sim/sagas';
 import { postHunt } from '../../shared/sim/hunts';
+import { startRaid } from '../../shared/sim/raids';
+import { RAID_KIND_BY_ID } from '../../shared/data/raids';
 import { Rng } from '../../shared/rng';
 
 const SAVE_KEY = 'littletown.save';
@@ -118,8 +120,8 @@ export function mobileBridge(): Bridge {
     emit();
   });
   window.addEventListener('pagehide', saveNow);
-  // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga and `__hunt(id)` posts a hunt, for previews)
-  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id) });
+  // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga, `__hunt(id)` posts a hunt and `__raid(kind)` starts a raid, for previews)
+  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)) });
   function stateOf(): GameState {
     return (game as unknown as { sim: { state: GameState } }).sim.state;
   }

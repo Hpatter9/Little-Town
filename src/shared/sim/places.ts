@@ -4,6 +4,7 @@
 // robbers still about): a trip to it from the Expedition Board, fought on the way-and-there as any trip, and its
 // hoard home with the party when cleared.
 
+import { beastsOf, groupOf, placeHabitats, TIERS_BY_ERA } from '../data/menagerie';
 import { Rng, hashSeed } from '../rng';
 import { BIOME_BEASTS, BEAST_DAYS, CART_ROBBED, LOOK_HOURS, PLACE_APART, PLACE_COUNT, PLACE_DEFS, PLACE_FAR, PLACE_FOES, PLACE_NEAR, PLACE_SECONDS_PER_CELL, directionName, isPlaceDest, placeDestId, placeIdOf, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
@@ -149,6 +150,11 @@ function rollFoes(s: GameState, kind: PlaceKind, rng: Rng): Record<string, numbe
   const era = ERAS.includes(s.era) ? s.era : 'neolithic';
   let groups = table[era] ?? table.neolithic!;
   if (kind === 'beast' && s.biome && BIOME_BEASTS[s.biome]) groups = [...groups, ...BIOME_BEASTS[s.biome]];
+  // (half the time, one of the menagerie's creatures of the land and the age: data/menagerie.ts)
+  if (kind === 'beast' || kind === 'cave' || kind === 'reef') {
+    const wild = beastsOf(placeHabitats(kind, s.biome), TIERS_BY_ERA[era]);
+    if (wild.length && rng.chance(0.5)) return groupOf(rng.pick(wild));
+  }
   return { ...rng.pick(groups) };
 }
 

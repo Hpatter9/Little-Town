@@ -5,7 +5,7 @@
 // (`huntHome`). The guild's hunters forge those parts into unique gear (`planForge`: each piece once, when the makings
 // are in store; `finishPiece` in crafting.ts marks it made). Everything here draws on its own seeded stream.
 
-import { FORGED_IDS, HUNT_DAYS, HUNT_EVERY_HOURS, HUNT_OUT, HUNT_POST_CHANCE, HUNT_PURSE, MOST_HUNTS, QUARRIES, QUARRY_BY_ID, type Quarry } from '../data/hunts';
+import { FORGED_IDS, HUNT_DAYS, HUNT_EVERY_HOURS, HUNT_OUT, HUNT_POST_CHANCE, HUNT_PURSE, MOST_HUNTS, ALL_QUARRIES, QUARRY_BY_ID, type Quarry } from '../data/hunts';
 import type { Destination } from '../data/expeditions';
 import { eraReached } from '../data/eras';
 import { ITEM_BY_ID } from '../data/items';
@@ -58,8 +58,8 @@ function maybePost(s: GameState): void {
 export function postHunt(s: GameState, rng: Rng, quarry?: string): Hunt | null {
   const most = starsFor(s);
   const up = new Set((s.hunts ?? []).map((h) => h.quarry));
-  const pool = QUARRIES.filter((q) => q.stars <= most && eraReached(s.era, q.era) && !up.has(q.id));
-  const q = quarry ? QUARRY_BY_ID[quarry] : pickWeighted(rng, pool, (x) => 1 + (most - x.stars) * 0.6);
+  const pool = ALL_QUARRIES.filter((q) => q.stars <= most && eraReached(s.era, q.era) && !up.has(q.id));
+  const q = quarry ? QUARRY_BY_ID[quarry] : pickWeighted(rng, pool, (x) => (1 + (most - x.stars) * 0.6) * (x.id.startsWith('m_') ? 0.15 : 1));
   if (!q) return null;
   const h: Hunt = { id: s.nextId++, quarry: q.id, posted: s.tick, until: s.tick + HUNT_DAYS * TICKS_PER_DAY };
   (s.hunts ??= []).push(h);

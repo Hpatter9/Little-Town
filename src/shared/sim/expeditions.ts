@@ -62,7 +62,7 @@ import { isSagaDest, sagaDestOf, sagaTripHome } from './sagas';
 import { huntDestOf, huntHome, isHuntDest } from './hunts';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
-import { townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
+import { townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, meet, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
@@ -498,6 +498,7 @@ function maybeFight(s: GameState, e: Expedition, d: Destination, members: Person
 /** A fight with a group of foes (on the road, at the site, or in a delve's room). */
 function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person[], group: Record<string, number>, _boss: boolean, rng: Rng): Battle {
   e.battle = startBattle(members, e.roles, group, rng, e.supplies);
+  meet(s, Object.keys(group)); // (the Bestiary)
   // summoned spirits and tamed wolves join in (they act on their own first beat)
   for (const f of classAllies(members)) e.battle.fighters.push({ ...f, cooldown: f.interval });
   // an epic boss announces itself

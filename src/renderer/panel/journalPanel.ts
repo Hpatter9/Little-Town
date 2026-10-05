@@ -4,19 +4,21 @@
 import type { JournalEntryView } from '../../shared/sim/snapshot';
 import { platino } from '../art/icons';
 import { el } from './dom';
+import { renderBestiary } from './bestiaryPanel';
 
-type Filter = 'all' | 'key' | 'deaths';
+type Filter = 'all' | 'key' | 'deaths' | 'bestiary';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['key', 'Key events'],
   ['deaths', 'Deaths'],
+  ['bestiary', 'Bestiary'],
 ];
 /** (kept while the panel re-renders) */
 let filter: Filter = 'all';
 
 const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 
-export function renderJournal(entries: JournalEntryView[]): HTMLElement[] {
+export function renderJournal(entries: JournalEntryView[], met: readonly string[] = []): HTMLElement[] {
   if (!entries.length) return [el('p', 'empty', 'Nothing has happened yet. Events, discoveries and news from the road will be written here.')];
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
@@ -28,6 +30,10 @@ export function renderJournal(entries: JournalEntryView[]): HTMLElement[] {
         return b;
       }),
     );
+    if (filter === 'bestiary') {
+      list.replaceChildren(...renderBestiary(met, draw));
+      return;
+    }
     const shown = filter === 'all' ? entries : filter === 'key' ? entries.filter((e) => e.key || e.lines) : entries.filter(isDeath);
     list.replaceChildren(...(shown.length ? entryRows(shown) : [el('p', 'empty', filter === 'deaths' ? 'Nobody has died. Yet.' : 'Nothing like that yet.')]));
     if (filter === 'all' && entries.length >= 200) list.append(platino()); // for those who read all the way back

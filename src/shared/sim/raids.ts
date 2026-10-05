@@ -80,7 +80,7 @@ import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
 import { levelOf } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
-import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood } from './state';
+import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, meet, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood } from './state';
 import { castleOn } from './castle';
 import { walk, type Walker } from './walk';
 import { TICK_HZ, TICKS_PER_HOUR, paceDay } from './time';
@@ -798,6 +798,7 @@ function endRaid(s: GameState, rng: Rng): void {
   const r = s.raid!;
   s.raid = null;
   const kind = RAID_KIND_BY_ID[r.kind];
+  meet(s, r.raiders.filter((rd) => !rd.ally).map((rd) => rd.kind)); // (the Bestiary)
   if (r.kind === 'hunters') guildDefeated(s);
   // (a boss struck down as the raid ended, on the battle map, hasn't had its loot yet: bossesInRaid looks before the battle)
   for (const rd of r.raiders)

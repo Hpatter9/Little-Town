@@ -642,6 +642,8 @@ export interface Snapshot {
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number }[];
   /** The sagas under way and those ended (sim/sagas.ts). */
   sagas: { open: SagaView[]; done: SagaDoneView[] };
+  /** The kinds of foe the town has met (the Bestiary). */
+  met: string[];
   /** The Monster Hunters' Guild (sim/hunts.ts): whether it stands, its hunts, its forge, and hunts won. */
   hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
@@ -839,6 +841,7 @@ export function snapshot(s: GameState): Snapshot {
     regions: [HOME_REGION, ...(s.regions ?? [])],
     quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
     sagas: sagasView(s),
+    met: s.met ?? [],
     hunts: huntsView(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
