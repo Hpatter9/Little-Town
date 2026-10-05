@@ -3,7 +3,7 @@
 // list of effects (EventEffect). {who} in a text is a townsperson picked for the event (an event with `who`), and
 // {founder} the town's founder. Numbers are starting points for tuning.
 
-import { chance, coins, dflt, eraAt, eraIs, fields, gain, has, later, mod, mood, note, opt, origin, pens, people, shop, type EventDef } from './eventKit';
+import { bond, calm, chance, coin, coins, dflt, eraAt, eraIs, fields, gain, has, item, later, mod, mood, note, opt, origin, pens, people, raidIn, rep, shop, study, teach, trait, type EventDef } from './eventKit';
 import { LIFE_EVENTS } from './moreEvents1';
 import { ORIGIN_EVENTS } from './moreEvents2';
 import { ERA_EVENTS } from './moreEvents3';
@@ -15,21 +15,21 @@ const BASE_EVENTS: readonly EventDef[] = [
   /* ---------------------------------------------------------- strangers and newcomers */
   {
     id: 'stranger', title: 'A stranger at the gate', text: 'A lone wanderer asks to join the town. They say little about where they came from.',
-    options: [opt('Take them in', { join: 1 }, chance(0.3, [note('The stranger turns out to know a trade: they settle in well.'), mood(3, 24, 'A new face fitting in')])), dflt('Turn them away', note('The stranger walks on.'))],
+    options: [opt('Take them in', { join: 1 }, chance(0.3, [note('The stranger turns out to know a trade: they settle in well.'), mood(3, 24, 'A new face fitting in')])), dflt('Turn them away', note('The stranger walks on, and the stores are no lighter.'), gain({ berries: 4 }))],
   },
   {
     id: 'refugees', title: 'Refugees', text: 'A family of four, fleeing a war, begs to be taken in.', when: (s) => people(s, 5),
     options: [
       opt('Take them all in', { join: 4 }, mod('work', 0.95, 24, 'More mouths than hands, for now'), { reputation: 2 }),
       opt('Take the children only', { join: 2 }, mood(-3, 24, 'A family split at the gate')),
-      dflt('Send them on', mood(-4, 24, 'Turned refugees away')),
+      dflt('Send them on', mood(-4, 24, 'Turned refugees away'), rep(-2), gain({ grain: 4 }), note('They leave a little seed grain in thanks for directions.')),
     ],
   },
   {
     id: 'sick_traveller', title: 'A sick traveller', text: 'A feverish traveller begs for shelter at the gate.',
     options: [
       opt('Shelter them', chance(0.4, [{ sick: 2 }, note('The fever spreads to the town.')], [gain({ herbs: 6 }), note('The traveller recovers and leaves herbs in thanks.'), { reputation: 1 }])),
-      dflt('Turn them away', mood(-2, 12, 'Turned away a sick traveller')),
+      dflt('Turn them away', mood(-2, 12, 'Turned away a sick traveller'), rep(-1)),
     ],
   },
   {
@@ -41,11 +41,11 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'foundling', title: 'A child in the woods', text: 'A child was found alone in the woods, too young to say where from.',
-    options: [opt('Raise them', { join: 1 }, mood(4, 36, 'Took in a foundling')), dflt('Leave them at the shrine', mood(-3, 36, 'Left a child at the shrine'))],
+    options: [opt('Raise them', { join: 1 }, mood(4, 36, 'Took in a foundling')), dflt('Leave them at the shrine', mood(-3, 36, 'Left a child at the shrine'), rep(1), note('A pilgrim family takes the child, and speaks well of the town.'))],
   },
   {
     id: 'master_craftsman', title: 'A master craftsman', text: 'A famous craftsman passing through asks for a week of room and board.', when: (s) => has(s, 'workbench'),
-    options: [opt('Host them', { take: 'food', share: 0.1 }, mod('craft', 1.25, 72, 'Learning from a master'), { reputation: 1 }), dflt('Decline', note('The craftsman moves on.'))],
+    options: [opt('Host them', { take: 'food', share: 0.1 }, mod('craft', 1.25, 72, 'Learning from a master'), { reputation: 1 }), dflt('Decline', note('The craftsman moves on, but leaves a few tips with the best of the workbench.'), teach('crafting', 1, 'random'))],
   },
   {
     id: 'bard', title: 'A bard', text: 'A bard offers to stay the winter, for a place by the fire.',
@@ -53,19 +53,19 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'hermit_tome', title: 'A hermit with a tome', text: 'A hermit comes down from the hills, clutching a strange old book.',
-    options: [opt('Take the tome', { occult: 'A hermit left the town a book of forbidden things.' }, mood(-2, 24, 'Uneasy about the hermit\'s book')), dflt('Send them away', note('The hermit shuffles back into the hills.'))],
+    options: [opt('Take the tome', { occult: 'A hermit left the town a book of forbidden things.' }, mood(-2, 24, 'Uneasy about the hermit\'s book')), dflt('Send them away', note('The hermit shuffles back into the hills, and leaves herbs at the gate.'), gain({ herbs: 5 }), mood(2, 24, 'Kept the dark book out'))],
   },
   {
     id: 'knight_oath', title: 'A disgraced knight', text: 'A knight in tarnished armour asks to swear to {founder}.', when: (s) => eraAt(s, 'medieval'),
-    options: [opt('Accept the oath', { join: 1, type: 'hunter' }, mod('fight', 1.1, 96, 'A sworn knight in the ranks'), mood(-2, 48, 'A quarrelsome knight about')), dflt('Refuse', note('The knight rides on.'))],
+    options: [opt('Accept the oath', { join: 1, type: 'hunter' }, mod('fight', 1.1, 96, 'A sworn knight in the ranks'), mood(-2, 48, 'A quarrelsome knight about')), dflt('Refuse', note('The knight rides on, and sells you his spare spear.'), item('spear'), coin(-4))],
   },
   {
     id: 'twins', title: 'Twins born', text: 'Twins were born in the night. The parents ask the town to name one after a hero.', when: (s) => people(s, 6),
-    options: [opt('Name one after a hero', mood(6, 48, 'Twins named for a hero')), dflt('Let the parents choose', mood(3, 48, 'Twins born'))],
+    options: [opt('Name one after a hero', mood(6, 48, 'Twins named for a hero')), dflt('Let the parents choose', mood(3, 48, 'Twins born'), bond(20, 'random'), note('The parents are grateful to be left their own choice.'))],
   },
   {
     id: 'mail_bride', title: 'An unexpected match', text: 'A suitor arrives, claiming {who} sent for them. {who} did not.', who: true,
-    options: [opt('Let them stay', { join: 1 }, mood(2, 24, 'A curious match')), dflt('Send them home', note('The suitor leaves, red-faced.'))],
+    options: [opt('Let them stay', { join: 1 }, mood(2, 24, 'A curious match')), dflt('Send them home', note('The suitor leaves, red-faced, and {who} is teased for a week.'), bond(-10, 'random'), mood(2, 24, 'A good laugh at the gate'))],
   },
   {
     id: 'runaway_apprentice', title: 'A runaway apprentice', text: 'An apprentice from another town begs to hide. Their master is close behind.',
@@ -86,15 +86,15 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'envoy', title: 'An envoy', text: "A rival lord's envoy offers a truce, for a tribute.", when: (s) => eraAt(s, 'medieval'),
-    options: [opt('Accept the truce', { take: 'coins', share: 0.3 }, { calm: 72 }), dflt('Refuse', note('The envoy leaves, scowling.'))],
+    options: [opt('Accept the truce', { take: 'coins', share: 0.3 }, { calm: 72 }), dflt('Refuse', note('The envoy leaves, scowling.'), raidIn(36), mod('fight', 1.1, 48, 'Defiant'))],
   },
   {
     id: 'captive_raider', title: 'A captured raider', text: 'A captured raider offers to lead the town to their camp.',
-    options: [opt('Follow them', later(8, chance(0.6, [gain({ iron: 6, hide: 8, meat: 10 }), note('The raiders\' camp is looted.')], [{ wound: 'random', hp: 30 }, note('It was a trap!')]))), dflt('Keep them prisoner', note('The prisoner is locked up.'))],
+    options: [opt('Follow them', later(8, chance(0.6, [gain({ iron: 6, hide: 8, meat: 10 }), note('The raiders\' camp is looted.')], [{ wound: 'random', hp: 30 }, note('It was a trap!')]))), dflt('Keep them prisoner', note('The prisoner is locked up, and talks in the end.'), calm(24), study(10))],
   },
   {
     id: 'mercenaries', title: 'Mercenaries', text: 'A band of mercenaries offers its swords for a season.', when: (s) => coins(s, 20),
-    options: [opt('Hire them', { coins: -20 }, mod('fight', 1.3, 72, 'Mercenaries on the walls'), mod('guard', 0.8, 72, 'Mercenaries on the walls')), dflt('Decline', note('The mercenaries ride on.'))],
+    options: [opt('Hire them', { coins: -20 }, mod('fight', 1.3, 72, 'Mercenaries on the walls'), mod('guard', 0.8, 72, 'Mercenaries on the walls')), dflt('Decline', note('The mercenaries ride on, and the town keeps its coin.'), mod('guard', 1.1, 48, 'Our own watch, then'))],
   },
   {
     id: 'hunters_guild', title: "The Hunters' Guild", text: 'Monster hunters want to search the town.', when: (s) => origin(s, 'vampire', 'werewolf') || !!s.lich,
@@ -110,19 +110,19 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'spy', title: 'A spy', text: 'A spy was caught in the stores.',
-    options: [opt('Question them', { calm: 24 }, note('The spy gives up their camp\'s plans.')), dflt('Hang them', mood(-2, 12, 'A hanging')), opt('Let them go', { reputation: 2 }, chance(0.5, [gain({ iron: 4, cloth: 3 })]))],
+    options: [opt('Question them', { calm: 24 }, note('The spy gives up their camp\'s plans.')), dflt('Hang them', mood(-2, 24, 'A hanging'), calm(48), note('Word gets around: no spies for a while, and no raids from whoever sent them.')), opt('Let them go', { reputation: 2 }, chance(0.5, [gain({ iron: 4, cloth: 3 })]))],
   },
   {
     id: 'sleeping_watch', title: 'The watch slept', text: '{who} fell asleep on watch, and raiders nearly got in.', who: true,
-    options: [opt('Punish them', mod('guard', 0.9, 48, 'A sharper watch'), mood(-3, 24, 'A punishment')), dflt('Forgive them', mood(2, 24, 'Forgiven'))],
+    options: [opt('Punish them', mod('guard', 0.9, 48, 'A sharper watch'), mood(-3, 24, 'A punishment')), dflt('Forgive them', mood(2, 24, 'A forgiving town'), bond(20), note('{who} keeps a sharper watch from now on.'), mod('guard', 1.1, 48, 'A watch with something to prove'))],
   },
   {
     id: 'rival_relic', title: "A rival's relic", text: "A traveller carries a relic taken from a rival lord.", when: (s) => shop(s) && coins(s, 30),
-    options: [opt('Buy it', { coins: -30 }, { renown: 10 }, chance(0.5, [{ raid: 24 }])), dflt('Leave it', note('The traveller moves on.'))],
+    options: [opt('Buy it', { coins: -30 }, { renown: 10 }, chance(0.5, [{ raid: 24 }])), dflt('Leave it', note('The traveller moves on, and the rival lord hears the town would not touch it.'), calm(24))],
   },
   {
     id: 'horse_trade', title: 'The riders offer horses', text: 'Horde riders offer to trade horses for stores.', when: (s) => has(s, 'stable'),
-    options: [opt('Trade', { take: 'stores', share: 0.15 }, mod('travellers', 1.2, 72, 'Horses in the stable')), dflt('Refuse', note('The riders gallop off.'))],
+    options: [opt('Trade', { take: 'stores', share: 0.15 }, mod('travellers', 1.2, 72, 'Horses in the stable')), dflt('Refuse', note('The riders gallop off, laughing.'), mod('travellers', 0.9, 48, 'The riders tell others we are mean'))],
   },
 
   /* ---------------------------------------------------------- plague, hunger and weather */
@@ -168,7 +168,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'plague_ship', title: 'A plague ship', text: 'A ship with sickness aboard asks to land.', when: (s) => s.biome === 'coast',
-    options: [opt('Let them land', { coins: 20 }, chance(0.5, [{ sick: 3 }])), dflt('Wave them off', note('The ship sails on.'))],
+    options: [opt('Let them land', { coins: 20 }, chance(0.5, [{ sick: 3 }])), dflt('Wave them off', note('The ship sails on, and the fever with it.'), mood(-1, 12, 'Turned a ship away'), rep(-1))],
   },
   {
     id: 'bad_berries', title: 'Poisoned berries', text: 'Three people fell sick from berries at the edge of the woods.',
@@ -178,7 +178,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   /* ---------------------------------------------------------- faith, omens and the strange */
   {
     id: 'comet', title: 'A comet', text: 'A comet burns across the night sky.',
-    options: [opt('Hold a ritual', { take: 'food', share: 0.05 }, mood(6, 48, 'The comet\'s ritual')), dflt('Ignore it', note('The comet fades.')), opt('Call it a bad sign', mod('guard', 0.85, 72, 'Braced for trouble'), mood(-4, 48, 'A bad omen'))],
+    options: [opt('Hold a ritual', { take: 'food', share: 0.05 }, mood(6, 48, 'The comet\'s ritual')), dflt('Ignore it', note('The comet fades, and the work goes on.'), mod('work', 1.05, 24, 'Heads down while others gape')), opt('Call it a bad sign', mod('guard', 0.85, 72, 'Braced for trouble'), mood(-4, 48, 'A bad omen'))],
   },
   {
     id: 'eclipse', title: 'An eclipse', text: 'The sun goes dark at midday.',
@@ -186,7 +186,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'shrine', title: 'A holy wanderer', text: 'A holy wanderer asks to build a shrine.',
-    options: [opt('Let them', { take: 'stores', share: 0.05 }, mood(5, 120, 'A shrine in town')), dflt('Refuse', note('The wanderer blesses the town anyway and leaves.'))],
+    options: [opt('Let them', { take: 'stores', share: 0.05 }, mood(5, 120, 'A shrine in town')), dflt('Refuse', note('The wanderer blesses the town anyway, and leaves.'), mood(2, 24, 'Blessed all the same'), rep(-1))],
   },
   {
     id: 'dead_walk', title: 'The dead walk', text: 'Something stirred in the graveyard last night.', when: (s) => has(s, 'graveyard') || (s.graves?.length ?? 0) > 0,
@@ -194,23 +194,23 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'talking_animal', title: 'A talking animal', text: 'A fox at the edge of the woods spoke to {who}.', who: true, when: (s) => origin(s, 'druid', 'fae'),
-    options: [opt('Follow it', later(6, chance(0.7, [gain({ herbs: 10, berries: 15 }), note('The fox led {who} to a hidden grove.')], [{ leave: 'who' }]))), dflt('Shoo it away', note('The fox vanishes.'))],
+    options: [opt('Follow it', later(6, chance(0.7, [gain({ herbs: 10, berries: 15 }), note('The fox led {who} to a hidden grove.')], [{ leave: 'who' }]))), dflt('Shoo it away', note('The fox vanishes, and the hens are safe.'), gain({ eggs: 4 }))],
   },
   {
     id: 'fairy_ring', title: 'A fairy ring', text: 'A ring of mushrooms has appeared in a field.', when: (s) => origin(s, 'fae', 'druid') || s.biome === 'forest',
-    options: [opt('Dance in it', chance(0.5, [mod('crops', 1.4, 72, 'Blessed by the fair folk')], [mood(-6, 48, 'Cursed by the fair folk')])), dflt('Mow it down', note('The ring is gone by morning.'))],
+    options: [opt('Dance in it', chance(0.5, [mod('crops', 1.4, 72, 'Blessed by the fair folk')], [mood(-6, 48, 'Cursed by the fair folk')])), dflt('Mow it down', note('The ring is gone by morning, and the field grows thick there.'), mod('crops', 1.1, 72, 'Good soil where the ring stood'), chance(0.3, [mood(-3, 24, 'Bad luck, they say, to cut a ring')]))],
   },
   {
     id: 'wishing_well', title: 'A voice in the well', text: 'A voice in the well offers a wish.', when: (s) => has(s, 'well'),
-    options: [opt('Wish for gold', { coins: 30 }, chance(0.3, [{ sick: 2 }])), opt('Wish for health', mood(5, 72, 'A wish for health'), mod('guard', 0.85, 72, 'Hale and hearty')), dflt('Seal the well', note('The well is sealed.'))],
+    options: [opt('Wish for gold', { coins: 30 }, chance(0.3, [{ sick: 2 }])), opt('Wish for health', mood(5, 72, 'A wish for health'), mod('guard', 0.85, 72, 'Hale and hearty')), dflt('Seal the well', note('The well is sealed, and the voice grumbles under the stone.'), gain({ stone: 6 }), mood(2, 24, 'Safe from wishes'))],
   },
   {
     id: 'meteor', title: 'A falling star', text: 'A meteor fell beyond the fields.',
-    options: [opt('Dig it out', chance(0.7, [gain({ iron: 10, stone: 20 })], [{ wound: 'random', hp: 30 }])), dflt('Leave it', note('The crater cools.'))],
+    options: [opt('Dig it out', chance(0.7, [gain({ iron: 10, stone: 20 })], [{ wound: 'random', hp: 30 }])), dflt('Leave it', note('The crater cools, and the children find a lump of iron in it anyway.'), gain({ iron_ore: 3 }))],
   },
   {
     id: 'blood_moon', title: 'A blood moon', text: 'The moon rises red.', when: (s) => origin(s, 'vampire', 'werewolf'),
-    options: [opt('Hold the hunt', mod('fight', 1.3, 24, 'The blood moon hunt'), chance(0.3, [{ wound: 'random', hp: 30 }])), dflt('Lock the doors', mood(-2, 24, 'Locked in under the red moon'))],
+    options: [opt('Hold the hunt', mod('fight', 1.3, 24, 'The blood moon hunt'), chance(0.3, [{ wound: 'random', hp: 30 }])), dflt('Lock the doors', mood(-2, 12, 'A night behind locked doors'), calm(12), mod('guard', 1.15, 12, 'Doors barred and the watch doubled'))],
   },
   {
     id: 'phylactery', title: "The phylactery's whisper", text: 'The phylactery whispers, hungry for a soul.', when: (s) => !!s.lich,
@@ -218,25 +218,25 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'ghost', title: 'A haunting', text: "A ghost haunts {who}'s home.", who: true,
-    options: [opt('Exorcise it', { take: 'stores', share: 0.03 }, note('The ghost is laid to rest.')), dflt('Live with it', mood(-3, 72, 'A ghost in the house')), opt('Speak with it', { research: 90 }, note('The ghost tells {who} an old secret.'))],
+    options: [opt('Exorcise it', { take: 'stores', share: 0.03 }, note('The ghost is laid to rest.')), dflt('Live with it', mood(-3, 48, 'A house with a ghost in it'), trait('night_owl'), note('{who} has stopped sleeping at night. They work instead.')), opt('Speak with it', { research: 90 }, note('The ghost tells {who} an old secret.'))],
   },
   {
     id: 'marsh_lights', title: 'Strange lights', text: 'Strange lights dance over the marsh at night.',
-    options: [opt('Investigate', chance(0.6, [gain({ iron: 5, cloth: 4 }), note('A drowned merchant\'s goods, in the reeds.')], [{ leave: 'random' }, note('Whoever went never came back.')])), dflt('Stay away', note('The lights fade by dawn.'))],
+    options: [opt('Investigate', chance(0.6, [gain({ iron: 5, cloth: 4 }), note('A drowned merchant\'s goods, in the reeds.')], [{ leave: 'random' }, note('Whoever went never came back.')])), dflt('Stay away', note('The lights fade by dawn.'), mod('forage', 0.9, 24, 'Nobody goes near the marsh'), mood(1, 24, 'Kept safe'))],
   },
   {
     id: 'founder_dream', title: "The founder's dream", text: '{founder} dreams of a place far away.',
-    options: [opt('Send scouts', mod('work', 0.9, 24, 'Scouts away'), later(12, gain({ flint: 6, herbs: 6, hide: 4 }), note('The scouts return with finds from far away.'))), dflt('Forget it', note('The dream fades.'))],
+    options: [opt('Send scouts', mod('work', 0.9, 24, 'Scouts away'), later(12, gain({ flint: 6, herbs: 6, hide: 4 }), note('The scouts return with finds from far away.'))), dflt('Forget it', note('The dream fades, and {founder} wakes rested.'), mod('work', 1.05, 24, 'A rested founder'))],
   },
   {
     id: 'statue', title: 'A buried statue', text: 'Diggers unearthed an old statue.',
-    options: [opt('Set it up in the square', mood(4, 120, 'The old statue')), dflt('Sell it', { coins: 20 }), opt('Smash it', chance(0.5, [mood(5, 48, 'An old curse lifted')], [mood(-5, 48, 'Something angry was freed')]))],
+    options: [opt('Set it up in the square', mood(4, 72, 'An old statue in the square'), mod('travellers', 1.1, 72, 'Travellers stop to see the statue')), dflt('Sell it', { coins: 20 }), opt('Smash it', chance(0.5, [mood(5, 48, 'An old curse lifted')], [mood(-5, 48, 'Something angry was freed')]))],
   },
 
   /* ---------------------------------------------------------- trade and coin */
   {
     id: 'rare_relic', title: 'A rare relic', text: 'A merchant offers a rare relic for most of the town\'s coins.', when: (s) => shop(s) && coins(s, 40),
-    options: [opt('Buy it', { take: 'coins', share: 0.7 }, { renown: 25 }, mood(4, 72, 'A relic in the town')), dflt('Pass', note('The merchant moves on.'))],
+    options: [opt('Buy it', { take: 'coins', share: 0.7 }, { renown: 25 }, mood(4, 72, 'A relic in the town')), dflt('Pass', note('The merchant moves on, and the town keeps its coin.'), mod('prices', 0.95, 48, 'A town with money in hand haggles well'))],
   },
   {
     id: 'broken_axle', title: 'A broken axle', text: "A caravan's axle broke outside town.",
@@ -244,7 +244,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'moneylender', title: 'A moneylender', text: 'A moneylender offers a loan.', when: shop,
-    options: [opt('Borrow', { coins: 40 }, later(48, { coins: -60 }, note('The moneylender comes back for the loan, and more.'))), dflt('Refuse', note('The moneylender shrugs.'))],
+    options: [opt('Borrow', { coins: 40 }, later(48, { coins: -60 }, note('The moneylender comes back for the loan, and more.'))), dflt('Refuse', note('The moneylender shrugs.'), mood(1, 24, 'Debt-free'), mod('work', 1.05, 24, 'Paying our own way'))],
   },
   {
     id: 'counterfeit', title: 'Counterfeit coins', text: 'Counterfeit coins turned up in the till.', when: shop,
@@ -256,11 +256,11 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'stray_dog', title: 'A stray dog', text: "A traveller's dog won't leave the town.",
-    options: [opt('Keep it', mod('guard', 0.9, 240, 'A guard dog'), mood(3, 120, 'The town dog')), dflt('Shoo it', note('The dog trots off.'))],
+    options: [opt('Keep it', mod('guard', 0.9, 240, 'A guard dog'), mood(3, 120, 'The town dog')), dflt('Shoo it', note('The dog trots off, and the meat store is safe.'), gain({ meat: 3 }))],
   },
   {
     id: 'guild_contract', title: 'A guild contract', text: 'The guild offers a contract: three people away for two days, for a big reward.', when: (s) => people(s, 8),
-    options: [opt('Send them', mod('work', 0.8, 48, 'Three away on contract'), later(48, { coins: 60 }, gain({ iron: 6 }), note('The contract is done: the guild pays well.'))), dflt('Decline', note('The guild finds others.'))],
+    options: [opt('Send them', mod('work', 0.8, 48, 'Three away on contract'), later(48, { coins: 60 }, gain({ iron: 6 }), note('The contract is done: the guild pays well.'))), dflt('Decline', note('The guild finds others, and the town keeps its hands at home.'), mod('work', 1.05, 48, 'Everyone at home and at it'))],
   },
   {
     id: 'tax_collector', title: 'A tax collector', text: 'A tax collector from a far kingdom demands a share.', when: (s) => eraAt(s, 'medieval') && coins(s, 10),
@@ -272,53 +272,53 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'market_fair', title: 'A market fair', text: 'A travelling fair asks to set up in town.', when: shop,
-    options: [opt('Host it', mod('travellers', 2, 24, 'The fair is in town'), mood(5, 24, 'The fair'), chance(0.4, [{ take: 'stores', share: 0.05 }])), dflt('Decline', note('The fair moves on.'))],
+    options: [opt('Host it', mod('travellers', 2, 24, 'The fair is in town'), mood(5, 24, 'The fair'), chance(0.4, [{ take: 'stores', share: 0.05 }])), dflt('Decline', note('The fair moves on.'), mod('work', 1.05, 24, 'No fair to distract anyone'), mood(-1, 24, 'No fair'))],
   },
   {
     id: 'smugglers', title: 'Smugglers', text: 'Smugglers want to store goods in the cellars.', when: shop,
-    options: [opt('Let them', { coins: 30 }, { raid: 36 }), dflt('Refuse', note('The smugglers find another town.'))],
+    options: [opt('Let them', { coins: 30 }, { raid: 36 }), dflt('Refuse', note('The smugglers find another town.'), rep(1), calm(12))],
   },
   {
     id: 'exotic_seeds', title: 'Exotic seeds', text: 'A caravan offers seeds from far away.', when: (s) => fields(s) && coins(s, 10),
-    options: [opt('Buy them', { coins: -10 }, mod('crops', 1.4, 72, 'Exotic seeds in the fields')), dflt('Pass', note('The caravan rolls on.'))],
+    options: [opt('Buy them', { coins: -10 }, mod('crops', 1.4, 72, 'Exotic seeds in the fields')), dflt('Pass', note('The caravan rolls on, and gives a sack of plain seed corn for the water.'), gain({ grain: 5 }))],
   },
 
   /* ---------------------------------------------------------- townsfolk and their lives */
   {
     id: 'quarrel', title: 'A quarrel', text: '{who} and a neighbour are at each other\'s throats over a debt.', who: true,
-    options: [opt('Side with {who}', mood(-2, 24, 'A quarrel settled one way')), opt('Side with the neighbour', mood(-2, 24, 'A quarrel settled the other way')), dflt('Let them sort it out', chance(0.4, [{ wound: 'who', hp: 20 }, note('The quarrel came to blows.')]))],
+    options: [opt('Side with {who}', mood(-2, 24, 'A quarrel taken sides in'), bond(25), coin(3), note('{who} pays back the debt they won to the treasury.')), opt('Side with the neighbour', mood(-2, 24, 'A quarrel taken sides in'), bond(-25), mod('work', 1.05, 24, 'The debt worked off')), dflt('Let them sort it out', chance(0.4, [{ wound: 'who', hp: 20 }, note('The quarrel came to blows.')]))],
   },
   {
     id: 'wants_to_leave', title: 'Leaving for the city', text: '{who} wants to leave for the city.', who: true, when: (s) => people(s, 6),
-    options: [opt('Let them go', { leave: 'who' }), dflt('Ask them to stay', mood(-3, 48, 'Someone sulking'))],
+    options: [opt('Let them go', { leave: 'who' }), dflt('Ask them to stay', mood(-3, 24, 'Kept against their wishes'), chance(0.5, [bond(20), note('{who} stays, and is glad of it in the end.')], [bond(-20), mod('work', 0.95, 48, '{who} sulks at their work')]))],
   },
   {
     id: 'proposal', title: 'A proposal', text: '{who} wants to marry someone from a rival trade.', who: true,
-    options: [opt('Bless it', mood(5, 48, 'A wedding')), dflt('Forbid it', mood(-4, 48, 'A forbidden match'))],
+    options: [opt('Bless it', mood(5, 48, 'A wedding')), dflt('Forbid it', mood(-4, 48, 'A match forbidden'), bond(-30), mod('craft', 1.1, 48, 'Two trades kept apart, and working'))],
   },
   {
     id: 'thief', title: 'A thief among you', text: 'Things keep going missing from the stores.',
-    options: [opt('Search the homes', mood(-4, 48, 'Homes searched'), note('The thief is found.')), dflt('Set a trap', { take: 'stores', share: 0.05 }, later(24, note('The trap catches the thief.')))],
+    options: [opt('Search the homes', mood(-4, 24, 'Homes searched'), note('The thief is found, and what was taken comes back.'), gain({ wood: 6, stone: 4, berries: 6 })), dflt('Set a trap', { take: 'stores', share: 0.05 }, later(24, note('The trap catches the thief.')))],
   },
   {
     id: 'dying_elder', title: 'A last wish', text: '{who}, old and dying, asks to see the mountains one last time.', who: true,
-    options: [opt('Send them with an escort', mod('work', 0.9, 24, 'An escort away'), mood(5, 72, 'A last wish granted')), dflt('Keep them comfortable', mood(-1, 24, 'A last wish refused'))],
+    options: [opt('Send them with an escort', mod('work', 0.9, 24, 'An escort away'), mood(5, 72, 'A last wish granted')), dflt('Keep them comfortable', mood(-1, 24, 'A last wish refused'), teach('research', 2, 'random'), note('The elder tells the young everything they know instead.'))],
   },
   {
     id: 'prank_fire', title: "A child's prank", text: "A child's prank set a shed on fire.",
-    options: [opt('Punish them', mood(-2, 12, 'A child punished')), dflt('Laugh it off', later(36, { take: 'stores', share: 0.03 }, note('Another prank: more mischief in the stores.')))],
+    options: [opt('Punish them', mood(-2, 24, 'A child punished'), mod('work', 1.05, 24, 'Children kept at chores'), gain({ wood: 4 })), dflt('Laugh it off', later(36, { take: 'stores', share: 0.03 }, note('Another prank: more mischief in the stores.')))],
   },
   {
     id: 'revenge_hunt', title: 'A hunter\'s vengeance', text: '{who} wants to go after the beast that killed their kin.', who: true,
-    options: [opt('Let them go', later(10, chance(0.6, [gain({ hide: 6, meat: 10 }), mood(5, 48, 'The beast slain')], [{ kill: 'who', cause: 'hunting the beast that killed their kin' }]))), dflt('Forbid it', mood(-3, 36, 'Forbidden a vengeance'))],
+    options: [opt('Let them go', later(10, chance(0.6, [gain({ hide: 6, meat: 10 }), mood(5, 48, 'The beast slain')], [{ kill: 'who', cause: 'hunting the beast that killed their kin' }]))), dflt('Forbid it', mood(-3, 24, 'Vengeance forbidden'), bond(-15), teach('melee', 1), note('{who} takes it out on the practice post.'))],
   },
   {
     id: 'duel', title: 'A duel for honour', text: "A stranger insults {founder} and demands a duel.",
-    options: [opt('Accept', chance(0.6, [mood(6, 72, 'The founder\'s honour upheld'), { reputation: 2 }], [{ wound: 'random', hp: 40 }, mood(-4, 48, 'A duel lost')])), dflt('Decline', mood(-2, 48, 'A duel declined'))],
+    options: [opt('Accept', chance(0.6, [mood(6, 72, 'The founder\'s honour upheld'), { reputation: 2 }], [{ wound: 'random', hp: 40 }, mood(-4, 48, 'A duel lost')])), dflt('Decline', mood(-2, 24, 'A duel declined'), rep(-1), note('The stranger laughs and leaves; nobody is hurt.'))],
   },
   {
     id: 'confession', title: 'A confession', text: '{who} confesses to an old crime.', who: true,
-    options: [opt('Forgive them', mood(2, 24, 'A crime forgiven')), dflt('Exile them', { leave: 'who' })],
+    options: [opt('Forgive them', mood(2, 24, 'A forgiving town'), bond(30), trait('hard_worker'), note('{who} works like one trying to make amends.')), dflt('Exile them', { leave: 'who' })],
   },
   {
     id: 'brawl', title: 'A brawl', text: 'A drunken brawl broke out last night.', when: (s) => has(s, 'fireside_inn', 'tavern'),
@@ -326,23 +326,23 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'own_home', title: 'A home apart', text: '{who} wants to build a home away from the town.', who: true,
-    options: [opt('Let them', { leave: 'who' }, note('{who} moves out to the wilds.')), dflt('No', mood(-2, 24, 'Told to stay put'))],
+    options: [opt('Let them', { leave: 'who' }, note('{who} moves out to the wilds.')), dflt('No', mood(-2, 24, 'A home apart refused'), bond(-15), mod('build', 1.05, 24, 'Builders kept in town'))],
   },
   {
     id: 'talent', title: 'A talent', text: '{who} has a real talent for carving.', who: true,
-    options: [opt('Give them time to practise', mod('work', 0.97, 24, 'Time off to practise'), later(24, mod('craft', 1.2, 96, 'A gifted carver'))), dflt('Keep them working', note('{who} goes back to work.'))],
+    options: [opt('Give them time to practise', mod('work', 0.97, 24, 'Time off to practise'), later(24, mod('craft', 1.2, 96, 'A gifted carver'))), dflt('Keep them working', note('{who} goes back to work, and carves in the evenings.'), teach('crafting', 1), mod('work', 1.03, 24, 'No one off on a whim'))],
   },
   {
     id: 'wake', title: 'A funeral', text: 'The town mourns one of its own.', when: (s) => (s.graves?.length ?? 0) > 0,
-    options: [opt('Hold a great wake', { take: 'food', share: 0.08 }, mood(5, 48, 'A great wake')), dflt('Bury them quietly', note('A quiet burial.'))],
+    options: [opt('Hold a great wake', { take: 'food', share: 0.08 }, mood(5, 48, 'A great wake')), dflt('Bury them quietly', note('A quiet burial; the food that would have been a feast stays in the store.'), gain({ berries: 4, meat: 2 }), mood(-1, 24, 'Mourned quietly'))],
   },
   {
     id: 'founder_birthday', title: "The founder's birthday", text: "It's {founder}'s birthday.",
-    options: [opt('Hold a feast', { take: 'food', share: 0.08 }, mood(6, 24, 'A birthday feast')), dflt('Work as usual', note('Just another day.'))],
+    options: [opt('Hold a feast', { take: 'food', share: 0.08 }, mood(6, 24, 'A birthday feast')), dflt('Work as usual', note('Just another day, and a good one.'), mod('work', 1.08, 24, 'Work as usual, and then some'))],
   },
   {
     id: 'apprentice', title: 'An apprentice', text: '{who} wants to learn a trade from a master.', who: true,
-    options: [opt('Let them', mod('work', 0.95, 48, 'An apprentice learning'), later(48, mod('craft', 1.15, 120, 'A trained apprentice'))), dflt('Not now', note('Maybe another time.'))],
+    options: [opt('Let them', mod('work', 0.95, 48, 'An apprentice learning'), later(48, mod('craft', 1.15, 120, 'A trained apprentice'))), dflt('Not now', note('Maybe another time.'), mod('work', 1.03, 24, 'Everyone at their own job'), bond(-10))],
   },
   {
     id: 'midwife_herbs', title: 'The midwife needs herbs', text: 'A birth is coming, and the midwife needs herbs nobody has.',
@@ -352,7 +352,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   /* ---------------------------------------------------------- land, ruins and beasts */
   {
     id: 'ruin', title: 'An old ruin', text: 'An old ruin was found near the town.',
-    options: [opt('Dig now', chance(0.6, [gain({ iron: 8, stone: 20, cloth: 4 })], [{ raid: 4 }, note('Something woke in the ruin!')])), dflt('Seal it', note('The ruin is sealed.')), opt('Study it', { research: 120 })],
+    options: [opt('Dig now', chance(0.6, [gain({ iron: 8, stone: 20, cloth: 4 })], [{ raid: 4 }, note('Something woke in the ruin!')])), dflt('Seal it', note('The ruin is sealed, and its dressed stone carted home.'), gain({ stone: 10 }), calm(12)), opt('Study it', { research: 120 })],
   },
   {
     id: 'monster_lair', title: "A monster's lair", text: "A monster's lair was found in the hills.", when: (s) => people(s, 6),
@@ -360,7 +360,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'cave', title: 'A cave opens', text: 'A quake opened a cave near the town.',
-    options: [opt('Explore it', chance(0.7, [gain({ iron_ore: 12, stone: 15 })], [{ wound: 'random', hp: 35 }])), dflt('Block it', note('The cave is blocked.'))],
+    options: [opt('Explore it', chance(0.7, [gain({ iron_ore: 12, stone: 15 })], [{ wound: 'random', hp: 35 }])), dflt('Block it', note('The cave is blocked, and whatever lives in it stays in.'), gain({ stone: 6 }), calm(24))],
   },
   {
     id: 'wolves_livestock', title: 'Wolves at the livestock', text: 'Wolves have been taking the livestock.', when: pens,
@@ -376,7 +376,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'hot_spring', title: 'A hot spring', text: 'A spring of hot water was found.',
-    options: [opt('Build a bathhouse', { take: 'stores', share: 0.05 }, mood(5, 240, 'The bathhouse')), dflt('Leave it', note('The spring steams on.'))],
+    options: [opt('Build a bathhouse', { take: 'stores', share: 0.05 }, mood(5, 240, 'The bathhouse')), dflt('Leave it', note('The spring steams on, and the herbs grow thick round it.'), gain({ herbs: 6 }))],
   },
   {
     id: 'sinkhole', title: 'A sinkhole', text: 'A sinkhole swallowed part of a field.', when: fields,
@@ -384,7 +384,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'wild_horses', title: 'Wild horses', text: 'Wild horses are grazing in the meadow.',
-    options: [opt('Catch them', chance(0.6, [mod('travellers', 1.2, 120, 'Horses caught'), mood(3, 48, 'Horses caught')], [{ wound: 'random', hp: 25 }])), dflt('Let them run', note('The horses gallop off.'))],
+    options: [opt('Catch them', chance(0.6, [mod('travellers', 1.2, 120, 'Horses caught'), mood(3, 48, 'Horses caught')], [{ wound: 'random', hp: 25 }])), dflt('Let them run', note('The horses gallop off.'), mood(3, 24, 'Wild horses running free'), mod('forage', 1.1, 24, 'The meadow left to grow'))],
   },
   {
     id: 'bees', title: 'Bees in the oak', text: 'A swarm of bees has settled in the old oak.',
@@ -406,7 +406,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'railway', title: 'Railway surveyors', text: 'Surveyors want to lay a railway line through the town.', when: (s) => eraIs(s, 'industrial'),
-    options: [opt('Allow it', mod('travellers', 1.5, 240, 'The railway'), mod('crops', 0.9, 240, 'A field lost to the line')), dflt('Refuse', note('The line goes elsewhere.'))],
+    options: [opt('Allow it', mod('travellers', 1.5, 240, 'The railway'), mod('crops', 0.9, 240, 'A field lost to the line')), dflt('Refuse', note('The line goes elsewhere, and the fields stay whole.'), mod('crops', 1.1, 72, 'Every field kept'), mod('travellers', 0.9, 72, 'The trains pass us by'))],
   },
   {
     id: 'strike', title: 'A factory strike', text: 'The workers are on strike.', when: (s) => eraAt(s, 'industrial') && has(s, 'factory'),
@@ -414,7 +414,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'radio_call', title: 'A call for volunteers', text: 'A radio broadcast calls for volunteers.', when: (s) => eraAt(s, 'modern') && people(s, 8),
-    options: [opt('Send them', mod('work', 0.85, 72, 'Volunteers away'), { reputation: 3 }, { renown: 10 }), dflt('Stay home', note('The town stays out of it.'))],
+    options: [opt('Send them', mod('work', 0.85, 72, 'Volunteers away'), { reputation: 3 }, { renown: 10 }), dflt('Stay home', note('The town stays out of it.'), mod('work', 1.05, 48, 'Every hand at home'), rep(-1))],
   },
   {
     id: 'drone_crash', title: 'A crashed drone', text: 'A drone crashed in the square.', when: (s) => eraIs(s, 'space'),
@@ -422,7 +422,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'machine_names', title: 'The machines ask for names', text: 'The machines ask to be given names.', when: (s) => origin(s, 'robot'),
-    options: [opt('Name them', mod('work', 1.1, 120, 'Named, not numbered')), dflt('Keep serial numbers', note('Units remain numbered.'))],
+    options: [opt('Name them', mod('work', 1.1, 120, 'Named, not numbered')), dflt('Keep serial numbers', note('Units remain numbered.'), mod('work', 1.08, 48, 'Units without distractions'), mood(-1, 24, 'Numbered, not named'))],
   },
   {
     id: 'grove_sacrifice', title: 'The grove asks', text: 'The grove asks for a sacrifice of iron.', when: (s) => origin(s, 'druid'),
@@ -434,7 +434,7 @@ const BASE_EVENTS: readonly EventDef[] = [
   },
   {
     id: 'moon_hunt', title: 'The pack wants to run', text: 'The pack wants to hunt the moon.', when: (s) => origin(s, 'werewolf'),
-    options: [opt('Let them run', mod('fight', 1.25, 72, 'The moon hunt'), chance(0.3, [{ leave: 'random' }, note('One of the pack never came back.')])), dflt('Chain the gates', mood(-3, 48, 'Chained in'))],
+    options: [opt('Let them run', mod('fight', 1.25, 72, 'The moon hunt'), chance(0.3, [{ leave: 'random' }, note('One of the pack never came back.')])), dflt('Chain the gates', mood(-3, 24, 'Chained on a moon night'), mod('guard', 1.2, 24, 'The pack restless on the walls'), calm(12))],
   },
   {
     id: 'route_split', title: 'The tribe splits over the route', text: 'The tribe argues over the road to the next pasture.', when: (s) => origin(s, 'nomads') && !s.nomad?.settled,

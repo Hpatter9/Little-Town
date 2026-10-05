@@ -77,7 +77,7 @@ function ties(s: GameState): Ties {
   return t;
 }
 
-function adjust(s: GameState, a: number, b: number, by: number): number {
+export function adjust(s: GameState, a: number, b: number, by: number): number {
   const v = Math.max(-100, Math.min(100, opinion(s, a, b) + by));
   s.relations[key(a, b)] = v;
   relationsChanged(s);

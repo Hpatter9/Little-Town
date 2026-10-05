@@ -7,6 +7,7 @@ import { seaTown } from '../sim/sea';
 import type { Biome } from './biomes';
 import { ERAS, type Era } from './eras';
 import type { Stock } from './materials';
+import type { Skill } from './skills';
 import type { OriginId } from './origins';
 
 /** What an event's mark can push: the same levers origins and research use (sim/origin.ts). */
@@ -62,7 +63,20 @@ export type EventEffect =
    *  the town's goods hauled to safety), at the town's edge or by the fire. */
   | { busy: number; share: number; text: string; anim?: 'chop' | 'build' | 'mine'; at?: 'edge' | 'camp' }
   /** Another event follows: put to the player as soon as this one is done (a fire that spreads). */
-  | { follow: string };
+  | { follow: string }
+  /* ---- events with purpose (each answer does something you can point to) */
+  /** Levels of a skill learned: by the event's person (else someone at random), the founder, or every grown-up. */
+  | { skill: Skill; levels: number; on?: 'who' | 'random' | 'founder' | 'all' }
+  /** What the event's person (else someone at random) and the founder (or another at random) think of each other. */
+  | { bond: number; with?: 'founder' | 'random' }
+  /** A trait taken on by the event's person (else someone at random). */
+  | { trait: string }
+  /** Items into the stores (gear, wares, furnishings), handed out as the town hands out gear. */
+  | { item: string; count: number }
+  /** Horses for the town's stable. */
+  | { horse: number }
+  /** A building's blueprint laid down with its makings delivered: it only wants building (else the makings). */
+  | { build: string };
 
 export interface EventOption {
   label: string;
@@ -94,6 +108,17 @@ export const chance = (p: number, then: EventEffect[], otherwise: EventEffect[] 
 export const later = (hours: number, ...effects: EventEffect[]): EventEffect => ({ later: hours, effects });
 export const busy = (hours: number, share: number, text: string, anim: 'chop' | 'build' | 'mine' = 'chop', at: 'edge' | 'camp' = 'edge'): EventEffect => ({ busy: hours, share, text, anim, at });
 export const follow = (event: string): EventEffect => ({ follow: event });
+export const teach = (skill: Skill, levels: number, on: 'who' | 'random' | 'founder' | 'all' = 'who'): EventEffect => ({ skill, levels, on });
+export const bond = (by: number, withWho: 'founder' | 'random' = 'founder'): EventEffect => ({ bond: by, with: withWho });
+export const trait = (id: string): EventEffect => ({ trait: id });
+export const item = (id: string, count = 1): EventEffect => ({ item: id, count });
+export const horse = (n = 1): EventEffect => ({ horse: n });
+export const build = (def: string): EventEffect => ({ build: def });
+export const coin = (n: number): EventEffect => ({ coins: n });
+export const rep = (n: number): EventEffect => ({ reputation: n });
+export const calm = (h: number): EventEffect => ({ calm: h });
+export const raidIn = (h: number): EventEffect => ({ raid: h });
+export const study = (seconds: number): EventEffect => ({ research: seconds });
 export const opt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, effects });
 export const dflt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, default: true, effects });
 

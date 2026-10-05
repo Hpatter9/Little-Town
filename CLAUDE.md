@@ -1288,6 +1288,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     out in two days by 3 to 8 diggers, level 3 by day 11; silver and sulphur sold for a few hundred coins. Soak (12 days,
     one town each): settlers 20 people / 8 deaths, dwarves 20/9, knights (desert) 21/9; all three learned Bronze
     Working, smelted copper and bronze to the reserve and built a bell tower.
+- **Events with purpose (done; the owner's ask: every choice does something):** no answer is a bare note or a dab of
+  morale any more (`test/eventPurpose.test.ts` checks all 1100 or so): the 250 that were got real outcomes. New effects
+  in eventKit.ts (shorthands `teach`, `bond`, `trait`, `item`, `horse`, `build`, and `coin`, `rep`, `calm`, `raidIn`,
+  `study` for the old ones): levels of a skill (the event's person, someone at random, the founder or everyone), what
+  two people think of each other (`adjust` in social.ts, now exported), a trait, gear into the stores, horses, and a
+  building's blueprint laid with its makings delivered (else the makings). Every answer, and every `later`, ends with
+  one journal line under the event's title saying what came of it (`tell` in sim/events.ts: "A thief among you: morale
+  -4 for a day, +6 wood, +4 stone").
+- **The map's grip (upright; the owner's ask: the map full screen or half at will):** a grip on the map's top edge
+  (`#map-grip`, mobile.ts): drag it up over the feed or down to half (`MAP_LEAST`), a tap flips between the whole
+  room and half. Kept in `littletown.mapShare` (unset: the map follows the feed as before, `townShare`); at the whole
+  room `body.map-full` hides the feed. Not shown sideways, in a menu or in a battle.
 - **Fateful events (done; the owner's ask: events that change a town's course, toward fortune or ruin):**
   `src/shared/data/fatefulEvents.ts`: 25 events (a great fire, the black fever, a royal patron, gold in the river, a
   prophet who leads people off, the great blight, the lost library, the lost legion, an earthquake, a comet, the bandit

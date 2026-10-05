@@ -7,12 +7,20 @@
 
 import { EVENTS, EVENT_BY_ID, type EventDef, type EventEffect } from '../data/events';
 import type { EventOption } from '../data/eventKit';
-import { MATERIALS, type Material } from '../data/materials';
+import { MATERIALS, MATERIAL_NAMES, type Material } from '../data/materials';
+import { ITEM_BY_ID } from '../data/items';
+import { SKILL_NAMES, xpToNext } from '../data/skills';
+import { TRAIT_BY_ID } from '../data/people';
 import { ARRIVING_TYPES, FOOD_VALUE } from '../data/people';
 import { TOPIC_BY_ID, TOPICS } from '../data/research';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { isSeat } from '../data/seats';
-import { demolish } from './buildings';
+import { demolish, placeBlueprint } from './buildings';
+import { findSpot } from './planner';
+import { newHorse } from './trade';
+import { addItems } from './crafting';
+import { gainSkill } from './townsfolk';
+import { adjust } from './social';
 import { setFire } from './fire';
 import { minorWound } from './injuries';
 import { canQueue } from './research';
@@ -46,12 +54,13 @@ export function maybeEvent(s: GameState, rng: Rng): void {
   for (const l of [...(s.eventLater ?? [])]) {
     if (l.tick > s.tick) continue;
     s.eventLater = s.eventLater!.filter((q) => q !== l);
-    if (l.effects) {
-      apply(s, l.effects, rng, l.who);
-      continue;
+    const out: string[] = [];
+    if (l.effects) apply(s, l.effects, rng, l.who, out);
+    else {
+      const e = EVENT_BY_ID[l.event]?.options[l.option]?.effects[l.index];
+      if (e && 'later' in e) apply(s, e.effects, rng, l.who, out);
     }
-    const e = EVENT_BY_ID[l.event]?.options[l.option]?.effects[l.index];
-    if (e && 'later' in e) apply(s, e.effects, rng, l.who);
+    tell(s, EVENT_BY_ID[l.event]?.title, out);
   }
   // (a follow-up waits for nothing but the open question)
   if (!s.event && s.eventNext) {
@@ -120,13 +129,32 @@ export function answerEvent(s: GameState, option: number, rng: Rng): void {
   o.effects.forEach((e, i) => {
     if ('later' in e) (s.eventLater ??= []).push({ tick: s.tick + hours(e.later), event: def.id, option, index: i, who: ev.who });
   });
+  const out: string[] = [];
   apply(
     s,
     o.effects.filter((e) => !('later' in e)),
     rng,
     ev.who,
+    out,
   );
+  if (o.effects.some((e) => 'later' in e)) out.push('more to come');
+  tell(s, def.title, out);
 }
+
+/** What came of an answer, said in one line under its title, so every choice is seen to do something. */
+function tell(s: GameState, title: string | undefined, out: string[]): void {
+  if (!out.length) return;
+  notify(s, `${title ?? 'What came of it'}: ${out.join(', ')}.`, true);
+}
+
+const span = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : h >= 20 ? 'a day' : `${Math.round(h)} hours`);
+const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
+const LEVER_NAMES: Record<string, string> = { work: 'work', build: 'building', crops: 'crops', forage: 'foraging', research: 'study', craft: 'crafting', travellers: 'travellers', prices: 'prices', fight: 'fighting', guard: 'the watch' };
+const stockLine = (st: Record<string, number | undefined>) =>
+  Object.entries(st)
+    .filter(([, n]) => n)
+    .map(([m, n]) => `+${n} ${(MATERIAL_NAMES[m as Material] ?? m).toLowerCase()}`)
+    .join(', ');
 
 /** While the town is caught up after time away, a choice event stops it: the town pauses and waits for the player.
  *  Returns true when it has. */
@@ -157,22 +185,82 @@ function target(s: GameState, which: 'who' | 'random', whoId: number | undefined
   return pool.length ? rng.pick(pool) : undefined;
 }
 
-function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: number | undefined): void {
+function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: number | undefined, out: string[] = []): void {
   const who = s.people.find((p) => p.id === whoId);
+  const say = (x: string) => out.push(x);
   for (const e of effects) {
     if ('note' in e) notify(s, fill(s, e.note, who), true);
-    else if ('mood' in e) (s.marks ??= []).push({ lever: 'morale', value: e.mood, until: s.tick + hours(e.hours), text: fill(s, e.text, who) });
-    else if ('mod' in e) (s.marks ??= []).push({ lever: e.mod, value: e.mult, until: s.tick + hours(e.hours), text: fill(s, e.text, who) });
-    else if ('gain' in e) depositNear(s, campX(s), { ...e.gain });
-    else if ('take' in e) take(s, e.take, e.share);
-    else if ('coins' in e) {
+    else if ('mood' in e) {
+      (s.marks ??= []).push({ lever: 'morale', value: e.mood, until: s.tick + hours(e.hours), text: fill(s, e.text, who) });
+      say(`morale ${signed(e.mood)} for ${span(e.hours)}`);
+    } else if ('mod' in e) {
+      (s.marks ??= []).push({ lever: e.mod, value: e.mult, until: s.tick + hours(e.hours), text: fill(s, e.text, who) });
+      const pc = Math.round(Math.abs(e.mult - 1) * 100);
+      const better = e.mod === 'prices' ? e.mult < 1 : e.mult > 1;
+      say(`${LEVER_NAMES[e.mod] ?? e.mod} ${pc}% ${better ? 'better' : 'worse'} for ${span(e.hours)}`);
+    } else if ('gain' in e) {
+      depositNear(s, campX(s), { ...e.gain });
+      say(stockLine(e.gain));
+    } else if ('take' in e) {
+      const n = take(s, e.take, e.share);
+      if (n) say(`${e.take === 'coins' ? `${n} coins` : e.take === 'food' ? `${n} food` : `${n} goods from the stores`} gone`);
+    } else if ('coins' in e) {
       const n = Math.max(-(s.coins ?? 0), e.coins);
       s.coins = (s.coins ?? 0) + n;
       earn(s, 'events', n);
+      if (n) say(`${signed(n)} coins`);
     } else if ('renown' in e) {
       for (const b of s.buildings) if (b.shop) b.shop.renown = Math.max(0, (b.shop.renown ?? 0) + e.renown);
-    } else if ('reputation' in e) s.reputation = Math.max(0, s.reputation + e.reputation);
-    else if ('join' in e) for (let i = 0; i < e.join; i++) newcomer(s, rng, e.type);
+      say(`the shop's renown ${signed(e.renown)}`);
+    } else if ('reputation' in e) {
+      s.reputation = Math.max(0, s.reputation + e.reputation);
+      say(`reputation ${signed(e.reputation)}`);
+    } else if ('skill' in e) {
+      const on = e.on === 'all' ? grownUps(s) : e.on === 'founder' ? s.people.filter((p) => p.id === s.mainId) : [target(s, e.on === 'random' ? 'random' : 'who', whoId, rng, false)].filter((p): p is Person => !!p);
+      for (const p of on) {
+        const sk = p.skills[e.skill];
+        let xp = 0;
+        for (let i = 0; i < e.levels; i++) xp += xpToNext(sk.level + i);
+        gainSkill(p, e.skill, Math.max(0, xp - sk.xp));
+      }
+      if (on.length) say(`${on.length > 1 ? 'everyone' : on[0].name} ${signed(e.levels)} ${SKILL_NAMES[e.skill]}`);
+    } else if ('bond' in e) {
+      const a = target(s, 'who', whoId, rng, false);
+      const others = grownUps(s).filter((p) => p !== a);
+      const b = e.with === 'random' || !a || a.id === s.mainId ? (others.length ? rng.pick(others) : undefined) : s.people.find((p) => p.id === s.mainId);
+      if (a && b && a !== b) {
+        adjust(s, a.id, b.id, e.bond);
+        say(`${a.name} and ${b.name} ${e.bond > 0 ? 'closer' : 'at odds'}`);
+      }
+    } else if ('trait' in e) {
+      const p = target(s, 'who', whoId, rng, false);
+      const t = TRAIT_BY_ID[e.trait];
+      if (p && t && !p.traits.includes(t.id)) {
+        p.traits = p.traits.filter((x) => !t.excludes?.includes(x));
+        p.traits.push(t.id);
+        say(`${p.name} is now ${t.name}`);
+      }
+    } else if ('item' in e) {
+      if (ITEM_BY_ID[e.item]) {
+        addItems(s, e.item, e.count);
+        equipAll(s);
+        say(`${e.count > 1 ? `${e.count} ` : 'a '}${ITEM_BY_ID[e.item].name.toLowerCase()}`);
+      }
+    } else if ('horse' in e) {
+      for (let i = 0; i < e.horse; i++) s.horses.push(newHorse(s, rng));
+      say(`${e.horse === 1 ? 'a horse' : `${e.horse} horses`} for the stable`);
+    } else if ('build' in e) {
+      const def = BUILDING_BY_ID[e.build];
+      const at = def ? findSpot(s, def) : null;
+      if (def && at && placeBlueprint(s, def.id, at.x, at.y).ok) {
+        const b = s.buildings[s.buildings.length - 1];
+        b.delivered = { ...def.cost };
+        say(`a ${def.name.toLowerCase()} to build, its makings on site`);
+      } else if (def) {
+        depositNear(s, campX(s), { ...def.cost });
+        say(`the makings of a ${def.name.toLowerCase()}: ${stockLine(def.cost)}`);
+      }
+    } else if ('join' in e) for (let i = 0; i < e.join; i++) newcomer(s, rng, e.type);
     else if ('leave' in e) {
       const p = target(s, e.leave, whoId, rng);
       // (the founder is never sent away: a lone founder exiled once left an empty town with no end to it)
@@ -196,13 +284,20 @@ function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: n
       for (let i = 0; i < e.sick && pool.length; i++) sicken(s, pool.splice(Math.floor(rng.next() * pool.length), 1)[0], rng);
     } else if ('raid' in e) {
       if (!s.raid) s.nextRaidTick = Math.min(s.nextRaidTick, s.tick + hours(e.raid));
-    } else if ('calm' in e) s.nextRaidTick = Math.max(s.nextRaidTick, s.tick + hours(e.calm));
+      say(`raiders within ${span(e.raid)}`);
+    } else if ('calm' in e) {
+      s.nextRaidTick = Math.max(s.nextRaidTick, s.tick + hours(e.calm));
+      say(`no raid for ${span(e.calm)}`);
+    }
     else if ('research' in e) {
       const topic = s.research.queue[0];
       const t = topic ? TOPIC_BY_ID[topic] : undefined;
-      if (t) s.research.progress[topic] = Math.min(0.99, (s.research.progress[topic] ?? 0) + e.research / t.seconds);
+      if (t) {
+        s.research.progress[topic] = Math.min(0.99, (s.research.progress[topic] ?? 0) + e.research / t.seconds);
+        say(`study of ${t.name} ${e.research > 0 ? 'forward' : 'set back'}`);
+      }
     } else if ('occult' in e) revealOccult(s, e.occult);
-    else if ('chance' in e) apply(s, rng.chance(e.chance) ? e.then : (e.else ?? []), rng, whoId);
+    else if ('chance' in e) apply(s, rng.chance(e.chance) ? e.then : (e.else ?? []), rng, whoId, out);
     // the fateful events' (data/fatefulEvents.ts)
     else if ('burn' in e) {
       const can = s.buildings.filter((b) => b.status === 'done' && b.fire === undefined && b.def !== 'campfire' && !isSeat(b.def));
@@ -260,21 +355,26 @@ function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: n
 }
 
 /** Take a share of the town's food, its stores, or its coins. */
-function take(s: GameState, what: 'food' | 'stores' | 'coins', share: number): void {
+function take(s: GameState, what: 'food' | 'stores' | 'coins', share: number): number {
   if (what === 'coins') {
     const n = Math.floor((s.coins ?? 0) * share);
     s.coins = (s.coins ?? 0) - n;
     earn(s, 'events', -n);
-    return;
+    return n;
   }
+  let gone = 0;
   const foods = new Set(Object.keys(FOOD_VALUE));
   for (const b of storages(s)) {
     for (const m of MATERIALS) {
       if (what === 'food' && !foods.has(m)) continue;
       const n = Math.floor((b.store[m] ?? 0) * share);
-      if (n > 0) addStock(b.store, m as Material, -n);
+      if (n > 0) {
+        addStock(b.store, m as Material, -n);
+        gone += n;
+      }
     }
   }
+  return gone;
 }
 
 /** Someone takes up the town's offer and joins (a bed is found if there's one). */
