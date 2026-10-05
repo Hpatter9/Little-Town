@@ -3,6 +3,9 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { prostheticsWanted } from './injuries';
+import { PROSTHETIC_BY_ITEM } from '../data/injuries';
+import { venuePurse } from './ambition';
 import { LINES, LINE_STOCK, SHOP_LINES, STORE_PEOPLE } from '../data/stores';
 import { eraOfResearch } from '../data/research';
 import { ERAS } from '../data/eras';
@@ -89,6 +92,9 @@ const SHELF_HOURS = 24;
 
 interface Needs {
   people: number;
+  /** Someone is missing a part (a prosthetic wanted), or someone is wounded. */
+  limbless: boolean;
+  wounded: boolean;
   freeBeds: number;
   foodDays: number;
   storageFill: number;
@@ -133,6 +139,8 @@ function needs(s: GameState): Needs {
     stock,
     demand,
     raided: s.journal.some((j) => j.text.startsWith('Raid by')),
+    limbless: prostheticsWanted(s).length > 0,
+    wounded: s.people.some((p) => (p.wounds?.length ?? 0) > 0),
     direction: directionOf(s),
   };
 }
@@ -231,6 +239,10 @@ function topicScore(t: Topic, n: Needs): number {
   }
   // (children are how a town grows now that newcomers are few: it learns family life once there are a few of it)
   if (t.id === 'family_life') score += n.people >= 4 ? 40 : 10;
+  // (someone has lost a limb or an eye: learn to make them good)
+  if ((t.id === 'peg_and_hook' || t.id === 'prosthetics' || t.id === 'bionics') && n.limbless) score += 30;
+  // (the town has been bleeding: learn to tend the hurt)
+  if (t.effects.some((e) => e.type === 'care') && n.wounded) score += 6;
   if (DIRECTION_DEFS[n.direction].branches.includes(BRANCH_OF(t))) score *= 1.6;
   if (t.branch === 'heritage') score *= 1.25; // (what the town's people are good at, they like to study)
   if (t.branch === 'occult') score *= 0.35; // (the town dabbles, but it's not what it's for)
@@ -372,6 +384,13 @@ function planCrafting(s: GameState, n: Needs): Stock {
   // 4. a few bandages or poultices, and pots when the stores are filling up
   const isMedicine = (i: ItemDef) => i.id === 'poultice' || i.id === 'bandage';
   if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
+  // 4b. a prosthetic for each lost part waiting on one: the best the town can make (the healer fits it: sim/injuries.ts)
+  for (const fits of new Set(prostheticsWanted(s))) {
+    if (!room()) break;
+    const is = (i: ItemDef) => PROSTHETIC_BY_ITEM[i.id]?.fits === fits;
+    const best = bestMakeable(s, is, (i) => PROSTHETIC_BY_ITEM[i.id].rank);
+    if (best && !ordered(s, (i) => i.id === best.id) && (s.items[best.id] ?? 0) === 0) tryMake(best);
+  }
   // (one pot on order at a time: the crafters have other work)
   // Everything made to sell or to dress a venue is made only from what the town has spare (beyond what it needs, a
   // reserve, and several days' food), never from what it can only buy (like a desert's fiber); nothing is gathered for
@@ -479,6 +498,8 @@ function planCrafting(s: GameState, n: Needs): Stock {
 /* ------------------------------------------------------------ building */
 
 /** The era capstones, and the launch at the end: built when the town can. */
+/** No ring wall at all under this many grown-ups (the first days go on shelter, food and the shop). */
+const RING_MIN_PEOPLE = 4;
 const CAPSTONES = ['elder_lodge', 'town_hall', 'power_station', 'mission_control', 'launch_site'];
 /** Never built by the planner: tied to hidden choices, or one-off rescue machines the player earns. */
 const NEVER = new Set(['phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_vat', 'palisade_gate', 'stone_gate']);
@@ -514,7 +535,7 @@ function wildCells(s: GameState): { i: number; pool: Stock; d: number }[] {
 /** The nearest free spot for a building, out from the camp in rings, each ring's spots nearest a road first, so the
  *  town grows along its roads (null if there's no room). In a castle town the keep's ground is the castle's:
  *  everything else goes outside it. Fields and pens keep a little further out than the houses. */
-function findSpot(s: GameState, def: BuildingDef): Pt | null {
+export function findSpot(s: GameState, def: BuildingDef): Pt | null {
   // (a wandering tribe builds its great works on its home ground)
   const from = buildOrigin(s, def.id) ?? campCell(s);
   const taken = footprints(s);
@@ -588,6 +609,8 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const fieldsNow = s.buildings.filter((b) => foodField(b.def)).reduce((n, b) => n + plotsWorth(b.def), 0);
   const fed = n.people < 4 || (n.foodDays >= 2 && fieldsNow >= Math.ceil(n.people / 2) - 1);
   const paced = n.people < 4 || s.tick - (s.plan?.lastHome ?? -Infinity) >= HOME_EVERY * Math.max(1, s.plan?.lastHomeBeds ?? 1);
+  // (people build their own homes too (sim/property.ts); the treasury keeps a bed spare to rent, since a newcomer
+  // only comes to a town with a bed free)
   if (n.freeBeds < 1 && fed && paced) options((d) => !!d.housing, (d) => d.housing!, `${n.people} people and ${n.people + n.freeBeds} beds`);
   // food: a field for every two people (one or two more when stores are low; never a field per person)
   const fields = fieldsNow;
@@ -774,7 +797,8 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   const grownUps = s.people.filter((p) => !isChild(p)).length;
   // (a town that can't gather what it builds with waits for its shop before it walls itself: the shop comes first)
   const shopFirst = n.unsourced.length > 0 && !s.buildings.some((b) => isShop(b.def));
-  if (!shopFirst) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
+  // (a handful of people can't wall a town and build it too: the ring waits for RING_MIN_PEOPLE, raided or not)
+  if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
   if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
   if (blueprintCount(s) >= buildSlots(s)) return clear;
   let blocked: BuildingDef | null = null;
@@ -974,7 +998,8 @@ function planShop(s: GameState): void {
   for (const venue of [shopOf(s), tavernOf(s), ...SHOP_LINES.map((l) => storeOf(s, l))]) {
     if (!venue) continue;
     // (a good reserve, and tomorrow's wages, are kept back)
-    const spare = (s.coins ?? 0) - 2 * COIN_RESERVE * PURSE_SCALE[s.era] - wageBill(s);
+    // (the owner's purse for a business someone owns: sim/ambition.ts)
+    const spare = venuePurse(s, venue, (s.coins ?? 0) - 2 * COIN_RESERVE * PURSE_SCALE[s.era] - wageBill(s));
     const ext = extensionPrice(s, venue);
     const table = venueKind(venue) === 'tavern' ? ITEM_BY_ID.log_table : ITEM_BY_ID.trestle_table;
     const crowded = !spotFor(venue, ITEM_BY_ID.clay_urns) && !spotFor(venue, table);

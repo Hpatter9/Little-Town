@@ -7,6 +7,8 @@
 import { loadImage } from './loadImage';
 import groundGrass from './roads/ground_grass.png';
 import ripplesUrl from './water/ripples.png';
+import pierV from './roads/pier_v.png';
+import pierH from './roads/pier_h.png';
 import tuft1 from './fields/tuft1.png';
 import tuft2 from './fields/tuft2.png';
 import tuft3 from './fields/tuft3.png';
@@ -35,7 +37,7 @@ import pebble6 from './fields/pebble6.png';
 const TUFTS = [tuft1, tuft2, tuft3, tuft4, tuft5, tuft6];
 const FLOWERS = [flower1, flower2, flower3, flower4, flower5, flower6, flower7, flower8, flower9, flower10, flower11, flower12];
 const PEBBLES = [pebble1, pebble2, pebble3, pebble4, pebble5, pebble6];
-const ALL = [groundGrass, ripplesUrl, ...TUFTS, ...FLOWERS, ...PEBBLES];
+const ALL = [groundGrass, ripplesUrl, pierV, pierH, ...TUFTS, ...FLOWERS, ...PEBBLES];
 
 const images = new Map<string, HTMLImageElement>();
 let loading: Promise<void> | null = null;
@@ -60,20 +62,11 @@ const BANDS: Record<Patch, { band: number; side: 'l' | 'r'; colour: string }> = 
   sand: { band: 3, side: 'r', colour: '#c5b997' },
   peat: { band: 4, side: 'r', colour: '#7c7538' },
 };
-/** The shapes in a band (x, y within the band, w, h), the ones that fit inside a cell: left side in the first band
- *  (the rest sit 16px further right), right side the same in every band. */
-const LEFT: [number, number, number, number][] = [
-  [32, 48, 32, 25],
-  [80, 49, 32, 30],
-  [37, 70, 21, 10],
-  [117, 48, 11, 16],
-];
-const RIGHT: [number, number, number, number][] = [
-  [154, 10, 29, 29],
-  [160, 48, 32, 20],
-  [208, 56, 32, 16],
-  [172, 77, 8, 3],
-];
+/** The shapes in a band (x, y within the band, w, h) that stand alone as patches: the round blobs (left side in the first band; the rest sit 16px further right; right side the same in every band). The sheet's
+ *  other shapes are edge pieces (a square with a hole, an arch, a fringe with a straight side): laid loose they read
+ *  as squares on the ground, so they're left out. */
+const LEFT: [number, number, number, number][] = [[19, 3, 43, 43]];
+const RIGHT: [number, number, number, number][] = [[154, 10, 29, 29]];
 const BAND_H = 96;
 const BAND_Y0 = 16;
 
@@ -85,8 +78,9 @@ export function groundUnder(p: Patch, darken = 0.14): string {
   return `rgb(${v(1)}, ${v(3)}, ${v(5)})`;
 }
 
-/** Draw one of a kind's patches (`n` picks which) with its top-left at (x, y). False until the sheet has loaded. */
-export function drawPatch(g: CanvasRenderingContext2D, kind: Patch, n: number, x: number, y: number): { w: number; h: number } | null {
+/** Draw one of a kind's patches (`n` picks which) with its top-left at (x, y), at `scale`, kept inside a canvas of
+ *  `room` px (so a chunk's edge never cuts one off straight). Null until the sheet has loaded. */
+export function drawPatch(g: CanvasRenderingContext2D, kind: Patch, n: number, x: number, y: number, scale = 1, room = Infinity): { w: number; h: number } | null {
   const im = images.get(groundGrass);
   if (!im) return null;
   const b = BANDS[kind];
@@ -94,8 +88,12 @@ export function drawPatch(g: CanvasRenderingContext2D, kind: Patch, n: number, x
   const s = shapes[((n % shapes.length) + shapes.length) % shapes.length];
   const sx = s[0] + (b.side === 'l' && b.band ? 16 : 0);
   const sy = BAND_Y0 + b.band * BAND_H + s[1];
-  g.drawImage(im, sx, sy, s[2], s[3], x, y, s[2], s[3]);
-  return { w: s[2], h: s[3] };
+  const w = Math.max(4, Math.round(s[2] * scale));
+  const h = Math.max(4, Math.round(s[3] * scale));
+  const dx = Math.max(0, Math.min(x, room - w));
+  const dy = Math.max(0, Math.min(y, room - h));
+  g.drawImage(im, sx, sy, s[2], s[3], dx, dy, w, h);
+  return { w, h };
 }
 
 /** The Fields pack's small things on the grass: a tuft, a flower or a pebble (`n` picks which), its middle at (x, y). */
@@ -133,5 +131,14 @@ export function drawRipple(g: CanvasRenderingContext2D, n: number, x: number, y:
     tinted.set(colour, c);
   }
   g.drawImage(c, r[0], r[1], r[2], r[3], x, y, r[2], r[3]);
+  return true;
+}
+
+/** A cell of pier (a shore town's road out over the water): the Bridges pack's wooden planks with their rails, running
+ *  across (`across`) or up and down, the cell's top-left at (x, y). */
+export function drawPier(g: CanvasRenderingContext2D, across: boolean, x: number, y: number): boolean {
+  const im = images.get(across ? pierH : pierV);
+  if (!im) return false;
+  g.drawImage(im, x, y + (across ? -2 : 0));
   return true;
 }

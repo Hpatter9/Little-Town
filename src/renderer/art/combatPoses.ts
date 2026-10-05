@@ -4,7 +4,6 @@
 // fight, with its own attacks, guard, hurt and dying frames. Shared by the map (map/mapPeople.ts) and the Final
 // Fantasy fight screen (fight/fightView.ts).
 
-import type { ClassId } from '../../shared/data/classes';
 import { ITEM_BY_ID, type Slot } from '../../shared/data/items';
 import type { PackSheetId } from '../../shared/data/packSheets';
 import { PACK_SHEETS } from '../../shared/data/packSheets';
@@ -54,34 +53,7 @@ export function fightPose(st: { sinceBlow: number; sinceHit: number; down: boole
   return ['walk', 0];
 }
 
-/** The hero packs' sheets for the fighting callings (a line's sheet; several: picked by the person's id). */
-export const HERO_FORM: Partial<Record<ClassId, PackSheetId[]>> = {
-  knight: ['knight_1', 'knight_2', 'knight_3'],
-  guardian: ['knight_2', 'knight_3'],
-  warrior: ['samurai_commander'],
-  dragoon: ['samurai_commander'],
-  samurai: ['samurai'],
-  spellblade: ['samurai'],
-  archer: ['samurai_archer'],
-  ranger: ['samurai_archer'],
-  hunter: ['samurai_archer'],
-  monk: ['ninja_monk'],
-  assassin: ['kunoichi'],
-  dancer: ['kunoichi'],
-  witch: ['fire_wizard'],
-  shaman: ['wanderer_mage'],
-  chronomancer: ['lightning_mage'],
-};
-/** The combat form of someone of this calling (none: they fight as themselves). */
-export function heroSheet(cls: ClassId | null, id: number): PackSheetId | null {
-  const list = cls ? HERO_FORM[cls] : undefined;
-  return list ? list[id % list.length] : null;
-}
-/** A founder's form, worn always (the owner's ask: the founders stand out as special everywhere): their calling's
- *  hero, else one by how they fight (a shooter the archer, a caster a wizard, the rest the samurai). */
-export function founderSheet(cls: ClassId | null, id: number, ranged: boolean, caster: boolean): PackSheetId {
-  return heroSheet(cls, id) ?? (caster ? (['fire_wizard', 'wanderer_mage', 'lightning_mage'] as PackSheetId[])[id % 3] : ranged ? 'samurai_archer' : 'samurai');
-}
+export { HERO_FORM, heroSheet, founderSheet, FOUNDER_ID } from './heroForms';
 /** How tall a hero stands on screen (px, before the person's own scale): about an LPC townsperson's figure. */
 export const HERO_HEIGHT = 50;
 /** The scale that brings a hero sheet's figure to HERO_HEIGHT. */

@@ -2,6 +2,10 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
+import { payParty } from './economy';
+import { homeFromTrip } from './ambition';
+import { payBounty } from './parties';
+import { woundFor, woundPerson } from './injuries';
 import { levelOf, xpToLevel } from '../data/levels';
 import { ENEMIES } from '../data/enemies';
 import { eraReached } from '../data/eras';
@@ -487,8 +491,17 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
     if (f.ammoUsed && f.ammoType) addStock(e.supplies, f.ammoType, -f.ammoUsed);
     const p = members.find((q) => q.id === f.ref);
     if (!p) continue;
+    const was = p.hp;
     if (f.down && !p.downed) knockDown(s, p);
     else if (!f.down) p.hp = Math.max(1, Math.min(maxHp(p), Math.round((f.hp * maxHp(p)) / Math.max(1, f.maxHp)))); // (back to the town's reckoning of their health)
+    // (the fight's harm, as wounds on the body: one or two, from what they fought: sim/injuries.ts)
+    const harm = f.down ? Math.max(was, maxHp(p) * 0.5) : was - p.hp;
+    const foes = b.fighters.filter((x) => x.side === 'enemy');
+    if (harm > 0 && foes.length) {
+      const by = rng.pick(foes).kind;
+      const blows = harm > maxHp(p) * 0.3 ? 2 : 1;
+      for (let i = 0; i < blows; i++) woundPerson(s, p, harm / blows, (sev) => woundFor(by, sev, rng), rng);
+    }
     const levelFrom = levelOf(p);
     const xpFrom = p.lvXp ?? 0;
     if (f.attacks) gainSkill(p, f.ranged ? 'ranged' : 'melee', f.attacks * FIGHT_XP);
@@ -508,6 +521,12 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
       const coinsBefore = s.coins ?? 0;
       for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.boss) bossSlain(s, f.kind);
       result.coins = (s.coins ?? 0) - coinsBefore;
+      // (a boss's purse is the party's, split among them: data/economy.ts)
+      if (result.coins > 0) {
+        s.coins = (s.coins ?? 0) - result.coins;
+        earn(s, 'events', -result.coins);
+        payParty(s, members.filter((p) => !p.downed || true), result.coins, 'A share of the spoils');
+      }
       const drops = battleLoot(b);
       const room = partyCarry(s, e) - poolSize(e.loot);
       let taken = 0;
@@ -586,6 +605,8 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   const each = bearers.length ? Math.ceil(poolSize(haul) / bearers.length) : 0;
   for (const [i, p] of members.entries()) {
     p.away = null;
+    homeFromTrip(s, p); // (a trip counted: an adventurer may settle down, sim/ambition.ts)
+    p.homeAt = s.tick; // (rested before the next: sim/parties.ts)
     p.x = at.x - side * i * 20;
     p.y = at.y;
     p.dir = side > 0 ? -1 : 1;
@@ -609,8 +630,10 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   notify(s, `${The(d.name)} party is back${e.recalled ? ' (recalled)' : ''}: ${found || 'empty-handed'}.`, true);
   if (!e.recalled) specialOutcome(s, e, d, at, rng);
   // (a delve: quests on a cleared dungeon, and a rival won over)
-  delveHome(s, e, rng, { quests: (id) => questsDone(s, id, at, rng), join: () => joinTown(s, at, rng) });
+  const party = e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
+  delveHome(s, e, rng, { quests: (id) => questsDone(s, id, at, rng, party), join: () => joinTown(s, at, rng) });
   packHome(s, e, rng);
+  payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);
 }
 

@@ -25,7 +25,7 @@ import { button, el } from './dom';
 /** Changes whenever something this panel shows changes (needs and morale to the whole percent). */
 export const townsfolkKey = (s: Snapshot) =>
   JSON.stringify([
-    s.people.map((p) => [p.id, p.job, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
+    s.people.map((p) => [p.id, p.job, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.owns, p.debt, p.income, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.enemies, p.devoted, p.body.wounds, p.body.lasting, p.body.fitted, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
     s.visitor && [s.visitor.id, Math.ceil(s.visitor.hoursLeft), s.visitor.leaving],
     s.housing,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 100), p.hungry]),
@@ -114,7 +114,7 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   row.append(face(p, s));
   const mid = el('span', 'folk-mid');
   const name = el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`);
-  const what = el('span', 'folk-class', `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}`);
+  const what = el('span', 'folk-class', `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}${p.coins !== null ? ` · ● ${p.coins}` : ''}${p.owns.length ? ' · 🏠' : ''}`);
   const doing = el('span', 'folk-doing', p.away !== null ? `Away: ${p.away}` : p.doing);
   mid.append(name, what, doing);
   const right = el('span', 'folk-right');
@@ -180,6 +180,15 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
   life.append(bars);
   if (p.breakdown) life.append(el('div', 'lock short', p.breakdown));
   if (p.sick) life.append(el('div', 'lock short', 'Sick.'));
+  // their body: wounds, lasting harm, prosthetics, and what they can still do (sim/injuries.ts)
+  const b = p.body;
+  if (b.wounds.length) life.append(el('div', 'lock short', `Wounds: ${b.wounds.join(', ')}`));
+  if (b.lasting.length) life.append(el('div', 'lock', `For good: ${b.lasting.join(', ')}`));
+  if (b.fitted.length) life.append(el('div', 'purpose', `Fitted: ${b.fitted.join(', ')}`));
+  if (b.wounds.length || b.lasting.length) {
+    const pct = (v: number) => `${Math.round(v * 100)}%`;
+    life.append(el('div', 'hint', `Sight ${pct(b.sight)} · Hands ${pct(b.handling)} · Moving ${pct(b.moving)}${b.pain > 0.04 ? ` · Pain ${pct(b.pain)}` : ''}`));
+  }
   if (p.moodReasons.length) {
     const reasons = el('div', 'reasons');
     for (const r of p.moodReasons) reasons.append(el('span', r.value >= 0 ? 'good' : 'bad', `${r.text} ${r.value > 0 ? '+' : ''}${r.value}`));
@@ -221,6 +230,7 @@ function paperDoll(p: PersonView, s: Snapshot, rerender: () => void): HTMLElemen
   fig.append(el('div', 'hint doll-age', p.ageText));
   if (p.job) fig.append(el('div', 'hint doll-age', `${p.job.title} at the ${p.job.at}`));
   fig.append(el('div', 'hint doll-age', `${p.natureName}: ${p.natureLine}`));
+  if (p.ambition) fig.append(el('div', 'hint doll-age', `Dreams of ${p.ambition.name.charAt(0).toLowerCase()}${p.ambition.name.slice(1)}: ${p.ambition.line}${p.trips ? ` ${p.trips} trip${p.trips > 1 ? 's' : ''} made.` : ''}`));
   doll.append(fig);
   const shown = chosenSlot ?? firstWorn(p);
   for (const slot of SLOTS) {
@@ -326,7 +336,7 @@ function bag(p: PersonView): HTMLElement {
   const held = stacks.reduce((n, [, v]) => n + v, 0);
   const foot = el('div', 'bag-foot');
   foot.append(el('span', '', `Carrying ${held} of ${p.carryCapacity}`));
-  if (p.coins !== null) foot.append(el('span', 'coins', `● ${p.coins} coins`));
+  if (p.coins !== null) foot.append(el('span', 'coins', `● ${p.coins} coins${p.income ? ` · earned ${p.income.today} today${p.income.yesterday ? `, ${p.income.yesterday} yesterday` : ''}` : ''}${p.owns.length ? ` · owns ${p.owns.join(', ')}` : ''}${p.debt ? ` · owes ${p.debt} rent` : ''}`));
   if (p.bedroll) foot.append(el('span', '', 'Sleeps on a bedroll'));
   box.append(foot);
   return box;
@@ -607,8 +617,11 @@ function relationsText(p: PersonView): string {
   const parts: string[] = [];
   if (p.growsUpIn !== null) parts.push(`A child: grows up in ${Math.ceil(p.growsUpIn / 24)} game days`);
   if (p.partner) parts.push(`${p.married ? 'Married to' : 'Together with'} ${p.partner}`);
-  if (p.friends.length) parts.push(`Friends: ${p.friends.join(', ')}`);
+  if (p.devoted.length) parts.push(`Devoted to ${p.devoted.join(', ')} (goes where they go)`);
+  const friends = p.friends.filter((n) => !p.devoted.includes(n));
+  if (friends.length) parts.push(`Friends: ${friends.join(', ')}`);
   if (p.rivals.length) parts.push(`Can't stand: ${p.rivals.join(', ')}`);
+  if (p.enemies.length) parts.push(`Enemies: ${p.enemies.join(', ')} (never in one party; may come to blows)`);
   return parts.join(' · ');
 }
 

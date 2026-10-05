@@ -222,5 +222,5 @@ test('a save from before the land (version 9) is refused as too old: a new town 
   const r = parseSave(serialize(s as unknown as GameState, 1));
   assert.equal(r.ok, false);
   assert.equal(!r.ok && r.reason, 'old-version');
-  assert.equal(SAVE_VERSION, 16);
+  assert.equal(SAVE_VERSION, 17);
 });

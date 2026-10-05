@@ -3,6 +3,7 @@
 // party is home it pays: a rescued captive joins the town, a bounty is paid, a relic hunt brings one of the uniques held
 // back for quests (data/uniques.ts QUEST_UNIQUES), a fallen delver's gear comes home. Unclaimed, a quest lapses.
 
+import { payParty } from './economy';
 import { DUNGEONS, DUNGEON_BY_ID } from '../data/dungeons';
 import { DESTINATION_BY_ID } from '../data/expeditions';
 import { ITEM_BY_ID } from '../data/items';
@@ -90,7 +91,7 @@ export function questsHourly(s: GameState): void {
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** A delving party home from a dungeon they cleared: every open quest on it pays. `x`: where they came in. */
-export function questsDone(s: GameState, dungeon: string, at: Pt, rng: Rng): void {
+export function questsDone(s: GameState, dungeon: string, at: Pt, rng: Rng, party: Person[] = []): void {
   const done = (s.quests ?? []).filter((q) => q.dungeon === dungeon);
   if (!done.length) return;
   s.quests = (s.quests ?? []).filter((q) => q.dungeon !== dungeon);
@@ -108,9 +109,13 @@ export function questsDone(s: GameState, dungeon: string, at: Pt, rng: Rng): voi
         break;
       }
       case 'bounty':
-        s.coins = (s.coins ?? 0) + (q.coins ?? 0);
-        earn(s, 'events', q.coins ?? 0);
-        notify(s, `The bounty on ${DUNGEON_BY_ID[dungeon].name} is paid: ${q.coins} coins.`, true);
+        // (the bounty is the party's: split among them)
+        if (party.length) payParty(s, party, q.coins ?? 0, `The bounty on ${DUNGEON_BY_ID[dungeon].name}`);
+        else {
+          s.coins = (s.coins ?? 0) + (q.coins ?? 0);
+          earn(s, 'events', q.coins ?? 0);
+        }
+        notify(s, `The bounty on ${DUNGEON_BY_ID[dungeon].name} is paid: ${q.coins} coins${party.length ? ` to ${party.length === 1 ? party[0].name : 'the party'}` : ''}.`, true);
         break;
       case 'relic':
         if (q.unique && !(s.uniques ?? []).includes(q.unique)) {

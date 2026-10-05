@@ -1,7 +1,8 @@
 // Draws raiders on the map, interpolated between the sim's ticks, with a health bar and a flash where blows land
 // (the raid map's own fighting is phase 5: for now they come in along the camp's row).
 
-import { Container, Graphics, Sprite } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+import { WAIST } from '../art/merTail';
 import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from '../../shared/data/enemies';
 import type { RaiderView } from '../../shared/sim/snapshot';
 import { TICK_MS } from '../../shared/sim/time';
@@ -133,6 +134,13 @@ export class MapRaiders {
         s.position.set(Math.round(x + lunge), Math.round(y));
         top = y - 50;
       }
+      // in the water (a raid from the sea coming ashore): only the top of them shows, bobbing on the swell
+      if (r.swimming && !r.down) {
+        s.texture = waistCrop(s.texture);
+        s.anchor.set(s.anchor.x, 1);
+        const bob = Math.sin(secs * 2.6 + r.id) * 1.5;
+        s.position.set(Math.round(x + lunge), Math.round(y - 4 + bob));
+      }
       s.zIndex = y;
       s.alpha = r.down ? 0.4 : 1;
       s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : r.ally ? 0xa8f0b8 : (def.tint ?? 0xffffff);
@@ -191,4 +199,16 @@ export class MapRaiders {
 
 function bundle(): Graphics {
   return new Graphics().rect(0, 2, 9, 9).fill(0x5a3e24).rect(1, 1, 7, 9).fill(0x8a6440).rect(1, 5, 7, 1).fill(0x5a3e24).rect(3, 0, 3, 2).fill(0x5a3e24);
+}
+
+/** The top of a frame (to the waist), for someone in the water; cached per frame. */
+const crops = new WeakMap<Texture, Texture>();
+function waistCrop(tex: Texture): Texture {
+  let t = crops.get(tex);
+  if (!t) {
+    const f = tex.frame;
+    t = new Texture({ source: tex.source, frame: new Rectangle(f.x, f.y, f.width, Math.max(1, Math.round(f.height * WAIST))) });
+    crops.set(tex, t);
+  }
+  return t;
 }

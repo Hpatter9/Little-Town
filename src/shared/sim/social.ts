@@ -3,6 +3,7 @@
 // researched, couples marry and may welcome children, who grow up over about a week of real time and
 // take after a parent. Losing someone close hits hard.
 
+import { weddingFeast } from './ceremonies';
 import { natureFit, natureOf } from '../data/natures';
 import { POP_HARD_CAP } from '../data/pace';
 import { NAMES, randomLook } from '../data/people';
@@ -11,6 +12,13 @@ import {
   CHILD_HOURS,
   COUPLE,
   COUPLE_CHANCE,
+  BRAWL_CHANCE,
+  BRAWL_HURT,
+  BRAWL_MORALE,
+  BRAWL_NEAR,
+  DEVOTED,
+  DEVOTED_GRIEF,
+  ENEMY,
   FRICTION,
   FRICTION_CHANCE,
   FRIEND,
@@ -105,6 +113,7 @@ export function updateSocial(s: GameState, rng: Rng): void {
       // (their natures weigh in: like warms to like, and some natures grate: data/natures.ts)
       let v = adjust(s, a.id, b.id, WARM_PER_HOUR * (chemistry(s, a.id, b.id) + natureFit(natureOf(a), natureOf(b))) * social * loner);
       if (rng.chance(FRICTION_CHANCE * (1 + friction(a) + friction(b)))) v = adjust(s, a.id, b.id, -FRICTION);
+      if (v <= ENEMY && Math.hypot(a.x - b.x, a.y - b.y) <= BRAWL_NEAR && rng.chance(BRAWL_CHANCE)) brawl(s, a, b);
       if (v >= COUPLE && canPair(a) && canPair(b) && rng.chance(COUPLE_CHANCE)) {
         a.partner = b.id;
         b.partner = a.id;
@@ -115,6 +124,22 @@ export function updateSocial(s: GameState, rng: Rng): void {
   families(s, rng);
   growUp(s);
 }
+
+/** Enemies (opinion at ENEMY or below) who cross paths may come to blows: both hurt a little (never to the ground),
+ *  both smarting for a day, and it's talked about. Not while either sleeps, fights or lies hurt. */
+function brawl(s: GameState, a: Person, b: Person): void {
+  const busy = (p: Person) => p.downed || p.activity === 'sleep' || p.activity === 'fight' || !!s.raid;
+  if (busy(a) || busy(b)) return;
+  for (const p of [a, b]) {
+    p.hp = Math.max(1, p.hp - maxHp(p) * BRAWL_HURT);
+    p.sore = { until: s.tick + 24 * TICKS_PER_HOUR, value: BRAWL_MORALE, text: `Came to blows with ${p === a ? b.name : a.name}` };
+  }
+  notify(s, `${a.name} and ${b.name} came to blows. They can't stand each other.`, true);
+}
+
+/** Enemies: at ENEMY or below. Devoted: at DEVOTED or above (a partner always is). */
+export const enemiesOf = (s: GameState, p: Person) => s.people.filter((o) => o !== p && opinion(s, p.id, o.id) <= ENEMY);
+export const devotedOf = (s: GameState, p: Person) => s.people.filter((o) => o !== p && (p.partner === o.id || opinion(s, p.id, o.id) >= DEVOTED));
 
 /** How well a pair gets on, fixed for the pair (from the world seed and their ids): -0.4 .. 1.4. */
 export function chemistry(s: GameState, a: number, b: number): number {
@@ -136,6 +161,7 @@ function families(s: GameState, rng: Rng): void {
       a.married = b.married = true;
       s.celebrationUntil = s.tick + WEDDING_MORALE[1] * TICKS_PER_HOUR;
       notify(s, `${a.name} and ${b.name} were married! The whole town celebrates.`, true);
+      weddingFeast(s, a, b); // (feasted that evening: sim/ceremonies.ts)
       continue;
     }
     const kids = s.people.filter((k) => k.parents?.includes(a.id) && k.parents.includes(b.id)).length;
@@ -214,7 +240,9 @@ export function grieve(s: GameState, dead: Person): void {
       p.partner = null;
       p.married = false;
     } else if (opinion(s, p.id, dead.id) >= FRIEND || p.parents?.includes(dead.id) || dead.parents?.includes(p.id)) {
-      p.grief = { until: s.tick + GRIEF_FRIEND[1] * eased * TICKS_PER_HOUR, value: GRIEF_FRIEND[0], text: `Misses ${dead.name}` };
+      // (the devoted grieve longer)
+      const longer = opinion(s, p.id, dead.id) >= DEVOTED ? DEVOTED_GRIEF : 1;
+      p.grief = { until: s.tick + GRIEF_FRIEND[1] * eased * longer * TICKS_PER_HOUR, value: GRIEF_FRIEND[0], text: `Misses ${dead.name}` };
     }
   }
   for (const k of Object.keys(s.relations)) if (k.split('-').includes(String(dead.id))) delete s.relations[k];

@@ -135,3 +135,134 @@ export function roomCells(s: Pick<GameState, 'buildings'>): number {
     return n + f.w * f.h;
   }, 0);
 }
+
+/* ------------------------------------------------------------ walls, doorways and the gate (walking) */
+
+/** Which region each castle cell is in (the hall -1, each room its building's id, each separate run of a hold's dug
+ *  galleries -2, -3, ...), the doorways cut between regions (`doorsOf`: keys `x,y|h` for the edge between a cell and
+ *  the one above it, `x,y|v` for the one to its left), and the gate: the cell before it and the hall's cell inside it. */
+export interface CastleLayout {
+  region: Map<number, number>;
+  doors: Set<string>;
+  gateOut: number;
+  gateIn: number;
+}
+
+/** The doorway between each pair of regions: one in the middle of the longest straight run of wall they share. The map
+ *  draws the same ones (map/castleArt.ts), so the doorways people walk through are the ones they see. */
+export function doorsOf(region: Map<number, number>, w: number): Set<string> {
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= w ? undefined : region.get(y * w + x));
+  const shared = new Map<string, { h: boolean; cells: { x: number; y: number }[] }>();
+  for (const [i, id] of region) {
+    const x = i % w;
+    const y = Math.floor(i / w);
+    for (const [n, h] of [
+      [at(x, y - 1), true],
+      [at(x - 1, y), false],
+    ] as const) {
+      if (n === undefined || n === id) continue;
+      const key = `${Math.min(id, n)}|${Math.max(id, n)}|${h ? 'h' : 'v'}`;
+      let s = shared.get(key);
+      if (!s) shared.set(key, (s = { h, cells: [] }));
+      s.cells.push({ x, y });
+    }
+  }
+  const doors = new Set<string>();
+  for (const s of shared.values()) {
+    const sorted = s.cells.sort((a, b) => (s.h ? a.y - b.y || a.x - b.x : a.x - b.x || a.y - b.y));
+    const runs: { x: number; y: number }[][] = [];
+    for (const c of sorted) {
+      const last = runs[runs.length - 1];
+      const prev = last?.[last.length - 1];
+      if (prev && (s.h ? prev.y === c.y && prev.x === c.x - 1 : prev.x === c.x && prev.y === c.y - 1)) last.push(c);
+      else runs.push([c]);
+    }
+    // (the longest run; of runs as long, the first in reading order, so the choice never depends on the map's order)
+    runs.sort((a, b) => b.length - a.length || a[0].y - b[0].y || a[0].x - b[0].x);
+    const run = runs[0];
+    const mid = run[Math.floor((run.length - 1) / 2)];
+    doors.add(`${mid.x},${mid.y}|${s.h ? 'h' : 'v'}`);
+  }
+  return doors;
+}
+
+/** A hold's galleries (cells dug out of the rock that are neither the hall nor a room). */
+export function galleryCells(s: CastleState): number[] {
+  if (holdOf(s) !== 'mountain') return [];
+  const solid = solidCells(s);
+  const out: number[] = [];
+  for (let i = 0; i < s.land.cells.length; i++) if (s.land.cells[i] === 'H' && !solid.has(i)) out.push(i);
+  return out;
+}
+
+const layouts = new WeakMap<object, { key: string; tick: number; layout: CastleLayout }>();
+
+/** The castle's regions, doorways and gate (cached until a room or the rock changes). Null without a castle. */
+export function castleLayout(s: CastleState): CastleLayout | null {
+  if (!castleOn(s)) return null;
+  // (looked at once a tick at most: a path search a tick would otherwise rebuild the key each time)
+  const tick = (s as { tick?: number }).tick ?? -1;
+  const hit = layouts.get(s);
+  if (hit && hit.tick === tick && tick >= 0) return hit.layout;
+  const rs = rooms(s);
+  const key = `${s.land.version}|${s.nomad ? 1 : 0}|${rs.map((b) => `${b.id}:${b.tile},${b.row},${b.def},${b.turned ? 1 : 0}`).join(';')}`;
+  if (hit && hit.key === key) {
+    hit.tick = tick;
+    return hit.layout;
+  }
+  const m = s.land;
+  const region = new Map<number, number>();
+  const add = (r: Rect, id: number) => {
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(m, x, y)) region.set(idx(m, x, y), id);
+  };
+  add(coreRect(s), -1);
+  for (const b of rs) add(footprint(b), b.id);
+  // each run of galleries (joined side to side) is a region of its own, so each gets its own doorway
+  let next = -2;
+  const gal = new Set(galleryCells(s));
+  for (const start of gal) {
+    if (region.has(start)) continue;
+    const id = next--;
+    const stack = [start];
+    region.set(start, id);
+    while (stack.length) {
+      const c = stack.pop()!;
+      const x = c % m.w;
+      const y = (c - x) / m.w;
+      for (const [dx, dy] of SIDES) {
+        if (!inMap(m, x + dx, y + dy)) continue;
+        const n = idx(m, x + dx, y + dy);
+        if (gal.has(n) && !region.has(n)) {
+          region.set(n, id);
+          stack.push(n);
+        }
+      }
+    }
+  }
+  const g = castleGate(s);
+  const layout: CastleLayout = { region, doors: doorsOf(region, m.w), gateOut: idx(m, g.x, g.y), gateIn: idx(m, g.x, g.y - 1) };
+  layouts.set(s, { key, tick, layout });
+  return layout;
+}
+
+/** Whether a step from one cell to a side neighbour keeps to the castle's walls: within a region, or outside, freely;
+ *  between two regions only through their doorway; in or out only through the gate. A step onto raw rock (a face being
+ *  dug) is left to the rock's own rules. */
+export function castleStep(s: CastleState, layout: CastleLayout): (ax: number, ay: number, bx: number, by: number) => boolean {
+  const m = s.land;
+  return (ax, ay, bx, by) => {
+    const a = ay * m.w + ax;
+    const b = by * m.w + bx;
+    const ra = layout.region.get(a);
+    const rb = layout.region.get(b);
+    if (ra === rb) return true;
+    if (ra === undefined || rb === undefined) {
+      const out = ra === undefined ? a : b;
+      if (groundAt(m, out % m.w, Math.floor(out / m.w)) === 'mountain') return true;
+      return (a === layout.gateOut && b === layout.gateIn) || (b === layout.gateOut && a === layout.gateIn);
+    }
+    // (the edge between the two cells, named by the lower or the right one)
+    const key = ay === by ? `${Math.max(ax, bx)},${ay}|v` : `${ax},${Math.max(ay, by)}|h`;
+    return layout.doors.has(key);
+  };
+}

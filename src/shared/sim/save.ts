@@ -4,7 +4,7 @@
 import type { GameState } from './state';
 
 export const SAVE_FORMAT = 'little-town-save';
-export const SAVE_VERSION: GameState['version'] = 16;
+export const SAVE_VERSION: GameState['version'] = 17;
 
 export interface SaveFile {
   format: typeof SAVE_FORMAT;

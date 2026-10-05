@@ -4,7 +4,7 @@
 // the river, an exodus, famine, a lost library, war, a miracle... The new effects (eventKit.ts): `burn` (buildings
 // set alight), `ruin` (pulled down), `exodus` (a share of the town leaves), `sickShare` (a share falls ill), `learn`
 // (topics learned outright), `heal` (everyone mended).
-import { chance, coins, dflt, eraAt, gain, has, later, mod, mood, note, opt, people, take, type EventDef } from './eventKit';
+import { busy, chance, coins, dflt, follow, eraAt, gain, has, later, mod, mood, note, opt, people, take, type EventDef } from './eventKit';
 import type { GameState } from '../sim/state';
 import { TICKS_PER_DAY } from '../sim/time';
 
@@ -19,12 +19,33 @@ const fate = (def: Omit<EventDef, 'fateful' | 'weight'> & { when?: (s: GameState
 
 export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five)
   fate({
-    id: 'great_fire', title: 'Fire in the night', text: 'A spark from a hearth takes a roof, and the wind is up. By the time the alarm is raised, half the street is alight.',
+    id: 'great_fire', title: 'Fire in the night', text: 'A spark from a hearth takes a roof, and the wind is up. By the time the alarm is raised, the roof is gone and the next is smoking.',
     when: (s) => s.buildings.filter((b) => b.status === 'done').length >= 6,
     options: [
-      dflt('Everyone to the buckets', { burn: 2 }, { wound: 'all', hp: 8 }, mood(-4, 48, 'The night of the fire')),
-      opt('Save the stores first', { burn: 4 }, note('The stores are saved, and four roofs are lost.')),
-      opt('Let it burn, and keep clear', { burn: 6 }, mood(-8, 72, 'We stood and watched it burn'), { reputation: -2 }),
+      // (the fireline: the whole town at it for a day, and little lost)
+      dflt('Cut a fireline: everyone to it', { burn: 1 }, busy(24, 1, 'Cutting the fireline'), mood(-3, 48, 'The day of the fireline'), note('Every hand is at the axes and shovels till the line is cut. Nothing else gets done today.')),
+      opt('Save the stores first', { burn: 3 }, busy(8, 0.5, 'Hauling the stores clear', 'build', 'camp'), note('The stores are carried clear, and three roofs are lost.')),
+      // (left to burn: it may die down, or it may take the town and come back as a second, worse choice)
+      opt(
+        'Let it burn, and keep clear',
+        chance(
+          0.5,
+          [{ burn: 4 }, { kill: 'random', chance: 0.4, cause: 'in the fire, trying to save what was theirs' }, later(6, chance(0.6, [follow('fire_spreads')], [note('The fire burns itself out against the bare ground.')]))],
+          [{ burn: 1 }, note('The wind turns. The fire dies down on its own, with one roof lost.')],
+        ),
+        mood(-6, 72, 'We stood and watched it burn'),
+        { reputation: -2 },
+      ),
+    ],
+  }),
+  // (never by chance: only when a fire left to burn reaches the town)
+  fate({
+    id: 'fire_spreads', title: 'The fire reaches the town', text: 'The fire left to burn has jumped the lane on the wind. Sparks are coming down on the thatch all along the street.',
+    when: () => false,
+    options: [
+      dflt('A bucket line from the well', { burn: 2 }, { wound: 'all', hp: 12 }, { kill: 'random', chance: 0.35, cause: 'in the smoke of the bucket line' }, busy(12, 1, 'Fighting the fire', 'build', 'camp')),
+      opt('Pull down the houses in its path', { ruin: 2 }, { burn: 1 }, busy(8, 0.6, 'Pulling down houses in the fire\'s path', 'build', 'camp'), mood(-5, 72, 'Our own homes pulled down')),
+      opt('Run for the fields and pray', { burn: 6 }, { kill: 'random', chance: 0.6, cause: 'in the great fire' }, { kill: 'random', chance: 0.3, cause: 'in the great fire' }, mood(-10, 96, 'The town burned while we ran')),
     ],
   }),
   fate({

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EVENTS, EVENT_BY_ID } from '../src/shared/data/events';
 import { Rng } from '../src/shared/rng';
-import { EVENT_HOURS, answerEvent, startEvent } from '../src/shared/sim/events';
+import { EVENT_HOURS, answerEvent, maybeEvent, startEvent } from '../src/shared/sim/events';
 import { catchUp } from '../src/shared/sim/offline';
 import { markMult } from '../src/shared/sim/origin';
 import { Sim } from '../src/shared/sim/sim';
@@ -23,7 +23,7 @@ function town(): GameState {
 }
 
 test('the events: five hundred and the fateful ones, each with two or three answers and exactly one default', () => {
-  assert.equal(EVENTS.length, 525); // (500, and the 25 fateful ones)
+  assert.equal(EVENTS.length, 526); // (500, the 25 fateful ones, and the fire's follow-up)
   assert.equal(new Set(EVENTS.map((e) => e.id)).size, EVENTS.length);
   for (const e of EVENTS) {
     assert.ok(e.options.length >= 2 && e.options.length <= 3, e.id);
@@ -47,7 +47,7 @@ test('every answer to every event can be given, and what comes of it later happe
       // (anything that comes later: up to three days on)
       for (let t = 0; t < 3 * TICKS_PER_DAY && !s.gameOver && (s.eventLater?.length ?? 0) > 0; t++) sim.step();
       sim.step();
-      assert.equal(s.event, undefined, `${def.id}/${o}: answered`);
+      assert.ok(!s.event || s.event.def !== def.id, `${def.id}/${o}: answered (a follow-up may be asked next)`);
       assert.ok(!(s.eventLater ?? []).length || s.gameOver, `${def.id}/${o}: later effects done`);
     }
   }
@@ -152,4 +152,49 @@ test('the fateful events: rare, no sooner than their gap, and their effects bite
   startEvent(t, EVENT_BY_ID.miracle, rng);
   answerEvent(t, 0, rng);
   assert.ok(t.people[0].hp > 3, 'healed');
+});
+
+test('events with weight: the fireline holds the town to it for a day; a fire let burn may come back as a worse choice', async () => {
+  const { busyNow } = await import('../src/shared/sim/people');
+  const sim = new Sim(town());
+  const s = sim.state;
+  s.nextEventTick = Number.MAX_SAFE_INTEGER;
+  const rng = new Rng(5);
+  startEvent(s, EVENT_BY_ID.great_fire, rng);
+  answerEvent(s, 0, rng); // (cut a fireline)
+  assert.ok(s.busy && s.busy.until - s.tick === 24 * TICKS_PER_HOUR, 'a day of it');
+  for (let t = 0; t < TICKS_PER_HOUR; t++) sim.step();
+  const held = s.people.filter((p) => busyNow(s, p));
+  assert.ok(held.length >= 1, 'people held to it');
+  assert.ok(held.every((p) => p.task?.type === 'toil' || p.task?.type === 'eat' || p.task?.type === 'extinguish' || p.task?.type === 'tend'), held.map((p) => p.task?.type).join());
+  for (let t = 0; t < 24 * TICKS_PER_HOUR; t++) sim.step();
+  assert.ok(!s.people.some((p) => busyNow(s, p)), 'free again after the day');
+  // let it burn: over a few seeds, sometimes it fizzles, sometimes the follow-up is put to the player
+  let followed = 0;
+  let fizzled = 0;
+  for (let seed = 1; seed <= 12; seed++) {
+    const t2 = town();
+    t2.nextEventTick = Number.MAX_SAFE_INTEGER;
+    const r = new Rng(seed);
+    startEvent(t2, EVENT_BY_ID.great_fire, r);
+    answerEvent(t2, 2, r);
+    // (the hours go by: what was left to burn comes back, or not)
+    const from = Math.ceil(t2.tick / TICKS_PER_HOUR) * TICKS_PER_HOUR;
+    for (let h = 0; h <= 8; h++) {
+      t2.tick = from + h * TICKS_PER_HOUR;
+      maybeEvent(t2, r);
+    }
+    if (t2.event?.def === 'fire_spreads') followed++;
+    else fizzled++;
+  }
+  assert.ok(followed >= 1 && fizzled >= 1, `followed ${followed}, fizzled ${fizzled}`);
+});
+
+test('an event that asks for coins says what the treasury holds, and what each answer costs', () => {
+  const s = town();
+  s.coins = 140;
+  startEvent(s, EVENT_BY_ID.tribute, new Rng(1));
+  const p = s.prompts.find((q) => q.kind === 'event')!;
+  assert.match(p.text, /treasury holds 140 coins/);
+  assert.match(p.options[0], /about 70 coins/);
 });

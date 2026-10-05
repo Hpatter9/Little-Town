@@ -34,3 +34,16 @@ export const MOURNING_MORALE = -8;
 export const MOURNING_LAID_TO_REST = -3;
 /** A wedding cheers everyone up this much, for this many game hours. */
 export const WEDDING_MORALE: [number, number] = [5, 24];
+
+/* ------------------------------------------------------------ relationships that bite (PLAN.md step 4) */
+
+/** Opinion at or below ENEMY: enemies. They never go on a trip together, and near each other they may come to blows
+ *  (BRAWL_CHANCE an hour within BRAWL_NEAR px; each loses BRAWL_HURT of their health and BRAWL_MORALE for a day). */
+export const ENEMY = -60;
+export const BRAWL_CHANCE = 0.04;
+export const BRAWL_NEAR = 2 * 32;
+export const BRAWL_HURT = 0.15;
+export const BRAWL_MORALE = -6;
+/** Opinion at or above DEVOTED: devoted. They go where the other goes, and grieve DEVOTED_GRIEF times as long. */
+export const DEVOTED = 80;
+export const DEVOTED_GRIEF = 2;

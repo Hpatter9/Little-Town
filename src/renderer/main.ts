@@ -40,14 +40,14 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
-    activity: 'walk', sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, cls: null, clsName: null, clsPast: [], clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
-    partner: null, married: false, friends: [], rivals: [], growsUpIn: null, breakdown: null, ageDays: 0,
-  ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', job: null,
+    partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], body: { wounds: [], lasting: [], fitted: [], sight: 1, handling: 1, moving: 1, pain: 0, marks: [] }, growsUpIn: null, breakdown: null, ageDays: 0,
+  ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, mer: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', job: null,
   monster: null, order: null, sick: false,
     battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8 }, mp: 0, sp: 0, interval: 12 }, kit: [],
   };
@@ -60,7 +60,8 @@ import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
 import { CELL, cellAt, groundAt, isMarked, WILD } from '../shared/sim/land';
-import { loadCreatures } from './art/creatures';
+import { creatureFrame, loadCreatures } from './art/creatures';
+import { founderSheet } from './art/heroForms';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
 import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
@@ -457,7 +458,7 @@ async function start(): Promise<void> {
         const p = snap.places.find((q) => q.id === h.id);
         if (!p) return null;
         const y = map.screenOf(p.x, p.y).y - 40;
-        if (p.dest) return { title: p.name, lines: [p.text, `${p.foes} there.`], hint: 'Click to pick a party', y };
+        if (p.dest) return { title: p.name, lines: [p.text, `${p.foes} there.`], hint: 'Click to post a bounty or forbid it', y };
         if (p.mine) {
           const left = (Object.entries(p.mine.left) as [Material, number][]).filter(([m, n]) => m !== 'stone' && n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`);
           return { title: 'Mine', lines: [`Level ${p.mine.depth}${p.mine.last ? ' (the last)' : ''}: ${left.length ? `${left.join(', ')} in the walls` : 'dug out to the rock'}.`, p.mine.diggers ? `${p.mine.diggers} digging.` : 'Nobody digging now.'], hint: 'Click to go in', y };
@@ -627,7 +628,7 @@ async function start(): Promise<void> {
       }
       case 'place': {
         const p = snap.places.find((q) => q.id === h.id);
-        const actions = p?.dest ? [act('party', 'Pick a party…', () => bridge.openPanel('expeditions'), { primary: true })] : p?.mine ? [act('enter', 'Enter the mine', () => bridge.command({ type: 'watchMine', place: p.id }), { primary: true })] : [];
+        const actions = p?.dest ? [act('party', 'Bounty or forbid…', () => bridge.openPanel('expeditions'), { primary: true })] : p?.mine ? [act('enter', 'Enter the mine', () => bridge.command({ type: 'watchMine', place: p.id }), { primary: true })] : [];
         return { title: d.title, lines: d.lines, actions };
       }
       case 'caravan':
@@ -965,7 +966,7 @@ async function start(): Promise<void> {
     }
     // (a raid's battle comes first: watching waits behind it)
     const watched = next.battle ? null : next.watch;
-    fight.update(watched, next.biome, next.calendar.season);
+    fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk');
     fightHud.update(watched);
     // (a mine gone into: the same screen, unless a fight or battle has it)
     const inMine = watched || next.battle ? null : next.mine;
@@ -1005,7 +1006,7 @@ async function start(): Promise<void> {
     };
     (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {
       const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
-      if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
+      if (who) return personPicture(who);
       if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
       return null;
     };
@@ -1017,7 +1018,7 @@ async function start(): Promise<void> {
       awayCard.show(next.away, (h) => {
         // the report card's pictures: the townsperson, or the building, in the town's own style
         const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
-        if (who) return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
+        if (who) return personPicture(who);
         if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
         return null;
       });
@@ -1139,3 +1140,21 @@ async function start(): Promise<void> {
 const FOLLOW_WAIT_MS = 4000;
 
 start().catch((err) => console.error('strip failed to start', err));
+
+/** A townsperson's picture for the feed and the report card: as the map draws them, so a founder (in their hero form
+ *  always, map/mapPeople.ts) is their hero sheet's idle frame, cut to a square about the figure; anyone else their LPC
+ *  figure. */
+function personPicture(who: PersonView): HTMLCanvasElement {
+  if (!who.founderCalling || who.monster === 'undead') return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
+  const sheet = founderSheet(who.cls, who.id, who.battle.ranged, (who.battle.attrs?.int ?? 0) > (who.battle.attrs?.str ?? 0));
+  const tex = creatureFrame(sheet, 0, 'right', 0, false, 'idle');
+  const f = tex.frame;
+  const r = tex.source.resolution;
+  const side = Math.min(f.width, f.height);
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(tex.source.resource as CanvasImageSource, (f.x + (f.width - side) / 2) * r, (f.y + f.height - side) * r, side * r, side * r, 0, 0, 64, 64);
+  return c;
+}

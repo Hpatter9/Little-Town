@@ -134,7 +134,7 @@ export class FightScene {
     this.layers[3].y = Math.round(this.vh - FRONT_H + 8);
   }
 
-  update(v: ExpeditionView | null, biome?: Biome, season?: string): void {
+  update(v: ExpeditionView | null, biome?: Biome, season?: string, sea = false): void {
     this.root.visible = !!v;
     this.view = v;
     if (!v) return;
@@ -142,7 +142,7 @@ export class FightScene {
     // (`window.__scene` shows any scene, for previews)
     const scene = (window as unknown as { __scene?: SceneId }).__scene ?? sceneFor(v.dest, v.scenery, v.phase, biome);
     // (and painted by hand, or a painted backdrop from the packs: `window.__look` forces one, for previews)
-    const look = (window as unknown as { __look?: SceneLook }).__look ?? lookFor(scene, v.id, season);
+    const look = (window as unknown as { __look?: SceneLook }).__look ?? lookFor(scene, v.id, season, sea);
     const key = `${v.id}|${scene}|${look}`;
     if (key !== this.sceneKey) {
       this.sceneKey = key;

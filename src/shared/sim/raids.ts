@@ -2,6 +2,8 @@
 // walk in from one end of the world. Beasts go for anyone they can see, then the food; rival scouts go for
 // the food and run. Walls and gates stop them until broken. Defenders fight; everyone else shelters.
 
+import { victoryFeast } from './ceremonies';
+import { woundFor, woundPerson } from './injuries';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES, enemyArmor, natureOf } from '../data/enemies';
 import { eraReached, type Era } from '../data/eras';
@@ -46,6 +48,9 @@ import {
   RAID_KINDS,
   RAID_MAX_HOURS,
   RAID_MAX_SIZE,
+  RAID_BITE,
+  RAID_FEROCITY,
+  RAID_BITE_FROM,
   RAIDER_CARRY,
   LOOT_VALUE,
   RAIDER_FLEE,
@@ -63,6 +68,7 @@ import {
 import type { Rng } from '../rng';
 import { buildingCentre, buildingDoor, defOf, depositNear, storages, totalStock } from './buildings';
 import { CELL, type Pt } from './land';
+import { seaTown } from './sea';
 import { rallied, RALLY_DAMAGE } from './rally';
 import { afterBlow, ammoOf, hitDamage, personFighter } from './combat';
 import { gearEffects } from './crafting';
@@ -75,6 +81,8 @@ import { levelOf } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood } from './state';
+import { castleOn } from './castle';
+import { walk, type Walker } from './walk';
 import { TICK_HZ, TICKS_PER_HOUR, paceDay } from './time';
 import { campEdge, gainSkill } from './townsfolk';
 import { rulesOf } from '../data/origins';
@@ -95,6 +103,15 @@ const OFF_MAP = 40;
 const worldW = (s: Pick<GameState, 'land'>) => s.land.w * CELL;
 /** Where a raid's side of the land begins (beyond its edge, on the camp's row). */
 const offMap = (s: GameState, side: -1 | 1, i = 0): Pt => ({ x: side < 0 ? -OFF_MAP - i * 24 : worldW(s) + OFF_MAP + i * 24, y: campXY(s).y });
+/** Where a raid from the sea starts: in the deep water south of the camp, past what the town knows (battle.ts lays its
+ *  trail from there), spread along the swell. */
+export function offSea(s: GameState, i = 0): Pt {
+  const m = s.land;
+  const row = Math.min(m.h - 1, m.camp.y + Math.round(m.open) + SEA_OUT);
+  return { x: (m.camp.x + 0.5) * CELL + ((i % 5) - 2) * 18, y: (row + 0.5) * CELL + Math.floor(i / 5) * 18 };
+}
+/** How many cells past the known land a raid from the sea starts. */
+const SEA_OUT = 4;
 
 /* ------------------------------------------------------------ scheduling */
 
@@ -113,6 +130,9 @@ export function wealth(s: GameState): number {
 /** The town size (the player's choice) below which raids grow more slowly with the days. */
 export const RAID_SMALL_TOWN = 20;
 
+/** A raid's bite (RAID_BITE, RAID_FEROCITY), once the town is RAID_BITE_FROM grown-ups strong. */
+export const biteOf = (s: GameState, bite: number) => (s.people.filter((p) => p.bornTick == null).length >= RAID_BITE_FROM ? bite : 1);
+
 export function raidBudget(s: GameState): number {
   const day = Math.floor(paceDay(s.tick));
   const war = s.doom?.kind === 'war' && s.doom.phase === 'active' ? WAR_RAID_BUDGET : 1;
@@ -120,7 +140,7 @@ export function raidBudget(s: GameState): number {
   const people = Math.max(0, s.people.filter((p) => p.away === null && p.type !== 'child').length - RAID_BUDGET_FREE_PEOPLE);
   // (a town kept small by the player's choice draws raids that grow more slowly: they come for what it's worth)
   const small = s.popTarget === undefined ? 1 : Math.min(1, s.popTarget / RAID_SMALL_TOWN);
-  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY * small + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength);
+  return Math.round((RAID_BUDGET_BASE + day * RAID_BUDGET_PER_DAY * small + Math.floor(wealth(s) * RAID_BUDGET_PER_WEALTH) + people * RAID_BUDGET_PER_PERSON) * war * difficultyOf(s).raidStrength * biteOf(s, RAID_BITE));
 }
 
 /** The building giving the longest raid warning, if any. */
@@ -144,7 +164,7 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
   const freeze = s.doom?.kind === 'deep_freeze' && s.doom.phase === 'active';
   const rats = s.doom?.kind === 'rat_plague' && s.doom.phase === 'active';
   // (the land's own beasts come only in their own lands)
-  const kinds = uprising ? [RAID_KIND_BY_ID.drones] : outbreak ? [RAID_KIND_BY_ID.zombies] : freeze ? [RAID_KIND_BY_ID.frost] : rats ? [RAID_KIND_BY_ID.rats] : raidKindsFor(s.era, day).filter((k) => !k.biomes || k.biomes.includes(s.biome ?? 'forest'));
+  const kinds = uprising ? [RAID_KIND_BY_ID.drones] : outbreak ? [RAID_KIND_BY_ID.zombies] : freeze ? [RAID_KIND_BY_ID.frost] : rats ? [RAID_KIND_BY_ID.rats] : raidKindsFor(s.era, day).filter((k) => (!k.biomes || k.biomes.includes(s.biome ?? 'forest')) && (!k.fromSea || seaTown(s)));
   // (the land, and who founded the town, make some raiders likelier, and some never come)
   const odds = biomeOf(s).raids ?? {};
   const own = rulesOf(s).raids ?? {};
@@ -199,7 +219,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
     raiders.push({
       id: s.nextId++,
       kind: id,
-      ...offMap(s, side, raiders.length),
+      ...(kind.fromSea ? offSea(s, raiders.length) : offMap(s, side, raiders.length)),
       dir: side < 0 ? 1 : -1,
       hp: d.hp,
       maxHp: d.hp,
@@ -229,7 +249,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   // a big enough raid of people may split: some come round to the other end of the town
   const day = paceDay(s.tick);
   let flank = 0;
-  if (inside === undefined && kind.steals !== undefined && raiders.length >= FLANK_MIN && rng.chance(Math.min(FLANK_MAX, FLANK_CHANCE + day * FLANK_PER_DAY))) {
+  if (inside === undefined && !kind.fromSea && kind.steals !== undefined && raiders.length >= FLANK_MIN && rng.chance(Math.min(FLANK_MAX, FLANK_CHANCE + day * FLANK_PER_DAY))) {
     const other = -side as -1 | 1;
     const party = raiders.filter((rd) => !ENEMIES[rd.kind].kit).slice(-Math.floor(raiders.length / 3));
     party.forEach((rd, i) => {
@@ -429,7 +449,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
     if (!rd.fleeing && (coward || s.tick >= r.leavesTick || poolSize(rd.carrying) >= RAIDER_CARRY)) rd.fleeing = true;
     const edge = offMap(s, rd.side ?? r.side); // (each back the way it came)
     if (rd.fleeing) {
-      if (moveToward(rd, { x: edge.x, y: rd.y }, step * (rd.captive ? 0.8 : 1.2))) {
+      if (moveToward(s, rd, { x: edge.x, y: rd.y }, step * (rd.captive ? 0.8 : 1.2))) {
         rd.gone = true;
         if (rd.captive) carriedOff(s, rd, kind.name);
       }
@@ -444,7 +464,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
         continue;
       }
       if (fallen && !s.people.some((p) => exposed(p, kind.id) && dist(p, rd) <= reach)) {
-        moveToward(rd, fallen, step); // go and pick them up (unless someone's in the way)
+        moveToward(s, rd, fallen, step); // go and pick them up (unless someone's in the way)
         continue;
       }
     }
@@ -493,12 +513,12 @@ export function updateRaid(s: GameState, rng: Rng): void {
       const d = dist(rd, c);
       const stand = (defOf(wall).width * CELL) / 2 + 6;
       const at = d > 0 ? { x: c.x + ((rd.x - c.x) / d) * stand, y: c.y + ((rd.y - c.y) / d) * stand } : rd;
-      if (dist(rd, at) > step) moveToward(rd, at, step);
+      if (dist(rd, at) > step) moveToward(s, rd, at, step);
       else if (rd.cooldown <= 0) attackWall(s, rd, wall, rng);
       continue;
     }
     if (dist(target, rd) > step) {
-      moveToward(rd, target, step);
+      moveToward(s, rd, target, step);
       continue;
     }
     if (target.burn) {
@@ -552,7 +572,9 @@ function carriedOff(s: GameState, rd: Raider, by: string): void {
 }
 
 /** Straight at a point (raiders don't keep to the paths). True once there. */
-function moveToward(rd: Raider, to: Pt, step: number): boolean {
+function moveToward(s: GameState, rd: Raider, to: Pt, step: number): boolean {
+  // (in a castle or a hold they keep to its walls like anyone: in by the gate, room to room by the doorways)
+  if (castleOn(s)) return walk(s, rd as Raider & Walker, to, step, undefined, s.tick);
   const dx = to.x - rd.x;
   const dy = to.y - rd.y;
   const d = Math.hypot(dx, dy);
@@ -597,9 +619,10 @@ export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area
   // (a rival lord's frenzy: harder, and sooner again)
   const frenzy = frenzyOf(s);
   if (frenzy > 1) rd.cooldown = Math.round(rd.cooldown / frenzy);
-  const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s) * (rd.might ?? 1));
+  const dmg = Math.round(blow(p) * mult * frenzy * guardRate(s) * (rd.might ?? 1) * biteOf(s, RAID_FEROCITY));
   p.hp = Math.max(0, p.hp - dmg);
   if (dmg > 0) {
+    woundPerson(s, p, dmg, (sev) => woundFor(rd.kind, sev, rng), rng); // (a wound where it landed: sim/injuries.ts)
     p.lastHit = s.tick;
     p.hitFrom = rd.x < p.x ? -1 : 1;
   } else p.lastBlock = s.tick; // (turned on a shield or armour: the guarding pose)
@@ -609,7 +632,8 @@ export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area
   if (p.hp === 0) {
     // (a killing blow: no lying wounded waiting to be tended)
     // (the founder only when someone could take the town on: a lone founder's camp isn't ended by one blow)
-    const odds = p.id === s.mainId ? (heirOf(s, p) ? FOUNDER_KILLING_BLOW : 0) : def.kit || def.boss ? BOSS_KILLING_BLOW : KILLING_BLOW;
+    // (a kidnapper wants them alive)
+    const odds = rd.goal === 'kidnap' ? 0 : p.id === s.mainId ? (heirOf(s, p) ? FOUNDER_KILLING_BLOW : 0) : def.kit || def.boss ? BOSS_KILLING_BLOW : KILLING_BLOW;
     if (rng.chance(odds)) {
       const by = /^the /i.test(def.name) ? def.name : `${/^[aeiou]/i.test(def.name) ? 'an' : 'a'} ${def.name.toLowerCase()}`;
       killPerson(s, p, `at the hands of ${by}`);
@@ -639,7 +663,7 @@ function allyAct(s: GameState, r: Raid, rd: Raider, rng: Rng, step: number): voi
   rd.dir = foe.x >= rd.x ? 1 : -1;
   const reach = def.ranged ? THROW_RANGE : MELEE_RANGE;
   if (dist(foe, rd) > reach) {
-    moveToward(rd, foe, step);
+    moveToward(s, rd, foe, step);
     return;
   }
   if (--rd.cooldown > 0) return;
@@ -822,6 +846,7 @@ function endRaid(s: GameState, rng: Rng): void {
           ? 'They got away.'
           : 'They were driven off.';
   notify(s, `Raid by the ${theName(kind.name)} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
+  if (killed && !took.length) victoryFeast(s); // (driven off with nothing: the town feasts it, sim/ceremonies.ts)
 }
 
 /** Raiders come as seasoned as the town: its grown-ups' average level makes them tougher and harder hitting. */

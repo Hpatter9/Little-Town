@@ -18,17 +18,17 @@ import { ringGate } from './ringWall';
 import { fireAt, speedOf } from './defenses';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
-import { RAID_KIND_BY_ID, THROW_RANGE } from '../data/raids';
+import { RAID_KIND_BY_ID, THROW_RANGE, RAID_FEROCITY } from '../data/raids';
 import { TILE } from '../constants';
 import type { Rng } from '../rng';
 import { footprint } from './buildings';
-import { CELL, findPath, groundAt, inMap, type Pt } from './land';
+import { CELL, findPath, groundAt, inMap, SWIM_COST, wet, type Pt } from './land';
 import { blockedBy } from './walk';
 import { personFighter, weaponOf } from './combat';
 import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
 import { ally } from './classes';
 import { enemyArmor } from '../data/enemies';
-import { attackPerson, defenderAttack, defenderReach, townEdgeX } from './raids';
+import { attackPerson, biteOf, defenderAttack, defenderReach, townEdgeX } from './raids';
 import { turretsDown } from './rivals';
 import { rallied, RALLY_SPEED } from './rally';
 import { isChild } from './social';
@@ -208,6 +208,19 @@ function landEdge(s: GameState, side: -1 | 1, gate: Pt): Pt {
   return { x, y: y0 };
 }
 
+/** Where a raid from the sea comes out of the fog: in the water south of the camp, past what the town knows. */
+function seaEdge(s: GameState): Pt {
+  const m = s.land;
+  return { x: m.camp.x, y: Math.min(m.h - 1, m.camp.y + Math.round(m.open) + TRAIL_FROM) };
+}
+/** Where a raid from the sea makes land: the first dry cell north of the deep water below the camp (the strand). */
+function strandCell(s: GameState): Pt {
+  const m = s.land;
+  const from = seaEdge(s);
+  for (let y = from.y; y > m.camp.y; y--) if (!wet(groundAt(m, from.x, y))) return { x: from.x, y };
+  return { x: m.camp.x, y: m.camp.y + 1 };
+}
+
 /** The town's gate on one side: the town's edge there (townEdgeX) on the camp's row, as a cell. */
 function gateCell(s: GameState, side: -1 | 1): Pt {
   const m = s.land;
@@ -219,10 +232,12 @@ function gateCell(s: GameState, side: -1 | 1): Pt {
 /** The trail a raid comes in by: the cheapest way over the land from its edge to the gate (roads quick, forest and
  *  marsh slow, a river forded where it must be, buildings gone round), as cell centres; straight at the gate if there
  *  is none. Cells in a straight run are folded into its two ends. */
-export function trail(s: GameState, side: -1 | 1): [number, number][] {
-  const to = gateCell(s, side);
-  const from = landEdge(s, side, to);
-  const limits = { maxNodes: 24000, ford: FORD };
+export function trail(s: GameState, side: -1 | 1, sea = false): [number, number][] {
+  // (a raid from the sea: out of the deep water south of the town, swimming ashore to its strand, or to the ring
+  // wall's gate on that side if it has one)
+  const to = sea ? (ringGate(s, side) ?? strandCell(s)) : gateCell(s, side);
+  const from = sea ? seaEdge(s) : landEdge(s, side, to);
+  const limits = sea ? { maxNodes: 24000, swim: SWIM_COST } : { maxNodes: 24000, ford: FORD };
   const cells = findPath(s.land, from, to, blockedBy(s), limits) ?? findPath(s.land, from, to, undefined, limits);
   const pts: Pt[] = [from, ...(cells ?? (from.x === to.x && from.y === to.y ? [] : [to]))];
   const out: [number, number][] = [];
@@ -256,10 +271,10 @@ function distToTrail(p: [number, number], path: [number, number][]): number {
 /** Lay out the battle on the town's own land: the trail in from the side the raid comes (and a second for a party
  *  coming round the other way), blocking spots along it, ground spots beside it, the town's walls that overlook its
  *  end as wall spots, its defence buildings in reach as towers, its traps on it. Everything is in the land's cells. */
-export function layOut(s: GameState, side: -1 | 1, flank: boolean): BattleMap {
+export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false): BattleMap {
   const m = s.land;
   const done = s.buildings.filter((b) => b.status === 'done');
-  const paths: [number, number][][] = [trail(s, side)];
+  const paths: [number, number][][] = [trail(s, side, sea)];
   if (flank) paths.push(trail(s, -side as -1 | 1));
   const path = paths[0];
   const cum = cumulative(path);
@@ -416,7 +431,7 @@ const dist = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0
 export function startBattle(s: GameState, r: Raid): void {
   const foes = r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone);
   const flank = foes.some((rd) => rd.side !== undefined && rd.side !== r.side);
-  const map = layOut(s, r.side, flank);
+  const map = layOut(s, r.side, flank, !!RAID_KIND_BY_ID[r.kind]?.fromSea);
   // waves: a big raid comes in several (a war, a rival's army and a boss's raid one more), the leaders last
   const big = (s.doom?.kind === 'war' && s.doom.phase === 'active') || !!RAID_KIND_BY_ID[r.kind]?.leader || foes.some((rd) => ENEMIES[rd.kind].kit);
   const waves = Math.min(4, Math.max(1, Math.ceil(foes.length / WAVE_SIZE)) + (big && foes.length > 3 ? 1 : 0));
@@ -479,7 +494,8 @@ export function autoPlace(s: GameState, b: Battle, r: Raid): void {
     return n + (q.kind === 'wall' ? 100 : 0);
   };
   const shoots = shooterSpots.filter((q) => !taken.has(q.id)).sort((a, c) => sees(c) - sees(a));
-  const strength = (p: Person) => p.skills.melee.level + p.skills.ranged.level + p.hp / 20 + (p.id === s.mainId ? 5 : 0);
+  // (the hired guards first: it's what they're paid for)
+  const strength = (p: Person) => p.skills.melee.level + p.skills.ranged.level + p.hp / 20 + (p.id === s.mainId ? 5 : 0) + (p.guard ? 50 : 0);
   // (the town doesn't send the badly hurt back out)
   const left = fighters(s).filter((p) => !placed.has(p.id) && p.hp >= maxHp(p) * FALL_BACK * 1.6).sort((a, c) => strength(c) - strength(a));
   for (const p of left) {
@@ -718,6 +734,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       if ((near.length || u.kit.actions.some((x) => x.use === 'heal' || x.use === 'support')) && takeTurn(arena, arena.me)) {
         u.cooldown = rallied(s, p) ? Math.round(every / RALLY_SPEED) : every;
         u.lastAt = s.tick;
+        p.lastBlow = s.tick; // (a spell or a skill plays the striking pose, as a blow does)
         for (const [o, d] of was) if (o.down && !d) fell(b, o);
         continue;
       }
@@ -914,7 +931,7 @@ function strikeUnit(s: GameState, r: Raid, rd: Raider, u: BattleUnit, rng: Rng, 
   const a = r.raiders.find((q) => q.id === u.ally);
   if (!a) return;
   const def = ENEMIES[rd.kind];
-  if (rng.next() < def.accuracy - ENEMIES[a.kind].dodge) hurt(a, rng.int(def.damage[0], def.damage[1]) * (rd.might ?? 1), s);
+  if (rng.next() < def.accuracy - ENEMIES[a.kind].dodge) hurt(a, rng.int(def.damage[0], def.damage[1]) * (rd.might ?? 1) * biteOf(s, RAID_FEROCITY), s);
 }
 
 /** A raider has got to the end of the trail: it's through, into the town (raids.ts takes it on from the town's edge). */

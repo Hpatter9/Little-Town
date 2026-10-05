@@ -160,7 +160,7 @@ export function placesHourly(s: GameState, rng: Rng): void {
       const where = directionName(p.x - camp.x, p.y - camp.y);
       if (p.kind === 'cart' && rng.chance(CART_ROBBED)) p.foes = rollFoes(s, 'cart', rng);
       else if (def.fight) p.foes = rollFoes(s, p.kind, rng);
-      const danger = p.foes ? ` ${describeFoes(p.foes)} ${Object.values(p.foes).reduce((n, k) => n + k, 0) > 1 ? 'are' : 'is'} there: pick a party under Expeditions to deal with it.` : '';
+      const danger = p.foes ? ` ${describeFoes(p.foes)} ${Object.values(p.foes).reduce((n, k) => n + k, 0) > 1 ? 'are' : 'is'} there: a party may go to deal with it, or post a bounty under Expeditions.` : '';
       notify(s, `${def.name} found to the ${where}. ${def.found}${danger}`, true);
       if (!p.foes) p.lookedAt = s.tick + LOOK_HOURS * TICKS_PER_HOUR;
       continue;

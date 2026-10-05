@@ -1,6 +1,7 @@
-// New town panel: how the town starts (scenario), the founder (one of the origin's three ready-made: data/founders.ts), where to
-// found it, how dangerous the world is, and ironman. Opened from the tray's "New game…", the game-over card,
-// and on a first run. (It replaced a chain of Windows message boxes.)
+// New town panel, one question at a time (the owner's ask: a step-by-step prompt, not one long page): who founds the
+// town (the origin), the founder (one of the origin's three ready-made: data/founders.ts), how it begins (scenario),
+// where, how dangerous the world is, and last the rules and the Found button. Back and Next move between the steps,
+// and the dots show how far along. Opened from the tray's "New game…", the game-over card, and on a first run.
 
 import { FOUNDER_CLASS } from '../../shared/data/founderClasses';
 import type { Bridge } from '../../shared/ipc';
@@ -13,6 +14,9 @@ import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../../shared/data/origins';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
+import { FOUNDER_ID, founderSheet } from '../art/heroForms';
+import { PACK_LAYOUT, packUrl } from '../art/creatures/packs';
+import { loadImage } from '../art/loadImage';
 import { button, el } from './dom';
 
 
@@ -24,8 +28,41 @@ let pick = FOUNDERS.settlers[0].id;
 let biome: Biome = 'forest';
 let difficulty: Difficulty = 'normal';
 let ironman = false;
+/** The step showing (kept while the panel re-renders; back to the first once a town is founded). */
+let step = 0;
+const STEPS = ['Who founds the town?', 'Your founder', 'How does it begin?', 'Where will you found your town?', 'How dangerous is the world?', 'Ready to found it?'] as const;
 
 let lpcReady: Promise<void> | null = null;
+
+/** The founder as the map draws them (map/mapPeople.ts: a founder wears their hero form always): the idle frame of
+ *  the hero sheet their calling's base class gives (`founderSheet`, the same choice), feet at the foot of the picture,
+ *  facing right. A founder with no calling, or until the sheet loads, is their LPC figure. */
+function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDERS)[OriginId][number]['look']): void {
+  const g = art.getContext('2d')!;
+  const lpc = () => void lpcReady!.then(() => g.drawImage(lpcCanvas(look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64));
+  const calling = FOUNDER_CLASS[id];
+  if (!calling) return lpc();
+  const sheet = founderSheet(calling.base, FOUNDER_ID, false, false);
+  const lay = PACK_LAYOUT[sheet];
+  if (!lay) return lpc();
+  void loadImage(packUrl(sheet))
+    .then((img) => {
+      const row = Math.max(0, lay.rows.indexOf('idle'));
+      const k = 60 / lay.figure;
+      const w = lay.w * k;
+      const h = lay.h * k;
+      g.clearRect(0, 0, 64, 64);
+      g.imageSmoothingEnabled = false;
+      g.save();
+      if (!lay.facesRight) {
+        g.translate(64, 0);
+        g.scale(-1, 1);
+      }
+      g.drawImage(img, 0, row * lay.h, lay.w, lay.h, 32 - w / 2, 62 - h, w, h);
+      g.restore();
+    })
+    .catch(lpc);
+}
 
 export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const origins = el('div', 'cards');
@@ -33,7 +70,10 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
   const founder = el('div', 'founder');
   const biomes = el('div', 'cards');
   const dangers = el('div', 'cards');
-  const found = button('', () => bridge.newGame(choices()), { cls: 'place found' });
+  const found = button('', () => {
+    step = 0;
+    bridge.newGame(choices());
+  }, { cls: 'place found next' });
 
   const drawOrigins = () =>
     origins.replaceChildren(
@@ -72,8 +112,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
         const c = el('button', `card pick founder-card${on ? ' on' : ''}`);
         const art = el('canvas', 'founder-art');
         art.width = art.height = 64;
-        // (the figure, cropped from its 64px frame to fill the picture)
-        void lpcReady!.then(() => art.getContext('2d')!.drawImage(lpcCanvas(f.look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64));
+        drawFounderArt(art, f.id, f.look);
         const body = el('div', 'founder-body');
         const top = el('div', 'card-top');
         top.append(el('span', 'card-name', f.name), el('span', 'card-size', on ? 'Chosen' : ''));
@@ -115,23 +154,51 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
       ? []
       : [el('div', 'hint', 'Your current town is kept as a backup in the saves folder, but the game carries on with the new one.')];
   drawOrigins();
-  return [
-    el('h3', 'newgame-head', 'Who founds the town?'),
-    origins,
-    el('div', 'hint', 'Each changes how the whole game plays and looks. Settlers are the classic game.'),
-    el('h3', 'newgame-head', 'How does it begin?'),
-    scenarios,
-    el('h3', 'newgame-head', 'Your founder'),
-    founder,
-    el('h3', 'newgame-head', 'Where will you found your town?'),
-    biomes,
-    el('h3', 'newgame-head', 'How dangerous is the world?'),
-    dangers,
-    el('h3', 'newgame-head', 'Rules'),
-    iron,
-    ...warning,
-    found,
-  ];
+
+  // one step at a time: the question, its choices, and Back / Next
+  const wrap = el('div', 'wizard');
+  const draw = () => {
+    const page: HTMLElement[] = [];
+    if (step === 0) page.push(origins, el('div', 'hint', 'Each changes how the whole game plays and looks. Settlers are the classic game.'));
+    else if (step === 1) page.push(founder);
+    else if (step === 2) page.push(scenarios);
+    else if (step === 3) page.push(biomes);
+    else if (step === 4) page.push(dangers);
+    else page.push(summary(), el('h3', 'newgame-head', 'Rules'), iron, ...warning);
+    const dots = el('div', 'wizard-dots');
+    STEPS.forEach((_, i) => {
+      const d = el('button', `wizard-dot${i === step ? ' on' : i < step ? ' done' : ''}`);
+      d.title = STEPS[i];
+      d.addEventListener('click', () => go(i));
+      dots.append(d);
+    });
+    const nav = el('div', 'row wizard-nav');
+    nav.append(
+      button('‹ Back', () => go(step - 1), { cls: 'place quiet', disabled: step === 0 }),
+      step < STEPS.length - 1 ? button('Next ›', () => go(step + 1), { cls: 'place next' }) : found,
+    );
+    wrap.replaceChildren(el('div', 'wizard-step', `Step ${step + 1} of ${STEPS.length}`), el('h3', 'newgame-head', STEPS[step]), ...page, nav, dots);
+  };
+  const go = (i: number) => {
+    step = Math.max(0, Math.min(STEPS.length - 1, i));
+    draw();
+    wrap.scrollIntoView({ block: 'start' });
+  };
+  /** The last step's reminder of what was chosen. */
+  const summary = () => {
+    const f = FOUNDER_BY_ID[pick];
+    const sc = SCENARIOS.find((x) => x.id === scenario);
+    const lines = [
+      `${ORIGIN_DEFS[origin].name}, led by ${name.trim() || f.name}, ${f.title}`,
+      `${sc?.name ?? scenario} · ${BIOME_DEFS[biome].name} · ${DIFFICULTY_DEFS[difficulty].name}`,
+    ];
+    const box = el('div', 'card wizard-summary');
+    for (const l of lines) box.append(el('div', 'purpose', l));
+    return box;
+  };
+  step = Math.max(0, Math.min(STEPS.length - 1, step));
+  draw();
+  return [wrap];
 }
 
 function choices() {

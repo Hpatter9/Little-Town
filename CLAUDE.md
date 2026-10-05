@@ -644,8 +644,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`art/merTail.ts`, four sea colours by id, swaying; no shadow); a building in the sea has a ring of foam for its
   shadow. Tests: `test/sea.test.ts`. Probe (5 days): 11 people, 11 lean-tos in the shallows, fish, kelp and pearls
   in store. Soak (15 days, one town): 18 people, 2 deaths (slower than the old merfolk's 31: half the land is sea now,
-  so the wild stuff is further; watch it). Still to come for the merfolk: sea raiders landing from the water, merfolk looks (scales, fins) on land,
-  the ocean backdrops for their trips.
+  so the wild stuff is further; watch it). The sea raiders, fins, trip backdrops, stilt homes and tide pools came later:
+  see "The merfolk rework".
 
 - **The undead village (done; the owner's call: only the dead in a lich town):** `keepKin` in `sim/townsfolk.ts`,
   hourly from sim.ts: whoever is in a kin town and not of its kin is made kin, by whatever door they came (a wanderer,
@@ -1057,8 +1057,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       after the rest loads; side-on until then). `lpcCanvas`/`lpcFrame` take a `facing` ('up' | 'down'), used for the
       walk when every layer that shows has it (`canFace`); the facing rows are tinted with their own lightness
       reference. The people view (`Drawn.face`) faces someone up or down the map when that's mostly how they moved
-      last, and keeps it while they stand; never when mounted or fighting. Raiders and travellers' LPC sprites stay
-      side-on (raiders don't walk the facing rows yet).
+      last, and keeps it while they stand; never when mounted or fighting. Travellers are drawn by the same view, and
+      raiders' LPC sprites face the same way in mapRaiders.ts.
     - **Deaths pass (done):** the "deaths run low" watch item was mostly a counting bug (above). A soak must count journal
       entries by identity (a `WeakSet` of the entry objects seen, scanning `s.journal` each tick), never by its length,
       since the journal is capped. Counted that way (4 towns per origin, 15 days, people/deaths): settlers 26.8/20 (15
@@ -1269,6 +1269,26 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   was under the fingers stays there (the ticker's resize keeps the middle; this adds the rest). The snap below two of the
   screen's pixels allows halves (`layout()`), so the first steps aren't a doubling. The old way laid the strip out again
   on every move, snapped to whole pixels, and zoomed about the corner.
+- **New Town, a step at a time (done; the owner's ask):** `newGamePanel.ts` asks one question a page (`STEPS`: who
+  founds it, the founder, how it begins, where, how dangerous, then a summary with Found), with Back/Next in a row that
+  sticks to the bottom (`.wizard-nav`), "Step N of 6" and dots to jump back (`.wizard-dot`, left out of the theme button
+  rules). `step` is kept at module level so the panel's redraws don't lose it; founding resets it.
+- **Pinching leaves the clock bar alone (the owner's complaint):** while two fingers are down `mobile.ts` scales only the
+  strip's map canvas (`body > canvas` in the strip iframe), about the point between the fingers; the HUD stays put. On
+  release the strip is laid out again at the new zoom as before.
+- **Ground without squares (the owner's complaint):** `paintChunk` lays the plain ground for the whole chunk first, a
+  2px block at a time, each taking the colour of the cell at a point nudged by smooth noise (`smooth`, `WARP` 11 px,
+  `WARP_SCALE` 14), so where grass meets forest, rock, loam or water the border wanders; water joins in, with a pale
+  shoreline where the warped water meets land (`softBase`, `warped`). Only the pack sheet's round blobs are used as
+  patches (`LEFT`/`RIGHT` in groundDetail.ts: its square-with-a-hole, arch and fringe shapes are edge pieces, and laid
+  loose they were the squares), drawn at 0.45 to 0.8 size and kept inside the chunk (`drawPatch`'s `room`). The fog
+  beyond the open land is per 4px block by its own distance, black by the band's end, so its edge is round. The
+  strip's HUD keeps its on-screen size at every zoom (`--ui-zoom` is `1 / z`; it only counter-scaled when zoomed out,
+  so a big pinch grew the clock bar).
+- **The map takes the feed's empty room (upright):** `townShare` in mobile.ts sizes the town by what the feed has to
+  show (its children's heights), from `UPRIGHT_TOWN` 0.55 up to `UPRIGHT_TOWN_MOST` 0.82, in twentieths; a
+  MutationObserver on `#feed` lays the page out again when the share changes. A new town opens with the map filling
+  most of the screen, and the feed takes its room back as the news comes.
 - **Roads run edge to edge (done; the owner's ask):** `connectRoad` finds its way four ways (`PathOpts.four` in
   `findPath`: no diagonal steps, since the road tiles join along their edges) and `squareRoads` gives any diagonal step in
   an older road a cell beside it. Test in `test/land.test.ts`.
@@ -1432,6 +1452,242 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   with the top-down painter's house. The elder lodge and the town hall are the Glassblower pack's big house (the lodge
   with the signpost and barrels, the hall with crates) and the trophy hall its shop with the shield sign, in the base
   and knights looks; the painter's `hall` shape stays for the other origins.
+
+## The townsfolk's own economy (in progress; the owner's direction: see PLAN.md)
+
+- **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's
+  **treasury**. `src/shared/data/economy.ts` (`GATHER_SHARE`, `BUILD_PER_HOUR`, `STUDY_PER_HOUR`, `KEEPER_CUT`,
+  `TREASURY_KEEP`) and `src/shared/sim/economy.ts`: `giveCoins` (every coin into a purse goes through it, keeping
+  `Person.pay`: today and yesterday), `payFromTreasury` (only from what the treasury holds above its keep),
+  `accruePay` (work by the hour: `Person.owed` carries the fraction, `paidFor` names the last pay), `loadPrice`,
+  `payParty` (split evenly, the odd coins to the first), `incomeOf`. Who earns what: a load brought into the stores is
+  sold to the town on the spot (`'store'` in people.ts; the shop sells it on at full worth); builders and scholars by
+  the hour; crafters the piece rate (`payCrafter`); keepers a cut of each sale (serveCustomer, serveGuest); a boss's
+  purse, a delve's hoards and a quest's bounty go to the **party** (`finishBattle`, delves.ts, `questsDone(…, party)`).
+  The flat daily wage is gone (`payWages`; `wageBill` is now a reserve estimate, `PAY_A_HEAD`); the ledger's `wages`
+  line is "Pay for work". `PersonView.income`; the inspect page's purse line says what they earned today and yesterday.
+  `moneyTown` (economy.ts) is true once the town has a venue or ever had coins.
+
+- **Step 2a, building, land and rent (done):** `src/shared/sim/property.ts`. **Building is slower and needs skill:**
+  `BUILD_PACE` (3) on every site; a site needs `buildSkill(def)` Construction of whoever works it
+  (`BUILD_SKILL_BY_ERA` 1/8/20/35/50 by the era of what's built, a little more past `BUILD_SKILL_FREE_CELLS`), else
+  `canWork` keeps them off it (the `construct` job and the task's validity); a builder's pace is `buildPower(level)`
+  (0.5 + level/10: a steep curve, so skill matters). **Ownership:** `Building.owner` (a person; the treasury when left
+  out). **Homes by the people:** `planHomes` (hourly, `propertyHourly` from sim.ts, money towns only): a grown-up with no
+  home of their own and coins for a plot (`landPrice`: `LAND_PRICE_PER_CELL` a cell) and the materials (`materialsPrice`:
+  their worth, bought from the stores) has the best home they can afford placed and owned (`findSpot` is exported from
+  the planner for it); the owner works their own site for nothing and pays whoever else works on it `HIRE_PER_HOUR`
+  (`accruePayFrom` in economy.ts; unpaid, nobody else takes it); `assignBeds` gives owners their own home first. The
+  treasury still builds a home to rent whenever fewer than one bed is free (a newcomer only comes to a town with a bed
+  free, so building to rent only when someone slept rough deadlocked a full town).
+  **Rent:** at dawn (`collectRent`) everyone with a bed in a home that isn't theirs pays `rentOf` (`RENT_PER_BED` a day)
+  to its owner or the treasury (ledger line `rent`, which also books land sold); short of it, `Person.debt` grows and
+  `RENT_MORALE` bites. `PersonView.owns`/`.debt` on the inspect page. Tests: `test/property.test.ts`.
+
+- **Step 2b, tax and guards (done):** `src/shared/sim/treasury.ts`. **Tax:** the Plan tab's lever (`s.tax`: `TAX` in
+  data/economy.ts: low 5%, fair 15%, heavy 30% of yesterday's income, each with its morale in `mood()`; the `setTax`
+  command); `collectTax` at dawn; heavy tax kept `TAX_LEAVE_DAYS` and each dawn one of the grown-ups (never the
+  founder) may leave (`TAX_LEAVE_CHANCE`). **Guards:** a standing paid calling (`Person.guard`): `assignGuards` hourly
+  hires the best fighter free (not a post's holder) up to `guardsWanted` (one per `GUARD_PER_PEOPLE`, one more on
+  Defence or raided in the last 3 days) and what the treasury can pay a day (`GUARD_WAGE`; ledger `guards`);
+  `payGuards` at dawn, and a guard unpaid `GUARD_UNPAID_DAYS` running stands down. A guard has `priorities.defend` 1
+  and keeps watch by turns without a barracks (`onShift`), and goes first on the raid map (`autoPlace`'s strength).
+  The Townsfolk tab's job is "Guard"; the Plan tab has the Treasury (the tax lever, the guards, the ledger with
+  `tax` and `guards` lines). **Thrift:** people keep `SAVINGS_KEEP` back before buying gear or a night out, so they
+  can save for land. The Townsfolk rows show each person's coins and a 🏠 for a home of their own. **Tuning:** `BUILD_PACE` 2 and `buildPower` 0.7 + level/10 (3 and 0.5 stalled a knights' town);
+  the ring wall waits for `RING_MIN_PEOPLE` (4) grown-ups even when raided. Tests: `test/treasury.test.ts`.
+
+- **Step 3, ambitions and businesses (done):** `src/shared/data/ambitions.ts` and `src/shared/sim/ambition.ts`. Every
+  grown-up has an **ambition** (`AmbitionId`: farmer, crafter, keeper, adventurer, scholar, guard, homebody, wealthy;
+  `ambitionOf`: their nature's lean `NATURE_AMBITION`, else their best skill, by their id; settled on
+  `Person.ambition` once grown, `settleAmbitions`). It steers posts (`skillOf` in operators.ts adds `JOB_PULL` for a
+  post of their ambition's skill; the treasury hires would-be guards first). **Businesses:** a venue may be owned
+  (`Building.owner`); every sale goes through `takeSale`: to the owner's purse (taxed like any income) with the
+  keeper's cut (`KEEPER_CUT`) paid by the owner when someone else keeps it, else to the treasury as before; its
+  upgrades (extensions, levels, décor) are paid by `payForVenue` from the owner's purse above `OWNER_KEEP`
+  (`venuePurse` in `planShop`). `bookTakings` keeps `b.shop.takings`; `businessPrice` is the makings and plot plus
+  `BUSINESS_DAYS` of its takings (a busy shop is dear: the founder sells the town's at that price), a person's at
+  `PERSON_SELLS_AT` more, and a keeper at heart never sells. `buyBusinesses` (hourly, `ambitionHourly`): keepers then
+  the would-be rich buy the dearest they can afford, one sale an hour, and keep it themselves unless they hold
+  another post (else the keeper stays on as their hand). **Retiring:** `homeFromTrip` (from the party's homecoming)
+  counts `Person.trips`; an adventurer `RETIRE_TRIPS` trips in with `RETIRE_COINS` settles down as a keeper. The
+  inspect page names the ambition; the venue window says who owns it, its worth and yesterday's takings. Tests:
+  `test/ambition.test.ts`.
+- **Step 4, relationships that bite** (`data/social.ts`, `sim/social.ts`): **enemies** at `ENEMY` (-60) or below
+  (`enemiesOf`) never go in one party and, near each other, may come to blows (`brawl`: `BRAWL_CHANCE` an hour within
+  `BRAWL_NEAR`, `BRAWL_HURT` of their health, never to the ground, and `Person.sore` for a day: a mood line);
+  the **devoted** at `DEVOTED` (80) or above, or partners (`devotedOf`), go where the other goes and grieve
+  `DEVOTED_GRIEF` times as long. The inspect page's relations line names both (`PersonView.enemies`, `.devoted`).
+- **Step 5, parties that form themselves** (`data/parties.ts`, `sim/parties.ts`; the owner's decision: a veto and a
+  bounty for the player, nothing to pick). `partiesHourly` (from sim.ts; the autopilot on, `SET_OUT_FROM` to
+  `SET_OUT_UNTIL`, `PARTY_GAP_HOURS` apart): `proposeParty` takes the fit (`fitToGo`: healed to `FIT_HP`, rested, fed,
+  `TRIP_REST_HOURS` since their last trip came home, `Person.homeAt`) who may go (`mayGo`: not a guard, a keeper of a
+  venue or healer's post, or the founder), the half of the town that may be away (`roomAway`), and the places on the
+  board not forbidden nor already visited by a party (`boardDestinations`, `choosable`). Only an adventurer leads (the
+  owner's call: no adventurer, no trips; and none from a town under `MIN_TOWN_FOR_TRIPS` 3 grown-ups), choosing by `pull` (a bounty, somewhere unseen, a fight); `recruit` fills the wanted roles in turn
+  (`WANTS`: front, healer, damage, scout, by the calling's `ClassRole`, `partRole`) by liking, never an enemy of anyone
+  going, the devoted first; the party goes only if `strengthOf` (health raised by level) beats `dangerOf` (the heaviest
+  foe group, a dungeon's boss) times `DARE` (`DARE_BOLD` for a bold leader, who also goes risky). `Expedition.leader`.
+  **Veto and bounty:** `s.vetoed` (`setVeto`, the `veto` command; forbidding takes its bounty back), `s.bounties`
+  (`postBounty`/`withdrawBounty`, the `bounty` command: `BOUNTY_STEP` coins a step up to `BOUNTY_MOST`, set aside from
+  the treasury at once, ledger line `bounties`), paid by `payBounty` (from `comeHome`) to the party if it did the job
+  (`jobDone`: a dungeon cleared, a threat put down, else home unrecalled). The Expeditions tab: a Parties block
+  (`snapshot.trips`: who would set out next or why nobody would, the fit, the room, the adventurers) and on each card
+  Forbid/Allow and Post/Raise/Withdraw bounty in place of the old send buttons and the delvers' picker (the `sendParty`
+  and `sendDelve` commands stay, for tests and previews). Tests: `test/parties.test.ts`.
+- **Step 6, events with weight** (`data/eventKit.ts`, `sim/events.ts`): new effects `busy` (`busy(hours, share, text,
+  anim, at)`: that share of the grown-ups, guards aside, held to one job at the town's edge or the camp: `s.busy`; in
+  `chooseTask` a held person (`busyNow`) eats when hungry and otherwise toils, the `toil` task, walking to their spot
+  on the line and working there with the job's animation; nothing else gets done) and `follow` (another event is put
+  to the player as soon as this one is answered: `s.eventNext`, started by `maybeEvent` past the usual gap). A `later`
+  inside a `chance` now works (kept with its effects on `s.eventLater`). **The fire** (`great_fire` in
+  fatefulEvents.ts): cut a fireline (one roof lost, the whole town at it for a day), save the stores (three roofs, half
+  the town hauling), or let it burn (even odds: it dies down with one roof, or takes four and maybe a life, and six
+  hours later may reach the town: the `fire_spreads` event, never by chance: a bucket line with wounds and smoke
+  deaths, houses pulled down in its path, or run for the fields and lose six roofs and likely lives). Fire spreads
+  between buildings by their footprints on the land (`gap` in fire.ts, across and down: it was the old strip's tiles),
+  and townsfolk fight the nearest fire by true distance. **What there is to pay with:** an event that asks for coins
+  says what the treasury holds (`coinsLine`), and each answer that costs coins says how much on its button
+  (`costOf`: "(20 coins)", "(about 35 coins)" for a share). Tests in `test/events.test.ts`.
+- **Step 7, life's ceremonies** (`data/ceremonies.ts`, `sim/ceremonies.ts`, `ceremoniesHourly` from sim.ts; off with
+  the autopilot, like events). A death is remembered with who was close (`mournFor` in `killPerson`, before the
+  relations go: partner, kin, friends; `s.funeralsDue`), and at the next `GATHER_HOUR` (18) they hold a funeral at the
+  graveyard or the fire for `FUNERAL_HOURS` (nobody close: the whole town buries them); `GREAT_FUNERAL_DEATHS` (3) or more since the last make it a **great
+  funeral**: the whole town, `GREAT_FUNERAL_HOURS`. Afterwards those who came grieve half as hard (`FUNERAL_EASE`) and
+  the town carries a mark ("Laid to rest", "We buried our dead together"). A **wedding** (`weddingFeast`, from
+  `families`) is feasted that evening; the town **feasts** at midsummer (`MIDSUMMER_DAY`) and after a raid driven off
+  with nothing taken (`victoryFeast` from `endRaid`), never within `FEAST_GAP_HOURS`, and only if the stores hold
+  `FEAST_FOOD_DAYS` after it (`FEAST_FOOD` a head eaten; a wedding is kept regardless); at a tavern someone owns, the
+  treasury pays the house `FEAST_COIN` a head (`takeSale`). A gathering is `s.gathering`; those at it (`attending`) take
+  the `attend` task: they walk to their place in a ring round the spot and stand there (they still eat), and the
+  Townsfolk tab says where they are. Tests: `test/ceremonies.test.ts`.
+- **Step 8, art:** the windmill, the watchtower and the lookout are the Simple Summer top-down pack's windmill and timber
+  watchtowers (`art/packs/su_*.png`, shrunk from the pack's vector PNGs; `PICKS` in packBuildings.ts). Since then: the
+  factory (pipes, a transformer, a shuttered block and a tank), the garage (two shuttered bays), the radio tower (the
+  loose objects pack's lattice pylon, `sf_pylon.png`) and the drone hub (a block with a console) are picks too, and the
+  elder lodge, town hall and trophy hall have `hallVariants`: the Simple Summer stone keep for the liches and the Moon
+  Pack (`KEEP_HALL`), its crystal mage tower for the alchemists and the fae (`MAGE_HALL`). Still code-drawn: the other
+  origins' halls (the painter's `hall` shape, reclad).
+
+## Deaths made common again (the owner's call: all three levers)
+
+- The first economy soak had 5 townsfolk deaths across all twelve towns in 15 days: towns are smaller since arrivals
+  became the player's choice, and a probe showed small towns' raids (two or three beasts) downing nobody at all. The
+  owner asked for all three levers. **Raids:** `RAID_BUDGET_BASE` 18 (was 12), `RAID_BUDGET_PER_DAY` 3 (was 2),
+  `KILLING_BLOW` 0.38 (was 0.3), every budget times `RAID_BITE` 1.4 and every raider's blow times `RAID_FEROCITY` 1.25,
+  a kidnapper's blow never kills (they want captives alive), and the two only from `RAID_BITE_FROM` (3) grown-ups (`biteOf` in raids.ts: a founder alone or with one companion meets the
+  raids of old). **Parties:** `DARE` 1.15 and `DARE_BOLD` 0.8 (were 1.6 and 1.1), out at `FIT_HP` 0.75 (was 0.9).
+  **Disasters:** `DOOM_FIRST_DAY` 4 (was 5), `DOOM_EVERY_DAYS` 5 to 8 (was 6 to 10), `PLAGUE_SPREAD` 0.06 (was 0.04),
+  `PLAGUE_HP_PER_HOUR` 1.3 (was 1.2). Tried and dropped: bite and ferocity 1.6 (a settlers' town fell to one person), 1.4
+  with a 0.45 killing blow (a settlers' town fell to two, alchemists to three, with the injuries in). Soak (15 days, 8
+  towns: settlers on 4 seeds, the others 1): 0 to 4 deaths a town, about 1.5 on average, none fell below 6 people.
+  **Every town has an adventurer early** (`ADVENTURER_WANTED` in data/ambitions.ts): while none is in town, the next
+  grown-up whose ambition is settled takes to the road (never the founder), so a settlers' founding companion is one.
+- **The care of the hurt is researched (the owner's ask):** a research effect `care` (`heal`, `bleed`, `feet` in
+  `data/research.ts`; `careHeal`, `careBleed`, `careFeet` in `researchMods`) read by `knockDown` (how long the downed
+  have before they bleed out) and `heal` (the healing pace, and the share of health the downed get up at) in
+  `sim/health.ts`. Herbalism (+15% healing) and Physick (+25%) now do what they promised (Physick's "Faster healing" had
+  no effect behind it), and six topics are new: Bonesetting and Field Dressing (Stone Age), Barber-Surgeons and
+  Convalescence (Medieval), Antiseptics (Industrial), Triage (Modern). Tests: `test/care.test.ts`.
+
+## Injuries, lasting harm, prosthetics and surgery (done; the owner's ask, after RimWorld)
+
+- `src/shared/data/injuries.ts` and `src/shared/sim/injuries.ts`. **The body:** ten parts (`PARTS`: head, two eyes,
+  torso, two arms, two hands, two legs; each a hit `weight`, the capacity it `serves`, whether it can be lost, and what
+  goes with it: a hand with its arm). **Wounds** (`Person.wounds`: part, `WoundKind` cut, bite, bruise, fracture or burn,
+  severity and peak): a blow that lands (`attackPerson` in raids.ts, on the town and the battle map) wounds a part
+  (`woundPerson`: severity `SEVERITY_PER_SHARE` times the blow's share of their health; `woundFor` picks the kind by the
+  foe: beasts bite, fire burns, heavy blows break bones, blades cut); a party's fight carries its harm home as one or two
+  wounds by what they fought (`finishBattle`); an event's wound is a bruise or a cut (`minorWound`). A crushing blow
+  (`LOSE_AT`, `LOSE_CHANCE`) may take a limb or an eye for good (`losePart`, `Person.lasting` kind `lost`).
+  **Healing:** `injuriesHourly` (from sim.ts): each wound heals over its kind's `days`, `TENDED` (2) times as fast with a
+  healer's hut, infirmary, hospital or trauma center standing and the person in town, and by the care research
+  (`careHeal`); healed, a bad one may scar (`WOUNDS[k].scar` times how bad it got, less with the care research; a scar
+  works at `SCAR_WORKS` and hurts `SCAR_PAIN`). **What it does** (`capacities`: sight, handling, moving, pain):
+  `injuryWork` in `workFactor`, `injuryPace` on the walk (`goTo` in people.ts), `injuryFight` in `personFighter` (blows by
+  handling, aim by sight), `injuryMood` in `mood()` ("In pain"). **Prosthetics** (`PROSTHETICS`: works and rank per kind
+  of part; items in data/items.ts): Peg and Hook (Medieval: peg leg, hook hand, wooden arm), Prosthetics (Industrial: a
+  glass eye, jointed legs, hands and arms), Bionics (Space: better than flesh). The planner orders the best it can make
+  for each lost part (`prostheticsWanted`; and studies those topics +30 while anyone waits); the healer (the operator of a
+  healer's hut, infirmary, hospital or trauma center) fits one in surgery on the hour (`surgery`: odds `SURGERY_BASE`
+  plus `SURGERY_PER_LEVEL` a Medicine level; botched, the piece is ruined and the patient cut). A better piece replaces
+  a worse. The inspect page's health card lists wounds, what's gone for good, what's fitted, and sight, hands, moving
+  and pain (`PersonView.body`). Tests: `test/injuries.test.ts`.
+
+- **Harm that shows (the owner's ask):** `PersonView.body.marks` (`bodyMarks` in snapshot.ts: each lost part bare or
+  made good, by the prosthetic's rank: `patch`, `gone`, `peg`, `hook`, `wood`, `metal`, `glass`, `bionic`; and a
+  `bandage` over a wound of `BANDAGE_AT` 0.25 or worse) are drawn over the side-on LPC sprite by
+  `src/renderer/map/bodyMarks.ts` (`drawMarks`, in art px about the feet, mirrored with the sprite; redrawn when
+  `marksKey` changes): an eye patch and strap, a peg, a jointed or bionic leg, a crutch for a leg gone, a hook, a
+  wooden arm, bandages on the head, chest, arm or knee. Not over a hero, wolf, class or swimming form, nor someone
+  down. Hurt legs limp (`limpDip` by `body.moving`, a dip on alternate steps).
+
+- **Nobody starves in bed (fixed):** a companion going to bed a little peckish (0.4) woke starving with berries in
+  store: bedtime came before the hunger check, and a night cost half a belly. Now hunger drains at `ASLEEP_HUNGER` (0.5)
+  while asleep (`drainNeeds` in townsfolk.ts), and someone asleep under `WAKE_TO_EAT` (0.12) gets up to eat while the
+  stores hold food (`chooseTask` in people.ts; eating ranks just over sleep, -2.1). A forced meal before bed was tried
+  and dropped: it cost lone founders about half a person by day 10. Probe (12 lone founders, 10 days): 4.4 people
+  where it was 4.1. Test: `test/hunger.test.ts`.
+
+- **Walls that hold, and a gate to the hold (the owner's ask: realistic pathing):** a castle's or a hold's walls are
+  real for walking now. `castleLayout` (sim/castle.ts, cached per tick and on the rooms and `land.version`) gives each
+  castle cell its region (the hall -1, each room its id, each separate run of a hold's dug galleries -2, -3...), the
+  doorways between regions (`doorsOf`: one in the middle of the longest straight run of wall two regions share), and the
+  gate (the cell before it and the hall's cell inside it). `castleStep` allows a step within a region or outside, between
+  two regions only at their doorway, in or out only through the gate, and onto raw rock (a face being dug).
+  `findPath` takes it as `PathOpts.edge` (a diagonal must pass both ways round); `pathTo` in walk.ts passes it for every
+  walker, and raiders in a castle town walk by `walk` too (`moveToward` in raids.ts). The map draws the same doorways
+  (`snapshot.castle.doors`, and `galleries` walled and doored like rooms), and the gate is drawn at the cell inside it
+  whatever room covers it (a hold's seat is built over its hall, which hid the gate). A hold's gate is the dungeon
+  pack's stone archway with its doors open (`HOLD_GATE` from `art/delve/doors.png`, 48 px), not the skull-faced cave
+  gate. Tests in `test/castle.test.ts`.
+
+- **No flicker between forms in a fight (the owner's complaint):** the fighting callings took their combat form only
+  while striking or for `HERO_LINGER` after, and on the raid map a turn can come round less often than that (and a
+  spell or skill set no blow), so a fighter flipped between townsperson and hero each turn. Now `PersonView.defending`
+  (the defend task in a raid) keeps the form the whole fight (mapPeople's `inCombat`), and a cast on the battle map sets
+  `p.lastBlow` so it plays the striking pose.
+
+- **Founders pictured as the map draws them (the owner's complaint):** the New Town cards drew a founder's LPC look
+  while the map always draws them in their hero form. `art/heroForms.ts` (no Pixi, so the panel can use it; re-exported
+  by combatPoses.ts) holds `HERO_FORM`, `heroSheet` and `founderSheet`, which now decides a founder's form by their
+  class (`CLASS_DEFS`: ranged, caster or healer role), not by stats that shift as they level; `FOUNDER_ID` (1).
+  `drawFounderArt` in newGamePanel.ts draws the idle frame of that sheet (`PACK_LAYOUT`, `packUrl`) for the founder's
+  base class, and the feed's and report card's person pictures (`personPicture` in main.ts) do the same for a founder.
+
+## The merfolk rework (in progress; the owner's request)
+
+- **Raiders from the sea (step 1, done):** raid kinds with `fromSea` (data/raids.ts) come only to a shore town
+  (`seaTown`; the pick in raids.ts filters the rest out): `tide_beasts` (squid spawn and crocodiles, from day 1),
+  `sea_reavers` (the pirate pack's captain sheet as reavers, with squid spawn; bribable, after valuables) and
+  `drowned_crew` (the pirate zombie as drowned sailors, Medieval on); the foes `sea_reaver`, `drowned_sailor`,
+  `squid_spawn` are in bestiary.ts. Their raiders start in the deep water south of the camp (`offSea` in raids.ts,
+  `SEA_OUT` cells past the known land) and never split to flank; on the battle map the trail runs from the sea
+  (`seaEdge` in battle.ts) to the strand (`strandCell`: the first dry cell north of it) or the ring's gate on that side,
+  found with `swim` so they come straight through the water. `RaiderView.swimming` (in the water) draws them from the
+  waist up, bobbing (`waistCrop` in mapRaiders.ts). The shallows take part in the ground's wandering borders, with foam
+  where they meet the strand, and the borders wander a little wider (`WARP` 15, `WARP_SCALE` 20). Test in
+  `test/sea.test.ts`.
+- **Piers and seabed dressing (step 2, done):** in a shore town a road runs out over the water as a pier
+  (`connectRoad` in sim/buildings.ts lays road on wet cells, with `PIER_COST` 2.5 a cell so piers stay short; a road
+  already bridges water for walking, `stepCost`), drawn as the Bridges pack's wooden planks with their rails
+  (`drawPier` in art/groundDetail.ts: `roads/pier_v.png`, `pier_h.png`, across when the road runs across). A finished
+  building whose front stands in the water is dressed with three of the Seabed set's corals, shells, crabs and weed at
+  its foot (`SEA_DRESS` in mapView.ts; the set is loaded for the merfolk's look and the town redrawn when it comes).
+- **Trips under the waves (step 3, done):** a shore town's outdoor fight scenes take `SEA_LOOKS` (data/scenes.ts: the
+  underwater backdrops, and the ocean ones under a sky pack; `lookFor(..., sea)`, `FightScene.update(..., sea)` from
+  main.ts).
+- **Merfolk on land (step 4, done):** `PersonView.mer` (`peopleOf` is merfolk, not raised): `drawFins` in
+  map/bodyMarks.ts draws a crest swept back from the crown, a fanned ear fin and glints of scale in sea colours by id
+  (`merColours` in art/merTail.ts, never its gold, which read as a crown), through the injury marks' overlay, so only on
+  the plain LPC sprite and never in the sea.
+- **Stilt homes and tide pools (step 5, done):** a merfolk home on the map (a house-shaped home before the modern age)
+  is a stilt hut (`drawStilt` in art/topDown.ts, its own colours, never reclad): a round reed roof thatched in rings
+  over a short wall of sea-green boards with a round-topped door and a lit porthole, on a plank deck raised on stilts,
+  a net and a string of shells. On the strand, `TIDE_POOLS` (0.22) of the sand cells within two of the shallows (only a
+  shore town's land has them: `nearShallows`) hold a tide pool (`tidePool` in map/groundArt.ts): clear water in a ring
+  of wet rocks, sometimes with one of the Seabed set's shells or starfish in it.
+- Still to come (not designed): boats, and the merfolk's sea beasts beyond the raids.
 
 ## Known problem (fixed, watch)
 

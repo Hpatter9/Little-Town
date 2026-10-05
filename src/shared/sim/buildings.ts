@@ -5,7 +5,7 @@
 
 import { isGate } from './ringWall';
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
-import { seaBuild } from './sea';
+import { seaBuild, seaTown } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
@@ -261,17 +261,24 @@ export function connectRoad(s: GameState, b: Building): void {
     setRoad(m, from.x, from.y);
     return;
   }
-  // (a road goes only over buildable ground, never through a building, and doesn't bridge water on its own)
-  const blocked = (x: number, y: number) => !buildable(groundAt(m, x, y)) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
+  // (a road goes only over buildable ground, never through a building, and doesn't bridge water on its own; in a shore
+  // town it runs out over the water as a pier, to the homes and the rest that stand in the sea)
+  const pier = seaTown(s);
+  const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || (pier && wet(groundAt(m, x, y)));
+  const blocked = (x: number, y: number) => !ground(x, y) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
   // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
   const gate = (x: number, y: number) => isGate(builtOn(s, x, y)?.def ?? '');
   // (four ways: a road's tiles join along their edges, so it never steps diagonally)
-  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !gate(x, y), { maxNodes: 6000, four: true });
+  // (a pier costs more than a road on land, so it keeps its run over the water short)
+  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !gate(x, y), { maxNodes: 6000, four: true, ...(pier ? { swim: PIER_COST } : {}) });
   if (!path || path.length > ROAD_REACH) return;
   setRoad(m, from.x, from.y);
-  for (const c of path) if (!builtOn(s, c.x, c.y) && buildable(groundAt(m, c.x, c.y))) setRoad(m, c.x, c.y);
+  for (const c of path) if (!builtOn(s, c.x, c.y) && ground(c.x, c.y)) setRoad(m, c.x, c.y);
   squareRoads(s);
 }
+
+/** What a cell of pier costs to lay, against a road on land (a shore town's roads run out over the water). */
+const PIER_COST = 2.5;
 
 /** Roads laid before they kept to four ways step diagonally here and there: each such step gets a cell beside it, so
  *  every road runs on edge to edge. */

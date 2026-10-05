@@ -2,6 +2,8 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { attending } from './ceremonies';
+import { injuryPace } from './injuries';
 import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
 import { ADJACENT_TILES, NEAR_SOURCE, NEAR_SOURCE_BONUS } from '../data/buildings';
@@ -40,6 +42,10 @@ import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
 import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
+import { accruePay, accruePayFrom, loadPrice, moneyTown, payFromTreasury } from './economy';
+import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, TREASURY_KEEP } from '../data/economy';
+import { canWork } from './property';
+import { isChild } from './social';
 
 /** Walking speed in world pixels per second. */
 export const WALK_SPEED = 48;
@@ -129,12 +135,19 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     case 'store': {
       const st = byId(s, task.building)!;
       if (!goToB(s, p, st)) break;
+      const sold: Stock = {};
       for (const m of MATERIALS) {
         const n = Math.min(p.carrying[m] ?? 0, storageFree(s, st));
         if (n > 0) {
           addStock(st.store, m, n);
           addStock(p.carrying, m, -n);
+          sold[m] = n;
         }
+      }
+      // (what they bring in they sell to the town there and then: data/economy.ts)
+      if (moneyTown(s) && !isChild(p)) {
+        const price = loadPrice(s, sold);
+        if (price > 0) payFromTreasury(s, p, price, 'wages', `Sold ${Object.entries(sold).map(([m, n]) => `${n} ${MATERIAL_NAMES[m as Material].toLowerCase()}`).join(', ')} to the stores (${Math.min(price, Math.max(0, (s.coins ?? 0) - TREASURY_KEEP))} coins)`);
       }
       p.task = null;
       break;
@@ -171,9 +184,16 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (!goToB(s, p, site)) break;
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
-      const speed = skillSpeed(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
-      site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
+      // (a steep curve by skill, and slower than it was: data/economy.ts)
+      const speed = buildPower(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
+      site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
+      // (paid by the hour: by the treasury for its works, by the owner for theirs; an owner works for nothing)
+      if (site.owner === undefined) accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
+      else if (site.owner !== p.id) {
+        const owner = s.people.find((q) => q.id === site.owner);
+        if (owner) accruePayFrom(s, owner, p, HIRE_PER_HOUR, `building for ${owner.name}`, TICKS_PER_HOUR);
+      }
       if (site.progress >= 1) {
         site.progress = 1;
         site.status = 'done';
@@ -219,6 +239,33 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (!goToB(s, p, b)) break;
       p.activity = 'build';
       if (fightFire(s, p, b)) p.task = null;
+      break;
+    }
+    case 'attend': {
+      const g = s.gathering;
+      if (!g || !attending(s, p)) {
+        p.task = null;
+        break;
+      }
+      // (in a ring round the spot, each to their own place)
+      const i = g.ids.indexOf(p.id);
+      const a = (i / Math.max(1, g.ids.length)) * Math.PI * 2;
+      const r = 26 + (g.ids.length > 8 ? 18 : 0);
+      if (!goTo(s, p, { x: g.x + Math.cos(a) * r, y: g.y + Math.sin(a) * r * 0.7 })) break;
+      p.activity = 'idle';
+      p.dir = Math.cos(a) > 0 ? -1 : 1;
+      break;
+    }
+    case 'toil': {
+      const b = s.busy;
+      if (!b || !busyNow(s, p)) {
+        p.task = null;
+        break;
+      }
+      // (spread out along the line, each to their own spot)
+      const spot = { x: b.x + ((p.id % 7) - 3) * 22, y: b.y + ((Math.floor(p.id / 7) % 3) - 1) * 22 };
+      if (!goTo(s, p, spot)) break;
+      p.activity = b.anim;
       break;
     }
     case 'mine': {
@@ -317,7 +364,8 @@ export const alarmRaised = (s: GameState) => {
 /** Patrol shifts (DESIGN §10): with a Barracks, guards on Defend High take day or night shifts (by turns). */
 export function onShift(s: GameState, p: Person): boolean {
   if (p.priorities.defend !== 1 || p.bornTick != null) return false;
-  if (!s.buildings.some((b) => b.def === 'barracks' && b.status === 'done')) return false;
+  // (a hired guard (sim/treasury.ts) keeps watch without a barracks)
+  if (!p.guard && !s.buildings.some((b) => b.def === 'barracks' && b.status === 'done')) return false;
   const h = calendar(s.tick).hour;
   const day = h >= 6 && h < 18;
   return (p.id % 2 === 0) === day;
@@ -495,6 +543,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   // (and the game's pace: a town takes generations to learn it all, data/pace.ts)
   r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * RESEARCH_PACE[topic.era ?? 'neolithic'] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
+  accruePay(s, p, STUDY_PER_HOUR, 'wages', 'study', TICKS_PER_HOUR);
   if (r.progress[topic.id] < 1) return;
 
   delete r.progress[topic.id];
@@ -677,7 +726,12 @@ function rank(t: Task, p?: Person): number {
       return -2.7;
     case 'extinguish':
       return -2.5;
+    case 'toil':
+      return -2.4;
+    case 'attend':
+      return -2.3;
     case 'eat':
+      return -2.1; // (just over sleep: someone starving in the night gets up to eat)
     case 'sleep':
       return -2;
     case 'gather':
@@ -702,6 +756,8 @@ function jobOf(t: Task): Job {
     case 'build':
     case 'repair':
     case 'extinguish':
+    case 'toil':
+    case 'attend':
       return 'construct';
     case 'defend':
     case 'patrol':
@@ -720,6 +776,9 @@ function jobOf(t: Task): Job {
   }
 }
 
+/** So hungry they get up in the night to eat. */
+export const WAKE_TO_EAT = 0.12;
+
 function chooseTask(s: GameState, p: Person): Task | null {
   p.blocked = false;
   // The badly hurt stay in bed until they're back on their feet.
@@ -732,13 +791,20 @@ function chooseTask(s: GameState, p: Person): Task | null {
   // Fire! Everyone who can drops what they're doing and beats it out.
   const fire = fireToFight(s, p);
   if (fire) return p.task?.type === 'extinguish' && p.task.building === fire.id ? p.task : { type: 'extinguish', building: fire.id };
+  // At a funeral or a feast: they stand together till it's over (they still eat).
+  if (attending(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'attend' ? p.task : { type: 'attend' };
+  // Held to the town's work by an event (sim/events.ts `busy`): they eat when they must, and otherwise toil on.
+  if (busyNow(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'toil' ? p.task : { type: 'toil' };
   // Walking out of town (a mental break): nothing else matters.
   if (p.breakdown?.kind === 'wander') {
     const out = leavePt(s, p);
     return { type: 'wander', targetX: out.x, targetY: out.y };
   }
-  // Needs.
-  if (p.task?.type === 'sleep' || wantsSleep(s, p)) return { type: 'sleep', building: p.bed };
+  // Needs. Someone asleep and nearly empty gets up to eat (while the stores hold food).
+  if (p.task?.type === 'sleep' || wantsSleep(s, p)) {
+    const st = p.task?.type === 'sleep' && p.needs.food < WAKE_TO_EAT && !tireless(p) ? nearestStorage(s, p, (b) => !!foodIn(b)) : null;
+    return st ? { type: 'eat', building: st.id, until: null } : { type: 'sleep', building: p.bed };
+  }
   if (p.needs.food < HUNGRY) {
     const st = nearestStorage(s, p, (b) => !!foodIn(b));
     if (st) return { type: 'eat', building: st.id, until: null };
@@ -844,7 +910,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       }
       return null;
     case 'construct': {
-      const b = s.buildings.find((q) => q.status === 'blueprint' && poolSize(stillNeeded(q)) === 0);
+      const b = s.buildings.find((q) => q.status === 'blueprint' && poolSize(stillNeeded(q)) === 0 && canWork(s, p, q));
       if (b) return { type: 'build', building: b.id };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
@@ -961,7 +1027,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
     case 'deliver':
       return site?.status === 'blueprint';
     case 'build':
-      return site?.status === 'blueprint' && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0;
+      return site?.status === 'blueprint' && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0 && canWork(s, p, site);
     case 'research':
       // (still their station: built, standing, and nobody else's)
       return (
@@ -994,6 +1060,10 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       return site?.status === 'done' && p.priorities.gather !== 0;
     case 'extinguish':
       return !!site && site.fire !== undefined && !alarmRaised(s);
+    case 'toil':
+      return busyNow(s, p) && !alarmRaised(s);
+    case 'attend':
+      return attending(s, p) && !alarmRaised(s);
     case 'tend': {
       // (while the alarm is up, everyone fights or shelters: the wounded wait)
       // (and step aside if someone nearer has come to help)
@@ -1007,9 +1077,12 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 
 /* ------------------------------------------------------------ helpers */
 
+/** Held to the town's work by an event, now (not in a raid). */
+export const busyNow = (s: GameState, p: Person) => !!s.busy && s.tick < s.busy.until && s.busy.ids.includes(p.id) && p.away === null && !p.downed && !alarmRaised(s);
+
 /** Step toward a point along a path over the land. Returns true once there. */
 function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {
-  const there = walk(s, p, to, STEP, through, s.tick, swims(s, p));
+  const there = walk(s, p, to, STEP * injuryPace(p), through, s.tick, swims(s, p)); // (a lame leg slows them: sim/injuries.ts)
   if (!there) p.activity = 'walk';
   return there;
 }

@@ -34,7 +34,7 @@ export function venueView(s: Snapshot | null, id: VenueId): ShopView | null {
 /** Changes whenever something the text shows changes (the picture animates on its own). */
 export const shopKey = (s: Snapshot, id: VenueId = 'shop') => {
   const v = venueView(s, id);
-  return JSON.stringify(v && [s.coins, s.wageBill, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers, v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting, v.asked, v.menu, v.gear, v.stock, v.stockMats, v.decor]);
+  return JSON.stringify(v && [s.coins, s.wageBill, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers, v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting, v.asked, v.menu, v.gear, v.stock, v.stockMats, v.decor, v.ownerName, v.worth, v.takings]);
 };
 
 /** In the picture's own pixels (it's scaled up to fit): a floor cell's width and its depth (a row, foreshortened),
@@ -133,9 +133,10 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop'): HTMLElement[] {
     v.progress !== null
       ? `Being built: ${Math.floor(v.progress * 100)}%. The furnishings wait in the stores meanwhile.`
       : v.keeperName
-        ? `${v.keeperName} keeps the ${place}.`
+        ? `${v.keeperName} keeps the ${place}${v.ownerName && v.ownerName !== v.keeperName ? ` for ${v.ownerName}` : ''}.`
         : `Closed: nobody free to keep it.`;
   info.push(el('div', 'hint shop-status', status));
+  info.push(el('div', 'hint', `${v.ownerName ? `Owned by ${v.ownerName}` : 'The town\'s own'}: worth about ${v.worth} coins${v.takings ? ` (it took ${v.takings} yesterday)` : ''}. Its takings go to ${v.ownerName ?? 'the treasury'}${v.ownerName ? ', who pays for its upkeep' : ''}.`));
   const every = ((TRAVELLER_EVERY[0] + TRAVELLER_EVERY[1]) / 2 / (1 + v.attractiveness / APPEAL_HALVES_WAIT)).toFixed(1);
   info.push(
     el(
@@ -204,7 +205,7 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop'): HTMLElement[] {
       for (const g of v.gear) gear.append(qualityChip(`${pieceLabel(g.name, g.q)}${g.n > 1 ? ` ×${g.n}` : ''} · ${g.price}c`, g.q));
       info.push(gear);
     }
-    info.push(el('div', 'hint', `Travellers buy it, and so do the townsfolk, with their wages (${s.wageBill} coins a day in all), for a little less.`));
+    info.push(el('div', 'hint', `Travellers buy it, and so do the townsfolk, with what they earn (about ${s.wageBill} coins a day in all), for a little less.`));
     info.push(el('h2', '', 'Spare to sell'));
     info.push(stockRow(v.forSale, 'Nothing spare: the town needs everything it has.'));
     info.push(el('h2', '', 'Wants to buy'));

@@ -112,8 +112,11 @@ const SEASON_LOOKS: Partial<Record<string, SceneLook[]>> = {
 const SEASONAL = new Set<SceneId>(['meadow', 'riverbank', 'pinewoods', 'bandit_camp', 'highlands']);
 
 /** The look for a trip (the same one all the way, seeded by the trip). */
-export function lookFor(scene: SceneId, seed: number, season?: string): SceneLook {
-  const own = (season && SEASONAL.has(scene) && SEASON_LOOKS[season]) || SCENE_LOOKS[scene];
+/** A shore town's trips (the merfolk) out of doors: under the waves, or the open sea under the sky. */
+const SEA_LOOKS: readonly SceneLook[] = [...n('underwater', 1, 2, 3, 4), ...skies(...n('ocean', 1, 2, 3, 4, 5))];
+
+export function lookFor(scene: SceneId, seed: number, season?: string, sea = false): SceneLook {
+  const own = sea && !INDOOR_SCENES.has(scene) ? SEA_LOOKS : (season && SEASONAL.has(scene) && SEASON_LOOKS[season]) || SCENE_LOOKS[scene];
   const h = Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b) >>> 0;
   return own[h % own.length];
 }

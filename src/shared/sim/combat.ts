@@ -3,6 +3,7 @@
 // ranged attacks reach anyone. Medics heal instead of attacking; porters stay out of it. Gear adds damage,
 // aim, armour and blocking.
 
+import { injuryFight } from './injuries';
 import type { EliteAffix } from '../data/dungeons';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { classStat, levelPower } from '../data/levels';
@@ -179,7 +180,9 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
   const attrK = 1 + (caster ? over('int') * INT_POWER : over('str') * STR_DAMAGE);
   // (their class, its stage and their level make them stronger: casters by their spell power)
   const k = (caster ? classStat(p, 'power') : classStat(p, 'damage')) * levelPower(p) * attrK;
-  const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k), Math.round((base[1] + bonus + wolf) * k)];
+  // (and their wounds: a lost arm or a blind eye tells: sim/injuries.ts)
+  const inj = injuryFight(p);
+  const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k * inj.damage), Math.round((base[1] + bonus + wolf) * k * inj.damage)];
   const g = gearEffects(p);
   // (their skills: always-on passives, and the kit of spells and skills they use)
   const ps = passiveStats(p);
@@ -207,7 +210,7 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     row,
     ranged: useRanged,
     damage: role === 'porter' ? [0, 0] : damage,
-    accuracy: 0.55 + skill * 0.025 + aim + classStat(p, 'accuracy') + (ps.accuracy ?? 0) + over('dex') * DEX_AIM,
+    accuracy: 0.55 + skill * 0.025 + aim + inj.aim + classStat(p, 'accuracy') + (ps.accuracy ?? 0) + over('dex') * DEX_AIM,
     dodge: 0.05 + melee * 0.01 + g.dodge + classStat(p, 'dodge') + (ps.dodge ?? 0) + over('dex') * DEX_DODGE,
     interval: Math.max(3, Math.round(PERSON_INTERVAL * TICK_HZ * (used ? w.speed : 1) * g.slow * classStat(p, 'speed') * (1 - (ps.speed ?? 0)) * speedOfDex(at.dex))),
     cooldown: 0,

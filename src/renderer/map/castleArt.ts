@@ -8,7 +8,7 @@
 
 import { seatInterior } from '../art/seatArt';
 import { SEAT_STAGE } from '../../shared/data/seats';
-import { Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 import type { BuildingDef } from '../../shared/data/buildings';
 import { CELL, type Rect } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
@@ -17,7 +17,7 @@ import { mixHex, paint, type PixelArt, type Tone } from '../art/pixelArt';
 import { snowCapped } from '../art/snowCap';
 import floorUrl from '../art/castle/floor.png';
 import gateUrl from '../art/castle/gate.png';
-import caveGateUrl from '../art/packs/cave_gate.png';
+import doorsUrl from '../art/delve/doors.png';
 import dpTable2 from '../art/packs/dp_table2.png';
 import dpChair1 from '../art/packs/dp_chair1.png';
 import dpChair2 from '../art/packs/dp_chair2.png';
@@ -35,6 +35,9 @@ export interface CastleView {
   core: Rect;
   gate: { x: number; y: number };
   bounds: Rect;
+  /** The doorways between regions the sim walks through (sim/castle.ts `doorsOf`), and a hold's dug galleries. */
+  doors: string[];
+  galleries: number[];
 }
 
 /** The walls' measures (px): a partition's walk and face, the curtain wall's battlements, walk and face. */
@@ -157,7 +160,18 @@ export function onCastleArt(cb: () => void): void {
   onLoad = cb;
 }
 /** Whether the pack's floor and gate have loaded (the castle is drawn again when they do). */
-export const castleArtReady = () => !!textures.get(floorUrl) && !!textures.get(gateUrl);
+export const castleArtReady = () => !!textures.get(floorUrl) && !!textures.get(gateUrl) && !!textures.get(doorsUrl);
+/** A mountain hold's gate: the dungeon pack's stone archway with its wooden doors swung open (the door sheet's second
+ *  row, fourth frame), drawn half again a cell's size in the cliff. */
+const HOLD_GATE = new Rectangle(96, 32, 32, 32);
+const HOLD_GATE_SIZE = 48;
+let holdGate: Texture | null = null;
+function holdGateTexture(): Texture | null {
+  if (holdGate) return holdGate;
+  const sheet = packTexture(doorsUrl);
+  if (sheet) holdGate = new Texture({ source: sheet.source, frame: HOLD_GATE });
+  return holdGate;
+}
 
 /** The castle's drawing: what goes under everything (floors, the carpet) and the walls and towers among the things. */
 export interface CastleDrawing {
@@ -176,6 +190,8 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
   };
   add(castle.core, -1);
   for (const b of rooms) add(footprint(b), b.id);
+  // a hold's galleries, dug for ore, are walled and doored like rooms (their floor is the ground's own)
+  for (const i of castle.galleries) if (!region.has(i)) region.set(i, -2);
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= landW ? undefined : region.get(y * landW + x));
 
   const under = new Container();
@@ -197,38 +213,8 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
   const bottom = castle.gate.y * CELL;
   under.addChild(new Graphics().rect(gx - CARPET_W / 2, top, CARPET_W, bottom - top).fill(parseInt(tone('#a01828').slice(1), 16)).rect(gx - CARPET_W / 2 + 2, top + 2, CARPET_W - 4, bottom - top - 2).fill(parseInt(tone('#8a1424').slice(1), 16)).rect(gx - CARPET_W / 2 + 2, top, CARPET_W - 4, 2).fill(parseInt(tone('#d8b050').slice(1), 16)));
 
-  // where each pair of regions gets its doorway: the middle of the cells they share a wall along
-  const shared = new Map<string, { h: boolean; cells: { x: number; y: number }[] }>();
-  const share = (a: number, b: number, h: boolean, x: number, y: number) => {
-    const key = `${Math.min(a, b)}|${Math.max(a, b)}|${h ? 'h' : 'v'}`;
-    let s = shared.get(key);
-    if (!s) shared.set(key, (s = { h, cells: [] }));
-    s.cells.push({ x, y });
-  };
-  for (const [i, id] of region) {
-    const x = i % landW;
-    const y = Math.floor(i / landW);
-    const n = at(x, y - 1);
-    const w = at(x - 1, y);
-    if (n !== undefined && n !== id) share(id, n, true, x, y);
-    if (w !== undefined && w !== id) share(id, w, false, x, y);
-  }
-  const doors = new Set<string>();
-  for (const [key, s] of shared) {
-    // (the longest straight run, and its middle; one door per pair of rooms, two for a long run with the hall)
-    const sorted = s.cells.sort((a, b) => (s.h ? a.y - b.y || a.x - b.x : a.x - b.x || a.y - b.y));
-    const runs: { x: number; y: number }[][] = [];
-    for (const c of sorted) {
-      const last = runs[runs.length - 1];
-      const prev = last?.[last.length - 1];
-      if (prev && (s.h ? prev.y === c.y && prev.x === c.x - 1 : prev.x === c.x && prev.y === c.y - 1)) last.push(c);
-      else runs.push([c]);
-    }
-    runs.sort((a, b) => b.length - a.length);
-    const run = runs[0];
-    const mid = run[Math.floor((run.length - 1) / 2)];
-    doors.add(`${mid.x},${mid.y}|${key.endsWith('h') ? 'h' : 'v'}`);
-  }
+  // the doorways the sim walks through (sim/castle.ts `doorsOf`), so the doors people use are the ones drawn
+  const doors = new Set(castle.doors);
 
   const put = (tex: Texture, x: number, y: number, z: number) => {
     const sp = new Sprite(tex);
@@ -238,7 +224,7 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
     return sp;
   };
   const mountain = castle.hold === 'mountain';
-  const gateTex = packTexture(mountain ? caveGateUrl : gateUrl);
+  const gateTex = mountain ? holdGateTexture() : packTexture(gateUrl);
   const towers = new Set<string>();
   for (const [i, id] of region) {
     const x = i % landW;
@@ -259,11 +245,10 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
     if (s === undefined) {
       if (mountain) put(P.rockS.texture, px, py + CELL - ROCK_T, py + CELL + WALL_FACE);
       else put(P.outerS.texture, px, py + CELL - (MERLON + WALL_T), py + CELL + WALL_FACE);
-      if (id === -1 && x === castle.gate.x && gateTex) {
+      if (x === castle.gate.x && y === castle.gate.y - 1 && gateTex) {
         if (mountain) {
-          const g = put(gateTex, px + CELL / 2 - 28, py + CELL + WALL_FACE - 66, py + CELL + WALL_FACE + 1);
-          g.width = 56;
-          g.height = 66;
+          const g = put(gateTex, px + CELL / 2 - HOLD_GATE_SIZE / 2, py + CELL + WALL_FACE - HOLD_GATE_SIZE, py + CELL + WALL_FACE + 1);
+          g.width = g.height = HOLD_GATE_SIZE;
         } else {
           const g = put(gateTex, px, py + CELL + WALL_FACE - 32, py + CELL + WALL_FACE + 1);
           g.width = g.height = 32;

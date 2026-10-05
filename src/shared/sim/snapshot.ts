@@ -1,5 +1,9 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { peopleOf } from './strangers';
+import { AMBITIONS } from '../data/ambitions';
+import { TICKS_PER_DAY } from './time';
+import { ambitionOf, businessPrice } from './ambition';
 import type { Attrs } from '../data/attributes';
 import { RESEARCH_PACE } from '../data/pace';
 import { swims } from './sea';
@@ -21,6 +25,10 @@ import { weatherAt, type WeatherNow } from './weather';
 import { directionOf, forSale, shoppingList, type Direction, type TownPlan } from './planner';
 import { decorPrice, appeal, asleepHour, attractiveness, bedsOf, roomsOf, customerTiers, extensionPrice, extensionsOf, farePrice, itemPrice, levelPrice, renownOf, SALE_GEAR, shopLayout, wantText, type Rect, trophyRenown } from './shop';
 import { moneyTown, wageBill } from './wages';
+import { incomeOf } from './economy';
+import { propertyOf } from './property';
+import { guardsOf, guardsWanted, guardWage, taxRate } from './treasury';
+import type { TaxRate } from '../data/economy';
 import { COMMON, qualityOf, typicalQuality } from '../data/quality';
 import { OPERATORS } from '../data/operators';
 import { HERDS } from '../data/livestock';
@@ -39,7 +47,7 @@ import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../da
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
-import { atPlace, DESTINATIONS, ROLES } from '../data/expeditions';
+import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry } from './people';
 import type { Era } from '../data/eras';
@@ -49,7 +57,11 @@ import { CROPS } from '../data/crops';
 import { craftNeeded, craftSlots, hasBedroll, missingItems, stationFor, stationName } from './crafting';
 import { CHILD_HOURS } from '../data/social';
 import { DOOMS, type DoomKind } from '../data/doom';
-import { friendsOf, isChild, rivalsOf } from './social';
+import { devotedOf, enemiesOf, friendsOf, isChild, opinion, rivalsOf } from './social';
+import { capacities, woundText } from './injuries';
+import { PARTS, PROSTHETIC_BY_ITEM, fitsOf, type BodyPart } from '../data/injuries';
+import { bountyOn, bountyStep, mayGo, proposeParty, roomAway, vetoed } from './parties';
+import { ENEMY } from '../data/social';
 import { canTrade, stalls } from './trade';
 import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '../data/people';
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
@@ -59,10 +71,10 @@ import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStoc
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS } from './state';
-import { cellAt, groundAt, type LandMap , wet, CELL } from './land';
+import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { hexesNow } from './rivals';
-import { castleBounds, castleCells, castleGate, castleOn, coreRect, holdOf, type Hold } from './castle';
+import { castleBounds, castleCells, castleGate, castleLayout, castleOn, coreRect, galleryCells, holdOf, type Hold } from './castle';
 import { TILE } from '../constants';
 
 import { rallyState } from './rally';
@@ -102,6 +114,8 @@ export interface PersonView {
   hitFrom: 1 | -1;
   /** Ticks since they last struck at a foe, and since they last turned a blow (the fighting poses). */
   sinceBlow: number;
+  /** Under arms in a raid (the defend task): a fighting calling keeps its combat form the whole fight. */
+  defending: boolean;
   sinceBlock: number;
   /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
@@ -150,6 +164,11 @@ export interface PersonView {
   gearQ: Partial<Record<Slot, number>>;
   /** Their own coins (wages, for their gear), once the town has money. */
   coins: number | null;
+  /** Their income (sim/economy.ts): today, yesterday, and what their last hourly pay was for. */
+  income: { today: number; yesterday: number; last: string | null } | null;
+  /** What they own (sim/property.ts), and rent owed. */
+  owns: string[];
+  debt: number;
   /** A little more about them: the role they fill, how their work is going, what their crafting is like. */
   detail: string[];
   /** What they've done lately, newest first. */
@@ -162,6 +181,12 @@ export interface PersonView {
   married: boolean;
   friends: string[];
   rivals: string[];
+  /** Their body (sim/injuries.ts): wounds in words, lasting scars and lost parts, prosthetics fitted, and what they can
+   *  still do (1 sound). */
+  body: { wounds: string[]; lasting: string[]; fitted: string[]; sight: number; handling: number; moving: number; pain: number; marks: BodyMark[] };
+  /** Enemies (they won't go on a trip together, and may come to blows) and the devoted (who go where they go). */
+  enemies: string[];
+  devoted: string[];
   /** Children: game hours until they grow up. */
   growsUpIn: number | null;
   /** A mental break in progress, described. */
@@ -170,12 +195,17 @@ export interface PersonView {
    *  life, a line about it, and an elder (slower, and old age may take them). */
   /** In the sea (a merfolk swimming: drawn with a tail). */
   swimming: boolean;
+  /** Of the merfolk (their people, a stranger's or the town's): fins and scales on land (map/bodyMarks.ts). */
+  mer: boolean;
   /** Their nature (data/natures.ts): id, name and a line about it. */
   nature: NatureId;
   natureName: string;
   /** Their town job, if they hold one ("Smith", "Shopkeeper"), and where. */
   job: { title: string; at: string } | null;
   natureLine: string;
+  /** Their life's goal (data/ambitions.ts), and trips made. */
+  ambition: { name: string; line: string } | null;
+  trips: number;
   ageDays: number;
   ageYears: number;
   lifeStage: LifeStage;
@@ -250,6 +280,8 @@ export interface FighterView {
 
 export interface RaiderView {
   id: number;
+  /** In the water (a raid from the sea coming ashore): drawn from the waist up. */
+  swimming: boolean;
   /** Fighting for the town (summoned, raised or tamed). */
   ally: boolean;
   /** Ticks since its last sweeping attack (bosses), and since it was summoned, raised or tamed. */
@@ -321,6 +353,9 @@ export interface ExpeditionView {
   id: number;
   dest: string;
   destName: string;
+  /** Who gathered the party (a party that formed itself), and the bounty it's after. */
+  leader?: string;
+  bounty?: number;
   scenery: string;
   phase: ExpeditionPhase;
   /** 0..1 through the current phase. */
@@ -406,6 +441,9 @@ export interface DestinationView {
   party: string[];
   partyHorses: number;
   partyTruck: boolean;
+  /** The player forbids parties to go there; the treasury's bounty on it. */
+  vetoed: boolean;
+  bounty: number;
 }
 
 export interface VisitorView extends PersonView {
@@ -451,6 +489,10 @@ export interface ShopView {
    *  stock, and what the town still needs to make them). */
   tiers: { tier: number; name: string; plural: string; from: number; drawn: boolean; wares: { name: string; price: number; have: number; needs: string | null }[] }[];
   keeperName: string | null;
+  /** Who owns it (sim/ambition.ts; null: the town), what it's worth, and what it took yesterday. */
+  ownerName: string | null;
+  worth: number;
+  takings: number;
   keeperLook: Look | null;
   /** Strangers inside now: who they are, what they came for, their temper, and (at the tavern) the comfort they need. */
   customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean }[];
@@ -537,6 +579,8 @@ export interface Snapshot {
   housing: { beds: number; people: number };
   expeditions: ExpeditionView[];
   destinations: DestinationView[];
+  /** Parties forming themselves: the next that would set out, who's fit to go, and the bounty step. */
+  trips: TripsView;
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
   places: PlaceView[];
   /** The Moon Pack's standing (sim/pack.ts), for a werewolf town. */
@@ -584,7 +628,7 @@ export interface Snapshot {
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's castle (sim/castle.ts): every cell of it (land indices), the hall's ground, the cell before the
    *  gate, and the rectangle round the whole. */
-  castle: { hold: Hold; cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number } } | null;
+  castle: { hold: Hold; cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number }; doors: string[]; galleries: number[] } | null;
   /** The middle of the camp on the land (px). */
   camp: { x: number; y: number };
   /** The tower-defence battle on the trail, while it's on (sim/battle.ts). */
@@ -601,6 +645,9 @@ export interface Snapshot {
   direction: Direction;
   /** How many people the player wants the town to hold, or null for no limit. */
   townSize: number | null;
+  /** The tax lever, and the treasury's guards (sim/treasury.ts). */
+  tax: TaxRate;
+  guards: { n: number; wanted: number; wage: number; names: string[] };
   plan: TownPlan | null;
   /** The tick of the last big boss moment (a roar, a sweeping attack): the strip shakes. */
   bossShake: number;
@@ -729,7 +776,10 @@ export function snapshot(s: GameState): Snapshot {
       tripSeconds: ((d.outSeconds * 2 + d.workSeconds) * ERA_MULTIPLIER[s.era]),
       foodPerMember: foodNeeded(s, d, 1),
       ...partyView(s, d.id),
+      vetoed: vetoed(s, d.id),
+      bounty: bountyOn(s, d.id),
     })),
+    trips: tripsView(s),
     places: placeViews(s),
     pack: packView(s),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
@@ -779,6 +829,7 @@ export function snapshot(s: GameState): Snapshot {
             sinceConjured: r.conjuredAt != null ? s.tick - r.conjuredAt : 999,
             sinceCast: r.lastCast != null ? s.tick - r.lastCast : 999,
             hitFx: r.hitFx ?? null,
+            swimming: wetAt(s, r.x, r.y),
           })),
         }
       : null,
@@ -806,13 +857,15 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     enclosure: enclosure(s),
-    castle: castleOn(s) ? { hold: holdOf(s)!, cells: [...castleCells(s)], core: coreRect(s), gate: castleGate(s), bounds: castleBounds(s) } : null,
+    castle: castleOn(s) ? { hold: holdOf(s)!, cells: [...castleCells(s)], core: coreRect(s), gate: castleGate(s), bounds: castleBounds(s), doors: [...castleLayout(s)!.doors], galleries: galleryCells(s) } : null,
     spells: (s.spellFx ?? []).filter((f) => s.tick - f.tick < Math.min(SPELL_FX_TICKS, f.secs * TICK_HZ + 10)).map((f) => ({ n: f.n, spell: f.spell, name: spellName(f.spell), since: s.tick - f.tick, x: f.x, y: f.y ?? null, by: f.by ?? null, targets: f.targets, secs: f.secs })),
     moonNight: moonPhaseOf(nightDay(s.tick)) === FULL_MOON_PHASE && (calendar(s.tick).hour >= 20 || calendar(s.tick).hour < 5),
     moonPhase: moonPhaseOf(nightDay(s.tick)),
     weather: weatherAt(s.seed, s.tick, s.doom?.phase === 'active' ? s.doom.kind : null),
     direction: directionOf(s),
     townSize: s.popTarget ?? null,
+    tax: taxRate(s),
+    guards: { n: guardsOf(s).length, wanted: guardsWanted(s), wage: guardWage(s), names: guardsOf(s).map((g) => g.name) },
     plan: s.plan ?? null,
     ironman: !!s.ironman,
     launchHours: s.launchTick != null ? Math.max(0, (s.launchTick - s.tick) / TICKS_PER_HOUR) : null,
@@ -923,6 +976,9 @@ function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): Sho
       wares: WARES.filter((w) => w.ware!.tier === c.tier).map((w) => ({ name: w.name, price: w.ware!.price, have: s.items[w.id] ?? 0, needs: needs(w) })),
     })),
     keeperName: keeper?.name ?? null,
+    ownerName: b.owner === undefined ? null : (s.people.find((q) => q.id === b.owner)?.name ?? null),
+    worth: businessPrice(s, b),
+    takings: (() => { const t = b.shop?.takings; const day = Math.floor(s.tick / TICKS_PER_DAY); return !t ? 0 : t.day === day ? t.yesterday : t.day === day - 1 ? t.today : 0; })(),
     keeperLook: keeper?.look ?? null,
     customers: inside
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
@@ -1019,6 +1075,86 @@ function mineView(s: GameState): MineView | null {
   };
 }
 
+/** Whether a point on the land is in the water (the sea or a river). */
+function wetAt(s: GameState, x: number, y: number): boolean {
+  const cx = Math.floor(x / CELL);
+  const cy = Math.floor(y / CELL);
+  return inMap(s.land, cx, cy) && wet(groundAt(s.land, cx, cy));
+}
+
+function bodyView(p: Person): PersonView['body'] {
+  const c = capacities(p);
+  return {
+    wounds: (p.wounds ?? []).map(woundText),
+    lasting: (p.lasting ?? []).map((l) => (l.kind === 'lost' ? `lost ${PARTS[l.part].name}` : `scarred ${PARTS[l.part].name}`)),
+    fitted: Object.entries(p.fitted ?? {}).map(([part, item]) => `${ITEM_BY_ID[item!]?.name ?? item} (${PARTS[part as BodyPart].name})`),
+    sight: c.sight,
+    handling: c.handling,
+    moving: c.moving,
+    pain: c.pain,
+    marks: bodyMarks(p),
+  };
+}
+
+/** What shows of someone's harm in the town (map/bodyMarks.ts): a lost part bare or made good (a peg, a hook, a
+ *  wooden or jointed limb, a bionic one; an eye patched, glass or bionic), and a bandage over a bad wound. */
+export type BodyMarkLook = 'gone' | 'patch' | 'peg' | 'hook' | 'wood' | 'metal' | 'bionic' | 'glass' | 'bandage';
+export interface BodyMark {
+  part: BodyPart;
+  look: BodyMarkLook;
+}
+/** A wound this bad or worse is bandaged. */
+export const BANDAGE_AT = 0.25;
+
+function bodyMarks(p: Person): BodyMark[] {
+  const out: BodyMark[] = [];
+  for (const l of p.lasting ?? []) {
+    if (l.kind !== 'lost') continue;
+    const item = p.fitted?.[l.part];
+    const pro = item ? PROSTHETIC_BY_ITEM[item] : undefined;
+    const fits = fitsOf(l.part);
+    let look: BodyMarkLook;
+    if (!pro) look = fits === 'eye' ? 'patch' : 'gone';
+    else if (pro.rank >= 3) look = 'bionic';
+    else if (fits === 'eye') look = 'glass';
+    else if (pro.rank === 2) look = 'metal';
+    else look = fits === 'leg' ? 'peg' : fits === 'hand' ? 'hook' : 'wood';
+    out.push({ part: l.part, look });
+  }
+  for (const w of p.wounds ?? []) if (w.sev >= BANDAGE_AT && !out.some((m) => m.part === w.part)) out.push({ part: w.part, look: 'bandage' });
+  return out;
+}
+
+export interface TripsView {
+  /** The party that would form now ("Name and 2 others for the Berry Thicket"), or why none would. */
+  forming: string;
+  /** Grown-ups fit to go and free to (not guards, keepers or the founder), and how many more may be away. */
+  fit: number;
+  room: number;
+  bountyStep: number;
+  /** Adventurers in the town (who form parties of their own accord). */
+  adventurers: number;
+}
+
+function tripsView(s: GameState): TripsView {
+  const plan = proposeParty(s);
+  const fit = s.people.filter((p) => mayGo(s, p)).length;
+  const room = roomAway(s);
+  const adventurers = s.people.filter((p) => !isChild(p) && ambitionOf(p) === 'adventurer').length;
+  let forming: string;
+  if (plan) {
+    const lead = s.people.find((p) => p.id === plan.leader)!;
+    const d = destinationOf(s, plan.dest)!;
+    const others = plan.members.length - 1;
+    forming = `${lead.name}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''} would set out for ${the(d.name)}${plan.stakes === 'risky' ? ', boldly' : ''}.`;
+  } else if (s.expeditions.length >= MAX_EXPEDITIONS) forming = 'As many parties are out as can be.';
+  else if (!room) forming = s.people.filter((p) => !isChild(p)).length < 3 ? 'The town is too small to send anyone out.' : 'Half the town is away already: nobody else goes.';
+  else if (!fit) forming = 'Nobody is fit to go: they rest and heal first.';
+  else if (!adventurers) forming = 'No adventurers in town: nobody goes out until one comes.';
+  else forming = 'No party is strong enough for anywhere they want to go yet.';
+  return { forming, fit, room, bountyStep: bountyStep(s), adventurers };
+}
+
 function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
   const plan = planParty(s, dest);
   const party = plan.members.map((id) => {
@@ -1049,6 +1185,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     hitFrom: p.hitFrom ?? 1,
     sinceBlow: s.tick - (p.lastBlow ?? -999),
     sinceBlock: s.tick - (p.lastBlock ?? -999),
+    defending: !!s.raid && p.task?.type === 'defend',
     mounted: null,
     cls: p.cls ?? null,
     clsName: callingName(p, stageOf(p)),
@@ -1083,6 +1220,9 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     gear: { ...p.gear },
     gearQ: { ...(p.gearQ ?? {}) },
     coins: p.coins ?? (moneyTown(s) ? 0 : null),
+    income: moneyTown(s) ? { ...incomeOf(s, p), last: p.paidFor?.line ?? null } : null,
+    owns: propertyOf(s, p),
+    debt: p.debt ?? 0,
     detail: personDetail(s, p),
     recent: [...(p.recent ?? [])].reverse().map((r) => r.text),
     bedroll: hasBedroll(s, p),
@@ -1090,14 +1230,20 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     partner: p.partner == null ? null : (s.people.find((q) => q.id === p.partner)?.name ?? null),
     married: !!p.married,
     friends: friendsOf(s, p).filter((f) => f.id !== p.partner).map((f) => f.name),
-    rivals: rivalsOf(s, p).map((f) => f.name),
+    rivals: rivalsOf(s, p).filter((f) => opinion(s, p.id, f.id) > ENEMY).map((f) => f.name),
+    enemies: enemiesOf(s, p).map((f) => f.name),
+    body: bodyView(p),
+    devoted: devotedOf(s, p).filter((f) => f.id !== p.partner).map((f) => f.name),
     growsUpIn: p.bornTick != null ? Math.max(0, CHILD_HOURS - (s.tick - p.bornTick) / TICKS_PER_HOUR) : null,
     breakdown: p.breakdown ? BREAK_TEXT[p.breakdown.kind] : null,
     nature: natureOf(p).id,
     natureName: natureOf(p).name,
     job: jobView(s, p),
     natureLine: natureOf(p).line,
+    ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
+    trips: p.trips ?? 0,
     swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
+    mer: peopleOf(s, p) === 'merfolk' && !p.monster,
     ageDays: Math.floor(ageDays(s, p)),
     ageYears: Math.floor(ageYears(s, p)),
     lifeStage: lifeStage(s, p),
@@ -1129,6 +1275,7 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit'> {
 
 /** The job someone holds: the role's title and the building's name. */
 function jobView(s: GameState, p: Person): { title: string; at: string } | null {
+  if (p.guard) return { title: 'Guard', at: 'the town' };
   const b = s.buildings.find((q) => q.operator === p.id && q.status === 'done' && !!OPERATORS[q.def]);
   return b ? { title: OPERATORS[b.def].title, at: BUILDING_BY_ID[b.def].name } : null;
 }
@@ -1193,6 +1340,8 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     id: e.id,
     dest: e.dest,
     destName: d.name,
+    ...(e.leader != null ? { leader: s.people.find((p) => p.id === e.leader)?.name } : {}),
+    ...(bountyOn(s, e.dest) ? { bounty: bountyOn(s, e.dest) } : {}),
     scenery: d.scenery,
     phase: e.phase,
     phaseProgress: v && e.phase === 'work' ? Math.min(1, down) : Math.min(1, e.elapsed / Math.max(1, len)),
@@ -1335,6 +1484,10 @@ function describe(s: GameState, p: Person): string {
       return 'Digging in the mine';
     case 'extinguish':
       return `Fighting the fire at the ${name(task.building).toLowerCase()}!`;
+    case 'toil':
+      return s.busy?.text ?? 'Hard at work for the town';
+    case 'attend':
+      return s.gathering?.text ?? 'With the town';
     case 'tend': {
       const q = s.people.find((x) => x.id === task.patient);
       return `Tending ${q?.name ?? 'the wounded'}'s wounds!`;

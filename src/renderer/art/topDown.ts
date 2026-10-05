@@ -129,6 +129,8 @@ export function topDownArt(defId: string, w: number, d: number, tone: Tone, tone
   const def = BUILDING_BY_ID[defId];
   const era = eraOfResearch(def?.research);
   const shape = SHAPES[defId] ?? (def?.housing && since(era, 'modern') ? 'flat' : 'house');
+  // (the merfolk's homes before the modern age are stilt huts of reed and sea-green boards, their own colours)
+  const stilt = style === 'merfolk' && shape === 'house' && !!def?.housing;
   const mats = MATS[era];
   const W = w * TILE + EAVE * 2;
   const D = d * TILE;
@@ -160,8 +162,10 @@ export function topDownArt(defId: string, w: number, d: number, tone: Tone, tone
         drawHouse(g, true);
         break;
       default:
-        drawHouse(g, false);
+        if (stilt) drawStilt(g);
+        else drawHouse(g, false);
     }
+    if (stilt) return;
     topper(g);
     const st = style === 'nomads_city' ? 'nomads' : style;
     if (st !== 'town' && st !== 'settlers') reclad(p, st as Style);
@@ -328,6 +332,74 @@ function drawHouse(g: G, hall: boolean): void {
     p.rect(cx - 1, 1, 6, 2, '#5a5a56');
     g.smoke.push({ x: cx + 2, y: 1 });
   }
+}
+
+/** A merfolk home: a round reed roof seen from above, its thatch raked out from the crown and fringed at the eaves,
+ *  over a short wall of sea-green boards with a round-topped door and a lit porthole, on a plank deck raised on stilts
+ *  (it may stand in the shallows); a net hung to dry and a string of shells. */
+function drawStilt(g: G): void {
+  const { p, W, H, seed } = g;
+  const REED: [string, string] = ['#c8b070', '#8a7440'];
+  const BOARD: [string, string] = ['#4a8a84', '#2e605c'];
+  const POST = '#5a4632';
+  const deckBottom = H - 8;
+  const deckTop = deckBottom - 4;
+  const wallTop = deckTop - Math.min(22, Math.round(g.D * 0.36));
+  const x0 = EAVE + 2;
+  const x1 = W - EAVE - 2;
+  // the stilts, their feet darkened where the water or ground takes them
+  for (let x = x0 + 2; x < x1 - 2; x += Math.max(8, Math.round((x1 - x0 - 6) / 4))) {
+    p.rect(x, deckBottom, 2, H - deckBottom, POST);
+    p.frect(x + 1.5, deckBottom, 0.5, H - deckBottom, mix(POST, '#000000', 0.35));
+    p.frect(x - 0.5, H - 1.5, 3, 1.5, 'rgba(0,0,0,0.3)');
+  }
+  p.frect(x0 + 2, deckBottom + 2, x1 - x0 - 4, 0.5, mix(POST, '#000000', 0.2)); // a cross brace
+  // the deck: planks running across, lit along the front edge
+  p.rect(x0 - 2, deckTop, x1 - x0 + 4, deckBottom - deckTop, '#7a6448');
+  for (let x = x0 + 1; x < x1 + 2; x += 3) p.frect(x, deckTop, 0.5, deckBottom - deckTop, '#5a4632');
+  p.frect(x0 - 2, deckBottom - 0.5, x1 - x0 + 4, 0.5, mix('#7a6448', '#ffffff', 0.25));
+  // the wall: boards, a round-topped door, a porthole
+  p.rect(x0, wallTop, x1 - x0, deckTop - wallTop, BOARD[0]);
+  for (let x = x0 + 2; x < x1; x += 3) p.frect(x, wallTop, 0.5, deckTop - wallTop, BOARD[1]);
+  const mid = Math.round(W / 2);
+  p.rect(mid - 3, wallTop + 3, 6, deckTop - wallTop - 3, '#1a2a2a');
+  p.disc(mid, wallTop + 3, 3, '#1a2a2a');
+  if (x1 - x0 >= 30) {
+    const wx = x1 - 8;
+    p.disc(wx, wallTop + 5, 2.5, '#2e4a48');
+    p.disc(wx, wallTop + 5, 1.5, WINDOW);
+  }
+  // the roof: a dome of reed from the crown down to the eaves, wider than the wall
+  const cx = W / 2;
+  const top = 1;
+  const bottom = wallTop + 2;
+  const rx = W / 2 - 1;
+  for (let y = top; y < bottom; y++) {
+    const t = (y - top) / Math.max(1, bottom - top);
+    const half = rx * Math.sqrt(Math.min(1, 0.15 + t * 1.1));
+    p.frect(cx - half, y, half * 2, 1, mix(REED[0], REED[1], 0.1 + 0.55 * t));
+  }
+  // the thatch laid in rings, each course's foot shadowed and a few reeds lit along it; a handful of rakes from the crown
+  for (let y = top + 5; y < bottom - 1; y += 4) {
+    const tt = (y - top) / Math.max(1, bottom - top);
+    const half = rx * Math.sqrt(Math.min(1, 0.15 + tt * 1.1));
+    p.frect(cx - half + 1, y + 0.5, half * 2 - 2, 0.5, mix(REED[1], '#000000', 0.2));
+    for (let x = cx - half + 1 + (y % 3); x < cx + half - 1; x += 3) p.frect(x, y - 1, 0.5, 1, x < cx ? mix(REED[0], '#ffffff', 0.25) : REED[1]);
+  }
+  for (let i = 0; i < 7; i++) {
+    const a = Math.PI * (0.12 + (0.76 * i) / 6);
+    p.fline(cx, top + 2, cx - Math.cos(a) * (rx - 3), top + 2 + Math.sin(a) * (bottom - top - 4), mix(REED[1], '#000000', 0.08));
+  }
+  // the fringe at the eaves, ragged, and its shadow on the boards
+  for (let x = cx - rx + 1; x < cx + rx - 1; x += 2) p.frect(x, bottom - 1, 1, 1 + (Math.floor(x * 7 + seed) % 3) * 0.5, REED[1]);
+  p.frect(x0, bottom + 0.5, x1 - x0, 1.5, 'rgba(0,0,0,0.28)');
+  // the crown: a knot of reed bound with cord
+  p.disc(cx, top + 2, 2.5, REED[1]);
+  p.frect(cx - 2, top + 2, 4, 0.5, '#6a3a2a');
+  // a net hung to dry on the left, a string of shells on the right
+  for (let y = wallTop + 2; y < deckTop - 1; y += 2) p.frect(x0 + 2, y, 6, 0.5, '#d8ccb0');
+  for (let x = x0 + 2; x <= x0 + 8; x += 2) p.frect(x, wallTop + 2, 0.5, deckTop - wallTop - 3, '#d8ccb0');
+  for (let i = 0; i < 4; i++) p.disc(x1 - 3 - i * 3, deckTop - 2 - (i % 2), 1, i % 2 ? '#f0d8d0' : '#e8b8a8');
 }
 
 /** A flat-roofed block: a parapet round a flat plane with vents and a skylight; glass and panels below. */

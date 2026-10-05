@@ -23,8 +23,19 @@ const ZOOM_KEYS: Record<Orientation, string> = { upright: 'littletown.zoom4', si
 const DEFAULT_ZOOMS: Record<Orientation, number> = { upright: 0.5, sideways: 0.5 };
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.6;
-/** Upright, the town takes this share of the height between the title bar and the tabs (the feed has the rest). */
+/** Upright, the town takes at least this share of the height between the title bar and the tabs (the feed has the
+ *  rest), and up to UPRIGHT_TOWN_MOST while the feed holds little: the map has the room until there's news. */
 const UPRIGHT_TOWN = 0.55;
+const UPRIGHT_TOWN_MOST = 0.82;
+/** The town's share upright, by how much the feed has to show (in steps of a twentieth, so it doesn't twitch). */
+function townShare(free: number): number {
+  const feed = document.getElementById('feed');
+  if (!feed || free <= 0) return UPRIGHT_TOWN;
+  let need = 12;
+  for (const c of Array.from(feed.children) as HTMLElement[]) if (c.offsetHeight) need += c.offsetHeight + 6;
+  const share = Math.round((1 - need / free) * 20) / 20;
+  return Math.min(UPRIGHT_TOWN_MOST, Math.max(UPRIGHT_TOWN, share));
+}
 
 const bridge = mobileBridge();
 window.bridge = bridge;
@@ -74,7 +85,7 @@ function layout(): void {
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
   // (upright, the town has the lower part and the feed the rest; on its side, everything under the tabs)
   // (in a battle the map has all of it, the feed hidden; watching a party's fight too, drawn at its own scale)
-  const room = sideways.matches || battleOn ? free : Math.round(free * UPRIGHT_TOWN);
+  const room = sideways.matches || battleOn ? free : Math.round(free * townShare(free));
   // (the top-down town fills its room at the zoom, a raid's battle on it; a party's fight is drawn at its own scale)
   const fit = watchOn ? 1 : zoom;
   // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
@@ -97,7 +108,7 @@ function layout(): void {
     win.__setStripScale?.(z);
   }
   document.documentElement.style.setProperty('--strip-h', `${height * z}px`);
-  strip.contentDocument?.documentElement?.style.setProperty('--ui-zoom', String(Math.max(1, 1 / z)));
+  strip.contentDocument?.documentElement?.style.setProperty('--ui-zoom', String(1 / z));
   // (while the feed is showing, its cards carry the news: the strip's own pop-up notices would only repeat them)
   strip.contentDocument?.body?.classList.toggle('feed-shown', !sideways.matches && !battleOn);
 }
@@ -119,31 +130,33 @@ strip.addEventListener('load', layout); // (for the strip's --ui-zoom)
 layout();
 
 // Two fingers pinching the town zoom it (the strip reports the pinch; the zooming happens here). While the fingers
-// are down the strip is only scaled on the screen (a CSS transform about the point between them: cheap and smooth);
-// when they lift it is laid out again at the new zoom, drawn sharp, and its view moved so what was under the fingers
-// stays there. The strip measures the fingers in its own pixels, which shrink and grow with the scale it's shown at,
-// so they're turned into screen pixels by that scale.
-let pinch: { zoom: number; z: number; screen: number; mx: number; my: number; shown: number } | null = null;
+// are down only the map's canvas inside the strip is scaled (a CSS transform about the point between them: cheap and
+// smooth), so the clock bar and the other overlays over the map stay as they are; when the fingers lift the strip is
+// laid out again at the new zoom, drawn sharp, and its view moved so what was under the fingers stays there. The strip
+// measures the fingers in its own pixels, which is what the canvas's transform is in too.
+let pinch: { zoom: number; z: number; screen: number; mx: number; my: number; k: number } | null = null;
+const mapCanvas = () => strip.contentDocument?.querySelector('body > canvas') as HTMLCanvasElement | null;
 bridge.onPinch?.((phase, spread, mx, my) => {
   if (phase === 'start') {
     const z = parseFloat(strip.style.transform.replace('scale(', '')) || zoom; // (what the strip is shown at now)
-    pinch = { zoom, z, screen: spread * z, mx, my, shown: z };
-    stripBox.classList.add('pinching'); // (the strip, scaled past its box, is clipped to it)
+    pinch = { zoom, z, screen: spread, mx, my, k: 1 };
+    const c = mapCanvas();
+    if (c) c.style.transformOrigin = '0 0';
   } else if (phase === 'move') {
     if (!pinch) return;
-    // (the fingers' spread on the screen, against where they began: how much to zoom by)
-    const k = Math.min(MAX_ZOOM / pinch.zoom, Math.max(MIN_ZOOM / pinch.zoom, (spread * pinch.shown) / pinch.screen));
-    pinch.shown = pinch.z * k;
-    // (the point between the fingers stays put: the strip grows about it)
-    const sx = pinch.mx * pinch.z;
-    const sy = pinch.my * pinch.z;
-    strip.style.transform = `translate(${sx * (1 - k)}px, ${sy * (1 - k)}px) scale(${pinch.shown})`;
+    // (the fingers' spread against where they began: how much to zoom by)
+    const k = Math.min(MAX_ZOOM / pinch.zoom, Math.max(MIN_ZOOM / pinch.zoom, spread / pinch.screen));
+    pinch.k = k;
+    // (the point between the fingers stays put: the map grows about it)
+    const c = mapCanvas();
+    if (c) c.style.transform = `translate(${pinch.mx * (1 - k)}px, ${pinch.my * (1 - k)}px) scale(${k})`;
     zoom = pinch.zoom * k;
   } else {
     if (!pinch) return;
     const { mx, my, z } = pinch;
     pinch = null;
-    stripBox.classList.remove('pinching');
+    const c = mapCanvas();
+    if (c) c.style.transform = '';
     setZoom(zoom); // (laid out again, sharp, and saved)
     const now = parseFloat(strip.style.transform.replace('scale(', '')) || zoom;
     (strip.contentWindow as (Window & { __zoomAbout?: (mx: number, my: number, from: number, to: number) => void }) | null)?.__zoomAbout?.(mx, my, z, now);
@@ -242,6 +255,25 @@ void bridge.getState().then(applyState); // (a first run opens on the New town p
 /* ------------------------------------------------------------ the feed (upright) */
 
 startFeed($('feed'), bridge, strip);
+// (as the feed fills or empties, the town gives up room or takes it back)
+{
+  let share = -1;
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      if (sideways.matches) return;
+      const free = window.innerHeight - $('tabs').offsetHeight - $('top').offsetHeight;
+      const now = townShare(free);
+      if (now !== share) {
+        share = now;
+        layout();
+      }
+    });
+  }).observe($('feed'), { childList: true, subtree: true, characterData: true });
+}
 
 /* ------------------------------------------------------------ the selected thing's card */
 

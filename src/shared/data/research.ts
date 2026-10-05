@@ -40,6 +40,9 @@ export type Effect =
   | { type: 'quality'; add: number }
   /** The town's powers come back this much sooner (a multiplier on the wait), and their effects last this much longer. */
   | { type: 'powers'; recharge: number; lasts?: number }
+  /** The care of the hurt (sim/health.ts): healing this much faster, the downed taking this much longer to bleed out,
+   *  and getting up again at this share of the health they used to need. */
+  | { type: 'care'; heal?: number; bleed?: number; feet?: number }
   | { type: 'eraCapstone' };
 
 export interface Topic {
@@ -100,7 +103,10 @@ export const TOPICS: readonly Topic[] = [
   { id: 'tanning', name: 'Tanning', branch: 'crafting', seconds: 210, prereqs: ['spear_hunting'], unlocks: '', effects: [] },
   { id: 'food_preservation', name: 'Food Preservation', branch: 'agriculture', seconds: 180, prereqs: ['fire_keeping'], unlocks: '', effects: [] },
   { id: 'pottery', name: 'Pottery', branch: 'crafting', seconds: 210, prereqs: ['fire_keeping'], unlocks: '+20% storage', effects: [{ type: 'storage', mult: 1.2 }] },
-  { id: 'herbalism', name: 'Herbalism', branch: 'medicine', seconds: 180, prereqs: ['foraging'], unlocks: '', effects: [] },
+  { id: 'herbalism', name: 'Herbalism', branch: 'medicine', seconds: 180, prereqs: ['foraging'], unlocks: 'The hurt heal 15% faster', effects: [{ type: 'care', heal: 1.15 }] },
+  // (the care of the hurt, era by era: data for sim/health.ts through the `care` effect)
+  { id: 'bonesetting', name: 'Bonesetting', branch: 'medicine', seconds: 210, prereqs: ['herbalism'], refinement: true, unlocks: 'The downed get up sooner, and heal 10% faster', effects: [{ type: 'care', feet: 0.7, heal: 1.1 }] },
+  { id: 'field_dressing', name: 'Field Dressing', branch: 'medicine', seconds: 210, prereqs: ['herbalism', 'cordage'], refinement: true, unlocks: 'The downed take half again as long to bleed out', effects: [{ type: 'care', bleed: 1.5 }] },
   { id: 'scouting', name: 'Scouting', branch: 'logistics', seconds: 240, prereqs: ['cordage'], unlocks: 'Scout expeditions, more destinations', effects: [] },
   { id: 'palisades', name: 'Palisades', branch: 'military', seconds: 240, prereqs: ['woodcutting'], unlocks: '', effects: [] },
   { id: 'lookout', name: 'Lookout', branch: 'military', seconds: 240, prereqs: ['palisades'], unlocks: 'Raid warning', effects: [] },
@@ -128,7 +134,10 @@ export const TOPICS: readonly Topic[] = [
   { id: 'baking', name: 'Baking', branch: 'agriculture', era: 'medieval', seconds: 300, prereqs: ['milling', 'masonry'], unlocks: 'Bread', effects: [] },
   { id: 'crop_rotation', name: 'Crop Rotation', branch: 'agriculture', era: 'medieval', seconds: 360, prereqs: [], unlocks: 'Fields grow 30% faster, and tire and take blight half as much', effects: [{ type: 'cropSpeed', mult: 1.3 }, { type: 'soil', mult: 0.5 }] },
   { id: 'animal_husbandry', name: 'Animal Husbandry', branch: 'agriculture', era: 'medieval', seconds: 480, prereqs: ['carpentry', 'domestication'], unlocks: 'Horses for expeditions', effects: [] },
-  { id: 'physick', name: 'Physick', branch: 'medicine', era: 'medieval', seconds: 420, prereqs: ['weaving'], unlocks: 'Faster healing', effects: [] },
+  { id: 'physick', name: 'Physick', branch: 'medicine', era: 'medieval', seconds: 420, prereqs: ['weaving'], unlocks: 'The hurt heal 25% faster', effects: [{ type: 'care', heal: 1.25 }] },
+  { id: 'barber_surgeons', name: 'Barber-Surgeons', branch: 'medicine', era: 'medieval', seconds: 420, prereqs: ['physick', 'iron_working'], unlocks: 'The downed take half again as long to bleed out, and heal 10% faster', effects: [{ type: 'care', bleed: 1.5, heal: 1.1 }] },
+  { id: 'peg_and_hook', name: 'Peg and Hook', branch: 'medicine', era: 'medieval', seconds: 420, prereqs: ['barber_surgeons'], unlocks: 'Peg legs, hook hands and wooden arms, fitted by the healer for a lost limb', effects: [] },
+  { id: 'convalescence', name: 'Convalescence', branch: 'medicine', era: 'medieval', seconds: 360, prereqs: ['physick'], refinement: true, unlocks: 'The hurt heal 30% faster', effects: [{ type: 'care', heal: 1.3 }] },
   { id: 'archery', name: 'Archery', branch: 'military', era: 'medieval', seconds: 360, prereqs: ['carpentry'], unlocks: '', effects: [] },
   { id: 'armoring', name: 'Armoring', branch: 'military', era: 'medieval', seconds: 540, prereqs: ['iron_working', 'leatherworking'], unlocks: '', effects: [] },
   { id: 'fortification', name: 'Fortification', branch: 'military', era: 'medieval', seconds: 480, prereqs: ['masonry'], unlocks: 'Two hours of raid warning; caltrops and boiling oil', effects: [] },
@@ -148,6 +157,8 @@ export const TOPICS: readonly Topic[] = [
   { id: 'firearms', name: 'Firearms', branch: 'military', era: 'industrial', seconds: 480, prereqs: ['steelmaking'], unlocks: '', effects: [] },
   { id: 'industrial_farming', name: 'Industrial Farming', branch: 'agriculture', era: 'industrial', seconds: 480, prereqs: ['steam_power'], unlocks: 'Fields grow 50% faster', effects: [{ type: 'cropSpeed', mult: 1.5 }] },
   { id: 'sanitation', name: 'Sanitation', branch: 'medicine', era: 'industrial', seconds: 420, prereqs: ['glassblowing'], unlocks: 'The Hospital; plague spreads far less', effects: [] },
+  { id: 'antiseptics', name: 'Antiseptics', branch: 'medicine', era: 'industrial', seconds: 480, prereqs: ['sanitation'], unlocks: 'Wounds stay clean: the hurt heal 30% faster, and the downed bleed out 30% slower', effects: [{ type: 'care', heal: 1.3, bleed: 1.3 }] },
+  { id: 'prosthetics', name: 'Prosthetics', branch: 'medicine', era: 'industrial', seconds: 480, prereqs: ['antiseptics', 'steelmaking'], unlocks: 'Jointed limbs and glass eyes, nearly as good as the real thing', effects: [] },
   { id: 'railways', name: 'Railways', branch: 'logistics', era: 'industrial', seconds: 600, prereqs: ['steam_power'], unlocks: '+10 carry, +30% storage', effects: [{ type: 'carry', add: 10 }, { type: 'storage', mult: 1.3 }] },
   { id: 'urban_housing', name: 'Urban Housing', branch: 'construction', era: 'industrial', seconds: 420, prereqs: ['steelmaking'], unlocks: '', effects: [] },
   { id: 'public_library', name: 'Public Libraries', branch: 'society', era: 'industrial', seconds: 540, prereqs: ['glassblowing'], unlocks: '+1 research queue slot', effects: [{ type: 'researchSlots', add: 1 }] },
@@ -164,6 +175,7 @@ export const TOPICS: readonly Topic[] = [
   { id: 'rifles', name: 'Rifles', branch: 'military', era: 'modern', seconds: 480, prereqs: ['refining'], unlocks: 'Rifles, cartridges and body armour', effects: [] },
   { id: 'mechanized_farming', name: 'Mechanized Farming', branch: 'agriculture', era: 'modern', seconds: 480, prereqs: ['motor_transport'], unlocks: 'Fields grow 50% faster', effects: [{ type: 'cropSpeed', mult: 1.5 }] },
   { id: 'trauma_surgery', name: 'Trauma Surgery', branch: 'medicine', era: 'modern', seconds: 540, prereqs: ['electronics'], unlocks: 'The Trauma Center', effects: [] },
+  { id: 'triage', name: 'Triage', branch: 'medicine', era: 'modern', seconds: 540, prereqs: ['trauma_surgery'], refinement: true, unlocks: 'The downed take twice as long to bleed out', effects: [{ type: 'care', bleed: 2 }] },
   { id: 'radio', name: 'Radio', branch: 'society', era: 'modern', seconds: 480, prereqs: ['electronics'], unlocks: '+1 research queue slot', effects: [{ type: 'researchSlots', add: 1 }] },
   { id: 'higher_education', name: 'Higher Education', branch: 'society', era: 'modern', seconds: 600, prereqs: ['electronics', 'modern_housing'], unlocks: 'The University: research five times as fast', effects: [] },
   { id: 'containerization', name: 'Containerization', branch: 'logistics', era: 'modern', seconds: 540, prereqs: ['motor_transport'], unlocks: '+1 craft and build queue slot, +30% storage', effects: [{ type: 'queueSlots', add: 1 }, { type: 'storage', mult: 1.3 }] },
@@ -182,6 +194,7 @@ export const TOPICS: readonly Topic[] = [
   { id: 'energy_weapons', name: 'Energy Weapons', branch: 'military', era: 'space', seconds: 540, prereqs: ['power_storage', 'advanced_alloys'], unlocks: 'Laser rifles and powered armour', effects: [] },
   { id: 'fusion', name: 'Fusion Power', branch: 'construction', era: 'space', seconds: 600, prereqs: ['power_storage'], unlocks: 'The Fusion Reactor: crafting 50% faster', effects: [] },
   { id: 'energy_shields', name: 'Energy Shields', branch: 'military', era: 'space', seconds: 600, prereqs: ['fusion'], unlocks: 'The Shield Generator', effects: [] },
+  { id: 'bionics', name: 'Bionics', branch: 'medicine', era: 'space', seconds: 600, prereqs: ['robotics', 'prosthetics'], unlocks: 'Bionic limbs and eyes, better than the ones lost', effects: [] },
   { id: 'cloning', name: 'Cloning', branch: 'medicine', era: 'space', seconds: 600, prereqs: ['robotics'], unlocks: 'The Clone Vat: the founder can be brought back, forgetting some skill', effects: [] },
   { id: 'artificial_intelligence', name: 'Artificial Intelligence', branch: 'society', era: 'space', seconds: 720, prereqs: ['robotics'], unlocks: '+1 research queue slot, +25% research speed', effects: [{ type: 'researchSlots', add: 1 }, { type: 'researchSpeed', mult: 1.25 }] },
   { id: 'starship_design', name: 'Starship Design', branch: 'society', era: 'space', seconds: 1800, prereqs: ['artificial_intelligence', 'fusion'], requiresCount: 8, unlocks: 'The Launch Site: build the ship and leave for the stars', effects: [{ type: 'eraCapstone' }] },
@@ -377,6 +390,8 @@ export function describeEffects(effects: readonly Effect[]): string {
           return `+${e.add} carry`;
         case 'storage':
           return `${pct(e.mult)} storage`;
+        case 'care':
+          return [e.heal ? `the hurt heal ${pct(e.heal)} faster` : '', e.bleed ? `the downed bleed out ${pct(1 / e.bleed).replace('−', '')} slower` : '', e.feet ? 'the downed get up sooner' : ''].filter(Boolean).join(', ');
         case 'eraCapstone':
           return '';
       }

@@ -3,6 +3,8 @@
 
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
+import type { TaxRate } from '../data/economy';
+import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
 import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
@@ -17,6 +19,7 @@ import { DESTINATIONS, type Role, type Stance } from '../data/expeditions';
 import { ITEM_BY_ID, type FareKind, type Slot } from '../data/items';
 import { RAID_GRACE_HOURS, type RaidGoal } from '../data/raids';
 import type { WorkAnim } from '../data/terrain';
+import type { EventEffect } from '../data/eventKit';
 import type { MapPlace } from './places';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import type { MidTerrain } from '../world';
@@ -99,6 +102,8 @@ export interface Building {
   readyTick?: number;
   /** Who runs it (buildings with an operator role), and whether the player picked them. */
   operator?: number | null;
+  /** Who owns it (sim/property.ts): a person, or the treasury when left out. */
+  owner?: number;
   /** A pen widened for its herd: this many columns more than its def's width (sim/livestock.ts `growPen`). */
   wide?: number;
   operatorChosen?: boolean;
@@ -116,6 +121,8 @@ export interface Building {
     started?: boolean;
     /** The décor direction its keeper chose, and how far it has been taken (data/decor.ts). */
     decor?: { style: DecorId; level: number };
+    /** What it took today and yesterday (sim/ambition.ts: a business's price). */
+    takings?: { day: number; today: number; yesterday: number };
   };
 }
 
@@ -209,6 +216,10 @@ export type Task =
   | { type: 'repair'; building: number }
   /** Beat out a fire. */
   | { type: 'extinguish'; building: number }
+  /** Held to the town's work by an event (cutting a fireline, the long night's watch: `s.busy`, sim/events.ts). */
+  | { type: 'toil' }
+  /** At a funeral or a feast (sim/ceremonies.ts). */
+  | { type: 'attend' }
   /** Sow a fallow field or harvest a ripe one. */
   | { type: 'farm'; building: number }
   /** Dig at a mine until your hands are full. */
@@ -368,6 +379,23 @@ export interface Person {
   /** Worn items (item ids) by slot, and their quality (Common when left out; see data/quality.ts). */
   gear: Partial<Record<Slot, string>>;
   gearQ?: Partial<Record<Slot, number>>;
+  /** Their income (sim/economy.ts): today's and yesterday's coins, pay owed for work by the hour not yet a whole
+   *  coin, and what the last hourly pay was for (the Townsfolk tab). */
+  pay?: { day: number; today: number; yesterday: number };
+  /** Rent they couldn't pay, and rent paid in all (sim/property.ts). */
+  debt?: number;
+  rentPaid?: number;
+  taxPaid?: number;
+  /** Their life's goal (data/ambitions.ts), decided once they're grown; trips made (sim/ambition.ts). */
+  ambition?: AmbitionId;
+  trips?: number;
+  /** When their last trip came home (sim/parties.ts: rested before the next). */
+  homeAt?: number;
+  /** A guard hired by the treasury (sim/treasury.ts), and the days running it couldn't pay them. */
+  guard?: boolean;
+  guardUnpaid?: number;
+  owed?: number;
+  paidFor?: { line: string; n: number };
   /** Set when the person can't put down what they carry because all storage is full. */
   blocked: boolean;
   /** Expedition id while they're away from town (not simulated or drawn in town meanwhile). */
@@ -387,6 +415,13 @@ export interface Person {
   grownAt?: number;
   /** Grieving someone close, until a tick. */
   grief?: { until: number; value: number; text: string } | null;
+  /** Wounds on the body, lasting scars and lost parts, prosthetics fitted for them, and a surgery's rest (sim/injuries.ts). */
+  wounds?: { part: import('../data/injuries').BodyPart; kind: import('../data/injuries').WoundKind; sev: number; peak: number }[];
+  lasting?: { part: import('../data/injuries').BodyPart; kind: 'scar' | 'lost' }[];
+  fitted?: Partial<Record<import('../data/injuries').BodyPart, string>>;
+  surgeryUntil?: number;
+  /** A brawl with an enemy smarting still (sim/social.ts). */
+  sore?: { until: number; value: number; text: string } | null;
   /** A mental break in progress (see breaks.ts). */
   breakdown?: { kind: 'sulk' | 'binge' | 'brawl' | 'wander'; until: number; target?: number } | null;
   /** Game hours their morale has been at breaking point. */
@@ -509,6 +544,8 @@ export interface Expedition {
   dest: string;
   /** What the player staked on it as it left (sim/expeditions.ts STAKES): a safe or a risky trip. */
   stakes?: 'safe' | 'risky';
+  /** Who gathered the party, when it formed itself (sim/parties.ts). */
+  leader?: number;
   /** Person ids, leader first. */
   members: number[];
   phase: ExpeditionPhase;
@@ -561,7 +598,7 @@ export interface Visitor {
 }
 
 export interface GameState {
-  version: 16;
+  version: 17;
   /** World seed (the land is made from it; changes live in `land`). */
   seed: string;
   /** Ticks simulated since the game began. */
@@ -702,6 +739,21 @@ export interface GameState {
   ring?: Ring;
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
+  /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
+   *  formed itself (sim/parties.ts). */
+  vetoed?: string[];
+  /** An event holds some of the town to one job for a while (a fireline cut, the bridge rebuilt): who, where, till when. */
+  /** Life's ceremonies (sim/ceremonies.ts): the dead to bury at the next funeral (with who was close), a feast due, the
+   *  gathering under way, and when the last feast was. */
+  funeralsDue?: { name: string; close: number[]; tick: number }[];
+  feastDue?: { kind: 'wedding' | 'feast'; text: string };
+  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; ids: number[]; until: number; text: string; x: number; y: number };
+  lastFeast?: number;
+  /** An event to put to the player next, once the one open now is answered (`follow`). */
+  eventNext?: string;
+  busy?: { until: number; ids: number[]; text: string; x: number; y: number; anim: 'chop' | 'build' | 'mine' };
+  bounties?: Record<string, number>;
+  lastParty?: number;
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
@@ -751,9 +803,13 @@ export interface GameState {
   lastVisit?: number;
   /** How many people the player wants the town to hold (unset: as many as come). Nobody joins or is born past it. */
   popTarget?: number;
+  /** The tax lever (data/economy.ts TAX; fair when left out), and since when it has been heavy. */
+  tax?: TaxRate;
+  taxHeavySince?: number;
   eventLog?: string[];
   marks?: { lever: string; value: number; until: number; text: string }[];
-  eventLater?: { tick: number; event: string; option: number; index: number; who?: number }[];
+  /** Effects waiting their hour: a top-level `later` of an answer (by its place), or one met deeper (its effects kept). */
+  eventLater?: { tick: number; event: string; option: number; index: number; who?: number; effects?: EventEffect[] }[];
   /** Where the town's coins came from and went, today and yesterday (see earn). */
   ledger?: { day: number; today: Ledger; yesterday: Ledger | null };
 }
@@ -846,7 +902,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */
@@ -1032,7 +1088,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   }
 
   return {
-    version: 16,
+    version: 17,
     seed,
     tick: 0,
     rngState: rng.state,
