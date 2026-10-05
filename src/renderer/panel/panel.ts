@@ -12,7 +12,7 @@ import { renderResearch, researchKey } from './researchPanel';
 import { renderTownsfolk, townsfolkKey } from './townsfolkPanel';
 import { renderTrade, tradeKey } from './tradePanel';
 import { renderAlerts } from './alertsPanel';
-import { renderNewGame } from './newGamePanel';
+import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { applyTheme, currentTheme, panelLabel } from '../theme';
 
@@ -88,6 +88,8 @@ function render(): void {
 function onState(s: StripState): void {
   if (s.panel !== shown) {
     shown = s.panel;
+    // (New Town opened afresh starts at its first question; its redraws while open keep the step)
+    if (shown === 'newgame') restartNewGame();
     renderedKey = '';
     body.scrollTop = 0;
   }

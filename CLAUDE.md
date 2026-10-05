@@ -1654,6 +1654,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   class (`CLASS_DEFS`: ranged, caster or healer role), not by stats that shift as they level; `FOUNDER_ID` (1).
   `drawFounderArt` in newGamePanel.ts draws the idle frame of that sheet (`PACK_LAYOUT`, `packUrl`) for the founder's
   base class, and the feed's and report card's person pictures (`personPicture` in main.ts) do the same for a founder.
+  So does the Townsfolk tab (`picture` in townsfolkPanel.ts: the list's face and the inspect page's figure), through
+  `heroImage`/`drawHeroIdle` in heroForms.ts (a hero sheet's idle frame on a plain canvas; every caller waiting on a
+  sheet is told when it loads). New Town opened afresh starts at its first question (`restartNewGame`, from panel.ts
+  when the shown panel changes to it); its redraws while open keep the step.
 
 ## The merfolk rework (in progress; the owner's request)
 
