@@ -64,3 +64,15 @@ test('every calling says what it is, how it fights and its role', async () => {
     assert.ok(ROLE_ABOUT[CLASS_DEFS[c].role], c);
   }
 });
+
+test('everyone has a short story of their own', async () => {
+  const { snapshot } = await import('../src/shared/sim/snapshot');
+  const { makePerson } = await import('../src/shared/sim/state');
+  const { Rng } = await import('../src/shared/rng');
+  const s = plainGame('stories');
+  const rng = new Rng(9);
+  for (let i = 0; i < 40; i++) s.people.push(makePerson(rng, s.nextId++, ['wanderer', 'hunter', 'crafter', 'gatherer', 'hermit'][i % 5], s.people[0], s.people.map((p) => p.name)));
+  const stories = snapshot(s).people.map((p) => p.story);
+  assert.ok(stories.every((t) => t.length > 60), 'each a few sentences');
+  assert.ok(new Set(stories).size === stories.length, 'no two alike');
+});

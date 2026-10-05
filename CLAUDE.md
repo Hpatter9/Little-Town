@@ -1333,6 +1333,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   how it fights (`CLASS_ABOUT`), and what each role means (`ROLE_ABOUT`: tank, bruiser, striker, shooter, caster,
   healer, support). The Townsfolk page's calling row always says the role; opened, it adds the two lines and the town
   skills the calling takes to (from its `affinity`). A founder's calling shows its base class's.
+- **Everyone's own story (the owner's ask):** `src/shared/data/backstories.ts` (`backstory`): a name-led sentence of
+  where they came from (`FROM`, by their people) and what they did before (`BEFORE`, by how they came), one telling
+  thing about them (`MARK`) and what they want now (`WANT`, by ambition), each part picked by a hash of their id and
+  name, so it never changes; children born in town get their birth and parents instead; a ready-made founder keeps the
+  story written for them. `PersonView.story` (`storyOf` in snapshot.ts), shown first on the Background tab.
 - **Game speed (the owner's ask):** a 1×/2×/3× button on the clock bar (`hud.ts`, the `gameSpeed` command,
   `s.gameSpeed`, `snapshot.speed`); `battleSpeedNow` (battle.ts, read by `GameLoop.pump`) returns it outside a battle,
   and the battle's own speed during one. Time away is unaffected.

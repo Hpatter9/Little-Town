@@ -247,6 +247,8 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   const left = el('div', 'inspect-col');
   left.append(el('h2', '', 'Who they are'));
   const who = el('div', 'card person');
+  // their own story first (data/backstories.ts)
+  if (p.story) who.append(el('div', 'story', p.story));
   if (p.ageText) who.append(el('div', 'lock', p.ageText));
   who.append(el('div', 'purpose', `${p.natureName}: ${p.natureLine}`));
   if (p.ambition) who.append(el('div', 'purpose', `Wants to be ${p.ambition.name.toLowerCase()}: ${p.ambition.line}`));

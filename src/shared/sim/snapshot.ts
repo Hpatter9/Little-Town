@@ -3,6 +3,8 @@
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
 import { boatLine, boatyardOf, fleet, mooring } from './boats';
 import { peopleOf } from './strangers';
+import { FOUNDER_BY_ID } from '../data/founders';
+import { backstory } from '../data/backstories';
 import { AMBITIONS } from '../data/ambitions';
 import { TICKS_PER_DAY } from './time';
 import { ambitionOf, businessPrice } from './ambition';
@@ -210,6 +212,8 @@ export interface PersonView {
   /** Their town job, if they hold one ("Smith", "Shopkeeper"), and where. */
   job: { title: string; at: string } | null;
   natureLine: string;
+  /** Their own short story (data/backstories.ts; a ready-made founder's is the one written for them). */
+  story: string;
   /** Their life's goal (data/ambitions.ts), and trips made. */
   ambition: { name: string; line: string } | null;
   trips: number;
@@ -1273,6 +1277,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     natureName: natureOf(p).name,
     job: jobView(s, p),
     natureLine: natureOf(p).line,
+    story: storyOf(s, p),
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
     trips: p.trips ?? 0,
     swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
@@ -1320,6 +1325,21 @@ function taskDone(s: GameState, p: Person): number | null {
     default:
       return null;
   }
+}
+
+/** Someone's story: a ready-made founder's own, else put together for them (data/backstories.ts). */
+function storyOf(s: GameState, p: Person): string {
+  const own = p.fcls ? FOUNDER_BY_ID[p.fcls]?.story : undefined;
+  if (own) return own;
+  const parents = (p.parents ?? []).map((id) => s.people.find((q) => q.id === id)?.name).filter((n): n is string => !!n);
+  return backstory({
+    id: p.id,
+    name: p.name,
+    type: p.type,
+    people: peopleOf(s, p),
+    ambition: p.bornTick == null ? (p.ambition ?? null) : null,
+    born: p.bornTick != null || p.parents?.length ? { town: originOf(s).town, parents } : undefined,
+  });
 }
 
 /** What a spell or fighting skill does, in a line, by its name (the fight banner's third line). */
