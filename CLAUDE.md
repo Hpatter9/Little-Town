@@ -155,33 +155,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `castPowers` (the `TOUCH` table in powers.ts says what each power touches) and `rivalsInRaid`; `snapshot.spells`
   carries them; `src/renderer/town/spellsView.ts` draws them (looks per spell in `town/spellLooks.ts`: bolts,
   streams, roots, rain, fog, rings, domes, arrows, flasks...), above the day-and-night tint so they glow.
-- **The vampire castle (the old strip's; superseded by "The castle as one body of rooms" under the top-down town):**
-  `castle` in an origin's rules (the Blood Court). `src/shared/sim/castle.ts`: the keep's span
-  over the camp (`castleSpan`), which buildings are rooms (`roomKind`), floors (`Building.room`/`floor`; `canPlace`
-  checks overlap per floor), `openFloors`, `roomOf` (the room someone's in: `PersonView.floor`), `adoptRooms` for
-  older saves. The planner's `roomSpot` fills it. Drawn by `src/renderer/art/castle.ts` (`roomArt` cutaways, `keepArt`
-  shell, sliced per 16px in `BuildingsView.syncCastle`); `mobile.ts` zooms and grows the strip so the keep fits.
-  - The look is Castlevania and cut open: rooms and empty chambers seen in section (`section()` hatches the stone the
-    cut runs through: the floors between rooms, the walls between them), and a seeded skyline (`seeded(lo, hi)`: the
-    same castle every time) of round `turret`s with needle spires, a great tower with a `roseWindow`, a steep hall roof,
-    little gables along the battlements, `buttress`es, `gargoyle`s, corbelled corner turrets on the stair towers, and a
-    crag with a round flanking tower each side (the picture is `KEEP_MARGIN_X` wider each side than the keep).
-  - The keep is narrow at the foot and reaches out as it rises (`s.keep`: 12 tiles on the ground floor, 4 more per era,
-    each floor up `flare` 1 tile further out on each side, on corbels, up to `CASTLE_FLOORS` 6). The stair towers stand
-    just past the ground floor's ends and run up through the wider floors; `inKeep` keeps rooms off them. `castleReach`
-    (the top floor) is kept clear of other buildings. Castles from older saves (no `s.keep`) keep the old 16 tiles
-    straight up. The crown spreads across the top floor, with a great corner tower at each end.
-  - Inside the keep everyone is drawn at `INSIDE_SCALE` (0.6, `peopleView.ts`; raiders too, in `raidersView.ts`, who
-    count as inside on its ground floor too), about their feet: only the drawing, so they walk at the same pace.
-  - The keep widens each era (`castleWidth`: 4 more tiles per era). Nothing that belongs inside sprawls: with no
-    room in the keep the planner clears the keep's ground or waits for it to grow. Wells, stables and racks are rooms
-    too (`OUTSIDE` keeps only mines, the graveyard and the launch site out).
-  - Floors are real: `Person.floor`/`climb` and `Raider.floor`/`climb`. A stair tower stands at each end of the keep
-    (`stairXs`, drawn as an open stairwell in `keepArt`); `moveOnFloors` walks to the nearer one, climbs a floor per
-    `CLIMB_SECONDS`, then walks along. People use it through `goTo`/`goToB` in `people.ts`; defenders fight only on their
-    foe's floor. Raiders strike only on their own floor, weigh a climb (`FLOOR_COST`) in choosing a target, break the
-    walls on the ground first, climb after the townsfolk, and come down before they flee. `PersonView.floor` and
-    `RaiderView.floor` are how high up they are (fractional on the stairs).
+- **The vampire castle:** the old strip's keep of floors and stairs is gone; the castle is one level of rooms (see "The castle as one body of rooms" under the top-down town).
 - **Spell sprites:** `SPELL_SHEET_DEFS` in `art/effects.ts` (pvfx and Alenia sheets), matched to spells by `sprite` in
   `town/spellLooks.ts` and placed by `SHEETS` in `spellsView.ts` (foot offset, frame rate, glow). Rival troops use
   the golem/elemental stills (`elem_*`) and strip sheets with a `feet` share (`creatures.ts`).
@@ -210,11 +184,6 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Farm job's `farm` task after the fields; `rustle` when raiders get away). New materials `eggs`, `milk` (food),
   `wool` (spun into cloth at the loom). The animals are drawn by `town/herdsView.ts` (`art/livestockArt.ts`) in the
   background layer.
-- **The background clears with the land:** `backNow`/`backOpen` in `sim/buildings.ts`: a forest, hills or marsh
-  column behind a cleared tile is `cleared`, and background buildings can go there (never on a river). TownView
-  draws the background per column (`b<i>` groups) and rebuilds a column when its tile clears.
-- **The far wall:** `enclosure()` (sim/buildings.ts; `snapshot.enclosure`): walls finished beyond both ends of the
-  town. `art/farWall.ts` draws it in the background's far depth, in the weaker end's material.
 - **Terrain art:** `art/terrain.ts` paints each walkway and midground tile as one texture (road with ruts, stones,
   puddles and a verge; footpaths; forest floor; cobbles; marsh pools), continuous across tiles via `noise()` on
   world x. `art/sprites.ts` has the scenery (trees with bark and leaf clusters, stumps, logs, ferns, mushrooms);
@@ -302,8 +271,6 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     plots merged) → `estate_farm` (Crop Rotation)) through the planner's `consolidateFields` (both plots fallow; in
     winter, with food to spare, or when more food is wanted). The planner counts fields as garden plots' worth of food
     (`plotsWorth`), so a town has about 12 fields where it had 20.
-  - Fields are drawn on the rise behind the town (`slope()` in `art/buildings.ts`: rows of crops climbing back, about
-    40px tall) so they show over the houses' roofs.
 - **Roomier venues:** Trading Post 8x5, General Store 11x6, Emporium 14x7, Fireside Inn 9x6, Tavern 13x7 (`floor` in
   `data/buildings.ts`), up to `MAX_EXTENSIONS` (5) extensions of 2 columns and a row each. Aisles are kept clear
   (`fixedCell` in `shop.ts`: from the door up to the row in front of the counter, and along it). The keeper fills at most
@@ -332,8 +299,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`shelveStalled`: refunded, their kind not tried again for `SHELF_HOURS`), so they don't hold every build slot. Soak
   (8 per origin, 15 days): alchemists 29.0 (was 24.8), druids 32.4 (28.1), vampires 32.6 (29.5), the rest steady.
   Settlers stay lowest (about 23): they start with one person where the others start with three.
-- **Lighter nights:** the town's night tint (`NIGHT_TINT` in `town/townView.ts`) is a moonlit `0x8a96c8` (it was `0x4a5688`, about a
-  third of the light), and the night sky in `town/skyColors.ts` is lifted to match.
+- **Lighter nights:** the map's night tint (`NIGHT_TINT` in `map/mapView.ts`) is a moonlit `0x8a96c8`.
 - **Defenders hold the town's edge:** `townEdgeX` in `raids.ts` (just past the outermost building, walls included, not the
   fields; else the camp's cleared ground). Defenders gather there before a raid (`rallyX`) and in a fight go no further out
   (`doDefend` in `people.ts`), except as far as `THROW_RANGE` after an enemy archer shooting in. Raiders fleeing with loot
@@ -408,13 +374,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     `perPeople` (5), given out like every calling (`assignClass` in sim/classes.ts). They fight from range; their fire (`mageFire` in
     raids.ts, `MAGE_*` in data/raids.ts) ignores armour and bursts over those beside the target for half, in town and on
     the battle map (`MAGE_INTERVAL`, `MAGE_BURST`). Drawn as the sage sheet's blue wizard (`CLASS_LOOK` in peopleView).
-  - The screen: `src/renderer/battle/battleView.ts` (`BattleScene`: the ground painted by `art/battleArt.ts`, the decor,
-    scenery beyond the map's sides, fighters with green bars, raiders with red bars and a red glow, shots, casts in each
-    spell's look, mage fire bursts; it follows the raiders unless dragged) and `battleHud.ts` (top bar: wave, phase,
-    count, Fight now, Auto; bottom bar: fighters to place or spells to aim, hidden when there's nothing to pick).
-    `main.ts` routes taps (place, move, aim) and drags. On the phone the battle takes the whole screen (`body.battle` in
-    `mobile.ts`, the feed hidden); the map fits between the bars (`insets`). `window.__battle` is the scene (for previews:
-    `screenOf`, `leadScreen`).
+  - The screen: the battle is drawn on the town's own map (`map/mapBattle.ts`, see "Phase 5" under the top-down town) with the HUD bars of `battle/battleHud.ts`; on the phone it takes the whole screen (`body.battle` in `mobile.ts`).
   - Tuning: `GROUND` 1.2, `FALL_BACK` 0.12, raiders rout at `ROUT` 0.15 (the first cut, at 1.5 and a quarter,
     roughly halved deaths: settlers 2 where it was 8 with battles off). Soak (4 towns per origin, 15 days, people and
     deaths): settlers 23.8/10, vampires 28.3/12, druids 25.5/3, dwarves 34.0/2, werewolves 27.3/2, knights 32.0/1,
@@ -565,8 +525,6 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
   `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
   (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.
-- **The keep's stairs stay clear:** when a new era widens the keep, `clearStairs` (castle.ts, from era.ts) moves any
-  room left standing over a stair tower to the nearest clear spot.
 
 - **Townsfolk tab: short rows, and an inspect page:** `panel/townsfolkPanel.ts`. The list is one row per person (their
   face cropped from the composed LPC sprite, name, class and level, what they're doing, mini health and morale bars, a
@@ -775,56 +733,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 
 ## Planned (owner's requests)
 
-- **Weapons, ten times over, with +N** (the owner's choices; done, uniques included):
-  - About 160 weapons (from 16): every era gets several of each kind (swords, axes, maces, spears, daggers, bows,
-    crossbows, slings, staves, wands, guns...), with different damage, accuracy, speed and quirks (reach, armour
-    piercing, bleeding, stun, splash, beast or undead bane), so fights vary. Drawn from the icon sheets already used.
-  - **+0 to +5** on crafted weapons and armour, rolled when made from the crafter's Crafting skill and luck, **on top
-    of** the quality grade (Poor to Divine). +4 and +5 are very rare. A basic weapon at +5 is about as good as one
-    three tiers up (+N adds to its damage and accuracy; the grade multiplies as now).
-  - **Unique weapons** that come only from bosses and quests (named, one of each, with special effects), many more
-    than the 7 relics.
-- **Dungeon delves** (the owner's choices: the player picks the party members; done, steps 7 to 11):
-  - Exploring the region with expeditions (a new scouting kind) reveals new areas on the world map, and with them
-    dungeons; this is also how more of the map opens up.
-  - A delve is like an expedition but longer (several hours to a few game days) and more involved: the party goes
-    room by room, fights what turns up, and ends in a boss fight with great loot. Dozens of new bosses.
-  - **Watching it:** tap the delve (on the Expeditions tab or a feed card) and the town view is replaced by the
-    party walking to the right through the dungeon, fighting what comes, until the player goes back to the town.
-  - Several locations and dungeon types (crypt, goblin warren, flooded temple, deep mine, wizard's tower, fey hollow,
-    spider nest, sunken ship, ice cave, volcanic forge, machine vault, dragon's den...), each with its look, monsters
-    and bosses. Sometimes a quest is tied to one.
-  - **Varied rooms:** traps (scouts spot them), treasure rooms, shrines (blessings or curses), puzzle doors (Research),
-    rest camps, forks (riskier or safer way).
-  - **Run modifiers and elites:** each delve rolls a twist (Haunted, Flooded, Rich Veins, Cursed: no healing...);
-    some monsters are elites with affixes (fiery, armoured, swift, vampiric...).
-  - **Supplies and retreat:** torches and rations; running low or losing too many turns the party back with what
-    it found.
-  - **Depth and respawn:** a cleared dungeon goes quiet, then reawakens weeks later deeper and harder.
-  - **Quests:** rescue a captive (they join), bounties on named monsters, relic hunts for a visitor or tavern guest,
-    a fallen delver's gear to recover; offered through events and the tavern.
-  - **Trophy hall:** a building showing boss trophies and uniques; each adds renown and draws travellers.
-  - **Rival adventurers:** another party sometimes races for the same dungeon (beat them, help them and they may
-    join, or fight them for the loot).
-  - **Phone alerts:** the boss reached, a unique found, someone lost, home again.
-  - Deterministic sim like everything else (delves play out offline and in tests); deaths are real.
-- **Classes, levels, spells and skills** (the owner's choices; done, steps 2 to 5):
-  - **125 classes:** 25 base classes (knight, ranger, beast tamer, archer, sorcerer, witch, white mage, monk,
-    assassin, and so on; the five classes there are now fold in), each evolving four times as it levels, so five
-    stages per line. A grown-up is given a class once, at random, weighted by their skills and traits; some classes
-    are much rarer. Never switched after.
-  - **One level from all XP** (work and fighting both feed it, fighting faster): it unlocks the class's skills and
-    spells and its evolutions.
-  - **Gear by class:** each class wears certain kinds (cloth, light, medium, heavy armour; shields; weapon families),
-    overlapping: mages cloth only, knights heavy, assassins light. About 100 armour pieces (robes, hats, leathers,
-    mail, plate, shields), all with +N.
-  - **160 spells and 200 skills** across the classes; a few general ones every class can have, most unique to a class.
-    A caster has 3 spells ready at a time, swapped for better ones as they level, each on a cooldown (the best on
-    long ones, so they're used sparingly).
-  - **Fights in the style of the old Final Fantasy games** (the owner's picture: foes on the left, the party on the
-    right, a box naming the action, a panel of names and health along the bottom): automatic, watched if the player
-    wants. Used for expedition and delve fights. The tower-defence raids stay maps, but their fighters use their
-    classes, skills and spells.
+- **Weapons, ten times over, with +N (done):** see "The armoury" and "Unique weapons and boss loot".
+- **Dungeon delves (done, steps 7 to 11):** see "Scouting and the opened map" through "Quests, rivals, the trophy hall".
+- **Classes, levels, spells and skills (done, steps 2 to 5):** see "Classes and levels", "Watching a party's fights" and "Turn-based fights where stats matter".
 - **Boats (done; the owner's choices: every town by water sails, all four uses, real losses, the town sails on its
   own with the player's veto and bounty):** `src/shared/data/boats.ts` and `src/shared/sim/boats.ts`.
   - **The fleet:** `BOATS` by age (dugout canoe from Boatbuilding, longboat from Shipwrighting, carrack from
@@ -865,11 +776,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     boats and says on each card which boat a trip would take. Inventory icons `boat_*` in customIcons.ts.
   - Names that are a doing ("Scout the Far Isles", "Trade with ...") no longer take "the" (`OWN_ARTICLE` in
     data/expeditions.ts). Tests: `test/boats.test.ts`.
-- **Merfolk rework** (the owner's request, for later): the merfolk need much more of an ocean and merfolk feel. Likely:
-  a shoreline or reef town (water in front of the town, tide pools, docks and coral), merfolk who look like merfolk
-  (tails or fins and scales in the water, sea colours; not just elf ears and blue skin), sea-themed buildings and
-  homes, the Craftpix ocean and underwater backdrops and seabed props, sea food and materials (kelp, pearls, coral),
-  and sea raiders and beasts. Not designed yet.
+- **Merfolk rework (done):** see "The merfolk rework" below.
 - **The top-down town (decided, in progress):** the side-on strip is replaced entirely by a sprawling top-down map in
   the raid map's style (Craftpix's top-down village, fields, path and road tilesets and the props atlases; buildings
   stand on their footprints, drawn front-on, sorted by depth). The town builds outward with roads and buildings laid
@@ -926,9 +833,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     strip views are no longer drawn (the old `town/` files stay until the map is complete). The phone page shows the map
     at zoom 0.5 by default (keys `littletown.zoom4*`, 0.25 to 2.6), filling the strip's room. `setCamera` culls the
     chunks and things outside the view (Pixi draws everything else). `window.__map` and `window.__hitTest` are for
-    previews. Still to do later (phases 6 and 7): homes and workshops from the top-down packs, the keep's walls, the
-    nomads' camp, animals, spell effects, people facing up and down, and deleting the old `town/` views (battleView and
-    fightView still import spellsView, spellLooks and peopleView's constants).
+    previews. (What this first cut left for later was done in phases 6 and 7, below.)
   - **Phase 4, the land's places (done):** `src/shared/data/places.ts` (`PLACE_DEFS`: ore vein, cave, trader's cart,
     beast's lair, old ruins, great bones; `PLACE_FOES` by era, `BIOME_BEASTS`) and `src/shared/sim/places.ts`
     (`s.places`, seeded from the seed on first use by `seedPlaces`: `PLACE_COUNT` of them `PLACE_NEAR`..`PLACE_FAR` cells
