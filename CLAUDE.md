@@ -382,7 +382,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     battles about 80 to 125 s; about 4 mages a town by day 15. The planner values a topic that teaches a common calling
     (+12, +24 raided or on defence).
 
-- **The armoury (in progress, see Planned):** `data/weapons.ts` (`FAMILIES`: 23 families with their quirks; `ROWS`:
+- **The armoury (done):** `data/weapons.ts` (`FAMILIES`: 23 families with their quirks; `ROWS`:
   name, family, tier, era, research, icon; stats, cost and station worked out from those; `tierDamage`), `data/armour.ts`
   (`SETS` per era: cloth, light, medium, heavy body and head pieces, three shields, two trinkets; `ArmourWeight` on
   `ItemDef.weight`). New effects: `speed`, `crit`, `pierce`, `cleave`, `stun`, `reach`, `undeadDamage`, `machineDamage`
@@ -393,7 +393,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   person) and `enemyArmor`. The planner's `weaponWorth` favours a mix of families. Crafting has Weapons and Armour hide
   toggles.
 
-- **Classes and levels (in progress):** `data/classes.ts` (25 lines, `stages` five names each, all 125 distinct; role,
+- **Classes and levels (done):** `data/classes.ts` (25 lines, `stages` five names each, all 125 distinct; role,
   `ranged`, `rarity`, `affinity`, `armour` weights and `weapons` families allowed, `stats`), `data/levels.ts` (`levelOf`,
   `stageOf`, `classStat`, `hpMult`, `levelPower`; `xpToLevel`, `LEVEL_SHARE_*`), `sim/classes.ts` (`assignClass` once,
   weighted by `classPull` and decided by the seed; `classesHourly` gives classes and announces evolutions; `gainLevelXp`
@@ -777,7 +777,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - Names that are a doing ("Scout the Far Isles", "Trade with ...") no longer take "the" (`OWN_ARTICLE` in
     data/expeditions.ts). Tests: `test/boats.test.ts`.
 - **Merfolk rework (done):** see "The merfolk rework" below.
-- **The top-down town (decided, in progress):** the side-on strip is replaced entirely by a sprawling top-down map in
+- **The top-down town (done):** the side-on strip is replaced entirely by a sprawling top-down map in
   the raid map's style (Craftpix's top-down village, fields, path and road tilesets and the props atlases; buildings
   stand on their footprints, drawn front-on, sorted by depth). The town builds outward with roads and buildings laid
   out sensibly; the local map opens up as it grows (minerals, caves, map events: a burnt-out trader's cart that starts a
@@ -820,7 +820,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     - Tests: `test/helpers.ts` has `camp`, `row` (free ground two rows below the camp), `put`, `freeSpot`, `wildsNear`/
       `nearestWild`, `makeWild`, `clearAround`, `poolOf`, `isWild`, `campPx`. Soak (10 days, one town each): settlers 22,
       vampires 20, druids 20, nomads 28, dwarves 21.
-  - **Phase 3, the top-down renderer (first cut, in progress):** `src/renderer/map/`. `mapView.ts` (`MapView`): the
+  - **Phase 3, the top-down renderer (done):** `src/renderer/map/`. `mapView.ts` (`MapView`): the
     land's ground painted in 8-cell chunks (`groundArt.ts`: each ground kind by season, roads as beaten-earth paths, water
     with lighter edges, the land beyond `land.open` dimmed by distance and black past `FOG_BAND`), the wild cells' trees,
     rocks, bushes and plants from the props atlases (`art/propKinds.json`, written by `tools/compose-props.cjs`: each
@@ -869,7 +869,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     and `art/battleArt.ts` are gone. The phone page keeps the town's zoom in a battle (`watchOn` alone draws at 1).
     Soak (3 towns per origin, 10 days, people/deaths): settlers 17–24/1–2, druids 16–24/2, vampires 20–24/0–1, knights
     21–24/0–1; no town lost.
-  - **Phase 6, origins and pack art on the map (in progress):** the vampire keep was first dressed as a walled rectangle
+  - **Phase 6, origins and pack art on the map (done):** the vampire keep was first dressed as a walled rectangle
     (`keepArt.ts`, from `snapshot.castle.rect`, the rooms the ordinary building pictures); that is superseded by "The
     castle as one body of rooms" below, which draws the castle from its cells with `map/castleArt.ts`. `src/renderer/map/packBuildings.ts`: Craftpix's Village tileset houses and awnings (`src/renderer/art/village/`,
     bundled as data URLs) stand for the cottage, row houses, inn and tavern, trading post, stall and general store in the
@@ -888,7 +888,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     undercounts: the soak scripts watched the journal's length, and the journal is capped at `MAX_JOURNAL` 400 entries, so
     nothing was counted once a town's journal had filled a few days in. Counted properly, deaths were never rare: see the
     deaths pass below.)
-  - **Phase 7 (next): the asset pass.** The owner's standing order (see Priorities): replace the code-drawn map art with the
+  - **Phase 7, the asset pass (done; the standing order goes on).** The owner's standing order (see Priorities): replace the code-drawn map art with the
     packs wherever one has the thing: the ground (the Fields, Path and Road, Green Zone and Village tilesets' grass,
     soil, roads, water edges), fields and pens (the Fields tileset), more buildings for every era and origin (the
     Undead tileset for the liches and vampires, the Dungeon and Cave packs for the dwarves), props and effects.
@@ -1196,7 +1196,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)
   the delve view; (10) dungeon types, modifiers, elites, dozens of bosses; (11) quests, rivals, the trophy hall,
-  respawn, alerts; soak, phone checks, PR. All eleven are done; boats are what's left.
+  respawn, alerts; soak, phone checks, PR. All eleven are done, and boats too.
 
 - **Victory screen (done; the owner's ask):** a party's fight won, `finishBattle` (expeditions.ts) fills `Expedition.result`
   (`FightResult`: each member's experience and levels gained, the loot by name, the coins) and the snapshot carries it for
@@ -1476,7 +1476,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   with the signpost and barrels, the hall with crates) and the trophy hall its shop with the shield sign, in the base
   and knights looks; the painter's `hall` shape stays for the other origins.
 
-## The townsfolk's own economy (in progress; the owner's direction: see PLAN.md)
+## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's
   **treasury**. `src/shared/data/economy.ts` (`GATHER_SHARE`, `BUILD_PER_HOUR`, `STUDY_PER_HOUR`, `KEEPER_CUT`,
@@ -1685,7 +1685,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   sheet is told when it loads). New Town opened afresh starts at its first question (`restartNewGame`, from panel.ts
   when the shown panel changes to it); its redraws while open keep the step.
 
-## The merfolk rework (in progress; the owner's request)
+## The merfolk rework (done; the owner's request)
 
 - **Raiders from the sea (step 1, done):** raid kinds with `fromSea` (data/raids.ts) come only to a shore town
   (`seaTown`; the pick in raids.ts filters the rest out): `tide_beasts` (squid spawn and crocodiles, from day 1),
