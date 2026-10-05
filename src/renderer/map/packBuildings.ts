@@ -127,6 +127,8 @@ import suWatchtower from '../art/packs/su_watchtower.png';
 import suLookout from '../art/packs/su_lookout.png';
 import suCastle from '../art/packs/su_castle.png';
 import suMageTower from '../art/packs/su_magetower.png';
+import suRoundCastle from '../art/packs/su_roundcastle.png';
+import suTent from '../art/packs/su_tent.png';
 import sfPylon from '../art/packs/sf_pylon.png';
 import sf27 from '../art/packs/sf_27.png';
 import sfTube4 from '../art/packs/sf_tube4.png';
@@ -169,12 +171,17 @@ const TIMBER = new Set(['town', 'settlers', 'knights']);
 const OWN_TENTS = new Set(['vampire', 'lich', 'robot', 'nomads', 'merfolk', 'nomads_city']);
 /** The nomads' looks: the rocky-area pack's tipis and yurts stand for their homes. */
 const NOMAD = ['nomads', 'nomads_city'];
-/** The looks whose halls are the Simple Summer pack's stone keep, and its crystal-crowned mage tower. */
+/** The looks whose halls are the Simple Summer pack's stone keep, its crystal-crowned mage tower, its round keep (a
+ *  shore town's tower by the sea), and its striped tent (a caravan on the move). */
 const KEEP_HALL = ['lich', 'werewolf'];
-const MAGE_HALL = ['alchemists', 'fae'];
+const MAGE_HALL = ['alchemists', 'fae', 'druid'];
+const ROUND_HALL = ['merfolk'];
+const TENT_HALL = ['nomads'];
 const hallVariants = (): { styles: string[]; pick: Pick }[] => [
   { styles: KEEP_HALL, pick: { url: suCastle, overhang: 4 } },
   { styles: MAGE_HALL, pick: { url: suMageTower, overhang: 4 } },
+  { styles: ROUND_HALL, pick: { url: suRoundCastle, overhang: 4 } },
+  { styles: TENT_HALL, pick: { url: suTent, overhang: 6 } },
 ];
 const PICKS: Record<string, Pick> = {
   cottage: { url: house1, styles: TIMBER, smoke: [[22, 7]], lamps: [[81, 51], [39, 85], [81, 85]], variants: [{ styles: NOMAD, pick: { url: rockyYurt2, overhang: 6, smoke: [[40, 1]] } }] },

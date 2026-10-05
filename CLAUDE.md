@@ -1602,8 +1602,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   factory (pipes, a transformer, a shuttered block and a tank), the garage (two shuttered bays), the radio tower (the
   loose objects pack's lattice pylon, `sf_pylon.png`) and the drone hub (a block with a console) are picks too, and the
   elder lodge, town hall and trophy hall have `hallVariants`: the Simple Summer stone keep for the liches and the Moon
-  Pack (`KEEP_HALL`), its crystal mage tower for the alchemists and the fae (`MAGE_HALL`). Still code-drawn: the other
-  origins' halls (the painter's `hall` shape, reclad).
+  Pack (`KEEP_HALL`), its crystal mage tower for the alchemists, the fae and the druids (`MAGE_HALL`), its round keep for
+  the merfolk (`ROUND_HALL`, `su_roundcastle.png`) and its striped tent for the nomads on the move (`TENT_HALL`,
+  `su_tent.png`). Still code-drawn: the machines' halls (the painter's `hall` shape, reclad); the vampires' and the
+  dwarves' halls are rooms of their castle or hold.
 
 ## Deaths made common again (the owner's call: all three levers)
 
