@@ -355,6 +355,11 @@ export interface PromptView {
   text: string;
   options: string[];
   defaultOption: number;
+  kind: string;
+  /** A choice event's fuller telling, its picture (a backdrop id) and who it's about (the full-screen event box). */
+  story: string | null;
+  picture: string | null;
+  who: number | null;
   /** Until the default is taken; null when it waits as long as it takes. */
   secondsLeft: number | null;
 }
@@ -832,6 +837,10 @@ export function snapshot(s: GameState): Snapshot {
       text: p.text,
       options: [...p.options],
       defaultOption: p.defaultOption,
+      kind: p.kind,
+      story: p.story ?? null,
+      picture: p.picture ?? null,
+      who: p.who ?? null,
       // (none for a question that waits as long as it takes: raiders held at the gate)
       secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
     })),

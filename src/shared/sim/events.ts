@@ -31,7 +31,11 @@ import { killPerson } from './health';
 import { revealOccult } from './occult';
 import { equipAll } from './crafting';
 import { townFull, addStock, campX, campXY, earn, makePerson, maxHp, notify, type GameState, type Person } from './state';
-import { TICKS_PER_HOUR } from './time';
+import { calendar, TICKS_PER_HOUR } from './time';
+import { weatherAt } from './weather';
+import { seaTown } from './sea';
+import { eventPicture, sceneLine } from '../data/eventScenes';
+import { EVENT_MORE } from '../data/eventMore';
 import { assignBeds, campEdge, joinOrigin } from './townsfolk';
 import { isChild } from './social';
 
@@ -76,6 +80,17 @@ export function maybeEvent(s: GameState, rng: Rng): void {
   startEvent(s, EVENT_BY_ID[id], rng);
 }
 
+/** The full-screen box's telling of an event: a line setting the scene as the town is now, the event, and the
+ *  longer passage written for it; its picture; and who it's about. */
+function eventTelling(s: GameState, def: EventDef, who: Person | undefined): { story: string; picture: string; who?: number } {
+  const c = calendar(s.tick);
+  const now = { hour: c.hour, season: c.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) } as const;
+  const salt = def.id.length * 31 + c.day;
+  const more = EVENT_MORE[def.id];
+  const story = [sceneLine(now, salt), fill(s, def.text, who), more ? fill(s, more, who) : ''].filter(Boolean).join(' ') + coinsLine(s, def);
+  return { story, picture: eventPicture(def.id, `${def.title} ${def.text}`, now), ...(who ? { who: who.id } : {}) };
+}
+
 /** Put an event to the player now. */
 export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
   const pool = grownUps(s).filter((p) => p.id !== s.mainId);
@@ -90,6 +105,7 @@ export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
     options: def.options.map((o) => fill(s, o.label, who) + costOf(s, o)),
     defaultOption: def.options.findIndex((o) => o.default),
     expiresTick: s.tick + hours(EVENT_HOURS),
+    ...eventTelling(s, def, who),
   });
   s.event = { def: def.id, prompt: id, who: who?.id };
   if (def.fateful) s.lastFateful = s.tick;

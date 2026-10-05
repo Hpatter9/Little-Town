@@ -524,6 +524,11 @@ export interface Prompt {
   options: string[];
   defaultOption: number;
   expiresTick: number;
+  /** A choice event's fuller telling (the scene, the event, more of it), its picture (a painted background, data/
+   *  eventScenes.ts), and who it's about: for the full-screen event box. */
+  story?: string;
+  picture?: string;
+  who?: number;
 }
 
 export type ExpeditionPhase = 'out' | 'work' | 'back';

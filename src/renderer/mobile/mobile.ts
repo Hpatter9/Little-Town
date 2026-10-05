@@ -3,6 +3,7 @@
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
 import { startFeed } from './feed';
+import { createEventSheet } from './eventSheet';
 import { PANELS, type StripState } from '../../shared/ipc';
 import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
@@ -214,6 +215,11 @@ const tabButtons = PANELS.map((p) => {
   tabs.append(b);
   return { id: p.id, b, label, name: p.label };
 });
+// a choice event takes the whole screen (eventSheet.ts)
+{
+  const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip);
+  bridge.onSnapshot((snap) => sheet.update(snap));
+}
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)

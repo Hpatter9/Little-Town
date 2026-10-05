@@ -1014,7 +1014,8 @@ async function start(): Promise<void> {
       return null;
     };
     const q = next.prompts[0];
-    if (q && view.mode === 'full') promptCard.show(q);
+    // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
+    if (q && view.mode === 'full' && !(q.kind === 'event' && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
     if (next.away && !q && view.mode === 'full')

@@ -1307,6 +1307,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   day 10: 2 dead, 5 still alone).
 - **Raid battles fight themselves by default (the owner's call):** `startBattle` places everyone and casts the spells
   itself unless `s.autoBattle` is `false` (the battle bar's Auto button turns it off, and the choice is kept).
+  It goes on (and on again after a breather) as soon as everyone placed stands at their spot (`allInPlace`), no sooner
+  than `AUTO_READY_TICKS` (2 s) and no later than the usual count. It used to go after 1.5 s and 3 s whatever: raiders
+  reached the gate before a lone founder did, the founder lost a leg and the town never grew (the planner test caught
+  it). Probe (8 lone towns, 10 days, people): auto 3 2 2 4 5 5 4 4, auto off 4 X 2 4 5 3 6 5.
 - **What came of an answer, on a card (upright):** `tell` in sim/events.ts keeps the last answer on `s.eventOutcome`
   (title, the choice, what came of it); `snapshot.eventOutcome` carries it for `OUTCOME_HOURS` (4), and the feed shows
   it at the top as a green-edged card (`answered` in feed.ts). Sideways the same line pops up over the town as a notice.
@@ -1349,6 +1353,19 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   building's blueprint laid with its makings delivered (else the makings). Every answer, and every `later`, ends with
   one journal line under the event's title saying what came of it (`tell` in sim/events.ts: "A thief among you: morale
   -4 for a day, +6 wood, +4 stone").
+- **Events told in full (done; the owner's ask: more description, a full-screen box, a picture that goes with each):**
+  a choice event's prompt carries `story` (`eventTelling` in sim/events.ts: a line setting the scene from the hour,
+  season and weather (`sceneLine` in data/eventScenes.ts), the event's text, its own passage (`EVENT_MORE` in
+  data/eventMore.ts: one for each of the 526 events, {who} and {founder} filled) and what the treasury holds when it
+  asks for coins), `picture` (a painted backdrop: `eventPicture`) and `who`. The phone page shows it full screen
+  (`src/renderer/mobile/eventSheet.ts`, `#event-sheet`: the backdrop's layers stacked, the townsperson in it stood on
+  the picture, the title, the telling in paragraphs, the answers as big buttons, the countdown; sideways the picture on
+  the left); the strip's own question card stands aside for events (`__eventSheet`). **Pictures:** every backdrop was
+  looked at and sorted into `POOLS` by what it shows (fire, the dead, war, holy places, ruins, caves, the deep, the sea,
+  the sky, mountains, storms, snow, steam, cities, the future, forests, fields, the fae, an alchemist's lab, a town
+  scene by the age: `TOWN_BY_ERA`); an event's words pick the theme (`THEMES`), and `PICTURE_OF` fixes the 275
+  whose words mislead (every event was checked by hand). Green fields in winter show the snow. Tests:
+  `test/eventTelling.test.ts`.
 - **The map's grip (upright; the owner's ask: the map full screen or half at will):** a grip on the map's top edge
   (`#map-grip`, mobile.ts): drag it up over the feed or down to half (`MAP_LEAST`), a tap flips between the whole
   room and half. Kept in `littletown.mapShare` (unset: the map follows the feed as before, `townShare`); at the whole
