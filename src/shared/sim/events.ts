@@ -5,6 +5,7 @@
 // and it waits for the player to come back and answer, which sets the town going again.
 // The events are data (data/events.ts); what each answer does is a list of effects, applied here.
 
+import { strangerTurn } from './specials';
 import { EVENTS, EVENT_BY_ID, type EventDef, type EventEffect } from '../data/events';
 import type { EventOption } from '../data/eventKit';
 import { MATERIALS, MATERIAL_NAMES, type Material } from '../data/materials';
@@ -36,7 +37,7 @@ import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { eventPicture, sceneLine } from '../data/eventScenes';
 import { EVENT_MORE } from '../data/eventMore';
-import { assignBeds, campEdge, joinOrigin } from './townsfolk';
+import { assignBeds, campEdge, joinOrigin, secretStranger } from './townsfolk';
 import { isChild } from './social';
 
 /** Game hours an event waits for an answer before the default is taken (in play; it waits while you're away). */
@@ -73,6 +74,11 @@ export function maybeEvent(s: GameState, rng: Rng): void {
     if (next && grownUps(s).length) return startEvent(s, next, rng);
   }
   if (s.event || s.tick < (s.nextEventTick ?? hours(EVENT_GRACE_HOURS)) || !grownUps(s).length) return;
+  // (one turn in a hundred, a secret stranger comes to the gate instead: sim/specials.ts)
+  if (strangerTurn(s) && secretStranger(s, rng)) {
+    s.nextEventTick = s.tick + hours(rng.int(EVENT_GAP_HOURS[0], EVENT_GAP_HOURS[1]));
+    return;
+  }
   const seen = s.eventLog ?? [];
   const open = EVENTS.filter((e) => !seen.includes(e.id) && (!e.when || e.when(s)));
   if (!open.length) return;

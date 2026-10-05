@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import { SPECIALS, SPECIAL_IDS, CURSE_PRICE, BOUNTY, type SpecialId } from '../src/shared/data/specials';
 import { Rng } from '../src/shared/rng';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
-import { coverOf, makeSpecial, sabotaged, secretJoined, specialFor, specialsHourly } from '../src/shared/sim/specials';
+import { makeSpecial, sabotaged, secretJoined, specialFor, specialsHourly, strangerTurn } from '../src/shared/sim/specials';
+import { secretStranger } from '../src/shared/sim/townsfolk';
 import { turretsDown } from '../src/shared/sim/rivals';
 import { makePerson, campXY, type GameState, type Person } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -39,27 +40,32 @@ test('seven special newcomers, each with a cover, a truth, a way to be seen thro
   }
 });
 
-test('a special may come any day, once each, one secret at a time; the gate sees only the cover', () => {
+test('a secret stranger comes one event turn in a hundred, any day, each kind once, secrets overlapping; the gate sees only the cover', () => {
   const s = plainGame('specials-gate');
-  const p = makePerson(new Rng(3), 1000, 'wanderer', campXY(s), []);
-  // (whether this one is a special is the seed's luck: some wanderer of the next hundred will be, on the first day too)
-  let found: SpecialId | null = null;
-  for (let id = 1000; id < 1100 && !found; id++) {
-    p.id = id;
-    found = specialFor(s, p);
+  // (about one turn in a hundred, by the seed and the hour)
+  let turns = 0;
+  for (let h = 0; h < 10000; h++) {
+    s.tick = h * TICKS_PER_HOUR;
+    if (strangerTurn(s)) turns++;
   }
-  assert.ok(found);
-  makeSpecial(s, p, found!);
-  assert.ok(coverOf(p).includes(SPECIALS[found!].cover));
-  assert.ok((s.specialsSeen ?? []).includes(found!));
-  s.people.push(p);
-  secretJoined(s, p);
-  // another wanderer while that secret is hidden: an ordinary one
-  const q = makePerson(new Rng(4), 2000, 'wanderer', campXY(s), []);
-  for (let id = 2000; id < 2100; id++) {
-    q.id = id;
-    assert.equal(specialFor(s, q), null);
-  }
+  assert.ok(turns > 70 && turns < 130, `turns ${turns}`);
+  s.tick = 0;
+  // on the first day, at the gate: only the cover shows
+  assert.ok(secretStranger(s, new Rng(5)));
+  const v = s.visitor!.person;
+  const kind = v.secret!.id;
+  const ask = s.prompts.find((q) => q.kind === 'visitor')!;
+  assert.ok(ask.text.includes(SPECIALS[kind].cover));
+  assert.ok(!ask.text.includes(SPECIALS[kind].name));
+  // taken in, another comes while the first secret is still hidden: a different kind
+  answerPrompt(s, ask.id, 0, new Rng(1));
+  assert.ok(s.people.includes(v) && !v.secret!.found);
+  assert.ok(secretStranger(s, new Rng(6)));
+  assert.notEqual(s.visitor!.person.secret!.id, kind);
+  // every kind once, then no more
+  const q = makePerson(new Rng(4), 9000, 'wanderer', campXY(s), []);
+  s.specialsSeen = [...SPECIAL_IDS];
+  assert.equal(specialFor(s, q), null);
 });
 
 test('a skilled townsperson sees through a newcomer, and the town is asked what to do', () => {

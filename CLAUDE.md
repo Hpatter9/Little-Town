@@ -1370,9 +1370,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   undoes the defences before his clan comes, and ways to find them out):** `src/shared/data/specials.ts` (`SPECIALS`:
   the Veiled Champion, the Coughing Pilgrim, the Knight of the Black Oath, Red Jack the Highwayman, the Turncoat Scout,
   the Exile in Grey, the Runaway Heir; each a cover for the gate, a cover story and the truth, a `spot` skill and level,
-  a daily `slip`, a `due` range, three answers and a picture) and `src/shared/sim/specials.ts`. A wanderer, on any day (the
-  owner's call: no special time), is one `SPECIAL_SHARE` of the time (`specialFor`, by the seed and their id: no draw from the town's
-  stream; each once a town, `s.specialsSeen`, one hidden at a time, none in a town of the dead or machines); `makeSpecial`
+  a daily `slip`, a `due` range, three answers and a picture) and `src/shared/sim/specials.ts`. A secret stranger comes in an event's turn (the
+  owner's call: 1 in `SPECIAL_ODDS` (100) events, any day, secrets may overlap): `maybeEvent` asks `strangerTurn` (by the
+  seed and the hour: no draw from the town's stream) and `secretStranger` (townsfolk.ts) puts them at the gate in place
+  of the event; `specialFor` picks a kind the town hasn't met (each once a town, `s.specialsSeen`; none in a town of the
+  dead or machines); ordinary wanderers carry no secrets. `makeSpecial`
   gives their skills, level and calling and `Person.secret` (`Secret`); the gate and the visitor's question show only the
   cover (`coverOf`), and the Townsfolk page shows the cover story and no calling until it's out (`specialStory`,
   `secretView`, `PersonView.secret`). Taken in (`secretJoined`), `specialsHourly` runs it: at `SPOT_HOUR` the best in
@@ -1387,7 +1389,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   with or hand over the champion, nurse or drive out the pilgrim, break the curse for `CURSE_PRICE` or keep the knight,
   claim Red Jack's `BOUNTY` or hide them, lock up, turn (one time in four he lied) or drive out the saboteur, give the exile
   a tower (a topic learned) or bind them, send the heir home for `HEIR_REWARD` or keep their secret. Tests:
-  `test/specials.test.ts`. Probe (8 towns, 15 days): seven of the eight met one; all seven kinds showed.
+  `test/specials.test.ts`. (An earlier probe, at 0.3 of wanderers: seven of eight towns met one in 15 days; all seven kinds showed.)
 - **Every menu in tabs, the venues too:** the shop, inn and stores' windows (`renderShop`, through `inTabs(id, ..., 'venue')`:
   Now, Trade, The room; each venue keeps its own tab) and the Chronicle's filters drawn as the same tabs. The open tab
   is lit under every look (`.inv-tab.on` in theme.ts and skins.ts: it was drawn like the rest).

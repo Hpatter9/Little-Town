@@ -7,7 +7,7 @@
 // on the night before his clan rides in (a guard on watch may catch him at it), the exile's power breaks loose, the
 // crown's riders take their heir home. Everything here draws on its own seeded stream, so it never shifts the town's.
 
-import { CATCH_BASE, CATCH_PER_LEVEL, CURSE_DAILY, CURSE_PRICE, HEIR_REWARD, BOUNTY, SPECIALS, SPECIAL_IDS, SPECIAL_SHARE, SPOT_BASE, SPOT_HOUR, SPOT_MOST, SPOT_PER_LEVEL, SURGE_DAILY, THEFT_A_DAY, type SpecialDef, type SpecialId } from '../data/specials';
+import { CATCH_BASE, CATCH_PER_LEVEL, CURSE_DAILY, CURSE_PRICE, HEIR_REWARD, BOUNTY, SPECIALS, SPECIAL_IDS, SPECIAL_ODDS, SPOT_BASE, SPOT_HOUR, SPOT_MOST, SPOT_PER_LEVEL, SURGE_DAILY, THEFT_A_DAY, type SpecialDef, type SpecialId } from '../data/specials';
 import { RAID_KIND_BY_ID, type RaidKind } from '../data/raids';
 import { ENEMIES } from '../data/enemies';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -38,18 +38,18 @@ const mark = (s: GameState, value: number, h: number, text: string) => (s.marks 
 
 /* ------------------------------------------------------------ at the gate */
 
-/** Whether this wanderer is one of the specials, and which (decided by the seed and their id: no draw from the town's
- *  stream), on any day. Each comes to a town once, one at a time; never to a town of the dead or of
- *  machines (whose newcomers are remade), and the fever never to a town that can't sicken. */
+/** Whether this event's turn brings a secret stranger to the gate (1 in `SPECIAL_ODDS`; by the seed and the hour, so
+ *  no draw from the town's stream). */
+export const strangerTurn = (s: GameState) => mixSeed(hashSeed(s.seed), s.tick, 0x5ec2e7) % SPECIAL_ODDS === 0;
+
+/** Which special a newcomer is: one the town hasn't met (each comes once; secrets may overlap). Never to a town of the
+ *  dead or of machines (whose newcomers are remade), and the fever never to one who can't sicken. */
 export function specialFor(s: GameState, p: Person): SpecialId | null {
   if (p.monster) return null;
   const kin = rulesOf(s).kin;
   if (kin && kin !== 'werewolf') return null;
-  if (s.people.some((q) => q.secret && !q.secret.found && !q.secret.settled)) return null;
-  const roll = mixSeed(hashSeed(s.seed), p.id, 0x5ec2e7);
-  if ((roll % 1000) / 1000 >= SPECIAL_SHARE) return null;
   const left = SPECIAL_IDS.filter((id) => !(s.specialsSeen ?? []).includes(id) && !(id === 'plague' && tireless(p)));
-  return left.length ? left[Math.floor(roll / 1000) % left.length] : null;
+  return left.length ? left[mixSeed(hashSeed(s.seed), p.id, 0x5ec2e7) % left.length] : null;
 }
 
 const SKILLS: Record<SpecialId, Partial<Record<Skill, number>>> = {

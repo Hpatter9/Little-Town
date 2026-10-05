@@ -356,14 +356,11 @@ export function maybeArrive(s: GameState, rng: Rng): void {
       return;
     }
   }
-  // a special newcomer with a secret (sim/specials.ts), under a cover story
-  const special = origin ? null : specialFor(s, person);
-  if (special) makeSpecial(s, person, special);
   // a rare wanderer is already trained in a special class (decided by the seed, so no randomness shifts)
   const roll = mixSeed(hashSeed(s.seed), person.id * 7919);
   // (one of each calling in a town: never one the town already has)
   // (a seasoned wanderer: some levels behind them, and their class from the start)
-  if (!monster && !special && roll % 1000 < SEASONED_CHANCE * 1000) {
+  if (!monster && roll % 1000 < SEASONED_CHANCE * 1000) {
     person.level = 3 + (Math.floor(roll / 1000) % 10);
     assignClass(s, person);
     // (once in a long while, a legend walks in: high level, and ascended)
@@ -377,11 +374,31 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   const wait = campEdge(s, side);
   s.visitor = { person, waitX: wait.x, waitY: wait.y, leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
   s.lastVisit = s.tick;
-  // (a special shows only their cover: their calling and level are part of the secret)
-  const trained = person.cls && !special ? ` (${aCalling(callingName(person, stageOf(person))!)}, level ${person.level}!)` : '';
-  const who = special ? coverOf(person) : origin ? `${oneOf(origin)} (a ${type})` : `${/^[aeiou]/.test(type) ? 'an' : 'a'} ${type}`;
+  const trained = person.cls ? ` (${aCalling(callingName(person, stageOf(person))!)}, level ${person.level}!)` : '';
+  const who = origin ? `${oneOf(origin)} (a ${type})` : `${/^[aeiou]/.test(type) ? 'an' : 'a'} ${type}`;
   notify(s, `${who[0].toUpperCase()}${who.slice(1)}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
   if (!rulesOf(s).freeJoin) askVisitor(s, who, trained);
+}
+
+/** A secret stranger at the gate (sim/specials.ts), come in an event's turn: a wanderer under a cover story, asking in
+ *  like any other. False if there's nobody to send (one already waiting, the town full, or every kind met). */
+export function secretStranger(s: GameState, rng: Rng): boolean {
+  if (s.visitor || townFull(s) || rulesOf(s).noWanderers) return false;
+  const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
+  const person = makePerson(rng, s.nextId++, 'wanderer', edgeXY(s, side), [...s.people.map((p) => p.name)]);
+  const special = specialFor(s, person);
+  if (!special) {
+    s.nextId--;
+    return false;
+  }
+  makeSpecial(s, person, special);
+  person.dir = side < 0 ? 1 : -1;
+  const wait = campEdge(s, side);
+  s.visitor = { person, waitX: wait.x, waitY: wait.y, leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
+  const who = coverOf(person);
+  notify(s, `${who[0].toUpperCase()}${who.slice(1)} is coming to camp. See Townsfolk.`, true);
+  if (!rulesOf(s).freeJoin) askVisitor(s, who, '');
+  return true;
 }
 
 /** The question a wanderer at the gate puts to the player (unless the town's gates are free): in, or on their way.
