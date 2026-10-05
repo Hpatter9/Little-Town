@@ -101,3 +101,21 @@ test('raiders from the sea: only against a shore town, out of the deep water, sw
   assert.ok(wet(groundAt(s.land, Math.floor(fx), Math.floor(fy))), 'the trail starts at sea');
   assert.ok(!wet(groundAt(s.land, Math.floor(tx), Math.floor(ty))), 'and ends on dry land');
 });
+
+test("a shore town's sea beasts: a lair out on the reef, and the Leviathan coming ashore", async () => {
+  const { seedPlaces } = await import('../src/shared/sim/places');
+  const { RAID_KIND_BY_ID } = await import('../src/shared/data/raids');
+  const { startRaid } = await import('../src/shared/sim/raids');
+  const s = newGame('sea-beast', { origin: 'merfolk' });
+  const reef = seedPlaces(s.land, s.seed).find((p) => p.kind === 'reef');
+  assert.ok(reef, 'a reef on a sea-shaped land');
+  assert.ok(wet(groundAt(s.land, reef!.x, reef!.y)), 'out in the water');
+  // (a dry land has none)
+  const dry = newGame('sea-beast', { origin: 'settlers', biome: 'forest' });
+  assert.ok(!seedPlaces(dry.land, dry.seed).some((p) => p.kind === 'reef'));
+  // the Leviathan: the Kraken leads its spawn out of the deep
+  const lev = RAID_KIND_BY_ID.leviathan;
+  assert.ok(lev?.fromSea && lev.leader === 'kraken');
+  const r = startRaid(s, lev, 80, new Rng(5));
+  assert.ok(r.raiders.some((rd) => rd.kind === 'kraken'), 'the Kraken comes');
+});

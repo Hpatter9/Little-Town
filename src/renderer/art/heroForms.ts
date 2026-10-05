@@ -3,6 +3,8 @@
 
 import { CLASS_DEFS, type ClassId } from '../../shared/data/classes';
 import type { PackSheetId } from '../../shared/data/packSheets';
+import { PACK_LAYOUT, packUrl } from './creatures/packs';
+import { loadImage } from './loadImage';
 
 /** The hero packs' sheets for the fighting callings (a line's sheet; several: picked by the person's id). */
 export const HERO_FORM: Partial<Record<ClassId, PackSheetId[]>> = {
@@ -39,3 +41,45 @@ export function founderSheet(cls: ClassId | null, id: number, ranged: boolean, c
 }
 /** The founder's person id (they are made first: `newGame`). */
 export const FOUNDER_ID = 1;
+
+/* -------------------------------------------- a hero's idle frame on a plain canvas (the panels, the feed) */
+
+const idleImages = new Map<string, HTMLImageElement>();
+const waiting = new Map<string, (() => void)[]>();
+/** The hero sheet's image once loaded (null until then; every `then` asked meanwhile is called when it comes). */
+export function heroImage(sheet: PackSheetId, then: () => void): HTMLImageElement | null {
+  const ready = idleImages.get(sheet);
+  if (ready) return ready;
+  const list = waiting.get(sheet);
+  if (list) {
+    list.push(then);
+    return null;
+  }
+  waiting.set(sheet, [then]);
+  void loadImage(packUrl(sheet)).then(
+    (img) => {
+      idleImages.set(sheet, img);
+      for (const f of waiting.get(sheet) ?? []) f();
+      waiting.delete(sheet);
+    },
+    () => waiting.delete(sheet),
+  );
+  return null;
+}
+/** Draw the sheet's first idle frame facing right, its figure `figure` px tall, feet at (`cx`, `feetY`). */
+export function drawHeroIdle(g: CanvasRenderingContext2D, img: HTMLImageElement, sheet: PackSheetId, cx: number, feetY: number, figure: number): void {
+  const lay = PACK_LAYOUT[sheet];
+  if (!lay) return;
+  const row = Math.max(0, lay.rows.indexOf('idle'));
+  const k = figure / lay.figure;
+  const w = lay.w * k;
+  const h = lay.h * k;
+  g.save();
+  g.imageSmoothingEnabled = false;
+  if (!lay.facesRight) {
+    g.translate(cx * 2, 0);
+    g.scale(-1, 1);
+  }
+  g.drawImage(img, 0, row * lay.h, lay.w, lay.h, cx - w / 2, feetY - h, w, h);
+  g.restore();
+}

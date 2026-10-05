@@ -122,6 +122,8 @@ export const BESTIARY_RAIDS: readonly RaidKind[] = [
   // out of the sea, only against a shore town: they swim ashore to the town's strand
   { id: 'tide_beasts', name: 'Things from the deep', goal: 'harm', goals: { harm: 3, steal: 1 }, steals: 'food', enemies: { squid_spawn: 13, crocodile: 12 }, fromDay: 1, weight: 2, speed: 55, bribable: false, plural: true, fromSea: true },
   { id: 'sea_reavers', name: 'Sea reavers', goal: 'steal', goals: { steal: 3, kidnap: 1, harm: 1 }, steals: 'valuables', enemies: { sea_reaver: 14, squid_spawn: 13 }, fromDay: 2, weight: 2, speed: 60, bribable: true, plural: true, fromSea: true },
+  // (the Kraken itself comes ashore at a shore town, its spawn about it: the Kraken Deep's lord, data/boats.ts)
+  { id: 'leviathan', name: 'The Leviathan', goal: 'harm', enemies: { squid_spawn: 13 }, fromDay: 6, era: 'medieval', weight: 0.6, speed: 36, bribable: false, plural: false, fromSea: true, leader: 'kraken' },
   { id: 'drowned_crew', name: 'The drowned crew', goal: 'harm', goals: { harm: 3, kidnap: 1 }, enemies: { drowned_sailor: 12, sea_reaver: 14 }, fromDay: 3, era: 'medieval', weight: 1.5, speed: 45, bribable: false, plural: false, fromSea: true },
   { id: 'gremlins', name: 'Gremlins', goal: 'steal', goals: { steal: 4, harm: 1 }, steals: 'food', enemies: { pink_gremlin: 4, owlet_gremlin: 4, blue_gremlin: 5 }, fromDay: 2, untilEra: 'medieval', weight: 1.5, speed: 85, bribable: false, plural: true },
   { id: 'giant_rats', name: 'Giant rats', goal: 'steal', goals: { steal: 3, harm: 2 }, steals: 'food', enemies: { giant_rat: 5 }, fromDay: 1, untilEra: 'industrial', weight: 1, speed: 70, bribable: false, plural: true },

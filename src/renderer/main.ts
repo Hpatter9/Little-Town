@@ -7,6 +7,7 @@ import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
 import { MapSpells } from './map/mapSpells';
 import { MapHerds } from './map/mapHerds';
+import { MapBoats } from './map/mapBoats';
 import { MapBirds } from './map/mapBirds';
 import { MapButterflies } from './map/mapButterflies';
 import { BloodPools } from './map/bloodPools';
@@ -201,6 +202,7 @@ async function start(): Promise<void> {
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
   const raiders = new MapRaiders(map.things);
   const herds = new MapHerds(map.things);
+  const boats = new MapBoats(map.things);
   const birds = new MapBirds(map.things, map);
   (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
   const butterflies = new MapButterflies(map.things, map);
@@ -966,7 +968,8 @@ async function start(): Promise<void> {
     }
     // (a raid's battle comes first: watching waits behind it)
     const watched = next.battle ? null : next.watch;
-    fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk');
+    // (the sea's looks for a shore town's trips, and for any party out in a boat)
+    fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk' || (!!watched?.boat && watched.phase !== 'work'));
     fightHud.update(watched);
     // (a mine gone into: the same screen, unless a fight or battle has it)
     const inMine = watched || next.battle ? null : next.mine;
@@ -1042,6 +1045,7 @@ async function start(): Promise<void> {
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
     map.syncBuildings(next.buildings);
     herds.update(next.buildings);
+    boats.update(next.fleet, next.mooring);
     pools.sync(next.blood);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
@@ -1108,6 +1112,7 @@ async function start(): Promise<void> {
     people.render(performance.now());
     raiders.render(performance.now());
     herds.render(performance.now(), ticker.deltaMS / 1000);
+    boats.render(performance.now());
     birds.render(ticker.deltaMS / 1000, performance.now());
     butterflies.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());

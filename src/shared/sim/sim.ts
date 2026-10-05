@@ -64,6 +64,7 @@ import { ambitionHourly } from './ambition';
 import { ceremoniesHourly } from './ceremonies';
 import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
+import { boatsHourly } from './boats';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -156,6 +157,7 @@ export class Sim {
     treasuryHourly(s, this.rng);
     ambitionHourly(s);
     partiesHourly(s);
+    boatsHourly(s, this.rng);
     ceremoniesHourly(s);
     injuriesHourly(s, this.rng);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);

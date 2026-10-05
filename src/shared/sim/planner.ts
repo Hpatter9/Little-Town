@@ -3,6 +3,7 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { BOAT_TOPICS } from '../data/boats';
 import { prostheticsWanted } from './injuries';
 import { PROSTHETIC_BY_ITEM } from '../data/injuries';
 import { venuePurse } from './ambition';
@@ -92,6 +93,8 @@ const SHELF_HOURS = 24;
 
 interface Needs {
   people: number;
+  /** A shore town (the sea its doorstep): boats come first there. */
+  shore: boolean;
   /** Someone is missing a part (a prosthetic wanted), or someone is wounded. */
   limbless: boolean;
   wounded: boolean;
@@ -140,6 +143,7 @@ function needs(s: GameState): Needs {
     demand,
     raided: s.journal.some((j) => j.text.startsWith('Raid by')),
     limbless: prostheticsWanted(s).length > 0,
+    shore: seaTown(s),
     wounded: s.people.some((p) => (p.wounds?.length ?? 0) > 0),
     direction: directionOf(s),
   };
@@ -239,6 +243,8 @@ function topicScore(t: Topic, n: Needs): number {
   }
   // (children are how a town grows now that newcomers are few: it learns family life once there are a few of it)
   if (t.id === 'family_life') score += n.people >= 4 ? 40 : 10;
+  // (boats: fishing when food runs short, islands and the sea's markets once the town is a few strong: data/boats.ts)
+  if (BOAT_TOPICS.some((b) => b.id === t.id)) score += (n.people >= 4 ? 24 : 6) + (t.id === 'boatbuilding' && n.shore ? 16 : 0) + (n.foodDays < 5 && t.id === 'boatbuilding' ? 12 : 0) + (n.direction === 'trade' && (t.id === 'navigation' || t.id === 'steamships') ? 10 : 0);
   // (someone has lost a limb or an eye: learn to make them good)
   if ((t.id === 'peg_and_hook' || t.id === 'prosthetics' || t.id === 'bionics') && n.limbless) score += 30;
   // (the town has been bleeding: learn to tend the hurt)

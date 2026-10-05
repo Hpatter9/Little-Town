@@ -14,9 +14,7 @@ import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../../shared/data/origins';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
-import { FOUNDER_ID, founderSheet } from '../art/heroForms';
-import { PACK_LAYOUT, packUrl } from '../art/creatures/packs';
-import { loadImage } from '../art/loadImage';
+import { drawHeroIdle, FOUNDER_ID, founderSheet, heroImage } from '../art/heroForms';
 import { button, el } from './dom';
 
 
@@ -30,6 +28,10 @@ let difficulty: Difficulty = 'normal';
 let ironman = false;
 /** The step showing (kept while the panel re-renders; back to the first once a town is founded). */
 let step = 0;
+/** Back to the first question (the panel opened afresh: panel.ts). */
+export const restartNewGame = (): void => {
+  step = 0;
+};
 const STEPS = ['Who founds the town?', 'Your founder', 'How does it begin?', 'Where will you found your town?', 'How dangerous is the world?', 'Ready to found it?'] as const;
 
 let lpcReady: Promise<void> | null = null;
@@ -39,29 +41,25 @@ let lpcReady: Promise<void> | null = null;
  *  facing right. A founder with no calling, or until the sheet loads, is their LPC figure. */
 function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDERS)[OriginId][number]['look']): void {
   const g = art.getContext('2d')!;
-  const lpc = () => void lpcReady!.then(() => g.drawImage(lpcCanvas(look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64));
+  let hero = false;
+  // (the plain look only until the hero comes: never over it, whichever loads first)
+  const lpc = () => void lpcReady!.then(() => {
+    if (!hero) g.drawImage(lpcCanvas(look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64);
+  });
   const calling = FOUNDER_CLASS[id];
   if (!calling) return lpc();
   const sheet = founderSheet(calling.base, FOUNDER_ID, false, false);
-  const lay = PACK_LAYOUT[sheet];
-  if (!lay) return lpc();
-  void loadImage(packUrl(sheet))
-    .then((img) => {
-      const row = Math.max(0, lay.rows.indexOf('idle'));
-      const k = 60 / lay.figure;
-      const w = lay.w * k;
-      const h = lay.h * k;
-      g.clearRect(0, 0, 64, 64);
-      g.imageSmoothingEnabled = false;
-      g.save();
-      if (!lay.facesRight) {
-        g.translate(64, 0);
-        g.scale(-1, 1);
-      }
-      g.drawImage(img, 0, row * lay.h, lay.w, lay.h, 32 - w / 2, 62 - h, w, h);
-      g.restore();
-    })
-    .catch(lpc);
+  const paint = (img: HTMLImageElement) => {
+    hero = true;
+    g.clearRect(0, 0, 64, 64);
+    drawHeroIdle(g, img, sheet, 32, 62, 60);
+  };
+  const img = heroImage(sheet, () => {
+    const loaded = heroImage(sheet, () => undefined);
+    if (loaded && art.isConnected) paint(loaded);
+  });
+  if (img) paint(img);
+  else lpc();
 }
 
 export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {

@@ -2,6 +2,7 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
+import { boatDef, boatHome, fleet, freeBoat, sailSpeed, sailsTo, seaHour } from './boats';
 import { payParty } from './economy';
 import { homeFromTrip } from './ambition';
 import { payBounty } from './parties';
@@ -149,7 +150,10 @@ export function canSend(s: GameState, destId: string, memberIds: readonly number
   if (s.expeditions.length >= MAX_EXPEDITIONS) return { ok: false, reason: `At most ${MAX_EXPEDITIONS} expeditions at once` };
   if (memberIds.length < 1) return { ok: false, reason: 'Pick someone to go' };
   if (d.coins && (s.coins ?? 0) < d.coins) return { ok: false, reason: `Needs ${d.coins} coins for the purse` };
-  const most = d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : MAX_PARTY;
+  // (an island: only a boat reaches it, and she takes no more than her crew)
+  const boat = sailsTo(d) ? freeBoat(s) : undefined;
+  if (d.byBoat && !boat) return { ok: false, reason: 'Needs a seaworthy boat' };
+  const most = boat && d.byBoat ? Math.min(boatDef(boat).crew, MAX_DELVERS) : d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : MAX_PARTY;
   if (memberIds.length > most) return { ok: false, reason: `Parties are at most ${most} people` };
   if (new Set(memberIds).size !== memberIds.length) return { ok: false, reason: 'Someone is listed twice' };
   for (const id of memberIds) {
@@ -210,7 +214,9 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     s.items.truck -= 1;
     takeFromStorage(s, 'fuel', TRUCK_FUEL);
   }
-  const speed = truck ? TRUCK_SPEEDUP : (waterskins ? WATERSKIN_SPEEDUP : 1) * (mounted ? HORSE_SPEEDUP : 1);
+  // (by boat, to an island or along the water, at her speed: no horse beats her there)
+  const boat = sailsTo(d) && members.length <= Math.max(MAX_PARTY, freeBoat(s) ? boatDef(freeBoat(s)!).crew : 0) ? freeBoat(s) : undefined;
+  const speed = boat ? 1 / sailSpeed(boat) : truck ? TRUCK_SPEEDUP : (waterskins ? WATERSKIN_SPEEDUP : 1) * (mounted ? HORSE_SPEEDUP : 1);
 
   const out = Math.round(phaseTicks(s, d.outSeconds) * speed);
   const e: Expedition = {
@@ -234,8 +240,10 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     waterskins,
     horses,
     ...(truck ? { truck: true } : {}),
+    ...(boat ? { boat: boat.id } : {}),
   };
   s.expeditions.push(e);
+  if (boat) boat.away = e.id;
   // (a delve: its rooms rolled and its torches packed)
   if (d.type === 'delve') startDelve(s, e, (m, n) => takeFromStorage(s, m, n));
   for (const p of members) {
@@ -244,12 +252,12 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     p.activity = 'walk';
     p.blocked = false;
   }
-  notify(s, `${names(members)} set out for ${the(d.name)}.`);
+  notify(s, `${names(members)} set out for ${the(d.name)}${boat ? ` in the ${boat.name}` : ''}.`);
   return { ok: true };
 }
 
 /** Take up to `n` of a material out of storage; returns how many were taken. */
-function takeFromStorage(s: GameState, m: Material, n: number): number {
+export function takeFromStorage(s: GameState, m: Material, n: number): number {
   let taken = 0;
   for (const st of storages(s)) {
     const k = Math.min(n - taken, st.store[m] ?? 0);
@@ -294,7 +302,9 @@ function startBack(s: GameState, e: Expedition, walkedTicks: number): void {
 
 export function partyCarry(s: GameState, e: Expedition): number {
   const people = e.members.reduce((n, id) => n + carryCapacity(s, s.people.find((p) => p.id === id)) * (e.roles[id] === 'porter' ? PORTER_CARRY : 1), 0);
-  return Math.round((people + (e.horses?.length ?? 0) * HORSE_CARRY + (e.truck ? TRUCK_CARRY : 0)) * (e.stakes ? STAKES[e.stakes].carry : 1));
+  const boat = e.boat ? fleet(s).find((b) => b.id === e.boat) : undefined;
+  const hold = boat ? boatDef(boat).cargo : 0;
+  return Math.round((people + (e.horses?.length ?? 0) * HORSE_CARRY + (e.truck ? TRUCK_CARRY : 0) + hold) * (e.stakes ? STAKES[e.stakes].carry : 1));
 }
 
 /** Expedition stakes (CLAUDE.md, "More to watch"): the one choice the player makes as a party leaves. Safe: a
@@ -398,6 +408,14 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
     }
 
     e.elapsed++;
+    // (at sea: each hour out and back may bring a storm, the sea's foes or pirates, sim/boats.ts)
+    if (e.boat && e.phase !== 'work' && e.elapsed % TICKS_PER_HOUR === 0) {
+      seaHour(s, e, members, rng, (group) => fightGroup(s, e, d, members, group, false, rng));
+      if (s.gameOver) return;
+      members = membersOf(s, e);
+      if (e.wrecked && e.phase !== 'back') startBack(s, e, e.elapsed);
+      if (e.battle) continue;
+    }
     switch (e.phase) {
       case 'out':
         if (!e.rolled.outEvent && e.elapsed >= e.outTicks * EVENT_AT) {
@@ -596,6 +614,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   if (e.waterskins) s.items.waterskin = (s.items.waterskin ?? 0) + e.waterskins;
   if (e.horses?.length) s.horses.push(...e.horses);
   if (e.truck) s.items.truck = (s.items.truck ?? 0) + 1;
+  boatHome(s, e);
   const side = s.destSides[d.id] ?? 1;
   const at = campEdge(s, side);
   // Share out the loot and leftover food; they'll haul it to storage like anything else.

@@ -1,5 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
+import { boatLine, boatyardOf, fleet, mooring } from './boats';
 import { peopleOf } from './strangers';
 import { AMBITIONS } from '../data/ambitions';
 import { TICKS_PER_DAY } from './time';
@@ -67,7 +69,7 @@ import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
-import { buildingCentreX, buildSlots, defOf, enclosure, totalCapacity, totalStock } from './buildings';
+import { buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS } from './state';
@@ -366,6 +368,9 @@ export interface ExpeditionView {
   /** Coats of the horses along. */
   horses: number[];
   truck: boolean;
+  /** The boat they sail in (sim/boats.ts), and whether she went down on the way. */
+  boat?: { kind: BoatKind; name: string; hull: number; max: number };
+  wrecked?: boolean;
   loot: Stock;
   lootSize: number;
   carry: number;
@@ -444,6 +449,9 @@ export interface DestinationView {
   /** The player forbids parties to go there; the treasury's bounty on it. */
   vetoed: boolean;
   bounty: number;
+  /** Only a boat reaches it; and which boat a trip would take, or that it waits for one (sim/boats.ts boatLine). */
+  byBoat?: boolean;
+  boat?: string;
 }
 
 export interface VisitorView extends PersonView {
@@ -583,6 +591,10 @@ export interface Snapshot {
   trips: TripsView;
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
   places: PlaceView[];
+  /** The town's boats (sim/boats.ts): at home (away null) or the place they've sailed for; and the water cell by the
+   *  boatyard where those at home lie moored. */
+  fleet: { id: number; kind: BoatKind; name: string; hull: number; max: number; away: string | null }[];
+  mooring: { x: number; y: number } | null;
   /** The Moon Pack's standing (sim/pack.ts), for a werewolf town. */
   pack: PackView | null;
   /** Blood on the ground where someone was struck down: where, the side the blow came from, and how old (ticks). */
@@ -778,7 +790,11 @@ export function snapshot(s: GameState): Snapshot {
       ...partyView(s, d.id),
       vetoed: vetoed(s, d.id),
       bounty: bountyOn(s, d.id),
+      ...(d.byBoat ? { byBoat: true } : {}),
+      ...((line) => (line ? { boat: line } : {}))(boatLine(s, d)),
     })),
+    fleet: fleet(s).map((b) => ({ id: b.id, kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull, away: b.away === null ? null : ((e) => (e ? destinationOf(s, e.dest)?.name ?? '' : ''))(s.expeditions.find((e) => e.id === b.away)) })),
+    mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
     trips: tripsView(s),
     places: placeViews(s),
     pack: packView(s),
@@ -1349,6 +1365,8 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     members: e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p).map((p) => ({ id: p.id, name: p.name, look: p.look, gear: { ...p.gear } })),
     horses: (e.horses ?? []).map((h) => h.coat),
     truck: !!e.truck,
+    ...((b) => (b ? { boat: { kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull } } : {}))(fleet(s).find((b) => b.id === e.boat)),
+    ...(e.wrecked ? { wrecked: true } : {}),
     loot: { ...e.loot },
     lootSize: poolSize(e.loot),
     carry: partyCarry(s, e),

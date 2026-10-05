@@ -1,5 +1,6 @@
 // Expedition Board: parties that are out, and where you can send one next.
 
+import { BOAT_BY_KIND } from '../../shared/data/boats';
 import { eraReached } from '../../shared/data/eras';
 import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../../shared/data/materials';
@@ -50,6 +51,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.uniques,
     s.regions,
     s.quests.map((q) => [q.id, Math.ceil(q.hoursLeft / 24)]),
+    s.fleet,
   ]);
 
 const listStock = (st: Stock) =>
@@ -77,6 +79,17 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
   out.push(el('h2', '', 'Parties'));
   out.push(el('div', 'purpose', s.trips.forming));
   out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away · treasury ${s.coins ?? 0} coins. Adventurers choose where to go, and a bounty draws them to a place. Forbid a place to keep them from it.`));
+  // the town's boats (sim/boats.ts): at home fishing, or out with a party
+  if (s.fleet.length) {
+    out.push(el('h2', '', 'Boats'));
+    out.push(
+      el(
+        'div',
+        'hint',
+        s.fleet.map((b) => `The ${b.name} (${BOAT_BY_KIND[b.kind].name.toLowerCase()}, hull ${b.hull}/${b.max}): ${b.away === null ? (b.hull < b.max / 2 ? 'mending at the boatyard' : 'at home, fishing') : `sailed for ${b.away}`}`).join(' · '),
+      ),
+    );
+  }
   for (const e of s.expeditions) {
     const card = activeCard(e, s, bridge);
     card.addEventListener('click', () => pick(e.dest));
@@ -153,7 +166,7 @@ function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined):
     const hp = p ? (p.downed ? (p.downed === 'bleeding' ? ` (bleeding out: ${bleedLeft(p.bleedMinutes)})` : ' (down)') : ` ${Math.round(p.hp)}/${p.maxHp}`) : '';
     return `${m.name} · ${ROLES[(e.roles[m.id] ?? 'fighter') as Role].name}${hp}`;
   });
-  c.append(top, el('div', 'lock', `${who.join(' | ')} · ${e.stakes ? (e.stakes === 'risky' ? 'Risky' : 'Safe') : STANCES[e.stance as Stance].name}${e.truck ? ' · by truck' : ''}`));
+  c.append(top, el('div', 'lock', `${who.join(' | ')} · ${e.stakes ? (e.stakes === 'risky' ? 'Risky' : 'Safe') : STANCES[e.stance as Stance].name}${e.truck ? ' · by truck' : ''}${e.boat ? ` · in the ${e.boat.name} (hull ${e.boat.hull}/${e.boat.max})` : ''}${e.wrecked ? ' · wrecked, swimming for home' : ''}`));
   if (e.leader || e.bounty) c.append(el('div', 'purpose', `${e.leader ? `Led by ${e.leader}` : ''}${e.leader && e.bounty ? ' · ' : ''}${e.bounty ? `after a bounty of ${e.bounty} coins` : ''}`));
   if (e.battle) {
     const foes = e.battle.filter((f) => f.side === 'enemy');
@@ -213,6 +226,7 @@ function tripControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sna
   if (v.cleared) c.append(el('div', 'purpose', `Cleared ${v.cleared} time${v.cleared === 1 ? '' : 's'}: it wakes deeper each time.`));
   for (const q of s.quests.filter((q) => q.dungeon === d.id)) c.append(el('div', 'lock', `Quest: ${q.title} (${Math.ceil(q.hoursLeft / 24)} days left)`));
   const going = s.expeditions.find((e) => e.dest === d.id);
+  if (v.boat && !s.expeditions.some((e) => e.dest === d.id)) c.append(el('div', v.byBoat && v.boat.startsWith('Needs') ? 'lock short' : 'purpose', v.boat));
   if (v.vetoed) c.append(el('div', 'lock short', 'Forbidden: no party will go here.'));
   else if (going) c.append(el('div', 'purpose', `A party is there now${going.leader ? `, led by ${going.leader}` : ''}.`));
   if (v.bounty) c.append(el('div', 'purpose', `Bounty: ${v.bounty} coins from the treasury, paid to the party that does the job.`));

@@ -8,6 +8,7 @@ import { MATERIAL_NAMES } from '../../shared/data/materials';
 import { quirkWords } from '../../shared/data/weapons';
 import { stockIcon } from '../art/materialIcons';
 import { CENTRE_X, FEET_Y, FRAME_SIZE, loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
+import { drawHeroIdle, founderSheet, heroImage } from '../art/heroForms';
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
@@ -399,6 +400,7 @@ function fightCard(p: PersonView): HTMLElement {
 let lpcLoading = false;
 let lpcLoaded = false;
 function startLpc(rerender: () => void): void {
+  heroRerender = rerender;
   if (lpcLoading) return;
   lpcLoading = true;
   loadLpc().then(
@@ -412,7 +414,27 @@ function startLpc(rerender: () => void): void {
 
 /** Them as they look in the town, in what they wear and with their weapon in hand, standing; composed pictures kept. */
 const pictures = new Map<string, HTMLCanvasElement>();
+/** A hero figure's height in the 64px frame (about an LPC townsperson's, as on the map: HERO_HEIGHT). */
+const HERO_FIGURE = 50;
+/** Redraws the tab when a hero sheet comes in (set by the panel's render). */
+let heroRerender: (() => void) | null = null;
 function picture(p: PersonView, s: Snapshot): HTMLCanvasElement | null {
+  // (a founder is drawn in their hero form everywhere, map/mapPeople.ts: so here too, feet where the LPC figure's are)
+  if (p.founderCalling && p.monster !== 'undead') {
+    const sheet = founderSheet(p.cls, p.id, p.battle.ranged, (p.battle.attrs?.int ?? 0) > (p.battle.attrs?.str ?? 0));
+    const img = heroImage(sheet, () => heroRerender?.());
+    if (img) {
+      const key = `hero|${sheet}`;
+      let c = pictures.get(key);
+      if (!c) {
+        c = document.createElement('canvas');
+        c.width = c.height = FRAME_SIZE;
+        drawHeroIdle(c.getContext('2d')!, img, sheet, CENTRE_X, FEET_Y, HERO_FIGURE);
+        pictures.set(key, c);
+      }
+      return c;
+    }
+  }
   if (!lpcLoaded) return null;
   let look = p.look;
   let wear: string[];

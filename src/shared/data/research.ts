@@ -5,6 +5,7 @@ import type { OriginId } from './origins';
 import type { WorkAnim } from './terrain';
 import { WORKSHOP_TOPICS } from './workshops';
 import { MINERAL_TOPICS } from './minerals';
+import { BOAT_TOPICS } from './boats';
 
 export type Branch = 'construction' | 'crafting' | 'agriculture' | 'military' | 'medicine' | 'logistics' | 'society' | 'occult' | 'heritage';
 
@@ -349,6 +350,7 @@ export const TOPICS: readonly Topic[] = [
   ]),
   ...WORKSHOP_TOPICS,
   ...MINERAL_TOPICS,
+  ...BOAT_TOPICS,
 ];
 
 /** What a finished topic's lasting effects do, in words. */
