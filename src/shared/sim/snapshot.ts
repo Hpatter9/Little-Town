@@ -21,7 +21,7 @@ import type { Biome } from '../data/biomes';
 import type { ClassId } from '../data/classes';
 import { levelOf, stageOf } from '../data/levels';
 import { callingName, callingText } from '../data/founderClasses';
-import { personFighter } from './combat';
+import { personFighter, weaponRange } from './combat';
 import { kitOf } from './actions';
 import { levelProgress } from './classes';
 import { turnable, undeadShare } from './turning';
@@ -39,7 +39,7 @@ import { OPERATORS } from '../data/operators';
 import { HERDS } from '../data/livestock';
 import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
 import { aimableSpells, POWERS, powersView } from './powers';
-import { battleView, type BattleView } from './battle';
+import { battleView, ranged, type BattleView } from './battle';
 
 /** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
 export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
@@ -75,7 +75,7 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS } from './state';
+import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, type ShopTalk } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { ABILITIES, abilitiesKnown } from '../data/abilities';
@@ -235,7 +235,7 @@ export interface PersonView {
   sick: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
    *  chance, dodge, armour and block, and the chance to strike true. */
-  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number };
+  battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number; range: number };
   /** The spells they keep ready and the skills they've learned (actives first), with what each costs. */
   kit: { name: string; spell: boolean; level: number; cost: number; pool: 'mp' | 'sp' | 'limit'; text: string }[];
   /** The passive skills they've learned (always on), with what each gives. */
@@ -528,8 +528,10 @@ export interface ShopView {
   worth: number;
   takings: number;
   keeperLook: Look | null;
+  /** The keeper's id (to dress them as the map does). */
+  keeperId: number | null;
   /** Strangers inside now: who they are, what they came for, their temper, and (at the tavern) the comfort they need. */
-  customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean }[];
+  customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean; stage: 'browse' | 'counter' | 'done' | null; talk: ShopTalk | null }[];
   /** The tavern's guest rooms upstairs (a bed is a piece at y -1, x the room), its beds, and how many are taken tonight. */
   rooms: number;
   /** Dark out (the windows show the night sky). */
@@ -1041,9 +1043,10 @@ function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): Sho
     worth: businessPrice(s, b),
     takings: (() => { const t = b.shop?.takings; const day = Math.floor(s.tick / TICKS_PER_DAY); return !t ? 0 : t.day === day ? t.yesterday : t.day === day - 1 ? t.today : 0; })(),
     keeperLook: keeper?.look ?? null,
+    keeperId: keeper?.id ?? null,
     customers: inside
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
-      .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour) })),
+      .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour), stage: t.stage ?? null, talk: t.talk ?? null })),
     rooms: roomsOf(b),
     night: calendar(s.tick).daylight < 0.35,
     beds: bedsOf(b).length,
@@ -1393,7 +1396,7 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives'> {
   const f = personFighter(p, 'fighter', 'front');
   const kit = kitOf(p);
   const view = {
-    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval },
+    battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval, range: weaponRange(p, ranged(p)) },
     kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool, text: describeAct(a.effects, a.cooldown / TICK_HZ, a.pool === 'limit') })),
     passives: p.cls ? abilitiesKnown(p.cls, levelOf(p)).filter((a) => a.passive).map((a) => ({ name: a.name, level: a.level, text: describePassive(a.passive!) })) : [],
   };

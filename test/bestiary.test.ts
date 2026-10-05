@@ -17,6 +17,8 @@ test('every new foe is drawn from a pack sheet, and every pack sheet is used', (
     if ('sheet' in e.sprite) used.add(e.sprite.sheet);
     assert.ok(e.hp > 0 && e.damage[0] <= e.damage[1]);
   }
+  // (any foe in the game may use a pack sheet: the Himeko Sutori sheets stand in for older foes' pictures)
+  for (const e of Object.values(ENEMIES)) if ('sheet' in e.sprite) used.add(e.sprite.sheet);
   for (const sheet of Object.keys(PACK_SHEETS)) assert.ok(used.has(sheet), `${sheet} is used by some foe`);
 });
 

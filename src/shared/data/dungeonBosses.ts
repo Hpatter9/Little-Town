@@ -81,7 +81,7 @@ export const DUNGEON_BOSSES: Record<string, EnemyDef> = {
   // the spider nests
   brood_mother: boss('brood_mother', { name: 'Arachnis, the Brood Mother', hp: 480, dmg: [15, 23], sheet: 'horror', scale: 1.6, tint: 0x9070b0, nature: 'beast', loot: { fiber: 10, hide: 4 },
     kit: { roar: 'Webs tremble from wall to wall. Arachnis is coming down.', enrage: 'The Brood Mother rears and sprays her venom!', area: { every: 3, targets: 3, name: 'sprays venom', fx: 'acid' }, summon: { kind: 'giant_rat', count: 2, text: 'Her cocooned larders twitch and burst!' } } }),
-  ooze_mother: boss('ooze_mother', { name: 'The Ooze Mother', hp: 420, dmg: [12, 19], sheet: 'slime', scale: 2.6, tint: 0x70f070, nature: 'beast', loot: { clay: 8, herbs: 4 },
+  ooze_mother: boss('ooze_mother', { name: 'The Ooze Mother', hp: 420, dmg: [12, 19], sheet: 'hk_slime_purple', height: 74, nature: 'beast', loot: { clay: 8, herbs: 4 },
     kit: { roar: 'The floor of the nest is alive, and hungry.', enrage: 'The Ooze Mother splits, and splits again!', area: { every: 3, targets: 3, name: 'engulfs the front rank', fx: 'acid' } } }),
   // the sunken ships
   bosun_grimbones: boss('bosun_grimbones', { name: 'Bosun Grimbones', hp: 440, dmg: [14, 21], sheet: 'pirate_zombie', height: 78, tint: 0xc0d0a0, nature: 'undead', loot: { cloth: 6, iron: 4 },

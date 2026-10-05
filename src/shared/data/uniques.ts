@@ -160,6 +160,7 @@ export const UNIQUES: readonly ItemDef[] = ROWS.map(([id, name, fam, tier, era, 
     accuracy: (f.acc ?? 0) + 0.05,
     ...(f.ranged ? { ranged: true } : {}),
     ...(f.ammo?.[era] ? { ammo: f.ammo[era] } : {}),
+    range: f.range,
     ...f.fx,
     ...own,
   };
@@ -178,7 +179,7 @@ export const UNIQUES: readonly ItemDef[] = ROWS.map(([id, name, fam, tier, era, 
     effects,
     family: fam,
     tier,
-    description: `${lore} Unique ${f.name.toLowerCase()}: +${effects.damage} ${f.ranged ? 'ranged' : 'melee'} damage${words.length ? `; ${words.join(', ')}` : ''}.`,
+    description: `${lore} Unique ${f.name.toLowerCase()}: +${effects.damage} ${f.ranged ? 'ranged' : 'melee'} damage, range ${f.range}${words.length ? `; ${words.join(', ')}` : ''}.`,
     icon: iconFor(fam, tier),
   };
 });

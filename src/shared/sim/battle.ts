@@ -20,11 +20,11 @@ import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
 import { RAID_KIND_BY_ID, THROW_RANGE, RAID_FEROCITY } from '../data/raids';
 import { TILE } from '../constants';
-import type { Rng } from '../rng';
+import { hashSeed, mixSeed, Rng } from '../rng';
 import { footprint } from './buildings';
 import { CELL, findPath, groundAt, inMap, SWIM_COST, wet, type Pt } from './land';
 import { blockedBy } from './walk';
-import { personFighter, weaponOf } from './combat';
+import { personFighter, weaponOf, weaponRange } from './combat';
 import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
 import { ally } from './classes';
 import { enemyArmor } from '../data/enemies';
@@ -52,8 +52,12 @@ export interface BattleMap {
   /** How long the main trail is (cells). */
   len: number;
   /** The trails, as corner points (cells of the town's land, centres at .5): 0 the main one, from the land's edge on
-   *  the side the raid comes to the town's gate; 1, when there is one, a second way in from the other side. */
+   *  the side the raid comes to the town's gate; then the other lanes in from that side, and a way in from the other
+   *  side for a party coming round. */
   paths: [number, number][][];
+  /** Which side each trail comes in from: 0 the raid's own side, 1 the other (a flanking party). Left out (an older
+   *  battle): the first trail is the raid's, the second the flank's. */
+  sides?: number[];
   spots: BattleSpot[];
   /** Where the main trail ends: the town's edge, where whoever gets through comes in. */
   gate: [number, number];
@@ -207,8 +211,14 @@ const BLOCK_FROM = 3;
 export const HOLD_REACH = 14;
 const BLOCK_EVERY = 3;
 const BLOCK_END = 1.5;
-/** Ground spots for shooters beside the trail: about one per this many cells of it. */
-const GROUND_EVERY = 7;
+/** Ground spots for shooters: so many a way in, at least this far (cells) apart. */
+const GROUND_PER_LANE = 3;
+/** Shooters stand along the held stretch and a little beyond it (a share of `HOLD_REACH`). */
+const SHOOT_REACH = 1.25;
+const GROUND_APART = 2;
+/** A trap laid on a way in: this far (cells) before the gate, and the next on the same lane so much further out. */
+const TRAP_FROM_GATE = 3;
+const TRAP_APART = 2.5;
 /** What wading a river costs a raiding party finding its way in (in cells of plain ground). */
 const FORD = 4;
 /** The nomads' wagons, drawn up by the trail's end while they have no walls: wall spots. */
@@ -259,13 +269,144 @@ function gateCell(s: GameState, side: -1 | 1): Pt {
  *  marsh slow, a river forded where it must be, buildings gone round), as cell centres; straight at the gate if there
  *  is none. Cells in a straight run are folded into its two ends. */
 export function trail(s: GameState, side: -1 | 1, sea = false): [number, number][] {
-  // (a raid from the sea: out of the deep water south of the town, swimming ashore to its strand, or to the ring
-  // wall's gate on that side if it has one)
+  const { from, to } = ends(s, side, sea);
+  return fold([from, ...(leg(s, from, to, sea) ?? (from.x === to.x && from.y === to.y ? [] : [to]))]);
+}
+
+/** Where a trail from a side starts and ends. (A raid from the sea: out of the deep water south of the town, swimming
+ *  ashore to its strand, or to the ring wall's gate on that side if it has one.) */
+function ends(s: GameState, side: -1 | 1, sea: boolean): { from: Pt; to: Pt } {
   const to = sea ? (ringGate(s, side) ?? strandCell(s)) : gateCell(s, side);
-  const from = sea ? seaEdge(s) : landEdge(s, side, to);
+  return { from: sea ? seaEdge(s) : landEdge(s, side, to), to };
+}
+
+/** The cheapest way from one cell to another for a raiding party (round the buildings if it can), or null. */
+function leg(s: GameState, from: Pt, to: Pt, sea: boolean): Pt[] | null {
   const limits = sea ? { maxNodes: 24000, swim: SWIM_COST } : { maxNodes: 24000, ford: FORD };
-  const cells = findPath(s.land, from, to, blockedBy(s), limits) ?? findPath(s.land, from, to, undefined, limits);
-  const pts: Pt[] = [from, ...(cells ?? (from.x === to.x && from.y === to.y ? [] : [to]))];
+  return findPath(s.land, from, to, blockedBy(s), limits) ?? findPath(s.land, from, to, undefined, limits);
+}
+
+/* ------------------------------------------------------------ lanes and bends (the owner's ask: more ways in, and
+ * trails that feel random, after the RPG tower defences (Fantasica, Kingdom Rush, Arknights): several spawn points,
+ * paths that wind back and forth and meet near the base, so the shooters and engines get more blows in) */
+
+/** The most ways in from the raid's side; the town draws more as its fighters grow (2, then 3 at 6, 4 at 12). */
+export const LANES_MOST = 4;
+const LANE_PER_FIGHTERS = 6;
+/** Bends in each trail, and how far (cells) each swings off the straight way: the bends nearest the gate swing less,
+ *  so the raiders zigzag in under the towers and walls rather than out of their reach. */
+const BENDS = 3;
+const SWING = [3, 9] as const;
+const SWING_NEAR = [2, 5] as const;
+/** Each further way in comes out of the fog turned this far (radians) round the gate from the main one, alternately
+ *  either side. */
+const SPAWN_TURN = [0.45, 0.9] as const;
+/** The far reaches of a trail (beyond this many cells from its end) are walked quicker: out in the dark there's
+ *  nothing to see, and winding trails are long. */
+const FAR_FROM_GATE = 2 * HOLD_REACH;
+const FAR_PACE = 1.8;
+
+/** How many ways in a raid from one side takes. */
+export function lanesFor(s: GameState): number {
+  return Math.min(LANES_MOST, 2 + Math.floor(fighters(s).length / LANE_PER_FIGHTERS));
+}
+
+/** Somewhere a party can stand: on the land, not mountain, not built over, and dry unless it swims. */
+function walkable(s: GameState, x: number, y: number, sea: boolean, blocked: (x: number, y: number) => boolean): boolean {
+  const m = s.land;
+  if (!inMap(m, x, y)) return false;
+  const g = groundAt(m, x, y);
+  return g !== 'mountain' && (sea || g !== 'water') && !blocked(x, y);
+}
+/** The nearest such cell to a point, within a few cells; null if there's none. */
+function nearWalkable(s: GameState, x: number, y: number, sea: boolean, blocked: (x: number, y: number) => boolean): Pt | null {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  for (let r = 0; r <= 6; r++)
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        if (walkable(s, cx + dx, cy + dy, sea, blocked)) return { x: cx + dx, y: cy + dy };
+      }
+  return null;
+}
+
+/** A winding trail from `from` to `to`: through `BENDS` bends swung off the straight way, alternately either side, by
+ *  random amounts (kept outside the town: never nearer the camp than the gate is), each stretch the cheapest way over
+ *  the land. The straight trail when a bend can't be reached. */
+export function windingTrail(s: GameState, from: Pt, to: Pt, rng: Rng, sea = false): [number, number][] {
+  const m = s.land;
+  const blocked = blockedBy(s);
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.max(1, Math.hypot(dx, dy));
+  const nx = -dy / len;
+  const ny = dx / len;
+  const keepOut = Math.hypot(to.x - m.camp.x, to.y - m.camp.y) + 2;
+  const stops: Pt[] = [from];
+  let sign = rng.chance(0.5) ? 1 : -1;
+  for (let k = 1; k <= BENDS; k++) {
+    const t = Math.max(0.1, Math.min(0.9, k / (BENDS + 1) + rng.range(-0.07, 0.07)));
+    const [lo, hi] = k === BENDS ? SWING_NEAR : SWING;
+    const sw = rng.range(lo, hi) * sign;
+    sign = -sign;
+    let x = from.x + dx * t + nx * sw;
+    let y = from.y + dy * t + ny * sw;
+    // (outside the town: pushed out from the camp to past the gate's distance)
+    const cd = Math.hypot(x - m.camp.x, y - m.camp.y);
+    if (cd < keepOut) {
+      const f = keepOut / Math.max(0.5, cd);
+      x = m.camp.x + (x - m.camp.x) * f;
+      y = m.camp.y + (y - m.camp.y) * f;
+    }
+    const at = nearWalkable(s, Math.max(1, Math.min(m.w - 2, x)), Math.max(1, Math.min(m.h - 2, y)), sea, blocked);
+    if (at && !(at.x === stops[stops.length - 1].x && at.y === stops[stops.length - 1].y)) stops.push(at);
+  }
+  stops.push(to);
+  const cells: Pt[] = [from];
+  for (let i = 1; i < stops.length; i++) {
+    const part = leg(s, stops[i - 1], stops[i], sea);
+    if (!part) return fold([from, ...(leg(s, from, to, sea) ?? [to])]);
+    cells.push(...part);
+  }
+  return fold(cells);
+}
+
+/** Every way in for a raid: `n` winding lanes from its side (the first out of the fog where the straight trail starts,
+ *  the rest turned round the gate either side of it), and one more from the other side for a flanking party. */
+export function lanesOf(s: GameState, side: -1 | 1, flank: boolean, sea: boolean, rng: Rng, n = lanesFor(s)): { paths: [number, number][][]; sides: number[] } {
+  const m = s.land;
+  const { from, to } = ends(s, side, sea);
+  const paths: [number, number][][] = [];
+  const sides: number[] = [];
+  const blocked = blockedBy(s);
+  for (let k = 0; k < n; k++) {
+    let start: Pt | null = from;
+    if (k > 0) {
+      const turn = (k % 2 ? 1 : -1) * rng.range(SPAWN_TURN[0], SPAWN_TURN[1]) * Math.ceil(k / 2);
+      if (sea) start = nearWalkable(s, Math.max(1, Math.min(m.w - 2, from.x + Math.sign(turn) * rng.range(5, 12) * Math.ceil(k / 2))), from.y, true, blocked);
+      else {
+        const vx = from.x - to.x;
+        const vy = from.y - to.y;
+        const c = Math.cos(turn);
+        const sn = Math.sin(turn);
+        start = nearWalkable(s, Math.max(1, Math.min(m.w - 2, to.x + vx * c - vy * sn)), Math.max(1, Math.min(m.h - 2, to.y + vx * sn + vy * c)), false, blocked);
+      }
+    }
+    if (!start) continue;
+    paths.push(windingTrail(s, start, to, rng, sea));
+    sides.push(0);
+  }
+  if (flank) {
+    const o = ends(s, -side as -1 | 1, false);
+    paths.push(windingTrail(s, o.from, o.to, rng));
+    sides.push(1);
+  }
+  return { paths, sides };
+}
+
+/** Cells in a straight run folded into its two ends, as cell centres. */
+function fold(pts: Pt[]): [number, number][] {
   const out: [number, number][] = [];
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
@@ -297,11 +438,10 @@ function distToTrail(p: [number, number], path: [number, number][]): number {
 /** Lay out the battle on the town's own land: the trail in from the side the raid comes (and a second for a party
  *  coming round the other way), blocking spots along it, ground spots beside it, the town's walls that overlook its
  *  end as wall spots, its defence buildings in reach as towers, its traps on it. Everything is in the land's cells. */
-export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false): BattleMap {
+export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false, salt = s.tick): BattleMap {
   const m = s.land;
   const done = s.buildings.filter((b) => b.status === 'done');
-  const paths: [number, number][][] = [trail(s, side, sea)];
-  if (flank) paths.push(trail(s, -side as -1 | 1));
+  const { paths, sides } = lanesOf(s, side, flank, sea, new Rng(mixSeed(hashSeed(s.seed), salt, 0xba771e)));
   const path = paths[0];
   const cum = cumulative(path);
   const gate = path[path.length - 1];
@@ -349,46 +489,75 @@ export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false):
   }
 
   // the town's towers in reach of a trail, and its traps lying on one
+  let laid = 0;
   for (const b of done.filter((q) => towerDef(q.def))) {
     const def = BUILDING_BY_ID[b.def];
     const c = centre(b);
     if (def.layer === 'fore' && (def.defense?.range ?? 0) < TILE) {
-      // a trap: on the trail, where it crosses it
+      // a trap: on the trail where it crosses one; else the town lays it out on a way in, as the tower defences have
+      // their traps on the path (on each lane in turn, along the stretch before the gate, where every raider passes)
+      let best: [number, number] | null = null;
       for (const p of paths) {
         const cc = cumulative(p);
-        let best: [number, number] | null = null;
         for (let d = 0; d < cc[cc.length - 1]; d += 0.5) {
           const at = pointAt(p, cc, d);
           if (dist(at, c) <= TRAP_NEAR && (!best || dist(at, c) < dist(best, c))) best = at;
         }
-        if (best) {
-          spot('trap', best[0], best[1], b.id);
-          break;
-        }
       }
+      if (!best) {
+        const p = paths[laid % paths.length];
+        const cc = cumulative(p);
+        const end = cc[cc.length - 1];
+        best = pointAt(p, cc, Math.max(0, end - TRAP_FROM_GATE - Math.floor(laid / paths.length) * TRAP_APART));
+        laid++;
+      }
+      spot('trap', best[0], best[1], b.id);
       continue;
     }
     if (nearest(c) <= (def.defense?.range ?? 0) / CELL + TOWER_NEAR) spot('tower', c[0], c[1], b.id);
   }
 
-  // a few spots on open ground beside each trail, for shooters where there's no wall
+  // spots on open ground for shooters where there's no wall: where they see the most trail (the bends and the
+  // crossroads where lanes meet, as the tower defences put their archers), along the stretch the town holds and a
+  // little beyond it, a few for each way in, never two side by side
+  const holdPts: [number, number][] = [];
+  const farPts: [number, number][] = [];
   for (const p of paths) {
     const c = cumulative(p);
     const end = c[c.length - 1];
-    const beside = besideTrail(p, c, free, Math.max(2, end - HOLD_REACH), end);
-    const want = Math.max(2, Math.round(Math.min(end, HOLD_REACH) / GROUND_EVERY));
-    const stride = Math.max(2, Math.floor(beside.length / want));
-    for (let i = 0, k = Math.floor(stride / 2); i < want && k < beside.length; k += stride) {
-      const [cx, cy] = beside[k];
-      if (!free(cx, cy)) continue;
-      spot('ground', cx + 0.5, cy + 0.5);
-      i++;
-    }
+    for (let d = 0; d <= end; d += 0.5) (d >= end - HOLD_REACH * SHOOT_REACH ? holdPts : farPts).push(pointAt(p, c, d));
+  }
+  const nearestOf = (pts: [number, number][], at: [number, number]) => pts.reduce((m, q) => Math.min(m, dist(q, at)), Infinity);
+  const seen = new Set<string>();
+  const cands: { x: number; y: number; n: number }[] = [];
+  for (const [px, py] of holdPts)
+    for (let oy = -3; oy <= 3; oy++)
+      for (let ox = -3; ox <= 3; ox++) {
+        const cx = Math.floor(px) + ox;
+        const cy = Math.floor(py) + oy;
+        const k = key(cx, cy);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (!free(cx, cy)) continue;
+        const at: [number, number] = [cx + 0.5, cy + 0.5];
+        // (never out where a far stretch of some lane runs nearer than the held one: a shooter there would stand
+        // out past the raiders, as fighters once did)
+        if (nearest(at) < 1 || nearestOf(farPts, at) < nearestOf(holdPts, at)) continue;
+        cands.push({ x: at[0], y: at[1], n: holdPts.filter((q) => dist(q, at) <= SHOT_CELLS).length });
+      }
+  cands.sort((a, b) => b.n - a.n || a.x - b.x || a.y - b.y);
+  const want = Math.max(2, paths.length * GROUND_PER_LANE);
+  const chosen: { x: number; y: number }[] = [];
+  for (const q of cands) {
+    if (chosen.length >= want) break;
+    if (chosen.some((o) => Math.hypot(o.x - q.x, o.y - q.y) < GROUND_APART)) continue;
+    chosen.push(q);
+    spot('ground', q.x, q.y);
   }
 
   const wallOrder = ['force_wall', 'concrete_wall', 'brick_wall', 'stone_wall', 'palisade_wall'];
   const wall = !walls.length && s.origin === 'nomads' ? 'wagon_circle' : wallOrder.find((w) => done.some((b) => b.def === w));
-  return { len: cum[cum.length - 1], paths, spots, gate, ...(wall ? { wall } : {}), style: s.origin ?? 'settlers' };
+  return { len: cum[cum.length - 1], paths, sides, spots, gate, ...(wall ? { wall } : {}), style: s.origin ?? 'settlers' };
 }
 
 /** The cells a trail runs through (its corners are joined by straight runs along or across). */
@@ -443,6 +612,9 @@ export function pointAt(path: [number, number][], cum: number[], d: number): [nu
   return [...path[path.length - 1]];
 }
 
+/** Which side a trail comes in from (0 the raid's own, 1 the other). */
+export const laneSide = (map: BattleMap, i: number): number => map.sides?.[i] ?? (i === 1 ? 1 : 0);
+
 /** Where a raider is on the map. */
 export function foeAt(map: BattleMap, rd: Raider): [number, number] {
   const bt = rd.bt!;
@@ -463,9 +635,14 @@ export function startBattle(s: GameState, r: Raid): void {
   const big = (s.doom?.kind === 'war' && s.doom.phase === 'active') || !!RAID_KIND_BY_ID[r.kind]?.leader || foes.some((rd) => ENEMIES[rd.kind].kit);
   const waves = Math.min(4, Math.max(1, Math.ceil(foes.length / WAVE_SIZE)) + (big && foes.length > 3 ? 1 : 0));
   const order = [...foes].sort((a, b) => (ENEMIES[a.kind].kit || ENEMIES[a.kind].boss ? 1 : 0) - (ENEMIES[b.kind].kit || ENEMIES[b.kind].boss ? 1 : 0));
+  // (each wave spread over the ways in from its side, in turn, so every lane sees raiders)
+  const lanesFrom = (side: number) => map.paths.map((_, i) => i).filter((i) => laneSide(map, i) === side);
+  const turn = [0, 0];
   order.forEach((rd, i) => {
     const wave = Math.min(waves - 1, Math.floor((i * waves) / order.length));
-    rd.bt = { d: -1, lane: flank && rd.side !== undefined && rd.side !== r.side ? 1 : 0, wave };
+    const side = flank && rd.side !== undefined && rd.side !== r.side ? 1 : 0;
+    const lanes = lanesFrom(side).length ? lanesFrom(side) : [0];
+    rd.bt = { d: -1, lane: lanes[turn[side]++ % lanes.length], wave };
   });
   const auto = s.autoBattle !== false || !!r.alone; // (on unless the player turned it off: the owner's call)
   r.battle = { map, phase: 'placing', until: s.tick + PLACE_TICKS, started: s.tick, opened: s.tick, wave: 0, waves, units: [], auto, through: 0, killed: 0 };
@@ -511,13 +688,15 @@ export function autoPlace(s: GameState, b: Battle, r: Raid): void {
   const shooterSpots = b.map.spots.filter((q) => q.kind === 'wall' || q.kind === 'ground');
   const cover = (q: BattleSpot) => shooterSpots.filter((w) => Math.hypot(w.x - q.x, w.y - q.y) <= SHOT_CELLS + (w.kind === 'wall' ? WALL_REACH : 0)).length;
   // (blocking spots in the order they're best held: covered by most shooters, then nearer the gate)
-  const blocks = b.map.spots.filter((q) => q.kind === 'block' && !taken.has(q.id)).sort((a, c) => cover(c) - cover(a) || c.x - a.x);
-  // (wall and ground spots in order of how much trail they see)
-  const path = b.map.paths[0];
-  const cum = cumulative(path);
+  const toGate = (q: BattleSpot) => Math.hypot(q.x - b.map.gate[0], q.y - b.map.gate[1]);
+  const blocks = b.map.spots.filter((q) => q.kind === 'block' && !taken.has(q.id)).sort((a, c) => cover(c) - cover(a) || toGate(a) - toGate(c));
+  // (wall and ground spots in order of how much trail they see, every way in counted)
   const sees = (q: BattleSpot) => {
     let n = 0;
-    for (let d = 0; d < cum[cum.length - 1]; d += 1) if (dist([q.x, q.y], pointAt(path, cum, d)) <= SHOT_CELLS + (q.kind === 'wall' ? WALL_REACH : 0)) n++;
+    for (const path of b.map.paths) {
+      const cum = cumulative(path);
+      for (let d = 0; d < cum[cum.length - 1]; d += 1) if (dist([q.x, q.y], pointAt(path, cum, d)) <= SHOT_CELLS + (q.kind === 'wall' ? WALL_REACH : 0)) n++;
+    }
     return n + (q.kind === 'wall' ? 100 : 0);
   };
   const shoots = shooterSpots.filter((q) => !taken.has(q.id)).sort((a, c) => sees(c) - sees(a));
@@ -708,7 +887,9 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     }
     if (bt.held !== undefined) continue;
     // on along the trail, unless a blocker with room stops it
-    const next = Math.min(end, bt.d + pace * speedOf(rd, s.tick) * ((bt.st?.slow?.until ?? 0) > s.tick ? 0.5 : 1) * ((bt.st?.haste?.until ?? 0) > s.tick ? 1.5 : 1));
+    // (out in the far reaches of a long winding trail they come on quicker)
+    const far = end - bt.d > FAR_FROM_GATE ? FAR_PACE : 1;
+    const next = Math.min(end, bt.d + far * pace * speedOf(rd, s.tick) * ((bt.st?.slow?.until ?? 0) > s.tick ? 0.5 : 1) * ((bt.st?.haste?.until ?? 0) > s.tick ? 1.5 : 1));
     const at = pointAt(path, cum, next);
     const blocker = b.units.find((u) => {
       const q = spotOf.get(u.spot)!;
@@ -759,7 +940,9 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const sp = spotOf.get(u.spot)!;
     const p = u.person !== undefined ? people.get(u.person) : undefined;
     const shooter = p ? ranged(p) : false;
-    const reach = shooter ? SHOT_CELLS + (sp.kind === 'wall' ? WALL_REACH : 0) : MELEE_CELLS;
+    // (each strikes only what's in its weapon's range: a dagger at arm's length, a spear a step further, a longbow far
+    // down the trail; up on a wall a shooter sees a little further)
+    const reach = p ? weaponRange(p, shooter) + (shooter && sp.kind === 'wall' ? WALL_REACH : 0) : MELEE_CELLS;
     // (a blocker hits what it's holding first; a shooter the one furthest along, the nearest to getting through)
     const inReach = wave.filter((rd) => !rd.down && !rd.gone && !rd.bt!.out && rd.bt!.d >= 0 && dist(foeAt(map, rd), pos) <= reach);
     const mage = p?.cls === 'mage';

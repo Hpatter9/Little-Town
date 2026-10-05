@@ -20,6 +20,9 @@ const HORSE_SCALE = 0.85;
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import type { HumanSprite, MachineSprite, StillSprite } from '../../shared/data/enemies';
 import { stillTexture } from '../art/stills';
+import { hkLayers, hkPose, hkWhoById } from '../art/hkFolk';
+import { hkSprite } from '../art/hkTexture';
+import type { Slot } from '../../shared/data/items';
 import { machineFrame, machineSize } from '../art/machines';
 import { makeSpriteSet, type SpriteSet } from '../art/sprites';
 import { daylightTint } from '../map/mapView';
@@ -51,7 +54,7 @@ export class ExpeditionPane {
   private view: ExpeditionView | null = null;
   private scroll = 0;
   private width = 0;
-  private members: { sprite: Sprite; load: Graphics; look: Look; wear: string[] }[] = [];
+  private members: { sprite: Sprite; load: Graphics; id: number; look: Look; gear: Partial<Record<Slot, string>>; wear: string[] }[] = [];
   private horses: { sprite: Sprite; coat: number }[] = [];
   private truck: Graphics | null = null;
 
@@ -100,7 +103,7 @@ export class ExpeditionPane {
       this.shownId = v.id;
       this.buildScenery(v.scenery as Theme, v.id);
       this.buildParty(
-        v.members.map((m) => ({ look: m.look, wear: wornLayers(m.gear) })),
+        v.members.map((m) => ({ id: m.id, look: m.look, gear: m.gear, wear: wornLayers(m.gear) })),
         v.horses,
         v.truck,
       );
@@ -156,11 +159,17 @@ export class ExpeditionPane {
         const phase = ((secs + i * 0.37) % 1.1) / 1.1;
         frame = phase < 0.7 ? Math.floor((phase / 0.7) * count) : 0;
       }
-      m.sprite.texture = lpcFrame(m.look, anim, frame, null, m.wear);
       const flip = walking ? dir < 0 : false;
-      m.sprite.scale.x = flip ? -1 : 1;
-      m.sprite.x = x + (flip ? CENTRE_X + 1 : -CENTRE_X);
-      m.sprite.y = WALK_Y - FEET_Y;
+      // (in the Himeko look, as the map draws them: art/hkFolk.ts; the old look while their layers load)
+      const keys = hkLayers(hkWhoById(m.id, m.look, m.gear), { fighting: false, activity: walking ? 'idle' : anim === 'thrust' ? 'chop' : 'build' });
+      const col = walking ? [1, 0, 2, 0][Math.floor(secs * 7 + i * 3) % 4] : frame ? (frame % 2 ? 3 : 4) : 0;
+      if (!hkSprite(m.sprite, keys, col, flip ? 1 : 2, x, WALK_Y, 48)) {
+        m.sprite.anchor.set(0);
+        m.sprite.texture = lpcFrame(m.look, anim, frame, null, m.wear);
+        m.sprite.scale.set(flip ? -1 : 1, 1);
+        m.sprite.x = x + (flip ? CENTRE_X + 1 : -CENTRE_X);
+        m.sprite.y = WALK_Y - FEET_Y;
+      }
       m.load.visible = v.phase === 'back' && v.lootSize > 0;
       m.load.position.set(x - (flip ? -1 : 1) * 7 - 4, WALK_Y - 40);
     });
@@ -243,25 +252,33 @@ export class ExpeditionPane {
         const hs = unit ? (unit.sprite as HumanSprite) : null;
         const enemy = hs ? enemyLook(hs.people, f.ref) : null;
         const look = f.look ?? enemy!.look;
-        const wear = enemy ? enemy.wear : wornLayers(f.gear);
-        const weapon = hs ? hs.weapon : heldWeapon(f.gear, 'fight');
-        let anim: LpcAnim = 'walk';
-        let frame = 0;
-        if (f.down) {
-          anim = 'hurt';
-          frame = FRAME_COUNT.hurt - 1;
-        } else if (acting) {
-          if (hs) anim = attackAnim(hs, f.ranged);
-          else if (weapon === 'bow') anim = 'shoot';
-          else if (f.role === 'medic' || f.ranged) anim = 'spell';
-          else anim = weapon && weapon !== 'spear' ? 'slash' : 'thrust';
-          frame = Math.min(FRAME_COUNT[anim] - 1, Math.floor(f.sinceAction * (anim === 'shoot' ? 1.6 : 1)));
+        // (a townsperson in the Himeko look, as the map draws them)
+        const hkKeys = !hs && f.look ? hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: true, activity: 'fight' }) : null;
+        const [hc, hr] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now: secs * 1000 });
+        if (hkKeys && hkSprite(s, hkKeys, hc, hr, x, WALK_Y, 48)) {
+          top = WALK_Y - 50;
+        } else {
+          s.anchor.set(0);
+          const wear = enemy ? enemy.wear : wornLayers(f.gear);
+          const weapon = hs ? hs.weapon : heldWeapon(f.gear, 'fight');
+          let anim: LpcAnim = 'walk';
+          let frame = 0;
+          if (f.down) {
+            anim = 'hurt';
+            frame = FRAME_COUNT.hurt - 1;
+          } else if (acting) {
+            if (hs) anim = attackAnim(hs, f.ranged);
+            else if (weapon === 'bow') anim = 'shoot';
+            else if (f.role === 'medic' || f.ranged) anim = 'spell';
+            else anim = weapon && weapon !== 'spear' ? 'slash' : 'thrust';
+            frame = Math.min(FRAME_COUNT[anim] - 1, Math.floor(f.sinceAction * (anim === 'shoot' ? 1.6 : 1)));
+          }
+          s.texture = lpcFrame(look, anim, frame, f.ranged && weapon !== 'bow' ? null : weapon, wear);
+          const flip = faceLeft;
+          s.scale.set(flip ? -1 : 1, 1);
+          s.x = x + (flip ? CENTRE_X + 1 : -CENTRE_X);
+          s.y = WALK_Y - FEET_Y;
         }
-        s.texture = lpcFrame(look, anim, frame, f.ranged && weapon !== 'bow' ? null : weapon, wear);
-        const flip = faceLeft;
-        s.scale.set(flip ? -1 : 1, 1);
-        s.x = x + (flip ? CENTRE_X + 1 : -CENTRE_X);
-        s.y = WALK_Y - FEET_Y;
       } else {
         const sp = ENEMIES[f.kind].sprite as { sheet: CreatureSheet; block: number; scale: number };
         const facing = faceLeft ? 'left' : 'right';
@@ -301,7 +318,7 @@ export class ExpeditionPane {
 
   /* ------------------------------------------------------------ building */
 
-  private buildParty(members: { look: Look; wear: string[] }[], horses: number[], truck: boolean): void {
+  private buildParty(members: { id: number; look: Look; gear: Partial<Record<Slot, string>>; wear: string[] }[], horses: number[], truck: boolean): void {
     this.party.removeChildren().forEach((c) => c.destroy());
     this.truck = truck ? this.party.addChild(truckArt()) : null;
     // horses first, so they're drawn behind the people
@@ -310,10 +327,10 @@ export class ExpeditionPane {
       sprite.scale.set(HORSE_SCALE);
       return { sprite, coat };
     });
-    this.members = members.map(({ look, wear }) => {
+    this.members = members.map(({ id, look, gear, wear }) => {
       const load = this.party.addChild(bundle());
       const sprite = this.party.addChild(new Sprite());
-      return { sprite, load, look, wear };
+      return { sprite, load, id, look, gear, wear };
     });
   }
 

@@ -18,6 +18,9 @@ interface Family {
   /** Fights from range; what it shoots, by era (none: it's thrown, or it's magic). */
   ranged?: boolean;
   ammo?: Partial<Record<Era, Material>>;
+  /** How far it reaches on the raid's battle map (cells): a dagger only what's at arm's length, a spear or a polearm
+   *  a step further for a melee weapon, a bow or a long gun far down the trail. */
+  range: number;
   /** What it's made of: a blade or head, a haft, a string or grip, a gun's works, a mage's focus. */
   parts: 'blade' | 'heavy' | 'haft' | 'bow' | 'crossbow' | 'sling' | 'thrown' | 'gun' | 'energy' | 'magic';
 }
@@ -28,29 +31,29 @@ const ARROWS: Partial<Record<Era, Material>> = { medieval: 'arrows', industrial:
 const ROUNDS: Partial<Record<Era, Material>> = { industrial: 'shot', modern: 'cartridges', space: 'power_cells' };
 
 export const FAMILIES: Record<FamilyId, Family> = {
-  dg: { name: 'Dagger', dmg: 0.65, acc: 0.08, fx: { speed: 0.75, crit: 0.15 }, parts: 'blade' },
-  sw: { name: 'Sword', dmg: 1, acc: 0.1, fx: { crit: 0.05 }, parts: 'blade' },
-  ax: { name: 'Axe', dmg: 1.15, acc: 0, fx: { cleave: 0.4 }, parts: 'heavy' },
-  mc: { name: 'Mace', dmg: 1.05, acc: -0.02, fx: { stun: 0.12, pierce: 0.3 }, parts: 'heavy' },
-  sp: { name: 'Spear', dmg: 0.95, acc: 0.05, fx: { reach: true }, parts: 'haft' },
-  pl: { name: 'Polearm', dmg: 1.2, acc: 0, fx: { reach: true, cleave: 0.25, speed: 1.15 }, parts: 'haft' },
-  gs: { name: 'Great Weapon', dmg: 1.5, acc: -0.03, fx: { speed: 1.3, cleave: 0.3 }, parts: 'heavy' },
-  fl: { name: 'Flail', dmg: 0.95, acc: -0.04, fx: { stun: 0.2 }, parts: 'heavy' },
-  sc: { name: 'Scythe', dmg: 1.05, acc: 0, fx: { crit: 0.1, cleave: 0.2 }, parts: 'haft' },
-  cl: { name: 'Claws', dmg: 0.7, acc: 0.05, fx: { speed: 0.7, crit: 0.08 }, parts: 'blade' },
-  sl: { name: 'Sling', dmg: 0.6, acc: 0, ranged: true, ammo: { neolithic: 'sling_stones', medieval: 'sling_stones' }, parts: 'sling' },
-  th: { name: 'Thrown', dmg: 0.85, acc: 0, fx: { speed: 0.9 }, ranged: true, parts: 'thrown' },
-  bw: { name: 'Bow', dmg: 0.8, acc: 0.03, ranged: true, ammo: ARROWS, parts: 'bow' },
-  lb: { name: 'Longbow', dmg: 1, acc: 0.07, fx: { speed: 1.15 }, ranged: true, ammo: ARROWS, parts: 'bow' },
-  cb: { name: 'Crossbow', dmg: 1.2, acc: 0.05, fx: { speed: 1.35, pierce: 0.4 }, ranged: true, ammo: ARROWS, parts: 'crossbow' },
-  st: { name: 'Staff', dmg: 0.9, acc: 0.05, fx: { cleave: 0.35 }, ranged: true, parts: 'magic' },
-  wd: { name: 'Wand', dmg: 0.65, acc: 0.1, fx: { speed: 0.8 }, ranged: true, parts: 'magic' },
-  pi: { name: 'Pistol', dmg: 0.9, acc: 0.03, fx: { speed: 0.9 }, ranged: true, ammo: ROUNDS, parts: 'gun' },
-  lg: { name: 'Long Gun', dmg: 1.3, acc: 0.08, fx: { speed: 1.2, crit: 0.08 }, ranged: true, ammo: ROUNDS, parts: 'gun' },
-  sg: { name: 'Shotgun', dmg: 1.15, acc: -0.05, fx: { cleave: 0.5 }, ranged: true, ammo: ROUNDS, parts: 'gun' },
-  ag: { name: 'Automatic', dmg: 0.7, acc: -0.02, fx: { speed: 0.6 }, ranged: true, ammo: ROUNDS, parts: 'gun' },
-  en: { name: 'Energy Weapon', dmg: 1, acc: 0.1, fx: { pierce: 0.2 }, ranged: true, ammo: { space: 'power_cells' }, parts: 'energy' },
-  hv: { name: 'Heavy Weapon', dmg: 1.45, acc: 0, fx: { speed: 1.3, cleave: 0.4, pierce: 0.3 }, ranged: true, ammo: ROUNDS, parts: 'energy' },
+  dg: { name: 'Dagger', range: 1, dmg: 0.65, acc: 0.08, fx: { speed: 0.75, crit: 0.15 }, parts: 'blade' },
+  sw: { name: 'Sword', range: 1.2, dmg: 1, acc: 0.1, fx: { crit: 0.05 }, parts: 'blade' },
+  ax: { name: 'Axe', range: 1.2, dmg: 1.15, acc: 0, fx: { cleave: 0.4 }, parts: 'heavy' },
+  mc: { name: 'Mace', range: 1.2, dmg: 1.05, acc: -0.02, fx: { stun: 0.12, pierce: 0.3 }, parts: 'heavy' },
+  sp: { name: 'Spear', range: 2.2, dmg: 0.95, acc: 0.05, fx: { reach: true }, parts: 'haft' },
+  pl: { name: 'Polearm', range: 2.6, dmg: 1.2, acc: 0, fx: { reach: true, cleave: 0.25, speed: 1.15 }, parts: 'haft' },
+  gs: { name: 'Great Weapon', range: 1.5, dmg: 1.5, acc: -0.03, fx: { speed: 1.3, cleave: 0.3 }, parts: 'heavy' },
+  fl: { name: 'Flail', range: 1.5, dmg: 0.95, acc: -0.04, fx: { stun: 0.2 }, parts: 'heavy' },
+  sc: { name: 'Scythe', range: 1.6, dmg: 1.05, acc: 0, fx: { crit: 0.1, cleave: 0.2 }, parts: 'haft' },
+  cl: { name: 'Claws', range: 1, dmg: 0.7, acc: 0.05, fx: { speed: 0.7, crit: 0.08 }, parts: 'blade' },
+  sl: { name: 'Sling', range: 3.5, dmg: 0.6, acc: 0, ranged: true, ammo: { neolithic: 'sling_stones', medieval: 'sling_stones' }, parts: 'sling' },
+  th: { name: 'Thrown', range: 3, dmg: 0.85, acc: 0, fx: { speed: 0.9 }, ranged: true, parts: 'thrown' },
+  bw: { name: 'Bow', range: 4.5, dmg: 0.8, acc: 0.03, ranged: true, ammo: ARROWS, parts: 'bow' },
+  lb: { name: 'Longbow', range: 6, dmg: 1, acc: 0.07, fx: { speed: 1.15 }, ranged: true, ammo: ARROWS, parts: 'bow' },
+  cb: { name: 'Crossbow', range: 5, dmg: 1.2, acc: 0.05, fx: { speed: 1.35, pierce: 0.4 }, ranged: true, ammo: ARROWS, parts: 'crossbow' },
+  st: { name: 'Staff', range: 4, dmg: 0.9, acc: 0.05, fx: { cleave: 0.35 }, ranged: true, parts: 'magic' },
+  wd: { name: 'Wand', range: 3.5, dmg: 0.65, acc: 0.1, fx: { speed: 0.8 }, ranged: true, parts: 'magic' },
+  pi: { name: 'Pistol', range: 3.5, dmg: 0.9, acc: 0.03, fx: { speed: 0.9 }, ranged: true, ammo: ROUNDS, parts: 'gun' },
+  lg: { name: 'Long Gun', range: 6.5, dmg: 1.3, acc: 0.08, fx: { speed: 1.2, crit: 0.08 }, ranged: true, ammo: ROUNDS, parts: 'gun' },
+  sg: { name: 'Shotgun', range: 2.8, dmg: 1.15, acc: -0.05, fx: { cleave: 0.5 }, ranged: true, ammo: ROUNDS, parts: 'gun' },
+  ag: { name: 'Automatic', range: 5, dmg: 0.7, acc: -0.02, fx: { speed: 0.6 }, ranged: true, ammo: ROUNDS, parts: 'gun' },
+  en: { name: 'Energy Weapon', range: 6, dmg: 1, acc: 0.1, fx: { pierce: 0.2 }, ranged: true, ammo: { space: 'power_cells' }, parts: 'energy' },
+  hv: { name: 'Heavy Weapon', range: 6.5, dmg: 1.45, acc: 0, fx: { speed: 1.3, cleave: 0.4, pierce: 0.3 }, ranged: true, ammo: ROUNDS, parts: 'energy' },
 };
 
 /** Damage of a tier (1 to 10): each about 28% more than the last, 2 at the first, 18 at the tenth. */
@@ -329,6 +332,7 @@ export const WEAPONS: readonly ItemDef[] = ROWS.map(([id, name, fam, tier, era, 
     ...(f.acc ? { accuracy: f.acc } : {}),
     ...(f.ranged ? { ranged: true } : {}),
     ...(f.ammo?.[era] ? { ammo: f.ammo[era] } : {}),
+    range: f.range,
     ...f.fx,
     ...extra,
   };
@@ -344,7 +348,7 @@ export const WEAPONS: readonly ItemDef[] = ROWS.map(([id, name, fam, tier, era, 
     effects,
     family: fam,
     tier,
-    description: `${f.name}, tier ${tier}: +${effects.damage} ${f.ranged ? 'ranged' : 'melee'} damage${words.length ? `; ${words.join(', ')}` : ''}.`,
+    description: `${f.name}, tier ${tier}: +${effects.damage} ${f.ranged ? 'ranged' : 'melee'} damage, range ${f.range}${words.length ? `; ${words.join(', ')}` : ''}.`,
     icon: icon[0] === 'Custom' ? { sheet: 'Custom', x: 0, y: 0, name: icon[1] as string } : { sheet: icon[0], x: icon[1] as number, y: icon[2] as number },
   };
 });

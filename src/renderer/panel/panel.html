@@ -1132,6 +1132,56 @@
         display: flex;
         justify-content: center;
         margin: 8px 0 4px;
+        position: relative;
+      }
+      /* the customers' and the keeper's words at the counter, over the picture */
+      .shop-bubbles {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: visible;
+      }
+      .shop-bubble {
+        position: absolute;
+        transform: translate(-50%, calc(-100% - 7px));
+        max-width: 46%;
+        width: max-content;
+        padding: 3px 7px;
+        background: #fbf6e9;
+        color: #2a1d12;
+        border: 2px solid #8a6a44;
+        border-radius: 8px;
+        font: 600 12px/1.25 var(--font-body);
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+      .shop-bubble::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        bottom: -7px;
+        margin-left: -5px;
+        border: 5px solid transparent;
+        border-top-color: #8a6a44;
+        border-bottom: 0;
+      }
+      .shop-bubble.sold {
+        border-color: #4f8a3c;
+      }
+      .shop-bubble.sold::after {
+        border-top-color: #4f8a3c;
+      }
+      .shop-bubble.order {
+        border-color: #c79a35;
+      }
+      .shop-bubble.order::after {
+        border-top-color: #c79a35;
+      }
+      .shop-bubble.no {
+        border-color: #a8443a;
+      }
+      .shop-bubble.no::after {
+        border-top-color: #a8443a;
       }
       .shop-floor {
         display: block;

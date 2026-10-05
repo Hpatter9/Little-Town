@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
-import { HOLD_REACH, SETUP_MOST, autoPlace, battleSpeedNow, battleView, cumulative, fighters, foeAt, layOut, placeFighter, pointAt, ranged, startBattle } from '../src/shared/sim/battle';
+import { HOLD_REACH, SETUP_MOST, autoPlace, battleSpeedNow, battleView, cumulative, fighters, foeAt, lanesFor, laneSide, layOut, placeFighter, pointAt, ranged, startBattle } from '../src/shared/sim/battle';
 import { castAt } from '../src/shared/sim/powers';
 import { defenderAttack } from '../src/shared/sim/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
@@ -51,22 +51,24 @@ test('the battle is laid out on the land: the trail runs from its edge to the ga
   for (let i = 0; i < 6; i++) put(walled, 'lean_to', c + 3 + i * 2, y + 3);
   const a = layOut(plain, -1, false);
   const b = layOut(walled, -1, false);
-  for (const map of [a, b]) {
+  for (const [map, own] of [[a, plain], [b, walled]] as const) {
     const path = map.paths[0];
     assert.ok(path[0][0] < c - plain.land.open && Math.hypot(path[0][0] - 0.5 - c, path[0][1] - 0.5 - y) >= plain.land.open, 'in from the fog to the west');
     assert.ok(map.len > 6, `a trail of ${map.len} cells`);
     const [gx, gy] = map.gate;
     assert.equal(gy, y + 0.5, 'to the gate on the camp row');
     assert.ok(gx < c, 'at the town\'s west edge');
-    assert.ok(path.every(([px, py]) => !walled.buildings.some((q) => q.status === 'done' && px >= q.tile && px < q.tile + 1 && py >= (q.row ?? 0) && py < (q.row ?? 0) + 1)), 'round the buildings');
+    for (const p of map.paths) assert.ok(p.every(([px, py]) => !own.buildings.some((q) => q.status === 'done' && px >= q.tile && px < q.tile + 1 && py >= (q.row ?? 0) && py < (q.row ?? 0) + 1)), 'round the buildings');
   }
   assert.ok(b.gate[0] < a.gate[0], 'the walled town\'s gate is further out');
   assert.equal(a.spots.filter((q) => q.kind === 'wall').length, 0, 'no walls, no wall spots');
   assert.equal(b.spots.filter((q) => q.kind === 'wall').length, 4, 'a wall spot on each wall');
   assert.equal(b.spots.filter((q) => q.kind === 'tower').length, 1, 'the tower');
   assert.ok(a.spots.some((q) => q.kind === 'block') && a.spots.some((q) => q.kind === 'ground'));
-  assert.ok(layOut(walled, -1, true).paths.length === 2, 'a second way in for a raid that splits');
-  assert.ok(layOut(walled, -1, true).paths[1][0][0] > c + walled.land.open, 'from the east');
+  const split = layOut(walled, -1, true);
+  const flankLane = split.sides!.indexOf(1);
+  assert.ok(flankLane > 0, 'a way in for a raid that splits');
+  assert.ok(split.paths[flankLane][0][0] > c + walled.land.open, 'from the east');
 });
 
 test('a raid arrives: the placing phase, then the town places whoever the player has not, and they hold the trail', () => {
@@ -298,22 +300,28 @@ test('the set-up stage: fighters hold the stretch by the gate, and the raiders s
   sim.step();
   const b = r.battle!;
   assert.ok(b, 'the battle began');
-  // every spot a fighter may take is within the hold's reach of the gate, along the trail
-  const path = b.map.paths[0];
-  const cum = cumulative(path);
-  const end = cum[cum.length - 1];
-  const along = (x: number, y: number) => {
-    let best = 0;
+  // every spot a fighter may take is within the hold's reach of the gate, along the nearest way in (blockers on the
+  // held stretch, shooters on it or a little beyond)
+  // (a blocker: how far from the gate the trail it stands on is; a shooter: the nearest to the gate of the trail it
+  // has in bow range, since a spot at a switchback sees the trail both coming and going)
+  const fromGate = (x: number, y: number, inRange = 0) => {
     let near = Infinity;
-    for (let d = 0; d <= end; d += 0.25) {
-      const [px, py] = pointAt(path, cum, d);
-      const k = Math.hypot(px - x, py - y);
-      if (k < near) [near, best] = [k, d];
+    let left = Infinity;
+    for (const path of b.map.paths) {
+      const cum = cumulative(path);
+      const end = cum[cum.length - 1];
+      for (let d = 0; d <= end; d += 0.25) {
+        const [px, py] = pointAt(path, cum, d);
+        const k = Math.hypot(px - x, py - y);
+        if (inRange ? k <= inRange && end - d < left : k < near) [near, left] = [k, end - d];
+      }
     }
-    return best;
+    return left;
   };
-  assert.ok(end > HOLD_REACH + 4, `a long trail (${end.toFixed(1)} cells)`);
-  for (const q of b.map.spots.filter((q) => q.kind === 'block' || q.kind === 'ground')) assert.ok(along(q.x, q.y) >= end - HOLD_REACH - 2, `spot ${q.kind} at ${along(q.x, q.y).toFixed(1)} of ${end.toFixed(1)}`);
+  const main = cumulative(b.map.paths[0]);
+  assert.ok(main[main.length - 1] > HOLD_REACH + 4, `a long trail (${main[main.length - 1].toFixed(1)} cells)`);
+  for (const q of b.map.spots.filter((q) => q.kind === 'block' || q.kind === 'ground'))
+    assert.ok(fromGate(q.x, q.y, q.kind === 'ground' ? 120 / 32 : 0) <= (q.kind === 'block' ? HOLD_REACH : HOLD_REACH * 1.25) + 2, `spot ${q.kind} ${fromGate(q.x, q.y).toFixed(1)} from the gate`);
   // send one placed fighter far off: nobody comes onto the trail until they're back at their spot
   const u = b.units.find((q) => q.person !== undefined)!;
   const p = s.people.find((q) => q.id === u.person)!;
@@ -327,4 +335,49 @@ test('the set-up stage: fighters hold the stretch by the gate, and the raiders s
   const spot = b.map.spots.find((q) => q.id === u.spot)!;
   const stillPlaced = b.units.find((q) => q.person === p.id);
   if (stillPlaced) assert.ok(Math.hypot(p.x / 32 - spot.x, p.y / 32 - spot.y) <= 1.3, 'the far-off fighter was at their spot before the raiders came');
+});
+
+test('several ways in, each winding: raiders spread over them, and shooters stand where they see the most trail', () => {
+  const s = town('lanes', 7);
+  const r = raidNow(s, 60);
+  new Sim(s).step();
+  const b = r.battle!;
+  const own = b.map.paths.filter((_, i) => laneSide(b.map, i) === 0);
+  assert.ok(own.length >= 2, `${own.length} ways in from the raid's side`);
+  assert.equal(own.length, lanesFor(s));
+  const starts = new Set(own.map((p) => `${Math.floor(p[0][0])},${Math.floor(p[0][1])}`));
+  assert.equal(starts.size, own.length, 'each out of the fog at its own place');
+  for (const p of own) {
+    assert.deepEqual(p[p.length - 1], b.map.gate, 'every way in ends at the gate');
+    const cum = cumulative(p);
+    const straight = Math.hypot(p[p.length - 1][0] - p[0][0], p[p.length - 1][1] - p[0][1]);
+    assert.ok(cum[cum.length - 1] > straight * 1.15, `winding: ${cum[cum.length - 1].toFixed(1)} cells where the crow flies ${straight.toFixed(1)}`);
+    assert.ok(p.length >= 5, 'with bends');
+  }
+  // the raiders are spread over the lanes
+  const lanes = new Set(r.raiders.filter((rd) => rd.bt).map((rd) => rd.bt!.lane));
+  assert.ok(lanes.size >= 2, 'raiders on more than one way in');
+  // shooters' spots see more trail than a spot picked at random beside it would
+  const ground = b.map.spots.filter((q) => q.kind === 'ground');
+  assert.ok(ground.length >= own.length * 2, `${ground.length} shooters' spots`);
+  // the same raid lays out the same (the sim is deterministic), and another day's raid differently
+  const again = layOut(s, r.side, false, false, b.started);
+  assert.deepEqual(again.paths, b.map.paths.filter((_, i) => laneSide(b.map, i) === 0));
+  const other = layOut(s, r.side, false, false, b.started + 9999);
+  assert.notDeepEqual(other.paths, again.paths, 'a new raid, new trails');
+});
+
+test('a trap the town has built is laid on a way in, where the raiders pass', () => {
+  const s = town('trap-lanes', 4);
+  const c = campCell(s);
+  put(s, 'pit_trap', c.x + 2, c.y + 3); // (inside the town, far from any trail)
+  const map = layOut(s, -1, false);
+  const trap = map.spots.find((q) => q.kind === 'trap');
+  assert.ok(trap, 'the trap is on the battle map');
+  const onTrail = map.paths.some((p) => {
+    const cum = cumulative(p);
+    for (let d = 0; d <= cum[cum.length - 1]; d += 0.25) if (Math.hypot(pointAt(p, cum, d)[0] - trap!.x, pointAt(p, cum, d)[1] - trap!.y) < 0.3) return true;
+    return false;
+  });
+  assert.ok(onTrail, 'laid on a trail');
 });

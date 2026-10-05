@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.3.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.4.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -431,6 +431,32 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`Battle.settling`, `onTheWay`), never longer than `SETUP_MOST` (90 s) from the stage's start (`Battle.opened`; the
   breathers too). The battle bar says "Taking positions · N still on the way" (`BattleView.onTheWay`); on auto it
   shows that in place of the count. Test in `test/battle.test.ts`.
+- **Many ways in, winding (the owner's ask, after the RPG tower defences: Fantasica, Kingdom Rush, Arknights):** a
+  raid comes down `lanesFor(s)` ways from its side (2, then 3 at 6 fighters, 4 at 12: `LANE_PER_FIGHTERS`,
+  `LANES_MOST`), plus one from the other side for a flanking party (`BattleMap.sides`, `laneSide`; older battles read
+  the second trail as the flank). `lanesOf` in battle.ts: the first lane comes out of the fog where the straight trail
+  did, the others turned round the gate either side (`SPAWN_TURN`; a sea raid's shifted along the shore); each is a
+  `windingTrail`: `BENDS` (3) bends swung off the straight way, alternately either side, by random amounts (`SWING`,
+  the last one nearer the gate `SWING_NEAR` so the raiders zigzag in under the towers), kept outside the town (never
+  nearer the camp than the gate), each stretch the cheapest way over the land (`leg`). Seeded by the town and the tick
+  (`layOut(..., salt)`), so a raid replays the same and the next raid's trails differ. The raiders of each wave are
+  dealt over their side's lanes in turn. Out in the far reaches (more than `FAR_FROM_GATE`, twice `HOLD_REACH`, from
+  the gate) they walk `FAR_PACE` (1.8) as fast, since winding trails are long. **Shooters stand where they see the most
+  trail:** the ground spots are the free cells that have the most of the held stretches (out to `SHOOT_REACH` 1.25
+  `HOLD_REACH`) of every lane in bow range, `GROUND_PER_LANE` (3) a lane, `GROUND_APART` apart, never where a far
+  stretch runs nearer than a held one (the bends and crossroads, as the tower defences place their archers); the
+  town's placing (`autoPlace`) counts every lane. **Traps lie on the path:** a trap the town has built that no trail
+  crosses is laid on a way in for the battle (`TRAP_FROM_GATE` before the gate, the next on that lane `TRAP_APART`
+  further out, the lanes in turn), so every trap bites. Tests in `test/battle.test.ts`.
+- **Weapon range (the owner's ask):** every weapon has a `range` in battle-map cells (`ItemEffects.range`; by family in
+  `FAMILIES`: dagger and claws 1, sword, axe and mace 1.2, flail and great weapon 1.5, scythe 1.6, spear 2.2, polearm
+  2.6, thrown 3, sling, wand and pistol 3.5, staff 4, bow 4.5, crossbow and automatic 5, longbow and energy 6, long gun
+  and heavy 6.5; the older weapons in items.ts and the boss trophies by hand). `weaponRange(p, shooter)` in combat.ts:
+  the weapon's range; a shooter with no ranged weapon throws (`THROWN_RANGE` 3) or a mage casts (`MAGIC_RANGE` 4); bare
+  hands `UNARMED_RANGE` 1. On the battle map a fighter strikes only raiders within it (plus `WALL_REACH` for a shooter
+  on a wall), so a spear on a blocking spot reaches the raider stepping up behind the one it holds. Shown on each
+  weapon's card (`statLines`: "Range N cells") and the Character tab (`PersonView.battle.range`), and in the generated
+  weapons' descriptions. Test in `test/weapons.test.ts`.
 - **Battle speed:** the raid battle's top bar has a speed button (1×, 2×, 3×; the `battleSpeed` command,
   `s.battleSpeed`, kept for later battles). `battleSpeedNow` (battle.ts) is read by `GameLoop.pump`, which runs that
   much more sim time while a battle is on; back to the town's pace when it's over.
@@ -444,6 +470,42 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (legendary destinations with map spots and scenes), merged into ENEMIES, RAID_KINDS, ITEMS, DESTINATIONS,
   MAP_SPOTS and ROUTES. `test/bestiary.test.ts` checks every pack sheet is used. `atPlace` (data/expeditions.ts) says
   "at The Labyrinth" rather than "at the The Labyrinth".
+- **Monsters from the Himeko Sutori sprite share (the owner's new assets):** a paper-doll character pack at the assets
+  repo's top level (bodies, outfits by calling, ~150 weapons and hand items, helms, shields, hair; monsters in `Large
+  Humanoid/`, `Slime/`, `Tyrant/`, `Undead/`, `Other Monsters/`): every sheet is 8 poses by 4 facings of 128px cells
+  (front, left, right, back: stand, two steps, arm raised, lunge, two punches, kneel), layers laid one on another (the
+  2048 sheets are the grid doubled). `himeko(id, layers)` in `tools/compose-sheets.cjs` composes a creature's layers and
+  cuts the right-facing row into the usual pack sheet (`HK_POSES`: walk step-stand-step-stand, attack raise-lunge, idle,
+  the kneel for hurt and dead). 17 sheets (`hk_*`): ogre and horned ogre, demon and armoured demon lord, the brass
+  juggernaut, the tyrant, slimes in five colours, the mummy, the ghost, three zombies, the imp; they stand for the ogre,
+  slimes, mummy, zombies, wraith and the Lich Lord (enemies.ts), the Ooze Mother (dungeonBosses.ts) and 14 of the
+  menagerie (`HIMEKO_LOOK` in menagerie.ts: hill ogre, brute and ring demons, brass and steam golems, four slimes,
+  two mummies, two zombies, the red imp). The ogre keeps `nature: 'person'` (stills counted as people). Credits in
+  CREDITS.md (the pack's terms ask for three lines of attribution).
+- **The townsfolk in the Himeko pack's dress (the owner's call: founders too, everywhere they're pictured):**
+  `tools/import-himeko.cjs` (run by hand) copies the 606 layers the dressing uses into `src/renderer/art/himeko/` (each
+  cut to the four drawn rows, 1024x512, and made a palette PNG by `tools/pngPalette.cjs`: 5.4 MB), with
+  `art/himeko.json` (the feet's place, the keys); both builds copy the folder beside the page, outside the precache (a
+  layer is fetched when first worn and kept). `src/renderer/art/hkFolk.ts` (no Pixi): `hkLayers(who, doing)` stacks a
+  person back to front: the hair behind, the body by sex and skin (light, tan, dark; bone for the raised dead), a scar,
+  eyepatch or freckles, a beard, the outfit of their calling (`OUTFIT`) at their stage's grade (`GRADE`; a founder at
+  least the third; no calling: by the armour they wear, else travelling or peasant clothes), the hair in front (men have
+  bangs: the pack has no men's hair), a helm by the head piece's weight (else a founder's crown, a calling's hat:
+  `BARE_HEAD`), a shield, and in a fight the weapon of its family by tier (`WEAPON`; claws and thrown weapons are knives,
+  a sling is bare-handed) or at work the tool (`TOOL`; the sickle is a man's only, a woman reaps with the scythe).
+  `hkPose` picks the cell (the walk, the arm raised and the lunge for blows and work, a punch for shooting, the kneel for
+  hurt and down). `hkCell` composes and caches cells (LRU of 900; `onHkEvict`); `hkDraw` puts one on a canvas;
+  `onHkLoad` calls back when layers arrive (a callback returning true is done). `hkWhoOf` (a PersonView), `hkWhoOfLook`
+  (a stranger), and `hkKnow`/`hkWhoById` (who's who from the last snapshot, for views that know someone by id: main.ts
+  and the venue panel feed it). `art/hkTexture.ts` makes the cells Pixi textures (`hkTexture`, `hkSprite`).
+  Used by the map (mapPeople: four ways round, ahead of the old side-on, hero, founder and class looks; werewolves still
+  take wolf form under the moon and in fights, merfolk swim to the waist), the fight screen's party and march
+  (fightView), the mine's diggers (mineView), the expedition pane, the shop and tavern windows (keeper facing the room,
+  strangers in travelling clothes), the Townsfolk tab (list faces and the paper doll, drawn at twice the old frame's
+  resolution), the New Town founder cards, and the feed, event box and report card (`personPicture` in main.ts, painted
+  over in place once the layers load; the feed copies it again as they come). The old LPC figure stands in only while a
+  person's layers load. The Craftpix hero sheets (`HERO_FORM`, `founderSheet`) are no longer worn by townsfolk; they are
+  kept for bosses and special strangers. Test: `test/hkFolk.test.ts`.
 - **Painted backdrops from the packs:** `tools/compose-backdrops.cjs` stacks each parallax background's layers (far
   to near; packs that number "Plan 1.." near to far are reversed) into one WebP per background in
   `src/renderer/art/backdrops/` (114 of them; `backdrops.json`, `src/shared/data/backdrops.ts`). Not precached: the
@@ -1553,6 +1615,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   shop's colours with its emblem). **Exteriors from the pack:** the Glassblower's Workshop pack's shop fronts
   (`src/renderer/art/shops/`: the big red-roofed house for the inn, tavern and emporium; the smaller shop for the
   trading post, general store and the four stores, with its barrels, crates and signpost at the door).
+- **A shop like a real shop (the owner's ask):** a shop's customer looks round first (`Traveller.stage` `browse`, for
+  `BROWSE_HOURS` 0.35), then goes up to the counter (`counter`, `TALK_HOURS` 0.2), where `serveCustomer` runs (it used to
+  run on arrival), then makes for the door (`done`). What was said is kept on `Traveller.talk` (`ShopTalk`: the ask, the
+  keeper's answer, and `sold`, `order` or `no`), carried as `ShopView.customers[].stage`/`.talk`; the window walks them
+  between the pieces, then to the counter, and shows the question and then the keeper's answer as speech bubbles laid over
+  the canvas in HTML (`placeBubbles` in shopPanel.ts, `.shop-bubble` in panel.html: green for a sale, gold for an
+  order, red for a no), and the keeper speaks in the first person when talking a customer round (`said`). **Orders:**
+  with nothing they came for, and not talked round, the keeper orders it (`commission` in sim/shop.ts) if the town knows
+  how to make one, its station has room for an order, the makings are in store now (so it won't stall) and the customer
+  can pay up front (the cheapest that would do): a craft order of its own with `CraftOrder.commission` (who, what they
+  paid, the shop); `finishPiece` sends the finished piece on to them, never into the stores, and the shop's log says so.
+  Else the keeper turns them down. Tests: `test/shopTalk.test.ts`.
 - **Inside the venues (done; the owner's ask):** every venue opens with basic furnishings (`STARTERS` in
   `src/shared/data/decor.ts`, set out once by `furnishStarters`; `b.shop.started`). The keeper decides a **décor
   direction** from their nature (`DECOR_OF_NATURE` → `DECOR_STYLES`: rustic, cosy, stately, austere, opulent, garden,

@@ -15,6 +15,7 @@ import { renderTrade, tradeKey } from './tradePanel';
 import { renderAlerts } from './alertsPanel';
 import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
+import { hkKnow } from '../art/hkFolk';
 import { applyTheme, currentTheme, panelLabel } from '../theme';
 
 declare global {
@@ -83,7 +84,10 @@ function render(): void {
   else if (snap && shown === 'crafting') body.replaceChildren(...tabbed(renderCrafting(snap, bridge, render)));
   else if (snap && shown === 'trade') body.replaceChildren(...tabbed(renderTrade(snap, bridge)));
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
-  else if (snap && isVenuePanel(shown)) body.replaceChildren(...renderShop(snap, shown, render));
+  else if (snap && isVenuePanel(shown)) {
+    hkKnow(snap.people); // (who's who, so the keeper is dressed as the map dresses them: art/hkFolk.ts)
+    body.replaceChildren(...renderShop(snap, shown, render));
+  }
   else if (snap && shown === 'newgame') body.replaceChildren(...renderNewGame(snap, bridge));
   else body.replaceChildren(el('p', 'empty', 'Loading…'));
   body.scrollTop = scroll;

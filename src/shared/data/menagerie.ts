@@ -9,6 +9,7 @@ import type { EnemyDef, Nature } from './enemies';
 import type { Stock } from './materials';
 import type { Era } from './eras';
 import type { RaidKind } from './raids';
+import { PACK_SHEETS, type PackSheetId } from './packSheets';
 
 export type DawnSheet = 'Aquatic' | 'Avian' | 'Cat' | 'Demon' | 'Dog' | 'Elemental' | 'Humanoid' | 'Misc' | 'Pest' | 'Plant' | 'Quadraped' | 'Reptile' | 'Rodent' | 'Slime' | 'Undead';
 
@@ -416,13 +417,36 @@ export const BEAST_BY_ID: Record<string, Beast> = Object.fromEntries(BEASTS.map(
 
 const natureOfRow = (flags: string): Nature | undefined => (flags.includes('u') ? 'undead' : flags.includes('m') ? 'machine' : flags.includes('p') ? 'person' : undefined);
 
+/** Creatures that have an animated sheet of their own from the Himeko Sutori sprite share (composed by
+ *  tools/compose-sheets.cjs): its sheet and the height it's drawn, in place of the DawnLike cell. */
+const HIMEKO_LOOK: Partial<Record<string, [PackSheetId, number]>> = {
+  hill_ogre: ['hk_ogre_horned', 72],
+  brute_demon: ['hk_demon', 72],
+  ring_demon: ['hk_demon_lord', 84],
+  brass_golem: ['hk_juggernaut', 60],
+  steam_golem: ['hk_juggernaut', 64],
+  bubble_slime: ['hk_slime_blue', 24],
+  rainbow_slime: ['hk_slime_pink', 30],
+  magma_slime: ['hk_slime_orange', 32],
+  shadow_ooze: ['hk_slime_purple', 34],
+  linen_mummy: ['hk_mummy', 48],
+  desert_mummy: ['hk_mummy', 52],
+  plague_zombie: ['hk_zombie', 50],
+  bog_zombie: ['hk_zombie_bare', 48],
+  red_imp: ['hk_imp', 28],
+};
+const lookOf = (id: string, block: number, scale: number): EnemyDef['sprite'] => {
+  const hk = HIMEKO_LOOK[id];
+  return hk ? { sheet: hk[0], block: 0, scale: +(hk[1] / PACK_SHEETS[hk[0]]).toFixed(2) } : { sheet: 'dawn', block, scale };
+};
+
 /** The menagerie as enemies, merged into ENEMIES. */
 export const MENAGERIE: Record<string, EnemyDef> = Object.fromEntries(
   ROWS.map(([id, name, , , , tier, , family, flags = ''], block) => {
     const st = statsFor(tier, flags);
     const scale = flags.includes('h') ? 5 : flags.includes('b') ? 4 : flags.includes('s') ? 2.5 : 3;
     const nature = natureOfRow(flags) ?? (family === 'dead' ? 'undead' : undefined);
-    const def: EnemyDef = { id, name, ...st, loot: lootFor(family, tier), sprite: { sheet: 'dawn', block, scale }, ...(nature ? { nature } : {}) };
+    const def: EnemyDef = { id, name, ...st, loot: lootFor(family, tier), sprite: lookOf(id, block, scale), ...(nature ? { nature } : {}) };
     return [id, def];
   }),
 );

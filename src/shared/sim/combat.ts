@@ -127,6 +127,23 @@ export function weaponOf(p: Person): { def?: ItemDef; damage: number; accuracy: 
     quirks: { crit: fx.crit ?? 0, pierce: fx.pierce ?? 0, cleave: fx.cleave ?? 0, stun: fx.stun ?? 0, undead: (fx.undeadDamage ?? 0) * k, machine: (fx.machineDamage ?? 0) * k, ...(fx.lifesteal ? { drain: fx.lifesteal } : {}) },
   };
 }
+/** A weapon's reach on the raid's battle map (cells), and the stand-ins: fists, a thrown stone (a shooter with no bow),
+ *  a mage's fire with no staff. */
+export const UNARMED_RANGE = 1;
+export const THROWN_RANGE = 3;
+export const MAGIC_RANGE = 4;
+const DEFAULT_MELEE = 1.2;
+const DEFAULT_SHOT = 4;
+const DEFAULT_REACH = 2.2;
+/** How far the weapon in someone's hand reaches (cells on the battle map). Whoever fights from range with no ranged
+ *  weapon in hand throws (or a mage casts) instead. */
+export function weaponRange(p: Person, shooter = false): number {
+  const def = p.gear.weapon ? ITEM_BY_ID[p.gear.weapon] : undefined;
+  const fx = def?.effects;
+  if (shooter && !fx?.ranged) return p.cls === 'mage' ? MAGIC_RANGE : THROWN_RANGE;
+  if (!def) return UNARMED_RANGE;
+  return fx!.range ?? (fx!.ranged ? DEFAULT_SHOT : fx!.reach ? DEFAULT_REACH : DEFAULT_MELEE);
+}
 const NO_QUIRKS: Quirks = { crit: 0, pierce: 0, cleave: 0, stun: 0, undead: 0, machine: 0 };
 /** Each + on a weapon steadies the aim this much. */
 const PLUS_AIM = 0.015;

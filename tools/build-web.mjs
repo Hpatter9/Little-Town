@@ -16,6 +16,7 @@ for (const f of ['panel.html', 'renderer.js', 'panel.js', 'world-map.jpg', 'lpcF
 cpSync('out/renderer/music', `${OUT}/music`, { recursive: true });
 cpSync('out/renderer/packs', `${OUT}/packs`, { recursive: true });
 cpSync('out/renderer/backdrops', `${OUT}/backdrops`, { recursive: true });
+cpSync('out/renderer/himeko', `${OUT}/himeko`, { recursive: true });
 cpSync('out/renderer/props', `${OUT}/props`, { recursive: true });
 cpSync('out/renderer/scenery', `${OUT}/scenery`, { recursive: true });
 cpSync('out/renderer/fonts', `${OUT}/fonts`, { recursive: true });
@@ -77,7 +78,8 @@ const walk = (dir) => {
     const p = path.join(dir, f);
     if (statSync(p).isDirectory()) walk(p);
     // (the fights' backdrops are many and big: each is cached when a fight first shows it, see sw.js)
-    else if (!path.relative(OUT, p).startsWith('backdrops')) files.push(path.relative(OUT, p).replaceAll('\\', '/'));
+    // (and the townsfolk's layers, hundreds of them: each is cached when someone first wears it)
+    else if (!/^(backdrops|himeko)/.test(path.relative(OUT, p))) files.push(path.relative(OUT, p).replaceAll('\\', '/'));
   }
 };
 walk(OUT);

@@ -110,6 +110,10 @@ export const MAX_TRAVELLERS = 3;
 /** How long a traveller browses (game hours), and how fast they walk (px per second). */
 export const SHOPPING_HOURS = 1;
 export const TRAVELLER_SPEED = 40;
+/** A shop's customer looks round this long (game hours) before going up to the counter, and talks with the keeper
+ *  there this long (the window shows the exchange in speech bubbles). */
+export const BROWSE_HOURS = 0.35;
+export const TALK_HOURS = 0.2;
 
 /** A traveller's purse (coins), before the era's scale, the shop's appeal and the shopkeeper's skill. */
 export const PURSE: [number, number] = [6, 14];

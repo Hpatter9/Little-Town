@@ -30,6 +30,10 @@ import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { fightAnim, heroFrame, heroScale, heroSheet, skeletonSheet, WOLF_FORMS } from '../art/combatPoses';
 import { stillTexture } from '../art/stills';
+import { hkLayers, hkPose, hkWhoById } from '../art/hkFolk';
+import { hkSprite } from '../art/hkTexture';
+/** A townsperson's height on the fight screen, in the Himeko look (as the side-on figures were at 0.75). */
+const HK_HEIGHT = 36;
 
 /** How much of the scene is seen at least (art px): it's scaled so this fits, and shows more where there's room. */
 const SEE_W = 170;
@@ -347,6 +351,18 @@ export class FightScene {
       const frame = walking && !afloat ? 1 + (Math.floor(now / 100 + i * 3) % 8) : 0;
       // (stopped down a dungeon they stand and look; at the site they work it)
       const still = !walking && v.delve && v.phase === 'work';
+      // (in the Himeko look, as the map draws them: art/hkFolk.ts; the old look while their layers load)
+      const keys = hkLayers(hkWhoById(m.id, m.look, m.gear), { fighting: false, activity: still || walking ? 'idle' : 'build' });
+      const col = walking ? [1, 0, 2, 0][Math.floor(now / 140 + i * 3) % 4] : still ? 0 : Math.floor(now / 350 + i) % 2 ? 4 : 3;
+      if (hkSprite(f.sprite, keys, col, 2, x, Math.round(this.hy + 40) + bob, HK_HEIGHT)) {
+        f.sprite.zIndex = i;
+        f.sprite.alpha = 1;
+        f.sprite.tint = 0xffffff;
+        f.pop.visible = false;
+        f.spark.visible = false;
+        return;
+      }
+      f.sprite.anchor.set(0);
       f.sprite.texture = still
         ? lpcFrame(m.look, 'walk', 0, heldWeapon(m.gear, 'walk'), wornLayers(m.gear))
         : lpcFrame(m.look, walking ? 'walk' : 'thrust', walking ? frame : Math.floor(now / 160 + i) % FRAME_COUNT.thrust, heldWeapon(m.gear, 'walk'), wornLayers(m.gear));
@@ -542,6 +558,13 @@ export class FightScene {
     const look = f.look ?? enemy?.look;
     if (!look) return;
     const wear = enemy ? enemy.wear : wornLayers(f.gear);
+    // a townsperson in the Himeko look, as the map draws them (art/hkFolk.ts; the founders too): all but a werewolf,
+    // who fights in wolf form
+    if (!hs && !f.wolf && f.look) {
+      const keys = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: true, activity: 'fight' });
+      const [col, row] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now });
+      if (hkSprite(s, keys, col, row, x, y, HK_HEIGHT)) return;
+    }
     // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
     // (a werewolf fights in wolf form: the Craftpix werewolves, by who they are)
     const hero = !hs ? (f.wolf ? WOLF_FORMS[f.ref % WOLF_FORMS.length] : f.undead ? skeletonSheet(f.ranged, f.ref) : heroSheet(f.cls, f.ref)) : null;
@@ -569,6 +592,7 @@ export class FightScene {
       frame = Math.min(FRAME_COUNT[anim] - 1, Math.floor(f.sinceAction * (anim === 'shoot' ? 1.6 : 1)));
     }
     s.texture = lpcFrame(look, anim, frame, anim === 'spell' ? null : weapon, wear);
+    s.anchor.set(0);
     const flip = faceLeft ? -1 : 1;
     s.scale.set(k * flip, k);
     s.position.set(Math.round(x - (flip > 0 ? CENTRE_X : -CENTRE_X - 1) * k), Math.round(y - FEET_Y * k));
