@@ -11,6 +11,7 @@
 import { AnimatedSprite, Container, Rectangle, Sprite, Texture } from 'pixi.js';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { kindOf, type RoomKind } from './roomKinds';
+import { wallDepth } from './castleArt';
 import { CELL, type Rect } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import { loadImage } from '../art/loadImage';
@@ -214,7 +215,6 @@ export function castleClutter(
     const [x, y] = xy.split(',').map(Number);
     taken.push(way === 'h' ? { x: x * CELL + 2, y: y * CELL - 22, w: CELL - 4, h: 44 } : { x: x * CELL - 22, y: y * CELL + 2, w: 44, h: CELL - 4 });
   }
-  const wallDepth = (outside: boolean) => (mountain ? 12 : outside ? 30 : 16);
 
   /** Put a picture with its feet at (fx, fy), if its foot fits clear of everything; true if it went. */
   const place = (url: string, fx: number, fy: number, region: Region, foot = 12): boolean => {
@@ -286,7 +286,7 @@ export function castleClutter(
     for (let x = b.x + 14; x < b.x + b.w - 14; ) {
       const roll = r();
       if (roll < 0.22 && lit < Math.max(1, Math.ceil(cellsW / 3))) {
-        if (light('torch', x + 6, b.y + region.topWall - 2, r(), region)) {
+        if (light('torch', x + 6, b.y + region.topWall - 4, r(), region)) {
           lit++;
           x += 26;
           continue;
@@ -314,7 +314,7 @@ export function castleClutter(
     // at least one light in every room: a torch on the back wall, else what the room favours on the floor
     if (!lit) {
       const k = any(r, set.lights);
-      if (k === 'torch') light('torch', b.x + b.w / 2 + (r() < 0.5 ? -1 : 1) * Math.min(b.w / 2 - 14, 24), b.y + region.topWall - 2, r(), region);
+      if (k === 'torch') light('torch', b.x + b.w / 2 + (r() < 0.5 ? -1 : 1) * Math.min(b.w / 2 - 14, 24), b.y + region.topWall - 4, r(), region);
     }
     // the side walls: middling things down each side
     for (const left of [true, false]) {
@@ -364,7 +364,7 @@ export function castleClutter(
     box: { x: rect.x * CELL, y: rect.y * CELL, w: rect.w * CELL, h: rect.h * CELL },
     kind,
     seed,
-    topWall: wallDepth(outsideAbove(rect.x + Math.floor(rect.w / 2), rect.y)),
+    topWall: wallDepth(mountain, outsideAbove(rect.x + Math.floor(rect.w / 2), rect.y)),
   });
   // (a hold's seat is a room built over its hall: the seat's room is dressed, not the hall again)
   const over = (a: Rect, b: Rect) => a.x <= b.x && a.y <= b.y && a.x + a.w >= b.x + b.w && a.y + a.h >= b.y + b.h;
@@ -384,9 +384,9 @@ export function castleClutter(
     const x = i % landW;
     const y = Math.floor(i / landW);
     const r = stream(i * 7 + 3);
-    const region: Region = { box: { x: x * CELL, y: y * CELL, w: CELL, h: CELL }, kind: 'mine', seed: i, topWall: 12 };
+    const region: Region = { box: { x: x * CELL, y: y * CELL, w: CELL, h: CELL }, kind: 'mine', seed: i, topWall: wallDepth(mountain, true) };
     const roll = r();
-    if (roll < 0.16 && outsideAbove(x, y)) light('torch', x * CELL + CELL / 2, y * CELL + 10, r(), region);
+    if (roll < 0.16 && outsideAbove(x, y)) light('torch', x * CELL + CELL / 2, y * CELL + wallDepth(mountain, true) - 4, r(), region);
     else if (roll < 0.36) place(any(r, SETS.mine.side.concat(SETS.mine.small)), x * CELL + 8 + r() * 16, y * CELL + CELL - 6, region, 8);
   }
   return { things, pools, flames };

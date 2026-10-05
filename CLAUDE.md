@@ -1873,6 +1873,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   lights layer after dark. A room's own piece is never a whole building's outside any more (`packArtIndoors` in
   packBuildings.ts: `EXTERIORS`, the trades' timber houses and shop fronts stood inside the hold). Test:
   `test/clutter.test.ts`.
+- **Walls that stand up (the owner's ask):** in a castle and a hold, a room's partition has a 22 px face (`PART_FACE`,
+  with a dark foot, `foot`), a doorway a lintel and shadowed opening, a run down a column a shaded east side (`sideRun`,
+  `SIDE_T` 10); the curtain wall's inner face is `INNER_FACE` (26) and the hold's rock wall seen from inside a hewn face
+  (`ROCK_FACE` 24, `hewn`). `wallDepth` (castleArt.ts) says how far a top wall reaches into a room, for the clutter.
+- **Fields painted as farmland (the owner's ask: the pack soil looked like desert dirt):** `src/renderer/art/farmland.ts`
+  (`paintFarm`): dark loam in ridges and furrows with clods, a turned-earth bank with grass creeping over it, and the crop
+  along the ridges by kind and stage (wheat tufts to gold stalks with heads, round leafy vegetables and pale cabbages,
+  flax in blue flower, herb clumps with blooms, orchard trees from whips to shaded round crowns in fruit; an orchard
+  stands in grass). Every crop plot uses it (`farmPlot` in map/fieldArt.ts); pens keep the Fields tileset's ground.
 - **Walls that hold, and a gate to the hold (the owner's ask: realistic pathing):** a castle's or a hold's walls are
   real for walking now. `castleLayout` (sim/castle.ts, cached per tick and on the rooms and `land.version`) gives each
   castle cell its region (the hall -1, each room its id, each separate run of a hold's dug galleries -2, -3...), the

@@ -7,11 +7,9 @@ import { CELL } from '../../shared/sim/land';
 import { CanvasSource, Texture } from 'pixi.js';
 import { FINE, paint, type PixelArt, type Tone } from '../art/pixelArt';
 import { drawFence, drawSoil, fieldTilesReady } from '../art/fieldTiles';
+import { paintFarm } from '../art/farmland';
 import type { CropLook } from '../art/buildings';
 
-const SOIL = '#6e4e30';
-const SOIL_DARK = '#5b3f26';
-const SOIL_LIGHT = '#8a6640';
 const FENCE = '#9a7a4a';
 const FENCE_DARK = '#6a522f';
 
@@ -45,6 +43,12 @@ export function fieldArt(defId: string, w: number, h: number, stage: CropLook | 
   const H = h * CELL;
   const crop = CROPS[defId];
   const herd = HERDS[defId];
+  // (a field is painted: no pack has tilled farmland, art/farmland.ts)
+  if (crop) {
+    art = farmPlot(defId, w, h, stage);
+    cache.set(key, art);
+    return art;
+  }
   if (packed) {
     art = packedPlot(defId, w, h, stage, crop ? 'crop' : 'pen');
     cache.set(key, art);
@@ -55,31 +59,7 @@ export function fieldArt(defId: string, w: number, h: number, stage: CropLook | 
     H,
     tone,
     (p) => {
-      if (crop) {
-        p.rect(0, 0, W, H, SOIL);
-        // furrows across the plot
-        for (let y = 3; y < H - 1; y += 6) {
-          p.rect(1, y, W - 2, 2, SOIL_DARK);
-          p.rect(1, y + 3, W - 2, 1, SOIL_LIGHT);
-        }
-        const [leaf, head] = CROP[crop.material] ?? CROP.grain;
-        if (stage && stage !== 'fallow')
-          for (let y = 4; y < H - 2; y += 6)
-            for (let x = 3; x < W - 2; x += 5) {
-              const k = ((x * 7 + y * 13) % 5) - 2;
-              if (stage === 'sprout') p.rect(x, y - 1, 2, 2, leaf);
-              else if (crop.establishHours) {
-                // an orchard: little round trees
-                p.rect(x - 1, y - 3, 4, 3, leaf);
-                p.rect(x, y - 4, 2, 1, leaf);
-                if (stage === 'ripe') p.px(x + (k > 0 ? 1 : 0), y - 2, head);
-              } else {
-                p.rect(x, y - 3, 2, 4, leaf);
-                p.px(x + 1, y - 4 + (k > 0 ? 1 : 0), leaf);
-                if (stage === 'ripe') p.rect(x, y - 5, 2, 2, head);
-              }
-            }
-      } else if (herd) {
+      if (herd) {
         // a pen: trodden ground, a water trough, a fence round it with a gap for the gate
         p.rect(0, 0, W, H, '#8c7a4e');
         for (let i = 0; i < (W * H) / 40; i++) p.px((i * 37) % W, (i * 53) % H, '#7a6a42');
@@ -172,6 +152,22 @@ function packedPlot(defId: string, w: number, h: number, stage: CropLook | undef
     rect(W - 12, 6, 8, 4, '#6a8aa8');
     drawFence(g, w, h, seed, k);
   }
+  const tops = new Int16Array(W);
+  return { texture: new Texture({ source: new CanvasSource({ resource: c, resolution: k }) }), width: W, height: H, tops };
+}
+
+/** A field: dark loam in ridges, the crop along them by kind and stage (art/farmland.ts). */
+function farmPlot(defId: string, w: number, h: number, stage: CropLook | undefined): PixelArt {
+  const k = FINE;
+  const W = w * CELL;
+  const H = h * CELL;
+  const c = document.createElement('canvas');
+  c.width = W * k;
+  c.height = H * k;
+  const g = c.getContext('2d')!;
+  g.imageSmoothingEnabled = false;
+  const crop = CROPS[defId];
+  paintFarm(g, k, W, H, crop.material, !!crop.establishHours, stage, defId.length * 31 + w * 7 + h);
   const tops = new Int16Array(W);
   return { texture: new Texture({ source: new CanvasSource({ resource: c, resolution: k }) }), width: W, height: H, tops };
 }
