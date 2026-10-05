@@ -440,7 +440,7 @@ export function startBattle(s: GameState, r: Raid): void {
     const wave = Math.min(waves - 1, Math.floor((i * waves) / order.length));
     rd.bt = { d: -1, lane: flank && rd.side !== undefined && rd.side !== r.side ? 1 : 0, wave };
   });
-  const auto = !!s.autoBattle || !!r.alone;
+  const auto = s.autoBattle !== false || !!r.alone; // (on unless the player turned it off: the owner's call)
   r.battle = { map, phase: 'placing', until: s.tick + (auto ? Math.round(1.5 * TICK_HZ) : PLACE_TICKS), started: s.tick, wave: 0, waves, units: [], auto, through: 0, killed: 0 };
   // (time to fight it out: the raid doesn't give up while the battle's on)
   r.leavesTick = Math.max(r.leavesTick, s.tick + 3 * TICKS_PER_HOUR);

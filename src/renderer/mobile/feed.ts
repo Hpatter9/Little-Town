@@ -124,6 +124,9 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
       else waiting.set(k, { name: p.name, foes: p.foes ?? 'Something', n: 1 });
     }
     for (const w of waiting.values()) cards.push({ cls: 'place', mark: '⚑', title: `${w.name} found${w.n > 1 ? ` ×${w.n}` : ''}`, text: `${w.foes} there. A party may go after it; post a bounty under Expeditions.`, panel: 'expeditions' });
+    // the last question answered, and what came of it
+    const o = s.eventOutcome;
+    if (o) cards.push({ cls: 'answered', mark: '✓', title: o.choice ? `${o.title}: ${o.choice}` : o.title, text: o.text.charAt(0).toUpperCase() + o.text.slice(1) + '.' });
     const q = s.prompts[0];
     // (the raid's own question is the raid card already)
     if (q && !(s.raid && q.title.includes(s.raid.name))) cards.push({ cls: 'ask', mark: '?', title: q.title, text: 'A choice waits for you on the town below.' });

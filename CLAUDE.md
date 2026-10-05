@@ -1305,6 +1305,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   work (`ownWork`). Tried and dropped: the founder at the top for every job, and studying ahead of gathering; a lone
   founder then studied all day, gathered no wood, built nothing and so never had a bed for a newcomer (8 lone towns at
   day 10: 2 dead, 5 still alone).
+- **Raid battles fight themselves by default (the owner's call):** `startBattle` places everyone and casts the spells
+  itself unless `s.autoBattle` is `false` (the battle bar's Auto button turns it off, and the choice is kept).
+- **What came of an answer, on a card (upright):** `tell` in sim/events.ts keeps the last answer on `s.eventOutcome`
+  (title, the choice, what came of it); `snapshot.eventOutcome` carries it for `OUTCOME_HOURS` (4), and the feed shows
+  it at the top as a green-edged card (`answered` in feed.ts). Sideways the same line pops up over the town as a notice.
 - **Game speed (the owner's ask):** a 1×/2×/3× button on the clock bar (`hud.ts`, the `gameSpeed` command,
   `s.gameSpeed`, `snapshot.speed`); `battleSpeedNow` (battle.ts, read by `GameLoop.pump`) returns it outside a battle,
   and the battle's own speed during one. Time away is unaffected.

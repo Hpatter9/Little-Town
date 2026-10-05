@@ -56,3 +56,16 @@ test('the new effects: a skill learned, a bond, a trait, gear, a horse, a buildi
   answerEvent(t, 1, new Rng(2));
   assert.equal(opinion(t, other.id, t.mainId), 30);
 });
+
+test('the feed is told what came of the last answer, for a few hours', async () => {
+  const { snapshot } = await import('../src/shared/sim/snapshot');
+  const { TICKS_PER_HOUR } = await import('../src/shared/sim/time');
+  const def: EventDef = { id: 'test_feed', title: 'A gift', text: '...', options: [dflt('Take it', coin(7)), opt('Leave it', coin(1))] };
+  const { s } = answer(def);
+  const o = snapshot(s).eventOutcome;
+  assert.equal(o?.title, 'A gift');
+  assert.equal(o?.choice, 'Take it');
+  assert.ok(o?.text.includes('+7 coins'));
+  s.tick += 5 * TICKS_PER_HOUR;
+  assert.equal(snapshot(s).eventOutcome, null);
+});

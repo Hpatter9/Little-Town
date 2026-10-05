@@ -138,13 +138,15 @@ export function answerEvent(s: GameState, option: number, rng: Rng): void {
     out,
   );
   if (o.effects.some((e) => 'later' in e)) out.push('more to come');
-  tell(s, def.title, out);
+  tell(s, def.title, out, o.label);
 }
 
 /** What came of an answer, said in one line under its title, so every choice is seen to do something. */
-function tell(s: GameState, title: string | undefined, out: string[]): void {
+function tell(s: GameState, title: string | undefined, out: string[], choice?: string): void {
   if (!out.length) return;
   notify(s, `${title ?? 'What came of it'}: ${out.join(', ')}.`, true);
+  // (kept a while for the feed's card: the question answered, and what came of it)
+  s.eventOutcome = { title: title ?? 'What came of it', choice: choice ? fill(s, choice, undefined) : null, text: out.join(', '), tick: s.tick };
 }
 
 const span = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : h >= 20 ? 'a day' : `${Math.round(h)} hours`);

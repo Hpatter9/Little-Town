@@ -777,11 +777,14 @@ export interface GameState {
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
+  /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */
   autoBattle?: boolean;
   /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */
   battleSpeed?: number;
   /** How fast the town runs between battles: 1, 2 or 3 times (the clock bar's button). */
   gameSpeed?: number;
+  /** The last event answered and what came of it (sim/events.ts `tell`), for the feed's card. */
+  eventOutcome?: { title: string; choice: string | null; text: string; tick: number };
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];

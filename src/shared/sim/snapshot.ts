@@ -352,6 +352,9 @@ export interface PromptView {
   secondsLeft: number | null;
 }
 
+/** How long the feed shows what came of the last event answered (game hours). */
+export const OUTCOME_HOURS = 4;
+
 /** How long a fight's victory screen stays up (ticks). */
 export const RESULT_TICKS = 80;
 
@@ -577,6 +580,8 @@ export interface Snapshot {
   paused: boolean;
   /** How fast the town runs (1, 2 or 3 times). */
   speed: number;
+  /** The last event answered and what came of it, for `OUTCOME_HOURS` (the feed's card). */
+  eventOutcome: { title: string; choice: string | null; text: string } | null;
   calendar: Calendar;
   /** Everything in storage, summed. */
   stock: Stock;
@@ -765,6 +770,7 @@ export function snapshot(s: GameState): Snapshot {
     tick: s.tick,
     paused: s.paused,
     speed: s.gameSpeed ?? 1,
+    eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text } : null,
     calendar: calendar(s.tick),
     stock,
     storageUsed: poolSize(stock),
