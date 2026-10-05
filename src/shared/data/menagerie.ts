@@ -494,7 +494,7 @@ const kindOf = (id: string, f: (typeof FAMILY_RAIDS)[Family], members: Beast[], 
   ...(f.goals ? { goals: f.goals } : {}),
   ...(f.steals ? { steals: f.steals } : {}),
   enemies: Object.fromEntries(members.map((b) => [b.id, raidCost(b.id)])),
-  fromDay: 1,
+  fromDay: 3,
   ...(f.era ? { era: f.era } : {}),
   weight: f.weight,
   speed: f.speed,
@@ -503,14 +503,26 @@ const kindOf = (id: string, f: (typeof FAMILY_RAIDS)[Family], members: Beast[], 
   ...more,
 });
 
+/** Raid kinds by age: each age's raid of a family brings only that age's tiers (`TIERS_BY_ERA`), so a camp of the
+ *  Stone Age meets wolves' kin, not tigers; the family's own first age (demons and dragons from the Medieval) besides. */
+/** Raids come to the town's door, so they keep to gentler tiers than the lairs and dungeons a party chooses to go to
+ *  (a Stone Age camp at tier 3 grew half as fast). */
+export const RAID_TIERS: Record<Era, [number, number]> = { neolithic: [1, 2], medieval: [2, 5], industrial: [4, 7], modern: [6, 9], space: [7, 10] };
+const ERA_ORDER: readonly Era[] = ['neolithic', 'medieval', 'industrial', 'modern', 'space'];
+const byAge = (id: string, f: (typeof FAMILY_RAIDS)[Family], pool: Beast[], more: Partial<RaidKind> = {}): RaidKind[] =>
+  ERA_ORDER.filter((e) => !f.era || ERA_ORDER.indexOf(e) >= ERA_ORDER.indexOf(f.era)).map((e) => {
+    const [lo, hi] = RAID_TIERS[e];
+    return kindOf(`${id}_${e}`, f, pool.filter((b) => b.tier >= lo && b.tier <= hi), { era: e, untilEra: e, ...more });
+  });
+
 export const MENAGERIE_RAIDS: readonly RaidKind[] = [
   // (each family, without the ice's, the dunes' and the sea's own: those come only where they live)
   ...(Object.keys(FAMILY_RAIDS) as Family[])
     .filter((f) => f !== 'deep')
-    .map((f) => kindOf(`m_${f}`, FAMILY_RAIDS[f], BEASTS.filter((b) => b.family === f && !['snow', 'desert', 'sea'].includes(b.habitat)))),
-  kindOf('m_ice', { ...FAMILY_RAIDS.oddities, name: 'Beasts of the ice', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'snow'), { biomes: ['tundra'] }),
-  kindOf('m_dunes', { ...FAMILY_RAIDS.oddities, name: 'Beasts of the dunes', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'desert'), { biomes: ['desert'] }),
-  kindOf('m_deep', FAMILY_RAIDS.deep, BEASTS.filter((b) => b.habitat === 'sea'), { fromSea: true }),
+    .flatMap((f) => byAge(`m_${f}`, FAMILY_RAIDS[f], BEASTS.filter((b) => b.family === f && !['snow', 'desert', 'sea'].includes(b.habitat)))),
+  ...byAge('m_ice', { ...FAMILY_RAIDS.oddities, name: 'Beasts of the ice', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'snow'), { biomes: ['tundra'] }),
+  ...byAge('m_dunes', { ...FAMILY_RAIDS.oddities, name: 'Beasts of the dunes', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'desert'), { biomes: ['desert'] }),
+  ...byAge('m_deep', FAMILY_RAIDS.deep, BEASTS.filter((b) => b.habitat === 'sea'), { fromSea: true }),
 ].filter((k) => Object.keys(k.enemies).length > 0);
 
 /* ------------------------------------------------------------ the guild's hunts */

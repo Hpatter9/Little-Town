@@ -1436,9 +1436,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `art/creatureSheets.ts` has `pairs`, so `creatureFrame` takes a creature's two frames and `creatureFlip` mirrors it to
   face right (the table of sheets moved out of creatures.ts into creatureSheets.ts, with no Pixi in it). Stats come from
   the tier (`statsFor`: 25 health at tier 1 to 358 at 10, stretched for size), loot by family, and from tier 4 a monster
-  part for the guild. Where they turn up: a raid kind for each family (`MENAGERIE_RAIDS`, ids `m_<family>`, plus
-  `m_ice` in the tundra, `m_dunes` in the desert and `m_deep` from the sea; the raid budget keeps the great ones away
-  from small towns), half the land's lairs, caves and reefs (`rollFoes` in sim/places.ts: `placeHabitats` by the
+  part for the guild. Where they turn up: a raid kind for each family and age (`MENAGERIE_RAIDS`, ids `m_<family>_<era>`,
+  plus `m_ice_*` in the tundra, `m_dunes_*` in the desert and `m_deep_*` from the sea), from day 3, each bringing only
+  its age's `RAID_TIERS` (gentler than the lairs': a Stone Age camp meeting tier 3 at its door grew half as fast; at
+  tiers 1 and 2, lone towns reach 4.25 people by day 10 against 4.5 without them), half the land's lairs, caves and reefs (`rollFoes` in sim/places.ts: `placeHabitats` by the
   biome, `TIERS_BY_ERA`), up to `DUNGEON_GROUPS` (6) groups in each dungeon by its type (`DUNGEON_HABITATS`,
   `dungeonGroups`), and a guild hunt for each creature of tier 2 or more (`MENAGERIE_QUARRIES`, ids `m_<id>`, posted less
   often than the hand-written ones). **The Bestiary:** the Chronicle's fourth tab (`panel/bestiaryPanel.ts`): every foe
