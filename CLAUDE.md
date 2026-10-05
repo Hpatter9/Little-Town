@@ -644,8 +644,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`art/merTail.ts`, four sea colours by id, swaying; no shadow); a building in the sea has a ring of foam for its
   shadow. Tests: `test/sea.test.ts`. Probe (5 days): 11 people, 11 lean-tos in the shallows, fish, kelp and pearls
   in store. Soak (15 days, one town): 18 people, 2 deaths (slower than the old merfolk's 31: half the land is sea now,
-  so the wild stuff is further; watch it). Still to come for the merfolk: sea raiders landing from the water, merfolk looks (scales, fins) on land,
-  the ocean backdrops for their trips.
+  so the wild stuff is further; watch it). The sea raiders, fins, trip backdrops, stilt homes and tide pools came later:
+  see "The merfolk rework".
 
 - **The undead village (done; the owner's call: only the dead in a lich town):** `keepKin` in `sim/townsfolk.ts`,
   hourly from sim.ts: whoever is in a kin town and not of its kin is made kin, by whatever door they came (a wanderer,
@@ -1674,7 +1674,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   map/bodyMarks.ts draws a crest swept back from the crown, a fanned ear fin and glints of scale in sea colours by id
   (`merColours` in art/merTail.ts, never its gold, which read as a crown), through the injury marks' overlay, so only on
   the plain LPC sprite and never in the sea.
-- Still to come: the homes themselves in a sea style, tide pools.
+- **Stilt homes and tide pools (step 5, done):** a merfolk home on the map (a house-shaped home before the modern age)
+  is a stilt hut (`drawStilt` in art/topDown.ts, its own colours, never reclad): a round reed roof thatched in rings
+  over a short wall of sea-green boards with a round-topped door and a lit porthole, on a plank deck raised on stilts,
+  a net and a string of shells. On the strand, `TIDE_POOLS` (0.22) of the sand cells within two of the shallows (only a
+  shore town's land has them: `nearShallows`) hold a tide pool (`tidePool` in map/groundArt.ts): clear water in a ring
+  of wet rocks, sometimes with one of the Seabed set's shells or starfish in it.
+- Still to come (not designed): boats, and the merfolk's sea beasts beyond the raids.
 
 ## Known problem (fixed, watch)
 

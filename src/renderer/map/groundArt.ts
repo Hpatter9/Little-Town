@@ -15,6 +15,8 @@ import { paintMountain, paintMountainEdge } from './mountainArt';
 /** How many of the shore's water cells show the bottom (the Seabed pack's corals, urchins, starfish and shells) through
  *  the water, on the coast. */
 const SHALLOWS = 0.5;
+/** The share of a shore town's strand cells (within two of the shallows) with a tide pool among the rocks. */
+const TIDE_POOLS = 0.22;
 
 /** Cells to a chunk's side. */
 export const CHUNK = 8;
@@ -270,6 +272,7 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
           else if (r < 0.42 && season !== 'autumn' && !blighted) drawTuft(g, 'flower', Math.floor(r * 100), tx, ty);
           else if (r < 0.48) drawTuft(g, 'pebble', Math.floor(r * 100), tx, ty);
         } else if (kind === 'rock' && hash(seed ^ 117, x, y) < 0.35) drawTuft(g, 'pebble', Math.floor(hash(seed ^ 119, x, y) * 6), px + 6 + Math.floor(hash(seed ^ 121, x, y) * 20), py + 6 + Math.floor(hash(seed ^ 123, x, y) * 20));
+        else if (kind === 'sand' && !road && hash(seed ^ 161, x, y) < TIDE_POOLS && nearShallows(m, x, y)) tidePool(g, px, py, seed, x, y, pal.shallows);
       } else
         switch (kind) {
           case 'grass':
@@ -423,5 +426,48 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         if (r < share) rect(px + xx, py + yy, 2, 2, dark);
         else if (light && r > 1 - lightShare) rect(px + xx, py + yy, 2, 2, light);
       }
+  }
+}
+
+/** Whether the shallows (only a shore town's land has them) are within two cells. */
+function nearShallows(m: LandMap, x: number, y: number): boolean {
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (groundAt(m, x + dx, y + dy) === 'shallows') return true;
+  return false;
+}
+
+/** A tide pool on the strand: a ring of wet rocks round clear water, the sand showing pale through it, a glint, and
+ *  now and then one of the Seabed set's starfish, shells or urchins in it. */
+function tidePool(g: CanvasRenderingContext2D, px: number, py: number, seed: number, x: number, y: number, water: readonly string[]): void {
+  const cx = px + 9 + Math.floor(hash(seed ^ 163, x, y) * 14);
+  const cy = py + 9 + Math.floor(hash(seed ^ 165, x, y) * 14);
+  const rx = 6 + Math.floor(hash(seed ^ 167, x, y) * 4);
+  const ry = 4 + Math.floor(hash(seed ^ 169, x, y) * 3);
+  const blob = (ox: number, oy: number, ax: number, ay: number, colour: string) => {
+    g.fillStyle = colour;
+    g.beginPath();
+    g.ellipse(cx + ox, cy + oy, ax, ay, 0, 0, Math.PI * 2);
+    g.fill();
+  };
+  // the rocks round it: dark and wet, a lit top on each
+  for (let k = 0; k < 7; k++) {
+    const a = (k / 7) * Math.PI * 2 + hash(seed ^ (171 + k), x, y);
+    const r = 1.6 + hash(seed ^ (181 + k), x, y) * 1.6;
+    const ox = Math.cos(a) * (rx + 0.5);
+    const oy = Math.sin(a) * (ry + 0.5);
+    blob(ox, oy + 0.6, r, r * 0.8, '#4a4e50');
+    blob(ox - 0.4, oy, r * 0.8, r * 0.6, '#7a7e7c');
+  }
+  // the water, clear over pale sand, darker where it's deeper
+  blob(0, 0, rx, ry, water[0]);
+  blob(-0.8, -0.6, rx * 0.65, ry * 0.6, water[1]);
+  blob(-rx * 0.4, -ry * 0.4, 1.2, 0.6, water[2]);
+  const sea = propImage('sea');
+  if (sea && hash(seed ^ 191, x, y) < 0.5) {
+    const frames = propFrames('sea');
+    const f = frames[2 + Math.floor(hash(seed ^ 193, x, y) * (frames.length - 2))];
+    const k = Math.min((rx * 1.1) / f[2], (ry * 1.4) / f[3]);
+    g.globalAlpha = 0.85;
+    g.drawImage(sea, f[0], f[1], f[2], f[3], cx - (f[2] * k) / 2, cy - (f[3] * k) / 2, f[2] * k, f[3] * k);
+    g.globalAlpha = 1;
   }
 }
