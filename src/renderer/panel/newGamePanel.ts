@@ -3,6 +3,7 @@
 // where, how dangerous the world is, and last the rules and the Found button. Back and Next move between the steps,
 // and the dots show how far along. Opened from the tray's "New game…", the game-over card, and on a first run.
 
+import { hkDraw, hkLayers, hkWhoOfLook, onHkLoad } from '../art/hkFolk';
 import { FOUNDER_CLASS } from '../../shared/data/founderClasses';
 import type { Bridge } from '../../shared/ipc';
 import { BIOME_DEFS, BIOMES, DIFFICULTIES, DIFFICULTY_DEFS, type Biome, type Difficulty } from '../../shared/data/biomes';
@@ -14,7 +15,7 @@ import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../../shared/data/origins';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
-import { drawHeroIdle, FOUNDER_ID, founderSheet, heroImage } from '../art/heroForms';
+import { FOUNDER_ID } from '../art/heroForms';
 import { button, el } from './dom';
 
 
@@ -41,25 +42,26 @@ let lpcReady: Promise<void> | null = null;
  *  facing right. A founder with no calling, or until the sheet loads, is their LPC figure. */
 function drawFounderArt(art: HTMLCanvasElement, id: string, look: (typeof FOUNDERS)[OriginId][number]['look']): void {
   const g = art.getContext('2d')!;
-  let hero = false;
-  // (the plain look only until the hero comes: never over it, whichever loads first)
-  const lpc = () => void lpcReady!.then(() => {
-    if (!hero) g.drawImage(lpcCanvas(look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64);
-  });
-  const calling = FOUNDER_CLASS[id];
-  if (!calling) return lpc();
-  const sheet = founderSheet(calling.base, FOUNDER_ID, false, false);
-  const paint = (img: HTMLImageElement) => {
-    hero = true;
+  // as the map will draw them: their Himeko look (art/hkFolk.ts) in their calling's dress; the plain old look only
+  // until the layers load, and never over them
+  const keys = hkLayers(hkWhoOfLook(FOUNDER_ID, look, { cls: FOUNDER_CLASS[id]?.base ?? null, founder: true }), { fighting: true, activity: 'idle' });
+  let drawn = false;
+  const hk = () => {
+    if (drawn) return true;
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    if (!hkDraw(c.getContext('2d')!, keys, 0, 0, 32, 61, 52)) return false;
+    drawn = true;
     g.clearRect(0, 0, 64, 64);
-    drawHeroIdle(g, img, sheet, 32, 62, 60);
+    g.drawImage(c, 0, 0);
+    return true;
   };
-  const img = heroImage(sheet, () => {
-    const loaded = heroImage(sheet, () => undefined);
-    if (loaded && art.isConnected) paint(loaded);
+  hk();
+  if (drawn) return;
+  onHkLoad(hk);
+  void lpcReady!.then(() => {
+    if (!drawn) g.drawImage(lpcCanvas(look, 'walk', 0), 8, 6, 48, 48, 0, 0, 64, 64);
   });
-  if (img) paint(img);
-  else lpc();
 }
 
 export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {

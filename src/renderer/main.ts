@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
 import { seatArt } from './art/seatArt';
 import { SEAT_STAGE } from '../shared/data/seats';
 import { CHATTER } from './chatter';
@@ -61,8 +62,7 @@ import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
 import { CELL, cellAt, groundAt, isMarked, WILD } from '../shared/sim/land';
-import { creatureFrame, loadCreatures } from './art/creatures';
-import { founderSheet } from './art/heroForms';
+import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
 import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
@@ -1001,6 +1001,7 @@ async function start(): Promise<void> {
     pane.setDaylight(next.calendar.daylight);
     // (the phone page's feed borrows the town's pictures: a townsperson, or a building in the town's own style, as the
     // map draws it: the pack's picture where there is one, else the top-down painter's)
+    hkKnow(next.people); // (who's who, for the views that know someone only by id: the fight screen, the mine)
     const cardArt = (id: string) => {
       const def = BUILDING_BY_ID[id];
       const seat = SEAT_STAGE[id];
@@ -1147,20 +1148,24 @@ const FOLLOW_WAIT_MS = 4000;
 
 start().catch((err) => console.error('strip failed to start', err));
 
-/** A townsperson's picture for the feed and the report card: as the map draws them, so a founder (in their hero form
- *  always, map/mapPeople.ts) is their hero sheet's idle frame, cut to a square about the figure; anyone else their LPC
- *  figure. */
+/** A townsperson's picture for the feed, the event box and the report card: as the map draws them, in their Himeko
+ *  look (art/hkFolk.ts), standing facing us. Until the layers load it holds their old look, and is painted over in
+ *  place when they come (the cards keep the canvas they were given). */
 function personPicture(who: PersonView): HTMLCanvasElement {
-  if (!who.founderCalling || who.monster === 'undead') return textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64);
-  const sheet = founderSheet(who.cls, who.id, who.battle.ranged, (who.battle.attrs?.int ?? 0) > (who.battle.attrs?.str ?? 0));
-  const tex = creatureFrame(sheet, 0, 'right', 0, false, 'idle');
-  const f = tex.frame;
-  const r = tex.source.resolution;
-  const side = Math.min(f.width, f.height);
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const g = c.getContext('2d')!;
-  g.imageSmoothingEnabled = false;
-  g.drawImage(tex.source.resource as CanvasImageSource, (f.x + (f.width - side) / 2) * r, (f.y + f.height - side) * r, side * r, side * r, 0, 0, 64, 64);
-  return c;
+  const hc = document.createElement('canvas');
+  hc.width = hc.height = 64;
+  const g = hc.getContext('2d')!;
+  const keys = hkLayers(hkWhoOf(who), { fighting: false, activity: 'idle' });
+  const paint = () => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    if (!hkDraw(c.getContext('2d')!, keys, 0, 0, 32, 61, 50)) return false;
+    g.clearRect(0, 0, 64, 64);
+    g.drawImage(c, 0, 0);
+    return true;
+  };
+  if (paint()) return hc;
+  g.drawImage(textureCanvas(lpcFrame(who.look, 'walk', 0), 64, 64), 0, 0);
+  onHkLoad(paint);
+  return hc;
 }

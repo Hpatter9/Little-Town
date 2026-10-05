@@ -61,7 +61,13 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
     c.height = Math.round(sh * k);
     const g = c.getContext('2d')!;
     g.imageSmoothingEnabled = false;
-    g.drawImage(src, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    const copy = () => {
+      g.clearRect(0, 0, c.width, c.height);
+      g.drawImage(src, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    };
+    copy();
+    // (a townsperson's picture is painted over in place once their layers load: art/hkFolk.ts; copy it again then)
+    if (p.person != null) for (const ms of [400, 1200, 3000, 8000]) setTimeout(copy, ms);
     return c;
   };
   const pic = (p: { person?: number; building?: string } | null, text: string): HTMLElement => {

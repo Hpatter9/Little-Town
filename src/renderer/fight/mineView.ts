@@ -10,6 +10,8 @@ import type { MineView } from '../../shared/sim/snapshot';
 import { BACK_H, BACK_HORIZON, BACK_W, fightBackdrop, FRONT_H, type Backdrop } from '../art/fightBackdrop';
 import { wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame } from '../art/lpc/lpc';
+import { hkLayers, hkWhoById } from '../art/hkFolk';
+import { hkSprite } from '../art/hkTexture';
 
 const SEE_W = 320;
 const SEE_H = 180;
@@ -168,9 +170,14 @@ export class MineScene {
         d.sprite.texture = lpcFrame(m.look, 'walk', frame, 'pick', wornLayers(m.gear));
         d.dust.clear();
       }
+      d.sprite.zIndex = i;
+      // (in the Himeko look, as the map draws them: art/hkFolk.ts, a pick in hand; the old look while it loads)
+      const keys = hkLayers(hkWhoById(m.id, m.look, m.gear), { fighting: false, activity: 'mine' });
+      const col = m.digging && wall ? (phase < 0.5 ? 3 : 4) : d.x < at - 0.5 ? [1, 0, 2, 0][Math.floor(now / 140 + i * 3) % 4] : 0;
+      if (hkSprite(d.sprite, keys, col, 2, d.x, this.hy + 10, 48 * k)) return;
+      d.sprite.anchor.set(0);
       d.sprite.scale.set(k);
       d.sprite.position.set(Math.round(d.x - CENTRE_X * k), Math.round(this.hy + 10 - FEET_Y * k));
-      d.sprite.zIndex = i;
     });
     for (const [id, d] of this.diggers)
       if (!seen.has(id)) {

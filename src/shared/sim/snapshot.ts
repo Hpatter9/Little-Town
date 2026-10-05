@@ -528,6 +528,8 @@ export interface ShopView {
   worth: number;
   takings: number;
   keeperLook: Look | null;
+  /** The keeper's id (to dress them as the map does). */
+  keeperId: number | null;
   /** Strangers inside now: who they are, what they came for, their temper, and (at the tavern) the comfort they need. */
   customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean; stage: 'browse' | 'counter' | 'done' | null; talk: ShopTalk | null }[];
   /** The tavern's guest rooms upstairs (a bed is a piece at y -1, x the room), its beds, and how many are taken tonight. */
@@ -1041,6 +1043,7 @@ function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): Sho
     worth: businessPrice(s, b),
     takings: (() => { const t = b.shop?.takings; const day = Math.floor(s.tick / TICKS_PER_DAY); return !t ? 0 : t.day === day ? t.yesterday : t.day === day - 1 ? t.today : 0; })(),
     keeperLook: keeper?.look ?? null,
+    keeperId: keeper?.id ?? null,
     customers: inside
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
       .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour), stage: t.stage ?? null, talk: t.talk ?? null })),

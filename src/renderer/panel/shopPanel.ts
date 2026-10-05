@@ -3,6 +3,7 @@
 // or sitting over their food; and beside or below it, who's in and what they came for, what the venue has to offer,
 // what's been asked for, and what's happened lately. It only shows: the town runs its venues itself.
 
+import { hkDraw, hkLayers, hkWhoById, hkWhoOfLook } from '../art/hkFolk';
 import { inTabs } from './subtabs';
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import { pieceLabel, qualityOf } from '../../shared/data/quality';
@@ -528,7 +529,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   layers.push({ y: rowY(v.counter.y + 1), paint: () => counter(cellX(v.counter.x), cy, v.counter.w * CELL) });
   if (v.keeperLook) {
     const look = v.keeperLook;
-    layers.push({ y: rowY(v.keeper.y + 1) - 2, paint: () => person(cellX(v.keeper.x) + CELL, rowY(v.keeper.y + 1) - 2, look, false, false, t, 1) });
+    layers.push({ y: rowY(v.keeper.y + 1) - 2, paint: () => person(cellX(v.keeper.x) + CELL, rowY(v.keeper.y + 1) - 2, look, false, false, t, 1, v.keeperId ?? 7, true) });
   }
   for (const p of v.pieces) {
     if (p.y < 0 || ON_WALL.has(p.item) || p.kind === 'rug' || p.item.endsWith('_rug') || p.item === 'woven_mat') continue;
@@ -603,7 +604,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       sleepers.set(`${q.bed.x},${q.bed.y}`, q.look);
       continue;
     }
-    layers.push({ y: w.y, paint: () => person(w.x, w.y, w.look, moving, w.left, t + q.id, q.tier) });
+    layers.push({ y: w.y, paint: () => person(w.x, w.y, w.look, moving, w.left, t + q.id, q.tier, q.id) });
   }
   layers.sort((a, b) => a.y - b.y);
   for (const l of layers) l.paint();
@@ -1136,13 +1137,19 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   }
 
   /** Someone side-on (their own look, as in the town), feet at (x, y); walking, or standing. */
-  function person(x: number, y: number, look: Look, walking: boolean, left: boolean, phase: number, tier = 1): void {
+  function person(x: number, y: number, look: Look, walking: boolean, left: boolean, phase: number, tier = 1, id = 0, keeper = false): void {
     oval(x, y, 5, 1.5, 'rgba(0,0,0,0.28)');
     // (standing, they breathe and shift their weight, like everyone on the map: nobody is frozen)
     if (!walking) y -= Math.sin(phase * 1.1) > 0.55 ? 1 : 0;
     const fidget = !walking && (phase * 1000) % 4300 < 160 ? 1 : 0;
     const top = y - (FEET_Y - HEAD_Y) * SCALE; // (the top of the head)
-    if (lpcLoaded) {
+    // (in the Himeko Sutori pack's dress, as the map draws everyone: art/hkFolk.ts; the old look while it loads)
+    // (the keeper, a townsperson, as the map dresses them, facing the room; a stranger in travelling clothes)
+    const keys = hkLayers(keeper ? hkWhoById(id, look) : hkWhoOfLook(id, look, { traveller: true }), { fighting: false, activity: 'idle' });
+    const col = walking ? [1, 0, 2, 0][Math.floor(phase * 6) % 4] : 0;
+    if (hkDraw(g, keys, col, keeper ? 0 : left ? 1 : 2, Math.round(x), Math.round(y), (FEET_Y - HEAD_Y) * SCALE + 2)) {
+      // (drawn: the hats below still mark a customer's standing)
+    } else if (lpcLoaded) {
       const f = walking ? 1 + (Math.floor(phase * 10) % (FRAME_COUNT.walk - 1)) : fidget;
       const s = FRAME_SIZE * SCALE;
       g.save();

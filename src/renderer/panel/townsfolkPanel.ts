@@ -2,13 +2,13 @@
 // someone to inspect them: their picture in what they wear, their gear laid out as in Diablo (each piece in its slot
 // round them, tap one for its stats), what they carry, how they fight, and everything else about them.
 
+import { hkDraw, hkLayers, hkWhoOf, onHkLoad } from '../art/hkFolk';
 import { pieceLabel, plusOf, plusMult, qualityMult, qualityOf } from '../../shared/data/quality';
 import { ITEM_BY_ID, SLOT_NAMES, SLOTS, type ItemDef, type Slot } from '../../shared/data/items';
 import { MATERIAL_NAMES } from '../../shared/data/materials';
 import { quirkWords } from '../../shared/data/weapons';
 import { stockIcon } from '../art/materialIcons';
 import { CENTRE_X, FEET_Y, FRAME_SIZE, loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
-import { drawHeroIdle, founderSheet, heroImage } from '../art/heroForms';
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
@@ -518,24 +518,25 @@ function startLpc(rerender: () => void): void {
 const pictures = new Map<string, HTMLCanvasElement>();
 /** A hero figure's height in the 64px frame (about an LPC townsperson's, as on the map: HERO_HEIGHT). */
 const HERO_FIGURE = 50;
+/** The Himeko pictures are drawn this many times the old frame's size. */
+const HK_RES = 2;
 /** Redraws the tab when a hero sheet comes in (set by the panel's render). */
 let heroRerender: (() => void) | null = null;
+// (redrawn when more of the townsfolk's layers have loaded)
+onHkLoad(() => heroRerender?.());
 function picture(p: PersonView, s: Snapshot): HTMLCanvasElement | null {
-  // (a founder is drawn in their hero form everywhere, map/mapPeople.ts: so here too, feet where the LPC figure's are)
-  if (p.founderCalling && p.monster !== 'undead') {
-    const sheet = founderSheet(p.cls, p.id, p.battle.ranged, (p.battle.attrs?.int ?? 0) > (p.battle.attrs?.str ?? 0));
-    const img = heroImage(sheet, () => heroRerender?.());
-    if (img) {
-      const key = `hero|${sheet}`;
-      let c = pictures.get(key);
-      if (!c) {
-        c = document.createElement('canvas');
-        c.width = c.height = FRAME_SIZE;
-        drawHeroIdle(c.getContext('2d')!, img, sheet, CENTRE_X, FEET_Y, HERO_FIGURE);
-        pictures.set(key, c);
-      }
-      return c;
-    }
+  // (everyone, founders too, as the map draws them: in the Himeko Sutori pack's dress, art/hkFolk.ts, standing facing
+  // us with their weapon, feet where the old figure's were; the old look while their layers load)
+  const keys = hkLayers(hkWhoOf(p), { fighting: true, activity: 'idle' });
+  const hkKey = `hk|${keys.join('+')}`;
+  const made = pictures.get(hkKey);
+  if (made) return made;
+  // (at twice the old frame's resolution: the pack's figures have finer detail than the old 64px frames)
+  const hc = document.createElement('canvas');
+  hc.width = hc.height = FRAME_SIZE * HK_RES;
+  if (hkDraw(hc.getContext('2d')!, keys, 0, 0, CENTRE_X * HK_RES, FEET_Y * HK_RES, HERO_FIGURE * HK_RES)) {
+    pictures.set(hkKey, hc);
+    return hc;
   }
   if (!lpcLoaded) return null;
   let look = p.look;
@@ -560,12 +561,14 @@ function picture(p: PersonView, s: Snapshot): HTMLCanvasElement | null {
 /** Their whole figure, `scale` times over. */
 function figure(p: PersonView, s: Snapshot, scale: number): HTMLElement {
   const c = el('canvas', 'pixel-figure');
-  c.width = FRAME_SIZE;
-  c.height = FRAME_SIZE;
+  c.width = FRAME_SIZE * HK_RES;
+  c.height = FRAME_SIZE * HK_RES;
   c.style.width = `${FRAME_SIZE * scale}px`;
   c.style.height = `${FRAME_SIZE * scale}px`;
   const src = picture(p, s);
-  if (src) c.getContext('2d')!.drawImage(src, 0, 0);
+  const g = c.getContext('2d')!;
+  g.imageSmoothingEnabled = false;
+  if (src) g.drawImage(src, 0, 0, c.width, c.height);
   return c;
 }
 
@@ -573,10 +576,13 @@ function figure(p: PersonView, s: Snapshot, scale: number): HTMLElement {
 const FACE = 26;
 function face(p: PersonView, s: Snapshot): HTMLElement {
   const c = el('canvas', 'pixel-figure folk-face');
-  c.width = c.height = FACE;
+  c.width = c.height = FACE * HK_RES;
   const src = picture(p, s);
-  // (the head sits about 40 pixels above the feet in a 64-pixel frame)
-  if (src) c.getContext('2d')!.drawImage(src, CENTRE_X - FACE / 2 + 1, FEET_Y - 52, FACE, FACE, 0, 0, FACE, FACE);
+  // (the head sits about 40 pixels above the feet in a 64-pixel frame; the picture may be drawn finer than that)
+  const r = src ? src.width / FRAME_SIZE : 1;
+  const g = c.getContext('2d')!;
+  g.imageSmoothingEnabled = false;
+  if (src) g.drawImage(src, (CENTRE_X - FACE / 2 + 1) * r, (FEET_Y - 52) * r, FACE * r, FACE * r, 0, 0, c.width, c.height);
   return c;
 }
 

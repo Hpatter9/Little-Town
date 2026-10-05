@@ -25,6 +25,8 @@ copyFileSync('assets/World map.jpg', 'out/renderer/world-map.jpg');
 cpSync('src/renderer/art/creatures/packs', 'out/renderer/packs', { recursive: true });
 // and the fights' painted backdrops (tools/compose-backdrops.cjs), fetched when first shown
 cpSync('src/renderer/art/backdrops', 'out/renderer/backdrops', { recursive: true });
+// and the townsfolk's Himeko Sutori layers (tools/import-himeko.cjs), each fetched when someone first wears it
+cpSync('src/renderer/art/himeko', 'out/renderer/himeko', { recursive: true });
 // and the raid map's scenery atlases (tools/compose-props.cjs)
 cpSync('src/renderer/art/props', 'out/renderer/props', { recursive: true });
 cpSync('src/renderer/art/scenery', 'out/renderer/scenery', { recursive: true }); // (the town's trees, bushes and rocks: tools/compose-scenery.cjs)

@@ -227,11 +227,13 @@ The wooden pier planks (`src/renderer/art/roads/pier_v.png`, `pier_h.png`, cut f
 **Craftpix.net**'s free Bridges Top-Down Pixel Art Asset Pack, used under Craftpix's free licence (use in the game;
 the raw files are not redistributed).
 
-## Himeko Sutori sprite share (monsters)
+## Himeko Sutori sprite share (townsfolk and monsters)
 
-The ogres, demons, juggernaut, tyrant, slimes, mummy, ghost, zombies and imp (`src/renderer/art/creatures/packs/hk_*.png`,
-their layers composed and their right-facing frames cut by `tools/compose-sheets.cjs`) are from the Himeko Sutori sprite
-share, free to use with attribution:
+The townsfolk and founders (the bodies, outfits, hair, beards, helms, shields, weapons and tools in
+`src/renderer/art/himeko/`, copied and cut to their drawn rows by `tools/import-himeko.cjs`) and the ogres, demons,
+juggernaut, tyrant, slimes, mummy, ghost, zombies and imp (`src/renderer/art/creatures/packs/hk_*.png`, their layers
+composed and their right-facing frames cut by `tools/compose-sheets.cjs`) are from the Himeko Sutori sprite share, free
+to use with attribution:
 
 - Half-Kaizer sprite template created by Showkaizer.
 - Additional Half-Kaizer poses by Aleesa Tana.

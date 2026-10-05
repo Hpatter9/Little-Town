@@ -456,6 +456,30 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   menagerie (`HIMEKO_LOOK` in menagerie.ts: hill ogre, brute and ring demons, brass and steam golems, four slimes,
   two mummies, two zombies, the red imp). The ogre keeps `nature: 'person'` (stills counted as people). Credits in
   CREDITS.md (the pack's terms ask for three lines of attribution).
+- **The townsfolk in the Himeko pack's dress (the owner's call: founders too, everywhere they're pictured):**
+  `tools/import-himeko.cjs` (run by hand) copies the 606 layers the dressing uses into `src/renderer/art/himeko/` (each
+  cut to the four drawn rows, 1024x512, and made a palette PNG by `tools/pngPalette.cjs`: 5.4 MB), with
+  `art/himeko.json` (the feet's place, the keys); both builds copy the folder beside the page, outside the precache (a
+  layer is fetched when first worn and kept). `src/renderer/art/hkFolk.ts` (no Pixi): `hkLayers(who, doing)` stacks a
+  person back to front: the hair behind, the body by sex and skin (light, tan, dark; bone for the raised dead), a scar,
+  eyepatch or freckles, a beard, the outfit of their calling (`OUTFIT`) at their stage's grade (`GRADE`; a founder at
+  least the third; no calling: by the armour they wear, else travelling or peasant clothes), the hair in front (men have
+  bangs: the pack has no men's hair), a helm by the head piece's weight (else a founder's crown, a calling's hat:
+  `BARE_HEAD`), a shield, and in a fight the weapon of its family by tier (`WEAPON`; claws and thrown weapons are knives,
+  a sling is bare-handed) or at work the tool (`TOOL`; the sickle is a man's only, a woman reaps with the scythe).
+  `hkPose` picks the cell (the walk, the arm raised and the lunge for blows and work, a punch for shooting, the kneel for
+  hurt and down). `hkCell` composes and caches cells (LRU of 900; `onHkEvict`); `hkDraw` puts one on a canvas;
+  `onHkLoad` calls back when layers arrive (a callback returning true is done). `hkWhoOf` (a PersonView), `hkWhoOfLook`
+  (a stranger), and `hkKnow`/`hkWhoById` (who's who from the last snapshot, for views that know someone by id: main.ts
+  and the venue panel feed it). `art/hkTexture.ts` makes the cells Pixi textures (`hkTexture`, `hkSprite`).
+  Used by the map (mapPeople: four ways round, ahead of the old side-on, hero, founder and class looks; werewolves still
+  take wolf form under the moon and in fights, merfolk swim to the waist), the fight screen's party and march
+  (fightView), the mine's diggers (mineView), the expedition pane, the shop and tavern windows (keeper facing the room,
+  strangers in travelling clothes), the Townsfolk tab (list faces and the paper doll, drawn at twice the old frame's
+  resolution), the New Town founder cards, and the feed, event box and report card (`personPicture` in main.ts, painted
+  over in place once the layers load; the feed copies it again as they come). The old LPC figure stands in only while a
+  person's layers load. The Craftpix hero sheets (`HERO_FORM`, `founderSheet`) are no longer worn by townsfolk; they are
+  kept for bosses and special strangers. Test: `test/hkFolk.test.ts`.
 - **Painted backdrops from the packs:** `tools/compose-backdrops.cjs` stacks each parallax background's layers (far
   to near; packs that number "Plan 1.." near to far are reversed) into one WebP per background in
   `src/renderer/art/backdrops/` (114 of them; `backdrops.json`, `src/shared/data/backdrops.ts`). Not precached: the

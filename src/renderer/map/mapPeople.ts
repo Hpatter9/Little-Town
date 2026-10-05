@@ -8,6 +8,8 @@ import type { PersonView } from '../../shared/sim/snapshot';
 import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { drawMarks, limpDip, marksKey } from './bodyMarks';
+import { HK_CELL, HK_FEET, HK_FIGURE, hkLayers, hkPose, hkWhoOf, type HkFacing } from '../art/hkFolk';
+import { hkTexture } from '../art/hkTexture';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
 import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
@@ -36,6 +38,10 @@ const HORSE_SCALE = 0.85;
 const SADDLE_LIFT = 16;
 const BLEED_MINUTES = 120;
 const CHILD_SCALE = 0.7;
+/** A Himeko figure drawn as tall as the side-on townsfolk were (about 48px). */
+const HK_K = 48 / HK_FIGURE;
+/** Where a Himeko figure's waist is in its cell (a swimmer shows down to it). */
+const HK_WAIST = 0.67;
 const PX_PER_WALK_FRAME = 4;
 const HIT_HALF_W = 11;
 const HIT_H = 50;
@@ -225,6 +231,19 @@ export class MapPeople {
     return [{ ...v.look, outfit: w.outfit }, [...w.wear, ...wornLayers(v.gear, v.gearQ)]];
   }
 
+  /** A person's Himeko look for now (art/hkFolk.ts), as a texture; null while their layers load. */
+  private hkTexture(d: Drawn, now: number, inCombat: boolean, moving: boolean): Texture | null {
+    const v = d.view;
+    const fighting = inCombat || v.activity === 'fight';
+    const working = WORK_SWING.has(v.activity) && !fighting;
+    const keys = hkLayers(hkWhoOf(v), { fighting, activity: v.activity });
+    // (up or down the map while that's mostly how they walk; else the side they're turned to)
+    const side: HkFacing = v.dir < 0 ? 'left' : 'right';
+    const facing: HkFacing = !fighting && !working && d.face ? d.face : side;
+    const [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null, ranged: v.battle.ranged, now });
+    return hkTexture(keys, col, row);
+  }
+
   /** Now and then someone says a line in their nature's voice (map/speech.ts): in a slot of their own by their id,
    *  a share of the time; someone standing by answers a moment later. */
   private speak(d: Drawn, now: number, x: number, y: number, z: number, hidden: boolean): void {
@@ -412,6 +431,17 @@ export class MapPeople {
         s.scale.set(2 * k, 2 * k);
         void size;
       }
+      // the townsfolk in the Himeko Sutori pack's dress (art/hkFolk.ts: the owner's call, founders too), four ways
+      // round; it takes over from the side-on sprite, the hero forms and the class looks (the hero sheets are kept for
+      // bosses and special strangers). Until their layers have loaded, the old look stands in.
+      const hkTex = hidden ? null : this.hkTexture(d, now, inCombat, moving);
+      if (hkTex) {
+        plain = false;
+        s.texture = hkTex;
+        s.anchor.set(0.5, HK_FEET / HK_CELL);
+        const hk = k * HK_K;
+        s.scale.set(hk, hk);
+      }
       // on a full-moon night, and whenever they fight, werewolves show what they are
       if (d.view.monster === 'werewolf' && (this.moon || inCombat) && !hidden) {
         // (the Craftpix werewolves: black, red or white by who they are)
@@ -427,8 +457,8 @@ export class MapPeople {
       if (swimming) {
         const bob = Math.sin(now / 420 + v.id) * 1.5;
         plain = false;
-        s.texture = waistUp(s.texture);
-        s.anchor.set(CENTRE_X / FRAME_SIZE, 1);
+        s.texture = waistUp(s.texture, hkTex ? HK_WAIST : WAIST);
+        s.anchor.set(hkTex ? 0.5 : CENTRE_X / FRAME_SIZE, 1);
         s.position.set(Math.round(x), Math.round(y - 4 + bob));
         if (!d.tail) d.tail = this.layer.addChild(new Sprite());
         d.tail.texture = tailTexture(v.id);
@@ -448,7 +478,7 @@ export class MapPeople {
         d.horse.position.set(Math.round(x - (CREATURE_FRAME * HORSE_SCALE) / 2), Math.round(y + 2 - CREATURE_FRAME * HORSE_SCALE));
         d.horse.zIndex = z - 0.1;
         s.y -= SADDLE_LIFT;
-        if (anim === 'walk') s.texture = lpcFrame(look, 'walk', 0, held, wear);
+        if (anim === 'walk' && !hkTex) s.texture = lpcFrame(look, 'walk', 0, held, wear);
       }
       // their harm, over the sprite (bodyMarks.ts)
       const marks = v.body.marks;
@@ -645,11 +675,11 @@ function cycle(secs: number, period: number, frames: number): number {
 
 /** A person's frame cut off at the waist (for swimming), one cut per frame. */
 const waists = new Map<Texture, Texture>();
-function waistUp(tex: Texture): Texture {
+function waistUp(tex: Texture, waist = WAIST): Texture {
   let t = waists.get(tex);
   if (!t) {
     const f = tex.frame;
-    t = new Texture({ source: tex.source, frame: new Rectangle(f.x, f.y, f.width, Math.round(f.height * WAIST)) });
+    t = new Texture({ source: tex.source, frame: new Rectangle(f.x, f.y, f.width, Math.round(f.height * waist)) });
     waists.set(tex, t);
   }
   return t;
