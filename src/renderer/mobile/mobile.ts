@@ -394,6 +394,17 @@ bridge.onInspect?.((info) => {
 
 /* ------------------------------------------------------------ the ☰ menu */
 
+// (set by tools/build-web.mjs: the package's version, the commit and the day it was built)
+declare const __GAME_VERSION__: string;
+declare const __GAME_COMMIT__: string;
+declare const __GAME_BUILT__: string;
+const gameVersion = (): string => {
+  const v = typeof __GAME_VERSION__ === 'string' ? __GAME_VERSION__ : '?';
+  const commit = typeof __GAME_COMMIT__ === 'string' && __GAME_COMMIT__ ? ` · ${__GAME_COMMIT__}` : '';
+  const built = typeof __GAME_BUILT__ === 'string' ? ` · built ${__GAME_BUILT__}` : '';
+  return `Version ${v}${commit}${built}`;
+};
+
 function drawMenu(): void {
   void bridge.getState().then((s) => {
     const item = (label: string, onClick: () => void, on = false) => {
@@ -418,8 +429,15 @@ function drawMenu(): void {
       label('Zoom (or pinch the town with two fingers; tap the % to reset)'),
       zooms,
       ...(installed ? [] : [label('To install: Chrome menu ⋮ → Add to Home screen')]),
+      version(),
     );
   });
+}
+/** The version line at the foot of the menu. */
+function version(): HTMLElement {
+  const d = label(gameVersion());
+  d.classList.add('version');
+  return d;
 }
 function label(text: string): HTMLElement {
   const d = document.createElement('div');
