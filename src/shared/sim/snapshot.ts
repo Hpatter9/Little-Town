@@ -75,6 +75,8 @@ import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
+import { abilitiesKnown } from '../data/abilities';
+import { describeAct, describePassive } from '../data/describe';
 import { hexesNow } from './rivals';
 import { castleBounds, castleCells, castleGate, castleLayout, castleOn, coreRect, galleryCells, holdOf, type Hold } from './castle';
 import { TILE } from '../constants';
@@ -221,7 +223,9 @@ export interface PersonView {
    *  chance, dodge, armour and block, and the chance to strike true. */
   battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number };
   /** The spells they keep ready and the skills they've learned (actives first), with what each costs. */
-  kit: { name: string; spell: boolean; level: number; cost: number; pool: 'mp' | 'sp' | 'limit' }[];
+  kit: { name: string; spell: boolean; level: number; cost: number; pool: 'mp' | 'sp' | 'limit'; text: string }[];
+  /** The passive skills they've learned (always on), with what each gives. */
+  passives: { name: string; level: number; text: string }[];
 }
 
 export interface CraftOrderView {
@@ -571,6 +575,8 @@ export interface Snapshot {
   travellers: TravellerView[];
   tick: number;
   paused: boolean;
+  /** How fast the town runs (1, 2 or 3 times). */
+  speed: number;
   calendar: Calendar;
   /** Everything in storage, summed. */
   stock: Stock;
@@ -758,6 +764,7 @@ export function snapshot(s: GameState): Snapshot {
     travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', line: t.line ?? null, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
     tick: s.tick,
     paused: s.paused,
+    speed: s.gameSpeed ?? 1,
     calendar: calendar(s.tick),
     stock,
     storageUsed: poolSize(stock),
@@ -1273,8 +1280,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
 }
 
 /** Someone's fighting stats and kit, worked out again only when what they depend on changes. */
-const fightCache = new Map<number, { key: string; view: Pick<PersonView, 'battle' | 'kit'> }>();
-function fightView(p: Person): Pick<PersonView, 'battle' | 'kit'> {
+const fightCache = new Map<number, { key: string; view: Pick<PersonView, 'battle' | 'kit' | 'passives'> }>();
+function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives'> {
   const key = JSON.stringify([p.cls, levelOf(p), p.gear, p.gearQ, p.skills.melee.level, p.skills.ranged.level, p.traits, p.monster, Math.round(p.hp)]);
   const hit = fightCache.get(p.id);
   if (hit?.key === key) return hit.view;
@@ -1283,7 +1290,8 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit'> {
   const kit = kitOf(p);
   const view = {
     battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval },
-    kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool })),
+    kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool, text: describeAct(a.effects, a.cooldown / TICK_HZ, a.pool === 'limit') })),
+    passives: p.cls ? abilitiesKnown(p.cls, levelOf(p)).filter((a) => a.passive).map((a) => ({ name: a.name, level: a.level, text: describePassive(a.passive!) })) : [],
   };
   fightCache.set(p.id, { key, view });
   return view;

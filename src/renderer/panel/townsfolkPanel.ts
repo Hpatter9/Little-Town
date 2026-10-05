@@ -18,6 +18,7 @@ import { FAMILIES } from '../../shared/data/weapons';
 import type { Material } from '../../shared/data/materials';
 import { MONSTER_NAMES, ORDER_NAMES, type MonsterKind, type StandingOrder } from '../../shared/data/monsters';
 import { SKILL_NAMES, SKILLS } from '../../shared/data/skills';
+import { SKILL_TEXT } from '../../shared/data/describe';
 import type { Bridge } from '../../shared/ipc';
 import type { PersonView, Snapshot, VisitorView } from '../../shared/sim/snapshot';
 import { bleedLeft } from '../../shared/format';
@@ -137,6 +138,18 @@ function miniBar(value: number, kind: 'hp' | 'mood'): HTMLElement {
 
 /* ------------------------------------------------------------ inspecting someone */
 
+/** The inspect page's tabs (the owner's ask), and the one open (kept while the panel redraws and between people). */
+type InspectTab = 'equipment' | 'character' | 'background' | 'skills';
+const INSPECT_TABS: [InspectTab, string][] = [
+  ['equipment', 'Equipment'],
+  ['character', 'Character'],
+  ['background', 'Background'],
+  ['skills', 'Skills'],
+];
+let inspectTab: InspectTab = 'equipment';
+/** The skill, spell or trait tapped on the Skills or Character tab, whose card shows under the list. */
+let chosenSkill: string | null = null;
+
 function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement[] {
   const back = button('‹ Everyone', () => {
     inspecting = null;
@@ -144,32 +157,53 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
     const box = scroller();
     if (box) box.scrollTop = listScroll;
   }, { cls: 'place small quiet back-btn' });
-  // (upright: one column, who they are, their gear, the rest; sideways: their gear on the left, the rest beside it)
-  const layout = el('div', 'inspect-layout');
-  const whoBox = el('div', 'inspect-who');
-  const gearBox = el('div', 'inspect-gear');
-  const restBox = el('div', 'inspect-rest');
-  layout.append(whoBox, gearBox, restBox);
 
-  // who they are
+  // who they are, over every tab
   const card = el('div', 'card person inspect');
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('span', 'card-size', `${p.typeName} · ${p.bed ? `bed: ${p.bed}` : 'no bed'}`));
   card.append(top, el('div', 'lock', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
-  for (const d of p.detail) card.append(el('div', 'hint', d));
   card.append(classRow(p, bridge, rerender));
-  whoBox.append(card);
 
-  // their gear, Diablo-style, the piece picked, and what they carry
-  gearBox.append(el('h2', '', 'Equipment'), paperDoll(p, s, rerender), pieceCard(p), el('h2', '', 'Inventory'), bag(p));
+  const tabs = el('div', 'row inv-tabs inspect-tabs');
+  for (const [k, name] of INSPECT_TABS) {
+    const b = el('button', `inv-tab${inspectTab === k ? ' on' : ''}`, name);
+    b.addEventListener('click', () => {
+      inspectTab = k;
+      chosenSkill = null;
+      rerender();
+    });
+    tabs.append(b);
+  }
 
-  const out = restBox;
-  // how they fight
-  out.append(el('h2', '', 'In a fight'));
-  out.append(fightCard(p));
+  const body = el('div', `inspect-body tab-${inspectTab}`);
+  if (inspectTab === 'equipment') equipmentTab(p, s, rerender, body);
+  else if (inspectTab === 'character') characterTab(p, rerender, body);
+  else if (inspectTab === 'background') backgroundTab(p, s, body);
+  else skillsTab(p, rerender, body);
 
-  // body and spirits
-  out.append(el('h2', '', 'Health and spirits'));
+  const out: HTMLElement[] = [back, card, tabs, body];
+  const turn = turnButtons(p, s, bridge);
+  if (turn) out.push(turn);
+  if (p.monster) out.push(orderRow(p, bridge));
+  return out;
+}
+
+/** Their gear, Diablo-style, the piece picked, and what they carry. */
+function equipmentTab(p: PersonView, s: Snapshot, rerender: () => void, out: HTMLElement): void {
+  const left = el('div', 'inspect-col');
+  left.append(paperDoll(p, s, rerender));
+  const right = el('div', 'inspect-col');
+  right.append(pieceCard(p), el('h2', '', 'Inventory'), bag(p));
+  out.append(left, right);
+}
+
+/** How they'd fight, their body and spirits, and their traits. */
+function characterTab(p: PersonView, rerender: () => void, out: HTMLElement): void {
+  const left = el('div', 'inspect-col');
+  left.append(el('h2', '', 'In a fight'), fightCard(p));
+  const right = el('div', 'inspect-col');
+  right.append(el('h2', '', 'Health and spirits'));
   const life = el('div', 'card person');
   const bars = el('div', 'bars');
   bars.append(
@@ -195,26 +229,97 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
     for (const r of p.moodReasons) reasons.append(el('span', r.value >= 0 ? 'good' : 'bad', `${r.text} ${r.value > 0 ? '+' : ''}${r.value}`));
     life.append(reasons);
   }
-  out.append(life);
-
-  // skills, traits, people
-  out.append(el('h2', '', 'Skills and traits'));
-  const sk = el('div', 'card person');
-  sk.append(skillsList(p), traitsList(p));
-  out.append(sk);
-  const ties = relationsText(p);
-  if (ties || p.recent.length) {
-    out.append(el('h2', '', 'Life'));
-    const lifeCard = el('div', 'card person');
-    if (ties) lifeCard.append(el('div', 'lock', ties));
-    for (const r of p.recent.slice(0, 6)) lifeCard.append(el('div', 'hint', r));
-    out.append(lifeCard);
+  right.append(life);
+  if (p.traits.length) {
+    right.append(el('h2', '', 'Traits'));
+    const tc = el('div', 'card person');
+    tc.append(traitsList(p, rerender));
+    const t = p.traits.find((x) => `trait:${x.name}` === chosenSkill);
+    if (t) tc.append(infoCard(t.name, 'Trait', t.description));
+    right.append(tc);
   }
+  out.append(left, right);
+}
 
-  const turn = turnButtons(p, s, bridge);
-  if (turn) out.append(turn);
-  if (p.monster) out.append(orderRow(p, bridge));
-  return [back, layout];
+/** Who they are and where they came from: their age and people, nature, ambition, job, purse and ties, and lately. */
+function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
+  const left = el('div', 'inspect-col');
+  left.append(el('h2', '', 'Who they are'));
+  const who = el('div', 'card person');
+  if (p.ageText) who.append(el('div', 'lock', p.ageText));
+  who.append(el('div', 'purpose', `${p.natureName}: ${p.natureLine}`));
+  if (p.ambition) who.append(el('div', 'purpose', `Wants to be ${p.ambition.name.toLowerCase()}: ${p.ambition.line}`));
+  if (p.trips) who.append(el('div', 'hint', `Trips made: ${p.trips}`));
+  for (const d of p.detail) who.append(el('div', 'hint', d));
+  if (p.id === s.mainId) who.append(el('div', 'hint', 'The founder: turns their hand to any work, building and study first.'));
+  left.append(who);
+  const right = el('div', 'inspect-col');
+  const ties = relationsText(p);
+  right.append(el('h2', '', 'Life'));
+  const lifeCard = el('div', 'card person');
+  if (ties) lifeCard.append(el('div', 'lock', ties));
+  for (const r of p.recent.slice(0, 8)) lifeCard.append(el('div', 'hint', r));
+  if (!ties && !p.recent.length) lifeCard.append(el('div', 'hint', 'Nothing much has happened to them yet.'));
+  right.append(lifeCard);
+  out.append(left, right);
+}
+
+/** Their work skills, spells, fighting skills and passives: tap one to see what it does. */
+function skillsTab(p: PersonView, rerender: () => void, out: HTMLElement): void {
+  const left = el('div', 'inspect-col');
+  left.append(el('h2', '', 'Work skills'));
+  const wc = el('div', 'card person');
+  wc.append(el('div', 'hint', 'What they are good at, they do first; anything else, when there is work to be done. Tap a skill to see what it does.'));
+  wc.append(skillsList(p, rerender));
+  const k = SKILLS.find((x) => `skill:${x}` === chosenSkill);
+  if (k) {
+    const sk = p.skills[k];
+    wc.append(infoCard(SKILL_NAMES[k], `Level ${sk.level}${sk.passion ? ' · passion: learns it 50% faster' : ''}`, SKILL_TEXT[k]));
+  }
+  left.append(wc);
+  const right = el('div', 'inspect-col');
+  right.append(el('h2', '', 'Spells and fighting skills'));
+  const fc = el('div', 'card person');
+  if (p.kit.length || p.passives.length) {
+    const kit = el('div', 'kit');
+    for (const a of p.kit) {
+      const ult = a.pool === 'limit';
+      const id = `act:${a.name}`;
+      const c = el('button', `chip ${ult ? 'ult' : a.spell ? 'spell' : 'skill'}${chosenSkill === id ? ' on' : ''}`, `${ult ? '★' : a.spell ? '✦' : '⚔'} ${a.name}`);
+      c.addEventListener('click', () => pick(id, rerender));
+      kit.append(c);
+    }
+    for (const a of p.passives) {
+      const id = `pas:${a.name}`;
+      const c = el('button', `chip passive${chosenSkill === id ? ' on' : ''}`, `◇ ${a.name}`);
+      c.addEventListener('click', () => pick(id, rerender));
+      kit.append(c);
+    }
+    fc.append(el('div', 'hint', '✦ spell · ⚔ skill · ★ ultimate · ◇ always on. Tap one to see what it does.'), kit);
+    const a = p.kit.find((x) => `act:${x.name}` === chosenSkill);
+    if (a) {
+      const ult = a.pool === 'limit';
+      const kind = ult ? 'Ultimate' : a.spell ? 'Spell' : 'Skill';
+      const cost = ult ? 'costs the full limit gauge' : `costs ${a.cost} ${a.pool === 'mp' ? 'mana' : 'stamina'}`;
+      fc.append(infoCard(a.name, `${kind} · learned at level ${a.level} · ${cost}`, a.text));
+    }
+    const ps = p.passives.find((x) => `pas:${x.name}` === chosenSkill);
+    if (ps) fc.append(infoCard(ps.name, `Passive · learned at level ${ps.level}`, ps.text));
+  } else fc.append(el('div', 'hint', p.cls ? 'No spells or skills learned yet: they come with levels.' : 'No calling yet, so no spells or fighting skills.'));
+  right.append(fc);
+  out.append(left, right);
+}
+
+function pick(id: string, rerender: () => void): void {
+  chosenSkill = chosenSkill === id ? null : id;
+  rerender();
+}
+
+/** What a tapped skill, spell or trait does. */
+function infoCard(name: string, sub: string, text: string): HTMLElement {
+  const c = el('div', 'skill-info');
+  c.append(el('div', 'skill-info-name', name), el('div', 'hint', sub), el('div', 'skill-info-text', text));
+  return c;
 }
 
 /** Where each slot sits round the figure: left the head, body and weapon; right the charm, pack and off-hand; the
@@ -381,16 +486,7 @@ function fightCard(p: PersonView): HTMLElement {
     one('SP', b.sp, 'Stamina: skills draw on it; a plain blow brings some back');
     box.append(attrs);
   }
-  if (p.kit.length) {
-    const kit = el('div', 'kit');
-    for (const a of p.kit) {
-      const ult = a.pool === 'limit';
-      const c = el('span', `chip ${ult ? 'ult' : a.spell ? 'spell' : 'skill'}`, `${ult ? '★' : a.spell ? '✦' : '⚔'} ${a.name}${ult ? '' : ` · ${a.cost} ${a.pool === 'mp' ? 'MP' : 'SP'}`}`);
-      c.title = ult ? `Ultimate: loosed when the limit gauge is full (learned at level ${a.level})` : `${a.spell ? 'Spell' : 'Skill'}, learned at level ${a.level}: costs ${a.cost} ${a.pool === 'mp' ? 'mana' : 'stamina'}`;
-      kit.append(c);
-    }
-    box.append(el('div', 'hint', 'Spells kept ready, skills learned, and the ultimate:'), kit);
-  } else if (p.cls) box.append(el('div', 'hint', 'No spells or skills learned yet: they come with levels.'));
+  if (p.kit.length) box.append(el('div', 'hint', `${p.kit.length} spells and skills: see the Skills tab.`));
   return box;
 }
 
@@ -647,23 +743,25 @@ function relationsText(p: PersonView): string {
   return parts.join(' · ');
 }
 
-function skillsList(p: PersonView): HTMLElement {
+function skillsList(p: Pick<PersonView, 'skills'>, rerender: () => void = () => undefined): HTMLElement {
   const g = el('div', 'skills');
   for (const k of SKILLS) {
     const sk = p.skills[k];
-    const cell = el('div', sk.level >= 6 ? 'skill good' : sk.level <= 1 ? 'skill weak' : 'skill');
+    const id = `skill:${k}`;
+    const cell = el('button', `${sk.level >= 6 ? 'skill good' : sk.level <= 1 ? 'skill weak' : 'skill'}${chosenSkill === id ? ' on' : ''}`);
     cell.append(el('span', '', `${SKILL_NAMES[k]}${sk.passion ? ' ★' : ''}`), el('span', 'lvl', String(sk.level)));
-    cell.title = sk.passion ? 'Passion: learns this 50% faster' : '';
+    cell.addEventListener('click', () => pick(id, rerender));
     g.append(cell);
   }
   return g;
 }
 
-function traitsList(p: PersonView): HTMLElement {
+function traitsList(p: Pick<PersonView, 'traits'>, rerender: () => void = () => undefined): HTMLElement {
   const d = el('div', 'traits');
   for (const t of p.traits) {
-    const s = el('span', 'chip', t.name);
-    s.title = t.description;
+    const id = `trait:${t.name}`;
+    const s = el('button', `chip${chosenSkill === id ? ' on' : ''}`, t.name);
+    s.addEventListener('click', () => pick(id, rerender));
     d.append(s);
   }
   return d;

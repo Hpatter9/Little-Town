@@ -4,7 +4,7 @@
 // the river, an exodus, famine, a lost library, war, a miracle... The new effects (eventKit.ts): `burn` (buildings
 // set alight), `ruin` (pulled down), `exodus` (a share of the town leaves), `sickShare` (a share falls ill), `learn`
 // (topics learned outright), `heal` (everyone mended).
-import { busy, chance, coins, dflt, follow, eraAt, gain, has, later, mod, mood, note, opt, people, take, type EventDef } from './eventKit';
+import { busy, calm, chance, coins, dflt, eraAt, follow, gain, has, later, mod, mood, note, opt, people, take, type EventDef } from './eventKit';
 import type { GameState } from '../sim/state';
 import { TICKS_PER_DAY } from '../sim/time';
 
@@ -162,7 +162,7 @@ export const FATEFUL_EVENTS: readonly EventDef[] = [ // (twenty-five)
     when: (s) => people(s, 6),
     options: [
       opt('Send the boldest for it', chance(0.45, [{ coins: 500 }, gain({ gold: 20, gems: 6 }), { renown: 30 }, note('They come back laden, and will not say what they saw.')], [{ kill: 'random', cause: 'in the hoard cave' }, { kill: 'random', chance: 0.6, cause: 'in the hoard cave' }, note('Two went in. One came back, and the hoard stays where it is.')])),
-      dflt('Burn the map', mood(2, 48, 'Some treasures are left be')),
+      dflt('Burn the map', mood(2, 48, 'The dragon left sleeping'), calm(48), note('Nothing from the hills troubles the town for a while.')),
     ],
   }),
   fate({

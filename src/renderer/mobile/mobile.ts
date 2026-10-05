@@ -37,6 +37,22 @@ function townShare(free: number): number {
   return Math.min(UPRIGHT_TOWN_MOST, Math.max(UPRIGHT_TOWN, share));
 }
 
+/** The player's own share for the map upright, set by dragging its grip (null: it follows the feed, as above).
+ *  From MAP_LEAST (half the room) to the whole of it, the feed hidden. */
+const MAP_SHARE_KEY = 'littletown.mapShare';
+const MAP_LEAST = 0.5;
+const MAP_FULL = 0.97;
+let mapShare: number | null = (() => {
+  try {
+    const v = localStorage.getItem(MAP_SHARE_KEY);
+    const n = v == null ? NaN : Number(v);
+    return n >= MAP_LEAST && n <= 1 ? n : null;
+  } catch {
+    return null;
+  }
+})();
+const shareNow = (free: number) => (mapShare == null ? townShare(free) : mapShare >= MAP_FULL ? 1 : mapShare);
+
 const bridge = mobileBridge();
 window.bridge = bridge;
 
@@ -85,7 +101,8 @@ function layout(): void {
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
   // (upright, the town has the lower part and the feed the rest; on its side, everything under the tabs)
   // (in a battle the map has all of it, the feed hidden; watching a party's fight too, drawn at its own scale)
-  const room = sideways.matches || battleOn ? free : Math.round(free * townShare(free));
+  const room = sideways.matches || battleOn ? free : Math.round(free * shareNow(free));
+  document.body.classList.toggle('map-full', !sideways.matches && !battleOn && room >= free);
   // (the top-down town fills its room at the zoom, a raid's battle on it; a party's fight is drawn at its own scale)
   const fit = watchOn ? 1 : zoom;
   // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
@@ -266,6 +283,7 @@ startFeed($('feed'), bridge, strip);
       queued = false;
       if (sideways.matches) return;
       const free = window.innerHeight - $('tabs').offsetHeight - $('top').offsetHeight;
+      if (mapShare != null) return; // (the player set the map's size: the feed doesn't move it)
       const now = townShare(free);
       if (now !== share) {
         share = now;
@@ -273,6 +291,64 @@ startFeed($('feed'), bridge, strip);
       }
     });
   }).observe($('feed'), { childList: true, subtree: true, characterData: true });
+}
+
+/* ------------------------------------------------------------ the map's grip (upright) */
+
+// A grip on the map's top edge: drag it up to stretch the map over the feed, down to give the feed its half back;
+// a tap flips between the whole screen and half. The size is kept (MAP_SHARE_KEY).
+{
+  const grip = document.createElement('div');
+  grip.id = 'map-grip';
+  grip.title = 'Drag to resize the map; tap for full or half';
+  grip.innerHTML = '<span></span>';
+  document.body.append(grip);
+  const freeNow = () => window.innerHeight - $('tabs').offsetHeight - $('top').offsetHeight;
+  const keep = () => {
+    try {
+      if (mapShare == null) localStorage.removeItem(MAP_SHARE_KEY);
+      else localStorage.setItem(MAP_SHARE_KEY, String(mapShare));
+    } catch {}
+  };
+  let drag: { y: number; from: number; moved: boolean; id: number } | null = null;
+  let queued = false;
+  const relayout = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      layout();
+    });
+  };
+  grip.addEventListener('pointerdown', (e) => {
+    const free = freeNow();
+    drag = { y: e.clientY, from: shareNow(free), moved: false, id: e.pointerId };
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add('dragging');
+    e.preventDefault();
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dy = drag.y - e.clientY;
+    if (Math.abs(dy) > 6) drag.moved = true;
+    if (!drag.moved) return;
+    const free = freeNow();
+    mapShare = Math.min(1, Math.max(MAP_LEAST, drag.from + dy / free));
+    relayout();
+  });
+  const end = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const free = freeNow();
+    if (!drag.moved) mapShare = drag.from >= MAP_FULL ? MAP_LEAST : 1; // (a tap: full, or back to half)
+    else if (mapShare != null) mapShare = mapShare >= 0.9 ? 1 : mapShare <= MAP_LEAST + 0.04 ? MAP_LEAST : Math.round(mapShare * 20) / 20;
+    void free;
+    drag = null;
+    grip.classList.remove('dragging');
+    keep();
+    layout();
+  };
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
 }
 
 /* ------------------------------------------------------------ the selected thing's card */

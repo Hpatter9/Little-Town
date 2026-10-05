@@ -44,7 +44,7 @@ import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORAL
 import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
 import { accruePay, accruePayFrom, loadPrice, moneyTown, payFromTreasury } from './economy';
 import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, TREASURY_KEEP } from '../data/economy';
-import { canWork } from './property';
+import { canWork, skillPace } from './property';
 import { isChild } from './social';
 
 /** Walking speed in world pixels per second. */
@@ -185,7 +185,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
       // (a steep curve by skill, and slower than it was: data/economy.ts)
-      const speed = buildPower(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
+      const speed = buildPower(p.skills.construction.level) * skillPace(s, p, site) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
       site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
       // (paid by the hour: by the treasury for its works, by the owner for theirs; an owner works for nothing)

@@ -159,6 +159,7 @@ test('events with weight: the fireline holds the town to it for a day; a fire le
   const sim = new Sim(town());
   const s = sim.state;
   s.nextEventTick = Number.MAX_SAFE_INTEGER;
+  s.nextRaidTick = Number.MAX_SAFE_INTEGER; // (a raid's alarm rightly calls them off the line: none while we watch)
   const rng = new Rng(5);
   startEvent(s, EVENT_BY_ID.great_fire, rng);
   answerEvent(s, 0, rng); // (cut a fireline)

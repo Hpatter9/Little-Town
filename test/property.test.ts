@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { BUILD_SKILL_BY_ERA } from '../src/shared/data/economy';
-import { buildSkill, canWork, collectRent, landPrice, materialsPrice, planHomes, rentOf } from '../src/shared/sim/property';
+import { buildSkill, canWork, collectRent, skillPace, landPrice, materialsPrice, planHomes, rentOf } from '../src/shared/sim/property';
 import { Sim } from '../src/shared/sim/sim';
 import { type Building, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -15,18 +15,23 @@ function addBuilding(s: GameState, def: string, tile: number, extra: Partial<Bui
   return b;
 }
 
-test('building needs skill: a lean-to takes anyone, a cottage a journeyman; a site below your level is not yours to work', () => {
+test('building needs skill: anyone lends a hand, the unskilled slower; the founder works any site at full pace', () => {
   const s = plainGame('skill');
   assert.equal(buildSkill(BUILDING_BY_ID.lean_to), BUILD_SKILL_BY_ERA.neolithic);
   assert.ok(buildSkill(BUILDING_BY_ID.cottage) >= BUILD_SKILL_BY_ERA.medieval);
-  const p = s.people[0];
+  const founder = s.people[0];
+  const p = { ...structuredClone(founder), id: s.nextId++, name: 'Hand' };
+  s.people.push(p);
   p.skills.construction.level = 1;
+  founder.skills.construction.level = 1;
   const hut = addBuilding(s, 'lean_to', camp(s).x + 3, { status: 'blueprint', progress: 0 });
   const cottage = addBuilding(s, 'cottage', camp(s).x + 6, { status: 'blueprint', progress: 0 });
-  assert.ok(canWork(s, p, hut));
-  assert.ok(!canWork(s, p, cottage), 'not skilled enough for a cottage');
+  assert.ok(canWork(s, p, hut) && canWork(s, p, cottage), 'nobody is turned away');
+  assert.equal(skillPace(s, p, hut), 1);
+  assert.ok(skillPace(s, p, cottage) < 0.5, 'but the unskilled go slower');
+  assert.equal(skillPace(s, founder, cottage), 1, 'the founder can turn their hand to anything');
   p.skills.construction.level = 30;
-  assert.ok(canWork(s, p, cottage));
+  assert.equal(skillPace(s, p, cottage), 1);
 });
 
 test('a person with coins enough buys a plot and the makings of a home from the town, and owns the site', () => {

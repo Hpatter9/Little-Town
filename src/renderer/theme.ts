@@ -255,7 +255,7 @@ ${T} .bar-fill, ${T} .meter-fill { background: linear-gradient(90deg, ${p.fill[0
 ${T} .bar-fill.low { background: linear-gradient(90deg, ${p.low[0]}, ${p.low[1]}); }
 ${T} .card, ${T} .queue-row, ${T} #inspect, ${T} #menu { background: ${p.card}; border-color: ${p.btnHover}; }
 ${T} .chip { background: ${p.btn}; border: 1px solid ${p.btnHover}; }
-${T} button:not(.swatch):not(.card):not(.map-dot):not(.folk-row):not(.doll-slot):not(.wizard-dot), ${T} .place, ${T} .tab, ${T} #tabs button { background: var(--btn); border-color: rgba(0, 0, 0, 0.6); color: var(--text); }
+${T} button:not(.swatch):not(.card):not(.map-dot):not(.folk-row):not(.doll-slot):not(.wizard-dot):not(.skill), ${T} .place, ${T} .tab, ${T} #tabs button { background: var(--btn); border-color: rgba(0, 0, 0, 0.6); color: var(--text); }
 ${T} .place.on, ${T} .tab.on, ${T} #tabs button.on, ${T} button.primary {
   background: var(--btn-on); border-color: ${p.onRim}; box-shadow: 0 0 8px ${p.glow};
 }

@@ -366,7 +366,38 @@
         gap: 6px;
       }
       body.menu-open #feed,
-      body.battle #feed {
+      body.battle #feed,
+      body.map-full #feed {
+        display: none;
+      }
+      #map-grip {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: calc(var(--strip-h) + var(--tabs-h) + env(safe-area-inset-bottom) - 11px);
+        width: 72px;
+        height: 22px;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: none;
+        cursor: ns-resize;
+      }
+      #map-grip span {
+        display: block;
+        width: 44px;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(232, 200, 138, 0.75);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 1px 4px rgba(0, 0, 0, 0.6);
+      }
+      #map-grip.dragging span {
+        background: #f4dca6;
+        width: 56px;
+      }
+      body.menu-open #map-grip,
+      body.battle #map-grip {
         display: none;
       }
       .feed-now,
@@ -514,7 +545,8 @@
         #tabs .tab-label::after {
           content: none;
         }
-        #feed {
+        #feed,
+        #map-grip {
           display: none;
         }
         #strip-box {
