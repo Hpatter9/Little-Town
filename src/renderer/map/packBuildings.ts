@@ -177,11 +177,15 @@ const KEEP_HALL = ['lich', 'werewolf'];
 const MAGE_HALL = ['alchemists', 'fae', 'druid'];
 const ROUND_HALL = ['merfolk'];
 const TENT_HALL = ['nomads'];
+const MACHINE_HALL = ['robot'];
 const hallVariants = (): { styles: string[]; pick: Pick }[] => [
   { styles: KEEP_HALL, pick: { url: suCastle, overhang: 4 } },
   { styles: MAGE_HALL, pick: { url: suMageTower, overhang: 4 } },
   { styles: ROUND_HALL, pick: { url: suRoundCastle, overhang: 4 } },
   { styles: TENT_HALL, pick: { url: suTent, overhang: 6 } },
+  // (the machines' hall, put together from the futuristic objects: a transformer, the shuttered block with a console
+  // before it, and a great tank)
+  { styles: MACHINE_HALL, pick: { parts: [[sf26, 0, 29], [sf27, 66, 42], [sf12, 92, 59], [sf25, 142, 0]], size: [210, 77], overhang: 0 } },
 ];
 const PICKS: Record<string, Pick> = {
   cottage: { url: house1, styles: TIMBER, smoke: [[22, 7]], lamps: [[81, 51], [39, 85], [81, 85]], variants: [{ styles: NOMAD, pick: { url: rockyYurt2, overhang: 6, smoke: [[40, 1]] } }] },

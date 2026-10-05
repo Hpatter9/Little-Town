@@ -1565,8 +1565,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   elder lodge, town hall and trophy hall have `hallVariants`: the Simple Summer stone keep for the liches and the Moon
   Pack (`KEEP_HALL`), its crystal mage tower for the alchemists, the fae and the druids (`MAGE_HALL`), its round keep for
   the merfolk (`ROUND_HALL`, `su_roundcastle.png`) and its striped tent for the nomads on the move (`TENT_HALL`,
-  `su_tent.png`). Still code-drawn: the machines' halls (the painter's `hall` shape, reclad); the vampires' and the
-  dwarves' halls are rooms of their castle or hold.
+  `su_tent.png`). The machines' halls (`MACHINE_HALL`) are put together from the futuristic objects (a transformer, the
+  shuttered block with a console, a great tank); the vampires' and the dwarves' halls are rooms of their castle or hold.
+  Boats stay painted (`art/boatArt.ts`): searched again, the packs have only wrecks (Seabed) and spaceships.
 
 ## Deaths made common again (the owner's call: all three levers)
 
