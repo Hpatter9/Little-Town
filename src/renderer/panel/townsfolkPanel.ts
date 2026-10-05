@@ -19,6 +19,7 @@ import type { Material } from '../../shared/data/materials';
 import { MONSTER_NAMES, ORDER_NAMES, type MonsterKind, type StandingOrder } from '../../shared/data/monsters';
 import { SKILL_NAMES, SKILLS } from '../../shared/data/skills';
 import { SKILL_TEXT } from '../../shared/data/describe';
+import { CLASS_ABOUT, ROLE_ABOUT } from '../../shared/data/classAbout';
 import type { Bridge } from '../../shared/ipc';
 import type { PersonView, Snapshot, VisitorView } from '../../shared/sim/snapshot';
 import { bleedLeft } from '../../shared/format';
@@ -701,8 +702,17 @@ function classRow(p: PersonView, _bridge: Bridge | undefined, rerender: () => vo
     if (p.founderCalling) path.append(el('div', 'hint founder-calling', 'A founder\'s calling: theirs alone, and no one else\'s.'));
     path.append(el('div', 'hint', past.length ? `The path so far: ${past.join(' → ')} → ${p.clsName} (now)` : `${p.clsName} is where their path begins.`));
     path.append(el('div', 'lock short', nextStage(p)));
+    // what the calling is, how it fights, and what it brings the town
+    const about = CLASS_ABOUT[p.cls];
+    if (about) {
+      path.append(el('div', 'purpose', about.what), el('div', 'purpose', about.fights));
+      const good = (Object.entries(def.affinity) as [keyof typeof SKILL_NAMES, number][]).sort((a, b) => b[1] - a[1]).map(([k]) => SKILL_NAMES[k].toLowerCase());
+      if (good.length) path.append(el('div', 'hint', `In town they take to ${good.length > 1 ? `${good.slice(0, -1).join(', ')} and ${good.at(-1)}` : good[0]}.`));
+    }
     box.append(path);
   }
+  const role = ROLE_ABOUT[def.role];
+  box.append(el('div', 'lock', `Role: ${role.name}. ${role.text}`));
   box.append(el('div', 'hint', `${p.clsText} Wears ${def.armour.map((w) => WEIGHT_NAMES[w].toLowerCase()).join(', ')}; wields ${def.weapons.map((f) => FAMILIES[f].name.toLowerCase() + 's').join(', ')}.`));
   return box;
 }

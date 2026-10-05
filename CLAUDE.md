@@ -1329,6 +1329,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   sowing or reaping, the load being gathered or dug, a patient tended; null while walking or doing anything else) is
   drawn by mapPeople as a small green bar (`WORK_W` 18 px, `WORK_ABOVE` 58 px over the feet), redrawn only when its fill
   moves a pixel.
+- **Callings explained (the owner's ask):** `src/shared/data/classAbout.ts`: for each of the 25 callings what it is and
+  how it fights (`CLASS_ABOUT`), and what each role means (`ROLE_ABOUT`: tank, bruiser, striker, shooter, caster,
+  healer, support). The Townsfolk page's calling row always says the role; opened, it adds the two lines and the town
+  skills the calling takes to (from its `affinity`). A founder's calling shows its base class's.
 - **Game speed (the owner's ask):** a 1×/2×/3× button on the clock bar (`hud.ts`, the `gameSpeed` command,
   `s.gameSpeed`, `snapshot.speed`); `battleSpeedNow` (battle.ts, read by `GameLoop.pump`) returns it outside a battle,
   and the battle's own speed during one. Time away is unaffected.

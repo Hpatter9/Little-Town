@@ -55,3 +55,12 @@ test("the bar over someone's head shows how far along their work is, and only wh
   p.activity = 'walk'; // (on the way: no bar)
   assert.equal(snapshot(s).people[0].taskDone, null);
 });
+
+test('every calling says what it is, how it fights and its role', async () => {
+  const { CLASS_ABOUT, ROLE_ABOUT } = await import('../src/shared/data/classAbout');
+  const { CLASS_DEFS, CLASSES } = await import('../src/shared/data/classes');
+  for (const c of CLASSES) {
+    assert.ok(CLASS_ABOUT[c].what.length > 40 && CLASS_ABOUT[c].fights.length > 40, c);
+    assert.ok(ROLE_ABOUT[CLASS_DEFS[c].role], c);
+  }
+});
