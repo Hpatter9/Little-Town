@@ -61,6 +61,8 @@ import {
   SHOP_LOG,
   SHOP_WANTS,
   SHOPPING_HOURS,
+  BROWSE_HOURS,
+  TALK_HOURS,
   TASTES,
   temperOf,
   TEMPERS,
@@ -88,9 +90,9 @@ import { biomeOf } from '../data/biomes';
 import { randomLook } from '../data/people';
 import type { Rng } from '../rng';
 import { buildingCentreX, buildingDoor, depositNear, footprint as plotOf, storages, totalCapacity, totalStock } from './buildings';
-import { addItems, itemUnlocked, qualitiesOf, takeItem } from './crafting';
+import { addItems, craftSlots, itemUnlocked, qualitiesOf, stationFor, stationName, stationQueued, stationSlots, takeItem } from './crafting';
 import { operatorOf, operatorSkill } from './operators';
-import { addStock, earn, edgeXY, notify, poolSize, remember, type Building, type GameState, type ShopPiece, type Traveller, type Want } from './state';
+import { addStock, earn, edgeXY, notify, poolSize, remember, type Building, type GameState, type ShopPiece, type ShopTalk, type Traveller, type Want } from './state';
 import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { gainSkill, housingCapacity } from './townsfolk';
 import { offerToSettle, strangerLook, strangerOrigin } from './strangers';
@@ -593,6 +595,14 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
     // raiders, or nowhere to go: they hurry on
     if (t.phase !== 'leaving' && (!venue || s.raid?.phase === 'active')) leave(s, t);
     if (t.phase === 'shopping') {
+      // (a shop's customer looks round first, then goes up to the counter, where they're served)
+      if (t.stage && t.stage !== 'done' && venue && s.tick >= (t.stageUntil ?? 0)) {
+        if (t.stage === 'browse') {
+          t.stage = 'counter';
+          t.stageUntil = s.tick + Math.round(TALK_HOURS * TICKS_PER_HOUR);
+          serveCustomer(s, venue, t, town, rng);
+        } else t.stage = 'done';
+      }
       if (s.tick >= t.until) {
         // (a traveller well served may ask to settle: sim/strangers.ts)
         if (!t.bed && offerToSettle(s, t, rng, housingCapacity(s) > s.people.length)) {
@@ -609,7 +619,12 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
       t.phase = 'shopping';
       t.until = s.tick + Math.round(SHOPPING_HOURS * temperOf(t.temper).stay * (t.venue === 'tavern' ? GUEST_STAY : 1) * TICKS_PER_HOUR);
       if (t.venue === 'tavern') serveGuest(s, venue, t, rng);
-      else serveCustomer(s, venue, t, town, rng);
+      else {
+        // (they look round before they ask: served at the counter, above)
+        t.stage = 'browse';
+        t.stageUntil = s.tick + Math.round(BROWSE_HOURS * TICKS_PER_HOUR);
+        t.until = Math.max(t.until, t.stageUntil + Math.round((TALK_HOURS + 0.15) * TICKS_PER_HOUR));
+      }
     }
   }
   arrive(s, rng, 'shop', town);
@@ -752,6 +767,8 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
   let spent = 0;
   const bought: string[] = [];
   let talked = '';
+  /** What the keeper says at the counter when they talk a customer round (the window's bubble). */
+  let said = '';
   const afford = (o: Offer) => spent + o.price * haggle <= t.purse;
   const buy = (o: Offer) => {
     if (!takeOffer(s, o)) return;
@@ -798,6 +815,7 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
       if (finest && finest !== pick && rng.chance(chance)) {
         buy(finest);
         talked = `${keeperName} talked them up to the ${pieceName(finest)}`;
+        said = `I'd take the ${pieceName(finest)}: finer work`;
       } else buy(pick);
     }
   }
@@ -808,20 +826,33 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
       buy(other);
       met = true;
       talked = `${keeperName} talked them into the ${pieceName(other)} instead`;
+      said = `None of those, but the ${pieceName(other)} will serve`;
+    }
+  }
+  // still nothing: the keeper offers to have it made, if the town can make it now and they can pay for it up front
+  let ordered: Commissioned | null = null;
+  if (!met) {
+    ordered = commission(s, shop, t, want, tier.tier, t.purse - spent, haggle);
+    if (ordered) {
+      met = true;
+      spent += ordered.price;
+      bought.push(`a ${ordered.item.name} to order`);
     }
   }
   // satisfied: talked into something more (a ware on the side, or a better price)
   const line = lineOfDef(shop.def);
-  if (met && !talked && rng.chance(chance)) {
+  if (met && !talked && !ordered && rng.chance(chance)) {
     // (a specialty shop sells another of its own line on the side; the general store a ware)
     const extra = offers(s, line ? LINE_ITEMS[line] : WARES.filter((w) => w.ware!.tier <= tier.tier), itemPrice).find(afford);
     if (extra) {
       buy(extra);
       talked = `${keeperName} sold them the ${pieceName(extra)} on the side`;
+      said = `Here, and the ${pieceName(extra)} goes with it`;
     } else if (spent > 0) {
       const more = Math.round(spent * (PREMIUM - 1));
       spent += more;
       talked = `${keeperName} talked the price up ${more}`;
+      said = 'Fine quality, that';
     }
   }
   if (keeper) {
@@ -861,10 +892,57 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
     ? `${who} came for ${wantText(want)}: bought ${[...bought, ...(also ? [also] : [])].join(', ')}${talked ? `. ${talked}` : ''} (${spent} coins).`
     : `${who} came for ${wantText(want)} and found none${also ? `, but bought ${also}` : ''}${tier.tier > 1 ? `; left disappointed` : ''}${spent ? ` (${spent} coins)` : ''}.`;
   log(s, shop, text);
+  t.talk = talkOf(want, ordered ? 'order' : met ? 'sold' : 'no', ordered ? `${ordered.maker} can make you one: ${ordered.price} coins` : said ? `${said} (${spent} coins)` : bought[0] ? `the ${bought[0]}, ${spent} coins` : '');
   if (keeper) remember(s, keeper, met ? `Served ${t.name} the ${t.kind}: ${bought.join(', ')} (${spent} coins)${talked ? ', talked them round' : ''}` : `Had nothing for ${t.name}, who wanted ${wantText(want)}`);
   if (first && spent > 0) notify(s, `The ${BUILDING_BY_ID[shop.def].name} made its first sale: ${text}`, true);
 
   if (!line) buyFrom(s, shop, t, town, who);
+}
+
+/** A piece the keeper had made to a customer's order. */
+interface Commissioned {
+  item: ItemDef;
+  price: number;
+  /** Who makes it (the station's holder, else the station). */
+  maker: string;
+}
+
+/** The shop has nothing a customer came for: the keeper orders it from the town's crafters, if the town knows how to
+ *  make one, its station has room for another order, the makings are in store now (so the order won't stall), and
+ *  the customer can pay for it up front (the cheapest that would do). The order is theirs: finished, it goes to them. */
+function commission(s: GameState, shop: Building, t: Traveller, want: Want, tier: number, purse: number, haggle: number): Commissioned | null {
+  const it = want.kind === 'item' ? ITEM_BY_ID[want.item] : undefined;
+  const choices: readonly ItemDef[] =
+    want.kind === 'gear' ? SALE_GEAR.filter((i) => want.slots.includes(i.slot!))
+    : want.kind === 'item' ? (it ? [it] : [])
+    : want.kind === 'line' ? LINE_ITEMS[want.line]
+    : want.kind === 'ware' ? WARES.filter((w) => w.ware!.tier === tier)
+    : [];
+  const stock = totalStock(s);
+  const makeable = (i: ItemDef) =>
+    !i.unique && !i.relic && itemUnlocked(s, i) && !!stationFor(s, i) &&
+    s.crafting.length < craftSlots(s) && stationQueued(s, i.station) < stationSlots(s, i.station) &&
+    (Object.entries(i.cost) as [Material, number][]).every(([m, n]) => (stock[m] ?? 0) >= n) &&
+    Object.entries(i.items ?? {}).every(([id, n]) => (s.items[id] ?? 0) >= n);
+  const priced = choices
+    .filter(makeable)
+    .map((i) => ({ i, price: Math.round(itemPrice(i, COMMON) * haggle) }))
+    .filter((c) => c.price > 0 && c.price <= purse)
+    .sort((a, b) => a.price - b.price)[0];
+  if (!priced) return null;
+  s.crafting.push({ id: s.nextId++, item: priced.i.id, count: 1, delivered: {}, itemsTaken: false, progress: 0, made: 0, commission: { name: t.name, paid: priced.price, shop: shop.id } });
+  const holder = operatorOf(s, priced.i.station);
+  return { item: priced.i, price: priced.price, maker: holder?.name ?? `the ${stationName(priced.i).toLowerCase()}` };
+}
+
+/** What was said at the counter (for the shop window's bubbles). */
+function talkOf(want: Want, outcome: ShopTalk['outcome'], detail: string): ShopTalk {
+  const ask = want.kind === 'ware' ? 'What fine goods have you?' : want.kind === 'material' ? `I'm after ${wantText(want)}.` : `Have you ${wantText(want)}?`;
+  const answer =
+    outcome === 'sold' ? (detail ? `${detail[0].toUpperCase()}${detail.slice(1)}.` : 'Here you are.')
+    : outcome === 'order' ? `None in, but ${detail}.`
+    : 'Sorry, nothing like that here.';
+  return { ask, answer, outcome };
 }
 
 /** At the tavern: a guest used to more comfort than the place has walks out. The rest order what they came for (or,

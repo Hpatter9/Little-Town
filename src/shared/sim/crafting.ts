@@ -180,7 +180,17 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
     // (and arms and armour may come out +1 to +5 on top: rarer the higher)
     const plus = rng && ARMS.has(def.slot!) ? rollPlus(rng, level) : 0;
     const q = piece(grade, plus);
-    addItems(s, def.id, 1, q);
+    if (o.commission) {
+      // (a customer's order: it's theirs, paid for at the counter, and sent on to them)
+      const c = o.commission;
+      const shop = s.buildings.find((b) => b.id === c.shop);
+      const text = `${p.name} finished the ${pieceLabel(def.name, q)} ${c.name} ordered; it's sent on to them.`;
+      if (shop) {
+        const l = ((shop.shop ??= { pieces: [] }).log ??= []);
+        l.push({ tick: s.tick, text });
+      }
+      notify(s, text);
+    } else addItems(s, def.id, 1, q);
     if (def.unique && !(s.uniques ?? []).includes(def.id)) {
       (s.uniques ??= []).push(def.id);
       notify(s, `${p.name} has forged ${def.name}: there is no other like it.`, true);

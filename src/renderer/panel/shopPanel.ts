@@ -120,7 +120,8 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void
     canvas.height = h;
   }
   const frame = el('div', 'shop-frame');
-  frame.append(canvas);
+  bubbleLayer ??= el('div', 'shop-bubbles');
+  frame.append(canvas, bubbleLayer);
   startDrawing();
   // (on a wide screen the picture sits beside the rest; see .shop-layout)
   const info: HTMLElement[] = [];
@@ -294,7 +295,22 @@ interface Walker {
   wait: number;
   /** facing left (the sprites face right) */
   left: boolean;
+  /** When they reached the counter (the window's clock), for the order of the bubbles. */
+  atCounter?: number;
 }
+
+/** A speech bubble over the picture, in its pixels (the head it's over): HTML laid over the canvas so the words
+ *  are sharp at any size. */
+interface Bubble {
+  key: string;
+  x: number;
+  y: number;
+  text: string;
+  tone: 'ask' | 'sold' | 'order' | 'no';
+}
+let bubbleLayer: HTMLElement | null = null;
+/** Seconds a customer's question stays up at the counter before the keeper answers. */
+const ASK_SECONDS = 3.2;
 const walkers = new Map<number, Walker>();
 
 /** The characters, and the frames composed so far (the townsfolk's own look, side-on). */
@@ -519,10 +535,15 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     layers.push({ y: rowY(p.y + p.h), paint: () => piece(p) });
   }
 
-  // travellers browsing
+  // travellers: at a shop they look round the pieces first, then go up to the counter and ask (the keeper answers),
+  // then make for the door; tavern guests sit and stand about as before
   const here = new Set(v.customers.map((q) => q.id));
   for (const id of walkers.keys()) if (!here.has(id)) walkers.delete(id);
   const spots = browseSpots(v);
+  const shopFloor = v.venue !== 'tavern';
+  const pieceSpots = shopFloor && spots.length > 1 ? spots.slice(0, -1) : spots;
+  const headAbove = (y: number) => y - (FEET_Y - HEAD_Y) * SCALE - 1;
+  const bubbles: Bubble[] = [];
   for (const q of v.customers) {
     let wk = walkers.get(q.id);
     if (!wk) {
@@ -530,6 +551,16 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       wk = { id: q.id, look: q.look, x: x0, y: floorBottom + 4, tx: x0, ty: floorBottom - 2, wait: 0, left: false };
       walkers.set(q.id, wk);
     }
+    // (where the shop's customer is bound: the counter, or the door; else they look round)
+    if (shopFloor && q.stage === 'counter') {
+      wk.tx = WALL + (v.counter.x + 0.5 + (q.id % 2)) * CELL;
+      wk.ty = Math.min(floorBottom - 2, rowY(v.counter.y + 1) + 4);
+    } else if (shopFloor && q.stage === 'done') {
+      wk.tx = doorX + CELL / 2;
+      wk.ty = floorBottom - 2;
+    }
+    if (q.stage !== 'counter') wk.atCounter = undefined;
+    const bound = shopFloor && (q.stage === 'counter' || q.stage === 'done');
     const dx = wk.tx - wk.x;
     const dy = wk.ty - wk.y;
     const d = Math.hypot(dx, dy * 1.5);
@@ -539,8 +570,20 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       wk.x += dx * k;
       wk.y += dy * k;
       if (Math.abs(dx) > 0.3) wk.left = dx < 0;
+    } else if (bound) {
+      // (at the counter, facing it; the question, then the keeper's answer)
+      if (q.stage === 'counter' && q.talk) {
+        wk.atCounter ??= t;
+        wk.left = false;
+        const said = t - wk.atCounter;
+        const w0 = wk;
+        if (said < ASK_SECONDS) bubbles.push({ key: `${q.id}a`, x: w0.x, y: headAbove(w0.y), text: q.talk.ask, tone: 'ask' });
+        else if (v.keeperLook) bubbles.push({ key: `${q.id}k`, x: cellX(v.keeper.x) + CELL, y: headAbove(rowY(v.keeper.y + 1) - 2), text: q.talk.answer, tone: q.talk.outcome });
+        else bubbles.push({ key: `${q.id}k`, x: cellX(v.counter.x) + (v.counter.w * CELL) / 2, y: rowY(v.counter.y) - 4, text: q.talk.answer, tone: q.talk.outcome });
+      }
     } else if ((wk.wait -= dt) <= 0) {
-      const s = spots[Math.floor(Math.random() * spots.length)];
+      const pool = shopFloor ? pieceSpots : spots;
+      const s = pool[Math.floor(Math.random() * pool.length)];
       wk.tx = s.x;
       wk.ty = s.y;
       wk.wait = v.venue === 'tavern' ? 6 + Math.random() * 8 : 1.5 + Math.random() * 3;
@@ -564,6 +607,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   }
   layers.sort((a, b) => a.y - b.y);
   for (const l of layers) l.paint();
+  placeBubbles(c, bubbles);
 
   // (a soft glow from each hearth, over the floor in front of it)
   for (const p of v.pieces)
@@ -1130,6 +1174,31 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       rect(hx - 3, top - 5, 6, 6, '#141418');
       rect(hx - 3, top - 1, 6, 1, '#8a2a3a');
     }
+  }
+}
+
+/** Lay the speech bubbles over the canvas where it's shown (it's scaled to fit, and letterboxed when short of room). */
+function placeBubbles(c: HTMLCanvasElement, list: Bubble[]): void {
+  const layer = bubbleLayer;
+  if (!layer || !layer.parentElement) return;
+  const keep = new Set(list.map((b) => b.key));
+  for (const e of [...layer.children] as HTMLElement[]) if (!keep.has(e.dataset.key ?? '')) e.remove();
+  if (!list.length) return;
+  const box = c.getBoundingClientRect();
+  const host = layer.parentElement.getBoundingClientRect();
+  const k = Math.min(box.width / c.width, box.height / c.height);
+  if (!k) return;
+  const ox = box.left - host.left + (box.width - c.width * k) / 2;
+  const oy = box.top - host.top + (box.height - c.height * k) / 2;
+  for (const b of list) {
+    let e = [...layer.children].find((x) => (x as HTMLElement).dataset.key === b.key) as HTMLElement | undefined;
+    if (!e) {
+      e = el('div', `shop-bubble ${b.tone}`, b.text);
+      e.dataset.key = b.key;
+      layer.append(e);
+    } else if (e.textContent !== b.text) e.textContent = b.text;
+    e.style.left = `${Math.round(ox + b.x * k)}px`;
+    e.style.top = `${Math.round(oy + b.y * k)}px`;
   }
 }
 

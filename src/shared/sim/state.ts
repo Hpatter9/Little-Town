@@ -184,6 +184,18 @@ export interface Traveller {
   purse: number;
   /** The tavern bed they've taken for the night (its spot on the floor). */
   bed?: { x: number; y: number };
+  /** At a shop: looking round first, then at the counter with the keeper, then done (`stageUntil` ends each); what
+   *  was said at the counter, for the window's speech bubbles (sim/shop.ts). Left out: served on arrival (older saves). */
+  stage?: 'browse' | 'counter' | 'done';
+  stageUntil?: number;
+  talk?: ShopTalk;
+}
+
+/** What a customer asked at the counter, and the keeper's answer: sold, ordered from a crafter, or turned away. */
+export interface ShopTalk {
+  ask: string;
+  answer: string;
+  outcome: 'sold' | 'order' | 'no';
 }
 
 export type Task =
@@ -243,6 +255,9 @@ export interface CraftOrder {
   /** A commission: made for the shop or tavern, asked for by its keeper (a person id), for so many coins a piece;
    *  and the crafters already told about it. */
   for?: { venue: 'shop' | 'tavern'; by: number | null; pay: number; told?: number[] };
+  /** A customer's order, taken by a shopkeeper when the shop had none (sim/shop.ts `commission`): who, what they paid
+   *  up front, and the shop (a building id). Finished, the piece is theirs: it goes to them, not into the stores. */
+  commission?: { name: string; paid: number; shop: number };
 }
 
 /** What a person is visibly doing (drives their animation). */

@@ -1565,6 +1565,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   shop's colours with its emblem). **Exteriors from the pack:** the Glassblower's Workshop pack's shop fronts
   (`src/renderer/art/shops/`: the big red-roofed house for the inn, tavern and emporium; the smaller shop for the
   trading post, general store and the four stores, with its barrels, crates and signpost at the door).
+- **A shop like a real shop (the owner's ask):** a shop's customer looks round first (`Traveller.stage` `browse`, for
+  `BROWSE_HOURS` 0.35), then goes up to the counter (`counter`, `TALK_HOURS` 0.2), where `serveCustomer` runs (it used to
+  run on arrival), then makes for the door (`done`). What was said is kept on `Traveller.talk` (`ShopTalk`: the ask, the
+  keeper's answer, and `sold`, `order` or `no`), carried as `ShopView.customers[].stage`/`.talk`; the window walks them
+  between the pieces, then to the counter, and shows the question and then the keeper's answer as speech bubbles laid over
+  the canvas in HTML (`placeBubbles` in shopPanel.ts, `.shop-bubble` in panel.html: green for a sale, gold for an
+  order, red for a no), and the keeper speaks in the first person when talking a customer round (`said`). **Orders:**
+  with nothing they came for, and not talked round, the keeper orders it (`commission` in sim/shop.ts) if the town knows
+  how to make one, its station has room for an order, the makings are in store now (so it won't stall) and the customer
+  can pay up front (the cheapest that would do): a craft order of its own with `CraftOrder.commission` (who, what they
+  paid, the shop); `finishPiece` sends the finished piece on to them, never into the stores, and the shop's log says so.
+  Else the keeper turns them down. Tests: `test/shopTalk.test.ts`.
 - **Inside the venues (done; the owner's ask):** every venue opens with basic furnishings (`STARTERS` in
   `src/shared/data/decor.ts`, set out once by `furnishStarters`; `b.shop.started`). The keeper decides a **décor
   direction** from their nature (`DECOR_OF_NATURE` → `DECOR_STYLES`: rustic, cosy, stately, austere, opulent, garden,

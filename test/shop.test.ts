@@ -8,7 +8,7 @@ import { totalStock } from '../src/shared/sim/buildings';
 import { forSale, runPlanner, shoppingList, PLAN_TICKS, townWishes } from '../src/shared/sim/planner';
 import { parseSave, serialize } from '../src/shared/sim/save';
 import { appeal, fill, renownOf, shopLayout, spotFor } from '../src/shared/sim/shop';
-import { FILL_MAX } from '../src/shared/data/shop';
+import { BROWSE_HOURS, FILL_MAX } from '../src/shared/data/shop';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { newGame, type Building, type GameState, type Want } from '../src/shared/sim/state';
@@ -284,6 +284,8 @@ test('a customer who finds a ware of their standing buys it and spreads the shop
       if ((s.travellers ?? []).filter((t) => t.phase === 'shopping' && t.tier === 2).length > before) merchants++;
     }
     assert.ok(merchants >= 1, 'a merchant came');
+    // (they look round first, and are served at the counter)
+    for (let k = 0; k < (BROWSE_HOURS + 0.1) * TICKS_PER_HOUR; k++) sim.step();
     return { renown: renownOf(shop), left: s.items.leather_satchel ?? 0, coins: s.coins ?? 0, log: logOf(s) };
   };
   const happy = run(true);
