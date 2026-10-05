@@ -13,7 +13,7 @@ import { ENEMIES } from '../data/enemies';
 import { ITEM_BY_ID } from '../data/items';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { hashSeed, Rng } from '../rng';
-import { notify, type Expedition, type GameState, type Person, type Raid, type SagaRun } from './state';
+import { notify, setOutcome, type Expedition, type GameState, type Person, type Raid, type SagaRun } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { raidBudget, raidKindsFor, scheduleNextRaid, startRaid } from './raids';
 import { apply } from './events';
@@ -246,9 +246,13 @@ export function answerSaga(s: GameState, run: number | undefined, option: number
   if (c?.kind !== 'choice') return;
   const o = c.options[option] ?? c.options[c.default ?? 0];
   r.flags.push(...(o.set ?? []));
+  const from = r.log.length;
   const out = effects(s, r, o.effects ?? []);
   say(s, r, `${sagaText(s, r, o.label)}${out.length ? ` (${out.join(', ')})` : ''}.`);
   goTo(s, r, o.next);
+  // (what was said from the answer on, the next chapter's opening or the ending too, for the event box)
+  // (the answer's own line is the choice, already shown: what it brought, then the lines after it)
+  setOutcome(s, defOf(r).title, sagaText(s, r, o.label), [out.length ? `${out.join(', ')}.` : '', ...r.log.slice(from + 1)].filter(Boolean).join(' '));
 }
 
 /** A party home from a saga's place: won if they cleared it. */
@@ -378,11 +382,15 @@ export interface SagaView {
   /** Where it stands now, and what's happened. */
   now: string;
   log: string[];
+  /** The whole story so far (the details: tap it in the Expeditions tab), and the day it began. */
+  story: string[];
+  began: number;
   /** Its place on the board, if a trip waits. */
   dest: string | null;
 }
 export interface SagaDoneView {
   title: string;
+  blurb: string;
   outcome: 'triumph' | 'bittersweet' | 'ruin';
   hero: string | null;
   day: number;
@@ -397,8 +405,8 @@ export function sagasView(s: GameState): { open: SagaView[]; done: SagaDoneView[
       : c?.kind === 'task' ? `The town needs ${c.need}.`
       : c?.kind === 'raid' ? (s.raid?.saga === r.run ? 'Fighting at the gate.' : 'Trouble is coming.')
       : 'Time passes.';
-    return { run: r.run, title: defOf(r).title, blurb: defOf(r).blurb, now, log: r.log.slice(-4), dest: c?.kind === 'trip' ? `${SAGA_DEST}${r.run}` : null };
+    return { run: r.run, title: defOf(r).title, blurb: defOf(r).blurb, now, log: r.log.slice(-4), story: r.log.slice(-16), began: Math.floor(r.started / TICKS_PER_DAY) + 1, dest: c?.kind === 'trip' ? `${SAGA_DEST}${r.run}` : null };
   });
-  const done = (s.sagasDone ?? []).map((d) => ({ title: SAGA_BY_ID[d.id]?.title ?? d.id, outcome: d.outcome, hero: d.hero ?? null, day: Math.floor(d.tick / TICKS_PER_DAY) + 1 }));
+  const done = (s.sagasDone ?? []).map((d) => ({ title: SAGA_BY_ID[d.id]?.title ?? d.id, blurb: SAGA_BY_ID[d.id]?.blurb ?? '', outcome: d.outcome, hero: d.hero ?? null, day: Math.floor(d.tick / TICKS_PER_DAY) + 1 }));
   return { open, done };
 }

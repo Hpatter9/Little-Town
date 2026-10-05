@@ -661,6 +661,65 @@
       .card.locked {
         opacity: 0.6;
       }
+      /* tap a card for more (details.ts) */
+      .expandable {
+        cursor: pointer;
+      }
+      .expandable.open {
+        border-color: var(--wood-edge);
+      }
+      .more-hint {
+        align-self: flex-end;
+        color: var(--text-dim);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        opacity: 0.8;
+      }
+      .card-more {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 4px;
+        padding-top: 6px;
+        border-top: 1px dashed var(--wood-edge);
+        font-size: 13px;
+      }
+      .more-line {
+        color: var(--text);
+        line-height: 1.35;
+      }
+      .more-head {
+        color: var(--text-dim);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .more-list ul {
+        margin: 2px 0 0;
+        padding-left: 18px;
+      }
+      .more-list li {
+        line-height: 1.35;
+      }
+      .pickable {
+        cursor: pointer;
+      }
+      .pickable.on {
+        outline: 2px solid var(--wood-edge);
+        outline-offset: 1px;
+      }
+      .facts {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 2px 10px;
+      }
+      .fact-key {
+        color: var(--text-dim);
+      }
+      .fact-val {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
       .card-top {
         display: flex;
         justify-content: space-between;

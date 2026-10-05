@@ -1663,6 +1663,23 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   with the signpost and barrels, the hall with crates) and the trophy hall its shop with the shield sign, in the base
   and knights looks; the painter's `hall` shape stays for the other origins.
 
+- **Tap for more (the owner's ask: "click on the quests for more information... almost everything"):**
+  `src/renderer/panel/details.ts`. `expandable(card, key, more)` makes a card open on a tap and show `more()` under it
+  (`facts` two columns, `list`, `subhead`; `foeLine`/`groupLine` for foes, `stockLine`, `itemStats`); `pickable(chip,
+  group, id)` and `pickedIn(group)` do the same for small chips (inventory, store, bestiary), the details in a card under
+  the group. Taps on buttons, links, inputs or `.no-expand` never toggle. What's open is kept for the session and is in
+  the panel's redraw key (`detailsKey`, panel.ts). Wired into: the Expeditions tab (trips, places, quests: who asked and
+  the reward, `QuestView.from`/`.reward`; hunts by `HuntView.quarry`; sagas with their whole story, `SagaView.story`,
+  `.began`; the forge and uniques), buildings (`buildingDetails` in buildPanel.ts) and the Town status stores, recipes
+  and the inventory (`itemDetails`, `materialDetails`), the caravan's deals (`dealDetails`), the bestiary (full stats
+  once met) and a venue's guests (purse, people, wants, what was said). CSS `.expandable`, `.card-more`, `.facts`,
+  `.pickable` in panel.html. Test: `test/details.test.ts`.
+- **What came of an answer, in the event box (the owner's ask):** answering on the full-screen event box
+  (`eventSheet.ts`) no longer closes it: the choice taken and "What came of it" take the answers' place, then Continue.
+  The sim keeps the outcome with `setOutcome` (state.ts) for events (`tell`), secrets (`answerSecret`'s `say`) and sagas
+  (`answerSaga`: what the answer brought and the lines that followed); `snapshot.eventOutcome.tick` tells the box it's
+  the answer just given; with nothing told in `QUIET_MS` it says "It is done.". A battle or watched fight drops it.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

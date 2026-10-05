@@ -22,6 +22,7 @@ import { el } from './dom';
 import { loadImage } from '../art/loadImage';
 import workshopUrl from '../art/interior/workshop.png';
 import forgeUrl from '../art/interior/forge.png';
+import { expandable, facts } from './details';
 
 /** The windows this panel draws: the shop, the tavern, and each specialty shop (`store_<line>`). */
 type VenueId = 'shop' | 'tavern' | StorePanelId;
@@ -160,7 +161,21 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void
   for (const c of v.customers) {
     const row = el('div', 'shop-guest');
     row.append(el('span', 'shop-guest-name', `${c.name}, a ${c.kind}`), el('span', 'shop-guest-want', `${c.asleep ? 'asleep in bed' : `after ${c.wants}`}${c.temper ? ` · ${c.temper}` : ''}${c.req !== null ? ` · used to comfort ${c.req}` : ''}${c.bed && !c.asleep ? ' · staying the night' : ''}`));
-    info.push(row);
+    // (tap a guest: who they are, their purse, and what was said at the counter)
+    info.push(
+      expandable(row, `guest:${c.id}`, () => [
+        facts([
+          ['Of', c.people ?? 'these parts'],
+          ['Standing', `${'★'.repeat(Math.max(0, c.tier - 1)) || '·'} ${c.kind}`],
+          ['Purse', `${c.purse} coins`],
+          ['After', c.wants || null],
+          ['Temper', c.temper || null],
+          ['Comfort wanted', c.req],
+          ['Now', c.asleep ? 'asleep upstairs' : c.stage === 'browse' ? 'looking round' : c.stage === 'counter' ? 'at the counter' : c.stage === 'done' ? 'on the way out' : c.bed ? 'staying the night' : null],
+        ]),
+        c.talk ? `They asked: "${c.talk.ask}" The keeper said: "${c.talk.answer}"` : null,
+      ]),
+    );
   }
 
   if (tavern) {

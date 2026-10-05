@@ -17,7 +17,7 @@ import { stageOf } from '../data/levels';
 import { isSeat } from '../data/seats';
 import type { ClassId } from '../data/classes';
 import { hashSeed, mixSeed, Rng } from '../rng';
-import { earn, notify, tireless, type GameState, type Person, type Raid } from './state';
+import { earn, notify, setOutcome, tireless, type GameState, type Person, type Raid } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { raidBudget, raidKindsFor, scheduleNextRaid, startRaid } from './raids';
 import { rulesOf } from '../data/origins';
@@ -339,7 +339,10 @@ export function answerSecret(s: GameState, who: number | undefined, option: numb
   if (!p || !sec) return;
   sec.choice = option;
   const rng = streamOf(s, p, 0xa5);
-  const say = (text: string) => notify(s, `${def(p).name}: ${text}`, true);
+  const say = (text: string) => {
+    notify(s, `${def(p).name}: ${text}`, true);
+    setOutcome(s, def(p).name, def(p).options[option] ?? null, text[0].toUpperCase() + text.slice(1));
+  };
   switch (sec.id) {
     case 'veiled':
       if (option === 0) {

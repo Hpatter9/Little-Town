@@ -20,6 +20,13 @@ import { materialIcon, stockIcon } from '../art/materialIcons';
 import { BUILD_MULTIPLIER } from '../../shared/sim/state';
 import { hiddenNote, HidePrefs } from './hide';
 import { topicKnown } from './secrets';
+import { expandable, facts, list, materialDetails, pickable, pickedIn, type More } from './details';
+import { UPGRADES } from '../../shared/data/buildings';
+import { OPERATORS } from '../../shared/data/operators';
+import { ITEMS } from '../../shared/data/items';
+import { ERA_NAMES } from '../../shared/data/eras';
+import { depthOf } from '../../shared/sim/buildings';
+import { SKILL_NAMES } from '../../shared/data/skills';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
@@ -235,7 +242,46 @@ function card(def: BuildingDef, s: Snapshot): HTMLElement {
     const n = s.buildings.filter((b) => b.def === def.id && b.status === 'done').length;
     c.append(el('div', 'lock', n ? `In town: ${n}` : 'None yet'));
   }
-  return c;
+  return expandable(c, `bld:${def.id}`, () => buildingDetails(def, s));
+}
+
+/** A building's details (tap its card): its size and age, what it gives the town, what it fights with, the job it
+ *  makes, what's made in it, what it grows, and what it becomes. */
+function buildingDetails(def: BuildingDef, s: Snapshot): More[] {
+  const from = Object.entries(UPGRADES).filter(([, to]) => to === def.id).map(([f]) => BUILDING_BY_ID[f]?.name).filter(Boolean);
+  const next = UPGRADES[def.id] ? BUILDING_BY_ID[UPGRADES[def.id]] : undefined;
+  const job = OPERATORS[def.id];
+  const d = def.defense;
+  const crop = CROPS[def.id];
+  const made = ITEMS.filter((i) => (i.station as string) === def.id && !i.unique && !i.relic).map((i) => i.name);
+  const quirks = d ? [d.splash && 'bursts over those beside', d.slow && `slows ${Math.round(d.slow * 100)}%`, d.burn && 'sets alight', d.chain && `leaps to ${d.chain} more`, d.night && 'deadlier at night', d.rout && 'may rout'].filter(Boolean) : [];
+  const standing = s.buildings.filter((b) => b.def === def.id);
+  return [
+    facts([
+      ['Size', `${def.width} × ${depthOf(def)} cells`],
+      ['Age', ERA_NAMES[eraOfResearch(def.research)]],
+      ['Research', def.research ? (TOPIC_BY_ID[def.research]?.name ?? def.research) : 'none'],
+      ['Beds', def.housing],
+      ['Storage', def.storage],
+      ['Morale', def.morale ? `+${def.morale[0]} (${def.morale[1]})` : null],
+      ['Health', def.hp],
+      ['Healing', def.healing ? `heals the hurt ${def.healing}× as fast` : null],
+      ['Raid warning', def.warningMinutes ? `${def.warningMinutes >= 60 ? `${def.warningMinutes / 60} hours` : `${def.warningMinutes} minutes`} ahead` : null],
+      ['Draws wanderers', def.arrivals ? `+${Math.round(def.arrivals * 100)}% chance an hour` : null],
+      ['Horses', def.stalls ? `stalls for ${def.stalls}` : null],
+      ['A venue', def.floor ? `${def.floor.venue === 'tavern' ? 'a tavern' : 'a shop'}${def.floor.line ? ` (${def.floor.line})` : ''}, a floor of ${def.floor.cols} × ${def.floor.rows}, appeal ${def.floor.appeal}` : null],
+      ['Defence', d ? `${d.damage[0]}–${d.damage[1]} a hit, every ${d.interval} s, reach ${Math.round((d.range / 32) * 10) / 10} cells, aim ${Math.round(d.accuracy * 100)}%` : null],
+      ['Its quirks', quirks.length ? quirks.join(', ') : null],
+      ['Job', job ? `${job.title} (${SKILL_NAMES[job.skill]}): ${job.effect.toLowerCase()}` : null],
+      ['Built by the shore', def.shore ? 'yes: it must touch water' : null],
+      ['Rebuilt from', from.length ? from.join(' or ') : null],
+      ['Grows into', next ? `${next.name}${next.research ? ` (once ${TOPIC_BY_ID[next.research]?.name ?? next.research} is learned)` : ''}` : null],
+      ['In town', standing.length ? `${standing.filter((b) => b.status === 'done').length} standing${standing.some((b) => b.status !== 'done') ? `, ${standing.filter((b) => b.status !== 'done').length} going up` : ''}` : null],
+    ]),
+    crop ? facts([['Grows', `${MATERIAL_NAMES[crop.material]}, about ${crop.yield} a harvest`], ['Ripens in', `${crop.growHours} hours in spring and summer${crop.hardy ? ' (and autumn)' : ''}`], ['Indoors', crop.indoor ? 'yes: no seasons, no weather' : null]]) : null,
+    list('Made here', made.slice(0, 16).concat(made.length > 16 ? [`and ${made.length - 16} more`] : [])),
+    'The town decides for itself what to build and where (the Plan tab sets its direction).',
+  ];
 }
 
 /** Where it does best (adjacency bonuses), if anywhere in particular. */
@@ -276,8 +322,18 @@ function townStatus(s: Snapshot): HTMLElement[] {
     const icon = stockIcon(m, 16);
     if (icon) chip.append(icon);
     chip.append(el('span', '', `${MATERIAL_NAMES[m]} ×${n}`));
-    store.append(chip);
+    store.append(pickable(chip, 'store', m));
   }
   if (!store.childElementCount) store.append(el('span', 'hint', 'Nothing in store yet.'));
-  return [facts, el('div', 'hint', 'In store (the Crafting tab has the items and gear too):'), fill, store];
+  const out: HTMLElement[] = [facts, el('div', 'hint', 'In store (tap one for more; the Crafting tab has the items and gear too):'), fill, store];
+  const pick = pickedIn('store') as Material | undefined;
+  if (pick && MATERIAL_NAMES[pick]) {
+    const c = el('div', 'card picked-card');
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', MATERIAL_NAMES[pick]), el('span', 'card-size', `×${s.stock[pick] ?? 0}`));
+    c.append(top);
+    for (const x of materialDetails(pick, s)) if (x) c.append(typeof x === 'string' ? el('div', 'more-line', x) : x);
+    out.push(c);
+  }
+  return out;
 }

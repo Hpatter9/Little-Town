@@ -1046,6 +1046,11 @@ export function meet(s: GameState, kinds: Iterable<string>): void {
 }
 
 /** Tell the player something: a toast on the strip and a line in the Journal. `key` marks milestones. */
+/** What came of an answer (an event's, a secret's, a saga's), kept a while for the event box and the feed's card. */
+export function setOutcome(s: GameState, title: string, choice: string | null, text: string): void {
+  s.eventOutcome = { title, choice, text, tick: s.tick };
+}
+
 export function notify(s: GameState, text: string, key = false): void {
   const n = { id: s.nextId++, tick: s.tick, text };
   s.notices.push(n);

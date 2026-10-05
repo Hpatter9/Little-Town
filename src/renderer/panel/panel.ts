@@ -17,6 +17,7 @@ import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { hkKnow } from '../art/hkFolk';
 import { applyTheme, currentTheme, panelLabel } from '../theme';
+import { detailsKey, setDetailsRedraw } from './details';
 
 declare global {
   interface Window {
@@ -59,7 +60,7 @@ function render(): void {
                   : shown === 'newgame'
                     ? 'n' + !!snap.gameOver
                     : shown;
-  const keyed = `${key}|${tabKey(shown ?? '')}`;
+  const keyed = `${key}|${tabKey(shown ?? '')}|${detailsKey()}`;
   if (keyed === renderedKey) return;
   renderedKey = keyed;
   const tab = PANELS.find((p) => p.id === shown);
@@ -92,6 +93,9 @@ function render(): void {
   else body.replaceChildren(el('p', 'empty', 'Loading…'));
   body.scrollTop = scroll;
 }
+
+// (a card opened or closed: details.ts)
+setDetailsRedraw(() => render());
 
 function onState(s: StripState): void {
   if (s.panel !== shown) {

@@ -15,6 +15,12 @@ import { ENEMIES } from '../../shared/data/enemies';
 import { SAGA, UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
 import { packDestination, RIVAL_PACK_BY_ID } from '../../shared/data/pack';
 import { FULL_MOON_PHASE } from '../../shared/sim/monsters';
+import { ERA_NAMES } from '../../shared/data/eras';
+import { DUNGEON_BY_ID } from '../../shared/data/dungeons';
+import { REGION_BY_ID } from '../../shared/data/regions';
+import { QUARRY_BY_ID } from '../../shared/data/hunts';
+import { CLASS_DEFS } from '../../shared/data/classes';
+import { expandable, facts, foeLine, groupLine, itemStats, list, stockLine, type More } from './details';
 
 /** Each kind of room, as the card names it. */
 const ROOM_NAMES: Record<string, string> = { rival: 'rival delvers', fight: 'a fight', trap: 'a trap', treasure: 'treasure', shrine: 'a shrine', puzzle: 'a puzzle door', camp: 'a rest camp', fork: 'a fork', boss: 'the boss' };
@@ -93,7 +99,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
   for (const e of s.expeditions) {
     const card = activeCard(e, s, bridge);
     card.addEventListener('click', () => pick(e.dest));
-    out.push(card);
+    out.push(expandable(card, `trip:${e.id}`, () => activeDetails(e, s)));
   }
   // the places found on the town's own land that want a party (sim/places.ts)
   const nearby = s.places.filter((p) => p.dest).map((p) => p.dest!);
@@ -206,6 +212,7 @@ function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined):
 
 function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   const c = el('div', v.unlocked ? 'card' : 'card locked');
+  expandLater.set(c, () => expandable(c, `dest:${d.id}`, () => destDetails(d, v, s)));
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', d.name), el('span', 'card-size', `${EXPEDITION_TYPE_NAMES[d.type]} · ~${duration(v.tripSeconds)} round trip`));
   c.append(top, el('div', 'purpose', d.description));
@@ -218,9 +225,148 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
     // (a cleared dungeon lies quiet a while; else it's waiting on research)
     if (v.quietHours) c.append(el('div', 'lock short', `Cleared: it lies quiet now, and wakes again in about ${Math.ceil(v.quietHours / 24)} day${v.quietHours > 24 ? 's' : ''}.`));
     else c.append(el('div', 'lock short', `Needs research: ${TOPIC_BY_ID[d.research!]?.name ?? d.research}`));
-    return c;
+    return done(c);
   }
-  return tripControls(c, d, v, s, bridge);
+  return done(tripControls(c, d, v, s, bridge));
+}
+
+/** Cards whose details are added last (after their buttons, so the "More" mark sits at the foot). */
+const expandLater = new WeakMap<HTMLElement, () => void>();
+const done = (c: HTMLElement): HTMLElement => {
+  expandLater.get(c)?.();
+  return c;
+};
+
+/* ------------------------------------------------------------ the details (tap a card: details.ts) */
+
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+const days = (hours: number) => (hours >= 48 ? `${Math.ceil(hours / 24)} days` : `${Math.max(1, Math.round(hours))} hours`);
+
+/** A place on the board: how far, what's found there, who may be met and how likely, and for a dungeon its rooms,
+ *  bosses and hoard. */
+function destDetails(d: Destination, v: DestinationView, s: Snapshot): More[] {
+  const dg = DUNGEON_BY_ID[d.id];
+  const groups = d.encounters?.groups ?? [];
+  const weight = groups.reduce((n, g) => n + g.weight, 0) || 1;
+  const loot = (Object.entries(d.loot) as [Material, number][]).map(([m, odds]) => `${MATERIAL_NAMES[m]}${v.scouted ? ` (${pct(odds)})` : ' (?)'}`);
+  const going = s.expeditions.find((e) => e.dest === d.id);
+  return [
+    facts([
+      ['Kind', EXPEDITION_TYPE_NAMES[d.type]],
+      ['Age', ERA_NAMES[d.era ?? 'neolithic']],
+      ['Round trip', `about ${duration(v.tripSeconds)}`],
+      ['Each way', duration(d.outSeconds)],
+      ['Work there', duration(d.workSeconds)],
+      ['Region', dg ? REGION_BY_ID[dg.region]?.name : null],
+      ['Rooms', dg ? `${dg.rooms} before the boss's` : null],
+      ['Research', d.research ? (TOPIC_BY_ID[d.research]?.name ?? d.research) : null],
+      ['Purse', d.coins ? `${d.coins} coins from the treasury` : null],
+      ['By boat', d.byBoat ? 'only a boat reaches it' : null],
+      ['Party', `${d.recommendedParty} suggested`],
+      ['A fight there', d.encounters ? pct(d.encounters.arrival) : null],
+      ['Ambush going home', d.encounters ? pct(d.encounters.ambush) : null],
+      ['Bounty', v.bounty ? `${v.bounty} coins` : null],
+      ['Now', going ? `a party is there${going.leader ? `, led by ${going.leader}` : ''}` : v.vetoed ? 'forbidden' : null],
+    ]),
+    list('Who may be met', groups.map((g) => `${groupLine(g.enemies as Record<string, number>)} · ${pct(g.weight / weight)}`)),
+    dg ? list('Deeper down', dg.foes.map((g) => groupLine(g))) : null,
+    dg ? list('Who may wait at the bottom', dg.bosses.map((g) => groupLine(g))) : null,
+    list(v.scouted ? 'What is found there (odds a load)' : 'What may be found (not scouted yet)', loot),
+    d.guaranteed ? `Always brought back: ${stockLine(d.guaranteed)}.` : null,
+    dg ? `The hoard at the bottom: ${stockLine(dg.hoard)}.` : null,
+    ...s.quests.filter((q) => q.dungeon === d.id).map((q) => `Quest: ${q.title}. ${q.reward}`),
+  ];
+}
+
+/** A quest: who asked, what it pays, and the dungeon it sends the party into. */
+function questDetails(q: Snapshot['quests'][number], s: Snapshot): More[] {
+  const dg = DUNGEON_BY_ID[q.dungeon];
+  const v = s.destinations.find((x) => x.id === q.dungeon);
+  const going = s.expeditions.find((e) => e.dest === q.dungeon);
+  return [
+    facts([
+      ['Asked by', q.from],
+      ['Kind', { rescue: 'A rescue', bounty: 'A bounty', relic: 'A relic hunt', gear: "A fallen delver's gear" }[q.kind] ?? q.kind],
+      ['Time left', days(q.hoursLeft)],
+      ['The dungeon', dg?.name],
+      ['Region', dg ? REGION_BY_ID[dg.region]?.name : null],
+      ['Rooms', dg ? `${dg.rooms}, then the boss` : null],
+      ['Round trip', v ? `about ${duration(v.tripSeconds)}` : null],
+      ['Bounty posted', v?.bounty ? `${v.bounty} coins` : null],
+      ['Now', going ? `a party is in it${going.leader ? `, led by ${going.leader}` : ''}` : v?.vetoed ? 'the dungeon is forbidden: no party will go' : 'waiting for a party to take it up'],
+    ]),
+    `The reward: ${q.reward}`,
+    dg ? list('Who may wait at the bottom', dg.bosses.map((g) => groupLine(g))) : null,
+    dg ? list('Met on the way down', dg.foes.map((g) => groupLine(g))) : null,
+    dg?.description ?? null,
+    'Parties choose for themselves where to go; a bounty on the dungeon (below, on its card) draws them to it.',
+  ];
+}
+
+/** A hunt: the quarry's foes and their strength, the purse and the parts, and how long the notice stays up. */
+function huntDetails(h: Snapshot['hunts']['hunts'][number], s: Snapshot): More[] {
+  const q = QUARRY_BY_ID[h.quarry];
+  const v = s.destinations.find((x) => x.id === h.dest);
+  return [
+    facts([
+      ['Stars', `${'★'.repeat(h.stars)} of 5`],
+      ['Age', q ? ERA_NAMES[q.era] : null],
+      ['Purse', `${h.purse} coins, to the hunting party`],
+      ['Parts', h.parts],
+      ['Notice up for', days(h.hoursLeft)],
+      ['Round trip', v ? `about ${duration(v.tripSeconds)}` : null],
+      ['Bounty posted', v?.bounty ? `${v.bounty} coins` : null],
+    ]),
+    q ? list('The quarry', Object.entries(q.foes).map(([k, n]) => foeLine(k, n))) : null,
+    'The guild forges the parts into one-of-a-kind gear (the Guild forge, below).',
+  ];
+}
+
+/** A saga under way: what it's about, where it stands, and the whole story so far. */
+function sagaDetails(g: Snapshot['sagas']['open'][number]): More[] {
+  return [g.blurb, facts([['Began', `day ${g.began}`], ['Now', g.now]]), list('The story so far', g.story)];
+}
+
+/** A party out: each member's health, calling and level, what they've found and packed, and a delve's log. */
+function activeDetails(e: ExpeditionView, s: Snapshot): More[] {
+  const lines = e.members.map((m) => {
+    const p = s.people.find((q) => q.id === m.id);
+    if (!p) return m.name;
+    const state = p.downed ? (p.downed === 'bleeding' ? `bleeding out (${bleedLeft(p.bleedMinutes)})` : 'down') : `${Math.round(p.hp)}/${p.maxHp} health`;
+    return `${p.name}: ${p.cls ? `${p.clsName}, level ${p.level}` : `level ${p.level}`} · ${ROLES[(e.roles[m.id] ?? 'fighter') as Role].name} · ${state}${p.gear.weapon ? ` · ${ITEM_BY_ID[p.gear.weapon]?.name ?? ''}` : ''}`;
+  });
+  return [
+    facts([
+      ['Home in', duration(e.secondsLeft)],
+      ['Leader', e.leader],
+      ['Stakes', e.stakes ? (e.stakes === 'risky' ? 'risky: bold, more fights, bigger packs' : 'safe: careful, fewer fights') : null],
+      ['Carrying', `${e.lootSize} of ${e.carry}`],
+      ['Boat', e.boat ? `the ${e.boat.name}, hull ${e.boat.hull}/${e.boat.max}` : null],
+    ]),
+    list('The party', lines),
+    e.lootSize ? `Found so far: ${listStock(e.loot)}.` : null,
+    e.delve ? list('Down in the dark', e.delve.log) : null,
+    e.battle ? list('In the fight', e.battle.map((f) => `${f.side === 'enemy' ? '⚔ ' : ''}${f.name}: ${f.down ? 'down' : `${f.hp}/${f.maxHp}`}`)) : null,
+  ];
+}
+
+/** A unique or forged piece: what it does, at its best. */
+function pieceDetails(id: string): More[] {
+  const d = ITEM_BY_ID[id];
+  if (!d) return [];
+  const from = (UNIQUE_FROM[id] ?? []).map((b) => ENEMIES[b]?.name).filter(Boolean);
+  const wielders = Object.values(CLASS_DEFS)
+    .filter((c) => d.family && c.weapons.includes(d.family as never))
+    .map((c) => c.stages[0]);
+  return [
+    list('What it does', itemStats(d)),
+    facts([
+      ['Slot', d.slot],
+      ['Tier', d.tier],
+      ['Dropped by', from.length ? from.join(' or ') : null],
+    ]),
+    wielders.length ? `Callings that wield it: ${wielders.join(', ')}.` : null,
+  ];
 }
 
 /** Parties form themselves (sim/parties.ts): the player may forbid a place, or have the treasury post a bounty on it. */
@@ -265,7 +411,7 @@ function huntList(s: Snapshot): HTMLElement[] {
     top.append(el('span', 'card-name', h.name), el('span', 'card-size stars', '★'.repeat(h.stars)));
     c.append(top, el('div', 'purpose', h.text), el('div', 'lock short', `${h.purse} coins and ${h.parts} · ${Math.ceil(h.hoursLeft / 24)} days left`));
     c.addEventListener('click', () => pick(h.dest));
-    grid.append(c);
+    grid.append(expandable(c, `hunt:${h.dest}`, () => huntDetails(h, s)));
   }
   if (g.hunts.length) out.push(grid);
   if (!g.guild) return out;
@@ -277,7 +423,7 @@ function huntList(s: Snapshot): HTMLElement[] {
     top.append(el('span', 'card-name', f.name), el('span', 'card-size', f.made ? (f.holder ? `Carried by ${f.holder}` : 'Forged') : f.ready ? 'Ready to forge' : 'Not yet'));
     c.append(top, el('div', 'purpose', ITEM_BY_ID[f.id]?.description ?? ''));
     if (!f.made) c.append(el('div', 'lock short', `Wants ${f.makings}`));
-    forge.append(c);
+    forge.append(expandable(c, `forge:${f.id}`, () => [...pieceDetails(f.id), f.made ? null : `The guild forges it once ${f.makings} are in the stores.`]));
   }
   out.push(forge);
   return out;
@@ -304,7 +450,7 @@ function sagaList(s: Snapshot): HTMLElement[] {
       const dest = g.dest;
       c.addEventListener('click', () => pick(dest));
     }
-    grid.append(c);
+    grid.append(expandable(c, `saga:${g.run}`, () => sagaDetails(g)));
   }
   for (const g of done.slice(-6).reverse()) {
     const c = el('div', `card quest saga ${g.outcome}`);
@@ -312,7 +458,7 @@ function sagaList(s: Snapshot): HTMLElement[] {
     top.append(el('span', 'card-name', g.title), el('span', 'card-size', `${OUTCOME[g.outcome]}, day ${g.day}`));
     c.append(top);
     if (g.hero) c.append(el('div', 'lock short', `Its hero: ${g.hero}`));
-    grid.append(c);
+    grid.append(expandable(c, `sagadone:${g.title}:${g.day}`, () => [g.blurb, facts([['Ended', `day ${g.day}`], ['How', OUTCOME[g.outcome]], ['Its hero', g.hero]])]));
   }
   out.push(grid);
   return out;
@@ -329,7 +475,7 @@ function questList(s: Snapshot): HTMLElement[] {
     top.append(el('span', 'card-name', q.title), el('span', 'card-size', `${Math.ceil(q.hoursLeft / 24)} days left`));
     c.append(top, el('div', 'purpose', q.text), el('div', 'lock short', 'Clear the dungeon while the quest is open; the reward comes home with the party.'));
     c.addEventListener('click', () => pick(q.dungeon));
-    grid.append(c);
+    grid.append(expandable(c, `quest:${q.id}`, () => questDetails(q, s)));
   }
   out.push(grid);
   return out;
@@ -353,7 +499,7 @@ function treasures(s: Snapshot): HTMLElement[] {
     c.append(top, el('div', 'purpose', d.description));
     if (from.length) c.append(el('div', 'lock short', `From ${from.join(' or ')}`));
     else if (UNIQUE_FROM[u.id]?.includes(SAGA)) c.append(el('div', 'lock short', 'The prize of a saga'));
-    grid.append(c);
+    grid.append(expandable(c, `unique:${u.id}`, () => pieceDetails(u.id)));
   }
   out.push(grid);
   const left = UNIQUES.length - s.uniques.length;

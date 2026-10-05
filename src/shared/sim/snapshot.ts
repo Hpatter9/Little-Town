@@ -531,7 +531,7 @@ export interface ShopView {
   /** The keeper's id (to dress them as the map does). */
   keeperId: number | null;
   /** Strangers inside now: who they are, what they came for, their temper, and (at the tavern) the comfort they need. */
-  customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean; stage: 'browse' | 'counter' | 'done' | null; talk: ShopTalk | null }[];
+  customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean; stage: 'browse' | 'counter' | 'done' | null; talk: ShopTalk | null; purse: number; people: string | null }[];
   /** The tavern's guest rooms upstairs (a bed is a piece at y -1, x the room), its beds, and how many are taken tonight. */
   rooms: number;
   /** Dark out (the windows show the night sky). */
@@ -602,7 +602,7 @@ export interface Snapshot {
   /** How fast the town runs (1, 2 or 3 times). */
   speed: number;
   /** The last event answered and what came of it, for `OUTCOME_HOURS` (the feed's card). */
-  eventOutcome: { title: string; choice: string | null; text: string } | null;
+  eventOutcome: { title: string; choice: string | null; text: string; tick: number } | null;
   calendar: Calendar;
   /** Everything in storage, summed. */
   stock: Stock;
@@ -641,7 +641,7 @@ export interface Snapshot {
   /** The mine the player has gone into, in place of the town (sim/places.ts). */
   mine: MineView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
-  quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number }[];
+  quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
   /** The sagas under way and those ended (sim/sagas.ts). */
   sagas: { open: SagaView[]; done: SagaDoneView[] };
   /** The kinds of foe the town has met (the Bestiary). */
@@ -797,7 +797,7 @@ export function snapshot(s: GameState): Snapshot {
     tick: s.tick,
     paused: s.paused,
     speed: s.gameSpeed ?? 1,
-    eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text } : null,
+    eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text, tick: s.eventOutcome.tick } : null,
     calendar: calendar(s.tick),
     stock,
     storageUsed: poolSize(stock),
@@ -841,7 +841,21 @@ export function snapshot(s: GameState): Snapshot {
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
-    quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
+    quests: (s.quests ?? []).map((q) => ({
+      id: q.id,
+      kind: q.kind,
+      dungeon: q.dungeon,
+      title: q.title,
+      text: q.text,
+      hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)),
+      from: q.from,
+      // (what it pays, for the quest's details: tap it in the Expeditions tab)
+      reward:
+        q.kind === 'rescue' ? 'The captive comes home with the party, and stays in the town (if there is room).'
+        : q.kind === 'bounty' ? `${q.coins ?? 0} coins, shared by the party that clears it.`
+        : q.kind === 'relic' ? `${ITEM_BY_ID[q.unique ?? '']?.name ?? 'A unique weapon'}: ${ITEM_BY_ID[q.unique ?? '']?.description ?? ''}`
+        : "The fallen delver's gear: a fine weapon of the dungeon's age, into the town's stores.",
+    })),
     sagas: sagasView(s),
     met: s.met ?? [],
     hunts: huntsView(s),
@@ -1046,7 +1060,7 @@ function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): Sho
     keeperId: keeper?.id ?? null,
     customers: inside
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
-      .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour), stage: t.stage ?? null, talk: t.talk ?? null })),
+      .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour), stage: t.stage ?? null, talk: t.talk ?? null, purse: Math.round(t.purse ?? 0), people: t.origin ? (ORIGIN_DEFS[t.origin]?.name ?? null) : null })),
     rooms: roomsOf(b),
     night: calendar(s.tick).daylight < 0.35,
     beds: bedsOf(b).length,

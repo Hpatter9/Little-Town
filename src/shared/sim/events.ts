@@ -31,7 +31,7 @@ import { sicken } from './doom';
 import { killPerson } from './health';
 import { revealOccult } from './occult';
 import { equipAll } from './crafting';
-import { townFull, addStock, campX, campXY, earn, makePerson, maxHp, notify, type GameState, type Person } from './state';
+import { townFull, addStock, campX, campXY, earn, makePerson, maxHp, notify, setOutcome, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
@@ -168,7 +168,7 @@ function tell(s: GameState, title: string | undefined, out: string[], choice?: s
   if (!out.length) return;
   notify(s, `${title ?? 'What came of it'}: ${out.join(', ')}.`, true);
   // (kept a while for the feed's card: the question answered, and what came of it)
-  s.eventOutcome = { title: title ?? 'What came of it', choice: choice ? fill(s, choice, undefined) : null, text: out.join(', '), tick: s.tick };
+  setOutcome(s, title ?? 'What came of it', choice ? fill(s, choice, undefined) : null, out.join(', '));
 }
 
 const span = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : h >= 20 ? 'a day' : `${Math.round(h)} hours`);

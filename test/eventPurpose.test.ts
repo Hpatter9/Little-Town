@@ -4,6 +4,7 @@ import { EVENTS, EVENT_BY_ID, type EventDef, type EventEffect } from '../src/sha
 import { bond, build, coin, horse, item, opt, dflt, teach, trait } from '../src/shared/data/eventKit';
 import { Rng } from '../src/shared/rng';
 import { answerEvent, startEvent } from '../src/shared/sim/events';
+import { answerSaga, beginSaga } from '../src/shared/sim/sagas';
 import { opinion } from '../src/shared/sim/social';
 import { plainGame } from './helpers';
 
@@ -68,4 +69,19 @@ test('the feed is told what came of the last answer, for a few hours', async () 
   assert.ok(o?.text.includes('+7 coins'));
   s.tick += 5 * TICKS_PER_HOUR;
   assert.equal(snapshot(s).eventOutcome, null);
+});
+
+test('what came of an answer is kept for the event box, for events and sagas alike', () => {
+  const def: EventDef = { id: 'test_box', title: 'A box', text: 'A box at the gate.', options: [dflt('Open it', coin(5)), opt('Leave it', coin(1))] };
+  const { s } = answer(def);
+  assert.equal(s.eventOutcome?.title, 'A box');
+  assert.equal(s.eventOutcome?.choice, 'Open it');
+  assert.match(s.eventOutcome!.text, /\+5 coins/);
+  assert.equal(s.eventOutcome!.tick, s.tick);
+
+  const t = plainGame('purpose-saga');
+  const run = beginSaga(t, 'burnt_cart')!;
+  answerSaga(t, run.run, 0);
+  assert.equal(t.eventOutcome?.title, 'The Burnt Cart');
+  assert.ok(t.eventOutcome!.text.length > 10, t.eventOutcome!.text);
 });
