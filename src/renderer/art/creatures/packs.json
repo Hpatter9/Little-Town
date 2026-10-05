@@ -1026,5 +1026,362 @@
   },
   "figure": 88,
   "facesRight": false
+ },
+ "hk_ogre": {
+  "w": 134,
+  "h": 127,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 107,
+  "facesRight": true
+ },
+ "hk_ogre_horned": {
+  "w": 136,
+  "h": 128,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 109,
+  "facesRight": true
+ },
+ "hk_demon": {
+  "w": 134,
+  "h": 129,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 119,
+  "facesRight": true
+ },
+ "hk_demon_lord": {
+  "w": 132,
+  "h": 124,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 119,
+  "facesRight": true
+ },
+ "hk_juggernaut": {
+  "w": 128,
+  "h": 117,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 114,
+  "facesRight": true
+ },
+ "hk_tyrant": {
+  "w": 120,
+  "h": 123,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 96,
+  "facesRight": true
+ },
+ "hk_slime_green": {
+  "w": 100,
+  "h": 57,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 40,
+  "facesRight": true
+ },
+ "hk_slime_blue": {
+  "w": 100,
+  "h": 57,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 40,
+  "facesRight": true
+ },
+ "hk_slime_orange": {
+  "w": 100,
+  "h": 57,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 40,
+  "facesRight": true
+ },
+ "hk_slime_pink": {
+  "w": 100,
+  "h": 57,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 40,
+  "facesRight": true
+ },
+ "hk_slime_purple": {
+  "w": 100,
+  "h": 57,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 40,
+  "facesRight": true
+ },
+ "hk_mummy": {
+  "w": 82,
+  "h": 78,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 75,
+  "facesRight": true
+ },
+ "hk_ghost": {
+  "w": 114,
+  "h": 98,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 82,
+  "facesRight": true
+ },
+ "hk_zombie": {
+  "w": 90,
+  "h": 84,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 75,
+  "facesRight": true
+ },
+ "hk_zombie_bare": {
+  "w": 90,
+  "h": 84,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 75,
+  "facesRight": true
+ },
+ "hk_zombie_brute": {
+  "w": 92,
+  "h": 94,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 75,
+  "facesRight": true
+ },
+ "hk_imp": {
+  "w": 42,
+  "h": 72,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 46,
+  "facesRight": true
  }
 }

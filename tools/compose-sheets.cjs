@@ -39,6 +39,12 @@ const KNIGHT = 'craftpix-net-803217-free-knight-character-sprites-pixel-art/';
 const SKELETON = 'craftpix-net-957123-free-skeleton-pixel-art-sprite-sheets/';
 const BOSSES = A + 'craftpix-net-643385-free-fantasy-rpg-top-down-boss-creatures-pack/';
 const PIRATES = A + 'craftpix-net-856364-free-fantasy-rpg-pirate-boss-character-pack/';
+// a Himeko Sutori creature: its layers (files from the sheet share at the assets repo's top level, laid one on another),
+// on that pack's grid of 128px cells, 8 poses across and four ways down (front, left, right, back): the right-facing row,
+// stand, two steps, the arm raised, the lunge, and the kneel for hurt and fallen. Big sheets (2048) are the same grid doubled.
+const HK_ROW = 2;
+const HK_POSES = { walk: [1, 0, 2, 0], attack: [3, 4], idle: [0], hurt: [7], dead: [7] };
+const himeko = (id, layers) => ({ id, himeko: layers });
 const tiny = (id, dir, name) => strip(id, TINY + dir, { walk: `${name}_Walk_6`, attack: `${name}_Attack1_4`, idle: `${name}_Idle_4`, hurt: `${name}_Hurt_4`, dead: `${name}_Death_8` });
 const td = (id, dir, run = 'S_Run') => strip(id, TD + dir, { walk: run, attack: 'S_Attack', idle: run, dead: 'S_Death' }, { facesLeft: true });
 const seq = (id, dir) => ({
@@ -99,6 +105,24 @@ const SPECS = [
   seq('pirate_leader', PIRATES + 'Pirate Leader'),
   seq('pirate_zombie', PIRATES + 'Pirate Zombie'),
   seq('squidman', PIRATES + 'Squidman'),
+  // the Himeko Sutori sprite share (see CREDITS.md)
+  himeko('hk_ogre', ['Large Humanoid/ogre_blue.png', 'Large Humanoid/ogre_armor1.png', 'Large Humanoid/OgreClub.png']),
+  himeko('hk_ogre_horned', ['Large Humanoid/ogre_blue.png', 'Large Humanoid/ogre_horn2_sprite_blue.png', 'Large Humanoid/OgreMace.png']),
+  himeko('hk_demon', ['Large Humanoid/LargeDemon.png', 'Large Humanoid/LargeDemon_Loincloth.png', 'Large Humanoid/OgreMace_Demon_Fire.png']),
+  himeko('hk_demon_lord', ['Large Humanoid/LargeDemon.png', 'Large Humanoid/LargeDemon_Armor01.png', 'Large Humanoid/OgreStaff_Demon.png']),
+  himeko('hk_juggernaut', ['Large Humanoid/Juggernaut.png']),
+  himeko('hk_tyrant', ['Tyrant/TyrantBase.png', 'Tyrant/Tyrant_Armor.png', 'Tyrant/Tyrant_Helm.png', 'Tyrant/Tyrant_Staff.png']),
+  himeko('hk_slime_green', ['Slime/Slime_Green.png']),
+  himeko('hk_slime_blue', ['Slime/Slime_Blue.png']),
+  himeko('hk_slime_orange', ['Slime/Slime_Orange.png']),
+  himeko('hk_slime_pink', ['Slime/Slime_Pink.png']),
+  himeko('hk_slime_purple', ['Slime/Slime_Purple.png']),
+  himeko('hk_mummy', ['Undead/Mummy.png']),
+  himeko('hk_ghost', ['Undead/Ghost.png']),
+  himeko('hk_zombie', ['Undead/Template_Zombie_green_shirt.png', 'Undead/Zombie Hair/Zombie_hair_caesar_black.png']),
+  himeko('hk_zombie_bare', ['Undead/Template_Zombie_green.png', 'Undead/Zombie Hair/Zombie_hair_caesar_brown.png']),
+  himeko('hk_zombie_brute', ['Undead/Template_Zombie_shirt.png', 'Undead/Zombie Hair/Zombie_hair_caesar_blond.png', 'Undead/Skeleton Weapons/Hammer_01_Mace_Undead.png']),
+  himeko('hk_imp', ['Other Monsters/Imp.png']),
 ];
 
 // (the heroes' extra rows come after the five every sheet has)
@@ -116,7 +140,15 @@ const only = process.argv.slice(2);
     // the frames of each row, as images and rectangles
     const rows = {};
     for (const r of ROWS) {
-      if (spec.seq) {
+      if (spec.himeko) {
+        if (!HK_POSES[r]) continue;
+        const layers = spec.himeko.map((f) => {
+          const file = path.join(ASSETS, f);
+          if (!fs.existsSync(file)) throw new Error(`missing ${file}`);
+          return 'data:image/png;base64,' + fs.readFileSync(file).toString('base64');
+        });
+        rows[r] = { himeko: { layers, cols: HK_POSES[r], row: HK_ROW } };
+      } else if (spec.seq) {
         const dir = path.join(ASSETS, spec.dir, spec.seq[r]);
         if (!fs.existsSync(dir)) continue;
         const files = fs.readdirSync(dir).filter((f) => f.endsWith('.png')).sort().filter((_, i) => i % (spec.every[r] ?? 1) === 0);
@@ -138,7 +170,21 @@ const only = process.argv.slice(2);
           const row = rows[r];
           if (!row) continue;
           const list = [];
-          if (row.strip) {
+          if (row.himeko) {
+            const ims = [];
+            for (const u of row.himeko.layers) ims.push(await load(u));
+            for (const col of row.himeko.cols) {
+              const c = document.createElement('canvas');
+              c.width = c.height = 128;
+              const g = c.getContext('2d');
+              g.imageSmoothingEnabled = false;
+              for (const im of ims) {
+                const k = im.width / 1024; // (a 2048 sheet is the same grid doubled)
+                g.drawImage(im, col * 128 * k, row.himeko.row * 128 * k, 128 * k, 128 * k, 0, 0, 128, 128);
+              }
+              list.push(c);
+            }
+          } else if (row.strip) {
             const im = await load(row.strip);
             const n = Math.max(1, Math.round(im.width / im.height));
             const fw = im.width / n;

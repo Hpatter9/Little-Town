@@ -444,6 +444,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (legendary destinations with map spots and scenes), merged into ENEMIES, RAID_KINDS, ITEMS, DESTINATIONS,
   MAP_SPOTS and ROUTES. `test/bestiary.test.ts` checks every pack sheet is used. `atPlace` (data/expeditions.ts) says
   "at The Labyrinth" rather than "at the The Labyrinth".
+- **Monsters from the Himeko Sutori sprite share (the owner's new assets):** a paper-doll character pack at the assets
+  repo's top level (bodies, outfits by calling, ~150 weapons and hand items, helms, shields, hair; monsters in `Large
+  Humanoid/`, `Slime/`, `Tyrant/`, `Undead/`, `Other Monsters/`): every sheet is 8 poses by 4 facings of 128px cells
+  (front, left, right, back: stand, two steps, arm raised, lunge, two punches, kneel), layers laid one on another (the
+  2048 sheets are the grid doubled). `himeko(id, layers)` in `tools/compose-sheets.cjs` composes a creature's layers and
+  cuts the right-facing row into the usual pack sheet (`HK_POSES`: walk step-stand-step-stand, attack raise-lunge, idle,
+  the kneel for hurt and dead). 17 sheets (`hk_*`): ogre and horned ogre, demon and armoured demon lord, the brass
+  juggernaut, the tyrant, slimes in five colours, the mummy, the ghost, three zombies, the imp; they stand for the ogre,
+  slimes, mummy, zombies, wraith and the Lich Lord (enemies.ts), the Ooze Mother (dungeonBosses.ts) and 14 of the
+  menagerie (`HIMEKO_LOOK` in menagerie.ts: hill ogre, brute and ring demons, brass and steam golems, four slimes,
+  two mummies, two zombies, the red imp). The ogre keeps `nature: 'person'` (stills counted as people). Credits in
+  CREDITS.md (the pack's terms ask for three lines of attribution).
 - **Painted backdrops from the packs:** `tools/compose-backdrops.cjs` stacks each parallax background's layers (far
   to near; packs that number "Plan 1.." near to far are reversed) into one WebP per background in
   `src/renderer/art/backdrops/` (114 of them; `backdrops.json`, `src/shared/data/backdrops.ts`). Not precached: the
