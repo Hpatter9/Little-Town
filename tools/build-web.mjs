@@ -3,6 +3,7 @@
 import * as esbuild from 'esbuild';
 import { copyFileSync, cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { trayIconPng } from '../src/main/trayIcon.ts';
 
 const OUT = 'out/web';
@@ -19,8 +20,20 @@ cpSync('out/renderer/props', `${OUT}/props`, { recursive: true });
 cpSync('out/renderer/scenery', `${OUT}/scenery`, { recursive: true });
 cpSync('out/renderer/fonts', `${OUT}/fonts`, { recursive: true });
 
+// the version shown in the ☰ menu: the package's number, the commit it was built from and the day (so the owner can
+// tell an updated game from an old one in the phone's cache)
+const pkgVersion = JSON.parse(readFileSync('package.json', 'utf8')).version;
+let commit = '';
+try {
+  commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+} catch {
+  // (no git: the number and day alone)
+}
+const built = new Date().toISOString().slice(0, 10);
+
 // the phone page that holds them
 await esbuild.build({
+  define: { __GAME_VERSION__: JSON.stringify(pkgVersion), __GAME_COMMIT__: JSON.stringify(commit), __GAME_BUILT__: JSON.stringify(built) },
   entryPoints: ['src/renderer/mobile/mobile.ts'],
   outfile: `${OUT}/mobile.js`,
   bundle: true,

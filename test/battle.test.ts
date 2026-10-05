@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
 import { Rng } from '../src/shared/rng';
-import { autoPlace, battleSpeedNow, battleView, cumulative, fighters, foeAt, layOut, placeFighter, pointAt, ranged, startBattle } from '../src/shared/sim/battle';
+import { HOLD_REACH, SETUP_MOST, autoPlace, battleSpeedNow, battleView, cumulative, fighters, foeAt, layOut, placeFighter, pointAt, ranged, startBattle } from '../src/shared/sim/battle';
 import { castAt } from '../src/shared/sim/powers';
 import { defenderAttack } from '../src/shared/sim/raids';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
@@ -288,4 +288,43 @@ test('a battle fights itself unless the player has turned auto off', () => {
   r.phase = 'active';
   startBattle(s, r);
   assert.equal(r.battle!.auto, true);
+});
+
+test('the set-up stage: fighters hold the stretch by the gate, and the raiders stay in the fog until every one placed stands at their spot', () => {
+  const s = town('setup-stage', 5);
+  s.autoBattle = true;
+  const r = raidNow(s, 40);
+  const sim = new Sim(s);
+  sim.step();
+  const b = r.battle!;
+  assert.ok(b, 'the battle began');
+  // every spot a fighter may take is within the hold's reach of the gate, along the trail
+  const path = b.map.paths[0];
+  const cum = cumulative(path);
+  const end = cum[cum.length - 1];
+  const along = (x: number, y: number) => {
+    let best = 0;
+    let near = Infinity;
+    for (let d = 0; d <= end; d += 0.25) {
+      const [px, py] = pointAt(path, cum, d);
+      const k = Math.hypot(px - x, py - y);
+      if (k < near) [near, best] = [k, d];
+    }
+    return best;
+  };
+  assert.ok(end > HOLD_REACH + 4, `a long trail (${end.toFixed(1)} cells)`);
+  for (const q of b.map.spots.filter((q) => q.kind === 'block' || q.kind === 'ground')) assert.ok(along(q.x, q.y) >= end - HOLD_REACH - 2, `spot ${q.kind} at ${along(q.x, q.y).toFixed(1)} of ${end.toFixed(1)}`);
+  // send one placed fighter far off: nobody comes onto the trail until they're back at their spot
+  const u = b.units.find((q) => q.person !== undefined)!;
+  const p = s.people.find((q) => q.id === u.person)!;
+  p.x = b.map.gate[0] * 32 - 32 * 10 * (r.side);
+  let firstIn = -1;
+  for (let t = 0; t < SETUP_MOST + 20 && firstIn < 0; t++) {
+    sim.step();
+    if (r.raiders.some((rd) => rd.bt && rd.bt.d >= 0)) firstIn = s.tick;
+  }
+  assert.ok(firstIn > 0, 'the raiders came in the end');
+  const spot = b.map.spots.find((q) => q.id === u.spot)!;
+  const stillPlaced = b.units.find((q) => q.person === p.id);
+  if (stillPlaced) assert.ok(Math.hypot(p.x / 32 - spot.x, p.y / 32 - spot.y) <= 1.3, 'the far-off fighter was at their spot before the raiders came');
 });

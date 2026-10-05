@@ -73,8 +73,10 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed
       document.body.style.setProperty('--battle-top-h', `${Math.round(top.getBoundingClientRect().bottom)}px`);
       title.textContent = raidName;
       const wave = b.waves > 1 ? `Wave ${b.wave + 1} of ${b.waves}` : 'The raid';
-      const time = b.secondsLeft !== null ? ` · ${Math.ceil(b.secondsLeft)}s` : '';
-      const doing = b.phase === 'placing' ? 'Place your fighters' : b.phase === 'breather' ? 'Regroup' : 'Fighting';
+      // (the count, then, while anyone placed is still walking to their spot, how many: the raiders wait for them)
+      // (on auto the raid comes as soon as everyone stands ready, so the count says nothing: just who's still walking)
+      const time = b.secondsLeft && !b.auto ? ` · ${Math.ceil(b.secondsLeft)}s` : b.onTheWay ? ` · ${b.onTheWay} still on the way` : '';
+      const doing = b.phase === 'placing' ? (b.auto || !b.secondsLeft ? 'Taking positions' : 'Place your fighters') : b.phase === 'breather' ? 'Regroup' : 'Fighting';
       status.textContent = `${wave} · ${doing}${time} · ${b.killed} down${b.through ? ` · ${b.through} through` : ''}${b.coming ? ` · ${b.coming} to come` : ''}`;
       go.hidden = !placing;
       auto.textContent = b.auto ? 'Auto: on' : 'Auto: off';

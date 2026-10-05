@@ -6,7 +6,7 @@
 // have something done; a raid comes to the gate (`Raid.saga`, decided in `sagaRaidOver`); an end leaves the town its
 // effects, a title for the hero and perhaps a unique. Everything here draws on its own seeded stream.
 
-import { MAX_SAGAS, SAGAS, SAGA_ASK_HOURS, SAGA_BY_ID, SAGA_DAILY, SAGA_GAP_DAYS, SAGA_HOUR, type Chapter, type Foes, type Next, type SagaDef, type SagaEffect } from '../data/sagas';
+import { MAX_SAGAS, SAGAS, SAGA_ASK_HOURS, SAGA_BY_ID, SAGA_DAILY, SAGA_FIRST_DAY, SAGA_GAP_DAYS, SAGA_HOUR, type Chapter, type Foes, type Next, type SagaDef, type SagaEffect } from '../data/sagas';
 import type { EventEffect } from '../data/eventKit';
 import type { Destination } from '../data/expeditions';
 import { ENEMIES } from '../data/enemies';
@@ -63,7 +63,10 @@ export function sagasHourly(s: GameState): void {
 function maybeBegin(s: GameState): void {
   const running = s.sagas ?? [];
   if (running.length >= MAX_SAGAS || s.gameOver) return;
-  if (s.lastSaga !== undefined && s.tick - s.lastSaga < SAGA_GAP_DAYS * TICKS_PER_DAY) return;
+  if (s.tick < SAGA_FIRST_DAY * TICKS_PER_DAY) return;
+  // (the break runs from the end of the last one: a long saga doesn't eat into it)
+  const ended = Math.max(s.lastSaga ?? -Infinity, ...(s.sagasDone ?? []).map((d) => d.tick));
+  if (s.tick - ended < SAGA_GAP_DAYS * TICKS_PER_DAY) return;
   const rng = Rng.from(hashSeed(s.seed), s.tick, 0x5a6a);
   if (!rng.chance(SAGA_DAILY)) return;
   const open = sagasOpen(s);

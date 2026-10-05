@@ -12,22 +12,13 @@
 // The rules are in sim/sagas.ts.
 
 import type { BackdropId } from './backdrops';
-import type { EventEffect, Lever } from './eventKit';
-import type { Skill } from './skills';
-import type { Stock } from './materials';
-import type { Era } from './eras';
+import type { EventEffect } from './eventKit';
+import { SAGAS_2 } from './sagas2';
+import { SAGAS_3 } from './sagas3';
+import { calm, coin, dayOf, eraAt, gain, grown, has, mod, mood, raidIn, rep, teach, byEra } from './sagaKit';
 import type { GameState } from '../sim/state';
 import type { Material } from './materials';
 
-// (the events' shorthands, written out here: data/eventKit.ts can't be loaded this early without a cycle)
-const mood = (mood: number, hours: number, text: string): EventEffect => ({ mood, hours, text });
-const mod = (lever: Lever, mult: number, hours: number, text: string): EventEffect => ({ mod: lever, mult, hours, text });
-const gain = (stock: Stock): EventEffect => ({ gain: stock });
-const teach = (skill: Skill, levels: number, on: 'who' | 'random' | 'founder' | 'all' = 'who'): EventEffect => ({ skill, levels, on });
-const coin = (n: number): EventEffect => ({ coins: n });
-const rep = (n: number): EventEffect => ({ reputation: n });
-const calm = (h: number): EventEffect => ({ calm: h });
-const raidIn = (h: number): EventEffect => ({ raid: h });
 
 /** A saga's own effects, beside the events': the two townsfolk it's about, the hero's title, a unique. */
 export type SagaEffect =
@@ -88,16 +79,11 @@ export interface SagaDef {
   chapters: Record<string, Chapter>;
 }
 
-const has = (s: GameState, ...ids: string[]) => s.buildings.some((b) => ids.includes(b.def) && b.status === 'done');
-const eraAt = (s: GameState, e: Era) => ['neolithic', 'medieval', 'industrial', 'modern', 'space'].indexOf(s.era) >= ['neolithic', 'medieval', 'industrial', 'modern', 'space'].indexOf(e);
-const grown = (s: GameState, n: number) => s.people.filter((p) => p.bornTick == null).length >= n;
-const dayOf = (s: GameState) => s.tick / (600 * 24);
-const byEra = (t: Partial<Record<Era, Record<string, number>>>) => (s: GameState) => t[s.era] ?? t.medieval ?? Object.values(t)[0]!;
 
 /** Bandits by the age. */
 const BANDITS = byEra({ neolithic: { rival_spear: 2, rival_slinger: 1 }, medieval: { bandit: 2, bandit_archer: 1 }, industrial: { gangster: 3, rifleman: 1 }, modern: { gangster: 2, raider: 2 }, space: { space_pirate: 3 } });
 
-export const SAGAS: readonly SagaDef[] = [
+const FIRST_SAGAS: readonly SagaDef[] = [
   /* ------------------------------------------------------------ 1. the burnt cart */
   {
     id: 'burnt_cart',
@@ -683,13 +669,19 @@ export const SAGAS: readonly SagaDef[] = [
   },
 ];
 
+/** Every saga: the first six, and the twenty-five of sagas2.ts and sagas3.ts. */
+export const SAGAS: readonly SagaDef[] = [...FIRST_SAGAS, ...SAGAS_2, ...SAGAS_3];
+
 export const SAGA_BY_ID: Record<string, SagaDef> = Object.fromEntries(SAGAS.map((g) => [g.id, g]));
 
-/** How many sagas a town follows at once, how often one may begin, and from which day. */
-export const MAX_SAGAS = 2;
-export const SAGA_GAP_DAYS = 3;
-export const SAGA_DAILY = 0.5;
+/** One saga at a time (the owner's call), never sooner than `SAGA_GAP_DAYS` after the last one ended, and then only now
+ *  and then (`SAGA_DAILY` of the mornings at `SAGA_HOUR`), from day `SAGA_FIRST_DAY`: a story is an occasion, with time
+ *  between to try other things. */
+export const MAX_SAGAS = 1;
+export const SAGA_GAP_DAYS = 10;
+export const SAGA_DAILY = 0.25;
 export const SAGA_HOUR = 10;
+export const SAGA_FIRST_DAY = 4;
 /** How long a saga's question waits for an answer (game hours) before its default stands. */
 export const SAGA_ASK_HOURS = 12;
 /** The pull of a saga's trip on a party choosing where to go (against a bounty's coins, a new place's 6). */

@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { SAGAS, SAGA_BY_ID, type Chapter, type Next } from '../src/shared/data/sagas';
+import { SAGAS, type Chapter, type Next } from '../src/shared/data/sagas';
 import { SAGA_UNIQUES } from '../src/shared/data/uniques';
 import { Rng } from '../src/shared/rng';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
-import { beginSaga, sagaRaidOver, sagaTripHome, sagasHourly, sagasOpen, sagaDestinations } from '../src/shared/sim/sagas';
+import { beginSaga, sagaRaidOver, sagaTripHome, sagasHourly, sagaDestinations } from '../src/shared/sim/sagas';
 import { destinationOf, destinationUnlocked } from '../src/shared/sim/expeditions';
 import { boardDestinations } from '../src/shared/sim/parties';
 import { makePerson, campXY, type Expedition, type GameState, type Person } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { plainGame, put, row } from './helpers';
+import { ENEMIES } from '../src/shared/data/enemies';
+import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
+import { ITEM_BY_ID } from '../src/shared/data/items';
 
 function grownUp(s: GameState): Person {
   const p = makePerson(new Rng(s.nextId), s.nextId++, 'wanderer', campXY(s), s.people.map((q) => q.name));
@@ -42,14 +45,19 @@ function partyHome(s: GameState, cleared: boolean, leader: Person): void {
   sagaTripHome(s, { dest: dest.id, cleared, recalled: false, leader: leader.id, members: [leader.id] } as unknown as Expedition);
 }
 
-test('six sagas, every chapter they lead to written, every ending reachable, every saga unique a prize', () => {
-  assert.equal(SAGAS.length, 6);
-  // (two towns: one with a sharp ear among them, one without)
+test('thirty-one sagas, every chapter they lead to written, every ending reachable, every saga unique a prize', () => {
+  assert.equal(SAGAS.length, 31);
+  assert.equal(new Set(SAGAS.map((g) => g.id)).size, SAGAS.length, 'each its own id');
+  // (two towns: a plain one, and one with sharp minds, learning and the buildings the stories ask about)
   const s = town('sagas-graph', 8);
   const sharp = town('sagas-graph-2', 8);
-  for (const p of s.people) p.skills.social.level = 0;
+  for (const p of s.people) for (const k of ['social', 'research'] as const) p.skills[k].level = 0;
   sharp.people[1].skills.social.level = 30;
+  sharp.people[1].skills.research.level = 30;
+  sharp.research.done.push('writing', 'electronics');
+  for (const [i, b] of ['library', 'storytellers_circle', 'graveyard', 'resurrection_shrine', 'tavern'].entries()) put(sharp, b, 2 + i * 4, row(sharp) + 4);
   const flagSets: string[][] = [[], ['boy', 'brave'], ['wynn'], ['box'], ['cure'], ['silver'], ['bell'], ['trust'], ['kept'], ['return'], ['crowned'], ['for_a'], ['fair']];
+  const eras = ['neolithic', 'medieval', 'industrial', 'modern', 'space'] as const;
   const targets = (n: Next) => (typeof n === 'string' ? [n] : flagSets.flatMap((f) => [n(f, s), n(f, sharp)]));
   const prizes = new Set<string>();
   for (const g of SAGAS) {
@@ -58,6 +66,15 @@ test('six sagas, every chapter they lead to written, every ending reachable, eve
     const todo = [g.first];
     while (todo.length) {
       const c: Chapter = g.chapters[todo.pop()!];
+      if (c.kind === 'trip')
+        for (const era of eras) {
+          const foes: Partial<Record<string, number>> = typeof c.foes === 'function' ? c.foes({ ...s, era } as typeof s) : c.foes;
+          for (const id of Object.keys(foes)) assert.ok(ENEMIES[id], `${g.id}: no foe ${id}`);
+        }
+      if (c.kind === 'raid') {
+        assert.ok(c.raid === 'people' || RAID_KIND_BY_ID[c.raid], `${g.id}: no raid ${c.raid}`);
+        if (c.boss) assert.ok(ENEMIES[c.boss], `${g.id}: no boss ${c.boss}`);
+      }
       const nexts: Next[] =
         c.kind === 'choice' ? c.options.map((o) => o.next)
         : c.kind === 'trip' ? [c.win, c.lose, c.late ?? c.lose]
@@ -65,7 +82,10 @@ test('six sagas, every chapter they lead to written, every ending reachable, eve
         : c.kind === 'raid' ? [c.win, c.lose]
         : c.kind === 'wait' ? [c.next]
         : [];
-      if (c.kind === 'end') for (const e of c.effects ?? []) if ('unique' in e) prizes.add(e.unique);
+      if (c.kind === 'end') for (const e of c.effects ?? []) if ('unique' in e) {
+        assert.ok(ITEM_BY_ID[e.unique]?.unique, `${g.id}: ${e.unique} is a unique`);
+        prizes.add(e.unique);
+      }
       for (const n of nexts)
         for (const t of targets(n)) {
           assert.ok(g.chapters[t], `${g.id}: no chapter ${t}`);
@@ -157,16 +177,32 @@ test('the Feud is about two of the town, and the duel can kill', () => {
   assert.ok(s.uniques!.includes('peacemaker'));
 });
 
-test('sagas begin by themselves, one the town has not had, two at most', () => {
+test('sagas come rarely: one at a time, never within ten days of the last one ending, each once', () => {
   const s = town('sagas-begin', 7);
   s.era = 'medieval';
-  s.nextEventTick = s.tick + 1;
+  s.tick = 0;
+  s.nextEventTick = 1;
   s.autopilot = true;
-  assert.ok(sagasOpen(s).length >= 3);
-  for (let d = 0; d < 12; d++) hoursPass(s, 24);
-  assert.ok((s.sagas?.length ?? 0) + (s.sagasDone?.length ?? 0) >= 2, 'stories found the town');
-  assert.ok((s.sagas?.length ?? 0) <= 2);
-  const ids = [...(s.sagas ?? []).map((r) => r.id), ...(s.sagasDone ?? []).map((r) => r.id)];
+  hoursPass(s, 24 * 4 - 1);
+  assert.equal(s.sagas?.length ?? 0, 0, 'none in the first days');
+  const begun: number[] = [];
+  const ended: number[] = [];
+  for (let h = 0; h < 24 * 120; h++) {
+    hoursPass(s, 1);
+    assert.ok((s.sagas?.length ?? 0) <= 1, 'one at a time');
+    const r = s.sagas?.[0];
+    if (r && !begun.includes(r.started)) begun.push(r.started);
+    // (each saga is wound up a day after it begins, as if it had run its course)
+    if (r && s.tick - r.started >= TICKS_PER_DAY) {
+      s.sagas = [];
+      s.prompts = s.prompts.filter((q) => q.kind !== 'saga');
+      (s.sagasDone ??= []).push({ id: r.id, outcome: 'bittersweet', tick: s.tick });
+      ended.push(s.tick);
+    }
+  }
+  assert.ok(begun.length >= 3, `${begun.length} sagas in 120 days`);
+  assert.ok(begun.length <= 9, `${begun.length} sagas in 120 days is too many`);
+  for (let i = 1; i < begun.length; i++) assert.ok(begun[i] - ended[i - 1] >= 10 * TICKS_PER_DAY, 'a ten-day break between');
+  const ids = (s.sagasDone ?? []).map((d) => d.id);
   assert.equal(new Set(ids).size, ids.length, 'none twice');
-  assert.ok(SAGA_BY_ID[ids[0]]);
 });
