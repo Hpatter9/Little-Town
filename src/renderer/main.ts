@@ -41,7 +41,7 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
-    activity: 'walk', taskDone: null, story: '', sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', taskDone: null, story: '', secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
@@ -1015,7 +1015,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !(q.kind === 'event' && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
     if (next.away && !q && view.mode === 'full')

@@ -1,6 +1,7 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
+import { coverOf, makeSpecial, secretJoined, specialFor } from './specials';
 import { injuryMood, injuryWork } from './injuries';
 import { TAX } from '../data/economy';
 import { moneyTown } from './economy';
@@ -355,11 +356,14 @@ export function maybeArrive(s: GameState, rng: Rng): void {
       return;
     }
   }
+  // a special newcomer with a secret (sim/specials.ts), under a cover story
+  const special = origin ? null : specialFor(s, person);
+  if (special) makeSpecial(s, person, special);
   // a rare wanderer is already trained in a special class (decided by the seed, so no randomness shifts)
   const roll = mixSeed(hashSeed(s.seed), person.id * 7919);
   // (one of each calling in a town: never one the town already has)
   // (a seasoned wanderer: some levels behind them, and their class from the start)
-  if (!monster && roll % 1000 < SEASONED_CHANCE * 1000) {
+  if (!monster && !special && roll % 1000 < SEASONED_CHANCE * 1000) {
     person.level = 3 + (Math.floor(roll / 1000) % 10);
     assignClass(s, person);
     // (once in a long while, a legend walks in: high level, and ascended)
@@ -373,8 +377,9 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   const wait = campEdge(s, side);
   s.visitor = { person, waitX: wait.x, waitY: wait.y, leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
   s.lastVisit = s.tick;
-  const trained = person.cls ? ` (${aCalling(callingName(person, stageOf(person))!)}, level ${person.level}!)` : '';
-  const who = origin ? `${oneOf(origin)} (a ${type})` : `${/^[aeiou]/.test(type) ? 'an' : 'a'} ${type}`;
+  // (a special shows only their cover: their calling and level are part of the secret)
+  const trained = person.cls && !special ? ` (${aCalling(callingName(person, stageOf(person))!)}, level ${person.level}!)` : '';
+  const who = special ? coverOf(person) : origin ? `${oneOf(origin)} (a ${type})` : `${/^[aeiou]/.test(type) ? 'an' : 'a'} ${type}`;
   notify(s, `${who[0].toUpperCase()}${who.slice(1)}${trained} is coming to camp. See Townsfolk.`, !!person.cls);
   if (!rulesOf(s).freeJoin) askVisitor(s, who, trained);
 }
@@ -455,6 +460,7 @@ export function acceptVisitor(s: GameState): void {
   assignBeds(s);
   equipAll(s);
   notify(s, `${v.person.name} joined the town.`, true);
+  secretJoined(s, v.person);
   if (v.person.type === 'hermit') revealOccult(s, `${v.person.name} the hermit brought old, forbidden knowledge.`);
 }
 

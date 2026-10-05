@@ -83,7 +83,7 @@ function render(): void {
   else if (snap && shown === 'crafting') body.replaceChildren(...tabbed(renderCrafting(snap, bridge, render)));
   else if (snap && shown === 'trade') body.replaceChildren(...tabbed(renderTrade(snap, bridge)));
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
-  else if (snap && isVenuePanel(shown)) body.replaceChildren(...renderShop(snap, shown));
+  else if (snap && isVenuePanel(shown)) body.replaceChildren(...renderShop(snap, shown, render));
   else if (snap && shown === 'newgame') body.replaceChildren(...renderNewGame(snap, bridge));
   else body.replaceChildren(el('p', 'empty', 'Loading…'));
   body.scrollTop = scroll;

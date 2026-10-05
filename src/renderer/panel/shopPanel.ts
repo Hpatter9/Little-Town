@@ -3,6 +3,7 @@
 // or sitting over their food; and beside or below it, who's in and what they came for, what the venue has to offer,
 // what's been asked for, and what's happened lately. It only shows: the town runs its venues itself.
 
+import { inTabs } from './subtabs';
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import { pieceLabel, qualityOf } from '../../shared/data/quality';
 import { APPEAL_HALVES_WAIT, TRAVELLER_EVERY } from '../../shared/data/shop';
@@ -87,7 +88,7 @@ function qualityChip(text: string, q: number): HTMLElement {
   return c;
 }
 
-export function renderShop(s: Snapshot, id: VenueId = 'shop'): HTMLElement[] {
+export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void = () => {}): HTMLElement[] {
   const v = venueView(s, id);
   latest = v;
   const tavern = id === 'tavern';
@@ -256,7 +257,8 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop'): HTMLElement[] {
     row.append(el('span', 'shop-when', l.when.replace(/ · \w+ · /, ' · ')), el('span', '', l.text));
     info.push(row);
   }
-  side.append(...info);
+  // (in tabs, like every menu: who's in now, the trade, the room itself)
+  side.append(...inTabs(id, info, redraw, 'venue'));
   return out;
 }
 

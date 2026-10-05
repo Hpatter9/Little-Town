@@ -98,7 +98,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
 
   return {
     update(snap) {
-      const p = snap.prompts.find((q) => q.kind === 'event');
+      const p = snap.prompts.find((q) => q.kind === 'event' || q.kind === 'secret');
       const on = !!p && !snap.battle && !snap.watch && !snap.mine;
       const w = win();
       if (w) w.__eventSheet = true;

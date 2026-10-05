@@ -3,7 +3,7 @@
 
 import type { JournalEntryView } from '../../shared/sim/snapshot';
 import { platino } from '../art/icons';
-import { button, el } from './dom';
+import { el } from './dom';
 
 type Filter = 'all' | 'key' | 'deaths';
 const FILTERS: [Filter, string][] = [
@@ -19,9 +19,15 @@ const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 export function renderJournal(entries: JournalEntryView[]): HTMLElement[] {
   if (!entries.length) return [el('p', 'empty', 'Nothing has happened yet. Events, discoveries and news from the road will be written here.')];
   const list = el('div');
-  const row = el('div', 'row');
+  const row = el('div', 'row inv-tabs menu-tabs');
   const draw = () => {
-    row.replaceChildren(...FILTERS.map(([f, label]) => button(label, () => ((filter = f), draw()), { cls: `place small${filter === f ? '' : ' quiet'}` })));
+    row.replaceChildren(
+      ...FILTERS.map(([f, label]) => {
+        const b = el('button', `inv-tab${filter === f ? ' on' : ''}`, label);
+        b.addEventListener('click', () => ((filter = f), draw()));
+        return b;
+      }),
+    );
     const shown = filter === 'all' ? entries : filter === 'key' ? entries.filter((e) => e.key || e.lines) : entries.filter(isDeath);
     list.replaceChildren(...(shown.length ? entryRows(shown) : [el('p', 'empty', filter === 'deaths' ? 'Nobody has died. Yet.' : 'Nothing like that yet.')]));
     if (filter === 'all' && entries.length >= 200) list.append(platino()); // for those who read all the way back

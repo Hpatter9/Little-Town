@@ -373,7 +373,7 @@ function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: n
 }
 
 /** Take a share of the town's food, its stores, or its coins. */
-function take(s: GameState, what: 'food' | 'stores' | 'coins', share: number): number {
+export function take(s: GameState, what: 'food' | 'stores' | 'coins', share: number): number {
   if (what === 'coins') {
     const n = Math.floor((s.coins ?? 0) * share);
     s.coins = (s.coins ?? 0) - n;

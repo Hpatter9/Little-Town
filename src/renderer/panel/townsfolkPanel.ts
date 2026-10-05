@@ -249,6 +249,8 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   const who = el('div', 'card person');
   // their own story first (data/backstories.ts)
   if (p.story) who.append(el('div', 'story', p.story));
+  // (a special newcomer's secret, once the town knows it: sim/specials.ts)
+  if (p.secret) who.append(el('div', 'story secret', `${p.secret.name}.`));
   if (p.ageText) who.append(el('div', 'lock', p.ageText));
   who.append(el('div', 'purpose', `${p.natureName}: ${p.natureLine}`));
   if (p.ambition) who.append(el('div', 'purpose', `Wants to be ${p.ambition.name.toLowerCase()}: ${p.ambition.line}`));

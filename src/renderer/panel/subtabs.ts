@@ -37,6 +37,15 @@ const GROUPS: Record<string, MenuTabs> = {
   townsfolk: { groups: [['People', /^People/], ['Jobs', /^(Jobs|Prisoners)/]] },
   crafting: { groups: [['Inventory', /^Inventory/], ['Recipes', /^Recipes/]] },
   trade: { groups: [['Deals', /^Deals/], ['Horses', /^Horses/]] },
+  // the shop, the inn and the stores (each venue keeps its own open tab)
+  venue: {
+    groups: [
+      ['Now', /^(Guests|In the shop|Lately)/],
+      ['Trade', /^(Menu|Rooms|Customers|On the shelves|Gear in stock|Spare to sell|Wants to buy|Asked for)/],
+      ['The room', /^(Furnishings|Décor)/],
+    ],
+    intro: 'Now',
+  },
 };
 
 const KEY = (menu: string) => `littletown.subtab.${menu}`;
@@ -59,8 +68,8 @@ function setTab(menu: string, name: string): void {
 }
 
 /** A menu's elements, put in its tabs; `redraw` after a tab is chosen. */
-export function inTabs(menu: string, els: HTMLElement[], redraw: () => void): HTMLElement[] {
-  const cfg = GROUPS[menu];
+export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kind = menu): HTMLElement[] {
+  const cfg = GROUPS[kind];
   if (!cfg) return els;
   const above: HTMLElement[] = [];
   const parts = new Map<string, HTMLElement[]>(cfg.groups.map(([n]) => [n, []]));
@@ -86,6 +95,7 @@ export function inTabs(menu: string, els: HTMLElement[], redraw: () => void): HT
       redraw();
       const body = document.getElementById('body');
       if (body) body.scrollTop = 0;
+      for (const side of document.querySelectorAll('.shop-info')) side.scrollTop = 0;
     });
     row.append(b);
   }

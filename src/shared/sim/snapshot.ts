@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { secretView, specialStory } from './specials';
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
 import { boatLine, boatyardOf, fleet, mooring } from './boats';
 import { peopleOf } from './strangers';
@@ -214,6 +215,8 @@ export interface PersonView {
   natureLine: string;
   /** Their own short story (data/backstories.ts; a ready-made founder's is the one written for them). */
   story: string;
+  /** A special newcomer's secret, once the town knows it (sim/specials.ts). */
+  secret: { name: string; text: string } | null;
   /** Their life's goal (data/ambitions.ts), and trips made. */
   ambition: { name: string; line: string } | null;
   trips: number;
@@ -1234,7 +1237,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     defending: !!s.raid && p.task?.type === 'defend',
     mounted: null,
     cls: p.cls ?? null,
-    clsName: callingName(p, stageOf(p)),
+    // (a special newcomer's calling is part of their secret until it's out)
+    clsName: p.secret && !p.secret.found ? null : callingName(p, stageOf(p)),
     clsPast: p.cls ? [0, 1, 2, 3].filter((i) => i < stageOf(p)).map((i) => callingName(p, i)!) : [],
     clsText: callingText(p),
     founderCalling: !!p.fcls,
@@ -1287,6 +1291,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     job: jobView(s, p),
     natureLine: natureOf(p).line,
     story: storyOf(s, p),
+    secret: secretView(p),
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
     trips: p.trips ?? 0,
     swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
@@ -1338,6 +1343,8 @@ function taskDone(s: GameState, p: Person): number | null {
 
 /** Someone's story: a ready-made founder's own, else put together for them (data/backstories.ts). */
 function storyOf(s: GameState, p: Person): string {
+  const special = specialStory(p);
+  if (special) return special;
   const own = p.fcls ? FOUNDER_BY_ID[p.fcls]?.story : undefined;
   if (own) return own;
   const parents = (p.parents ?? []).map((id) => s.people.find((q) => q.id === id)?.name).filter((n): n is string => !!n);
