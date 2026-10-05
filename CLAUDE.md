@@ -1394,14 +1394,26 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Every menu in tabs, the venues too:** the shop, inn and stores' windows (`renderShop`, through `inTabs(id, ..., 'venue')`:
   Now, Trade, The room; each venue keeps its own tab) and the Chronicle's filters drawn as the same tabs. The open tab
   is lit under every look (`.inv-tab.on` in theme.ts and skins.ts: it was drawn like the rest).
+- **Twenty-five more sagas (done; the owner's ask):** `src/shared/data/sagas2.ts` (The Lost Shepherd, The Hollow King,
+  The Witch of the Fen, The Fallen Star, The Miller's Debt, The Stolen Bride, The Clockwork Heart (Industrial), The Red
+  Harvest, The Dragon's Toll, The Ghost Ship (shore), The Frozen Prince (tundra or winter), The Desert Oracle (desert or
+  nomads)) and `sagas3.ts` (The Pretender, The Last of Khazrun, The Sleeping Giant, The Rat Catcher, The Haunted Inn (an
+  inn), The Alchemist's Apprentice, The Tournament, The Weeping Statue, The Wild Hunt, The Deserter, The Poisoned River
+  (Industrial), Orphans of the Storm, The Machine That Dreams (Modern)), 31 in all. Their shorthands and the town checks
+  they use (`has`, `knows`, `land`, `winter`, `wound`, `death`, `joins`...) are in `data/sagaKit.ts`. Thirteen more saga
+  uniques in uniques.ts (Starfall, the Fen-Witch's Crook, Barrowblade, Tollbreaker, the Piper's Flute, the Champion's
+  Lance, the Huntsman's Bow, Cogheart, Rimeblade, the Oracle's Staff, Ghostwind, the Giant's Knuckle, Dreamcaster). The
+  saga test walks every chapter of all 31 (a plain town and a learned one with the buildings they ask about), checks
+  every foe in every age, every raid kind and boss, and every prize.
 - **Sagas (done; the owner's ask: long quest chains, varied and unique; the town takes them on itself; failure bends
   the story, with real losses now and then; mostly hand-written):** `src/shared/data/sagas.ts` (`SAGAS`: The Burnt Cart,
   The Wolf That Walks, The Drowned Bell (shore towns), The Feud (two of the town, `cast`), The Plague Doctor, The Iron
   Crown; each a graph of chapters: `choice` (a full-screen question with a picture; answers set flags), `trip` (a place
   on the Expedition Board), `task` (something the town must have done in time), `raid`, `wait`, `end` (triumph,
   bittersweet or ruin: effects, a title for the hero, a unique)). `src/shared/sim/sagas.ts`: `sagasHourly` begins one at
-  `SAGA_HOUR` now and then (`SAGA_DAILY`, `SAGA_GAP_DAYS` apart, at most `MAX_SAGAS` 2, each saga once a town, off in
-  the tests' `plainGame`), and drives each run (`s.sagas`: `SagaRun`, `s.sagasDone`). A choice is a prompt of kind
+  `SAGA_HOUR` now and then: only one at a time (`MAX_SAGAS` 1), never sooner than `SAGA_GAP_DAYS` (10) after the last
+  one ended, from day `SAGA_FIRST_DAY` (4), on `SAGA_DAILY` (a quarter) of the mornings after that, each saga once a
+  town, off in the tests' `plainGame` (the owner's call: stories are occasions, with time between to try other things), and drives each run (`s.sagas`: `SagaRun`, `s.sagasDone`). A choice is a prompt of kind
   `saga` (the event sheet shows it; the default stands after `SAGA_ASK_HOURS`, so the town decides when nobody does;
   `answerSaga`); a trip is the destination `saga:<run>` (type `clear`; `sagaDestOf`, in `boardDestinations` and the
   snapshot's destinations), which the parties choose for themselves (`PULL_SAGA` in `pull`); `sagaTripHome` (from
