@@ -99,6 +99,10 @@ export interface Battle {
   /** When the placing time (or the breather) runs out. */
   until: number;
   started: number;
+  /** When this placing (or breather) began: the set-up never lasts past `SETUP_MOST` from it. */
+  opened?: number;
+  /** The count is up and the town's placed everyone: waiting for the last to reach their spots. */
+  settling?: boolean;
   wave: number;
   waves: number;
   units: BattleUnit[];
@@ -126,6 +130,9 @@ export const BREATHER_TICKS = 12 * TICK_HZ;
 /** A battle fighting itself goes on as soon as its fighters stand at their spots, but no sooner than this (a lone
  *  founder rushed onto the trail by a short count lost a leg and never grew the town). */
 export const AUTO_READY_TICKS = 2 * TICK_HZ;
+/** The set-up stage: the raiders stay in the fog until everyone placed stands at their spot, however long the count,
+ *  but never longer than this from its start (someone stuck on the way doesn't hold the raid off for ever). */
+export const SETUP_MOST = 90 * TICK_HZ;
 /** A raider comes onto the trail this long after the one before it. */
 const ENTER_GAP = Math.round(1.4 * TICK_HZ);
 /** How fast raiders walk the trail: cells a second for each px a second they'd walk the town. */
@@ -149,15 +156,17 @@ const BLOCK_NEAR = 0.7;
 /** How near their spot (cells) a fighter must stand to fight from it. */
 export const IN_PLACE = 1.2;
 
-/** Every townsperson placed stands at their spot (a battle fighting itself waits for it). */
-function allInPlace(s: GameState, b: Battle): boolean {
-  return b.units.every((u) => {
-    if (u.person === undefined) return true;
+/** How many townsfolk placed are still on their way to their spots. */
+function onTheWay(s: GameState, b: Battle): number {
+  return b.units.filter((u) => {
+    if (u.person === undefined) return false;
     const p = s.people.find((x) => x.id === u.person);
     const q = b.map.spots.find((x) => x.id === u.spot);
-    return !p || !q || Math.hypot(p.x / CELL - q.x, p.y / CELL - q.y) <= IN_PLACE;
-  });
+    return !!p && !!q && Math.hypot(p.x / CELL - q.x, p.y / CELL - q.y) > IN_PLACE;
+  }).length;
 }
+/** Every townsperson placed stands at their spot (the raiders wait for it). */
+const allInPlace = (s: GameState, b: Battle) => onTheWay(s, b) === 0;
 /** A fighter this hurt (a share of their health) falls back off the line. */
 const FALL_BACK = 0.12;
 /** A raider this hurt (a share of its health) turns and runs. */
@@ -192,6 +201,10 @@ const TOWER_NEAR = 2;
 const TRAP_NEAR = 1.5;
 /** Blocking spots along a trail: the first this far in, then one every so many cells, none in the last stretch. */
 const BLOCK_FROM = 3;
+/** The town holds the stretch of trail nearest its gate: blocking and ground spots go no further out than this many
+ *  cells along it (the raiders walk the rest under the towers' fire; fighters sent to the fog's edge met the raiders
+ *  coming out of it, and ran on past them). */
+export const HOLD_REACH = 14;
 const BLOCK_EVERY = 3;
 const BLOCK_END = 1.5;
 /** Ground spots for shooters beside the trail: about one per this many cells of it. */
@@ -312,7 +325,7 @@ export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false):
     const c = cumulative(p);
     const end = c[c.length - 1];
     const every = end < 15 ? 2 : BLOCK_EVERY; // (a short trail, early on: spots closer together)
-    for (let d = BLOCK_FROM; d < end - BLOCK_END; d += every) {
+    for (let d = Math.max(BLOCK_FROM, end - HOLD_REACH); d < end - BLOCK_END; d += every) {
       const [bx, by] = pointAt(p, c, d);
       if (groundAt(m, Math.floor(bx), Math.floor(by)) === 'water') continue; // (nobody holds a ford)
       spot('block', bx, by);
@@ -361,8 +374,9 @@ export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false):
   // a few spots on open ground beside each trail, for shooters where there's no wall
   for (const p of paths) {
     const c = cumulative(p);
-    const beside = besideTrail(p, c, free, 2, c[c.length - 1]);
-    const want = Math.max(2, Math.round(c[c.length - 1] / GROUND_EVERY));
+    const end = c[c.length - 1];
+    const beside = besideTrail(p, c, free, Math.max(2, end - HOLD_REACH), end);
+    const want = Math.max(2, Math.round(Math.min(end, HOLD_REACH) / GROUND_EVERY));
     const stride = Math.max(2, Math.floor(beside.length / want));
     for (let i = 0, k = Math.floor(stride / 2); i < want && k < beside.length; k += stride) {
       const [cx, cy] = beside[k];
@@ -454,7 +468,7 @@ export function startBattle(s: GameState, r: Raid): void {
     rd.bt = { d: -1, lane: flank && rd.side !== undefined && rd.side !== r.side ? 1 : 0, wave };
   });
   const auto = s.autoBattle !== false || !!r.alone; // (on unless the player turned it off: the owner's call)
-  r.battle = { map, phase: 'placing', until: s.tick + PLACE_TICKS, started: s.tick, wave: 0, waves, units: [], auto, through: 0, killed: 0 };
+  r.battle = { map, phase: 'placing', until: s.tick + PLACE_TICKS, started: s.tick, opened: s.tick, wave: 0, waves, units: [], auto, through: 0, killed: 0 };
   // (time to fight it out: the raid doesn't give up while the battle's on)
   r.leavesTick = Math.max(r.leavesTick, s.tick + 3 * TICKS_PER_HOUR);
   if (auto) autoPlace(s, r.battle, r);
@@ -590,8 +604,17 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     return !!a && !a.down && !a.gone;
   });
   if (b.phase === 'placing' || b.phase === 'breather') {
-    if (s.tick < b.until && !(b.auto && s.tick >= b.until - (b.phase === 'placing' ? PLACE_TICKS : BREATHER_TICKS) + AUTO_READY_TICKS && allInPlace(s, b))) return true;
-    autoPlace(s, b, r);
+    // the set-up: the count runs (a battle fighting itself needn't wait it out once everyone stands ready), then the
+    // town places whoever's left, and the raiders come on only once everyone placed has reached their spot
+    const opened = b.opened ?? b.started;
+    const counted = s.tick >= b.until || (b.auto && s.tick >= opened + AUTO_READY_TICKS && allInPlace(s, b));
+    if (!counted) return true;
+    if (!b.settling) {
+      autoPlace(s, b, r);
+      b.settling = true;
+    }
+    if (!allInPlace(s, b) && s.tick < opened + SETUP_MOST) return true;
+    b.settling = false;
     b.phase = 'fighting';
     if (b.wave === 0) notify(s, `The raiders are on the trail!`);
   }
@@ -807,6 +830,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       b.wave++;
       b.phase = 'breather';
       b.until = s.tick + BREATHER_TICKS;
+      b.opened = s.tick;
       notify(s, `Wave ${b.wave} beaten. ${b.waves - b.wave} more coming: a moment to regroup.`, true);
     } else {
       b.phase = 'done';
@@ -1018,6 +1042,8 @@ export interface BattleView {
   units: { spot: number; person: number | null; ally: number | null; sinceAction: number }[];
   foes: { id: number; x: number; y: number; held: boolean; back: boolean; sinceAction: number; hit: number | null }[];
   /** Who can fight, placed or not (for the placing bar). */
+  /** While setting up: how many placed fighters are still walking to their spots (the raiders wait for them). */
+  onTheWay: number;
   roster: { id: number; name: string; ranged: boolean; mage: boolean; hp: number; maxHp: number; spot: number | null; hero: boolean }[];
   /** The origin's spells that strike raiders: aimed at the map by the player. */
   spells: { id: string; name: string; readyIn: number; affordable: boolean }[];
@@ -1038,6 +1064,7 @@ export function battleView(s: GameState, spells: BattleView['spells']): BattleVi
     map: b.map,
     phase: b.phase,
     secondsLeft: b.phase === 'placing' || b.phase === 'breather' ? Math.max(0, (b.until - s.tick) / TICK_HZ) : null,
+    onTheWay: b.phase === 'placing' || b.phase === 'breather' ? onTheWay(s, b) : 0,
     wave: b.wave,
     waves: b.waves,
     auto: b.auto,

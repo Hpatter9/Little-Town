@@ -419,6 +419,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   past `LEVEL_STEEP` (25) cost `LEVEL_STEEPNESS` (1.12) more each, so the last evolution stays rare: by day 15 the best
   in a town is about level 13 to 16 since levelling was slowed (see "Slower levels"). Soak (4 towns, 15 days, people/deaths): knights 33.0/2, liches 26.8/7, settlers
   17.3/8, vampires 29.5/5.
+- **A set-up stage before every wave (the owner's complaint: defenders ran out past the raiders):** fighters were
+  sent to spots along the whole trail, out to the fog where the raiders come out, and the 30 s count ran out while
+  they walked. Now blocking and ground spots lie only on the last `HOLD_REACH` (14) cells of trail before the gate
+  (the raiders walk the rest under the towers), and when the count is up (or, on auto, once everyone stands ready) the
+  town places whoever's left and the raiders stay in the fog until everyone placed has reached their spot
+  (`Battle.settling`, `onTheWay`), never longer than `SETUP_MOST` (90 s) from the stage's start (`Battle.opened`; the
+  breathers too). The battle bar says "Taking positions · N still on the way" (`BattleView.onTheWay`); on auto it
+  shows that in place of the count. Test in `test/battle.test.ts`.
 - **Battle speed:** the raid battle's top bar has a speed button (1×, 2×, 3×; the `battleSpeed` command,
   `s.battleSpeed`, kept for later battles). `battleSpeedNow` (battle.ts) is read by `GameLoop.pump`, which runs that
   much more sim time while a battle is on; back to the town's pace when it's over.
