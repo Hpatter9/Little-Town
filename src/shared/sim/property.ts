@@ -23,12 +23,22 @@ export function buildSkill(def: BuildingDef): number {
   // (a big footprint asks a little more: beyond BUILD_SKILL_FREE_CELLS, BUILD_SKILL_PER_CELL a cell)
   return Math.round(BUILD_SKILL_BY_ERA[era] + Math.max(0, def.width * depthOf(def) - BUILD_SKILL_FREE_CELLS) * BUILD_SKILL_PER_CELL);
 }
-/** Whether a person may work a site: skilled enough, and (an owned site) its owner or someone the owner can pay. */
+/** Whether a person may work a site: (an owned site) its owner or someone the owner can pay. Anyone may lend a hand;
+ *  the unskilled only go slower (`skillPace`), so an early town never stalls for want of a master builder. */
 export function canWork(s: GameState, p: Person, site: Building): boolean {
-  if (p.skills.construction.level < buildSkill(defOf(site))) return false;
   if (site.owner === undefined || site.owner === p.id) return true;
   const owner = s.people.find((q) => q.id === site.owner);
   return !!owner && (owner.coins ?? 0) >= 1;
+}
+
+/** How fast someone works a site for their Construction against what it asks (`buildSkill`): full pace at it,
+ *  `UNSKILLED_PACE` well short of it; the founder can turn their hand to anything (full pace always). */
+export const UNSKILLED_PACE = 0.4;
+export function skillPace(s: GameState, p: Person, site: Building): number {
+  const need = buildSkill(defOf(site));
+  const have = p.skills.construction.level;
+  if (have >= need || p.id === s.mainId) return 1;
+  return Math.max(UNSKILLED_PACE, have / need);
 }
 
 export const ownerOf = (s: GameState, b: Building): Person | undefined => (b.owner === undefined ? undefined : s.people.find((p) => p.id === b.owner));

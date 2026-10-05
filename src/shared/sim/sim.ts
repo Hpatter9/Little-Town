@@ -4,7 +4,7 @@
 import { openGate } from './raidWait';
 import { maybeEvent } from './events';
 import { rally } from './rally';
-import { battleGo, placeFighter, setAutoBattle, setBattleSpeed } from './battle';
+import { battleGo, placeFighter, setAutoBattle, setBattleSpeed, setGameSpeed } from './battle';
 import { castAt } from './powers';
 import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
@@ -160,7 +160,7 @@ export class Sim {
     boatsHourly(s, this.rng);
     ceremoniesHourly(s);
     injuriesHourly(s, this.rng);
-    if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills);
+    if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills, p.id === s.mainId);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)
     questsHourly(s);
@@ -306,6 +306,9 @@ export class Sim {
       case 'battleSpeed':
         setBattleSpeed(s, c.speed);
         break;
+      case 'gameSpeed':
+        setGameSpeed(s, c.speed);
+        break;
       case 'battleCast':
         castAt(s, c.power, this.rng, [c.x, c.y]);
         break;
@@ -347,7 +350,7 @@ export class Sim {
         const p = s.people.find((q) => q.id === c.person);
         if (!p || p.bornTick != null) break;
         p.autoPriorities = c.on;
-        if (c.on) p.priorities = autoPriorities(p.skills);
+        if (c.on) p.priorities = autoPriorities(p.skills, p.id === s.mainId);
         break;
       }
       case 'dismissAway':

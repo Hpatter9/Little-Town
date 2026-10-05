@@ -780,6 +780,8 @@ export interface GameState {
   autoBattle?: boolean;
   /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */
   battleSpeed?: number;
+  /** How fast the town runs between battles: 1, 2 or 3 times (the clock bar's button). */
+  gameSpeed?: number;
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];
@@ -991,7 +993,7 @@ function makeFounder(p: Person, spec: FounderSpec): void {
   p.traits = [...f.traits];
   if (f.name) p.name = f.name;
   if (f.look) p.look = { ...f.look, ...(f.look.wear ? { wear: [...f.look.wear] } : {}) };
-  p.priorities = autoPriorities(p.skills);
+  p.priorities = autoPriorities(p.skills, true);
   // (a ready-made founder's calling is their own, on its base class)
   const calling = def ? FOUNDER_CLASS[def.id] : undefined;
   if (calling) {
@@ -1028,6 +1030,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
 
   const main = makePerson(rng, 1, 'founder', campPx(-1, 1.6), []);
   if (opts.founder) makeFounder(main, opts.founder);
+  main.priorities = autoPriorities(main.skills, true); // (the founder turns their hand to anything)
   // The camp starts with its fire, which doubles as a small cache, and a little food (more, and company, in
   // some scenarios).
   const scenario = SCENARIO_BY_ID[opts.scenario ?? 'lone'] ?? SCENARIO_BY_ID.lone;
@@ -1221,7 +1224,9 @@ export function makePerson(rng: Rng, id: number, typeId: string, at: Pt, takenNa
  * lone founder shuttled between hauling to it and gathering, and never built it).
  * Defending goes by the better of melee and ranged: 5+ high, 3+ normal, 2 low, and the unfit (1) shelter.
  */
-export function autoPriorities(skills: Record<Skill, SkillLevel>): Record<Job, Priority> {
+/** Priorities from skills: what someone is good at first, everything else after (never off, so nobody stands idle
+ *  while there's work). The founder can turn their hand to anything: building and study never below normal. */
+export function autoPriorities(skills: Record<Skill, SkillLevel>, founder = false): Record<Job, Priority> {
   const out = Object.fromEntries(
     JOBS.map((j) => {
       if (j === 'defend') {
@@ -1235,6 +1240,12 @@ export function autoPriorities(skills: Record<Skill, SkillLevel>): Record<Job, P
   ) as Record<Job, Priority>;
   const top = Math.min(...JOBS.filter((j) => j !== 'defend' && j !== 'construct').map((j) => out[j]));
   out.construct = Math.min(out.construct, top, 2) as Priority;
+  // (the founder: building and study never below normal, whatever their skills; a lone founder still gathers and
+  // carries first, or there would be nothing to build with)
+  if (founder) {
+    out.construct = Math.min(out.construct, 2) as Priority;
+    out.research = Math.min(out.research, 2) as Priority;
+  }
   return out;
 }
 

@@ -1288,6 +1288,26 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     out in two days by 3 to 8 diggers, level 3 by day 11; silver and sulphur sold for a few hundred coins. Soak (12 days,
     one town each): settlers 20 people / 8 deaths, dwarves 20/9, knights (desert) 21/9; all three learned Bronze
     Working, smelted copper and bronze to the reserve and built a bell tower.
+- **Townsfolk inspect page in tabs (the owner's ask):** under the person's card (name, what they're doing, their
+  calling) four tabs (`INSPECT_TABS` in townsfolkPanel.ts, the open one kept in `inspectTab`): **Equipment** (the paper
+  doll, the picked piece, the bag), **Character** (how they'd fight, health and spirits, traits), **Background** (age
+  and people, nature, ambition, job and purse lines, ties and what happened lately) and **Skills** (work skills, then
+  spells, fighting skills, the ultimate and passives as chips). Tapping a skill, spell, passive or trait opens a card
+  saying what it does (`chosenSkill`, `infoCard`): the words come from `src/shared/data/describe.ts` (`SKILL_TEXT` for
+  the work skills, `describeAct` for a spell's or skill's effects and cooldown, `describePassive`), carried on
+  `PersonView.kit[].text` and `PersonView.passives`. Sideways each tab is two columns. `.skill` is left out of the menu
+  themes' button rules.
+- **Work for every hand (the owner's ask: nobody idle early, the founder able to do anything):** the Construction a
+  building asks (`buildSkill`) no longer turns anyone away from a site; below it they work slower (`skillPace` in
+  property.ts, down to `UNSKILLED_PACE` 0.4), and the founder always at full pace. `autoPriorities(skills, founder)`
+  keeps the founder's building and study never below normal. Everyone already had every job on (never 0): what
+  they're good at first, other work when theirs has none, and a job holder goes back to their post as soon as it has
+  work (`ownWork`). Tried and dropped: the founder at the top for every job, and studying ahead of gathering; a lone
+  founder then studied all day, gathered no wood, built nothing and so never had a bed for a newcomer (8 lone towns at
+  day 10: 2 dead, 5 still alone).
+- **Game speed (the owner's ask):** a 1×/2×/3× button on the clock bar (`hud.ts`, the `gameSpeed` command,
+  `s.gameSpeed`, `snapshot.speed`); `battleSpeedNow` (battle.ts, read by `GameLoop.pump`) returns it outside a battle,
+  and the battle's own speed during one. Time away is unaffected.
 - **Events with purpose (done; the owner's ask: every choice does something):** no answer is a bare note or a dab of
   morale any more (`test/eventPurpose.test.ts` checks all 1100 or so): the 250 that were got real outcomes. New effects
   in eventKit.ts (shorthands `teach`, `bond`, `trait`, `item`, `horse`, `build`, and `coin`, `rep`, `calm`, `raidIn`,

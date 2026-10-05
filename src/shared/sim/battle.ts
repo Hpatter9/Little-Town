@@ -526,10 +526,16 @@ export function setBattleSpeed(s: GameState, speed: number): void {
   s.battleSpeed = (BATTLE_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
 }
 
-/** How many times real time the game runs now: the battle speed while a battle is on, else 1 (GameLoop reads it). */
+/** The player sets how fast the town runs between battles (the clock bar's 1×/2×/3× button). */
+export function setGameSpeed(s: GameState, speed: number): void {
+  s.gameSpeed = (BATTLE_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
+}
+
+/** How many times real time the game runs now: the battle speed while a battle is on, else the town's speed
+ *  (GameLoop reads it). */
 export function battleSpeedNow(s: GameState): number {
   const b = s.raid?.battle;
-  return b && b.phase !== 'done' ? (s.battleSpeed ?? 1) : 1;
+  return b && b.phase !== 'done' ? (s.battleSpeed ?? 1) : (s.gameSpeed ?? 1);
 }
 
 /** The player sets auto-watch (kept for later battles): on, the town places and fights by itself. */

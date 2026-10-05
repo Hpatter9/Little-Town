@@ -1281,35 +1281,76 @@
         padding-left: 8px;
         border-left: 2px solid rgba(255, 224, 138, 0.4);
       }
-      .inspect-layout {
+      .inspect-body {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: 'who' 'gear' 'rest';
       }
-      .inspect-who {
-        grid-area: who;
+      .inspect-tabs {
+        margin: 8px 0 2px;
       }
-      .inspect-gear {
-        grid-area: gear;
+      .inspect-tabs .inv-tab {
+        flex: 1;
+        font-size: 13px;
+        padding: 6px 4px;
       }
-      .inspect-rest {
-        grid-area: rest;
+      /* a tapped skill, spell or trait: what it does */
+      .skill-info {
+        margin-top: 8px;
+        padding: 6px 8px;
+        border-left: 3px solid #c8a050;
+        background: rgba(0, 0, 0, 0.25);
+        border-radius: 3px;
       }
-      /* wide (a phone on its side): their gear on the left, who they are and the rest beside it */
+      .skill-info-name {
+        font-weight: 700;
+        color: #ffe08a;
+      }
+      .skill-info-text {
+        margin-top: 2px;
+        font-size: 13px;
+      }
+      button.skill {
+        background: none;
+        border: 0;
+        border-radius: 3px;
+        padding: 3px 4px;
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      button.skill.good {
+        color: #ffe08a;
+      }
+      button.skill.weak {
+        color: #8a7a62;
+      }
+      button.skill.on,
+      button.chip.on {
+        outline: 1px solid #c8a050;
+        background: rgba(200, 160, 80, 0.2);
+      }
+      button.chip {
+        border: 0;
+        color: inherit;
+        font: inherit;
+        font-size: 12px;
+        padding: 3px 7px;
+        cursor: pointer;
+      }
+      .kit .chip.passive {
+        color: #c8e0a8;
+      }
+      /* wide (a phone on its side): each tab in two columns */
       @media (min-aspect-ratio: 3/2) {
-        .inspect-layout {
-          grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
-          grid-template-rows: auto 1fr;
-          grid-template-areas: 'gear who' 'gear rest';
+        .inspect-body {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           gap: 0 16px;
           align-items: start;
         }
         .folk-list {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        }
-        .inspect-gear h2:first-child {
-          margin-top: 0;
         }
       }
       /* their gear laid out round them, as in Diablo */

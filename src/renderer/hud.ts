@@ -24,6 +24,10 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
   const clockText = el('span', { class: 'clock-text' });
   const pause = el('button', { class: 'tab pause' });
   pause.addEventListener('click', togglePause);
+  // how fast the town runs: 1×, 2×, 3× (a raid's battle has its own button)
+  let speed = 1;
+  const fast = el('button', { class: 'tab speed', title: 'Game speed' }, '1×');
+  fast.addEventListener('click', () => bridge.command({ type: 'gameSpeed', speed: (speed % 3) + 1 }));
   const stock = el('span', { class: 'stock' });
   const raid = el('span', { class: 'raid-badge', hidden: '' });
   const doom = el('span', { class: 'raid-badge doom-badge', hidden: '' });
@@ -37,7 +41,7 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
   // the power the player holds back: theirs to cast in a raid (sim/powers.ts castHeld)
   const cast = el('button', { class: 'tab cast', hidden: '' });
   cast.addEventListener('click', () => bridge.command({ type: 'castHeld' }));
-  clock.append(clockText, pause, music, cast, raid, bleed, hunger, doom, launch, foodDays, stock);
+  clock.append(clockText, pause, fast, music, cast, raid, bleed, hunger, doom, launch, foodDays, stock);
   const flash = el('div', { id: 'raid-flash', hidden: '' });
   document.body.append(flash);
   // an epic boss's health bar, across the top of the strip
@@ -114,6 +118,9 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
         bossBox.classList.toggle('enraged', boss.enraged);
       }
       paused = snap.paused;
+      speed = snap.speed ?? 1;
+      if (fast.textContent !== `${speed}×`) fast.textContent = `${speed}×`;
+      fast.classList.toggle('active', speed > 1);
       const c = snap.calendar;
       const sky = c.daylight > 0.5 ? '☀' : '☾'; // sun / moon
       const season = c.season[0].toUpperCase() + c.season.slice(1) + (c.year > 1 ? ` Y${c.year}` : '');
