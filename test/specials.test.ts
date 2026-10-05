@@ -39,12 +39,10 @@ test('seven special newcomers, each with a cover, a truth, a way to be seen thro
   }
 });
 
-test('a special comes from day two, once each, one secret at a time; the gate sees only the cover', () => {
+test('a special may come any day, once each, one secret at a time; the gate sees only the cover', () => {
   const s = plainGame('specials-gate');
   const p = makePerson(new Rng(3), 1000, 'wanderer', campXY(s), []);
-  assert.equal(specialFor(s, p), null, 'not on the first day');
-  s.tick = 3 * TICKS_PER_DAY;
-  // (whether this one is a special is the seed's: some wanderer of the next hundred will be)
+  // (whether this one is a special is the seed's luck: some wanderer of the next hundred will be, on the first day too)
   let found: SpecialId | null = null;
   for (let id = 1000; id < 1100 && !found; id++) {
     p.id = id;

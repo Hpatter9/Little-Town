@@ -7,7 +7,7 @@
 // on the night before his clan rides in (a guard on watch may catch him at it), the exile's power breaks loose, the
 // crown's riders take their heir home. Everything here draws on its own seeded stream, so it never shifts the town's.
 
-import { CATCH_BASE, CATCH_PER_LEVEL, CURSE_DAILY, CURSE_PRICE, HEIR_REWARD, BOUNTY, SPECIALS, SPECIAL_FROM_DAY, SPECIAL_IDS, SPECIAL_SHARE, SPOT_BASE, SPOT_HOUR, SPOT_MOST, SPOT_PER_LEVEL, SURGE_DAILY, THEFT_A_DAY, type SpecialDef, type SpecialId } from '../data/specials';
+import { CATCH_BASE, CATCH_PER_LEVEL, CURSE_DAILY, CURSE_PRICE, HEIR_REWARD, BOUNTY, SPECIALS, SPECIAL_IDS, SPECIAL_SHARE, SPOT_BASE, SPOT_HOUR, SPOT_MOST, SPOT_PER_LEVEL, SURGE_DAILY, THEFT_A_DAY, type SpecialDef, type SpecialId } from '../data/specials';
 import { RAID_KIND_BY_ID, type RaidKind } from '../data/raids';
 import { ENEMIES } from '../data/enemies';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -18,7 +18,7 @@ import { isSeat } from '../data/seats';
 import type { ClassId } from '../data/classes';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import { earn, notify, tireless, type GameState, type Person, type Raid } from './state';
-import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { calendar, TICKS_PER_HOUR } from './time';
 import { raidBudget, raidKindsFor, scheduleNextRaid, startRaid } from './raids';
 import { rulesOf } from '../data/origins';
 import { isChild } from './social';
@@ -39,10 +39,10 @@ const mark = (s: GameState, value: number, h: number, text: string) => (s.marks 
 /* ------------------------------------------------------------ at the gate */
 
 /** Whether this wanderer is one of the specials, and which (decided by the seed and their id: no draw from the town's
- *  stream). Each comes to a town once, one at a time, from `SPECIAL_FROM_DAY`; never to a town of the dead or of
+ *  stream), on any day. Each comes to a town once, one at a time; never to a town of the dead or of
  *  machines (whose newcomers are remade), and the fever never to a town that can't sicken. */
 export function specialFor(s: GameState, p: Person): SpecialId | null {
-  if (s.tick < SPECIAL_FROM_DAY * TICKS_PER_DAY || p.monster) return null;
+  if (p.monster) return null;
   const kin = rulesOf(s).kin;
   if (kin && kin !== 'werewolf') return null;
   if (s.people.some((q) => q.secret && !q.secret.found && !q.secret.settled)) return null;

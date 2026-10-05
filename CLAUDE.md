@@ -1370,8 +1370,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   undoes the defences before his clan comes, and ways to find them out):** `src/shared/data/specials.ts` (`SPECIALS`:
   the Veiled Champion, the Coughing Pilgrim, the Knight of the Black Oath, Red Jack the Highwayman, the Turncoat Scout,
   the Exile in Grey, the Runaway Heir; each a cover for the gate, a cover story and the truth, a `spot` skill and level,
-  a daily `slip`, a `due` range, three answers and a picture) and `src/shared/sim/specials.ts`. A wanderer from day
-  `SPECIAL_FROM_DAY` is one `SPECIAL_SHARE` of the time (`specialFor`, by the seed and their id: no draw from the town's
+  a daily `slip`, a `due` range, three answers and a picture) and `src/shared/sim/specials.ts`. A wanderer, on any day (the
+  owner's call: no special time), is one `SPECIAL_SHARE` of the time (`specialFor`, by the seed and their id: no draw from the town's
   stream; each once a town, `s.specialsSeen`, one hidden at a time, none in a town of the dead or machines); `makeSpecial`
   gives their skills, level and calling and `Person.secret` (`Secret`); the gate and the visitor's question show only the
   cover (`coverOf`), and the Townsfolk page shows the cover story and no calling until it's out (`specialStory`,

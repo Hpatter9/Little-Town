@@ -137,8 +137,7 @@ export const SPECIALS: Record<SpecialId, SpecialDef> = {
 
 export const SPECIAL_IDS = Object.keys(SPECIALS) as SpecialId[];
 
-/** From which day a special may come to the gate, and the share of wanderers who are one. */
-export const SPECIAL_FROM_DAY = 2;
+/** The share of wanderers who are one (any wanderer, any day: who is one is the town's luck). */
 export const SPECIAL_SHARE = 0.3;
 /** The daily chance a skilled townsperson sees through one (their margin over the need adds `SPOT_PER_LEVEL`). */
 export const SPOT_BASE = 0.3;
