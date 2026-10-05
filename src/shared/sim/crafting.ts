@@ -86,6 +86,8 @@ export function canQueueCraft(s: GameState, itemId: string): QueueCheck {
   const def = ITEM_BY_ID[itemId];
   if (!def) return { ok: false, reason: 'Unknown item' };
   if (!itemUnlocked(s, def)) return { ok: false, reason: 'Not researched yet' };
+  // (a unique is made once in all the world)
+  if (def.unique && ((s.uniques ?? []).includes(itemId) || s.crafting.some((o) => o.item === itemId))) return { ok: false, reason: 'There is only one' };
   const same = s.crafting.find((o) => o.item === itemId && o.count < MAX_ORDER);
   if (!same && s.crafting.length >= craftSlots(s)) return { ok: false, reason: 'Craft queue is full' };
   if (!same && stationQueued(s, def.station) >= stationSlots(s, def.station)) return { ok: false, reason: `${stationName(def)} has its ${PER_STATION} orders` };
@@ -179,6 +181,10 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
     const plus = rng && ARMS.has(def.slot!) ? rollPlus(rng, level) : 0;
     const q = piece(grade, plus);
     addItems(s, def.id, 1, q);
+    if (def.unique && !(s.uniques ?? []).includes(def.id)) {
+      (s.uniques ??= []).push(def.id);
+      notify(s, `${p.name} has forged ${def.name}: there is no other like it.`, true);
+    }
     if (grade >= 5 || plus >= 3) notify(s, `${p.name} made a ${pieceLabel(def.name, q)}!`, true);
     payCrafter(s, def, q, p);
   }

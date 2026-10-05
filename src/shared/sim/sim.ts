@@ -2,6 +2,8 @@
 // however many whole ticks that covers.
 
 import { specialsHourly } from './specials';
+import { sagasHourly } from './sagas';
+import { huntsHourly } from './hunts';
 import { openGate } from './raidWait';
 import { maybeEvent } from './events';
 import { rally } from './rally';
@@ -171,6 +173,8 @@ export class Sim {
     replenishSea(s, this.rng);
     bloodHourly(s);
     specialsHourly(s);
+    sagasHourly(s);
+    huntsHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(
       s,

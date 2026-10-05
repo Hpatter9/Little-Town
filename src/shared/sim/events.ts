@@ -209,7 +209,7 @@ function target(s: GameState, which: 'who' | 'random', whoId: number | undefined
   return pool.length ? rng.pick(pool) : undefined;
 }
 
-function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: number | undefined, out: string[] = []): void {
+export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: number | undefined, out: string[] = []): void {
   const who = s.people.find((p) => p.id === whoId);
   const say = (x: string) => out.push(x);
   for (const e of effects) {

@@ -2,6 +2,7 @@
 // for the player with a timer and a default.
 
 import { answerSecret } from './specials';
+import { answerSaga } from './sagas';
 import { answerVisitor } from './townsfolk';
 import { answerThirst } from './monsters';
 import { openGate } from './raidWait';
@@ -87,6 +88,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'thirst') return answerThirst(s, prompt.options[option]);
   if (prompt.kind === 'visitor') return answerVisitor(s, prompt.options[option]);
   if (prompt.kind === 'secret') return answerSecret(s, prompt.who, option);
+  if (prompt.kind === 'saga') return answerSaga(s, prompt.saga, option);
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   if (!e) return;
   e.prompt = null;

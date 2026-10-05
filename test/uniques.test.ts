@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ENEMIES } from '../src/shared/data/enemies';
 import { ITEM_BY_ID } from '../src/shared/data/items';
-import { QUEST_UNIQUES, UNIQUE_FROM, UNIQUES } from '../src/shared/data/uniques';
+import { FORGED, QUEST_UNIQUES, SAGA, UNIQUE_FROM, UNIQUES } from '../src/shared/data/uniques';
 import { WEAPONS } from '../src/shared/data/weapons';
 import { bossSlain, dropLoot } from '../src/shared/sim/bosses';
 import { equipAll } from '../src/shared/sim/crafting';
@@ -19,7 +19,7 @@ test('every unique is a named weapon of a real family, harder-hitting than a mad
     assert.ok(u.unique && u.relic && u.slot === 'weapon' && u.family, `${u.id} is a unique weapon`);
     const made = WEAPONS.filter((w) => w.family === u.family && (w.tier ?? 0) <= (u.tier ?? 0)).sort((a, b) => (b.tier ?? 0) - (a.tier ?? 0))[0];
     if (made) assert.ok((u.effects.damage ?? 0) > (made.effects.damage ?? 0), `${u.id} outhits ${made.id}`);
-    for (const b of UNIQUE_FROM[u.id]) assert.ok(ENEMIES[b]?.boss, `${u.id}: ${b} is a boss`);
+    for (const b of UNIQUE_FROM[u.id]) assert.ok(b === SAGA || b === FORGED || ENEMIES[b]?.boss, `${u.id}: ${b} is a boss`);
   }
   assert.ok(QUEST_UNIQUES.length >= 5, 'some are kept for quests');
   // (most bosses carry at least one)

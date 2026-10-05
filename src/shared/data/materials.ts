@@ -24,6 +24,8 @@ export const MATERIALS = [
   'blood',
   // Minerals (the land's caves dug as mines, travellers, caravans and trade caravans; data/minerals.ts)
   'copper_ore', 'tin_ore', 'silver_ore', 'sulphur', 'copper', 'bronze', 'silver',
+  // Monster parts (the Monster Hunters' Guild's hunts; data/hunts.ts)
+  'beast_fang', 'thick_pelt', 'venom_sac', 'chitin', 'great_horn', 'wyrm_scale', 'gorgon_eye', 'ghost_essence', 'monster_heart', 'dragon_heart',
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 /** What the sea's cells hold (sim/land.ts `seaPool`): gathered by a shore town only. */
@@ -86,6 +88,16 @@ export const MATERIAL_NAMES: Record<Material, string> = {
   copper: 'Copper',
   bronze: 'Bronze',
   silver: 'Silver',
+  beast_fang: 'Beast fang',
+  thick_pelt: 'Thick pelt',
+  venom_sac: 'Venom sac',
+  chitin: 'Chitin plate',
+  great_horn: 'Great horn',
+  wyrm_scale: 'Wyrm scale',
+  gorgon_eye: "Gorgon's eye",
+  ghost_essence: 'Ghost essence',
+  monster_heart: 'Monster heart',
+  dragon_heart: "Dragon's heart",
 };
 
 export type Stock = Partial<Record<Material, number>>;

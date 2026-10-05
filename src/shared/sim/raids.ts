@@ -92,6 +92,7 @@ import { RIVAL_LEADER_COST } from '../data/rivals';
 import { lurkersBeaten } from './lurkers';
 import { caveBearBeaten } from './caveBear';
 import { packRaidBeaten } from './pack';
+import { sagaRaidOver } from './sagas';
 import { fireAt, speedOf, tickBurns } from './defenses';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
@@ -807,6 +808,7 @@ function endRaid(s: GameState, rng: Rng): void {
   lurkersBeaten(s, r);
   caveBearBeaten(s, r);
   packRaidBeaten(s, r, rng);
+  sagaRaidOver(s, r);
   // thieves who got away may have led off a horse, too
   if (s.horses.length && r.raiders.some((rd) => rd.gone && poolSize(rd.carrying) > 0) && rng.chance(HORSE_THEFT)) {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];

@@ -89,6 +89,8 @@ import { rallyState } from './rally';
 import { daysToMove } from './nomads';
 import { describeFoes, MINE_DEPTH, mineLeft, minersAt, placeById, placeDestination, placeDestinations, placeXY } from './places';
 import { packDestinations, packView, type PackView } from './pack';
+import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from './sagas';
+import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { directionName, isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
 import { RIVALS } from '../data/rivals';
@@ -215,6 +217,8 @@ export interface PersonView {
   natureLine: string;
   /** Their own short story (data/backstories.ts; a ready-made founder's is the one written for them). */
   story: string;
+  /** Titles won in the sagas (sim/sagas.ts), the latest last. */
+  titles: string[];
   /** A special newcomer's secret, once the town knows it (sim/specials.ts). */
   secret: { name: string; text: string } | null;
   /** Their life's goal (data/ambitions.ts), and trips made. */
@@ -636,6 +640,10 @@ export interface Snapshot {
   mine: MineView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number }[];
+  /** The sagas under way and those ended (sim/sagas.ts). */
+  sagas: { open: SagaView[]; done: SagaDoneView[] };
+  /** The Monster Hunters' Guild (sim/hunts.ts): whether it stands, its hunts, its forge, and hunts won. */
+  hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
   regions: string[];
   /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
@@ -805,7 +813,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -830,6 +838,8 @@ export function snapshot(s: GameState): Snapshot {
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
     quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
+    sagas: sagasView(s),
+    hunts: huntsView(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
     mine: mineView(s),
@@ -1291,6 +1301,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     job: jobView(s, p),
     natureLine: natureOf(p).line,
     story: storyOf(s, p),
+    titles: p.titles ?? [],
     secret: secretView(p),
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
     trips: p.trips ?? 0,

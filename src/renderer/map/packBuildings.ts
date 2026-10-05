@@ -251,6 +251,8 @@ const PICKS: Record<string, Pick> = {
   tannery: { parts: [[house3, 0, 0], [doBarrel, 122, 124], [vBucket, 108, 140], [vRack, 2, 110]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
   loom: { parts: [[house3, 0, 0], [vRack, 120, 112], [fBox1, 4, 134]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
   // the hunters' camp tent with a rack and the bow sign; the barracks' tents behind a palisade and the sword sign
+  // the Monster Hunters' Guild (data/hunts.ts): the Glassblower pack's shop with a sword sign and a rack of pelts
+  monster_guild: { own: true, parts: [[gbShop, 0, 0], [vSignSword, 2, 122], [vRack, 80, 114]], size: [110, 156], smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
   hunters_lodge: { own: true, parts: [[camp3, 0, 4], [vRack, 58, 0], [vSignBow, 90, 18]], size: [114, 44], overhang: 0 },
   barracks: { own: true, parts: [[camp3, 4, 0], [camp3, 64, 6], [vRack, 122, 2], [palisade05, 0, 30], [palisade05, 32, 30], [vSignSword, 110, 36]], size: [152, 62], overhang: 0 },
   // fires in stone rings (the cave pack) for the bloomery and the kiln; the storytellers' fire with logs to sit on

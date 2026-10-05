@@ -47,13 +47,17 @@ import { payParty } from './economy';
 import { destinationOf, destinationUnlocked, rolesFor, STAKES, sendExpedition, planParty, type SendCheck, type Stakes } from './expeditions';
 import { placeDestinations } from './places';
 import { packDestinations } from './pack';
+import { isSagaDest, sagaDestinations } from './sagas';
+import { huntDestinations, huntStars } from './hunts';
+import { PULL_HUNT_STAR } from '../data/hunts';
+import { PULL_SAGA } from '../data/sagas';
 import { isChild, opinion } from './social';
 import { alarmRaised } from './people';
 import { earn, maxHp, notify, type Expedition, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 
 /** Every destination on the board now (the world's, the places on the land, the rival packs' lairs). */
-export const boardDestinations = (s: GameState): Destination[] => [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s)];
+export const boardDestinations = (s: GameState): Destination[] => [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s)];
 
 /** The player's veto: destinations no party may choose. */
 export const vetoed = (s: GameState, id: string) => (s.vetoed ?? []).includes(id);
@@ -217,6 +221,8 @@ function pull(s: GameState, leader: Person, d: Destination): number {
   if (!s.scouted.includes(d.id)) n += PULL_NEW;
   if (ambitionOf(leader) === 'adventurer' && dangerOf(d) > 0) n += PULL_FIGHT;
   if (d.type === 'gather') n += 1;
+  if (isSagaDest(d.id)) n += PULL_SAGA; // (a saga waits on it)
+  n += huntStars(s, d.id) * PULL_HUNT_STAR; // (the guild's purse, bigger for the harder hunts)
   return n;
 }
 

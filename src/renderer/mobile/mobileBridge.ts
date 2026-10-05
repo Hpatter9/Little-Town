@@ -6,9 +6,12 @@ import { AHEAD_TICKS, cancelAlerts, cleanAlerts, scheduleAlerts, startForecast, 
 import { GameLoop } from '../../shared/gameLoop';
 import { parseSave, serialize } from '../../shared/sim/save';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { newGame } from '../../shared/sim/state';
+import { newGame, type GameState } from '../../shared/sim/state';
 import { cleanNewGameOptions } from '../../shared/data/founding';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
+import { beginSaga } from '../../shared/sim/sagas';
+import { postHunt } from '../../shared/sim/hunts';
+import { Rng } from '../../shared/rng';
 
 const SAVE_KEY = 'littletown.save';
 const BACKUP_KEY = 'littletown.backup';
@@ -115,7 +118,11 @@ export function mobileBridge(): Bridge {
     emit();
   });
   window.addEventListener('pagehide', saveNow);
-  Object.assign(window, { __game: game }); // (for poking at it from a desktop browser's console)
+  // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga and `__hunt(id)` posts a hunt, for previews)
+  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id) });
+  function stateOf(): GameState {
+    return (game as unknown as { sim: { state: GameState } }).sim.state;
+  }
 
   // the strip's selection, shown in the card at the top of the page (and the card's buttons, back to the strip)
   const inspectListeners = new Set<(info: InspectInfo | null) => void>();

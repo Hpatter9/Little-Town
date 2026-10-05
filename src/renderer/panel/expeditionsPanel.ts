@@ -12,7 +12,7 @@ import { button, duration, el } from './dom';
 import { WorldMapView } from './worldMapView';
 import { ITEM_BY_ID } from '../../shared/data/items';
 import { ENEMIES } from '../../shared/data/enemies';
-import { UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
+import { SAGA, UNIQUE_FROM, UNIQUES } from '../../shared/data/uniques';
 import { packDestination, RIVAL_PACK_BY_ID } from '../../shared/data/pack';
 import { FULL_MOON_PHASE } from '../../shared/sim/monsters';
 
@@ -140,6 +140,8 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     grid.append(card);
   }
   out.push(grid);
+  out.push(...sagaList(s));
+  out.push(...huntList(s));
   out.push(...questList(s));
   out.push(...treasures(s));
   out.push(el('div', 'hint', 'Fighters stand in front; scouts, medics and porters in back. Parties fall back when hurt past their stance, or when you are badly hurt. The downed bleed out unless a medic tends them.'));
@@ -247,6 +249,75 @@ function tripControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sna
   return c;
 }
 
+/** The Monster Hunters' Guild: the hunts on its board (stars, purse, parts), and its forge's one-of-a-kind gear. */
+function huntList(s: Snapshot): HTMLElement[] {
+  const g = s.hunts;
+  const out: HTMLElement[] = [el('h2', '', `Hunts${g.won ? ` · ${g.won} won` : ''}`)];
+  if (!g.guild && !g.hunts.length) {
+    out.push(el('div', 'hint', "Once the town learns Monster Lore it raises a Monster Hunters' Guild. The guild posts hunts now and then, one to five stars, with a purse to match; the hunters bring home the monsters' parts, and the guild forges them into gear there is only one of."));
+    return out;
+  }
+  if (!g.hunts.length) out.push(el('div', 'hint', 'No hunts posted just now. The guild posts one every day or two.'));
+  const grid = el('div', 'cards wide');
+  for (const h of g.hunts) {
+    const c = el('div', 'card quest hunt');
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', h.name), el('span', 'card-size stars', '★'.repeat(h.stars)));
+    c.append(top, el('div', 'purpose', h.text), el('div', 'lock short', `${h.purse} coins and ${h.parts} · ${Math.ceil(h.hoursLeft / 24)} days left`));
+    c.addEventListener('click', () => pick(h.dest));
+    grid.append(c);
+  }
+  if (g.hunts.length) out.push(grid);
+  if (!g.guild) return out;
+  out.push(el('h2', '', 'Guild forge'));
+  const forge = el('div', 'cards wide');
+  for (const f of g.forge) {
+    const c = el('div', `card unique${f.made ? '' : ' unmade'}`);
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', f.name), el('span', 'card-size', f.made ? (f.holder ? `Carried by ${f.holder}` : 'Forged') : f.ready ? 'Ready to forge' : 'Not yet'));
+    c.append(top, el('div', 'purpose', ITEM_BY_ID[f.id]?.description ?? ''));
+    if (!f.made) c.append(el('div', 'lock short', `Wants ${f.makings}`));
+    forge.append(c);
+  }
+  out.push(forge);
+  return out;
+}
+
+const OUTCOME: Record<string, string> = { triumph: 'Triumph', bittersweet: 'Bittersweet', ruin: 'Ruin' };
+
+/** The sagas: the stories under way (where each stands, its last lines, its place on the board) and those ended. */
+function sagaList(s: Snapshot): HTMLElement[] {
+  const { open, done } = s.sagas;
+  const out: HTMLElement[] = [el('h2', '', 'Sagas')];
+  if (!open.length && !done.length) {
+    out.push(el('div', 'hint', 'Now and then a story finds the town: a burnt cart on the road, a bell under the sea, a crown in the dirt. The town takes it up itself, two at a time; the parties go where the story needs them.'));
+    return out;
+  }
+  const grid = el('div', 'cards wide');
+  for (const g of open) {
+    const c = el('div', 'card quest saga');
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', g.title), el('span', 'card-size', 'Under way'));
+    c.append(top, el('div', 'purpose', g.now));
+    for (const line of g.log.slice(-2)) c.append(el('div', 'lock short', line));
+    if (g.dest) {
+      const dest = g.dest;
+      c.addEventListener('click', () => pick(dest));
+    }
+    grid.append(c);
+  }
+  for (const g of done.slice(-6).reverse()) {
+    const c = el('div', `card quest saga ${g.outcome}`);
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', g.title), el('span', 'card-size', `${OUTCOME[g.outcome]}, day ${g.day}`));
+    c.append(top);
+    if (g.hero) c.append(el('div', 'lock short', `Its hero: ${g.hero}`));
+    grid.append(c);
+  }
+  out.push(grid);
+  return out;
+}
+
 /** The quests open, each for a dungeon: clear it while it's open, and the reward comes home with the party. */
 function questList(s: Snapshot): HTMLElement[] {
   if (!s.quests.length) return [];
@@ -281,6 +352,7 @@ function treasures(s: Snapshot): HTMLElement[] {
     top.append(el('span', 'card-name', d.name), el('span', 'card-size', u.holder ? `Carried by ${u.holder}` : 'In storage'));
     c.append(top, el('div', 'purpose', d.description));
     if (from.length) c.append(el('div', 'lock short', `From ${from.join(' or ')}`));
+    else if (UNIQUE_FROM[u.id]?.includes(SAGA)) c.append(el('div', 'lock short', 'The prize of a saga'));
     grid.append(c);
   }
   out.push(grid);

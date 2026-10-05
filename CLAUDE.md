@@ -1394,6 +1394,41 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Every menu in tabs, the venues too:** the shop, inn and stores' windows (`renderShop`, through `inTabs(id, ..., 'venue')`:
   Now, Trade, The room; each venue keeps its own tab) and the Chronicle's filters drawn as the same tabs. The open tab
   is lit under every look (`.inv-tab.on` in theme.ts and skins.ts: it was drawn like the rest).
+- **Sagas (done; the owner's ask: long quest chains, varied and unique; the town takes them on itself; failure bends
+  the story, with real losses now and then; mostly hand-written):** `src/shared/data/sagas.ts` (`SAGAS`: The Burnt Cart,
+  The Wolf That Walks, The Drowned Bell (shore towns), The Feud (two of the town, `cast`), The Plague Doctor, The Iron
+  Crown; each a graph of chapters: `choice` (a full-screen question with a picture; answers set flags), `trip` (a place
+  on the Expedition Board), `task` (something the town must have done in time), `raid`, `wait`, `end` (triumph,
+  bittersweet or ruin: effects, a title for the hero, a unique)). `src/shared/sim/sagas.ts`: `sagasHourly` begins one at
+  `SAGA_HOUR` now and then (`SAGA_DAILY`, `SAGA_GAP_DAYS` apart, at most `MAX_SAGAS` 2, each saga once a town, off in
+  the tests' `plainGame`), and drives each run (`s.sagas`: `SagaRun`, `s.sagasDone`). A choice is a prompt of kind
+  `saga` (the event sheet shows it; the default stands after `SAGA_ASK_HOURS`, so the town decides when nobody does;
+  `answerSaga`); a trip is the destination `saga:<run>` (type `clear`; `sagaDestOf`, in `boardDestinations` and the
+  snapshot's destinations), which the parties choose for themselves (`PULL_SAGA` in `pull`); `sagaTripHome` (from
+  `comeHome`) goes on by whether they cleared it, and nobody going in time is its own branch (`late`); a raid chapter
+  starts a raid tagged `Raid.saga` with its leader (`sagaRaidOver` from `endRaid`: beaten if the leader fell). Effects are
+  the events' (`apply`, now exported from sim/events.ts) and the saga's own (`castBond`, `castHurt`, `castKill`,
+  `title`, `unique`). The hero is the leader of the last trip won, else the founder; titles are on `Person.titles`
+  (the inspect page). The six saga uniques are rows of uniques.ts marked `SAGA`. The Expeditions tab's Quests tab has a
+  Sagas section (where each stands, its latest lines, those ended). `window.__saga(id)` begins one (previews). Tests:
+  `test/sagas.test.ts` (every chapter reached, every next written, each saga can end well and badly). Probe (6 towns,
+  15 days): 3 to 4 sagas a town, endings of every kind.
+- **The Monster Hunters' Guild (done; the owner's ask: hunts now and then with rewards by difficulty, and components
+  made into rare unique gear):** `src/shared/data/hunts.ts`: the topic Monster Lore (Stone Age), the guild hall
+  (`monster_guild`, a crafting station; the planner builds it like any workshop and scores the topic +20 at 5 people;
+  on the map the Glassblower pack's shop with a sword sign and a pelt rack), 21 quarries of one to five stars
+  (`QUARRIES`: foes from the bestiary, the parts they give), the purse by stars (`HUNT_PURSE` 40 to 420), ten monster
+  parts as materials (`COMPONENTS`: beast fang, thick pelt, venom sac, chitin, great horn, wyrm scale, gorgon's eye,
+  ghost essence, monster heart, dragon's heart; worth in trade.ts, DawnLike icons), and the forge: seven unique weapons
+  (rows of uniques.ts marked `FORGED`, their makings in `FORGE`) and six unique pieces of armour (`FORGED_ARMOUR`).
+  `src/shared/sim/hunts.ts`: `huntsHourly` posts a hunt now and then while the guild stands (`HUNT_POST_CHANCE`,
+  `HUNT_EVERY_HOURS` apart, at most `MOST_HUNTS`, lapsing after `HUNT_DAYS`; stars up to `starsFor`: the town's size and
+  age), on the board as `mhunt:<id>` (type `clear`); parties take them up (`PULL_HUNT_STAR` a star); `huntHome` pays the
+  party the purse and stores the parts. `planForge` orders each forged unique once its makings are in store (one at a
+  time); `canQueueCraft` refuses a unique already made or queued, and `finishPiece` records it in `s.uniques`. The
+  planner keeps parts the forge still wants out of `forSale` and leaves uniques out of `bestMakeable`. The Quests tab has
+  Hunts (stars, purse, parts) and the Guild forge (each piece, its makings, who carries it). `window.__hunt(id)` posts
+  one (previews). Tests: `test/hunts.test.ts`.
 - **The map's grip (upright; the owner's ask: the map full screen or half at will):** a grip on the map's top edge
   (`#map-grip`, mobile.ts): drag it up over the feed or down to half (`MAP_LEAST`), a tap flips between the whole
   room and half. Kept in `littletown.mapShare` (unset: the map follows the feed as before, `townShare`); at the whole

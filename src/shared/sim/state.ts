@@ -307,8 +307,36 @@ export interface Raider {
   lastCast?: number;
 }
 
+/** A hunt on the Monster Hunters' Guild's board (data/hunts.ts, sim/hunts.ts). */
+export interface Hunt {
+  id: number;
+  quarry: string;
+  posted: number;
+  until: number;
+}
+
+/** A saga under way (data/sagas.ts, sim/sagas.ts). */
+export interface SagaRun {
+  /** The run's own id (a trip to it is the destination `saga:<run>`). */
+  run: number;
+  id: string;
+  /** The chapter it's at, since when, and the flags its answers set. */
+  ch: string;
+  at: number;
+  flags: string[];
+  started: number;
+  /** The hero (the leader of its last trip won, else the founder), and the two it's about. */
+  hero?: number;
+  a?: number;
+  b?: number;
+  /** What has happened so far, a line a chapter. */
+  log: string[];
+}
+
 export interface Raid {
   id: number;
+  /** A saga's raid: the run it belongs to (sim/sagas.ts). */
+  saga?: number;
   /** Fallen raiders raised by necromancers this raid, and when a Beast Tamer can tame again. */
   raised?: number;
   nextTame?: number;
@@ -343,6 +371,8 @@ export interface Needs {
 export interface Person {
   id: number;
   name: string;
+  /** Titles won in the sagas ("Maud's Bane"): the latest is said after the name. */
+  titles?: string[];
   /** RecruitType id. */
   type: string;
   look: Look;
@@ -537,7 +567,9 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga';
+  /** A saga's question: the run it belongs to (sim/sagas.ts). */
+  saga?: number;
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -723,6 +755,14 @@ export interface GameState {
    *  this tick (towers and traps silent: sim/specials.ts). */
   specialsSeen?: SpecialId[];
   sabotage?: number;
+  /** The sagas under way (sim/sagas.ts), those finished (by id), and when the last began. */
+  sagas?: SagaRun[];
+  sagasDone?: { id: string; outcome: 'triumph' | 'bittersweet' | 'ruin'; tick: number; hero?: string }[];
+  lastSaga?: number;
+  /** The Monster Hunters' Guild (sim/hunts.ts): hunts on its board, when it last posted one, and hunts won by quarry. */
+  hunts?: Hunt[];
+  lastHunt?: number;
+  huntsWon?: Record<string, number>;
   tithe?: boolean;
   /** When the town last said someone dropped a load for want of storage (once an hour at most). */
   dropNoted?: number;

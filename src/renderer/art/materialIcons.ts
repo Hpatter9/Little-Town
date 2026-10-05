@@ -62,6 +62,17 @@ export function materialIcon(m: Material, size = 14): HTMLElement | null {
 /** Where the other materials' pictures are: a cell of a DawnLike sheet, or a code-drawn icon (customIcons.ts). */
 const CELLS: Partial<Record<Material, ItemDef['icon']>> = {
   gold: { sheet: 'Money', x: 1, y: 0 },
+  // monster parts (data/hunts.ts)
+  beast_fang: { sheet: 'Flesh', x: 4, y: 8 },
+  thick_pelt: { sheet: 'Flesh', x: 0, y: 8 },
+  venom_sac: { sheet: 'Flesh', x: 2, y: 2 },
+  chitin: { sheet: 'Flesh', x: 3, y: 8 },
+  great_horn: { sheet: 'Flesh', x: 1, y: 3 },
+  wyrm_scale: { sheet: 'Flesh', x: 7, y: 8 },
+  gorgon_eye: { sheet: 'Rock', x: 1, y: 0 },
+  ghost_essence: { sheet: 'Potion', x: 7, y: 2 },
+  monster_heart: { sheet: 'Flesh', x: 4, y: 2 },
+  dragon_heart: { sheet: 'Potion', x: 3, y: 3 },
   gems: { sheet: 'Rock', x: 1, y: 0 },
   fish: { sheet: 'Flesh', x: 6, y: 0 },
   kelp: { sheet: 'Food', x: 4, y: 3 },
