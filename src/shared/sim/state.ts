@@ -1,6 +1,7 @@
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
+import type { SpecialId } from '../data/specials';
 import type { BoatKind } from '../data/boats';
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
@@ -306,8 +307,36 @@ export interface Raider {
   lastCast?: number;
 }
 
+/** A hunt on the Monster Hunters' Guild's board (data/hunts.ts, sim/hunts.ts). */
+export interface Hunt {
+  id: number;
+  quarry: string;
+  posted: number;
+  until: number;
+}
+
+/** A saga under way (data/sagas.ts, sim/sagas.ts). */
+export interface SagaRun {
+  /** The run's own id (a trip to it is the destination `saga:<run>`). */
+  run: number;
+  id: string;
+  /** The chapter it's at, since when, and the flags its answers set. */
+  ch: string;
+  at: number;
+  flags: string[];
+  started: number;
+  /** The hero (the leader of its last trip won, else the founder), and the two it's about. */
+  hero?: number;
+  a?: number;
+  b?: number;
+  /** What has happened so far, a line a chapter. */
+  log: string[];
+}
+
 export interface Raid {
   id: number;
+  /** A saga's raid: the run it belongs to (sim/sagas.ts). */
+  saga?: number;
   /** Fallen raiders raised by necromancers this raid, and when a Beast Tamer can tame again. */
   raised?: number;
   nextTame?: number;
@@ -342,6 +371,8 @@ export interface Needs {
 export interface Person {
   id: number;
   name: string;
+  /** Titles won in the sagas ("Maud's Bane"): the latest is said after the name. */
+  titles?: string[];
   /** RecruitType id. */
   type: string;
   look: Look;
@@ -433,6 +464,8 @@ export interface Person {
   nature?: NatureId | null;
   /** A monster (werewolf or vampire), its standing order for the Hunter's Guild, and when it last fed. */
   monster?: MonsterKind | null;
+  /** A special newcomer's secret (data/specials.ts, sim/specials.ts): who they really are, and how it stands. */
+  secret?: Secret;
   /** Their class (data/classes.ts): given once when they're grown, for life. */
   cls?: ClassId | null;
   /** A founder's own calling (data/founderClasses.ts: the founder's id), standing on `cls` as its base. */
@@ -513,10 +546,30 @@ export interface Caravan {
   faction?: OriginId;
 }
 
+/** A special newcomer's secret (sim/specials.ts). */
+export interface Secret {
+  id: SpecialId;
+  /** Found out (the town has had its say, or the secret struck first). */
+  found?: boolean;
+  /** When they joined, and when the secret strikes if still hidden. */
+  joined?: number;
+  due?: number;
+  /** The secret struck before anyone saw it. */
+  struck?: boolean;
+  /** It's over: nothing more comes of it. */
+  settled?: boolean;
+  /** What the town chose (the option's index), once it knew. */
+  choice?: number;
+  /** Coins the highwayman lifted from the treasury. */
+  stolen?: number;
+}
+
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga';
+  /** A saga's question: the run it belongs to (sim/sagas.ts). */
+  saga?: number;
   /** The expedition it's about (strangers), or null. */
   expedition: number | null;
   title: string;
@@ -524,6 +577,11 @@ export interface Prompt {
   options: string[];
   defaultOption: number;
   expiresTick: number;
+  /** A choice event's fuller telling (the scene, the event, more of it), its picture (a painted background, data/
+   *  eventScenes.ts), and who it's about: for the full-screen event box. */
+  story?: string;
+  picture?: string;
+  who?: number;
 }
 
 export type ExpeditionPhase = 'out' | 'work' | 'back';
@@ -693,6 +751,20 @@ export interface GameState {
   /** A hidden vampire's bites on townsfolk since the town last spoke of it, and whether the town keeps a blood tithe
    *  for its vampires (sim/monsters.ts: fed cleanly, no more bites). */
   bites?: number;
+  /** The special newcomers who have come to this town (each comes once), and the defences undone by a saboteur until
+   *  this tick (towers and traps silent: sim/specials.ts). */
+  specialsSeen?: SpecialId[];
+  sabotage?: number;
+  /** The sagas under way (sim/sagas.ts), those finished (by id), and when the last began. */
+  sagas?: SagaRun[];
+  sagasDone?: { id: string; outcome: 'triumph' | 'bittersweet' | 'ruin'; tick: number; hero?: string }[];
+  lastSaga?: number;
+  /** The Monster Hunters' Guild (sim/hunts.ts): hunts on its board, when it last posted one, and hunts won by quarry. */
+  hunts?: Hunt[];
+  /** The kinds of foe the town has met, in raids or on the road (the Bestiary: `meet`). */
+  met?: string[];
+  lastHunt?: number;
+  huntsWon?: Record<string, number>;
   tithe?: boolean;
   /** When the town last said someone dropped a load for want of storage (once an hour at most). */
   dropNoted?: number;
@@ -777,11 +849,14 @@ export interface GameState {
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
+  /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */
   autoBattle?: boolean;
   /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */
   battleSpeed?: number;
   /** How fast the town runs between battles: 1, 2 or 3 times (the clock bar's button). */
   gameSpeed?: number;
+  /** The last event answered and what came of it (sim/events.ts `tell`), for the feed's card. */
+  eventOutcome?: { title: string; choice: string | null; text: string; tick: number };
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];
@@ -947,6 +1022,12 @@ export function remember(s: GameState, p: Person, text: string): void {
   const r = (p.recent ??= []);
   r.push({ tick: s.tick, text });
   if (r.length > RECENT) r.splice(0, r.length - RECENT);
+}
+
+/** The town has met these kinds of foe (the Bestiary page lights them up). */
+export function meet(s: GameState, kinds: Iterable<string>): void {
+  const met = (s.met ??= []);
+  for (const k of kinds) if (!met.includes(k)) met.push(k);
 }
 
 /** Tell the player something: a toast on the strip and a line in the Journal. `key` marks milestones. */

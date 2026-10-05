@@ -194,6 +194,14 @@ export function createFightHud(on: { back(): void }): FightHud {
         cost.className = 'ff-cost';
         cost.textContent = shown.ult ? `${shown.who} · ULTIMATE` : `${shown.who} · ${shown.cost} ${POOL_NAMES[shown.pool!]}`;
         banner.append(name, cost);
+        // (what it does, in a line)
+        if (shown.text) {
+          const what = document.createElement('span');
+          what.className = 'ff-what';
+          what.textContent = shown.text;
+          banner.append(what);
+          bannerUntil += 700;
+        }
         banner.hidden = false;
       }
       fadeBanner();

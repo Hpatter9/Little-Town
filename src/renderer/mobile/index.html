@@ -443,6 +443,13 @@
       .feed-card.ask {
         border-color: #e8c88a;
       }
+      /* an event just answered: the choice and what came of it */
+      .feed-card.answered {
+        border-color: #7aa860;
+      }
+      .feed-card.answered .feed-pic {
+        color: #a8d080;
+      }
       .feed-pic {
         flex: none;
         width: 40px;
@@ -573,6 +580,102 @@
           left: calc(50% + 8px);
           right: calc(env(safe-area-inset-right) + 8px);
           max-height: calc(100% - var(--tabs-h) - 16px - env(safe-area-inset-bottom));
+        }
+      }
+      /* a choice event: the whole screen, a picture over the telling, the answers as big buttons (eventSheet.ts) */
+      #event-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        background: #16110c;
+        color: #f0e4c8;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      }
+      #event-sheet[hidden] {
+        display: none;
+      }
+      .event-art {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        background: linear-gradient(180deg, #2a3a4a, #16110c);
+        overflow: hidden;
+        border-bottom: 2px solid #c79a55;
+      }
+      .event-backdrop {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 50% 100%;
+        image-rendering: pixelated;
+      }
+      .event-who {
+        position: absolute;
+        left: 6%;
+        bottom: 4%;
+        height: 46%;
+        width: auto;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
+      }
+      .event-body {
+        padding: 14px 16px 24px;
+      }
+      .event-title {
+        font-family: var(--font-display);
+        font-size: 22px;
+        color: #ffe08a;
+        margin-bottom: 8px;
+      }
+      .event-text p {
+        margin: 0 0 10px;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      .event-options {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .event-option {
+        min-height: 48px;
+        padding: 10px 14px;
+        font: inherit;
+        font-size: 16px;
+        text-align: left;
+        color: #f0e4c8;
+        background: #3b2b1e;
+        border: 2px solid #6e4d2e;
+        border-radius: 6px;
+      }
+      .event-option.default {
+        border-color: #c79a55;
+      }
+      .event-count {
+        margin-top: 10px;
+        font-size: 13px;
+        color: #a89878;
+      }
+      /* on its side: the picture on the left, the telling beside it */
+      @media (orientation: landscape) and (max-height: 560px) {
+        #event-sheet {
+          display: grid;
+          grid-template-columns: 46% 1fr;
+          overflow: hidden;
+        }
+        .event-art {
+          aspect-ratio: auto;
+          height: 100%;
+          border-bottom: 0;
+          border-right: 2px solid #c79a55;
+        }
+        .event-body {
+          overflow-y: auto;
         }
       }
     </style>

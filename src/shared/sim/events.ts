@@ -5,6 +5,7 @@
 // and it waits for the player to come back and answer, which sets the town going again.
 // The events are data (data/events.ts); what each answer does is a list of effects, applied here.
 
+import { strangerTurn } from './specials';
 import { EVENTS, EVENT_BY_ID, type EventDef, type EventEffect } from '../data/events';
 import type { EventOption } from '../data/eventKit';
 import { MATERIALS, MATERIAL_NAMES, type Material } from '../data/materials';
@@ -31,8 +32,12 @@ import { killPerson } from './health';
 import { revealOccult } from './occult';
 import { equipAll } from './crafting';
 import { townFull, addStock, campX, campXY, earn, makePerson, maxHp, notify, type GameState, type Person } from './state';
-import { TICKS_PER_HOUR } from './time';
-import { assignBeds, campEdge, joinOrigin } from './townsfolk';
+import { calendar, TICKS_PER_HOUR } from './time';
+import { weatherAt } from './weather';
+import { seaTown } from './sea';
+import { eventPicture, sceneLine } from '../data/eventScenes';
+import { EVENT_MORE } from '../data/eventMore';
+import { assignBeds, campEdge, joinOrigin, secretStranger } from './townsfolk';
 import { isChild } from './social';
 
 /** Game hours an event waits for an answer before the default is taken (in play; it waits while you're away). */
@@ -69,11 +74,27 @@ export function maybeEvent(s: GameState, rng: Rng): void {
     if (next && grownUps(s).length) return startEvent(s, next, rng);
   }
   if (s.event || s.tick < (s.nextEventTick ?? hours(EVENT_GRACE_HOURS)) || !grownUps(s).length) return;
+  // (one turn in a hundred, a secret stranger comes to the gate instead: sim/specials.ts)
+  if (strangerTurn(s) && secretStranger(s, rng)) {
+    s.nextEventTick = s.tick + hours(rng.int(EVENT_GAP_HOURS[0], EVENT_GAP_HOURS[1]));
+    return;
+  }
   const seen = s.eventLog ?? [];
   const open = EVENTS.filter((e) => !seen.includes(e.id) && (!e.when || e.when(s)));
   if (!open.length) return;
   const id = rng.weighted(Object.fromEntries(open.map((e) => [e.id, e.weight ?? 1])));
   startEvent(s, EVENT_BY_ID[id], rng);
+}
+
+/** The full-screen box's telling of an event: a line setting the scene as the town is now, the event, and the
+ *  longer passage written for it; its picture; and who it's about. */
+function eventTelling(s: GameState, def: EventDef, who: Person | undefined): { story: string; picture: string; who?: number } {
+  const c = calendar(s.tick);
+  const now = { hour: c.hour, season: c.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) } as const;
+  const salt = def.id.length * 31 + c.day;
+  const more = EVENT_MORE[def.id];
+  const story = [sceneLine(now, salt), fill(s, def.text, who), more ? fill(s, more, who) : ''].filter(Boolean).join(' ') + coinsLine(s, def);
+  return { story, picture: eventPicture(def.id, `${def.title} ${def.text}`, now), ...(who ? { who: who.id } : {}) };
 }
 
 /** Put an event to the player now. */
@@ -90,6 +111,7 @@ export function startEvent(s: GameState, def: EventDef, rng: Rng): void {
     options: def.options.map((o) => fill(s, o.label, who) + costOf(s, o)),
     defaultOption: def.options.findIndex((o) => o.default),
     expiresTick: s.tick + hours(EVENT_HOURS),
+    ...eventTelling(s, def, who),
   });
   s.event = { def: def.id, prompt: id, who: who?.id };
   if (def.fateful) s.lastFateful = s.tick;
@@ -138,13 +160,15 @@ export function answerEvent(s: GameState, option: number, rng: Rng): void {
     out,
   );
   if (o.effects.some((e) => 'later' in e)) out.push('more to come');
-  tell(s, def.title, out);
+  tell(s, def.title, out, o.label);
 }
 
 /** What came of an answer, said in one line under its title, so every choice is seen to do something. */
-function tell(s: GameState, title: string | undefined, out: string[]): void {
+function tell(s: GameState, title: string | undefined, out: string[], choice?: string): void {
   if (!out.length) return;
   notify(s, `${title ?? 'What came of it'}: ${out.join(', ')}.`, true);
+  // (kept a while for the feed's card: the question answered, and what came of it)
+  s.eventOutcome = { title: title ?? 'What came of it', choice: choice ? fill(s, choice, undefined) : null, text: out.join(', '), tick: s.tick };
 }
 
 const span = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : h >= 20 ? 'a day' : `${Math.round(h)} hours`);
@@ -185,7 +209,7 @@ function target(s: GameState, which: 'who' | 'random', whoId: number | undefined
   return pool.length ? rng.pick(pool) : undefined;
 }
 
-function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: number | undefined, out: string[] = []): void {
+export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: number | undefined, out: string[] = []): void {
   const who = s.people.find((p) => p.id === whoId);
   const say = (x: string) => out.push(x);
   for (const e of effects) {
@@ -355,7 +379,7 @@ function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, whoId: n
 }
 
 /** Take a share of the town's food, its stores, or its coins. */
-function take(s: GameState, what: 'food' | 'stores' | 'coins', share: number): number {
+export function take(s: GameState, what: 'food' | 'stores' | 'coins', share: number): number {
   if (what === 'coins') {
     const n = Math.floor((s.coins ?? 0) * share);
     s.coins = (s.coins ?? 0) - n;

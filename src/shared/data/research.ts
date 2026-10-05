@@ -5,6 +5,7 @@ import type { OriginId } from './origins';
 import type { WorkAnim } from './terrain';
 import { WORKSHOP_TOPICS } from './workshops';
 import { MINERAL_TOPICS } from './minerals';
+import { MONSTER_LORE } from './hunts';
 import { BOAT_TOPICS } from './boats';
 
 export type Branch = 'construction' | 'crafting' | 'agriculture' | 'military' | 'medicine' | 'logistics' | 'society' | 'occult' | 'heritage';
@@ -350,6 +351,7 @@ export const TOPICS: readonly Topic[] = [
   ]),
   ...WORKSHOP_TOPICS,
   ...MINERAL_TOPICS,
+  MONSTER_LORE,
   ...BOAT_TOPICS,
 ];
 

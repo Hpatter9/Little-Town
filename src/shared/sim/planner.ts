@@ -4,6 +4,7 @@
 // and why, is kept in `s.plan` for the panels to show.
 
 import { BOAT_TOPICS } from '../data/boats';
+import { COMPONENTS, FORGED_IDS } from '../data/hunts';
 import { prostheticsWanted } from './injuries';
 import { PROSTHETIC_BY_ITEM } from '../data/injuries';
 import { venuePurse } from './ambition';
@@ -244,6 +245,7 @@ function topicScore(t: Topic, n: Needs): number {
   // (children are how a town grows now that newcomers are few: it learns family life once there are a few of it)
   if (t.id === 'family_life') score += n.people >= 4 ? 40 : 10;
   // (boats: fishing when food runs short, islands and the sea's markets once the town is a few strong: data/boats.ts)
+  if (t.id === 'monster_lore') score += n.people >= 5 ? 20 : 4; // (the Monster Hunters' Guild: hunts for a purse, and gear from the parts)
   if (BOAT_TOPICS.some((b) => b.id === t.id)) score += (n.people >= 4 ? 24 : 6) + (t.id === 'boatbuilding' && n.shore ? 16 : 0) + (n.foodDays < 5 && t.id === 'boatbuilding' ? 12 : 0) + (n.direction === 'trade' && (t.id === 'navigation' || t.id === 'steamships') ? 10 : 0);
   // (someone has lost a limb or an eye: learn to make them good)
   if ((t.id === 'peg_and_hook' || t.id === 'prosthetics' || t.id === 'bionics') && n.limbless) score += 30;
@@ -318,7 +320,7 @@ function inputsReady(s: GameState, i: ItemDef, stock: Stock): boolean {
 
 /** The best thing of a kind the town can make at all (unlocked, its station built, anything it's made from in hand). */
 function bestMakeable(s: GameState, pred: (i: ItemDef) => boolean, power: (i: ItemDef) => number): ItemDef | undefined {
-  return ITEMS.filter((i) => pred(i) && !i.research.includes('__relic') && itemUnlocked(s, i) && stationFor(s, i) && Object.entries(i.items ?? {}).every(([id, k]) => (s.items[id] ?? 0) >= k))
+  return ITEMS.filter((i) => pred(i) && !i.research.includes('__relic') && !i.unique && itemUnlocked(s, i) && stationFor(s, i) && Object.entries(i.items ?? {}).every(([id, k]) => (s.items[id] ?? 0) >= k))
     .sort((a, b) => power(b) - power(a))[0];
 }
 
@@ -960,6 +962,8 @@ export function forSale(s: GameState): Stock {
   for (const m of MATERIALS) {
     const have = n.stock[m] ?? 0;
     if (m === 'totem' || have <= 0) continue;
+    // (monster parts are kept while the guild's forge still wants them for something not yet made)
+    if ((COMPONENTS as readonly string[]).includes(m) && FORGED_IDS.some((id) => !(s.uniques ?? []).includes(id) && (ITEM_BY_ID[id]?.cost[m] ?? 0) > 0)) continue;
     let spare: number;
     const value = FOOD_VALUE[m];
     if (value) {

@@ -40,3 +40,39 @@ test('every skill, spell and fighting skill has words for what it does', () => {
     assert.ok(!(a.active ? describeAct(a.active.effects) : '').includes('undefined'), a.id);
   }
 });
+
+test("the bar over someone's head shows how far along their work is, and only while they're at it", async () => {
+  const { snapshot } = await import('../src/shared/sim/snapshot');
+  const { put, camp } = await import('./helpers');
+  const s = plainGame('workbar');
+  const site = put(s, 'stockpile', camp(s).x + 3, camp(s).y + 3);
+  site.status = 'blueprint';
+  site.progress = 0.4;
+  const p = s.people[0];
+  p.task = { type: 'build', building: site.id };
+  p.activity = 'build';
+  assert.equal(snapshot(s).people[0].taskDone, 0.4);
+  p.activity = 'walk'; // (on the way: no bar)
+  assert.equal(snapshot(s).people[0].taskDone, null);
+});
+
+test('every calling says what it is, how it fights and its role', async () => {
+  const { CLASS_ABOUT, ROLE_ABOUT } = await import('../src/shared/data/classAbout');
+  const { CLASS_DEFS, CLASSES } = await import('../src/shared/data/classes');
+  for (const c of CLASSES) {
+    assert.ok(CLASS_ABOUT[c].what.length > 40 && CLASS_ABOUT[c].fights.length > 40, c);
+    assert.ok(ROLE_ABOUT[CLASS_DEFS[c].role], c);
+  }
+});
+
+test('everyone has a short story of their own', async () => {
+  const { snapshot } = await import('../src/shared/sim/snapshot');
+  const { makePerson } = await import('../src/shared/sim/state');
+  const { Rng } = await import('../src/shared/rng');
+  const s = plainGame('stories');
+  const rng = new Rng(9);
+  for (let i = 0; i < 40; i++) s.people.push(makePerson(rng, s.nextId++, ['wanderer', 'hunter', 'crafter', 'gatherer', 'hermit'][i % 5], s.people[0], s.people.map((p) => p.name)));
+  const stories = snapshot(s).people.map((p) => p.story);
+  assert.ok(stories.every((t) => t.length > 60), 'each a few sentences');
+  assert.ok(new Set(stories).size === stories.length, 'no two alike');
+});

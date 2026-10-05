@@ -19,6 +19,7 @@ const camp = (s: GameState) => campCell(s).x;
 function town(seed: string, n = 4): GameState {
   const s = plainGame(seed);
   s.battles = true;
+  s.autoBattle = false; // (placed by hand in these tests; a town fights on auto unless the player turns it off)
   s.nextRaidTick = Number.MAX_SAFE_INTEGER;
   s.nextDoomTick = Number.MAX_SAFE_INTEGER;
   s.people[0].priorities.defend = 1;
@@ -121,6 +122,7 @@ test('a big raid comes in waves; auto-watch places everyone at once', () => {
 test('a spell cast on the map strikes only the raiders where it is aimed', () => {
   const s = newGame('aim', { origin: 'lich' });
   s.battles = true;
+  s.autoBattle = false;
   s.autopilot = false;
   const r = startRaid(s, RAID_KIND_BY_ID.bandits, 60, new Rng(2));
   r.phase = 'active';
@@ -275,4 +277,15 @@ test('a fighter who falls back off the line takes a parting blow from each raide
   // (the second strikes too, unless the first blow already laid the fighter out)
   assert.ok(p.downed || held[1].lastAction === tick, 'and the second, if there was anyone left to strike');
   for (const rd of held) assert.equal(rd.bt!.held, undefined, 'and none is held any longer');
+});
+
+test('a battle fights itself unless the player has turned auto off', () => {
+  const s = newGame('auto-default');
+  s.battles = true;
+  s.autopilot = false;
+  assert.equal(s.autoBattle, undefined);
+  const r = startRaid(s, RAID_KIND_BY_ID.bandits, 60, new Rng(2));
+  r.phase = 'active';
+  startBattle(s, r);
+  assert.equal(r.battle!.auto, true);
 });

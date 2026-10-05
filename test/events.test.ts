@@ -44,8 +44,16 @@ test('every answer to every event can be given, and what comes of it later happe
       sim.command({ type: 'answerPrompt', prompt: prompt.id, option: o });
       sim.step();
       s.nextEventTick = Number.MAX_SAFE_INTEGER; // (no other event while it plays out)
-      // (anything that comes later: up to three days on)
-      for (let t = 0; t < 3 * TICKS_PER_DAY && !s.gameOver && (s.eventLater?.length ?? 0) > 0; t++) sim.step();
+      // (anything that comes later: up to three days on; the clock jumps hour to hour rather than the town running
+      // all that while, which made this the slowest test by far)
+      const rng = new Rng(o + 7);
+      const end = s.tick + 3 * TICKS_PER_DAY;
+      while (!s.gameOver && (s.eventLater?.length ?? 0) > 0 && s.tick < end) {
+        const next = Math.min(...s.eventLater!.map((l) => l.tick));
+        s.tick = Math.max(s.tick + 1, Math.ceil(next / TICKS_PER_HOUR) * TICKS_PER_HOUR);
+        maybeEvent(s, rng);
+        s.nextEventTick = Number.MAX_SAFE_INTEGER;
+      }
       sim.step();
       assert.ok(!s.event || s.event.def !== def.id, `${def.id}/${o}: answered (a follow-up may be asked next)`);
       assert.ok(!(s.eventLater ?? []).length || s.gameOver, `${def.id}/${o}: later effects done`);

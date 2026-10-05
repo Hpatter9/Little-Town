@@ -2,6 +2,7 @@
 // the town every few seconds: draining and storming the townsfolk, raising and mending its own, and hexing the
 // defenders (held, fogged, an EMP) or blessing its army (frenzied, warded). raids.ts reads the hexes.
 
+import { sabotaged } from './specials';
 import { WORLD_WIDTH } from '../constants';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { ENEMIES } from '../data/enemies';
@@ -41,7 +42,8 @@ export const fogAim = (s: GameState) => (hexOn(s, 'fog') ? FOG_AIM : 0);
 export const wardOf = (s: GameState) => (hexOn(s, 'ward') ? WARD : 1);
 export const frenzyOf = (s: GameState) => (hexOn(s, 'frenzy') ? FRENZY : 1);
 /** Turrets and traps fall silent in an EMP. */
-export const turretsDown = (s: GameState) => hexOn(s, 'emp');
+/** The towers and traps stand silent: a rival's EMP, or a saboteur's night's work (sim/specials.ts). */
+export const turretsDown = (s: GameState) => hexOn(s, 'emp') || sabotaged(s);
 
 /** A rival lord's health, grown with the days (set when the raid is gathered). */
 export const lordHp = (s: GameState, kind: string) => Math.round(ENEMIES[kind].hp * (RIVAL_HP_BASE + paceDay(s.tick) * RIVAL_HP_PER_DAY));

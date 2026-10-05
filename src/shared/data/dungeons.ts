@@ -3,6 +3,7 @@
 // food, wounds and the Watch view work as for any trip. Inside, the party goes room by room (sim/delves.ts): fights, traps,
 // treasure, shrines, puzzle doors, rest camps and forks, with the boss at the bottom, burning a torch a room.
 
+import { dungeonGroups } from './menagerie';
 import type { Destination } from './expeditions';
 import type { Era } from './eras';
 import type { Material } from './materials';
@@ -59,7 +60,7 @@ export interface DungeonDef {
   description: string;
 }
 
-export const DUNGEONS: readonly DungeonDef[] = [
+const HAND_DUNGEONS: readonly DungeonDef[] = [
   {
     id: 'barrow_crypt', name: 'The Barrow Crypt', type: 'crypt', region: 'westwood', era: 'neolithic', research: 'storytelling', rooms: 8,
     foes: [{ skeleton_warrior: 2 }, { skeleton_spearman: 1, skeleton_archer: 1 }, { skeleton_warrior: 1, skeleton_archer: 2 }, { flying_skull: 2 }],
@@ -157,6 +158,9 @@ export const DUNGEONS: readonly DungeonDef[] = [
     description: 'A sealed vault from before the war, under the Southern Isle. Its guards never got the order to stand down.',
   },
 ];
+
+/** Every dungeon, its foes joined by the menagerie's creatures of its type and age (data/menagerie.ts). */
+export const DUNGEONS: readonly DungeonDef[] = HAND_DUNGEONS.map((d) => ({ ...d, foes: [...d.foes, ...dungeonGroups(d.type, d.era)] }));
 
 /** A twist each delve rolls (sim/delves.ts): how it changes the dungeon, in a word and a line. */
 export type TwistId = 'none' | 'haunted' | 'flooded' | 'rich' | 'cursed' | 'swarming' | 'dark' | 'blessed' | 'elite';

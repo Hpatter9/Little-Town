@@ -1,8 +1,11 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { secretView, specialStory } from './specials';
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
 import { boatLine, boatyardOf, fleet, mooring } from './boats';
 import { peopleOf } from './strangers';
+import { FOUNDER_BY_ID } from '../data/founders';
+import { backstory } from '../data/backstories';
 import { AMBITIONS } from '../data/ambitions';
 import { TICKS_PER_DAY } from './time';
 import { ambitionOf, businessPrice } from './ambition';
@@ -75,7 +78,8 @@ import { modifiers, researchStation, researchStations } from './research';
 import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
-import { abilitiesKnown } from '../data/abilities';
+import { ABILITIES, abilitiesKnown } from '../data/abilities';
+import { SPELLS } from '../data/spells';
 import { describeAct, describePassive } from '../data/describe';
 import { hexesNow } from './rivals';
 import { castleBounds, castleCells, castleGate, castleLayout, castleOn, coreRect, galleryCells, holdOf, type Hold } from './castle';
@@ -85,6 +89,8 @@ import { rallyState } from './rally';
 import { daysToMove } from './nomads';
 import { describeFoes, MINE_DEPTH, mineLeft, minersAt, placeById, placeDestination, placeDestinations, placeXY } from './places';
 import { packDestinations, packView, type PackView } from './pack';
+import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from './sagas';
+import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { directionName, isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
 import { RIVALS } from '../data/rivals';
@@ -113,6 +119,8 @@ export interface PersonView {
   y: number;
   dir: 1 | -1;
   activity: Activity;
+  /** How far along the work in hand is (0 to 1), while they're at it: the bar over their head. */
+  taskDone: number | null;
   /** Ticks since a blow last landed on them, and the side it came from (for the blood). */
   sinceHit: number;
   hitFrom: 1 | -1;
@@ -207,6 +215,12 @@ export interface PersonView {
   /** Their town job, if they hold one ("Smith", "Shopkeeper"), and where. */
   job: { title: string; at: string } | null;
   natureLine: string;
+  /** Their own short story (data/backstories.ts; a ready-made founder's is the one written for them). */
+  story: string;
+  /** Titles won in the sagas (sim/sagas.ts), the latest last. */
+  titles: string[];
+  /** A special newcomer's secret, once the town knows it (sim/specials.ts). */
+  secret: { name: string; text: string } | null;
   /** Their life's goal (data/ambitions.ts), and trips made. */
   ambition: { name: string; line: string } | null;
   trips: number;
@@ -348,9 +362,17 @@ export interface PromptView {
   text: string;
   options: string[];
   defaultOption: number;
+  kind: string;
+  /** A choice event's fuller telling, its picture (a backdrop id) and who it's about (the full-screen event box). */
+  story: string | null;
+  picture: string | null;
+  who: number | null;
   /** Until the default is taken; null when it waits as long as it takes. */
   secondsLeft: number | null;
 }
+
+/** How long the feed shows what came of the last event answered (game hours). */
+export const OUTCOME_HOURS = 4;
 
 /** How long a fight's victory screen stays up (ticks). */
 export const RESULT_TICKS = 80;
@@ -388,7 +410,7 @@ export interface ExpeditionView {
   roles: Record<number, string>;
   /** A fight in progress, if any, and the spells and skills used in it lately (ticks ago). */
   battle: FighterView[] | null;
-  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[]; spell: boolean; ult: boolean; cost: number; pool: 'mp' | 'sp' | 'limit' | null; who: string }[];
+  acts: { age: number; side: 'party' | 'enemy'; ref: number; name: string; targets: number[]; spell: boolean; ult: boolean; cost: number; pool: 'mp' | 'sp' | 'limit' | null; who: string; text: string }[];
   /** Waiting on a question for the player. */
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
@@ -577,6 +599,8 @@ export interface Snapshot {
   paused: boolean;
   /** How fast the town runs (1, 2 or 3 times). */
   speed: number;
+  /** The last event answered and what came of it, for `OUTCOME_HOURS` (the feed's card). */
+  eventOutcome: { title: string; choice: string | null; text: string } | null;
   calendar: Calendar;
   /** Everything in storage, summed. */
   stock: Stock;
@@ -616,6 +640,12 @@ export interface Snapshot {
   mine: MineView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number }[];
+  /** The sagas under way and those ended (sim/sagas.ts). */
+  sagas: { open: SagaView[]; done: SagaDoneView[] };
+  /** The kinds of foe the town has met (the Bestiary). */
+  met: string[];
+  /** The Monster Hunters' Guild (sim/hunts.ts): whether it stands, its hunts, its forge, and hunts won. */
+  hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
   regions: string[];
   /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
@@ -765,6 +795,7 @@ export function snapshot(s: GameState): Snapshot {
     tick: s.tick,
     paused: s.paused,
     speed: s.gameSpeed ?? 1,
+    eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text } : null,
     calendar: calendar(s.tick),
     stock,
     storageUsed: poolSize(stock),
@@ -784,7 +815,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -809,6 +840,9 @@ export function snapshot(s: GameState): Snapshot {
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
     quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
+    sagas: sagasView(s),
+    met: s.met ?? [],
+    hunts: huntsView(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
     mine: mineView(s),
@@ -819,6 +853,10 @@ export function snapshot(s: GameState): Snapshot {
       text: p.text,
       options: [...p.options],
       defaultOption: p.defaultOption,
+      kind: p.kind,
+      story: p.story ?? null,
+      picture: p.picture ?? null,
+      who: p.who ?? null,
       // (none for a question that waits as long as it takes: raiders held at the gate)
       secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
     })),
@@ -1204,6 +1242,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     y: p.y,
     dir: p.dir,
     activity: p.activity,
+    taskDone: taskDone(s, p),
     sinceHit: s.tick - (p.lastHit ?? -999),
     hitFrom: p.hitFrom ?? 1,
     sinceBlow: s.tick - (p.lastBlow ?? -999),
@@ -1211,7 +1250,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     defending: !!s.raid && p.task?.type === 'defend',
     mounted: null,
     cls: p.cls ?? null,
-    clsName: callingName(p, stageOf(p)),
+    // (a special newcomer's calling is part of their secret until it's out)
+    clsName: p.secret && !p.secret.found ? null : callingName(p, stageOf(p)),
     clsPast: p.cls ? [0, 1, 2, 3].filter((i) => i < stageOf(p)).map((i) => callingName(p, i)!) : [],
     clsText: callingText(p),
     founderCalling: !!p.fcls,
@@ -1263,6 +1303,9 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     natureName: natureOf(p).name,
     job: jobView(s, p),
     natureLine: natureOf(p).line,
+    story: storyOf(s, p),
+    titles: p.titles ?? [],
+    secret: secretView(p),
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
     trips: p.trips ?? 0,
     swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
@@ -1277,6 +1320,67 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     sick: !!p.sick,
     ...fightView(p),
   };
+}
+
+/** How far along the work in hand is, for the bar over someone's head: a site's building, a repair, a craft order,
+ *  the topic studied, a field's sowing or reaping, a load being gathered or dug, a patient tended. Null while they walk
+ *  to it, or do anything else. */
+function taskDone(s: GameState, p: Person): number | null {
+  const t = p.task;
+  if (!t || p.away !== null || p.activity === 'walk' || p.activity === 'idle') return null;
+  const b = 'building' in t ? s.buildings.find((q) => q.id === t.building) : undefined;
+  const clamp = (v: number) => Math.max(0, Math.min(1, v));
+  switch (t.type) {
+    case 'build':
+      return b ? clamp(b.progress) : null;
+    case 'repair': {
+      const most = b ? (BUILDING_BY_ID[b.def]?.hp ?? 0) : 0;
+      return b && most ? clamp((b.hp ?? most) / most) : null;
+    }
+    case 'craft': {
+      const o = s.crafting.find((q) => q.id === t.order);
+      return o && t.phase === 'work' ? clamp(o.progress) : null;
+    }
+    case 'research':
+      return t.topic ? clamp(s.research.progress[t.topic] ?? 0) : null;
+    case 'farm':
+      return b?.crop ? clamp(b.crop.work ?? 0) : null;
+    case 'gather':
+    case 'tend':
+      return clamp(t.progress);
+    case 'mine':
+      return clamp(t.work);
+    default:
+      return null;
+  }
+}
+
+/** Someone's story: a ready-made founder's own, else put together for them (data/backstories.ts). */
+function storyOf(s: GameState, p: Person): string {
+  const special = specialStory(p);
+  if (special) return special;
+  const own = p.fcls ? FOUNDER_BY_ID[p.fcls]?.story : undefined;
+  if (own) return own;
+  const parents = (p.parents ?? []).map((id) => s.people.find((q) => q.id === id)?.name).filter((n): n is string => !!n);
+  return backstory({
+    id: p.id,
+    name: p.name,
+    type: p.type,
+    people: peopleOf(s, p),
+    ambition: p.bornTick == null ? (p.ambition ?? null) : null,
+    born: p.bornTick != null || p.parents?.length ? { town: originOf(s).town, parents } : undefined,
+  });
+}
+
+/** What a spell or fighting skill does, in a line, by its name (the fight banner's third line). */
+let ACT_TEXT: Map<string, string> | null = null;
+function actText(name: string): string {
+  if (!ACT_TEXT) {
+    ACT_TEXT = new Map();
+    for (const sp of SPELLS) if (!ACT_TEXT.has(sp.name)) ACT_TEXT.set(sp.name, describeAct(sp.effects).split('. ')[0].replace(/\.$/, ''));
+    for (const a of ABILITIES) if (a.active && !ACT_TEXT.has(a.name)) ACT_TEXT.set(a.name, describeAct(a.active.effects).split('. ')[0].replace(/\.$/, ''));
+  }
+  return ACT_TEXT.get(name) ?? '';
 }
 
 /** Someone's fighting stats and kit, worked out again only when what they depend on changes. */
@@ -1430,6 +1534,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
       cost: a.meta?.cost ?? 0,
       pool: a.meta?.pool ?? null,
       who: e.battle!.fighters.find((f) => f.side === a.side && f.ref === a.ref)?.name ?? '',
+      text: a.meta?.pool ? actText(a.name) : '',
     })),
     waiting: e.prompt !== null,
     hunt: !!e.hunt,

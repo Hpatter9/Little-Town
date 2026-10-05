@@ -4,7 +4,7 @@
 import { PANELS, type Bridge, type PanelId, type StripState } from '../shared/ipc';
 import { applyTheme, panelLabel, type Theme } from './theme';
 import { ERA_NAMES } from '../shared/data/eras';
-import { MATERIAL_NAMES, MATERIALS, type Material } from '../shared/data/materials';
+import type { Material } from '../shared/data/materials';
 import { FOOD_VALUE } from '../shared/data/people';
 import type { Snapshot } from '../shared/sim/snapshot';
 import { bleedLeft, expeditionFill, researchFill } from '../shared/format';
@@ -135,7 +135,6 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
         b.textContent = paused ? 'Resume' : 'Pause';
         b.classList.toggle('active', paused);
       }
-      const held = MATERIALS.filter((m) => (snap.stock[m] ?? 0) > 0).map((m) => `${MATERIAL_NAMES[m]} ${snap.stock[m]}`);
       const r = snap.raid;
       raid.hidden = !r;
       flash.hidden = !r || stripMode !== 'full';
@@ -189,7 +188,8 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
       foodDays.classList.toggle('low', days < 1);
       foodDays.title = 'How long the stored food lasts everyone, at a meal a day each';
       const town = `People ${snap.housing.people} · Beds ${snap.housing.beds}` + (snap.shop || snap.coins ? ` · ● ${snap.coins} coins` : '');
-      const stockText = `${town} · Stored ${snap.storageUsed}/${snap.storageCapacity}` + (held.length ? ': ' + held.join(' · ') : '');
+      // (what's in store is on the Plan tab's Town status, not here: the owner's ask)
+      const stockText = town;
       if (stock.textContent !== stockText) stock.textContent = stockText;
     },
   };

@@ -123,6 +123,9 @@ export interface Battle {
 export const PLACE_TICKS = 30 * TICK_HZ;
 /** The breather between waves. */
 export const BREATHER_TICKS = 12 * TICK_HZ;
+/** A battle fighting itself goes on as soon as its fighters stand at their spots, but no sooner than this (a lone
+ *  founder rushed onto the trail by a short count lost a leg and never grew the town). */
+export const AUTO_READY_TICKS = 2 * TICK_HZ;
 /** A raider comes onto the trail this long after the one before it. */
 const ENTER_GAP = Math.round(1.4 * TICK_HZ);
 /** How fast raiders walk the trail: cells a second for each px a second they'd walk the town. */
@@ -145,6 +148,16 @@ const CLEAVE_CELLS = 1;
 const BLOCK_NEAR = 0.7;
 /** How near their spot (cells) a fighter must stand to fight from it. */
 export const IN_PLACE = 1.2;
+
+/** Every townsperson placed stands at their spot (a battle fighting itself waits for it). */
+function allInPlace(s: GameState, b: Battle): boolean {
+  return b.units.every((u) => {
+    if (u.person === undefined) return true;
+    const p = s.people.find((x) => x.id === u.person);
+    const q = b.map.spots.find((x) => x.id === u.spot);
+    return !p || !q || Math.hypot(p.x / CELL - q.x, p.y / CELL - q.y) <= IN_PLACE;
+  });
+}
 /** A fighter this hurt (a share of their health) falls back off the line. */
 const FALL_BACK = 0.12;
 /** A raider this hurt (a share of its health) turns and runs. */
@@ -440,8 +453,8 @@ export function startBattle(s: GameState, r: Raid): void {
     const wave = Math.min(waves - 1, Math.floor((i * waves) / order.length));
     rd.bt = { d: -1, lane: flank && rd.side !== undefined && rd.side !== r.side ? 1 : 0, wave };
   });
-  const auto = !!s.autoBattle || !!r.alone;
-  r.battle = { map, phase: 'placing', until: s.tick + (auto ? Math.round(1.5 * TICK_HZ) : PLACE_TICKS), started: s.tick, wave: 0, waves, units: [], auto, through: 0, killed: 0 };
+  const auto = s.autoBattle !== false || !!r.alone; // (on unless the player turned it off: the owner's call)
+  r.battle = { map, phase: 'placing', until: s.tick + PLACE_TICKS, started: s.tick, wave: 0, waves, units: [], auto, through: 0, killed: 0 };
   // (time to fight it out: the raid doesn't give up while the battle's on)
   r.leavesTick = Math.max(r.leavesTick, s.tick + 3 * TICKS_PER_HOUR);
   if (auto) autoPlace(s, r.battle, r);
@@ -577,7 +590,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     return !!a && !a.down && !a.gone;
   });
   if (b.phase === 'placing' || b.phase === 'breather') {
-    if (s.tick < b.until) return true;
+    if (s.tick < b.until && !(b.auto && s.tick >= b.until - (b.phase === 'placing' ? PLACE_TICKS : BREATHER_TICKS) + AUTO_READY_TICKS && allInPlace(s, b))) return true;
     autoPlace(s, b, r);
     b.phase = 'fighting';
     if (b.wave === 0) notify(s, `The raiders are on the trail!`);
@@ -793,7 +806,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     if (b.wave + 1 < b.waves) {
       b.wave++;
       b.phase = 'breather';
-      b.until = s.tick + (b.auto ? Math.round(3 * TICK_HZ) : BREATHER_TICKS);
+      b.until = s.tick + BREATHER_TICKS;
       notify(s, `Wave ${b.wave} beaten. ${b.waves - b.wave} more coming: a moment to regroup.`, true);
     } else {
       b.phase = 'done';

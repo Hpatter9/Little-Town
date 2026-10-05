@@ -382,7 +382,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     battles about 80 to 125 s; about 4 mages a town by day 15. The planner values a topic that teaches a common calling
     (+12, +24 raided or on defence).
 
-- **The armoury (in progress, see Planned):** `data/weapons.ts` (`FAMILIES`: 23 families with their quirks; `ROWS`:
+- **The armoury (done):** `data/weapons.ts` (`FAMILIES`: 23 families with their quirks; `ROWS`:
   name, family, tier, era, research, icon; stats, cost and station worked out from those; `tierDamage`), `data/armour.ts`
   (`SETS` per era: cloth, light, medium, heavy body and head pieces, three shields, two trinkets; `ArmourWeight` on
   `ItemDef.weight`). New effects: `speed`, `crit`, `pierce`, `cleave`, `stun`, `reach`, `undeadDamage`, `machineDamage`
@@ -393,7 +393,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   person) and `enemyArmor`. The planner's `weaponWorth` favours a mix of families. Crafting has Weapons and Armour hide
   toggles.
 
-- **Classes and levels (in progress):** `data/classes.ts` (25 lines, `stages` five names each, all 125 distinct; role,
+- **Classes and levels (done):** `data/classes.ts` (25 lines, `stages` five names each, all 125 distinct; role,
   `ranged`, `rarity`, `affinity`, `armour` weights and `weapons` families allowed, `stats`), `data/levels.ts` (`levelOf`,
   `stageOf`, `classStat`, `hpMult`, `levelPower`; `xpToLevel`, `LEVEL_SHARE_*`), `sim/classes.ts` (`assignClass` once,
   weighted by `classPull` and decided by the seed; `classesHourly` gives classes and announces evolutions; `gainLevelXp`
@@ -777,7 +777,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - Names that are a doing ("Scout the Far Isles", "Trade with ...") no longer take "the" (`OWN_ARTICLE` in
     data/expeditions.ts). Tests: `test/boats.test.ts`.
 - **Merfolk rework (done):** see "The merfolk rework" below.
-- **The top-down town (decided, in progress):** the side-on strip is replaced entirely by a sprawling top-down map in
+- **The top-down town (done):** the side-on strip is replaced entirely by a sprawling top-down map in
   the raid map's style (Craftpix's top-down village, fields, path and road tilesets and the props atlases; buildings
   stand on their footprints, drawn front-on, sorted by depth). The town builds outward with roads and buildings laid
   out sensibly; the local map opens up as it grows (minerals, caves, map events: a burnt-out trader's cart that starts a
@@ -820,7 +820,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     - Tests: `test/helpers.ts` has `camp`, `row` (free ground two rows below the camp), `put`, `freeSpot`, `wildsNear`/
       `nearestWild`, `makeWild`, `clearAround`, `poolOf`, `isWild`, `campPx`. Soak (10 days, one town each): settlers 22,
       vampires 20, druids 20, nomads 28, dwarves 21.
-  - **Phase 3, the top-down renderer (first cut, in progress):** `src/renderer/map/`. `mapView.ts` (`MapView`): the
+  - **Phase 3, the top-down renderer (done):** `src/renderer/map/`. `mapView.ts` (`MapView`): the
     land's ground painted in 8-cell chunks (`groundArt.ts`: each ground kind by season, roads as beaten-earth paths, water
     with lighter edges, the land beyond `land.open` dimmed by distance and black past `FOG_BAND`), the wild cells' trees,
     rocks, bushes and plants from the props atlases (`art/propKinds.json`, written by `tools/compose-props.cjs`: each
@@ -869,7 +869,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     and `art/battleArt.ts` are gone. The phone page keeps the town's zoom in a battle (`watchOn` alone draws at 1).
     Soak (3 towns per origin, 10 days, people/deaths): settlers 17–24/1–2, druids 16–24/2, vampires 20–24/0–1, knights
     21–24/0–1; no town lost.
-  - **Phase 6, origins and pack art on the map (in progress):** the vampire keep was first dressed as a walled rectangle
+  - **Phase 6, origins and pack art on the map (done):** the vampire keep was first dressed as a walled rectangle
     (`keepArt.ts`, from `snapshot.castle.rect`, the rooms the ordinary building pictures); that is superseded by "The
     castle as one body of rooms" below, which draws the castle from its cells with `map/castleArt.ts`. `src/renderer/map/packBuildings.ts`: Craftpix's Village tileset houses and awnings (`src/renderer/art/village/`,
     bundled as data URLs) stand for the cottage, row houses, inn and tavern, trading post, stall and general store in the
@@ -888,7 +888,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
     undercounts: the soak scripts watched the journal's length, and the journal is capped at `MAX_JOURNAL` 400 entries, so
     nothing was counted once a town's journal had filled a few days in. Counted properly, deaths were never rare: see the
     deaths pass below.)
-  - **Phase 7 (next): the asset pass.** The owner's standing order (see Priorities): replace the code-drawn map art with the
+  - **Phase 7, the asset pass (done; the standing order goes on).** The owner's standing order (see Priorities): replace the code-drawn map art with the
     packs wherever one has the thing: the ground (the Fields, Path and Road, Green Zone and Village tilesets' grass,
     soil, roads, water edges), fields and pens (the Fields tileset), more buildings for every era and origin (the
     Undead tileset for the liches and vampires, the Dungeon and Cave packs for the dwarves), props and effects.
@@ -1196,7 +1196,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   skills in the fight sim (expeditions, raids); (5) the side-view fight screen; (6) uniques and the bosses' loot
   tables; (7) scouting and the opened map; (8) the delve sim (rooms, fights, supplies, retreat, the boss, loot); (9)
   the delve view; (10) dungeon types, modifiers, elites, dozens of bosses; (11) quests, rivals, the trophy hall,
-  respawn, alerts; soak, phone checks, PR. All eleven are done; boats are what's left.
+  respawn, alerts; soak, phone checks, PR. All eleven are done, and boats too.
 
 - **Victory screen (done; the owner's ask):** a party's fight won, `finishBattle` (expeditions.ts) fills `Expedition.result`
   (`FightResult`: each member's experience and levels gained, the loot by name, the coins) and the snapshot carries it for
@@ -1305,6 +1305,43 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   work (`ownWork`). Tried and dropped: the founder at the top for every job, and studying ahead of gathering; a lone
   founder then studied all day, gathered no wood, built nothing and so never had a bed for a newcomer (8 lone towns at
   day 10: 2 dead, 5 still alone).
+- **Raid battles fight themselves by default (the owner's call):** `startBattle` places everyone and casts the spells
+  itself unless `s.autoBattle` is `false` (the battle bar's Auto button turns it off, and the choice is kept).
+  It goes on (and on again after a breather) as soon as everyone placed stands at their spot (`allInPlace`), no sooner
+  than `AUTO_READY_TICKS` (2 s) and no later than the usual count. It used to go after 1.5 s and 3 s whatever: raiders
+  reached the gate before a lone founder did, the founder lost a leg and the town never grew (the planner test caught
+  it). Probe (8 lone towns, 10 days, people): auto 3 2 2 4 5 5 4 4, auto off 4 X 2 4 5 3 6 5.
+- **What came of an answer, on a card (upright):** `tell` in sim/events.ts keeps the last answer on `s.eventOutcome`
+  (title, the choice, what came of it); `snapshot.eventOutcome` carries it for `OUTCOME_HOURS` (4), and the feed shows
+  it at the top as a green-edged card (`answered` in feed.ts). Sideways the same line pops up over the town as a notice.
+- **What a move does, on the fight banner:** the snapshot's fight `acts` carry `text` (`actText` in snapshot.ts: the
+  first line of `describeAct` for the spell or skill of that name), shown as a third line on `#fight-banner` (`.ff-what`),
+  which then stays 0.7 s longer.
+- **Every menu in sub-tabs (the owner's ask):** `src/renderer/panel/subtabs.ts` (`inTabs`, called from panel.ts on each
+  menu's elements): a menu's sections, each opened by an `h2`, are grouped under named tabs by the heading's words
+  (`GROUPS`: Plan: Direction, Town status, Powers, Treasury, Buildings; Studies: Stations, Tech tree; Expeditions:
+  Parties, Places (the map goes with them), Quests; Townsfolk: People, Jobs; Crafting: Inventory, Recipes; Trade: Deals,
+  Horses). A heading that opens no group stays in the one before; what comes before the first heading stays above the
+  tabs unless `intro` names a tab. Only the open tab is drawn; it's kept per menu (`littletown.subtab.<menu>`, part of
+  the redraw key through `tabKey`). A menu with under two groups to show is drawn as before (the Townsfolk inspect page
+  has its own tabs). A new section in a menu needs its heading matched in `GROUPS`, or it falls in the tab before it.
+- **Town status (the owner's ask: storage off the clock bar):** the clock bar shows people, beds and coins only; the
+  Plan tab's Town status (`townStatus` in buildPanel.ts) has people, beds, food in days, the treasury, storage used
+  against room with a bar, and every material in store with its picture.
+- **A work bar over their heads (the owner's ask):** `PersonView.taskDone` (`taskDone` in snapshot.ts: the site's
+  progress for building, health for a repair, the order for crafting at the station, the topic for study, the field's
+  sowing or reaping, the load being gathered or dug, a patient tended; null while walking or doing anything else) is
+  drawn by mapPeople as a small green bar (`WORK_W` 18 px, `WORK_ABOVE` 58 px over the feet), redrawn only when its fill
+  moves a pixel.
+- **Callings explained (the owner's ask):** `src/shared/data/classAbout.ts`: for each of the 25 callings what it is and
+  how it fights (`CLASS_ABOUT`), and what each role means (`ROLE_ABOUT`: tank, bruiser, striker, shooter, caster,
+  healer, support). The Townsfolk page's calling row always says the role; opened, it adds the two lines and the town
+  skills the calling takes to (from its `affinity`). A founder's calling shows its base class's.
+- **Everyone's own story (the owner's ask):** `src/shared/data/backstories.ts` (`backstory`): a name-led sentence of
+  where they came from (`FROM`, by their people) and what they did before (`BEFORE`, by how they came), one telling
+  thing about them (`MARK`) and what they want now (`WANT`, by ambition), each part picked by a hash of their id and
+  name, so it never changes; children born in town get their birth and parents instead; a ready-made founder keeps the
+  story written for them. `PersonView.story` (`storyOf` in snapshot.ts), shown first on the Background tab.
 - **Game speed (the owner's ask):** a 1×/2×/3× button on the clock bar (`hud.ts`, the `gameSpeed` command,
   `s.gameSpeed`, `snapshot.speed`); `battleSpeedNow` (battle.ts, read by `GameLoop.pump`) returns it outside a battle,
   and the battle's own speed during one. Time away is unaffected.
@@ -1316,6 +1353,108 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   building's blueprint laid with its makings delivered (else the makings). Every answer, and every `later`, ends with
   one journal line under the event's title saying what came of it (`tell` in sim/events.ts: "A thief among you: morale
   -4 for a day, +6 wood, +4 stone").
+- **Events told in full (done; the owner's ask: more description, a full-screen box, a picture that goes with each):**
+  a choice event's prompt carries `story` (`eventTelling` in sim/events.ts: a line setting the scene from the hour,
+  season and weather (`sceneLine` in data/eventScenes.ts), the event's text, its own passage (`EVENT_MORE` in
+  data/eventMore.ts: one for each of the 526 events, {who} and {founder} filled) and what the treasury holds when it
+  asks for coins), `picture` (a painted backdrop: `eventPicture`) and `who`. The phone page shows it full screen
+  (`src/renderer/mobile/eventSheet.ts`, `#event-sheet`: the backdrop's layers stacked, the townsperson in it stood on
+  the picture, the title, the telling in paragraphs, the answers as big buttons, the countdown; sideways the picture on
+  the left); the strip's own question card stands aside for events (`__eventSheet`). **Pictures:** every backdrop was
+  looked at and sorted into `POOLS` by what it shows (fire, the dead, war, holy places, ruins, caves, the deep, the sea,
+  the sky, mountains, storms, snow, steam, cities, the future, forests, fields, the fae, an alchemist's lab, a town
+  scene by the age: `TOWN_BY_ERA`); an event's words pick the theme (`THEMES`), and `PICTURE_OF` fixes the 275
+  whose words mislead (every event was checked by hand). Green fields in winter show the snow. Tests:
+  `test/eventTelling.test.ts`.
+- **Special newcomers with secrets (done; the owner's ask: mysterious, powerful, diseased, cursed, wanted, a raider who
+  undoes the defences before his clan comes, and ways to find them out):** `src/shared/data/specials.ts` (`SPECIALS`:
+  the Veiled Champion, the Coughing Pilgrim, the Knight of the Black Oath, Red Jack the Highwayman, the Turncoat Scout,
+  the Exile in Grey, the Runaway Heir; each a cover for the gate, a cover story and the truth, a `spot` skill and level,
+  a daily `slip`, a `due` range, three answers and a picture) and `src/shared/sim/specials.ts`. A secret stranger comes in an event's turn (the
+  owner's call: 1 in `SPECIAL_ODDS` (100) events, any day, secrets may overlap): `maybeEvent` asks `strangerTurn` (by the
+  seed and the hour: no draw from the town's stream) and `secretStranger` (townsfolk.ts) puts them at the gate in place
+  of the event; `specialFor` picks a kind the town hasn't met (each once a town, `s.specialsSeen`; none in a town of the
+  dead or machines); besides, `SPECIAL_SHARE` (1 in 10) of ordinary wanderers are one (`secretWanderer`, by the seed
+  and their id, in `maybeArrive`). `makeSpecial`
+  gives their skills, level and calling and `Person.secret` (`Secret`); the gate and the visitor's question show only the
+  cover (`coverOf`), and the Townsfolk page shows the cover story and no calling until it's out (`specialStory`,
+  `secretView`, `PersonView.secret`). Taken in (`secretJoined`), `specialsHourly` runs it: at `SPOT_HOUR` the best in
+  town at the spot skill may see through them (`SPOT_BASE` + `SPOT_PER_LEVEL` a level over), else they may slip; while
+  hidden the curse makes accidents, the highwayman lifts coins, the exile surges, and the champion gives themselves away
+  by fighting. Due and still hidden, it strikes: the champion's hunter (the era's boss) leads a raid, the fever spreads,
+  the curse sets a fire, bounty hunters raid, the exile's power burns two roofs, the crown's riders take the heir; the
+  saboteur waits for the small hours, and a guard on watch may catch him at it (`CATCH_BASE` + `CATCH_PER_LEVEL` of their
+  best fighting skill), else he cuts the gates' bars (hp 0), springs the traps and towers (`s.sabotage`, read by
+  `turretsDown` in rivals.ts), leaves, and his clan rides in with five minutes' warning. Found out, a prompt of kind
+  `secret` asks what to do (`answerSecret`; shown full screen by the event box with its picture and the person): stand
+  with or hand over the champion, nurse or drive out the pilgrim, break the curse for `CURSE_PRICE` or keep the knight,
+  claim Red Jack's `BOUNTY` or hide them, lock up, turn (one time in four he lied) or drive out the saboteur, give the exile
+  a tower (a topic learned) or bind them, send the heir home for `HEIR_REWARD` or keep their secret. Tests:
+  `test/specials.test.ts`. (An earlier probe, at 0.3 of wanderers: seven of eight towns met one in 15 days; all seven kinds showed.)
+- **Every menu in tabs, the venues too:** the shop, inn and stores' windows (`renderShop`, through `inTabs(id, ..., 'venue')`:
+  Now, Trade, The room; each venue keeps its own tab) and the Chronicle's filters drawn as the same tabs. The open tab
+  is lit under every look (`.inv-tab.on` in theme.ts and skins.ts: it was drawn like the rest).
+- **Sagas (done; the owner's ask: long quest chains, varied and unique; the town takes them on itself; failure bends
+  the story, with real losses now and then; mostly hand-written):** `src/shared/data/sagas.ts` (`SAGAS`: The Burnt Cart,
+  The Wolf That Walks, The Drowned Bell (shore towns), The Feud (two of the town, `cast`), The Plague Doctor, The Iron
+  Crown; each a graph of chapters: `choice` (a full-screen question with a picture; answers set flags), `trip` (a place
+  on the Expedition Board), `task` (something the town must have done in time), `raid`, `wait`, `end` (triumph,
+  bittersweet or ruin: effects, a title for the hero, a unique)). `src/shared/sim/sagas.ts`: `sagasHourly` begins one at
+  `SAGA_HOUR` now and then (`SAGA_DAILY`, `SAGA_GAP_DAYS` apart, at most `MAX_SAGAS` 2, each saga once a town, off in
+  the tests' `plainGame`), and drives each run (`s.sagas`: `SagaRun`, `s.sagasDone`). A choice is a prompt of kind
+  `saga` (the event sheet shows it; the default stands after `SAGA_ASK_HOURS`, so the town decides when nobody does;
+  `answerSaga`); a trip is the destination `saga:<run>` (type `clear`; `sagaDestOf`, in `boardDestinations` and the
+  snapshot's destinations), which the parties choose for themselves (`PULL_SAGA` in `pull`); `sagaTripHome` (from
+  `comeHome`) goes on by whether they cleared it, and nobody going in time is its own branch (`late`); a raid chapter
+  starts a raid tagged `Raid.saga` with its leader (`sagaRaidOver` from `endRaid`: beaten if the leader fell). Effects are
+  the events' (`apply`, now exported from sim/events.ts) and the saga's own (`castBond`, `castHurt`, `castKill`,
+  `title`, `unique`). The hero is the leader of the last trip won, else the founder; titles are on `Person.titles`
+  (the inspect page). The six saga uniques are rows of uniques.ts marked `SAGA`. The Expeditions tab's Quests tab has a
+  Sagas section (where each stands, its latest lines, those ended). `window.__saga(id)` begins one (previews). Tests:
+  `test/sagas.test.ts` (every chapter reached, every next written, each saga can end well and badly). Probe (6 towns,
+  15 days): 3 to 4 sagas a town, endings of every kind.
+- **The Monster Hunters' Guild (done; the owner's ask: hunts now and then with rewards by difficulty, and components
+  made into rare unique gear):** `src/shared/data/hunts.ts`: the topic Monster Lore (Stone Age), the guild hall
+  (`monster_guild`, a crafting station; the planner builds it like any workshop and scores the topic +20 at 5 people;
+  on the map the Glassblower pack's shop with a sword sign and a pelt rack), 21 quarries of one to five stars
+  (`QUARRIES`: foes from the bestiary, the parts they give), the purse by stars (`HUNT_PURSE` 40 to 420), ten monster
+  parts as materials (`COMPONENTS`: beast fang, thick pelt, venom sac, chitin, great horn, wyrm scale, gorgon's eye,
+  ghost essence, monster heart, dragon's heart; worth in trade.ts, DawnLike icons), and the forge: seven unique weapons
+  (rows of uniques.ts marked `FORGED`, their makings in `FORGE`) and six unique pieces of armour (`FORGED_ARMOUR`).
+  `src/shared/sim/hunts.ts`: `huntsHourly` posts a hunt now and then while the guild stands (`HUNT_POST_CHANCE`,
+  `HUNT_EVERY_HOURS` apart, at most `MOST_HUNTS`, lapsing after `HUNT_DAYS` (8); stars up to `starsFor`: the town's size and
+  age), on the board as `mhunt:<id>` (type `clear`); parties take them up (`PULL_HUNT_STAR` 5 a star: at 3 the adventurers went elsewhere and hunts lapsed); `huntHome` pays the
+  party the purse and stores the parts. `planForge` orders each forged unique once its makings are in store (one at a
+  time); `canQueueCraft` refuses a unique already made or queued, and `finishPiece` records it in `s.uniques`. The
+  planner keeps parts the forge still wants out of `forSale` and leaves uniques out of `bestMakeable`. The Quests tab has
+  Hunts (stars, purse, parts) and the Guild forge (each piece, its makings, who carries it). `window.__hunt(id)` posts
+  one (previews). Tests: `test/hunts.test.ts`.
+- **The menagerie (done; the owner's ask: 250 more creatures, from the assets):** 304 new foes, every one a DawnLike
+  creature (`src/shared/data/menagerie.ts`: a row each, its sheet and cell, a tier 1 to 10, a habitat, a family and flags:
+  ranged, small, big, huge, undead, person, machine, armoured, quick). `tools/compose-dawn.cjs` (run by hand) cuts their
+  two frames into `src/renderer/art/creatures/dawn.png` (`DAWN_ACROSS` pairs a row, 124 KB); the sheet `dawn` in
+  `art/creatureSheets.ts` has `pairs`, so `creatureFrame` takes a creature's two frames and `creatureFlip` mirrors it to
+  face right (the table of sheets moved out of creatures.ts into creatureSheets.ts, with no Pixi in it). Stats come from
+  the tier (`statsFor`: 25 health at tier 1 to 358 at 10, stretched for size), loot by family, and from tier 4 a monster
+  part for the guild. Where they turn up: a raid kind for each family and age (`MENAGERIE_RAIDS`, ids `m_<family>_<era>`,
+  plus `m_ice_*` in the tundra, `m_dunes_*` in the desert and `m_deep_*` from the sea), from day 3, each bringing only
+  its age's `RAID_TIERS` (gentler than the lairs': a Stone Age camp meeting tier 3 at its door grew half as fast; at
+  tiers 1 and 2, lone towns reach 4.25 people by day 10 against 4.5 without them), half the land's lairs, caves and reefs (`rollFoes` in sim/places.ts: `placeHabitats` by the
+  biome, `TIERS_BY_ERA`), up to `DUNGEON_GROUPS` (6) groups in each dungeon by its type (`DUNGEON_HABITATS`,
+  `dungeonGroups`), and a guild hunt for each creature of tier 2 or more (`MENAGERIE_QUARRIES`, ids `m_<id>`, posted less
+  often than the hand-written ones). **The Bestiary:** the Chronicle's fourth tab (`panel/bestiaryPanel.ts`): every foe
+  (480) by family, tap a family to open it, met ones in colour and the rest as shadows, with their health, tier and
+  habitat. The town remembers each kind it meets (`meet` in state.ts, `s.met`, from `fightGroup` and `endRaid`;
+  `snapshot.met`). Pictures are CSS crops (`art/creatureThumbs.ts`) of the DawnLike sheet and the Craftpix pack sheets;
+  the older MV-sheet creatures show a mark. `window.__raid(kind)` starts a raid (previews). Tests:
+  `test/menagerie.test.ts` (every creature on the sheet, a foe, and turning up somewhere). **The Chronicle had been
+  blank** since the menus went into sub-tabs: its entries came back after the redraw key had changed (`renderedKey !==
+  key` in panel.ts); fixed.
+- **Nobody stands on top of anyone (the owner's ask):** on the map, people standing still (`STILL_AFTER` 400 ms on one
+  spot) are stepped apart: `MapPeople.spread` (every `SPREAD_EVERY`), by id, keeps each on their spot unless someone
+  already placed is within `PERSONAL_SPACE` (32 px; up and down counts `SQUASH` 0.75), else gives them the nearest free
+  place on rings round it (`ASIDE`); the step is eased in at a walk (`Drawn.aside`, `.off`) and dropped once they move.
+  Walkers pass through each other. Drawing only: the sim's positions are untouched; `personAt` and `posOf` follow the step.
 - **The map's grip (upright; the owner's ask: the map full screen or half at will):** a grip on the map's top edge
   (`#map-grip`, mobile.ts): drag it up over the feed or down to half (`MAP_LEAST`), a tap flips between the whole
   room and half. Kept in `littletown.mapShare` (unset: the map follows the feed as before, `townShare`); at the whole
@@ -1426,7 +1565,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   with the signpost and barrels, the hall with crates) and the trophy hall its shop with the shield sign, in the base
   and knights looks; the painter's `hall` shape stays for the other origins.
 
-## The townsfolk's own economy (in progress; the owner's direction: see PLAN.md)
+## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's
   **treasury**. `src/shared/data/economy.ts` (`GATHER_SHARE`, `BUILD_PER_HOUR`, `STUDY_PER_HOUR`, `KEEPER_CUT`,
@@ -1541,8 +1680,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   elder lodge, town hall and trophy hall have `hallVariants`: the Simple Summer stone keep for the liches and the Moon
   Pack (`KEEP_HALL`), its crystal mage tower for the alchemists, the fae and the druids (`MAGE_HALL`), its round keep for
   the merfolk (`ROUND_HALL`, `su_roundcastle.png`) and its striped tent for the nomads on the move (`TENT_HALL`,
-  `su_tent.png`). Still code-drawn: the machines' halls (the painter's `hall` shape, reclad); the vampires' and the
-  dwarves' halls are rooms of their castle or hold.
+  `su_tent.png`). The machines' halls (`MACHINE_HALL`) are put together from the futuristic objects (a transformer, the
+  shuttered block with a console, a great tank); the vampires' and the dwarves' halls are rooms of their castle or hold.
+  Boats stay painted (`art/boatArt.ts`): searched again, the packs have only wrecks (Seabed) and spaceships.
 
 ## Deaths made common again (the owner's call: all three levers)
 
@@ -1634,7 +1774,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   sheet is told when it loads). New Town opened afresh starts at its first question (`restartNewGame`, from panel.ts
   when the shown panel changes to it); its redraws while open keep the step.
 
-## The merfolk rework (in progress; the owner's request)
+## The merfolk rework (done; the owner's request)
 
 - **Raiders from the sea (step 1, done):** raid kinds with `fromSea` (data/raids.ts) come only to a shore town
   (`seaTown`; the pick in raids.ts filters the rest out): `tide_beasts` (squid spawn and crocodiles, from day 1),

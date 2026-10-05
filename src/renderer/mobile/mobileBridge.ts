@@ -6,9 +6,14 @@ import { AHEAD_TICKS, cancelAlerts, cleanAlerts, scheduleAlerts, startForecast, 
 import { GameLoop } from '../../shared/gameLoop';
 import { parseSave, serialize } from '../../shared/sim/save';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { newGame } from '../../shared/sim/state';
+import { newGame, type GameState } from '../../shared/sim/state';
 import { cleanNewGameOptions } from '../../shared/data/founding';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
+import { beginSaga } from '../../shared/sim/sagas';
+import { postHunt } from '../../shared/sim/hunts';
+import { startRaid } from '../../shared/sim/raids';
+import { RAID_KIND_BY_ID } from '../../shared/data/raids';
+import { Rng } from '../../shared/rng';
 
 const SAVE_KEY = 'littletown.save';
 const BACKUP_KEY = 'littletown.backup';
@@ -115,7 +120,11 @@ export function mobileBridge(): Bridge {
     emit();
   });
   window.addEventListener('pagehide', saveNow);
-  Object.assign(window, { __game: game }); // (for poking at it from a desktop browser's console)
+  // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga, `__hunt(id)` posts a hunt and `__raid(kind)` starts a raid, for previews)
+  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)) });
+  function stateOf(): GameState {
+    return (game as unknown as { sim: { state: GameState } }).sim.state;
+  }
 
   // the strip's selection, shown in the card at the top of the page (and the card's buttons, back to the strip)
   const inspectListeners = new Set<(info: InspectInfo | null) => void>();

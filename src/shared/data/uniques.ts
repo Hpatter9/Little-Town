@@ -6,10 +6,16 @@
 import type { Era } from './eras';
 import type { ItemDef, ItemEffects } from './items';
 import { FAMILIES, quirkWords, tierDamage, WEAPONS, type FamilyId } from './weapons';
+import { FORGE } from './hunts';
 
 /** A unique's row: id, name, family, tier, era (for its ammo), its own quirks, a line of lore, and the bosses that drop it
  *  (none: a quest's). */
 type Row = [string, string, FamilyId, number, Era, Partial<ItemEffects>, string, string[]];
+
+/** The drop list of a saga's unique: no boss has it, and no quest offers it. */
+export const SAGA = '__saga';
+/** The drop list of a unique the Monster Hunters' Guild forges (data/hunts.ts `FORGE`): never dropped, made once. */
+export const FORGED = '__forged';
 
 const N: Era = 'neolithic';
 const M: Era = 'medieval';
@@ -107,6 +113,21 @@ const ROWS: Row[] = [
   ['stormcaller', 'Stormcaller', 'cb', 9, I, { pierce: 0.8, stun: 0.2 }, 'Its bolts come down like lightning.', []],
   ['widowmaker', 'Widowmaker', 'lg', 9, I, { crit: 0.3 }, 'A hunter\'s rifle with a reputation.', []],
   ['eclipse', 'Eclipse', 'sc', 10, S, { lifesteal: 0.15, cleave: 0.5 }, 'A blade of dark that drinks the light.', []],
+  // the sagas' (data/sagas.ts): each won at the best end of its story, never dropped by a boss nor offered by a quest
+  ['maudbane', 'Maudbane', 'dg', 6, M, { crit: 0.25, lifesteal: 0.08 }, 'Black Maud\'s own knife, taken from her camp. It still smells of woodsmoke and silk.', [SAGA]],
+  ['silvermoon', 'Silvermoon', 'sp', 6, M, { beastDamage: 10, crit: 0.1 }, 'A spear with a silvered head that ended the wolf that walked like a man.', [SAGA]],
+  ['bell_of_morwen', 'Morwen\'s Tide-Bell', 'fl', 7, M, { stun: 0.35, undeadDamage: 6 }, 'A drowned chapel\'s bell on a chain. When it strikes, it rings, and the dead cannot bear it.', [SAGA]],
+  ['corvins_lancet', 'Corvin\'s Lancet', 'dg', 7, M, { lifesteal: 0.2, undeadDamage: 8 }, 'A plague doctor\'s blade, sharper than it needs to be.', [SAGA]],
+  ['grey_queens_sceptre', 'The Grey Queen\'s Sceptre', 'st', 8, M, { undeadDamage: 10, cleave: 0.5 }, 'An iron sceptre set with dull red stones, given back by a queen who no longer needed it.', [SAGA]],
+  ['peacemaker', 'Peacemaker', 'mc', 6, M, { stun: 0.3, pierce: 0.4 }, 'An old maul two feuding families carved their names into, side by side.', [SAGA]],
+  // forged at the Monster Hunters' Guild from the parts of what its hunts kill (data/hunts.ts)
+  ['fangreaver', 'Fangreaver', 'ax', 4, N, { beastDamage: 6, crit: 0.08 }, 'An axe set with a row of dire-wolf fangs along its beard.', [FORGED]],
+  ['venomspite', 'Venomspite', 'dg', 5, N, { crit: 0.12, lifesteal: 0.05 }, 'A bone knife grooved for venom, and always wet.', [FORGED]],
+  ['hornbreaker', 'Hornbreaker', 'mc', 6, N, { stun: 0.3, beastDamage: 4 }, 'A boar king\'s tusk bound to a stone head: it breaks what it hits.', [FORGED]],
+  ['gorgons_glare', "Gorgon's Glare", 'lb', 7, M, { stun: 0.25, crit: 0.1 }, 'A bow with a gorgon\'s eye set in its grip. Its arrows stiffen what they strike.', [FORGED]],
+  ['wyrmscale_blade', 'Wyrmscale', 'sw', 8, M, { pierce: 0.4, crit: 0.1 }, 'A blade of drake scales ground to an edge and welded to iron.', [FORGED]],
+  ['ghostbinder', 'Ghostbinder', 'st', 7, M, { undeadDamage: 10, lifesteal: 0.08 }, 'A staff that drinks the dead: ghost essence swirls in its bone head.', [FORGED]],
+  ['heart_of_the_wyrm', 'Heart of the Wyrm', 'sp', 10, M, { beastDamage: 10, pierce: 0.5, lifesteal: 0.1 }, "A spear with a dragon's heart for a head. It beats.", [FORGED]],
 ];
 
 /** How much harder a unique hits than a made weapon of its tier and family. */
@@ -133,10 +154,11 @@ export const UNIQUES: readonly ItemDef[] = ROWS.map(([id, name, fam, tier, era, 
     id,
     name,
     slot: 'weapon',
-    station: 'campfire',
-    cost: {},
-    seconds: 0,
-    research: ['__relic'],
+    // (a forged one is made at the Monster Hunters' Guild from monster parts: data/hunts.ts)
+    station: FORGE[id] ? 'monster_guild' : 'campfire',
+    cost: FORGE[id]?.cost ?? {},
+    seconds: FORGE[id]?.seconds ?? 0,
+    research: FORGE[id]?.research ?? ['__relic'],
     relic: true,
     unique: true,
     effects,
@@ -171,3 +193,7 @@ export function bossLoot(id: string, hp: number): BossLoot {
 
 /** The uniques kept for quests. */
 export const QUEST_UNIQUES: readonly string[] = ROWS.filter((r) => !r[7].length).map((r) => r[0]);
+/** The uniques the guild forges. */
+export const FORGED_UNIQUES: readonly string[] = ROWS.filter((r) => r[7].includes(FORGED)).map((r) => r[0]);
+/** The uniques kept for the sagas. */
+export const SAGA_UNIQUES: readonly string[] = ROWS.filter((r) => r[7].includes(SAGA)).map((r) => r[0]);

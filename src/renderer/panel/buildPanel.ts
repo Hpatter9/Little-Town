@@ -8,21 +8,22 @@ import { TAX, TAX_RATES } from '../../shared/data/economy';
 import { ADJACENT_TILES, BUILDING_BY_ID, BUILDINGS, LAYER_NAMES, NEAR_SOURCE, NEAR_SOURCE_BONUS, RIVER_GROWTH, TAVERN_MARKET_MORALE, type BuildLayer, type BuildingDef } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { earlier, eraReached } from '../../shared/data/eras';
-import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
+import { MATERIAL_NAMES, MATERIALS, type Material } from '../../shared/data/materials';
+import { FOOD_VALUE } from '../../shared/data/people';
 import { eraOfResearch, TOPIC_BY_ID } from '../../shared/data/research';
 import type { Bridge } from '../../shared/ipc';
 import { DIRECTION_DEFS, DIRECTIONS } from '../../shared/sim/planner';
 import { blueprintCount, isUnlocked } from '../../shared/sim/buildings';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, duration, el } from './dom';
-import { materialIcon } from '../art/materialIcons';
+import { materialIcon, stockIcon } from '../art/materialIcons';
 import { BUILD_MULTIPLIER } from '../../shared/sim/state';
 import { hiddenNote, HidePrefs } from './hide';
 import { topicKnown } from './secrets';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
+  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)])]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const used = blueprintCount(s);
@@ -106,6 +107,9 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
         : `${s.people.length} of ${s.townSize}. Once the town holds ${s.townSize}, nobody more joins and no child is born; it grows again only to fill a place left empty.${s.townSize < 20 ? ' A small town draws smaller raids.' : ''}`,
     ),
   );
+
+  // how the town stands: its people, beds, food and coins, and everything in store (off the clock bar: the owner's ask)
+  out.push(el('h2', '', 'Town status'), ...townStatus(s));
 
   // the town's money: travellers bring it in at the shop and the tavern, and it goes on wages, crafters and the venues
   if (s.shop || s.tavern || s.coins) {
@@ -241,4 +245,39 @@ function placementTip(def: BuildingDef): string | null {
   if (def.id === 'tavern') return `Livelier (+${TAVERN_MARKET_MORALE} morale) within ${ADJACENT_TILES} tiles of a Market Stall.`;
   if (CROPS[def.id] && !CROPS[def.id].indoor) return `Grows ${Math.round((RIVER_GROWTH - 1) * 100)}% faster beside a river.`;
   return null;
+}
+
+/** The Town status tab: people and beds, food, coins, and what's in store, every material with its picture. */
+function townStatus(s: Snapshot): HTMLElement[] {
+  const eaters = s.people.filter((p) => p.monster !== 'undead' && p.away === null).length;
+  const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (s.stock[m] ?? 0) * v, 0);
+  const days = eaters ? food / eaters : Infinity;
+  const away = s.people.filter((p) => p.away !== null).length;
+  const facts = el('div', 'fight-stats');
+  const fact = (label: string, value: string) => {
+    const c = el('div', 'fight-stat');
+    c.append(el('span', 'fight-label', label), el('span', 'fight-value', value));
+    facts.append(c);
+  };
+  fact('People', `${s.housing.people}${away ? ` (${away} away)` : ''}`);
+  fact('Beds', String(s.housing.beds));
+  fact('Food', days === Infinity ? '—' : `${days < 10 ? days.toFixed(1) : Math.round(days)} days`);
+  fact('Treasury', `${s.coins ?? 0} coins`);
+  fact('Stored', `${s.storageUsed} / ${s.storageCapacity}`);
+  const fill = el('div', 'bar');
+  const f = el('div', s.storageUsed >= s.storageCapacity * 0.9 ? 'bar-fill low' : 'bar-fill');
+  f.style.width = `${Math.round(Math.min(1, s.storageUsed / Math.max(1, s.storageCapacity)) * 100)}%`;
+  fill.append(f);
+  const store = el('div', 'inventory');
+  for (const m of MATERIALS) {
+    const n = s.stock[m] ?? 0;
+    if (n <= 0) continue;
+    const chip = el('div', 'inv-item');
+    const icon = stockIcon(m, 16);
+    if (icon) chip.append(icon);
+    chip.append(el('span', '', `${MATERIAL_NAMES[m]} ×${n}`));
+    store.append(chip);
+  }
+  if (!store.childElementCount) store.append(el('span', 'hint', 'Nothing in store yet.'));
+  return [facts, el('div', 'hint', 'In store (the Crafting tab has the items and gear too):'), fill, store];
 }

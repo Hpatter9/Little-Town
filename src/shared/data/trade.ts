@@ -62,6 +62,17 @@ export const WORTH: Record<Material, number> = {
   copper: 7,
   bronze: 12,
   silver: 15,
+  // monster parts (data/hunts.ts): the rarer, the dearer
+  beast_fang: 4,
+  thick_pelt: 6,
+  venom_sac: 8,
+  chitin: 9,
+  great_horn: 12,
+  wyrm_scale: 16,
+  gorgon_eye: 22,
+  ghost_essence: 14,
+  monster_heart: 20,
+  dragon_heart: 60,
 };
 
 /** What caravans bring to sell, by era (caravans only come from the Medieval era on). */

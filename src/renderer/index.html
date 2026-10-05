@@ -149,6 +149,17 @@
         width: 58px;
         text-align: center;
       }
+      /* how fast the town runs: 1x, 2x, 3x */
+      .tab.speed {
+        width: 30px;
+        flex: 0 0 auto;
+        padding: 0;
+        text-align: center;
+        color: var(--text-dim);
+      }
+      .tab.speed.active {
+        color: var(--text);
+      }
       .tab.music {
         width: 24px;
         padding: 0;
@@ -671,6 +682,16 @@
         letter-spacing: 1px;
         color: #c8c8e8;
         white-space: nowrap;
+      }
+      /* what the act does, in a line */
+      #fight-banner .ff-what {
+        display: block;
+        max-width: 260px;
+        margin-top: 2px;
+        font-size: 10px;
+        line-height: 1.25;
+        color: #e8e8f8;
+        white-space: normal;
       }
       #fight-banner.ult {
         border-color: #ffe060;
