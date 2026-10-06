@@ -149,7 +149,7 @@ export const WORKSHOP_ITEMS: readonly ItemDef[] = [
   makes('mill_wool', 'Milled Wool Cloth', 'textile_mill', { wool: 4 }, 60, ['steam_power'], { cloth: 3 }, 'Steam looms: 3 bolts of cloth from wool.', ic('Armor', 5, 0)),
   ware('calico', 'Bolt of Calico', 'textile_mill', { cloth: 3 }, 100, ['steam_power'], 3, 55, 'printed calico by the bolt.', ic('Armor', 6, 0)),
   // the appliance plant
-  ware('television', 'Television', 'appliance_plant', { electronics: 2, glass: 1, plastic: 1 }, 220, ['appliances'], 4, 180, 'a set with a glowing screen.', ic('Magic', 0, 0)),
+  ware('television', 'Television', 'appliance_plant', { electronics: 2, glass: 1, plastic: 1 }, 220, ['appliances'], 4, 180, 'a set with a glowing screen.', ic('Tool', 0, 1)),
   ware('refrigerator', 'Refrigerator', 'appliance_plant', { steel: 2, electronics: 1, plastic: 1 }, 220, ['appliances'], 4, 170, 'a humming white box that keeps food cold.', ic('Chest1', 2, 0)),
   furnish('electric_lamp', 'Electric Lamp', 'appliance_plant', { electronics: 1, glass: 1 }, 120, ['appliances', 'hospitality'], 'decor', 10, 'a lamp with a fringed shade.', ic('Light', 2, 0)),
   // the pharmacy
@@ -174,10 +174,10 @@ export const WORKSHOP_ITEMS: readonly ItemDef[] = [
   ware('pearl_mirror', 'Pearl Mirror', 'pearl_works', { pearls: 3, wood: 1 }, 180, [], 4, 160, 'a mirror framed in nacre.', ic('Amulet', 6, 0)),
   makes('felt', 'Felt', 'felt_works', { wool: 3 }, 50, [], { cloth: 2 }, 'Wool beaten into felt: 2 cloth.', ic('Armor', 4, 0)),
   furnish('felt_rugs', 'Felt Rugs', 'felt_works', { wool: 4 }, 60, ['hospitality'], 'rug', 5, 'rugs of pressed wool in the horde’s patterns.', ic('Chest0', 3, 0)),
-  ware('moonsilk', 'Moonsilk', 'glamour_loom', { cloth: 2, herbs: 2 }, 180, [], 4, 170, 'a cloth that shines by moonlight.', ic('Magic', 1, 0)),
-  furnish('dream_catcher', 'Dream-Catcher', 'glamour_loom', { fiber: 3, bone: 1 }, 60, ['hospitality'], 'decor', 7, 'a hoop strung with charms.', ic('Magic', 2, 0)),
+  ware('moonsilk', 'Moonsilk', 'glamour_loom', { cloth: 2, herbs: 2 }, 180, [], 4, 170, 'a cloth that shines by moonlight.', ic('Magic', 7, 3)),
+  furnish('dream_catcher', 'Dream-Catcher', 'glamour_loom', { fiber: 3, bone: 1 }, 60, ['hospitality'], 'decor', 7, 'a hoop strung with charms.', ic('Magic', 7, 1)),
   ware('elixir', 'Elixir', 'alembic', { herbs: 3, berries: 2 }, 120, [], 3, 75, 'a cordial of the alembic.', ic('Potion', 1, 1)),
-  ware('philosophers_dust', "Philosopher's Dust", 'alembic', { gold: 1, herbs: 3 }, 240, [], 4, 190, 'a pinch of the Great Work.', ic('Magic', 3, 0)),
+  ware('philosophers_dust', "Philosopher's Dust", 'alembic', { gold: 1, herbs: 3 }, 240, [], 4, 190, 'a pinch of the Great Work.', ic('Rock', 1, 1)),
   ware('clockwork_toys', 'Clockwork Toys', 'assembler', { iron: 2, wood: 1 }, 120, [], 3, 70, 'toys that walk when wound.', ic('Tool', 6, 0)),
   ware('brass_automaton', 'Brass Automaton', 'assembler', { iron: 4, coal: 1 }, 240, [], 4, 175, 'a little brass figure that bows.', ic('Tool', 7, 0)),
   ware('heraldic_shield', 'Heraldic Shield', 'armourer', { iron: 2, cloth: 1 }, 150, [], 3, 85, 'a shield painted with arms.', ic('Shield', 0, 0)),

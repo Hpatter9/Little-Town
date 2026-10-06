@@ -1709,6 +1709,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Fighters no longer stand behind the fight's windows:** in a fight the top window hides, and `FightHud.insets()`
   returned nothing then, so the scene ignored the party's window along the bottom; it gives each inset on its own now.
 
+- **They wear what they're equipped with (the owner's ask):** `hkLayers` (art/hkFolk.ts) dresses a townsperson in the
+  body armour they have on: its weight picks the outfit line (their calling's own where it is of that weight,
+  `OUTFIT_WEIGHT`; else `ARMOUR_OUTFIT`: plate, leather, road clothes) at the armour's tier; with nothing on, casters
+  keep their robes (`ROBES`) and founders their outfit, everyone else plain clothes (no more knights in plate they
+  don't own). The helm is the head piece they wear (a samurai's helm no longer comes free); the shield the one in hand;
+  the weapon is carried about town too, put away only for the work's tool. The map, the fight screen and the
+  Townsfolk tab's paper doll all draw from it. Eighteen items pointed at empty icon cells (the visor helmet, the
+  flail and Thornlash, the prosthetics, the Gorgon Aegis...): fixed, so the doll's slots show them.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

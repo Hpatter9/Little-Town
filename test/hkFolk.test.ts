@@ -58,3 +58,25 @@ test('the raised dead are bone, and a founder is crowned', () => {
   assert.ok(hkLayers(who({ look: look('m', SKINS[0], 'plain'), monster: 'undead' }), { fighting: false, activity: 'idle' }).includes('skeleton'));
   assert.ok(hkLayers(who({ look: look('m', SKINS[0], 'plain'), founder: true, cls: 'knight' }), { fighting: false, activity: 'idle' }).some((k) => k.startsWith('helmcrown')));
 });
+
+test('they wear the armour they have on: its weight, in their calling\'s style where it fits; and carry their weapon about town', () => {
+  const heavy = ITEMS.find((i) => i.slot === 'body' && i.weight === 'heavy')!;
+  const light = ITEMS.find((i) => i.slot === 'body' && i.weight === 'light')!;
+  const sword = ITEMS.find((i) => i.slot === 'weapon' && i.family === 'sw')!;
+  const L = look('m', SKINS[0], 'plain');
+  const outfit = (keys: string[]) => keys.find((k) => /^(plate|paladin|leather|ranger|mage|peasant|adventurer|barbarian|cleric|warlock|druid|illusion|gun|alch)\d/.test(k)) ?? '';
+  // a knight with nothing on is in plain clothes, not a paladin's plate
+  assert.match(outfit(hkLayers(who({ look: L, cls: 'knight', stage: 2 }), { fighting: false, activity: 'idle' })), /^adventurer/);
+  // in heavy armour, the knight's own line
+  assert.match(outfit(hkLayers(who({ look: L, cls: 'knight', stage: 2, gear: { body: heavy.id } }), { fighting: false, activity: 'idle' })), /^paladin/);
+  // a mage in heavy armour wears plate, not robes; in nothing, their robes
+  assert.match(outfit(hkLayers(who({ look: L, cls: 'mage', stage: 2, gear: { body: heavy.id } }), { fighting: false, activity: 'idle' })), /^plate/);
+  assert.match(outfit(hkLayers(who({ look: L, cls: 'mage', stage: 2 }), { fighting: false, activity: 'idle' })), /^mage/);
+  // a ranger in light armour, their own line
+  assert.match(outfit(hkLayers(who({ look: L, cls: 'ranger', stage: 0, gear: { body: light.id } }), { fighting: false, activity: 'idle' })), /^ranger/);
+  // a sword is carried walking about, put away for the axe at the woodpile
+  const walking = hkLayers(who({ look: L, gear: { weapon: sword.id } }), { fighting: false, activity: 'walk' });
+  assert.ok(walking.some((k) => k.startsWith('sword')), walking.join(' '));
+  const chopping = hkLayers(who({ look: L, gear: { weapon: sword.id } }), { fighting: false, activity: 'chop' });
+  assert.ok(!chopping.some((k) => k.startsWith('sword')) && chopping.some((k) => k.startsWith('axe')), chopping.join(' '));
+});

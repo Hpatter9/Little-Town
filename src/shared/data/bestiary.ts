@@ -148,15 +148,15 @@ const relic = (id: string, name: string, slot: ItemDef['slot'], effects: ItemDef
 export const BESTIARY_TROPHIES: readonly ItemDef[] = [
   relic('boar_king_tusk', "The Boar King's Tusk", 'charm', { damage: 5, beastDamage: 6, morale: 3 }, 'A tusk as long as a forearm. +5 damage, and beasts think twice.', { sheet: 'Flesh', x: 2, y: 2 }),
   relic('shaman_mask', "The Shaman King's Mask", 'head', { armor: 0.15, morale: 6, power: 0.2 }, 'Painted bark and bone. Spells come stronger to whoever wears it.', { sheet: 'Hat', x: 2, y: 1 }),
-  relic('thornmaw_seed', "Thornmaw's Seed", 'charm', { armor: 0.1, morale: 4, gather: { forage: 1.3 } }, 'It hums faintly. Foragers find twice the berries near it.', { sheet: 'Magic', x: 0, y: 1 }),
+  relic('thornmaw_seed', "Thornmaw's Seed", 'charm', { armor: 0.1, morale: 4, gather: { forage: 1.3 } }, 'It hums faintly. Foragers find twice the berries near it.', { sheet: 'Magic', x: 6, y: 2 }),
   relic('gilded_heart', 'The Gilded Heart', 'charm', { armor: 0.2, morale: 6 }, 'A heart of beaten gold, still warm. Takes a fifth off every blow.', { sheet: 'Amulet', x: 2, y: 1 }),
   relic('asterions_labrys', "Asterion's Labrys", 'weapon', { damage: 18, accuracy: 0.05, cleave: 0.5, range: 1.5 }, 'The Minotaur Lord\'s double axe. +18 damage, and it cleaves into whoever stands beside the target.', { sheet: 'LongWep', x: 3, y: 0 }, { family: 'ax', tier: 10 }),
-  relic('gorgon_aegis', 'The Gorgon Aegis', 'offhand', { armor: 0.25, stun: 0.15 }, 'A shield with a stony face. Takes a quarter off every hit, and foes who look at it freeze.', { sheet: 'Shield', x: 7, y: 0 }, { weight: 'shield' }),
+  relic('gorgon_aegis', 'The Gorgon Aegis', 'offhand', { armor: 0.25, stun: 0.15 }, 'A shield with a stony face. Takes a quarter off every hit, and foes who look at it freeze.', { sheet: 'Shield', x: 6, y: 0 }, { weight: 'shield' }),
   relic('kagemarus_katana', "Kagemaru's Katana", 'weapon', { damage: 17, accuracy: 0.15, crit: 0.15, range: 1.3 }, 'Folded a thousand times. +17 damage, it rarely misses, and it often strikes true.', { sheet: 'LongWep', x: 3, y: 0 }, { family: 'sw', tier: 10 }),
   relic('kitsune_tail', "Tamamo's Ninth Tail", 'charm', { dodge: 0.12, morale: 6, power: 0.25 }, 'Soft as smoke. Its bearer is hard to hit, and their spells burn hotter.', { sheet: 'Magic', x: 7, y: 1 }),
   relic('azgoroths_horn', "Azgoroth's Horn", 'charm', { damage: 10, morale: -3 }, 'Still smouldering. +10 damage, but nobody likes sleeping near it.', { sheet: 'Flesh', x: 1, y: 0 }),
   relic('drowned_compass', 'The Drowned Compass', 'charm', { accuracy: 0.1, morale: 4, undeadDamage: 8 }, 'It points to the nearest grave. Its bearer strikes the dead true.', { sheet: 'Amulet', x: 2, y: 1 }),
-  relic('blackwakes_hat', "Captain Blackwake's Hat", 'head', { armor: 0.15, accuracy: 0.12, morale: 8 }, 'A tricorn with a skull on it. Whoever wears it shoots straighter and swaggers more.', { sheet: 'Hat', x: 3, y: 1 }),
+  relic('blackwakes_hat', "Captain Blackwake's Hat", 'head', { armor: 0.15, accuracy: 0.12, morale: 8 }, 'A tricorn with a skull on it. Whoever wears it shoots straighter and swaggers more.', { sheet: 'Hat', x: 0, y: 0 }),
   relic('destroyer_core', 'The Destroyer Core', 'charm', { damage: 9, armor: 0.12, machineDamage: 10 }, 'A war machine\'s heart, humming. +9 damage, and machines fall faster to its bearer.', { sheet: 'Custom', x: 0, y: 0, name: 'core' }),
 ];
 

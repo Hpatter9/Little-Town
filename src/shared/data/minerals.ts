@@ -34,7 +34,7 @@ const ware = (id: string, name: string, station: Station, cost: Cost, seconds: n
 export const MINERAL_ITEMS: readonly ItemDef[] = [
   makes('smelt_copper', 'Copper', 'kiln', { copper_ore: 2, wood: 1 }, 50, ['bronze_working'], { copper: 1 }, 'Copper ore roasted in the kiln: a bar of copper from two of ore.', ic('Rock', 2, 0)),
   makes('cast_bronze', 'Bronze', 'kiln', { copper: 2, tin_ore: 1 }, 60, ['bronze_working'], { bronze: 2 }, 'Copper and tin melted together: two bars of bronze.', ic('Rock', 3, 0)),
-  makes('smelt_silver', 'Silver', 'bloomery', { silver_ore: 2, coal: 1 }, 70, ['silversmithing'], { silver: 1 }, 'Silver ore smelted hot with coal: a bar of silver.', ic('Rock', 4, 0)),
+  makes('smelt_silver', 'Silver', 'bloomery', { silver_ore: 2, coal: 1 }, 70, ['silversmithing'], { silver: 1 }, 'Silver ore smelted hot with coal: a bar of silver.', ic('Rock', 2, 0)),
   ware('copper_kettle', 'Copper Kettle', 'workbench', { copper: 2 }, 50, ['bronze_working'], 1, 14, 'a kettle beaten from copper.', ic('Tool', 1, 1)),
   ware('bronze_mirror', 'Bronze Mirror', 'workbench', { bronze: 2 }, 80, ['bronze_working'], 2, 26, 'a polished disc of bronze.', ic('Amulet', 4, 0)),
   ware('silver_band', 'Silver Band', 'jeweller', { silver: 1 }, 100, ['silversmithing'], 3, 48, 'a ring of bright silver.', ic('Ring', 1, 0)),

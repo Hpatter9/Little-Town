@@ -92,8 +92,13 @@ const OUTFIT: Record<ClassId, string> = {
 /** Their helm when they wear nothing on their head: the casters' hats, the healers' caps. */
 const BARE_HEAD: Partial<Record<ClassId, string>> = {
   mage: 'mage', chronomancer: 'mage', witch: 'mage', white_mage: 'prayercap', monk: 'prayercap', assassin: 'ninjamask',
-  samurai: 'samurai', dancer: 'domino', bard: 'musketeerhat', engineer: 'gogglesred',
+  dancer: 'domino', bard: 'musketeerhat', engineer: 'gogglesred',
 };
+/** The outfits that are robes (worn with no armour on), and the weight of armour each outfit line is. */
+const ROBES = new Set(['mage', 'cleric', 'warlock', 'druid', 'illusion', 'alch']);
+const OUTFIT_WEIGHT: Record<string, string> = { paladin: 'heavy', plate: 'heavy', barbarian: 'medium', gun: 'medium', alch: 'medium', leather: 'light', ranger: 'light', illusion: 'cloth', mage: 'cloth', cleric: 'cloth', warlock: 'cloth', druid: 'cloth' };
+/** An outfit for armour of each weight when it isn't of the calling's own line. */
+const ARMOUR_OUTFIT: Record<string, string> = { heavy: 'plate', medium: 'leather', light: 'leather', cloth: 'adventurer' };
 /** The grade of outfit at each of the calling's five stages. */
 const GRADE = [1, 2, 3, 4, 6];
 
@@ -149,19 +154,25 @@ export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string 
     else if (!skin && w.id % 7 === 3) out.push(sexed('freckles', sex));
     if (sex === 'male' && w.look.beard) out.push(`${['beard', 'goatee', 'sideburns'][w.id % 3]}${colour === 'blonde' ? 'blond' : colour}`);
   }
-  // what they wear: their calling's outfit at their stage; else what the armour they wear makes them; else everyday
+  // what they wear: the body armour they have on (the user's ask: the gear they're equipped with shows), in their
+  // calling's style where it's of that weight, at the armour's tier; with none, a caster's robes, a founder's own
+  // outfit, a traveller's road clothes, else everyday clothes
   const body = w.gear.body ? ITEM_BY_ID[w.gear.body] : undefined;
+  const own = w.cls ? OUTFIT[w.cls] : null;
+  const robed = own !== null && ROBES.has(own);
   let family: string;
   let grade = 1;
-  if (w.cls) {
-    family = OUTFIT[w.cls];
+  const weight = body?.weight;
+  if (weight === 'heavy' || weight === 'medium' || weight === 'light' || weight === 'cloth') {
+    const fits = own !== null && OUTFIT_WEIGHT[own] === weight;
+    family = fits ? own! : ARMOUR_OUTFIT[weight];
+    grade = Math.max(1, Math.min(6, 1 + Math.floor(((body!.tier ?? 1) - 1) / 2) + (weight === 'medium' && !fits ? 2 : 0)));
+  } else if (robed || w.founder) {
+    family = own ?? 'adventurer';
     grade = GRADE[Math.max(0, Math.min(4, w.stage))];
-  } else if (body?.weight === 'heavy') [family, grade] = ['plate', 3];
-  else if (body?.weight === 'medium') [family, grade] = ['plate', 1];
-  else if (body?.weight === 'light') [family, grade] = ['leather', 1];
-  else if (w.traveller) [family, grade] = ['adventurer', 1 + (w.id % 2)];
+  } else if (w.traveller || w.cls) [family, grade] = ['adventurer', 1 + (w.id % 2)];
   else [family, grade] = ['peasant', 1 + (w.id % 2)];
-  if (w.founder && grade < 3) grade = 3; // (a founder dresses the part from the first)
+  if (w.founder && !body && grade < 3) grade = 3; // (a founder dresses the part from the first)
   out.push(sexed(`${family}0${grade}`, sex) ?? sexed(`${family}01`, sex));
   out.push(sexedTop(`${family}0${grade}`, sex));
   // the hair in front (and a man's bangs)
@@ -192,7 +203,8 @@ export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string 
   }
   // the weapon of its family in a fight, else the tool of the work in hand
   const weapon = w.gear.weapon ? ITEM_BY_ID[w.gear.weapon] : undefined;
-  if (doing.fighting && weapon?.family && WEAPON[weapon.family]) {
+  // (a weapon they carry shows whenever their hands aren't full of the work's tool, not only in a fight)
+  if ((doing.fighting || (!TOOL[doing.activity] && !w.child)) && weapon?.family && WEAPON[weapon.family]) {
     const list = WEAPON[weapon.family];
     out.push(sexed(list[Math.max(0, Math.min(list.length - 1, Math.floor(((weapon.tier ?? 1) - 1) / 2)))], sex));
   } else if (TOOL[doing.activity]) out.push(TOOL[doing.activity].map((t) => sexed(t, sex)).find((k) => k) ?? null); // (the pack's sickle is a man's only)
