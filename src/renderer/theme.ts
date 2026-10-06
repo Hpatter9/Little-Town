@@ -262,7 +262,7 @@ ${T} .place.on, ${T} .tab.on, ${T} .inv-tab.on, ${T} #tabs button.on, ${T} butto
 ${T} .tab-fill { background: linear-gradient(${p.fill[1]}, ${p.fill[0]}); }
 ${T} .hint, ${T} .empty { color: ${p.dim}; }
 ${T} .shop-coins { color: ${p.heading}; }
-${T} #prompt, ${T} #away, ${T} .toast, ${T} #tip, ${T} #person-card, ${T} #banner, ${T} #exp-header, ${T} #raid-recap, ${T} #fight-result {
+${T} #prompt, ${T} #away, ${T} .toast, ${T} #tip, ${T} #person-card, ${T} #banner, ${T} #exp-header, ${T} #raid-recap, ${T} #fight-result, ${T} .ff-window, ${T} #fight-banner:not(.ult), ${T} #fight-leave {
   background: ${p.wood}; border-color: ${p.edge}; color: var(--text); box-shadow: 0 0 10px ${p.glow};
 }
 ${T} .shop-floor { filter: ${p.canvas}; }

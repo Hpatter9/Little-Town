@@ -1827,7 +1827,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   defender's row with experience and levels, the fallen and the slain; the best of them; spoils, prisoners, what was
   taken). `snapshot.raidRecap` carries it for `RECAP_HOURS` (6). The strip shows it once as a card over the town in the
   town's own look (the wood-and-brass card of the question and report cards, themed per people by theme.ts and skins.ts
-  like `#prompt`; titles in `--heading`, a theme variable; the parties' victory window `#fight-result` likewise)
+  like `#prompt`; titles in `--heading`, a theme variable; the parties' victory window `#fight-result` likewise, and
+  the whole fight screen's windows too: `.ff-window`, `#fight-banner` (an ultimate's stays fiery), `#fight-leave`, the
+  bars), with a few lines of the raid told (`story`, `tellRaid`: where they came from, who led, who fought hardest
+  and who bore the worst, the fallen and the dead, the towers' part, how it ended; also on the feed's card)
   (`battle/raidRecap.ts`, `#raid-recap`; the last seen kept in `littletown.recapSeen`), and the phone's feed has a card
   that brings it back (`__showRecap`). Test: `test/raidRecap.test.ts`.
 - **Ground under the fights' feet (the owner's complaint: they walked on nothing):** the backdrops with nothing at foot
