@@ -16,6 +16,7 @@ import { biomeOf, difficultyOf } from '../data/biomes';
 import { CAPTAIN_PER_LEVEL } from '../data/operators';
 import { operatorSkill } from './operators';
 import { takePrisoners } from './prisoners';
+import { before, credit, noteRoll, raidRecap, took as tookHarm, TOWERS } from './raidRecap';
 import { answerGuild, guildDefeated, guildOptions, runWithThePack } from './monsters';
 import { ITEM_BY_ID } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
@@ -290,6 +291,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
       rd.dir = i % 2 ? 1 : -1;
     });
     raid.phase = 'active';
+    noteRoll(s, raid);
     raid.arrivesTick = s.tick;
     raid.leavesTick = s.tick + RAID_MAX_HOURS * TICKS_PER_HOUR;
     s.raid = raid;
@@ -423,6 +425,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
   if (r.phase === 'warning') {
     if (s.tick < r.arrivesTick) return;
     r.phase = 'active';
+    noteRoll(s, r);
     notify(s, `The ${theName(kind.name)} ${kind.plural ? 'are' : 'is'} here!`);
     summonForRaid(s, r);
     for (const kind of new Set(r.raiders.filter((q) => ENEMIES[q.kind].kit && !q.ally).map((q) => q.kind))) bossArrives(s, kind);
@@ -619,6 +622,14 @@ function steal(rd: Raider, st: Building, what: 'food' | 'valuables'): void {
 
 /** A raider strikes someone. `area`: who a boss's sweep can reach (the battle map picks them; in town, by distance). */
 export function attackPerson(s: GameState, rd: Raider, p: Person, rng: Rng, area?: Person[]): void {
+  // (the harm taken, for the raid's recap: everyone a boss's sweep reached too)
+  const hit = area ?? s.people.filter((q) => exposed(q));
+  const was = new Map([p, ...hit].map((q) => [q, q.hp]));
+  strikePerson(s, rd, p, rng, area);
+  for (const [q, hp] of was) tookHarm(s, q, hp);
+}
+
+function strikePerson(s: GameState, rd: Raider, p: Person, rng: Rng, area?: Person[]): void {
   const def = ENEMIES[rd.kind];
   rd.cooldown = Math.round(def.interval * TICK_HZ);
   rd.lastAction = s.tick;
@@ -698,7 +709,9 @@ function fireDefenses(s: GameState, rng: Rng): void {
     const target = s.raid!.raiders.filter((rd) => !rd.down && !rd.gone && !rd.ally && dist(rd, at) <= d.range).sort((a, c) => dist(a, at) - dist(c, at))[0];
     if (!target) continue;
     b.readyTick = s.tick + Math.round(d.interval * TICK_HZ);
+    const was = before(s.raid!.raiders);
     const volley = fireAt(s, rng, d, target, (rd, px) => s.raid!.raiders.filter((q) => q !== rd && dist(q, rd) <= px), (rd, dmg) => hurtInTown(s, rd, dmg));
+    credit(s, TOWERS, was);
     for (const { rd } of volley.struck) rd.hitFx = b.def === 'laser_turret' || b.def === 'tesla_coil' ? 'shock' : null;
   }
 }
@@ -714,6 +727,13 @@ function hurtInTown(s: GameState, rd: Raider, dmg: number): void {
 /** A defender's attack on the nearest raider in reach (called from the defend task). `mult`: a battle's chosen ground
  *  (battle.ts) makes each blow count for more; `near`: who a mage's fire bursts over (in town, those beside the one hit). */
 export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bonus = 0, mult = 1, near?: Raider[]): void {
+  // (what the blow did, for the raid's recap)
+  const was = before(s.raid?.raiders ?? [rd]);
+  strikeRaider(s, p, rd, rng, bonus, mult, near);
+  credit(s, p.id, was);
+}
+
+function strikeRaider(s: GameState, p: Person, rd: Raider, rng: Rng, bonus: number, mult: number, near?: Raider[]): void {
   // (held by a rival lord's hex, they lose the moment)
   if (heldBack(s, p, rng)) return;
   p.lastBlow = s.tick;
@@ -835,6 +855,7 @@ function endRaid(s: GameState, rng: Rng): void {
   // (and drove off some of the livestock, or carried it off in their jaws)
   if (r.raiders.some((rd) => rd.gone && !rd.ally)) rustle(s, rng);
   const stolen: Stock = {};
+  const spoils: Stock = {};
   let killed = 0;
   // (the town's own summoned and tamed allies aren't counted, or taken prisoner; raiders a necromancer raised
   // were killed first: they count, and leave their loot)
@@ -844,6 +865,7 @@ function endRaid(s: GameState, rng: Rng): void {
     if (rd.down || rd.ally) {
       killed++;
       depositNear(s, { x: Math.max(0, Math.min(worldW(s), rd.x)), y: rd.y }, { ...ENEMIES[rd.kind].loot });
+      if (!rd.ally || rd.raiseChecked) for (const [m, n] of Object.entries(ENEMIES[rd.kind].loot)) if (n) addStock(spoils, m as Material, n);
     } else for (const m of MATERIALS) if (rd.carrying[m]) addStock(stolen, m, rd.carrying[m]!);
   }
   // the fallen: an infirmary takes them all in; otherwise the town has to tend them where they lie (see
@@ -853,7 +875,7 @@ function endRaid(s: GameState, rng: Rng): void {
   const bleeding = s.people.filter((p) => p.downed?.bleedUntil != null && p.away === null);
   if (infirmary) bleeding.forEach(stabilize);
   else if (bleeding.length) notify(s, `${bleeding.map((p) => p.name).join(', ')} ${bleeding.length === 1 ? 'is' : 'are'} bleeding out! Someone must tend them (Medicine helps; a bandage or poultice always works).`, true);
-  takePrisoners(s, enemies, rng);
+  const prisoners = takePrisoners(s, enemies, rng);
   const took = MATERIALS.filter((m) => stolen[m]).map((m) => `${stolen[m]} ${m}`);
   const outcome =
     killed && killed === foes.length
@@ -866,6 +888,17 @@ function endRaid(s: GameState, rng: Rng): void {
           ? 'They got away.'
           : 'They were driven off.';
   notify(s, `Raid by the ${theName(kind.name)} is over. ${outcome}${took.length ? ` They took ${took.join(', ')}.` : ''}`, true);
+  // the recap card (sim/raidRecap.ts)
+  const boss = r.raiders.find((rd) => !rd.ally && ENEMIES[rd.kind]?.boss);
+  s.raidRecap = raidRecap(s, r, kind.name, {
+    outcome: took.length ? 'pillaged' : killed === foes.length ? 'victory' : 'driven',
+    boss: boss ? ENEMIES[boss.kind].name : null,
+    killed,
+    came: foes.length,
+    prisoners,
+    stolen,
+    spoils,
+  });
   if (killed && !took.length) victoryFeast(s); // (driven off with nothing: the town feasts it, sim/ceremonies.ts)
 }
 

@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius } from './ceremonies';
 import { realmView, type RealmView } from './factions';
 import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
@@ -615,6 +616,8 @@ export interface Snapshot {
   speed: number;
   /** The last event answered and what came of it, for `OUTCOME_HOURS` (the feed's card). */
   eventOutcome: { title: string; choice: string | null; text: string; tick: number } | null;
+  /** The last raid's recap while it's fresh (sim/raidRecap.ts), and how long ago it ended (game hours). */
+  raidRecap: (RaidRecap & { hoursAgo: number }) | null;
   calendar: Calendar;
   /** Everything in storage, summed. */
   stock: Stock;
@@ -817,6 +820,7 @@ export function snapshot(s: GameState): Snapshot {
     tick: s.tick,
     paused: s.paused,
     speed: s.gameSpeed ?? 1,
+    raidRecap: s.raidRecap && s.tick - s.raidRecap.tick < RECAP_HOURS * TICKS_PER_HOUR ? { ...s.raidRecap, hoursAgo: (s.tick - s.raidRecap.tick) / TICKS_PER_HOUR } : null,
     eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text, tick: s.eventOutcome.tick } : null,
     calendar: calendar(s.tick),
     stock,

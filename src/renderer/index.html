@@ -813,6 +813,108 @@
         0% { opacity: 0; transform: translate(-50%, -40%) scale(0.9); }
         100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
       }
+      /* the recap after a raid (battle/raidRecap.ts) */
+      #raid-recap {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 40;
+        width: min(420px, 94%);
+        max-height: 88%;
+        overflow-y: auto;
+        padding: 8px 10px 10px;
+        text-align: center;
+        zoom: var(--ui-zoom, 1);
+      }
+      #raid-recap[hidden] {
+        display: none;
+      }
+      #raid-recap .rr-title {
+        font-family: var(--font-display);
+        font-size: 24px;
+        font-weight: bold;
+        color: #ffe060;
+        text-shadow: 0 0 8px #ff9040, 2px 2px 0 #000;
+      }
+      #raid-recap.driven .rr-title {
+        color: #c8e8ff;
+        text-shadow: 2px 2px 0 #000;
+      }
+      #raid-recap.pillaged .rr-title {
+        color: #ff7070;
+        text-shadow: 2px 2px 0 #000;
+      }
+      #raid-recap .rr-sum {
+        color: #d8d8f0;
+        font-size: 12px;
+        margin: 2px 0 6px;
+      }
+      #raid-recap .rr-row {
+        display: grid;
+        grid-template-columns: 1fr 26px 40px 36px 74px;
+        gap: 4px;
+        align-items: baseline;
+        text-align: right;
+        padding: 1px 0;
+        font-size: 12px;
+      }
+      #raid-recap .rr-head {
+        color: #a0a8e0;
+        font-size: 10px;
+        letter-spacing: 1px;
+        border-bottom: 1px solid #5860a0;
+      }
+      #raid-recap .rr-name {
+        text-align: left;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #raid-recap .rr-row.best .rr-name {
+        color: #ffe060;
+        font-weight: bold;
+      }
+      #raid-recap .rr-row.fell {
+        opacity: 0.75;
+      }
+      #raid-recap .rr-row.died {
+        opacity: 0.6;
+        text-decoration: line-through;
+      }
+      #raid-recap .rr-row.towers {
+        color: #c8c8e8;
+        font-style: italic;
+        border-top: 1px dashed #5860a0;
+      }
+      #raid-recap .rr-mark {
+        color: #ff9090;
+        font-size: 10px;
+      }
+      #raid-recap .rr-xp {
+        color: #a8ffb8;
+        font-weight: bold;
+      }
+      #raid-recap .rr-up {
+        color: #ffe060;
+        font-size: 10px;
+      }
+      #raid-recap .rr-foot {
+        margin-top: 6px;
+        border-top: 1px solid #5860a0;
+        padding-top: 5px;
+        text-align: left;
+        font-size: 12px;
+      }
+      #raid-recap .rr-line.bad b {
+        color: #ff9090;
+      }
+      #raid-recap .rr-close {
+        margin-top: 8px;
+        width: auto;
+        display: inline-block;
+        padding: 3px 18px;
+      }
       /* the small corner button out of a fight */
       /* the trip's and the fight's progress (fightHud.ts): under the top window, or at the top in a fight */
       #fight-progress {

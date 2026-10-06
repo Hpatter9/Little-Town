@@ -1810,6 +1810,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   arrival fight of a `clear` destination (a guild hunt, a place on the land, a saga's foe, a pack's lair, an assault)
   is the whole errand, so `maybeFight` in sim/expeditions.ts never skips it (a careful party's `STAKES.fights` used to
   halve it) and a scout can't slip the party past it (`SCOUT_AVOID`). Test in `test/hunts.test.ts`.
+- **A recap after every raid (the owner's ask):** `src/shared/sim/raidRecap.ts`. While a raid is on its blows are
+  tallied on it (`Raid.tally`: each townsperson's harm dealt, raiders felled and harm taken, by `credit`/`took` around
+  `defenderAttack` and `attackPerson` in raids.ts and the spells and skills in battle.ts; the towers and traps as one,
+  `TOWERS`), and who was in town at what level is noted as it turns active (`noteRoll`, `Raid.roll`); `endRaid` puts it
+  together on `s.raidRecap` (`raidRecap`: victory, driven off or pillaged; the felled, fled and through; the waves; each
+  defender's row with experience and levels, the fallen and the slain; the best of them; spoils, prisoners, what was
+  taken). `snapshot.raidRecap` carries it for `RECAP_HOURS` (6). The strip shows it once as a blue window over the town
+  (`battle/raidRecap.ts`, `#raid-recap`; the last seen kept in `littletown.recapSeen`), and the phone's feed has a card
+  that brings it back (`__showRecap`). Test: `test/raidRecap.test.ts`.
 - **Ground under the fights' feet (the owner's complaint: they walked on nothing):** the backdrops with nothing at foot
   height (the cities, futures, industrial, steampunk and ruins skylines, the moons, the mountain lake, the open sea with
   no bed) get a strip of side-on tiles along the foot (`GROUND_OF` in `art/fightGround.ts`: earth, brick or metal,
