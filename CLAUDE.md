@@ -1821,6 +1821,22 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   look it doesn't suit (`Pick.grade`, `GRADES`: how much colour is taken out, the colour laid over the rest and the
   brightness: the liches' grey-green and dim, the Court's blood-dark, the machines' steel, the shore's sea-washed, the
   nomads' sand, the druids' green, the fae's violet...), done once on the canvas in `pickArt` (`regrade`).
+- **Every building from the packs, in every look (the owner's complaint: the code-drawn stone buildings):** any pick that
+  doesn't suit a look is now drawn **recoloured** for it (`pickFor` in packBuildings.ts: `Pick.grade`, `GRADES`), not
+  painted: the timber houses, trades, market, theatre, bathhouse and walls in the liches' grey-green, the Court's
+  blood-dark, the machines' steel and the rest (the merfolk keep their painted stilt huts). A pick may carry its own
+  `grade` whatever the look: the stone wall's stonework as `brick`, `concrete` and `force` walls and gates. New picks:
+  the lean-to and hide tent are the Simple Summer pack's cottage (`su_house.png`), the longhouse the tiny-rpg-town
+  pack's long house (`tt_long.png`, its inn sign painted over with its window), the apartments two of its gabled houses
+  (`tt_gable.png`); the guard and bell towers the Simple Summer watchtowers; the gunsmith, cinema and university pack
+  houses with their trade's things; the boatyard logs, racks and a barrel; the blood farm graves; DawnLike's pit,
+  stakes and spikes for the pit trap, spike trap, caltrops, wolf trap, bramble snare and land mine; the loose
+  animated-objects pack's electric coil for the Tesla coil and shield generator (`ao_coil.png`); the late plants
+  (steelworks, cement works, alloy foundry, fusion reactor, cryo pod, clone vat) from the futuristic objects, the trauma
+  centre as the hospital, the habitat dome the round keep in steel; and the peoples' own defences from the cave and
+  village props. Still painted, since no pack has them: the war engines and turrets, the launch site, the sentry bot,
+  tide-pool trap and acid sprayer. `test/packCoverage.test.ts` (`pickCovered`) fails if a building has no pack picture
+  in some look; the test build loads PNGs as `empty`.
 - **Allies keep their colours:** summoned, tamed and allied fighters were washed green all over on the map, the fight
   screen and the expedition pane (a summoned wolf read as a stray green monster); now an ally on the map has a green
   glow underfoot and a green health bar instead (mapRaiders.ts).

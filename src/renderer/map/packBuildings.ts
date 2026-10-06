@@ -6,6 +6,7 @@
 
 import { CanvasSource, Texture } from 'pixi.js';
 import { lineOfDef, venueOfDef } from '../../shared/data/shop';
+import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { LINES } from '../../shared/data/stores';
 import { CELL } from '../../shared/sim/land';
 import { loadImage } from '../art/loadImage';
@@ -137,6 +138,14 @@ import suCastle from '../art/packs/su_castle.png';
 import suMageTower from '../art/packs/su_magetower.png';
 import suRoundCastle from '../art/packs/su_roundcastle.png';
 import suTent from '../art/packs/su_tent.png';
+import suHouse from '../art/packs/su_house.png';
+import ttLong from '../art/packs/tt_long.png';
+import ttGable from '../art/packs/tt_gable.png';
+import dlPit from '../art/packs/dl_pit.png';
+import dlStakes from '../art/packs/dl_stakes.png';
+import dlCaltrops from '../art/packs/dl_caltrops.png';
+import dlSpikes from '../art/packs/dl_spikes.png';
+import aoCoil from '../art/packs/ao_coil.png';
 import sfPylon from '../art/packs/sf_pylon.png';
 import sf27 from '../art/packs/sf_27.png';
 import sfTube4 from '../art/packs/sf_tube4.png';
@@ -216,9 +225,50 @@ const PICKS: Record<string, Pick> = {
   apothecary_shop: { url: gbShop, styles: TIMBER, lamps: [[30, 83], [80, 83], [74, 45]] },
   // the first homes: the nomads' tipis and yurts; everyone else's are the top-down painter's huts and the longhouse
   // (the owner's call: tents are a nomad thing, not a settler's house). `styles` NOMAD alone, so the rest get no pick.
-  lean_to: { styles: new Set(NOMAD), url: rockyTipi2, overhang: 4, smoke: [[29, 1]] },
-  hide_tent: { styles: new Set(NOMAD), url: rockyTipi1, overhang: 4, smoke: [[38, 2]] },
-  longhouse: { styles: new Set(NOMAD), url: rockyYurt1, overhang: 8, smoke: [[39, 1]] },
+  // the first homes: the Simple Summer pack's cottage on its stone footing, and the tiny-rpg-town pack's long house
+  // (its inn sign painted over with its other window); the nomads keep their tipis and yurts
+  lean_to: { url: suHouse, styles: TIMBER, overhang: 2, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4, smoke: [[29, 1]] } }] },
+  hide_tent: { url: suHouse, styles: TIMBER, overhang: 4, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[38, 2]] } }] },
+  longhouse: { url: ttLong, styles: TIMBER, overhang: 2, smoke: [[22, 2]], lamps: [[22, 44], [72, 44], [17, 77], [78, 77]], variants: [{ styles: NOMAD, pick: { url: rockyYurt1, overhang: 8, smoke: [[39, 1]] } }] },
+  // the tiny-rpg-town pack's tall gabled house, its window boxes in flower, two side by side for the apartments
+  apartments: { parts: [[ttGable, 0, 0], [ttGable, 47, 0]], size: [95, 132], styles: TIMBER, overhang: 2, lamps: [[25, 103], [24, 60], [72, 103], [71, 60]] },
+  // the trades the timber house's gear tells apart
+  gunsmith: { parts: [[house3, 0, 0], [vRack, 120, 112], [vAnvil, 6, 132]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
+  cinema: { parts: [[house4, 0, 0], [vSignShield, 2, 110]], size: [154, 149], styles: TIMBER, lamps: [[97, 87], [114, 122]] },
+  university: { parts: [[gbHouse, 0, 0], [dpShelf1, 104, 112], [dpBooks, 2, 124]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
+  // towers from the Simple Summer pack: the tall timber tower keeps the guard, the short one hangs the bell
+  guard_tower: { url: suWatchtower, overhang: 3 },
+  bell_tower: { url: suLookout, overhang: 3 },
+  // a yard of logs, racks and a cart where the boats are built
+  boatyard: { parts: [[vLogpile, 0, 6], [vRack, 46, 0], [fLog3, 80, 24], [doBarrel, 128, 14]], size: [156, 50], overhang: 0 },
+  // the Court's blood farm: graves and the cells' stones
+  blood_farm: { parts: [[grave1, 0, 0], [grave3, 34, 6], [grave5, 66, 0], [grave2, 16, 28], [grave4, 50, 30]], size: [98, 62], overhang: 0 },
+  // DawnLike's pit, stakes and spikes, a cell each; the loose animated-objects pack's electric coil
+  pit_trap: { url: dlPit, overhang: 0 },
+  spike_trap: { url: dlStakes, overhang: 0 },
+  caltrops: { url: dlCaltrops, overhang: 0 },
+  wolf_trap: { url: dlCaltrops, overhang: 0 },
+  bramble_snare: { url: dlStakes, overhang: 0, grade: 'druid' },
+  land_mine: { url: dlSpikes, overhang: 0 },
+  tesla_coil: { url: aoCoil, overhang: 2 },
+  shield_generator: { parts: [[aoCoil, 0, 0], [aoCoil, 34, 0]], size: [63, 43], overhang: 2 },
+  // each people's own defence, from the props that suit it (the war engines and turrets stay painted: no pack has them)
+  militia_post: { parts: [[vRack, 0, 0], [vSignSword, 26, 18]], size: [49, 42], overhang: 2 },
+  bone_spire: { url: caveTotem, overhang: 2, grade: 'lich' },
+  gargoyle_perch: { url: caveStatue, overhang: 2, grade: 'vampire' },
+  rune_bolt_thrower: { url: caveTotem, overhang: 2 },
+  arrow_wagon: { parts: [[vCart2, 0, 4], [vRack, 38, 0]], size: [66, 42], overhang: 2 },
+  glamour_ring: { url: caveGem, overhang: 2, grade: 'fae' },
+  crossbow_bastion: { url: suLookout, overhang: 3 },
+  // the late plants, put together from the futuristic objects like the factory
+  steelworks: { parts: [[sf26, 0, 28], [sfTube4, 50, 0], [sf25, 150, 0]], size: [218, 77], overhang: 0 },
+  cement_works: { parts: [[sf24, 0, 0], [sf12, 72, 56]], size: [100, 76], overhang: 0 },
+  alloy_foundry: { parts: [[sf27, 0, 40], [sf26, 82, 27], [sf19, 154, 52]], size: [186, 76], overhang: 0 },
+  fusion_reactor: { parts: [[sf24, 0, 0], [aoCoil, 74, 30], [sf25, 106, 0], [sf26, 178, 28]], size: [246, 77], overhang: 0 },
+  cryo_pod: { parts: [[sf8, 0, 0]], size: [19, 24], overhang: 2 },
+  clone_vat: { parts: [[sf24, 0, 0]], size: [68, 76], overhang: 0 },
+  habitat_dome: { url: suRoundCastle, overhang: 4, grade: 'robot' },
+  trauma_center: { parts: [[dpBench, 0, 14], [dpBench, 82, 14], [dpTank1, 166, 0], [dpTank4, 204, 0]], size: [240, 52], overhang: 0 },
   // the great halls: the Glassblower pack's big house for the elder lodge and the town hall (the painter's hall shape
   // was clunky), its shop with the shield sign for the trophy hall
   elder_lodge: { parts: [[gbHouse, 0, 0], [gbSignpost, 2, 112], [gbBarrels, 104, 118]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]], variants: hallVariants() },
@@ -237,9 +287,13 @@ const PICKS: Record<string, Pick> = {
   palisade_gate: { own: true, parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, joins: { v: { parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, rotate: 90 } } },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
   stone_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
+  brick_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'brick' },
+  concrete_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'concrete' },
+  force_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'force' },
   stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
-  brick_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
-  concrete_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
+  brick_gate: { own: true, grade: 'brick', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
+  concrete_gate: { own: true, grade: 'concrete', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
+  force_gate: { own: true, grade: 'force', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
   // the dungeon props: bookshelves for the library, an alchemist's bench for the healer, a plain table for the workbench
   library: { parts: [[dprops, 0, 0, 16, 256, 48, 48], [dprops, 48, 0, 64, 256, 48, 48], [dprops, 96, 0, 112, 256, 48, 48]], size: [144, 48], overhang: 0 },
   healers_hut: { parts: [[dprops, 0, 0, 16, 304, 48, 48]], size: [48, 48], overhang: 0 },
@@ -406,6 +460,10 @@ function source(pick: Pick, id: number): { draw: (g: CanvasRenderingContext2D, s
  *  fronts): how much of the colour is taken out (0..1), the colour laid over what's left, and the brightness. The
  *  liches' shops go grey-green and dim, the Court's blood-dark, the machines' steel, the shore's sea-washed... */
 const GRADES: Record<string, { grey: number; tint: number; light: number }> = {
+  // (materials, whatever the look: the stone wall's stonework as brick, concrete and a force field)
+  brick: { grey: 0.45, tint: 0xe08a6a, light: 1.0 },
+  concrete: { grey: 0.95, tint: 0xd8d8d0, light: 1.12 },
+  force: { grey: 0.9, tint: 0x80d8ff, light: 1.25 },
   lich: { grey: 0.8, tint: 0x9ab0a0, light: 0.82 },
   vampire: { grey: 0.65, tint: 0xc08a94, light: 0.78 },
   robot: { grey: 0.85, tint: 0xa8c0d8, light: 0.95 },
@@ -428,10 +486,12 @@ function pickFor(def: string, style: string): Pick | null {
   const v = pick.variants?.find((x) => x.styles.includes(style));
   if (v) return v.pick;
   if (suits(pick, style)) return pick;
-  if (GRADES[style] && venueOfDef(def)) {
+  // (another look's picture, recoloured for this one: the timber houses, trades and walls in every people's colours;
+  // the merfolk keep their stilt huts, which the painter draws)
+  if (GRADES[style] && !(style === 'merfolk' && BUILDING_BY_ID[def]?.housing)) {
     const key = `${def}|${style}`;
     let g = graded.get(key);
-    if (!g) graded.set(key, (g = { ...pick, styles: undefined, grade: style }));
+    if (!g) graded.set(key, (g = { ...pick, styles: undefined, own: undefined, grade: pick.grade ?? style }));
     return g;
   }
   return null;
@@ -459,7 +519,7 @@ function regrade(g: CanvasRenderingContext2D, w: number, h: number, style: strin
 }
 
 /** Whole buildings seen from outside (houses, shop fronts, tents, towers, the windmill): never a room's furnishings. */
-const EXTERIORS = new Set([house1, house2, house3, house4, gbHouse, gbShop, tent2, rockyTipi1, rockyTipi2, rockyYurt1, rockyYurt2, suWindmill, suWatchtower, suLookout, suCastle, suMageTower, suRoundCastle, suTent]);
+const EXTERIORS = new Set([suHouse, ttLong, ttGable, house1, house2, house3, house4, gbHouse, gbShop, tent2, rockyTipi1, rockyTipi2, rockyYurt1, rockyYurt2, suWindmill, suWatchtower, suLookout, suCastle, suMageTower, suRoundCastle, suTent]);
 const urlsOf = (p: Pick): string[] => [p.url, ...(p.any ?? []), ...(p.parts ?? []).map((x) => x[0])].filter((u): u is string => !!u);
 
 /** A building's pack picture as a castle's or a hold's room furnishings: only a picture of things (racks, benches, a
@@ -694,3 +754,6 @@ export function packDressing(def: string, id: number, w: number, style: string):
   });
   return out;
 }
+
+/** Whether a building has a pack picture in a look (the audit of what's still painted: test/packCoverage.test.ts). */
+export const pickCovered = (def: string, style: string): boolean => !!pickFor(def, style);
