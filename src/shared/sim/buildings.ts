@@ -4,6 +4,7 @@
 // the camp) when it's placed, so the town grows along its roads.
 
 import { isGate } from './ringWall';
+import { isSeat } from '../data/seats';
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild, seaTown } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -300,7 +301,7 @@ export function squareRoads(s: GameState): void {
 
 /** Whether a finished building can be upgraded in place now, and to what. A bigger upgrade keeps its top-left where
  *  it can, else shifts left or up to make room. */
-export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceCheck & { to?: string; tile?: number; row?: number } {
+export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceCheck & { to?: string; tile?: number; row?: number; clear?: number[] } {
   const b = s.buildings.find((q) => q.id === id);
   const to = b && UPGRADES[b.def];
   if (!b || !to || b.status !== 'done') return { ok: false, reason: 'Nothing to upgrade to' };
@@ -324,7 +325,45 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
     const ok = canPlace(others, def, p.x, p.y);
     if (ok.ok) return { ok: true, to, tile: p.x, row: p.y };
   }
+  // (still no room: small, cheap things in the way may be pulled down to make it, and a road over the ground lifted;
+  // the town builds them again elsewhere as it wants them)
+  for (const p of spots) {
+    const r: Rect = { x: p.x, y: p.y, w: def.width, h: depthOf(def) };
+    const inWay = others.buildings.filter((q) => overlaps(footprint(q), r));
+    // (a neighbour of its own kind is merged, not pulled down: the absorb above)
+    if (inWay.length > CLEAR_MOST || !inWay.every((q) => mayClear(q) && q.def !== b.def)) continue;
+    if (inWay.reduce((t, q) => t + worthOf(defOf(q)), 0) > worthOf(def) * CLEAR_WORTH) continue;
+    if (!roomForSleepers(s, inWay, b, def)) continue;
+    const m = s.land;
+    let roads = m.roads;
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (isRoad(m, x, y)) roads = roads.slice(0, idx(m, x, y)) + '.' + roads.slice(idx(m, x, y) + 1);
+    const cleared = { ...others, land: { ...m, roads }, buildings: others.buildings.filter((q) => !inWay.includes(q)) };
+    if (canPlace(cleared, def, p.x, p.y).ok) return { ok: true, to, tile: p.x, row: p.y, clear: inWay.map((q) => q.id) };
+  }
   return { ok: false, reason: `No room for the ${def.name}`, to };
+}
+
+/** At most this many buildings are pulled down for one upgrade, worth together at most this share of what it costs. */
+export const CLEAR_MOST = 2;
+export const CLEAR_WORTH = 0.6;
+/** What may be pulled down to make room: a finished building that isn't the seat, a wall of the ring, a gate, a
+ *  castle's room, a venue (its furnishings and custom), a crop in the ground, a pen with animals, a prison with
+ *  prisoners, or alight. */
+function mayClear(q: Building): boolean {
+  const d = defOf(q);
+  if (q.status !== 'done' || q.fire !== undefined || q.ring !== undefined || q.room || q.def === 'campfire') return false;
+  if (isSeat(q.def) || isGate(q.def) || d.floor || d.cells || d.hp) return false;
+  if (CROPS[q.def] && q.crop && q.crop.growth > 0) return false;
+  if (HERDS[q.def] && (q.herd?.head ?? 0) > 0) return false;
+  return true;
+}
+const worthOf = (d: BuildingDef) => Object.values(d.cost).reduce((a, n) => a + (n ?? 0), 0);
+/** Pulling down homes leaves everyone a bed (the upgrade's own beds count once it stands: until then, the rest). */
+function roomForSleepers(s: GameState, inWay: Building[], b: Building, def: BuildingDef): boolean {
+  const lost = inWay.reduce((t, q) => t + (defOf(q).housing ?? 0), 0);
+  if (!lost) return true;
+  const beds = s.buildings.filter((q) => q.status === 'done' && q !== b && !inWay.includes(q)).reduce((t, q) => t + (defOf(q).housing ?? 0), 0);
+  return beds >= s.people.length || beds + (def.housing ?? 0) >= s.people.length + lost;
 }
 
 /**
@@ -345,6 +384,10 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
     for (const m of MATERIALS) if (old.store[m]) addStock(salvage, m, old.store[m]!);
   }
   if (merged) s.buildings.splice(s.buildings.indexOf(merged), 1);
+  // (what stood in the way is pulled down, half its makings back to the stores: the town builds it again elsewhere)
+  const cleared = (check.clear ?? []).map((cid) => s.buildings.find((q) => q.id === cid)).filter((q): q is Building => !!q);
+  for (const q of cleared) demolish(s, q.id);
+  if (cleared.length) notify(s, `The ${cleared.map((q) => defOf(q).name.toLowerCase()).join(' and the ')} ${cleared.length > 1 ? 'are' : 'is'} pulled down to make room for the ${next.name}.`);
   const delivered: Stock = {};
   for (const [m, n] of Object.entries(next.cost) as [Material, number][]) {
     const k = Math.min(n, salvage[m] ?? 0);

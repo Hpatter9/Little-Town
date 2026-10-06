@@ -1884,6 +1884,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`Expedition.watchAsked`); never while watching already, in a town run by hand (autopilot off: the tests), or while the
   sim runs unseen (`runtime.quiet`, set by the catch-up after time away and the alerts' look ahead). The phone's event
   box shows it full screen and closes on either answer. Test: `test/watchAsk.test.ts`.
+- **Buildings pulled down to make room (the owner's ask):** an upgrade with no room where it stands (`canUpgrade` in
+  sim/buildings.ts) may pull down what's in its way: at most `CLEAR_MOST` (2) finished buildings worth together no more
+  than `CLEAR_WORTH` (0.6) of the upgrade's cost, never the seat, a gate or wall (`hp`), a castle's room, a venue, a
+  prison, the campfire, anything alight, a field with a crop growing or a pen with animals, nor one of its own kind
+  (those are merged, `absorb`), and only while everyone keeps a bed (`roomForSleepers`); a road over the ground is
+  lifted and laid again round it. `upgrade` demolishes them (half their makings back, `demolish`) and says so in the
+  Journal; the town builds them again elsewhere as it wants them. Pens are only a rail fence now (`drawFence` in
+  art/fieldTiles.ts: the Fields pack's side rail `fence7` down the sides, rails stretched cell to cell), over the land
+  as it lies. Test in `test/buildings.test.ts`.
 - **The annals: the year's chronicle and the hall of heroes (the owner's ask):** `src/shared/sim/annals.ts`. Everyone who
   dies is remembered (`recordFallen` from `killPerson`: `s.fallen`, name, day, cause, calling and level, titles, raiders
   felled, trips; up to `FALLEN_MOST`); each townsperson counts the raiders they struck the last blow on

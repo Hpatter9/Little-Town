@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID } from '../src/shared/data/buildings';
-import { canPlace, placeBlueprint, totalCapacity, totalStock, upgrade } from '../src/shared/sim/buildings';
+import { canPlace, canUpgrade, placeBlueprint, totalCapacity, totalStock, upgrade } from '../src/shared/sim/buildings';
+import { isSeat } from '../src/shared/data/seats';
 import { Sim } from '../src/shared/sim/sim';
 import { camp, freeSpot, isWild, nearestWild, plainGame, poolOf, put, row } from './helpers';
 import { addStock, newGame, poolSize, type GameState } from '../src/shared/sim/state';
@@ -158,9 +159,9 @@ test('merging: two lean-tos side by side with no room to widen become one longho
   const at = camp(s).x + 3;
   const a = put(s, 'lean_to', at);
   const b = put(s, 'lean_to', at + 2);
-  // hemmed in: a workbench on each side
-  put(s, 'workbench', at - 2);
-  put(s, 'workbench', at + 4);
+  // hemmed in: a stretch of wall on each side (never pulled down to make room)
+  put(s, 'palisade_wall', at - 1, undefined, { hp: 100 });
+  put(s, 'palisade_wall', at + 4, undefined, { hp: 100 });
   assert.equal(upgrade(s, a.id).ok, false, 'no room on its own');
   const before = s.buildings.length;
   const r = upgrade(s, a.id, b.id);
@@ -169,6 +170,32 @@ test('merging: two lean-tos side by side with no room to widen become one longho
   assert.equal(a.def, 'longhouse');
   assert.ok(!s.buildings.includes(b));
   assert.deepEqual(a.delivered, { wood: 8 }, "both lean-tos' wood goes into the longhouse");
+});
+
+test('an upgrade with no room pulls down the small things in its way, never what matters', () => {
+  const s = plainGame('clear-way');
+  s.research.done.push('oral_tradition');
+  const at = camp(s).x + 4;
+  const home = put(s, 'lean_to', at);
+  // a workbench on one side, a stretch of wall on the other
+  const bench = put(s, 'workbench', at + 2);
+  put(s, 'palisade_wall', at - 1, undefined, { hp: 100 });
+  const check = canUpgrade(s, home.id);
+  assert.ok(check.ok, check.reason ?? '');
+  assert.deepEqual(check.clear, [bench.id]);
+  const r = upgrade(s, home.id);
+  assert.ok(r.ok, r.reason ?? '');
+  assert.equal(home.def, 'longhouse');
+  assert.ok(!s.buildings.includes(bench), 'the workbench is pulled down');
+  assert.ok(s.journal.some((j) => /pulled down to make room for the Longhouse/.test(j.text)));
+  // the town's seat in the way is never pulled down
+  const t = plainGame('clear-seat');
+  t.research.done.push('oral_tradition');
+  const at2 = camp(t).x + 4;
+  const home2 = put(t, 'lean_to', at2);
+  put(t, 'settlers_seat_1' in BUILDING_BY_ID ? 'settlers_seat_1' : Object.keys(BUILDING_BY_ID).find((id) => isSeat(id))!, at2 + 2);
+  put(t, 'palisade_wall', at2 - 1, undefined, { hp: 100 });
+  assert.equal(canUpgrade(t, home2.id).ok, false);
 });
 
 test('a town short of beds rebuilds a small home bigger before building another', () => {
