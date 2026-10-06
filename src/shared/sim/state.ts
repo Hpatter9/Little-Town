@@ -41,6 +41,7 @@ import { TICKS_PER_HOUR } from './time';
 export type { Era } from '../data/eras';
 import type { Era } from '../data/eras';
 import type { Battle as TownBattle, RaiderBattle } from './battle';
+import type { Tactics } from './tactics';
 import { BACKGROUND_BY_ID, founderSkills, SCENARIO_BY_ID, type FounderSpec } from '../data/founding';
 import { FOUNDER_BY_ID } from '../data/founders';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -387,6 +388,8 @@ export interface Raid {
   alone?: boolean;
   /** The tower-defence battle on the trail (sim/battle.ts), while it's on and after. */
   battle?: TownBattle;
+  /** The same raid fought as a tactics battle (sim/tactics.ts), when the town fights that way. */
+  tactics?: Tactics;
   /** A war host (sim/factions.ts): the power that sent it. */
   host?: string;
   /** For the recap (sim/raidRecap.ts): each townsperson's blows (and the towers', as -1), and who was in town as it
@@ -967,6 +970,8 @@ export interface GameState {
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
+  /** How raids are fought: down the trail (tower defence, unset) or on a tactics board (sim/tactics.ts). */
+  battleStyle?: 'trail' | 'tactics';
   /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */
   autoBattle?: boolean;
   /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */

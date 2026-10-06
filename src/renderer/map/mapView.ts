@@ -348,6 +348,23 @@ export class MapView {
 
   /** The sets of objects for this land and season (the sea's under water is for later). */
   /** Whether the land is the undead's (the liches' and vampires'): blighted ground and dead trees. */
+  /** For the tactics board (tactics/tacticsView.ts): the painted ground of a land cell, as the chunk's canvas and where
+   *  the cell is in it (null while it isn't painted). */
+  groundOf(x: number, y: number): { src: CanvasImageSource; sx: number; sy: number } | null {
+    const c = this.chunks.get(`${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)}`);
+    const src = c?.sprite.texture.source?.resource as CanvasImageSource | undefined;
+    if (!c || !src || c.key === 'dark') return null;
+    return { src, sx: (x % CHUNK) * CELL, sy: (y % CHUNK) * CELL };
+  }
+
+  /** And what stands on a wild cell of it (a tree, a bush, a rock), as the map draws it there. */
+  propOf(x: number, y: number): Texture | null {
+    const land = this.land;
+    if (!land) return null;
+    const on = PROPS_ON[groundAt(land, x, y)];
+    return on ? this.propFor(on, x, y) : null;
+  }
+
   private blighted(): boolean {
     return this.style === 'lich' || this.style === 'vampire';
   }

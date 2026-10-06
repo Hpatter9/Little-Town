@@ -83,6 +83,7 @@ export type Command =
   | { type: 'battleGo' }
   | { type: 'battleAuto'; on: boolean }
   | { type: 'battleSpeed'; speed: number }
+  | { type: 'battleStyle'; style: 'trail' | 'tactics' }
   | { type: 'gameSpeed'; speed: number }
   | { type: 'battleCast'; power: string; x: number; y: number }
   /** Turn a party around. */
@@ -209,6 +210,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'gameSpeed', speed: c.speed } : null;
     case 'battleSpeed':
       return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'battleSpeed', speed: c.speed } : null;
+    case 'battleStyle':
+      return c.style === 'trail' || c.style === 'tactics' ? { type: 'battleStyle', style: c.style } : null;
     case 'battleAuto':
       return typeof c.on === 'boolean' ? { type: 'battleAuto', on: c.on } : null;
     case 'battleCast':

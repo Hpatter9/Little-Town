@@ -16,6 +16,7 @@ import { MapDisaster } from './map/mapDisaster';
 import { createBattleHud } from './battle/battleHud';
 import { createRaidRecap } from './battle/raidRecap';
 import { FightScene } from './fight/fightView';
+import { TacticsScene } from './tactics/tacticsView';
 import { MineScene } from './fight/mineView';
 import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
@@ -234,6 +235,9 @@ async function start(): Promise<void> {
   // watching a party away, as in the old games (fight/fightView.ts): it takes over the strip too
   const fight = new FightScene();
   app.stage.addChild(fight.root);
+  // a raid fought as a tactics battle (tactics/tacticsView.ts): the board of the town's land, seen at an angle
+  const tactics = new TacticsScene(map);
+  app.stage.addChild(tactics.root);
   // inside a mine on the land (fight/mineView.ts): the diggers at the seams
   const mine = new MineScene();
   app.stage.addChild(mine.root);
@@ -1015,7 +1019,8 @@ async function start(): Promise<void> {
     const inMine = watched || next.battle ? null : next.mine;
     mine.update(inMine);
     fightHud.mine(inMine);
-    map.root.visible = !watched && !inMine;
+    tactics.update(next);
+    map.root.visible = !watched && !inMine && !next.tactics;
     showNotices(next);
     snap = next;
     hud.update(next);
@@ -1171,6 +1176,10 @@ async function start(): Promise<void> {
       fight.resize(app.screen.width, app.screen.height, ...fightHud.insets());
       fight.render(performance.now(), ticker.deltaMS / 1000);
     }
+    if (tactics.shown) {
+      tactics.resize(app.screen.width, app.screen.height);
+      tactics.render(performance.now());
+    }
     if (mine.shown) {
       mine.resize(app.screen.width, app.screen.height, ...fightHud.insets());
       mine.render(performance.now(), ticker.deltaMS / 1000);
@@ -1181,7 +1190,7 @@ async function start(): Promise<void> {
       if (selected) showActions();
     }
     if (selectedPerson !== null) showPersonCard(); // follow them as they walk
-    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown || mine.shown ? FPS_ACTIVE : FPS_IDLE;
+    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown || mine.shown || tactics.shown ? FPS_ACTIVE : FPS_IDLE;
   });
 }
 

@@ -344,6 +344,9 @@ export class Sim {
       case 'battleSpeed':
         setBattleSpeed(s, c.speed);
         break;
+      case 'battleStyle':
+        s.battleStyle = c.style; // (from the next raid: sim/tactics.ts)
+        break;
       case 'gameSpeed':
         setGameSpeed(s, c.speed);
         break;

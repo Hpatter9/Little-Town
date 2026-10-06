@@ -2,6 +2,7 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { onBoard } from './tactics';
 import { noteCleared } from './regrow';
 import { attending, festive, gatheringPlace } from './ceremonies';
 import { injuryPace } from './injuries';
@@ -406,6 +407,11 @@ function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' 
   const mounted = cavalry(s).has(p.id);
   // the battle on the trail (battle.ts): a placed fighter walks to their spot and fights from it; the rest wait at
   // the gate for whoever gets through
+  // (on a tactics board: the battle stands them where they are: sim/tactics.ts)
+  if (onBoard(s, p)) {
+    p.activity = s.tick - (p.lastBlow ?? -999) < 8 ? 'fight' : 'idle';
+    return;
+  }
   const b = s.raid?.battle;
   const unit = b && b.phase !== 'done' ? b.units.find((u) => u.person === p.id) : undefined;
   if (unit) {

@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { tacticsView, type TacticsView } from './tactics';
 import { faithView, type FaithView } from './faith';
 import { disasterView, type DisasterView } from './disasters';
 import { worldView, type WorldView } from './worldLife';
@@ -722,6 +723,9 @@ export interface Snapshot {
   camp: { x: number; y: number };
   /** The tower-defence battle on the trail, while it's on (sim/battle.ts). */
   battle: BattleView | null;
+  /** A raid fought on a tactics board (sim/tactics.ts), while it's on; and how raids are fought. */
+  tactics: TacticsView | null;
+  battleStyle: 'trail' | 'tactics';
   /** A town walled at both ends: the tiles its walls span, and what they're built of (drawn as a far wall round it). */
   enclosure: { lo: number; hi: number; wall: string } | null;
   /** A full-moon night: werewolves show what they are. */
@@ -832,6 +836,8 @@ export function snapshot(s: GameState): Snapshot {
     origin: { id: originOf(s).id, name: originOf(s).name, town: s.lich ? ORIGIN_DEFS.lich.town : originOf(s).town },
     powers: powersView(s),
     battle: battleView(s, aimableSpells(s)),
+    tactics: tacticsView(s),
+    battleStyle: s.battleStyle ?? 'trail',
     powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
     lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,

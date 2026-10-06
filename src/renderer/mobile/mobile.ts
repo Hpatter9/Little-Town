@@ -223,9 +223,10 @@ const tabButtons = PANELS.map((p) => {
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)
-  if (!!(snap.battle || snap.watch || snap.mine) !== battleOn || !!(snap.watch || snap.mine) !== watchOn) {
-    battleOn = !!(snap.battle || snap.watch || snap.mine);
-    watchOn = !!(snap.watch || snap.mine);
+  // (a tactics battle too, drawn at its own scale like a watched fight)
+  if (!!(snap.battle || snap.watch || snap.mine || snap.tactics) !== battleOn || !!(snap.watch || snap.mine || snap.tactics) !== watchOn) {
+    battleOn = !!(snap.battle || snap.watch || snap.mine || snap.tactics);
+    watchOn = !!(snap.watch || snap.mine || snap.tactics);
     document.body.classList.toggle('battle', battleOn);
     layout();
   }

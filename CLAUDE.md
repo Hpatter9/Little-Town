@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.11.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.12.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2071,6 +2071,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   tab is the Hall of Legends (`panel/legendsPanel.ts`, each card opening on its heroes). The desktop app keeps no
   legends yet. Tests: `test/legacy.test.ts`.
 - **Previews:** `window.__disaster(kind)` starts a disaster (mobileBridge.ts), beside `__raid`.
+- **Tactics battles (a trial; the owner's ask, after FF Tactics):** `src/shared/sim/tactics.ts` and
+  `src/renderer/tactics/tacticsView.ts`. With `s.battleStyle === 'tactics'` (the `battleStyle` command; the Town
+  menu's Raid battles row) a raid is fought on a board (`BOARD_W` x `BOARD_H`) cut from the land round the gate
+  (`makeBoard`: heights by ground plus a little relief, buildings blocks nobody crosses, walls the town's to stand on,
+  trees cover) instead of the trail (`Raid.tactics` in place of `Raid.battle`; raids.ts picks). Turns by a CT clock
+  (speed from Dexterity or the raider's quickness); each walks (move, jump) and strikes, from above, beside
+  (`SIDE_MULT`) and behind (`BACK_MULT`) harder (`blowMult`), through `defenderAttack`/`attackPerson`, so wounds,
+  deaths and the recap are as in any raid; raiders reaching the town's edge of the board are through. The town
+  plays every turn (taking over a unit is the next step). Drawn isometric: each tile a column, its top the map's own
+  painted ground (`MapView.groundOf`), its sides drawn; the map's trees (`propOf`), MapPeople and MapRaiders on the
+  tiles; the path, rings, numbers and the turn order. Test: `test/tactics.test.ts`.
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
