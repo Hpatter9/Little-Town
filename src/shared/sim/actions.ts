@@ -286,6 +286,28 @@ export function takeTurn(a: Arena, f: Combatant): boolean {
   return true;
 }
 
+/** Use one chosen spell or skill (the tactics board: the player picks it, and the arena holds only whom it's aimed at).
+ *  False when it isn't ready or can't be paid for. */
+export function useAction(a: Arena, f: Combatant, act: KitAction): boolean {
+  if (act.ready > a.tick || !canPay(f, act) || held(f, a.tick)) return false;
+  act.ready = a.tick + act.cooldown;
+  pay(f, act);
+  f.lastAction = a.tick;
+  const struck = new Set<Combatant>();
+  for (const e of act.effects) for (const t of apply(a, f, act, e)) struck.add(t);
+  if (act.pool === 'limit') f.limit = 0;
+  a.log(f, act.name, [...struck], { spell: act.spell, ult: act.pool === 'limit', cost: act.cost, pool: act.pool });
+  return true;
+}
+
+/** What an action is for, as the board aims it: at foes, at friends, or at the one using it. */
+export function aimOf(act: KitAction): 'foe' | 'friend' | 'self' {
+  const t = act.effects.map((e) => e.target);
+  if (t.some((x) => x === 'foe' || x === 'foes' || x === 'random_foes')) return 'foe';
+  if (t.every((x) => x === 'self')) return 'self';
+  return 'friend';
+}
+
 /** Whether they can afford it: the pool it draws on (none: free, as a raider's or a boss's are). */
 export function canPay(f: Combatant, act: KitAction): boolean {
   if (act.pool === 'limit') return (f.limit ?? 0) >= 1;

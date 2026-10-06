@@ -236,8 +236,9 @@ async function start(): Promise<void> {
   const fight = new FightScene();
   app.stage.addChild(fight.root);
   // a raid fought as a tactics battle (tactics/tacticsView.ts): the board of the town's land, seen at an angle
-  const tactics = new TacticsScene(map);
+  const tactics = new TacticsScene(map, (c) => bridge.command(c));
   app.stage.addChild(tactics.root);
+  (window as unknown as { __tactics?: TacticsScene }).__tactics = tactics; // (for previews: taps on the board)
   // inside a mine on the land (fight/mineView.ts): the diggers at the seams
   const mine = new MineScene();
   app.stage.addChild(mine.root);
@@ -895,7 +896,13 @@ async function start(): Promise<void> {
     battleHud.update(b, snap.raid?.name ?? 'Raiders');
     return true;
   };
+  // (a tactics battle has the screen: a tap is its, a drag looks about the board)
+  let boardPress: { x: number; y: number; lx: number; ly: number; moved: boolean; id: number } | null = null;
   canvas.addEventListener('pointerdown', (e) => {
+    if (tactics.shown) {
+      boardPress = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, id: e.pointerId };
+      return;
+    }
     if (e.pointerType === 'touch') {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2 && bridge.pinch) {
@@ -919,6 +926,13 @@ async function start(): Promise<void> {
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (tactics.shown && boardPress && e.pointerId === boardPress.id) {
+      if (Math.hypot(e.clientX - boardPress.x, e.clientY - boardPress.y) >= DRAG_THRESHOLD) boardPress.moved = true;
+      if (boardPress.moved) tactics.pan(e.clientX - boardPress.lx, e.clientY - boardPress.ly);
+      boardPress.lx = e.clientX;
+      boardPress.ly = e.clientY;
+      return;
+    }
     if (battle.aiming) battle.lastAim = battle.toMap(e.clientX, e.clientY);
     if (touches.has(e.pointerId)) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -933,6 +947,12 @@ async function start(): Promise<void> {
     camera.dragTo(e.clientX, e.clientY, e.timeStamp);
   });
   const release = (e: PointerEvent) => {
+    if (boardPress && e.pointerId === boardPress.id) {
+      const was = boardPress;
+      boardPress = null;
+      if (!was.moved && e.type === 'pointerup' && tactics.shown) tactics.tap(e.clientX, e.clientY);
+      return;
+    }
     touches.delete(e.pointerId);
     if (pinchFrom !== null && touches.size < 2) {
       bridge.pinch?.('end', 0);

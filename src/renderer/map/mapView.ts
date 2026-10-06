@@ -357,6 +357,13 @@ export class MapView {
     return { src, sx: (x % CHUNK) * CELL, sy: (y % CHUNK) * CELL };
   }
 
+  /** And a finished building's picture as the map draws it (texture and size in world px), for the tactics board. */
+  buildingPicture(id: number): { tex: Texture; w: number; h: number } | null {
+    const d = this.buildings.get(id);
+    if (!d || (d.progress >= 0 && d.progress < 1) || d.room) return null; // (-1: drawn finished)
+    return { tex: d.sprite.texture, w: d.rect.w, h: d.rect.h };
+  }
+
   /** And what stands on a wild cell of it (a tree, a bush, a rock), as the map draws it there. */
   propOf(x: number, y: number): Texture | null {
     const land = this.land;

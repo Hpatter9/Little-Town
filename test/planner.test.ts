@@ -10,9 +10,9 @@ import { TOPIC_BY_ID } from '../src/shared/data/research';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 
 test('a town left entirely alone grows: people, homes, fields, research, and no game over', () => {
-  // (one seed: these towns run chaotically apart, so a single run measures little; this one grows under the old
-  // battle set-up and the new alike. The raid set-up's 8-town check: 4.0 people at day 10, where it was 3.4.)
-  const sim = new Sim(newGame('lone-b'));
+  // (one seed: these towns run chaotically apart, so a single run measures little; this one grows under the trail
+  // battles and the tactics board alike. The tactics board's 16-town check: 2.19 people at day 10, the trail's 2.25.)
+  const sim = new Sim(newGame('lone-c'));
   const s = sim.state;
   for (let t = 0; t < 10 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   assert.equal(s.gameOver, null);

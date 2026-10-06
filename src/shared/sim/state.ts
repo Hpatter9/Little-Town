@@ -843,6 +843,8 @@ export interface GameState {
   mourningUntil: number;
   /** The raid under way or about to arrive, if any. */
   raid: Raid | null;
+  /** The tactics battle just over, kept a moment for its last word on the screen (sim/tactics.ts). */
+  tacticsEnded?: { raid: Raid; until: number };
   /** When the next raid is due. */
   nextRaidTick: number;
   /** Townsfolk carried off by bandits, held at their camp until a party clears it. */
@@ -970,8 +972,10 @@ export interface GameState {
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
-  /** How raids are fought: down the trail (tower defence, unset) or on a tactics board (sim/tactics.ts). */
+  /** How raids are fought: on a tactics board (sim/tactics.ts; unset) or down the trail (tower defence). */
   battleStyle?: 'trail' | 'tactics';
+  /** The tactics board's turns are the town's to play (unset: on); off, the player gives the orders. */
+  tacticsAuto?: boolean;
   /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */
   autoBattle?: boolean;
   /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */

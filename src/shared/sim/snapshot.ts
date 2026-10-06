@@ -837,7 +837,7 @@ export function snapshot(s: GameState): Snapshot {
     powers: powersView(s),
     battle: battleView(s, aimableSpells(s)),
     tactics: tacticsView(s),
-    battleStyle: s.battleStyle ?? 'trail',
+    battleStyle: s.battleStyle ?? 'tactics',
     powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
     lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,

@@ -1,6 +1,7 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
+import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
 import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
@@ -343,6 +344,9 @@ export class Sim {
         break;
       case 'battleSpeed':
         setBattleSpeed(s, c.speed);
+        break;
+      case 'tactics':
+        tacticsOrder(s, c.order);
         break;
       case 'battleStyle':
         s.battleStyle = c.style; // (from the next raid: sim/tactics.ts)
