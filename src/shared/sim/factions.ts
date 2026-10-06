@@ -15,7 +15,7 @@ import {
   ALLY_TROOPS, ASSAULT_MOST, ASSAULT_WAVES_MOST, ASSAULT_WAVE_TROOPS, ATTITUDE_DRIFT, BETRAY_CHANCE, DEMAND_BASE, DEMAND_PER_TROOPS, ENVOY_GAP_DAYS, ENVOY_HOURS,
   FACTION_BY_ID, FACTION_COUNT, FACTION_DEFS, FIRST_MEET_DAY, GIFT_COINS, GIFT_WARMTH, GREEDY_GIFT, HOST_CHANCE, HOST_GAP_DAYS, HOST_LEAST, HOST_MOST, HOST_SHARE,
   HOST_WARNING_HOURS, MARRIAGE_WARMTH, MEET_EVERY_DAYS, OATHBREAKER, PLUNDER_GOODS, PLUNDER_PER_TROOP, REBEL_CHANCE, RECRUITS, SIEGE_EVERY, STANCE_NAME, TEMPER_NAME,
-  TEMPER_REST, TRADE_COINS, TREATY_NEEDS, TREATY_WARMTH, TRIBUTE_MOST, TRIBUTE_PER_TROOPS, TROOPS_MOST, TROOPS_PER_DAY, TROOPS_START, WAR_AT,
+  TEMPER_REST, TRADE_COINS, TREATY_NEEDS, TREATY_WARMTH, TRIBUTE_MOST, TRIBUTE_PER_TROOPS, TROOPS_MOST, TROOPS_PER_DAY, TROOPS_START, WAR_AT, FOLK_GROWTH, FOLK_GROWTH_BY, FOLK_HOST_LOST, FOLK_MOST, FOLK_START, FOLK_STORMED, townTier,
   type FactionDef, type RealmStance, type Temper,
 } from '../data/factions';
 import { levelOf } from '../data/levels';
@@ -40,7 +40,11 @@ import { weatherAt } from './weather';
 
 /** The town's realm: seeded from the world's seed the first time it's asked for (never the town's own people). */
 export function realm(s: GameState): Faction[] {
-  if (s.factions) return s.factions;
+  if (s.factions) {
+    // (an older town's powers are given their towns: a size by their strength)
+    for (const f of s.factions) if (f.folk === undefined) f.folk = f.stance === 'destroyed' ? 0 : Math.round(FOLK_START[0] + f.troops * 0.6);
+    return s.factions;
+  }
   const rng = new Rng(hashSeed(`${s.seed}:realm`));
   const own = s.origin ?? 'settlers';
   const pool = FACTION_DEFS.filter((d) => d.origin !== own && d.id !== 'brotherhood');
@@ -50,9 +54,21 @@ export function realm(s: GameState): Faction[] {
   const tempers: Temper[] = ['warlike', 'greedy', 'honourable', 'treacherous'];
   s.factions = picked.map((d) => {
     const temper = rng.chance(0.7) ? d.temper : tempers[rng.int(0, tempers.length - 1)];
-    return { id: d.id, known: false, troops: rng.int(TROOPS_START[0], TROOPS_START[1]), attitude: TEMPER_REST[temper], stance: 'neutral' as RealmStance, temper, since: 0 };
+    return { id: d.id, known: false, troops: rng.int(TROOPS_START[0], TROOPS_START[1]), folk: rng.int(FOLK_START[0], FOLK_START[1]), attitude: TEMPER_REST[temper], stance: 'neutral' as RealmStance, temper, since: 0 };
   });
   return s.factions;
+}
+
+/** Each dawn of the realm the powers' towns grow (known or not), quicker at peace with the town, slower at war. */
+export function growTowns(fs: Faction[]): void {
+  for (const f of fs) {
+    if (f.stance === 'destroyed') {
+      f.folk = 0;
+      continue;
+    }
+    const folk = f.folk ?? FOLK_START[0];
+    f.folk = Math.min(FOLK_MOST, folk + Math.max(1, Math.round(folk * FOLK_GROWTH * (FOLK_GROWTH_BY[f.stance] ?? 1))));
+  }
 }
 
 export const defOf = (f: Faction) => FACTION_BY_ID[f.id];
@@ -106,6 +122,7 @@ export function factionsDaily(s: GameState, rng: Rng): void {
   const day = Math.floor(paceDay(s.tick));
   const might = townMight(s);
   const fs = realm(s);
+  growTowns(fs);
   // a new power is met (its envoy at the gate)
   const known = fs.filter((f) => f.known).length;
   const next = fs.find((f) => !f.known);
@@ -444,6 +461,7 @@ function marry(s: GameState, f: Faction, rng: Rng): string {
 /** A power destroyed: its stronghold razed, its hosts gone. */
 function raze(s: GameState, f: Faction): void {
   setStance(s, f, 'destroyed');
+  f.folk = 0;
   f.troops = 0;
   f.host = undefined;
 }
@@ -593,6 +611,7 @@ export function hostOver(s: GameState, r: Raid): void {
   const broken = (lord && lord.down) || fell >= foes.length * 0.6;
   if (broken) {
     f.beaten = (f.beaten ?? 0) + 1;
+    f.folk = Math.round((f.folk ?? FOLK_START[0]) * FOLK_HOST_LOST); // (the fallen were their own)
     f.lastEnvoy = undefined; // (an envoy may come at once)
     notify(s, `The war host of ${defOf(f).name} is broken${lord?.down ? `, and ${lordName(f)} carried from the field` : ''}. They have ${Math.round(f.troops)} left under arms.`, true);
   } else {
@@ -734,6 +753,7 @@ export function assaultOver(s: GameState, target: string, won: boolean, loot: Re
   pay(s, coins, `Plunder from ${d.stronghold}`);
   addStock(loot as never, d.goods as never, PLUNDER_GOODS);
   f.stormed = (f.stormed ?? 0) + 1;
+  f.folk = Math.round((f.folk ?? FOLK_START[0]) * FOLK_STORMED);
   f.troops = Math.max(0, Math.round(f.troops * 0.2));
   // some of its people come over to the town
   const n = townFull(s) ? 0 : rng.int(RECRUITS[0], RECRUITS[1]);
@@ -768,6 +788,10 @@ export interface FactionView {
   attitude: number;
   mood: string;
   troops: number;
+  /** Its own town: how many live there, and what it's called by its size (a camp to a capital), tier 0 to 4. */
+  folk: number;
+  size: string;
+  tier: number;
   married: boolean;
   /** A host on its way: in how many hours, and how many. */
   host: { hours: number; size: number } | null;
@@ -817,6 +841,9 @@ export function realmView(s: GameState, dungeonOpen: (id: string) => boolean): R
       attitude: f.attitude,
       mood: moodWord(f.attitude),
       troops: Math.round(f.troops),
+      folk: f.folk ?? 0,
+      size: f.stance === 'destroyed' ? 'ruin' : townTier(f.folk ?? 0).name,
+      tier: townTier(f.folk ?? 0).tier,
       married: !!f.married,
       host: f.host ? { hours: Math.max(0, Math.round((f.host.at - s.tick) / TICKS_PER_HOUR)), size: f.host.size } : null,
       beaten: f.beaten ?? 0,

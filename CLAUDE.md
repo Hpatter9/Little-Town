@@ -1833,6 +1833,31 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   and who bore the worst, the fallen and the dead, the towers' part, how it ended; also on the feed's card)
   (`battle/raidRecap.ts`, `#raid-recap`; the last seen kept in `littletown.recapSeen`), and the phone's feed has a card
   that brings it back (`__showRecap`). Test: `test/raidRecap.test.ts`.
+- **The dead don't bleed out (fixed):** the raised dead, the lich and machines struck down (`knockDown` in health.ts,
+  `tireless`) fall apart or shut down and pull themselves together in about `REFORM_HOURS` (3), needing no healer:
+  no bleeding, no blood marks, no medkit spent; a killing blow still ends them.
+- **A rout is a danger (the owner's ask):** a raider on the battle map that breaks and runs (`ROUT`) takes a parting
+  blow from every placed fighter with it in their weapon's reach (`partingBlows` in battle.ts, through
+  `defenderAttack`, so the recap credits it), as a fighter falling back already did. Probe (10 first raids): 8 of 24
+  raiders felled where it was 2, deaths unchanged. Test in `test/battle.test.ts`.
+- **The annals: the year's chronicle and the hall of heroes (the owner's ask):** `src/shared/sim/annals.ts`. Everyone who
+  dies is remembered (`recordFallen` from `killPerson`: `s.fallen`, name, day, cause, calling and level, titles, raiders
+  felled, trips; up to `FALLEN_MOST`); each townsperson counts the raiders they struck the last blow on
+  (`Person.felled`, from the recap's `credit`); raids are tallied for the year as they end (`tallyRaid`,
+  `s.yearRaids`). At midwinter (`annalsHourly`: winter's `CHRONICLE_DAY` 2 at `CHRONICLE_HOUR` 19) `writeChronicle`
+  tells the year since the last one (`s.yearStart`): the town's size then and now, births, newcomers, the lost and how,
+  the raids, the year's champion, what was learned and built, a new age, tales ended, treasures won; kept in
+  `s.chronicles` and put to the player as a `debrief`-kind prompt (the event box, with a winter picture). The
+  Chronicle menu's **Heroes** tab (`panel/heroesPanel.ts`, `snapshot.annals`: the famous living, the chronicles, the
+  fallen) sits beside the Bestiary; the menu's tabs now show even before anything has happened. Tests:
+  `test/annals.test.ts`.
+- **Rival towns on the world map (the owner's ask):** each power of the realm has a town of its own (`Faction.folk`,
+  started at `FOLK_START`, older saves given one by their strength in `realm`), growing each day (`growTowns` in
+  factionsDaily: `FOLK_GROWTH`, quicker in trade or alliance and slower at war or as a vassal, `FOLK_GROWTH_BY`; up to
+  `FOLK_MOST`), shrinking when its host is broken (`FOLK_HOST_LOST`) or its stronghold stormed (`FOLK_STORMED`), and
+  gone when razed. Its size (`townTier`, `TOWN_TIERS`: camp, village, town, city, capital) is on the world map (the
+  stronghold's mark grows with its tier: a tent, a hut, a tower, a crown; the label "Stronghold · city") and the Realm
+  card ("a city of about 120"). Test in `test/factions.test.ts`.
 - **Ground under the fights' feet (the owner's complaint: they walked on nothing):** the backdrops with nothing at foot
   height (the cities, futures, industrial, steampunk and ruins skylines, the moons, the mountain lake, the open sea with
   no bed) get a strip of side-on tiles along the foot (`GROUND_OF` in `art/fightGround.ts`: earth, brick or metal,

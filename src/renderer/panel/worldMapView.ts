@@ -26,6 +26,10 @@ export interface MapHold {
   stance: string;
   stanceName: string;
   assault: string | null;
+  /** Its own town (sim/factions.ts `growTowns`): how many live there, called by its size, tier 0 (camp) to 4. */
+  folk: number;
+  size: string;
+  tier: number;
 }
 
 export class WorldMapView {
@@ -86,12 +90,15 @@ export class WorldMapView {
     for (const h of holds) {
       const at = STRONGHOLD_SPOTS[h.id];
       if (!at) continue;
-      const m = el('button', `map-hold ${h.stance}`, h.stance === 'destroyed' ? '✕' : '♜');
-      m.title = `${h.name}, ${h.stronghold}: ${h.stanceName}`;
+      // (a camp a small tent, a village a hut, a town and beyond a tower, larger as it grows)
+      const mark = h.stance === 'destroyed' ? '✕' : h.tier === 0 ? '⛺' : h.tier === 1 ? '⌂' : h.tier >= 4 ? '♛' : '♜';
+      const m = el('button', `map-hold ${h.stance} tier-${h.tier}`, mark);
+      m.title = h.stance === 'destroyed' ? `${h.name}, ${h.stronghold}: razed` : `${h.name}, ${h.stronghold}: a ${h.size} of about ${h.folk}. ${h.stanceName}`;
       m.setAttribute('aria-label', m.title);
       place(m, at);
       if (h.assault) m.addEventListener('click', () => this.onPick(h.assault!));
-      this.marks.append(m, label(h.stronghold.charAt(0).toUpperCase() + h.stronghold.slice(1), { x: at.x, y: at.y + 6 }, `hold ${h.stance}`));
+      const name = h.stronghold.charAt(0).toUpperCase() + h.stronghold.slice(1);
+      this.marks.append(m, label(h.stance === 'destroyed' ? name : `${name} · ${h.size}`, { x: at.x, y: at.y + 6 + h.tier }, `hold ${h.stance}`));
     }
 
     const home = el('div', 'map-home');

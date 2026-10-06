@@ -49,7 +49,7 @@ function factionCard(f: FactionView, s: Snapshot, bridge: Bridge | undefined): H
     card.append(el('div', 'hint', 'Travellers speak of another power beyond the hills. Its envoys will come in time.'));
     return card;
   }
-  card.append(el('div', 'realm-sub', `${f.lord}, of ${f.stronghold} · ${f.temper.toLowerCase()}${f.married ? ' · kin by marriage' : ''}`));
+  card.append(el('div', 'realm-sub', `${f.lord}, of ${f.stronghold}${f.size === 'ruin' ? ' (in ruins)' : `, a ${f.size} of about ${f.folk}`} · ${f.temper.toLowerCase()}${f.married ? ' · kin by marriage' : ''}`));
   if (f.stance === 'destroyed') {
     card.append(el('div', 'hint', `${f.stronghold} lies in ruins.`));
     return card;

@@ -86,6 +86,28 @@ export const MEET_EVERY_DAYS = 3;
 export const TROOPS_START: [number, number] = [18, 30];
 export const TROOPS_PER_DAY = 1.6;
 export const TROOPS_MOST = 140;
+/** The powers' own towns, growing on the world map (sim/factions.ts `growTowns`): the folk they start with, their
+ *  growth a day (a share, by how they stand with the town), what a broken host and a storming cost them, and the size
+ *  each is called by (`TOWN_TIERS`: at least this many folk). */
+export const FOLK_START: [number, number] = [10, 24];
+export const FOLK_GROWTH = 0.05;
+export const FOLK_GROWTH_BY: Readonly<Record<string, number>> = { war: 0.4, vassal: 0.7, trade: 1.3, alliance: 1.4 };
+export const FOLK_MOST = 600;
+export const FOLK_HOST_LOST = 0.88;
+export const FOLK_STORMED = 0.6;
+export const TOWN_TIERS: readonly [number, string][] = [
+  [0, 'camp'],
+  [20, 'village'],
+  [45, 'town'],
+  [100, 'city'],
+  [220, 'capital'],
+];
+/** The size a power's town is called by, and its tier (0 a camp to 4 a capital). */
+export function townTier(folk: number): { tier: number; name: string } {
+  let tier = 0;
+  for (let i = 0; i < TOWN_TIERS.length; i++) if (folk >= TOWN_TIERS[i][0]) tier = i;
+  return { tier, name: TOWN_TIERS[tier][1] };
+}
 
 /** Attitude (-100 hostile to 100 devoted): where each temper settles, and how fast it drifts back there a day. */
 export const TEMPER_REST: Record<Temper, number> = { warlike: -35, greedy: -10, honourable: 10, treacherous: 5 };

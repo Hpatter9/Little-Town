@@ -85,7 +85,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     mapPick,
     s.expeditions,
     s.regions,
-    s.realm.factions.filter((f) => f.known).map((f) => ({ id: f.id, name: f.name, stronghold: f.stronghold, stance: f.stance, stanceName: f.stanceName, assault: f.assault })),
+    s.realm.factions.filter((f) => f.known).map((f) => ({ id: f.id, name: f.name, stronghold: f.stronghold, stance: f.stance, stanceName: f.stanceName, assault: f.assault, folk: f.folk, size: f.size, tier: f.tier })),
   );
   out.push(worldMap.el, el('div', 'hint map-hint', 'Tap a place on the map, or a destination below, to mark it.'));
   // parties form themselves: who would set out next, and why not

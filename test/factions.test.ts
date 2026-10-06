@@ -235,3 +235,22 @@ test('every stronghold and dungeon assault has its own scenes and a spot on the 
     assert.ok(MAP_SPOTS[`assault:${f.id}`], `${f.id} on the map`);
   }
 });
+
+test('the powers\' towns grow on the world map: quicker at peace with the town, slower at war, gone when razed', async () => {
+  const { growTowns } = await import('../src/shared/sim/factions');
+  const { townTier } = await import('../src/shared/data/factions');
+  const { newGame } = await import('../src/shared/sim/state');
+  const s = newGame('realm-towns');
+  const fs = realm(s);
+  assert.ok(fs.every((f) => (f.folk ?? 0) > 0), 'each power has a town');
+  const [a, b, c] = fs;
+  a.folk = b.folk = c.folk = 40;
+  a.stance = 'alliance';
+  b.stance = 'war';
+  c.stance = 'destroyed';
+  for (let d = 0; d < 10; d++) growTowns(fs);
+  assert.ok(a.folk! > b.folk! && b.folk! > 40, `allied ${a.folk}, at war ${b.folk}`);
+  assert.equal(c.folk, 0);
+  assert.equal(townTier(5).name, 'camp');
+  assert.equal(townTier(a.folk!).tier >= townTier(40).tier, true);
+});

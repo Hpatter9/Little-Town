@@ -664,6 +664,8 @@ export interface Faction {
   /** Met yet (an envoy came): until then it's a rumour. */
   known: boolean;
   troops: number;
+  /** The folk of its own town, growing on the world map (sim/factions.ts `growTowns`; older saves get theirs on load). */
+  folk?: number;
   /** -100 hostile to 100 devoted. */
   attitude: number;
   stance: RealmStance;
