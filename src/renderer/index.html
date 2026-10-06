@@ -561,6 +561,22 @@
         flex: 1 1 auto;
         min-width: 0;
       }
+      /* (a whole town in the fight: two columns of smaller rows) */
+      .ff-party.many {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 8px;
+        font-size: 11px;
+        max-height: 42vh;
+        overflow-y: auto;
+      }
+      .ff-party.many .ff-row {
+        line-height: 1.25;
+      }
+      .ff-row.ff-wave {
+        color: #ffd870;
+        font-family: var(--font-display);
+      }
       .ff-row {
         display: flex;
         align-items: center;

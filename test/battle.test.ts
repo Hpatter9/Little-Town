@@ -381,3 +381,28 @@ test('a trap the town has built is laid on a way in, where the raiders pass', ()
   });
   assert.ok(onTrail, 'laid on a trail');
 });
+
+test('every calling that fights from afar (casters, healers, archers) stands off the trail and uses its spells and skills', () => {
+  const sim = new Sim(town('casters', 8));
+  const s = sim.state;
+  s.autoBattle = true;
+  const callings = ['witch', 'white_mage', 'shaman', 'archer'] as const;
+  const casters = s.people.slice(1, 1 + callings.length);
+  casters.forEach((p, i) => { p.cls = callings[i]; p.level = 20; });
+  assert.ok(casters.every(ranged), 'they all fight from range');
+  const r = raidNow(s, 120);
+  sim.step();
+  const b = r.battle!;
+  const kindOf = (id: number) => b.map.spots.find((q) => q.id === id)!.kind;
+  for (const p of casters) {
+    const u = b.units.find((x) => x.person === p.id);
+    assert.ok(u, `${p.name} is placed`);
+    assert.notEqual(kindOf(u!.spot), 'block', `${p.name} the ${p.cls} is not on the trail`);
+  }
+  const acted = new Set<number>();
+  for (let i = 0; i < 6 * TICKS_PER_HOUR && s.raid && b.phase !== 'done'; i++) {
+    sim.step();
+    for (const a of b.acts ?? []) acted.add(a.ref);
+  }
+  assert.ok(casters.some((p) => acted.has(p.id)), 'a caster used a spell or a skill on the map');
+});

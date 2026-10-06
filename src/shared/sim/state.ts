@@ -6,6 +6,7 @@ import type { BoatKind } from '../data/boats';
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
 import type { TaxRate } from '../data/economy';
+import type { RealmStance, Temper } from '../data/factions';
 import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
@@ -374,6 +375,8 @@ export interface Raid {
   alone?: boolean;
   /** The tower-defence battle on the trail (sim/battle.ts), while it's on and after. */
   battle?: TownBattle;
+  /** A war host (sim/factions.ts): the power that sent it. */
+  host?: string;
 }
 
 export interface Needs {
@@ -556,6 +559,8 @@ export interface Caravan {
   /** Where they stand (at the market). */
   x: number;
   leavesTick: number;
+  /** When it came (the town leaves the deals to the player for the first half of its stay: sim/trade.ts). */
+  arrived?: number;
   offers: Offer[];
   /** Another people's caravan (data/trade.ts FACTION_GOODS), named for them. */
   faction?: OriginId;
@@ -582,7 +587,11 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy';
+  /** An envoy from a power of the realm (sim/factions.ts): which, and what they've come about. */
+  envoy?: { faction: string; about: string; coins?: number };
+  /** A commanded party's question on the road (sim/muster.ts `CROSSROADS`): which one. */
+  road?: string;
   /** A saga's question: the run it belongs to (sim/sagas.ts). */
   saga?: number;
   /** The expedition it's about (strangers), or null. */
@@ -623,8 +632,34 @@ export interface Boat {
   away: number | null;
 }
 
+/** A power of the realm, as the town knows it (data/factions.ts has what doesn't change). */
+export interface Faction {
+  id: string;
+  /** Met yet (an envoy came): until then it's a rumour. */
+  known: boolean;
+  troops: number;
+  /** -100 hostile to 100 devoted. */
+  attitude: number;
+  stance: RealmStance;
+  temper: Temper;
+  /** When the stance last changed (tick). */
+  since: number;
+  /** A marriage between the town and its lord's house. */
+  married?: boolean;
+  /** The last envoy (tick), and the last host it sent (tick). */
+  lastEnvoy?: number;
+  lastHost?: number;
+  /** A host on its way: when it comes, and how many. */
+  host?: { at: number; size: number };
+  /** Hosts it lost against the town, and assaults the town made on it. */
+  beaten?: number;
+  stormed?: number;
+}
+
 export interface Expedition {
   id: number;
+  /** An assault on a stronghold or a dungeon (sim/factions.ts): waves of foes in one long fight, the lord last. */
+  assault?: { target: string; waves: Record<string, number>[]; wave: number; total: number };
   /** Destination id. */
   dest: string;
   /** What the player staked on it as it left (sim/expeditions.ts STAKES): a safe or a risky trip. */
@@ -669,6 +704,14 @@ export interface Expedition {
   delve?: Delve;
   /** The Moon Pack's full-moon hunt (sim/pack.ts). */
   hunt?: boolean;
+  /** Sent by the player (sim/muster.ts): it asks on the road, and is debriefed at home. How many road questions it has
+   *  asked, the rations packed, and each member's level and wounds as they set out (for the debrief). */
+  ordered?: boolean;
+  crossroads?: number;
+  rations?: 'lean' | 'normal' | 'plenty';
+  start?: { level: Record<number, number>; wounds: Record<number, number>; names: Record<number, string>; tick: number };
+  /** Spare torches packed beyond the town's reckoning (a delve). */
+  extraTorches?: number;
   /** The last fight's outcome, for the watcher's victory screen (sim/expeditions.ts finishBattle): when, how it
    *  went, each member's experience and levels, and what was taken. */
   result?: FightResult;
@@ -686,8 +729,27 @@ export interface Visitor {
   leavingTo: Pt | null;
 }
 
+/** A party the player is raising (sim/muster.ts): where to, who leads, who's asked, how boldly, what's packed, and who
+ *  said no (why, and the coins that would bring them; null: only an order will). */
+export interface Muster {
+  dest: string;
+  leader: number;
+  members: number[];
+  stakes: 'safe' | 'risky';
+  rations: 'lean' | 'normal' | 'plenty';
+  torches: number;
+  horses: boolean;
+  refused: Record<number, { why: string; price: number | null }>;
+  /** Those the player overrode (talked round or ordered): they won't be asked again. */
+  agreed: number[];
+}
+
 export interface GameState {
   version: 17;
+  /** A party the player is raising (sim/muster.ts). */
+  muster?: Muster;
+  /** The powers of the realm and how the town stands with each (sim/factions.ts). */
+  factions?: Faction[];
   /** World seed (the land is made from it; changes live in `land`). */
   seed: string;
   /** Ticks simulated since the game began. */
@@ -1014,7 +1076,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties' | 'realm';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */
@@ -1046,6 +1108,11 @@ export function meet(s: GameState, kinds: Iterable<string>): void {
 }
 
 /** Tell the player something: a toast on the strip and a line in the Journal. `key` marks milestones. */
+/** What came of an answer (an event's, a secret's, a saga's), kept a while for the event box and the feed's card. */
+export function setOutcome(s: GameState, title: string, choice: string | null, text: string): void {
+  s.eventOutcome = { title, choice, text, tick: s.tick };
+}
+
 export function notify(s: GameState, text: string, key = false): void {
   const n = { id: s.nextId++, tick: s.tick, text };
   s.notices.push(n);

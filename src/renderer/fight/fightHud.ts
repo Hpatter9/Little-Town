@@ -154,8 +154,11 @@ export function createFightHud(on: { back(): void }): FightHud {
       message.textContent = `${v.name} · level ${v.depth}${v.last ? ' (the last)' : ''} · ${left.length ? `in the walls: ${left.join(', ')}` : 'dug out to the rock'} · ${digging ? `${digging} digging` : v.miners.length ? `${v.miners.length} on the way` : 'nobody here'}`;
     },
     insets() {
-      if (top.hidden) return [0, 0];
-      return [Math.round(top.getBoundingClientRect().bottom), bottom.hidden ? 0 : Math.round(window.innerHeight - bottom.getBoundingClientRect().top)];
+      // (in a fight the top window gives way to the corner button, but the party's window along the bottom stays: the
+      // scene must stand above it, or the fighters stand behind it)
+      const t = top.hidden ? 0 : Math.round(top.getBoundingClientRect().bottom);
+      const b = bottom.hidden ? 0 : Math.round(window.innerHeight - bottom.getBoundingClientRect().top);
+      return [t, b];
     },
     update(v) {
       document.body.classList.toggle('in-fight', !!v);
@@ -234,7 +237,10 @@ export function createFightHud(on: { back(): void }): FightHud {
         row.append(gauge);
         foeRows.push(row);
       }
+      // (an assault: which wave this is)
+      if (v.assault && v.assault.wave > 0) foeRows.unshift(line('ff-wave', `Wave ${v.assault.wave} of ${v.assault.total}`));
       foes.replaceChildren(...(foeRows.length ? foeRows : [line('ff-dim', 'Beaten!')]));
+      party.classList.toggle('many', fight.filter((f) => f.side === 'party').length > 6);
       party.replaceChildren(
         ...fight
           .filter((f) => f.side === 'party')

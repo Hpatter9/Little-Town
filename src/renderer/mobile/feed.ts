@@ -106,6 +106,14 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
           : { cls: 'alarm', mark: '⚔', title: `${s.raid.name} in the town!`, text: `${standing} still fighting. Tap a defender to rally them.` },
       );
     }
+    // a war host on its way (sim/factions.ts): days of warning, then the gate
+    for (const f of s.realm.factions) if (f.host) cards.push({ cls: 'alarm', mark: '⚔', title: `${f.name}'s war host`, text: `${f.host.size} strong, ${f.lord} at its head: here in ${f.host.hours} hour${f.host.hours === 1 ? '' : 's'}. Make ready, sue for peace, or call on allies (the Realm, under Expeditions).`, panel: 'expeditions' });
+    // an assault under way (tap to watch)
+    for (const e of s.expeditions) {
+      if (!e.assault) continue;
+      const where = e.phase === 'out' ? 'Marching' : e.phase === 'back' ? 'Coming home' : e.assault.wave ? `Wave ${e.assault.wave} of ${e.assault.total}` : 'At the walls';
+      cards.push({ cls: 'delve', mark: '⚔', title: `${e.destName}: ${where}`, text: `${e.members.length} of the town · tap to watch`, watch: e.id });
+    }
     if (s.doom) cards.push({ cls: 'doom', mark: '☁', title: s.doom.name, text: s.doom.phase === 'signs' ? `Signs of it: about ${Math.ceil(s.doom.hoursLeft)} hours off.` : s.doom.hoursLeft < 1 ? 'Under way, and nearly over.' : `Under way: ${Math.ceil(s.doom.hoursLeft)} hours to go.` });
     // a delve under way: where they are down there (tap to watch them)
     for (const e of s.expeditions) {
@@ -188,7 +196,17 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
     bar.append(fill);
     body.append(t, x, bar);
     d.append(pic({ person: p.id }, ''), body);
+    d.addEventListener('click', () => showOnMap({ person: p.id }));
     hero.replaceChildren(d);
+  };
+
+  /** Rows opened (by their date and words), kept as the list is drawn again. */
+  const opened = new Set<string>();
+  /** Look at someone or something on the map and open its card (main.ts `__showOnMap`). */
+  const showOnMap = (a: { person?: number; building?: string }) => {
+    const w = strip.contentWindow as (Window & { __showOnMap?: (x: { person?: number; building?: number }) => boolean }) | null;
+    const b = a.building ? snap?.buildings.find((q) => q.def === a.building && q.status === 'done') ?? snap?.buildings.find((q) => q.def === a.building) : undefined;
+    w?.__showOnMap?.(a.person != null ? { person: a.person } : b ? { building: b.id } : {});
   };
 
   // the latest happenings (fetched again whenever the journal grows, at most every couple of seconds)
@@ -218,6 +236,37 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
         w.textContent = e.when.replace(/ · \w+ · /, ' · ');
         body.append(t, w);
         row.append(pic(about(e), e.text), body);
+        // (tapped, a row opens: the full date, and a way to find who or what it's about on the map)
+        const k = `${e.when}|${e.text}`;
+        const target = about(e);
+        const open = () => {
+          row.classList.add('open');
+          w.textContent = e.when;
+          if (target && !body.querySelector('.feed-acts')) {
+            const acts = document.createElement('div');
+            acts.className = 'feed-acts';
+            const go = document.createElement('button');
+            go.textContent = target.person != null ? 'Show them on the map' : 'Show it on the map';
+            go.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              showOnMap(target);
+            });
+            acts.append(go);
+            body.append(acts);
+          }
+        };
+        if (opened.has(k)) open();
+        row.addEventListener('click', () => {
+          if (opened.has(k)) {
+            opened.delete(k);
+            row.classList.remove('open');
+            w.textContent = e.when.replace(/ · \w+ · /, ' · ');
+            body.querySelector('.feed-acts')?.remove();
+          } else {
+            opened.add(k);
+            open();
+          }
+        });
         return row;
       }),
     );

@@ -6,6 +6,7 @@
 // the place, it doesn't go. A bounty the treasury posts draws the adventurers to a place, is held aside, and is paid to the party that does the
 // job.
 
+import { ASSAULT_MOST } from '../data/factions';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { CLASS_DEFS, type ClassRole } from '../data/classes';
 import { FOUNDER_CLASS } from '../data/founderClasses';
@@ -164,11 +165,11 @@ export function dangerOf(d: Destination): number {
 }
 
 /** The most a party for this place may number. */
-const mostFor = (s: GameState, d: Destination) => {
+export const mostFor = (s: GameState, d: Destination) => {
   // (an island's party is her crew)
   const boat = d.byBoat ? freeBoat(s) : undefined;
   if (boat) return Math.min(boatDef(boat).crew, MAX_DELVERS);
-  return d.type === 'delve' || isPlaceDest(d.id) || d.id.startsWith('pack:') ? MAX_DELVERS : MAX_PARTY;
+  return d.id.startsWith('assault:') ? ASSAULT_MOST : d.type === 'delve' || isPlaceDest(d.id) || d.id.startsWith('pack:') ? MAX_DELVERS : MAX_PARTY;
 };
 
 /** Recruit a party round a leader for a destination: by the roles still wanted, by liking, never an enemy of anyone
@@ -267,7 +268,8 @@ export function proposeParty(s: GameState): PartyPlan | null {
 
 /** Once an hour in the morning: a party may form and set out (the town running itself: not with the autopilot off). */
 export function partiesHourly(s: GameState): void {
-  if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver) return;
+  // (not while the player is raising a party of their own: sim/muster.ts)
+  if (s.tick % TICKS_PER_HOUR !== 0 || s.autopilot === false || s.gameOver || s.muster) return;
   const h = calendar(s.tick).hour;
   if (h < SET_OUT_FROM || h >= SET_OUT_UNTIL) return;
   if (s.lastParty != null && s.tick - s.lastParty < PARTY_GAP_HOURS * TICKS_PER_HOUR) return;

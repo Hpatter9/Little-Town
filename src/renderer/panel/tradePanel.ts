@@ -4,7 +4,8 @@
 import { storePanel } from '../../shared/ipc';
 const STORE_MARKS: Record<string, string> = { furniture: '🪑', weapons: '⚔️', armour: '🛡️', medicine: '⚗️' };
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
-import { HORSE_HP } from '../../shared/data/trade';
+import { HORSE_HP, WORTH } from '../../shared/data/trade';
+import { expandable, facts, type More } from './details';
 import type { Bridge } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, el } from './dom';
@@ -44,7 +45,7 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
         c.append(button('Trade', () => bridge?.command({ type: 'trade', offer: o.id }), { disabled: !o.ok, title: o.reason }));
         if (!o.ok && o.reason) c.append(el('div', 'lock short', o.reason));
       }
-      grid.append(c);
+      grid.append(expandable(c, `deal:${o.id}`, () => dealDetails(o, s)));
     }
     out.push(grid);
   } else if (!s.marketBuilt) {
@@ -67,4 +68,25 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
     out.push(row);
   }
   return out;
+}
+
+/** A deal's details: what each side is worth at the town's prices, what's in store of each, and how it comes out. */
+function dealDetails(o: NonNullable<Snapshot['caravan']>['offers'][number], s: Snapshot): More[] {
+  const worth = (st: Stock) => (Object.entries(st) as [Material, number][]).reduce((n, [m, k]) => n + (WORTH[m] ?? 1) * k, 0);
+  const have = (st: Stock) =>
+    (Object.keys(st) as Material[])
+      .map((m) => `${s.stock[m] ?? 0} ${MATERIAL_NAMES[m].toLowerCase()}`)
+      .join(', ');
+  const give = worth(o.wants);
+  const get = o.horse ? 0 : worth(o.gives);
+  return [
+    facts([
+      ['You give', `${list(o.wants)} (worth about ${give} coins)`],
+      ['In store now', have(o.wants)],
+      ['You get', o.horse ? 'a horse: it carries for a party and speeds it on the road' : `${list(o.gives)} (worth about ${get} coins)`],
+      ['Already have', o.horse ? `${s.horses.length} horse${s.horses.length === 1 ? '' : 's'}, stalls for ${s.stalls}` : have(o.gives)],
+      ['Comes out', o.horse ? null : get >= give ? `about ${get - give} coins ahead` : `about ${give - get} coins behind`],
+    ]),
+    "Yours to take first. Once the caravan has been here half its stay, the town takes the deals it wants itself: goods it's short of, paid for with what it can spare.",
+  ];
 }

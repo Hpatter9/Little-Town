@@ -363,6 +363,248 @@
         flex-wrap: wrap;
         gap: 6px;
       }
+      /* raising a party yourself (musterPanel.ts): a sheet over the Expeditions tab */
+      .muster-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        background: var(--bg);
+        padding: 10px 14px 76px;
+        box-sizing: border-box;
+      }
+      .muster-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .muster-title {
+        font-family: var(--font-display);
+        font-size: 19px;
+        color: #ffe08a;
+      }
+      .muster-brief {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 10px 0 4px;
+        padding: 8px 10px;
+        background: var(--header);
+        border: 1px solid var(--wood-edge);
+        border-radius: 6px;
+      }
+      .muster-brief canvas {
+        width: 52px;
+        height: 52px;
+      }
+      .muster-leader {
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .muster-odds {
+        font-size: 16px;
+        font-style: italic;
+      }
+      .muster-h {
+        margin: 14px 0 6px;
+        font-family: var(--font-display);
+        font-size: 14px;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .muster-row {
+        display: grid;
+        grid-template-columns: 40px 1fr auto;
+        grid-template-areas: 'face who acts' 'face why acts';
+        align-items: center;
+        column-gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(110, 77, 46, 0.4);
+      }
+      .muster-row canvas {
+        grid-area: face;
+        width: 40px;
+        height: 40px;
+      }
+      .muster-who {
+        grid-area: who;
+        min-width: 0;
+      }
+      .muster-name {
+        font-weight: bold;
+      }
+      .muster-sub {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .muster-hp {
+        height: 4px;
+        margin-top: 2px;
+        max-width: 120px;
+      }
+      .muster-why,
+      .muster-no {
+        grid-area: why;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .muster-no {
+        color: #e8a070;
+      }
+      .muster-acts {
+        grid-area: acts;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: stretch;
+      }
+      .muster-count {
+        padding: 0 10px;
+        align-self: center;
+      }
+      .place.on {
+        border-color: #c79a55;
+        color: #ffe08a;
+      }
+      .muster-foot {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        background: var(--header);
+        border-top: 1px solid var(--wood-edge);
+      }
+      .place.go {
+        min-width: 140px;
+        font-size: 15px;
+        border-color: #7fbf6a;
+      }
+      .realm .realm-card {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        cursor: default;
+      }
+      .realm-card.bad {
+        border-color: #b4553e;
+      }
+      .realm-card.good {
+        border-color: #7fbf6a;
+      }
+      .realm-card.gone {
+        opacity: 0.55;
+      }
+      .realm-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .realm-name {
+        font-family: var(--font-display);
+        font-size: 15px;
+      }
+      .realm-stance {
+        font-size: 12px;
+        padding: 1px 6px;
+        border-radius: 8px;
+        border: 1px solid var(--wood-edge);
+        white-space: nowrap;
+      }
+      .realm-stance.bad {
+        color: #ff9c86;
+        border-color: #b4553e;
+      }
+      .realm-stance.good,
+      .realm-stance.ok {
+        color: #b6e6a0;
+        border-color: #7fbf6a;
+      }
+      .realm-sub {
+        font-size: 12px;
+        opacity: 0.85;
+      }
+      .realm-mood {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .realm-lbl {
+        white-space: nowrap;
+      }
+      .realm-bar {
+        position: relative;
+        flex: 1;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.35);
+        border-left: 1px solid transparent;
+      }
+      .realm-bar::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: -2px;
+        bottom: -2px;
+        width: 1px;
+        background: rgba(255, 255, 255, 0.4);
+      }
+      .realm-fill {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-radius: 3px;
+      }
+      .realm-fill.neg {
+        background: #d0604a;
+      }
+      .realm-fill.pos {
+        background: #7fbf6a;
+      }
+      .realm-host {
+        color: #ffb38a;
+        font-size: 13px;
+      }
+      .realm-acts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .realm-acts .place {
+        min-height: 32px;
+        font-size: 13px;
+      }
+      .place.danger {
+        border-color: #b4553e;
+        color: #ffb3a3;
+      }
+      .realm-targets {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .realm-target {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid var(--wood-edge);
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.18);
+      }
+      .realm-who {
+        flex: 1;
+        min-width: 0;
+      }
       .inv-tabs {
         flex-wrap: wrap;
         gap: 4px;
@@ -660,6 +902,65 @@
       }
       .card.locked {
         opacity: 0.6;
+      }
+      /* tap a card for more (details.ts) */
+      .expandable {
+        cursor: pointer;
+      }
+      .expandable.open {
+        border-color: var(--wood-edge);
+      }
+      .more-hint {
+        align-self: flex-end;
+        color: var(--text-dim);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        opacity: 0.8;
+      }
+      .card-more {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 4px;
+        padding-top: 6px;
+        border-top: 1px dashed var(--wood-edge);
+        font-size: 13px;
+      }
+      .more-line {
+        color: var(--text);
+        line-height: 1.35;
+      }
+      .more-head {
+        color: var(--text-dim);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .more-list ul {
+        margin: 2px 0 0;
+        padding-left: 18px;
+      }
+      .more-list li {
+        line-height: 1.35;
+      }
+      .pickable {
+        cursor: pointer;
+      }
+      .pickable.on {
+        outline: 2px solid var(--wood-edge);
+        outline-offset: 1px;
+      }
+      .facts {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 2px 10px;
+      }
+      .fact-key {
+        color: var(--text-dim);
+      }
+      .fact-val {
+        min-width: 0;
+        overflow-wrap: anywhere;
       }
       .card-top {
         display: flex;

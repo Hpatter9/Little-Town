@@ -97,7 +97,7 @@ export function startDelve(s: GameState, e: Expedition, take: (m: Material, n: n
   const twists = Object.entries(TWISTS) as [TwistId, (typeof TWISTS)[TwistId]][];
   let r = rng.next() * twists.reduce((n, [, t]) => n + t.weight, 0);
   const twist = twists.find(([, t]) => (r -= t.weight) < 0)?.[0] ?? 'none';
-  const want = rooms.length + SPARE_TORCHES;
+  const want = rooms.length + SPARE_TORCHES + (e.extraTorches ?? 0);
   const torches = take('wood', want);
   e.delve = { rooms, boss, twist, at: -1, ticks: 0, torches, log: [], depth, ...(rival ? { rival: { name: rival.name, fighters: { ...rival.fighters } } } : {}) };
   if (depth) say(s, e.delve, `${The(d.name)} has woken again, and it goes deeper than before: ${rooms.length} rooms.`);

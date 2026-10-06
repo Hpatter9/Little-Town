@@ -1,5 +1,8 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { realmView, type RealmView } from './factions';
+import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
+import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
 import { boatLine, boatyardOf, fleet, mooring } from './boats';
@@ -19,7 +22,7 @@ import { bossName, delveRoomTicks, quietHours } from './delves';
 import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import type { ClassId } from '../data/classes';
-import { levelOf, stageOf } from '../data/levels';
+import { levelOf, shapeshifts, stageOf } from '../data/levels';
 import { callingName, callingText } from '../data/founderClasses';
 import { personFighter, weaponRange } from './combat';
 import { kitOf } from './actions';
@@ -128,6 +131,8 @@ export interface PersonView {
   sinceBlow: number;
   /** Under arms in a raid (the defend task): a fighting calling keeps its combat form the whole fight. */
   defending: boolean;
+  /** A shapeshifter (a druid from the third stage): a bear when they fight. */
+  beast: boolean;
   sinceBlock: number;
   /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
@@ -295,6 +300,8 @@ export interface FighterView {
   elite: string | null;
   /** A party member who is a werewolf (drawn in wolf form as they fight), or one of the raised dead (a skeleton). */
   wolf: boolean;
+  /** A shapeshifter in bear form. */
+  beast?: boolean;
   undead: boolean;
 }
 
@@ -414,6 +421,8 @@ export interface ExpeditionView {
   /** Waiting on a question for the player. */
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
+  /** An assault (sim/factions.ts): the wave on now (0 before the fight) and how many. */
+  assault: { wave: number; total: number; target: string } | null;
   delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
   /** The Moon Pack's full-moon hunt. */
   hunt: boolean;
@@ -531,7 +540,7 @@ export interface ShopView {
   /** The keeper's id (to dress them as the map does). */
   keeperId: number | null;
   /** Strangers inside now: who they are, what they came for, their temper, and (at the tavern) the comfort they need. */
-  customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean; stage: 'browse' | 'counter' | 'done' | null; talk: ShopTalk | null }[];
+  customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean; stage: 'browse' | 'counter' | 'done' | null; talk: ShopTalk | null; purse: number; people: string | null }[];
   /** The tavern's guest rooms upstairs (a bed is a piece at y -1, x the room), its beds, and how many are taken tonight. */
   rooms: number;
   /** Dark out (the windows show the night sky). */
@@ -602,7 +611,7 @@ export interface Snapshot {
   /** How fast the town runs (1, 2 or 3 times). */
   speed: number;
   /** The last event answered and what came of it, for `OUTCOME_HOURS` (the feed's card). */
-  eventOutcome: { title: string; choice: string | null; text: string } | null;
+  eventOutcome: { title: string; choice: string | null; text: string; tick: number } | null;
   calendar: Calendar;
   /** Everything in storage, summed. */
   stock: Stock;
@@ -621,6 +630,10 @@ export interface Snapshot {
   destinations: DestinationView[];
   /** Parties forming themselves: the next that would set out, who's fit to go, and the bounty step. */
   trips: TripsView;
+  /** A party the player is raising (sim/muster.ts). */
+  muster: MusterView | null;
+  /** The powers of the realm (sim/factions.ts), and the town's might they weigh against. */
+  realm: RealmView;
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
   places: PlaceView[];
   /** The town's boats (sim/boats.ts): at home (away null) or the place they've sailed for; and the water cell by the
@@ -641,7 +654,7 @@ export interface Snapshot {
   /** The mine the player has gone into, in place of the town (sim/places.ts). */
   mine: MineView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
-  quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number }[];
+  quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
   /** The sagas under way and those ended (sim/sagas.ts). */
   sagas: { open: SagaView[]; done: SagaDoneView[] };
   /** The kinds of foe the town has met (the Bestiary). */
@@ -797,7 +810,7 @@ export function snapshot(s: GameState): Snapshot {
     tick: s.tick,
     paused: s.paused,
     speed: s.gameSpeed ?? 1,
-    eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text } : null,
+    eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text, tick: s.eventOutcome.tick } : null,
     calendar: calendar(s.tick),
     stock,
     storageUsed: poolSize(stock),
@@ -836,12 +849,28 @@ export function snapshot(s: GameState): Snapshot {
     fleet: fleet(s).map((b) => ({ id: b.id, kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull, away: b.away === null ? null : ((e) => (e ? destinationOf(s, e.dest)?.name ?? '' : ''))(s.expeditions.find((e) => e.id === b.away)) })),
     mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
     trips: tripsView(s),
+    muster: musterView(s, (p) => callingName(p, stageOf(p))),
+    realm: realmView(s, (id) => !destinationHidden(s, id) && !!DEST_BY_ID[id] && destinationUnlocked(s, DEST_BY_ID[id])),
     places: placeViews(s),
     pack: packView(s),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
-    quests: (s.quests ?? []).map((q) => ({ id: q.id, kind: q.kind, dungeon: q.dungeon, title: q.title, text: q.text, hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)) })),
+    quests: (s.quests ?? []).map((q) => ({
+      id: q.id,
+      kind: q.kind,
+      dungeon: q.dungeon,
+      title: q.title,
+      text: q.text,
+      hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)),
+      from: q.from,
+      // (what it pays, for the quest's details: tap it in the Expeditions tab)
+      reward:
+        q.kind === 'rescue' ? 'The captive comes home with the party, and stays in the town (if there is room).'
+        : q.kind === 'bounty' ? `${q.coins ?? 0} coins, shared by the party that clears it.`
+        : q.kind === 'relic' ? `${ITEM_BY_ID[q.unique ?? '']?.name ?? 'A unique weapon'}: ${ITEM_BY_ID[q.unique ?? '']?.description ?? ''}`
+        : "The fallen delver's gear: a fine weapon of the dungeon's age, into the town's stores.",
+    })),
     sagas: sagasView(s),
     met: s.met ?? [],
     hunts: huntsView(s),
@@ -1046,7 +1075,7 @@ function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): Sho
     keeperId: keeper?.id ?? null,
     customers: inside
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
-      .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour), stage: t.stage ?? null, talk: t.talk ?? null })),
+      .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour), stage: t.stage ?? null, talk: t.talk ?? null, purse: Math.round(t.purse ?? 0), people: t.origin ? (ORIGIN_DEFS[t.origin]?.name ?? null) : null })),
     rooms: roomsOf(b),
     night: calendar(s.tick).daylight < 0.35,
     beds: bedsOf(b).length,
@@ -1251,6 +1280,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     sinceBlow: s.tick - (p.lastBlow ?? -999),
     sinceBlock: s.tick - (p.lastBlock ?? -999),
     defending: !!s.raid && p.task?.type === 'defend',
+    beast: shapeshifts(p),
     mounted: null,
     cls: p.cls ?? null,
     // (a special newcomer's calling is part of their secret until it's out)
@@ -1519,6 +1549,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           clsName: f.side === 'party' ? ((q) => (q ? callingName(q, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
           cls: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.cls ?? null) : null,
           wolf: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'werewolf',
+          beast: f.side === 'party' && ((q) => !!q && shapeshifts(q))(s.people.find((p) => p.id === f.ref)),
           undead: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'undead',
           level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
           pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,
@@ -1542,6 +1573,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     waiting: e.prompt !== null,
     hunt: !!e.hunt,
     result: e.result && s.tick - e.result.tick < RESULT_TICKS ? { ...e.result, age: s.tick - e.result.tick } : null,
+    assault: e.assault ? { wave: e.battle?.wave ?? e.assault.wave, total: e.assault.total, target: e.assault.target } : null,
     delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,
   };
 }

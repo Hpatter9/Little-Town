@@ -14,6 +14,7 @@ import { FOOD_VALUE } from '../../shared/data/people';
 import { duration, el } from './dom';
 import { hiddenNote, HidePrefs } from './hide';
 import { topicKnown } from './secrets';
+import { expandable, itemDetails, materialDetails, pickable, pickedIn } from './details';
 
 /** Changes whenever something this panel shows changes (progress to the whole percent). */
 export const craftingKey = (s: Snapshot) =>
@@ -143,7 +144,7 @@ function inventory(s: Snapshot, worn: Map<string, number>, rerender: () => void)
     const icon = stockIcon(m, 16);
     if (icon) chip.append(icon);
     chip.append(el('span', '', `${MATERIAL_NAMES[m]} ×${s.stock[m]}`));
-    inv.append(chip);
+    inv.append(pickable(chip, 'inv', `m:${m}`));
   }
   for (const id of items) {
     const def = ITEM_BY_ID[id];
@@ -153,10 +154,34 @@ function inventory(s: Snapshot, worn: Map<string, number>, rerender: () => void)
     const w = worn.get(id) ?? 0;
     chip.append(itemIcon(def, 2), el('span', '', `${def.name} ${n ? `×${n}` : ''}${w ? `${n ? ' · ' : ''}${w} worn` : ''}`));
     chip.title = def.description;
-    inv.append(chip);
+    inv.append(pickable(chip, 'inv', `i:${id}`));
   }
   if (!inv.childElementCount) inv.append(el('span', 'hint', 'Nothing here yet.'));
-  return [tabs, inv];
+  // (tap anything in store: its details under the list)
+  const pick = pickedIn('inv');
+  const out: HTMLElement[] = [tabs, inv];
+  if (pick) {
+    const c = el('div', 'card picked-card');
+    const id = pick.slice(2);
+    if (pick.startsWith('m:') && MATERIAL_NAMES[id as Material]) {
+      const m = id as Material;
+      const top = el('div', 'card-top');
+      top.append(el('span', 'card-name', MATERIAL_NAMES[m]), el('span', 'card-size', `×${s.stock[m] ?? 0}`));
+      c.append(top);
+      for (const x of materialDetails(m, s)) if (x) c.append(typeof x === 'string' ? el('div', 'more-line', x) : x);
+      out.push(c);
+    } else if (ITEM_BY_ID[id]) {
+      const d = ITEM_BY_ID[id];
+      const top = el('div', 'card-top recipe-top');
+      const name = el('span', 'card-name');
+      name.append(itemIcon(d, 2), el('span', '', d.name));
+      top.append(name, el('span', 'card-size', `×${s.items[id] ?? 0}`));
+      c.append(top, el('div', 'purpose', d.description));
+      for (const x of itemDetails(d, s)) if (x) c.append(typeof x === 'string' ? el('div', 'more-line', x) : x);
+      out.push(c);
+    }
+  } else if (inv.childElementCount) out.push(el('div', 'hint', 'Tap anything in store for what it is, where it comes from and what it goes into.'));
+  return out;
 }
 
 /** What to hide in the list of recipes (kept across visits, per phone). */
@@ -198,7 +223,7 @@ function recipeCard(def: ItemDef, s: Snapshot, stationBuilt: boolean): HTMLEleme
   if (!unlocked) {
     const need = def.research.filter((r) => !s.research.done.includes(r)).map((r) => TOPIC_BY_ID[r]?.name ?? r);
     c.append(el('div', 'lock', `Needs research: ${need.join(', ')}`));
-    return c;
+    return expandable(c, `recipe:${def.id}`, () => itemDetails(def, s));
   }
   // (the town decides what to make now: this shows what's on order)
   const order = s.crafting.find((o) => o.item === def.id);
@@ -206,5 +231,5 @@ function recipeCard(def: ItemDef, s: Snapshot, stationBuilt: boolean): HTMLEleme
   row.append(el('span', 'lock', order ? `On order: ${order.count}` : 'Made when the town needs it'));
   if (!stationBuilt) row.append(el('span', 'lock short', `Build a ${BUILDING_BY_ID[def.station]?.name ?? def.station} first`));
   c.append(row);
-  return c;
+  return expandable(c, `recipe:${def.id}`, () => itemDetails(def, s));
 }

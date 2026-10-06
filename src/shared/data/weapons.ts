@@ -125,7 +125,7 @@ const ROWS: Row[] = [
   ['war_hammer', 'War Hammer', 'mc', 7, M, ['fortification'], SW(2, 3)],
   ['blessed_mace', 'Blessed Mace', 'mc', 6, M, ['writing'], SW(1, 4), { undeadDamage: 6 }],
   ['quarterstaff', 'Quarterstaff', 'mc', 4, M, ['carpentry'], LW(2, 4), { speed: 0.9 }],
-  ['flail', 'Flail', 'fl', 5, M, ['leatherworking'], SW(2, 4)],
+  ['flail', 'Flail', 'fl', 5, M, ['leatherworking'], SW(1, 4)],
   ['chain_flail', 'Chain Flail', 'fl', 6, M, ['armoring'], SW(2, 2)],
   ['bullwhip', 'Bullwhip', 'fl', 4, M, ['leatherworking'], LW(1, 5)],
   ['iron_spear', 'Iron Spear', 'sp', 5, M, ['iron_working'], LW(4, 4)],

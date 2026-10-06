@@ -2,7 +2,8 @@
 // background chosen for the event (data/eventScenes.ts: the parallax packs' layers stacked into one picture), with
 // the townsperson it's about over it when there is one, the title, the full telling, and the answers as big buttons.
 // The strip's own small question card stands aside for event questions while this page shows them
-// (`__eventSheet` on the strip's window, read in main.ts).
+// (`__eventSheet` on the strip's window, read in main.ts). Answered, the box stays: the answer taken and what came of it
+// (`snapshot.eventOutcome`, set by `setOutcome` in the sim) take the answers' place, and Continue closes it.
 
 import { BACKDROPS, type BackdropId } from '../../shared/data/backdrops';
 import type { Snapshot, PromptView } from '../../shared/sim/snapshot';
@@ -42,6 +43,13 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
   document.body.append(el);
   let shown = -1;
   let count: HTMLElement | null = null;
+  /** The answer given, while the box shows what came of it. */
+  let answered: { id: number; from: number; at: number; box: HTMLElement; told: boolean } | null = null;
+  let tick = 0;
+  /** Debriefs read (closed at once, never shown again while the sim catches up). */
+  const read = new Set<number>();
+  /** Waiting this long (real ms) with nothing come of it, the box says so and lets you go on. */
+  const QUIET_MS = 2500;
   const win = () => strip.contentWindow as (Window & { __eventSheet?: boolean; __picture?: (h: { person?: number }) => HTMLCanvasElement | null }) | null;
 
   const build = (p: PromptView) => {
@@ -86,7 +94,19 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
       const b = document.createElement('button');
       b.className = i === p.defaultOption ? 'event-option default' : 'event-option';
       b.textContent = label;
-      b.addEventListener('click', () => onAnswer(p.id, i));
+      b.addEventListener('click', () => {
+        if (answered) return;
+        onAnswer(p.id, i);
+        // (a debrief is read, not answered: it just closes)
+        if (p.kind === 'debrief') {
+          read.add(p.id);
+          shown = -1;
+          el.hidden = true;
+          document.body.classList.remove('event-open');
+          return;
+        }
+        options.replaceWith(answerBox(p, label));
+      });
       options.append(b);
     });
     count = document.createElement('div');
@@ -96,12 +116,71 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     el.scrollTop = 0;
   };
 
+  /** In the answers' place once one is taken: the choice, then what came of it, then Continue. */
+  const answerBox = (p: PromptView, label: string): HTMLElement => {
+    const box = document.createElement('div');
+    box.className = 'event-result';
+    const chose = document.createElement('div');
+    chose.className = 'event-chose';
+    chose.textContent = label;
+    const came = document.createElement('div');
+    came.className = 'event-came waiting';
+    came.textContent = '…';
+    const go = document.createElement('button');
+    go.className = 'event-option event-continue';
+    go.textContent = 'Continue';
+    go.hidden = true;
+    go.addEventListener('click', () => {
+      answered = null;
+      shown = -1;
+      el.hidden = true;
+      document.body.classList.remove('event-open');
+    });
+    box.append(chose, came, go);
+    answered = { id: p.id, from: tick, at: performance.now(), box, told: false };
+    if (count) count.textContent = '';
+    count = null;
+    return box;
+  };
+  /** What came of the answer, when the sim has told it (or, after a while, that nothing more did). */
+  const tell = (snap: Snapshot) => {
+    const a = answered!;
+    if (a.told) return;
+    const o = snap.eventOutcome;
+    const came = a.box.querySelector('.event-came') as HTMLElement;
+    const go = a.box.querySelector('.event-continue') as HTMLElement;
+    if (o && o.tick >= a.from) {
+      came.classList.remove('waiting');
+      came.replaceChildren();
+      const head = document.createElement('div');
+      head.className = 'event-came-head';
+      head.textContent = 'What came of it';
+      const body = document.createElement('div');
+      body.textContent = o.text ? o.text[0].toUpperCase() + o.text.slice(1) + (/[.!?)]$/.test(o.text) ? '' : '.') : 'Nothing more came of it.';
+      came.append(head, body);
+    } else if (performance.now() - a.at > QUIET_MS) {
+      came.classList.remove('waiting');
+      came.textContent = 'It is done.';
+    } else return;
+    a.told = true;
+    go.hidden = false;
+  };
+
   return {
     update(snap) {
-      const p = snap.prompts.find((q) => q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga');
-      const on = !!p && !snap.battle && !snap.watch && !snap.mine;
+      tick = snap.tick;
+      const away = !!snap.battle || !!snap.watch || !!snap.mine;
       const w = win();
       if (w) w.__eventSheet = true;
+      if (answered && away) answered = null;
+      if (answered) {
+        el.hidden = false;
+        document.body.classList.add('event-open');
+        tell(snap);
+        return;
+      }
+      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy'));
+      const on = !!p && !away;
       el.hidden = !on;
       document.body.classList.toggle('event-open', on);
       if (!on || !p) {

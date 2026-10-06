@@ -3,10 +3,9 @@
 // round them, tap one for its stats), what they carry, how they fight, and everything else about them.
 
 import { hkDraw, hkLayers, hkWhoOf, onHkLoad } from '../art/hkFolk';
-import { pieceLabel, plusOf, plusMult, qualityMult, qualityOf } from '../../shared/data/quality';
-import { ITEM_BY_ID, SLOT_NAMES, SLOTS, type ItemDef, type Slot } from '../../shared/data/items';
+import { pieceLabel, plusOf, qualityOf } from '../../shared/data/quality';
+import { ITEM_BY_ID, SLOT_NAMES, SLOTS, type Slot } from '../../shared/data/items';
 import { MATERIAL_NAMES } from '../../shared/data/materials';
-import { quirkWords } from '../../shared/data/weapons';
 import { stockIcon } from '../art/materialIcons';
 import { CENTRE_X, FEET_Y, FRAME_SIZE, loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
@@ -24,6 +23,7 @@ import type { Bridge } from '../../shared/ipc';
 import type { PersonView, Snapshot, VisitorView } from '../../shared/sim/snapshot';
 import { bleedLeft } from '../../shared/format';
 import { button, el } from './dom';
+import { itemStats } from './details';
 
 /** Changes whenever something this panel shows changes (needs and morale to the whole percent). */
 export const townsfolkKey = (s: Snapshot) =>
@@ -394,7 +394,7 @@ function pieceCard(p: PersonView): HTMLElement {
   head.append(name);
   box.append(head);
   box.append(el('div', 'item-kind', `${SLOT_NAMES[slot]} · ${q.name}${plusOf(qn) ? ` +${plusOf(qn)}` : ''}${def.tier ? ` · tier ${def.tier}` : ''}${def.unique ? ' · unique' : def.relic ? ' · relic' : ''}`));
-  const lines = statLines(def, qn);
+  const lines = itemStats(def, qn);
   if (lines.length) {
     const ul = el('div', 'item-stats');
     for (const l of lines) ul.append(el('div', '', l));
@@ -404,27 +404,6 @@ function pieceCard(p: PersonView): HTMLElement {
   return box;
 }
 
-function statLines(def: ItemDef, qn: number | undefined): string[] {
-  const fx = def.effects;
-  const k = qualityMult(qn) * plusMult(qn);
-  const pct = (v: number) => `${Math.round(v * k * 100)}%`;
-  const out: string[] = [];
-  if (fx.damage) out.push(`Damage +${(fx.damage * k).toFixed(1)}${fx.ranged ? ' (from range)' : ''}`);
-  if (fx.accuracy) out.push(`Aim +${pct(fx.accuracy)}`);
-  if (def.slot === 'weapon') out.push(`Range ${fx.range ?? (fx.ranged ? 4 : fx.reach ? 2.2 : 1.2)} cells${fx.ranged ? '' : fx.range && fx.range > 1.5 ? ' (a long reach)' : ''}`);
-  if (fx.armor) out.push(`Armour ${pct(fx.armor)}`);
-  if (fx.block) out.push(`Block ${pct(fx.block)}`);
-  if (fx.dodge) out.push(`Dodge ${pct(fx.dodge)}`);
-  if (fx.power) out.push(`Spell power +${pct(fx.power)}`);
-  if (fx.carry) out.push(`Carries +${Math.round(fx.carry * k)}`);
-  if (fx.morale) out.push(`Morale +${Math.round(fx.morale * k)}`);
-  if (fx.construct) out.push(`Builds ${Math.round((fx.construct - 1) * 100)}% faster`);
-  for (const [work, v] of Object.entries(fx.gather ?? {})) if (v) out.push(`${work[0].toUpperCase()}${work.slice(1)} ${Math.round((v - 1) * 100)}% faster`);
-  if (fx.ammo) out.push(`Shoots ${MATERIAL_NAMES[fx.ammo].toLowerCase()}`);
-  if (fx.speed !== undefined && def.slot !== 'weapon' && fx.speed > 1) out.push(`Slows the arm ${Math.round((fx.speed - 1) * 100)}%`);
-  for (const w of quirkWords(fx)) out.push(w[0].toUpperCase() + w.slice(1));
-  return out;
-}
 
 /** What they carry, in a grid of cells as in Diablo's bag: a stack to a cell, the rest empty; and their coins. */
 function bag(p: PersonView): HTMLElement {
@@ -576,7 +555,7 @@ function figure(p: PersonView, s: Snapshot, scale: number): HTMLElement {
 
 /** Their head and shoulders, for the list. */
 const FACE = 26;
-function face(p: PersonView, s: Snapshot): HTMLElement {
+export function face(p: PersonView, s: Snapshot): HTMLElement {
   const c = el('canvas', 'pixel-figure folk-face');
   c.width = c.height = FACE * HK_RES;
   const src = picture(p, s);

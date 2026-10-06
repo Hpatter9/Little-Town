@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.4.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.5.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -1663,6 +1663,121 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   with the signpost and barrels, the hall with crates) and the trophy hall its shop with the shield sign, in the base
   and knights looks; the painter's `hall` shape stays for the other origins.
 
+- **Tap for more (the owner's ask: "click on the quests for more information... almost everything"):**
+  `src/renderer/panel/details.ts`. `expandable(card, key, more)` makes a card open on a tap and show `more()` under it
+  (`facts` two columns, `list`, `subhead`; `foeLine`/`groupLine` for foes, `stockLine`, `itemStats`); `pickable(chip,
+  group, id)` and `pickedIn(group)` do the same for small chips (inventory, store, bestiary), the details in a card under
+  the group. Taps on buttons, links, inputs or `.no-expand` never toggle. What's open is kept for the session and is in
+  the panel's redraw key (`detailsKey`, panel.ts). Wired into: the Expeditions tab (trips, places, quests: who asked and
+  the reward, `QuestView.from`/`.reward`; hunts by `HuntView.quarry`; sagas with their whole story, `SagaView.story`,
+  `.began`; the forge and uniques), buildings (`buildingDetails` in buildPanel.ts) and the Town status stores, recipes
+  and the inventory (`itemDetails`, `materialDetails`), the caravan's deals (`dealDetails`), the bestiary (full stats
+  once met) and a venue's guests (purse, people, wants, what was said). CSS `.expandable`, `.card-more`, `.facts`,
+  `.pickable` in panel.html. Test: `test/details.test.ts`.
+- **What came of an answer, in the event box (the owner's ask):** answering on the full-screen event box
+  (`eventSheet.ts`) no longer closes it: the choice taken and "What came of it" take the answers' place, then Continue.
+  The sim keeps the outcome with `setOutcome` (state.ts) for events (`tell`), secrets (`answerSecret`'s `say`) and sagas
+  (`answerSaga`: what the answer brought and the lines that followed); `snapshot.eventOutcome.tick` tells the box it's
+  the answer just given; with nothing told in `QUIET_MS` it says "It is done.". A battle or watched fight drops it.
+
+- **Sending a party yourself (the owner's ask: control, and something to do, while the town still runs itself):**
+  `src/shared/data/muster.ts` and `src/shared/sim/muster.ts`. Every board card has **Raise a party…** (the `muster`
+  command, op `raise`): the most seasoned adventurer fit to go steps up to lead (anyone fit if the town has none) and
+  `recruit`s from the willing; `s.muster` (`Muster`) holds it, and while it does the town forms no party of its own.
+  The player asks people along (`addMember`), drops them, or makes one leader; some say no (`willing`: hurt, worn out,
+  hungry or just home; on the watch; a venue or the healer's to keep; an enemy going; or, for a dangerous place, a
+  homebody or `RELUCTANT_SHARE` of the rest who aren't adventurers or guards), and are talked round for coins from the
+  treasury into their purse (`persuade`, `PERSUADE_*` by the danger) or ordered along (`order`: `p.sore`
+  `ORDER_MORALE` for `ORDER_HOURS`; the only way for the hurt or a post's keeper). The leader reads the odds
+  (`oddsLine`, `ODDS`: strength over danger, bold counting the danger 1.25 times); careful or bold, rations (`RATIONS`:
+  the food packed, through `sendExpedition`'s `opts`), spare torches for a delve (`Expedition.extraTorches`, read by
+  `startDelve`), horses or not; `sendMuster` sends them (`Expedition.ordered`, `start`). On the road a commanded party
+  asks instead of rolling a road event (`crossroads`, at most `MOST_CROSSROADS`; `CROSSROADS`: the weather turns, a
+  shorter way, fresh tracks, a ruin, heavy packs home, a traveller in the ditch), a prompt of kind `road` the event box
+  shows with a backdrop and the leader, the bold answer the default on a risky trip; `answerCrossroads` applies it and
+  tells the box what came of it. Home, `debrief` (from `comeHome`) puts a prompt of kind `debrief` on the box: how long,
+  what they brought, who rose a level, who was hurt, who didn't come back. The sheet is `panel/musterPanel.ts` (over the
+  Expeditions tab, `over-tabs`: the sub-tabs leave it alone). Tests: `test/muster.test.ts`.
+
+- **The town trades with caravans itself (hands-off):** the player has the first half of a caravan's stay to take its
+  deals; after that, once an hour, the town takes one it wants (`townTrades` in sim/trade.ts, with the autopilot on;
+  `Caravan.arrived`): `goodDeal` is goods it's short of (`SHORT_OF`) at no more than `DEAR_BUY` times their worth, or
+  a horse with a stall free, paid with what it can spare (`SPARE_KEEP`, `FOOD_SPARE` for food). Test in
+  `test/trade.test.ts`.
+- **Feed rows open:** tapping a happening on the phone's feed opens it (the full date, and **Show them/it on the map**:
+  `__showOnMap` in main.ts centres the camera and opens the tap card); the hero's card does the same.
+- **Fighters no longer stand behind the fight's windows:** in a fight the top window hides, and `FightHud.insets()`
+  returned nothing then, so the scene ignored the party's window along the bottom; it gives each inset on its own now.
+
+- **They wear what they're equipped with (the owner's ask):** `hkLayers` (art/hkFolk.ts) dresses a townsperson in the
+  body armour they have on: its weight picks the outfit line (their calling's own where it is of that weight,
+  `OUTFIT_WEIGHT`; else `ARMOUR_OUTFIT`: plate, leather, road clothes) at the armour's tier; with nothing on, casters
+  keep their robes (`ROBES`) and founders their outfit, everyone else plain clothes (no more knights in plate they
+  don't own). The helm is the head piece they wear (a samurai's helm no longer comes free); the shield the one in hand;
+  the weapon is carried about town too, put away only for the work's tool. The map, the fight screen and the
+  Townsfolk tab's paper doll all draw from it. Eighteen items pointed at empty icon cells (the visor helmet, the
+  flail and Thornlash, the prosthetics, the Gorgon Aegis...): fixed, so the doll's slots show them.
+
+- **Health bars and casters in raid battles (the owner's ask):** in a raid every townsperson on the map shows a health
+  bar over their head (`hpBar` in mapPeople.ts, `HP_W`: green, gold when hurt, red when low, grey when down), as the
+  raiders had. Every calling that fights from range (`fightsFromRange` in data/classes.ts: the class's `ranged`) stands
+  off the trail on wall and ground spots (`defenderReach`), not only the mage; casters, healers and ranged supports cast
+  at `MAGIC_RANGE` (`castsMagic`, a bolt on the map), and the caster role burns as the mage does (`castsFire`: `mageFire`,
+  the burst). Their spells and skills were already used on the map (`takeTurn` in `stepBattle`). Test in
+  `test/battle.test.ts`.
+
+- **The realm: factions, war hosts and assaults (done; the owner's choices: full diplomacy; hosts up to about 60; an
+  assault is one huge battle; conquest plunders, makes vassals or razes, and recruits come over):**
+  `src/shared/data/factions.ts` and `src/shared/sim/factions.ts`. **The powers** (`realm(s)`, seeded from the world's seed
+  into `s.factions`: `FACTION_COUNT` 4, three rival origins (never the town's own) and the Red Brotherhood's bandits;
+  `FACTION_DEFS`: name, lord (an enemy id), stronghold, the raid kind its troops are, scenes, `temper` (warlike, greedy,
+  honourable, treacherous), goods). A power is met by its envoy (`FIRST_MEET_DAY`, then one every `MEET_EVERY_DAYS`);
+  `factionsDaily` (hour 9, from `factionsHourly`; autopilot on) grows its troops (`TROOPS_PER_DAY` up to `TROOPS_MOST`),
+  drifts its goodwill to its temper's rest (`TEMPER_REST`, `ATTITUDE_DRIFT`; treaties and a marriage warm it), pays trade
+  (`TRADE_COINS`) and a vassal's tribute (ledger line `realm`), declares war at `WAR_AT`, lets the treacherous betray
+  (`BETRAY_CHANCE`) and a strong, sullen vassal rebel (`REBEL_CHANCE`), musters war hosts, and sends one envoy a day at
+  most (`envoyAbout`: tribute demands, peace, trade, an alliance, a marriage, a surrender once beaten twice). **Envoys**
+  are prompts of kind `envoy` (`Prompt.envoy`: faction, about, coins) shown in the event box; `answerEnvoy` (from
+  `answerPrompt`). A marriage brings one of theirs to wed the founder or another single grown-up (`marry`, of their
+  people by `makeStranger`). **The Realm** is the Expeditions menu's fourth sub-tab (`panel/realmPanel.ts`; `GROUPS`
+  "The realm", "Assaults"): a card a power (stance, lord and stronghold, temper, a goodwill bar from the middle, troops
+  against `townMight`, a host on its way) with the `realm` command's buttons (`realmCommand`: gift `GIFT_COINS`, propose
+  peace, trade or an alliance by `TREATY_NEEDS`, offer a match, demand submission (only a power under 0.7 of the town's
+  might kneels), free a vassal, declare war; breaking a treaty costs `OATHBREAKER` goodwill with everyone).
+  `rivalRaidOdds` keeps a rival's ordinary raids to powers at war (twice as likely) or with no treaty.
+  **War hosts:** a power at war musters one now and then (`HOST_CHANCE`, `HOST_GAP_DAYS` apart): `f.host` comes
+  `HOST_WARNING_HOURS` (36) later (a feed card and the Realm say when), `HOST_SHARE` of its troops up to `HOST_MOST` (60).
+  `launchHost` calls `startRaid(..., host)` (raids.ts takes `host`: its size over the usual cap, `siege` engines from the
+  Medieval age, one per `SIEGE_EVERY`, and the lord at the head; `Raid.host`); the `siege_engine` (merged into ENEMIES,
+  the Himeko juggernaut) strikes walls `SIEGE_WALL` times harder (`attackWall`). The battle comes in up to `HOST_WAVES`
+  (8) waves of about `HOST_WAVE_SIZE` (`startBattle` in battle.ts). The town's allies send `ALLY_TROOPS` of theirs as
+  ally raiders (`alliesFor`, from `startRaid`: always to a host, now and then to any raid). `hostOver` (from `endRaid`)
+  counts the dead off the power's troops; broken (the lord down or 60% fallen) it may sue for peace or kneel.
+  **Assaults:** destinations `assault:<faction>` (a power at war) or `assault:dungeon:<id>` (a dungeon on the board)
+  (`assaultDestination`, resolved by `destinationOf`; `assaultTargets` for `destinationUnlocked`), raised through the
+  muster (up to `ASSAULT_MOST` 16: `mostFor` and `canSend`). `planAssault` (in `sendExpedition`) plans the waves
+  (`assaultWaves`: the power's troops in waves, its lord and guard last; a dungeon's foes thickening, its boss last) onto
+  `Expedition.assault`; at the target `fightGroup` starts the first and hangs the rest on `Battle.waves`, and combat.ts's
+  `nextWave` brings each on as the last falls (the fallen cleared, their loot kept in `spoils`; one fight, the party as
+  it is). `assaultOver` (from `finishBattle`): won, plunder (`PLUNDER_PER_TROOP` coins to the treasury, `PLUNDER_GOODS`
+  of its goods home), recruits (`RECRUITS`), and a `conquered` envoy: vassal or razed (`destroyed`); a dungeon's hoard;
+  lost, the power is emboldened and a host comes. The fight screen fits a crowd (fightView: the party in two or three
+  columns, the foes in rows past eight; the HUD's party window in two columns, `.ff-party.many`, and "Wave N of M",
+  `ExpeditionView.assault`); the feed has a card for an assault under way. Names that are a doing take no "the"
+  (`OWN_ARTICLE` has "storm"), and foes are pluralised at the head word ("knights of the order", "crossbowmen").
+  Tests: `test/factions.test.ts`. Soak (3 towns each of settlers, knights and vampires, 20 days): no town lost, 1 to 5
+  deaths, wars, peace, trade and a vassal; hosts of about 20 from day 11, growing with the power's troops.
+
+- **Nobody turns into someone else at a fight, the Shapeshifter shifts, no bundles overhead (the owner's asks):** in a
+  fight a townsperson's look gains their weapon's layer, and until it loaded the map fell back to an old Craftpix hero
+  sheet (a different character for a moment). Now the map tries the look without the weapon, then holds the last frame
+  drawn (`Drawn.hkLast` in mapPeople.ts), and the fight screen does the same. **Shapeshifters:** a druid from the third
+  stage (Shapeshifter, `STAGE_LEVELS[2]`) takes a bear's shape to fight (`shapeshifts` in data/levels.ts): melee
+  (`personFighter` drops the caster's range; `defenderReach` puts them on the trail), `BEAST_HP` 1.3, `BEAST_DAMAGE`
+  1.25, `BEAST_ARMOR` +0.1; drawn as the MV bear on the map (`BEAR_BLOCK`, `BEAR_K`, while in combat) and the fight
+  screen (`PersonView.beast`, `FighterView.beast`). Test: `test/shapeshift.test.ts`. What a townsperson carries is no
+  longer drawn as a bundle over their head (`d.load` hidden); it's in their pack.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's
@@ -1842,6 +1957,29 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   and dropped: it cost lone founders about half a person by day 10. Probe (12 lone founders, 10 days): 4.4 people
   where it was 4.1. Test: `test/hunger.test.ts`.
 
+- **Rooms lived in (the owner's ask: a dwarves' hold felt empty, one piece a room):** `src/renderer/map/castleClutter.ts`
+  dresses the hall, every room and the dug galleries of a castle or a hold with the dungeon packs' small things
+  (`art/clutter/`, 48 sprites cut by hand, palette PNGs): tall things against the back wall (shelves, racks, crate
+  stacks), middling ones down the sides (barrels, crates, chests, tables), small ones in the corners and along the front
+  (jars, stools, books, flasks, gold), and a group or two on the open floor (`GROUPS`: a long table and stools, a desk and
+  stool, a heap of crates), by what the room is (`kindOf` in `map/roomKinds.ts`: hall, home, store, study, forge, healer,
+  kitchen, treasury for the seat, mine, work; `SETS`). Kept clear of each room's own piece (MapView's `occupied`: its
+  painted runs of columns from `PixelArt.tops`), the doorways and the gate's carpet; placed from a stream seeded by the
+  room, so it stays put. **Lights:** torches on the back walls and now and then in the galleries, braziers in the hall,
+  forges, kitchens and throne room, candles in homes and studies (`art/delve/fires.png`, `art/clutter/candles.png`,
+  animated), each with a warm pool on the floor that flickers (`flickerCastle`, from `renderAir`) and a glow in the
+  lights layer after dark. A room's own piece is never a whole building's outside any more (`packArtIndoors` in
+  packBuildings.ts: `EXTERIORS`, the trades' timber houses and shop fronts stood inside the hold). Test:
+  `test/clutter.test.ts`.
+- **Walls that stand up (the owner's ask):** in a castle and a hold, a room's partition has a 22 px face (`PART_FACE`,
+  with a dark foot, `foot`), a doorway a lintel and shadowed opening, a run down a column a shaded east side (`sideRun`,
+  `SIDE_T` 10); the curtain wall's inner face is `INNER_FACE` (26) and the hold's rock wall seen from inside a hewn face
+  (`ROCK_FACE` 24, `hewn`). `wallDepth` (castleArt.ts) says how far a top wall reaches into a room, for the clutter.
+- **Fields painted as farmland (the owner's ask: the pack soil looked like desert dirt):** `src/renderer/art/farmland.ts`
+  (`paintFarm`): dark loam in ridges and furrows with clods, a turned-earth bank with grass creeping over it, and the crop
+  along the ridges by kind and stage (wheat tufts to gold stalks with heads, round leafy vegetables and pale cabbages,
+  flax in blue flower, herb clumps with blooms, orchard trees from whips to shaded round crowns in fruit; an orchard
+  stands in grass). Every crop plot uses it (`farmPlot` in map/fieldArt.ts); pens keep the Fields tileset's ground.
 - **Walls that hold, and a gate to the hold (the owner's ask: realistic pathing):** a castle's or a hold's walls are
   real for walking now. `castleLayout` (sim/castle.ts, cached per tick and on the rooms and `land.version`) gives each
   castle cell its region (the hall -1, each room its id, each separate run of a hold's dug galleries -2, -3...), the

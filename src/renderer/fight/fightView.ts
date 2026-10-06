@@ -419,15 +419,24 @@ export class FightScene {
     const { vw, hy } = this;
     const land = this.vh - hy;
     const foeGap = Math.min(24, (land - 28) / 3);
-    const partyGap = Math.min(16, (land - 24) / Math.max(1, party.length - 1));
-    // (in a staggered line back from the front, spaced so the big ones don't stand in each other)
-    const spacing = Math.min(40, (vw * 0.32) / Math.max(1, foes.length - 1));
+    // (a whole town at war, an assault's wave: more than a column holds, so two or three side by side)
+    const cols = party.length > 12 ? 3 : party.length > 6 ? 2 : 1;
+    const perCol = Math.ceil(party.length / cols);
+    const partyGap = Math.min(16, (land - 24) / Math.max(1, perCol - 1));
+    // (in a staggered line back from the front, spaced so the big ones don't stand in each other; a crowd in rows)
+    const rows = foes.length > 8 ? 3 : 2;
+    const perRow = Math.ceil(foes.length / (rows - 1 || 1));
+    const spacing = Math.min(40, (vw * 0.32) / Math.max(1, (foes.length > 8 ? perRow : foes.length) - 1));
     foes.forEach((f, i) => {
-      at.set(`enemy:${f.ref}`, [Math.round(vw * 0.36 - i * spacing), Math.round(hy + 18 + (i % 2) * foeGap * 1.6)]);
+      const k = foes.length > 8 ? Math.floor(i / perRow) : i % 2;
+      const j = foes.length > 8 ? i % perRow : i;
+      at.set(`enemy:${f.ref}`, [Math.round(vw * 0.36 - j * spacing - (k % 2) * spacing * 0.5), Math.round(hy + 18 + k * foeGap * (foes.length > 8 ? 1.1 : 1.6))]);
     });
     party.forEach((f, i) => {
-      // a slanting column, as in the old games
-      at.set(`party:${f.ref}`, [Math.round(vw * 0.7) + i * 8 + (f.row === 'back' ? 12 : 0), Math.round(hy + 16 + i * partyGap)]);
+      // a slanting column, as in the old games (side by side when there are many)
+      const c = Math.floor(i / perCol);
+      const r = i % perCol;
+      at.set(`party:${f.ref}`, [Math.round(vw * 0.66) + c * 34 + r * 8 + (f.row === 'back' ? 12 : 0), Math.round(hy + 16 + r * partyGap)]);
     });
     // (a fight at sea: they stand on her deck, which runs under the whole column)
     if (this.afloat(v)) this.showHull(v, Math.round(vw * 0.74), Math.round(hy + 16 + Math.max(0, party.length - 1) * partyGap) + 8, Math.max(110, party.length * 26 + 60), now);
@@ -552,6 +561,18 @@ export class FightScene {
       s.position.set(Math.round(x - (size / 2) * sc * flip), Math.round(y - size * sc));
       return;
     }
+    // a shapeshifter (a druid from the third stage) fights as a bear
+    if (f.beast && !f.down) {
+      const facing = faceLeft ? 'left' : 'right';
+      s.texture = creatureFrame('bear', 5, facing, Math.floor(now / 160 + f.ref), acting, acting ? undefined : 'idle');
+      const size = creatureSize('bear');
+      const flip = creatureFlip('bear', facing);
+      const sc = 1.8 * k;
+      s.anchor.set(0);
+      s.scale.set(sc * flip, sc);
+      s.position.set(Math.round(x - ((size.w * sc) / 2) * flip), Math.round(y - size.h * sc));
+      return;
+    }
     // people
     const hs = unit ? (unit.sprite as HumanSprite) : null;
     const enemy = hs ? enemyLook(hs.people, f.ref) : null;
@@ -564,6 +585,9 @@ export class FightScene {
       const keys = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: true, activity: 'fight' });
       const [col, row] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now });
       if (hkSprite(s, keys, col, row, x, y, HK_HEIGHT)) return;
+      // (until the weapon's layer loads, the same person without it: never a stranger's figure)
+      const bare = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: false, activity: 'idle' });
+      if (hkSprite(s, bare, col, row, x, y, HK_HEIGHT)) return;
     }
     // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
     // (a werewolf fights in wolf form: the Craftpix werewolves, by who they are)

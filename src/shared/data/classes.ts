@@ -89,6 +89,21 @@ export const CLASS_DEFS: Readonly<Record<ClassId, ClassDef>> = {
 };
 
 /** The levels at which each stage is reached (levels.ts: a class evolves into its next stage there). */
+/** Whether a calling fights from range (bows, guns, spells): on the raid map they stand off the trail and shoot. */
+export function fightsFromRange(cls: string | null | undefined): boolean {
+  return !!cls && !!CLASS_DEFS[cls as ClassId]?.ranged;
+}
+/** Whether a calling fights with magic from afar (the casters, healers and ranged supports, not the shooters). */
+export function castsMagic(cls: string | null | undefined): boolean {
+  const c = cls ? CLASS_DEFS[cls as ClassId] : undefined;
+  return !!c && c.ranged && c.role !== 'shooter';
+}
+/** Whether a calling's spells burn as a mage's do (ignoring armour, bursting over those beside): the casters. */
+export function castsFire(cls: string | null | undefined): boolean {
+  const c = cls ? CLASS_DEFS[cls as ClassId] : undefined;
+  return !!c && c.role === 'caster';
+}
+
 export const STAGE_LEVELS = [1, 12, 30, 55, 85] as const;
 /** The last stage: from its level on, the chance each day someone ascends to it (otherwise only a quest or an event
  *  brings it, or a wanderer who already has). */

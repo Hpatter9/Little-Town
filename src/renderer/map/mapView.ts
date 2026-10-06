@@ -36,6 +36,7 @@ import { loadGroundDetail } from '../art/groundDetail';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
+import { castleClutter, clutterLoaded, flickerCastle, onClutterArt, type Flame } from './castleClutter';
 import { seatArt } from '../art/seatArt';
 import { SEAT_STAGE } from '../../shared/data/seats';
 
@@ -179,7 +180,9 @@ export class MapView {
   private readonly flies: Firefly[] = [];
   /** A castle town's keep (map/keepArt.ts): its floor and side walks under everything, its walls and towers among the
    *  things; `wide` sprites span the view and are never culled. */
-  private castle: { key: string; under: Container; things: Container[] } | null = null;
+  private castle: { key: string; under: Container; things: Container[]; flames: Flame[] } | null = null;
+  /** Seconds the lights have flickered (castleClutter's `flickerCastle`). */
+  private flick = 0;
   private readonly wide = new Set<Container>();
   /** Bumped when a pack picture loads: every building is drawn again with it. */
   private artGen = 0;
@@ -202,6 +205,9 @@ export class MapView {
     onFieldTiles(() => this.artGen++);
     onPackArt(() => this.artGen++);
     onCastleArt(() => {
+      if (this.castle) this.castle.key = '';
+    });
+    onClutterArt(() => {
       if (this.castle) this.castle.key = '';
     });
   }
@@ -555,10 +561,11 @@ export class MapView {
    *  the things. Drawn again when a room is finished, the pack's floor and gate load, the look or the season change. */
   syncCastle(castle: CastleView | null, list: Building[]): void {
     const rooms = castle ? list.filter((b) => b.room && b.status === 'done') : [];
-    const key = castle && this.land ? `${castle.core.x},${castle.core.y}|${rooms.map((b) => `${b.id}:${b.tile},${b.row},${b.def}`).join(';')}|${this.toneKey}|${this.season === 'winter' ? 'snow' : ''}|${castleArtReady() ? 'p' : ''}|${castle.doors.join(' ')}|${castle.galleries.length}` : '';
+    const key = castle && this.land ? `${castle.core.x},${castle.core.y}|${rooms.map((b) => `${b.id}:${b.tile},${b.row},${b.def}`).join(';')}|${this.toneKey}|${this.season === 'winter' ? 'snow' : ''}|${castleArtReady() ? 'p' : ''}|${castle.doors.join(' ')}|${castle.galleries.length}|${clutterLoaded()}` : '';
     if (this.castle?.key === key) return;
     if (this.castle) {
       this.castle.under.destroy({ children: true });
+      for (const f of this.castle.flames) f.glow?.destroy();
       for (const t of this.castle.things) {
         this.wide.delete(t);
         t.destroy({ children: true });
@@ -569,7 +576,50 @@ export class MapView {
     const drawing = buildCastle(castle, rooms, footprint, this.land.w, this.tone, this.toneKey, this.season === 'winter');
     this.under.addChild(drawing.under);
     for (const t of drawing.things) this.things.addChild(t);
-    this.castle = { key, under: drawing.under, things: drawing.things };
+    // the rooms' clutter and lights (map/castleClutter.ts), clear of each room's own piece as drawn
+    // (only what each piece paints, run by run of painted columns: its canvas is often wider than the furniture on it,
+    // and a throne room's pieces stand apart)
+    const occupied = rooms.flatMap((b) => {
+      const d = this.buildings.get(b.id);
+      if (!d) return [];
+      const { tops, height } = d.art;
+      const out: { x: number; y: number; w: number; h: number }[] = [];
+      let start = -1;
+      let top = height;
+      let gap = 0;
+      const close = (end: number) => {
+        if (start >= 0) out.push({ x: d.sprite.x + start, y: d.sprite.y + top, w: end - start + 1, h: height - top });
+        start = -1;
+        top = height;
+      };
+      for (let i = 0; i <= tops.length; i++) {
+        if (i < tops.length && tops[i] < height) {
+          if (start < 0) start = i;
+          top = Math.min(top, tops[i]);
+          gap = 0;
+        } else if (start >= 0 && ++gap >= 6) close(i - gap);
+      }
+      if (start >= 0) close(tops.length - gap);
+      return out;
+    });
+    const inside = new Set([...castle.cells, ...castle.galleries]);
+    const w = this.land.w;
+    const gx = (castle.gate.x + 0.5) * CELL;
+    const carpetTop = (castle.core.y + castle.core.h / 2) * CELL;
+    const carpet = { x: gx - 15, y: carpetTop, w: 30, h: castle.gate.y * CELL - carpetTop + 8 };
+    const clutter = castleClutter(castle.core, rooms, footprint, castle.galleries, w, castle.doors, carpet, occupied, castle.hold === 'mountain', (x, y) => !inside.has((y - 1) * w + x));
+    drawing.under.addChild(clutter.pools);
+    for (const t of clutter.things) this.things.addChild(t);
+    // (and after dark each flame glows in the lights layer, like the windows)
+    for (const f of clutter.flames) {
+      const g = this.lights.addChild(new Sprite(glowTexture()));
+      g.anchor.set(0.5);
+      g.position.set(Math.round(f.at.x), Math.round(f.at.y));
+      g.width = g.height = f.size * 0.7;
+      g.tint = 0xffb060;
+      f.glow = g;
+    }
+    this.castle = { key, under: drawing.under, things: [...drawing.things, ...clutter.things], flames: clutter.flames };
   }
 
   /** The town's buildings as last synced (a wall piece's picture depends on its neighbours: `wallJoin`). */
@@ -614,6 +664,7 @@ export class MapView {
   /** A frame of the air: smoke from the finished buildings' chimneys and stacks, and the fireflies. */
   renderAir(dt: number): void {
     this.fireflies(dt);
+    if (this.castle?.flames.length) flickerCastle(this.castle.flames, (this.flick += dt));
     if (this.calm) return;
     this.smoke.amount = this.smokeAmount;
     const chimneys: { x: number; y: number }[] = [];

@@ -151,6 +151,8 @@ export function planForge(s: GameState): void {
 
 export interface HuntView {
   dest: string;
+  /** The quarry (data/hunts.ts QUARRY_BY_ID), for its details. */
+  quarry: string;
   name: string;
   stars: number;
   purse: number;
@@ -171,7 +173,7 @@ export function huntsView(s: GameState): { guild: boolean; hunts: HuntView[]; fo
   const guild = guildStands(s);
   const hunts = (s.hunts ?? []).map((h) => {
     const q = QUARRY_BY_ID[h.quarry];
-    return { dest: `${HUNT_DEST}${h.id}`, name: q.name, stars: q.stars, purse: HUNT_PURSE[q.stars], parts: partsLine(q), text: q.text, hoursLeft: Math.max(0, Math.ceil((h.until - s.tick) / TICKS_PER_HOUR)) };
+    return { dest: `${HUNT_DEST}${h.id}`, quarry: q.id, name: q.name, stars: q.stars, purse: HUNT_PURSE[q.stars], parts: partsLine(q), text: q.text, hoursLeft: Math.max(0, Math.ceil((h.until - s.tick) / TICKS_PER_HOUR)) };
   });
   const stock = totalStock(s);
   const forge = FORGED_IDS.map((id) => {

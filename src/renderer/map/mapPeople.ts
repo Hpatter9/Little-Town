@@ -5,7 +5,7 @@
 import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { ClassId } from '../../shared/data/classes';
 import type { PersonView } from '../../shared/sim/snapshot';
-import { fxTicks, poolSize, type PersonFx } from '../../shared/sim/state';
+import { fxTicks, type PersonFx } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { drawMarks, limpDip, marksKey } from './bodyMarks';
 import { HK_CELL, HK_FEET, HK_FIGURE, hkLayers, hkPose, hkWhoOf, type HkFacing } from '../art/hkFolk';
@@ -66,6 +66,11 @@ const CLASS_LOOK: Partial<Record<ClassId, [CreatureSheet, number]>> = {
 /** The work bar over a head: its width (px) and how far above the feet it floats. */
 const WORK_W = 18;
 const WORK_ABOVE = 58;
+/** A shapeshifter's bear: its block on the MV bear sheet, and its size against a person. */
+const BEAR_BLOCK = 5;
+const BEAR_K = 1.3;
+/** The health bar's width (px) in a raid. */
+const HP_W = 20;
 
 interface Drawn {
   view: PersonView;
@@ -92,6 +97,12 @@ interface Drawn {
   /** How far along the work in hand is, as a little bar over their head, and the fill last drawn. */
   work?: Graphics;
   workFill?: number;
+  /** The last Himeko frame drawn: held while a new look's layers load (a weapon drawn for a fight), so nobody turns
+   *  into someone else for a moment. */
+  hkLast?: Texture;
+  /** Their health over their head in a raid (the raiders have theirs), and the fill last drawn. */
+  hpBar?: Graphics;
+  hpFill?: string;
   /** A merfolk's tail, while they swim (art/merTail.ts). */
   tail?: Sprite;
   /** What they're saying (map/speech.ts), and the slot it was said in. */
@@ -202,7 +213,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -434,7 +445,11 @@ export class MapPeople {
       // the townsfolk in the Himeko Sutori pack's dress (art/hkFolk.ts: the owner's call, founders too), four ways
       // round; it takes over from the side-on sprite, the hero forms and the class looks (the hero sheets are kept for
       // bosses and special strangers). Until their layers have loaded, the old look stands in.
-      const hkTex = hidden ? null : this.hkTexture(d, now, inCombat, moving);
+      // (a fight's look adds the weapon: until its layer loads, the look without it, else the last frame drawn)
+      let hkTex = hidden ? null : this.hkTexture(d, now, inCombat, moving);
+      if (!hkTex && !hidden && inCombat) hkTex = this.hkTexture(d, now, false, moving);
+      if (hkTex) d.hkLast = hkTex;
+      else if (!hidden && d.hkLast) hkTex = d.hkLast;
       if (hkTex) {
         plain = false;
         s.texture = hkTex;
@@ -451,6 +466,13 @@ export class MapPeople {
         const wk = heroScale(wolf) * k * WOLF_SCALE;
         s.anchor.set(0.5, 1);
         s.scale.set(wk * creatureFlip(wolf, facing), wk);
+      }
+      // a shapeshifter (a druid from the third stage) fights as a bear (the MV bear: data/levels.ts `shapeshifts`)
+      if (v.beast && inCombat && !hidden && v.downed === null) {
+        plain = false;
+        s.texture = creatureFrame('bear', BEAR_BLOCK, facing, moving ? Math.floor(d.walked / 5) : Math.floor(now / 220 + v.id) % 3);
+        s.anchor.set(0.5, 1);
+        s.scale.set(BEAR_K * k, BEAR_K * k);
       }
       // in the sea a merrow shows to the waist, their tail curling below (art/merTail.ts)
       const swimming = v.swimming && !hidden && v.downed === null;
@@ -500,7 +522,8 @@ export class MapPeople {
           d.marks.zIndex = z + 0.05;
         }
       }
-      d.load.visible = !hidden && poolSize(d.view.carrying) > 0;
+      // (what they carry is in their pack, not a bundle over their head: the owner's call)
+      d.load.visible = false;
       d.load.position.set(Math.round(x) - d.view.dir * 7 - 4, Math.round(y) - 40);
       d.load.zIndex = z + 0.1;
       // the work in hand: a small bar over their head, filling as it goes (sites, orders, study, fields, loads)
@@ -520,6 +543,30 @@ export class MapPeople {
           }
           d.work.position.set(Math.round(x) - WORK_W / 2, Math.round(y) - WORK_ABOVE);
           d.work.zIndex = z + 0.15;
+        }
+      }
+      // in a raid everyone in it shows their health over their head, as the raiders do (green, gold when hurt, red when low)
+      const showHp = !hidden && !d.visitor && (this.raid || v.activity === 'fight' || v.sinceHit < HERO_LINGER);
+      if (showHp && !d.hpBar) d.hpBar = this.layer.addChild(new Graphics());
+      if (d.hpBar) {
+        d.hpBar.visible = showHp;
+        if (showHp) {
+          const share = Math.max(0, Math.min(1, v.hp / Math.max(1, v.maxHp)));
+          const fill = Math.round(share * HP_W);
+          const key = `${fill}:${v.downed ? 1 : 0}`;
+          if (key !== d.hpFill) {
+            d.hpFill = key;
+            const col = v.downed ? 0x8a8a8a : share > 0.6 ? 0x5ad04a : share > 0.3 ? 0xe0b030 : 0xe04838;
+            d.hpBar.clear();
+            d.hpBar.rect(-1, -1, HP_W + 2, 5).fill({ color: 0x14100c, alpha: 0.85 });
+            d.hpBar.rect(0, 0, HP_W, 3).fill({ color: 0x3a2622 });
+            if (fill > 0) d.hpBar.rect(0, 0, fill, 3).fill({ color: col });
+            if (fill > 0) d.hpBar.rect(0, 0, fill, 1).fill({ color: 0xffffff, alpha: 0.35 });
+          }
+          // (above the work bar when both show; higher over a hero's bigger figure)
+          const above = (d.work?.visible ? WORK_ABOVE + 6 : WORK_ABOVE) + (plain ? 0 : 8);
+          d.hpBar.position.set(Math.round(x) - HP_W / 2, Math.round(y) - above);
+          d.hpBar.zIndex = z + 0.16;
         }
       }
       d.bubble.visible = d.visitor;

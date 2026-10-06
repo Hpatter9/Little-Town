@@ -2,6 +2,9 @@
 // walk in from one end of the world. Beasts go for anyone they can see, then the food; rival scouts go for
 // the food and run. Walls and gates stop them until broken. Defenders fight; everyone else shelters.
 
+import { alliesFor, hostOver, rivalRaidOdds } from './factions';
+import { SIEGE_WALL } from '../data/factions';
+import { ally } from './classes';
 import { victoryFeast } from './ceremonies';
 import { woundFor, woundPerson } from './injuries';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -76,8 +79,8 @@ import { recallExpedition } from './expeditions';
 import { classesInRaid, summonForRaid } from './classes';
 import { bindTheDead, sicken } from './doom';
 import { bossArrives, bossBlow, bossesInRaid, bossSlain } from './bosses';
-import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
-import { levelOf } from '../data/levels';
+import { BLOOD_FURY, BLOOD_LIFESTEAL, castsFire, fightsFromRange } from '../data/classes';
+import { levelOf, shapeshifts } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, meet, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood } from './state';
@@ -170,7 +173,7 @@ export function maybeStartRaid(s: GameState, rng: Rng): void {
   const odds = biomeOf(s).raids ?? {};
   const own = rulesOf(s).raids ?? {};
   // (a rival never comes to a town founded its own way)
-  const weights = Object.fromEntries(kinds.map((k) => [k.id, k.origin === (s.origin ?? 'settlers') ? 0 : k.weight * (odds[k.id] ?? 1) * (own[k.id] ?? 1)]));
+  const weights = Object.fromEntries(kinds.map((k) => [k.id, k.origin === (s.origin ?? 'settlers') ? 0 : k.weight * (odds[k.id] ?? 1) * (own[k.id] ?? 1) * rivalRaidOdds(s, k.id)]));
   const any = Object.values(weights).some((w) => w > 0);
   const kind = RAID_KIND_BY_ID[rng.weighted(any ? weights : Object.fromEntries(kinds.map((k) => [k.id, k.origin === (s.origin ?? 'settlers') ? 0 : k.weight])))];
   const raid = startRaid(s, kind, raidBudget(s), rng);
@@ -203,15 +206,17 @@ const BEHEMOTH_CHANCE = 0.1;
 
 /** Gather a raid at the edge of the land, with a warning; or, given `inside` (a point), one that's already in the middle
  *  of the town, fighting (lurkers.ts). */
-export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng, inside?: Pt): Raid {
+export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng, inside?: Pt, host?: { most: number; siege: number; leader: string; host: string }): Raid {
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
   const raiders: Raider[] = [];
   const costs = Object.entries(kind.enemies);
   const cheapest = Math.min(...costs.map(([, c]) => c));
   // (a rival's lord always leads its army: it takes its share of the budget)
-  let left = kind.leader ? Math.max(0, budget - RIVAL_LEADER_COST) : budget;
+  const leader = host?.leader ?? kind.leader;
+  let left = leader ? Math.max(0, budget - RIVAL_LEADER_COST) : budget;
   const grown = s.people.filter((p) => p.away === null && p.type !== 'child').length;
-  const most = Math.min(RAID_SIZE_CAP, RAID_MAX_SIZE + Math.max(0, Math.floor((grown - RAID_SIZE_FREE) / RAID_SIZE_PER_PEOPLE)));
+  // (a war host comes as big as it was mustered: sim/factions.ts)
+  const most = host ? host.most - host.siege : Math.min(RAID_SIZE_CAP, RAID_MAX_SIZE + Math.max(0, Math.floor((grown - RAID_SIZE_FREE) / RAID_SIZE_PER_PEOPLE)));
   while (raiders.length < most && (left >= cheapest || raiders.length === 0)) {
     const affordable = costs.filter(([, c]) => c <= left);
     const [id, cost] = affordable.length ? rng.pick(affordable) : costs.find(([, c]) => c === cheapest)!;
@@ -235,10 +240,16 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
       goal: kind.goals ? rng.weighted(kind.goals as Record<RaidGoal, number>) : kind.goal,
     });
   }
-  if (kind.leader) {
-    const hp = lordHp(s, kind.leader);
+  // (a host's siege engines come behind the troops, to break the walls)
+  for (let i = 0; i < (host?.siege ?? 0); i++) {
     const last = raiders[raiders.length - 1];
-    raiders.push({ ...last, id: s.nextId++, kind: kind.leader, hp, maxHp: hp, goal: 'harm', x: last.x + (side < 0 ? -30 : 30), carrying: {} });
+    const d = ENEMIES.siege_engine;
+    raiders.push({ ...last, id: s.nextId++, kind: 'siege_engine', hp: d.hp, maxHp: d.hp, goal: 'harm', x: last.x + (side < 0 ? -24 : 24), carrying: {} });
+  }
+  if (leader) {
+    const hp = lordHp(s, leader);
+    const last = raiders[raiders.length - 1];
+    raiders.push({ ...last, id: s.nextId++, kind: leader, hp, maxHp: hp, goal: 'harm', x: last.x + (side < 0 ? -30 : 30), carrying: {} });
   }
   // a big town draws hardened raiders: tougher, and harder hitting
   const might = Math.min(RAID_MIGHT_MAX, 1 + Math.max(0, grown - RAID_MIGHT_FREE) * RAID_MIGHT_PER_PERSON) * seasonedMight(s);
@@ -250,7 +261,7 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   // a big enough raid of people may split: some come round to the other end of the town
   const day = paceDay(s.tick);
   let flank = 0;
-  if (inside === undefined && !kind.fromSea && kind.steals !== undefined && raiders.length >= FLANK_MIN && rng.chance(Math.min(FLANK_MAX, FLANK_CHANCE + day * FLANK_PER_DAY))) {
+  if (inside === undefined && !kind.fromSea && (kind.steals !== undefined || !!host) && raiders.length >= FLANK_MIN && rng.chance(Math.min(FLANK_MAX, FLANK_CHANCE + day * FLANK_PER_DAY))) {
     const other = -side as -1 | 1;
     const party = raiders.filter((rd) => !ENEMIES[rd.kind].kit).slice(-Math.floor(raiders.length / 3));
     party.forEach((rd, i) => {
@@ -269,6 +280,9 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   const patrol = s.people.some((p) => p.task?.type === 'patrol') ? PATROL_WARNING_MINUTES : 0;
   const warn = Math.round((((lookout ? BUILDING_BY_ID[lookout.def].warningMinutes! : WARNING_MINUTES) + patrol) / 60) * TICKS_PER_HOUR);
   const raid: Raid = { id: s.nextId++, kind: kind.id, side, phase: 'warning', arrivesTick: s.tick + warn, leavesTick: s.tick + warn + RAID_MAX_HOURS * TICKS_PER_HOUR, raiders, prompt: null };
+  if (host) raid.host = host.host;
+  // the town's allies send some of their own (to a host always, now and then to any raid: sim/factions.ts)
+  if (inside === undefined) alliesFor(s, raid, rng, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   if (inside !== undefined) {
     raiders.forEach((rd, i) => {
       rd.x = inside.x + (i - (raiders.length - 1) / 2) * 14;
@@ -649,7 +663,7 @@ function attackWall(s: GameState, rd: Raider, wall: Building, rng: Rng): void {
   const def = ENEMIES[rd.kind];
   rd.cooldown = Math.round(def.interval * TICK_HZ);
   rd.lastAction = s.tick;
-  wall.hp = Math.max(0, (wall.hp ?? 0) - rng.int(def.damage[0], def.damage[1]));
+  wall.hp = Math.max(0, (wall.hp ?? 0) - rng.int(def.damage[0], def.damage[1]) * (rd.kind === 'siege_engine' ? SIEGE_WALL : 1));
   if (wall.hp === 0) {
     s.buildings = s.buildings.filter((b) => b !== wall);
     notify(s, `The raiders broke through the ${defOf(wall).name.toLowerCase()}!`, true);
@@ -703,7 +717,7 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   // (held by a rival lord's hex, they lose the moment)
   if (heldBack(s, p, rng)) return;
   p.lastBlow = s.tick;
-  if (p.cls === 'mage') return mageFire(s, p, rd, rng, mult, near ?? (s.raid?.raiders ?? []).filter((o) => o !== rd && !o.ally && !o.down && !o.gone && dist(o, rd) <= MAGE_BURST_PX));
+  if (castsFire(p.cls)) return mageFire(s, p, rd, rng, mult, near ?? (s.raid?.raiders ?? []).filter((o) => o !== rd && !o.ally && !o.down && !o.gone && dist(o, rd) <= MAGE_BURST_PX));
   // a shooter at home takes a stone or arrow from storage for each shot, while there are any
   const kind = ammoOf(p);
   const store = kind ? storages(s).find((b) => (b.store[kind] ?? 0) > 0) : undefined;
@@ -752,7 +766,9 @@ function mageFire(s: GameState, p: Person, rd: Raider, rng: Rng, mult: number, n
 
 /** How far a defender can strike from: thrown stones for the better throwers (and a mage's fire), fists and clubs otherwise. */
 export function defenderReach(p: Person): number {
-  if (p.cls === 'mage') return THROW_RANGE;
+  // (every calling that fights from afar, the casters and healers with the archers, keeps off the trail and shoots)
+  if (shapeshifts(p)) return MELEE_RANGE; // (a bear holds the trail)
+  if (fightsFromRange(p.cls)) return THROW_RANGE;
   const sling = !!p.gear.weapon && !!ITEM_BY_ID[p.gear.weapon]?.effects.ranged;
   return sling || p.skills.ranged.level > p.skills.melee.level + 2 ? THROW_RANGE : MELEE_RANGE;
 }
@@ -810,6 +826,7 @@ function endRaid(s: GameState, rng: Rng): void {
   caveBearBeaten(s, r);
   packRaidBeaten(s, r, rng);
   sagaRaidOver(s, r);
+  hostOver(s, r);
   // thieves who got away may have led off a horse, too
   if (s.horses.length && r.raiders.some((rd) => rd.gone && poolSize(rd.carrying) > 0) && rng.chance(HORSE_THEFT)) {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];

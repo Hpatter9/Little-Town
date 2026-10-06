@@ -1,5 +1,6 @@
 // Enemies by era (DESIGN §15 and on). Numbers are starting points for tuning.
 
+import { SIEGE_ENEMIES } from './factions';
 import { DUNGEON_BOSSES } from './dungeonBosses';
 import { PACK_BOSSES } from './pack';
 import type { Stock } from './materials';
@@ -105,6 +106,8 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   ...DUNGEON_BOSSES,
   ...PACK_BOSSES,
   ...BOAT_ENEMIES,
+  // (the war hosts' siege engines: data/factions.ts)
+  ...SIEGE_ENEMIES,
   // the menagerie: DawnLike's creatures (data/menagerie.ts)
   ...MENAGERIE,
   wolf: { id: 'wolf', name: 'Wolf', hp: 28, damage: [3, 6], accuracy: 0.7, dodge: 0.12, interval: 1.1, ranged: false, loot: { hide: 1, meat: 1, bone: 1 }, sprite: { sheet: 'wolf', block: 1, scale: 1 } },

@@ -5,8 +5,8 @@
 
 import { injuryFight } from './injuries';
 import type { EliteAffix } from '../data/dungeons';
-import { BLOOD_FURY, BLOOD_LIFESTEAL, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
-import { classStat, levelPower } from '../data/levels';
+import { BLOOD_FURY, BLOOD_LIFESTEAL, castsMagic, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
+import { BEAST_ARMOR, BEAST_DAMAGE, BEAST_HP, classStat, levelPower, shapeshifts } from '../data/levels';
 import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type ActMeta, type Arena, type Kit, type Statuses } from './actions';
 import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxManaOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs } from '../data/attributes';
 import { attributesOf } from './attributes';
@@ -136,11 +136,11 @@ const DEFAULT_MELEE = 1.2;
 const DEFAULT_SHOT = 4;
 const DEFAULT_REACH = 2.2;
 /** How far the weapon in someone's hand reaches (cells on the battle map). Whoever fights from range with no ranged
- *  weapon in hand throws (or a mage casts) instead. */
+ *  weapon in hand throws (or a caster casts) instead. */
 export function weaponRange(p: Person, shooter = false): number {
   const def = p.gear.weapon ? ITEM_BY_ID[p.gear.weapon] : undefined;
   const fx = def?.effects;
-  if (shooter && !fx?.ranged) return p.cls === 'mage' ? MAGIC_RANGE : THROWN_RANGE;
+  if (shooter && !fx?.ranged) return castsMagic(p.cls) ? MAGIC_RANGE : THROWN_RANGE;
   if (!def) return UNARMED_RANGE;
   return fx!.range ?? (fx!.ranged ? DEFAULT_SHOT : fx!.reach ? DEFAULT_REACH : DEFAULT_MELEE);
 }
@@ -159,6 +159,12 @@ export interface Battle {
   acts?: { tick: number; side: Fighter['side']; ref: number; name: string; targets: number[]; meta?: ActMeta }[];
   /** Turn-based: ticks until the next fighter may act (a beat after each action, so turns come one at a time). */
   beat?: number;
+  /** An assault (sim/factions.ts): the waves still to come on in this fight, the one on now (1-based), and what the
+   *  fallen of the waves gone dropped (they're cleared from the field as the next comes on). */
+  waves?: EnemyGroup[];
+  wave?: number;
+  spoils?: Record<string, number>;
+  slain?: number;
 }
 
 /** Ticks between one fighter's turn and the next's (the beat of a turn-based fight), longer after an ultimate. */
@@ -174,15 +180,17 @@ const PERSON_INTERVAL = 1.2;
 export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo = 0): Fighter {
   const melee = p.skills.melee.level;
   const cls = p.cls ? CLASS_DEFS[p.cls] : undefined;
+  // (a shapeshifter fights as a beast: up close, with tooth and claw: data/levels.ts)
+  const beast = shapeshifts(p);
   // (a caster's aim is their study: their staff or their bare hands carry their spells)
-  const caster = cls?.role === 'caster' || cls?.role === 'healer';
+  const caster = !beast && (cls?.role === 'caster' || cls?.role === 'healer');
   const ranged = caster ? Math.max(p.skills.ranged.level, p.skills.research.level) : p.skills.ranged.level;
   const w = weaponOf(p);
   const weapon = w.def;
   const knife = p.gear.tool ? (ITEM_BY_ID[p.gear.tool]?.effects.damage ?? 0) : 0;
   const sling = !!weapon?.effects.ranged;
   // (a class that fights from range does, whatever they hold)
-  const useRanged = sling || row === 'back' || ranged > melee + 2 || !!cls?.ranged;
+  const useRanged = !beast && (sling || row === 'back' || ranged > melee + 2 || !!cls?.ranged);
   const skill = useRanged ? ranged : melee;
   // the weapon only helps in the way it's used
   const bonus = Math.round(useRanged ? (sling ? w.damage : 0) : sling || !weapon ? knife : w.damage);
@@ -199,12 +207,13 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
   const k = (caster ? classStat(p, 'power') : classStat(p, 'damage')) * levelPower(p) * attrK;
   // (and their wounds: a lost arm or a blind eye tells: sim/injuries.ts)
   const inj = injuryFight(p);
-  const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k * inj.damage), Math.round((base[1] + bonus + wolf) * k * inj.damage)];
+  const bk = beast ? BEAST_DAMAGE : 1;
+  const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k * inj.damage * bk), Math.round((base[1] + bonus + wolf) * k * inj.damage * bk)];
   const g = gearEffects(p);
   // (their skills: always-on passives, and the kit of spells and skills they use)
   const ps = passiveStats(p);
   const kit = role === 'porter' ? undefined : kitOf(p);
-  const most = Math.round(maxHp(p) * (1 + (ps.hp ?? 0) + over('vit') * VIT_HP));
+  const most = Math.round(maxHp(p) * (1 + (ps.hp ?? 0) + over('vit') * VIT_HP) * (beast ? BEAST_HP : 1));
   const wq = used ? w.quirks : NO_QUIRKS;
   const quirks: Quirks = {
     ...wq,
@@ -239,7 +248,7 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     lastAction: -99,
     lastHit: -99,
     attacks: 0,
-    armor: Math.min(0.7, g.armor + classStat(p, 'armor') + (ps.armor ?? 0)),
+    armor: Math.min(0.7, g.armor + classStat(p, 'armor') + (ps.armor ?? 0) + (beast ? BEAST_ARMOR : 0)),
     block: Math.min(0.6, g.block + (ps.block ?? 0)),
     beastDamage: g.beastDamage,
     quirks,
@@ -498,13 +507,33 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
 function endCheck(b: Battle, rules: BattleRules): void {
   const party = b.fighters.filter((f) => f.side === 'party');
   const enemies = b.fighters.filter((f) => f.side === 'enemy');
-  if (enemies.every((f) => f.down)) b.outcome = 'won';
+  if (enemies.every((f) => f.down) && b.waves?.length) nextWave(b);
+  else if (enemies.every((f) => f.down)) b.outcome = 'won';
   else if (party.every((f) => f.down || f.role === 'porter')) b.outcome = 'lost';
   else if (b.tick >= MIN_TICKS_BEFORE_RETREAT) {
     const hp = party.reduce((n, f) => n + f.hp, 0) / party.reduce((n, f) => n + f.maxHp, 0);
     const main = party.find((f) => f.ref === rules.mainId);
     if (hp < rules.retreatAt || (main && !main.down && main.hp < main.maxHp * 0.5) || (main && main.down)) b.outcome = 'retreated';
   }
+}
+
+/** An assault's next wave comes on: the fallen are cleared away (their loot kept) and fresh foes stand in their
+ *  place; the party fights on as it is, hurt and spent. */
+function nextWave(b: Battle): void {
+  const group = b.waves!.shift()!;
+  const spoils = (b.spoils ??= {});
+  for (const f of b.fighters) {
+    if (f.side !== 'enemy' || !f.down) continue;
+    for (const [m, n] of Object.entries(ENEMIES[f.kind].loot)) spoils[m] = (spoils[m] ?? 0) + (n ?? 0);
+    b.slain = (b.slain ?? 0) + 1;
+  }
+  b.fighters = b.fighters.filter((f) => f.side !== 'enemy' || !f.down);
+  const ref = Math.max(0, ...b.fighters.filter((f) => f.side === 'enemy').map((f) => f.ref + 1)) + (b.slain ?? 0) + 1000 * (b.wave ?? 1);
+  const fresh = enemyFighters(group).map((f, i) => ({ ...f, ref: ref + i, cooldown: f.interval + i }));
+  b.fighters.push(...fresh);
+  b.wave = (b.wave ?? 1) + 1;
+  if (Object.keys(group).some((id) => ENEMIES[id].boss || ENEMIES[id].kit)) b.boss = true;
+  (b.shouts ??= []).push(b.waves!.length ? `Wave ${b.wave} comes on!` : 'The last of them come on, their lord at their head!');
 }
 
 /** A Necromancer raises the enemies that fell, whatever felled them (a blow or a spell), to fight for their side. */
@@ -545,7 +574,7 @@ export const BOSS_RAGE = 1.5;
 
 /** Loot dropped by the enemies that fell. */
 export function battleLoot(b: Battle): Record<string, number> {
-  const out: Record<string, number> = {};
+  const out: Record<string, number> = { ...(b.spoils ?? {}) };
   for (const f of b.fighters) {
     if (f.side !== 'enemy' || !f.down) continue;
     for (const [m, n] of Object.entries(ENEMIES[f.kind].loot)) out[m] = (out[m] ?? 0) + (n ?? 0);

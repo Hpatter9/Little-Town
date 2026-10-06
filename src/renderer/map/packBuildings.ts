@@ -400,6 +400,18 @@ function pickFor(def: string, style: string): Pick | null {
   return suits(pick, style) ? pick : null;
 }
 
+/** Whole buildings seen from outside (houses, shop fronts, tents, towers, the windmill): never a room's furnishings. */
+const EXTERIORS = new Set([house1, house2, house3, house4, gbHouse, gbShop, tent2, rockyTipi1, rockyTipi2, rockyYurt1, rockyYurt2, suWindmill, suWatchtower, suLookout, suCastle, suMageTower, suRoundCastle, suTent]);
+const urlsOf = (p: Pick): string[] => [p.url, ...(p.any ?? []), ...(p.parts ?? []).map((x) => x[0])].filter((u): u is string => !!u);
+
+/** A building's pack picture as a castle's or a hold's room furnishings: only a picture of things (racks, benches, a
+ *  well, a fire pit), never the outside of a whole building (a trade's timber house stood inside a hall). */
+export function packArtIndoors(def: string, w: number, style: string, id = 0): PixelArt | null {
+  const pick = pickFor(def, style);
+  if (!pick || urlsOf(pick).some((u) => EXTERIORS.has(u))) return null;
+  return packArt(def, w, style, id);
+}
+
 export function packArt(def: string, w: number, style: string, id = 0, join?: Join): PixelArt | null {
   let pick = pickFor(def, style);
   if (!pick) return null;
