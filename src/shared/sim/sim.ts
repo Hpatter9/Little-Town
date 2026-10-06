@@ -1,6 +1,7 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
+import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
 import { specialsHourly } from './specials';
@@ -165,6 +166,7 @@ export class Sim {
     partiesHourly(s);
     boatsHourly(s, this.rng);
     ceremoniesHourly(s);
+    annalsHourly(s);
     injuriesHourly(s, this.rng);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills, p.id === s.mainId);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);

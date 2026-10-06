@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import type { Chronicle, Fallen } from './annals';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius } from './ceremonies';
 import { realmView, type RealmView } from './factions';
@@ -669,6 +670,9 @@ export interface Snapshot {
   sagas: { open: SagaView[]; done: SagaDoneView[] };
   /** The kinds of foe the town has met (the Bestiary). */
   met: string[];
+  /** The hall of heroes (sim/annals.ts): the fallen, newest first; the year's chronicles, newest first; and the famous
+   *  among the living. */
+  annals: AnnalsView;
   /** The Monster Hunters' Guild (sim/hunts.ts): whether it stands, its hunts, its forge, and hunts won. */
   hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
@@ -886,6 +890,7 @@ export function snapshot(s: GameState): Snapshot {
     })),
     sagas: sagasView(s),
     met: s.met ?? [],
+    annals: annalsView(s),
     hunts: huntsView(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
@@ -1712,4 +1717,39 @@ function bossBar(s: GameState): Snapshot['bossBar'] {
     if (f) return { name: f.name, hp: f.hp, maxHp: f.maxHp, enraged: !!f.enraged, where: atPlace(destinationOf(s, e.dest)?.name ?? 'expedition') };
   }
   return null;
+}
+/* ------------------------------------------------------------ the hall of heroes */
+
+export interface FamousView {
+  id: number;
+  name: string;
+  calling: string | null;
+  level: number;
+  felled: number;
+  trips: number;
+  titles: string[];
+  founder: boolean;
+}
+export interface AnnalsView {
+  fallen: Fallen[];
+  chronicles: Chronicle[];
+  famous: FamousView[];
+}
+/** Kept in the hall: the fallen and the chronicles shown, and the famous. */
+const HALL_FALLEN = 100;
+const HALL_CHRONICLES = 12;
+const HALL_FAMOUS = 12;
+let annalsCache: { key: string; fallen: Fallen[]; chronicles: Chronicle[] } | null = null;
+
+function annalsView(s: GameState): AnnalsView {
+  const key = `${s.seed}|${s.fallen?.length ?? 0}|${s.fallen?.at(-1)?.id ?? 0}|${s.chronicles?.length ?? 0}`;
+  if (annalsCache?.key !== key) annalsCache = { key, fallen: (s.fallen ?? []).slice(-HALL_FALLEN).reverse(), chronicles: (s.chronicles ?? []).slice(-HALL_CHRONICLES).reverse() };
+  // (the famous: deeds, titles and standing, the founder always among them)
+  const worth = (p: Person) => (p.felled ?? 0) * 3 + (p.titles?.length ?? 0) * 15 + (p.trips ?? 0) * 2 + levelOf(p) + (p.id === s.mainId ? 1000 : 0);
+  const famous = s.people
+    .filter((p) => p.type !== 'child' && worth(p) > 4)
+    .sort((a, b) => worth(b) - worth(a))
+    .slice(0, HALL_FAMOUS)
+    .map((p) => ({ id: p.id, name: p.name, calling: callingName(p, stageOf(p)), level: levelOf(p), felled: p.felled ?? 0, trips: p.trips ?? 0, titles: [...(p.titles ?? [])], founder: p.id === s.mainId }));
+  return { fallen: annalsCache.fallen, chronicles: annalsCache.chronicles, famous };
 }

@@ -50,7 +50,7 @@ function render(): void {
           : shown === 'expeditions'
             ? 'e' + expeditionsKey(snap)
             : shown === 'journal'
-              ? 'j' + snap.journalHead + '|' + snap.met.length
+              ? 'j' + snap.journalHead + '|' + snap.met.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}`).join(',')
               : shown === 'crafting'
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'
@@ -71,7 +71,7 @@ function render(): void {
     void bridge.getJournal().then((entries) => {
       if (renderedKey !== keyed) return; // moved on meanwhile
       const top = body.scrollTop;
-      body.replaceChildren(...renderJournal(entries, snap?.met ?? []));
+      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals));
       body.scrollTop = top;
     });
     return;

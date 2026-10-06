@@ -1,6 +1,7 @@
 // Health: injury, being downed, bleeding out, death, and healing in town (DESIGN §3).
 
 import { mournFor } from './ceremonies';
+import { recordFallen } from './annals';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { HEALER_PER_LEVEL } from '../data/operators';
 import { UNDEAD_HEAL } from '../data/monsters';
@@ -115,6 +116,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
     notify(s, `${p.name} fell, and the Phoenix Feather burst into flame: ${p.name} rises from the ashes!`, true);
     return;
   }
+  recordFallen(s, p, cause); // (the hall of heroes and the year's chronicle: sim/annals.ts)
   s.people = s.people.filter((q) => q !== p);
   // what they wore stays in town if they died there (it's lost with them on the road)
   if (p.away === null) for (const id of Object.values(p.gear)) s.items[id!] = (s.items[id!] ?? 0) + 1;

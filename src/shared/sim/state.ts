@@ -2,6 +2,7 @@
 // commands from the same state must always produce the same result.
 
 import type { RaidRecap, RaidTally } from './raidRecap';
+import type { Chronicle, Fallen, YearStart } from './annals';
 import type { SpecialId } from '../data/specials';
 import type { BoatKind } from '../data/boats';
 import type { ShopLine } from '../data/stores';
@@ -497,6 +498,8 @@ export interface Person {
   /** Their level (levels.ts: from all they do, fighting most), and the XP toward the next. Left out: level 1. */
   level?: number;
   lvXp?: number;
+  /** Raiders this person has struck the last blow on (sim/raidRecap.ts), for the hall of heroes. */
+  felled?: number;
   /** The class stage last announced (an evolution is told once). */
   stageSeen?: number;
   /** Has reached their class's last stage (classes.ts ascend): rare and late. */
@@ -961,6 +964,11 @@ export interface GameState {
   eventOutcome?: { title: string; choice: string | null; text: string; tick: number };
   /** The last raid's recap (sim/raidRecap.ts). */
   raidRecap?: RaidRecap;
+  /** The annals (sim/annals.ts): the fallen, the year's chronicles, and the year being reckoned. */
+  fallen?: Fallen[];
+  chronicles?: Chronicle[];
+  yearStart?: YearStart;
+  yearRaids?: { came: number; won: number; pillaged: number };
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];

@@ -5,12 +5,15 @@ import type { JournalEntryView } from '../../shared/sim/snapshot';
 import { platino } from '../art/icons';
 import { el } from './dom';
 import { renderBestiary } from './bestiaryPanel';
+import { renderHeroes } from './heroesPanel';
+import type { AnnalsView } from '../../shared/sim/snapshot';
 
-type Filter = 'all' | 'key' | 'deaths' | 'bestiary';
+type Filter = 'all' | 'key' | 'deaths' | 'heroes' | 'bestiary';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['key', 'Key events'],
   ['deaths', 'Deaths'],
+  ['heroes', 'Heroes'],
   ['bestiary', 'Bestiary'],
 ];
 /** (kept while the panel re-renders) */
@@ -18,8 +21,7 @@ let filter: Filter = 'all';
 
 const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 
-export function renderJournal(entries: JournalEntryView[], met: readonly string[] = []): HTMLElement[] {
-  if (!entries.length) return [el('p', 'empty', 'Nothing has happened yet. Events, discoveries and news from the road will be written here.')];
+export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView): HTMLElement[] {
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
   const draw = () => {
@@ -30,12 +32,18 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
         return b;
       }),
     );
+    if (filter === 'heroes') {
+      list.replaceChildren(...renderHeroes(annals ?? { fallen: [], chronicles: [], famous: [] }));
+      return;
+    }
     if (filter === 'bestiary') {
       list.replaceChildren(...renderBestiary(met, draw));
       return;
     }
     const shown = filter === 'all' ? entries : filter === 'key' ? entries.filter((e) => e.key || e.lines) : entries.filter(isDeath);
-    list.replaceChildren(...(shown.length ? entryRows(shown) : [el('p', 'empty', filter === 'deaths' ? 'Nobody has died. Yet.' : 'Nothing like that yet.')]));
+    // (the tabs show even before anything has happened: the Heroes and the Bestiary are there from the start)
+    const none = !entries.length ? 'Nothing has happened yet. Events, discoveries and news from the road will be written here.' : filter === 'deaths' ? 'Nobody has died. Yet.' : 'Nothing like that yet.';
+    list.replaceChildren(...(shown.length ? entryRows(shown) : [el('p', 'empty', none)]));
     if (filter === 'all' && entries.length >= 200) list.append(platino()); // for those who read all the way back
   };
   draw();

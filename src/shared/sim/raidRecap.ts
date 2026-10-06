@@ -80,6 +80,10 @@ export function credit(s: GameState, who: number, was: [Raider, number, boolean]
   const t = tallyOf(r, who);
   t.dealt += dealt;
   t.kills += kills;
+  if (kills && who !== TOWERS) {
+    const p = s.people.find((q) => q.id === who);
+    if (p) p.felled = (p.felled ?? 0) + kills;
+  }
 }
 
 /** A townsperson took harm in the raid. */

@@ -16,6 +16,7 @@ import { biomeOf, difficultyOf } from '../data/biomes';
 import { CAPTAIN_PER_LEVEL } from '../data/operators';
 import { operatorSkill } from './operators';
 import { takePrisoners } from './prisoners';
+import { tallyRaid } from './annals';
 import { before, credit, noteRoll, raidRecap, took as tookHarm, TOWERS } from './raidRecap';
 import { answerGuild, guildDefeated, guildOptions, runWithThePack } from './monsters';
 import { ITEM_BY_ID } from '../data/items';
@@ -901,6 +902,7 @@ function endRaid(s: GameState, rng: Rng): void {
     stolen,
     spoils,
   });
+  tallyRaid(s, s.raidRecap.outcome); // (the year's chronicle: sim/annals.ts)
   if (killed && !took.length) victoryFeast(s); // (driven off with nothing: the town feasts it, sim/ceremonies.ts)
 }
 
