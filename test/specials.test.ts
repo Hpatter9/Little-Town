@@ -4,7 +4,7 @@ import { SPECIALS, SPECIAL_IDS, CURSE_PRICE, BOUNTY, type SpecialId } from '../s
 import { Rng } from '../src/shared/rng';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
 import { makeSpecial, sabotaged, secretJoined, specialFor, specialsHourly, strangerTurn } from '../src/shared/sim/specials';
-import { secretStranger } from '../src/shared/sim/townsfolk';
+import { secretStranger, VISIT_GAP_HOURS } from '../src/shared/sim/townsfolk';
 import { turretsDown } from '../src/shared/sim/rivals';
 import { makePerson, campXY, type GameState, type Person } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -60,6 +60,9 @@ test('a secret stranger comes one event turn in a hundred, any day, each kind on
   // taken in, another comes while the first secret is still hidden: a different kind
   answerPrompt(s, ask.id, 0, new Rng(1));
   assert.ok(s.people.includes(v) && !v.secret!.found);
+  // (one asks to join a week at most, whoever they are)
+  assert.equal(secretStranger(s, new Rng(6)), false, 'not within the week');
+  s.tick += VISIT_GAP_HOURS * TICKS_PER_HOUR;
   assert.ok(secretStranger(s, new Rng(6)));
   assert.notEqual(s.visitor!.person.secret!.id, kind);
   // every kind once, then no more

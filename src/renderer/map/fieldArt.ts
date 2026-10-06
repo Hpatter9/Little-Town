@@ -1,7 +1,7 @@
 // Fields and pens seen from above: a tilled plot the size of the footprint, its furrows running across, the crop
 // standing in rows by its stage (sprouts, tall, ripe), a fence round a pen. Painted once per kind, stage and size.
 
-import { CROPS } from '../../shared/data/crops';
+import { CROPS, sectionsOf } from '../../shared/data/crops';
 import { HERDS } from '../../shared/data/livestock';
 import { CELL } from '../../shared/sim/land';
 import { CanvasSource, Texture } from 'pixi.js';
@@ -34,9 +34,9 @@ function lighten(hex: string, k: number): string {
 /** Whether a building is drawn as a plot from above. */
 export const isPlot = (defId: string) => !!CROPS[defId] || !!HERDS[defId];
 
-export function fieldArt(defId: string, w: number, h: number, stage: CropLook | undefined, tone: Tone, toneKey: string): PixelArt {
+export function fieldArt(defId: string, w: number, h: number, stage: CropLook | undefined, tone: Tone, toneKey: string, done = 0): PixelArt {
   const packed = fieldTilesReady();
-  const key = `${defId}|${w}|${h}|${stage ?? ''}|${toneKey}|${packed ? 'pack' : ''}`;
+  const key = `${defId}|${w}|${h}|${stage ?? ''}|${toneKey}|${packed ? 'pack' : ''}|${done}`;
   let art = cache.get(key);
   if (art) return art;
   const W = w * CELL;
@@ -45,7 +45,7 @@ export function fieldArt(defId: string, w: number, h: number, stage: CropLook | 
   const herd = HERDS[defId];
   // (a field is painted: no pack has tilled farmland, art/farmland.ts)
   if (crop) {
-    art = farmPlot(defId, w, h, stage);
+    art = farmPlot(defId, w, h, stage, done);
     cache.set(key, art);
     return art;
   }
@@ -61,8 +61,6 @@ export function fieldArt(defId: string, w: number, h: number, stage: CropLook | 
     (p) => {
       if (herd) {
         // a pen: trodden ground, a water trough, a fence round it with a gap for the gate
-        p.rect(0, 0, W, H, '#8c7a4e');
-        for (let i = 0; i < (W * H) / 40; i++) p.px((i * 37) % W, (i * 53) % H, '#7a6a42');
         p.rect(W - 12, 6, 8, 4, '#6a8aa8');
         for (let x = 0; x < W; x += 6) {
           p.rect(x, 0, 2, 5, x % 12 ? FENCE : FENCE_DARK);
@@ -95,7 +93,8 @@ function packedPlot(defId: string, w: number, h: number, stage: CropLook | undef
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
   const seed = defId.length * 31 + w * 7 + h;
-  drawSoil(g, w, h, seed, k);
+  // (a field on soil; a pen is only its fence, over the land as it lies)
+  if (kind === 'crop') drawSoil(g, w, h, seed, k);
   const rect = (x: number, y: number, rw: number, rh: number, col: string) => {
     g.fillStyle = col;
     g.fillRect(x * k, y * k, rw * k, rh * k);
@@ -148,8 +147,10 @@ function packedPlot(defId: string, w: number, h: number, stage: CropLook | undef
           }
         }
   } else {
-    // a pen: a water trough, and the fence round it
-    rect(W - 12, 6, 8, 4, '#6a8aa8');
+    // a pen: a water trough in the corner, and the fence round it
+    rect(W - 15, 9, 10, 5, '#5a3a24');
+    rect(W - 14, 10, 8, 3, '#6a8aa8');
+    rect(W - 13, 10, 3, 1, '#9cc0d8');
     drawFence(g, w, h, seed, k);
   }
   const tops = new Int16Array(W);
@@ -157,7 +158,7 @@ function packedPlot(defId: string, w: number, h: number, stage: CropLook | undef
 }
 
 /** A field: dark loam in ridges, the crop along them by kind and stage (art/farmland.ts). */
-function farmPlot(defId: string, w: number, h: number, stage: CropLook | undefined): PixelArt {
+function farmPlot(defId: string, w: number, h: number, stage: CropLook | undefined, done = 0): PixelArt {
   const k = FINE;
   const W = w * CELL;
   const H = h * CELL;
@@ -167,7 +168,7 @@ function farmPlot(defId: string, w: number, h: number, stage: CropLook | undefin
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
   const crop = CROPS[defId];
-  paintFarm(g, k, W, H, crop.material, !!crop.establishHours, stage, defId.length * 31 + w * 7 + h);
+  paintFarm(g, k, W, H, crop.material, !!crop.establishHours, stage, defId.length * 31 + w * 7 + h, false, done / sectionsOf(w));
   const tops = new Int16Array(W);
   return { texture: new Texture({ source: new CanvasSource({ resource: c, resolution: k }) }), width: W, height: H, tops };
 }

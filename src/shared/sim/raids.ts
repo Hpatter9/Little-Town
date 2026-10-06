@@ -16,6 +16,8 @@ import { biomeOf, difficultyOf } from '../data/biomes';
 import { CAPTAIN_PER_LEVEL } from '../data/operators';
 import { operatorSkill } from './operators';
 import { takePrisoners } from './prisoners';
+import { tallyRaid } from './annals';
+import { RUN_DOWN_PX, tryRunDown } from './raiderWounds';
 import { before, credit, noteRoll, raidRecap, took as tookHarm, TOWERS } from './raidRecap';
 import { answerGuild, guildDefeated, guildOptions, runWithThePack } from './monsters';
 import { ITEM_BY_ID } from '../data/items';
@@ -467,6 +469,8 @@ export function updateRaid(s: GameState, rng: Rng): void {
     if (!rd.fleeing && (coward || s.tick >= r.leavesTick || poolSize(rd.carrying) >= RAIDER_CARRY)) rd.fleeing = true;
     const edge = offMap(s, rd.side ?? r.side); // (each back the way it came)
     if (rd.fleeing) {
+      // (a lame runner may be run down by a defender close by: sim/raiderWounds.ts)
+      if (rd.lame && tryRunDown(s, rd, s.people.find((p) => p.away === null && !p.downed && p.task?.type === 'defend' && dist(p, rd) <= RUN_DOWN_PX))) continue;
       if (moveToward(s, rd, { x: edge.x, y: rd.y }, step * (rd.captive ? 0.8 : 1.2))) {
         rd.gone = true;
         if (rd.captive) carriedOff(s, rd, kind.name);
@@ -893,12 +897,15 @@ function endRaid(s: GameState, rng: Rng): void {
   s.raidRecap = raidRecap(s, r, kind.name, {
     outcome: took.length ? 'pillaged' : killed === foes.length ? 'victory' : 'driven',
     boss: boss ? ENEMIES[boss.kind].name : null,
+    bossDown: !!boss?.down,
+    fromSea: !!kind.fromSea,
     killed,
     came: foes.length,
     prisoners,
     stolen,
     spoils,
   });
+  tallyRaid(s, s.raidRecap.outcome); // (the year's chronicle: sim/annals.ts)
   if (killed && !took.length) victoryFeast(s); // (driven off with nothing: the town feasts it, sim/ceremonies.ts)
 }
 

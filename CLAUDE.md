@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.9.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.10.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -241,8 +241,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   a building or a townsperson to show; stored on the report (`JournalEntry.highlights`). The away card draws them as
   pictures (`textureCanvas` in `art/pixelArt.ts`; the picture callback in `main.ts`), buttons above the long list.
 - **Follow a hero:** a person's tap card has **Follow** (the `follow` command, `s.hero`; `snapshot.hero` while they
-  live). The camera eases to keep them in view (`Camera.follow`), waiting `FOLLOW_WAIT_MS` after the player drags or
-  scrolls. Their big moments (journal milestones with their name) are a forecast kind, `hero`, sent as phone alerts
+  live). The camera no longer follows them, nor a raid's lead raider (the owner's call: it kept jumping); it moves only
+  when the player moves it, or once to the gate as a battle begins. Their big moments (journal milestones with their name) are a forecast kind, `hero`, sent as phone alerts
   (the `hero` alert setting, on by default).
 - **Expedition stakes:** the town plans every party (`planParty` in `sim/expeditions.ts`: the fittest for the trip,
   the founder stays unless alone, half the town kept home, roles, horses, a truck); the player picks the destination
@@ -780,8 +780,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   planner's old end walls (`wallSpot`, "a wall at each end of town") are gone. **Continuous walls:** a one-cell wall
   piece's picture is chosen by how it joins its neighbours (`MapView.wallJoin`: along a row, down a column, a corner,
   alone; in the building's `sig`, so a piece is redrawn when a neighbour goes up): `Pick.joins` in packBuildings.ts
-  gives the palisade the Village pack's post pair (`palisade24`, `palisade14`) down a column, a single post at corners
-  and a short post alone. **Gates in the wall:** a gate on the west or east run stands **turned** (`Building.turned`:
+  gives each join its own picture. **Palisades that join (the owner's complaints):** laid from the Village pack's palisade tileset as the
+  pack itself lays an enclosure (`palisade01`..`46` are its `Tile2_NN`): a run along a row is two tiles tall, the pointed
+  tops over the cell above and the feet with their stones on the cell (`pal2`, one of three by id: `PAL_RUN`, chosen
+  through `Pick.of`); each corner is the pack's own corner piece (`nw` 01/09, `ne` 06/14, `sw` 33/41, `se` 38/46); down
+  a column the post of that side (`v` the west wall's 17/25 at the left of the cell, `ve` the east wall's 22/30 at the
+  right, so it meets the corners' posts: `wallJoin` tells the side by which way the run turns at its ends); a lone piece a
+  single post (`POST`); a piece with walls both ways along a row or a column is the straight piece, so a T holds the line.
+  **Gates in the wall:** a gate on the west or east run stands **turned** (`Building.turned`:
   `footprint` swaps its width and depth; `canPlace`/`placeBlueprint` take `turned`; `gateTurned`/`gateAt` in
   ringWall.ts cover the ring cell and the one below it), drawn from the gate pick's `joins.v`, the same parts with
   `Pick.rotate` 90 (rotated in `pickArt`); `upgrade` keeps the road under a gate. Tests: `test/ringWall.test.ts`.
@@ -1577,7 +1583,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   is a question (`askVisitor` in townsfolk.ts: a prompt of kind `visitor`, "Take them in" / "Send them on",
   `answerVisitor`), and the Townsfolk card has the same two buttons; the planner no longer lets them in itself
   (`planVisitor`), except where the gates are free (`freeJoin` in an origin's rules: the nomads' horde). Wanderers come no
-  oftener than `VISIT_GAP_HOURS` (48) apart (`s.lastVisit`; the owner wants arrivals few and far between, so people are known by name). Left unanswered till their wait is up, they're let in while the
+  oftener than `VISIT_GAP_HOURS` (a week: 168 hours) apart (`s.lastVisit`; the owner wants arrivals few and far between, so people are known by name). Left unanswered till their wait is up, they're let in while the
   stores hold a day's food a head (`foodPerHead`; the prompt's default, applied by `updateVisitor`), so a town whose
   player is away still grows; else they're sent on. Otherwise people come by events, prisoners won over,
   and birth.
@@ -1813,8 +1819,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **The weapon drawn is the weapon carried (the owner's ask):** `weaponPiece` in art/hkFolk.ts picks the Himeko piece
   by the weapon's name first (`NAMED`: a katana the katana, a claymore or zweihander their greatswords, a great axe a
   great axe, a maul or sledge a great hammer, a morning star, war hammer, quarterstaff, club, sickle, longbow, crossbow,
-  rifle, shotgun, laser rifle each its own; spears, javelins and polearms the naginata, the pack's only spear-like
-  piece), else by its family and tier (`WEAPON`). Where the pack has nothing like it (claws, knuckles, slings, whips,
+  rifle, shotgun, laser rifle each its own; spears, pikes, lances, javelins, harpoons and tridents a spear made from the
+  pack's naginata by `tools/make-spear.cjs` (run by hand: the curved blade, the biggest run of grey in each cell, swapped
+  for a straight leaf-shaped head along the shaft's line; `spear01{male,female}`), glaives and halberds the naginata),
+  else by its family and tier (`WEAPON`). Where the pack has nothing like it (claws, knuckles, slings, whips,
   bombs) they're drawn bare-handed rather than holding something else. The map, the fight screen and the paper doll all
   draw through it. The old LPC fallback draws a scythe as a sickle and claws bare. Test in `test/hkFolk.test.ts`.
 - **A recap after every raid (the owner's ask):** `src/shared/sim/raidRecap.ts`. While a raid is on its blows are
@@ -1823,9 +1831,122 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `TOWERS`), and who was in town at what level is noted as it turns active (`noteRoll`, `Raid.roll`); `endRaid` puts it
   together on `s.raidRecap` (`raidRecap`: victory, driven off or pillaged; the felled, fled and through; the waves; each
   defender's row with experience and levels, the fallen and the slain; the best of them; spoils, prisoners, what was
-  taken). `snapshot.raidRecap` carries it for `RECAP_HOURS` (6). The strip shows it once as a blue window over the town
+  taken). `snapshot.raidRecap` carries it for `RECAP_HOURS` (6). The strip shows it once as a card over the town in the
+  town's own look (the wood-and-brass card of the question and report cards, themed per people by theme.ts and skins.ts
+  like `#prompt`; titles in `--heading`, a theme variable; the parties' victory window `#fight-result` likewise, and
+  the whole fight screen's windows too: `.ff-window`, `#fight-banner` (an ultimate's stays fiery), `#fight-leave`, the
+  bars), with a few lines of the raid told (`story`, `tellRaid`: where they came from, who led, who fought hardest
+  and who bore the worst, the fallen and the dead, the towers' part, how it ended; also on the feed's card)
   (`battle/raidRecap.ts`, `#raid-recap`; the last seen kept in `littletown.recapSeen`), and the phone's feed has a card
   that brings it back (`__showRecap`). Test: `test/raidRecap.test.ts`.
+- **The dead don't bleed out (fixed):** the raised dead, the lich and machines struck down (`knockDown` in health.ts,
+  `tireless`) fall apart or shut down and pull themselves together in about `REFORM_HOURS` (3), needing no healer:
+  no bleeding, no blood marks, no medkit spent; a killing blow still ends them.
+- **A rout is a danger (the owner's ask):** a raider on the battle map that breaks and runs (`ROUT`) takes a parting
+  blow from every placed fighter with it in their weapon's reach (`partingBlows` in battle.ts, through
+  `defenderAttack`, so the recap credits it), as a fighter falling back already did. Probe (10 first raids): 8 of 24
+  raiders felled where it was 2, deaths unchanged. Test in `test/battle.test.ts`.
+- **Prisons with cells, sickbeds for the hurt (the owner's ask):** `src/shared/data/prisons.ts`. **Prisons:** the line
+  stockade (3 cells, from the start) → gaol (8, Masonry, half the escapes) → prison (20, Sanitation, a quarter),
+  `BuildingDef.cells`/`escape`, chained in UPGRADES. A raider is taken alive only while a cell is free (`cellsOf` in
+  sim/prisoners.ts: the prisons' cells and a blood farm's; `takePrisoners` stops at the room left, and says so); each
+  prisoner's escape odds are those of the cell they hold, the best filled first (`escapeAt`; one with no cell
+  `NO_CELL_ESCAPE`). The planner lays a stockade once the town is 3 strong and has been raided or holds prisoners
+  (`wantPrison`, not the Court, whose farm has cells), leaves the line out of its "learned to build it" loop, and
+  rebuilds it as the next when the cells are nearly full (`planPrison`). Pictures: the Village pack's stakes and the
+  dungeon pack's stonework (`stockade`, `gaol`, `prison` in packBuildings.ts). **Sickbeds:** `SICKBEDS` (healer's hut
+  2, infirmary 4, hospital 8, trauma center 12) and `src/shared/sim/sickbeds.ts`: the downed and anyone under
+  `SICK_AT` (half) of their health go to a free one (`sickbedFor`; a `sleep` task with `sick`) and lie till `MENDED`
+  (0.85), getting up only to eat (`doSleep`); only those in a sickbed have the building's healing (`sickbedHealing`,
+  in `heal` with `SICKBED_REST` on top, and as `TENDED` for wounds in injuries.ts). The planner builds the best healing
+  building it can when the hurt outnumber the beds. The tap cards say the cells held and who lies in the sickbeds
+  (`snapshot.cells`, `.nursing`). Probe (4 settlers towns, 10 days): a stockade by days 2 to 3, prisoners taken, the
+  sickbeds used, 0 to 1 deaths. Tests: `test/prisonsAndSickbeds.test.ts`.
+- **No expedition pane beside the map (the owner's call: it didn't look good and didn't help):** `SHOW_PANE` in main.ts
+  is off, so a party away is no longer drawn walking in a strip beside the zoomed-out map (`town/expeditionPane.ts`
+  stays, unused); parties are watched full screen and listed on the feed and the Expeditions tab.
+- **Raiders lamed and run down (the owner's ask):** `src/shared/sim/raiderWounds.ts`. Every blow that lands on a raider
+  (the town's, a tower's or a trap's: rolled in the recap's `credit`, `legWound`) may find a leg: `LEG_SHARE` times
+  twice the blow's share of its health; each wound takes `LAME_PER` (0.3) of its pace, up to `LAME_MOST` (0.65)
+  (`Raider.lame`, read by `speedOf` in defenses.ts, so it comes on and runs off slower; epic bosses shrug it off). A lame
+  raider running from the fight with a fighter close by (`RUN_DOWN_CELLS` on the battle map, `RUN_DOWN_PX` in town)
+  may be run down (`tryRunDown`, `RUN_DOWN_CHANCE` a tick by how lame): a person is taken alive (`Raider.taken`: sure to
+  be a prisoner in `takePrisoners`), a beast or monster killed, the catcher credited. The rolls are the sim's own (by
+  the raider and the tick), so a raid replays the same. Lame raiders limp on the map (`RaiderView.lame`, `limpDip`), and
+  the recap counts the lamed, those run down and taken, and those who limped away (`lamed`, `runDown`, `takenAlive`,
+  `limped`; a line of the story). Probe (10 first raids): 8 of 24 raiders lamed; of them 5 cut down as they limped off,
+  1 run down and taken, 2 (chiefs) got clear. Tests: `test/raiderWounds.test.ts`.
+- **Big fights ask to be watched (the owner's ask: "raiding the barrow crypt"):** `src/shared/sim/watchAsk.ts`. When a
+  party meets a big fight (`bigFight`: a boss, or any fight at the place it set out for: a dungeon, a place to clear, a
+  hunt, a stronghold stormed), `fightGroup` calls `askToWatch`: the fight holds (`Expedition.prompt`, as the trip's
+  questions always did) and a prompt of kind `watch` asks "Watch the fight" (`s.watching`: the fight screen) or "Let it
+  play out" (the default after `WATCH_ASK_HOURS`, 2). Once at the site and once for its boss a trip
+  (`Expedition.watchAsked`); never while watching already, in a town run by hand (autopilot off: the tests), or while the
+  sim runs unseen (`runtime.quiet`, set by the catch-up after time away and the alerts' look ahead). The phone's event
+  box shows it full screen and closes on either answer. Test: `test/watchAsk.test.ts`.
+- **Buildings pulled down to make room (the owner's ask):** an upgrade with no room where it stands (`canUpgrade` in
+  sim/buildings.ts) may pull down what's in its way: at most `CLEAR_MOST` (2) finished buildings worth together no more
+  than `CLEAR_WORTH` (0.6) of the upgrade's cost, never the seat, a gate or wall (`hp`), a castle's room, a venue, a
+  prison, the campfire, anything alight, a field with a crop growing or a pen with animals, nor one of its own kind
+  (those are merged, `absorb`), and only while everyone keeps a bed (`roomForSleepers`); a road over the ground is
+  lifted and laid again round it. `upgrade` demolishes them (half their makings back, `demolish`) and says so in the
+  Journal; the town builds them again elsewhere as it wants them. Pens are only a rail fence now (`drawFence` in
+  art/fieldTiles.ts: the Fields pack's side rail `fence7` down the sides, rails stretched cell to cell), over the land
+  as it lies. Test in `test/buildings.test.ts`.
+- **Who owns what, on the map (the owner's ask):** a finished building's tap card (main.ts) says whose it is ("Owned by
+  Elka", else "The town's own (the treasury's)"; not for walls and fields), and a home who lives there, the renters
+  marked, and its beds (`PersonView.bedId`).
+- **The wild grows back (the owner's ask):** `src/shared/sim/regrow.ts`. A wood, marsh or scrubby hill gathered bare
+  (`clearCell` → `noteCleared`) is remembered on `LandMap.regrow` (what it was, the tick it returns: `REGROW_DAYS`
+  forest 5, marsh 2, hill 3, spread ±40% by the cell) and `regrowHourly` grows it back with a fresh pool, unless it's
+  built on, a road, beside a building (the yards are kept) or still walked (a footpath showing): then it tries again a
+  day later. Rock and the mountain never grow back. Footpaths grass over twice as fast (`WEAR_DECAY` 2 an hour), so only
+  the ways in use stay worn. Test: `test/regrow.test.ts`.
+- **One asks to join a week (the owner's ask):** `VISIT_GAP_HOURS` is 7 days, and `joinTooSoon` (townsfolk.ts) holds
+  back every way in that asks: wanderers at the gate, travellers asking to settle (`offerToSettle`) and secret strangers
+  (`secretStranger`), all setting `s.lastVisit` (not where the gates are free, `freeJoin`).
+- **Fields worked a section at a time (the owner's ask):** a field's sowing and harvest run left to right in sections,
+  one a cell of its width (`sectionsOf`, `sectionsDone` in data/crops.ts, by `crop.work`); the farmer stands in the
+  section under way (`fieldSpot` in farming.ts, from the `farm` task) and moves along, and each reaped section's share of
+  the crop comes in as it's done (`workField`). The plot is redrawn by sections (`paintFarm`'s `cut`: stubble where it's
+  reaped, the orchard's trees picked bare, seed in neat furrows where it's sown; the count is in the building's `sig`
+  and the art key), and the tap card says "Being reaped: 2 of 4 sections in" or "Being sown". Test in
+  `test/fields.test.ts`.
+- **The menus redone (the owner's ask: organised by area, tappable):** six tabs (`PANELS` in ipc.ts; the ids kept so
+  saves and the desktop app work): **Town** (`build`: Overview, Buildings, Stores, Treasury), **People** (`townsfolk`:
+  People, Jobs), **Studies** (`research`: Studying, Tech tree), **Market** (`trade`: Shops, Caravan, Workshops, Animals),
+  **Trips** (`expeditions`) and **Chronicle** (`journal`, "Annals" on the upright tab bar). The old Crafting tab is gone:
+  its inventory is the Town's Stores (`renderStores` in craftingPanel.ts) and its orders and recipes the Market's
+  Workshops (`renderWorkshops`); opening `crafting` lands on Workshops. The sub-tabs come from the sections' headings
+  (`GROUPS` in subtabs.ts); `selectTab` opens one from elsewhere. `panel/townOverview.ts`: the Overview's tiles (`glance`:
+  people, food, spirits, treasury, stores, building, studying, workshops, trips, shops, the age, a raid when one comes),
+  each a tap through to its menu and tab (`goTo`); the Buildings tab lists what stands (`inTown`, grouped: the seat,
+  homes, shops and inns, fields, pens, workshops, defences, stores, the rest), each card naming its owner and opening on
+  its keeper, residents, crop or herd, holdings and sickbeds, with **Show on the map** (`showOnMap`: the strip's
+  `__showOnMap`, the menu closed; also on a person's page); the old catalogue is the Building book under it. The Market's
+  Shops are a card each (keeper, owner, renown, yesterday's takings, Step inside), its Animals the pens' herds and the
+  horses. Per-people tab names in `PALETTES.labels` (theme.ts: the Town is the Necropolis, Grove, Domain, Den, Colony,
+  Hold, Harbour, Camp, Glade, Works or Keep). The research queue's bars have a line of their own (`.queue-row > .bar`), and
+  a menu's own filters (the stores' kinds) are small chips, not more tabs. The notes above that name the Plan, Crafting
+  or Trade tabs mean these.
+- **The annals: the year's chronicle and the hall of heroes (the owner's ask):** `src/shared/sim/annals.ts`. Everyone who
+  dies is remembered (`recordFallen` from `killPerson`: `s.fallen`, name, day, cause, calling and level, titles, raiders
+  felled, trips; up to `FALLEN_MOST`); each townsperson counts the raiders they struck the last blow on
+  (`Person.felled`, from the recap's `credit`); raids are tallied for the year as they end (`tallyRaid`,
+  `s.yearRaids`). At midwinter (`annalsHourly`: winter's `CHRONICLE_DAY` 2 at `CHRONICLE_HOUR` 19) `writeChronicle`
+  tells the year since the last one (`s.yearStart`): the town's size then and now, births, newcomers, the lost and how,
+  the raids, the year's champion, what was learned and built, a new age, tales ended, treasures won; kept in
+  `s.chronicles` and put to the player as a `debrief`-kind prompt (the event box, with a winter picture). The
+  Chronicle menu's **Heroes** tab (`panel/heroesPanel.ts`, `snapshot.annals`: the famous living, the chronicles, the
+  fallen) sits beside the Bestiary; the menu's tabs now show even before anything has happened. Tests:
+  `test/annals.test.ts`.
+- **Rival towns on the world map (the owner's ask):** each power of the realm has a town of its own (`Faction.folk`,
+  started at `FOLK_START`, older saves given one by their strength in `realm`), growing each day (`growTowns` in
+  factionsDaily: `FOLK_GROWTH`, quicker in trade or alliance and slower at war or as a vassal, `FOLK_GROWTH_BY`; up to
+  `FOLK_MOST`), shrinking when its host is broken (`FOLK_HOST_LOST`) or its stronghold stormed (`FOLK_STORMED`), and
+  gone when razed. Its size (`townTier`, `TOWN_TIERS`: camp, village, town, city, capital) is on the world map (the
+  stronghold's mark grows with its tier: a tent, a hut, a tower, a crown; the label "Stronghold · city") and the Realm
+  card ("a city of about 120"). Test in `test/factions.test.ts`.
 - **Ground under the fights' feet (the owner's complaint: they walked on nothing):** the backdrops with nothing at foot
   height (the cities, futures, industrial, steampunk and ruins skylines, the moons, the mountain lake, the open sea with
   no bed) get a strip of side-on tiles along the foot (`GROUND_OF` in `art/fightGround.ts`: earth, brick or metal,
@@ -1876,6 +1997,27 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   1.25, `BEAST_ARMOR` +0.1; drawn in their `beastForm` (the bear; see the Shapeshifter calling) on the map while in combat and the fight
   screen (`PersonView.beast`, `FighterView.beast`). Test: `test/shapeshift.test.ts`. What a townsperson carries is no
   longer drawn as a bundle over their head (`d.load` hidden); it's in their pack.
+
+- **Taming isn't sure (the owner's ask):** `src/shared/data/taming.ts`. A beast tamer in a raid tries the nearest beast
+  in reach every `TAME_EVERY` (never a boss) and may fail: `tameChance` weighs the tamer's power (`tamerPower`: level,
+  calling stage, Animals skill) against the beast's might (`mightOf`: its tier from its health, `tierOf`, and its kind:
+  gentle beasts easy, wild ones hard, dragon-kind hardest, `KINDS`), from `TAME_BASE` by `TAME_PER_POINT` a point, more
+  likely the more hurt it is (`TAME_HURT`), less with each failed try (`TAME_WARY`, `Raider.tameTries`), between
+  `TAME_LEAST` and `TAME_MOST`; a tamer holds at most `tamedMost(stage)` at once (`Raider.tamedBy`). The roll is by the
+  seed, the beast, the tick and the tamer. Tests: `test/taming.test.ts`.
+
+- **Smoother on the phone (the owner's complaint: laggy now and then at about 20 townsfolk):** measured in a 22-person
+  town. The sim: `wildCells` (planner.ts) is kept for the tick and the land's version (`wildHolds` for `sourceable`), so
+  a planning pass no longer scans the whole land hundreds of times (the hitch every 15 s); `findPath` keeps its costs in
+  typed arrays, not maps (land.ts); anything that adds or drops a pool bumps `land.version`. Lone towns turn out exactly
+  as before, five times faster. The snapshot: the shop's deals every `DEALS_EVERY` (60) ticks, the planned parties and
+  the next party forming through `slow` (`SLOW_EVERY` 50 ticks) in snapshot.ts (10 ms to 4.4 ms, ten times a second).
+  The phone alerts' look ahead (mobileBridge.ts) runs `LOOK_SLICE_MS` (6 ms) of a copy of the town every `LOOK_PAUSE_MS`
+  (60 ms), again every `LOOK_AGAIN_MS` (5 min): it was 60 ticks every 40 ms, most of the phone's time for a minute out of
+  every two. The map: `syncLand` is skipped while the land, season, art and wear are as they were, and a chunk whose
+  footpaths changed is painted again at most every `WEAR_REPAINT_MS` (1.5 s), one at a time; the old LPC frame is
+  composed only until a person's Himeko look has drawn (mapPeople); the ground is its own Pixi render group. Walkers
+  staggering their replanning was tried and dropped (it changed how lone towns grew).
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

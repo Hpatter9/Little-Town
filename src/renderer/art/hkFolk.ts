@@ -106,7 +106,7 @@ const GRADE = [1, 2, 3, 4, 6];
 const WEAPON: Record<string, string[]> = {
   dg: ['dagger01', 'dagger02', 'dagger03', 'dagger04', 'dagger05'],
   // (the pack has no claws, knuckles, slings or whips: those are drawn bare-handed rather than as something else;
-  // throwing knives and stars are knives, a javelin or spear the naginata, the pack's only spear-like piece)
+  // throwing knives and stars are knives; the spear is made from the naginata by tools/make-spear.cjs)
   cl: [],
   sl: [],
   th: ['dagger01', 'dagger02'],
@@ -114,7 +114,7 @@ const WEAPON: Record<string, string[]> = {
   ax: ['axe01', 'axe02', 'axe03', 'axe04', 'axe05', 'axe06'],
   mc: ['hammer01', 'hammer02', 'hammer04', 'hammer05', 'hammer06'],
   fl: ['hammer04'],
-  sp: ['greataxe04'],
+  sp: ['spear01'],
   pl: ['greataxe04'],
   gs: ['greatsword01', 'greatsword02', 'greatsword03', 'greatsword05', 'greatsword06'],
   sc: ['scythe01', 'scythe02', 'scythe03', 'scythe04'],
@@ -163,7 +163,8 @@ const NAMED: [RegExp, string[]][] = [
   [/laser pistol|plasma pistol|blaster/i, ['pistol06']],
   [/flintlock|duelling pistol/i, ['pistol02']],
   [/revolver/i, ['pistol04']],
-  [/javelin|spear|harpoon|trident|\blance\b|\bpike\b|glaive|halberd|partisan|billhook/i, ['greataxe04']],
+  [/javelin|spear|harpoon|trident|\blance\b|\bpike\b/i, ['spear01']],
+  [/glaive|halberd|partisan|billhook/i, ['greataxe04']],
 ];
 
 /** The pack's piece for a weapon (its key prefix), or null to show none: by its name first, else by its family and

@@ -197,8 +197,8 @@ const fills = new Map([
   ['expeditions', fillBar('tab-fill trip')],
 ]);
 /** Upright, the tabs are one slim row along the bottom: a mark over a short name. */
-const TAB_ICONS: Record<string, string> = { build: '⚑', research: '✦', expeditions: '⛺', townsfolk: '☺', crafting: '⚒', trade: '⚖', journal: '✎' };
-const SHORT_LABELS: Record<string, string> = { expeditions: 'Trips', townsfolk: 'Folk', crafting: 'Craft' };
+const TAB_ICONS: Record<string, string> = { build: '⌂', research: '✦', expeditions: '⛺', townsfolk: '☺', trade: '⚖', journal: '✎' };
+const SHORT_LABELS: Record<string, string> = { journal: 'Annals' };
 const tabButtons = PANELS.map((p) => {
   const b = document.createElement('button');
   const fill = fills.get(p.id);
@@ -236,7 +236,7 @@ bridge.onSnapshot((snap) => {
     t.label.textContent = panelLabel(t.id, t.name, snap.theme);
     // (a look's own names where they fit the slim tabs; else the plain short name)
     const short = SHORT_LABELS[t.id] ?? t.name;
-    t.label.dataset.short = t.label.textContent.length <= 9 ? t.label.textContent : short;
+    t.label.dataset.short = t.label.textContent.length <= 8 ? t.label.textContent : short; // (six tabs upright: a long name is cut)
   }
   $('top-title').textContent = snap.origin.town;
   document.title = snap.origin.town;

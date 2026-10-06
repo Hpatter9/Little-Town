@@ -3,10 +3,10 @@
 import { PANELS, type Bridge, type PanelId, type StripState } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { buildKey, renderBuild } from './buildPanel';
-import { craftingKey, renderCrafting } from './craftingPanel';
+import { craftingKey, renderStores, renderWorkshops } from './craftingPanel';
 import { hostBridge, localBridge } from '../localBridge';
 import { el } from './dom';
-import { inTabs, tabKey } from './subtabs';
+import { inTabs, selectTab, tabKey } from './subtabs';
 import { expeditionsKey, renderExpeditions } from './expeditionsPanel';
 import { renderJournal } from './journalPanel';
 import { renderResearch, researchKey } from './researchPanel';
@@ -42,7 +42,7 @@ function render(): void {
   const key = !snap
     ? shown
     : shown === 'build'
-      ? 'b' + buildKey(snap)
+      ? 'b' + buildKey(snap) + craftingKey(snap)
       : shown === 'research'
         ? 'r' + researchKey(snap)
         : shown === 'townsfolk'
@@ -50,11 +50,11 @@ function render(): void {
           : shown === 'expeditions'
             ? 'e' + expeditionsKey(snap)
             : shown === 'journal'
-              ? 'j' + snap.journalHead + '|' + snap.met.length
+              ? 'j' + snap.journalHead + '|' + snap.met.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}`).join(',')
               : shown === 'crafting'
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'
-                  ? 't2' + tradeKey(snap)
+                  ? 't2' + tradeKey(snap) + craftingKey(snap)
                   : isVenuePanel(shown)
                     ? shown + shopKey(snap, shown)
                   : shown === 'newgame'
@@ -71,19 +71,20 @@ function render(): void {
     void bridge.getJournal().then((entries) => {
       if (renderedKey !== keyed) return; // moved on meanwhile
       const top = body.scrollTop;
-      body.replaceChildren(...renderJournal(entries, snap?.met ?? []));
+      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals));
       body.scrollTop = top;
     });
     return;
   }
   // (each menu's sections in sub-tabs: subtabs.ts)
   const tabbed = (els: HTMLElement[]) => inTabs(shown!, els, render);
-  if (snap && shown === 'build') body.replaceChildren(...tabbed(renderBuild(snap, bridge, render)));
+  // (the Town: its overview, buildings and treasury, and the stores; the Market: its shops, caravan and animals, and the
+  // workshops: the menus' redo)
+  if (snap && shown === 'build') body.replaceChildren(...tabbed([...renderBuild(snap, bridge, render), ...renderStores(snap, render)]));
   else if (snap && shown === 'research') body.replaceChildren(...tabbed(renderResearch(snap, bridge, render)));
   else if (snap && shown === 'townsfolk') body.replaceChildren(...tabbed(renderTownsfolk(snap, bridge, render)));
   else if (snap && shown === 'expeditions') body.replaceChildren(...tabbed(renderExpeditions(snap, bridge, render)));
-  else if (snap && shown === 'crafting') body.replaceChildren(...tabbed(renderCrafting(snap, bridge, render)));
-  else if (snap && shown === 'trade') body.replaceChildren(...tabbed(renderTrade(snap, bridge)));
+  else if (snap && shown === 'trade') body.replaceChildren(...tabbed([...renderTrade(snap, bridge), ...renderWorkshops(snap, render)]));
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
   else if (snap && isVenuePanel(shown)) {
     hkKnow(snap.people); // (who's who, so the keeper is dressed as the map dresses them: art/hkFolk.ts)
@@ -98,6 +99,12 @@ function render(): void {
 setDetailsRedraw(() => render());
 
 function onState(s: StripState): void {
+  // (the old Crafting menu is the Market's Workshops now)
+  if (s.panel === 'crafting') {
+    selectTab('trade', 'Workshops');
+    bridge?.openPanel('trade');
+    return;
+  }
   if (s.panel !== shown) {
     shown = s.panel;
     // (New Town opened afresh starts at its first question; its redraws while open keep the step)

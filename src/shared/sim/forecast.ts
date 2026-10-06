@@ -2,6 +2,7 @@
 // game is closed, so running a copy of it forward tells exactly when raids will hit and what else will
 // happen. Used to schedule phone alerts on close.
 
+import { runtime } from './watchAsk';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { Sim } from './sim';
 import type { GameState } from './state';
@@ -45,7 +46,12 @@ export function startForecast(state: GameState, ticks: number, max = 12): Foreca
     events: out,
     run(n) {
       for (let i = 0; i < n && !done(); i++, left--) {
-        sim.step();
+        runtime.quiet = true; // (the look ahead never stops to ask about watching a fight: sim/watchAsk.ts)
+        try {
+          sim.step();
+        } finally {
+          runtime.quiet = false;
+        }
         if (s.raid && !seenRaids.has(s.raid.id)) {
           seenRaids.add(s.raid.id);
           const kind = RAID_KIND_BY_ID[s.raid.kind];

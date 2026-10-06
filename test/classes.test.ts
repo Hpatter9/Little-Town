@@ -98,12 +98,18 @@ test('in a raid at home, a beast tamer turns a wolf against the pack', () => {
   const s = plainGame('tamer');
   const p = s.people[0];
   p.cls = 'beast_tamer';
+  // (a seasoned tamer: taming is a roll now, data/taming.ts, and a few tries may be wanted)
+  p.level = 40;
+  p.skills.animals.level = 30;
   const rng = new Rng(2);
   const r = startRaid(s, RAID_KIND_BY_ID.wolves, 40, rng);
   r.phase = 'active';
-  for (const w of r.raiders) w.x = p.x + 40;
+  for (const w of r.raiders) {
+    w.x = p.x + 40;
+    w.y = p.y;
+  }
   s.tick = 0;
-  for (let i = 0; i < 25 * TICK_HZ && s.raid; i++) {
+  for (let i = 0; i < 90 * TICK_HZ && s.raid && !r.raiders.some((w) => w.ally); i++) {
     s.tick++;
     updateRaid(s, rng);
   }

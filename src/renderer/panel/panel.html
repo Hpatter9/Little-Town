@@ -154,6 +154,11 @@
         color: var(--text-dim);
         font-size: 12px;
       }
+      /* (a queue row's bar takes a line of its own under the name, so it never shrinks to nothing) */
+      .queue-row > .bar {
+        flex: 1 1 100%;
+        order: 5;
+      }
       .bar {
         flex: 1;
         height: 6px;
@@ -712,6 +717,35 @@
         opacity: 0.7;
         line-height: 1.2;
       }
+      /* the hall of heroes (panel/heroesPanel.ts) */
+      .hall-card .hint {
+        margin-top: 2px;
+      }
+      .hall-card.fallen {
+        opacity: 0.92;
+      }
+      .hall-cause {
+        font-style: italic;
+        margin-top: 2px;
+      }
+      .hall-titles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+      }
+      .hall-title {
+        font-size: 11px;
+        padding: 1px 6px;
+      }
+      .hall-chronicle summary {
+        cursor: pointer;
+        font-family: var(--font-display);
+      }
+      .hall-line {
+        margin: 4px 0 0;
+        line-height: 1.4;
+      }
       .journal-row {
         display: flex;
         gap: 10px;
@@ -1120,6 +1154,32 @@
       }
       .map-hold.destroyed {
         opacity: 0.5;
+      }
+      /* (a power's town grows on the map: a camp small, a capital big) */
+      .map-hold.tier-0 {
+        width: 20px;
+        height: 20px;
+        font-size: 11px;
+        line-height: 15px;
+      }
+      .map-hold.tier-1 {
+        width: 23px;
+        height: 23px;
+        font-size: 13px;
+        line-height: 18px;
+      }
+      .map-hold.tier-3 {
+        width: 30px;
+        height: 30px;
+        font-size: 18px;
+        line-height: 24px;
+      }
+      .map-hold.tier-4 {
+        width: 34px;
+        height: 34px;
+        font-size: 20px;
+        line-height: 28px;
+        border-width: 3px;
       }
       .map-label.hold {
         font-size: 10px;
@@ -2008,6 +2068,18 @@
         flex-wrap: wrap;
         gap: 4px;
       }
+      /* the Town's overview: a tile a figure, each a tap through to where it goes on (townOverview.ts) */
+      .glance { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin: 4px 0 6px; }
+      .glance-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 9px; text-align: left; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.05); color: inherit; font: inherit; cursor: pointer; min-height: 58px; }
+      .glance-tile:active { background: rgba(255, 255, 255, 0.12); }
+      .glance-tile.warn { border-color: #c0503a; background: rgba(192, 80, 58, 0.18); }
+      .glance-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.7; }
+      .glance-value { font-family: var(--font-display); font-size: 17px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; max-width: 100%; white-space: nowrap; }
+      .glance-sub { font-size: 11px; opacity: 0.75; line-height: 1.25; }
+      /* a menu's own filters inside a tab (the stores' kinds): small chips, not more tabs */
+      .inv-tabs:not(.menu-tabs):not(.inspect-tabs):not(.journal-tabs) { gap: 4px; }
+      .inv-tabs:not(.menu-tabs):not(.inspect-tabs):not(.journal-tabs) .inv-tab { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+      .subhead { margin: 10px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.75; }
     </style>
   </head>
   <body>

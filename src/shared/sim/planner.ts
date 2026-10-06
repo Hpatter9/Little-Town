@@ -3,6 +3,10 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { PRISON_BUILDINGS, SICKBEDS } from '../data/prisons';
+import { needsSickbed, sickbedsOf } from './sickbeds';
+import { cellsOf } from './prisoners';
+import { bloodTown } from './vampires';
 import { BOAT_TOPICS } from '../data/boats';
 import { COMPONENTS, FORGED_IDS } from '../data/hunts';
 import { prostheticsWanted } from './injuries';
@@ -178,7 +182,7 @@ const planned = (s: GameState, id: string) => s.buildings.some((b) => chainOf(id
 function sourceable(s: GameState, m: Material, depth = 0, buy = true): boolean {
   if (depth > 3) return false;
   if (buy && buyable(s, m)) return true;
-  if (GATHERABLE.has(m) && wildCells(s).some(({ pool }) => (pool[m] ?? 0) > 0)) return true;
+  if (GATHERABLE.has(m) && wildHolds(s, m)) return true;
   for (const [id, c] of Object.entries(CROPS)) if (c.material === m && unlocked(s, id)) return true;
   for (const [id, w] of Object.entries(WORKPLACES)) if ((w.outputs as Stock)[m] && unlocked(s, id)) return true;
   for (const [id, h] of Object.entries(HERDS)) if ((h.yields[m] || (h.forMeat && h.cull[m])) && unlocked(s, id)) return true;
@@ -530,7 +534,29 @@ function openLand(s: GameState, further = false): boolean {
 }
 
 /** The wild cells of the open land, with what they hold, nearest the camp first. */
+/** The wild cells in the open land, nearest the camp first; kept for the tick (a planning pass asks hundreds of times,
+ *  through `sourceable`, and each scan of the whole land's pools was most of a phone's hitch every fifteen seconds).
+ *  Callers mustn't change the list. */
+let wildCache: { s: GameState; tick: number; version: number; open: number; out: { i: number; pool: Stock; d: number }[] } | null = null;
 function wildCells(s: GameState): { i: number; pool: Stock; d: number }[] {
+  const w = wildCache;
+  if (w && w.s === s && w.tick === s.tick && w.version === s.land.version && w.open === s.land.open) return w.out;
+  const out = scanWild(s);
+  wildCache = { s, tick: s.tick, version: s.land.version, open: s.land.open, out };
+  return out;
+}
+/** Which gatherable materials the open land holds, for the tick (`sourceable`). */
+let wildHas: { list: unknown; has: Set<Material> } | null = null;
+function wildHolds(s: GameState, m: Material): boolean {
+  const list = wildCells(s);
+  if (wildHas?.list !== list) {
+    const has = new Set<Material>();
+    for (const { pool } of list) for (const [k, n] of Object.entries(pool)) if ((n ?? 0) > 0) has.add(k as Material);
+    wildHas = { list, has };
+  }
+  return wildHas.has.has(m);
+}
+function scanWild(s: GameState): { i: number; pool: Stock; d: number }[] {
   const m = s.land;
   const c = campCell(s);
   const out: { i: number; pool: Stock; d: number }[] = [];
@@ -655,6 +681,17 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   }
   // (in quieter times too, a piece or two as the town grows)
   planDefenses(0);
+  // a place to hold raiders taken alive, once the town has been raided or holds prisoners (data/prisons.ts); it grows
+  // by being rebuilt (`planPrison`). (The Court keeps its prisoners in the blood farm's cells.)
+  if (wantPrison(s, n) && !s.buildings.some((b) => BUILDING_BY_ID[b.def]?.cells)) {
+    const jail = PRISON_BUILDINGS.find((d) => can(d));
+    if (jail) add(jail.id, 'a place to hold the raiders taken alive');
+  }
+  // more sickbeds when the hurt outnumber them (sim/sickbeds.ts): the best healing building it can build, one at a time
+  if (s.people.filter(needsSickbed).length > sickbedsOf(s) && !s.buildings.some((b) => SICKBEDS[b.def] && b.status !== 'done')) {
+    const ward = BUILDINGS.filter((d) => SICKBEDS[d.id] && can(d)).sort((a, b) => (b.healing ?? 1) - (a.healing ?? 1))[0];
+    if (ward) out.push({ def: ward.id, why: 'more sickbeds for the hurt' });
+  }
   // a shop to sell to travellers (sooner when the town is set on trade)
   if (!shopPlanned && can(firstShop) && n.direction === 'trade') add(firstShop.id, 'to sell to travellers for coins');
   // a better place to research, and more of them as the town grows (one person studies at each: about one station for
@@ -672,7 +709,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   // one of every workshop, mine, farm building and comfort it has learned to build
   const order = n.direction === 'trade' ? (d: BuildingDef) => (d.stalls || d.id === 'tavern' || ITEMS.some((i) => i.station === d.id) ? 0 : 1) : () => 0;
   for (const d of [...BUILDINGS].sort((a, b) => order(a) - order(b))) {
-    if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || CAPSTONES.includes(d.id)) continue;
+    if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || d.cells || CAPSTONES.includes(d.id)) continue;
     if (CROPS[d.id] && FOOD_VALUE[CROPS[d.id].material]) continue; // (food fields come of wanting food, above)
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
@@ -690,6 +727,23 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
 /** A field's food as garden plots' worth (a garden plot is 1). */
 const PLOT_FOOD = CROPS.garden_plot.yield * FOOD_VALUE.grain!;
 const plotsWorth = (id: string) => (CROPS[id].yield * (FOOD_VALUE[CROPS[id].material] ?? 0)) / PLOT_FOOD;
+
+/** Wanted: a prison, once the town has been raided or holds prisoners and has a few grown-ups (not the Court, whose
+ *  prisoners are kept in the blood farm). */
+const wantPrison = (s: GameState, n: Needs) => !bloodTown(s) && n.people >= 3 && (n.raided || !!s.raidRecap || s.prisoners.length > 0);
+
+/** The prison is rebuilt as the next of its line (stockade, gaol, prison) once its cells are nearly full and the town
+ *  has learned how and has the makings. */
+function planPrison(s: GameState, n: Needs, plan: TownPlan): boolean {
+  const jail = s.buildings.find((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.cells);
+  const to = jail ? UPGRADES[jail.def] : undefined;
+  const def = to ? BUILDING_BY_ID[to] : undefined;
+  if (!jail || !def || s.prisoners.length < cellsOf(s) - 1) return false;
+  if (!isUnlocked(unlockInfo(s), def) || !affordable(s, def, n.stock)) return false;
+  if (!upgrade(s, jail.id).ok) return false;
+  plan.build = { def: def.id, why: 'more cells for the prisoners' };
+  return true;
+}
 
 /** The seat of the town (data/seats.ts) is rebuilt grander as soon as a new era opens its next stage and the town can
  *  find the materials: it is never built new, only rebuilt where it stands. */
@@ -803,6 +857,7 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
   if (planSeat(s, n, plan)) return clear;
+  if (planPrison(s, n, plan)) return clear;
   if (consolidateHomes(s, n, plan)) return clear;
   if (consolidateFields(s, n, plan)) return clear;
   // the ring wall round the town (sim/ringWall.ts): started once the town is a few people strong (sooner when raided or
@@ -898,6 +953,7 @@ function openFaces(s: GameState): void {
         const i = idx(m, nx, ny);
         if (m.pools[i]) continue;
         m.pools[i] = delvePool(delveDepth(m, ny), Rng.from(seed, 0x4d1 + i));
+        m.version++;
       }
     }
 }

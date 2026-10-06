@@ -1,6 +1,8 @@
 // Health: injury, being downed, bleeding out, death, and healing in town (DESIGN §3).
 
 import { mournFor } from './ceremonies';
+import { recordFallen } from './annals';
+import { sickbedHealing } from './sickbeds';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { HEALER_PER_LEVEL } from '../data/operators';
 import { UNDEAD_HEAL } from '../data/monsters';
@@ -24,6 +26,8 @@ const REGEN_GROUND = 8;
 const REGEN_BED = 12;
 /** A downed (stabilized) person gets up again at this share of their health. */
 const BACK_ON_FEET = 0.3;
+/** About how long (game hours) the struck-down dead or a machine takes to pull itself together. */
+export const REFORM_HOURS = 3;
 /** The near-death vision that reveals the Occult needs this many topics researched first. */
 const VISION_AFTER_TOPICS = 10;
 /** Starving (food need this low): health lost per game hour instead of healing. */
@@ -34,11 +38,20 @@ export const INJURED = 0.5;
 
 /** Struck down by a blow just landed (not sickness, hunger or a fall): blood where they lie. */
 function bloodOf(s: GameState, p: Person): void {
+  if (tireless(p)) return; // (the dead and machines don't bleed)
   if (p.lastHit !== undefined && s.tick - p.lastHit <= 2 && p.away === null) markBlood(s, p.x, p.y, p.hitFrom ?? 1);
 }
 
 export function knockDown(s: GameState, p: Person): void {
   bloodOf(s, p);
+  // the dead and machines don't bleed: the raised fall apart and pull themselves together, a machine shuts down and
+  // mends itself (`REFORM_HOURS`); a killing blow still ends them
+  if (tireless(p)) {
+    p.hp = 0;
+    p.downed = { bleedUntil: null };
+    notify(s, p.machine ? `${p.name} shuts down, sparking. It will mend itself.` : `${p.name} falls apart in a clatter of bones. They will pull themselves together.`);
+    return;
+  }
   // an emergency medkit is used on the spot (in town)
   if (p.away === null && (s.items.medkit ?? 0) > 0) {
     s.items.medkit -= 1;
@@ -104,6 +117,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
     notify(s, `${p.name} fell, and the Phoenix Feather burst into flame: ${p.name} rises from the ashes!`, true);
     return;
   }
+  recordFallen(s, p, cause); // (the hall of heroes and the year's chronicle: sim/annals.ts)
   s.people = s.people.filter((q) => q !== p);
   // what they wore stays in town if they died there (it's lost with them on the road)
   if (p.away === null) for (const id of Object.values(p.gear)) s.items[id!] = (s.items[id!] ?? 0) + 1;
@@ -174,14 +188,18 @@ export function heal(s: GameState, p: Person): void {
   if (p.hp >= max) return;
   const asleep = p.task?.type === 'sleep' && p.activity === 'sleep';
   const rate = asleep ? (p.task?.type === 'sleep' && p.task.building !== null ? REGEN_BED : REGEN_GROUND) : REGEN_AWAKE;
-  let infirmary = bestHealing(s);
-  if (infirmary > 1) infirmary += operatorSkill(s, 'infirmary') * HEALER_PER_LEVEL; // a healer on hand
+  // (a healing building's care is for those in its sickbeds: sim/sickbeds.ts; a healer on hand adds to it)
+  const nursed = sickbedHealing(s, p);
+  let infirmary = nursed ?? 1;
+  if (nursed !== null) infirmary += operatorSkill(s, 'infirmary') * HEALER_PER_LEVEL;
   const care = researchMods(s.research);
-  p.hp = Math.min(max, p.hp + (rate * infirmary * care.careHeal * (tireless(p) ? UNDEAD_HEAL : 1)) / TICKS_PER_HOUR);
+  // (the struck-down dead or a machine reforms at its own pace, needing no healer)
+  const reform = tireless(p) && p.downed ? (max * BACK_ON_FEET) / REFORM_HOURS : 0;
+  p.hp = Math.min(max, p.hp + Math.max(reform, rate * infirmary * care.careHeal * (tireless(p) ? UNDEAD_HEAL : 1)) / TICKS_PER_HOUR);
   if (p.downed && p.downed.bleedUntil === null && p.hp >= max * BACK_ON_FEET * care.careFeet) {
     p.downed = null;
     p.scarred = true;
-    notify(s, `${p.name} is back on their feet.`);
+    notify(s, tireless(p) ? (p.machine ? `${p.name} whirs back to life.` : `${p.name}'s bones knit together, and they rise again.`) : `${p.name} is back on their feet.`);
     // coming back from the brink, the main character saw something...
     // (only once the town has some learning to make sense of it)
     if (p.id === s.mainId && s.research.done.length >= VISION_AFTER_TOPICS) revealOccult(s, `Near death, ${p.name} had a strange vision.`);

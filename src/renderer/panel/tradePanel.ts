@@ -1,17 +1,20 @@
-// Trade panel: the way into the shop and the tavern (once built), the caravan's deals (while one is at the market) and
-// the town's horses.
+// The Market menu (panel id 'trade'): the town's shops and inns (a card each, to step inside), the caravan's deals (while
+// one is at the market), the workshops' orders and recipes (craftingPanel.ts renderWorkshops), and the animals: the
+// pens' herds and the horses.
 
 import { storePanel } from '../../shared/ipc';
 const STORE_MARKS: Record<string, string> = { furniture: '🪑', weapons: '⚔️', armour: '🛡️', medicine: '⚗️' };
 import { MATERIAL_NAMES, type Material, type Stock } from '../../shared/data/materials';
 import { HORSE_HP, WORTH } from '../../shared/data/trade';
 import { expandable, facts, type More } from './details';
-import type { Bridge } from '../../shared/ipc';
+import type { Bridge, PanelId } from '../../shared/ipc';
+import { BUILDING_BY_ID } from '../../shared/data/buildings';
+import { HERDS, PEN_ROOM_PER_COL } from '../../shared/data/livestock';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, el } from './dom';
 
 export const tradeKey = (s: Snapshot) =>
-  JSON.stringify([s.caravan && [s.caravan.faction, Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, s.shop?.name, s.tavern?.name]);
+  JSON.stringify([s.caravan && [s.caravan.faction, Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, [s.shop, s.tavern, ...s.stores].map((v) => v && [v.name, v.keeperName, v.ownerName, v.takings, Math.round(v.renown)]), s.buildings.filter((b) => HERDS[b.def]).map((b) => [b.status, b.herd?.head, b.wide])]);
 
 const list = (st: Stock) =>
   (Object.entries(st) as [Material, number][])
@@ -24,15 +27,23 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
   head.append(el('span', '', s.caravan ? `${s.caravan.faction ? `A caravan of ${s.caravan.faction}` : 'Caravan'} at the market: leaves in ${Math.ceil(s.caravan.hoursLeft)}h` : 'No caravan in town'), el('span', '', `Stored ${s.storageUsed}/${s.storageCapacity}`));
   out.push(head);
 
-  // (once built: a way in to see them, besides tapping them in the town)
-  const venues = (['shop', 'tavern'] as const).filter((v) => s[v]);
-  if (venues.length || s.stores.length) {
-    const row = el('div', 'venue-row');
-    for (const v of venues) row.append(button(`${v === 'shop' ? '🛒' : '🍺'} ${s[v]!.name}`, () => bridge?.openPanel(v)));
-    for (const st of s.stores) row.append(button(`${STORE_MARKS[st.line!]} ${st.name}`, () => bridge?.openPanel(storePanel(st.line!))));
-    out.push(row);
+  // the town's shops and inns: each a card to step inside (the window: shopPanel.ts), with its keeper, owner and takings
+  const venues = [...(['shop', 'tavern'] as const).filter((v) => s[v]).map((v) => ({ v: s[v]!, open: v as PanelId })), ...s.stores.map((st) => ({ v: st, open: storePanel(st.line!) as PanelId }))];
+  out.push(el('h2', '', 'Shops'));
+  if (!venues.length) out.push(el('div', 'hint', 'No shop yet. The town opens a trading post once it learns Barter, then an inn, and more shops as it grows.'));
+  const shops = el('div', 'cards');
+  for (const { v, open } of venues) {
+    const c = el('div', 'card');
+    const top = el('div', 'card-top');
+    const mark = open === 'shop' ? '🛒' : open === 'tavern' ? '🍺' : STORE_MARKS[v.line!];
+    top.append(el('span', 'card-name', `${mark} ${v.name}`), el('span', 'card-size', v.takings ? `took ${v.takings} yesterday` : ''));
+    c.append(top, el('div', 'purpose', `${v.keeperName ? `Kept by ${v.keeperName}` : 'No keeper yet'} · ${v.ownerName ? `owned by ${v.ownerName}` : "the town's own"} · renown ${Math.round(v.renown)}`));
+    c.append(button('Step inside', () => bridge?.openPanel(open), { cls: 'place small' }));
+    shops.append(c);
   }
+  if (venues.length) out.push(shops);
 
+  out.push(el('h2', '', 'Caravan'));
   if (s.caravan) {
     out.push(el('h2', '', 'Deals'));
     const grid = el('div', 'cards wide');
@@ -52,6 +63,23 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
     out.push(el('div', 'hint', 'Build a Market Stall (Trade research, Medieval era) and caravans will visit every couple of days.'));
   } else if (s.nextCaravanHours !== null) {
     out.push(el('div', 'hint', `The next caravan is due in about ${Math.ceil(s.nextCaravanHours)} game hours.`));
+  }
+
+  // the pens' herds: how many head of each, against the room (sim/livestock.ts)
+  const pens = s.buildings.filter((b) => b.status === 'done' && HERDS[b.def]);
+  out.push(el('h2', '', `Herds (${pens.length} ${pens.length === 1 ? 'pen' : 'pens'})`));
+  if (!pens.length) out.push(el('div', 'hint', 'No pens yet. The town builds them once it learns Domestication, and buys its first animals from a drover.'));
+  for (const b of pens) {
+    const h = HERDS[b.def];
+    const head = b.herd?.head ?? 0;
+    const room = h.room + (b.wide ?? 0) * PEN_ROOM_PER_COL;
+    const row = el('div', 'bar-row');
+    const bar = el('div', 'bar');
+    const fill = el('div', 'bar-fill');
+    fill.style.width = `${Math.round(Math.min(1, head / Math.max(1, room)) * 100)}%`;
+    bar.append(fill);
+    row.append(el('span', 'bar-label', BUILDING_BY_ID[b.def].name), bar, el('span', 'bar-text', head ? `${head} ${head === 1 ? h.animal : h.plural} of ${room}` : 'waiting for a drover'));
+    out.push(row);
   }
 
   out.push(el('h2', '', `Horses (${s.horses.length}/${s.stalls} stalls)`));

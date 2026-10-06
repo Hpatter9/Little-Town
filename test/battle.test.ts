@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { RAID_KIND_BY_ID } from '../src/shared/data/raids';
+import { ENEMIES } from '../src/shared/data/enemies';
 import { Rng } from '../src/shared/rng';
 import { HOLD_REACH, SETUP_MOST, autoPlace, battleSpeedNow, battleView, cumulative, fighters, foeAt, lanesFor, laneSide, layOut, placeFighter, pointAt, ranged, startBattle } from '../src/shared/sim/battle';
 import { castAt } from '../src/shared/sim/powers';
@@ -279,6 +280,39 @@ test('a fighter who falls back off the line takes a parting blow from each raide
   // (the second strikes too, unless the first blow already laid the fighter out)
   assert.ok(p.downed || held[1].lastAction === tick, 'and the second, if there was anyone left to strike');
   for (const rd of held) assert.equal(rd.bt!.held, undefined, 'and none is held any longer');
+});
+
+test('a raider that breaks and runs takes a parting blow from each fighter with it in reach', () => {
+  const s = town('rout-blow', 4);
+  s.autoBattle = false;
+  const r = startRaid(s, RAID_KIND_BY_ID.bandits, 30, new Rng(6));
+  r.phase = 'active';
+  startBattle(s, r);
+  const b = r.battle!;
+  autoPlace(s, b, r);
+  b.phase = 'fighting';
+  b.until = s.tick;
+  const u = b.units.find((x) => x.person !== undefined && b.map.spots.find((q) => q.id === x.spot)!.kind === 'block')!;
+  const p = s.people.find((q) => q.id === u.person)!;
+  const spot = b.map.spots.find((q) => q.id === u.spot)!;
+  p.x = spot.x * 32;
+  p.y = spot.y * 32;
+  for (const x of b.units) x.cooldown = 999; // (no ordinary blows this tick: only the parting one)
+  // a bandit held at the spot, all but beaten: it turns to run
+  const rd = r.raiders.find((q) => !q.ally && !ENEMIES[q.kind].kit)!;
+  rd.bt!.held = u.spot;
+  rd.cooldown = 50;
+  const path = b.map.paths[rd.bt!.lane] ?? b.map.paths[0];
+  const cum = cumulative(path);
+  // (stood right at the spot along its lane)
+  let best = 0;
+  for (let d = 0; d <= cum[cum.length - 1]; d += 0.25) if (Math.hypot(pointAt(path, cum, d)[0] - spot.x, pointAt(path, cum, d)[1] - spot.y) < Math.hypot(pointAt(path, cum, best)[0] - spot.x, pointAt(path, cum, best)[1] - spot.y)) best = d;
+  rd.bt!.d = best;
+  rd.hp = Math.max(1, Math.floor(rd.maxHp * 0.1));
+  const tick = s.tick;
+  for (let i = 0; i < 20 && !rd.down && p.lastBlow !== tick; i++) updateRaid(s, new Rng(7 + i));
+  assert.ok(rd.bt!.back || rd.down, 'it broke');
+  assert.ok(p.lastBlow !== undefined && p.lastBlow >= tick, 'the fighter holding it struck at its back');
 });
 
 test('a battle fights itself unless the player has turned auto off', () => {

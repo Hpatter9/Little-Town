@@ -328,7 +328,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   if (housingCapacity(s) <= s.people.length) return;
   // (the owner's rule: people join by the player's leave, a prisoner won over, or birth; so wanderers come seldom,
   // and each is a question. A town whose gates are free (the horde) takes them in itself, as often as they come.)
-  if (!rulesOf(s).freeJoin && s.tick - (s.lastVisit ?? -Infinity) < VISIT_GAP_HOURS * TICKS_PER_HOUR) return;
+  if (joinTooSoon(s)) return;
   const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
   const chance =
     ARRIVAL_BASE +
@@ -390,7 +390,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
 /** A secret stranger at the gate (sim/specials.ts), come in an event's turn: a wanderer under a cover story, asking in
  *  like any other. False if there's nobody to send (one already waiting, the town full, or every kind met). */
 export function secretStranger(s: GameState, rng: Rng): boolean {
-  if (s.visitor || townFull(s) || rulesOf(s).noWanderers) return false;
+  if (s.visitor || townFull(s) || rulesOf(s).noWanderers || joinTooSoon(s)) return false;
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
   const person = makePerson(rng, s.nextId++, 'wanderer', edgeXY(s, side), [...s.people.map((p) => p.name)]);
   const special = specialFor(s, person);
@@ -402,6 +402,7 @@ export function secretStranger(s: GameState, rng: Rng): boolean {
   person.dir = side < 0 ? 1 : -1;
   const wait = campEdge(s, side);
   s.visitor = { person, waitX: wait.x, waitY: wait.y, leavesTick: s.tick + VISITOR_WAIT_HOURS * TICKS_PER_HOUR, leavingTo: null };
+  s.lastVisit = s.tick;
   const who = coverOf(person);
   notify(s, `${who[0].toUpperCase()}${who.slice(1)} is coming to camp. See Townsfolk.`, true);
   if (!rulesOf(s).freeJoin) askVisitor(s, who, '');
@@ -434,7 +435,11 @@ export function askVisitor(s: GameState, who: string, trained: string): void {
 }
 export const VISITOR_OPTIONS = ['Take them in', 'Send them on'];
 /** Game hours between one wanderer at the gate and the next (a town whose gates are free has no such wait). */
-export const VISIT_GAP_HOURS = 48;
+/** One asks to join a week at most (the owner's ask), whichever way they came: a wanderer, a traveller asking to
+ *  settle, a secret stranger. */
+export const VISIT_GAP_HOURS = 7 * 24;
+/** Too soon since the last one asked to join (`s.lastVisit`): the town's gates are free for some peoples. */
+export const joinTooSoon = (s: GameState): boolean => !rulesOf(s).freeJoin && s.tick - (s.lastVisit ?? -Infinity) < VISIT_GAP_HOURS * TICKS_PER_HOUR;
 
 /** Days of food in store a head (a newcomer's question defaults to no when it's under one). */
 function foodPerHead(s: GameState): number {

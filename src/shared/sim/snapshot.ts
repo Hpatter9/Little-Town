@@ -1,5 +1,8 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { cellsOf } from './prisoners';
+import { patientsIn, sickbedsIn } from './sickbeds';
+import type { Chronicle, Fallen } from './annals';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius } from './ceremonies';
 import { realmView, type RealmView } from './factions';
@@ -164,6 +167,8 @@ export interface PersonView {
   autoPriorities: boolean;
   /** Name of the building they sleep in, or null (sleeps on the ground). */
   bed: string | null;
+  /** The building they sleep in (its tap card lists who lives there). */
+  bedId: number | null;
   /** Asleep inside a building (the renderer hides them). */
   indoors: boolean;
   /** In a raid: the player can rally them ('ready'), they're rallied ('on'), or the rally is cooling down ('wait'). */
@@ -337,6 +342,8 @@ export interface RaiderView {
   carrying: number;
   /** Name of the townsperson they're carrying off. */
   captive: string | null;
+  /** Lamed by a leg wound (sim/raiderWounds.ts): its pace lost, 0 when sound; it limps. */
+  lame: number;
   sinceAction: number;
   sinceHit: number;
 }
@@ -669,6 +676,9 @@ export interface Snapshot {
   sagas: { open: SagaView[]; done: SagaDoneView[] };
   /** The kinds of foe the town has met (the Bestiary). */
   met: string[];
+  /** The hall of heroes (sim/annals.ts): the fallen, newest first; the year's chronicles, newest first; and the famous
+   *  among the living. */
+  annals: AnnalsView;
   /** The Monster Hunters' Guild (sim/hunts.ts): whether it stands, its hunts, its forge, and hunts won. */
   hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
@@ -750,6 +760,9 @@ export interface Snapshot {
   marketBuilt: boolean;
   nextCaravanHours: number | null;
   prisoners: { id: number; name: string; was: string; conviction: number; hungry: boolean }[];
+  /** The town's cells for prisoners (data/prisons.ts), and who lies in each healing building's sickbeds. */
+  cells: number;
+  nursing: { building: number; beds: number; people: number[] }[];
   /** A disaster coming (signs) or under way, with game hours left. */
   /** A disaster coming or striking (`cold`: a Deep Freeze with nothing left to burn). */
   doom: { name: string; phase: 'signs' | 'active'; hoursLeft: number; sick: number; kind: DoomKind; cold: boolean } | null;
@@ -886,6 +899,7 @@ export function snapshot(s: GameState): Snapshot {
     })),
     sagas: sagasView(s),
     met: s.met ?? [],
+    annals: annalsView(s),
     hunts: huntsView(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
@@ -927,6 +941,7 @@ export function snapshot(s: GameState): Snapshot {
             gone: r.gone,
             carrying: poolSize(r.carrying),
             captive: r.captive?.name ?? null,
+            lame: r.lame ?? 0,
             sinceAction: s.tick - r.lastAction,
             sinceHit: s.tick - r.lastHit,
             ally: !!r.ally,
@@ -1009,15 +1024,32 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     prisoners: s.prisoners.map((p) => ({ id: p.id, name: p.name, was: ENEMIES[p.enemy]?.name ?? p.enemy, conviction: p.conviction, hungry: p.hungry })),
+    cells: cellsOf(s),
+    nursing: s.buildings.filter((b) => sickbedsIn(b) > 0).map((b) => ({ building: b.id, beds: sickbedsIn(b), people: patientsIn(s, b).map((p) => p.id) })),
     journalHead: s.journal.at(-1)?.id ?? 0,
     away: awayView(s),
     eraReady: s.eraReady,
   };
 }
 
-/** What the town sells and buys changes slowly: worked out afresh every few ticks, not on every snapshot. */
+/** What the town sells and buys changes slowly: worked out afresh every few seconds, not on every snapshot (it runs the
+ *  planner's needs over the whole land: half a phone's snapshot time when it was every second). */
 let dealsCache: { state: GameState; tick: number; forSale: Stock; wants: ShopView['wants'] } | null = null;
-const DEALS_EVERY = 10;
+const DEALS_EVERY = 60;
+
+/** Things the snapshot shows that change slowly and cost a lot (the planned parties, the next party forming): kept for
+ *  `SLOW_EVERY` ticks a state and key, so the phone isn't working them out ten times a second. */
+const SLOW_EVERY = 50;
+const slowCache = new WeakMap<GameState, Map<string, { tick: number; v: unknown }>>();
+function slow<T>(s: GameState, key: string, f: () => T): T {
+  let m = slowCache.get(s);
+  if (!m) slowCache.set(s, (m = new Map()));
+  const c = m.get(key);
+  if (c && s.tick >= c.tick && s.tick - c.tick < SLOW_EVERY) return c.v as T;
+  const v = f();
+  m.set(key, { tick: s.tick, v });
+  return v;
+}
 
 function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): ShopView | null {
   const b = s.buildings.find((q) => venueOfDef(q.def) === venue && lineOfDef(q.def) === line);
@@ -1243,7 +1275,7 @@ export interface TripsView {
 }
 
 function tripsView(s: GameState): TripsView {
-  const plan = proposeParty(s);
+  const plan = slow(s, 'propose', () => proposeParty(s));
   const fit = s.people.filter((p) => mayGo(s, p)).length;
   const room = roomAway(s);
   const adventurers = s.people.filter((p) => !isChild(p) && ambitionOf(p) === 'adventurer').length;
@@ -1262,7 +1294,7 @@ function tripsView(s: GameState): TripsView {
 }
 
 function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
-  const plan = planParty(s, dest);
+  const plan = slow(s, `party:${dest}`, () => planParty(s, dest));
   const party = plan.members.map((id) => {
     const p = s.people.find((q) => q.id === id)!;
     return `${p.name} (${ROLES[plan.roles[id] ?? 'fighter'].name.toLowerCase()})`;
@@ -1318,6 +1350,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     priorities: { ...p.priorities },
     autoPriorities: p.autoPriorities,
     bed: bed ? defOf(bed).name : null,
+    bedId: bed ? bed.id : null,
     floor: null,
     rally: rallyState(s, p),
     indoors: p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
@@ -1712,4 +1745,39 @@ function bossBar(s: GameState): Snapshot['bossBar'] {
     if (f) return { name: f.name, hp: f.hp, maxHp: f.maxHp, enraged: !!f.enraged, where: atPlace(destinationOf(s, e.dest)?.name ?? 'expedition') };
   }
   return null;
+}
+/* ------------------------------------------------------------ the hall of heroes */
+
+export interface FamousView {
+  id: number;
+  name: string;
+  calling: string | null;
+  level: number;
+  felled: number;
+  trips: number;
+  titles: string[];
+  founder: boolean;
+}
+export interface AnnalsView {
+  fallen: Fallen[];
+  chronicles: Chronicle[];
+  famous: FamousView[];
+}
+/** Kept in the hall: the fallen and the chronicles shown, and the famous. */
+const HALL_FALLEN = 100;
+const HALL_CHRONICLES = 12;
+const HALL_FAMOUS = 12;
+let annalsCache: { key: string; fallen: Fallen[]; chronicles: Chronicle[] } | null = null;
+
+function annalsView(s: GameState): AnnalsView {
+  const key = `${s.seed}|${s.fallen?.length ?? 0}|${s.fallen?.at(-1)?.id ?? 0}|${s.chronicles?.length ?? 0}`;
+  if (annalsCache?.key !== key) annalsCache = { key, fallen: (s.fallen ?? []).slice(-HALL_FALLEN).reverse(), chronicles: (s.chronicles ?? []).slice(-HALL_CHRONICLES).reverse() };
+  // (the famous: deeds, titles and standing, the founder always among them)
+  const worth = (p: Person) => (p.felled ?? 0) * 3 + (p.titles?.length ?? 0) * 15 + (p.trips ?? 0) * 2 + levelOf(p) + (p.id === s.mainId ? 1000 : 0);
+  const famous = s.people
+    .filter((p) => p.type !== 'child' && worth(p) > 4)
+    .sort((a, b) => worth(b) - worth(a))
+    .slice(0, HALL_FAMOUS)
+    .map((p) => ({ id: p.id, name: p.name, calling: callingName(p, stageOf(p)), level: levelOf(p), felled: p.felled ?? 0, trips: p.trips ?? 0, titles: [...(p.titles ?? [])], founder: p.id === s.mainId }));
+  return { fallen: annalsCache.fallen, chronicles: annalsCache.chronicles, famous };
 }

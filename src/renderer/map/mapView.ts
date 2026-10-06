@@ -11,7 +11,7 @@ import { Rng } from '../../shared/rng';
 import { campfireFrames } from '../art/sprites';
 import { fieldArt, isPlot } from './fieldArt';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
-import { CROPS } from '../../shared/data/crops';
+import { CROPS, sectionsDone } from '../../shared/data/crops';
 import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
 import { inRect } from '../../shared/sim/land';
@@ -29,7 +29,7 @@ import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { ChimneySmoke } from '../town/ambientView';
-import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
+import { CHUNK, chunkKey, groundArtReady, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
 import { onPackArt, packArt, packDressing, type Join } from './packBuildings';
 import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
@@ -42,6 +42,9 @@ import { seatArt } from '../art/seatArt';
 import { SEAT_STAGE } from '../../shared/data/seats';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
+/** When only the footpaths' wear has changed, one chunk is painted again at most this often (ms; syncLand): painting a
+ *  chunk is the heaviest thing the map does, and paths come and go slowly anyway. */
+const WEAR_REPAINT_MS = 1500;
 /** Where the seabed things stand round a building in the sea (share of its width along, px below its foot), and their
  *  size against the atlas's (which is drawn for the raid map, larger). */
 const SEA_DRESS: [number, number][] = [[0.04, 2], [0.96, 4], [0.55, 7]];
@@ -125,7 +128,9 @@ function cropLook(b: Building): CropLook | undefined {
   // (five stages the plot is redrawn at as the crop grows: the owner wanted to see it grow)
   return c.growth < 0.2 ? 'sprout' : c.growth < 0.45 ? 'young' : c.growth < 0.7 ? 'tall' : 'heading';
 }
-const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${b.room ? 'room' : ''}|${b.wide ?? 0}`;
+/** Sections of a field sown or reaped so far (it's worked a section at a time: data/crops.ts). */
+const cropDone = (b: Building): number => (CROPS[b.def] && b.crop && b.crop.stage !== 'growing' ? sectionsDone(b.crop.work, footprint(b).w) : 0);
+const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${cropDone(b)}|${b.room ? 'room' : ''}|${b.wide ?? 0}`;
 
 /** The wreck a sea beast lairs on (a reef place), once loaded. */
 let wreckTex: Texture | null = null;
@@ -192,6 +197,9 @@ export class MapView {
 
   constructor() {
     this.things.sortableChildren = true;
+    // (the ground is its own render group: people walking and re-sorting among the things made Pixi rebuild the whole
+    // map's draw list every frame, the ground's hundred-odd chunks with it)
+    this.ground.isRenderGroup = true;
     this.ghost.visible = false;
     this.ghost.anchor.set(0.5, 1);
     this.ghost.zIndex = 1e9;
@@ -285,9 +293,17 @@ export class MapView {
     this.width = land.w * CELL;
     this.height = land.h * CELL;
     const td = tdTiles();
+    // (nothing on the land has changed since the last look: skip it all. This ran on every snapshot, ten times a second,
+    // keying every chunk cell by cell)
+    const sig = `${land.version}|${land.open}|${land.camp.x},${land.camp.y}|${season}|${biome}|${era}|${!!td}|${this.blighted()}|${this.chunks.size}|${groundArtReady()}|${this.calm}|${this.propTex.size}`;
+    if (sig === this.landSig && (land.wear === this.landWear || performance.now() < this.nextWearPaint)) return;
     const cols = Math.ceil(land.w / CHUNK);
     const rows = Math.ceil(land.h / CHUNK);
     const reach = land.open + FOG_BAND + CHUNK;
+    // (only the footpaths' wear changed: a chunk or two painted again a snapshot, so a busy path never stalls a frame)
+    const wearOnly = sig === this.landSig;
+    let repaints = 0;
+    let pending = false;
     for (let cy = 0; cy < rows; cy++)
       for (let cx = 0; cx < cols; cx++) {
         const id = `${cx},${cy}`;
@@ -296,6 +312,11 @@ export class MapView {
         const key = near ? chunkKey(land, cx, cy, season, !!td, era, this.blighted()) : 'dark';
         let c = this.chunks.get(id);
         if (c && c.key === key) continue;
+        if (c && wearOnly && repaints >= 1) {
+          pending = true;
+          continue;
+        }
+        repaints++;
         if (!c) {
           c = { sprite: this.ground.addChild(new Sprite()), key: '' };
           c.sprite.position.set(cx * CHUNK * CELL, cy * CHUNK * CELL);
@@ -306,13 +327,22 @@ export class MapView {
         if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
         c.key = key;
       }
+    this.landSig = sig;
+    this.landWear = pending ? undefined : land.wear;
+    if (wearOnly) this.nextWearPaint = performance.now() + WEAR_REPAINT_MS;
+    if (wearOnly) return;
     this.syncProps(land, season, biome);
     this.drawMarks();
   }
+  /** What the land was at the last `syncLand` (and its wear), to skip it when nothing has changed. */
+  private landSig = '';
+  private landWear: string | undefined = undefined;
+  private nextWearPaint = 0;
 
   /** Paint everything again (the cobble tiles arrived). */
   private repaint(): void {
     for (const c of this.chunks.values()) c.key = '';
+    this.landSig = '';
     if (this.land) this.syncLand(this.land, this.season, this.biome, this.era);
   }
 
@@ -532,7 +562,7 @@ export class MapView {
   private art(b: Building): PixelArt {
     if (b.def === 'campfire') return (campfirePack() ?? this.fire)[0];
     const f = footprint(b);
-    if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey);
+    if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey, cropDone(b));
     // (a castle's room: its furnishings, on the castle's floor: map/castleArt.ts)
     if (b.room) return roomFurniture(BUILDING_BY_ID[b.def], f.w, b.id, this.tone, this.toneKey, this.style) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
     // (the seat of the town: its own picture, by origin and stage: art/seatArt.ts)
@@ -551,8 +581,23 @@ export class MapView {
     if (!def?.hp || def.width !== 1 || def.defense) return undefined;
     const wallAt = (x: number, y: number) => this.simBuildings.some((o) => o !== b && !!BUILDING_BY_ID[o.def]?.hp && !BUILDING_BY_ID[o.def]?.defense && inRect(footprint(o), x, y));
     const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);
+    // (a run down a column is the west wall's or the east wall's: its post stands at the left or the right of the cell to
+    // meet the corners' posts; told by which way the run turns at its ends)
+    const side = (): Join => {
+      for (const step of [-1, 1]) {
+        let y = b.row;
+        for (let i = 0; i < 200 && wallAt(b.tile, y + step); i++) y += step;
+        if (y === b.row) continue;
+        const east = wallAt(b.tile - 1, y), west = wallAt(b.tile + 1, y);
+        if (west !== east) return west ? 'v' : 've';
+      }
+      return 'v';
+    };
     if ((l || r) && !(u || d)) return 'h';
-    if ((u || d) && !(l || r)) return 'v';
+    if ((u || d) && !(l || r)) return side();
+    // (where a wall runs through, it's a straight piece: a run along a row with a spur, or down a column with one)
+    if (l && r) return 'h';
+    if (u && d) return side();
     if (r && d) return 'nw';
     if (l && d) return 'ne';
     if (r && u) return 'sw';

@@ -7,6 +7,7 @@ import { SEAT_DEFS, SEAT_UPGRADES } from './seats';
 import { DEFENSE_BUILDINGS, ORIGIN_DEFENSES } from './defenses';
 import { BLOOD_FARM } from './vampires';
 import { WORKSHOP_BUILDINGS } from './workshops';
+import { PRISON_BUILDINGS, PRISON_UPGRADES } from './prisons';
 import { BOATYARD } from './boats';
 import { MINERAL_BUILDINGS } from './minerals';
 import { MONSTER_GUILD } from './hunts';
@@ -47,6 +48,9 @@ export interface BuildingDef {
   arrivals?: number;
   /** Healing in town goes this much faster. */
   healing?: number;
+  /** A prison's cells, and how readily prisoners get away from it (1 as from a stockade; data/prisons.ts). */
+  cells?: number;
+  escape?: number;
   /** Horses it can keep. */
   stalls?: number;
   /** Venues (see data/shop.ts): a shop or a tavern, the size of the one room it starts with, in cells (more rooms are
@@ -176,13 +180,14 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'town_hall', name: 'Town Hall', layer: 'mid', width: 6, cost: { bricks: 40, lumber: 30, iron: 10, cloth: 10 }, buildSeconds: 3000, purpose: 'Era capstone: the seat of the town opens the Industrial era.', research: 'town_charter', morale: [6, 'A proper town'] },
 ];
 
-export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS, BOATYARD, MONSTER_GUILD];
+export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS, BOATYARD, MONSTER_GUILD, ...PRISON_BUILDINGS];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };
 
 /** Upgrades in place (DESIGN §4): what each building can be rebuilt into where it stands (it may grow wider). */
 export const UPGRADES: Readonly<Record<string, string>> = {
+  ...PRISON_UPGRADES,
   lean_to: 'longhouse',
   garden_plot: 'open_field',
   open_field: 'estate_farm',

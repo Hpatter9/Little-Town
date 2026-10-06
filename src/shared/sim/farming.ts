@@ -7,14 +7,15 @@
 
 import { earlier } from '../data/eras';
 import { eraOfResearch } from '../data/research';
-import { BLIGHT, CROPS, SEASON_GROWTH, SOIL, WORKPLACES, YIELD_PER_LEVEL } from '../data/crops';
+import { BLIGHT, CROPS, SEASON_GROWTH, SOIL, WORKPLACES, YIELD_PER_LEVEL, sectionsDone, sectionsOf } from '../data/crops';
 import { HERDS } from '../data/livestock';
 import { FOOD_VALUE } from '../data/people';
 import type { Rng } from '../rng';
 import { weatherAt } from './weather';
 import type { Material, Stock } from '../data/materials';
 import { skillSpeed } from '../data/skills';
-import { buildingCentreX, depositNear, totalStock } from './buildings';
+import { buildingCentreX, depositNear, footprint, totalStock } from './buildings';
+import { CELL } from './land';
 import { toolSpeed } from './crafting';
 import { holds } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
@@ -99,13 +100,37 @@ export function fieldToWork(s: GameState, p: Person): Building | null {
   return best;
 }
 
-/** One tick of sowing or harvesting. Returns true when the job is done. */
+/** Where the farmer stands to work a field: in the middle of the section under way (sowing or reaping go left to
+ *  right, a section a cell of its width). */
+export function fieldSpot(b: Building): { x: number; y: number } {
+  const f = footprint(b);
+  const n = sectionsOf(f.w);
+  const col = Math.min(n - 1, sectionsDone(cropOf(b).work, f.w));
+  return { x: (f.x + ((col + 0.5) * f.w) / n) * CELL, y: (f.y + f.h / 2) * CELL };
+}
+
+/** One tick of sowing or harvesting, a section at a time: the harvest comes in section by section (the farmer
+ *  carries what they can, the rest to the nearest store). Returns true when the job is done. */
 export function workField(s: GameState, p: Person, b: Building): boolean {
   const def = CROPS[b.def];
   const c = cropOf(b);
-  const seconds = c.stage === 'ripe' ? def.harvestSeconds : def.sowSeconds;
-  c.work += (skillSpeed(p.skills.farming.level) * workFactor(s, p) * (greenThumb(p) ? 1.25 : 1)) / (seconds * TICK_HZ);
+  const ripe = c.stage === 'ripe';
+  const seconds = ripe ? def.harvestSeconds : def.sowSeconds;
+  const cells = footprint(b).w;
+  const n = sectionsOf(cells);
+  const before = sectionsDone(c.work, cells);
+  c.work = Math.min(1, c.work + (skillSpeed(p.skills.farming.level) * workFactor(s, p) * (greenThumb(p) ? 1.25 : 1)) / (seconds * TICK_HZ));
   gainSkill(p, 'farming', FARM_XP_PER_SEC / TICK_HZ);
+  const after = sectionsDone(c.work, cells);
+  if (ripe && after > before) {
+    // (each section's share of the crop, the shares summing to the whole)
+    const soil = def.indoor ? 1 : (c.soil ?? SOIL.start);
+    const total = Math.round(def.yield * soil * (1 + (p.skills.farming.level - 1) * YIELD_PER_LEVEL) * (greenThumb(p) ? 1.25 : 1));
+    const got = Math.round((total * after) / n) - Math.round((total * before) / n);
+    const carry = Math.min(got, Math.max(0, carryCapacity(s, p) - poolSize(p.carrying)));
+    if (carry > 0) addStock(p.carrying, def.material, carry);
+    if (got > carry) depositNear(s, buildingCentreX(b), { [def.material]: got - carry });
+  }
   if (c.work < 1) return false;
   c.work = 0;
   if (c.stage === 'fallow') {
@@ -113,11 +138,6 @@ export function workField(s: GameState, p: Person, b: Building): boolean {
     c.growth = 0;
   } else {
     const soil = def.indoor ? 1 : (c.soil ?? SOIL.start);
-    const n = Math.round(def.yield * soil * (1 + (p.skills.farming.level - 1) * YIELD_PER_LEVEL) * (greenThumb(p) ? 1.25 : 1));
-    // the farmer carries what they can; the rest goes straight into the nearest store
-    const carry = Math.min(n, Math.max(0, carryCapacity(s, p) - poolSize(p.carrying)));
-    addStock(p.carrying, def.material, carry);
-    if (n > carry) depositNear(s, buildingCentreX(b), { [def.material]: n - carry });
     c.growth = 0;
     if (def.establishHours) {
       // (the trees fruit again next year: nothing to sow)

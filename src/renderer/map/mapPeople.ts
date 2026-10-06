@@ -394,7 +394,9 @@ export class MapPeople {
       if (Math.hypot(mdx, mdy) > 0.5) d.face = Math.abs(mdy) > Math.abs(mdx) * 1.2 ? (mdy < 0 ? 'up' : 'down') : null;
       else if (d.view.activity !== 'walk' && d.view.activity !== 'idle') d.face = null;
       const faceWay = anim === 'walk' && d.face && !d.view.mounted ? d.face : undefined;
-      s.texture = lpcFrame(look, anim, frame, held, wear, faceWay);
+      // (the old side-on frame only until their Himeko look has drawn once: after that it is never shown, and composing
+      // it anyway, a new frame for every pose and facing, was a tenth of a phone's time with twenty about)
+      if (!d.hkLast || hidden) s.texture = lpcFrame(look, anim, frame, held, wear, faceWay);
       s.anchor.set(CENTRE_X / FRAME_SIZE, FEET_Y / FRAME_SIZE);
       const flip = d.view.dir < 0 && !faceWay;
       const founder = d.view.founderCalling;

@@ -106,7 +106,7 @@ export function createFightHud(on: { back(): void }): FightHud {
     if (key === resultKey) return;
     resultKey = key;
     result.replaceChildren();
-    result.className = `ff-window ${r.outcome}`;
+    result.className = r.outcome;
     const title = document.createElement('div');
     title.className = 'ff-result-title';
     title.textContent = r.outcome === 'won' ? (r.boss ? `${r.boss} falls!` : 'Victory!') : r.outcome === 'retreated' ? 'Fell back' : 'Defeat';

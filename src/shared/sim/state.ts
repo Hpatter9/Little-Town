@@ -2,6 +2,7 @@
 // commands from the same state must always produce the same result.
 
 import type { RaidRecap, RaidTally } from './raidRecap';
+import type { Chronicle, Fallen, YearStart } from './annals';
 import type { SpecialId } from '../data/specials';
 import type { BoatKind } from '../data/boats';
 import type { ShopLine } from '../data/stores';
@@ -219,7 +220,7 @@ export type Task =
   /** Walk to a storage building with food and eat one unit (taking until `until`, once started). */
   | { type: 'eat'; building: number; until: number | null }
   /** Sleep in a bed (building id) or on the ground by the camp (null). */
-  | { type: 'sleep'; building: number | null }
+  | { type: 'sleep'; building: number | null; sick?: boolean }
   /** Raid: go after a raider and fight (ticks until the next strike). */
   | { type: 'defend'; cooldown: number }
   /** Guard duty between raids (with a Barracks): walking the town from end to end. */
@@ -268,6 +269,9 @@ export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' 
 
 export interface Raider {
   id: number;
+  /** Taming (data/taming.ts): the failed tries on it so far, and the Beast Tamer who won it over. */
+  tameTries?: number;
+  tamedBy?: number;
   /** Fighting for the town: summoned, raised by a necromancer, or tamed. */
   ally?: boolean;
   /** (a fallen raider a necromancer has already looked at) */
@@ -309,6 +313,12 @@ export interface Raider {
   bt?: RaiderBattle;
   /** Its blood is on the ground already (marked once when it fell). */
   bled?: boolean;
+  /** Hurt in the legs (sim/raiderWounds.ts): the share of its pace lost, whether it was ever lamed, and whether it was
+   *  run down as it fled (taken alive when a person: `taken`). */
+  lame?: number;
+  lamed?: boolean;
+  runDown?: boolean;
+  taken?: boolean;
   /** A defence piece's quirks on it (sim/defenses.ts): slowed by this share until a tick, burning, turned about. */
   slow?: number;
   slowUntil?: number;
@@ -497,6 +507,8 @@ export interface Person {
   /** Their level (levels.ts: from all they do, fighting most), and the XP toward the next. Left out: level 1. */
   level?: number;
   lvXp?: number;
+  /** Raiders this person has struck the last blow on (sim/raidRecap.ts), for the hall of heroes. */
+  felled?: number;
   /** The class stage last announced (an evolution is told once). */
   stageSeen?: number;
   /** Has reached their class's last stage (classes.ts ascend): rare and late. */
@@ -610,7 +622,7 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch';
   /** An envoy from a power of the realm (sim/factions.ts): which, and what they've come about. */
   envoy?: { faction: string; about: string; coins?: number };
   /** A commanded party's question on the road (sim/muster.ts `CROSSROADS`): which one. */
@@ -661,6 +673,8 @@ export interface Faction {
   /** Met yet (an envoy came): until then it's a rumour. */
   known: boolean;
   troops: number;
+  /** The folk of its own town, growing on the world map (sim/factions.ts `growTowns`; older saves get theirs on load). */
+  folk?: number;
   /** -100 hostile to 100 devoted. */
   attitude: number;
   stance: RealmStance;
@@ -709,6 +723,8 @@ export interface Expedition {
   battle: Battle | null;
   /** A question for the player about this party (the trip waits for it). */
   prompt: number | null;
+  /** Whether to watch its big fights has been asked: at the site (1), for its boss (2) (sim/watchAsk.ts). */
+  watchAsked?: number;
   /** Road events already rolled for each leg, and whether the homeward ambush was rolled. */
   rolled: { outEvent: boolean; backEvent: boolean; ambush: boolean };
   /** Waterskins taken along (returned to the inventory at home). */
@@ -961,6 +977,11 @@ export interface GameState {
   eventOutcome?: { title: string; choice: string | null; text: string; tick: number };
   /** The last raid's recap (sim/raidRecap.ts). */
   raidRecap?: RaidRecap;
+  /** The annals (sim/annals.ts): the fallen, the year's chronicles, and the year being reckoned. */
+  fallen?: Fallen[];
+  chronicles?: Chronicle[];
+  yearStart?: YearStart;
+  yearRaids?: { came: number; won: number; pillaged: number };
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];

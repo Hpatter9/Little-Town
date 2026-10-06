@@ -88,6 +88,7 @@ export function deepenMine(s: GameState, p: MapPlace, rng: Rng): void {
     const pool: Partial<Record<Material, number>> = { stone: rng.int(2, 4) };
     for (const o of ores) if (rng.chance(o === 'gold' || o === 'gems' ? 0.5 : 0.8)) pool[o] = MINE_WALL(o, m.depth, rng);
     s.land.pools[i] = pool;
+    s.land.version++;
   }
   s.land.version++;
 }

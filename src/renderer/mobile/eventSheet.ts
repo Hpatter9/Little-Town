@@ -97,8 +97,8 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
       b.addEventListener('click', () => {
         if (answered) return;
         onAnswer(p.id, i);
-        // (a debrief is read, not answered: it just closes)
-        if (p.kind === 'debrief') {
+        // (a debrief is read, not answered, and a fight to watch is watched or not: either just closes)
+        if (p.kind === 'debrief' || p.kind === 'watch') {
           read.add(p.id);
           shown = -1;
           el.hidden = true;
@@ -179,7 +179,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         tell(snap);
         return;
       }
-      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy'));
+      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch'));
       const on = !!p && !away;
       el.hidden = !on;
       document.body.classList.toggle('event-open', on);

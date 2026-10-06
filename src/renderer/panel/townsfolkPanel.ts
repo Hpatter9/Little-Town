@@ -2,6 +2,7 @@
 // someone to inspect them: their picture in what they wear, their gear laid out as in Diablo (each piece in its slot
 // round them, tap one for its stats), what they carry, how they fight, and everything else about them.
 
+import { mapBeside, showOnMap } from './townOverview';
 import { hkDraw, hkLayers, hkWhoOf, onHkLoad } from '../art/hkFolk';
 import { pieceLabel, plusOf, qualityOf } from '../../shared/data/quality';
 import { ITEM_BY_ID, SLOT_NAMES, SLOTS, type Slot } from '../../shared/data/items';
@@ -165,6 +166,8 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
   top.append(el('span', 'card-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('span', 'card-size', `${p.typeName} · ${p.bed ? `bed: ${p.bed}` : 'no bed'}`));
   card.append(top, el('div', 'lock', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
   card.append(classRow(p, bridge, rerender));
+  // (on the phone, the map beside the menu: go and look at them there)
+  if (p.away === null && mapBeside()) card.append(button('Show on the map', () => showOnMap(bridge, { person: p.id }), { cls: 'place small quiet' }));
 
   const tabs = el('div', 'row inv-tabs inspect-tabs');
   for (const [k, name] of INSPECT_TABS) {

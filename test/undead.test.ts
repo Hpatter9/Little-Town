@@ -47,3 +47,25 @@ test('a lich town sows a field at most (for its tavern\'s guests); a settlers\' 
   assert.ok(foodFields(lich) <= 1, `the dead sow nothing for themselves (${foodFields(lich)})`);
   assert.ok(foodFields(settlers) > foodFields(lich), `the living do (${foodFields(settlers)})`);
 });
+
+test('the dead don\'t bleed out: struck down, they fall apart and pull themselves together, needing no healer or medkit', async () => {
+  const { knockDown, heal, REFORM_HOURS } = await import('../src/shared/sim/health');
+  const { TICKS_PER_HOUR } = await import('../src/shared/sim/time');
+  const s = newGame('undead-bleed', { origin: 'lich' });
+  s.items.medkit = 3;
+  const p = s.people.find((q) => q.id !== s.mainId) ?? s.people[0];
+  p.lastHit = s.tick;
+  const blood = s.blood?.length ?? 0;
+  knockDown(s, p);
+  assert.ok(p.downed, 'down');
+  assert.equal(p.downed!.bleedUntil, null, 'not bleeding');
+  assert.equal(s.items.medkit, 3, 'no medkit spent');
+  assert.equal(s.blood?.length ?? 0, blood, 'no blood');
+  assert.ok(s.journal.some((j) => /falls apart|shuts down/.test(j.text)));
+  let t = 0;
+  for (; t < (REFORM_HOURS + 2) * TICKS_PER_HOUR && p.downed; t++) {
+    s.tick++;
+    heal(s, p);
+  }
+  assert.equal(p.downed, null, `risen again after ${(t / TICKS_PER_HOUR).toFixed(1)} hours`);
+});

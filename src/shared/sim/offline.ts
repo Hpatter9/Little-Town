@@ -8,6 +8,7 @@ import type { Sim } from './sim';
 import { addJournal, notify, type GameState } from './state';
 import { holdAtGate, openGate, RAID_WAIT_MS, raidAtGate } from './raidWait';
 import { holdEventClock, holdForEvent } from './events';
+import { runtime } from './watchAsk';
 import { highlights } from './highlights';
 import { TICK_MS, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
@@ -94,7 +95,12 @@ export function startCatchUp(sim: Sim, awayMs: number): CatchUpJob {
           s.raid!.alone = true;
         }
         holdEventClock(s); // (questions wait for the player to come back)
-        sim.step();
+        runtime.quiet = true; // (nobody to ask about watching a party's fight: sim/watchAsk.ts)
+        try {
+          sim.step();
+        } finally {
+          runtime.quiet = false;
+        }
       }
       return job.left <= 0;
     },

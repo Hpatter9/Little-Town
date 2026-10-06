@@ -7,6 +7,7 @@ import { CanvasSource, Texture } from 'pixi.js';
 import { CELL } from '../../shared/sim/land';
 import { loadImage } from './loadImage';
 import { FINE, type PixelArt } from './pixelArt';
+import fence7 from './fields/fence7.png';
 import soil01 from './fields/soil01.png';
 import soil05 from './fields/soil05.png';
 import soil07 from './fields/soil07.png';
@@ -61,7 +62,7 @@ const SOIL = {
 const RAILS = [fence1, fence2, fence3, fence4];
 const POSTS = [fence9, fence10];
 
-const ALL = [...Object.values(SOIL).flat(), ...RAILS, ...POSTS, campfire];
+const ALL = [...Object.values(SOIL).flat(), ...RAILS, ...POSTS, fence7, campfire];
 const images = new Map<string, HTMLImageElement>();
 let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
@@ -122,22 +123,25 @@ export function drawSoil(g: CanvasRenderingContext2D, w: number, h: number, seed
 /** A rail fence round a pen `w` by `h` cells, with a gap for the gate in the middle of the front, on a canvas scaled `k`. */
 export function drawFence(g: CanvasRenderingContext2D, w: number, h: number, seed: number, k = FINE): void {
   const S = CELL * k;
-  const rail = (x: number, y: number, i: number) => {
-    const im = images.get(pick(RAILS, hashOf(seed, i, 7)));
-    if (im) g.drawImage(im, x, y, im.naturalWidth * k, im.naturalHeight * k);
+  const draw = (url: string, x: number, y: number, width?: number) => {
+    const im = images.get(url);
+    if (im) g.drawImage(im, x, y, width ?? im.naturalWidth * k, im.naturalHeight * k);
   };
-  const post = (x: number, y: number, i: number) => {
-    const im = images.get(pick(POSTS, hashOf(seed, i, 9)));
-    if (im) g.drawImage(im, x, y, im.naturalWidth * k, im.naturalHeight * k);
-  };
-  // the back rail along the top, the front along the bottom (a gap for the gate), posts down the sides
-  for (let x = 0; x < w; x++) rail(x * S + 2 * k, 0, x);
-  const gate = Math.floor(w / 2);
-  for (let x = 0; x < w; x++) if (x !== gate) rail(x * S + 2 * k, h * S - 15 * k, 100 + x);
-  for (let y = 0; y < h; y++) {
-    post(0, y * S + 8 * k, 200 + y);
-    post(w * S - 7 * k, y * S + 8 * k, 300 + y);
+  const W = w * S;
+  const H = h * S;
+  const side = images.get(fence7);
+  const sideH = side ? side.naturalHeight * k : 31 * k;
+  // the sides first (the pack's rail seen end on, one a cell), then the back rail along the top and the front along the
+  // bottom with a gap for the gate, then a post at each corner
+  for (let y = 4 * k; y < H - 14 * k; y += sideH - k) {
+    draw(fence7, 0, y);
+    draw(fence7, W - 7 * k, y);
   }
+  // (each rail stretched to its cell, so the run has no gaps between them; the plain rails along the back and front)
+  const rail = (i: number) => (hashOf(seed, i, 7) % 2 ? RAILS[0] : RAILS[2]);
+  for (let x = 0; x < w; x++) draw(rail(x), x * S, 0, S);
+  const gate = Math.floor(w / 2);
+  for (let x = 0; x < w; x++) if (x !== gate) draw(rail(100 + x), x * S, H - 16 * k, S);
 }
 
 let fire: PixelArt[] | null = null;

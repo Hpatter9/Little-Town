@@ -130,6 +130,9 @@ function rgb(c: string): number[] {
 }
 
 /** A key for what a chunk shows (painted again when it changes). */
+/** Which of the ground's art sheets have loaded (part of every chunk's key; the map watches it to know when to look again). */
+export const groundArtReady = (): string => `${groundDetailReady() ? 1 : 0}${roadTilesReady() ? 1 : 0}${propImage('sea') ? 1 : 0}`;
+
 export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean, era: Era = 'neolithic', blight = false): string {
   let s = `${season}|${td ? 1 : 0}|${groundDetailReady() ? 1 : 0}|${blight ? 'b' : ''}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|${propImage('sea') ? 's' : ''}|`;
   for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {

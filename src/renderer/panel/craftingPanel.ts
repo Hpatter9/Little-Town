@@ -5,7 +5,6 @@ import { eraReached } from '../../shared/data/eras';
 import { ITEM_BY_ID, ITEMS, SLOT_NAMES, STATIONS, type ItemDef } from '../../shared/data/items';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { TOPIC_BY_ID } from '../../shared/data/research';
-import type { Bridge } from '../../shared/ipc';
 import type { CraftOrderView, Snapshot } from '../../shared/sim/snapshot';
 import { craftSeconds } from '../../shared/sim/crafting';
 import { itemIcon } from '../art/icons';
@@ -32,13 +31,27 @@ export const craftingKey = (s: Snapshot) =>
     s.people.map((p) => p.gear),
   ]);
 
-export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
+/** The Town's Stores: how full the stores are, and everything in them (and worn), with a tab for each kind. */
+export function renderStores(s: Snapshot, rerender: () => void = () => {}): HTMLElement[] {
+  const worn = new Map<string, number>();
+  for (const p of s.people) for (const id of Object.values(p.gear)) worn.set(id!, (worn.get(id!) ?? 0) + 1);
+  const fill = el('div', 'bar');
+  const f = el('div', s.storageUsed >= s.storageCapacity * 0.9 ? 'bar-fill low' : 'bar-fill');
+  f.style.width = `${Math.round(Math.min(1, s.storageUsed / Math.max(1, s.storageCapacity)) * 100)}%`;
+  fill.append(f);
+  const room = el('div', 'panel-head');
+  room.append(el('span', '', `Stored ${s.storageUsed} of ${s.storageCapacity}`), el('span', '', s.storageUsed >= s.storageCapacity * 0.9 ? 'Nearly full: the town builds more storage' : ''));
+  return [el('h2', '', 'Stores'), room, fill, ...inventory(s, worn, rerender)];
+}
+
+/** The Market's Workshops: what's on order at the stations, and every recipe the town knows (it orders them itself). */
+export function renderWorkshops(s: Snapshot, rerender: () => void = () => {}): HTMLElement[] {
   const out: HTMLElement[] = [];
+  out.push(el('h2', '', 'Orders'));
   const full = s.crafting.length >= s.craftSlots;
   const head = el('div', 'panel-head');
-  head.append(el('span', full ? 'short' : '', `Craft queue ${s.crafting.length}/${s.craftSlots}`), el('span', '', `Stored ${s.storageUsed}/${s.storageCapacity}`));
+  head.append(el('span', full ? 'short' : '', `${s.crafting.length} of ${s.craftSlots} orders`), el('span', '', 'Three at each station'));
   out.push(head);
-
   if (s.crafting.length) {
     const q = el('div', 'queue');
     for (const o of s.crafting) q.append(orderRow(o));
@@ -46,11 +59,8 @@ export function renderCrafting(s: Snapshot, _bridge: Bridge | undefined, rerende
   } else {
     out.push(el('div', 'hint', 'Nothing on order. The town makes tools, weapons, medicine and materials as it needs them.'));
   }
-
-  // what's in town: the inventory, with a tab for each kind (the owner's ask)
   const worn = new Map<string, number>();
   for (const p of s.people) for (const id of Object.values(p.gear)) worn.set(id!, (worn.get(id!) ?? 0) + 1);
-  out.push(el('h2', '', 'Inventory'), ...inventory(s, worn, rerender));
 
   const built = new Set(s.buildings.filter((b) => b.status === 'done').map((b) => b.def));
   out.push(

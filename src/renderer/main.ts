@@ -26,7 +26,7 @@ import { eraReached } from '../shared/data/eras';
 import { TOPIC_BY_ID } from '../shared/data/research';
 import { HERDS, PEN_ROOM_PER_COL } from '../shared/data/livestock';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../shared/data/materials';
-import { CROPS } from '../shared/data/crops';
+import { CROPS, sectionsDone, sectionsOf } from '../shared/data/crops';
 import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { TERRAIN } from '../shared/data/terrain';
@@ -45,7 +45,7 @@ function travellerPerson(t: TravellerView): PersonView {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
     activity: 'walk', taskDone: null, story: '', titles: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
-    priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
+    priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, bedId: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
@@ -123,6 +123,8 @@ const DOCK_WIDTH = 108;
 const PANE_MIN = 320;
 const PANE_MAX = 520;
 const PANE_HIT_TOP = 90;
+/** Whether a party away is drawn walking in a pane beside the map (off: the owner found it more clutter than help). */
+const SHOW_PANE = false;
 
 const listStock = (s: Stock) =>
   MATERIALS.filter((m) => (s[m] ?? 0) > 0)
@@ -423,6 +425,14 @@ async function start(): Promise<void> {
         } else {
           if (b.fire !== undefined) lines.push(`ON FIRE! ${Math.floor(b.fire * 100)}% burned — everyone is fighting it`);
           lines.push(def.purpose);
+          // whose it is, and who lives in it (homes are bought by the townsfolk and let out: sim/property.ts)
+          const name = (id: number) => snap.people.find((q) => q.id === id)?.name;
+          const owner = b.owner !== undefined ? name(b.owner) : undefined;
+          if (!def.hp && !CROPS[b.def]) lines.push(owner ? `Owned by ${owner}` : "The town's own (the treasury's)");
+          if (def.housing) {
+            const living = snap.people.filter((q) => q.bedId === b.id);
+            lines.push(living.length ? `Home of ${living.map((q) => q.name + (owner && q.id !== b.owner ? ' (renting)' : '')).join(', ')} · ${living.length}/${def.housing} beds` : `Empty · ${def.housing} ${def.housing === 1 ? 'bed' : 'beds'}`);
+          }
           const role = OPERATORS[b.def];
           if (role) {
             const who = snap.people.find((p) => p.id === b.operator);
@@ -430,6 +440,10 @@ async function start(): Promise<void> {
           }
           if (def.storage) lines.push(`Stored ${poolSize(b.store)}/${def.storage}${poolSize(b.store) ? ': ' + listStock(b.store) : ''}`);
           if (def.hp) lines.push(`Health ${Math.round(b.hp ?? def.hp)}/${def.hp}${(b.hp ?? def.hp) < def.hp ? ' (builders will repair it)' : ''}`);
+          // a prison's cells and who's held; a healing building's sickbeds and who lies in them
+          if (def.cells && b.status === 'done') lines.push(`${def.cells} cells. The town holds ${snap.prisoners.length} of ${snap.cells}${snap.prisoners.length ? `: ${snap.prisoners.map((q) => q.name).join(', ')}` : ''}.`);
+          const ward = snap.nursing.find((n) => n.building === b.id);
+          if (ward) lines.push(`Sickbeds ${ward.people.length}/${ward.beds}${ward.people.length ? `: ${ward.people.map((id) => snap.people.find((q) => q.id === id)?.name).filter(Boolean).join(', ')}` : ''}. The hurt heal here at its pace.`);
           if (b.def === 'graveyard') lines.push(snap.graves.length ? `Here lie: ${snap.graves.map((g) => g.name).join(', ')}` : 'Nobody lies here yet.');
           if (HERDS[b.def] && b.status === 'done') {
             const herd = HERDS[b.def];
@@ -449,11 +463,15 @@ async function start(): Promise<void> {
                   ? 'Fallow: nothing grows in winter'
                   : crop.establishHours
                     ? 'Waiting for a farmer to plant the trees'
-                    : tired
+                    : c && c.work > 0
+                      ? `Being sown: ${sectionsDone(c.work, def.width)} of ${sectionsOf(def.width)} sections`
+                      : tired
                       ? 'Fallow: resting the tired soil'
                       : 'Fallow: waiting for a farmer to sow it'
                 : c.stage === 'ripe'
-                  ? 'Ripe: waiting for a farmer to harvest it'
+                  ? c.work > 0
+                    ? `Being reaped: ${sectionsDone(c.work, def.width)} of ${sectionsOf(def.width)} sections in`
+                    : 'Ripe: waiting for a farmer to harvest it'
                   : crop.establishHours && !c.bearing
                     ? `Young trees, coming into bearing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`
                     : `Growing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`,
@@ -632,7 +650,7 @@ async function start(): Promise<void> {
         // follow them: the camera keeps them in view, and their big moments come as phone alerts
         const following = snap.hero === p.id;
         const followAct = act('follow', following ? 'Stop following' : 'Follow', () => bridge.command({ type: 'follow', person: following ? null : p.id }));
-        if (following) lines.unshift('You follow them: their big moments come as phone alerts.');
+        if (following) lines.unshift('You follow their story: their big moments come as phone alerts.');
         return { title: d.title, lines, actions: [...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
       case 'place': {
@@ -1036,7 +1054,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
     if (next.away && !q && view.mode === 'full')
@@ -1054,7 +1072,9 @@ async function start(): Promise<void> {
       if (lastShake !== null && next.tick - next.bossShake < 20) shakeUntil = performance.now() + SHAKE_MS;
       lastShake = next.bossShake;
     }
-    const e = next.gameOver ? null : shownExpedition();
+    // (the expedition pane beside the map is no longer shown, the owner's call: parties are watched full screen, and
+    // listed on the feed and the Expeditions tab)
+    const e = SHOW_PANE && !next.gameOver ? shownExpedition() : null;
     pane.show(view.mode === 'full' ? e : null);
     if (e && pane.visible && paneX < Infinity) expHeader.show(e, next.expeditions.length - 1, paneX, paneW);
     else expHeader.hide();
@@ -1122,11 +1142,8 @@ async function start(): Promise<void> {
       viewW = w;
       viewH = h;
     }
-    // following someone: keep them in view (after the player has looked around a few seconds on their own)
-    // (in a battle, the raiders furthest along the trail)
-    const lead = battle.shown ? battle.lead() : null;
-    const hero = lead ?? (snap.hero !== null ? people.posOf(snap.hero) : null);
-    if (hero) camera.follow(hero, w, h, performance.now(), FOLLOW_WAIT_MS);
+    // (the camera follows nobody, the hero and the raid's lead raider included: the owner found it jumping about;
+    // it moves only when the player moves it, or once to the gate as a battle begins)
     const moving = camera.update(ticker.deltaMS / 1000, w, h);
     map.setCamera(camera.x, camera.y, w, h);
     // screen shake (a boss's roar or sweeping attack)
@@ -1164,8 +1181,6 @@ async function start(): Promise<void> {
   });
 }
 
-/** After the player drags or scrolls the view, following someone waits this long before it takes the camera back. */
-const FOLLOW_WAIT_MS = 4000;
 
 start().catch((err) => console.error('strip failed to start', err));
 

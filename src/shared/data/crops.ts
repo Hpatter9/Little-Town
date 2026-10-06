@@ -21,6 +21,12 @@ export interface CropDef {
   establishHours?: number;
 }
 
+/** A field is worked a section at a time, one a cell of its width, left to right (the owner's ask: watch the harvest
+ *  go a strip at a time, and the sowing after it). */
+export const sectionsOf = (cells: number): number => Math.max(2, cells);
+/** Sections of a field's sowing or harvest done so far, by the work on it (0..1). */
+export const sectionsDone = (work: number, cells: number): number => Math.min(sectionsOf(cells), Math.floor(work * sectionsOf(cells) + 1e-9));
+
 export const CROPS: Readonly<Record<string, CropDef>> = {
   garden_plot: { material: 'grain', yield: 10, growHours: 18, sowSeconds: 25, harvestSeconds: 30 },
   herb_garden: { material: 'herbs', yield: 5, growHours: 14, sowSeconds: 20, harvestSeconds: 20 },

@@ -1,9 +1,10 @@
 // Phase 4 farming: tired soil, muck from the pens, blight, orchards, autumn sowing and the harvest home.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CROPS, SOIL } from '../src/shared/data/crops';
+import { CROPS, SOIL, sectionsDone, sectionsOf } from '../src/shared/data/crops';
+import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { totalStock } from '../src/shared/sim/buildings';
-import { fieldToWork, ripensInTime, tendFields, workField } from '../src/shared/sim/farming';
+import { fieldSpot, fieldToWork, ripensInTime, tendFields, workField } from '../src/shared/sim/farming';
 import type { Rng } from '../src/shared/rng';
 import { type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { calendar, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -141,4 +142,31 @@ test('two garden plots side by side, lying fallow, are ploughed into one open fi
   assert.equal(a.def, 'open_field');
   assert.ok(!s.buildings.includes(b), 'the neighbour was taken in');
   assert.equal(a.crop?.soil, 0.6);
+});
+
+test('a field is reaped a section at a time: the crop comes in by sections, the farmer moving along it', () => {
+  const s = plainGame('sections');
+  const plot = field(s, 'garden_plot');
+  plot.crop = { stage: 'ripe', growth: 1, work: 0 };
+  const p = s.people[0];
+  const m = CROPS[plot.def].material;
+  p.carrying = {};
+  const w = BUILDING_BY_ID[plot.def].width;
+  const n = sectionsOf(w);
+  const spots: number[] = [];
+  const got: number[] = [];
+  let done = false;
+  while (!done) {
+    const at = fieldSpot(plot).x;
+    if (spots[spots.length - 1] !== at) {
+      spots.push(at);
+      got.push((p.carrying[m] ?? 0) + (totalStock(s)[m] ?? 0));
+    }
+    done = workField(s, p, plot);
+  }
+  assert.equal(spots.length, n, 'the farmer stood at each section in turn');
+  assert.ok(spots.every((x, i) => i === 0 || x > spots[i - 1]), 'left to right');
+  assert.ok(got[1] > got[0], 'the first section came in before the rest');
+  assert.equal(plot.crop.stage, 'fallow');
+  assert.equal(sectionsDone(plot.crop.work, w), 0, 'ready to sow, from the left again');
 });

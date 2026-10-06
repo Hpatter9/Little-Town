@@ -1,5 +1,6 @@
-// Town plan (the Build tab): the town builds for itself now. At the top, where it's putting its effort (the one thing
-// the player sets), what it's building and what it decided next and why; below, every building it knows, for reference.
+// The Town menu (the old Build tab, the panel id 'build'): the town at a glance and the player's levers (direction, size,
+// powers), what's being built and what stands, the stores (craftingPanel.ts renderStores), the treasury, and a book of
+// every building it knows. The town builds for itself.
 
 import { BUILD_PACE } from '../../shared/data/economy';
 import { buildSkill } from '../../shared/sim/property';
@@ -8,19 +9,19 @@ import { TAX, TAX_RATES } from '../../shared/data/economy';
 import { ADJACENT_TILES, BUILDING_BY_ID, BUILDINGS, LAYER_NAMES, NEAR_SOURCE, NEAR_SOURCE_BONUS, RIVER_GROWTH, TAVERN_MARKET_MORALE, type BuildLayer, type BuildingDef } from '../../shared/data/buildings';
 import { CROPS } from '../../shared/data/crops';
 import { earlier, eraReached } from '../../shared/data/eras';
-import { MATERIAL_NAMES, MATERIALS, type Material } from '../../shared/data/materials';
-import { FOOD_VALUE } from '../../shared/data/people';
+import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { eraOfResearch, TOPIC_BY_ID } from '../../shared/data/research';
 import type { Bridge } from '../../shared/ipc';
 import { DIRECTION_DEFS, DIRECTIONS } from '../../shared/sim/planner';
 import { blueprintCount, isUnlocked } from '../../shared/sim/buildings';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, duration, el } from './dom';
-import { materialIcon, stockIcon } from '../art/materialIcons';
+import { materialIcon } from '../art/materialIcons';
 import { BUILD_MULTIPLIER } from '../../shared/sim/state';
 import { hiddenNote, HidePrefs } from './hide';
+import { glance, inTown } from './townOverview';
 import { topicKnown } from './secrets';
-import { expandable, facts, list, materialDetails, pickable, pickedIn, type More } from './details';
+import { expandable, facts, list, type More } from './details';
 import { UPGRADES } from '../../shared/data/buildings';
 import { OPERATORS } from '../../shared/data/operators';
 import { ITEMS } from '../../shared/data/items';
@@ -34,9 +35,8 @@ export const buildKey = (s: Snapshot) =>
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const used = blueprintCount(s);
-  const head = el('div', 'panel-head');
-  head.append(el('span', '', `Building ${used}/${s.buildSlots} at once`), el('span', '', `● ${s.coins} coins · Stored ${s.storageUsed}/${s.storageCapacity}`));
-  const out: HTMLElement[] = [head];
+  // the town at a glance first (townOverview.ts): every tile a way in
+  const out: HTMLElement[] = [...glance(s, bridge, rerender)];
 
   // a choice only the player can make: binding the founder's soul (once Lichcraft is learned)
   if (s.lichOffer) {
@@ -115,11 +115,9 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     ),
   );
 
-  // how the town stands: its people, beds, food and coins, and everything in store (off the clock bar: the owner's ask)
-  out.push(el('h2', '', 'Town status'), ...townStatus(s));
 
   // the town's money: travellers bring it in at the shop and the tavern, and it goes on wages, crafters and the venues
-  if (s.shop || s.tavern || s.coins) {
+  {
     out.push(el('h2', '', `Treasury: ${s.coins} coins`));
     out.push(el('div', 'hint', 'The founder\'s purse. The townsfolk keep their own: they earn by their work, buy land and build, and pay rent and tax. The treasury pays for the public works, the study, and the guards.'));
     // the tax lever
@@ -166,6 +164,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
 
   // what it's doing about it
   out.push(el('h2', '', 'Being built'));
+  out.push(el('div', 'hint', `It builds ${s.buildSlots} at once (${used} under way now), and decides for itself what and where.`));
   const building = s.buildings.filter((b) => b.status === 'blueprint');
   if (!building.length) out.push(el('p', 'empty', 'Nothing right now.'));
   for (const b of building) {
@@ -188,9 +187,13 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   for (const w of plan?.waiting ?? []) out.push(el('div', 'hint', w));
   if (plan?.gathering.length) out.push(el('div', 'hint', `Gathering for: ${plan.gathering.join(', ').toLowerCase()}.`));
 
+  // what stands in town, each tappable (townOverview.ts)
+  out.push(...inTown(s, bridge));
+
   // everything it knows how to build (for reference: it decides for itself)
   out.push(
-    el('h2', '', 'Buildings'),
+    el('h2', '', 'Building book'),
+    el('div', 'hint', 'Every building the town knows how to make, and what each is for. It builds them itself, as it needs them.'),
     hide.row(
       [
         ['built', 'Built', 'Hide the buildings the town already has'],
@@ -294,47 +297,3 @@ function placementTip(def: BuildingDef): string | null {
   return null;
 }
 
-/** The Town status tab: people and beds, food, coins, and what's in store, every material with its picture. */
-function townStatus(s: Snapshot): HTMLElement[] {
-  const eaters = s.people.filter((p) => p.monster !== 'undead' && p.away === null).length;
-  const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (s.stock[m] ?? 0) * v, 0);
-  const days = eaters ? food / eaters : Infinity;
-  const away = s.people.filter((p) => p.away !== null).length;
-  const facts = el('div', 'fight-stats');
-  const fact = (label: string, value: string) => {
-    const c = el('div', 'fight-stat');
-    c.append(el('span', 'fight-label', label), el('span', 'fight-value', value));
-    facts.append(c);
-  };
-  fact('People', `${s.housing.people}${away ? ` (${away} away)` : ''}`);
-  fact('Beds', String(s.housing.beds));
-  fact('Food', days === Infinity ? '—' : `${days < 10 ? days.toFixed(1) : Math.round(days)} days`);
-  fact('Treasury', `${s.coins ?? 0} coins`);
-  fact('Stored', `${s.storageUsed} / ${s.storageCapacity}`);
-  const fill = el('div', 'bar');
-  const f = el('div', s.storageUsed >= s.storageCapacity * 0.9 ? 'bar-fill low' : 'bar-fill');
-  f.style.width = `${Math.round(Math.min(1, s.storageUsed / Math.max(1, s.storageCapacity)) * 100)}%`;
-  fill.append(f);
-  const store = el('div', 'inventory');
-  for (const m of MATERIALS) {
-    const n = s.stock[m] ?? 0;
-    if (n <= 0) continue;
-    const chip = el('div', 'inv-item');
-    const icon = stockIcon(m, 16);
-    if (icon) chip.append(icon);
-    chip.append(el('span', '', `${MATERIAL_NAMES[m]} ×${n}`));
-    store.append(pickable(chip, 'store', m));
-  }
-  if (!store.childElementCount) store.append(el('span', 'hint', 'Nothing in store yet.'));
-  const out: HTMLElement[] = [facts, el('div', 'hint', 'In store (tap one for more; the Crafting tab has the items and gear too):'), fill, store];
-  const pick = pickedIn('store') as Material | undefined;
-  if (pick && MATERIAL_NAMES[pick]) {
-    const c = el('div', 'card picked-card');
-    const top = el('div', 'card-top');
-    top.append(el('span', 'card-name', MATERIAL_NAMES[pick]), el('span', 'card-size', `×${s.stock[pick] ?? 0}`));
-    c.append(top);
-    for (const x of materialDetails(pick, s)) if (x) c.append(typeof x === 'string' ? el('div', 'more-line', x) : x);
-    out.push(c);
-  }
-  return out;
-}
