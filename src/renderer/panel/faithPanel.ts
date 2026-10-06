@@ -25,7 +25,7 @@ export function faithSection(s: Snapshot): HTMLElement[] {
     const c = el('div', `card god god-${g.mood.replace(' ', '-')}`);
     const top = el('div', 'card-top');
     top.append(el('span', 'card-name', `${ICON[g.domain] ?? ''} ${g.name}`), el('span', 'card-size', g.mood));
-    c.append(top, el('div', 'purpose', `${g.title}, keeper of ${g.keeps}`));
+    c.append(top, el('div', 'purpose', `${g.title.charAt(0).toUpperCase() + g.title.slice(1)}, keeper of ${g.keeps}`));
     const bar = el('div', 'favour');
     const fill = el('div', `favour-fill ${g.favour >= 0 ? 'up' : 'down'}`);
     fill.style.width = `${Math.abs(g.favour) / 2}%`;
