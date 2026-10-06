@@ -31,6 +31,7 @@ const ROOM_NAMES: Record<string, string> = { rival: 'rival delvers', fight: 'a f
 let mapPick: string | null = null;
 let rerenderBoard: () => void = () => {};
 // picked on the map: flag it, and bring its card into view (once the board has redrawn)
+const MARCH_MARK = { feud: '⚑', trade: '🐫', host: '⚔', envoy: '✉' } as const;
 const worldMap = new WorldMapView((id) => {
   mapPick = id;
   rerenderBoard();
@@ -86,8 +87,12 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     s.expeditions,
     s.regions,
     s.realm.factions.filter((f) => f.known).map((f) => ({ id: f.id, name: f.name, stronghold: f.stronghold, stance: f.stance, stanceName: f.stanceName, assault: f.assault, folk: f.folk, size: f.size, tier: f.tier })),
+    s.world,
   );
   out.push(worldMap.el, el('div', 'hint map-hint', 'Tap a place on the map, or a destination below, to mark it.'));
+  // the realm on the move (sim/worldLife.ts): hosts, caravans and envoys on the roads, and the powers' feuds
+  if (s.world.marches.length || s.world.feuds.length)
+    out.push(el('div', 'hint world-news', [...s.world.feuds.map((f) => `⚔ ${f.a} and ${f.b} are at war.`), ...s.world.marches.map((m) => `${MARCH_MARK[m.kind]} ${m.label}`)].join(' ')));
   // parties form themselves: who would set out next, and why not
   out.push(el('h2', '', 'Parties'));
   out.push(el('div', 'purpose', s.trips.forming));

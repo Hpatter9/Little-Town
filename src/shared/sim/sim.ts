@@ -2,6 +2,9 @@
 // however many whole ticks that covers.
 
 import { regrowHourly } from './regrow';
+import { faithHourly } from './faith';
+import { disastersTick } from './disasters';
+import { worldHourly } from './worldLife';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -137,6 +140,7 @@ export class Sim {
     updateNomads(s);
     updateRaid(s, this.rng);
     updateFires(s, this.rng);
+    disastersTick(s); // (floods, wildfires, tornadoes, earthquakes: sim/disasters.ts)
     expirePrompts(s, this.rng);
     if (s.gameOver) return;
     for (const p of s.people) driftMorale(s, p);
@@ -173,6 +177,8 @@ export class Sim {
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)
     regrowHourly(s); // (and the woods grow back: sim/regrow.ts)
+    faithHourly(s); // (the gods: sim/faith.ts)
+    worldHourly(s); // (the realm beyond the town: sim/worldLife.ts)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);

@@ -2,6 +2,7 @@
 // powers), what's being built and what stands, the stores (craftingPanel.ts renderStores), the treasury, and a book of
 // every building it knows. The town builds for itself.
 
+import { faithSection } from './faithPanel';
 import { BUILD_PACE } from '../../shared/data/economy';
 import { buildSkill } from '../../shared/sim/property';
 import { TOWN_SIZES } from '../../shared/sim/state';
@@ -189,6 +190,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
 
   // what stands in town, each tappable (townOverview.ts)
   out.push(...inTown(s, bridge));
+  out.push(...faithSection(s));
 
   // everything it knows how to build (for reference: it decides for itself)
   out.push(

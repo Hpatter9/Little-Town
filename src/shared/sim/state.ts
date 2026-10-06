@@ -979,6 +979,18 @@ export interface GameState {
   raidRecap?: RaidRecap;
   /** The annals (sim/annals.ts): the fallen, the year's chronicles, and the year being reckoned. */
   fallen?: Fallen[];
+  /** The town's gods: their favour and the latest signs (sim/faith.ts). */
+  faith?: import('./faith').FaithState;
+  /** A natural disaster under way on the map, when the next is due, and the last (for its ash: sim/disasters.ts). */
+  disaster?: import('./disasters').Disaster;
+  nextDisaster?: number;
+  /** The realm beyond the town: feuds between the powers and what's on the roads (sim/worldLife.ts). */
+  feuds?: import('./worldLife').Feud[];
+  /** The line the founder comes of, when they're a legend's descendant (sim/legacy.ts), and the renown it brought. */
+  lineage?: { of: string; founder: string; generation: number; from: string };
+  inherited?: number;
+  marches?: import('./worldLife').March[];
+  lastDisaster?: { kind: import('./disasters').DisasterKind; tick: number; burnt?: [number, number][] };
   chronicles?: Chronicle[];
   yearStart?: YearStart;
   yearRaids?: { came: number; won: number; pillaged: number };

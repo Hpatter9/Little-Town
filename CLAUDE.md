@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.10.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.11.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2018,6 +2018,59 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   footpaths changed is painted again at most every `WEAR_REPAINT_MS` (1.5 s), one at a time; the old LPC frame is
   composed only until a person's Himeko look has drawn (mapPeople); the ground is its own Pixi render group. Walkers
   staggering their replanning was tried and dropped (it changed how lone towns grew).
+
+- **Gods and faith (the owner's pick):** `src/shared/data/gods.ts` and `src/shared/sim/faith.ts`. Every people keeps four
+  gods (`PANTHEONS`, one for each `Domain`: harvest, hearth, war, sky; `DOMAIN_DEFS`: what pleases and angers them, what's
+  offered). `s.faith` (`FaithState`: favour -100..100 a god, the latest signs). Each morning (`faithHourly` at `FAITH_HOUR`,
+  autopilot on) every god's favour drifts toward nothing (`FAVOUR_DRIFT`), sinks `NEGLECT` with nowhere to worship, rises by
+  the places of worship standing (`WORSHIP`: wayside shrine, temple from Masonry, cathedral from Guilds; `FAITH_BUILDINGS`,
+  chained in UPGRADES; pictures the cave altar, the mage tower and the stone keep) and the pious (`PIOUS`); the town lays an
+  offering before the least pleased (`offer`, needs an altar) and keeps a rite every `RITE_EVERY_DAYS`. It raises its first
+  shrine itself at `SHRINE_PEOPLE` grown-ups (or when a god turns ugly) and rebuilds it grander with the makings twice over
+  (`buildForGods`; the planner's own loop leaves them alone: `NEVER`). A god at `BLESS_AT` may bless (a lever mark for a
+  day, a holy light: `god:bless` in spellLooks), at `WRATH_AT` strike (`smite`: blight on the fields, a sickness, arms
+  failing and raiders sooner, or lightning firing a roof and killing whoever it finds out of doors, `LIGHTNING_KILLS`).
+  Rolls are the seed's own. The Town menu's **Faith** tab (`panel/faithPanel.ts`: the gods with favour bars, tap for what
+  they want; the signs) and a Gods tile on the overview (`snapshot.faith`). Tests: `test/faith.test.ts`.
+
+- **Natural disasters on the map (the owner's pick):** `src/shared/sim/disasters.ts` (beside the old unseen dooms of
+  doom.ts). From day `DISASTER_FIRST_DAY` (5), one every `DISASTER_EVERY` (6 to 10) days (`s.nextDisaster`; autopilot on;
+  the seed's own rolls), of what the land and season allow (`possible`): a **flood** climbs out of the river or sea a ring
+  of cells an hour (`floodRise`, `FLOOD_RINGS`, one fewer once the sandbags are up), spoiling the fields' crops, a share
+  of the stores and of the herds, and drowning who it rises over (`FLOOD_DROWNS`; never a swimmer or the dead), lying
+  `FLOOD_HOURS`; a **wildfire** runs through the woods a cell an hour (`fireSpread`, `FIRE_SPREAD`, less in rain and with a
+  firebreak), burning them to grass that grows back (`noteCleared`), catching what stands beside it (`setFire`) and
+  whoever's in it; a **tornado** crosses the town in `TORNADO_TICKS` along `Disaster.path`, felling what it passes
+  (`TORNADO_FELLS`, `demolish`) and throwing people (`TORNADO_KILLS`); an **earthquake** shakes (`s.bossShake`: the
+  screen shakes), brings buildings down (`QUAKE_FELLS`, half with Masonry) and crushes the unlucky, with aftershocks for
+  `QUAKE_HOURS`. Never the seat, a castle room or the fire. The town's crew goes to it (`crew`: the events' `s.busy`,
+  sandbags at the shore or a firebreak at the woods). Drawn by `map/mapDisaster.ts` (`snapshot.disaster`,
+  `DisasterView`): flood water rippling over the cells, the Fields pack's campfire frames as flames on the woods alight
+  (in `over`), scorch and ash fading over two days (`s.lastDisaster`); the tornado and the dust are spell looks
+  (`disaster:tornado`, `disaster:dust`). Tests: `test/disasters.test.ts`.
+
+- **The living world map (the owner's pick):** `src/shared/sim/worldLife.ts`. The realm goes on beyond the town:
+  `s.feuds` (two powers fallen out: `FEUD_START` a hundred mornings, at most `FEUDS_MOST`, ending on `FEUD_END`) and
+  `s.marches` (`worldHourly` at `WORLD_HOUR`, autopilot on): each feud sends a host from one stronghold on the other
+  (`MARCH_HOURS`), and the loser of the strike loses `STRIKE_LOSS` of its troops and half that of its town; a power in
+  trade or alliance sends the day's caravan down the road (`TRADE_HOURS`), which the Red Brotherhood may rob
+  (`ROAD_ROBBED`, half with two guards or more). A power at feud musters hosts against the town half as often. Realm
+  news goes to the Journal. `snapshot.world` (`worldView`: the marches, a war host coming for the town placed by its
+  arrival over `HOST_WARNING_HOURS`, an envoy riding in, the feuds) is drawn on the Expeditions world map
+  (worldMapView.ts: tokens along the roads, `.map-march`, the host's road dashed red, crossed swords between powers at
+  feud, `.map-feud`) with a line of the news under it. Tests: `test/worldLife.test.ts`.
+
+- **Dynasties and legacy (the owner's pick):** `src/shared/sim/legacy.ts` and `src/renderer/legends.ts`. When a new
+  town is founded over an old one that stood at least `LEGEND_LEAST_HOURS` (fallen, won or set aside), the phone page
+  (mobileBridge.ts `newGame`) keeps it as a **legend** (`legendOf`: the founder, people, age, the dead, its fate, its
+  three greatest heroes living or fallen, an heirloom (a unique held, else the founder's weapon), renown, the
+  generation and the line) in `localStorage` (`littletown.legends`, the last 40). The New Town screen's last step has
+  **The founder's line** (newGamePanel.ts `lineage`: a new line, or a descendant of a legend; `heir` in the options,
+  read by the bridge): `inherit` gives the heirloom into the stores, `INHERIT_COINS` a generation, `INHERIT_RENOWN` of the
+  old renown to the venues, a proud mark, and `s.lineage` (the line's name, its generation). The Chronicle's **Legends**
+  tab is the Hall of Legends (`panel/legendsPanel.ts`, each card opening on its heroes). The desktop app keeps no
+  legends yet. Tests: `test/legacy.test.ts`.
+- **Previews:** `window.__disaster(kind)` starts a disaster (mobileBridge.ts), beside `__raid`.
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

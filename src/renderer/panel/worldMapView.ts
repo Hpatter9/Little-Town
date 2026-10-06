@@ -5,7 +5,7 @@
 import { MAP_HOME, MAP_SIZE, MAP_SPOTS } from '../../shared/data/worldMap';
 import { STRONGHOLD_SPOTS } from '../../shared/data/factions';
 import { regionScouted, REGIONS } from '../../shared/data/regions';
-import type { ExpeditionView } from '../../shared/sim/snapshot';
+import type { ExpeditionView, Snapshot } from '../../shared/sim/snapshot';
 import { tripProgress } from '../../shared/format';
 import { el } from './dom';
 
@@ -44,8 +44,8 @@ export class WorldMapView {
     this.el.append(this.svg, this.marks);
   }
 
-  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = []): void {
-    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds]);
+  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = [], world?: Snapshot['world']): void {
+    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)])]);
     if (key === this.key) return;
     this.key = key;
     this.svg.replaceChildren();
@@ -99,6 +99,32 @@ export class WorldMapView {
       if (h.assault) m.addEventListener('click', () => this.onPick(h.assault!));
       const name = h.stronghold.charAt(0).toUpperCase() + h.stronghold.slice(1);
       this.marks.append(m, label(h.stance === 'destroyed' ? name : `${name} · ${h.size}`, { x: at.x, y: at.y + 6 + h.tier }, `hold ${h.stance}`));
+    }
+
+    // the realm on the move (sim/worldLife.ts): a feud's crossed swords between two strongholds, hosts and caravans along
+    // the roads, a war host coming for the town (its road drawn red), an envoy riding in
+    for (const f of world?.feuds ?? []) {
+      const m = el('div', 'map-feud', '⚔');
+      m.title = `${f.a} and ${f.b} are at war`;
+      place(m, f.at);
+      this.marks.append(m);
+    }
+    for (const m of world?.marches ?? []) {
+      if (m.kind === 'host' || m.kind === 'feud') {
+        const line = document.createElementNS(SVG, 'line');
+        line.setAttribute('x1', String(m.from.x));
+        line.setAttribute('y1', String(m.from.y));
+        line.setAttribute('x2', String(m.to.x));
+        line.setAttribute('y2', String(m.to.y));
+        line.setAttribute('class', `map-route ${m.kind}`);
+        this.svg.append(line);
+      }
+      const at = { x: m.from.x + (m.to.x - m.from.x) * m.t, y: m.from.y + (m.to.y - m.from.y) * m.t };
+      const tok = el('div', `map-march ${m.kind}`, m.kind === 'trade' ? '🐫' : m.kind === 'envoy' ? '✉' : String(m.size));
+      tok.title = m.label;
+      tok.setAttribute('aria-label', m.label);
+      place(tok, at);
+      this.marks.append(tok);
     }
 
     const home = el('div', 'map-home');

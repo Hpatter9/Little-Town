@@ -1,6 +1,9 @@
 // The phone (web) version's stand-in for the desktop app's main process: it runs the game loop in the page,
 // keeps the town in the browser's storage, and catches up on the time the app was closed or in the background.
 
+import { startDisaster, type DisasterKind } from '../../shared/sim/disasters';
+import { inherit, legendOf } from '../../shared/sim/legacy';
+import { keepLegend, readLegends } from '../legends';
 import { type AlertSettings, type Bridge, type InspectInfo, type StripState } from '../../shared/ipc';
 import { AHEAD_TICKS, cancelAlerts, cleanAlerts, scheduleAlerts, startForecast, testAlert, type Ahead, type ForecastJob } from '../../shared/alerts';
 import { GameLoop } from '../../shared/gameLoop';
@@ -127,7 +130,7 @@ export function mobileBridge(): Bridge {
   });
   window.addEventListener('pagehide', saveNow);
   // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga, `__hunt(id)` posts a hunt and `__raid(kind)` starts a raid, for previews)
-  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)) });
+  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)), __disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind) });
   function stateOf(): GameState {
     return (game as unknown as { sim: { state: GameState } }).sim.state;
   }
@@ -193,7 +196,14 @@ export function mobileBridge(): Bridge {
       // the old town is kept as the one backup (unless it was ironman), then the page starts over on the new one
       const old = read(SAVE_KEY);
       if (old && !game.state.ironman && game.state.tick >= TICKS_PER_HOUR) write(BACKUP_KEY, old); // (a town only just begun isn't kept)
-      write(SAVE_KEY, serialize(newGame(randomSeed(), opts), Date.now()));
+      // the old town becomes a legend, and the new founder may be of its line (or another's: sim/legacy.ts)
+      const legend = game.catchingUp ? null : legendOf(game.state, Date.now());
+      if (legend) keepLegend(legend);
+      const town = newGame(randomSeed(), opts);
+      const heir = (raw as { heir?: unknown }).heir;
+      const line = typeof heir === 'string' ? readLegends().find((l) => l.id === heir) : undefined;
+      if (line) inherit(town, line);
+      write(SAVE_KEY, serialize(town, Date.now()));
       leaving = true;
       location.reload();
     },

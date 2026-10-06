@@ -85,6 +85,10 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
   tile('Workshops', `${s.crafting.length}`, `of ${s.craftSlots} orders`, ['trade', 'Workshops']);
   tile('Trips', `${s.expeditions.length}`, s.expeditions.length ? 'parties out' : 'nobody away', ['expeditions', s.expeditions.length ? 'Parties' : 'Places']);
   if (s.shop || s.tavern || s.stores.length) tile('Shops', `${[s.shop, s.tavern, ...s.stores].filter(Boolean).length}`, 'open for trade', ['trade', 'Shops']);
+  if (s.faith.on) {
+    const worst = [...s.faith.gods].sort((a, b) => a.favour - b.favour)[0];
+    if (worst) tile('Gods', worst.mood === 'wrathful' ? 'Wrathful' : worst.favour < 0 ? 'Uneasy' : 'At peace', worst.favour < 0 ? `${worst.name} is ${worst.mood}` : 'all four content', ['build', 'Faith'], worst.mood === 'wrathful');
+  }
   tile('Age', ERA_NAMES[s.era], `Year ${c.year}, ${c.season} day ${c.dayOfSeason}`, ['research', 'Tech tree']);
   return [el('h2', '', 'At a glance'), grid, el('div', 'hint', 'Tap a tile to go to it.')];
 }

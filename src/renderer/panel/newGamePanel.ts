@@ -3,6 +3,8 @@
 // where, how dangerous the world is, and last the rules and the Found button. Back and Next move between the steps,
 // and the dots show how far along. Opened from the tray's "New game…", the game-over card, and on a first run.
 
+import { readLegends } from '../legends';
+import { legendCard } from './legendsPanel';
 import { hkDraw, hkLayers, hkWhoOfLook, onHkLoad } from '../art/hkFolk';
 import { FOUNDER_CLASS } from '../../shared/data/founderClasses';
 import type { Bridge } from '../../shared/ipc';
@@ -27,6 +29,8 @@ let pick = FOUNDERS.settlers[0].id;
 let biome: Biome = 'forest';
 let difficulty: Difficulty = 'normal';
 let ironman = false;
+/** The legend the founder descends from (sim/legacy.ts), or null for a new line. */
+let heir: string | null = null;
 /** The step showing (kept while the panel re-renders; back to the first once a town is founded). */
 let step = 0;
 /** Back to the first question (the panel opened afresh: panel.ts). */
@@ -164,7 +168,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     else if (step === 2) page.push(scenarios);
     else if (step === 3) page.push(biomes);
     else if (step === 4) page.push(dangers);
-    else page.push(summary(), el('h3', 'newgame-head', 'Rules'), iron, ...warning);
+    else page.push(summary(), ...lineage(draw), el('h3', 'newgame-head', 'Rules'), iron, ...warning);
     const dots = el('div', 'wizard-dots');
     STEPS.forEach((_, i) => {
       const d = el('button', `wizard-dot${i === step ? ' on' : i < step ? ' done' : ''}`);
@@ -203,7 +207,18 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
 
 function choices() {
   const f: FounderSpec = { pick, background: FOUNDER_BY_ID[pick].background.id, traits: [], ...(name.trim() ? { name: name.trim() } : {}) };
-  return { biome, difficulty, ironman, scenario, origin, founder: f };
+  return { biome, difficulty, ironman, scenario, origin, founder: f, ...(heir ? { heir } : {}) };
+}
+
+/** The founder's line: a new one, or a descendant of a town gone by (the Hall of Legends: legendsPanel.ts). */
+function lineage(redraw: () => void): HTMLElement[] {
+  const all = readLegends().reverse().slice(0, 8);
+  if (!all.length) return [];
+  if (heir && !all.some((l) => l.id === heir)) heir = null;
+  const cards = el('div', 'cards');
+  cards.append(pickCard(!heir, 'A new line', 'The founder owes nothing to anyone.', () => ((heir = null), redraw())));
+  for (const l of all) cards.append(legendCard(l, heir === l.id, () => ((heir = l.id), redraw())));
+  return [el('h3', 'newgame-head', "The founder's line"), el('div', 'hint', 'A descendant inherits the heirloom, some coin and renown, and the town remembers the line.'), cards];
 }
 
 function pickCard(on: boolean, name: string, text: string, onClick: () => void): HTMLElement {

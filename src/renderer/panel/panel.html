@@ -1291,6 +1291,28 @@
         background: #a83a2a;
         border-color: #ffc0a0;
       }
+      .map-march {
+        position: absolute;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 3px;
+        transform: translate(-50%, -50%);
+        border-radius: 8px;
+        background: #6a5a3a;
+        border: 1px solid #f0d8a0;
+        color: #fff;
+        font-size: 10px;
+        line-height: 15px;
+        text-align: center;
+        pointer-events: none;
+      }
+      .map-march.host { background: #8a2a1a; border-color: #ffb090; font-weight: bold; }
+      .map-march.feud { background: #5a3a6a; border-color: #d8b0f0; }
+      .map-march.trade, .map-march.envoy { background: transparent; border: none; font-size: 14px; }
+      .map-feud { position: absolute; transform: translate(-50%, -50%); font-size: 14px; color: #ff8070; text-shadow: 0 0 3px #000; pointer-events: none; }
+      .map-route.host { stroke: #d04030; stroke-dasharray: 5 4; stroke-width: 2.5; }
+      .map-route.feud { stroke: #a070c0; stroke-dasharray: 3 4; stroke-width: 1.5; }
+      .world-news { margin: -4px 0 8px; }
       .map-hint {
         text-align: center;
         margin-bottom: 8px;
@@ -2071,6 +2093,14 @@
       /* the Town's overview: a tile a figure, each a tap through to where it goes on (townOverview.ts) */
       .glance { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin: 4px 0 6px; }
       .glance-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 9px; text-align: left; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.05); color: inherit; font: inherit; cursor: pointer; min-height: 58px; }
+      .favour { position: relative; height: 6px; margin-top: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+      .favour::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.4); }
+      .favour-fill { position: absolute; top: 0; bottom: 0; }
+      .favour-fill.up { background: #d8b440; }
+      .favour-fill.down { background: #b04030; }
+      .sign { font-size: 0.9em; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+      .sign.wrath { color: #e89a80; }
+      .sign.bless { color: #f0d890; }
       .glance-tile:active { background: rgba(255, 255, 255, 0.12); }
       .glance-tile.warn { border-color: #c0503a; background: rgba(192, 80, 58, 0.18); }
       .glance-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.7; }
