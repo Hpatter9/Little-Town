@@ -791,6 +791,7 @@ export class MapView {
       for (const e of packDressing(b.def, b.id, f.w, this.style)) {
         const sp = this.things.addChild(new Sprite(e.texture));
         sp.position.set(Math.round(x0 + e.dx), Math.round(y0 + e.dy - e.h));
+        if (e.tint !== undefined) sp.tint = e.tint;
         sp.zIndex = y0 + e.dy + 0.2;
         (d.extras ??= []).push(sp);
       }

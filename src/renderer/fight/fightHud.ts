@@ -4,6 +4,7 @@
 
 import type { ExpeditionView, MineView } from '../../shared/sim/snapshot';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
+import { fightShare, tripLabel, tripShare } from './progress';
 
 export interface FightHud {
   update(v: ExpeditionView | null): void;
@@ -53,8 +54,45 @@ export function createFightHud(on: { back(): void }): FightHud {
   result.id = 'fight-result';
   result.className = 'ff-window';
   result.hidden = true;
-  document.body.append(top, banner, leave, result, bottom);
-  top.hidden = bottom.hidden = true;
+  // the progress bars: the whole trip (out, there, home; a delve by its rooms), and in a fight the foes' health gone
+  const progress = document.createElement('div');
+  progress.id = 'fight-progress';
+  const tripRow = document.createElement('div');
+  tripRow.className = 'fp-row';
+  const tripBar = document.createElement('div');
+  tripBar.className = 'fp-bar trip';
+  const tripFill = document.createElement('i');
+  tripBar.append(tripFill, document.createElement('b'), document.createElement('b'));
+  const tripText = document.createElement('span');
+  tripText.className = 'fp-text';
+  tripRow.append(tripBar, tripText);
+  const fightRow = document.createElement('div');
+  fightRow.className = 'fp-row';
+  const fightBar = document.createElement('div');
+  fightBar.className = 'fp-bar fight';
+  const fightFill = document.createElement('i');
+  fightBar.append(fightFill);
+  const fightText = document.createElement('span');
+  fightText.className = 'fp-text';
+  fightRow.append(fightBar, fightText);
+  progress.append(tripRow, fightRow);
+  document.body.append(top, progress, banner, leave, result, bottom);
+  top.hidden = bottom.hidden = progress.hidden = true;
+  /** The bars, under the top window (or at the top in a fight, beside the corner button). */
+  const showProgress = (v: ExpeditionView, fight: ExpeditionView['battle']) => {
+    progress.hidden = false;
+    progress.classList.toggle('in-fight', !!fight);
+    progress.style.top = `${top.hidden ? 6 : Math.round(top.getBoundingClientRect().bottom) + 4}px`;
+    tripFill.style.width = `${Math.round(tripShare(v) * 100)}%`;
+    tripText.textContent = tripLabel(v, v.destName);
+    fightRow.hidden = !fight;
+    if (fight) {
+      const foesOf = fight.filter((f) => f.side === 'enemy');
+      const share = fightShare(foesOf, v.assault?.wave ?? 0, v.assault?.total ?? 0);
+      fightFill.style.width = `${Math.round(share * 100)}%`;
+      fightText.textContent = v.assault && v.assault.total > 1 ? `Wave ${v.assault.wave} of ${v.assault.total} · ${Math.round(share * 100)}%` : `Foes beaten · ${Math.round(share * 100)}%`;
+    }
+  };
 
   let resultKey = '';
   /** The victory screen, built once per fight and shown while the result is fresh. */
@@ -141,6 +179,7 @@ export function createFightHud(on: { back(): void }): FightHud {
         return;
       }
       document.body.classList.add('in-fight');
+      progress.hidden = true;
       top.classList.add('mine');
       top.hidden = false;
       bottom.hidden = true;
@@ -156,7 +195,7 @@ export function createFightHud(on: { back(): void }): FightHud {
     insets() {
       // (in a fight the top window gives way to the corner button, but the party's window along the bottom stays: the
       // scene must stand above it, or the fighters stand behind it)
-      const t = top.hidden ? 0 : Math.round(top.getBoundingClientRect().bottom);
+      const t = Math.max(top.hidden ? 0 : Math.round(top.getBoundingClientRect().bottom), progress.hidden ? 0 : Math.round(progress.getBoundingClientRect().bottom));
       const b = bottom.hidden ? 0 : Math.round(window.innerHeight - bottom.getBoundingClientRect().top);
       return [t, b];
     },
@@ -165,11 +204,13 @@ export function createFightHud(on: { back(): void }): FightHud {
       top.hidden = bottom.hidden = !v;
       if (!v) {
         leave.hidden = true;
+        progress.hidden = true;
         return;
       }
       const fight = v.battle?.length ? v.battle : null;
       top.hidden = !!fight;
       leave.hidden = !fight;
+      showProgress(v, fight);
       showResult(v.result);
       // the latest action, held a moment; else where they are
       const act = v.acts.find((a) => a.age < 25);

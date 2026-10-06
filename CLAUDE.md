@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.6.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.7.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -1786,6 +1786,23 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   from the third stage keeps to the bear). `PersonView.beast` and the fight's `FighterView.beast` carry the form
   (sheet, block, scale) to mapPeople and fightView. Twenty skills (`howl`, `savage_roar`, the ultimate
   `primal_fury`...). Test in `test/shapeshift.test.ts`.
+- **Progress bars over watched trips and fights (the owner's ask):** `src/renderer/fight/progress.ts` (no DOM: `tripShare`,
+  `tripLabel`, `fightShare`, `raidShare`). The fight screen (`#fight-progress` in fightHud.ts, under the top window or,
+  in a fight, at the top beside the ✕) has a gold bar for the whole trip (a third out, a third there with a delve by its
+  rooms, a third home; marks at the thirds) with where they are and the share, and in a fight a red bar of the foes'
+  health gone (an assault counts the waves before as done: "Wave 2 of 5 · 40%"); hidden in a mine. The raid's battle
+  bar (battleHud.ts, `.battle-progress`) shows the raiders beaten (green) and got through (red) of all that came
+  (`BattleView.total`). The world map's stronghold labels are capitalised and the crowded ones spread
+  (`STRONGHOLD_SPOTS`). Test: `test/progress.test.ts`.
+- **Shop exteriors reworked (the owner's ask):** the small shop picture (`art/shops/gb_shop.png`) was cropped with its
+  gable floating above its walls and a loose chimney beside it; it is recut from the Glassblower pack's sheet with the
+  gable set on the walls (110x98). The trading post is an open market stall: the pack's red canopy (`gb_canopy.png`,
+  cut by its connected pixels) over crates and sacks. Every venue has a **storefront** in every look (`STOREFRONT` in
+  packBuildings.ts, drawn by `packDressing` right of the door, beside the banner): the pack's cloth awning tinted to the
+  shop's colours (`Dressing.tint`, set on the sprite in mapView) over the goods of its trade: crates and sacks (general
+  store), crates, a vase and barrels (emporium), chairs (furniture maker), the weapon rack and anvil (weapons), a helm and
+  a chest (armour), a shelf of jars and a potted plant (apothecary), a bench and barrel (tavern), a barrel (inn), a
+  wheelbarrow (trading post). The other peoples' looks keep their own buildings with the same storefronts.
 - **Allies keep their colours:** summoned, tamed and allied fighters were washed green all over on the map, the fight
   screen and the expedition pane (a summoned wolf read as a stray green monster); now an ally on the map has a green
   glow underfoot and a green health bar instead (mapRaiders.ts).

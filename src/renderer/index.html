@@ -397,6 +397,31 @@
         font-size: 12px;
         color: var(--text-dim);
       }
+      /* (how much of the raid is decided: beaten in green, got through in red; a line of its own) */
+      #battle-top .battle-progress {
+        flex: 1 0 100%;
+        order: 2;
+        display: flex;
+        height: 5px;
+        border-radius: 3px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.14);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+      }
+      #battle-top .battle-progress i {
+        display: block;
+        height: 100%;
+        transition: width 0.3s;
+      }
+      #battle-top .battle-progress .beaten {
+        background: #6cc04a;
+      }
+      #battle-top .battle-progress .past {
+        background: #d0503a;
+      }
+      #battle-top .battle-row {
+        order: 3;
+      }
       #battle-top .battle-row {
         display: flex;
         gap: 6px;
@@ -789,6 +814,72 @@
         100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
       }
       /* the small corner button out of a fight */
+      /* the trip's and the fight's progress (fightHud.ts): under the top window, or at the top in a fight */
+      #fight-progress {
+        position: absolute;
+        left: 6px;
+        right: 6px;
+        z-index: 6;
+        zoom: var(--ui-zoom, 1);
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      #fight-progress[hidden],
+      #fight-progress .fp-row[hidden] {
+        display: none;
+      }
+      #fight-progress.in-fight {
+        right: 42px; /* (the corner button) */
+      }
+      #fight-progress .fp-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #fight-progress .fp-bar {
+        position: relative;
+        flex: 1 1 auto;
+        height: 7px;
+        border: 1px solid #e8e8f0;
+        border-radius: 4px;
+        background: #10186a;
+        overflow: hidden;
+      }
+      #fight-progress .fp-bar i {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        background: linear-gradient(180deg, #ffe680, #e0a030);
+        transition: width 0.4s;
+      }
+      #fight-progress .fp-bar.fight i {
+        background: linear-gradient(180deg, #ff8a70, #c03020);
+      }
+      /* (the trip's marks: there at a third, home at two) */
+      #fight-progress .fp-bar.trip b {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: rgba(255, 255, 255, 0.55);
+        left: 33.3%;
+      }
+      #fight-progress .fp-bar.trip b + b {
+        left: 66.6%;
+      }
+      #fight-progress .fp-text {
+        flex: none;
+        max-width: 55%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+        color: #fff;
+        text-shadow: 0 1px 2px #000;
+      }
       #fight-leave {
         position: absolute;
         top: 6px;
