@@ -2071,6 +2071,14 @@
       /* the Town's overview: a tile a figure, each a tap through to where it goes on (townOverview.ts) */
       .glance { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin: 4px 0 6px; }
       .glance-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 9px; text-align: left; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.05); color: inherit; font: inherit; cursor: pointer; min-height: 58px; }
+      .favour { position: relative; height: 6px; margin-top: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+      .favour::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.4); }
+      .favour-fill { position: absolute; top: 0; bottom: 0; }
+      .favour-fill.up { background: #d8b440; }
+      .favour-fill.down { background: #b04030; }
+      .sign { font-size: 0.9em; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+      .sign.wrath { color: #e89a80; }
+      .sign.bless { color: #f0d890; }
       .glance-tile:active { background: rgba(255, 255, 255, 0.12); }
       .glance-tile.warn { border-color: #c0503a; background: rgba(192, 80, 58, 0.18); }
       .glance-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.7; }

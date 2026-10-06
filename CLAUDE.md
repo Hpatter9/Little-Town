@@ -2019,6 +2019,20 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   composed only until a person's Himeko look has drawn (mapPeople); the ground is its own Pixi render group. Walkers
   staggering their replanning was tried and dropped (it changed how lone towns grew).
 
+- **Gods and faith (the owner's pick):** `src/shared/data/gods.ts` and `src/shared/sim/faith.ts`. Every people keeps four
+  gods (`PANTHEONS`, one for each `Domain`: harvest, hearth, war, sky; `DOMAIN_DEFS`: what pleases and angers them, what's
+  offered). `s.faith` (`FaithState`: favour -100..100 a god, the latest signs). Each morning (`faithHourly` at `FAITH_HOUR`,
+  autopilot on) every god's favour drifts toward nothing (`FAVOUR_DRIFT`), sinks `NEGLECT` with nowhere to worship, rises by
+  the places of worship standing (`WORSHIP`: wayside shrine, temple from Masonry, cathedral from Guilds; `FAITH_BUILDINGS`,
+  chained in UPGRADES; pictures the cave altar, the mage tower and the stone keep) and the pious (`PIOUS`); the town lays an
+  offering before the least pleased (`offer`, needs an altar) and keeps a rite every `RITE_EVERY_DAYS`. It raises its first
+  shrine itself at `SHRINE_PEOPLE` grown-ups (or when a god turns ugly) and rebuilds it grander with the makings twice over
+  (`buildForGods`; the planner's own loop leaves them alone: `NEVER`). A god at `BLESS_AT` may bless (a lever mark for a
+  day, a holy light: `god:bless` in spellLooks), at `WRATH_AT` strike (`smite`: blight on the fields, a sickness, arms
+  failing and raiders sooner, or lightning firing a roof and killing whoever it finds out of doors, `LIGHTNING_KILLS`).
+  Rolls are the seed's own. The Town menu's **Faith** tab (`panel/faithPanel.ts`: the gods with favour bars, tap for what
+  they want; the signs) and a Gods tile on the overview (`snapshot.faith`). Tests: `test/faith.test.ts`.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

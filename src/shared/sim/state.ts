@@ -979,6 +979,8 @@ export interface GameState {
   raidRecap?: RaidRecap;
   /** The annals (sim/annals.ts): the fallen, the year's chronicles, and the year being reckoned. */
   fallen?: Fallen[];
+  /** The town's gods: their favour and the latest signs (sim/faith.ts). */
+  faith?: import('./faith').FaithState;
   chronicles?: Chronicle[];
   yearStart?: YearStart;
   yearRaids?: { came: number; won: number; pillaged: number };

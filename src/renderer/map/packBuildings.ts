@@ -374,6 +374,10 @@ const PICKS: Record<string, Pick> = {
   deep_mine: { url: caveGate, overhang: 0 },
   // the shrine is the cave pack's skull altar; the phylactery its crystal (green for the liches)
   resurrection_shrine: { url: caveAltar, overhang: 0 },
+  // the gods' houses (data/gods.ts): the altar, the crystal tower, the great stone keep
+  wayside_shrine: { url: caveAltar, overhang: 0 },
+  temple: { url: suMageTower, overhang: 4 },
+  cathedral: { url: suCastle, overhang: 4 },
   phylactery: { url: caveCrystal, overhang: 0, variants: [{ styles: ['lich'], pick: { url: caveGem, overhang: 0 } }] },
   // the stable: a fence with the cart by it; the school and scriptorium from the dungeon props' furniture
   stable: { parts: [[fence1, 2, 0], [fence1, 34, 0], [fence1, 66, 0], [fence1, 98, 0], [fence9, 0, 8], [fence9, 124, 8], [vCart2, 72, 14], [fLog1, 8, 26]], size: [130, 52], overhang: 0 },

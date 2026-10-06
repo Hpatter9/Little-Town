@@ -41,6 +41,10 @@ const ACID = 0x90f040;
 const SAND = 0xd8c890;
 
 export const LOOKS: Record<string, Look> = {
+  // the gods' signs (sim/faith.ts)
+  'god:bless': { sprite: 'holy', kind: 'sparkle', color: GOLD },
+  'god:lightning': { sprite: 'shock', kind: 'bolt', color: 0xe8f0ff },
+  'god:blight': { sprite: 'dark_flames', kind: 'fog', color: 0x6a5a20 },
   // the town's own powers
   'town:raise_dead': { sprite: 'conjure', kind: 'rise', color: GREEN_DEAD },
   'town:bone_ward': { sprite: 'parry', kind: 'dome', color: BONE },
