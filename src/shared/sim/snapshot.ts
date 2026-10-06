@@ -22,7 +22,7 @@ import { bossName, delveRoomTicks, quietHours } from './delves';
 import { HOME_REGION } from '../data/regions';
 import type { Biome } from '../data/biomes';
 import type { ClassId } from '../data/classes';
-import { levelOf, stageOf } from '../data/levels';
+import { levelOf, shapeshifts, stageOf } from '../data/levels';
 import { callingName, callingText } from '../data/founderClasses';
 import { personFighter, weaponRange } from './combat';
 import { kitOf } from './actions';
@@ -131,6 +131,8 @@ export interface PersonView {
   sinceBlow: number;
   /** Under arms in a raid (the defend task): a fighting calling keeps its combat form the whole fight. */
   defending: boolean;
+  /** A shapeshifter (a druid from the third stage): a bear when they fight. */
+  beast: boolean;
   sinceBlock: number;
   /** Their class (none yet: a child, or not given one yet), its name at their stage, their level and the way to the next. */
   cls: ClassId | null;
@@ -298,6 +300,8 @@ export interface FighterView {
   elite: string | null;
   /** A party member who is a werewolf (drawn in wolf form as they fight), or one of the raised dead (a skeleton). */
   wolf: boolean;
+  /** A shapeshifter in bear form. */
+  beast?: boolean;
   undead: boolean;
 }
 
@@ -1276,6 +1280,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     sinceBlow: s.tick - (p.lastBlow ?? -999),
     sinceBlock: s.tick - (p.lastBlock ?? -999),
     defending: !!s.raid && p.task?.type === 'defend',
+    beast: shapeshifts(p),
     mounted: null,
     cls: p.cls ?? null,
     // (a special newcomer's calling is part of their secret until it's out)
@@ -1544,6 +1549,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
           clsName: f.side === 'party' ? ((q) => (q ? callingName(q, stageOf(q)) : null))(s.people.find((p) => p.id === f.ref)) : null,
           cls: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.cls ?? null) : null,
           wolf: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'werewolf',
+          beast: f.side === 'party' && ((q) => !!q && shapeshifts(q))(s.people.find((p) => p.id === f.ref)),
           undead: f.side === 'party' && s.people.find((p) => p.id === f.ref)?.monster === 'undead',
           level: f.side === 'party' ? (s.people.find((p) => p.id === f.ref)?.level ?? 1) : null,
           pop: f.pop ? { age: e.battle!.tick - f.pop.tick, amount: f.pop.amount, heal: f.pop.heal } : null,

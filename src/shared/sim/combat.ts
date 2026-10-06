@@ -6,7 +6,7 @@
 import { injuryFight } from './injuries';
 import type { EliteAffix } from '../data/dungeons';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, castsMagic, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
-import { classStat, levelPower } from '../data/levels';
+import { BEAST_ARMOR, BEAST_DAMAGE, BEAST_HP, classStat, levelPower, shapeshifts } from '../data/levels';
 import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type ActMeta, type Arena, type Kit, type Statuses } from './actions';
 import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxManaOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs } from '../data/attributes';
 import { attributesOf } from './attributes';
@@ -180,15 +180,17 @@ const PERSON_INTERVAL = 1.2;
 export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo = 0): Fighter {
   const melee = p.skills.melee.level;
   const cls = p.cls ? CLASS_DEFS[p.cls] : undefined;
+  // (a shapeshifter fights as a beast: up close, with tooth and claw: data/levels.ts)
+  const beast = shapeshifts(p);
   // (a caster's aim is their study: their staff or their bare hands carry their spells)
-  const caster = cls?.role === 'caster' || cls?.role === 'healer';
+  const caster = !beast && (cls?.role === 'caster' || cls?.role === 'healer');
   const ranged = caster ? Math.max(p.skills.ranged.level, p.skills.research.level) : p.skills.ranged.level;
   const w = weaponOf(p);
   const weapon = w.def;
   const knife = p.gear.tool ? (ITEM_BY_ID[p.gear.tool]?.effects.damage ?? 0) : 0;
   const sling = !!weapon?.effects.ranged;
   // (a class that fights from range does, whatever they hold)
-  const useRanged = sling || row === 'back' || ranged > melee + 2 || !!cls?.ranged;
+  const useRanged = !beast && (sling || row === 'back' || ranged > melee + 2 || !!cls?.ranged);
   const skill = useRanged ? ranged : melee;
   // the weapon only helps in the way it's used
   const bonus = Math.round(useRanged ? (sling ? w.damage : 0) : sling || !weapon ? knife : w.damage);
@@ -205,12 +207,13 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
   const k = (caster ? classStat(p, 'power') : classStat(p, 'damage')) * levelPower(p) * attrK;
   // (and their wounds: a lost arm or a blind eye tells: sim/injuries.ts)
   const inj = injuryFight(p);
-  const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k * inj.damage), Math.round((base[1] + bonus + wolf) * k * inj.damage)];
+  const bk = beast ? BEAST_DAMAGE : 1;
+  const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k * inj.damage * bk), Math.round((base[1] + bonus + wolf) * k * inj.damage * bk)];
   const g = gearEffects(p);
   // (their skills: always-on passives, and the kit of spells and skills they use)
   const ps = passiveStats(p);
   const kit = role === 'porter' ? undefined : kitOf(p);
-  const most = Math.round(maxHp(p) * (1 + (ps.hp ?? 0) + over('vit') * VIT_HP));
+  const most = Math.round(maxHp(p) * (1 + (ps.hp ?? 0) + over('vit') * VIT_HP) * (beast ? BEAST_HP : 1));
   const wq = used ? w.quirks : NO_QUIRKS;
   const quirks: Quirks = {
     ...wq,
@@ -245,7 +248,7 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     lastAction: -99,
     lastHit: -99,
     attacks: 0,
-    armor: Math.min(0.7, g.armor + classStat(p, 'armor') + (ps.armor ?? 0)),
+    armor: Math.min(0.7, g.armor + classStat(p, 'armor') + (ps.armor ?? 0) + (beast ? BEAST_ARMOR : 0)),
     block: Math.min(0.6, g.block + (ps.block ?? 0)),
     beastDamage: g.beastDamage,
     quirks,

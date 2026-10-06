@@ -561,6 +561,18 @@ export class FightScene {
       s.position.set(Math.round(x - (size / 2) * sc * flip), Math.round(y - size * sc));
       return;
     }
+    // a shapeshifter (a druid from the third stage) fights as a bear
+    if (f.beast && !f.down) {
+      const facing = faceLeft ? 'left' : 'right';
+      s.texture = creatureFrame('bear', 5, facing, Math.floor(now / 160 + f.ref), acting, acting ? undefined : 'idle');
+      const size = creatureSize('bear');
+      const flip = creatureFlip('bear', facing);
+      const sc = 1.8 * k;
+      s.anchor.set(0);
+      s.scale.set(sc * flip, sc);
+      s.position.set(Math.round(x - ((size.w * sc) / 2) * flip), Math.round(y - size.h * sc));
+      return;
+    }
     // people
     const hs = unit ? (unit.sprite as HumanSprite) : null;
     const enemy = hs ? enemyLook(hs.people, f.ref) : null;
@@ -573,6 +585,9 @@ export class FightScene {
       const keys = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: true, activity: 'fight' });
       const [col, row] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now });
       if (hkSprite(s, keys, col, row, x, y, HK_HEIGHT)) return;
+      // (until the weapon's layer loads, the same person without it: never a stranger's figure)
+      const bare = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: false, activity: 'idle' });
+      if (hkSprite(s, bare, col, row, x, y, HK_HEIGHT)) return;
     }
     // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
     // (a werewolf fights in wolf form: the Craftpix werewolves, by who they are)

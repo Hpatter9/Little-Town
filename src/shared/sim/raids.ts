@@ -80,7 +80,7 @@ import { classesInRaid, summonForRaid } from './classes';
 import { bindTheDead, sicken } from './doom';
 import { bossArrives, bossBlow, bossesInRaid, bossSlain } from './bosses';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, castsFire, fightsFromRange } from '../data/classes';
-import { levelOf } from '../data/levels';
+import { levelOf, shapeshifts } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
 import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, meet, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood } from './state';
@@ -767,6 +767,7 @@ function mageFire(s: GameState, p: Person, rd: Raider, rng: Rng, mult: number, n
 /** How far a defender can strike from: thrown stones for the better throwers (and a mage's fire), fists and clubs otherwise. */
 export function defenderReach(p: Person): number {
   // (every calling that fights from afar, the casters and healers with the archers, keeps off the trail and shoots)
+  if (shapeshifts(p)) return MELEE_RANGE; // (a bear holds the trail)
   if (fightsFromRange(p.cls)) return THROW_RANGE;
   const sling = !!p.gear.weapon && !!ITEM_BY_ID[p.gear.weapon]?.effects.ranged;
   return sling || p.skills.ranged.level > p.skills.melee.level + 2 ? THROW_RANGE : MELEE_RANGE;

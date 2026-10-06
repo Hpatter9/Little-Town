@@ -1768,6 +1768,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Tests: `test/factions.test.ts`. Soak (3 towns each of settlers, knights and vampires, 20 days): no town lost, 1 to 5
   deaths, wars, peace, trade and a vassal; hosts of about 20 from day 11, growing with the power's troops.
 
+- **Nobody turns into someone else at a fight, the Shapeshifter shifts, no bundles overhead (the owner's asks):** in a
+  fight a townsperson's look gains their weapon's layer, and until it loaded the map fell back to an old Craftpix hero
+  sheet (a different character for a moment). Now the map tries the look without the weapon, then holds the last frame
+  drawn (`Drawn.hkLast` in mapPeople.ts), and the fight screen does the same. **Shapeshifters:** a druid from the third
+  stage (Shapeshifter, `STAGE_LEVELS[2]`) takes a bear's shape to fight (`shapeshifts` in data/levels.ts): melee
+  (`personFighter` drops the caster's range; `defenderReach` puts them on the trail), `BEAST_HP` 1.3, `BEAST_DAMAGE`
+  1.25, `BEAST_ARMOR` +0.1; drawn as the MV bear on the map (`BEAR_BLOCK`, `BEAR_K`, while in combat) and the fight
+  screen (`PersonView.beast`, `FighterView.beast`). Test: `test/shapeshift.test.ts`. What a townsperson carries is no
+  longer drawn as a bundle over their head (`d.load` hidden); it's in their pack.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

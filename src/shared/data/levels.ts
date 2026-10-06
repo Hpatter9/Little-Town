@@ -26,6 +26,13 @@ type Leveled = { cls?: ClassId | null; fcls?: string | null; level?: number; asc
 
 export const levelOf = (p: Leveled) => Math.max(1, Math.min(MAX_LEVEL, p.level ?? 1));
 
+/** A druid who has reached the Shapeshifter stage (the third) takes a bear's shape to fight: up close, tougher and
+ *  harder hitting (`BEAST_*`), drawn as the bear on the map and the fight screen. */
+export const shapeshifts = (p: Leveled & { cls?: string | null }) => p.cls === 'druid' && levelOf(p) >= STAGE_LEVELS[2];
+export const BEAST_HP = 1.3;
+export const BEAST_DAMAGE = 1.25;
+export const BEAST_ARMOR = 0.1;
+
 /** Which stage of their class someone is at (0 to 4), from their level. */
 export function stageOf(p: Leveled): number {
   const lv = levelOf(p);
