@@ -1896,6 +1896,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Who owns what, on the map (the owner's ask):** a finished building's tap card (main.ts) says whose it is ("Owned by
   Elka", else "The town's own (the treasury's)"; not for walls and fields), and a home who lives there, the renters
   marked, and its beds (`PersonView.bedId`).
+- **The wild grows back (the owner's ask):** `src/shared/sim/regrow.ts`. A wood, marsh or scrubby hill gathered bare
+  (`clearCell` → `noteCleared`) is remembered on `LandMap.regrow` (what it was, the tick it returns: `REGROW_DAYS`
+  forest 5, marsh 2, hill 3, spread ±40% by the cell) and `regrowHourly` grows it back with a fresh pool, unless it's
+  built on, a road, beside a building (the yards are kept) or still walked (a footpath showing): then it tries again a
+  day later. Rock and the mountain never grow back. Footpaths grass over twice as fast (`WEAR_DECAY` 2 an hour), so only
+  the ways in use stay worn. Test: `test/regrow.test.ts`.
 - **The annals: the year's chronicle and the hall of heroes (the owner's ask):** `src/shared/sim/annals.ts`. Everyone who
   dies is remembered (`recordFallen` from `killPerson`: `s.fallen`, name, day, cause, calling and level, titles, raiders
   felled, trips; up to `FALLEN_MOST`); each townsperson counts the raiders they struck the last blow on

@@ -28,7 +28,7 @@ export const WEAR_MAX = 60;
 export const WEAR_SHOW = 6;
 export const WEAR_FULL = 24;
 export const WEAR_STEP = 2;
-export const WEAR_DECAY = 1;
+export const WEAR_DECAY = 2;
 
 /** Beyond the open land, this many cells are seen dimly (the renderer's fog); past them, nothing. */
 export const FOG_BAND = 6;
@@ -58,6 +58,8 @@ export interface LandMap {
   /** Foot traffic, one character per cell: '0' plus how worn (up to `WEAR_MAX`). A worn footpath shows from
    *  `WEAR_SHOW`, fully at `WEAR_FULL`; every hour each cell grasses over by `WEAR_DECAY`. Absent until someone walks. */
   wear?: string;
+  /** Wild cells gathered bare and growing back (sim/regrow.ts): the cell, what it was, the tick it returns. */
+  regrow?: Record<number, [Ground, number]>;
 }
 
 export interface Rect {

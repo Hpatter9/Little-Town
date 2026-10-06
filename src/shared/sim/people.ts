@@ -2,6 +2,7 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { noteCleared } from './regrow';
 import { attending, festive, gatheringPlace } from './ceremonies';
 import { injuryPace } from './injuries';
 import { RESEARCH_PACE } from '../data/pace';
@@ -635,6 +636,7 @@ export function clearCell(s: GameState, i: number): void {
     setGround(s.land, c.x, c.y, 'hall');
     return;
   }
+  noteCleared(s, i, groundAt(s.land, c.x, c.y)); // (a wood or a thicket grows back, in time: sim/regrow.ts)
   setGround(s.land, c.x, c.y, s.biome === 'desert' ? 'sand' : 'grass');
 }
 
