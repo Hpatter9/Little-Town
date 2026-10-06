@@ -12,6 +12,7 @@ import { MapBoats } from './map/mapBoats';
 import { MapBirds } from './map/mapBirds';
 import { MapButterflies } from './map/mapButterflies';
 import { BloodPools } from './map/bloodPools';
+import { MapDisaster } from './map/mapDisaster';
 import { createBattleHud } from './battle/battleHud';
 import { createRaidRecap } from './battle/raidRecap';
 import { FightScene } from './fight/fightView';
@@ -204,6 +205,7 @@ async function start(): Promise<void> {
   (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
   (window as unknown as { __topDownArt?: typeof topDownArt }).__topDownArt = topDownArt; // (for previews: a gallery of the painted buildings)
   const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
+  const disaster = new MapDisaster(map.under, map.over); // (floods, wildfires and their ash: sim/disasters.ts)
   (window as unknown as { __pools?: BloodPools }).__pools = pools; // (for previews)
   const people = new MapPeople(map.things);
   people.lights = map.lights;
@@ -1089,6 +1091,7 @@ async function start(): Promise<void> {
     herds.update(next.buildings);
     boats.update(next.fleet, next.mooring);
     pools.sync(next.blood);
+    disaster.sync(next.disaster, next.land.w);
     map.festival.sync(next.gathering);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
@@ -1157,6 +1160,7 @@ async function start(): Promise<void> {
     butterflies.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());
     map.renderAir(ticker.deltaMS / 1000);
+    disaster.render(ticker.deltaMS / 1000);
     spells.render(performance.now());
     snow.render(performance.now(), ticker.deltaMS / 1000, w);
     leaves.render(performance.now(), ticker.deltaMS / 1000, w);

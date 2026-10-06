@@ -1,6 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
 import { faithView, type FaithView } from './faith';
+import { disasterView, type DisasterView } from './disasters';
 import { cellsOf } from './prisoners';
 import { patientsIn, sickbedsIn } from './sickbeds';
 import type { Chronicle, Fallen } from './annals';
@@ -681,6 +682,7 @@ export interface Snapshot {
    *  among the living. */
   annals: AnnalsView;
   faith: FaithView;
+  disaster: DisasterView | null;
   /** The Monster Hunters' Guild (sim/hunts.ts): whether it stands, its hunts, its forge, and hunts won. */
   hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
@@ -903,6 +905,7 @@ export function snapshot(s: GameState): Snapshot {
     met: s.met ?? [],
     annals: annalsView(s),
     faith: faithView(s),
+    disaster: disasterView(s),
     hunts: huntsView(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),

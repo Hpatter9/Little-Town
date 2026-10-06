@@ -3,6 +3,7 @@
 
 import { regrowHourly } from './regrow';
 import { faithHourly } from './faith';
+import { disastersTick } from './disasters';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -138,6 +139,7 @@ export class Sim {
     updateNomads(s);
     updateRaid(s, this.rng);
     updateFires(s, this.rng);
+    disastersTick(s); // (floods, wildfires, tornadoes, earthquakes: sim/disasters.ts)
     expirePrompts(s, this.rng);
     if (s.gameOver) return;
     for (const p of s.people) driftMorale(s, p);

@@ -45,6 +45,9 @@ export const LOOKS: Record<string, Look> = {
   'god:bless': { sprite: 'holy', kind: 'sparkle', color: GOLD },
   'god:lightning': { sprite: 'shock', kind: 'bolt', color: 0xe8f0ff },
   'god:blight': { sprite: 'dark_flames', kind: 'fog', color: 0x6a5a20 },
+  // natural disasters (sim/disasters.ts)
+  'disaster:tornado': { sprite: 'chaos_storm', kind: 'vortex', color: 0x9aa0a8 },
+  'disaster:dust': { sprite: 'spines', kind: 'fog', color: 0xa89878 },
   // the town's own powers
   'town:raise_dead': { sprite: 'conjure', kind: 'rise', color: GREEN_DEAD },
   'town:bone_ward': { sprite: 'parry', kind: 'dome', color: BONE },

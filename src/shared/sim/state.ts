@@ -981,6 +981,10 @@ export interface GameState {
   fallen?: Fallen[];
   /** The town's gods: their favour and the latest signs (sim/faith.ts). */
   faith?: import('./faith').FaithState;
+  /** A natural disaster under way on the map, when the next is due, and the last (for its ash: sim/disasters.ts). */
+  disaster?: import('./disasters').Disaster;
+  nextDisaster?: number;
+  lastDisaster?: { kind: import('./disasters').DisasterKind; tick: number; burnt?: [number, number][] };
   chronicles?: Chronicle[];
   yearStart?: YearStart;
   yearRaids?: { came: number; won: number; pillaged: number };

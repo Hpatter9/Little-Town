@@ -2033,6 +2033,22 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Rolls are the seed's own. The Town menu's **Faith** tab (`panel/faithPanel.ts`: the gods with favour bars, tap for what
   they want; the signs) and a Gods tile on the overview (`snapshot.faith`). Tests: `test/faith.test.ts`.
 
+- **Natural disasters on the map (the owner's pick):** `src/shared/sim/disasters.ts` (beside the old unseen dooms of
+  doom.ts). From day `DISASTER_FIRST_DAY` (5), one every `DISASTER_EVERY` (6 to 10) days (`s.nextDisaster`; autopilot on;
+  the seed's own rolls), of what the land and season allow (`possible`): a **flood** climbs out of the river or sea a ring
+  of cells an hour (`floodRise`, `FLOOD_RINGS`, one fewer once the sandbags are up), spoiling the fields' crops, a share
+  of the stores and of the herds, and drowning who it rises over (`FLOOD_DROWNS`; never a swimmer or the dead), lying
+  `FLOOD_HOURS`; a **wildfire** runs through the woods a cell an hour (`fireSpread`, `FIRE_SPREAD`, less in rain and with a
+  firebreak), burning them to grass that grows back (`noteCleared`), catching what stands beside it (`setFire`) and
+  whoever's in it; a **tornado** crosses the town in `TORNADO_TICKS` along `Disaster.path`, felling what it passes
+  (`TORNADO_FELLS`, `demolish`) and throwing people (`TORNADO_KILLS`); an **earthquake** shakes (`s.bossShake`: the
+  screen shakes), brings buildings down (`QUAKE_FELLS`, half with Masonry) and crushes the unlucky, with aftershocks for
+  `QUAKE_HOURS`. Never the seat, a castle room or the fire. The town's crew goes to it (`crew`: the events' `s.busy`,
+  sandbags at the shore or a firebreak at the woods). Drawn by `map/mapDisaster.ts` (`snapshot.disaster`,
+  `DisasterView`): flood water rippling over the cells, the Fields pack's campfire frames as flames on the woods alight
+  (in `over`), scorch and ash fading over two days (`s.lastDisaster`); the tornado and the dust are spell looks
+  (`disaster:tornado`, `disaster:dust`). Tests: `test/disasters.test.ts`.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's
