@@ -1840,6 +1840,22 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   blow from every placed fighter with it in their weapon's reach (`partingBlows` in battle.ts, through
   `defenderAttack`, so the recap credits it), as a fighter falling back already did. Probe (10 first raids): 8 of 24
   raiders felled where it was 2, deaths unchanged. Test in `test/battle.test.ts`.
+- **Prisons with cells, sickbeds for the hurt (the owner's ask):** `src/shared/data/prisons.ts`. **Prisons:** the line
+  stockade (3 cells, from the start) → gaol (8, Masonry, half the escapes) → prison (20, Sanitation, a quarter),
+  `BuildingDef.cells`/`escape`, chained in UPGRADES. A raider is taken alive only while a cell is free (`cellsOf` in
+  sim/prisoners.ts: the prisons' cells and a blood farm's; `takePrisoners` stops at the room left, and says so); each
+  prisoner's escape odds are those of the cell they hold, the best filled first (`escapeAt`; one with no cell
+  `NO_CELL_ESCAPE`). The planner lays a stockade once the town is 3 strong and has been raided or holds prisoners
+  (`wantPrison`, not the Court, whose farm has cells), leaves the line out of its "learned to build it" loop, and
+  rebuilds it as the next when the cells are nearly full (`planPrison`). Pictures: the Village pack's stakes and the
+  dungeon pack's stonework (`stockade`, `gaol`, `prison` in packBuildings.ts). **Sickbeds:** `SICKBEDS` (healer's hut
+  2, infirmary 4, hospital 8, trauma center 12) and `src/shared/sim/sickbeds.ts`: the downed and anyone under
+  `SICK_AT` (half) of their health go to a free one (`sickbedFor`; a `sleep` task with `sick`) and lie till `MENDED`
+  (0.85), getting up only to eat (`doSleep`); only those in a sickbed have the building's healing (`sickbedHealing`,
+  in `heal` with `SICKBED_REST` on top, and as `TENDED` for wounds in injuries.ts). The planner builds the best healing
+  building it can when the hurt outnumber the beds. The tap cards say the cells held and who lies in the sickbeds
+  (`snapshot.cells`, `.nursing`). Probe (4 settlers towns, 10 days): a stockade by days 2 to 3, prisoners taken, the
+  sickbeds used, 0 to 1 deaths. Tests: `test/prisonsAndSickbeds.test.ts`.
 - **No expedition pane beside the map (the owner's call: it didn't look good and didn't help):** `SHOW_PANE` in main.ts
   is off, so a party away is no longer drawn walking in a strip beside the zoomed-out map (`town/expeditionPane.ts`
   stays, unused); parties are watched full screen and listed on the feed and the Expeditions tab.

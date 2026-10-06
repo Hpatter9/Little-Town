@@ -2,6 +2,7 @@
 
 import { mournFor } from './ceremonies';
 import { recordFallen } from './annals';
+import { sickbedHealing } from './sickbeds';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { HEALER_PER_LEVEL } from '../data/operators';
 import { UNDEAD_HEAL } from '../data/monsters';
@@ -187,8 +188,10 @@ export function heal(s: GameState, p: Person): void {
   if (p.hp >= max) return;
   const asleep = p.task?.type === 'sleep' && p.activity === 'sleep';
   const rate = asleep ? (p.task?.type === 'sleep' && p.task.building !== null ? REGEN_BED : REGEN_GROUND) : REGEN_AWAKE;
-  let infirmary = bestHealing(s);
-  if (infirmary > 1) infirmary += operatorSkill(s, 'infirmary') * HEALER_PER_LEVEL; // a healer on hand
+  // (a healing building's care is for those in its sickbeds: sim/sickbeds.ts; a healer on hand adds to it)
+  const nursed = sickbedHealing(s, p);
+  let infirmary = nursed ?? 1;
+  if (nursed !== null) infirmary += operatorSkill(s, 'infirmary') * HEALER_PER_LEVEL;
   const care = researchMods(s.research);
   // (the struck-down dead or a machine reforms at its own pace, needing no healer)
   const reform = tireless(p) && p.downed ? (max * BACK_ON_FEET) / REFORM_HOURS : 0;

@@ -319,6 +319,11 @@ const PICKS: Record<string, Pick> = {
   // the Monster Hunters' Guild (data/hunts.ts): the Glassblower pack's shop with a sword sign and a rack of pelts
   monster_guild: { own: true, parts: [[gbShop, 0, 0], [vSignSword, 0, 64], [vRack, 82, 56]], size: [110, 98], lamps: [[30, 83], [80, 83], [74, 45]] },
   hunters_lodge: { own: true, parts: [[camp3, 0, 4], [vRack, 58, 0], [vSignBow, 90, 18]], size: [114, 44], overhang: 0 },
+  // the prisons (data/prisons.ts): a pen of the Village pack's stakes, then the dungeon pack's stonework with its barred
+  // gate, a gaol and (greyed as concrete) a prison
+  stockade: { own: true, parts: [[palisade05, 0, 0], [palisade05, 32, 0], [palisade05, 64, 0], [palisade05, 0, 30], [palisade05, 64, 30]], size: [96, 62], overhang: 0 },
+  gaol: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48], [dwalls, 32, 0, 80, 288, 48, 48], [dwalls, 80, 0, 32, 240, 32, 48]], size: [112, 48], overhang: 0 },
+  prison: { own: true, grade: 'concrete', parts: [[dwalls, 0, 0, 32, 240, 32, 48], [dwalls, 32, 0, 32, 240, 32, 48], [dwalls, 64, 0, 80, 288, 48, 48], [dwalls, 112, 0, 32, 240, 32, 48], [dwalls, 144, 0, 32, 240, 32, 48]], size: [176, 48], overhang: 0 },
   barracks: { own: true, parts: [[camp3, 4, 0], [camp3, 64, 6], [vRack, 122, 2], [palisade05, 0, 30], [palisade05, 32, 30], [vSignSword, 110, 36]], size: [152, 62], overhang: 0 },
   // fires in stone rings (the cave pack) for the bloomery and the kiln; the storytellers' fire with logs to sit on
   bloomery: { url: caveFire1, overhang: 0 },

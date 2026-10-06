@@ -28,13 +28,15 @@ test('a blow leaves a wound on a part, which hurts, hinders, and heals in days (
   assert.ok(injuryWork(p) < 1, 'and slows their work');
   hours(s, 24 * 5, rng);
   assert.equal(p.wounds!.length, 0, 'healed within five days');
-  // tended (a healer's hut standing): faster
+  // tended (lying in a healer's hut's sickbed: sim/sickbeds.ts): faster
   const q = someone(s, 'Tended');
   const r = someone(s, 'Untended');
   woundPerson(s, q, maxHp(q) * 0.2, 'fracture', rng);
   woundPerson(s, r, maxHp(r) * 0.2, 'fracture', rng);
-  r.away = 999; // (away: nobody tends them)
-  s.buildings.push({ id: s.nextId++, def: 'healers_hut', tile: 10, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building);
+  const hut = { id: s.nextId++, def: 'healers_hut', tile: 10, row: row(s), status: 'done', delivered: {}, progress: 1, store: {} } as Building;
+  s.buildings.push(hut);
+  q.task = { type: 'sleep', building: hut.id, sick: true };
+  q.activity = 'sleep';
   hours(s, 24 * 3, rng);
   assert.ok((q.wounds?.[0]?.sev ?? 0) < (r.wounds?.[0]?.sev ?? 0), 'the tended heal faster');
 });

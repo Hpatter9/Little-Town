@@ -3,6 +3,7 @@
 // Social skill), when they join the town. Or they can simply be let go.
 
 import { ENEMIES } from '../data/enemies';
+import { BUILDING_BY_ID } from '../data/buildings';
 import { FOOD_VALUE, NAMES } from '../data/people';
 import type { Material } from '../data/materials';
 import type { Rng } from '../rng';
@@ -25,18 +26,46 @@ const ESCAPE_PER_DAY = 0.06;
 
 export const isHuman = (kind: string) => !!ENEMIES[kind] && 'people' in ENEMIES[kind].sprite && ENEMIES[kind].sprite.people !== 'zombie';
 
-/** At the end of a raid: some of the fallen human raiders are taken prisoner. */
+/** The cells the town has to keep prisoners in: its prisons' (data/prisons.ts) and a blood farm's. */
+export const cellsOf = (s: GameState): number =>
+  s.buildings.reduce((t, b) => (b.status === 'done' ? t + (BUILDING_BY_ID[b.def]?.cells ?? 0) : t), 0) + farmCells(s);
+
+/** How readily the prisoner in the `i`th cell gets away: the best cells are filled first (a blood farm's, then a
+ *  prison's, a gaol's, a stockade's); one with no cell at all (a prison pulled down) twice as readily as from stakes. */
+function escapeAt(s: GameState, i: number): number {
+  const cells: number[] = [];
+  for (let k = 0; k < farmCells(s); k++) cells.push(FARM_ESCAPE);
+  for (const b of s.buildings) {
+    const d = b.status === 'done' ? BUILDING_BY_ID[b.def] : undefined;
+    if (d?.cells) for (let k = 0; k < d.cells; k++) cells.push(d.escape ?? 1);
+  }
+  cells.sort((a, b) => a - b);
+  return i < cells.length ? cells[i] : NO_CELL_ESCAPE;
+}
+/** A prisoner with no cell gets away this many times as readily as from a stockade. */
+const NO_CELL_ESCAPE = 2;
+
+/** At the end of a raid: some of the fallen human raiders are taken prisoner, while a cell stands free for each. */
 export function takePrisoners(s: GameState, raiders: Raider[], rng: Rng): number {
   let n = 0;
+  let room = cellsOf(s) - s.prisoners.length;
+  let turned = 0;
   for (const rd of raiders) {
     // (one run down as it limped away is taken alive for sure: sim/raiderWounds.ts)
     if (!rd.down || !isHuman(rd.kind) || (!rd.taken && !rng.chance(Math.min(1, CAPTURE_CHANCE * (rulesOf(s).captives ?? 1))))) continue;
+    // (no cell free: there's nowhere to hold them, and they're left where they fell)
+    if (room <= 0) {
+      turned++;
+      continue;
+    }
+    room--;
     const taken = [...s.people, ...s.prisoners].map((p) => p.name);
     const free = NAMES.filter((x) => !taken.includes(x));
     s.prisoners.push({ id: s.nextId++, enemy: rd.kind, name: rng.pick(free.length ? free : NAMES), conviction: 0, since: s.tick, hungry: false });
     n++;
   }
   if (n) notify(s, `${n === 1 ? 'One raider was' : `${n} raiders were`} taken prisoner. See Townsfolk.`, true);
+  if (turned) notify(s, `${turned === 1 ? 'A raider could have been' : `${turned} raiders could have been`} taken alive, but there was no cell to hold ${turned === 1 ? 'them' : 'them'}${cellsOf(s) ? ': the cells are full' : ': the town has no stockade'}.`, true);
   return n;
 }
 
@@ -47,8 +76,8 @@ export function updatePrisoners(s: GameState, rng: Rng): void {
   for (const pr of [...s.prisoners]) {
     if ((s.tick - pr.since) % TICKS_PER_DAY === 0) pr.hungry = !feed(s);
     // (in the blood farm's cells few get away, and nobody is won over: the Court keeps them for their blood)
-    const celled = bloodTown(s) && s.prisoners.indexOf(pr) < farmCells(s);
-    if (rng.chance((ESCAPE_PER_DAY * (pr.hungry ? 3 : 1) * (celled ? FARM_ESCAPE : 1)) / 24)) {
+    // (the better the cell, the fewer get away: data/prisons.ts)
+    if (rng.chance((ESCAPE_PER_DAY * (pr.hungry ? 3 : 1) * escapeAt(s, s.prisoners.indexOf(pr))) / 24)) {
       s.prisoners = s.prisoners.filter((q) => q !== pr);
       notify(s, `${pr.name} the prisoner escaped in the night.`, true);
       continue;

@@ -1,5 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { cellsOf } from './prisoners';
+import { patientsIn, sickbedsIn } from './sickbeds';
 import type { Chronicle, Fallen } from './annals';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius } from './ceremonies';
@@ -756,6 +758,9 @@ export interface Snapshot {
   marketBuilt: boolean;
   nextCaravanHours: number | null;
   prisoners: { id: number; name: string; was: string; conviction: number; hungry: boolean }[];
+  /** The town's cells for prisoners (data/prisons.ts), and who lies in each healing building's sickbeds. */
+  cells: number;
+  nursing: { building: number; beds: number; people: number[] }[];
   /** A disaster coming (signs) or under way, with game hours left. */
   /** A disaster coming or striking (`cold`: a Deep Freeze with nothing left to burn). */
   doom: { name: string; phase: 'signs' | 'active'; hoursLeft: number; sick: number; kind: DoomKind; cold: boolean } | null;
@@ -1017,6 +1022,8 @@ export function snapshot(s: GameState): Snapshot {
         }
       : null,
     prisoners: s.prisoners.map((p) => ({ id: p.id, name: p.name, was: ENEMIES[p.enemy]?.name ?? p.enemy, conviction: p.conviction, hungry: p.hungry })),
+    cells: cellsOf(s),
+    nursing: s.buildings.filter((b) => sickbedsIn(b) > 0).map((b) => ({ building: b.id, beds: sickbedsIn(b), people: patientsIn(s, b).map((p) => p.id) })),
     journalHead: s.journal.at(-1)?.id ?? 0,
     away: awayView(s),
     eraReady: s.eraReady,

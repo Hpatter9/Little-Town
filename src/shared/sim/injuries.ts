@@ -4,6 +4,7 @@
 // (`capacities`): their work, their pace, their aim and blows, and the pain on their mood. A lost part is made good
 // by a prosthetic the town crafts (the planner orders the best it can make) and its healer fits in surgery.
 
+import { sickbedHealing } from './sickbeds';
 import { ENEMIES } from '../data/enemies';
 import {
   BODY,
@@ -172,7 +173,6 @@ function healerOf(s: GameState, not?: Person): Person | undefined {
   }
   return undefined;
 }
-const tendedIn = (s: GameState) => s.buildings.some((b) => b.status === 'done' && ['healers_hut', 'infirmary', 'hospital', 'trauma_center'].includes(b.def));
 
 /** The best prosthetic in store for a kind of part, better than what's fitted. */
 function bestInStore(s: GameState, fits: ProstheticDef['fits'], than: number): ProstheticDef | undefined {
@@ -200,10 +200,10 @@ export function prostheticsWanted(s: GameState): ProstheticDef['fits'][] {
 export function injuriesHourly(s: GameState, rng: Rng): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   const care = researchMods(s.research).careHeal;
-  const tended = tendedIn(s);
   for (const p of s.people) {
     if (!p.wounds?.length) continue;
-    const pace = (care * (tended && p.away === null ? TENDED : 1)) / 24;
+    // (tended: lying in a healing building's sickbed, sim/sickbeds.ts)
+    const pace = (care * (sickbedHealing(s, p) !== null ? TENDED : 1)) / 24;
     for (const w of [...p.wounds]) {
       w.sev -= pace / WOUNDS[w.kind].days;
       if (w.sev > 0) continue;

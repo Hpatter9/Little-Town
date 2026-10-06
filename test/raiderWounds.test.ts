@@ -9,7 +9,7 @@ import { takePrisoners } from '../src/shared/sim/prisoners';
 import { LAME_MOST, legWound } from '../src/shared/sim/raiderWounds';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { makePerson, type GameState } from '../src/shared/sim/state';
-import { plainGame } from './helpers';
+import { freeSpot, plainGame, put } from './helpers';
 
 function town(seed: string): GameState {
   const s = plainGame(seed);
@@ -84,6 +84,8 @@ test('a lame bandit breaking from the fight is run down by a fighter close by, t
   assert.ok(rd.down && rd.runDown, `run down (${rd.down}, ${rd.gone}, d ${rd.bt!.d.toFixed(2)})`);
   assert.ok(rd.taken, 'taken alive');
   const before = s.prisoners.length;
+  const at = freeSpot(s, 'stockade'); // (a cell to hold them: data/prisons.ts)
+  put(s, 'stockade', at.x, at.y);
   takePrisoners(s, [rd], new Rng(1));
   assert.equal(s.prisoners.length, before + 1, 'and made a prisoner');
 });

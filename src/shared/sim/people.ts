@@ -40,6 +40,7 @@ import { HOLDER_EDGE } from '../data/operators';
 import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Raider, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
+import { mended, needsSickbed, sickbedFor } from './sickbeds';
 import { drainNeeds, gainSkill, GROUND_SLEEP, HUNGRY, SLEEP_PER_HOUR, SULK_MORALE, wantsSleep, wantsToWake, workFactor } from './townsfolk';
 import { buildSpeed, craftSpeed, forageSpeed, researchSpeed } from './origin';
 import { accruePay, accruePayFrom, loadPrice, moneyTown, payFromTreasury } from './economy';
@@ -707,6 +708,14 @@ function doSleep(s: GameState, p: Person, task: Extract<Task, { type: 'sleep' }>
   p.activity = 'sleep';
   const bedroll = !bed && hasBedroll(s, p);
   p.needs.rest = Math.min(1, p.needs.rest + (SLEEP_PER_HOUR * (bed ? 1 : bedroll ? BEDROLL_SLEEP : GROUND_SLEEP)) / TICKS_PER_HOUR);
+  // (in a sickbed they lie till they're mended, getting up only to eat: sim/sickbeds.ts)
+  if (task.sick) {
+    if (mended(p) || (!p.downed && p.needs.food < HUNGRY)) {
+      p.task = null;
+      p.activity = 'idle';
+    }
+    return;
+  }
   if (wantsToWake(s, p)) {
     p.lastSlept = bed ? 'bed' : bedroll ? 'bedroll' : 'ground';
     p.task = null;
@@ -784,8 +793,11 @@ export const WAKE_TO_EAT = 0.12;
 
 function chooseTask(s: GameState, p: Person): Task | null {
   p.blocked = false;
-  // The badly hurt stay in bed until they're back on their feet.
-  if (p.downed) return { type: 'sleep', building: p.bed };
+  // The badly hurt stay in bed until they're back on their feet: a sickbed if one's free (sim/sickbeds.ts), else home.
+  if (p.downed) {
+    const sb = sickbedFor(s, p);
+    return sb ? { type: 'sleep', building: sb.id, sick: true } : { type: 'sleep', building: p.bed };
+  }
   // A raid: defenders fight, everyone else shelters.
   if (alarmRaised(s)) return p.priorities.defend !== 0 ? (p.task?.type === 'defend' ? p.task : { type: 'defend', cooldown: 0 }) : { type: 'shelter' };
   // Someone is bleeding out: the nearest free hands go to them.
@@ -796,6 +808,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
   if (fire) return p.task?.type === 'extinguish' && p.task.building === fire.id ? p.task : { type: 'extinguish', building: fire.id };
   // At a funeral or a feast: they stand together till it's over (they still eat).
   if (attending(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'attend' ? p.task : { type: 'attend' };
+  // Badly hurt and a sickbed free: they go and lie in it till they're mended (they get up to eat).
+  if (needsSickbed(p) && p.needs.food >= HUNGRY) {
+    const sb = sickbedFor(s, p);
+    if (sb) return { type: 'sleep', building: sb.id, sick: true };
+  }
   // Held to the town's work by an event (sim/events.ts `busy`): they eat when they must, and otherwise toil on.
   if (busyNow(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'toil' ? p.task : { type: 'toil' };
   // Walking out of town (a mental break): nothing else matters.

@@ -432,6 +432,10 @@ async function start(): Promise<void> {
           }
           if (def.storage) lines.push(`Stored ${poolSize(b.store)}/${def.storage}${poolSize(b.store) ? ': ' + listStock(b.store) : ''}`);
           if (def.hp) lines.push(`Health ${Math.round(b.hp ?? def.hp)}/${def.hp}${(b.hp ?? def.hp) < def.hp ? ' (builders will repair it)' : ''}`);
+          // a prison's cells and who's held; a healing building's sickbeds and who lies in them
+          if (def.cells && b.status === 'done') lines.push(`${def.cells} cells. The town holds ${snap.prisoners.length} of ${snap.cells}${snap.prisoners.length ? `: ${snap.prisoners.map((q) => q.name).join(', ')}` : ''}.`);
+          const ward = snap.nursing.find((n) => n.building === b.id);
+          if (ward) lines.push(`Sickbeds ${ward.people.length}/${ward.beds}${ward.people.length ? `: ${ward.people.map((id) => snap.people.find((q) => q.id === id)?.name).filter(Boolean).join(', ')}` : ''}. The hurt heal here at its pace.`);
           if (b.def === 'graveyard') lines.push(snap.graves.length ? `Here lie: ${snap.graves.map((g) => g.name).join(', ')}` : 'Nobody lies here yet.');
           if (HERDS[b.def] && b.status === 'done') {
             const herd = HERDS[b.def];
