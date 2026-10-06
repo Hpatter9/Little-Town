@@ -11,7 +11,7 @@ import { buildingCentre, defOf, demolish, footprint, townRadius } from './buildi
 import { CROPS } from '../data/crops';
 import { setFire } from './fire';
 import { killPerson } from './health';
-import { cellAt, cellOf, centreOf, groundAt, idx, inMap, setGround, wet, CELL } from './land';
+import { cellAt, cellOf, centreOf, groundAt, idx, inMap, isOpen, setGround, wet, CELL } from './land';
 import { noteCleared } from './regrow';
 import { campCell, castSpellFx, maxHp, notify, tireless, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
@@ -99,7 +99,7 @@ function near(s: GameState, ok: (i: number) => boolean): number[] {
   const c = campCell(s);
   const r = reach(s);
   const out: number[] = [];
-  for (let y = c.y - r; y <= c.y + r; y++) for (let x = c.x - r; x <= c.x + r; x++) if (inMap(s.land, x, y) && ok(idx(s.land, x, y))) out.push(idx(s.land, x, y));
+  for (let y = c.y - r; y <= c.y + r; y++) for (let x = c.x - r; x <= c.x + r; x++) if (inMap(s.land, x, y) && isOpen(s.land, x, y) && ok(idx(s.land, x, y))) out.push(idx(s.land, x, y));
   return out;
 }
 const waterNear = (s: GameState) => near(s, (i) => { const { x, y } = cellAt(s.land, i); return groundAt(s.land, x, y) === 'water'; });
@@ -117,13 +117,16 @@ export function startDisaster(s: GameState, kind: DisasterKind): Disaster {
     notify(s, '🌊 The river is rising! The water is coming up over its banks: the town piles sandbags.', true);
   } else if (kind === 'wildfire') {
     d.until = s.tick + FIRE_HOURS * TICKS_PER_HOUR;
-    const woods = woodsNear(s).sort((a, b) => far(s, b) - far(s, a));
-    const lit = woods[Math.floor(roll(s, s.tick, 4) * Math.min(woods.length, 12))];
-    d.burning = { [lit]: s.tick };
+    // (out in the woods, but where it can be seen: not in the dimmed land at the edge of the fog)
+    const all = woodsNear(s);
+    const lit = all.filter((i) => far(s, i) <= s.land.open - 3);
+    const woods = (lit.length ? lit : all).sort((a, b) => far(s, b) - far(s, a));
+    const start = woods[Math.floor(roll(s, s.tick, 4) * Math.min(woods.length, 12))];
+    d.burning = { [start]: s.tick };
     d.burnt = [];
     d.crew = true;
-    crew(s, 6, 0.4, 'Cutting a firebreak through the woods', 'chop', lit);
-    const at = cellAt(s.land, lit);
+    crew(s, 6, 0.4, 'Cutting a firebreak through the woods', 'chop', start);
+    const at = cellAt(s.land, start);
     notify(s, `🔥 Wildfire! The woods to the ${dirOf(c, at)} are burning: the town runs to cut a firebreak.`, true);
   } else if (kind === 'tornado') {
     d.until = s.tick + TORNADO_TICKS + 1;
@@ -184,7 +187,7 @@ function floodRise(s: GameState, d: Disaster, h: number): void {
       if (!inMap(m, nx, ny)) continue;
       const g = groundAt(m, nx, ny);
       const j = idx(m, nx, ny);
-      if (wet(g) || g === 'mountain' || g === 'hall' || g === 'rock' || under.has(j)) continue;
+      if (wet(g) || g === 'mountain' || g === 'hall' || g === 'rock' || under.has(j) || !isOpen(m, nx, ny)) continue;
       under.add(j);
       add.push(j);
     }

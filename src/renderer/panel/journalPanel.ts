@@ -6,14 +6,16 @@ import { platino } from '../art/icons';
 import { el } from './dom';
 import { renderBestiary } from './bestiaryPanel';
 import { renderHeroes } from './heroesPanel';
+import { renderLegends } from './legendsPanel';
 import type { AnnalsView } from '../../shared/sim/snapshot';
 
-type Filter = 'all' | 'key' | 'deaths' | 'heroes' | 'bestiary';
+type Filter = 'all' | 'key' | 'deaths' | 'heroes' | 'legends' | 'bestiary';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['key', 'Key events'],
   ['deaths', 'Deaths'],
   ['heroes', 'Heroes'],
+  ['legends', 'Legends'],
   ['bestiary', 'Bestiary'],
 ];
 /** (kept while the panel re-renders) */
@@ -34,6 +36,10 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
     );
     if (filter === 'heroes') {
       list.replaceChildren(...renderHeroes(annals ?? { fallen: [], chronicles: [], famous: [] }));
+      return;
+    }
+    if (filter === 'legends') {
+      list.replaceChildren(...renderLegends());
       return;
     }
     if (filter === 'bestiary') {

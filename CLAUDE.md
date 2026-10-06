@@ -2060,6 +2060,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (worldMapView.ts: tokens along the roads, `.map-march`, the host's road dashed red, crossed swords between powers at
   feud, `.map-feud`) with a line of the news under it. Tests: `test/worldLife.test.ts`.
 
+- **Dynasties and legacy (the owner's pick):** `src/shared/sim/legacy.ts` and `src/renderer/legends.ts`. When a new
+  town is founded over an old one that stood at least `LEGEND_LEAST_HOURS` (fallen, won or set aside), the phone page
+  (mobileBridge.ts `newGame`) keeps it as a **legend** (`legendOf`: the founder, people, age, the dead, its fate, its
+  three greatest heroes living or fallen, an heirloom (a unique held, else the founder's weapon), renown, the
+  generation and the line) in `localStorage` (`littletown.legends`, the last 40). The New Town screen's last step has
+  **The founder's line** (newGamePanel.ts `lineage`: a new line, or a descendant of a legend; `heir` in the options,
+  read by the bridge): `inherit` gives the heirloom into the stores, `INHERIT_COINS` a generation, `INHERIT_RENOWN` of the
+  old renown to the venues, a proud mark, and `s.lineage` (the line's name, its generation). The Chronicle's **Legends**
+  tab is the Hall of Legends (`panel/legendsPanel.ts`, each card opening on its heroes). The desktop app keeps no
+  legends yet. Tests: `test/legacy.test.ts`.
+- **Previews:** `window.__disaster(kind)` starts a disaster (mobileBridge.ts), beside `__raid`.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's
