@@ -96,3 +96,26 @@ test('the guild forges a unique from the parts, once only', () => {
   planForge(s);
   assert.ok(!s.crafting.some((x) => x.item === 'fangreaver'));
 });
+
+test('a hunt always comes to a fight: a careful party, a scout among them, still meets the quarry', async () => {
+  const { sendExpedition, updateExpeditions } = await import('../src/shared/sim/expeditions');
+  for (let seed = 0; seed < 12; seed++) {
+    const s = guildTown(`hunt-fight-${seed}`);
+    const h = postHunt(s, new Rng(seed + 1), 'boar_king')!;
+    const [a, b] = s.people.slice(1, 3);
+    const r = sendExpedition(s, `mhunt:${h.id}`, [a.id, b.id], { [a.id]: 'scout' }, 'cautious');
+    assert.ok(r.ok, String(r.reason ?? ""));
+    const e = s.expeditions.at(-1)!;
+    e.stakes = 'safe';
+    e.rolled.outEvent = true; // (no road event: its question would wait for the player)
+    const rng = new Rng(seed * 7 + 3);
+    let fought = false;
+    for (let t = 0; t < 2 * TICKS_PER_DAY && s.expeditions.includes(e); t++) {
+      s.tick++;
+      updateExpeditions(s, rng);
+      if (e.battle) fought = true;
+      if (fought) break;
+    }
+    assert.ok(fought, `seed ${seed}: the hunters met the quarry (${e.phase}, ${s.journal.slice(-6).map((j) => j.text).join(' | ')})`);
+  }
+});

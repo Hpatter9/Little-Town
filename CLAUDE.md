@@ -1806,6 +1806,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   bar (battleHud.ts, `.battle-progress`) shows the raiders beaten (green) and got through (red) of all that came
   (`BattleView.total`). The world map's stronghold labels are capitalised and the crowded ones spread
   (`STRONGHOLD_SPOTS`). Test: `test/progress.test.ts`.
+- **A hunt is always a fight (the owner's complaint: a party of two walked out, swung at air and walked home):** the
+  arrival fight of a `clear` destination (a guild hunt, a place on the land, a saga's foe, a pack's lair, an assault)
+  is the whole errand, so `maybeFight` in sim/expeditions.ts never skips it (a careful party's `STAKES.fights` used to
+  halve it) and a scout can't slip the party past it (`SCOUT_AVOID`). Test in `test/hunts.test.ts`.
+- **Ground under the fights' feet (the owner's complaint: they walked on nothing):** the backdrops with nothing at foot
+  height (the cities, futures, industrial, steampunk and ruins skylines, the moons, the mountain lake, the open sea with
+  no bed) get a strip of side-on tiles along the foot (`GROUND_OF` in `art/fightGround.ts`: earth, brick or metal,
+  greyed, dimmed or toned to sit in the scene by `groundFilter`), drawn by fightView over the backdrop in full mode
+  (`ground`, from `GROUND_LIFT` below the horizon line) and scrolled with the march. A new backdrop with no ground needs
+  an entry there.
 - **Shop exteriors reworked (the owner's ask):** the small shop picture (`art/shops/gb_shop.png`) was cropped with its
   gable floating above its walls and a loose chimney beside it; it is recut from the Glassblower pack's sheet with the
   gable set on the walls (110x98). The trading post is an open market stall: the pack's red canopy (`gb_canopy.png`,

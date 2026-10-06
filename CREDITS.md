@@ -123,6 +123,10 @@ City Ruins, Ocean and Clouds, City, Futuristic City, Steampunk Cityscape, Underw
 Sky with Parallax Clouds, Sky with Clouds, Cloud and Sky, Post-Apocalyptic, and Fantasy 2D Battlegrounds backgrounds,
 and the industrial platformer pack's Day and Night backgrounds.
 
+The ground the party walks on where a backdrop has none at foot height (`src/renderer/art/fightGround/`): the
+grass-topped earth from Craftpix's **Free Platformer Game Tileset (Pixel Art)**, and the capped brick and metal panels
+from the industrial platformer pack's `1 Tiles` (both free, **Craftpix.net**).
+
 ## Item icons
 
 Crafted items use icons from **DawnLike** (16x16 universal roguelike tileset) by **DragonDePlatino**, on
