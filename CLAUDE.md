@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.8.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.9.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -1806,6 +1806,32 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   bar (battleHud.ts, `.battle-progress`) shows the raiders beaten (green) and got through (red) of all that came
   (`BattleView.total`). The world map's stronghold labels are capitalised and the crowded ones spread
   (`STRONGHOLD_SPOTS`). Test: `test/progress.test.ts`.
+- **A hunt is always a fight (the owner's complaint: a party of two walked out, swung at air and walked home):** the
+  arrival fight of a `clear` destination (a guild hunt, a place on the land, a saga's foe, a pack's lair, an assault)
+  is the whole errand, so `maybeFight` in sim/expeditions.ts never skips it (a careful party's `STAKES.fights` used to
+  halve it) and a scout can't slip the party past it (`SCOUT_AVOID`). Test in `test/hunts.test.ts`.
+- **The weapon drawn is the weapon carried (the owner's ask):** `weaponPiece` in art/hkFolk.ts picks the Himeko piece
+  by the weapon's name first (`NAMED`: a katana the katana, a claymore or zweihander their greatswords, a great axe a
+  great axe, a maul or sledge a great hammer, a morning star, war hammer, quarterstaff, club, sickle, longbow, crossbow,
+  rifle, shotgun, laser rifle each its own; spears, javelins and polearms the naginata, the pack's only spear-like
+  piece), else by its family and tier (`WEAPON`). Where the pack has nothing like it (claws, knuckles, slings, whips,
+  bombs) they're drawn bare-handed rather than holding something else. The map, the fight screen and the paper doll all
+  draw through it. The old LPC fallback draws a scythe as a sickle and claws bare. Test in `test/hkFolk.test.ts`.
+- **A recap after every raid (the owner's ask):** `src/shared/sim/raidRecap.ts`. While a raid is on its blows are
+  tallied on it (`Raid.tally`: each townsperson's harm dealt, raiders felled and harm taken, by `credit`/`took` around
+  `defenderAttack` and `attackPerson` in raids.ts and the spells and skills in battle.ts; the towers and traps as one,
+  `TOWERS`), and who was in town at what level is noted as it turns active (`noteRoll`, `Raid.roll`); `endRaid` puts it
+  together on `s.raidRecap` (`raidRecap`: victory, driven off or pillaged; the felled, fled and through; the waves; each
+  defender's row with experience and levels, the fallen and the slain; the best of them; spoils, prisoners, what was
+  taken). `snapshot.raidRecap` carries it for `RECAP_HOURS` (6). The strip shows it once as a blue window over the town
+  (`battle/raidRecap.ts`, `#raid-recap`; the last seen kept in `littletown.recapSeen`), and the phone's feed has a card
+  that brings it back (`__showRecap`). Test: `test/raidRecap.test.ts`.
+- **Ground under the fights' feet (the owner's complaint: they walked on nothing):** the backdrops with nothing at foot
+  height (the cities, futures, industrial, steampunk and ruins skylines, the moons, the mountain lake, the open sea with
+  no bed) get a strip of side-on tiles along the foot (`GROUND_OF` in `art/fightGround.ts`: earth, brick or metal,
+  greyed, dimmed or toned to sit in the scene by `groundFilter`), drawn by fightView over the backdrop in full mode
+  (`ground`, from `GROUND_LIFT` below the horizon line) and scrolled with the march. A new backdrop with no ground needs
+  an entry there.
 - **Shop exteriors reworked (the owner's ask):** the small shop picture (`art/shops/gb_shop.png`) was cropped with its
   gable floating above its walls and a loose chimney beside it; it is recut from the Glassblower pack's sheet with the
   gable set on the walls (110x98). The trading post is an open market stall: the pack's red canopy (`gb_canopy.png`,

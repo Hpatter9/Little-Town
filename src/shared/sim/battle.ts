@@ -14,6 +14,7 @@
 // the tests. The map is laid out when the battle starts (from the land and the town as they stand then) and kept on
 // the raid. Spots, trails and aims are in the land's cells (CELL px each); the raiders' px positions follow them.
 
+import { before, credit, TOWERS } from './raidRecap';
 import { ringGate } from './ringWall';
 import { fireAt, speedOf } from './defenses';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -912,7 +913,9 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       const d = tb && BUILDING_BY_ID[tb.def]?.defense;
       if (!d || (tb!.readyTick ?? 0) > s.tick || turretsDown(s)) continue;
       tb!.readyTick = s.tick + Math.round(d.interval * TICK_HZ);
+      const was = before(wave);
       fireAt(s, rng, { ...d, accuracy: 2 }, rd, nearOnTrail, (x, dmg) => hurt(x, dmg, s, b)); // (a trap never misses what steps in it)
+      credit(s, TOWERS, was);
     }
     if (bt.d >= end) through(s, r, b, rd);
     if (bt.out) continue;
@@ -962,7 +965,9 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       const near = wave.filter((rd) => !rd.down && !rd.gone && !rd.bt!.out && rd.bt!.d >= 0 && dist(foeAt(map, rd), pos) <= spellReach);
       const arena = mapArena(s, b, r, u, p, near, people, rng);
       const was = near.map((rd) => [rd, rd.down] as const);
+      const tallied = before(wave);
       if ((near.length || u.kit.actions.some((x) => x.use === 'heal' || x.use === 'support')) && takeTurn(arena, arena.me)) {
+        credit(s, p.id, tallied);
         u.cooldown = rallied(s, p) ? Math.round(every / RALLY_SPEED) : every;
         u.lastAt = s.tick;
         p.lastBlow = s.tick; // (a spell or a skill plays the striking pose, as a blow does)
@@ -1003,7 +1008,9 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       if (!target) continue;
       tb!.readyTick = s.tick + Math.round(d.interval * TICK_HZ);
       shot(b, s, [q.x, q.y], foeAt(map, target), tb!.def === 'laser_turret' || tb!.def === 'tesla_coil' ? 'bolt' : 'tower');
+      const was = before(wave);
       const volley = fireAt(s, rng, d, target, nearOnTrail, (x, dmg) => hurt(x, dmg, s, b));
+      credit(s, TOWERS, was);
       for (const { rd } of volley.struck) rd.hitFx = tb!.def === 'laser_turret' || tb!.def === 'tesla_coil' ? 'shock' : null;
     }
 

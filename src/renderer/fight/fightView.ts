@@ -24,6 +24,7 @@ import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lp
 import { machineFrame, machineSize } from '../art/machines';
 import { BACK_H, BACK_HORIZON, BACK_W, fightBackdrop, FRONT_H, sceneFor, type Backdrop, type SceneId } from '../art/fightBackdrop';
 import { BACKDROP_H, loadBackdrop } from '../art/backdropImages';
+import { GROUND_OF, groundFilter, loadGround } from '../art/fightGround';
 import { lookFor, type SceneLook } from '../../shared/data/scenes';
 import type { BackdropId } from '../../shared/data/backdrops';
 import type { Biome } from '../../shared/data/biomes';
@@ -41,6 +42,8 @@ const SEE_H = 150;
 /** How much land shows below the horizon at most (the rest is sky). */
 const LAND = 110;
 const MARCH = 30;
+/** Where the ground strip starts below the horizon line (art px): its grass or cap tops out just over the front feet. */
+const GROUND_LIFT = 8;
 /** Down a dungeon, the share of each room's time the party stands at its thing before walking on. */
 const STOP = 0.3;
 
@@ -102,6 +105,8 @@ export class FightScene {
   private readonly photo = new Container();
   private photoLayers: TilingSprite[] = [];
   private photoMode: 'full' | 'sky' | null = null;
+  /** Ground under their feet where the backdrop has none at foot height (art/fightGround.ts). */
+  private readonly ground = new TilingSprite({ width: 10, height: 10 });
   private scroll = 0;
   private drift = 0;
   private view: ExpeditionView | null = null;
@@ -110,7 +115,8 @@ export class FightScene {
 
   constructor() {
     this.root.visible = false;
-    this.world.addChild(this.photo, ...this.layers.slice(0, 3), this.wallTorches, this.roomProp, this.layers[3], this.sea, this.figures, this.fx, this.effects, this.dark);
+    this.world.addChild(this.photo, this.ground, ...this.layers.slice(0, 3), this.wallTorches, this.roomProp, this.layers[3], this.sea, this.figures, this.fx, this.effects, this.dark);
+    this.ground.visible = false;
     this.figures.addChild(this.hull);
     this.hull.anchor.set(0.5, 1);
     this.hull.zIndex = -10;
@@ -175,13 +181,21 @@ export class FightScene {
     for (const l of this.photoLayers) l.destroy();
     this.photoLayers = [];
     this.photoMode = null;
+    this.ground.visible = false;
     this.showPainted();
     if (look === 'painted') return;
     const sky = look.startsWith('sky:');
     const id = (sky ? look.slice(4) : look) as BackdropId;
-    loadBackdrop(id)
-      .then((textures) => {
+    const ground = sky ? undefined : GROUND_OF[id];
+    Promise.all([loadBackdrop(id), ground ? loadGround(ground.kind).catch(() => null) : null])
+      .then(([textures, tile]) => {
         if (this.sceneKey !== key) return;
+        if (ground && tile) {
+          this.ground.texture = tile;
+          const f = groundFilter(ground);
+          this.ground.filters = f ? [f] : [];
+          this.ground.visible = true;
+        }
         this.photoLayers = textures.map((t) => new TilingSprite({ texture: t, width: 10, height: BACKDROP_H }));
         this.photo.addChild(...this.photoLayers);
         this.photoMode = sky ? 'sky' : 'full';
@@ -206,6 +220,10 @@ export class FightScene {
       l.height = BACKDROP_H * s;
       l.y = this.photoMode === 'full' ? 0 : Math.round(hy + 6 - BACKDROP_H * s);
     }
+    // (the strip's grass or cap stands a little over the line the fighters' feet start at)
+    this.ground.y = hy + GROUND_LIFT;
+    this.ground.width = vw + 2;
+    this.ground.height = Math.max(8, vh - hy - GROUND_LIFT + 2);
   }
 
   /** The drama of an ultimate: the screen shakes and flashes white when one is loosed. */
@@ -246,6 +264,7 @@ export class FightScene {
       const pace = this.photoMode === 'sky' ? 0.08 : 0.08 + (0.92 * i) / Math.max(1, n - 1);
       l.tilePosition.x = -Math.round((this.scroll * pace + (i === 0 ? this.drift : 0)) / l.tileScale.x);
     });
+    if (this.ground.visible) this.ground.tilePosition.x = -Math.round(this.scroll);
     this.drawDelve(delve, fighting, now);
     this.fx.clear();
     const seen = new Set<string>();

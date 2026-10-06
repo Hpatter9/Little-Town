@@ -96,7 +96,7 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
   // anything that wants attention now
   let nowKey = '';
   const drawNow = (s: Snapshot) => {
-    const cards: { cls: string; mark: string; title: string; text: string; watch?: number; panel?: string }[] = [];
+    const cards: { cls: string; mark: string; title: string; text: string; watch?: number; panel?: string; recap?: boolean }[] = [];
     if (s.raid) {
       const foes = s.raid.raiders.filter((r) => !r.ally);
       const standing = foes.filter((r) => !r.down && !r.fleeing && !r.gone).length;
@@ -138,6 +138,13 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
       else waiting.set(k, { name: p.name, foes: p.foes ?? 'Something', n: 1 });
     }
     for (const w of waiting.values()) cards.push({ cls: 'place', mark: '⚑', title: `${w.name} found${w.n > 1 ? ` ×${w.n}` : ''}`, text: `${w.foes} there. A party may go after it; post a bounty under Expeditions.`, panel: 'expeditions' });
+    // the last raid's recap (tap: the card again, over the town)
+    const rr = s.raidRecap;
+    if (rr && !s.raid) {
+      const best = rr.rows.find((x) => x.id === rr.best);
+      const word = rr.outcome === 'victory' ? 'Victory' : rr.outcome === 'driven' ? 'Driven off' : 'Pillaged';
+      cards.push({ cls: rr.outcome === 'pillaged' ? 'alarm' : 'answered', mark: '⚔', title: `${rr.name}: ${word}`, text: `${rr.killed} of ${rr.came} felled${best ? `; ${best.name} fought best` : ''}${rr.rows.some((x) => x.died) ? `; ${rr.rows.filter((x) => x.died).length} lost` : ''} · tap for the recap`, recap: true });
+    }
     // the last question answered, and what came of it
     const o = s.eventOutcome;
     if (o) cards.push({ cls: 'answered', mark: '✓', title: o.choice ? `${o.title}: ${o.choice}` : o.title, text: o.text.charAt(0).toUpperCase() + o.text.slice(1) + '.' });
@@ -166,6 +173,7 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
         d.append(m, body);
         if (c.watch != null) d.addEventListener('click', () => bridge.command?.({ type: 'watch', expedition: c.watch! }));
         if (c.panel) d.addEventListener('click', () => bridge.openPanel(c.panel!));
+        if (c.recap) d.addEventListener('click', () => (strip.contentWindow as (Window & { __showRecap?: () => boolean }) | null)?.__showRecap?.());
         return d;
       }),
     );

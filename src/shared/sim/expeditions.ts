@@ -494,12 +494,15 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
 
 /** Roll for a fight; a scout may spot a (non-boss) one first and lead the party around it. */
 function maybeFight(s: GameState, e: Expedition, d: Destination, members: Person[], chance: number, rng: Rng): void {
+  // (where the fight is the whole errand: a hunt, a lair or cave to clear, a saga's foe: it always comes, and nobody
+  // slips past it; it used to be skipped half the time by a careful party, and the hunters swung at air and went home)
+  const errand = d.type === 'clear' && chance >= 1 && e.phase === 'work';
   // (a risky party goes looking for trouble; a safe one keeps clear of it)
-  if (!rng.chance(Math.min(1, chance * (e.stakes ? STAKES[e.stakes].fights : 1)))) return;
+  if (!errand && !rng.chance(Math.min(1, chance * (e.stakes ? STAKES[e.stakes].fights : 1)))) return;
   const group = d.encounters.groups[pickIndex(d.encounters.groups.map((g) => g.weight), rng)].enemies;
   const boss = Object.keys(group).some((id) => ENEMIES[id].boss);
   const scout = members.find((p) => e.roles[p.id] === 'scout' && !p.downed);
-  if (scout && !boss && !e.assault && rng.chance(SCOUT_AVOID)) {
+  if (scout && !boss && !e.assault && !errand && rng.chance(SCOUT_AVOID)) {
     notify(s, `${scout.name} spotted ${describeGroup(group)} ahead, and the party slipped past.`);
     return;
   }

@@ -13,6 +13,7 @@ import { MapBirds } from './map/mapBirds';
 import { MapButterflies } from './map/mapButterflies';
 import { BloodPools } from './map/bloodPools';
 import { createBattleHud } from './battle/battleHud';
+import { createRaidRecap } from './battle/raidRecap';
 import { FightScene } from './fight/fightView';
 import { MineScene } from './fight/mineView';
 import { createFightHud } from './fight/fightHud';
@@ -238,6 +239,7 @@ async function start(): Promise<void> {
       bridge.command({ type: 'watchMine', place: null });
     },
   });
+  const raidRecap = createRaidRecap();
   const battleHud = createBattleHud({
     go: () => bridge.command({ type: 'battleGo' }),
     auto: (on) => bridge.command({ type: 'battleAuto', on }),
@@ -695,6 +697,7 @@ async function start(): Promise<void> {
   };
 
   // (the feed's "Show on the map": look at someone or something and open its card: mobile/feed.ts)
+  (window as unknown as { __showRecap?: () => boolean }).__showRecap = () => raidRecap.open();
   (window as unknown as { __showOnMap?: (a: { person?: number; building?: number }) => boolean }).__showOnMap = (a) => {
     const p = a.person != null ? snap.people.find((q) => q.id === a.person) : undefined;
     const b = a.building != null ? snap.buildings.find((q) => q.id === a.building) : undefined;
@@ -974,6 +977,7 @@ async function start(): Promise<void> {
     const begun = !!next.battle && !snap.battle;
     battle.update(next);
     battleHud.update(next.battle, next.raid?.name ?? 'Raiders');
+    raidRecap.update(next);
     battle.selectedPerson = battleHud.picked;
     battle.aiming = battleHud.aiming;
     if (begun) {

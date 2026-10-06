@@ -105,8 +105,10 @@ const GRADE = [1, 2, 3, 4, 6];
 /** Each weapon family's pieces in the pack, weakest first (pick by the item's tier). */
 const WEAPON: Record<string, string[]> = {
   dg: ['dagger01', 'dagger02', 'dagger03', 'dagger04', 'dagger05'],
-  // (the pack has no claws or throwing weapons: knives stand in; a sling, too small to show, is bare-handed)
-  cl: ['dagger03', 'dagger04', 'dagger05'],
+  // (the pack has no claws, knuckles, slings or whips: those are drawn bare-handed rather than as something else;
+  // throwing knives and stars are knives, a javelin or spear the naginata, the pack's only spear-like piece)
+  cl: [],
+  sl: [],
   th: ['dagger01', 'dagger02'],
   sw: ['sword01', 'sword02', 'sword03', 'sword05', 'sword06', 'sword07'],
   ax: ['axe01', 'axe02', 'axe03', 'axe04', 'axe05', 'axe06'],
@@ -128,6 +130,57 @@ const WEAPON: Record<string, string[]> = {
   en: ['gun05zapper'],
   hv: ['gun06shouldercannon'],
 };
+/** A weapon whose name says what it is drawn as the pack's piece of that kind, whatever its family (a quarterstaff is
+ *  a staff, not a mace; a great axe a great axe; a katana the katana), checked in order before the family's list. An
+ *  empty list: the pack has nothing like it, so it's drawn bare-handed rather than as something else. */
+const NAMED: [RegExp, string[]][] = [
+  [/knuckle|fist|claws?\b/i, []],
+  [/sling|whip|lash|bola|bomb|charge|disc launcher/i, []],
+  [/katana|masterless/i, ['sword04katana']],
+  [/claymore/i, ['greatsword01']],
+  [/zweihander|bastard sword/i, ['greatsword02']],
+  [/chainsword|chainsaw/i, ['greatsword04']],
+  [/great ?axe|labrys|executioner/i, ['greataxe01', 'greataxe02', 'greataxe05', 'greataxe06']],
+  [/maul|sledge|femur|timber|colossus|delvers' pick/i, ['greathammer01', 'greathammer03', 'greathammer04', 'greathammer05', 'greathammer06']],
+  [/morning ?star/i, ['hammer04']],
+  [/flail/i, ['hammer04']],
+  [/war ?hammer|thane's hammer|runehammer|gravity hammer|forgefather|earthshaker/i, ['hammer02', 'hammer06']],
+  [/quarterstaff|crook|sceptre|scepter/i, ['staff01', 'staff02', 'staff03']],
+  [/club|baton|\bbat\b/i, ['hammer01']],
+  [/mace/i, ['hammer01', 'hammer05']],
+  [/sickle/i, ['sickle01', 'scythe01']],
+  [/scythe|reaper|\bhook/i, ['scythe01', 'scythe02', 'scythe03', 'scythe04']],
+  [/wakizashi|tanto/i, ['dagger04']],
+  [/main gauche|rondel/i, ['dagger03']],
+  [/hatchet|tomahawk|hand axe/i, ['axe01']],
+  [/longbow|great bow/i, ['bow03']],
+  [/recurve|composite/i, ['bow02']],
+  [/short ?bow|hunting bow|hunter's bow/i, ['bow01']],
+  [/crossbow|arbalest/i, ['gun01crossbow']],
+  [/blunderbuss|shotgun|flamethrower/i, ['gun02blunderbuss']],
+  [/laser rifle|laser carbine|plasma rifle/i, ['gun05zapper']],
+  [/musket|rifle|carbine/i, ['gun03arquebus']],
+  [/laser pistol|plasma pistol|blaster/i, ['pistol06']],
+  [/flintlock|duelling pistol/i, ['pistol02']],
+  [/revolver/i, ['pistol04']],
+  [/javelin|spear|harpoon|trident|\blance\b|\bpike\b|glaive|halberd|partisan|billhook/i, ['greataxe04']],
+];
+
+/** The pack's piece for a weapon (its key prefix), or null to show none: by its name first, else by its family and
+ *  tier. Exported for the tests. */
+export function weaponPiece(weapon: { name: string; family?: string; tier?: number }, sex: 'male' | 'female'): string | null {
+  const named = NAMED.find(([re]) => re.test(weapon.name));
+  const list = named ? named[1] : weapon.family ? WEAPON[weapon.family] : undefined;
+  if (!list?.length) return null;
+  const at = Math.max(0, Math.min(list.length - 1, Math.floor(((weapon.tier ?? 1) - 1) / 2)));
+  // (the one at its tier, else the nearest the pack has in this cut: the sickle is a man's only)
+  for (const k of [list[at], ...list]) {
+    const key = sexed(k, sex);
+    if (key) return key;
+  }
+  return null;
+}
+
 /** The work in hand's tool. */
 const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: ['staff01'], forage: ['sickle01', 'dagger01'] };
 
@@ -204,9 +257,8 @@ export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string 
   // the weapon of its family in a fight, else the tool of the work in hand
   const weapon = w.gear.weapon ? ITEM_BY_ID[w.gear.weapon] : undefined;
   // (a weapon they carry shows whenever their hands aren't full of the work's tool, not only in a fight)
-  if ((doing.fighting || (!TOOL[doing.activity] && !w.child)) && weapon?.family && WEAPON[weapon.family]) {
-    const list = WEAPON[weapon.family];
-    out.push(sexed(list[Math.max(0, Math.min(list.length - 1, Math.floor(((weapon.tier ?? 1) - 1) / 2)))], sex));
+  if ((doing.fighting || (!TOOL[doing.activity] && !w.child)) && weapon?.family && (WEAPON[weapon.family] || NAMED.some(([re]) => re.test(weapon.name)))) {
+    out.push(weaponPiece(weapon, sex));
   } else if (TOOL[doing.activity]) out.push(TOOL[doing.activity].map((t) => sexed(t, sex)).find((k) => k) ?? null); // (the pack's sickle is a man's only)
   return out.filter((k): k is string => !!k && HAS.has(k));
 }

@@ -1,6 +1,7 @@
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
+import type { RaidRecap, RaidTally } from './raidRecap';
 import type { SpecialId } from '../data/specials';
 import type { BoatKind } from '../data/boats';
 import type { ShopLine } from '../data/stores';
@@ -378,6 +379,10 @@ export interface Raid {
   battle?: TownBattle;
   /** A war host (sim/factions.ts): the power that sent it. */
   host?: string;
+  /** For the recap (sim/raidRecap.ts): each townsperson's blows (and the towers', as -1), and who was in town as it
+   *  came, at what level. */
+  tally?: Record<number, RaidTally>;
+  roll?: { id: number; name: string; level: number; xp: number }[];
 }
 
 export interface Needs {
@@ -954,6 +959,8 @@ export interface GameState {
   gameSpeed?: number;
   /** The last event answered and what came of it (sim/events.ts `tell`), for the feed's card. */
   eventOutcome?: { title: string; choice: string | null; text: string; tick: number };
+  /** The last raid's recap (sim/raidRecap.ts). */
+  raidRecap?: RaidRecap;
   /** The town's purse (none when left out), strangers in town, and when the next is due at the shop. */
   coins?: number;
   travellers?: Traveller[];
