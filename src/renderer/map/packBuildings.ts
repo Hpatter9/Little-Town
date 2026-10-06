@@ -38,15 +38,11 @@ import box1 from '../art/village/box1.png';
 import box2 from '../art/village/box2.png';
 import log1 from '../art/village/log1.png';
 import log3 from '../art/village/log3.png';
-import palisade01 from '../art/village/palisade01.png';
 import palisade02 from '../art/village/palisade02.png';
 import palisade03 from '../art/village/palisade03.png';
 import palisade36 from '../art/village/palisade36.png';
 import palisade37 from '../art/village/palisade37.png';
-import palisade14 from '../art/village/palisade14.png';
 import palisade19 from '../art/village/palisade19.png';
-import palisade21 from '../art/village/palisade21.png';
-import palisade24 from '../art/village/palisade24.png';
 import dwalls from '../art/village/dwalls.png';
 import dprops from '../art/village/dprops.png';
 import grave1 from '../art/village/grave1.png';
@@ -155,6 +151,8 @@ import sfTube4 from '../art/packs/sf_tube4.png';
  *  but the origins with their own tents and halls). */
 /** A part: an image at x, y (source px), the whole of it or a crop of it (sx, sy, sw, sh). */
 type Part = [string, number, number] | [string, number, number, number, number, number, number];
+/** The palisade's single post, cropped so it stands in the middle of its cell (the pack drew it right of centre). */
+const POST: Part = [palisade19, 0, 0, 4, 0, 28, 32];
 export interface Pick {
   url?: string;
   parts?: Part[];
@@ -277,12 +275,21 @@ const PICKS: Record<string, Pick> = {
   // the stockpile: crates and logs heaped together
   stockpile: { parts: [[log3, 2, 14], [box1, 10, 4], [box2, 28, 8], [log1, 44, 6], [box1, 62, 10], [box2, 76, 2]], size: [96, 28], overhang: 0 },
   // the Village pack's palisade stakes and gate
+  // (so a wall runs unbroken: along a row only the stake runs that fill their cell edge to edge (palisade01 leaves a gap
+  // at its left); down a column the same single post, set in the middle of every cell (the post pairs sat at the left
+  // or the right of theirs, so a column zigzagged); at a corner half a run of stakes meeting the post)
   palisade_wall: {
     own: true,
-    any: [palisade01, palisade02, palisade03],
+    any: [palisade02, palisade03],
     overhang: 0,
-    // (a run down a column is the pack's post pair; a corner or a lone piece a single post)
-    joins: { v: { any: [palisade24, palisade14], overhang: 0 }, nw: { url: palisade19, overhang: 0 }, ne: { url: palisade19, overhang: 0 }, sw: { url: palisade19, overhang: 0 }, se: { url: palisade19, overhang: 0 }, end: { url: palisade21, overhang: 0 } },
+    joins: {
+      v: { parts: [POST], size: [32, 32], overhang: 0 },
+      nw: { parts: [[palisade02, 16, 0, 16, 0, 16, 32], POST], size: [32, 32], overhang: 0 },
+      sw: { parts: [[palisade02, 16, 0, 16, 0, 16, 32], POST], size: [32, 32], overhang: 0 },
+      ne: { parts: [[palisade03, 0, 0, 0, 0, 16, 32], POST], size: [32, 32], overhang: 0 },
+      se: { parts: [[palisade03, 0, 0, 0, 0, 16, 32], POST], size: [32, 32], overhang: 0 },
+      end: { parts: [POST], size: [32, 32], overhang: 0 },
+    },
   },
   palisade_gate: { own: true, parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, joins: { v: { parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, rotate: 90 } } },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door

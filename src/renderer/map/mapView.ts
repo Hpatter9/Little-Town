@@ -553,6 +553,9 @@ export class MapView {
     const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);
     if ((l || r) && !(u || d)) return 'h';
     if ((u || d) && !(l || r)) return 'v';
+    // (where a wall runs through, it's a straight piece: a run along a row with a spur, or down a column with one)
+    if (l && r) return 'h';
+    if (u && d) return 'v';
     if (r && d) return 'nw';
     if (l && d) return 'ne';
     if (r && u) return 'sw';

@@ -780,8 +780,11 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   planner's old end walls (`wallSpot`, "a wall at each end of town") are gone. **Continuous walls:** a one-cell wall
   piece's picture is chosen by how it joins its neighbours (`MapView.wallJoin`: along a row, down a column, a corner,
   alone; in the building's `sig`, so a piece is redrawn when a neighbour goes up): `Pick.joins` in packBuildings.ts
-  gives the palisade the Village pack's post pair (`palisade24`, `palisade14`) down a column, a single post at corners
-  and a short post alone. **Gates in the wall:** a gate on the west or east run stands **turned** (`Building.turned`:
+  gives each join its own picture. **Palisades that join (the owner's complaint):** a row is only the stake runs that fill their
+  cell edge to edge (`palisade02`, `03`; `01` left a gap), a column is one post set in each cell's middle (`POST`, cropped
+  from `palisade19`; the post pairs stood left or right and zigzagged), a corner half a run of stakes meeting the post, and
+  a piece with walls both ways along a row or a column is the straight piece (`wallJoin`), so a T junction holds the line.
+  **Gates in the wall:** a gate on the west or east run stands **turned** (`Building.turned`:
   `footprint` swaps its width and depth; `canPlace`/`placeBlueprint` take `turned`; `gateTurned`/`gateAt` in
   ringWall.ts cover the ring cell and the one below it), drawn from the gate pick's `joins.v`, the same parts with
   `Pick.rotate` 90 (rotated in `pickArt`); `upgrade` keeps the road under a gate. Tests: `test/ringWall.test.ts`.
