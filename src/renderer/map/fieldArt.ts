@@ -61,8 +61,6 @@ export function fieldArt(defId: string, w: number, h: number, stage: CropLook | 
     (p) => {
       if (herd) {
         // a pen: trodden ground, a water trough, a fence round it with a gap for the gate
-        p.rect(0, 0, W, H, '#8c7a4e');
-        for (let i = 0; i < (W * H) / 40; i++) p.px((i * 37) % W, (i * 53) % H, '#7a6a42');
         p.rect(W - 12, 6, 8, 4, '#6a8aa8');
         for (let x = 0; x < W; x += 6) {
           p.rect(x, 0, 2, 5, x % 12 ? FENCE : FENCE_DARK);
@@ -95,7 +93,8 @@ function packedPlot(defId: string, w: number, h: number, stage: CropLook | undef
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
   const seed = defId.length * 31 + w * 7 + h;
-  drawSoil(g, w, h, seed, k);
+  // (a field on soil; a pen is only its fence, over the land as it lies)
+  if (kind === 'crop') drawSoil(g, w, h, seed, k);
   const rect = (x: number, y: number, rw: number, rh: number, col: string) => {
     g.fillStyle = col;
     g.fillRect(x * k, y * k, rw * k, rh * k);
@@ -148,8 +147,10 @@ function packedPlot(defId: string, w: number, h: number, stage: CropLook | undef
           }
         }
   } else {
-    // a pen: a water trough, and the fence round it
-    rect(W - 12, 6, 8, 4, '#6a8aa8');
+    // a pen: a water trough in the corner, and the fence round it
+    rect(W - 15, 9, 10, 5, '#5a3a24');
+    rect(W - 14, 10, 8, 3, '#6a8aa8');
+    rect(W - 13, 10, 3, 1, '#9cc0d8');
     drawFence(g, w, h, seed, k);
   }
   const tops = new Int16Array(W);
