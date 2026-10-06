@@ -231,7 +231,7 @@ function css(id: string, p: Palette): string {
 ${T} {
   --bg: ${p.bg}; --wood: ${p.wood}; --wood-edge: ${p.edge}; --header: ${p.header[1]};
   --btn: ${p.btn}; --btn-hover: ${p.btnHover}; --btn-on: ${p.on}; --btn-active: ${p.on};
-  --text: ${p.text}; --text-dim: ${p.dim};
+  --text: ${p.text}; --text-dim: ${p.dim}; --heading: ${p.heading}; --heading-glow: ${p.headingGlow};
 }
 ${T} { --font-display: ${fontStacks(id)[0]}; --font-body: ${fontStacks(id)[1]}; }
 ${T}.page-panel body::after, ${T}.page-phone body::after {
@@ -262,7 +262,7 @@ ${T} .place.on, ${T} .tab.on, ${T} .inv-tab.on, ${T} #tabs button.on, ${T} butto
 ${T} .tab-fill { background: linear-gradient(${p.fill[1]}, ${p.fill[0]}); }
 ${T} .hint, ${T} .empty { color: ${p.dim}; }
 ${T} .shop-coins { color: ${p.heading}; }
-${T} #prompt, ${T} #away, ${T} .toast, ${T} #tip, ${T} #person-card, ${T} #banner, ${T} #exp-header {
+${T} #prompt, ${T} #away, ${T} .toast, ${T} #tip, ${T} #person-card, ${T} #banner, ${T} #exp-header, ${T} #raid-recap, ${T} #fight-result {
   background: ${p.wood}; border-color: ${p.edge}; color: var(--text); box-shadow: 0 0 10px ${p.glow};
 }
 ${T} .shop-floor { filter: ${p.canvas}; }

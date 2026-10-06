@@ -25,7 +25,7 @@ function parts(T: string) {
     main: `${T}.page-panel main`,
     btn: all('button:not(#close):not(.swatch):not(.card):not(.map-dot):not(.map-hold):not(.folk-row):not(.doll-slot):not(.wizard-dot):not(.skill):not(.event-option), .place, .tab, #tabs button, #menu-btn, .chip'),
     on: all('.place.on, .tab.on, .inv-tab.on, #tabs button.on, button.primary, .tab.default, .card.pick.on'),
-    card: all('.card, .queue-row, #inspect, #menu, #prompt, #person-card, #banner, #away, #tip'),
+    card: all('.card, .queue-row, #inspect, #menu, #prompt, #person-card, #banner, #away, #tip, #raid-recap, #fight-result'),
     h2: all('h2, .era-head'),
     bar: all('#tabs, #clock'),
     fill: all('.bar-fill, .meter-fill'),

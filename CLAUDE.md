@@ -1823,7 +1823,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `TOWERS`), and who was in town at what level is noted as it turns active (`noteRoll`, `Raid.roll`); `endRaid` puts it
   together on `s.raidRecap` (`raidRecap`: victory, driven off or pillaged; the felled, fled and through; the waves; each
   defender's row with experience and levels, the fallen and the slain; the best of them; spoils, prisoners, what was
-  taken). `snapshot.raidRecap` carries it for `RECAP_HOURS` (6). The strip shows it once as a blue window over the town
+  taken). `snapshot.raidRecap` carries it for `RECAP_HOURS` (6). The strip shows it once as a card over the town in the
+  town's own look (the wood-and-brass card of the question and report cards, themed per people by theme.ts and skins.ts
+  like `#prompt`; titles in `--heading`, a theme variable; the parties' victory window `#fight-result` likewise)
   (`battle/raidRecap.ts`, `#raid-recap`; the last seen kept in `littletown.recapSeen`), and the phone's feed has a card
   that brings it back (`__showRecap`). Test: `test/raidRecap.test.ts`.
 - **Ground under the fights' feet (the owner's complaint: they walked on nothing):** the backdrops with nothing at foot
