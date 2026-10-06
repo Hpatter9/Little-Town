@@ -1794,6 +1794,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   bar (battleHud.ts, `.battle-progress`) shows the raiders beaten (green) and got through (red) of all that came
   (`BattleView.total`). The world map's stronghold labels are capitalised and the crowded ones spread
   (`STRONGHOLD_SPOTS`). Test: `test/progress.test.ts`.
+- **Shop exteriors reworked (the owner's ask):** the small shop picture (`art/shops/gb_shop.png`) was cropped with its
+  gable floating above its walls and a loose chimney beside it; it is recut from the Glassblower pack's sheet with the
+  gable set on the walls (110x98). The trading post is an open market stall: the pack's red canopy (`gb_canopy.png`,
+  cut by its connected pixels) over crates and sacks. Every venue has a **storefront** in every look (`STOREFRONT` in
+  packBuildings.ts, drawn by `packDressing` right of the door, beside the banner): the pack's cloth awning tinted to the
+  shop's colours (`Dressing.tint`, set on the sprite in mapView) over the goods of its trade: crates and sacks (general
+  store), crates, a vase and barrels (emporium), chairs (furniture maker), the weapon rack and anvil (weapons), a helm and
+  a chest (armour), a shelf of jars and a potted plant (apothecary), a bench and barrel (tavern), a barrel (inn), a
+  wheelbarrow (trading post). The other peoples' looks keep their own buildings with the same storefronts.
 - **Allies keep their colours:** summoned, tamed and allied fighters were washed green all over on the map, the fight
   screen and the expedition pane (a summoned wolf read as a stray green monster); now an ally on the map has a green
   glow underfoot and a green health bar instead (mapRaiders.ts).

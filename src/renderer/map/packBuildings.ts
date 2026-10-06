@@ -16,6 +16,14 @@ import gbShop from '../art/shops/gb_shop.png';
 import gbSignpost from '../art/shops/gb_signpost.png';
 import gbBarrels from '../art/shops/gb_barrels.png';
 import gbCrates from '../art/shops/gb_crates.png';
+import gbAwning from '../art/shops/gb_awning.png';
+import gbCanopy from '../art/shops/gb_canopy.png';
+import gbSacks from '../art/shops/gb_sacks.png';
+import gbBarrow from '../art/shops/gb_barrow.png';
+import apShelf from '../art/shops/ap_shelf.png';
+import apPlant from '../art/shops/ap_plant.png';
+import apVase from '../art/shops/ap_vase.png';
+import vHelm from '../art/shops/v_helm.png';
 import house2 from '../art/village/house2.png';
 import house4 from '../art/village/house4.png';
 import tent2 from '../art/village/tent2.png';
@@ -191,18 +199,19 @@ const PICKS: Record<string, Pick> = {
   cottage: { url: house1, styles: TIMBER, smoke: [[22, 7]], lamps: [[81, 51], [39, 85], [81, 85]], variants: [{ styles: NOMAD, pick: { url: rockyYurt2, overhang: 6, smoke: [[40, 1]] } }] },
   rowhouse: { url: house2, styles: TIMBER, smoke: [[26, 31]], lamps: [[80, 74], [110, 74], [132, 74], [37, 106], [80, 106]], variants: [{ styles: NOMAD, pick: { parts: [[rockyYurt1, 0, 0], [rockyYurt2, 84, 4]], size: [164, 82], overhang: 6, smoke: [[39, 1], [124, 5]] } }] },
   // the shops and the tavern: the Glassblower's Workshop pack's shop fronts (the big red-roofed house with its chimney
-  // for the inn and the emporium, the smaller shop for the rest), with the pack's barrels, crates and signpost at the
-  // door; each venue's banner is hung out front by `packDressing`
+  // for the inn, tavern and emporium; the small timber shop, its gable set on its walls, for the rest), and the trading
+  // post an open market stall under the pack's red canopy with its goods beneath; each venue's storefront (an awning in
+  // its colours over the goods of its trade) and banner are set out front by `packDressing`, in every look
   fireside_inn: { parts: [[gbHouse, 0, 0], [gbBarrels, 104, 118]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
   tavern: { parts: [[gbHouse, 0, 0], [gbBarrels, 104, 118], [gbSignpost, 2, 112]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
-  trading_post: { url: gbShop, styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
+  trading_post: { parts: [[gbCanopy, 0, 0], [gbCrates, 26, 34], [gbSacks, 52, 50], [gbCrates, 86, 38]], size: [129, 87], styles: TIMBER, overhang: 4 },
   market: { url: tent2, styles: TIMBER },
-  general_store: { parts: [[gbShop, 0, 0], [gbCrates, 2, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
+  general_store: { url: gbShop, styles: TIMBER, lamps: [[30, 83], [80, 83], [74, 45]] },
   emporium: { parts: [[gbHouse, 0, 0], [gbCrates, 120, 122], [gbBarrels, 2, 118]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]] },
-  furniture_store: { parts: [[gbShop, 0, 0], [gbCrates, 84, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
-  weapon_store: { parts: [[gbShop, 0, 0], [vSignSword, 2, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
-  armour_store: { parts: [[gbShop, 0, 0], [vSignShield, 2, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
-  apothecary_shop: { parts: [[gbShop, 0, 0], [gbBarrels, 80, 120]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
+  furniture_store: { url: gbShop, styles: TIMBER, lamps: [[30, 83], [80, 83], [74, 45]] },
+  weapon_store: { url: gbShop, styles: TIMBER, lamps: [[30, 83], [80, 83], [74, 45]] },
+  armour_store: { url: gbShop, styles: TIMBER, lamps: [[30, 83], [80, 83], [74, 45]] },
+  apothecary_shop: { url: gbShop, styles: TIMBER, lamps: [[30, 83], [80, 83], [74, 45]] },
   // the first homes: the nomads' tipis and yurts; everyone else's are the top-down painter's huts and the longhouse
   // (the owner's call: tents are a nomad thing, not a settler's house). `styles` NOMAD alone, so the rest get no pick.
   lean_to: { styles: new Set(NOMAD), url: rockyTipi2, overhang: 4, smoke: [[29, 1]] },
@@ -212,7 +221,7 @@ const PICKS: Record<string, Pick> = {
   // was clunky), its shop with the shield sign for the trophy hall
   elder_lodge: { parts: [[gbHouse, 0, 0], [gbSignpost, 2, 112], [gbBarrels, 104, 118]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]], variants: hallVariants() },
   town_hall: { parts: [[gbHouse, 0, 0], [gbCrates, 120, 122]], size: [142, 160], styles: TIMBER, smoke: [[40, 6]], lamps: [[48, 96], [100, 96]], variants: hallVariants() },
-  trophy_hall: { parts: [[gbShop, 0, 0], [vSignShield, 2, 118], [gbCrates, 84, 118]], size: [105, 156], styles: TIMBER, smoke: [[60, 2]], lamps: [[36, 100], [72, 100]], variants: hallVariants() },
+  trophy_hall: { parts: [[gbShop, 0, 0], [vSignShield, 2, 60]], size: [110, 98], styles: TIMBER, lamps: [[30, 83], [80, 83], [74, 45]], variants: hallVariants() },
   // the stockpile: crates and logs heaped together
   stockpile: { parts: [[log3, 2, 14], [box1, 10, 4], [box2, 28, 8], [log1, 44, 6], [box1, 62, 10], [box2, 76, 2]], size: [96, 28], overhang: 0 },
   // the Village pack's palisade stakes and gate
@@ -252,7 +261,7 @@ const PICKS: Record<string, Pick> = {
   loom: { parts: [[house3, 0, 0], [vRack, 120, 112], [fBox1, 4, 134]], size: [160, 160], styles: TIMBER, smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] },
   // the hunters' camp tent with a rack and the bow sign; the barracks' tents behind a palisade and the sword sign
   // the Monster Hunters' Guild (data/hunts.ts): the Glassblower pack's shop with a sword sign and a rack of pelts
-  monster_guild: { own: true, parts: [[gbShop, 0, 0], [vSignSword, 2, 122], [vRack, 80, 114]], size: [110, 156], smoke: [[60, 2]], lamps: [[36, 100], [72, 100]] },
+  monster_guild: { own: true, parts: [[gbShop, 0, 0], [vSignSword, 0, 64], [vRack, 82, 56]], size: [110, 98], lamps: [[30, 83], [80, 83], [74, 45]] },
   hunters_lodge: { own: true, parts: [[camp3, 0, 4], [vRack, 58, 0], [vSignBow, 90, 18]], size: [114, 44], overhang: 0 },
   barracks: { own: true, parts: [[camp3, 4, 0], [camp3, 64, 6], [vRack, 122, 2], [palisade05, 0, 30], [palisade05, 32, 30], [vSignSword, 110, 36]], size: [152, 62], overhang: 0 },
   // fires in stone rings (the cave pack) for the bloomery and the kiln; the storytellers' fire with logs to sit on
@@ -474,6 +483,8 @@ export interface Dressing {
   dy: number;
   w: number;
   h: number;
+  /** A colour laid over it (the awning's cloth in the shop's colours). */
+  tint?: number;
 }
 
 const dressTex = new Map<string, Texture>();
@@ -561,13 +572,61 @@ function bannerOf(def: string): Texture | null {
 }
 
 /** What stands by a building `w` cells wide (its picture from the pack) with this id, or nothing yet. */
+/** Each venue's storefront, whatever the look: an awning in its colours (the pack's cloth on its pole, tinted) right of
+ *  the door, and the goods of its trade set out under it. Offsets in px from the door (the footprint's bottom middle),
+ *  right and down; the awning stands just behind the goods. */
+const STOREFRONT: Record<string, { awning?: number; goods: [string, number, number][] }> = {
+  trading_post: { goods: [[gbBarrow, 14, 4]] },
+  general_store: { awning: 0x3e8a4a, goods: [[gbCrates, 14, 3], [gbSacks, 36, 4]] },
+  emporium: { awning: 0xc09a30, goods: [[gbCrates, 14, 3], [apVase, 37, 4], [gbBarrels, 52, 4]] },
+  fireside_inn: { goods: [[doBarrel, 16, 4]] },
+  tavern: { goods: [[dpBench, 16, 5], [doBarrel, 98, 4]] },
+  furniture_store: { awning: 0x7a5230, goods: [[dpChair1, 12, 4], [dpChair2, 34, 4]] },
+  weapon_store: { awning: 0x8a2020, goods: [[vRack, 12, 3], [vAnvil, 40, 5]] },
+  armour_store: { awning: 0x2c4a7a, goods: [[vHelm, 13, 4], [doChest, 36, 5]] },
+  apothecary_shop: { awning: 0x2e6a3a, goods: [[apShelf, 10, 3], [apPlant, 46, 5]] },
+};
+/** The awning's foot left of where its goods start, and how far in front of the wall it stands (px). */
+const AWNING_BACK = 4;
+const AWNING_DY = 2;
+
+/** A pack image as a texture at its own size, once loaded (undefined while it loads; null if it failed). */
+function texOf(url: string): Texture | undefined | null {
+  const im = images.get(url);
+  if (im === undefined) {
+    fetch(url);
+    return undefined;
+  }
+  if (!im) return null;
+  let tex = dressTex.get(url);
+  if (!tex) {
+    tex = Texture.from(im);
+    tex.source.scaleMode = 'nearest';
+    dressTex.set(url, tex);
+  }
+  return tex;
+}
+
 export function packDressing(def: string, id: number, w: number, style: string): Dressing[] {
   const out: Dressing[] = [];
   // (every shop and tavern hangs its banner out front, by the door, whatever the look: the owner's ask)
   const banner = bannerOf(def);
   if (banner) out.push({ texture: banner, dx: (w * CELL) / 2 - BANNER_W - 10, dy: 1, w: BANNER_W, h: BANNER_H });
+  // (its storefront: the awning and the goods of its trade, right of the door)
+  const front = STOREFRONT[def];
+  if (front) {
+    const door = (w * CELL) / 2;
+    if (front.awning !== undefined) {
+      const tex = texOf(gbAwning);
+      if (tex) out.push({ texture: tex, dx: door + (front.goods[0]?.[1] ?? 12) - AWNING_BACK, dy: AWNING_DY, w: tex.width, h: tex.height, tint: front.awning });
+    }
+    for (const [url, gx, gy] of front.goods) {
+      const tex = texOf(url);
+      if (tex) out.push({ texture: tex, dx: door + gx, dy: gy + AWNING_DY, w: tex.width, h: tex.height });
+    }
+  }
   const pick = pickFor(def, style);
-  if (!pick || pick.styles !== TIMBER) return out;
+  if (!pick || pick.styles !== TIMBER || front) return out;
   const corners: [number, number][] = [
     [-2, 0],
     [w * CELL + 2, 0],
@@ -576,16 +635,9 @@ export function packDressing(def: string, id: number, w: number, style: string):
     const h = (id * 2654435761 + i * 40503) >>> 0;
     if ((h % 7) < 3) return; // (not every corner has something)
     const url = DRESSING[(h >>> 8) % DRESSING.length];
-    const im = images.get(url);
-    if (im === undefined) return fetch(url);
-    if (!im) return;
-    let tex = dressTex.get(url);
-    if (!tex) {
-      tex = Texture.from(im);
-      tex.source.scaleMode = 'nearest';
-      dressTex.set(url, tex);
-    }
-    out.push({ texture: tex, dx: dx - (i ? 0 : im.naturalWidth), dy, w: im.naturalWidth, h: im.naturalHeight });
+    const tex = texOf(url);
+    if (!tex) return;
+    out.push({ texture: tex, dx: dx - (i ? 0 : tex.width), dy, w: tex.width, h: tex.height });
   });
   return out;
 }
