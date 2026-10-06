@@ -94,6 +94,13 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   }
   out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description));
 
+  // how raids are fought: down the trail (tower defence) or on a tactics board (sim/tactics.ts; a trial)
+  out.push(el('h2', '', 'Raid battles'));
+  const styles = el('div', 'row directions');
+  for (const [style, name] of [['trail', 'Trail (tower defence)'], ['tactics', 'Tactics board']] as const)
+    styles.append(button(name, () => bridge?.command({ type: 'battleStyle', style }), { cls: `place small${s.battleStyle === style ? ' on' : ' quiet'}` }));
+  out.push(styles, el('div', 'hint', s.battleStyle === 'tactics' ? 'Raids are fought turn by turn on a board cut from the land round the gate: height, facing and the turn order count. From the next raid.' : 'Raids come down winding trails past the towers to the gate. From the next raid.'));
+
   // how big the player wants the town: a handful to know by name, or as many as come
   out.push(el('h2', '', 'Town size'));
   const sizes = el('div', 'row directions');

@@ -262,7 +262,7 @@ function strandCell(s: GameState): Pt {
 }
 
 /** The town's gate on one side: the town's edge there (townEdgeX) on the camp's row, as a cell. */
-function gateCell(s: GameState, side: -1 | 1): Pt {
+export function gateCell(s: GameState, side: -1 | 1): Pt {
   const m = s.land;
   const ring = ringGate(s, side); // (a walled town: its ring's gate on that side)
   if (ring) return ring;
@@ -746,7 +746,8 @@ export function setGameSpeed(s: GameState, speed: number): void {
  *  (GameLoop reads it). */
 export function battleSpeedNow(s: GameState): number {
   const b = s.raid?.battle;
-  return b && b.phase !== 'done' ? (s.battleSpeed ?? 1) : (s.gameSpeed ?? 1);
+  const t = s.raid?.tactics;
+  return (b && b.phase !== 'done') || (t && t.phase !== 'done') ? (s.battleSpeed ?? 1) : (s.gameSpeed ?? 1);
 }
 
 /** The player sets auto-watch (kept for later battles): on, the town places and fights by itself. */

@@ -103,6 +103,7 @@ import { fireAt, speedOf, tickBurns } from './defenses';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
 import { battlesOn, startBattle, stepBattle } from './battle';
+import { startTactics, stepTactics, tacticsOn } from './tactics';
 
 /** Raiders start this far beyond the edge of the land. */
 const OFF_MAP = 40;
@@ -432,7 +433,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
     summonForRaid(s, r);
     for (const kind of new Set(r.raiders.filter((q) => ENEMIES[q.kind].kit && !q.ally).map((q) => q.kind))) bossArrives(s, kind);
     // (they come down the trail on the battle map first: battle.ts)
-    if (battlesOn(s)) startBattle(s, r);
+    if (battlesOn(s)) (tacticsOn(s) ? startTactics(s, r) : startBattle(s, r));
   }
   classesInRaid(s, r);
   bossesInRaid(s, r);
@@ -441,7 +442,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
   fireDefenses(s, rng);
   tickBurns(s, r.raiders, (rd, dmg) => hurtInTown(s, rd, dmg));
   // the battle on the trail; the raiders still in it are its business (those through it come on into the town)
-  const battling = stepBattle(s, r, rng);
+  const battling = r.tactics ? stepTactics(s, r, rng) : stepBattle(s, r, rng);
   // (whoever fell since last tick leaves blood where it lies, if it's the kind that bleeds)
   for (const rd of r.raiders)
     if (rd.down && !rd.bled) {
