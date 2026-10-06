@@ -2049,6 +2049,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (in `over`), scorch and ash fading over two days (`s.lastDisaster`); the tornado and the dust are spell looks
   (`disaster:tornado`, `disaster:dust`). Tests: `test/disasters.test.ts`.
 
+- **The living world map (the owner's pick):** `src/shared/sim/worldLife.ts`. The realm goes on beyond the town:
+  `s.feuds` (two powers fallen out: `FEUD_START` a hundred mornings, at most `FEUDS_MOST`, ending on `FEUD_END`) and
+  `s.marches` (`worldHourly` at `WORLD_HOUR`, autopilot on): each feud sends a host from one stronghold on the other
+  (`MARCH_HOURS`), and the loser of the strike loses `STRIKE_LOSS` of its troops and half that of its town; a power in
+  trade or alliance sends the day's caravan down the road (`TRADE_HOURS`), which the Red Brotherhood may rob
+  (`ROAD_ROBBED`, half with two guards or more). A power at feud musters hosts against the town half as often. Realm
+  news goes to the Journal. `snapshot.world` (`worldView`: the marches, a war host coming for the town placed by its
+  arrival over `HOST_WARNING_HOURS`, an envoy riding in, the feuds) is drawn on the Expeditions world map
+  (worldMapView.ts: tokens along the roads, `.map-march`, the host's road dashed red, crossed swords between powers at
+  feud, `.map-feud`) with a line of the news under it. Tests: `test/worldLife.test.ts`.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

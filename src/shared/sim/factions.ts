@@ -156,7 +156,7 @@ export function factionsDaily(s: GameState, rng: Rng): void {
       continue;
     }
     // at war: a host is mustered now and then
-    if (f.stance === 'war' && !f.host && f.troops >= HOST_LEAST && s.tick - (f.lastHost ?? -1e12) >= HOST_GAP_DAYS * TICKS_PER_DAY && day >= FIRST_MEET_DAY + 2 && rng.chance(HOST_CHANCE * (f.temper === 'warlike' ? 1.4 : 1))) musterHost(s, f);
+    if (f.stance === 'war' && !f.host && f.troops >= HOST_LEAST && s.tick - (f.lastHost ?? -1e12) >= HOST_GAP_DAYS * TICKS_PER_DAY && day >= FIRST_MEET_DAY + 2 && rng.chance(HOST_CHANCE * (f.temper === 'warlike' ? 1.4 : 1) * ((s.feuds ?? []).some((x) => x.a === f.id || x.b === f.id) ? 0.5 : 1))) musterHost(s, f);
   }
   // one envoy a day at most, from a power with something to say
   if (envoyWaiting(s)) return;

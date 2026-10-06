@@ -984,6 +984,9 @@ export interface GameState {
   /** A natural disaster under way on the map, when the next is due, and the last (for its ash: sim/disasters.ts). */
   disaster?: import('./disasters').Disaster;
   nextDisaster?: number;
+  /** The realm beyond the town: feuds between the powers and what's on the roads (sim/worldLife.ts). */
+  feuds?: import('./worldLife').Feud[];
+  marches?: import('./worldLife').March[];
   lastDisaster?: { kind: import('./disasters').DisasterKind; tick: number; burnt?: [number, number][] };
   chronicles?: Chronicle[];
   yearStart?: YearStart;

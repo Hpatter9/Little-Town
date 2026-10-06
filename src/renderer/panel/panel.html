@@ -1291,6 +1291,28 @@
         background: #a83a2a;
         border-color: #ffc0a0;
       }
+      .map-march {
+        position: absolute;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 3px;
+        transform: translate(-50%, -50%);
+        border-radius: 8px;
+        background: #6a5a3a;
+        border: 1px solid #f0d8a0;
+        color: #fff;
+        font-size: 10px;
+        line-height: 15px;
+        text-align: center;
+        pointer-events: none;
+      }
+      .map-march.host { background: #8a2a1a; border-color: #ffb090; font-weight: bold; }
+      .map-march.feud { background: #5a3a6a; border-color: #d8b0f0; }
+      .map-march.trade, .map-march.envoy { background: transparent; border: none; font-size: 14px; }
+      .map-feud { position: absolute; transform: translate(-50%, -50%); font-size: 14px; color: #ff8070; text-shadow: 0 0 3px #000; pointer-events: none; }
+      .map-route.host { stroke: #d04030; stroke-dasharray: 5 4; stroke-width: 2.5; }
+      .map-route.feud { stroke: #a070c0; stroke-dasharray: 3 4; stroke-width: 1.5; }
+      .world-news { margin: -4px 0 8px; }
       .map-hint {
         text-align: center;
         margin-bottom: 8px;
