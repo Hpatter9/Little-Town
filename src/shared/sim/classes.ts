@@ -3,6 +3,7 @@
 
 import { ASCEND_DAILY, CLASS_DEFS, CLASSES, className, NECRO_RANGE, STAGE_LEVELS, TAME_EVERY, TAME_RANGE, type ClassId } from '../data/classes';
 import { ENEMIES } from '../data/enemies';
+import { tameChance, tamedMost, tamerPower } from '../data/taming';
 import { FOUNDERS } from '../data/founders';
 import { callingName, FOUNDER_CLASS } from '../data/founderClasses';
 import { ITEM_BY_ID, type ItemDef } from '../data/items';
@@ -181,16 +182,29 @@ export function classesInRaid(s: GameState, r: Raid): void {
       notify(s, `The necromancer raises the fallen ${ENEMIES[rd.kind].name.toLowerCase()} to fight for the town!`);
     }
   }
+  // Beast Tamers try for the beasts in reach, and a try is a roll (data/taming.ts): their level, calling and way with
+  // animals against the beast's might and kind, easier the more it's hurt, harder each time it's been tried
   const tamers = inTown(s, 'beast_tamer');
   if (tamers.length && s.tick >= (r.nextTame ?? 0)) {
+    r.nextTame = s.tick + TAME_EVERY * TICK_HZ;
     for (const p of tamers) {
-      const beast = r.raiders.find((rd) => !rd.down && !rd.gone && !rd.ally && isBeast(rd.kind) && !ENEMIES[rd.kind].boss && Math.abs(rd.x - p.x) <= TAME_RANGE);
+      const held = r.raiders.filter((rd) => rd.ally && rd.tamedBy === p.id && !rd.down && !rd.gone).length;
+      if (held >= tamedMost(stageOf(p))) continue;
+      const beast = r.raiders.find((rd) => !rd.down && !rd.gone && !rd.ally && isBeast(rd.kind) && !ENEMIES[rd.kind].boss && Math.abs(rd.x - p.x) <= TAME_RANGE && Math.abs(rd.y - p.y) <= TAME_RANGE);
       if (!beast) continue;
+      const chance = tameChance(tamerPower(levelOf(p), stageOf(p), p.skills.animals?.level ?? 0), beast.kind, beast.maxHp, beast.hp, beast.tameTries ?? 0);
+      const roll = (mixSeed(hashSeed(s.seed), beast.id, s.tick, p.id) >>> 0) / 4294967296;
+      const name = ENEMIES[beast.kind].name.toLowerCase();
+      if (roll >= chance) {
+        beast.tameTries = (beast.tameTries ?? 0) + 1;
+        if (beast.tameTries === 1) notify(s, `${p.name} tries to tame the ${name}, but it won't be had${chance < 0.15 ? ': it is far too wild' : ''}.`);
+        continue;
+      }
       beast.ally = true;
+      beast.tamedBy = p.id;
       beast.fleeing = false;
       beast.conjuredAt = s.tick;
-      r.nextTame = s.tick + TAME_EVERY * TICK_HZ;
-      notify(s, `${p.name} tames the ${ENEMIES[beast.kind].name.toLowerCase()}: it turns on the others!`);
+      notify(s, `${p.name} tames the ${name}${beast.tameTries ? ` at the ${beast.tameTries + 1}${beast.tameTries === 1 ? 'nd' : beast.tameTries === 2 ? 'rd' : 'th'} try` : ''}: it turns on the others!`);
     }
   }
 }

@@ -1998,6 +1998,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   screen (`PersonView.beast`, `FighterView.beast`). Test: `test/shapeshift.test.ts`. What a townsperson carries is no
   longer drawn as a bundle over their head (`d.load` hidden); it's in their pack.
 
+- **Taming isn't sure (the owner's ask):** `src/shared/data/taming.ts`. A beast tamer in a raid tries the nearest beast
+  in reach every `TAME_EVERY` (never a boss) and may fail: `tameChance` weighs the tamer's power (`tamerPower`: level,
+  calling stage, Animals skill) against the beast's might (`mightOf`: its tier from its health, `tierOf`, and its kind:
+  gentle beasts easy, wild ones hard, dragon-kind hardest, `KINDS`), from `TAME_BASE` by `TAME_PER_POINT` a point, more
+  likely the more hurt it is (`TAME_HURT`), less with each failed try (`TAME_WARY`, `Raider.tameTries`), between
+  `TAME_LEAST` and `TAME_MOST`; a tamer holds at most `tamedMost(stage)` at once (`Raider.tamedBy`). The roll is by the
+  seed, the beast, the tick and the tamer. Tests: `test/taming.test.ts`.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

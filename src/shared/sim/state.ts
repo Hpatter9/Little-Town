@@ -269,6 +269,9 @@ export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' 
 
 export interface Raider {
   id: number;
+  /** Taming (data/taming.ts): the failed tries on it so far, and the Beast Tamer who won it over. */
+  tameTries?: number;
+  tamedBy?: number;
   /** Fighting for the town: summoned, raised by a necromancer, or tamed. */
   ally?: boolean;
   /** (a fallen raider a necromancer has already looked at) */
