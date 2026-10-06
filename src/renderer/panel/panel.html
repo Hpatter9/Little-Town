@@ -363,6 +363,129 @@
         flex-wrap: wrap;
         gap: 6px;
       }
+      /* raising a party yourself (musterPanel.ts): a sheet over the Expeditions tab */
+      .muster-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        background: var(--bg);
+        padding: 10px 14px 76px;
+        box-sizing: border-box;
+      }
+      .muster-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .muster-title {
+        font-family: var(--font-display);
+        font-size: 19px;
+        color: #ffe08a;
+      }
+      .muster-brief {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 10px 0 4px;
+        padding: 8px 10px;
+        background: var(--header);
+        border: 1px solid var(--wood-edge);
+        border-radius: 6px;
+      }
+      .muster-brief canvas {
+        width: 52px;
+        height: 52px;
+      }
+      .muster-leader {
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .muster-odds {
+        font-size: 16px;
+        font-style: italic;
+      }
+      .muster-h {
+        margin: 14px 0 6px;
+        font-family: var(--font-display);
+        font-size: 14px;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .muster-row {
+        display: grid;
+        grid-template-columns: 40px 1fr auto;
+        grid-template-areas: 'face who acts' 'face why acts';
+        align-items: center;
+        column-gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(110, 77, 46, 0.4);
+      }
+      .muster-row canvas {
+        grid-area: face;
+        width: 40px;
+        height: 40px;
+      }
+      .muster-who {
+        grid-area: who;
+        min-width: 0;
+      }
+      .muster-name {
+        font-weight: bold;
+      }
+      .muster-sub {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .muster-hp {
+        height: 4px;
+        margin-top: 2px;
+        max-width: 120px;
+      }
+      .muster-why,
+      .muster-no {
+        grid-area: why;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .muster-no {
+        color: #e8a070;
+      }
+      .muster-acts {
+        grid-area: acts;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: stretch;
+      }
+      .muster-count {
+        padding: 0 10px;
+        align-self: center;
+      }
+      .place.on {
+        border-color: #c79a55;
+        color: #ffe08a;
+      }
+      .muster-foot {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        background: var(--header);
+        border-top: 1px solid var(--wood-edge);
+      }
+      .place.go {
+        min-width: 140px;
+        font-size: 15px;
+        border-color: #7fbf6a;
+      }
       .inv-tabs {
         flex-wrap: wrap;
         gap: 4px;

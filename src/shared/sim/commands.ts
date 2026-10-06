@@ -13,6 +13,9 @@ import { JOBS, type Job, type Priority } from '../data/people';
 import { TOPIC_BY_ID } from '../data/research';
 import { DIRECTIONS, type Direction } from './planner';
 
+export type MusterOp = 'raise' | 'add' | 'drop' | 'lead' | 'persuade' | 'order' | 'set' | 'send' | 'cancel';
+const MUSTER_OPS: readonly MusterOp[] = ['raise', 'add', 'drop', 'lead', 'persuade', 'order', 'set', 'send', 'cancel'];
+
 export type Command =
   | { type: 'setPaused'; paused: boolean }
   /** Where the self-running town puts its effort. */
@@ -41,6 +44,9 @@ export type Command =
   /** Send a party the town plans, at the stakes the player picks (safe or risky). */
   | { type: 'sendParty'; dest: string; stakes: 'safe' | 'risky' }
   | { type: 'sendDelve'; dest: string; members: number[]; stakes: 'safe' | 'risky' }
+  /** Raise a party yourself (sim/muster.ts): raise one for a place, ask or drop someone, make them leader, talk round
+   *  or order someone who said no, set how boldly and what's packed, send them, or call it off. */
+  | { type: 'muster'; op: MusterOp; dest?: string; person?: number; stakes?: 'safe' | 'risky'; rations?: 'lean' | 'normal' | 'plenty'; torches?: number; horses?: boolean }
   /** Pass on a curse (hidden): turn one person, or everyone who can be. */
   | { type: 'turnPerson'; person: number; kind: MonsterKind }
   | { type: 'turnTown'; kind: MonsterKind }
@@ -146,6 +152,17 @@ export function parseCommand(raw: unknown): Command | null {
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
     case 'sendDelve':
       return typeof c.dest === 'string' && Array.isArray(c.members) && c.members.every((m: unknown) => typeof m === 'number') && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendDelve', dest: c.dest, members: c.members as number[], stakes: c.stakes } : null;
+    case 'muster': {
+      if (!MUSTER_OPS.includes(c.op as MusterOp)) return null;
+      const out: Command = { type: 'muster', op: c.op as MusterOp };
+      if (typeof c.dest === 'string') out.dest = c.dest;
+      if (Number.isInteger(c.person)) out.person = c.person as number;
+      if (c.stakes === 'safe' || c.stakes === 'risky') out.stakes = c.stakes;
+      if (c.rations === 'lean' || c.rations === 'normal' || c.rations === 'plenty') out.rations = c.rations;
+      if (Number.isInteger(c.torches)) out.torches = c.torches as number;
+      if (typeof c.horses === 'boolean') out.horses = c.horses;
+      return out;
+    }
     case 'sendParty':
       return typeof c.dest === 'string' && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendParty', dest: c.dest, stakes: c.stakes } : null;
     case 'sendExpedition': {

@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
 import { boatLine, boatyardOf, fleet, mooring } from './boats';
@@ -621,6 +622,8 @@ export interface Snapshot {
   destinations: DestinationView[];
   /** Parties forming themselves: the next that would set out, who's fit to go, and the bounty step. */
   trips: TripsView;
+  /** A party the player is raising (sim/muster.ts). */
+  muster: MusterView | null;
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
   places: PlaceView[];
   /** The town's boats (sim/boats.ts): at home (away null) or the place they've sailed for; and the water cell by the
@@ -836,6 +839,7 @@ export function snapshot(s: GameState): Snapshot {
     fleet: fleet(s).map((b) => ({ id: b.id, kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull, away: b.away === null ? null : ((e) => (e ? destinationOf(s, e.dest)?.name ?? '' : ''))(s.expeditions.find((e) => e.id === b.away)) })),
     mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
     trips: tripsView(s),
+    muster: musterView(s, (p) => callingName(p, stageOf(p))),
     places: placeViews(s),
     pack: packView(s),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),

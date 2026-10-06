@@ -1680,6 +1680,25 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`answerSaga`: what the answer brought and the lines that followed); `snapshot.eventOutcome.tick` tells the box it's
   the answer just given; with nothing told in `QUIET_MS` it says "It is done.". A battle or watched fight drops it.
 
+- **Sending a party yourself (the owner's ask: control, and something to do, while the town still runs itself):**
+  `src/shared/data/muster.ts` and `src/shared/sim/muster.ts`. Every board card has **Raise a party…** (the `muster`
+  command, op `raise`): the most seasoned adventurer fit to go steps up to lead (anyone fit if the town has none) and
+  `recruit`s from the willing; `s.muster` (`Muster`) holds it, and while it does the town forms no party of its own.
+  The player asks people along (`addMember`), drops them, or makes one leader; some say no (`willing`: hurt, worn out,
+  hungry or just home; on the watch; a venue or the healer's to keep; an enemy going; or, for a dangerous place, a
+  homebody or `RELUCTANT_SHARE` of the rest who aren't adventurers or guards), and are talked round for coins from the
+  treasury into their purse (`persuade`, `PERSUADE_*` by the danger) or ordered along (`order`: `p.sore`
+  `ORDER_MORALE` for `ORDER_HOURS`; the only way for the hurt or a post's keeper). The leader reads the odds
+  (`oddsLine`, `ODDS`: strength over danger, bold counting the danger 1.25 times); careful or bold, rations (`RATIONS`:
+  the food packed, through `sendExpedition`'s `opts`), spare torches for a delve (`Expedition.extraTorches`, read by
+  `startDelve`), horses or not; `sendMuster` sends them (`Expedition.ordered`, `start`). On the road a commanded party
+  asks instead of rolling a road event (`crossroads`, at most `MOST_CROSSROADS`; `CROSSROADS`: the weather turns, a
+  shorter way, fresh tracks, a ruin, heavy packs home, a traveller in the ditch), a prompt of kind `road` the event box
+  shows with a backdrop and the leader, the bold answer the default on a risky trip; `answerCrossroads` applies it and
+  tells the box what came of it. Home, `debrief` (from `comeHome`) puts a prompt of kind `debrief` on the box: how long,
+  what they brought, who rose a level, who was hurt, who didn't come back. The sheet is `panel/musterPanel.ts` (over the
+  Expeditions tab, `over-tabs`: the sub-tabs leave it alone). Tests: `test/muster.test.ts`.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

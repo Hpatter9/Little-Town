@@ -1,6 +1,7 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
+import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
 import { specialsHourly } from './specials';
 import { sagasHourly } from './sagas';
 import { huntsHourly } from './hunts';
@@ -276,6 +277,19 @@ export class Sim {
       case 'sendDelve': {
         const r = sendDelve(s, c.dest, c.members, c.stakes);
         if (!r.ok) notify(s, `Can't send the delvers: ${r.reason}.`);
+        break;
+      }
+      case 'muster': {
+        const say = (r: { ok: boolean; reason?: string }) => r.ok || notify(s, `${r.reason}.`);
+        if (c.op === 'raise' && c.dest) say(raiseParty(s, c.dest));
+        else if (c.op === 'add' && c.person !== undefined) say(addMember(s, c.person));
+        else if (c.op === 'drop' && c.person !== undefined) dropMember(s, c.person);
+        else if (c.op === 'lead' && c.person !== undefined) makeLeader(s, c.person);
+        else if (c.op === 'persuade' && c.person !== undefined) say(persuade(s, c.person));
+        else if (c.op === 'order' && c.person !== undefined) say(order(s, c.person));
+        else if (c.op === 'set') setMuster(s, { stakes: c.stakes, rations: c.rations, torches: c.torches, horses: c.horses });
+        else if (c.op === 'send') say(sendMuster(s));
+        else if (c.op === 'cancel') cancelMuster(s);
         break;
       }
       case 'sendParty': {

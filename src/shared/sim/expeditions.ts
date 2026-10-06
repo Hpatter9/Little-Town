@@ -8,6 +8,7 @@ import { homeFromTrip } from './ambition';
 import { payBounty } from './parties';
 import { woundFor, woundPerson } from './injuries';
 import { levelOf, xpToLevel } from '../data/levels';
+import { crossroads, debrief } from './muster';
 import { ENEMIES } from '../data/enemies';
 import { eraReached } from '../data/eras';
 import { HIDDEN_IN, HOME_REGION, REGION_BY_ID, regionScouted } from '../data/regions';
@@ -182,7 +183,7 @@ export function truckReady(s: GameState): SendCheck {
   return { ok: true };
 }
 
-export function sendExpedition(s: GameState, destId: string, memberIds: readonly number[], roles: Record<number, Role> = {}, stance: Stance = 'balanced', horseCount = 0, truck = false): SendCheck {
+export function sendExpedition(s: GameState, destId: string, memberIds: readonly number[], roles: Record<number, Role> = {}, stance: Stance = 'balanced', horseCount = 0, truck = false, opts: { rations?: number; extraTorches?: number } = {}): SendCheck {
   const check = canSend(s, destId, memberIds);
   if (!check.ok) return check;
   if (truck) {
@@ -202,7 +203,7 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     if (poolSize(p.carrying)) depositNear(s, p.x, p.carrying);
     p.carrying = {};
   }
-  const supplies = packFood(s, foodNeeded(s, d, members.length));
+  const supplies = packFood(s, foodNeeded(s, d, members.length) * (opts.rations ?? 1));
   // ammunition for whoever shoots (stones for slings, arrows for bows)
   for (const p of members) {
     const kind = ammoOf(p);
@@ -249,6 +250,7 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     horses,
     ...(truck ? { truck: true } : {}),
     ...(boat ? { boat: boat.id } : {}),
+    ...(opts.extraTorches ? { extraTorches: opts.extraTorches } : {}),
   };
   s.expeditions.push(e);
   if (boat) boat.away = e.id;
@@ -428,7 +430,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
       case 'out':
         if (!e.rolled.outEvent && e.elapsed >= e.outTicks * EVENT_AT) {
           e.rolled.outEvent = true;
-          rollRoadEvent(s, e, members, rng);
+          if (!crossroads(s, e, members, rng)) rollRoadEvent(s, e, members, rng);
         }
         if (e.elapsed >= e.outTicks) {
           e.phase = 'work';
@@ -473,7 +475,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
         }
         if (!e.rolled.backEvent && e.elapsed >= e.backTicks * EVENT_AT) {
           e.rolled.backEvent = true;
-          rollRoadEvent(s, e, members, rng);
+          if (!crossroads(s, e, members, rng)) rollRoadEvent(s, e, members, rng);
         }
         if (e.elapsed >= e.backTicks) comeHome(s, e, d, members, rng);
         break;
@@ -665,6 +667,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   huntHome(s, e, party);
   payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);
+  debrief(s, e, d); // (a party the player sent: what it cost and won, sim/muster.ts)
 }
 
 /** Relics (DESIGN §9 special items): rare finds on the hardest trips. */

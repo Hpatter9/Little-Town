@@ -555,7 +555,7 @@ function figure(p: PersonView, s: Snapshot, scale: number): HTMLElement {
 
 /** Their head and shoulders, for the list. */
 const FACE = 26;
-function face(p: PersonView, s: Snapshot): HTMLElement {
+export function face(p: PersonView, s: Snapshot): HTMLElement {
   const c = el('canvas', 'pixel-figure folk-face');
   c.width = c.height = FACE * HK_RES;
   const src = picture(p, s);

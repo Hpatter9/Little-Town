@@ -3,6 +3,7 @@
 
 import { answerSecret } from './specials';
 import { answerSaga } from './sagas';
+import { answerCrossroads } from './muster';
 import { answerVisitor } from './townsfolk';
 import { answerThirst } from './monsters';
 import { openGate } from './raidWait';
@@ -89,6 +90,8 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'visitor') return answerVisitor(s, prompt.options[option]);
   if (prompt.kind === 'secret') return answerSecret(s, prompt.who, option);
   if (prompt.kind === 'saga') return answerSaga(s, prompt.saga, option);
+  if (prompt.kind === 'road') return answerCrossroads(s, prompt, option, rng);
+  if (prompt.kind === 'debrief') return;
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   if (!e) return;
   e.prompt = null;

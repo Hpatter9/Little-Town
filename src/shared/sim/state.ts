@@ -582,7 +582,9 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief';
+  /** A commanded party's question on the road (sim/muster.ts `CROSSROADS`): which one. */
+  road?: string;
   /** A saga's question: the run it belongs to (sim/sagas.ts). */
   saga?: number;
   /** The expedition it's about (strangers), or null. */
@@ -669,6 +671,14 @@ export interface Expedition {
   delve?: Delve;
   /** The Moon Pack's full-moon hunt (sim/pack.ts). */
   hunt?: boolean;
+  /** Sent by the player (sim/muster.ts): it asks on the road, and is debriefed at home. How many road questions it has
+   *  asked, the rations packed, and each member's level and wounds as they set out (for the debrief). */
+  ordered?: boolean;
+  crossroads?: number;
+  rations?: 'lean' | 'normal' | 'plenty';
+  start?: { level: Record<number, number>; wounds: Record<number, number>; names: Record<number, string>; tick: number };
+  /** Spare torches packed beyond the town's reckoning (a delve). */
+  extraTorches?: number;
   /** The last fight's outcome, for the watcher's victory screen (sim/expeditions.ts finishBattle): when, how it
    *  went, each member's experience and levels, and what was taken. */
   result?: FightResult;
@@ -686,8 +696,25 @@ export interface Visitor {
   leavingTo: Pt | null;
 }
 
+/** A party the player is raising (sim/muster.ts): where to, who leads, who's asked, how boldly, what's packed, and who
+ *  said no (why, and the coins that would bring them; null: only an order will). */
+export interface Muster {
+  dest: string;
+  leader: number;
+  members: number[];
+  stakes: 'safe' | 'risky';
+  rations: 'lean' | 'normal' | 'plenty';
+  torches: number;
+  horses: boolean;
+  refused: Record<number, { why: string; price: number | null }>;
+  /** Those the player overrode (talked round or ordered): they won't be asked again. */
+  agreed: number[];
+}
+
 export interface GameState {
   version: 17;
+  /** A party the player is raising (sim/muster.ts). */
+  muster?: Muster;
   /** World seed (the land is made from it; changes live in `land`). */
   seed: string;
   /** Ticks simulated since the game began. */

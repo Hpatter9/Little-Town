@@ -46,6 +46,8 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
   /** The answer given, while the box shows what came of it. */
   let answered: { id: number; from: number; at: number; box: HTMLElement; told: boolean } | null = null;
   let tick = 0;
+  /** Debriefs read (closed at once, never shown again while the sim catches up). */
+  const read = new Set<number>();
   /** Waiting this long (real ms) with nothing come of it, the box says so and lets you go on. */
   const QUIET_MS = 2500;
   const win = () => strip.contentWindow as (Window & { __eventSheet?: boolean; __picture?: (h: { person?: number }) => HTMLCanvasElement | null }) | null;
@@ -95,6 +97,14 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
       b.addEventListener('click', () => {
         if (answered) return;
         onAnswer(p.id, i);
+        // (a debrief is read, not answered: it just closes)
+        if (p.kind === 'debrief') {
+          read.add(p.id);
+          shown = -1;
+          el.hidden = true;
+          document.body.classList.remove('event-open');
+          return;
+        }
         options.replaceWith(answerBox(p, label));
       });
       options.append(b);
@@ -169,7 +179,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         tell(snap);
         return;
       }
-      const p = snap.prompts.find((q) => q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga');
+      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief'));
       const on = !!p && !away;
       el.hidden = !on;
       document.body.classList.toggle('event-open', on);

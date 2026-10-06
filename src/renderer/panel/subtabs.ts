@@ -75,6 +75,11 @@ export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kin
   const parts = new Map<string, HTMLElement[]>(cfg.groups.map(([n]) => [n, []]));
   let current: string | null = cfg.intro ?? null;
   for (const e of els) {
+    // (a sheet over the whole menu, like raising a party, is never put in a tab)
+    if (e.classList.contains('over-tabs')) {
+      above.push(e);
+      continue;
+    }
     if (e.tagName === 'H2') {
       const g = cfg.groups.find(([, re]) => re.test(e.textContent ?? ''));
       if (g) current = g[0];

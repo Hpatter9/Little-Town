@@ -1,5 +1,6 @@
 // Expedition Board: parties that are out, and where you can send one next.
 
+import { renderMuster } from './musterPanel';
 import { BOAT_BY_KIND } from '../../shared/data/boats';
 import { eraReached } from '../../shared/data/eras';
 import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
@@ -58,6 +59,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.regions,
     s.quests.map((q) => [q.id, Math.ceil(q.hoursLeft / 24)]),
     s.fleet,
+    s.muster,
   ]);
 
 const listStock = (st: Stock) =>
@@ -68,6 +70,8 @@ const listStock = (st: Stock) =>
 export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement[] {
   rerenderBoard = rerender;
   const out: HTMLElement[] = [];
+  // (a party the player is raising: its sheet over everything, musterPanel.ts)
+  if (s.muster) out.push(renderMuster(s.muster, s, bridge));
   const head = el('div', 'panel-head');
   head.append(el('span', '', `Expeditions out ${s.expeditions.length}/${MAX_EXPEDITIONS}`), el('span', '', `Parties of up to ${MAX_PARTY}`));
   out.push(head);
@@ -379,6 +383,12 @@ function tripControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sna
   else if (going) c.append(el('div', 'purpose', `A party is there now${going.leader ? `, led by ${going.leader}` : ''}.`));
   if (v.bounty) c.append(el('div', 'purpose', `Bounty: ${v.bounty} coins from the treasury, paid to the party that does the job.`));
   const step = s.trips.bountyStep;
+  // (send a party yourself: an adventurer steps up to lead, sim/muster.ts)
+  if (!going && v.unlocked) {
+    const raise = el('div', 'row stakes');
+    raise.append(button('Raise a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest: d.id }), { cls: 'place go', disabled: !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS, title: 'Choose who goes, how boldly, and what they take' }));
+    c.append(raise);
+  }
   const row = el('div', 'row stakes');
   row.append(
     button(v.vetoed ? 'Allow' : 'Forbid', () => bridge?.command({ type: 'veto', dest: d.id, on: !v.vetoed }), {
