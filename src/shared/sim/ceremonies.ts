@@ -28,7 +28,7 @@ import { PURSE_SCALE } from '../data/shop';
 import { TREASURY_KEEP } from '../data/economy';
 import { buildingDoor, buildingCentre, storages, totalStock } from './buildings';
 import { isChild, opinion } from './social';
-import { addStock, campXY, earn, notify, type GameState, type Person } from './state';
+import { addStock, eatersOf, foodDaysFor, tireless, campXY, earn, notify, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { takeSale } from './ambition';
 
@@ -58,7 +58,7 @@ export function victoryFeast(s: GameState): void {
 function foodDays(s: GameState): number {
   const stock = totalStock(s);
   const food = Object.entries(FOOD_VALUE).reduce((n, [m, v]) => n + (stock[m as Material] ?? 0) * (v ?? 0), 0);
-  return food / Math.max(1, s.people.length);
+  return foodDaysFor(s, food);
 }
 
 /** Eat a feast's worth of food from the stores (the plainest first). */
@@ -80,7 +80,7 @@ const graveyardOf = (s: GameState) => s.buildings.find((b) => b.status === 'done
 
 /** Begin a gathering: who, where, for how long. */
 function gather(s: GameState, kind: GatheringKind, ids: number[], hours: number, text: string, at: { x: number; y: number }): void {
-  s.gathering = { kind, ids, until: s.tick + hours * TICKS_PER_HOUR, text, x: at.x, y: at.y };
+  s.gathering = { kind, ids, until: s.tick + hours * TICKS_PER_HOUR, text, x: at.x, y: at.y, from: s.tick };
 }
 
 /** Once an hour: at the evening hour, a funeral for the dead since the last, else a feast that's due. */
@@ -115,13 +115,17 @@ export function ceremoniesHourly(s: GameState): void {
   if (s.lastFeast != null && s.tick - s.lastFeast < FEAST_GAP_HOURS * TICKS_PER_HOUR && feast.kind !== 'wedding') return;
   const all = here(s).filter((p) => !p.guard || feast.kind === 'wedding');
   // (a feast the stores can't spare is put off: a wedding is still kept, with what there is)
-  if (foodDays(s) - FEAST_FOOD * all.length / Math.max(1, s.people.length) < FEAST_FOOD_DAYS && feast.kind !== 'wedding') {
+  // (only the living eat at it: the dead dance, and eat nothing)
+  const mouths = all.filter((p) => !tireless(p)).length;
+  if (mouths && foodDays(s) - (FEAST_FOOD * mouths) / Math.max(1, eatersOf(s)) < FEAST_FOOD_DAYS && feast.kind !== 'wedding') {
     notify(s, `No feast for ${feast.text}: the stores can't spare it.`);
     return;
   }
-  eatFeast(s, all.length);
+  eatFeast(s, mouths);
   const tavern = tavernOf(s);
-  const at = tavern ? buildingDoor(tavern) : campXY(s);
+  // (before the tavern, out on the open ground below its door, so the dancers' ring doesn't run into it)
+  const door = tavern ? buildingDoor(tavern) : null;
+  const at = door ? { x: door.x, y: door.y + Math.min(120, 34 + all.length * 5) * 0.7 + 24 } : campXY(s);
   // (held at a tavern someone owns, the treasury pays the house: the tavern's owner profits)
   if (tavern && tavern.owner !== undefined) {
     const n = Math.min(Math.round(FEAST_COIN * PURSE_SCALE[s.era] * all.length), Math.max(0, (s.coins ?? 0) - TREASURY_KEEP));
@@ -147,6 +151,32 @@ function endGathering(s: GameState): void {
     for (const p of came) if (p.grief && s.tick < p.grief.until) p.grief = { ...p.grief, value: Math.round(p.grief.value * FUNERAL_EASE) };
     mark(g.kind === 'great_funeral' ? GREAT_FUNERAL_MARK : FUNERAL_MARK, g.kind === 'great_funeral' ? 'We buried our dead together' : 'Laid to rest');
   } else mark(g.kind === 'wedding' ? WEDDING_FEAST_MARK : FEAST_MARK, g.text.replace(/^(At|Feasting) /, '').replace(/^the /, 'The '));
+}
+
+/** A feast (not a funeral): the town dances. */
+export const festive = (g: NonNullable<GameState['gathering']>) => g.kind === 'feast' || g.kind === 'wedding';
+/** At a feast every other guest joins the ring dance round the spot, which turns this many radians a tick (a turn in
+ *  about 40 s); the rest dance where they stand. */
+export const RING_SPIN = (Math.PI * 2) / 400;
+/** Whether a guest (by their place in the gathering) dances in the turning ring. */
+export const inRing = (i: number) => i % 2 === 0;
+
+/** How far from the spot the ring stands (px): a feast's ring grows with the guests, so the dancers have room. */
+export function gatheringRadius(g: NonNullable<GameState['gathering']>): number {
+  const n = g.ids.length;
+  return festive(g) ? Math.min(120, 34 + n * 5) : Math.min(90, 26 + n * 3.5);
+}
+
+/** Where a guest stands (or dances) at a gathering: a ring round the spot, the ring dancers' places turning with the
+ *  time; and which way they face (dir, as `Person.dir`). */
+export function gatheringPlace(g: NonNullable<GameState['gathering']>, i: number, tick: number): { x: number; y: number; dir: 1 | -1 } {
+  const n = Math.max(1, g.ids.length);
+  const r = gatheringRadius(g);
+  const turning = festive(g) && inRing(i);
+  const a = (i / n) * Math.PI * 2 + (turning ? (tick - (g.from ?? tick)) * RING_SPIN : 0);
+  // (a ring dancer faces the way the ring turns; the rest face the middle)
+  const dir: 1 | -1 = turning ? (-Math.sin(a) > 0 ? 1 : -1) : Math.cos(a) > 0 ? -1 : 1;
+  return { x: g.x + Math.cos(a) * r, y: g.y + Math.sin(a) * r * 0.7, dir };
 }
 
 /** At a gathering now (they stop work and stand together). */

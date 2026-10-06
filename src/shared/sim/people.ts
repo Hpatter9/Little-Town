@@ -2,7 +2,7 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
-import { attending } from './ceremonies';
+import { attending, festive, gatheringPlace } from './ceremonies';
 import { injuryPace } from './injuries';
 import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
@@ -247,13 +247,16 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
         p.task = null;
         break;
       }
-      // (in a ring round the spot, each to their own place)
-      const i = g.ids.indexOf(p.id);
-      const a = (i / Math.max(1, g.ids.length)) * Math.PI * 2;
-      const r = 26 + (g.ids.length > 8 ? 18 : 0);
-      if (!goTo(s, p, { x: g.x + Math.cos(a) * r, y: g.y + Math.sin(a) * r * 0.7 })) break;
-      p.activity = 'idle';
-      p.dir = Math.cos(a) > 0 ? -1 : 1;
+      // (in a ring round the spot, each to their own place; at a feast half of them dance round in the ring: once there,
+      // they keep to their turning place)
+      const at = gatheringPlace(g, g.ids.indexOf(p.id), s.tick);
+      const there = dist(p, at) < 10;
+      if (there && festive(g)) {
+        p.x = at.x;
+        p.y = at.y;
+      } else if (!goTo(s, p, at)) break;
+      p.activity = festive(g) ? 'dance' : 'mourn';
+      p.dir = at.dir;
       break;
     }
     case 'toil': {

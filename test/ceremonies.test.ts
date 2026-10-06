@@ -79,3 +79,50 @@ test('no feast the stores cannot spare (but a victory is feasted when they can)'
   toEvening(s);
   assert.equal((s as GameState).gathering?.kind, 'feast');
 });
+
+test('at a feast the town dances: half the ring turns round the spot; at a funeral they mourn, still', async () => {
+  const { gatheringPlace, gatheringRadius } = await import('../src/shared/sim/ceremonies');
+  const s = town('dance1', 9);
+  const ids = s.people.map((p) => p.id);
+  s.gathering = { kind: 'feast', ids, until: s.tick + 10 * TICKS_PER_HOUR, text: 'At the feast', x: 1000, y: 1000, from: s.tick };
+  // (the ring has room for everyone: it grows with the guests)
+  assert.ok(gatheringRadius(s.gathering) > gatheringRadius({ ...s.gathering, ids: ids.slice(0, 2) }));
+  const a0 = gatheringPlace(s.gathering, 0, s.tick);
+  const a1 = gatheringPlace(s.gathering, 0, s.tick + 50);
+  const b0 = gatheringPlace(s.gathering, 1, s.tick);
+  const b1 = gatheringPlace(s.gathering, 1, s.tick + 50);
+  assert.ok(Math.hypot(a1.x - a0.x, a1.y - a0.y) > 5, 'a ring dancer goes round');
+  assert.deepEqual([b0.x, b0.y], [b1.x, b1.y], 'the others dance where they stand');
+  // (the guests at their places take up the dance, and the ring dancers go round with it)
+  const { newTickContext, updatePerson } = await import('../src/shared/sim/people');
+  const { Rng } = await import('../src/shared/rng');
+  const g = s.gathering;
+  s.people.forEach((p, i) => Object.assign(p, gatheringPlace(g, i, s.tick), { task: null, needs: { ...p.needs, food: 1, rest: 1 } }));
+  const first = { x: s.people[0].x, y: s.people[0].y };
+  const rng = new Rng(3);
+  for (let t = 0; t < 40; t++) {
+    s.tick++;
+    const ctx = newTickContext();
+    for (const p of s.people) updatePerson(s, p, rng, ctx);
+  }
+  assert.ok(s.people.every((p) => p.activity === 'dance'), s.people.map((p) => p.activity).join());
+  assert.ok(Math.hypot(s.people[0].x - first.x, s.people[0].y - first.y) > 5, 'round they go');
+  const funeral = { ...s.gathering, kind: 'funeral' as const };
+  const f0 = gatheringPlace(funeral, 0, s.tick);
+  const f1 = gatheringPlace(funeral, 0, s.tick + 50);
+  assert.deepEqual([f0.x, f0.y], [f1.x, f1.y], 'mourners stand still');
+});
+
+test('the dance steps: on the beat, off the ground and back; mourners kneel or stand', async () => {
+  const { BEAT, danceMove, danceStep, mournStep } = await import('../src/renderer/map/dance');
+  const moves = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(danceMove));
+  assert.ok(moves.size >= 4, 'a town dances many ways');
+  for (const id of [1, 2, 3, 4, 5]) {
+    const lifts = [0, 0.25, 0.5, 0.75, 1.25, 1.5, 1.75].map((k) => danceStep(id, 10 * BEAT + k * BEAT, false).lift);
+    assert.equal(lifts[0], 0, 'on the ground on the beat');
+    assert.ok(Math.max(...lifts) > 0 && Math.max(...lifts) <= 5, 'and up between');
+  }
+  assert.ok(danceStep(2, BEAT * 1.5, true).lift > 0, 'the ring skips');
+  assert.equal(mournStep(3).col, 7, 'some kneel');
+  assert.equal(mournStep(4).lift, 0);
+});

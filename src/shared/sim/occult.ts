@@ -5,7 +5,7 @@
 
 import { TOPICS } from '../data/research';
 import { addItems } from './crafting';
-import { maxHp, notify, campX, personFx, type GameState, type Person } from './state';
+import { makeUndying, maxHp, notify, campX, personFx, type GameState, type Person } from './state';
 import { fullMoon } from './monsters';
 import { buildingCentreX } from './buildings';
 import { TICKS_PER_DAY } from './time';
@@ -77,6 +77,8 @@ export function watchLich(s: GameState): void {
   const main = s.people.find((p) => p.id === s.mainId);
   if (main) {
     main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
+    main.undying = true;
+    makeUndying(main);
     personFx(s, main.id, 'undead');
   }
   notify(s, `The phylactery is sealed. ${main?.name ?? 'The founder'} is a lich now, and the town will never be the same.`, true);

@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { gatheringRadius } from './ceremonies';
 import { realmView, type RealmView } from './factions';
 import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
 import { musterView, type MusterView } from './muster';
@@ -78,7 +79,7 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, type ShopTalk } from './state';
+import { tireless, carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, type ShopTalk } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { ABILITIES, abilitiesKnown } from '../data/abilities';
@@ -236,6 +237,8 @@ export interface PersonView {
   elder: boolean;
   /** Monsters: what they are and their standing order for the Hunter's Guild. */
   monster: string | null;
+  /** Neither eats nor sleeps (the dead, the lich, machines). */
+  tireless: boolean;
   order: string | null;
   sick: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
@@ -646,6 +649,8 @@ export interface Snapshot {
   pack: PackView | null;
   /** Blood on the ground where someone was struck down: where, the side the blow came from, and how old (ticks). */
   blood: { x: number; y: number; from: 1 | -1; age: number; key: string }[];
+  /** The town gathered (a feast, a wedding, a funeral): where, and how many came (the map dresses the spot). */
+  gathering: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; x: number; y: number; ring: number; key: number; fire: boolean } | null;
   prompts: PromptView[];
   /** Seconds until the player can rally a defender again (0: now). */
   rallyIn: number;
@@ -856,6 +861,7 @@ export function snapshot(s: GameState): Snapshot {
     realm: realmView(s, (id) => !destinationHidden(s, id) && !!DEST_BY_ID[id] && destinationUnlocked(s, DEST_BY_ID[id])),
     places: placeViews(s),
     pack: packView(s),
+    gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40 } : null,
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
     regions: [HOME_REGION, ...(s.regions ?? [])],
@@ -1352,6 +1358,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     ageText: ageLine(s, p),
     elder: isElder(s, p),
     monster: p.monster ?? null,
+    tireless: tireless(p),
     order: p.monster ? (p.order ?? 'hide') : null,
     sick: !!p.sick,
     ...fightView(p),

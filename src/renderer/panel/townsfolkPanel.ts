@@ -210,9 +210,10 @@ function characterTab(p: PersonView, rerender: () => void, out: HTMLElement): vo
   bars.append(
     bar('Health', p.hp / p.maxHp, p.downed ? (p.downed === 'bleeding' ? `bleeding out: ${bleedLeft(p.bleedMinutes)} left!` : 'down, recovering') : `${Math.round(Math.min(p.hp, p.maxHp))}/${p.maxHp}`),
     bar('Morale', p.morale / 100, `${Math.round(p.morale)} → ${Math.round(p.moodTarget)}`),
-    bar('Food', p.needs.food, ''),
-    bar('Rest', p.needs.rest, ''),
+    // (the dead and machines have no hunger or weariness to show)
+    ...(p.tireless ? [] : [bar('Food', p.needs.food, ''), bar('Rest', p.needs.rest, '')]),
   );
+  if (p.tireless) life.append(el('div', 'lock short', 'Needs neither food nor sleep.'));
   life.append(bars);
   if (p.breakdown) life.append(el('div', 'lock short', p.breakdown));
   if (p.sick) life.append(el('div', 'lock short', 'Sick.'));

@@ -38,7 +38,7 @@ import { type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, i
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
-import { tireless, addStock, campCell, poolSize, type Building, type GameState } from './state';
+import { eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { LINE_ITEMS, lineOfDef, COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
@@ -100,6 +100,9 @@ interface Needs {
   limbless: boolean;
   wounded: boolean;
   freeBeds: number;
+  /** How many eat (the dead and machines don't). */
+  eaters: number;
+  /** Days the food in store lasts those who eat (plenty, `NO_EATERS_DAYS`, when nobody does). */
   foodDays: number;
   storageFill: number;
   stock: Stock;
@@ -118,7 +121,6 @@ const RESERVE: Partial<Record<Material, number>> = { wood: 20, stone: 12, fiber:
 
 function needs(s: GameState): Needs {
   const stock = totalStock(s);
-  const eaters = s.people.filter((p) => !tireless(p)).length || 1;
   const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (stock[m] ?? 0) * v, 0);
   const demand: Stock = {};
   const want = (m: Material, n: number) => (demand[m] = (demand[m] ?? 0) + n);
@@ -138,7 +140,8 @@ function needs(s: GameState): Needs {
     unsourced: [...wanted].filter((m) => m !== 'totem' && !sourceable(s, m, 0, false)),
     people: s.people.length,
     freeBeds: housingCapacity(s) + coming - s.people.length,
-    foodDays: food / eaters,
+    eaters: eatersOf(s),
+    foodDays: foodDaysFor(s, food),
     storageFill: used / Math.max(1, totalCapacity(s)),
     stock,
     demand,
@@ -615,7 +618,8 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const foodField = (id: string) => !!CROPS[id] && !!FOOD_VALUE[CROPS[id].material];
   // (counted in garden plots' worth of food, so one big field counts for more than one small one)
   const fieldsNow = s.buildings.filter((b) => foodField(b.def)).reduce((n, b) => n + plotsWorth(b.def), 0);
-  const fed = n.people < 4 || (n.foodDays >= 2 && fieldsNow >= Math.ceil(n.people / 2) - 1);
+  // (fields are for those who eat: a town of the dead or of machines farms only for its tavern's guests)
+  const fed = n.eaters < 4 || (n.foodDays >= 2 && fieldsNow >= Math.ceil(n.eaters / 2) - 1);
   const paced = n.people < 4 || s.tick - (s.plan?.lastHome ?? -Infinity) >= HOME_EVERY * Math.max(1, s.plan?.lastHomeBeds ?? 1);
   // (people build their own homes too (sim/property.ts); the treasury keeps a bed spare to rent, since a newcomer
   // only comes to a town with a bed free)
@@ -623,14 +627,15 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   // food: a field for every two people (one or two more when stores are low; never a field per person)
   const fields = fieldsNow;
   // (poor soil, like the desert's, feeds fewer per field: while food is short it keeps adding fields)
-  const fieldsWanted = Math.ceil(n.people / 2) + (n.foodDays < 3 ? Math.ceil(n.people / 3) : 0);
+  const guests = s.buildings.some((b) => b.status === 'done' && venueOfDef(b.def) === 'tavern') ? 1 : 0;
+  const fieldsWanted = n.eaters ? Math.ceil(n.eaters / 2) + (n.foodDays < 3 ? Math.ceil(n.eaters / 3) : 0) : guests;
   // (a mix of crops, so one blight can't take them all; and no slow orchard while food is short)
   const cropPower = (d: BuildingDef) => {
     const c = CROPS[d.id];
     const perDay = (c.yield * FOOD_VALUE[c.material]!) / c.growHours;
     return (c.establishHours && n.foodDays < 3 ? perDay / 4 : perDay) / (1 + count(d.id));
   };
-  if (fields < Math.min(fieldsWanted, n.people + 1)) options((d) => foodField(d.id), cropPower, n.foodDays < 3 ? 'food is running low' : 'more fields for more people');
+  if (fields < Math.min(fieldsWanted, n.eaters + 1 + guests)) options((d) => foodField(d.id), cropPower, n.foodDays < 3 ? 'food is running low' : 'more fields for more people');
   // the phylactery, first of all, once it's decided
   if (s.lichChosen && !planned(s, 'phylactery')) add('phylactery', `to bind ${s.people.find((p) => p.id === s.mainId)?.name ?? 'the founder'}'s soul`);
   // a shop, first thing, when the land can't give what the town needs (a desert's fiber, once it's gathered out)
@@ -916,9 +921,9 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
   for (const m of MATERIALS) {
     if (!GATHERABLE.has(m)) continue;
     let short = Math.max((n.demand[m] ?? 0) - (n.stock[m] ?? 0), craftWants[m] ?? 0);
-    if (m === 'berries' && n.foodDays < 3) short = Math.max(short, n.people * 3);
+    if (m === 'berries' && n.foodDays < 3) short = Math.max(short, n.eaters * 3);
     if (seaTown(s)) {
-      if (m === 'fish' && n.foodDays < 4) short = Math.max(short, n.people * 3);
+      if (m === 'fish' && n.foodDays < 4) short = Math.max(short, n.eaters * 3);
       if (m === 'pearls') short = Math.min(1, Math.max(short, PEARLS_WANT - (n.stock[m] ?? 0))); // (one pearl cell at a time: never a cap's worth)
     } else if (SEA_MATERIALS.includes(m)) continue;
     if ((m === 'gold' || m === 'gems') && holdOf(s) === 'mountain') short = Math.max(short, DELVE_WANT - (n.stock[m] ?? 0));
@@ -956,8 +961,8 @@ const AMMO_KEEP = 30;
  *  (twice its usual one), food beyond several days' worth, and never the totem. */
 export function forSale(s: GameState): Stock {
   const n = needs(s);
-  const eaters = s.people.filter((p) => !tireless(p)).length || 1;
-  let spareFood = Math.max(0, (n.foodDays - FOOD_KEEP_DAYS) * eaters);
+  // (a town where nobody eats sells all the food it comes by)
+  let spareFood = n.eaters ? Math.max(0, (n.foodDays - FOOD_KEEP_DAYS) * n.eaters) : Infinity;
   const out: Stock = {};
   for (const m of MATERIALS) {
     const have = n.stock[m] ?? 0;
@@ -982,7 +987,7 @@ export function shoppingList(s: GameState): { m: Material; n: number; essential:
   const n = needs(s);
   const out: { m: Material; n: number; essential: boolean }[] = [];
   if (n.foodDays < 2) {
-    const eaters = s.people.filter((p) => !tireless(p)).length || 1;
+    const eaters = n.eaters || 1;
     const food = travellerGoods(s.era).filter((m) => FOOD_VALUE[m]).sort((a, b) => FOOD_VALUE[b]! - FOOD_VALUE[a]!)[0];
     if (food) out.push({ m: food, n: Math.ceil(((3 - n.foodDays) * eaters) / FOOD_VALUE[food]!), essential: true });
   }

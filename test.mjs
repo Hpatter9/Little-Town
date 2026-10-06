@@ -14,6 +14,8 @@ await esbuild.build({
   format: 'cjs',
   target: 'es2023',
   logLevel: 'warning',
+  // (the renderer's pictures, where a test reaches them: only their names matter)
+  loader: { '.png': 'empty' },
 });
 const files = entries.map((e) => e.replace(/^test\//, 'out/test/').replace(/\.ts$/, '.cjs'));
 const r = spawnSync(process.execPath, ['--test', ...files], { stdio: 'inherit' });

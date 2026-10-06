@@ -101,6 +101,13 @@ merfolk's halls (`su_roundcastle.png`) and the tent for the nomads' (`su_tent.pn
 Simple Summer Top-Down Vector Tileset, used under Craftpix's free licence (use in the game; the raw files are not
 redistributed).
 
+More homes and defences on the map (`src/renderer/art/packs/`): the cottage on its stone footing for the lean-to and
+hide tent (`su_house.png`, shrunk) is from the same Simple Summer tileset; the long house (`tt_long.png`, its inn sign
+painted over with its own window) and the tall gabled house (`tt_gable.png`) are cut from the town tileset of
+**tiny-rpg-town** by **Luis Zuno (@ansimuz)**; the pit, stakes and spikes (`dl_pit.png`, `dl_stakes.png`,
+`dl_caltrops.png`, `dl_spikes.png`) are cells of **DawnLike**'s `Objects/Trap0.png` by **DragonDePlatino**; the electric
+coil (`ao_coil.png`) is the first frame of the trap in the loose Craftpix animated-objects pack.
+
 ## Craftpix seabed wreck (the sea beast's reef)
 
 The broken wreck a sea beast lairs on, off a shore town (`src/renderer/art/packs/sb_wreck.png`), is from

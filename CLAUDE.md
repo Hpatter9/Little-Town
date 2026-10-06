@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.7.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.8.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -688,6 +688,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   raised dead take the Craftpix skeleton forms (`skeletonSheet` in art/combatPoses.ts: the archer for a shooter, the
   warrior or the spearman by id; mapPeople and fightView through `FighterView.undead`). Tests: `test/kin.test.ts`.
 
+- **The dead don't eat (the owner's complaint: a lichdom farmed as if alive):** the lich is dead in body too
+  (`Person.undying`, set at founding and by the rite in occult.ts, and on older towns' lich by `keepKin`), so
+  `tireless` (state.ts) covers the raised, the lich and machines: no hunger, sleep, sickness, age or pairing. Raised
+  or remade, needs are set full for good (`makeUndying`: someone raised hungry once stayed hungry). Food is reckoned for
+  eaters only (`eatersOf`, `foodDaysFor`: `NO_EATERS_DAYS` when nobody eats): the planner's `Needs.eaters` sizes the
+  fields (a town of nobody who eats sows one field, and only for its tavern's guests), the berry and fish wants, and
+  sells all its food; farming's, the pens' and the feasts' food days likewise (the dead dance and eat nothing); a party
+  packs food only for its living; a wanderer is never turned from a dead or machine town for want of food. The dead
+  skip the tavern's night out, feel no hunger or weariness in their mood, and the lich no "Living among the dead". The
+  Townsfolk page shows "Needs neither food nor sleep" for them (`PersonView.tireless`). Homes stay as they were (the
+  crypts, and a bed is still what lets a newcomer in). Soak (10 days): lich towns 5 to 6 food fields → 1, machines 8 → 1,
+  growth as before. Tests: `test/undead.test.ts`.
 - **Strangers of other peoples, xenophobia, the hidden vampire's thirst (done; the owner's request):**
   `src/shared/data/strangers.ts` and `src/shared/sim/strangers.ts`. `Person.origin` and `Traveller.origin` (their
   people when not the town's; `peopleOf`): a wanderer is of another people `STRANGER_CHANCE` of the time, a traveller
@@ -1803,6 +1815,28 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   store), crates, a vase and barrels (emporium), chairs (furniture maker), the weapon rack and anvil (weapons), a helm and
   a chest (armour), a shelf of jars and a potted plant (apothecary), a bench and barrel (tavern), a barrel (inn), a
   wheelbarrow (trading post). The other peoples' looks keep their own buildings with the same storefronts.
+- **Every people's shops from the pack (the owner's complaint: a lich town's shop was "the old build"):** the venues'
+  timber pictures were only for the base, settlers and knights looks, so every other people's shops were the top-down
+  painter's. Now `pickFor` (packBuildings.ts) gives any venue (`venueOfDef`) the same pack picture **recoloured** for a
+  look it doesn't suit (`Pick.grade`, `GRADES`: how much colour is taken out, the colour laid over the rest and the
+  brightness: the liches' grey-green and dim, the Court's blood-dark, the machines' steel, the shore's sea-washed, the
+  nomads' sand, the druids' green, the fae's violet...), done once on the canvas in `pickArt` (`regrade`).
+- **Every building from the packs, in every look (the owner's complaint: the code-drawn stone buildings):** any pick that
+  doesn't suit a look is now drawn **recoloured** for it (`pickFor` in packBuildings.ts: `Pick.grade`, `GRADES`), not
+  painted: the timber houses, trades, market, theatre, bathhouse and walls in the liches' grey-green, the Court's
+  blood-dark, the machines' steel and the rest (the merfolk keep their painted stilt huts). A pick may carry its own
+  `grade` whatever the look: the stone wall's stonework as `brick`, `concrete` and `force` walls and gates. New picks:
+  the lean-to and hide tent are the Simple Summer pack's cottage (`su_house.png`), the longhouse the tiny-rpg-town
+  pack's long house (`tt_long.png`, its inn sign painted over with its window), the apartments two of its gabled houses
+  (`tt_gable.png`); the guard and bell towers the Simple Summer watchtowers; the gunsmith, cinema and university pack
+  houses with their trade's things; the boatyard logs, racks and a barrel; the blood farm graves; DawnLike's pit,
+  stakes and spikes for the pit trap, spike trap, caltrops, wolf trap, bramble snare and land mine; the loose
+  animated-objects pack's electric coil for the Tesla coil and shield generator (`ao_coil.png`); the late plants
+  (steelworks, cement works, alloy foundry, fusion reactor, cryo pod, clone vat) from the futuristic objects, the trauma
+  centre as the hospital, the habitat dome the round keep in steel; and the peoples' own defences from the cave and
+  village props. Still painted, since no pack has them: the war engines and turrets, the launch site, the sentry bot,
+  tide-pool trap and acid sprayer. `test/packCoverage.test.ts` (`pickCovered`) fails if a building has no pack picture
+  in some look; the test build loads PNGs as `empty`.
 - **Allies keep their colours:** summoned, tamed and allied fighters were washed green all over on the map, the fight
   screen and the expedition pane (a summoned wolf read as a stray green monster); now an ally on the map has a green
   glow underfoot and a green health bar instead (mapRaiders.ts).
@@ -1925,6 +1959,21 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   treasury pays the house `FEAST_COIN` a head (`takeSale`). A gathering is `s.gathering`; those at it (`attending`) take
   the `attend` task: they walk to their place in a ring round the spot and stand there (they still eat), and the
   Townsfolk tab says where they are. Tests: `test/ceremonies.test.ts`.
+  - **Festive gatherings (the owner's ask: they only stood and bobbed):** at a feast or wedding the guests' activity is
+    `dance`, at a funeral `mourn` (new `Activity` values, set by the `attend` task). The ring is roomier
+    (`gatheringRadius`: a feast's grows with the guests), and every other guest dances round in it (`gatheringPlace`,
+    `inRing`, `RING_SPIN`: the ring turns about once in 40 s; once there they keep to their turning place); a tavern
+    feast is held on the open ground below its door. `snapshot.gathering` (kind, spot, ring, `fire` when away from the
+    camp's fire). On the map (`map/dance.ts`, pure): everyone dances to one `BEAT` (420 ms): the ring skips round, the
+    rest each have a move by id (`danceMove`: hop, cheer with an arm up, clap, spin through the four facings, sway),
+    lifted off the ground with a squash on landing; mourners kneel (a third) or stand still turned to the middle
+    (`mournStep`). Notes and hearts pop up thick and fast at a feast, none at a funeral; the speech has new topics
+    `feast` and `mourn` with lines for every nature (`GATHERED` in data/natures.ts). `map/mapFestival.ts`
+    (`MapFestival`, from MapView, synced by main.ts): poles round the ring with strings of fluttering pennants and a
+    paper lantern on each that glows after dark, a bonfire in the middle when it isn't the camp's (the Fields pack's
+    campfire), the long table laid with pots and a jar and a barrel and stools behind (the dungeon clutter), confetti
+    drifting down, and after dark fireworks bursting overhead (drawn in the lights layer); at a funeral the clutter's
+    candles in a ring, glowing. No confetti or fireworks on a slow phone (`calm`).
 - **Step 8, art:** the windmill, the watchtower and the lookout are the Simple Summer top-down pack's windmill and timber
   watchtowers (`art/packs/su_*.png`, shrunk from the pack's vector PNGs; `PICKS` in packBuildings.ts). Since then: the
   factory (pipes, a transformer, a shuttered block and a tank), the garage (two shuttered bays), the radio tower (the

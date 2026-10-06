@@ -262,7 +262,8 @@ export interface CraftOrder {
 }
 
 /** What a person is visibly doing (drives their animation). */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | WorkAnim;
+/** `dance`: at a feast (the map draws them dancing); `mourn`: at a funeral. */
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | WorkAnim;
 
 export interface Raider {
   id: number;
@@ -507,10 +508,27 @@ export interface Person {
   sick?: { until: number; treated?: boolean } | null;
   /** A machine (the Machine Colony origin): never eats, sleeps or sickens, and its spirits hold steady. */
   machine?: boolean;
+  /** The lich: dead in body as the raised are (never eats, sleeps, sickens or ages), but keeps their own shape. */
+  undying?: boolean;
 }
 
-/** The raised dead and machines never eat, sleep or sicken. */
-export const tireless = (p: Pick<Person, 'monster' | 'machine'>) => p.monster === 'undead' || !!p.machine;
+/** The raised dead, the lich and machines never eat, sleep or sicken. */
+export const tireless = (p: Pick<Person, 'monster' | 'machine' | 'undying'>) => p.monster === 'undead' || !!p.machine || !!p.undying;
+
+/** How many of the town eat (the dead and machines don't). */
+export const eatersOf = (s: Pick<GameState, 'people'>): number => s.people.filter((p) => !tireless(p)).length;
+/** Days a stock of food (in need units) lasts the town's eaters: plenty (`NO_EATERS_DAYS`) when nobody eats. */
+export const NO_EATERS_DAYS = 99;
+export const foodDaysFor = (s: Pick<GameState, 'people'>, food: number, perHead = 1): number => {
+  const n = eatersOf(s);
+  return n ? food / (n * perHead) : NO_EATERS_DAYS;
+};
+
+/** Made dead in body (raised, or the lich): nothing left to want for, so hunger and weariness are gone for good. */
+export function makeUndying(p: Person): void {
+  p.needs.food = 1;
+  p.needs.rest = 1;
+}
 
 /** Base health, and the extra a Tough person has. */
 export const BASE_HP = 60;
@@ -918,7 +936,7 @@ export interface GameState {
    *  gathering under way, and when the last feast was. */
   funeralsDue?: { name: string; close: number[]; tick: number }[];
   feastDue?: { kind: 'wedding' | 'feast'; text: string };
-  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; ids: number[]; until: number; text: string; x: number; y: number };
+  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; ids: number[]; until: number; text: string; x: number; y: number; from?: number };
   lastFeast?: number;
   /** An event to put to the player next, once the one open now is answered (`follow`). */
   eventNext?: string;
@@ -1241,7 +1259,11 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   const f = origin.rules.founder;
   if (f === 'machine') main.machine = true;
   else if (f === 'vampire' || f === 'werewolf') turnMonster(main, f, 0);
-  else if (f === 'lich' && !main.look.body) main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
+  else if (f === 'lich') {
+    if (!main.look.body) main.look = { ...main.look, skin: '#b9c4ae' }; // (the colour of old bone)
+    main.undying = true;
+  }
+  for (const p of people) if (tireless(p)) makeUndying(p);
   // what the fire can't hold waits in a stockpile just past it
   if (Object.keys(extra).length) buildings.push({ id: nextId++, def: 'stockpile', tile: camp.x + 3, row: campRow, status: 'done', delivered: {}, progress: 1, store: extra });
   // (a nomad tribe has a summer pasture a day's ride across the land, the way the seed picks)
