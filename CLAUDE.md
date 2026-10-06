@@ -1893,6 +1893,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Journal; the town builds them again elsewhere as it wants them. Pens are only a rail fence now (`drawFence` in
   art/fieldTiles.ts: the Fields pack's side rail `fence7` down the sides, rails stretched cell to cell), over the land
   as it lies. Test in `test/buildings.test.ts`.
+- **Who owns what, on the map (the owner's ask):** a finished building's tap card (main.ts) says whose it is ("Owned by
+  Elka", else "The town's own (the treasury's)"; not for walls and fields), and a home who lives there, the renters
+  marked, and its beds (`PersonView.bedId`).
 - **The annals: the year's chronicle and the hall of heroes (the owner's ask):** `src/shared/sim/annals.ts`. Everyone who
   dies is remembered (`recordFallen` from `killPerson`: `s.fallen`, name, day, cause, calling and level, titles, raiders
   felled, trips; up to `FALLEN_MOST`); each townsperson counts the raiders they struck the last blow on

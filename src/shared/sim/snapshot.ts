@@ -167,6 +167,8 @@ export interface PersonView {
   autoPriorities: boolean;
   /** Name of the building they sleep in, or null (sleeps on the ground). */
   bed: string | null;
+  /** The building they sleep in (its tap card lists who lives there). */
+  bedId: number | null;
   /** Asleep inside a building (the renderer hides them). */
   indoors: boolean;
   /** In a raid: the player can rally them ('ready'), they're rallied ('on'), or the rally is cooling down ('wait'). */
@@ -1333,6 +1335,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     priorities: { ...p.priorities },
     autoPriorities: p.autoPriorities,
     bed: bed ? defOf(bed).name : null,
+    bedId: bed ? bed.id : null,
     floor: null,
     rally: rallyState(s, p),
     indoors: p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),

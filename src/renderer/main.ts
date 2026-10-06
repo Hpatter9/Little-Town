@@ -45,7 +45,7 @@ function travellerPerson(t: TravellerView): PersonView {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
     activity: 'walk', taskDone: null, story: '', titles: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
-    priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
+    priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, bedId: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
@@ -425,6 +425,14 @@ async function start(): Promise<void> {
         } else {
           if (b.fire !== undefined) lines.push(`ON FIRE! ${Math.floor(b.fire * 100)}% burned — everyone is fighting it`);
           lines.push(def.purpose);
+          // whose it is, and who lives in it (homes are bought by the townsfolk and let out: sim/property.ts)
+          const name = (id: number) => snap.people.find((q) => q.id === id)?.name;
+          const owner = b.owner !== undefined ? name(b.owner) : undefined;
+          if (!def.hp && !CROPS[b.def]) lines.push(owner ? `Owned by ${owner}` : "The town's own (the treasury's)");
+          if (def.housing) {
+            const living = snap.people.filter((q) => q.bedId === b.id);
+            lines.push(living.length ? `Home of ${living.map((q) => q.name + (owner && q.id !== b.owner ? ' (renting)' : '')).join(', ')} · ${living.length}/${def.housing} beds` : `Empty · ${def.housing} ${def.housing === 1 ? 'bed' : 'beds'}`);
+          }
           const role = OPERATORS[b.def];
           if (role) {
             const who = snap.people.find((p) => p.id === b.operator);
