@@ -1840,6 +1840,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   blow from every placed fighter with it in their weapon's reach (`partingBlows` in battle.ts, through
   `defenderAttack`, so the recap credits it), as a fighter falling back already did. Probe (10 first raids): 8 of 24
   raiders felled where it was 2, deaths unchanged. Test in `test/battle.test.ts`.
+- **No expedition pane beside the map (the owner's call: it didn't look good and didn't help):** `SHOW_PANE` in main.ts
+  is off, so a party away is no longer drawn walking in a strip beside the zoomed-out map (`town/expeditionPane.ts`
+  stays, unused); parties are watched full screen and listed on the feed and the Expeditions tab.
 - **Raiders lamed and run down (the owner's ask):** `src/shared/sim/raiderWounds.ts`. Every blow that lands on a raider
   (the town's, a tower's or a trap's: rolled in the recap's `credit`, `legWound`) may find a leg: `LEG_SHARE` times
   twice the blow's share of its health; each wound takes `LAME_PER` (0.3) of its pace, up to `LAME_MOST` (0.65)

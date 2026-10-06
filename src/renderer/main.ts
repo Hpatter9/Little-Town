@@ -123,6 +123,8 @@ const DOCK_WIDTH = 108;
 const PANE_MIN = 320;
 const PANE_MAX = 520;
 const PANE_HIT_TOP = 90;
+/** Whether a party away is drawn walking in a pane beside the map (off: the owner found it more clutter than help). */
+const SHOW_PANE = false;
 
 const listStock = (s: Stock) =>
   MATERIALS.filter((m) => (s[m] ?? 0) > 0)
@@ -1054,7 +1056,9 @@ async function start(): Promise<void> {
       if (lastShake !== null && next.tick - next.bossShake < 20) shakeUntil = performance.now() + SHAKE_MS;
       lastShake = next.bossShake;
     }
-    const e = next.gameOver ? null : shownExpedition();
+    // (the expedition pane beside the map is no longer shown, the owner's call: parties are watched full screen, and
+    // listed on the feed and the Expeditions tab)
+    const e = SHOW_PANE && !next.gameOver ? shownExpedition() : null;
     pane.show(view.mode === 'full' ? e : null);
     if (e && pane.visible && paneX < Infinity) expHeader.show(e, next.expeditions.length - 1, paneX, paneW);
     else expHeader.hide();
