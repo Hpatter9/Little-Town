@@ -29,7 +29,7 @@ import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { ChimneySmoke } from '../town/ambientView';
-import { CHUNK, chunkKey, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
+import { CHUNK, chunkKey, groundArtReady, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
 import { onPackArt, packArt, packDressing, type Join } from './packBuildings';
 import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
@@ -42,6 +42,9 @@ import { seatArt } from '../art/seatArt';
 import { SEAT_STAGE } from '../../shared/data/seats';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
+/** When only the footpaths' wear has changed, one chunk is painted again at most this often (ms; syncLand): painting a
+ *  chunk is the heaviest thing the map does, and paths come and go slowly anyway. */
+const WEAR_REPAINT_MS = 1500;
 /** Where the seabed things stand round a building in the sea (share of its width along, px below its foot), and their
  *  size against the atlas's (which is drawn for the raid map, larger). */
 const SEA_DRESS: [number, number][] = [[0.04, 2], [0.96, 4], [0.55, 7]];
@@ -194,6 +197,9 @@ export class MapView {
 
   constructor() {
     this.things.sortableChildren = true;
+    // (the ground is its own render group: people walking and re-sorting among the things made Pixi rebuild the whole
+    // map's draw list every frame, the ground's hundred-odd chunks with it)
+    this.ground.isRenderGroup = true;
     this.ghost.visible = false;
     this.ghost.anchor.set(0.5, 1);
     this.ghost.zIndex = 1e9;
@@ -287,9 +293,17 @@ export class MapView {
     this.width = land.w * CELL;
     this.height = land.h * CELL;
     const td = tdTiles();
+    // (nothing on the land has changed since the last look: skip it all. This ran on every snapshot, ten times a second,
+    // keying every chunk cell by cell)
+    const sig = `${land.version}|${land.open}|${land.camp.x},${land.camp.y}|${season}|${biome}|${era}|${!!td}|${this.blighted()}|${this.chunks.size}|${groundArtReady()}|${this.calm}|${this.propTex.size}`;
+    if (sig === this.landSig && (land.wear === this.landWear || performance.now() < this.nextWearPaint)) return;
     const cols = Math.ceil(land.w / CHUNK);
     const rows = Math.ceil(land.h / CHUNK);
     const reach = land.open + FOG_BAND + CHUNK;
+    // (only the footpaths' wear changed: a chunk or two painted again a snapshot, so a busy path never stalls a frame)
+    const wearOnly = sig === this.landSig;
+    let repaints = 0;
+    let pending = false;
     for (let cy = 0; cy < rows; cy++)
       for (let cx = 0; cx < cols; cx++) {
         const id = `${cx},${cy}`;
@@ -298,6 +312,11 @@ export class MapView {
         const key = near ? chunkKey(land, cx, cy, season, !!td, era, this.blighted()) : 'dark';
         let c = this.chunks.get(id);
         if (c && c.key === key) continue;
+        if (c && wearOnly && repaints >= 1) {
+          pending = true;
+          continue;
+        }
+        repaints++;
         if (!c) {
           c = { sprite: this.ground.addChild(new Sprite()), key: '' };
           c.sprite.position.set(cx * CHUNK * CELL, cy * CHUNK * CELL);
@@ -308,13 +327,22 @@ export class MapView {
         if (old !== Texture.EMPTY && old !== darkTexture()) old.destroy(true);
         c.key = key;
       }
+    this.landSig = sig;
+    this.landWear = pending ? undefined : land.wear;
+    if (wearOnly) this.nextWearPaint = performance.now() + WEAR_REPAINT_MS;
+    if (wearOnly) return;
     this.syncProps(land, season, biome);
     this.drawMarks();
   }
+  /** What the land was at the last `syncLand` (and its wear), to skip it when nothing has changed. */
+  private landSig = '';
+  private landWear: string | undefined = undefined;
+  private nextWearPaint = 0;
 
   /** Paint everything again (the cobble tiles arrived). */
   private repaint(): void {
     for (const c of this.chunks.values()) c.key = '';
+    this.landSig = '';
     if (this.land) this.syncLand(this.land, this.season, this.biome, this.era);
   }
 

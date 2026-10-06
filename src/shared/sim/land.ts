@@ -479,6 +479,7 @@ export const SWIM_COST = 0.8;
  *  corner-cutting past what can't be crossed; `blocked` marks cells stood on (buildings), the goal always allowed. */
 export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: number; y: number }, blocked?: (x: number, y: number) => boolean, limits: number | PathOpts = 12000): { x: number; y: number }[] | null {
   if (from.x === to.x && from.y === to.y) return [];
+  if (!inMap(m, from.x, from.y) || !inMap(m, to.x, to.y)) return null;
   const opts: PathOpts = typeof limits === 'number' ? { maxNodes: limits } : limits;
   const maxNodes = opts.maxNodes ?? 12000;
   const W = m.w;
@@ -491,10 +492,11 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
     return c === Infinity && opts.ford !== undefined && inMap(m, x, y) && groundAt(m, x, y) === 'water' && !b?.(x, y) ? opts.ford : c;
   };
   const cost = (x: number, y: number) => (x === to.x && y === to.y ? Math.min(raw(x, y), 1) : raw(x, y, blocked));
-  const g = new Map<number, number>();
-  const came = new Map<number, number>();
+  // (typed arrays, not maps: a search runs to thousands of cells, and on a phone the maps were half its time)
+  const g = new Float64Array(W * m.h).fill(Infinity);
+  const came = new Int32Array(W * m.h).fill(-1);
   const start = from.y * W + from.x;
-  g.set(start, 0);
+  g[start] = 0;
   // a binary heap of [f, cell]
   const heap: [number, number][] = [];
   const push = (f: number, c: number) => {
@@ -539,7 +541,7 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
     if (++seen > maxNodes) return null;
     const cx = c % W;
     const cy = (c - cx) / W;
-    const gc = g.get(c)!;
+    const gc = g[c];
     for (let dy = -1; dy <= 1; dy++)
       for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
@@ -554,16 +556,16 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
         if (e && (dx && dy ? !(e(cx, cy, nx, cy) && e(nx, cy, nx, ny) && e(cx, cy, cx, ny) && e(cx, ny, nx, ny)) : !e(cx, cy, nx, ny))) continue;
         const n = ny * W + nx;
         const ng = gc + step * (dx && dy ? 1.414 : 1);
-        if (ng < (g.get(n) ?? Infinity)) {
-          g.set(n, ng);
-          came.set(n, c);
+        if (ng < g[n]) {
+          g[n] = ng;
+          came[n] = c;
           push(ng + hfn(nx, ny), n);
         }
       }
   }
-  if (!came.has(goal)) return null;
+  if (came[goal] < 0) return null;
   const out: { x: number; y: number }[] = [];
-  for (let c = goal; c !== start; c = came.get(c)!) out.push({ x: c % W, y: Math.floor(c / W) });
+  for (let c = goal; c !== start; c = came[c]) out.push({ x: c % W, y: Math.floor(c / W) });
   return out.reverse();
 }
 

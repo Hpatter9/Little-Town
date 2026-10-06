@@ -21,10 +21,13 @@ const SETTINGS_KEY = 'littletown.settings';
 const ALERTS_KEY = 'littletown.alerts';
 /** ntfy messages booked on the way out (dropped on the way back, where the server allows). */
 const SCHEDULED_KEY = 'littletown.scheduledAlerts';
-/** The look ahead for phone alerts: ticks per slice, the rest between slices, and how often it's made again (ms). */
-const LOOK_SLICE = 60;
-const LOOK_PAUSE_MS = 40;
-const LOOK_AGAIN_MS = 60_000;
+/** The look ahead for phone alerts runs a copy of the town forward on the game's own thread, so it takes a little at a
+ *  time: at most `LOOK_SLICE_MS` of work, then `LOOK_PAUSE_MS` of rest (about a tenth of the phone's time; it was 60
+ *  ticks a slice every 40 ms, most of a phone's time for a minute or more, and the town stuttered), made again every
+ *  `LOOK_AGAIN_MS`. The last finished look stands meanwhile. */
+const LOOK_SLICE_MS = 6;
+const LOOK_PAUSE_MS = 60;
+const LOOK_AGAIN_MS = 5 * 60_000;
 const AUTOSAVE_MS = 30_000;
 
 /** Browser storage can be missing or full; the game carries on either way. */
@@ -93,7 +96,10 @@ export function mobileBridge(): Bridge {
   const lookAhead = () => {
     if (alerts.enabled && !document.hidden && !game.catchingUp) {
       looking ??= startForecast(game.state, AHEAD_TICKS);
-      if (looking.run(LOOK_SLICE)) {
+      const until = performance.now() + LOOK_SLICE_MS;
+      let finished = false;
+      while (!finished && performance.now() < until) finished = looking.run(2);
+      if (finished) {
         ahead = looking;
         looking = null;
         return setTimeout(lookAhead, LOOK_AGAIN_MS);
@@ -101,7 +107,7 @@ export function mobileBridge(): Bridge {
     }
     setTimeout(lookAhead, LOOK_PAUSE_MS);
   };
-  setTimeout(lookAhead, LOOK_AGAIN_MS);
+  setTimeout(lookAhead, 60_000); // (the first look a minute in, once the page has settled)
   const book = () => {
     if (!alerts.enabled || game.catchingUp) return;
     dropBooked();

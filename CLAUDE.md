@@ -241,8 +241,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   a building or a townsperson to show; stored on the report (`JournalEntry.highlights`). The away card draws them as
   pictures (`textureCanvas` in `art/pixelArt.ts`; the picture callback in `main.ts`), buttons above the long list.
 - **Follow a hero:** a person's tap card has **Follow** (the `follow` command, `s.hero`; `snapshot.hero` while they
-  live). The camera eases to keep them in view (`Camera.follow`), waiting `FOLLOW_WAIT_MS` after the player drags or
-  scrolls. Their big moments (journal milestones with their name) are a forecast kind, `hero`, sent as phone alerts
+  live). The camera no longer follows them, nor a raid's lead raider (the owner's call: it kept jumping); it moves only
+  when the player moves it, or once to the gate as a battle begins. Their big moments (journal milestones with their name) are a forecast kind, `hero`, sent as phone alerts
   (the `hero` alert setting, on by default).
 - **Expedition stakes:** the town plans every party (`planParty` in `sim/expeditions.ts`: the fittest for the trip,
   the founder stays unless alone, half the town kept home, roles, horses, a truck); the player picks the destination
@@ -2005,6 +2005,19 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   likely the more hurt it is (`TAME_HURT`), less with each failed try (`TAME_WARY`, `Raider.tameTries`), between
   `TAME_LEAST` and `TAME_MOST`; a tamer holds at most `tamedMost(stage)` at once (`Raider.tamedBy`). The roll is by the
   seed, the beast, the tick and the tamer. Tests: `test/taming.test.ts`.
+
+- **Smoother on the phone (the owner's complaint: laggy now and then at about 20 townsfolk):** measured in a 22-person
+  town. The sim: `wildCells` (planner.ts) is kept for the tick and the land's version (`wildHolds` for `sourceable`), so
+  a planning pass no longer scans the whole land hundreds of times (the hitch every 15 s); `findPath` keeps its costs in
+  typed arrays, not maps (land.ts); anything that adds or drops a pool bumps `land.version`. Lone towns turn out exactly
+  as before, five times faster. The snapshot: the shop's deals every `DEALS_EVERY` (60) ticks, the planned parties and
+  the next party forming through `slow` (`SLOW_EVERY` 50 ticks) in snapshot.ts (10 ms to 4.4 ms, ten times a second).
+  The phone alerts' look ahead (mobileBridge.ts) runs `LOOK_SLICE_MS` (6 ms) of a copy of the town every `LOOK_PAUSE_MS`
+  (60 ms), again every `LOOK_AGAIN_MS` (5 min): it was 60 ticks every 40 ms, most of the phone's time for a minute out of
+  every two. The map: `syncLand` is skipped while the land, season, art and wear are as they were, and a chunk whose
+  footpaths changed is painted again at most every `WEAR_REPAINT_MS` (1.5 s), one at a time; the old LPC frame is
+  composed only until a person's Himeko look has drawn (mapPeople); the ground is its own Pixi render group. Walkers
+  staggering their replanning was tried and dropped (it changed how lone towns grew).
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

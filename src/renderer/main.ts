@@ -650,7 +650,7 @@ async function start(): Promise<void> {
         // follow them: the camera keeps them in view, and their big moments come as phone alerts
         const following = snap.hero === p.id;
         const followAct = act('follow', following ? 'Stop following' : 'Follow', () => bridge.command({ type: 'follow', person: following ? null : p.id }));
-        if (following) lines.unshift('You follow them: their big moments come as phone alerts.');
+        if (following) lines.unshift('You follow their story: their big moments come as phone alerts.');
         return { title: d.title, lines, actions: [...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
       case 'place': {
@@ -1142,11 +1142,8 @@ async function start(): Promise<void> {
       viewW = w;
       viewH = h;
     }
-    // following someone: keep them in view (after the player has looked around a few seconds on their own)
-    // (in a battle, the raiders furthest along the trail)
-    const lead = battle.shown ? battle.lead() : null;
-    const hero = lead ?? (snap.hero !== null ? people.posOf(snap.hero) : null);
-    if (hero) camera.follow(hero, w, h, performance.now(), FOLLOW_WAIT_MS);
+    // (the camera follows nobody, the hero and the raid's lead raider included: the owner found it jumping about;
+    // it moves only when the player moves it, or once to the gate as a battle begins)
     const moving = camera.update(ticker.deltaMS / 1000, w, h);
     map.setCamera(camera.x, camera.y, w, h);
     // screen shake (a boss's roar or sweeping attack)
@@ -1184,8 +1181,6 @@ async function start(): Promise<void> {
   });
 }
 
-/** After the player drags or scrolls the view, following someone waits this long before it takes the camera back. */
-const FOLLOW_WAIT_MS = 4000;
 
 start().catch((err) => console.error('strip failed to start', err));
 

@@ -1032,9 +1032,24 @@ export function snapshot(s: GameState): Snapshot {
   };
 }
 
-/** What the town sells and buys changes slowly: worked out afresh every few ticks, not on every snapshot. */
+/** What the town sells and buys changes slowly: worked out afresh every few seconds, not on every snapshot (it runs the
+ *  planner's needs over the whole land: half a phone's snapshot time when it was every second). */
 let dealsCache: { state: GameState; tick: number; forSale: Stock; wants: ShopView['wants'] } | null = null;
-const DEALS_EVERY = 10;
+const DEALS_EVERY = 60;
+
+/** Things the snapshot shows that change slowly and cost a lot (the planned parties, the next party forming): kept for
+ *  `SLOW_EVERY` ticks a state and key, so the phone isn't working them out ten times a second. */
+const SLOW_EVERY = 50;
+const slowCache = new WeakMap<GameState, Map<string, { tick: number; v: unknown }>>();
+function slow<T>(s: GameState, key: string, f: () => T): T {
+  let m = slowCache.get(s);
+  if (!m) slowCache.set(s, (m = new Map()));
+  const c = m.get(key);
+  if (c && s.tick >= c.tick && s.tick - c.tick < SLOW_EVERY) return c.v as T;
+  const v = f();
+  m.set(key, { tick: s.tick, v });
+  return v;
+}
 
 function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): ShopView | null {
   const b = s.buildings.find((q) => venueOfDef(q.def) === venue && lineOfDef(q.def) === line);
@@ -1260,7 +1275,7 @@ export interface TripsView {
 }
 
 function tripsView(s: GameState): TripsView {
-  const plan = proposeParty(s);
+  const plan = slow(s, 'propose', () => proposeParty(s));
   const fit = s.people.filter((p) => mayGo(s, p)).length;
   const room = roomAway(s);
   const adventurers = s.people.filter((p) => !isChild(p) && ambitionOf(p) === 'adventurer').length;
@@ -1279,7 +1294,7 @@ function tripsView(s: GameState): TripsView {
 }
 
 function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
-  const plan = planParty(s, dest);
+  const plan = slow(s, `party:${dest}`, () => planParty(s, dest));
   const party = plan.members.map((id) => {
     const p = s.people.find((q) => q.id === id)!;
     return `${p.name} (${ROLES[plan.roles[id] ?? 'fighter'].name.toLowerCase()})`;

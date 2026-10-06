@@ -182,7 +182,7 @@ const planned = (s: GameState, id: string) => s.buildings.some((b) => chainOf(id
 function sourceable(s: GameState, m: Material, depth = 0, buy = true): boolean {
   if (depth > 3) return false;
   if (buy && buyable(s, m)) return true;
-  if (GATHERABLE.has(m) && wildCells(s).some(({ pool }) => (pool[m] ?? 0) > 0)) return true;
+  if (GATHERABLE.has(m) && wildHolds(s, m)) return true;
   for (const [id, c] of Object.entries(CROPS)) if (c.material === m && unlocked(s, id)) return true;
   for (const [id, w] of Object.entries(WORKPLACES)) if ((w.outputs as Stock)[m] && unlocked(s, id)) return true;
   for (const [id, h] of Object.entries(HERDS)) if ((h.yields[m] || (h.forMeat && h.cull[m])) && unlocked(s, id)) return true;
@@ -534,7 +534,29 @@ function openLand(s: GameState, further = false): boolean {
 }
 
 /** The wild cells of the open land, with what they hold, nearest the camp first. */
+/** The wild cells in the open land, nearest the camp first; kept for the tick (a planning pass asks hundreds of times,
+ *  through `sourceable`, and each scan of the whole land's pools was most of a phone's hitch every fifteen seconds).
+ *  Callers mustn't change the list. */
+let wildCache: { s: GameState; tick: number; version: number; open: number; out: { i: number; pool: Stock; d: number }[] } | null = null;
 function wildCells(s: GameState): { i: number; pool: Stock; d: number }[] {
+  const w = wildCache;
+  if (w && w.s === s && w.tick === s.tick && w.version === s.land.version && w.open === s.land.open) return w.out;
+  const out = scanWild(s);
+  wildCache = { s, tick: s.tick, version: s.land.version, open: s.land.open, out };
+  return out;
+}
+/** Which gatherable materials the open land holds, for the tick (`sourceable`). */
+let wildHas: { list: unknown; has: Set<Material> } | null = null;
+function wildHolds(s: GameState, m: Material): boolean {
+  const list = wildCells(s);
+  if (wildHas?.list !== list) {
+    const has = new Set<Material>();
+    for (const { pool } of list) for (const [k, n] of Object.entries(pool)) if ((n ?? 0) > 0) has.add(k as Material);
+    wildHas = { list, has };
+  }
+  return wildHas.has.has(m);
+}
+function scanWild(s: GameState): { i: number; pool: Stock; d: number }[] {
   const m = s.land;
   const c = campCell(s);
   const out: { i: number; pool: Stock; d: number }[] = [];
@@ -931,6 +953,7 @@ function openFaces(s: GameState): void {
         const i = idx(m, nx, ny);
         if (m.pools[i]) continue;
         m.pools[i] = delvePool(delveDepth(m, ny), Rng.from(seed, 0x4d1 + i));
+        m.version++;
       }
     }
 }
