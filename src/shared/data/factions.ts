@@ -71,9 +71,9 @@ export const FACTION_DEFS: readonly FactionDef[] = [
 ];
 /** Where each power's stronghold stands on the world map (768px square, data/worldMap.ts). */
 export const STRONGHOLD_SPOTS: Readonly<Record<string, { x: number; y: number }>> = {
-  lich: { x: 40, y: 150 }, druid: { x: 740, y: 110 }, vampire: { x: 480, y: 30 }, werewolf: { x: 740, y: 300 },
-  robot: { x: 740, y: 530 }, dwarves: { x: 130, y: 250 }, merfolk: { x: 600, y: 740 }, nomads: { x: 30, y: 470 },
-  fae: { x: 600, y: 180 }, alchemists: { x: 440, y: 250 }, knights: { x: 250, y: 290 }, brotherhood: { x: 130, y: 480 },
+  lich: { x: 40, y: 150 }, druid: { x: 740, y: 80 }, vampire: { x: 420, y: 80 }, werewolf: { x: 740, y: 300 },
+  robot: { x: 740, y: 530 }, dwarves: { x: 80, y: 200 }, merfolk: { x: 600, y: 740 }, nomads: { x: 30, y: 470 },
+  fae: { x: 600, y: 200 }, alchemists: { x: 440, y: 250 }, knights: { x: 250, y: 290 }, brotherhood: { x: 130, y: 480 },
 };
 export const FACTION_BY_ID: Readonly<Record<string, FactionDef>> = Object.fromEntries(FACTION_DEFS.map((f) => [f.id, f]));
 

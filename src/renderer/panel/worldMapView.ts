@@ -91,7 +91,7 @@ export class WorldMapView {
       m.setAttribute('aria-label', m.title);
       place(m, at);
       if (h.assault) m.addEventListener('click', () => this.onPick(h.assault!));
-      this.marks.append(m, label(h.stronghold, { x: at.x, y: at.y + 6 }, `hold ${h.stance}`));
+      this.marks.append(m, label(h.stronghold.charAt(0).toUpperCase() + h.stronghold.slice(1), { x: at.x, y: at.y + 6 }, `hold ${h.stance}`));
     }
 
     const home = el('div', 'map-home');
