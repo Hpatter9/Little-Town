@@ -1260,6 +1260,8 @@ export interface BattleView {
   speed: number;
   through: number;
   killed: number;
+  /** Every raider the town faces in this raid (its allies aside): the battle bar's whole. */
+  total: number;
   /** Raiders still to come (this wave and the ones after). */
   coming: number;
   units: { spot: number; person: number | null; ally: number | null; sinceAction: number }[];
@@ -1294,6 +1296,7 @@ export function battleView(s: GameState, spells: BattleView['spells']): BattleVi
     speed: s.battleSpeed ?? 1,
     through: b.through,
     killed: b.killed,
+    total: r.raiders.filter((rd) => !rd.ally).length,
     coming: r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone && rd.bt && !rd.bt.out && rd.bt.d < 0).length,
     units: b.units.map((u) => ({ spot: u.spot, person: u.person ?? null, ally: u.ally ?? null, sinceAction: s.tick - (u.lastAt ?? -999) })),
     foes: foes.map((rd) => {

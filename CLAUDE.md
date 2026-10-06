@@ -1786,6 +1786,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   from the third stage keeps to the bear). `PersonView.beast` and the fight's `FighterView.beast` carry the form
   (sheet, block, scale) to mapPeople and fightView. Twenty skills (`howl`, `savage_roar`, the ultimate
   `primal_fury`...). Test in `test/shapeshift.test.ts`.
+- **Progress bars over watched trips and fights (the owner's ask):** `src/renderer/fight/progress.ts` (no DOM: `tripShare`,
+  `tripLabel`, `fightShare`, `raidShare`). The fight screen (`#fight-progress` in fightHud.ts, under the top window or,
+  in a fight, at the top beside the ✕) has a gold bar for the whole trip (a third out, a third there with a delve by its
+  rooms, a third home; marks at the thirds) with where they are and the share, and in a fight a red bar of the foes'
+  health gone (an assault counts the waves before as done: "Wave 2 of 5 · 40%"); hidden in a mine. The raid's battle
+  bar (battleHud.ts, `.battle-progress`) shows the raiders beaten (green) and got through (red) of all that came
+  (`BattleView.total`). The world map's stronghold labels are capitalised and the crowded ones spread
+  (`STRONGHOLD_SPOTS`). Test: `test/progress.test.ts`.
 - **Allies keep their colours:** summoned, tamed and allied fighters were washed green all over on the map, the fight
   screen and the expedition pane (a summoned wolf read as a stray green monster); now an ally on the map has a green
   glow underfoot and a green health bar instead (mapRaiders.ts).

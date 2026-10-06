@@ -3,6 +3,7 @@
 // a ring on the map), and while fighting, the spells to aim (tap one, then the trail).
 
 import type { BattleView } from '../../shared/sim/battle';
+import { raidShare } from '../fight/progress';
 
 export interface BattleHud {
   update(b: BattleView | null, raidName: string): void;
@@ -35,7 +36,15 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed
   speed.className = 'tab battle-speed';
   speed.addEventListener('click', () => on.speed(((last?.speed ?? 1) % 3) + 1));
   row.append(go, speed, auto);
-  top.append(title, status, row);
+  // how much of the raid is decided: the raiders beaten (green) and got through (red), of all that came
+  const progress = document.createElement('div');
+  progress.className = 'battle-progress';
+  const beaten = document.createElement('i');
+  beaten.className = 'beaten';
+  const past = document.createElement('i');
+  past.className = 'past';
+  progress.append(beaten, past);
+  top.append(title, status, progress, row);
 
   const bar = document.createElement('div');
   bar.id = 'battle-bar';
@@ -78,6 +87,11 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed
       const time = b.secondsLeft && !b.auto ? ` · ${Math.ceil(b.secondsLeft)}s` : b.onTheWay ? ` · ${b.onTheWay} still on the way` : '';
       const doing = b.phase === 'placing' ? (b.auto || !b.secondsLeft ? 'Taking positions' : 'Place your fighters') : b.phase === 'breather' ? 'Regroup' : 'Fighting';
       status.textContent = `${wave} · ${doing}${time} · ${b.killed} down${b.through ? ` · ${b.through} through` : ''}${b.coming ? ` · ${b.coming} to come` : ''}`;
+      const done = raidShare(b.killed, b.through, b.total);
+      const killedShare = b.total > 0 ? b.killed / b.total : 0;
+      beaten.style.width = `${Math.round(killedShare * 100)}%`;
+      past.style.width = `${Math.max(0, Math.round((done - killedShare) * 100))}%`;
+      progress.title = `${b.killed} of ${b.total} beaten${b.through ? `, ${b.through} through` : ''}`;
       go.hidden = !placing;
       auto.textContent = b.auto ? 'Auto: on' : 'Auto: off';
       speed.textContent = `${b.speed}×`;
