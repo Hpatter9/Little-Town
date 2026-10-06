@@ -556,6 +556,8 @@ export interface Caravan {
   /** Where they stand (at the market). */
   x: number;
   leavesTick: number;
+  /** When it came (the town leaves the deals to the player for the first half of its stay: sim/trade.ts). */
+  arrived?: number;
   offers: Offer[];
   /** Another people's caravan (data/trade.ts FACTION_GOODS), named for them. */
   faction?: OriginId;

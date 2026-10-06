@@ -87,6 +87,6 @@ function dealDetails(o: NonNullable<Snapshot['caravan']>['offers'][number], s: S
       ['Already have', o.horse ? `${s.horses.length} horse${s.horses.length === 1 ? '' : 's'}, stalls for ${s.stalls}` : have(o.gives)],
       ['Comes out', o.horse ? null : get >= give ? `about ${get - give} coins ahead` : `about ${give - get} coins behind`],
     ]),
-    "The town leaves the caravan's deals to you: they go when the caravan does.",
+    "Yours to take first. Once the caravan has been here half its stay, the town takes the deals it wants itself: goods it's short of, paid for with what it can spare.",
   ];
 }

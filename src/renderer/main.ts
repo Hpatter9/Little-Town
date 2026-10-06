@@ -689,6 +689,17 @@ async function start(): Promise<void> {
     refreshHover();
   };
 
+  // (the feed's "Show on the map": look at someone or something and open its card: mobile/feed.ts)
+  (window as unknown as { __showOnMap?: (a: { person?: number; building?: number }) => boolean }).__showOnMap = (a) => {
+    const p = a.person != null ? snap.people.find((q) => q.id === a.person) : undefined;
+    const b = a.building != null ? snap.buildings.find((q) => q.id === a.building) : undefined;
+    const at = p ? people.posOf(p.id) ?? { x: p.x, y: p.y } : b ? { x: (b.tile + 1) * CELL, y: (b.row + 1) * CELL } : null;
+    if (!at) return false;
+    camera.centreOn(at, app.screen.width, app.screen.height);
+    if (phone) inspectTarget(p ? { kind: 'person', person: p } : { kind: 'building', id: b!.id });
+    return true;
+  };
+
   /* -------------------------------------------------------- placing buildings */
 
   const checkPlacement = (def: BuildingDef, x: number, y: number): PlaceCheck => {

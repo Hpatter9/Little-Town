@@ -188,7 +188,17 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
     bar.append(fill);
     body.append(t, x, bar);
     d.append(pic({ person: p.id }, ''), body);
+    d.addEventListener('click', () => showOnMap({ person: p.id }));
     hero.replaceChildren(d);
+  };
+
+  /** Rows opened (by their date and words), kept as the list is drawn again. */
+  const opened = new Set<string>();
+  /** Look at someone or something on the map and open its card (main.ts `__showOnMap`). */
+  const showOnMap = (a: { person?: number; building?: string }) => {
+    const w = strip.contentWindow as (Window & { __showOnMap?: (x: { person?: number; building?: number }) => boolean }) | null;
+    const b = a.building ? snap?.buildings.find((q) => q.def === a.building && q.status === 'done') ?? snap?.buildings.find((q) => q.def === a.building) : undefined;
+    w?.__showOnMap?.(a.person != null ? { person: a.person } : b ? { building: b.id } : {});
   };
 
   // the latest happenings (fetched again whenever the journal grows, at most every couple of seconds)
@@ -218,6 +228,37 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
         w.textContent = e.when.replace(/ · \w+ · /, ' · ');
         body.append(t, w);
         row.append(pic(about(e), e.text), body);
+        // (tapped, a row opens: the full date, and a way to find who or what it's about on the map)
+        const k = `${e.when}|${e.text}`;
+        const target = about(e);
+        const open = () => {
+          row.classList.add('open');
+          w.textContent = e.when;
+          if (target && !body.querySelector('.feed-acts')) {
+            const acts = document.createElement('div');
+            acts.className = 'feed-acts';
+            const go = document.createElement('button');
+            go.textContent = target.person != null ? 'Show them on the map' : 'Show it on the map';
+            go.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              showOnMap(target);
+            });
+            acts.append(go);
+            body.append(acts);
+          }
+        };
+        if (opened.has(k)) open();
+        row.addEventListener('click', () => {
+          if (opened.has(k)) {
+            opened.delete(k);
+            row.classList.remove('open');
+            w.textContent = e.when.replace(/ · \w+ · /, ' · ');
+            body.querySelector('.feed-acts')?.remove();
+          } else {
+            opened.add(k);
+            open();
+          }
+        });
         return row;
       }),
     );

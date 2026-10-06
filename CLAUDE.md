@@ -1699,6 +1699,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   what they brought, who rose a level, who was hurt, who didn't come back. The sheet is `panel/musterPanel.ts` (over the
   Expeditions tab, `over-tabs`: the sub-tabs leave it alone). Tests: `test/muster.test.ts`.
 
+- **The town trades with caravans itself (hands-off):** the player has the first half of a caravan's stay to take its
+  deals; after that, once an hour, the town takes one it wants (`townTrades` in sim/trade.ts, with the autopilot on;
+  `Caravan.arrived`): `goodDeal` is goods it's short of (`SHORT_OF`) at no more than `DEAR_BUY` times their worth, or
+  a horse with a stall free, paid with what it can spare (`SPARE_KEEP`, `FOOD_SPARE` for food). Test in
+  `test/trade.test.ts`.
+- **Feed rows open:** tapping a happening on the phone's feed opens it (the full date, and **Show them/it on the map**:
+  `__showOnMap` in main.ts centres the camera and opens the tap card); the hero's card does the same.
+- **Fighters no longer stand behind the fight's windows:** in a fight the top window hides, and `FightHud.insets()`
+  returned nothing then, so the scene ignored the party's window along the bottom; it gives each inset on its own now.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

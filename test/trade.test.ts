@@ -78,3 +78,26 @@ test('a horse can be bought even when storage is overfull (it lives in the stabl
   s.caravan = { x: 100, leavesTick: s.tick + 1000, offers: [{ id: 1, gives: {}, wants: { iron: 2 }, horse: true }] } as never;
   assert.deepEqual(canTrade(s, 1), { ok: true });
 });
+
+test("the town takes a deal it wants itself, but only after the caravan's first half (the player's pick first)", async () => {
+  const { updateTrade, goodDeal } = await import('../src/shared/sim/trade');
+  const s = plainGame('towntrade');
+  addBuilding(s, 'market', camp(s) + 3);
+  addBuilding(s, 'stockpile', camp(s) + 7).store = { wood: 60 };
+  addBuilding(s, 'granary', camp(s) + 12);
+  s.autopilot = undefined;
+  s.tick = 10 * TICKS_PER_HOUR;
+  const deal = { id: 1, gives: { iron: 4 }, wants: { wood: 20 }, horse: false, done: false };
+  const dear = { id: 2, gives: { stone: 2 }, wants: { wood: 50 }, horse: false, done: false };
+  s.caravan = { x: 100, leavesTick: s.tick + 10 * TICKS_PER_HOUR, arrived: s.tick, offers: [dear, deal] } as never;
+  assert.ok(goodDeal(s, deal), 'iron the town lacks, for wood it can spare');
+  assert.ok(!goodDeal(s, dear), 'not most of its wood for a little stone');
+  const rng = new Rng(1);
+  s.tick += TICKS_PER_HOUR;
+  updateTrade(s, rng);
+  assert.ok(!deal.done, 'early in the stay: left to the player');
+  s.tick += 5 * TICKS_PER_HOUR;
+  updateTrade(s, rng);
+  assert.ok(deal.done, 'half the stay gone: the town takes it');
+  assert.ok(!dear.done);
+});

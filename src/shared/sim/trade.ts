@@ -28,6 +28,7 @@ import { addStock, ERA_MULTIPLIER, notify, poolSize, type Caravan, type GameStat
 import { TICKS_PER_HOUR } from './time';
 import { biomeOf } from '../data/biomes';
 import { ORIGIN_DEFS, ORIGINS, type OriginId } from '../data/origins';
+import { FOOD_VALUE } from '../data/people';
 
 const market = (s: GameState) => s.buildings.find((b) => b.def === 'market' && b.status === 'done');
 
@@ -45,7 +46,9 @@ export function updateTrade(s: GameState, rng: Rng): void {
       s.caravan = null;
       notify(s, 'The trade caravan has moved on.');
       scheduleCaravan(s, rng);
+      return;
     }
+    if (s.tick % TICKS_PER_HOUR === 0) townTrades(s, rng);
     return;
   }
   const m = market(s);
@@ -56,7 +59,7 @@ export function updateTrade(s: GameState, rng: Rng): void {
   const stay = CARAVAN_STAY_HOURS * ERA_MULTIPLIER[s.era];
   // (most caravans are another people's, with their own goods besides the era's: data/trade.ts FACTION_GOODS)
   const faction = rng.chance(FACTION_CARAVAN) ? rng.pick(ORIGINS.filter((o) => o !== (s.origin ?? 'settlers') && FACTION_GOODS[o])) : undefined;
-  s.caravan = { x: buildingCentreX(m), leavesTick: s.tick + Math.round(stay * TICKS_PER_HOUR), offers: makeOffers(s, rng, faction), faction };
+  s.caravan = { x: buildingCentreX(m), leavesTick: s.tick + Math.round(stay * TICKS_PER_HOUR), arrived: s.tick, offers: makeOffers(s, rng, faction), faction };
   notify(s, `${faction ? `A caravan of ${ORIGIN_DEFS[faction].name}` : 'A trade caravan'} has arrived at the market. It stays ${Math.round(stay)} hours: see the Trade tab.`, true);
 }
 
@@ -161,3 +164,38 @@ const list = (st: Stock) =>
   (Object.entries(st) as [Material, number][])
     .map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`)
     .join(', ');
+
+/* ------------------------------------------------------------ the town's own dealing */
+
+/** Below this many of a material the town is short of it, and a caravan's offer of it is welcome. */
+export const SHORT_OF = 10;
+/** The town trades away only what leaves it this many (food: `FOOD_SPARE`), and at least twice what it gives. */
+export const SPARE_KEEP = 30;
+export const FOOD_SPARE = 60;
+/** The most the town pays over a good's worth when it's short of it. */
+export const DEAR_BUY = 1.8;
+
+/** Whether a deal is one the town would take for itself: it wants what it gets, and can spare what it gives. */
+export function goodDeal(s: GameState, o: Offer): boolean {
+  if (o.done || !canTrade(s, o.id).ok) return false;
+  const stock = totalStock(s);
+  const spare = (Object.entries(o.wants) as [Material, number][]).every(([m, n]) => (stock[m] ?? 0) - n >= Math.max(FOOD_VALUE[m] ? FOOD_SPARE : SPARE_KEEP, n * 2));
+  if (!spare) return false;
+  if (o.horse) return horsesOwned(s) < stalls(s);
+  const give = (Object.entries(o.wants) as [Material, number][]).reduce((n, [m, k]) => n + WORTH[m] * k, 0);
+  const get = (Object.entries(o.gives) as [Material, number][]).reduce((n, [m, k]) => n + WORTH[m] * k, 0);
+  const wanted = (Object.keys(o.gives) as Material[]).some((m) => (stock[m] ?? 0) < SHORT_OF);
+  return wanted && give <= get * DEAR_BUY;
+}
+
+/** Once the caravan has been at the market half its stay (the player's pick first), the town takes the best deal it
+ *  wants, one an hour, while it runs itself. */
+function townTrades(s: GameState, rng: Rng): void {
+  const c = s.caravan;
+  if (!c || s.autopilot === false) return;
+  const arrived = c.arrived ?? s.tick;
+  if (s.tick - arrived < (c.leavesTick - arrived) / 2) return;
+  const o = c.offers.find((q) => goodDeal(s, q));
+  if (!o) return;
+  if (trade(s, o.id, rng).ok) notify(s, `The town took a deal at the market: ${o.horse ? 'a horse' : list(o.gives)} for ${list(o.wants)}.`, true);
+}
