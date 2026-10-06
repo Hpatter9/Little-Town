@@ -13,7 +13,7 @@ import { farePrice, itemPrice, log, offers, pieceName, SALE_GEAR, takeOffer, ven
 import { moneyTown } from './economy';
 import { SAVINGS_KEEP } from '../data/economy';
 import { isChild } from './social';
-import { earn, notify, remember, type GameState, type Person } from './state';
+import { earn, tireless, notify, remember, type GameState, type Person } from './state';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { calendar, TICKS_PER_HOUR } from './time';
 
@@ -57,7 +57,8 @@ export function nightOut(s: GameState): void {
   let guests = 0;
   let takings = 0;
   // (people keep a little back: data/economy.ts SAVINGS_KEEP, so they can save for land)
-  for (const p of s.people.filter((q) => q.away === null && !isChild(q) && !q.downed && (q.coins ?? 0) > SAVINGS_KEEP)) {
+  // (the dead and machines neither eat nor drink: the tavern is for the living)
+  for (const p of s.people.filter((q) => q.away === null && !isChild(q) && !q.downed && !tireless(q) && (q.coins ?? 0) > SAVINGS_KEEP)) {
     const menu = offers(s, FARE, (i, q) => Math.max(1, Math.round(farePrice(s, i, q) * LOCAL_PRICE))).filter((o) => o.price <= (p.coins ?? 0) - SAVINGS_KEEP);
     const pick = menu.filter((o) => o.item.fare!.kind === 'drink').at(-1) ?? menu.at(-1);
     if (!pick || !takeOffer(s, pick)) continue;

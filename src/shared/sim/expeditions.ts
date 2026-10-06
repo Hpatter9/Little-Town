@@ -65,7 +65,7 @@ import { isSagaDest, sagaDestOf, sagaTripHome } from './sagas';
 import { huntDestOf, huntHome, isHuntDest } from './hunts';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
-import { townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, meet, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
+import { tireless, townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, meet, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
@@ -208,7 +208,8 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     if (poolSize(p.carrying)) depositNear(s, p.x, p.carrying);
     p.carrying = {};
   }
-  const supplies = packFood(s, foodNeeded(s, d, members.length) * (opts.rations ?? 1));
+  // (food for those who eat: the dead and machines march on nothing)
+  const supplies = packFood(s, foodNeeded(s, d, members.filter((p) => !tireless(p)).length) * (opts.rations ?? 1));
   // ammunition for whoever shoots (stones for slings, arrows for bows)
   for (const p of members) {
     const kind = ammoOf(p);

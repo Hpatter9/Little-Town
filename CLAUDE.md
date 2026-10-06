@@ -688,6 +688,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   raised dead take the Craftpix skeleton forms (`skeletonSheet` in art/combatPoses.ts: the archer for a shooter, the
   warrior or the spearman by id; mapPeople and fightView through `FighterView.undead`). Tests: `test/kin.test.ts`.
 
+- **The dead don't eat (the owner's complaint: a lichdom farmed as if alive):** the lich is dead in body too
+  (`Person.undying`, set at founding and by the rite in occult.ts, and on older towns' lich by `keepKin`), so
+  `tireless` (state.ts) covers the raised, the lich and machines: no hunger, sleep, sickness, age or pairing. Raised
+  or remade, needs are set full for good (`makeUndying`: someone raised hungry once stayed hungry). Food is reckoned for
+  eaters only (`eatersOf`, `foodDaysFor`: `NO_EATERS_DAYS` when nobody eats): the planner's `Needs.eaters` sizes the
+  fields (a town of nobody who eats sows one field, and only for its tavern's guests), the berry and fish wants, and
+  sells all its food; farming's, the pens' and the feasts' food days likewise (the dead dance and eat nothing); a party
+  packs food only for its living; a wanderer is never turned from a dead or machine town for want of food. The dead
+  skip the tavern's night out, feel no hunger or weariness in their mood, and the lich no "Living among the dead". The
+  Townsfolk page shows "Needs neither food nor sleep" for them (`PersonView.tireless`). Homes stay as they were (the
+  crypts, and a bed is still what lets a newcomer in). Soak (10 days): lich towns 5 to 6 food fields → 1, machines 8 → 1,
+  growth as before. Tests: `test/undead.test.ts`.
 - **Strangers of other peoples, xenophobia, the hidden vampire's thirst (done; the owner's request):**
   `src/shared/data/strangers.ts` and `src/shared/sim/strangers.ts`. `Person.origin` and `Traveller.origin` (their
   people when not the town's; `peopleOf`): a wanderer is of another people `STRANGER_CHANCE` of the time, a traveller

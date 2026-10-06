@@ -23,7 +23,7 @@ import { doomGrowth } from './doom';
 import { biomeOf } from '../data/biomes';
 import { BUILDING_BY_ID, RIVER_GROWTH, RIVER_TILES } from '../data/buildings';
 import { generateWorld } from '../world';
-import { addStock, carryCapacity, ERA_MULTIPLIER, notify, poolSize, type Building, type GameState, type Person } from './state';
+import { addStock, foodDaysFor, carryCapacity, ERA_MULTIPLIER, notify, poolSize, type Building, type GameState, type Person } from './state';
 import { calendar, DAYS_PER_SEASON, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { gainSkill, workFactor } from './townsfolk';
 import { cropSpeed } from './origin';
@@ -132,11 +132,11 @@ export function workField(s: GameState, p: Person, b: Building): boolean {
   return true;
 }
 
-/** Days of food in store for everyone. */
+/** Days of food in store for everyone who eats. */
 function foodDays(s: GameState): number {
   const stock = totalStock(s);
   const food = Object.entries(FOOD_VALUE).reduce((n, [m, v]) => n + (stock[m as Material] ?? 0) * (v ?? 0), 0);
-  return food / Math.max(1, s.people.length);
+  return foodDaysFor(s, food);
 }
 
 /** Whether a crop sown now would ripen before winter stops it (always, indoors; never, in winter). */

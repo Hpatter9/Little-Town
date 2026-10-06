@@ -35,7 +35,7 @@ import { DREAD_MORALE, TRIUMPH_MORALE } from './bosses';
 import { TAVERN_BASE, TAVERN_PER_LEVEL } from '../data/operators';
 import { ASH_MORALE, FALLOUT_MORALE, FREEZE_COLD_MORALE, FREEZE_MORALE, PLAGUE_MORALE, PLAGUE_WORK, SMOG_MORALE } from '../data/doom';
 import { isInjured } from './health';
-import { townFull, tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
+import { foodDaysFor, makeUndying, NO_EATERS_DAYS, townFull, tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { ORIGIN_DEFS, rulesOf } from '../data/origins';
 import { natureOf } from '../data/natures';
@@ -106,12 +106,15 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   const reasons: MoodReason[] = [];
   const add = (text: string, value: number) => reasons.push({ text, value });
   const { food, rest } = p.needs;
-  if (food <= 0.02) add('Starving', -25);
-  else if (food < 0.25) add('Hungry', -10);
-  else if (food >= 0.5) add('Well fed', 5);
-  if (rest <= 0.02) add('Exhausted', -18);
-  else if (rest < 0.2) add('Tired', -8);
-  else if (rest >= 0.5) add('Rested', 3);
+  // (the dead and machines feel no hunger or weariness, good or bad)
+  if (!tireless(p)) {
+    if (food <= 0.02) add('Starving', -25);
+    else if (food < 0.25) add('Hungry', -10);
+    else if (food >= 0.5) add('Well fed', 5);
+    if (rest <= 0.02) add('Exhausted', -18);
+    else if (rest < 0.2) add('Tired', -8);
+    else if (rest >= 0.5) add('Rested', 3);
+  }
   if (p.lastSlept === 'bed') add('Slept in a bed', 5);
   else if (p.lastSlept === 'bedroll') add('Slept on a bedroll', -1);
   else if (p.lastSlept === 'ground') add('Slept on the ground', -6);
@@ -162,8 +165,8 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   if (s.tick < (s.dreadUntil ?? 0)) add('A monster at the gates', DREAD_MORALE);
   if (s.triumph && s.tick < s.triumph.until) add(`Slew ${s.triumph.name}`, TRIUMPH_MORALE);
   // turned townsfolk, and the living who share a town with them
-  if (!p.monster && s.people.some((q) => q.monster === 'undead' && q.away === null)) add('Living among the dead', LIVING_AMONG_DEAD_MORALE);
-  if (!p.monster && s.tick < (s.turningFearUntil ?? 0)) add('Afraid of being turned', TURNING_FEAR_MORALE);
+  if (!p.monster && !p.undying && s.people.some((q) => q.monster === 'undead' && q.away === null)) add('Living among the dead', LIVING_AMONG_DEAD_MORALE);
+  if (!p.monster && !p.undying && s.tick < (s.turningFearUntil ?? 0)) add('Afraid of being turned', TURNING_FEAR_MORALE);
   if (p.monster === 'vampire' && s.tick - (p.lastFed ?? s.tick) > FEED_HOURS * 1.5 * TICKS_PER_HOUR) add('Thirsting for blood', THIRST_MORALE);
   // the people in their life
   const partner = p.partner == null ? undefined : s.people.find((q) => q.id === p.partner);
@@ -437,7 +440,9 @@ export const VISIT_GAP_HOURS = 48;
 function foodPerHead(s: GameState): number {
   let food = 0;
   for (const b of s.buildings) for (const [m, n] of Object.entries(b.store)) food += (FOOD_VALUE[m] ?? 0) * (n ?? 0);
-  return food / Math.max(1, s.people.length);
+  // (a town of the dead or of machines turns nobody away for want of food: the newcomer won't eat either)
+  if (rulesOf(s).kin === 'undead' || rulesOf(s).kin === 'machine') return NO_EATERS_DAYS;
+  return foodDaysFor(s, food);
 }
 
 /** The player's answer to a wanderer's asking. */
@@ -513,11 +518,19 @@ export function keepKin(s: GameState): void {
   const kin = rulesOf(s).kin;
   if (!kin) return;
   for (const p of s.people) {
-    if (s.lich && p.id === s.mainId) continue;
+    if (s.lich && p.id === s.mainId) {
+      // (the lich is dead in body too: older towns' lich, made before this was kept, is made so here)
+      if (!p.undying) {
+        p.undying = true;
+        makeUndying(p);
+      }
+      continue;
+    }
     if (kin === 'undead') {
       if (p.monster !== 'undead') {
         p.monster = 'undead';
         delete p.lastFed;
+        makeUndying(p);
         p.hp = maxHp(p);
         notify(s, `${p.name} is dead, and risen: the dead welcome the dead.`, true);
       }
@@ -530,6 +543,7 @@ export function keepKin(s: GameState): void {
       }
     } else if (kin === 'machine' && !p.machine) {
       p.machine = true;
+      makeUndying(p);
       notify(s, `${p.name} was remade: a machine of the colony now.`, true);
     }
   }

@@ -28,7 +28,7 @@ import { PURSE_SCALE } from '../data/shop';
 import { TREASURY_KEEP } from '../data/economy';
 import { buildingDoor, buildingCentre, storages, totalStock } from './buildings';
 import { isChild, opinion } from './social';
-import { addStock, campXY, earn, notify, type GameState, type Person } from './state';
+import { addStock, eatersOf, foodDaysFor, tireless, campXY, earn, notify, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { takeSale } from './ambition';
 
@@ -58,7 +58,7 @@ export function victoryFeast(s: GameState): void {
 function foodDays(s: GameState): number {
   const stock = totalStock(s);
   const food = Object.entries(FOOD_VALUE).reduce((n, [m, v]) => n + (stock[m as Material] ?? 0) * (v ?? 0), 0);
-  return food / Math.max(1, s.people.length);
+  return foodDaysFor(s, food);
 }
 
 /** Eat a feast's worth of food from the stores (the plainest first). */
@@ -115,11 +115,13 @@ export function ceremoniesHourly(s: GameState): void {
   if (s.lastFeast != null && s.tick - s.lastFeast < FEAST_GAP_HOURS * TICKS_PER_HOUR && feast.kind !== 'wedding') return;
   const all = here(s).filter((p) => !p.guard || feast.kind === 'wedding');
   // (a feast the stores can't spare is put off: a wedding is still kept, with what there is)
-  if (foodDays(s) - FEAST_FOOD * all.length / Math.max(1, s.people.length) < FEAST_FOOD_DAYS && feast.kind !== 'wedding') {
+  // (only the living eat at it: the dead dance, and eat nothing)
+  const mouths = all.filter((p) => !tireless(p)).length;
+  if (mouths && foodDays(s) - (FEAST_FOOD * mouths) / Math.max(1, eatersOf(s)) < FEAST_FOOD_DAYS && feast.kind !== 'wedding') {
     notify(s, `No feast for ${feast.text}: the stores can't spare it.`);
     return;
   }
-  eatFeast(s, all.length);
+  eatFeast(s, mouths);
   const tavern = tavernOf(s);
   // (before the tavern, out on the open ground below its door, so the dancers' ring doesn't run into it)
   const door = tavern ? buildingDoor(tavern) : null;

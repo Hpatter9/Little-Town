@@ -50,7 +50,7 @@ function travellerPerson(t: TravellerView): PersonView {
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], body: { wounds: [], lasting: [], fitted: [], sight: 1, handling: 1, moving: 1, pain: 0, marks: [] }, growsUpIn: null, breakdown: null, ageDays: 0,
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, mer: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', job: null,
-  monster: null, order: null, sick: false,
+  monster: null, tireless: false, order: null, sick: false,
     battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [],
   };
 }

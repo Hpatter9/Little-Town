@@ -79,7 +79,7 @@ import { TERRAIN } from '../data/terrain';
 import { buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
-import { carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, type ShopTalk } from './state';
+import { tireless, carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, type ShopTalk } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
 import { ABILITIES, abilitiesKnown } from '../data/abilities';
@@ -237,6 +237,8 @@ export interface PersonView {
   elder: boolean;
   /** Monsters: what they are and their standing order for the Hunter's Guild. */
   monster: string | null;
+  /** Neither eats nor sleeps (the dead, the lich, machines). */
+  tireless: boolean;
   order: string | null;
   sick: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
@@ -1356,6 +1358,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     ageText: ageLine(s, p),
     elder: isElder(s, p),
     monster: p.monster ?? null,
+    tireless: tireless(p),
     order: p.monster ? (p.order ?? 'hide') : null,
     sick: !!p.sick,
     ...fightView(p),

@@ -11,7 +11,7 @@ import type { Material, Stock } from '../data/materials';
 import { skillSpeed } from '../data/skills';
 import type { Rng } from '../rng';
 import { buildingCentreX, depositNear, storages, totalStock } from './buildings';
-import { addStock, carryCapacity, notify, poolSize, type Building, type GameState, type Person } from './state';
+import { addStock, foodDaysFor, carryCapacity, notify, poolSize, type Building, type GameState, type Person } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { gainSkill, workFactor } from './townsfolk';
 
@@ -98,8 +98,7 @@ export function penToTend(s: GameState, p: Person): Building | null {
 function foodDays(s: GameState): number {
   const stock = totalStock(s);
   const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (stock[m] ?? 0) * v, 0);
-  const eaters = s.people.length || 1;
-  return food / (eaters * 1.5);
+  return foodDaysFor(s, food, 1.5);
 }
 
 /** One tick of tending. Returns true when it's done: the pen's yield (and any slaughter) goes into the farmer's hands,
