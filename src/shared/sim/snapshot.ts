@@ -1,5 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { realmView, type RealmView } from './factions';
+import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
 import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
@@ -415,6 +417,8 @@ export interface ExpeditionView {
   /** Waiting on a question for the player. */
   waiting: boolean;
   /** A delve: the room they're in (1 up; 0 at the door) of how many, what it is, torches left, what's happened lately. */
+  /** An assault (sim/factions.ts): the wave on now (0 before the fight) and how many. */
+  assault: { wave: number; total: number; target: string } | null;
   delve: { room: number; rooms: number; kind: string | null; torches: number; log: string[]; cleared: boolean; progress: number; twist: string | null; twistText: string; boss: string } | null;
   /** The Moon Pack's full-moon hunt. */
   hunt: boolean;
@@ -624,6 +628,8 @@ export interface Snapshot {
   trips: TripsView;
   /** A party the player is raising (sim/muster.ts). */
   muster: MusterView | null;
+  /** The powers of the realm (sim/factions.ts), and the town's might they weigh against. */
+  realm: RealmView;
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
   places: PlaceView[];
   /** The town's boats (sim/boats.ts): at home (away null) or the place they've sailed for; and the water cell by the
@@ -840,6 +846,7 @@ export function snapshot(s: GameState): Snapshot {
     mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
     trips: tripsView(s),
     muster: musterView(s, (p) => callingName(p, stageOf(p))),
+    realm: realmView(s, (id) => !destinationHidden(s, id) && !!DEST_BY_ID[id] && destinationUnlocked(s, DEST_BY_ID[id])),
     places: placeViews(s),
     pack: packView(s),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
@@ -1560,6 +1567,7 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     waiting: e.prompt !== null,
     hunt: !!e.hunt,
     result: e.result && s.tick - e.result.tick < RESULT_TICKS ? { ...e.result, age: s.tick - e.result.tick } : null,
+    assault: e.assault ? { wave: e.battle?.wave ?? e.assault.wave, total: e.assault.total, target: e.assault.target } : null,
     delve: v ? { room: v.at + 1, rooms: v.rooms.length, kind: v.at >= 0 ? v.rooms[v.at] : null, torches: v.torches, log: [...v.log], cleared: !!v.cleared, progress: Math.min(1, v.ticks / delveRoomTicks(s, v)), twist: v.twist && v.twist !== 'none' ? TWISTS[v.twist].name : null, twistText: v.twist ? TWISTS[v.twist].text : '', boss: bossName(v) } : null,
   };
 }

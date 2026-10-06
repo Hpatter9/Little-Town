@@ -6,6 +6,7 @@ import type { BoatKind } from '../data/boats';
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
 import type { TaxRate } from '../data/economy';
+import type { RealmStance, Temper } from '../data/factions';
 import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
@@ -374,6 +375,8 @@ export interface Raid {
   alone?: boolean;
   /** The tower-defence battle on the trail (sim/battle.ts), while it's on and after. */
   battle?: TownBattle;
+  /** A war host (sim/factions.ts): the power that sent it. */
+  host?: string;
 }
 
 export interface Needs {
@@ -584,7 +587,9 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy';
+  /** An envoy from a power of the realm (sim/factions.ts): which, and what they've come about. */
+  envoy?: { faction: string; about: string; coins?: number };
   /** A commanded party's question on the road (sim/muster.ts `CROSSROADS`): which one. */
   road?: string;
   /** A saga's question: the run it belongs to (sim/sagas.ts). */
@@ -627,8 +632,34 @@ export interface Boat {
   away: number | null;
 }
 
+/** A power of the realm, as the town knows it (data/factions.ts has what doesn't change). */
+export interface Faction {
+  id: string;
+  /** Met yet (an envoy came): until then it's a rumour. */
+  known: boolean;
+  troops: number;
+  /** -100 hostile to 100 devoted. */
+  attitude: number;
+  stance: RealmStance;
+  temper: Temper;
+  /** When the stance last changed (tick). */
+  since: number;
+  /** A marriage between the town and its lord's house. */
+  married?: boolean;
+  /** The last envoy (tick), and the last host it sent (tick). */
+  lastEnvoy?: number;
+  lastHost?: number;
+  /** A host on its way: when it comes, and how many. */
+  host?: { at: number; size: number };
+  /** Hosts it lost against the town, and assaults the town made on it. */
+  beaten?: number;
+  stormed?: number;
+}
+
 export interface Expedition {
   id: number;
+  /** An assault on a stronghold or a dungeon (sim/factions.ts): waves of foes in one long fight, the lord last. */
+  assault?: { target: string; waves: Record<string, number>[]; wave: number; total: number };
   /** Destination id. */
   dest: string;
   /** What the player staked on it as it left (sim/expeditions.ts STAKES): a safe or a risky trip. */
@@ -717,6 +748,8 @@ export interface GameState {
   version: 17;
   /** A party the player is raising (sim/muster.ts). */
   muster?: Muster;
+  /** The powers of the realm and how the town stands with each (sim/factions.ts). */
+  factions?: Faction[];
   /** World seed (the land is made from it; changes live in `land`). */
   seed: string;
   /** Ticks simulated since the game began. */
@@ -1043,7 +1076,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties' | 'realm';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */

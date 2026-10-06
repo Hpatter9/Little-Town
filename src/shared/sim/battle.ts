@@ -28,6 +28,7 @@ import { personFighter, weaponOf, weaponRange } from './combat';
 import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
 import { ally } from './classes';
 import { castsFire, castsMagic } from '../data/classes';
+import { HOST_WAVES, HOST_WAVE_SIZE } from '../data/factions';
 import { enemyArmor } from '../data/enemies';
 import { attackPerson, biteOf, defenderAttack, defenderReach, townEdgeX } from './raids';
 import { turretsDown } from './rivals';
@@ -634,7 +635,8 @@ export function startBattle(s: GameState, r: Raid): void {
   const map = layOut(s, r.side, flank, !!RAID_KIND_BY_ID[r.kind]?.fromSea);
   // waves: a big raid comes in several (a war, a rival's army and a boss's raid one more), the leaders last
   const big = (s.doom?.kind === 'war' && s.doom.phase === 'active') || !!RAID_KIND_BY_ID[r.kind]?.leader || foes.some((rd) => ENEMIES[rd.kind].kit);
-  const waves = Math.min(4, Math.max(1, Math.ceil(foes.length / WAVE_SIZE)) + (big && foes.length > 3 ? 1 : 0));
+  // (a war host comes in more and bigger waves: data/factions.ts)
+  const waves = r.host ? Math.min(HOST_WAVES, Math.max(2, Math.ceil(foes.length / HOST_WAVE_SIZE))) : Math.min(4, Math.max(1, Math.ceil(foes.length / WAVE_SIZE)) + (big && foes.length > 3 ? 1 : 0));
   const order = [...foes].sort((a, b) => (ENEMIES[a.kind].kit || ENEMIES[a.kind].boss ? 1 : 0) - (ENEMIES[b.kind].kit || ENEMIES[b.kind].boss ? 1 : 0));
   // (each wave spread over the ways in from its side, in turn, so every lane sees raiders)
   const lanesFrom = (side: number) => map.paths.map((_, i) => i).filter((i) => laneSide(map, i) === side);

@@ -159,6 +159,12 @@ export interface Battle {
   acts?: { tick: number; side: Fighter['side']; ref: number; name: string; targets: number[]; meta?: ActMeta }[];
   /** Turn-based: ticks until the next fighter may act (a beat after each action, so turns come one at a time). */
   beat?: number;
+  /** An assault (sim/factions.ts): the waves still to come on in this fight, the one on now (1-based), and what the
+   *  fallen of the waves gone dropped (they're cleared from the field as the next comes on). */
+  waves?: EnemyGroup[];
+  wave?: number;
+  spoils?: Record<string, number>;
+  slain?: number;
 }
 
 /** Ticks between one fighter's turn and the next's (the beat of a turn-based fight), longer after an ultimate. */
@@ -498,13 +504,33 @@ export function stepBattle(b: Battle, rng: Rng, rules: BattleRules): void {
 function endCheck(b: Battle, rules: BattleRules): void {
   const party = b.fighters.filter((f) => f.side === 'party');
   const enemies = b.fighters.filter((f) => f.side === 'enemy');
-  if (enemies.every((f) => f.down)) b.outcome = 'won';
+  if (enemies.every((f) => f.down) && b.waves?.length) nextWave(b);
+  else if (enemies.every((f) => f.down)) b.outcome = 'won';
   else if (party.every((f) => f.down || f.role === 'porter')) b.outcome = 'lost';
   else if (b.tick >= MIN_TICKS_BEFORE_RETREAT) {
     const hp = party.reduce((n, f) => n + f.hp, 0) / party.reduce((n, f) => n + f.maxHp, 0);
     const main = party.find((f) => f.ref === rules.mainId);
     if (hp < rules.retreatAt || (main && !main.down && main.hp < main.maxHp * 0.5) || (main && main.down)) b.outcome = 'retreated';
   }
+}
+
+/** An assault's next wave comes on: the fallen are cleared away (their loot kept) and fresh foes stand in their
+ *  place; the party fights on as it is, hurt and spent. */
+function nextWave(b: Battle): void {
+  const group = b.waves!.shift()!;
+  const spoils = (b.spoils ??= {});
+  for (const f of b.fighters) {
+    if (f.side !== 'enemy' || !f.down) continue;
+    for (const [m, n] of Object.entries(ENEMIES[f.kind].loot)) spoils[m] = (spoils[m] ?? 0) + (n ?? 0);
+    b.slain = (b.slain ?? 0) + 1;
+  }
+  b.fighters = b.fighters.filter((f) => f.side !== 'enemy' || !f.down);
+  const ref = Math.max(0, ...b.fighters.filter((f) => f.side === 'enemy').map((f) => f.ref + 1)) + (b.slain ?? 0) + 1000 * (b.wave ?? 1);
+  const fresh = enemyFighters(group).map((f, i) => ({ ...f, ref: ref + i, cooldown: f.interval + i }));
+  b.fighters.push(...fresh);
+  b.wave = (b.wave ?? 1) + 1;
+  if (Object.keys(group).some((id) => ENEMIES[id].boss || ENEMIES[id].kit)) b.boss = true;
+  (b.shouts ??= []).push(b.waves!.length ? `Wave ${b.wave} comes on!` : 'The last of them come on, their lord at their head!');
 }
 
 /** A Necromancer raises the enemies that fell, whatever felled them (a blow or a spell), to fight for their side. */
@@ -545,7 +571,7 @@ export const BOSS_RAGE = 1.5;
 
 /** Loot dropped by the enemies that fell. */
 export function battleLoot(b: Battle): Record<string, number> {
-  const out: Record<string, number> = {};
+  const out: Record<string, number> = { ...(b.spoils ?? {}) };
   for (const f of b.fighters) {
     if (f.side !== 'enemy' || !f.down) continue;
     for (const [m, n] of Object.entries(ENEMIES[f.kind].loot)) out[m] = (out[m] ?? 0) + (n ?? 0);

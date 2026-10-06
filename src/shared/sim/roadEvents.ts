@@ -1,6 +1,7 @@
 // Things that happen on the road (DESIGN §8): mostly settled by the party's stance, sometimes a question
 // for the player with a timer and a default.
 
+import { answerEnvoy } from './factions';
 import { answerSecret } from './specials';
 import { answerSaga } from './sagas';
 import { answerCrossroads } from './muster';
@@ -92,6 +93,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'saga') return answerSaga(s, prompt.saga, option);
   if (prompt.kind === 'road') return answerCrossroads(s, prompt, option, rng);
   if (prompt.kind === 'debrief') return;
+  if (prompt.kind === 'envoy') return answerEnvoy(s, prompt, option, rng);
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   if (!e) return;
   e.prompt = null;

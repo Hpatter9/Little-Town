@@ -31,6 +31,7 @@ const GROUPS: Record<string, MenuTabs> = {
       ['Parties', /^(Parties|Boats)/],
       ['Places', /^(On the town's land|The pack|Destinations)/],
       ['Quests', /^(Sagas|Hunts|Guild forge|Quests|Unique weapons)/],
+      ['Realm', /^(The realm|Assaults)/],
     ],
     intro: 'Places',
   },

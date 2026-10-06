@@ -1726,6 +1726,48 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   the burst). Their spells and skills were already used on the map (`takeTurn` in `stepBattle`). Test in
   `test/battle.test.ts`.
 
+- **The realm: factions, war hosts and assaults (done; the owner's choices: full diplomacy; hosts up to about 60; an
+  assault is one huge battle; conquest plunders, makes vassals or razes, and recruits come over):**
+  `src/shared/data/factions.ts` and `src/shared/sim/factions.ts`. **The powers** (`realm(s)`, seeded from the world's seed
+  into `s.factions`: `FACTION_COUNT` 4, three rival origins (never the town's own) and the Red Brotherhood's bandits;
+  `FACTION_DEFS`: name, lord (an enemy id), stronghold, the raid kind its troops are, scenes, `temper` (warlike, greedy,
+  honourable, treacherous), goods). A power is met by its envoy (`FIRST_MEET_DAY`, then one every `MEET_EVERY_DAYS`);
+  `factionsDaily` (hour 9, from `factionsHourly`; autopilot on) grows its troops (`TROOPS_PER_DAY` up to `TROOPS_MOST`),
+  drifts its goodwill to its temper's rest (`TEMPER_REST`, `ATTITUDE_DRIFT`; treaties and a marriage warm it), pays trade
+  (`TRADE_COINS`) and a vassal's tribute (ledger line `realm`), declares war at `WAR_AT`, lets the treacherous betray
+  (`BETRAY_CHANCE`) and a strong, sullen vassal rebel (`REBEL_CHANCE`), musters war hosts, and sends one envoy a day at
+  most (`envoyAbout`: tribute demands, peace, trade, an alliance, a marriage, a surrender once beaten twice). **Envoys**
+  are prompts of kind `envoy` (`Prompt.envoy`: faction, about, coins) shown in the event box; `answerEnvoy` (from
+  `answerPrompt`). A marriage brings one of theirs to wed the founder or another single grown-up (`marry`, of their
+  people by `makeStranger`). **The Realm** is the Expeditions menu's fourth sub-tab (`panel/realmPanel.ts`; `GROUPS`
+  "The realm", "Assaults"): a card a power (stance, lord and stronghold, temper, a goodwill bar from the middle, troops
+  against `townMight`, a host on its way) with the `realm` command's buttons (`realmCommand`: gift `GIFT_COINS`, propose
+  peace, trade or an alliance by `TREATY_NEEDS`, offer a match, demand submission (only a power under 0.7 of the town's
+  might kneels), free a vassal, declare war; breaking a treaty costs `OATHBREAKER` goodwill with everyone).
+  `rivalRaidOdds` keeps a rival's ordinary raids to powers at war (twice as likely) or with no treaty.
+  **War hosts:** a power at war musters one now and then (`HOST_CHANCE`, `HOST_GAP_DAYS` apart): `f.host` comes
+  `HOST_WARNING_HOURS` (36) later (a feed card and the Realm say when), `HOST_SHARE` of its troops up to `HOST_MOST` (60).
+  `launchHost` calls `startRaid(..., host)` (raids.ts takes `host`: its size over the usual cap, `siege` engines from the
+  Medieval age, one per `SIEGE_EVERY`, and the lord at the head; `Raid.host`); the `siege_engine` (merged into ENEMIES,
+  the Himeko juggernaut) strikes walls `SIEGE_WALL` times harder (`attackWall`). The battle comes in up to `HOST_WAVES`
+  (8) waves of about `HOST_WAVE_SIZE` (`startBattle` in battle.ts). The town's allies send `ALLY_TROOPS` of theirs as
+  ally raiders (`alliesFor`, from `startRaid`: always to a host, now and then to any raid). `hostOver` (from `endRaid`)
+  counts the dead off the power's troops; broken (the lord down or 60% fallen) it may sue for peace or kneel.
+  **Assaults:** destinations `assault:<faction>` (a power at war) or `assault:dungeon:<id>` (a dungeon on the board)
+  (`assaultDestination`, resolved by `destinationOf`; `assaultTargets` for `destinationUnlocked`), raised through the
+  muster (up to `ASSAULT_MOST` 16: `mostFor` and `canSend`). `planAssault` (in `sendExpedition`) plans the waves
+  (`assaultWaves`: the power's troops in waves, its lord and guard last; a dungeon's foes thickening, its boss last) onto
+  `Expedition.assault`; at the target `fightGroup` starts the first and hangs the rest on `Battle.waves`, and combat.ts's
+  `nextWave` brings each on as the last falls (the fallen cleared, their loot kept in `spoils`; one fight, the party as
+  it is). `assaultOver` (from `finishBattle`): won, plunder (`PLUNDER_PER_TROOP` coins to the treasury, `PLUNDER_GOODS`
+  of its goods home), recruits (`RECRUITS`), and a `conquered` envoy: vassal or razed (`destroyed`); a dungeon's hoard;
+  lost, the power is emboldened and a host comes. The fight screen fits a crowd (fightView: the party in two or three
+  columns, the foes in rows past eight; the HUD's party window in two columns, `.ff-party.many`, and "Wave N of M",
+  `ExpeditionView.assault`); the feed has a card for an assault under way. Names that are a doing take no "the"
+  (`OWN_ARTICLE` has "storm"), and foes are pluralised at the head word ("knights of the order", "crossbowmen").
+  Tests: `test/factions.test.ts`. Soak (3 towns each of settlers, knights and vampires, 20 days): no town lost, 1 to 5
+  deaths, wars, peace, trade and a vassal; hosts of about 20 from day 11, growing with the power's troops.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

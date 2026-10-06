@@ -237,7 +237,10 @@ export function createFightHud(on: { back(): void }): FightHud {
         row.append(gauge);
         foeRows.push(row);
       }
+      // (an assault: which wave this is)
+      if (v.assault && v.assault.wave > 0) foeRows.unshift(line('ff-wave', `Wave ${v.assault.wave} of ${v.assault.total}`));
       foes.replaceChildren(...(foeRows.length ? foeRows : [line('ff-dim', 'Beaten!')]));
+      party.classList.toggle('many', fight.filter((f) => f.side === 'party').length > 6);
       party.replaceChildren(
         ...fight
           .filter((f) => f.side === 'party')

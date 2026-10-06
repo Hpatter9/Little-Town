@@ -1,6 +1,8 @@
 // Player actions. The UI never edits state directly: it sends commands, and the sim applies them at the
 // start of the next tick so every change happens at a well-defined point in sim time.
 
+import type { RealmOp } from './factions';
+const REALM_OPS: readonly RealmOp[] = ['gift', 'peace', 'trade', 'alliance', 'war', 'demand', 'free', 'marry'];
 import { TAX_RATES, type TaxRate } from '../data/economy';
 import type { MonsterKind } from '../data/monsters';
 const TURN_KINDS: readonly string[] = ['undead', 'vampire', 'werewolf'];
@@ -46,6 +48,8 @@ export type Command =
   | { type: 'sendDelve'; dest: string; members: number[]; stakes: 'safe' | 'risky' }
   /** Raise a party yourself (sim/muster.ts): raise one for a place, ask or drop someone, make them leader, talk round
    *  or order someone who said no, set how boldly and what's packed, send them, or call it off. */
+  /** Diplomacy with a power of the realm (sim/factions.ts). */
+  | { type: 'realm'; faction: string; op: RealmOp }
   | { type: 'muster'; op: MusterOp; dest?: string; person?: number; stakes?: 'safe' | 'risky'; rations?: 'lean' | 'normal' | 'plenty'; torches?: number; horses?: boolean }
   /** Pass on a curse (hidden): turn one person, or everyone who can be. */
   | { type: 'turnPerson'; person: number; kind: MonsterKind }
@@ -152,6 +156,8 @@ export function parseCommand(raw: unknown): Command | null {
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
     case 'sendDelve':
       return typeof c.dest === 'string' && Array.isArray(c.members) && c.members.every((m: unknown) => typeof m === 'number') && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendDelve', dest: c.dest, members: c.members as number[], stakes: c.stakes } : null;
+    case 'realm':
+      return typeof c.faction === 'string' && REALM_OPS.includes(c.op as RealmOp) ? { type: 'realm', faction: c.faction, op: c.op as RealmOp } : null;
     case 'muster': {
       if (!MUSTER_OPS.includes(c.op as MusterOp)) return null;
       const out: Command = { type: 'muster', op: c.op as MusterOp };

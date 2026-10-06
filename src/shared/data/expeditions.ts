@@ -50,7 +50,7 @@ export interface Destination {
 }
 
 /** Names that carry their own article, or are a doing rather than a place. */
-const OWN_ARTICLE = /^(the|scout|trade with) /i;
+const OWN_ARTICLE = /^(the|scout|trade with|storm) /i;
 /** "at the Riverbank", but "at The Labyrinth" (a place whose name has its own "The"). */
 export const atPlace = (name: string) => (OWN_ARTICLE.test(name) ? `at ${name}` : `at the ${name}`);
 /** "the Riverbank", but "The Labyrinth" (a place whose name has its own "The"), and a trip named for what it does

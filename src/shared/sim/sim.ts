@@ -1,6 +1,7 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
+import { factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
 import { specialsHourly } from './specials';
 import { sagasHourly } from './sagas';
@@ -176,6 +177,7 @@ export class Sim {
     specialsHourly(s);
     sagasHourly(s);
     huntsHourly(s);
+    factionsHourly(s, this.rng);
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(
       s,
@@ -277,6 +279,11 @@ export class Sim {
       case 'sendDelve': {
         const r = sendDelve(s, c.dest, c.members, c.stakes);
         if (!r.ok) notify(s, `Can't send the delvers: ${r.reason}.`);
+        break;
+      }
+      case 'realm': {
+        const r = realmCommand(s, c.faction, c.op, this.rng);
+        if (!r.ok && r.reason) notify(s, `${r.reason}.`);
         break;
       }
       case 'muster': {

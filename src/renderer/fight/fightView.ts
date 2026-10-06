@@ -419,15 +419,24 @@ export class FightScene {
     const { vw, hy } = this;
     const land = this.vh - hy;
     const foeGap = Math.min(24, (land - 28) / 3);
-    const partyGap = Math.min(16, (land - 24) / Math.max(1, party.length - 1));
-    // (in a staggered line back from the front, spaced so the big ones don't stand in each other)
-    const spacing = Math.min(40, (vw * 0.32) / Math.max(1, foes.length - 1));
+    // (a whole town at war, an assault's wave: more than a column holds, so two or three side by side)
+    const cols = party.length > 12 ? 3 : party.length > 6 ? 2 : 1;
+    const perCol = Math.ceil(party.length / cols);
+    const partyGap = Math.min(16, (land - 24) / Math.max(1, perCol - 1));
+    // (in a staggered line back from the front, spaced so the big ones don't stand in each other; a crowd in rows)
+    const rows = foes.length > 8 ? 3 : 2;
+    const perRow = Math.ceil(foes.length / (rows - 1 || 1));
+    const spacing = Math.min(40, (vw * 0.32) / Math.max(1, (foes.length > 8 ? perRow : foes.length) - 1));
     foes.forEach((f, i) => {
-      at.set(`enemy:${f.ref}`, [Math.round(vw * 0.36 - i * spacing), Math.round(hy + 18 + (i % 2) * foeGap * 1.6)]);
+      const k = foes.length > 8 ? Math.floor(i / perRow) : i % 2;
+      const j = foes.length > 8 ? i % perRow : i;
+      at.set(`enemy:${f.ref}`, [Math.round(vw * 0.36 - j * spacing - (k % 2) * spacing * 0.5), Math.round(hy + 18 + k * foeGap * (foes.length > 8 ? 1.1 : 1.6))]);
     });
     party.forEach((f, i) => {
-      // a slanting column, as in the old games
-      at.set(`party:${f.ref}`, [Math.round(vw * 0.7) + i * 8 + (f.row === 'back' ? 12 : 0), Math.round(hy + 16 + i * partyGap)]);
+      // a slanting column, as in the old games (side by side when there are many)
+      const c = Math.floor(i / perCol);
+      const r = i % perCol;
+      at.set(`party:${f.ref}`, [Math.round(vw * 0.66) + c * 34 + r * 8 + (f.row === 'back' ? 12 : 0), Math.round(hy + 16 + r * partyGap)]);
     });
     // (a fight at sea: they stand on her deck, which runs under the whole column)
     if (this.afloat(v)) this.showHull(v, Math.round(vw * 0.74), Math.round(hy + 16 + Math.max(0, party.length - 1) * partyGap) + 8, Math.max(110, party.length * 26 + 60), now);

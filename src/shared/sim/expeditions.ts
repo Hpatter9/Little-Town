@@ -2,6 +2,8 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
+import { assaultDestination, assaultOver, assaultTargets, isAssaultDest, planAssault } from './factions';
+import { ASSAULT_MOST } from '../data/factions';
 import { boatDef, boatHome, fleet, freeBoat, sailSpeed, sailsTo, seaHour } from './boats';
 import { payParty } from './economy';
 import { homeFromTrip } from './ambition';
@@ -43,7 +45,7 @@ import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { ARRIVING_TYPES, FOOD_VALUE } from '../data/people';
 import { TOPIC_BY_ID, TOPICS } from '../data/research';
 import { skillSpeed, type Skill } from '../data/skills';
-import type { Rng } from '../rng';
+import { hashSeed, Rng } from '../rng';
 import { depositNear, storages, totalStock } from './buildings';
 import { isChild } from './social';
 import { ammoOf, battleLoot, startBattle, stepBattle, type Battle } from './combat';
@@ -91,6 +93,7 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isPackDest(id) || id === HUNT_DEST) return packDestinationOf(s, id);
   if (isSagaDest(id)) return sagaDestOf(s, id);
   if (isHuntDest(id)) return huntDestOf(s, id);
+  if (isAssaultDest(id)) return assaultDestination(s, id);
   return DESTINATION_BY_ID[id];
 }
 
@@ -101,6 +104,8 @@ export function destinationUnlocked(s: GameState, d: Destination): boolean {
   if (isSagaDest(d.id)) return !!sagaDestOf(s, d.id);
   // (a hunt on the guild's board)
   if (isHuntDest(d.id)) return !!huntDestOf(s, d.id);
+  // (an assault: on a power at war, or a dungeon on the board)
+  if (isAssaultDest(d.id)) return assaultTargets(s, (id) => !destinationHidden(s, id) && !!DESTINATION_BY_ID[id] && destinationUnlocked(s, DESTINATION_BY_ID[id])).includes(d.id);
   // (a place on the town's land: while it's found and waiting)
   if (isPlaceDest(d.id)) {
     const p = placeOfDest(s, d.id);
@@ -162,7 +167,7 @@ export function canSend(s: GameState, destId: string, memberIds: readonly number
   // (an island: only a boat reaches it, and she takes no more than her crew)
   const boat = sailsTo(d) ? freeBoat(s) : undefined;
   if (d.byBoat && !boat) return { ok: false, reason: 'Needs a seaworthy boat' };
-  const most = boat && d.byBoat ? Math.min(boatDef(boat).crew, MAX_DELVERS) : d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : MAX_PARTY;
+  const most = boat && d.byBoat ? Math.min(boatDef(boat).crew, MAX_DELVERS) : d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : isAssaultDest(d.id) ? ASSAULT_MOST : MAX_PARTY;
   if (memberIds.length > most) return { ok: false, reason: `Parties are at most ${most} people` };
   if (new Set(memberIds).size !== memberIds.length) return { ok: false, reason: 'Someone is listed twice' };
   for (const id of memberIds) {
@@ -252,6 +257,9 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     ...(boat ? { boat: boat.id } : {}),
     ...(opts.extraTorches ? { extraTorches: opts.extraTorches } : {}),
   };
+  // (an assault: its waves planned as they march, sim/factions.ts)
+  const assault = planAssault(s, destId, new Rng(hashSeed(`${s.seed}:${s.tick}:assault`)));
+  if (assault) e.assault = assault;
   s.expeditions.push(e);
   if (boat) boat.away = e.id;
   // (a delve: its rooms rolled and its torches packed)
@@ -490,7 +498,7 @@ function maybeFight(s: GameState, e: Expedition, d: Destination, members: Person
   const group = d.encounters.groups[pickIndex(d.encounters.groups.map((g) => g.weight), rng)].enemies;
   const boss = Object.keys(group).some((id) => ENEMIES[id].boss);
   const scout = members.find((p) => e.roles[p.id] === 'scout' && !p.downed);
-  if (scout && !boss && rng.chance(SCOUT_AVOID)) {
+  if (scout && !boss && !e.assault && rng.chance(SCOUT_AVOID)) {
     notify(s, `${scout.name} spotted ${describeGroup(group)} ahead, and the party slipped past.`);
     return;
   }
@@ -499,7 +507,16 @@ function maybeFight(s: GameState, e: Expedition, d: Destination, members: Person
 
 /** A fight with a group of foes (on the road, at the site, or in a delve's room). */
 function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person[], group: Record<string, number>, _boss: boolean, rng: Rng): Battle {
+  // (an assault at its target: the first wave, the rest waiting to come on in the same fight: combat.ts)
+  const storm = e.assault && e.phase === 'work' && e.assault.wave === 0 ? e.assault : undefined;
+  if (storm) group = storm.waves[0];
   e.battle = startBattle(members, e.roles, group, rng, e.supplies);
+  if (storm) {
+    e.battle.waves = storm.waves.slice(1);
+    e.battle.wave = 1;
+    storm.wave = 1;
+    meet(s, storm.waves.flatMap((w) => Object.keys(w)));
+  }
   meet(s, Object.keys(group)); // (the Bestiary)
   // summoned spirits and tamed wolves join in (they act on their own first beat)
   for (const f of classAllies(members)) e.battle.fighters.push({ ...f, cooldown: f.interval });
@@ -605,6 +622,14 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
       if (e.phase !== 'back') startBack(s, e, e.phase === 'out' ? e.elapsed : e.outTicks);
       break;
     }
+  }
+  // an assault's end: the whole of it won, or not (sim/factions.ts)
+  if (e.assault && e.assault.wave > 0) {
+    const won = b.outcome === 'won';
+    const said = assaultOver(s, e.assault.target, won, e.loot, rng);
+    e.assault = undefined;
+    if (said) notify(s, said, true);
+    if (won && e.phase === 'work') startBack(s, e, e.outTicks);
   }
   // carrying someone slows the rest of the walk home
   if (e.phase === 'back' && anyDowned(s, e)) {
@@ -743,7 +768,13 @@ function pickIndex(weights: number[], rng: Rng): number {
 }
 
 /** A foe's name in the plural ("wolves", "skeleton warriors", "giant rats"). */
-const plural = (name: string) => (/(wolf|elf|thief)$/.test(name) ? `${name.slice(0, -1)}ves` : /(s|x|ch|sh)$/.test(name) ? `${name}es` : `${name}s`);
+const pluralWord = (w: string) =>
+  /(wolf|elf|thief)$/.test(w) ? `${w.slice(0, -1)}ves` : /man$/.test(w) ? `${w.slice(0, -3)}men` : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : /(s|x|ch|sh)$/.test(w) ? `${w}es` : `${w}s`;
+/** "crossbowmen", "knights of the order" (the head word takes the plural, not the end). */
+const plural = (name: string) => {
+  const at = name.indexOf(' of ');
+  return at > 0 ? pluralWord(name.slice(0, at)) + name.slice(at) : pluralWord(name);
+};
 
 function describeGroup(group: Record<string, number>): string {
   return Object.entries(group)

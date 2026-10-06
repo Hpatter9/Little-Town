@@ -1,5 +1,6 @@
 // Expedition Board: parties that are out, and where you can send one next.
 
+import { renderRealm } from './realmPanel';
 import { renderMuster } from './musterPanel';
 import { BOAT_BY_KIND } from '../../shared/data/boats';
 import { eraReached } from '../../shared/data/eras';
@@ -60,6 +61,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.quests.map((q) => [q.id, Math.ceil(q.hoursLeft / 24)]),
     s.fleet,
     s.muster,
+    s.realm,
   ]);
 
 const listStock = (st: Stock) =>
@@ -154,6 +156,7 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
   out.push(...huntList(s));
   out.push(...questList(s));
   out.push(...treasures(s));
+  out.push(...renderRealm(s, bridge));
   out.push(el('div', 'hint', 'Fighters stand in front; scouts, medics and porters in back. Parties fall back when hurt past their stance, or when you are badly hurt. The downed bleed out unless a medic tends them.'));
   return out;
 }
