@@ -6,8 +6,8 @@
 export type NatureId = 'cheerful' | 'grumpy' | 'shy' | 'bold' | 'dreamy' | 'pious' | 'greedy' | 'kind' | 'proud' | 'curious' | 'gloomy' | 'jolly' | 'stern' | 'restless';
 
 /** What a line is about. */
-export type Topic = 'greet' | 'work' | 'cold' | 'hot' | 'rain' | 'night' | 'hungry' | 'tired' | 'raid' | 'friend' | 'rival' | 'idle' | 'sea' | 'sick' | 'old' | 'child';
-export const TOPICS: readonly Topic[] = ['greet', 'work', 'cold', 'hot', 'rain', 'night', 'hungry', 'tired', 'raid', 'friend', 'rival', 'idle', 'sea', 'sick', 'old', 'child'];
+export type Topic = 'greet' | 'work' | 'cold' | 'hot' | 'rain' | 'night' | 'hungry' | 'tired' | 'raid' | 'friend' | 'rival' | 'idle' | 'sea' | 'sick' | 'old' | 'child' | 'feast' | 'mourn';
+export const TOPICS: readonly Topic[] = ['greet', 'work', 'cold', 'hot', 'rain', 'night', 'hungry', 'tired', 'raid', 'friend', 'rival', 'idle', 'sea', 'sick', 'old', 'child', 'feast', 'mourn'];
 
 export interface Nature {
   id: NatureId;
@@ -88,9 +88,28 @@ export const NATURES: readonly Nature[] = [
 export const NATURE_BY_ID: Readonly<Record<NatureId, Nature>> = Object.fromEntries(NATURES.map((n) => [n.id, n])) as Record<NatureId, Nature>;
 
 /** Lines anyone might say, when their nature has none for the topic. */
+/** What each nature says at a feast and at a funeral (`feast`, `mourn`), laid into their `say` below. */
+const GATHERED: Record<NatureId, { feast: string[]; mourn: string[] }> = {
+  cheerful: { feast: ['Best night of the year!', 'Come on, dance!', 'Everyone\'s smiling!'], mourn: ['They\'d want us to smile.', 'I\'ll miss that laugh.'] },
+  grumpy: { feast: ['Too loud.', 'Fine. One dance.', 'Who spilled ale on me?'], mourn: ['Should\'ve been me.', 'Hmph. Rest, then.'] },
+  shy: { feast: ['I don\'t dance... much.', '(taps a foot)', 'It is nice.'], mourn: ['...', 'Goodbye.'] },
+  bold: { feast: ['Faster! Play faster!', 'Who\'ll match my cup?', 'Watch this!'], mourn: ['They died brave.', 'I\'ll avenge them.'] },
+  dreamy: { feast: ['The lanterns are like stars.', 'I could dance till dawn.', 'Listen to that tune...'], mourn: ['Gone to the stars.', 'I dreamed of them.'] },
+  pious: { feast: ['Blessed be this table.', 'Give thanks, friends!', 'A gift from above.'], mourn: ['Into the light.', 'May they find peace.'] },
+  greedy: { feast: ['Free food!', 'Who\'s paying for this?', 'I\'ll take seconds.'], mourn: ['Who gets their things?', 'A loss. A real loss.'] },
+  kind: { feast: ['Have you eaten?', 'Come, join us!', 'Everyone together!'], mourn: ['Hold my hand.', 'They were so good.'] },
+  proud: { feast: ['I dance best.', 'A fine feast. Mine was finer.', 'Admire the steps!'], mourn: ['A worthy life.', 'They\'ll be remembered.'] },
+  curious: { feast: ['What\'s in this pie?', 'Who wrote this song?', 'How do you do that step?'], mourn: ['Where do we go after?', 'Why them?'] },
+  gloomy: { feast: ['It\'ll end soon.', 'Enjoy it while it lasts.', 'Even I\'ll dance.'], mourn: ['I knew it.', 'Who\'s next?'] },
+  jolly: { feast: ['Ha! Again!', 'Drink up, friends!', 'Hey-ho, round we go!'], mourn: ['A toast to them.', 'They told the best jokes.'] },
+  stern: { feast: ['Back to work at dawn.', 'Within reason.', 'Well earned.'], mourn: ['We go on.', 'Duty done.'] },
+  restless: { feast: ['Faster!', 'Can\'t stop dancing!', 'Spin, spin!'], mourn: ['I can\'t stand still.', 'Let\'s walk.'] },
+};
+
 export const ANYONE: Record<Topic, string[]> = {
   greet: ['Hello there.', 'Good day.'], work: ['Back to work.'], cold: ['Cold today.'], hot: ['Hot today.'], rain: ['Rain again.'], night: ['Getting dark.'], hungry: ['I\'m hungry.'], tired: ['So tired.'], raid: ['Raiders!'],
   friend: ['Good to see you.'], rival: ['Hm.'], idle: ['...'], sea: ['The tide\'s coming in.'], sick: ['I don\'t feel well.'], old: ['These old bones.'], child: ['Hello, little one.'],
+  feast: ['What a night!', 'Another round!', 'Dance with me!', 'Play it again!'], mourn: ['Rest well.', 'Gone too soon.', '...'],
 };
 
 /** Someone's nature: their own if set, else decided by who they are. */
@@ -111,3 +130,6 @@ export function lineFor(n: Nature, topic: Topic, pick: number): string {
   const pool = n.say[topic]?.length ? n.say[topic]! : ANYONE[topic];
   return pool[Math.abs(Math.floor(pick)) % pool.length];
 }
+
+// (the feast and funeral lines, into each nature's voice)
+for (const n of NATURES) Object.assign(n.say, GATHERED[n.id]);

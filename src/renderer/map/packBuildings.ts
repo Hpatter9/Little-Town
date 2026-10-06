@@ -167,6 +167,8 @@ export interface Pick {
   /** A wall piece's picture by how it joins its neighbours (the ring wall: sim/ringWall.ts): along a row (`h`), down a
    *  column (`v`), at a corner, or standing alone (`end`); the pick itself when a join has none. */
   joins?: Partial<Record<Join, Pick>>;
+  /** Recoloured for a look (`GRADES`): the shops' pictures worn by the peoples without timber houses of their own. */
+  grade?: string;
 }
 /** How a wall piece joins the pieces about it (map/mapView.ts `wallJoin`). */
 export type Join = 'h' | 'v' | 'nw' | 'ne' | 'sw' | 'se' | 'end';
@@ -400,13 +402,60 @@ function source(pick: Pick, id: number): { draw: (g: CanvasRenderingContext2D, s
   return { w: im.naturalWidth, h: im.naturalHeight, draw: (g, k) => g.drawImage(im, 0, 0, im.naturalWidth * k, im.naturalHeight * k) };
 }
 
-/** The pick for a building in a look: a variant for that look first, else the pick itself where it suits. */
+/** How the shops' timber pictures are recoloured for the other peoples (none of the packs has their own shop
+ *  fronts): how much of the colour is taken out (0..1), the colour laid over what's left, and the brightness. The
+ *  liches' shops go grey-green and dim, the Court's blood-dark, the machines' steel, the shore's sea-washed... */
+const GRADES: Record<string, { grey: number; tint: number; light: number }> = {
+  lich: { grey: 0.8, tint: 0x9ab0a0, light: 0.82 },
+  vampire: { grey: 0.65, tint: 0xc08a94, light: 0.78 },
+  robot: { grey: 0.85, tint: 0xa8c0d8, light: 0.95 },
+  merfolk: { grey: 0.5, tint: 0x9ad8d0, light: 1.02 },
+  nomads: { grey: 0.25, tint: 0xf0d8a8, light: 1.02 },
+  nomads_city: { grey: 0.3, tint: 0xf0c890, light: 1.0 },
+  druid: { grey: 0.35, tint: 0xb8e0a0, light: 0.95 },
+  fae: { grey: 0.4, tint: 0xe0c0f0, light: 1.05 },
+  dwarves: { grey: 0.55, tint: 0xd0c0a8, light: 0.9 },
+  werewolf: { grey: 0.45, tint: 0xc8a888, light: 0.85 },
+  alchemists: { grey: 0.45, tint: 0xd0b0e0, light: 0.95 },
+};
+const graded = new Map<string, Pick>();
+
+/** The pick for a building in a look: a variant for that look first, else the pick itself where it suits; a venue's
+ *  timber picture recoloured (`GRADES`) for a look it doesn't suit. */
 function pickFor(def: string, style: string): Pick | null {
   const pick = PICKS[def];
   if (!pick) return null;
   const v = pick.variants?.find((x) => x.styles.includes(style));
   if (v) return v.pick;
-  return suits(pick, style) ? pick : null;
+  if (suits(pick, style)) return pick;
+  if (GRADES[style] && venueOfDef(def)) {
+    const key = `${def}|${style}`;
+    let g = graded.get(key);
+    if (!g) graded.set(key, (g = { ...pick, styles: undefined, grade: style }));
+    return g;
+  }
+  return null;
+}
+
+/** Recolours a drawn picture by its look's grade (`GRADES`). */
+function regrade(g: CanvasRenderingContext2D, w: number, h: number, style: string): void {
+  const gr = GRADES[style];
+  if (!gr) return;
+  const im = g.getImageData(0, 0, w, h);
+  const d = im.data;
+  const tr = ((gr.tint >> 16) & 255) / 255;
+  const tg = ((gr.tint >> 8) & 255) / 255;
+  const tb = (gr.tint & 255) / 255;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    const r = d[i], gg = d[i + 1], b = d[i + 2];
+    const y = 0.3 * r + 0.59 * gg + 0.11 * b;
+    const k = gr.light;
+    d[i] = Math.min(255, (r + (y - r) * gr.grey) * (1 - gr.grey + gr.grey * tr) * k);
+    d[i + 1] = Math.min(255, (gg + (y - gg) * gr.grey) * (1 - gr.grey + gr.grey * tg) * k);
+    d[i + 2] = Math.min(255, (b + (y - b) * gr.grey) * (1 - gr.grey + gr.grey * tb) * k);
+  }
+  g.putImageData(im, 0, 0);
 }
 
 /** Whole buildings seen from outside (houses, shop fronts, tents, towers, the windmill): never a room's furnishings. */
@@ -452,6 +501,10 @@ export function pickArt(pick: Pick, w: number, key0: string, id = 0): PixelArt |
       g.rotate(Math.PI / 2);
     }
     src.draw(g, scale * FINE);
+    if (pick.grade) {
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      regrade(g, c.width, c.height, pick.grade);
+    }
     // (the first opaque row of each art column, for hit-testing, as the painter records it)
     const data = g.getImageData(0, 0, c.width, c.height).data;
     const tops = new Int16Array(width);

@@ -19,6 +19,7 @@ import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { glowTexture } from '../town/layer';
 import { TAIL_H, TAIL_W, tailTexture, WAIST } from '../art/merTail';
+import { BEAT, danceStep, mournStep, type DanceStep } from './dance';
 import { hash01, lineNow, makeBubble, REPLY_AFTER, SPEECH_EVERY, SPEECH_FOR, SPEECH_SHARE, TALK_NEAR, type SpeechContext } from './speech';
 
 /** Standing still, a person breathes (a pixel's rise every couple of seconds) and shifts their weight now and then
@@ -241,15 +242,17 @@ export class MapPeople {
   }
 
   /** A person's Himeko look for now (art/hkFolk.ts), as a texture; null while their layers load. */
-  private hkTexture(d: Drawn, now: number, inCombat: boolean, moving: boolean): Texture | null {
+  private hkTexture(d: Drawn, now: number, inCombat: boolean, moving: boolean, step: DanceStep | null = null): Texture | null {
     const v = d.view;
     const fighting = inCombat || v.activity === 'fight';
     const working = WORK_SWING.has(v.activity) && !fighting;
     const keys = hkLayers(hkWhoOf(v), { fighting, activity: v.activity });
     // (up or down the map while that's mostly how they walk; else the side they're turned to)
     const side: HkFacing = v.dir < 0 ? 'left' : 'right';
-    const facing: HkFacing = !fighting && !working && d.face ? d.face : side;
-    const [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null, ranged: v.battle.ranged, now });
+    const facing: HkFacing = step?.facing && !fighting ? step.facing : !fighting && !working && d.face ? d.face : side;
+    let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null, ranged: v.battle.ranged, now });
+    // (dancing at a feast, or mourning: map/dance.ts)
+    if (step && step.col !== null && !fighting) col = step.col;
     return hkTexture(keys, col, row);
   }
 
@@ -303,6 +306,9 @@ export class MapPeople {
     const v = d.view;
     if (v.breakdown) return 'anger';
     if (v.activity === 'sleep') return 'zzz';
+    // (at a feast, notes and hearts come thick and fast; at a funeral, none)
+    if (v.activity === 'dance') return (now / 1000 + v.id * 1.3) % 4 < 1.7 ? (v.id % 3 === 0 || (v.partner && v.id % 2) ? 'heart' : 'note') : null;
+    if (v.activity === 'mourn') return null;
     const burst = ((now / 1000 + v.id * 3.7) % EMOTE_EVERY) < EMOTE_FOR;
     if (!burst) return null;
     if (v.needs.rest < 0.12 || v.needs.food < 0.12) return 'sweat';
@@ -403,7 +409,9 @@ export class MapPeople {
       const moving = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) > 0.5;
       // (hurt legs: a hitch in the walk)
       if (moving) s.y += limpDip(v.body.moving, d.walked);
-      const facing = d.view.dir < 0 ? 'left' : 'right';
+      // at a gathering: dancing to the beat (a feast) or still with grief (a funeral): map/dance.ts
+      const step = hidden ? null : v.activity === 'dance' ? danceStep(v.id, now, moving) : v.activity === 'mourn' ? mournStep(v.id) : null;
+      const facing = step?.facing === 'left' || step?.facing === 'right' ? step.facing : d.view.dir < 0 ? 'left' : 'right';
       // (the side-on townsperson's sprite, which their harm is drawn over; a hero, wolf or class form isn't)
       let plain = true;
       // a fighting calling takes its combat form (a Craftpix hero) while it fights, and a little after
@@ -444,7 +452,7 @@ export class MapPeople {
       // round; it takes over from the side-on sprite, the hero forms and the class looks (the hero sheets are kept for
       // bosses and special strangers). Until their layers have loaded, the old look stands in.
       // (a fight's look adds the weapon: until its layer loads, the look without it, else the last frame drawn)
-      let hkTex = hidden ? null : this.hkTexture(d, now, inCombat, moving);
+      let hkTex = hidden ? null : this.hkTexture(d, now, inCombat, moving, step);
       if (!hkTex && !hidden && inCombat) hkTex = this.hkTexture(d, now, false, moving);
       if (hkTex) d.hkLast = hkTex;
       else if (!hidden && d.hkLast) hkTex = d.hkLast;
@@ -493,6 +501,11 @@ export class MapPeople {
         d.tail.visible = true;
         void TAIL_H;
       } else if (d.tail) d.tail.visible = false;
+      // (off the ground on the beat, and a squash as they land)
+      if (step && !swimming) {
+        s.y -= step.lift;
+        if (step.squash !== 1) s.scale.set(s.scale.x * (2 - step.squash), s.scale.y * step.squash);
+      }
       // cavalry: the rider sits on a horse
       const coat = d.view.mounted;
       d.horse.visible = coat !== null && !hidden;
@@ -685,6 +698,10 @@ export class MapPeople {
         return ['walk', 0]; // (standing ready: the blows come from fightPose)
       case 'sleep':
         return ['hurt', FRAME_COUNT.hurt - 1];
+      case 'dance':
+        return ['walk', 1 + (Math.floor(now / (BEAT / 2)) % 8)];
+      case 'mourn':
+        return ['walk', 0];
       default:
         return ['walk', idleFidget(now, d.view.id)];
     }

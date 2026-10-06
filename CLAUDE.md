@@ -1803,6 +1803,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   store), crates, a vase and barrels (emporium), chairs (furniture maker), the weapon rack and anvil (weapons), a helm and
   a chest (armour), a shelf of jars and a potted plant (apothecary), a bench and barrel (tavern), a barrel (inn), a
   wheelbarrow (trading post). The other peoples' looks keep their own buildings with the same storefronts.
+- **Every people's shops from the pack (the owner's complaint: a lich town's shop was "the old build"):** the venues'
+  timber pictures were only for the base, settlers and knights looks, so every other people's shops were the top-down
+  painter's. Now `pickFor` (packBuildings.ts) gives any venue (`venueOfDef`) the same pack picture **recoloured** for a
+  look it doesn't suit (`Pick.grade`, `GRADES`: how much colour is taken out, the colour laid over the rest and the
+  brightness: the liches' grey-green and dim, the Court's blood-dark, the machines' steel, the shore's sea-washed, the
+  nomads' sand, the druids' green, the fae's violet...), done once on the canvas in `pickArt` (`regrade`).
 - **Allies keep their colours:** summoned, tamed and allied fighters were washed green all over on the map, the fight
   screen and the expedition pane (a summoned wolf read as a stray green monster); now an ally on the map has a green
   glow underfoot and a green health bar instead (mapRaiders.ts).
@@ -1925,6 +1931,21 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   treasury pays the house `FEAST_COIN` a head (`takeSale`). A gathering is `s.gathering`; those at it (`attending`) take
   the `attend` task: they walk to their place in a ring round the spot and stand there (they still eat), and the
   Townsfolk tab says where they are. Tests: `test/ceremonies.test.ts`.
+  - **Festive gatherings (the owner's ask: they only stood and bobbed):** at a feast or wedding the guests' activity is
+    `dance`, at a funeral `mourn` (new `Activity` values, set by the `attend` task). The ring is roomier
+    (`gatheringRadius`: a feast's grows with the guests), and every other guest dances round in it (`gatheringPlace`,
+    `inRing`, `RING_SPIN`: the ring turns about once in 40 s; once there they keep to their turning place); a tavern
+    feast is held on the open ground below its door. `snapshot.gathering` (kind, spot, ring, `fire` when away from the
+    camp's fire). On the map (`map/dance.ts`, pure): everyone dances to one `BEAT` (420 ms): the ring skips round, the
+    rest each have a move by id (`danceMove`: hop, cheer with an arm up, clap, spin through the four facings, sway),
+    lifted off the ground with a squash on landing; mourners kneel (a third) or stand still turned to the middle
+    (`mournStep`). Notes and hearts pop up thick and fast at a feast, none at a funeral; the speech has new topics
+    `feast` and `mourn` with lines for every nature (`GATHERED` in data/natures.ts). `map/mapFestival.ts`
+    (`MapFestival`, from MapView, synced by main.ts): poles round the ring with strings of fluttering pennants and a
+    paper lantern on each that glows after dark, a bonfire in the middle when it isn't the camp's (the Fields pack's
+    campfire), the long table laid with pots and a jar and a barrel and stools behind (the dungeon clutter), confetti
+    drifting down, and after dark fireworks bursting overhead (drawn in the lights layer); at a funeral the clutter's
+    candles in a ring, glowing. No confetti or fireworks on a slow phone (`calm`).
 - **Step 8, art:** the windmill, the watchtower and the lookout are the Simple Summer top-down pack's windmill and timber
   watchtowers (`art/packs/su_*.png`, shrunk from the pack's vector PNGs; `PICKS` in packBuildings.ts). Since then: the
   factory (pipes, a transformer, a shuttered block and a tank), the garage (two shuttered bays), the radio tower (the

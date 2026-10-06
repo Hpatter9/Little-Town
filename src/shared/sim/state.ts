@@ -262,7 +262,8 @@ export interface CraftOrder {
 }
 
 /** What a person is visibly doing (drives their animation). */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | WorkAnim;
+/** `dance`: at a feast (the map draws them dancing); `mourn`: at a funeral. */
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | WorkAnim;
 
 export interface Raider {
   id: number;
@@ -918,7 +919,7 @@ export interface GameState {
    *  gathering under way, and when the last feast was. */
   funeralsDue?: { name: string; close: number[]; tick: number }[];
   feastDue?: { kind: 'wedding' | 'feast'; text: string };
-  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; ids: number[]; until: number; text: string; x: number; y: number };
+  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; ids: number[]; until: number; text: string; x: number; y: number; from?: number };
   lastFeast?: number;
   /** An event to put to the player next, once the one open now is answered (`follow`). */
   eventNext?: string;

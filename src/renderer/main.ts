@@ -1065,6 +1065,7 @@ async function start(): Promise<void> {
     herds.update(next.buildings);
     boats.update(next.fleet, next.mooring);
     pools.sync(next.blood);
+    map.festival.sync(next.gathering);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
     // (a nomad tribe that moved camp: the view goes to the new camp)

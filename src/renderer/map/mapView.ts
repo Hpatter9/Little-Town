@@ -36,6 +36,7 @@ import { loadGroundDetail } from '../art/groundDetail';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
+import { MapFestival } from './mapFestival';
 import { castleClutter, clutterLoaded, flickerCastle, onClutterArt, type Flame } from './castleClutter';
 import { seatArt } from '../art/seatArt';
 import { SEAT_STAGE } from '../../shared/data/seats';
@@ -142,6 +143,8 @@ export class MapView {
   readonly lights = new Container();
   /** Smoke from the chimneys and stacks (town/ambientView.ts), over everything standing. */
   private readonly smoke = new ChimneySmoke();
+  /** The town's gathering dressed: bunting, lanterns, the feast table, confetti and fireworks; candles at a funeral. */
+  readonly festival: MapFestival;
   /** How much the hearths are burning now (0 to 1: ambientView's `airFor`). */
   smokeAmount = 0.5;
   /** Marks on the ground under everything standing (a battle's trail and spots), and effects over it all. */
@@ -194,6 +197,7 @@ export class MapView {
     this.ghost.zIndex = 1e9;
     this.world.addChild(this.ground, this.marks, this.under, this.things, this.over, this.ghost);
     this.over.addChild(this.smoke.root);
+    this.festival = new MapFestival(this.things, this.over, this.lights);
     this.smoke.size = 1.6;
     this.lights.blendMode = 'add';
     this.lights.alpha = 0;
@@ -665,6 +669,7 @@ export class MapView {
   renderAir(dt: number): void {
     this.fireflies(dt);
     if (this.castle?.flames.length) flickerCastle(this.castle.flames, (this.flick += dt));
+    this.festival.render(dt, this.lights.alpha > 0.3, this.calm);
     if (this.calm) return;
     this.smoke.amount = this.smokeAmount;
     const chimneys: { x: number; y: number }[] = [];
