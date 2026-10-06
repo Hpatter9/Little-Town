@@ -780,10 +780,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   planner's old end walls (`wallSpot`, "a wall at each end of town") are gone. **Continuous walls:** a one-cell wall
   piece's picture is chosen by how it joins its neighbours (`MapView.wallJoin`: along a row, down a column, a corner,
   alone; in the building's `sig`, so a piece is redrawn when a neighbour goes up): `Pick.joins` in packBuildings.ts
-  gives each join its own picture. **Palisades that join (the owner's complaint):** a row is only the stake runs that fill their
-  cell edge to edge (`palisade02`, `03`; `01` left a gap), a column is one post set in each cell's middle (`POST`, cropped
-  from `palisade19`; the post pairs stood left or right and zigzagged), a corner half a run of stakes meeting the post, and
-  a piece with walls both ways along a row or a column is the straight piece (`wallJoin`), so a T junction holds the line.
+  gives each join its own picture. **Palisades that join (the owner's complaints):** laid from the Village pack's palisade tileset as the
+  pack itself lays an enclosure (`palisade01`..`46` are its `Tile2_NN`): a run along a row is two tiles tall, the pointed
+  tops over the cell above and the feet with their stones on the cell (`pal2`, one of three by id: `PAL_RUN`, chosen
+  through `Pick.of`); each corner is the pack's own corner piece (`nw` 01/09, `ne` 06/14, `sw` 33/41, `se` 38/46); down
+  a column the post of that side (`v` the west wall's 17/25 at the left of the cell, `ve` the east wall's 22/30 at the
+  right, so it meets the corners' posts: `wallJoin` tells the side by which way the run turns at its ends); a lone piece a
+  single post (`POST`); a piece with walls both ways along a row or a column is the straight piece, so a T holds the line.
   **Gates in the wall:** a gate on the west or east run stands **turned** (`Building.turned`:
   `footprint` swaps its width and depth; `canPlace`/`placeBlueprint` take `turned`; `gateTurned`/`gateAt` in
   ringWall.ts cover the ring cell and the one below it), drawn from the gate pick's `joins.v`, the same parts with

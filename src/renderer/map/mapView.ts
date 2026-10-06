@@ -551,11 +551,23 @@ export class MapView {
     if (!def?.hp || def.width !== 1 || def.defense) return undefined;
     const wallAt = (x: number, y: number) => this.simBuildings.some((o) => o !== b && !!BUILDING_BY_ID[o.def]?.hp && !BUILDING_BY_ID[o.def]?.defense && inRect(footprint(o), x, y));
     const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);
+    // (a run down a column is the west wall's or the east wall's: its post stands at the left or the right of the cell to
+    // meet the corners' posts; told by which way the run turns at its ends)
+    const side = (): Join => {
+      for (const step of [-1, 1]) {
+        let y = b.row;
+        for (let i = 0; i < 200 && wallAt(b.tile, y + step); i++) y += step;
+        if (y === b.row) continue;
+        const east = wallAt(b.tile - 1, y), west = wallAt(b.tile + 1, y);
+        if (west !== east) return west ? 'v' : 've';
+      }
+      return 'v';
+    };
     if ((l || r) && !(u || d)) return 'h';
-    if ((u || d) && !(l || r)) return 'v';
+    if ((u || d) && !(l || r)) return side();
     // (where a wall runs through, it's a straight piece: a run along a row with a spur, or down a column with one)
     if (l && r) return 'h';
-    if (u && d) return 'v';
+    if (u && d) return side();
     if (r && d) return 'nw';
     if (l && d) return 'ne';
     if (r && u) return 'sw';

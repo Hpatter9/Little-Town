@@ -39,6 +39,22 @@ import box2 from '../art/village/box2.png';
 import log1 from '../art/village/log1.png';
 import log3 from '../art/village/log3.png';
 import palisade02 from '../art/village/palisade02.png';
+import palisade01 from '../art/village/palisade01.png';
+import palisade04 from '../art/village/palisade04.png';
+import palisade06 from '../art/village/palisade06.png';
+import palisade09 from '../art/village/palisade09.png';
+import palisade10 from '../art/village/palisade10.png';
+import palisade11 from '../art/village/palisade11.png';
+import palisade12 from '../art/village/palisade12.png';
+import palisade14 from '../art/village/palisade14.png';
+import palisade17 from '../art/village/palisade17.png';
+import palisade22 from '../art/village/palisade22.png';
+import palisade25 from '../art/village/palisade25.png';
+import palisade30 from '../art/village/palisade30.png';
+import palisade33 from '../art/village/palisade33.png';
+import palisade38 from '../art/village/palisade38.png';
+import palisade41 from '../art/village/palisade41.png';
+import palisade46 from '../art/village/palisade46.png';
 import palisade03 from '../art/village/palisade03.png';
 import palisade36 from '../art/village/palisade36.png';
 import palisade37 from '../art/village/palisade37.png';
@@ -153,6 +169,11 @@ import sfTube4 from '../art/packs/sf_tube4.png';
 type Part = [string, number, number] | [string, number, number, number, number, number, number];
 /** The palisade's single post, cropped so it stands in the middle of its cell (the pack drew it right of centre). */
 const POST: Part = [palisade19, 0, 0, 4, 0, 28, 32];
+/** A palisade piece two tiles tall (the stakes' pointed tops over the cell above, their feet on the cell), or one. */
+const pal2 = (top: string, foot: string): Pick => ({ parts: [[top, 0, 0], [foot, 0, 32]], size: [32, 64], overhang: 0 });
+const pal1 = (tile: string): Pick => ({ parts: [[tile, 0, 0]], size: [32, 32], overhang: 0 });
+/** The palisade's runs of stakes, one of three by the piece's id. */
+const PAL_RUN: Pick[] = [pal2(palisade02, palisade10), pal2(palisade03, palisade11), pal2(palisade04, palisade12)];
 export interface Pick {
   url?: string;
   parts?: Part[];
@@ -161,6 +182,8 @@ export interface Pick {
   styles?: Set<string>;
   /** Several pictures to choose from by the building's id. */
   any?: string[];
+  /** Several picks to choose from by the building's id (pictures laid from parts). */
+  of?: Pick[];
   /** Other pictures for particular looks (the nomads' tents, the dwarves' gates), tried before the pick itself. */
   variants?: { styles: string[]; pick: Pick }[];
   /** Where smoke rises from (the chimneys' tops, in source px), for the map's smoke. */
@@ -178,7 +201,7 @@ export interface Pick {
   grade?: string;
 }
 /** How a wall piece joins the pieces about it (map/mapView.ts `wallJoin`). */
-export type Join = 'h' | 'v' | 'nw' | 'ne' | 'sw' | 'se' | 'end';
+export type Join = 'h' | 'v' | 've' | 'nw' | 'ne' | 'sw' | 'se' | 'end';
 /** The glow of a pack house's window (the painter's window colour). */
 const WINDOW_GLOW = 0xf0d890;
 /** The looks the pack's timber houses suit. */
@@ -274,20 +297,22 @@ const PICKS: Record<string, Pick> = {
   trophy_hall: { parts: [[gbShop, 0, 0], [vSignShield, 2, 60]], size: [110, 98], styles: TIMBER, lamps: [[30, 83], [80, 83], [74, 45]], variants: hallVariants() },
   // the stockpile: crates and logs heaped together
   stockpile: { parts: [[log3, 2, 14], [box1, 10, 4], [box2, 28, 8], [log1, 44, 6], [box1, 62, 10], [box2, 76, 2]], size: [96, 28], overhang: 0 },
-  // the Village pack's palisade stakes and gate
-  // (so a wall runs unbroken: along a row only the stake runs that fill their cell edge to edge (palisade01 leaves a gap
-  // at its left); down a column the same single post, set in the middle of every cell (the post pairs sat at the left
-  // or the right of theirs, so a column zigzagged); at a corner half a run of stakes meeting the post)
+  // the Village pack's palisade (its tileset laid as the pack lays it: a run along a row is two tiles tall, the pointed
+  // tops over the cell above and the feet with their stones on the cell; each corner is the pack's own corner piece;
+  // down a column the post of that side (the west wall's at the left of its cell, the east wall's at the right, so they
+  // meet the corners' posts); a lone piece a single post)
   palisade_wall: {
     own: true,
-    any: [palisade02, palisade03],
+    of: PAL_RUN,
     overhang: 0,
     joins: {
-      v: { parts: [POST], size: [32, 32], overhang: 0 },
-      nw: { parts: [[palisade02, 16, 0, 16, 0, 16, 32], POST], size: [32, 32], overhang: 0 },
-      sw: { parts: [[palisade02, 16, 0, 16, 0, 16, 32], POST], size: [32, 32], overhang: 0 },
-      ne: { parts: [[palisade03, 0, 0, 0, 0, 16, 32], POST], size: [32, 32], overhang: 0 },
-      se: { parts: [[palisade03, 0, 0, 0, 0, 16, 32], POST], size: [32, 32], overhang: 0 },
+      h: { of: PAL_RUN, overhang: 0 },
+      v: { of: [pal1(palisade17), pal1(palisade25)], overhang: 0 },
+      ve: { of: [pal1(palisade22), pal1(palisade30)], overhang: 0 },
+      nw: pal2(palisade01, palisade09),
+      ne: pal2(palisade06, palisade14),
+      sw: pal2(palisade33, palisade41),
+      se: pal2(palisade38, palisade46),
       end: { parts: [POST], size: [32, 32], overhang: 0 },
     },
   },
@@ -440,6 +465,7 @@ const suits = (pick: Pick, style: string) => (pick.styles ? pick.styles.has(styl
 
 /** The pick's source picture (an image, or its parts laid together), or null while something is still loading. */
 function source(pick: Pick, id: number): { draw: (g: CanvasRenderingContext2D, scale: number) => void; w: number; h: number } | null {
+  if (pick.of?.length) return source(pick.of[id % pick.of.length], id);
   const urls = pick.parts ? pick.parts.map((p) => p[0]) : [pick.any ? pick.any[id % pick.any.length] : pick.url!];
   let waiting = false;
   for (const u of urls) {
@@ -532,7 +558,7 @@ function regrade(g: CanvasRenderingContext2D, w: number, h: number, style: strin
 
 /** Whole buildings seen from outside (houses, shop fronts, tents, towers, the windmill): never a room's furnishings. */
 const EXTERIORS = new Set([suHouse, ttLong, ttGable, house1, house2, house3, house4, gbHouse, gbShop, tent2, rockyTipi1, rockyTipi2, rockyYurt1, rockyYurt2, suWindmill, suWatchtower, suLookout, suCastle, suMageTower, suRoundCastle, suTent]);
-const urlsOf = (p: Pick): string[] => [p.url, ...(p.any ?? []), ...(p.parts ?? []).map((x) => x[0])].filter((u): u is string => !!u);
+const urlsOf = (p: Pick): string[] => [p.url, ...(p.any ?? []), ...(p.parts ?? []).map((x) => x[0]), ...(p.of ?? []).flatMap(urlsOf)].filter((u): u is string => !!u);
 
 /** A building's pack picture as a castle's or a hold's room furnishings: only a picture of things (racks, benches, a
  *  well, a fire pit), never the outside of a whole building (a trade's timber house stood inside a hall). */
@@ -546,7 +572,15 @@ export function packArt(def: string, w: number, style: string, id = 0, join?: Jo
   let pick = pickFor(def, style);
   if (!pick) return null;
   if (join && pick.joins?.[join]) pick = pick.joins[join]!;
-  return pickArt(pick, w, `${def}|${style}|${join ?? ''}`, id);
+  else if (join === 've' && pick.joins?.v) pick = pick.joins.v;
+  // (one of several by the building's id)
+  let which = '';
+  if (pick.of?.length) {
+    const i = id % pick.of.length;
+    which = `#${i}`;
+    pick = { ...pick.of[i], grade: pick.of[i].grade ?? pick.grade };
+  }
+  return pickArt(pick, w, `${def}|${style}|${join ?? ''}${which}`, id);
 }
 
 /** Any pick's picture, scaled to `w` cells (the castle's furnishings use this too); `key` names it for the cache. */
