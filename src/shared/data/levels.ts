@@ -26,9 +26,32 @@ type Leveled = { cls?: ClassId | null; fcls?: string | null; level?: number; asc
 
 export const levelOf = (p: Leveled) => Math.max(1, Math.min(MAX_LEVEL, p.level ?? 1));
 
-/** A druid who has reached the Shapeshifter stage (the third) takes a bear's shape to fight: up close, tougher and
- *  harder hitting (`BEAST_*`), drawn as the bear on the map and the fight screen. */
-export const shapeshifts = (p: Leveled & { cls?: string | null }) => p.cls === 'druid' && levelOf(p) >= STAGE_LEVELS[2];
+/** Who fights in a beast's shape: a Shapeshifter always, and a druid from the Shapeshifter stage (the third). Up close,
+ *  tougher and harder hitting (`BEAST_*`), drawn as the beast on the map and the fight screen (`beastForm`). */
+export const shapeshifts = (p: Leveled & { cls?: string | null }) => p.cls === 'shapeshifter' || (p.cls === 'druid' && levelOf(p) >= STAGE_LEVELS[2]);
+/** The beast a shapeshifter becomes: a creature sheet, its block, and its size against a person. A Shapeshifter's
+ *  grows with each stage (wolf, lion, bear, drake, wyvern); a druid's is the bear. */
+export interface BeastForm {
+  sheet: string;
+  block: number;
+  scale: number;
+  name: string;
+}
+export const BEAST_FORMS: readonly BeastForm[] = [
+  { sheet: 'wolf', block: 1, scale: 1.2, name: 'wolf' },
+  { sheet: 'lions', block: 0, scale: 1.3, name: 'lion' },
+  { sheet: 'bear', block: 5, scale: 1.3, name: 'bear' },
+  { sheet: 'drakes', block: 1, scale: 1.5, name: 'drake' },
+  { sheet: 'wyvern', block: 0, scale: 0.55, name: 'wyvern' },
+];
+export function beastForm(p: Leveled & { cls?: string | null }): BeastForm | null {
+  if (!shapeshifts(p)) return null;
+  if (p.cls === 'druid') return BEAST_FORMS[2];
+  const lv = levelOf(p);
+  let stage = 0;
+  for (let i = 0; i < STAGE_LEVELS.length; i++) if (lv >= STAGE_LEVELS[i]) stage = i;
+  return BEAST_FORMS[stage];
+}
 export const BEAST_HP = 1.3;
 export const BEAST_DAMAGE = 1.25;
 export const BEAST_ARMOR = 0.1;

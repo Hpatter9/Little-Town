@@ -133,6 +133,19 @@ const LISTS: [ClassId | null, Row[]][] = [
     ],
   ],
   [
+    'shapeshifter',
+    [
+      ['beast_within', 'Beast Within', 1, P({ hp: 0.05, damage: 0.04 })],
+      ['shift_shape', 'Shift Shape', 3, A(12, [grant('protect', 6), heal(0.4, 'self')])],
+      ['bite', 'Bite', 6, A(9, [hit(1.1), inflict('bleed', 4, 'foe', 0.4)])],
+      ['pack_hunter', 'Pack Hunter', 12, P({ damage: 0.08, speed: 0.04 })],
+      ['howl', 'Howl', 18, A(28, [grant('inspired', 8, 'allies'), inflict('fear', 4, 'foes', 0.3)])],
+      ['iron_hide', 'Iron Hide', 25, P({ armor: 0.05, resist: 0.1 })],
+      ['maul_and_rend', 'Maul and Rend', 34, A(20, [hit(1.7), hit(0.8, 'physical', 'foes')])],
+      ['apex', 'Apex', 45, P({ hp: 0.1, crit: 0.06, damage: 0.1 })],
+    ],
+  ],
+  [
     'beast_tamer',
     [
       ['beast_bond', 'Beast Bond', 1, P({ hp: 0.05 })],

@@ -42,7 +42,7 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
-    activity: 'walk', taskDone: null, story: '', titles: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: false, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', taskDone: null, story: '', titles: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
@@ -53,6 +53,11 @@ function travellerPerson(t: TravellerView): PersonView {
   monster: null, order: null, sick: false,
     battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [],
   };
+}
+/** A power's envoy (sim/factions.ts), drawn as a traveller on horseback. */
+function envoyPerson(r: NonNullable<Snapshot['envoyRider']>): PersonView {
+  const v = travellerPerson({ id: r.id, name: r.name, kind: 'envoy', venue: 'shop', line: null, wants: '', temper: '', purse: 0, look: r.look, x: r.x, y: r.y, dir: r.dir, phase: 'arriving', tier: 0 });
+  return { ...v, typeName: 'Envoy', mounted: 0x6a4a2a, doing: r.leaving ? 'Riding home with the answer' : 'Waiting at the fire for an answer' };
 }
 const travellerDoing = (t: TravellerView) => {
   const where = t.venue === 'tavern' ? 'tavern' : 'shop';
@@ -1079,7 +1084,7 @@ async function start(): Promise<void> {
     people.revived = next.revived ? { ...next.revived, at: performance.now() } : null;
     people.fx = next.fx.map((f) => ({ ...f, at: performance.now() }));
     people.update(
-      [...next.people.filter((p) => p.away === null), ...next.travellers.map(travellerPerson)],
+      [...next.people.filter((p) => p.away === null), ...next.travellers.map(travellerPerson), ...(next.envoyRider ? [envoyPerson(next.envoyRider)] : [])],
       next.visitor,
       performance.now(),
     );

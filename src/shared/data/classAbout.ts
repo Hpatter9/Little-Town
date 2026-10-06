@@ -120,6 +120,10 @@ export const CLASS_ABOUT: Record<ClassId, ClassAbout> = {
     what: 'A keeper of the old groves who speaks for the green and the wild. Fields grow better with a druid walking them.',
     fights: 'Roots and thorns to hold foes, storms to strike them, healing from the green for friends; at the height of their art they take a beast\'s shape.',
   },
+  shapeshifter: {
+    what: 'One of the old blood who can wear a beast\'s shape as easily as a coat. Quiet among people; at home in the wild.',
+    fights: 'Changes the moment a fight begins, into a greater beast with every stage: wolf, lion, bear, drake, and at the last a wyvern. Tooth and claw up close, hard to bring down.',
+  },
   dancer: {
     what: 'A performer whose grace hides a fighter\'s training. Draws a crowd at a feast and a foe\'s eye in a fight.',
     fights: 'Dances that charm foes and quicken friends; almost impossible to pin down, with blades when it comes to it.',

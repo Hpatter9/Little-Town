@@ -28,7 +28,7 @@ import { personFighter, weaponOf, weaponRange } from './combat';
 import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
 import { ally } from './classes';
 import { castsFire, castsMagic } from '../data/classes';
-import { HOST_WAVES, HOST_WAVE_SIZE } from '../data/factions';
+import { HOST_WAVES, HOST_WAVE_SIZE, SIEGE_REACH, SIEGE_SILENCE, SIEGE_WALL } from '../data/factions';
 import { enemyArmor } from '../data/enemies';
 import { attackPerson, biteOf, defenderAttack, defenderReach, townEdgeX } from './raids';
 import { turretsDown } from './rivals';
@@ -482,7 +482,7 @@ export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false, 
   const walls = done.filter((b) => wallDef(b.def));
   for (const b of walls) {
     const c = centre(b);
-    if (nearest(c) <= WALL_NEAR) spot('wall', c[0], c[1]);
+    if (nearest(c) <= WALL_NEAR) spot('wall', c[0], c[1], b.id);
   }
   // (the nomads' wagons, drawn up beside the trail's end while they have no walls)
   if (!walls.length && s.origin === 'nomads') {
@@ -876,6 +876,8 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const holder = bt.held !== undefined ? b.units.find((u) => u.spot === bt.held && inPlace(u)) : undefined;
     if (bt.held !== undefined && !holder) bt.held = undefined;
     const here = pointAt(path, cum, bt.d);
+    // a siege engine batters the walls, the gate and the towers in its reach rather than the people
+    if (rd.cooldown <= 0 && rd.kind === 'siege_engine' && siegeBlow(s, b, rd, here, path[path.length - 1], rng)) continue;
     // blows: on the one holding it, else (a shooter) on whoever's in reach
     if (rd.cooldown <= 0) {
       let target: BattleUnit | undefined = holder;
@@ -1165,6 +1167,40 @@ function strikeUnit(s: GameState, r: Raid, rd: Raider, u: BattleUnit, rng: Rng, 
 }
 
 /** A raider has got to the end of the trail: it's through, into the town (raids.ts takes it on from the town's edge). */
+/** A siege engine's blow (data/factions.ts): the nearest wall, gate or tower within `SIEGE_REACH` cells of it (the
+ *  gate at the trail's end counts), struck `SIEGE_WALL` times as hard as a raider strikes a wall; a tower it hits is
+ *  silenced a while (`SIEGE_SILENCE`), and a wall or gate brought to nothing falls. False when nothing is in reach. */
+export function siegeBlow(s: GameState, b: Battle, rd: Raider, here: [number, number], end: [number, number], rng: Rng): boolean {
+  const ids = new Set<number>();
+  for (const q of b.map.spots) if ((q.kind === 'wall' || q.kind === 'tower') && q.building !== undefined && dist([q.x, q.y], here) <= SIEGE_REACH) ids.add(q.building);
+  if (dist(end, here) <= SIEGE_REACH)
+    for (const x of s.buildings) {
+      const f = footprint(x);
+      if (x.status === 'done' && BUILDING_BY_ID[x.def]?.hp && end[0] >= f.x - 0.5 && end[0] <= f.x + f.w + 0.5 && end[1] >= f.y - 0.5 && end[1] <= f.y + f.h + 0.5) ids.add(x.id);
+    }
+  const targets = s.buildings.filter((x) => ids.has(x.id) && x.status === 'done');
+  if (!targets.length) return false;
+  const t = targets.sort((a, c) => dist(foot(a), here) - dist(foot(c), here))[0];
+  const def = ENEMIES[rd.kind];
+  rd.cooldown = Math.round(def.interval * TICK_HZ);
+  rd.lastAction = s.tick;
+  shot(b, s, here, foot(t), 'tower');
+  const blow = rng.int(def.damage[0], def.damage[1]) * SIEGE_WALL;
+  if (BUILDING_BY_ID[t.def]?.defense) t.readyTick = Math.max(t.readyTick ?? 0, s.tick + SIEGE_SILENCE * TICK_HZ);
+  if (BUILDING_BY_ID[t.def]?.hp) {
+    t.hp = Math.max(0, (t.hp ?? BUILDING_BY_ID[t.def].hp!) - blow);
+    if (t.hp === 0) {
+      s.buildings = s.buildings.filter((x) => x !== t);
+      notify(s, `A siege engine brought down the ${BUILDING_BY_ID[t.def].name.toLowerCase()}!`, true);
+    }
+  }
+  return true;
+}
+const foot = (x: Building): [number, number] => {
+  const f = footprint(x);
+  return [f.x + f.w / 2, f.y + f.h / 2];
+};
+
 function through(s: GameState, r: Raid, b: Battle, rd: Raider): void {
   b.through++;
   const side = rd.side ?? r.side;

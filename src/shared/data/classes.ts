@@ -1,5 +1,5 @@
-// Classes: twenty-five callings, each a line of five stages that a townsperson grows through as they level (levels.ts),
-// so a hundred and twenty-five in all. Every grown-up is given one once, at random but weighted by what they're good
+// Classes: twenty-six callings, each a line of five stages that a townsperson grows through as they level (levels.ts),
+// so a hundred and thirty in all. Every grown-up is given one once, at random but weighted by what they're good
 // at (`affinity`) and by how common the calling is (`rarity`: some are rare indeed), and keeps it for life. A class
 // sets what its people wear and wield (`armour`, `weapons`: a mage in cloth with a staff, a knight in plate with a
 // sword and shield), how they fight (`role`, `stats`), and the skills and spells they learn as they level
@@ -15,6 +15,7 @@ export const CLASSES = [
   'necromancer', 'summoner', 'blood_knight', 'bard', 'druid',
   'alchemist', 'engineer', 'dragoon', 'samurai', 'guardian',
   'shaman', 'spellblade', 'chronomancer', 'hunter', 'dancer',
+  'shapeshifter',
 ] as const;
 export type ClassId = (typeof CLASSES)[number];
 
@@ -83,6 +84,7 @@ export const CLASS_DEFS: Readonly<Record<ClassId, ClassDef>> = {
   guardian: C({ id: 'guardian', stages: ['Shieldbearer', 'Guardian', 'Sentinel', 'Bulwark', 'Aegis'], description: 'A wall of a person: draws the blows and turns them.', role: 'tank', ranged: false, rarity: COMMON, affinity: { melee: 1, construction: 1 }, armour: ['heavy', 'shield', 'medium'], weapons: ['mc', 'sw', 'sp', 'ax'], stats: { hp: 1.35, armor: 0.08, damage: 0.9 } }),
   shaman: C({ id: 'shaman', stages: ['Spirit Talker', 'Shaman', 'Witch Doctor', 'Spirit Chief', 'Totem Lord'], description: 'Totems and spirits: heals and hexes in one hand.', role: 'healer', ranged: true, rarity: UNCOMMON, affinity: { medicine: 1, animals: 1, social: 1 }, armour: ['light', 'cloth'], weapons: ['st', 'sp', 'mc', 'wd'], stats: { healing: 1.15, power: 1.15 } }),
   spellblade: C({ id: 'spellblade', stages: ['Spellsword', 'Red Mage', 'Battlemage', 'Spellblade', 'Arcane Knight'], description: 'Sword in one hand, spell in the other: a little of everything.', role: 'bruiser', ranged: false, rarity: RARE, affinity: { melee: 1, research: 1 }, armour: ['medium', 'light', 'cloth'], weapons: ['sw', 'gs', 'st', 'wd'], stats: { power: 1.1, damage: 1.05 } }),
+  shapeshifter: C({ id: 'shapeshifter', stages: ['Skinchanger', 'Beastblood', 'Manyform', 'Primal', 'Wild God'], description: 'Fights in the shape of a beast, a greater one with every stage: wolf, lion, bear, drake, and at the last a wyvern.', role: 'bruiser', ranged: false, rarity: RARE, affinity: { animals: 1.5, melee: 1, gathering: 0.5 }, armour: ['light', 'medium'], weapons: ['cl', 'sp', 'st'], stats: { hp: 1.15, damage: 1.15, dodge: 0.03 } }),
   chronomancer: C({ id: 'chronomancer', stages: ['Timekeeper', 'Chronomancer', 'Time Weaver', 'Epoch Sage', 'Chronarch'], description: 'Hastens friends and slows foes; at the last, stops time itself.', role: 'support', ranged: true, rarity: VERY_RARE, affinity: { research: 2.5 }, armour: ['cloth'], weapons: ['st', 'wd'], stats: { power: 1.25, speed: 0.9, hp: 0.85 } }),
   hunter: C({ id: 'hunter', stages: ['Trapper', 'Hunter', 'Stalker', 'Beast Slayer', 'Monster Hunter'], description: 'Traps, nets and big shots: deadly to beasts and monsters.', role: 'shooter', ranged: true, rarity: COMMON, affinity: { ranged: 1.5, gathering: 1.5 }, armour: ['light', 'medium'], weapons: ['cb', 'bw', 'lb', 'lg', 'sg', 'sp', 'th', 'ax'], stats: { damage: 1.05, crit: 0.04 } }),
   dancer: C({ id: 'dancer', stages: ['Performer', 'Dancer', 'Blade Dancer', 'Mirage', 'Muse'], description: 'Dances that charm foes and quicken friends; impossible to pin down.', role: 'support', ranged: false, rarity: RARE, affinity: { social: 1.5, melee: 0.5 }, armour: ['light', 'cloth'], weapons: ['dg', 'fl', 'cl', 'th'], stats: { dodge: 0.1, speed: 0.9 } }),

@@ -87,7 +87,7 @@ const OUTFIT: Record<ClassId, string> = {
   ranger: 'ranger', hunter: 'ranger', beast_tamer: 'ranger', archer: 'leather', assassin: 'leather',
   mage: 'mage', chronomancer: 'mage', spellblade: 'mage', witch: 'warlock', necromancer: 'warlock', summoner: 'warlock',
   white_mage: 'cleric', monk: 'cleric', shaman: 'druid', druid: 'druid', bard: 'illusion', dancer: 'illusion',
-  alchemist: 'alch', engineer: 'gun',
+  alchemist: 'alch', engineer: 'gun', shapeshifter: 'druid',
 };
 /** Their helm when they wear nothing on their head: the casters' hats, the healers' caps. */
 const BARE_HEAD: Partial<Record<ClassId, string>> = {

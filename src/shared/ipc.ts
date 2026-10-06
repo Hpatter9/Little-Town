@@ -42,9 +42,11 @@ export interface AlertSettings {
   hero: boolean;
   /** Delves: the boss reached, a dungeon cleared, a unique found, a dungeon waking again. */
   delves: boolean;
+  /** The realm: a war host mustered against the town, war declared, a vassal risen (sim/factions.ts). */
+  war?: boolean;
 }
 
-export const DEFAULT_ALERTS: AlertSettings = { enabled: false, server: 'https://ntfy.sh', topic: '', leadMinutes: 10, raids: true, deaths: true, expeditions: false, choices: false, hero: true, delves: true };
+export const DEFAULT_ALERTS: AlertSettings = { enabled: false, server: 'https://ntfy.sh', topic: '', leadMinutes: 10, raids: true, deaths: true, expeditions: false, choices: false, hero: true, delves: true, war: true };
 
 /** A valid ntfy topic name. */
 export const validTopic = (t: string) => /^[A-Za-z0-9_-]{1,64}$/.test(t);

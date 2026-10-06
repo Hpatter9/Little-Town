@@ -8,6 +8,7 @@ import { SCOUT_ROUTES } from './regions';
 import { TRADE_ROUTES } from './minerals';
 import { ISLAND_ROUTES } from './boats';
 import { DUNGEON_ROUTES } from './dungeons';
+import { FACTION_DEFS } from './factions';
 import type { Biome } from './biomes';
 
 export const SCENES = [
@@ -27,6 +28,9 @@ export const ROUTES: Record<string, [SceneId, SceneId]> = {
   ...TRADE_ROUTES,
   ...DUNGEON_ROUTES,
   ...ISLAND_ROUTES,
+  // (assaults: a power's stronghold, the road there and inside its walls; a dungeon stormed as it is delved)
+  ...Object.fromEntries(FACTION_DEFS.map((f) => [`assault:${f.id}`, [f.road, f.inside] as [SceneId, SceneId]])),
+  ...Object.fromEntries(Object.entries(DUNGEON_ROUTES).map(([id, r]) => [`assault:dungeon:${id}`, r])),
   berry_thicket: ['meadow', 'meadow'],
   riverbank: ['riverbank', 'riverbank'],
   deep_woods: ['pinewoods', 'pinewoods'],

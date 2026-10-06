@@ -20,10 +20,10 @@ const hero = (cls: (typeof CLASSES)[number], level: number, id = 1) => {
   return p;
 };
 
-test('the lists: 160 spells and 510 skills (ten for anyone, twenty a class), all well formed', () => {
+test('the lists: 160 spells and 530 skills (ten for anyone, twenty a class), all well formed', () => {
   assert.equal(SPELLS.length, 160);
-  assert.equal(ABILITIES.length, 510);
-  assert.equal(new Set([...SPELLS, ...ABILITIES].map((x) => x.id)).size, 670, 'no id twice');
+  assert.equal(ABILITIES.length, 530);
+  assert.equal(new Set([...SPELLS, ...ABILITIES].map((x) => x.id)).size, 690, 'no id twice');
   assert.ok(SPELLS.filter((s) => s.cls === null).length < 10 && ABILITIES.filter((a) => a.cls === null).length < 15, 'only a few general');
   for (const cls of CLASSES) assert.ok(ABILITIES.some((a) => a.cls === cls), `${cls} has skills`);
   for (const x of [...SPELLS, ...ABILITIES.flatMap((a) => (a.active ? [a.active] : []))])

@@ -493,7 +493,7 @@ export class FightScene {
       g.sprite.zIndex = p[1];
       g.sprite.alpha = f.down && f.side === 'enemy' ? Math.max(0, 1 - f.sinceHit / 20) : 1;
       // (an elite wears its affix's colour; a boss its own)
-      g.sprite.tint = f.sinceHit < 3 && !f.down ? 0xff8080 : f.conjured || (f.side === 'party' && f.kind !== 'person') ? 0xa8f0b8 : f.elite ? (ELITES[f.elite as EliteAffix]?.tint ?? 0xffffff) : (ENEMIES[f.kind]?.tint ?? 0xffffff);
+      g.sprite.tint = f.sinceHit < 3 && !f.down ? 0xff8080 : f.elite ? (ELITES[f.elite as EliteAffix]?.tint ?? 0xffffff) : (ENEMIES[f.kind]?.tint ?? 0xffffff);
       // the number over them: damage white, healing green, rising and fading
       const pop = f.pop && f.pop.age < 14 ? f.pop : null;
       g.pop.visible = !!pop && (pop.amount > 0 || !pop.heal);
@@ -561,13 +561,14 @@ export class FightScene {
       s.position.set(Math.round(x - (size / 2) * sc * flip), Math.round(y - size * sc));
       return;
     }
-    // a shapeshifter (a druid from the third stage) fights as a bear
+    // a shapeshifter fights in their beast's shape (wolf to wyvern by stage)
     if (f.beast && !f.down) {
       const facing = faceLeft ? 'left' : 'right';
-      s.texture = creatureFrame('bear', 5, facing, Math.floor(now / 160 + f.ref), acting, acting ? undefined : 'idle');
-      const size = creatureSize('bear');
-      const flip = creatureFlip('bear', facing);
-      const sc = 1.8 * k;
+      const sheet = f.beast.sheet as CreatureSheet;
+      s.texture = creatureFrame(sheet, f.beast.block, facing, Math.floor(now / 160 + f.ref), acting, acting ? undefined : 'idle');
+      const size = creatureSize(sheet);
+      const flip = creatureFlip(sheet, facing);
+      const sc = (f.beast.scale / 1.3) * 1.8 * k;
       s.anchor.set(0);
       s.scale.set(sc * flip, sc);
       s.position.set(Math.round(x - ((size.w * sc) / 2) * flip), Math.round(y - size.h * sc));

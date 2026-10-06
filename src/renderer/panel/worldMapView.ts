@@ -3,6 +3,7 @@
 // goes and comes back. It's one element kept between renders, so the map image doesn't reload each time.
 
 import { MAP_HOME, MAP_SIZE, MAP_SPOTS } from '../../shared/data/worldMap';
+import { STRONGHOLD_SPOTS } from '../../shared/data/factions';
 import { regionScouted, REGIONS } from '../../shared/data/regions';
 import type { ExpeditionView } from '../../shared/sim/snapshot';
 import { tripProgress } from '../../shared/format';
@@ -17,6 +18,16 @@ export interface MapDestination {
   unlocked: boolean;
 }
 
+/** A power's stronghold on the map (sim/factions.ts `FactionView`). */
+export interface MapHold {
+  id: string;
+  name: string;
+  stronghold: string;
+  stance: string;
+  stanceName: string;
+  assault: string | null;
+}
+
 export class WorldMapView {
   readonly el = el('div', 'world-map');
   private readonly svg = document.createElementNS(SVG, 'svg');
@@ -29,8 +40,8 @@ export class WorldMapView {
     this.el.append(this.svg, this.marks);
   }
 
-  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[]): void {
-    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known]);
+  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = []): void {
+    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds]);
     if (key === this.key) return;
     this.key = key;
     this.svg.replaceChildren();
@@ -69,6 +80,18 @@ export class WorldMapView {
       place(dot, at);
       dot.addEventListener('click', () => this.onPick(d.id));
       this.marks.append(dot);
+    }
+
+    // the powers' strongholds (sim/factions.ts), marked by how the town stands with each; one at war can be stormed
+    for (const h of holds) {
+      const at = STRONGHOLD_SPOTS[h.id];
+      if (!at) continue;
+      const m = el('button', `map-hold ${h.stance}`, h.stance === 'destroyed' ? '✕' : '♜');
+      m.title = `${h.name}, ${h.stronghold}: ${h.stanceName}`;
+      m.setAttribute('aria-label', m.title);
+      place(m, at);
+      if (h.assault) m.addEventListener('click', () => this.onPick(h.assault!));
+      this.marks.append(m, label(h.stronghold, { x: at.x, y: at.y + 6 }, `hold ${h.stance}`));
     }
 
     const home = el('div', 'map-home');
