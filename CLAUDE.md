@@ -1718,6 +1718,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   Townsfolk tab's paper doll all draw from it. Eighteen items pointed at empty icon cells (the visor helmet, the
   flail and Thornlash, the prosthetics, the Gorgon Aegis...): fixed, so the doll's slots show them.
 
+- **Health bars and casters in raid battles (the owner's ask):** in a raid every townsperson on the map shows a health
+  bar over their head (`hpBar` in mapPeople.ts, `HP_W`: green, gold when hurt, red when low, grey when down), as the
+  raiders had. Every calling that fights from range (`fightsFromRange` in data/classes.ts: the class's `ranged`) stands
+  off the trail on wall and ground spots (`defenderReach`), not only the mage; casters, healers and ranged supports cast
+  at `MAGIC_RANGE` (`castsMagic`, a bolt on the map), and the caster role burns as the mage does (`castsFire`: `mageFire`,
+  the burst). Their spells and skills were already used on the map (`takeTurn` in `stepBattle`). Test in
+  `test/battle.test.ts`.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

@@ -66,6 +66,8 @@ const CLASS_LOOK: Partial<Record<ClassId, [CreatureSheet, number]>> = {
 /** The work bar over a head: its width (px) and how far above the feet it floats. */
 const WORK_W = 18;
 const WORK_ABOVE = 58;
+/** The health bar's width (px) in a raid. */
+const HP_W = 20;
 
 interface Drawn {
   view: PersonView;
@@ -92,6 +94,9 @@ interface Drawn {
   /** How far along the work in hand is, as a little bar over their head, and the fill last drawn. */
   work?: Graphics;
   workFill?: number;
+  /** Their health over their head in a raid (the raiders have theirs), and the fill last drawn. */
+  hpBar?: Graphics;
+  hpFill?: string;
   /** A merfolk's tail, while they swim (art/merTail.ts). */
   tail?: Sprite;
   /** What they're saying (map/speech.ts), and the slot it was said in. */
@@ -202,7 +207,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -520,6 +525,30 @@ export class MapPeople {
           }
           d.work.position.set(Math.round(x) - WORK_W / 2, Math.round(y) - WORK_ABOVE);
           d.work.zIndex = z + 0.15;
+        }
+      }
+      // in a raid everyone in it shows their health over their head, as the raiders do (green, gold when hurt, red when low)
+      const showHp = !hidden && !d.visitor && (this.raid || v.activity === 'fight' || v.sinceHit < HERO_LINGER);
+      if (showHp && !d.hpBar) d.hpBar = this.layer.addChild(new Graphics());
+      if (d.hpBar) {
+        d.hpBar.visible = showHp;
+        if (showHp) {
+          const share = Math.max(0, Math.min(1, v.hp / Math.max(1, v.maxHp)));
+          const fill = Math.round(share * HP_W);
+          const key = `${fill}:${v.downed ? 1 : 0}`;
+          if (key !== d.hpFill) {
+            d.hpFill = key;
+            const col = v.downed ? 0x8a8a8a : share > 0.6 ? 0x5ad04a : share > 0.3 ? 0xe0b030 : 0xe04838;
+            d.hpBar.clear();
+            d.hpBar.rect(-1, -1, HP_W + 2, 5).fill({ color: 0x14100c, alpha: 0.85 });
+            d.hpBar.rect(0, 0, HP_W, 3).fill({ color: 0x3a2622 });
+            if (fill > 0) d.hpBar.rect(0, 0, fill, 3).fill({ color: col });
+            if (fill > 0) d.hpBar.rect(0, 0, fill, 1).fill({ color: 0xffffff, alpha: 0.35 });
+          }
+          // (above the work bar when both show; higher over a hero's bigger figure)
+          const above = (d.work?.visible ? WORK_ABOVE + 6 : WORK_ABOVE) + (plain ? 0 : 8);
+          d.hpBar.position.set(Math.round(x) - HP_W / 2, Math.round(y) - above);
+          d.hpBar.zIndex = z + 0.16;
         }
       }
       d.bubble.visible = d.visitor;

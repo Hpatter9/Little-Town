@@ -27,6 +27,7 @@ import { blockedBy } from './walk';
 import { personFighter, weaponOf, weaponRange } from './combat';
 import { held, kitOf, takeTurn, tickStatuses, type Arena, type Combatant, type Kit, type Statuses } from './actions';
 import { ally } from './classes';
+import { castsFire, castsMagic } from '../data/classes';
 import { enemyArmor } from '../data/enemies';
 import { attackPerson, biteOf, defenderAttack, defenderReach, townEdgeX } from './raids';
 import { turretsDown } from './rivals';
@@ -945,7 +946,8 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     const reach = p ? weaponRange(p, shooter) + (shooter && sp.kind === 'wall' ? WALL_REACH : 0) : MELEE_CELLS;
     // (a blocker hits what it's holding first; a shooter the one furthest along, the nearest to getting through)
     const inReach = wave.filter((rd) => !rd.down && !rd.gone && !rd.bt!.out && rd.bt!.d >= 0 && dist(foeAt(map, rd), pos) <= reach);
-    const mage = p?.cls === 'mage';
+    const mage = castsFire(p?.cls);
+    const magic = castsMagic(p?.cls);
     // (a quick weapon strikes more often, a heavy one less; hastened or slowed by a spell)
     const quick = (u.st?.haste?.until ?? 0) > s.tick ? 0.65 : 1;
     const every = p ? Math.round((mage ? MAGE_INTERVAL : INTERVAL) * weaponOf(p).speed * quick) : 0;
@@ -974,7 +976,7 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       const near = wave.filter((o) => o !== target && !o.down && !o.gone && !o.bt!.out && o.bt!.d >= 0 && dist(foeAt(map, o), at) <= (mage ? MAGE_BURST : CLEAVE_CELLS));
       const hit = [target, ...(near ?? [])].map((o) => [o, o.down] as const);
       defenderAttack(s, p, target, rng, p.id === s.mainId ? HERO_BONUS : 0, GROUND, near);
-      if (shooter) shot(b, s, pos, at, mage ? 'fire' : 'arrow');
+      if (shooter) shot(b, s, pos, at, mage ? 'fire' : magic ? 'bolt' : 'arrow');
       for (const [o, was] of hit) if (o.down && !was) fell(b, o);
     } else {
       const a = r.raiders.find((q) => q.id === u.ally)!;
@@ -1260,7 +1262,7 @@ export function battleView(s: GameState, spells: BattleView['spells']): BattleVi
       const [x, y] = foeAt(b.map, rd);
       return { id: rd.id, x, y, held: rd.bt!.held !== undefined, back: !!rd.bt!.back, sinceAction: s.tick - rd.lastAction, hit: rd.bt!.hit ?? null };
     }),
-    roster: fighters(s).map((p) => ({ id: p.id, name: p.name, ranged: ranged(p), mage: p.cls === 'mage', hp: p.hp, maxHp: maxHp(p), spot: b.units.find((u) => u.person === p.id)?.spot ?? null, hero: p.id === s.mainId })),
+    roster: fighters(s).map((p) => ({ id: p.id, name: p.name, ranged: ranged(p), mage: castsMagic(p.cls), hp: p.hp, maxHp: maxHp(p), spot: b.units.find((u) => u.person === p.id)?.spot ?? null, hero: p.id === s.mainId })),
     spells,
     casts: (b.casts ?? []).map((c) => ({ x: c.at[0], y: c.at[1], power: c.power, age: (s.tick - c.tick) / TICK_HZ })),
     shots: (b.shots ?? []).map((x) => ({ from: x.from, to: x.to, kind: x.kind, age: (s.tick - x.tick) / TICK_HZ })),

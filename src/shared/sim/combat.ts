@@ -5,7 +5,7 @@
 
 import { injuryFight } from './injuries';
 import type { EliteAffix } from '../data/dungeons';
-import { BLOOD_FURY, BLOOD_LIFESTEAL, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
+import { BLOOD_FURY, BLOOD_LIFESTEAL, castsMagic, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { classStat, levelPower } from '../data/levels';
 import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type ActMeta, type Arena, type Kit, type Statuses } from './actions';
 import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxManaOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs } from '../data/attributes';
@@ -136,11 +136,11 @@ const DEFAULT_MELEE = 1.2;
 const DEFAULT_SHOT = 4;
 const DEFAULT_REACH = 2.2;
 /** How far the weapon in someone's hand reaches (cells on the battle map). Whoever fights from range with no ranged
- *  weapon in hand throws (or a mage casts) instead. */
+ *  weapon in hand throws (or a caster casts) instead. */
 export function weaponRange(p: Person, shooter = false): number {
   const def = p.gear.weapon ? ITEM_BY_ID[p.gear.weapon] : undefined;
   const fx = def?.effects;
-  if (shooter && !fx?.ranged) return p.cls === 'mage' ? MAGIC_RANGE : THROWN_RANGE;
+  if (shooter && !fx?.ranged) return castsMagic(p.cls) ? MAGIC_RANGE : THROWN_RANGE;
   if (!def) return UNARMED_RANGE;
   return fx!.range ?? (fx!.ranged ? DEFAULT_SHOT : fx!.reach ? DEFAULT_REACH : DEFAULT_MELEE);
 }

@@ -76,7 +76,7 @@ import { recallExpedition } from './expeditions';
 import { classesInRaid, summonForRaid } from './classes';
 import { bindTheDead, sicken } from './doom';
 import { bossArrives, bossBlow, bossesInRaid, bossSlain } from './bosses';
-import { BLOOD_FURY, BLOOD_LIFESTEAL } from '../data/classes';
+import { BLOOD_FURY, BLOOD_LIFESTEAL, castsFire, fightsFromRange } from '../data/classes';
 import { levelOf } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
@@ -703,7 +703,7 @@ export function defenderAttack(s: GameState, p: Person, rd: Raider, rng: Rng, bo
   // (held by a rival lord's hex, they lose the moment)
   if (heldBack(s, p, rng)) return;
   p.lastBlow = s.tick;
-  if (p.cls === 'mage') return mageFire(s, p, rd, rng, mult, near ?? (s.raid?.raiders ?? []).filter((o) => o !== rd && !o.ally && !o.down && !o.gone && dist(o, rd) <= MAGE_BURST_PX));
+  if (castsFire(p.cls)) return mageFire(s, p, rd, rng, mult, near ?? (s.raid?.raiders ?? []).filter((o) => o !== rd && !o.ally && !o.down && !o.gone && dist(o, rd) <= MAGE_BURST_PX));
   // a shooter at home takes a stone or arrow from storage for each shot, while there are any
   const kind = ammoOf(p);
   const store = kind ? storages(s).find((b) => (b.store[kind] ?? 0) > 0) : undefined;
@@ -752,7 +752,8 @@ function mageFire(s: GameState, p: Person, rd: Raider, rng: Rng, mult: number, n
 
 /** How far a defender can strike from: thrown stones for the better throwers (and a mage's fire), fists and clubs otherwise. */
 export function defenderReach(p: Person): number {
-  if (p.cls === 'mage') return THROW_RANGE;
+  // (every calling that fights from afar, the casters and healers with the archers, keeps off the trail and shoots)
+  if (fightsFromRange(p.cls)) return THROW_RANGE;
   const sling = !!p.gear.weapon && !!ITEM_BY_ID[p.gear.weapon]?.effects.ranged;
   return sling || p.skills.ranged.level > p.skills.melee.level + 2 ? THROW_RANGE : MELEE_RANGE;
 }
