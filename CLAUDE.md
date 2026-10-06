@@ -1796,7 +1796,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   drawn (`Drawn.hkLast` in mapPeople.ts), and the fight screen does the same. **Shapeshifters:** a druid from the third
   stage (Shapeshifter, `STAGE_LEVELS[2]`) takes a bear's shape to fight (`shapeshifts` in data/levels.ts): melee
   (`personFighter` drops the caster's range; `defenderReach` puts them on the trail), `BEAST_HP` 1.3, `BEAST_DAMAGE`
-  1.25, `BEAST_ARMOR` +0.1; drawn as the MV bear on the map (`BEAR_BLOCK`, `BEAR_K`, while in combat) and the fight
+  1.25, `BEAST_ARMOR` +0.1; drawn in their `beastForm` (the bear; see the Shapeshifter calling) on the map while in combat and the fight
   screen (`PersonView.beast`, `FighterView.beast`). Test: `test/shapeshift.test.ts`. What a townsperson carries is no
   longer drawn as a bundle over their head (`d.load` hidden); it's in their pack.
 
