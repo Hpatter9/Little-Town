@@ -43,6 +43,11 @@ test('a raid ends with a recap: who fought, the harm they dealt and took, the ra
   assert.ok(kills <= c.killed + 1 && kills >= Math.min(1, c.killed), `felled ${kills} of ${c.killed}`);
   if (c.best !== null) assert.equal(c.rows[0].id, c.best, 'the best first');
   assert.ok(['victory', 'driven', 'pillaged'].includes(c.outcome));
+  // and told: where they came from, how it ended, the one who fought hardest by name
+  assert.ok(c.story.length >= 2, c.story.join(' '));
+  assert.match(c.story[0], /came (out of the (west|east)|up out of the sea)/);
+  const best = c.rows.find((x) => x.id === c.best);
+  if (best) assert.ok(c.story.some((l) => l.startsWith(`${best.name} fought hardest`)), c.story.join(' '));
   // carried by the snapshot a while, then dropped
   assert.ok(snapshot(s).raidRecap, 'in the snapshot');
   s.tick += RECAP_HOURS * TICKS_PER_HOUR;

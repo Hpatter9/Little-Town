@@ -864,6 +864,13 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
     if (!bt.back && (coward || s.tick >= r.leavesTick)) {
       bt.back = true;
       bt.held = undefined;
+      // (turning to run, it takes a parting blow from every fighter in reach, as a fighter falling back does: a rout
+      // is a danger, so a raid that breaks still leaves some of its raiders on the trail)
+      if (coward) partingBlows(s, b, rd, pointAt(path, cum, bt.d), people, rng);
+      if (rd.down) {
+        fell(b, rd);
+        continue;
+      }
     }
     if (bt.back) {
       bt.d -= pace * 3; // (a rout is quick: the wave doesn't wait on it)
@@ -1129,6 +1136,21 @@ function mapStatuses(s: GameState, b: Battle, wave: Raider[], people: Map<number
     if (!p || !u.st) continue;
     const proxy = { get hp() { return p.hp; }, set hp(v: number) { p.hp = Math.max(1, Math.round(v)); }, down: false, maxHp: maxHp(p), kind: 'person', st: u.st, kit: u.kit } as unknown as Combatant;
     tickStatuses(arena, proxy);
+  }
+}
+
+/** A raider turning to run takes one blow from each placed fighter who has it in their weapon's reach. */
+function partingBlows(s: GameState, b: Battle, rd: Raider, at: [number, number], people: Map<number, Person>, rng: Rng): void {
+  for (const u of b.units) {
+    const p = u.person !== undefined ? people.get(u.person) : undefined;
+    if (!p || p.downed || rd.down) continue;
+    const sp = b.map.spots.find((q) => q.id === u.spot);
+    if (!sp) continue;
+    const shooter = ranged(p);
+    const reach = weaponRange(p, shooter) + (shooter && sp.kind === 'wall' ? WALL_REACH : 0);
+    if (dist([sp.x, sp.y], at) > reach) continue;
+    defenderAttack(s, p, rd, rng, 0, GROUND);
+    if (shooter) shot(b, s, [sp.x, sp.y], at, castsFire(p.cls) ? 'fire' : castsMagic(p.cls) ? 'bolt' : 'arrow');
   }
 }
 

@@ -65,6 +65,8 @@ export function createRaidRecap(): RaidRecapView {
     box.append(el('div', 'rr-title', c.boss && c.outcome === 'victory' ? `${c.boss} falls!` : TITLES[c.outcome]));
     const sum = [`${c.name}`, c.waves > 1 ? `${c.waves} waves` : '', `${c.killed} of ${c.came} felled`, c.fled ? `${c.fled} fled` : '', c.through ? `${c.through} got through` : ''].filter(Boolean).join(' · ');
     box.append(el('div', 'rr-sum', sum));
+    // what happened, told
+    if (c.story?.length) box.append(el('div', 'rr-story', c.story.join(' ')));
     // the defenders, the best first
     if (c.rows.length) {
       const table = el('div', 'rr-rows');

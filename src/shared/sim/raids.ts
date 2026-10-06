@@ -893,6 +893,8 @@ function endRaid(s: GameState, rng: Rng): void {
   s.raidRecap = raidRecap(s, r, kind.name, {
     outcome: took.length ? 'pillaged' : killed === foes.length ? 'victory' : 'driven',
     boss: boss ? ENEMIES[boss.kind].name : null,
+    bossDown: !!boss?.down,
+    fromSea: !!kind.fromSea,
     killed,
     came: foes.length,
     prisoners,

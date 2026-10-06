@@ -52,6 +52,8 @@ export interface RaidRecap {
   /** The best of them (by harm dealt and raiders felled), if anyone fought. */
   best: number | null;
   towers: RaidTally | null;
+  /** What happened, told in a few lines (`tellRaid`). */
+  story: string[];
 }
 
 const tallyOf = (r: Raid, who: number): RaidTally => ((r.tally ??= {})[who] ??= { dealt: 0, kills: 0, taken: 0 });
@@ -86,7 +88,7 @@ export function took(s: GameState, p: Person, hp: number): void {
 }
 
 /** Put the raid's recap together as it ends. */
-export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: RaidRecap['outcome']; boss: string | null; killed: number; came: number; prisoners: number; stolen: Stock; spoils: Stock }): RaidRecap {
+export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: RaidRecap['outcome']; boss: string | null; bossDown?: boolean; fromSea?: boolean; killed: number; came: number; prisoners: number; stolen: Stock; spoils: Stock }): RaidRecap {
   const people = new Map(s.people.map((p) => [p.id, p]));
   const tally = r.tally ?? {};
   const rows: RecapRow[] = [];
@@ -113,7 +115,7 @@ export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: Rai
   const best = rows.find((x) => !x.died && worth(x) > 0) ?? null;
   const b = r.battle;
   const towers = tally[TOWERS];
-  return {
+  const recap: RaidRecap = {
     tick: s.tick,
     name,
     outcome: a.outcome,
@@ -129,5 +131,43 @@ export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: Rai
     rows,
     best: best?.id ?? null,
     towers: towers ? { dealt: Math.round(towers.dealt), kills: towers.kills, taken: 0 } : null,
+    story: [],
   };
+  recap.story = tellRaid(recap, { side: r.side, fromSea: !!a.fromSea, bossDown: !!a.bossDown });
+  return recap;
+}
+
+const names = (list: string[]) => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`);
+const stockWords = (st: Stock) =>
+  Object.entries(st)
+    .filter(([, n]) => (n ?? 0) > 0)
+    .map(([m, n]) => `${n} ${m.replace(/_/g, ' ')}`)
+    .join(', ');
+
+/** The raid told in a few lines, from its recap: who came and from where, who led them, who fought hardest and who
+ *  bore the worst of it, the fallen and the dead, the towers' part, and how it ended. */
+export function tellRaid(c: RaidRecap, o: { side: -1 | 1; fromSea: boolean; bossDown: boolean }): string[] {
+  const out: string[] = [];
+  const who = /^the /i.test(c.name) ? c.name : `the ${c.name.toLowerCase()}`;
+  const where = o.fromSea ? 'up out of the sea' : o.side < 0 ? 'out of the west' : 'out of the east';
+  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  out.push(`${cap(who)} came ${where}: ${c.came === 1 ? 'one alone' : `${c.came} of them`}${c.waves > 1 ? `, in ${c.waves} waves` : ''}.`);
+  if (c.boss) out.push(o.bossDown ? `${c.boss} led them, and fell.` : `${c.boss} led them, and lived to boast of it.`);
+  const best = c.rows.find((x) => x.id === c.best);
+  if (best) out.push(best.kills ? `${best.name} fought hardest, felling ${best.kills === 1 ? 'one' : best.kills} and dealing ${best.dealt} harm.` : `${best.name} fought hardest, dealing ${best.dealt} harm.`);
+  const stalwart = [...c.rows].filter((x) => x !== best && !x.fell && x.taken > 0).sort((a, b) => b.taken - a.taken)[0];
+  if (stalwart && stalwart.taken >= 20) out.push(`${stalwart.name} took the worst of it, ${stalwart.taken} harm, and kept their feet.`);
+  const fell = c.rows.filter((x) => x.fell && !x.died).map((x) => x.name);
+  if (fell.length) out.push(`${names(fell)} ${fell.length === 1 ? 'was' : 'were'} struck down, but ${fell.length === 1 ? 'lives' : 'live'} yet.`);
+  const died = c.rows.filter((x) => x.died).map((x) => x.name);
+  if (died.length) out.push(`${names(died)} died defending the town.`);
+  if (c.towers?.kills) out.push(`The towers and traps brought down ${c.towers.kills === 1 ? 'one' : c.towers.kills}.`);
+  else if (c.towers?.dealt) out.push('The towers and traps did their part.');
+  if (!c.rows.length) out.push('Nobody stood against them.');
+  const stolen = stockWords(c.stolen);
+  if (c.outcome === 'pillaged') out.push(`They got away with ${stolen || 'what they came for'}.`);
+  else if (c.killed >= c.came) out.push(c.came === 1 ? 'It never got away.' : 'Not one of them got away.');
+  else out.push(`${c.killed ? 'The rest' : 'They'} broke and fled${c.through ? `, ${c.through} of them through the town` : ''}.`);
+  if (c.prisoners) out.push(`${c.prisoners === 1 ? 'One was' : `${c.prisoners} were`} taken alive.`);
+  return out;
 }

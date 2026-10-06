@@ -141,9 +141,8 @@ export function startFeed(feed: HTMLElement, bridge: FeedBridge, strip: HTMLIFra
     // the last raid's recap (tap: the card again, over the town)
     const rr = s.raidRecap;
     if (rr && !s.raid) {
-      const best = rr.rows.find((x) => x.id === rr.best);
       const word = rr.outcome === 'victory' ? 'Victory' : rr.outcome === 'driven' ? 'Driven off' : 'Pillaged';
-      cards.push({ cls: rr.outcome === 'pillaged' ? 'alarm' : 'answered', mark: '⚔', title: `${rr.name}: ${word}`, text: `${rr.killed} of ${rr.came} felled${best ? `; ${best.name} fought best` : ''}${rr.rows.some((x) => x.died) ? `; ${rr.rows.filter((x) => x.died).length} lost` : ''} · tap for the recap`, recap: true });
+      cards.push({ cls: rr.outcome === 'pillaged' ? 'alarm' : 'answered', mark: '⚔', title: `${rr.name}: ${word}`, text: `${rr.story?.slice(1).find((l) => !/^The towers/.test(l)) ?? `${rr.killed} of ${rr.came} felled`} · tap for the recap`, recap: true });
     }
     // the last question answered, and what came of it
     const o = s.eventOutcome;
