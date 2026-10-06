@@ -255,7 +255,8 @@ The townsfolk and founders (the bodies, outfits, hair, beards, helms, shields, w
 `src/renderer/art/himeko/`, copied and cut to their drawn rows by `tools/import-himeko.cjs`) and the ogres, demons,
 juggernaut, tyrant, slimes, mummy, ghost, zombies and imp (`src/renderer/art/creatures/packs/hk_*.png`, their layers
 composed and their right-facing frames cut by `tools/compose-sheets.cjs`) are from the Himeko Sutori sprite share, free
-to use with attribution:
+to use with attribution. The spear (`spear01*.png`) is the pack's naginata with its blade redrawn as a spearhead by
+`tools/make-spear.cjs`.
 
 - Half-Kaizer sprite template created by Showkaizer.
 - Additional Half-Kaizer poses by Aleesa Tana.

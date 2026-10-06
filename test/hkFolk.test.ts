@@ -93,7 +93,8 @@ test('the weapon drawn is the weapon carried: every weapon its own kind of piece
     [/longbow/i, /bow03long/],
     [/crossbow|arbalest/i, /crossbow/],
     [/musket|^rifle/i, /arquebus/],
-    [/^spear$|halberd|\bpike\b/i, /naginata/],
+    [/^spear$|\bpike\b|javelin|trident/i, /^spear01/],
+    [/halberd|glaive/i, /naginata/],
   ];
   const sword = /^(sword|greatsword)/;
   for (const it of Object.values(ITEMS)) {

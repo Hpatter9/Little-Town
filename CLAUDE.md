@@ -1813,8 +1813,10 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **The weapon drawn is the weapon carried (the owner's ask):** `weaponPiece` in art/hkFolk.ts picks the Himeko piece
   by the weapon's name first (`NAMED`: a katana the katana, a claymore or zweihander their greatswords, a great axe a
   great axe, a maul or sledge a great hammer, a morning star, war hammer, quarterstaff, club, sickle, longbow, crossbow,
-  rifle, shotgun, laser rifle each its own; spears, javelins and polearms the naginata, the pack's only spear-like
-  piece), else by its family and tier (`WEAPON`). Where the pack has nothing like it (claws, knuckles, slings, whips,
+  rifle, shotgun, laser rifle each its own; spears, pikes, lances, javelins, harpoons and tridents a spear made from the
+  pack's naginata by `tools/make-spear.cjs` (run by hand: the curved blade, the biggest run of grey in each cell, swapped
+  for a straight leaf-shaped head along the shaft's line; `spear01{male,female}`), glaives and halberds the naginata),
+  else by its family and tier (`WEAPON`). Where the pack has nothing like it (claws, knuckles, slings, whips,
   bombs) they're drawn bare-handed rather than holding something else. The map, the fight screen and the paper doll all
   draw through it. The old LPC fallback draws a scythe as a sickle and claws bare. Test in `test/hkFolk.test.ts`.
 - **A recap after every raid (the owner's ask):** `src/shared/sim/raidRecap.ts`. While a raid is on its blows are
