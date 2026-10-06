@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { CLASS_DEFS, type ClassId } from '../src/shared/data/classes';
 import { ITEMS } from '../src/shared/data/items';
 import { HAIR_STYLES, SKINS, type Look } from '../src/shared/data/people';
-import { hkLayers, hkWhoOfLook, type HkWho } from '../src/renderer/art/hkFolk';
+import { hkLayers, hkWhoOfLook, weaponPiece, type HkWho } from '../src/renderer/art/hkFolk';
 import manifest from '../src/renderer/art/himeko.json';
 
 const look = (gender: 'm' | 'f', skin: string, hair: string, hairColor = '#5a3a24', beard = false): Look =>
@@ -40,8 +40,8 @@ test('every hairstyle and colour shows', () => {
 test('in a fight they hold their weapon, of its family; at work, the tool', () => {
   const families = new Set<string>();
   for (const it of ITEMS) {
-    // (a sling is too small for the pack's figures: bare-handed)
-    if (it.slot !== 'weapon' || !it.family || it.family === 'sl' || families.has(it.family)) continue;
+    // (a sling, claws or knuckles, a whip: the pack has nothing like them, so bare-handed)
+    if (it.slot !== 'weapon' || !it.family || !weaponPiece(it, 'male') || families.has(it.family)) continue;
     families.add(it.family);
     const fighting = hkLayers(who({ look: look('m', SKINS[0], 'plain'), gear: { weapon: it.id } }), { fighting: true, activity: 'fight' });
     const plain = hkLayers(who({ look: look('m', SKINS[0], 'plain') }), { fighting: true, activity: 'fight' });
@@ -79,4 +79,35 @@ test('they wear the armour they have on: its weight, in their calling\'s style w
   assert.ok(walking.some((k) => k.startsWith('sword')), walking.join(' '));
   const chopping = hkLayers(who({ look: L, gear: { weapon: sword.id } }), { fighting: false, activity: 'chop' });
   assert.ok(!chopping.some((k) => k.startsWith('sword')) && chopping.some((k) => k.startsWith('axe')), chopping.join(' '));
+});
+
+test('the weapon drawn is the weapon carried: every weapon its own kind of piece, or none where the pack has nothing like it', () => {
+  const kinds: [RegExp, RegExp][] = [
+    [/katana/i, /katana/],
+    [/claymore/i, /claymore/],
+    [/great axe/i, /^greataxe0[1256]/],
+    [/maul|sledge/i, /^greathammer/],
+    [/morning star/i, /morningstar/],
+    [/war hammer/i, /warhammer|impact/],
+    [/quarterstaff/i, /^staff/],
+    [/longbow/i, /bow03long/],
+    [/crossbow|arbalest/i, /crossbow/],
+    [/musket|^rifle/i, /arquebus/],
+    [/^spear$|halberd|\bpike\b/i, /naginata/],
+  ];
+  const sword = /^(sword|greatsword)/;
+  for (const it of Object.values(ITEMS)) {
+    if (it.slot !== 'weapon' || !it.family) continue;
+    for (const sex of ['male', 'female'] as const) {
+      const k = weaponPiece(it, sex);
+      if (k) assert.ok(manifest.keys.includes(k), `${it.name}: ${k} is a layer`);
+      for (const [name, piece] of kinds) if (name.test(it.name)) assert.ok(k && piece.test(k), `${it.name} drawn as ${k}`);
+      // (a club, mace or staff is never drawn as a blade, a knuckle or whip never as a weapon it isn't)
+      if (/quarterstaff|club|mace|sceptre|crook/i.test(it.name)) assert.ok(!k || !sword.test(k), `${it.name} drawn as ${k}`);
+      if (/knuckle|fist|whip|lash|sling/i.test(it.name)) assert.equal(k, null, `${it.name} drawn as ${k}`);
+      // (a family's list draws the family: a bow's a bow, a gun's a gun)
+      if (['bw', 'lb'].includes(it.family) && k) assert.match(k, /^bow/, `${it.name}`);
+      if (['st', 'wd'].includes(it.family) && k) assert.match(k, /^(staff|wand)/, `${it.name}`);
+    }
+  }
 });

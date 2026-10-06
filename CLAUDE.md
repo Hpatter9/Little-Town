@@ -1810,6 +1810,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   arrival fight of a `clear` destination (a guild hunt, a place on the land, a saga's foe, a pack's lair, an assault)
   is the whole errand, so `maybeFight` in sim/expeditions.ts never skips it (a careful party's `STAKES.fights` used to
   halve it) and a scout can't slip the party past it (`SCOUT_AVOID`). Test in `test/hunts.test.ts`.
+- **The weapon drawn is the weapon carried (the owner's ask):** `weaponPiece` in art/hkFolk.ts picks the Himeko piece
+  by the weapon's name first (`NAMED`: a katana the katana, a claymore or zweihander their greatswords, a great axe a
+  great axe, a maul or sledge a great hammer, a morning star, war hammer, quarterstaff, club, sickle, longbow, crossbow,
+  rifle, shotgun, laser rifle each its own; spears, javelins and polearms the naginata, the pack's only spear-like
+  piece), else by its family and tier (`WEAPON`). Where the pack has nothing like it (claws, knuckles, slings, whips,
+  bombs) they're drawn bare-handed rather than holding something else. The map, the fight screen and the paper doll all
+  draw through it. The old LPC fallback draws a scythe as a sickle and claws bare. Test in `test/hkFolk.test.ts`.
 - **A recap after every raid (the owner's ask):** `src/shared/sim/raidRecap.ts`. While a raid is on its blows are
   tallied on it (`Raid.tally`: each townsperson's harm dealt, raiders felled and harm taken, by `credit`/`took` around
   `defenderAttack` and `attackPerson` in raids.ts and the spells and skills in battle.ts; the towers and traps as one,

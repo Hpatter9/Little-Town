@@ -24,7 +24,7 @@ const LPC_OF: Record<string, LpcWeapon> = {
 
 
 /** A weapon of the armoury (data/weapons.ts) is drawn as the nearest LPC weapon of its family. */
-const BY_FAMILY: Partial<Record<FamilyId, LpcWeapon>> = { dg: 'dagger', cl: 'dagger', sw: 'sword', gs: 'sword', ax: 'axe', mc: 'mace', fl: 'mace', sp: 'spear', pl: 'spear', sc: 'spear', st: 'spear', bw: 'bow', lb: 'bow', cb: 'bow' };
+const BY_FAMILY: Partial<Record<FamilyId, LpcWeapon>> = { dg: 'dagger', sw: 'sword', gs: 'sword', ax: 'axe', mc: 'mace', fl: 'mace', sp: 'spear', pl: 'spear', sc: 'sickle', st: 'spear', bw: 'bow', lb: 'bow', cb: 'bow' };
 const lpcOf = (id: string): LpcWeapon => LPC_OF[id] ?? BY_FAMILY[ITEM_BY_ID[id]?.family as FamilyId] ?? null;
 
 export function heldWeapon(gear: Partial<Record<Slot, string>>, activity: string): LpcWeapon {
