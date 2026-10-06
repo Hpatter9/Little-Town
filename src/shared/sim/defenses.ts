@@ -56,7 +56,8 @@ export function fireAt(s: GameState, rng: Rng, d: Defense, target: Raider, near:
 }
 
 /** How much of a raider's speed is left to it now (a slow fading when its time is up). */
-export const speedOf = (rd: Raider, tick: number) => (rd.slowUntil !== undefined && rd.slowUntil > tick ? Math.max(0, 1 - (rd.slow ?? 0)) : 1);
+/** A raider's pace now: slowed by a defence piece for a while, and lamed for good by a leg wound (sim/raiderWounds.ts). */
+export const speedOf = (rd: Raider, tick: number) => (rd.slowUntil !== undefined && rd.slowUntil > tick ? Math.max(0, 1 - (rd.slow ?? 0)) : 1) * (1 - (rd.lame ?? 0));
 
 /** Each tick: the burning burn. */
 export function tickBurns(s: GameState, raiders: Raider[], hurt: (rd: Raider, dmg: number) => void): void {

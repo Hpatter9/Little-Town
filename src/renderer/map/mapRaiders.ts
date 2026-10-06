@@ -1,6 +1,7 @@
 // Draws raiders on the map, interpolated between the sim's ticks, with a health bar and a flash where blows land
 // (the raid map's own fighting is phase 5: for now they come in along the camp's row).
 
+import { limpDip } from './bodyMarks';
 import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { WAIST } from '../art/merTail';
 import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from '../../shared/data/enemies';
@@ -134,6 +135,8 @@ export class MapRaiders {
         s.position.set(Math.round(x + lunge), Math.round(y));
         top = y - 50;
       }
+      // a lame raider limps: a dip on every other step (map/bodyMarks.ts)
+      if (r.lame && moving && !r.down) s.y += limpDip(1 - r.lame * 1.4, d.walked);
       // in the water (a raid from the sea coming ashore): only the top of them shows, bobbing on the swell
       if (r.swimming && !r.down) {
         s.texture = waistCrop(s.texture);

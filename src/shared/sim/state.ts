@@ -310,6 +310,12 @@ export interface Raider {
   bt?: RaiderBattle;
   /** Its blood is on the ground already (marked once when it fell). */
   bled?: boolean;
+  /** Hurt in the legs (sim/raiderWounds.ts): the share of its pace lost, whether it was ever lamed, and whether it was
+   *  run down as it fled (taken alive when a person: `taken`). */
+  lame?: number;
+  lamed?: boolean;
+  runDown?: boolean;
+  taken?: boolean;
   /** A defence piece's quirks on it (sim/defenses.ts): slowed by this share until a tick, burning, turned about. */
   slow?: number;
   slowUntil?: number;

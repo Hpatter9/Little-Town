@@ -29,7 +29,8 @@ export const isHuman = (kind: string) => !!ENEMIES[kind] && 'people' in ENEMIES[
 export function takePrisoners(s: GameState, raiders: Raider[], rng: Rng): number {
   let n = 0;
   for (const rd of raiders) {
-    if (!rd.down || !isHuman(rd.kind) || !rng.chance(Math.min(1, CAPTURE_CHANCE * (rulesOf(s).captives ?? 1)))) continue;
+    // (one run down as it limped away is taken alive for sure: sim/raiderWounds.ts)
+    if (!rd.down || !isHuman(rd.kind) || (!rd.taken && !rng.chance(Math.min(1, CAPTURE_CHANCE * (rulesOf(s).captives ?? 1))))) continue;
     const taken = [...s.people, ...s.prisoners].map((p) => p.name);
     const free = NAMES.filter((x) => !taken.includes(x));
     s.prisoners.push({ id: s.nextId++, enemy: rd.kind, name: rng.pick(free.length ? free : NAMES), conviction: 0, since: s.tick, hungry: false });

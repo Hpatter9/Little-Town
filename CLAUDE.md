@@ -1840,6 +1840,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   blow from every placed fighter with it in their weapon's reach (`partingBlows` in battle.ts, through
   `defenderAttack`, so the recap credits it), as a fighter falling back already did. Probe (10 first raids): 8 of 24
   raiders felled where it was 2, deaths unchanged. Test in `test/battle.test.ts`.
+- **Raiders lamed and run down (the owner's ask):** `src/shared/sim/raiderWounds.ts`. Every blow that lands on a raider
+  (the town's, a tower's or a trap's: rolled in the recap's `credit`, `legWound`) may find a leg: `LEG_SHARE` times
+  twice the blow's share of its health; each wound takes `LAME_PER` (0.3) of its pace, up to `LAME_MOST` (0.65)
+  (`Raider.lame`, read by `speedOf` in defenses.ts, so it comes on and runs off slower; epic bosses shrug it off). A lame
+  raider running from the fight with a fighter close by (`RUN_DOWN_CELLS` on the battle map, `RUN_DOWN_PX` in town)
+  may be run down (`tryRunDown`, `RUN_DOWN_CHANCE` a tick by how lame): a person is taken alive (`Raider.taken`: sure to
+  be a prisoner in `takePrisoners`), a beast or monster killed, the catcher credited. The rolls are the sim's own (by
+  the raider and the tick), so a raid replays the same. Lame raiders limp on the map (`RaiderView.lame`, `limpDip`), and
+  the recap counts the lamed, those run down and taken, and those who limped away (`lamed`, `runDown`, `takenAlive`,
+  `limped`; a line of the story). Probe (10 first raids): 8 of 24 raiders lamed; of them 5 cut down as they limped off,
+  1 run down and taken, 2 (chiefs) got clear. Tests: `test/raiderWounds.test.ts`.
 - **The annals: the year's chronicle and the hall of heroes (the owner's ask):** `src/shared/sim/annals.ts`. Everyone who
   dies is remembered (`recordFallen` from `killPerson`: `s.fallen`, name, day, cause, calling and level, titles, raiders
   felled, trips; up to `FALLEN_MOST`); each townsperson counts the raiders they struck the last blow on

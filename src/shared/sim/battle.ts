@@ -15,6 +15,7 @@
 // the raid. Spots, trails and aims are in the land's cells (CELL px each); the raiders' px positions follow them.
 
 import { before, credit, TOWERS } from './raidRecap';
+import { RUN_DOWN_CELLS, tryRunDown } from './raiderWounds';
 import { ringGate } from './ringWall';
 import { fireAt, speedOf } from './defenses';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -873,7 +874,16 @@ export function stepBattle(s: GameState, r: Raid, rng: Rng): boolean {
       }
     }
     if (bt.back) {
-      bt.d -= pace * 3; // (a rout is quick: the wave doesn't wait on it)
+      // (a lame runner may be run down by a fighter close by: sim/raiderWounds.ts)
+      if (rd.lame) {
+        const at = pointAt(path, cum, bt.d);
+        const near = b.units.find((u) => u.person !== undefined && inPlace(u) && dist(unitPos(u), at) <= RUN_DOWN_CELLS);
+        if (tryRunDown(s, rd, near ? people.get(near.person!) : undefined)) {
+          fell(b, rd);
+          continue;
+        }
+      }
+      bt.d -= pace * 3 * (1 - (rd.lame ?? 0)); // (a rout is quick: the wave doesn't wait on it; a lame one limps)
       if (bt.d <= 0) {
         rd.gone = true;
         bt.d = 0;

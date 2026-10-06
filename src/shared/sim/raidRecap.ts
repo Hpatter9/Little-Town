@@ -5,6 +5,7 @@
 // `s.raidRecap`, and the snapshot carries it for `RECAP_HOURS`.
 
 import { levelOf, xpToLevel } from '../data/levels';
+import { legWound } from './raiderWounds';
 import type { Stock } from '../data/materials';
 import type { GameState, Person, Raid, Raider } from './state';
 
@@ -52,6 +53,12 @@ export interface RaidRecap {
   /** The best of them (by harm dealt and raiders felled), if anyone fought. */
   best: number | null;
   towers: RaidTally | null;
+  /** Raiders lamed by a leg wound, and of them those run down as they fled, and those taken alive (sim/raiderWounds.ts). */
+  lamed: number;
+  /** Lamed, and got away all the same. */
+  limped: number;
+  runDown: number;
+  takenAlive: number;
   /** What happened, told in a few lines (`tellRaid`). */
   story: string[];
 }
@@ -73,6 +80,7 @@ export function credit(s: GameState, who: number, was: [Raider, number, boolean]
   let dealt = 0;
   let kills = 0;
   for (const [rd, hp, down] of was) {
+    if (rd.hp < hp) legWound(s, rd, hp - rd.hp); // (a blow may find a leg: sim/raiderWounds.ts)
     if (rd.hp < hp) dealt += hp - rd.hp;
     if (rd.down && !down) kills++;
   }
@@ -135,6 +143,10 @@ export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: Rai
     rows,
     best: best?.id ?? null,
     towers: towers ? { dealt: Math.round(towers.dealt), kills: towers.kills, taken: 0 } : null,
+    lamed: r.raiders.filter((rd) => !rd.ally && rd.lamed).length,
+    limped: r.raiders.filter((rd) => !rd.ally && rd.lamed && !rd.down).length,
+    runDown: r.raiders.filter((rd) => !rd.ally && rd.runDown).length,
+    takenAlive: r.raiders.filter((rd) => !rd.ally && rd.runDown && rd.taken).length,
     story: [],
   };
   recap.story = tellRaid(recap, { side: r.side, fromSea: !!a.fromSea, bossDown: !!a.bossDown });
@@ -161,6 +173,10 @@ export function tellRaid(c: RaidRecap, o: { side: -1 | 1; fromSea: boolean; boss
   if (best) out.push(best.kills ? `${best.name} fought hardest, felling ${best.kills === 1 ? 'one' : best.kills} and dealing ${best.dealt} harm.` : `${best.name} fought hardest, dealing ${best.dealt} harm.`);
   const stalwart = [...c.rows].filter((x) => x !== best && !x.fell && x.taken > 0).sort((a, b) => b.taken - a.taken)[0];
   if (stalwart && stalwart.taken >= 20) out.push(`${stalwart.name} took the worst of it, ${stalwart.taken} harm, and kept their feet.`);
+  if (c.runDown) {
+    const all = c.takenAlive === c.runDown;
+    out.push(`${c.runDown === 1 ? 'One, lamed in the fight, was' : `${c.runDown}, lamed in the fight, were`} run down as ${c.runDown === 1 ? 'it' : 'they'} limped away${c.takenAlive ? (all ? ` and taken alive` : `; ${c.takenAlive} taken alive`) : ''}.`);
+  } else if (c.limped) out.push(`${c.limped === 1 ? 'One limped' : `${c.limped} limped`} away hurt.`);
   const fell = c.rows.filter((x) => x.fell && !x.died).map((x) => x.name);
   if (fell.length) out.push(`${names(fell)} ${fell.length === 1 ? 'was' : 'were'} struck down, but ${fell.length === 1 ? 'lives' : 'live'} yet.`);
   const died = c.rows.filter((x) => x.died).map((x) => x.name);
@@ -172,6 +188,8 @@ export function tellRaid(c: RaidRecap, o: { side: -1 | 1; fromSea: boolean; boss
   if (c.outcome === 'pillaged') out.push(`They got away with ${stolen || 'what they came for'}.`);
   else if (c.killed >= c.came) out.push(c.came === 1 ? 'It never got away.' : 'Not one of them got away.');
   else out.push(`${c.killed ? 'The rest' : 'They'} broke and fled${c.through ? `, ${c.through} of them through the town` : ''}.`);
-  if (c.prisoners) out.push(`${c.prisoners === 1 ? 'One was' : `${c.prisoners} were`} taken alive.`);
+  // (those run down and taken were told above)
+  const more = c.prisoners - c.takenAlive;
+  if (more > 0) out.push(`${more === 1 ? `One${c.takenAlive ? ' more' : ''} was` : `${more}${c.takenAlive ? ' more' : ''} were`} taken alive.`);
   return out;
 }

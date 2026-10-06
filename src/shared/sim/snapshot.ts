@@ -338,6 +338,8 @@ export interface RaiderView {
   carrying: number;
   /** Name of the townsperson they're carrying off. */
   captive: string | null;
+  /** Lamed by a leg wound (sim/raiderWounds.ts): its pace lost, 0 when sound; it limps. */
+  lame: number;
   sinceAction: number;
   sinceHit: number;
 }
@@ -932,6 +934,7 @@ export function snapshot(s: GameState): Snapshot {
             gone: r.gone,
             carrying: poolSize(r.carrying),
             captive: r.captive?.name ?? null,
+            lame: r.lame ?? 0,
             sinceAction: s.tick - r.lastAction,
             sinceHit: s.tick - r.lastHit,
             ally: !!r.ally,
