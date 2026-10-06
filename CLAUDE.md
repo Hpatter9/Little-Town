@@ -1873,6 +1873,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   the recap counts the lamed, those run down and taken, and those who limped away (`lamed`, `runDown`, `takenAlive`,
   `limped`; a line of the story). Probe (10 first raids): 8 of 24 raiders lamed; of them 5 cut down as they limped off,
   1 run down and taken, 2 (chiefs) got clear. Tests: `test/raiderWounds.test.ts`.
+- **Big fights ask to be watched (the owner's ask: "raiding the barrow crypt"):** `src/shared/sim/watchAsk.ts`. When a
+  party meets a big fight (`bigFight`: a boss, or any fight at the place it set out for: a dungeon, a place to clear, a
+  hunt, a stronghold stormed), `fightGroup` calls `askToWatch`: the fight holds (`Expedition.prompt`, as the trip's
+  questions always did) and a prompt of kind `watch` asks "Watch the fight" (`s.watching`: the fight screen) or "Let it
+  play out" (the default after `WATCH_ASK_HOURS`, 2). Once at the site and once for its boss a trip
+  (`Expedition.watchAsked`); never while watching already, in a town run by hand (autopilot off: the tests), or while the
+  sim runs unseen (`runtime.quiet`, set by the catch-up after time away and the alerts' look ahead). The phone's event
+  box shows it full screen and closes on either answer. Test: `test/watchAsk.test.ts`.
 - **The annals: the year's chronicle and the hall of heroes (the owner's ask):** `src/shared/sim/annals.ts`. Everyone who
   dies is remembered (`recordFallen` from `killPerson`: `s.fallen`, name, day, cause, calling and level, titles, raiders
   felled, trips; up to `FALLEN_MOST`); each townsperson counts the raiders they struck the last blow on

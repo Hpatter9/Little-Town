@@ -67,6 +67,7 @@ import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
 import { tireless, townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, meet, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { askToWatch } from './watchAsk';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 
 /** XP per unit of loot brought in, and per attack made in a fight. */
@@ -531,6 +532,7 @@ function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person
   // an epic boss announces itself
   for (const kind of new Set(Object.keys(group))) if (ENEMIES[kind]?.kit) notify(s, `At ${the(d.name)}: ${ENEMIES[kind].kit!.roar}`, true);
   notify(s, `${The(d.name)} party is attacked by ${describeGroup(group)}!`);
+  askToWatch(s, e, d, storm ? storm.waves.reduce((all, w) => ({ ...all, ...w }), {}) : group, describeGroup(group)); // (a big fight waits on the player: sim/watchAsk.ts)
   return e.battle;
 }
 

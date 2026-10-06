@@ -619,7 +619,7 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch';
   /** An envoy from a power of the realm (sim/factions.ts): which, and what they've come about. */
   envoy?: { faction: string; about: string; coins?: number };
   /** A commanded party's question on the road (sim/muster.ts `CROSSROADS`): which one. */
@@ -720,6 +720,8 @@ export interface Expedition {
   battle: Battle | null;
   /** A question for the player about this party (the trip waits for it). */
   prompt: number | null;
+  /** Whether to watch its big fights has been asked: at the site (1), for its boss (2) (sim/watchAsk.ts). */
+  watchAsked?: number;
   /** Road events already rolled for each leg, and whether the homeward ambush was rolled. */
   rolled: { outEvent: boolean; backEvent: boolean; ambush: boolean };
   /** Waterskins taken along (returned to the inventory at home). */
