@@ -1912,6 +1912,23 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   reaped, the orchard's trees picked bare, seed in neat furrows where it's sown; the count is in the building's `sig`
   and the art key), and the tap card says "Being reaped: 2 of 4 sections in" or "Being sown". Test in
   `test/fields.test.ts`.
+- **The menus redone (the owner's ask: organised by area, tappable):** six tabs (`PANELS` in ipc.ts; the ids kept so
+  saves and the desktop app work): **Town** (`build`: Overview, Buildings, Stores, Treasury), **People** (`townsfolk`:
+  People, Jobs), **Studies** (`research`: Studying, Tech tree), **Market** (`trade`: Shops, Caravan, Workshops, Animals),
+  **Trips** (`expeditions`) and **Chronicle** (`journal`, "Annals" on the upright tab bar). The old Crafting tab is gone:
+  its inventory is the Town's Stores (`renderStores` in craftingPanel.ts) and its orders and recipes the Market's
+  Workshops (`renderWorkshops`); opening `crafting` lands on Workshops. The sub-tabs come from the sections' headings
+  (`GROUPS` in subtabs.ts); `selectTab` opens one from elsewhere. `panel/townOverview.ts`: the Overview's tiles (`glance`:
+  people, food, spirits, treasury, stores, building, studying, workshops, trips, shops, the age, a raid when one comes),
+  each a tap through to its menu and tab (`goTo`); the Buildings tab lists what stands (`inTown`, grouped: the seat,
+  homes, shops and inns, fields, pens, workshops, defences, stores, the rest), each card naming its owner and opening on
+  its keeper, residents, crop or herd, holdings and sickbeds, with **Show on the map** (`showOnMap`: the strip's
+  `__showOnMap`, the menu closed; also on a person's page); the old catalogue is the Building book under it. The Market's
+  Shops are a card each (keeper, owner, renown, yesterday's takings, Step inside), its Animals the pens' herds and the
+  horses. Per-people tab names in `PALETTES.labels` (theme.ts: the Town is the Necropolis, Grove, Domain, Den, Colony,
+  Hold, Harbour, Camp, Glade, Works or Keep). The research queue's bars have a line of their own (`.queue-row > .bar`), and
+  a menu's own filters (the stores' kinds) are small chips, not more tabs. The notes above that name the Plan, Crafting
+  or Trade tabs mean these.
 - **The annals: the year's chronicle and the hall of heroes (the owner's ask):** `src/shared/sim/annals.ts`. Everyone who
   dies is remembered (`recordFallen` from `killPerson`: `s.fallen`, name, day, cause, calling and level, titles, raiders
   felled, trips; up to `FALLEN_MOST`); each townsperson counts the raiders they struck the last blow on

@@ -57,7 +57,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(140, 220, 140, 0.07)', 'rgba(170, 120, 220, 0.08)', 'rgba(160, 200, 160, 0.06)'],
     canvas: 'saturate(0.5) hue-rotate(-18deg) brightness(0.88) contrast(1.08)', vignette: 'rgba(18, 4, 28, 0.55)',
     page: ['#07050b', '#150e1e', '#120e16'],
-    labels: { build: 'Designs', research: 'Grimoire', townsfolk: 'Souls', journal: 'Chronicle' },
+    labels: { build: 'Necropolis', research: 'Grimoire', townsfolk: 'Souls', journal: 'Chronicle' },
     tint: ['#7a8a70', 0.35],
   },
   druid: {
@@ -69,7 +69,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(180, 230, 120, 0.07)', 'rgba(240, 220, 120, 0.05)', 'rgba(120, 200, 120, 0.06)'],
     canvas: 'saturate(1.25) hue-rotate(8deg) brightness(1.02)', vignette: 'rgba(10, 30, 6, 0.35)',
     page: ['#081006', '#122012', '#10170e'],
-    labels: { build: 'Grove Plans', research: 'Lore', townsfolk: 'Circle', journal: 'Seasons' },
+    labels: { build: 'Grove', research: 'Lore', townsfolk: 'Circle', journal: 'Seasons' },
     tint: ['#4a7a2a', 0.22],
   },
   vampire: {
@@ -81,7 +81,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(200, 30, 60, 0.07)', 'rgba(120, 20, 40, 0.08)', 'rgba(180, 60, 90, 0.05)'],
     canvas: 'saturate(0.7) hue-rotate(-12deg) brightness(0.8) contrast(1.1)', vignette: 'rgba(40, 0, 10, 0.6)',
     page: ['#070204', '#1a060c', '#12070a'],
-    labels: { build: 'Decrees', research: 'Blood Lore', townsfolk: 'Thralls', journal: 'Annals' },
+    labels: { build: 'Domain', research: 'Blood Lore', townsfolk: 'Thralls', journal: 'Annals' },
     tint: ['#5a1020', 0.28],
   },
   werewolf: {
@@ -93,7 +93,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(160, 190, 255, 0.07)', 'rgba(220, 230, 255, 0.05)', 'rgba(100, 140, 220, 0.06)'],
     canvas: 'saturate(0.75) hue-rotate(15deg) brightness(0.9)', vignette: 'rgba(4, 10, 30, 0.5)',
     page: ['#04070e', '#0e1626', '#0b1018'],
-    labels: { build: 'Den Plans', research: 'Moon Lore', townsfolk: 'Pack', journal: 'Hunts' },
+    labels: { build: 'Den', research: 'Moon Lore', townsfolk: 'Pack', journal: 'Hunts' },
     tint: ['#3a4a6a', 0.22],
   },
   robot: {
@@ -105,7 +105,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: 'scanlines',
     canvas: 'saturate(0.55) contrast(1.15) brightness(0.95)', vignette: 'rgba(0, 20, 10, 0.45)',
     page: ['#020604', '#08140e', '#07100c'],
-    labels: { build: 'Build Queue', research: 'Databank', townsfolk: 'Units', crafting: 'Fabrication', expeditions: 'Sorties', journal: 'Log' },
+    labels: { build: 'Colony', research: 'Databank', townsfolk: 'Units', expeditions: 'Sorties', journal: 'Log' },
     tint: ['#8a969c', 0.45],
   },
   dwarves: {
@@ -117,7 +117,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(240, 160, 60, 0.05)', 'rgba(200, 120, 40, 0.05)', 'rgba(160, 140, 120, 0.05)'],
     canvas: 'saturate(0.9) sepia(0.2) brightness(0.92)', vignette: 'rgba(20, 10, 0, 0.45)',
     page: ['#0a0805', '#1c150e', '#15110c'],
-    labels: { build: 'Hall Plans', research: 'Runes', townsfolk: 'Clan', journal: 'Sagas' },
+    labels: { build: 'Hold', research: 'Runes', townsfolk: 'Clan', journal: 'Sagas' },
     tint: ['#6a6a70', 0.25],
   },
   merfolk: {
@@ -129,7 +129,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(120, 220, 240, 0.07)', 'rgba(80, 160, 220, 0.06)', 'rgba(200, 240, 250, 0.05)'],
     canvas: 'saturate(0.9) hue-rotate(10deg) brightness(0.97)', vignette: 'rgba(0, 30, 40, 0.35)',
     page: ['#030a10', '#0a1c28', '#06121a'],
-    labels: { build: 'Harbour Plans', research: 'Sea Lore', townsfolk: 'Shoal', journal: 'Tides' },
+    labels: { build: 'Harbour', research: 'Sea Lore', townsfolk: 'Shoal', journal: 'Tides' },
     tint: ['#3a8a9a', 0.22],
   },
   // (the one bright theme: the menus are a tent of cream canvas and dyed stripes, see skins.ts)
@@ -142,7 +142,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(240, 180, 100, 0.06)', 'rgba(220, 140, 60, 0.05)', 'rgba(250, 210, 150, 0.05)'],
     canvas: 'saturate(1.1) sepia(0.25) brightness(1.03)', vignette: 'rgba(40, 20, 0, 0.3)',
     page: ['#0e0904', '#241810', '#1a120a'],
-    labels: { build: 'Camp Plans', townsfolk: 'Kin', trade: 'Bazaar', journal: 'Road Tales' },
+    labels: { build: 'Camp', townsfolk: 'Kin', trade: 'Bazaar', journal: 'Road Tales' },
     tint: ['#c89050', 0.22],
   },
   fae: {
@@ -154,7 +154,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(255, 170, 255, 0.08)', 'rgba(140, 240, 230, 0.06)', 'rgba(255, 230, 160, 0.05)'],
     canvas: 'saturate(1.3) hue-rotate(-25deg) brightness(1.05)', vignette: 'rgba(40, 0, 50, 0.35)',
     page: ['#0a0610', '#1e1028', '#140c1a'],
-    labels: { build: 'Wishes', research: 'Enchantments', townsfolk: 'Court', journal: 'Dreams' },
+    labels: { build: 'Glade', research: 'Enchantments', townsfolk: 'Court', journal: 'Dreams' },
     tint: ['#c080e0', 0.22],
   },
   alchemists: {
@@ -166,7 +166,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(160, 255, 120, 0.06)', 'rgba(220, 200, 90, 0.05)', 'rgba(180, 120, 255, 0.05)'],
     canvas: 'saturate(0.9) hue-rotate(-8deg) brightness(0.95)', vignette: 'rgba(10, 20, 0, 0.35)',
     page: ['#060608', '#14141c', '#0e0f14'],
-    labels: { build: 'Formulae', research: 'Opus', crafting: 'Workings', journal: 'Notes' },
+    labels: { build: 'Works', research: 'Opus', journal: 'Notes' },
     tint: ['#8a7a40', 0.16],
   },
   knights: {
@@ -178,7 +178,7 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     mist: ['rgba(200, 210, 230, 0.05)', 'rgba(216, 184, 96, 0.04)', 'rgba(160, 170, 200, 0.05)'],
     canvas: 'saturate(0.85) brightness(0.96) contrast(1.05)', vignette: 'rgba(10, 10, 20, 0.35)',
     page: ['#06070a', '#161922', '#0e1016'],
-    labels: { build: 'Fortifications', research: 'Studies', townsfolk: 'The Order', journal: 'Chronicle' },
+    labels: { build: 'Keep', research: 'Studies', townsfolk: 'The Order', journal: 'Chronicle' },
     tint: ['#8a90a0', 0.2],
   },
 };
@@ -255,7 +255,7 @@ ${T} .bar-fill, ${T} .meter-fill { background: linear-gradient(90deg, ${p.fill[0
 ${T} .bar-fill.low { background: linear-gradient(90deg, ${p.low[0]}, ${p.low[1]}); }
 ${T} .card, ${T} .queue-row, ${T} #inspect, ${T} #menu { background: ${p.card}; border-color: ${p.btnHover}; }
 ${T} .chip { background: ${p.btn}; border: 1px solid ${p.btnHover}; }
-${T} button:not(.swatch):not(.card):not(.map-dot):not(.map-hold):not(.folk-row):not(.doll-slot):not(.wizard-dot):not(.skill):not(.event-option), ${T} .place, ${T} .tab, ${T} #tabs button { background: var(--btn); border-color: rgba(0, 0, 0, 0.6); color: var(--text); }
+${T} button:not(.swatch):not(.card):not(.map-dot):not(.map-hold):not(.folk-row):not(.doll-slot):not(.wizard-dot):not(.skill):not(.event-option):not(.glance-tile), ${T} .place, ${T} .tab, ${T} #tabs button { background: var(--btn); border-color: rgba(0, 0, 0, 0.6); color: var(--text); }
 ${T} .place.on, ${T} .tab.on, ${T} .inv-tab.on, ${T} #tabs button.on, ${T} button.primary {
   background: var(--btn-on); border-color: ${p.onRim}; box-shadow: 0 0 8px ${p.glow};
 }

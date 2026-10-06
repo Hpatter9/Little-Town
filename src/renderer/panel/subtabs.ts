@@ -14,18 +14,17 @@ interface MenuTabs {
 }
 
 const GROUPS: Record<string, MenuTabs> = {
+  // the Town: how it stands and the levers, what stands in it, what's in store, the money
   build: {
     groups: [
-      ['Direction', /^(Direction|Town size)/],
-      ['Town status', /^Town status/],
-      ['Powers', /^(Lichcraft|The seasonal round|.*: powers)/],
+      ['Overview', /^(At a glance|Direction|Town size|Lichcraft|The seasonal round|.*: powers)/],
+      ['Buildings', /^(Being built|In town|Building book)/],
+      ['Stores', /^Stores/],
       ['Treasury', /^(Treasury|Tax|Guards)/],
-      ['Buildings', /^(Being built|Buildings)/],
     ],
-    // (the head's building slots, coins and storage go with the buildings)
-    intro: 'Buildings',
+    intro: 'Overview',
   },
-  research: { groups: [['Stations', /^Stations/], ['Tech tree', /^Tech tree/]] },
+  research: { groups: [['Studying', /^(Studying|Stations)/], ['Tech tree', /^Tech tree/]], intro: 'Studying' },
   expeditions: {
     groups: [
       ['Parties', /^(Parties|Boats)/],
@@ -36,8 +35,16 @@ const GROUPS: Record<string, MenuTabs> = {
     intro: 'Places',
   },
   townsfolk: { groups: [['People', /^People/], ['Jobs', /^(Jobs|Prisoners)/]] },
-  crafting: { groups: [['Inventory', /^Inventory/], ['Recipes', /^Recipes/]] },
-  trade: { groups: [['Deals', /^Deals/], ['Horses', /^Horses/]] },
+  // the Market: the town's shops and inns, the caravan, the workshops' orders, the animals
+  trade: {
+    groups: [
+      ['Shops', /^Shops/],
+      ['Caravan', /^(Caravan|Deals)/],
+      ['Workshops', /^(Orders|Recipes)/],
+      ['Animals', /^(Herds|Horses)/],
+    ],
+    intro: 'Caravan',
+  },
   // the shop, the inn and the stores (each venue keeps its own open tab)
   venue: {
     groups: [
@@ -60,6 +67,10 @@ function openTab(menu: string): string | null {
   } catch {
     return null;
   }
+}
+/** Open a menu's tab (a tap elsewhere that leads to it: the Town's overview tiles). */
+export function selectTab(menu: string, name: string): void {
+  setTab(menu, name);
 }
 function setTab(menu: string, name: string): void {
   chosen.set(menu, name);

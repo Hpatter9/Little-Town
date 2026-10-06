@@ -15,14 +15,16 @@ export const STORE_PANELS: readonly StorePanelId[] = ['store_furniture', 'store_
 export const storePanel = (line: string): StorePanelId => `store_${line}` as StorePanelId;
 export const PANEL_IDS: readonly PanelId[] = ['build', 'research', 'expeditions', 'townsfolk', 'crafting', 'trade', 'journal', 'alerts', 'newgame', 'shop', 'tavern', ...STORE_PANELS];
 
+/** The menus along the bottom (the redo, the owner's ask: one tab an area of the game). The ids are the old ones, so
+ *  saved tabs and the desktop app keep working: 'build' is the Town, 'trade' the Market (with the workshops: the old
+ *  Crafting tab, which opens it at Workshops). */
 export const PANELS: readonly { id: PanelId; label: string }[] = [
-  { id: 'build', label: 'Plan' }, // (the town's plan: it builds for itself)
-  { id: 'research', label: 'Research' },
-  { id: 'expeditions', label: 'Expeditions' },
-  { id: 'townsfolk', label: 'Townsfolk' },
-  { id: 'crafting', label: 'Crafting' },
-  { id: 'trade', label: 'Trade' },
-  { id: 'journal', label: 'Journal' },
+  { id: 'build', label: 'Town' },
+  { id: 'townsfolk', label: 'People' },
+  { id: 'research', label: 'Studies' },
+  { id: 'trade', label: 'Market' },
+  { id: 'expeditions', label: 'Trips' },
+  { id: 'journal', label: 'Chronicle' },
 ];
 
 /** Phone alerts through ntfy (DESIGN §10). Off until the player sets their own topic. */
