@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { clearCell } from '../src/shared/sim/people';
 import { REGROW_DAYS, regrowHourly } from '../src/shared/sim/regrow';
 import { addWear, cellAt, groundAt, WEAR_SHOW } from '../src/shared/sim/land';
-import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { makeWild, plainGame, put, camp } from './helpers';
 
 const passDays = (s: ReturnType<typeof plainGame>, days: number) => {

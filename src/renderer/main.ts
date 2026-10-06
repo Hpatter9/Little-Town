@@ -26,7 +26,7 @@ import { eraReached } from '../shared/data/eras';
 import { TOPIC_BY_ID } from '../shared/data/research';
 import { HERDS, PEN_ROOM_PER_COL } from '../shared/data/livestock';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../shared/data/materials';
-import { CROPS } from '../shared/data/crops';
+import { CROPS, sectionsDone, sectionsOf } from '../shared/data/crops';
 import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { TERRAIN } from '../shared/data/terrain';
@@ -463,11 +463,15 @@ async function start(): Promise<void> {
                   ? 'Fallow: nothing grows in winter'
                   : crop.establishHours
                     ? 'Waiting for a farmer to plant the trees'
-                    : tired
+                    : c && c.work > 0
+                      ? `Being sown: ${sectionsDone(c.work, def.width)} of ${sectionsOf(def.width)} sections`
+                      : tired
                       ? 'Fallow: resting the tired soil'
                       : 'Fallow: waiting for a farmer to sow it'
                 : c.stage === 'ripe'
-                  ? 'Ripe: waiting for a farmer to harvest it'
+                  ? c.work > 0
+                    ? `Being reaped: ${sectionsDone(c.work, def.width)} of ${sectionsOf(def.width)} sections in`
+                    : 'Ripe: waiting for a farmer to harvest it'
                   : crop.establishHours && !c.bearing
                     ? `Young trees, coming into bearing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`
                     : `Growing: ${Math.floor(c.growth * 100)}%${winter ? ' (paused for winter)' : ''}`,

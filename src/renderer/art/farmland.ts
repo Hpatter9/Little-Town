@@ -30,7 +30,9 @@ function stream(seed: number): () => number {
 
 /** Paint a field of `W` x `H` art px on `g` (scaled `k` canvas px an art px). `material` is the crop's
  *  (grain, vegetables, fiber, herbs, fruit), `orchard` for trees. */
-export function paintFarm(g: G, k: number, W: number, H: number, material: string, orchard: boolean, stage: CropLook | undefined, seed: number, winter = false): void {
+/** `cut`: the share of the plot's width (from the left) already reaped (stubble, or trees picked bare) or sown (seed in
+ *  neat furrows), as the farmer works it a section at a time. */
+export function paintFarm(g: G, k: number, W: number, H: number, material: string, orchard: boolean, stage: CropLook | undefined, seed: number, winter = false, cut = 0): void {
   const r = stream(seed);
   const rect = (x: number, y: number, w: number, h: number, c: string) => {
     g.fillStyle = c;
@@ -85,10 +87,18 @@ export function paintFarm(g: G, k: number, W: number, H: number, material: strin
     // a dusting of frost along the ridges
     for (const y of rows) for (let x = 2; x < W - 2; x += 1 + r() * 2) dot(x, y - 2, '#e8eef4');
   }
+  const cutX = cut * W;
   if (!stage || stage === 'fallow') {
-    // fallow: a few weeds come up in the furrows
+    // the sown sections: seed pressed into the furrows in a neat line, the soil darker where it's been worked
+    if (cutX > 0)
+      for (const y of rows) {
+        rect(2, y + 2, Math.max(0, cutX - 2), 1, LOAM_DEEP);
+        for (let x = 3; x < cutX - 1; x += 2.5) dot(x, y + 2, '#c8a860');
+      }
+    // fallow: a few weeds come up in the furrows (not where it's just been sown)
     for (let i = 0; i < (W * H) / 140; i++) {
       const x = 4 + r() * (W - 8);
+      if (x < cutX) continue;
       const y = rows.length ? rows[Math.floor(r() * rows.length)] + 2 : 4 + r() * (H - 8);
       rect(x, y - 1, 0.5, 1, '#6e8a3a');
       dot(x + 0.5, y - 1.5, '#82a048');
@@ -96,12 +106,19 @@ export function paintFarm(g: G, k: number, W: number, H: number, material: strin
     return;
   }
 
-  if (orchard) return trees(rect, dot, r, W, H, stage);
+  if (orchard) return trees(rect, dot, r, W, H, stage, cutX);
   const plant = PLANTS[material] ?? PLANTS.grain;
-  // along each ridge, a plant every few px, jittered
+  // along each ridge, a plant every few px, jittered; where it's been reaped, stubble and the odd fallen stalk
   const step = material === 'vegetables' ? 6 : material === 'herbs' ? 5 : 3;
   for (const y of rows)
-    for (let x = 4 + r() * 2; x < W - 4; x += step + r() * (step / 2)) plant(rect, dot, x, y, stage, r);
+    for (let x = 4 + r() * 2; x < W - 4; x += step + r() * (step / 2)) {
+      if (x < cutX) {
+        rect(x, y - 1, 0.5, 1, material === 'grain' ? '#b08a3a' : '#6a7a34');
+        if (r() < 0.25) rect(x - 1, y + 0.5, 1.5, 0.5, '#c8a04a');
+        continue;
+      }
+      plant(rect, dot, x, y, stage, r);
+    }
 }
 
 type Rect = (x: number, y: number, w: number, h: number, c: string) => void;
@@ -186,7 +203,7 @@ const PLANTS: Record<string, Plant> = {
 };
 
 /** An orchard's trees in rows: whips, then young trees, then round crowns lit from the top left, with fruit. */
-function trees(rect: Rect, dot: Dot, r: () => number, W: number, H: number, stage: CropLook): void {
+function trees(rect: Rect, dot: Dot, r: () => number, W: number, H: number, stage: CropLook, picked = 0): void {
   const gap = 12;
   for (let y = 11; y < H - 2; y += gap)
     for (let x = 7 + ((y / gap) % 2) * 5; x < W - 5; x += gap) {
@@ -201,6 +218,6 @@ function trees(rect: Rect, dot: Dot, r: () => number, W: number, H: number, stag
       disc(rect, x - s * 0.35, cy - s * 0.35, s * 0.45, '#58a046');
       dot(x - s * 0.5, cy - s * 0.5, '#7cc060');
       if (stage === 'heading') for (let i = 0; i < 3; i++) dot(x - s + r() * s * 2, cy - s + r() * s * 1.6, '#f4e8f0');
-      if (stage === 'ripe') for (let i = 0; i < 4; i++) rect(x - s * 0.8 + r() * s * 1.6, cy - s * 0.7 + r() * s * 1.3, 1, 1, i % 2 ? '#e04a3a' : '#f0a030');
+      if (stage === 'ripe' && x >= picked) for (let i = 0; i < 4; i++) rect(x - s * 0.8 + r() * s * 1.6, cy - s * 0.7 + r() * s * 1.3, 1, 1, i % 2 ? '#e04a3a' : '#f0a030');
     }
 }

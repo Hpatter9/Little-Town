@@ -29,7 +29,7 @@ import { doomForage } from './doom';
 import { biomeOf } from '../data/biomes';
 import { HORSE_HP } from '../data/trade';
 import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
-import { cropOf, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
+import { cropOf, fieldSpot, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
 import { isPen, needsTending, penToTend, workPen } from './livestock';
 import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } from './raids';
@@ -226,7 +226,8 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       break;
     case 'farm': {
       const field = byId(s, task.building)!;
-      if (!goToB(s, p, field)) break;
+      // (a field is worked a section at a time: the farmer stands in the one under way, and moves along)
+      if (isPen(field) ? !goToB(s, p, field) : !goTo(s, p, fieldSpot(field), footprint(field))) break;
       // (a sickle for the harvest, a hoe for the sowing; the pens are tended by hand)
       p.activity = isPen(field) ? 'forage' : field.crop?.stage === 'ripe' ? 'reap' : 'till';
       if (isPen(field) ? workPen(s, p, field) : workField(s, p, field)) p.task = null;

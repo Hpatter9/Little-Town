@@ -11,7 +11,7 @@ import { Rng } from '../../shared/rng';
 import { campfireFrames } from '../art/sprites';
 import { fieldArt, isPlot } from './fieldArt';
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
-import { CROPS } from '../../shared/data/crops';
+import { CROPS, sectionsDone } from '../../shared/data/crops';
 import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
 import { inRect } from '../../shared/sim/land';
@@ -125,7 +125,9 @@ function cropLook(b: Building): CropLook | undefined {
   // (five stages the plot is redrawn at as the crop grows: the owner wanted to see it grow)
   return c.growth < 0.2 ? 'sprout' : c.growth < 0.45 ? 'young' : c.growth < 0.7 ? 'tall' : 'heading';
 }
-const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${b.room ? 'room' : ''}|${b.wide ?? 0}`;
+/** Sections of a field sown or reaped so far (it's worked a section at a time: data/crops.ts). */
+const cropDone = (b: Building): number => (CROPS[b.def] && b.crop && b.crop.stage !== 'growing' ? sectionsDone(b.crop.work, footprint(b).w) : 0);
+const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${cropDone(b)}|${b.room ? 'room' : ''}|${b.wide ?? 0}`;
 
 /** The wreck a sea beast lairs on (a reef place), once loaded. */
 let wreckTex: Texture | null = null;
@@ -532,7 +534,7 @@ export class MapView {
   private art(b: Building): PixelArt {
     if (b.def === 'campfire') return (campfirePack() ?? this.fire)[0];
     const f = footprint(b);
-    if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey);
+    if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey, cropDone(b));
     // (a castle's room: its furnishings, on the castle's floor: map/castleArt.ts)
     if (b.room) return roomFurniture(BUILDING_BY_ID[b.def], f.w, b.id, this.tone, this.toneKey, this.style) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
     // (the seat of the town: its own picture, by origin and stage: art/seatArt.ts)

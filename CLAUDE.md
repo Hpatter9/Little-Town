@@ -1583,7 +1583,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   is a question (`askVisitor` in townsfolk.ts: a prompt of kind `visitor`, "Take them in" / "Send them on",
   `answerVisitor`), and the Townsfolk card has the same two buttons; the planner no longer lets them in itself
   (`planVisitor`), except where the gates are free (`freeJoin` in an origin's rules: the nomads' horde). Wanderers come no
-  oftener than `VISIT_GAP_HOURS` (48) apart (`s.lastVisit`; the owner wants arrivals few and far between, so people are known by name). Left unanswered till their wait is up, they're let in while the
+  oftener than `VISIT_GAP_HOURS` (a week: 168 hours) apart (`s.lastVisit`; the owner wants arrivals few and far between, so people are known by name). Left unanswered till their wait is up, they're let in while the
   stores hold a day's food a head (`foodPerHead`; the prompt's default, applied by `updateVisitor`), so a town whose
   player is away still grows; else they're sent on. Otherwise people come by events, prisoners won over,
   and birth.
@@ -1902,6 +1902,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   built on, a road, beside a building (the yards are kept) or still walked (a footpath showing): then it tries again a
   day later. Rock and the mountain never grow back. Footpaths grass over twice as fast (`WEAR_DECAY` 2 an hour), so only
   the ways in use stay worn. Test: `test/regrow.test.ts`.
+- **One asks to join a week (the owner's ask):** `VISIT_GAP_HOURS` is 7 days, and `joinTooSoon` (townsfolk.ts) holds
+  back every way in that asks: wanderers at the gate, travellers asking to settle (`offerToSettle`) and secret strangers
+  (`secretStranger`), all setting `s.lastVisit` (not where the gates are free, `freeJoin`).
+- **Fields worked a section at a time (the owner's ask):** a field's sowing and harvest run left to right in sections,
+  one a cell of its width (`sectionsOf`, `sectionsDone` in data/crops.ts, by `crop.work`); the farmer stands in the
+  section under way (`fieldSpot` in farming.ts, from the `farm` task) and moves along, and each reaped section's share of
+  the crop comes in as it's done (`workField`). The plot is redrawn by sections (`paintFarm`'s `cut`: stubble where it's
+  reaped, the orchard's trees picked bare, seed in neat furrows where it's sown; the count is in the building's `sig`
+  and the art key), and the tap card says "Being reaped: 2 of 4 sections in" or "Being sown". Test in
+  `test/fields.test.ts`.
 - **The annals: the year's chronicle and the hall of heroes (the owner's ask):** `src/shared/sim/annals.ts`. Everyone who
   dies is remembered (`recordFallen` from `killPerson`: `s.fallen`, name, day, cause, calling and level, titles, raiders
   felled, trips; up to `FALLEN_MOST`); each townsperson counts the raiders they struck the last blow on

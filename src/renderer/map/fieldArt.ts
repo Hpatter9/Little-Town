@@ -1,7 +1,7 @@
 // Fields and pens seen from above: a tilled plot the size of the footprint, its furrows running across, the crop
 // standing in rows by its stage (sprouts, tall, ripe), a fence round a pen. Painted once per kind, stage and size.
 
-import { CROPS } from '../../shared/data/crops';
+import { CROPS, sectionsOf } from '../../shared/data/crops';
 import { HERDS } from '../../shared/data/livestock';
 import { CELL } from '../../shared/sim/land';
 import { CanvasSource, Texture } from 'pixi.js';
@@ -34,9 +34,9 @@ function lighten(hex: string, k: number): string {
 /** Whether a building is drawn as a plot from above. */
 export const isPlot = (defId: string) => !!CROPS[defId] || !!HERDS[defId];
 
-export function fieldArt(defId: string, w: number, h: number, stage: CropLook | undefined, tone: Tone, toneKey: string): PixelArt {
+export function fieldArt(defId: string, w: number, h: number, stage: CropLook | undefined, tone: Tone, toneKey: string, done = 0): PixelArt {
   const packed = fieldTilesReady();
-  const key = `${defId}|${w}|${h}|${stage ?? ''}|${toneKey}|${packed ? 'pack' : ''}`;
+  const key = `${defId}|${w}|${h}|${stage ?? ''}|${toneKey}|${packed ? 'pack' : ''}|${done}`;
   let art = cache.get(key);
   if (art) return art;
   const W = w * CELL;
@@ -45,7 +45,7 @@ export function fieldArt(defId: string, w: number, h: number, stage: CropLook | 
   const herd = HERDS[defId];
   // (a field is painted: no pack has tilled farmland, art/farmland.ts)
   if (crop) {
-    art = farmPlot(defId, w, h, stage);
+    art = farmPlot(defId, w, h, stage, done);
     cache.set(key, art);
     return art;
   }
@@ -158,7 +158,7 @@ function packedPlot(defId: string, w: number, h: number, stage: CropLook | undef
 }
 
 /** A field: dark loam in ridges, the crop along them by kind and stage (art/farmland.ts). */
-function farmPlot(defId: string, w: number, h: number, stage: CropLook | undefined): PixelArt {
+function farmPlot(defId: string, w: number, h: number, stage: CropLook | undefined, done = 0): PixelArt {
   const k = FINE;
   const W = w * CELL;
   const H = h * CELL;
@@ -168,7 +168,7 @@ function farmPlot(defId: string, w: number, h: number, stage: CropLook | undefin
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
   const crop = CROPS[defId];
-  paintFarm(g, k, W, H, crop.material, !!crop.establishHours, stage, defId.length * 31 + w * 7 + h);
+  paintFarm(g, k, W, H, crop.material, !!crop.establishHours, stage, defId.length * 31 + w * 7 + h, false, done / sectionsOf(w));
   const tops = new Int16Array(W);
   return { texture: new Texture({ source: new CanvasSource({ resource: c, resolution: k }) }), width: W, height: H, tops };
 }
