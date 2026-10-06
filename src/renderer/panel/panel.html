@@ -1091,6 +1091,43 @@
         border: 2px solid #3b2b1e;
         box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
       }
+      /* a power's stronghold (the realm): a tower, coloured by how the town stands with it */
+      .map-hold {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border-radius: 6px;
+        border: 2px solid #c8b890;
+        background: rgba(30, 22, 14, 0.85);
+        color: #e8dcc0;
+        font-size: 15px;
+        line-height: 20px;
+        cursor: default;
+      }
+      .map-hold.war {
+        border-color: #e0604a;
+        color: #ffb0a0;
+        cursor: pointer;
+      }
+      .map-hold.alliance,
+      .map-hold.trade,
+      .map-hold.peace,
+      .map-hold.vassal {
+        border-color: #7fbf6a;
+        color: #c8f0b0;
+      }
+      .map-hold.destroyed {
+        opacity: 0.5;
+      }
+      .map-label.hold {
+        font-size: 10px;
+        opacity: 0.85;
+      }
+      .map-label.hold.war {
+        color: #ffb0a0;
+      }
       .map-dot.locked::after {
         background: #8a7a6a;
       }

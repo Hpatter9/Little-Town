@@ -1,7 +1,7 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
-import { factionsHourly, realmCommand } from './factions';
+import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
 import { specialsHourly } from './specials';
 import { sagasHourly } from './sagas';
@@ -128,6 +128,7 @@ export class Sim {
       if (s.gameOver) break;
     }
     updateExpeditions(s, this.rng);
+    envoyTick(s);
     maybeStartRaid(s, this.rng);
     lurkers(s, this.rng);
     caveBear(s, this.rng);

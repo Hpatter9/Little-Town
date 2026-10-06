@@ -143,7 +143,9 @@ export class MapRaiders {
       }
       s.zIndex = y;
       s.alpha = r.down ? 0.4 : 1;
-      s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : r.ally ? 0xa8f0b8 : (def.tint ?? 0xffffff);
+      // (an ally keeps its own colours: a green glow underfoot and a green bar mark it as the town's; tinting the
+      // whole creature green made a summoned wolf look like a stray monster)
+      s.tint = r.sinceHit < 3 && !r.down ? 0xff7070 : (def.tint ?? 0xffffff);
       const since = r.sinceHit + t;
       const special = r.hitFx === 'blood' ? bloodFrame(since) : r.hitFx === 'shock' ? shockFrame(since * 1.5) : r.hitFx === 'fire' ? fireHitFrame(since * 1.2) : r.hitFx === 'lightning' ? lightningHitFrame(since * 1.2) : null;
       // (a plain blow: flesh sprays blood, the rest a spark)
@@ -177,7 +179,8 @@ export class MapRaiders {
       d.shadow.visible = s.visible;
       d.shadow.width = Math.max(10, Math.abs(s.width) * 0.6);
       d.shadow.height = Math.max(4, Math.abs(s.width) * 0.12);
-      d.shadow.alpha = r.down ? 0.25 : 0.42;
+      d.shadow.alpha = r.down ? 0.25 : r.ally ? 0.7 : 0.42;
+      d.shadow.tint = r.ally && !r.down ? 0x60e070 : 0x000000;
       d.shadow.position.set(Math.round(x), Math.round(y) + 2);
       d.shadow.zIndex = y - 0.5;
     }

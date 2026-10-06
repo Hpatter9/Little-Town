@@ -19,6 +19,11 @@ import {
   type FactionDef, type RealmStance, type Temper,
 } from '../data/factions';
 import { levelOf } from '../data/levels';
+/** A vassal's levy for an assault: this share of its troops, at most this many. */
+const LEVY_SHARE = 0.25;
+const LEVY_MOST = 6;
+/** A demand is paid unanswered when the treasury holds this many times it. */
+const DEMAND_EASY = 2;
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { hashSeed, Rng } from '../rng';
 import { weddingFeast } from './ceremonies';
@@ -26,8 +31,8 @@ import { assignBeds } from './townsfolk';
 import { startRaid } from './raids';
 import { seaTown } from './sea';
 import { isChild } from './social';
-import { makeStranger } from './strangers';
-import { addStock, earn, makePerson, notify, setOutcome, townFull, type Faction, type GameState, type Prompt, type Raid, type Raider } from './state';
+import { makeStranger, strangerLook } from './strangers';
+import { addStock, campXY, earn, edgeXY, makePerson, notify, setOutcome, townFull, type Faction, type GameState, type Prompt, type Raid, type Raider } from './state';
 import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 
@@ -265,13 +270,52 @@ export function envoy(s: GameState, f: Faction, about: string): Prompt | null {
     story: `${t.text} (${d.name}: ${STANCE_NAME[f.stance].toLowerCase()}, ${moodWord(f.attitude)}.)`,
     picture: eventPicture(`envoy:${f.id}:${about}`, `${d.stronghold} ${d.name} envoy ${about === 'demand' || about === 'conquered' ? 'war' : 'court'}`, now),
     options: t.options,
-    defaultOption: t.def,
+    // (left unanswered, a demand the treasury can easily meet is paid: refusing invites war)
+    defaultOption: about === 'demand' && (s.coins ?? 0) >= coins * DEMAND_EASY ? 0 : t.def,
     expiresTick: s.tick + ENVOY_HOURS * TICKS_PER_HOUR,
   };
   s.prompts.push(prompt);
   f.lastEnvoy = s.tick;
+  rideIn(s, f);
   notify(s, `${t.title}.`, true);
   return prompt;
+}
+
+/** The envoy's rider (seen on the map): rides in from the edge of the land on the power's side to the fire, waits
+ *  there while the question is open, then rides out. A look of their people, mounted. */
+function rideIn(s: GameState, f: Faction): void {
+  const d = defOf(f);
+  const side: -1 | 1 = hashSeed(f.id) % 2 ? 1 : -1;
+  const at = edgeXY(s, side);
+  const p = makePerson(new Rng(hashSeed(`${s.seed}:envoy:${f.id}:${s.tick}`)), ENVOY_ID, 'gatherer', at, []);
+  if (d.origin) strangerLook(p, d.origin);
+  s.envoyRider = { id: ENVOY_ID, faction: f.id, name: `Envoy of ${d.name.replace(/^The /, 'the ')}`, look: p.look, x: at.x, y: at.y, dir: side < 0 ? 1 : -1, leaving: false };
+}
+/** The rider's id (never a townsperson's), and their pace (px a tick). */
+export const ENVOY_ID = -7777;
+const RIDE_PACE = 1.6;
+
+/** Each tick: the envoy's rider on their way in, waiting, or on their way out. */
+export function envoyTick(s: GameState): void {
+  const r = s.envoyRider;
+  if (!r) return;
+  if (!r.leaving && !envoyWaiting(s)) r.leaving = true;
+  const camp = campXY(s);
+  const side: -1 | 1 = r.x < camp.x ? -1 : 1;
+  const to = r.leaving ? edgeXY(s, side) : { x: camp.x + side * 44, y: camp.y + 28 };
+  const dx = to.x - r.x;
+  const dy = to.y - r.y;
+  const d = Math.hypot(dx, dy);
+  if (d <= RIDE_PACE) {
+    r.x = to.x;
+    r.y = to.y;
+    if (r.leaving) s.envoyRider = undefined;
+    else r.dir = side < 0 ? 1 : -1; // (waiting, facing the fire)
+    return;
+  }
+  r.x += (dx / d) * RIDE_PACE;
+  r.y += (dy / d) * RIDE_PACE;
+  r.dir = dx >= 0 ? 1 : -1;
 }
 
 /** The town's answer to an envoy (the player's, or the default when nobody answers). */
@@ -503,6 +547,21 @@ export function launchHost(s: GameState, f: Faction, rng: Rng): Raid | null {
 export function hostMakeup(s: GameState, f: Faction, size: number): { most: number; siege: number; leader: string } {
   const siege = s.era === 'neolithic' ? 0 : Math.floor(size / SIEGE_EVERY);
   return { most: size, siege, leader: defOf(f).lord };
+}
+
+/** The levies that march with the town's assault: its allies send `ALLY_TROOPS` of theirs, its vassals a share of
+ *  theirs (`LEVY_SHARE`, up to `LEVY_MOST`), never the power being stormed. Returns the troop kinds and who sent them. */
+export function leviesFor(s: GameState, target: string, rng: Rng): { kind: string; from: string }[] {
+  const out: { kind: string; from: string }[] = [];
+  for (const f of realm(s)) {
+    if (f.id === target || !f.known || (f.stance !== 'alliance' && f.stance !== 'vassal')) continue;
+    const kind = RAID_KIND_BY_ID[defOf(f).raid];
+    const ids = Object.keys(kind?.enemies ?? {});
+    if (!ids.length) continue;
+    const n = f.stance === 'vassal' ? Math.min(LEVY_MOST, Math.max(1, Math.round(f.troops * LEVY_SHARE))) : rng.int(ALLY_TROOPS[0], ALLY_TROOPS[1]);
+    for (let i = 0; i < n; i++) out.push({ kind: ids[rng.int(0, ids.length - 1)], from: f.id });
+  }
+  return out;
 }
 
 /** The town's allies send some of their troops to stand with it (a host comes, or any raid now and then). */

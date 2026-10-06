@@ -30,6 +30,7 @@ export const CLASS_ATTRS: Record<ClassId, Attrs> = {
   ranger: { str: 0.15, dex: 0.45, vit: 0.2, int: 0.05, wis: 0.15 },
   archer: { str: 0.15, dex: 0.55, vit: 0.15, int: 0.1, wis: 0.05 },
   beast_tamer: { str: 0.2, dex: 0.25, vit: 0.25, int: 0.05, wis: 0.25 },
+  shapeshifter: { str: 0.3, dex: 0.25, vit: 0.3, int: 0.05, wis: 0.1 },
   mage: { str: 0.0, dex: 0.15, vit: 0.1, int: 0.55, wis: 0.2 },
   witch: { str: 0.0, dex: 0.15, vit: 0.1, int: 0.45, wis: 0.3 },
   white_mage: { str: 0.05, dex: 0.1, vit: 0.15, int: 0.2, wis: 0.5 },

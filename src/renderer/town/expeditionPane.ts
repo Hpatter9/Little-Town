@@ -291,7 +291,7 @@ export class ExpeditionPane {
         top = s.y + 6 + Math.round(size.h * sp.scale * creatureTop(sp.sheet));
       }
       s.alpha = f.down && f.side === 'enemy' ? 0.35 : 1;
-      s.tint = f.sinceHit < 3 && !f.down ? 0xff7070 : unit && f.side === 'party' ? 0xa8f0b8 : 0xffffff;
+      s.tint = f.sinceHit < 3 && !f.down ? 0xff7070 : 0xffffff;
       // (enemies face left, toward the party)
       placeArea(d.blast, ENEMIES[f.kind]?.kit?.area?.fx, f.sinceArea, x, f.side === 'enemy' ? -1 : 1, WALK_Y);
       // (a Blood Knight's blows burst with blood)

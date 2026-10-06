@@ -2,7 +2,7 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
-import { assaultDestination, assaultOver, assaultTargets, isAssaultDest, planAssault } from './factions';
+import { assaultDestination, assaultOver, assaultTargets, isAssaultDest, leviesFor, planAssault } from './factions';
 import { ASSAULT_MOST } from '../data/factions';
 import { boatDef, boatHome, fleet, freeBoat, sailSpeed, sailsTo, seaHour } from './boats';
 import { payParty } from './economy';
@@ -48,7 +48,7 @@ import { skillSpeed, type Skill } from '../data/skills';
 import { hashSeed, Rng } from '../rng';
 import { depositNear, storages, totalStock } from './buildings';
 import { isChild } from './social';
-import { ammoOf, battleLoot, startBattle, stepBattle, type Battle } from './combat';
+import { ammoOf, battleLoot, startBattle, stepBattle, unitFighter, type Battle } from './combat';
 import { classAllies } from './classes';
 import { bossSlain } from './bosses';
 import { delveHome, quietHours, startDelve, stepDelve } from './delves';
@@ -512,6 +512,10 @@ function fightGroup(s: GameState, e: Expedition, d: Destination, members: Person
   if (storm) group = storm.waves[0];
   e.battle = startBattle(members, e.roles, group, rng, e.supplies);
   if (storm) {
+    // (the town's allies and vassals send levies to fight beside it: sim/factions.ts)
+    const levies = leviesFor(s, storm.target, rng);
+    levies.forEach((l, i) => e.battle!.fighters.push({ ...unitFighter(l.kind, 'party', -900000 - i), cooldown: 3 + i }));
+    if (levies.length) notify(s, `${levies.length} levies from the town's allies and vassals march with ${the(d.name)} party.`, true);
     e.battle.waves = storm.waves.slice(1);
     e.battle.wave = 1;
     storm.wave = 1;

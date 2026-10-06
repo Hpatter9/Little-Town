@@ -1767,6 +1767,28 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`OWN_ARTICLE` has "storm"), and foes are pluralised at the head word ("knights of the order", "crossbowmen").
   Tests: `test/factions.test.ts`. Soak (3 towns each of settlers, knights and vampires, 20 days): no town lost, 1 to 5
   deaths, wars, peace, trade and a vassal; hosts of about 20 from day 11, growing with the power's troops.
+- **The realm, rounded out (the owner's "do them all"):** an assault is fought in the stronghold's own scenes (`ROUTES`
+  `assault:<faction>` is the power's `road` and `inside`; a dungeon's are its own); every stronghold and storming
+  target has a spot on the world map (`STRONGHOLD_SPOTS` in data/factions.ts, merged into `MAP_SPOTS`; drawn by
+  worldMapView as a `.map-hold` tower, ✕ when razed, tappable at war). **Phone alerts** for war (`AlertSettings.war`,
+  forecast kind `war`: a host mustered, war declared, a vassal risen; high priority). **Siege engines on the trail**
+  (`siegeBlow` in battle.ts): within `SIEGE_REACH` (4) cells of a wall or tower spot, or of the gate at the trail's
+  end, an engine batters it (`SIEGE_WALL` times its blow; a wall or gate at 0 falls) and silences a defence for
+  `SIEGE_SILENCE` (20) s. **Levies:** allies send `ALLY_TROOPS` and vassals `LEVY_SHARE` of their troops (up to
+  `LEVY_MOST`) to march in an assault beside the party (`leviesFor`, pushed into the fight by `fightGroup`).
+  **Envoys ride in:** `s.envoyRider` (`rideIn`, `envoyTick` from sim.ts): a mounted stranger of their people rides from
+  the land's edge to the fire, waits while the question is open, and rides off (`snapshot.envoyRider`, drawn as a
+  traveller by main.ts's `envoyPerson`). A demand the treasury holds `DEMAND_EASY` (2) times over is paid if nobody
+  answers. Tests in `test/factions.test.ts`.
+- **The Shapeshifter calling (26 callings now):** `shapeshifter` in data/classes.ts (a bruiser, rare, claws, spears
+  and staves), its stages Skinchanger, Beastblood, Manyform, Primal, Wild God; it always fights in a beast's shape,
+  a greater one each stage (`BEAST_FORMS`, `beastForm` in data/levels.ts: wolf, lion, bear, drake, wyvern; a druid
+  from the third stage keeps to the bear). `PersonView.beast` and the fight's `FighterView.beast` carry the form
+  (sheet, block, scale) to mapPeople and fightView. Twenty skills (`howl`, `savage_roar`, the ultimate
+  `primal_fury`...). Test in `test/shapeshift.test.ts`.
+- **Allies keep their colours:** summoned, tamed and allied fighters were washed green all over on the map, the fight
+  screen and the expedition pane (a summoned wolf read as a stray green monster); now an ally on the map has a green
+  glow underfoot and a green health bar instead (mapRaiders.ts).
 
 - **Nobody turns into someone else at a fight, the Shapeshifter shifts, no bundles overhead (the owner's asks):** in a
   fight a townsperson's look gains their weapon's layer, and until it loaded the map fell back to an old Craftpix hero

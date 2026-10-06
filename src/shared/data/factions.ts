@@ -69,6 +69,12 @@ export const FACTION_DEFS: readonly FactionDef[] = [
   }),
   { id: 'brotherhood', name: 'The Red Brotherhood', raid: 'bandits', lord: 'bandit_chief', stronghold: 'Gallows Hold', road: 'bandit_camp', inside: 'keep', temper: 'greedy', goods: 'iron' },
 ];
+/** Where each power's stronghold stands on the world map (768px square, data/worldMap.ts). */
+export const STRONGHOLD_SPOTS: Readonly<Record<string, { x: number; y: number }>> = {
+  lich: { x: 40, y: 150 }, druid: { x: 740, y: 110 }, vampire: { x: 480, y: 30 }, werewolf: { x: 740, y: 300 },
+  robot: { x: 740, y: 530 }, dwarves: { x: 130, y: 250 }, merfolk: { x: 600, y: 740 }, nomads: { x: 30, y: 470 },
+  fae: { x: 600, y: 180 }, alchemists: { x: 440, y: 250 }, knights: { x: 250, y: 290 }, brotherhood: { x: 130, y: 480 },
+};
 export const FACTION_BY_ID: Readonly<Record<string, FactionDef>> = Object.fromEntries(FACTION_DEFS.map((f) => [f.id, f]));
 
 /** How many powers a town shares its realm with, and when it meets them (game days, then one more every few). */
@@ -125,6 +131,9 @@ export const HOST_GAP_DAYS = 4;
 export const HOST_LEAST = 12;
 /** One siege engine for every so many in a host, from the Medieval age. */
 export const SIEGE_EVERY = 12;
+/** How far (battle-map cells) a siege engine's blows reach, and how long a tower it strikes falls silent (s). */
+export const SIEGE_REACH = 4;
+export const SIEGE_SILENCE = 20;
 /** How much harder a siege engine strikes walls and gates. */
 export const SIEGE_WALL = 6;
 /** An ally sends this many of its troops when the town is attacked by a host (and some for any raid). */

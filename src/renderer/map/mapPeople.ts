@@ -67,8 +67,6 @@ const CLASS_LOOK: Partial<Record<ClassId, [CreatureSheet, number]>> = {
 const WORK_W = 18;
 const WORK_ABOVE = 58;
 /** A shapeshifter's bear: its block on the MV bear sheet, and its size against a person. */
-const BEAR_BLOCK = 5;
-const BEAR_K = 1.3;
 /** The health bar's width (px) in a raid. */
 const HP_W = 20;
 
@@ -467,12 +465,15 @@ export class MapPeople {
         s.anchor.set(0.5, 1);
         s.scale.set(wk * creatureFlip(wolf, facing), wk);
       }
-      // a shapeshifter (a druid from the third stage) fights as a bear (the MV bear: data/levels.ts `shapeshifts`)
+      // a shapeshifter fights in their beast's shape (data/levels.ts `beastForm`: wolf, lion, bear, drake, wyvern by
+      // stage; a druid's bear)
       if (v.beast && inCombat && !hidden && v.downed === null) {
+        const b = v.beast;
+        const sheet = b.sheet as CreatureSheet;
         plain = false;
-        s.texture = creatureFrame('bear', BEAR_BLOCK, facing, moving ? Math.floor(d.walked / 5) : Math.floor(now / 220 + v.id) % 3);
+        s.texture = creatureFrame(sheet, b.block, facing, moving ? Math.floor(d.walked / 5) : Math.floor(now / 220 + v.id) % 3);
         s.anchor.set(0.5, 1);
-        s.scale.set(BEAR_K * k, BEAR_K * k);
+        s.scale.set(b.scale * k * creatureFlip(sheet, facing), b.scale * k);
       }
       // in the sea a merrow shows to the waist, their tail curling below (art/merTail.ts)
       const swimming = v.swimming && !hidden && v.downed === null;

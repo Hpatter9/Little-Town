@@ -8,7 +8,7 @@ import type { GameState } from './state';
 
 /** `event`: a choice event, which pauses the town while you're away until you answer it (offline.ts), so it's where
  *  the forecast stops. */
-export type ForecastKind = 'raid' | 'death' | 'expedition' | 'choice' | 'event' | 'hero' | 'delve';
+export type ForecastKind = 'raid' | 'death' | 'expedition' | 'choice' | 'event' | 'hero' | 'delve' | 'war';
 
 export interface ForecastEvent {
   kind: ForecastKind;
@@ -67,6 +67,8 @@ export function startForecast(state: GameState, ticks: number, max = 12): Foreca
           else if (/has died|carried off|camp breaks apart/.test(n.text)) out.push({ kind: 'death', tick: n.tick, title: 'Bad news', text: n.text });
           // (a delve's big moments: the boss reached, the dungeon cleared, a unique found, a dungeon woken again)
           else if (/rises to meet them|is cleared!|a unique (weapon|treasure)|one of a kind|has woken/.test(n.text)) out.push({ kind: 'delve', tick: n.tick, title: 'Down the dungeon', text: n.text });
+          // (the realm: a war host mustered, war declared, a vassal risen: sim/factions.ts)
+          else if (/mustered a war host|declared war|thrown off the town's yoke/.test(n.text)) out.push({ kind: 'war', tick: n.tick, title: 'War', text: n.text });
           else if (/party is back|No one came back/.test(n.text)) out.push({ kind: 'expedition', tick: n.tick, title: 'Expedition', text: n.text });
         }
         lastNotice = s.notices.at(-1)?.id ?? lastNotice;

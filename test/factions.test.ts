@@ -3,12 +3,15 @@ import { test } from 'node:test';
 import { FACTION_BY_ID, HOST_MOST } from '../src/shared/data/factions';
 import { ENEMIES } from '../src/shared/data/enemies';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
-import { assaultWaves, defOf, factionsDaily, launchHost, musterHost, realm, realmCommand, rivalRaidOdds, hostOver } from '../src/shared/sim/factions';
-import { startBattle } from '../src/shared/sim/battle';
+import { assaultWaves, defOf, envoy, envoyTick, leviesFor, factionsDaily, launchHost, musterHost, realm, realmCommand, rivalRaidOdds, hostOver } from '../src/shared/sim/factions';
+import { siegeBlow, startBattle } from '../src/shared/sim/battle';
+import { ROUTES } from '../src/shared/data/scenes';
+import { MAP_SPOTS } from '../src/shared/data/worldMap';
+import { campXY } from '../src/shared/sim/state';
 import { startBattle as startFight, stepBattle as stepFight } from '../src/shared/sim/combat';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
-import { plainGame } from './helpers';
+import { plainGame, put } from './helpers';
 import { sendExpedition, updateExpeditions } from '../src/shared/sim/expeditions';
 
 // The realm (sim/factions.ts): powers met by envoys, treaties won by goodwill, war hosts with days of warning, and
@@ -162,4 +165,73 @@ test('storming a stronghold end to end: the whole town marches, fights its waves
   const p = s.prompts.find((q) => q.envoy?.about === 'conquered')!;
   answerPrompt(s, p.id, 1, new Rng(1));
   assert.equal(f.stance, 'destroyed', 'razed');
+});
+
+test('a siege engine on the trail batters the gate it reaches, and brings it down', () => {
+  const s = plainGame('realm-siege');
+  s.battles = true;
+  s.era = 'medieval';
+  for (const f of realm(s)) f.known = true;
+  const foe = realm(s)[0];
+  foe.stance = 'war';
+  foe.troops = 60;
+  musterHost(s, foe);
+  const r = launchHost(s, foe, new Rng(4))!;
+  r.phase = 'active';
+  startBattle(s, r);
+  const b = r.battle!;
+  const end = b.map.paths[0][b.map.paths[0].length - 1];
+  const gate = put(s, 'palisade_wall', end[0], end[1], { hp: 150 });
+  const engine = r.raiders.find((rd) => rd.kind === 'siege_engine')!;
+  assert.ok(engine);
+  const rng = new Rng(9);
+  let blows = 0;
+  while (s.buildings.includes(gate) && blows < 50) {
+    assert.ok(siegeBlow(s, b, engine, [end[0], end[1]], end, rng), 'it strikes the gate');
+    blows++;
+  }
+  assert.ok(!s.buildings.includes(gate), `the gate falls (${blows} blows)`);
+  assert.ok(!siegeBlow(s, b, engine, [end[0] + 40, end[1]], end, rng), 'nothing within reach out in the fog');
+});
+
+test('allies and vassals send levies to an assault', () => {
+  const s = plainGame('realm-levy');
+  for (const f of realm(s)) f.known = true;
+  const [foe, friend, sworn] = realm(s);
+  foe.stance = 'war';
+  friend.stance = 'alliance';
+  sworn.stance = 'vassal';
+  sworn.troops = 40;
+  const levies = leviesFor(s, foe.id, new Rng(2));
+  assert.ok(levies.some((l) => l.from === friend.id), 'the ally marches');
+  assert.ok(levies.some((l) => l.from === sworn.id), 'the vassal sends its levy');
+  assert.ok(!levies.some((l) => l.from === foe.id), 'never the foe');
+});
+
+test('an envoy rides in to the fire, waits while asked, and rides off when answered; an easy demand is paid unanswered', () => {
+  const s = plainGame('realm-envoy');
+  for (const f of realm(s)) f.known = true;
+  const f = realm(s)[0];
+  s.coins = 10000;
+  const p = envoy(s, f, 'demand')!;
+  assert.equal(p.defaultOption, 0, 'the treasury can pay: pay it');
+  assert.ok(s.envoyRider, 'a rider sets out');
+  const start = { x: s.envoyRider!.x, y: s.envoyRider!.y };
+  for (let i = 0; i < 3000; i++) envoyTick(s);
+  const camp = campXY(s);
+  assert.ok(Math.abs(s.envoyRider!.x - camp.x) < 60 && Math.abs(s.envoyRider!.x - start.x) > 60, 'waiting by the fire');
+  answerPrompt(s, p.id, 0, new Rng(3));
+  for (let i = 0; i < 5000 && s.envoyRider; i++) envoyTick(s);
+  assert.ok(!s.envoyRider, 'gone home');
+  s.coins = 0;
+  s.prompts = [];
+  const q = envoy(s, f, 'demand')!;
+  assert.notEqual(q.defaultOption, 0, 'an empty treasury refuses');
+});
+
+test('every stronghold and dungeon assault has its own scenes and a spot on the world map', () => {
+  for (const f of Object.values(FACTION_BY_ID)) {
+    assert.deepEqual(ROUTES[`assault:${f.id}`], [f.road, f.inside], f.id);
+    assert.ok(MAP_SPOTS[`assault:${f.id}`], `${f.id} on the map`);
+  }
 });

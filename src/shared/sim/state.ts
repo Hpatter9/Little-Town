@@ -750,6 +750,8 @@ export interface GameState {
   muster?: Muster;
   /** The powers of the realm and how the town stands with each (sim/factions.ts). */
   factions?: Faction[];
+  /** An envoy riding in to the town's fire, waiting there for an answer, and riding out (sim/factions.ts). */
+  envoyRider?: { id: number; faction: string; name: string; look: Look; x: number; y: number; dir: 1 | -1; leaving: boolean };
   /** World seed (the land is made from it; changes live in `land`). */
   seed: string;
   /** Ticks simulated since the game began. */
