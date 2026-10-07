@@ -357,6 +357,54 @@ export class MapView {
     return { src, sx: (x % CHUNK) * CELL, sy: (y % CHUNK) * CELL };
   }
 
+  /** The ground as it would be painted with no fog over it (the tactics board reaches past what the town has seen):
+   *  chunks painted on asking, kept until the land or the season changes. */
+  clearGroundOf(x: number, y: number): { src: CanvasImageSource; sx: number; sy: number } | null {
+    const land = this.land;
+    if (!land || !groundArtReady()) return null;
+    const sig = `${land.version}|${this.season}|${this.biome}|${this.era}|${!!tdTiles()}|${this.blighted()}`;
+    if (sig !== this.clearSig) {
+      for (const c of this.clear.values()) c.destroy(true);
+      this.clear.clear();
+      this.clearSig = sig;
+    }
+    const cx = Math.floor(x / CHUNK);
+    const cy = Math.floor(y / CHUNK);
+    let tex = this.clear.get(`${cx},${cy}`);
+    if (!tex) {
+      const open = land.open;
+      land.open = land.w + land.h; // (the fog lifted for the painting, and put back at once)
+      try {
+        tex = paintChunk(land, cx, cy, this.season, this.biome, tdTiles(), this.era, this.blighted());
+      } finally {
+        land.open = open;
+      }
+      this.clear.set(`${cx},${cy}`, tex);
+    }
+    const src = tex.source?.resource as CanvasImageSource | undefined;
+    return src ? { src, sx: (x % CHUNK) * CELL, sy: (y % CHUNK) * CELL } : null;
+  }
+  private clear = new Map<string, Texture>();
+  private clearSig = '';
+
+  /** And a finished building's picture as the map draws it (texture and size in world px), for the tactics board. */
+  buildingPicture(id: number): { tex: Texture; w: number; h: number } | null {
+    const d = this.buildings.get(id);
+    if (!d || (d.progress >= 0 && d.progress < 1) || d.room) return null; // (-1: drawn finished)
+    return { tex: d.sprite.texture, w: d.rect.w, h: d.rect.h };
+  }
+
+  /** A prop of one kind (a rock, a bush...) from the land's own sets, picked by the cell. */
+  propKind(kind: PropKind, x: number, y: number): Texture | null {
+    return this.propFor([[kind, 1]], x, y);
+  }
+
+  /** A wall or gate's pack picture in the town's look, `w` cells wide (the tactics board's town wall). */
+  wallPicture(def: string, w: number, id: number, join?: Join): { tex: Texture; w: number; h: number } | null {
+    const art = packArt(def, w, this.style, id, join);
+    return art ? { tex: art.texture, w: art.width, h: art.height } : null;
+  }
+
   /** And what stands on a wild cell of it (a tree, a bush, a rock), as the map draws it there. */
   propOf(x: number, y: number): Texture | null {
     const land = this.land;

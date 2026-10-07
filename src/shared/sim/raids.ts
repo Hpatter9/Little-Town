@@ -103,7 +103,7 @@ import { fireAt, speedOf, tickBurns } from './defenses';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
 import { battlesOn, startBattle, stepBattle } from './battle';
-import { startTactics, stepTactics, tacticsOn } from './tactics';
+import { startTactics, stepTactics, tacticsOn, tacticsOver } from './tactics';
 
 /** Raiders start this far beyond the edge of the land. */
 const OFF_MAP = 40;
@@ -711,7 +711,7 @@ function fireDefenses(s: GameState, rng: Rng): void {
     const d = b.status === 'done' ? BUILDING_BY_ID[b.def]?.defense : undefined;
     if (!d || (b.readyTick ?? 0) > s.tick) continue;
     const at = buildingCentre(b);
-    const target = s.raid!.raiders.filter((rd) => !rd.down && !rd.gone && !rd.ally && dist(rd, at) <= d.range).sort((a, c) => dist(a, at) - dist(c, at))[0];
+    const target = s.raid!.raiders.filter((rd) => !rd.down && !rd.gone && !rd.ally && !(s.raid!.tactics && rd.bt && !rd.bt.out) && dist(rd, at) <= d.range).sort((a, c) => dist(a, at) - dist(c, at))[0];
     if (!target) continue;
     b.readyTick = s.tick + Math.round(d.interval * TICK_HZ);
     const was = before(s.raid!.raiders);
@@ -838,6 +838,7 @@ const theName = (name: string) => (/^the /i.test(name) ? name.slice(4) : name.to
 function endRaid(s: GameState, rng: Rng): void {
   const r = s.raid!;
   s.raid = null;
+  if (r.tactics) tacticsOver(s, r); // (the board stays up a moment for the last word: sim/tactics.ts)
   const kind = RAID_KIND_BY_ID[r.kind];
   meet(s, r.raiders.filter((rd) => !rd.ally).map((rd) => rd.kind)); // (the Bestiary)
   if (r.kind === 'hunters') guildDefeated(s);

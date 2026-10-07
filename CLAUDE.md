@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.12.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.13.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2071,17 +2071,49 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   tab is the Hall of Legends (`panel/legendsPanel.ts`, each card opening on its heroes). The desktop app keeps no
   legends yet. Tests: `test/legacy.test.ts`.
 - **Previews:** `window.__disaster(kind)` starts a disaster (mobileBridge.ts), beside `__raid`.
-- **Tactics battles (a trial; the owner's ask, after FF Tactics):** `src/shared/sim/tactics.ts` and
-  `src/renderer/tactics/tacticsView.ts`. With `s.battleStyle === 'tactics'` (the `battleStyle` command; the Town
-  menu's Raid battles row) a raid is fought on a board (`BOARD_W` x `BOARD_H`) cut from the land round the gate
-  (`makeBoard`: heights by ground plus a little relief, buildings blocks nobody crosses, walls the town's to stand on,
-  trees cover) instead of the trail (`Raid.tactics` in place of `Raid.battle`; raids.ts picks). Turns by a CT clock
-  (speed from Dexterity or the raider's quickness); each walks (move, jump) and strikes, from above, beside
-  (`SIDE_MULT`) and behind (`BACK_MULT`) harder (`blowMult`), through `defenderAttack`/`attackPerson`, so wounds,
-  deaths and the recap are as in any raid; raiders reaching the town's edge of the board are through. The town
-  plays every turn (taking over a unit is the next step). Drawn isometric: each tile a column, its top the map's own
-  painted ground (`MapView.groundOf`), its sides drawn; the map's trees (`propOf`), MapPeople and MapRaiders on the
-  tiles; the path, rings, numbers and the turn order. Test: `test/tactics.test.ts`.
+- **Tactics battles (the default raid; the owner's ask, after FF Tactics):** `src/shared/sim/tactics.ts` and
+  `src/renderer/tactics/tacticsView.ts` (`TacticsScene`). Every raid is fought on a board unless `s.battleStyle` is
+  `'trail'` (the Town menu's Raid battles row; the tests' `plainGame` sets the trail). The board (`makeBoard`: `BOARD_W`
+  x `BOARD_H` 17x14, 21x17 for a host or a crowd) is cut from the land round the gate, with **no buildings on it** (the
+  owner's call): heights by ground and a stronger relief (`ROLLING`, `RELIEF`), the land's woods as cover (`COVER`), traps
+  on their tiles (and off-board ones laid across the way in). **The town's edge is its wall:** one column across the
+  board at the gate's row (`townWall`: the ring's wall, else the best built, else a palisade), a raised rampart the
+  town's fighters stand on and raiders can't cross, with a gate two tiles wide in the middle (`TacTile.wall`, `.gate`);
+  the town's towers stand on it out from the gate (`TacTile.bld`); raiders find their way round to the gate (`wayIn`, a
+  distance field). **Every battle's field differs** (`lieOfTheLand`, seeded by the tick: `makeBoard(..., salt)`): rises
+  and hollows, boulders nobody crosses (`block: 'rock'`, `BOULDERS`), thickets for cover (`bush`, `THICKETS`). Drawn with
+  the pack's wall and gate pictures (`MapView.wallPicture`, two runs of stakes a tile so the line stands unbroken), the
+  map's rock and bush props (`MapView.propKind`), and tile tops from the ground painted with the fog lifted
+  (`MapView.clearGroundOf`), since the board reaches past what the town has seen. **Turns** by a CT clock (`statsOf`: speed from Dexterity or the
+  raider's quickness; move 3 to 5 and jump by Dexterity and weapon); a turn is a move and an act in either order, then a
+  facing; blows from the side `SIDE_MULT` and behind `BACK_MULT`, from above `HEIGHT_STEP` a step (`blowMult`); rain and
+  night spoil shots (`RAIN_MISS`). **Every spell and skill has its own reach and area** (`src/shared/sim/tacticsArea.ts`,
+  `areaOf`, worked out from whom its effects touch, spell or skill, an ultimate, and what its name says: one tile, a
+  cross, a 3x3 or 5x5, a line out from the user (lances, bolts, charges), all round the user (whirls, cries, quakes), or
+  self; a weapon art reaches as far as the weapon; `aimTiles` where it may be aimed, `areaTiles` what it touches,
+  `areaLabel` for the menu). Of the 469 actives: one 153, 3x3 76, self 74, cross 74, all round 55, lines 36. An act for
+  one cast over a wider area touches all in it at `SPREAD_POWER` (0.75). It is cast at a tile (`TacAct.at`, the
+  `skill` order's `at`), lights its area as it falls (fx `area`), and the town picks what to cast and where by scoring
+  every tile in reach (`bestCast`: foes hit, the hurt mended, a hindrance on two or more; an ultimate first). On the
+  board: Attack shows the weapon's range faint (`orders.attack`); a skill shows where it may be aimed faint and, at the
+  first tap, where it would fall bright ("tap again to use it"; one that falls round its user is aimed at once). Towers and engines take their own turns (`TOWER_SPEED`). Blows go through
+  `defenderAttack`/`attackPerson` (the town's ground `GROUND`, the raiders' blows times `guardOf`: 0.6 for one or two
+  defenders, 0.7 to four, `HOME_GUARD` past), so wounds, deaths and the recap are as in any raid. **FFT's rules:** a
+  townsperson struck down has a count of `DOWN_COUNT` (3) of their turns, then is lost (the founder held at 1); a friend
+  may tend them (`TENDED_HP`); a fallen raider may leave a chest (`CHEST_CHANCE`: coins, now and then a medkit); a raid with
+  a chief (`chief`: a boss, the kind's leader, or a chief by name) breaks when the chief falls ("Defeat X!"); raiders come
+  in waves (`WAVE_LEAST`, `WAVE_PER_FIGHTER` a fighter; "Reinforcements!"), rout at `ROUT`, and reaching the town's end
+  of the board are through. **Orders:** with Auto off (`s.tacticsAuto`, the `tactics` command: auto, move, undo,
+  attack, skill, tend, wait) each townsperson's turn waits (`Tactics.await`, `AWAIT_TICKS` 40 s, then the town plays
+  it): Move (reach in blue), Act (Attack, Tend, the kit's skills by page with cost), Undo, Wait (an earlier next turn).
+  Never in the catch-up, alone, or with the autopilot off. When the raid ends (`endRaid` → `tacticsOver`) the board stays
+  up 4 s with Victory or the raiders' flight across it (`s.tacticsEnded`). **Drawn** isometric: each tile a column of
+  the map's own ground, the map's trees (`propOf`), MapPeople and MapRaiders on the tiles; marks
+  for reach, targets, path and rings; arrows and tower bolts as arcs; the act sheets (`actSprite`) with a ring under the
+  caster; an ultimate shakes the board; numbers bounce (green for healing); night shades it. The HUD: the objective and
+  conditions, the turn order down the right, the ability's name box, the banner, whose turn and the target as unit boxes,
+  the orders bar, Auto and speed. Taps go through `boardPress`/`tap` in main.ts; a drag pans. Balance (16 lone towns,
+  10 days): 2.33 people against the trail's 2.25. Tests: `test/tactics.test.ts`.
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

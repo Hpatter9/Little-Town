@@ -1,6 +1,7 @@
 // Player actions. The UI never edits state directly: it sends commands, and the sim applies them at the
 // start of the next tick so every change happens at a well-defined point in sim time.
 
+import type { TacticsOrder } from './tactics';
 import type { RealmOp } from './factions';
 const REALM_OPS: readonly RealmOp[] = ['gift', 'peace', 'trade', 'alliance', 'war', 'demand', 'free', 'marry'];
 import { TAX_RATES, type TaxRate } from '../data/economy';
@@ -84,6 +85,7 @@ export type Command =
   | { type: 'battleAuto'; on: boolean }
   | { type: 'battleSpeed'; speed: number }
   | { type: 'battleStyle'; style: 'trail' | 'tactics' }
+  | { type: 'tactics'; order: TacticsOrder }
   | { type: 'gameSpeed'; speed: number }
   | { type: 'battleCast'; power: string; x: number; y: number }
   /** Turn a party around. */
@@ -212,6 +214,31 @@ export function parseCommand(raw: unknown): Command | null {
       return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'battleSpeed', speed: c.speed } : null;
     case 'battleStyle':
       return c.style === 'trail' || c.style === 'tactics' ? { type: 'battleStyle', style: c.style } : null;
+    case 'tactics': {
+      const o = c.order as Record<string, unknown> | undefined;
+      if (!o || typeof o !== 'object') return null;
+      const n = (x: unknown) => typeof x === 'number' && Number.isInteger(x);
+      const str = (x: unknown) => typeof x === 'string' && x.length < 20;
+      switch (o.op) {
+        case 'auto':
+          return typeof o.on === 'boolean' ? { type: 'tactics', order: { op: 'auto', on: o.on } } : null;
+        case 'move':
+          return n(o.u) && n(o.v) ? { type: 'tactics', order: { op: 'move', u: o.u as number, v: o.v as number } } : null;
+        case 'undo':
+          return { type: 'tactics', order: { op: 'undo' } };
+        case 'attack':
+        case 'tend':
+          return str(o.target) ? { type: 'tactics', order: { op: o.op, target: o.target as string } } : null;
+        case 'skill':
+          {
+            const at = Array.isArray(o.at) && o.at.length === 2 && o.at.every((n) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < 64) ? ([o.at[0], o.at[1]] as [number, number]) : undefined;
+            return str(o.skill) && (o.target === undefined || str(o.target)) && (o.at === undefined || at) ? { type: 'tactics', order: { op: 'skill', skill: o.skill as string, ...(o.target !== undefined ? { target: o.target as string } : {}), ...(at ? { at } : {}) } } : null;
+          }
+        case 'wait':
+          return o.facing === undefined || n(o.facing) ? { type: 'tactics', order: { op: 'wait', ...(o.facing !== undefined ? { facing: o.facing as number } : {}) } } : null;
+      }
+      return null;
+    }
     case 'battleAuto':
       return typeof c.on === 'boolean' ? { type: 'battleAuto', on: c.on } : null;
     case 'battleCast':
