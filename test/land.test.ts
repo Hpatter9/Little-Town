@@ -28,7 +28,7 @@ test('every biome: a clear camp, a river with fertile banks, a fair share of wil
     assert.ok(water >= LAND_W, `${biome}: a river crosses the map (${water} water cells)`);
     assert.ok(count(m.cells, 'F') > 50, `${biome}: fertile banks`);
     const wild = count(m.cells, 'f') + count(m.cells, 'r') + count(m.cells, 'm') + count(m.cells, 'h');
-    assert.ok(wild > m.cells.length * 0.3 && wild < m.cells.length * 0.6, `${biome}: wild share ${(wild / m.cells.length).toFixed(2)}`);
+    assert.ok(wild > m.cells.length * 0.3 && wild < m.cells.length * 0.72, `${biome}: wild share ${(wild / m.cells.length).toFixed(2)}`);
     if (biome === 'coast') assert.ok(water > LAND_W * 8, 'the coast has a sea');
     if (biome === 'desert') assert.ok(count(m.cells, 's') > 1000, 'the desert is sandy');
     // every wild cell holds something to gather
@@ -101,4 +101,62 @@ test('a four-way path never steps diagonally (roads join edge to edge)', () => {
     last = c;
   }
   assert.deepEqual(last, to);
+});
+
+import { regionOfCell } from '../src/shared/sim/land';
+import { REGION_DEFS, VALE_R, inRegion, regionTitle } from '../src/shared/sim/landRegions';
+
+test('the wide land: named regions round the home vale, each shaping its ground', () => {
+  const m = makeLand('wide-1');
+  assert.ok(m.w >= 160 && m.h >= 160, 'the land is wide');
+  const regions = m.regions!;
+  assert.ok(regions.length >= 8, `${regions.length} regions`);
+  assert.equal(regions[0].kind, 'vale');
+  assert.equal(regionOfCell(m, m.camp.x, m.camp.y)?.kind, 'vale', 'the camp is in the vale');
+  assert.equal(new Set(regions.map((r) => r.name)).size, regions.length, 'names differ');
+  assert.equal(inRegion(regions[0]), '', 'home needs no naming');
+  assert.match(inRegion(regions[1]), /^ in /);
+  assert.match(regionTitle({ ...regions[1], name: 'the Grey Barrens' }), /^The /);
+  // each region's ground follows its character: count the kinds over the whole region (a lake at its heart)
+  const counts = new Map<number, Record<string, number>>();
+  for (let y = 0; y < m.h; y++)
+    for (let x = 0; x < m.w; x++) {
+      const r = regionOfCell(m, x, y)!;
+      const c = counts.get(r.id) ?? {};
+      const g = groundAt(m, x, y);
+      c[g] = (c[g] ?? 0) + 1;
+      c.all = (c.all ?? 0) + 1;
+      counts.set(r.id, c);
+    }
+  const share = (r: (typeof regions)[number], g: string, R = 0) => {
+    if (R) {
+      let n = 0;
+      let all = 0;
+      for (let y = r.y - R; y <= r.y + R; y++)
+        for (let x = r.x - R; x <= r.x + R; x++) {
+          if (x < 0 || y < 0 || x >= m.w || y >= m.h) continue;
+          all++;
+          if (groundAt(m, x, y) === g) n++;
+        }
+      return all ? n / all : 0;
+    }
+    const c = counts.get(r.id)!;
+    return (c[g] ?? 0) / c.all;
+  };
+  for (const r of regions) {
+    if (r.kind === 'oldwood') assert.ok(share(r, 'forest') > 0.5, `${r.name}: forest ${share(r, 'forest').toFixed(2)}`);
+    if (r.kind === 'barrens') assert.ok(share(r, 'rock') > 0.3, `${r.name}: rock ${share(r, 'rock').toFixed(2)}`);
+    if (r.kind === 'fen') assert.ok(share(r, 'marsh') > 0.3, `${r.name}: marsh ${share(r, 'marsh').toFixed(2)}`);
+    if (r.kind === 'lake') assert.ok(share(r, 'water', 5) > 0.5, `${r.name}: water ${share(r, 'water', 5).toFixed(2)}`);
+    if (r.kind === 'meadows') assert.ok(share(r, 'grass') + share(r, 'fertile') > 0.6, `${r.name}: open ${(share(r, 'grass') + share(r, 'fertile')).toFixed(2)}`);
+  }
+  // the vale reaches about as far as the old land did, so a town starts as it always has
+  assert.ok(VALE_R >= 24);
+  assert.ok(Object.keys(REGION_DEFS).length >= 8);
+  // a lake is water in a tundra and an oasis in the desert too
+  for (const biome of ['desert', 'tundra'] as const) {
+    const d = makeLand(`wide-${biome}`, biome);
+    const lake = d.regions!.find((r) => r.kind === 'lake')!;
+    assert.equal(groundAt(d, lake.x, lake.y), 'water', `${biome}: a lake`);
+  }
 });

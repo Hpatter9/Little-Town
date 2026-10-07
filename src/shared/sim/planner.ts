@@ -522,11 +522,18 @@ const NEVER = new Set(['wayside_shrine', 'temple', 'cathedral', 'phylactery', 'r
 /** How far beyond the town's reach the land is known (cells), and the furthest it opens on its own (the rest is for the
  *  map's own events to open, later). */
 const OPEN_BEYOND = 6;
-const OPEN_MAX = 40;
+/** How far the known land may spread from the camp (cells): most of the wide land. */
+const OPEN_MAX = 86;
 
 /** The known land grows with the town, and reaches further when what the town needs has run out within it. */
+/** How far a town ranges for something it can't find nearer: the old land's reach, and further as it grows (on the
+ *  wide land a lone founder once opened it all the way, and walked a day for a log). */
+const OPEN_FAR_BASE = 40;
+const OPEN_FAR_PER_PERSON = 3;
 function openLand(s: GameState, further = false): boolean {
-  const want = Math.min(OPEN_MAX, Math.max(s.land.open, townRadius(s) + OPEN_BEYOND, further ? s.land.open + 2 : 0));
+  const grown = s.people.filter((p) => !isChild(p) && p.away === null).length;
+  const far = Math.min(OPEN_MAX, OPEN_FAR_BASE + grown * OPEN_FAR_PER_PERSON);
+  const want = Math.min(OPEN_MAX, Math.max(s.land.open, townRadius(s) + OPEN_BEYOND, further ? Math.min(Math.max(s.land.open, far), s.land.open + 2) : 0));
   if (want <= s.land.open) return false;
   s.land.open = want;
   s.land.version++;

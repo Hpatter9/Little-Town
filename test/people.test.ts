@@ -111,9 +111,14 @@ test('the nearest marked cell is worked first, then the next', () => {
   const p0 = newGame('order').people[0];
   const expected = dist(cellPx(s, left), p0) <= dist(cellPx(s, right), p0) ? left : right;
   assert.equal(first, expected);
-  run(sim, 3600);
-  assert.equal(isWild(s, left), false);
-  assert.equal(isWild(s, right), false);
+  // (both get cleared; a marsh grows back in about two days (sim/regrow.ts), so the check is as they're cleared, not
+  // after the whole hour)
+  let cleared = { left: false, right: false };
+  for (let i = 0; i < 3600 * TICK_HZ && !(cleared.left && cleared.right); i++) {
+    sim.step();
+    cleared = { left: cleared.left || !isWild(s, left), right: cleared.right || !isWild(s, right) };
+  }
+  assert.ok(cleared.left && cleared.right, `cleared ${JSON.stringify(cleared)}`);
 });
 
 test('same seed and commands give identical results', () => {

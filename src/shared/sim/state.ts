@@ -13,7 +13,7 @@ import type { RealmStance, Temper } from '../data/factions';
 import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
-import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
+import { CELL, FOG_BAND, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
 import { SEAT_D, seatId } from '../data/seats';
 import type { Delve } from './delves';
 import type { PackState } from './pack';
@@ -1505,7 +1505,10 @@ export function campX(s: Pick<GameState, 'land' | 'nomad'>): number {
 }
 /** The land's edge on the camp's row, one cell out, on a side (where strangers come in and go out), in px. */
 export function edgeXY(s: Pick<GameState, 'land' | 'nomad'>, side: -1 | 1): Pt {
-  return { x: side < 0 ? -CELL / 2 : (s.land.w + 0.5) * CELL, y: campXY(s).y };
+  // (where the known land ends in the fog on the camp's row: on the wide land the map's own edge is a long walk off)
+  const reach = Math.min(s.land.open + FOG_BAND + 3, side < 0 ? s.land.camp.x + 1 : s.land.w - s.land.camp.x);
+  const cx = campX(s) + side * reach * CELL;
+  return { x: Math.max(-CELL / 2, Math.min((s.land.w + 0.5) * CELL, cx)), y: campXY(s).y };
 }
 /** Which side of the camp a point lies. */
 export const sideOf = (s: Pick<GameState, 'land' | 'nomad'>, p: Pt): -1 | 1 => (p.x < campX(s) ? -1 : 1);

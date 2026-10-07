@@ -78,9 +78,9 @@ export const BIOME_BEASTS: Record<string, Record<string, number>[]> = {
 };
 
 /** How many places a land holds, how far from the camp they lie (cells), and how far apart. */
-export const PLACE_COUNT = 14;
+export const PLACE_COUNT = 32;
 export const PLACE_NEAR = 10;
-export const PLACE_FAR = 42;
+export const PLACE_FAR = 88;
 export const PLACE_APART = 5;
 /** A found cart's robbers are still about this often. */
 export const CART_ROBBED = 0.4;

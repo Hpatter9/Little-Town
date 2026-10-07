@@ -5,6 +5,7 @@
 // Roads are cells marked on top of the ground; people walk the map by `findPath` (A*, eight ways, quicker on roads,
 // round water and buildings). Pure data and seeded: the same seed makes the same land.
 
+import { layRegions, regionAt, REGION_DEFS, type LandRegion, type RegionDef } from './landRegions';
 import { BIOME_DEFS, type Biome } from '../data/biomes';
 import type { Material } from '../data/materials';
 import { TERRAIN } from '../data/terrain';
@@ -13,8 +14,11 @@ import { hashSeed, Rng } from '../rng';
 /** One cell's side, in world px (a building's width in cells is its width in the old tiles). */
 export const CELL = 32;
 /** The map's size in cells, and the open area at founding (cells from the camp's centre). */
-export const LAND_W = 96;
-export const LAND_H = 96;
+/** The wide land (the owner's ask): four times the old 96x96, cut into named regions (landRegions.ts). */
+export const LAND_W = 192;
+export const LAND_H = 192;
+/** The old land's size: the home vale is laid as that land was. */
+export const OLD = 96;
 export const OPEN_START = 11;
 /** A shore town's known land reaches further: half of it is sea, so the wild stuff is further off. */
 export const OPEN_START_SEA = 15;
@@ -60,6 +64,10 @@ export interface LandMap {
   wear?: string;
   /** Wild cells gathered bare and growing back (sim/regrow.ts): the cell, what it was, the tick it returns. */
   regrow?: Record<number, [Ground, number]>;
+  /** The land's named regions (landRegions.ts): the home vale first. Absent on an older, smaller land. */
+  regions?: LandRegion[];
+  /** The seed's hash (the regions' borders are warped by it). */
+  seedHash?: number;
 }
 
 export interface Rect {
@@ -193,6 +201,11 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
   const w = LAND_W;
   const h = LAND_H;
   const camp = { x: Math.floor(w / 2), y: Math.floor(h / 2) };
+  // the old land's box (OLD cells square about the camp): the noise, the river, the shore and the pools are laid as
+  // they were on it, so the home vale of a seed is the land that seed always had, and the wide land lies beyond
+  const ox = camp.x - OLD / 2;
+  const oy = camp.y - OLD / 2;
+  const inBox = (x: number, y: number) => x >= ox && y >= oy && x < ox + OLD && y < oy + OLD;
   const grid: Ground[] = new Array(w * h).fill('grass');
   const def = BIOME_DEFS[biome];
   // how wild the land is (more so further out), and which wild kind, from two noise fields
@@ -208,24 +221,85 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
     }
     return weights[weights.length - 1][0];
   };
-  const wildShare = biome === 'desert' ? 0.4 : 0.5; // (how much of the land is wild)
-  // (the noise bunches round its middle, so the threshold is taken from its spread: exactly that share is wild)
+  const wildShare = biome === 'desert' ? 0.4 : 0.5; // (how much of the home vale is wild)
+  // the regions beyond the vale (landRegions.ts): each has its own wild share and its own mix of the biome's kinds
+  const regions = layRegions(seedHash, w, h, camp, biome);
+  const regionOf = (x: number, y: number) => regionAt(regions, seedHash, x, y)!;
+  // (the noise bunches round its middle, so each cell takes its rank in the spread: a region with a wild share of
+  // 0.7 has its top 70% of ranks wild)
   const wildness = new Float32Array(w * h);
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
       const d = Math.hypot(x - camp.x, y - camp.y);
       const lift = Math.min(0.08, Math.max(0, (d - CAMP_CLEAR - 2) * 0.006)); // (wilder further out)
-      wildness[y * w + x] = wild(x, y) + lift;
+      wildness[y * w + x] = wild(x - ox, y - oy) + lift;
     }
-  const sorted = Array.from(wildness).sort((a, b) => a - b);
-  const threshold = sorted[Math.floor(sorted.length * (1 - wildShare))];
+  // (the vale's threshold is the old box's own, as it was; every other region ranks its own cells, so each has
+  // exactly its share wild whatever the broad noise happens to do where it lies)
+  const boxSorted: number[] = [];
+  for (let y = oy; y < oy + OLD; y++) for (let x = ox; x < ox + OLD; x++) boxSorted.push(wildness[y * w + x]);
+  boxSorted.sort((a, b) => a - b);
+  const threshold = boxSorted[Math.floor(boxSorted.length * (1 - wildShare))];
+  const regionCells = new Map<number, number[]>();
+  const regionIds = new Int16Array(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const r = regionOf(x, y);
+      regionIds[y * w + x] = r.id;
+      if (r.kind === 'vale') continue;
+      let list = regionCells.get(r.id);
+      if (!list) regionCells.set(r.id, (list = []));
+      list.push(wildness[y * w + x]);
+    }
+  const regionSorted = new Map<number, number[]>();
+  for (const [id, list] of regionCells) regionSorted.set(id, list.sort((a, b) => a - b));
+  const rankIn = (id: number, v: number) => {
+    const sorted = regionSorted.get(id)!;
+    let lo = 0;
+    let hi = sorted.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (sorted[mid] < v) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo / sorted.length;
+  };
+  const pickRegionKind = (v: number, def: RegionDef) => {
+    const ws = weights.map(([g, wt]) => [g, wt * (def.mix[g] ?? 1)] as const);
+    const tot = ws.reduce((n, [, x]) => n + x, 0);
+    let acc = 0;
+    for (const [g, wt] of ws) {
+      acc += wt / tot;
+      if (v * 0.999 < acc) return g;
+    }
+    return ws[ws.length - 1][0];
+  };
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
       // (the kind field spread over 0..1: noise bunches round the middle)
-      const k = Math.max(0, Math.min(1, (kind(x, y) - 0.5) * 2.4 + 0.5));
-      if (wildness[y * w + x] >= threshold) grid[y * w + x] = pickKind(k);
+      const k = Math.max(0, Math.min(1, (kind(x - ox, y - oy) - 0.5) * 2.4 + 0.5));
+      const r = regions.find((q) => q.id === regionIds[y * w + x])!;
+      const def = REGION_DEFS[r.kind];
+      const share = def.wildShare * (biome === 'desert' ? 0.8 : 1);
+      const isWild = r.kind === 'vale' ? wildness[y * w + x] >= threshold : rankIn(r.id, wildness[y * w + x]) >= 1 - share;
+      if (isWild) grid[y * w + x] = r.kind === 'vale' ? pickKind(k) : pickRegionKind(k, def);
+      else if (def.fertile && kind(x - ox + 37, y - oy + 91) < def.fertile) grid[y * w + x] = 'fertile';
       else if (biome === 'desert') grid[y * w + x] = 'sand';
     }
+  // a lake at a lake region's heart, its banks marsh (an oasis in the desert: its banks rich soil)
+  const lakeNoise = noise(seedHash ^ 0x4c, 5);
+  for (const r of regions) {
+    const lake = REGION_DEFS[r.kind].lake;
+    if (!lake) continue;
+    const R = lake / 2;
+    for (let y = Math.max(0, r.y - lake); y <= Math.min(h - 1, r.y + lake); y++)
+      for (let x = Math.max(0, r.x - lake); x <= Math.min(w - 1, r.x + lake); x++) {
+        if (inBox(x, y)) continue;
+        const d = Math.hypot((x - r.x) * 0.9, (y - r.y) * 1.15) / R + (lakeNoise(x, y) - 0.5) * 0.5;
+        if (d < 1) grid[y * w + x] = 'water';
+        else if (d < 1.25) grid[y * w + x] = biome === 'desert' ? 'fertile' : lakeNoise(x + 9, y + 9) < 0.55 ? 'marsh' : 'fertile';
+      }
+  }
 
   // a river winding across, from one edge to the other, wide of the camp
   const rng = Rng.from(seedHash, 7);
@@ -233,41 +307,66 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
   const side = rng.chance(0.5) ? 1 : -1;
   let pos = (across ? camp.y : camp.x) + side * rng.int(CAMP_CLEAR + 5, CAMP_CLEAR + 12);
   const river: number[] = [];
-  for (let t = 0; t < (across ? w : h); t++) {
+  const beyond: number[] = []; // (cells of the old box's run that fell outside the box: the old land dropped them)
+  const step = (t: number, box: boolean) => {
     pos += rng.int(-1, 1) * (rng.chance(0.55) ? 1 : 0);
     const near = (across ? camp.y : camp.x) + side * (CAMP_CLEAR + 4);
     if (side > 0 ? pos < near : pos > near) pos = near;
     const width = biome === 'desert' ? 1 : rng.chance(0.3) ? 3 : 2;
     for (let k = 0; k < width; k++) {
       const [x, y] = across ? [t, pos + k] : [pos + k, t];
-      if (x >= 0 && y >= 0 && x < w && y < h) river.push(y * w + x);
+      if (!(x >= 0 && y >= 0 && x < w && y < h)) continue;
+      if (box && !inBox(x, y)) beyond.push(y * w + x);
+      else river.push(y * w + x);
     }
-  }
+  };
+  // (across the old box first, as it always ran, then on out to the wide land's edges either way)
+  const t0 = across ? ox : oy;
+  for (let t = t0; t < t0 + OLD; t++) step(t, true);
+  const boxRiver = river.length;
+  const endPos = pos;
   for (const i of river) grid[i] = 'water';
-  // its banks: fertile soil, here and there marsh (none in the desert's dry beds)
-  for (const i of river) {
+  // its banks: fertile soil, here and there marsh (none in the desert's dry beds). The old box's own banks first,
+  // drawing the chance as the old land did; then the banks that reach beyond it, and the wide land's.
+  const bank = (i: number, inside: boolean, fresh: boolean) => {
     const x0 = i % w;
     const y0 = Math.floor(i / w);
     for (let dy = -3; dy <= 3; dy++)
       for (let dx = -3; dx <= 3; dx++) {
         const x = x0 + dx;
         const y = y0 + dy;
-        if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        if (x < 0 || y < 0 || x >= w || y >= h || inBox(x, y) !== inside) continue;
         const j = y * w + x;
         if (grid[j] === 'water') continue;
+        // (a later pass leaves what the old box's own pass made)
+        if (fresh && (grid[j] === 'fertile' || grid[j] === 'marsh')) continue;
         // (the banks are rich soil: the river clears them; further off, only open ground turns)
         const near = Math.max(Math.abs(dx), Math.abs(dy)) <= 2;
         if (near || grid[j] === 'grass' || grid[j] === 'sand') grid[j] = biome !== 'desert' && rng.chance(0.12) ? 'marsh' : 'fertile';
       }
-  }
+  };
+  for (let n = 0; n < boxRiver; n++) bank(river[n], true, false);
+  // (the coast's side was drawn right after the old banks: drawn here, used below)
+  const coastEdge = biome === 'coast' && shape !== 'sea' ? rng.int(0, 3) : 0;
+  // then the river runs on out to the wide land's edges either way (back up from where the old run began)
+  pos = endPos;
+  for (let t = t0 + OLD; t < (across ? w : h); t++) step(t, false);
+  const first = river.length ? (across ? Math.floor(river[0] / w) : river[0] % w) : pos;
+  pos = first;
+  for (let t = t0 - 1; t >= 0; t--) step(t, false);
+  river.push(...beyond);
+  for (let n = boxRiver; n < river.length; n++) grid[river[n]] = 'water';
+  // (the wide land's banks only: the old box's cells, pools and all, stay exactly as they were)
+  for (const i of river) bank(i, false, true);
   // the coast: the sea along one edge, a strip of sand inland of it (a sea-shaped land has its own sea below)
   if (biome === 'coast' && shape !== 'sea') {
-    const edge = rng.int(0, 3);
+    const edge = coastEdge;
     const shore = noise(seedHash ^ 0x5e, 7);
+    // (the shore lies where it did, measured from the old box's edge; beyond it the sea runs to the land's end)
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
-        const d = edge === 0 ? x : edge === 1 ? w - 1 - x : edge === 2 ? y : h - 1 - y;
-        const depth = 10 + shore(x, y) * 8;
+        const d = edge === 0 ? x - ox : edge === 1 ? ox + OLD - 1 - x : edge === 2 ? y - oy : oy + OLD - 1 - y;
+        const depth = 10 + shore(x - ox, y - oy) * 8;
         if (d < depth) grid[y * w + x] = 'water';
         else if (d < depth + 2.5) grid[y * w + x] = 'sand';
       }
@@ -284,7 +383,7 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
     for (let x = 0; x < w; x++) {
       const off = Math.min(1, Math.max(0, (Math.abs(x - camp.x) - 7) / 12)); // (level by the gate, then ragged)
       // (the foot wanders by the broad noise, and the fine one throws spurs and gullies a row or two further)
-      const line = camp.y - MOUNTAIN_FOOT - Math.round(((foot(x, 0) - 0.5) * 10 + (spur(x, 0) - 0.5) * 4) * off);
+      const line = camp.y - MOUNTAIN_FOOT - Math.round(((foot(x - ox, 0) - 0.5) * 10 + (spur(x - ox, 0) - 0.5) * 4) * off);
       for (let y = 0; y <= line && y < h; y++) grid[y * w + x] = 'mountain';
     }
     // (where the mountain swallowed every river, a tarn below the hold, so even a hold has water for a boatyard)
@@ -305,8 +404,8 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
     const reef = noise(seedHash ^ 0x8c, 5);
     for (let x = 0; x < w; x++) {
       const off = Math.min(1, Math.max(0, (Math.abs(x - camp.x) - 7) / 12));
-      const line = camp.y + SEA_FOOT + Math.round(((shore(x, 0) - 0.5) * 10 + (bay(x, 0) - 0.5) * 4) * off);
-      const band = SHALLOW_ROWS + Math.round((reef(x, 0) - 0.5) * 3);
+      const line = camp.y + SEA_FOOT + Math.round(((shore(x - ox, 0) - 0.5) * 10 + (bay(x - ox, 0) - 0.5) * 4) * off);
+      const band = SHALLOW_ROWS + Math.round((reef(x - ox, 0) - 0.5) * 3);
       for (let y = Math.max(0, line - 2); y < h; y++) {
         if (y < line) {
           if (grid[y * w + x] !== 'water') grid[y * w + x] = 'sand';
@@ -350,7 +449,12 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
   // what the wild cells hold
   const pools: LandMap['pools'] = {};
   const poolRng = Rng.from(seedHash, 9);
-  grid.forEach((g, i) => {
+  // (the old box's cells first, in their old order, so their pools are as they were; then the rest)
+  const order: number[] = [];
+  for (let y = oy; y < oy + OLD; y++) for (let x = ox; x < ox + OLD; x++) order.push(y * w + x);
+  for (let i = 0; i < w * h; i++) if (!inBox(i % w, Math.floor(i / w))) order.push(i);
+  order.forEach((i) => {
+    const g = grid[i];
     if (shape === 'sea' && wet(g)) {
       pools[i] = seaPool(g, poolRng);
       return;
@@ -364,7 +468,12 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
     pools[i] = pool;
   });
 
-  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: shape === 'sea' ? OPEN_START_SEA : OPEN_START, version: 0 };
+  return { w, h, cells: grid.map((g) => CODE[g]).join(''), pools, roads: '.'.repeat(w * h), marked: [], camp, open: shape === 'sea' ? OPEN_START_SEA : OPEN_START, version: 0, regions, seedHash };
+}
+
+/** The named region a cell lies in (landRegions.ts), or null on an older land. */
+export function regionOfCell(m: LandMap, x: number, y: number): LandRegion | null {
+  return regionAt(m.regions, m.seedHash ?? 0, x, y);
 }
 
 /* ------------------------------------------------------------ building on it */

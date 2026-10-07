@@ -2189,6 +2189,29 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   an omen its shadow only), and a roar (ambience.ts `roar` cue) as each flight begins. `window.__dragon(kind?)` summons
   one (previews). Tests: `test/dragon.test.ts`. (The snapshot's planned party no longer throws when someone in it has
   died since it was planned: `partyView`.)
+- **The wide land (the owner's ask: a much larger map):** `LAND_W`/`LAND_H` are 192 (four times the old 96x96, `OLD`).
+  **The home vale is the land a seed always had:** `makeLand` samples its noise, traces the river, lays the shore,
+  the mountain's foot and the pools over the old box about the camp first and in the old order, so everything within
+  `VALE_R` (40) of the camp is as before (the tests and the balance hold); beyond it the land is cut into **named
+  regions** (`src/shared/sim/landRegions.ts`: `layRegions` puts eight countries in a ring round the vale, every kind
+  once: `oldwood`, `fen`, `barrens`, `meadows`, `lake`, `highlands`, `heath` and one more; `REGION_DEFS`: each a wild
+  share, multipliers on the biome's mix of wild kinds, rich soil for the meadows, a lake at a lake's heart (an oasis
+  in the desert), the finds it favours, and name pools with desert and tundra spellings; names by the seed: "the Grey
+  Barrens", "Larksmeadow", "Stillmere"). Each region ranks its own cells for its wild share (`rankIn`), so it has
+  exactly that much wild wherever the broad noise lies; `regionAt` finds a cell's region (the vale by plain distance,
+  its rim and the other borders warped by noise); `LandMap.regions` and `seedHash` are saved (an older, smaller land
+  has none: `regionOfCell` gives null). **Living on it:** `OPEN_MAX` 86 (the known land may spread over most of it);
+  a town ranges for a missing material only to `OPEN_FAR_BASE` (40) + `OPEN_FAR_PER_PERSON` (3) a grown-up
+  (`openLand`: a lone founder once opened it all and walked a day for a log); `PLACE_COUNT` 32 places out to
+  `PLACE_FAR` 88, each region favouring its own (`REGION_DEFS.places`: lairs in the old wood, veins in the barrens,
+  caves in the highlands, bones in the fen, carts and ruins on the meadows), and a find is named with its region
+  ("Old ruins found in the Grey Barrens, to the north-west"; `inRegion`); strangers come and go at the fog's edge on
+  the camp's row (`edgeXY`), not the map's far edge. **Seeing it:** a **minimap** (`src/renderer/map/minimap.ts`,
+  `Minimap`, a canvas in the strip's top-right corner, under the phone's clock bar: the ground in its colours, the
+  fog, buildings, people white, raiders red, places gold, the view framed; tap to look there; × hides it and a Map
+  tab brings it back, kept in `littletown.minimap`), and a **region caption** (`#region-name`, main.ts: the name of
+  the region under the middle of the view, shown a few seconds as the view crosses into it); a cell's tap card names
+  its region. Tests: `test/land.test.ts` (the wide land).
 - **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
   (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
   pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and
