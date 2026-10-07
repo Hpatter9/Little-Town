@@ -335,7 +335,11 @@ export function hkCell(keys: string[], col: number, row: number): HTMLCanvasElem
   c.width = c.height = HK_CELL;
   const g = c.getContext('2d')!;
   g.imageSmoothingEnabled = false;
-  for (const im of ims) if (im) g.drawImage(im, col * HK_CELL, row * HK_CELL, HK_CELL, HK_CELL, 0, 0, HK_CELL, HK_CELL);
+  ims.forEach((im, i) => {
+    if (!im) return;
+    const at = standIn(keys[i], im, col, row);
+    g.drawImage(im, at * HK_CELL, row * HK_CELL, HK_CELL, HK_CELL, 0, 0, HK_CELL, HK_CELL);
+  });
   cells.set(key, c);
   if (cells.size > MOST_CELLS) {
     const old = cells.keys().next().value!;
@@ -344,6 +348,42 @@ export function hkCell(keys: string[], col: number, row: number): HTMLCanvasElem
     for (const fn of evicted) fn(gone);
   }
   return c;
+}
+/* The pack leaves some cells of a layer blank on purpose: a weapon only in the poses that hold it, a cape in some,
+ * bangs and beards from behind, the "top" halves where the base shows. But a few clothes and the long hair's back
+ * are blank in a pose or two as well (the second peasant dress in the punch pose, the long hair's rear in a side
+ * lunge), so a person went bare or lost their hair for a moment (the owner's complaint: clothing and hair not
+ * sitting right between animations). For those layers a blank cell takes the nearest pose of the same facing that
+ * has it; the layers that are meant to be sparse are left as the pack drew them. */
+const SPARSE = /^(axe|bow|book|dagger|great|hammer|mace|spear|staff|sword|katana|wand|gun|rifle|orb|talisman|totem|alchemy|flail|sickle|club|scythe|shield|bangs|beard|goatee|sideburns|freckles|scar|eyepatch|cape|skeleton|orc|template)|top$/;
+/** The pose to try in place of a blank one (the stand first, then the arm raised, the lunge, the steps...). */
+const STAND_IN = [0, 3, 4, 1, 2, 6, 5, 7];
+const blank = new Map<string, boolean[]>();
+function isBlank(k: string, im: HTMLImageElement, col: number, row: number): boolean {
+  let cells = blank.get(k);
+  if (!cells) {
+    cells = [];
+    const c = document.createElement('canvas');
+    c.width = im.naturalWidth;
+    c.height = im.naturalHeight;
+    const g = c.getContext('2d', { willReadFrequently: true })!;
+    g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    for (let r = 0; r < 4; r++)
+      for (let cc = 0; cc < 8; cc++) {
+        let n = 0;
+        for (let y = r * HK_CELL; y < (r + 1) * HK_CELL && n < 8; y += 2) for (let x = cc * HK_CELL; x < (cc + 1) * HK_CELL; x += 2) if (d[(y * c.width + x) * 4 + 3] > 0) n++;
+        cells[r * 8 + cc] = n < 8;
+      }
+    blank.set(k, cells);
+  }
+  return cells[row * 8 + col] ?? true;
+}
+/** The column to draw a layer's cell from: its own, or a stand-in where the pack left it blank. */
+function standIn(k: string, im: HTMLImageElement, col: number, row: number): number {
+  if (SPARSE.test(k) || !isBlank(k, im, col, row)) return col;
+  for (const at of STAND_IN) if (at !== col && !isBlank(k, im, at, row)) return at;
+  return col;
 }
 const evicted: ((c: HTMLCanvasElement) => void)[] = [];
 /** Told of each cell dropped from the cache (the map frees its texture). */

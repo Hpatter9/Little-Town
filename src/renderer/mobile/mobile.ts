@@ -322,6 +322,7 @@ function drawMenu(): void {
     menu.replaceChildren(
       item('New town…', () => bridge.openPanel('newgame')),
       item(`Music: ${s.music ? 'on' : 'off'}`, () => (bridge.setMusic(!s.music), drawMenu())),
+      item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
       item('Phone alerts…', () => bridge.openPanel('alerts')),
       label('Zoom (or pinch the town with two fingers; tap the % to reset)'),
       zooms,
@@ -329,6 +330,25 @@ function drawMenu(): void {
       version(),
     );
   });
+}
+/** The strip's minimap (map/minimap.ts), turned on and off from the ☰ menu (the owner's ask). */
+type MinimapWin = Window & { __minimap?: { shown: boolean } };
+function minimapShown(): boolean {
+  const m = (strip.contentWindow as MinimapWin | null)?.__minimap;
+  if (m) return m.shown;
+  try {
+    return localStorage.getItem('littletown.minimap') !== '0';
+  } catch {
+    return true;
+  }
+}
+function setMinimap(on: boolean): void {
+  const m = (strip.contentWindow as MinimapWin | null)?.__minimap;
+  if (m) m.shown = on;
+  else
+    try {
+      localStorage.setItem('littletown.minimap', on ? '1' : '0');
+    } catch {}
 }
 /** The version line at the foot of the menu. */
 function version(): HTMLElement {

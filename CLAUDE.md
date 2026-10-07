@@ -2206,8 +2206,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   ("Old ruins found in the Grey Barrens, to the north-west"; `inRegion`); strangers come and go at the fog's edge on
   the camp's row (`edgeXY`), not the map's far edge. **Seeing it:** a **minimap** (`src/renderer/map/minimap.ts`,
   `Minimap`, a canvas in the strip's top-right corner, under the phone's clock bar: the ground in its colours, the
-  fog, buildings, people white, raiders red, places gold, the view framed; tap to look there; × hides it and a Map
-  tab brings it back, kept in `littletown.minimap`), and a **region caption** (`#region-name`, main.ts: the name of
+  fog, buildings, people white, raiders red, places gold, the view framed; tap to look there; × hides it and the
+  phone's ☰ menu has "Minimap: on/off" (the owner's ask: the Map button that once took the corner was missed;
+  `window.__minimap.shown`, read by mobile.ts), kept in `littletown.minimap`), and a **region caption** (`#region-name`, main.ts: the name of
   the region under the middle of the view, shown a few seconds as the view crosses into it); a cell's tap card names
   its region. Tests: `test/land.test.ts` (the wide land).
 - **The news bubble (the owner's ask: no feed over the town; a bubble at the right, opened to review and act, the
@@ -2346,6 +2347,22 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   X's road", then "Let them choose"; CSS in mobile/index.html). The People page shows the emblem beside the calling
   chip and on the two road cards, with their lore (`PersonView.roadId`, `road.next[].lore`). Test in
   `test/paths.test.ts` (lore for every node, every part on its sheet, no fork's two roads composed alike).
+
+- **Stat points follow the road chosen (the owner's ask):** `src/shared/data/pathAttrs.ts` (`LEANS`: each path node's
+  lean on its archetype's growth, inherited up the road; `roadAttrs(cls, road)` the shares the points are spent by,
+  `roadFavours` the two it favours most). `nextByClass`/`spendByClass`/`virtualSpend` in sim/attributes.ts spend by
+  it, so a Berserker goes all strength where a Titan goes bulk, a Beastcaller more charm than a Conjurer. The
+  Character tab says "Left to themselves, a Berserker puts points into Strength first, then Vitality"
+  (`PersonView.favours`). Test in `test/paths.test.ts`.
+- **Clothes and hair in every pose (the owner's complaint):** the Himeko pack leaves some cells of a layer blank on
+  purpose (a weapon only in the poses that hold it, bangs and beards from behind, the "top" halves), but a few
+  clothes and the long hair's back are blank in a pose or two as well (the second peasant dress in the punch pose,
+  the long hair's rear in a side lunge, the geisha hat past the stand), so a person went bare or lost their hair for
+  a moment. `hkCell` (art/hkFolk.ts) now draws such a layer's cell from the nearest pose of the same facing that has
+  it (`standIn`, `STAND_IN` order; `isBlank` reads each layer's cells once); the layers meant to be sparse (`SPARSE`)
+  are left as the pack drew them. `window.__hkCell` for previews.
+- **The tap card on the phone** (`#inspect` in mobile/index.html) sits over the foot of the town just above the tabs;
+  it was still placed above the strip's old top edge, which is the top of the screen now (a cut-off bar).
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
