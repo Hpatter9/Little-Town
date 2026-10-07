@@ -2074,9 +2074,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **Tactics battles (the default raid; the owner's ask, after FF Tactics):** `src/shared/sim/tactics.ts` and
   `src/renderer/tactics/tacticsView.ts` (`TacticsScene`). Every raid is fought on a board unless `s.battleStyle` is
   `'trail'` (the Town menu's Raid battles row; the tests' `plainGame` sets the trail). The board (`makeBoard`: `BOARD_W`
-  x `BOARD_H`, 16x13 for a host or a crowd) is cut from the land round the gate: heights by ground and relief, buildings
-  and walls blocks drawn with the map's own pictures (`MapView.buildingPicture`), trees as cover (`COVER`), traps on
-  their tiles (and off-board ones laid across the way in). **Turns** by a CT clock (`statsOf`: speed from Dexterity or the
+  x `BOARD_H` 17x14, 21x17 for a host or a crowd) is cut from the land round the gate, with **no buildings on it** (the
+  owner's call): heights by ground and a stronger relief (`ROLLING`, `RELIEF`), the land's woods as cover (`COVER`), traps
+  on their tiles (and off-board ones laid across the way in). **The town's edge is its wall:** one column across the
+  board at the gate's row (`townWall`: the ring's wall, else the best built, else a palisade), a raised rampart the
+  town's fighters stand on and raiders can't cross, with a gate two tiles wide in the middle (`TacTile.wall`, `.gate`);
+  the town's towers stand on it out from the gate (`TacTile.bld`); raiders find their way round to the gate (`wayIn`, a
+  distance field). **Every battle's field differs** (`lieOfTheLand`, seeded by the tick: `makeBoard(..., salt)`): rises
+  and hollows, boulders nobody crosses (`block: 'rock'`, `BOULDERS`), thickets for cover (`bush`, `THICKETS`). Drawn with
+  the pack's wall and gate pictures (`MapView.wallPicture`, two runs of stakes a tile so the line stands unbroken), the
+  map's rock and bush props (`MapView.propKind`), and tile tops from the ground painted with the fog lifted
+  (`MapView.clearGroundOf`), since the board reaches past what the town has seen. **Turns** by a CT clock (`statsOf`: speed from Dexterity or the
   raider's quickness; move 3 to 5 and jump by Dexterity and weapon); a turn is a move and an act in either order, then a
   facing; blows from the side `SIDE_MULT` and behind `BACK_MULT`, from above `HEIGHT_STEP` a step (`blowMult`); rain and
   night spoil shots (`RAIN_MISS`). Spells and skills through the kit (`kitTurn`/`takeTurn`, or `useAction` for one the
@@ -2092,12 +2100,12 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   it): Move (reach in blue), Act (Attack, Tend, the kit's skills by page with cost), Undo, Wait (an earlier next turn).
   Never in the catch-up, alone, or with the autopilot off. When the raid ends (`endRaid` → `tacticsOver`) the board stays
   up 4 s with Victory or the raiders' flight across it (`s.tacticsEnded`). **Drawn** isometric: each tile a column of
-  the map's own ground (`MapView.groundOf`), the map's trees (`propOf`), MapPeople and MapRaiders on the tiles; marks
+  the map's own ground, the map's trees (`propOf`), MapPeople and MapRaiders on the tiles; marks
   for reach, targets, path and rings; arrows and tower bolts as arcs; the act sheets (`actSprite`) with a ring under the
   caster; an ultimate shakes the board; numbers bounce (green for healing); night shades it. The HUD: the objective and
   conditions, the turn order down the right, the ability's name box, the banner, whose turn and the target as unit boxes,
   the orders bar, Auto and speed. Taps go through `boardPress`/`tap` in main.ts; a drag pans. Balance (16 lone towns,
-  10 days): 2.19 people against the trail's 2.25. Tests: `test/tactics.test.ts`.
+  10 days): 2.33 people against the trail's 2.25. Tests: `test/tactics.test.ts`.
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

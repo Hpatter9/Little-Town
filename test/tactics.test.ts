@@ -24,14 +24,23 @@ function town(seed: string, n = 5): GameState {
   return s;
 }
 
-test('the tactics board is cut from the land round the gate: heights from the ground, buildings blocked', () => {
+test('the tactics board is cut from the land round the gate: no buildings, the town\'s wall across it with a gate, the field varied', () => {
   const s = town('tac-board');
   const b = makeBoard(s, -1);
   assert.equal(b.tiles.length, BOARD_W * BOARD_H);
   for (const t of b.tiles) {
     assert.ok(t.lx >= 0 && t.ly >= 0 && t.lx < s.land.w && t.ly < s.land.h);
     if (t.g === 'water') assert.equal(t.h, 0);
+    assert.notEqual(t.block, 'building', 'no buildings on the board');
   }
+  // (one column of wall, palisade by default, and a gate in it)
+  const walled = b.tiles.filter((t) => t.wall);
+  assert.ok(walled.length >= BOARD_H - 3, `${walled.length} wall tiles`);
+  assert.ok(walled.every((t) => t.wall!.startsWith('palisade')));
+  assert.equal(walled.filter((t) => t.gate).length, 2, 'a gate two tiles wide');
+  // (the lie of the land differs from one battle to the next)
+  const other = makeBoard(s, -1, false, 12345);
+  assert.notEqual(b.tiles.map((t) => `${t.h}${t.block ?? ''}${t.bush ? 'b' : ''}`).join(), other.tiles.map((t) => `${t.h}${t.block ?? ''}${t.bush ? 'b' : ''}`).join());
 });
 
 test('a blow from behind bites hardest, from beside harder, and from above more', () => {

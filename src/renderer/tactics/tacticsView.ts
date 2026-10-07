@@ -31,6 +31,9 @@ const TH = 32;
 const HH = 12;
 /** How far the columns reach below the ground's level. */
 const FOOT = 10;
+/** How tall the town's wall and its gate stand on the board (px). */
+const WALL_TALL = 30;
+const GATE_TALL = 44;
 /** A sim tick (ms). */
 const TICK = 100;
 
@@ -147,7 +150,11 @@ export class TacticsScene {
       }
       return;
     }
-    const pics = t.tiles.filter((x) => x.bld !== undefined && this.map.buildingPicture(x.bld)).length;
+    // (pictures that have come since the board was built: towers, the wall's and gate's, the boulders and thickets)
+    const pics =
+      t.tiles.filter((x) => x.bld !== undefined && this.map.buildingPicture(x.bld)).length +
+      t.tiles.filter((x) => x.wall && this.map.wallPicture(x.wall, x.gate ? 2 : 1, x.lx * 7 + x.ly, x.gate ? undefined : 'h')).length +
+      t.tiles.filter((x) => (x.block === 'rock' || x.bush) && this.map.propKind(x.block === 'rock' ? 'rock' : 'bush', x.lx, x.ly)).length;
     const key = `${t.w}x${t.h}:${t.tiles[0].lx},${t.tiles[0].ly}:${t.side}:${t.tiles.map((x) => x.h).join('')}:${pics}`;
     if (key !== this.key || this.tiles.length === 0) this.build(t, key);
     // the townsfolk and the raiders, each on their tile
@@ -236,34 +243,62 @@ export class TacticsScene {
         this.board.addChild(c);
         this.tiles.push({ c, mark, top: y });
       }
-    // the town's buildings, standing on their tiles as the map draws them
-    const seen = new Set<number>();
-    for (const tile of t.tiles) {
-      if (tile.bld === undefined || seen.has(tile.bld) || tile.block === 'wall') continue;
-      seen.add(tile.bld);
-      const pic = this.map.buildingPicture(tile.bld);
-      if (!pic) continue;
-      const cells = t.tiles.map((x, i) => [x, i] as const).filter(([x]) => x.bld === tile.bld);
-      const us = cells.map(([, i]) => i % t.w);
-      const vs = cells.map(([, i]) => Math.floor(i / t.w));
-      const [u0, u1, v0, v1] = [Math.min(...us), Math.max(...us), Math.min(...vs), Math.max(...vs)];
-      const ground = tile.h - 3;
-      // (its foot at the footprint's front corner, its width the footprint's across the screen)
-      const [fx, fy] = this.at(u1 + 0.5, v1 + 0.5, ground);
-      const [lx] = this.at(u0 - 0.5, v1 + 0.5, ground);
-      const [rx] = this.at(u1 + 0.5, v0 - 0.5, ground);
-      const wide = Math.max(TW, rx - lx);
-      const s = new Sprite(pic.tex);
-      const k = (wide * 0.92) / Math.max(1, pic.w);
-      s.scale.set(k);
-      s.anchor.set(0.5, 1);
-      s.position.set((lx + rx) / 2, fy - 2);
-      s.zIndex = fy - TH / 2;
-      void fx;
-      this.board.addChild(s);
-      this.pictures.push(s);
-    }
+    // the town's wall along its row, the gate in it, and the towers on the wall (the town itself is left off the board)
+    for (let v = 0; v < t.h; v++)
+      for (let u = 0; u < t.w; u++) {
+        const tile = t.tiles[v * t.w + u];
+        if (!tile.wall) continue;
+        const [x, y] = this.at(u, v, tile.h);
+        if (tile.gate) {
+          // (the gate once, over its two tiles)
+          const above = t.tiles[(v - 1) * t.w + u];
+          if (v > 0 && above?.gate) continue;
+          const pic = this.map.wallPicture(tile.wall, 2, tile.lx * 7 + tile.ly);
+          if (!pic) continue;
+          const [x2, y2] = this.at(u, v + 1, tile.h);
+          this.picture(pic, (x + x2) / 2, (y + y2) / 2 + 4, Math.min(TW * 1.3, (GATE_TALL * pic.w) / Math.max(1, pic.h)), (y + y2) / 2 + TH / 2);
+          continue;
+        }
+        const pic = this.map.wallPicture(tile.wall, 1, tile.lx * 7 + tile.ly, 'h');
+        // (two runs of stakes a tile, end to end down the line, so the wall stands unbroken)
+        if (pic)
+          for (const k of [-1, 1]) {
+            const sp = this.picture(pic, x + k * (TW / 4), y + 6 - k * (TH / 4), TW / 2 + 2, y + 2 - k);
+            sp.scale.y = WALL_TALL / Math.max(1, pic.h);
+          }
+        if (tile.bld !== undefined) {
+          const tower = this.map.buildingPicture(tile.bld);
+          if (tower) this.picture(tower, x, y + 4, TW * 0.9, y + 3);
+        }
+      }
+    // boulders and thickets on the field
+    for (let v = 0; v < t.h; v++)
+      for (let u = 0; u < t.w; u++) {
+        const tile = t.tiles[v * t.w + u];
+        const kind = tile.block === 'rock' ? 'rock' : tile.bush ? 'bush' : null;
+        if (!kind) continue;
+        const tex = this.map.propKind(kind, tile.lx, tile.ly);
+        if (!tex) continue;
+        const [x, y] = this.at(u, v, tile.h);
+        const sp = new Sprite(tex);
+        sp.anchor.set(0.5, 0.9);
+        sp.scale.set(kind === 'rock' ? 1.15 : 0.9);
+        sp.position.set(x, y + 2);
+        this.tiles[v * t.w + u].c.addChild(sp);
+      }
     if (missing) this.key = ''; // (the ground isn't painted yet: try again on the next snapshot)
+  }
+
+  /** A picture stood on the board: its foot at (x, y), `wide` px across, sorted by `z`. */
+  private picture(pic: { tex: Texture; w: number; h: number }, x: number, y: number, wide: number, z: number): Sprite {
+    const sp = new Sprite(pic.tex);
+    sp.scale.set(wide / Math.max(1, pic.w));
+    sp.anchor.set(0.5, 1);
+    sp.position.set(x, y);
+    sp.zIndex = z;
+    this.board.addChild(sp);
+    this.pictures.push(sp);
+    return sp;
   }
 
   /** One tile's column: its top, the map's painted ground laid on the diamond, and its two sides down to the foot. */
@@ -274,7 +309,7 @@ export class TacticsScene {
     c.height = TH + depth;
     const g = c.getContext('2d')!;
     g.imageSmoothingEnabled = false;
-    const blockTop = tile.block && !underBuilding;
+    const blockTop = tile.block && tile.block !== 'rock' && !tile.wall && !underBuilding;
     const [l, r, lip] = blockTop && tile.block === 'building' ? ['#b89a6a', '#97784c', '#7a3f2e'] : blockTop ? ['#8a857c', '#6e6a62', '#a39e94'] : (SIDES[tile.g] ?? SIDES.grass!);
     const face = (pts: [number, number][], col: string) => {
       g.fillStyle = col;
@@ -328,7 +363,7 @@ export class TacticsScene {
       g.fillStyle = tile.block === 'building' ? '#6e3424' : '#8b867a';
       for (let k = 4; k < TW; k += 8) g.fillRect(k, 0, 2, TH);
     } else {
-      const ground = this.map.groundOf(tile.lx, tile.ly);
+      const ground = this.map.clearGroundOf(tile.lx, tile.ly);
       if (!ground) {
         g.restore();
         return null;

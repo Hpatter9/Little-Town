@@ -36,6 +36,7 @@ import { killPerson } from './health';
 import { CELL, groundAt, isRoad, type Ground } from './land';
 import { before, credit, TOWERS } from './raidRecap';
 import { attackPerson, defenderAttack } from './raids';
+import { GATE_OF, WALL_KINDS } from './ringWall';
 import { maxHp, notify, type GameState, type Person, type Raid, type Raider } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
@@ -54,12 +55,18 @@ export interface TacTile {
   lx: number;
   ly: number;
   road?: boolean;
-  /** A building stands here (nobody crosses), or a wall (the town's fighters may stand on it, the raiders may not). */
-  block?: 'building' | 'wall';
-  /** The building standing here (for its picture). */
+  /** A wall (the town's fighters may stand on it, the raiders may not), a boulder (nobody crosses), or (older boards) a
+   *  building. */
+  block?: 'building' | 'wall' | 'rock';
+  /** A tower standing on the wall here (a building id, for its picture). */
   bld?: number;
-  /** Trees: cover (harder to hit). */
+  /** The town's wall or gate drawn on this tile (a building def: the palisade, stone, brick...). */
+  wall?: string;
+  /** The gate in the wall: the way in, open to all. */
+  gate?: boolean;
+  /** Trees and bushes: cover (harder to hit). */
   tree?: boolean;
+  bush?: boolean;
   /** One of the town's traps (a building id), sprung by the first raider to step on it. */
   trap?: number;
 }
@@ -163,10 +170,10 @@ export interface Tactics {
 /* ------------------------------------------------------------ tuning */
 
 /** The board, in tiles: along the raiders' way in, and across it; a big raid's is bigger. */
-export const BOARD_W = 13;
-export const BOARD_H = 11;
-const BIG_W = 16;
-const BIG_H = 13;
+export const BOARD_W = 17;
+export const BOARD_H = 14;
+const BIG_W = 21;
+const BIG_H = 17;
 const BIG_AT = 24;
 /** Rows of the board on the town's side of the gate. */
 const TOWN_ROWS = 3;
@@ -242,37 +249,37 @@ function relief(seed: number, x: number, y: number): number {
   return a * (1 - sy) + b * sy;
 }
 
+/** The ground that rolls (the rest keeps its height), how much, and how thick the field's boulders and thickets lie. */
+const ROLLING = new Set<Ground>(['grass', 'fertile', 'forest', 'hill', 'sand', 'marsh']);
+const RELIEF = 2.2;
+const RELIEF_HILL = 3;
+const BOULDERS = 0.035;
+const THICKETS = 0.06;
+
 const isTrap = (def: string) => {
   const d = BUILDING_BY_ID[def];
   return !!d?.defense && d.layer === 'fore' && d.defense.range < TILE;
 };
 
 /** Cut the board out of the land round the gate on the raid's side. */
-export function makeBoard(s: GameState, side: -1 | 1, big = false): Pick<Tactics, 'w' | 'h' | 'x0' | 'y0' | 'side' | 'tiles'> {
+export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pick<Tactics, 'w' | 'h' | 'x0' | 'y0' | 'side' | 'tiles'> {
   const m = s.land;
   const w = big ? BIG_W : BOARD_W;
   const h = big ? BIG_H : BOARD_H;
   const gate = gateCell(s, side);
-  const along = w - 1 - TOWN_ROWS; // (the gate's row on the board)
+  const along = w - 1 - TOWN_ROWS; // (the gate's row on the board: the town's wall runs across it)
   let x0 = side < 0 ? gate.x - along : gate.x - (w - 1 - along);
   x0 = Math.max(0, Math.min(m.w - w, x0));
   const y0 = Math.max(0, Math.min(m.h - h, gate.y - Math.floor(h / 2)));
   const seed = hashSeed(s.seed);
   const b = { w, h, x0, y0, side, tiles: [] as TacTile[] };
-  const under = new Map<number, { kind: 'building' | 'wall'; id: number }>();
+  // (the town's traps where they stand; its buildings are left off: the board is the field before the town, and the
+  // town is its wall)
   const traps = new Map<number, number>();
   for (const x of s.buildings) {
-    if (x.status !== 'done' || x.fire !== undefined) continue;
-    const def = BUILDING_BY_ID[x.def];
-    if (!def || def.id === 'campfire') continue;
+    if (x.status !== 'done' || x.fire !== undefined || !isTrap(x.def)) continue;
     const f = footprint(x);
-    if (/gate/.test(def.id)) continue; // (a gate stands open: the way in)
-    if (isTrap(def.id)) {
-      traps.set(f.y * m.w + f.x, x.id);
-      continue;
-    }
-    const kind = def.hp ? 'wall' : 'building';
-    for (let yy = f.y; yy < f.y + f.h; yy++) for (let xx = f.x; xx < f.x + f.w; xx++) under.set(yy * m.w + xx, { kind, id: x.id });
+    traps.set(f.y * m.w + f.x, x.id);
   }
   for (let v = 0; v < h; v++)
     for (let u = 0; u < w; u++) {
@@ -280,33 +287,127 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false): Pick<Tactics
       const g = groundAt(m, lx, ly);
       const road = isRoad(m, lx, ly);
       let hh = BASE[g];
-      if (!road && (g === 'grass' || g === 'fertile' || g === 'forest' || g === 'hill' || g === 'sand')) hh += Math.round(relief(seed, lx, ly) * (g === 'hill' ? 2 : 1.4));
-      const block = under.get(ly * m.w + lx);
-      const tile: TacTile = { h: hh + (block?.kind === 'wall' ? 2 : block ? 3 : 0), g, lx, ly };
+      if (!road && ROLLING.has(g)) hh += Math.round(relief(seed ^ salt, lx, ly) * (g === 'hill' ? RELIEF_HILL : RELIEF));
+      const tile: TacTile = { h: hh, g, lx, ly };
       if (road) tile.road = true;
-      if (block) {
-        tile.block = block.kind;
-        tile.bld = block.id;
-      }
-      if (g === 'forest' && !block && !road) tile.tree = true;
+      if (g === 'forest' && !road) tile.tree = true;
       const trap = traps.get(ly * m.w + lx);
-      if (trap !== undefined && !block) {
+      if (trap !== undefined && u < along) {
         tile.trap = trap;
         traps.delete(ly * m.w + lx);
       }
       b.tiles.push(tile);
     }
+  lieOfTheLand(b, along, mixSeed(seed, 0x51de, salt));
+  // the town's wall across the board at the gate's row, its gate in the middle (open: the way in)
+  const wall = townWall(s);
+  const mid = Math.floor(h / 2);
+  const gates = new Set([mid - 1, mid]);
+  for (let v = 0; v < h; v++) {
+    const tile = tileAt(b, along, v)!;
+    if (tile.g === 'water' || tile.g === 'mountain' || tile.g === 'shallows') continue;
+    delete tile.tree;
+    delete tile.bush;
+    delete tile.trap;
+    if (tile.block === 'rock') delete tile.block;
+    if (gates.has(v)) {
+      tile.gate = true;
+      tile.wall = GATE_OF[wall] ?? 'palisade_gate';
+      tile.road = true;
+    } else {
+      tile.block = 'wall';
+      tile.wall = wall;
+      tile.h += 2;
+    }
+  }
+  // (the town's side of the wall is kept clear, and the way to the gate open)
+  for (let u = along + 1; u < w; u++)
+    for (let v = 0; v < h; v++) {
+      const tile = tileAt(b, u, v)!;
+      if (tile.block === 'rock') delete tile.block;
+      delete tile.bush;
+    }
+  for (const v of gates)
+    for (let u = along - 2; u < along; u++) {
+      const tile = tileAt(b, u, v);
+      if (tile?.block === 'rock') delete tile.block;
+    }
+  // (the town's towers stand on the wall, out from the gate either side)
+  const posts: number[] = [];
+  for (let d = 2; d < h; d += 2) posts.push(mid + d, mid - 1 - d);
+  for (const x of s.buildings) {
+    const d = BUILDING_BY_ID[x.def]?.defense;
+    if (!d || x.status !== 'done' || isTrap(x.def)) continue;
+    while (posts.length) {
+      const tile = tileAt(b, along, posts.shift()!);
+      if (tile?.block !== 'wall') continue;
+      tile.bld = x.id;
+      break;
+    }
+  }
   // (the town's traps that lie off the board are laid on it, across the way in a few rows before the gate, so every
   // trap bites, as on the trail)
-  let k = 0;
+  let n = 0;
   for (const id of traps.values()) {
-    const u = w - 1 - TOWN_ROWS - 2 - Math.floor(k / h);
-    const v = (Math.floor(h / 2) + (k % 2 ? 1 : -1) * Math.ceil((k % h) / 2) + h) % h;
+    const u = along - 2 - Math.floor(n / h);
+    const v = (mid + (n % 2 ? 1 : -1) * Math.ceil((n % h) / 2) + h) % h;
     const tile = tileAt(b, u, v);
     if (tile && !tile.block && !tile.trap && tile.g !== 'water') tile.trap = id;
-    k++;
+    n++;
   }
   return b;
+}
+
+/** The town's wall as the board draws it: the ring's, else the best it has built, else a palisade. */
+function townWall(s: GameState): string {
+  if (s.ring?.wall) return s.ring.wall;
+  let best = 'palisade_wall';
+  for (const x of s.buildings) {
+    if (x.status !== 'done' || !(WALL_KINDS as readonly string[]).includes(x.def)) continue;
+    if ((BUILDING_BY_ID[x.def]?.hp ?? 0) > (BUILDING_BY_ID[best]?.hp ?? 0)) best = x.def;
+  }
+  return best;
+}
+
+/** The lie of the land, a little different every battle: a rise or two, a hollow, boulders strewn about, thickets for
+ *  cover (on the field before the wall; the land's own woods, water and hills stay as they are). */
+function lieOfTheLand(b: Pick<Tactics, 'w' | 'h' | 'tiles'>, along: number, seed: number): void {
+  let k = 0;
+  const roll = () => (mixSeed(seed, 0x1a5d, k++) >>> 0) / 4294967296;
+  const open = (t: TacTile | null) => !!t && !t.road && !t.block && ROLLING.has(t.g);
+  // rises and hollows: a round lump of ground raised or sunk, a step at its rim, two at its heart
+  const lumps = 2 + Math.floor(roll() * 3);
+  for (let i = 0; i < lumps; i++) {
+    const cu = 1 + Math.floor(roll() * (along - 3));
+    const cv = Math.floor(roll() * b.h);
+    const r = 1.5 + roll() * 2.5;
+    const up = roll() < 0.75 ? 1 : -1;
+    for (let v = 0; v < b.h; v++)
+      for (let u = 0; u < along - 1; u++) {
+        const d = Math.hypot(u - cu, v - cv);
+        if (d > r) continue;
+        const t = tileAt(b, u, v)!;
+        if (!open(t)) continue;
+        t.h = Math.max(1, t.h + up * (d < r * 0.5 ? 2 : 1));
+      }
+  }
+  // boulders, alone or in a little heap, and thickets
+  const boulders = Math.floor(b.w * b.h * BOULDERS);
+  for (let i = 0; i < boulders; i++) {
+    const u = 1 + Math.floor(roll() * (along - 3));
+    const v = Math.floor(roll() * b.h);
+    const t = tileAt(b, u, v);
+    if (!open(t) || t!.tree) continue;
+    t!.block = 'rock';
+    t!.h += 1;
+  }
+  const bushes = Math.floor(b.w * b.h * THICKETS);
+  for (let i = 0; i < bushes; i++) {
+    const u = Math.floor(roll() * (along - 1));
+    const v = Math.floor(roll() * b.h);
+    const t = tileAt(b, u, v);
+    if (open(t) && !t!.tree) t!.bush = true;
+  }
 }
 
 /** Whether someone may stand on a tile (a swimmer in the water too). */
@@ -314,7 +415,7 @@ function standable(tile: TacTile | null, foe: boolean, swim = false): boolean {
   if (!tile) return false;
   if (tile.g === 'mountain') return false;
   if (tile.g === 'water' && !swim) return false;
-  if (tile.block === 'building') return false;
+  if (tile.block === 'building' || tile.block === 'rock') return false;
   if (tile.block === 'wall' && foe) return false;
   return true;
 }
@@ -363,7 +464,7 @@ const swims = (s: GameState) => s.origin === 'merfolk';
 export function startTactics(s: GameState, r: Raid): void {
   const foes = r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone);
   const folk = fighters(s);
-  const board = makeBoard(s, r.side, foes.length + folk.length >= BIG_AT || !!r.host);
+  const board = makeBoard(s, r.side, foes.length + folk.length >= BIG_AT || !!r.host, s.tick);
   const auto = s.tacticsAuto !== false || !!r.alone || runtime.quiet || s.autopilot === false;
   const t: Tactics = { ...board, units: [], waiting: [], auto, phase: 'fighting', turns: 0, killed: 0, through: 0, lost: 0, started: s.tick, hits: [], fx: [], chests: [] };
   r.tactics = t;
@@ -389,10 +490,9 @@ export function startTactics(s: GameState, r: Raid): void {
   for (const b of s.buildings) {
     const d = BUILDING_BY_ID[b.def]?.defense;
     if (!d || b.status !== 'done' || isTrap(b.def)) continue;
-    const f = footprint(b);
     for (let i = 0; i < t.tiles.length; i++) {
       const tile = t.tiles[i];
-      if (tile.bld !== b.id || tile.lx !== f.x + Math.floor(f.w / 2) || tile.ly !== f.y + f.h - 1) continue;
+      if (tile.bld !== b.id) continue;
       t.units.push({ key: `t${b.id}`, foe: false, u: i % t.w, v: Math.floor(i / t.w), facing: 2, ct: 0 });
       break;
     }
@@ -878,9 +978,10 @@ function plan(s: GameState, r: Raid, t: Tactics, me: TacUnit, st: TacStats, rng:
   let goal = me.v * t.w + me.u;
   let goalScore = -Infinity;
   const chase = me.foe ? null : [...foes].sort((a, b) => b.u - a.u)[0];
+  const toTown = me.foe ? wayIn(t, st) : null;
   for (const [j, info] of reach) {
     const at = { u: j % t.w, v: Math.floor(j / t.w) };
-    const score = me.foe ? at.u * 2 - info.cost * 0.1 + tile(j).h * 0.1 : chase ? -apart(at, chase) * 2 + tile(j).h * 0.2 - (st.shooter ? Math.abs(apart(at, chase) - st.reach) : 0) : 0;
+    const score = me.foe ? -(toTown![j] ?? 999) * 2 - info.cost * 0.1 + tile(j).h * 0.1 : chase ? -apart(at, chase) * 2 + tile(j).h * 0.2 - (st.shooter ? Math.abs(apart(at, chase) - st.reach) : 0) : 0;
     if (score > goalScore) {
       goalScore = score;
       goal = j;
@@ -888,6 +989,30 @@ function plan(s: GameState, r: Raid, t: Tactics, me: TacUnit, st: TacStats, rng:
   }
   void rng;
   return { ...base, path: pathTo(t, reach, goal), kind: 'wait' };
+}
+
+/** How many steps each tile is from the town's end of the board for a raider (round the wall, through the gate). */
+function wayIn(t: Tactics, st: TacStats): number[] {
+  const dist: number[] = new Array(t.tiles.length).fill(999);
+  const queue: number[] = [];
+  for (let v = 0; v < t.h; v++) {
+    const j = v * t.w + t.w - 1;
+    if (!standable(t.tiles[j], true)) continue;
+    dist[j] = 0;
+    queue.push(j);
+  }
+  for (let qi = 0; qi < queue.length; qi++) {
+    const i = queue[qi];
+    const [u, v] = [i % t.w, Math.floor(i / t.w)];
+    for (const [du, dv] of DIRS) {
+      const n = tileAt(t, u + du, v + dv);
+      const j = (v + dv) * t.w + u + du;
+      if (!n || dist[j] <= dist[i] + 1 || !standable(n, true) || Math.abs(n.h - t.tiles[i].h) > Math.max(2, st.jump)) continue;
+      dist[j] = dist[i] + 1;
+      queue.push(j);
+    }
+  }
+  return dist;
 }
 
 /** How hurt a unit is (0 whole, 1 nearly down). */
@@ -1067,7 +1192,8 @@ function strike(s: GameState, r: Raid, t: Tactics, me: TacUnit, target: TacUnit,
   const mult = blowMult(t, me, target);
   const w = weatherAt(s.seed, s.tick, null).kind;
   const wet = st.shooter && (w === 'rain' || w === 'storm' || w === 'snow' || w === 'fog');
-  const cover = (tileAt(t, target.u, target.v)?.tree && rng.next() < COVER) || (wet && rng.next() < RAIN_MISS);
+  const under = tileAt(t, target.u, target.v);
+  const cover = ((under?.tree || under?.bush) && rng.next() < COVER) || (wet && rng.next() < RAIN_MISS);
   const mark = (text: string) => t.hits.push({ u: target.u, v: target.v, text, foe: target.foe, tick: s.tick });
   t.fx.push({ tick: s.tick, kind: st.shooter ? 'shot' : 'blow', from: [me.u, me.v], to: [[target.u, target.v]] });
   const p = personOf(s, me.key);
@@ -1075,7 +1201,7 @@ function strike(s: GameState, r: Raid, t: Tactics, me: TacUnit, target: TacUnit,
   const trd = raiderOf(r, target.key);
   const rd = raiderOf(r, me.key);
   if (cover) {
-    mark(tileAt(t, target.u, target.v)?.tree ? 'Cover' : 'Miss');
+    mark(under?.tree || under?.bush ? 'Cover' : 'Miss');
     if (p) p.lastBlow = s.tick;
     if (rd) rd.lastAction = s.tick;
     return;
