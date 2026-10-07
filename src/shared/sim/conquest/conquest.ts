@@ -23,6 +23,29 @@ export interface ConquestState {
   nextSquad: number;
   /** The tick of the last daily reckoning (yields, upkeep). */
   lastDay?: number;
+  /** The town's armies on the map (sim/conquest/armies.ts), the garrisons it has left in its provinces (troops by
+   *  kind, by province), and the day each province was taken (a fresh conquest doesn't revolt at once). */
+  armies?: Army[];
+  nextArmy?: number;
+  garrisons?: Record<number, Record<string, number>>;
+  taken?: Record<number, number>;
+}
+
+/** An army: a general and up to ARMY_SQUADS squads, standing in a province or on the march to the next, with a train
+ *  of spare troops to leave as garrisons. */
+export interface Army {
+  id: number;
+  name: string;
+  /** The general's squad (its hero leads the army). */
+  general: number;
+  squads: number[];
+  /** The province it stands in; while marching, the one it set out from. */
+  at: number;
+  /** The next province on its way, when it arrives (tick), and the provinces beyond it to the ordered destination. */
+  going: number | null;
+  arrive: number | null;
+  path: number[];
+  train: Record<string, number>;
 }
 
 /** A hero of the town and the troops in formation round them (data/troops.ts SQUAD_SLOTS: nine places, three rows). */

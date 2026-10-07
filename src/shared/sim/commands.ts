@@ -96,6 +96,18 @@ export type Command =
   | { type: 'conquest'; op: 'form'; hero: number }
   | { type: 'conquest'; op: 'slot'; squad: number; slot: number; troop: string | null }
   | { type: 'conquest'; op: 'disband'; squad: number }
+  /** Armies (sim/conquest/armies.ts): raise one round a squad, add or drop a squad (at home), load spare troops into
+   *  its train, march it to a province (any: it goes the shortest friendly way), leave `n` of its train as a garrison
+   *  where it stands, pick a garrison up, recall it home, dismiss it. */
+  | { type: 'conquest'; op: 'raise'; squad: number }
+  | { type: 'conquest'; op: 'add'; army: number; squad: number }
+  | { type: 'conquest'; op: 'drop'; army: number; squad: number }
+  | { type: 'conquest'; op: 'load'; army: number; troop: string; n: number }
+  | { type: 'conquest'; op: 'march'; army: number; province: number }
+  | { type: 'conquest'; op: 'garrison'; army: number; n: number }
+  | { type: 'conquest'; op: 'pickup'; army: number }
+  | { type: 'conquest'; op: 'recall'; army: number }
+  | { type: 'conquest'; op: 'dismiss'; army: number }
   | { type: 'tactics'; order: TacticsOrder }
   | { type: 'gameSpeed'; speed: number }
   | { type: 'battleCast'; power: string; x: number; y: number }

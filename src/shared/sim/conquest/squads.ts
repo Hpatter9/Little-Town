@@ -10,7 +10,7 @@ import { CLASS_DEFS } from '../../data/classes';
 import { ERAS } from '../../data/eras';
 import { levelOf, stageOf } from '../../data/levels';
 import {
-  DESERT_SHARE,
+  DESERT_SHARE, UPKEEP_AFIELD,
   COMMAND_PER_CHA, COMMAND_PER_LEVEL, COMMAND_PER_STAGE, HERO_CURVE, HERO_WEIGHT, LEAD_BASE, LEAD_PER_CHA, LEAD_PER_LEVELS, LEADS, LEADS_TOO, RECRUITS_HOME, RECRUITS_MOST,
   SQUAD_SLOTS, TRAIN_BATCH_MOST, TRAIN_HOURS, TROOP_ATTACK, TROOP_BY_ID, TROOP_HP, TROOPS, UPKEEP, type TroopDef,
 } from '../../data/troops';
@@ -21,6 +21,7 @@ import { takeFromStorage } from '../expeditions';
 import { isChild } from '../social';
 import { earn, notify, type GameState, type Person } from '../state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../time';
+import { armiesDaily, armiesOf, armiesTick, armyOfSquad } from './armies';
 import { holdings, worldOf, type ConquestState, type Squad } from './conquest';
 import { provinceYield } from './world';
 
@@ -122,6 +123,7 @@ export function setSlot(s: GameState, squadId: number, slot: number, troopId: st
   if (!c || !q || slot < 0 || slot >= SQUAD_SLOTS) return { ok: false, reason: 'No such place' };
   const hero = s.people.find((p) => p.id === q.hero);
   if (!hero) return { ok: false, reason: 'The squad has no hero' };
+  if (hero.away !== null && hero.away < 0) return { ok: false, reason: `${q.name} is afield with its army` };
   const was = q.slots[slot];
   if (was) {
     c.troops[was] = (c.troops[was] ?? 0) + 1;
@@ -140,7 +142,7 @@ export function setSlot(s: GameState, squadId: number, slot: number, troopId: st
 export function disbandSquad(s: GameState, squadId: number): boolean {
   const c = s.conquest;
   const i = c?.squads.findIndex((x) => x.id === squadId) ?? -1;
-  if (!c || i < 0) return false;
+  if (!c || i < 0 || armyOfSquad(c, squadId)) return false;
   for (const t of c.squads[i].slots) if (t) c.troops[t] = (c.troops[t] ?? 0) + 1;
   c.squads.splice(i, 1);
   return true;
@@ -163,7 +165,9 @@ export const squadSize = (q: Squad) => q.slots.filter((x) => x).length;
  *  chest (the town's treasury and stores are left alone: the conquest is beside the town, not over it). */
 export function conquestHourly(s: GameState): void {
   const c = s.conquest;
-  if (!c || s.tick % TICKS_PER_HOUR !== 0) return;
+  if (!c) return;
+  armiesTick(s); // (every tick: the armies arriving, sim/conquest/armies.ts)
+  if (s.tick % TICKS_PER_HOUR !== 0) return;
   for (let i = c.training.length - 1; i >= 0; i--) {
     const b = c.training[i];
     if (s.tick < b.done) continue;
@@ -192,11 +196,10 @@ export function conquestDaily(s: GameState, c: ConquestState): void {
     const got = Math.floor(y.amount);
     if (got > 0) c.goods[y.material] = (c.goods[y.material] ?? 0) + got;
   }
-  // upkeep: every soldier trained, in a squad or waiting (unpaid, a tenth of the waiting troops drift home)
-  let soldiers = 0;
-  for (const n of Object.values(c.troops)) soldiers += n;
-  for (const q of c.squads) soldiers += squadSize(q);
-  const upkeep = Math.round(soldiers * UPKEEP);
+  // upkeep: every soldier trained, in a squad, a train, a garrison or waiting, those afield dearer (unpaid, a tenth
+  // of the waiting troops drift home); and the provinces left bare may revolt (sim/conquest/armies.ts)
+  const { afield } = armiesDaily(s, c, w);
+  const upkeep = Math.round((soldiersOf(c) + afield * (UPKEEP_AFIELD - 1)) * UPKEEP);
   c.chest += coins;
   if (c.chest >= upkeep) c.chest -= upkeep;
   else {
@@ -210,4 +213,14 @@ export function conquestDaily(s: GameState, c: ConquestState): void {
     }
   }
   c.recruits = Math.min(RECRUITS_MOST, c.recruits + recruits);
+}
+
+/** Every soldier the town keeps: trained and waiting, in the squads, in the armies' trains and the garrisons. */
+export function soldiersOf(c: ConquestState): number {
+  let n = 0;
+  for (const k of Object.values(c.troops)) n += k;
+  for (const q of c.squads) n += squadSize(q);
+  for (const a of armiesOf(c)) for (const k of Object.values(a.train)) n += k;
+  for (const g of Object.values(c.garrisons ?? {})) for (const k of Object.values(g)) n += k;
+  return n;
 }

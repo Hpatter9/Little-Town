@@ -36,6 +36,16 @@ const GROUPS: Record<string, MenuTabs> = {
     intro: 'Places',
   },
   townsfolk: { groups: [['People', /^People/], ['Jobs', /^(Jobs|Prisoners)/]] },
+  // the War (the conquest): the map of provinces, the armies, the barracks and squads, the realms
+  war: {
+    groups: [
+      ['Map', /^War map/],
+      ['Armies', /^Armies/],
+      ['Barracks', /^(Barracks|Squads)/],
+      ['Realms', /^Realms/],
+    ],
+    intro: 'Map',
+  },
   // the Market: the town's shops and inns, the caravan, the workshops' orders, the animals
   trade: {
     groups: [

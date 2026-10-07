@@ -2151,6 +2151,83 @@
       .inv-tabs:not(.menu-tabs):not(.inspect-tabs):not(.journal-tabs) { gap: 4px; }
       .inv-tabs:not(.menu-tabs):not(.inspect-tabs):not(.journal-tabs) .inv-tab { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
       .subhead { margin: 10px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.75; }
+    
+      /* the War menu (warPanel.ts): the province map and the squads' formation */
+      .war-map {
+        overflow: auto;
+        margin: 6px 0;
+        border: 1px solid var(--wood-edge, #5a3a1a);
+        border-radius: 4px;
+        background: #1a2a3a;
+        line-height: 0;
+      }
+      .war-map canvas {
+        image-rendering: pixelated;
+        display: block;
+        margin: 0 auto;
+      }
+      .war-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        margin: 4px 0 8px;
+        font-size: 13px;
+      }
+      .war-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 1px solid transparent;
+        margin-right: 4px;
+        vertical-align: middle;
+      }
+      .war-stat {
+        font-size: 13px;
+        margin: 4px 0;
+      }
+      .war-bare {
+        color: #ff8a6a;
+      }
+      .war-troop.dim {
+        opacity: 0.6;
+      }
+      .war-squads {
+        margin: 4px 0;
+      }
+      .war-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        font-size: 13px;
+        padding: 2px 0;
+      }
+      .war-select {
+        font: inherit;
+        font-size: 13px;
+        padding: 4px 6px;
+        border-radius: 4px;
+        border: 1px solid var(--wood-edge, #5a3a1a);
+        background: var(--btn, #2a1a10);
+        color: var(--text, #eee);
+        max-width: 100%;
+      }
+      .formation {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        margin: 4px 0;
+      }
+      .formation .slot {
+        min-width: 0;
+      }
+      .formation .slot.row0 {
+        border-color: #c0603a;
+      }
+      .formation .slot.row2 {
+        border-color: #4a7ad0;
+      }
     </style>
   </head>
   <body>

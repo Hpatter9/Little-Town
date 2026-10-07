@@ -43,6 +43,7 @@ import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
 import { conquestHourly, disbandSquad, formSquad, setSlot, train } from './conquest/squads';
+import { addToArmy, dismissArmy, dropFromArmy, garrison, loadTrain, marchArmy, pickUp, raiseArmy, recallArmy } from './conquest/armies';
 import { spendByClass, spendPoint } from './attributes';
 import { questsHourly } from './quests';
 import { delvesHourly } from './delves';
@@ -371,6 +372,15 @@ export class Sim {
         else if (c.op === 'form') say(formSquad(s, c.hero));
         else if (c.op === 'slot') say(setSlot(s, c.squad, c.slot, c.troop));
         else if (c.op === 'disband') disbandSquad(s, c.squad);
+        else if (c.op === 'raise') say(raiseArmy(s, c.squad));
+        else if (c.op === 'add') say(addToArmy(s, c.army, c.squad));
+        else if (c.op === 'drop') say(dropFromArmy(s, c.army, c.squad));
+        else if (c.op === 'load') say(loadTrain(s, c.army, c.troop, c.n));
+        else if (c.op === 'march') say(marchArmy(s, c.army, c.province));
+        else if (c.op === 'garrison') say(garrison(s, c.army, c.n));
+        else if (c.op === 'pickup') say(pickUp(s, c.army));
+        else if (c.op === 'recall') say(recallArmy(s, c.army));
+        else if (c.op === 'dismiss') say(dismissArmy(s, c.army));
         break;
       }
       case 'gameSpeed':

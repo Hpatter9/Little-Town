@@ -2410,6 +2410,32 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (train, form, slot, disband) and `snapshot.war` (`warView` in `sim/conquest/warView.ts`: provinces, realms, recruits,
   chest, goods, troops, training, squads, heroes free to lead). Tests: `test/conquestSquads.test.ts`.
 
+- **Step 3, armies on the map and the War tab (done):** `src/shared/sim/conquest/armies.ts`. An `Army`
+  (`ConquestState.armies`: a general's squad and up to `ARMY_SQUADS` 6, `at`/`going`/`arrive`/`path`, a `train` of spare
+  troops) is raised at the town's capital province (`homeProvince`, `raiseArmy`; squads join and leave at home,
+  `addToArmy`/`dropFromArmy`; `loadTrain` from the trained troops). **Every march is the player's order**
+  (`marchArmy(s, army, province)`: the fewest legs through free or friendly land, `wayTo`; a leg takes `MARCH_HOURS` +
+  `MARCH_PER_CELL` by distance, `CROSSROADS_PACE` into a crossroads; the next leg starts on arrival and the march halts
+  if an enemy has taken the way); `recallArmy` is a march home. Arriving (`armiesTick`, every tick from
+  `conquestHourly`) at a free province the army takes it for the town (`c.taken` the day); a lair or another realm's
+  province waits for the battle (step 4). While out of the home province its heroes are **away** (`Person.away` is
+  minus the army's id, as a trip's is the trip's id: every "in town" filter holds; the snapshot names the army), and
+  come home with it at the land's edge. **Garrisons** (`garrison`: `n` of the train left where it stands, `c.garrisons`
+  by province; `pickUp`): a province of the town's with under `GARRISON_HOLDS` soldiers and no army, past
+  `REVOLT_GRACE_DAYS` since taken, may revolt and go free each day (`REVOLT_CHANCE`, `armiesDaily`, the capital never);
+  soldiers afield cost `UPKEEP_AFIELD` times the upkeep. A squad in an army can't be disbanded, nor its places changed
+  while afield; a squad whose hero dies dissolves, and an army with no squad left breaks up. Commands: `conquest` ops
+  `raise`, `add`, `drop`, `load`, `march`, `garrison`, `pickup`, `recall`, `dismiss`. **The War tab** (`war` in
+  `PANELS`, the seventh tab, ⚔; `src/renderer/panel/warPanel.ts`; sub-tabs Map, Armies, Barracks, Realms): a canvas map
+  of the world fitted to the width (the lands' colours, each realm's colour over its provinces (`REALM_COLOURS`, the
+  town gold), borders, capitals as squares, lairs ☠, garrisons, bare provinces a red dot, armies ⚔ with their way
+  dashed; `WarView.owners` is the owner grid as a string, `ownerAt`); tap a province for its card (land, tier, fort,
+  landmark, yields, garrison, armies); "Pick to march" on an army card, then the card's "March X here". The armies'
+  cards (general, strength, soldiers, train; recall, garrison, pick up, add and drop squads, load the train, dismiss),
+  the barracks (recruits, chest, upkeep, war stores; Train 1 / Train 3 a kind; batches), the squads (a 3x3 formation
+  of selects, the hero's worth, command and lead), and the realms. Tests: `test/conquestArmies.test.ts`. Checked upright
+  on the phone.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

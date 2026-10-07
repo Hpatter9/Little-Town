@@ -17,6 +17,8 @@ import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius } from './ceremonies';
 import { realmView, type RealmView } from './factions';
 import { warView, type WarView } from './conquest/warView';
+import { armyOfPerson } from './conquest/armies';
+import { worldOf } from './conquest/conquest';
 import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
 import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
@@ -829,6 +831,14 @@ export interface JournalEntryView {
   highlights?: { text: string; building?: string; person?: number }[];
 }
 
+/** Where a hero marching with an army is (sim/conquest/armies.ts). */
+function awayWithArmy(s: GameState, p: Person): string {
+  const c = s.conquest;
+  const w = worldOf(s);
+  const a = c && w ? armyOfPerson(c, p) : null;
+  return a && w ? `${a.name}, ${a.going === null ? 'at' : 'marching on'} ${w.provinces[a.going ?? a.at].name}` : 'the war';
+}
+
 export function journalView(s: GameState): JournalEntryView[] {
   return s.journal.map(entryView);
 }
@@ -1414,7 +1424,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     floor: null,
     rally: rallyState(s, p),
     indoors: p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
-    away: p.away === null ? null : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
+    away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     maxHp: maxHp(p),
     downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',

@@ -12,6 +12,7 @@ import { renderJournal } from './journalPanel';
 import { renderResearch, researchKey } from './researchPanel';
 import { renderTownsfolk, townsfolkKey } from './townsfolkPanel';
 import { renderTrade, tradeKey } from './tradePanel';
+import { renderWar, warKey } from './warPanel';
 import { renderAlerts } from './alertsPanel';
 import { renderNewGame, restartNewGame } from './newGamePanel';
 import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
@@ -55,6 +56,8 @@ function render(): void {
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'
                   ? 't2' + tradeKey(snap) + craftingKey(snap)
+                  : shown === 'war'
+                    ? 'w' + warKey(snap)
                   : isVenuePanel(shown)
                     ? shown + shopKey(snap, shown)
                   : shown === 'newgame'
@@ -85,6 +88,7 @@ function render(): void {
   else if (snap && shown === 'townsfolk') body.replaceChildren(...tabbed(renderTownsfolk(snap, bridge, render)));
   else if (snap && shown === 'expeditions') body.replaceChildren(...tabbed(renderExpeditions(snap, bridge, render)));
   else if (snap && shown === 'trade') body.replaceChildren(...tabbed([...renderTrade(snap, bridge), ...renderWorkshops(snap, render)]));
+  else if (snap && shown === 'war') body.replaceChildren(...tabbed(renderWar(snap, bridge, render)));
   else if (shown === 'alerts') body.replaceChildren(...renderAlerts(bridge));
   else if (snap && isVenuePanel(shown)) {
     hkKnow(snap.people); // (who's who, so the keeper is dressed as the map dresses them: art/hkFolk.ts)

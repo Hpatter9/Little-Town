@@ -142,3 +142,20 @@ export const TRAIN_BATCH_MOST = 9;
 export const UPKEEP = 0.2;
 /** Unpaid, this share of the troops waiting in the war camp drift home each day. */
 export const DESERT_SHARE = 0.1;
+
+/* ------------------------------------------------------------ armies (sim/conquest/armies.ts) */
+
+/** Squads in one army at most. */
+export const ARMY_SQUADS = 6;
+/** A march from one province to the next, in game hours (longer the further apart their middles lie; a crossroads
+ *  reached in `CROSSROADS_PACE` of it). */
+export const MARCH_HOURS = 6;
+export const MARCH_PER_CELL = 0.35;
+export const CROSSROADS_PACE = 0.6;
+/** Soldiers afield (an army outside the town's own provinces) cost this much more upkeep: they forage and buy. */
+export const UPKEEP_AFIELD = 2;
+/** A province of the town's without a garrison of `GARRISON_HOLDS` soldiers or an army in it may revolt and go free
+ *  each day, from `REVOLT_GRACE_DAYS` after it was taken; the capital never. */
+export const GARRISON_HOLDS = 3;
+export const REVOLT_CHANCE = 0.05;
+export const REVOLT_GRACE_DAYS = 3;

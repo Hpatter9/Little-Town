@@ -8,12 +8,12 @@ export type StripMode = 'full' | 'minimal';
 
 /** 'alerts' and 'newgame' are opened from the tray (or the game-over card), and 'shop' and 'tavern' (their bird's-eye
  *  views) by tapping them in town, not from the dock. */
-export type PanelId = 'build' | 'research' | 'expeditions' | 'townsfolk' | 'crafting' | 'trade' | 'journal' | 'alerts' | 'newgame' | 'shop' | 'tavern' | StorePanelId;
+export type PanelId = 'build' | 'research' | 'expeditions' | 'townsfolk' | 'crafting' | 'trade' | 'journal' | 'war' | 'alerts' | 'newgame' | 'shop' | 'tavern' | StorePanelId;
 /** The specialty shops' windows (data/stores.ts): `store_` and the line. */
 export type StorePanelId = 'store_furniture' | 'store_weapons' | 'store_armour' | 'store_medicine';
 export const STORE_PANELS: readonly StorePanelId[] = ['store_furniture', 'store_weapons', 'store_armour', 'store_medicine'];
 export const storePanel = (line: string): StorePanelId => `store_${line}` as StorePanelId;
-export const PANEL_IDS: readonly PanelId[] = ['build', 'research', 'expeditions', 'townsfolk', 'crafting', 'trade', 'journal', 'alerts', 'newgame', 'shop', 'tavern', ...STORE_PANELS];
+export const PANEL_IDS: readonly PanelId[] = ['build', 'research', 'expeditions', 'townsfolk', 'crafting', 'trade', 'journal', 'war', 'alerts', 'newgame', 'shop', 'tavern', ...STORE_PANELS];
 
 /** The menus along the bottom (the redo, the owner's ask: one tab an area of the game). The ids are the old ones, so
  *  saved tabs and the desktop app keep working: 'build' is the Town, 'trade' the Market (with the workshops: the old
@@ -24,6 +24,7 @@ export const PANELS: readonly { id: PanelId; label: string }[] = [
   { id: 'research', label: 'Studies' },
   { id: 'trade', label: 'Market' },
   { id: 'expeditions', label: 'Trips' },
+  { id: 'war', label: 'War' },
   { id: 'journal', label: 'Chronicle' },
 ];
 
