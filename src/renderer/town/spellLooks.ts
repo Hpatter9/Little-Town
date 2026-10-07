@@ -4,7 +4,7 @@
 /** How each spell looks: the kind of effect, and its colours. */
 export type Kind = 'bolt' | 'stream' | 'roots' | 'rain' | 'fog' | 'ring' | 'rise' | 'arrows' | 'lob' | 'rocks' | 'vortex' | 'dome' | 'sparkle' | 'bats' | 'coins' | 'aura' | 'wave';
 /** An animated sprite from the effect sheets (renderer/art/effects.ts), played over each target (or the caster). */
-export type SpriteFx =
+export type SheetFx =
   | 'blood' | 'vampire' | 'undead' | 'werewolf' | 'heal' | 'frost' | 'portal' | 'cast' | 'holy' | 'shock' | 'conjure' | 'acid'
   // (the spell sheets: pvfx-foundry and the Alenia Star Magic Pack)
   | 'roots' | 'rain' | 'leaves' | 'bloom' | 'venom_ward' | 'parry' | 'counterfall' | 'prism' | 'void' | 'moths' | 'suture' | 'charge'
@@ -13,6 +13,8 @@ export type SpriteFx =
   // (Craftpix's magic strips and magic slashes)
   | 'mg_ground_fire' | 'mg_ground_fire2' | 'mg_sigil' | 'mg_beam' | 'mg_strike' | 'mg_bolt' | 'mg_bolt2' | 'mg_pop' | 'mg_sparks' | 'mg_flame' | 'mg_flare' | 'mg_spikes' | 'mg_creep' | 'mg_puff' | 'mg_shards'
   | 'slash_wind' | 'slash_fire' | 'slash_lightning' | 'slash_poison' | 'slash_gold' | 'slash_water';
+/** An effect: one of the sheets above, or a strip of the pixel effects atlas (`px:<element>-<family>`: data/actFx.ts). */
+export type SpriteFx = SheetFx | `px:${string}`;
 export interface Look {
   kind: Kind;
   /** Played with it, from the effect sheets; `onCaster`: over the caster instead of the targets. */

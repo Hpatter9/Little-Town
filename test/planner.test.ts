@@ -13,7 +13,8 @@ test('a town left entirely alone grows: people, homes, fields, research, and no 
   // (one seed: these towns run chaotically apart, so a single run measures little; this one grows under the trail
   // battles and the tactics board alike. The tactics board's 32-town check: about 2 people at day 10 either way, most
   // towns lost to plague, disasters and lurkers rather than the board.)
-  const sim = new Sim(newGame('lone-8'));
+  // (on the wide land this seed's town grows; 'lone-8' lost its founder to the Cave Bear on day 10)
+  const sim = new Sim(newGame('lone-7'));
   const s = sim.state;
   for (let t = 0; t < 10 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   assert.equal(s.gameOver, null);

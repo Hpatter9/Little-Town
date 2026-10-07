@@ -29,7 +29,9 @@ cpSync('src/renderer/art/backdrops', 'out/renderer/backdrops', { recursive: true
 cpSync('src/renderer/art/himeko', 'out/renderer/himeko', { recursive: true });
 // and the raid map's scenery atlases (tools/compose-props.cjs)
 cpSync('src/renderer/art/props', 'out/renderer/props', { recursive: true });
-cpSync('src/renderer/art/scenery', 'out/renderer/scenery', { recursive: true }); // (the town's trees, bushes and rocks: tools/compose-scenery.cjs)
+cpSync('src/renderer/art/scenery', 'out/renderer/scenery', { recursive: true });
+mkdirSync('out/renderer/fx', { recursive: true });
+copyFileSync('src/renderer/art/effects/pixelfx.png', 'out/renderer/fx/pixelfx.png'); // (the fights' pixel effects atlas: tools/compose-pixelfx.cjs) // (the town's trees, bushes and rocks: tools/compose-scenery.cjs)
 copyFileSync('src/renderer/art/lpc/lpcFaces.json', 'out/renderer/lpcFaces.json'); // (the townsfolk's up- and down-facing walk rows: tools/import-lpc-faces.mjs)
 // music is streamed from files, not inlined
 mkdirSync('out/renderer/music', { recursive: true });

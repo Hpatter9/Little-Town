@@ -10,6 +10,7 @@ import type { Stock } from './materials';
 import type { Era } from './eras';
 import type { RaidKind } from './raids';
 import { PACK_SHEETS, type PackSheetId } from './packSheets';
+import { biomeById } from './biomes';
 
 export type DawnSheet = 'Aquatic' | 'Avian' | 'Cat' | 'Demon' | 'Dog' | 'Elemental' | 'Humanoid' | 'Misc' | 'Pest' | 'Plant' | 'Quadraped' | 'Reptile' | 'Rodent' | 'Slime' | 'Undead';
 
@@ -470,8 +471,7 @@ export const groupOf = (b: Beast): Record<string, number> => ({ [b.id]: b.tier <
 export function placeHabitats(kind: 'beast' | 'cave' | 'reef', biome: string | undefined): Habitat[] {
   if (kind === 'reef') return ['sea'];
   if (kind === 'cave') return ['cave', 'crypt', 'arcane'];
-  const own: Habitat[] = biome === 'tundra' ? ['snow'] : biome === 'desert' ? ['desert'] : biome === 'coast' ? ['swamp', 'sky'] : ['forest', 'fae'];
-  return ['wild', ...own];
+  return ['wild', ...(biomeById(biome).habitats as Habitat[])];
 }
 
 /** Each dungeon type's own habitats. */
@@ -540,12 +540,16 @@ const byAge = (id: string, f: (typeof FAMILY_RAIDS)[Family], pool: Beast[], more
   });
 
 export const MENAGERIE_RAIDS: readonly RaidKind[] = [
-  // (each family, without the ice's, the dunes' and the sea's own: those come only where they live)
+  // (each family, without the ice's, the dunes', the fens', the fire's and the sea's own: those come only where they
+  // live, so each land meets its own creatures)
   ...(Object.keys(FAMILY_RAIDS) as Family[])
     .filter((f) => f !== 'deep')
-    .flatMap((f) => byAge(`m_${f}`, FAMILY_RAIDS[f], BEASTS.filter((b) => b.family === f && !['snow', 'desert', 'sea'].includes(b.habitat)))),
-  ...byAge('m_ice', { ...FAMILY_RAIDS.oddities, name: 'Beasts of the ice', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'snow'), { biomes: ['tundra'] }),
-  ...byAge('m_dunes', { ...FAMILY_RAIDS.oddities, name: 'Beasts of the dunes', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'desert'), { biomes: ['desert'] }),
+    .flatMap((f) => byAge(`m_${f}`, FAMILY_RAIDS[f], BEASTS.filter((b) => b.family === f && !['snow', 'desert', 'sea', 'swamp', 'fire'].includes(b.habitat)))),
+  ...byAge('m_ice', { ...FAMILY_RAIDS.oddities, name: 'Beasts of the ice', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'snow'), { biomes: ['tundra', 'taiga', 'highlands'] }),
+  ...byAge('m_dunes', { ...FAMILY_RAIDS.oddities, name: 'Beasts of the dunes', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'desert'), { biomes: ['desert', 'steppe'] }),
+  ...byAge('m_fen', { ...FAMILY_RAIDS.crawlers, name: 'Things out of the fen', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'swamp'), { biomes: ['swamp', 'coast', 'jungle'] }),
+  ...byAge('m_ash', { ...FAMILY_RAIDS.elementals, name: 'Fire out of the waste', weight: 1.3 }, BEASTS.filter((b) => b.habitat === 'fire'), { biomes: ['ashlands'] }),
+  ...byAge('m_crag', { ...FAMILY_RAIDS.oddities, name: 'Beasts of the crags', weight: 1.2 }, BEASTS.filter((b) => b.habitat === 'cave' || b.habitat === 'sky'), { biomes: ['highlands'] }),
   ...byAge('m_deep', FAMILY_RAIDS.deep, BEASTS.filter((b) => b.habitat === 'sea'), { fromSea: true }),
 ].filter((k) => Object.keys(k.enemies).length > 0);
 

@@ -13,6 +13,7 @@ import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
 import { CLASS_DEFS, STAGE_LEVELS } from '../../shared/data/classes';
+import { ATTR_ABOUT, ATTR_KEYS, ATTR_NAMES } from '../../shared/data/attributes';
 import { WEIGHT_NAMES } from '../../shared/data/armour';
 import { FAMILIES } from '../../shared/data/weapons';
 import type { Material } from '../../shared/data/materials';
@@ -43,6 +44,7 @@ export const townsfolkKey = (s: Snapshot) =>
     s.people.map((p) => [p.clsName, p.stage, p.level, Math.round(p.levelProgress * 20), p.away, p.battle, p.kit.length, p.carrying]),
     inspecting,
     chosenSlot,
+    chosenSkill, // (a tapped skill, spell or trait opens its card: the tap must redraw)
     classOpen,
     s.theme,
     lpcLoaded,
@@ -182,7 +184,7 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
 
   const body = el('div', `inspect-body tab-${inspectTab}`);
   if (inspectTab === 'equipment') equipmentTab(p, s, rerender, body);
-  else if (inspectTab === 'character') characterTab(p, rerender, body);
+  else if (inspectTab === 'character') characterTab(p, bridge, rerender, body);
   else if (inspectTab === 'background') backgroundTab(p, s, body);
   else skillsTab(p, rerender, body);
 
@@ -203,9 +205,9 @@ function equipmentTab(p: PersonView, s: Snapshot, rerender: () => void, out: HTM
 }
 
 /** How they'd fight, their body and spirits, and their traits. */
-function characterTab(p: PersonView, rerender: () => void, out: HTMLElement): void {
+function characterTab(p: PersonView, bridge: Bridge | undefined, rerender: () => void, out: HTMLElement): void {
   const left = el('div', 'inspect-col');
-  left.append(el('h2', '', 'In a fight'), fightCard(p));
+  left.append(el('h2', '', 'In a fight'), fightCard(p, bridge));
   const right = el('div', 'inspect-col');
   right.append(el('h2', '', 'Health and spirits'));
   const life = el('div', 'card person');
@@ -439,7 +441,7 @@ function bag(p: PersonView): HTMLElement {
 }
 
 /** How they'd fight if raiders came now, and the spells and skills they'd use. */
-function fightCard(p: PersonView): HTMLElement {
+function fightCard(p: PersonView, bridge?: Bridge): HTMLElement {
   const box = el('div', 'card');
   const b = p.battle;
   const grid = el('div', 'fight-stats');
@@ -468,14 +470,23 @@ function fightCard(p: PersonView): HTMLElement {
       c.append(el('span', 'fight-label', label), el('span', 'fight-value', String(Math.round(v))));
       attrs.append(c);
     };
-    one('STR', at.str, 'Strength: the weight of a blow');
-    one('DEX', at.dex, `Dexterity: aim, footwork, and how often their turn comes (every ${(b.interval / 10).toFixed(1)} s)`);
-    one('VIT', at.vit, 'Vitality: health and stamina');
-    one('INT', at.int, 'Intellect: spell power and mana');
-    one('WIS', at.wis, 'Wisdom: healing, and mana coming back');
+    for (const k of ATTR_KEYS) {
+      one(k.toUpperCase(), at[k], `${ATTR_NAMES[k]}: ${ATTR_ABOUT[k]}${k === 'dex' ? ` (every ${(b.interval / 10).toFixed(1)} s)` : ''}`);
+      // (a point to spend: a + beside the number)
+      if (p.freePts > 0 && bridge) {
+        const c = attrs.lastElementChild as HTMLElement;
+        c.append(button('+', () => bridge.command({ type: 'spendStat', person: p.id, attr: k }), { cls: 'place small stat-plus', title: `Put a point into ${ATTR_NAMES[k]}` }));
+      }
+    }
     one('MP', b.mp, 'Mana: spells draw on it');
     one('SP', b.sp, 'Stamina: skills draw on it; a plain blow brings some back');
     box.append(attrs);
+    if (p.freePts > 0) {
+      const row = el('div', 'row');
+      row.append(el('span', 'lock short', `${p.freePts} stat ${p.freePts === 1 ? 'point' : 'points'} to spend.`));
+      if (bridge) row.append(button('Let them choose', () => bridge.command({ type: 'spendStat', person: p.id, attr: null }), { cls: 'place small quiet' }));
+      box.append(row);
+    }
   }
   if (p.kit.length) box.append(el('div', 'hint', `${p.kit.length} spells and skills: see the Skills tab.`));
   return box;
@@ -697,7 +708,21 @@ function classRow(p: PersonView, _bridge: Bridge | undefined, rerender: () => vo
     const past = p.clsPast;
     if (p.founderCalling) path.append(el('div', 'hint founder-calling', 'A founder\'s calling: theirs alone, and no one else\'s.'));
     path.append(el('div', 'hint', past.length ? `The path so far: ${past.join(' → ')} → ${p.clsName} (now)` : `${p.clsName} is where their path begins.`));
-    path.append(el('div', 'lock short', nextStage(p)));
+    if (p.road) {
+      path.append(el('div', 'purpose', p.road.text));
+      if (!p.road.next.length) path.append(el('div', 'lock short', 'The last of their line: there is nothing further to become.'));
+      else {
+        const asking = p.road.promptId !== null;
+        path.append(el('div', 'lock short', asking ? 'They stand at the fork now: choose their road, or let them.' : p.road.at !== null && p.level >= p.road.at && p.stage === 3 ? `Level ${p.road.at} reached; the last form takes an ascension: a small chance each day, or a deed worthy of legend.` : `At level ${p.road.at} (now ${p.level}) they may become:`));
+        for (const [i, n] of p.road.next.entries()) {
+          const card = el('div', 'road-option');
+          card.append(el('div', 'road-name', n.name), el('div', 'hint', n.text));
+          if (asking && _bridge) card.append(button(`Become ${n.name}`, () => _bridge.command({ type: 'answerPrompt', prompt: p.road!.promptId!, option: i }), { cls: 'place small' }));
+          path.append(card);
+        }
+        if (asking && _bridge) path.append(button('Let them choose', () => _bridge.command({ type: 'answerPrompt', prompt: p.road!.promptId!, option: p.road!.next.length }), { cls: 'place small quiet' }));
+      }
+    } else path.append(el('div', 'lock short', nextStage(p)));
     // what the calling is, how it fights, and what it brings the town
     const about = CLASS_ABOUT[p.cls];
     if (about) {

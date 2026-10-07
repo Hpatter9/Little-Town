@@ -5,6 +5,7 @@ import type { TacticsOrder } from './tactics';
 import type { RealmOp } from './factions';
 const REALM_OPS: readonly RealmOp[] = ['gift', 'peace', 'trade', 'alliance', 'war', 'demand', 'free', 'marry'];
 import { TAX_RATES, type TaxRate } from '../data/economy';
+import { ATTR_KEYS, type Attrs } from '../data/attributes';
 import type { MonsterKind } from '../data/monsters';
 const TURN_KINDS: readonly string[] = ['undead', 'vampire', 'werewolf'];
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -85,6 +86,10 @@ export type Command =
   | { type: 'battleAuto'; on: boolean }
   | { type: 'battleSpeed'; speed: number }
   | { type: 'battleStyle'; style: 'trail' | 'tactics' }
+  /** Spend one of a townsperson's stat points (data/attributes.ts), or all of them their class's way (`attr` null). */
+  | { type: 'spendStat'; person: number; attr: keyof Attrs | null }
+  /** Whether evolutions and stat points are put to the player, or left to the town. */
+  | { type: 'setAsk'; evolve?: boolean; stats?: boolean }
   | { type: 'tactics'; order: TacticsOrder }
   | { type: 'gameSpeed'; speed: number }
   | { type: 'battleCast'; power: string; x: number; y: number }
@@ -214,6 +219,10 @@ export function parseCommand(raw: unknown): Command | null {
       return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'battleSpeed', speed: c.speed } : null;
     case 'battleStyle':
       return c.style === 'trail' || c.style === 'tactics' ? { type: 'battleStyle', style: c.style } : null;
+    case 'spendStat':
+      return Number.isInteger(c.person) && (c.attr === null || (ATTR_KEYS as readonly string[]).includes(c.attr as string)) ? { type: 'spendStat', person: c.person as number, attr: c.attr as keyof Attrs | null } : null;
+    case 'setAsk':
+      return (c.evolve === undefined || typeof c.evolve === 'boolean') && (c.stats === undefined || typeof c.stats === 'boolean') ? { type: 'setAsk', ...(c.evolve === undefined ? {} : { evolve: c.evolve as boolean }), ...(c.stats === undefined ? {} : { stats: c.stats as boolean }) } : null;
     case 'tactics': {
       const o = c.order as Record<string, unknown> | undefined;
       if (!o || typeof o !== 'object') return null;

@@ -1,6 +1,8 @@
 // Deep winter on the land (no DOM, so the tests can reach it): which water freezes, and how long a footprint lasts on
 // each kind of ground in each weather. groundArt.ts paints the ice; mapTracks.ts lays the footprints.
 
+import { biomeById } from '../../shared/data/biomes';
+
 /** Whether the water freezes and the snow lies: in winter (the land's palette is snowy then, wherever the town). */
 export function freezes(season: string, _biome?: string): boolean {
   return season === 'winter';
@@ -49,5 +51,5 @@ export function trackLife(g: TrackGround, weather: string): number {
 
 /** Breath shows in the cold: winter, the tundra all year, and the small hours of autumn. */
 export function breathShows(season: string, biome: string, daylight: number): boolean {
-  return freezes(season) || biome === 'tundra' || (season === 'autumn' && daylight < 0.3);
+  return freezes(season) || !!biomeById(biome).cold || (season === 'autumn' && daylight < 0.3);
 }

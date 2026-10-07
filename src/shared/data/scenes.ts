@@ -9,12 +9,12 @@ import { TRADE_ROUTES } from './minerals';
 import { ISLAND_ROUTES } from './boats';
 import { DUNGEON_ROUTES } from './dungeons';
 import { FACTION_DEFS } from './factions';
-import type { Biome } from './biomes';
+import { biomeById, type Biome } from './biomes';
 
 export const SCENES = [
   // out in the land
   'meadow', 'riverbank', 'pinewoods', 'quarry', 'highlands', 'ruins', 'bandit_camp', 'burned_village', 'coal_fields', 'mill_yard',
-  'oil_fields', 'ghost_city', 'compound', 'crater', 'dunes', 'tundra', 'coast',
+  'oil_fields', 'ghost_city', 'compound', 'crater', 'dunes', 'tundra', 'coast', 'fen', 'jungle', 'ashland', 'steppe',
   // inside
   'cave', 'keep', 'dragon_den', 'crypt', 'vault', 'ship_hold', 'factory', 'bunker',
 ] as const;
@@ -56,18 +56,14 @@ export const ROUTES: Record<string, [SceneId, SceneId]> = {
   pirate_flagship: ['coast', 'ship_hold'],
 };
 const OLD_SCENERY: Record<string, SceneId> = { thicket: 'meadow', river: 'riverbank', woods: 'pinewoods', quarry: 'quarry', cave: 'cave' };
-/** The green scenes take the town's own land: sand, snow or shore. */
-const BIOME_SWAP: Partial<Record<Biome, Partial<Record<SceneId, SceneId>>>> = {
-  desert: { meadow: 'dunes', pinewoods: 'dunes', riverbank: 'dunes' },
-  tundra: { meadow: 'tundra', pinewoods: 'tundra', riverbank: 'tundra' },
-  coast: { meadow: 'coast' },
-};
+/** The green scenes take the town's own land: sand, snow, shore, fen, jungle, ash or steppe (`scenes` in data/biomes.ts). */
+const biomeSwap = (biome: Biome, id: SceneId): SceneId => (biomeById(biome).scenes[id] as SceneId | undefined) ?? id;
 export const INDOOR_SCENES: ReadonlySet<SceneId> = new Set<SceneId>(['cave', 'keep', 'dragon_den', 'crypt', 'vault', 'ship_hold', 'factory', 'bunker']);
 
 export function sceneFor(dest: string, scenery: string, phase: string, biome: Biome | undefined): SceneId {
   const route = ROUTES[dest];
   let id: SceneId = route ? (phase === 'work' ? route[1] : route[0]) : (OLD_SCENERY[scenery] ?? 'meadow');
-  if (biome && !INDOOR_SCENES.has(id)) id = BIOME_SWAP[biome]?.[id] ?? id;
+  if (biome && !INDOOR_SCENES.has(id)) id = biomeSwap(biome, id);
   return id;
 }
 
@@ -100,6 +96,11 @@ export const SCENE_LOOKS: Record<SceneId, SceneLook[]> = {
   dunes: ['painted', ...n('oasis', 1, 2, 3, 4), ...n('nature', 3)],
   tundra: ['painted', ...n('winter', 1, 2, 3, 4, 5, 6, 7), ...n('snowfield', 1, 2, 3, 4), ...skies(...n('meadows', 2))],
   coast: ['painted', ...n('meadows', 3), ...skies(...n('ocean', 1, 2, 3, 4, 5), ...n('underwater', 4))],
+  // (the new lands: the fens under heavy skies, the jungle's green walls, the ashlands' wastes and the open steppe)
+  fen: ['painted', ...n('forest', 1, 3), ...n('nature', 2), ...n('abandoned', 4), 'battle_graves', ...skies(...n('cloudscape', 2, 4), ...n('heights', 3))],
+  jungle: ['painted', 'battle_jungle', ...n('forest', 1, 4, 5), ...n('nature', 2, 4), ...n('summer', 4), ...skies(...n('clouds', 2))],
+  ashland: ['painted', ...n('wasteland', 1, 2, 3), 'battle_ruins', ...n('abandoned', 3), ...n('moon', 3), ...skies(...n('skies', 4), ...n('heights', 2))],
+  steppe: ['painted', ...n('meadows', 1, 2, 4), ...n('summer', 2, 5), ...n('nature', 4), ...skies(...n('clouds', 1, 3, 4), ...n('skies', 1))],
   cave: ['painted', ...n('crystal', 1, 2, 3, 4)],
   keep: ['painted', 'battle_hall'],
   dragon_den: ['painted'],
@@ -115,7 +116,7 @@ const SEASON_LOOKS: Partial<Record<string, SceneLook[]>> = {
   autumn: n('autumn', 1, 2, 3, 4),
   winter: [...n('winter', 1, 3, 5), ...n('snowfield', 1, 3)],
 };
-const SEASONAL = new Set<SceneId>(['meadow', 'riverbank', 'pinewoods', 'bandit_camp', 'highlands']);
+const SEASONAL = new Set<SceneId>(['meadow', 'riverbank', 'pinewoods', 'bandit_camp', 'highlands', 'steppe', 'fen']);
 
 /** The look for a trip (the same one all the way, seeded by the trip). */
 /** A shore town's trips (the merfolk) out of doors: under the waves, or the open sea under the sky. */

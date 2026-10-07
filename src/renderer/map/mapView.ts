@@ -4,6 +4,7 @@
 // being placed. People and raiders are drawn into `things` by mapPeople.ts and mapRaiders.ts, sorted the same way.
 // The whole world is tinted for the time of day.
 
+import { biomeById } from '../../shared/data/biomes';
 import wreckUrl from '../art/packs/sb_wreck.png';
 import { loadImage } from '../art/loadImage';
 import { AnimatedSprite, Container, Graphics, Sprite, Texture } from 'pixi.js';
@@ -172,7 +173,7 @@ function cropLook(b: Building): CropLook | undefined {
 }
 /** Sections of a field sown or reaped so far (it's worked a section at a time: data/crops.ts). */
 const cropDone = (b: Building): number => (CROPS[b.def] && b.crop && b.crop.stage !== 'growing' ? sectionsDone(b.crop.work, footprint(b).w) : 0);
-const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${cropDone(b)}|${b.room ? 'room' : ''}|${b.wide ?? 0}`;
+const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLook(b) ?? ''}|${cropDone(b)}|${b.room ? 'room' : ''}|${b.wide ?? 0}|${b.planned ? 'planned' : ''}`;
 
 /** The wreck a sea beast lairs on (a reef place), once loaded. */
 let wreckTex: Texture | null = null;
@@ -361,7 +362,7 @@ export class MapView {
         const id = `${cx},${cy}`;
         // (chunks wholly out of sight are one black square)
         const near = Math.hypot((cx + 0.5) * CHUNK - land.camp.x, (cy + 0.5) * CHUNK - land.camp.y) <= reach;
-        const key = near ? chunkKey(land, cx, cy, season, !!td, era, this.blighted()) : 'dark';
+        const key = near ? chunkKey(land, cx, cy, season, !!td, era, this.blighted(), biome) : 'dark';
         let c = this.chunks.get(id);
         if (c && c.key === key) continue;
         if (c && wearOnly && repaints >= 1) {
@@ -470,14 +471,16 @@ export class MapView {
   }
 
   private propSets(season: string, biome: string): PropSet[] {
+    const def = biomeById(biome);
     const winter = season === 'winter' || biome === 'tundra';
-    const base: PropSet = biome === 'desert' ? 'desert' : winter ? 'winter' : biome === 'coast' ? 'coast' : 'wild';
     // (the liches' and vampires' land is blighted: dead trees, thorns and bones, and snow when it snows)
     if (this.blighted()) return winter ? ['undead', 'winter'] : ['undead'];
-    const sets: PropSet[] = [base];
-    if (this.style === 'fae' || this.style === 'druid') sets.push('grove');
-    if (base !== 'wild') sets.push('wild');
-    if (this.style === 'dwarves') sets.push('cave');
+    // (each land's own sets (data/biomes.ts `props`); snow over them in winter, but not on a dry land)
+    const own = (def.props as PropSet[]).filter((p) => p !== 'winter');
+    const sets: PropSet[] = winter && !def.dry ? ['winter', ...own] : own;
+    if (!sets.length) sets.push('wild');
+    if ((this.style === 'fae' || this.style === 'druid') && !sets.includes('grove')) sets.push('grove');
+    if (this.style === 'dwarves' && !sets.includes('cave')) sets.push('cave');
     return sets;
   }
 
@@ -1018,7 +1021,7 @@ export class MapView {
   /** Fireflies over the grass in view on warm, fair nights (the lights layer is dark by day): each drifts, blinks a
    *  few times and winks out, and another comes. */
   private fireflies(dt: number): void {
-    const warm = (this.season === 'spring' || this.season === 'summer') && this.biome !== 'tundra' && this.biome !== 'desert';
+    const warm = (this.season === 'spring' || this.season === 'summer') && !biomeById(this.biome).cold && !biomeById(this.biome).dry;
     const fair = this.weather === 'clear' || this.weather === 'cloudy';
     const want = !this.calm && warm && fair && this.lights.alpha > 0.2 && this.land ? FLIES_MAX : 0;
     const { x, y, w, h } = this.view;
@@ -1164,6 +1167,14 @@ export class MapView {
   private updateBlueprint(b: Building, d: DrawnBuilding): void {
     d.progress = b.progress;
     const { w, h } = d.rect;
+    if (b.planned) {
+      // (laid out ahead of its turn, with the rest of the wall: the ghost alone, no stakes or scaffolding yet)
+      d.mask!.clear();
+      d.site!.clear();
+      d.faint!.alpha = 0.5;
+      return;
+    }
+    d.faint!.alpha = 0.35;
     const built = Math.round(h * b.progress);
     d.mask!.clear().rect(0, h - built, w, built).fill(0xffffff);
     const def = BUILDING_BY_ID[b.def];

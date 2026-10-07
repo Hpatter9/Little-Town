@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ascend, assignClass, canWear, classAllies, classesHourly } from '../src/shared/sim/classes';
-import { CLASSES, className, STAGE_LEVELS } from '../src/shared/data/classes';
+import { className, STAGE_LEVELS } from '../src/shared/data/classes';
+import { BASE_PATHS } from '../src/shared/data/paths';
 import { levelOf, stageOf } from '../src/shared/data/levels';
 import { gainSkill } from '../src/shared/sim/townsfolk';
 import { startBattle, stepBattle } from '../src/shared/sim/combat';
@@ -13,15 +14,15 @@ import { Rng } from '../src/shared/rng';
 import { plainGame } from './helpers';
 
 
-test('every grown-up is given a class once: weighted by their skills, some callings rare, never switched', () => {
+test('every grown-up starts on one of the eight base callings, weighted by their skills, and is never switched', () => {
   const s = plainGame('classes');
   const count: Record<string, number> = {};
   for (let i = 0; i < 4000; i++) {
     const p = makePerson(new Rng(i), 1000 + i, 'hunter', { x: 0, y: 0 }, []);
     count[assignClass(s, p)] = (count[assignClass(s, p)] ?? 0) + 1;
   }
-  assert.equal(Object.keys(count).length, CLASSES.length, 'every calling turns up');
-  assert.ok((count.necromancer ?? 0) * 4 < (count.knight ?? 0), `necromancers rare (${count.necromancer} to ${count.knight} knights)`);
+  assert.equal(Object.keys(count).length, BASE_PATHS.length, 'every base calling turns up');
+  assert.ok(!count.necromancer && !count.knight, 'nobody starts past the base (a Necromancer or a Knight is a road taken)');
   // a born scholar leans to the arcane, a born fighter to the blade
   let scholars = 0;
   let fighters = 0;

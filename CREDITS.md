@@ -192,7 +192,10 @@ Horses are from **whtdragon**'s RPG Maker MV animal sprites (see Creatures above
   impacts, and the dust where a building comes down.
 - **5000 Pixel Effects** (16px + 32px; licensed for use in games, see `assets/pixel-effects/LICENSE.txt`): the
   flames on burning buildings, the emotes over townsfolk (zzz, hearts, anger, sweat, notes), the golden
-  arrow when someone's skill goes up, and the fire and lightning bursts where gunshots and lasers hit.
+  arrow when someone's skill goes up, and the fire and lightning bursts where gunshots and lasers hit; and, as
+  one atlas (`tools/compose-pixelfx.cjs`), every element's every shape (bolts, orbs, bursts, pillars, rain, novas,
+  spikes, runes, auras, sparkles...) played where spells and skills land in fights, on the raid map and the
+  tactics board.
 - **Holy VFX 02**: the pillar of light as someone is brought back from death (no licence file in the folder:
   check the author's terms before any public release).
 - The Rat Plague: whtdragon's *mouse* sheet (rats, plague rats, and the Rat King drawn huge; same licence note).

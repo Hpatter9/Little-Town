@@ -42,6 +42,7 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
+import { spendByClass, spendPoint } from './attributes';
 import { questsHourly } from './quests';
 import { delvesHourly } from './delves';
 import { placesHourly } from './places';
@@ -352,6 +353,15 @@ export class Sim {
         break;
       case 'battleStyle':
         s.battleStyle = c.style; // (from the next raid: sim/tactics.ts)
+        break;
+      case 'spendStat': {
+        const p = s.people.find((q) => q.id === c.person);
+        if (p) c.attr ? spendPoint(p, c.attr) : spendByClass(p);
+        break;
+      }
+      case 'setAsk':
+        if (c.evolve !== undefined) s.evolveAsk = c.evolve;
+        if (c.stats !== undefined) s.statsAsk = c.stats;
         break;
       case 'gameSpeed':
         setGameSpeed(s, c.speed);

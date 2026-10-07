@@ -199,6 +199,84 @@
         white-space: nowrap;
       }
 
+      /* the minimap of the land (map/minimap.ts): the strip's top-right corner, under the phone's clock bar */
+      #minimap {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        padding: 3px;
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-radius: 6px;
+        line-height: 0;
+      }
+      #minimap canvas {
+        display: block;
+        border-radius: 3px;
+        image-rendering: pixelated;
+      }
+      #minimap .mini-hide {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        line-height: 18px;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-radius: 0 6px 0 6px;
+        cursor: pointer;
+      }
+      #minimap-tab {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: auto;
+        padding: 0 10px;
+      }
+      /* (on the phone they keep their size on the screen whatever the zoom, like the clock bar) */
+      body.embedded #minimap,
+      body.embedded #minimap-tab {
+        top: 36px;
+        zoom: var(--ui-zoom, 1);
+      }
+      body.in-battle #minimap,
+      body.in-battle #minimap-tab,
+      body.in-fight #minimap,
+      body.in-fight #minimap-tab {
+        display: none;
+      }
+      /* the name of the region the view is over (sim/landRegions.ts), shown a moment as the view crosses into it */
+      #region-name {
+        position: absolute;
+        top: 42px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 4px 14px;
+        font-family: var(--font-display);
+        font-size: 15px;
+        letter-spacing: 0.06em;
+        color: var(--heading, #f3e3b4);
+        background: rgba(20, 16, 12, 0.55);
+        border-radius: 14px;
+        pointer-events: none;
+        opacity: 1;
+        transition: opacity 1.2s;
+      }
+      #region-name.fade {
+        opacity: 0;
+      }
+      body.embedded #region-name {
+        top: 38px;
+        zoom: var(--ui-zoom, 1);
+      }
+      body.in-battle #region-name,
+      body.in-fight #region-name {
+        display: none;
+      }
       #banner {
         position: absolute;
         top: 6px;

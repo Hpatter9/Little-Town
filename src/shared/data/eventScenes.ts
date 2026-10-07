@@ -147,8 +147,12 @@ const TOWN_BY_ERA: Record<Era, BackdropId[]> = {
 /** By land and season, when the event's words don't settle it. */
 function byLand(now: SceneNow): BackdropId[] {
   if (now.sea) return POOLS.sea;
-  if (now.biome === 'desert') return POOLS.desert;
-  if (now.biome === 'tundra' || now.season === 'winter') return POOLS.snow;
+  if (now.biome === 'desert' || now.biome === 'steppe') return POOLS.desert;
+  if (now.biome === 'ashlands') return [...POOLS.fire, ...POOLS.ruins];
+  if (now.biome === 'tundra' || now.biome === 'taiga' || now.season === 'winter') return POOLS.snow;
+  if (now.biome === 'highlands') return POOLS.mountain;
+  if (now.biome === 'swamp') return [...POOLS.forest, ...POOLS.flood];
+  if (now.biome === 'jungle') return ['battle_jungle', ...POOLS.forest];
   if (now.era !== 'neolithic' && now.era !== 'medieval') return TOWN_BY_ERA[now.era];
   if (now.season === 'autumn') return ['autumn_1', 'autumn_2', 'autumn_3', 'autumn_4'];
   if (now.season === 'summer') return ['summer_1', 'summer_2', 'summer_4', 'summer_5'];

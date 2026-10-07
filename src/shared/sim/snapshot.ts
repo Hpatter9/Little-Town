@@ -1,5 +1,8 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { branchesOf, PATH_BY_ID } from '../data/paths';
+import { STAGE_LEVELS } from '../data/classes';
+import { freePoints } from './attributes';
 import { tacticsView, type TacticsView } from './tactics';
 import { faithView, type FaithView } from './faith';
 import { disasterView, type DisasterView } from './disasters';
@@ -152,6 +155,11 @@ export interface PersonView {
   clsPast: string[];
   clsText: string;
   founderCalling: boolean;
+  /** Their road (data/paths.ts): where they stand, the roads open at the next stage (names and what each is), the
+   *  level that opens them, and the evolution question waiting on them, if one is. Founders have none. */
+  road: { name: string; text: string; next: { id: string; name: string; text: string }[]; at: number | null; promptId: number | null } | null;
+  /** Stat points earned and not yet spent (data/attributes.ts). */
+  freePts: number;
   /** Which of their class's five stages they're at (0 to 4), and whether they've ascended (the last needs it). */
   stage: number;
   ascended: boolean;
@@ -729,6 +737,9 @@ export interface Snapshot {
   /** A raid fought on a tactics board (sim/tactics.ts), while it's on; and how raids are fought. */
   tactics: TacticsView | null;
   battleStyle: 'trail' | 'tactics';
+  /** Evolutions and stat points put to the player (the Town menu's settings). */
+  evolveAsk: boolean;
+  statsAsk: boolean;
   /** A town walled at both ends: the tiles its walls span, and what they're built of (drawn as a far wall round it). */
   enclosure: { lo: number; hi: number; wall: string } | null;
   /** A full-moon night: werewolves show what they are. */
@@ -841,6 +852,8 @@ export function snapshot(s: GameState): Snapshot {
     battle: battleView(s, aimableSpells(s)),
     tactics: tacticsView(s),
     battleStyle: s.battleStyle ?? 'tactics',
+    evolveAsk: s.evolveAsk !== false,
+    statsAsk: s.statsAsk !== false,
     powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
     lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
@@ -1353,6 +1366,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     clsPast: p.cls ? [0, 1, 2, 3].filter((i) => i < stageOf(p)).map((i) => callingName(p, i)!) : [],
     clsText: callingText(p),
     founderCalling: !!p.fcls,
+    road: roadView(s, p),
+    freePts: freePoints(p),
     stage: stageOf(p),
     ascended: !!p.ascended,
     level: levelOf(p),
@@ -1483,10 +1498,19 @@ function actText(name: string): string {
   return ACT_TEXT.get(name) ?? '';
 }
 
+/** Where someone stands on their road, and what's open next (null for a founder or anyone without one). */
+function roadView(s: GameState, p: Person): PersonView['road'] {
+  const node = p.road ? PATH_BY_ID[p.road] : undefined;
+  if (!node) return null;
+  const next = node.stage >= 4 ? [] : branchesOf(node.id).map((n) => ({ id: n.id, name: n.name, text: n.text }));
+  const prompt = s.prompts.find((q) => q.kind === 'evolve' && q.who === p.id);
+  return { name: node.name, text: node.text, next, at: node.stage >= 4 ? null : STAGE_LEVELS[node.stage + 1], promptId: prompt?.id ?? null };
+}
+
 /** Someone's fighting stats and kit, worked out again only when what they depend on changes. */
 const fightCache = new Map<number, { key: string; view: Pick<PersonView, 'battle' | 'kit' | 'passives'> }>();
 function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives'> {
-  const key = JSON.stringify([p.cls, levelOf(p), p.gear, p.gearQ, p.skills.melee.level, p.skills.ranged.level, p.traits, p.monster, Math.round(p.hp)]);
+  const key = JSON.stringify([p.cls, p.road, p.attrPts, levelOf(p), p.gear, p.gearQ, p.skills.melee.level, p.skills.ranged.level, p.skills.social.level, p.traits, p.monster, Math.round(p.hp)]);
   const hit = fightCache.get(p.id);
   if (hit?.key === key) return hit.view;
   if (fightCache.size > 500) fightCache.clear();
@@ -1495,7 +1519,7 @@ function fightView(p: Person): Pick<PersonView, 'battle' | 'kit' | 'passives'> {
   const view = {
     battle: { damage: f.damage, accuracy: f.accuracy, dodge: f.dodge, armor: f.armor, block: f.block, crit: f.quirks?.crit ?? 0, ranged: f.ranged, attrs: f.attrs!, mp: f.maxMp ?? 0, sp: f.maxSp ?? 0, interval: f.interval, range: weaponRange(p, ranged(p)) },
     kit: (kit?.actions ?? []).map((a) => ({ name: a.name, spell: a.spell, level: a.level, cost: a.cost, pool: a.pool, text: describeAct(a.effects, a.cooldown / TICK_HZ, a.pool === 'limit') })),
-    passives: p.cls ? abilitiesKnown(p.cls, levelOf(p)).filter((a) => a.passive).map((a) => ({ name: a.name, level: a.level, text: describePassive(a.passive!) })) : [],
+    passives: p.cls ? abilitiesKnown(p.cls, levelOf(p), p.road).filter((a) => a.passive).map((a) => ({ name: a.name, level: a.level, text: describePassive(a.passive!) })) : [],
   };
   fightCache.set(p.id, { key, view });
   return view;

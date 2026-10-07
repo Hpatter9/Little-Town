@@ -82,7 +82,7 @@ export interface DragonState {
 
 /** Which dragon a land draws. */
 export function dragonFor(biome: string): string {
-  return biome === 'tundra' ? 'rimewyrm' : biome === 'desert' ? 'ashen_wyrm' : 'dragon';
+  return biome === 'tundra' || biome === 'taiga' ? 'rimewyrm' : biome === 'desert' || biome === 'ashlands' ? 'ashen_wyrm' : 'dragon';
 }
 const LAIRS: Record<string, string> = { rimewyrm: 'the glacier caves to the north', ashen_wyrm: 'the burnt crags past the dunes', dragon: 'the red crags over the hills' };
 export const dragonName = (kind: string) => ENEMIES[kind]?.name ?? 'The Dragon';

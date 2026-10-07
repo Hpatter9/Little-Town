@@ -13,7 +13,7 @@ import type { RealmStance, Temper } from '../data/factions';
 import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
-import { CELL, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
+import { CELL, FOG_BAND, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
 import { SEAT_D, seatId } from '../data/seats';
 import type { Delve } from './delves';
 import type { PackState } from './pack';
@@ -91,6 +91,9 @@ export interface Building {
   hp?: number;
   /** A piece of the town's ring wall (sim/ringWall.ts): which ring. */
   ring?: number;
+  /** A blueprint laid out as part of a whole (the ring wall at once) but not yet in work: nobody hauls to it or
+   *  builds it, it takes no build slot, and people walk through it, until the plan releases it (`planned` dropped). */
+  planned?: boolean;
   /** Turned a quarter: its footprint is its depth wide and its width deep (a gate in the ring wall's west or east
    *  run stands along the wall). */
   turned?: boolean;
@@ -508,6 +511,13 @@ export interface Person {
   cls?: ClassId | null;
   /** A founder's own calling (data/founderClasses.ts: the founder's id), standing on `cls` as its base. */
   fcls?: string | null;
+  /** The path node they stand on (`road`; data/paths.ts: a base calling, then the road chosen at each evolution); `cls` is
+   *  the node's archetype. Founders keep their own line and no path. */
+  road?: string | null;
+  /** Stat points spent (data/attributes.ts: STAT_POINTS_PER_LEVEL a level), by attribute; `ptsSince` the tick they
+   *  first had points to spend (left that long, the town spends them). */
+  attrPts?: Partial<import('../data/attributes').Attrs>;
+  ptsSince?: number;
   /** Their level (levels.ts: from all they do, fighting most), and the XP toward the next. Left out: level 1. */
   level?: number;
   lvXp?: number;
@@ -626,7 +636,9 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve';
+  /** An evolution's two roads (sim/classes.ts): the node ids the options stand for. */
+  roads?: string[];
   /** An envoy from a power of the realm (sim/factions.ts): which, and what they've come about. */
   envoy?: { faction: string; about: string; coins?: number };
   /** A commanded party's question on the road (sim/muster.ts `CROSSROADS`): which one. */
@@ -976,6 +988,9 @@ export interface GameState {
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
+  /** Evolutions and stat points are put to the player (unset: yes); off, the town decides them itself. */
+  evolveAsk?: boolean;
+  statsAsk?: boolean;
   /** How raids are fought: on a tactics board (sim/tactics.ts; unset) or down the trail (tower defence). */
   battleStyle?: 'trail' | 'tactics';
   /** The tactics board's turns are the town's to play (unset: on); off, the player gives the orders. */
@@ -1505,7 +1520,10 @@ export function campX(s: Pick<GameState, 'land' | 'nomad'>): number {
 }
 /** The land's edge on the camp's row, one cell out, on a side (where strangers come in and go out), in px. */
 export function edgeXY(s: Pick<GameState, 'land' | 'nomad'>, side: -1 | 1): Pt {
-  return { x: side < 0 ? -CELL / 2 : (s.land.w + 0.5) * CELL, y: campXY(s).y };
+  // (where the known land ends in the fog on the camp's row: on the wide land the map's own edge is a long walk off)
+  const reach = Math.min(s.land.open + FOG_BAND + 3, side < 0 ? s.land.camp.x + 1 : s.land.w - s.land.camp.x);
+  const cx = campX(s) + side * reach * CELL;
+  return { x: Math.max(-CELL / 2, Math.min((s.land.w + 0.5) * CELL, cx)), y: campXY(s).y };
 }
 /** Which side of the camp a point lies. */
 export const sideOf = (s: Pick<GameState, 'land' | 'nomad'>, p: Pt): -1 | 1 => (p.x < campX(s) ? -1 : 1);

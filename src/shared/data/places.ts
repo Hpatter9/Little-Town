@@ -75,12 +75,18 @@ export const PLACE_FOES: Record<'cave' | 'beast' | 'cart' | 'reef', Partial<Reco
 export const BIOME_BEASTS: Record<string, Record<string, number>[]> = {
   desert: [{ lion: 1, lioness: 2 }, { wild_dog: 4 }],
   coast: [{ crocodile: 2 }],
+  swamp: [{ crocodile: 3 }, { slime: 4 }],
+  jungle: [{ boar: 4 }, { crocodile: 2 }],
+  highlands: [{ wild_dog: 4 }, { wolf: 3, wolf_alpha: 1 }],
+  ashlands: [{ fire_elemental: 1 }, { wild_dog: 3 }],
+  steppe: [{ lion: 1, lioness: 2 }, { wild_dog: 4 }, { horse_rider: 2 }],
+  taiga: [{ wolf: 3, wolf_alpha: 1 }, { boar: 3 }],
 };
 
 /** How many places a land holds, how far from the camp they lie (cells), and how far apart. */
-export const PLACE_COUNT = 14;
+export const PLACE_COUNT = 32;
 export const PLACE_NEAR = 10;
-export const PLACE_FAR = 42;
+export const PLACE_FAR = 88;
 export const PLACE_APART = 5;
 /** A found cart's robbers are still about this often. */
 export const CART_ROBBED = 0.4;

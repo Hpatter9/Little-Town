@@ -19,6 +19,7 @@ cpSync('out/renderer/backdrops', `${OUT}/backdrops`, { recursive: true });
 cpSync('out/renderer/himeko', `${OUT}/himeko`, { recursive: true });
 cpSync('out/renderer/props', `${OUT}/props`, { recursive: true });
 cpSync('out/renderer/scenery', `${OUT}/scenery`, { recursive: true });
+cpSync('out/renderer/fx', `${OUT}/fx`, { recursive: true });
 cpSync('out/renderer/fonts', `${OUT}/fonts`, { recursive: true });
 
 // the version shown in the ☰ menu: the package's number, the commit it was built from and the day (so the owner can

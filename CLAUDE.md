@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.14.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.15.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -135,13 +135,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs
   itself, so there's little to watch while a menu is open. The tabs stay visible (along the bottom upright).
-- **The phone held upright:** a slim title bar; a live **feed** (`src/renderer/mobile/feed.ts`): cards for what wants
-  attention now (raid, disaster, a question), the hero being followed, and the latest happenings (the Journal, the
-  day's small change left out: `CHATTER`), each with a picture borrowed from the strip (`window.__picture` in
-  `main.ts`: the townsperson's head, or the building in the town's style) or a mark for the kind of news; the town,
-  bigger, in the lower `UPRIGHT_TOWN` (55%) of the height (`layout()` in `mobile.ts`: the strip fills its room, sky over
-  the town; upright zoom key `littletown.zoom3`, default 1.5); and one slim row of tabs along the bottom (a mark over a
-  short name: `TAB_ICONS`, `SHORT_LABELS`). Sideways is as it was.
+- **The phone held upright:** a slim title bar, the town filling the rest of the height (`layout()` in `mobile.ts`),
+  and one slim row of tabs along the bottom (a mark over a short name: `TAB_ICONS`, `SHORT_LABELS`). The feed that
+  once sat over the town is gone (the owner's ask); the news is the **news bubble** (see "The news bubble" below).
 - **Phase 3 is done** (the Tavern: see above).
 - **Origins are done:** `src/shared/data/origins.ts` (defs: start, rules, powers), applied at founding in
   `newGame`; the rule multipliers are in `src/shared/sim/origin.ts` (asked for by people, farming, raids, crafting, the
@@ -596,9 +592,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   unique held to the venues' attractiveness (`trophyRenown` in shop.ts). Phone alerts: the `delves` setting (forecast
   kind `delve`: the boss met, cleared, a unique, a dungeon woken). The Expeditions tab lists open quests and marks
   dungeons with a quest or lying quiet. Tests: `test/quests.test.ts`.
-- **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
-  `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
-  (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.
+- **Fewer pop-up notices over the town:** the phone page marks the strip `feed-shown` (`layout()` in `mobile.ts`,
+  the class keeping its old name) whenever no battle is on; then the strip pops up only the day's small change
+  (`CHATTER` in `renderer/chatter.ts`), since the news bubble carries the rest.
 
 - **Townsfolk tab: short rows, and an inspect page:** `panel/townsfolkPanel.ts`. The list is one row per person (their
   face cropped from the composed LPC sprite, name, class and level, what they're doing, mini health and morale bars, a
@@ -773,7 +769,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   rest, only while the stores hold `RING_SPARE` (3) times a piece's cost, none while food is under 2 days, and not
   before the shop in a town that must buy what it builds with (`shopFirst`); when the town grows past the ring (`contains`) a wider one is started outside
   it (a new gen), and once the new ring stands all round (`ringComplete`) the older pieces, and the old strip's end
-  walls, are demolished (half refunded). The known land is opened to the ring's corners. Townsfolk walk out through the
+  walls, are demolished (half refunded). **One blueprint for the whole wall (the owner's ask):** every piece of the ring
+  that can stand now is laid at once as a *planned* blueprint (`Building.planned`: it takes no build slot
+  (`blueprintCount` counts only `inWork` blueprints), nobody hauls to it or builds it (people.ts), the planner's wants
+  and `shelveStalled` skip it, and `blockedBy` lets people walk through it); the map draws a planned piece as the wall's
+  ghost alone (`updateBlueprint`), and `planRing` releases the sections into work in the ring's order (the gates first,
+  then round), `RING_AT_ONCE` at a time under the old stock rule; a better wall learned remakes the planned pieces as
+  it. Test in `test/ringWall.test.ts`. The known land is opened to the ring's corners. Townsfolk walk out through the
   gates (`blockedBy` in walk.ts and `connectRoad` let gates through; a sealed town walks straight through, as `walk`
   always did); raids' trails end at the ring's gate on their side (`ringGate` in battle.ts `gateCell`), raiders break
   the gate or wall as before (`wallBetween`), and shooters stand on the ring's pieces near the trail (wall spots). The
@@ -1318,10 +1320,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   beyond the open land is per 4px block by its own distance, black by the band's end, so its edge is round. The
   strip's HUD keeps its on-screen size at every zoom (`--ui-zoom` is `1 / z`; it only counter-scaled when zoomed out,
   so a big pinch grew the clock bar).
-- **The map takes the feed's empty room (upright):** `townShare` in mobile.ts sizes the town by what the feed has to
-  show (its children's heights), from `UPRIGHT_TOWN` 0.55 up to `UPRIGHT_TOWN_MOST` 0.82, in twentieths; a
-  MutationObserver on `#feed` lays the page out again when the share changes. A new town opens with the map filling
-  most of the screen, and the feed takes its room back as the news comes.
+- **The map takes the feed's empty room (upright):** superseded: the feed is gone and the map has all the room (see
+  "The news bubble").
 - **Roads run edge to edge (done; the owner's ask):** `connectRoad` finds its way four ways (`PathOpts.four` in
   `findPath`: no diagonal steps, since the road tiles join along their edges) and `squareRoads` gives any diagonal step in
   an older road a cell beside it. Test in `test/land.test.ts`.
@@ -1559,10 +1559,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   already placed is within `PERSONAL_SPACE` (32 px; up and down counts `SQUASH` 0.75), else gives them the nearest free
   place on rings round it (`ASIDE`); the step is eased in at a walk (`Drawn.aside`, `.off`) and dropped once they move.
   Walkers pass through each other. Drawing only: the sim's positions are untouched; `personAt` and `posOf` follow the step.
-- **The map's grip (upright; the owner's ask: the map full screen or half at will):** a grip on the map's top edge
-  (`#map-grip`, mobile.ts): drag it up over the feed or down to half (`MAP_LEAST`), a tap flips between the whole
-  room and half. Kept in `littletown.mapShare` (unset: the map follows the feed as before, `townShare`); at the whole
-  room `body.map-full` hides the feed. Not shown sideways, in a menu or in a battle.
+- **The map's grip (upright):** gone with the feed (the map always has the whole room now; see "The news bubble").
 - **Fateful events (done; the owner's ask: events that change a town's course, toward fortune or ruin):**
   `src/shared/data/fatefulEvents.ts`: 25 events (a great fire, the black fever, a royal patron, gold in the river, a
   prophet who leads people off, the great blight, the lost library, the lost legion, an earthquake, a comet, the bandit
@@ -1884,7 +1881,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`Expedition.watchAsked`); never while watching already, in a town run by hand (autopilot off: the tests), or while the
   sim runs unseen (`runtime.quiet`, set by the catch-up after time away and the alerts' look ahead). The phone's event
   box shows it full screen and closes on either answer. Test: `test/watchAsk.test.ts`.
-- **Buildings pulled down to make room (the owner's ask):** an upgrade with no room where it stands (`canUpgrade` in
+- **Buildings pulled down to make room (the owner's ask):** (the owner's later complaint: a town pulled down its only
+  crop for a house: now a field or pen, fallow or not, and a store with goods in it are never pulled down: `mayClear`.) An upgrade with no room where it stands (`canUpgrade` in
   sim/buildings.ts) may pull down what's in its way: at most `CLEAR_MOST` (2) finished buildings worth together no more
   than `CLEAR_WORTH` (0.6) of the upgrade's cost, never the seat, a gate or wall (`hp`), a castle's room, a venue, a
   prison, the campfire, anything alight, a field with a crop growing or a pen with animals, nor one of its own kind
@@ -2189,6 +2187,74 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   an omen its shadow only), and a roar (ambience.ts `roar` cue) as each flight begins. `window.__dragon(kind?)` summons
   one (previews). Tests: `test/dragon.test.ts`. (The snapshot's planned party no longer throws when someone in it has
   died since it was planned: `partyView`.)
+- **The wide land (the owner's ask: a much larger map):** `LAND_W`/`LAND_H` are 192 (four times the old 96x96, `OLD`).
+  **The home vale is the land a seed always had:** `makeLand` samples its noise, traces the river, lays the shore,
+  the mountain's foot and the pools over the old box about the camp first and in the old order, so everything within
+  `VALE_R` (40) of the camp is as before (the tests and the balance hold); beyond it the land is cut into **named
+  regions** (`src/shared/sim/landRegions.ts`: `layRegions` puts eight countries in a ring round the vale, every kind
+  once: `oldwood`, `fen`, `barrens`, `meadows`, `lake`, `highlands`, `heath` and one more; `REGION_DEFS`: each a wild
+  share, multipliers on the biome's mix of wild kinds, rich soil for the meadows, a lake at a lake's heart (an oasis
+  in the desert), the finds it favours, and name pools with desert and tundra spellings; names by the seed: "the Grey
+  Barrens", "Larksmeadow", "Stillmere"). Each region ranks its own cells for its wild share (`rankIn`), so it has
+  exactly that much wild wherever the broad noise lies; `regionAt` finds a cell's region (the vale by plain distance,
+  its rim and the other borders warped by noise); `LandMap.regions` and `seedHash` are saved (an older, smaller land
+  has none: `regionOfCell` gives null). **Living on it:** `OPEN_MAX` 86 (the known land may spread over most of it);
+  a town ranges for a missing material only to `OPEN_FAR_BASE` (40) + `OPEN_FAR_PER_PERSON` (3) a grown-up
+  (`openLand`: a lone founder once opened it all and walked a day for a log); `PLACE_COUNT` 32 places out to
+  `PLACE_FAR` 88, each region favouring its own (`REGION_DEFS.places`: lairs in the old wood, veins in the barrens,
+  caves in the highlands, bones in the fen, carts and ruins on the meadows), and a find is named with its region
+  ("Old ruins found in the Grey Barrens, to the north-west"; `inRegion`); strangers come and go at the fog's edge on
+  the camp's row (`edgeXY`), not the map's far edge. **Seeing it:** a **minimap** (`src/renderer/map/minimap.ts`,
+  `Minimap`, a canvas in the strip's top-right corner, under the phone's clock bar: the ground in its colours, the
+  fog, buildings, people white, raiders red, places gold, the view framed; tap to look there; × hides it and a Map
+  tab brings it back, kept in `littletown.minimap`), and a **region caption** (`#region-name`, main.ts: the name of
+  the region under the middle of the view, shown a few seconds as the view crosses into it); a cell's tap card names
+  its region. Tests: `test/land.test.ts` (the wide land).
+- **The news bubble (the owner's ask: no feed over the town; a bubble at the right, opened to review and act, the
+  news told apart by colour as RimWorld's letters are):** `src/renderer/mobile/notices.ts`. The pure part:
+  `situationNotices(snapshot)` (what is going on now: a raid, a war host, a doom, parties out, places found, the last
+  raid's report, the last answer's outcome, a question waiting), `journalNotices(entries, snapshot)` (the Journal's
+  latest lines, `CHATTER` left out, each with who or what it is about: `aboutOf`), each with a stable `key` and a
+  `Tone` (`toneOf`: **red** threats and losses, **gold** what wants the player (a question, a stranger at the gate, a
+  caravan, a quest, a place found, an outcome), **blue** the rest), and `worst`. `startNotices` puts `#notice-bubble`
+  on the page (right edge, mid-height: clear of the minimap and the strip's pop-ups; the count of keys not yet looked
+  at, coloured by the worst of them, pulsing red; hidden when there's nothing new, in a menu, a battle or an event) and
+  `#notice-sheet` (full screen: every notice, the new ones bright, its tone down the left, a picture from the strip's
+  `__picture`, and a button that acts: Watch a party, Trips, the raid report (`__showRecap`), Show them/it on the map
+  (`__showOnMap`), a question's card on the town; The Chronicle at the foot). Closing marks everything shown as read
+  (`littletown.noticesRead`). The old `feed.ts`, its grip (`#map-grip`, `littletown.mapShare`) and `townShare` are gone:
+  upright, the map has the whole room under the title bar. Tests: `test/notices.test.ts`.
+- **A button pass (the owner's ask: every button checked):** a Playwright crawler clicked every button of every menu,
+  sub-tab and view (about 500), the clock bar, the tap cards, the event box, both battle bars, the fight screen, the
+  venue windows and the New Town wizard, watching for commands, redraws and errors. Found and fixed: the minimap's ×
+  hid the map on pointer-down and the Map tab under it took the tap's click (hide on click now); a feed row's "Show it
+  on the map" for a building no longer standing did nothing (now the button only comes when the thing is on the map:
+  `onMap`); the Stores' kind chips (Weapons, Armour...) didn't redraw (`invTab` is in `craftingKey`); a tapped skill, spell or
+  trait on the Townsfolk inspect page opened no card for the same reason (`chosenSkill` is in `townsfolkKey`).
+- **Ten lands (the owner's ask: more and more diverse biomes, with the asset packs behind each; the game is played
+  upright on the phone, so only that layout is checked):** `src/shared/data/biomes.ts` has six more biomes beside
+  the forest, desert, tundra and coast: the **fenlands** (`swamp`: marsh and black pools, a broad river banked in
+  marsh, mist of a morning, rich foraging, fevers; crocodiles, slimes and the swamp's crawlers), the **jungle** (dense
+  wood and rich soil, everything grows; apes, cats, satyrs, the swamp's things too), the **highlands** (crag, scree
+  and hill, a cold land; cave things and eagles, riders and wild dogs), the **ashlands** (open ground is cinders
+  (`open: 'sand'` in a grey palette), lava-rock, a red sky, dust and haze; fire and the charred dead, meteors and ash
+  winters), the **steppe** (open grass, a dry land with dust storms; lions, hyenas and jackals, horse-riders, more
+  caravans) and the **taiga** (pine and snow; wolves, bears and the beasts of the snow). A `BiomeDef` now carries
+  what the land is made of (`open`, `wildShare`, `river` width, `banks`: `makeLand` reads them where it once asked
+  "is it the desert"), climate flags (`cold`, `dry`, `hot`, `wet`: the renderer reads them through `biomeById` for
+  snow and breath, dust and dry trees, heat haze, morning mist and the ambience, so a new land needs no new switch),
+  its menagerie `habitats` (the lairs' and its own raids' creatures: `placeHabitats`), its fight-scene `scenes` swaps
+  (`sceneFor`), its ground `look` (`BIOME_LOOKS` in map/groundArt.ts: the patches and plain colours of each kind,
+  and the ashlands' own sand and rock) and its wild `props` sets. **Fights everywhere look like the land:** four new
+  scenes `fen`, `jungle`, `ashland` and `steppe` (data/scenes.ts, painted recipes in art/fightBackdrop.ts) with their
+  own packs' backdrops (the forests and the jungle battleground, the wastelands and the fire sky, the meadows and the
+  open plains), so the four lands' parties fight in new places. **Creatures by land:** the menagerie's swamp and fire
+  creatures left the general raid pool for the fens' (`m_fen`: fens, coast, jungle), the ashlands' (`m_ash`) and the
+  crags' (`m_crag`: cave and sky, highlands) own raids, the ice's reach the taiga and highlands and the dunes' the
+  steppe; the lions, wild dogs, crocodiles, satyrs and steppe riders range over the lands that suit them; each land's
+  lairs hold its own beasts (`BIOME_BEASTS`). Region names take each land's spellings (`alt` in landRegions.ts); the
+  dragon of the taiga is the Rimewyrm, of the ashlands the Ashen Wyrm. Tests: `test/biomes.test.ts` (each land's
+  shape, raids, lairs and creatures), `test/scenes.test.ts` (every look's backdrop exists).
 - **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
   (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
   pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and
@@ -2210,6 +2276,56 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   view, the blight, a raid quietening the living things, the camp's fire in view), worked out by main.ts each snapshot.
   It plays with the music: the ♪ button ("Sound and music") turns both on; silent while the strip is hidden; the first
   touch wakes the audio where the browser holds it asleep. `window.__ambience` for previews. Test: `test/ambience.test.ts`.
+
+- **Combat effects from the 5000 Pixel Effects pack (the owner's ask: the assets used well in fights, with a variety
+  that fits, magic above all):** `tools/compose-pixelfx.cjs` (run by hand; Playwright's Chromium) packs the pack's
+  every element in every shape (15 elements × 30 families: hit, burst, slash, bolt, orb, explosion, aura, sparkle,
+  shield, circle, pillar, rain, vortex, wave, puff, status, debuff, spikes, spread, cross, smoke, splash, strike,
+  flame, nova, gather, cut, rune, pool, glyph; and the neutral white and gold ones, 500 strips of six 32px frames)
+  into `src/renderer/art/effects/pixelfx.png` (beside the page as `fx/pixelfx.png`, copied by both builds) with
+  `pixelfx.json`. `src/shared/data/actFx.ts` (`actFx(id)`, pure, tested) picks each spell's and skill's effect: the
+  pack's element for the game's (`PX_ELEMENT`: holy→light, nature→forest, arcane→star, time→moon, sound→crystal...)
+  and the shape from what the name says (`HINTS`: a "rain" rains, a "nova" rings out, a "ward" is a bubble shield, a
+  "volley" spreads) else from what it does (`shapeOf`: mends sparkle, summons open a circle, curses' arrows fall,
+  single strikes are bolts, orbs or hits, strikes on all explode, wave, rain or pillar); ultimates keep the big
+  Craftpix and pvfx sheets (`ULTIMATE`), a plain weapon art is a Craftpix slash. Ids are `px:<element>-<family>`;
+  `SpriteFx` (town/spellLooks.ts) is the old `SheetFx` union or a `px:` id, and `sheetOf(fx)` in town/spellsView.ts
+  resolves either (the fight screen, the raid map, the tactics board and the map's spells all go through it; a strip
+  the atlas lacks falls back to the element's hit). `art/effects.ts`: `pixelFxFrame`, `loadPixelFx` (lazy, cut on
+  first use). Test: `test/actFx.test.ts` (every act has an effect in the atlas, over 20 shapes, none dominant).
+- **Class paths (the owner's ask: eight basic starting callings, a choice of two roads at every evolution, many very
+  specific callings with skills of their own, and the choice put to the player):** `src/shared/data/paths.ts`
+  (`PATHS`: 184 nodes; `BASE_PATHS` the eight: Fighter, Guard, Scout, Rogue, Apprentice, Acolyte, Wanderer, Minstrel;
+  each forks two ways at stage 1 (level 12), 2 (30) and 3 (55): 8 → 16 → 32 → 64, and each stage-3 node has one
+  ascended form (85, an ascension as before): `branchesOf`, `lineage`, `pathStage`). Every node stands on an
+  **archetype** (`cls`: one of the 26 classes, which keep their gear, spells, skills, outfits, hero forms and
+  attribute growth), with a name, a line of text, for the callers a `companion` (a Beastcaller's lion, a Conjurer's
+  salamander: `companionOf` in sim/classes.ts, scaled by the caller's level in `classAllies` and `summonForRaid`) and
+  for the Summoner line `stats` (`GLASS`: hp 0.6, power 1.7: the glass cannon). `src/shared/data/pathSkills.ts`: a
+  signature skill for every node from stage 1 (112 rows, `PATH_SKILL_ROWS`), known by whoever stands on the node or
+  past it (`AbilityDef.path`; `abilitiesKnown(cls, level, road)`; the ascended forms share `ASCENDANCY`); the
+  Summoner line's call up elementals, demons (`brute_demon`, `red_imp`), drakes and the Behemoth. `Person.road` is
+  the node (`cls` its archetype; founders keep their own lines and no road); `stageOf` is the node's stage,
+  `classStat` takes the node's stats, `callingName`/`callingText` the lineage's names and text. `assignClass` picks a
+  base by the skills' fit; `adoptPath` gives an older save's townsperson the node of their class at their stage.
+  **Evolution:** `roadsOpen` (the level reached; the last form an ascension too), and in `classesHourly` either a
+  prompt of kind `evolve` (`askEvolve`: the two roads and "Let them choose", a picture, `Prompt.roads`, the default
+  after `EVOLVE_ASK_HOURS` 24; `answerEvolve` from `answerPrompt`, the outcome told in the box) or, with
+  `s.evolveAsk` off or the autopilot off (the tests), their own choice (`chooseRoad`: the archetype their skills fit,
+  with a whim by the seed). The Town menu's **Callings and stats** rows set it (`setAsk` command); the Townsfolk page's
+  calling row shows the road so far, the node's text and the two roads next (cards; "Become X" buttons while the
+  question is open: `PersonView.road`); the news bubble carries the question. Tests: `test/paths.test.ts`.
+- **Stat points and Charisma (the owner's ask):** `Attrs` has `cha` (data/attributes.ts: `ATTR_ABOUT`; each class's
+  share in `GROWTH`, normalised by `classAttrs`); Charisma makes what a person summons stronger (`CHA_SUMMON`, through
+  `Fighter.power`, applied in the arena's `summon` and to companions), their inflicted statuses likelier and granted
+  ones longer (`CHA_STATUS`, `Fighter.charm` in actions.ts). Each level brings `STAT_POINTS_PER_LEVEL` (2) points:
+  `Person.attrPts` is the record of points spent (begun at the first level gained, `beginRecord`, with what came
+  before spent the class's way; a townsperson without a record is reckoned as before, `virtualSpend`), `freePoints`,
+  `spendPoint`, `spendByClass`, `nextByClass` in sim/attributes.ts; `statsHourly` (from classesHourly) spends them the
+  class's way unless `s.statsAsk` (then only after `AUTO_SPEND_HOURS` 48 unspent, `Person.ptsSince`, so a town left
+  alone still grows). The `spendStat` command (one attribute, or null for the class's way); the Character tab shows
+  CHA, a + beside each attribute while points are free and "Let them choose"; the news bubble says who has points.
+  `PersonView.freePts`, `Snapshot.evolveAsk`/`statsAsk`. Tests in `test/paths.test.ts`.
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

@@ -19,7 +19,7 @@ import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius } from './buildings';
+import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork } from './buildings';
 import { CELL, cellAt, groundAt, isMarked, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
 import { swims } from './sea';
@@ -27,7 +27,7 @@ import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickT
 import { leavePt } from './breaks';
 import { onBuilt } from './era';
 import { doomForage } from './doom';
-import { biomeOf } from '../data/biomes';
+import { biomeOf, openGround } from '../data/biomes';
 import { HORSE_HP } from '../data/trade';
 import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
 import { cropOf, fieldSpot, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
@@ -644,7 +644,7 @@ export function clearCell(s: GameState, i: number): void {
     return;
   }
   noteCleared(s, i, groundAt(s.land, c.x, c.y)); // (a wood or a thicket grows back, in time: sim/regrow.ts)
-  setGround(s.land, c.x, c.y, s.biome === 'desert' ? 'sand' : 'grass');
+  setGround(s.land, c.x, c.y, openGround(s.biome));
 }
 
 /** The nearest cell with wild berries on it (for someone about to starve), if any. Only the open land counts. */
@@ -858,7 +858,7 @@ function chooseTask(s: GameState, p: Person): Task | null {
   let handsFull = false;
   if (poolSize(p.carrying) > 0 && !carryingForTask) {
     // Straight to a blueprint that needs it, skipping storage.
-    const site = s.buildings.find((b) => b.status === 'blueprint' && MATERIALS.some((m) => (p.carrying[m] ?? 0) > 0 && (unreserved(s, p, b)[m] ?? 0) > 0));
+    const site = s.buildings.find((b) => inWork(b) && MATERIALS.some((m) => (p.carrying[m] ?? 0) > 0 && (unreserved(s, p, b)[m] ?? 0) > 0));
     if (site) return { type: 'deliver', building: site.id };
     const st = nearestStorage(s, p, (b) => storageFree(s, b) > 0);
     if (st) return { type: 'store', building: st.id };
@@ -866,7 +866,7 @@ function chooseTask(s: GameState, p: Person): Task | null {
     // gathering can go on; otherwise keep holding it (building and research still work) and say so.
     // (anything precious, like the Bear Cave's totem, is never thrown away: they keep hold of it)
     const keep = PRECIOUS.filter((m) => (p.carrying[m] ?? 0) > 0);
-    if (s.buildings.some((b) => b.status === 'blueprint' && poolSize(unreserved(s, p, b)) > 0) && poolSize(p.carrying) > keep.reduce((n, m) => n + p.carrying[m]!, 0)) {
+    if (s.buildings.some((b) => inWork(b) && poolSize(unreserved(s, p, b)) > 0) && poolSize(p.carrying) > keep.reduce((n, m) => n + p.carrying[m]!, 0)) {
       const kept = Object.fromEntries(keep.map((m) => [m, p.carrying[m]!])) as Stock;
       for (const m of keep) delete p.carrying[m];
       // (said once an hour at most: a full store once filled the journal with nothing else)
@@ -905,7 +905,7 @@ function chooseTask(s: GameState, p: Person): Task | null {
  *  to think, and in any town a site ready to build with nobody on it comes first (research takes generations now:
  *  data/pace.ts, so a topic can't be left to finish first). */
 export function researchCanWait(s: GameState, p: Person): boolean {
-  const sites = s.buildings.filter((b) => b.status === 'blueprint');
+  const sites = s.buildings.filter(inWork);
   if (!sites.length) return false;
   const ready = sites.some((b) => poolSize(stillNeeded(b)) === 0 || b.progress > 0);
   const grown = s.people.filter((q) => q.away === null && q.bornTick == null && !q.downed).length;
@@ -921,7 +921,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
   switch (job) {
     case 'haul':
       for (const b of s.buildings) {
-        if (b.status !== 'blueprint') continue;
+        if (!inWork(b)) continue;
         const need = unreserved(s, p, b);
         if (!poolSize(need)) continue;
         const from = nearestStorage(s, p, (st) => (Object.keys(need) as Material[]).some((m) => (st.store[m] ?? 0) > 0));
@@ -939,7 +939,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       }
       return null;
     case 'construct': {
-      const b = s.buildings.find((q) => q.status === 'blueprint' && poolSize(stillNeeded(q)) === 0 && canWork(s, p, q));
+      const b = s.buildings.find((q) => inWork(q) && poolSize(stillNeeded(q)) === 0 && canWork(s, p, q));
       if (b) return { type: 'build', building: b.id };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
@@ -1052,11 +1052,11 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
     case 'store':
       return !!site && storageFree(s, site) > 0;
     case 'fetch':
-      return site?.status === 'blueprint' && !!byId(s, t.from) && p.priorities.haul !== 0;
+      return !!site && inWork(site) && !!byId(s, t.from) && p.priorities.haul !== 0;
     case 'deliver':
-      return site?.status === 'blueprint';
+      return !!site && inWork(site);
     case 'build':
-      return site?.status === 'blueprint' && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0 && canWork(s, p, site);
+      return !!site && inWork(site) && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0 && canWork(s, p, site);
     case 'research':
       // (still their station: built, standing, and nobody else's)
       return (

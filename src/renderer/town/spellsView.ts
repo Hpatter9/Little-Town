@@ -5,13 +5,13 @@
 // the town's day-and-night tint, so spells glow in the dark.
 
 import { Container, Graphics, Sprite, Text, type Texture } from 'pixi.js';
-import { AREA_SIZE, areaFrame, spellSheetFrame, spellSheetSize, BLAST_SIZE, BLOOD_SIZE, bloodFrame, castFrame, conjureFrame, HOLY_SIZE, holyFrame, portalFrame, shockFrame, SPELL_SIZE, spellFrame } from '../art/effects';
+import { AREA_SIZE, areaFrame, PIXELFX_SIZE, pixelFxFrame, pixelFxFrames, pixelFxHas, spellSheetFrame, spellSheetSize, BLAST_SIZE, BLOOD_SIZE, bloodFrame, castFrame, conjureFrame, HOLY_SIZE, holyFrame, portalFrame, shockFrame, SPELL_SIZE, spellFrame } from '../art/effects';
 import type { Snapshot, SpellView } from '../../shared/sim/snapshot';
 import type { SpellTarget } from '../../shared/sim/state';
 import { TICK_MS } from '../../shared/sim/time';
 import { fontStacks } from '../fonts';
 import { currentTheme } from '../theme';
-import { BONE, GREEN_DEAD, LOOKS, type Kind, type SpriteFx } from './spellLooks';
+import { BONE, GREEN_DEAD, LOOKS, type Kind, type SheetFx, type SpriteFx } from './spellLooks';
 
 /** The top of the sky a spell reaches (fore-local y). */
 /** The old strip's walkway line (its TownView is gone): the fight screen and the map still use this file's sheets and
@@ -44,7 +44,7 @@ interface Live {
 
 /** Each effect sheet: a frame at a time (null once it's over), its size, frames a second, and where its foot sits
  *  in the frame (from the bottom). */
-export const SHEETS: Record<SpriteFx, { frame: (i: number) => Texture | null; size: number; fps: number; foot: number; scale?: number; glow?: boolean }> = {
+export const SHEETS: Record<SheetFx, { frame: (i: number) => Texture | null; size: number; fps: number; foot: number; scale?: number; glow?: boolean }> = {
   blood: { frame: bloodFrame, size: BLOOD_SIZE, fps: 14, foot: 20 },
   vampire: { frame: (i) => spellFrame('vampire', i), size: SPELL_SIZE, fps: 10, foot: 14 },
   undead: { frame: (i) => spellFrame('undead', i), size: SPELL_SIZE, fps: 10, foot: 14 },
@@ -106,6 +106,28 @@ export const SHEETS: Record<SpriteFx, { frame: (i: number) => Texture | null; si
   slash_gold: { frame: (i) => spellSheetFrame('slash_gold', i), size: spellSheetSize('slash_gold'), fps: 24, foot: 22, glow: true },
   slash_water: { frame: (i) => spellSheetFrame('slash_water', i), size: spellSheetSize('slash_water'), fps: 24, foot: 22, glow: true },
 };
+export type Sheet = (typeof SHEETS)[SheetFx];
+
+/** The pixel effects (`px:<element>-<family>`, data/actFx.ts): 32px frames drawn PX_SCALE times, the ground shapes
+ *  (circles, pools, waves, spikes) with their foot on the ground and the rest about the body. */
+const PX_SCALE = 2.4;
+const PX_GROUND = /-(circle|pool|wave|spikes|rune|splash|nova|glyph)$/;
+const pxSheets = new Map<string, Sheet>();
+/** The sheet for an effect: one of the older sheets, or a pixel effect's strip; a pixel effect the atlas lacks falls
+ *  back to a burst of the same element's hit. */
+export function sheetOf(fx: SpriteFx | string): Sheet {
+  if (!fx.startsWith('px:')) return SHEETS[(fx in SHEETS ? fx : 'mg_pop') as SheetFx];
+  let sh = pxSheets.get(fx);
+  if (sh) return sh;
+  let id = fx.slice(3);
+  if (!pixelFxHas(id)) id = `${id.split('-')[0]}-hit`;
+  if (!pixelFxHas(id)) id = 'white-hit';
+  const ground = PX_GROUND.test(id);
+  sh = { frame: (i) => pixelFxFrame(id, i), size: PIXELFX_SIZE, fps: 8, foot: ground ? 4 : 10, scale: PX_SCALE, glow: true };
+  pxSheets.set(fx, sh);
+  return sh;
+}
+export const pxFrames = (fx: string) => (fx.startsWith('px:') ? pixelFxFrames(fx.slice(3)) : 0);
 
 export class SpellsView {
   readonly root = new Container();
@@ -173,7 +195,7 @@ export class SpellsView {
 
   /** A sprite from the effect sheets over each target (staggered a little), or over the caster. */
   private sheet(fx: SpriteFx, l: Live, t: number, onCaster: boolean): void {
-    const sh = SHEETS[fx];
+    const sh = sheetOf(fx);
     const k = sh.scale ?? 1;
     l.sprites.forEach((sp, i) => {
       const x = onCaster ? l.byX : (l.xs[i] ?? l.byX);

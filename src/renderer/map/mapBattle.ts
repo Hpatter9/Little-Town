@@ -12,7 +12,7 @@ import type { RaiderView, Snapshot } from '../../shared/sim/snapshot';
 import { blastFrame, castFrame, AREA_SIZE, BLAST_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects';
 import { actIdOf, actSprite } from '../fight/actLooks';
 import { LOOKS } from '../town/spellLooks';
-import { SHEETS } from '../town/spellsView';
+import { sheetOf } from '../town/spellsView';
 import type { MapView } from './mapView';
 
 /** Each kind of spot's colour on the ground. */
@@ -223,7 +223,7 @@ export class MapBattle {
       const r = AIM_RADIUS * CELL;
       o.circle(cx, cy, r * (0.4 + 0.6 * k)).fill({ color: colour, alpha: 0.22 * (1 - c.age / 3) });
       o.circle(cx, cy, r * (0.4 + 0.6 * k)).stroke({ width: 2, color: colour, alpha: 0.7 * (1 - c.age / 3) });
-      const sheet = look?.sprite ? SHEETS[look.sprite] : null;
+      const sheet = look?.sprite ? sheetOf(look.sprite) : null;
       if (sheet) {
         // (played over the ground it struck: in the middle, and either side)
         const at: [number, number][] = [[0, 0], [-0.45, -0.3], [0.45, 0.3]];
@@ -240,7 +240,7 @@ export class MapBattle {
     }
     // the fighters' spells and skills, on the raiders they touched (fight/actLooks.ts: a slash or a spell's effect)
     for (const a of b.acts) {
-      const sheet = SHEETS[actSprite(actIdOf(a.name))];
+      const sheet = sheetOf(actSprite(actIdOf(a.name)));
       a.at.forEach((id, i) => {
         const rd = this.raiders.get(id);
         const t = a.age + (now % 100) / 1000 - i * 0.08;

@@ -19,6 +19,7 @@ import { expandable, itemDetails, materialDetails, pickable, pickedIn } from './
 export const craftingKey = (s: Snapshot) =>
   JSON.stringify([
     hide.key,
+    invTab, // (the stores' kind chips: a tap redraws)
     s.era,
     s.craftSlots,
     s.stock,

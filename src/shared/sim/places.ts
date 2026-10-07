@@ -4,13 +4,14 @@
 // robbers still about): a trip to it from the Expedition Board, fought on the way-and-there as any trip, and its
 // hoard home with the party when cleared.
 
+import { inRegion, REGION_DEFS } from './landRegions';
 import { beastsOf, groupOf, placeHabitats, TIERS_BY_ERA } from '../data/menagerie';
 import { Rng, hashSeed } from '../rng';
 import { BIOME_BEASTS, BEAST_DAYS, CART_ROBBED, LOOK_HOURS, PLACE_APART, PLACE_COUNT, PLACE_DEFS, PLACE_FAR, PLACE_FOES, PLACE_NEAR, PLACE_SECONDS_PER_CELL, directionName, isPlaceDest, placeDestId, placeIdOf, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
 import { MATERIAL_NAMES, type Material } from '../data/materials';
 import { ERAS } from '../data/eras';
-import { CELL, groundAt, inMap, isOpen, setGround, WILD, type LandMap, type Pt, wet } from './land';
+import { CELL, groundAt, inMap, isOpen, regionOfCell, setGround, WILD, type LandMap, type Pt, wet } from './land';
 import { addStock, campCell, earn, notify, type GameState } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { depositNear } from './buildings';
@@ -121,7 +122,11 @@ export function seedPlaces(land: LandMap, seed: string): MapPlace[] {
     if (!inMap(land, x, y) || x < 2 || y < 2 || x >= land.w - 2 || y >= land.h - 2) continue;
     if (groundAt(land, x, y) === 'water') continue;
     if (out.some((p) => Math.hypot(p.x - x, p.y - y) < PLACE_APART)) continue;
-    const kind = rng.weighted(weights);
+    // (each region of the land favours its own finds: lairs in the old wood, veins in the barrens, caves in the
+    // highlands, bones in the fen, carts and ruins on the meadows)
+    const region = regionOfCell(land, x, y);
+    const favour = region ? REGION_DEFS[region.kind].places : {};
+    const kind = rng.weighted(Object.fromEntries(Object.entries(weights).map(([k, v]) => [k, v * (favour[k] ?? 1)])) as Record<PlaceKind, number>);
     // (a vein lies in rock or hills; a cave in a hillside)
     if ((kind === 'vein' || kind === 'cave') && !['rock', 'hill', 'forest'].includes(groundAt(land, x, y))) continue;
     out.push({ id: out.length + 1, kind, x, y, found: null, state: 'waiting' });
@@ -181,7 +186,7 @@ export function placesHourly(s: GameState, rng: Rng): void {
       if (p.kind === 'cart' && rng.chance(CART_ROBBED)) p.foes = rollFoes(s, 'cart', rng);
       else if (def.fight) p.foes = rollFoes(s, p.kind, rng);
       const danger = p.foes ? ` ${describeFoes(p.foes)} ${Object.values(p.foes).reduce((n, k) => n + k, 0) > 1 ? 'are' : 'is'} there: a party may go to deal with it, or post a bounty under Expeditions.` : '';
-      notify(s, `${def.name} found to the ${where}. ${def.found}${danger}`, true);
+      notify(s, `${def.name} found${inRegion(regionOfCell(s.land, p.x, p.y))} to the ${where}. ${def.found}${danger}`, true);
       if (!p.foes) p.lookedAt = s.tick + LOOK_HOURS * TICKS_PER_HOUR;
       continue;
     }

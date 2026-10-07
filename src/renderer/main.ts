@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { biomeById } from '../shared/data/biomes';
 import { hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
 import { seatArt } from './art/seatArt';
 import { SEAT_STAGE } from '../shared/data/seats';
@@ -12,6 +13,10 @@ import { MapBoats } from './map/mapBoats';
 import { MapBirds } from './map/mapBirds';
 import { MapWildlife } from './map/mapWildlife';
 import { MapTracks } from './map/mapTracks';
+import { Minimap } from './map/minimap';
+import { inRegion, regionTitle } from '../shared/sim/landRegions';
+import { footprint as footprintOf } from '../shared/sim/buildings';
+import { regionOfCell } from '../shared/sim/land';
 import { MapDragon } from './map/mapDragon';
 import { MapSky, skyFor } from './map/mapSky';
 import { MapPets, type PetHome } from './map/mapPets';
@@ -61,7 +66,7 @@ function travellerPerson(t: TravellerView): PersonView {
     partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], body: { wounds: [], lasting: [], fitted: [], sight: 1, handling: 1, moving: 1, pain: 0, marks: [] }, growsUpIn: null, breakdown: null, ageDays: 0,
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, mer: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', job: null,
   monster: null, tireless: false, order: null, sick: false,
-    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [],
+    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8, cha: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [], road: null, freePts: 0,
   };
 }
 /** A power's envoy (sim/factions.ts), drawn as a traveller on horseback. */
@@ -314,6 +319,16 @@ async function start(): Promise<void> {
   };
 
   const camera = new MapCamera(first.land.w * CELL, first.land.h * CELL);
+  // the minimap of the wide land (map/minimap.ts), and the caption naming the region the view is over
+  const minimap = new Minimap();
+  minimap.mount(document.body);
+  minimap.onLook = (wx, wy) => camera.centreOn({ x: wx, y: wy }, app.screen.width, app.screen.height);
+  const regionCaption = document.createElement('div');
+  regionCaption.id = 'region-name';
+  regionCaption.hidden = true;
+  document.body.append(regionCaption);
+  let regionShown = '';
+  let regionHideAt = 0;
   (window as unknown as { __camera?: MapCamera }).__camera = camera; // (for previews)
   camera.centreOn(first.camp, app.screen.width, app.screen.height); // (a nomad tribe's camp may be away on its pasture)
 
@@ -546,8 +561,9 @@ async function start(): Promise<void> {
         const y = map.screenOf(c.x * CELL, c.y * CELL).y;
         const g = groundAt(snap.land, c.x, c.y);
         const def = TERRAIN[g as keyof typeof TERRAIN];
-        if (!def) return { title: GROUND_NAMES[g] ?? 'Open land', lines: [g === 'water' ? 'The river' : 'The town builds here when it needs to'], y };
-        return { title: def.name, lines: [listStock(snap.land.pools[h.cell] ?? {}) + ' left'], hint: isMarked(snap.land, h.cell) ? 'The town is clearing it' : 'The town will gather here when it needs to', y };
+        const where = inRegion(regionOfCell(snap.land, c.x, c.y));
+        if (!def) return { title: GROUND_NAMES[g] ?? 'Open land', lines: [(g === 'water' ? 'The water' : 'The town builds here when it needs to') + (where ? ` (${where.trim()})` : '')], y };
+        return { title: def.name + (where ? ` ${where.trim()}` : ''), lines: [listStock(snap.land.pools[h.cell] ?? {}) + ' left'], hint: isMarked(snap.land, h.cell) ? 'The town is clearing it' : 'The town will gather here when it needs to', y };
       }
       default:
         return null;
@@ -1101,7 +1117,7 @@ async function start(): Promise<void> {
     birds.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.weather.kind !== 'snow' && !freeze;
     birds.winter = next.calendar.season === 'winter';
     birds.crowsOnly = buildStyle === 'lich' || buildStyle === 'vampire';
-    butterflies.on = birds.on && (next.calendar.season === 'spring' || next.calendar.season === 'summer') && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && next.biome !== 'tundra' && next.biome !== 'desert';
+    butterflies.on = birds.on && (next.calendar.season === 'spring' || next.calendar.season === 'summer') && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !biomeById(next.biome).cold && !(biomeById(next.biome).dry && biomeById(next.biome).hot);
     butterflies.land = next.land;
     birds.land = next.land;
     birds.folk = [...next.people.filter((p) => p.away === null && !p.indoors), ...next.travellers, ...(next.raid?.phase === 'active' ? next.raid.raiders : [])].map((p) => ({ x: p.x, y: p.y }));
@@ -1230,7 +1246,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
     if (next.away && !q && view.mode === 'full')
@@ -1261,6 +1277,7 @@ async function start(): Promise<void> {
       map.setBuildingStyle(buildingTint(next.theme), style);
     }
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
+    minimap.setLand(next.land, next.calendar.season);
     map.syncBuildings(next.buildings);
     herds.update(next.buildings);
     boats.update(next.fleet, next.mooring);
@@ -1340,6 +1357,34 @@ async function start(): Promise<void> {
     wildlife.render(ticker.deltaMS / 1000, performance.now());
     water.render(ticker.deltaMS / 1000);
     tracks.render(ticker.deltaMS / 1000);
+    if (snap && minimap.shown)
+      minimap.render({
+        people: snap.people.filter((p) => p.away === null).map((p) => ({ x: p.x, y: p.y })),
+        raiders: snap.raid?.phase === 'active' ? snap.raid.raiders.map((r) => ({ x: r.x, y: r.y })) : [],
+        places: snap.places.filter((p) => p.found).map((p) => ({ x: p.x, y: p.y, waiting: !!p.dest })),
+        buildings: snap.buildings.map((b) => {
+          const r = footprintOf(b);
+          return { x: r.x * CELL, y: r.y * CELL, w: r.w * CELL, h: r.h * CELL };
+        }),
+        view: map.view,
+      });
+    // the region under the middle of the view: its name shown a few seconds when it changes
+    if (snap) {
+      const v = map.view;
+      const r = regionOfCell(snap.land, Math.floor((v.x + v.w / 2) / CELL), Math.floor((v.y + v.h / 2) / CELL));
+      const name = r ? regionTitle(r) : '';
+      const now = performance.now();
+      if (name !== regionShown) {
+        regionShown = name;
+        regionCaption.textContent = name;
+        regionCaption.hidden = !name;
+        regionCaption.classList.remove('fade');
+        regionHideAt = now + 3200;
+      } else if (regionHideAt && now > regionHideAt) {
+        regionCaption.classList.add('fade');
+        regionHideAt = 0;
+      }
+    }
     pets.render(ticker.deltaMS / 1000);
     dragon.render(ticker.deltaMS / 1000);
     sky.render(ticker.deltaMS / 1000, app.screen.width, app.screen.height);

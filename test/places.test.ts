@@ -35,7 +35,7 @@ test('places are found as the known land reaches them; a peaceful one is looked 
   assert.ok(s.places && s.places.length, 'seeded on first use');
   assert.ok(s.places!.every((p) => p.found === null || Math.hypot(p.x - s.land.camp.x, p.y - s.land.camp.y) <= s.land.open));
   // open the whole land: everything is found
-  s.land.open = 60;
+  s.land.open = 90;
   s.tick += TICKS_PER_HOUR;
   placesHourly(s, rng);
   assert.ok(s.places!.every((p) => p.found !== null));
@@ -57,7 +57,7 @@ test('places are found as the known land reaches them; a peaceful one is looked 
   for (const p of calm) assert.equal(p.state, 'done', p.kind);
   const vein = calm.find((p) => p.kind === 'vein');
   if (vein) assert.ok((s.land.pools[vein.y * s.land.w + vein.x]?.iron_ore ?? 0) > 0, 'ore to dig');
-  assert.ok(s.journal.some((j) => /found to the/.test(j.text)));
+  assert.ok(s.journal.some((j) => /found( in [^.]+)? to the/.test(j.text)));
 });
 
 test('a party the player picks goes to a place, and clearing it brings its hoard home', () => {

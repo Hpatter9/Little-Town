@@ -37,7 +37,7 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } 
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
-import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade } from './buildings';
+import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork } from './buildings';
 import { type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
@@ -128,7 +128,7 @@ function needs(s: GameState): Needs {
   const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (stock[m] ?? 0) * v, 0);
   const demand: Stock = {};
   const want = (m: Material, n: number) => (demand[m] = (demand[m] ?? 0) + n);
-  for (const b of s.buildings) if (b.status === 'blueprint') for (const [m, n] of Object.entries(stillNeeded(b)) as [Material, number][]) want(m, n);
+  for (const b of s.buildings) if (inWork(b)) for (const [m, n] of Object.entries(stillNeeded(b)) as [Material, number][]) want(m, n);
   for (const o of s.crafting) for (const [m, n] of Object.entries(craftNeeded(o)) as [Material, number][]) want(m, n * o.count);
   for (const [m, n] of Object.entries(RESERVE) as [Material, number][]) if (sourceable(s, m)) want(m, n);
   const used = MATERIALS.reduce((n, m) => n + (stock[m] ?? 0), 0);
@@ -136,7 +136,7 @@ function needs(s: GameState): Needs {
   const coming = s.buildings.filter((b) => b.status === 'blueprint').reduce((k, b) => k + (BUILDING_BY_ID[b.def]?.housing ?? 0), 0);
   // (the basics every town builds with, and whatever a blueprint is waiting on)
   const wanted = new Set<Material>(['wood', 'stone', 'fiber']);
-  for (const b of s.buildings) if (b.status === 'blueprint') for (const m of Object.keys(stillNeeded(b)) as Material[]) wanted.add(m);
+  for (const b of s.buildings) if (inWork(b)) for (const m of Object.keys(stillNeeded(b)) as Material[]) wanted.add(m);
   const shop = shopOf(s);
   const drawn = shop ? tiersDrawn(attractiveness(s, shop)).map((c) => c.tier) : [];
   return {
@@ -522,11 +522,18 @@ const NEVER = new Set(['wayside_shrine', 'temple', 'cathedral', 'phylactery', 'r
 /** How far beyond the town's reach the land is known (cells), and the furthest it opens on its own (the rest is for the
  *  map's own events to open, later). */
 const OPEN_BEYOND = 6;
-const OPEN_MAX = 40;
+/** How far the known land may spread from the camp (cells): most of the wide land. */
+const OPEN_MAX = 86;
 
 /** The known land grows with the town, and reaches further when what the town needs has run out within it. */
+/** How far a town ranges for something it can't find nearer: the old land's reach, and further as it grows (on the
+ *  wide land a lone founder once opened it all the way, and walked a day for a log). */
+const OPEN_FAR_BASE = 40;
+const OPEN_FAR_PER_PERSON = 3;
 function openLand(s: GameState, further = false): boolean {
-  const want = Math.min(OPEN_MAX, Math.max(s.land.open, townRadius(s) + OPEN_BEYOND, further ? s.land.open + 2 : 0));
+  const grown = s.people.filter((p) => !isChild(p) && p.away === null).length;
+  const far = Math.min(OPEN_MAX, OPEN_FAR_BASE + grown * OPEN_FAR_PER_PERSON);
+  const want = Math.min(OPEN_MAX, Math.max(s.land.open, townRadius(s) + OPEN_BEYOND, further ? Math.min(Math.max(s.land.open, far), s.land.open + 2) : 0));
   if (want <= s.land.open) return false;
   s.land.open = want;
   s.land.version++;
@@ -794,7 +801,7 @@ function shelveStalled(s: GameState, n: Needs, plan: TownPlan): void {
   for (const id of Object.keys(moved)) if (!s.buildings.some((b) => b.id === Number(id) && b.status === 'blueprint')) delete moved[Number(id)];
   for (const k of Object.keys(shelved)) if (s.tick - shelved[k] > SHELF_HOURS * TICKS_PER_HOUR) delete shelved[k];
   for (const b of [...s.buildings]) {
-    if (b.status !== 'blueprint') continue;
+    if (!inWork(b)) continue; // (a planned piece of the wall waits its turn: that's not a stall)
     const sig = `${Math.round(b.progress * 100)}|${poolSize(b.delivered)}`;
     const m = moved[b.id];
     if (!m || m.sig !== sig) {
@@ -987,7 +994,7 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
     if (ORES.includes(m) && mines(s).length) short = Math.max(short, MINE_WANT - (n.stock[m] ?? 0));
     // (the reserve isn't worth gathering into full stores; what building, crafting or hunger needs still is, and so is
     // a basic the town has run right out of: a store full of the harvest once left a town with no wood to build more)
-    if (n.storageFill > 0.95 && (n.stock[m] ?? 0) >= (RESERVE[m] ?? 0) / 2 && !(craftWants[m] ?? 0) && !s.buildings.some((b) => b.status === 'blueprint' && (stillNeeded(b)[m] ?? 0) > 0) && m !== 'berries') continue;
+    if (n.storageFill > 0.95 && (n.stock[m] ?? 0) >= (RESERVE[m] ?? 0) / 2 && !(craftWants[m] ?? 0) && !s.buildings.some((b) => inWork(b) && (stillNeeded(b)[m] ?? 0) > 0) && m !== 'berries') continue;
     if (short <= 0) continue;
     // what's already marked counts toward it
     short -= s.land.marked.reduce((k, i) => k + (s.land.pools[i]?.[m] ?? 0), 0);
@@ -1049,7 +1056,7 @@ export function shoppingList(s: GameState): { m: Material; n: number; essential:
   }
   const rich = (s.coins ?? 0) >= RICH * COIN_RESERVE * PURSE_SCALE[s.era];
   const building: Stock = {};
-  for (const b of s.buildings) if (b.status === 'blueprint') for (const [m, k] of Object.entries(stillNeeded(b)) as [Material, number][]) addStock(building, m, k);
+  for (const b of s.buildings) if (inWork(b)) for (const [m, k] of Object.entries(stillNeeded(b)) as [Material, number][]) addStock(building, m, k);
   for (const m of MATERIALS) {
     const short = (n.demand[m] ?? 0) - (n.stock[m] ?? 0);
     if (short <= 0 || m === 'totem') continue;

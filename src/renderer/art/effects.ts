@@ -91,6 +91,7 @@ import slashPoisonUrl from './effects/slash_poison.png';
 import slashGoldUrl from './effects/slash_gold.png';
 import slashWaterUrl from './effects/slash_water.png';
 import type { AreaFx } from '../../shared/data/enemies';
+import pixelFxIndex from './effects/pixelfx.json';
 
 /** A 7-frame impact burst, 48px square, played over whoever was just hit. */
 export const IMPACT_FRAMES = 7;
@@ -216,7 +217,42 @@ const spellSheets = Object.fromEntries(Object.keys(SPELL_SHEET_DEFS).map((k) => 
 export const spellSheetSize = (id: SpellSheet) => SPELL_SHEET_DEFS[id][1];
 export const spellSheetFrame = (id: SpellSheet, i: number) => at(spellSheets[id], i);
 
+/* ------------------------------------------------------------ the pixel effects atlas (tools/compose-pixelfx.cjs) */
+
+/** The 5000 Pixel Effects atlas: every element in every shape (`px:<element>-<family>` in data/actFx.ts), 32px frames,
+ *  loaded beside the page (`fx/pixelfx.png`) when the effects load; a strip's frames are cut when first asked for. */
+const PIXELFX = pixelFxIndex as unknown as { size: number; frames: number; across: number; strips: Record<string, [number, number, number]> };
+export const PIXELFX_SIZE = PIXELFX.size;
+let pixelFxSource: Texture['source'] | null = null;
+const pixelFxStrips = new Map<string, Texture[]>();
+export const pixelFxHas = (id: string) => !!PIXELFX.strips[id];
+/** Frame `i` of a pixel effect (its id without the `px:`): null before the atlas loads, or once the strip is over. */
+export function pixelFxFrame(id: string, i: number): Texture | null {
+  const at = PIXELFX.strips[id];
+  if (!at || !pixelFxSource) return null;
+  let list = pixelFxStrips.get(id);
+  if (!list) {
+    const [col, row, n] = at;
+    list = [];
+    for (let f = 0; f < n; f++) list.push(new Texture({ source: pixelFxSource, frame: new Rectangle(col * PIXELFX.size * PIXELFX.frames + f * PIXELFX.size, row * PIXELFX.size, PIXELFX.size, PIXELFX.size) }));
+    pixelFxStrips.set(id, list);
+  }
+  return i >= 0 && i < list.length ? list[Math.floor(i)] : null;
+}
+export const pixelFxFrames = (id: string) => PIXELFX.strips[id]?.[2] ?? 0;
+async function loadPixelFx(): Promise<void> {
+  try {
+    const im = await loadImage('fx/pixelfx.png');
+    const src = Texture.from(im).source;
+    src.scaleMode = 'nearest';
+    pixelFxSource = src;
+  } catch {
+    // (no atlas: the older sheets stand in, see spellsView's sheetOf)
+  }
+}
+
 export async function loadEffects(): Promise<void> {
+  void loadPixelFx();
   await Promise.all([
     ...(Object.entries(SPELL_SHEET_DEFS) as [SpellSheet, readonly [string, number, number, number]][]).map(([id, [url, size, count, across]]) => cut(url, size, count, spellSheets[id], across)),
     cut(impactUrl, IMPACT_SIZE, IMPACT_FRAMES, impacts),

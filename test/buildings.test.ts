@@ -5,7 +5,7 @@ import { canPlace, canUpgrade, placeBlueprint, totalCapacity, totalStock, upgrad
 import { isSeat } from '../src/shared/data/seats';
 import { Sim } from '../src/shared/sim/sim';
 import { camp, freeSpot, isWild, nearestWild, plainGame, poolOf, put, row } from './helpers';
-import { addStock, newGame, poolSize, type GameState } from '../src/shared/sim/state';
+import { addStock, newGame, poolSize, type Building, type GameState } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
 import { cellAt } from '../src/shared/sim/land';
 
@@ -196,6 +196,17 @@ test('an upgrade with no room pulls down the small things in its way, never what
   put(t, 'settlers_seat_1' in BUILDING_BY_ID ? 'settlers_seat_1' : Object.keys(BUILDING_BY_ID).find((id) => isSeat(id))!, at2 + 2);
   put(t, 'palisade_wall', at2 - 1, undefined, { hp: 100 });
   assert.equal(canUpgrade(t, home2.id).ok, false);
+  // nor a field, even fallow (the owner's complaint: a town pulled down its only crop for a house), nor a store
+  // with goods in it
+  for (const [def, extra] of [['garden_plot', {}], ['stockpile', { store: { wood: 4 } }]] as const) {
+    const u = plainGame(`clear-${def}`);
+    u.research.done.push('oral_tradition', 'basic_farming');
+    const at3 = camp(u).x + 4;
+    const home3 = put(u, 'lean_to', at3);
+    put(u, def, at3 + 2, undefined, extra as Partial<Building>);
+    put(u, 'palisade_wall', at3 - 1, undefined, { hp: 100 });
+    assert.equal(canUpgrade(u, home3.id).ok, false, `${def} never pulled down`);
+  }
 });
 
 test('a town short of beds rebuilds a small home bigger before building another', () => {
