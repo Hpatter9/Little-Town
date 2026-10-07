@@ -6,7 +6,7 @@
 
 import type { Bridge } from '../../shared/ipc';
 import { CELL_CODES, type WorldCell } from '../../shared/data/conquest';
-import { ARMY_SQUADS, GARRISON_HOLDS, ROW_OF, SQUAD_SLOTS, TROOP_BY_ID } from '../../shared/data/troops';
+import { ARMY_SQUADS, BOARD_H, BOARD_W, GARRISON_HOLDS, ROW_OF, SQUAD_SLOTS, TROOP_BY_ID, WALL_X } from '../../shared/data/troops';
 import { ownerAt, type ArmyView, type ProvinceView, type SquadView, type WarView } from '../../shared/sim/conquest/warView';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, el } from './dom';
@@ -24,8 +24,8 @@ export function warKey(s: Snapshot): string {
     w.provinces.map((p) => `${p.holder ?? '-'}${p.garrison}${p.armies.join('.')}${p.bare ? 'b' : ''}`).join(''),
     w.recruits, w.chest, w.goods.map((g) => `${g.material}${g.n}`).join(','), w.troops.map((t) => `${t.n}${t.can ? 1 : 0}`).join(','),
     w.training.map((t) => `${t.troop}${t.n}${t.hoursLeft}`).join(','), w.squads.map((q) => `${q.id}${q.slots.join('')}${q.strength}${q.army}${q.free ? 1 : 0}`).join(';'),
-    w.heroes.map((h) => h.id).join(','), w.armies.map((a) => `${a.id}${a.at}${a.going}${a.hours}${a.squads.join('.')}${a.train.map((t) => t.troop + t.n).join('.')}`).join(';'),
-    selected, picked,
+    w.heroes.map((h) => h.id).join(','), w.rivalArmies.map((a) => `${a.realm}${a.to}${a.hours}`).join(','), w.realms.map((r) => r.stance).join(','), w.armies.map((a) => `${a.id}${a.at}${a.going}${a.hours}${a.squads.join('.')}${a.train.map((t) => t.troop + t.n).join('.')}`).join(';'),
+    selected, picked, w.battle ? `${w.battle.id}:${w.battle.turn}:${w.battle.done}` : '', w.recap?.tick ?? '', w.captives.map((x) => x.hero).join(','),
   ].join('|');
 }
 
@@ -48,6 +48,12 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
   out.push(el('h2', '', 'War map'));
   const own = w.realms[0];
   out.push(el('div', 'hint', `${own.provinces} of ${w.provinces.length} provinces are the town's. Win the game by holding them all, by conquest or alliance. Tap a province for its card${picked !== null ? `; ${w.armies.find((a) => a.id === picked)?.name} is picked: tap where it should march` : ''}.`));
+  if (w.battle) out.push(...battleBoard(w));
+  for (const x of w.captives) {
+    const row = el('div', 'war-row war-bare');
+    row.append(el('span', '', `${x.name} is held captive at ${x.province} by ${x.by}: ransom ${x.ransom} coins`), button('Ransom', () => cmd({ type: 'conquest', op: 'ransom', hero: x.hero }), { cls: 'place quiet', disabled: w.chest + (s.coins ?? 0) < x.ransom }));
+    out.push(row);
+  }
   out.push(mapCanvas(w, redraw));
   const legend = el('div', 'war-legend');
   for (const r of w.realms) {
@@ -59,6 +65,7 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
   }
   out.push(legend);
   if (selected !== null) out.push(provinceCard(w, w.provinces[selected], cmd, redraw));
+  if (w.recap && !w.battle) out.push(recapCard(w.recap));
   // ---- armies
   out.push(el('h2', '', 'Armies'));
   out.push(el('div', 'hint', `An army is a general's squad and up to ${ARMY_SQUADS - 1} more, raised at ${w.provinces[w.home].name}. Every march is your order: pick an army, tap a province on the map, and it goes the shortest way through free or friendly land, taking free provinces as it comes to them. A province left without ${GARRISON_HOLDS} soldiers or an army may rise against the town.`));
@@ -108,7 +115,8 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
     const dot = el('i', 'war-dot');
     dot.style.background = realmColour(w, r.id)!;
     name.append(dot, document.createTextNode(` ${r.name}`));
-    card.append(name, el('div', 'realm-sub', `${r.provinces} province${r.provinces === 1 ? '' : 's'} · capital ${w.provinces[r.capital].name}`));
+    card.append(name, el('div', 'realm-sub', `${r.provinces} province${r.provinces === 1 ? '' : 's'} · capital ${w.provinces[r.capital].name}${r.id !== 'town' ? ` · ${r.stance === 'war' ? 'at war with the town' : r.stance}` : ''}`));
+    for (const ra of w.rivalArmies.filter((x) => x.realm === r.id)) card.append(el('div', 'realm-sub war-bare', `⚔ An army of strength ${ra.strength} marches on ${w.provinces[ra.to].name}: ${ra.hours} h`));
     realms.append(card);
   }
   out.push(realms);
@@ -209,6 +217,26 @@ function mapCanvas(w: WarView, redraw: () => void): HTMLElement {
       ctx.fill();
     }
   }
+  for (const ra of w.rivalArmies) {
+    const [fx, fy] = at(w.provinces[ra.from]);
+    const [tx, ty] = at(w.provinces[ra.to]);
+    ctx.strokeStyle = realmColour(w, ra.realm) ?? '#f00';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = `${Math.max(10, cell * 2.2)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#000';
+    ctx.strokeText('⚔', (fx + tx) / 2, (fy + ty) / 2);
+    ctx.fillStyle = realmColour(w, ra.realm) ?? '#f00';
+    ctx.fillText('⚔', (fx + tx) / 2, (fy + ty) / 2);
+    ctx.lineWidth = 1;
+  }
   for (const a of w.armies) {
     const from = w.provinces[a.at];
     const to = a.going === null ? null : w.provinces[a.going];
@@ -254,6 +282,104 @@ function mapCanvas(w: WarView, redraw: () => void): HTMLElement {
   });
   box.append(canvas);
   return box;
+}
+/* ------------------------------------------------------------ the battle board */
+
+/** The battle for a province, as the sim plays it: the grid, the wall line, each squad a piece with its hero's
+ *  health and its troops as pips, the latest events under it. */
+function battleBoard(w: WarView): HTMLElement[] {
+  const b = w.battle!;
+  const out: HTMLElement[] = [];
+  const head = el('div', 'war-stat');
+  head.append(el('b', '', b.done === 'won' ? `Victory at ${b.province}!` : b.done === 'lost' ? `Beaten before ${b.province}.` : `The battle for ${b.province}`), document.createTextNode(` · turn ${b.turn}${b.wallsMax ? ` · walls ${Math.round((b.walls / b.wallsMax) * 100)}%` : ''}`));
+  out.push(head);
+  const box = el('div', 'war-map');
+  const width = Math.max(280, (document.getElementById('body')?.clientWidth ?? 360) - 28);
+  const cell = Math.floor(width / BOARD_W);
+  const canvas = el('canvas');
+  canvas.width = BOARD_W * cell;
+  canvas.height = BOARD_H * cell;
+  canvas.style.width = `${BOARD_W * cell}px`;
+  canvas.style.height = `${BOARD_H * cell}px`;
+  const ctx = canvas.getContext('2d')!;
+  const ground = LAND_COLOUR[b.land as WorldCell] ?? '#3f7a3a';
+  for (let y = 0; y < BOARD_H; y++)
+    for (let x = 0; x < BOARD_W; x++) {
+      ctx.fillStyle = ground;
+      ctx.fillRect(x * cell, y * cell, cell, cell);
+      ctx.fillStyle = (x + y) % 2 ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)';
+      ctx.fillRect(x * cell, y * cell, cell, cell);
+    }
+  if (b.wallsMax) {
+    ctx.fillStyle = b.walls > 0 ? '#8a7a66' : 'rgba(80,70,60,0.5)';
+    ctx.fillRect(WALL_X * cell - 4, 0, 8, BOARD_H * cell);
+    if (b.walls > 0) {
+      ctx.fillStyle = '#c8b8a0';
+      for (let y = 0; y < BOARD_H * cell; y += 12) ctx.fillRect(WALL_X * cell - 3, y, 6, 6);
+    }
+  }
+  const latest = b.events.slice(-3);
+  for (const q of b.squads) {
+    const x = q.x * cell;
+    const y = q.y * cell;
+    const colour = q.side === 'town' ? '#ffd24a' : '#d04a4a';
+    const struck = latest.some((e) => e.kind === 'clash' && (e.to === q.id || e.from === q.id));
+    ctx.globalAlpha = q.out ? 0.35 : 1;
+    ctx.fillStyle = struck ? '#fff' : '#000';
+    ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+    ctx.fillStyle = colour;
+    ctx.fillRect(x + 3, y + 3, cell - 6, cell - 6);
+    // the hero's health along the top, the troops as pips below
+    if (q.hero) {
+      ctx.fillStyle = '#300';
+      ctx.fillRect(x + 4, y + 4, cell - 8, 3);
+      ctx.fillStyle = '#3fd05a';
+      ctx.fillRect(x + 4, y + 4, (cell - 8) * q.heroShare, 3);
+    }
+    const pip = Math.max(2, Math.floor((cell - 10) / 3));
+    for (let i = 0; i < SQUAD_SLOTS; i++) {
+      const t = q.troops[i];
+      const px = x + 5 + (i % 3) * (pip + 1);
+      const py = y + 9 + Math.floor(i / 3) * (pip + 1);
+      ctx.fillStyle = t ? (t.share > 0.5 ? '#1a1a1a' : '#6a1a1a') : 'rgba(0,0,0,0.15)';
+      ctx.fillRect(px, py, pip, pip);
+    }
+    if (q.out) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 4, y + 4);
+      ctx.lineTo(x + cell - 4, y + cell - 4);
+      ctx.moveTo(x + cell - 4, y + 4);
+      ctx.lineTo(x + 4, y + cell - 4);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  box.append(canvas);
+  out.push(box);
+  const log = el('div', 'war-log');
+  for (const e of b.events.slice(-5)) log.append(el('div', `war-event ${e.kind}`, e.text));
+  out.push(log);
+  const sides = el('div', 'war-legend');
+  for (const q of b.squads) {
+    const chip = el('span', `war-realm ${q.out ? 'dim' : ''}`);
+    const dot = el('i', 'war-dot');
+    dot.style.background = q.side === 'town' ? '#ffd24a' : '#d04a4a';
+    chip.append(dot, document.createTextNode(`${q.name}${q.hero ? ` (${q.hero} ${Math.round(q.heroShare * 100)}%)` : ''} · ${q.troops.filter((t) => t).length} troops${q.out ? ` · ${q.out}` : ''}`));
+    sides.append(chip);
+  }
+  out.push(sides);
+  return out;
+}
+function recapCard(r: NonNullable<WarView['recap']>): HTMLElement {
+  const card = el('div', `card realm-card ${r.won ? 'good' : 'bad'}`);
+  const head = el('div', 'realm-head');
+  head.append(el('div', 'realm-name', `${r.won ? 'Victory' : 'Defeat'} at ${r.province}`), el('span', 'realm-stance', `${r.turns} turns`));
+  card.append(head);
+  card.append(el('div', 'realm-sub', `${r.felled} of the foe felled · ${r.lost} troops lost`));
+  for (const line of r.lines) card.append(el('div', 'realm-sub', line));
+  return card;
 }
 /* ------------------------------------------------------------ cards */
 

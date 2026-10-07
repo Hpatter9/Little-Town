@@ -108,6 +108,8 @@ export type Command =
   | { type: 'conquest'; op: 'pickup'; army: number }
   | { type: 'conquest'; op: 'recall'; army: number }
   | { type: 'conquest'; op: 'dismiss'; army: number }
+  /** Pay a captive hero's ransom (sim/conquest/battles.ts). */
+  | { type: 'conquest'; op: 'ransom'; hero: number }
   | { type: 'tactics'; order: TacticsOrder }
   | { type: 'gameSpeed'; speed: number }
   | { type: 'battleCast'; power: string; x: number; y: number }

@@ -77,6 +77,16 @@ export function situationNotices(s: Snapshot): Notice[] {
   for (const f of s.realm.factions)
     if (f.host)
       out.push({ key: `host:${f.name}`, tone: 'red', mark: '⚔', title: `${f.name}'s war host`, text: `${f.host.size} strong, ${f.lord} at its head: here in ${f.host.hours} hour${f.host.hours === 1 ? '' : 's'}. Make ready, sue for peace, or call on allies.`, action: { label: 'The Realm', kind: 'panel', panel: 'expeditions' } });
+  // the conquest (the War tab): a battle for a province, a rival marching on the town's land, captives, bare provinces
+  const war = s.war;
+  if (war) {
+    if (war.battle && !war.battle.done) out.push({ key: `pbattle:${war.battle.id}`, tone: 'red', mark: '⚔', title: `The battle for ${war.battle.province}`, text: `Turn ${war.battle.turn}: ${war.battle.squads.filter((q) => q.side === 'town' && !q.out).length} of the town's squads against ${war.battle.squads.filter((q) => q.side === 'foe' && !q.out).length}.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
+    for (const a of war.rivalArmies) if (war.provinces[a.to]?.holder === 'town') out.push({ key: `rmarch:${a.realm}:${a.to}`, tone: 'red', mark: '⚔', title: `${war.realms.find((r) => r.id === a.realm)?.name ?? 'A power'} march on ${war.provinces[a.to].name}`, text: `An army of strength ${a.strength}, there in ${a.hours} h. A garrison or an army of the town's holds it.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
+    for (const x of war.captives) out.push({ key: `captive:${x.hero}`, tone: 'gold', mark: '⛓', title: `${x.name} held captive`, text: `At ${x.province}, by ${x.by}: ${x.ransom} coins ransom, or take the province.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
+    const bare = war.provinces.filter((p) => p.bare);
+    if (bare.length) out.push({ key: `bare:${bare.map((p) => p.id).join('.')}`, tone: 'gold', mark: '⚑', title: `${bare.length} province${bare.length === 1 ? '' : 's'} without a garrison`, text: `${bare.map((p) => p.name).join(', ')} may rise against the town.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
+    if (war.recap && s.tick - war.recap.tick < 6 * 600) out.push({ key: `precap:${war.recap.tick}`, tone: war.recap.won ? 'gold' : 'red', mark: '⚔', title: `${war.recap.won ? 'Victory' : 'Defeat'} at ${war.recap.province}`, text: war.recap.lines.join(' '), action: { label: 'War', kind: 'panel', panel: 'war' } });
+  }
   if (s.doom) out.push({ key: `doom:${s.doom.name}`, tone: 'red', mark: '☁', title: s.doom.name, text: s.doom.phase === 'signs' ? `Signs of it: about ${Math.ceil(s.doom.hoursLeft)} hours off.` : s.doom.hoursLeft < 1 ? 'Under way, and nearly over.' : `Under way: ${Math.ceil(s.doom.hoursLeft)} hours to go.` });
   for (const e of s.expeditions) {
     if (e.assault) {

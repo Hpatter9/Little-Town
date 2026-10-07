@@ -23,6 +23,7 @@ import { earn, notify, type GameState, type Person } from '../state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../time';
 import { armiesDaily, armiesOf, armiesTick, armyOfSquad } from './armies';
 import { holdings, worldOf, type ConquestState, type Squad } from './conquest';
+import { checkConquestWin, rivalsDaily, rivalsTick } from './rivals';
 import { provinceYield } from './world';
 
 /* ------------------------------------------------------------ the hero */
@@ -167,6 +168,7 @@ export function conquestHourly(s: GameState): void {
   const c = s.conquest;
   if (!c) return;
   armiesTick(s); // (every tick: the armies arriving, sim/conquest/armies.ts)
+  rivalsTick(s, c); // (and the rival realms', sim/conquest/rivals.ts)
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   for (let i = c.training.length - 1; i >= 0; i--) {
     const b = c.training[i];
@@ -213,6 +215,9 @@ export function conquestDaily(s: GameState, c: ConquestState): void {
     }
   }
   c.recruits = Math.min(RECRUITS_MOST, c.recruits + recruits);
+  // the rival realms' day, and the win
+  rivalsDaily(s, c, w);
+  checkConquestWin(s, c, w);
 }
 
 /** Every soldier the town keeps: trained and waiting, in the squads, in the armies' trains and the garrisons. */

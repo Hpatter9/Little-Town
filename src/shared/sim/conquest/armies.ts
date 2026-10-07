@@ -8,9 +8,11 @@
 
 import { ARMY_SQUADS, CROSSROADS_PACE, GARRISON_HOLDS, MARCH_HOURS, MARCH_PER_CELL, REVOLT_CHANCE, REVOLT_GRACE_DAYS, TROOP_BY_ID } from '../../data/troops';
 import { hashSeed, Rng } from '../../rng';
+import { realm } from '../factions';
 import { edgeXY, notify, type GameState, type Person } from '../state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../time';
 import { worldOf, type Army, type ConquestState, type Squad } from './conquest';
+import { battleOfArmy, battlesTick, lairCleared, startBattle } from './battles';
 import { squadStrength } from './squads';
 import type { ConquestWorld } from './world';
 
@@ -129,6 +131,7 @@ export function wayTo(w: ConquestWorld, c: ConquestState, from: number, to: numb
       if (prev.has(n)) continue;
       const h = c.holder[n];
       if (n !== to && h !== null && h !== 'town') continue;
+      if (n !== to && h === null && w.provinces[n].landmark === 'lair' && !lairCleared(c, n)) continue; // (a lair bars the way till cleared)
       prev.set(n, p);
       if (n === to) {
         const path: number[] = [];
@@ -154,6 +157,12 @@ export function marchArmy(s: GameState, armyId: number, to: number): Result {
   const a = c ? armiesOf(c).find((x) => x.id === armyId) : undefined;
   if (!c || !w || !a) return { ok: false, reason: 'No such army' };
   if (to < 0 || to >= w.provinces.length) return { ok: false, reason: 'No such province' };
+  if (battleOfArmy(c, a.id)) return { ok: false, reason: `${a.name} is in battle` };
+  const h = c.holder[to];
+  if (h !== null && h !== 'town') {
+    const f = realm(s).find((x) => x.id === h);
+    if (f && (f.stance === 'alliance' || f.stance === 'vassal')) return { ok: false, reason: `${w.provinces[to].name} is a friend's: ${f.stance === 'vassal' ? 'a vassal\'s' : 'an ally\'s'} land` };
+  }
   const from = a.going ?? a.at;
   const way = wayTo(w, c, from, to);
   if (!way) return { ok: false, reason: `No way to ${w.provinces[to].name} through friendly land` };
@@ -257,6 +266,7 @@ export function armiesTick(s: GameState): void {
   if (!c?.armies?.length) return;
   const w = worldOf(s);
   if (!w) return;
+  battlesTick(s, c);
   for (let i = c.armies.length - 1; i >= 0; i--) {
     const a = c.armies[i];
     // the dead leave the ranks
@@ -282,8 +292,12 @@ function arrive(s: GameState, w: ConquestWorld, c: ConquestState, a: Army): void
     c.holder[p.id] = 'town';
     c.taken![p.id] = Math.floor(s.tick / TICKS_PER_DAY);
     notify(s, `${a.name} takes ${p.name} for the town.`, true);
-  } else if (holder === null) notify(s, `${a.name} reaches ${p.name}: something dens there, and must be cleared.`);
-  else if (holder !== 'town') notify(s, `${a.name} stands before ${p.name}, held by another power.`);
+  } else if (holder !== 'town') {
+    // a lair, or another realm's: the battle (sim/conquest/battles.ts)
+    a.path = [];
+    startBattle(s, c, a, p.id);
+    return;
+  }
   if (a.at === homeProvince(w)) {
     comeBack(s, a);
     a.path = [];

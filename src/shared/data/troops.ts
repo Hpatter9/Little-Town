@@ -157,5 +157,75 @@ export const UPKEEP_AFIELD = 2;
 /** A province of the town's without a garrison of `GARRISON_HOLDS` soldiers or an army in it may revolt and go free
  *  each day, from `REVOLT_GRACE_DAYS` after it was taken; the capital never. */
 export const GARRISON_HOLDS = 3;
-export const REVOLT_CHANCE = 0.05;
-export const REVOLT_GRACE_DAYS = 3;
+export const REVOLT_CHANCE = 0.02;
+export const REVOLT_GRACE_DAYS = 5;
+
+/* ------------------------------------------------------------ province battles (sim/conquest/battles.ts) */
+
+/** The board: squads as pieces on a grid, the attackers from the west, the defenders in the east. */
+export const BOARD_W = 12;
+export const BOARD_H = 8;
+/** A squad acts every BEAT_TICKS (one side, then the other), moves MOVE cells a turn, and strikes within reach. */
+export const BEAT_TICKS = 20;
+export const MOVE = 2;
+/** A squad with RANGED_SHARE of its troops ranged strikes from REACH_RANGED. */
+export const RANGED_SHARE = 0.34;
+export const REACH_RANGED = 2;
+/** The struck squad strikes back at this share of a blow. */
+export const RIPOSTE = 0.6;
+/** A hero's blow in a clash, in plain blows per point of their strength; their health in plain soldiers' per point. */
+export const HERO_BLOW = 0.5;
+export const HERO_HP = 1;
+/** A squad routs when its worth falls under this share of what it marched in with, or its hero falls. */
+export const ROUT_AT = 0.35;
+/** A fort: the wall line's column, the walls' strength per fort level, the guard it gives those behind it, and how
+ *  much a siege troop's `walls` takes off it a turn. */
+export const WALL_X = 9;
+export const WALL_HP = 12;
+export const WALL_GUARD = 0.5;
+export const SIEGE_PER_WALLS = 1;
+/** A hero struck down: wounded, captured or killed (the owner's call); the founder gentler. */
+export const HERO_FATE = { wounded: 0.6, captured: 0.3, killed: 0.1 };
+export const FOUNDER_FATE = { wounded: 0.8, captured: 0.18, killed: 0.02 };
+/** A captive's ransom: coins by their strength. */
+export const RANSOM_PER_STRENGTH = 6;
+export const RANSOM_LEAST = 30;
+/** Experience to a hero for a battle won, and for one lost. */
+export const XP_WON = 120;
+export const XP_LOST = 40;
+/** The foes' captains: strength and command by the day and the settlement's tier. */
+export const CAPTAIN_BASE = 4;
+export const CAPTAIN_PER_DAY = 0.35;
+export const CAPTAIN_MOST = 45;
+export const CAPTAIN_PER_TIER = 2;
+/** Defending squads by settlement tier (hamlet to capital), and a lair's. */
+export const DEFENDERS_BY_TIER = [1, 2, 2, 3, 4];
+export const LAIR_SQUADS = 2;
+/** The foes' own troops: beasts of a lair, and the garrison folk of a settlement with no study to its name. */
+export const FOE_TROOPS: readonly TroopDef[] = [
+  { id: 'lair_beasts', name: 'Lair beasts', one: 'beast', kind: 'beast', era: 'neolithic', hp: 30, attack: 7, defence: 1, quick: true, cost: { coins: 0 }, text: 'The things that den in a wild province.' },
+  { id: 'great_beast', name: 'Great beast', one: 'great beast', kind: 'beast', era: 'neolithic', hp: 90, attack: 14, defence: 3, cost: { coins: 0 }, text: 'The lair\'s master.' },
+  { id: 'levies', name: 'Levies', one: 'levy', kind: 'melee', era: 'neolithic', hp: 20, attack: 4, defence: 1, cost: { coins: 0 }, text: 'A province\'s folk under arms.' },
+  { id: 'town_guard', name: 'Town guard', one: 'guard', kind: 'shield', era: 'neolithic', hp: 26, attack: 5, defence: 3, cost: { coins: 0 }, text: 'The watch of a settlement.' },
+  { id: 'town_archers', name: 'Town archers', one: 'archer', kind: 'ranged', era: 'neolithic', hp: 18, attack: 6, defence: 0, ranged: true, cost: { coins: 0 }, text: 'Bows on the walls.' },
+];
+export const ALL_TROOPS: Readonly<Record<string, TroopDef>> = { ...TROOP_BY_ID, ...Object.fromEntries(FOE_TROOPS.map((t) => [t.id, t])) };
+
+/* ------------------------------------------------------------ the rival realms (sim/conquest/rivals.ts) */
+
+/** A rival realm moves an army no oftener than this (days), and on this share of the days it may. */
+export const RIVAL_MOVE_DAYS = 5;
+export const RIVAL_MOVE_CHANCE = 0.35;
+/** ...and less the more it holds already (a share off per province). */
+export const RIVAL_SATED = 0.08;
+/** A rival army's strength (in squads' worth): a share of the power's troops, and a little a province held. */
+export const RIVAL_PER_TROOP = 0.35;
+export const RIVAL_PER_PROVINCE = 1.5;
+/** A lair is cleared by a rival army of at least this strength. */
+export const RIVAL_LAIR_STRENGTH = 18;
+/** What a province held against a rival is worth in defence: its garrison's worth, its settlement's tier, its
+ *  walls; the attacker needs `RIVAL_EDGE` times it. The troops a rival loses in the taking, per point of defence. */
+export const DEFENCE_PER_TIER = 3;
+export const DEFENCE_PER_WALL = 4;
+export const RIVAL_EDGE = 1.25;
+export const RIVAL_LOSS_PER_DEFENCE = 1.5;

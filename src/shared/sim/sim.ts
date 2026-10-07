@@ -43,6 +43,7 @@ import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
 import { conquestHourly, disbandSquad, formSquad, setSlot, train } from './conquest/squads';
+import { ransom } from './conquest/battles';
 import { addToArmy, dismissArmy, dropFromArmy, garrison, loadTrain, marchArmy, pickUp, raiseArmy, recallArmy } from './conquest/armies';
 import { spendByClass, spendPoint } from './attributes';
 import { questsHourly } from './quests';
@@ -381,6 +382,7 @@ export class Sim {
         else if (c.op === 'pickup') say(pickUp(s, c.army));
         else if (c.op === 'recall') say(recallArmy(s, c.army));
         else if (c.op === 'dismiss') say(dismissArmy(s, c.army));
+        else if (c.op === 'ransom') say(ransom(s, c.hero));
         break;
       }
       case 'gameSpeed':

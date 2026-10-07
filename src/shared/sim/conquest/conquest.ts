@@ -29,6 +29,16 @@ export interface ConquestState {
   nextArmy?: number;
   garrisons?: Record<number, Record<string, number>>;
   taken?: Record<number, number>;
+  /** The battles under way for provinces (sim/conquest/battles.ts), the last one's recap, the town's heroes held
+   *  captive, and the lairs cleared. */
+  battles?: import('./battles').ProvinceBattle[];
+  nextBattle?: number;
+  lastBattle?: import('./battles').BattleRecap;
+  captives?: import('./battles').Captive[];
+  cleared?: number[];
+  /** The rival realms' armies on the march, and the day each last moved (sim/conquest/rivals.ts). */
+  rivalArmies?: import('./rivals').RivalArmy[];
+  rivalMoved?: Record<string, number>;
 }
 
 /** An army: a general and up to ARMY_SQUADS squads, standing in a province or on the march to the next, with a train

@@ -2,11 +2,13 @@
 // the town's recruits, troops and training, its squads with their strength, and what it may raise.
 
 import { FACTION_BY_ID } from '../../data/factions';
+import { realm } from '../factions';
 import { FORTS, LANDMARKS, TIERS } from '../../data/conquest';
 import { GARRISON_HOLDS, REVOLT_GRACE_DAYS, TROOPS, type TroopDef } from '../../data/troops';
 import type { GameState } from '../state';
 import { worldOf, type Squad } from './conquest';
 import { armiesOf, armyOfSquad, armyStrength, garrisonSize, homeProvince, isHome, squadFree, trainSize } from './armies';
+import { captivesOf, type BattleRecap, type ProvinceBattle } from './battles';
 import { canRaise, command, heroStrength, leadership, leads, mayLead, soldiersOf, squadSize, squadStrength, troopWorth } from './squads';
 import { provinceYield, type ConquestWorld } from './world';
 
@@ -82,7 +84,9 @@ export interface SquadView {
   why: string | null;
 }
 export interface WarView {
-  realms: { id: string; name: string; provinces: number; capital: number }[];
+  realms: { id: string; name: string; provinces: number; capital: number; stance: string }[];
+  /** The rival realms' armies on the march. */
+  rivalArmies: { realm: string; from: number; to: number; hours: number; strength: number }[];
   side: number;
   cells: string;
   /** Each cell's province, one character a cell (its id + 32), a space-ish '!' less one... see `ownerAt`. */
@@ -100,6 +104,34 @@ export interface WarView {
   /** The town's home province (its capital), and its armies. */
   home: number;
   armies: ArmyView[];
+  /** A battle on the board (the latest; kept a few seconds after it ends), the last recap, the heroes held captive. */
+  battle: BattleView | null;
+  recap: BattleRecap | null;
+  captives: { hero: number; name: string; province: string; by: string; ransom: number }[];
+}
+export interface BattleView {
+  id: number;
+  province: string;
+  land: string;
+  army: number;
+  turn: number;
+  side: 'town' | 'foe';
+  walls: number;
+  wallsMax: number;
+  squads: {
+    id: number;
+    side: 'town' | 'foe';
+    name: string;
+    hero: string | null;
+    heroShare: number;
+    troops: ({ troop: string; share: number } | null)[];
+    x: number;
+    y: number;
+    out: 'routed' | 'fallen' | null;
+  }[];
+  events: ProvinceBattle['events'];
+  done: 'won' | 'lost' | null;
+  tick: number;
 }
 
 /** The owner grid as a string (made once a world): a cell's province id + 33 as a character, '!' - 1 = ' ' for the sea. */
@@ -153,8 +185,20 @@ export function warView(s: GameState): WarView | null {
     };
   });
   const soldiers = soldiersOf(c);
+  const b = (c.battles ?? []).slice(-1)[0] ?? null;
+  const battle: BattleView | null = b
+    ? {
+        id: b.id, province: w.provinces[b.province].name, land: w.provinces[b.province].land, army: b.army, turn: b.turn, side: b.side, walls: b.walls, wallsMax: b.wallsMax,
+        squads: b.squads.map((q) => ({
+          id: q.id, side: q.side, name: q.name, hero: q.hero?.name ?? null, heroShare: q.hero ? Math.max(0, q.hero.hp / q.hero.max) : 0,
+          troops: q.troops.map((t) => (t ? { troop: t.troop, share: Math.max(0, t.hp / t.max) } : null)), x: q.x, y: q.y, out: q.out,
+        })),
+        events: b.events, done: b.done, tick: s.tick,
+      }
+    : null;
   return {
-    realms: w.realms.map((r) => ({ id: r.id, name: realmName(r.id, town), provinces: c.holder.filter((h) => h === r.id).length, capital: r.capital })),
+    realms: w.realms.map((r) => ({ id: r.id, name: realmName(r.id, town), provinces: c.holder.filter((h) => h === r.id).length, capital: r.capital, stance: r.id === 'town' ? 'the town' : realm(s).find((f) => f.id === r.id)?.stance ?? 'neutral' })),
+    rivalArmies: (c.rivalArmies ?? []).map((a) => ({ realm: a.realm, from: a.from, to: a.to, hours: Math.max(0, Math.ceil((a.arrive - s.tick) / 600)), strength: Math.round(a.strength) })),
     side: w.side,
     cells: w.cells,
     owners: ownersOf(w),
@@ -168,6 +212,9 @@ export function warView(s: GameState): WarView | null {
     heroes: s.people.filter((p) => mayLead(s, p)).map((p) => ({ id: p.id, name: p.name, strength: heroStrength(p), lead: leadership(p) })),
     upkeep: Math.round(soldiers * 0.2),
     home: homeProvince(w),
+    battle,
+    recap: c.lastBattle ?? null,
+    captives: captivesOf(c).map((x) => ({ hero: x.hero, name: s.people.find((p) => p.id === x.hero)?.name ?? '?', province: w.provinces[x.province].name, by: x.by ? realmName(x.by, town) : 'beasts', ransom: x.ransom })),
     armies: armies.map((a): ArmyView => {
       const gen = c.squads.find((q) => q.id === a.general);
       const hero = gen ? s.people.find((p) => p.id === gen.hero) : undefined;
