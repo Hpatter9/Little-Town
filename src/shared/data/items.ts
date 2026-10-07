@@ -165,6 +165,8 @@ export type FareKind = 'hearty' | 'sweet' | 'drink';
 export const FARE_NAMES: Record<FareKind, string> = { hearty: 'a hearty meal', sweet: 'something sweet', drink: 'a drink' };
 
 export type IconSheet =
+  | 'Book'
+  | 'Music'
   | 'ShortWep'
   | 'MedWep'
   | 'LongWep'

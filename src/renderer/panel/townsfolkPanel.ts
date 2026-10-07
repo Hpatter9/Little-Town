@@ -12,6 +12,7 @@ import { CENTRE_X, FEET_Y, FRAME_SIZE, loadLpc, lpcCanvas } from '../art/lpc/lpc
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { FOOD_VALUE, JOB_NAMES, JOBS, PRIORITY_NAMES, type Priority } from '../../shared/data/people';
 import { itemIcon } from '../art/icons';
+import { emblemCanvas } from '../art/emblems';
 import { CLASS_DEFS, STAGE_LEVELS } from '../../shared/data/classes';
 import { ATTR_ABOUT, ATTR_KEYS, ATTR_NAMES } from '../../shared/data/attributes';
 import { WEIGHT_NAMES } from '../../shared/data/armour';
@@ -700,6 +701,7 @@ function classRow(p: PersonView, _bridge: Bridge | undefined, rerender: () => vo
     classOpen = open ? null : p.id;
     rerender();
   }, { cls: `chip class-chip${p.founderCalling ? ' founder' : ''}`, title: 'Their calling: tap for the path so far' });
+  if (p.road && p.roadId) row.prepend(emblemCanvas(p.roadId, 34));
   row.append(chip, bar);
   const box = el('div', '');
   box.append(row);
@@ -716,7 +718,9 @@ function classRow(p: PersonView, _bridge: Bridge | undefined, rerender: () => vo
         path.append(el('div', 'lock short', asking ? 'They stand at the fork now: choose their road, or let them.' : p.road.at !== null && p.level >= p.road.at && p.stage === 3 ? `Level ${p.road.at} reached; the last form takes an ascension: a small chance each day, or a deed worthy of legend.` : `At level ${p.road.at} (now ${p.level}) they may become:`));
         for (const [i, n] of p.road.next.entries()) {
           const card = el('div', 'road-option');
-          card.append(el('div', 'road-name', n.name), el('div', 'hint', n.text));
+          const head = el('div', 'road-option-head');
+          head.append(emblemCanvas(n.id, 44), el('div', 'road-name', n.name));
+          card.append(head, el('div', 'hint', n.text), el('div', 'purpose', n.lore));
           if (asking && _bridge) card.append(button(`Become ${n.name}`, () => _bridge.command({ type: 'answerPrompt', prompt: p.road!.promptId!, option: i }), { cls: 'place small' }));
           path.append(card);
         }

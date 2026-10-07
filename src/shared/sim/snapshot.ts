@@ -1,7 +1,10 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
 import { branchesOf, PATH_BY_ID } from '../data/paths';
-import { STAGE_LEVELS } from '../data/classes';
+import { CLASS_DEFS, STAGE_LEVELS } from '../data/classes';
+import { loreOf } from '../data/pathLore';
+import { ROLE_ABOUT } from '../data/classAbout';
+import { PATH_ABILITIES } from '../data/abilities';
 import { freePoints } from './attributes';
 import { tacticsView, type TacticsView } from './tactics';
 import { faithView, type FaithView } from './faith';
@@ -157,7 +160,8 @@ export interface PersonView {
   founderCalling: boolean;
   /** Their road (data/paths.ts): where they stand, the roads open at the next stage (names and what each is), the
    *  level that opens them, and the evolution question waiting on them, if one is. Founders have none. */
-  road: { name: string; text: string; next: { id: string; name: string; text: string }[]; at: number | null; promptId: number | null } | null;
+  roadId: string | null;
+  road: { name: string; text: string; next: { id: string; name: string; text: string; lore: string }[]; at: number | null; promptId: number | null } | null;
   /** Stat points earned and not yet spent (data/attributes.ts). */
   freePts: number;
   /** Which of their class's five stages they're at (0 to 4), and whether they've ascended (the last needs it). */
@@ -400,6 +404,17 @@ export interface PromptView {
   who: number | null;
   /** Until the default is taken; null when it waits as long as it takes. */
   secondsLeft: number | null;
+  /** An evolution's roads (data/paths.ts, data/pathLore.ts): each with its archetype's role, its telling and its
+   *  signature skill, in the options' order. */
+  roads?: RoadView[];
+}
+export interface RoadView {
+  id: string;
+  name: string;
+  role: string;
+  text: string;
+  lore: string;
+  skill: { name: string; text: string } | null;
 }
 
 /** How long the feed shows what came of the last event answered (game hours). */
@@ -949,6 +964,7 @@ export function snapshot(s: GameState): Snapshot {
       who: p.who ?? null,
       // (none for a question that waits as long as it takes: raiders held at the gate)
       secondsLeft: p.expiresTick >= Number.MAX_SAFE_INTEGER ? null : Math.max(0, (p.expiresTick - s.tick) / TICK_HZ),
+      ...(p.roads ? { roads: p.roads.map(roadOf).filter((r): r is RoadView => !!r) } : {}),
     })),
     raid: s.raid
       ? {
@@ -1367,6 +1383,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     clsText: callingText(p),
     founderCalling: !!p.fcls,
     road: roadView(s, p),
+    roadId: p.road ?? null,
     freePts: freePoints(p),
     stage: stageOf(p),
     ascended: !!p.ascended,
@@ -1498,11 +1515,20 @@ function actText(name: string): string {
   return ACT_TEXT.get(name) ?? '';
 }
 
+/** A road as the evolution card tells it: its role, its lore and its signature skill. */
+export function roadOf(id: string): RoadView | null {
+  const n = PATH_BY_ID[id];
+  if (!n) return null;
+  const a = PATH_ABILITIES.find((x) => x.path === id);
+  const skill = a ? { name: a.name, text: a.active ? describeAct(a.active.effects, a.active.cooldown) : describePassive(a.passive!) } : null;
+  return { id, name: n.name, role: ROLE_ABOUT[CLASS_DEFS[n.cls].role].name, text: n.text, lore: loreOf(id, n.name, n.from ? PATH_BY_ID[n.from]?.name : undefined), skill };
+}
+
 /** Where someone stands on their road, and what's open next (null for a founder or anyone without one). */
 function roadView(s: GameState, p: Person): PersonView['road'] {
   const node = p.road ? PATH_BY_ID[p.road] : undefined;
   if (!node) return null;
-  const next = node.stage >= 4 ? [] : branchesOf(node.id).map((n) => ({ id: n.id, name: n.name, text: n.text }));
+  const next = node.stage >= 4 ? [] : branchesOf(node.id).map((n) => ({ id: n.id, name: n.name, text: n.text, lore: loreOf(n.id, n.name, node.name) }));
   const prompt = s.prompts.find((q) => q.kind === 'evolve' && q.who === p.id);
   return { name: node.name, text: node.text, next, at: node.stage >= 4 ? null : STAGE_LEVELS[node.stage + 1], promptId: prompt?.id ?? null };
 }

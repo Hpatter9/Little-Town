@@ -2327,6 +2327,21 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   CHA, a + beside each attribute while points are free and "Let them choose"; the news bubble says who has points.
   `PersonView.freePts`, `Snapshot.evolveAsk`/`statsAsk`. Tests in `test/paths.test.ts`.
 
+- **The evolution card: story, flair and class emblems (the owner's ask, after the Final Fantasy jobs and Baldur's
+  Gate's class pages):** `src/shared/data/pathLore.ts` (`FORK`: each base calling's crossroads told as a scene with
+  `{name}`; `LORE`: a passage for every node but the ascended, which share `ASCENDED`; `loreOf`) and
+  `src/shared/data/emblems.ts` (`BASE_COLOURS` by base calling, `GLYPHS` a DawnLike or Magic Items cell per node,
+  `emblemOf` falling back up the lineage; the sheets `Book` and `Music` were added to `art/items` and `IconSheet`).
+  `src/renderer/art/emblems.ts` paints a node's badge on a canvas (`emblemCanvas`, `paintEmblem`: a heater shield in
+  the base's colours, the device by stage: plain, a chevron, a bend, a bordure, and for an ascended form a golden field
+  with rays and a glow; the rim brightens by stage, pips count it; the glyph from `iconSheet` lands when its sheet has
+  loaded). The `evolve` prompt's `story` is the fork scene; `PromptView.roads` (`roadOf` in snapshot.ts: name, role,
+  text, lore and the signature skill described) feeds the event box's own layout for the kind (`eventSheet.ts`: the
+  title ruled and starred, each road an illuminated `.road-card` with its emblem, name, role, lore, skill and "Walk the
+  X's road", then "Let them choose"; CSS in mobile/index.html). The People page shows the emblem beside the calling
+  chip and on the two road cards, with their lore (`PersonView.roadId`, `road.next[].lore`). Test in
+  `test/paths.test.ts` (lore for every node, every glyph on its sheet, no fork's two roads sharing a glyph).
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

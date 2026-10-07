@@ -8,6 +8,7 @@
 import { BACKDROPS, type BackdropId } from '../../shared/data/backdrops';
 import type { Snapshot, PromptView } from '../../shared/sim/snapshot';
 import { loadImage } from '../art/loadImage';
+import { emblemCanvas } from '../art/emblems';
 
 const W = 576;
 const H = 324;
@@ -73,8 +74,11 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
     }
     const body = document.createElement('div');
     body.className = 'event-body';
+    const evolve = p.kind === 'evolve' && !!p.roads?.length;
+    if (evolve) el.classList.add('evolve');
+    else el.classList.remove('evolve');
     const title = document.createElement('div');
-    title.className = 'event-title';
+    title.className = evolve ? 'event-title evolve-title' : 'event-title';
     title.textContent = p.title;
     const text = document.createElement('div');
     text.className = 'event-text';
@@ -89,8 +93,68 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
       text.append(para2);
     }
     const options = document.createElement('div');
-    options.className = 'event-options';
-    p.options.forEach((label, i) => {
+    options.className = evolve ? 'event-options evolve-options' : 'event-options';
+    const choose = (label: string, i: number) => {
+        if (answered) return;
+        onAnswer(p.id, i);
+        if (p.kind === 'debrief' || p.kind === 'watch') {
+          read.add(p.id);
+          shown = -1;
+          el.hidden = true;
+          document.body.classList.remove('event-open');
+          return;
+        }
+        options.replaceWith(answerBox(p, label));
+    };
+    // an evolution: each road a card with its emblem, its role, its telling and its signature skill
+    if (evolve) {
+      for (const [i, r] of p.roads!.entries()) {
+        const card = document.createElement('div');
+        card.className = 'road-card';
+        const head = document.createElement('div');
+        head.className = 'road-head';
+        head.append(emblemCanvas(r.id, 64));
+        const names = document.createElement('div');
+        names.className = 'road-names';
+        const name = document.createElement('div');
+        name.className = 'road-name';
+        name.textContent = r.name;
+        const role = document.createElement('div');
+        role.className = 'road-role';
+        role.textContent = r.role;
+        names.append(name, role);
+        head.append(names);
+        const lore = document.createElement('p');
+        lore.className = 'road-lore';
+        lore.textContent = r.lore;
+        card.append(head, lore);
+        if (r.skill) {
+          const sk = document.createElement('div');
+          sk.className = 'road-skill';
+          const skName = document.createElement('span');
+          skName.className = 'road-skill-name';
+          skName.textContent = `✧ ${r.skill.name}`;
+          sk.append(skName, document.createTextNode(` ${r.skill.text}`));
+          card.append(sk);
+        }
+        const b = document.createElement('button');
+        b.className = 'event-option road-take';
+        b.textContent = `Walk the ${r.name}'s road`;
+        b.addEventListener('click', () => choose(r.name, i));
+        card.append(b);
+        options.append(card);
+      }
+      const rest = p.options.slice(p.roads!.length);
+      rest.forEach((label, j) => {
+        const i = p.roads!.length + j;
+        const b = document.createElement('button');
+        b.className = i === p.defaultOption ? 'event-option default road-let' : 'event-option road-let';
+        b.textContent = label;
+        b.addEventListener('click', () => choose(label, i));
+        options.append(b);
+      });
+    }
+    if (!evolve) p.options.forEach((label, i) => {
       const b = document.createElement('button');
       b.className = i === p.defaultOption ? 'event-option default' : 'event-option';
       b.textContent = label;

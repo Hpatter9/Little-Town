@@ -25,6 +25,8 @@ import Magic from './items/Magic.png';
 import Wand from './items/Wand.png';
 import Ring from './items/Ring.png';
 import Plate from './items/plate.png';
+import Book from './items/Book.png';
+import Music from './items/Music.png';
 import { CUSTOM_ORDER, CUSTOM_ROWS, customSheetUrl } from './customIcons';
 
 const CELL = 16;
@@ -52,8 +54,13 @@ const SHEETS: Record<IconSheet, { url: string; rows: number; cols?: number }> = 
   Chest1: { url: Chest1, rows: 3 },
   Custom: { url: '', rows: CUSTOM_ROWS },
   Magic: { url: Magic, rows: 5, cols: 9 },
+  Book: { url: Book, rows: 9 },
+  Music: { url: Music, rows: 6 },
   Plate: { url: Plate, rows: 1, cols: 1 }, // (DungeonItemsLite's dark plate armour, one big cell) // (Magic Items pack: rings, amulets, wands, tomes) // (built in code: see customIcons.ts)
 };
+
+/** A sheet's image and its columns, for drawing a cell on a canvas (the class emblems: art/emblems.ts). */
+export const iconSheet = (sheet: IconSheet) => ({ url: SHEETS[sheet].url, cols: SHEETS[sheet].cols ?? 8, cell: CELL });
 
 /** DawnLike's author asks that Platino be hidden somewhere in every game that uses the tileset. */
 export function platino(): HTMLElement {
