@@ -198,6 +198,27 @@ const OUT: Partial<Record<SceneId, Outdoor>> = {
     mid: [['palms', 7], ['rocks', 3]],
     ground: SAND, path: 'none', water: 'shore', ripples: '#c8a868', blades: null, props: ['shells', 'driftwood', 'pebbles', 'tuft'], front: 'sand',
   },
+  // the new lands (data/biomes.ts): the fens, the jungle, the ashlands and the steppe
+  fen: {
+    sky: ['#4a5a6a', '#b8c4c2'], sun: 'none', clouds: 10, far: 'mountains', farTint: '#56625e', hills: '#4e6a48',
+    mid: [['rise', '#4a6440'], ['dead', 3], ['trees', 'bush', 18, 0]],
+    ground: ['#5a7a46', '#46603a', '#2e4228'], path: 'trodden', water: 'river', ripples: '#5a7a6a', blades: '#587a48', props: ['reeds', 'tuft', 'bones', 'reeds', 'pebbles', 'tallGrass'], front: 'reeds',
+  },
+  jungle: {
+    sky: ['#2f6aa8', '#b8dcc8'], sun: 'sun', clouds: 7, far: 'crags', farTint: '#3e6a4a', hills: '#2e6a38',
+    mid: [['rise', '#2a5a30'], ['trees', 'broadleaf', 30, 9], ['trees', 'bush', 20, 0]],
+    ground: ['#4f8a3c', '#3a6a2c', '#24461c'], path: 'trodden', blades: '#4a8a3a', props: ['flowers', 'bramble', 'bush', 'tallGrass', 'flowers', 'tuft', 'bramble'], front: 'woods',
+  },
+  ashland: {
+    sky: ['#3a2026', '#c86a48'], sun: 'red', clouds: 2, smoke: 5, far: 'crags', farTint: '#4a3634', hills: '#4a3a34',
+    mid: [['rise', '#3e3230'], ['dead', 6], ['spires', 3]],
+    ground: ['#5a5050', '#3e3636', '#242020'], path: 'none', blades: null, props: ['ash', 'embers', 'glowrock', 'bones', 'rubble', 'ash', 'skull'], front: 'ash',
+  },
+  steppe: {
+    sky: ['#4a86cc', '#e8e0b8'], sun: 'sun', clouds: 5, far: 'mountains', farTint: '#9a9a70', hills: '#9aa050',
+    mid: [['rise', '#a8a858'], ['trees', 'bush', 10, 0], ['trees', 'broadleaf', 4, 2]],
+    ground: ['#b8b060', '#9a9448', '#6e6a30'], path: 'tracks', blades: '#a8a450', props: ['tallGrass', 'tuft', 'pebbles', 'bones', 'tallGrass', 'tuft'], front: 'grass',
+  },
 };
 
 const IN: Partial<Record<SceneId, Indoor>> = {

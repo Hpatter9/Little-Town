@@ -4,6 +4,7 @@
 // whiteout), and heat haze shimmering over the desert's summer noons. The rules are pure (`skyFor`); the fog lives on
 // the land (MapView's `over`, so it pans with the map), the rest over the screen. Lighter on a slow phone.
 
+import { biomeById } from '../../shared/data/biomes';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { glowTexture } from '../town/layer';
 import type { MapView } from './mapView';
@@ -27,15 +28,19 @@ export interface SkyMix {
 
 /** What the sky is doing now, from the weather, season, land and hour. */
 export function skyFor(a: SkyState): SkyMix {
-  const desert = a.biome === 'desert';
+  const def = biomeById(a.biome);
+  const desert = !!def.dry; // (dust over any dry land: the desert's sand, the steppe's dust, the ashlands' ash)
+  const hot = !!def.hot;
   const cold = a.season === 'winter' || a.biome === 'tundra';
   const foul = a.weather === 'storm' || a.weather === 'rain';
-  const mist = (a.hour >= 4.5 && a.hour < 8.5 && (a.season === 'autumn' || a.season === 'spring') && !desert ? 0.35 : 0) * (1 - Math.abs(a.hour - 6.5) / 2);
+  // (mornings mist over in spring and autumn, and on a wet land in every season but winter)
+  const misty = (a.season === 'autumn' || a.season === 'spring' || (def.wet && a.season !== 'winter')) && !desert;
+  const mist = (a.hour >= 4.5 && a.hour < 8.5 && misty ? (def.wet ? 0.5 : 0.35) : 0) * (1 - Math.abs(a.hour - 6.5) / 2);
   return {
     fog: Math.max(a.weather === 'fog' ? 1 : 0, Math.max(0, mist)),
     sand: desert && (foul || a.weather === 'cloudy') ? (a.weather === 'storm' ? 1 : a.weather === 'rain' ? 0.75 : 0.45) : 0,
     blizzard: cold && a.weather === 'storm' ? 1 : cold && a.weather === 'snow' ? ((a.spell ?? 1) % 3 === 0 ? 1 : 0.25) : 0,
-    haze: desert && a.season === 'summer' && a.weather === 'clear' ? Math.max(0, 1 - Math.abs(a.hour - 13.5) / 3.5) : 0,
+    haze: hot && a.season === 'summer' && a.weather === 'clear' ? Math.max(0, 1 - Math.abs(a.hour - 13.5) / 3.5) : 0,
   };
 }
 

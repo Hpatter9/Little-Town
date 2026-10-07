@@ -221,7 +221,8 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
     }
     return weights[weights.length - 1][0];
   };
-  const wildShare = biome === 'desert' ? 0.4 : 0.5; // (how much of the home vale is wild)
+  const open = def.open ?? 'grass';
+  const wildShare = def.wildShare ?? 0.5; // (how much of the home vale is wild)
   // the regions beyond the vale (landRegions.ts): each has its own wild share and its own mix of the biome's kinds
   const regions = layRegions(seedHash, w, h, camp, biome);
   const regionOf = (x: number, y: number) => regionAt(regions, seedHash, x, y)!;
@@ -280,11 +281,11 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
       const k = Math.max(0, Math.min(1, (kind(x - ox, y - oy) - 0.5) * 2.4 + 0.5));
       const r = regions.find((q) => q.id === regionIds[y * w + x])!;
       const def = REGION_DEFS[r.kind];
-      const share = def.wildShare * (biome === 'desert' ? 0.8 : 1);
+      const share = def.wildShare * (open === 'sand' ? 0.8 : 1);
       const isWild = r.kind === 'vale' ? wildness[y * w + x] >= threshold : rankIn(r.id, wildness[y * w + x]) >= 1 - share;
       if (isWild) grid[y * w + x] = r.kind === 'vale' ? pickKind(k) : pickRegionKind(k, def);
       else if (def.fertile && kind(x - ox + 37, y - oy + 91) < def.fertile) grid[y * w + x] = 'fertile';
-      else if (biome === 'desert') grid[y * w + x] = 'sand';
+      else if (open === 'sand') grid[y * w + x] = 'sand';
     }
   // a lake at a lake region's heart, its banks marsh (an oasis in the desert: its banks rich soil)
   const lakeNoise = noise(seedHash ^ 0x4c, 5);
@@ -297,7 +298,7 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
         if (inBox(x, y)) continue;
         const d = Math.hypot((x - r.x) * 0.9, (y - r.y) * 1.15) / R + (lakeNoise(x, y) - 0.5) * 0.5;
         if (d < 1) grid[y * w + x] = 'water';
-        else if (d < 1.25) grid[y * w + x] = biome === 'desert' ? 'fertile' : lakeNoise(x + 9, y + 9) < 0.55 ? 'marsh' : 'fertile';
+        else if (d < 1.25) grid[y * w + x] = open === 'sand' ? 'fertile' : lakeNoise(x + 9, y + 9) < 0.55 ? 'marsh' : 'fertile';
       }
   }
 
@@ -312,7 +313,8 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
     pos += rng.int(-1, 1) * (rng.chance(0.55) ? 1 : 0);
     const near = (across ? camp.y : camp.x) + side * (CAMP_CLEAR + 4);
     if (side > 0 ? pos < near : pos > near) pos = near;
-    const width = biome === 'desert' ? 1 : rng.chance(0.3) ? 3 : 2;
+    const widest = def.river ?? 3;
+    const width = widest === 1 ? 1 : rng.chance(0.3) ? widest : Math.min(widest, 2);
     for (let k = 0; k < width; k++) {
       const [x, y] = across ? [t, pos + k] : [pos + k, t];
       if (!(x >= 0 && y >= 0 && x < w && y < h)) continue;
@@ -328,6 +330,8 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
   for (const i of river) grid[i] = 'water';
   // its banks: fertile soil, here and there marsh (none in the desert's dry beds). The old box's own banks first,
   // drawing the chance as the old land did; then the banks that reach beyond it, and the wide land's.
+  // (how much of the banks is marsh: none in a dry land's beds, most of it in the fens)
+  const marshBank = (def.banks ?? 'mixed') === 'fertile' ? 0 : def.banks === 'marshy' ? 0.55 : 0.12;
   const bank = (i: number, inside: boolean, fresh: boolean) => {
     const x0 = i % w;
     const y0 = Math.floor(i / w);
@@ -342,7 +346,7 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
         if (fresh && (grid[j] === 'fertile' || grid[j] === 'marsh')) continue;
         // (the banks are rich soil: the river clears them; further off, only open ground turns)
         const near = Math.max(Math.abs(dx), Math.abs(dy)) <= 2;
-        if (near || grid[j] === 'grass' || grid[j] === 'sand') grid[j] = biome !== 'desert' && rng.chance(0.12) ? 'marsh' : 'fertile';
+        if (near || grid[j] === 'grass' || grid[j] === 'sand') grid[j] = marshBank > 0 && rng.chance(marshBank) ? 'marsh' : 'fertile';
       }
   };
   for (let n = 0; n < boxRiver; n++) bank(river[n], true, false);
@@ -373,7 +377,7 @@ export function makeLand(seed: string, biome: Biome = 'forest', shape?: LandShap
   }
   // the camp's clearing (and a little fertile ground just beside it, for the first fields)
   for (let y = camp.y - CAMP_CLEAR; y <= camp.y + CAMP_CLEAR; y++)
-    for (let x = camp.x - CAMP_CLEAR; x <= camp.x + CAMP_CLEAR; x++) if (Math.hypot(x - camp.x, y - camp.y) <= CAMP_CLEAR + 0.5) grid[y * w + x] = biome === 'desert' ? 'sand' : 'grass';
+    for (let x = camp.x - CAMP_CLEAR; x <= camp.x + CAMP_CLEAR; x++) if (Math.hypot(x - camp.x, y - camp.y) <= CAMP_CLEAR + 0.5) grid[y * w + x] = open;
 
   // the mountain: solid rock over the whole north half, its foot MOUNTAIN_FOOT rows above the camp, level there and
   // ragged further off (the river and the shore are swallowed where they ran into it)

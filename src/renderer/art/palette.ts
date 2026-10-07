@@ -1,5 +1,7 @@
 // Earthy Neolithic palette for the placeholder art.
 
+import { biomeById } from '../../shared/data/biomes';
+
 export const PAL = {
   grassDark: '#3d6630',
   grass: '#557f38',
@@ -75,6 +77,8 @@ const SEASONS: Record<string, Swap> = {
 /** Some biomes' seasons differ: the desert has no snow (a cold, pale winter), and the tundra's snow only thaws
  *  to moss in spring and summer. */
 const BIOME_SEASONS: Record<string, Record<string, Swap | null>> = {
+  ashlands: { winter: { grassDark: '#6a6260', grass: '#7e7672', grassLight: '#948c88', grassTip: '#aaa29e' } },
+  steppe: { winter: { grassDark: '#a8a070', grass: '#c4ba8a', grassLight: '#d6cea2', grassTip: '#e6e0bc' } },
   desert: { winter: { grassDark: '#a09070', grass: '#bcae8a', grassLight: '#cfc4a2', grassTip: '#e0d8bc', leafDark: '#4e5a38', leaf: '#6a7448', leafLight: '#8a9060', leafTip: '#a0a070' } },
   tundra: {
     spring: { grassDark: '#6e8468', grass: '#88a07c', grassLight: '#a4b896', grassTip: '#c4d4b8' },
@@ -100,7 +104,7 @@ export function applySeasonPalette(biome: string, season: string): void {
   const special = BIOME_SEASONS[biome];
   const swap = special && season in special ? special[season] : SEASONS[season];
   if (swap) Object.assign(PAL as unknown as Record<string, string>, swap);
-  const dryWinter = biome === 'desert' && season === 'winter';
+  const dryWinter = !!biomeById(biome).dry && season === 'winter';
   (PAL as unknown as { flowers: readonly string[] }).flowers = (dryWinter ? SEASON_FLOWERS.autumn : SEASON_FLOWERS[season]) ?? BASE.flowers;
 }
 
@@ -118,6 +122,12 @@ export function applyBiomePalette(biome: string): void {
     coast: {
       grassDark: '#4a6e3a', grass: '#62884a', grassLight: '#7fa35c', grassTip: '#9cbe70', dirt: '#b0986a', dirtLight: '#c8b484',
     },
+    swamp: { grassDark: '#3e5e36', grass: '#4f7646', grassLight: '#669058', grassTip: '#86a86a', marsh: '#3e5a48', moss: '#5a7a4a', water: '#3e5a5c', waterLight: '#7a9a92', reed: '#8a8a50', reedLight: '#a8a468' },
+    jungle: { grassDark: '#2e6a30', grass: '#3f8a3e', grassLight: '#58a84c', grassTip: '#80c860', leafDark: '#1e5a28', leaf: '#2e7a38', leafLight: '#4aa050', leafTip: '#7ac868', moss: '#4a8a3a' },
+    highlands: { grassDark: '#6a7a4e', grass: '#829462', grassLight: '#9eac78', grassTip: '#bcc690', dirt: '#8e8676', dirtLight: '#a8a090', moss: '#7a8a5a' },
+    ashlands: { grassDark: '#5a5048', grass: '#6e635a', grassLight: '#847870', grassTip: '#9a8e86', marsh: '#4e4a44', moss: '#605850', leaf: '#5e4a3a', leafDark: '#44362c', leafLight: '#7a6450', dirt: '#5a5250', dirtLight: '#726a66', water: '#3a4a5a', waterLight: '#7a8a98' },
+    steppe: { grassDark: '#8e8e48', grass: '#aaa858', grassLight: '#c4be6c', grassTip: '#dcd484', moss: '#9a9048', dirt: '#b8a070', dirtLight: '#d0bc8a', leaf: '#6a8a3e', leafDark: '#4e6a30', leafLight: '#8aa854' },
+    taiga: { grassDark: '#4e6a44', grass: '#628454', grassLight: '#7a9c68', grassTip: '#98b482', leafDark: '#2e4e34', leaf: '#3e6444', leafLight: '#5a8458', moss: '#6a8a5a' },
   };
   Object.assign(PAL as unknown as Record<string, string>, swaps[biome] ?? {});
 }

@@ -27,7 +27,7 @@ import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickT
 import { leavePt } from './breaks';
 import { onBuilt } from './era';
 import { doomForage } from './doom';
-import { biomeOf } from '../data/biomes';
+import { biomeOf, openGround } from '../data/biomes';
 import { HORSE_HP } from '../data/trade';
 import { offerBloodRite, offerLichRite, offerMoonRite } from './occult';
 import { cropOf, fieldSpot, fieldToWork, isField, mineToWork, workField, workMine } from './farming';
@@ -644,7 +644,7 @@ export function clearCell(s: GameState, i: number): void {
     return;
   }
   noteCleared(s, i, groundAt(s.land, c.x, c.y)); // (a wood or a thicket grows back, in time: sim/regrow.ts)
-  setGround(s.land, c.x, c.y, s.biome === 'desert' ? 'sand' : 'grass');
+  setGround(s.land, c.x, c.y, openGround(s.biome));
 }
 
 /** The nearest cell with wild berries on it (for someone about to starve), if any. Only the open land counts. */

@@ -2231,6 +2231,30 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   on the map" for a building no longer standing did nothing (now the button only comes when the thing is on the map:
   `onMap`); the Stores' kind chips (Weapons, Armour...) didn't redraw (`invTab` is in `craftingKey`); a tapped skill, spell or
   trait on the Townsfolk inspect page opened no card for the same reason (`chosenSkill` is in `townsfolkKey`).
+- **Ten lands (the owner's ask: more and more diverse biomes, with the asset packs behind each; the game is played
+  upright on the phone, so only that layout is checked):** `src/shared/data/biomes.ts` has six more biomes beside
+  the forest, desert, tundra and coast: the **fenlands** (`swamp`: marsh and black pools, a broad river banked in
+  marsh, mist of a morning, rich foraging, fevers; crocodiles, slimes and the swamp's crawlers), the **jungle** (dense
+  wood and rich soil, everything grows; apes, cats, satyrs, the swamp's things too), the **highlands** (crag, scree
+  and hill, a cold land; cave things and eagles, riders and wild dogs), the **ashlands** (open ground is cinders
+  (`open: 'sand'` in a grey palette), lava-rock, a red sky, dust and haze; fire and the charred dead, meteors and ash
+  winters), the **steppe** (open grass, a dry land with dust storms; lions, hyenas and jackals, horse-riders, more
+  caravans) and the **taiga** (pine and snow; wolves, bears and the beasts of the snow). A `BiomeDef` now carries
+  what the land is made of (`open`, `wildShare`, `river` width, `banks`: `makeLand` reads them where it once asked
+  "is it the desert"), climate flags (`cold`, `dry`, `hot`, `wet`: the renderer reads them through `biomeById` for
+  snow and breath, dust and dry trees, heat haze, morning mist and the ambience, so a new land needs no new switch),
+  its menagerie `habitats` (the lairs' and its own raids' creatures: `placeHabitats`), its fight-scene `scenes` swaps
+  (`sceneFor`), its ground `look` (`BIOME_LOOKS` in map/groundArt.ts: the patches and plain colours of each kind,
+  and the ashlands' own sand and rock) and its wild `props` sets. **Fights everywhere look like the land:** four new
+  scenes `fen`, `jungle`, `ashland` and `steppe` (data/scenes.ts, painted recipes in art/fightBackdrop.ts) with their
+  own packs' backdrops (the forests and the jungle battleground, the wastelands and the fire sky, the meadows and the
+  open plains), so the four lands' parties fight in new places. **Creatures by land:** the menagerie's swamp and fire
+  creatures left the general raid pool for the fens' (`m_fen`: fens, coast, jungle), the ashlands' (`m_ash`) and the
+  crags' (`m_crag`: cave and sky, highlands) own raids, the ice's reach the taiga and highlands and the dunes' the
+  steppe; the lions, wild dogs, crocodiles, satyrs and steppe riders range over the lands that suit them; each land's
+  lairs hold its own beasts (`BIOME_BEASTS`). Region names take each land's spellings (`alt` in landRegions.ts); the
+  dragon of the taiga is the Rimewyrm, of the ashlands the Ashen Wyrm. Tests: `test/biomes.test.ts` (each land's
+  shape, raids, lairs and creatures), `test/scenes.test.ts` (every look's backdrop exists).
 - **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
   (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
   pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and

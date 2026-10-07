@@ -75,6 +75,12 @@ export const PLACE_FOES: Record<'cave' | 'beast' | 'cart' | 'reef', Partial<Reco
 export const BIOME_BEASTS: Record<string, Record<string, number>[]> = {
   desert: [{ lion: 1, lioness: 2 }, { wild_dog: 4 }],
   coast: [{ crocodile: 2 }],
+  swamp: [{ crocodile: 3 }, { slime: 4 }],
+  jungle: [{ boar: 4 }, { crocodile: 2 }],
+  highlands: [{ wild_dog: 4 }, { wolf: 3, wolf_alpha: 1 }],
+  ashlands: [{ fire_elemental: 1 }, { wild_dog: 3 }],
+  steppe: [{ lion: 1, lioness: 2 }, { wild_dog: 4 }, { horse_rider: 2 }],
+  taiga: [{ wolf: 3, wolf_alpha: 1 }, { boar: 3 }],
 };
 
 /** How many places a land holds, how far from the camp they lie (cells), and how far apart. */

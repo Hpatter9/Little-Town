@@ -31,7 +31,7 @@ export interface RegionDef {
   /** What's found there more than elsewhere (sim/places.ts): multipliers on the place kinds' weights. */
   places: Partial<Record<string, number>>;
   /** Name pools: a leading word and a kind word, with the land's own spellings. */
-  names: { first: string[]; last: string[]; desert?: string[]; tundra?: string[] };
+  names: { first: string[]; last: string[]; desert?: string[]; tundra?: string[]; alt?: Partial<Record<string, string[]>> };
 }
 
 export const REGION_DEFS: Record<RegionKind, RegionDef> = {
@@ -40,7 +40,7 @@ export const REGION_DEFS: Record<RegionKind, RegionDef> = {
     wildShare: 0.86,
     mix: { forest: 6, rock: 0.3, marsh: 0.6, hill: 0.4 },
     places: { lair: 3, bones: 1.5, cart: 0.5 },
-    names: { first: ['Old', 'Deep', 'Dark', 'Tangle', 'Hart', 'Elder', 'Thorn', 'Owl'], last: ['Wood', 'Forest', 'Wold'], desert: ['Scrub', 'Thornland'], tundra: ['Pines', 'Taiga'] },
+    names: { first: ['Old', 'Deep', 'Dark', 'Tangle', 'Hart', 'Elder', 'Thorn', 'Owl'], last: ['Wood', 'Forest', 'Wold'], desert: ['Scrub', 'Thornland'], tundra: ['Pines', 'Taiga'], alt: { ashlands: ['Char', 'Cinderwood'], jungle: ['Canopy', 'Tangle'], taiga: ['Pines', 'Firs'], steppe: ['Copse', 'Thornland'] } },
   },
   fen: {
     wildShare: 0.7,
@@ -52,14 +52,14 @@ export const REGION_DEFS: Record<RegionKind, RegionDef> = {
     wildShare: 0.72,
     mix: { forest: 0.2, rock: 6, marsh: 0.1, hill: 1.5 },
     places: { vein: 3, cave: 1.5, cart: 0.4 },
-    names: { first: ['Grey', 'Broken', 'Red', 'Bone', 'Stony', 'Bleak', 'Iron'], last: ['Barrens', 'Scree', 'Waste'], desert: ['Wadi', 'Flint Waste'], tundra: ['Fell', 'Rime Barrens'] },
+    names: { first: ['Grey', 'Broken', 'Red', 'Bone', 'Stony', 'Bleak', 'Iron'], last: ['Barrens', 'Scree', 'Waste'], desert: ['Wadi', 'Flint Waste'], tundra: ['Fell', 'Rime Barrens'], alt: { ashlands: ['Cinders', 'Slag', 'Lava Field'], swamp: ['Shoals', 'Mudflats'] } },
   },
   meadows: {
     wildShare: 0.22,
     mix: { forest: 1, rock: 0.3, marsh: 0.5, hill: 1 },
     fertile: 0.22,
     places: { cart: 2.5, ruins: 2, lair: 0.3 },
-    names: { first: ['Lark', 'Long', 'Sweet', 'Green', 'Fair', 'Bright', 'Clover'], last: ['Meadows', 'Lea', 'Downs'], desert: ['Steppe', 'Grasslands'], tundra: ['Tussocks', 'Moss Flats'] },
+    names: { first: ['Lark', 'Long', 'Sweet', 'Green', 'Fair', 'Bright', 'Clover'], last: ['Meadows', 'Lea', 'Downs'], desert: ['Steppe', 'Grasslands'], tundra: ['Tussocks', 'Moss Flats'], alt: { ashlands: ['Ashfield', 'Flats'], steppe: ['Grasslands', 'Plains'], jungle: ['Clearing', 'Glade'] } },
   },
   lake: {
     wildShare: 0.45,
@@ -138,7 +138,7 @@ export function layRegions(seedHash: number, w: number, h: number, camp: { x: nu
 
 function nameFor(seedHash: number, i: number, kind: RegionKind, biome: Biome, used: Set<string>): string {
   const d = REGION_DEFS[kind].names;
-  const lasts = (biome === 'desert' && d.desert) || (biome === 'tundra' && d.tundra) || d.last;
+  const lasts = d.alt?.[biome] ?? ((biome === 'desert' && d.desert) || (biome === 'tundra' && d.tundra) || d.last);
   for (let t = 0; t < 12; t++) {
     const first = d.first[Math.floor(h2(seedHash ^ 0xa1, i, t) * d.first.length)];
     const last = lasts[Math.floor(h2(seedHash ^ 0xa2, i, t) * lasts.length)];

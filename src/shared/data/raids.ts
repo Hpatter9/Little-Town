@@ -68,9 +68,9 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   { id: 'drones', name: 'Drone swarm', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { combat_drone: 22, slug_bot: 32, war_bot: 40 }, fromDay: 0, era: 'space', weight: 3, speed: 90, bribable: false, plural: false },
   { id: 'warband', name: 'Warband', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { soldier: 20, bandit_archer: 12, ogre: 32, hedge_wizard: 18 }, fromDay: 0, era: 'medieval', untilEra: 'industrial', weight: 2, speed: 50, bribable: true, plural: false },
   // The land's own beasts
-  { id: 'lions', name: 'Pride of lions', goal: 'harm', enemies: { lion: 16, lioness: 11 }, fromDay: 4, untilEra: 'industrial', weight: 3, speed: 70, bribable: false, plural: false, biomes: ['desert'] },
-  { id: 'wild_dogs', name: 'Wild dog pack', goal: 'harm', enemies: { wild_dog: 6 }, fromDay: 3, untilEra: 'industrial', weight: 2, speed: 90, bribable: false, plural: false, biomes: ['desert', 'tundra'] },
-  { id: 'crocodiles', name: 'Crocodiles', goal: 'harm', enemies: { crocodile: 18 }, fromDay: 3, untilEra: 'modern', weight: 3, speed: 35, bribable: false, plural: true, biomes: ['coast'] },
+  { id: 'lions', name: 'Pride of lions', goal: 'harm', enemies: { lion: 16, lioness: 11 }, fromDay: 4, untilEra: 'industrial', weight: 3, speed: 70, bribable: false, plural: false, biomes: ['desert', 'steppe'] },
+  { id: 'wild_dogs', name: 'Wild dog pack', goal: 'harm', enemies: { wild_dog: 6 }, fromDay: 3, untilEra: 'industrial', weight: 2, speed: 90, bribable: false, plural: false, biomes: ['desert', 'tundra', 'steppe', 'highlands', 'ashlands', 'taiga'] },
+  { id: 'crocodiles', name: 'Crocodiles', goal: 'harm', enemies: { crocodile: 18 }, fromDay: 3, untilEra: 'modern', weight: 3, speed: 35, bribable: false, plural: true, biomes: ['coast', 'swamp', 'jungle'] },
   // (never picked at random: things that come alive inside the town, see lurkers.ts)
   { id: 'cave_bear', name: 'The Cave Bear', goal: 'harm', enemies: { cave_bear: 1 }, fromDay: 9999, weight: 0, speed: 26, bribable: false, plural: false },
   { id: 'mimic', name: 'Mimic', goal: 'harm', enemies: { mimic: 30 }, fromDay: 9999, weight: 0, speed: 30, bribable: false, plural: false },

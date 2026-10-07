@@ -3,6 +3,7 @@
 // edges, and the land beyond what the town knows darkened (and black further out). A chunk is painted again only
 // when something in it changes (the land's version, the open radius, the season).
 
+import { biomeById } from '../../shared/data/biomes';
 import { freezes, iceAt } from './ice';
 import { Texture } from 'pixi.js';
 import { CELL, groundAt, isRoad, type LandMap, FOG_BAND, wearAt, WEAR_FULL, WEAR_SHOW , wet } from '../../shared/sim/land';
@@ -71,6 +72,32 @@ const PATCH_OF: Partial<Record<string, Partial<Record<string, Patch>>>> = {
 /** The liches' and vampires' blighted land: olive and peat where the grass and woods would be. */
 const BLIGHT_PATCH: Partial<Record<string, Patch>> = { grass: 'olive', forest: 'peat', marsh: 'teal', hill: 'olive', fertile: 'loam', sand: 'sand', rock: 'peat' };
 const BLIGHT_FROM: Partial<Record<string, [Patch, number]>> = { grass: ['peat', 0.08], forest: ['peat', 0.34], hill: ['peat', 0.16], marsh: ['peat', 0.3] };
+/** Each land's own look (`look` in data/biomes.ts): the patches its kinds of ground wear and what their plain colour is
+ *  drawn from (as the blight does for the undead), and its own sand and rock (the ashlands' cinders and slag). */
+interface BiomeLook {
+  patch?: Partial<Record<string, Patch>>;
+  from?: Partial<Record<string, [Patch, number]>>;
+  pal?: Partial<Pick<Pal, 'sand' | 'rock' | 'hill' | 'water'>>;
+}
+const BIOME_LOOKS: Record<string, BiomeLook> = {
+  green: {},
+  sand: {},
+  fen: { patch: { grass: 'leaf', marsh: 'teal', hill: 'olive', forest: 'peat' }, from: { grass: ['leaf', 0.06], marsh: ['peat', 0.22], forest: ['peat', 0.3] }, pal: { water: ['#3a5e60', '#6a8e88'] } },
+  jungle: { patch: { grass: 'leaf', forest: 'leaf', hill: 'leaf', marsh: 'teal' }, from: { grass: ['leaf', 0.12], forest: ['leaf', 0.4], hill: ['leaf', 0.2] } },
+  crag: { patch: { grass: 'olive', hill: 'chalk', forest: 'peat', rock: 'chalk' }, from: { grass: ['olive', 0.1], hill: ['chalk', 0.3] }, pal: { rock: ['#7e7f7c', '#636460'], hill: ['#8a8c6a', '#74765a'] } },
+  ash: { patch: { grass: 'peat', hill: 'peat', forest: 'peat', sand: 'peat', rock: 'peat' }, from: { grass: ['peat', 0.2], hill: ['peat', 0.34] }, pal: { sand: ['#8a8582', '#78736f'], rock: ['#4e4a4c', '#3a3638'], hill: ['#6a6058', '#5a504a'], water: ['#3a4a5a', '#6a7c8a'] } },
+  steppe: { patch: { grass: 'grass', hill: 'olive', forest: 'olive' }, from: { grass: ['grass', 0.02] }, pal: { hill: ['#9a9a4e', '#86864a'] } },
+  taiga: { patch: { grass: 'olive', forest: 'peat', hill: 'olive', marsh: 'teal' }, from: { grass: ['leaf', 0.1], forest: ['peat', 0.38], hill: ['peat', 0.12] } },
+};
+let softLook: BiomeLook = BIOME_LOOKS.green;
+let softPal: Pal = SUMMER;
+/** The patch a kind of ground wears now (the blight's, the land's, or the season's), or none. */
+function patchFor(kind: string): Patch | undefined {
+  const blighted = softBlight && softSeason !== 'winter';
+  if (blighted) return BLIGHT_PATCH[kind];
+  if (softSeason === 'winter') return PATCH_OF.winter?.[kind];
+  return softLook.patch?.[kind] ?? PATCH_OF[softSeason]?.[kind];
+}
 /** Kinds that keep their own base colour under the patches (the patch is a darker spot on them). */
 const BASE_OWN: Partial<Record<string, boolean>> = { sand: true, rock: true };
 /** Kinds whose plain ground is another band's, darkened: the marsh is dark green with teal pools on it. */
@@ -119,10 +146,10 @@ let softBlight = false;
 function softBase(kind: string): string | null {
   if (kind === 'water' || kind === 'shallows') return null;
   const blighted = softBlight && softSeason !== 'winter';
-  const patch = (blighted ? BLIGHT_PATCH : PATCH_OF[softSeason])?.[kind];
+  const patch = patchFor(kind);
   if (!patch) return null;
-  const pal = PALETTES[softSeason] ?? SUMMER;
-  const from = blighted ? BLIGHT_FROM[kind] : BASE_FROM[kind];
+  const pal = softPal;
+  const from = blighted ? BLIGHT_FROM[kind] : softSeason === 'winter' ? BASE_FROM[kind] : (softLook.from?.[kind] ?? BASE_FROM[kind]);
   return BASE_OWN[kind] ? (pal[kind as 'sand' | 'rock'] as [string, string])[0] : from ? groundUnder(from[0], from[1]) : groundUnder(patch);
 }
 function rgb(c: string): number[] {
@@ -134,8 +161,8 @@ function rgb(c: string): number[] {
 /** Which of the ground's art sheets have loaded (part of every chunk's key; the map watches it to know when to look again). */
 export const groundArtReady = (): string => `${groundDetailReady() ? 1 : 0}${roadTilesReady() ? 1 : 0}${propImage('sea') ? 1 : 0}`;
 
-export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean, era: Era = 'neolithic', blight = false): string {
-  let s = `${season}|${td ? 1 : 0}|${groundDetailReady() ? 1 : 0}|${blight ? 'b' : ''}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|${propImage('sea') ? 's' : ''}|`;
+export function chunkKey(m: LandMap, cx: number, cy: number, season: string, td: boolean, era: Era = 'neolithic', blight = false, biome = 'forest'): string {
+  let s = `${season}|${biome}|${td ? 1 : 0}|${groundDetailReady() ? 1 : 0}|${blight ? 'b' : ''}|${roadTilesReady() ? ROAD_BY_ERA[era] : ''}|${m.open}|${propImage('sea') ? 's' : ''}|`;
   for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {
     const i0 = y * m.w + cx * CHUNK;
     s += m.cells.slice(i0, i0 + CHUNK) + m.roads.slice(i0, i0 + CHUNK);
@@ -217,7 +244,11 @@ function paintIce(g: CanvasRenderingContext2D, seed: number, x: number, y: numbe
 }
 
 export function paintChunk(m: LandMap, cx: number, cy: number, season: string, biome: string, td: TdTiles | null, era: Era = 'neolithic', blight = false): Texture {
-  const pal = PALETTES[season] ?? SUMMER;
+  const look = BIOME_LOOKS[biomeById(biome).look] ?? BIOME_LOOKS.green;
+  // (the land's own sand, rock and hill colours in every season but winter's snow)
+  const pal: Pal = season === 'winter' || !look.pal ? (PALETTES[season] ?? SUMMER) : { ...(PALETTES[season] ?? SUMMER), ...look.pal };
+  softLook = look;
+  softPal = pal;
   const size = CHUNK * CELL;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
@@ -339,10 +370,10 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         if (down || !across) rect(px + 12, py, 8, CELL, pal.road[2]);
         for (let k = 0; k < 3; k++) if (hash(seed ^ (41 + k), x, y) < 0.5) rect(px + Math.floor(hash(seed ^ (51 + k), x, y) * 30), py + Math.floor(hash(seed ^ (61 + k), x, y) * 30), 2, 2, pal.rock[1]);
         void td;
-      } else if (pack && kind !== 'water' && kind !== 'shallows' && (blight && season !== 'winter' ? BLIGHT_PATCH : PATCH_OF[season])?.[kind]) {
+      } else if (pack && kind !== 'water' && kind !== 'shallows' && patchFor(kind)) {
         // the pack's ground: a plain colour with its patches, and on the grass its tufts, flowers and pebbles
         const blighted = blight && season !== 'winter';
-        const patch = (blighted ? BLIGHT_PATCH : PATCH_OF[season]!)[kind]!;
+        const patch = patchFor(kind)!;
         // (the plain ground is already laid, warped at the borders, above)
         for (let k = 0; k < 2; k++)
           if (hash(seed ^ (71 + k), x, y) < (PATCH_SHARE[kind] ?? 0.3)) {

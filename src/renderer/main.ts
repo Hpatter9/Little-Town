@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { biomeById } from '../shared/data/biomes';
 import { hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
 import { seatArt } from './art/seatArt';
 import { SEAT_STAGE } from '../shared/data/seats';
@@ -1116,7 +1117,7 @@ async function start(): Promise<void> {
     birds.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.weather.kind !== 'snow' && !freeze;
     birds.winter = next.calendar.season === 'winter';
     birds.crowsOnly = buildStyle === 'lich' || buildStyle === 'vampire';
-    butterflies.on = birds.on && (next.calendar.season === 'spring' || next.calendar.season === 'summer') && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && next.biome !== 'tundra' && next.biome !== 'desert';
+    butterflies.on = birds.on && (next.calendar.season === 'spring' || next.calendar.season === 'summer') && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !biomeById(next.biome).cold && !(biomeById(next.biome).dry && biomeById(next.biome).hot);
     butterflies.land = next.land;
     birds.land = next.land;
     birds.folk = [...next.people.filter((p) => p.away === null && !p.indoors), ...next.travellers, ...(next.raid?.phase === 'active' ? next.raid.raiders : [])].map((p) => ({ x: p.x, y: p.y }));

@@ -54,8 +54,12 @@ export function wildChoices(biome: string, season: string, night: boolean, bligh
   const snow = biome === 'tundra' || season === 'winter';
   if (night) return [['wolf', 0.55, [2, 4]], [snow ? 'snowfox' : 'fox', 0.35, [1, 1]], ['boar', 0.1, [1, 2]]];
   if (biome === 'desert') return [['camel', 0.6, [2, 3]], ['fox', 0.3, [1, 1]], ['wolf', 0.1, [1, 2]]];
+  if (biome === 'ashlands') return [['wolf', 0.5, [1, 2]], ['fox', 0.5, [1, 1]]];
+  if (biome === 'steppe') return [['deer', 0.4, [3, 5]], ['camel', 0.2, [2, 3]], ['fox', 0.2, [1, 1]], ['stag', 0.1, [1, 1]], ['wolf', 0.1, [2, 3]]];
   if (snow)
     return [['deer', 0.4, [2, 3]], ['snowfox', 0.3, [1, 1]], ['wolf', 0.2, [2, 3]], ['stag', 0.1, [1, 1]]];
+  if (biome === 'taiga' || biome === 'highlands') return [['deer', 0.3, [2, 3]], ['bear', 0.16, [1, 1]], ['wolf', 0.18, [2, 3]], ['fox', 0.16, [1, 1]], ['stag', 0.1, [1, 1]], ['squirrel', 0.1, [1, 2]]];
+  if (biome === 'jungle' || biome === 'swamp') return [['boar', 0.34, [2, 4]], ['deer', 0.22, [1, 3]], ['squirrel', 0.2, [1, 2]], ['fox', 0.14, [1, 1]], ['bear', 0.1, [1, 1]]];
   return [
     ['deer', 0.34, [2, 4]],
     ['boar', 0.18, [1, 3]],
