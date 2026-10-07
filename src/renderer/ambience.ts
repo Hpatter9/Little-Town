@@ -11,7 +11,7 @@ const MASTER = 0.55;
 const FADE = 1.2;
 
 /** A sound to play now: what, and where across the screen (-1 left to 1 right). */
-export type Cue = 'chop' | 'mine' | 'build' | 'thunder' | 'horn' | 'quack' | 'splash' | 'crunch' | 'squelch' | 'bark' | 'meow' | 'cluck';
+export type Cue = 'chop' | 'mine' | 'build' | 'thunder' | 'horn' | 'quack' | 'splash' | 'crunch' | 'squelch' | 'bark' | 'meow' | 'cluck' | 'roar';
 
 export interface Ambience {
   /** Each frame: on or off, the mix, and the seconds since the last. */
@@ -240,6 +240,12 @@ export function createAmbience(): Ambience {
     },
     cluck: (pan, delay) => {
       for (let i = 0; i < 3; i++) tone('square', 460 + Math.random() * 80, 300, 0.05, 0.012, pan, delay + i * 0.11);
+    },
+    // the dragon: a long, falling roar with a rumble under it
+    roar: (pan, delay) => {
+      tone('sawtooth', 210, 70, 1.6, 0.07, pan, delay);
+      tone('sawtooth', 160, 55, 1.8, 0.05, pan, delay + 0.05);
+      burst('lowpass', 300, 1, 1.8, 0.09, pan, delay, 0.15);
     },
     // a foot in the rain's mud: a low wet suck
     squelch: (pan, delay) => burst('lowpass', 420 + Math.random() * 200, 2, 0.12, 0.05, pan, delay, 0.02),

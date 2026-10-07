@@ -2168,6 +2168,27 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   banks drifting on the land (in MapView's `over`) and a pale cast, an ochre cast with sand streaks and tumbling dust
   clouds, a white cast with snow driven sideways, shimmering bands; each eases in over some seconds. The wind howls
   with them (ambience). `window.__sky.force` holds one for previews. Tests: `test/pets.test.ts`.
+- **The Dragon (the owner's ask: something massive):** `src/shared/sim/dragon.ts` (`dragonTick` from sim.ts, every
+  tick for its flight and hourly for the rest; the autopilot on, `s.dragons !== false`). From `DRAGON_FIRST_DAY` (9)
+  with `DRAGON_PEOPLE` (6) grown-ups at home, `DRAGON_HOURLY` a dragon comes (`summonDragon`; `dragonFor` the land: the
+  Rimewyrm on the tundra, the Ashen Wyrm in the desert, else Vermithrax the Red; `s.dragon`, `DragonState`). **Omens:**
+  `OMEN_FLIGHTS` (3) high flights `OMEN_HOURS` apart, its vast shadow sweeping the land. **The demand:** it lands on the
+  hill and asks tribute (`tributeOf`: a share of the treasury and the town's size, `RAISE` more each time paid), a
+  prompt of kind `dragon` in the event box: pay, give half the herds, or refuse (left alone: paid if the treasury can,
+  else the herds, else refused; `answerDragon` from `answerPrompt`). Paid, it comes back in `RETURN_DAYS`. **Wrath:**
+  refused, every `WRATH_HOURS` it makes a pass low over the town (`Flight`, `PASS_TICKS`): at its middle (`pass`) it sets
+  one or two roofs under its line alight, snatches a beast from a pen, and burns whoever is out of doors within
+  `BURN_REACH` cells (`BURN_CHANCE`, `BURN_KILLS` dead, else a burn wound); every defence engine (`ENGINE_MULT` its blow)
+  and everyone with a bow (`ARCHER_BASE` + level) strike back (`volley`); wounded to `FLEE_AT` it flies off for good
+  (`driven`, a morale mark). After `PASSES_THEN_ASK` passes it asks again. **The lair:** `dragon:lair` on the Expedition
+  Board from the demand on (`dragonDestination`, type `clear`: the dragon and two hatchlings); a party that wins there
+  (`dragonHome`, from `comeHome`) slays it: the hoard (`HOARD`, `HOARD_COINS` to the party), Dragonslayer titles,
+  renown to the venues, a morale mark. Drawn by `src/renderer/map/mapDragon.ts` (`MapDragon`, from
+  `snapshot.dragon`: on a pass the wyvern sheet flying low over the roofs, turned to its way (`creatureFlip`), tinted by
+  which dragon, its shadow racing below, a stream of fire (additive embers) poured down over the middle of the run; on
+  an omen its shadow only), and a roar (ambience.ts `roar` cue) as each flight begins. `window.__dragon(kind?)` summons
+  one (previews). Tests: `test/dragon.test.ts`. (The snapshot's planned party no longer throws when someone in it has
+  died since it was planned: `partyView`.)
 - **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
   (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
   pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and

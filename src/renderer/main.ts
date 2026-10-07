@@ -12,6 +12,7 @@ import { MapBoats } from './map/mapBoats';
 import { MapBirds } from './map/mapBirds';
 import { MapWildlife } from './map/mapWildlife';
 import { MapTracks } from './map/mapTracks';
+import { MapDragon } from './map/mapDragon';
 import { MapSky, skyFor } from './map/mapSky';
 import { MapPets, type PetHome } from './map/mapPets';
 import { freezes, iceAt } from './map/ice';
@@ -234,6 +235,9 @@ async function start(): Promise<void> {
   (window as unknown as { __tracks?: MapTracks }).__tracks = tracks; // (for previews)
   // the town's dogs, cats and hens (map/mapPets.ts)
   const pets = new MapPets(map.things, map.over, map);
+  // the dragon in the sky (map/mapDragon.ts)
+  const dragon = new MapDragon(map.over, map.under, map);
+  dragon.onFlight = (low, pan) => ambience.cue('roar', pan, low ? 0.2 : 0.8);
   (window as unknown as { __pets?: MapPets }).__pets = pets; // (for previews)
   // (thunder rolls in a moment after the flash, from the side it struck)
   pets.onSound = (kind, x) => ambience.cue(kind, ((x - map.view.x) / Math.max(1, map.view.w)) * 1.6 - 0.8);
@@ -1131,6 +1135,7 @@ async function start(): Promise<void> {
     }
     sky.mix = skyFor({ weather: freeze ? 'storm' : next.weather.kind, season: freeze ? 'winter' : next.calendar.season, biome: next.biome, hour: next.calendar.hour, daylight: next.calendar.daylight, spell: next.calendar.day * 4 + Math.floor(next.calendar.hour / 6) });
     sky.night = next.calendar.daylight < 0.3;
+    dragon.sync(next.dragon);
     tracks.land = next.land;
     tracks.season = freeze ? 'winter' : next.calendar.season;
     tracks.biome = next.biome;
@@ -1336,6 +1341,7 @@ async function start(): Promise<void> {
     water.render(ticker.deltaMS / 1000);
     tracks.render(ticker.deltaMS / 1000);
     pets.render(ticker.deltaMS / 1000);
+    dragon.render(ticker.deltaMS / 1000);
     sky.render(ticker.deltaMS / 1000, app.screen.width, app.screen.height);
     if (ambMix) ambience.update(view.music && !view.hidden, ambMix, ticker.deltaMS / 1000);
     butterflies.render(ticker.deltaMS / 1000, performance.now());

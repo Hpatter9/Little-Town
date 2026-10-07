@@ -2,6 +2,7 @@
 // for the player with a timer and a default.
 
 import { answerWatch } from './watchAsk';
+import { answerDragon } from './dragon';
 import { answerEnvoy } from './factions';
 import { answerSecret } from './specials';
 import { answerSaga } from './sagas';
@@ -96,6 +97,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'debrief') return;
   if (prompt.kind === 'envoy') return answerEnvoy(s, prompt, option, rng);
   if (prompt.kind === 'watch') return answerWatch(s, prompt, option);
+  if (prompt.kind === 'dragon') return answerDragon(s, prompt, option);
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   if (!e) return;
   e.prompt = null;
