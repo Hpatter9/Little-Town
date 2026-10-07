@@ -2,12 +2,13 @@
 // the stat points they've spent (two a level: by the player, or by the town in the class's proportions), their work
 // skills' part, their traits' and a founder's edge.
 import { ATTR_AT_START, ATTR_BASE, ATTR_KEYS, ATTR_PER_SKILL, AUTO_SPEND_HOURS, classAttrs, pointsEarned, type Attrs } from '../data/attributes';
+import { roadAttrs } from '../data/pathAttrs';
 import { FOUNDER_EDGE } from '../data/founderClasses';
 import { levelOf } from '../data/levels';
 import type { GameState, Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 
-type Leveled = Pick<Person, 'cls' | 'level' | 'fcls' | 'skills' | 'traits' | 'monster'> & { attrPts?: Partial<Attrs> };
+type Leveled = Pick<Person, 'cls' | 'level' | 'fcls' | 'skills' | 'traits' | 'monster'> & { attrPts?: Partial<Attrs>; road?: string | null };
 
 export function attributesOf(p: Leveled): Attrs {
   const w = classAttrs(p.cls);
@@ -36,8 +37,8 @@ export function attributesOf(p: Leveled): Attrs {
 
 /** The points their level has earned, spent in the class's proportions (an old save's townsperson, or anyone whose
  *  record hasn't begun). */
-export function virtualSpend(p: Pick<Person, 'cls' | 'level'>): Partial<Attrs> {
-  const w = classAttrs(p.cls);
+export function virtualSpend(p: Pick<Person, 'cls' | 'level'> & { road?: string | null }): Partial<Attrs> {
+  const w = roadAttrs(p.cls, p.road);
   const n = pointsEarned(levelOf(p));
   const out: Partial<Attrs> = {};
   for (const k of ATTR_KEYS) out[k] = Math.round(n * w[k] * 10) / 10;
@@ -66,8 +67,8 @@ export function spendPoint(p: Person, k: keyof Attrs): boolean {
 }
 
 /** The attribute the class would raise next: the one furthest behind its share of all the points spent. */
-export function nextByClass(p: Pick<Person, 'cls' | 'attrPts'>): keyof Attrs {
-  const w = classAttrs(p.cls);
+export function nextByClass(p: Pick<Person, 'cls' | 'attrPts'> & { road?: string | null }): keyof Attrs {
+  const w = roadAttrs(p.cls, p.road);
   const total = pointsSpent(p) + 1;
   let best: keyof Attrs = 'vit';
   let gap = -Infinity;

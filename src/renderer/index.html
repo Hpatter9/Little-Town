@@ -230,23 +230,13 @@
         border-radius: 0 6px 0 6px;
         cursor: pointer;
       }
-      #minimap-tab {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        width: auto;
-        padding: 0 10px;
-      }
-      /* (on the phone they keep their size on the screen whatever the zoom, like the clock bar) */
-      body.embedded #minimap,
-      body.embedded #minimap-tab {
+      /* (on the phone it keeps its size on the screen whatever the zoom, like the clock bar) */
+      body.embedded #minimap {
         top: 36px;
         zoom: var(--ui-zoom, 1);
       }
       body.in-battle #minimap,
-      body.in-battle #minimap-tab,
-      body.in-fight #minimap,
-      body.in-fight #minimap-tab {
+      body.in-fight #minimap {
         display: none;
       }
       /* the name of the region the view is over (sim/landRegions.ts), shown a moment as the view crosses into it */

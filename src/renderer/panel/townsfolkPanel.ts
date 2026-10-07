@@ -485,9 +485,11 @@ function fightCard(p: PersonView, bridge?: Bridge): HTMLElement {
     if (p.freePts > 0) {
       const row = el('div', 'row');
       row.append(el('span', 'lock short', `${p.freePts} stat ${p.freePts === 1 ? 'point' : 'points'} to spend.`));
-      if (bridge) row.append(button('Let them choose', () => bridge.command({ type: 'spendStat', person: p.id, attr: null }), { cls: 'place small quiet' }));
+      if (bridge) row.append(button('Let them choose', () => bridge.command({ type: 'spendStat', person: p.id, attr: null }), { cls: 'place small quiet', title: `Spent the ${p.clsName}'s way: ${p.favours.map((k) => ATTR_NAMES[k]).join(' and ')} first` }));
       box.append(row);
     }
+    // (what their calling leans to: how points are spent when they're left to choose)
+    if (p.favours.length && p.cls) box.append(el('div', 'hint', `Left to themselves, a ${p.clsName} puts points into ${ATTR_NAMES[p.favours[0]]} first, then ${ATTR_NAMES[p.favours[1]]}.`));
   }
   if (p.kit.length) box.append(el('div', 'hint', `${p.kit.length} spells and skills: see the Skills tab.`));
   return box;

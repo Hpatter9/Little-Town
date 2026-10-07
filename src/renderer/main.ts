@@ -2,7 +2,7 @@
 // should capture the mouse.
 
 import { biomeById } from '../shared/data/biomes';
-import { hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
+import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
 import { seatArt } from './art/seatArt';
 import { SEAT_STAGE } from '../shared/data/seats';
 import { CHATTER } from './chatter';
@@ -67,6 +67,7 @@ function travellerPerson(t: TravellerView): PersonView {
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, mer: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', job: null,
   monster: null, tireless: false, order: null, sick: false,
     battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8, cha: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [], road: null, roadId: null, freePts: 0,
+  favours: [],
   };
 }
 /** A power's envoy (sim/factions.ts), drawn as a traveller on horseback. */
@@ -226,6 +227,7 @@ async function start(): Promise<void> {
   const people = new MapPeople(map.things);
   people.lights = map.lights;
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
+  (window as unknown as { __hkCell?: typeof hkCell }).__hkCell = hkCell; // (for previews: a townsperson's cell)
   const raiders = new MapRaiders(map.things);
   const herds = new MapHerds(map.things);
   const boats = new MapBoats(map.things);
@@ -323,6 +325,8 @@ async function start(): Promise<void> {
   const minimap = new Minimap();
   minimap.mount(document.body);
   minimap.onLook = (wx, wy) => camera.centreOn({ x: wx, y: wy }, app.screen.width, app.screen.height);
+  // (the phone page's ☰ menu turns it on and off)
+  (window as unknown as { __minimap?: { shown: boolean } }).__minimap = minimap;
   const regionCaption = document.createElement('div');
   regionCaption.id = 'region-name';
   regionCaption.hidden = true;

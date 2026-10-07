@@ -53,21 +53,13 @@ export class Minimap {
     hide.className = 'mini-hide';
     hide.textContent = '×';
     hide.title = 'Hide the map';
-    // (hidden on the click, not the pointer-down: the Map tab takes the same corner, and a tap's click would land
-    // on it and bring the map straight back; the pointer-down only keeps the look-there from firing)
+    // (the pointer-down is stopped so the look-there doesn't fire under the ×)
     hide.addEventListener('pointerdown', (e) => e.stopPropagation());
     hide.addEventListener('click', (e) => {
       e.stopPropagation();
       this.shown = false;
     });
     this.root.appendChild(hide);
-    this.tab = document.createElement('button');
-    this.tab.id = 'minimap-tab';
-    this.tab.className = 'tab';
-    this.tab.setAttribute('data-hit', '');
-    this.tab.textContent = 'Map';
-    this.tab.title = 'Show the map of the land';
-    this.tab.addEventListener('click', () => (this.shown = true));
     let on = true;
     try {
       on = localStorage.getItem('littletown.minimap') !== '0';
@@ -76,18 +68,17 @@ export class Minimap {
     }
     this.shown = on;
   }
-  private readonly tab: HTMLButtonElement;
-  /** Both go on the page. */
   mount(parent: HTMLElement): void {
-    parent.append(this.root, this.tab);
+    parent.append(this.root);
   }
 
   get shown(): boolean {
     return !this.root.hidden;
   }
+  /** Shown or hidden: the × on the map hides it, and the phone's ☰ menu has "Minimap: on/off" (the owner's ask; the
+   *  Map button that once took the corner was missed). Kept in localStorage. */
   set shown(v: boolean) {
     this.root.hidden = !v;
-    this.tab.hidden = v;
     try {
       localStorage.setItem('littletown.minimap', v ? '1' : '0');
     } catch {

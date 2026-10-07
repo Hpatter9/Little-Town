@@ -28,6 +28,7 @@ import { AMBITIONS } from '../data/ambitions';
 import { TICKS_PER_DAY } from './time';
 import { ambitionOf, businessPrice } from './ambition';
 import type { Attrs } from '../data/attributes';
+import { roadFavours } from '../data/pathAttrs';
 import { RESEARCH_PACE } from '../data/pace';
 import { swims } from './sea';
 import { natureOf, type NatureId } from '../data/natures';
@@ -164,6 +165,8 @@ export interface PersonView {
   road: { name: string; text: string; next: { id: string; name: string; text: string; lore: string }[]; at: number | null; promptId: number | null } | null;
   /** Stat points earned and not yet spent (data/attributes.ts). */
   freePts: number;
+  /** The two attributes their road favours (what "Let them choose" would put points into). */
+  favours: (keyof Attrs)[];
   /** Which of their class's five stages they're at (0 to 4), and whether they've ascended (the last needs it). */
   stage: number;
   ascended: boolean;
@@ -1385,6 +1388,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     road: roadView(s, p),
     roadId: p.road ?? null,
     freePts: freePoints(p),
+    favours: roadFavours(p.cls, p.road),
     stage: stageOf(p),
     ascended: !!p.ascended,
     level: levelOf(p),

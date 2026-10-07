@@ -7,6 +7,7 @@ import { ENEMIES } from '../src/shared/data/enemies';
 import { callingName } from '../src/shared/data/founderClasses';
 import { levelOf, stageOf } from '../src/shared/data/levels';
 import { BASE_PATHS, branchesOf, lineage, PATH_BY_ID, PATHS } from '../src/shared/data/paths';
+import { LEANS, roadAttrs, roadFavours } from '../src/shared/data/pathAttrs';
 import { PATH_SKILL_ROWS } from '../src/shared/data/pathSkills';
 import { attributesOf, freePoints, spendByClass, spendPoint, statsHourly } from '../src/shared/sim/attributes';
 import { adoptPath, assignClass, classAllies, classesHourly, companionOf, roadsOpen } from '../src/shared/sim/classes';
@@ -196,4 +197,33 @@ test('every calling has its telling and its emblem: lore for all but the ascende
     const [a, b] = branchesOf(n.id).map((r) => { const e = emblemOf(r.id)!; return JSON.stringify([e.behind, e.main, e.charge]); });
     assert.notEqual(a, b, `${n.id}'s roads look different`);
   }
+});
+
+test('stat points follow the road chosen, not only the archetype', () => {
+  // every lean names a node, and every node past the base has a lean up its road
+  for (const id of Object.keys(LEANS)) assert.ok(PATH_BY_ID[id], `lean for a node that isn't: ${id}`);
+  for (const n of PATHS) if (n.stage > 0) assert.ok(lineage(n.id).some((m) => LEANS[m.id]), `${n.id} has no lean up its road`);
+  // two roads from one archetype spend differently: the Berserker is all strength, the Titan bulk
+  const b = roadAttrs('warrior', 'berserker');
+  const t = roadAttrs('warrior', 'titan');
+  assert.ok(b.str > t.str && t.vit > b.vit);
+  assert.equal(roadFavours('warrior', 'berserker')[0], 'str');
+  assert.equal(roadFavours('warrior', 'titan')[0], 'vit');
+  // the summoner's roads lean to mind and charm; a beastcaller more to charm than a conjurer
+  assert.ok(roadAttrs('summoner', 'beastcaller').cha > roadAttrs('summoner', 'conjurer').cha);
+  assert.ok(roadAttrs('summoner', 'conjurer').int > roadAttrs('summoner', 'beastcaller').int);
+  // shares still sum to one
+  for (const n of PATHS) {
+    const w = roadAttrs(n.cls, n.id);
+    assert.ok(Math.abs(ATTR_KEYS.reduce((s, k) => s + w[k], 0) - 1) < 1e-6);
+  }
+  // and a townsperson's auto-spend uses it: a berserker's first points go to strength
+  const s = plainGame('lean');
+  const p = s.people[0];
+  p.cls = 'warrior';
+  p.road = 'berserker';
+  p.level = 12;
+  p.attrPts = {};
+  spendByClass(p);
+  assert.ok((p.attrPts.str ?? 0) > (p.attrPts.vit ?? 0));
 });
