@@ -1,8 +1,11 @@
-# Choice events (planned)
+# Choice events: the first hundred
 
-Events that stop and ask the player, picked at random now and then (see CLAUDE.md, "Choices that wait for you").
-Each waits a while (a few real hours at most), then the **default** is taken, so the town never stalls.
-Tags: when it can happen (an era, an origin, a building or state it needs). All of them are in the game: `src/shared/data/events.ts`.
+Events that stop and ask the player, picked at random now and then. Each waits a while, then the **default** is
+taken, so the town never stalls. Tags: when it can happen (an era, an origin, a building or state it needs).
+
+These hundred are in `src/shared/data/events.ts`. The game has about 525 in all now: the other 400 and more are in
+`moreEvents1.ts` to `moreEvents4.ts`, the 25 fateful ones in `fatefulEvents.ts`, each with a fuller telling in
+`eventMore.ts` and a picture; the sagas (31 long chains) are in `sagas.ts`, `sagas2.ts` and `sagas3.ts`. See CLAUDE.md.
 
 ## Strangers and newcomers
 
