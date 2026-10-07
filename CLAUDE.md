@@ -2115,6 +2115,14 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   the orders bar, Auto and speed. Taps go through `boardPress`/`tap` in main.ts; a drag pans. Balance (16 lone towns,
   10 days): 2.33 people against the trail's 2.25. Tests: `test/tactics.test.ts`.
 
+- **Bigger trees and bushes (the owner's complaint: "so small"):** the land's prop sets are cut larger
+  (`GROW` in tools/compose-props.cjs, `PROP_GROW` in art/props.ts: trees 2x, bushes 1.7x, rocks 1.4x, plants 1.5x; the
+  places and the sea set unchanged), so a tree stands two or three people tall; the tactics board divides by
+  `PROP_GROW` to keep its tiles' size. A wood's cells get undergrowth too (`UNDERGROWTH`, `UNDERGROWTH_SHARE` 0.6: a
+  bush or plant beside the tree; none when `calm`), and the grass a second tuft or flower on some cells. A tree with a
+  townsperson, raider or traveller behind it, or a building's front, is drawn see-through (`MapView.seeThrough`, from
+  main.ts per snapshot, `SEE_THROUGH` 0.42).
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

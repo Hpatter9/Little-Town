@@ -274,6 +274,12 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
           if (r < 0.3) drawTuft(g, 'tuft', Math.floor(r * 100), tx, ty);
           else if (r < 0.42 && season !== 'autumn' && !blighted) drawTuft(g, 'flower', Math.floor(r * 100), tx, ty);
           else if (r < 0.48) drawTuft(g, 'pebble', Math.floor(r * 100), tx, ty);
+          // (and a second clump on some cells, beside the first: the grass reads as a meadow, not a lawn)
+          const r2 = hash(seed ^ 131, x, y);
+          const t2x = px + 4 + Math.floor(hash(seed ^ 133, x, y) * 24);
+          const t2y = py + 4 + Math.floor(hash(seed ^ 135, x, y) * 24);
+          if (r2 < 0.32) drawTuft(g, 'tuft', Math.floor(r2 * 100) + 1, t2x, t2y);
+          else if (r2 < 0.4 && season !== 'autumn' && season !== 'winter' && !blighted) drawTuft(g, 'flower', Math.floor(r2 * 100) + 1, t2x, t2y);
         } else if (kind === 'rock' && hash(seed ^ 117, x, y) < 0.35) drawTuft(g, 'pebble', Math.floor(hash(seed ^ 119, x, y) * 6), px + 6 + Math.floor(hash(seed ^ 121, x, y) * 20), py + 6 + Math.floor(hash(seed ^ 123, x, y) * 20));
         else if (kind === 'sand' && !road && hash(seed ^ 161, x, y) < TIDE_POOLS && nearShallows(m, x, y)) tidePool(g, px, py, seed, x, y, pal.shallows);
       } else

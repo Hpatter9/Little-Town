@@ -79,6 +79,12 @@ const PROPS_ON: Partial<Record<Ground, [PropKind, number][]>> = {
 };
 /** How many of a kind's cells carry an object (every one unless said): the mountain's mass is mostly bare rock. */
 const PROPS_SHARE: Partial<Record<Ground, number>> = { mountain: 0.2 };
+/** Under the trees of a wood, a bush or a plant on this share of its cells, set off from the tree, so the woods are
+ *  thick with growth rather than a tree a cell on bare ground. */
+const UNDERGROWTH: [PropKind, number][] = [['bush', 0.55], ['plant', 0.45]];
+const UNDERGROWTH_SHARE = 0.6;
+/** A tree with someone (or a building's front) behind it is drawn see-through, this much. */
+const SEE_THROUGH = 0.42;
 
 /** A firefly: a tiny blinking glow in the lights layer, drifting over the grass on a warm, fair night. */
 interface Firefly {
@@ -157,7 +163,8 @@ export class MapView {
   readonly over = new Container();
   private readonly ghost = new Sprite();
   private readonly chunks = new Map<string, { sprite: Sprite; key: string }>();
-  private readonly props = new Map<number, { sprite: Sprite; key: string }>();
+  /** The wild cells' objects, keyed by cell index times 2 (plus 1 for a wood's undergrowth). */
+  private readonly props = new Map<number, { sprite: Sprite; key: string; kind: PropKind; alpha: number; faded?: boolean }>();
   private propTex = new Map<PropSet, Texture[]>();
   private propsWanted: PropSet[] = [];
   private propsKey = '';
@@ -396,7 +403,7 @@ export class MapView {
 
   /** A prop of one kind (a rock, a bush...) from the land's own sets, picked by the cell. */
   propKind(kind: PropKind, x: number, y: number): Texture | null {
-    return this.propFor([[kind, 1]], x, y);
+    return this.propFor([[kind, 1]], x, y)?.tex ?? null;
   }
 
   /** A wall or gate's pack picture in the town's look, `w` cells wide (the tactics board's town wall). */
@@ -410,7 +417,7 @@ export class MapView {
     const land = this.land;
     if (!land) return null;
     const on = PROPS_ON[groundAt(land, x, y)];
-    return on ? this.propFor(on, x, y) : null;
+    return on ? (this.propFor(on, x, y)?.tex ?? null) : null;
   }
 
   private blighted(): boolean {
@@ -463,26 +470,15 @@ export class MapView {
         // (a slow phone: every other wild cell bare)
         if (this.calm && hash(5, x, y) < 0.5) continue;
         if (PROPS_SHARE[g] !== undefined && hash(6, x, y) > PROPS_SHARE[g]!) continue;
-        seen.add(i);
         const key = `${g}|${vis}|${this.propsWanted.join(',')}`;
-        let p = this.props.get(i);
-        if (p && p.key === key) continue;
-        const tex = this.propFor(on, x, y);
-        if (!tex) continue;
-        if (!p) {
-          p = { sprite: this.things.addChild(new Sprite()), key: '' };
-          p.sprite.anchor.set(0.5, 0.95);
-          this.props.set(i, p);
-        }
-        p.key = key;
-        p.sprite.texture = tex;
         // (an object stands about the middle of its cell, a little off it, its foot a little up from the bottom)
-        const fx = (x + 0.3 + hash(1, x, y) * 0.4) * CELL;
-        const fy = (y + 0.75 + hash(2, x, y) * 0.2) * CELL;
-        p.sprite.position.set(Math.round(fx), Math.round(fy));
-        p.sprite.zIndex = fy;
-        p.sprite.alpha = vis === 1 ? 0.45 : 1;
-        p.sprite.tint = vis === 1 ? 0x6a7088 : 0xffffff;
+        this.placeProp(i * 2, key, this.propFor(on, x, y), (x + 0.3 + hash(1, x, y) * 0.4) * CELL, (y + 0.75 + hash(2, x, y) * 0.2) * CELL, vis, seen);
+        // (a wood's undergrowth: a bush or a plant off to one side of the tree, nearer the front)
+        if (g === 'forest' && hash(7, x, y) < UNDERGROWTH_SHARE && !this.calm) {
+          const side = hash(8, x, y) < 0.5 ? -1 : 1;
+          const ux = (x + 0.5 + side * (0.28 + hash(9, x, y) * 0.18)) * CELL;
+          this.placeProp(i * 2 + 1, key, this.propFor(UNDERGROWTH, x, y, 10), ux, (y + 0.92 + hash(11, x, y) * 0.06) * CELL, vis, seen);
+        }
       }
     for (const [i, p] of this.props)
       if (!seen.has(i)) {
@@ -491,9 +487,66 @@ export class MapView {
       }
   }
 
+  /** Puts (or keeps) one object on the land: `n` its key in `props`, its foot at (fx, fy). */
+  private placeProp(n: number, key: string, pick: { tex: Texture; kind: PropKind } | null, fx: number, fy: number, vis: number, seen: Set<number>): void {
+    if (!pick) return;
+    seen.add(n);
+    let p = this.props.get(n);
+    if (p && p.key === key) return;
+    if (!p) {
+      p = { sprite: this.things.addChild(new Sprite()), key: '', kind: pick.kind, alpha: 1 };
+      p.sprite.anchor.set(0.5, 0.95);
+      this.props.set(n, p);
+    }
+    p.key = key;
+    p.kind = pick.kind;
+    p.sprite.texture = pick.tex;
+    p.sprite.position.set(Math.round(fx), Math.round(fy));
+    p.sprite.zIndex = fy;
+    p.alpha = vis === 1 ? 0.45 : 1;
+    p.sprite.alpha = p.faded ? p.alpha * SEE_THROUGH : p.alpha;
+    p.sprite.tint = vis === 1 ? 0x6a7088 : 0xffffff;
+  }
+
+  /** Trees with someone behind them, or a building's front, are drawn see-through (the trees are big now, and a
+   *  townsperson walking in the woods or a house behind a tree would be lost). `points` are world px: the feet of
+   *  everyone about; the buildings' fronts are added here. */
+  seeThrough(points: { x: number; y: number }[]): void {
+    const land = this.land;
+    if (!land) return;
+    const pts = points.slice();
+    for (const d of this.buildings.values()) {
+      const r = d.rect;
+      const foot = r.y + r.h;
+      pts.push({ x: r.x + r.w / 2, y: foot - 8 }, { x: r.x + r.w * 0.2, y: foot - 8 }, { x: r.x + r.w * 0.8, y: foot - 8 });
+    }
+    const fade = new Set<number>();
+    for (const pt of pts) {
+      const cx = Math.floor(pt.x / CELL);
+      const cy = Math.floor(pt.y / CELL);
+      // (a tree's foot is below the point, its crown reaching up over it: look a few cells down and either side)
+      for (let y = cy; y <= Math.min(land.h - 1, cy + 5); y++)
+        for (let x = Math.max(0, cx - 2); x <= Math.min(land.w - 1, cx + 2); x++) {
+          const n = (y * land.w + x) * 2;
+          const p = this.props.get(n);
+          if (!p || p.kind !== 'tree') continue;
+          const sp = p.sprite;
+          const w = sp.texture.width;
+          const h = sp.texture.height;
+          if (pt.y < sp.y - 4 && pt.y > sp.y - h * 0.95 && Math.abs(pt.x - sp.x) < w * 0.42) fade.add(n);
+        }
+    }
+    for (const [n, p] of this.props) {
+      const want = fade.has(n);
+      if (want === !!p.faded) continue;
+      p.faded = want;
+      p.sprite.alpha = want ? p.alpha * SEE_THROUGH : p.alpha;
+    }
+  }
+
   /** The object for a wild cell: by its kind's odds, from the sets loaded, the same one every time. */
-  private propFor(on: [PropKind, number][], x: number, y: number): Texture | null {
-    let r = hash(3, x, y);
+  private propFor(on: [PropKind, number][], x: number, y: number, salt = 0): { tex: Texture; kind: PropKind } | null {
+    let r = hash(3 + salt, x, y);
     let kind: PropKind = on[0][0];
     for (const [k, w] of on) {
       if (r < w) {
@@ -508,7 +561,7 @@ export class MapView {
       KINDS[set]?.forEach((k, i) => k === kind && tex[i] && choices.push(tex[i]));
     }
     if (!choices.length) return null;
-    return choices[Math.floor(hash(4, x, y) * choices.length)];
+    return { tex: choices[Math.floor(hash(4 + salt, x, y) * choices.length)], kind };
   }
 
   /** The cells marked for gathering (a pale line round each), and the highlighted one. */

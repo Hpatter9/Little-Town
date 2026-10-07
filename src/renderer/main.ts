@@ -1120,6 +1120,12 @@ async function start(): Promise<void> {
     map.festival.sync(next.gathering);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
+    // (a tree with someone behind it, or a building's front, is drawn see-through)
+    map.seeThrough([
+      ...next.people.filter((p) => !p.indoors).map((p) => people.posOf(p.id) ?? p),
+      ...(next.raid?.phase === 'active' ? next.raid.raiders : []).map((r) => raiders.posOf(r.id) ?? r),
+      ...next.travellers,
+    ]);
     // (a nomad tribe that moved camp: the view goes to the new camp)
     if (lastCamp !== null && (next.camp.x !== lastCamp.x || next.camp.y !== lastCamp.y)) camera.centreOn(next.camp, app.screen.width, app.screen.height);
     lastCamp = next.camp;

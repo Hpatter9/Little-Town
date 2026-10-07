@@ -25,6 +25,7 @@ import { actIdOf, actSprite } from '../fight/actLooks';
 import { loadDelveProps, propFrame } from '../art/delveProps';
 import type { SpriteFx } from '../town/spellLooks';
 import { areaTiles } from '../../shared/sim/tacticsArea';
+import { PROP_GROW } from '../art/props';
 
 /** A tile's diamond (px), and a step of height. */
 const TW = 64;
@@ -225,7 +226,7 @@ export class TacticsScene {
             s.anchor.set(0.5, 0.95);
             const [x, y] = this.at(u, v, h);
             s.position.set(x + 6, y - 2);
-            s.scale.set(0.95);
+            s.scale.set(0.95 / PROP_GROW.tree);
             c.addChild(s);
           }
         }
@@ -286,7 +287,7 @@ export class TacticsScene {
         const [x, y] = this.at(u, v, tile.h);
         const sp = new Sprite(tex);
         sp.anchor.set(0.5, 0.9);
-        sp.scale.set(kind === 'rock' ? 1.15 : 0.9);
+        sp.scale.set(kind === 'rock' ? 1.15 / PROP_GROW.rock : 0.9 / PROP_GROW.bush);
         sp.position.set(x, y + 2);
         this.tiles[v * t.w + u].c.addChild(sp);
       }

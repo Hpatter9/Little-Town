@@ -128,6 +128,13 @@ const SETS = {
   ],
 };
 
+// How much bigger each kind of thing is drawn on the land than the old raid map's scale (the owner: "the shrubs, trees
+// and bushes are so small"): trees about two people tall and more, bushes to the knee and hip. Kept in step with
+// PROP_GROW in src/renderer/art/props.ts (the tactics board shrinks them back to its tiles).
+const GROW = { tree: 2, bush: 1.7, rock: 1.4, plant: 1.5, crystal: 1.3, other: 1.3 };
+const GROWN = new Set(['wild', 'winter', 'desert', 'coast', 'cave', 'undead', 'grove']);
+for (const set of GROWN) SETS[set] = SETS[set].map(([f, k]) => [f, k * (GROW[kindOf(f)] ?? 1)]);
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
