@@ -87,6 +87,8 @@ import { MapRaiders } from './map/mapRaiders';
 import { createHud } from './hud';
 import { hostBridge, localBridge } from './localBridge';
 import { createMusic } from './music';
+import { createAmbience } from './ambience';
+import { ambientMix, type AmbientMix } from './ambienceMix';
 import { createActionBar, createAwayCard, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
 import { createTooltip } from './tooltip';
 import { ExpeditionPane } from './town/expeditionPane';
@@ -222,6 +224,8 @@ async function start(): Promise<void> {
   const wildlife = new MapWildlife(map.things, map);
   (window as unknown as { __wildlife?: MapWildlife }).__wildlife = wildlife; // (for previews)
   const water = new MapWater(map.things, map.under, map.over, map.root, map);
+  // (thunder rolls in a moment after the flash, from the side it struck)
+  water.onStrike = (x) => ambience.cue('thunder', ((x - map.view.x) / Math.max(1, map.view.w)) * 1.4 - 0.7, 0.3 + Math.random() * 1.2);
   (window as unknown as { __water?: MapWater }).__water = water; // (for previews)
   const pane = new ExpeditionPane(seedHash);
   const snow = new SnowView();
@@ -310,6 +314,11 @@ async function start(): Promise<void> {
   // (an origin's look reaches its buildings too)
   const hud = createHud(bridge); // (the buildings' style follows the snapshot: see applySnapshot)
   const music = createMusic();
+  // the land's soundscape, on with the music (ambience.ts)
+  const ambience = createAmbience();
+  (window as unknown as { __ambience?: typeof ambience }).__ambience = ambience; // (for previews)
+  let ambMix: AmbientMix | null = null;
+  let wasRaid = false;
   const tip = createTooltip();
   const actions = createActionBar();
   const toasts = createToasts();
@@ -1073,6 +1082,49 @@ async function start(): Promise<void> {
     water.weather = freeze ? 'snow' : next.weather.kind;
     water.daylight = next.calendar.daylight;
     water.winter = next.calendar.season === 'winter' || next.biome === 'tundra';
+    // what the land sounds like now: the beds and the calls from the view, the work in it panned by where it is
+    {
+      const v = map.view;
+      const land = next.land;
+      let cells = 0;
+      let wet = 0;
+      let wood = 0;
+      let sea = false;
+      for (let cy = Math.max(0, Math.floor(v.y / CELL)); cy <= Math.min(land.h - 1, Math.floor((v.y + v.h) / CELL)); cy += 2)
+        for (let cx = Math.max(0, Math.floor(v.x / CELL)); cx <= Math.min(land.w - 1, Math.floor((v.x + v.w) / CELL)); cx += 2) {
+          const g = groundAt(land, cx, cy);
+          cells++;
+          if (g === 'water' || g === 'shallows') wet++;
+          if (g === 'forest') wood++;
+        }
+      sea = next.biome === 'coast' || next.theme === 'merfolk';
+      const campIn = next.camp.x * CELL > v.x && next.camp.x * CELL < v.x + v.w && next.camp.y * CELL > v.y && next.camp.y * CELL < v.y + v.h;
+      ambMix = ambientMix({
+        daylight: next.calendar.daylight,
+        season: next.calendar.season,
+        weather: freeze ? 'snow' : next.weather.kind,
+        biome: next.biome,
+        water: cells ? wet / cells : 0,
+        forest: cells ? wood / cells : 0,
+        sea,
+        blighted: buildStyle === 'lich' || buildStyle === 'vampire',
+        raid: next.raid?.phase === 'active',
+        fire: campIn,
+      });
+      const raidNow = next.raid?.phase === 'active';
+      if (raidNow && !wasRaid) ambience.cue('horn', 0, 0.2);
+      wasRaid = raidNow;
+      // (each worker in view swings about every second; a few at most, the nearest the middle first)
+      let n = 0;
+      for (const p of next.people) {
+        if (n >= 3 || p.away !== null || p.indoors) continue;
+        const kind = p.activity === 'chop' ? 'chop' : p.activity === 'mine' ? 'mine' : p.activity === 'build' ? 'build' : null;
+        if (!kind || p.x < v.x || p.x > v.x + v.w || p.y < v.y || p.y > v.y + v.h) continue;
+        n++;
+        if (Math.random() < 0.09) ambience.cue(kind, ((p.x - v.x) / Math.max(1, v.w)) * 1.6 - 0.8);
+      }
+      if (water.count > 0 && Math.random() < 0.012) ambience.cue('quack', Math.random() * 1.2 - 0.6);
+    }
     wildlife.land = next.land;
     wildlife.on = !freeze && next.weather.kind !== 'storm' && !(next.raid?.phase === 'active');
     wildlife.night = next.calendar.daylight < 0.3;
@@ -1210,6 +1262,7 @@ async function start(): Promise<void> {
     birds.render(ticker.deltaMS / 1000, performance.now());
     wildlife.render(ticker.deltaMS / 1000, performance.now());
     water.render(ticker.deltaMS / 1000);
+    if (ambMix) ambience.update(view.music && !view.hidden, ambMix, ticker.deltaMS / 1000);
     butterflies.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());
     map.renderAir(ticker.deltaMS / 1000);

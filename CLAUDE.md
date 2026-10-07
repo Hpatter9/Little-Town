@@ -2151,6 +2151,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   appended to `art/wildlife.png` (columns 9 to 13, `tools/compose-wildlife.cjs`). `window.__water` (`strike()`,
   `showRainbow()`) for previews. On a slow phone (`calm`) only the flash stays.
 
+- **The soundscape (the owner's ask: "a huge update or overhaul"):** `src/renderer/ambience.ts` (`createAmbience`) makes
+  the land's sound in the browser with the Web Audio API, no sound files: beds of filtered noise for the wind (swaying,
+  brighter as it rises), the rain, the river or sea and the fire, and calls scheduled at random: birdsong (chirped
+  sine phrases) by day, crickets, frogs, owls and wolves (a sawtooth howl with vibrato) by night; cues `chop`, `mine`,
+  `build` from up to three workers in view (panned by where they stand), `thunder` a moment after each lightning flash
+  (`MapWater.onStrike`), a war `horn` as a raid turns active, a duck's `quack` now and then. How loud each is comes from
+  `ambientMix` (`src/renderer/ambienceMix.ts`, pure: the daylight, season, weather, biome, the shares of water and wood in
+  view, the blight, a raid quietening the living things, the camp's fire in view), worked out by main.ts each snapshot.
+  It plays with the music: the ♪ button ("Sound and music") turns both on; silent while the strip is hidden; the first
+  touch wakes the audio where the browser holds it asleep. `window.__ambience` for previews. Test: `test/ambience.test.ts`.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

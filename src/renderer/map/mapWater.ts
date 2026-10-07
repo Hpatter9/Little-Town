@@ -85,6 +85,8 @@ export class MapWater {
   daylight = 1;
   winter = false;
   folk: { x: number; y: number }[] = [];
+  /** Told where lightning struck (world px), for the thunder (ambience.ts). */
+  onStrike: ((x: number, y: number) => void) | null = null;
   private readonly ducks: Duck[] = [];
   private readonly rings: Ring[] = [];
   private readonly leaps: Leap[] = [];
@@ -320,6 +322,7 @@ export class MapWater {
       if (this.nextStrike <= 0) {
         this.nextStrike = STRIKE_EVERY[0] + Math.random() * (STRIKE_EVERY[1] - STRIKE_EVERY[0]);
         this.flashLeft = 0.45;
+        this.onStrike?.(x + w / 2, y + h / 2);
         if (!calm) {
           // a jagged bolt from above the view to a point on the land
           const gx = x + w * (0.15 + Math.random() * 0.7);
