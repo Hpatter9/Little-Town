@@ -2123,6 +2123,23 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   townsperson, raider or traveller behind it, or a building's front, is drawn see-through (`MapView.seeThrough`, from
   main.ts per snapshot, `SEE_THROUGH` 0.42).
 
+- **The living land (the owner's ask: "a huge fun immersive upgrade"):** renderer only, none of it on a slow phone
+  (`calm`). **Wild beasts** (`map/mapWildlife.ts`, `MapWildlife`, fed by main.ts beside the birds): deer with a stag,
+  boars, a fox, a squirrel, now and then a bear by day; wolves by night; camels in the desert, snow foxes in the tundra
+  and winter; only wolves on the liches' and vampires' land (`wildChoices`). DawnLike's Quadraped, Dog and Rodent cells
+  (`art/wildlife.png`, `tools/compose-wildlife.cjs`). They come out on the wild ground in view (never within `KEEP_OFF`
+  of a building or two cells of a road: `MapView.nearBuilding`), graze, wander after their leader, and bolt from anyone
+  within their `shy` reach (a deer bounding, the herd with it), fading out; none during a raid or a storm; up to `MOST`
+  (9). `window.__wildlife` for previews. **Wind:** `WIND` by weather; the trees and bushes in view lean on their own beat
+  with gusts running across the woods (`MapView.sway`, the sprite's skew about its foot, `SWAY_TREE`/`SWAY_BUSH`).
+  **Cloud shadows** (`cloudShadows`, `CLOUDS` 3 clear / 7 cloudy, `CLOUD_DARK`) drift over the land by day in fair
+  weather (`cloudLayer`, over the things). **Falling leaves** (`fallingLeaves`, `LEAF_RATE`, `LEAF_TINTS`): blossom in
+  spring, a few in summer, many in autumn, dead ones on blighted land, from the trees in view, spinning down with the
+  wind and lying a while. **Autumn colours:** the broadleaf trees and bushes turn gold, orange, rust or half-turned
+  (`autumnTextures` in art/props.ts, `TURNS`; the evergreens in `art/propEvergreen.json`, written by
+  compose-props.cjs, keep their green). A look missing its skin colour no longer throws in `hkLayers` (`rgb` in
+  hkFolk.ts: an envoy's once stopped the map's frame loop). Test: `test/wildlife.test.ts`.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

@@ -24,7 +24,7 @@ import { topDownArt } from '../art/topDown';
 import { drawSite } from '../art/constructionSite';
 import { snowCapped } from '../art/snowCap';
 import { mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
-import { PROP_FINE, propTextures, type PropSet } from '../art/props';
+import { PROP_FINE, autumnTextures, propTextures, type PropSet } from '../art/props';
 import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
@@ -85,6 +85,42 @@ const UNDERGROWTH: [PropKind, number][] = [['bush', 0.55], ['plant', 0.45]];
 const UNDERGROWTH_SHARE = 0.6;
 /** A tree with someone (or a building's front) behind it is drawn see-through, this much. */
 const SEE_THROUGH = 0.42;
+/** How hard the wind blows in each weather (the trees' sway, the clouds' and leaves' drift). */
+const WIND: Record<string, number> = { clear: 0.45, cloudy: 0.7, rain: 1, storm: 2.2, snow: 0.6, fog: 0.15 };
+/** How far a tree's crown leans at a wind of 1 (radians of skew), and a bush's. */
+const SWAY_TREE = 0.035;
+const SWAY_BUSH = 0.022;
+/** Cloud shadows over the land in fair weather by day: how many, how dark. */
+const CLOUDS: Record<string, number> = { clear: 3, cloudy: 7 };
+const CLOUD_DARK = 0.14;
+/** Leaves (and spring's blossom) falling from the trees in view: how many a second, the most at once, the colours. */
+const LEAF_RATE: Record<string, number> = { spring: 3, summer: 0.7, autumn: 7, winter: 0 };
+const LEAVES_MOST = 70;
+const LEAF_TINTS: Record<string, number[]> = {
+  spring: [0xffd6e6, 0xffffff, 0xf8b8d0, 0xfff0f6],
+  summer: [0x6aa040, 0x88b850, 0x5a8c34],
+  autumn: [0xd8762a, 0xe0a030, 0xb84a22, 0xc89a3a, 0x9a5a24],
+  winter: [0x8a7a5a],
+  blight: [0x7a6a4a, 0x5a4a38, 0x6a6a52],
+};
+interface Leaf {
+  s: Sprite;
+  x: number;
+  y: number;
+  ground: number;
+  vx: number;
+  vy: number;
+  spin: number;
+  phase: number;
+  /** Seconds lying on the ground (-1 while still falling). */
+  lying: number;
+}
+interface Cloud {
+  c: Container;
+  x: number;
+  y: number;
+  w: number;
+}
 
 /** A firefly: a tiny blinking glow in the lights layer, drifting over the grass on a warm, fair night. */
 interface Firefly {
@@ -166,6 +202,9 @@ export class MapView {
   /** The wild cells' objects, keyed by cell index times 2 (plus 1 for a wood's undergrowth). */
   private readonly props = new Map<number, { sprite: Sprite; key: string; kind: PropKind; alpha: number; faded?: boolean }>();
   private propTex = new Map<PropSet, Texture[]>();
+  /** The sets with their leaves turned for autumn (art/props.ts `autumnTextures`), and whether they're wanted now. */
+  private autumnTex = new Map<PropSet, Texture[]>();
+  private turned = false;
   private propsWanted: PropSet[] = [];
   private propsKey = '';
   private readonly buildings = new Map<number, DrawnBuilding>();
@@ -193,6 +232,12 @@ export class MapView {
   /** The view the camera last showed (world px): where the fireflies live, and the birds (mapBirds.ts). */
   view = { x: 0, y: 0, w: 0, h: 0 };
   private readonly flies: Firefly[] = [];
+  /** The wind's clock (the sway and the gusts that run across the woods), the clouds' shadows and the falling leaves. */
+  private windT = 0;
+  private readonly cloudLayer = new Container();
+  private readonly clouds: Cloud[] = [];
+  private readonly leaves: Leaf[] = [];
+  private leafDue = 0;
   /** A castle town's keep (map/keepArt.ts): its floor and side walks under everything, its walls and towers among the
    *  things; `wide` sprites span the view and are never culled. */
   private castle: { key: string; under: Container; things: Container[]; flames: Flame[] } | null = null;
@@ -210,7 +255,7 @@ export class MapView {
     this.ghost.visible = false;
     this.ghost.anchor.set(0.5, 1);
     this.ghost.zIndex = 1e9;
-    this.world.addChild(this.ground, this.marks, this.under, this.things, this.over, this.ghost);
+    this.world.addChild(this.ground, this.marks, this.under, this.things, this.cloudLayer, this.over, this.ghost);
     this.over.addChild(this.smoke.root);
     this.festival = new MapFestival(this.things, this.over, this.lights);
     this.smoke.size = 1.6;
@@ -457,6 +502,20 @@ export class MapView {
       );
     }
     this.propsWanted = sets.filter((s) => this.propTex.has(s));
+    // (in autumn the broadleaf trees and bushes turn gold, orange and rust; the blighted land's are dead already)
+    this.turned = season === 'autumn' && !this.blighted();
+    if (this.turned)
+      for (const set of sets)
+        if (!this.autumnTex.has(set))
+          autumnTextures(set).then(
+            (t) => {
+              if (this.autumnTex.has(set)) return;
+              this.autumnTex.set(set, t);
+              if (this.land) this.syncProps(this.land, this.season, this.biome);
+            },
+            () => undefined,
+          );
+    const turnedKey = this.turned ? sets.filter((s) => this.autumnTex.has(s)).join('+') : '';
     const seen = new Set<number>();
     const reach = land.open + FOG_BAND;
     for (let y = Math.max(0, land.camp.y - reach); y <= Math.min(land.h - 1, land.camp.y + reach); y++)
@@ -470,7 +529,7 @@ export class MapView {
         // (a slow phone: every other wild cell bare)
         if (this.calm && hash(5, x, y) < 0.5) continue;
         if (PROPS_SHARE[g] !== undefined && hash(6, x, y) > PROPS_SHARE[g]!) continue;
-        const key = `${g}|${vis}|${this.propsWanted.join(',')}`;
+        const key = `${g}|${vis}|${this.propsWanted.join(',')}|${turnedKey}`;
         // (an object stands about the middle of its cell, a little off it, its foot a little up from the bottom)
         this.placeProp(i * 2, key, this.propFor(on, x, y), (x + 0.3 + hash(1, x, y) * 0.4) * CELL, (y + 0.75 + hash(2, x, y) * 0.2) * CELL, vis, seen);
         // (a wood's undergrowth: a bush or a plant off to one side of the tree, nearer the front)
@@ -556,8 +615,9 @@ export class MapView {
       r -= w;
     }
     const choices: Texture[] = [];
+    const leafy = kind === 'tree' || kind === 'bush';
     for (const set of this.propsWanted) {
-      const tex = this.propTex.get(set)!;
+      const tex = (this.turned && leafy && this.autumnTex.get(set)) || this.propTex.get(set)!;
       KINDS[set]?.forEach((k, i) => k === kind && tex[i] && choices.push(tex[i]));
     }
     if (!choices.length) return null;
@@ -831,6 +891,10 @@ export class MapView {
   /** A frame of the air: smoke from the finished buildings' chimneys and stacks, and the fireflies. */
   renderAir(dt: number): void {
     this.fireflies(dt);
+    this.windT += dt;
+    this.sway();
+    this.cloudShadows(dt);
+    this.fallingLeaves(dt);
     if (this.castle?.flames.length) flickerCastle(this.castle.flames, (this.flick += dt));
     this.festival.render(dt, this.lights.alpha > 0.3, this.calm);
     if (this.calm) return;
@@ -838,6 +902,117 @@ export class MapView {
     const chimneys: { x: number; y: number }[] = [];
     for (const d of this.buildings.values()) if (d.chimneys && d.sprite.renderable) chimneys.push(...d.chimneys);
     this.smoke.update(dt, chimneys);
+  }
+
+  /** The wind now (0 to about 2), and its slow swell. */
+  private wind(): number {
+    const base = WIND[this.weather] ?? 0.5;
+    return base * (0.75 + 0.25 * Math.sin(this.windT * 0.21));
+  }
+
+  /** The trees and bushes in view lean with the wind, each on its own beat, and gusts run across the woods from the west
+   *  as a wave (the crown moves, the foot stays: the sprite's anchor is at its foot). */
+  private sway(): void {
+    const t = this.windT;
+    const wind = this.calm ? 0 : this.wind();
+    for (const p of this.props.values()) {
+      if (p.kind !== 'tree' && p.kind !== 'bush') continue;
+      const sp = p.sprite;
+      if (!sp.renderable) continue;
+      if (!wind) {
+        sp.skew.x = 0;
+        continue;
+      }
+      const phase = sp.x * 0.013 + sp.y * 0.007;
+      const gust = Math.max(0, Math.sin(t * 0.55 - sp.x * 0.004 + sp.y * 0.001)) ** 3;
+      const amp = (p.kind === 'tree' ? SWAY_TREE : SWAY_BUSH) * wind;
+      sp.skew.x = amp * (0.55 * Math.sin(t * (1.1 + wind * 0.5) + phase) + 0.25 * Math.sin(t * 2.7 + phase * 1.7) + gust * 1.4);
+    }
+  }
+
+  /** Soft shadows of clouds passing over the land by day in fair weather, drifting with the wind. */
+  private cloudShadows(dt: number): void {
+    const day = Math.max(0, Math.min(1, (this.daylight - 0.35) / 0.4));
+    const want = this.calm || day === 0 || !this.land ? 0 : (CLOUDS[this.weather] ?? 0);
+    const { x, y, w, h } = this.view;
+    this.cloudLayer.alpha = CLOUD_DARK * day;
+    const drift = 6 + this.wind() * 14;
+    while (this.clouds.length > want) this.clouds.pop()!.c.destroy({ children: true });
+    while (this.clouds.length < want) {
+      const cw = 260 + Math.random() * 340;
+      const c = this.cloudLayer.addChild(new Container());
+      // (a cloud's shadow: a few soft blobs heaped together)
+      const blobs = 4 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < blobs; i++) {
+        const b = c.addChild(new Sprite(glowTexture()));
+        b.anchor.set(0.5);
+        b.tint = 0x000000;
+        b.width = cw * (0.45 + Math.random() * 0.5);
+        b.height = b.width * (0.45 + Math.random() * 0.25);
+        b.position.set((Math.random() - 0.5) * cw * 0.7, (Math.random() - 0.5) * cw * 0.2);
+      }
+      // (the first come anywhere in view; later ones come in from the west)
+      const first = this.clouds.length === 0 && x !== 0;
+      this.clouds.push({ c, x: first ? x + Math.random() * w : x - cw, y: y + Math.random() * h, w: cw });
+    }
+    for (const cl of this.clouds) {
+      cl.x += drift * dt;
+      cl.y += drift * 0.18 * dt;
+      // gone past the view (or the view moved away): back in from the west
+      if (cl.x - cl.w > x + w + 100 || cl.x + cl.w < x - 900 || cl.y - cl.w > y + h + 200 || cl.y + cl.w < y - 400) {
+        cl.x = x - cl.w * 0.6 - Math.random() * 300;
+        cl.y = y + Math.random() * h;
+      }
+      cl.c.position.set(Math.round(cl.x), Math.round(cl.y));
+    }
+  }
+
+  /** Leaves falling from the trees in view (blossom in spring, a few in summer, many in autumn), drifting with the wind
+   *  as they spin down, then lying a while and fading. */
+  private fallingLeaves(dt: number): void {
+    const rate = this.calm ? 0 : (LEAF_RATE[this.season] ?? 0) * (this.weather === 'storm' ? 2 : 1) * (this.blighted() ? 0.4 : 1);
+    const tints = LEAF_TINTS[this.blighted() ? 'blight' : this.season] ?? LEAF_TINTS.autumn;
+    const wind = this.wind();
+    this.leafDue += rate * dt;
+    if (this.leafDue >= 1) {
+      const trees: Sprite[] = [];
+      for (const p of this.props.values()) if (p.kind === 'tree' && p.sprite.renderable && p.alpha === 1) trees.push(p.sprite);
+      while (this.leafDue >= 1) {
+        this.leafDue -= 1;
+        if (!trees.length || this.leaves.length >= LEAVES_MOST) continue;
+        const t = trees[Math.floor(Math.random() * trees.length)];
+        const tw = t.texture.width;
+        const th = t.texture.height;
+        const s = this.over.addChild(new Sprite(Texture.WHITE));
+        s.anchor.set(0.5);
+        s.width = 3;
+        s.height = 2;
+        s.tint = tints[Math.floor(Math.random() * tints.length)];
+        const fx = t.x + (Math.random() - 0.5) * tw * 0.7;
+        this.leaves.push({ s, x: fx, y: t.y - th * (0.45 + Math.random() * 0.4), ground: t.y + (Math.random() - 0.3) * 14, vx: 0, vy: 10 + Math.random() * 10, spin: (Math.random() - 0.5) * 8, phase: Math.random() * 6, lying: -1 });
+      }
+    }
+    for (let i = this.leaves.length - 1; i >= 0; i--) {
+      const l = this.leaves[i];
+      if (l.lying < 0) {
+        l.phase += dt * 3;
+        l.vx = wind * 16 + Math.sin(l.phase) * 14;
+        l.x += l.vx * dt;
+        l.y += l.vy * dt * (0.7 + 0.3 * Math.abs(Math.cos(l.phase)));
+        l.s.rotation += l.spin * dt;
+        l.s.scale.y = 2 * (0.3 + 0.7 * Math.abs(Math.cos(l.phase)));
+        if (l.y >= l.ground) l.lying = 0;
+      } else {
+        l.lying += dt;
+        l.s.alpha = Math.max(0, 1 - l.lying / 3);
+      }
+      if (l.lying > 3) {
+        l.s.destroy();
+        this.leaves.splice(i, 1);
+        continue;
+      }
+      l.s.position.set(l.x, l.y);
+    }
   }
 
   /** Fireflies over the grass in view on warm, fair nights (the lights layer is dark by day): each drifts, blinks a
@@ -1002,6 +1177,15 @@ export class MapView {
     for (const d of this.buildings.values()) {
       const r = d.rect;
       if (wx >= r.x && wx < r.x + r.w && wy >= r.y && wy < r.y + r.h && !isPlot(d.sig.slice(0, d.sig.indexOf('|')))) return true;
+    }
+    return false;
+  }
+
+  /** Whether a world point is within `pad` px of any building, plot or pen (the wild beasts keep their distance). */
+  nearBuilding(wx: number, wy: number, pad: number): boolean {
+    for (const d of this.buildings.values()) {
+      const r = d.rect;
+      if (wx >= r.x - pad && wx < r.x + r.w + pad && wy >= r.y - pad && wy < r.y + r.h + pad) return true;
     }
     return false;
   }

@@ -10,6 +10,7 @@ import { MapSpells } from './map/mapSpells';
 import { MapHerds } from './map/mapHerds';
 import { MapBoats } from './map/mapBoats';
 import { MapBirds } from './map/mapBirds';
+import { MapWildlife } from './map/mapWildlife';
 import { MapButterflies } from './map/mapButterflies';
 import { BloodPools } from './map/bloodPools';
 import { MapDisaster } from './map/mapDisaster';
@@ -217,6 +218,8 @@ async function start(): Promise<void> {
   const birds = new MapBirds(map.things, map);
   (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
   const butterflies = new MapButterflies(map.things, map);
+  const wildlife = new MapWildlife(map.things, map);
+  (window as unknown as { __wildlife?: MapWildlife }).__wildlife = wildlife; // (for previews)
   const pane = new ExpeditionPane(seedHash);
   const snow = new SnowView();
   const leaves = new LeavesView();
@@ -1059,6 +1062,14 @@ async function start(): Promise<void> {
     butterflies.land = next.land;
     birds.land = next.land;
     birds.folk = [...next.people.filter((p) => p.away === null && !p.indoors), ...next.travellers, ...(next.raid?.phase === 'active' ? next.raid.raiders : [])].map((p) => ({ x: p.x, y: p.y }));
+    // the wild beasts beyond the town: wolves by night, nothing while a raid is on or the land is frozen
+    wildlife.folk = birds.folk;
+    wildlife.land = next.land;
+    wildlife.on = !freeze && next.weather.kind !== 'storm' && !(next.raid?.phase === 'active');
+    wildlife.night = next.calendar.daylight < 0.3;
+    wildlife.season = next.calendar.season;
+    wildlife.biome = next.biome;
+    wildlife.blighted = buildStyle === 'lich' || buildStyle === 'vampire';
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
     // autumn leaves on the wind, in fair weather
     leaves.on = next.calendar.season === 'autumn' && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !freeze;
@@ -1188,6 +1199,7 @@ async function start(): Promise<void> {
     herds.render(performance.now(), ticker.deltaMS / 1000);
     boats.render(performance.now());
     birds.render(ticker.deltaMS / 1000, performance.now());
+    wildlife.render(ticker.deltaMS / 1000, performance.now());
     butterflies.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());
     map.renderAir(ticker.deltaMS / 1000);

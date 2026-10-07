@@ -141,6 +141,7 @@ for (const set of GROWN) SETS[set] = SETS[set].map(([f, k]) => [f, k * (GROW[kin
   const page = await browser.newPage();
   const manifest = {};
   const kinds = {};
+  const evergreen = {};
   for (const [set, list] of Object.entries(SETS)) {
     if (!list.length) throw new Error(set + ': empty');
     const items = list.map(([f, k]) => ({ src: 'data:image/png;base64,' + fs.readFileSync(f).toString('base64'), k: k * FINE }));
@@ -188,9 +189,12 @@ for (const set of GROWN) SETS[set] = SETS[set].map(([f, k]) => [f, k * (GROW[kin
     manifest[set] = res.frames;
     // (an object cut to nothing is left out of the frames: keep the kinds in step)
     kinds[set] = res.kept.map((i) => kindOf(list[i][0]));
+    // (the evergreens, which keep their green when the map turns the leaves for autumn)
+    evergreen[set] = res.kept.flatMap((i, n) => (/fir|conifer|pine|palm|jungle|fern_tree|winter_/i.test(path.basename(list[i][0])) ? [n] : []));
     console.log(set, res.frames.length, 'objects');
   }
   fs.writeFileSync(path.join(OUT, '../props.json'), JSON.stringify(manifest) + '\n');
   fs.writeFileSync(path.join(OUT, '../propKinds.json'), JSON.stringify(kinds) + '\n');
+  fs.writeFileSync(path.join(OUT, '../propEvergreen.json'), JSON.stringify(evergreen) + '\n');
   await browser.close();
 })();
