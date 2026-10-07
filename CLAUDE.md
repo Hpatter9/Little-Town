@@ -2364,6 +2364,32 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **The tap card on the phone** (`#inspect` in mobile/index.html) sits over the foot of the town just above the tabs;
   it was still placed above the strip's old top edge, which is the top of the screen now (a cut-off bar).
 
+## The Conquest update (in progress; the owner's ask: win the game by owning the whole map)
+
+- The owner's decisions: the game is won when every province is the town's or an ally's or vassal's (the launch and
+  the Great Hunt stay); battles are squads of nameless troops led by a hero of the town, in the manner of Symphony of
+  War (squads as pieces on a province grid, each clash a cutaway auto-resolved in rounds); every march is the player's
+  order; the founder may go to war; losses are real, heroes and the founder harder to lose for good (struck down:
+  wounded, captured or killed about 60/30/10, the founder gentler); a hero's level and gear carry a squad (a capped
+  hero in mythic gear with three troops beats a green one with nine); a seventh **War** tab; nothing of it touches the
+  raids, trips and quests. Built in steps: (1) the world, (2) troops and squads, (3) armies on the map and the War
+  tab, (4) battles, (5) the rival realms and the alliance win, (6) soak and the win screens.
+- **Step 1, the world (done):** `src/shared/data/conquest.ts` (`REALMS_MIN` 2 to `REALMS_MAX` 12, `REALMS_DEFAULT` 5:
+  the town and the four powers of old; `PROVINCES_PER_REALM` 6; `worldSide` 36 + 7 a realm; settlement `TIERS`,
+  `FORTS`, `YIELD_BY_LAND` (a material a day by the land), `LANDMARKS` (shrine, mine, ruins, lair, crossroads,
+  harbour), name pools) and `src/shared/sim/conquest/world.ts` (`makeWorld(seed, realmIds)`: an island of noise, the
+  sea and the mountains by height, one of the ten lands by warmth and wet, the coast at the shore; provinces grown by
+  breadth-first from seeds thrown far apart (`farApart`), one piece of ground each, the mountains claimed last and
+  unclaimed islets sunk; neighbours by shared borders, islands joined to the mainland by a harbour each side of the
+  shortest strait (`joinIslands`); capitals far apart (`farApartProvinces`), each realm starting with its capital and
+  one neighbour (`START_PROVINCES`); `provinceYield`). `src/shared/sim/conquest/conquest.ts`: `GameState.conquest`
+  (`ConquestState`: `realmIds`, the town first, then the faction ids; `holder` a realm id or null a province); the
+  world is rebuilt from the seed and cached (`worldOf`), never saved. `newGame` founds it from `NewGameOptions.realms`
+  (`realmCount`), with the same rival draws the realm makes (`pickRivals` in data/factions.ts, shared with `realm()`,
+  which reads the conquest's realm count; the bandits take the last place from three rivals up), so a 5-realm world
+  has exactly the four powers of old. The New Town wizard's sixth page picks the realms (`realmsPage`, `.realm-count`).
+  Tests: `test/conquest.test.ts`. Preview: the scratch script draws a world to PNG (worlds of 2, 5 and 12 looked right).
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's

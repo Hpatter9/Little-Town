@@ -9,6 +9,7 @@ import { hkDraw, hkLayers, hkWhoOfLook, onHkLoad } from '../art/hkFolk';
 import { FOUNDER_CLASS } from '../../shared/data/founderClasses';
 import type { Bridge } from '../../shared/ipc';
 import { BIOME_DEFS, BIOMES, DIFFICULTIES, DIFFICULTY_DEFS, type Biome, type Difficulty } from '../../shared/data/biomes';
+import { PROVINCES_PER_REALM, REALMS_DEFAULT, REALMS_MAX, REALMS_MIN } from '../../shared/data/conquest';
 import { founderSkills, MAX_NAME_LENGTH, SCENARIOS, type FounderSpec } from '../../shared/data/founding';
 import { FOUNDER_BY_ID, FOUNDERS } from '../../shared/data/founders';
 import { TRAITS } from '../../shared/data/people';
@@ -28,6 +29,7 @@ let name = '';
 let pick = FOUNDERS.settlers[0].id;
 let biome: Biome = 'forest';
 let difficulty: Difficulty = 'normal';
+let realms = REALMS_DEFAULT;
 let ironman = false;
 /** The legend the founder descends from (sim/legacy.ts), or null for a new line. */
 let heir: string | null = null;
@@ -37,7 +39,7 @@ let step = 0;
 export const restartNewGame = (): void => {
   step = 0;
 };
-const STEPS = ['Who founds the town?', 'Your founder', 'How does it begin?', 'Where will you found your town?', 'How dangerous is the world?', 'Ready to found it?'] as const;
+const STEPS = ['Who founds the town?', 'Your founder', 'How does it begin?', 'Where will you found your town?', 'How dangerous is the world?', 'How many realms share the world?', 'Ready to found it?'] as const;
 
 let lpcReady: Promise<void> | null = null;
 
@@ -168,6 +170,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     else if (step === 2) page.push(scenarios);
     else if (step === 3) page.push(biomes);
     else if (step === 4) page.push(dangers);
+    else if (step === 5) page.push(realmsPage());
     else page.push(summary(), ...lineage(draw), el('h3', 'newgame-head', 'Rules'), iron, ...warning);
     const dots = el('div', 'wizard-dots');
     STEPS.forEach((_, i) => {
@@ -188,6 +191,22 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     draw();
     wrap.scrollIntoView({ block: 'start' });
   };
+  /** The conquest's world (data/conquest.ts): the realms that share it, the town counted; more realms, a bigger map. */
+  const realmsPage = () => {
+    const box = el('div', 'realms-page');
+    const row = el('div', 'row realms-row');
+    for (let n = REALMS_MIN; n <= REALMS_MAX; n++) {
+      const b = button(String(n), () => ((realms = n), draw()), { cls: `place realm-count${n === realms ? ' on' : ''}` });
+      row.append(b);
+    }
+    const rivals = realms - 1;
+    box.append(
+      row,
+      el('div', 'purpose', `${realms} realms: your town and ${rivals} rival ${rivals === 1 ? 'power' : 'powers'}, over ${PROVINCES_PER_REALM * realms} provinces.`),
+      el('div', 'hint', 'Conquest: the game is won when every province is yours, or an ally\'s or vassal\'s. More realms make a bigger world with more to take, and more to take it from you.'),
+    );
+    return box;
+  };
   /** The last step's reminder of what was chosen. */
   const summary = () => {
     const f = FOUNDER_BY_ID[pick];
@@ -195,6 +214,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     const lines = [
       `${ORIGIN_DEFS[origin].name}, led by ${name.trim() || f.name}, ${f.title}`,
       `${sc?.name ?? scenario} · ${BIOME_DEFS[biome].name} · ${DIFFICULTY_DEFS[difficulty].name}`,
+      `A world of ${realms} realms and ${PROVINCES_PER_REALM * realms} provinces`,
     ];
     const box = el('div', 'card wizard-summary');
     for (const l of lines) box.append(el('div', 'purpose', l));
@@ -207,7 +227,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
 
 function choices() {
   const f: FounderSpec = { pick, background: FOUNDER_BY_ID[pick].background.id, traits: [], ...(name.trim() ? { name: name.trim() } : {}) };
-  return { biome, difficulty, ironman, scenario, origin, founder: f, ...(heir ? { heir } : {}) };
+  return { biome, difficulty, ironman, scenario, origin, founder: f, realms, ...(heir ? { heir } : {}) };
 }
 
 /** The founder's line: a new one, or a descendant of a town gone by (the Hall of Legends: legendsPanel.ts). */
