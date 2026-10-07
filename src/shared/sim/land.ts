@@ -172,7 +172,7 @@ export function unsetRoad(m: LandMap, x: number, y: number): void {
 /* ------------------------------------------------------------ making the land */
 
 /** Smooth value noise in 0..1 (a few octaves), seeded. */
-function noise(seed: number, scale: number) {
+export function noise(seed: number, scale: number) {
   const at = (ix: number, iy: number) => {
     let h = (ix * 374761393 + iy * 668265263 + seed * 2246822519) >>> 0;
     h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;

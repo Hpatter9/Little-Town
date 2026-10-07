@@ -90,7 +90,7 @@ export const SCENARIO_BY_ID: Readonly<Record<string, Scenario>> = Object.fromEnt
 /* ------------------------------------------------------------ checking what the panel sent */
 
 /** The New town panel's choices, checked (on the desktop they arrive over IPC). Null if they don't make sense. */
-export function cleanNewGameOptions(raw: unknown): { biome: Biome; difficulty: Difficulty; ironman: boolean; scenario: string; origin: OriginId; founder?: FounderSpec } | null {
+export function cleanNewGameOptions(raw: unknown): { biome: Biome; difficulty: Difficulty; ironman: boolean; scenario: string; origin: OriginId; founder?: FounderSpec; realms?: number } | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const o = raw as Record<string, unknown>;
   const biome = pick(BIOMES, o.biome);
@@ -99,7 +99,9 @@ export function cleanNewGameOptions(raw: unknown): { biome: Biome; difficulty: D
   const founder = o.founder === undefined ? undefined : cleanFounder(o.founder);
   const origin = o.origin === undefined ? 'settlers' : pick(ORIGINS, o.origin);
   if (!biome || !difficulty || !scenario || !origin || founder === null) return null;
-  return { biome, difficulty, ironman: o.ironman === true, scenario, origin, ...(founder ? { founder } : {}) };
+  // (the conquest's realms, 2 to 12: data/conquest.ts)
+  const realms = typeof o.realms === 'number' && Number.isFinite(o.realms) ? Math.max(2, Math.min(12, Math.round(o.realms))) : undefined;
+  return { biome, difficulty, ironman: o.ironman === true, scenario, origin, ...(founder ? { founder } : {}), ...(realms ? { realms } : {}) };
 }
 
 const pick = <T>(list: readonly T[], v: unknown): T | undefined => list.find((x) => x === v);

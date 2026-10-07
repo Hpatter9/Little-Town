@@ -10,6 +10,7 @@ import type { OriginId } from './origins';
 import { PACK_SHEETS } from './packSheets';
 import { RIVALS } from './rivals';
 import type { SceneId } from './scenes';
+import type { Rng } from '../rng';
 
 export type RealmStance = 'war' | 'neutral' | 'peace' | 'trade' | 'alliance' | 'vassal' | 'destroyed';
 export type Temper = 'warlike' | 'greedy' | 'honourable' | 'treacherous';
@@ -76,6 +77,17 @@ export const STRONGHOLD_SPOTS: Readonly<Record<string, { x: number; y: number }>
   fae: { x: 600, y: 200 }, alchemists: { x: 440, y: 250 }, knights: { x: 250, y: 290 }, brotherhood: { x: 130, y: 480 },
 };
 export const FACTION_BY_ID: Readonly<Record<string, FactionDef>> = Object.fromEntries(FACTION_DEFS.map((f) => [f.id, f]));
+
+/** The rival powers of a world: `count` of them drawn by `rng` from the origins the town isn't, the bandits taking
+ *  the last place once there are three or more (the same draws whatever asks, so the realm and the conquest agree). */
+export function pickRivals(rng: Rng, own: OriginId, count: number): FactionDef[] {
+  const pool = FACTION_DEFS.filter((d) => d.origin !== own && d.id !== 'brotherhood');
+  const bandits = count >= 3 ? 1 : 0;
+  const picked: FactionDef[] = [];
+  while (picked.length < count - bandits && pool.length) picked.push(pool.splice(rng.int(0, pool.length - 1), 1)[0]);
+  if (bandits) picked.push(FACTION_BY_ID.brotherhood); // (the bandits are everywhere)
+  return picked;
+}
 
 /** How many powers a town shares its realm with, and when it meets them (game days, then one more every few). */
 export const FACTION_COUNT = 4;

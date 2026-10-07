@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.17.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.18.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2363,6 +2363,133 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   are left as the pack drew them. `window.__hkCell` for previews.
 - **The tap card on the phone** (`#inspect` in mobile/index.html) sits over the foot of the town just above the tabs;
   it was still placed above the strip's old top edge, which is the top of the screen now (a cut-off bar).
+
+## The Conquest update (in progress; the owner's ask: win the game by owning the whole map)
+
+- The owner's decisions: the game is won when every province is the town's or an ally's or vassal's (the launch and
+  the Great Hunt stay); battles are squads of nameless troops led by a hero of the town, in the manner of Symphony of
+  War (squads as pieces on a province grid, each clash a cutaway auto-resolved in rounds); every march is the player's
+  order; the founder may go to war; losses are real, heroes and the founder harder to lose for good (struck down:
+  wounded, captured or killed about 60/30/10, the founder gentler); a hero's level and gear carry a squad (a capped
+  hero in mythic gear with three troops beats a green one with nine); a seventh **War** tab; nothing of it touches the
+  raids, trips and quests. Built in steps: (1) the world, (2) troops and squads, (3) armies on the map and the War
+  tab, (4) battles, (5) the rival realms and the alliance win, (6) soak and the win screens.
+- **Step 1, the world (done):** `src/shared/data/conquest.ts` (`REALMS_MIN` 2 to `REALMS_MAX` 12, `REALMS_DEFAULT` 5:
+  the town and the four powers of old; `PROVINCES_PER_REALM` 6; `worldSide` 36 + 7 a realm; settlement `TIERS`,
+  `FORTS`, `YIELD_BY_LAND` (a material a day by the land), `LANDMARKS` (shrine, mine, ruins, lair, crossroads,
+  harbour), name pools) and `src/shared/sim/conquest/world.ts` (`makeWorld(seed, realmIds)`: an island of noise, the
+  sea and the mountains by height, one of the ten lands by warmth and wet, the coast at the shore; provinces grown by
+  breadth-first from seeds thrown far apart (`farApart`), one piece of ground each, the mountains claimed last and
+  unclaimed islets sunk; neighbours by shared borders, islands joined to the mainland by a harbour each side of the
+  shortest strait (`joinIslands`); capitals far apart (`farApartProvinces`), each realm starting with its capital and
+  one neighbour (`START_PROVINCES`); `provinceYield`). `src/shared/sim/conquest/conquest.ts`: `GameState.conquest`
+  (`ConquestState`: `realmIds`, the town first, then the faction ids; `holder` a realm id or null a province); the
+  world is rebuilt from the seed and cached (`worldOf`), never saved. `newGame` founds it from `NewGameOptions.realms`
+  (`realmCount`), with the same rival draws the realm makes (`pickRivals` in data/factions.ts, shared with `realm()`,
+  which reads the conquest's realm count; the bandits take the last place from three rivals up), so a 5-realm world
+  has exactly the four powers of old. The New Town wizard's sixth page picks the realms (`realmsPage`, `.realm-count`).
+  Tests: `test/conquest.test.ts`. Preview: the scratch script draws a world to PNG (worlds of 2, 5 and 12 looked right).
+- **Step 2, troops and squads (done):** `src/shared/data/troops.ts` (`TROOPS`: 18 kinds by age and study, militia to
+  riflemen, and one of each people's own (thralls, the bone legion, the wolf pack, constructs, ironbreakers, the tide
+  guard, horse archers, glamour knights, bombardiers, templars, briar wardens); each a `kind` (melee, shield, spear,
+  ranged, horse, magic, healer, skirmish, beast, siege), health, blow, guard, `ranged`/`heal`/`magic`/`quick`/`drain`/
+  `walls`, and a cost in coins and a material; `COUNTERS` (spears beat horse, horse rides down archers...); `LEADS` the
+  kinds a hero of each fighting role may have round them, `LEADS_TOO` beasts for tamers and siege crews for engineers;
+  the formation `SQUAD_SLOTS` 9 in three rows). `src/shared/sim/conquest/squads.ts`: **the hero carries the squad**
+  (the owner's ask): `heroStrength(p)` is their `personFighter` health and blows against a plain soldier's
+  (`TROOP_HP`, `TROOP_ATTACK`), geometric, eased by `HERO_CURVE` and weighted `HERO_WEIGHT` (a bare level-1 fighter
+  about 3.5 troops' worth, a level-30 Titan in fair gear about 16, a level-60 in the best about 45, nine militia 8.3);
+  `command(p)` betters every troop's worth by level, stage and Charisma (`COMMAND_*`); `leadership(p)` how many they
+  may lead (`LEAD_*`: 2 at level 1, 9 by level 55); `squadStrength`. **Raising troops:** `ConquestState.recruits`
+  (from the provinces held, `RECRUITS_HOME` from the town), `train` (a batch of up to `TRAIN_BATCH_MOST`, paid from the
+  **war chest** `c.chest` and **war stores** `c.goods` first (the provinces' yields go there, never into the town's
+  treasury or stores: the conquest leaves the town's own economy alone), then the town's; done in `TRAIN_HOURS`, half
+  with a barracks), `c.troops` by kind; `UPKEEP` a soldier a day from the chest, unpaid `DESERT_SHARE` of the waiting
+  troops go home. **Squads** (`Squad`: hero, nine `slots`): `formSquad`, `setSlot` (a kind the hero may lead, within
+  their leadership, from the trained troops), `disbandSquad`. `conquestHourly` from sim.ts. The `conquest` command
+  (train, form, slot, disband) and `snapshot.war` (`warView` in `sim/conquest/warView.ts`: provinces, realms, recruits,
+  chest, goods, troops, training, squads, heroes free to lead). Tests: `test/conquestSquads.test.ts`.
+
+- **Step 3, armies on the map and the War tab (done):** `src/shared/sim/conquest/armies.ts`. An `Army`
+  (`ConquestState.armies`: a general's squad and up to `ARMY_SQUADS` 6, `at`/`going`/`arrive`/`path`, a `train` of spare
+  troops) is raised at the town's capital province (`homeProvince`, `raiseArmy`; squads join and leave at home,
+  `addToArmy`/`dropFromArmy`; `loadTrain` from the trained troops). **Every march is the player's order**
+  (`marchArmy(s, army, province)`: the fewest legs through free or friendly land, `wayTo`; a leg takes `MARCH_HOURS` +
+  `MARCH_PER_CELL` by distance, `CROSSROADS_PACE` into a crossroads; the next leg starts on arrival and the march halts
+  if an enemy has taken the way); `recallArmy` is a march home. Arriving (`armiesTick`, every tick from
+  `conquestHourly`) at a free province the army takes it for the town (`c.taken` the day); a lair or another realm's
+  province waits for the battle (step 4). While out of the home province its heroes are **away** (`Person.away` is
+  minus the army's id, as a trip's is the trip's id: every "in town" filter holds; the snapshot names the army), and
+  come home with it at the land's edge. **Garrisons** (`garrison`: `n` of the train left where it stands, `c.garrisons`
+  by province; `pickUp`): a province of the town's with under `GARRISON_HOLDS` soldiers and no army, past
+  `REVOLT_GRACE_DAYS` since taken, may revolt and go free each day (`REVOLT_CHANCE`, `armiesDaily`, the capital never);
+  soldiers afield cost `UPKEEP_AFIELD` times the upkeep. A squad in an army can't be disbanded, nor its places changed
+  while afield; a squad whose hero dies dissolves, and an army with no squad left breaks up. Commands: `conquest` ops
+  `raise`, `add`, `drop`, `load`, `march`, `garrison`, `pickup`, `recall`, `dismiss`. **The War tab** (`war` in
+  `PANELS`, the seventh tab, ⚔; `src/renderer/panel/warPanel.ts`; sub-tabs Map, Armies, Barracks, Realms): a canvas map
+  of the world fitted to the width (the lands' colours, each realm's colour over its provinces (`REALM_COLOURS`, the
+  town gold), borders, capitals as squares, lairs ☠, garrisons, bare provinces a red dot, armies ⚔ with their way
+  dashed; `WarView.owners` is the owner grid as a string, `ownerAt`); tap a province for its card (land, tier, fort,
+  landmark, yields, garrison, armies); "Pick to march" on an army card, then the card's "March X here". The armies'
+  cards (general, strength, soldiers, train; recall, garrison, pick up, add and drop squads, load the train, dismiss),
+  the barracks (recruits, chest, upkeep, war stores; Train 1 / Train 3 a kind; batches), the squads (a 3x3 formation
+  of selects, the hero's worth, command and lead), and the realms. Tests: `test/conquestArmies.test.ts`. Checked upright
+  on the phone.
+
+- **Step 4, battles for provinces (done):** `src/shared/sim/conquest/battles.ts` (constants in data/troops.ts). An
+  army arriving at a province held against it (another realm's, or a free lair) starts a `ProvinceBattle`
+  (`startBattle`; `ConquestState.battles`): each squad a piece on a `BOARD_W` x `BOARD_H` (12x8) grid, the town's from
+  the west, the defenders in the east behind their fort's wall line (`WALL_X`; `walls` = the fort's level x `WALL_HP`,
+  battered by siege troops' `walls` a beat (`SIEGE_PER_WALLS`); those behind it take `WALL_GUARD` of a blow; an
+  attacker at the wall line assaults over it as far as a bow reaches). One side's squad acts a beat (`BEAT_TICKS`,
+  2 s), then the other's, round robin (`takeBeat`): it closes `MOVE` cells on the nearest foe or, within reach (1, or
+  `REACH_RANGED` with `RANGED_SHARE` of its troops ranged), clashes: every troop's blow bettered by its hero's command
+  and its kind's `COUNTERS`, melee on the front row that stands, ranged on the back, the hero's own blow (`HERO_BLOW`
+  of their strength) last; menders heal; the struck squad strikes back at `RIPOSTE`; a hero's health is their strength
+  in plain soldiers' (`HERO_HP`). Troops die (their slots emptied for good: nameless); a squad routs at `ROUT_AT` of
+  the worth it marched in with, or when its hero falls. **A hero struck down** (`heroDown`): `HERO_FATE` wounded 60% /
+  captured 30% / killed 10% (the founder `FOUNDER_FATE` 80/18/2; a lair's beasts take nobody): wounded is a cut and
+  30% health; **captured** is `ConquestState.captives` (ransom `RANSOM_PER_STRENGTH` x their strength, at least
+  `RANSOM_LEAST`; `Person.away` is minus a million and their id; the `ransom` op pays from the chest then the treasury;
+  taking the province frees them); killed is `killPerson`. The defenders (`defendersOf`): a settlement's garrison of
+  `DEFENDERS_BY_TIER` squads of its realm's own troops and the `FOE_TROOPS` (levies, town guard, town archers) under
+  captains whose strength grows with the paced day (`CAPTAIN_*`); a lair's master and pack of `lair_beasts`
+  (`LAIR_SQUADS`). **Won:** the province is the town's (a lair `cleared`; a free lair bars `wayTo` till then), the
+  heroes gain `XP_WON`; **lost:** `XP_LOST`, the army falls back to the nearest province of the town's (home at the
+  last); a stand-off past `STALEMATE_TURNS` is a loss. The recap is `c.lastBattle` (`BattleRecap`: felled, lost, the
+  heroes' fates, lines). Clashes are resolved at once (auto, the owner's call for now); the cutaway on the fight
+  screen is not built. **Seen:** `WarView.battle` (the board, kept 6 s after the end), `.recap`, `.captives`; the War
+  tab's Map draws the board as a canvas (the wall line, each squad a piece with the hero's health bar and nine troop
+  pips, the struck flashing white, the routed and fallen crossed), the latest events under it, a recap card, and a
+  Ransom row per captive. Tests: `test/conquestBattles.test.ts`.
+
+- **Step 5, the rival realms and the win (done):** `src/shared/sim/conquest/rivals.ts`. The powers of the realm
+  (sim/factions.ts: the same `Faction`s, troops, stances and feuds) act on the map: each day (`rivalsDaily`, from
+  `conquestDaily`) a power may march one army (`RivalArmy` in `c.rivalArmies`: its strength `RIVAL_PER_TROOP` of its
+  troops plus `RIVAL_PER_PROVINCE` a province; no oftener than `RIVAL_MOVE_DAYS`, on `RIVAL_MOVE_CHANCE` of the days,
+  the warlike more) on a province beside its land: free ground first, a lair with `RIVAL_LAIR_STRENGTH`, a province of
+  the town's when at war, another power's when the two are at feud; arriving (`rivalsTick`) it takes free ground, and a
+  held province when its strength beats the defence `RIVAL_EDGE` times (`defenceOf`: the settlement's tier and walls,
+  and for the town's its garrison and any army standing there, which falls back if the province falls), losing troops
+  either way (`RIVAL_LOSS_PER_DEFENCE`). A destroyed power's provinces go free. Storming a power's province declares
+  war on it (`startBattle` → `declareWar`); an ally's or a vassal's can't be marched on. **The win**
+  (`checkConquestWin`, daily and after a battle won): every province held, by the town or a power in alliance or
+  vassalage: `s.gameOver.won` with its own text (the launch and the Great Hunt stay). Seen: `WarView.rivalArmies`
+  (⚔ in the realm's colour on the map with a dashed line) and `realms[].stance` (the Realms list). Tests:
+  `test/conquestRivals.test.ts`.
+
+- **Step 6, soak and tuning (done):** a 40-day soak of worlds of 2, 5 and 12 realms (the scratch `cw/soak.ts`):
+  rival armies took the town's own capital province within days (the town itself!), so **no capital is taken on the
+  map** but by the town's armies in battle (`rivalsDaily` skips held capitals); the start province revolted too
+  readily (`REVOLT_CHANCE` 0.02, `REVOLT_GRACE_DAYS` 5); the powers spread over all the free land by day 40, so they
+  move no oftener than `RIVAL_MOVE_DAYS` 5 on `RIVAL_MOVE_CHANCE` 0.35 of their days, less the more they hold
+  (`RIVAL_SATED`): about 3 free provinces of 24 left at day 40 in a 5-realm world. A 40-day town costs about 70 s
+  headless with the conquest on. The news bubble carries the war (`situationNotices`: a battle under way, a rival
+  marching on the town's land, a captive, bare provinces, the last recap), each opening the War tab. The game-over
+  card shows the conquest's win text as it does the launch's. Not built, left for later: the cutaway clash on the
+  fight screen (clashes are auto, on the board), the town's armies defending a province on the board (a rival's
+  attack on a province with the town's army in it is reckoned by strength), rival armies as standing pieces (a
+  rival's march is resolved on arrival).
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

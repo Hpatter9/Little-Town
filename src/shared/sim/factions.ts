@@ -13,10 +13,10 @@ import { ENEMIES } from '../data/enemies';
 import { eventPicture } from '../data/eventScenes';
 import {
   ALLY_TROOPS, ASSAULT_MOST, ASSAULT_WAVES_MOST, ASSAULT_WAVE_TROOPS, ATTITUDE_DRIFT, BETRAY_CHANCE, DEMAND_BASE, DEMAND_PER_TROOPS, ENVOY_GAP_DAYS, ENVOY_HOURS,
-  FACTION_BY_ID, FACTION_COUNT, FACTION_DEFS, FIRST_MEET_DAY, GIFT_COINS, GIFT_WARMTH, GREEDY_GIFT, HOST_CHANCE, HOST_GAP_DAYS, HOST_LEAST, HOST_MOST, HOST_SHARE,
+  FACTION_BY_ID, FACTION_COUNT, FIRST_MEET_DAY, pickRivals, GIFT_COINS, GIFT_WARMTH, GREEDY_GIFT, HOST_CHANCE, HOST_GAP_DAYS, HOST_LEAST, HOST_MOST, HOST_SHARE,
   HOST_WARNING_HOURS, MARRIAGE_WARMTH, MEET_EVERY_DAYS, OATHBREAKER, PLUNDER_GOODS, PLUNDER_PER_TROOP, REBEL_CHANCE, RECRUITS, SIEGE_EVERY, STANCE_NAME, TEMPER_NAME,
   TEMPER_REST, TRADE_COINS, TREATY_NEEDS, TREATY_WARMTH, TRIBUTE_MOST, TRIBUTE_PER_TROOPS, TROOPS_MOST, TROOPS_PER_DAY, TROOPS_START, WAR_AT, FOLK_GROWTH, FOLK_GROWTH_BY, FOLK_HOST_LOST, FOLK_MOST, FOLK_START, FOLK_STORMED, townTier,
-  type FactionDef, type RealmStance, type Temper,
+  type RealmStance, type Temper,
 } from '../data/factions';
 import { levelOf } from '../data/levels';
 /** A vassal's levy for an assault: this share of its troops, at most this many. */
@@ -47,10 +47,8 @@ export function realm(s: GameState): Faction[] {
   }
   const rng = new Rng(hashSeed(`${s.seed}:realm`));
   const own = s.origin ?? 'settlers';
-  const pool = FACTION_DEFS.filter((d) => d.origin !== own && d.id !== 'brotherhood');
-  const picked: FactionDef[] = [];
-  while (picked.length < FACTION_COUNT - 1 && pool.length) picked.push(pool.splice(rng.int(0, pool.length - 1), 1)[0]);
-  picked.push(FACTION_BY_ID.brotherhood); // (the bandits are everywhere)
+  // (a conquest's world names its realms: the same draws as pickRivals made for it; else the four powers of old)
+  const picked = pickRivals(rng, own, (s.conquest?.realmIds.length ?? FACTION_COUNT) - 1);
   const tempers: Temper[] = ['warlike', 'greedy', 'honourable', 'treacherous'];
   s.factions = picked.map((d) => {
     const temper = rng.chance(0.7) ? d.temper : tempers[rng.int(0, tempers.length - 1)];

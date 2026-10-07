@@ -166,7 +166,7 @@ const fills = new Map([
   ['expeditions', fillBar('tab-fill trip')],
 ]);
 /** Upright, the tabs are one slim row along the bottom: a mark over a short name. */
-const TAB_ICONS: Record<string, string> = { build: '⌂', research: '✦', expeditions: '⛺', townsfolk: '☺', trade: '⚖', journal: '✎' };
+const TAB_ICONS: Record<string, string> = { build: '⌂', research: '✦', expeditions: '⛺', townsfolk: '☺', trade: '⚖', war: '⚔', journal: '✎' };
 const SHORT_LABELS: Record<string, string> = { journal: 'Annals' };
 const tabButtons = PANELS.map((p) => {
   const b = document.createElement('button');

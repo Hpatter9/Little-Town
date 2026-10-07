@@ -9,7 +9,8 @@ import type { BoatKind } from '../data/boats';
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
 import type { TaxRate } from '../data/economy';
-import type { RealmStance, Temper } from '../data/factions';
+import { pickRivals, type RealmStance, type Temper } from '../data/factions';
+import { foundConquest, realmCount } from './conquest/conquest';
 import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
@@ -805,6 +806,8 @@ export interface GameState {
   muster?: Muster;
   /** The powers of the realm and how the town stands with each (sim/factions.ts). */
   factions?: Faction[];
+  /** The conquest: the realms sharing the world of provinces and who holds each (sim/conquest/conquest.ts). */
+  conquest?: import('./conquest/conquest').ConquestState;
   /** An envoy riding in to the town's fire, waiting there for an answer, and riding out (sim/factions.ts). */
   envoyRider?: { id: number; faction: string; name: string; look: Look; x: number; y: number; dir: 1 | -1; leaving: boolean };
   /** World seed (the land is made from it; changes live in `land`). */
@@ -1231,6 +1234,8 @@ export interface NewGameOptions {
   scenario?: string;
   /** Who founds it (Settlers when left out). */
   origin?: OriginId;
+  /** How many realms share the conquest's world, the town counted (data/conquest.ts; REALMS_DEFAULT when left out). */
+  realms?: number;
 }
 
 /** Give the rolled founder the player's choices. */
@@ -1407,6 +1412,8 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     ...(opts.ironman ? { ironman: true } : {}),
     ...(opts.difficulty && opts.difficulty !== 'normal' ? { difficulty: opts.difficulty } : {}),
     ...(origin.id !== 'settlers' ? { origin: origin.id } : {}),
+    // the conquest's world: the town and its rivals (the same draws the realm makes: sim/factions.ts realm)
+    conquest: foundConquest(seed, ['town', ...pickRivals(new Rng(hashSeed(`${seed}:realm`)), origin.id, realmCount(opts.realms) - 1).map((d) => d.id)]),
     ...(f === 'lich' ? { lich: true } : {}),
   };
 }
