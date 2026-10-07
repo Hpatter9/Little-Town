@@ -10,6 +10,30 @@ export interface ConquestState {
   realmIds: string[];
   /** Who holds each province (a realm id), or null for a free one. */
   holder: (string | null)[];
+  /** The town's recruits waiting to be trained (from the provinces it holds), its trained troops by kind, the batches
+   *  training, and its squads (sim/conquest/squads.ts). */
+  recruits: number;
+  /** The war chest and the war stores: what the provinces yield (coins, their materials), kept apart from the town's
+   *  treasury and stores so the conquest never bends the town's own economy; troops are paid from them first. */
+  chest: number;
+  goods: Record<string, number>;
+  troops: Record<string, number>;
+  training: { troop: string; n: number; done: number }[];
+  squads: Squad[];
+  nextSquad: number;
+  /** The tick of the last daily reckoning (yields, upkeep). */
+  lastDay?: number;
+}
+
+/** A hero of the town and the troops in formation round them (data/troops.ts SQUAD_SLOTS: nine places, three rows). */
+export interface Squad {
+  id: number;
+  name: string;
+  hero: number;
+  /** A troop kind in each place, or null. */
+  slots: (string | null)[];
+  /** Fights won together (a squad's own seasoning). */
+  battles: number;
 }
 
 const cache = new WeakMap<ConquestState, ConquestWorld>();
@@ -31,7 +55,7 @@ export function foundConquest(seed: string, realmIds: string[]): ConquestState {
   const world = makeWorld(seed, ids);
   const holder: (string | null)[] = world.provinces.map(() => null);
   for (const r of world.realms) for (const p of r.starts) holder[p] = r.id;
-  const c: ConquestState = { realmIds: ids, holder };
+  const c: ConquestState = { realmIds: ids, holder, recruits: 0, chest: 0, goods: {}, troops: {}, training: [], squads: [], nextSquad: 1 };
   cache.set(c, world);
   return c;
 }

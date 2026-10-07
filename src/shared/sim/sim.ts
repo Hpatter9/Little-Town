@@ -42,6 +42,7 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
+import { conquestHourly, disbandSquad, formSquad, setSlot, train } from './conquest/squads';
 import { spendByClass, spendPoint } from './attributes';
 import { questsHourly } from './quests';
 import { delvesHourly } from './delves';
@@ -193,6 +194,7 @@ export class Sim {
     huntsHourly(s);
     dragonTick(s); // (the dragon in the hills: sim/dragon.ts)
     factionsHourly(s, this.rng);
+    conquestHourly(s); // (the conquest's provinces, troops and squads: sim/conquest/squads.ts)
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(
       s,
@@ -363,6 +365,14 @@ export class Sim {
         if (c.evolve !== undefined) s.evolveAsk = c.evolve;
         if (c.stats !== undefined) s.statsAsk = c.stats;
         break;
+      case 'conquest': {
+        const say = (r: { ok: boolean; reason?: string }) => r.ok || notify(s, `${r.reason}.`);
+        if (c.op === 'train') say(train(s, c.troop, c.n));
+        else if (c.op === 'form') say(formSquad(s, c.hero));
+        else if (c.op === 'slot') say(setSlot(s, c.squad, c.slot, c.troop));
+        else if (c.op === 'disband') disbandSquad(s, c.squad);
+        break;
+      }
       case 'gameSpeed':
         setGameSpeed(s, c.speed);
         break;

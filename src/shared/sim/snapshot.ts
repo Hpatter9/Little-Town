@@ -16,6 +16,7 @@ import type { Chronicle, Fallen } from './annals';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius } from './ceremonies';
 import { realmView, type RealmView } from './factions';
+import { warView, type WarView } from './conquest/warView';
 import { DESTINATION_BY_ID as DEST_BY_ID } from '../data/expeditions';
 import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
@@ -678,6 +679,8 @@ export interface Snapshot {
   muster: MusterView | null;
   /** The powers of the realm (sim/factions.ts), and the town's might they weigh against. */
   realm: RealmView;
+  /** The conquest: provinces, recruits, troops and squads (sim/conquest/warView.ts); null for a town without one. */
+  war: WarView | null;
   /** An envoy's rider in town (sim/factions.ts): drawn mounted, riding in, waiting at the fire, riding out. */
   envoyRider: { id: number; name: string; look: Look; x: number; y: number; dir: 1 | -1; leaving: boolean } | null;
   /** The places on the town's land (sim/places.ts), found or not (the renderer draws only the found). */
@@ -924,6 +927,7 @@ export function snapshot(s: GameState): Snapshot {
     realm: realmView(s, (id) => !destinationHidden(s, id) && !!DEST_BY_ID[id] && destinationUnlocked(s, DEST_BY_ID[id])),
     places: placeViews(s),
     pack: packView(s),
+    war: warView(s),
     gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40 } : null,
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),

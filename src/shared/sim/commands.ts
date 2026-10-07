@@ -90,6 +90,12 @@ export type Command =
   | { type: 'spendStat'; person: number; attr: keyof Attrs | null }
   /** Whether evolutions and stat points are put to the player, or left to the town. */
   | { type: 'setAsk'; evolve?: boolean; stats?: boolean }
+  /** The conquest (sim/conquest/squads.ts): train a batch of troops, form a squad round a hero, set a place in its
+   *  formation (a troop kind, or null to clear it), disband it. */
+  | { type: 'conquest'; op: 'train'; troop: string; n: number }
+  | { type: 'conquest'; op: 'form'; hero: number }
+  | { type: 'conquest'; op: 'slot'; squad: number; slot: number; troop: string | null }
+  | { type: 'conquest'; op: 'disband'; squad: number }
   | { type: 'tactics'; order: TacticsOrder }
   | { type: 'gameSpeed'; speed: number }
   | { type: 'battleCast'; power: string; x: number; y: number }

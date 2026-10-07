@@ -2389,6 +2389,26 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   which reads the conquest's realm count; the bandits take the last place from three rivals up), so a 5-realm world
   has exactly the four powers of old. The New Town wizard's sixth page picks the realms (`realmsPage`, `.realm-count`).
   Tests: `test/conquest.test.ts`. Preview: the scratch script draws a world to PNG (worlds of 2, 5 and 12 looked right).
+- **Step 2, troops and squads (done):** `src/shared/data/troops.ts` (`TROOPS`: 18 kinds by age and study, militia to
+  riflemen, and one of each people's own (thralls, the bone legion, the wolf pack, constructs, ironbreakers, the tide
+  guard, horse archers, glamour knights, bombardiers, templars, briar wardens); each a `kind` (melee, shield, spear,
+  ranged, horse, magic, healer, skirmish, beast, siege), health, blow, guard, `ranged`/`heal`/`magic`/`quick`/`drain`/
+  `walls`, and a cost in coins and a material; `COUNTERS` (spears beat horse, horse rides down archers...); `LEADS` the
+  kinds a hero of each fighting role may have round them, `LEADS_TOO` beasts for tamers and siege crews for engineers;
+  the formation `SQUAD_SLOTS` 9 in three rows). `src/shared/sim/conquest/squads.ts`: **the hero carries the squad**
+  (the owner's ask): `heroStrength(p)` is their `personFighter` health and blows against a plain soldier's
+  (`TROOP_HP`, `TROOP_ATTACK`), geometric, eased by `HERO_CURVE` and weighted `HERO_WEIGHT` (a bare level-1 fighter
+  about 3.5 troops' worth, a level-30 Titan in fair gear about 16, a level-60 in the best about 45, nine militia 8.3);
+  `command(p)` betters every troop's worth by level, stage and Charisma (`COMMAND_*`); `leadership(p)` how many they
+  may lead (`LEAD_*`: 2 at level 1, 9 by level 55); `squadStrength`. **Raising troops:** `ConquestState.recruits`
+  (from the provinces held, `RECRUITS_HOME` from the town), `train` (a batch of up to `TRAIN_BATCH_MOST`, paid from the
+  **war chest** `c.chest` and **war stores** `c.goods` first (the provinces' yields go there, never into the town's
+  treasury or stores: the conquest leaves the town's own economy alone), then the town's; done in `TRAIN_HOURS`, half
+  with a barracks), `c.troops` by kind; `UPKEEP` a soldier a day from the chest, unpaid `DESERT_SHARE` of the waiting
+  troops go home. **Squads** (`Squad`: hero, nine `slots`): `formSquad`, `setSlot` (a kind the hero may lead, within
+  their leadership, from the trained troops), `disbandSquad`. `conquestHourly` from sim.ts. The `conquest` command
+  (train, form, slot, disband) and `snapshot.war` (`warView` in `sim/conquest/warView.ts`: provinces, realms, recruits,
+  chest, goods, troops, training, squads, heroes free to lead). Tests: `test/conquestSquads.test.ts`.
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
