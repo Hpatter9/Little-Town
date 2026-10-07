@@ -2229,7 +2229,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   venue windows and the New Town wizard, watching for commands, redraws and errors. Found and fixed: the minimap's ×
   hid the map on pointer-down and the Map tab under it took the tap's click (hide on click now); a feed row's "Show it
   on the map" for a building no longer standing did nothing (now the button only comes when the thing is on the map:
-  `onMap`); the Stores' kind chips (Weapons, Armour...) didn't redraw (`invTab` is in `craftingKey`).
+  `onMap`); the Stores' kind chips (Weapons, Armour...) didn't redraw (`invTab` is in `craftingKey`); a tapped skill, spell or
+  trait on the Townsfolk inspect page opened no card for the same reason (`chosenSkill` is in `townsfolkKey`).
 - **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
   (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
   pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and

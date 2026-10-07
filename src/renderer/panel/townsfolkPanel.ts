@@ -43,6 +43,7 @@ export const townsfolkKey = (s: Snapshot) =>
     s.people.map((p) => [p.clsName, p.stage, p.level, Math.round(p.levelProgress * 20), p.away, p.battle, p.kit.length, p.carrying]),
     inspecting,
     chosenSlot,
+    chosenSkill, // (a tapped skill, spell or trait opens its card: the tap must redraw)
     classOpen,
     s.theme,
     lpcLoaded,
