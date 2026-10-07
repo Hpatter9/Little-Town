@@ -3,7 +3,7 @@
 // at the second, a bordure at the third; a golden field with rays for an ascended form). Drawn on a canvas, so the
 // event box, the People page and the news can all use it; the glyph lands when its sheet has loaded.
 
-import { emblemOf, type GlyphSheet } from '../../shared/data/emblems';
+import { CROWN, emblemOf, GEM, type Glyph, type GlyphSheet } from '../../shared/data/emblems';
 import { iconSheet } from './icons';
 import { loadImage } from './loadImage';
 
@@ -145,24 +145,45 @@ export function paintEmblem(c: HTMLCanvasElement, nodeId: string, size: number):
       g.fill();
     }
   }
-  // the glyph, when its sheet has come
-  const [sheet, cell] = e.glyph;
-  const info = iconSheet(sheet);
-  void sheetImage(sheet).then((im) => {
-    const gs = S * 0.56;
-    const gx = S / 2 - gs / 2;
-    const gy = S * 0.46 - gs / 2;
-    const sx = (cell % info.cols) * info.cell;
-    const sy = Math.floor(cell / info.cols) * info.cell;
+  // the devices, when their sheets have come: the crossed pair behind, the main device over it, the charges
+  const parts: { g: Glyph; x: number; y: number; size: number; flip?: boolean; alpha?: number; shadow?: boolean }[] = [];
+  const cx = S / 2;
+  const cy = S * 0.47;
+  if (e.behind) {
+    const bs = S * 0.7;
+    parts.push({ g: e.behind, x: cx, y: cy, size: bs, alpha: 0.95, shadow: true }, { g: e.behind, x: cx, y: cy, size: bs, flip: true, alpha: 0.95, shadow: true });
+  }
+  if (e.main) parts.push({ g: e.main, x: cx, y: e.behind ? cy + S * 0.02 : cy, size: e.behind ? S * 0.46 : S * 0.56, shadow: true });
+  if (e.charge) parts.push({ g: e.charge, x: S * 0.76, y: S * 0.66, size: S * 0.3, shadow: true });
+  if (e.gem) parts.push({ g: GEM, x: S * 0.25, y: S * 0.66, size: S * 0.26, shadow: true });
+  if (e.crown) parts.push({ g: CROWN, x: cx, y: S * 0.17, size: S * 0.34, shadow: true });
+  const sheets = [...new Set(parts.map((q) => q.g[0]))];
+  void Promise.all(sheets.map((sh) => sheetImage(sh).then((im) => [sh, im] as const))).then((loaded) => {
+    const by = new Map<GlyphSheet, HTMLImageElement>(loaded);
     g.save();
     g.imageSmoothingEnabled = false;
-    // a shadow under it, then the glyph
-    g.globalAlpha = 0.55;
-    g.filter = 'brightness(0)';
-    g.drawImage(im, sx, sy, info.cell, info.cell, gx + S * 0.03, gy + S * 0.04, gs, gs);
-    g.filter = 'none';
-    g.globalAlpha = 1;
-    g.drawImage(im, sx, sy, info.cell, info.cell, gx, gy, gs, gs);
+    for (const q of parts) {
+      const im = by.get(q.g[0]);
+      if (!im) continue;
+      const info = iconSheet(q.g[0]);
+      const sx = (q.g[1] % info.cols) * info.cell;
+      const sy = Math.floor(q.g[1] / info.cols) * info.cell;
+      const draw = (dx: number, dy: number) => {
+        g.save();
+        g.translate(q.x + dx, q.y + dy);
+        if (q.flip) g.scale(-1, 1);
+        g.drawImage(im, sx, sy, info.cell, info.cell, -q.size / 2, -q.size / 2, q.size, q.size);
+        g.restore();
+      };
+      if (q.shadow) {
+        g.globalAlpha = 0.5;
+        g.filter = 'brightness(0)';
+        draw(S * 0.025, S * 0.035);
+        g.filter = 'none';
+      }
+      g.globalAlpha = q.alpha ?? 1;
+      draw(0, 0);
+    }
     g.restore();
   });
 }

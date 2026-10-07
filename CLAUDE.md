@@ -2330,17 +2330,22 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **The evolution card: story, flair and class emblems (the owner's ask, after the Final Fantasy jobs and Baldur's
   Gate's class pages):** `src/shared/data/pathLore.ts` (`FORK`: each base calling's crossroads told as a scene with
   `{name}`; `LORE`: a passage for every node but the ascended, which share `ASCENDED`; `loreOf`) and
-  `src/shared/data/emblems.ts` (`BASE_COLOURS` by base calling, `GLYPHS` a DawnLike or Magic Items cell per node,
-  `emblemOf` falling back up the lineage; the sheets `Book` and `Music` were added to `art/items` and `IconSheet`).
+  `src/shared/data/emblems.ts` (`BASE_COLOURS` by base calling; `COMPOSITIONS`: each node's badge layered from
+  several DawnLike and Magic Items cells (the owner's ask: sprites combined): `behind` a pair of one cell crossed (one
+  mirrored: swords for the Fighter's roads, spears for the Guard's, arrows for the Scout's, daggers, wands, scrolls,
+  branches, flutes...), `main` the calling's own device, `charge` a small thing in a corner; a part a node doesn't set
+  is the nearest up its road, `null` leaves it out; `emblemOf` adds a `GEM` for a stage-3 road and the `CROWN` for an
+  ascended form; the sheets `Book`, `Music` and `Money` are in `art/items` and `IconSheet`).
   `src/renderer/art/emblems.ts` paints a node's badge on a canvas (`emblemCanvas`, `paintEmblem`: a heater shield in
   the base's colours, the device by stage: plain, a chevron, a bend, a bordure, and for an ascended form a golden field
-  with rays and a glow; the rim brightens by stage, pips count it; the glyph from `iconSheet` lands when its sheet has
-  loaded). The `evolve` prompt's `story` is the fork scene; `PromptView.roads` (`roadOf` in snapshot.ts: name, role,
+  with rays and a glow; the rim brightens by stage, pips count it; then the parts in order once their sheets have
+  loaded, each with a shadow: the crossed pair at 0.7, the device at 0.46, the charge bottom-right, the gem bottom-left,
+  the crown at the top). The `evolve` prompt's `story` is the fork scene; `PromptView.roads` (`roadOf` in snapshot.ts: name, role,
   text, lore and the signature skill described) feeds the event box's own layout for the kind (`eventSheet.ts`: the
   title ruled and starred, each road an illuminated `.road-card` with its emblem, name, role, lore, skill and "Walk the
   X's road", then "Let them choose"; CSS in mobile/index.html). The People page shows the emblem beside the calling
   chip and on the two road cards, with their lore (`PersonView.roadId`, `road.next[].lore`). Test in
-  `test/paths.test.ts` (lore for every node, every glyph on its sheet, no fork's two roads sharing a glyph).
+  `test/paths.test.ts` (lore for every node, every part on its sheet, no fork's two roads composed alike).
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
