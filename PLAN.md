@@ -1,5 +1,9 @@
 # Plan: a town of people with lives of their own
 
+> **Status: done.** Every step below landed (the economy, ambitions, parties that form themselves, events with
+> weight, ceremonies, the art) and was merged. The notes on how each turned out are in [CLAUDE.md](CLAUDE.md) under
+> "The townsfolk's own economy". The later plans (the Conquest update among them) are kept in CLAUDE.md directly.
+
 The owner's direction (October 2026): the money stops being the town's and becomes the townsfolk's. Each person earns
 by their work, keeps a purse, pays rent or buys land, pays tax; the founder's treasury (rent and tax) pays the guards.
 People have a life goal, friendships and grudges, go adventuring on their own in parties that make sense, own shops,

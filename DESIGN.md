@@ -1,5 +1,13 @@
 # Town Builder Game — Design Document (working title)
 
+> **This is the original design, written before the game was built.** The game grew well past it and away from it
+> in places: it is played on a phone first (the desktop strip is secondary), the town is a top-down map rather than
+> a strip, the town runs itself and the player steers rather than orders, raids are fought on a tactics board,
+> there are twelve peoples, a realm of rival powers, classes and class paths, dungeons, sagas, a townsfolk economy,
+> and the Conquest (a world of provinces to win). For the game as it stands, read [README.md](README.md) and the
+> working notes in [CLAUDE.md](CLAUDE.md). The document below is kept as it was, for the record.
+
+
 A pixel-art idle / RPG / sandbox town builder that lives in a thin strip at the bottom of the desktop, just above the taskbar. You start with a lone main character at a campsite and grow it into a town, advancing through eras from Neolithic to Space. It is a completely new game, separate from Little Wayfarers, but it reuses the Little Wayfarers overlay approach and sprite set.
 
 The player is usually working while the game runs, so the game must be low-effort to glance at, never block the desktop, and never need hotkeys.
