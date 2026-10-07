@@ -11,7 +11,7 @@ const MASTER = 0.55;
 const FADE = 1.2;
 
 /** A sound to play now: what, and where across the screen (-1 left to 1 right). */
-export type Cue = 'chop' | 'mine' | 'build' | 'thunder' | 'horn' | 'quack' | 'splash' | 'crunch' | 'squelch';
+export type Cue = 'chop' | 'mine' | 'build' | 'thunder' | 'horn' | 'quack' | 'splash' | 'crunch' | 'squelch' | 'bark' | 'meow' | 'cluck';
 
 export interface Ambience {
   /** Each frame: on or off, the mix, and the seconds since the last. */
@@ -226,6 +226,20 @@ export function createAmbience(): Ambience {
     crunch: (pan, delay) => {
       burst('bandpass', 2300 + Math.random() * 900, 1.4, 0.07, 0.05, pan, delay, 0.004);
       burst('bandpass', 1700 + Math.random() * 700, 1.2, 0.06, 0.03, pan, delay + 0.05, 0.004);
+    },
+    // the town's animals: a dog's two quick barks, a cat's rising-falling mew, a hen's clucks
+    bark: (pan, delay) => {
+      const f = 330 + Math.random() * 140;
+      tone('sawtooth', f, f * 0.62, 0.09, 0.05, pan, delay);
+      burst('bandpass', f * 2.2, 2, 0.07, 0.03, pan, delay, 0.003);
+      tone('sawtooth', f * 1.05, f * 0.6, 0.08, 0.04, pan, delay + 0.17);
+    },
+    meow: (pan, delay) => {
+      tone('triangle', 520, 780, 0.18, 0.025, pan, delay);
+      tone('triangle', 780, 460, 0.28, 0.022, pan, delay + 0.17);
+    },
+    cluck: (pan, delay) => {
+      for (let i = 0; i < 3; i++) tone('square', 460 + Math.random() * 80, 300, 0.05, 0.012, pan, delay + i * 0.11);
     },
     // a foot in the rain's mud: a low wet suck
     squelch: (pan, delay) => burst('lowpass', 420 + Math.random() * 200, 2, 0.12, 0.05, pan, delay, 0.02),

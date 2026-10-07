@@ -2151,6 +2151,23 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   **Breath** shows as a puff drifting up from each head in winter, the tundra and autumn's small hours (never the dead or
   machines). Steps in snow and mud are heard (`crunch`, `squelch` cues in ambience.ts). None of it on a slow phone.
   `window.__tracks`, `window.__centre(x, y)` for previews. Test: `test/winter.test.ts`.
+- **The town's animals (the owner's ask: something massive):** `src/renderer/map/pets.ts` (pure: `petsOf(home,
+  people)`: by the home's id, `DOG_SHARE` a dog, `CAT_SHARE` a cat, `HEN_SHARE` two to four hens with now and then a
+  rooster, each named; the liches and the Court keep only black cats, the machines nothing; `petLine` for the card) and
+  `map/mapPets.ts` (`MapPets`, in `things`, fed by main.ts each snapshot with the homes people sleep in, who's about and
+  the raiders; DawnLike's Dog, Cat and Avian cells appended to `art/wildlife.png` from column `PET_COL` 14 by
+  tools/compose-wildlife.cjs). A dog lazes by its door, noses about, trots at the heels of the people of its house when
+  they pass (`follow`), sleeps by the door at night and runs out barking at raiders ("Woof!", "Grrr!"); a cat washes on
+  the doorstep, strolls, prowls further by night and bolts from a dog ("Hsss!"); hens peck about the yard, scatter from
+  feet and go to roost at dusk. Tap one (`Hover` kind `pet`) for its name and what it's doing, and **Scratch behind the
+  ears** (a happy hop and a heart). Barks, mews and clucks are heard (ambience.ts cues). Shown on a slow phone too,
+  without the floating words. `window.__pets` for previews.
+- **Weather seen from above:** `src/renderer/map/mapSky.ts` (`skyFor`, pure: fog in fog weather and thin mist on spring
+  and autumn mornings; a sandstorm in the desert's cloud, rain and storms; a blizzard when a third of the winter's snow
+  spells blow up (`spell`) or a storm comes to the cold; heat haze over the desert's clear summer noons). `MapSky`: fog
+  banks drifting on the land (in MapView's `over`) and a pale cast, an ochre cast with sand streaks and tumbling dust
+  clouds, a white cast with snow driven sideways, shimmering bands; each eases in over some seconds. The wind howls
+  with them (ambience). `window.__sky.force` holds one for previews. Tests: `test/pets.test.ts`.
 - **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
   (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
   pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and

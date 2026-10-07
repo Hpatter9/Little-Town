@@ -30,6 +30,17 @@ const CELLS = [
   ['Avian', 3, 4],
   ['Aquatic', 0, 0],
   ['Aquatic', 4, 0],
+  // the town's own animals (map/mapPets.ts, PET_COL on): four dogs, four cats, a rooster and a hen
+  ['Dog', 0, 0],
+  ['Dog', 1, 0],
+  ['Dog', 3, 0],
+  ['Dog', 4, 0],
+  ['Cat', 0, 0],
+  ['Cat', 2, 0],
+  ['Cat', 0, 2],
+  ['Cat', 0, 3],
+  ['Avian', 1, 8],
+  ['Avian', 2, 8],
 ];
 (async () => {
   const data = {};
