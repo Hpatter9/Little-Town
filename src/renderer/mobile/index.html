@@ -606,6 +606,187 @@
           max-height: calc(100% - var(--tabs-h) - 16px - env(safe-area-inset-bottom));
         }
       }
+      /* the news bubble (notices.ts): at the right over the town while there's news not looked at, in the worst tone
+         of it, as RimWorld colours its letters: red a threat or a loss, gold something that wants you, blue the rest */
+      #notice-bubble {
+        position: fixed;
+        right: calc(env(safe-area-inset-right) + 10px);
+        top: calc(50% - 26px); /* (clear of the minimap above and the strip's pop-ups below) */
+        z-index: 5;
+        width: 52px;
+        height: 52px;
+        padding: 0;
+        border-radius: 50%;
+        border: 3px solid #e8c88a;
+        background: #2a5a9a;
+        color: #fff;
+        font: inherit;
+        font-size: 18px;
+        font-weight: bold;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+      }
+      #notice-bubble[hidden] {
+        display: none;
+      }
+      #notice-bubble.tone-gold {
+        background: #b8882a;
+        border-color: #ffe08a;
+      }
+      #notice-bubble.tone-red {
+        background: #a83224;
+        border-color: #ffb0a0;
+        animation: notice-pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes notice-pulse {
+        0%,
+        100% {
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.7), 0 0 0 0 rgba(255, 90, 60, 0.7);
+        }
+        50% {
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.7), 0 0 0 10px rgba(255, 90, 60, 0);
+        }
+      }
+      body.menu-open #notice-bubble,
+      body.battle #notice-bubble,
+      body.event-open #notice-bubble {
+        display: none;
+      }
+      /* the review page: every piece of news, the new ones bright, with its colour down the left and its button */
+      #notice-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        background: #16110c;
+        color: #f0e4c8;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      }
+      #notice-sheet[hidden] {
+        display: none;
+      }
+      .notice-head {
+        position: sticky;
+        top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px 8px 16px;
+        background: #16110c;
+        border-bottom: 2px solid #c79a55;
+        z-index: 1;
+      }
+      .notice-title {
+        font-family: var(--font-display);
+        font-size: 22px;
+        color: #ffe08a;
+      }
+      .notice-close {
+        width: 44px;
+        height: 40px;
+        font-size: 18px;
+        color: #f0e4c8;
+        background: #3b2b1e;
+        border: 2px solid #6e4d2e;
+        border-radius: 6px;
+      }
+      .notice-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px 10px 4px;
+      }
+      .notice-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px 9px 7px 11px;
+        background: rgba(30, 22, 15, 0.9);
+        border: 1px solid rgba(110, 77, 46, 0.6);
+        border-left: 6px solid #4a78b8;
+        border-radius: 7px;
+        opacity: 0.72;
+      }
+      .notice-row.new {
+        opacity: 1;
+        background: #2a1f14;
+        border-color: #8a6a3a;
+      }
+      .notice-row.tone-blue {
+        border-left-color: #4a78b8;
+      }
+      .notice-row.tone-gold {
+        border-left-color: #e0b040;
+      }
+      .notice-row.tone-red {
+        border-left-color: #d84a30;
+      }
+      .notice-row.new.tone-red {
+        background: rgba(70, 22, 16, 0.94);
+      }
+      .notice-pic {
+        flex: none;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 5px;
+        background: rgba(0, 0, 0, 0.3);
+        color: #e8c88a;
+        font-size: 20px;
+        overflow: hidden;
+      }
+      .notice-pic canvas {
+        image-rendering: pixelated;
+        max-width: 100%;
+        max-height: 100%;
+      }
+      .notice-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .notice-text {
+        font-size: 15px;
+        line-height: 1.3;
+      }
+      .notice-more,
+      .notice-when {
+        font-size: 12px;
+        color: #c8b89a;
+        margin-top: 2px;
+      }
+      .notice-act {
+        flex: none;
+        min-height: 36px;
+        padding: 4px 10px;
+        font: inherit;
+        font-size: 13px;
+        color: #f0e4c8;
+        background: #3b2b1e;
+        border: 2px solid #c79a55;
+        border-radius: 6px;
+      }
+      .notice-empty {
+        padding: 24px 12px;
+        text-align: center;
+        color: #c8b89a;
+      }
+      .notice-foot {
+        padding: 10px 12px 18px;
+        display: flex;
+        justify-content: center;
+      }
+      .notice-btn {
+        min-height: 44px;
+        padding: 8px 18px;
+        font: inherit;
+        font-size: 15px;
+        color: #f0e4c8;
+        background: #3b2b1e;
+        border: 2px solid #6e4d2e;
+        border-radius: 6px;
+      }
       /* a choice event: the whole screen, a picture over the telling, the answers as big buttons (eventSheet.ts) */
       #event-sheet {
         position: fixed;
@@ -746,7 +927,6 @@
     </div>
     <div id="menu" hidden></div>
     <div id="hint">Tap people and buildings to see them, and drag to look along the town. A long press cancels.</div>
-    <div id="feed"></div>
     <div id="inspect" hidden></div>
     <div id="tabs"></div>
     <div id="sheet" hidden></div>

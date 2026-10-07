@@ -199,16 +199,34 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
   const reach = Math.ceil(Math.max(Math.hypot(r.x - c.x, r.y - c.y), Math.hypot(r.x + r.w - 1 - c.x, r.y - c.y), Math.hypot(r.x - c.x, r.y + r.h - 1 - c.y), Math.hypot(r.x + r.w - 1 - c.x, r.y + r.h - 1 - c.y)));
   if (s.land.open < reach + 1) s.land.open = reach + 1;
   const missing = missingPieces(s, ring);
-  if (!missing.length) {
-    if (!ring.done && !s.buildings.some((b) => b.ring === ring.gen && b.status !== 'done')) {
-      // (standing all round: the older rings, and the old end walls, come down)
-      for (const b of s.buildings.filter((q) => isRingPiece(q.def) && q.ring !== ring.gen)) demolish(s, b.id);
-      ring.done = true;
-      ring.doneAt = s.tick;
-    }
+  if (!missing.length && !ring.done && !s.buildings.some((b) => b.ring === ring.gen && b.status !== 'done')) {
+    // (standing all round: the older rings, and the old end walls, come down)
+    for (const b of s.buildings.filter((q) => isRingPiece(q.def) && q.ring !== ring.gen)) demolish(s, b.id);
+    ring.done = true;
+    ring.doneAt = s.tick;
     return clear;
   }
-  const queued = s.buildings.filter((b) => b.ring === ring.gen && b.status === 'blueprint').length;
+  // The whole ring is laid out at once (the owner's ask: one blueprint for the wall, built a section at a time):
+  // every piece that can stand now goes down as a planned blueprint (`Building.planned`: no slot, no hauling, walked
+  // through), and the sections are released into work in the ring's order, `RING_AT_ONCE` at a time.
+  for (const piece of missing) {
+    if (piece.clear) {
+      if (clear.length < RING_CLEAR) clear.push(idx(s.land, piece.at.x, piece.at.y));
+      continue;
+    }
+    if (placeBlueprint(s, piece.def, piece.at.x, piece.at.y, !!piece.turned).ok) {
+      const b = s.buildings[s.buildings.length - 1];
+      b.ring = ring.gen;
+      b.planned = true;
+    }
+  }
+  // (a better wall learned since: the pieces still only planned become it)
+  for (const b of s.buildings) {
+    if (b.ring !== ring.gen || !b.planned) continue;
+    if (isGate(b.def) && b.def !== ring.gate) b.def = ring.gate;
+    else if (!isGate(b.def) && b.def !== ring.wall) b.def = ring.wall;
+  }
+  const queued = s.buildings.filter((b) => b.ring === ring.gen && b.status === 'blueprint' && !b.planned).length;
   // (what the other sites still wait on is theirs: the wall never takes the shop's last logs)
   const owed: Record<string, number> = {};
   for (const b of s.buildings) {
@@ -216,18 +234,14 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     for (const [m, n] of Object.entries(BUILDING_BY_ID[b.def]?.cost ?? {})) owed[m] = (owed[m] ?? 0) + Math.max(0, (n ?? 0) - (b.delivered[m as keyof typeof b.delivered] ?? 0));
   }
   let room = Math.min(RING_AT_ONCE - queued, buildSlots(s) - 1 - blueprintCount(s));
-  for (const piece of missing) {
-    if (piece.clear) {
-      if (clear.length < RING_CLEAR) clear.push(idx(s.land, piece.at.x, piece.at.y));
-      continue;
-    }
-    if (room <= 0) continue;
-    const cost = BUILDING_BY_ID[piece.def].cost;
+  // (the next sections, in the order they were laid: the gates first, then round the ring)
+  for (const b of s.buildings) {
+    if (room <= 0) break;
+    if (b.ring !== ring.gen || !b.planned) continue;
+    const cost = BUILDING_BY_ID[b.def].cost;
     if (Object.entries(cost).some(([m, n]) => (stock[m] ?? 0) - (owed[m] ?? 0) < (n ?? 0) * RING_SPARE)) continue;
-    if (placeBlueprint(s, piece.def, piece.at.x, piece.at.y, !!piece.turned).ok) {
-      s.buildings[s.buildings.length - 1].ring = ring.gen;
-      room--;
-    }
+    delete b.planned;
+    room--;
   }
   return clear;
 }

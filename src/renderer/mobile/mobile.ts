@@ -2,7 +2,7 @@
 // in two frames: the town strip along the bottom, scaled up for fingers, and the menus in a sheet above it.
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
-import { startFeed } from './feed';
+import { startNotices } from './notices';
 import { createEventSheet } from './eventSheet';
 import { PANELS, type StripState } from '../../shared/ipc';
 import { mobileBridge } from './mobileBridge';
@@ -24,36 +24,6 @@ const ZOOM_KEYS: Record<Orientation, string> = { upright: 'littletown.zoom4', si
 const DEFAULT_ZOOMS: Record<Orientation, number> = { upright: 0.5, sideways: 0.5 };
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.6;
-/** Upright, the town takes at least this share of the height between the title bar and the tabs (the feed has the
- *  rest), and up to UPRIGHT_TOWN_MOST while the feed holds little: the map has the room until there's news. */
-const UPRIGHT_TOWN = 0.55;
-const UPRIGHT_TOWN_MOST = 0.82;
-/** The town's share upright, by how much the feed has to show (in steps of a twentieth, so it doesn't twitch). */
-function townShare(free: number): number {
-  const feed = document.getElementById('feed');
-  if (!feed || free <= 0) return UPRIGHT_TOWN;
-  let need = 12;
-  for (const c of Array.from(feed.children) as HTMLElement[]) if (c.offsetHeight) need += c.offsetHeight + 6;
-  const share = Math.round((1 - need / free) * 20) / 20;
-  return Math.min(UPRIGHT_TOWN_MOST, Math.max(UPRIGHT_TOWN, share));
-}
-
-/** The player's own share for the map upright, set by dragging its grip (null: it follows the feed, as above).
- *  From MAP_LEAST (half the room) to the whole of it, the feed hidden. */
-const MAP_SHARE_KEY = 'littletown.mapShare';
-const MAP_LEAST = 0.5;
-const MAP_FULL = 0.97;
-let mapShare: number | null = (() => {
-  try {
-    const v = localStorage.getItem(MAP_SHARE_KEY);
-    const n = v == null ? NaN : Number(v);
-    return n >= MAP_LEAST && n <= 1 ? n : null;
-  } catch {
-    return null;
-  }
-})();
-const shareNow = (free: number) => (mapShare == null ? townShare(free) : mapShare >= MAP_FULL ? 1 : mapShare);
-
 const bridge = mobileBridge();
 window.bridge = bridge;
 
@@ -100,10 +70,8 @@ let watchOn = false;
 
 function layout(): void {
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
-  // (upright, the town has the lower part and the feed the rest; on its side, everything under the tabs)
-  // (in a battle the map has all of it, the feed hidden; watching a party's fight too, drawn at its own scale)
-  const room = sideways.matches || battleOn ? free : Math.round(free * shareNow(free));
-  document.body.classList.toggle('map-full', !sideways.matches && !battleOn && room >= free);
+  // (the town has all the room under the title bar and over the tabs; the news is a bubble over it: notices.ts)
+  const room = free;
   // (the top-down town fills its room at the zoom, a raid's battle on it; a party's fight is drawn at its own scale)
   const fit = watchOn ? 1 : zoom;
   // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
@@ -127,8 +95,9 @@ function layout(): void {
   }
   document.documentElement.style.setProperty('--strip-h', `${height * z}px`);
   strip.contentDocument?.documentElement?.style.setProperty('--ui-zoom', String(1 / z));
-  // (while the feed is showing, its cards carry the news: the strip's own pop-up notices would only repeat them)
-  strip.contentDocument?.body?.classList.toggle('feed-shown', !sideways.matches && !battleOn);
+  // (the news bubble carries the news: the strip's own pop-up notices would only repeat them, so it pops only the
+  // day's small change; the class keeps its old name)
+  strip.contentDocument?.body?.classList.toggle('feed-shown', !battleOn);
 }
 function setZoom(z: number): void {
   zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
@@ -276,86 +245,13 @@ const applyState = (s: StripState) => {
 bridge.onState(applyState);
 void bridge.getState().then(applyState); // (a first run opens on the New town panel)
 
-/* ------------------------------------------------------------ the feed (upright) */
+/* ------------------------------------------------------------ the news bubble */
 
-startFeed($('feed'), bridge, strip);
-// (as the feed fills or empties, the town gives up room or takes it back)
+// (the owner's ask: no feed over the town; a bubble at the right while there's news not yet looked at, coloured by
+// the worst of it, opening a page to review it and act: notices.ts)
 {
-  let share = -1;
-  let queued = false;
-  new MutationObserver(() => {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      if (sideways.matches) return;
-      const free = window.innerHeight - $('tabs').offsetHeight - $('top').offsetHeight;
-      if (mapShare != null) return; // (the player set the map's size: the feed doesn't move it)
-      const now = townShare(free);
-      if (now !== share) {
-        share = now;
-        layout();
-      }
-    });
-  }).observe($('feed'), { childList: true, subtree: true, characterData: true });
-}
-
-/* ------------------------------------------------------------ the map's grip (upright) */
-
-// A grip on the map's top edge: drag it up to stretch the map over the feed, down to give the feed its half back;
-// a tap flips between the whole screen and half. The size is kept (MAP_SHARE_KEY).
-{
-  const grip = document.createElement('div');
-  grip.id = 'map-grip';
-  grip.title = 'Drag to resize the map; tap for full or half';
-  grip.innerHTML = '<span></span>';
-  document.body.append(grip);
-  const freeNow = () => window.innerHeight - $('tabs').offsetHeight - $('top').offsetHeight;
-  const keep = () => {
-    try {
-      if (mapShare == null) localStorage.removeItem(MAP_SHARE_KEY);
-      else localStorage.setItem(MAP_SHARE_KEY, String(mapShare));
-    } catch {}
-  };
-  let drag: { y: number; from: number; moved: boolean; id: number } | null = null;
-  let queued = false;
-  const relayout = () => {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      layout();
-    });
-  };
-  grip.addEventListener('pointerdown', (e) => {
-    const free = freeNow();
-    drag = { y: e.clientY, from: shareNow(free), moved: false, id: e.pointerId };
-    grip.setPointerCapture(e.pointerId);
-    grip.classList.add('dragging');
-    e.preventDefault();
-  });
-  grip.addEventListener('pointermove', (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const dy = drag.y - e.clientY;
-    if (Math.abs(dy) > 6) drag.moved = true;
-    if (!drag.moved) return;
-    const free = freeNow();
-    mapShare = Math.min(1, Math.max(MAP_LEAST, drag.from + dy / free));
-    relayout();
-  });
-  const end = (e: PointerEvent) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const free = freeNow();
-    if (!drag.moved) mapShare = drag.from >= MAP_FULL ? MAP_LEAST : 1; // (a tap: full, or back to half)
-    else if (mapShare != null) mapShare = mapShare >= 0.9 ? 1 : mapShare <= MAP_LEAST + 0.04 ? MAP_LEAST : Math.round(mapShare * 20) / 20;
-    void free;
-    drag = null;
-    grip.classList.remove('dragging');
-    keep();
-    layout();
-  };
-  grip.addEventListener('pointerup', end);
-  grip.addEventListener('pointercancel', end);
+  const { bubble, sheet: news } = startNotices(bridge, strip);
+  document.body.append(bubble, news);
 }
 
 /* ------------------------------------------------------------ the selected thing's card */

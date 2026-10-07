@@ -53,7 +53,10 @@ export class Minimap {
     hide.className = 'mini-hide';
     hide.textContent = '×';
     hide.title = 'Hide the map';
-    hide.addEventListener('pointerdown', (e) => {
+    // (hidden on the click, not the pointer-down: the Map tab takes the same corner, and a tap's click would land
+    // on it and bring the map straight back; the pointer-down only keeps the look-there from firing)
+    hide.addEventListener('pointerdown', (e) => e.stopPropagation());
+    hide.addEventListener('click', (e) => {
       e.stopPropagation();
       this.shown = false;
     });

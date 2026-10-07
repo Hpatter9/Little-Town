@@ -91,6 +91,9 @@ export interface Building {
   hp?: number;
   /** A piece of the town's ring wall (sim/ringWall.ts): which ring. */
   ring?: number;
+  /** A blueprint laid out as part of a whole (the ring wall at once) but not yet in work: nobody hauls to it or
+   *  builds it, it takes no build slot, and people walk through it, until the plan releases it (`planned` dropped). */
+  planned?: boolean;
   /** Turned a quarter: its footprint is its depth wide and its width deep (a gate in the ring wall's west or east
    *  run stands along the wall). */
   turned?: boolean;

@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { trail } from '../src/shared/sim/battle';
-import { footprint } from '../src/shared/sim/buildings';
-import { inRect } from '../src/shared/sim/land';
+import { blueprintCount, footprint } from '../src/shared/sim/buildings';
+import { groundAt, inRect, isRoad, WILD } from '../src/shared/sim/land';
 import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
-import { gateAt, gateCells, gateTurned, isGate, isRingPiece, RING_PAD, RING_STEP, ringCells, wantRect } from '../src/shared/sim/ringWall';
+import { gateAt, gateCells, gateTurned, isGate, isRingPiece, RING_AT_ONCE, RING_PAD, RING_STEP, ringCells, wantRect } from '../src/shared/sim/ringWall';
 import { campCell, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { pathTo } from '../src/shared/sim/walk';
 import { CELL } from '../src/shared/sim/land';
@@ -26,7 +26,7 @@ function raise(s: GameState, gen = 1, most = 400): number {
   while (passes < most && !(s.ring?.done && s.ring.gen >= gen)) {
     s.tick += PLAN_TICKS;
     runPlanner(s);
-    for (const b of s.buildings) if (b.status === 'blueprint') finish(b); // (everything is built between passes)
+    for (const b of s.buildings) if (b.status === 'blueprint' && !b.planned) finish(b); // (everything in work is built between passes)
     passes++;
   }
   return passes;
@@ -110,8 +110,35 @@ test('the wall leaves the other sites the materials they still wait on', () => {
   s.buildings[0].store = { wood: 12 + BUILDING_BY_ID.palisade_wall.cost.wood! * 3 - 1, stone: 500 };
   s.tick += PLAN_TICKS;
   runPlanner(s);
-  assert.equal(s.buildings.filter((b) => isRingPiece(b.def) && b.status === 'blueprint').length, 0, 'no wall piece queued over the shop');
+  assert.equal(s.buildings.filter((b) => isRingPiece(b.def) && b.status === 'blueprint' && !b.planned).length, 0, 'no wall piece in work over the shop (the ring is laid out, planned)');
   s.buildings[0].store = { wood: 3000, stone: 500 };
   raise(s, 1, 30);
-  assert.ok(s.buildings.some((b) => isRingPiece(b.def)), 'with wood to spare, the wall goes up');
+  assert.ok(s.buildings.some((b) => isRingPiece(b.def) && b.status === 'done'), 'with wood to spare, the wall goes up');
+});
+
+test('the whole ring is laid out as one blueprint, built a few sections at a time, and walked through meanwhile', () => {
+  const s = walledTown('ring-planned');
+  s.tick += PLAN_TICKS;
+  runPlanner(s);
+  const r = s.ring!.rect;
+  const pieces = s.buildings.filter((b) => b.ring === s.ring!.gen);
+  const covered = (p: { x: number; y: number }) => pieces.some((b) => inRect(footprint(b), p.x, p.y));
+  // (a cell still wild waits to be cleared, the river and a road beside a gate take no wall; everything else is laid at once)
+  const open = ringCells(r).filter((p) => !covered(p) && !WILD.includes(groundAt(s.land, p.x, p.y)) && !['water', 'shallows', 'mountain'].includes(groundAt(s.land, p.x, p.y)) && !isRoad(s.land, p.x, p.y));
+  assert.equal(open.length, 0, `the first pass lays the whole ring: gaps at ${JSON.stringify(open)}`);
+  const inWork = pieces.filter((b) => !b.planned);
+  assert.ok(inWork.length > 0 && inWork.length <= RING_AT_ONCE, `${inWork.length} sections in work`);
+  assert.ok(pieces.length > inWork.length * 5, 'the rest only planned');
+  // the planned pieces take no build slot, and the gates come first
+  assert.equal(blueprintCount(s), s.buildings.filter((b) => b.status === 'blueprint' && !b.planned).length);
+  assert.ok(inWork.every((b) => isGate(b.def)), 'the gates are the first sections');
+  // the planned line is no wall yet: a way straight out over it
+  const c = campCell(s);
+  const path = pathTo(s, { x: (c.x + 0.5) * CELL, y: (c.y + 1.5) * CELL }, { x: (c.x + 0.5) * CELL, y: (r.y + r.h + 2.5) * CELL });
+  assert.ok(path, 'a way out across the planned wall');
+  // built section by section, the ring stands in the end
+  const passes = raise(s);
+  assert.ok(s.ring?.done, `ring after ${passes} passes`);
+  assert.ok(passes > 5, `built over ${passes} passes, not all at once`);
+  assert.ok(s.buildings.filter((b) => b.ring === s.ring!.gen).every((b) => b.status === 'done' && !b.planned));
 });

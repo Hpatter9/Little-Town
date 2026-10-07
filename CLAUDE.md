@@ -135,13 +135,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   - All the new state fields are optional (no save version bump): old saves load with no coins and no shop.
 - **Menus take the whole screen on the phone** (the `menu-open` class in `mobile/index.html`): the town runs
   itself, so there's little to watch while a menu is open. The tabs stay visible (along the bottom upright).
-- **The phone held upright:** a slim title bar; a live **feed** (`src/renderer/mobile/feed.ts`): cards for what wants
-  attention now (raid, disaster, a question), the hero being followed, and the latest happenings (the Journal, the
-  day's small change left out: `CHATTER`), each with a picture borrowed from the strip (`window.__picture` in
-  `main.ts`: the townsperson's head, or the building in the town's style) or a mark for the kind of news; the town,
-  bigger, in the lower `UPRIGHT_TOWN` (55%) of the height (`layout()` in `mobile.ts`: the strip fills its room, sky over
-  the town; upright zoom key `littletown.zoom3`, default 1.5); and one slim row of tabs along the bottom (a mark over a
-  short name: `TAB_ICONS`, `SHORT_LABELS`). Sideways is as it was.
+- **The phone held upright:** a slim title bar, the town filling the rest of the height (`layout()` in `mobile.ts`),
+  and one slim row of tabs along the bottom (a mark over a short name: `TAB_ICONS`, `SHORT_LABELS`). The feed that
+  once sat over the town is gone (the owner's ask); the news is the **news bubble** (see "The news bubble" below).
 - **Phase 3 is done** (the Tavern: see above).
 - **Origins are done:** `src/shared/data/origins.ts` (defs: start, rules, powers), applied at founding in
   `newGame`; the rule multipliers are in `src/shared/sim/origin.ts` (asked for by people, farming, raids, crafting, the
@@ -596,9 +592,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   unique held to the venues' attractiveness (`trophyRenown` in shop.ts). Phone alerts: the `delves` setting (forecast
   kind `delve`: the boss met, cleared, a unique, a dungeon woken). The Expeditions tab lists open quests and marks
   dungeons with a quest or lying quiet. Tests: `test/quests.test.ts`.
-- **Fewer pop-up notices over the town upright:** the phone page marks the strip `feed-shown` (`layout()` in
-  `mobile.ts`) while the feed is on screen; then the strip pops up only the small change the feed leaves out
-  (`CHATTER` in `renderer/chatter.ts`, shared with `feed.ts`). Sideways (no feed) every notice still pops up.
+- **Fewer pop-up notices over the town:** the phone page marks the strip `feed-shown` (`layout()` in `mobile.ts`,
+  the class keeping its old name) whenever no battle is on; then the strip pops up only the day's small change
+  (`CHATTER` in `renderer/chatter.ts`), since the news bubble carries the rest.
 
 - **Townsfolk tab: short rows, and an inspect page:** `panel/townsfolkPanel.ts`. The list is one row per person (their
   face cropped from the composed LPC sprite, name, class and level, what they're doing, mini health and morale bars, a
@@ -773,7 +769,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   rest, only while the stores hold `RING_SPARE` (3) times a piece's cost, none while food is under 2 days, and not
   before the shop in a town that must buy what it builds with (`shopFirst`); when the town grows past the ring (`contains`) a wider one is started outside
   it (a new gen), and once the new ring stands all round (`ringComplete`) the older pieces, and the old strip's end
-  walls, are demolished (half refunded). The known land is opened to the ring's corners. Townsfolk walk out through the
+  walls, are demolished (half refunded). **One blueprint for the whole wall (the owner's ask):** every piece of the ring
+  that can stand now is laid at once as a *planned* blueprint (`Building.planned`: it takes no build slot
+  (`blueprintCount` counts only `inWork` blueprints), nobody hauls to it or builds it (people.ts), the planner's wants
+  and `shelveStalled` skip it, and `blockedBy` lets people walk through it); the map draws a planned piece as the wall's
+  ghost alone (`updateBlueprint`), and `planRing` releases the sections into work in the ring's order (the gates first,
+  then round), `RING_AT_ONCE` at a time under the old stock rule; a better wall learned remakes the planned pieces as
+  it. Test in `test/ringWall.test.ts`. The known land is opened to the ring's corners. Townsfolk walk out through the
   gates (`blockedBy` in walk.ts and `connectRoad` let gates through; a sealed town walks straight through, as `walk`
   always did); raids' trails end at the ring's gate on their side (`ringGate` in battle.ts `gateCell`), raiders break
   the gate or wall as before (`wallBetween`), and shooters stand on the ring's pieces near the trail (wall spots). The
@@ -1318,10 +1320,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   beyond the open land is per 4px block by its own distance, black by the band's end, so its edge is round. The
   strip's HUD keeps its on-screen size at every zoom (`--ui-zoom` is `1 / z`; it only counter-scaled when zoomed out,
   so a big pinch grew the clock bar).
-- **The map takes the feed's empty room (upright):** `townShare` in mobile.ts sizes the town by what the feed has to
-  show (its children's heights), from `UPRIGHT_TOWN` 0.55 up to `UPRIGHT_TOWN_MOST` 0.82, in twentieths; a
-  MutationObserver on `#feed` lays the page out again when the share changes. A new town opens with the map filling
-  most of the screen, and the feed takes its room back as the news comes.
+- **The map takes the feed's empty room (upright):** superseded: the feed is gone and the map has all the room (see
+  "The news bubble").
 - **Roads run edge to edge (done; the owner's ask):** `connectRoad` finds its way four ways (`PathOpts.four` in
   `findPath`: no diagonal steps, since the road tiles join along their edges) and `squareRoads` gives any diagonal step in
   an older road a cell beside it. Test in `test/land.test.ts`.
@@ -1559,10 +1559,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   already placed is within `PERSONAL_SPACE` (32 px; up and down counts `SQUASH` 0.75), else gives them the nearest free
   place on rings round it (`ASIDE`); the step is eased in at a walk (`Drawn.aside`, `.off`) and dropped once they move.
   Walkers pass through each other. Drawing only: the sim's positions are untouched; `personAt` and `posOf` follow the step.
-- **The map's grip (upright; the owner's ask: the map full screen or half at will):** a grip on the map's top edge
-  (`#map-grip`, mobile.ts): drag it up over the feed or down to half (`MAP_LEAST`), a tap flips between the whole
-  room and half. Kept in `littletown.mapShare` (unset: the map follows the feed as before, `townShare`); at the whole
-  room `body.map-full` hides the feed. Not shown sideways, in a menu or in a battle.
+- **The map's grip (upright):** gone with the feed (the map always has the whole room now; see "The news bubble").
 - **Fateful events (done; the owner's ask: events that change a town's course, toward fortune or ruin):**
   `src/shared/data/fatefulEvents.ts`: 25 events (a great fire, the black fever, a royal patron, gold in the river, a
   prophet who leads people off, the great blight, the lost library, the lost legion, an earthquake, a comet, the bandit
@@ -1884,7 +1881,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`Expedition.watchAsked`); never while watching already, in a town run by hand (autopilot off: the tests), or while the
   sim runs unseen (`runtime.quiet`, set by the catch-up after time away and the alerts' look ahead). The phone's event
   box shows it full screen and closes on either answer. Test: `test/watchAsk.test.ts`.
-- **Buildings pulled down to make room (the owner's ask):** an upgrade with no room where it stands (`canUpgrade` in
+- **Buildings pulled down to make room (the owner's ask):** (the owner's later complaint: a town pulled down its only
+  crop for a house: now a field or pen, fallow or not, and a store with goods in it are never pulled down: `mayClear`.) An upgrade with no room where it stands (`canUpgrade` in
   sim/buildings.ts) may pull down what's in its way: at most `CLEAR_MOST` (2) finished buildings worth together no more
   than `CLEAR_WORTH` (0.6) of the upgrade's cost, never the seat, a gate or wall (`hp`), a castle's room, a venue, a
   prison, the campfire, anything alight, a field with a crop growing or a pen with animals, nor one of its own kind
@@ -2212,6 +2210,26 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   tab brings it back, kept in `littletown.minimap`), and a **region caption** (`#region-name`, main.ts: the name of
   the region under the middle of the view, shown a few seconds as the view crosses into it); a cell's tap card names
   its region. Tests: `test/land.test.ts` (the wide land).
+- **The news bubble (the owner's ask: no feed over the town; a bubble at the right, opened to review and act, the
+  news told apart by colour as RimWorld's letters are):** `src/renderer/mobile/notices.ts`. The pure part:
+  `situationNotices(snapshot)` (what is going on now: a raid, a war host, a doom, parties out, places found, the last
+  raid's report, the last answer's outcome, a question waiting), `journalNotices(entries, snapshot)` (the Journal's
+  latest lines, `CHATTER` left out, each with who or what it is about: `aboutOf`), each with a stable `key` and a
+  `Tone` (`toneOf`: **red** threats and losses, **gold** what wants the player (a question, a stranger at the gate, a
+  caravan, a quest, a place found, an outcome), **blue** the rest), and `worst`. `startNotices` puts `#notice-bubble`
+  on the page (right edge, mid-height: clear of the minimap and the strip's pop-ups; the count of keys not yet looked
+  at, coloured by the worst of them, pulsing red; hidden when there's nothing new, in a menu, a battle or an event) and
+  `#notice-sheet` (full screen: every notice, the new ones bright, its tone down the left, a picture from the strip's
+  `__picture`, and a button that acts: Watch a party, Trips, the raid report (`__showRecap`), Show them/it on the map
+  (`__showOnMap`), a question's card on the town; The Chronicle at the foot). Closing marks everything shown as read
+  (`littletown.noticesRead`). The old `feed.ts`, its grip (`#map-grip`, `littletown.mapShare`) and `townShare` are gone:
+  upright, the map has the whole room under the title bar. Tests: `test/notices.test.ts`.
+- **A button pass (the owner's ask: every button checked):** a Playwright crawler clicked every button of every menu,
+  sub-tab and view (about 500), the clock bar, the tap cards, the event box, both battle bars, the fight screen, the
+  venue windows and the New Town wizard, watching for commands, redraws and errors. Found and fixed: the minimap's ×
+  hid the map on pointer-down and the Map tab under it took the tap's click (hide on click now); a feed row's "Show it
+  on the map" for a building no longer standing did nothing (now the button only comes when the thing is on the map:
+  `onMap`); the Stores' kind chips (Weapons, Armour...) didn't redraw (`invTab` is in `craftingKey`).
 - **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
   (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
   pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and

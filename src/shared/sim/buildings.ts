@@ -163,8 +163,10 @@ export function stillNeeded(b: Building): Stock {
 export const buildSlots = (s: Pick<GameState, 'research'>) => BUILD_QUEUE_SLOTS + modifiers(s.research).queueSlots;
 
 export function blueprintCount(s: Pick<GameState, 'buildings'>): number {
-  return s.buildings.filter((b) => b.status === 'blueprint').length;
+  return s.buildings.filter(inWork).length;
 }
+/** A blueprint being worked (not one only planned, laid out ahead with the rest of its wall: `Building.planned`). */
+export const inWork = (b: Building) => b.status === 'blueprint' && !b.planned;
 
 export interface PlaceCheck {
   ok: boolean;
@@ -347,14 +349,15 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
 export const CLEAR_MOST = 2;
 export const CLEAR_WORTH = 0.6;
 /** What may be pulled down to make room: a finished building that isn't the seat, a wall of the ring, a gate, a
- *  castle's room, a venue (its furnishings and custom), a crop in the ground, a pen with animals, a prison with
- *  prisoners, or alight. */
+ *  castle's room, a venue (its furnishings and custom), a field or pen, a store with goods, a prison with prisoners, or alight. */
 function mayClear(q: Building): boolean {
   const d = defOf(q);
   if (q.status !== 'done' || q.fire !== undefined || q.ring !== undefined || q.room || q.def === 'campfire') return false;
   if (isSeat(q.def) || isGate(q.def) || d.floor || d.cells || d.hp) return false;
-  if (CROPS[q.def] && q.crop && q.crop.growth > 0) return false;
-  if (HERDS[q.def] && (q.herd?.head ?? 0) > 0) return false;
+  // (the owner's complaint: a town pulled down its only crop for a house. Fields and pens are the food and never go;
+  // nor a store with goods in it)
+  if (CROPS[q.def] || HERDS[q.def]) return false;
+  if (d.storage && poolSize(q.store) > 0) return false;
   return true;
 }
 const worthOf = (d: BuildingDef) => Object.values(d.cost).reduce((a, n) => a + (n ?? 0), 0);
