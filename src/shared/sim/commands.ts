@@ -230,7 +230,10 @@ export function parseCommand(raw: unknown): Command | null {
         case 'tend':
           return str(o.target) ? { type: 'tactics', order: { op: o.op, target: o.target as string } } : null;
         case 'skill':
-          return str(o.skill) && (o.target === undefined || str(o.target)) ? { type: 'tactics', order: { op: 'skill', skill: o.skill as string, ...(o.target !== undefined ? { target: o.target as string } : {}) } } : null;
+          {
+            const at = Array.isArray(o.at) && o.at.length === 2 && o.at.every((n) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < 64) ? ([o.at[0], o.at[1]] as [number, number]) : undefined;
+            return str(o.skill) && (o.target === undefined || str(o.target)) && (o.at === undefined || at) ? { type: 'tactics', order: { op: 'skill', skill: o.skill as string, ...(o.target !== undefined ? { target: o.target as string } : {}), ...(at ? { at } : {}) } } : null;
+          }
         case 'wait':
           return o.facing === undefined || n(o.facing) ? { type: 'tactics', order: { op: 'wait', ...(o.facing !== undefined ? { facing: o.facing as number } : {}) } } : null;
       }

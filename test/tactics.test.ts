@@ -185,3 +185,29 @@ test('the board stays up a moment after the raid is over, with the outcome acros
   s.tick += 10 * 10;
   assert.equal(tacticsView(s), null, 'and then it goes');
 });
+
+import { hit as hitFx } from '../src/shared/data/effects';
+
+test('a spell aimed at a tile falls on everyone in its area: a 3x3 hits all three raiders standing in it', () => {
+  const { s, r, t, rng } = boardNow('tac-area', 4, true);
+  run(s, rng, 3000, () => !!t.await);
+  assert.ok(t.await, 'a turn waits on the player');
+  const me = t.units.find((u) => u.key === t.await!.key)!;
+  me.kit = { ...(me.kit ?? kitOfNone()), actions: [{ id: 'test_wave', name: 'Test Wave', spell: true, level: 1, cooldown: 0, ready: 0, effects: [hitFx(1, 'fire', 'foes')], use: 'attack', cost: 0, pool: 'mp' }] };
+  // (three raiders round a tile three away, the rest well off)
+  const at: [number, number] = [Math.max(0, me.u - 3), me.v];
+  const foes = t.units.filter((u) => u.foe);
+  const spots: [number, number][] = [[at[0], at[1]], [at[0], Math.max(0, at[1] - 1)], [at[0], Math.min(t.h - 1, at[1] + 1)]];
+  foes.forEach((f, i) => ([f.u, f.v] = i < 3 ? spots[i] : [0, (i * 2) % t.h]));
+  for (const [u, v] of spots) delete t.tiles[v * t.w + u].block;
+  const hp = foes.slice(0, 3).map((f) => r.raiders.find((q) => `r${q.id}` === f.key)!.hp);
+  assert.ok(tacticsOrder(s, { op: 'skill', skill: 'test_wave', at }), 'aimed within its reach');
+  run(s, rng, 60, () => !!t.await?.acted);
+  foes.slice(0, 3).forEach((f, i) => assert.ok(r.raiders.find((q) => `r${q.id}` === f.key)!.hp < hp[i], `${f.key} was struck`));
+  assert.ok(t.fx.some((x) => x.kind === 'area' && x.to.length === 9), 'its 3x3 lit on the board');
+  assert.equal(tacticsOrder(s, { op: 'skill', skill: 'test_wave', at: [me.u, me.v] }), false, 'once acted, no second cast');
+});
+
+function kitOfNone() {
+  return { actions: [], passive: { damage: 0, power: 0, healing: 0, crit: 0, critDamage: 0, counter: 0, lifesteal: 0, thorns: 0, guard: 0, resist: 0, regen: 0, lastStand: 0, firstStrike: false } };
+}

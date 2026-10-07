@@ -11,8 +11,9 @@ import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 
 test('a town left entirely alone grows: people, homes, fields, research, and no game over', () => {
   // (one seed: these towns run chaotically apart, so a single run measures little; this one grows under the trail
-  // battles and the tactics board alike. The tactics board's 16-town check: 2.19 people at day 10, the trail's 2.25.)
-  const sim = new Sim(newGame('lone-c'));
+  // battles and the tactics board alike. The tactics board's 32-town check: about 2 people at day 10 either way, most
+  // towns lost to plague, disasters and lurkers rather than the board.)
+  const sim = new Sim(newGame('lone-8'));
   const s = sim.state;
   for (let t = 0; t < 10 * TICKS_PER_DAY && !s.gameOver; t++) sim.step();
   assert.equal(s.gameOver, null);

@@ -24,6 +24,7 @@ import { SHEETS } from '../town/spellsView';
 import { actIdOf, actSprite } from '../fight/actLooks';
 import { loadDelveProps, propFrame } from '../art/delveProps';
 import type { SpriteFx } from '../town/spellLooks';
+import { areaTiles } from '../../shared/sim/tacticsArea';
 
 /** A tile's diamond (px), and a step of height. */
 const TW = 64;
@@ -92,6 +93,8 @@ export class TacticsScene {
   private mode: Mode = 'menu';
   private modeFor = '';
   private aimSkill: string | null = null;
+  /** Where the aimed skill would fall (its area shown; a second tap there casts it). */
+  private aimAt: [number, number] | null = null;
   private selected: string | null = null;
   private skillPage = 0;
   private hudKey = '';
@@ -181,6 +184,7 @@ export class TacticsScene {
       this.modeFor = t.orders.key;
       this.mode = 'menu';
       this.aimSkill = null;
+      this.aimAt = null;
       this.skillPage = 0;
     }
     if (!t.orders) this.modeFor = '';
@@ -406,12 +410,23 @@ export class TacticsScene {
     if (o) {
       const unitAt = (k: string) => t.units.find((u) => u.key === k);
       if (this.mode === 'menu' || this.mode === 'move') for (const [u, v] of o.reach) diamond(u, v, 0x4a9cff, this.mode === 'move' ? 0.38 : 0.16);
-      const targets = this.mode === 'aim' && this.aimSkill ? (o.skills.find((s) => s.id === this.aimSkill)?.targets ?? []) : this.mode === 'attack' || this.mode === 'menu' || this.mode === 'act' ? o.strike : [];
-      const friendly = this.mode === 'aim' && o.skills.find((s) => s.id === this.aimSkill)?.aim !== 'foe';
-      for (const k of targets) {
-        const u = unitAt(k);
-        if (u) diamond(u.u, u.v, friendly ? 0x50e070 : 0xff4030, this.mode === 'menu' ? 0.14 : 0.4);
+      // (the weapon's range, faint, with the foes in it bright)
+      if (this.mode === 'attack') for (const [u, v] of o.attack) diamond(u, v, 0xff6040, 0.12, true, 1);
+      const skill = this.mode === 'aim' && this.aimSkill ? o.skills.find((s) => s.id === this.aimSkill) : undefined;
+      const col = skill ? (skill.aim === 'foe' ? 0xff4030 : skill.aim === 'friend' ? 0x50e070 : 0xffd050) : 0xff4030;
+      if (skill) {
+        // (where it may be aimed, faint; where it would fall, bright)
+        for (const [u, v] of skill.tiles) diamond(u, v, col, 0.13, true, 1);
+        const me = unitAt(o.key);
+        const at = this.aimAt ?? (skill.tiles.length === 1 ? skill.tiles[0] : null);
+        if (me && at) for (const [u, v] of areaTiles(skill.area, [me.u, me.v], at, t.w, t.h)) diamond(u, v, col, 0.42, true, 2);
       }
+      const targets = skill ? skill.targets : this.mode === 'attack' || this.mode === 'menu' || this.mode === 'act' ? o.strike : [];
+      if (!skill)
+        for (const k of targets) {
+          const u = unitAt(k);
+          if (u) diamond(u.u, u.v, col, this.mode === 'menu' ? 0.14 : 0.4);
+        }
       for (const k of o.tend) {
         const u = unitAt(k);
         if (u) diamond(u.u, u.v, 0x50e070, 0.35);
@@ -532,6 +547,17 @@ export class TacticsScene {
     };
     for (const f of t.fx) {
       const age = f.age + since;
+      // (the ground a spell or skill fell on lights up and fades)
+      if (f.kind === 'area') {
+        if (age > 12) continue;
+        const a = 1 - age / 12;
+        for (const [u, v] of f.to) {
+          const [x, y] = this.at(u, v, this.tileH(u, v));
+          const pts = [x, y - TH / 2 + 3, x + TW / 2 - 4, y, x, y + TH / 2 - 3, x - TW / 2 + 4, y];
+          this.lines.poly(pts).fill({ color: f.foe ? 0xff6a30 : 0x60f090, alpha: 0.28 * a }).stroke({ color: f.foe ? 0xffc080 : 0xb0ffc0, width: 2, alpha: 0.8 * a });
+        }
+        continue;
+      }
       if (f.kind === 'shot' || f.kind === 'tower') {
         const from = lift(f.from[0], f.from[1], f.kind === 'tower' ? 60 : 30);
         for (const [u, v] of f.to) {
@@ -612,7 +638,7 @@ export class TacticsScene {
 
   private renderHud(t: TacticsView, now: number): void {
     // (redrawn when what it shows changes, and while the banners fade)
-    const key = `${this.w}x${this.h}|${t.turns}|${t.act?.key}|${t.act?.stage}|${this.mode}|${this.aimSkill}|${this.selected}|${this.skillPage}|${t.orders?.left}|${t.orders?.moved}|${t.orders?.acted}|${t.auto}|${t.banner?.age}|${t.fx.map((f) => f.age).join(',')}|${t.units.map((u) => u.hp).join(',')}|${t.speed}`;
+    const key = `${this.w}x${this.h}|${t.turns}|${t.act?.key}|${t.act?.stage}|${this.mode}|${this.aimSkill}|${this.aimAt}|${this.selected}|${this.skillPage}|${t.orders?.left}|${t.orders?.moved}|${t.orders?.acted}|${t.auto}|${t.banner?.age}|${t.fx.map((f) => f.age).join(',')}|${t.units.map((u) => u.hp).join(',')}|${t.speed}`;
     if (key === this.hudKey) return;
     this.hudKey = key;
     for (const c of this.hud.removeChildren()) c.destroy({ children: true });
@@ -738,7 +764,7 @@ export class TacticsScene {
       items.push({ label: 'Attack', fn: () => (this.mode = 'attack'), on: this.mode === 'attack', enabled: o.strike.length > 0 });
       if (o.tend.length) items.push({ label: 'Tend', fn: () => this.command({ type: 'tactics', order: { op: 'tend', target: o.tend[0] } }) });
       const per = Math.max(1, Math.floor((w - 8) / 92) - items.length - 1);
-      const skills = o.skills.filter((s) => s.aim === 'self' || s.targets.length);
+      const skills = o.skills.filter((s) => s.area.shape === 'self' || s.targets.length);
       const page = skills.slice(this.skillPage * per, this.skillPage * per + per);
       for (const s of page)
         items.push({
@@ -746,15 +772,14 @@ export class TacticsScene {
           on: this.aimSkill === s.id,
           enabled: s.ready,
           fn: () => {
-            if (s.aim === 'self') this.command({ type: 'tactics', order: { op: 'skill', skill: s.id } });
-            else {
-              this.mode = 'aim';
-              this.aimSkill = s.id;
-            }
+            // (every skill shows where it would fall first; one that falls only round its user is aimed already)
+            this.mode = 'aim';
+            this.aimSkill = s.id;
+            this.aimAt = s.tiles.length === 1 ? s.tiles[0] : null;
           },
         });
       if (skills.length > per) items.push({ label: '›', fn: () => (this.skillPage = (this.skillPage + 1) % Math.ceil(skills.length / per)) });
-      items.push({ label: 'Back', fn: () => ((this.mode = 'menu'), (this.aimSkill = null)) });
+      items.push({ label: 'Back', fn: () => ((this.mode = 'menu'), (this.aimSkill = null), (this.aimAt = null)) });
       const bw = Math.min(110, (w - 16) / items.length - 4);
       items.forEach((it, i) => this.button(it.label, 8 + i * (bw + 4), y, bw, 36, it.fn, it.on, it.enabled ?? true));
     } else {
@@ -767,7 +792,15 @@ export class TacticsScene {
       const bw = Math.min(110, (w - 16) / items.length - 4);
       items.forEach((it, i) => this.button(it.label, 8 + i * (bw + 4), y, bw, 36, it.fn, it.on, it.enabled ?? true));
     }
-    const hint = this.mode === 'move' ? 'Tap a blue tile to move' : this.mode === 'attack' ? 'Tap a red target' : this.mode === 'aim' ? 'Tap a target' : `${o.left}s, then the town acts`;
+    const aimed = this.mode === 'aim' ? o.skills.find((s) => s.id === this.aimSkill) : undefined;
+    const hint =
+      this.mode === 'move'
+        ? 'Tap a blue tile to move'
+        : this.mode === 'attack'
+          ? 'Tap a red target'
+          : aimed
+            ? `${aimed.name}: ${aimed.label} · ${this.aimAt ? 'tap again to use it' : 'tap where it should fall'}`
+            : `${o.left}s, then the town acts`;
     const tx = new Text({ text: hint, style: style(10, 0xd8d0b0, false, 3) });
     tx.position.set(10, y - 18);
     this.hud.addChild(tx);
@@ -843,10 +876,18 @@ export class TacticsScene {
         this.mode = 'menu';
         return true;
       }
-      if (this.mode === 'aim' && this.aimSkill && target && o.skills.find((s) => s.id === this.aimSkill)?.targets.includes(target.key)) {
-        this.command({ type: 'tactics', order: { op: 'skill', skill: this.aimSkill, target: target.key } });
-        this.mode = 'menu';
-        this.aimSkill = null;
+      // (aiming: the first tap shows where it would fall, a second on the same tile uses it)
+      const skill = this.mode === 'aim' && this.aimSkill ? o.skills.find((s) => s.id === this.aimSkill) : undefined;
+      const spot = target ? ([target.u, target.v] as [number, number]) : tile;
+      if (skill && spot && skill.tiles.some(([u, v]) => u === spot[0] && v === spot[1])) {
+        if (this.aimAt && this.aimAt[0] === spot[0] && this.aimAt[1] === spot[1]) {
+          this.command({ type: 'tactics', order: { op: 'skill', skill: skill.id, at: spot } });
+          this.mode = 'menu';
+          this.aimSkill = null;
+          this.aimAt = null;
+        } else this.aimAt = spot;
+        this.hudKey = '';
+        this.drawMarks(t);
         return true;
       }
       if (this.mode === 'menu' && tile && o.reach.some(([u, v]) => u === tile![0] && v === tile![1]) && !target) {

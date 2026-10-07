@@ -24,7 +24,8 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import { TILE } from '../constants';
 import type { Rng } from '../rng';
 import { hashSeed, mixSeed } from '../rng';
-import { aimOf, held, kitOf, takeTurn, tickStatuses, useAction, type Arena, type Combatant, type Kit, type KitAction, type Statuses } from './actions';
+import { aimOf, canPay, held, kitOf, takeTurn, tickStatuses, useAction, type Arena, type Combatant, type Kit, type KitAction, type Statuses } from './actions';
+import { aimTiles, areaLabel, areaOf, areaTiles, spreads, SPREAD_POWER, type TacArea, type Tile } from './tacticsArea';
 import { attributesOf } from './attributes';
 import { fighters, gateCell, ranged } from './battle';
 import { footprint } from './buildings';
@@ -99,7 +100,9 @@ export interface TacChest {
  *  bolt, a chest opened, someone tended or lost. */
 export interface TacFx {
   tick: number;
-  kind: 'blow' | 'shot' | 'act' | 'tend' | 'tower' | 'chest' | 'lost' | 'trap' | 'stun';
+  kind: 'blow' | 'shot' | 'act' | 'tend' | 'tower' | 'chest' | 'lost' | 'trap' | 'stun' | 'area';
+  /** The area a spell or skill fell on ('area': its tiles in `to`; foe or friend by `foe`). */
+  foe?: boolean;
   from: [number, number];
   to: [number, number][];
   name?: string;
@@ -124,8 +127,9 @@ export interface TacAct {
   /** Tiles walked so far. */
   step: number;
   target?: string;
-  /** A chosen spell or skill (its kit id). */
+  /** A chosen spell or skill (its kit id), and the tile it's aimed at. */
   skill?: string;
+  at?: [number, number];
   /** What it does when it gets there. */
   kind: 'strike' | 'shoot' | 'cast' | 'wait' | 'flee' | 'tend' | 'chest' | 'move';
   stage: 'move' | 'act' | 'beat';
@@ -203,9 +207,8 @@ const ROUT = 0.15;
 /** Trees turn this share of blows aside; rain and night this much more of shots. */
 const COVER = 0.2;
 const RAIN_MISS = 0.15;
-/** How far spells and skills reach (tiles), and the cross they burst over round their mark. */
+/** How far spells and skills reach at most (tiles); each one's own reach and area are in tacticsArea.ts. */
 export const SPELL_REACH = 4;
-const BURST = 1;
 /** FFT's count: turns a townsperson lies struck down on the field before they're lost. */
 export const DOWN_COUNT = 3;
 /** Health someone tended on the field gets up with. */
@@ -1015,6 +1018,18 @@ function wayIn(t: Tactics, st: TacStats): number[] {
   return dist;
 }
 
+/** The tiles a fighter's weapon reaches from where they stand (the height they could strike up or down to aside). */
+function attackTiles(t: Tactics, me: TacUnit, st: TacStats): [number, number][] {
+  const out: [number, number][] = [];
+  const r = Math.max(1, Math.floor(st.reach));
+  for (let v = Math.max(0, me.v - r); v <= Math.min(t.h - 1, me.v + r); v++)
+    for (let u = Math.max(0, me.u - r); u <= Math.min(t.w - 1, me.u + r); u++) {
+      const d = Math.abs(u - me.u) + Math.abs(v - me.v);
+      if (d >= 1 && d <= r) out.push([u, v]);
+    }
+  return out;
+}
+
 /** How hurt a unit is (0 whole, 1 nearly down). */
 function foeHurt(s: GameState, r: Raid, u: TacUnit): number {
   const p = personOf(s, u.key);
@@ -1071,7 +1086,7 @@ function play(s: GameState, r: Raid, t: Tactics, rng: Rng): void {
       if (rd) rd.gone = true;
       t.units = t.units.filter((u) => u !== me);
     } else if (a.kind === 'tend' && target && apart(me, target) <= 1) did = tend(s, t, me, target);
-    else if (a.skill) did = cast(s, r, t, me, a.skill, target, rng);
+    else if (a.skill) did = cast(s, r, t, me, a.skill, a.at ?? (target ? [target.u, target.v] : [me.u, me.v]), rng);
     else if (target && target.count === undefined && canStrike(s, t, statsOf(s, r, me), me, target)) {
       // (a caster reaches for a spell or skill first, if one's worth it; else the blow)
       did = (me.key[0] === 'p' && !t.await && kitTurn(s, r, t, me, rng)) || (strike(s, r, t, me, target, rng), true);
@@ -1087,42 +1102,97 @@ function play(s: GameState, r: Raid, t: Tactics, rng: Rng): void {
   if (t.await) endTurn(t);
 }
 
-/** A spell or skill from the kit, the town choosing it: on a knot of foes in reach, or friends that need it. */
+/** A spell or skill from the kit, the town choosing it: every one it can use, aimed at every tile in its reach, scored by
+ *  whom its area would touch (foes for harm and hindrance, the hurt for mending); the best is cast, else nothing (and
+ *  the blow is struck). A summons, which needs no aim, is the last resort. */
 function kitTurn(s: GameState, r: Raid, t: Tactics, me: TacUnit, rng: Rng): boolean {
   if (!me.kit?.actions.length) return false;
-  const foes = t.units.filter((u) => u.foe !== me.foe && u.key[0] !== 't' && u.count === undefined && apart(u, me) <= SPELL_REACH);
-  // (aimed at the thickest knot of them: the one with most others within a step)
-  const focus = [...foes].sort((a, b) => foes.filter((o) => apart(o, b) <= BURST).length - foes.filter((o) => apart(o, a) <= BURST).length)[0];
-  const touched = focus ? foes.filter((o) => apart(o, focus) <= BURST) : [];
-  const friends = t.units.filter((u) => u.foe === me.foe && u.key[0] !== 't' && u.count === undefined && apart(u, me) <= SPELL_REACH);
-  const arena = arenaFor(s, r, t, me, touched, friends, rng);
+  const best = bestCast(s, r, t, me);
+  if (best) return cast(s, r, t, me, best.act.id, best.at, rng);
+  // (nothing worth aiming: call up help if the kit can)
+  const summons = me.kit.actions.filter((a) => a.use === 'summon');
+  if (!summons.length) return false;
+  const friends = t.units.filter((u) => u.foe === me.foe && u.key[0] !== 't' && u.count === undefined);
+  const arena = arenaFor(s, r, t, me, [], friends, rng);
   if (!arena) return false;
-  // (in place of a blow the town reaches only for what strikes, mends or calls up help, or a hindrance on a knot of
-  // foes: a turn spent on a blessing for oneself is a blow not struck, and the blessings come in the player's hands)
   const all = me.kit.actions;
-  me.kit.actions = all.filter((a) => a.use === 'attack' || a.use === 'heal' || a.use === 'summon' || (a.use === 'control' && touched.length >= 2));
+  me.kit.actions = summons;
   arena.me.kit = me.kit;
-  const hp = healthOf(s, r, [...touched, ...friends]);
   const used = takeTurn(arena, arena.me);
   me.kit.actions = all;
-  if (!used) return false;
-  numbers(s, r, t, hp);
-  personOf(s, me.key)!.lastBlow = s.tick;
-  return true;
+  if (used) personOf(s, me.key)!.lastBlow = s.tick;
+  return used;
 }
 
-/** A chosen spell or skill (the player's): on the target and those within a step of it, or the friends it's for. */
-function cast(s: GameState, r: Raid, t: Tactics, me: TacUnit, id: string, target: TacUnit | undefined, rng: Rng): boolean {
+/** Whom an area touches: the side it's meant for, standing (not struck down), towers aside. */
+function touchedBy(t: Tactics, me: TacUnit, tiles: readonly Tile[], foe: boolean): TacUnit[] {
+  const on = new Set(tiles.map(([u, v]) => v * t.w + u));
+  return t.units.filter((u) => u.key[0] !== 't' && u.count === undefined && (u.foe !== me.foe) === foe && on.has(u.v * t.w + u.u));
+}
+
+/** The town's pick of spell or skill and where to aim it (null: nothing worth it). */
+export function bestCast(s: GameState, r: Raid, t: Tactics, me: TacUnit): { act: KitAction; at: Tile; score: number } | null {
+  const p = personOf(s, me.key);
+  if (!p || !me.kit) return null;
+  const pay = asPerson(me, p);
+  const reach = statsOf(s, r, me).reach;
+  let best: { act: KitAction; at: Tile; score: number } | null = null;
+  for (const act of me.kit.actions) {
+    if (act.ready > s.tick || !canPay(pay, act) || held(pay, s.tick)) continue;
+    // (in place of a blow the town reaches only for what strikes, mends or hinders: a turn spent on a blessing for
+    // oneself is a blow not struck, and the blessings come in the player's hands)
+    if (act.use !== 'attack' && act.use !== 'heal' && act.use !== 'control') continue;
+    const area = areaOf(act, reach);
+    const foe = aimOf(act) === 'foe';
+    for (const at of aimTiles(area, [me.u, me.v], t.w, t.h)) {
+      const hit = touchedBy(t, me, areaTiles(area, [me.u, me.v], at, t.w, t.h), foe);
+      if (!hit.length) continue;
+      let score: number;
+      if (act.use === 'heal') {
+        // (the hurt it would mend; none worth it, no cast)
+        const need = hit.reduce((n, u) => n + foeHurt(s, r, u), 0);
+        if (need < 0.35) continue;
+        score = need * 4;
+      } else if (act.use === 'control') {
+        if (hit.length < 2) continue;
+        score = hit.length * 2;
+      } else score = hit.length * 3 + hit.reduce((n, u) => n + foeHurt(s, r, u), 0) + (t.leader && hit.some((u) => u.key === t.leader) ? 2 : 0);
+      // (an ultimate is the thing to do once the gauge is full; a skill's blow beats a plain one, and more beat one)
+      if (act.pool === 'limit') score += 100;
+      if (!best || score > best.score) best = { act, at, score };
+    }
+  }
+  return best;
+}
+
+/** A spell or skill cast at a tile: on whoever its area touches (the side it's for). An act meant for one cast over a
+ *  wider area touches all in it, each a little lighter (`SPREAD_POWER`). */
+function cast(s: GameState, r: Raid, t: Tactics, me: TacUnit, id: string, at: Tile, rng: Rng): boolean {
   const act = me.kit?.actions.find((x) => x.id === id);
   if (!act) return false;
+  const area = areaOf(act, statsOf(s, r, me).reach);
   const aim = aimOf(act);
-  const mark = target ?? me;
-  const foes = aim === 'foe' ? t.units.filter((u) => u.foe !== me.foe && u.key[0] !== 't' && u.count === undefined && apart(u, mark) <= BURST) : [];
-  const friends = aim === 'friend' ? t.units.filter((u) => u.foe === me.foe && u.key[0] !== 't' && u.count === undefined && apart(u, mark) <= BURST) : [];
+  const tiles = areaTiles(area, [me.u, me.v], at, t.w, t.h);
+  const foes = aim === 'foe' ? touchedBy(t, me, tiles, true) : [];
+  const friends = aim === 'friend' ? touchedBy(t, me, tiles, false) : [];
   const arena = arenaFor(s, r, t, me, foes, friends, rng);
   if (!arena) return false;
   const hp = healthOf(s, r, [...foes, ...friends, me]);
-  if (!useAction(arena, arena.me, act)) return false;
+  const wide = spreads(area);
+  const use: KitAction = wide
+    ? {
+        ...act,
+        effects: act.effects.map((e) => {
+          const target = e.target === 'foe' ? 'foes' : e.target === 'ally' || e.target === 'weakest' ? 'allies' : e.target;
+          return target === e.target ? e : { ...e, target, ...(e.power !== undefined ? { power: e.power * SPREAD_POWER } : {}) };
+        }),
+      }
+    : act;
+  if (!useAction(arena, arena.me, use)) return false;
+  act.ready = use.ready;
+  if (area.shape !== 'self') t.fx.push({ tick: s.tick, kind: 'area', from: [me.u, me.v], to: tiles.map(([u, v]) => [u, v] as [number, number]), foe: aim === 'foe' });
+  // (facing the mark)
+  if (at[0] !== me.u || at[1] !== me.v) me.facing = Math.abs(at[0] - me.u) >= Math.abs(at[1] - me.v) ? (at[0] > me.u ? 0 : 2) : at[1] > me.v ? 1 : 3;
   numbers(s, r, t, hp);
   personOf(s, me.key)!.lastBlow = s.tick;
   return true;
@@ -1259,7 +1329,7 @@ export type TacticsOrder =
   | { op: 'move'; u: number; v: number }
   | { op: 'undo' }
   | { op: 'attack'; target: string }
-  | { op: 'skill'; skill: string; target?: string }
+  | { op: 'skill'; skill: string; target?: string; at?: [number, number] }
   | { op: 'tend'; target: string }
   | { op: 'wait'; facing?: number };
 
@@ -1303,9 +1373,10 @@ export function tacticsOrder(s: GameState, o: TacticsOrder): boolean {
       const act = me.kit?.actions.find((x) => x.id === o.skill);
       if (t.await.acted || !act || act.ready > s.tick) return false;
       const target = o.target ? t.units.find((u) => u.key === o.target) : undefined;
-      const aim = aimOf(act);
-      if (aim !== 'self' && (!target || apart(target, me) > SPELL_REACH || (aim === 'foe') !== (target.foe !== me.foe))) return false;
-      t.act = { ...base, path: [[me.u, me.v]], skill: act.id, ...(target ? { target: target.key } : {}), kind: 'cast', stage: 'act' };
+      const area = areaOf(act, st.reach);
+      const at: Tile = o.at ?? (target ? [target.u, target.v] : [me.u, me.v]);
+      if (!aimTiles(area, [me.u, me.v], t.w, t.h).some(([u, v]) => u === at[0] && v === at[1])) return false;
+      t.act = { ...base, path: [[me.u, me.v]], skill: act.id, at: [at[0], at[1]], kind: 'cast', stage: 'act' };
       return true;
     }
     case 'tend': {
@@ -1361,7 +1432,7 @@ export interface TacticsView {
   tiles: TacTile[];
   units: TacUnitView[];
   /** Whose turn it is, what they're at, and on whom. */
-  act: { key: string; kind: TacAct['kind']; stage: TacAct['stage']; target?: string; skill?: string; path: [number, number][] } | null;
+  act: { key: string; kind: TacAct['kind']; stage: TacAct['stage']; target?: string; skill?: string; at?: [number, number]; path: [number, number][] } | null;
   /** A turn waiting on the player: where they can go, whom they can strike or tend, their spells and skills. */
   orders: {
     key: string;
@@ -1371,7 +1442,11 @@ export interface TacticsView {
     reach: [number, number][];
     strike: string[];
     tend: string[];
-    skills: { id: string; name: string; aim: 'foe' | 'friend' | 'self'; ready: boolean; cost: number; pool: KitAction['pool']; targets: string[] }[];
+    /** The tiles their weapon reaches from where they stand (the attack's range). */
+    attack: [number, number][];
+    /** Each spell and skill: whom it's for, its reach and area (`tacticsArea.ts`), where it may be aimed, and who stands
+     *  where it could fall. */
+    skills: { id: string; name: string; aim: 'foe' | 'friend' | 'self'; ready: boolean; cost: number; pool: KitAction['pool']; area: TacArea; label: string; tiles: [number, number][]; targets: string[] }[];
   } | null;
   auto: boolean;
   /** The turns coming, by name (the CT order). */
@@ -1462,10 +1537,26 @@ export function tacticsView(s: GameState): TacticsView | null {
         reach,
         strike: t.await.acted ? [] : foes.filter((f) => canStrike(s, t, st, me, f)).map((f) => f.key),
         tend: t.await.acted ? [] : t.units.filter((u) => !u.foe && u.count !== undefined && apart(u, me) <= 1).map((u) => u.key),
+        attack: t.await.acted ? [] : attackTiles(t, me, st),
         skills: (me.kit?.actions ?? []).map((a) => {
           const aim = aimOf(a);
+          const area = areaOf(a, st.reach);
+          const tiles = aimTiles(area, [me.u, me.v], t.w, t.h);
           const pool = aim === 'foe' ? foes : aim === 'friend' ? friends : [me];
-          return { id: a.id, name: a.name, aim, ready: a.ready <= s.tick && !t.await!.acted, cost: a.cost, pool: a.pool, targets: pool.filter((u) => apart(u, me) <= SPELL_REACH).map((u) => u.key) };
+          const could = new Set<number>();
+          for (const at of tiles) for (const [u, v] of areaTiles(area, [me.u, me.v], at, t.w, t.h)) could.add(v * t.w + u);
+          return {
+            id: a.id,
+            name: a.name,
+            aim,
+            ready: a.ready <= s.tick && !t.await!.acted,
+            cost: a.cost,
+            pool: a.pool,
+            area,
+            label: areaLabel(area),
+            tiles: tiles.map(([u, v]) => [u, v] as [number, number]),
+            targets: aim === 'self' ? [me.key] : pool.filter((u) => could.has(u.v * t.w + u.u)).map((u) => u.key),
+          };
         }),
       };
     }
@@ -1480,12 +1571,12 @@ export function tacticsView(s: GameState): TacticsView | null {
     side: t.side,
     tiles: t.tiles,
     units,
-    act: t.act ? { key: t.act.key, kind: t.act.kind, stage: t.act.stage, path: t.act.stage === 'move' ? t.act.path.slice(t.act.step) : [], ...(t.act.target ? { target: t.act.target } : {}), ...(t.act.skill ? { skill: t.act.skill } : {}) } : null,
+    act: t.act ? { key: t.act.key, kind: t.act.kind, stage: t.act.stage, path: t.act.stage === 'move' ? t.act.path.slice(t.act.step) : [], ...(t.act.target ? { target: t.act.target } : {}), ...(t.act.skill ? { skill: t.act.skill } : {}), ...(t.act.at ? { at: t.act.at } : {}) } : null,
     orders,
     auto: t.auto,
     order,
     hits: t.hits.map((x) => ({ u: x.u, v: x.v, text: x.text, foe: x.foe, age: s.tick - x.tick, ...(x.heal ? { heal: true } : {}) })),
-    fx: t.fx.map((x) => ({ kind: x.kind, from: x.from, to: x.to, age: s.tick - x.tick, ...(x.name ? { name: x.name } : {}), ...(x.ult ? { ult: true } : {}) })),
+    fx: t.fx.map((x) => ({ kind: x.kind, from: x.from, to: x.to, age: s.tick - x.tick, ...(x.name ? { name: x.name } : {}), ...(x.ult ? { ult: true } : {}), ...(x.foe !== undefined ? { foe: x.foe } : {}) })),
     chests: t.chests.map((c) => ({ u: c.u, v: c.v })),
     banner: t.banner && s.tick - t.banner.tick < 4 * TICK_HZ ? { text: t.banner.text, age: s.tick - t.banner.tick, kind: t.banner.kind } : null,
     turns: t.turns,

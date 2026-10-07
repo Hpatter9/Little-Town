@@ -2087,8 +2087,16 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   (`MapView.clearGroundOf`), since the board reaches past what the town has seen. **Turns** by a CT clock (`statsOf`: speed from Dexterity or the
   raider's quickness; move 3 to 5 and jump by Dexterity and weapon); a turn is a move and an act in either order, then a
   facing; blows from the side `SIDE_MULT` and behind `BACK_MULT`, from above `HEIGHT_STEP` a step (`blowMult`); rain and
-  night spoil shots (`RAIN_MISS`). Spells and skills through the kit (`kitTurn`/`takeTurn`, or `useAction` for one the
-  player picks, a cross `BURST`). Towers and engines take their own turns (`TOWER_SPEED`). Blows go through
+  night spoil shots (`RAIN_MISS`). **Every spell and skill has its own reach and area** (`src/shared/sim/tacticsArea.ts`,
+  `areaOf`, worked out from whom its effects touch, spell or skill, an ultimate, and what its name says: one tile, a
+  cross, a 3x3 or 5x5, a line out from the user (lances, bolts, charges), all round the user (whirls, cries, quakes), or
+  self; a weapon art reaches as far as the weapon; `aimTiles` where it may be aimed, `areaTiles` what it touches,
+  `areaLabel` for the menu). Of the 469 actives: one 153, 3x3 76, self 74, cross 74, all round 55, lines 36. An act for
+  one cast over a wider area touches all in it at `SPREAD_POWER` (0.75). It is cast at a tile (`TacAct.at`, the
+  `skill` order's `at`), lights its area as it falls (fx `area`), and the town picks what to cast and where by scoring
+  every tile in reach (`bestCast`: foes hit, the hurt mended, a hindrance on two or more; an ultimate first). On the
+  board: Attack shows the weapon's range faint (`orders.attack`); a skill shows where it may be aimed faint and, at the
+  first tap, where it would fall bright ("tap again to use it"; one that falls round its user is aimed at once). Towers and engines take their own turns (`TOWER_SPEED`). Blows go through
   `defenderAttack`/`attackPerson` (the town's ground `GROUND`, the raiders' blows times `guardOf`: 0.6 for one or two
   defenders, 0.7 to four, `HOME_GUARD` past), so wounds, deaths and the recap are as in any raid. **FFT's rules:** a
   townsperson struck down has a count of `DOWN_COUNT` (3) of their turns, then is lost (the founder held at 1); a friend
