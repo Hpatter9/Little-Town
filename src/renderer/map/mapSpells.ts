@@ -11,7 +11,7 @@ import { TICK_MS } from '../../shared/sim/time';
 import { fontStacks } from '../fonts';
 import { currentTheme } from '../theme';
 import { LOOKS, type SpriteFx } from '../town/spellLooks';
-import { SHEETS } from '../town/spellsView';
+import { sheetOf } from '../town/spellsView';
 
 const CIRCLE_SECS = 1.3;
 const NAME_SECS = 1.9;
@@ -106,7 +106,7 @@ export class MapSpells {
       l.name.position.set(Math.round(l.by.x), Math.round(l.by.y - 54 - t * 8));
       l.name.zIndex = 1e6;
       // the effect sheet over each target (staggered a little), or over the caster
-      const sh = SHEETS[l.fx];
+      const sh = sheetOf(l.fx);
       const k = sh.scale ?? 1;
       l.sprites.forEach((sp, i) => {
         const at = l.onCaster ? l.by : (l.at[i] ?? l.by);

@@ -66,7 +66,7 @@ function travellerPerson(t: TravellerView): PersonView {
     partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], body: { wounds: [], lasting: [], fitted: [], sight: 1, handling: 1, moving: 1, pain: 0, marks: [] }, growsUpIn: null, breakdown: null, ageDays: 0,
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, mer: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', job: null,
   monster: null, tireless: false, order: null, sick: false,
-    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [],
+    battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8, cha: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [], road: null, freePts: 0,
   };
 }
 /** A power's envoy (sim/factions.ts), drawn as a traveller on horseback. */
@@ -1246,7 +1246,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
     if (next.away && !q && view.mode === 'full')

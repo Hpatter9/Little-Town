@@ -65,6 +65,9 @@ export interface Combatant {
   /** Their attributes (data/attributes.ts), and the pools their spells and skills draw on: mana, stamina and the
    *  limit gauge (0 to 1). A fighter without them (a raider on the map) pays nothing. */
   attrs?: Attrs;
+  /** A person's strength as a caller and their charm (combat.ts personFighter: by level and Charisma). */
+  power?: number;
+  charm?: number;
   mp?: number;
   maxMp?: number;
   sp?: number;
@@ -117,13 +120,13 @@ const CALLERS: Partial<Record<ClassId, Use[]>> = { summoner: ['summon', 'attack'
 const NO_PASSIVE = (): Kit['passive'] => ({ damage: 0, power: 0, healing: 0, crit: 0, critDamage: 0, counter: 0, lifesteal: 0, thorns: 0, guard: 0, resist: 0, regen: 0, lastStand: 0, firstStrike: false });
 
 /** Someone's kit: their ready spells, their active skills, and their passive skills added up. */
-export function kitOf(p: Pick<Person, 'cls' | 'level'>): Kit | undefined {
+export function kitOf(p: Pick<Person, 'cls' | 'level' | 'road'>): Kit | undefined {
   if (!p.cls) return undefined;
   const lv = levelOf(p);
   const actions: KitAction[] = [];
   for (const s of readySpells(p.cls, lv)) actions.push({ id: s.id, name: s.name, spell: true, level: s.level, cooldown: secs(s.cooldown), ready: 0, effects: s.effects, use: s.use, cost: spellCost(s.level), pool: 'mp' });
   const passive = NO_PASSIVE();
-  for (const a of abilitiesKnown(p.cls, lv)) {
+  for (const a of abilitiesKnown(p.cls, lv, p.road)) {
     if (a.active) actions.push({ id: a.id, name: a.name, spell: false, level: a.level, cooldown: secs(a.active.cooldown), ready: 0, effects: a.active.effects, use: a.use as Use, cost: a.ultimate ? 1 : skillCost(a.level), pool: a.ultimate ? 'limit' : 'sp' });
     if (a.passive) {
       const q = a.passive;
@@ -135,10 +138,10 @@ export function kitOf(p: Pick<Person, 'cls' | 'level'>): Kit | undefined {
 }
 
 /** The extra a kit's passives add to a fighter's plain numbers (applied once, as the fight begins). */
-export function passiveStats(p: Pick<Person, 'cls' | 'level'>): Passive {
+export function passiveStats(p: Pick<Person, 'cls' | 'level' | 'road'>): Passive {
   const out: Passive = {};
   if (!p.cls) return out;
-  for (const a of abilitiesKnown(p.cls, levelOf(p))) {
+  for (const a of abilitiesKnown(p.cls, levelOf(p), p.road)) {
     for (const [k, v] of Object.entries(a.passive ?? {})) if (typeof v === 'number') (out as Record<string, number>)[k] = ((out as Record<string, number>)[k] ?? 0) + v;
   }
   return out;
@@ -419,10 +422,10 @@ function apply(a: Arena, f: Combatant, act: KitAction, e: Effect): Combatant[] {
     case 'status': {
       const targets = pick(a, f, e.target);
       for (const t of targets) {
-        if (e.chance !== undefined && !a.rng.chance(e.chance)) continue;
+        if (e.chance !== undefined && !a.rng.chance(Math.min(1, e.chance * (1 + (f.charm ?? 0))))) continue;
         // (how strong: a poison bites for a share of the caster's strength each second; a shield turns some of it)
         const strengthOf = e.status === 'shield' ? power * (e.power ?? 1) * 3 : e.status === 'regen' ? power * (e.power ?? 1) * 0.3 : e.status === 'thorns' ? (e.power ?? 0.3) : power * (e.power ?? 1) * 0.25;
-        setStatus(a, f, t, e.status!, e.secs ?? 6, strengthOf);
+        setStatus(a, f, t, e.status!, (e.secs ?? 6) * (BAD_STATUS.has(e.status!) ? 1 : 1 + (f.charm ?? 0)), strengthOf);
       }
       return targets;
     }

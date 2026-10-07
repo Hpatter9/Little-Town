@@ -20,7 +20,7 @@ import type { Command } from '../../shared/sim/commands';
 import { MapPeople } from '../map/mapPeople';
 import { MapRaiders } from '../map/mapRaiders';
 import type { MapView } from '../map/mapView';
-import { SHEETS } from '../town/spellsView';
+import { sheetOf } from '../town/spellsView';
 import { actIdOf, actSprite } from '../fight/actLooks';
 import { loadDelveProps, propFrame } from '../art/delveProps';
 import type { SpriteFx } from '../town/spellLooks';
@@ -593,7 +593,7 @@ export class TacticsScene {
 
   /** One frame of an effect sheet at an age in ticks. */
   private sheet(look: SpriteFx, x: number, y: number, age: number, scale: number): void {
-    const sh = SHEETS[look];
+    const sh = sheetOf(look);
     if (!sh || age < 0) return;
     const frame = sh.frame((age / 10) * sh.fps);
     if (!frame) return;

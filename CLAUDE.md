@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.14.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.15.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2276,6 +2276,56 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   view, the blight, a raid quietening the living things, the camp's fire in view), worked out by main.ts each snapshot.
   It plays with the music: the ♪ button ("Sound and music") turns both on; silent while the strip is hidden; the first
   touch wakes the audio where the browser holds it asleep. `window.__ambience` for previews. Test: `test/ambience.test.ts`.
+
+- **Combat effects from the 5000 Pixel Effects pack (the owner's ask: the assets used well in fights, with a variety
+  that fits, magic above all):** `tools/compose-pixelfx.cjs` (run by hand; Playwright's Chromium) packs the pack's
+  every element in every shape (15 elements × 30 families: hit, burst, slash, bolt, orb, explosion, aura, sparkle,
+  shield, circle, pillar, rain, vortex, wave, puff, status, debuff, spikes, spread, cross, smoke, splash, strike,
+  flame, nova, gather, cut, rune, pool, glyph; and the neutral white and gold ones, 500 strips of six 32px frames)
+  into `src/renderer/art/effects/pixelfx.png` (beside the page as `fx/pixelfx.png`, copied by both builds) with
+  `pixelfx.json`. `src/shared/data/actFx.ts` (`actFx(id)`, pure, tested) picks each spell's and skill's effect: the
+  pack's element for the game's (`PX_ELEMENT`: holy→light, nature→forest, arcane→star, time→moon, sound→crystal...)
+  and the shape from what the name says (`HINTS`: a "rain" rains, a "nova" rings out, a "ward" is a bubble shield, a
+  "volley" spreads) else from what it does (`shapeOf`: mends sparkle, summons open a circle, curses' arrows fall,
+  single strikes are bolts, orbs or hits, strikes on all explode, wave, rain or pillar); ultimates keep the big
+  Craftpix and pvfx sheets (`ULTIMATE`), a plain weapon art is a Craftpix slash. Ids are `px:<element>-<family>`;
+  `SpriteFx` (town/spellLooks.ts) is the old `SheetFx` union or a `px:` id, and `sheetOf(fx)` in town/spellsView.ts
+  resolves either (the fight screen, the raid map, the tactics board and the map's spells all go through it; a strip
+  the atlas lacks falls back to the element's hit). `art/effects.ts`: `pixelFxFrame`, `loadPixelFx` (lazy, cut on
+  first use). Test: `test/actFx.test.ts` (every act has an effect in the atlas, over 20 shapes, none dominant).
+- **Class paths (the owner's ask: eight basic starting callings, a choice of two roads at every evolution, many very
+  specific callings with skills of their own, and the choice put to the player):** `src/shared/data/paths.ts`
+  (`PATHS`: 184 nodes; `BASE_PATHS` the eight: Fighter, Guard, Scout, Rogue, Apprentice, Acolyte, Wanderer, Minstrel;
+  each forks two ways at stage 1 (level 12), 2 (30) and 3 (55): 8 → 16 → 32 → 64, and each stage-3 node has one
+  ascended form (85, an ascension as before): `branchesOf`, `lineage`, `pathStage`). Every node stands on an
+  **archetype** (`cls`: one of the 26 classes, which keep their gear, spells, skills, outfits, hero forms and
+  attribute growth), with a name, a line of text, for the callers a `companion` (a Beastcaller's lion, a Conjurer's
+  salamander: `companionOf` in sim/classes.ts, scaled by the caller's level in `classAllies` and `summonForRaid`) and
+  for the Summoner line `stats` (`GLASS`: hp 0.6, power 1.7: the glass cannon). `src/shared/data/pathSkills.ts`: a
+  signature skill for every node from stage 1 (112 rows, `PATH_SKILL_ROWS`), known by whoever stands on the node or
+  past it (`AbilityDef.path`; `abilitiesKnown(cls, level, road)`; the ascended forms share `ASCENDANCY`); the
+  Summoner line's call up elementals, demons (`brute_demon`, `red_imp`), drakes and the Behemoth. `Person.road` is
+  the node (`cls` its archetype; founders keep their own lines and no road); `stageOf` is the node's stage,
+  `classStat` takes the node's stats, `callingName`/`callingText` the lineage's names and text. `assignClass` picks a
+  base by the skills' fit; `adoptPath` gives an older save's townsperson the node of their class at their stage.
+  **Evolution:** `roadsOpen` (the level reached; the last form an ascension too), and in `classesHourly` either a
+  prompt of kind `evolve` (`askEvolve`: the two roads and "Let them choose", a picture, `Prompt.roads`, the default
+  after `EVOLVE_ASK_HOURS` 24; `answerEvolve` from `answerPrompt`, the outcome told in the box) or, with
+  `s.evolveAsk` off or the autopilot off (the tests), their own choice (`chooseRoad`: the archetype their skills fit,
+  with a whim by the seed). The Town menu's **Callings and stats** rows set it (`setAsk` command); the Townsfolk page's
+  calling row shows the road so far, the node's text and the two roads next (cards; "Become X" buttons while the
+  question is open: `PersonView.road`); the news bubble carries the question. Tests: `test/paths.test.ts`.
+- **Stat points and Charisma (the owner's ask):** `Attrs` has `cha` (data/attributes.ts: `ATTR_ABOUT`; each class's
+  share in `GROWTH`, normalised by `classAttrs`); Charisma makes what a person summons stronger (`CHA_SUMMON`, through
+  `Fighter.power`, applied in the arena's `summon` and to companions), their inflicted statuses likelier and granted
+  ones longer (`CHA_STATUS`, `Fighter.charm` in actions.ts). Each level brings `STAT_POINTS_PER_LEVEL` (2) points:
+  `Person.attrPts` is the record of points spent (begun at the first level gained, `beginRecord`, with what came
+  before spent the class's way; a townsperson without a record is reckoned as before, `virtualSpend`), `freePoints`,
+  `spendPoint`, `spendByClass`, `nextByClass` in sim/attributes.ts; `statsHourly` (from classesHourly) spends them the
+  class's way unless `s.statsAsk` (then only after `AUTO_SPEND_HOURS` 48 unspent, `Person.ptsSince`, so a town left
+  alone still grows). The `spendStat` command (one attribute, or null for the class's way); the Character tab shows
+  CHA, a + beside each attribute while points are free and "Let them choose"; the news bubble says who has points.
+  `PersonView.freePts`, `Snapshot.evolveAsk`/`statsAsk`. Tests in `test/paths.test.ts`.
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

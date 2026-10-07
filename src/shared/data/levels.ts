@@ -4,6 +4,7 @@
 
 import { CLASS_DEFS, STAGE_LEVELS, STAGE_STEP, type ClassId, type ClassStats } from './classes';
 import { FOUNDER_CLASS, FOUNDER_EDGE } from './founderClasses';
+import { PATH_BY_ID } from './paths';
 
 export const MAX_LEVEL = 100;
 /** XP to go from a level to the next: grows with the level, and much faster past LEVEL_STEEP (so the last stage's
@@ -22,7 +23,7 @@ export const LEVEL_SHARE_WORK = 0.11;
 export const HP_PER_LEVEL = 0.015;
 export const POWER_PER_LEVEL = 0.02;
 
-type Leveled = { cls?: ClassId | null; fcls?: string | null; level?: number; ascended?: boolean };
+type Leveled = { cls?: ClassId | null; fcls?: string | null; road?: string | null; level?: number; ascended?: boolean };
 
 export const levelOf = (p: Leveled) => Math.max(1, Math.min(MAX_LEVEL, p.level ?? 1));
 
@@ -58,6 +59,9 @@ export const BEAST_ARMOR = 0.1;
 
 /** Which stage of their class someone is at (0 to 4), from their level. */
 export function stageOf(p: Leveled): number {
+  // (on a path, the stage is the node they stand on: an evolution is a choice, not a level: sim/classes.ts)
+  const node = p.road ? PATH_BY_ID[p.road] : undefined;
+  if (node) return node.stage;
   const lv = levelOf(p);
   let st = 0;
   for (let i = 0; i < STAGE_LEVELS.length; i++) if (lv >= STAGE_LEVELS[i]) st = i;
@@ -72,7 +76,8 @@ export function classStat(p: Leveled, k: keyof ClassStats): number {
   if (!p.cls) return plain;
   // (a founder's own calling: its signature stats, else its base class's, and a step above either)
   const f = p.fcls ? FOUNDER_CLASS[p.fcls] : undefined;
-  const v = f?.stats[k] ?? CLASS_DEFS[p.cls].stats[k];
+  const node = p.road ? PATH_BY_ID[p.road] : undefined;
+  const v = f?.stats[k] ?? node?.stats?.[k] ?? CLASS_DEFS[p.cls].stats[k];
   if (v === undefined) return plain;
   const grow = (1 + STAGE_STEP * stageOf(p)) * (f ? FOUNDER_EDGE : 1);
   // (speed is better below 1: its edge is how much below)

@@ -17,7 +17,7 @@ import { impactFrame, IMPACT_SIZE, SPLAT_SIZE, splatFrame } from '../art/effects
 import { bleeds } from '../map/bloodPools';
 import { ELITES, type EliteAffix } from '../../shared/data/dungeons';
 import { loadDelveProps, propFrame, propLoop, type DelveProp } from '../art/delveProps';
-import { SHEETS } from '../town/spellsView';
+import { sheetOf } from '../town/spellsView';
 import { actSprite } from './actLooks';
 import { heldWeapon, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
@@ -480,7 +480,7 @@ export class FightScene {
           this.fx.circle(p[0], p[1] - 10, 6 + 10 * k).fill({ color: colour, alpha: 0.3 * (1 - k) });
         }
       }
-      const sh = SHEETS[actSprite(id)];
+      const sh = sheetOf(actSprite(id));
       act.targets.forEach((ref, i) => {
         const p = at.get(`enemy:${ref}`) ?? at.get(`party:${ref}`);
         const tex = p ? sh.frame((t - i * 0.08) * sh.fps) : null;

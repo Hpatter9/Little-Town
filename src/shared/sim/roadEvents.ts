@@ -1,6 +1,7 @@
 // Things that happen on the road (DESIGN §8): mostly settled by the party's stance, sometimes a question
 // for the player with a timer and a default.
 
+import { answerEvolve } from './classes';
 import { answerWatch } from './watchAsk';
 import { answerDragon } from './dragon';
 import { answerEnvoy } from './factions';
@@ -98,6 +99,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'envoy') return answerEnvoy(s, prompt, option, rng);
   if (prompt.kind === 'watch') return answerWatch(s, prompt, option);
   if (prompt.kind === 'dragon') return answerDragon(s, prompt, option);
+  if (prompt.kind === 'evolve') return answerEvolve(s, prompt, option);
   const e = s.expeditions.find((q) => q.id === prompt.expedition);
   if (!e) return;
   e.prompt = null;

@@ -11,48 +11,66 @@ export interface Attrs {
   vit: number;
   int: number;
   wis: number;
+  /** Charisma (the owner's ask): the strength of what they summon, the bite of what they inflict and the lift of
+   *  what they grant, and a keeper's way with customers. */
+  cha: number;
 }
-export const ATTR_KEYS = ['str', 'dex', 'vit', 'int', 'wis'] as const;
-export const ATTR_NAMES: Record<keyof Attrs, string> = { str: 'Strength', dex: 'Dexterity', vit: 'Vitality', int: 'Intellect', wis: 'Wisdom' };
+export const ATTR_KEYS = ['str', 'dex', 'vit', 'int', 'wis', 'cha'] as const;
+export const ATTR_NAMES: Record<keyof Attrs, string> = { str: 'Strength', dex: 'Dexterity', vit: 'Vitality', int: 'Intellect', wis: 'Wisdom', cha: 'Charisma' };
+export const ATTR_ABOUT: Record<keyof Attrs, string> = {
+  str: 'the weight of a blow', dex: 'aim, footwork, and how often their turn comes', vit: 'health and stamina', int: 'spell power and mana',
+  wis: 'healing, and mana coming back', cha: 'the strength of what they summon, and the bite of what they inflict on foes or grant to friends',
+};
 
 /** What a plain grown-up has of each. */
 export const ATTR_BASE = 8;
-/** Points a class gives out each level (in its proportions), and at its first level. */
-export const ATTR_PER_LEVEL = 1.6;
+/** Points at the first level (spread in the class's proportions), and the points each level brings to spend
+ *  (sim/attributes.ts: by the player, or by the town in the class's proportions when it's set to, or left for
+ *  AUTO_SPEND_HOURS). */
 export const ATTR_AT_START = 6;
+export const STAT_POINTS_PER_LEVEL = 2;
+export const AUTO_SPEND_HOURS = 48;
+export const pointsEarned = (level: number) => STAT_POINTS_PER_LEVEL * Math.max(0, level - 1);
 /** What a work skill level adds to its attribute. */
 export const ATTR_PER_SKILL = 0.35;
 
-/** How each class grows (shares that add up to 1). */
-export const CLASS_ATTRS: Record<ClassId, Attrs> = {
-  knight: { str: 0.3, dex: 0.1, vit: 0.4, int: 0.05, wis: 0.15 },
+/** How each class grows (shares, made to add up to 1 by `classAttrs`; `cha` is each class's charm). */
+const GROWTH: Record<ClassId, Omit<Attrs, 'cha'> & { cha?: number }> = {
+  knight: { str: 0.3, dex: 0.1, vit: 0.4, int: 0.05, wis: 0.15, cha: 0.1 },
   warrior: { str: 0.45, dex: 0.15, vit: 0.35, int: 0.0, wis: 0.05 },
   ranger: { str: 0.15, dex: 0.45, vit: 0.2, int: 0.05, wis: 0.15 },
   archer: { str: 0.15, dex: 0.55, vit: 0.15, int: 0.1, wis: 0.05 },
-  beast_tamer: { str: 0.2, dex: 0.25, vit: 0.25, int: 0.05, wis: 0.25 },
+  beast_tamer: { str: 0.2, dex: 0.25, vit: 0.25, int: 0.05, wis: 0.25, cha: 0.15 },
   shapeshifter: { str: 0.3, dex: 0.25, vit: 0.3, int: 0.05, wis: 0.1 },
   mage: { str: 0.0, dex: 0.15, vit: 0.1, int: 0.55, wis: 0.2 },
-  witch: { str: 0.0, dex: 0.15, vit: 0.1, int: 0.45, wis: 0.3 },
-  white_mage: { str: 0.05, dex: 0.1, vit: 0.15, int: 0.2, wis: 0.5 },
+  witch: { str: 0.0, dex: 0.15, vit: 0.1, int: 0.45, wis: 0.3, cha: 0.1 },
+  white_mage: { str: 0.05, dex: 0.1, vit: 0.15, int: 0.2, wis: 0.5, cha: 0.15 },
   monk: { str: 0.3, dex: 0.4, vit: 0.2, int: 0.0, wis: 0.1 },
   assassin: { str: 0.25, dex: 0.55, vit: 0.1, int: 0.05, wis: 0.05 },
-  necromancer: { str: 0.0, dex: 0.1, vit: 0.15, int: 0.5, wis: 0.25 },
-  summoner: { str: 0.0, dex: 0.1, vit: 0.1, int: 0.45, wis: 0.35 },
+  necromancer: { str: 0.0, dex: 0.1, vit: 0.15, int: 0.5, wis: 0.25, cha: 0.1 },
+  summoner: { str: 0.0, dex: 0.1, vit: 0.1, int: 0.45, wis: 0.35, cha: 0.3 },
   blood_knight: { str: 0.4, dex: 0.15, vit: 0.35, int: 0.05, wis: 0.05 },
-  bard: { str: 0.1, dex: 0.35, vit: 0.1, int: 0.2, wis: 0.25 },
-  druid: { str: 0.1, dex: 0.15, vit: 0.2, int: 0.25, wis: 0.3 },
+  bard: { str: 0.1, dex: 0.35, vit: 0.1, int: 0.2, wis: 0.25, cha: 0.35 },
+  druid: { str: 0.1, dex: 0.15, vit: 0.2, int: 0.25, wis: 0.3, cha: 0.1 },
   alchemist: { str: 0.05, dex: 0.3, vit: 0.15, int: 0.4, wis: 0.1 },
   engineer: { str: 0.15, dex: 0.3, vit: 0.2, int: 0.3, wis: 0.05 },
   dragoon: { str: 0.4, dex: 0.3, vit: 0.25, int: 0.0, wis: 0.05 },
   samurai: { str: 0.35, dex: 0.4, vit: 0.15, int: 0.0, wis: 0.1 },
   guardian: { str: 0.2, dex: 0.05, vit: 0.55, int: 0.0, wis: 0.2 },
-  shaman: { str: 0.1, dex: 0.15, vit: 0.15, int: 0.3, wis: 0.3 },
+  shaman: { str: 0.1, dex: 0.15, vit: 0.15, int: 0.3, wis: 0.3, cha: 0.15 },
   spellblade: { str: 0.3, dex: 0.25, vit: 0.15, int: 0.3, wis: 0.0 },
-  chronomancer: { str: 0.0, dex: 0.3, vit: 0.1, int: 0.35, wis: 0.25 },
+  chronomancer: { str: 0.0, dex: 0.3, vit: 0.1, int: 0.35, wis: 0.25, cha: 0.05 },
   hunter: { str: 0.25, dex: 0.4, vit: 0.25, int: 0.05, wis: 0.05 },
-  dancer: { str: 0.15, dex: 0.55, vit: 0.1, int: 0.05, wis: 0.15 },
+  dancer: { str: 0.15, dex: 0.55, vit: 0.1, int: 0.05, wis: 0.15, cha: 0.25 },
 };
-const PLAIN: Attrs = { str: 0.25, dex: 0.25, vit: 0.3, int: 0.1, wis: 0.1 };
+const normal = (g: Omit<Attrs, 'cha'> & { cha?: number }): Attrs => {
+  const a: Attrs = { ...g, cha: g.cha ?? 0.03 };
+  const sum = ATTR_KEYS.reduce((n, k) => n + a[k], 0);
+  for (const k of ATTR_KEYS) a[k] /= sum;
+  return a;
+};
+export const CLASS_ATTRS: Record<ClassId, Attrs> = Object.fromEntries((Object.keys(GROWTH) as ClassId[]).map((c) => [c, normal(GROWTH[c])])) as Record<ClassId, Attrs>;
+const PLAIN: Attrs = normal({ str: 0.25, dex: 0.25, vit: 0.3, int: 0.1, wis: 0.1, cha: 0.05 });
 export const classAttrs = (cls: ClassId | null | undefined): Attrs => (cls ? CLASS_ATTRS[cls] : PLAIN);
 
 /* ------------------------------------------------------------ what they do (combat.ts, actions.ts) */
@@ -67,6 +85,10 @@ export const DEX_AIM = 0.006;
 export const DEX_DODGE = 0.004;
 export const DEX_SPEED = 0.6;
 export const speedOfDex = (dex: number) => ((ATTR_BASE + 2) / (Math.max(1, dex) + 2)) ** DEX_SPEED;
+/** Charisma: each point over the base makes what they summon this share stronger, and what they inflict this share
+ *  likelier to take (and a status they grant lasts that much longer). */
+export const CHA_SUMMON = 0.05;
+export const CHA_STATUS = 0.02;
 
 /** Mana: spells cost it; it comes of Intellect and Wisdom and returns a little each turn. Stamina: skills cost it; it
  *  comes of Vitality and Dexterity, returns each turn, and a plain blow brings some back. */

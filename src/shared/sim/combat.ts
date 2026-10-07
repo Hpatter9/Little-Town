@@ -8,7 +8,7 @@ import type { EliteAffix } from '../data/dungeons';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, castsMagic, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { BEAST_ARMOR, BEAST_DAMAGE, BEAST_HP, classStat, levelPower, shapeshifts } from '../data/levels';
 import { afraid, held, kitOf, pace, passiveStats, strike, takeTurn, tickStatuses, type ActMeta, type Arena, type Kit, type Statuses } from './actions';
-import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxManaOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs } from '../data/attributes';
+import { ATTR_BASE, DEX_AIM, DEX_DODGE, INT_POWER, manaRegenOf, maxManaOf, maxStaminaOf, speedOfDex, STAMINA_PER_BLOW, staminaRegenOf, STR_DAMAGE, VIT_HP, type Attrs, CHA_STATUS, CHA_SUMMON } from '../data/attributes';
 import { attributesOf } from './attributes';
 import { ENEMIES, enemyArmor, natureOf, type EnemyGroup } from '../data/enemies';
 import { WEREWOLF_DAMAGE } from '../data/monsters';
@@ -34,6 +34,10 @@ export interface Fighter {
   maxHp: number;
   row: 'front' | 'back';
   ranged: boolean;
+  /** A person's strength as a caller (their level and Charisma: what they summon is scaled by it) and their charm
+   *  (data/attributes.ts CHA_STATUS: the bite of what they inflict). */
+  power?: number;
+  charm?: number;
   damage: [number, number];
   accuracy: number;
   dodge: number;
@@ -258,6 +262,8 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
     ammoBonus: AMMO_DAMAGE[ammoOf(p) ?? 'wood'] ?? 0,
     ammoUsed: 0,
     cls: p.cls ?? null,
+    power: levelPower(p) * (1 + over('cha') * CHA_SUMMON),
+    charm: over('cha') * CHA_STATUS,
     attrs: at,
     mp: maxManaOf(at),
     maxMp: maxManaOf(at),
@@ -385,6 +391,12 @@ function arenaOf(b: Battle, rng: Rng): Arena {
       if (!ENEMIES[kind]) return null;
       const f: Fighter = { ...unitFighter(kind, user.side, -5000 - b.fighters.length), conjured: true, cooldown: 5 };
       if (user.side === 'party') f.role = 'fighter';
+      // (what a person calls up grows with them: their level and Charisma)
+      if (user.power && user.power > 1) {
+        f.maxHp = Math.round(f.maxHp * user.power);
+        f.hp = f.maxHp;
+        f.damage = [Math.round(f.damage[0] * user.power), Math.round(f.damage[1] * user.power)];
+      }
       b.fighters.push(f);
       return f;
     },

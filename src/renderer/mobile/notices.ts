@@ -111,7 +111,10 @@ export function situationNotices(s: Snapshot): Notice[] {
   const o = s.eventOutcome;
   if (o) out.push({ key: `outcome:${o.tick}`, tone: 'gold', mark: '✓', title: o.choice ? `${o.title}: ${o.choice}` : o.title, text: o.text.charAt(0).toUpperCase() + o.text.slice(1) + '.' });
   const q = s.prompts[0];
-  if (q && !(s.raid && q.title.includes(s.raid.name))) out.push({ key: `ask:${q.id}`, tone: 'gold', mark: '?', title: q.title, text: 'A choice waits for you.', action: { label: 'Answer', kind: 'question' } });
+  if (q && !(s.raid && q.title.includes(s.raid.name))) out.push({ key: `ask:${q.id}`, tone: 'gold', mark: q.kind === 'evolve' ? '★' : '?', title: q.title, text: q.kind === 'evolve' ? `${q.text}: choose their road, or let them.` : 'A choice waits for you.', action: { label: 'Answer', kind: 'question' } });
+  // (stat points waiting to be spent: the People menu's Character tab)
+  const pts = s.people.filter((p) => p.freePts > 0);
+  if (pts.length && s.statsAsk) out.push({ key: `pts:${pts.map((p) => `${p.id}:${p.freePts}`).join(',')}`, tone: 'gold', mark: '+', title: pts.length === 1 ? `${pts[0].name} has ${pts[0].freePts} stat ${pts[0].freePts === 1 ? 'point' : 'points'} to spend` : `${pts.length} townsfolk have stat points to spend`, text: 'Strength, Dexterity, Vitality, Intellect, Wisdom or Charisma: on their Character tab. Left two days, they spend them their own way.', action: { label: 'People', kind: 'panel', panel: 'townsfolk' } });
   return out;
 }
 

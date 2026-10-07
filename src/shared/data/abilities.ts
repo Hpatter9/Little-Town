@@ -7,6 +7,8 @@
 import type { ClassId } from './classes';
 import { cleanse, drain, grant, heal, hit, inflict, summon, useOf, type Effect, type Use } from './effects';
 import { MORE_ABILITIES } from './moreAbilities';
+import { lineage, PATHS } from './paths';
+import { ASCENDANCY, PATH_SKILL_ROWS } from './pathSkills';
 
 /** What a passive skill adds: shares (damage 0.1: a tenth more) or chances (counter 0.2: one blow in five). */
 export interface Passive {
@@ -58,6 +60,8 @@ export interface AbilityDef {
   use: Use | 'passive';
   /** The class's ultimate: loosed when the limit gauge is full (sim/actions.ts), not on a cooldown. */
   ultimate?: boolean;
+  /** A path node's signature skill (data/pathSkills.ts): known by whoever stands on that node or past it. */
+  path?: string;
 }
 
 type Row = [string, string, number, Passive | [number, Effect[]], 'ult'?];
@@ -415,7 +419,28 @@ export const ABILITIES: readonly AbilityDef[] = LISTS.flatMap(([cls, rows]) =>
     Array.isArray(what) ? { id, name, cls, level, active: { cooldown: what[0], effects: what[1] }, use: useOf(what[1]), ...(ult ? { ultimate: true } : {}) } : { id, name, cls, level, passive: what, use: 'passive' as const },
   ),
 );
-export const ABILITY_BY_ID: Readonly<Record<string, AbilityDef>> = Object.fromEntries(ABILITIES.map((a) => [a.id, a]));
+/** The path nodes' signature skills (data/pathSkills.ts), at the level of the node's stage, and every ascended form's
+ *  shared edge. */
+const STAGE_AT = [1, 12, 30, 55, 85];
+export const PATH_ABILITIES: readonly AbilityDef[] = [
+  ...PATH_SKILL_ROWS.map(([node, id, name, what]): AbilityDef => {
+    const level = STAGE_AT[PATHS.find((n) => n.id === node)?.stage ?? 1];
+    return Array.isArray(what) ? { id, name, cls: null, path: node, level, active: { cooldown: what[0], effects: what[1] }, use: useOf(what[1]) } : { id, name, cls: null, path: node, level, passive: what, use: 'passive' as const };
+  }),
+  ...PATHS.filter((n) => n.stage === 4).map((n): AbilityDef => ({ id: `ascendancy_${n.id}`, name: 'Ascendancy', cls: null, path: n.id, level: STAGE_AT[4], passive: ASCENDANCY, use: 'passive' as const })),
+];
+export const ALL_ABILITIES: readonly AbilityDef[] = [...ABILITIES, ...PATH_ABILITIES];
+export const ABILITY_BY_ID: Readonly<Record<string, AbilityDef>> = Object.fromEntries(ALL_ABILITIES.map((a) => [a.id, a]));
 
-/** The skills someone of a class knows at a level: their class's, and the ten anyone learns. */
-export const abilitiesKnown = (cls: ClassId | null | undefined, level: number): AbilityDef[] => ABILITIES.filter((a) => a.level <= level && (a.cls === null || a.cls === cls));
+const lineageCache = new Map<string, Set<string>>();
+const onPath = (path: string): Set<string> => {
+  let got = lineageCache.get(path);
+  if (!got) lineageCache.set(path, (got = new Set(lineage(path).map((n) => n.id))));
+  return got;
+};
+/** The skills someone of a class knows at a level: their class's, the ten anyone learns, and the signature skills of
+ *  every node of their path so far. */
+export function abilitiesKnown(cls: ClassId | null | undefined, level: number, path?: string | null): AbilityDef[] {
+  const nodes = path ? onPath(path) : null;
+  return ALL_ABILITIES.filter((a) => a.level <= level && (a.path ? !!nodes && nodes.has(a.path) : a.cls === null || a.cls === cls));
+}

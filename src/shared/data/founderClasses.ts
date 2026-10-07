@@ -4,6 +4,7 @@
 // base's edge, and a signature stat of their own).
 
 import { CLASS_DEFS, type ClassId, type ClassStats } from './classes';
+import { lineage, PATH_BY_ID } from './paths';
 
 export interface FounderClassDef {
   /** The founder's id (data/founders.ts). */
@@ -73,15 +74,20 @@ export const FOUNDER_CLASSES: readonly FounderClassDef[] = [
 
 export const FOUNDER_CLASS: Readonly<Record<string, FounderClassDef>> = Object.fromEntries(FOUNDER_CLASSES.map((f) => [f.id, f]));
 
-type Classed = { cls?: ClassId | null; fcls?: string | null };
+type Classed = { cls?: ClassId | null; fcls?: string | null; road?: string | null };
 
 /** The name of someone's calling at a stage: their founder's line if they have one, else their class's. */
 export function callingName(p: Classed, stage: number): string | null {
   const st = Math.max(0, Math.min(4, stage));
   const f = p.fcls ? FOUNDER_CLASS[p.fcls] : undefined;
   if (f) return f.stages[st];
+  // (on a path: the node of their road at that stage, data/paths.ts)
+  if (p.road && PATH_BY_ID[p.road]) {
+    const line = lineage(p.road);
+    return (line[st] ?? line[line.length - 1]).name;
+  }
   return p.cls ? CLASS_DEFS[p.cls].stages[st] : null;
 }
 
 /** What their calling is about (founder line or class). */
-export const callingText = (p: Classed): string => (p.fcls && FOUNDER_CLASS[p.fcls] ? FOUNDER_CLASS[p.fcls].description : p.cls ? CLASS_DEFS[p.cls].description : '');
+export const callingText = (p: Classed): string => (p.fcls && FOUNDER_CLASS[p.fcls] ? FOUNDER_CLASS[p.fcls].description : p.road && PATH_BY_ID[p.road] ? PATH_BY_ID[p.road].text : p.cls ? CLASS_DEFS[p.cls].description : '');
