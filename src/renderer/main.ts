@@ -11,6 +11,7 @@ import { MapHerds } from './map/mapHerds';
 import { MapBoats } from './map/mapBoats';
 import { MapBirds } from './map/mapBirds';
 import { MapWildlife } from './map/mapWildlife';
+import { MapWater } from './map/mapWater';
 import { MapButterflies } from './map/mapButterflies';
 import { BloodPools } from './map/bloodPools';
 import { MapDisaster } from './map/mapDisaster';
@@ -220,6 +221,8 @@ async function start(): Promise<void> {
   const butterflies = new MapButterflies(map.things, map);
   const wildlife = new MapWildlife(map.things, map);
   (window as unknown as { __wildlife?: MapWildlife }).__wildlife = wildlife; // (for previews)
+  const water = new MapWater(map.things, map.under, map.over, map.root, map);
+  (window as unknown as { __water?: MapWater }).__water = water; // (for previews)
   const pane = new ExpeditionPane(seedHash);
   const snow = new SnowView();
   const leaves = new LeavesView();
@@ -1064,6 +1067,12 @@ async function start(): Promise<void> {
     birds.folk = [...next.people.filter((p) => p.away === null && !p.indoors), ...next.travellers, ...(next.raid?.phase === 'active' ? next.raid.raiders : [])].map((p) => ({ x: p.x, y: p.y }));
     // the wild beasts beyond the town: wolves by night, nothing while a raid is on or the land is frozen
     wildlife.folk = birds.folk;
+    // the water's life and the sky's: ducks, fish, rain rings, lightning in a storm, a rainbow after the rain
+    water.folk = birds.folk;
+    water.land = next.land;
+    water.weather = freeze ? 'snow' : next.weather.kind;
+    water.daylight = next.calendar.daylight;
+    water.winter = next.calendar.season === 'winter' || next.biome === 'tundra';
     wildlife.land = next.land;
     wildlife.on = !freeze && next.weather.kind !== 'storm' && !(next.raid?.phase === 'active');
     wildlife.night = next.calendar.daylight < 0.3;
@@ -1200,6 +1209,7 @@ async function start(): Promise<void> {
     boats.render(performance.now());
     birds.render(ticker.deltaMS / 1000, performance.now());
     wildlife.render(ticker.deltaMS / 1000, performance.now());
+    water.render(ticker.deltaMS / 1000);
     butterflies.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());
     map.renderAir(ticker.deltaMS / 1000);

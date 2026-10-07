@@ -13,7 +13,7 @@ try {
 }
 const CHARS = path.join(process.env.ASSETS || path.join(__dirname, '../../chronos-assets'), 'DawnLike/Characters');
 const OUT = path.join(__dirname, '../src/renderer/art/wildlife.png');
-// [sheet, column, row]: deer, stag, boar, fox, wolf, squirrel, bear, camel, snow fox
+// [sheet, column, row]: deer, stag, boar, fox, wolf, squirrel, bear, camel, snow fox; then the water's (WATER_COL on)
 const CELLS = [
   ['Quadraped', 0, 8],
   ['Quadraped', 1, 8],
@@ -24,6 +24,12 @@ const CELLS = [
   ['Quadraped', 0, 5],
   ['Quadraped', 5, 1],
   ['Dog', 0, 3],
+  // the water's life (map/mapWater.ts): mallard, grey duck, swan, two fish
+  ['Avian', 6, 3],
+  ['Avian', 2, 4],
+  ['Avian', 3, 4],
+  ['Aquatic', 0, 0],
+  ['Aquatic', 4, 0],
 ];
 (async () => {
   const data = {};

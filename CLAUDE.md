@@ -2140,6 +2140,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   compose-props.cjs, keep their green). A look missing its skin colour no longer throws in `hkLayers` (`rgb` in
   hkFolk.ts: an envoy's once stopped the map's frame loop). Test: `test/wildlife.test.ts`.
 
+- **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
+  (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
+  pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and
+  hurrying off from anyone within `DUCK_SHY`; by day, never in winter or the tundra or a storm (`DUCKS_MOST` 7). Fish
+  leap from the water with a splash ring at each end (`FISH_EVERY`). Rain and storms ring the water (`RINGS_MOST`).
+  In a storm lightning strikes every `STRIKE_EVERY` (5 to 14) s: a jagged forked bolt to a point on the land (in
+  `over`), a ring where it lands, and the screen lit with a double flicker (`flash`, in `map.root`). When the rain
+  clears by day a faint rainbow arches over the view for `RAINBOW_SECONDS` (75). The birds and fish are DawnLike's,
+  appended to `art/wildlife.png` (columns 9 to 13, `tools/compose-wildlife.cjs`). `window.__water` (`strike()`,
+  `showRainbow()`) for previews. On a slow phone (`calm`) only the flash stays.
+
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 
 - **Step 1, purses and pay (done; save version 17):** the coins are the townsfolk's; `s.coins` is the founder's
