@@ -135,7 +135,8 @@ Crafted items use icons from **DawnLike** (16x16 universal roguelike tileset) by
 are its `Characters/Avian0.png` and `Avian1.png`, five of them cut into `src/renderer/art/birds.png`, and the
 butterflies its `Pest0.png` and `Pest1.png`, two cut into `src/renderer/art/butterflies.png`; the wild beasts beyond the
 town (deer, stag, boar, fox, wolf, squirrel, bear, camel, snow fox) are cells of its `Quadraped`, `Dog` and `Rodent`
-sheets, with the ducks, swan and leaping fish from its `Avian` and `Aquatic` sheets, all cut into
+sheets, with the ducks, swan and leaping fish from its `Avian` and `Aquatic` sheets, and the town's dogs, cats, rooster
+and hen from its `Dog`, `Cat` and `Avian` sheets, all cut into
 `src/renderer/art/wildlife.png` by `tools/compose-wildlife.cjs`). As the author asks, Platino is
 hidden somewhere in the game.
 
