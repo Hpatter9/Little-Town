@@ -74,7 +74,7 @@ const PASSIVE: [keyof Passive, (v: number) => string][] = [
   ['thorns', (v) => `${pct(v)} of the hurt taken goes back to the striker`],
   ['guard', (v) => `${pct(v)} chance to take a blow meant for a hurt friend`],
   ['resist', (v) => `${pct(v)} chance to shrug off an ill effect`],
-  ['regen', (v) => `mends ${pct(v)} of their health each second`],
+  ['regen', (v) => `mends ${v * 100 < 1 ? (v * 100).toFixed(1) + '%' : pct(v)} of their health each second`],
   ['lastStand', (v) => `${pct(v)} more damage below a quarter health`],
   ['beast', (v) => `${pct(v)} more against beasts`],
   ['undead', (v) => `${pct(v)} more against the dead`],

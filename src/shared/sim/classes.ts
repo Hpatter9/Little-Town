@@ -9,7 +9,8 @@ import { FOUNDERS } from '../data/founders';
 import { callingName, FOUNDER_CLASS } from '../data/founderClasses';
 import { ITEM_BY_ID, type ItemDef } from '../data/items';
 import { LEVEL_SHARE_FIGHT, LEVEL_SHARE_WORK, levelOf, levelPower, MAX_LEVEL, stageOf, xpToLevel } from '../data/levels';
-import { BASE_PATHS, branchesOf, PATH_BY_ID, PATHS, type PathNode } from '../data/paths';
+import { BASE_PATHS, branchesOf, lineage, PATH_BY_ID, PATHS, type PathNode } from '../data/paths';
+import { FORK } from '../data/pathLore';
 import type { Skill } from '../data/skills';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import { beginRecord, statsHourly } from './attributes';
@@ -89,17 +90,14 @@ export function chooseRoad(s: GameState, p: Person, roads: PathNode[]): PathNode
 export function askEvolve(s: GameState, p: Person, roads: PathNode[]): void {
   const node = PATH_BY_ID[p.road!];
   const cal = calendar(s.tick);
-  const roleOf = (r: PathNode) => `${/^[aeiou]/.test(CLASS_DEFS[r.cls].role) ? 'an' : 'a'} ${CLASS_DEFS[r.cls].role}`;
-  const story = [
-    `${p.name} the ${node.name} has reached level ${levelOf(p)}, and stands where the road forks.`,
-    'Two callings are open to them; choose for them, or let them choose for themselves.',
-    ...roads.map((r) => `${r.name}, ${roleOf(r)}: ${r.text.charAt(0).toLowerCase()}${r.text.slice(1)}`),
-  ].join(' ');
+  const base = lineage(node.id)[0];
+  const scene = (FORK[base.id] ?? '{name} stands where the road forks.').replaceAll('{name}', p.name);
+  const story = `${scene} ${p.name} the ${node.name} is level ${levelOf(p)} now, and two callings are open to them.`;
   s.prompts.push({
     id: s.nextId++,
     kind: 'evolve',
     expedition: null,
-    title: `${p.name} is ready to evolve`,
+    title: `The road forks: ${p.name}`,
     text: `${node.name} → ${roads.map((r) => r.name).join(' or ')}`,
     story,
     picture: eventPicture(`evolve:${node.id}`, `${node.name} ${roads.map((r) => r.text).join(' ')} hall`, { hour: cal.hour, season: cal.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) }),
@@ -120,7 +118,7 @@ export function answerEvolve(s: GameState, prompt: Prompt, option: number): void
   if (!roads.length) return;
   const road = option >= 0 && option < roads.length ? roads[option] : chooseRoad(s, p, roads);
   evolveTo(s, p, road);
-  setOutcome(s, prompt.title, option < roads.length ? road.name : 'Their own choice', `${p.name} is now ${aCalling(road.name)}: ${road.text.charAt(0).toLowerCase()}${road.text.slice(1)}`);
+  setOutcome(s, prompt.title, option < roads.length ? road.name : 'Their own choice', `${p.name} is now ${aCalling(road.name)}: ${road.text.charAt(0).toLowerCase()}${road.text.slice(1).replace(/\.$/, '')}`);
 }
 
 /** Whether evolutions are put to the player (the Town menu's setting; never in a town run by hand: the tests). */

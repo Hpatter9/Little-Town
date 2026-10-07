@@ -166,3 +166,34 @@ test('stat points: two a level, spent by the player or the class\'s way; Charism
   const me = b.fighters.find((x) => x.kind === 'person')!;
   assert.ok((me.power ?? 1) > 1.5, `power ${me.power}`);
 });
+
+test('every calling has its telling and its emblem: lore for all but the ascended, a glyph on a real cell, colours by base', async () => {
+  const { FORK, LORE_IDS, loreOf } = await import('../src/shared/data/pathLore');
+  const { BASE_COLOURS, emblemOf } = await import('../src/shared/data/emblems');
+  const ROWS: Record<string, [number, number]> = { ShortWep: [8, 5], MedWep: [8, 2], LongWep: [8, 7], Wand: [8, 7], Shield: [8, 1], Hat: [8, 4], Amulet: [8, 3], Scroll: [8, 6], Magic: [9, 5], Tool: [8, 3], Light: [8, 1], Potion: [8, 5], Ring: [8, 6], Ammo: [8, 6], Armor: [8, 9], Book: [8, 9], Music: [8, 6], Money: [8, 8] };
+  for (const b of BASE_PATHS) {
+    assert.ok(FORK[b.id]?.includes('{name}'), `${b.id} has a fork scene`);
+    assert.ok(BASE_COLOURS[b.id], `${b.id} has colours`);
+  }
+  for (const n of PATHS) {
+    if (n.stage < 4) assert.ok(LORE_IDS.includes(n.id), `${n.id} has lore`);
+    const lore = loreOf(n.id, n.name, n.from ? PATH_BY_ID[n.from].name : undefined);
+    assert.ok(lore.length > 60 && !/\{/.test(lore), `${n.id}: ${lore.slice(0, 40)}`);
+    const e = emblemOf(n.id)!;
+    assert.ok(e, `${n.id} has an emblem`);
+    assert.ok(e.behind || e.main, `${n.id} shows something`);
+    for (const gl of [e.behind, e.main, e.charge]) {
+      if (!gl) continue;
+      const [cols, rows] = ROWS[gl[0]];
+      assert.ok(gl[1] >= 0 && gl[1] < cols * rows, `${n.id}: ${gl.join(' ')} is on the sheet`);
+    }
+    assert.equal(e.stage, n.stage);
+    assert.equal(e.gem, n.stage >= 3);
+    assert.equal(e.crown, n.stage >= 4);
+  }
+  // the two roads at a fork never share a glyph
+  for (const n of PATHS.filter((x) => x.stage < 3)) {
+    const [a, b] = branchesOf(n.id).map((r) => { const e = emblemOf(r.id)!; return JSON.stringify([e.behind, e.main, e.charge]); });
+    assert.notEqual(a, b, `${n.id}'s roads look different`);
+  }
+});
