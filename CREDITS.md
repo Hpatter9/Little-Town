@@ -133,7 +133,11 @@ Crafted items use icons from **DawnLike** (16x16 universal roguelike tileset) by
 **DawnBringer**'s palette, licensed **CC-BY 4.0** (`src/renderer/art/items/`, copied from
 `assets/DawnLike/Items` and `assets/DawnLike/Characters/Reptile0.png`; the small birds about the town on the map
 are its `Characters/Avian0.png` and `Avian1.png`, five of them cut into `src/renderer/art/birds.png`, and the
-butterflies its `Pest0.png` and `Pest1.png`, two cut into `src/renderer/art/butterflies.png`). As the author asks, Platino is
+butterflies its `Pest0.png` and `Pest1.png`, two cut into `src/renderer/art/butterflies.png`; the wild beasts beyond the
+town (deer, stag, boar, fox, wolf, squirrel, bear, camel, snow fox) are cells of its `Quadraped`, `Dog` and `Rodent`
+sheets, with the ducks, swan and leaping fish from its `Avian` and `Aquatic` sheets, and the town's dogs, cats, rooster
+and hen from its `Dog`, `Cat` and `Avian` sheets, all cut into
+`src/renderer/art/wildlife.png` by `tools/compose-wildlife.cjs`). As the author asks, Platino is
 hidden somewhere in the game.
 
 The menagerie's 304 creatures (`src/shared/data/menagerie.ts`) are DawnLike's too: cells of its `Characters` sheets

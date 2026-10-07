@@ -12,6 +12,7 @@ import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raise
 import { specialsHourly } from './specials';
 import { sagasHourly } from './sagas';
 import { huntsHourly } from './hunts';
+import { dragonTick } from './dragon';
 import { openGate } from './raidWait';
 import { maybeEvent } from './events';
 import { rally } from './rally';
@@ -189,6 +190,7 @@ export class Sim {
     specialsHourly(s);
     sagasHourly(s);
     huntsHourly(s);
+    dragonTick(s); // (the dragon in the hills: sim/dragon.ts)
     factionsHourly(s, this.rng);
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(

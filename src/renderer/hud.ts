@@ -36,7 +36,7 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
   const hunger = el('span', { class: 'raid-badge bleed-badge', hidden: '' });
   const foodDays = el('span', { class: 'food-days' });
   let musicOn = false;
-  const music = el('button', { class: 'tab music', title: 'Music on/off' }, '♪');
+  const music = el('button', { class: 'tab music', title: 'Sound and music on/off' }, '♪');
   music.addEventListener('click', () => bridge.setMusic(!musicOn));
   // the power the player holds back: theirs to cast in a raid (sim/powers.ts castHeld)
   const cast = el('button', { class: 'tab cast', hidden: '' });

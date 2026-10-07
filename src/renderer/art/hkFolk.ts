@@ -56,7 +56,10 @@ const HAIR: [string, number][] = [
   ['black', 0x1e1a18], ['brown', 0x5a3a24], ['blonde', 0xd8b878], ['red', 0x9a3822], ['orange', 0xd07a30],
   ['white', 0xe4e0d8], ['pink', 0xd8589c], ['violet', 0x8a4ac0], ['blue', 0x3a5ac8], ['green', 0x3a9a4a],
 ];
-const rgb = (hex: string | number) => {
+const rgb = (hex: string | number | undefined) => {
+  // (a look missing a colour, a stranger's or an older save's, reads as a mid tone: it once threw and stopped the
+  // map's whole frame loop)
+  if (hex === undefined || hex === null || hex === '') return [190, 140, 100];
   const n = typeof hex === 'number' ? hex : parseInt(hex.replace('#', ''), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };

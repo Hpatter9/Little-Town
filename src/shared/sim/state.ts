@@ -1,3 +1,4 @@
+import type { DragonState } from './dragon';
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
 
@@ -625,7 +626,7 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon';
   /** An envoy from a power of the realm (sim/factions.ts): which, and what they've come about. */
   envoy?: { faction: string; about: string; coins?: number };
   /** A commanded party's question on the road (sim/muster.ts `CROSSROADS`): which one. */
@@ -884,6 +885,9 @@ export interface GameState {
   lastSaga?: number;
   /** The Monster Hunters' Guild (sim/hunts.ts): hunts on its board, when it last posted one, and hunts won by quarry. */
   hunts?: Hunt[];
+  /** The dragon in the hills (sim/dragon.ts), and whether dragons come at all (the tests turn them off). */
+  dragon?: DragonState;
+  dragons?: boolean;
   /** The kinds of foe the town has met, in raids or on the road (the Bestiary: `meet`). */
   met?: string[];
   lastHunt?: number;

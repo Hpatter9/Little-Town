@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.13.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.14.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2114,6 +2114,102 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   conditions, the turn order down the right, the ability's name box, the banner, whose turn and the target as unit boxes,
   the orders bar, Auto and speed. Taps go through `boardPress`/`tap` in main.ts; a drag pans. Balance (16 lone towns,
   10 days): 2.33 people against the trail's 2.25. Tests: `test/tactics.test.ts`.
+
+- **Bigger trees and bushes (the owner's complaint: "so small"):** the land's prop sets are cut larger
+  (`GROW` in tools/compose-props.cjs, `PROP_GROW` in art/props.ts: trees 2x, bushes 1.7x, rocks 1.4x, plants 1.5x; the
+  places and the sea set unchanged), so a tree stands two or three people tall; the tactics board divides by
+  `PROP_GROW` to keep its tiles' size. A wood's cells get undergrowth too (`UNDERGROWTH`, `UNDERGROWTH_SHARE` 0.6: a
+  bush or plant beside the tree; none when `calm`), and the grass a second tuft or flower on some cells. A tree with a
+  townsperson, raider or traveller behind it, or a building's front, is drawn see-through (`MapView.seeThrough`, from
+  main.ts per snapshot, `SEE_THROUGH` 0.42).
+
+- **The living land (the owner's ask: "a huge fun immersive upgrade"):** renderer only, none of it on a slow phone
+  (`calm`). **Wild beasts** (`map/mapWildlife.ts`, `MapWildlife`, fed by main.ts beside the birds): deer with a stag,
+  boars, a fox, a squirrel, now and then a bear by day; wolves by night; camels in the desert, snow foxes in the tundra
+  and winter; only wolves on the liches' and vampires' land (`wildChoices`). DawnLike's Quadraped, Dog and Rodent cells
+  (`art/wildlife.png`, `tools/compose-wildlife.cjs`). They come out on the wild ground in view (never within `KEEP_OFF`
+  of a building or two cells of a road: `MapView.nearBuilding`), graze, wander after their leader, and bolt from anyone
+  within their `shy` reach (a deer bounding, the herd with it), fading out; none during a raid or a storm; up to `MOST`
+  (9). `window.__wildlife` for previews. **Wind:** `WIND` by weather; the trees and bushes in view lean on their own beat
+  with gusts running across the woods (`MapView.sway`, the sprite's skew about its foot, `SWAY_TREE`/`SWAY_BUSH`).
+  **Cloud shadows** (`cloudShadows`, `CLOUDS` 3 clear / 7 cloudy, `CLOUD_DARK`) drift over the land by day in fair
+  weather (`cloudLayer`, over the things). **Falling leaves** (`fallingLeaves`, `LEAF_RATE`, `LEAF_TINTS`): blossom in
+  spring, a few in summer, many in autumn, dead ones on blighted land, from the trees in view, spinning down with the
+  wind and lying a while. **Autumn colours:** the broadleaf trees and bushes turn gold, orange, rust or half-turned
+  (`autumnTextures` in art/props.ts, `TURNS`; the evergreens in `art/propEvergreen.json`, written by
+  compose-props.cjs, keep their green). A look missing its skin colour no longer throws in `hkLayers` (`rgb` in
+  hkFolk.ts: an envoy's once stopped the map's frame loop). Test: `test/wildlife.test.ts`.
+
+- **Deep winter and tracks in the land (the owner's ask: a gigantic overhaul):** renderer only, the rules pure in
+  `src/renderer/map/ice.ts` (`freezes`, `iceAt`, `trackGround`, `trackLife`, `breathShows`). In winter narrow water
+  (`ICE_NARROW`: a river, a stream, a pond) freezes over (groundArt.ts: pale ice bright at its banks, clear black patches,
+  forking cracks, drifts and glints, `paintIce`); water wide both ways (the sea) stays open; fish don't leap and rain
+  doesn't ring on ice (mapWater.ts), and iced water is silent in the soundscape. **Footprints** (`map/mapTracks.ts`,
+  `MapTracks` in `under`, fed by main.ts each snapshot with the townsfolk, travellers, raiders and the wild beasts'
+  `walkers()`): a boot print left and right every `STRIDE`, turned along the way walked (paws for beasts), lasting 90 s
+  in snow (25 while more falls), 12 in sand, 40 in the rain's mud, never on roads or rock; up to `PRINTS_MOST`.
+  **Breath** shows as a puff drifting up from each head in winter, the tundra and autumn's small hours (never the dead or
+  machines). Steps in snow and mud are heard (`crunch`, `squelch` cues in ambience.ts). None of it on a slow phone.
+  `window.__tracks`, `window.__centre(x, y)` for previews. Test: `test/winter.test.ts`.
+- **The town's animals (the owner's ask: something massive):** `src/renderer/map/pets.ts` (pure: `petsOf(home,
+  people)`: by the home's id, `DOG_SHARE` a dog, `CAT_SHARE` a cat, `HEN_SHARE` two to four hens with now and then a
+  rooster, each named; the liches and the Court keep only black cats, the machines nothing; `petLine` for the card) and
+  `map/mapPets.ts` (`MapPets`, in `things`, fed by main.ts each snapshot with the homes people sleep in, who's about and
+  the raiders; DawnLike's Dog, Cat and Avian cells appended to `art/wildlife.png` from column `PET_COL` 14 by
+  tools/compose-wildlife.cjs). A dog lazes by its door, noses about, trots at the heels of the people of its house when
+  they pass (`follow`), sleeps by the door at night and runs out barking at raiders ("Woof!", "Grrr!"); a cat washes on
+  the doorstep, strolls, prowls further by night and bolts from a dog ("Hsss!"); hens peck about the yard, scatter from
+  feet and go to roost at dusk. Tap one (`Hover` kind `pet`) for its name and what it's doing, and **Scratch behind the
+  ears** (a happy hop and a heart). Barks, mews and clucks are heard (ambience.ts cues). Shown on a slow phone too,
+  without the floating words. `window.__pets` for previews.
+- **Weather seen from above:** `src/renderer/map/mapSky.ts` (`skyFor`, pure: fog in fog weather and thin mist on spring
+  and autumn mornings; a sandstorm in the desert's cloud, rain and storms; a blizzard when a third of the winter's snow
+  spells blow up (`spell`) or a storm comes to the cold; heat haze over the desert's clear summer noons). `MapSky`: fog
+  banks drifting on the land (in MapView's `over`) and a pale cast, an ochre cast with sand streaks and tumbling dust
+  clouds, a white cast with snow driven sideways, shimmering bands; each eases in over some seconds. The wind howls
+  with them (ambience). `window.__sky.force` holds one for previews. Tests: `test/pets.test.ts`.
+- **The Dragon (the owner's ask: something massive):** `src/shared/sim/dragon.ts` (`dragonTick` from sim.ts, every
+  tick for its flight and hourly for the rest; the autopilot on, `s.dragons !== false`). From `DRAGON_FIRST_DAY` (9)
+  with `DRAGON_PEOPLE` (6) grown-ups at home, `DRAGON_HOURLY` a dragon comes (`summonDragon`; `dragonFor` the land: the
+  Rimewyrm on the tundra, the Ashen Wyrm in the desert, else Vermithrax the Red; `s.dragon`, `DragonState`). **Omens:**
+  `OMEN_FLIGHTS` (3) high flights `OMEN_HOURS` apart, its vast shadow sweeping the land. **The demand:** it lands on the
+  hill and asks tribute (`tributeOf`: a share of the treasury and the town's size, `RAISE` more each time paid), a
+  prompt of kind `dragon` in the event box: pay, give half the herds, or refuse (left alone: paid if the treasury can,
+  else the herds, else refused; `answerDragon` from `answerPrompt`). Paid, it comes back in `RETURN_DAYS`. **Wrath:**
+  refused, every `WRATH_HOURS` it makes a pass low over the town (`Flight`, `PASS_TICKS`): at its middle (`pass`) it sets
+  one or two roofs under its line alight, snatches a beast from a pen, and burns whoever is out of doors within
+  `BURN_REACH` cells (`BURN_CHANCE`, `BURN_KILLS` dead, else a burn wound); every defence engine (`ENGINE_MULT` its blow)
+  and everyone with a bow (`ARCHER_BASE` + level) strike back (`volley`); wounded to `FLEE_AT` it flies off for good
+  (`driven`, a morale mark). After `PASSES_THEN_ASK` passes it asks again. **The lair:** `dragon:lair` on the Expedition
+  Board from the demand on (`dragonDestination`, type `clear`: the dragon and two hatchlings); a party that wins there
+  (`dragonHome`, from `comeHome`) slays it: the hoard (`HOARD`, `HOARD_COINS` to the party), Dragonslayer titles,
+  renown to the venues, a morale mark. Drawn by `src/renderer/map/mapDragon.ts` (`MapDragon`, from
+  `snapshot.dragon`: on a pass the wyvern sheet flying low over the roofs, turned to its way (`creatureFlip`), tinted by
+  which dragon, its shadow racing below, a stream of fire (additive embers) poured down over the middle of the run; on
+  an omen its shadow only), and a roar (ambience.ts `roar` cue) as each flight begins. `window.__dragon(kind?)` summons
+  one (previews). Tests: `test/dragon.test.ts`. (The snapshot's planned party no longer throws when someone in it has
+  died since it was planned: `partyView`.)
+- **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
+  (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
+  pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and
+  hurrying off from anyone within `DUCK_SHY`; by day, never in winter or the tundra or a storm (`DUCKS_MOST` 7). Fish
+  leap from the water with a splash ring at each end (`FISH_EVERY`). Rain and storms ring the water (`RINGS_MOST`).
+  In a storm lightning strikes every `STRIKE_EVERY` (5 to 14) s: a jagged forked bolt to a point on the land (in
+  `over`), a ring where it lands, and the screen lit with a double flicker (`flash`, in `map.root`). When the rain
+  clears by day a faint rainbow arches over the view for `RAINBOW_SECONDS` (75). The birds and fish are DawnLike's,
+  appended to `art/wildlife.png` (columns 9 to 13, `tools/compose-wildlife.cjs`). `window.__water` (`strike()`,
+  `showRainbow()`) for previews. On a slow phone (`calm`) only the flash stays.
+
+- **The soundscape (the owner's ask: "a huge update or overhaul"):** `src/renderer/ambience.ts` (`createAmbience`) makes
+  the land's sound in the browser with the Web Audio API, no sound files: beds of filtered noise for the wind (swaying,
+  brighter as it rises), the rain, the river or sea and the fire, and calls scheduled at random: birdsong (chirped
+  sine phrases) by day, crickets, frogs, owls and wolves (a sawtooth howl with vibrato) by night; cues `chop`, `mine`,
+  `build` from up to three workers in view (panned by where they stand), `thunder` a moment after each lightning flash
+  (`MapWater.onStrike`), a war `horn` as a raid turns active, a duck's `quack` now and then. How loud each is comes from
+  `ambientMix` (`src/renderer/ambienceMix.ts`, pure: the daylight, season, weather, biome, the shares of water and wood in
+  view, the blight, a raid quietening the living things, the camp's fire in view), worked out by main.ts each snapshot.
+  It plays with the music: the ♪ button ("Sound and music") turns both on; silent while the strip is hidden; the first
+  touch wakes the audio where the browser holds it asleep. `window.__ambience` for previews. Test: `test/ambience.test.ts`.
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

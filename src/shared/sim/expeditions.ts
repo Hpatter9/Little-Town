@@ -63,6 +63,7 @@ import { TRADE_HIDDEN } from '../data/minerals';
 import { placeCleared, placeDestination, placeOfDest } from './places';
 import { isSagaDest, sagaDestOf, sagaTripHome } from './sagas';
 import { huntDestOf, huntHome, isHuntDest } from './hunts';
+import { dragonDestination, dragonHome, isDragonDest } from './dragon';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
 import { tireless, townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, meet, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
@@ -94,6 +95,7 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isPackDest(id) || id === HUNT_DEST) return packDestinationOf(s, id);
   if (isSagaDest(id)) return sagaDestOf(s, id);
   if (isHuntDest(id)) return huntDestOf(s, id);
+  if (isDragonDest(id)) return dragonDestination(s);
   if (isAssaultDest(id)) return assaultDestination(s, id);
   return DESTINATION_BY_ID[id];
 }
@@ -105,6 +107,8 @@ export function destinationUnlocked(s: GameState, d: Destination): boolean {
   if (isSagaDest(d.id)) return !!sagaDestOf(s, d.id);
   // (a hunt on the guild's board)
   if (isHuntDest(d.id)) return !!huntDestOf(s, d.id);
+  // (the dragon's lair, while it lives)
+  if (isDragonDest(d.id)) return !!dragonDestination(s);
   // (an assault: on a power at war, or a dungeon on the board)
   if (isAssaultDest(d.id)) return assaultTargets(s, (id) => !destinationHidden(s, id) && !!DESTINATION_BY_ID[id] && destinationUnlocked(s, DESTINATION_BY_ID[id])).includes(d.id);
   // (a place on the town's land: while it's found and waiting)
@@ -700,6 +704,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   packHome(s, e, rng);
   sagaTripHome(s, e);
   huntHome(s, e, party);
+  dragonHome(s, e, party);
   payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);
   debrief(s, e, d); // (a party the player sent: what it cost and won, sim/muster.ts)

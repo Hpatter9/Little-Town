@@ -103,6 +103,7 @@ import { describeFoes, MINE_DEPTH, mineLeft, minersAt, placeById, placeDestinati
 import { packDestinations, packView, type PackView } from './pack';
 import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from './sagas';
 import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
+import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { directionName, isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
 import { RIVALS } from '../data/rivals';
@@ -688,6 +689,8 @@ export interface Snapshot {
   world: WorldView;
   /** The Monster Hunters' Guild (sim/hunts.ts): whether it stands, its hunts, its forge, and hunts won. */
   hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
+  /** The dragon in the hills (sim/dragon.ts): its phase, health, tribute and flight. */
+  dragon: DragonView | null;
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
   regions: string[];
   /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
@@ -866,7 +869,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -916,6 +919,7 @@ export function snapshot(s: GameState): Snapshot {
     disaster: disasterView(s),
     world: worldView(s),
     hunts: huntsView(s),
+    dragon: dragonView(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
     mine: mineView(s),
@@ -1310,9 +1314,10 @@ function tripsView(s: GameState): TripsView {
 
 function partyView(s: GameState, dest: string): { party: string[]; partyHorses: number; partyTruck: boolean } {
   const plan = slow(s, `party:${dest}`, () => planParty(s, dest));
-  const party = plan.members.map((id) => {
-    const p = s.people.find((q) => q.id === id)!;
-    return `${p.name} (${ROLES[plan.roles[id] ?? 'fighter'].name.toLowerCase()})`;
+  // (the plan is kept a while: someone in it may have died since)
+  const party = plan.members.flatMap((id) => {
+    const p = s.people.find((q) => q.id === id);
+    return p ? [`${p.name} (${ROLES[plan.roles[id] ?? 'fighter'].name.toLowerCase()})`] : [];
   });
   return { party, partyHorses: plan.horses, partyTruck: plan.truck };
 }

@@ -48,6 +48,8 @@ export const LOOKS: Record<string, Look> = {
   // natural disasters (sim/disasters.ts)
   'disaster:tornado': { sprite: 'chaos_storm', kind: 'vortex', color: 0x9aa0a8 },
   'disaster:dust': { sprite: 'spines', kind: 'fog', color: 0xa89878 },
+  // the dragon's breath on a roof (sim/dragon.ts)
+  'dragon:fire': { sprite: 'mg_ground_fire', kind: 'ring', color: 0xff7a2a },
   // the town's own powers
   'town:raise_dead': { sprite: 'conjure', kind: 'rise', color: GREEN_DEAD },
   'town:bone_ward': { sprite: 'parry', kind: 'dome', color: BONE },

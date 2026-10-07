@@ -10,6 +10,13 @@ import { MapSpells } from './map/mapSpells';
 import { MapHerds } from './map/mapHerds';
 import { MapBoats } from './map/mapBoats';
 import { MapBirds } from './map/mapBirds';
+import { MapWildlife } from './map/mapWildlife';
+import { MapTracks } from './map/mapTracks';
+import { MapDragon } from './map/mapDragon';
+import { MapSky, skyFor } from './map/mapSky';
+import { MapPets, type PetHome } from './map/mapPets';
+import { freezes, iceAt } from './map/ice';
+import { MapWater } from './map/mapWater';
 import { MapButterflies } from './map/mapButterflies';
 import { BloodPools } from './map/bloodPools';
 import { MapDisaster } from './map/mapDisaster';
@@ -33,7 +40,7 @@ import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
-import { blueprintCount, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
+import { blueprintCount, buildingDoor, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { lineOfDef, venueOfDef } from '../shared/data/shop';
 import { storePanel, type PanelId } from '../shared/ipc';
@@ -85,6 +92,8 @@ import { MapRaiders } from './map/mapRaiders';
 import { createHud } from './hud';
 import { hostBridge, localBridge } from './localBridge';
 import { createMusic } from './music';
+import { createAmbience } from './ambience';
+import { ambientMix, type AmbientMix } from './ambienceMix';
 import { createActionBar, createAwayCard, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
 import { createTooltip } from './tooltip';
 import { ExpeditionPane } from './town/expeditionPane';
@@ -116,6 +125,7 @@ type Hover =
   | { kind: 'scenery' }
   | { kind: 'pane' }
   | { kind: 'raider'; id: number }
+  | { kind: 'pet'; key: string }
   | { kind: 'caravan' }
   | null;
 
@@ -217,6 +227,22 @@ async function start(): Promise<void> {
   const birds = new MapBirds(map.things, map);
   (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
   const butterflies = new MapButterflies(map.things, map);
+  const wildlife = new MapWildlife(map.things, map);
+  (window as unknown as { __wildlife?: MapWildlife }).__wildlife = wildlife; // (for previews)
+  const water = new MapWater(map.things, map.under, map.over, map.root, map);
+  // footprints in the snow, the sand and the rain's mud, and breath in the cold (map/mapTracks.ts)
+  const tracks = new MapTracks(map.under, map.over, map);
+  (window as unknown as { __tracks?: MapTracks }).__tracks = tracks; // (for previews)
+  // the town's dogs, cats and hens (map/mapPets.ts)
+  const pets = new MapPets(map.things, map.over, map);
+  // the dragon in the sky (map/mapDragon.ts)
+  const dragon = new MapDragon(map.over, map.under, map);
+  dragon.onFlight = (low, pan) => ambience.cue('roar', pan, low ? 0.2 : 0.8);
+  (window as unknown as { __pets?: MapPets }).__pets = pets; // (for previews)
+  // (thunder rolls in a moment after the flash, from the side it struck)
+  pets.onSound = (kind, x) => ambience.cue(kind, ((x - map.view.x) / Math.max(1, map.view.w)) * 1.6 - 0.8);
+  water.onStrike = (x) => ambience.cue('thunder', ((x - map.view.x) / Math.max(1, map.view.w)) * 1.4 - 0.7, 0.3 + Math.random() * 1.2);
+  (window as unknown as { __water?: MapWater }).__water = water; // (for previews)
   const pane = new ExpeditionPane(seedHash);
   const snow = new SnowView();
   const leaves = new LeavesView();
@@ -225,6 +251,10 @@ async function start(): Promise<void> {
   const weather = fullSky ? new WeatherView() : null;
   const townMask = new Graphics(); // used only as a mask (never added to the stage, or it would draw)
   app.stage.addChild(map.root);
+  // fog banks, sandstorms, blizzards and heat haze (map/mapSky.ts)
+  const sky = new MapSky(map);
+  app.stage.addChild(sky.root);
+  (window as unknown as { __sky?: MapSky }).__sky = sky; // (for previews)
   if (weather) app.stage.addChild(weather.root);
   app.stage.addChild(snow.root, leaves.root, pane.root);
   // a raid's battle is fought on the town's own map (map/mapBattle.ts draws the trail, the spots and the shots over it)
@@ -304,6 +334,11 @@ async function start(): Promise<void> {
   // (an origin's look reaches its buildings too)
   const hud = createHud(bridge); // (the buildings' style follows the snapshot: see applySnapshot)
   const music = createMusic();
+  // the land's soundscape, on with the music (ambience.ts)
+  const ambience = createAmbience();
+  (window as unknown as { __ambience?: typeof ambience }).__ambience = ambience; // (for previews)
+  let ambMix: AmbientMix | null = null;
+  let wasRaid = false;
   const tip = createTooltip();
   const actions = createActionBar();
   const toasts = createToasts();
@@ -344,6 +379,8 @@ async function start(): Promise<void> {
     if (raider) return { kind: 'raider', id: raider.id };
     const person = people.personAt(w.x, w.y);
     if (person) return { kind: 'person', person };
+    const pet = pets.petAt(w.x, w.y);
+    if (pet) return { kind: 'pet', key: pet };
     const building = map.buildingAt(w.x, w.y);
     if (building !== null) return { kind: 'building', id: building };
     const place = map.placeAt(w.x, w.y);
@@ -487,6 +524,11 @@ async function start(): Promise<void> {
           }
         }
         return { title: def.name + (b.status === 'blueprint' ? ' (blueprint)' : ''), lines, hint: 'Click for options', y: r.y };
+      }
+      case 'pet': {
+        const d = pets.describe(h.key);
+        if (!d) return null;
+        return { title: d.title, lines: [d.line], hint: 'Tap to give it a scratch', y: map.screenOf(d.x, d.y).y - 30 };
       }
       case 'place': {
         const p = snap.places.find((q) => q.id === h.id);
@@ -665,6 +707,8 @@ async function start(): Promise<void> {
         const actions = p?.dest ? [act('party', 'Bounty or forbid…', () => bridge.openPanel('expeditions'), { primary: true })] : p?.mine ? [act('enter', 'Enter the mine', () => bridge.command({ type: 'watchMine', place: p.id }), { primary: true })] : [];
         return { title: d.title, lines: d.lines, actions };
       }
+      case 'pet':
+        return { title: d.title, lines: d.lines, actions: [act('scratch', 'Scratch behind the ears', () => (pets.scratch(h.key), publishInspect()), { primary: true })] };
       case 'caravan':
         return { title: d.title, lines: d.lines, actions: [act('trade', 'Trade…', () => bridge.openPanel('trade'), { primary: true })] };
       case 'pane':
@@ -723,6 +767,7 @@ async function start(): Promise<void> {
 
   // (the feed's "Show on the map": look at someone or something and open its card: mobile/feed.ts)
   (window as unknown as { __showRecap?: () => boolean }).__showRecap = () => raidRecap.open();
+  (window as unknown as { __centre?: (x: number, y: number) => void }).__centre = (x, y) => camera.centreOn({ x, y }, app.screen.width, app.screen.height); // (previews)
   (window as unknown as { __showOnMap?: (a: { person?: number; building?: number }) => boolean }).__showOnMap = (a) => {
     const p = a.person != null ? snap.people.find((q) => q.id === a.person) : undefined;
     const b = a.building != null ? snap.buildings.find((q) => q.id === a.building) : undefined;
@@ -811,6 +856,7 @@ async function start(): Promise<void> {
       return;
     }
     if (h?.kind === 'caravan') return bridge.openPanel('trade');
+    if (h?.kind === 'pet') return pets.scratch(h.key);
     if (h?.kind === 'person') {
       if (snap.visitor?.id === h.person.id) return bridge.openPanel('townsfolk');
       return selectPerson(selectedPerson === h.person.id ? null : h.person.id);
@@ -1059,6 +1105,109 @@ async function start(): Promise<void> {
     butterflies.land = next.land;
     birds.land = next.land;
     birds.folk = [...next.people.filter((p) => p.away === null && !p.indoors), ...next.travellers, ...(next.raid?.phase === 'active' ? next.raid.raiders : [])].map((p) => ({ x: p.x, y: p.y }));
+    // the wild beasts beyond the town: wolves by night, nothing while a raid is on or the land is frozen
+    wildlife.folk = birds.folk;
+    // the water's life and the sky's: ducks, fish, rain rings, lightning in a storm, a rainbow after the rain
+    water.folk = birds.folk;
+    water.land = next.land;
+    water.weather = freeze ? 'snow' : next.weather.kind;
+    water.daylight = next.calendar.daylight;
+    water.winter = next.calendar.season === 'winter' || next.biome === 'tundra';
+    // the pets: each home's, by who lives there
+    {
+      const residents = new Map<number, typeof next.people>();
+      for (const p of next.people) if (p.bedId !== null) residents.set(p.bedId, [...(residents.get(p.bedId) ?? []), p]);
+      const homes: PetHome[] = [];
+      for (const b of next.buildings) {
+        const folk = residents.get(b.id);
+        if (!folk || b.status !== 'done' || b.room) continue;
+        homes.push({ id: b.id, door: buildingDoor(b), name: folk[0].name.split(' ')[0], residents: folk.map((p) => p.id) });
+      }
+      pets.land = next.land;
+      pets.people = buildStyle;
+      pets.night = next.calendar.daylight < 0.25;
+      pets.raid = next.raid?.phase === 'active';
+      pets.sync(
+        homes,
+        next.people.filter((p) => p.away === null && !p.indoors).map((p) => ({ id: p.id, x: p.x, y: p.y })),
+        next.raid?.phase === 'active' ? next.raid.raiders.filter((r) => !r.ally).map((r) => ({ x: r.x, y: r.y })) : [],
+      );
+    }
+    sky.mix = skyFor({ weather: freeze ? 'storm' : next.weather.kind, season: freeze ? 'winter' : next.calendar.season, biome: next.biome, hour: next.calendar.hour, daylight: next.calendar.daylight, spell: next.calendar.day * 4 + Math.floor(next.calendar.hour / 6) });
+    sky.night = next.calendar.daylight < 0.3;
+    dragon.sync(next.dragon);
+    tracks.land = next.land;
+    tracks.season = freeze ? 'winter' : next.calendar.season;
+    tracks.biome = next.biome;
+    tracks.weather = freeze ? 'snow' : next.weather.kind;
+    tracks.daylight = next.calendar.daylight;
+    tracks.sync([
+      // (the dead and the machines leave prints but have no breath)
+      ...next.people.filter((p) => p.away === null && !p.indoors && !p.swimming).map((p) => ({ id: 'p' + p.id, x: p.x, y: p.y, cold: !!p.tireless })),
+      ...next.travellers.map((t, i) => ({ id: 't' + (t.id ?? i), x: t.x, y: t.y })),
+      ...(next.raid?.phase === 'active' ? next.raid.raiders.filter((r) => !r.swimming).map((r) => ({ id: 'r' + r.id, x: r.x, y: r.y })) : []),
+      ...wildlife.walkers(),
+    ]);
+    // what the land sounds like now: the beds and the calls from the view, the work in it panned by where it is
+    {
+      const v = map.view;
+      const land = next.land;
+      let cells = 0;
+      let wet = 0;
+      let wood = 0;
+      let sea = false;
+      const icy = freezes(freeze ? 'winter' : next.calendar.season, next.biome);
+      for (let cy = Math.max(0, Math.floor(v.y / CELL)); cy <= Math.min(land.h - 1, Math.floor((v.y + v.h) / CELL)); cy += 2)
+        for (let cx = Math.max(0, Math.floor(v.x / CELL)); cx <= Math.min(land.w - 1, Math.floor((v.x + v.w) / CELL)); cx += 2) {
+          const g = groundAt(land, cx, cy);
+          cells++;
+          // (iced water is silent)
+          if (g === 'shallows' || (g === 'water' && !(icy && iceAt((x, y) => x >= 0 && y >= 0 && x < land.w && y < land.h && groundAt(land, x, y) === 'water', cx, cy)))) wet++;
+          if (g === 'forest') wood++;
+        }
+      sea = next.biome === 'coast' || next.theme === 'merfolk';
+      const campIn = next.camp.x * CELL > v.x && next.camp.x * CELL < v.x + v.w && next.camp.y * CELL > v.y && next.camp.y * CELL < v.y + v.h;
+      ambMix = ambientMix({
+        daylight: next.calendar.daylight,
+        season: next.calendar.season,
+        weather: freeze ? 'snow' : next.weather.kind,
+        biome: next.biome,
+        water: cells ? wet / cells : 0,
+        forest: cells ? wood / cells : 0,
+        sea,
+        blighted: buildStyle === 'lich' || buildStyle === 'vampire',
+        raid: next.raid?.phase === 'active',
+        fire: campIn,
+      });
+      // (a sandstorm or a blizzard howls)
+      ambMix.wind = Math.max(ambMix.wind, sky.mix.sand, sky.mix.blizzard);
+      const raidNow = next.raid?.phase === 'active';
+      if (raidNow && !wasRaid) ambience.cue('horn', 0, 0.2);
+      wasRaid = raidNow;
+      // (each worker in view swings about every second; a few at most, the nearest the middle first)
+      let n = 0;
+      for (const p of next.people) {
+        if (n >= 3 || p.away !== null || p.indoors) continue;
+        const kind = p.activity === 'chop' ? 'chop' : p.activity === 'mine' ? 'mine' : p.activity === 'build' ? 'build' : null;
+        if (!kind || p.x < v.x || p.x > v.x + v.w || p.y < v.y || p.y > v.y + v.h) continue;
+        n++;
+        if (Math.random() < 0.09) ambience.cue(kind, ((p.x - v.x) / Math.max(1, v.w)) * 1.6 - 0.8);
+      }
+      if (water.count > 0 && Math.random() < 0.012) ambience.cue('quack', Math.random() * 1.2 - 0.6);
+      // (boots crunching in the snow, feet sucking in the mud: a few of the steps laid, panned by where they fell)
+      let heard = 0;
+      for (const st of tracks.takeSteps()) {
+        if (heard >= 3 || st.ground === 'sand' || Math.random() > 0.5) continue;
+        heard++;
+        ambience.cue(st.ground === 'snow' ? 'crunch' : 'squelch', st.x * 1.6 - 0.8, Math.random() * 0.1);
+      }
+    }
+    wildlife.land = next.land;
+    wildlife.on = !freeze && next.weather.kind !== 'storm' && !(next.raid?.phase === 'active');
+    wildlife.night = next.calendar.daylight < 0.3;
+    wildlife.season = next.calendar.season;
+    wildlife.biome = next.biome;
+    wildlife.blighted = buildStyle === 'lich' || buildStyle === 'vampire';
     snow.on = freeze || (fullSky && next.weather.kind === 'snow');
     // autumn leaves on the wind, in fair weather
     leaves.on = next.calendar.season === 'autumn' && (next.weather.kind === 'clear' || next.weather.kind === 'cloudy') && !freeze;
@@ -1120,6 +1269,12 @@ async function start(): Promise<void> {
     map.festival.sync(next.gathering);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
+    // (a tree with someone behind it, or a building's front, is drawn see-through)
+    map.seeThrough([
+      ...next.people.filter((p) => !p.indoors).map((p) => people.posOf(p.id) ?? p),
+      ...(next.raid?.phase === 'active' ? next.raid.raiders : []).map((r) => raiders.posOf(r.id) ?? r),
+      ...next.travellers,
+    ]);
     // (a nomad tribe that moved camp: the view goes to the new camp)
     if (lastCamp !== null && (next.camp.x !== lastCamp.x || next.camp.y !== lastCamp.y)) camera.centreOn(next.camp, app.screen.width, app.screen.height);
     lastCamp = next.camp;
@@ -1182,6 +1337,13 @@ async function start(): Promise<void> {
     herds.render(performance.now(), ticker.deltaMS / 1000);
     boats.render(performance.now());
     birds.render(ticker.deltaMS / 1000, performance.now());
+    wildlife.render(ticker.deltaMS / 1000, performance.now());
+    water.render(ticker.deltaMS / 1000);
+    tracks.render(ticker.deltaMS / 1000);
+    pets.render(ticker.deltaMS / 1000);
+    dragon.render(ticker.deltaMS / 1000);
+    sky.render(ticker.deltaMS / 1000, app.screen.width, app.screen.height);
+    if (ambMix) ambience.update(view.music && !view.hidden, ambMix, ticker.deltaMS / 1000);
     butterflies.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());
     map.renderAir(ticker.deltaMS / 1000);
