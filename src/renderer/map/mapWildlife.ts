@@ -87,6 +87,13 @@ interface Beast {
 }
 
 let frames: Texture[][] | null = null;
+const beastIds = new WeakMap<object, number>();
+let nextBeastId = 1;
+function idOf(b: object): number {
+  let id = beastIds.get(b);
+  if (id === undefined) beastIds.set(b, (id = nextBeastId++));
+  return id;
+}
 let loading = false;
 function loadFrames(): void {
   if (loading) return;
@@ -118,6 +125,11 @@ export class MapWildlife {
     private readonly map: MapView,
   ) {
     loadFrames();
+  }
+
+  /** Where each beast stands (world px), for the tracks they leave in the snow and the sand. */
+  walkers(): { id: string; x: number; y: number; paw: boolean; head: number }[] {
+    return this.beasts.map((b) => ({ id: 'w' + idOf(b), x: b.x, y: b.y, paw: true, head: DEFS[b.kind].scale * 9 }));
   }
 
   /** How many are about (previews). */

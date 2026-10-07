@@ -9,6 +9,7 @@ import { CELL, groundAt, type LandMap } from '../../shared/sim/land';
 import wildUrl from '../art/wildlife.png';
 import { loadImage } from '../art/loadImage';
 import { visibility } from './groundArt';
+import { iceAt } from './ice';
 import type { MapView } from './mapView';
 
 /** The atlas's columns for the water (after the land's beasts: tools/compose-wildlife.cjs). */
@@ -159,7 +160,9 @@ export class MapWater {
     if (!land) return false;
     const cx = Math.floor(px / CELL);
     const cy = Math.floor(py / CELL);
-    return cx >= 0 && cy >= 0 && cx < land.w && cy < land.h && WET.has(groundAt(land, cx, cy));
+    if (!(cx >= 0 && cy >= 0 && cx < land.w && cy < land.h && WET.has(groundAt(land, cx, cy)))) return false;
+    // (iced over in the cold: no fish leap, no rain rings; the sea stays open)
+    return !this.winter || !iceAt((x, y) => x >= 0 && y >= 0 && x < land.w && y < land.h && groundAt(land, x, y) === 'water', cx, cy);
   }
 
   private ducksFrame(dt: number, calm: boolean, x: number, y: number, w: number, h: number): void {

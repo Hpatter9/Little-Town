@@ -11,6 +11,8 @@ import { MapHerds } from './map/mapHerds';
 import { MapBoats } from './map/mapBoats';
 import { MapBirds } from './map/mapBirds';
 import { MapWildlife } from './map/mapWildlife';
+import { MapTracks } from './map/mapTracks';
+import { freezes, iceAt } from './map/ice';
 import { MapWater } from './map/mapWater';
 import { MapButterflies } from './map/mapButterflies';
 import { BloodPools } from './map/bloodPools';
@@ -224,6 +226,9 @@ async function start(): Promise<void> {
   const wildlife = new MapWildlife(map.things, map);
   (window as unknown as { __wildlife?: MapWildlife }).__wildlife = wildlife; // (for previews)
   const water = new MapWater(map.things, map.under, map.over, map.root, map);
+  // footprints in the snow, the sand and the rain's mud, and breath in the cold (map/mapTracks.ts)
+  const tracks = new MapTracks(map.under, map.over, map);
+  (window as unknown as { __tracks?: MapTracks }).__tracks = tracks; // (for previews)
   // (thunder rolls in a moment after the flash, from the side it struck)
   water.onStrike = (x) => ambience.cue('thunder', ((x - map.view.x) / Math.max(1, map.view.w)) * 1.4 - 0.7, 0.3 + Math.random() * 1.2);
   (window as unknown as { __water?: MapWater }).__water = water; // (for previews)
@@ -738,6 +743,7 @@ async function start(): Promise<void> {
 
   // (the feed's "Show on the map": look at someone or something and open its card: mobile/feed.ts)
   (window as unknown as { __showRecap?: () => boolean }).__showRecap = () => raidRecap.open();
+  (window as unknown as { __centre?: (x: number, y: number) => void }).__centre = (x, y) => camera.centreOn({ x, y }, app.screen.width, app.screen.height); // (previews)
   (window as unknown as { __showOnMap?: (a: { person?: number; building?: number }) => boolean }).__showOnMap = (a) => {
     const p = a.person != null ? snap.people.find((q) => q.id === a.person) : undefined;
     const b = a.building != null ? snap.buildings.find((q) => q.id === a.building) : undefined;
@@ -1082,6 +1088,18 @@ async function start(): Promise<void> {
     water.weather = freeze ? 'snow' : next.weather.kind;
     water.daylight = next.calendar.daylight;
     water.winter = next.calendar.season === 'winter' || next.biome === 'tundra';
+    tracks.land = next.land;
+    tracks.season = freeze ? 'winter' : next.calendar.season;
+    tracks.biome = next.biome;
+    tracks.weather = freeze ? 'snow' : next.weather.kind;
+    tracks.daylight = next.calendar.daylight;
+    tracks.sync([
+      // (the dead and the machines leave prints but have no breath)
+      ...next.people.filter((p) => p.away === null && !p.indoors && !p.swimming).map((p) => ({ id: 'p' + p.id, x: p.x, y: p.y, cold: !!p.tireless })),
+      ...next.travellers.map((t, i) => ({ id: 't' + (t.id ?? i), x: t.x, y: t.y })),
+      ...(next.raid?.phase === 'active' ? next.raid.raiders.filter((r) => !r.swimming).map((r) => ({ id: 'r' + r.id, x: r.x, y: r.y })) : []),
+      ...wildlife.walkers(),
+    ]);
     // what the land sounds like now: the beds and the calls from the view, the work in it panned by where it is
     {
       const v = map.view;
@@ -1090,11 +1108,13 @@ async function start(): Promise<void> {
       let wet = 0;
       let wood = 0;
       let sea = false;
+      const icy = freezes(freeze ? 'winter' : next.calendar.season, next.biome);
       for (let cy = Math.max(0, Math.floor(v.y / CELL)); cy <= Math.min(land.h - 1, Math.floor((v.y + v.h) / CELL)); cy += 2)
         for (let cx = Math.max(0, Math.floor(v.x / CELL)); cx <= Math.min(land.w - 1, Math.floor((v.x + v.w) / CELL)); cx += 2) {
           const g = groundAt(land, cx, cy);
           cells++;
-          if (g === 'water' || g === 'shallows') wet++;
+          // (iced water is silent)
+          if (g === 'shallows' || (g === 'water' && !(icy && iceAt((x, y) => x >= 0 && y >= 0 && x < land.w && y < land.h && groundAt(land, x, y) === 'water', cx, cy)))) wet++;
           if (g === 'forest') wood++;
         }
       sea = next.biome === 'coast' || next.theme === 'merfolk';
@@ -1124,6 +1144,13 @@ async function start(): Promise<void> {
         if (Math.random() < 0.09) ambience.cue(kind, ((p.x - v.x) / Math.max(1, v.w)) * 1.6 - 0.8);
       }
       if (water.count > 0 && Math.random() < 0.012) ambience.cue('quack', Math.random() * 1.2 - 0.6);
+      // (boots crunching in the snow, feet sucking in the mud: a few of the steps laid, panned by where they fell)
+      let heard = 0;
+      for (const st of tracks.takeSteps()) {
+        if (heard >= 3 || st.ground === 'sand' || Math.random() > 0.5) continue;
+        heard++;
+        ambience.cue(st.ground === 'snow' ? 'crunch' : 'squelch', st.x * 1.6 - 0.8, Math.random() * 0.1);
+      }
     }
     wildlife.land = next.land;
     wildlife.on = !freeze && next.weather.kind !== 'storm' && !(next.raid?.phase === 'active');
@@ -1262,6 +1289,7 @@ async function start(): Promise<void> {
     birds.render(ticker.deltaMS / 1000, performance.now());
     wildlife.render(ticker.deltaMS / 1000, performance.now());
     water.render(ticker.deltaMS / 1000);
+    tracks.render(ticker.deltaMS / 1000);
     if (ambMix) ambience.update(view.music && !view.hidden, ambMix, ticker.deltaMS / 1000);
     butterflies.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());

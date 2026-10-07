@@ -11,7 +11,7 @@ const MASTER = 0.55;
 const FADE = 1.2;
 
 /** A sound to play now: what, and where across the screen (-1 left to 1 right). */
-export type Cue = 'chop' | 'mine' | 'build' | 'thunder' | 'horn' | 'quack' | 'splash';
+export type Cue = 'chop' | 'mine' | 'build' | 'thunder' | 'horn' | 'quack' | 'splash' | 'crunch' | 'squelch';
 
 export interface Ambience {
   /** Each frame: on or off, the mix, and the seconds since the last. */
@@ -222,6 +222,13 @@ export function createAmbience(): Ambience {
       tone('sawtooth', 600, 400, 0.1, 0.02, pan, delay + 0.16);
     },
     splash: (pan, delay) => burst('bandpass', 1500, 0.8, 0.3, 0.06, pan, delay, 0.01),
+    // a boot in snow: two short dry crunches, the second softer
+    crunch: (pan, delay) => {
+      burst('bandpass', 2300 + Math.random() * 900, 1.4, 0.07, 0.05, pan, delay, 0.004);
+      burst('bandpass', 1700 + Math.random() * 700, 1.2, 0.06, 0.03, pan, delay + 0.05, 0.004);
+    },
+    // a foot in the rain's mud: a low wet suck
+    squelch: (pan, delay) => burst('lowpass', 420 + Math.random() * 200, 2, 0.12, 0.05, pan, delay, 0.02),
   };
 
   const level = (b: { gain: GainNode } | null, v: number) => {

@@ -3,6 +3,7 @@
 // edges, and the land beyond what the town knows darkened (and black further out). A chunk is painted again only
 // when something in it changes (the land's version, the open radius, the season).
 
+import { freezes, iceAt } from './ice';
 import { Texture } from 'pixi.js';
 import { CELL, groundAt, isRoad, type LandMap, FOG_BAND, wearAt, WEAR_FULL, WEAR_SHOW , wet } from '../../shared/sim/land';
 import type { TdTiles } from '../art/tdTiles';
@@ -156,6 +157,65 @@ function wornLevel(m: LandMap, x: number, y: number): number {
 const WORN_ALPHA = [0, 0.4, 0.7, 1];
 
 /** Paint one chunk (a 2D canvas, one canvas pixel per world pixel). */
+/** Ice: its plain colour, the bright rim at the banks, clear black ice. */
+const ICE = ['#c7dcec', '#e4f0f9', '#b4cde2'];
+
+/** Cracks over a frozen cell (thin dark lines that fork, a pale line beside each), now and then snow blown in a drift,
+ *  and a glint of the low sun. */
+function paintIce(g: CanvasRenderingContext2D, seed: number, x: number, y: number, px: number, py: number): void {
+  const h = (k: number) => hash(seed ^ (0x1c0 + k), x, y);
+  if (h(0) < 0.7) {
+    let cx = px + 4 + h(1) * 24;
+    let cy = py + 4 + h(2) * 24;
+    let ang = h(3) * Math.PI * 2;
+    const steps = 3 + Math.floor(h(4) * 4);
+    for (let i = 0; i < steps; i++) {
+      const len = 4 + h(5 + i) * 6;
+      const nx = cx + Math.cos(ang) * len;
+      const ny = cy + Math.sin(ang) * len;
+      g.strokeStyle = 'rgba(80,110,140,0.55)';
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(Math.round(cx) + 0.5, Math.round(cy) + 0.5);
+      g.lineTo(Math.round(nx) + 0.5, Math.round(ny) + 0.5);
+      g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,0.5)';
+      g.beginPath();
+      g.moveTo(Math.round(cx) + 0.5, Math.round(cy) + 1.5);
+      g.lineTo(Math.round(nx) + 0.5, Math.round(ny) + 1.5);
+      g.stroke();
+      // (a fork now and then)
+      if (h(12 + i) < 0.35) {
+        const fa = ang + (h(20 + i) < 0.5 ? 1 : -1) * (0.7 + h(28 + i) * 0.6);
+        g.strokeStyle = 'rgba(80,110,140,0.4)';
+        g.beginPath();
+        g.moveTo(Math.round(nx) + 0.5, Math.round(ny) + 0.5);
+        g.lineTo(Math.round(nx + Math.cos(fa) * len * 0.6) + 0.5, Math.round(ny + Math.sin(fa) * len * 0.6) + 0.5);
+        g.stroke();
+      }
+      cx = nx;
+      cy = ny;
+      ang += (h(36 + i) - 0.5) * 1.4;
+    }
+  }
+  // (snow blown over the ice in a drift)
+  if (h(50) < 0.35) {
+    g.fillStyle = 'rgba(250,252,255,0.75)';
+    const dx = px + 2 + h(51) * 16;
+    const dy = py + 6 + h(52) * 20;
+    g.fillRect(Math.round(dx), Math.round(dy), 10 + Math.round(h(53) * 8), 2);
+    g.fillRect(Math.round(dx) + 2, Math.round(dy) - 1, 6 + Math.round(h(54) * 4), 1);
+  }
+  // (a glint)
+  if (h(60) < 0.25) {
+    const gx = Math.round(px + 4 + h(61) * 24);
+    const gy = Math.round(py + 4 + h(62) * 24);
+    g.fillStyle = '#ffffff';
+    g.fillRect(gx, gy - 1, 1, 3);
+    g.fillRect(gx - 1, gy, 3, 1);
+  }
+}
+
 export function paintChunk(m: LandMap, cx: number, cy: number, season: string, biome: string, td: TdTiles | null, era: Era = 'neolithic', blight = false): Texture {
   const pal = PALETTES[season] ?? SUMMER;
   const size = CHUNK * CELL;
@@ -183,6 +243,27 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
   const shallow = rgb(pal.shallows[0]);
   const foam = rgb(pal.shallows[2]);
   const glint = rgb(pal.shallows[1]);
+  // (in deep winter the rivers and ponds freeze over: pale ice, bright at its banks; the sea stays open)
+  const cold = freezes(season, biome);
+  const iceMemo = new Map<number, boolean>();
+  const isWaterCell = (x: number, y: number) => x >= 0 && y >= 0 && x < m.w && y < m.h && groundAt(m, x, y) === 'water';
+  const frozen = (x: number, y: number): boolean => {
+    if (!cold) return false;
+    const k = y * m.w + x;
+    let v = iceMemo.get(k);
+    if (v === undefined) iceMemo.set(k, (v = iceAt(isWaterCell, x, y)));
+    return v;
+  };
+  const frozenNear = (wx: number, wy: number): boolean => {
+    const x = Math.floor(wx / CELL);
+    const y = Math.floor(wy / CELL);
+    if (isWaterCell(x, y)) return frozen(x, y);
+    for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (isWaterCell(x + ox, y + oy)) return frozen(x + ox, y + oy);
+    return false;
+  };
+  const ice = rgb(ICE[0]);
+  const iceEdge = rgb(ICE[1]);
+  const iceDark = rgb(ICE[2]);
   const softAt = (x: number, y: number): number[] | null => {
     if (x < 0 || y < 0 || x >= m.w || y >= m.h || visibility(m, x, y) === 0) return null;
     const kind = groundAt(m, x, y);
@@ -216,7 +297,12 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
         let c = warped(wx, wy);
         if (!c) continue;
         // (the water lighter where it meets the land, and here and there a glint)
-        if (c === water && (landAt(wx - 2, wy) || landAt(wx + 2, wy) || landAt(wx, wy - 2) || landAt(wx, wy + 2) || landAt(wx, wy - 4) || hash(seed, wx, wy) < 0.04)) c = shore;
+        if (c === water && cold && frozenNear(wx, wy)) {
+          // (ice: bright where it meets the bank, clouded here and there, a dark patch of clear black ice now and then)
+          const bank = landAt(wx - 2, wy) || landAt(wx + 2, wy) || landAt(wx, wy - 2) || landAt(wx, wy + 2) || landAt(wx, wy - 4);
+          const n = smooth(0x1ce, wx, wy, 18);
+          c = bank ? iceEdge : n < 0.22 ? iceDark : ice;
+        } else if (c === water && (landAt(wx - 2, wy) || landAt(wx + 2, wy) || landAt(wx, wy - 2) || landAt(wx, wy + 2) || landAt(wx, wy - 4) || hash(seed, wx, wy) < 0.04)) c = shore;
         else if (c === shallow && (landAt(wx - 2, wy) || landAt(wx + 2, wy) || landAt(wx, wy - 2) || landAt(wx, wy + 2) || landAt(wx, wy - 4))) c = foam;
         else if (c === shallow && hash(seed, wx, wy) < 0.05) c = glint;
         for (let k = 0; k < 4; k++) {
@@ -354,6 +440,11 @@ export function paintChunk(m: LandMap, cx: number, cy: number, season: string, b
           }
           case 'water': {
             const edge = (ox: number, oy: number) => !wet(groundAt(m, x + ox, y + oy));
+            if (frozen(x, y)) {
+              if (!pack) cell(px, py, ICE[0], ICE[2], 0.15);
+              paintIce(g, seed, x, y, px, py);
+              break;
+            }
             // (once the pack has loaded the water is laid above, its shore wandering with the land's borders)
             if (!pack) {
               cell(px, py, pal.water[0], pal.water[1], 0.05);

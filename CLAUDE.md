@@ -2140,6 +2140,17 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   compose-props.cjs, keep their green). A look missing its skin colour no longer throws in `hkLayers` (`rgb` in
   hkFolk.ts: an envoy's once stopped the map's frame loop). Test: `test/wildlife.test.ts`.
 
+- **Deep winter and tracks in the land (the owner's ask: a gigantic overhaul):** renderer only, the rules pure in
+  `src/renderer/map/ice.ts` (`freezes`, `iceAt`, `trackGround`, `trackLife`, `breathShows`). In winter narrow water
+  (`ICE_NARROW`: a river, a stream, a pond) freezes over (groundArt.ts: pale ice bright at its banks, clear black patches,
+  forking cracks, drifts and glints, `paintIce`); water wide both ways (the sea) stays open; fish don't leap and rain
+  doesn't ring on ice (mapWater.ts), and iced water is silent in the soundscape. **Footprints** (`map/mapTracks.ts`,
+  `MapTracks` in `under`, fed by main.ts each snapshot with the townsfolk, travellers, raiders and the wild beasts'
+  `walkers()`): a boot print left and right every `STRIDE`, turned along the way walked (paws for beasts), lasting 90 s
+  in snow (25 while more falls), 12 in sand, 40 in the rain's mud, never on roads or rock; up to `PRINTS_MOST`.
+  **Breath** shows as a puff drifting up from each head in winter, the tundra and autumn's small hours (never the dead or
+  machines). Steps in snow and mud are heard (`crunch`, `squelch` cues in ambience.ts). None of it on a slow phone.
+  `window.__tracks`, `window.__centre(x, y)` for previews. Test: `test/winter.test.ts`.
 - **Life on the water and in the sky (the owner's ask, after the living land):** `src/renderer/map/mapWater.ts`
   (`MapWater`, fed by main.ts beside the wildlife; renderer only). Ducks (mallards, a grey duck, now and then a swan
   pair) paddle the rivers, lakes and shallows in view in a line astern, with a V wake, turned back at the bank and
