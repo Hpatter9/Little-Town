@@ -97,6 +97,10 @@ import fStump from '../art/packs/f_stump.png';
 import fDirt from '../art/packs/f_dirt.png';
 import caveCrystal from '../art/packs/cave_crystal.png';
 import caveGate from '../art/packs/cave_gate.png';
+import portalGate from '../art/deep/ruin2.png';
+import portalCircle from '../art/deep/circle.png';
+import shard1 from '../art/deep/crystal1.png';
+import shard2 from '../art/deep/crystal2.png';
 import caveFire1 from '../art/packs/cave_fire1.png';
 import caveFire2 from '../art/packs/cave_fire2.png';
 import caveAltar from '../art/packs/cave_altar.png';
@@ -411,6 +415,9 @@ const PICKS: Record<string, Pick> = {
   resurrection_shrine: { url: caveAltar, overhang: 0 },
   // the gods' houses (data/gods.ts): the altar, the crystal tower, the great stone keep
   wayside_shrine: { url: caveAltar, overhang: 0 },
+  // the Portal Arch (data/portals.ts): the cave pack's horned gate between two crystals; a rift is its summoning circle
+  portal_arch: { parts: [[shard1, 0, 60], [portalGate, 22, 0], [shard2, 104, 64]], size: [168, 126], overhang: 0 },
+  portal_rift: { parts: [[portalCircle, 0, 0], [shard1, 32, 8]], size: [128, 118], overhang: 0 },
   // (the Calamity's ward stone: the cave pack's white crystal)
   ward_stone: { url: caveCrystal, overhang: 0 },
   temple: { url: suMageTower, overhang: 4 },

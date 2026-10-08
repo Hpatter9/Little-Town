@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.35.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.36.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3356,6 +3356,39 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   shows the votes, trials and revolts; on the map strikers shake their fists before the seat (the `play` pose) and
   shout (speech topic `protest`, a line for every nature); the news bubble a red notice for a strike. Tests:
   `test/politics.test.ts`.
+
+## Portals to other worlds (0.36.0; the owner's pick of the content updates, the sixth)
+
+- **The data** (`src/shared/data/portals.ts`): the topic Planar Lore (Medieval, after The Arcane Arts; the planner
+  scores it +18 at six people), the **Portal Arch** (`PORTAL_ARCH`, built by the planner's "learned to build it" loop)
+  and the **Planar Rift** (`PORTAL_RIFT`, `never` built: it tears open by itself). Three realms (`REALM_DEFS`): the
+  **Feywild** (time runs strangely), the **Underworld** (drains the living; riches doubled), the **Elemental Planes**
+  (burns and frostbite), each with its rule line, telling, painted backdrop, menagerie habitats, a boss at its heart
+  (the Frost Archmage, the Lich Lord, the Iron Colossus), site names, loot, a heart's hoard and the raid of what comes
+  out (`PORTAL_RAIDS`, `portal_*`, weight 0).
+- **The sim** (`src/shared/sim/portals.ts`, `portalsHourly` from sim.ts, autopilot on): a finished arch with no realm
+  opens one not yet open (the seed's order: `openPortal`, a `debrief` telling with the backdrop); from day
+  `RIFT_FROM_DAY` (12), `RIFT_DAILY` a morning while none stands, a rift tears open on open ground onto another
+  (`tearRift`). `s.portals` (`Portal`: realm, building, rift, the sites, stir, calm, a log). `makeSites` lays `SITES`
+  (7) from the seed: names, places on the realm's map, creatures of its habitats by `SITE_TIERS`, the boss at the last.
+  The next unexplored site is a `clear` trip on the board (`portal:<realm>`, `portalDestination`, in
+  `boardDestinations` and the snapshot's destinations), which the parties choose for themselves. Home (`portalHome`,
+  from `comeHome`): won, the site is explored, its loot and coins come home (doubled in the Underworld, the heart's
+  hoard on top and coins thrice); each trip stirs the realm `STIR_PER_TRIP`. The rule falls on whoever went: the
+  Feywild moves their `grownAt` by `FAE_AGE` days, may bless a skill (`FAE_BLESS`) or keep one (`FAE_STAYS`, never the
+  founder); the Underworld drains `UNDER_DRAIN` of their health and may keep one (`UNDER_KEEPS`; the undying are
+  spared); the Elemental Planes burn or frostbite (`ELEM_HURT`). The stir settles `STIR_SETTLES` a morning (a rift
+  stirs a little on its own); past `RISE_AT`, never within `RISE_GAP_DAYS`, things come out of the portal (`risePortal`:
+  a raid begun at it). The heart broken, the realm is calm: no more stir, nothing more to explore.
+- **Seen:** the arch is the cave pack's horned gate between two crystals, the rift its summoning circle
+  (`PICKS` in packBuildings.ts), with a violet glow after dark (`PORTALS` in mapView.ts). Its tap card has **Look
+  through into X** (the `watchPortal` command, `s.watchingPortal`, `snapshot.portalView`; `snapshot.portals` the
+  summaries), and the Town overview a tile per realm. `src/renderer/portal/portalView.ts` (`PortalScene`, a DOM page
+  with a 2D canvas, `#portal-view`, `body.portal-on`): the realm's backdrop drifting behind a dark veil, the sites along
+  a dashed winding way (the deep art's gates, ruins, statues, crystals, mushrooms by realm), the explored lit in the
+  realm's colour, the next pulsing, the heart bigger; a bar with ✕, and a window (below upright, on the right sideways)
+  with the rule, how far explored, who's there now, the stir and the latest lines. The phone page counts it as a
+  full-screen view (`below` in mobile.ts). Tests: `test/portals.test.ts`.
 
 ## Known problem (fixed, watch)
 

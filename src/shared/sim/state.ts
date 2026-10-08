@@ -1,6 +1,8 @@
 import type { NightOut } from './nightOut';
 import type { CalamityState } from './calamity';
 import type { DeepState } from './deep';
+import type { Portal } from './portals';
+import type { RealmId } from '../data/portals';
 import type { SceneRun } from './cutscenes';
 import type { DragonState } from './dragon';
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
@@ -1166,6 +1168,9 @@ export interface GameState {
   /** The Deep under the town (sim/deep.ts), once a shaft is sunk; and the level the player is looking at, if any. */
   deep?: DeepState;
   watchingDeep?: number;
+  /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
+  portals?: Portal[];
+  watchingPortal?: RealmId;
   /** Cutscenes waiting to be watched, those seen (to watch again), the one playing, and whether the town was paused
    *  before it began (sim/cutscenes.ts). */
   scenes?: SceneRun[];
