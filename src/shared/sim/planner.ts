@@ -266,6 +266,7 @@ function topicScore(t: Topic, n: Needs): number {
   // (children are how a town grows now that newcomers are few: it learns family life once there are a few of it)
   if (t.id === 'family_life') score += n.people >= 4 ? 40 : 10;
   // (boats: fishing when food runs short, islands and the sea's markets once the town is a few strong: data/boats.ts)
+  if (t.id === 'delving') score += n.people >= 5 ? 30 : 4; // (the shaft to the Deep: ore below, and what lives with it, sim/deep.ts)
   if (t.id === 'monster_lore') score += n.people >= 5 ? 20 : 4; // (the Monster Hunters' Guild: hunts for a purse, and gear from the parts)
   if (BOAT_TOPICS.some((b) => b.id === t.id)) score += (n.people >= 4 ? 24 : 6) + (t.id === 'boatbuilding' && n.shore ? 16 : 0) + (n.foodDays < 5 && t.id === 'boatbuilding' ? 12 : 0) + (n.direction === 'trade' && (t.id === 'navigation' || t.id === 'steamships') ? 10 : 0);
   // (someone has lost a limb or an eye: learn to make them good)

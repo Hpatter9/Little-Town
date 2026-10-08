@@ -24,6 +24,8 @@ import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { nextPave, pave, paveReady, paveSeconds } from './streets';
+import { SHAFT } from '../data/deep';
+import { shaftHasWork } from './deep';
 import { guardEngages, roamerToHunt } from './roamers';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
 import { CELL, cellAt, centreOf, groundAt, inMap, isMarked, isPlannedRoad, isRoad, setGround, type Pt, wet, setMarked } from './land';
@@ -1085,7 +1087,7 @@ function ownWork(s: GameState, p: Person, handsFull: boolean): Task | null {
   const b = heldJob(s, p);
   if (!b) return null;
   if (!handsFull && p.priorities.craft !== 0 && (STATIONS as readonly string[]).includes(b.def)) return findCraft(s, p, b.def);
-  if (!handsFull && WORKPLACES[b.def] && p.priorities.gather !== 0) {
+  if (!handsFull && WORKPLACES[b.def] && p.priorities.gather !== 0 && (b.def !== SHAFT || shaftHasWork(s))) {
     const diggers = s.people.filter((o) => o !== p && o.task?.type === 'mine' && o.task.building === b.id).length;
     return diggers < WORKPLACES[b.def].workers ? { type: 'mine', building: b.id, work: 0 } : null;
   }
@@ -1204,7 +1206,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       if (site && isPen(site)) return (needsTending(s, site) || (site.herd?.work ?? 0) > 0) && p.priorities.farm !== 0;
       return !!site && isField(site) && cropOf(site).stage !== 'growing' && p.priorities.farm !== 0;
     case 'mine':
-      return site?.status === 'done' && p.priorities.gather !== 0;
+      return site?.status === 'done' && p.priorities.gather !== 0 && (site.def !== SHAFT || shaftHasWork(s));
     case 'extinguish':
       return !!site && site.fire !== undefined && !alarmRaised(s);
     case 'toil':

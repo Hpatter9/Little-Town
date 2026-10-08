@@ -77,6 +77,8 @@ export type Command =
   | { type: 'watch'; expedition: number | null }
   /** Go into a mine on the land and watch the digging (null: back to the town). */
   | { type: 'watchMine'; place: number | null }
+  /** Look down into the Deep (sim/deep.ts): a level by its depth, or null to come back up. */
+  | { type: 'watchDeep'; depth: number | null }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
   | { type: 'rally'; person: number }
   /** The battle on the trail (sim/battle.ts): put a fighter on a spot (or off: null), send the raiders on now, auto-watch
@@ -229,6 +231,8 @@ export function parseCommand(raw: unknown): Command | null {
       return { type: 'castHeld' };
     case 'watch':
       return c.expedition === null || Number.isInteger(c.expedition) ? { type: 'watch', expedition: c.expedition as number | null } : null;
+    case 'watchDeep':
+      return c.depth === null || (Number.isInteger(c.depth) && (c.depth as number) >= 1) ? { type: 'watchDeep', depth: c.depth as number | null } : null;
     case 'watchMine':
       return c.place === null || Number.isInteger(c.place) ? { type: 'watchMine', place: c.place as number | null } : null;
     case 'follow':

@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.32.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.33.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3232,6 +3232,43 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   bubble (`body.scene`). Upright the picture is a near-square band (`UPRIGHT_FRAME`). The Chronicle's **Scenes** tab
   lists those seen with Watch again. `window.__cutscene(id, vars, foes)` queues one (previews). Tests:
   `test/cutscenes.test.ts`.
+
+## The Deep (0.33.0; the owner's pick of the content updates, the third)
+
+- **The data** (`src/shared/data/deep.ts`): the topic Delving (Medieval, after Mining; the planner scores it +22 at five
+  people) and the **Shaft to the Deep** (`SHAFT`, a WORKPLACE in data/crops.ts with `SHAFT_WORKERS`; built by the
+  planner's "learned to build it" loop). Five levels (`DEEP_LEVELS`: the Burrows, the Old Tunnels, the Glowing Lake, the
+  Crystal Halls, the Abyss), each `DEEP_W` x `DEEP_H` (24x16) cells: the ore in its rock (`ores`, richer the deeper:
+  coal, copper and tin, iron, silver, sulphur, gold, gems, rare minerals), its pockets (`pockets`: lakes, fungus grottos,
+  ruins, crystal geodes, bones), how `hard` it digs, how much each cell `stir`s up, its `caveIn` odds, what climbs up out
+  of it (`DEEP_RAIDS`, from the menagerie's creatures of its habitats and tiers: `habitatRaid` in data/menagerie.ts) and
+  its `look`.
+- **The sim** (`src/shared/sim/deep.ts`): `s.deep` (`DeepState`: the levels, the `stir`, the finds) begins once a shaft
+  stands (`deepOf`). `makeLevel(seed, depth)`: rock with ore in veins, the pockets as blobs, the way up (`^`) in the
+  middle of the top edge in a dug chamber. The shaft's miners take the ordinary `mine` task (with `cell` and `depth` on
+  it); `workMine` in farming.ts hands a shaft to `workDeep`: each load is a cell carved out (`digDeep`): the cell from
+  `deepTarget` (a pocket beside the tunnels first, then a winding way toward `deepGoal`, the nearest pocket not yet
+  broken into, keeping to a tunnel's width), its stone and ore into their hands; a fungus grotto becomes a farm (`f`:
+  `FUNGUS_FOOD` vegetables at `DEEP_DAWN`), a lake reached gives `LAKE_FISH` fish a dawn, a ruin coins and study on the
+  topic being learned, a geode gems, bones bone. After `OPEN_AFTER` cells the way down (`>`) is found and the next level
+  made; the miners always work the deepest level with rock to dig (`workingLevel`). Each cell may bring the roof down
+  (`caveIn`: `CAVE_IN_KILLS` dead, else a broken bone). The stir settles `STIR_SETTLES` an hour; past `RISE_AT`, never
+  within `RISE_GAP_HOURS`, something climbs up the shaft (`rise`: a raid of the working level's kind begun at the shaft).
+  The scenes `deep_breakthrough` and `deep_abyss` (data/cutscenes.ts) are queued at the first breakthrough and on
+  reaching the Abyss. Only the shaft's work and the hour touch it, so towns without one run as before; rolls are the
+  seed's own. Miners digging below are off the map (`indoors` in the snapshot).
+- **Seen** (`snapshot.deep`, `DeepSummary`; `snapshot.deepView`, `DeepView`, while `s.watchingDeep`, the `watchDeep`
+  command): the shaft's tap card has **Go down into the Deep**, and the Town overview a tile for it.
+  `src/renderer/deep/deepArt.ts` paints a level on one canvas (the rock in relief in the level's colours, lit rock faces
+  over the tunnels, the earthen floor, still water, the fungus farms' glowing floor, ore glinting in the rock beside the
+  tunnels, the unreached rock lost in the dark: `seenCells`). `src/renderer/deep/deepView.ts` (`DeepScene`) lays the cave
+  pack's things on it (`art/deep/`: mushrooms on the grottos, crystals, the ruins' gates and statues, bones, boulders, the
+  bonfire in the first chamber, the gate of the way down), torches along the tunnels with pools of light, and the
+  miners in Himeko dress at their rock swinging picks with dust where they strike; the camera frames what's been dug and
+  a drag looks along it (upright it fills the height). Its HUD (`#deep-hud`): ▲ ▼ between the levels, ✕ back up, the
+  diggers, how far to the way down, a bar of the stir, the latest finds (a column down the right held sideways). The
+  phone counts it as a full-screen view (`watchOn` in mobile.ts), and the strip's own cards stand aside
+  (`body.deep-on`). Tests: `test/deep.test.ts`.
 
 ## Known problem (fixed, watch)
 

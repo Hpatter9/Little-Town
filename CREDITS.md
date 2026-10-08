@@ -82,6 +82,15 @@ the Rocky Area Objects' cave entrance (the goblin warren), the Top-Down Cave Obj
 dark totem (the heart), and the Undead Tileset's skull door (the barrow) and pile of skulls; the ward stone is the Cave
 Objects' white crystal.
 
+## Craftpix cave objects (the Deep)
+
+The things down in the Deep under the town (`src/renderer/art/deep/`: the glowing mushrooms of the fungus grottos, the
+blue-green and white crystals of the geodes, the ruins' cathedral gates, statue, totem, demon skull and summoning circle,
+the dinosaur and human skeletons, the boulders, the bonfire in the first chamber and the carved gates of the way down)
+are from **Craftpix.net**'s free Top-Down Pixel Art Cave Objects pack; the shaft on the map is its carved gate with the
+Village Tileset's rack and barrel, and the tunnels' torches the 2D Top-Down Pixel Dungeon pack's fire animation
+(`art/delve/fires.png`). https://craftpix.net, free licence.
+
 ## Craftpix top-down objects (the raid map's scenery)
 
 The trees, bushes, rocks, mushrooms, crystals, bones, idols, corals and shells scattered over the raid's battle map

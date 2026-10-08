@@ -330,6 +330,36 @@ const SCENES: Cutscene[] = [
     ],
   },
 
+  // ---------------------------------------------------------------- the Deep (sim/deep.ts)
+  {
+    id: 'deep_breakthrough',
+    title: 'Into the Deep',
+    cast: { hero: { role: 'hero', x: 150, facing: 'right' }, worrier: { role: 'worrier', x: 122, facing: 'right' }, wit: { role: 'wit', x: -30, facing: 'right' } },
+    shots: [
+      { look: 'crystal_1', cam: wide(160, 1.3), fx: ['fadeIn', 'darken', 'rumble'], caption: 'Under the town', hold: 2.5, lines: [tell('The shaft went down forty feet into honest rock. Then the rock stopped being honest.')] },
+      { cam: close('hero', 2.8), acts: [{ who: 'hero', pose: 'strike' }], fx: ['shake'], lines: [say('hero', 'One more swing and we are through!', 'shout')] },
+      { cam: wide(170, 1.5), fx: ['flash', 'shake'], lines: [tell('They were through.')] },
+      { cam: two('hero', 'worrier', 2.2), lines: [say('worrier', 'There is a whole cave down here. Under the town. Under my bed.'), say('hero', 'It has been here for thousands of years.'), say('worrier', 'Under. My. Bed.')] },
+      { cam: wide(110, 1.4), acts: [{ who: 'wit', enter: 96, from: 'left' }], lines: [say('wit', 'I brought a torch, a rope, and a list of things that live in caves.'), say('worrier', 'Do not read the list.')] },
+      { cam: close('wit', 3, -0.05), lines: [say('wit', 'Bats. Worms. Big worms. A thing marked only "no".')] },
+      { cam: close('worrier', 3, 0.06), lines: [say('worrier', 'I asked you not to read the list.')] },
+      { cam: wide(160, 1), fx: ['fadeOut'], hold: 2, lines: [say('hero', 'Picks up. There is ore in these walls, and the dark goes a long way down.'), tell('Somewhere far below, something heard the picks, and turned over in its sleep.')] },
+    ],
+  },
+  {
+    id: 'deep_abyss',
+    title: 'The Abyss',
+    cast: { hero: { role: 'hero', x: 140, facing: 'right' }, worrier: { role: 'worrier', x: 112, facing: 'right' }, founder: { role: 'founder', x: 88, facing: 'right' } },
+    shots: [
+      { look: 'temple_3', cam: sky(170), to: wide(170, 1.2), fx: ['fadeIn', 'red', 'rumble'], caption: '{deepest}', hold: 3, lines: [tell('Five levels down the floor ends, and a warm wind comes up out of the dark, smelling of old pennies and older things.')] },
+      { cam: close('hero', 2.8), lines: [say('hero', 'There are carvings on the walls. Things with a great many arms, bowing to something with more.')] },
+      { cam: close('worrier', 3, -0.08), fx: ['shake'], lines: [say('worrier', 'I have a question. Why are we still digging?'), say('hero', 'Gold.'), say('worrier', 'That is not a reason. That is a hobby.')] },
+      { cam: two('founder', 'hero', 2), lines: [say('founder', 'We have come this far. We dig carefully, we post a guard on the shaft, and the first sign of anything with more arms than me, we bring the rope up.'), say('hero', 'How many arms is that?'), say('founder', 'Two. I am being very cautious.')] },
+      { cam: wide(200, 1.1), fx: ['red', 'rumble'], hold: 2, lines: [tell('Far below, a red light blinked. Then, very slowly, it blinked back.')] },
+      { cam: close('worrier', 3.2), fx: ['fadeOut'], lines: [say('worrier', 'I want it written down that I said so.', 'whisper')] },
+    ],
+  },
+
   // ---------------------------------------------------------------- a tale well ended
   {
     id: 'saga_triumph',

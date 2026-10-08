@@ -405,6 +405,8 @@ const PICKS: Record<string, Pick> = {
   mine: { url: rockyMine1, overhang: 0, variants: [{ styles: ['dwarves'], pick: { url: caveGate, overhang: 0 } }] },
   coal_mine: { url: rockyMine2, overhang: 0, variants: [{ styles: ['dwarves'], pick: { url: caveGate, overhang: 0 } }] },
   deep_mine: { url: caveGate, overhang: 0 },
+  // the shaft to the Deep (data/deep.ts): the cave pack's carved gate, a winch's rack and a barrel of the dug ore beside it
+  deep_shaft: { parts: [[caveGate, 0, 0], [vRack, 84, 62], [barrel, 96, 88]], size: [124, 110], overhang: 0 },
   // the shrine is the cave pack's skull altar; the phylactery its crystal (green for the liches)
   resurrection_shrine: { url: caveAltar, overhang: 0 },
   // the gods' houses (data/gods.ts): the altar, the crystal tower, the great stone keep

@@ -553,6 +553,10 @@ export const MENAGERIE_RAIDS: readonly RaidKind[] = [
   ...byAge('m_deep', FAMILY_RAIDS.deep, BEASTS.filter((b) => b.habitat === 'sea'), { fromSea: true }),
 ].filter((k) => Object.keys(k.enemies).length > 0);
 
+/** A raid of the creatures of some habitats within some tiers (what climbs up out of the Deep: data/deep.ts). */
+export const habitatRaid = (id: string, name: string, habitats: readonly Habitat[], [lo, hi]: [number, number], more: Partial<RaidKind> = {}): RaidKind =>
+  kindOf(id, { ...FAMILY_RAIDS.oddities, name, plural: true }, BEASTS.filter((b) => habitats.includes(b.habitat) && b.tier >= lo && b.tier <= hi), more);
+
 /* ------------------------------------------------------------ the guild's hunts */
 
 /** The part each family gives up to a hunter (data/hunts.ts COMPONENTS). */

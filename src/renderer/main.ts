@@ -42,6 +42,7 @@ import { CutsceneScene } from './cutscene/cutsceneView';
 import { FightScene } from './fight/fightView';
 import { TacticsScene } from './tactics/tacticsView';
 import { MineScene } from './fight/mineView';
+import { DeepScene } from './deep/deepView';
 import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
@@ -137,6 +138,11 @@ declare global {
 const DRAG_THRESHOLD = 4;
 const WHEEL_SPEED = 1.5;
 const FPS_ACTIVE = 60;
+/** The Deep's view leaves this much room (px) above and below the level for its windows (deep/deepView.ts). */
+const DEEP_TOP = 50;
+const DEEP_BOTTOM = 120;
+/** Held sideways, the windows are a column down the right instead. */
+const DEEP_SIDE = 250;
 const FPS_IDLE = 30;
 /** How long the strip shakes for a boss moment. */
 const SHAKE_MS = 450;
@@ -346,6 +352,9 @@ async function start(): Promise<void> {
   // inside a mine on the land (fight/mineView.ts): the diggers at the seams
   const mine = new MineScene();
   app.stage.addChild(mine.root);
+  // the Deep under the town (deep/deepView.ts): a level seen from above, the miners carving it out
+  const deep = new DeepScene((c) => bridge.command(c));
+  app.stage.addChild(deep.root);
   // a cutscene (cutscene/cutsceneView.ts): over everything, offered first, then played full screen
   const cutscene = new CutsceneScene((c) => bridge.command(c), document.body);
   app.stage.addChild(cutscene.root);
@@ -710,6 +719,15 @@ async function start(): Promise<void> {
       return list;
     }
     const list: Action[] = [];
+    // (the shaft: down into the Deep, sim/deep.ts)
+    if (b.def === 'deep_shaft' && snap.deep)
+      list.push({
+        label: 'Go down into the Deep',
+        onClick: () => {
+          bridge.command({ type: 'watchDeep', depth: snap!.deep!.levels.length });
+          done();
+        },
+      });
     const role = OPERATORS[b.def];
     if (role) {
       const who = snap.people.find((p) => p.id === b.operator);
@@ -1074,7 +1092,7 @@ async function start(): Promise<void> {
   // (a tactics battle has the screen: a tap is its, a drag looks about the board)
   let boardPress: { x: number; y: number; lx: number; ly: number; moved: boolean; id: number } | null = null;
   canvas.addEventListener('pointerdown', (e) => {
-    if (tactics.shown) {
+    if (tactics.shown || deep.shown) {
       boardPress = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false, id: e.pointerId };
       return;
     }
@@ -1101,9 +1119,9 @@ async function start(): Promise<void> {
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (tactics.shown && boardPress && e.pointerId === boardPress.id) {
+    if ((tactics.shown || deep.shown) && boardPress && e.pointerId === boardPress.id) {
       if (Math.hypot(e.clientX - boardPress.x, e.clientY - boardPress.y) >= DRAG_THRESHOLD) boardPress.moved = true;
-      if (boardPress.moved) tactics.pan(e.clientX - boardPress.lx, e.clientY - boardPress.ly);
+      if (boardPress.moved) (deep.shown ? deep : tactics).pan(e.clientX - boardPress.lx, e.clientY - boardPress.ly);
       boardPress.lx = e.clientX;
       boardPress.ly = e.clientY;
       return;
@@ -1214,10 +1232,13 @@ async function start(): Promise<void> {
     const inMine = watched || next.battle ? null : next.mine;
     mine.update(inMine);
     fightHud.mine(inMine);
+    // (the Deep looked into: the same, unless a fight, battle or mine has the screen)
+    const below = watched || next.battle || inMine || next.tactics ? null : next.deepView;
+    deep.update(below);
     tactics.update(next);
     // (a scene is offered only while nothing else has the screen: a battle, a watched fight, a question)
-    cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || next.tactics || next.prompts.length));
-    map.root.visible = !watched && !inMine && !next.tactics && !cutscene.shown;
+    cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || next.tactics || next.prompts.length));
+    map.root.visible = !watched && !inMine && !below && !next.tactics && !cutscene.shown;
     showNotices(next);
     snap = next;
     hud.update(next);
@@ -1572,6 +1593,11 @@ async function start(): Promise<void> {
       mine.resize(app.screen.width, app.screen.height, ...fightHud.insets());
       mine.render(performance.now(), ticker.deltaMS / 1000);
     }
+    if (deep.shown) {
+      const sideways = app.screen.width > app.screen.height;
+      deep.resize(app.screen.width, app.screen.height, DEEP_TOP, sideways ? 0 : DEEP_BOTTOM, sideways ? DEEP_SIDE : 0);
+      deep.render(performance.now(), ticker.deltaMS / 1000);
+    }
     if (cutscene.shown) {
       cutscene.resize(app.screen.width, app.screen.height);
       cutscene.render(performance.now(), ticker.deltaMS / 1000);
@@ -1582,7 +1608,7 @@ async function start(): Promise<void> {
       if (selected) showActions();
     }
     if (selectedPerson !== null) showPersonCard(); // follow them as they walk
-    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown || mine.shown || tactics.shown ? FPS_ACTIVE : FPS_IDLE;
+    app.ticker.maxFPS = interactive || moving || battle.shown || fight.shown || mine.shown || deep.shown || tactics.shown ? FPS_ACTIVE : FPS_IDLE;
   });
 }
 
