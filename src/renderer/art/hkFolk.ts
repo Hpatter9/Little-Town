@@ -186,7 +186,7 @@ export function weaponPiece(weapon: { name: string; family?: string; tier?: numb
 }
 
 /** The work in hand's tool. */
-const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: ['staff01'], forage: ['sickle01', 'dagger01'] };
+const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: ['staff01'], forage: ['sickle01', 'dagger01'], research: ['book01'] };
 
 /** The layers of a person, back to front (keys of art/himeko/), for what they're doing now. */
 export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string }): string[] {
@@ -277,13 +277,18 @@ export type HkFacing = 'down' | 'left' | 'right' | 'up';
 const ROW: Record<HkFacing, number> = { down: 0, left: 1, right: 2, up: 3 };
 const WALK = [1, 0, 2, 0];
 
+/** The pose a reader holds: the second punch, where the pack draws the book open in both hands before them. */
+const READ = 6;
 /** The cell for what they're doing: [column, row]. */
-export function hkPose(o: { facing: HkFacing; moving: boolean; walked: number; working: boolean; sinceBlow: number; sinceHit: number; down: boolean; ranged: boolean; now: number }): [number, number] {
+export function hkPose(o: { facing: HkFacing; moving: boolean; walked: number; working: boolean; sinceBlow: number; sinceHit: number; down: boolean; ranged: boolean; now: number; reading?: boolean; ref?: number }): [number, number] {
   const row = ROW[o.facing];
   if (o.down) return [7, row];
   if (o.sinceHit < 3) return [7, row]; // (a flinch)
   if (o.sinceBlow < 6) return [o.ranged ? 5 : o.sinceBlow < 3 ? 3 : 4, row];
   if (o.working) return [Math.floor(o.now / 350) % 2 ? 4 : 3, row];
+  // (studying: the book held open and read, lowered for a moment now and then to turn a page: the owner's ask, in
+  // place of standing at the desk)
+  if (o.reading && !o.moving) return [(o.now / 1000 + (o.ref ?? 0) * 1.7) % 4.5 < 0.4 ? 0 : READ, row];
   if (o.moving) return [WALK[Math.floor(o.walked / 7) % 4], row];
   return [0, row];
 }
