@@ -52,6 +52,8 @@ export interface LandMap {
   pools: Record<number, Partial<Record<Material, number>>>;
   /** Road cells, one character per cell ('#' road, '.' none). */
   roads: string;
+  /** Streets planned but not yet laid (sim/streets.ts), one character per cell ('#' planned); absent when none. */
+  plannedRoads?: string;
   /** Cells marked for gathering (clearing), by index. */
   marked: number[];
   /** The camp's centre cell, and how far from it the land is open (cells). */
@@ -169,6 +171,19 @@ export function setRoad(m: LandMap, x: number, y: number, on = true): void {
   const i = idx(m, x, y);
   m.roads = m.roads.slice(0, i) + (on ? '#' : '.') + m.roads.slice(i + 1);
   m.version++;
+}
+/** Whether a street is planned on a cell (laid by the town's builders in time: sim/streets.ts). */
+export const isPlannedRoad = (m: Pick<LandMap, 'plannedRoads' | 'w' | 'h'>, x: number, y: number) => !!m.plannedRoads && inMap(m, x, y) && m.plannedRoads[y * m.w + x] === '#';
+/** Plan (or drop the plan of) a street on a cell. */
+export function planRoad(m: LandMap, x: number, y: number, on = true): void {
+  if (!inMap(m, x, y)) return;
+  if (!m.plannedRoads) {
+    if (!on) return;
+    m.plannedRoads = '.'.repeat(m.w * m.h);
+  }
+  const i = idx(m, x, y);
+  if ((m.plannedRoads[i] === '#') === on) return;
+  m.plannedRoads = m.plannedRoads.slice(0, i) + (on ? '#' : '.') + m.plannedRoads.slice(i + 1);
 }
 /** Take a road up again (a castle's room built over it: the floor covers where it ran). */
 export function unsetRoad(m: LandMap, x: number, y: number): void {
@@ -498,7 +513,7 @@ export function fits(m: LandMap, r: Rect, taken: readonly Rect[] = [], opts: { r
     for (let x = r.x; x < r.x + r.w; x++) {
       const g = groundAt(m, x, y);
       if (!isOpen(m, x, y) || !((opts.carve ? carvable : buildable)(g) || (opts.water && wet(g)) || (opts.wild && wildToClear(m, x, y)))) return false;
-      if (!opts.roads && isRoad(m, x, y)) return false;
+      if (!opts.roads && (isRoad(m, x, y) || isPlannedRoad(m, x, y))) return false;
     }
   return !taken.some((t) => overlaps(t, r));
 }
@@ -552,7 +567,7 @@ export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rec
 
 /** Chessboard distance from a cell to the nearest road (up to `max`), for laying buildings along the roads. */
 export function roadDistance(m: LandMap, p: Pt, max = 6): number {
-  for (let r = 0; r <= max; r++) for (const c of ringCells(p.x, p.y, r)) if (isRoad(m, c.x, c.y)) return r;
+  for (let r = 0; r <= max; r++) for (const c of ringCells(p.x, p.y, r)) if (isRoad(m, c.x, c.y) || isPlannedRoad(m, c.x, c.y)) return r;
   return max + 1;
 }
 

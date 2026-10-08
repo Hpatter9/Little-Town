@@ -227,6 +227,8 @@ export type Task =
   /** Carry fetched materials to a construction site. */
   | { type: 'deliver'; building: number }
   | { type: 'build'; building: number }
+  /** Lay a cell of a planned street, or a bridge (sim/streets.ts). */
+  | { type: 'pave'; cell: number; progress: number }
   /** Study at a research station (a building id; null: the camp, for a town with none). One person to a station; each
    *  works on a topic of their own from the queue where they can. (Older saves: neither set, and it's chosen afresh.) */
   | { type: 'research'; station?: number | null; topic?: string }
@@ -237,7 +239,7 @@ export type Task =
   /** Raid: go after a raider and fight (ticks until the next strike). */
   | { type: 'defend'; cooldown: number }
   /** Guard duty between raids (with a Barracks): walking the town from end to end. */
-  | { type: 'patrol'; targetX: number; targetY: number }
+  | { type: 'patrol'; targetX: number; targetY: number; band?: number }
   /** Raid: hide in your bed (safe), or huddle by the fire if you have none. */
   | { type: 'shelter' }
   /** Stop someone's bleeding (an attempt takes a while; it may fail). */
@@ -535,6 +537,10 @@ export interface Person {
    *  first had points to spend (left that long, the town spends them). */
   attrPts?: Partial<import('../data/attributes').Attrs>;
   ptsSince?: number;
+  /** They spend their own stat points as they come (the player's choice, remembered: a checkbox on the Character tab). */
+  autoStats?: boolean;
+  /** In a fight on the land with a roaming band (a skirmish's id: sim/roamers.ts): they stand and fight. */
+  skirmish?: number;
   /** Their level (levels.ts: from all they do, fighting most), and the XP toward the next. Left out: level 1. */
   level?: number;
   lvXp?: number;
@@ -701,6 +707,38 @@ export interface Prompt {
 export type ExpeditionPhase = 'out' | 'work' | 'back';
 
 /** How a fight ended, for the victory screen. */
+/** A hostile band roaming the land (sim/roamers.ts): wild beasts, the restless dead, bandits. Where it is (px),
+ *  where it came from and is wandering to, who it's after, and when it wanders off. */
+export interface Roamer {
+  id: number;
+  kind: 'beasts' | 'dead' | 'bandits';
+  group: Record<string, number>;
+  x: number;
+  y: number;
+  homeX: number;
+  homeY: number;
+  tx: number;
+  ty: number;
+  until: number;
+  chasing: number | null;
+  /** In a fight with townsfolk (a skirmish's id). */
+  fighting?: number;
+  dir: 1 | -1;
+}
+
+/** A fight on the land between a band and the townsfolk it caught (or the guards who went after it), fought on the
+ *  FF screen: `e` is shaped as a trip so the fight screen and the victory window take it as they are (never in
+ *  `s.expeditions`). Those in it stand where it is. */
+export interface Skirmish {
+  id: number;
+  roamer: number;
+  x: number;
+  y: number;
+  e: Expedition;
+  /** When it ended (kept a little for the victory window). */
+  ended?: number;
+}
+
 export interface FightResult {
   tick: number;
   outcome: 'won' | 'retreated' | 'lost';
@@ -1092,8 +1130,12 @@ export interface GameState {
   event?: { def: string; prompt: number; who?: number; held?: boolean };
   /** The townsperson the player follows (the camera keeps them in view; their big moments send phone alerts). */
   hero?: number;
-  /** The expedition (or delve) the player is watching, in place of the town (snapshot.watch). */
+  /** The expedition (or delve, or a skirmish on the land: sim/roamers.ts) the player is watching, in place of the
+   *  town (snapshot.watch). */
   watching?: number;
+  /** Hostile bands roaming the town's land, and the fights they've started with townsfolk out on it (sim/roamers.ts). */
+  roamers?: Roamer[];
+  skirmishes?: Skirmish[];
   /** The mine (a place id, sim/places.ts) the player has gone into, in place of the town (snapshot.mine). */
   watchingMine?: number;
   /** The origin power the player keeps back to cast themselves (sim/powers.ts castHeld). */

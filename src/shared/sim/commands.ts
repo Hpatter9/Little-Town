@@ -88,6 +88,8 @@ export type Command =
   | { type: 'battleStyle'; style: 'trail' | 'tactics' }
   /** Spend one of a townsperson's stat points (data/attributes.ts), or all of them their class's way (`attr` null). */
   | { type: 'spendStat'; person: number; attr: keyof Attrs | null }
+  /** Whether someone spends their own points from now on (attributes.ts `statsHourly`). */
+  | { type: 'autoStats'; person: number; on: boolean }
   /** Whether evolutions and stat points are put to the player, or left to the town. */
   | { type: 'setAsk'; evolve?: boolean; stats?: boolean }
   /** The conquest (sim/conquest/squads.ts): train a batch of troops, form a squad round a hero, set a place in its
@@ -241,6 +243,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'battleSpeed', speed: c.speed } : null;
     case 'battleStyle':
       return c.style === 'trail' || c.style === 'tactics' ? { type: 'battleStyle', style: c.style } : null;
+    case 'autoStats':
+      return Number.isInteger(c.person) && typeof c.on === 'boolean' ? { type: 'autoStats', person: c.person as number, on: c.on } : null;
     case 'spendStat':
       return Number.isInteger(c.person) && (c.attr === null || (ATTR_KEYS as readonly string[]).includes(c.attr as string)) ? { type: 'spendStat', person: c.person as number, attr: c.attr as keyof Attrs | null } : null;
     case 'setAsk':

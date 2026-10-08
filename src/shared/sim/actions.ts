@@ -4,6 +4,7 @@
 // against `Combatant`, which an expedition's fighters are (combat.ts) and a raid map's fighters and raiders are made
 // to look like (battle.ts), so both fight the same way.
 
+import { armedForSkills } from '../data/armed';
 import { abilitiesKnown, type Passive } from '../data/abilities';
 import { LIMIT_FROM_DEALT, LIMIT_FROM_HURT, skillCost, spellCost, WIS_HEALING, ATTR_BASE, type Attrs } from '../data/attributes';
 import { CLASS_DEFS, type ClassId } from '../data/classes';
@@ -120,14 +121,16 @@ const CALLERS: Partial<Record<ClassId, Use[]>> = { summoner: ['summon', 'attack'
 const NO_PASSIVE = (): Kit['passive'] => ({ damage: 0, power: 0, healing: 0, crit: 0, critDamage: 0, counter: 0, lifesteal: 0, thorns: 0, guard: 0, resist: 0, regen: 0, lastStand: 0, firstStrike: false });
 
 /** Someone's kit: their ready spells, their active skills, and their passive skills added up. */
-export function kitOf(p: Pick<Person, 'cls' | 'level' | 'road'>): Kit | undefined {
+export function kitOf(p: Pick<Person, 'cls' | 'level' | 'road'> & { gear?: { weapon?: string | null } }): Kit | undefined {
   if (!p.cls) return undefined;
   const lv = levelOf(p);
+  // (a calling's skills come only with its weapon in hand: no bow, no volley; spells need nothing: data/armed.ts)
+  const armed = !p.gear || armedForSkills(p.cls, p.gear.weapon);
   const actions: KitAction[] = [];
   for (const s of readySpells(p.cls, lv)) actions.push({ id: s.id, name: s.name, spell: true, level: s.level, cooldown: secs(s.cooldown), ready: 0, effects: s.effects, use: s.use, cost: spellCost(s.level), pool: 'mp' });
   const passive = NO_PASSIVE();
   for (const a of abilitiesKnown(p.cls, lv, p.road)) {
-    if (a.active) actions.push({ id: a.id, name: a.name, spell: false, level: a.level, cooldown: secs(a.active.cooldown), ready: 0, effects: a.active.effects, use: a.use as Use, cost: a.ultimate ? 1 : skillCost(a.level), pool: a.ultimate ? 'limit' : 'sp' });
+    if (a.active && armed) actions.push({ id: a.id, name: a.name, spell: false, level: a.level, cooldown: secs(a.active.cooldown), ready: 0, effects: a.active.effects, use: a.use as Use, cost: a.ultimate ? 1 : skillCost(a.level), pool: a.ultimate ? 'limit' : 'sp' });
     if (a.passive) {
       const q = a.passive;
       for (const k of ['damage', 'power', 'healing', 'crit', 'critDamage', 'counter', 'lifesteal', 'thorns', 'guard', 'resist', 'regen', 'lastStand'] as const) passive[k] += q[k] ?? 0;

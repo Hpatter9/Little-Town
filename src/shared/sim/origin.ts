@@ -1,3 +1,4 @@
+import { roadSafety } from './roamers';
 // How the town's origin (data/origins.ts) and the powers it has cast (powers.ts) bend each system: the multipliers
 // the rest of the sim asks for. Settlers, with nothing cast, get 1 everywhere.
 
@@ -49,7 +50,7 @@ export const craftSpeed = (s: GameState) => (rulesOf(s).craft ?? 1) * learned(s)
 /** Grades added to (or taken from) what crafters usually make. */
 export const qualityBonus = (s: GameState) => (rulesOf(s).quality ?? 0) + researchMods(s.research).quality + (buffOn(s, 'forge_blessing') ? 2 : 0);
 /** How much more often strangers come, and how much more they pay. */
-export const travellerRate = (s: GameState) => (rulesOf(s).travellers ?? 1) * learned(s).travellers * (buffOn(s, 'trade_road') ? 3 : 1) * markMult(s, 'travellers');
+export const travellerRate = (s: GameState) => roadSafety(s) * (rulesOf(s).travellers ?? 1) * learned(s).travellers * (buffOn(s, 'trade_road') ? 3 : 1) * markMult(s, 'travellers');
 export const priceRate = (s: GameState) => (rulesOf(s).prices ?? 1) * learned(s).prices * (buffOn(s, 'glamour') ? 2 : 1) * markMult(s, 'prices');
 
 /** Townsfolk's blows in a raid, and the harm they take. */

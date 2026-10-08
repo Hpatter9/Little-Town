@@ -92,7 +92,7 @@ const ROWS: Row[] = [
   ['stone_maul', 'Stone Maul', 'gs', 4, N, ['stoneworking'], LW(0, 6)],
   ['flint_sickle', 'Flint Sickle', 'sc', 2, N, ['early_agriculture'], SW(2, 0)],
   ['bone_claws', 'Bone Claws', 'cl', 2, N, ['tanning'], SW(3, 0)],
-  ['throwing_stick', 'Throwing Stick', 'th', 1, N, ['woodcutting'], AM(2, 3)],
+  ['throwing_stick', 'Throwing Stick', 'th', 1, N, [], AM(2, 3)],
   ['flint_javelins', 'Flint Javelins', 'th', 2, N, ['spear_hunting'], AM(5, 2)],
   ['atlatl', 'Atlatl and Darts', 'th', 3, N, ['spear_hunting', 'cordage'], AM(0, 3)],
   ['bolas', 'Bolas', 'th', 2, N, ['cordage'], AM(5, 1), { stun: 0.3 }],

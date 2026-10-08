@@ -5,6 +5,8 @@
 // seasoned hero in fine gear with three troops beats a green one with nine. Recruits come daily from the provinces
 // held; a batch trains in TRAIN_HOURS (half with a barracks); every soldier costs upkeep from the treasury.
 
+import { trainedAt } from '../../data/training';
+import { BUILDING_BY_ID } from '../../data/buildings';
 import { ATTR_BASE } from '../../data/attributes';
 import { CLASS_DEFS } from '../../data/classes';
 import { ERAS } from '../../data/eras';
@@ -63,6 +65,9 @@ export function canRaise(s: GameState, t: TroopDef): { ok: boolean; why?: string
   if (t.origin && t.origin !== (s.origin ?? 'settlers')) return { ok: false, why: 'another people\'s' };
   if (ERAS.indexOf(t.era) > ERAS.indexOf(s.era)) return { ok: false, why: `the ${t.era} age` };
   if (t.research && !s.research.done.includes(t.research)) return { ok: false, why: 'not yet studied' };
+  // (trained only where there's a place to train them: data/training.ts)
+  const at = trainedAt(t);
+  if (!s.buildings.some((b) => b.status === 'done' && at.includes(b.def))) return { ok: false, why: `needs ${at.map((id) => `a ${BUILDING_BY_ID[id]?.name ?? id}`).slice(0, 2).join(' or ')}` };
   return { ok: true };
 }
 

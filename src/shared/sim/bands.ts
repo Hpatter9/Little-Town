@@ -10,6 +10,7 @@
 // `refugees` (take them in, feed them, turn them away; unanswered, fed if the stores can spare it). Off with the
 // autopilot (the tests' plainGame); the tests spawn bands themselves.
 
+import { roadSafety } from './roamers';
 import { BAND_FIRST_DAY, BAND_HOURLY, BAND_SIZE, BAND_SPEED, BAND_WEIGHTS, BANDIT_BUDGET_SHARE, BANDITS_FROM_DAY, BANDITS_PEOPLE, CATCH_BASE, CATCH_PER_LEVEL, MEMBER_KIND, PASS_HOURS, REFUGEE_FOOD, REFUGEE_OPTIONS, REFUGEE_REPUTATION, REFUGEE_REST_HOURS, REFUGEE_WAIT_HOURS, STRIKE_FROM, STRIKE_UNTIL, WAGON_LAG, type BandKind } from '../data/bands';
 import { venueOfDef } from '../data/shop';
 import type { Material } from '../data/materials';
@@ -126,7 +127,7 @@ function spawnHourly(s: GameState, rng: Rng): void {
     spawnBand(s, rng, 'caravan').until = c.leavesTick;
   }
   if (s.tick < BAND_FIRST_DAY * TICKS_PER_DAY || s.raid || bandsOf(s).some((b) => b.kind !== 'caravan')) return;
-  if (!rng.chance(BAND_HOURLY)) return;
+  if (!rng.chance(BAND_HOURLY * roadSafety(s))) return; // (fewer on a land with bands roaming: sim/roamers.ts)
   const day = Math.floor(s.tick / TICKS_PER_DAY);
   const grown = s.people.filter((p) => p.away === null && p.bornTick == null).length;
   const weights: Record<string, number> = { ...BAND_WEIGHTS };

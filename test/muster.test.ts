@@ -9,6 +9,7 @@ import { relationsChanged } from '../src/shared/sim/social';
 import { maxHp, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
+import { postHunt } from '../src/shared/sim/hunts';
 import { plainGame } from './helpers';
 
 // Sending a party yourself (sim/muster.ts): a leader steps up, people may say no and be talked round or ordered, the
@@ -97,4 +98,16 @@ test('a commanded party asks on the road, and is debriefed when it is home', () 
   const debrief = s.prompts.find((p) => p.kind === 'debrief');
   assert.ok(debrief, 'a debrief waits at home');
   assert.match(debrief!.story!, /home from/);
+});
+
+test("a party can be raised and sent for a guild hunt (the Quests tab's cards raise one too)", () => {
+  const s = town('muster-hunt', 6);
+  const h = postHunt(s, new Rng(3));
+  assert.ok(h, 'a hunt posted');
+  const dest = `mhunt:${h!.id}`;
+  const r = raiseParty(s, dest);
+  assert.ok(r.ok, r.reason ?? '');
+  const sent = sendMuster(s);
+  assert.ok(sent.ok, sent.reason ?? '');
+  assert.ok(s.expeditions.some((e) => e.dest === dest), 'they set out for the hunt');
 });

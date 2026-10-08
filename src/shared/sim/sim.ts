@@ -3,6 +3,8 @@
 
 import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
+import { streetsHourly } from './streets';
+import { roamersTick, skirmishTrip } from './roamers';
 import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
@@ -141,6 +143,7 @@ export class Sim {
       if (s.gameOver) break;
     }
     updateExpeditions(s, this.rng);
+    roamersTick(s); // (bands roaming the land, and the fights they start: sim/roamers.ts)
     envoyTick(s);
     maybeStartRaid(s, this.rng);
     lurkers(s, this.rng);
@@ -187,6 +190,7 @@ export class Sim {
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)
     regrowHourly(s); // (and the woods grow back: sim/regrow.ts)
+    streetsHourly(s); // (streets planned where folk walk, and to the gates: sim/streets.ts)
     faithHourly(s); // (the gods: sim/faith.ts)
     worldHourly(s); // (the realm beyond the town: sim/worldLife.ts)
     questsHourly(s);
@@ -365,6 +369,18 @@ export class Sim {
       case 'spendStat': {
         const p = s.people.find((q) => q.id === c.person);
         if (p) c.attr ? spendPoint(p, c.attr) : spendByClass(p);
+        // (letting them choose is remembered: they spend their own from now on, till the box is unticked)
+        if (p && !c.attr) p.autoStats = true;
+        break;
+      }
+      case 'autoStats': {
+        const p = s.people.find((q) => q.id === c.person);
+        if (p) {
+          if (c.on) {
+            p.autoStats = true;
+            spendByClass(p);
+          } else delete p.autoStats;
+        }
         break;
       }
       case 'setAsk':
@@ -397,7 +413,7 @@ export class Sim {
         castAt(s, c.power, this.rng, [c.x, c.y]);
         break;
       case 'watch':
-        s.watching = c.expedition !== null && s.expeditions.some((e) => e.id === c.expedition) ? c.expedition : undefined;
+        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition)) ? c.expedition : undefined;
         break;
       case 'watchMine':
         s.watchingMine = c.place !== null && (s.places ?? []).some((p) => p.id === c.place && p.mine) ? c.place : undefined;

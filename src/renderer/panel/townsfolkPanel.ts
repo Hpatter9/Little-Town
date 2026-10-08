@@ -40,7 +40,7 @@ export const townsfolkKey = (s: Snapshot) => {
       who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
       who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
-      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.road, who.coins, who.income, who.traits.length, who.titles,
+      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles,
     ],
     s.visitor && [s.visitor.id, s.visitor.leaving],
     s.housing.beds <= s.housing.people,
@@ -558,6 +558,17 @@ function fightCard(p: PersonView, bridge?: Bridge): HTMLElement {
       row.append(el('span', 'lock short', `${p.freePts} stat ${p.freePts === 1 ? 'point' : 'points'} to spend.`));
       if (bridge) row.append(button('Let them choose', () => bridge.command({ type: 'spendStat', person: p.id, attr: null }), { cls: 'place small quiet', title: `Spent the ${p.clsName}'s way: ${p.favours.map((k) => ATTR_NAMES[k]).join(' and ')} first` }));
       box.append(row);
+    }
+    // (a box to leave the points to them for good, or take them back: the choice is remembered)
+    if (bridge && p.cls) {
+      const lab = el('label', 'row auto-stats');
+      const box2 = document.createElement('input');
+      box2.type = 'checkbox';
+      box2.checked = p.autoStats;
+      box2.addEventListener('change', () => bridge.command({ type: 'autoStats', person: p.id, on: box2.checked }));
+      lab.append(box2, el('span', '', ' They spend their own points'));
+      lab.title = 'Ticked, every point they earn is spent their calling\'s way as it comes. Untick to spend them yourself.';
+      box.append(lab);
     }
     // (what their calling leans to: how points are spent when they're left to choose)
     if (p.favours.length && p.cls) box.append(el('div', 'hint', `Left to themselves, a ${p.clsName} puts points into ${ATTR_NAMES[p.favours[0]]} first, then ${ATTR_NAMES[p.favours[1]]}.`));

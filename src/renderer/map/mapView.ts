@@ -17,7 +17,7 @@ import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
 import { inRect } from '../../shared/sim/land';
 import { inSea } from '../../shared/sim/sea';
-import { CELL, cellAt, groundAt, isMarked, type Ground, type LandMap } from '../../shared/sim/land';
+import { CELL, cellAt, groundAt, isMarked, isPlannedRoad, isRoad, wet, type Ground, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import type { PlaceView } from '../../shared/sim/snapshot';
 import type { CropLook } from '../art/buildings';
@@ -346,6 +346,8 @@ export class MapView {
     this.width = land.w * CELL;
     this.height = land.h * CELL;
     const td = tdTiles();
+    // (the streets planned are drawn over the ground as a ghost, kept apart from the chunks: sim/streets.ts)
+    if (land.plannedRoads !== this.plannedSeen || land.marked.length !== this.markedSeen) this.drawMarks();
     // (nothing on the land has changed since the last look: skip it all. This ran on every snapshot, ten times a second,
     // keying every chunk cell by cell)
     const sig = `${land.version}|${land.open}|${land.camp.x},${land.camp.y}|${season}|${biome}|${era}|${!!td}|${this.blighted()}|${this.chunks.size}|${groundArtReady()}|${this.calm}|${this.propTex.size}`;
@@ -629,11 +631,33 @@ export class MapView {
     return { tex: choices[Math.floor(hash(4 + salt, x, y) * choices.length)], kind };
   }
 
-  /** The cells marked for gathering (a pale line round each), and the highlighted one. */
+  private plannedSeen: string | undefined = undefined;
+  private markedSeen = -1;
+  /** The cells marked for gathering (a pale line round each), the highlighted one, and the streets planned (a ghost of
+   *  the road: a pale bed with its edges dashed, the bridges' planks across the water). */
   private drawMarks(): void {
     const m = this.land;
     const g = this.marks.clear();
     if (!m) return;
+    this.plannedSeen = m.plannedRoads;
+    this.markedSeen = m.marked.length;
+    if (m.plannedRoads)
+      for (let i = m.plannedRoads.indexOf('#'); i >= 0; i = m.plannedRoads.indexOf('#', i + 1)) {
+        const c = cellAt(m, i);
+        const x = c.x * CELL, y = c.y * CELL;
+        const wetCell = wet(groundAt(m, c.x, c.y));
+        g.rect(x + 3, y + 3, CELL - 6, CELL - 6).fill({ color: wetCell ? 0x8a6a40 : 0xd8c49a, alpha: wetCell ? 0.45 : 0.32 });
+        if (wetCell) for (let k = 6; k < CELL - 4; k += 6) g.rect(x + 3, y + k, CELL - 6, 2).fill({ color: 0x5a4028, alpha: 0.5 });
+        // (dashes along the sides that don't run on into more of the street)
+        const on = (dx: number, dy: number) => isPlannedRoad(m, c.x + dx, c.y + dy) || isRoad(m, c.x + dx, c.y + dy);
+        const dash = (x0: number, y0: number, dx: number, dy: number) => {
+          for (let k = 0; k < CELL; k += 8) g.rect(x0 + dx * k, y0 + dy * k, dx ? 4 : 2, dy ? 4 : 2).fill({ color: 0xfff0c0, alpha: 0.7 });
+        };
+        if (!on(0, -1)) dash(x, y + 1, 1, 0);
+        if (!on(0, 1)) dash(x, y + CELL - 3, 1, 0);
+        if (!on(-1, 0)) dash(x + 1, y, 0, 1);
+        if (!on(1, 0)) dash(x + CELL - 3, y, 0, 1);
+      }
     for (const i of m.marked) {
       const c = cellAt(m, i);
       g.rect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2).stroke({ color: 0xffe080, width: 2, alpha: 0.8 });

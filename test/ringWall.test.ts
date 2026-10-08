@@ -162,7 +162,9 @@ test("the trees and rocks on the ring's line are marked to clear at once, taken 
     assert.ok(isMarked(s.land, i), 'marked to clear');
     assert.ok(s.ring!.clearing?.includes(i), 'the ring knows its cells to clear');
     const c = cellAt(s.land, i);
-    assert.ok(!s.buildings.some((b) => b.tile === c.x && b.row === c.y), 'no piece laid on a tree');
+    const over = s.buildings.find((b) => b.tile === c.x && b.row === c.y);
+    // (a piece is laid over a tree all the same, so the whole wall shows, but only as a plan till it's cleared)
+    assert.ok(!over || (over.planned && over.overgrown), 'a piece on a tree waits, planned, for it to come down');
   }
   // whoever gathers goes to the wall's line first, though a nearer tree is marked
   const camp = campCell(s);

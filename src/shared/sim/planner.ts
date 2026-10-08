@@ -19,9 +19,12 @@ import { hashSeed, Rng } from '../rng';
 import { treasuresHeld } from './shop';
 import { rulesOf } from '../data/origins';
 import { canWear } from './classes';
+import { armedForSkills } from '../data/armed';
 import { isChild } from './social';
 import { buildOrigin } from './nomads';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
+import { TRAINING_BUILDINGS, WAR_PEOPLE } from '../data/training';
+const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
 import { isGrate, isRingPiece, planRing, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
@@ -395,6 +398,23 @@ function planCrafting(s: GameState, n: Needs): Stock {
   // 2. a tool for everyone who works
   const isTool = (i: ItemDef) => i.slot === 'tool';
   if (!ordered(s, isTool) && kept(s, isTool) < adults) tryMake(bestMakeable(s, isTool, toolPower));
+  // 2b. a weapon for everyone with a calling who has none they can wield (the owner's ask: an archer can't shoot
+  // without a bow, nor use their skills: data/armed.ts), from the first days: the best one the town can make for them,
+  // one order at a time and only while the town is fed (the fields come first)
+  const armingOrder = s.crafting.some((o) => o.for === undefined && !o.commission && ITEM_BY_ID[o.item]?.slot === 'weapon');
+  for (const p of armingOrder || n.foodDays < 2 ? [] : s.people) {
+    if (!room()) return want;
+    if (!p.cls || isChild(p) || p.away !== null) continue;
+    if (armedForSkills(p.cls, p.gear.weapon)) continue;
+    // (one in the stores they could take, or one on order for them already: wait for it)
+    const fits = (i: ItemDef) => i.slot === 'weapon' && canWear(p, i) && armedForSkills(p.cls, i.id);
+    if (Object.entries(s.items).some(([id, k]) => k > 0 && ITEM_BY_ID[id] && fits(ITEM_BY_ID[id])) || ordered(s, fits)) continue;
+    const pick = bestMakeable(s, fits, (i) => weaponWorth(s, i));
+    if (pick) {
+      tryMake(pick);
+      break;
+    }
+  }
   // 3. arms and armour once raiders have come (or when the town is set on defence)
   if (n.raided || n.direction === 'defense') {
     for (const slot of ['weapon', 'body', 'head', 'offhand'] as const) {
@@ -749,6 +769,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (CROPS[d.id] && FOOD_VALUE[CROPS[d.id].material]) continue; // (food fields come of wanting food, above)
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
     if (LEISURE[d.id] && grown < LEISURE_PEOPLE) continue; // (a hamlet has a roof to raise before a green to play on)
+    if (TRAINING_IDS.has(d.id) && grown < WAR_PEOPLE) continue; // (training grounds for the war, once there are hands to spare)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
     // (a specialty shop once the general store stands and the town is big enough to keep one)
     if (lineOfDef(d.id)) {

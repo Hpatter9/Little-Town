@@ -45,11 +45,22 @@ test('placement: locked buildings need research (or the debug unlock); the queue
   assert.match(full.reason!, /queue/);
 });
 
-test('a blueprint gets a road to the camp', () => {
-  const s = newGame('road');
+test('a blueprint gets a street to the camp: planned, then laid a stretch at a time by someone with time to spare', () => {
+  const sim = new Sim(plainGame('road'));
+  const s = sim.state;
   const at = freeSpot(s, 'stockpile');
   assert.ok(placeBlueprint(s, 'stockpile', at.x, at.y).ok);
-  assert.ok(s.land.roads.includes('#'), 'a road was laid');
+  assert.ok(!s.land.roads.includes('#'), 'nothing laid yet');
+  const planned = s.land.plannedRoads?.split('#').length ?? 1;
+  assert.ok(planned > 1, 'a street planned');
+  // the founder, with nothing else to do, lays it out from the camp
+  s.people[0].priorities = { ...s.people[0].priorities, haul: 0, gather: 0, craft: 0, research: 0, farm: 0 };
+  campfire(s).store = {};
+  s.buildings.find((b) => b.def === 'stockpile')!.status = 'done';
+  run(sim, 3 * 600);
+  assert.ok(s.land.roads.includes('#'), 'some of it laid');
+  run(sim, 24 * 600);
+  assert.ok(!s.land.plannedRoads?.includes('#'), 'all of it laid');
 });
 
 test('with storage full of stone, gathered wood goes straight to the blueprint', () => {

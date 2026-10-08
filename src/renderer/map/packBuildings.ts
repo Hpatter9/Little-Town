@@ -350,6 +350,12 @@ const PICKS: Record<string, Pick> = {
   village_green: { parts: [[fPointer4, 36, 4], [log3, 2, 44], [log3, 50, 46], [fStump, 66, 8], [flower1, 10, 12], [flower5, 20, 30], [flower9, 60, 40], [flower1, 86, 30], [tuft2, 28, 56], [tuft2, 78, 20]], size: [96, 64], overhang: 0 },
   sparring_yard: { parts: [[vRack, 0, 6], [palisade19, 62, 2, 4, 0, 28, 32], [fDirt, 40, 30], [fDirt, 70, 38], [fFence1, 0, 49], [fFence1, 28, 49], [fFence1, 56, 49], [box1, 80, 46]], size: [96, 64], overhang: 0 },
   fishing_jetty: { parts: [[pierH, 0, 0], [pierH, 32, 0], [barrel, 42, 4], [vBucket, 6, 10]], size: [64, 36], overhang: 0 },
+  // the training grounds (data/training.ts)
+  drill_yard: { parts: [[vRack, 0, 6], [palisade19, 62, 2, 4, 0, 28, 32], [palisade19, 30, 10, 4, 0, 28, 32], [fDirt, 40, 30], [fDirt, 70, 38], [fFence1, 0, 49], [fFence1, 28, 49], [fFence1, 56, 49]], size: [96, 64], overhang: 0 },
+  archery_range: { parts: [[fFence3, 0, 0], [fFence3, 26, 0], [box2, 70, 4], [box2, 82, 10], [palisade19, 52, 0, 4, 0, 28, 32]], size: [96, 32], overhang: 0 },
+  kennels: { parts: [[fence1, 2, 0], [fence1, 34, 0], [fence1, 66, 0], [fence9, 0, 8], [fence9, 92, 8], [fLog1, 10, 26], [fLog2, 50, 30], [box1, 70, 24]], size: [96, 52], overhang: 0 },
+  arcane_academy: { url: suMageTower, overhang: 4 },
+  siege_workshop: { parts: [[vCart2, 0, 10], [fLog1, 54, 30], [fLog2, 70, 40], [fLog3, 90, 28], [vRack, 96, 4]], size: [128, 64], overhang: 0 },
   quoits_pitch: { parts: [[fFence3, 0, 0], [fFence3, 26, 0], [palisade19, 64, 0, 4, 0, 28, 32], [fDirt, 20, 18], [fDirt, 44, 16], [box2, 2, 14]], size: [96, 32], overhang: 0 },
   pleasure_garden: { parts: [[lantern, 4, 0], [lantern, 76, 0], [vBench, 34, 18], [flower1, 8, 50], [flower5, 18, 56], [flower9, 10, 70], [flower1, 24, 78], [flower9, 70, 52], [flower5, 82, 60], [flower1, 74, 74], [flower9, 86, 82], [tuft2, 40, 70], [tuft2, 52, 84], [flower5, 46, 64]], size: [96, 96], overhang: 0, lamps: [[12, 9], [84, 9]] },
   bandstand: { parts: [[tent2, 16, 0], [log1, 0, 46], [log3, 50, 52], [lantern, 0, 4], [lantern, 80, 4]], size: [96, 68], overhang: 0, lamps: [[8, 13], [88, 13]] },

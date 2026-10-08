@@ -294,11 +294,6 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
       const tile: TacTile = { h: hh, g, lx, ly };
       if (road) tile.road = true;
       if (g === 'forest' && !road) tile.tree = true;
-      const trap = traps.get(ly * m.w + lx);
-      if (trap !== undefined && u < along) {
-        tile.trap = trap;
-        traps.delete(ly * m.w + lx);
-      }
       b.tiles.push(tile);
     }
   fords(b);
@@ -360,16 +355,7 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
       break;
     }
   }
-  // (the town's traps that lie off the board are laid on it, across the way in a few rows before the gate, so every
-  // trap bites, as on the trail)
-  let n = 0;
-  for (const id of traps.values()) {
-    const u = along - 2 - Math.floor(n / h);
-    const v = (mid + (n % 2 ? 1 : -1) * Math.ceil((n % h) / 2) + h) % h;
-    const tile = tileAt(b, u, v);
-    if (tile && !tile.block && !tile.trap && tile.g !== 'water') tile.trap = id;
-    n++;
-  }
+  layTraps(b, [...traps.values()], along, mixSeed(seed, 0x7a95, salt));
   return b;
 }
 
@@ -595,6 +581,32 @@ function spawn(s: GameState, r: Raid, t: Tactics): void {
     came++;
   }
   if (came >= 2 && t.turns > 0) t.banner = { text: 'Reinforcements!', tick: s.tick, kind: 'wave' };
+}
+
+/** The town's traps are laid out on the field the raiders cross, a different spread every battle (the owner's ask: by
+ *  the gate the raiders never reached them): each on a free tile `TRAP_FIELD_FROM` columns in from the raiders' edge
+ *  up to `TRAP_FIELD_TO` short of the wall, most of them toward the middle rows, where the ways to the gate run. */
+export const TRAP_FIELD_FROM = 3;
+export const TRAP_FIELD_TO = 3;
+export function layTraps(b: Pick<Tactics, 'w' | 'h' | 'tiles'>, ids: number[], along: number, seed: number): void {
+  const lo = Math.min(TRAP_FIELD_FROM, along - 1);
+  const hi = Math.max(lo, along - TRAP_FIELD_TO);
+  const mid = (b.h - 1) / 2;
+  let k = 0;
+  for (const id of ids) {
+    for (let tries = 0; tries < 40; tries++, k++) {
+      const r1 = (mixSeed(seed, 1, k) >>> 0) / 4294967296;
+      const r2 = (mixSeed(seed, 2, k) >>> 0) / 4294967296;
+      const r3 = (mixSeed(seed, 3, k) >>> 0) / 4294967296;
+      const u = lo + Math.floor(r1 * (hi - lo + 1));
+      // (the rows: the middle half twice as likely as the edges)
+      const v = Math.round(r3 < 0.67 ? mid + (r2 - 0.5) * b.h * 0.5 : r2 * (b.h - 1));
+      const tile = b.tiles[v * b.w + u];
+      if (!tile || tile.block || tile.trap !== undefined || tile.g === 'water' || tile.g === 'shallows' || tile.g === 'mountain') continue;
+      tile.trap = id;
+      break;
+    }
+  }
 }
 
 /** Everyone on the board stands where their tile is on the land (the map, the towers, the recap see them there). */

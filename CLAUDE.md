@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.27.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.28.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3035,6 +3035,75 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   marked cells as the ring's are (`bestGatherTile`), and the planner keeps them marked over its cap
   (`planGathering`). Deliveries go on meanwhile. The tap card says "Clearing the ground first". Test:
   `test/siteClearing.test.ts`.
+
+## Streets, weapons in hand, and hostiles on the land (0.28.0; the owner's asks)
+
+- **Streets are built (the owner: "the town streets shouldn't just show up, they should be built, like the palisade,
+  a stretch put up as a blueprint and built when they have time; streets where they walk a lot; a bridge across a
+  river; a path to every gate"):** `src/shared/sim/streets.ts`. A street is planned first (`LandMap.plannedRoads`, a
+  '#' string like `roads`; `planRoad`, `isPlannedRoad` in land.ts: `fits` refuses a planned cell, `roadDistance` counts
+  it, `canPlace` refuses it but for gates): `connectRoad` → `layStreet` (buildings.ts: the way to the nearest street,
+  `nearestStreet`, through gates, river water at `BRIDGE_COST` 4, `PIER_COST` in a sea town), the worn footpaths that
+  join the streets (`planStreets` daily at hour 6: `STREET_WEAR`, `STREETS_A_DAY`, within `STREET_REACH`), and the way
+  to each of the ring's gates and `GATE_PATH_OUT` beyond (`gatePaths`, hourly). Planned cells are drawn as a ghost
+  (`drawMarks` in mapView.ts: a pale bed with dashed edges, planks over water) and laid a cell at a time (the `pave`
+  task in people.ts, spare-time work, and in a town of `SMALL_TOWN` (3) or fewer before study: `researchCanWait` asks
+  `paveReady`), out from the streets already down (`nextPave`), `PAVE_SECONDS` (15) a cell, a bridge `BRIDGE_SECONDS`
+  (60) and `BRIDGE_WOOD` (2). The founding's streets are laid at once (`layAll`). The tap card says "Laying a street" /
+  "Building a bridge". Tests: `test/streets.test.ts`.
+- **Every gate in the first blueprint (the owner's ask):** a ring piece over a wild cell is laid as an overgrown planned
+  piece (`missingPieces` returns `wild`), so the north, south, east and west gates show from the start; its cells are
+  cleared ahead of the rest (`RING_CLEAR`).
+- **Troops need somewhere to train (the owner's ask):** `src/shared/data/training.ts` (`TRAINING_BUILDINGS`: drill
+  yard, archery range, kennels, arcane academy, siege workshop; `trainedAt(troop)`: magic at the academy, ranged at the
+  range, horse at the stable, beasts at the kennels, healers at a healer's hut or better, siege at the workshop, the
+  rest at a drill yard or barracks). `canRaise` (sim/conquest/squads.ts) refuses a kind without its building ("needs a
+  Drill Yard or a Barracks"). The planner leaves them alone below `WAR_PEOPLE` (6) grown-ups.
+- **Spending their own stat points, remembered (the owner's ask):** `Person.autoStats` (the `autoStats` command; the
+  Character tab's checkbox "They spend their own points", `PersonView.autoStats`): `statsHourly` spends theirs the
+  class's way whatever the town's setting; "Let them choose" sets it too.
+- **The passing trader walks through (the owner's ask):** a purchase from a traveller is told with their name ("Bought
+  X from Wren, a tinker passing through"), and the news bubble's row shows them on the map (`__showOnMap({ traveller })`
+  in main.ts); travellers already walk in one side and out the other.
+- **Raise a party from a quest card (fixed):** hunt, saga and quest cards have "Raise a party…" (`raiseFor` in
+  expeditionsPanel.ts).
+- **A calling's weapon in hand (the owner: "in order to use skills or attack in certain ways they need their weapon:
+  an archer can't attack without a bow; the town should get its weapons early"):** `src/shared/data/armed.ts`
+  (`armedForSkills`: casters and healers need nothing; a ranged calling needs a ranged weapon; the rest any weapon, but
+  the monk, shapeshifter and dancer, who fight bare: `fightsBare`). `kitOf` (actions.ts) leaves a calling's skills out
+  without it (spells stay); `personFighter` shoots only with a ranged weapon (a caster casts), and bare hands hit at
+  `UNARMED_MULT` (0.6); `weaponRange` gives a shooter with no ranged weapon their melee reach. The planner orders a
+  weapon each unarmed calling can use (`planCrafting` step 2b: one order at a time, only while food lasts 2 days), and
+  the throwing stick needs no study. Tests in `test/weapons.test.ts`.
+- **Traps out on the field (the owner: "randomly placed in the raids so they get used, not by the gates where the
+  raiders never make it"):** on the tactics board every trap is laid on a random free tile from `TRAP_FIELD_FROM` (3)
+  columns in from the raiders' edge to `TRAP_FIELD_TO` (3) short of the wall, the middle rows likelier (`layTraps`,
+  seeded by the battle); on the trail, at a random point `TRAP_ALONG_FROM` (0.2) to `TRAP_ALONG_TO` (0.7) of its lane.
+  Test in `test/tactics.test.ts`.
+- **Hostiles roaming the land (the owner: "wild animals, roaming dead, bandits... to attack the townsfolk if they're
+  walking through; this would help make the walls more necessary; guards patrol the nearby terrain; if an area is
+  unsafe, less travellers come; a fight happens, the FF type, not the raid battle"):** `src/shared/data/roamers.ts` and
+  `src/shared/sim/roamers.ts` (`roamersTick` every tick from sim.ts). Each hour from day `ROAM_FIRST_DAY` in a town of
+  `ROAM_PEOPLE` (3) grown-ups (a lone founder caught bled out: half of eight lone towns were lost) a band may come out
+  (`ROAM_HOURLY` 0.04, up to `ROAMERS_LEAST` + one a `ROAMERS_PER` grown-ups, `ROAMERS_MOST`) `SPAWN_BEYOND` cells past
+  the town's edge (`s.roamers`, `Roamer`): wild beasts (the land's own, `BIOME_BEASTS`, else `ROAMER_GROUPS` by age),
+  the restless dead by night (they crumble at dawn but on a lich's or vampire's land), bandits from day
+  `BANDITS_ROAM_FROM`. It wanders about where it came out (`WANDER_PACE`), and anyone out in the open within `SEE_CELLS`
+  is run down (`CHASE_PACE` 5.5 px a tick, people walk 4.8); a finished ring wall shelters everyone inside it, and with
+  none the camp shelters by day only, to `DAY_KEEP_OFF` inside the town's edge (`sheltered`). Caught within `CATCH_PX`,
+  a **skirmish** (`Skirmish`, `s.skirmishes`; `startSkirmish`): the one caught and anyone within `HELP_CELLS`, guards
+  first, up to `SKIRMISH_MOST`, fight it on the FF screen (`startBattle`/`stepBattle`; `Person.skirmish` holds them,
+  standing in `fight`; the fight is shaped as a trip, `Skirmish.e`, dest `wild:<kind>` (`wildDestination`, "the wilds"),
+  so `s.watching` and the fight screen take it: `skirmishTrip`). Ended, its harm, wounds and experience go back as a
+  trip's do and the result is the victory window; won, its loot goes to the stores; lost, each who went down dies at
+  `ROAM_KILLS`. Either way the band is gone (it fights once). **Guards** on watch go after a band within `PATROL_REACH`
+  of the town's edge (`roamerToHunt`, the patrol task's `band`) and take it on when they reach it (`guardEngages`).
+  **Travellers** come `roadSafety` times as often (1 / (1 + `ROAM_DETER` a band within `UNSAFE_CELLS`): `travellerRate`
+  in origin.ts and the visiting bands' chance). Seen: `snapshot.roamers` (`RoamerView`) drawn by a second `MapRaiders`
+  (`roamerFigures` in main.ts: a figure a foe, `ROAMER_IDS` a band), a tap card (what it is, who it's after, Watch the
+  fight), a person's card in a fight ("Watch the fight"), and the news bubble (`skirmish:` red with Watch; `roamers:`
+  gold). Soak (12 days, 2 towns each of knights, vampires, druids, dwarves): 1 to 3 fights in the towns of 3 or more,
+  no deaths on the land, deaths 19 against main's 17. Tests: `test/roamers.test.ts`.
 
 ## Known problem (fixed, watch)
 

@@ -158,9 +158,9 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     grid.append(card);
   }
   out.push(grid);
-  out.push(...sagaList(s));
-  out.push(...huntList(s));
-  out.push(...questList(s));
+  out.push(...sagaList(s, bridge));
+  out.push(...huntList(s, bridge));
+  out.push(...questList(s, bridge));
   out.push(...treasures(s));
   out.push(...renderRealm(s, bridge));
   out.push(el('div', 'hint', 'Fighters stand in front; scouts, medics and porters in back. Parties fall back when hurt past their stance, or when you are badly hurt. The downed bleed out unless a medic tends them.'));
@@ -415,7 +415,21 @@ function tripControls(c: HTMLElement, d: Destination, v: DestinationView, s: Sna
 }
 
 /** The Monster Hunters' Guild: the hunts on its board (stars, purse, parts), and its forge's one-of-a-kind gear. */
-function huntList(s: Snapshot): HTMLElement[] {
+/** "Raise a party…" on a quest's, a hunt's or a saga's card (the owner's complaint: the Quests tab had no way to send
+ *  one): the same muster as the places' cards, for the place the quest is at. */
+function raiseFor(dest: string, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
+  const row = el('div', 'row stakes');
+  const going = s.expeditions.some((e) => e.dest === dest);
+  const v = s.destinations.find((x) => x.id === dest);
+  row.append(button(going ? 'A party is on its way' : 'Raise a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest }), {
+    cls: 'place go',
+    disabled: going || !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS || (v ? !v.unlocked : false),
+    title: 'Choose who goes, how boldly, and what they take',
+  }));
+  return row;
+}
+
+function huntList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const g = s.hunts;
   const out: HTMLElement[] = [el('h2', '', `Hunts${g.won ? ` · ${g.won} won` : ''}`)];
   if (!g.guild && !g.hunts.length) {
@@ -428,7 +442,7 @@ function huntList(s: Snapshot): HTMLElement[] {
     const c = el('div', 'card quest hunt');
     const top = el('div', 'card-top');
     top.append(el('span', 'card-name', h.name), el('span', 'card-size stars', '★'.repeat(h.stars)));
-    c.append(top, el('div', 'purpose', h.text), el('div', 'lock short', `${h.purse} coins and ${h.parts} · ${Math.ceil(h.hoursLeft / 24)} days left`));
+    c.append(top, el('div', 'purpose', h.text), el('div', 'lock short', `${h.purse} coins and ${h.parts} · ${Math.ceil(h.hoursLeft / 24)} days left`), raiseFor(h.dest, s, bridge));
     c.addEventListener('click', () => pick(h.dest));
     grid.append(expandable(c, `hunt:${h.dest}`, () => huntDetails(h, s)));
   }
@@ -451,7 +465,7 @@ function huntList(s: Snapshot): HTMLElement[] {
 const OUTCOME: Record<string, string> = { triumph: 'Triumph', bittersweet: 'Bittersweet', ruin: 'Ruin' };
 
 /** The sagas: the stories under way (where each stands, its last lines, its place on the board) and those ended. */
-function sagaList(s: Snapshot): HTMLElement[] {
+function sagaList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const { open, done } = s.sagas;
   const out: HTMLElement[] = [el('h2', '', 'Sagas')];
   if (!open.length && !done.length) {
@@ -467,6 +481,7 @@ function sagaList(s: Snapshot): HTMLElement[] {
     for (const line of g.log.slice(-2)) c.append(el('div', 'lock short', line));
     if (g.dest) {
       const dest = g.dest;
+      c.append(raiseFor(dest, s, bridge));
       c.addEventListener('click', () => pick(dest));
     }
     grid.append(expandable(c, `saga:${g.run}`, () => sagaDetails(g)));
@@ -484,7 +499,7 @@ function sagaList(s: Snapshot): HTMLElement[] {
 }
 
 /** The quests open, each for a dungeon: clear it while it's open, and the reward comes home with the party. */
-function questList(s: Snapshot): HTMLElement[] {
+function questList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   if (!s.quests.length) return [];
   const out: HTMLElement[] = [el('h2', '', 'Quests')];
   const grid = el('div', 'cards wide');
@@ -492,7 +507,7 @@ function questList(s: Snapshot): HTMLElement[] {
     const c = el('div', 'card quest');
     const top = el('div', 'card-top');
     top.append(el('span', 'card-name', q.title), el('span', 'card-size', `${Math.ceil(q.hoursLeft / 24)} days left`));
-    c.append(top, el('div', 'purpose', q.text), el('div', 'lock short', 'Clear the dungeon while the quest is open; the reward comes home with the party.'));
+    c.append(top, el('div', 'purpose', q.text), el('div', 'lock short', 'Clear the dungeon while the quest is open; the reward comes home with the party.'), raiseFor(q.dungeon, s, bridge));
     c.addEventListener('click', () => pick(q.dungeon));
     grid.append(expandable(c, `quest:${q.id}`, () => questDetails(q, s)));
   }
