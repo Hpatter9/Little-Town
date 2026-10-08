@@ -125,6 +125,7 @@ test('the Bear Cave yields the totem the Elder Lodge needs, once the bear is bea
     p.skills.melee.level = 14;
     p.traits = ['tough'];
     p.hp = 80;
+    p.gear = { ...p.gear, weapon: 'spear' }; // (bare hands hit at UNARMED_MULT: combat.ts)
   }
   sim.command({ type: 'sendExpedition', dest: 'bear_cave', members: party.map((p) => p.id), stance: 'bold' });
   runUntil(sim, () => s.expeditions.length === 0 && s.tick > 10, 4000);

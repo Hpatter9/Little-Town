@@ -7,7 +7,7 @@ import { gradeOf, MAX_PLUS, piece, pieceLabel, plusMult, plusOf, rollPlus } from
 import { TOPICS } from '../src/shared/data/research';
 import { FAMILIES, tierDamage } from '../src/shared/data/weapons';
 import { Rng } from '../src/shared/rng';
-import { afterBlow, hitDamage, THROWN_RANGE, UNARMED_RANGE, weaponOf, weaponRange } from '../src/shared/sim/combat';
+import { afterBlow, hitDamage, UNARMED_RANGE, weaponOf, weaponRange } from '../src/shared/sim/combat';
 import { makePerson } from '../src/shared/sim/state';
 
 const weapons = ITEMS.filter((i) => i.slot === 'weapon');
@@ -93,13 +93,56 @@ test('every weapon has a range on the battle map: a spear or polearm reaches fur
   assert.ok(rangeOf('dg') <= rangeOf('sw'), 'a dagger is at arm\'s length');
   assert.ok(rangeOf('lb') > rangeOf('bw') && rangeOf('bw') > rangeOf('sp'), 'a longbow outreaches a bow, a bow a spear');
   for (const [k, f] of Object.entries(FAMILIES)) if (f.ranged) assert.ok(f.range >= 2.5, `${k} shoots from range`);
-  // what someone in hand reaches: a weapon's range; a shooter with none throws, a mage casts; bare hands, arm's length
+  // what someone in hand reaches: a weapon's range; a shooter with nothing to shoot fights up close (an archer can't
+  // shoot without a bow: data/armed.ts), a mage casts; bare hands, arm's length
   const p = makePerson(new Rng(5), 1, 'hunter', { x: 0, y: 0 }, []);
   p.gear = {};
   assert.equal(weaponRange(p), UNARMED_RANGE);
-  assert.equal(weaponRange(p, true), THROWN_RANGE);
+  assert.equal(weaponRange(p, true), UNARMED_RANGE);
   p.gear.weapon = 'spear';
   assert.equal(weaponRange(p), ITEM_BY_ID.spear.effects.range);
   p.gear.weapon = 'bow';
   assert.equal(weaponRange(p, true), ITEM_BY_ID.bow.effects.range);
+});
+
+test('an archer needs a bow: without one they fight up close and use no skills; casters need nothing in hand', async () => {
+  const { personFighter, UNARMED_MULT } = await import('../src/shared/sim/combat');
+  const { kitOf } = await import('../src/shared/sim/actions');
+  const { armedForSkills } = await import('../src/shared/data/armed');
+  const p = makePerson(new Rng(7), 1, 'hunter', { x: 0, y: 0 }, []);
+  p.cls = 'archer';
+  p.level = 20;
+  p.gear = {};
+  assert.equal(armedForSkills('archer', null), false);
+  assert.equal(personFighter(p, 'fighter', 'back').ranged, false, 'no bow, no shooting');
+  assert.ok(!kitOf(p)!.actions.some((a) => !a.spell), 'no bow, no skills');
+  p.gear.weapon = 'bow';
+  assert.ok(armedForSkills('archer', 'bow'));
+  assert.equal(personFighter(p, 'fighter', 'back').ranged, true);
+  assert.ok(kitOf(p)!.actions.some((a) => !a.spell), 'with the bow, the skills');
+  // a mage casts with or without a staff
+  p.cls = 'mage';
+  p.gear = {};
+  assert.ok(armedForSkills('mage', null));
+  assert.equal(personFighter(p, 'fighter', 'back').ranged, true);
+  // bare hands hit soft (but for a monk)
+  assert.ok(UNARMED_MULT < 1);
+  // and the first weapon needs no study: the throwing stick, made from the start
+  assert.deepEqual(ITEM_BY_ID.throwing_stick.research, []);
+});
+
+test('the town makes a weapon for whoever has a calling and nothing to fight with', async () => {
+  const { newGame } = await import('../src/shared/sim/state');
+  const { Sim } = await import('../src/shared/sim/sim');
+  const { TICKS_PER_DAY } = await import('../src/shared/sim/time');
+  const s = newGame('arm-them');
+  s.nextRaidTick = Infinity;
+  const sim = new Sim(s);
+  for (const p of s.people) p.cls = 'archer';
+  let ordered = false;
+  for (let t = 0; t < 3 * TICKS_PER_DAY && !ordered; t++) {
+    sim.step();
+    ordered = s.crafting.some((o) => ITEM_BY_ID[o.item]?.effects.ranged) || s.people.some((p) => !!p.gear.weapon && !!ITEM_BY_ID[p.gear.weapon]?.effects.ranged);
+  }
+  assert.ok(ordered, 'a ranged weapon was ordered or carried');
 });

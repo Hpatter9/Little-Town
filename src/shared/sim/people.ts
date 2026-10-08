@@ -23,7 +23,7 @@ import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { nextPave, pave, paveSeconds } from './streets';
+import { nextPave, pave, paveReady, paveSeconds } from './streets';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
 import { CELL, cellAt, centreOf, groundAt, inMap, isMarked, isPlannedRoad, isRoad, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
@@ -986,9 +986,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
  *  data/pace.ts, so a topic can't be left to finish first). */
 export function researchCanWait(s: GameState, p: Person): boolean {
   const sites = s.buildings.filter(inWork);
+  const grown = s.people.filter((q) => q.away === null && q.bornTick == null && !q.downed).length;
+  // (a handful of people lay the streets planned before they study: else nobody idles and they're never laid)
+  if (grown <= SMALL_TOWN && !s.raid && paveReady(s)) return true;
   if (!sites.length) return false;
   const ready = sites.some((b) => poolSize(stillNeeded(b)) === 0 || b.progress > 0);
-  const grown = s.people.filter((q) => q.away === null && q.bornTick == null && !q.downed).length;
   // (a handful of people: anything they could build or gather for comes first; a site waiting on what the land can't
   // give (a desert's fiber) doesn't keep them from their books)
   if (grown <= SMALL_TOWN) return ready || s.land.marked.length > 0;

@@ -4,6 +4,7 @@
 // aim, armour and blocking.
 
 import { injuryFight } from './injuries';
+import { fightsBare } from '../data/armed';
 import type { EliteAffix } from '../data/dungeons';
 import { BLOOD_FURY, BLOOD_LIFESTEAL, castsMagic, CLASS_DEFS, NECRO_RAISES, type ClassId } from '../data/classes';
 import { BEAST_ARMOR, BEAST_DAMAGE, BEAST_HP, classStat, levelPower, shapeshifts } from '../data/levels';
@@ -134,17 +135,19 @@ export function weaponOf(p: Person): { def?: ItemDef; damage: number; accuracy: 
 /** A weapon's reach on the raid's battle map (cells), and the stand-ins: fists, a thrown stone (a shooter with no bow),
  *  a mage's fire with no staff. */
 export const UNARMED_RANGE = 1;
+/** Bare hands hit this share of a fist-fighter's blow (data/armed.ts `fightsBare`). */
+export const UNARMED_MULT = 0.6;
 export const THROWN_RANGE = 3;
 export const MAGIC_RANGE = 4;
 const DEFAULT_MELEE = 1.2;
 const DEFAULT_SHOT = 4;
 const DEFAULT_REACH = 2.2;
 /** How far the weapon in someone's hand reaches (cells on the battle map). Whoever fights from range with no ranged
- *  weapon in hand throws (or a caster casts) instead. */
+ *  weapon in hand fights up close (an archer can't shoot without a bow: data/armed.ts); a caster casts. */
 export function weaponRange(p: Person, shooter = false): number {
   const def = p.gear.weapon ? ITEM_BY_ID[p.gear.weapon] : undefined;
   const fx = def?.effects;
-  if (shooter && !fx?.ranged) return castsMagic(p.cls) ? MAGIC_RANGE : THROWN_RANGE;
+  if (shooter && !fx?.ranged) return castsMagic(p.cls) ? MAGIC_RANGE : def ? (fx!.range ?? DEFAULT_MELEE) : UNARMED_RANGE;
   if (!def) return UNARMED_RANGE;
   return fx!.range ?? (fx!.ranged ? DEFAULT_SHOT : fx!.reach ? DEFAULT_REACH : DEFAULT_MELEE);
 }
@@ -193,8 +196,9 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
   const weapon = w.def;
   const knife = p.gear.tool ? (ITEM_BY_ID[p.gear.tool]?.effects.damage ?? 0) : 0;
   const sling = !!weapon?.effects.ranged;
-  // (a class that fights from range does, whatever they hold)
-  const useRanged = !beast && (sling || row === 'back' || ranged > melee + 2 || !!cls?.ranged);
+  // (only a ranged weapon shoots: an archer without a bow fights up close (the owner's ask: data/armed.ts); a caster's
+  // spells carry from the back row whatever they hold)
+  const useRanged = !beast && (sling || (caster && (row === 'back' || ranged > melee + 2 || !!cls?.ranged)));
   const skill = useRanged ? ranged : melee;
   // the weapon only helps in the way it's used
   const bonus = Math.round(useRanged ? (sling ? w.damage : 0) : sling || !weapon ? knife : w.damage);
@@ -211,7 +215,8 @@ export function personFighter(p: Person, role: Role, row: 'front' | 'back', ammo
   const k = (caster ? classStat(p, 'power') : classStat(p, 'damage')) * levelPower(p) * attrK;
   // (and their wounds: a lost arm or a blind eye tells: sim/injuries.ts)
   const inj = injuryFight(p);
-  const bk = beast ? BEAST_DAMAGE : 1;
+  // (bare hands hit soft, but for those who fight with them and casters: data/armed.ts)
+  const bk = beast ? BEAST_DAMAGE : !weapon && !caster && !fightsBare(p.cls) ? UNARMED_MULT : 1;
   const damage: [number, number] = [Math.round((base[0] + bonus + wolf) * k * inj.damage * bk), Math.round((base[1] + bonus + wolf) * k * inj.damage * bk)];
   const g = gearEffects(p);
   // (their skills: always-on passives, and the kit of spells and skills they use)

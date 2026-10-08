@@ -39,7 +39,7 @@ test('a lich town sows a field at most (for its tavern\'s guests); a settlers\' 
     const s = newGame(`undead-farm-${origin}`, { origin });
     s.nextRaidTick = Infinity;
     const sim = new Sim(s);
-    for (let t = 0; t < 4 * TICKS_PER_DAY; t++) sim.step();
+    for (let t = 0; t < 5 * TICKS_PER_DAY; t++) sim.step();
     return s;
   };
   const lich = run('lich');

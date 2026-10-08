@@ -95,6 +95,7 @@ test('a fight is turn-based: one action a tick, a beat between turns, and it sti
 test('the limit gauge fills from hurt and the ultimate is loosed when full, with a fanfare', () => {
   const rng = new Rng(9);
   const hero = person(20, 'warrior', 24);
+  hero.gear = { ...hero.gear, weapon: 'spear' }; // (skills need the weapon in hand: data/armed.ts)
   const b = startBattle([hero], {}, { bandit: 4 }, rng);
   const me = b.fighters.find((f) => f.side === 'party')!;
   me.limit = 1;

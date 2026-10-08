@@ -162,8 +162,9 @@ test('combat gear: armour and weapons change the numbers; slings spend stones', 
   const bare = personFighter(p, 'fighter', 'front');
   p.gear = { weapon: 'spear', body: 'hide_armor', head: 'hide_cap' };
   const armed = personFighter(p, 'fighter', 'front');
-  // (a weapon's +4, scaled a little by Strength since the attributes: data/attributes.ts)
-  assert.ok(armed.damage[0] - bare.damage[0] >= 4 && armed.damage[0] - bare.damage[0] <= 5, `${bare.damage[0]} -> ${armed.damage[0]}`);
+  // (a weapon's +4, scaled a little by Strength since the attributes: data/attributes.ts; and bare hands hit at
+  // UNARMED_MULT since a fighter needs a weapon: data/armed.ts)
+  assert.ok(armed.damage[0] - bare.damage[0] >= 4 && armed.damage[0] - bare.damage[0] <= 8, `${bare.damage[0]} -> ${armed.damage[0]}`);
   assert.ok(armed.accuracy > bare.accuracy);
   assert.ok(Math.abs(armed.armor - 0.3) < 1e-9);
 

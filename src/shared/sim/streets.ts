@@ -14,8 +14,8 @@ import { campCell, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 /** Seconds of work to lay a cell of street, and of bridge; the wood a cell of bridge takes. */
-export const PAVE_SECONDS = 40;
-export const BRIDGE_SECONDS = 160;
+export const PAVE_SECONDS = 15;
+export const BRIDGE_SECONDS = 60;
 export const BRIDGE_WOOD = 2;
 /** A footpath this worn (land.ts `wear`, 0 to 24) that joins the streets is planned as one; at most this many cells a
  *  day, within this far of the camp. */
@@ -52,6 +52,14 @@ function ready(s: GameState, i: number, wood: number): boolean {
   const camp = campCell(s);
   if (Math.abs(c.x - camp.x) + Math.abs(c.y - camp.y) <= 2) return true;
   return N4.some(([dx, dy]) => isRoad(m, c.x + dx, c.y + dy));
+}
+
+/** Whether any planned cell can be laid now (a small town's study waits for it: people.ts `researchCanWait`). */
+export function paveReady(s: GameState): boolean {
+  const cells = plannedCells(s);
+  if (!cells.length) return false;
+  const wood = totalStock(s).wood ?? 0;
+  return cells.some((i) => ready(s, i, wood));
 }
 
 /** The planned cell someone should lay next: the nearest ready one nobody else is on; null when there's none. */
