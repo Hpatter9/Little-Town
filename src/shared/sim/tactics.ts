@@ -37,7 +37,7 @@ import { killPerson } from './health';
 import { CELL, groundAt, isRoad, type Ground } from './land';
 import { before, credit, TOWERS } from './raidRecap';
 import { attackPerson, defenderAttack } from './raids';
-import { GATE_OF, WALL_KINDS } from './ringWall';
+import { GATE_OF, GRATE_OF, isGrate, WALL_KINDS } from './ringWall';
 import { maxHp, notify, type GameState, type Person, type Raid, type Raider } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
@@ -305,11 +305,22 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
   lieOfTheLand(b, along, mixSeed(seed, 0x51de, salt));
   // the town's wall across the board at the gate's row, its gate in the middle (open: the way in)
   const wall = townWall(s);
+  // (the wall meets water: a grate the river runs through and nobody does, once the town has built one; till then
+  // the gap is a way in: sim/ringWall.ts)
+  const grated = s.buildings.some((x) => x.status === 'done' && isGrate(x.def));
   const mid = Math.floor(h / 2);
   const gates = new Set([mid - 1, mid]);
   for (let v = 0; v < h; v++) {
     const tile = tileAt(b, along, v)!;
-    if (tile.g === 'water' || tile.g === 'mountain' || tile.g === 'shallows') continue;
+    if (tile.g === 'mountain') continue;
+    if (tile.g === 'water' || tile.g === 'shallows') {
+      if (!grated) continue;
+      delete tile.trap;
+      tile.block = 'wall';
+      tile.wall = GRATE_OF[wall] ?? wall;
+      tile.h += 2;
+      continue;
+    }
     delete tile.tree;
     delete tile.bush;
     delete tile.trap;

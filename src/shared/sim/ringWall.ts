@@ -1,7 +1,8 @@
 // The ring wall (the owner's ask: a wall that encloses the town and grows with it). The planner walls an open town
 // all round: a ring of one-cell wall pieces `RING_PAD` cells outside its outermost buildings, snapped to steps of
-// `RING_STEP` a side, with a gate wherever a road crosses it and one on the camp's row on each side (where raids come
-// in: sim/battle.ts `gateCell`). When the town outgrows the ring a wider one is raised outside it, and the old ring is
+// `RING_STEP` a side, with a gate on each of its four sides (on the camp's row to the west and east, where raids come
+// in: sim/battle.ts `gateCell`) and wherever a road crosses it, and a grate where a river crosses it (the wall carried
+// over the water). When the town outgrows the ring a wider one is raised outside it, and the old ring is
 // taken down (half its materials refunded: `demolish`) once the new one stands all round. Pieces are ordinary wall
 // and gate buildings (data/buildings.ts), tagged with the ring's generation (`Building.ring`), so raids break them,
 // shooters stand on them (battle.ts wall spots) and the better walls of later ages replace them in place (UPGRADES).
@@ -10,7 +11,7 @@
 import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
 import { blueprintCount, buildSlots, builtOn, canPlace, demolish, isUnlocked, placeBlueprint, unlockInfo } from './buildings';
 import { holdOf } from './castle';
-import { groundAt, idx, inMap, isRoad, WILD, type Pt, type Rect } from './land';
+import { groundAt, idx, inMap, isRoad, wet, WILD, type LandMap, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
 import { campCell, type Building, type GameState } from './state';
 import { TICKS_PER_HOUR } from './time';
@@ -36,12 +37,22 @@ export const RING_CLEAR = 24;
 /** The ring's cells to clear are taken ahead of other marked cells by whoever gathers, as if this many cells nearer. */
 export const RING_CLEAR_PULL = 12;
 
-/** The walls, weakest first, and each one's gate. */
+/** The walls, weakest first, and each one's gate and water grate (the owner's ask: where the ring met a river it was
+ *  left open there; now the wall is carried over on a grating the water runs through and nobody does). */
 export const WALL_KINDS = ['palisade_wall', 'stone_wall', 'brick_wall', 'concrete_wall', 'force_wall'] as const;
 export const GATE_OF: Record<string, string> = { palisade_wall: 'palisade_gate', stone_wall: 'stone_gate', brick_wall: 'brick_gate', concrete_wall: 'concrete_gate', force_wall: 'force_gate' };
+export const GRATE_OF: Record<string, string> = { palisade_wall: 'palisade_grate', stone_wall: 'stone_grate', brick_wall: 'brick_grate', concrete_wall: 'concrete_grate', force_wall: 'force_grate' };
 const GATES = new Set(Object.values(GATE_OF));
+const GRATES = new Set(Object.values(GRATE_OF));
 export const isGate = (id: string) => GATES.has(id);
-export const isRingPiece = (id: string) => (WALL_KINDS as readonly string[]).includes(id) || GATES.has(id);
+export const isGrate = (id: string) => GRATES.has(id);
+export const isRingPiece = (id: string) => (WALL_KINDS as readonly string[]).includes(id) || GATES.has(id) || GRATES.has(id);
+/** Water narrower than this along one axis (across a river the ring crosses, or across a stream the ring runs down)
+ *  is a river or a stream, and gets grates; water wider both ways is the sea or a lake, left open (a shore town's
+ *  whole south side is the sea). */
+export const GRATE_WATER_MOST = 7;
+/** How far along its side a gate is moved from the camp's row or column to stand on dry ground. */
+export const GATE_SEEK = 6;
 
 export interface Ring {
   /** Which ring this is (the pieces carry it: `Building.ring`). */
@@ -66,7 +77,7 @@ export const ringTown = (s: GameState) => !holdOf(s) && !nomadic(s);
 export function bestWall(s: GameState): string | null {
   const u = unlockInfo(s);
   let best: string | null = null;
-  for (const id of WALL_KINDS) if (BUILDING_BY_ID[id] && BUILDING_BY_ID[GATE_OF[id]] && isUnlocked(u, BUILDING_BY_ID[id])) best = id;
+  for (const id of WALL_KINDS) if (BUILDING_BY_ID[id] && BUILDING_BY_ID[GATE_OF[id]] && BUILDING_BY_ID[GRATE_OF[id]] && isUnlocked(u, BUILDING_BY_ID[id])) best = id;
   return best;
 }
 
@@ -121,13 +132,31 @@ const gateCovers = (r: Rect, g: Pt): Pt[] => {
   return gateTurned(r, g) ? [at, { x: at.x, y: at.y + 1 }] : [at, { x: at.x + 1, y: at.y }];
 };
 
-/** The ring cells that get gates: the camp's row on the west and east (raids come in there), and wherever a road
- *  crosses the ring (at most one gate every few cells of a side). */
+/** The ring cells that get gates: one on each of the four sides (the owner's ask: travellers wander in from any
+ *  way), on the camp's row to the west and east (where raids come in) and on the camp's column to the north and
+ *  south, each moved along its side up to `GATE_SEEK` cells to stand on dry ground; and wherever a road crosses the
+ *  ring (at most one gate every few cells of a side). */
 export function gateCells(s: GameState, r: Rect): Pt[] {
   const c = campCell(s);
+  const m = s.land;
   const out: Pt[] = [];
+  const dry = (p: Pt) => inMap(m, p.x, p.y) && !wet(groundAt(m, p.x, p.y)) && groundAt(m, p.x, p.y) !== 'mountain';
+  const standable = (p: Pt) => gateCovers(r, p).every(dry);
+  // (the nearest cell along the side where the gate's two cells are dry; else the cell itself, and the river or the
+  // mountain is the wall there)
+  const seek = (at: Pt, along: 'x' | 'y', lo: number, hi: number): Pt => {
+    for (let d = 0; d <= GATE_SEEK; d++)
+      for (const k of d ? [-d, d] : [0]) {
+        const p = along === 'x' ? { x: at.x + k, y: at.y } : { x: at.x, y: at.y + k };
+        if (p[along] < lo || p[along] > hi) continue;
+        if (standable(p)) return p;
+      }
+    return at;
+  };
   const row = Math.max(r.y + 1, Math.min(r.y + r.h - 2, c.y));
-  out.push({ x: r.x, y: row }, { x: r.x + r.w - 1, y: row });
+  const col = Math.max(r.x + 1, Math.min(r.x + r.w - 2, c.x));
+  out.push(seek({ x: r.x, y: row }, 'y', r.y + 1, r.y + r.h - 2), seek({ x: r.x + r.w - 1, y: row }, 'y', r.y + 1, r.y + r.h - 2));
+  out.push(seek({ x: col, y: r.y }, 'x', r.x + 1, r.x + r.w - 2), seek({ x: col, y: r.y + r.h - 1 }, 'x', r.x + 1, r.x + r.w - 2));
   const near = (p: Pt) => out.some((g) => sideOf(r, g) === sideOf(r, p) && Math.abs(g.x - p.x) + Math.abs(g.y - p.y) < 4);
   for (const p of ringCells(r)) {
     if (near(p) || !isRoad(s.land, p.x, p.y)) continue;
@@ -144,30 +173,59 @@ const pieceAt = (s: GameState, p: Pt): Building | undefined => {
   return b && isRingPiece(b.def) ? b : undefined;
 };
 
-/** What the ring still needs: the gates first, then the walls; each with its cell to build on, or a wild cell to
- *  clear first. Cells with water, mountain or another building are left as they are (the river or a field is the
- *  wall there). */
+/** What the ring still needs: the gates first, then the walls and the grates; each with its cell to build on, or a
+ *  wild cell to clear first. A wet cell gets a grate where the ring crosses a river or a stream, or runs down one
+ *  (`riverCell`); the sea, a lake, the mountain and another building are left as they are (they are the wall
+ *  there). */
 export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; clear: boolean; turned?: boolean }[] {
   const out: { def: string; at: Pt; clear: boolean; turned?: boolean }[] = [];
   const m = s.land;
   const covered = new Set<number>();
-  const want = (def: string, at: Pt, cells: Pt[], turned = false) => {
-    for (const c of cells) covered.add(idx(m, c.x, c.y));
+  // (whether the cells are accounted for: a piece stands or is wanted there, or something else stands in its place)
+  const want = (def: string, at: Pt, cells: Pt[], turned = false): boolean => {
     const there = cells.map((c) => pieceAt(s, c));
-    if (there.some((b) => b && b.ring === ring.gen)) return;
-    if (there.some((b) => b && b.ring !== ring.gen)) return; // (an older ring's piece stands there: it goes when this ring is up)
-    if (cells.some((c) => !inMap(m, c.x, c.y) || !!builtOn(s, c.x, c.y))) return;
+    if (there.some((b) => b && b.ring === ring.gen)) return true;
+    if (there.some((b) => b && b.ring !== ring.gen)) return true; // (an older ring's piece stands there: it goes when this ring is up)
+    if (cells.some((c) => !inMap(m, c.x, c.y) || !!builtOn(s, c.x, c.y))) return true;
     const wild = cells.find((c) => WILD.includes(groundAt(m, c.x, c.y)));
     if (wild) {
       out.push({ def, at: wild, clear: true });
-      return;
+      return true;
     }
-    if (!canPlace(s, BUILDING_BY_ID[def], at.x, at.y, undefined, turned).ok) return;
+    if (!canPlace(s, BUILDING_BY_ID[def], at.x, at.y, undefined, turned).ok) return false;
     out.push({ def, at, clear: false, ...(turned ? { turned } : {}) });
+    return true;
   };
-  for (const g of ring.gates) want(ring.gate, gateAt(ring.rect, g), gateCovers(ring.rect, g), gateTurned(ring.rect, g));
-  for (const p of ringCells(ring.rect)) if (!covered.has(idx(m, p.x, p.y))) want(ring.wall, p, [p]);
+  for (const g of ring.gates) {
+    const cells = gateCovers(ring.rect, g);
+    // (a gate that can't stand where it was meant to (the river runs under it) leaves its cells to the wall)
+    if (want(ring.gate, gateAt(ring.rect, g), cells, gateTurned(ring.rect, g))) for (const c of cells) covered.add(idx(m, c.x, c.y));
+  }
+  for (const p of ringCells(ring.rect)) {
+    if (covered.has(idx(m, p.x, p.y))) continue;
+    if (wet(groundAt(m, p.x, p.y))) {
+      if (riverCell(m, p)) want(GRATE_OF[ring.wall], p, [p]);
+      continue;
+    }
+    want(ring.wall, p, [p]);
+  }
   return out;
+}
+
+/** Whether a wet cell lies in a river or a stream (the water through it narrower than `GRATE_WATER_MOST` along one
+ *  axis or the other) rather than the sea or a lake (wide both ways). */
+export function riverCell(m: LandMap, p: Pt): boolean {
+  const span = (dx: number, dy: number) => {
+    let n = 1;
+    for (const d of [-1, 1])
+      for (let k = 1; k <= GRATE_WATER_MOST; k++) {
+        const x = p.x + dx * d * k, y = p.y + dy * d * k;
+        if (!inMap(m, x, y) || !wet(groundAt(m, x, y))) break;
+        n++;
+      }
+    return n;
+  };
+  return Math.min(span(1, 0), span(0, 1)) <= GRATE_WATER_MOST;
 }
 
 /** Whether the ring stands all round: every piece of it finished (cells that can't take one don't count). */
@@ -233,7 +291,8 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
   for (const b of s.buildings) {
     if (b.ring !== ring.gen || !b.planned) continue;
     if (isGate(b.def) && b.def !== ring.gate) b.def = ring.gate;
-    else if (!isGate(b.def) && b.def !== ring.wall) b.def = ring.wall;
+    else if (isGrate(b.def) && b.def !== GRATE_OF[ring.wall]) b.def = GRATE_OF[ring.wall];
+    else if (!isGate(b.def) && !isGrate(b.def) && b.def !== ring.wall) b.def = ring.wall;
   }
   const queued = s.buildings.filter((b) => b.ring === ring.gen && b.status === 'blueprint' && !b.planned).length;
   // (what the other sites still wait on is theirs: the wall never takes the shop's last logs)

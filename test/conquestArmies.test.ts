@@ -15,7 +15,7 @@ test('an army marches by order, takes free provinces, its heroes away meanwhile,
   const w = worldOf(s)!;
   const hero = s.people[0];
   c.troops.militia = 6;
-  const q = formSquad(s, hero.id).squad!;
+  const q = formSquad(s, hero.id, false).squad!; // (formed empty: the counts below are the test's own)
   assert.ok(setSlot(s, q.id, 0, 'militia').ok);
   const r = raiseArmy(s, q.id);
   assert.ok(r.ok, r.reason ?? '');

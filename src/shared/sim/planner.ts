@@ -21,7 +21,7 @@ import { rulesOf } from '../data/origins';
 import { canWear } from './classes';
 import { isChild } from './social';
 import { buildOrigin } from './nomads';
-import { isRingPiece, planRing, RING_PEOPLE } from './ringWall';
+import { isGrate, isRingPiece, planRing, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -214,7 +214,8 @@ const canMake = (d: BuildingDef, n: Needs) => !(Object.keys(d.cost) as Material[
 
 function topicScore(t: Topic, n: Needs): number {
   let score = 60 / Math.sqrt(t.seconds); // quicker topics first, all else equal
-  for (const b of BUILDINGS.filter((d) => d.research === t.id)) {
+  // (a wall's water grate is part of the wall, not a thing of its own: sim/ringWall.ts)
+  for (const b of BUILDINGS.filter((d) => d.research === t.id && !isGrate(d.id))) {
     score += 4;
     if (b.housing && n.freeBeds <= 1 && canMake(b, n)) score += 30;
     if (CROPS[b.id] && CROPS[b.id].material !== 'fiber' && n.foodDays < 5) score += 25;

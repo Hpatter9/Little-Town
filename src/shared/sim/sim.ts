@@ -42,7 +42,7 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import { checkBleeding, heal } from './health';
 import { updateAdvice } from './advice';
 import { classesHourly } from './classes';
-import { conquestHourly, disbandSquad, formSquad, setSlot, train } from './conquest/squads';
+import { conquestHourly, disbandSquad, fillSquad, formSquad, setSlot, train } from './conquest/squads';
 import { ransom } from './conquest/battles';
 import { addToArmy, dismissArmy, dropFromArmy, garrison, loadTrain, marchArmy, pickUp, raiseArmy, recallArmy } from './conquest/armies';
 import { spendByClass, spendPoint } from './attributes';
@@ -63,6 +63,7 @@ import { forSale, runPlanner, shoppingList } from './planner';
 import { chooseLich, watchLich } from './occult';
 import { castHeld, castPowers, holdPower } from './powers';
 import { lurkers } from './lurkers';
+import { prowlers } from './prowlers';
 import { caveBear } from './caveBear';
 import { updateNomads } from './nomads';
 import { rulesOf } from '../data/origins';
@@ -142,6 +143,7 @@ export class Sim {
     envoyTick(s);
     maybeStartRaid(s, this.rng);
     lurkers(s, this.rng);
+    prowlers(s, this.rng); // (and the night prowlers that slip in where the wall has gaps: sim/prowlers.ts)
     caveBear(s, this.rng);
     updateNomads(s);
     updateRaid(s, this.rng);
@@ -373,6 +375,7 @@ export class Sim {
         else if (c.op === 'form') say(formSquad(s, c.hero));
         else if (c.op === 'slot') say(setSlot(s, c.squad, c.slot, c.troop));
         else if (c.op === 'disband') disbandSquad(s, c.squad);
+        else if (c.op === 'fill') say(fillSquad(s, c.squad));
         else if (c.op === 'raise') say(raiseArmy(s, c.squad));
         else if (c.op === 'add') say(addToArmy(s, c.army, c.squad));
         else if (c.op === 'drop') say(dropFromArmy(s, c.army, c.squad));

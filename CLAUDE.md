@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.22.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.23.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2890,6 +2890,43 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   `makeBoard`: water within `FORD_DEPTH` (2) tiles of a bank becomes `shallows` on the board, which anyone may stand
   on (two moves a tile, lying low: the banks strike down into it); only wide water (a lake's middle, the sea) stays
   deep. The town's wall still leaves the river a gap, as the ring does on the land. Test in `test/tactics.test.ts`.
+
+## The wall's purpose (0.23.0; the owner's asks)
+
+- **Grates where the ring meets water (the owner: "a wall with a built-in grate for the water to flow through"):** five
+  more ring pieces in `data/buildings.ts` (`palisade_grate`, `stone_grate`, `brick_grate`, `concrete_grate`,
+  `force_grate`: `BuildingDef.onWater`, a piece that stands only on wet cells (`canPlace`), chained in `UPGRADES`;
+  `GRATE_OF` and `isGrate` in ringWall.ts, counted among the ring's pieces). `missingPieces` wants one on every wet
+  ring cell in a river or a stream (`riverCell`: the water through the cell narrower than `GRATE_WATER_MOST` (7) along
+  one axis, so a river the ring crosses and a stream the ring runs down both get them); the sea and a lake (wide both
+  ways) are left open as before. Drawn from DawnLike's fence runs (`art/packs/dl_fence.png`: wooden bars for the
+  palisade, iron for the stone wall, pale steel for concrete; brick and force graded), turned to stand down a column;
+  a pick's join pictures now take its grade (a lich town's palisade runs were drawn ungraded beside its graded posts).
+  On the tactics board a water tile in the wall's column is a grate tile once the town has built one (block `wall`,
+  nobody stands on it), else the gap it always was. **Gates on all four sides** (the owner: "so travelers can wander
+  in"): `gateCells` puts one on the camp's row to the west and east and on the camp's column to the north and south,
+  each moved along its side up to `GATE_SEEK` (6) cells to stand on dry ground (a gate that still can't stand leaves
+  its cells to the wall or a grate); the road crossings as before. Tests in `test/ringWall.test.ts`.
+- **Night prowlers (the owner: "give purpose to the palisade... thieves, creatures, enemies might sneak in at night to
+  steal goods or people"):** `src/shared/sim/prowlers.ts`, hourly from sim.ts beside the lurkers. While the ring
+  isn't standing all round, or there is none (`ringGap`: the share of the ring's cells with no piece standing; a
+  castle, the hold and the horde have none), each night hour (`PROWL_FROM` 22 to `PROWL_UNTIL` 5) from day
+  `PROWL_FIRST_DAY` (2) in a town of `PROWL_PEOPLE` (3) grown-ups or more there is `PROWL_PER_NIGHT_HOUR` (1/36) times the gap of a prowl, never within
+  `PROWL_GAP_HOURS` (36) of the last (`s.lastProwl`): a raid begun inside the town with no warning
+  (`startRaid(..., inside)`) at a cell of the ring with nothing standing on it (`wayIn`), else at the town's edge on
+  the camp's row. Who comes is by the age and the land (`prowlKind`; the raid kinds `prowl_*` in data/raids.ts, weight
+  0): a rival tribe's sneak-thieves or wolves in the Stone Age, night thieves (valuables, a captive now and then),
+  slavers (kidnap) or beasts after; wild dogs in the dry and cold lands. Its budget is `PROWL_BUDGET_SHARE` (0.55) of a
+  raid's. The recap tells it ("came in by night, where nothing stood to stop them"). Off with the autopilot (the
+  tests' plainGame). Tests: `test/prowlers.test.ts`.
+- **Squads fill their own ranks (the owner: "the hero gets to auto add people to their squad when forming, but I can
+  over rule it if I want"):** `fillSquad` in sim/conquest/squads.ts, run by `formSquad` (unless `auto` is false) and
+  by the War tab's **Fill the ranks** button (the `conquest` command's `fill` op): the empty places in `FILL_ORDER`
+  (the front row from its middle, then the back, then the middle), each with the kind that suits its row best
+  (`ROW_KINDS`: shields, melee and spears in front; spears, melee and skirmishers in the middle; ranged, magic, healers
+  and siege crews behind) among those the hero may lead and the town has trained, the worthier of a kind first, up to
+  the hero's leadership; the places already set are kept, and the formation's selects change any of them. Test in
+  `test/conquestSquads.test.ts`.
 
 ## Known problem (fixed, watch)
 

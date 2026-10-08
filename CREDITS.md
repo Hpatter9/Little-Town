@@ -105,7 +105,8 @@ More homes and defences on the map (`src/renderer/art/packs/`): the cottage on i
 hide tent (`su_house.png`, shrunk) is from the same Simple Summer tileset; the long house (`tt_long.png`, its inn sign
 painted over with its own window) and the tall gabled house (`tt_gable.png`) are cut from the town tileset of
 **tiny-rpg-town** by **Luis Zuno (@ansimuz)**; the pit, stakes and spikes (`dl_pit.png`, `dl_stakes.png`,
-`dl_caltrops.png`, `dl_spikes.png`) are cells of **DawnLike**'s `Objects/Trap0.png` by **DragonDePlatino**; the electric
+`dl_caltrops.png`, `dl_spikes.png`) are cells of **DawnLike**'s `Objects/Trap0.png` by **DragonDePlatino**, and the bars of
+the ring wall's water grates (`dl_fence.png`: its wooden, iron and pale fence runs) cells of its `Objects/Fence.png`; the electric
 coil (`ao_coil.png`) is the first frame of the trap in the loose Craftpix animated-objects pack.
 
 ## Craftpix seabed wreck (the sea beast's reef)

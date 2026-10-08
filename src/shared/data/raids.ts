@@ -75,6 +75,12 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   { id: 'cave_bear', name: 'The Cave Bear', goal: 'harm', enemies: { cave_bear: 1 }, fromDay: 9999, weight: 0, speed: 26, bribable: false, plural: false },
   { id: 'mimic', name: 'Mimic', goal: 'harm', enemies: { mimic: 30 }, fromDay: 9999, weight: 0, speed: 30, bribable: false, plural: false },
   { id: 'tomes', name: 'Possessed tomes', goal: 'harm', enemies: { possessed_tome: 8 }, fromDay: 9999, weight: 0, speed: 40, bribable: false, plural: true },
+  // (never picked at random: they slip into a town at night where its wall has gaps, or it has none, see prowlers.ts)
+  { id: 'prowl_thieves', name: 'Night thieves', goal: 'steal', goals: { steal: 5, kidnap: 1 }, steals: 'valuables', enemies: { bandit: 14, bandit_archer: 12 }, fromDay: 9999, weight: 0, speed: 60, bribable: false, plural: true },
+  { id: 'prowl_scouts', name: 'Rival tribe sneak-thieves', goal: 'steal', steals: 'food', enemies: { rival_spear: 12, rival_slinger: 10 }, fromDay: 9999, weight: 0, speed: 55, bribable: false, plural: true },
+  { id: 'prowl_slavers', name: 'Slavers', goal: 'kidnap', goals: { kidnap: 4, harm: 1 }, enemies: { bandit: 14, bandit_chief: 30 }, fromDay: 9999, weight: 0, speed: 55, bribable: false, plural: true },
+  { id: 'prowl_wolves', name: 'Wolves in the night', goal: 'harm', enemies: { wolf: 8 }, fromDay: 9999, weight: 0, speed: 80, bribable: false, plural: true },
+  { id: 'prowl_dogs', name: 'Wild dogs in the night', goal: 'harm', enemies: { wild_dog: 6 }, fromDay: 9999, weight: 0, speed: 90, bribable: false, plural: true },
   // Rival origins (data/rivals.ts): any era, from day 8, never to a town founded the same way
   { id: 'rival_lich', name: 'The Lich Lord\'s dead', goal: 'harm', goals: { harm: 4, burn: 1 }, enemies: { flying_skull: 6, zombie: 8, wraith: 10, mummy: 14 }, fromDay: 8, weight: 0.3, speed: 30, bribable: false, plural: true, origin: 'lich', leader: 'lich_lord' },
   { id: 'rival_druid', name: 'The Archdruid\'s wild', goal: 'harm', enemies: { wolf: 8, boar: 11, treant: 24 }, fromDay: 8, weight: 0.3, speed: 55, bribable: false, plural: false, origin: 'druid', leader: 'archdruid' },
