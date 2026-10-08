@@ -286,6 +286,11 @@ function drawWall(g: CanvasRenderingContext2D, b: BattleView, cell: number): voi
 
 /* ------------------------------------------------------------ the squads */
 
+/** Free ground's defender: a beast, an outlaw chief (the brotherhood's look) or a headman (plain folk). */
+export function freeFigure(g: CanvasRenderingContext2D, hero: string | null, id: number, facing: Facing, cx: number, feetY: number, h: number): boolean {
+  if (hero && /beast/i.test(hero)) return drawBeast(g, id % 3 ? 'wolf' : 'bear', id % 2, facing, cx, feetY, h * 0.9);
+  return drawCaptain(g, hero && /outlaw/i.test(hero) ? 'brotherhood' : 'settlers', id, facing, cx, feetY, h);
+}
 /** The figure that stands for a squad: a townsperson, a power's captain, the lair's master or its pack. */
 function drawSquadFigure(g: CanvasRenderingContext2D, q: BattleSquad, b: BattleView, people: PersonView[], townOrigin: string, facing: Facing, cx: number, feetY: number, h: number): boolean {
   if (q.side === 'town') {
@@ -294,8 +299,9 @@ function drawSquadFigure(g: CanvasRenderingContext2D, q: BattleSquad, b: BattleV
     return drawCaptain(g, townOrigin, q.id, facing, cx, feetY, h);
   }
   if (b.holder === null) {
-    // a lair: its master, and the pack
-    return q.hero && /master/i.test(q.hero) ? drawPack(g, LAIR_MASTER, facing, cx, feetY, h * 1.15) : drawBeast(g, 'bear', q.id % 2, facing, cx, feetY, h * 0.9);
+    // a lair: its master, and the pack; free ground: its headman, an outlaw chief, or a beast (sim/conquest/battles.ts)
+    if (b.lair) return q.hero && /master/i.test(q.hero) ? drawPack(g, LAIR_MASTER, facing, cx, feetY, h * 1.15) : drawBeast(g, 'bear', q.id % 2, facing, cx, feetY, h * 0.9);
+    return freeFigure(g, q.hero, q.id, facing, cx, feetY, h);
   }
   return drawCaptain(g, originOf(b.holder, townOrigin) ?? 'brotherhood', q.id, facing, cx, feetY, h);
 }
@@ -303,8 +309,7 @@ function drawSquadFigure(g: CanvasRenderingContext2D, q: BattleSquad, b: BattleV
 /** Draw the whole board into a canvas `cell` device px a cell; returns the squads' hit boxes (in cells). */
 export function paintBoard(g: CanvasRenderingContext2D, b: BattleView, o: { cell: number; people: PersonView[]; townOrigin: string; font: string; picked: number | null }): { id: number; x: number; y: number }[] {
   const { cell, font } = o;
-  const lair = b.holder === null;
-  g.drawImage(boardGround(b, cell, lair), 0, 0);
+  g.drawImage(boardGround(b, cell, b.lair), 0, 0);
   drawWall(g, b, cell);
   const latest = b.events.slice(-4);
   const struck = new Set(latest.filter((e) => e.kind === 'clash' && b.tick - e.tick < 25).flatMap((e) => [e.to, e.from]));

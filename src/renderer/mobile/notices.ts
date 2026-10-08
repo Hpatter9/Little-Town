@@ -10,6 +10,7 @@
 // The pure part (above `startNotices`) has no DOM, so the tests read it.
 
 import { BUILDING_BY_ID } from '../../shared/data/buildings';
+import { marchSummary } from '../../shared/sim/conquest/marches';
 import { CHATTER } from '../chatter';
 import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
 
@@ -85,6 +86,8 @@ export function situationNotices(s: Snapshot): Notice[] {
     for (const x of war.captives) out.push({ key: `captive:${x.hero}`, tone: 'gold', mark: '⛓', title: `${x.name} held captive`, text: `At ${x.province}, by ${x.by}: ${x.ransom} coins ransom, or take the province.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
     const bare = war.provinces.filter((p) => p.bare);
     if (bare.length) out.push({ key: `bare:${bare.map((p) => p.id).join('.')}`, tone: 'gold', mark: '⚑', title: `${bare.length} province${bare.length === 1 ? '' : 's'} without a garrison`, text: `${bare.map((p) => p.name).join(', ')} may rise against the town.`, action: { label: 'War', kind: 'panel', panel: 'war' } });
+    const m = war.marches[0];
+    if (m && s.tick - m.tick < 8 * 600) out.push({ key: `march:${m.tick}`, tone: m.outcome === 'beaten' || m.outcome === 'broken' ? 'red' : 'gold', mark: '⚑', title: `The march of ${m.army}`, text: `${m.from} → ${m.to}: ${marchSummary(m)}`, action: { label: 'War', kind: 'panel', panel: 'war' } });
     if (war.recap && s.tick - war.recap.tick < 6 * 600) out.push({ key: `precap:${war.recap.tick}`, tone: war.recap.won ? 'gold' : 'red', mark: '⚔', title: `${war.recap.won ? 'Victory' : 'Defeat'} at ${war.recap.province}`, text: war.recap.lines.join(' '), action: { label: 'War', kind: 'panel', panel: 'war' } });
   }
   if (s.doom) out.push({ key: `doom:${s.doom.name}`, tone: 'red', mark: '☁', title: s.doom.name, text: s.doom.phase === 'signs' ? `Signs of it: about ${Math.ceil(s.doom.hoursLeft)} hours off.` : s.doom.hoursLeft < 1 ? 'Under way, and nearly over.' : `Under way: ${Math.ceil(s.doom.hoursLeft)} hours to go.` });

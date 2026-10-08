@@ -34,6 +34,8 @@ export interface ConquestState {
   battles?: import('./battles').ProvinceBattle[];
   nextBattle?: number;
   lastBattle?: import('./battles').BattleRecap;
+  /** The marches ended, the latest first (sim/conquest/marches.ts). */
+  marches?: import('./marches').MarchRecap[];
   captives?: import('./battles').Captive[];
   cleared?: number[];
   /** The rival realms' armies on the march, and the day each last moved (sim/conquest/rivals.ts). */
@@ -56,6 +58,8 @@ export interface Army {
   arrive: number | null;
   path: number[];
   train: Record<string, number>;
+  /** The march under way, for its recap (sim/conquest/marches.ts). */
+  march?: import('./marches').MarchLog;
 }
 
 /** A hero of the town and the troops in formation round them (data/troops.ts SQUAD_SLOTS: nine places, three rows). */

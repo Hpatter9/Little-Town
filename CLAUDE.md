@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.25.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.26.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2984,6 +2984,26 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   hurries on. The tap card says what a band's member is doing ("Trading at the market", "Camped at the gate, hoping
   for aid", "Resting a while": `travellerDoing` in main.ts from `TravellerView.band`/`bandPhase`). Off with the
   autopilot (the tests' plainGame; the tests spawn bands with `spawnBand`). Tests: `test/bands.test.ts`.
+
+## Every province fought for, and march reports (0.26.0; the owner's ask)
+
+- **Free ground is fought for** (the owner: "even an empty area on the war map should have a battle to capture it"):
+  an army arriving at any province not the town's starts a battle (`arrive` in sim/conquest/armies.ts), free ground
+  too. `defendersOf` (battles.ts) raises free ground's own: its folk under a headman where it has a settlement (two
+  squads from a town up), else outlaws or the land's beasts; `FREE_FILL` (3) troops plus its tier and the days, a
+  captain at `FREE_CAPTAIN` (0.55) of a realm captain's strength, and no walls. Won, it's the town's ("X is won"); a
+  lair is cleared as before. The board draws them (`freeFigure` in warBoard.ts: a wolf or bear for beasts, the
+  Brotherhood's captain for outlaws, the settlers' for folk; `BattleView.lair`). A march through free land fights at
+  every province on the way and goes on after each battle won (`goOn`, also from `armiesTick` once the battle closes).
+- **March reports** (the owner: "a recap to show what happens on a march"): `src/shared/sim/conquest/marches.ts`.
+  Every march keeps a log on the army (`Army.march`, `MarchLog`: `beginMarch` from `marchArmy`; `noteMarch` for each
+  province passed, `noteBattle` from `endBattle`: won or beaten, troops lost and foes felled, the heroes' fates,
+  provinces taken). When it ends (`endMarch`: arrived, home, halted when the way is shut, beaten back, broken up) it
+  becomes a `MarchRecap` (`ConquestState.marches`, the latest `MARCHES_KEPT` 8), a Journal line, and a `debrief`
+  prompt "The march of X" in the event box with the whole story and a picture (`MARCH_REPORT_HOURS` 8). The War tab
+  has **March reports** under Armies (the latest open, tap another for its lines; `WarView.marches`), each army card
+  the march under way (`ArmyView.march`: battles won, taken, the latest line), and the news bubble a notice for the
+  latest (`march:` in notices.ts). Tests: `test/conquestMarches.test.ts`, `test/conquestArmies.test.ts`.
 
 ## Known problem (fixed, watch)
 

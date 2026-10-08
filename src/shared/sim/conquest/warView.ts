@@ -10,6 +10,7 @@ import { worldOf, type Squad } from './conquest';
 import { armiesOf, armyOfSquad, armyStrength, garrisonSize, homeProvince, isHome, squadFree, trainSize } from './armies';
 import { captivesOf, type BattleRecap, type ProvinceBattle } from './battles';
 import { canRaise, command, heroStrength, leadership, leads, mayLead, soldiersOf, squadSize, squadStrength, troopWorth } from './squads';
+import { marchesOf, type MarchRecap } from './marches';
 import { provinceYield, type ConquestWorld } from './world';
 
 export interface ProvinceView {
@@ -52,6 +53,8 @@ export interface ArmyView {
   soldiers: number;
   train: { troop: string; name: string; n: number }[];
   home: boolean;
+  /** The march under way: battles given and won, provinces taken so far, and its latest line. */
+  march: { fought: number; won: number; taken: number; last: string } | null;
 }
 export interface TroopView {
   id: string;
@@ -111,6 +114,8 @@ export interface WarView {
   battle: BattleView | null;
   recap: BattleRecap | null;
   captives: { hero: number; name: string; province: string; by: string; ransom: number }[];
+  /** The marches ended, the latest first (sim/conquest/marches.ts). */
+  marches: MarchRecap[];
 }
 export interface BattleView {
   id: number;
@@ -118,6 +123,8 @@ export interface BattleView {
   land: string;
   /** Who held the province as the battle began (null: a lair), its settlement tier and fort. */
   holder: string | null;
+  /** A lair's beasts (else free ground's folk, outlaws or beasts, or a realm's garrison). */
+  lair: boolean;
   tier: number;
   fort: number;
   army: number;
@@ -197,7 +204,7 @@ export function warView(s: GameState): WarView | null {
   const b = (c.battles ?? []).slice(-1)[0] ?? null;
   const battle: BattleView | null = b
     ? {
-        id: b.id, province: w.provinces[b.province].name, land: w.provinces[b.province].land, holder: b.holder === undefined ? (c.holder[b.province] === 'town' ? null : c.holder[b.province]) : b.holder, tier: w.provinces[b.province].tier, fort: w.provinces[b.province].fort, army: b.army, turn: b.turn, side: b.side, walls: b.walls, wallsMax: b.wallsMax,
+        id: b.id, province: w.provinces[b.province].name, land: w.provinces[b.province].land, holder: b.holder === undefined ? (c.holder[b.province] === 'town' ? null : c.holder[b.province]) : b.holder, tier: w.provinces[b.province].tier, fort: w.provinces[b.province].fort, lair: w.provinces[b.province].landmark === 'lair' && (b.holder ?? null) === null, army: b.army, turn: b.turn, side: b.side, walls: b.walls, wallsMax: b.wallsMax,
         squads: b.squads.map((q) => ({
           id: q.id, side: q.side, name: q.name, hero: q.hero?.name ?? null, person: q.hero?.person ?? null, heroShare: q.hero ? Math.max(0, q.hero.hp / q.hero.max) : 0,
           troops: q.troops.map((t) => (t ? { troop: t.troop, share: Math.max(0, t.hp / t.max) } : null)), x: q.x, y: q.y, out: q.out,
@@ -223,6 +230,7 @@ export function warView(s: GameState): WarView | null {
     home: homeProvince(w),
     battle,
     recap: c.lastBattle ?? null,
+    marches: marchesOf(c),
     captives: captivesOf(c).map((x) => ({ hero: x.hero, name: s.people.find((p) => p.id === x.hero)?.name ?? '?', province: w.provinces[x.province].name, by: x.by ? realmName(x.by, town) : 'beasts', ransom: x.ransom })),
     armies: armies.map((a): ArmyView => {
       const gen = c.squads.find((q) => q.id === a.general);
@@ -233,6 +241,7 @@ export function warView(s: GameState): WarView | null {
         id: a.id, name: a.name, general: a.general, generalName: hero?.name ?? '?', squads: [...a.squads], at: a.at, going: a.going,
         hours: a.arrive === null ? 0 : Math.max(0, Math.ceil((a.arrive - s.tick) / 600)), path: [...a.path], strength: armyStrength(s, c, a), soldiers: n,
         train: Object.entries(a.train).filter(([, k]) => k > 0).map(([troop, k]) => ({ troop, name: TROOPS.find((t) => t.id === troop)?.name ?? troop, n: k })), home: isHome(w, a),
+        march: a.march ? { fought: a.march.fought, won: a.march.won, taken: a.march.taken.length, last: a.march.lines[a.march.lines.length - 1] ?? '' } : null,
       };
     }),
   };
