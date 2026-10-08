@@ -136,7 +136,7 @@ const THEMES: [RegExp, PictureTheme][] = [
 ];
 
 /** A town scene for the town's age (a market, a quarrel, a feast...). */
-const TOWN_BY_ERA: Record<Era, BackdropId[]> = {
+export const TOWN_BY_ERA: Record<Era, BackdropId[]> = {
   neolithic: ['summer_1', 'autumn_1', 'abandoned_4'],
   medieval: ['summer_1', 'abandoned_4', 'battle_hall'],
   industrial: ['steampunk_1', 'steampunk_3', 'steampunk_4'],

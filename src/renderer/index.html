@@ -874,6 +874,33 @@
       }
       /* the recap after a raid (battle/raidRecap.ts) */
       /* a big moment, as a film would show it (cinema/cinema.ts): bars in, a title card, out */
+      /* a cutscene (cutscene/cutsceneView.ts): the bars of a film, the subtitles, a chapter card; and the card offering it */
+      #cutscene { position: fixed; inset: 0; z-index: 9000; display: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
+      #cutscene.on { display: block; }
+      /* (while a scene plays, the town's own cards and notices stand aside) */
+      body.scene-on > *:not(canvas):not(#cutscene):not(#scene-offer) { visibility: hidden !important; }
+      #cutscene .cs-bar { position: absolute; left: 0; right: 0; background: #000; }
+      #cutscene .cs-top { top: 0; }
+      #cutscene .cs-foot { bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 18px 10px; box-sizing: border-box; text-align: center; }
+      #cutscene .cs-skip { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(255, 255, 255, 0.08); color: #d8d0c0; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 14px; padding: 3px 12px; font: 600 12px var(--font-body, sans-serif); letter-spacing: 0.04em; }
+      #cutscene .cs-who { font: 700 14px var(--font-display, serif); color: #ffd890; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; text-shadow: 0 1px 0 #000; }
+      #cutscene .cs-text { font: 17px/1.35 var(--font-body, sans-serif); color: #f4ecdc; max-width: 640px; min-height: 2.7em; text-shadow: 0 1px 2px #000; }
+      #cutscene .cs-text[data-tone='narrator'] { font-style: italic; color: #c8c0d8; }
+      #cutscene .cs-text[data-tone='shout'] { font-size: 20px; font-weight: 700; color: #fff; animation: cs-shout 0.18s linear 3; }
+      #cutscene .cs-text[data-tone='whisper'] { font-size: 15px; color: #a8a0b0; font-style: italic; }
+      #cutscene .cs-more { position: absolute; right: 16px; bottom: 8px; color: #ffd890; font-size: 12px; animation: cs-bob 1s ease-in-out infinite; }
+      #cutscene .cs-caption { position: absolute; left: 0; right: 0; top: 16%; text-align: center; font: 700 26px var(--font-display, serif); color: #fff3d0; letter-spacing: 0.08em; text-shadow: 0 2px 8px #000, 0 0 2px #000; pointer-events: none; transition: opacity 0.2s; }
+      @keyframes cs-shout { 0% { transform: translateX(-2px); } 50% { transform: translateX(2px); } 100% { transform: translateX(0); } }
+      @keyframes cs-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+      #scene-offer { position: fixed; left: 50%; top: 58px; transform: translate(-50%, -12px); z-index: 55; display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; background: linear-gradient(#1a1410, #0c0806); border: 1px solid #c8a060; border-radius: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55); opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; max-width: calc(100vw - 32px); }
+      #scene-offer.on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+      #scene-offer .so-reel { font-size: 22px; }
+      #scene-offer .so-body { min-width: 0; }
+      #scene-offer .so-kicker { font: 600 10px var(--font-body, sans-serif); color: #c8a060; text-transform: uppercase; letter-spacing: 0.12em; }
+      #scene-offer .so-title { font: 700 15px var(--font-display, serif); color: #fff3d0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #scene-offer button { font: 700 13px var(--font-body, sans-serif); border-radius: 7px; padding: 7px 12px; border: 1px solid #c8a060; }
+      #scene-offer .so-watch { background: #c8a060; color: #1a1008; }
+      #scene-offer .so-skip { background: transparent; color: #c8b090; border-color: rgba(200, 160, 96, 0.45); }
       #cinema {
         position: fixed;
         inset: 0;

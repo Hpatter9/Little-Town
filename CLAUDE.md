@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.31.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.32.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3204,6 +3204,34 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   7/4 (6/8), 3/6 (8/3); knights 12/6 (12/1), 3/7 (3/4); vampires 7/6 (4/7), 4/11 (9/4); 2 to 7 nests a town, knights
   and vampires clearing most of theirs, dread 3 to 18 by day 24 (the spreading around day 30 and on, sooner with nests
   left to grow).
+
+## Cutscenes (0.32.0; the owner's ask: watched or skipped, full scripts, camera angles, humour throughout)
+
+- **The scripts** (`src/shared/data/cutscenes.ts`, `CUTSCENES`): sixteen scenes on a 320x180 stage (`STAGE_W`,
+  `STAGE_H`, the feet on `FEET`): the founding, the Calamity's three wakings (`wakeSceneOf`) and each stage
+  (`STAGE_SCENES`), the last siege won or lost, its heart broken, the first nest found and burned, the dragon come and
+  slain, a saga's triumph. A scene has a `cast` (roles filled from the town: founder, hero, wit, worrier, elder; the
+  `avatar`, the `dragon`, or `foe:<enemy id>`) and `shots`: a backdrop (`look`, a painted backdrop id or `town`), a
+  camera (`cam` on an actor or a point, zoom, tilt, eased toward `to` over the shot), acts (walk, enter, exit, face,
+  pose), effects (shake, flash, lightning, fades, red, darken, rumble, glow), a spell sheet bursting (`burst`), a caption
+  and lines (`{hero}`, `{Town}`, `{CALAMITY}` filled by `fillLine`). The humour carries the game's running jokes: Duchess
+  the goat, the worrier's lists, the hero's speeches, villains with staffing problems. Every new big moment wants a
+  script here.
+- **The sim** (`src/shared/sim/cutscenes.ts`): `queueScene(s, id, opts)` casts it from the town as it is (`castFor`:
+  names, looks and gear kept on `SceneRun`) and holds the event box's telling as its `fallback`; `s.scenes` waiting (at
+  most `SCENES_WAITING`), `s.scenesSeen` to watch again (`SCENES_KEPT`). Watch (`watchScene`, the `scene` command) pauses
+  the town; done or skipped (`endScene`) it goes on; skipped, or left `SCENE_WAIT_HOURS`, the telling comes instead.
+  Keys are `s.nextSceneKey` (never `s.nextId`: taking ids shifted every later person and changed how lone towns grew).
+  Queued by calamity.ts (`tell(..., scene)`), nests.ts (`nestScene`), dragon.ts, sagas.ts, and the founding at the
+  first hour (sim.ts).
+- **The player** (`src/renderer/cutscene/`): `sceneClock.ts` (pure: beats by line, `actorsAt`, `cameraAt`, `next` for
+  a tap) and `cutsceneView.ts` (`CutsceneScene`: the backdrop's layers and the ground strip, townsfolk in Himeko dress,
+  foes from their sheets, bursts, veils; letterbox bars with the caption, the speaker and the typed line; tap to finish
+  a line or go on, Skip ▸▸). The strip offers it (`#scene-offer`, Watch / Skip) unless a battle, fight or question has
+  the screen; playing, it hides the strip's other cards (`body.scene-on`) and the phone page its title bar, tabs and
+  bubble (`body.scene`). Upright the picture is a near-square band (`UPRIGHT_FRAME`). The Chronicle's **Scenes** tab
+  lists those seen with Watch again. `window.__cutscene(id, vars, foes)` queues one (previews). Tests:
+  `test/cutscenes.test.ts`.
 
 ## Known problem (fixed, watch)
 

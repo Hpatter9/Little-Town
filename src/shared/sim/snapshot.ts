@@ -122,6 +122,8 @@ import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from '.
 import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
+import { sceneView } from './cutscenes';
+export type SceneView = NonNullable<ReturnType<typeof sceneView>>;
 import { nestPlaceName } from './nests';
 import { blightSources } from './blight';
 import { NEST_DEFS, type NestKind } from '../data/nests';
@@ -783,6 +785,9 @@ export interface Snapshot {
   dragon: DragonView | null;
   /** The Calamity (sim/calamity.ts), and where the land is blighted (cells: round each nest and its heart). */
   calamity: CalamityView | null;
+  /** A cutscene waiting or playing (sim/cutscenes.ts), and those seen, to watch again. */
+  scene: SceneView | null;
+  scenesSeen: { key: number; id: string; title: string; tick: number }[];
   blight: { x: number; y: number; r: number }[];
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
   regions: string[];
@@ -1040,6 +1045,8 @@ export function snapshot(s: GameState): Snapshot {
     hunts: huntsView(s),
     dragon: dragonView(s),
     calamity: calamityView(s),
+    scene: sceneView(s),
+    scenesSeen: (s.scenesSeen ?? []).map((r) => ({ key: r.key, id: r.id, title: r.title, tick: r.tick })),
     blight: blightSources(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     roamers: (s.roamers ?? []).map((r) => ({

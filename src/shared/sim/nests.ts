@@ -39,6 +39,7 @@ import { raidBudget, scheduleNextRaid, startRaid } from './raids';
 import { spawnRoamerAt, townReachCells } from './roamers';
 import type { MapPlace } from './places';
 import { isChild } from './social';
+import { queueScene } from './cutscenes';
 
 const roll = (s: GameState, ...salt: (number | string)[]) => new Rng(hashSeed(`${s.seed}:nest:${salt.join(':')}`));
 
@@ -127,6 +128,8 @@ export function findNest(s: GameState, p: MapPlace, how: string): void {
   if (p.found !== null) return;
   p.found = s.tick;
   const def = NEST_DEFS[p.nest!.kind];
+  // (the first the town finds is played out: sim/cutscenes.ts)
+  if ((s.places ?? []).filter((q) => q.nest && q.found !== null).length === 1) queueScene(s, 'nest_found', nestScene(p));
   notify(s, `${how}${nestName(p.nest!.kind, p.nest!.level)} found${inRegion(regionOfCell(s.land, p.x, p.y))} ${where(s, p)}. ${def.found} A party may go to clear it, or post a bounty under Trips.`, true);
 }
 
@@ -205,6 +208,13 @@ export function nestCleared(s: GameState, p: MapPlace): void {
   s.roamers = (s.roamers ?? []).filter((r) => r.nest !== p.id || r.fighting !== undefined);
   (s.nestsCleared ??= 0);
   s.nestsCleared++;
+  if (s.nestsCleared === 1) queueScene(s, 'nest_cleared', nestScene(p));
+}
+
+/** The words and the foe a nest's scenes take. */
+function nestScene(p: MapPlace) {
+  const def = NEST_DEFS[p.nest!.kind];
+  return { vars: { nest: def.name.toLowerCase(), folk: def.folk }, foes: { nestfoe: Object.keys(def.foes[Math.max(0, p.nest!.level - 1)])[0] } };
 }
 
 /** A nest as a place's name ("Spider Den, grown 3"). */

@@ -116,6 +116,8 @@ export type Command =
   | { type: 'conquest'; op: 'ransom'; hero: number }
   | { type: 'tactics'; order: TacticsOrder }
   | { type: 'gameSpeed'; speed: number }
+  /** A cutscene: watch it (one waiting, or one seen before), it's done (played to the end), or skip it (sim/cutscenes.ts). */
+  | { type: 'scene'; op: 'watch' | 'done' | 'skip'; key: number }
   | { type: 'battleCast'; power: string; x: number; y: number }
   /** Turn a party around. */
   | { type: 'recallExpedition'; expedition: number }
@@ -237,6 +239,8 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.person) && (c.spot === null || Number.isInteger(c.spot)) ? { type: 'battlePlace', person: c.person as number, spot: c.spot as number | null } : null;
     case 'battleGo':
       return { type: 'battleGo' };
+    case 'scene':
+      return (c.op === 'watch' || c.op === 'done' || c.op === 'skip') && Number.isInteger(c.key) ? { type: 'scene', op: c.op, key: c.key as number } : null;
     case 'gameSpeed':
       return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'gameSpeed', speed: c.speed } : null;
     case 'battleSpeed':

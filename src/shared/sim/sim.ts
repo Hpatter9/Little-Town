@@ -54,6 +54,7 @@ import { delvesHourly } from './delves';
 import { placesHourly } from './places';
 import { nestsHourly } from './nests';
 import { calamityHourly } from './calamity';
+import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
 import { maybeStartRaid, startGuildRaid, startRaid, updateRaid } from './raids';
@@ -201,6 +202,9 @@ export class Sim {
     placesHourly(s, this.rng);
     nestsHourly(s); // (monster nests on the land: sim/nests.ts)
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
+    scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)
+    // (a town just founded: its founding, to watch)
+    if (s.tick === TICKS_PER_HOUR && s.autopilot !== false && !s.scenesSeen?.length && !s.scenes?.length) queueScene(s, 'founding');
     ageingHourly(s, this.rng);
     replenishSea(s, this.rng);
     bloodHourly(s);
@@ -413,6 +417,10 @@ export class Sim {
       }
       case 'gameSpeed':
         setGameSpeed(s, c.speed);
+        break;
+      case 'scene':
+        if (c.op === 'watch') watchScene(s, c.key);
+        else endScene(s, c.key, c.op === 'done');
         break;
       case 'battleCast':
         castAt(s, c.power, this.rng, [c.x, c.y]);

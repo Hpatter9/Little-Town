@@ -38,6 +38,7 @@ import { createBattleHud } from './battle/battleHud';
 import { createRaidRecap } from './battle/raidRecap';
 import { startCinema } from './cinema/cinema';
 import { momentOf } from './cinema/moments';
+import { CutsceneScene } from './cutscene/cutsceneView';
 import { FightScene } from './fight/fightView';
 import { TacticsScene } from './tactics/tacticsView';
 import { MineScene } from './fight/mineView';
@@ -345,6 +346,9 @@ async function start(): Promise<void> {
   // inside a mine on the land (fight/mineView.ts): the diggers at the seams
   const mine = new MineScene();
   app.stage.addChild(mine.root);
+  // a cutscene (cutscene/cutsceneView.ts): over everything, offered first, then played full screen
+  const cutscene = new CutsceneScene((c) => bridge.command(c), document.body);
+  app.stage.addChild(cutscene.root);
   const fightHud = createFightHud({
     back: () => {
       bridge.command({ type: 'watch', expedition: null });
@@ -1211,7 +1215,9 @@ async function start(): Promise<void> {
     mine.update(inMine);
     fightHud.mine(inMine);
     tactics.update(next);
-    map.root.visible = !watched && !inMine && !next.tactics;
+    // (a scene is offered only while nothing else has the screen: a battle, a watched fight, a question)
+    cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || next.tactics || next.prompts.length));
+    map.root.visible = !watched && !inMine && !next.tactics && !cutscene.shown;
     showNotices(next);
     snap = next;
     hud.update(next);
@@ -1565,6 +1571,10 @@ async function start(): Promise<void> {
     if (mine.shown) {
       mine.resize(app.screen.width, app.screen.height, ...fightHud.insets());
       mine.render(performance.now(), ticker.deltaMS / 1000);
+    }
+    if (cutscene.shown) {
+      cutscene.resize(app.screen.width, app.screen.height);
+      cutscene.render(performance.now(), ticker.deltaMS / 1000);
     }
     // the art under a still mouse changes while the camera moves
     if (moving) {

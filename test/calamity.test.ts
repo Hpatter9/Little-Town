@@ -90,7 +90,7 @@ test('the Calamity wakes, its dread rises with the nests and falls with wards an
   calamityHourly(s);
   const c = s.calamity!;
   assert.ok(c && c.stage === 1 && c.dread === 0);
-  assert.ok(s.prompts.some((q) => q.kind === 'debrief'), 'its waking is told');
+  assert.ok(s.prompts.some((q) => q.kind === 'debrief') || s.scenes?.some((r) => r.fallback?.kind === 'debrief'), 'its waking is told (or played, its telling waiting on the scene)');
   const alone = dreadToday(s);
   const p = spawnNest(s, 'den')!;
   p.nest!.level = 4;
