@@ -179,7 +179,7 @@ export class PortalScene {
     const sideways = W > H;
     const top = 56 * dpr;
     const room = sideways ? { x: 0, y: top, w: W - 270 * dpr, h: H - top } : { x: 0, y: top, w: W, h: H - top - 225 * dpr };
-    const size = Math.min((sideways ? room.w : room.h) / 6.2, (sideways ? room.h : room.w) / 2.8, 110 * dpr);
+    const size = Math.min((sideways ? room.w : room.h) / 7, (sideways ? room.h : room.w) / 3.2, 110 * dpr);
     // (the way runs across the screen held sideways, and down it upright; the sites swing either side of it)
     const pad = size * 0.75;
     const box = { x: room.x + pad, y: room.y + pad * 0.8, w: room.w - pad * 2, h: room.h - pad * 1.9 };

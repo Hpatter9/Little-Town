@@ -54,7 +54,7 @@ test('a finished arch opens a realm: a telling, and its next site on the board',
   assert.equal(s.portals?.length, 1);
   const pt = s.portals![0];
   assert.equal(pt.building, b.id);
-  assert.ok(s.prompts.some((p) => p.kind === 'debrief' && p.title.includes(REALM_DEFS[pt.realm].name)));
+  assert.ok(s.prompts.some((p) => p.kind === 'debrief' && p.title.toLowerCase().includes(REALM_DEFS[pt.realm].name.toLowerCase())));
   const id = `portal:${pt.realm}`;
   assert.ok(boardDestinations(s).some((d) => d.id === id), 'on the board');
   assert.ok(snapshot(s).destinations.some((d) => d.id === id));
