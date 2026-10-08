@@ -2514,7 +2514,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   edge, the settlement's trodden cobbled ground and houses (or a lair's cave and bones) east of the wall line, the
   land's props kept off the track; `drawWall`: the palisade or the stonework, breached from the middle as the walls
   fall; `paintBoard`: each squad as its hero's figure facing the foe (a townsperson as the map dresses them, a captain,
-  the lair's master), its health bar, troop pips and count, the harm as numbers, a ring round the tapped one;
+  the lair's master) with its troops as small figures round them (the owner's ask: figures, not pips: the three rows
+  along the facing, the front row nearest the foe, each row's three spread up and down the cell, `drawTroop` at 0.42 of
+  a cell, the hurt faded), its health bar and count, the harm as numbers, a ring round the tapped one;
   `paintFormation`: a tapped squad's card and the Barracks' squad cards show the hero and every troop as figures in
   their three rows). Everything pixel art is drawn with smoothing off. Checked upright on the phone with the scratch
   `artshot.cjs`. Test: `test/warArt.test.ts` (every troop, land and power has a look the atlases hold). **More

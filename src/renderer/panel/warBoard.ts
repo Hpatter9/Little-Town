@@ -322,61 +322,87 @@ export function paintBoard(g: CanvasRenderingContext2D, b: BattleView, o: { cell
     g.strokeStyle = o.picked === q.id ? '#ffffff' : colour;
     g.lineWidth = Math.max(1, cell * (o.picked === q.id ? 0.07 : mine ? 0.05 : 0.035));
     g.beginPath();
-    g.ellipse(x, feet - cell * 0.03, cell * 0.36, cell * 0.16, 0, 0, Math.PI * 2);
+    g.ellipse(x, feet - cell * 0.1, cell * 0.5, cell * 0.26, 0, 0, Math.PI * 2);
     g.stroke();
-    g.fillStyle = 'rgba(0,0,0,0.28)';
+    g.fillStyle = 'rgba(0,0,0,0.22)';
     g.beginPath();
-    g.ellipse(x, feet - cell * 0.03, cell * 0.3, cell * 0.12, 0, 0, Math.PI * 2);
+    g.ellipse(x, feet - cell * 0.1, cell * 0.45, cell * 0.22, 0, 0, Math.PI * 2);
     g.fill();
     // a flash under the struck
     if (struck.has(q.id) && !q.out) {
       g.fillStyle = 'rgba(255, 240, 200, 0.35)';
       g.beginPath();
-      g.ellipse(x, feet - cell * 0.3, cell * 0.42, cell * 0.42, 0, 0, Math.PI * 2);
+      g.ellipse(x, feet - cell * 0.3, cell * 0.48, cell * 0.46, 0, 0, Math.PI * 2);
       g.fill();
     }
     const facing: Facing = q.side === 'town' ? 'right' : 'left';
-    if (!drawSquadFigure(g, q, b, o.people, o.townOrigin, facing, x, feet - cell * 0.02, cell * 0.9)) {
+    const towards = q.side === 'town' ? 1 : -1;
+    // the troops as small figures in their three rows: the front row nearest the foe, each row's three spread up and
+    // down the cell, drawn from the top down and the back row first; the hero stands before them all
+    const fig = cell * 0.42;
+    const rowGap = cell * 0.21;
+    const lineGap = cell * 0.145;
+    const bx = x - towards * cell * 0.12;
+    const baseY = (q.y + 0.7) * cell;
+    for (let k = 0; k < 3; k++)
+      for (let r = 2; r >= 0; r--) {
+        const i = r * 3 + k;
+        const t = q.troops[i];
+        if (!t) continue;
+        const tx = bx + towards * (1 - r) * rowGap;
+        const ty = baseY + (k - 1) * lineGap;
+        g.fillStyle = 'rgba(0,0,0,0.25)';
+        g.beginPath();
+        g.ellipse(tx, ty - 1, fig * 0.28, fig * 0.1, 0, 0, Math.PI * 2);
+        g.fill();
+        const a = g.globalAlpha;
+        if (t.share < 0.5) g.globalAlpha = a * 0.7;
+        if (!drawTroop(g, t.troop, i, facing, tx, ty, fig)) {
+          g.fillStyle = colour;
+          g.fillRect(tx - fig * 0.15, ty - fig * 0.7, fig * 0.3, fig * 0.7);
+        }
+        g.globalAlpha = a;
+      }
+    const hx = x + towards * cell * 0.3;
+    const hFeet = feet - cell * 0.02;
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.beginPath();
+    g.ellipse(hx, hFeet - 1, cell * 0.2, cell * 0.07, 0, 0, Math.PI * 2);
+    g.fill();
+    if (!drawSquadFigure(g, q, b, o.people, o.townOrigin, facing, hx, hFeet, cell * 0.78)) {
       g.fillStyle = colour;
-      g.fillRect(x - cell * 0.2, feet - cell * 0.7, cell * 0.4, cell * 0.65);
+      g.fillRect(hx - cell * 0.16, hFeet - cell * 0.6, cell * 0.32, cell * 0.58);
     }
     if (q.out) {
       g.globalAlpha = 1;
       g.strokeStyle = q.out === 'fallen' ? '#ff6a4a' : '#eee';
       g.lineWidth = Math.max(1.5, cell * 0.05);
       g.beginPath();
-      g.moveTo(x - cell * 0.22, feet - cell * 0.62);
-      g.lineTo(x + cell * 0.22, feet - cell * 0.18);
-      g.moveTo(x + cell * 0.22, feet - cell * 0.62);
-      g.lineTo(x - cell * 0.22, feet - cell * 0.18);
+      g.moveTo(x - cell * 0.3, feet - cell * 0.66);
+      g.lineTo(x + cell * 0.3, feet - cell * 0.14);
+      g.moveTo(x + cell * 0.3, feet - cell * 0.66);
+      g.lineTo(x - cell * 0.3, feet - cell * 0.14);
       g.stroke();
     } else {
       // the hero's health over the head
       const bw = cell * 0.7;
-      const by = q.y * cell + cell * 0.06;
+      const by = q.y * cell + cell * 0.05;
       g.fillStyle = 'rgba(0,0,0,0.7)';
-      g.fillRect(x - bw / 2, by, bw, cell * 0.08);
+      g.fillRect(x - bw / 2, by, bw, cell * 0.07);
       g.fillStyle = q.heroShare > 0.5 ? '#3fd05a' : q.heroShare > 0.25 ? '#e0b040' : '#e05040';
-      g.fillRect(x - bw / 2, by, bw * q.heroShare, cell * 0.08);
-      // the formation's pips at the foot, and the count
-      const pip = Math.max(2, cell * 0.07);
-      for (let i = 0; i < SQUAD_SLOTS; i++) {
-        const t = q.troops[i];
-        const px = x - cell * 0.46 + (i % 3) * (pip + 1.5);
-        const py = feet + cell * 0.04 - Math.floor(i / 3) * (pip + 1.5) - pip;
-        g.fillStyle = t ? (t.share > 0.5 ? '#1a1a1a' : '#7a2a2a') : 'rgba(0,0,0,0.18)';
-        g.fillRect(px, py, pip, pip);
-      }
+      g.fillRect(x - bw / 2, by, bw * q.heroShare, cell * 0.07);
+      // the count, at the foot on the side away from the foe
       const n = q.troops.filter((t) => t).length;
+      const nx = Math.max(cell * 0.15, Math.min(BOARD_W * cell - cell * 0.15, x - towards * cell * 0.36)); // (inside the board at its edges)
       g.fillStyle = 'rgba(0,0,0,0.75)';
       g.beginPath();
-      g.arc(x + cell * 0.36, feet - cell * 0.02, cell * 0.14, 0, Math.PI * 2);
+      g.arc(nx, feet - cell * 0.02, cell * 0.13, 0, Math.PI * 2);
       g.fill();
       g.fillStyle = '#fff';
-      g.font = `bold ${Math.max(7, cell * 0.2)}px ${font}`;
+      g.font = `bold ${Math.max(7, cell * 0.19)}px ${font}`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(String(n), x + cell * 0.36, feet - cell * 0.01);
+      g.fillText(String(n), nx, feet - cell * 0.01);
     }
     g.restore();
   }
