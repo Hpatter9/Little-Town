@@ -55,6 +55,10 @@ export function insideOf(s: GameState, p: Person): { building: number; at: Insid
     const b = byId(t.station);
     if (b && near(p, b, 3)) return { building: b.id, at: 'desk' };
   }
+  if (t?.type === 'lesson' && p.activity === 'research' && t.building != null) {
+    const b = byId(t.building);
+    if (b) return { building: b.id, at: 'desk' };
+  }
   if (t?.type === 'relax' && p.activity === 'watch') {
     const b = byId(t.building);
     if (b) return { building: b.id, at: 'floor' };

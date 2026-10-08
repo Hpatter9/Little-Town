@@ -2,6 +2,7 @@
 
 import { mournFor } from './ceremonies';
 import { recordFallen } from './annals';
+import { recordDeath } from './lineage';
 import { sickbedHealing } from './sickbeds';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { HEALER_PER_LEVEL } from '../data/operators';
@@ -118,6 +119,7 @@ export function killPerson(s: GameState, p: Person, cause: string): void {
     return;
   }
   recordFallen(s, p, cause); // (the hall of heroes and the year's chronicle: sim/annals.ts)
+  recordDeath(s, p, cause); // (the family's record, and their land and purse to their heir: sim/lineage.ts)
   s.people = s.people.filter((q) => q !== p);
   // what they wore stays in town if they died there (it's lost with them on the road)
   if (p.away === null) for (const id of Object.values(p.gear)) s.items[id!] = (s.items[id!] ?? 0) + 1;

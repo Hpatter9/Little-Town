@@ -9,6 +9,7 @@
 // task in people.ts) and a town ruled badly may rise (`revolt`). The votes, trials and revolts are prompts the event box
 // shows (`answerPolitics`, from answerPrompt).
 
+import { blackSheep } from './lineage';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { CLASS_DEFS } from '../data/classes';
 import { eventPicture } from '../data/eventScenes';
@@ -344,6 +345,7 @@ export function crime(s: GameState, rng: Rng): void {
 
 export function trial(s: GameState, culprit: Person, crime: CrimeKind, what: string, victim?: Person): void {
   const pol = politicsOf(s);
+  blackSheep(s, culprit, what); // (the family's black sheep: sim/lineage.ts)
   const options: Sentence[] = crime === 'murder' ? ['pardon', 'stocks', 'exile', 'hang'] : ['pardon', 'fine', 'stocks', 'exile'];
   const harsh = lawOn(s, 'harsh_law');
   const def: Sentence = crime === 'murder' ? (harsh ? 'hang' : 'exile') : crime === 'theft' ? (harsh ? 'stocks' : 'fine') : crime === 'assault' ? (harsh ? 'exile' : 'stocks') : 'fine';

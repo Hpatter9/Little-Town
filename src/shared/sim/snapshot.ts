@@ -123,6 +123,7 @@ import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hu
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
+import { familiesView, type FamilyLine } from './lineage';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
@@ -863,6 +864,8 @@ export interface Snapshot {
   portalView: PortalView | null;
   /** The building the player is looking into (sim/interiors.ts), drawn by renderer/interior/interiorView.ts. */
   interior: InteriorView | null;
+  /** The town's families and their trees (sim/lineage.ts), for the People menu's Families tab. */
+  families: FamilyLine[];
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
   /** The sagas under way and those ended (sim/sagas.ts). */
@@ -1181,6 +1184,7 @@ export function snapshot(s: GameState): Snapshot {
     portals: portalSummaries(s),
     portalView: portalView(s),
     interior: interiorView(s, (p) => describe(s, p)),
+    families: slow(s, 'families', () => familiesView(s)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,
@@ -2038,6 +2042,12 @@ function describe(s: GameState, p: Person): string {
       return s.busy?.text ?? 'Hard at work for the town';
     case 'protest':
       return 'On strike before the seat';
+    case 'lesson':
+      return task.building == null ? 'At lessons round the fire with the elders' : `At lessons at the ${name(task.building).toLowerCase()}`;
+    case 'apprentice': {
+      const m = s.people.find((q) => q.id === task.master);
+      return `Learning ${p.trade ?? 'a trade'} at ${m?.name ?? 'their master'}'s side`;
+    }
     case 'attend':
       return s.gathering?.text ?? 'With the town';
     case 'drink':
