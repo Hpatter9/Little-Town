@@ -227,6 +227,8 @@ export type Task =
   /** Carry fetched materials to a construction site. */
   | { type: 'deliver'; building: number }
   | { type: 'build'; building: number }
+  /** Lay a cell of a planned street, or a bridge (sim/streets.ts). */
+  | { type: 'pave'; cell: number; progress: number }
   /** Study at a research station (a building id; null: the camp, for a town with none). One person to a station; each
    *  works on a topic of their own from the queue where they can. (Older saves: neither set, and it's chosen afresh.) */
   | { type: 'research'; station?: number | null; topic?: string }

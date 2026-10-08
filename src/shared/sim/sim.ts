@@ -3,6 +3,7 @@
 
 import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
+import { streetsHourly } from './streets';
 import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
@@ -187,6 +188,7 @@ export class Sim {
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
     if (s.tick % TICKS_PER_HOUR === 0) decayWear(s.land); // (footpaths grass over where nobody walks)
     regrowHourly(s); // (and the woods grow back: sim/regrow.ts)
+    streetsHourly(s); // (streets planned where folk walk, and to the gates: sim/streets.ts)
     faithHourly(s); // (the gods: sim/faith.ts)
     worldHourly(s); // (the realm beyond the town: sim/worldLife.ts)
     questsHourly(s);

@@ -9,9 +9,9 @@
 // Townsfolk walk out through the gates (walk.ts `blockedBy` lets gates through; a sealed town walks straight through).
 // Castles and the hold have walls of their own, and a wandering tribe its wagons: no ring for them.
 import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
-import { blueprintCount, buildSlots, builtOn, canPlace, demolish, isUnlocked, placeBlueprint, unlockInfo } from './buildings';
+import { blueprintCount, buildSlots, builtOn, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
 import { holdOf } from './castle';
-import { groundAt, idx, inMap, isRoad, wet, WILD, type LandMap, type Pt, type Rect } from './land';
+import { groundAt, idx, inMap, isRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
 import { campCell, type Building, type GameState } from './state';
 import { TICKS_PER_HOUR } from './time';
@@ -272,8 +272,8 @@ const pieceAt = (s: GameState, p: Pt): Building | undefined => {
  *  wild cell to clear first. A wet cell gets a grate where the ring crosses a river or a stream, or runs down one
  *  (`riverCell`); the sea, a lake, the mountain and another building are left as they are (they are the wall
  *  there). */
-export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; clear: boolean; turned?: boolean }[] {
-  const out: { def: string; at: Pt; clear: boolean; turned?: boolean }[] = [];
+export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; clear: boolean; turned?: boolean; wild?: boolean }[] {
+  const out: { def: string; at: Pt; clear: boolean; turned?: boolean; wild?: boolean }[] = [];
   const m = s.land;
   const covered = new Set<number>();
   // (whether the cells are accounted for: a piece stands or is wanted there, or something else stands in its place)
@@ -283,6 +283,12 @@ export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; 
     if (there.some((b) => b && b.ring !== ring.gen)) return true; // (an older ring's piece stands there: it goes when this ring is up)
     if (cells.some((c) => !inMap(m, c.x, c.y) || !!builtOn(s, c.x, c.y))) return true;
     const wild = cells.find((c) => WILD.includes(groundAt(m, c.x, c.y)));
+    // (trees or rocks on its cells: the piece is laid over them all the same, so the whole wall shows in the plan,
+    // gates and all (the owner's ask), and they're cleared before it's built)
+    if (wild && cells.every((c) => !WILD.includes(groundAt(m, c.x, c.y)) || wildToClear(m, c.x, c.y)) && canPlace(s, BUILDING_BY_ID[def], at.x, at.y, undefined, turned, true).ok) {
+      out.push({ def, at, clear: false, wild: true, ...(turned ? { turned } : {}) });
+      return true;
+    }
     if (wild) {
       out.push({ def, at: wild, clear: true });
       return true;
@@ -376,11 +382,16 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
       continue;
     }
     // (planned: it takes no slot, so a cell cleared or freed later still gets its piece while the queue is full)
-    if (placeBlueprint(s, piece.def, piece.at.x, piece.at.y, !!piece.turned, true).ok) {
+    if (placeBlueprint(s, piece.def, piece.at.x, piece.at.y, !!piece.turned, true, !!piece.wild).ok) {
       const b = s.buildings[s.buildings.length - 1];
       b.ring = ring.gen;
       b.planned = true;
     }
+  }
+  // (the trees and rocks under the pieces laid over the wild, in the ring's order)
+  for (const b of s.buildings) {
+    if (b.ring !== ring.gen || !b.overgrown) continue;
+    for (const i of overgrownCells(s, b)) if (clear.length < RING_CLEAR && !clear.includes(i)) clear.push(i);
   }
   ring.clearing = clear.slice();
   // (a better wall learned since: the pieces still only planned become it)
@@ -401,7 +412,7 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
   // (the next sections, in the order they were laid: the gates first, then round the ring)
   for (const b of s.buildings) {
     if (room <= 0) break;
-    if (b.ring !== ring.gen || !b.planned) continue;
+    if (b.ring !== ring.gen || !b.planned || b.overgrown) continue;
     const cost = BUILDING_BY_ID[b.def].cost;
     if (Object.entries(cost).some(([m, n]) => (stock[m] ?? 0) - (owed[m] ?? 0) < (n ?? 0) * RING_SPARE)) continue;
     delete b.planned;

@@ -3,7 +3,7 @@
 // middle of its front (bottom) edge: that's where workers stand, and a road is laid from it to the nearest road (or
 // the camp) when it's placed, so the town grows along its roads.
 
-import { isGate } from './ringWall';
+import { isGate, riverCell } from './ringWall';
 import { isSeat } from '../data/seats';
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild, seaTown } from './sea';
@@ -16,7 +16,7 @@ import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
 import { openGround } from '../data/biomes';
 import { HERDS } from '../data/livestock';
-import { buildable, carvable, clearable, setGround, setMarked, wildToClear, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
+import { buildable, carvable, clearable, isPlannedRoad, planRoad, setGround, setMarked, wildToClear, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
 import { modifiers } from './research';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
 
@@ -198,7 +198,7 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
         if (!carvable(g)) return { ok: false, reason: 'A hall is cut into the mountain' };
       } else if (g === 'mountain') return { ok: false, reason: 'The mountain stands here' };
       else if (!buildable(g) && !(overWild && !room && wildToClear(m, cx, cy))) return { ok: false, reason: 'Clear the land first' };
-      if (!room && isRoad(m, cx, cy) && !isGate(def.id)) return { ok: false, reason: 'A road runs here' }; // (a gate stands on the road)
+      if (!room && (isRoad(m, cx, cy) || isPlannedRoad(m, cx, cy)) && !isGate(def.id)) return { ok: false, reason: 'A road runs here' }; // (a gate stands on the road)
     }
   for (const b of s.buildings) {
     if (b === except) continue;
@@ -237,7 +237,7 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
         const i = idx(s.land, cx, cy);
         if (!clearable(groundAt(s.land, cx, cy))) continue;
         if (!s.land.pools[i]) setGround(s.land, cx, cy, openGround(s.biome));
-        else setMarked(s.land, i, true);
+        else if (!planned) setMarked(s.land, i, true); // (a planned piece's are marked by its plan, a few at a time)
       }
     refreshOvergrown(s, b);
   }
@@ -277,14 +277,19 @@ const NO_ROAD = (def: BuildingDef) => !!CROPS[def.id] || !!HERDS[def.id] || (!!d
 export const ROAD_REACH = 40;
 export function connectRoad(s: GameState, b: Building): void {
   if (NO_ROAD(defOf(b))) return;
-  const m = s.land;
   const from = doorCell(b);
-  if (!inMap(m, from.x, from.y)) return;
-  // the nearest road cell (or the camp's own ground when there's none yet)
+  const to = nearestStreet(s, from);
+  layStreet(s, from, to);
+}
+
+/** The nearest road or planned street to a cell (or the ground before the fire, or the castle's gate, while there's
+ *  none). */
+export function nearestStreet(s: GameState, from: Pt): Pt {
+  const m = s.land;
   let to: Pt | null = null;
   let best = Infinity;
   for (let i = 0; i < m.roads.length; i++) {
-    if (m.roads[i] !== '#') continue;
+    if (m.roads[i] !== '#' && m.plannedRoads?.[i] !== '#') continue;
     const c = { x: i % m.w, y: Math.floor(i / m.w) };
     const d = Math.abs(c.x - from.x) + Math.abs(c.y - from.y);
     if (d < best) {
@@ -292,30 +297,42 @@ export function connectRoad(s: GameState, b: Building): void {
       to = c;
     }
   }
-  const castle = castleOn(s) ? castleCells(s) : null;
-  if (!to) {
-    const camp = campCell(s);
-    to = castle ? castleGate(s) : { x: camp.x, y: camp.y + 1 }; // (the ground in front of the fire, or the castle's gate)
-  }
+  if (to) return to;
+  const camp = campCell(s);
+  return castleOn(s) ? castleGate(s) : { x: camp.x, y: camp.y + 1 }; // (the ground in front of the fire, or the castle's gate)
+}
+
+/** Plan a street from one cell to another (sim/streets.ts: the town's builders lay it a stretch at a time): the
+ *  cheapest way over open buildable ground, four ways (a road's tiles join along their edges), round every footprint,
+ *  through the ring wall's gates, over a river as a bridge where it must, and out over the sea as a pier in a shore
+ *  town. Up to `reach` cells; false if there's no such way. */
+export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): boolean {
+  const m = s.land;
+  if (!inMap(m, from.x, from.y)) return false;
+  const lay = (x: number, y: number) => {
+    if (!isRoad(m, x, y)) planRoad(m, x, y);
+  };
   if (to.x === from.x && to.y === from.y) {
-    setRoad(m, from.x, from.y);
-    return;
+    lay(from.x, from.y);
+    return true;
   }
-  // (a road goes only over buildable ground, never through a building, and doesn't bridge water on its own; in a shore
-  // town it runs out over the water as a pier, to the homes and the rest that stand in the sea)
+  const castle = castleOn(s) ? castleCells(s) : null;
   const pier = seaTown(s);
-  const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || (pier && wet(groundAt(m, x, y)));
+  // (a road goes over buildable ground; over a river or a stream as a bridge (the owner's ask); in a shore town out
+  // over the sea as a pier)
+  const water = (x: number, y: number) => wet(groundAt(m, x, y)) && (pier || riverCell(m, { x, y }));
+  const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || water(x, y);
   const blocked = (x: number, y: number) => !ground(x, y) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
   // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
   const gate = (x: number, y: number) => isGate(builtOn(s, x, y)?.def ?? '');
-  // (four ways: a road's tiles join along their edges, so it never steps diagonally)
-  // (a pier costs more than a road on land, so it keeps its run over the water short)
-  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !gate(x, y), { maxNodes: 6000, four: true, ...(pier ? { swim: PIER_COST } : {}) });
-  if (!path || path.length > ROAD_REACH) return;
-  setRoad(m, from.x, from.y);
-  for (const c of path) if (!builtOn(s, c.x, c.y) && ground(c.x, c.y)) setRoad(m, c.x, c.y);
-  squareRoads(s);
+  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST });
+  if (!path || path.length > reach) return false;
+  lay(from.x, from.y);
+  for (const c of path) if ((!builtOn(s, c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);
+  return true;
 }
+/** What a cell of bridge costs to lay against a road on land (so a street crosses a river only where it must). */
+const BRIDGE_COST = 4;
 
 /** What a cell of pier costs to lay, against a road on land (a shore town's roads run out over the water). */
 const PIER_COST = 2.5;

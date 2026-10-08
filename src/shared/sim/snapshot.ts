@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { paveSeconds } from './streets';
 import { branchesOf, PATH_BY_ID } from '../data/paths';
 import { CLASS_DEFS, STAGE_LEVELS } from '../data/classes';
 import { loreOf } from '../data/pathLore';
@@ -1500,6 +1501,8 @@ function taskDone(s: GameState, p: Person): number | null {
   switch (t.type) {
     case 'build':
       return b ? clamp(b.progress) : null;
+    case 'pave':
+      return clamp(t.progress / paveSeconds(s, t.cell));
     case 'repair': {
       const most = b ? (BUILDING_BY_ID[b.def]?.hp ?? 0) : 0;
       return b && most ? clamp((b.hp ?? most) / most) : null;
@@ -1779,6 +1782,8 @@ function describe(s: GameState, p: Person): string {
       return `Carrying materials to the ${name(task.building)}`;
     case 'build':
       return `Building the ${name(task.building)}`;
+    case 'pave':
+      return wet(groundAt(s.land, task.cell % s.land.w, Math.floor(task.cell / s.land.w))) ? 'Building a bridge' : 'Laying a street';
     case 'research': {
       const t = TOPIC_BY_ID[task.topic ?? s.research.queue[0]];
       const at = task.station != null ? s.buildings.find((b) => b.id === task.station) : undefined;

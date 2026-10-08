@@ -23,8 +23,9 @@ import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
+import { nextPave, pave, paveSeconds } from './streets';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
-import { CELL, cellAt, groundAt, isMarked, setGround, type Pt, wet, setMarked } from './land';
+import { CELL, cellAt, centreOf, groundAt, inMap, isMarked, isPlannedRoad, isRoad, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
 import { swims } from './sea';
 import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickTool, stationFor, takeItemInputs, toolSpeed } from './crafting';
@@ -112,7 +113,8 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
   drainNeeds(p, p.task?.type === 'sleep' && p.activity === 'sleep');
 
   if (p.task && !stillValid(s, p, p.task)) p.task = null;
-  const loafing = !p.task || p.task.type === 'wander' || p.task.type === 'idle';
+  // (laying a street is spare-time work: any other work comes first, sim/streets.ts)
+  const loafing = !p.task || p.task.type === 'wander' || p.task.type === 'idle' || p.task.type === 'pave';
   // someone loafing looks for work once a second (not every tick); anyone else rechecks now and then
   if ((loafing && (!p.task || (s.tick + p.id) % LOOK_TICKS === 0)) || (s.tick + p.id) % RECHECK_TICKS === 0) {
     // Switch only to something strictly more urgent, so ongoing work isn't restarted.
@@ -120,9 +122,12 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     if (next && (loafing || rank(next, p) < rank(p.task!, p))) p.task = next;
   }
   if (!p.task) {
-    // (nothing to do: a break at a place of leisure with a spot free, else a wander about the camp: sim/leisure.ts)
+    // (nothing to do: a stretch of street to lay, sim/streets.ts; a break at a place of leisure with a spot free, else
+    // a wander about the camp: sim/leisure.ts)
     const spot = wantsRelax(s, p, true);
-    if (spot) p.task = { type: 'relax', building: spot.id, until: s.tick + relaxTicks(spot) };
+    const cell = !spot && !s.raid && p.priorities.construct !== 0 && !isChild(p) ? nextPave(s, p) : null;
+    if (cell !== null) p.task = { type: 'pave', cell, progress: 0 };
+    else if (spot) p.task = { type: 'relax', building: spot.id, until: s.tick + relaxTicks(spot) };
     else {
       const c = campXY(s);
       p.task = { type: 'wander', targetX: c.x + rng.range(-WANDER_TILES, WANDER_TILES) * CELL, targetY: c.y + rng.range(-WANDER_TILES, WANDER_TILES) * CELL };
@@ -214,6 +219,26 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
         p.task = null;
         notify(s, `Finished building: ${defOf(site).name}`, true);
         onBuilt(s, site);
+      }
+      break;
+    }
+    case 'pave': {
+      // (stood on the cell, or beside it on the bank for a bridge)
+      const c = cellAt(s.land, task.cell);
+      let at = centreOf(c.x, c.y);
+      if (wet(groundAt(s.land, c.x, c.y))) {
+        const bank = ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).map(([dx, dy]) => ({ x: c.x + dx, y: c.y + dy })).find((q) => inMap(s.land, q.x, q.y) && (isRoad(s.land, q.x, q.y) || !wet(groundAt(s.land, q.x, q.y))));
+        if (bank) at = centreOf(bank.x, bank.y);
+      }
+      if (!goTo(s, p, at)) break;
+      if (p.activity !== 'build') pickTool(s, p, 'construct');
+      p.activity = 'build';
+      task.progress += (buildPower(p.skills.construction.level) * toolSpeed(p, 'construct') * workFactor(s, p) * buildSpeed(s)) / TICK_HZ;
+      gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ / 2);
+      accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
+      if (task.progress >= paveSeconds(s, task.cell)) {
+        pave(s, task.cell);
+        p.task = null;
       }
       break;
     }
@@ -822,6 +847,7 @@ function rank(t: Task, p?: Person): number {
 function jobOf(t: Task): Job {
   switch (t.type) {
     case 'build':
+    case 'pave':
     case 'repair':
     case 'extinguish':
     case 'toil':
@@ -1137,6 +1163,10 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       return !alarmRaised(s) && onShift(s, p);
     case 'repair':
       return !!site && !s.raid && (site.hp ?? 0) < (defOf(site).hp ?? 0) && p.priorities.construct !== 0;
+    case 'pave': {
+      const c = cellAt(s.land, t.cell);
+      return !s.raid && isPlannedRoad(s.land, c.x, c.y) && p.priorities.construct !== 0;
+    }
     case 'craft': {
       const o = s.crafting.find((q) => q.id === t.order);
       return !!o && !!stationFor(s, ITEM_BY_ID[o.item]) && p.priorities.craft !== 0;
