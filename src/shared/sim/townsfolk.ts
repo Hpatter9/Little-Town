@@ -102,6 +102,12 @@ export interface MoodReason {
 }
 
 /** What someone's morale is heading toward, and why. */
+/** A night on the ground, and how much worse each night running makes it (up to ROUGH_NIGHTS_MOST more nights). */
+export const GROUND_MORALE = -6;
+export const ROUGH_PER_NIGHT = 3;
+export const ROUGH_BEDROLL_PER_NIGHT = 1;
+export const ROUGH_NIGHTS_MOST = 4;
+
 export function mood(s: GameState, p: Person): { target: number; reasons: MoodReason[] } {
   const reasons: MoodReason[] = [];
   const add = (text: string, value: number) => reasons.push({ text, value });
@@ -115,9 +121,13 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
     else if (rest < 0.2) add('Tired', -8);
     else if (rest >= 0.5) add('Rested', 3);
   }
+  // (a night out of a bed weighs heavier each night running: the owner's ask, so a roof is wanted before long)
+  const rough = Math.min(ROUGH_NIGHTS_MOST, (p.roughNights ?? 1) - 1);
   if (p.lastSlept === 'bed') add('Slept in a bed', 5);
-  else if (p.lastSlept === 'bedroll') add('Slept on a bedroll', -1);
-  else if (p.lastSlept === 'ground') add('Slept on the ground', -6);
+  else if (p.lastSlept === 'bedroll') add(rough ? `Slept on a bedroll (${rough + 1} nights)` : 'Slept on a bedroll', -1 - rough * ROUGH_BEDROLL_PER_NIGHT);
+  else if (p.lastSlept === 'ground') add(rough ? `Slept on the ground (${rough + 1} nights)` : 'Slept on the ground', GROUND_MORALE - rough * ROUGH_PER_NIGHT);
+  // (a break at a place of leisure: sim/leisure.ts)
+  if (p.fun && s.tick < p.fun.until) add(p.fun.text, p.fun.value);
   const charm = gearEffects(p).morale;
   if (charm) add('Lucky charm', charm);
   const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');

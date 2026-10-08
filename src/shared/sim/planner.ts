@@ -21,6 +21,7 @@ import { rulesOf } from '../data/origins';
 import { canWear } from './classes';
 import { isChild } from './social';
 import { buildOrigin } from './nomads';
+import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
 import { isGrate, isRingPiece, planRing, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
@@ -38,11 +39,11 @@ import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
 import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork } from './buildings';
-import { type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
+import { touchesWater, type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
-import { eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
+import { tireless, eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { LINE_ITEMS, lineOfDef, COIN_RESERVE, FARE, PIECE_RATE, saleValue, FARE_STOCK, furnishes, isShop, isTavern, PURSE_SCALE, tiersDrawn, travellerGoods, VENUE_CHAIN, venueOfDef, WARE_STOCK, WARES } from '../data/shop';
 import { WAGE_SHARE, wageBill } from './wages';
@@ -113,6 +114,10 @@ interface Needs {
   /** Materials wanted: what blueprints and craft orders still need, plus a small reserve. */
   demand: Stock;
   raided: boolean;
+  /** The grown-ups' spirits (their mean morale), and how many slept out of a bed last night (the owner's ask: mood
+   *  drives what is built: a roof for them first, a comfort when spirits are low). */
+  spirits: number;
+  roughSleepers: number;
   direction: Direction;
   /** Materials the town wants but can't gather, grow or make: only travellers can sell it them. */
   unsourced: Material[];
@@ -150,6 +155,8 @@ function needs(s: GameState): Needs {
     stock,
     demand,
     raided: s.journal.some((j) => j.text.startsWith('Raid by')),
+    spirits: spiritsOf(s),
+    roughSleepers: s.people.filter((p) => p.away === null && !tireless(p) && (p.lastSlept === 'ground' || p.lastSlept === 'bedroll')).length,
     limbless: prostheticsWanted(s).length > 0,
     shore: seaTown(s),
     wounded: s.people.some((p) => (p.wounds?.length ?? 0) > 0),
@@ -225,6 +232,7 @@ function topicScore(t: Topic, n: Needs): number {
     if (RESEARCH_STATIONS[b.id]) score += 15;
     if (WORKPLACES[b.id]) score += 10;
     if (b.healing) score += 8;
+    if (b.morale || LEISURE[b.id]) score += n.spirits < LOW_SPIRITS && n.people >= LEISURE_PEOPLE ? 14 : 3;
     if (b.hp || b.defense) score += n.raided || n.direction === 'defense' ? 14 : 2;
     // (a wall round the town once it is big enough to wall: sim/ringWall.ts; a shop to sell its surplus once it has
     // hands to spare: the two come about together, the shop first)
@@ -588,8 +596,10 @@ export function findSpot(s: GameState, def: BuildingDef): Pt | null {
   const farm = !!CROPS[def.id] || !!HERDS[def.id];
   // (a shore town puts what may stand in the sea there first: its homes in the shallows, the yards on the strand)
   const sea = seaBuild(s, def);
+  // (a jetty, like the boatyard, at the water's edge)
+  const shore = !!def.shore;
   const r = spiralSpot(s.land, def.width, depthOf(def), taken, from, {
-    ok: castle ? (rect) => !nearCastle(castle, s.land, rect) : undefined,
+    ok: castle || shore ? (rect) => (!castle || !nearCastle(castle, s.land, rect)) && (!shore || touchesWater(s.land, rect)) : undefined,
     water: sea,
     prefer: (rect) => (sea ? (inSea(s.land, rect) ? 0 : SEA_PREFER) : roadDistance(s.land, doorOf(rect))) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0),
   });
@@ -657,6 +667,9 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const paced = n.people < 4 || s.tick - (s.plan?.lastHome ?? -Infinity) >= HOME_EVERY * Math.max(1, s.plan?.lastHomeBeds ?? 1);
   // (people build their own homes too (sim/property.ts); the treasury keeps a bed spare to rent, since a newcomer
   // only comes to a town with a bed free)
+  // (someone slept out of a bed last night and there's none to spare: a roof over them before anything, whatever the
+  // pace of food and homes: the owner's ask)
+  if (n.roughSleepers > 0 && n.freeBeds < 1) options((d) => !!d.housing, (d) => d.housing!, `${n.roughSleepers} ${n.roughSleepers === 1 ? 'sleeps' : 'sleep'} out of doors`);
   if (n.freeBeds < 1 && fed && paced) options((d) => !!d.housing, (d) => d.housing!, `${n.people} people and ${n.people + n.freeBeds} beds`);
   // food: a field for every two people (one or two more when stores are low; never a field per person)
   const fields = fieldsNow;
@@ -700,6 +713,9 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     const ward = BUILDINGS.filter((d) => SICKBEDS[d.id] && can(d)).sort((a, b) => (b.healing ?? 1) - (a.healing ?? 1))[0];
     if (ward) out.push({ def: ward.id, why: 'more sickbeds for the hurt' });
   }
+  // spirits low (in a town big enough to play): the best comfort or place of leisure it can build, before its
+  // workshops (data/recreation.ts)
+  if (n.spirits < LOW_SPIRITS && grown >= LEISURE_PEOPLE) options((d) => (!!d.morale || !!LEISURE[d.id]) && !planned(s, d.id) && !venueOfDef(d.id), (d) => (d.morale?.[0] ?? 0) + (LEISURE[d.id]?.fun ?? 0), 'spirits are low');
   // a shop to sell to travellers (sooner when the town is set on trade)
   if (!shopPlanned && can(firstShop) && n.direction === 'trade') add(firstShop.id, 'to sell to travellers for coins');
   // a better place to research, and more of them as the town grows (one person studies at each: about one station for
@@ -720,6 +736,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (!can(d) || planned(s, d.id) || d.housing || d.storage || d.hp || d.defense || d.cells || CAPSTONES.includes(d.id)) continue;
     if (CROPS[d.id] && FOOD_VALUE[CROPS[d.id].material]) continue; // (food fields come of wanting food, above)
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
+    if (LEISURE[d.id] && grown < LEISURE_PEOPLE) continue; // (a hamlet has a roof to raise before a green to play on)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
     // (a specialty shop once the general store stands and the town is big enough to keep one)
     if (lineOfDef(d.id)) {
@@ -730,6 +747,12 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     add(d.id, HERDS[d.id] ? `to keep ${HERDS[d.id].plural}` : WORKPLACES[d.id] ? 'to dig what the town needs' : ITEMS.some((i) => i.station === d.id) ? 'a new workshop' : d.morale ? 'to lift spirits' : 'the town has learned to build it');
   }
   return out;
+}
+
+/** The grown-ups' spirits: their mean morale (100 with nobody grown at home; the machines' steady spirits left out). */
+export function spiritsOf(s: GameState): number {
+  const grown = s.people.filter((p) => p.away === null && p.type !== 'child' && !p.machine);
+  return grown.length ? grown.reduce((t, p) => t + p.morale, 0) / grown.length : 100;
 }
 
 /** A field's food as garden plots' worth (a garden plot is 1). */

@@ -72,6 +72,7 @@ import { LINES, SHOP_LINES, type ShopLine } from '../data/stores';
 import { DECOR_LEVELS, DECOR_MAX, DECOR_STYLES, type DecorId } from '../data/decor';
 import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../data/items';
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
+import { LEISURE } from '../data/recreation';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
 import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
@@ -1426,7 +1427,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     bedId: bed ? bed.id : null,
     floor: null,
     rally: rallyState(s, p),
-    indoors: (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink'),
+    indoors: (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
     away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     maxHp: maxHp(p),
@@ -1794,6 +1795,10 @@ function describe(s: GameState, p: Person): string {
       return s.gathering?.text ?? 'With the town';
     case 'drink':
       return s.nightOut ? `Letting off steam at the ${name(s.nightOut.tavern).toLowerCase()}` : 'Out for a drink';
+    case 'relax': {
+      const b = s.buildings.find((x) => x.id === task.building);
+      return (b && LEISURE[b.def]?.doing) ?? 'Taking a break';
+    }
     case 'tend': {
       const q = s.people.find((x) => x.id === task.patient);
       return `Tending ${q?.name ?? 'the wounded'}'s wounds!`;

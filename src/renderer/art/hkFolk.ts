@@ -186,7 +186,7 @@ export function weaponPiece(weapon: { name: string; family?: string; tier?: numb
 }
 
 /** The work in hand's tool. */
-const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: ['staff01'], forage: ['sickle01', 'dagger01'], research: ['book01'] };
+const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: ['staff01'], forage: ['sickle01', 'dagger01'], research: ['book01'], fish: ['staff01'] };
 
 /** The layers of a person, back to front (keys of art/himeko/), for what they're doing now. */
 export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string }): string[] {
@@ -280,7 +280,7 @@ const WALK = [1, 0, 2, 0];
 /** The pose a reader holds: the second punch, where the pack draws the book open in both hands before them. */
 const READ = 6;
 /** The cell for what they're doing: [column, row]. */
-export function hkPose(o: { facing: HkFacing; moving: boolean; walked: number; working: boolean; sinceBlow: number; sinceHit: number; down: boolean; ranged: boolean; now: number; reading?: boolean; ref?: number }): [number, number] {
+export function hkPose(o: { facing: HkFacing; moving: boolean; walked: number; working: boolean; sinceBlow: number; sinceHit: number; down: boolean; ranged: boolean; now: number; reading?: boolean; playing?: boolean; ref?: number }): [number, number] {
   const row = ROW[o.facing];
   if (o.down) return [7, row];
   if (o.sinceHit < 3) return [7, row]; // (a flinch)
@@ -289,6 +289,8 @@ export function hkPose(o: { facing: HkFacing; moving: boolean; walked: number; w
   // (studying: the book held open and read, lowered for a moment now and then to turn a page: the owner's ask, in
   // place of standing at the desk)
   if (o.reading && !o.moving) return [(o.now / 1000 + (o.ref ?? 0) * 1.7) % 4.5 < 0.4 ? 0 : READ, row];
+  // (a game of quoits: a throw now and then, by their id: sim/leisure.ts)
+  if (o.playing && !o.moving) return [(o.now / 1400 + (o.ref ?? 0) * 0.7) % 3 < 0.35 ? 5 : 0, row];
   if (o.moving) return [WALK[Math.floor(o.walked / 7) % 4], row];
   return [0, row];
 }

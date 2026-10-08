@@ -204,7 +204,7 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
     if (overlaps(footprint(b), r)) return { ok: false, reason: `Overlaps ${defOf(b).name}` };
   }
   // (a boatyard stands at the water's edge)
-  if (def.shore && !touchesWater(m, r)) return { ok: false, reason: "A boatyard stands at the water's edge" };
+  if (def.shore && !touchesWater(m, r)) return { ok: false, reason: `${def.name} stands at the water's edge` };
   if (castleOn(s)) {
     const cells = castleCells(s);
     if (room && !joinsCastle(cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };
