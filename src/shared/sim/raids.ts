@@ -5,6 +5,7 @@
 import { alliesFor, hostOver, rivalRaidOdds } from './factions';
 import { SIEGE_WALL } from '../data/factions';
 import { ally } from './classes';
+import { villageAllies } from './villages';
 import { victoryFeast } from './ceremonies';
 import { woundFor, woundPerson } from './injuries';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -288,6 +289,8 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   if (host) raid.host = host.host;
   // the town's allies send some of their own (to a host always, now and then to any raid: sim/factions.ts)
   if (inside === undefined) alliesFor(s, raid, rng, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
+  // (and its loyal daughter villages: sim/villages.ts)
+  if (inside === undefined) villageAllies(s, raid, rng, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   if (inside !== undefined) {
     raiders.forEach((rd, i) => {
       rd.x = inside.x + (i - (raiders.length - 1) / 2) * 14;

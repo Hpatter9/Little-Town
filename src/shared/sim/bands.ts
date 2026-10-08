@@ -32,6 +32,7 @@ import { seaTown } from './sea';
 import { weatherAt } from './weather';
 import { campEdge, foodPerHead, housingCapacity } from './townsfolk';
 import { walk } from './walk';
+import { cartArrives } from './villages';
 
 const bandsOf = (s: GameState): Band[] => (s.bands ??= []);
 /** The band's members still on the land. */
@@ -117,6 +118,22 @@ export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 =
   return band;
 }
 
+/** A daughter village's cart (sim/villages.ts): a carter or two and the wagon, from the village down the road to the
+ *  market; the load is the village's to give or sell when it gets there, then it goes home. */
+export function spawnVillageCart(s: GameState, rng: Rng, village: number, from: Pt, stayHours: number): Band {
+  const n = rng.int(BAND_SIZE.village[0], BAND_SIZE.village[1]);
+  const side: -1 | 1 = from.x < campXY(s).x ? -1 : 1;
+  const band: Band = { id: s.nextId++, kind: 'village', members: [], side, at: stopAt(s, 'caravan', side), phase: 'coming', until: Math.round(stayHours * TICKS_PER_HOUR), village, home: { ...from } };
+  for (let i = 0; i < n; i++) {
+    const t: Traveller = { id: s.nextId++, name: strangerName(s, rng), kind: MEMBER_KIND.village, look: randomLook(rng), x: from.x - side * i * 18, y: from.y + (i % 2 ? 10 : -8), dir: side < 0 ? 1 : -1, phase: 'arriving', toX: band.at.x, toY: band.at.y, until: 0, purse: 0, band: band.id };
+    (s.travellers ??= []).push(t);
+    band.members.push(t.id);
+  }
+  band.wagon = { x: from.x - side * (n * 18 + WAGON_LAG), y: from.y };
+  bandsOf(s).push(band);
+  return band;
+}
+
 /** Each hour: a caravan's merchants come with it; now and then another band (one at a time), by the day and the
  *  town: bandits only from BANDITS_FROM_DAY in a town of BANDITS_PEOPLE, refugees never to a town that takes nobody. */
 function spawnHourly(s: GameState, rng: Rng): void {
@@ -126,7 +143,7 @@ function spawnHourly(s: GameState, rng: Rng): void {
     s.lastCaravanBand = c.arrived;
     spawnBand(s, rng, 'caravan').until = c.leavesTick;
   }
-  if (s.tick < BAND_FIRST_DAY * TICKS_PER_DAY || s.raid || bandsOf(s).some((b) => b.kind !== 'caravan')) return;
+  if (s.tick < BAND_FIRST_DAY * TICKS_PER_DAY || s.raid || bandsOf(s).some((b) => b.kind !== 'caravan' && b.kind !== 'village')) return;
   if (!rng.chance(BAND_HOURLY * roadSafety(s))) return; // (fewer on a land with bands roaming: sim/roamers.ts)
   const day = Math.floor(s.tick / TICKS_PER_DAY);
   const grown = s.people.filter((p) => p.away === null && p.bornTick == null).length;
@@ -168,6 +185,9 @@ function moveBand(s: GameState, b: Band, rng: Rng, step: number): void {
     else if (b.kind === 'refugees') {
       b.until = s.tick + REFUGEE_WAIT_HOURS * TICKS_PER_HOUR;
       askRefugees(s, b);
+    } else if (b.kind === 'village') {
+      if (b.village !== undefined) cartArrives(s, b.village, b.at);
+      b.until = s.tick + (b.until || TICKS_PER_HOUR);
     }
     return;
   }
@@ -213,7 +233,8 @@ function rollWagon(b: Band, lead: Traveller, step: number): void {
 /** The band moves on, out of the land on a side. */
 export function startLeaving(s: GameState, b: Band, side: -1 | 1): void {
   b.phase = 'leaving';
-  const out = edgeXY(s, side);
+  // (a village's cart goes home down its road)
+  const out = b.home ?? edgeXY(s, side);
   for (const t of membersOf(s, b)) {
     t.phase = 'leaving';
     t.toX = out.x;

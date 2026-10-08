@@ -75,6 +75,8 @@ export function situationNotices(s: Snapshot): Notice[] {
         : { key: `raid:${s.raid.name}:a`, tone: 'red', mark: '⚔', title: `${s.raid.name} in the town!`, text: `${standing} still fighting. Tap a defender on the map to rally them.` },
     );
   }
+  // a daughter village broken away (sim/villages.ts)
+  for (const v of s.villages ?? []) if (v.rebel) out.push({ key: `rebelvillage:${v.id}`, tone: 'red', mark: '🏘', title: `${v.name} has broken away`, text: `Led by ${v.leader}, its ${v.pop} people answer to nobody, and their hotheads raid the town. Gifts may win it back, or a party sent to bring it to heel.`, action: { label: 'Trips', kind: 'panel', panel: 'expeditions' } });
   for (const f of s.realm.factions)
     if (f.host)
       out.push({ key: `host:${f.name}`, tone: 'red', mark: '⚔', title: `${f.name}'s war host`, text: `${f.host.size} strong, ${f.lord} at its head: here in ${f.host.hours} hour${f.host.hours === 1 ? '' : 's'}. Make ready, sue for peace, or call on allies.`, action: { label: 'The Realm', kind: 'panel', panel: 'expeditions' } });

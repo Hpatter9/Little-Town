@@ -360,6 +360,20 @@ const SCENES: Cutscene[] = [
     ],
   },
 
+  {
+    id: 'village_founded',
+    title: 'A Village of Their Own',
+    cast: { founder: { role: 'founder', x: 70, facing: 'right' }, hero: { role: 'hero', x: 128, facing: 'left' }, worrier: { role: 'worrier', x: 150, facing: 'left' }, wit: { role: 'wit', x: 96, facing: 'right' } },
+    shots: [
+      { look: 'town', cam: wide(110, 1.2), fx: ['fadeIn'], caption: '{village}', hold: 2.5, lines: [tell('At first light a cart stood packed by the fire, and a small crowd stood round it pretending not to cry.')] },
+      { cam: close('hero', 2.8), lines: [say('hero', 'Good ground out there. Water, wood, and nobody snoring through the wall.')] },
+      { cam: two('founder', 'hero', 2.2), lines: [say('founder', 'You will send word. And grain. Mostly word. Some grain.'), say('hero', 'We will send what we can spare.'), say('founder', 'That is what I said when I left home. I sent nothing for a year.')] },
+      { cam: close('worrier', 3, 0.05), lines: [say('worrier', 'What if wolves come? What if the roof leaks? What if we have no roof?'), say('hero', 'Then we build a roof.'), say('worrier', 'What if the wolves come while we build the roof?')] },
+      { cam: close('wit', 3, -0.05), lines: [say('wit', 'I have named the village. I have also named the wolves. It helps.')] },
+      { cam: wide(150, 1.1), acts: [{ who: 'hero', walk: 260 }, { who: 'worrier', walk: 270 }], fx: ['fadeOut'], hold: 2.5, lines: [tell('They went down the road with the cart, looking back twice. The town looked back more than that.')] },
+    ],
+  },
+
   // ---------------------------------------------------------------- a tale well ended
   {
     id: 'saga_triumph',

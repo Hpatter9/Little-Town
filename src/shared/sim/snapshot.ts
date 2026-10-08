@@ -121,6 +121,7 @@ import { packDestinations, packView, type PackView } from './pack';
 import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from './sagas';
 import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
+import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
 import { sceneView } from './cutscenes';
 export type SceneView = NonNullable<ReturnType<typeof sceneView>>;
@@ -870,6 +871,9 @@ export interface Snapshot {
   hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The dragon in the hills (sim/dragon.ts): its phase, health, tribute and flight. */
   dragon: DragonView | null;
+  /** Daughter villages (sim/villages.ts), and their houses and fields for the map (ids below zero). */
+  villages: VillageView[];
+  villageBuildings: Building[];
   /** The Calamity (sim/calamity.ts), and where the land is blighted (cells: round each nest and its heart). */
   calamity: CalamityView | null;
   /** A cutscene waiting or playing (sim/cutscenes.ts), and those seen, to watch again. */
@@ -1078,7 +1082,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...villageDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -1131,6 +1135,8 @@ export function snapshot(s: GameState): Snapshot {
     world: worldView(s),
     hunts: huntsView(s),
     dragon: dragonView(s),
+    villages: villageViews(s),
+    villageBuildings: villageBuildings(s),
     calamity: calamityView(s),
     scene: sceneView(s),
     scenesSeen: (s.scenesSeen ?? []).map((r) => ({ key: r.key, id: r.id, title: r.title, tick: r.tick })),

@@ -3,6 +3,7 @@
 // middle of its front (bottom) edge: that's where workers stand, and a road is laid from it to the nearest road (or
 // the camp) when it's placed, so the town grows along its roads.
 
+import { VILLAGE_KEEP } from '../data/villages';
 import { isGate, riverCell } from './ringWall';
 import { isSeat } from '../data/seats';
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
@@ -177,7 +178,7 @@ export interface PlaceCheck {
 /** Whether `def` fits with its top-left cell at (x, y): on open, buildable ground, over no road, clear of every other
  *  building (but `except`); a castle's rooms built on to the castle (over a road if need be: the floor covers it), and
  *  all else a cell clear of it. */
-export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'>, def: BuildingDef, x: number, y: number, except?: Building, turned = false, overWild = false): PlaceCheck {
+export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'> & Partial<Pick<GameState, 'villages'>>, def: BuildingDef, x: number, y: number, except?: Building, turned = false, overWild = false): PlaceCheck {
   const r: Rect = { x, y, w: turned ? depthOf(def) : def.width, h: turned ? def.width : depthOf(def) };
   const m = s.land;
   const room = castleOn(s) && roomKind(s, def);
@@ -204,6 +205,8 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
     if (b === except) continue;
     if (overlaps(footprint(b), r)) return { ok: false, reason: `Overlaps ${defOf(b).name}` };
   }
+  // (a daughter village's ground is its own: sim/villages.ts)
+  if (s.villages?.some((v) => Math.hypot(r.x + r.w / 2 - v.x, r.y + r.h / 2 - v.y) < VILLAGE_KEEP + (v.pop > 12 ? 2 : 0))) return { ok: false, reason: 'A daughter village stands here' };
   // (a boatyard stands at the water's edge)
   if (def.shore && !touchesWater(m, r)) return { ok: false, reason: `${def.name} stands at the water's edge` };
   if (castleOn(s)) {
