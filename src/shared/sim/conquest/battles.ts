@@ -24,6 +24,7 @@ import { woundPerson } from '../injuries';
 import { maxHp, notify, type GameState, type Person } from '../state';
 import { paceDay, TICKS_PER_DAY } from '../time';
 import { worldOf, type Army, type ConquestState, type Squad } from './conquest';
+import { endMarch, noteBattle, noteMarch } from './marches';
 import { command, heroStrength, troopWorth } from './squads';
 import type { ConquestWorld, Province } from './world';
 
@@ -135,11 +136,40 @@ function fieldOf(s: GameState, q: Squad, id: number, x: number, y: number): Fiel
   return f;
 }
 /** The province's defenders: a lair's beasts, or a settlement's garrison under captains of its realm. */
+/** Who holds free ground: its own folk (a settlement), outlaws or the land's beasts. */
+type FreeFolk = 'folk' | 'outlaws' | 'beasts';
+/** Free ground's defenders: troops a squad before the province's tier and the days, and their captain's share of a
+ *  realm captain's strength. */
+export const FREE_FILL = 3;
+export const FREE_CAPTAIN = 0.55;
 function defendersOf(s: GameState, c: ConquestState, p: Province, rng: Rng, from: number): FieldSquad[] {
   const out: FieldSquad[] = [];
   const holder = c.holder[p.id];
   const day = paceDay(s.tick);
   const place = (i: number, n: number) => ({ x: BOARD_W - 2 + (i % 2 === 0 ? 0 : 1) - (i >= 4 ? 1 : 0), y: Math.round(((i + 1) / (n + 1)) * (BOARD_H - 1)) });
+  if (holder === null && p.landmark !== 'lair') {
+    // free ground (the owner's ask: every province is fought for): its own folk under a headman where it has a
+    // settlement, else outlaws or the land's beasts; fewer and weaker than a realm's garrison, and no walls
+    const kind: FreeFolk = p.tier > 0 ? 'folk' : rng.chance(0.5) ? 'outlaws' : 'beasts';
+    const n = kind === 'folk' && p.tier >= 2 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const troops: (FieldTroop | null)[] = Array(SQUAD_SLOTS).fill(null);
+      const fill = FREE_FILL + Math.min(3, p.tier + Math.floor(day / 10));
+      for (let k = 0; k < fill; k++) {
+        const id = kind === 'beasts' ? 'lair_beasts' : ROW_OF(k) === 2 ? 'town_archers' : ROW_OF(k) === 0 && kind === 'folk' ? 'town_guard' : 'levies';
+        const d = def(id);
+        troops[k] = { troop: d.id, hp: d.hp, max: d.hp };
+      }
+      const str = Math.min(CAPTAIN_MOST, CAPTAIN_BASE + day * CAPTAIN_PER_DAY + p.tier * CAPTAIN_PER_TIER) * FREE_CAPTAIN * (i === 0 ? 1 : 0.75);
+      const name = kind === 'folk' ? (i === 0 ? `The headman of ${p.name}` : `The folk of ${p.name}`) : kind === 'outlaws' ? 'An outlaw chief' : 'A great beast';
+      const hero: FieldHero = { name, person: null, strength: str, command: 1, hp: str * TROOP_HP, max: str * TROOP_HP };
+      const at = place(i, n);
+      const f: FieldSquad = { id: from + i, side: 'foe', squad: null, name: kind === 'folk' ? `The folk of ${p.name}` : kind === 'outlaws' ? `Outlaws of ${p.name}` : `The wild things of ${p.name}`, hero, troops, x: at.x, y: at.y, worthIn: 0, out: null };
+      f.worthIn = worthOf(f);
+      out.push(f);
+    }
+    return out;
+  }
   if (holder === null) {
     // a lair: beasts round their master
     for (let i = 0; i < LAIR_SQUADS; i++) {
@@ -422,10 +452,11 @@ function endBattle(s: GameState, c: ConquestState, b: ProvinceBattle, done: 'won
     c.holder[b.province] = 'town';
     c.taken ??= {};
     c.taken[b.province] = Math.floor(s.tick / TICKS_PER_DAY);
-    if (was === null) {
+    if (was === null && p.landmark === 'lair') {
       (c.cleared ??= []).push(b.province);
       lines.push(`The lair at ${p.name} is cleared, and the province is the town's.`);
-    } else lines.push(`${p.name} is taken from ${FACTION_BY_ID[was]?.name ?? was}.`);
+    } else if (was === null) lines.push(`${p.name} is won, and the province is the town's.`);
+    else lines.push(`${p.name} is taken from ${FACTION_BY_ID[was]?.name ?? was}.`);
     // captives held here are freed
     const caps = captivesOf(c);
     for (let i = caps.length - 1; i >= 0; i--) {
@@ -445,6 +476,12 @@ function endBattle(s: GameState, c: ConquestState, b: ProvinceBattle, done: 'won
   }
   for (const f of fates) if (f.fate !== 'fought') lines.push(`${f.name}: ${f.fate}.`);
   c.lastBattle = { tick: s.tick, province: p.name, won: done === 'won', turns: b.turn, lost, felled, fates, lines };
+  // (the march's story: sim/conquest/marches.ts; a beaten army's march ends where it falls back to)
+  noteBattle(a, p.name, done === 'won', lost, felled, fates, true);
+  if (done === 'lost' && a) {
+    noteMarch(a, `Fell back to ${w.provinces[a.at].name}.`);
+    endMarch(s, c, w, a, 'beaten');
+  }
   if (done === 'won') checkConquestWin(s, c, w);
 }
 /** A beaten army falls back to the nearest province of the town's (home at the last), at once. */

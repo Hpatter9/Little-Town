@@ -8,9 +8,11 @@
 
 import { ARMY_SQUADS, CROSSROADS_PACE, GARRISON_HOLDS, MARCH_HOURS, MARCH_PER_CELL, REVOLT_CHANCE, REVOLT_GRACE_DAYS, TROOP_BY_ID } from '../../data/troops';
 import { hashSeed, Rng } from '../../rng';
+import { FACTION_BY_ID } from '../../data/factions';
 import { realm } from '../factions';
 import { edgeXY, notify, type GameState, type Person } from '../state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../time';
+import { beginMarch, endMarch, noteMarch } from './marches';
 import { worldOf, type Army, type ConquestState, type Squad } from './conquest';
 import { battleOfArmy, battlesTick, lairCleared, startBattle } from './battles';
 import { squadStrength } from './squads';
@@ -166,6 +168,11 @@ export function marchArmy(s: GameState, armyId: number, to: number): Result {
   const from = a.going ?? a.at;
   const way = wayTo(w, c, from, to);
   if (!way) return { ok: false, reason: `No way to ${w.provinces[to].name} through friendly land` };
+  if (!way.length && a.going === null) {
+    a.path = [];
+    return { ok: true, army: a };
+  }
+  beginMarch(s, w, a, to);
   if (!way.length) {
     a.path = [];
     return { ok: true, army: a };
@@ -274,10 +281,17 @@ export function armiesTick(s: GameState): void {
     if (!a.squads.length) {
       for (const [k, n] of Object.entries(a.train)) c.troops[k] = (c.troops[k] ?? 0) + n;
       notify(s, `${a.name}, without a hero left to lead it, breaks up.`);
+      noteMarch(a, 'With no hero left to lead it, the army broke up.');
+      endMarch(s, c, w, a, 'broken');
       c.armies.splice(i, 1);
       continue;
     }
     if (!a.squads.includes(a.general)) a.general = a.squads[0];
+    // (a battle won on the way: the march goes on, or ends there if that was its goal)
+    if (a.going === null && a.march && !battleOfArmy(c, a.id)) {
+      goOn(s, w, c, a);
+      continue;
+    }
     if (a.going === null || a.arrive === null || s.tick < a.arrive) continue;
     arrive(s, w, c, a);
   }
@@ -288,34 +302,42 @@ function arrive(s: GameState, w: ConquestWorld, c: ConquestState, a: Army): void
   a.going = null;
   a.arrive = null;
   const holder = c.holder[p.id];
-  if (holder === null && p.landmark !== 'lair') {
-    c.holder[p.id] = 'town';
-    c.taken![p.id] = Math.floor(s.tick / TICKS_PER_DAY);
-    notify(s, `${a.name} takes ${p.name} for the town.`, true);
-  } else if (holder !== 'town') {
-    // a lair, or another realm's: the battle (sim/conquest/battles.ts)
-    a.path = [];
-    startBattle(s, c, a, p.id);
-    return;
-  }
+  if (holder !== 'town') {
+    // free ground, a lair, or another realm's: every province is fought for (the owner's ask: even an empty one has
+    // its folk, its outlaws or its beasts); the march goes on after a win (sim/conquest/battles.ts)
+    noteMarch(a, `Reached ${p.name}${holder === null ? '' : `, held by ${realmName(holder)}`}.`);
+    if (startBattle(s, c, a, p.id)) return;
+  } else if (a.march && a.path.length) noteMarch(a, `Passed through ${p.name}.`);
+  goOn(s, w, c, a);
+}
+/** At a province with the battle (if any) behind it: home, the goal, a halt, or the next leg. */
+function goOn(s: GameState, w: ConquestWorld, c: ConquestState, a: Army): void {
+  const p = w.provinces[a.at];
   if (a.at === homeProvince(w)) {
     comeBack(s, a);
     a.path = [];
     notify(s, `${a.name} is home.`);
+    noteMarch(a, `Home to ${p.name}.`);
+    endMarch(s, c, w, a, 'home');
     return;
   }
-  if (a.path.length) {
-    // an enemy now holds the next leg: the march stops here
-    const next = a.path[0];
-    const h = c.holder[next];
-    if (h !== null && h !== 'town' && a.path.length > 1) {
-      a.path = [];
-      notify(s, `${a.name} halts at ${p.name}: the way on is held against it.`);
-      return;
-    }
-    startLeg(s, w, a, a.path);
+  if (!a.path.length) {
+    endMarch(s, c, w, a, 'arrived');
+    return;
   }
+  // an enemy now holds the next leg: the march stops here
+  const next = a.path[0];
+  const h = c.holder[next];
+  if (h !== null && h !== 'town' && a.path.length > 1) {
+    a.path = [];
+    notify(s, `${a.name} halts at ${p.name}: the way on is held against it.`);
+    noteMarch(a, `Halted at ${p.name}: the way on is held by ${realmName(h)}.`);
+    endMarch(s, c, w, a, 'halted');
+    return;
+  }
+  startLeg(s, w, a, a.path);
 }
+const realmName = (id: string) => FACTION_BY_ID[id]?.name ?? id;
 
 /** Each day: soldiers afield cost more, and a province of the town's left bare may revolt. */
 export function armiesDaily(s: GameState, c: ConquestState, w: ConquestWorld): { afield: number } {

@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { homeProvince, legTicks, marchArmy, raiseArmy } from '../src/shared/sim/conquest/armies';
+import { battleOfArmy } from '../src/shared/sim/conquest/battles';
+import { worldOf } from '../src/shared/sim/conquest/conquest';
+import { marchSummary } from '../src/shared/sim/conquest/marches';
+import { formSquad } from '../src/shared/sim/conquest/squads';
+import { warView } from '../src/shared/sim/conquest/warView';
+import { Sim } from '../src/shared/sim/sim';
+import { TICKS_PER_DAY } from '../src/shared/sim/time';
+import { plainGame } from './helpers';
+
+test('free ground is fought for: its folk, outlaws or beasts stand against the army, with no walls', () => {
+  const s = plainGame('march-free');
+  const c = s.conquest!;
+  const w = worldOf(s)!;
+  const home = w.provinces[homeProvince(w)];
+  const free = home.neighbours.find((n) => c.holder[n] === null && w.provinces[n].landmark !== 'lair')!;
+  assert.ok(free !== undefined);
+  const q = formSquad(s, s.people[0].id).squad!;
+  const a = raiseArmy(s, q.id).army!;
+  assert.ok(marchArmy(s, a.id, free).ok);
+  const sim = new Sim(s);
+  for (let i = 0; i <= legTicks(w, home.id, free) + 1; i++) sim.step();
+  const b = battleOfArmy(c, a.id);
+  assert.ok(b, 'a battle for free ground');
+  assert.equal(b!.holder, null);
+  assert.equal(b!.wallsMax, 0, 'free ground has no walls');
+  const foes = b!.squads.filter((f) => f.side === 'foe');
+  assert.ok(foes.length >= 1);
+  const words = foes.map((f) => f.name).join(' ');
+  if (w.provinces[free].tier > 0) assert.match(words, /folk of/);
+  else assert.match(words, /Outlaws|wild things/);
+  const v = warView(s)!;
+  assert.equal(v.battle?.lair, false);
+});
+
+test('a march beaten back ends with its report: fell back, the losses, told to the player', () => {
+  const s = plainGame('march-beaten');
+  const c = s.conquest!;
+  const w = worldOf(s)!;
+  const hero = s.people[0];
+  hero.level = 1;
+  const home = w.provinces[homeProvince(w)];
+  // a free province two legs off: the green hero alone marches on it
+  const far = w.provinces.find((p) => c.holder[p.id] === null && p.landmark !== 'lair' && !home.neighbours.includes(p.id) && p.neighbours.some((n) => home.neighbours.includes(n) && c.holder[n] === null && w.provinces[n].landmark !== 'lair'));
+  assert.ok(far, 'a far province');
+  const q = formSquad(s, hero.id, false).squad!;
+  const a = raiseArmy(s, q.id).army!;
+  assert.ok(marchArmy(s, a.id, far!.id).ok);
+  assert.ok(a.march, 'the march is logged');
+  const sim = new Sim(s);
+  for (let i = 0; i < 6 * TICKS_PER_DAY && !(c.marches ?? []).length; i++) sim.step();
+  const m = c.marches?.[0];
+  assert.ok(m, 'the march ends with a report');
+  assert.equal(m!.outcome, 'beaten', 'a lone green hero is beaten on the first free ground');
+  assert.equal(m!.fought, 1);
+  assert.equal(m!.won, 0);
+  assert.deepEqual(m!.taken, []);
+  assert.ok(m!.lines.some((l) => /^Beaten before/.test(l)));
+  assert.ok(m!.lines.some((l) => /^Fell back/.test(l)));
+  assert.equal(a.march, undefined);
+  assert.equal(a.path.length, 0, 'the march goes no further');
+  assert.match(marchSummary(m!), /0 of 1 battle won/);
+  const q2 = s.prompts.find((p) => p.kind === 'debrief' && p.title === `The march of ${a.name}`);
+  assert.ok(q2 && q2.story && q2.picture, 'the report in the event box, with a picture');
+  assert.equal(warView(s)!.marches[0].tick, m!.tick);
+});

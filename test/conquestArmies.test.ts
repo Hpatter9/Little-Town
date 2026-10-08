@@ -7,13 +7,22 @@ import { formSquad, setSlot, disbandSquad } from '../src/shared/sim/conquest/squ
 import { warView } from '../src/shared/sim/conquest/warView';
 import { Sim } from '../src/shared/sim/sim';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
+import { piece } from '../src/shared/data/quality';
+import { battleOfArmy } from '../src/shared/sim/conquest/battles';
 import { plainGame } from './helpers';
+
+/** Every province is fought for now: the town's heroes made seasoned enough to win free ground. */
+const season = (p: ReturnType<typeof plainGame>['people'][number]) => {
+  Object.assign(p, { level: 60, road: 'titan', cls: 'warrior', attrPts: undefined, gear: { weapon: 'iron_sword', body: 'steel_cuirass' }, gearQ: { weapon: piece(7, 5), body: piece(7, 5) } });
+  for (const k of Object.keys(p.skills) as (keyof typeof p.skills)[]) p.skills[k] = { level: 40, xp: 0 };
+};
 
 test('an army marches by order, takes free provinces, its heroes away meanwhile, and comes home', () => {
   const s = plainGame('army');
   const c = s.conquest!;
   const w = worldOf(s)!;
   const hero = s.people[0];
+  season(hero);
   c.troops.militia = 6;
   const q = formSquad(s, hero.id, false).squad!; // (formed empty: the counts below are the test's own)
   assert.ok(setSlot(s, q.id, 0, 'militia').ok);
@@ -39,7 +48,17 @@ test('an army marches by order, takes free provinces, its heroes away meanwhile,
   for (let i = 0; i <= ticks + 1; i++) sim.step();
   assert.equal(a.going, null);
   assert.equal(a.at, free);
-  assert.equal(c.holder[free!], 'town', 'the free province is taken');
+  assert.notEqual(c.holder[free!], 'town', 'free ground is not taken without a fight');
+  assert.ok(battleOfArmy(c, a.id), 'a battle for it');
+  for (let i = 0; i < TICKS_PER_DAY && battleOfArmy(c, a.id); i++) sim.step();
+  assert.equal(c.holder[free!], 'town', 'the free province is won');
+  // the march is over: its report
+  const m = c.marches?.[0];
+  assert.ok(m, 'a march report');
+  assert.equal(m!.outcome, 'arrived');
+  assert.equal(m!.won, 1);
+  assert.deepEqual(m!.taken, [w.provinces[free!].name]);
+  assert.ok(s.prompts.some((p) => p.kind === 'debrief' && p.title === `The march of ${a.name}`), 'told in the event box');
   assert.equal(hero.away, -a.id, 'still afield');
   // a garrison left, then home
   assert.ok(garrison(s, a.id, GARRISON_HOLDS).ok);
@@ -64,6 +83,7 @@ test('an army marches by order, takes free provinces, its heroes away meanwhile,
 
 test('the way goes through friendly land only; a second squad joins at home; bare provinces revolt', () => {
   const s = plainGame('army2');
+  season(s.people[0]);
   s.people.push({ ...structuredClone(s.people[0]), id: 77, name: 'Second' });
   const c = s.conquest!;
   const w = worldOf(s)!;
@@ -85,9 +105,12 @@ test('the way goes through friendly land only; a second squad joins at home; bar
   assert.ok(marchArmy(s, a.id, far).ok);
   assert.ok(a.path.length >= 1);
   const sim = new Sim(s);
-  for (let i = 0; i < 6 * TICKS_PER_DAY && a.at !== far; i++) sim.step();
+  for (let i = 0; i < 12 * TICKS_PER_DAY && (a.at !== far || battleOfArmy(c, a.id) || a.march); i++) sim.step();
   assert.equal(a.at, far);
   assert.equal(c.holder[far], 'town');
+  const m = c.marches![0];
+  assert.ok(m.fought >= 2 && m.won === m.fought, 'a battle for every province on the way');
+  assert.ok(m.taken.length >= 2);
   // revolt: a bare province past its grace goes free on some day
   const taken = c.holder.map((h, i) => (h === 'town' && i !== home && i !== a.at ? i : -1)).filter((i) => i >= 0);
   assert.ok(taken.length >= 1);

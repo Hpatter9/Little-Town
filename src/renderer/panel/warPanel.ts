@@ -7,12 +7,13 @@
 import type { Bridge } from '../../shared/ipc';
 import { ARMY_SQUADS, BOARD_H, BOARD_W, GARRISON_HOLDS, ROW_OF, SQUAD_SLOTS, TROOP_BY_ID } from '../../shared/data/troops';
 import { ownerAt, type ArmyView, type BattleView, type ProvinceView, type SquadView, type WarView } from '../../shared/sim/conquest/warView';
+import { marchSummary, type MarchRecap } from '../../shared/sim/conquest/marches';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { hkWhoOf } from '../art/hkFolk';
 import { drawBeast, drawCaptain, drawPack, drawWho, LAIR_MASTER, onWarArt } from '../art/warSprites';
 import { button, el } from './dom';
 import { selectTab } from './subtabs';
-import { devicePixels, paintBoard, paintFormation, previewGround, slotsOf, troopsLine } from './warBoard';
+import { devicePixels, freeFigure, paintBoard, paintFormation, previewGround, slotsOf, troopsLine } from './warBoard';
 
 // (previews: a land's battle board as a data URL, `__warGround('swamp', 1, 1, false)`)
 (window as unknown as { __warGround?: (land: string, tier: number, fort: number, lair: boolean) => string }).__warGround = (land, tier, fort, lair) => previewGround(land, tier, fort, lair, Math.floor((360 * devicePixels()) / 12)).toDataURL();
@@ -46,7 +47,7 @@ export function warKey(s: Snapshot): string {
     w.recruits, w.chest, w.goods.map((g) => `${g.material}${g.n}`).join(','), w.troops.map((t) => `${t.n}${t.can ? 1 : 0}`).join(','),
     w.training.map((t) => `${t.troop}${t.n}${t.hoursLeft}`).join(','), w.squads.map((q) => `${q.id}${q.slots.join('')}${q.strength}${q.army}${q.free ? 1 : 0}`).join(';'),
     w.heroes.map((h) => h.id).join(','), w.rivalArmies.map((a) => `${a.realm}${a.to}${a.hours}`).join(','), w.realms.map((r) => r.stance).join(','), w.armies.map((a) => `${a.id}${a.at}${a.going}${a.hours}${a.squads.join('.')}${a.train.map((t) => t.troop + t.n).join('.')}`).join(';'),
-    selected, picked, pickedSquad, artGen, w.battle ? `${w.battle.id}:${w.battle.turn}:${w.battle.done}:${w.battle.tick}` : '', w.recap?.tick ?? '', w.captives.map((x) => x.hero).join(','),
+    selected, picked, pickedSquad, artGen, w.battle ? `${w.battle.id}:${w.battle.turn}:${w.battle.done}:${w.battle.tick}` : '', w.recap?.tick ?? '', w.marches[0]?.tick ?? '', w.armies.map((a) => a.march ? `${a.march.fought}${a.march.won}${a.march.taken}` : '').join(','), openMarch, w.captives.map((x) => x.hero).join(','),
   ].join('|');
 }
 
@@ -83,11 +84,17 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
   if (w.recap && !w.battle) out.push(recapCard(w.recap));
   // ---- armies
   out.push(el('h2', '', 'Armies'));
-  out.push(el('div', 'hint', `An army is a general's squad and up to ${ARMY_SQUADS - 1} more, raised at ${w.provinces[w.home].name}. Every march is your order: pick an army, tap a province on the map, and it goes the shortest way through free or friendly land, taking free provinces as it comes to them. A province left without ${GARRISON_HOLDS} soldiers or an army may rise against the town.`));
+  out.push(el('div', 'hint', `An army is a general's squad and up to ${ARMY_SQUADS - 1} more, raised at ${w.provinces[w.home].name}. Every march is your order: pick an army, tap a province on the map, and it goes the shortest way through free or friendly land, fighting for every province it comes to (free ground has its folk, outlaws or beasts); when the march ends, its report comes. A province left without ${GARRISON_HOLDS} soldiers or an army may rise against the town.`));
   const cards = el('div', 'cards wide realm');
   for (const a of w.armies) cards.append(armyCard(w, a, cmd, redraw));
   out.push(cards);
   out.push(raiseRow(w, cmd));
+  if (w.marches.length) {
+    out.push(el('h2', '', 'March reports'));
+    const reports = el('div', 'cards wide realm');
+    for (const [i, r] of w.marches.entries()) reports.append(marchCard(r, i === 0, redraw));
+    out.push(reports);
+  }
   // ---- barracks
   out.push(el('h2', '', 'Barracks'));
   out.push(el('div', 'war-stat', `Recruits ${w.recruits} · war chest ${w.chest} coins · upkeep ${w.upkeep} a day${w.goods.length ? ` · war stores: ${w.goods.map((g) => `${g.n} ${g.material.replace(/_/g, ' ')}`).join(', ')}` : ''}`));
@@ -409,6 +416,7 @@ function formationCanvas(land: string, side: 'town' | 'foe', heroName: string, h
     const fig = canvas.height * 0.5;
     if (p) return drawWho(g, hkWhoOf(p), facing, hx, feet, fig);
     if (b && 'troops' in q) {
+      if (b.holder === null && !b.lair) return freeFigure(g, q.hero, q.id, facing, hx, feet, fig);
       if (b.holder === null) return q.hero && /master/i.test(q.hero) ? drawPack(g, LAIR_MASTER, facing, hx, feet, fig * 1.15) : drawBeast(g, 'bear', q.id % 2, facing, hx, feet, fig * 0.9);
       return drawCaptain(g, originOf(b.holder, townOriginOf(s)) ?? 'brotherhood', q.id, facing, hx, feet, fig);
     }
@@ -426,6 +434,26 @@ function recapCard(r: NonNullable<WarView['recap']>): HTMLElement {
   for (const line of r.lines) card.append(el('div', 'realm-sub', line));
   return card;
 }
+/** The march report open (by its tick): the latest is open until another is tapped. */
+let openMarch: number | null = null;
+const MARCH_HEAD: Record<MarchRecap['outcome'], string> = { arrived: 'reached its goal', home: 'came home', halted: 'halted', beaten: 'was beaten back', broken: 'broke up' };
+function marchCard(r: MarchRecap, latest: boolean, redraw: () => void): HTMLElement {
+  const bad = r.outcome === 'beaten' || r.outcome === 'broken';
+  const card = el('div', `card realm-card ${bad ? 'bad' : r.taken.length ? 'good' : ''}`);
+  const head = el('div', 'realm-head');
+  head.append(el('div', 'realm-name', `${r.army} ${MARCH_HEAD[r.outcome]}`), el('span', 'realm-stance', `${r.days} day${r.days === 1 ? '' : 's'}`));
+  card.append(head);
+  card.append(el('div', 'realm-sub', `${r.from} → ${r.to}`));
+  card.append(el('div', 'realm-sub', marchSummary(r)));
+  const open = openMarch === null ? latest : openMarch === r.tick;
+  if (open) for (const line of r.lines) card.append(el('div', 'realm-sub war-march-line', line));
+  else card.append(el('div', 'hint', 'Tap for the whole march'));
+  card.addEventListener('click', () => {
+    openMarch = open ? -1 : r.tick;
+    redraw();
+  });
+  return card;
+}
 /* ------------------------------------------------------------ cards */
 
 function provinceCard(w: WarView, p: ProvinceView, cmd: (c: object) => void, redraw: () => void): HTMLElement {
@@ -440,7 +468,7 @@ function provinceCard(w: WarView, p: ProvinceView, cmd: (c: object) => void, red
   card.append(head);
   card.append(el('div', 'realm-sub', `${p.land} · ${p.tier}${p.capitalOf ? ' (a capital)' : ''} · ${p.fort}${p.landmark ? ` · ${p.landmark}` : ''}${p.coast ? ' · on the sea' : ''}`));
   card.append(el('div', 'realm-sub', `Yields ${p.yields.coins} coins, ${p.yields.recruits} recruits and ${p.yields.amount} ${p.yields.material.replace(/_/g, ' ')} a day to its holder`));
-  if (p.landmark === 'Lair' && !p.holder) card.append(el('div', 'hint', 'Something dens here: it must be cleared before the province is held (the battle comes with the next step).'));
+  if (!p.holder) card.append(el('div', 'hint', p.landmark === 'Lair' ? 'Something dens here: an army must clear it in battle before the province is held.' : p.tierN === 0 ? 'Free ground: outlaws or beasts hold it, and an army must beat them to take it.' : 'Free ground: its folk will stand against an army that comes to take it.'));
   if (p.holder === 'town') card.append(el('div', `realm-sub ${p.bare ? 'war-bare' : ''}`, p.garrison ? `Garrison of ${p.garrison}` : p.bare ? '⚠ No garrison: it may rise against the town' : p.id === w.home ? 'The town itself' : 'No garrison yet (new conquests keep quiet a few days)'));
   for (const id of p.armies) {
     const a = w.armies.find((x) => x.id === id);
@@ -469,6 +497,7 @@ function armyCard(w: WarView, a: ArmyView, cmd: (c: object) => void, redraw: () 
   head.append(el('div', 'realm-name', a.name), el('span', 'realm-stance', a.home ? 'At home' : a.going === null ? `At ${w.provinces[a.at].name}` : `Marching on ${w.provinces[a.going].name} · ${a.hours} h`));
   card.append(head);
   if (a.path.length) card.append(el('div', 'realm-sub', `Then on to ${w.provinces[a.path[a.path.length - 1]].name}`));
+  if (a.march) card.append(el('div', 'realm-sub war-march-line', `${a.march.fought ? `${a.march.won} of ${a.march.fought} battle${a.march.fought === 1 ? '' : 's'} won${a.march.taken ? `, ${a.march.taken} taken` : ''} · ` : ''}${a.march.last}`));
   card.append(el('div', 'realm-sub', `General ${a.generalName} · strength ${a.strength} · ${a.soldiers} soldier${a.soldiers === 1 ? '' : 's'}${a.train.length ? ` · train: ${a.train.map((t) => `${t.n} ${t.name.toLowerCase()}`).join(', ')}` : ''}`));
   const list = el('div', 'war-squads');
   for (const id of a.squads) {
