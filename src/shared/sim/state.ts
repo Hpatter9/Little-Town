@@ -1,4 +1,5 @@
 import type { NightOut } from './nightOut';
+import type { CalamityState } from './calamity';
 import type { DragonState } from './dragon';
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
@@ -388,6 +389,8 @@ export interface Raid {
   id: number;
   /** A saga's raid: the run it belongs to (sim/sagas.ts). */
   saga?: number;
+  /** One of the Calamity's raids: its army, or the last siege (sim/calamity.ts). */
+  calamity?: 'army' | 'siege';
   /** Fallen raiders raised by necromancers this raid, and when a Beast Tamer can tame again. */
   raised?: number;
   nextTame?: number;
@@ -545,6 +548,8 @@ export interface Person {
   autoStats?: boolean;
   /** In a fight on the land with a roaming band (a skirmish's id: sim/roamers.ts): they stand and fight. */
   skirmish?: number;
+  /** Lured into the Calamity's cult (sim/calamity.ts), and whether the town knows it. */
+  cultist?: { since: number; found?: boolean };
   /** Their level (levels.ts: from all they do, fighting most), and the XP toward the next. Left out: level 1. */
   level?: number;
   lvXp?: number;
@@ -715,8 +720,11 @@ export type ExpeditionPhase = 'out' | 'work' | 'back';
  *  where it came from and is wandering to, who it's after, and when it wanders off. */
 export interface Roamer {
   id: number;
-  kind: 'beasts' | 'dead' | 'bandits';
+  kind: 'beasts' | 'dead' | 'bandits' | 'nest';
   group: Record<string, number>;
+  /** Come out of a monster nest (a place id, sim/nests.ts), and what it's called in the news ("goblins"). */
+  nest?: number;
+  name?: string;
   x: number;
   y: number;
   homeX: number;
@@ -1141,6 +1149,10 @@ export interface GameState {
   /** Hostile bands roaming the town's land, and the fights they've started with townsfolk out on it (sim/roamers.ts). */
   roamers?: Roamer[];
   skirmishes?: Skirmish[];
+  /** The Calamity (sim/calamity.ts): what it is, how far its dread has risen, its heart and sieges. */
+  calamity?: CalamityState;
+  /** How many monster nests the town has burned out (sim/nests.ts). */
+  nestsCleared?: number;
   /** The mine (a place id, sim/places.ts) the player has gone into, in place of the town (snapshot.mine). */
   watchingMine?: number;
   /** The origin power the player keeps back to cast themselves (sim/powers.ts castHeld). */

@@ -25,7 +25,7 @@ import {
   ROAM_KILLS,
   ROAM_PEOPLE,
   ROAMER_GROUPS,
-  ROAMER_NAME,
+  roamerName,
   ROAMERS_LEAST,
   ROAMERS_MOST,
   ROAMERS_PER,
@@ -166,7 +166,7 @@ function moveRoamer(s: GameState, r: Roamer, folk: Person[]): void {
     .filter((p) => !sheltered(s, p.x, p.y ?? 0) && Math.hypot(p.x - r.x, (p.y ?? 0) - r.y) <= SEE_CELLS * CELL)
     .sort((a, b) => Math.hypot(a.x - r.x, (a.y ?? 0) - r.y) - Math.hypot(b.x - r.x, (b.y ?? 0) - r.y))[0];
   if (seen) {
-    if (r.chasing !== seen.id) notify(s, `${seen.name} is set upon by ${ROAMER_NAME[r.kind]} out on the land!`);
+    if (r.chasing !== seen.id) notify(s, `${seen.name} is set upon by ${roamerName(r)} out on the land!`);
     r.chasing = seen.id;
     return;
   }
@@ -228,6 +228,20 @@ export function spawnRoamer(s: GameState, kind: RoamerKind, g: Rng = roll(s, s.t
   }
   return null;
 }
+
+/** A band come out of somewhere in particular (a monster nest: sim/nests.ts) at a spot (px), with its own group and
+ *  name; it wanders about `home` (null when it can't stand there, or the land has its fill of bands). */
+export function spawnRoamerAt(s: GameState, group: Record<string, number>, at: { x: number; y: number }, home: { x: number; y: number }, extra: { nest?: number; name?: string }, hours: number): Roamer | null {
+  if (Object.keys(group).some((id) => !ENEMIES[id])) return null;
+  if ((s.roamers ?? []).length >= ROAMERS_MOST + 2) return null;
+  if (!walkable(s, at.x, at.y) || !walkable(s, home.x, home.y)) return null;
+  const r: Roamer = { id: s.nextId++, kind: 'nest', group: { ...group }, x: at.x, y: at.y, homeX: home.x, homeY: home.y, tx: home.x, ty: home.y, until: s.tick + Math.round(hours * TICKS_PER_HOUR), chasing: null, dir: 1, ...extra };
+  (s.roamers ??= []).push(r);
+  return r;
+}
+
+/** The reach of the town (cells from the camp): where a band from afar comes to prowl. */
+export const townReachCells = (s: GameState) => townReach(s) / CELL;
 
 /** The band a guard on watch should go after: the nearest within `PATROL_REACH` of the town's edge (or null). */
 export function roamerToHunt(s: GameState, p: Person): Roamer | null {
@@ -298,7 +312,7 @@ export function startSkirmish(s: GameState, r: Roamer, caught: Person): Skirmish
     p.activity = 'fight';
     if (p.x !== r.x) p.dir = r.x > p.x ? 1 : -1;
   }
-  notify(s, `${names(members)} ${members.length > 1 ? 'fight' : 'fights'} ${ROAMER_NAME[r.kind]} out on the land.`, true);
+  notify(s, `${names(members)} ${members.length > 1 ? 'fight' : 'fights'} ${roamerName(r)} out on the land.`, true);
   return k;
 }
 
@@ -346,13 +360,13 @@ function endSkirmish(s: GameState, k: Skirmish, members: Person[], outcome: 'won
     for (const [m, n] of Object.entries(loot)) addStock(result.loot, m as never, n);
     depositNear(s, { x: k.x, y: k.y }, result.loot);
     s.roamers = (s.roamers ?? []).filter((q) => q.id !== k.roamer);
-    notify(s, `${names(members)} saw off the ${r ? ROAMER_NAME[r.kind] : 'band'} on the land.`, true);
+    notify(s, `${names(members)} saw off the ${r ? roamerName(r) : 'band'} on the land.`, true);
   } else {
     // (they run for home; whoever went down may not get up: the dead and bandits finish their work, beasts drag one off)
-    for (const p of members) if (p.downed && g.chance(ROAM_KILLS)) killPerson(s, p, `was killed by ${r ? ROAMER_NAME[r.kind] : 'a band'} out on the land`);
+    for (const p of members) if (p.downed && g.chance(ROAM_KILLS)) killPerson(s, p, `was killed by ${r ? roamerName(r) : 'a band'} out on the land`);
     // (and it goes off with what it took: a band fights once)
     s.roamers = (s.roamers ?? []).filter((q) => q.id !== k.roamer);
-    notify(s, `${names(members)} ${members.length > 1 ? 'were' : 'was'} driven off by ${r ? ROAMER_NAME[r.kind] : 'a band'} on the land.`, true);
+    notify(s, `${names(members)} ${members.length > 1 ? 'were' : 'was'} driven off by ${r ? roamerName(r) : 'a band'} on the land.`, true);
   }
   k.e.result = result;
   k.e.battle = null;

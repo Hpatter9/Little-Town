@@ -168,6 +168,17 @@ export function themeOf(id: string, words: string): PictureTheme | null {
 
 /** Themes looked over by hand where the words alone pick wrong. */
 export const PICTURE_OF: Record<string, PictureTheme> = {
+  // the Calamity's (calamityEvents.ts)
+  calamity_dream: 'dead',
+  calamity_hedge_witch: 'fae',
+  calamity_herald: 'war',
+  calamity_drill: 'war',
+  calamity_eclipse: 'sky',
+  calamity_refugees: 'blight',
+  calamity_relic: 'blight',
+  calamity_well: 'blight',
+  cult_preacher: 'dead',
+  cult_shrine: 'ruins',
   stranger: 'town',
   knight_oath: 'town',
   twins: 'town',

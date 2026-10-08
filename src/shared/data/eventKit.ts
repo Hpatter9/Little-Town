@@ -76,7 +76,9 @@ export type EventEffect =
   /** Horses for the town's stable. */
   | { horse: number }
   /** A building's blueprint laid down with its makings delivered: it only wants building (else the makings). */
-  | { build: string };
+  | { build: string }
+  /** The Calamity's dread, up or down (sim/calamity.ts). */
+  | { dread: number };
 
 export interface EventOption {
   label: string;
@@ -119,6 +121,7 @@ export const rep = (n: number): EventEffect => ({ reputation: n });
 export const calm = (h: number): EventEffect => ({ calm: h });
 export const raidIn = (h: number): EventEffect => ({ raid: h });
 export const study = (seconds: number): EventEffect => ({ research: seconds });
+export const dread = (n: number): EventEffect => ({ dread: n });
 export const opt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, effects });
 export const dflt = (label: string, ...effects: EventEffect[]): EventOption => ({ label, default: true, effects });
 

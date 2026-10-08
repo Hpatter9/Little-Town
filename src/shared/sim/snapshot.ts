@@ -121,6 +121,10 @@ import { packDestinations, packView, type PackView } from './pack';
 import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from './sagas';
 import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
+import { calamityView, heartDestinations, type CalamityView } from './calamity';
+import { nestPlaceName } from './nests';
+import { blightSources } from './blight';
+import { NEST_DEFS, type NestKind } from '../data/nests';
 import { directionName, isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
 import { RIVALS } from '../data/rivals';
@@ -502,6 +506,8 @@ export interface PlaceView {
   dest: Destination | null;
   /** A cleared cave dug as a mine: its level, what its walls still hold, and who is digging. */
   mine: { depth: number; last: boolean; left: Stock; diggers: number } | null;
+  /** A monster nest (sim/nests.ts): its kind and how grown. */
+  nest?: { kind: NestKind; level: number };
 }
 
 /** The mine the player has gone into (sim/places.ts): what's there to watch. */
@@ -649,7 +655,9 @@ export interface TravellerView {
 
 export interface RoamerView {
   id: number;
-  kind: 'beasts' | 'dead' | 'bandits';
+  kind: 'beasts' | 'dead' | 'bandits' | 'nest';
+  /** A nest's band: what it's called ("goblins"). */
+  name?: string;
   x: number;
   y: number;
   dir: 1 | -1;
@@ -773,6 +781,9 @@ export interface Snapshot {
   hunts: { guild: boolean; hunts: HuntView[]; forge: ForgeView[]; won: number };
   /** The dragon in the hills (sim/dragon.ts): its phase, health, tribute and flight. */
   dragon: DragonView | null;
+  /** The Calamity (sim/calamity.ts), and where the land is blighted (cells: round each nest and its heart). */
+  calamity: CalamityView | null;
+  blight: { x: number; y: number; r: number }[];
   /** The regions of the world map the town knows (data/regions.ts): home, and those its scouts have mapped. */
   regions: string[];
   /** The unique weapons found (data/uniques.ts), in the order found, and who has each now (null: in storage). */
@@ -975,7 +986,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -1028,10 +1039,13 @@ export function snapshot(s: GameState): Snapshot {
     world: worldView(s),
     hunts: huntsView(s),
     dragon: dragonView(s),
+    calamity: calamityView(s),
+    blight: blightSources(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
     roamers: (s.roamers ?? []).map((r) => ({
       id: r.id,
       kind: r.kind,
+      ...(r.name ? { name: r.name } : {}),
       x: r.x,
       y: r.y,
       dir: r.dir,
@@ -1330,8 +1344,9 @@ function placeViews(s: GameState): PlaceView[] {
   return (s.places ?? []).map((p) => ({
     id: p.id,
     kind: p.kind,
-    name: PLACE_DEFS[p.kind].name,
-    text: PLACE_DEFS[p.kind].found,
+    name: p.nest ? nestPlaceName(p) : PLACE_DEFS[p.kind].name,
+    text: p.nest ? NEST_DEFS[p.nest.kind].found : PLACE_DEFS[p.kind].found,
+    ...(p.nest ? { nest: { kind: p.nest.kind, level: p.nest.level } } : {}),
     ...placeXY(p),
     found: p.found !== null,
     state: p.state,

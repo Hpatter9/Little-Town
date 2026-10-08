@@ -6,7 +6,7 @@
 import type { Era } from './eras';
 import type { Material } from './materials';
 
-export type PlaceKind = 'vein' | 'cave' | 'cart' | 'beast' | 'ruin' | 'bones' | 'reef';
+export type PlaceKind = 'vein' | 'cave' | 'cart' | 'beast' | 'ruin' | 'bones' | 'reef' | 'nest';
 
 export interface PlaceDef {
   kind: PlaceKind;
@@ -36,6 +36,8 @@ export const PLACE_DEFS: Record<PlaceKind, PlaceDef> = {
   ruin: { kind: 'ruin', name: 'Old Ruins', weight: 2, found: 'Worked stones under the moss, older than anyone remembers. There may be something to learn here.', fight: false, loot: {}, hoard: { stone: 6 }, coins: [8, 30], scenery: 'quarry', party: 0 },
   // (a shore town's sea beast, laired on a wreck out on the reef: seeded only on a sea-shaped land, sim/places.ts)
   reef: { kind: 'reef', name: "Sea Beast's Reef", weight: 0, found: 'Out past the shallows the water boils over an old wreck on the reef: something big lairs there.', fight: true, loot: { fish: 4, kelp: 3, pearls: 1 }, hoard: { pearls: 2, fish: 4 }, coins: [10, 40], scenery: 'river', party: 3 },
+  // (a monster nest: never seeded, it comes up on the land by itself; its own name, foes and hoard are in data/nests.ts)
+  nest: { kind: 'nest', name: 'Monster Nest', weight: 0, found: 'Something has made its nest here.', fight: true, loot: { hide: 2, bone: 2 }, hoard: {}, coins: [20, 60], scenery: 'cave', party: 4 },
   bones: { kind: 'bones', name: 'Great Bones', weight: 1, found: 'The bones of something vast, bleached white. Nothing has lived here for an age.', fight: false, loot: {}, hoard: { bone: 10 }, coins: [0, 0], scenery: 'quarry', party: 0 },
 };
 

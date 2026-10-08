@@ -1,6 +1,8 @@
 // Raids by era (DESIGN §10, §15): wolf packs, boar charges, rival tribe scouting parties; then bandits and
 // warbands. Numbers are starting points for tuning.
 
+import { NEST_RAIDS } from './nests';
+import { CALAMITY_RAIDS } from './calamity';
 import { PACK_RAIDS } from './pack';
 import { BESTIARY_RAIDS } from './bestiary';
 import { MENAGERIE_RAIDS } from './menagerie';
@@ -99,6 +101,9 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   ...BESTIARY_RAIDS,
   // the menagerie's (data/menagerie.ts): one for each family, and the ice's, the dunes' and the deep's own
   ...MENAGERIE_RAIDS,
+  // the nests' and the Calamity's (data/nests.ts, data/calamity.ts): never rolled
+  ...NEST_RAIDS,
+  ...CALAMITY_RAIDS,
 ];
 
 export const RAID_KINDS: readonly RaidKind[] = [...BASE_RAID_KINDS, ...PACK_RAIDS];

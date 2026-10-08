@@ -40,17 +40,18 @@ import {
   SET_OUT_UNTIL,
   STRENGTH_PER_LEVEL,
   TRIP_REST_HOURS,
-} from '../data/parties';
+  PULL_NEST, PULL_NEST_LEVEL, PULL_HEART } from '../data/parties';
 import { DEVOTED, ENEMY } from '../data/social';
 import { ambitionOf } from './ambition';
 import { boatDef, freeBoat } from './boats';
 import { payParty } from './economy';
 import { destinationOf, destinationUnlocked, rolesFor, STAKES, sendExpedition, planParty, type SendCheck, type Stakes } from './expeditions';
-import { placeDestinations } from './places';
+import { placeDestinations, placeOfDest } from './places';
 import { packDestinations } from './pack';
 import { isSagaDest, sagaDestinations } from './sagas';
 import { huntDestinations, huntStars } from './hunts';
 import { dragonDestinations } from './dragon';
+import { heartDestinations, isHeartDest } from './calamity';
 import { PULL_HUNT_STAR } from '../data/hunts';
 import { PULL_SAGA } from '../data/sagas';
 import { isChild, opinion } from './social';
@@ -59,7 +60,7 @@ import { earn, maxHp, notify, type Expedition, type GameState, type Person } fro
 import { calendar, TICKS_PER_HOUR } from './time';
 
 /** Every destination on the board now (the world's, the places on the land, the rival packs' lairs). */
-export const boardDestinations = (s: GameState): Destination[] => [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s)];
+export const boardDestinations = (s: GameState): Destination[] => [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s)];
 
 /** The player's veto: destinations no party may choose. */
 export const vetoed = (s: GameState, id: string) => (s.vetoed ?? []).includes(id);
@@ -225,6 +226,9 @@ function pull(s: GameState, leader: Person, d: Destination): number {
   if (d.type === 'gather') n += 1;
   if (isSagaDest(d.id)) n += PULL_SAGA; // (a saga waits on it)
   n += huntStars(s, d.id) * PULL_HUNT_STAR; // (the guild's purse, bigger for the harder hunts)
+  const nest = isPlaceDest(d.id) ? placeOfDest(s, d.id)?.nest : undefined;
+  if (nest) n += PULL_NEST + PULL_NEST_LEVEL * nest.level; // (a nest festering on the land: sim/nests.ts)
+  if (isHeartDest(d.id)) n += PULL_HEART; // (the Calamity's heart)
   return n;
 }
 

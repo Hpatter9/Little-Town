@@ -4,6 +4,7 @@
 // something stands on it, a road runs over it, a building stands beside it (the yards are kept), or people still
 // walk it (a footpath showing): then it waits another day. Rock and the mountain don't grow back.
 
+import { blighted } from './blight';
 import { Rng, hashSeed } from '../rng';
 import { TERRAIN } from '../data/terrain';
 import type { Material } from '../data/materials';
@@ -47,7 +48,8 @@ export function regrowHourly(s: GameState): void {
         for (let yy = f.y - 1; yy <= f.y + f.h; yy++) for (let xx = f.x - 1; xx <= f.x + f.w; xx++) if (inMap(m, xx, yy)) yards.add(idx(m, xx, yy));
       }
     }
-    if (builtOn(s, x, y) || isRoad(m, x, y) || yards.has(i) || wearAt(m, i) >= WEAR_SHOW) {
+    // (nothing grows back in the blight round a nest or the Calamity's heart: sim/nests.ts)
+    if (builtOn(s, x, y) || isRoad(m, x, y) || yards.has(i) || wearAt(m, i) >= WEAR_SHOW || blighted(s, x, y)) {
       m.regrow![i] = [was, s.tick + TICKS_PER_DAY]; // (kept clear: it tries again tomorrow)
       continue;
     }

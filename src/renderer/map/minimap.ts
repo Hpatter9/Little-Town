@@ -15,7 +15,9 @@ const WINTER: Record<string, string> = { '.': '#d9e2ea', f: '#4c6150', m: '#b8c4
 export interface MiniDots {
   people: { x: number; y: number }[];
   raiders: { x: number; y: number }[];
-  places: { x: number; y: number; waiting: boolean }[];
+  places: { x: number; y: number; waiting: boolean; nest?: boolean }[];
+  /** The Calamity's heart (px), once it can be struck at. */
+  heart?: { x: number; y: number } | null;
   buildings: { x: number; y: number; w: number; h: number }[];
   /** The view, in world px. */
   view: { x: number; y: number; w: number; h: number };
@@ -138,8 +140,12 @@ export class Minimap {
     ctx.fillStyle = '#e8dcc0';
     for (const b of dots.buildings) ctx.fillRect(Math.round(b.x * kx), Math.round(b.y * ky), Math.max(2, Math.round(b.w * kx)), Math.max(2, Math.round(b.h * ky)));
     for (const p of dots.places) {
-      ctx.fillStyle = p.waiting ? '#ffb020' : '#c8b060';
+      ctx.fillStyle = p.nest ? '#c050ff' : p.waiting ? '#ffb020' : '#c8b060';
       ctx.fillRect(Math.round(p.x * kx) - 2, Math.round(p.y * ky) - 2, 5, 5);
+    }
+    if (dots.heart) {
+      ctx.fillStyle = '#9040ff';
+      ctx.fillRect(Math.round(dots.heart.x * kx) - 3, Math.round(dots.heart.y * ky) - 3, 7, 7);
     }
     ctx.fillStyle = '#ffffff';
     for (const p of dots.people) ctx.fillRect(Math.round(p.x * kx) - 1, Math.round(p.y * ky) - 1, 3, 3);

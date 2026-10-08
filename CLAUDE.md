@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.30.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.31.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3157,6 +3157,53 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   Tales by the Fire, The Crier's Scroll, The Town Gazette, The Evening Bulletin, Holo-Feed; `#notice-sheet[data-era]`).
   A soft vignette darkens the view's corners (`VIGNETTE` in mapView.ts). (Blurring the far parts was left out: too dear
   on a phone.)
+
+## The Calamity and monster nests (0.31.0; the owner's pick of the content updates, first of nine)
+
+- **Monster nests** (`data/nests.ts`, `sim/nests.ts`): goblin warrens, spider dens and restless barrows come up on the
+  land (from day `NEST_FIRST_DAY`, `NEST_DAILY` a morning at `NEST_HOUR`, `NEST_NEAR`..`NEST_FAR` cells out, at most
+  `NESTS_MOST` plus one a Calamity stage; the kind by the ground, the origin and the Calamity). Each is a place
+  (`PlaceKind` `nest`, `MapPlace.nest`: `NestState` kind, level, born, grew, raided), found when the known land reaches
+  it or when its raiders are tracked home (`findNest`). It grows a level every `growDays` (sooner as the Calamity
+  rises) up to `NEST_MAX_LEVEL` 5, its foes `NEST_DEFS[k].foes[level-1]` (the warren's master is Gnasher the Goblin
+  King, the den's the Brood Mother (`NEST_ENEMIES`, the menagerie's giant spider grown huge), the barrow's the Barrow
+  Wight); its creatures come out to prowl between it and the town (`spawnRoamerAt` in roamers.ts, a band of kind `nest`
+  with its `name`: "goblins"), and from level `NEST_RAID_LEVEL` 3 it raids (`NEST_RAIDS`, `nest_*`, never rolled;
+  `nestRaid`). On the board (`placeDestination`'s nest branch: "Spider Den, grown 3 to the north"); cleared, its hoard
+  times its level, coins, and the Calamity's dread falls (`nestCleared`; `s.nestsCleared`). Only with the autopilot on.
+- **The blight** (`sim/blight.ts`, kept apart so farming and regrowth needn't import the raids): round every nest
+  (`nestBlight(level)` cells) and the Calamity's heart (its `scar`). Blighted fields grow at `BLIGHT_CROPS` (half),
+  nothing regrows there (regrow.ts), and a ward stone within `WARD_REACH` keeps it off. `snapshot.blight`.
+- **The Calamity** (`data/calamity.ts`, `sim/calamity.ts`): one a town, by the seed (`calamityKindOf`): the Ashen
+  Tyrant, the Grey Rot or the Sleeper Below, each with its heart, omens, stage tellings, army (`CALAMITY_RAIDS`), avatar
+  (`CALAMITY_ENEMIES`: 1100 to 1400 health, kits, trophies in `CALAMITY_TROPHIES`), heart guard and cult. `s.calamity`
+  (`CalamityState`) wakes on day `CALAMITY_WAKES` (6). Each morning at `CALAMITY_HOUR` its **dread** (0 to 100) rises
+  `dreadToday`: `DREAD_PER_DAY` + `DREAD_PER_NEST_LEVEL` a nest level − `WARD_DREAD` a ward stone. Stages by dread
+  (`STAGE_AT`, `stageOfDread`): 1 omens (an omen most nights at `OMEN_HOUR`, a small chill), 2 the spreading (its heart
+  goes on the board as `calamity:heart`, `heartDestination`; the scar grows `SCAR_PER_DAY`; the town raises ward stones,
+  `WARD_BUILDING`, one a stage up to `WARDS_MOST`, left out of the planner's own loop by `NEVER`), 3 the cults (the
+  unhappy are lured, `Person.cultist`; hidden cultists set fires, rob the treasury or hold rites; found out on
+  `FOUND_CHANCE` a day, more with guards, and cast out), 4 the armies (`ARMY_DAILY` raids, `Raid.calamity` 'army'),
+  5 the last siege (warned `SIEGE_WARNING_HOURS`, then a host of `SIEGE_SIZE` led by the avatar: `startRaid` with
+  `host`). `calamityRaidOver` (from `endRaid`): the avatar down, the game is won (`s.gameOver.won`); else
+  `SIEGE_RUIN` buildings burn, the dread falls to `SIEGE_LOST_DREAD`, and the third siege lost ends the town. Every
+  stage is told in the event box (a `debrief` prompt with a picture). Clearing a nest takes `NEST_CLEARED_DREAD` + a
+  level off; the heart `HEART_DREAD`, halving the scar, and it lies quiet `HEART_QUIET_DAYS`. Ten choice events
+  (`data/calamityEvents.ts`, passages in `calamityMore.ts`, pictures in `PICTURE_OF`) come from their stage on; the new
+  event effect `dread` moves it.
+- **Seen:** the nests from the packs (`art/nests/`: the cave entrance, the webbed cocoon, the skull door; bigger as they
+  grow) through `syncPlaces`; the blight as a dark-violet stain with the Undead pack's withered things in it and the
+  heart as the dark totem with skulls and a pulsing glow (`map/mapBlight.ts`, `MapView.syncBlight`); nests violet and
+  the heart on the minimap; **The Calamity** card on the Trips tab's Places (a dread bar, the stage, what's next, the
+  latest omen, the heart's card; `snapshot.calamity`, `CalamityView`); a tile on the Town overview; the news bubble
+  (the stage, red from the armies; the siege). Tests: `test/calamity.test.ts`.
+- **Tuning:** a grown nest's raid comes in place of a raid already due within `NEST_RAID_DUE` hours (`scheduleNextRaid`
+  after it), and so does an army's, so they don't pile on; adventurers are drawn to nests (`PULL_NEST` + `PULL_NEST_LEVEL`
+  a level) and the heart (`PULL_HEART`) in parties.ts. The four new bosses each carry a unique (the Brood Stinger,
+  Ashbringer, the Grey Harvest, Dreamshard). Soak (24 days, 2 towns each, people/deaths, main's in brackets): settlers
+  7/4 (6/8), 3/6 (8/3); knights 12/6 (12/1), 3/7 (3/4); vampires 7/6 (4/7), 4/11 (9/4); 2 to 7 nests a town, knights
+  and vampires clearing most of theirs, dread 3 to 18 by day 24 (the spreading around day 30 and on, sooner with nests
+  left to grow).
 
 ## Known problem (fixed, watch)
 

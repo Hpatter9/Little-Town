@@ -312,6 +312,13 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
     } else if ('calm' in e) {
       s.nextRaidTick = Math.max(s.nextRaidTick, s.tick + hours(e.calm));
       say(`no raid for ${span(e.calm)}`);
+    } else if ('dread' in e) {
+      // (the Calamity's dread, up or down: sim/calamity.ts)
+      const c = s.calamity;
+      if (c && c.beaten === undefined) {
+        c.dread = Math.max(0, Math.min(99, c.dread + e.dread));
+        say(`the Calamity's dread ${signed(e.dread)}`);
+      }
     }
     else if ('research' in e) {
       const topic = s.research.queue[0];
