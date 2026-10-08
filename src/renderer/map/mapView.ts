@@ -44,6 +44,8 @@ import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleVie
 import { MapFestival } from './mapFestival';
 import { WorkFx } from './workFx';
 import { NightSky } from './nightSky';
+import { GroundWeather } from './groundWeather';
+import { reflectOf, waterBelow } from './reflections';
 import { castleClutter, clutterLoaded, flickerCastle, onClutterArt, type Flame } from './castleClutter';
 import { seatArt } from '../art/seatArt';
 import { SEAT_STAGE } from '../../shared/data/seats';
@@ -207,6 +209,8 @@ export class MapView {
   readonly workFx: WorkFx;
   /** The stars over the dark beyond the known land, shooting stars and the cold lands' aurora (map/nightSky.ts). */
   readonly nightSky: NightSky;
+  /** Gusts over the grass, puddles after rain, snow settling and melting (map/groundWeather.ts). */
+  readonly groundWeather: GroundWeather;
   /** How much the hearths are burning now (0 to 1: ambientView's `airFor`). */
   smokeAmount = 0.5;
   /** Marks on the ground under everything standing (a battle's trail and spots), and effects over it all. */
@@ -215,7 +219,7 @@ export class MapView {
   private readonly ghost = new Sprite();
   private readonly chunks = new Map<string, { sprite: Sprite; key: string }>();
   /** The wild cells' objects, keyed by cell index times 2 (plus 1 for a wood's undergrowth). */
-  private readonly props = new Map<number, { sprite: Sprite; key: string; kind: PropKind; alpha: number; faded?: boolean }>();
+  private readonly props = new Map<number, { sprite: Sprite; key: string; kind: PropKind; alpha: number; faded?: boolean; reflect?: Sprite }>();
   private propTex = new Map<PropSet, Texture[]>();
   /** The sets with their leaves turned for autumn (art/props.ts `autumnTextures`), and whether they're wanted now. */
   private autumnTex = new Map<PropSet, Texture[]>();
@@ -275,6 +279,7 @@ export class MapView {
     this.festival = new MapFestival(this.things, this.over, this.lights);
     this.workFx = new WorkFx(this.over, this.lights);
     this.nightSky = new NightSky(this.lights);
+    this.groundWeather = new GroundWeather(this.under);
     this.smoke.size = 1.6;
     this.lights.blendMode = 'add';
     this.lights.alpha = 0;
@@ -563,6 +568,7 @@ export class MapView {
     for (const [i, p] of this.props)
       if (!seen.has(i)) {
         p.sprite.destroy();
+        p.reflect?.destroy();
         this.props.delete(i);
       }
   }
@@ -586,6 +592,15 @@ export class MapView {
     p.alpha = vis === 1 ? 0.45 : 1;
     p.sprite.alpha = p.faded ? p.alpha * SEE_THROUGH : p.alpha;
     p.sprite.tint = vis === 1 ? 0x6a7088 : 0xffffff;
+    // (standing at the water's edge: mirrored in it, upside down and faint, unless it's frozen over)
+    const below = this.land ? waterBelow(this.land, fx, fy, this.season) : false;
+    if (below && (p.kind === 'tree' || p.kind === 'bush' || p.kind === 'rock')) {
+      if (!p.reflect) p.reflect = this.things.addChild(new Sprite());
+      reflectOf(p.reflect, pick.tex, fx, fy, 0.95);
+    } else if (p.reflect) {
+      p.reflect.destroy();
+      p.reflect = undefined;
+    }
   }
 
   /** Trees with someone behind them, or a building's front, are drawn see-through (the trees are big now, and a
@@ -974,6 +989,7 @@ export class MapView {
     this.festival.render(dt, this.lights.alpha > 0.3, this.calm);
     this.workFx.render(dt, this.view, this.calm, this.wind());
     this.nightSky.render(dt, this.view, this.land, this.lights.alpha, this.calm);
+    this.groundWeather.render(dt, this.view, this.land, this.wind(), this.calm);
     if (this.calm) return;
     this.smoke.amount = this.smokeAmount;
     const chimneys: { x: number; y: number }[] = [];

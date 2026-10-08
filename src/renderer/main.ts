@@ -30,6 +30,8 @@ import { sunAt } from './art/sun';
 import { MapMarket } from './map/mapMarket';
 import { SeasonDecor } from './map/seasonDecor';
 import { StreetLamps } from './map/streetLamps';
+import { MapSkiffs } from './map/mapSkiffs';
+import { RoadTraffic } from './map/roadTraffic';
 import { BloodPools } from './map/bloodPools';
 import { MapDisaster } from './map/mapDisaster';
 import { createBattleHud } from './battle/battleHud';
@@ -246,6 +248,7 @@ async function start(): Promise<void> {
     let since = performance.now() + 15_000;
     app.ticker.add(() => {
       const now = performance.now();
+      if ((window as unknown as { __keepQuality?: boolean }).__keepQuality) return; // (previews in a slow headless browser)
       if (document.hidden || now < since) {
         frames = 0;
         if (document.hidden) since = now + 3000;
@@ -300,6 +303,9 @@ async function start(): Promise<void> {
   const market = new MapMarket(map.things); // (market day's stalls)
   const decor = new SeasonDecor(map.things, map.lights); // (the doors dressed for the season)
   const lamps = new StreetLamps(map.things, map.lights); // (lamps along the streets, lit at dusk)
+  const skiffs = new MapSkiffs(map.things); // (boats along the rivers)
+  const traffic = new RoadTraffic(map.things); // (carts along the roads)
+  (window as unknown as { __traffic?: unknown }).__traffic = { skiffs, traffic, ground: map.groundWeather }; // (previews)
   // the dragon in the sky (map/mapDragon.ts)
   const dragon = new MapDragon(map.over, map.under, map);
   dragon.onFlight = (low, pan) => ambience.cue('roar', pan, low ? 0.2 : 0.8);
@@ -1216,6 +1222,10 @@ async function start(): Promise<void> {
     map.weather = next.weather.kind;
     map.nightSky.cold = !!biomeById(next.biome).cold;
     map.nightSky.clear = next.weather.kind === 'clear';
+    map.groundWeather.weather(next.tick, next.weather.kind);
+    map.groundWeather.season = next.calendar.season;
+    map.groundWeather.seasonDay = next.calendar.dayOfSeason;
+    map.groundWeather.hour = next.calendar.hour;
     // the birds come down by day in fair enough weather; everyone about scares them off
     birds.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.weather.kind !== 'snow' && !freeze;
     birds.winter = next.calendar.season === 'winter';
@@ -1396,6 +1406,12 @@ async function start(): Promise<void> {
     lamps.sync(next.land, next.era);
     lamps.setDaylight(next.calendar.daylight);
     lamps.calm = map.calm;
+    skiffs.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.raid?.phase !== 'active';
+    skiffs.era = next.era;
+    skiffs.season = next.calendar.season;
+    skiffs.land = next.land;
+    traffic.on = skiffs.on && next.weather.kind !== 'snow';
+    traffic.land = next.land;
     disaster.sync(next.disaster, next.land.w);
     map.festival.sync(next.gathering);
     map.syncCastle(next.castle ?? null, next.buildings);
@@ -1413,6 +1429,7 @@ async function start(): Promise<void> {
     people.theme = next.theme;
     people.weather = next.weather.kind;
     people.news = next.news;
+    people.land = next.land;
     herds.grazing = next.calendar.hour >= 8 && next.calendar.hour < 18 && next.calendar.season !== 'winter' && next.weather.kind !== 'storm' && next.weather.kind !== 'rain' && !next.raid;
     people.season = next.calendar.season;
     people.hour = next.calendar.hour;
@@ -1471,6 +1488,8 @@ async function start(): Promise<void> {
     herds.render(performance.now(), ticker.deltaMS / 1000);
     market.render(ticker.deltaMS / 1000);
     lamps.render(ticker.deltaMS / 1000);
+    skiffs.render(ticker.deltaMS / 1000, map.view, map.calm);
+    traffic.render(ticker.deltaMS / 1000, map.view, map.calm);
     boats.render(performance.now());
     birds.render(ticker.deltaMS / 1000, performance.now());
     wildlife.render(ticker.deltaMS / 1000, performance.now());

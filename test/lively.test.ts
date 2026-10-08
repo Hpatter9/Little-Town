@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ITEMS, STATIONS } from '../src/shared/data/items';
 import { RESEARCH_STATIONS } from '../src/shared/data/research';
-import { CELL } from '../src/shared/sim/land';
+import { CELL, groundAt } from '../src/shared/sim/land';
 import { pastimeFor, STROLL_FROM } from '../src/shared/sim/pastimes';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { campXY, type GameState, type Person } from '../src/shared/sim/state';
@@ -18,6 +18,9 @@ import { fightFire } from '../src/shared/sim/fire';
 import { sunAt } from '../src/renderer/art/sun';
 import { lampCells, lampLit, LAMPS_MOST, LAMP_LOOK } from '../src/renderer/map/lampRules';
 import { ERAS } from '../src/shared/data/eras';
+import { snowCover, wetnessStep } from '../src/renderer/map/groundRules';
+import { nextRoadCell } from '../src/renderer/map/trafficRules';
+import { waterBelow } from '../src/renderer/map/reflections';
 
 const twin = (s: GameState, extra: Partial<Person>): Person => {
   const p: Person = { ...JSON.parse(JSON.stringify(s.people[0])), id: s.nextId++, partner: null, ...extra };
@@ -149,4 +152,35 @@ test('street lamps stand along the roads, nearest the fire first, lit from dusk 
   assert.equal(lampLit(0.1), 1);
   assert.ok(lampLit(0.45) > 0 && lampLit(0.45) < 1, 'half lit at dusk');
   for (const e of ERAS) assert.ok(LAMP_LOOK[e], e);
+});
+
+test('rain wets the ground and it dries after; snow settles at the end of autumn and melts in spring', () => {
+  let w = 0;
+  w = wetnessStep(w, 'rain', TICKS_PER_HOUR);
+  assert.ok(w > 0.4);
+  w = wetnessStep(w, 'rain', 3 * TICKS_PER_HOUR);
+  assert.equal(w, 1);
+  w = wetnessStep(w, 'clear', 4 * TICKS_PER_HOUR);
+  assert.ok(w > 0.4 && w < 0.6, 'drying slowly');
+  assert.equal(snowCover('autumn', 3, 10), 0);
+  assert.ok(snowCover('autumn', 3, 22) > 0.5);
+  assert.ok(snowCover('spring', 1, 2) > snowCover('spring', 1, 18));
+  assert.equal(snowCover('summer', 1, 12), 0);
+});
+
+test('a cart keeps to the road, mostly straight on, and stops at a dead end', () => {
+  const road = (x: number, y: number) => y === 5 && x >= 0 && x <= 10;
+  assert.deepEqual(nextRoadCell(road, { x: 3, y: 5 }, { x: 2, y: 5 }, 0.1), { x: 4, y: 5 });
+  assert.equal(nextRoadCell(road, { x: 10, y: 5 }, { x: 9, y: 5 }, 0.5), null);
+});
+
+test("things at the water's edge are mirrored in it", () => {
+  const s = plainGame('reflect');
+  const land = s.land;
+  let found: { x: number; y: number } | null = null;
+  for (let y = 1; y < land.h - 1 && !found; y++)
+    for (let x = 0; x < land.w && !found; x++) if (land.cells[y * land.w + x] !== land.cells[0] && groundAt(land, x, y + 1) === 'water' && groundAt(land, x, y) !== 'water') found = { x, y };
+  assert.ok(found, 'a shore');
+  assert.ok(waterBelow(land, (found!.x + 0.5) * CELL, (found!.y + 1) * CELL - 2, 'summer'));
+  assert.ok(!waterBelow(land, (found!.x + 0.5) * CELL, (found!.y - 3) * CELL, 'summer'));
 });

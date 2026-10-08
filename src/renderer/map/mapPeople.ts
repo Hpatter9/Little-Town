@@ -23,6 +23,8 @@ import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } fro
 import { glowTexture } from '../town/layer';
 import { TAIL_H, TAIL_W, tailTexture, WAIST } from '../art/merTail';
 import { BEAT, danceStep, mournStep, type DanceStep } from './dance';
+import { reflectOf, waterBelow } from './reflections';
+import type { LandMap } from '../../shared/sim/land';
 import { hash01, lineNow, makeBubble, REPLY_AFTER, SPEECH_EVERY, SPEECH_FOR, SPEECH_SHARE, TALK_NEAR, type SpeechContext } from './speech';
 
 /** Standing still, a person breathes (a pixel's rise every couple of seconds) and shifts their weight now and then
@@ -96,6 +98,8 @@ interface Drawn {
   load: Graphics;
   /** The wheelbarrow pushed with a heavy load (map/haul.ts), and its heap's key. */
   barrow?: Container;
+  /** Their reflection, standing at the water's edge (map/reflections.ts). */
+  reflect?: Sprite;
   /** A child's kite on a fair, breezy day at play. */
   kite?: Graphics;
   heapKey?: string;
@@ -186,6 +190,8 @@ export class MapPeople {
   news: { id: number; text: string } | null = null;
   /** Where the sun leans their shadows (px aside; main.ts, from art/sun.ts). */
   sunLean = 0;
+  /** The land (main.ts), for the reflections at the water's edge. */
+  land: LandMap | null = null;
   private crierId = -1;
   /** The map's lights layer (main.ts): everyone out after dark carries a lantern's glow there. */
   lights: Container | null = null;
@@ -253,7 +259,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.kite, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.reflect, d.kite, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -769,6 +775,16 @@ export class MapPeople {
             .fill(0xe04040);
           d.blood.position.set(Math.round(x) - 4, Math.round(y) - 40);
           d.blood.zIndex = z + 0.2;
+        }
+      }
+      // (at the water's edge: mirrored in it)
+      const mirrored = !hidden && !swimming && !!this.land && waterBelow(this.land, x, y, this.season);
+      if (mirrored && !d.reflect) d.reflect = this.layer.addChild(new Sprite());
+      if (d.reflect) {
+        d.reflect.visible = mirrored;
+        if (mirrored) {
+          reflectOf(d.reflect, s.texture, x, y, s.anchor.y, Math.sign(s.scale.x) * Math.abs(s.scale.x), Math.abs(s.scale.y));
+          d.reflect.zIndex = z - 0.7;
         }
       }
       d.shadow.visible = !hidden && !swimming;
