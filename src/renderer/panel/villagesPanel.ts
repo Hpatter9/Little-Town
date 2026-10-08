@@ -14,7 +14,7 @@ const mood = (l: number, rebel: boolean) => (rebel ? 'Broken away' : l >= 75 ? '
 export function villagesSection(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const out: HTMLElement[] = [el('h2', '', 'Daughter villages')];
   if (!s.villages.length) {
-    out.push(el('p', 'empty', `None yet. Once the town has about ${VILLAGE_PEOPLE} grown-ups, some will ask to go and found a village of their own out on the land.`));
+    out.push(el('p', 'empty', `None yet. Once the town has ${VILLAGE_PEOPLE} grown-ups or so, some will ask to go and found a village of their own out on the land.`));
     return out;
   }
   out.push(el('div', 'hint', 'They run themselves: they grow, send what they can spare by cart (free while loyal, else for coins), marry with the town, and send fighters when it is raided. Treated badly, one may break away.'));

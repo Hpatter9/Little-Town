@@ -145,10 +145,10 @@ export function villageSpot(s: GameState, rng: Rng): Pt | null {
  *  their partner and children, then others of the restless sort. */
 export function pickSettlers(s: GameState, rng: Rng): { leader: Person; ids: number[] } | null {
   const home = grownAtHome(s).filter((p) => p.id !== s.mainId && !p.guard && !p.monster && !p.skirmish);
-  if (home.length < 4) return null;
+  if (home.length < 3) return null;
   const bent = (p: Person) => ({ restless: 3, proud: 3, bold: 2, curious: 2, stern: 1, greedy: 1 })[natureOf(p).id as string] ?? 0;
   const leader = [...home].sort((a, b) => bent(b) - bent(a) || b.skills.social.level - a.skills.social.level || a.id - b.id)[0];
-  const n = Math.min(rng.int(SETTLERS[0], SETTLERS[1]), Math.floor(grownAtHome(s).length / 4));
+  const n = Math.max(2, Math.min(rng.int(SETTLERS[0], SETTLERS[1]), Math.floor(grownAtHome(s).length / 4)));
   const ids = [leader.id];
   const add = (p: Person | undefined) => {
     if (p && !ids.includes(p.id) && p.id !== s.mainId && p.away === null) ids.push(p.id);
@@ -160,7 +160,7 @@ export function pickSettlers(s: GameState, rng: Rng): { leader: Person; ids: num
     if (ids.filter((id) => !isChild(s.people.find((q) => q.id === id)!)).length >= n) break;
     add(p);
   }
-  return ids.length >= 3 ? { leader, ids } : null;
+  return ids.length >= 2 ? { leader, ids } : null;
 }
 
 const nameFor = (s: GameState, rng: Rng): string => {

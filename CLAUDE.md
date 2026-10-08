@@ -3273,7 +3273,8 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
 ## Daughter villages (0.34.0; the owner's pick of the content updates, the fourth)
 
 - **The data** (`src/shared/data/villages.ts`): when a town founds one (from day `VILLAGE_FROM_DAY` 10, with
-  `VILLAGE_PEOPLE` 16 grown-ups at home, or `VILLAGE_PEOPLE_AT_SIZE` 10 at the player's chosen size; `VILLAGE_GAP_DAYS`
+  `VILLAGE_PEOPLE` 9 grown-ups at home, or `VILLAGE_PEOPLE_AT_SIZE` 7 at the player's chosen size (a probe's towns
+  peaked at 9 grown-ups by day 25, so 16 never came); `VILLAGE_GAP_DAYS`
   apart, at most `VILLAGES_MOST` 3), how many go (`SETTLERS`), where (`VILLAGE_DIST` cells out), the loyalty numbers,
   carts, help in raids, being beset, weddings, the rebels' raid (`REBEL_RAID`, merged into RAID_KINDS) and the militia it
   sends by age (`MILITIA_BY_ERA`).

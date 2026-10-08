@@ -20,7 +20,7 @@ const at = (day: number, hour: number) => (day - 1) * TICKS_PER_DAY + ((hour - S
 const lucky = (seed: number, yes: boolean) => Object.assign(new Rng(seed), { chance: () => yes }) as Rng;
 
 /** A town of `n` grown-ups, run by itself (the villages only come to a self-running town). */
-function bigTown(seed: string, n = 18): GameState {
+function bigTown(seed: string, n = 11): GameState {
   const s = plainGame(seed);
   const rng = new Rng(9);
   const c = s.people[0];

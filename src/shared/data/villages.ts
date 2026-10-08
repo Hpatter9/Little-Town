@@ -12,14 +12,14 @@ import type { RaidKind } from './raids';
 /** A town founds a village from this day, with this many grown-ups at home (or, at its chosen size, this many), no
  *  oftener than every VILLAGE_GAP_DAYS, at most VILLAGES_MOST of them; at this hour of the morning. */
 export const VILLAGE_FROM_DAY = 10;
-export const VILLAGE_PEOPLE = 16;
-export const VILLAGE_PEOPLE_AT_SIZE = 10;
+export const VILLAGE_PEOPLE = 9;
+export const VILLAGE_PEOPLE_AT_SIZE = 7;
 export const VILLAGE_GAP_DAYS = 12;
 export const VILLAGES_MOST = 3;
 export const VILLAGE_HOUR = 9;
 /** How many go (never more than a quarter of the grown-ups), and how long the town has to answer before they go
  *  with its blessing (or without, if it can't spare the makings). */
-export const SETTLERS: [number, number] = [4, 6];
+export const SETTLERS: [number, number] = [2, 5];
 export const PARTING_HOURS = 6;
 /** What a blessing sends with them. */
 export const BLESSING: Partial<Record<Material, number>> = { wood: 12, stone: 6 };
