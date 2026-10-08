@@ -122,6 +122,7 @@ import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from '.
 import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
+import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
 import { sceneView } from './cutscenes';
@@ -856,6 +857,9 @@ export interface Snapshot {
   deep: DeepSummary | null;
   /** The level of the Deep the player is looking at (`watchDeep`), drawn by renderer/deep/deepView.ts. */
   deepView: DeepView | null;
+  /** Other worlds opened (sim/portals.ts), and the one looked into (`watchPortal`, renderer/portal/portalView.ts). */
+  portals: PortalSummary[];
+  portalView: PortalView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
   /** The sagas under way and those ended (sim/sagas.ts). */
@@ -1085,7 +1089,7 @@ export function snapshot(s: GameState): Snapshot {
       : null,
     housing: { beds: housingCapacity(s), people: s.people.length },
     expeditions: s.expeditions.map((e) => expeditionView(s, e)),
-    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...villageDestinations(s)].map((d) => ({
+    destinations: [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...villageDestinations(s), ...portalDestinations(s)].map((d) => ({
       id: d.id,
       unlocked: destinationUnlocked(s, d),
       scouted: s.scouted.includes(d.id),
@@ -1171,6 +1175,8 @@ export function snapshot(s: GameState): Snapshot {
     mine: mineView(s),
     deep: deepSummary(s),
     deepView: deepView(s),
+    portals: portalSummaries(s),
+    portalView: portalView(s),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,

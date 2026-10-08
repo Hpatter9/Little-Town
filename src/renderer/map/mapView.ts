@@ -172,6 +172,9 @@ interface DrawnBuilding {
 /** Buildings whose fire glows at night though their picture (a pack's) has no lamp colours in it. */
 const FIRES = new Set(['campfire', 'bloomery', 'kiln', 'storytellers_circle']);
 const FIRE_GLOW = { r: 20, color: 0xffb347 };
+/** A portal's otherworldly light (data/portals.ts). */
+const PORTALS = new Set(['portal_arch', 'portal_rift']);
+const PORTAL_GLOW = { r: 30, color: 0xb070ff };
 /** How dark the view's corners are. */
 const VIGNETTE = 0.42;
 let vignetteTex: Texture | null = null;
@@ -1237,7 +1240,9 @@ export class MapView {
         ? art.lights.map((l) => ({ x: left + l.x, y: top + l.y, r: l.r, color: l.color }))
         : FIRES.has(b.def)
           ? [{ x: cx, y: bottom - (f.h * CELL) / 2, ...FIRE_GLOW }]
-          : b.room
+          : PORTALS.has(b.def)
+            ? [{ x: cx, y: bottom - (f.h * CELL) / 2, ...PORTAL_GLOW }]
+            : b.room
             ? [{ x: cx, y: (f.y + f.h / 2) * CELL, r: 9, color: parseInt(this.tone('#f0d890').slice(1), 16) }]
             : [];
       for (const l of lamps) {

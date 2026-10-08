@@ -55,6 +55,8 @@ import { placesHourly } from './places';
 import { nestsHourly } from './nests';
 import { calamityHourly } from './calamity';
 import { deepHourly } from './deep';
+import { portalsHourly } from './portals';
+import type { RealmId } from '../data/portals';
 import { giftVillage, villagesHourly } from './villages';
 import { politicsHourly } from './politics';
 import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
@@ -206,6 +208,7 @@ export class Sim {
     nestsHourly(s); // (monster nests on the land: sim/nests.ts)
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
+    portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
     villagesHourly(s); // (daughter villages: sim/villages.ts)
     politicsHourly(s); // (the town's politics and law: sim/politics.ts)
     scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)
@@ -436,6 +439,9 @@ export class Sim {
         break;
       case 'giftVillage':
         giftVillage(s, c.id);
+        break;
+      case 'watchPortal':
+        s.watchingPortal = c.realm && (s.portals ?? []).some((p) => p.realm === c.realm) ? (c.realm as RealmId) : undefined;
         break;
       case 'watchDeep':
         s.watchingDeep = c.depth !== null && s.deep && c.depth <= s.deep.levels.length ? c.depth : undefined;

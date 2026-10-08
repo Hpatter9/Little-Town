@@ -43,6 +43,7 @@ import { FightScene } from './fight/fightView';
 import { TacticsScene } from './tactics/tacticsView';
 import { MineScene } from './fight/mineView';
 import { DeepScene } from './deep/deepView';
+import { PortalScene } from './portal/portalView';
 import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
@@ -385,6 +386,8 @@ async function start(): Promise<void> {
   app.stage.addChild(mine.root);
   // the Deep under the town (deep/deepView.ts): a level seen from above, the miners carving it out
   const deep = new DeepScene((c) => bridge.command(c));
+  // another world looked into through a portal (portal/portalView.ts): its own full-screen page
+  const portal = new PortalScene((c) => bridge.command(c));
   app.stage.addChild(deep.root);
   // a cutscene (cutscene/cutsceneView.ts): over everything, offered first, then played full screen
   const cutscene = new CutsceneScene((c) => bridge.command(c), document.body);
@@ -769,6 +772,16 @@ async function start(): Promise<void> {
         label: 'Go down into the Deep',
         onClick: () => {
           bridge.command({ type: 'watchDeep', depth: snap!.deep!.levels.length });
+          done();
+        },
+      });
+    // (a portal: look through it into the realm beyond, sim/portals.ts)
+    const realm = snap.portals.find((p) => p.building === b.id);
+    if (realm)
+      list.push({
+        label: `Look through into ${realm.name}`,
+        onClick: () => {
+          bridge.command({ type: 'watchPortal', realm: realm.realm });
           done();
         },
       });
@@ -1303,10 +1316,13 @@ async function start(): Promise<void> {
     // (the Deep looked into: the same, unless a fight, battle or mine has the screen)
     const below = watched || next.battle || inMine || next.tactics ? null : next.deepView;
     deep.update(below);
+    // (a portal looked through: the same again)
+    const beyond = watched || next.battle || inMine || below || next.tactics ? null : next.portalView;
+    portal.update(beyond);
     tactics.update(next);
     // (a scene is offered only while nothing else has the screen: a battle, a watched fight, a question)
-    cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || next.tactics || next.prompts.length));
-    map.root.visible = !watched && !inMine && !below && !next.tactics && !cutscene.shown;
+    cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || beyond || next.tactics || next.prompts.length));
+    map.root.visible = !watched && !inMine && !below && !beyond && !next.tactics && !cutscene.shown;
     showNotices(next);
     snap = next;
     hud.update(next);

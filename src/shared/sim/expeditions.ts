@@ -66,6 +66,7 @@ import { isSagaDest, sagaDestOf, sagaTripHome } from './sagas';
 import { huntDestOf, huntHome, isHuntDest } from './hunts';
 import { dragonDestination, dragonHome, isDragonDest } from './dragon';
 import { isVillageDest, villageDestination, villageHome } from './villages';
+import { isPortalDest, portalDestination, portalHome } from './portals';
 import { heartCleared, heartDestination, heartOpen, isHeartDest } from './calamity';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
@@ -100,6 +101,7 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isHuntDest(id)) return huntDestOf(s, id);
   if (isDragonDest(id)) return dragonDestination(s);
   if (isVillageDest(id)) return villageDestination(s, id);
+  if (isPortalDest(id)) return portalDestination(s, id);
   if (isHeartDest(id)) return heartDestination(s);
   if (isAssaultDest(id)) return assaultDestination(s, id);
   if (isWildDest(id)) return wildDestination(id); // (a fight with a band out on the land: sim/roamers.ts)
@@ -117,6 +119,7 @@ export function destinationUnlocked(s: GameState, d: Destination): boolean {
   if (isDragonDest(d.id)) return !!dragonDestination(s);
   // (a daughter village broken away)
   if (isVillageDest(d.id)) return !!villageDestination(s, d.id);
+  if (isPortalDest(d.id)) return !!portalDestination(s, d.id);
   // (the Calamity's heart, while it can be struck at)
   if (isHeartDest(d.id)) return heartOpen(s);
   // (an assault: on a power at war, or a dungeon on the board)
@@ -717,6 +720,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   huntHome(s, e, party);
   dragonHome(s, e, party);
   villageHome(s, e.dest, !!e.cleared && !e.recalled);
+  portalHome(s, e.dest, party, !!e.cleared && !e.recalled, at);
   payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);
   debrief(s, e, d); // (a party the player sent: what it cost and won, sim/muster.ts)

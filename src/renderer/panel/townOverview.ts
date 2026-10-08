@@ -100,6 +100,12 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
       bridge?.closePanel();
     }, d.stir >= 0.75);
   }
+  // (other worlds through a portal: a tap looks through into each, sim/portals.ts)
+  for (const pt of s.portals)
+    tile(pt.name, pt.calm ? 'Quiet' : `${pt.explored} of ${pt.sites}`, pt.calm ? 'its heart broken' : pt.next ? `next: ${pt.next}` : 'explored', () => {
+      bridge?.command({ type: 'watchPortal', realm: pt.realm });
+      bridge?.closePanel();
+    }, pt.stir >= 0.75);
   tile('Age', ERA_NAMES[s.era], `Year ${c.year}, ${c.season} day ${c.dayOfSeason}`, ['research', 'Tech tree']);
   return [el('h2', '', 'At a glance'), grid, el('div', 'hint', 'Tap a tile to go to it.')];
 }

@@ -7,6 +7,7 @@ import { WORKSHOP_TOPICS } from './workshops';
 import { MINERAL_TOPICS } from './minerals';
 import { MONSTER_LORE } from './hunts';
 import { DELVING } from './deep';
+import { PLANAR_LORE } from './portals';
 import { BOAT_TOPICS } from './boats';
 
 export type Branch = 'construction' | 'crafting' | 'agriculture' | 'military' | 'medicine' | 'logistics' | 'society' | 'occult' | 'heritage';
@@ -354,6 +355,7 @@ export const TOPICS: readonly Topic[] = [
   ...MINERAL_TOPICS,
   MONSTER_LORE,
   DELVING,
+  PLANAR_LORE,
   ...BOAT_TOPICS,
 ];
 
