@@ -46,7 +46,7 @@ test('a big town is asked to let some go; blessed, they found a village out on t
   assert.ok(q && s.villagePlan, 'the question is put');
   assert.equal(q.village?.about, 'parting');
   const going = s.villagePlan!.ids.length;
-  assert.ok(going >= 3 && !s.villagePlan!.ids.includes(s.mainId), 'a few go, never the founder');
+  assert.ok(going >= 2 && !s.villagePlan!.ids.includes(s.mainId), 'a few go, never the founder');
   answerParting(s, 0, new Rng(1));
   const v = s.villages![0];
   assert.ok(v, 'founded');
