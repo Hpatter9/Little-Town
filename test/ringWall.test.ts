@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { trail } from '../src/shared/sim/battle';
 import { blueprintCount, footprint } from '../src/shared/sim/buildings';
-import { groundAt, inRect, isRoad, WILD } from '../src/shared/sim/land';
+import { groundAt, inRect, isRoad, setGround, wet, WILD } from '../src/shared/sim/land';
 import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
-import { gateAt, gateCells, gateTurned, isGate, isRingPiece, RING_AT_ONCE, RING_PAD, RING_STEP, ringCells, wantRect } from '../src/shared/sim/ringWall';
+import { gateAt, gateCells, gateTurned, isGate, isRingPiece, RING_AT_ONCE, RING_PAD, RING_STEP, ringCells, riverCell, wantRect } from '../src/shared/sim/ringWall';
 import { campCell, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { pathTo } from '../src/shared/sim/walk';
 import { CELL, cellAt, isMarked, setMarked } from '../src/shared/sim/land';
@@ -181,4 +181,39 @@ test("the trees and rocks on the ring's line are marked to clear at once, taken 
     runPlanner(s);
   }
   for (const i of [...woods, rock]) assert.ok(laid(i), 'the wall follows');
+});
+
+test('where a river crosses the ring the wall is carried over it on grates; the gates stand on dry ground on all four sides', () => {
+  const s = walledTown('ring-river');
+  const r0 = wantRect(s);
+  const c = campCell(s);
+  // a stream two cells wide down the camp's column across the north side, and a lake twelve cells each way under the
+  // south side (this seed's own river runs down the east side besides)
+  for (let y = r0.y - 2; y <= r0.y + 2; y++) for (const x of [c.x, c.x + 1]) setGround(s.land, x, y, 'water');
+  for (let x = r0.x + 2; x < r0.x + 14; x++) for (let y = r0.y + r0.h - 1; y < r0.y + r0.h + 11; y++) setGround(s.land, x, y, 'water');
+  assert.ok(riverCell(s.land, { x: c.x, y: r0.y }) && !riverCell(s.land, { x: r0.x + 6, y: r0.y + r0.h - 1 }));
+  raise(s);
+  assert.ok(s.ring?.done, 'the ring stands all round');
+  const r = s.ring!.rect;
+  assert.deepEqual(r, r0);
+  const grates = s.buildings.filter((b) => b.def === 'palisade_grate');
+  for (const x of [c.x, c.x + 1]) assert.ok(grates.some((g) => g.tile === x && g.row === r.y && g.status === 'done' && g.ring === 1), `a grate over the stream at ${x}`);
+  for (const g of grates) assert.ok(wet(groundAt(s.land, g.tile, g.row)) && riverCell(s.land, { x: g.tile, y: g.row }), 'every grate in a river');
+  // (the lake is left open: no grates on its cells; this seed's own river crosses the south side at its east corner)
+  assert.ok(!grates.some((g) => g.row === r.y + r.h - 1 && g.tile >= r.x + 2 && g.tile < r.x + 14), 'no grates over the lake');
+  // four gates, one a side, none in the water, the north one moved aside from the stream
+  const gates = s.buildings.filter((b) => isGate(b.def) && b.ring === 1);
+  const side = (g: Building) => (g.row === r.y ? 'n' : g.row === r.y + r.h - 1 ? 's' : g.tile === r.x ? 'w' : 'e');
+  assert.deepEqual(gates.map(side).sort(), ['e', 'n', 's', 'w']);
+  for (const g of gates) {
+    const f = footprint(g);
+    for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) assert.ok(!wet(groundAt(s.land, x, y)), `${side(g)} gate on dry ground`);
+  }
+  const north = gates.find((g) => side(g) === 'n')!;
+  assert.ok(north.tile + 1 < c.x || north.tile > c.x + 1, 'beside the stream');
+  // the wall stands unbroken: every cell of the ring holds a piece of it, but the lake's
+  for (const p of ringCells(r)) {
+    const b = s.buildings.find((q) => isRingPiece(q.def) && q.status === 'done' && inRect(footprint(q), p.x, p.y));
+    assert.ok(b || (p.y === r.y + r.h - 1 && wet(groundAt(s.land, p.x, p.y)) && !riverCell(s.land, p)), `a piece at ${p.x},${p.y}`);
+  }
 });

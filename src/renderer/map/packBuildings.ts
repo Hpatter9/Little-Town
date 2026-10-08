@@ -154,6 +154,7 @@ import suHouse from '../art/packs/su_house.png';
 import ttLong from '../art/packs/tt_long.png';
 import ttGable from '../art/packs/tt_gable.png';
 import dlPit from '../art/packs/dl_pit.png';
+import dlFence from '../art/packs/dl_fence.png';
 import dlStakes from '../art/packs/dl_stakes.png';
 import dlCaltrops from '../art/packs/dl_caltrops.png';
 import dlSpikes from '../art/packs/dl_spikes.png';
@@ -174,6 +175,11 @@ const pal2 = (top: string, foot: string): Pick => ({ parts: [[top, 0, 0], [foot,
 const pal1 = (tile: string): Pick => ({ parts: [[tile, 0, 0]], size: [32, 32], overhang: 0 });
 /** The palisade's runs of stakes, one of three by the piece's id. */
 const PAL_RUN: Pick[] = [pal2(palisade02, palisade10), pal2(palisade03, palisade11), pal2(palisade04, palisade12)];
+/** A water grate's bars (`dl_fence.png`: a 16px cell, drawn across the whole cell), turned to stand down a column. */
+const grate = (col: number, grade?: string): Pick => {
+  const bars: Pick = { parts: [[dlFence, 0, 0, col * 16, 0, 16, 16]], size: [16, 16], overhang: 0, ...(grade ? { grade } : {}) };
+  return { own: true, ...bars, joins: { v: { ...bars, rotate: 90 } } };
+};
 export interface Pick {
   url?: string;
   parts?: Part[];
@@ -326,6 +332,13 @@ const PICKS: Record<string, Pick> = {
   brick_gate: { own: true, grade: 'brick', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
   concrete_gate: { own: true, grade: 'concrete', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
   force_gate: { own: true, grade: 'force', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
+  // the grates where the ring wall crosses a river (sim/ringWall.ts): DawnLike's fence runs, wooden bars for the
+  // palisade, iron for the stone wall, pale steel for the concrete one, the water showing between the bars
+  palisade_grate: grate(0),
+  stone_grate: grate(1),
+  brick_grate: grate(1, 'brick'),
+  concrete_grate: grate(2),
+  force_grate: grate(2, 'force'),
   // the dungeon props: bookshelves for the library, an alchemist's bench for the healer, a plain table for the workbench
   library: { parts: [[dprops, 0, 0, 16, 256, 48, 48], [dprops, 48, 0, 64, 256, 48, 48], [dprops, 96, 0, 112, 256, 48, 48]], size: [144, 48], overhang: 0 },
   healers_hut: { parts: [[dprops, 0, 0, 16, 304, 48, 48]], size: [48, 48], overhang: 0 },
@@ -575,8 +588,8 @@ export function packArtIndoors(def: string, w: number, style: string, id = 0): P
 export function packArt(def: string, w: number, style: string, id = 0, join?: Join): PixelArt | null {
   let pick = pickFor(def, style);
   if (!pick) return null;
-  if (join && pick.joins?.[join]) pick = pick.joins[join]!;
-  else if (join === 've' && pick.joins?.v) pick = pick.joins.v;
+  const joined = join ? pick.joins?.[join] ?? (join === 've' ? pick.joins?.v : undefined) : undefined;
+  if (joined) pick = { ...joined, grade: joined.grade ?? pick.grade };
   // (one of several by the building's id)
   let which = '';
   if (pick.of?.length) {

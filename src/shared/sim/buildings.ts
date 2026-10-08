@@ -187,10 +187,12 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
       if (Math.hypot(cx - m.camp.x, cy - m.camp.y) > m.open) return { ok: false, reason: 'Beyond the known land' };
       const g = groundAt(m, cx, cy);
       if (wet(g)) {
-        // (a shore town's homes, seat and defences stand in the sea: sim/sea.ts)
-        if (!seaBuild(s, def)) return { ok: false, reason: g === 'water' ? 'Water runs here' : 'The shallows run here' };
+        // (a shore town's homes, seat and defences stand in the sea: sim/sea.ts; the ring wall's grates stand in the
+        // river: sim/ringWall.ts)
+        if (!seaBuild(s, def) && !def.onWater) return { ok: false, reason: g === 'water' ? 'Water runs here' : 'The shallows run here' };
         continue;
       }
+      if (def.onWater) return { ok: false, reason: 'A grate stands in the water' };
       if (carved) {
         if (!carvable(g)) return { ok: false, reason: 'A hall is cut into the mountain' };
       } else if (g === 'mountain') return { ok: false, reason: 'The mountain stands here' };

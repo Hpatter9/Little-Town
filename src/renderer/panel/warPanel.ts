@@ -546,8 +546,11 @@ function squadCard(w: WarView, q: SquadView, s: Snapshot, cmd: (c: object) => vo
     sel.addEventListener('change', () => cmd({ type: 'conquest', op: 'slot', squad: q.id, slot: i, troop: sel.value || null }));
     grid.append(sel);
   }
-  card.append(el('div', 'hint', 'Front row · middle · back'), grid);
+  card.append(el('div', 'hint', 'Front row · middle · back. The hero fills the ranks; change any place.'), grid);
   const acts = el('div', 'realm-acts');
+  // (the hero fills the empty places from the trained troops: sim/conquest/squads.ts `fillSquad`)
+  const trained = w.troops.some((t) => t.n > 0 && q.leads.includes(t.id));
+  if (!afield) acts.append(button('Fill the ranks', () => cmd({ type: 'conquest', op: 'fill', squad: q.id }), { cls: 'place quiet', disabled: q.size >= q.lead || !trained }));
   if (q.army === null) acts.append(button('Disband', () => cmd({ type: 'conquest', op: 'disband', squad: q.id }), { cls: 'place quiet danger' }));
   card.append(acts);
   return card;

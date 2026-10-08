@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { piece } from '../src/shared/data/quality';
 import { SQUAD_SLOTS, TROOP_BY_ID, TROOPS } from '../src/shared/data/troops';
-import { command, conquestDaily, disbandSquad, formSquad, heroStrength, leadership, leads, setSlot, squadStrength, train, troopWorth } from '../src/shared/sim/conquest/squads';
+import { command, conquestDaily, disbandSquad, fillSquad, formSquad, heroStrength, leadership, leads, setSlot, squadSize, squadStrength, train, troopWorth } from '../src/shared/sim/conquest/squads';
 import { worldOf } from '../src/shared/sim/conquest/conquest';
 import { warView } from '../src/shared/sim/conquest/warView';
 import { Sim } from '../src/shared/sim/sim';
@@ -90,4 +90,42 @@ test('training and the days: recruits from the provinces, batches done, upkeep p
   assert.ok(v.heroes.length >= 1);
   const hero = s.people[0];
   assert.ok(leads(hero, 'settlers').length >= 2);
+});
+
+test('a squad fills its ranks itself when formed: a line in front, shooters behind, within the lead; the player changes any place', () => {
+  const s = plainGame('fill');
+  const c = s.conquest!;
+  const hero = s.people[0];
+  hero.cls = 'archer'; // (a shooter leads ranged, skirmish and spear troops)
+  hero.level = 40;
+  c.troops = { spearmen: 2, skirmishers: 2, slingers: 4, militia: 3 };
+  const lead = leadership(hero);
+  const q = formSquad(s, hero.id).squad!;
+  // (seven places have troops that suit them: spears and skirmishers in front, slingers behind, a skirmisher in the
+  // middle; nothing of theirs for the other two, and never militia, which an archer doesn't lead)
+  assert.equal(squadSize(q), Math.min(lead, 7), `${squadSize(q)} of ${lead}`);
+  assert.ok(!q.slots.includes('militia'));
+  for (let i = 0; i < 3; i++) if (q.slots[i]) assert.ok(q.slots[i] === 'spearmen' || q.slots[i] === 'skirmishers', `front ${q.slots[i]}`);
+  for (let i = 6; i < 9; i++) if (q.slots[i]) assert.equal(q.slots[i], 'slingers');
+  assert.ok(q.slots[1] === 'spearmen' && q.slots[0] === 'spearmen', 'the front row is filled from its middle, the best kind first');
+  assert.equal(c.troops.spearmen, 0);
+  assert.equal(c.troops.militia, 3);
+  // the player overrules: a slinger in the front row
+  assert.ok(setSlot(s, q.id, 2, null).ok);
+  assert.ok(setSlot(s, q.id, 2, 'slingers').ok);
+  assert.equal(q.slots[2], 'slingers');
+  // formed empty when asked, and filled on the command with what suits
+  const other = { ...hero, id: 777, name: 'Other', skills: structuredClone(hero.skills) };
+  s.people.push(other as typeof hero);
+  const e = formSquad(s, 777, false).squad!;
+  assert.equal(squadSize(e), 0);
+  c.troops = { militia: 3 };
+  assert.equal(fillSquad(s, e.id).filled, 0, 'nothing an archer leads');
+  c.troops = { militia: 3, slingers: 2, spearmen: 1 };
+  const f = fillSquad(s, e.id);
+  assert.ok(f.ok);
+  assert.equal(f.filled, 3);
+  assert.equal(e.slots[1], 'spearmen');
+  assert.equal(e.slots[7], 'slingers');
+  assert.equal(c.troops.slingers, 0);
 });

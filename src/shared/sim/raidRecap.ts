@@ -149,7 +149,7 @@ export function raidRecap(s: GameState, r: Raid, name: string, a: { outcome: Rai
     takenAlive: r.raiders.filter((rd) => !rd.ally && rd.runDown && rd.taken).length,
     story: [],
   };
-  recap.story = tellRaid(recap, { side: r.side, fromSea: !!a.fromSea, bossDown: !!a.bossDown });
+  recap.story = tellRaid(recap, { side: r.side, fromSea: !!a.fromSea, bossDown: !!a.bossDown, sneak: r.kind.startsWith('prowl_') });
   return recap;
 }
 
@@ -162,10 +162,11 @@ const stockWords = (st: Stock) =>
 
 /** The raid told in a few lines, from its recap: who came and from where, who led them, who fought hardest and who
  *  bore the worst of it, the fallen and the dead, the towers' part, and how it ended. */
-export function tellRaid(c: RaidRecap, o: { side: -1 | 1; fromSea: boolean; bossDown: boolean }): string[] {
+export function tellRaid(c: RaidRecap, o: { side: -1 | 1; fromSea: boolean; bossDown: boolean; sneak?: boolean }): string[] {
   const out: string[] = [];
   const who = /^the /i.test(c.name) ? c.name : `the ${c.name.toLowerCase()}`;
-  const where = o.fromSea ? 'up out of the sea' : o.side < 0 ? 'out of the west' : 'out of the east';
+  // (night prowlers slip in where the wall has gaps: sim/prowlers.ts)
+  const where = o.sneak ? 'in by night, where nothing stood to stop them' : o.fromSea ? 'up out of the sea' : o.side < 0 ? 'out of the west' : 'out of the east';
   const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   out.push(`${cap(who)} came ${where}: ${c.came === 1 ? 'one alone' : `${c.came} of them`}${c.waves > 1 ? `, in ${c.waves} waves` : ''}.`);
   if (c.boss) out.push(o.bossDown ? `${c.boss} led them, and fell.` : `${c.boss} led them, and lived to boast of it.`);

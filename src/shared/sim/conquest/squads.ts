@@ -12,7 +12,7 @@ import { levelOf, stageOf } from '../../data/levels';
 import {
   DESERT_SHARE, UPKEEP_AFIELD,
   COMMAND_PER_CHA, COMMAND_PER_LEVEL, COMMAND_PER_STAGE, HERO_CURVE, HERO_WEIGHT, LEAD_BASE, LEAD_PER_CHA, LEAD_PER_LEVELS, LEADS, LEADS_TOO, RECRUITS_HOME, RECRUITS_MOST,
-  SQUAD_SLOTS, TRAIN_BATCH_MOST, TRAIN_HOURS, TROOP_ATTACK, TROOP_BY_ID, TROOP_HP, TROOPS, UPKEEP, type TroopDef,
+  ROW_OF, SQUAD_SLOTS, TRAIN_BATCH_MOST, TRAIN_HOURS, TROOP_ATTACK, TROOP_BY_ID, TROOP_HP, TROOPS, UPKEEP, type TroopDef, type TroopKind,
 } from '../../data/troops';
 import { attributesOf } from '../attributes';
 import { totalStock } from '../buildings';
@@ -104,14 +104,54 @@ export function train(s: GameState, troopId: string, n: number): { ok: boolean; 
 export function mayLead(s: GameState, p: Person): boolean {
   return !isChild(p) && !s.conquest?.squads.some((q) => q.hero === p.id);
 }
-export function formSquad(s: GameState, heroId: number): { ok: boolean; reason?: string; squad?: Squad } {
+/** Form a squad round a hero. Formed, the hero fills its ranks from the trained troops (`fillSquad`; the owner's
+ *  ask: the hero picks their own, and the player changes any place after); `auto` false leaves it empty. */
+export function formSquad(s: GameState, heroId: number, auto = true): { ok: boolean; reason?: string; squad?: Squad } {
   const c = s.conquest;
   const p = s.people.find((q) => q.id === heroId);
   if (!c || !p) return { ok: false, reason: 'No such person' };
   if (!mayLead(s, p)) return { ok: false, reason: `${p.name} can't lead a squad` };
   const squad: Squad = { id: c.nextSquad++, name: `${p.name}'s ${squadWord(p)}`, hero: p.id, slots: Array(SQUAD_SLOTS).fill(null), battles: 0 };
   c.squads.push(squad);
+  if (auto) fillSquad(s, squad.id);
   return { ok: true, squad };
+}
+/** The places of the formation in the order the hero fills them: the front row from its middle, then the back row
+ *  (the shooters behind a line that holds), then the middle. */
+export const FILL_ORDER = [1, 0, 2, 7, 6, 8, 4, 3, 5] as const;
+/** Which kinds suit each row, the best first: the front holds, the middle thrusts and rides, the back shoots and
+ *  mends. A kind missing from a row's list is never put there (healers never stand in front). */
+export const ROW_KINDS: Readonly<Record<0 | 1 | 2, readonly TroopKind[]>> = {
+  0: ['shield', 'melee', 'spear', 'beast', 'horse', 'skirmish'],
+  1: ['spear', 'melee', 'skirmish', 'horse', 'beast', 'shield'],
+  2: ['ranged', 'magic', 'healer', 'siege', 'skirmish', 'spear'],
+};
+/** Fill a squad's empty places from the trained troops as its hero would: up to their leadership, in `FILL_ORDER`,
+ *  each place with the kind that suits its row best among those the hero may lead and the town has trained (the
+ *  worthier of two troops of a kind). The places already set are kept. */
+export function fillSquad(s: GameState, squadId: number): { ok: boolean; reason?: string; filled: number } {
+  const c = s.conquest;
+  const q = c?.squads.find((x) => x.id === squadId);
+  if (!c || !q) return { ok: false, reason: 'No such squad', filled: 0 };
+  const hero = s.people.find((p) => p.id === q.hero);
+  if (!hero) return { ok: false, reason: 'The squad has no hero', filled: 0 };
+  if (hero.away !== null && hero.away < 0) return { ok: false, reason: `${q.name} is afield with its army`, filled: 0 };
+  const may = leads(hero, s.origin ?? 'settlers');
+  const most = leadership(hero);
+  let filled = 0;
+  for (const slot of FILL_ORDER) {
+    if (q.slots[slot]) continue;
+    if (squadSize(q) >= most) break;
+    const kinds = ROW_KINDS[ROW_OF(slot)];
+    const pick = may
+      .filter((t) => (c.troops[t.id] ?? 0) > 0 && kinds.includes(t.kind))
+      .sort((a, b) => kinds.indexOf(a.kind) - kinds.indexOf(b.kind) || troopWorth(b) - troopWorth(a))[0];
+    if (!pick) continue;
+    c.troops[pick.id]! -= 1;
+    q.slots[slot] = pick.id;
+    filled++;
+  }
+  return { ok: true, filled };
 }
 const squadWord = (p: Person) => {
   const role = p.cls ? CLASS_DEFS[p.cls].role : 'bruiser';

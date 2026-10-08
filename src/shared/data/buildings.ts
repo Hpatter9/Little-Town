@@ -31,6 +31,9 @@ export interface BuildingDef {
   purpose: string;
   /** Stands at the water's edge: a cell of water or shallows beside its footprint (the boatyard). */
   shore?: boolean;
+  /** Stands in the water only (the ring wall's grates over a river: sim/ringWall.ts): every cell of its footprint wet,
+   *  so the water runs through and nobody does. */
+  onWater?: boolean;
   /** Placed only by the sim itself (a nomad tribe's wagon circle): never planned, placed or shown to build. */
   never?: boolean;
   /** Research topic that unlocks it (none = available from the start). */
@@ -93,6 +96,7 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'wagon_circle', name: 'Wagon Circle', layer: 'fore', width: 1, cost: {}, buildSeconds: 1, purpose: 'Wagons drawn up across the camp while raiders are about.', never: true, hp: 110 },
   { id: 'palisade_wall', name: 'Palisade Wall', layer: 'fore', width: 1, cost: { wood: 8 }, buildSeconds: 40, purpose: 'Stops raiders until they break it. Townsfolk can pass. Best at the town edges.', research: 'palisades', hp: 150 },
   { id: 'palisade_gate', name: 'Palisade Gate', layer: 'fore', width: 2, cost: { wood: 14, fiber: 4 }, buildSeconds: 70, purpose: 'Like a wall, but weaker. Townsfolk come and go through it.', research: 'palisades', hp: 120 },
+  { id: 'palisade_grate', name: 'Palisade Grate', layer: 'fore', width: 1, cost: { wood: 10 }, buildSeconds: 50, purpose: 'The palisade carried over a stream on a grating of stakes: the water runs through, nobody does.', research: 'palisades', hp: 130, onWater: true },
   { id: 'lookout', name: 'Lookout Platform', layer: 'mid', width: 2, cost: { wood: 14, fiber: 6 }, buildSeconds: 90, purpose: 'Spots raiders early: an hour of warning instead of minutes.', research: 'lookout', warningMinutes: 60 },
   { id: 'spike_trap', name: 'Spike Pit', layer: 'fore', width: 1, cost: { wood: 6, flint: 2 }, buildSeconds: 40, purpose: 'Hurts raiders who cross it.', research: 'palisades', defense: { damage: [6, 12], range: 16, interval: 5, accuracy: 0.8 } },
   { id: 'trading_post', name: 'Trading Post', layer: 'mid', width: 3, cost: { wood: 12, stone: 8 }, buildSeconds: 90, purpose: 'A shop: travellers stop to buy the town\'s goods for coins, and sell it what it lacks. It starts as one bare room with a counter: every shelf and table, and every room more, is bought with coins, and a better-furnished shop sells more.', research: 'barter', floor: { venue: 'shop', cols: 8, rows: 5, appeal: 0 } },
@@ -111,6 +115,7 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'cottage', name: 'Cottage', layer: 'mid', width: 3, cost: { lumber: 14, stone: 8, cloth: 2 }, buildSeconds: 150, purpose: 'Houses 4.', research: 'carpentry', housing: 4 },
   { id: 'stone_wall', name: 'Stone Wall', layer: 'fore', width: 1, cost: { stone: 18, bricks: 4 }, buildSeconds: 120, purpose: 'Much tougher than a palisade.', research: 'fortification', hp: 420 },
   { id: 'stone_gate', name: 'Stone Gate', layer: 'fore', width: 2, cost: { stone: 20, lumber: 8, iron: 2 }, buildSeconds: 150, purpose: 'A strong gate townsfolk pass through.', research: 'fortification', hp: 340 },
+  { id: 'stone_grate', name: 'Stone Grate', layer: 'fore', width: 1, cost: { stone: 16, iron: 2 }, buildSeconds: 130, purpose: 'An iron grating in the stone wall where the river runs under it.', research: 'fortification', hp: 360, onWater: true },
   { id: 'watchtower', name: 'Watchtower', layer: 'mid', width: 2, cost: { stone: 20, lumber: 10 }, buildSeconds: 160, purpose: 'Two hours of raid warning.', research: 'fortification', warningMinutes: 120 },
   { id: 'guard_tower', name: 'Archer Tower', layer: 'mid', width: 1, cost: { stone: 16, lumber: 8 }, buildSeconds: 150, purpose: 'Shoots arrows at raiders in range.', research: 'archery', defense: { damage: [5, 9], range: 150, interval: 2.5, accuracy: 0.65 } },
   { id: 'barracks', name: 'Barracks', layer: 'mid', width: 4, cost: { stone: 20, lumber: 16, iron: 4 }, buildSeconds: 200, purpose: 'Guards (Defend on High) drill here and take day and night patrol shifts: they fight better, and patrols spot raiders half an hour sooner.', research: 'fortification', morale: [3, 'Guards on watch'] },
@@ -176,6 +181,9 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'brick_gate', name: 'Brick Gate', layer: 'fore', width: 2, cost: { bricks: 24, steel: 4, lumber: 6 }, buildSeconds: 170, purpose: 'The gate in a brick ring wall: townsfolk pass through it.', research: 'urban_housing', hp: 650 },
   { id: 'concrete_gate', name: 'Concrete Gate', layer: 'fore', width: 2, cost: { concrete: 28, steel: 8 }, buildSeconds: 200, purpose: 'A steel-barred gate in a concrete wall.', research: 'concrete', hp: 1300 },
   { id: 'force_gate', name: 'Force Gate', layer: 'fore', width: 2, cost: { alloys: 12, power_cells: 8 }, buildSeconds: 220, purpose: 'A gap in the force wall that opens for the town\'s own.', research: 'energy_shields', hp: 2400 },
+  { id: 'brick_grate', name: 'Brick Grate', layer: 'fore', width: 1, cost: { bricks: 18, steel: 3 }, buildSeconds: 160, purpose: 'A steel grating in the brick wall where the river runs under it.', research: 'urban_housing', hp: 700, onWater: true },
+  { id: 'concrete_grate', name: 'Concrete Grate', layer: 'fore', width: 1, cost: { concrete: 22, steel: 6 }, buildSeconds: 190, purpose: 'A steel sluice grating in the concrete wall where the river runs under it.', research: 'concrete', hp: 1400, onWater: true },
+  { id: 'force_grate', name: 'Force Grate', layer: 'fore', width: 1, cost: { alloys: 10, power_cells: 7 }, buildSeconds: 210, purpose: 'The force wall carried over the water: the river runs through it, nothing else does.', research: 'energy_shields', hp: 2600, onWater: true },
   { id: 'launch_site', name: 'Launch Site', layer: 'mid', width: 8, cost: { alloys: 120, circuits: 60, power_cells: 80, fuel: 150, concrete: 100 }, buildSeconds: 30000, purpose: 'Build the ship, and the town leaves for the stars. The end of the game (a win).', research: 'starship_design' },
   { id: 'phylactery', name: 'Phylactery', layer: 'mid', width: 1, cost: { bone: 12, iron: 6, herbs: 6, cloth: 2 }, buildSeconds: 300, purpose: 'The founder becomes a lich and always returns here after death. If it burns, the next death is final.', research: 'lichcraft' },
   { id: 'town_hall', name: 'Town Hall', layer: 'mid', width: 6, cost: { bricks: 40, lumber: 30, iron: 10, cloth: 10 }, buildSeconds: 3000, purpose: 'Era capstone: the seat of the town opens the Industrial era.', research: 'town_charter', morale: [6, 'A proper town'] },
@@ -209,6 +217,10 @@ export const UPGRADES: Readonly<Record<string, string>> = {
   stone_gate: 'brick_gate',
   brick_gate: 'concrete_gate',
   concrete_gate: 'force_gate',
+  palisade_grate: 'stone_grate',
+  stone_grate: 'brick_grate',
+  brick_grate: 'concrete_grate',
+  concrete_grate: 'force_grate',
   lookout: 'watchtower',
   infirmary: 'hospital',
   hospital: 'trauma_center',

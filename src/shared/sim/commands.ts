@@ -96,6 +96,8 @@ export type Command =
   | { type: 'conquest'; op: 'form'; hero: number }
   | { type: 'conquest'; op: 'slot'; squad: number; slot: number; troop: string | null }
   | { type: 'conquest'; op: 'disband'; squad: number }
+  /** Fill a squad's empty places from the trained troops as its hero would (sim/conquest/squads.ts `fillSquad`). */
+  | { type: 'conquest'; op: 'fill'; squad: number }
   /** Armies (sim/conquest/armies.ts): raise one round a squad, add or drop a squad (at home), load spare troops into
    *  its train, march it to a province (any: it goes the shortest friendly way), leave `n` of its train as a garrison
    *  where it stands, pick a garrison up, recall it home, dismiss it. */

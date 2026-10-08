@@ -1071,6 +1071,8 @@ export interface GameState {
   /** When a wanderer last came to the gate (arrivals are a question to the player, and come no oftener than
    *  VISIT_GAP_HOURS apart). */
   lastVisit?: number;
+  /** When night prowlers last slipped in where the wall had gaps (sim/prowlers.ts). */
+  lastProwl?: number;
   /** How many people the player wants the town to hold (unset: as many as come). Nobody joins or is born past it. */
   popTarget?: number;
   /** The tax lever (data/economy.ts TAX; fair when left out), and since when it has been heavy. */
