@@ -6,6 +6,9 @@ import { checkConquestWin, defenceOf, rivalArmiesOf, rivalsDaily, rivalsTick } f
 import { realm } from '../src/shared/sim/factions';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
 import { plainGame } from './helpers';
+import { CONQUEST } from '../src/shared/data/conquest';
+
+CONQUEST.on = true; // (the conquest is parked in the game, but its code stays tested)
 
 test('rival realms spread over free land, and at war come for the town\'s bare provinces', () => {
   const s = plainGame('rivals');

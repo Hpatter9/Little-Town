@@ -9,6 +9,9 @@ import { warView } from '../src/shared/sim/conquest/warView';
 import { Sim } from '../src/shared/sim/sim';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
 import { plainGame } from './helpers';
+import { CONQUEST } from '../src/shared/data/conquest';
+
+CONQUEST.on = true; // (the conquest is parked in the game, but its code stays tested)
 
 test('free ground is fought for: its folk, outlaws or beasts stand against the army, with no walls', () => {
   const s = plainGame('march-free');

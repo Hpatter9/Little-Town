@@ -3,6 +3,7 @@
 // where, how dangerous the world is, and last the rules and the Found button. Back and Next move between the steps,
 // and the dots show how far along. Opened from the tray's "New game…", the game-over card, and on a first run.
 
+import { CONQUEST } from '../../shared/data/conquest';
 import { readLegends } from '../legends';
 import { legendCard } from './legendsPanel';
 import { hkDraw, hkLayers, hkWhoOfLook, onHkLoad } from '../art/hkFolk';
@@ -39,7 +40,8 @@ let step = 0;
 export const restartNewGame = (): void => {
   step = 0;
 };
-const STEPS = ['Who founds the town?', 'Your founder', 'How does it begin?', 'Where will you found your town?', 'How dangerous is the world?', 'How many realms share the world?', 'Ready to found it?'] as const;
+// (the realms page only while the conquest is on: data/conquest.ts)
+const STEPS: readonly string[] = ['Who founds the town?', 'Your founder', 'How does it begin?', 'Where will you found your town?', 'How dangerous is the world?', ...(CONQUEST.on ? ['How many realms share the world?'] : []), 'Ready to found it?'];
 
 let lpcReady: Promise<void> | null = null;
 
@@ -170,7 +172,7 @@ export function renderNewGame(snap: Snapshot, bridge: Bridge): HTMLElement[] {
     else if (step === 2) page.push(scenarios);
     else if (step === 3) page.push(biomes);
     else if (step === 4) page.push(dangers);
-    else if (step === 5) page.push(realmsPage());
+    else if (step === 5 && CONQUEST.on) page.push(realmsPage());
     else page.push(summary(), ...lineage(draw), el('h3', 'newgame-head', 'Rules'), iron, ...warning);
     const dots = el('div', 'wizard-dots');
     STEPS.forEach((_, i) => {

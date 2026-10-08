@@ -10,6 +10,9 @@ import { warView } from '../src/shared/sim/conquest/warView';
 import { realm } from '../src/shared/sim/factions';
 import { Sim } from '../src/shared/sim/sim';
 import { plainGame } from './helpers';
+import { CONQUEST } from '../src/shared/data/conquest';
+
+CONQUEST.on = true; // (the conquest is parked in the game, but its code stays tested)
 
 const veteran = (s: ReturnType<typeof plainGame>, id: number, name: string) => {
   const base = s.people[0];

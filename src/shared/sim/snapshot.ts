@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { CONQUEST } from '../data/conquest';
 import { skirmishTrip } from './roamers';
 import { ROAMER_NAME } from '../data/roamers';
 import { paveSeconds } from './streets';
@@ -984,7 +985,7 @@ export function snapshot(s: GameState): Snapshot {
     realm: realmView(s, (id) => !destinationHidden(s, id) && !!DEST_BY_ID[id] && destinationUnlocked(s, DEST_BY_ID[id])),
     places: placeViews(s),
     pack: packView(s),
-    war: warView(s),
+    war: CONQUEST.on ? warView(s) : null,
     gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40 } : null,
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),

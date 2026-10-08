@@ -8,6 +8,12 @@
 import type { Biome } from './biomes';
 import type { Material } from './materials';
 
+/** The conquest (the War tab, provinces, armies, squads) is switched off for now (the owner's call: "remove the war
+ *  feature for now and we can work on it later"). The code and the save state stay; with this false there is no War
+ *  tab, no realms page on the New Town wizard, no hourly conquest, no war notices, and no training grounds built. The
+ *  conquest's own tests turn it on (`CONQUEST.on = true`), so its code stays tested while it's parked. */
+export const CONQUEST = { on: false };
+
 export const REALMS_MIN = 2;
 export const REALMS_MAX = 12;
 /** The realms a new town shares the world with when nothing is chosen: the town and the four powers of old. */

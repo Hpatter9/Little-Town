@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.28.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.29.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2364,7 +2364,15 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - **The tap card on the phone** (`#inspect` in mobile/index.html) sits over the foot of the town just above the tabs;
   it was still placed above the strip's old top edge, which is the top of the screen now (a cut-off bar).
 
-## The Conquest update (in progress; the owner's ask: win the game by owning the whole map)
+## The Conquest update (parked; the owner's ask: win the game by owning the whole map)
+
+- **Switched off for now (0.29.0; the owner: "remove the war feature for now and we can work on it later"):**
+  `CONQUEST.on` in `src/shared/data/conquest.ts` is `false`, so there is no War tab (`PANELS` in ipc.ts), no realms
+  page in the New Town wizard (`STEPS` in newGamePanel.ts: six steps), no hourly conquest (`conquestHourly` in sim.ts),
+  `snapshot.war` is null (so no war notices in the news bubble), and the planner builds no training grounds. The code,
+  the save state (`s.conquest` is still founded) and the conquest's tests stay: each conquest test file sets
+  `CONQUEST.on = true`. `test/conquestOff.test.ts` checks the game itself has it off. To bring it back, set it true.
+  The realm's powers, war hosts and assaults on the Trips tab (sim/factions.ts) are not part of it and still run.
 
 - The owner's decisions: the game is won when every province is the town's or an ally's or vassal's (the launch and
   the Great Hunt stay); battles are squads of nameless troops led by a hero of the town, in the manner of Symphony of
