@@ -1,5 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { skirmishTrip } from './roamers';
+import { ROAMER_NAME } from '../data/roamers';
 import { paveSeconds } from './streets';
 import { branchesOf, PATH_BY_ID } from '../data/paths';
 import { CLASS_DEFS, STAGE_LEVELS } from '../data/classes';
@@ -641,6 +643,29 @@ export interface TravellerView {
   bandPhase?: 'coming' | 'staying' | 'leaving';
 }
 
+export interface RoamerView {
+  id: number;
+  kind: 'beasts' | 'dead' | 'bandits';
+  x: number;
+  y: number;
+  dir: 1 | -1;
+  /** Each foe in the band (enemy kind and name). */
+  foes: { kind: string; name: string }[];
+  fighting: boolean;
+  /** The fight it's in (a skirmish id, to watch), and who it's after. */
+  skirmish: number | null;
+  chasing: string | null;
+}
+export interface SkirmishView {
+  id: number;
+  x: number;
+  y: number;
+  who: string[];
+  foe: string;
+  over: boolean;
+  won: boolean | null;
+}
+
 export interface Snapshot {
   seed: string;
   /** The town's coins (from selling to travellers), its shop (once one's planned), and the travellers in town. */
@@ -716,6 +741,9 @@ export interface Snapshot {
   hero: number | null;
   /** The expedition the player is watching, in place of the town. */
   watch: ExpeditionView | null;
+  /** Hostile bands roaming the land, and the fights they're in (sim/roamers.ts). */
+  roamers: RoamerView[];
+  skirmishes: SkirmishView[];
   /** The mine the player has gone into, in place of the town (sim/places.ts). */
   mine: MineView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
@@ -985,7 +1013,27 @@ export function snapshot(s: GameState): Snapshot {
     hunts: huntsView(s),
     dragon: dragonView(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
-    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching)),
+    roamers: (s.roamers ?? []).map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      x: r.x,
+      y: r.y,
+      dir: r.dir,
+      foes: Object.entries(r.group).flatMap(([k, n]) => Array.from({ length: n }, () => ({ kind: k, name: ENEMIES[k]?.name ?? k }))),
+      fighting: r.fighting !== undefined,
+      skirmish: r.fighting ?? null,
+      chasing: r.chasing !== null ? (s.people.find((p) => p.id === r.chasing)?.name ?? null) : null,
+    })),
+    skirmishes: (s.skirmishes ?? []).map((k) => ({
+      id: k.id,
+      x: k.x,
+      y: k.y,
+      who: k.e.members.map((id) => s.people.find((p) => p.id === id)?.name).filter((n): n is string => !!n),
+      foe: ROAMER_NAME[(k.e.dest.slice(5) as keyof typeof ROAMER_NAME)] ?? 'a band',
+      over: k.ended !== undefined,
+      won: k.e.result ? k.e.result.outcome === 'won' : null,
+    })),
+    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching) ?? skirmishTrip(s, s.watching)),
     mine: mineView(s),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({

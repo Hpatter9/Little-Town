@@ -24,6 +24,7 @@ import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { nextPave, pave, paveReady, paveSeconds } from './streets';
+import { guardEngages, roamerToHunt } from './roamers';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
 import { CELL, cellAt, centreOf, groundAt, inMap, isMarked, isPlannedRoad, isRoad, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
@@ -111,6 +112,12 @@ function stackFactor(ctx: TickContext, key: string): number {
 
 export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext): void {
   drainNeeds(p, p.task?.type === 'sleep' && p.activity === 'sleep');
+  // (in a fight with a band out on the land: they stand and fight it out, sim/roamers.ts)
+  if (p.skirmish !== undefined) {
+    p.task = null;
+    p.activity = 'fight';
+    return;
+  }
 
   if (p.task && !stillValid(s, p, p.task)) p.task = null;
   // (laying a street is spare-time work: any other work comes first, sim/streets.ts)
@@ -359,9 +366,21 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     case 'defend':
       doDefend(s, p, task, rng);
       break;
-    case 'patrol':
+    case 'patrol': {
+      // (after a band out on the land: on its heels, and the fight is on once they reach it: sim/roamers.ts)
+      const band = task.band !== undefined ? (s.roamers ?? []).find((r) => r.id === task.band && r.fighting === undefined) : undefined;
+      if (task.band !== undefined && !band) {
+        p.task = null;
+        break;
+      }
+      if (band) {
+        task.targetX = band.x;
+        task.targetY = band.y;
+        if (guardEngages(s, p)) break;
+      }
       if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = null; // then back the other way
       break;
+    }
     case 'tend':
       doTend(s, p, task, rng);
       break;
@@ -1029,6 +1048,9 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
     case 'defend':
       // (fighting only happens in raids, see chooseTask; between them, guards on shift patrol)
       if (!onShift(s, p)) return null;
+      // (a band roaming near the town: they go out after it)
+      const band = roamerToHunt(s, p);
+      if (band) return { type: 'patrol', targetX: band.x, targetY: band.y, band: band.id };
       const end = patrolEnd(s, p);
       return { type: 'patrol', targetX: end.x, targetY: end.y };
     case 'research': {

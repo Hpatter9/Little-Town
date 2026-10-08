@@ -91,6 +91,12 @@ export function situationNotices(s: Snapshot): Notice[] {
     if (war.recap && s.tick - war.recap.tick < 6 * 600) out.push({ key: `precap:${war.recap.tick}`, tone: war.recap.won ? 'gold' : 'red', mark: '⚔', title: `${war.recap.won ? 'Victory' : 'Defeat'} at ${war.recap.province}`, text: war.recap.lines.join(' '), action: { label: 'War', kind: 'panel', panel: 'war' } });
   }
   if (s.doom) out.push({ key: `doom:${s.doom.name}`, tone: 'red', mark: '☁', title: s.doom.name, text: s.doom.phase === 'signs' ? `Signs of it: about ${Math.ceil(s.doom.hoursLeft)} hours off.` : s.doom.hoursLeft < 1 ? 'Under way, and nearly over.' : `Under way: ${Math.ceil(s.doom.hoursLeft)} hours to go.` });
+  // (a fight with a band out on the land: sim/roamers.ts)
+  for (const k of s.skirmishes ?? []) {
+    if (!k.over) out.push({ key: `skirmish:${k.id}`, tone: 'red', mark: '⚔', title: `Set upon by ${k.foe}`, text: `${k.who.join(', ')} ${k.who.length > 1 ? 'fight' : 'fights'} for their life out on the land.`, action: { label: 'Watch', kind: 'watch', watch: k.id } });
+  }
+  const near = (s.roamers ?? []).filter((r) => !r.fighting).length;
+  if (near) out.push({ key: `roamers:${(s.roamers ?? []).map((r) => r.id).join('.')}`, tone: 'gold', mark: '⚠', title: `${near} band${near === 1 ? '' : 's'} roaming the land`, text: 'Anyone out alone is in danger, and travellers keep away. A wall all round keeps them out; guards on watch go after them.' });
   for (const e of s.expeditions) {
     if (e.assault) {
       const where = e.phase === 'out' ? 'Marching' : e.phase === 'back' ? 'Coming home' : e.assault.wave ? `Wave ${e.assault.wave} of ${e.assault.total}` : 'At the walls';

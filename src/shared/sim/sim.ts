@@ -4,6 +4,7 @@
 import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
 import { streetsHourly } from './streets';
+import { roamersTick, skirmishTrip } from './roamers';
 import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
@@ -142,6 +143,7 @@ export class Sim {
       if (s.gameOver) break;
     }
     updateExpeditions(s, this.rng);
+    roamersTick(s); // (bands roaming the land, and the fights they start: sim/roamers.ts)
     envoyTick(s);
     maybeStartRaid(s, this.rng);
     lurkers(s, this.rng);
@@ -411,7 +413,7 @@ export class Sim {
         castAt(s, c.power, this.rng, [c.x, c.y]);
         break;
       case 'watch':
-        s.watching = c.expedition !== null && s.expeditions.some((e) => e.id === c.expedition) ? c.expedition : undefined;
+        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition)) ? c.expedition : undefined;
         break;
       case 'watchMine':
         s.watchingMine = c.place !== null && (s.places ?? []).some((p) => p.id === c.place && p.mine) ? c.place : undefined;

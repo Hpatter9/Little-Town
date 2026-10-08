@@ -47,7 +47,7 @@ import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
 import { blueprintCount, buildingDoor, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
-import type { PersonView, Snapshot, TravellerView } from '../shared/sim/snapshot';
+import type { PersonView, RaiderView, RoamerView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { lineOfDef, venueOfDef } from '../shared/data/shop';
 import { storePanel, type PanelId } from '../shared/ipc';
 /** The window a venue's building opens (the shop, the tavern, or a specialty shop's). */
@@ -139,9 +139,43 @@ type Hover =
   | { kind: 'scenery' }
   | { kind: 'pane' }
   | { kind: 'raider'; id: number }
+  | { kind: 'roamer'; id: number }
   | { kind: 'pet'; key: string }
   | { kind: 'caravan' }
   | null;
+
+/** The bands roaming the land drawn as raiders (one figure a foe, in a little knot), their ids so many a band. */
+const ROAMER_IDS = 16;
+const ROAMER_TITLE: Record<RoamerView['kind'], string> = { beasts: 'Wild beasts', dead: 'The restless dead', bandits: 'Bandits' };
+function roamerFigures(rs: readonly RoamerView[]): RaiderView[] {
+  return rs.flatMap((r) =>
+    r.foes.slice(0, ROAMER_IDS).map((f, i) => ({
+      id: r.id * ROAMER_IDS + i,
+      swimming: false,
+      ally: false,
+      sinceArea: 999,
+      sinceConjured: 999,
+      sinceCast: 999,
+      hitFx: null,
+      kind: f.kind,
+      name: f.name,
+      floor: null,
+      x: r.x + ((i % 3) - 1) * 16 + (i >= 3 ? 8 : 0),
+      y: r.y + Math.floor(i / 3) * 12,
+      dir: r.dir,
+      hp: 1,
+      maxHp: 1,
+      down: false,
+      fleeing: false,
+      gone: false,
+      carrying: 0,
+      captive: null,
+      lame: 0,
+      sinceAction: 999,
+      sinceHit: 999,
+    })),
+  );
+}
 
 /** Width of the tab dock at the right end of the strip (see #dock in index.html). */
 const DOCK_WIDTH = 108;
@@ -238,6 +272,7 @@ async function start(): Promise<void> {
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
   (window as unknown as { __hkCell?: typeof hkCell }).__hkCell = hkCell; // (for previews: a townsperson's cell)
   const raiders = new MapRaiders(map.things);
+  const roamers = new MapRaiders(map.things); // (the bands roaming the land: sim/roamers.ts)
   const herds = new MapHerds(map.things);
   const boats = new MapBoats(map.things);
   const wagons = new MapWagons(map.things); // (the caravans' wagons: sim/bands.ts)
@@ -406,6 +441,8 @@ async function start(): Promise<void> {
     const w = map.worldOf(x, y);
     const raider = raiders.raiderAt(w.x, w.y);
     if (raider) return { kind: 'raider', id: raider.id };
+    const roamer = roamers.raiderAt(w.x, w.y);
+    if (roamer) return { kind: 'roamer', id: Math.floor(roamer.id / ROAMER_IDS) };
     const person = people.personAt(w.x, w.y);
     if (person) return { kind: 'person', person };
     const pet = pets.petAt(w.x, w.y);
@@ -453,6 +490,13 @@ async function start(): Promise<void> {
         if (!r) return null;
         const doing = r.captive ? `Carrying off ${r.captive}! Stop them!` : r.fleeing ? (r.carrying ? 'Running off with your goods!' : 'Fleeing') : 'Raiding';
         return { title: r.name, lines: [`${doing} · health ${r.hp}/${r.maxHp}`], y: overheadY(raiders.posOf(r.id), 54) };
+      }
+      case 'roamer': {
+        const r = snap.roamers.find((q) => q.id === h.id);
+        if (!r) return null;
+        const doing = r.fighting ? 'Fighting townsfolk out on the land!' : r.chasing ? `After ${r.chasing}!` : 'Roaming the land: anyone out alone is in danger';
+        const foes = Object.entries(r.foes.reduce<Record<string, number>>((n, f) => ((n[f.name] = (n[f.name] ?? 0) + 1), n), {})).map(([name, n]) => (n > 1 ? `${n} × ${name}` : name));
+        return { title: ROAMER_TITLE[r.kind], lines: [doing, foes.join(', ')], y: overheadY(roamers.posOf(r.id * ROAMER_IDS), 54) };
       }
       case 'caravan': {
         const c = snap.caravan;
@@ -731,12 +775,21 @@ async function start(): Promise<void> {
         const following = snap.hero === p.id;
         const followAct = act('follow', following ? 'Stop following' : 'Follow', () => bridge.command({ type: 'follow', person: following ? null : p.id }));
         if (following) lines.unshift('You follow their story: their big moments come as phone alerts.');
-        return { title: d.title, lines, actions: [...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
+        // out on the land, fighting a band: watch it on the fight screen
+        const fight = snap.skirmishes.find((k) => !k.over && k.who.includes(p.name));
+        const watchAct = fight ? [act('watch', 'Watch the fight', () => bridge.command({ type: 'watch', expedition: fight.id }), { primary: true })] : [];
+        if (fight) lines.unshift(`Fighting ${fight.foe} out on the land!`);
+        return { title: d.title, lines, actions: [...watchAct, ...rallyAct, followAct, act('more', 'Townsfolk…', () => bridge.openPanel('townsfolk'))] };
       }
       case 'place': {
         const p = snap.places.find((q) => q.id === h.id);
         const actions = p?.dest ? [act('party', 'Bounty or forbid…', () => bridge.openPanel('expeditions'), { primary: true })] : p?.mine ? [act('enter', 'Enter the mine', () => bridge.command({ type: 'watchMine', place: p.id }), { primary: true })] : [];
         return { title: d.title, lines: d.lines, actions };
+      }
+      case 'roamer': {
+        const r = snap.roamers.find((q) => q.id === h.id);
+        const watch = r?.skirmish != null ? [act('watch', 'Watch the fight', () => bridge.command({ type: 'watch', expedition: r.skirmish }), { primary: true })] : [];
+        return { title: d.title, lines: d.lines, actions: watch };
       }
       case 'pet':
         return { title: d.title, lines: d.lines, actions: [act('scratch', 'Scratch behind the ears', () => (pets.scratch(h.key), publishInspect()), { primary: true })] };
@@ -1337,6 +1390,7 @@ async function start(): Promise<void> {
       performance.now(),
     );
     raiders.update(next.raid?.phase === 'active' ? next.raid.raiders : [], performance.now());
+    roamers.update(roamerFigures(next.roamers), performance.now());
     spells.update(next.spells, next.camp, performance.now());
     if (hover || placing) refreshHover(); // tooltip contents change as work progresses
     if (selected) showActions();

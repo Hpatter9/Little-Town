@@ -12,6 +12,7 @@ import { woundFor, woundPerson } from './injuries';
 import { levelOf, xpToLevel } from '../data/levels';
 import { crossroads, debrief } from './muster';
 import { ENEMIES } from '../data/enemies';
+import { isWildDest, wildDestination } from '../data/roamers';
 import { eraReached } from '../data/eras';
 import { HIDDEN_IN, HOME_REGION, REGION_BY_ID, regionScouted } from '../data/regions';
 import {
@@ -97,6 +98,7 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isHuntDest(id)) return huntDestOf(s, id);
   if (isDragonDest(id)) return dragonDestination(s);
   if (isAssaultDest(id)) return assaultDestination(s, id);
+  if (isWildDest(id)) return wildDestination(id); // (a fight with a band out on the land: sim/roamers.ts)
   return DESTINATION_BY_ID[id];
 }
 
