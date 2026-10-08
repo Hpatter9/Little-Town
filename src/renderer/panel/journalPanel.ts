@@ -9,7 +9,7 @@ import { renderHeroes } from './heroesPanel';
 import { renderLegends } from './legendsPanel';
 import type { AnnalsView } from '../../shared/sim/snapshot';
 
-type Filter = 'all' | 'key' | 'deaths' | 'heroes' | 'legends' | 'bestiary';
+type Filter = 'all' | 'key' | 'deaths' | 'heroes' | 'legends' | 'bestiary' | 'scenes';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['key', 'Key events'],
@@ -17,13 +17,14 @@ const FILTERS: [Filter, string][] = [
   ['heroes', 'Heroes'],
   ['legends', 'Legends'],
   ['bestiary', 'Bestiary'],
+  ['scenes', 'Scenes'],
 ];
 /** (kept while the panel re-renders) */
 let filter: Filter = 'all';
 
 const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 
-export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView): HTMLElement[] {
+export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void): HTMLElement[] {
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
   const draw = () => {
@@ -40,6 +41,25 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
     }
     if (filter === 'legends') {
       list.replaceChildren(...renderLegends());
+      return;
+    }
+    // (the cutscenes seen or passed by, to watch again: sim/cutscenes.ts)
+    if (filter === 'scenes') {
+      if (!scenes.length) {
+        list.replaceChildren(el('p', 'empty', 'No scenes yet. The big moments of the town\'s story are played out as they happen, and kept here to watch again.'));
+        return;
+      }
+      list.replaceChildren(
+        ...[...scenes].reverse().map((sc) => {
+          const c = el('div', 'card scene-card');
+          const top = el('div', 'card-top');
+          top.append(el('span', 'card-name', `🎬 ${sc.title}`), el('span', 'card-size', `Day ${Math.floor(sc.tick / 14400) + 1}`));
+          const b = el('button', 'primary', 'Watch again');
+          b.addEventListener('click', () => watch?.(sc.key));
+          c.append(top, b);
+          return c;
+        }),
+      );
       return;
     }
     if (filter === 'bestiary') {

@@ -193,10 +193,13 @@ const tabButtons = PANELS.map((p) => {
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)
   // (a tactics battle too, drawn at its own scale like a watched fight)
-  if (!!(snap.battle || snap.watch || snap.mine || snap.tactics) !== battleOn || !!(snap.watch || snap.mine || snap.tactics) !== watchOn) {
-    battleOn = !!(snap.battle || snap.watch || snap.mine || snap.tactics);
-    watchOn = !!(snap.watch || snap.mine || snap.tactics);
+  // (and a cutscene playing: the whole screen, like a watched fight)
+  const scene = !!snap.scene?.playing;
+  if (scene !== document.body.classList.contains('scene') || !!(snap.battle || snap.watch || snap.mine || snap.tactics || scene) !== battleOn || !!(snap.watch || snap.mine || snap.tactics || scene) !== watchOn) {
+    battleOn = !!(snap.battle || snap.watch || snap.mine || snap.tactics || scene);
+    watchOn = !!(snap.watch || snap.mine || snap.tactics || scene);
     document.body.classList.toggle('battle', battleOn);
+    document.body.classList.toggle('scene', scene);
     layout();
   }
 });

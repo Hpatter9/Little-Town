@@ -1098,6 +1098,15 @@
           overflow-y: auto;
         }
       }
+      /* a cutscene playing has the whole screen: no title bar, no tabs, no news bubble (mobile.ts toggles it) */
+      body.scene #top,
+      body.scene #tabs,
+      body.scene #notice-bubble {
+        display: none !important;
+      }
+      body.scene #strip-box {
+        bottom: env(safe-area-inset-bottom) !important;
+      }
     </style>
   </head>
   <body>

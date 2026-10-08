@@ -10,6 +10,7 @@
 // while its lair is on the Expedition Board (`dragon:lair`): a party that slays it there brings home its hoard
 // (`HOARD`), the town is renowned and the dragon is gone for good (`slain`). Every roll is the seed's own.
 
+import { queueScene } from './cutscenes';
 import type { Destination } from '../data/expeditions';
 import { ENEMIES } from '../data/enemies';
 import type { Material } from '../data/materials';
@@ -156,6 +157,8 @@ function fly(s: GameState, d: DragonState, low: boolean): void {
 /** It lands on the hill and asks. */
 function demand(s: GameState, d: DragonState): void {
   if (s.prompts.some((p) => p.kind === 'dragon')) return;
+  // (the first time it comes down, it's played out: sim/cutscenes.ts)
+  if (!d.paid && d.phase !== 'wrath') queueScene(s, 'dragon_arrives', { vars: { dragon: dragonName(d.kind) }, foes: { dragon: d.kind } });
   d.phase = 'demand';
   d.tribute = tributeOf(s, d);
   const herds = s.buildings.filter((b) => (b.herd?.head ?? 0) > 0).reduce((n, b) => n + (b.herd?.head ?? 0), 0);
@@ -346,6 +349,7 @@ export function dragonHome(s: GameState, e: Expedition, members: Person[]): void
   }
   d.phase = 'slain';
   d.flight = undefined;
+  queueScene(s, 'dragon_slain', { vars: { dragon: name }, foes: { dragon: d.kind } });
   s.prompts = s.prompts.filter((p) => p.kind !== 'dragon');
   depositNear(s, campXY(s), { ...HOARD });
   const standing = members.filter((p) => !p.downed);

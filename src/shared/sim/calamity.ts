@@ -61,6 +61,8 @@ import { campCell, notify, type GameState, type Person, type Prompt, type Raid }
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { isChild } from './social';
+import { queueScene } from './cutscenes';
+import { STAGE_SCENES, wakeSceneOf } from '../data/cutscenes';
 
 export interface CalamityState {
   kind: CalamityKind;
@@ -92,7 +94,7 @@ export const calamityKindOf = (seed: string): CalamityKind => CALAMITY_KINDS[has
 export function wakeCalamity(s: GameState, kind: CalamityKind = calamityKindOf(s.seed)): CalamityState {
   const c: CalamityState = { kind, dread: 0, stage: 1, woke: s.tick, heart: heartSpot(s), scar: 0, lost: 0 };
   s.calamity = c;
-  tell(s, c, `${capital(def(c).name)} wakes`, def(c).waking, 'omen');
+  tell(s, c, `${capital(def(c).name)} wakes`, def(c).waking, 'omen', wakeSceneOf(c.kind));
   return c;
 }
 
@@ -162,7 +164,7 @@ function calamityDaily(s: GameState, c: CalamityState, g: Rng): void {
 function setStage(s: GameState, c: CalamityState, stage: CalamityStage): void {
   if (stage <= c.stage) return;
   c.stage = stage;
-  tell(s, c, `${capital(def(c).name)}: ${STAGE_NAMES[stage].toLowerCase()}`, stageStory(c, stage), stage >= 4 ? 'war' : 'omen');
+  tell(s, c, `${capital(def(c).name)}: ${STAGE_NAMES[stage].toLowerCase()}`, stageStory(c, stage), stage >= 4 ? 'war' : 'omen', STAGE_SCENES[stage]);
 }
 
 function stageStory(c: CalamityState, stage: CalamityStage): string {
@@ -260,7 +262,7 @@ export function calamityRaidOver(s: GameState, r: Raid): void {
     c.dread = 0;
     c.scar = 0;
     (s.marks ??= []).push({ lever: 'morale', value: 15, until: s.tick + 5 * TICKS_PER_DAY, text: `${capital(d.name)} is beaten!` });
-    tell(s, c, `${capital(d.name)} is beaten`, `${d.stages[5].split('.')[0]} and fell before the walls. The blight lifts from the land, the cult scatters, and the town stands. Whatever comes after, this generation saved it.`, 'war');
+    tell(s, c, `${capital(d.name)} is beaten`, `${d.stages[5].split('.')[0]} and fell before the walls. The blight lifts from the land, the cult scatters, and the town stands. Whatever comes after, this generation saved it.`, 'war', 'calamity_victory');
     s.gameOver = { tick: s.tick, won: true, text: `${capital(d.name)} fell before the town's walls. The land is healing, and the town will be remembered for as long as anyone tells stories.` };
     return;
   }
@@ -275,7 +277,7 @@ export function calamityRaidOver(s: GameState, r: Raid): void {
     s.gameOver = { tick: s.tick, text: `${capital(d.name)} broke the town at the third siege. Its people are scattered, and the land is its.` };
     return;
   }
-  tell(s, c, `${capital(d.name)} withdraws`, `The town held, barely, but ${d.name} was not struck down. It draws back to gather its strength, and the town burns behind it. It will come again (${SIEGES_TO_FALL - c.lost} more ${SIEGES_TO_FALL - c.lost === 1 ? 'siege' : 'sieges'} lost and the town falls).`, 'war');
+  tell(s, c, `${capital(d.name)} withdraws`, `The town held, barely, but ${d.name} was not struck down. It draws back to gather its strength, and the town burns behind it. It will come again (${SIEGES_TO_FALL - c.lost} more ${SIEGES_TO_FALL - c.lost === 1 ? 'siege' : 'sieges'} lost and the town falls).`, 'war', 'calamity_defeat');
 }
 
 /* ------------------------------------------------------------ the heart */
@@ -326,12 +328,13 @@ export function heartCleared(s: GameState): void {
   c.dread = Math.max(0, c.dread - HEART_DREAD);
   c.scar = Math.max(SCAR_START, c.scar / 2);
   (s.marks ??= []).push({ lever: 'morale', value: 6, until: s.tick + 2 * TICKS_PER_DAY, text: `We struck at ${def(c).heart}` });
+  queueScene(s, 'calamity_heart');
   notify(s, `${def(c).heart} is broken! ${capital(def(c).name)} reels (dread −${HEART_DREAD}); its heart will be a while gathering itself again.`, true);
 }
 
 /* ------------------------------------------------------------ telling */
 
-function tell(s: GameState, c: CalamityState, title: string, story: string, words: string): void {
+function tell(s: GameState, c: CalamityState, title: string, story: string, words: string, scene?: string): void {
   const cal = calendar(s.tick);
   const prompt: Prompt = {
     id: s.nextId++,
@@ -346,7 +349,9 @@ function tell(s: GameState, c: CalamityState, title: string, story: string, word
     defaultOption: 0,
     expiresTick: s.tick + 8 * TICKS_PER_HOUR,
   };
-  s.prompts.push(prompt);
+  // (with a cutscene to watch, the telling waits on it: sim/cutscenes.ts)
+  if (scene) queueScene(s, scene, { fallback: prompt });
+  else s.prompts.push(prompt);
   notify(s, `${title}.`, true);
 }
 

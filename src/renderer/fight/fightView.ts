@@ -645,7 +645,7 @@ export class FightScene {
 
 /** A colour filter for a foe's look (hue turned, greyed, brightened), one per look. */
 const lookFilters = new Map<string, ColorMatrixFilter>();
-function lookFilter(look: { hue?: number; grey?: boolean; bright?: number }): ColorMatrixFilter {
+export function lookFilter(look: { hue?: number; grey?: boolean; bright?: number }): ColorMatrixFilter {
   const key = JSON.stringify(look);
   let f = lookFilters.get(key);
   if (!f) {

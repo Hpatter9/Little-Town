@@ -1,5 +1,6 @@
 import type { NightOut } from './nightOut';
 import type { CalamityState } from './calamity';
+import type { SceneRun } from './cutscenes';
 import type { DragonState } from './dragon';
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
@@ -1151,6 +1152,14 @@ export interface GameState {
   skirmishes?: Skirmish[];
   /** The Calamity (sim/calamity.ts): what it is, how far its dread has risen, its heart and sieges. */
   calamity?: CalamityState;
+  /** Cutscenes waiting to be watched, those seen (to watch again), the one playing, and whether the town was paused
+   *  before it began (sim/cutscenes.ts). */
+  scenes?: SceneRun[];
+  scenesSeen?: SceneRun[];
+  sceneOn?: number;
+  scenePaused?: boolean;
+  /** The next scene's key (its own count, so queueing a scene never shifts the ids of people and things). */
+  nextSceneKey?: number;
   /** How many monster nests the town has burned out (sim/nests.ts). */
   nestsCleared?: number;
   /** The mine (a place id, sim/places.ts) the player has gone into, in place of the town (snapshot.mine). */
