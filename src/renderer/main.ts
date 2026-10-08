@@ -1438,7 +1438,7 @@ async function start(): Promise<void> {
       const first = lastNewsId === -2;
       lastNewsId = next.news?.id ?? -1;
       const m = !first && next.news ? momentOf(next.news.text) : null;
-      if (m && next.raid?.phase !== 'active' && !next.watch && !cinema.busy()) {
+      if (m && next.raid?.phase !== 'active' && !next.watch && !cinema.busy() && document.getElementById('raid-recap')?.hidden !== false) {
         const who = m.who ? next.people.find((p) => p.name === m.who && p.away === null) : undefined;
         const show = (window as unknown as { __showOnMap?: (a: { person?: number }) => boolean }).__showOnMap;
         cinema.show(m, who && show ? () => void show({ person: who.id }) : null);
