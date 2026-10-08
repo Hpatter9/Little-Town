@@ -6,8 +6,8 @@
 export type NatureId = 'cheerful' | 'grumpy' | 'shy' | 'bold' | 'dreamy' | 'pious' | 'greedy' | 'kind' | 'proud' | 'curious' | 'gloomy' | 'jolly' | 'stern' | 'restless';
 
 /** What a line is about. */
-export type Topic = 'greet' | 'work' | 'cold' | 'hot' | 'rain' | 'night' | 'hungry' | 'tired' | 'raid' | 'friend' | 'rival' | 'idle' | 'sea' | 'sick' | 'old' | 'child' | 'feast' | 'mourn';
-export const TOPICS: readonly Topic[] = ['greet', 'work', 'cold', 'hot', 'rain', 'night', 'hungry', 'tired', 'raid', 'friend', 'rival', 'idle', 'sea', 'sick', 'old', 'child', 'feast', 'mourn'];
+export type Topic = 'greet' | 'work' | 'cold' | 'hot' | 'rain' | 'night' | 'hungry' | 'tired' | 'raid' | 'friend' | 'rival' | 'idle' | 'sea' | 'sick' | 'old' | 'child' | 'feast' | 'mourn' | 'protest';
+export const TOPICS: readonly Topic[] = ['greet', 'work', 'cold', 'hot', 'rain', 'night', 'hungry', 'tired', 'raid', 'friend', 'rival', 'idle', 'sea', 'sick', 'old', 'child', 'feast', 'mourn', 'protest'];
 
 export interface Nature {
   id: NatureId;
@@ -110,6 +110,7 @@ export const ANYONE: Record<Topic, string[]> = {
   greet: ['Hello there.', 'Good day.'], work: ['Back to work.'], cold: ['Cold today.'], hot: ['Hot today.'], rain: ['Rain again.'], night: ['Getting dark.'], hungry: ['I\'m hungry.'], tired: ['So tired.'], raid: ['Raiders!'],
   friend: ['Good to see you.'], rival: ['Hm.'], idle: ['...'], sea: ['The tide\'s coming in.'], sick: ['I don\'t feel well.'], old: ['These old bones.'], child: ['Hello, little one.'],
   feast: ['What a night!', 'Another round!', 'Dance with me!', 'Play it again!'], mourn: ['Rest well.', 'Gone too soon.', '...'],
+  protest: ['Hear us!', 'Not one more day!', 'Fair dealing!', 'We won\'t work!'],
 };
 
 /** Someone's nature: their own if set, else decided by who they are. */
@@ -131,5 +132,22 @@ export function lineFor(n: Nature, topic: Topic, pick: number): string {
   return pool[Math.abs(Math.floor(pick)) % pool.length];
 }
 
+// (on strike before the seat: sim/politics.ts)
+const PROTEST: Record<NatureId, string[]> = {
+  cheerful: ['We\'ll sing till they listen!', 'Fair\'s fair, friends!'],
+  grumpy: ['About time someone said it.', 'Not lifting a finger.'],
+  shy: ['(holds up a sign)', 'We... want to be heard.'],
+  bold: ['Down with the decree!', 'Let them come and make us!'],
+  dreamy: ['A better town is possible.', 'Imagine if they listened.'],
+  pious: ['The gods see this injustice.', 'Justice, as it is written!'],
+  greedy: ['Where\'s our share?', 'Pay us what we\'re owed!'],
+  kind: ['We only want what\'s fair.', 'Hear us, please!'],
+  proud: ['We will not be ignored!', 'We built this town!'],
+  curious: ['Who decided this, anyway?', 'Why won\'t they explain?'],
+  gloomy: ['It won\'t change anything.', 'But we\'re here anyway.'],
+  jolly: ['No work, all song!', 'Strike up the band, we\'re striking!'],
+  stern: ['We stand until it\'s mended.', 'This is a matter of order.'],
+  restless: ['Let\'s march on the hall!', 'Can\'t sit still for this!'],
+};
 // (the feast and funeral lines, into each nature's voice)
-for (const n of NATURES) Object.assign(n.say, GATHERED[n.id]);
+for (const n of NATURES) Object.assign(n.say, GATHERED[n.id], { protest: PROTEST[n.id] });

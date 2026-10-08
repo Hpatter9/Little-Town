@@ -43,6 +43,7 @@ export function topicFor(v: PersonView, c: SpeechContext, roll: number): Topic {
   // (at a gathering, it's all anyone talks of)
   if (v.activity === 'dance') return 'feast';
   if (v.activity === 'mourn') return 'mourn';
+  if (v.activity === 'protest') return 'protest';
   if (v.sick) return 'sick';
   if (v.needs.food < 0.2) return 'hungry';
   if (v.needs.rest < 0.15) return 'tired';

@@ -122,6 +122,7 @@ import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from '.
 import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
+import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
 import { sceneView } from './cutscenes';
 export type SceneView = NonNullable<ReturnType<typeof sceneView>>;
@@ -873,6 +874,8 @@ export interface Snapshot {
   dragon: DragonView | null;
   /** Daughter villages (sim/villages.ts), and their houses and fields for the map (ids below zero). */
   villages: VillageView[];
+  /** The town's politics and law (sim/politics.ts): null until the town has three grown-ups. */
+  politics: PoliticsView | null;
   villageBuildings: Building[];
   /** The Calamity (sim/calamity.ts), and where the land is blighted (cells: round each nest and its heart). */
   calamity: CalamityView | null;
@@ -1136,6 +1139,7 @@ export function snapshot(s: GameState): Snapshot {
     hunts: huntsView(s),
     dragon: dragonView(s),
     villages: villageViews(s),
+    politics: politicsView(s),
     villageBuildings: villageBuildings(s),
     calamity: calamityView(s),
     scene: sceneView(s),
@@ -2022,6 +2026,8 @@ function describe(s: GameState, p: Person): string {
       return `Fighting the fire at the ${name(task.building).toLowerCase()}!`;
     case 'toil':
       return s.busy?.text ?? 'Hard at work for the town';
+    case 'protest':
+      return 'On strike before the seat';
     case 'attend':
       return s.gathering?.text ?? 'With the town';
     case 'drink':

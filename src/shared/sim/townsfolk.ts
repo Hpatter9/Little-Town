@@ -1,6 +1,7 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
+import { blocMood } from './politics';
 import { coverOf, makeSpecial, secretJoined, secretWanderer, specialFor } from './specials';
 import { injuryMood, injuryWork } from './injuries';
 import { TAX } from '../data/economy';
@@ -128,6 +129,9 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   else if (p.lastSlept === 'ground') add(rough ? `Slept on the ground (${rough + 1} nights)` : 'Slept on the ground', GROUND_MORALE - rough * ROUGH_PER_NIGHT);
   // (a break at a place of leisure: sim/leisure.ts)
   if (p.fun && s.tick < p.fun.until) add(p.fun.text, p.fun.value);
+  // (how their bloc feels about the town's rule: sim/politics.ts)
+  const bm = blocMood(s, p);
+  if (bm) add(bm.text, bm.value);
   const charm = gearEffects(p).morale;
   if (charm) add('Lucky charm', charm);
   const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');

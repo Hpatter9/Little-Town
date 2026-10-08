@@ -23,6 +23,7 @@ import { destinationOf, partyCarry } from './expeditions';
 import { answerRaidPrompt } from './raids';
 import { answerRite } from './occult';
 import { answerVillagePrompt } from './villages';
+import { answerPolitics } from './politics';
 import { addStock, notify, poolSize, type Expedition, type GameState, type Person, type Prompt } from './state';
 import { TICKS_PER_HOUR } from './time';
 
@@ -96,6 +97,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'visitor') return answerVisitor(s, prompt.options[option]);
   if (prompt.kind === 'refugees') return answerRefugees(s, prompt.options[option], rng);
   if (prompt.kind === 'village') return answerVillagePrompt(s, prompt, option, rng);
+  if (prompt.politics) return answerPolitics(s, prompt, option, rng);
   if (prompt.kind === 'secret') return answerSecret(s, prompt.who, option);
   if (prompt.kind === 'saga') return answerSaga(s, prompt.saga, option);
   if (prompt.kind === 'road') return answerCrossroads(s, prompt, option, rng);
