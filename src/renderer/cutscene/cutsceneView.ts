@@ -32,7 +32,7 @@ const PERSON_H = 40;
 const FOE_K = 1.0;
 /** The bars of a film, as shares of the screen's height: thin at the top, deep at the foot for the subtitles. */
 const BAR_TOP = 0.07;
-const BAR_FOOT = { upright: 0.2, side: 0.17 } as const;
+const BAR_FOOT = { upright: 0.2, side: 0.23 } as const;
 /** Held upright, the picture is this tall for its width. */
 const UPRIGHT_FRAME = 1.05;
 
