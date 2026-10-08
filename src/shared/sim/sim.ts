@@ -56,6 +56,7 @@ import { nestsHourly } from './nests';
 import { calamityHourly } from './calamity';
 import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
+import { lookInside } from './interiors';
 import type { RealmId } from '../data/portals';
 import { giftVillage, villagesHourly } from './villages';
 import { politicsHourly } from './politics';
@@ -439,6 +440,9 @@ export class Sim {
         break;
       case 'giftVillage':
         giftVillage(s, c.id);
+        break;
+      case 'lookInside':
+        lookInside(s, c.building);
         break;
       case 'watchPortal':
         s.watchingPortal = c.realm && (s.portals ?? []).some((p) => p.realm === c.realm) ? (c.realm as RealmId) : undefined;

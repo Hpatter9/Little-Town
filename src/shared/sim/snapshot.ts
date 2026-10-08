@@ -122,6 +122,7 @@ import { sagaDestinations, sagasView, type SagaView, type SagaDoneView } from '.
 import { huntDestinations, huntsView, type HuntView, type ForgeView } from './hunts';
 import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
+import { interiorView, type InteriorView } from './interiors';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
@@ -860,6 +861,8 @@ export interface Snapshot {
   /** Other worlds opened (sim/portals.ts), and the one looked into (`watchPortal`, renderer/portal/portalView.ts). */
   portals: PortalSummary[];
   portalView: PortalView | null;
+  /** The building the player is looking into (sim/interiors.ts), drawn by renderer/interior/interiorView.ts. */
+  interior: InteriorView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
   /** The sagas under way and those ended (sim/sagas.ts). */
@@ -1177,6 +1180,7 @@ export function snapshot(s: GameState): Snapshot {
     deepView: deepView(s),
     portals: portalSummaries(s),
     portalView: portalView(s),
+    interior: interiorView(s, (p) => describe(s, p)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,

@@ -44,6 +44,8 @@ import { TacticsScene } from './tactics/tacticsView';
 import { MineScene } from './fight/mineView';
 import { DeepScene } from './deep/deepView';
 import { PortalScene } from './portal/portalView';
+import { InteriorScene } from './interior/interiorView';
+import { hasInside } from '../shared/sim/interiors';
 import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
@@ -388,6 +390,8 @@ async function start(): Promise<void> {
   const deep = new DeepScene((c) => bridge.command(c));
   // another world looked into through a portal (portal/portalView.ts): its own full-screen page
   const portal = new PortalScene((c) => bridge.command(c));
+  // inside a building (interior/interiorView.ts): a cutaway of the room, whoever is in it
+  const interior = new InteriorScene((c) => bridge.command(c));
   app.stage.addChild(deep.root);
   // a cutscene (cutscene/cutsceneView.ts): over everything, offered first, then played full screen
   const cutscene = new CutsceneScene((c) => bridge.command(c), document.body);
@@ -772,6 +776,15 @@ async function start(): Promise<void> {
         label: 'Go down into the Deep',
         onClick: () => {
           bridge.command({ type: 'watchDeep', depth: snap!.deep!.levels.length });
+          done();
+        },
+      });
+    // (inside: a cutaway of the room and whoever is in it, sim/interiors.ts)
+    if (b.status === 'done' && b.id > 0 && hasInside(BUILDING_BY_ID[b.def]))
+      list.push({
+        label: 'Look inside',
+        onClick: () => {
+          bridge.command({ type: 'lookInside', building: b.id });
           done();
         },
       });
@@ -1319,10 +1332,13 @@ async function start(): Promise<void> {
     // (a portal looked through: the same again)
     const beyond = watched || next.battle || inMine || below || next.tactics ? null : next.portalView;
     portal.update(beyond);
+    // (inside a building: the same again)
+    const within = watched || next.battle || inMine || below || beyond || next.tactics ? null : next.interior;
+    interior.update(within, next.people);
     tactics.update(next);
     // (a scene is offered only while nothing else has the screen: a battle, a watched fight, a question)
-    cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || beyond || next.tactics || next.prompts.length));
-    map.root.visible = !watched && !inMine && !below && !beyond && !next.tactics && !cutscene.shown;
+    cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || beyond || within || next.tactics || next.prompts.length));
+    map.root.visible = !watched && !inMine && !below && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
     snap = next;
     hud.update(next);

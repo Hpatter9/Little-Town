@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.36.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.37.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3389,6 +3389,33 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   realm's colour, the next pulsing, the heart bigger; a bar with ✕, and a window (below upright, on the right sideways)
   with the rule, how far explored, who's there now, the stir and the latest lines. The phone page counts it as a
   full-screen view (`below` in mobile.ts). Tests: `test/portals.test.ts`.
+
+## Inside every building (0.37.0; the owner's pick of the content updates, the seventh)
+
+- **The sim** (`src/shared/sim/interiors.ts`; it changes nothing in the town, looking is all): `hasInside` (homes,
+  workshops, studies, healers', temples, barracks, stores, the seat; never fields, pens, walls, gates, traps, the fire,
+  the shaft, the prisons, the venues, which have their own windows), `insideOf(s, p)` (who is inside which building
+  and where: asleep in their bed (`bed`), working an order at its station (`station`), studying at a desk (`desk`),
+  watching a play (`floor`), eating at the stores (`table`), and at home of an idle hour: a child about the floor, a
+  grown-up at the table by day and by the hearth of an evening), `lookInside` (the `lookInside` command,
+  `s.lookingInside`) and `interiorView` (`snapshot.interior`, `InteriorView`: the building, its footprint, beds, who's
+  inside and where, who lives or works there but is out and what they're at, the orders being made and the topic
+  studied, its owner, night).
+- **Seen:** a finished building's tap card has **Look inside** (main.ts). `src/renderer/interior/interiorView.ts`
+  (`InteriorScene`, a DOM page with a 2D canvas, `#interior-view`, `body.interior-on`): the room seen from above, sized
+  by the footprint (`cols`, `rows`), its back wall the Glassblower pack's stone with a window every third tile
+  (`art/interior/walls.png`), its floor the pack's planks (the dungeon pack's flagstones for a forge, temple, hall or
+  barracks: `Layout.stone`), furnished by what it is (`layout`, by `kindOf` in map/roomKinds.ts plus `temple` and
+  `barracks`: beds along the walls, a table and chairs and a rug at home; shelves of books and desks in a study; the
+  animated furnace (`art/interior/forge.png`) and racks in a forge or an oven in a kitchen; potions and sickbeds at the
+  healer's; crates and barrels in a store; a throne and a long table in a hall; pews and an altar cross in a temple;
+  cots and weapon racks in a barracks; benches and stools in a workshop) from DawnLike's decor cells
+  (`art/interior/decor.png`) and the clutter, a brazier (`art/delve/fires.png`) where there's a hearth, a warm pool
+  of light by the fire and night's dark over the room. Whoever is inside is drawn as the map dresses them (hkFolk):
+  asleep with their head on the pillow and a z drifting up, working at the station facing it, reading at the desk,
+  sitting by the hearth or the table, a child playing about the floor. A bar names the room with ✕; a window (below
+  upright, on the right sideways) lists the owner, beds, what's being made or studied, who's in and at what, and who's
+  out. The phone counts it as a full-screen view (`below` in mobile.ts). Tests: `test/interiors.test.ts`.
 
 ## Known problem (fixed, watch)
 

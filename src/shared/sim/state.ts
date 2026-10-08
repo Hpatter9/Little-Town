@@ -1168,6 +1168,8 @@ export interface GameState {
   /** The Deep under the town (sim/deep.ts), once a shaft is sunk; and the level the player is looking at, if any. */
   deep?: DeepState;
   watchingDeep?: number;
+  /** The building the player is looking into (sim/interiors.ts). */
+  lookingInside?: number;
   /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
   portals?: Portal[];
   watchingPortal?: RealmId;
