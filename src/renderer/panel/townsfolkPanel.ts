@@ -28,21 +28,26 @@ import { bleedLeft } from '../../shared/format';
 import { button, el } from './dom';
 import { itemStats } from './details';
 
-/** Changes whenever something this panel shows changes (needs and morale to the whole percent). */
-export const townsfolkKey = (s: Snapshot) =>
-  JSON.stringify([
-    s.people.map((p) => [p.id, p.job, p.doing, p.detail, p.recent, p.order, p.sick, p.gear, p.gearQ, p.coins, p.owns, p.debt, p.income, p.bedroll, p.carryCapacity, p.partner, p.married, p.friends, p.rivals, p.enemies, p.devoted, p.body.wounds, p.body.lasting, p.body.fitted, p.growsUpIn !== null && Math.ceil(p.growsUpIn / 24), Math.round(p.hp), p.downed, p.bleedMinutes, Math.round(p.morale), Math.round(p.moodTarget), Math.round(p.needs.food * 100), Math.round(p.needs.rest * 100), p.priorities, p.autoPriorities, p.bed, SKILLS.map((k) => [p.skills[k].level, Math.floor(p.skills[k].progress * 10)])]),
-    s.visitor && [s.visitor.id, Math.ceil(s.visitor.hoursLeft), s.visitor.leaving],
-    s.housing,
-    s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 100), p.hungry]),
-    s.stock.berries,
-    s.stock.meat,
-    Math.round((Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (s.stock[m] ?? 0) * v, 0)),
-    s.people.map((p) => [p.cls, p.monster]),
+/** Changes whenever the panel's shape changes: who is listed, who is inspected and what they have (gear, skills,
+ *  relations, wounds...). The list's live details (what each is doing, their health and spirits, their coins, a
+ *  flag for trouble, the badges) are patched into the rows in place by `patchTownsfolk`, so the page isn't rebuilt
+ *  ten times a second (the owner's complaint: it flashed). Live values of the one inspected are rounded coarsely. */
+export const townsfolkKey = (s: Snapshot) => {
+  const who = inspecting === null ? null : (s.people.find((p) => p.id === inspecting) ?? null);
+  return JSON.stringify([
+    s.people.map((p) => [p.id, p.priorities, p.autoPriorities]),
+    who && [
+      who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
+      who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
+      Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
+      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.road, who.coins, who.income, who.traits.length, who.titles,
+    ],
+    s.visitor && [s.visitor.id, s.visitor.leaving],
+    s.housing.beds <= s.housing.people,
+    s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 20), p.hungry]),
     s.turnable,
     confirmTurn,
     s.research.done.length,
-    s.people.map((p) => [p.clsName, p.stage, p.level, Math.round(p.levelProgress * 20), p.away, p.battle, p.kit.length, p.carrying]),
     inspecting,
     chosenSlot,
     chosenSkill, // (a tapped skill, spell or trait opens its card: the tap must redraw)
@@ -50,6 +55,29 @@ export const townsfolkKey = (s: Snapshot) =>
     s.theme,
     lpcLoaded,
   ]);
+};
+
+/** The live details, patched into the page as it stands (panel.ts, on every snapshot that leaves the key as it
+ *  was): each row's doing, class line, bars, flag and badges, the head's counts, the visitor's wait, and the
+ *  inspected person's doing line. */
+export function patchTownsfolk(s: Snapshot, root: HTMLElement): void {
+  const byId = new Map(s.people.map((p) => [p.id, p]));
+  for (const row of root.querySelectorAll<HTMLElement>('.folk-row[data-id]')) {
+    const p = byId.get(Number(row.dataset.id));
+    if (p) fillRow(row, p, s);
+  }
+  const head = root.querySelector<HTMLElement>('.panel-head.folk-head');
+  if (head) {
+    const food = (s.stock.berries ?? 0) + (s.stock.meat ?? 0);
+    head.children[0].textContent = `People ${s.housing.people} · Beds ${s.housing.beds}`;
+    head.children[1].textContent = `Food in storage: ${food}`;
+  }
+  const wait = root.querySelector<HTMLElement>('.visitor-wait');
+  if (wait && s.visitor) wait.textContent = s.visitor.leaving ? 'Leaving' : `Leaves in ${Math.ceil(s.visitor.hoursLeft)}h`;
+  const who = inspecting === null ? null : byId.get(inspecting);
+  const doing = root.querySelector<HTMLElement>('.inspect-doing');
+  if (doing && who) doing.textContent = who.away !== null ? `Away on an expedition: ${who.away}` : who.doing;
+}
 
 /** Who's being inspected (null: the list), and the slot whose piece is shown below their gear. */
 let inspecting: number | null = null;
@@ -67,7 +95,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   inspecting = null;
 
   const out: HTMLElement[] = [];
-  const head = el('div', 'panel-head');
+  const head = el('div', 'panel-head folk-head');
   const food = (s.stock.berries ?? 0) + (s.stock.meat ?? 0);
   head.append(el('span', '', `People ${s.housing.people} · Beds ${s.housing.beds}`), el('span', '', `Food in storage: ${food}`));
   out.push(head);
@@ -113,23 +141,52 @@ let listScroll = 0;
 
 /* ------------------------------------------------------------ the list */
 
-/** One short row: their face, name, calling and level, what they're up to, their health and spirits, and any
- *  trouble. Tap for the rest. */
+/** One short row: their face (badged with the stat points they have to spend and a mark when an evolution waits
+ *  on them: the owner's ask), name, calling and level, what they're up to, their health and spirits, and any
+ *  trouble. Tap for the rest. The live parts are filled by `fillRow`, again on every snapshot. */
 function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   const row = el('button', 'folk-row');
+  row.dataset.id = String(p.id);
   row.addEventListener('click', open);
-  row.append(face(p, s));
+  const pic = el('span', 'folk-pic');
+  pic.append(face(p, s), el('span', 'folk-pts'), el('span', 'folk-evo'));
+  row.append(pic);
   const mid = el('span', 'folk-mid');
-  const name = el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`);
-  const what = el('span', 'folk-class', `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}${p.coins !== null ? ` · ● ${p.coins}` : ''}${p.owns.length ? ' · 🏠' : ''}`);
-  const doing = el('span', 'folk-doing', p.away !== null ? `Away: ${p.away}` : p.doing);
-  mid.append(name, what, doing);
+  mid.append(el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('span', 'folk-class'), el('span', 'folk-doing'));
   const right = el('span', 'folk-right');
-  right.append(miniBar(p.hp / p.maxHp, 'hp'), miniBar(p.morale / 100, 'mood'));
-  const flag = p.downed === 'bleeding' ? 'Bleeding!' : p.downed ? 'Down' : p.breakdown ? 'Upset' : p.sick ? 'Sick' : p.needs.food < 0.15 ? 'Hungry' : p.needs.rest < 0.15 ? 'Worn out' : '';
-  if (flag) right.append(el('span', 'folk-flag', flag));
+  right.append(miniBar(p.hp / p.maxHp, 'hp'), miniBar(p.morale / 100, 'mood'), el('span', 'folk-flag'));
   row.append(mid, right, el('span', 'folk-go', '›'));
+  fillRow(row, p, s);
   return row;
+}
+
+/** The parts of a row that change as the town runs. */
+function fillRow(row: HTMLElement, p: PersonView, s: Snapshot): void {
+  const q = (sel: string) => row.querySelector<HTMLElement>(sel)!;
+  const face = row.querySelector<HTMLCanvasElement>('canvas.folk-face');
+  if (face) refreshFace(face, p, s);
+  setText(q('.folk-class'), `${p.job ? `${p.job.title} · ` : ''}${p.natureName} · ${p.cls ? `${p.clsName} · Lv ${p.level}` : p.growsUpIn !== null ? 'Child' : `${p.typeName} · Lv ${p.level}`} · ${p.ageYears}y${p.elder ? ' · Elder' : ''}${p.coins !== null ? ` · ● ${p.coins}` : ''}${p.owns.length ? ' · 🏠' : ''}`);
+  setText(q('.folk-doing'), p.away !== null ? `Away: ${p.away}` : p.doing);
+  fillBar(q('.mini-bar.hp'), p.hp / p.maxHp);
+  fillBar(q('.mini-bar.mood'), p.morale / 100);
+  setText(q('.folk-flag'), p.downed === 'bleeding' ? 'Bleeding!' : p.downed ? 'Down' : p.breakdown ? 'Upset' : p.sick ? 'Sick' : p.needs.food < 0.15 ? 'Hungry' : p.needs.rest < 0.15 ? 'Worn out' : '');
+  // the badges by the picture: stat points to spend (their number), and an evolution waiting to be chosen
+  const pts = q('.folk-pts');
+  setText(pts, p.freePts > 0 ? String(p.freePts) : '');
+  pts.title = p.freePts > 0 ? `${p.freePts} stat ${p.freePts === 1 ? 'point' : 'points'} to spend` : '';
+  const evo = q('.folk-evo');
+  const asking = !!p.road && p.road.promptId !== null;
+  setText(evo, asking ? '⬆' : '');
+  evo.title = asking ? 'An evolution waits: choose their road' : '';
+}
+const setText = (e: HTMLElement, text: string) => {
+  if (e.textContent !== text) e.textContent = text;
+};
+function fillBar(bar: HTMLElement, value: number): void {
+  const f = bar.firstElementChild as HTMLElement;
+  const width = `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
+  if (f.style.width !== width) f.style.width = width;
+  f.className = value < 0.25 ? 'low' : '';
 }
 
 function miniBar(value: number, kind: 'hp' | 'mood'): HTMLElement {
@@ -167,8 +224,22 @@ function inspectView(p: PersonView, s: Snapshot, bridge: Bridge | undefined, rer
   const card = el('div', 'card person inspect');
   const top = el('div', 'card-top');
   top.append(el('span', 'card-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('span', 'card-size', `${p.typeName} · ${p.bed ? `bed: ${p.bed}` : 'no bed'}`));
-  card.append(top, el('div', 'lock', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
+  card.append(top, el('div', 'lock inspect-doing', p.away !== null ? `Away on an expedition: ${p.away}` : p.doing));
   card.append(classRow(p, bridge, rerender));
+  // (the same marks as the list's rows: points to spend, an evolution to choose; each a tap to where it's done)
+  const asking = !!p.road && p.road.promptId !== null;
+  if (p.freePts > 0 || asking) {
+    const badges = el('div', 'row folk-badges');
+    if (p.freePts > 0) badges.append(button(`● ${p.freePts} stat ${p.freePts === 1 ? 'point' : 'points'} to spend`, () => {
+      inspectTab = 'character';
+      rerender();
+    }, { cls: 'place small folk-badge pts' }));
+    if (asking) badges.append(button('⬆ An evolution awaits', () => {
+      classOpen = p.id;
+      rerender();
+    }, { cls: 'place small folk-badge evo' }));
+    card.append(badges);
+  }
   // (on the phone, the map beside the menu: go and look at them there)
   if (p.away === null && mapBeside()) card.append(button('Show on the map', () => showOnMap(bridge, { person: p.id }), { cls: 'place small quiet' }));
 
@@ -576,19 +647,27 @@ const FACE = 26;
 export function face(p: PersonView, s: Snapshot): HTMLElement {
   const c = el('canvas', 'pixel-figure folk-face');
   c.width = c.height = FACE * HK_RES;
+  refreshFace(c, p, s);
+  return c;
+}
+/** What each face was drawn from, so it's drawn again only when the picture changes (their layers loaded, new gear). */
+const faceFrom = new WeakMap<HTMLCanvasElement, HTMLCanvasElement | null>();
+function refreshFace(c: HTMLCanvasElement, p: PersonView, s: Snapshot): void {
   const src = picture(p, s);
+  if (faceFrom.has(c) && faceFrom.get(c) === src) return;
+  faceFrom.set(c, src);
   // (the head sits about 40 pixels above the feet in a 64-pixel frame; the picture may be drawn finer than that)
   const r = src ? src.width / FRAME_SIZE : 1;
   const g = c.getContext('2d')!;
+  g.clearRect(0, 0, c.width, c.height);
   g.imageSmoothingEnabled = false;
   if (src) g.drawImage(src, (CENTRE_X - FACE / 2 + 1) * r, (FEET_Y - 52) * r, FACE * r, FACE * r, 0, 0, c.width, c.height);
-  return c;
 }
 
 function visitorCard(v: VisitorView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   const c = el('div', 'card arrival');
   const top = el('div', 'card-top');
-  top.append(el('span', 'card-name', `${v.name}, ${v.typeName.toLowerCase()}`), el('span', 'card-size', v.leaving ? 'Leaving' : `Leaves in ${Math.ceil(v.hoursLeft)}h`));
+  top.append(el('span', 'card-name', `${v.name}, ${v.typeName.toLowerCase()}`), el('span', 'card-size visitor-wait', v.leaving ? 'Leaving' : `Leaves in ${Math.ceil(v.hoursLeft)}h`));
   c.append(el('div', 'lock', 'Is at the edge of town and asks to join.'), top, skillsList(v), traitsList(v));
   if (v.cls) c.append(el('div', 'lock short', `${v.clsName}, level ${v.level}: ${CLASS_DEFS[v.cls].description}`));
   if (!v.leaving) {

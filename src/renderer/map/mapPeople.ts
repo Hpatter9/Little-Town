@@ -130,13 +130,20 @@ interface Drawn {
 const PERSONAL_SPACE = 32;
 /** Up and down the map counts this much of across (people stand closer front to back than side by side). */
 const SQUASH = 0.75;
-/** How long (ms) on one spot before someone counts as standing still, and how often the steps aside are worked out. */
-const STILL_AFTER = 400;
+/** How long (ms) on one spot before someone counts as standing still (a pause in a walk, at a door or a queue, is
+ *  left alone: stepping people aside on every pause had them jigging about), and how often the steps aside are
+ *  worked out. */
+const STILL_AFTER = 1200;
 const SPREAD_EVERY = 250;
-/** The places a step aside may take them: a ring round the spot, then a wider one. */
+/** The places a step aside may take them: beside the spot and below it, a ring then a wider one, never up the map.
+ *  (Someone working at a building's door stands on its bottom edge: stepped up, they went behind the building and
+ *  vanished, then came out again as the places were dealt afresh: the owner's complaint that townsfolk flashed.) */
 const ASIDE: readonly [number, number][] = [0, 1, 2].flatMap((ring) =>
-  Array.from({ length: 6 + ring * 4 }, (_, k): [number, number] => {
-    const a = (k / (6 + ring * 4)) * Math.PI * 2 + ring * 0.4;
+  Array.from({ length: 4 + ring * 2 }, (_, k): [number, number] => {
+    // (across the lower half-circle, from the right round to the left, the sides first)
+    const n = 4 + ring * 2;
+    const order = k % 2 === 0 ? k / 2 : n - 1 - (k - 1) / 2;
+    const a = (order / (n - 1)) * Math.PI;
     const r = PERSONAL_SPACE * (ring + 1);
     return [Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r * SQUASH)];
   }),

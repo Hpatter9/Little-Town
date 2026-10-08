@@ -586,6 +586,8 @@ export interface ShopView {
   keeperId: number | null;
   /** Strangers inside now: who they are, what they came for, their temper, and (at the tavern) the comfort they need. */
   customers: { id: number; name: string; kind: string; look: Look; tier: number; wants: string; temper: string; req: number | null; bed: { x: number; y: number } | null; asleep: boolean; stage: 'browse' | 'counter' | 'done' | null; talk: ShopTalk | null; purse: number; people: string | null }[];
+  /** Townsfolk in for the evening (sim/nightOut.ts), drawn in the room as the map dresses them. */
+  locals: { id: number; name: string; look: Look }[];
   /** The tavern's guest rooms upstairs (a bed is a piece at y -1, x the room), its beds, and how many are taken tonight. */
   rooms: number;
   /** Dark out (the windows show the night sky). */
@@ -1186,6 +1188,7 @@ function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): Sho
     customers: inside
       .filter((t) => t.phase === 'shopping' && s.tick < t.until)
       .map((t) => ({ id: t.id, name: t.name, kind: t.kind, look: t.look, tier: t.tier ?? 1, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, req: t.req ?? null, bed: t.bed ?? null, asleep: !!t.bed && asleepHour(calendar(s.tick).hour), stage: t.stage ?? null, talk: t.talk ?? null, purse: Math.round(t.purse ?? 0), people: t.origin ? (ORIGIN_DEFS[t.origin]?.name ?? null) : null })),
+    locals: s.nightOut && s.nightOut.tavern === b.id ? s.people.filter((p) => p.task?.type === 'drink' && p.activity === 'drink').map((p) => ({ id: p.id, name: p.name, look: p.look })) : [],
     rooms: roomsOf(b),
     night: calendar(s.tick).daylight < 0.35,
     beds: bedsOf(b).length,
@@ -1423,7 +1426,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     bedId: bed ? bed.id : null,
     floor: null,
     rally: rallyState(s, p),
-    indoors: p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null)),
+    indoors: (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink'),
     away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     maxHp: maxHp(p),
@@ -1789,6 +1792,8 @@ function describe(s: GameState, p: Person): string {
       return s.busy?.text ?? 'Hard at work for the town';
     case 'attend':
       return s.gathering?.text ?? 'With the town';
+    case 'drink':
+      return s.nightOut ? `Letting off steam at the ${name(s.nightOut.tavern).toLowerCase()}` : 'Out for a drink';
     case 'tend': {
       const q = s.people.find((x) => x.id === task.patient);
       return `Tending ${q?.name ?? 'the wounded'}'s wounds!`;

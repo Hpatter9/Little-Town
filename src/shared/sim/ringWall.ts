@@ -29,8 +29,12 @@ export const RING_SPARE = 3;
 /** Hours after a ring stands all round before a wider one is begun (a town that has grown past it waits; a raid
  *  brings the new ring on at once). */
 export const RING_REGROW_HOURS = 72;
-/** Wild cells cleared ahead of the ring at a time. */
-export const RING_CLEAR = 4;
+/** Wild cells cleared for the ring at a time: every tree and rock on the line, up to this many at once (the owner's
+ *  ask: a wall laid through a wood or a rockfall has them cut and mined out once it is planned; they used to wait on
+ *  the planner's marking cap, four at a time, and were often never marked at all). */
+export const RING_CLEAR = 24;
+/** The ring's cells to clear are taken ahead of other marked cells by whoever gathers, as if this many cells nearer. */
+export const RING_CLEAR_PULL = 12;
 
 /** The walls, weakest first, and each one's gate. */
 export const WALL_KINDS = ['palisade_wall', 'stone_wall', 'brick_wall', 'concrete_wall', 'force_wall'] as const;
@@ -51,6 +55,8 @@ export interface Ring {
   /** Standing all round (the older rings are down), and since when. */
   done?: boolean;
   doneAt?: number;
+  /** The wild cells on the line being cleared for it (cell indices; marked for gathering, and taken first). */
+  clearing?: number[];
 }
 
 /** Whether a town walls itself with a ring: not a castle or a hold (walls of their own), not a tribe on the move. */
@@ -204,6 +210,7 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     for (const b of s.buildings.filter((q) => isRingPiece(q.def) && q.ring !== ring.gen)) demolish(s, b.id);
     ring.done = true;
     ring.doneAt = s.tick;
+    delete ring.clearing;
     return clear;
   }
   // The whole ring is laid out at once (the owner's ask: one blueprint for the wall, built a section at a time):
@@ -214,12 +221,14 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
       if (clear.length < RING_CLEAR) clear.push(idx(s.land, piece.at.x, piece.at.y));
       continue;
     }
-    if (placeBlueprint(s, piece.def, piece.at.x, piece.at.y, !!piece.turned).ok) {
+    // (planned: it takes no slot, so a cell cleared or freed later still gets its piece while the queue is full)
+    if (placeBlueprint(s, piece.def, piece.at.x, piece.at.y, !!piece.turned, true).ok) {
       const b = s.buildings[s.buildings.length - 1];
       b.ring = ring.gen;
       b.planned = true;
     }
   }
+  ring.clearing = clear.slice();
   // (a better wall learned since: the pieces still only planned become it)
   for (const b of s.buildings) {
     if (b.ring !== ring.gen || !b.planned) continue;

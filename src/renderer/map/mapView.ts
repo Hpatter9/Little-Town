@@ -598,11 +598,13 @@ export class MapView {
           if (pt.y < sp.y - 4 && pt.y > sp.y - h * 0.95 && Math.abs(pt.x - sp.x) < w * 0.42) fade.add(n);
         }
     }
+    // (eased over a few snapshots, not snapped: a tree popping clear and back as someone passed read as a flash)
     for (const [n, p] of this.props) {
       const want = fade.has(n);
-      if (want === !!p.faded) continue;
       p.faded = want;
-      p.sprite.alpha = want ? p.alpha * SEE_THROUGH : p.alpha;
+      const target = want ? p.alpha * SEE_THROUGH : p.alpha;
+      const next = Math.abs(target - p.sprite.alpha) < 0.03 ? target : p.sprite.alpha + (target - p.sprite.alpha) * 0.45;
+      if (next !== p.sprite.alpha) p.sprite.alpha = next;
     }
   }
 

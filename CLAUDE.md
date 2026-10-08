@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.20.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.21.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2820,6 +2820,63 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   wreck (`sb_wreck.png`, half size, set down on its ring). **The Leviathan** (`leviathan` in bestiary.ts, from the
   Medieval age, `fromSea`, `leader` the Kraken of the Kraken Deep, `BOAT_ENEMIES` in data/boats.ts) comes ashore at a
   shore town with its spawn. Test in `test/sea.test.ts`.
+
+## Polish round (0.21.0; the owner's asks)
+
+- **The conquest map zooms (the owner's ask):** the War tab's world map (`mapCanvas` in `panel/warPanel.ts`) is a kept
+  canvas (`mapEl`, reused across the menu's redraws so a gesture under way isn't broken by a battle's beat) painted
+  from a view: `mapZoom` (1, fitted to the width, up to `ZOOM_MOST` 4) and `mapPan` (the top-left corner as a share of
+  the world, so it holds at any width). A pinch, the wheel or the + and − buttons zoom about the fingers
+  (`zoomMapAbout`); zoomed in, a drag pans (`touch-action: none` on the canvas; fitted, `pan-y`, so the page scrolls
+  over it as before) and ⊡ fits the world again; a tap (no drag, no pinch) picks the province under it. The terrain and
+  holdings are drawn scaled from their cached layers, the marks (settlements, armies, names) at the zoomed cell size so
+  they stay sharp.
+- **Badges on the Townsfolk rows (the owner's ask):** each row's face (`.folk-pic`) carries a gold number of the stat
+  points they have to spend (`.folk-pts`, `PersonView.freePts`) and a violet ⬆ when an evolution waits on them
+  (`.folk-evo`, `p.road.promptId`); the inspect page's card has the same as chips (`.folk-badges`: a tap opens the
+  Character tab, or the calling's roads).
+- **The Townsfolk page no longer flashes (the owner's complaint):** its redraw key (`townsfolkKey`) was every live
+  value of everyone (doing, health, needs, skill tenths), so the whole page was rebuilt about twice a second in a town
+  of fifteen. Now the key is the page's shape (who is listed, who is inspected and what they have), and the live
+  details (`fillRow`: the doing and class lines, the bars, the flag, the badges; the head's counts; the visitor's wait;
+  the inspected person's doing line) are patched into the rows in place by `patchTownsfolk`, which panel.ts calls on
+  every snapshot that leaves the key as it was. Faces are drawn again only when their picture changes (`refreshFace`,
+  `faceFrom`). The one inspected keeps a fuller key, coarsened (health and morale to 5, needs to a tenth).
+- **Townsfolk jigging on the map (the owner's complaint that they flashed):** `MapPeople.spread` stepped anyone standing
+  400 ms aside on rings all round, so a builder at a door was stepped up into the footprint, drawn behind the building
+  and lost, then dealt a new place; and every pause in a walk got a sidestep. Now `STILL_AFTER` is 1200 ms and
+  `ASIDE` is the lower half-circle only (beside and below, the sides first). Trees going see-through
+  (`MapView.seeThrough`) ease their alpha over a few snapshots instead of snapping. (Probed with a per-render sampler
+  of every sprite's texture, visibility and scale: no look swapped mid-frame; the walk, work and dance poses are the
+  pack's own cells.)
+- **Hair that slipped between poses (the owner's complaint):** measured against the bodies, the Himeko hair layers sit
+  on the head to the pixel in every pose and colour but two things: the pack has no men's hair, only bangs, which
+  stay at the cell's middle in the two side lunges (every tool swing and blow) while the head moves, and leave a man
+  bald behind the fringe and from the back; and the white long hair and pigtails are drawn 10px toward the middle in
+  those lunges. Now men wear the women's cuts (`hkLayers`: the pixie, the bob for a shaggy style, the long hair for a
+  long one; a close crop stays shaven; beards as before), and `NUDGE` in hkFolk.ts moves a cell the pack drew out of
+  place (`hkCell` draws it offset). The scratch measurement scripts decode the palette PNGs in plain node.
+- **The evening at the tavern (the owner's ask: townsfolk go for a drink to let off steam at the end of the day):**
+  `src/shared/sim/nightOut.ts`. At `TAVERN_HOUR` (20, from wages.ts) with a tavern open, `nightOut` picks who goes
+  (`s.nightOut`: the tavern, `ids`, `until` after `DRINK_HOURS` 2, `served`): grown-ups at home with coins above their
+  keep, rested enough, not the keeper, a guard on watch, the hurt, the sick, the dead or machines, nor anyone at a
+  gathering or the town's work; each nature more or less often (`DRINK_LEAN`, a roll by the day; up to `DRINKERS_MOST`
+  12). They take the `drink` task (people.ts: ranked after a meal or sleep, before any work; `drinking` holds it), walk
+  to the tavern's door and go in for the evening (`Activity` `drink`; `indoors` in the snapshot, so they leave the map),
+  and `drinkAt` on arrival buys the best drink they can afford for a local's price from the house (`takeSale`: the
+  owner's purse, the keeper's cut) and lifts their spirits (`TAVERN_NIGHT`; half with nothing on tap). The tavern's
+  window lists them under Guests and draws them in the room as the map dresses them (`ShopView.locals`, `hkWhoById`);
+  the Journal says who went. The old instant night out (a purchase at eight with nobody moving) is gone. Tests:
+  `test/nightOut.test.ts`.
+- **The ring wall cuts its way through (the owner's ask):** the trees and rocks on a ring piece's cell are marked for
+  gathering all at once (`RING_CLEAR` 24, `Ring.clearing`), ahead of the planner's material marks and over its cap
+  (`planGathering`), and whoever gathers takes them as if `RING_CLEAR_PULL` (12) cells nearer (`bestGatherTile`), so
+  the wall's line is cleared and its planned pieces follow. They used to wait on the room the materials' marks left,
+  four at a time, and nearer marks were always taken first. Besides, a planned piece laid after the first pass (on a
+  cell cleared or freed later) was refused by `placeBlueprint` whenever the build queue was full, which with the
+  ring's own sections in work was nearly always: a planned piece takes no slot now (`placeBlueprint(..., planned)`),
+  and `planBuilding` gives the ring its turn (`ringTurn`: the planned pieces laid, the line's cells marked; no section
+  released without room) even on a pass with the queue full, which used to return before it.
 
 ## Known problem (fixed, watch)
 

@@ -1792,6 +1792,59 @@
         font-size: 10px;
         color: #f0a080;
       }
+      .folk-flag:empty {
+        display: none;
+      }
+      /* the badges by a row's face: stat points to spend (gold, their number), an evolution waiting (violet) */
+      .folk-pic {
+        position: relative;
+        flex: none;
+        display: inline-block;
+        line-height: 0;
+      }
+      .folk-pts,
+      .folk-evo {
+        position: absolute;
+        min-width: 17px;
+        height: 17px;
+        padding: 0 4px;
+        box-sizing: border-box;
+        border-radius: 9px;
+        font: 700 11px/15px var(--font-body);
+        text-align: center;
+        color: #1a1408;
+        pointer-events: none;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      }
+      .folk-pts {
+        right: -6px;
+        bottom: -4px;
+        background: #ffd24a;
+        border: 1px solid #7a5a10;
+      }
+      .folk-evo {
+        right: -6px;
+        top: -4px;
+        background: #b070f0;
+        border: 1px solid #4a1a7a;
+        color: #fff;
+      }
+      .folk-pts:empty,
+      .folk-evo:empty {
+        display: none;
+      }
+      .folk-badges {
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .folk-badge.pts {
+        border-color: #c8a030;
+        color: #ffd24a;
+      }
+      .folk-badge.evo {
+        border-color: #9a60d8;
+        color: #d8b0ff;
+      }
       .folk-go {
         font-size: 20px;
         color: var(--text-dim);
@@ -2154,7 +2207,8 @@
     
       /* the War menu (warPanel.ts): the province map and the squads' formation */
       .war-map {
-        overflow: auto;
+        position: relative;
+        overflow: hidden;
         margin: 6px 0;
         border: 1px solid var(--wood-edge, #5a3a1a);
         border-radius: 4px;
@@ -2165,6 +2219,22 @@
         image-rendering: pixelated;
         display: block;
         margin: 0 auto;
+      }
+      /* the map's zoom buttons (pinch and drag work too) */
+      .war-zoom {
+        position: absolute;
+        right: 6px;
+        bottom: 6px;
+        display: flex;
+        gap: 4px;
+        line-height: normal;
+      }
+      .war-zoom button {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        font-size: 18px;
+        line-height: 1;
       }
       .war-legend {
         display: flex;

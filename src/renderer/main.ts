@@ -225,6 +225,7 @@ async function start(): Promise<void> {
   const disaster = new MapDisaster(map.under, map.over); // (floods, wildfires and their ash: sim/disasters.ts)
   (window as unknown as { __pools?: BloodPools }).__pools = pools; // (for previews)
   const people = new MapPeople(map.things);
+  (window as unknown as { __people?: MapPeople }).__people = people; // (for previews and probes)
   people.lights = map.lights;
   (window as unknown as { __people?: MapPeople }).__people = people; // (for previews)
   (window as unknown as { __hkCell?: typeof hkCell }).__hkCell = hkCell; // (for previews: a townsperson's cell)
