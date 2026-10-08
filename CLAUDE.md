@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.29.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.30.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3112,6 +3112,51 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   fight), a person's card in a fight ("Watch the fight"), and the news bubble (`skirmish:` red with Watch; `roamers:`
   gold). Soak (12 days, 2 towns each of knights, vampires, druids, dwarves): 1 to 3 fights in the towns of 3 or more,
   no deaths on the land, deaths 19 against main's 17. Tests: `test/roamers.test.ts`.
+
+## The lively town (0.30.0; the owner's ask: the town to look alive)
+
+Twenty-three things to watch, mostly renderer-only and off on a slow phone (`calm`). Tests: `test/lively.test.ts`.
+`window.__keepQuality = true` keeps a headless preview at full quality (it otherwise drops to `calm` and most of this
+goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weather) are for previews too.
+
+- **People at work.** A heavy load (`HAUL_LEAST` 4) goes in a wheelbarrow pushed ahead, heaped in the load's colour
+  (`map/haul.ts`, the Glassblower pack's barrow). More mood icons from the 5000 Pixel Effects pack (`emote_alarm`,
+  `lost`, `grief`, `think`, `proud`; `emoteFor` in mapPeople.ts: alarm in a raid or just struck, grief while
+  `PersonView.grieving`, thinking at the desk, proud after a level, lost when idle long). Workshops at work show it
+  (`snapshot.workingAt`; `map/workFx.ts`, looks by station in `map/workLooks.ts`: sparks and a glow at a forge, embers,
+  steam, bubbles, sawdust, threads, glints at a study, blue arcs at the late works) and builders throw up dust and chips.
+  **Pastimes** (`sim/pastimes.ts`, only where an idle wander goes): children play by each other (and every other one
+  flies a kite on a fair day), elders sit by the fire (activity `sit`, the kneel pose), a couple walks out together
+  from `STROLL_FROM` (17), and on **market day** (`marketOn`: one day in `MARKET_EVERY` 7, 9 to 16, three grown-ups)
+  everyone idle browses the square (`marketSquare`) while stalls stand there (`map/mapMarket.ts`: the Glassblower
+  awnings tinted, goods, cries). The **town crier** (the best talker about) calls `snapshot.news` (the latest milestone
+  of `NEWS_HOURS` 4) for 6.5 s in every 20. The pens' grazers go out to a pasture below the pen by day in fair weather
+  and walk home (`MapHerds.grazing`; no pasture over a building).
+- **The town over time.** `Building.builtAt` and `.scorched`; `art/weathered.ts` paints moss, ivy and grime by age
+  (`ageStage` in `art/wear.ts`: 6, 15, 30 days), soot for `SCORCH_DAYS` (3) after a fire, cracks and gaps on a wall at
+  `damageStage`. A fallen raider leaves debris (`markDebris` in state.ts: a blade, a shield, arrows, bones;
+  `DEBRIS_LASTS` a day; `map/battleDebris.ts`, DawnLike's item cells). A headstone for each of the fallen
+  (`map/mapGraves.ts`: beside the graveyard, else south-west of the camp, fresh earth and flowers for 3 days; tap for
+  who lies there). Doors dressed for the season (`map/seasonDecor.ts`, `decorRules.ts`: a plant, gourds and a sheaf, a
+  lantern and a wreath).
+- **Light and sky.** Street lamps every `LAMP_EVERY` road cells by the age (`map/streetLamps.ts`, `lampRules.ts`: a
+  torch, the Village pack's lantern post, iron, electric), lit one after another out from the fire as dusk falls
+  (`lampLit`). Cast shadows that swing with the sun (`art/sun.ts` `sunAt`, MapView `setSun`/`castShadow`: the picture
+  in black laid before the building, skewed west in the morning; people's shadows lean too, `sunLean`). Lit windows
+  spill a warm pool before the door. Stars over the dark beyond the known land, shooting stars and the cold lands'
+  aurora (`map/nightSky.ts`, in the lights layer), and the moon's phase on the clock (`MOON_GLYPHS` in hud.ts).
+- **Land and water.** `map/groundWeather.ts` (`groundRules.ts`): gusts as pale bands over the grass, puddles on the
+  roads and grass as the ground gets wet (`wetnessStep`: soaked in `SOAK_HOURS`, dry in `DRY_HOURS`), snow settling on
+  autumn's last afternoon and melting through spring's first day (`snowCover`). Reflections at the water's edge
+  (`map/reflections.ts`: trees, bushes, rocks and people mirrored, never on ice). Boats of the age along the rivers
+  (`map/mapSkiffs.ts`, the painted boats), horse-drawn carts along the roads (`map/roadTraffic.ts`,
+  `trafficRules.ts`).
+- **Presentation.** A big moment (`cinema/moments.ts` `momentOf`: a new age, a wedding, a birth, the founder's death,
+  the dragon, a rebirth) letterboxes the town with a title card (`cinema/cinema.ts`, `#cinema` in index.html) and "Show
+  me"; the camera never moves on its own. The news page is dressed for the age (`NEWS_TITLES` in notices.ts:
+  Tales by the Fire, The Crier's Scroll, The Town Gazette, The Evening Bulletin, Holo-Feed; `#notice-sheet[data-era]`).
+  A soft vignette darkens the view's corners (`VIGNETTE` in mapView.ts). (Blurring the far parts was left out: too dear
+  on a phone.)
 
 ## Known problem (fixed, watch)
 

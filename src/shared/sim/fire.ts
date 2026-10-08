@@ -72,6 +72,7 @@ export function fightFire(s: GameState, p: Person, b: Building): boolean {
   b.fire -= work;
   if (b.fire > 0) return false;
   delete b.fire;
+  b.scorched = s.tick;
   notify(s, `The fire at the ${defOf(b).name.toLowerCase()} is out.`);
   return true;
 }

@@ -8,6 +8,10 @@ import type { Material } from '../shared/data/materials';
 import { FOOD_VALUE } from '../shared/data/people';
 import type { Snapshot } from '../shared/sim/snapshot';
 import { bleedLeft, expeditionFill, researchFill } from '../shared/format';
+import { FULL_MOON_PHASE } from '../shared/sim/monsters';
+
+/** The moon's face by its phase, new to full. */
+const MOON_GLYPHS = ['○', '◔', '◑', '◕', '●'];
 
 export interface Hud {
   apply(state: StripState): void;
@@ -122,7 +126,8 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
       if (fast.textContent !== `${speed}×`) fast.textContent = `${speed}×`;
       fast.classList.toggle('active', speed > 1);
       const c = snap.calendar;
-      const sky = c.daylight > 0.5 ? '☀' : '☾'; // sun / moon
+      // (the sun by day; by night the moon in its phase, waxing to the full: ○ ◔ ◑ ◕ ●)
+      const sky = c.daylight > 0.5 ? '☀' : MOON_GLYPHS[Math.round(Math.max(0, Math.min(1, snap.moonPhase / FULL_MOON_PHASE)) * (MOON_GLYPHS.length - 1))];
       const season = c.season[0].toUpperCase() + c.season.slice(1) + (c.year > 1 ? ` Y${c.year}` : '');
       const time = `${String(c.hour).padStart(2, '0')}:${String(c.minute).padStart(2, '0')}`;
       const era = snap.era === 'neolithic' ? '' : `${ERA_NAMES[snap.era]} · `;

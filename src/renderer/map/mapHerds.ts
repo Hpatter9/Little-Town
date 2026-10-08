@@ -12,6 +12,10 @@ import { noTone } from '../art/pixelArt';
 
 /** How far in from the fence the animals keep (px). */
 const INSET = 6;
+/** By day in fair weather the grazing beasts are let out to the pasture before their pen (the owner's ask: herds led
+ *  out to graze and brought back at dusk): this many cells below it and a cell either side. Hens stay in. */
+const PASTURE_CELLS = 3;
+const GRAZERS = new Set(['goat', 'sheep', 'cow']);
 
 interface Beast {
   sprite: Sprite;
@@ -25,6 +29,8 @@ interface Beast {
 }
 
 interface Pen {
+  /** The pasture they're let out to. */
+  field: { x0: number; y0: number; x1: number; y1: number };
   box: { x0: number; y0: number; x1: number; y1: number };
   look: HerdDef['look'];
   beasts: Beast[];
@@ -32,6 +38,8 @@ interface Pen {
 
 export class MapHerds {
   private readonly pens = new Map<number, Pen>();
+  /** Out to pasture now (main.ts: by day, fair weather, not winter, no raid). */
+  grazing = false;
 
   constructor(private readonly layer: Container) {}
 
@@ -46,6 +54,7 @@ export class MapHerds {
       if (!pen) {
         const f = footprint(b);
         pen = {
+          field: { x0: 0, y0: 0, x1: 0, y1: 0 },
           box: { x0: f.x * CELL + INSET, y0: f.y * CELL + INSET + 8, x1: (f.x + f.w) * CELL - INSET, y1: (f.y + f.h) * CELL - INSET },
           look: herd.look,
           beasts: [],
@@ -55,6 +64,14 @@ export class MapHerds {
       // (a pen widened for its herd: the animals roam the new ground too)
       const f = footprint(b);
       pen.box = { x0: f.x * CELL + INSET, y0: f.y * CELL + INSET + 8, x1: (f.x + f.w) * CELL - INSET, y1: (f.y + f.h) * CELL - INSET };
+      // (a pasture with something built on it is no pasture: they stay in)
+      const fx0 = f.x - 1, fy0 = f.y + f.h, fx1 = f.x + f.w + 1, fy1 = f.y + f.h + PASTURE_CELLS;
+      const blocked = buildings.some((o) => {
+        if (o === b) return false;
+        const g = footprint(o);
+        return g.x < fx1 && g.x + g.w > fx0 && g.y < fy1 && g.y + g.h > fy0;
+      });
+      pen.field = blocked ? pen.box : { x0: fx0 * CELL + INSET, y0: fy0 * CELL + INSET, x1: fx1 * CELL - INSET, y1: fy1 * CELL - INSET };
       while (pen.beasts.length < b.herd.head) pen.beasts.push(this.spawn(b.id * 31 + pen.beasts.length, pen));
       while (pen.beasts.length > b.herd.head) pen.beasts.pop()!.sprite.destroy();
     }
@@ -77,10 +94,23 @@ export class MapHerds {
   /** Move everyone a frame on. */
   render(now: number, dt: number): void {
     for (const pen of this.pens.values()) {
-      const { x0, y0, x1, y1 } = pen.box;
+      const out = this.grazing && GRAZERS.has(pen.look);
+      const { x0, y0, x1, y1 } = out ? pen.field : pen.box;
       for (const a of pen.beasts) {
         const frames = animalFrames(pen.look, a.n, noTone, 'map');
-        if (now < a.still) {
+        // (outside where they belong now: walking out to the pasture, or home to the pen at dusk, in a file)
+        const away = a.x < x0 - 1 || a.x > x1 + 1 || a.y < y0 - 1 || a.y > y1 + 1;
+        if (away) {
+          const tx = Math.max(x0, Math.min(x1, a.x));
+          const ty = Math.max(y0, Math.min(y1, a.y)) + (out ? 4 : -4);
+          const dx = tx - a.x, dy = ty - a.y;
+          const d = Math.hypot(dx, dy) || 1;
+          const step = Math.min(d, a.speed * 3 * dt);
+          a.x += (dx / d) * step;
+          a.y += (dy / d) * step;
+          if (Math.abs(dx) > 0.5) a.dir = dx > 0 ? 1 : -1;
+          a.sprite.texture = frames.walk[Math.floor(now / 200 + a.n) % 2].texture;
+        } else if (now < a.still) {
           a.sprite.texture = frames.graze.texture;
         } else {
           a.x += a.dir * a.speed * dt;

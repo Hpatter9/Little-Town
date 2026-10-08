@@ -112,6 +112,10 @@ export interface Building {
   herd?: { head: number; tended: number; breed: number; hungry: number; work: number; owed?: number };
   /** On fire: how far it has burned (0..1; gone at 1). */
   fire?: number;
+  /** When it was finished (a tick; left out: at the founding), and when a fire there was last put out: the map shows
+   *  its years (moss, ivy) and its scorching (art/weathered.ts). */
+  builtAt?: number;
+  scorched?: number;
   /** Single-use buildings (the Resurrection Shrine): used up. */
   spent?: boolean;
   /** Reusable revivers (cryo pod, clone vat): ready again at this tick. */
@@ -215,8 +219,8 @@ export interface ShopTalk {
 }
 
 export type Task =
-  | { type: 'wander'; targetX: number; targetY: number }
-  | { type: 'idle'; untilTick: number }
+  | { type: 'wander'; targetX: number; targetY: number; pastime?: import('./pastimes').Pastime }
+  | { type: 'idle'; untilTick: number; pastime?: import('./pastimes').Pastime }
   /** Work a marked cell (`tile` is its index on the land); or (scrounge) pick just the wild berries off any cell, to
    *  keep from starving. */
   | { type: 'gather'; tile: number; progress: number; scrounge?: boolean }
@@ -284,7 +288,7 @@ export interface CraftOrder {
 
 /** What a person is visibly doing (drives their animation). */
 /** `dance`: at a feast (the map draws them dancing); `mourn`: at a funeral. */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | WorkAnim;
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | 'sit' | WorkAnim;
 
 export interface Raider {
   id: number;
@@ -922,6 +926,7 @@ export interface GameState {
   places?: MapPlace[];
   /** Blood on the ground where someone was struck down (`markBlood`). */
   blood?: BloodMark[];
+  debris?: DebrisMark[];
   /** Which end of town each destination lies beyond (-1 left, 1 right). */
   destSides: Record<string, -1 | 1>;
   prompts: Prompt[];
@@ -1218,6 +1223,29 @@ export function markBlood(s: GameState, x: number, y: number, from: 1 | -1): voi
   list.push({ x: Math.round(x), y: Math.round(y), from, tick: s.tick });
   while (list.length > BLOOD_MOST) list.shift();
   s.blood = list;
+}
+
+/** What a fight leaves lying where a foe fell (the owner's ask: the aftermath of a battle): a dropped blade or a
+ *  broken shield where a raider fell, spent arrows about, bones where a beast or the dead fell. Kept `DEBRIS_LASTS`,
+ *  at most `DEBRIS_MOST`; the map fades them as they're cleared away. */
+export type DebrisKind = 'blade' | 'shield' | 'arrows' | 'bones';
+export interface DebrisMark {
+  x: number;
+  y: number;
+  kind: DebrisKind;
+  tick: number;
+}
+export const DEBRIS_LASTS = 24 * 600;
+export const DEBRIS_MOST = 60;
+
+/** Something fell here: leave what it dropped. `n` turns which (a raider's id). */
+export function markDebris(s: GameState, x: number, y: number, nature: string, n: number): void {
+  const kinds: DebrisKind[] = nature === 'person' ? (n % 3 === 0 ? ['shield', 'arrows'] : n % 3 === 1 ? ['blade'] : ['blade', 'arrows']) : nature === 'beast' || nature === 'undead' ? ['bones'] : [];
+  if (!kinds.length) return;
+  const list = (s.debris ??= []).filter((m) => s.tick - m.tick < DEBRIS_LASTS);
+  kinds.forEach((kind, i) => list.push({ x: Math.round(x + (i ? ((n * 7) % 13) - 6 : 0)), y: Math.round(y + (i ? ((n * 5) % 9) - 4 : 0)), kind, tick: s.tick }));
+  while (list.length > DEBRIS_MOST) list.shift();
+  s.debris = list;
 }
 
 export function castSpellFx(s: GameState, spell: string, by: SpellTarget, targets: SpellTarget[], secs = 2): void {

@@ -190,6 +190,15 @@ type Picture = (p: { person?: number; building?: string }) => HTMLCanvasElement 
 
 /** The bubble and the review page. `bubble` and `sheet` go on the page; the strip is asked for pictures and to show
  *  things on the map. */
+/** What the news is called in each age (the page's look by the age is in mobile/index.html: `#notice-sheet[data-era]`). */
+export const NEWS_TITLES: Record<Snapshot['era'], string> = {
+  neolithic: 'Tales by the Fire',
+  medieval: "The Crier's Scroll",
+  industrial: 'The Town Gazette',
+  modern: 'The Evening Bulletin',
+  space: 'Holo-Feed',
+};
+
 export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { bubble: HTMLElement; sheet: HTMLElement } {
   const read = new Set<string>();
   try {
@@ -300,6 +309,12 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
     bubble.className = `tone-${tone}`;
   };
   const drawList = () => {
+    // (the page dressed for the age: a tale by the fire, the crier's scroll, the gazette, the bulletin, the holo-feed)
+    const era = snap?.era ?? 'neolithic';
+    if (sheet.dataset.era !== era) {
+      sheet.dataset.era = era;
+      title.textContent = NEWS_TITLES[era];
+    }
     shown = all();
     const key = shown.map((n) => `${n.key}|${n.title}|${n.text}|${read.has(n.key)}`).join('\n');
     if (key === listKey) return;

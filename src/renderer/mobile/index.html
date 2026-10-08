@@ -664,6 +664,80 @@
       #notice-sheet[hidden] {
         display: none;
       }
+      /* the news page dressed for the age (notices.ts NEWS_TITLES): hide and firelight, the crier's parchment, the
+         gazette's newsprint, the bulletin's screen, the holo-feed's glow */
+      #notice-sheet[data-era='neolithic'] .notice-row.new {
+        background: #3a2414;
+        border-color: #a0602a;
+      }
+      #notice-sheet[data-era='medieval'] .notice-row {
+        background: #e6d4a8;
+        border-color: #a07a48;
+        color: #2e1e0e;
+      }
+      #notice-sheet[data-era='medieval'] .notice-row.new {
+        background: #f2e2b8;
+      }
+      #notice-sheet[data-era='medieval'] .notice-row .notice-more,
+      #notice-sheet[data-era='medieval'] .notice-row .notice-when {
+        color: #5a4026;
+      }
+      #notice-sheet[data-era='industrial'] .notice-head {
+        background: #ece8dc;
+        border-bottom: 3px double #222;
+      }
+      #notice-sheet[data-era='industrial'] .notice-title {
+        color: #151515;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-variant: small-caps;
+        letter-spacing: 1px;
+      }
+      #notice-sheet[data-era='industrial'] {
+        background: #d8d4c8;
+      }
+      #notice-sheet[data-era='industrial'] .notice-row {
+        background: #f2efe6;
+        border-color: #9a968c;
+        color: #161616;
+        font-family: Georgia, 'Times New Roman', serif;
+        border-radius: 0;
+      }
+      #notice-sheet[data-era='industrial'] .notice-row .notice-more,
+      #notice-sheet[data-era='industrial'] .notice-row .notice-when {
+        color: #3c3c3c;
+      }
+      #notice-sheet[data-era='modern'] {
+        background: #0c1420;
+      }
+      #notice-sheet[data-era='modern'] .notice-head {
+        background: #0c1420;
+        border-bottom-color: #3a8ad0;
+      }
+      #notice-sheet[data-era='modern'] .notice-title {
+        color: #8ad0ff;
+      }
+      #notice-sheet[data-era='modern'] .notice-row {
+        background: #132236;
+        border-color: #2a4a6a;
+        color: #dceaf8;
+      }
+      #notice-sheet[data-era='space'] {
+        background: #05070e;
+      }
+      #notice-sheet[data-era='space'] .notice-head {
+        background: #05070e;
+        border-bottom-color: #40f0e0;
+      }
+      #notice-sheet[data-era='space'] .notice-title {
+        color: #70fff0;
+        text-shadow: 0 0 8px #40f0e0;
+      }
+      #notice-sheet[data-era='space'] .notice-row {
+        background: rgba(20, 40, 60, 0.7);
+        border-color: #2ad0c0;
+        color: #d8fffa;
+        box-shadow: 0 0 6px rgba(64, 240, 224, 0.25);
+      }
       .notice-head {
         position: sticky;
         top: 0;
