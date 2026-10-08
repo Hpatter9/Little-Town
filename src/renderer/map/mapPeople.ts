@@ -47,7 +47,7 @@ const PX_PER_WALK_FRAME = 4;
 const HIT_HALF_W = 11;
 const HIT_H = 50;
 /** At these a founder's hero swings their blow over and over (their work, in the only pose the sheets have for it). */
-const WORK_SWING = new Set(['chop', 'mine', 'build', 'reap', 'till', 'forage']);
+const WORK_SWING = new Set(['chop', 'mine', 'build', 'reap', 'till', 'forage', 'spar']);
 /** A founder is drawn this much bigger than the townsfolk, with an aura in their origin's colour. */
 const FOUNDER_SCALE = 1.14;
 const AURA: Record<string, number> = { town: 0xffd860, lich: 0x9a6aff, druid: 0x7ae070, vampire: 0xff3048, werewolf: 0xc8d8ff, robot: 0x60e0ff, dwarves: 0xffa040, merfolk: 0x40e0e0, nomads: 0xffc060, fae: 0xff90e0, knights: 0xf0f0ff, alchemists: 0x80ff80, settlers: 0xffd860 };
@@ -266,7 +266,7 @@ export class MapPeople {
     const side: HkFacing = v.dir < 0 ? 'left' : 'right';
     let facing: HkFacing = step?.facing && !fighting ? step.facing : !fighting && !working && d.face ? d.face : side;
     if (reading && facing === 'up') facing = 'down';
-    let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null, ranged: v.battle.ranged, now, reading, ref: v.id });
+    let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null, ranged: v.battle.ranged, now, reading, playing: v.activity === 'play' && !fighting, ref: v.id });
     // (dancing at a feast, or mourning: map/dance.ts)
     if (step && step.col !== null && !fighting) col = step.col;
     return hkTexture(keys, col, row);

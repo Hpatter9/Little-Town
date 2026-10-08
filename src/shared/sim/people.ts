@@ -4,6 +4,8 @@
 
 import { RING_CLEAR_PULL } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
+import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
+import { LEISURE } from '../data/recreation';
 import { onBoard } from './tactics';
 import { noteCleared } from './regrow';
 import { attending, festive, gatheringPlace } from './ceremonies';
@@ -118,8 +120,13 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     if (next && (loafing || rank(next, p) < rank(p.task!, p))) p.task = next;
   }
   if (!p.task) {
-    const c = campXY(s);
-    p.task = { type: 'wander', targetX: c.x + rng.range(-WANDER_TILES, WANDER_TILES) * CELL, targetY: c.y + rng.range(-WANDER_TILES, WANDER_TILES) * CELL };
+    // (nothing to do: a break at a place of leisure with a spot free, else a wander about the camp: sim/leisure.ts)
+    const spot = wantsRelax(s, p, true);
+    if (spot) p.task = { type: 'relax', building: spot.id, until: s.tick + relaxTicks(spot) };
+    else {
+      const c = campXY(s);
+      p.task = { type: 'wander', targetX: c.x + rng.range(-WANDER_TILES, WANDER_TILES) * CELL, targetY: c.y + rng.range(-WANDER_TILES, WANDER_TILES) * CELL };
+    }
   }
 
   const task = p.task;
@@ -276,6 +283,26 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (!goToB(s, p, tavern)) break;
       drinkAt(s, p);
       p.activity = 'drink';
+      break;
+    }
+    case 'relax': {
+      // (a break at a place of leisure: out on its ground at a spot of their own (a stroll moves between them), or
+      // inside; the lift comes when it's over: sim/leisure.ts)
+      const b = byId(s, task.building);
+      const def = b && LEISURE[b.def];
+      if (!b || !def) {
+        p.task = null;
+        break;
+      }
+      if (s.tick >= task.until) {
+        finishRelax(s, p, b, def, rng);
+        p.task = null;
+        p.activity = 'idle';
+        break;
+      }
+      const spot = relaxSpot(b, p.id + (def.activity === 'stroll' ? Math.floor(s.tick / (6 * TICK_HZ)) : 0));
+      if (def.indoors ? !goToB(s, p, b) : !goTo(s, p, spot)) break;
+      p.activity = def.activity;
       break;
     }
     case 'toil': {
@@ -742,6 +769,7 @@ function doSleep(s: GameState, p: Person, task: Extract<Task, { type: 'sleep' }>
   }
   if (wantsToWake(s, p)) {
     p.lastSlept = bed ? 'bed' : bedroll ? 'bedroll' : 'ground';
+    p.roughNights = bed ? 0 : (p.roughNights ?? 0) + 1; // (nights running out of a bed: the mood sinks further each: townsfolk.ts)
     p.task = null;
     p.activity = 'idle';
   }
@@ -767,6 +795,7 @@ function rank(t: Task, p?: Person): number {
     case 'attend':
       return -2.3;
     case 'drink':
+    case 'relax':
       return -1.5; // (leisure: after a meal or sleep, before any work)
     case 'eat':
       return -2.1; // (just over sleep: someone starving in the night gets up to eat)
@@ -843,6 +872,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
   if (busyNow(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'toil' ? p.task : { type: 'toil' };
   // Of an evening, those out for a drink go to the tavern and stay (sim/nightOut.ts; they eat first if they must).
   if (drinking(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'drink' ? p.task : { type: 'drink' };
+  // Spirits low: a break at a place of leisure before the day's work (sim/leisure.ts; the hungry eat first).
+  if (p.task?.type !== 'relax' && p.needs.food >= HUNGRY) {
+    const spot = wantsRelax(s, p, false);
+    if (spot) return { type: 'relax', building: spot.id, until: s.tick + relaxTicks(spot) };
+  }
   // Walking out of town (a mental break): nothing else matters.
   if (p.breakdown?.kind === 'wander') {
     const out = leavePt(s, p);
@@ -1116,6 +1150,11 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       return attending(s, p) && !alarmRaised(s);
     case 'drink':
       return drinking(s, p) && !alarmRaised(s);
+    case 'relax': {
+      // (the break ends in its own turn, with the lift it gives: leisure.ts)
+      const b = byId(s, t.building);
+      return !!b && b.status === 'done' && !alarmRaised(s) && !s.raid;
+    }
     case 'tend': {
       // (while the alarm is up, everyone fights or shelters: the wounded wait)
       // (and step aside if someone nearer has come to help)

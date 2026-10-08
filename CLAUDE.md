@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.23.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.24.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2927,6 +2927,37 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   and siege crews behind) among those the hero may lead and the town has trained, the worthier of a kind first, up to
   the hero's leadership; the places already set are kept, and the formation's selects change any of them. Test in
   `test/conquestSquads.test.ts`.
+
+## Mood and play (0.24.0; the owner's asks)
+
+- **Places of leisure (the owner: "recreation things for the townsfolk to do, to help boost mood"):**
+  `src/shared/data/recreation.ts`: six buildings merged into BUILDINGS, cheap and early to grand (`village_green` from
+  the start, `quoits_pitch` with Woodcutting, `sparring_yard` with Spear Hunting, `fishing_jetty` with Fish Traps (a
+  `shore` building: `canPlace` wants water beside it, and `findSpot` puts it there like the boatyard), `pleasure_garden`
+  with Masonry, `bandstand` with Market Charters), each with a small `morale` while it stands, and `LEISURE`: what is
+  done there (`activity`: dance, play, spar, fish, stroll, or `watch` indoors; the theatre, bathhouse and cinema are
+  visited too), how many at once, how long, the lift (`fun`) and its words. `src/shared/sim/leisure.ts`: `wantsRelax`
+  (by day, fed and rested, free of the town's business and the watch; spirits under `RELAX_BELOW` (55) take a break
+  before the day's work, anyone with nothing to do takes one instead of wandering; never within `RELAX_GAP_HOURS` of
+  the last (`Person.relaxedAt`; `RELAX_IDLE_GAP_HOURS` for the idle), never more than `RELAX_SHARE` (a third) of the
+  grown-ups at once; children where `children` play), the `relax` task in people.ts (to a spot of their own on the
+  ground, `relaxSpot`; a stroll moves between them; indoors for the theatre), and `finishRelax`: `fun` to the morale at
+  once and half of it for a day as `Person.fun` (in `mood()`), a bout in the yard a little melee (`SPAR_XP`), an hour
+  on the jetty `CATCH_CHANCE` of a fish into the stores. New `Activity` values `spar` (the weapon swung: `WORK_SWING`),
+  `play` (a throw now and then: `hkPose` `playing`), `fish` (the staff as a rod: `TOOL.fish`), `stroll`, `watch`
+  (indoors). Pictures laid from the Fields and Village packs' small things (`PICKS`: the signpost for the green's pole
+  with logs for benches, the rack and a post for the yard, the bridge planks for the jetty, rails and a peg for the
+  pitch, beds, a bench and lamps for the garden, a tent and benches for the bandstand). The Townsfolk tab says
+  "Playing on the green", "At the play"... (`LEISURE[].doing`). Tests: `test/leisure.test.ts`.
+- **Mood drives what the town builds (the owner's ask):** a night out of a bed weighs heavier each night running
+  (`Person.roughNights`, set in `doSleep`; `mood()`: the ground `GROUND_MORALE` (-6) and `ROUGH_PER_NIGHT` (3) more a
+  night up to `ROUGH_NIGHTS_MOST` (4), "Slept on the ground (4 nights)"; a bedroll `ROUGH_BEDROLL_PER_NIGHT`). The
+  planner's `Needs` carry `spirits` (`spiritsOf`: the grown-ups' mean morale) and `roughSleepers`: someone who slept
+  out with no bed to spare has a home wished for first, whatever the pace of food and homes (`wishes`); spirits under
+  `LOW_SPIRITS` (50) in a town of `LEISURE_PEOPLE` (3) grown-ups have the best comfort or place of leisure wished for
+  before the workshops, and `topicScore` favours the topics that open one (+14, else +3). A hamlet under three never
+  builds a place of leisure unasked (a roof comes first: 'lone-7' lost a person to a green and the games on it).
+  Tests in `test/leisure.test.ts`.
 
 ## Known problem (fixed, watch)
 

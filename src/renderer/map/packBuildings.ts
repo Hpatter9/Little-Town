@@ -155,6 +155,11 @@ import ttLong from '../art/packs/tt_long.png';
 import ttGable from '../art/packs/tt_gable.png';
 import dlPit from '../art/packs/dl_pit.png';
 import dlFence from '../art/packs/dl_fence.png';
+import fPointer4 from '../art/packs/f_pointer4.png';
+import fFence1 from '../art/packs/f_fence1.png';
+import fFence3 from '../art/packs/f_fence3.png';
+import vBench from '../art/packs/v_bench.png';
+import pierH from '../art/roads/pier_h.png';
 import dlStakes from '../art/packs/dl_stakes.png';
 import dlCaltrops from '../art/packs/dl_caltrops.png';
 import dlSpikes from '../art/packs/dl_spikes.png';
@@ -339,6 +344,15 @@ const PICKS: Record<string, Pick> = {
   brick_grate: grate(1, 'brick'),
   concrete_grate: grate(2),
   force_grate: grate(2, 'force'),
+  // the places of leisure (data/recreation.ts), laid from the Fields and Village packs' small things: a signpost for
+  // the green's pole with logs for benches, the rack and a post for the yard, the bridge pack's planks for the jetty,
+  // a peg and rails for the pitch, the garden's beds, bench and lamps, a tent and benches for the bandstand
+  village_green: { parts: [[fPointer4, 36, 4], [log3, 2, 44], [log3, 50, 46], [fStump, 66, 8], [flower1, 10, 12], [flower5, 20, 30], [flower9, 60, 40], [flower1, 86, 30], [tuft2, 28, 56], [tuft2, 78, 20]], size: [96, 64], overhang: 0 },
+  sparring_yard: { parts: [[vRack, 0, 6], [palisade19, 62, 2, 4, 0, 28, 32], [fDirt, 40, 30], [fDirt, 70, 38], [fFence1, 0, 49], [fFence1, 28, 49], [fFence1, 56, 49], [box1, 80, 46]], size: [96, 64], overhang: 0 },
+  fishing_jetty: { parts: [[pierH, 0, 0], [pierH, 32, 0], [barrel, 42, 4], [vBucket, 6, 10]], size: [64, 36], overhang: 0 },
+  quoits_pitch: { parts: [[fFence3, 0, 0], [fFence3, 26, 0], [palisade19, 64, 0, 4, 0, 28, 32], [fDirt, 20, 18], [fDirt, 44, 16], [box2, 2, 14]], size: [96, 32], overhang: 0 },
+  pleasure_garden: { parts: [[lantern, 4, 0], [lantern, 76, 0], [vBench, 34, 18], [flower1, 8, 50], [flower5, 18, 56], [flower9, 10, 70], [flower1, 24, 78], [flower9, 70, 52], [flower5, 82, 60], [flower1, 74, 74], [flower9, 86, 82], [tuft2, 40, 70], [tuft2, 52, 84], [flower5, 46, 64]], size: [96, 96], overhang: 0, lamps: [[12, 9], [84, 9]] },
+  bandstand: { parts: [[tent2, 16, 0], [log1, 0, 46], [log3, 50, 52], [lantern, 0, 4], [lantern, 80, 4]], size: [96, 68], overhang: 0, lamps: [[8, 13], [88, 13]] },
   // the dungeon props: bookshelves for the library, an alchemist's bench for the healer, a plain table for the workbench
   library: { parts: [[dprops, 0, 0, 16, 256, 48, 48], [dprops, 48, 0, 64, 256, 48, 48], [dprops, 96, 0, 112, 256, 48, 48]], size: [144, 48], overhang: 0 },
   healers_hut: { parts: [[dprops, 0, 0, 16, 304, 48, 48]], size: [48, 48], overhang: 0 },

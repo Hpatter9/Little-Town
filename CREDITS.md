@@ -108,6 +108,9 @@ painted over with its own window) and the tall gabled house (`tt_gable.png`) are
 `dl_caltrops.png`, `dl_spikes.png`) are cells of **DawnLike**'s `Objects/Trap0.png` by **DragonDePlatino**, and the bars of
 the ring wall's water grates (`dl_fence.png`: its wooden, iron and pale fence runs) cells of its `Objects/Fence.png`; the electric
 coil (`ao_coil.png`) is the first frame of the trap in the loose Craftpix animated-objects pack.
+The places of leisure are laid from the Fields tileset's signpost, rail fences and stump (`f_pointer4.png`, `f_fence1.png`,
+`f_fence3.png`, `f_stump.png`), the Village tileset's bucket and bench (`v_bucket.png`, `v_bench.png`), and the pieces
+already copied (logs, boxes, lanterns, a tent, the bridge pack's planks).
 
 ## Craftpix seabed wreck (the sea beast's reef)
 

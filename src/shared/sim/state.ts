@@ -246,6 +246,8 @@ export type Task =
   | { type: 'attend' }
   /** Of an evening at the tavern, for a drink (sim/nightOut.ts). */
   | { type: 'drink' }
+  /** A break at a place of leisure (sim/leisure.ts), till `until`. */
+  | { type: 'relax'; building: number; until: number }
   /** Sow a fallow field or harvest a ripe one. */
   | { type: 'farm'; building: number }
   /** Dig at a mine until your hands are full. */
@@ -274,7 +276,7 @@ export interface CraftOrder {
 
 /** What a person is visibly doing (drives their animation). */
 /** `dance`: at a feast (the map draws them dancing); `mourn`: at a funeral. */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | WorkAnim;
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | WorkAnim;
 
 export interface Raider {
   id: number;
@@ -445,6 +447,11 @@ export interface Person {
   morale: number;
   /** Where they slept last, which colours their mood until they sleep again. */
   lastSlept: 'bed' | 'bedroll' | 'ground' | null;
+  /** Nights in a row slept out of a bed (a bedroll or the ground): the mood sinks further each night (mood()). */
+  roughNights?: number;
+  /** When they last took a break at a place of leisure (sim/leisure.ts), and the lift it left for a day. */
+  relaxedAt?: number;
+  fun?: { text: string; value: number; until: number };
   /** Their bed: a housing building id, or null. */
   bed: number | null;
   priorities: Record<Job, Priority>;
