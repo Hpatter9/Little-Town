@@ -6,6 +6,7 @@ import { startRaid, updateRaid } from '../src/shared/sim/raids';
 import { BACK_MULT, BOARD_H, BOARD_W, blowMult, makeBoard, SIDE_MULT, tacticsView, type TacUnit } from '../src/shared/sim/tactics';
 import { makePerson, type GameState } from '../src/shared/sim/state';
 import { plainGame } from './helpers';
+import { setGround } from '../src/shared/sim/land';
 
 function town(seed: string, n = 5): GameState {
   const s = plainGame(seed);
@@ -211,3 +212,39 @@ test('a spell aimed at a tile falls on everyone in its area: a 3x3 hits all thre
 function kitOfNone() {
   return { actions: [], passive: { damage: 0, power: 0, healing: 0, crit: 0, critDamage: 0, counter: 0, lifesteal: 0, thorns: 0, guard: 0, resist: 0, regen: 0, lastStand: 0, firstStrike: false } };
 }
+
+test('a river across the field is wadeable shallows on the board, not a wall; only wide water stays deep', () => {
+  const s = town('tac-ford', 6);
+  // a river two cells wide down the middle of the field, whichever side the raid comes from; and a lake
+  for (const side of [-1, 1] as const) {
+    const b = makeBoard(s, side);
+    const u = Math.floor(b.w * 0.45);
+    for (let v = 0; v < b.h; v++) for (const du of [0, 1]) {
+      const t = b.tiles[v * b.w + u + du];
+      setGround(s.land, t.lx, t.ly, 'water');
+    }
+  }
+  const lake = makeBoard(s, 1).tiles[2 * BOARD_W + 2];
+  for (let dy = 0; dy < 7; dy++) for (let dx = 0; dx < 7; dx++) setGround(s.land, lake.lx + dx, lake.ly + dy, 'water');
+  for (const side of [-1, 1] as const) {
+    const b = makeBoard(s, side);
+    const u = Math.floor(b.w * 0.45);
+    for (let v = 0; v < b.h; v++) for (const du of [0, 1]) assert.equal(b.tiles[v * b.w + u + du].g, 'shallows', 'the river is waded');
+  }
+  const deep = makeBoard(s, 1);
+  assert.ok(deep.tiles.some((t) => t.g === 'water'), "the lake's middle stays deep");
+  // the raid crosses it: the fight is joined
+  const r = startRaid(s, RAID_KIND_BY_ID.bandits, 40, new Rng(3));
+  s.prompts = [];
+  r.arrivesTick = s.tick;
+  const rng = new Rng(9);
+  updateRaid(s, rng);
+  assert.ok(r.tactics, 'the board is laid');
+  const hp0 = s.people.reduce((a, p) => a + p.hp, 0);
+  for (let i = 0; i < 20000 && r.tactics!.phase !== 'done' && s.raid; i++) {
+    s.tick++;
+    updateRaid(s, rng);
+  }
+  const dealt = r.tactics!.killed + r.raiders.filter((q) => q.hp < q.maxHp).length;
+  assert.ok(dealt > 0 || s.people.reduce((a, p) => a + p.hp, 0) < hp0 || s.people.some((p) => p.downed), 'blows were struck across the river');
+});

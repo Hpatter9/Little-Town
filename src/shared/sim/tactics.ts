@@ -301,6 +301,7 @@ export function makeBoard(s: GameState, side: -1 | 1, big = false, salt = 0): Pi
       }
       b.tiles.push(tile);
     }
+  fords(b);
   lieOfTheLand(b, along, mixSeed(seed, 0x51de, salt));
   // the town's wall across the board at the gate's row, its gate in the middle (open: the way in)
   const wall = townWall(s);
@@ -411,6 +412,39 @@ function lieOfTheLand(b: Pick<Tactics, 'w' | 'h' | 'tiles'>, along: number, seed
     const t = tileAt(b, u, v);
     if (open(t) && !t!.tree) t!.bush = true;
   }
+}
+
+/** Water this close (tiles, four ways) to a bank is waded: a river or a stream is shallows on the board, crossed at
+ *  two moves a tile and lying low (the banks above it strike down into it); only wide water (a lake's middle, the
+ *  sea) stays deep. (The owner's complaint: a river across the field let nobody cross, so the raiders and the town
+ *  stood on their banks; on the land itself raiders wade a river, battle.ts `FORD`.) */
+export const FORD_DEPTH = 2;
+function fords(b: Pick<Tactics, 'w' | 'h' | 'tiles'>): void {
+  const near = new Array<number>(b.tiles.length).fill(999);
+  const queue: number[] = [];
+  b.tiles.forEach((t, i) => {
+    if (t.g !== 'water' && t.g !== 'mountain') {
+      near[i] = 0;
+      queue.push(i);
+    }
+  });
+  for (let qi = 0; qi < queue.length; qi++) {
+    const i = queue[qi];
+    if (near[i] >= FORD_DEPTH) continue;
+    const [u, v] = [i % b.w, Math.floor(i / b.w)];
+    for (const [du, dv] of DIRS) {
+      const nu = u + du;
+      const nv = v + dv;
+      if (nu < 0 || nv < 0 || nu >= b.w || nv >= b.h) continue;
+      const j = nv * b.w + nu;
+      if (near[j] <= near[i] + 1 || b.tiles[j].g !== 'water') continue;
+      near[j] = near[i] + 1;
+      queue.push(j);
+    }
+  }
+  b.tiles.forEach((t, i) => {
+    if (t.g === 'water' && near[i] <= FORD_DEPTH) t.g = 'shallows';
+  });
 }
 
 /** Whether someone may stand on a tile (a swimmer in the water too). */

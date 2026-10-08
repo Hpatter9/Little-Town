@@ -230,6 +230,12 @@ export class MapPeople {
   private spread(now: number): void {
     if (now - this.spreadAt < SPREAD_EVERY) return;
     this.spreadAt = now;
+    // (in a raid everyone stands where the fight put them: on the battle board the tiles lie closer than a step
+    // aside, and the steps had the fighters jigging about (the owner's complaint))
+    if (this.raid) {
+      for (const d of this.drawn.values()) d.aside = undefined;
+      return;
+    }
     const placed: { x: number; y: number }[] = [];
     const still = [...this.drawn.values()].filter((d) => !d.view.indoors && now - (d.stillSince ?? now) >= STILL_AFTER).sort((a, b) => a.view.id - b.view.id);
     const free = (x: number, y: number) => placed.every((q) => Math.hypot(q.x - x, (q.y - y) / SQUASH) >= PERSONAL_SPACE);
@@ -253,11 +259,14 @@ export class MapPeople {
     const v = d.view;
     const fighting = inCombat || v.activity === 'fight';
     const working = WORK_SWING.has(v.activity) && !fighting;
+    const reading = v.activity === 'research' && !fighting;
     const keys = hkLayers(hkWhoOf(v), { fighting, activity: v.activity });
-    // (up or down the map while that's mostly how they walk; else the side they're turned to)
+    // (up or down the map while that's mostly how they walk; else the side they're turned to; a reader turned away
+    // would hold the book over their head, so they read facing us)
     const side: HkFacing = v.dir < 0 ? 'left' : 'right';
-    const facing: HkFacing = step?.facing && !fighting ? step.facing : !fighting && !working && d.face ? d.face : side;
-    let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null, ranged: v.battle.ranged, now });
+    let facing: HkFacing = step?.facing && !fighting ? step.facing : !fighting && !working && d.face ? d.face : side;
+    if (reading && facing === 'up') facing = 'down';
+    let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null, ranged: v.battle.ranged, now, reading, ref: v.id });
     // (dancing at a feast, or mourning: map/dance.ts)
     if (step && step.col !== null && !fighting) col = step.col;
     return hkTexture(keys, col, row);

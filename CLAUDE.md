@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.21.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.22.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2877,6 +2877,19 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   ring's own sections in work was nearly always: a planned piece takes no slot now (`placeBlueprint(..., planned)`),
   and `planBuilding` gives the ring its turn (`ringTurn`: the planned pieces laid, the line's cells marked; no section
   released without room) even on a pass with the queue full, which used to return before it.
+
+- **Nobody is stepped aside in a raid (the owner: the flashing was in the raid too):** `MapPeople.spread` leaves
+  everyone where the fight put them while `raid` is set (the main map in an active raid, and the tactics board's own
+  people view always): on the board the tiles lie closer than a step aside, so the fighters were dealt places and
+  re-dealt them every quarter second.
+- **Reading at the desk (the owner's ask):** a researcher holds the pack's book open and reads (`TOOL.research` in
+  hkFolk.ts: the `book01` layer; `hkPose` `READ`: the second punch pose, where the pack draws the book open in both
+  hands before them), lowered for a moment every few seconds to turn a page (by their id); a reader turned away held
+  it over their head, so they read facing us (mapPeople's `hkTexture`).
+- **Rivers on the raid board are fords (the owner's complaint: nobody could cross):** `fords` in tactics.ts, from
+  `makeBoard`: water within `FORD_DEPTH` (2) tiles of a bank becomes `shallows` on the board, which anyone may stand
+  on (two moves a tile, lying low: the banks strike down into it); only wide water (a lake's middle, the sea) stays
+  deep. The town's wall still leaves the river a gap, as the ring does on the land. Test in `test/tactics.test.ts`.
 
 ## Known problem (fixed, watch)
 
