@@ -29,6 +29,8 @@ import { addStock, foodDaysFor, carryCapacity, ERA_MULTIPLIER, notify, poolSize,
 import { calendar, DAYS_PER_SEASON, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { gainSkill, workFactor } from './townsfolk';
 import { cropSpeed } from './origin';
+import { SHAFT } from '../data/deep';
+import { cellAt, deepOf, deepTarget, digDeep, digSeconds, isDiggable, shaftHasWork, workingLevel } from './deep';
 
 const FARM_XP_PER_SEC = 2;
 const HARVEST_XP = 20;
@@ -245,6 +247,7 @@ export function mineToWork(s: GameState, p: Person): Building | null {
   let best: Building | null = null;
   for (const b of s.buildings) {
     if (b.status !== 'done' || !WORKPLACES[b.def]) continue;
+    if (b.def === SHAFT && !shaftHasWork(s)) continue;
     const diggers = s.people.filter((o) => o !== p && o.task?.type === 'mine' && o.task.building === b.id).length;
     if (diggers >= WORKPLACES[b.def].workers) continue;
     if (!best || Math.abs(buildingCentreX(b) - p.x) < Math.abs(buildingCentreX(best) - p.x)) best = b;
@@ -252,8 +255,41 @@ export function mineToWork(s: GameState, p: Person): Building | null {
   return best;
 }
 
+/** One tick of digging in the Deep (sim/deep.ts): the miner's cell carved out below, and what it held into their
+ *  hands. */
+function workDeep(s: GameState, p: Person, b: Building, task: { work: number; cell?: number; depth?: number }): boolean {
+  const d = deepOf(s);
+  if (!d) return false;
+  const level = workingLevel(d);
+  if (task.cell === undefined || task.depth !== level.depth || !isDiggable(cellAt(level, task.cell))) {
+    const cell = deepTarget(s, p, level);
+    if (cell === null) return false;
+    task.cell = cell;
+    task.depth = level.depth;
+    task.work = 0;
+  }
+  task.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * modifiers(s.research).gather.mine * workFactor(s, p) * (holds(p, b) ? HOLDER_EDGE : 1)) / (digSeconds(level.depth) * TICK_HZ);
+  gainSkill(p, 'gathering', FARM_XP_PER_SEC / TICK_HZ);
+  if (task.work < 1) return false;
+  const got = digDeep(s, p, level.depth, task.cell);
+  task.work = 0;
+  task.cell = undefined;
+  let left = Math.max(0, carryCapacity(s, p) - poolSize(p.carrying));
+  const spill: Stock = {};
+  for (const [m, n] of Object.entries(got) as [Material, number][]) {
+    const k = Math.min(n, left);
+    addStock(p.carrying, m, k);
+    left -= k;
+    if (n > k) spill[m] = n - k;
+  }
+  if (poolSize(spill)) depositNear(s, buildingCentreX(b), spill);
+  gainSkill(p, 'gathering', HARVEST_XP);
+  return true;
+}
+
 /** One tick of digging. Returns true when a load is dug out (it goes into the digger's hands). */
-export function workMine(s: GameState, p: Person, b: Building, progress: { work: number }): boolean {
+export function workMine(s: GameState, p: Person, b: Building, progress: { work: number; cell?: number; depth?: number }): boolean {
+  if (b.def === SHAFT) return workDeep(s, p, b, progress);
   const w = WORKPLACES[b.def];
   progress.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * modifiers(s.research).gather.mine * workFactor(s, p) * (holds(p, b) ? HOLDER_EDGE : 1)) / (w.seconds * ERA_MULTIPLIER[earlier(s.era, eraOfResearch(BUILDING_BY_ID[b.def].research))] * TICK_HZ);
   gainSkill(p, 'gathering', FARM_XP_PER_SEC / TICK_HZ);

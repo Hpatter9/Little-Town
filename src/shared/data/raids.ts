@@ -3,6 +3,7 @@
 
 import { NEST_RAIDS } from './nests';
 import { CALAMITY_RAIDS } from './calamity';
+import { DEEP_RAIDS } from './deep';
 import { PACK_RAIDS } from './pack';
 import { BESTIARY_RAIDS } from './bestiary';
 import { MENAGERIE_RAIDS } from './menagerie';
@@ -104,6 +105,7 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   // the nests' and the Calamity's (data/nests.ts, data/calamity.ts): never rolled
   ...NEST_RAIDS,
   ...CALAMITY_RAIDS,
+  ...DEEP_RAIDS,
 ];
 
 export const RAID_KINDS: readonly RaidKind[] = [...BASE_RAID_KINDS, ...PACK_RAIDS];

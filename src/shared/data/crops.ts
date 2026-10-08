@@ -50,6 +50,8 @@ export const WORKPLACES: Readonly<Record<string, WorkplaceDef>> = {
   coal_mine: { outputs: { coal: 4, stone: 1 }, seconds: 40, workers: 3 },
   oil_derrick: { outputs: { oil: 4 }, seconds: 40, workers: 2 },
   deep_mine: { outputs: { rare_minerals: 2, stone: 2 }, seconds: 45, workers: 3 },
+  // (the shaft to the Deep: what's dug is the cell being carved out below, sim/deep.ts `digDeep`)
+  deep_shaft: { outputs: {}, seconds: 50, workers: 3 },
 };
 
 /** Growth speed by season. */

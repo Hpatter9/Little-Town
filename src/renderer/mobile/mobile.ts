@@ -195,9 +195,11 @@ bridge.onSnapshot((snap) => {
   // (a tactics battle too, drawn at its own scale like a watched fight)
   // (and a cutscene playing: the whole screen, like a watched fight)
   const scene = !!snap.scene?.playing;
-  if (scene !== document.body.classList.contains('scene') || !!(snap.battle || snap.watch || snap.mine || snap.tactics || scene) !== battleOn || !!(snap.watch || snap.mine || snap.tactics || scene) !== watchOn) {
-    battleOn = !!(snap.battle || snap.watch || snap.mine || snap.tactics || scene);
-    watchOn = !!(snap.watch || snap.mine || snap.tactics || scene);
+  // (and the Deep looked into)
+  const below = !!snap.deepView;
+  if (scene !== document.body.classList.contains('scene') || !!(snap.battle || snap.watch || snap.mine || below || snap.tactics || scene) !== battleOn || !!(snap.watch || snap.mine || below || snap.tactics || scene) !== watchOn) {
+    battleOn = !!(snap.battle || snap.watch || snap.mine || below || snap.tactics || scene);
+    watchOn = !!(snap.watch || snap.mine || below || snap.tactics || scene);
     document.body.classList.toggle('battle', battleOn);
     document.body.classList.toggle('scene', scene);
     layout();

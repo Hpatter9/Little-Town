@@ -61,11 +61,12 @@ export function foodDays(s: Snapshot): number {
 export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement[] {
   const c = s.calendar;
   const grid = el('div', 'glance');
-  const tile = (label: string, value: string, sub: string, to: [PanelId, string] | null, warn = false) => {
+  const tile = (label: string, value: string, sub: string, to: [PanelId, string] | (() => void) | null, warn = false) => {
     const t = el(to ? 'button' : 'div', `glance-tile${warn ? ' warn' : ''}`);
     t.append(el('span', 'glance-label', label), el('span', 'glance-value', value));
     if (sub) t.append(el('span', 'glance-sub', sub));
-    if (to) t.addEventListener('click', () => goTo(bridge, 'build', to[0], to[1], rerender));
+    if (typeof to === 'function') t.addEventListener('click', to);
+    else if (to) t.addEventListener('click', () => goTo(bridge, 'build', to[0], to[1], rerender));
     grid.append(t);
   };
   const away = s.people.filter((p) => p.away !== null).length;
@@ -90,6 +91,15 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
     if (worst) tile('Gods', worst.mood === 'wrathful' ? 'Wrathful' : worst.favour < 0 ? 'Uneasy' : 'At peace', worst.favour < 0 ? `${worst.name} is ${worst.mood}` : 'all four content', ['build', 'Faith'], worst.mood === 'wrathful');
   }
   if (s.calamity) tile('The Calamity', s.calamity.beaten ? 'Beaten' : s.calamity.stageName, s.calamity.beaten ? s.calamity.name : `${s.calamity.name} · dread ${Math.round(s.calamity.dread)}`, ['expeditions', 'Places'], !s.calamity.beaten && s.calamity.stage >= 4);
+  // (the Deep under the town: a tap goes down into its deepest level, sim/deep.ts)
+  if (s.deep) {
+    const d = s.deep;
+    const last = d.levels[d.levels.length - 1];
+    tile('The Deep', `Level ${last.depth}`, `${last.name} · ${d.miners ? `${d.miners} digging` : 'nobody digging'}`, () => {
+      bridge?.command({ type: 'watchDeep', depth: last.depth });
+      bridge?.closePanel();
+    }, d.stir >= 0.75);
+  }
   tile('Age', ERA_NAMES[s.era], `Year ${c.year}, ${c.season} day ${c.dayOfSeason}`, ['research', 'Tech tree']);
   return [el('h2', '', 'At a glance'), grid, el('div', 'hint', 'Tap a tile to go to it.')];
 }

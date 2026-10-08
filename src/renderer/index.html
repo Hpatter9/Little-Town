@@ -875,6 +875,25 @@
       /* the recap after a raid (battle/raidRecap.ts) */
       /* a big moment, as a film would show it (cinema/cinema.ts): bars in, a title card, out */
       /* a cutscene (cutscene/cutsceneView.ts): the bars of a film, the subtitles, a chapter card; and the card offering it */
+      /* the Deep looked into (deep/deepView.ts): a bar over the level, its news under it */
+      #deep-hud { position: fixed; inset: 0; z-index: 40; pointer-events: none; font: 13px/1.3 var(--font-body, sans-serif); color: #e8dcc8; }
+      #deep-hud[hidden] { display: none; }
+      body.deep-on > *:not(canvas):not(#deep-hud):not(#scene-offer):not(#cutscene) { visibility: hidden !important; }
+      #deep-hud .dh-top { position: absolute; left: 0; right: 0; top: 0; height: 50px; display: flex; align-items: center; gap: 8px; padding: 0 10px; box-sizing: border-box; background: linear-gradient(#1a1418, #120e12); border-bottom: 2px solid #5a4632; pointer-events: auto; }
+      #deep-hud .dh-title { flex: 1; text-align: center; font: 700 15px var(--font-display, serif); color: #ffd890; letter-spacing: 0.04em; text-shadow: 0 1px 0 #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #deep-hud button { background: #2a2026; color: #f0e4cc; border: 1px solid #6a5440; border-radius: 6px; min-width: 34px; height: 32px; font: 600 14px var(--font-body, sans-serif); }
+      #deep-hud button:disabled { opacity: 0.35; }
+      #deep-hud .dh-info { position: absolute; left: 0; right: 0; bottom: 0; height: 120px; padding: 8px 12px; box-sizing: border-box; background: linear-gradient(#120e12, #0a080a); border-top: 2px solid #5a4632; overflow: hidden; pointer-events: auto; }
+      #deep-hud .dh-row { margin-bottom: 3px; }
+      #deep-hud .dh-row b { color: #d8b878; font-weight: 700; }
+      #deep-hud .dh-stir { position: relative; height: 16px; margin: 5px 0 6px; border-radius: 8px; background: #2a1c20; border: 1px solid #5a3a34; overflow: hidden; }
+      #deep-hud .dh-stir i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #6a3a2a, #d04a2a); }
+      #deep-hud .dh-stir span { position: relative; z-index: 1; display: block; text-align: center; font-size: 11px; line-height: 16px; color: #fff; text-shadow: 0 1px 1px #000; }
+      #deep-hud .dh-find { font-size: 12px; color: #b8ac98; font-style: italic; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      @media (orientation: landscape) {
+        #deep-hud .dh-info { left: auto; width: 250px; top: 50px; height: auto; border-top: 0; border-left: 2px solid #5a4632; }
+        #deep-hud .dh-find { white-space: normal; }
+      }
       #cutscene { position: fixed; inset: 0; z-index: 9000; display: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
       #cutscene.on { display: block; }
       /* (while a scene plays, the town's own cards and notices stand aside) */

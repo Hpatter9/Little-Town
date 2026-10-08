@@ -101,7 +101,7 @@ import { RECRUIT_TYPES, TRAIT_BY_ID, type Job, type Look, type Priority } from '
 import { RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
 import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
-import { buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
+import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
 import { modifiers, researchStation, researchStations } from './research';
 import { tireless, carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
@@ -130,6 +130,8 @@ import { NEST_DEFS, type NestKind } from '../data/nests';
 import { directionName, isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
 import { RIVALS } from '../data/rivals';
+import { DEEP_H, DEEP_LEVELS, DEEP_W, OPEN_AFTER, RISE_AT, SHAFT } from '../data/deep';
+import { deepFarms, shaftOf } from './deep';
 
 const spellName = (spell: string): string => {
   const [side, id] = spell.split(':');
@@ -512,6 +514,87 @@ export interface PlaceView {
   nest?: { kind: NestKind; level: number };
 }
 
+/** The Deep, in brief (the shaft's card, the Town overview). */
+export interface DeepSummary {
+  levels: { depth: number; name: string; dug: number; open: boolean }[];
+  /** How roused what lives down there is, 0 to 1 (at 1 something climbs up). */
+  stir: number;
+  farms: number;
+  lakes: number;
+  miners: number;
+  finds: string[];
+}
+
+/** A level of the Deep as the player sees it. */
+export interface DeepView {
+  depth: number;
+  name: string;
+  w: number;
+  h: number;
+  /** One character a cell (data/deep.ts DeepCell). */
+  cells: string;
+  /** Ore in each rock cell still holding some (index → its ore), for the flecks in the rock. */
+  ores: Record<number, Material>;
+  /** How many cells to the way down (0 once found), and the levels there are to look at. */
+  toDown: number;
+  levels: { depth: number; name: string }[];
+  stir: number;
+  finds: string[];
+  /** The miners on this level: at their cell (digging) or on their way down the shaft. */
+  miners: { id: number; name: string; look: Look; gear: Partial<Record<Slot, string>>; cell: number | null; digging: boolean; work: number }[];
+}
+
+function deepMiners(s: GameState): Person[] {
+  return s.people.filter((p) => p.task?.type === 'mine' && s.buildings.some((b) => b.id === (p.task as { building: number }).building && b.def === SHAFT));
+}
+
+function deepSummary(s: GameState): DeepSummary | null {
+  const d = s.deep;
+  if (!d || !shaftOf(s)) return null;
+  const { farms, lakes } = deepFarms(d);
+  return {
+    levels: d.levels.map((l) => ({ depth: l.depth, name: DEEP_LEVELS[l.depth - 1].name, dug: l.dug, open: l.down })),
+    stir: Math.min(1, d.stir / RISE_AT),
+    farms,
+    lakes,
+    miners: deepMiners(s).length,
+    finds: d.finds.slice(-5),
+  };
+}
+
+function deepView(s: GameState): DeepView | null {
+  const d = s.deep;
+  const shaft = shaftOf(s);
+  if (!d || !shaft || s.watchingDeep === undefined) return null;
+  const l = d.levels[s.watchingDeep - 1];
+  if (!l) return null;
+  const ores: Record<number, Material> = {};
+  for (const [i, st] of Object.entries(l.pools)) {
+    const ore = (Object.keys(st) as Material[]).find((m) => m !== 'stone' && (st[m] ?? 0) > 0);
+    if (ore) ores[+i] = ore;
+  }
+  const c = buildingCentre(shaft);
+  const at = (q: Person) => Math.hypot(q.x - c.x, q.y - c.y) < CELL * 2.2;
+  return {
+    depth: l.depth,
+    name: DEEP_LEVELS[l.depth - 1].name,
+    w: DEEP_W,
+    h: DEEP_H,
+    cells: l.cells,
+    ores,
+    toDown: l.down ? 0 : Math.max(0, OPEN_AFTER - l.dug),
+    levels: d.levels.map((q) => ({ depth: q.depth, name: DEEP_LEVELS[q.depth - 1].name })),
+    stir: Math.min(1, d.stir / RISE_AT),
+    finds: d.finds.slice(-4),
+    miners: deepMiners(s)
+      .filter((q) => q.task?.type === 'mine' && (q.task.depth ?? 1) === l.depth)
+      .map((q) => {
+        const t = q.task as { cell?: number; work: number };
+        return { id: q.id, name: q.name, look: q.look, gear: { ...q.gear }, cell: t.cell ?? null, digging: at(q) && q.activity === 'mine', work: t.work };
+      }),
+  };
+}
+
 /** The mine the player has gone into (sim/places.ts): what's there to watch. */
 export interface MineView {
   id: number;
@@ -767,6 +850,10 @@ export interface Snapshot {
   skirmishes: SkirmishView[];
   /** The mine the player has gone into, in place of the town (sim/places.ts). */
   mine: MineView | null;
+  /** The Deep under the town (sim/deep.ts), once there's a shaft: its levels and how it stands. */
+  deep: DeepSummary | null;
+  /** The level of the Deep the player is looking at (`watchDeep`), drawn by renderer/deep/deepView.ts. */
+  deepView: DeepView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
   /** The sagas under way and those ended (sim/sagas.ts). */
@@ -1072,6 +1159,8 @@ export function snapshot(s: GameState): Snapshot {
     })),
     watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching) ?? skirmishTrip(s, s.watching)),
     mine: mineView(s),
+    deep: deepSummary(s),
+    deepView: deepView(s),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,
@@ -1532,7 +1621,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     bedId: bed ? bed.id : null,
     floor: null,
     rally: rallyState(s, p),
-    indoors: (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
+    indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
     away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     maxHp: maxHp(p),

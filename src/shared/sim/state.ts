@@ -1,5 +1,6 @@
 import type { NightOut } from './nightOut';
 import type { CalamityState } from './calamity';
+import type { DeepState } from './deep';
 import type { SceneRun } from './cutscenes';
 import type { DragonState } from './dragon';
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
@@ -265,7 +266,8 @@ export type Task =
   /** Sow a fallow field or harvest a ripe one. */
   | { type: 'farm'; building: number }
   /** Dig at a mine until your hands are full. */
-  | { type: 'mine'; building: number; work: number }
+  /** Digging at a mine; at the shaft to the Deep, the cell being carved out below and its level (sim/deep.ts). */
+  | { type: 'mine'; building: number; work: number; cell?: number; depth?: number }
   /** Work a craft order: fetch its materials from storage (`from`), carry them to the station, then make it. */
   | { type: 'craft'; order: number; phase: 'fetch' | 'deliver' | 'work'; from: number | null };
 
@@ -1152,6 +1154,9 @@ export interface GameState {
   skirmishes?: Skirmish[];
   /** The Calamity (sim/calamity.ts): what it is, how far its dread has risen, its heart and sieges. */
   calamity?: CalamityState;
+  /** The Deep under the town (sim/deep.ts), once a shaft is sunk; and the level the player is looking at, if any. */
+  deep?: DeepState;
+  watchingDeep?: number;
   /** Cutscenes waiting to be watched, those seen (to watch again), the one playing, and whether the town was paused
    *  before it began (sim/cutscenes.ts). */
   scenes?: SceneRun[];

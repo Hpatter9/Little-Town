@@ -54,6 +54,7 @@ import { delvesHourly } from './delves';
 import { placesHourly } from './places';
 import { nestsHourly } from './nests';
 import { calamityHourly } from './calamity';
+import { deepHourly } from './deep';
 import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
@@ -202,6 +203,7 @@ export class Sim {
     placesHourly(s, this.rng);
     nestsHourly(s); // (monster nests on the land: sim/nests.ts)
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
+    deepHourly(s); // (the Deep under the town: sim/deep.ts)
     scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)
     // (a town just founded: its founding, to watch)
     if (s.tick === TICKS_PER_HOUR && s.autopilot !== false && !s.scenesSeen?.length && !s.scenes?.length) queueScene(s, 'founding');
@@ -427,6 +429,9 @@ export class Sim {
         break;
       case 'watch':
         s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition)) ? c.expedition : undefined;
+        break;
+      case 'watchDeep':
+        s.watchingDeep = c.depth !== null && s.deep && c.depth <= s.deep.levels.length ? c.depth : undefined;
         break;
       case 'watchMine':
         s.watchingMine = c.place !== null && (s.places ?? []).some((p) => p.id === c.place && p.mine) ? c.place : undefined;
