@@ -14,6 +14,9 @@ import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from 
 import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
 import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
+import { loadImage } from '../art/loadImage';
+import barrowUrl from '../art/shops/gb_barrow.png';
+import { hauls, heapColour, mainLoad } from './haul';
 
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
@@ -70,6 +73,19 @@ const WORK_ABOVE = 58;
 /** A shapeshifter's bear: its block on the MV bear sheet, and its size against a person. */
 /** The health bar's width (px) in a raid. */
 const HP_W = 20;
+/** The crier cries the news this long in every so long (ms). */
+const CRY_EVERY = 20000;
+const CRY_FOR = 6500;
+/** The barrow's size, and how far ahead of the one pushing it (px). */
+const BARROW_SCALE = 0.62;
+const BARROW_AHEAD = 13;
+let barrowTex: Texture | null = null;
+loadImage(barrowUrl)
+  .then((im) => {
+    barrowTex = Texture.from(im);
+    barrowTex.source.scaleMode = 'nearest';
+  })
+  .catch(() => undefined);
 
 interface Drawn {
   view: PersonView;
@@ -78,6 +94,11 @@ interface Drawn {
   shadow: Sprite;
   horse: Sprite;
   load: Graphics;
+  /** The wheelbarrow pushed with a heavy load (map/haul.ts), and its heap's key. */
+  barrow?: Container;
+  /** A child's kite on a fair, breezy day at play. */
+  kite?: Graphics;
+  heapKey?: string;
   bubble: Graphics;
   blood?: Graphics;
   bleedFrom?: number;
@@ -161,6 +182,9 @@ export class MapPeople {
   hour = 12;
   raid = false;
   zoom = 1;
+  /** The latest news (main.ts, per snapshot): the town crier, the best talker about, calls it out now and then. */
+  news: { id: number; text: string } | null = null;
+  private crierId = -1;
   /** The map's lights layer (main.ts): everyone out after dark carries a lantern's glow there. */
   lights: Container | null = null;
   weave = false;
@@ -217,9 +241,17 @@ export class MapPeople {
       d.view = p;
       d.visitor = isVisitor;
     }
+    let best = -1;
+    this.crierId = -1;
+    for (const d of this.drawn.values()) {
+      const v = d.view;
+      if (d.visitor || v.indoors || v.growsUpIn !== null || v.activity === 'fight' || v.activity === 'sleep' || v.typeName === 'Traveller') continue;
+      const social = v.skills.social?.level ?? 0;
+      if (social > best) [best, this.crierId] = [social, v.id];
+    }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.kite, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -266,7 +298,7 @@ export class MapPeople {
     const side: HkFacing = v.dir < 0 ? 'left' : 'right';
     let facing: HkFacing = step?.facing && !fighting ? step.facing : !fighting && !working && d.face ? d.face : side;
     if (reading && facing === 'up') facing = 'down';
-    let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null, ranged: v.battle.ranged, now, reading, playing: v.activity === 'play' && !fighting, ref: v.id });
+    let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null || (v.activity === 'sit' && !moving), ranged: v.battle.ranged, now, reading, playing: v.activity === 'play' && !fighting, ref: v.id });
     // (dancing at a feast, or mourning: map/dance.ts)
     if (step && step.col !== null && !fighting) col = step.col;
     return hkTexture(keys, col, row);
@@ -300,6 +332,22 @@ export class MapPeople {
     if (answering && !quiet && (d.replyUntil === undefined || now > d.replyUntil + SPEECH_EVERY / 4)) d.replyUntil = now + SPEECH_FOR;
     const replying = d.replyUntil !== undefined && now < d.replyUntil;
     const speaks = !quiet && ((into < (talk ? SPEECH_EVERY : SPEECH_FOR) && hash01(v.id, slot) < share) || replying);
+    // (the town crier: "Hear ye!" and the latest news, for a few seconds in every twenty while it's fresh)
+    if (this.news && v.id === this.crierId && !quiet && (now % CRY_EVERY < CRY_FOR || (window as unknown as { __cry?: number }).__cry)) {
+      const cryKey = -1 - this.news.id;
+      if (d.speechSlot !== cryKey || !d.speech) {
+        d.speech?.destroy();
+        const text = this.news.text.length > 70 ? `${this.news.text.slice(0, 68)}…` : this.news.text;
+        d.speech = this.layer.addChild(makeBubble(`Hear ye! ${text}`));
+        d.speechSlot = cryKey;
+      }
+      const kz = Math.min(2.2, Math.max(1, 1 / Math.max(0.25, this.zoom)));
+      d.speech.visible = true;
+      d.speech.scale.set(kz);
+      d.speech.position.set(Math.round(x), Math.round(y) - 64);
+      d.speech.zIndex = z + 1e7;
+      return;
+    }
     if (!speaks) {
       if (d.speech) d.speech.visible = false;
       return;
@@ -325,9 +373,17 @@ export class MapPeople {
     // (at a feast, notes and hearts come thick and fast; at a funeral, none)
     if (v.activity === 'dance') return (now / 1000 + v.id * 1.3) % 4 < 1.7 ? (v.id % 3 === 0 || (v.partner && v.id % 2) ? 'heart' : 'note') : null;
     if (v.activity === 'mourn') return null;
+    // (a raid on and not in the fight, or just struck: alarm)
+    if (v.sinceHit < 25 && v.downed === null && !v.defending) return 'alarm';
+    if (this.raid && !v.defending && v.activity !== 'fight' && v.downed === null && (now / 1000 + v.id) % 3 < 1.2) return 'alarm';
     const burst = ((now / 1000 + v.id * 3.7) % EMOTE_EVERY) < EMOTE_FOR;
     if (!burst) return null;
     if (v.needs.rest < 0.12 || v.needs.food < 0.12) return 'sweat';
+    if (v.grieving) return 'grief';
+    // (lost in thought at the desk; standing about with nothing to do for a while; proud of a level just won)
+    if (v.activity === 'research' && v.id % 2 === 0) return 'think';
+    if (d.levelAt !== undefined && now - d.levelAt < 20000) return 'proud';
+    if (v.activity === 'idle' && now - d.animStart > 15000) return 'lost';
     if (v.partner && v.activity !== 'fight') {
       for (const o of this.drawn.values()) if (o.view.name === v.partner && Math.hypot(o.x - d.x, o.y - d.y) < 40) return 'heart';
     }
@@ -554,7 +610,63 @@ export class MapPeople {
           d.marks.zIndex = z + 0.05;
         }
       }
-      // (what they carry is in their pack, not a bundle over their head: the owner's call)
+      // (what they carry is in their pack, not a bundle over their head: the owner's call; a heavy load goes in a
+      // wheelbarrow pushed ahead of them, heaped with it: map/haul.ts)
+      const pushing = !!barrowTex && hauls(v, moving) && !hidden;
+      if (pushing && !d.barrow) {
+        d.barrow = this.layer.addChild(new Container());
+        const b = d.barrow.addChild(new Sprite(barrowTex!));
+        b.anchor.set(0.5, 1);
+        b.scale.set(BARROW_SCALE);
+        d.barrow.addChild(new Graphics());
+      }
+      if (d.barrow) {
+        d.barrow.visible = pushing;
+        if (pushing) {
+          const [mat, n] = mainLoad(v.carrying);
+          const heap = Math.min(3, Math.floor(n / 4));
+          const key = `${mat}:${heap}`;
+          const g = d.barrow.children[1] as Graphics;
+          if (key !== d.heapKey) {
+            d.heapKey = key;
+            const [c, top] = heapColour(mat);
+            g.clear();
+            // (a heap bulging over the tub's rim, bigger the more there is)
+            const w = 5 + heap * 2;
+            g.ellipse(-2, -13, w, 2 + heap).fill(c);
+            g.ellipse(-3, -14 - heap * 0.5, w - 2, 1 + heap * 0.6).fill(top);
+          }
+          const way = faceWay === 'up' ? 0 : faceWay === 'down' ? 0 : d.view.dir;
+          const bob = Math.floor(d.walked / 6) % 2;
+          d.barrow.scale.x = way > 0 ? -1 : 1;
+          d.barrow.position.set(Math.round(x + way * BARROW_AHEAD), Math.round(y + (faceWay === 'down' ? 9 : faceWay === 'up' ? -7 : 2)) - bob);
+          d.barrow.zIndex = faceWay === 'up' ? z - 0.2 : z + 0.12;
+        }
+      }
+      // a child at play on a fair day flies a kite, high on its string and dancing in the wind
+      const flying = !hidden && v.growsUpIn !== null && v.activity === 'play' && v.id % 2 === 0 && this.hour >= 8 && this.hour < 18 && this.season !== 'winter' && (this.weather === 'clear' || this.weather === 'cloudy');
+      if (flying && !d.kite) d.kite = this.layer.addChild(new Graphics());
+      if (d.kite) {
+        d.kite.visible = flying;
+        if (flying) {
+          const t = now / 1000 + v.id;
+          const kx = -d.view.dir * (34 + Math.sin(t * 0.7) * 8);
+          const ky = -86 + Math.sin(t * 1.3) * 7;
+          const tilt = Math.sin(t * 1.9) * 0.35;
+          const hue = [0xe04848, 0x4888e0, 0xe0c040, 0x60c060][v.id % 4];
+          const g = d.kite.clear();
+          // (the string sagging from the hand to the kite)
+          g.moveTo(0, -22).quadraticCurveTo(kx * 0.6, -30, kx, ky + 8).stroke({ color: 0xf0ead8, width: 0.6, alpha: 0.8 });
+          const pt = (ax: number, ay: number) => [kx + ax * Math.cos(tilt) - ay * Math.sin(tilt), ky + ax * Math.sin(tilt) + ay * Math.cos(tilt)];
+          const [ax, ay] = pt(0, -8), [bx, by] = pt(5, 0), [cx, cy] = pt(0, 8), [ex, ey] = pt(-5, 0);
+          g.poly([ax, ay, bx, by, cx, cy, ex, ey]).fill(hue).stroke({ color: 0x2a1a10, width: 0.6 });
+          g.moveTo(ax, ay).lineTo(cx, cy).stroke({ color: 0xffffff, width: 0.5, alpha: 0.6 });
+          // (its tail of bows)
+          for (let i = 1; i <= 3; i++) g.rect(cx + Math.sin(t * 3 + i) * 2 * i - 1, cy + i * 4, 2, 1.5).fill(i % 2 ? 0xffffff : hue);
+          d.kite.position.set(Math.round(x), Math.round(y));
+          d.kite.zIndex = z + 1e6;
+        }
+      }
       d.load.visible = false;
       d.load.position.set(Math.round(x) - d.view.dir * 7 - 4, Math.round(y) - 40);
       d.load.zIndex = z + 0.1;

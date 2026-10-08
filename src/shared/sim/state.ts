@@ -215,8 +215,8 @@ export interface ShopTalk {
 }
 
 export type Task =
-  | { type: 'wander'; targetX: number; targetY: number }
-  | { type: 'idle'; untilTick: number }
+  | { type: 'wander'; targetX: number; targetY: number; pastime?: import('./pastimes').Pastime }
+  | { type: 'idle'; untilTick: number; pastime?: import('./pastimes').Pastime }
   /** Work a marked cell (`tile` is its index on the land); or (scrounge) pick just the wild berries off any cell, to
    *  keep from starving. */
   | { type: 'gather'; tile: number; progress: number; scrounge?: boolean }
@@ -284,7 +284,7 @@ export interface CraftOrder {
 
 /** What a person is visibly doing (drives their animation). */
 /** `dance`: at a feast (the map draws them dancing); `mourn`: at a funeral. */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | WorkAnim;
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | 'sit' | WorkAnim;
 
 export interface Raider {
   id: number;

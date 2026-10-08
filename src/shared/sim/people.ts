@@ -55,6 +55,7 @@ import { accruePay, accruePayFrom, loadPrice, moneyTown, payFromTreasury } from 
 import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, TREASURY_KEEP } from '../data/economy';
 import { canWork, skillPace } from './property';
 import { isChild } from './social';
+import { pastimeFor } from './pastimes';
 
 /** Walking speed in world pixels per second. */
 export const WALK_SPEED = 48;
@@ -138,16 +139,19 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     else {
       const c = campXY(s);
       p.task = { type: 'wander', targetX: c.x + rng.range(-WANDER_TILES, WANDER_TILES) * CELL, targetY: c.y + rng.range(-WANDER_TILES, WANDER_TILES) * CELL };
+      // (a child off to play, an elder to sit by the fire, a couple walking out of an evening: sim/pastimes.ts)
+      const pt = pastimeFor(s, p, Math.floor(s.tick / (8 * TICK_HZ)));
+      if (pt) p.task = { type: 'wander', targetX: pt.x, targetY: pt.y, pastime: pt.pastime };
     }
   }
 
   const task = p.task;
   switch (task.type) {
     case 'wander':
-      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ };
+      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime };
       break;
     case 'idle':
-      p.activity = 'idle';
+      p.activity = task.pastime ?? 'idle';
       if (s.tick >= task.untilTick) p.task = null;
       break;
     case 'gather':

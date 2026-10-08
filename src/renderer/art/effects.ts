@@ -41,6 +41,11 @@ import heartUrl from './effects/emote_heart.png';
 import angerUrl from './effects/emote_anger.png';
 import sweatUrl from './effects/emote_sweat.png';
 import noteUrl from './effects/emote_note.png';
+import alarmUrl from './effects/emote_alarm.png';
+import lostUrl from './effects/emote_lost.png';
+import griefUrl from './effects/emote_grief.png';
+import thinkUrl from './effects/emote_think.png';
+import proudUrl from './effects/emote_proud.png';
 import levelUpUrl from './effects/levelup.png';
 import hitFireUrl from './effects/hit_fire.png';
 import hitLightningUrl from './effects/hit_lightning.png';
@@ -132,9 +137,9 @@ const holies: Texture[] = [];
  *  5000 Pixel Effects pack. */
 export const FLAME_SIZE = 32;
 const flames: Texture[] = [];
-export type Emote = 'zzz' | 'heart' | 'anger' | 'sweat' | 'note';
+export type Emote = 'zzz' | 'heart' | 'anger' | 'sweat' | 'note' | 'alarm' | 'lost' | 'grief' | 'think' | 'proud';
 export const EMOTE_SIZE = 16;
-const emotes: Record<Emote, Texture[]> = { zzz: [], heart: [], anger: [], sweat: [], note: [] };
+const emotes: Record<Emote, Texture[]> = { zzz: [], heart: [], anger: [], sweat: [], note: [], alarm: [], lost: [], grief: [], think: [], proud: [] };
 /** A golden arrow when someone gets better at something (32px, 6 frames, same pack). */
 const levelUps: Texture[] = [];
 /** A gunshot's and a laser's hit (32px, 6 frames, same pack). */
@@ -289,6 +294,11 @@ export async function loadEffects(): Promise<void> {
     cut(angerUrl, EMOTE_SIZE, 6, emotes.anger),
     cut(sweatUrl, EMOTE_SIZE, 6, emotes.sweat),
     cut(noteUrl, EMOTE_SIZE, 6, emotes.note),
+    cut(alarmUrl, EMOTE_SIZE, 6, emotes.alarm),
+    cut(lostUrl, EMOTE_SIZE, 6, emotes.lost),
+    cut(griefUrl, EMOTE_SIZE, 6, emotes.grief),
+    cut(thinkUrl, EMOTE_SIZE, 6, emotes.think),
+    cut(proudUrl, EMOTE_SIZE, 6, emotes.proud),
     cut(levelUpUrl, FLAME_SIZE, 6, levelUps),
     cut(hitFireUrl, FLAME_SIZE, 6, fireHits),
     cut(hitLightningUrl, FLAME_SIZE, 6, lightningHits),

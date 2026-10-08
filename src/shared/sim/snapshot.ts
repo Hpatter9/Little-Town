@@ -194,6 +194,8 @@ export interface PersonView {
   morale: number;
   moodTarget: number;
   moodReasons: MoodReason[];
+  /** Mourning someone (a skull over their head now and then on the map). */
+  grieving: boolean;
   priorities: Record<Job, Priority>;
   autoPriorities: boolean;
   /** Name of the building they sleep in, or null (sleeps on the ground). */
@@ -708,6 +710,9 @@ export interface Snapshot {
   tileRev: number;
   tiles: TileState[];
   buildings: Building[];
+  /** The buildings someone is working at right now (a crafter at the bench, a scholar at the desk): their smoke,
+   *  sparks and steam on the map (map/workFx.ts). */
+  workingAt: number[];
   people: PersonView[];
   visitor: VisitorView | null;
   housing: { beds: number; people: number };
@@ -856,6 +861,8 @@ export interface Snapshot {
   doom: { name: string; phase: 'signs' | 'active'; hoursLeft: number; sick: number; kind: DoomKind; cold: boolean } | null;
   /** Id of the newest journal entry (the Journal panel refetches when it changes). */
   journalHead: number;
+  /** The latest big news (a journal milestone of the last few hours): the town crier calls it out on the map. */
+  news: { id: number; text: string } | null;
   /** An unread "while you were away" report. */
   away: JournalEntryView | null;
   eraReady: boolean;
@@ -949,6 +956,7 @@ export function snapshot(s: GameState): Snapshot {
     land: s.land,
     tileRev: s.land.version,
     tiles: [],
+    workingAt: workingAt(s),
     buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}) })),
     people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
     visitor: v
@@ -1160,6 +1168,7 @@ export function snapshot(s: GameState): Snapshot {
     cells: cellsOf(s),
     nursing: s.buildings.filter((b) => sickbedsIn(b) > 0).map((b) => ({ building: b.id, beds: sickbedsIn(b), people: patientsIn(s, b).map((p) => p.id) })),
     journalHead: s.journal.at(-1)?.id ?? 0,
+    news: latestNews(s),
     away: awayView(s),
     eraReady: s.eraReady,
   };
@@ -1487,6 +1496,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     morale: p.morale,
     moodTarget: m.target,
     moodReasons: m.reasons,
+    grieving: !!p.grief && p.grief.until > s.tick,
     priorities: { ...p.priorities },
     autoPriorities: p.autoPriorities,
     bed: bed ? defOf(bed).name : null,
@@ -1545,6 +1555,33 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
 /** How far along the work in hand is, for the bar over someone's head: a site's building, a repair, a craft order,
  *  the topic studied, a field's sowing or reaping, a load being gathered or dug, a patient tended. Null while they walk
  *  to it, or do anything else. */
+/** The newest milestone in the journal, while it's still news (`NEWS_HOURS`). */
+const NEWS_HOURS = 4;
+function latestNews(s: GameState): { id: number; text: string } | null {
+  for (let i = s.journal.length - 1; i >= 0; i--) {
+    const e = s.journal[i];
+    if (s.tick - e.tick > NEWS_HOURS * TICKS_PER_HOUR) return null;
+    if (e.key && !e.lines) return { id: e.id, text: e.text };
+  }
+  return null;
+}
+
+/** The buildings at work: a crafting order being made at its station, a topic studied at a station. */
+function workingAt(s: GameState): number[] {
+  const out = new Set<number>();
+  for (const p of s.people) {
+    const t = p.task;
+    if (!t || p.away !== null || p.activity === 'walk') continue;
+    if (t.type === 'craft' && t.phase === 'work') {
+      const o = s.crafting.find((q) => q.id === t.order);
+      const def = o && ITEM_BY_ID[o.item];
+      const b = def && stationFor(s, def);
+      if (b) out.add(b.id);
+    } else if (t.type === 'research' && t.station != null) out.add(t.station);
+  }
+  return [...out];
+}
+
 function taskDone(s: GameState, p: Person): number | null {
   const t = p.task;
   if (!t || p.away !== null || p.activity === 'walk' || p.activity === 'idle') return null;

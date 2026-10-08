@@ -59,7 +59,7 @@ function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
     activity: 'walk', taskDone: null, story: '', titles: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
-    skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [],
+    skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [], grieving: false,
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, bedId: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
     rally: null,
@@ -1354,6 +1354,8 @@ async function start(): Promise<void> {
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
     minimap.setLand(next.land, next.calendar.season);
     map.syncBuildings(next.buildings);
+    map.workFx.sync(next.buildings, next.workingAt);
+    map.workFx.syncBuilders(next.people.filter((p) => p.activity === 'build' && !p.indoors).map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })));
     herds.update(next.buildings);
     boats.update(next.fleet, next.mooring);
     wagons.update(next.wagons);
@@ -1374,6 +1376,8 @@ async function start(): Promise<void> {
     people.moon = next.moonNight;
     people.theme = next.theme;
     people.weather = next.weather.kind;
+    people.news = next.news;
+    herds.grazing = next.calendar.hour >= 8 && next.calendar.hour < 18 && next.calendar.season !== 'winter' && next.weather.kind !== 'storm' && next.weather.kind !== 'rain' && !next.raid;
     people.season = next.calendar.season;
     people.hour = next.calendar.hour;
     people.raid = !!next.raid && next.raid.phase === 'active';
