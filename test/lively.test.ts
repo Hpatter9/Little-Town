@@ -10,6 +10,14 @@ import { START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/tim
 import { HAUL_LEAST, hauls, heapColour, mainLoad } from '../src/renderer/map/haul';
 import { workLook } from '../src/renderer/map/workLooks';
 import { plainGame } from './helpers';
+import { ageStage, damageStage } from '../src/renderer/art/wear';
+import { decorFor, dressed } from '../src/renderer/map/decorRules';
+import { marketOn, marketSquare, MARKET_DAY, MARKET_EVERY, MARKET_FROM } from '../src/shared/sim/pastimes';
+import { markDebris } from '../src/shared/sim/state';
+import { fightFire } from '../src/shared/sim/fire';
+import { sunAt } from '../src/renderer/art/sun';
+import { lampCells, lampLit, LAMPS_MOST, LAMP_LOOK } from '../src/renderer/map/lampRules';
+import { ERAS } from '../src/shared/data/eras';
 
 const twin = (s: GameState, extra: Partial<Person>): Person => {
   const p: Person = { ...JSON.parse(JSON.stringify(s.people[0])), id: s.nextId++, partner: null, ...extra };
@@ -68,4 +76,77 @@ test('the snapshot names the buildings at work and the latest news', () => {
   assert.deepEqual(snapshot(s).workingAt, [st.id]);
   s.journal.push({ id: 9999, tick: s.tick, text: 'The well is built.', key: true });
   assert.equal(snapshot(s).news?.text, 'The well is built.');
+});
+
+
+test('buildings show their years and their knocks', () => {
+  assert.equal(ageStage(1), 0);
+  assert.equal(ageStage(10), 1);
+  assert.equal(ageStage(40), 3);
+  assert.equal(damageStage(100, 100), 0);
+  assert.equal(damageStage(50, 100), 1);
+  assert.equal(damageStage(10, 100), 2);
+  assert.equal(damageStage(undefined, undefined), 0);
+});
+
+test('a fire put out leaves the building scorched', () => {
+  const s = plainGame('scorch');
+  const b = s.buildings.find((q) => q.def !== 'campfire')!;
+  b.fire = 0.0001;
+  fightFire(s, s.people[0], b);
+  assert.equal(b.fire, undefined);
+  assert.equal(b.scorched, s.tick);
+});
+
+test('a fallen raider leaves what it dropped, a beast its bones, a machine nothing', () => {
+  const s = plainGame('debris');
+  markDebris(s, 100, 100, 'person', 1);
+  markDebris(s, 200, 100, 'beast', 2);
+  markDebris(s, 300, 100, 'machine', 3);
+  const kinds = (s.debris ?? []).map((d) => d.kind);
+  assert.ok(kinds.includes('blade'));
+  assert.ok(kinds.includes('bones'));
+  assert.equal(kinds.length, 2);
+});
+
+test('homes and venues are dressed for the season; a market is held once a week', () => {
+  const s = plainGame('decor');
+  const home = { id: 4, def: 'cottage', tile: 0, row: 0, status: 'done', delivered: {}, progress: 1, store: {} } as const;
+  assert.ok(dressed({ ...home }));
+  assert.ok(!dressed({ ...home, def: 'well' }));
+  assert.deepEqual(decorFor('winter', 1), ['lantern', 'wreath']);
+  assert.deepEqual(decorFor('summer', 2), []);
+  // (market day at its hour, with three grown-ups about)
+  while (s.people.length < 3) s.people.push({ ...JSON.parse(JSON.stringify(s.people[0])), id: s.nextId++ });
+  const at = (day: number, hour: number) => (day - 1) * TICKS_PER_DAY + ((hour - START_HOUR + 24) % 24) * TICKS_PER_HOUR;
+  s.tick = at(MARKET_DAY + MARKET_EVERY, MARKET_FROM + 1);
+  assert.ok(marketOn(s), 'market day');
+  const sq = marketSquare(s);
+  const kid = s.people[1];
+  assert.equal(pastimeFor(s, kid, 0)?.pastime, 'market');
+  assert.ok(Math.hypot(pastimeFor(s, kid, 0)!.x - sq.x, pastimeFor(s, kid, 0)!.y - sq.y) < 4 * CELL);
+  s.tick = at(MARKET_DAY + MARKET_EVERY + 1, MARKET_FROM + 1);
+  assert.ok(!marketOn(s), 'not the next day');
+});
+
+test('shadows lean west in the morning, east in the evening, long at the ends of the day and gone at night', () => {
+  const morning = sunAt(7, 1), noon = sunAt(12, 1), evening = sunAt(17, 1);
+  assert.ok(morning.skew < 0 && evening.skew > 0);
+  assert.ok(Math.abs(noon.skew) < 0.01);
+  assert.ok(morning.length > noon.length && evening.length > noon.length);
+  assert.equal(sunAt(23, 0).alpha, 0);
+});
+
+test('street lamps stand along the roads, nearest the fire first, lit from dusk and every age has one', () => {
+  const land = { w: 40, h: 40, camp: { x: 20, y: 20 } };
+  const road = (x: number, y: number) => y === 20 || x === 20;
+  const cells = lampCells(land, road);
+  assert.ok(cells.length > 0 && cells.length <= LAMPS_MOST);
+  assert.ok(cells.every((c) => road(c.x, c.y)));
+  const d = (c: { x: number; y: number }) => Math.hypot(c.x - 20, c.y - 20);
+  assert.ok(cells.every((c, i) => i === 0 || d(cells[i - 1]) <= d(c)), 'nearest first');
+  assert.equal(lampLit(1), 0);
+  assert.equal(lampLit(0.1), 1);
+  assert.ok(lampLit(0.45) > 0 && lampLit(0.45) < 1, 'half lit at dusk');
+  for (const e of ERAS) assert.ok(LAMP_LOOK[e], e);
 });

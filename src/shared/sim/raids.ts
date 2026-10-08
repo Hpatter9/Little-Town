@@ -86,7 +86,7 @@ import { BLOOD_FURY, BLOOD_LIFESTEAL, castsFire, fightsFromRange } from '../data
 import { levelOf, shapeshifts } from '../data/levels';
 import { flammable, setFire } from './fire';
 import { heirOf, killPerson, knockDown, stabilize } from './health';
-import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, meet, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood } from './state';
+import { tireless, addStock, campXY, dist, ERA_MULTIPLIER, maxHp, meet, notify, personFx, poolSize, type Building, type GameState, type Person, type Raid, type Raider, markBlood, markDebris } from './state';
 import { castleOn } from './castle';
 import { walk, type Walker } from './walk';
 import { TICK_HZ, TICKS_PER_HOUR, paceDay } from './time';
@@ -449,6 +449,7 @@ export function updateRaid(s: GameState, rng: Rng): void {
       rd.bled = true;
       const nature = natureOf(rd.kind);
       if ((nature === 'person' || nature === 'beast') && rd.x >= 0 && rd.x <= worldW(s)) markBlood(s, rd.x, rd.y, rd.dir < 0 ? 1 : -1);
+      if (!rd.ally && rd.x >= 0 && rd.x <= worldW(s)) markDebris(s, rd.x, rd.y, nature, rd.id);
     }
 
   for (const rd of r.raiders) {

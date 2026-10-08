@@ -184,6 +184,8 @@ export class MapPeople {
   zoom = 1;
   /** The latest news (main.ts, per snapshot): the town crier, the best talker about, calls it out now and then. */
   news: { id: number; text: string } | null = null;
+  /** Where the sun leans their shadows (px aside; main.ts, from art/sun.ts). */
+  sunLean = 0;
   private crierId = -1;
   /** The map's lights layer (main.ts): everyone out after dark carries a lantern's glow there. */
   lights: Container | null = null;
@@ -773,7 +775,7 @@ export class MapPeople {
       d.shadow.width = (coat !== null ? 34 : 18) * k;
       d.shadow.height = 6 * k;
       d.shadow.alpha = 0.42;
-      d.shadow.position.set(Math.round(x), Math.round(y) + 1);
+      d.shadow.position.set(Math.round(x + this.sunLean), Math.round(y) + 1);
       d.shadow.zIndex = z - 0.5;
       // a lantern: a warm pool of light about their feet (the lights layer fades up after dusk and is dark by day)
       if (this.lights) {

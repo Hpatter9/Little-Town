@@ -151,7 +151,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime };
       break;
     case 'idle':
-      p.activity = task.pastime ?? 'idle';
+      p.activity = task.pastime === 'market' ? 'stroll' : (task.pastime ?? 'idle');
       if (s.tick >= task.untilTick) p.task = null;
       break;
     case 'gather':
@@ -225,6 +225,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       if (site.progress >= 1) {
         site.progress = 1;
         site.status = 'done';
+        site.builtAt = s.tick;
         site.delivered = {}; // used up
         if (defOf(site).hp) site.hp = defOf(site).hp;
         p.task = null;

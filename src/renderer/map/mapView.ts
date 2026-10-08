@@ -24,6 +24,10 @@ import type { CropLook } from '../art/buildings';
 import { topDownArt } from '../art/topDown';
 import { drawSite } from '../art/constructionSite';
 import { snowCapped } from '../art/snowCap';
+import { weathered } from '../art/weathered';
+import { sunAt, type Sun } from '../art/sun';
+import { ageStage, damageStage, SCORCH_DAYS, wearKey, type Wear } from '../art/wear';
+import { TICKS_PER_DAY } from '../../shared/sim/time';
 import { mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
 import { PROP_FINE, autumnTextures, propTextures, type PropSet } from '../art/props';
 import propKinds from '../art/propKinds.json';
@@ -39,6 +43,7 @@ import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
 import { MapFestival } from './mapFestival';
 import { WorkFx } from './workFx';
+import { NightSky } from './nightSky';
 import { castleClutter, clutterLoaded, flickerCastle, onClutterArt, type Flame } from './castleClutter';
 import { seatArt } from '../art/seatArt';
 import { SEAT_STAGE } from '../../shared/data/seats';
@@ -157,11 +162,15 @@ interface DrawnBuilding {
   chimneys?: { x: number; y: number }[];
   /** A castle's room: the furnishings on the floor, tapped anywhere on the room. */
   room?: boolean;
+  /** Its shadow cast by the sun (art/sun.ts): the picture in black, laid back on the ground and swung with the hour. */
+  cast?: Sprite;
 }
 
 /** Buildings whose fire glows at night though their picture (a pack's) has no lamp colours in it. */
 const FIRES = new Set(['campfire', 'bloomery', 'kiln', 'storytellers_circle']);
 const FIRE_GLOW = { r: 20, color: 0xffb347 };
+/** The warm light from a lit doorway on the ground. */
+const DOOR_LIGHT = 0xffb860;
 
 function cropLook(b: Building): CropLook | undefined {
   if (!CROPS[b.def] || b.status !== 'done') return undefined;
@@ -196,6 +205,8 @@ export class MapView {
   readonly festival: MapFestival;
   /** Each workshop at work shows it: sparks, steam, sawdust, threads, glints (map/workFx.ts). */
   readonly workFx: WorkFx;
+  /** The stars over the dark beyond the known land, shooting stars and the cold lands' aurora (map/nightSky.ts). */
+  readonly nightSky: NightSky;
   /** How much the hearths are burning now (0 to 1: ambientView's `airFor`). */
   smokeAmount = 0.5;
   /** Marks on the ground under everything standing (a battle's trail and spots), and effects over it all. */
@@ -263,6 +274,7 @@ export class MapView {
     this.over.addChild(this.smoke.root);
     this.festival = new MapFestival(this.things, this.over, this.lights);
     this.workFx = new WorkFx(this.over, this.lights);
+    this.nightSky = new NightSky(this.lights);
     this.smoke.size = 1.6;
     this.lights.blendMode = 'add';
     this.lights.alpha = 0;
@@ -884,6 +896,34 @@ export class MapView {
 
   /** The town's buildings as last synced (a wall piece's picture depends on its neighbours: `wallJoin`). */
   private simBuildings: Building[] = [];
+  /** The sim's clock (main.ts, per snapshot): how old each building is. */
+  tick = 0;
+  /** Where the sun is (art/sun.ts `sunAt`): the buildings' cast shadows follow it. */
+  private sun: Sun = sunAt(12, 1);
+
+  /** The hour and the daylight (per snapshot): the cast shadows swing round and fade with them. */
+  setSun(hour: number, daylight: number): void {
+    const next = sunAt(hour, daylight);
+    if (Math.abs(next.skew - this.sun.skew) < 0.004 && Math.abs(next.length - this.sun.length) < 0.004 && Math.abs(next.alpha - this.sun.alpha) < 0.01) return;
+    this.sun = next;
+    for (const d of this.buildings.values()) if (d.cast) this.castShadow(d.cast);
+  }
+
+  private castShadow(c: Sprite): void {
+    c.visible = this.sun.alpha > 0.02;
+    c.alpha = this.sun.alpha;
+    c.scale.set(1, -this.sun.length);
+    c.skew.x = this.sun.skew;
+  }
+
+  /** How a building shows its years, a fire's scorching and a raid's knocks (art/weathered.ts); null for the plots,
+   *  pens, the campfire and a castle's rooms. */
+  private wearOf(b: Building): Wear | null {
+    if (b.status !== 'done' || b.room || isPlot(b.def) || b.def === 'campfire' || b.herd) return null;
+    const days = (this.tick - (b.builtAt ?? 0)) / TICKS_PER_DAY;
+    const scorch = b.scorched !== undefined && (this.tick - b.scorched) / TICKS_PER_DAY < SCORCH_DAYS;
+    return { age: ageStage(days), scorch, damage: damageStage(b.hp, BUILDING_BY_ID[b.def]?.hp), seed: b.id };
+  }
 
   syncBuildings(list: Building[]): void {
     this.simBuildings = list;
@@ -891,7 +931,8 @@ export class MapView {
     for (const b of list) {
       seen.add(b.id);
       let d = this.buildings.get(b.id);
-      const sig = `${sigOf(b)}|${this.artGen}|${this.season === 'winter' ? 'snow' : ''}|${this.wallJoin(b) ?? ''}`;
+      const wear = this.wearOf(b);
+      const sig = `${sigOf(b)}|${this.artGen}|${this.season === 'winter' ? 'snow' : ''}|${this.wallJoin(b) ?? ''}|${wear ? wearKey(wear) : ''}`;
       if (d && d.sig !== sig) {
         this.destroy(d);
         this.buildings.delete(b.id);
@@ -914,6 +955,7 @@ export class MapView {
   private destroy(d: DrawnBuilding): void {
     d.sprite.destroy();
     d.shadow.destroy();
+    d.cast?.destroy();
     d.faint?.destroy();
     d.mask?.destroy();
     d.site?.destroy();
@@ -931,6 +973,7 @@ export class MapView {
     if (this.castle?.flames.length) flickerCastle(this.castle.flames, (this.flick += dt));
     this.festival.render(dt, this.lights.alpha > 0.3, this.calm);
     this.workFx.render(dt, this.view, this.calm, this.wind());
+    this.nightSky.render(dt, this.view, this.land, this.lights.alpha, this.calm);
     if (this.calm) return;
     this.smoke.amount = this.smokeAmount;
     const chimneys: { x: number; y: number }[] = [];
@@ -1092,7 +1135,8 @@ export class MapView {
 
   private draw(b: Building, sig: string): DrawnBuilding {
     // (in winter the finished buildings wear a cap of snow along their tops: art/snowCap.ts)
-    const bare = this.art(b);
+    const worn = this.wearOf(b);
+    const bare = worn ? weathered(this.art(b), worn) : this.art(b);
     const art = this.season === 'winter' && b.status === 'done' && !isPlot(b.def) && b.def !== 'campfire' ? snowCapped(bare) : bare;
     const f = footprint(b);
     const cx = (f.x + f.w / 2) * CELL;
@@ -1145,6 +1189,27 @@ export class MapView {
         g.tint = l.color;
         g.alpha = 0.85;
         (d.glows ??= []).push(g);
+      }
+      // (lit windows spill warm light on the ground before the door after dark)
+      if (art.lights?.length && !b.room) {
+        const pool = this.lights.addChild(new Sprite(glowTexture()));
+        pool.anchor.set(0.5);
+        pool.position.set(Math.round(cx), Math.round(bottom + 8));
+        pool.width = Math.min(90, art.width * 0.9);
+        pool.height = 22;
+        pool.tint = DOOR_LIGHT;
+        pool.alpha = 0.5;
+        (d.glows ??= []).push(pool);
+      }
+      // its shadow cast by the sun, swung round with the hour (setSun)
+      if (!flat && !b.room && b.def !== 'campfire' && !(this.land && inSea(this.land, f))) {
+        const cast = this.things.addChild(new Sprite(art.texture));
+        cast.anchor.set(0.5, 1);
+        cast.tint = 0x000000;
+        cast.position.set(Math.round(cx), bottom);
+        cast.zIndex = bottom - 0.6;
+        d.cast = cast;
+        this.castShadow(cast);
       }
       if (art.smoke) d.chimneys = art.smoke.map((c) => ({ x: left + c.x, y: top + c.y }));
       else if (FIRES.has(b.def)) d.chimneys = [{ x: cx, y: bottom - (f.h * CELL) / 2 - 6 }]; // (an open fire smokes too)

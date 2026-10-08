@@ -24,6 +24,12 @@ import { MapPets, type PetHome } from './map/mapPets';
 import { freezes, iceAt } from './map/ice';
 import { MapWater } from './map/mapWater';
 import { MapButterflies } from './map/mapButterflies';
+import { BattleDebris } from './map/battleDebris';
+import { MapGraves } from './map/mapGraves';
+import { sunAt } from './art/sun';
+import { MapMarket } from './map/mapMarket';
+import { SeasonDecor } from './map/seasonDecor';
+import { StreetLamps } from './map/streetLamps';
 import { BloodPools } from './map/bloodPools';
 import { MapDisaster } from './map/mapDisaster';
 import { createBattleHud } from './battle/battleHud';
@@ -90,7 +96,7 @@ const travellerDoing = (t: TravellerView) => {
 import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
-import { CELL, cellAt, groundAt, isMarked, WILD } from '../shared/sim/land';
+import { CELL, cellAt, groundAt, isMarked, isRoad, WILD } from '../shared/sim/land';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
@@ -141,6 +147,7 @@ type Hover =
   | { kind: 'raider'; id: number }
   | { kind: 'roamer'; id: number }
   | { kind: 'pet'; key: string }
+  | { kind: 'grave'; id: number }
   | { kind: 'caravan' }
   | null;
 
@@ -264,6 +271,7 @@ async function start(): Promise<void> {
   (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
   (window as unknown as { __topDownArt?: typeof topDownArt }).__topDownArt = topDownArt; // (for previews: a gallery of the painted buildings)
   const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
+  const debris = new BattleDebris(map.under); // (and what the fallen dropped)
   const disaster = new MapDisaster(map.under, map.over); // (floods, wildfires and their ash: sim/disasters.ts)
   (window as unknown as { __pools?: BloodPools }).__pools = pools; // (for previews)
   const people = new MapPeople(map.things);
@@ -287,6 +295,11 @@ async function start(): Promise<void> {
   (window as unknown as { __tracks?: MapTracks }).__tracks = tracks; // (for previews)
   // the town's dogs, cats and hens (map/mapPets.ts)
   const pets = new MapPets(map.things, map.over, map);
+  const graves = new MapGraves(map.things); // (a headstone for each of the fallen)
+  (window as unknown as { __graves?: MapGraves }).__graves = graves; // (previews)
+  const market = new MapMarket(map.things); // (market day's stalls)
+  const decor = new SeasonDecor(map.things, map.lights); // (the doors dressed for the season)
+  const lamps = new StreetLamps(map.things, map.lights); // (lamps along the streets, lit at dusk)
   // the dragon in the sky (map/mapDragon.ts)
   const dragon = new MapDragon(map.over, map.under, map);
   dragon.onFlight = (low, pan) => ambience.cue('roar', pan, low ? 0.2 : 0.8);
@@ -447,6 +460,8 @@ async function start(): Promise<void> {
     if (person) return { kind: 'person', person };
     const pet = pets.petAt(w.x, w.y);
     if (pet) return { kind: 'pet', key: pet };
+    const grave = graves.graveAt(w.x, w.y);
+    if (grave) return { kind: 'grave', id: grave.id };
     const building = map.buildingAt(w.x, w.y);
     if (building !== null) return { kind: 'building', id: building };
     const place = map.placeAt(w.x, w.y);
@@ -598,6 +613,13 @@ async function start(): Promise<void> {
           }
         }
         return { title: def.name + (b.status === 'blueprint' ? ' (blueprint)' : ''), lines, hint: 'Click for options', y: r.y };
+      }
+      case 'grave': {
+        const who = snap.annals.fallen.find((f) => f.id === h.id);
+        const at = graves.posOf(h.id);
+        if (!who || !at) return null;
+        const what = [who.calling ? `${who.calling}, level ${who.level}` : null, who.titles.length ? who.titles.join(', ') : null].filter((x): x is string => !!x);
+        return { title: `Here lies ${who.name}`, lines: [`Died on day ${who.day}, ${who.cause}.`, ...what, ...(who.felled ? [`Felled ${who.felled} raider${who.felled === 1 ? '' : 's'}.`] : [])], y: map.screenOf(at.x, at.y).y - 30 };
       }
       case 'pet': {
         const d = pets.describe(h.key);
@@ -791,6 +813,8 @@ async function start(): Promise<void> {
         const watch = r?.skirmish != null ? [act('watch', 'Watch the fight', () => bridge.command({ type: 'watch', expedition: r.skirmish }), { primary: true })] : [];
         return { title: d.title, lines: d.lines, actions: watch };
       }
+      case 'grave':
+        return { title: d.title, lines: d.lines, actions: [act('annals', 'The fallen…', () => bridge.openPanel('journal'))] };
       case 'pet':
         return { title: d.title, lines: d.lines, actions: [act('scratch', 'Scratch behind the ears', () => (pets.scratch(h.key), publishInspect()), { primary: true })] };
       case 'caravan':
@@ -1186,8 +1210,12 @@ async function start(): Promise<void> {
     // (on the phone, heavy cloud dims the land a little)
     const gloom = fullSky ? ({ clear: 0, cloudy: 0.04, rain: 0.12, storm: 0.22, snow: 0.05, fog: 0.08 } as const)[next.weather.kind] : 0;
     map.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
+    map.setSun(next.calendar.hour + next.calendar.minute / 60, next.calendar.daylight * (1 - gloom));
+    people.sunLean = Math.round(sunAt(next.calendar.hour + next.calendar.minute / 60, 1).skew * 5);
     map.smokeAmount = airFor(next.calendar.hour, next.calendar.season, next.weather.kind).smoke;
     map.weather = next.weather.kind;
+    map.nightSky.cold = !!biomeById(next.biome).cold;
+    map.nightSky.clear = next.weather.kind === 'clear';
     // the birds come down by day in fair enough weather; everyone about scares them off
     birds.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.weather.kind !== 'snow' && !freeze;
     birds.winter = next.calendar.season === 'winter';
@@ -1214,6 +1242,7 @@ async function start(): Promise<void> {
         if (!folk || b.status !== 'done' || b.room) continue;
         homes.push({ id: b.id, door: buildingDoor(b), name: folk[0].name.split(' ')[0], residents: folk.map((p) => p.id) });
       }
+      graves.sync(next.annals.fallen, next.buildings, { x: (next.land.camp.x + 0.5) * CELL, y: (next.land.camp.y + 0.5) * CELL }, next.calendar.day, (x, y) => map.nearBuilding(x, y, 6) || !['grass', 'fertile', 'sand'].includes(groundAt(next.land, Math.floor(x / CELL), Math.floor(y / CELL))) || isRoad(next.land, Math.floor(x / CELL), Math.floor(y / CELL)));
       pets.land = next.land;
       pets.people = buildStyle;
       pets.night = next.calendar.daylight < 0.25;
@@ -1353,6 +1382,7 @@ async function start(): Promise<void> {
     }
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
     minimap.setLand(next.land, next.calendar.season);
+    map.tick = next.tick;
     map.syncBuildings(next.buildings);
     map.workFx.sync(next.buildings, next.workingAt);
     map.workFx.syncBuilders(next.people.filter((p) => p.activity === 'build' && !p.indoors).map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })));
@@ -1360,6 +1390,12 @@ async function start(): Promise<void> {
     boats.update(next.fleet, next.mooring);
     wagons.update(next.wagons);
     pools.sync(next.blood);
+    debris.sync(next.debris);
+    market.sync(next.market);
+    decor.sync(next.buildings, next.calendar.season);
+    lamps.sync(next.land, next.era);
+    lamps.setDaylight(next.calendar.daylight);
+    lamps.calm = map.calm;
     disaster.sync(next.disaster, next.land.w);
     map.festival.sync(next.gathering);
     map.syncCastle(next.castle ?? null, next.buildings);
@@ -1433,6 +1469,8 @@ async function start(): Promise<void> {
     people.render(performance.now());
     raiders.render(performance.now());
     herds.render(performance.now(), ticker.deltaMS / 1000);
+    market.render(ticker.deltaMS / 1000);
+    lamps.render(ticker.deltaMS / 1000);
     boats.render(performance.now());
     birds.render(ticker.deltaMS / 1000, performance.now());
     wildlife.render(ticker.deltaMS / 1000, performance.now());
