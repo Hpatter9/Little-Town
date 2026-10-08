@@ -24,7 +24,7 @@ export interface NoticeAction {
   kind: 'watch' | 'panel' | 'recap' | 'map' | 'question';
   watch?: number;
   panel?: string;
-  target?: { person?: number; building?: string };
+  target?: { person?: number; building?: string; traveller?: number };
 }
 export interface Notice {
   key: string;
@@ -136,7 +136,7 @@ export function journalNotices(entries: JournalEntryView[], snap: Snapshot | nul
   const told = entries.filter((e) => !CHATTER.test(e.text)).slice(-most).reverse();
   return told.map((e) => {
     const about = aboutOf(e, snap);
-    const onMap = !!about && (about.person != null ? !!snap?.people.some((p) => p.id === about.person) : !!snap?.buildings.some((b) => b.def === about.building));
+    const onMap = !!about && (about.traveller != null ? !!snap?.travellers.some((t) => t.id === about.traveller) : about.person != null ? !!snap?.people.some((p) => p.id === about.person) : !!snap?.buildings.some((b) => b.def === about.building));
     return {
       key: `j:${e.id}`,
       tone: toneOf(e.text, e.key),
@@ -145,16 +145,19 @@ export function journalNotices(entries: JournalEntryView[], snap: Snapshot | nul
       text: '',
       when: e.when.replace(/ · \w+ · /, ' · '),
       about: about ?? undefined,
-      ...(onMap ? { action: { label: about!.person != null ? 'Show them' : 'Show it', kind: 'map' as const, target: about! } } : {}),
+      ...(onMap ? { action: { label: about!.person != null || about!.traveller != null ? 'Show them' : 'Show it', kind: 'map' as const, target: about! } } : {}),
     };
   });
 }
 
 /** Who or what a line is about: the highlight it names, a townsperson named in it, or a building. */
-export function aboutOf(e: JournalEntryView, snap: Snapshot | null): { person?: number; building?: string } | null {
+export function aboutOf(e: JournalEntryView, snap: Snapshot | null): { person?: number; building?: string; traveller?: number } | null {
   const h = e.highlights?.[0];
   if (h && (h.person != null || h.building)) return { person: h.person, building: h.building };
   const text = e.text;
+  // (a stranger in town by name: a tinker passing through, a merchant at the market)
+  const tr = (snap?.travellers ?? []).find((t) => t.name && new RegExp(`\\b${t.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(text));
+  if (tr) return { traveller: tr.id };
   const people = [...(snap?.people ?? [])].sort((a, b) => b.name.length - a.name.length);
   const who = people.find((p) => new RegExp(`\\b${p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(text));
   if (who) return { person: who.id };
@@ -256,7 +259,7 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
   };
 
   const act = (a: NoticeAction) => {
-    const w = strip.contentWindow as (Window & { __showOnMap?: (x: { person?: number; building?: number }) => boolean; __showRecap?: () => boolean }) | null;
+    const w = strip.contentWindow as (Window & { __showOnMap?: (x: { person?: number; building?: number; traveller?: number }) => boolean; __showRecap?: () => boolean }) | null;
     hide();
     switch (a.kind) {
       case 'watch':
@@ -271,7 +274,7 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
       case 'map': {
         const t = a.target!;
         const b = t.building ? (snap?.buildings.find((q) => q.def === t.building && q.status === 'done') ?? snap?.buildings.find((q) => q.def === t.building)) : undefined;
-        w?.__showOnMap?.(t.person != null ? { person: t.person } : b ? { building: b.id } : {});
+        w?.__showOnMap?.(t.traveller != null ? { traveller: t.traveller } : t.person != null ? { person: t.person } : b ? { building: b.id } : {});
         break;
       }
       case 'question':

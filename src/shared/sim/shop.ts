@@ -1074,7 +1074,8 @@ function buyFrom(s: GameState, shop: Building, t: Traveller, town: ShopTown, who
     s.coins = (s.coins ?? 0) - paid;
     earn(s, 'goods', -paid);
     log(s, shop, `Bought ${list(bought)} from ${who} (${paid} coins).`);
-    notify(s, `Bought ${list(bought)} from a passing ${t.kind} for ${paid} coins.`);
+    // (named, so the news can show them walking on through the town: the owner's ask)
+    notify(s, `Bought ${list(bought)} from ${t.name}, a ${t.kind} passing through, for ${paid} coins.`);
   }
 }
 

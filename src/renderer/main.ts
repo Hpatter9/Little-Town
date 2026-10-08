@@ -799,7 +799,14 @@ async function start(): Promise<void> {
   // (the feed's "Show on the map": look at someone or something and open its card: mobile/feed.ts)
   (window as unknown as { __showRecap?: () => boolean }).__showRecap = () => raidRecap.open();
   (window as unknown as { __centre?: (x: number, y: number) => void }).__centre = (x, y) => camera.centreOn({ x, y }, app.screen.width, app.screen.height); // (previews)
-  (window as unknown as { __showOnMap?: (a: { person?: number; building?: number }) => boolean }).__showOnMap = (a) => {
+  (window as unknown as { __showOnMap?: (a: { person?: number; building?: number; traveller?: number }) => boolean }).__showOnMap = (a) => {
+    // (a stranger passing through: the traveller as the map draws them)
+    const tr = a.traveller != null ? snap.travellers.find((q) => q.id === a.traveller) : undefined;
+    if (tr) {
+      camera.centreOn({ x: tr.x, y: tr.y ?? 0 }, app.screen.width, app.screen.height);
+      if (phone) inspectTarget({ kind: 'person', person: travellerPerson(tr) });
+      return true;
+    }
     const p = a.person != null ? snap.people.find((q) => q.id === a.person) : undefined;
     const b = a.building != null ? snap.buildings.find((q) => q.id === a.building) : undefined;
     const at = p ? people.posOf(p.id) ?? { x: p.x, y: p.y } : b ? { x: (b.tile + 1) * CELL, y: (b.row + 1) * CELL } : null;
