@@ -2517,8 +2517,18 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   the lair's master), its health bar, troop pips and count, the harm as numbers, a ring round the tapped one;
   `paintFormation`: a tapped squad's card and the Barracks' squad cards show the hero and every troop as figures in
   their three rows). Everything pixel art is drawn with smoothing off. Checked upright on the phone with the scratch
-  `artshot.cjs`. Test: `test/warArt.test.ts` (every troop, land and power has a look the atlases hold). **The defenders
-  fight back:** `takeBeat` in sim/conquest/battles.ts never passed the beat to the other side (`b.side` was set once),
+  `artshot.cjs`. Test: `test/warArt.test.ts` (every troop, land and power has a look the atlases hold). **More
+  texture (the owner's ask):** `paintGround` takes `relief` (rolling ground lit from the north-west, from the slope of
+  `lieOf`, a slow noise; the board 1, the map 0.5, the formation cards 0.7), `grain` (fine light and dark flecks in each
+  land's `speckle` colours and clumps of shade) and `puddles` (on the board: still water with a muddy rim and a glint in
+  the hollows of a land with `wet`, most in the fens, ice-pale on the tundra; `puddleAt` keeps the patches, tufts and
+  props out of them). The board besides: boot prints up the track turned the way it runs, the ground trampled before
+  the gate and bare along the wall's foot, the fire in a ring of ash and stones, the tents on trodden ground, the litter
+  of older fights (bones, a skull, a burnt-out cart on its scorch, from the `places` and `desert` sets), a hamlet's
+  furrowed plot with sprouts inside the Fields pack's rail fence (`drawFenceRun`), shadows under every building and
+  the wall's shadow cast east, the settlement's cobbles greyer on the cold lands, more tufts and flowers (`more`).
+  `window.__warGround(land, tier, fort, lair)` in the panel gives a land's board as a data URL (the scratch
+  `groundshot.cjs` renders all ten). **The defenders fight back:** `takeBeat` in sim/conquest/battles.ts never passed the beat to the other side (`b.side` was set once),
   so the garrison only riposted and a squad held at the wall line out of its reach stood 600 turns to a "defeat";
   the sides now alternate as designed (probe: a level-24 founder's squad of nine loses to a two-squad garrison, a
   level-32 one wins).

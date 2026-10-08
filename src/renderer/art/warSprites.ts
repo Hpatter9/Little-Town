@@ -28,6 +28,10 @@ import suTent from './packs/su_tent.png';
 import rockyYurt from './packs/rocky_yurt1.png';
 import rockyTipi from './packs/rocky_tipi1.png';
 import caveGate from './packs/cave_gate.png';
+import fence1 from './fields/fence1.png';
+import fence3 from './fields/fence3.png';
+import fence7 from './fields/fence7.png';
+import fence9 from './fields/fence9.png';
 import suWatchtower from './packs/su_watchtower.png';
 import rockyMine from './packs/rocky_mine1.png';
 import caveAltar from './packs/cave_altar.png';
@@ -134,6 +138,31 @@ export function drawSprite(g: CanvasRenderingContext2D, id: SpriteId, cx: number
   g.globalAlpha = a;
   return true;
 }
+/** A rail fence round a plot `w` by `h` px at (x, y), from the Fields pack's rails (as the pens' fences are): the rails along
+ *  the back and the front, the rail seen end on down the sides, a post at each corner; `k` the pack px to screen px. */
+export function drawFenceRun(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, k: number): boolean {
+  const rails = [warImage(fence1), warImage(fence3)];
+  const side = warImage(fence7);
+  const post = warImage(fence9);
+  if (!rails[0] || !rails[1] || !side || !post) return false;
+  const railH = 15 * k;
+  const railW = 27 * k;
+  for (let i = 0, rx = x; rx < x + w - 1; i++, rx += railW) {
+    const im = rails[i % 2]!;
+    const ww = Math.min(railW, x + w - rx);
+    g.drawImage(im, 0, 0, Math.round((ww / railW) * im.naturalWidth), im.naturalHeight, Math.round(rx), Math.round(y - railH * 0.6), Math.round(ww), Math.round(railH));
+    g.drawImage(im, 0, 0, Math.round((ww / railW) * im.naturalWidth), im.naturalHeight, Math.round(rx), Math.round(y + h - railH * 0.6), Math.round(ww), Math.round(railH));
+  }
+  const sideH = 31 * k;
+  for (let sy = y + railH * 0.2; sy < y + h - railH * 0.5; sy += sideH - k) {
+    const hh = Math.min(sideH, y + h - railH * 0.5 - sy);
+    g.drawImage(side, 0, 0, side.naturalWidth, Math.round((hh / sideH) * side.naturalHeight), Math.round(x - 3 * k), Math.round(sy), Math.round(7 * k), Math.round(hh));
+    g.drawImage(side, 0, 0, side.naturalWidth, Math.round((hh / sideH) * side.naturalHeight), Math.round(x + w - 4 * k), Math.round(sy), Math.round(7 * k), Math.round(hh));
+  }
+  for (const [px, py] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) g.drawImage(post, Math.round(px - 2.5 * k), Math.round(py - 7 * k), Math.round(5 * k), Math.round(8 * k));
+  return true;
+}
+
 /** The dungeon pack's stonework (village/dwalls.png): a wall piece and a gate, cropped as packBuildings.ts does. */
 export const STONE_WALL: [number, number, number, number] = [32, 240, 32, 48];
 export const STONE_GATE: [number, number, number, number] = [80, 288, 48, 48];

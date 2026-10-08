@@ -80,7 +80,7 @@ export function worldTerrain(w: WarView): HTMLCanvasElement {
   const seed = hashSeed(w.cells.slice(0, 64)) + w.side;
   const d = depthMap(w);
   const land = (cx: number, cy: number) => landAt(w, cx, cy);
-  paintGround(g, { w: canvas.width, h: canvas.height, cell, landAt: land, depthAt: (cx, cy) => d[cy * w.side + cx] || 1, seed, block: cell >= 12 ? 2 : 1 });
+  paintGround(g, { w: canvas.width, h: canvas.height, cell, landAt: land, depthAt: (cx, cy) => d[cy * w.side + cx] || 1, seed, block: cell >= 12 ? 2 : 1, relief: 0.5, grain: 0.8 });
   paintDetail(g, { cols: w.side, rows: w.side, cell, seed, landAt: land });
   // the wild things, clear of every settlement
   const centres = w.provinces.map((p) => [p.x, p.y]);

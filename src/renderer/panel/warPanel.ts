@@ -12,7 +12,10 @@ import { hkWhoOf } from '../art/hkFolk';
 import { drawBeast, drawCaptain, drawPack, drawWho, LAIR_MASTER, onWarArt } from '../art/warSprites';
 import { button, el } from './dom';
 import { selectTab } from './subtabs';
-import { devicePixels, paintBoard, paintFormation, slotsOf, troopsLine } from './warBoard';
+import { devicePixels, paintBoard, paintFormation, previewGround, slotsOf, troopsLine } from './warBoard';
+
+// (previews: a land's battle board as a data URL, `__warGround('swamp', 1, 1, false)`)
+(window as unknown as { __warGround?: (land: string, tier: number, fort: number, lair: boolean) => string }).__warGround = (land, tier, fort, lair) => previewGround(land, tier, fort, lair, Math.floor((360 * devicePixels()) / 12)).toDataURL();
 import { drawCompass, drawMarks, holdersLayer, originOf, realmColour, terrainCell, worldTerrain } from './warMap';
 
 /** The province tapped on the map, and the army picked to march (tap a province, then March). */
