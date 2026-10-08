@@ -196,12 +196,17 @@ export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string 
   const bone = w.look.body === 'skeleton' || w.monster === 'undead';
   const colour = hairColour(w.look.hairColor);
   const style = w.look.hair;
-  // the hair behind the body
+  // the hair behind the body. The pack has no men's hair, only bangs, which left a man bald behind his fringe and
+  // from the back, and the bangs float off his head in the lunge (the owner's complaint: hair slipping between
+  // poses); the heads of the man's and the woman's templates sit in the same place in every pose, so a man wears
+  // the short cuts (the pixie, or the bob for a shaggy style) and the long hair when his style is long. A close crop
+  // is a shaven head.
   const longHair = ['long', 'loose', 'shoulderl', 'longknot'].includes(style);
-  if (!bone && sex === 'female') {
+  const shaggy = ['unkempt', 'messy1', 'messy2', 'bedhead', 'ponytail'].includes(style);
+  if (!bone) {
     if (longHair) out.push(`hairlong${colour}rear`);
-    else if (style === 'ponytail') out.push(`hairpigtails${colour}rear`);
-    else if (style !== 'shortknot') out.push(`hairshort${colour}rear`);
+    else if (sex === 'female' && style === 'ponytail') out.push(`hairpigtails${colour}rear`);
+    else if (style !== 'shortknot' && (sex === 'female' || shaggy)) out.push(`hairshort${colour}rear`);
   }
   // the body
   out.push(bone ? 'skeleton' : w.look.body === 'orc' ? 'orc' : `template${sex}${skin}`);
@@ -232,14 +237,13 @@ export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string 
   if (w.founder && !body && grade < 3) grade = 3; // (a founder dresses the part from the first)
   out.push(sexed(`${family}0${grade}`, sex) ?? sexed(`${family}01`, sex));
   out.push(sexedTop(`${family}0${grade}`, sex));
-  // the hair in front (and a man's bangs)
+  // the hair in front
   if (!bone) {
-    if (sex === 'female') {
-      if (longHair) out.push(`hairlong${colour}front`);
-      else if (style === 'ponytail') out.push(`hairpigtails${colour}front`);
-      else if (style === 'shortknot') out.push(`hairpixie${colour}`);
-      else out.push(`hairshort${colour}front`);
-    } else if (style !== 'shortknot') out.push(`${longHair || style === 'ponytail' ? 'bangslayers' : 'bangsbig'}${colour}`);
+    if (longHair) out.push(`hairlong${colour}front`);
+    else if (sex === 'female' && style === 'ponytail') out.push(`hairpigtails${colour}front`);
+    else if (style === 'shortknot') { if (sex === 'female') out.push(`hairpixie${colour}`); }
+    else if (sex === 'male' && !shaggy) out.push(`hairpixie${colour}`);
+    else out.push(`hairshort${colour}front`);
   }
   // a helm: what they wear on their head, by its weight; else their calling's hat; a founder their crown
   const head = w.gear.head ? ITEM_BY_ID[w.gear.head] : undefined;
@@ -338,7 +342,9 @@ export function hkCell(keys: string[], col: number, row: number): HTMLCanvasElem
   ims.forEach((im, i) => {
     if (!im) return;
     const at = standIn(keys[i], im, col, row);
-    g.drawImage(im, at * HK_CELL, row * HK_CELL, HK_CELL, HK_CELL, 0, 0, HK_CELL, HK_CELL);
+    // (a cell the pack drew out of place is put back: NUDGE)
+    const [dx, dy] = NUDGE[keys[i]]?.[row * 8 + at] ?? [0, 0];
+    g.drawImage(im, at * HK_CELL, row * HK_CELL, HK_CELL, HK_CELL, dx, dy, HK_CELL, HK_CELL);
   });
   cells.set(key, c);
   if (cells.size > MOST_CELLS) {
@@ -355,6 +361,13 @@ export function hkCell(keys: string[], col: number, row: number): HTMLCanvasElem
  * lunge), so a person went bare or lost their hair for a moment (the owner's complaint: clothing and hair not
  * sitting right between animations). For those layers a blank cell takes the nearest pose of the same facing that
  * has it; the layers that are meant to be sparse are left as the pack drew them. */
+/** Cells the pack drew out of place, and how far to move them (px), by the cell's index (row * 8 + column): the
+ *  white long hair and pigtails lie 10px toward the middle in the two side lunges, where every other colour's swing
+ *  with the head (measured against the other nine colours; the heads themselves agree to the pixel). */
+const LUNGES: Record<number, [number, number]> = { 12: [10, 0], 20: [-10, 0] };
+const NUDGE: Record<string, Record<number, [number, number]>> = {
+  hairlongwhitefront: LUNGES, hairlongwhiterear: LUNGES, hairpigtailswhitefront: LUNGES, hairpigtailswhiterear: LUNGES,
+};
 const SPARSE = /^(axe|bow|book|dagger|great|hammer|mace|spear|staff|sword|katana|wand|gun|rifle|orb|talisman|totem|alchemy|flail|sickle|club|scythe|shield|bangs|beard|goatee|sideburns|freckles|scar|eyepatch|cape|skeleton|orc|template)|top$/;
 /** The pose to try in place of a blank one (the stand first, then the arm raised, the lunge, the steps...). */
 const STAND_IN = [0, 3, 4, 1, 2, 6, 5, 7];

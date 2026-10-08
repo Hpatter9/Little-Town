@@ -62,7 +62,7 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
   // ---- the map
   out.push(el('h2', '', 'War map'));
   const own = w.realms[0];
-  out.push(el('div', 'hint', `${own.provinces} of ${w.provinces.length} provinces are the town's. Win the game by holding them all, by conquest or alliance. Tap a province for its card${picked !== null ? `; ${w.armies.find((a) => a.id === picked)?.name} is picked: tap where it should march` : ''}.`));
+  out.push(el('div', 'hint', `${own.provinces} of ${w.provinces.length} provinces are the town's. Win the game by holding them all, by conquest or alliance. Tap a province for its card; pinch, or + and −, to zoom in${picked !== null ? `; ${w.armies.find((a) => a.id === picked)?.name} is picked: tap where it should march` : ''}.`));
   if (w.battle) out.push(...battleBoard(w, s, redraw));
   for (const x of w.captives) {
     const row = el('div', 'war-row war-bare');
@@ -140,31 +140,177 @@ export function renderWar(s: Snapshot, bridge: Bridge | undefined, redraw: () =>
 
 /* ------------------------------------------------------------ the map */
 
-/** The world map: the terrain and the holdings painted once each (warMap.ts), the marks over them; tap a province. */
+/** The world map: the terrain and the holdings painted once each (warMap.ts), the marks over them; tap a province.
+ *  It zooms (the owner's ask): a pinch, the wheel, or the + and − buttons, up to `ZOOM_MOST`, about the fingers;
+ *  zoomed in, a drag pans it (and the page scrolls from beside it). The view is kept across redraws and visits, and
+ *  so is the canvas itself, so a redraw in the middle of a gesture (a battle's beat) doesn't break it. */
+let mapZoom = 1;
+/** The view's top-left corner, as a share of the world's size (0 to 1 - 1 / zoom), so it holds at any width. */
+const mapPan = { x: 0, y: 0 };
+const ZOOM_MOST = 4;
+const ZOOM_STEP = 1.6;
+interface MapCanvas {
+  canvas: HTMLCanvasElement;
+  paint: () => void;
+}
+let mapEl: MapCanvas | null = null;
+/** What the kept canvas paints from: the latest view, snapshot and redraw (set on every render). */
+let mapNow: { w: WarView; s: Snapshot; cell: number; redraw: () => void } | null = null;
+
 function mapCanvas(w: WarView, s: Snapshot, redraw: () => void): HTMLElement {
   const box = el('div', 'war-map');
   const cell = terrainCell(w);
   const dpr = devicePixels();
+  const size = w.side * cell;
+  mapNow = { w, s, cell, redraw };
+  if (!mapEl || mapEl.canvas.width !== size) mapEl = makeMapCanvas(size, dpr);
+  mapEl.paint();
+  box.append(mapEl.canvas);
+  // the zoom buttons (the pinch and the wheel do the same)
+  const zoom = el('div', 'war-zoom');
+  const by = (k: number) => {
+    zoomMapAbout(size / 2, size / 2, mapZoom * k);
+    mapEl?.paint();
+  };
+  zoom.append(
+    button('−', () => by(1 / ZOOM_STEP), { cls: 'place small quiet', title: 'Zoom out' }),
+    button('+', () => by(ZOOM_STEP), { cls: 'place small quiet', title: 'Zoom in' }),
+  );
+  fitButton = button('⊡', () => {
+    mapZoom = 1;
+    mapPan.x = mapPan.y = 0;
+    mapEl?.paint();
+  }, { cls: 'place small quiet', title: 'The whole world' });
+  fitButton.style.display = mapZoom > 1.001 ? '' : 'none';
+  zoom.append(fitButton);
+  box.append(zoom);
+  return box;
+}
+/** The button back to the whole world: shown once zoomed in (kept here so a pinch can show it without a redraw). */
+let fitButton: HTMLElement | null = null;
+
+/** Zoom to `z` keeping the world point under (sx, sy) (device px in the view) where it is. */
+function zoomMapAbout(sx: number, sy: number, z: number): void {
+  if (!mapEl) return;
+  const size = mapEl.canvas.width;
+  const next = Math.max(1, Math.min(ZOOM_MOST, z));
+  const ux = (sx + mapPan.x * size * mapZoom) / mapZoom;
+  const uy = (sy + mapPan.y * size * mapZoom) / mapZoom;
+  mapZoom = next;
+  mapPan.x = (ux * next - sx) / (size * next);
+  mapPan.y = (uy * next - sy) / (size * next);
+  clampPan();
+}
+function clampPan(): void {
+  const most = 1 - 1 / mapZoom;
+  mapPan.x = Math.max(0, Math.min(most, mapPan.x));
+  mapPan.y = Math.max(0, Math.min(most, mapPan.y));
+  if (mapZoom <= 1.001) mapPan.x = mapPan.y = 0;
+}
+
+function makeMapCanvas(size: number, dpr: number): MapCanvas {
   const canvas = el('canvas');
-  canvas.width = canvas.height = w.side * cell;
-  canvas.style.width = canvas.style.height = `${(w.side * cell) / dpr}px`;
+  canvas.width = canvas.height = size;
+  canvas.style.width = canvas.style.height = `${size / dpr}px`;
   const g = canvas.getContext('2d')!;
-  g.imageSmoothingEnabled = false;
-  g.drawImage(worldTerrain(w), 0, 0);
-  g.drawImage(holdersLayer(w, cell, selected), 0, 0);
-  drawMarks(g, w, cell, { people: s.people, townOrigin: townOriginOf(s), picked, selected, font: panelFont() });
-  drawCompass(g, canvas.width - cell * 2.6, cell * 2.6, cell * 1.4, panelFont());
-  canvas.addEventListener('click', (ev) => {
+  const paint = () => {
+    if (!mapNow) return;
+    const { w, s, cell } = mapNow;
+    clampPan();
+    const world = size * mapZoom;
+    const px = Math.round(mapPan.x * world);
+    const py = Math.round(mapPan.y * world);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.imageSmoothingEnabled = false;
+    g.clearRect(0, 0, size, size);
+    g.drawImage(worldTerrain(w), 0, 0, size, size, -px, -py, world, world);
+    g.drawImage(holdersLayer(w, cell, selected), 0, 0, size, size, -px, -py, world, world);
+    g.save();
+    g.translate(-px, -py);
+    drawMarks(g, w, cell * mapZoom, { people: s.people, townOrigin: townOriginOf(s), picked, selected, font: panelFont() });
+    g.restore();
+    drawCompass(g, size - cell * 2.6, cell * 2.6, cell * 1.4, panelFont());
+    // (zoomed in, every touch is the map's: a drag pans it; fitted, the page scrolls over it as before)
+    canvas.style.touchAction = mapZoom > 1.001 ? 'none' : 'pan-y';
+    if (fitButton) fitButton.style.display = mapZoom > 1.001 ? '' : 'none';
+  };
+  // gestures: a tap picks a province, a drag pans (zoomed in), two fingers pinch, the wheel zooms
+  const pointers = new Map<number, { x: number; y: number }>();
+  let gesture: { moved: boolean; pinched: boolean; last: { x: number; y: number }; dist: number } | null = null;
+  const at = (ev: PointerEvent) => {
     const r = canvas.getBoundingClientRect();
-    const x = Math.floor(((ev.clientX - r.left) / r.width) * w.side);
-    const y = Math.floor(((ev.clientY - r.top) / r.height) * w.side);
+    return { x: ((ev.clientX - r.left) / r.width) * size, y: ((ev.clientY - r.top) / r.height) * size };
+  };
+  const centre = () => {
+    const ps = [...pointers.values()];
+    return { x: ps.reduce((n, p) => n + p.x, 0) / ps.length, y: ps.reduce((n, p) => n + p.y, 0) / ps.length };
+  };
+  const spread = () => {
+    const ps = [...pointers.values()];
+    return ps.length < 2 ? 0 : Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y);
+  };
+  canvas.addEventListener('pointerdown', (ev) => {
+    canvas.setPointerCapture(ev.pointerId);
+    pointers.set(ev.pointerId, at(ev));
+    gesture = { moved: gesture?.moved ?? false, pinched: (gesture?.pinched ?? false) || pointers.size > 1, last: centre(), dist: spread() };
+  });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!pointers.has(ev.pointerId) || !gesture) return;
+    pointers.set(ev.pointerId, at(ev));
+    const c = centre();
+    const dx = c.x - gesture.last.x;
+    const dy = c.y - gesture.last.y;
+    if (Math.hypot(dx, dy) > 6 * dpr) gesture.moved = true;
+    if (pointers.size > 1) {
+      const d = spread();
+      if (gesture.dist > 0 && d > 0) zoomMapAbout(c.x, c.y, mapZoom * (d / gesture.dist));
+      gesture.dist = d;
+      gesture.pinched = true;
+    }
+    if (gesture.moved && mapZoom > 1.001) {
+      const world = size * mapZoom;
+      mapPan.x -= dx / world;
+      mapPan.y -= dy / world;
+      clampPan();
+    }
+    gesture.last = c;
+    if (gesture.moved || gesture.pinched) paint();
+  });
+  const lift = (ev: PointerEvent) => {
+    if (!pointers.has(ev.pointerId)) return;
+    const p = pointers.get(ev.pointerId)!;
+    pointers.delete(ev.pointerId);
+    const g0 = gesture;
+    if (pointers.size) {
+      if (g0) {
+        g0.last = centre();
+        g0.dist = spread();
+      }
+      return;
+    }
+    gesture = null;
+    if (!g0 || g0.moved || g0.pinched || ev.type === 'pointercancel' || !mapNow) return;
+    // a tap: the province under it
+    const { w, cell, redraw } = mapNow;
+    const world = size * mapZoom;
+    const x = Math.floor((p.x + mapPan.x * world) / (cell * mapZoom));
+    const y = Math.floor((p.y + mapPan.y * world) / (cell * mapZoom));
     if (x < 0 || y < 0 || x >= w.side || y >= w.side) return;
     const o = ownerAt(w, y * w.side + x);
     selected = o < 0 ? null : o;
     redraw();
-  });
-  box.append(canvas);
-  return box;
+  };
+  canvas.addEventListener('pointerup', lift);
+  canvas.addEventListener('pointercancel', lift);
+  canvas.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    const r = canvas.getBoundingClientRect();
+    const sx = ((ev.clientX - r.left) / r.width) * size;
+    const sy = ((ev.clientY - r.top) / r.height) * size;
+    zoomMapAbout(sx, sy, mapZoom * (ev.deltaY < 0 ? 1.2 : 1 / 1.2));
+    paint();
+  }, { passive: false });
+  return { canvas, paint };
 }
 /** The town's people, for the settlements' style and its captains. */
 const townOriginOf = (s: Snapshot) => (s.theme === 'town' ? 'settlers' : s.theme);

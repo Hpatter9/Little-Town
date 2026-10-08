@@ -10,7 +10,7 @@ import { inTabs, selectTab, tabKey } from './subtabs';
 import { expeditionsKey, renderExpeditions } from './expeditionsPanel';
 import { renderJournal } from './journalPanel';
 import { renderResearch, researchKey } from './researchPanel';
-import { renderTownsfolk, townsfolkKey } from './townsfolkPanel';
+import { patchTownsfolk, renderTownsfolk, townsfolkKey } from './townsfolkPanel';
 import { renderTrade, tradeKey } from './tradePanel';
 import { renderWar, warKey } from './warPanel';
 import { renderAlerts } from './alertsPanel';
@@ -64,7 +64,11 @@ function render(): void {
                     ? 'n' + !!snap.gameOver
                     : shown;
   const keyed = `${key}|${tabKey(shown ?? '')}|${detailsKey()}`;
-  if (keyed === renderedKey) return;
+  if (keyed === renderedKey) {
+    // (the Townsfolk list's live details change ten times a second: patched into the rows as they stand)
+    if (snap && shown === 'townsfolk') patchTownsfolk(snap, body);
+    return;
+  }
   renderedKey = keyed;
   const tab = PANELS.find((p) => p.id === shown);
   title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'newgame' ? 'New town' : isVenuePanel(shown) ? (venueView(snap, shown)?.name ?? (shown === 'shop' ? 'Shop' : shown === 'tavern' ? 'Tavern' : 'Shop')) : '');

@@ -8,8 +8,9 @@ import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
 import { gateAt, gateCells, gateTurned, isGate, isRingPiece, RING_AT_ONCE, RING_PAD, RING_STEP, ringCells, wantRect } from '../src/shared/sim/ringWall';
 import { campCell, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { pathTo } from '../src/shared/sim/walk';
-import { CELL } from '../src/shared/sim/land';
-import { clearAround } from './helpers';
+import { CELL, cellAt, isMarked, setMarked } from '../src/shared/sim/land';
+import { bestGatherTile, clearCell } from '../src/shared/sim/people';
+import { clearAround, makeWild } from './helpers';
 
 /** A town ready to wall itself: palisades learned, the land about it clear, wood to spare, enough grown-ups. */
 function walledTown(seed: string): GameState {
@@ -141,4 +142,43 @@ test('the whole ring is laid out as one blueprint, built a few sections at a tim
   assert.ok(s.ring?.done, `ring after ${passes} passes`);
   assert.ok(passes > 5, `built over ${passes} passes, not all at once`);
   assert.ok(s.buildings.filter((b) => b.ring === s.ring!.gen).every((b) => b.status === 'done' && !b.planned));
+});
+
+test("the trees and rocks on the ring's line are marked to clear at once, taken first, and the wall follows them", () => {
+  const s = walledTown('ring-wood');
+  const r = wantRect(s);
+  // a stand of trees and a rock across the top of the line (clear of the gates, which stand on the camp's row)
+  const top = ringCells(r).filter((c) => c.y === r.y);
+  const woods = top.slice(2, 6).map((c) => makeWild(s, c.x, c.y, 'forest', { wood: 6 }));
+  const rock = makeWild(s, top[7].x, top[7].y, 'rock', { stone: 6 });
+  s.tick += PLAN_TICKS;
+  runPlanner(s);
+  assert.ok(s.ring, 'the ring is planned');
+  for (const i of [...woods, rock]) {
+    assert.ok(isMarked(s.land, i), 'marked to clear');
+    assert.ok(s.ring!.clearing?.includes(i), 'the ring knows its cells to clear');
+    const c = cellAt(s.land, i);
+    assert.ok(!s.buildings.some((b) => b.tile === c.x && b.row === c.y), 'no piece laid on a tree');
+  }
+  // whoever gathers goes to the wall's line first, though a nearer tree is marked
+  const camp = campCell(s);
+  const near = makeWild(s, camp.x + 2, camp.y + 2, 'forest', { wood: 6 });
+  setMarked(s.land, near, true);
+  assert.ok([...woods, rock].includes(bestGatherTile(s, s.people[0])!), "the ring's cells first");
+  // cleared (the pools worked out, as the gatherers leave them), the pieces are laid there on the next pass
+  for (const i of [...woods, rock]) {
+    delete s.land.pools[i];
+    setMarked(s.land, i, false);
+    clearCell(s, i);
+  }
+  const laid = (i: number) => {
+    const c = cellAt(s.land, i);
+    return s.buildings.some((b) => b.ring === 1 && b.tile === c.x && b.row === c.y);
+  };
+  // (another plan may take a pass first: the seat, the homes, the fields)
+  for (let k = 0; k < 12 && ![...woods, rock].every(laid); k++) {
+    s.tick += PLAN_TICKS;
+    runPlanner(s);
+  }
+  for (const i of [...woods, rock]) assert.ok(laid(i), 'the wall follows');
 });

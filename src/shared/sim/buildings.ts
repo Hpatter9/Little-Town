@@ -215,14 +215,15 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
 export const fitsAt = (m: LandMap, taken: readonly Rect[], def: BuildingDef, x: number, y: number) => fits(m, { x, y, w: def.width, h: depthOf(def) }, taken);
 
 /** Place a blueprint with its top-left cell at (x, y). Returns the reason on failure. A road is laid to its door. */
-export function placeBlueprint(s: GameState, defId: string, x: number, y: number, turned = false): PlaceCheck {
+export function placeBlueprint(s: GameState, defId: string, x: number, y: number, turned = false, planned = false): PlaceCheck {
   const def = BUILDING_BY_ID[defId];
   if (!def || def.never) return { ok: false, reason: 'Unknown building' };
   if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: 'Not researched yet' };
-  if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
+  // (a planned piece of the ring wall takes no slot: it is laid whatever the queue holds, and released into work later)
+  if (!planned && blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
   const check = canPlace(s, def, x, y, undefined, turned);
   if (!check.ok) return check;
-  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}), ...(turned ? { turned: true } : {}) };
+  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}), ...(turned ? { turned: true } : {}), ...(planned ? { planned: true } : {}) };
   s.buildings.push(b);
   if (b.room) {
     // (no roads inside the castle: a road that ran where the room now stands is taken up; a mountain hold's room is

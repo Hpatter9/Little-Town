@@ -10,7 +10,8 @@ import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { buyGear, nightOut } from '../src/shared/sim/wages';
+import { buyGear, TAVERN_NIGHT } from '../src/shared/sim/wages';
+import { drinkAt, nightOut } from '../src/shared/sim/nightOut';
 import { incomeOf, loadPrice, payFromTreasury, payParty } from '../src/shared/sim/economy';
 import { TREASURY_KEEP } from '../src/shared/data/economy';
 import { Rng } from '../src/shared/rng';
@@ -192,15 +193,26 @@ test('of an evening the townsfolk spend their wages at the tavern, and it cheers
   const s = plainGame('night-out');
   addBuilding(s, 'trading_post', camp(s) + 3);
   const inn = addBuilding(s, 'fireside_inn', camp(s) - 6);
-  inn.operator = s.people[0].id;
+  const keeper = s.people[0];
+  inn.operator = keeper.id;
   addItems(s, 'herb_tea', 3, 1);
-  const p = s.people[0];
+  // (a second townsperson: the keeper stays behind the bar)
+  const p = JSON.parse(JSON.stringify(keeper)) as typeof keeper;
+  p.id = s.nextId++;
+  p.name = 'Bo';
+  p.task = null;
+  p.nature = 'jolly'; // (the keenest: the roll by nature never keeps them home)
+  s.people.push(p);
   p.coins = 50;
   p.morale = 50;
+  p.needs.rest = 1;
   s.coins = 0;
-  nightOut(s);
+  nightOut(s); // (they set out: sim/nightOut.ts)
+  assert.ok(s.nightOut?.ids.includes(p.id), 'Bo goes out');
+  assert.ok(!s.nightOut?.ids.includes(keeper.id), 'the keeper stays to serve');
+  drinkAt(s, p); // (in at the door: the drink is bought)
   assert.ok(p.coins < 50 && (s.coins ?? 0) > 0);
-  assert.ok(p.morale > 50);
+  assert.ok(p.morale >= 50 + TAVERN_NIGHT - 0.01);
   assert.ok(tavernOf(s));
 });
 

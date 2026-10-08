@@ -37,7 +37,7 @@ export function venueView(s: Snapshot | null, id: VenueId): ShopView | null {
 /** Changes whenever something the text shows changes (the picture animates on its own). */
 export const shopKey = (s: Snapshot, id: VenueId = 'shop') => {
   const v = venueView(s, id);
-  return JSON.stringify(v && [s.coins, s.wageBill, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers, v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting, v.asked, v.menu, v.gear, v.stock, v.stockMats, v.decor, v.ownerName, v.worth, v.takings]);
+  return JSON.stringify(v && [s.coins, s.wageBill, v.def, v.progress !== null && Math.floor(v.progress * 20), v.pieces, v.appeal, v.renown, v.extensions, v.tiers, v.keeperName, v.customers, v.locals.map((l) => l.id), v.passing, v.forSale, v.wants, v.log, v.nextHours !== null && Math.ceil(v.nextHours), v.making, v.waiting, v.asked, v.menu, v.gear, v.stock, v.stockMats, v.decor, v.ownerName, v.worth, v.takings]);
 };
 
 /** In the picture's own pixels (it's scaled up to fit): a floor cell's width and its depth (a row, foreshortened),
@@ -157,7 +157,14 @@ export function renderShop(s: Snapshot, id: VenueId = 'shop', redraw: () => void
 
   // who's in, and what they came for
   info.push(el('h2', '', tavern ? 'Guests' : 'In the shop'));
-  if (!v.customers.length) info.push(el('p', 'empty', v.passing ? `${v.passing} on the road, coming or going.` : 'Nobody just now.'));
+  if (!v.customers.length && !v.locals.length) info.push(el('p', 'empty', v.passing ? `${v.passing} on the road, coming or going.` : 'Nobody just now.'));
+  if (v.locals.length) {
+    // (the townsfolk in for the evening: sim/nightOut.ts)
+    const row = el('div', 'shop-guest');
+    const names = v.locals.map((l) => l.name);
+    row.append(el('span', 'shop-guest-name', names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]), el('span', 'shop-guest-want', `in for the evening, letting off steam after the day's work`));
+    info.push(row);
+  }
   for (const c of v.customers) {
     const row = el('div', 'shop-guest');
     row.append(el('span', 'shop-guest-name', `${c.name}, a ${c.kind}`), el('span', 'shop-guest-want', `${c.asleep ? 'asleep in bed' : `after ${c.wants}`}${c.temper ? ` · ${c.temper}` : ''}${c.req !== null ? ` · used to comfort ${c.req}` : ''}${c.bed && !c.asleep ? ' · staying the night' : ''}`));
@@ -553,14 +560,17 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
 
   // travellers: at a shop they look round the pieces first, then go up to the counter and ask (the keeper answers),
   // then make for the door; tavern guests sit and stand about as before
-  const here = new Set(v.customers.map((q) => q.id));
+  // (the townsfolk in for the evening sit and stand about like the tavern's guests, dressed as the map dresses them)
+  type Guest = ShopView['customers'][number] & { local?: boolean };
+  const guests: Guest[] = [...v.customers, ...v.locals.map((l): Guest => ({ id: l.id, name: l.name, kind: 'townsperson', look: l.look, tier: 1, wants: '', temper: '', req: null, bed: null, asleep: false, stage: null, talk: null, purse: 0, people: null, local: true }))];
+  const here = new Set(guests.map((q) => q.id));
   for (const id of walkers.keys()) if (!here.has(id)) walkers.delete(id);
   const spots = browseSpots(v);
   const shopFloor = v.venue !== 'tavern';
   const pieceSpots = shopFloor && spots.length > 1 ? spots.slice(0, -1) : spots;
   const headAbove = (y: number) => y - (FEET_Y - HEAD_Y) * SCALE - 1;
   const bubbles: Bubble[] = [];
-  for (const q of v.customers) {
+  for (const q of guests) {
     let wk = walkers.get(q.id);
     if (!wk) {
       const x0 = doorX + CELL / 2;
@@ -619,7 +629,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
       sleepers.set(`${q.bed.x},${q.bed.y}`, q.look);
       continue;
     }
-    layers.push({ y: w.y, paint: () => person(w.x, w.y, w.look, moving, w.left, t + q.id, q.tier, q.id) });
+    layers.push({ y: w.y, paint: () => person(w.x, w.y, w.look, moving, w.left, t + q.id, q.tier, q.id, false, q.local) });
   }
   layers.sort((a, b) => a.y - b.y);
   for (const l of layers) l.paint();
@@ -1152,7 +1162,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
   }
 
   /** Someone side-on (their own look, as in the town), feet at (x, y); walking, or standing. */
-  function person(x: number, y: number, look: Look, walking: boolean, left: boolean, phase: number, tier = 1, id = 0, keeper = false): void {
+  function person(x: number, y: number, look: Look, walking: boolean, left: boolean, phase: number, tier = 1, id = 0, keeper = false, local = false): void {
     oval(x, y, 5, 1.5, 'rgba(0,0,0,0.28)');
     // (standing, they breathe and shift their weight, like everyone on the map: nobody is frozen)
     if (!walking) y -= Math.sin(phase * 1.1) > 0.55 ? 1 : 0;
@@ -1160,7 +1170,7 @@ function draw(c: HTMLCanvasElement, v: ShopView, t: number, dt: number): void {
     const top = y - (FEET_Y - HEAD_Y) * SCALE; // (the top of the head)
     // (in the Himeko Sutori pack's dress, as the map draws everyone: art/hkFolk.ts; the old look while it loads)
     // (the keeper, a townsperson, as the map dresses them, facing the room; a stranger in travelling clothes)
-    const keys = hkLayers(keeper ? hkWhoById(id, look) : hkWhoOfLook(id, look, { traveller: true }), { fighting: false, activity: 'idle' });
+    const keys = hkLayers(keeper || local ? hkWhoById(id, look) : hkWhoOfLook(id, look, { traveller: true }), { fighting: false, activity: 'idle' });
     const col = walking ? [1, 0, 2, 0][Math.floor(phase * 6) % 4] : 0;
     if (hkDraw(g, keys, col, keeper ? 0 : left ? 1 : 2, Math.round(x), Math.round(y), (FEET_Y - HEAD_Y) * SCALE + 2)) {
       // (drawn: the hats below still mark a customer's standing)

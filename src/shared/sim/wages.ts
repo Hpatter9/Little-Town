@@ -7,21 +7,21 @@
 import { ITEM_BY_ID, SLOTS, type ItemDef, type Slot } from '../data/items';
 import { COMMON, gradeOf } from '../data/quality';
 import { canWear } from './classes';
-import { FARE, PURSE_SCALE } from '../data/shop';
+import { PURSE_SCALE } from '../data/shop';
 import { addItems, gearScore } from './crafting';
-import { farePrice, itemPrice, log, offers, pieceName, SALE_GEAR, takeOffer, venueOpen, type Offer } from './shop';
+import { itemPrice, offers, pieceName, SALE_GEAR, takeOffer, type Offer } from './shop';
+import { nightOut } from './nightOut';
 import { moneyTown } from './economy';
 import { SAVINGS_KEEP } from '../data/economy';
 import { isChild } from './social';
-import { earn, tireless, notify, remember, type GameState, type Person } from './state';
-import { BUILDING_BY_ID } from '../data/buildings';
+import { earn, notify, remember, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 
 /** What a day's pay for work might come to, a head (times the era's scale): the treasury keeps about this back. */
 export const PAY_A_HEAD = 2;
 /** The most of its purse the town lets a day's pay for work take. */
 export const WAGE_SHARE = 0.5;
-/** The hour the townsfolk go to the tavern, and the lift a night there gives their morale. */
+/** The hour the townsfolk go to the tavern (sim/nightOut.ts), and the lift a night there gives their morale. */
 export const TAVERN_HOUR = 20;
 export const TAVERN_NIGHT = 4;
 /** Townsfolk pay this share of what a stranger would, and get this share back for what they hand in. */
@@ -45,32 +45,8 @@ export function updateWages(s: GameState): void {
   if (!moneyTown(s)) return;
   if (s.tick % TICKS_PER_HOUR !== 0) return;
   const hour = calendar(s.tick).hour;
-  if (hour === TAVERN_HOUR) nightOut(s);
+  if (hour === TAVERN_HOUR) nightOut(s); // (sim/nightOut.ts: they go there and drink)
   buyGear(s);
-}
-
-/** Of an evening, whoever has the coins goes to the tavern for the best they can afford (a drink, most often), for a
- *  little less than a stranger pays. It lifts their spirits. */
-export function nightOut(s: GameState): void {
-  const tavern = venueOpen(s, 'tavern');
-  if (!tavern) return;
-  let guests = 0;
-  let takings = 0;
-  // (people keep a little back: data/economy.ts SAVINGS_KEEP, so they can save for land)
-  // (the dead and machines neither eat nor drink: the tavern is for the living)
-  for (const p of s.people.filter((q) => q.away === null && !isChild(q) && !q.downed && !tireless(q) && (q.coins ?? 0) > SAVINGS_KEEP)) {
-    const menu = offers(s, FARE, (i, q) => Math.max(1, Math.round(farePrice(s, i, q) * LOCAL_PRICE))).filter((o) => o.price <= (p.coins ?? 0) - SAVINGS_KEEP);
-    const pick = menu.filter((o) => o.item.fare!.kind === 'drink').at(-1) ?? menu.at(-1);
-    if (!pick || !takeOffer(s, pick)) continue;
-    p.coins = (p.coins ?? 0) - pick.price;
-    s.coins = (s.coins ?? 0) + pick.price;
-    earn(s, 'townsfolk', pick.price);
-    p.morale = Math.min(100, p.morale + TAVERN_NIGHT);
-    remember(s, p, `Spent the evening at the ${BUILDING_BY_ID[tavern.def].name}: ${pieceName(pick)} (${pick.price} coins)`);
-    guests++;
-    takings += pick.price;
-  }
-  if (guests) log(s, tavern, `Evening: ${guests === 1 ? 'one of the townsfolk' : `${guests} of the townsfolk`} came in to eat and drink (${takings} coins).`);
 }
 
 /** Fighting gear goes to fighters first; the rest in turn. */

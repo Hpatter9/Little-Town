@@ -861,20 +861,29 @@ function consolidateHomes(s: GameState, n: Needs, plan: TownPlan, needBeds = fal
 /** Place the next building the town wants (one at a time), or upgrade one. Returns wild tiles to clear for a
  *  building it wanted but had no room for (or for a wall's spot at the end of town). */
 function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
-  if (blueprintCount(s) >= buildSlots(s)) return [];
   const clear: number[] = [];
-  if (planSeat(s, n, plan)) return clear;
-  if (planPrison(s, n, plan)) return clear;
-  if (consolidateHomes(s, n, plan)) return clear;
-  if (consolidateFields(s, n, plan)) return clear;
   // the ring wall round the town (sim/ringWall.ts): started once the town is a few people strong (sooner when raided or
   // set on defence), widened as it grows, a slot always left for the rest
   const grownUps = s.people.filter((p) => !isChild(p)).length;
   // (a town that can't gather what it builds with waits for its shop before it walls itself: the shop comes first)
   const shopFirst = n.unsourced.length > 0 && !s.buildings.some((b) => isShop(b.def));
   // (a handful of people can't wall a town and build it too: the ring waits for RING_MIN_PEOPLE, raided or not)
-  if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
-  if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
+  const ringTurn = () => {
+    if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
+    if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
+  };
+  if (blueprintCount(s) >= buildSlots(s)) {
+    // (the queue full, the ring's plan still goes on: its planned pieces take no slot, and the trees and rocks on its
+    // line are marked to clear; no section is released into work without room: the owner's ask that a wall laid
+    // through a wood has it cut down, which used to wait for a pass with the queue clear)
+    ringTurn();
+    return clear;
+  }
+  if (planSeat(s, n, plan)) return clear;
+  if (planPrison(s, n, plan)) return clear;
+  if (consolidateHomes(s, n, plan)) return clear;
+  if (consolidateFields(s, n, plan)) return clear;
+  ringTurn();
   if (blueprintCount(s) >= buildSlots(s)) return clear;
   let blocked: BuildingDef | null = null;
   let triedUpgrade = false;
@@ -981,6 +990,9 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
     marked++;
     return true;
   };
+  // (the trees and rocks on the ring wall's line come first, and over the cap: the wall was planned through them,
+  // and they used to wait on whatever room the materials' marks left, often for good)
+  for (const i of clear) if (!isMarked(s.land, i) && s.land.pools[i]) setMarked(s.land, i, true);
   for (const m of MATERIALS) {
     if (!GATHERABLE.has(m)) continue;
     let short = Math.max((n.demand[m] ?? 0) - (n.stock[m] ?? 0), craftWants[m] ?? 0);
@@ -1007,7 +1019,6 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
       if (mark(i)) short -= pool[m] ?? 0;
     }
   }
-  for (const i of clear) mark(i);
 }
 
 /* ------------------------------------------------------------ the shop: selling and buying */

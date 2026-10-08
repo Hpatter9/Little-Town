@@ -2,6 +2,8 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { RING_CLEAR_PULL } from './ringWall';
+import { drinkAt, drinking } from './nightOut';
 import { onBoard } from './tactics';
 import { noteCleared } from './regrow';
 import { attending, festive, gatheringPlace } from './ceremonies';
@@ -261,6 +263,19 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       } else if (!goTo(s, p, at)) break;
       p.activity = festive(g) ? 'dance' : 'mourn';
       p.dir = at.dir;
+      break;
+    }
+    case 'drink': {
+      // (to the tavern's door, then inside for the evening: the window shows them)
+      const n = s.nightOut;
+      const tavern = n ? s.buildings.find((b) => b.id === n.tavern) : undefined;
+      if (!tavern || !drinking(s, p)) {
+        p.task = null;
+        break;
+      }
+      if (!goToB(s, p, tavern)) break;
+      drinkAt(s, p);
+      p.activity = 'drink';
       break;
     }
     case 'toil': {
@@ -751,6 +766,8 @@ function rank(t: Task, p?: Person): number {
       return -2.4;
     case 'attend':
       return -2.3;
+    case 'drink':
+      return -1.5; // (leisure: after a meal or sleep, before any work)
     case 'eat':
       return -2.1; // (just over sleep: someone starving in the night gets up to eat)
     case 'sleep':
@@ -824,6 +841,8 @@ function chooseTask(s: GameState, p: Person): Task | null {
   }
   // Held to the town's work by an event (sim/events.ts `busy`): they eat when they must, and otherwise toil on.
   if (busyNow(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'toil' ? p.task : { type: 'toil' };
+  // Of an evening, those out for a drink go to the tavern and stay (sim/nightOut.ts; they eat first if they must).
+  if (drinking(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'drink' ? p.task : { type: 'drink' };
   // Walking out of town (a mental break): nothing else matters.
   if (p.breakdown?.kind === 'wander') {
     const out = leavePt(s, p);
@@ -1022,16 +1041,18 @@ function unreserved(s: GameState, p: Person, b: Building): Stock {
   return need;
 }
 
-/** The nearest marked cell, preferring ones fewer people are already working. */
-function bestGatherTile(s: GameState, p: Person): number | null {
+/** The nearest marked cell, preferring ones fewer people are already working; the ring wall's cells to clear
+ *  (sim/ringWall.ts) count as `RING_CLEAR_PULL` cells nearer, so the wall's line is cut and mined out first. */
+export function bestGatherTile(s: GameState, p: Person): number | null {
   const workers = new Map<number, number>();
   for (const o of s.people) if (o !== p && o.task?.type === 'gather') workers.set(o.task.tile, (workers.get(o.task.tile) ?? 0) + 1);
+  const ring = s.ring?.clearing;
   let best: number | null = null;
   let bestCost = Infinity;
   for (const i of s.land.marked) {
     const w = workers.get(i) ?? 0;
     if (w >= MAX_PER_TILE) continue;
-    const cost = dist(cellXY(s, i), p) + w * 20 * CELL;
+    const cost = dist(cellXY(s, i), p) + w * 20 * CELL - (ring?.includes(i) ? RING_CLEAR_PULL * CELL : 0);
     if (cost < bestCost) {
       bestCost = cost;
       best = i;
@@ -1093,6 +1114,8 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       return busyNow(s, p) && !alarmRaised(s);
     case 'attend':
       return attending(s, p) && !alarmRaised(s);
+    case 'drink':
+      return drinking(s, p) && !alarmRaised(s);
     case 'tend': {
       // (while the alarm is up, everyone fights or shelters: the wounded wait)
       // (and step aside if someone nearer has come to help)

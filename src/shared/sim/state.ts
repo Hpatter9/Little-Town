@@ -1,3 +1,4 @@
+import type { NightOut } from './nightOut';
 import type { DragonState } from './dragon';
 // The complete simulation state. Plain JSON data only: it is what gets saved, and replaying the same
 // commands from the same state must always produce the same result.
@@ -243,6 +244,8 @@ export type Task =
   | { type: 'toil' }
   /** At a funeral or a feast (sim/ceremonies.ts). */
   | { type: 'attend' }
+  /** Of an evening at the tavern, for a drink (sim/nightOut.ts). */
+  | { type: 'drink' }
   /** Sow a fallow field or harvest a ripe one. */
   | { type: 'farm'; building: number }
   /** Dig at a mine until your hands are full. */
@@ -271,7 +274,7 @@ export interface CraftOrder {
 
 /** What a person is visibly doing (drives their animation). */
 /** `dance`: at a feast (the map draws them dancing); `mourn`: at a funeral. */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | WorkAnim;
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | WorkAnim;
 
 export interface Raider {
   id: number;
@@ -982,6 +985,8 @@ export interface GameState {
   funeralsDue?: { name: string; close: number[]; tick: number }[];
   feastDue?: { kind: 'wedding' | 'feast'; text: string };
   gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; ids: number[]; until: number; text: string; x: number; y: number; from?: number };
+  /** The evening at the tavern under way (sim/nightOut.ts). */
+  nightOut?: NightOut;
   lastFeast?: number;
   /** An event to put to the player next, once the one open now is answered (`follow`). */
   eventNext?: string;
