@@ -25,6 +25,9 @@ export interface ProvinceView {
   capitalOf: string | null;
   tier: string;
   fort: string;
+  /** The settlement tier and fort as numbers (0 up), for the map's pictures. */
+  tierN: number;
+  fortN: number;
   landmark: string | null;
   yields: { coins: number; recruits: number; material: string; amount: number };
   coast: boolean;
@@ -113,6 +116,10 @@ export interface BattleView {
   id: number;
   province: string;
   land: string;
+  /** Who held the province as the battle began (null: a lair), its settlement tier and fort. */
+  holder: string | null;
+  tier: number;
+  fort: number;
   army: number;
   turn: number;
   side: 'town' | 'foe';
@@ -123,6 +130,8 @@ export interface BattleView {
     side: 'town' | 'foe';
     name: string;
     hero: string | null;
+    /** The hero's townsperson, for the town's squads. */
+    person: number | null;
     heroShare: number;
     troops: ({ troop: string; share: number } | null)[];
     x: number;
@@ -162,7 +171,7 @@ export function warView(s: GameState): WarView | null {
     const g = garrisonSize(c, p.id);
     return {
       id: p.id, name: p.name, land: p.land, x: p.x, y: p.y, neighbours: p.neighbours, holder, holderName: holder ? realmName(holder, town) : 'Free',
-      capitalOf: p.capitalOf === null ? null : w.realms[p.capitalOf].id, tier: TIERS[p.tier].name, fort: FORTS[p.fort].name,
+      capitalOf: p.capitalOf === null ? null : w.realms[p.capitalOf].id, tier: TIERS[p.tier].name, fort: FORTS[p.fort].name, tierN: p.tier, fortN: p.fort,
       landmark: p.landmark ? LANDMARKS[p.landmark].name : null, yields: provinceYield(p), coast: p.coast,
       garrison: g, armies: here,
       bare: holder === 'town' && p.id !== homeProvince(w) && g < GARRISON_HOLDS && !armies.some((a) => a.going === null && a.at === p.id) && day - (c.taken?.[p.id] ?? 0) >= REVOLT_GRACE_DAYS,
@@ -188,9 +197,9 @@ export function warView(s: GameState): WarView | null {
   const b = (c.battles ?? []).slice(-1)[0] ?? null;
   const battle: BattleView | null = b
     ? {
-        id: b.id, province: w.provinces[b.province].name, land: w.provinces[b.province].land, army: b.army, turn: b.turn, side: b.side, walls: b.walls, wallsMax: b.wallsMax,
+        id: b.id, province: w.provinces[b.province].name, land: w.provinces[b.province].land, holder: b.holder === undefined ? (c.holder[b.province] === 'town' ? null : c.holder[b.province]) : b.holder, tier: w.provinces[b.province].tier, fort: w.provinces[b.province].fort, army: b.army, turn: b.turn, side: b.side, walls: b.walls, wallsMax: b.wallsMax,
         squads: b.squads.map((q) => ({
-          id: q.id, side: q.side, name: q.name, hero: q.hero?.name ?? null, heroShare: q.hero ? Math.max(0, q.hero.hp / q.hero.max) : 0,
+          id: q.id, side: q.side, name: q.name, hero: q.hero?.name ?? null, person: q.hero?.person ?? null, heroShare: q.hero ? Math.max(0, q.hero.hp / q.hero.max) : 0,
           troops: q.troops.map((t) => (t ? { troop: t.troop, share: Math.max(0, t.hp / t.max) } : null)), x: q.x, y: q.y, out: q.out,
         })),
         events: b.events, done: b.done, tick: s.tick,
