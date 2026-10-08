@@ -65,6 +65,7 @@ import { placeCleared, placeDestination, placeOfDest } from './places';
 import { isSagaDest, sagaDestOf, sagaTripHome } from './sagas';
 import { huntDestOf, huntHome, isHuntDest } from './hunts';
 import { dragonDestination, dragonHome, isDragonDest } from './dragon';
+import { isVillageDest, villageDestination, villageHome } from './villages';
 import { heartCleared, heartDestination, heartOpen, isHeartDest } from './calamity';
 import { HUNT_DEST, HUNT_PARTY, isPackDest } from '../data/pack';
 import { packDestinationOf, packDestUnlocked, packHome } from './pack';
@@ -98,6 +99,7 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isSagaDest(id)) return sagaDestOf(s, id);
   if (isHuntDest(id)) return huntDestOf(s, id);
   if (isDragonDest(id)) return dragonDestination(s);
+  if (isVillageDest(id)) return villageDestination(s, id);
   if (isHeartDest(id)) return heartDestination(s);
   if (isAssaultDest(id)) return assaultDestination(s, id);
   if (isWildDest(id)) return wildDestination(id); // (a fight with a band out on the land: sim/roamers.ts)
@@ -113,6 +115,8 @@ export function destinationUnlocked(s: GameState, d: Destination): boolean {
   if (isHuntDest(d.id)) return !!huntDestOf(s, d.id);
   // (the dragon's lair, while it lives)
   if (isDragonDest(d.id)) return !!dragonDestination(s);
+  // (a daughter village broken away)
+  if (isVillageDest(d.id)) return !!villageDestination(s, d.id);
   // (the Calamity's heart, while it can be struck at)
   if (isHeartDest(d.id)) return heartOpen(s);
   // (an assault: on a power at war, or a dungeon on the board)
@@ -712,6 +716,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   sagaTripHome(s, e);
   huntHome(s, e, party);
   dragonHome(s, e, party);
+  villageHome(s, e.dest, !!e.cleared && !e.recalled);
   payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);
   debrief(s, e, d); // (a party the player sent: what it cost and won, sim/muster.ts)

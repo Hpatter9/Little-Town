@@ -27,10 +27,10 @@ export function goTo(bridge: Bridge | undefined, here: PanelId, panel: PanelId, 
 }
 
 /** Look at a building or someone on the map (the phone's strip, beside the menus), closing the menu to show it. */
-export function showOnMap(bridge: Bridge | undefined, what: { building?: number; person?: number }): boolean {
+export function showOnMap(bridge: Bridge | undefined, what: { building?: number; person?: number; village?: number }): boolean {
   try {
     for (const f of Array.from(window.parent.document.querySelectorAll('iframe'))) {
-      const w = f.contentWindow as (Window & { __showOnMap?: (x: { person?: number; building?: number }) => boolean }) | null;
+      const w = f.contentWindow as (Window & { __showOnMap?: (x: { person?: number; building?: number; village?: number }) => boolean }) | null;
       if (w?.__showOnMap) {
         bridge?.closePanel();
         return w.__showOnMap(what);

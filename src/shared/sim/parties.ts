@@ -51,6 +51,7 @@ import { packDestinations } from './pack';
 import { isSagaDest, sagaDestinations } from './sagas';
 import { huntDestinations, huntStars } from './hunts';
 import { dragonDestinations } from './dragon';
+import { villageDestinations } from './villages';
 import { heartDestinations, isHeartDest } from './calamity';
 import { PULL_HUNT_STAR } from '../data/hunts';
 import { PULL_SAGA } from '../data/sagas';
@@ -60,7 +61,7 @@ import { earn, maxHp, notify, type Expedition, type GameState, type Person } fro
 import { calendar, TICKS_PER_HOUR } from './time';
 
 /** Every destination on the board now (the world's, the places on the land, the rival packs' lairs). */
-export const boardDestinations = (s: GameState): Destination[] => [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s)];
+export const boardDestinations = (s: GameState): Destination[] => [...DESTINATIONS, ...placeDestinations(s), ...packDestinations(s), ...sagaDestinations(s), ...huntDestinations(s), ...dragonDestinations(s), ...heartDestinations(s), ...villageDestinations(s)];
 
 /** The player's veto: destinations no party may choose. */
 export const vetoed = (s: GameState, id: string) => (s.vetoed ?? []).includes(id);

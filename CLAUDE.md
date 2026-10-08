@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.33.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.34.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3235,8 +3235,8 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
 
 ## The Deep (0.33.0; the owner's pick of the content updates, the third)
 
-- **The data** (`src/shared/data/deep.ts`): the topic Delving (Medieval, after Mining; the planner scores it +22 at five
-  people) and the **Shaft to the Deep** (`SHAFT`, a WORKPLACE in data/crops.ts with `SHAFT_WORKERS`; built by the
+- **The data** (`src/shared/data/deep.ts`): the topic Delving (Medieval, after Mining; the planner scores it +30 at five
+  people; Mining is a Medieval topic too, so a town gets to it some way into the age) and the **Shaft to the Deep** (`SHAFT`, a WORKPLACE in data/crops.ts with `SHAFT_WORKERS`; built by the
   planner's "learned to build it" loop). Five levels (`DEEP_LEVELS`: the Burrows, the Old Tunnels, the Glowing Lake, the
   Crystal Halls, the Abyss), each `DEEP_W` x `DEEP_H` (24x16) cells: the ore in its rock (`ores`, richer the deeper:
   coal, copper and tin, iron, silver, sulphur, gold, gems, rare minerals), its pockets (`pockets`: lakes, fungus grottos,
@@ -3269,6 +3269,52 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   diggers, how far to the way down, a bar of the stir, the latest finds (a column down the right held sideways). The
   phone counts it as a full-screen view (`watchOn` in mobile.ts), and the strip's own cards stand aside
   (`body.deep-on`). Tests: `test/deep.test.ts`.
+
+## Daughter villages (0.34.0; the owner's pick of the content updates, the fourth)
+
+- **The data** (`src/shared/data/villages.ts`): when a town founds one (from day `VILLAGE_FROM_DAY` 10, with
+  `VILLAGE_PEOPLE` 16 grown-ups at home, or `VILLAGE_PEOPLE_AT_SIZE` 10 at the player's chosen size; `VILLAGE_GAP_DAYS`
+  apart, at most `VILLAGES_MOST` 3), how many go (`SETTLERS`), where (`VILLAGE_DIST` cells out), the loyalty numbers,
+  carts, help in raids, being beset, weddings, the rebels' raid (`REBEL_RAID`, merged into RAID_KINDS) and the militia it
+  sends by age (`MILITIA_BY_ERA`).
+- **The sim** (`src/shared/sim/villages.ts`, `villagesHourly` from sim.ts; off with the autopilot, so the tests' plainGame
+  never sees one):
+  - **The parting:** at `VILLAGE_HOUR` a restless sort (`pickSettlers`: never the founder, a guard or a post's keeper;
+    their partner and children go too) asks to go and found a village at `villageSpot` (firm ground, clear of the town
+    and the other villages, some of each kind of land round it): a prompt of kind `village` (`Prompt.village`, about
+    `parting`) with a story and picture: bless them (`BLESSING` and food from the stores, loyalty `LOYALTY_START.blessed`),
+    let them go, or forbid it (they stay sore, or 4 in 10 go anyway, thinking ill of the town). `foundVillage` takes
+    them out of `s.people` into `Village.folk`, widens the known land to it, clears its plots and plans a road to the
+    town's streets (`layStreet`, for the townsfolk to lay); the cutscene `village_founded` tells it.
+  - **A village** (`s.villages`, `Village`): its named folk, a head count (`pop`), a leader, its plots (`layPlots`: a fire,
+    homes of the age (`HOME_BY_ERA`) and fields round it, more as it grows), what it has made (`goods`), its loyalty and
+    news. Each morning it grows (`VILLAGE_GROWTH`), works its land (`makesOf`: the ground round it, `GROUND_MAKES`), and its
+    loyalty drifts `LOYALTY_DRIFT` of the way to its leader's nature's rest (`LOYALTY_REST_BY_NATURE`) plus the tax's pull
+    (`TAX_LOYALTY`): heavy tax under a proud leader settles it near nothing and it breaks away (`REBEL_AT`); a kindly one
+    only sours. Nothing of the town's is built within `VILLAGE_KEEP` of it (`canPlace`).
+  - **Carts:** with `CART_LOAD` made, a cart sets out by day (`spawnVillageCart` in bands.ts: a band of kind `village`
+    with its wagon, `Band.village`/`home`) to the market (else the tavern), where `cartArrives` gives its load as tithe
+    (loyalty at `TITHE_AT` or more) or sells it at `WORTH_SHARE` of its worth (the treasury short: it goes home full,
+    loyalty down), then goes home down its road.
+  - **Weddings** (`WED_DAILY`): a single of the town's and one of the village's; the villager moves in when there's a bed
+    (with a wedding feast), else the townsperson moves out.
+  - **Raids on the town:** a loyal village (`HELP_AT`, `HELP_FOLK` people) sends `HELP_SENT` militia as allies on
+    `HELP_CHANCE` of raids (`villageAllies`, from `startRaid`).
+  - **Beset** (`BESET_DAILY`, more as it grows): a prompt (about `beset`): send `HELPERS` fighters (away for `HELP_HOURS`,
+    `Person.away` = -(3,000,000 + the village's id); each may come home hurt or not at all), pay sellswords
+    (`SELLSWORDS_COINS`), or leave them to it (`BESET_LOSS` of its people, loyalty `REFUSED_LOYALTY`).
+  - **Broken away:** a rebel village sends no carts or help and raids the town (`REBEL_RAID_DAILY`); gifts count half;
+    at `RECONCILE_AT` it comes back, or a party sent to bring it to heel (the destination `village:<id>`,
+    `villageDestination`, on the board, `villageHome` from comeHome) wins it back with a tribute.
+  - **The player:** `giftVillage` (the `giftVillage` command: `GIFT_COINS` from the treasury, `GIFT_LOYALTY`).
+- **Seen:** `snapshot.villages` (`VillageView`) and `snapshot.villageBuildings` (its plots as `Building`s with ids below
+  zero: `villageBuildings`) drawn by the map with the town's own (main.ts merges them into `syncBuildings`); its folk walk
+  between its houses by day (`villagerFigures` in main.ts). Tapping a village (or one of its folk) gives its card (hover
+  kind `village`): The villages…, Send a gift. The Town menu's **Villages** tab (`panel/villagesPanel.ts`): a card each
+  (tier and people, leader and nature, a loyalty bar from the middle, beset, helpers, a cart on the road; Show on the
+  map, Send a gift; tapped: founded, makes, waiting to send, its carts, its folk, its news). The strip opens that tab by
+  writing `littletown.subtab.build` (the panel frame hears it through the `storage` event in subtabs.ts). The minimap
+  shows its plots; the news bubble a red notice for a village broken away. Tests: `test/villages.test.ts`.
 
 ## Known problem (fixed, watch)
 

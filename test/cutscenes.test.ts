@@ -13,7 +13,7 @@ import type { GameState, Person } from '../src/shared/sim/state';
 import { plainGame } from './helpers';
 
 /** The words queueScene fills (and those the scenes' own triggers add). */
-const VARS = new Set(['town', 'founder', 'hero', 'wit', 'worrier', 'elder', 'calamity', 'heart', 'cult', 'nest', 'folk', 'dragon', 'saga', 'deepest']);
+const VARS = new Set(['town', 'founder', 'hero', 'wit', 'worrier', 'elder', 'calamity', 'heart', 'cult', 'nest', 'folk', 'dragon', 'saga', 'deepest', 'village', 'leader']);
 
 test('every scene is well made: its speakers, actors, backdrops and words are all real, and it plays a fair while', () => {
   const ids = Object.keys(CUTSCENES);

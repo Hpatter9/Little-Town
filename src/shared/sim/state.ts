@@ -670,6 +670,9 @@ export interface Band {
   answer?: string | null;
   /** Bandits: the night hour they strike at. */
   strikeAt?: number;
+  /** A daughter village's cart (sim/villages.ts): which village, and where it goes home to. */
+  village?: number;
+  home?: Pt;
 }
 
 /** A special newcomer's secret (sim/specials.ts). */
@@ -693,7 +696,9 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village';
+  /** A daughter village's question (sim/villages.ts): some would go and found one, or one is beset. */
+  village?: { about: 'parting' | 'beset'; id?: number };
   /** An evolution's two roads (sim/classes.ts): the node ids the options stand for. */
   roads?: string[];
   /** An envoy from a power of the realm (sim/factions.ts): which, and what they've come about. */
@@ -1184,6 +1189,10 @@ export interface GameState {
   /** The visiting bands on the land (sim/bands.ts), and the caravan the last caravan band came with (its arrival). */
   bands?: Band[];
   lastCaravanBand?: number;
+  /** Daughter villages (sim/villages.ts): those founded, a parting waiting on the town's answer, and when the last went. */
+  villages?: import('./villages').Village[];
+  villagePlan?: import('./villages').VillagePlan;
+  lastVillage?: number;
   /** How many people the player wants the town to hold (unset: as many as come). Nobody joins or is born past it. */
   popTarget?: number;
   /** The tax lever (data/economy.ts TAX; fair when left out), and since when it has been heavy. */

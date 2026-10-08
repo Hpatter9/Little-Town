@@ -83,6 +83,36 @@ function travellerPerson(t: TravellerView): PersonView {
   favours: [],
   };
 }
+/** A daughter village's folk (sim/villages.ts), drawn as travellers about their own houses by day: each walks from one
+ *  spot to the next round the village's fire and stands a while, on its own clock. Indoors by night. */
+const VILLAGER_WALK = 9;
+const VILLAGER_STAND = 6;
+function villagerFigures(s: Snapshot, now: number): PersonView[] {
+  if (!s.villages.length) return [];
+  const hour = s.calendar.hour;
+  if (hour >= 21 || hour < 6) return [];
+  const out: PersonView[] = [];
+  for (const v of s.villages) {
+    const plots = s.villageBuildings.filter((b) => Math.floor((-b.id - 1) / 100) === v.id);
+    if (!plots.length) continue;
+    // (the spots: before each house's door and about the fire)
+    const spots = plots.map((b) => ({ x: (b.tile + 1) * CELL, y: (b.row + 2.4) * CELL }));
+    v.folk.forEach((f, i) => {
+      const t = now / 1000 + i * 7.3 + v.id;
+      const leg = Math.floor(t / (VILLAGER_WALK + VILLAGER_STAND));
+      const into = t - leg * (VILLAGER_WALK + VILLAGER_STAND);
+      const at = (k: number) => spots[Math.floor(hashSeed(`${v.id}:${f.id}:${k}`) % spots.length)];
+      const a = at(leg);
+      const b = at(leg + 1);
+      const k = Math.min(1, into / VILLAGER_WALK);
+      const x = a.x + (b.x - a.x) * k + ((i % 3) - 1) * 10;
+      const y = a.y + (b.y - a.y) * k + (i % 2) * 8;
+      const tv: TravellerView = { id: f.id, name: f.name, kind: 'villager', venue: 'shop', line: null, wants: '', temper: '', purse: 0, look: f.look, x, y, dir: b.x < a.x ? -1 : 1, phase: 'arriving', tier: 0 };
+      out.push({ ...travellerPerson(tv), typeName: `Of ${v.name}`, activity: k < 1 && (a.x !== b.x || a.y !== b.y) ? 'walk' : 'idle', doing: `Living in ${v.name}${f.id === undefined ? '' : ''}` });
+    });
+  }
+  return out;
+}
 /** A power's envoy (sim/factions.ts), drawn as a traveller on horseback. */
 function envoyPerson(r: NonNullable<Snapshot['envoyRider']>): PersonView {
   const v = travellerPerson({ id: r.id, name: r.name, kind: 'envoy', venue: 'shop', line: null, wants: '', temper: '', purse: 0, look: r.look, x: r.x, y: r.y, dir: r.dir, phase: 'arriving', tier: 0 });
@@ -160,6 +190,7 @@ type Hover =
   | { kind: 'pet'; key: string }
   | { kind: 'grave'; id: number }
   | { kind: 'caravan' }
+  | { kind: 'village'; id: number }
   | null;
 
 /** The bands roaming the land drawn as raiders (one figure a foe, in a little knot), their ids so many a band. */
@@ -480,13 +511,17 @@ async function start(): Promise<void> {
     const roamer = roamers.raiderAt(w.x, w.y);
     if (roamer) return { kind: 'roamer', id: Math.floor(roamer.id / ROAMER_IDS) };
     const person = people.personAt(w.x, w.y);
+    // (one of a daughter village's folk: the village's card)
+    const vil = person && snap.villages.find((v) => v.folk.some((f) => f.id === person.id));
+    if (vil) return { kind: 'village', id: vil.id };
     if (person) return { kind: 'person', person };
     const pet = pets.petAt(w.x, w.y);
     if (pet) return { kind: 'pet', key: pet };
     const grave = graves.graveAt(w.x, w.y);
     if (grave) return { kind: 'grave', id: grave.id };
     const building = map.buildingAt(w.x, w.y);
-    if (building !== null) return { kind: 'building', id: building };
+    // (a daughter village's houses and fields are drawn as buildings with ids below zero: sim/villages.ts)
+    if (building !== null) return building < 0 ? { kind: 'village', id: Math.floor((-building - 1) / 100) } : { kind: 'building', id: building };
     const place = map.placeAt(w.x, w.y);
     if (place) return { kind: 'place', id: place.id };
     const cell = map.cellAt(w.x, w.y);
@@ -643,6 +678,15 @@ async function start(): Promise<void> {
         if (!who || !at) return null;
         const what = [who.calling ? `${who.calling}, level ${who.level}` : null, who.titles.length ? who.titles.join(', ') : null].filter((x): x is string => !!x);
         return { title: `Here lies ${who.name}`, lines: [`Died on day ${who.day}, ${who.cause}.`, ...what, ...(who.felled ? [`Felled ${who.felled} raider${who.felled === 1 ? '' : 's'}.`] : [])], y: map.screenOf(at.x, at.y).y - 30 };
+      }
+      case 'village': {
+        const v = snap.villages.find((q) => q.id === h.id);
+        if (!v) return null;
+        const lines = [`A ${v.tier} of ${v.pop}, led by ${v.leader}. ${v.rebel ? 'It has broken away from the town!' : `Loyalty ${v.loyalty} of 100: ${v.tithe ? 'it sends its carts as tithe' : 'it sells the town its carts'}.`}`];
+        if (v.makes.length) lines.push(`Makes ${v.makes.join(', ')}.`);
+        if (v.beset) lines.push(`Beset by ${v.beset}!`);
+        if (v.news[0]) lines.push(`Lately: ${v.news[0]}`);
+        return { title: v.name, lines, hint: 'Click for the villages', y: map.screenOf((v.x + 1) * CELL, v.y * CELL).y - 60 };
       }
       case 'pet': {
         const d = pets.describe(h.key);
@@ -847,6 +891,14 @@ async function start(): Promise<void> {
       }
       case 'grave':
         return { title: d.title, lines: d.lines, actions: [act('annals', 'The fallen…', () => bridge.openPanel('journal'))] };
+      case 'village': {
+        const v = snap.villages.find((q) => q.id === h.id);
+        return {
+          title: d.title,
+          lines: d.lines,
+          actions: [act('villages', 'The villages…', openVillages, { primary: true }), ...(v ? [act('gift', 'Send a gift', () => bridge.command({ type: 'giftVillage', id: v.id }))] : [])],
+        };
+      }
       case 'pet':
         return { title: d.title, lines: d.lines, actions: [act('scratch', 'Scratch behind the ears', () => (pets.scratch(h.key), publishInspect()), { primary: true })] };
       case 'caravan':
@@ -908,7 +960,14 @@ async function start(): Promise<void> {
   // (the feed's "Show on the map": look at someone or something and open its card: mobile/feed.ts)
   (window as unknown as { __showRecap?: () => boolean }).__showRecap = () => raidRecap.open();
   (window as unknown as { __centre?: (x: number, y: number) => void }).__centre = (x, y) => camera.centreOn({ x, y }, app.screen.width, app.screen.height); // (previews)
-  (window as unknown as { __showOnMap?: (a: { person?: number; building?: number; traveller?: number }) => boolean }).__showOnMap = (a) => {
+  (window as unknown as { __showOnMap?: (a: { person?: number; building?: number; traveller?: number; village?: number }) => boolean }).__showOnMap = (a) => {
+    // (a daughter village: its fire)
+    const vil = a.village != null ? snap.villages.find((q) => q.id === a.village) : undefined;
+    if (vil) {
+      camera.centreOn({ x: (vil.x + 1) * CELL, y: (vil.y + 1) * CELL }, app.screen.width, app.screen.height);
+      if (phone) inspectTarget({ kind: 'village', id: vil.id });
+      return true;
+    }
     // (a stranger passing through: the traveller as the map draws them)
     const tr = a.traveller != null ? snap.travellers.find((q) => q.id === a.traveller) : undefined;
     if (tr) {
@@ -923,6 +982,14 @@ async function start(): Promise<void> {
     camera.centreOn(at, app.screen.width, app.screen.height);
     if (phone) inspectTarget(p ? { kind: 'person', person: p } : { kind: 'building', id: b!.id });
     return true;
+  };
+
+  /** The Town menu's Villages tab (panel/villagesPanel.ts), asked for through the storage the frames share. */
+  const openVillages = () => {
+    try {
+      localStorage.setItem('littletown.subtab.build', 'Villages');
+    } catch {}
+    bridge.openPanel('build');
   };
 
   /* -------------------------------------------------------- placing buildings */
@@ -1003,6 +1070,7 @@ async function start(): Promise<void> {
       return;
     }
     if (h?.kind === 'caravan') return bridge.openPanel('trade');
+    if (h?.kind === 'village') return openVillages();
     if (h?.kind === 'pet') return pets.scratch(h.key);
     if (h?.kind === 'person') {
       if (snap.visitor?.id === h.person.id) return bridge.openPanel('townsfolk');
@@ -1391,7 +1459,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
     if (next.away && !q && view.mode === 'full')
@@ -1424,7 +1492,7 @@ async function start(): Promise<void> {
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
     minimap.setLand(next.land, next.calendar.season);
     map.tick = next.tick;
-    map.syncBuildings(next.buildings);
+    map.syncBuildings(next.villageBuildings.length ? [...next.buildings, ...next.villageBuildings] : next.buildings);
     map.workFx.sync(next.buildings, next.workingAt);
     map.workFx.syncBuilders(next.people.filter((p) => p.activity === 'build' && !p.indoors).map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })));
     herds.update(next.buildings);
@@ -1485,7 +1553,7 @@ async function start(): Promise<void> {
     people.revived = next.revived ? { ...next.revived, at: performance.now() } : null;
     people.fx = next.fx.map((f) => ({ ...f, at: performance.now() }));
     people.update(
-      [...next.people.filter((p) => p.away === null), ...next.travellers.map(travellerPerson), ...(next.envoyRider ? [envoyPerson(next.envoyRider)] : [])],
+      [...next.people.filter((p) => p.away === null), ...next.travellers.map(travellerPerson), ...(next.envoyRider ? [envoyPerson(next.envoyRider)] : []), ...villagerFigures(next, performance.now())],
       next.visitor,
       performance.now(),
     );
@@ -1544,7 +1612,7 @@ async function start(): Promise<void> {
         raiders: snap.raid?.phase === 'active' ? snap.raid.raiders.map((r) => ({ x: r.x, y: r.y })) : [],
         places: snap.places.filter((p) => p.found).map((p) => ({ x: p.x, y: p.y, waiting: !!p.dest, nest: !!p.nest })),
         heart: snap.calamity?.heartAt ? { x: (snap.calamity.heartAt.x + 0.5) * 32, y: (snap.calamity.heartAt.y + 0.5) * 32 } : null,
-        buildings: snap.buildings.map((b) => {
+        buildings: [...snap.buildings, ...snap.villageBuildings].map((b) => {
           const r = footprintOf(b);
           return { x: r.x * CELL, y: r.y * CELL, w: r.w * CELL, h: r.h * CELL };
         }),

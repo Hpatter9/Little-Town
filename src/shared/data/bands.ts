@@ -5,17 +5,17 @@
 // disguise, who loiter by day and strike from inside the town by night unless a guard on watch sees through them;
 // refugees camp at the gate and ask for aid and rest, a question for the player. The bands themselves: sim/bands.ts.
 
-export type BandKind = 'caravan' | 'travellers' | 'bandits' | 'refugees';
+export type BandKind = 'caravan' | 'travellers' | 'bandits' | 'refugees' | 'village';
 
 /** From this day; each hour's chance of a band (besides a caravan's) while none is in town; the kinds' weights. */
 export const BAND_FIRST_DAY = 2;
 export const BAND_HOURLY = 1 / 28;
-export const BAND_WEIGHTS: Readonly<Record<Exclude<BandKind, 'caravan'>, number>> = { travellers: 5, refugees: 2, bandits: 2 };
+export const BAND_WEIGHTS: Readonly<Record<Exclude<BandKind, 'caravan' | 'village'>, number>> = { travellers: 5, refugees: 2, bandits: 2 };
 /** Bandits in disguise only from this day, in a town of this many grown-ups. */
 export const BANDITS_FROM_DAY = 4;
 export const BANDITS_PEOPLE = 4;
 /** How many come, by kind. */
-export const BAND_SIZE: Readonly<Record<BandKind, [number, number]>> = { caravan: [2, 4], travellers: [2, 4], bandits: [3, 5], refugees: [2, 4] };
+export const BAND_SIZE: Readonly<Record<BandKind, [number, number]>> = { caravan: [2, 4], travellers: [2, 4], bandits: [3, 5], refugees: [2, 4], village: [1, 2] };
 /** How long travellers rest on their way through (hours). */
 export const PASS_HOURS: [number, number] = [1, 2];
 /** Refugees wait this long at the gate for an answer (unanswered: fed if the stores can spare it, else turned away),
@@ -36,4 +36,4 @@ export const CATCH_PER_LEVEL = 0.012;
 export const WAGON_LAG = 44;
 export const BAND_SPEED = 55;
 /** What the members are called, by kind (bandits in disguise pass for travellers). */
-export const MEMBER_KIND: Readonly<Record<BandKind, string>> = { caravan: 'merchant', travellers: 'traveller', bandits: 'traveller', refugees: 'refugee' };
+export const MEMBER_KIND: Readonly<Record<BandKind, string>> = { caravan: 'merchant', travellers: 'traveller', bandits: 'traveller', refugees: 'refugee', village: 'carter' };

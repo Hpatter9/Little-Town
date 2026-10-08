@@ -21,6 +21,7 @@ const GROUPS: Record<string, MenuTabs> = {
       ['Buildings', /^(Being built|In town|Building book)/],
       ['Stores', /^Stores/],
       ['Faith', /^(The gods|Signs from the gods)/],
+      ['Villages', /^Daughter villages/],
       ['Treasury', /^(Treasury|Tax|Guards)/],
     ],
     intro: 'Overview',
@@ -89,6 +90,13 @@ function setTab(menu: string, name: string): void {
     localStorage.setItem(KEY(menu), name);
   } catch {}
 }
+
+// (the strip asks for a tab from its own frame, through the storage the two share: "Show the villages")
+try {
+  window.addEventListener('storage', (e) => {
+    if (e.key?.startsWith('littletown.subtab.') && e.newValue) chosen.set(e.key.slice('littletown.subtab.'.length), e.newValue);
+  });
+} catch {}
 
 /** A menu's elements, put in its tabs; `redraw` after a tab is chosen. */
 export function inTabs(menu: string, els: HTMLElement[], redraw: () => void, kind = menu): HTMLElement[] {
