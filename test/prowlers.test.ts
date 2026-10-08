@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Rng } from '../src/shared/rng';
 import { PROWL_FIRST_DAY, PROWL_GAP_HOURS, PROWL_PEOPLE, prowlers, prowlKind, ringGap, wayIn } from '../src/shared/sim/prowlers';
-import { gateCells, missingPieces, wantRect, type Ring } from '../src/shared/sim/ringWall';
+import { gateCells, shapeRing, missingPieces, wantRect, type Ring } from '../src/shared/sim/ringWall';
 import { campXY, newGame, type GameState } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { CELL } from '../src/shared/sim/land';
@@ -25,7 +25,8 @@ function openTown(seed: string): GameState {
 /** The ring begun (nothing standing), and every piece of it stood up. */
 function beginRing(s: GameState): Ring {
   const rect = wantRect(s);
-  s.ring = { gen: 1, rect, wall: 'palisade_wall', gate: 'palisade_gate', gates: gateCells(s, rect) };
+  const line = shapeRing(s, rect);
+  s.ring = { gen: 1, rect, line, wall: 'palisade_wall', gate: 'palisade_gate', gates: gateCells(s, line) };
   return s.ring;
 }
 function standRing(s: GameState, ring: Ring, keep: (x: number) => boolean = () => true): void {
@@ -98,7 +99,7 @@ test('prowlers slip in at night where there is no wall: never by day, in the fir
   for (let i = 0; i < 20; i++) {
     const way = wayIn(g, new Rng(i));
     assert.ok(way.at.x >= (mid - 1) * CELL, `in the open half: ${way.at.x} (mid ${mid * CELL})`);
-    assert.equal(way.where, 'through a gap in the wall');
+    assert.match(way.where, /through a gap in the wall|where the river runs under the wall/);
   }
   g.tick = at(PROWL_FIRST_DAY + 1, 2);
   prowlers(g, lucky(7));

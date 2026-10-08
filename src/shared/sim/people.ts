@@ -23,7 +23,7 @@ import { skillSpeed } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import type { Rng } from '../rng';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork } from './buildings';
+import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
 import { CELL, cellAt, groundAt, isMarked, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
 import { swims } from './sea';
@@ -687,6 +687,7 @@ export function clearCell(s: GameState, i: number): void {
   }
   noteCleared(s, i, groundAt(s.land, c.x, c.y)); // (a wood or a thicket grows back, in time: sim/regrow.ts)
   setGround(s.land, c.x, c.y, openGround(s.biome));
+  cellCleared(s, c.x, c.y); // (a blueprint laid over it may be clear to build now)
 }
 
 /** The nearest cell with wild berries on it (for someone about to starve), if any. Only the open land counts. */
@@ -1081,12 +1082,15 @@ export function bestGatherTile(s: GameState, p: Person): number | null {
   const workers = new Map<number, number>();
   for (const o of s.people) if (o !== p && o.task?.type === 'gather') workers.set(o.task.tile, (workers.get(o.task.tile) ?? 0) + 1);
   const ring = s.ring?.clearing;
+  // (the trees and rocks under a blueprint are cleared first, as the ring's are: the site waits on them)
+  const sites = new Set<number>();
+  for (const b of s.buildings) if (b.overgrown && !b.planned) for (const i of overgrownCells(s, b)) sites.add(i);
   let best: number | null = null;
   let bestCost = Infinity;
   for (const i of s.land.marked) {
     const w = workers.get(i) ?? 0;
     if (w >= MAX_PER_TILE) continue;
-    const cost = dist(cellXY(s, i), p) + w * 20 * CELL - (ring?.includes(i) ? RING_CLEAR_PULL * CELL : 0);
+    const cost = dist(cellXY(s, i), p) + w * 20 * CELL - (ring?.includes(i) || sites.has(i) ? RING_CLEAR_PULL * CELL : 0);
     if (cost < bestCost) {
       bestCost = cost;
       best = i;

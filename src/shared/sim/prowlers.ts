@@ -12,7 +12,7 @@ import { RAID_KIND_BY_ID, type RaidKind } from '../data/raids';
 import type { Rng } from '../rng';
 import { centreOf, groundAt, wet, type Pt } from './land';
 import { raidBudget, startRaid, townEdgeX } from './raids';
-import { isGate, missingPieces, ringCells, ringTown } from './ringWall';
+import { isGate, lineOf, missingPieces, ringTown } from './ringWall';
 import { campXY, notify, type GameState } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 
@@ -38,7 +38,7 @@ export function ringGap(s: GameState): number {
   if (!ringTown(s)) return 0;
   const ring = s.ring;
   if (!ring) return 1;
-  const cells = ringCells(ring.rect).length;
+  const cells = lineOf(ring).length;
   const missing = missingPieces(s, ring).length + s.buildings.filter((b) => b.ring === ring.gen && b.status !== 'done').length;
   return Math.max(0, Math.min(1, missing / Math.max(1, cells)));
 }

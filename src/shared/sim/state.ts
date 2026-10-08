@@ -97,6 +97,9 @@ export interface Building {
   /** A blueprint laid out as part of a whole (the ring wall at once) but not yet in work: nobody hauls to it or
    *  builds it, it takes no build slot, and people walk through it, until the plan releases it (`planned` dropped). */
   planned?: boolean;
+  /** Laid over wild ground (sim/buildings.ts `overgrownCells`): its trees and rocks are cleared first, taken ahead of
+   *  other gathering, and nobody builds on it (people walk through it) until the ground is clear. */
+  overgrown?: boolean;
   /** Turned a quarter: its footprint is its depth wide and its width deep (a gate in the ring wall's west or east
    *  run stands along the wall). */
   turned?: boolean;

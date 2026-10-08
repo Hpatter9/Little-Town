@@ -190,7 +190,7 @@ function buildForGods(s: GameState, f: FaithState, people: number): void {
     if ((grown < SHRINE_PEOPLE && !uneasy) || foodDays(s) < 2) return;
     const def = BUILDING_BY_ID.wayside_shrine;
     const at = findSpot(s, def);
-    if (at) placeBlueprint(s, def.id, at.x, at.y);
+    if (at) placeBlueprint(s, def.id, at.x, at.y, false, false, !!at.wild);
     return;
   }
   const b = mine.sort((a, c) => WORSHIP[c.def] - WORSHIP[a.def])[0];

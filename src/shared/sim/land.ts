@@ -103,6 +103,16 @@ export const wet = (g: Ground) => g === 'water' || g === 'shallows';
 /** The mountain's rock, which a hold's rooms are carved into (`mountain`: solid, nothing crosses it), and the halls and
  *  galleries already cut (`hall`: walked through). */
 export const carvable = (g: Ground) => g === 'mountain' || g === 'hall';
+/** Wild ground a blueprint may be laid over (the owner's ask: the town builds where it wants and has the trees and
+ *  rocks cleared first): a wood, rocks, a marsh or a scrubby hill. Never a cell whose pool holds ore, gold or gems
+ *  (a vein or a mine's wall is dug, not built over). */
+export const clearable = (g: Ground) => g === 'forest' || g === 'rock' || g === 'marsh' || g === 'hill';
+const PRECIOUS = ['iron_ore', 'coal', 'copper_ore', 'tin_ore', 'silver_ore', 'sulphur', 'gold', 'gems'] as const;
+export function wildToClear(m: LandMap, x: number, y: number): boolean {
+  if (!clearable(groundAt(m, x, y))) return false;
+  const pool = m.pools[idx(m, x, y)] as Record<string, number> | undefined;
+  return !pool || !PRECIOUS.some((k) => (pool[k] ?? 0) > 0);
+}
 /** How the land is shaped besides its biome: `mountain`, half of it solid rock north of the camp (the dwarves);
  *  `sea`, half of it sea south of the camp, shallows along its shore (the merfolk). */
 export type LandShape = 'mountain' | 'sea';
@@ -483,11 +493,11 @@ export function regionOfCell(m: LandMap, x: number, y: number): LandRegion | nul
 /* ------------------------------------------------------------ building on it */
 
 /** Whether a footprint can go here: inside the open land, on buildable ground, clear of roads and of `taken`. */
-export function fits(m: LandMap, r: Rect, taken: readonly Rect[] = [], opts: { roads?: boolean; carve?: boolean; water?: boolean } = {}): boolean {
+export function fits(m: LandMap, r: Rect, taken: readonly Rect[] = [], opts: { roads?: boolean; carve?: boolean; water?: boolean; wild?: boolean } = {}): boolean {
   for (let y = r.y; y < r.y + r.h; y++)
     for (let x = r.x; x < r.x + r.w; x++) {
       const g = groundAt(m, x, y);
-      if (!isOpen(m, x, y) || !((opts.carve ? carvable : buildable)(g) || (opts.water && wet(g)))) return false;
+      if (!isOpen(m, x, y) || !((opts.carve ? carvable : buildable)(g) || (opts.water && wet(g)) || (opts.wild && wildToClear(m, x, y)))) return false;
       if (!opts.roads && isRoad(m, x, y)) return false;
     }
   return !taken.some((t) => overlaps(t, r));
@@ -518,7 +528,7 @@ export function doorFree(m: LandMap, r: Rect, taken: readonly Rect[], water = fa
  *  (lower first; nearer a road, say). `inside`: it must lie within this rectangle; `avoid`: and clear of this one;
  *  `ok`: and pass this test; `door: false`: its door cell needn't be free (a castle's room). Null if there's none
  *  within `maxR` rings. */
-export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean; ok?: (r: Rect) => boolean; door?: boolean; carve?: boolean; water?: boolean } = {}): Rect | null {
+export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rect[], from: Pt, opts: { maxR?: number; inside?: Rect; avoid?: Rect; prefer?: (r: Rect) => number; roads?: boolean; ok?: (r: Rect) => boolean; door?: boolean; carve?: boolean; water?: boolean; wild?: boolean } = {}): Rect | null {
   const maxR = opts.maxR ?? m.open + 2;
   for (let r = 0; r <= maxR; r++) {
     let best: Rect | null = null;
@@ -527,7 +537,7 @@ export function spiralSpot(m: LandMap, w: number, h: number, taken: readonly Rec
       const rect = { x: c.x - Math.floor(w / 2), y: c.y - Math.floor(h / 2), w, h };
       if (opts.inside && !(rect.x >= opts.inside.x && rect.y >= opts.inside.y && rect.x + w <= opts.inside.x + opts.inside.w && rect.y + h <= opts.inside.y + opts.inside.h)) continue;
       if (opts.avoid && overlaps(opts.avoid, rect)) continue;
-      if (!fits(m, rect, taken, { roads: opts.roads, carve: opts.carve, water: opts.water }) || (opts.door !== false && !doorFree(m, rect, taken, opts.water))) continue;
+      if (!fits(m, rect, taken, { roads: opts.roads, carve: opts.carve, water: opts.water, wild: opts.wild }) || (opts.door !== false && !doorFree(m, rect, taken, opts.water))) continue;
       if (opts.ok && !opts.ok(rect)) continue;
       const score = opts.prefer ? opts.prefer(rect) : 0;
       if (score < bestScore) {

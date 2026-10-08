@@ -26,6 +26,7 @@ export function buildSkill(def: BuildingDef): number {
 /** Whether a person may work a site: (an owned site) its owner or someone the owner can pay. Anyone may lend a hand;
  *  the unskilled only go slower (`skillPace`), so an early town never stalls for want of a master builder. */
 export function canWork(s: GameState, p: Person, site: Building): boolean {
+  if (site.overgrown) return false; // (its trees and rocks come down first)
   if (site.owner === undefined || site.owner === p.id) return true;
   const owner = s.people.find((q) => q.id === site.owner);
   return !!owner && (owner.coins ?? 0) >= 1;
@@ -79,7 +80,7 @@ export function planHomes(s: GameState): void {
     const def = homesFor(s, p)[0];
     if (!def) continue;
     const at = findSpot(s, def);
-    if (!at || !placeBlueprint(s, def.id, at.x, at.y).ok) continue;
+    if (!at || !placeBlueprint(s, def.id, at.x, at.y, false, false, !!at.wild).ok) continue;
     const site = s.buildings[s.buildings.length - 1];
     site.owner = p.id;
     const price = landPrice(s, def) + materialsPrice(def);
