@@ -1,6 +1,8 @@
 // The phone (web) version's stand-in for the desktop app's main process: it runs the game loop in the page,
 // keeps the town in the browser's storage, and catches up on the time the app was closed or in the background.
 
+import { spawnBand } from '../../shared/sim/bands';
+import type { BandKind } from '../../shared/data/bands';
 import { summonDragon } from '../../shared/sim/dragon';
 import { startDisaster, type DisasterKind } from '../../shared/sim/disasters';
 import { inherit, legendOf } from '../../shared/sim/legacy';
@@ -131,7 +133,7 @@ export function mobileBridge(): Bridge {
   });
   window.addEventListener('pagehide', saveNow);
   // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga, `__hunt(id)` posts a hunt and `__raid(kind)` starts a raid, for previews)
-  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)), __disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind), __dragon: (kind?: string) => summonDragon(stateOf(), kind) });
+  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)), __disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind), __dragon: (kind?: string) => summonDragon(stateOf(), kind), __band: (kind: BandKind) => spawnBand(stateOf(), new Rng(4), kind) });
   function stateOf(): GameState {
     return (game as unknown as { sim: { state: GameState } }).sim.state;
   }

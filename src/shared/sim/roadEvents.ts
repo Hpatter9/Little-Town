@@ -9,6 +9,7 @@ import { answerSecret } from './specials';
 import { answerSaga } from './sagas';
 import { answerCrossroads } from './muster';
 import { answerVisitor } from './townsfolk';
+import { answerRefugees } from './bands';
 import { answerThirst } from './monsters';
 import { openGate } from './raidWait';
 import { answerEvent } from './events';
@@ -92,6 +93,7 @@ export function answerPrompt(s: GameState, id: number, option: number, rng: Rng)
   if (prompt.kind === 'event') return answerEvent(s, option, rng);
   if (prompt.kind === 'thirst') return answerThirst(s, prompt.options[option]);
   if (prompt.kind === 'visitor') return answerVisitor(s, prompt.options[option]);
+  if (prompt.kind === 'refugees') return answerRefugees(s, prompt.options[option], rng);
   if (prompt.kind === 'secret') return answerSecret(s, prompt.who, option);
   if (prompt.kind === 'saga') return answerSaga(s, prompt.saga, option);
   if (prompt.kind === 'road') return answerCrossroads(s, prompt, option, rng);

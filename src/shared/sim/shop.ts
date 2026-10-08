@@ -457,7 +457,7 @@ export interface ShopTown {
 }
 
 /** A name nobody in town or on the road has: a first name, with a byname or where they're from. */
-function strangerName(s: GameState, rng: Rng): string {
+export function strangerName(s: GameState, rng: Rng): string {
   const taken = new Set([...s.people.map((p) => p.name), ...(s.travellers ?? []).map((t) => t.name)]);
   for (let k = 0; k < 20; k++) {
     const first = rng.pick(FIRST_NAMES);
@@ -591,6 +591,7 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
   const travellers = (s.travellers ??= []);
   const step = TRAVELLER_SPEED / TICK_HZ;
   for (const t of [...travellers]) {
+    if (t.band !== undefined) continue; // (a visiting band's: the band moves them, sim/bands.ts)
     const venue = venueFor(s, t);
     // raiders, or nowhere to go: they hurry on
     if (t.phase !== 'leaving' && (!venue || s.raid?.phase === 'active')) leave(s, t);

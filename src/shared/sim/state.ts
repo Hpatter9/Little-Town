@@ -38,6 +38,7 @@ import type { Battle } from './combat';
 import type { Doom } from './doom';
 import { MONSTER_HP, type MonsterKind, type StandingOrder } from '../data/monsters';
 import { ORIGIN_DEFS, type OriginId } from '../data/origins';
+import type { BandKind } from '../data/bands';
 import { modifiers, type ResearchState } from './research';
 import { TICKS_PER_HOUR } from './time';
 
@@ -178,6 +179,8 @@ export interface Traveller {
   look: Look;
   /** Their people, when not the town's (sim/strangers.ts). */
   origin?: OriginId;
+  /** One of a visiting band (sim/bands.ts): the band moves them, not the shop. */
+  band?: number;
   x: number;
   y: number;
   dir: 1 | -1;
@@ -626,6 +629,28 @@ export interface Caravan {
   faction?: OriginId;
 }
 
+/** A band of visitors on the land (sim/bands.ts): a caravan's merchants with their wagon, travellers passing through,
+ *  bandits in disguise, or refugees at the gate. Its members are travellers (`Traveller.band`). */
+export interface Band {
+  id: number;
+  kind: BandKind;
+  members: number[];
+  /** Which side they came in from, and where they stop (the market's front, the tavern's door, the gate). */
+  side: -1 | 1;
+  at: Pt;
+  /** Coming in, staying, going out, or (bandits) sprung. */
+  phase: 'coming' | 'staying' | 'leaving';
+  /** When they move on (a caravan: when its trading is done; refugees: their wait, then their rest). */
+  until: number;
+  /** The caravan's wagon, rolling behind the lead merchant. */
+  wagon?: Pt;
+  /** Refugees: the question put, and the answer given (none yet: null). */
+  asked?: boolean;
+  answer?: string | null;
+  /** Bandits: the night hour they strike at. */
+  strikeAt?: number;
+}
+
 /** A special newcomer's secret (sim/specials.ts). */
 export interface Secret {
   id: SpecialId;
@@ -647,7 +672,7 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees';
   /** An evolution's two roads (sim/classes.ts): the node ids the options stand for. */
   roads?: string[];
   /** An envoy from a power of the realm (sim/factions.ts): which, and what they've come about. */
@@ -1080,6 +1105,9 @@ export interface GameState {
   lastVisit?: number;
   /** When night prowlers last slipped in where the wall had gaps (sim/prowlers.ts). */
   lastProwl?: number;
+  /** The visiting bands on the land (sim/bands.ts), and the caravan the last caravan band came with (its arrival). */
+  bands?: Band[];
+  lastCaravanBand?: number;
   /** How many people the player wants the town to hold (unset: as many as come). Nobody joins or is born past it. */
   popTarget?: number;
   /** The tax lever (data/economy.ts TAX; fair when left out), and since when it has been heavy. */

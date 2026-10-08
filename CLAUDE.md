@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.24.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.25.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2958,6 +2958,32 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   before the workshops, and `topicScore` favours the topics that open one (+14, else +3). A hamlet under three never
   builds a place of leisure unasked (a roof comes first: 'lone-7' lost a person to a green and the games on it).
   Tests in `test/leisure.test.ts`.
+
+## Visitors on the road (0.25.0; the owner's ask)
+
+- **Visiting bands (the owner: "caravans who trade, travellers passing through, bandits trying to sneak in to attack
+  from the inside or refugees looking for aid and some rest"):** `src/shared/data/bands.ts` and
+  `src/shared/sim/bands.ts` (`bandsTick` every tick from sim.ts, after the shop). A band is a few strangers walking the
+  land together (`Traveller.band`: the shop's loop leaves them alone, the map draws them like any traveller) and its
+  state (`Band` in state.ts, `s.bands`: where they stop, `phase` coming, staying or leaving, `until`). A trade caravan's
+  merchants come in with its **wagon** (the Village pack's cart rolling behind the lead merchant: `Band.wagon`,
+  `snapshot.wagons`, `map/mapWagons.ts`) when the market's caravan arrives (`s.lastCaravanBand`) and stay till it
+  leaves; besides, each hour from day `BAND_FIRST_DAY` (2) with no other band in town there is `BAND_HOURLY` (1/28) of
+  one (`BAND_WEIGHTS`): **travellers** come in one side, rest at the tavern (else the market, the shop or the fire) for
+  `PASS_HOURS` and go out the far side; **bandits in disguise** (from day `BANDITS_FROM_DAY` 4 in a town of
+  `BANDITS_PEOPLE` 4) pass for travellers, loiter, and strike in the small hours (`strikeAt`, `STRIKE_FROM` 23 to
+  `STRIKE_UNTIL` 3): a raid begun where they stand (`band_bandits` in data/raids.ts, weight 0; `startRaid(..., inside)`,
+  `BANDIT_BUDGET_SHARE` of a raid's budget), unless a guard on watch sees through them first (`seenThrough`:
+  `CATCH_BASE` + `CATCH_PER_LEVEL` a level of their best fighting skill each hour; then they strike at once, in the
+  open); **refugees** (never to a town of `noWanderers`) camp just outside the town's edge and ask: a prompt of kind
+  `refugees` (`askRefugees`: the beds free and the food in store, a story and a picture for the event box) with
+  `REFUGEE_OPTIONS`: take them in (as many as the town's size allows join, `townFull`; `s.lastVisit` set), give food
+  and rest (`REFUGEE_FOOD` a head from the stores; they rest `REFUGEE_REST_HOURS` and go on) or turn them away; each
+  moves the town's reputation (`REFUGEE_REPUTATION`); unanswered after `REFUGEE_WAIT_HOURS`, they're fed if the stores
+  hold a day a head, else turned away (`answerRefugees`, routed from roadEvents.ts). In a raid everyone but the bandits
+  hurries on. The tap card says what a band's member is doing ("Trading at the market", "Camped at the gate, hoping
+  for aid", "Resting a while": `travellerDoing` in main.ts from `TravellerView.band`/`bandPhase`). Off with the
+  autopilot (the tests' plainGame; the tests spawn bands with `spawnBand`). Tests: `test/bands.test.ts`.
 
 ## Known problem (fixed, watch)
 
