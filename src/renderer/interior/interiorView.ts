@@ -43,7 +43,7 @@ const WALL_H = 44;
 type Crop = [string, number, number, number, number];
 const D = (x: number, y: number, w = 16, h = 16): Crop => [decorUrl, x, y, w, h];
 /** DawnLike's decor cells (art/interior/decor.png). */
-const BED = D(0, 144, 32, 16);
+const BED = D(0, 144);
 const CHAIR = D(0, 112);
 const CHAIR_UP = D(32, 112);
 const ROUND_TABLE = D(16, 112);
@@ -73,6 +73,8 @@ interface Piece {
   /** Drawn this many tiles wide (its own width when left out). */
   w?: number;
   flip?: boolean;
+  /** Lies flat on the floor (a rug): drawn before everything standing. */
+  flat?: boolean;
 }
 /** Where the folk go: beds (the pillow's place), stations and desks (where the worker stands), seats, the hearth,
  *  open floor. */
@@ -96,17 +98,17 @@ function kindFor(def: string): Kind {
 /** The room's things, by what it is and how big. */
 function layout(kind: Kind, cols: number, rows: number, beds: number): Layout {
   const L: Layout = { pieces: [], beds: [], stations: [], desks: [], seats: [], hearth: null, fire: null, stone: false };
-  const P = (pic: Crop, x: number, y: number, w?: number, flip?: boolean) => L.pieces.push({ pic, x, y, w, flip });
+  const P = (pic: Crop, x: number, y: number, w?: number, flip?: boolean) => L.pieces.push({ pic, x, y, w, flip, flat: pic === RUG_RED || pic === RUG_GREY });
   const mid = Math.floor(cols / 2);
   const bedRow = (n: number) => {
-    // beds along the left wall, then the right, from the back
+    // beds head to the wall down the left side, then the right, from the back
     for (let i = 0; i < n; i++) {
       const left = i % 2 === 0;
-      const r = 1 + Math.floor(i / 2) * 1.6;
-      if (r > rows - 1) break;
-      const x = left ? 0.2 : cols - 2.2;
-      P(BED, x, r, 2, !left);
-      L.beds.push({ x: left ? x + 0.45 : x + 1.55, y: r });
+      const y = 1.3 + Math.floor(i / 2) * 1.25;
+      if (y > rows - 0.2) break;
+      const x = left ? 0.15 : cols - 1.15;
+      P(BED, x, y);
+      L.beds.push({ x: x + 0.5, y });
     }
   };
   switch (kind) {
@@ -307,7 +309,7 @@ export class InteriorScene {
     if (v.making.length) row('Making ', v.making.map((m) => `${m.name} (${Math.round(m.done * 100)}%)`).join(', '));
     if (v.studying) row('Studying ', v.studying);
     if (!v.inside.length) row('', v.night ? 'Dark and quiet: nobody is in.' : 'Nobody is in just now.', 'iv-quiet');
-    for (const p of v.inside) row(`${p.name} `, `${p.child ? '(a child) ' : ''}${WHAT[p.at] ?? ''} · ${p.doing}`);
+    for (const p of v.inside) row(`${p.name} `, `${p.child ? '(a child) ' : ''}${p.doing || WHAT[p.at] || ''}`);
     if (v.out.length) row('Out ', v.out.map((o) => `${o.name} (${o.doing.toLowerCase()})`).join('; '), 'iv-out');
   }
 
@@ -341,8 +343,8 @@ export class InteriorScene {
     g.fillStyle = '#120e0c';
     g.fillRect(0, 0, W, H);
     // the room's size by the building's, and its fit on the screen (below the bar; above or beside the window)
-    const cols = Math.max(8, Math.min(12, v.w * 2 + 3));
-    const rows = Math.max(5, Math.min(8, v.d * 2 + 2));
+    const cols = Math.max(7, Math.min(10, v.w * 2 + 2));
+    const rows = Math.max(5, Math.min(7, v.d * 2 + 1));
     const kind = kindFor(v.def);
     const L = layout(kind, cols, rows, v.beds);
     const sideways = W > H;
@@ -361,7 +363,8 @@ export class InteriorScene {
       if (!im) return;
       const sw = p[3] || im.width;
       const sh = p[4] || im.height;
-      const dw = (w ? w * T : sw) * k;
+      // (the clutter is cut at the map's scale, twice the decor sheet's: drawn at half)
+      const dw = (w ? w * T : p[3] ? sw : sw / 2) * k;
       const dh = (dw / sw) * sh;
       g.save();
       g.translate(Math.round(x), Math.round(y - dh));
@@ -410,9 +413,23 @@ export class InteriorScene {
     }
     // things and folk, back to front
     type Draw = { y: number; fn: () => void };
-    const list: Draw[] = L.pieces.map((p) => ({ y: p.y, fn: () => blit(p.pic, tx(p.x), ty(p.y), p.w, p.flip) }));
+    const list: Draw[] = L.pieces.map((p) => ({ y: p.flat ? -99 : p.y, fn: () => blit(p.pic, tx(p.x), ty(p.y), p.w, p.flip) }));
     const slots = { bed: [...L.beds], station: [...L.stations], desk: [...L.desks], seat: [...L.seats] };
-    const floorSpot = (i: number) => ({ x: 1.5 + ((i * 2.7) % (cols - 3)), y: Math.min(rows - 0.6, 2.4 + ((i * 1.3) % (rows - 3))) });
+    // (more folk than places: the open floor, a spot clear of everyone placed so far)
+    const used: { x: number; y: number }[] = [];
+    const floorSpot = (i: number) => {
+      let best = { x: 1.5, y: rows - 1 };
+      let far = -1;
+      for (let y = 2.2; y < rows - 0.3; y += 0.9)
+        for (let x = 1.2; x < cols - 0.8; x += 1.1) {
+          const d = Math.min(9, ...used.map((u) => Math.hypot(u.x - x, (u.y - y) * 1.4))) + ((x * 7 + y * 3 + i) % 1) * 0.01;
+          if (d > far) {
+            far = d;
+            best = { x, y };
+          }
+        }
+      return best;
+    };
     v.inside.forEach((who, i) => {
       const pv = this.people.get(who.id);
       if (!pv) return;
@@ -425,13 +442,15 @@ export class InteriorScene {
           y: b.y + 0.01,
           fn: () => {
             const x = tx(b.x);
-            const y = ty(b.y) - 9 * k;
+            const y = ty(b.y) - 12 * k;
+            g.fillStyle = pv.look.hairColor;
+            g.beginPath();
+            g.ellipse(x, y - 0.8 * k, 3.2 * k, 2.6 * k, 0, 0, Math.PI * 2);
+            g.fill();
             g.fillStyle = pv.look.skin;
             g.beginPath();
-            g.ellipse(x, y, 3 * k, 2.6 * k, 0, 0, Math.PI * 2);
+            g.ellipse(x, y + 0.6 * k, 2.6 * k, 2.2 * k, 0, 0, Math.PI * 2);
             g.fill();
-            g.fillStyle = pv.look.hairColor;
-            g.fillRect(x - 3 * k, y - 3 * k, 6 * k, 2 * k);
             g.fillStyle = 'rgba(255,255,255,0.85)';
             g.font = `bold ${7 * k}px ${this.font()}`;
             const z = (now / 900 + i) % 1;
@@ -447,6 +466,7 @@ export class InteriorScene {
         (who.at === 'desk' && (slots.desk.shift() ?? slots.station.shift())) ||
         ((who.at === 'table' || who.at === 'hearth') && (who.at === 'hearth' && L.hearth ? L.hearth : slots.seat.shift())) ||
         floorSpot(i);
+      used.push(spot);
       const working = who.at === 'station';
       const facing = working ? 'up' : who.at === 'desk' ? 'down' : 'down';
       const [col, rowCell] = hkPose({ facing, moving: who.at === 'floor' && who.child, walked: now / 30, working, sinceBlow: 99, sinceHit: 99, down: false, ranged: false, now, reading: who.at === 'desk', playing: who.child, ref: who.id });
