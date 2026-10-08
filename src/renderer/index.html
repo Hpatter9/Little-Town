@@ -873,6 +873,89 @@
         100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
       }
       /* the recap after a raid (battle/raidRecap.ts) */
+      /* a big moment, as a film would show it (cinema/cinema.ts): bars in, a title card, out */
+      #cinema {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        pointer-events: none;
+      }
+      #cinema.on {
+        pointer-events: auto;
+      }
+      #cinema .cine-bar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 11%;
+        background: #000;
+        transition: transform 0.6s ease;
+      }
+      #cinema .cine-bar.top {
+        top: 0;
+        transform: translateY(-100%);
+      }
+      #cinema .cine-bar.bottom {
+        bottom: 0;
+        transform: translateY(100%);
+      }
+      #cinema.on .cine-bar {
+        transform: none;
+      }
+      #cinema .cine-card {
+        position: absolute;
+        left: 50%;
+        bottom: 15%;
+        transform: translate(-50%, 20px);
+        opacity: 0;
+        transition: opacity 0.8s ease 0.3s, transform 0.8s ease 0.3s;
+        text-align: center;
+        padding: 10px 22px 12px;
+        min-width: 60%;
+        max-width: 88%;
+        background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.72) 25%, rgba(0, 0, 0, 0.72) 75%, rgba(0, 0, 0, 0));
+        color: #f6ecd2;
+      }
+      #cinema.on .cine-card {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+      #cinema .cine-title {
+        font-family: var(--font-display);
+        font-size: 26px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #ffe08a;
+        text-shadow: 0 2px 6px #000;
+      }
+      #cinema[data-mood='joy'] .cine-title {
+        color: #ffd0e8;
+      }
+      #cinema[data-mood='grief'] .cine-title {
+        color: #c8d0e0;
+      }
+      #cinema[data-mood='dread'] .cine-title {
+        color: #ff9a7a;
+      }
+      #cinema .cine-sub {
+        font-family: var(--font-body);
+        font-size: 14px;
+        margin-top: 4px;
+        text-shadow: 0 1px 4px #000;
+      }
+      #cinema .cine-go {
+        margin-top: 8px;
+        font: inherit;
+        font-size: 13px;
+        padding: 5px 14px;
+        border-radius: 6px;
+        border: 2px solid #c79a55;
+        background: #3b2b1e;
+        color: #f6ecd2;
+      }
+      #cinema .cine-go[hidden] {
+        display: none;
+      }
       #raid-recap {
         position: absolute;
         left: 50%;

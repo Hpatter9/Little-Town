@@ -171,6 +171,23 @@ interface DrawnBuilding {
 /** Buildings whose fire glows at night though their picture (a pack's) has no lamp colours in it. */
 const FIRES = new Set(['campfire', 'bloomery', 'kiln', 'storytellers_circle']);
 const FIRE_GLOW = { r: 20, color: 0xffb347 };
+/** How dark the view's corners are. */
+const VIGNETTE = 0.42;
+let vignetteTex: Texture | null = null;
+/** A square of clear middle shading to dark corners, stretched over the view. */
+function vignetteTexture(): Texture {
+  if (vignetteTex) return vignetteTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(128, 128, 70, 128, 128, 182);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(0.6, 'rgba(0,0,0,0.25)');
+  grad.addColorStop(1, 'rgba(0,0,0,1)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 256, 256);
+  return (vignetteTex = Texture.from(c));
+}
 /** The warm light from a lit doorway on the ground. */
 const DOOR_LIGHT = 0xffb860;
 
@@ -207,6 +224,8 @@ export class MapView {
   readonly festival: MapFestival;
   /** Each workshop at work shows it: sparks, steam, sawdust, threads, glints (map/workFx.ts). */
   readonly workFx: WorkFx;
+  /** A soft darkening at the view's edges (the owner's ask: the eye drawn in), over the land, under the HUD. */
+  private readonly vignette = new Sprite(vignetteTexture());
   /** The stars over the dark beyond the known land, shooting stars and the cold lands' aurora (map/nightSky.ts). */
   readonly nightSky: NightSky;
   /** Gusts over the grass, puddles after rain, snow settling and melting (map/groundWeather.ts). */
@@ -283,7 +302,8 @@ export class MapView {
     this.smoke.size = 1.6;
     this.lights.blendMode = 'add';
     this.lights.alpha = 0;
-    this.root.addChild(this.world, this.lights);
+    this.root.addChild(this.world, this.lights, this.vignette);
+    this.vignette.alpha = VIGNETTE;
     loadTdTiles().then(() => this.repaint(), () => undefined);
     loadRoadTiles().then(() => this.repaint(), () => undefined);
     loadGroundDetail().then(() => this.repaint(), () => undefined);
@@ -303,6 +323,9 @@ export class MapView {
   setCamera(x: number, y: number, w: number, h: number): void {
     this.world.position.set(-Math.round(x), -Math.round(y));
     this.lights.position.copyFrom(this.world.position);
+    // (the soft dark at the view's edges stays put on the screen)
+    this.vignette.width = w;
+    this.vignette.height = h;
     this.view = { x, y, w, h };
     const x0 = x - CULL_MARGIN;
     const y0 = y - CULL_MARGIN;

@@ -21,6 +21,8 @@ import { ERAS } from '../src/shared/data/eras';
 import { snowCover, wetnessStep } from '../src/renderer/map/groundRules';
 import { nextRoadCell } from '../src/renderer/map/trafficRules';
 import { waterBelow } from '../src/renderer/map/reflections';
+import { momentOf } from '../src/renderer/cinema/moments';
+import { NEWS_TITLES } from '../src/renderer/mobile/notices';
 
 const twin = (s: GameState, extra: Partial<Person>): Person => {
   const p: Person = { ...JSON.parse(JSON.stringify(s.people[0])), id: s.nextId++, partner: null, ...extra };
@@ -183,4 +185,15 @@ test("things at the water's edge are mirrored in it", () => {
   assert.ok(found, 'a shore');
   assert.ok(waterBelow(land, (found!.x + 0.5) * CELL, (found!.y + 1) * CELL - 2, 'summer'));
   assert.ok(!waterBelow(land, (found!.x + 0.5) * CELL, (found!.y - 3) * CELL, 'summer'));
+});
+
+test('the big moments are shown as title cards; the news is dressed for the age', () => {
+  assert.equal(momentOf('A new age begins: the Medieval era. New research is open.')?.title, 'A New Age');
+  const w = momentOf('Ada and Bram were married! The whole town celebrates.')!;
+  assert.equal(w.mood, 'joy');
+  assert.equal(w.who, 'Ada');
+  assert.equal(momentOf('Ada and Bram welcomed a child, Cass.')?.sub, 'Cass, child of Ada and Bram');
+  assert.equal(momentOf('Ada, who founded the town, has died of old age. Bram takes up the leadership, and the town mourns.')?.who, 'Bram');
+  assert.equal(momentOf('Finished building: Well'), null);
+  for (const e of ERAS) assert.ok(NEWS_TITLES[e], e);
 });

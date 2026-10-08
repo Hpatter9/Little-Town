@@ -36,6 +36,8 @@ import { BloodPools } from './map/bloodPools';
 import { MapDisaster } from './map/mapDisaster';
 import { createBattleHud } from './battle/battleHud';
 import { createRaidRecap } from './battle/raidRecap';
+import { startCinema } from './cinema/cinema';
+import { momentOf } from './cinema/moments';
 import { FightScene } from './fight/fightView';
 import { TacticsScene } from './tactics/tacticsView';
 import { MineScene } from './fight/mineView';
@@ -350,6 +352,8 @@ async function start(): Promise<void> {
     },
   });
   const raidRecap = createRaidRecap();
+  const cinema = startCinema(document.body); // (a big moment as a title card, the screen letterboxed)
+  let lastNewsId = -2; // (-2: no snapshot yet; the news already there when the page opens is not shown again)
   const battleHud = createBattleHud({
     go: () => bridge.command({ type: 'battleGo' }),
     auto: (on) => bridge.command({ type: 'battleAuto', on }),
@@ -1429,6 +1433,17 @@ async function start(): Promise<void> {
     people.theme = next.theme;
     people.weather = next.weather.kind;
     people.news = next.news;
+    // a big moment (a new age, a wedding, a birth, the founder's death, the dragon): letterboxed, a title card
+    if ((next.news?.id ?? -1) !== lastNewsId) {
+      const first = lastNewsId === -2;
+      lastNewsId = next.news?.id ?? -1;
+      const m = !first && next.news ? momentOf(next.news.text) : null;
+      if (m && next.raid?.phase !== 'active' && !next.watch && !cinema.busy()) {
+        const who = m.who ? next.people.find((p) => p.name === m.who && p.away === null) : undefined;
+        const show = (window as unknown as { __showOnMap?: (a: { person?: number }) => boolean }).__showOnMap;
+        cinema.show(m, who && show ? () => void show({ person: who.id }) : null);
+      }
+    }
     people.land = next.land;
     herds.grazing = next.calendar.hour >= 8 && next.calendar.hour < 18 && next.calendar.season !== 'winter' && next.weather.kind !== 'storm' && next.weather.kind !== 'rain' && !next.raid;
     people.season = next.calendar.season;
