@@ -2,7 +2,10 @@
 // description, more immersion, more story). Filled in by `eventTelling` in sim/events.ts; {who} and {founder} are
 // filled with the townsperson in it and the founder.
 
+import { CALAMITY_MORE } from './calamityMore';
+
 export const EVENT_MORE: Readonly<Record<string, string>> = {
+  ...CALAMITY_MORE,
   stranger: "The stranger's boots are worn through and their pack is light. They wait by the gate with their hat in their hands, watching the smoke of the fires as if they had forgotten what a home smells like.",
   refugees: "The mother carries the youngest; the father leads two more by the hand. Their cart was lost a week back, and with it everything but the clothes they stand in. Behind them, far off, the sky is smudged with smoke.",
   sick_traveller: "They lean on the gatepost, shivering under a sodden cloak, eyes too bright. Whatever they carry, it is in their breath now; the guard at the gate has already stepped back a pace.",

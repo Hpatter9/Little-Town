@@ -2187,6 +2187,9 @@
       /* the Town's overview: a tile a figure, each a tap through to where it goes on (townOverview.ts) */
       .glance { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin: 4px 0 6px; }
       .glance-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 9px; text-align: left; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.05); color: inherit; font: inherit; cursor: pointer; min-height: 58px; }
+      .dread { position: relative; height: 8px; margin: 6px 0 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+      .dread-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #6a4a8a, #a03050 70%, #ff3020); }
+      .dread-warn { color: #ff8070; font-weight: bold; }
       .favour { position: relative; height: 6px; margin-top: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
       .favour::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.4); }
       .favour-fill { position: absolute; top: 0; bottom: 0; }

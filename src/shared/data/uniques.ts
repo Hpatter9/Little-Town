@@ -25,6 +25,11 @@ const S: Era = 'space';
 
 const ROWS: Row[] = [
   // the beasts and the wild
+  // the nests' and the Calamity's (data/nests.ts, data/calamity.ts)
+  ['brood_stinger', 'The Brood Stinger', 'dg', 5, N, { lifesteal: 0.1, crit: 0.12 }, 'A fang of the Brood Mother on a bone grip. What it cuts, it drinks.', ['brood_mother']],
+  ['ashbringer', 'Ashbringer', 'gs', 9, M, { undeadDamage: 10, cleave: 0.4 }, 'The Ashen Tyrant\'s own blade, cooled at last. The dead fear it.', ['ashen_tyrant']],
+  ['greyrot_scythe', 'The Grey Harvest', 'sc', 9, M, { lifesteal: 0.12, cleave: 0.3 }, 'A scythe grown out of the Mother of the Rot. It reaps, and the reaper heals.', ['rot_mother']],
+  ['dreamshard', 'Dreamshard', 'st', 9, M, { stun: 0.35, crit: 0.12 }, 'A splinter of the Sleeper\'s eye on a staff. Whoever it strikes forgets how to stand.', ['the_sleeper']],
   ['tuskrender', 'Tuskrender', 'ax', 4, N, { beastDamage: 6 }, 'Hewn from the Boar King\'s own tusk.', ['boar_king']],
   ['ursine_claws', 'Ursine Claws', 'cl', 3, N, { beastDamage: 4, lifesteal: 0.08 }, 'The Cave Bear\'s claws, bound to a fist.', ['cave_bear']],
   ['mossback_club', 'Mossback', 'mc', 3, N, { stun: 0.25 }, 'A stump of a club, still growing moss.', ['mossback']],

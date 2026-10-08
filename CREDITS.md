@@ -77,7 +77,10 @@ mouths, tipis and yurts (the nomads' homes), the Dungeon Props' glass tanks, she
 2D Top-Down Pixel Dungeon pack's barrel and sacks, and the loose futuristic objects pack's tanks, transformer, consoles,
 server racks and screens (the later eras' plants), with its lattice pylon (the radio tower), shuttered block (the
 garage, the drone hub, the factory) and pipe run (the factory). The liches' and vampires' land takes the Undead Tileset's dead and
-broken trees, thorns, pale weeds, bones, skull piles, rocks and crystals as its scenery (`src/renderer/art/props/undead.png`).
+broken trees, thorns, pale weeds, bones, skull piles, rocks and crystals as its scenery (`src/renderer/art/props/undead.png`). The monster nests and the Calamity's heart (`src/renderer/art/nests/`) are
+the Rocky Area Objects' cave entrance (the goblin warren), the Top-Down Cave Objects' webbed cocoon (the spider den) and
+dark totem (the heart), and the Undead Tileset's skull door (the barrow) and pile of skulls; the ward stone is the Cave
+Objects' white crystal.
 
 ## Craftpix top-down objects (the raid map's scenery)
 

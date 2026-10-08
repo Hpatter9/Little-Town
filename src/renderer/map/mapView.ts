@@ -42,6 +42,7 @@ import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
 import type { Era } from '../../shared/data/eras';
 import { buildCastle, castleArtReady, onCastleArt, roomFurniture, type CastleView } from './castleArt';
 import { MapFestival } from './mapFestival';
+import { MapBlight, loadNestArt, nestTexture, type BlightSource } from './mapBlight';
 import { WorkFx } from './workFx';
 import { NightSky } from './nightSky';
 import { GroundWeather } from './groundWeather';
@@ -207,6 +208,7 @@ const sigOf = (b: Building) => `${b.def}|${b.tile}|${b.row}|${b.status}|${cropLo
 /** The wreck a sea beast lairs on (a reef place), once loaded. */
 let wreckTex: Texture | null = null;
 let wreckAsked = false;
+let nestArtAsked = false;
 
 export class MapView {
   /** Screen space (the camera moves `world`). */
@@ -216,6 +218,8 @@ export class MapView {
   private readonly marks = new Graphics();
   /** Everything that stands on the ground, sorted by its foot's y. */
   readonly things = new Container();
+  /** The blight round the monster nests and the Calamity's heart (map/mapBlight.ts). */
+  readonly blight: MapBlight;
   /** The windows' and fires' glows: beside `world` (so the night's tint doesn't dim them), faded in after dusk. */
   readonly lights = new Container();
   /** Smoke from the chimneys and stacks (town/ambientView.ts), over everything standing. */
@@ -296,6 +300,7 @@ export class MapView {
     this.world.addChild(this.ground, this.marks, this.under, this.things, this.cloudLayer, this.over, this.ghost);
     this.over.addChild(this.smoke.root);
     this.festival = new MapFestival(this.things, this.over, this.lights);
+    this.blight = new MapBlight(this.under, this.things);
     this.workFx = new WorkFx(this.over, this.lights);
     this.nightSky = new NightSky(this.lights);
     this.groundWeather = new GroundWeather(this.under);
@@ -742,8 +747,20 @@ export class MapView {
 
   /** The places found on the land (sim/places.ts): a cave mouth, great bones, a cart, a lair, a shrine, crystals,
    *  each from the packs; a fight waiting there has a ring pulsing round it. */
+  /** Per snapshot: the blight (sim/blight.ts) and the Calamity's heart. */
+  syncBlight(sources: BlightSource[], heart: { x: number; y: number } | null): void {
+    this.blight.sync(this.land, sources, heart);
+  }
+
   syncPlaces(list: PlaceView[]): void {
     this.placesSeen = list;
+    if (!nestArtAsked && list.some((p) => p.nest)) {
+      nestArtAsked = true;
+      loadNestArt(() => {
+        this.placesDrawn.forEach((d) => (d.key = ''));
+        this.syncPlaces(this.placesSeen);
+      });
+    }
     if (!wreckTex && !wreckAsked) {
       wreckAsked = true;
       void loadImage(wreckUrl).then((img) => {
@@ -764,7 +781,7 @@ export class MapView {
     for (const p of list) {
       if (!p.found) continue;
       seen.add(p.id);
-      const key = `${p.kind}|${p.state}|${this.placeTex.length}`;
+      const key = `${p.kind}|${p.state}|${this.placeTex.length}|${p.nest ? `${p.nest.level}${!!nestTexture(p.nest.kind)}` : ''}`;
       let d = this.placesDrawn.get(p.id);
       if (d && d.key === key) {
         d.view = p;
@@ -782,8 +799,10 @@ export class MapView {
       const kind: PropKind = p.kind === 'vein' ? 'crystal' : p.kind === 'cave' ? 'cave' : p.kind === 'cart' ? 'cart' : p.kind === 'ruin' ? 'ruin' : p.kind === 'bones' ? 'bones' : p.state === 'waiting' ? 'skull' : 'bones';
       const choices = this.placeTex.filter((_, i) => KINDS.places?.[i] === kind);
       // (a sea beast's reef: the Seabed pack's broken wreck it lairs on, at half its size)
-      const tex = p.kind === 'reef' ? (wreckTex ?? undefined) : choices[p.id % Math.max(1, choices.length)];
-      d.sprite.scale.set(p.kind === 'reef' ? 0.5 : 1);
+      // (a monster nest: its own picture from the packs, bigger as it grows: map/mapBlight.ts)
+      const nest = p.nest ? nestTexture(p.nest.kind) : null;
+      const tex = p.kind === 'reef' ? (wreckTex ?? undefined) : nest ?? choices[p.id % Math.max(1, choices.length)];
+      d.sprite.scale.set(p.kind === 'reef' ? 0.5 : p.nest ? 0.75 + 0.1 * p.nest.level : 1);
       d.sprite.visible = !!tex && !(p.kind === 'vein' && p.state !== 'waiting');
       if (tex) d.sprite.texture = tex;
       // (the wreck's picture has room round it: set her down on her ring)
@@ -1003,6 +1022,7 @@ export class MapView {
 
   /** A frame of the air: smoke from the finished buildings' chimneys and stacks, and the fireflies. */
   renderAir(dt: number): void {
+    this.blight.render(dt);
     this.fireflies(dt);
     this.windT += dt;
     this.sway();

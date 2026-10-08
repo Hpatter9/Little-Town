@@ -6,6 +6,7 @@
 // waterskins go with expeditions. Food and ammo are made as materials instead, so they sit in storage
 // and get eaten or packed like any other.
 
+import { CALAMITY_TROPHIES } from './calamity';
 import { BESTIARY_TROPHIES } from './bestiary';
 import type { Material } from './materials';
 import { WEAPONS, type FamilyId } from './weapons';
@@ -412,7 +413,7 @@ const FIRST: Record<string, Pick<ItemDef, 'family' | 'tier' | 'weight'>> = {
 };
 
 /** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. */
-export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...FORGED_ARMOUR, ...WORKSHOP_ITEMS, ...MINERAL_ITEMS, ...BOAT_ITEMS];
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...FORGED_ARMOUR, ...WORKSHOP_ITEMS, ...MINERAL_ITEMS, ...BOAT_ITEMS, ...CALAMITY_TROPHIES];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

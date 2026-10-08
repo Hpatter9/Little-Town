@@ -16,6 +16,8 @@ import { addStock, campCell, earn, notify, type GameState } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { depositNear } from './buildings';
 import { packLairCleared } from './pack';
+import { nestCleared, nestPlaceName, type NestState } from './nests';
+import { NEST_DEFS, NEST_SECONDS_PER_CELL } from '../data/nests';
 
 export interface MapPlace {
   id: number;
@@ -33,6 +35,8 @@ export interface MapPlace {
   /** A cleared cave dug as a mine (data/minerals.ts): how deep the galleries go, what the rock holds, and the cells
    *  round the mouth that are its walls (pools the town digs like any wild cell; dug out, the next level is opened). */
   mine?: { depth: number; ores: Material[]; cells: number[] };
+  /** A monster nest (sim/nests.ts): its kind, level and when it grew. */
+  nest?: NestState;
 }
 
 /** How deep a mine goes before it's worked out, and what each level's walls hold (richer the deeper). */
@@ -177,7 +181,7 @@ export function placesHourly(s: GameState, rng: Rng): void {
       notify(s, `The mine to the ${where} goes deeper: level ${p.mine.depth}, and ${p.mine.depth >= MINE_DEPTH ? 'the last' : 'richer rock'}${p.mine.ores.includes('gold') ? ', with a glint of gold' : ''}.`, true);
       continue;
     }
-    if (p.state !== 'waiting') continue;
+    if (p.state !== 'waiting' || p.nest) continue; // (the nests are sim/nests.ts's)
     if (p.found === null) {
       if (!isOpen(s.land, p.x, p.y)) continue;
       p.found = s.tick;
@@ -260,6 +264,23 @@ export function placeDestination(s: GameState, p: MapPlace): Destination {
   const camp = campCell(s);
   const cells = Math.max(4, Math.hypot(p.x - camp.x, p.y - camp.y));
   const where = directionName(p.x - camp.x, p.y - camp.y);
+  if (p.nest) {
+    const nd = NEST_DEFS[p.nest.kind];
+    return {
+      id: placeDestId(p.id),
+      name: `${nestPlaceName(p)} to the ${where}`,
+      type: 'clear',
+      outSeconds: Math.round(cells * NEST_SECONDS_PER_CELL),
+      workSeconds: 30,
+      secondsPerUnit: 8,
+      loot: nd.loot,
+      threats: p.foes ? describeFoes(p.foes) : 'Nothing, now',
+      encounters: { arrival: p.foes ? 1 : 0, ambush: 0, groups: [{ enemies: p.foes ?? {}, weight: 1 }] },
+      recommendedParty: Math.min(5, 2 + p.nest.level),
+      scenery: nd.scenery,
+      description: `${nd.found} Left alone it grows, blights the land round it and sends its ${nd.folk} against the town.`,
+    };
+  }
   return {
     id: placeDestId(p.id),
     name: `${def.name} to the ${where}`,
@@ -288,6 +309,16 @@ export function placeCleared(s: GameState, dest: string, loot: Partial<Record<Ma
   if (!p || p.state !== 'waiting') return;
   const def = PLACE_DEFS[p.kind];
   p.state = 'done';
+  if (p.nest) {
+    const nd = NEST_DEFS[p.nest.kind];
+    for (const [m, n] of Object.entries(nd.hoard) as [Material, number][]) addStock(loot, m, n * p.nest.level);
+    const coins = rng.int(nd.coins[0], nd.coins[1]) * p.nest.level;
+    if (coins) earn(s, 'events', coins);
+    const camp = campCell(s);
+    notify(s, `The ${nestPlaceName(p).toLowerCase()} to the ${directionName(p.x - camp.x, p.y - camp.y)} is cleared and burned out${coins ? `: ${coins} coins among the leavings` : ''}. The land round it will heal.`, true);
+    nestCleared(s, p);
+    return;
+  }
   for (const [m, n] of Object.entries(def.hoard) as [Material, number][]) addStock(loot, m, n);
   const coins = rng.int(def.coins[0], def.coins[1]);
   if (coins) earn(s, 'events', coins);

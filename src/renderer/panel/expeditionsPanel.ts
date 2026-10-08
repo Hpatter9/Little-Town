@@ -113,6 +113,8 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     card.addEventListener('click', () => pick(e.dest));
     out.push(expandable(card, `trip:${e.id}`, () => activeDetails(e, s)));
   }
+  // the Calamity (sim/calamity.ts): how near it is, its stage, and its heart to strike at
+  if (s.calamity) out.push(...calamitySection(s, bridge));
   // the places found on the town's own land that want a party (sim/places.ts)
   const nearby = s.places.filter((p) => p.dest).map((p) => p.dest!);
   if (nearby.length) {
@@ -538,5 +540,48 @@ function treasures(s: Snapshot): HTMLElement[] {
   out.push(grid);
   const left = UNIQUES.length - s.uniques.length;
   if (left) out.push(el('div', 'hint', `${left} more are still out there, carried by bosses, or waiting at the end of a quest.`));
+  return out;
+}
+
+/** The Calamity's card: its name and stage, the dread as a bar, what comes next, the latest omen, and its heart to
+ *  strike at (sim/calamity.ts). */
+function calamitySection(s: Snapshot, bridge?: Bridge): HTMLElement[] {
+  const c = s.calamity!;
+  const out: HTMLElement[] = [el('h2', '', 'The Calamity')];
+  const card = el('div', `card calamity-card stage-${c.stage}`);
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', c.name), el('span', 'card-size', c.beaten ? 'Beaten' : c.stageName));
+  card.append(top);
+  const bar = el('div', 'dread');
+  const fill = el('div', 'dread-fill');
+  fill.style.width = `${Math.min(100, c.dread)}%`;
+  bar.append(fill);
+  card.append(bar, el('div', 'purpose', c.beaten ? 'It has been beaten. The land is healing.' : `Dread ${Math.round(c.dread)} of 100, rising ${c.rising} a day. ${c.next}`));
+  if (c.siegeIn !== null) card.append(el('div', 'purpose dread-warn', `The last siege comes in ${c.siegeIn} hour${c.siegeIn === 1 ? '' : 's'}.`));
+  if (c.omen) card.append(el('div', 'hint', `The latest omen: ${c.omen}`));
+  const bits = [`${c.nests} nest${c.nests === 1 ? '' : 's'} known on the land`, `${c.wards} ward stone${c.wards === 1 ? '' : 's'}`];
+  if (c.lost) bits.push(`${c.lost} siege${c.lost === 1 ? '' : 's'} lost of 3`);
+  if (c.cultists) bits.push('a cult hides in the town');
+  card.append(el('div', 'hint', `${bits.join(' · ')}. Every nest burned out and every blow at its heart pushes it back; ward stones slow it.`));
+  out.push(
+    expandable(card, 'calamity', () => [
+      facts([
+        ['Stage', `${c.stage} of 5: ${c.stageName}`],
+        ['Rising', `${c.rising} a day`],
+        ['Heart', c.heartAt ? (c.heartOpen ? `${c.heart}: open to a party` : `${c.heart}: gathering itself again`) : 'Not yet found'],
+        ['Blight', c.scar ? `${Math.round(c.scar)} cells round its heart` : 'None yet'],
+      ]),
+      list('The stages', ['1. Omens: signs in the night.', '2. The spreading: its heart can be struck at; nests come thicker.', '3. The cults: the unhappy may be lured.', '4. The armies: it raids the town.', '5. The last siege: its avatar comes. Strike it down to win; lose three and the town falls.']),
+    ]),
+  );
+  const heart = s.destinations.find((v) => v.id === 'calamity:heart');
+  const d = c.dest;
+  if (d && heart) {
+    const cards = el('div', 'cards wide');
+    const hc = destinationCard(d, heart, s, bridge);
+    hc.dataset.dest = d.id;
+    cards.append(hc);
+    out.push(cards);
+  }
   return out;
 }

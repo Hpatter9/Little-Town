@@ -5,6 +5,7 @@
 // take a few seasons to bear, then fruit without sowing; nobody sows in autumn what can't ripen before winter; and at
 // the turn of winter the town holds a harvest home if the stores are full (or goes short-tempered if they're not).
 
+import { BLIGHT_CROPS, blighted, blightSources } from './blight';
 import { earlier } from '../data/eras';
 import { eraOfResearch } from '../data/research';
 import { BLIGHT, CROPS, SEASON_GROWTH, SOIL, WORKPLACES, YIELD_PER_LEVEL, sectionsDone, sectionsOf } from '../data/crops';
@@ -58,6 +59,8 @@ export function byRiver(s: GameState, b: Building): boolean {
 export function growCrops(s: GameState): void {
   const season = calendar(s.tick).season;
   let speed: number | null = null;
+  // (the blight round the monster nests and the Calamity's heart: sim/nests.ts)
+  const blight = s.places?.some((p) => p.nest) || s.calamity ? blightSources(s) : null;
   for (const b of s.buildings) {
     if (!isField(b)) continue;
     const c = cropOf(b);
@@ -67,7 +70,8 @@ export function growCrops(s: GameState): void {
     const def = CROPS[b.def];
     const indoor = def.indoor;
     const seasonal = def.hardy && season === 'autumn' ? 1 : SEASON_GROWTH[season];
-    const outside = indoor ? 1 : seasonal * doomGrowth(s) * biomeOf(s).crops * cropSpeed(s) * (byRiver(s, b) ? RIVER_GROWTH : 1);
+    const sick = !indoor && blight?.length && blighted(s, b.tile, b.row, blight) ? BLIGHT_CROPS : 1;
+    const outside = indoor ? 1 : seasonal * doomGrowth(s) * biomeOf(s).crops * cropSpeed(s) * (byRiver(s, b) ? RIVER_GROWTH : 1) * sick;
     // (crops are food, and people eat on the same clock in every era: growing isn't stretched by the era)
     // (young trees take their while to come into bearing, the first time)
     const hours = def.growHours + (def.establishHours && !c.bearing ? def.establishHours : 0);

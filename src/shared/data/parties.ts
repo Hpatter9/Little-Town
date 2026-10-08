@@ -25,6 +25,11 @@ export const STRENGTH_PER_LEVEL = 0.08;
 export const PULL_BOUNTY = 0.5;
 export const PULL_NEW = 6;
 export const PULL_FIGHT = 4;
+/** A monster nest the town knows of (sim/nests.ts) draws an adventurer more, the more it has grown; the Calamity's
+ *  heart most of all (sim/calamity.ts). */
+export const PULL_NEST = 6;
+export const PULL_NEST_LEVEL = 1.5;
+export const PULL_HEART = 12;
 /** Recruiting: the weight of a member's opinion of the party (per point), of filling a needed role, of being an
  *  adventurer, and of being devoted to someone going. */
 export const RECRUIT_OPINION = 1 / 20;

@@ -89,6 +89,7 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
     const worst = [...s.faith.gods].sort((a, b) => a.favour - b.favour)[0];
     if (worst) tile('Gods', worst.mood === 'wrathful' ? 'Wrathful' : worst.favour < 0 ? 'Uneasy' : 'At peace', worst.favour < 0 ? `${worst.name} is ${worst.mood}` : 'all four content', ['build', 'Faith'], worst.mood === 'wrathful');
   }
+  if (s.calamity) tile('The Calamity', s.calamity.beaten ? 'Beaten' : s.calamity.stageName, s.calamity.beaten ? s.calamity.name : `${s.calamity.name} · dread ${Math.round(s.calamity.dread)}`, ['expeditions', 'Places'], !s.calamity.beaten && s.calamity.stage >= 4);
   tile('Age', ERA_NAMES[s.era], `Year ${c.year}, ${c.season} day ${c.dayOfSeason}`, ['research', 'Tech tree']);
   return [el('h2', '', 'At a glance'), grid, el('div', 'hint', 'Tap a tile to go to it.')];
 }

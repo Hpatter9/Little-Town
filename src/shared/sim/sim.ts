@@ -52,6 +52,8 @@ import { spendByClass, spendPoint } from './attributes';
 import { questsHourly } from './quests';
 import { delvesHourly } from './delves';
 import { placesHourly } from './places';
+import { nestsHourly } from './nests';
+import { calamityHourly } from './calamity';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
 import { maybeStartRaid, startGuildRaid, startRaid, updateRaid } from './raids';
@@ -197,6 +199,8 @@ export class Sim {
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);
+    nestsHourly(s); // (monster nests on the land: sim/nests.ts)
+    calamityHourly(s); // (the Calamity: sim/calamity.ts)
     ageingHourly(s, this.rng);
     replenishSea(s, this.rng);
     bloodHourly(s);

@@ -409,6 +409,8 @@ const PICKS: Record<string, Pick> = {
   resurrection_shrine: { url: caveAltar, overhang: 0 },
   // the gods' houses (data/gods.ts): the altar, the crystal tower, the great stone keep
   wayside_shrine: { url: caveAltar, overhang: 0 },
+  // (the Calamity's ward stone: the cave pack's white crystal)
+  ward_stone: { url: caveCrystal, overhang: 0 },
   temple: { url: suMageTower, overhang: 4 },
   cathedral: { url: suCastle, overhang: 4 },
   phylactery: { url: caveCrystal, overhang: 0, variants: [{ styles: ['lich'], pick: { url: caveGem, overhang: 0 } }] },

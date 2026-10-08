@@ -90,6 +90,12 @@ export function situationNotices(s: Snapshot): Notice[] {
     if (m && s.tick - m.tick < 8 * 600) out.push({ key: `march:${m.tick}`, tone: m.outcome === 'beaten' || m.outcome === 'broken' ? 'red' : 'gold', mark: '⚑', title: `The march of ${m.army}`, text: `${m.from} → ${m.to}: ${marchSummary(m)}`, action: { label: 'War', kind: 'panel', panel: 'war' } });
     if (war.recap && s.tick - war.recap.tick < 6 * 600) out.push({ key: `precap:${war.recap.tick}`, tone: war.recap.won ? 'gold' : 'red', mark: '⚔', title: `${war.recap.won ? 'Victory' : 'Defeat'} at ${war.recap.province}`, text: war.recap.lines.join(' '), action: { label: 'War', kind: 'panel', panel: 'war' } });
   }
+  // the Calamity (sim/calamity.ts): the last siege coming, and the stage it's in
+  const c = s.calamity;
+  if (c && !c.beaten) {
+    if (c.siegeIn !== null) out.push({ key: `siege:${c.lost}`, tone: 'red', mark: '☠', title: `${c.name}: the last siege`, text: `Its whole host is at the gate in ${c.siegeIn} hour${c.siegeIn === 1 ? '' : 's'}. Strike down its avatar and the town is saved.`, action: { label: 'Trips', kind: 'panel', panel: 'expeditions' } });
+    else if (c.stage >= 2) out.push({ key: `calamity:${c.stage}`, tone: c.stage >= 4 ? 'red' : 'gold', mark: '☠', title: `${c.name}: ${c.stageName.toLowerCase()}`, text: `Dread ${Math.round(c.dread)} of 100. ${c.next}${c.dest ? ` ${c.heart} can be struck at.` : ''}`, action: { label: 'Trips', kind: 'panel', panel: 'expeditions' } });
+  }
   if (s.doom) out.push({ key: `doom:${s.doom.name}`, tone: 'red', mark: '☁', title: s.doom.name, text: s.doom.phase === 'signs' ? `Signs of it: about ${Math.ceil(s.doom.hoursLeft)} hours off.` : s.doom.hoursLeft < 1 ? 'Under way, and nearly over.' : `Under way: ${Math.ceil(s.doom.hoursLeft)} hours to go.` });
   // (a fight with a band out on the land: sim/roamers.ts)
   for (const k of s.skirmishes ?? []) {

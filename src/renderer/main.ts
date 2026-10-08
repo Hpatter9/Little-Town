@@ -157,7 +157,7 @@ type Hover =
 
 /** The bands roaming the land drawn as raiders (one figure a foe, in a little knot), their ids so many a band. */
 const ROAMER_IDS = 16;
-const ROAMER_TITLE: Record<RoamerView['kind'], string> = { beasts: 'Wild beasts', dead: 'The restless dead', bandits: 'Bandits' };
+const ROAMER_TITLE: Record<RoamerView['kind'], string> = { beasts: 'Wild beasts', dead: 'The restless dead', bandits: 'Bandits', nest: 'From a nest' };
 function roamerFigures(rs: readonly RoamerView[]): RaiderView[] {
   return rs.flatMap((r) =>
     r.foes.slice(0, ROAMER_IDS).map((f, i) => ({
@@ -521,7 +521,7 @@ async function start(): Promise<void> {
         if (!r) return null;
         const doing = r.fighting ? 'Fighting townsfolk out on the land!' : r.chasing ? `After ${r.chasing}!` : 'Roaming the land: anyone out alone is in danger';
         const foes = Object.entries(r.foes.reduce<Record<string, number>>((n, f) => ((n[f.name] = (n[f.name] ?? 0) + 1), n), {})).map(([name, n]) => (n > 1 ? `${n} × ${name}` : name));
-        return { title: ROAMER_TITLE[r.kind], lines: [doing, foes.join(', ')], y: overheadY(roamers.posOf(r.id * ROAMER_IDS), 54) };
+        return { title: r.name ? `${r.name[0].toUpperCase()}${r.name.slice(1)} from a nest` : ROAMER_TITLE[r.kind], lines: [doing, foes.join(', ')], y: overheadY(roamers.posOf(r.id * ROAMER_IDS), 54) };
       }
       case 'caravan': {
         const c = snap.caravan;
@@ -1420,6 +1420,7 @@ async function start(): Promise<void> {
     map.festival.sync(next.gathering);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
+    map.syncBlight(next.blight ?? [], next.calamity?.heartAt ?? null);
     // (a tree with someone behind it, or a building's front, is drawn see-through)
     map.seeThrough([
       ...next.people.filter((p) => !p.indoors).map((p) => people.posOf(p.id) ?? p),
@@ -1514,7 +1515,8 @@ async function start(): Promise<void> {
       minimap.render({
         people: snap.people.filter((p) => p.away === null).map((p) => ({ x: p.x, y: p.y })),
         raiders: snap.raid?.phase === 'active' ? snap.raid.raiders.map((r) => ({ x: r.x, y: r.y })) : [],
-        places: snap.places.filter((p) => p.found).map((p) => ({ x: p.x, y: p.y, waiting: !!p.dest })),
+        places: snap.places.filter((p) => p.found).map((p) => ({ x: p.x, y: p.y, waiting: !!p.dest, nest: !!p.nest })),
+        heart: snap.calamity?.heartAt ? { x: (snap.calamity.heartAt.x + 0.5) * 32, y: (snap.calamity.heartAt.y + 0.5) * 32 } : null,
         buildings: snap.buildings.map((b) => {
           const r = footprintOf(b);
           return { x: r.x * CELL, y: r.y * CELL, w: r.w * CELL, h: r.h * CELL };

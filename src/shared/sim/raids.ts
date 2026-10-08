@@ -99,6 +99,7 @@ import { lurkersBeaten } from './lurkers';
 import { caveBearBeaten } from './caveBear';
 import { packRaidBeaten } from './pack';
 import { sagaRaidOver } from './sagas';
+import { calamityRaidOver } from './calamity';
 import { fireAt, speedOf, tickBurns } from './defenses';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
@@ -854,6 +855,7 @@ function endRaid(s: GameState, rng: Rng): void {
   packRaidBeaten(s, r, rng);
   sagaRaidOver(s, r);
   hostOver(s, r);
+  calamityRaidOver(s, r);
   // thieves who got away may have led off a horse, too
   if (s.horses.length && r.raiders.some((rd) => rd.gone && poolSize(rd.carrying) > 0) && rng.chance(HORSE_THEFT)) {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];
