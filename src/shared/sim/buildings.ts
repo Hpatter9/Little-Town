@@ -14,8 +14,9 @@ import type { OriginId } from '../data/origins';
 import { MAX_POTS, POT_STORAGE } from '../data/items';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
+import { openGround } from '../data/biomes';
 import { HERDS } from '../data/livestock';
-import { buildable, carvable, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
+import { buildable, carvable, clearable, setGround, setMarked, wildToClear, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
 import { modifiers } from './research';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
 
@@ -176,7 +177,7 @@ export interface PlaceCheck {
 /** Whether `def` fits with its top-left cell at (x, y): on open, buildable ground, over no road, clear of every other
  *  building (but `except`); a castle's rooms built on to the castle (over a road if need be: the floor covers it), and
  *  all else a cell clear of it. */
-export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'>, def: BuildingDef, x: number, y: number, except?: Building, turned = false): PlaceCheck {
+export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'era' | 'nomad'>, def: BuildingDef, x: number, y: number, except?: Building, turned = false, overWild = false): PlaceCheck {
   const r: Rect = { x, y, w: turned ? depthOf(def) : def.width, h: turned ? def.width : depthOf(def) };
   const m = s.land;
   const room = castleOn(s) && roomKind(s, def);
@@ -196,7 +197,7 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
       if (carved) {
         if (!carvable(g)) return { ok: false, reason: 'A hall is cut into the mountain' };
       } else if (g === 'mountain') return { ok: false, reason: 'The mountain stands here' };
-      else if (!buildable(g)) return { ok: false, reason: 'Clear the land first' };
+      else if (!buildable(g) && !(overWild && !room && wildToClear(m, cx, cy))) return { ok: false, reason: 'Clear the land first' };
       if (!room && isRoad(m, cx, cy) && !isGate(def.id)) return { ok: false, reason: 'A road runs here' }; // (a gate stands on the road)
     }
   for (const b of s.buildings) {
@@ -217,16 +218,29 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
 export const fitsAt = (m: LandMap, taken: readonly Rect[], def: BuildingDef, x: number, y: number) => fits(m, { x, y, w: def.width, h: depthOf(def) }, taken);
 
 /** Place a blueprint with its top-left cell at (x, y). Returns the reason on failure. A road is laid to its door. */
-export function placeBlueprint(s: GameState, defId: string, x: number, y: number, turned = false, planned = false): PlaceCheck {
+export function placeBlueprint(s: GameState, defId: string, x: number, y: number, turned = false, planned = false, overWild = false): PlaceCheck {
   const def = BUILDING_BY_ID[defId];
   if (!def || def.never) return { ok: false, reason: 'Unknown building' };
   if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: 'Not researched yet' };
   // (a planned piece of the ring wall takes no slot: it is laid whatever the queue holds, and released into work later)
   if (!planned && blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
-  const check = canPlace(s, def, x, y, undefined, turned);
+  const check = canPlace(s, def, x, y, undefined, turned, overWild);
   if (!check.ok) return check;
   const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}), ...(turned ? { turned: true } : {}), ...(planned ? { planned: true } : {}) };
   s.buildings.push(b);
+  if (overWild) {
+    // (laid over a wood or rocks: a wild cell with nothing left on it is cleared at once; the rest wait for the axe
+    // and the pick, `overgrown` until they're gone)
+    const f = footprint(b);
+    for (let cy = f.y; cy < f.y + f.h; cy++)
+      for (let cx = f.x; cx < f.x + f.w; cx++) {
+        const i = idx(s.land, cx, cy);
+        if (!clearable(groundAt(s.land, cx, cy))) continue;
+        if (!s.land.pools[i]) setGround(s.land, cx, cy, openGround(s.biome));
+        else setMarked(s.land, i, true);
+      }
+    refreshOvergrown(s, b);
+  }
   if (b.room) {
     // (no roads inside the castle: a road that ran where the room now stands is taken up; a mountain hold's room is
     // cut out of the rock)
@@ -235,6 +249,24 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
     if (holdOf(s) === 'mountain') carve(s, f);
   } else connectRoad(s, b);
   return { ok: true };
+}
+
+/** The wild cells (trees, rocks, marsh, scrub) under a blueprint, still to be cleared before it can be built. */
+export function overgrownCells(s: Pick<GameState, 'land'>, b: Building): number[] {
+  if (b.status !== 'blueprint' || b.room) return [];
+  const out: number[] = [];
+  const f = footprint(b);
+  for (let cy = f.y; cy < f.y + f.h; cy++) for (let cx = f.x; cx < f.x + f.w; cx++) if (inMap(s.land, cx, cy) && clearable(groundAt(s.land, cx, cy))) out.push(idx(s.land, cx, cy));
+  return out;
+}
+/** Keep `Building.overgrown` in step with the ground under it. */
+export function refreshOvergrown(s: Pick<GameState, 'land'>, b: Building): void {
+  if (overgrownCells(s, b).length) b.overgrown = true;
+  else delete b.overgrown;
+}
+/** A cell was cleared: the blueprints over it may be clear now. */
+export function cellCleared(s: Pick<GameState, 'land' | 'buildings'>, x: number, y: number): void {
+  for (const b of s.buildings) if (b.overgrown && inRect(footprint(b), x, y)) refreshOvergrown(s, b);
 }
 
 /** Kinds that get no road of their own (the road runs past the fields, not into them). */

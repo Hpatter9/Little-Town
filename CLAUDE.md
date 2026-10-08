@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.26.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.27.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3004,6 +3004,37 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   has **March reports** under Armies (the latest open, tap another for its lines; `WarView.marches`), each army card
   the march under way (`ArmyView.march`: battles won, taken, the latest line), and the news bubble a notice for the
   latest (`march:` in notices.ts). Tests: `test/conquestMarches.test.ts`, `test/conquestArmies.test.ts`.
+
+## Room to grow, and sites cleared first (0.27.0; the owner's asks)
+
+- **The ring wall stands further out** (the owner: "a little further out on the first ring, and the rings after it
+  further as well"): `RING_MIN` 8 (was 6), `RING_PAD` 4 (was 3), `RING_STEP` 5 (was 4) in sim/ringWall.ts, so a first
+  ring stands about 15 cells from the camp where it stood 12, and each wider ring steps out 5 at a time.
+  `RING_CLEAR_PULL` is 20 (was 12), so the line's trees and rocks are still taken first from that far.
+- **The wall shaped to the land** (the owner: "push past the river and be built on the other side rather than right
+  down the middle; the walls don't need to be a square, any shape that gets the wall up faster without obstacles; still
+  a gate on each side"): `shapeRing` (ringWall.ts) starts from the box (`wantRect`, still the ring's `rect`, which
+  decides when a wider ring is wanted) and pushes every stretch of the line that runs along a river (a run of at least
+  `PUSH_ALONG` (5) river cells on it) out a cell at a time till it stands past the far bank, at most `PUSH_MOST` (8)
+  beyond the box; a river that only crosses the line keeps its grates; holes are filled. The line is `Ring.line`
+  (`LineCell`: x, y and the `side` it faces: n, s, w, e; `lineOf` gives an older ring its box's edge). Everything that
+  walked the box's edge walks the line: `missingPieces`, the gates (`gateCells(s, line)`: one where the camp's row
+  meets the line west and east and its column north and south, moved along that side's run to stand on dry ground
+  with both cells on it; and where roads cross), `gateAt`/`gateTurned`/`sideOn` by the ring, `ringGate` by side, the
+  land opened to the line's furthest cell, and `ringGap` in prowlers.ts. Test: the river test in
+  `test/ringWall.test.ts` (no run of river cells on the line; this seed's own east river pushed past).
+- **Blueprints over trees and rocks** (the owner: "the town can place them over trees and rocks and the townsfolk
+  would prioritize removing them, similar to the wall blueprint"): `findSpot` (planner.ts) looks over the wild too
+  (`spiralSpot`/`fits` option `wild`: `wildToClear` in land.ts, a wood, rocks, a marsh or scrub, never a cell whose
+  pool holds ore, gold or gems), each wild cell counting `WILD_SPOT_COST` (1.5) against a spot, so open ground near by
+  still comes first but the town no longer walks far out to avoid a wood. `placeBlueprint(..., overWild)` lays it
+  (`canPlace`'s `overWild`; the planner, the townsfolk's own homes, events and the shrine pass it), clears any wild
+  cell with nothing left on it, marks the rest to gather and sets `Building.overgrown` (`overgrownCells`,
+  `refreshOvergrown`; `cellCleared` from `clearCell` in people.ts). While overgrown: nobody builds it (`canWork` in
+  property.ts), people walk into it (`blockedBy` in walk.ts) to fell the trees, its cells are taken ahead of other
+  marked cells as the ring's are (`bestGatherTile`), and the planner keeps them marked over its cap
+  (`planGathering`). Deliveries go on meanwhile. The tap card says "Clearing the ground first". Test:
+  `test/siteClearing.test.ts`.
 
 ## Known problem (fixed, watch)
 

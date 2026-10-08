@@ -38,8 +38,9 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } 
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
-import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork } from './buildings';
-import { touchesWater, type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
+import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
+import { buildable, wet, setGround, type Rect, touchesWater, type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
+import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, modifiers, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
@@ -588,7 +589,10 @@ function scanWild(s: GameState): { i: number; pool: Stock; d: number }[] {
 /** The nearest free spot for a building, out from the camp in rings, each ring's spots nearest a road first, so the
  *  town grows along its roads (null if there's no room). In a castle town the keep's ground is the castle's:
  *  everything else goes outside it. Fields and pens keep a little further out than the houses. */
-export function findSpot(s: GameState, def: BuildingDef): Pt | null {
+/** Each wild cell a spot would have cleared counts this much against it (a road's step is 1): the town builds on open
+ *  ground where it can, and over a wood or rocks rather than walk further out (the owner's ask). */
+export const WILD_SPOT_COST = 1.5;
+export function findSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true }) | null {
   // (a wandering tribe builds its great works on its home ground)
   const from = buildOrigin(s, def.id) ?? campCell(s);
   const taken = footprints(s);
@@ -598,13 +602,21 @@ export function findSpot(s: GameState, def: BuildingDef): Pt | null {
   const sea = seaBuild(s, def);
   // (a jetty, like the boatyard, at the water's edge)
   const shore = !!def.shore;
+  const wildIn = (rect: Rect) => {
+    let n = 0;
+    for (let y = rect.y; y < rect.y + rect.h; y++) for (let x = rect.x; x < rect.x + rect.w; x++) if (!buildable(groundAt(s.land, x, y)) && !wet(groundAt(s.land, x, y))) n++;
+    return n;
+  };
   const r = spiralSpot(s.land, def.width, depthOf(def), taken, from, {
     ok: castle || shore ? (rect) => (!castle || !nearCastle(castle, s.land, rect)) && (!shore || touchesWater(s.land, rect)) : undefined,
     water: sea,
-    prefer: (rect) => (sea ? (inSea(s.land, rect) ? 0 : SEA_PREFER) : roadDistance(s.land, doorOf(rect))) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0),
+    // (over the wild too: its trees and rocks are cleared first, sim/buildings.ts `overgrown`)
+    wild: true,
+    prefer: (rect) => (sea ? (inSea(s.land, rect) ? 0 : SEA_PREFER) : roadDistance(s.land, doorOf(rect))) + (farm ? Math.max(0, 5 - Math.hypot(rect.x + rect.w / 2 - from.x, rect.y + rect.h / 2 - from.y)) * 2 : 0) + wildIn(rect) * WILD_SPOT_COST,
   });
   if (!r) return null;
-  return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
+  const wild = wildIn(r) > 0;
+  return canPlace(s, def, r.x, r.y, undefined, false, wild).ok ? { x: r.x, y: r.y, ...(wild ? { wild: true as const } : {}) } : null;
 }
 
 /** Where a castle's next room goes: built on to the castle, as near the hall as may be, the snuggest spot of a ring
@@ -939,7 +951,7 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
       blocked ??= def;
       continue;
     }
-    if (placeBlueprint(s, def.id, at.x, at.y).ok) {
+    if (placeBlueprint(s, def.id, at.x, at.y, false, false, 'wild' in at && !!at.wild).ok) {
       plan.build = w;
       if (def.housing) {
         plan.lastHome = s.tick;
@@ -1017,6 +1029,16 @@ function planGathering(s: GameState, n: Needs, plan: TownPlan, clear: number[], 
   // (the trees and rocks on the ring wall's line come first, and over the cap: the wall was planned through them,
   // and they used to wait on whatever room the materials' marks left, often for good)
   for (const i of clear) if (!isMarked(s.land, i) && s.land.pools[i]) setMarked(s.land, i, true);
+  // (so do the trees and rocks under a blueprint laid over the wild: the site waits on them)
+  for (const b of s.buildings) {
+    if (!b.overgrown || b.planned) continue;
+    for (const i of overgrownCells(s, b)) {
+      // (a wild cell with nothing left on it is cleared outright)
+      if (!s.land.pools[i]) setGround(s.land, i % s.land.w, Math.floor(i / s.land.w), openGround(s.biome));
+      else if (!isMarked(s.land, i)) setMarked(s.land, i, true);
+    }
+    refreshOvergrown(s, b);
+  }
   for (const m of MATERIALS) {
     if (!GATHERABLE.has(m)) continue;
     let short = Math.max((n.demand[m] ?? 0) - (n.stock[m] ?? 0), craftWants[m] ?? 0);

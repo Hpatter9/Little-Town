@@ -17,10 +17,10 @@ import { campCell, type Building, type GameState } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 /** Cells between the outermost building and the wall; the ring grows in steps of this many cells a side. */
-export const RING_PAD = 3;
-export const RING_STEP = 4;
+export const RING_PAD = 4;
+export const RING_STEP = 5;
 /** A ring reaches at least this far from the camp each way (before the pad), so a young town has room to grow in it. */
-export const RING_MIN = 6;
+export const RING_MIN = 8;
 /** Grown-ups before a town walls itself (sooner when raided or set on defence). */
 export const RING_PEOPLE = 6;
 /** Ring pieces on the build queue at a time (a slot is always left for the rest). */
@@ -35,7 +35,7 @@ export const RING_REGROW_HOURS = 72;
  *  the planner's marking cap, four at a time, and were often never marked at all). */
 export const RING_CLEAR = 24;
 /** The ring's cells to clear are taken ahead of other marked cells by whoever gathers, as if this many cells nearer. */
-export const RING_CLEAR_PULL = 12;
+export const RING_CLEAR_PULL = 20;
 
 /** The walls, weakest first, and each one's gate and water grate (the owner's ask: where the ring met a river it was
  *  left open there; now the wall is carried over on a grating the water runs through and nobody does). */
@@ -57,7 +57,10 @@ export const GATE_SEEK = 6;
 export interface Ring {
   /** Which ring this is (the pieces carry it: `Building.ring`). */
   gen: number;
+  /** The box round the town it started from (a wider ring is begun when the town outgrows it). */
   rect: Rect;
+  /** Its line, shaped to the land (`shapeRing`); an older ring without one keeps its box's edge (`lineOf`). */
+  line?: LineCell[];
   /** The wall it is built of, and its gate. */
   wall: string;
   gate: string;
@@ -104,7 +107,7 @@ const depth = (def: BuildingDef) => def.depth ?? (def.hp && def.width <= 2 && !d
 
 const contains = (a: Rect, b: Rect) => b.x >= a.x && b.y >= a.y && b.x + b.w <= a.x + a.w && b.y + b.h <= a.y + a.h;
 
-/** The cells of a ring, clockwise from its top-left corner. */
+/** The cells of a box's edge, clockwise from its top-left corner (a ring's starting shape, and an older town's ring). */
 export function ringCells(r: Rect): Pt[] {
   const out: Pt[] = [];
   for (let x = r.x; x < r.x + r.w; x++) out.push({ x, y: r.y });
@@ -114,57 +117,149 @@ export function ringCells(r: Rect): Pt[] {
   return out;
 }
 
-/** Which side of its ring a cell is on. */
-export const sideOf = (r: Rect, p: Pt): 'n' | 's' | 'w' | 'e' => (p.y === r.y ? 'n' : p.y === r.y + r.h - 1 ? 's' : p.x === r.x ? 'w' : 'e');
+export type Side = 'n' | 's' | 'w' | 'e';
+/** A cell of the ring's line and the side of the town it stands on (which way it faces out). */
+export interface LineCell { x: number; y: number; side: Side }
+
+/** The ring is shaped to the land (the owner's ask: "the wall should push past the river and be built on the other
+ *  side rather than right down the middle; the walls don't need to be a square, any shape that gets the wall up
+ *  faster without obstacles"). It starts as the box's edge; wherever the line runs along a river (a run of at least
+ *  `PUSH_ALONG` river cells on it) that stretch is pushed out a cell at a time till it stands past the far bank, at most
+ *  `PUSH_MOST` cells beyond the box. A river that only crosses the line keeps its grate. */
+export const PUSH_ALONG = 5;
+export const PUSH_MOST = 8;
+const sideOfBox = (r: Rect, p: Pt): Side => (p.y === r.y ? 'n' : p.y === r.y + r.h - 1 ? 's' : p.x === r.x ? 'w' : 'e');
+export function shapeRing(s: Pick<GameState, 'land'>, r: Rect): LineCell[] {
+  const m = s.land;
+  const M = PUSH_MOST + 2;
+  const bx = r.x - M, by = r.y - M, bw = r.w + 2 * M, bh = r.h + 2 * M;
+  const inBox = (x: number, y: number) => x >= bx && y >= by && x < bx + bw && y < by + bh;
+  const key = (x: number, y: number) => (y - by) * bw + (x - bx);
+  const R = new Uint8Array(bw * bh);
+  for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) R[key(x, y)] = 1;
+  const inR = (x: number, y: number) => inBox(x, y) && R[key(x, y)] === 1;
+  const N8 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const;
+  const boundary = (): Pt[] => {
+    const out: Pt[] = [];
+    for (let y = by + 1; y < by + bh - 1; y++)
+      for (let x = bx + 1; x < bx + bw - 1; x++) if (!inR(x, y) && inMap(m, x, y) && N8.some(([dx, dy]) => inR(x + dx, y + dy))) out.push({ x, y });
+    return out;
+  };
+  const beyond = (p: Pt) => Math.max(r.x - p.x, p.x - (r.x + r.w - 1), r.y - p.y, p.y - (r.y + r.h - 1));
+  for (let pass = 0; pass < PUSH_MOST + 2; pass++) {
+    const river = new Set(boundary().filter((p) => wet(groundAt(m, p.x, p.y)) && riverCell(m, p) && beyond(p) < PUSH_MOST).map((p) => key(p.x, p.y)));
+    let pushed = false;
+    const seen = new Set<number>();
+    for (const k0 of river) {
+      if (seen.has(k0)) continue;
+      // (the run of river along the line this cell is in)
+      const run: number[] = [k0];
+      seen.add(k0);
+      for (let i = 0; i < run.length; i++) {
+        const x = (run[i] % bw) + bx, y = Math.floor(run[i] / bw) + by;
+        for (const [dx, dy] of N8) {
+          const k = key(x + dx, y + dy);
+          if (inBox(x + dx, y + dy) && river.has(k) && !seen.has(k)) {
+            seen.add(k);
+            run.push(k);
+          }
+        }
+      }
+      if (run.length < PUSH_ALONG) continue;
+      for (const k of run) R[k] = 1;
+      pushed = true;
+    }
+    if (!pushed) break;
+  }
+  // (no holes: whatever the line has closed round is inside it)
+  const out = new Uint8Array(bw * bh);
+  const q: number[] = [];
+  for (let x = bx; x < bx + bw; x++) for (const y of [by, by + bh - 1]) q.push(key(x, y));
+  for (let y = by; y < by + bh; y++) for (const x of [bx, bx + bw - 1]) q.push(key(x, y));
+  for (const k of q) out[k] = 1;
+  for (let i = 0; i < q.length; i++) {
+    const x = (q[i] % bw) + bx, y = Math.floor(q[i] / bw) + by;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = x + dx, ny = y + dy;
+      if (!inBox(nx, ny)) continue;
+      const k = key(nx, ny);
+      if (out[k] || R[k]) continue;
+      out[k] = 1;
+      q.push(k);
+    }
+  }
+  for (let k = 0; k < R.length; k++) if (!out[k]) R[k] = 1;
+  const cx = r.x + (r.w - 1) / 2, cy = r.y + (r.h - 1) / 2;
+  return boundary()
+    .map((p): LineCell => {
+      const side: Side = inR(p.x + 1, p.y) ? 'w' : inR(p.x - 1, p.y) ? 'e' : inR(p.x, p.y + 1) ? 'n' : inR(p.x, p.y - 1) ? 's' : inR(p.x + 1, p.y + 1) || inR(p.x - 1, p.y + 1) ? 'n' : 's';
+      return { ...p, side };
+    })
+    .sort((a, c) => ang(a.x - cx, a.y - cy) - ang(c.x - cx, c.y - cy));
+}
+// (clockwise from the top-left, as the box's edge ran)
+const ang = (dx: number, dy: number) => (Math.atan2(dy, dx) + Math.PI * 1.75) % (Math.PI * 2);
+
+/** A ring's line (an older town's ring, laid before the line was shaped, keeps its box). */
+export function lineOf(ring: Ring): LineCell[] {
+  return ring.line ?? ringCells(ring.rect).map((p) => ({ ...p, side: sideOfBox(ring.rect, p) }));
+}
+/** The side of the town a cell of the ring's line stands on. */
+export function sideOn(ring: Ring, p: Pt): Side {
+  return lineOf(ring).find((l) => l.x === p.x && l.y === p.y)?.side ?? sideOfBox(ring.rect, p);
+}
 
 /** Where a gate standing on a ring cell is placed (its top-left): a gate is two cells long, laid along the wall:
- *  across on the north and south sides, and turned (`Building.turned`) to stand down the column on the west and east. */
-export function gateAt(r: Rect, p: Pt): Pt {
-  const side = sideOf(r, p);
-  if (side === 'n' || side === 's') return { x: Math.min(p.x, r.x + r.w - 2), y: p.y };
-  return { x: p.x, y: Math.min(p.y, r.y + r.h - 2) };
-}
+ *  across on the north and south sides from its cell, and turned (`Building.turned`) down the column on the west and
+ *  east. */
+export const gateAt = (_ring: Ring, p: Pt): Pt => ({ x: p.x, y: p.y });
 /** Whether a gate on a ring cell stands turned (down a column: the west and east sides). */
-export const gateTurned = (r: Rect, p: Pt) => sideOf(r, p) === 'w' || sideOf(r, p) === 'e';
-/** The two ring cells a gate covers. */
-const gateCovers = (r: Rect, g: Pt): Pt[] => {
-  const at = gateAt(r, g);
-  return gateTurned(r, g) ? [at, { x: at.x, y: at.y + 1 }] : [at, { x: at.x + 1, y: at.y }];
+export const gateTurned = (ring: Ring, p: Pt) => {
+  const side = sideOn(ring, p);
+  return side === 'w' || side === 'e';
 };
+/** The two ring cells a gate covers. */
+const gateCovers = (ring: Ring, g: Pt): Pt[] => (gateTurned(ring, g) ? [g, { x: g.x, y: g.y + 1 }] : [g, { x: g.x + 1, y: g.y }]);
 
 /** The ring cells that get gates: one on each of the four sides (the owner's ask: travellers wander in from any
- *  way), on the camp's row to the west and east (where raids come in) and on the camp's column to the north and
- *  south, each moved along its side up to `GATE_SEEK` cells to stand on dry ground; and wherever a road crosses the
- *  ring (at most one gate every few cells of a side). */
-export function gateCells(s: GameState, r: Rect): Pt[] {
+ *  way), where the camp's row meets the line to the west and east (where raids come in) and the camp's column meets it
+ *  to the north and south, each moved along the line up to `GATE_SEEK` cells (further if it must) to stand on dry
+ *  ground with both its cells on the same side's run; and wherever a road crosses the line (a gate every few cells
+ *  at most). */
+export function gateCells(s: GameState, line: LineCell[]): Pt[] {
   const c = campCell(s);
   const m = s.land;
-  const out: Pt[] = [];
+  const at = new Map(line.map((l) => [idx(m, l.x, l.y), l]));
   const dry = (p: Pt) => inMap(m, p.x, p.y) && !wet(groundAt(m, p.x, p.y)) && groundAt(m, p.x, p.y) !== 'mountain';
-  const standable = (p: Pt) => gateCovers(r, p).every(dry);
-  // (the nearest cell along the side where the gate's two cells are dry; else the cell itself, and the river or the
-  // mountain is the wall there)
-  const seek = (at: Pt, along: 'x' | 'y', lo: number, hi: number): Pt => {
-    for (let d = 0; d <= GATE_SEEK; d++)
-      for (const k of d ? [-d, d] : [0]) {
-        const p = along === 'x' ? { x: at.x + k, y: at.y } : { x: at.x, y: at.y + k };
-        if (p[along] < lo || p[along] > hi) continue;
-        if (standable(p)) return p;
-      }
-    return at;
+  const pair = (l: LineCell): Pt => (l.side === 'w' || l.side === 'e' ? { x: l.x, y: l.y + 1 } : { x: l.x + 1, y: l.y });
+  const runs = (l: LineCell) => {
+    const p = pair(l);
+    return at.get(idx(m, p.x, p.y))?.side === l.side;
   };
-  const row = Math.max(r.y + 1, Math.min(r.y + r.h - 2, c.y));
-  const col = Math.max(r.x + 1, Math.min(r.x + r.w - 2, c.x));
-  out.push(seek({ x: r.x, y: row }, 'y', r.y + 1, r.y + r.h - 2), seek({ x: r.x + r.w - 1, y: row }, 'y', r.y + 1, r.y + r.h - 2));
-  out.push(seek({ x: col, y: r.y }, 'x', r.x + 1, r.x + r.w - 2), seek({ x: col, y: r.y + r.h - 1 }, 'x', r.x + 1, r.x + r.w - 2));
-  const near = (p: Pt) => out.some((g) => sideOf(r, g) === sideOf(r, p) && Math.abs(g.x - p.x) + Math.abs(g.y - p.y) < 4);
-  for (const p of ringCells(r)) {
-    if (near(p) || !isRoad(s.land, p.x, p.y)) continue;
-    const corner = (p.x === r.x || p.x === r.x + r.w - 1) && (p.y === r.y || p.y === r.y + r.h - 1);
-    if (corner) continue;
-    out.push(p);
+  const standable = (l: LineCell) => runs(l) && dry(l) && dry(pair(l));
+  const out: LineCell[] = [];
+  const sides: [Side, (l: LineCell) => boolean, (l: LineCell) => number][] = [
+    ['w', (l) => l.x < c.x, (l) => Math.abs(l.y - c.y) * 4 + Math.abs(l.x - c.x) / 64],
+    ['e', (l) => l.x > c.x, (l) => Math.abs(l.y - c.y) * 4 + Math.abs(l.x - c.x) / 64],
+    ['n', (l) => l.y < c.y, (l) => Math.abs(l.x - c.x) * 4 + Math.abs(l.y - c.y) / 64],
+    ['s', (l) => l.y > c.y, (l) => Math.abs(l.x - c.x) * 4 + Math.abs(l.y - c.y) / 64],
+  ];
+  for (const [side, onSide, far] of sides) {
+    const cands = line.filter((l) => l.side === side && onSide(l));
+    if (!cands.length) continue;
+    const target = cands.reduce((a, l) => (far(l) < far(a) ? l : a));
+    const d = (l: LineCell) => Math.max(Math.abs(l.x - target.x), Math.abs(l.y - target.y));
+    // (on dry ground near the camp's row or column; else wherever along that side it can stand; else the cell, and
+    // the river or the mountain is the wall there)
+    const good = cands.filter(standable).sort((a, b) => d(a) - d(b) || far(a) - far(b));
+    out.push(good[0] && d(good[0]) <= GATE_SEEK * 3 ? good[0] : runs(target) ? target : (cands.find(runs) ?? target));
   }
-  return out;
+  const near = (p: LineCell) => out.some((g) => g.side === p.side && Math.abs(g.x - p.x) + Math.abs(g.y - p.y) < 4);
+  for (const l of line) {
+    if (near(l) || !isRoad(m, l.x, l.y) || !runs(l)) continue;
+    out.push(l);
+  }
+  return out.map((l) => ({ x: l.x, y: l.y }));
 }
 
 /** The ring piece standing on a cell (of this ring or an older one). */
@@ -197,11 +292,11 @@ export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; 
     return true;
   };
   for (const g of ring.gates) {
-    const cells = gateCovers(ring.rect, g);
+    const cells = gateCovers(ring, g);
     // (a gate that can't stand where it was meant to (the river runs under it) leaves its cells to the wall)
-    if (want(ring.gate, gateAt(ring.rect, g), cells, gateTurned(ring.rect, g))) for (const c of cells) covered.add(idx(m, c.x, c.y));
+    if (want(ring.gate, gateAt(ring, g), cells, gateTurned(ring, g))) for (const c of cells) covered.add(idx(m, c.x, c.y));
   }
-  for (const p of ringCells(ring.rect)) {
+  for (const p of lineOf(ring)) {
     if (covered.has(idx(m, p.x, p.y))) continue;
     if (wet(groundAt(m, p.x, p.y))) {
       if (riverCell(m, p)) want(GRATE_OF[ring.wall], p, [p]);
@@ -247,10 +342,12 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
   const mayRegrow = !cur || (!!cur.done && (raided || s.tick - (cur.doneAt ?? 0) >= RING_REGROW_HOURS * TICKS_PER_HOUR));
   if (!cur) {
     if (!wanted) return clear;
-    s.ring = { gen: 1, rect: want, wall, gate: GATE_OF[wall], gates: gateCells(s, want) };
+    const line = shapeRing(s, want);
+    s.ring = { gen: 1, rect: want, line, wall, gate: GATE_OF[wall], gates: gateCells(s, line) };
   } else if (!contains(cur.rect, want) && mayRegrow) {
     // (the town has grown past its wall: a wider ring outside it; the gates where the roads cross now)
-    s.ring = { gen: cur.gen + 1, rect: want, wall, gate: GATE_OF[wall], gates: gateCells(s, want) };
+    const line = shapeRing(s, want);
+    s.ring = { gen: cur.gen + 1, rect: want, line, wall, gate: GATE_OF[wall], gates: gateCells(s, line) };
   } else if (cur.wall !== wall) {
     // (a better wall learned: new pieces are of it; the old ones are rebuilt in place by the upgrade loop)
     cur.wall = wall;
@@ -259,8 +356,7 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
   const ring = s.ring!;
   // (the town knows the land its wall stands on: the ring's corners lie further out than its buildings)
   const c = campCell(s);
-  const r = ring.rect;
-  const reach = Math.ceil(Math.max(Math.hypot(r.x - c.x, r.y - c.y), Math.hypot(r.x + r.w - 1 - c.x, r.y - c.y), Math.hypot(r.x - c.x, r.y + r.h - 1 - c.y), Math.hypot(r.x + r.w - 1 - c.x, r.y + r.h - 1 - c.y)));
+  const reach = Math.ceil(Math.max(...lineOf(ring).map((p) => Math.hypot(p.x - c.x, p.y - c.y))));
   if (s.land.open < reach + 1) s.land.open = reach + 1;
   const missing = missingPieces(s, ring);
   if (!missing.length && !ring.done && !s.buildings.some((b) => b.ring === ring.gen && b.status !== 'done')) {
@@ -318,6 +414,6 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
 export function ringGate(s: GameState, side: -1 | 1): Pt | null {
   const ring = s.ring;
   if (!ring) return null;
-  const g = ring.gates.find((p) => (side < 0 ? p.x === ring.rect.x : p.x === ring.rect.x + ring.rect.w - 1));
+  const g = ring.gates.find((p) => sideOn(ring, p) === (side < 0 ? 'w' : 'e'));
   return g ?? null;
 }

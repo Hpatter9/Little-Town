@@ -5,7 +5,7 @@ import { trail } from '../src/shared/sim/battle';
 import { blueprintCount, footprint } from '../src/shared/sim/buildings';
 import { groundAt, inRect, isRoad, setGround, wet, WILD } from '../src/shared/sim/land';
 import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
-import { gateAt, gateCells, gateTurned, isGate, isRingPiece, RING_AT_ONCE, RING_PAD, RING_STEP, ringCells, riverCell, wantRect } from '../src/shared/sim/ringWall';
+import { gateAt, gateCells, gateTurned, isGate, isRingPiece, lineOf, PUSH_ALONG, RING_AT_ONCE, RING_PAD, RING_STEP, ringCells, ringGate, riverCell, shapeRing, sideOn, wantRect, type LineCell } from '../src/shared/sim/ringWall';
 import { campCell, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { pathTo } from '../src/shared/sim/walk';
 import { CELL, cellAt, isMarked, setMarked } from '../src/shared/sim/land';
@@ -16,7 +16,7 @@ import { clearAround, makeWild } from './helpers';
 function walledTown(seed: string): GameState {
   const s = newGame(seed);
   s.research.done.push('palisades', 'basic_shelter');
-  clearAround(s, 24);
+  clearAround(s, 34);
   s.buildings[0].store = { wood: 3000, stone: 500, fiber: 300, berries: 400 };
   for (let i = 0; i < 6; i++) s.people.push({ ...s.people[0], id: s.nextId++, name: `Hand ${i}` });
   return s;
@@ -52,9 +52,12 @@ test('the ring is laid a few cells outside the town, stepped out from the camp, 
   const cells = ringCells(r);
   assert.equal(cells.length, 2 * (r.w + r.h) - 4);
   assert.equal(new Set(cells.map((p) => `${p.x},${p.y}`)).size, cells.length);
-  const gates = gateCells(s, r);
-  assert.ok(gates.some((g) => g.x === r.x && g.y === c.y), 'a gate west on the camp row');
-  assert.ok(gates.some((g) => g.x === r.x + r.w - 1 && g.y === c.y), 'a gate east on the camp row');
+  const line = shapeRing(s, r);
+  const gates = gateCells(s, line);
+  const sideAt = (g: { x: number; y: number }) => line.find((l) => l.x === g.x && l.y === g.y)?.side;
+  for (const side of ['n', 's', 'w', 'e'] as const) assert.ok(gates.some((g) => sideAt(g) === side), `a gate on the ${side} side`);
+  assert.ok(gates.some((g) => sideAt(g) === 'w' && Math.abs(g.y - c.y) <= 6), 'a gate west by the camp row');
+  assert.ok(gates.some((g) => sideAt(g) === 'e' && Math.abs(g.y - c.y) <= 6), 'a gate east by the camp row');
 });
 
 test('the planner raises the ring all round, townsfolk get out through its gates, and raids come to the gate', () => {
@@ -64,12 +67,12 @@ test('the planner raises the ring all round, townsfolk get out through its gates
   const r = s.ring!.rect;
   const pieces = s.buildings.filter((b) => b.ring === s.ring!.gen);
   const covered = (p: { x: number; y: number }) => pieces.some((b) => inRect(footprint(b), p.x, p.y));
-  const open = ringCells(r).filter((p) => !covered(p));
+  const open = lineOf(s.ring!).filter((p) => !covered(p) && !(wet(groundAt(s.land, p.x, p.y)) && !riverCell(s.land, p)));
   assert.equal(open.length, 0, `gaps at ${JSON.stringify(open)}`);
   assert.ok(pieces.filter((b) => isGate(b.def)).length >= 2, 'gates');
   // the west and east gates stand turned, down the column, covering two ring cells each
-  for (const g of s.ring!.gates.filter((p) => gateTurned(r, p))) {
-    const at = gateAt(r, g);
+  for (const g of s.ring!.gates.filter((p) => gateTurned(s.ring!, p))) {
+    const at = gateAt(s.ring!, g);
     const gate = pieces.find((b) => isGate(b.def) && b.tile === at.x && b.row === at.y);
     assert.ok(gate?.turned, `a turned gate at ${JSON.stringify(at)}`);
     const f = footprint(gate!);
@@ -87,7 +90,8 @@ test('the planner raises the ring all round, townsfolk get out through its gates
   // the raid's trail ends at the east gate
   const t = trail(s, 1);
   const end = t[t.length - 1];
-  assert.deepEqual([Math.floor(end[0]), Math.floor(end[1])], [r.x + r.w - 1, c.y]);
+  const east = ringGate(s, 1)!;
+  assert.deepEqual([Math.floor(end[0]), Math.floor(end[1])], [east.x, east.y]);
 });
 
 test('when the town grows past its wall a wider ring goes up outside, and the old one comes down once it stands', () => {
@@ -125,7 +129,7 @@ test('the whole ring is laid out as one blueprint, built a few sections at a tim
   const pieces = s.buildings.filter((b) => b.ring === s.ring!.gen);
   const covered = (p: { x: number; y: number }) => pieces.some((b) => inRect(footprint(b), p.x, p.y));
   // (a cell still wild waits to be cleared, the river and a road beside a gate take no wall; everything else is laid at once)
-  const open = ringCells(r).filter((p) => !covered(p) && !WILD.includes(groundAt(s.land, p.x, p.y)) && !['water', 'shallows', 'mountain'].includes(groundAt(s.land, p.x, p.y)) && !isRoad(s.land, p.x, p.y));
+  const open = lineOf(s.ring!).filter((p) => !covered(p) && !WILD.includes(groundAt(s.land, p.x, p.y)) && !['water', 'shallows', 'mountain'].includes(groundAt(s.land, p.x, p.y)) && !isRoad(s.land, p.x, p.y));
   assert.equal(open.length, 0, `the first pass lays the whole ring: gaps at ${JSON.stringify(open)}`);
   const inWork = pieces.filter((b) => !b.planned);
   assert.ok(inWork.length > 0 && inWork.length <= RING_AT_ONCE, `${inWork.length} sections in work`);
@@ -203,7 +207,7 @@ test('where a river crosses the ring the wall is carried over it on grates; the 
   assert.ok(!grates.some((g) => g.row === r.y + r.h - 1 && g.tile >= r.x + 2 && g.tile < r.x + 14), 'no grates over the lake');
   // four gates, one a side, none in the water, the north one moved aside from the stream
   const gates = s.buildings.filter((b) => isGate(b.def) && b.ring === 1);
-  const side = (g: Building) => (g.row === r.y ? 'n' : g.row === r.y + r.h - 1 ? 's' : g.tile === r.x ? 'w' : 'e');
+  const side = (g: Building) => sideOn(s.ring!, { x: g.tile, y: g.row });
   assert.deepEqual(gates.map(side).sort(), ['e', 'n', 's', 'w']);
   for (const g of gates) {
     const f = footprint(g);
@@ -212,8 +216,32 @@ test('where a river crosses the ring the wall is carried over it on grates; the 
   const north = gates.find((g) => side(g) === 'n')!;
   assert.ok(north.tile + 1 < c.x || north.tile > c.x + 1, 'beside the stream');
   // the wall stands unbroken: every cell of the ring holds a piece of it, but the lake's
-  for (const p of ringCells(r)) {
+  const line = lineOf(s.ring!);
+  for (const p of line) {
     const b = s.buildings.find((q) => isRingPiece(q.def) && q.status === 'done' && inRect(footprint(q), p.x, p.y));
-    assert.ok(b || (p.y === r.y + r.h - 1 && wet(groundAt(s.land, p.x, p.y)) && !riverCell(s.land, p)), `a piece at ${p.x},${p.y}`);
+    assert.ok(b || (wet(groundAt(s.land, p.x, p.y)) && !riverCell(s.land, p)), `a piece at ${p.x},${p.y}`);
   }
+  // the wall never runs down a river (this seed's own river runs down the east side of the box): it stands past the far
+  // bank, and only crosses rivers
+  assert.ok(longestRiverRun(s, line) < PUSH_ALONG, `a run of ${longestRiverRun(s, line)} river cells on the line`);
+  assert.ok(line.some((p) => p.x > r.x + r.w - 1), 'pushed out past the river on the east');
 });
+
+/** The longest run of river cells (8-connected) on a ring's line. */
+function longestRiverRun(s: GameState, line: LineCell[]): number {
+  const river = line.filter((p) => wet(groundAt(s.land, p.x, p.y)) && riverCell(s.land, p));
+  const seen = new Set<LineCell>();
+  let most = 0;
+  for (const p0 of river) {
+    if (seen.has(p0)) continue;
+    const run = [p0];
+    seen.add(p0);
+    for (let i = 0; i < run.length; i++)
+      for (const q of river) if (!seen.has(q) && Math.max(Math.abs(q.x - run[i].x), Math.abs(q.y - run[i].y)) === 1) {
+        seen.add(q);
+        run.push(q);
+      }
+    most = Math.max(most, run.length);
+  }
+  return most;
+}

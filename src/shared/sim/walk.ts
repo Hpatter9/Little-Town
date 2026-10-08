@@ -32,7 +32,7 @@ export function blockedBy(s: Pick<GameState, 'buildings'>, through?: Rect): (x: 
   // times, and a walled town has a hundred wall pieces; the ring wall's gates are walked through)
   const cells = new Set<number>();
   for (const b of s.buildings) {
-    if (b.room || isGate(b.def) || b.planned) continue; // (a planned piece of the wall isn't there yet)
+    if (b.room || isGate(b.def) || b.planned || b.overgrown) continue; // (a planned piece of the wall isn't there yet, nor a site still being cleared)
     const r = footprint(b);
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (!(through && inRect(through, x, y))) cells.add(y * 4096 + x);
   }

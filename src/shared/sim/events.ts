@@ -276,7 +276,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
     } else if ('build' in e) {
       const def = BUILDING_BY_ID[e.build];
       const at = def ? findSpot(s, def) : null;
-      if (def && at && placeBlueprint(s, def.id, at.x, at.y).ok) {
+      if (def && at && placeBlueprint(s, def.id, at.x, at.y, false, false, !!at.wild).ok) {
         const b = s.buildings[s.buildings.length - 1];
         b.delivered = { ...def.cost };
         say(`a ${def.name.toLowerCase()} to build, its makings on site`);
