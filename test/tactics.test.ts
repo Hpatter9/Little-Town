@@ -248,3 +248,22 @@ test('a river across the field is wadeable shallows on the board, not a wall; on
   const dealt = r.tactics!.killed + r.raiders.filter((q) => q.hp < q.maxHp).length;
   assert.ok(dealt > 0 || s.people.reduce((a, p) => a + p.hp, 0) < hp0 || s.people.some((p) => p.downed), 'blows were struck across the river');
 });
+
+test('traps are laid out on the field the raiders cross, a different spread each battle, never by the wall', async () => {
+  const { layTraps, TRAP_FIELD_FROM, TRAP_FIELD_TO } = await import('../src/shared/sim/tactics');
+  const board = (w: number, h: number) => ({ w, h, tiles: Array.from({ length: w * h }, (_, i) => ({ h: 1, g: 'grass' as const, lx: i % w, ly: Math.floor(i / w) }) as any) });
+  const along = 14;
+  const spread = (seed: number) => {
+    const b = board(17, 14);
+    layTraps(b, [1, 2, 3, 4], along, seed);
+    return b.tiles.map((t: any, i: number) => (t.trap !== undefined ? i : -1)).filter((i: number) => i >= 0);
+  };
+  const a = spread(1);
+  assert.equal(a.length, 4, 'every trap laid');
+  for (const i of a) {
+    const u = i % 17;
+    assert.ok(u >= TRAP_FIELD_FROM && u <= along - TRAP_FIELD_TO, `out on the field (column ${u})`);
+  }
+  assert.notDeepEqual(spread(2), a, 'another battle, another spread');
+  assert.deepEqual(spread(1), a, 'the same battle replays the same');
+});

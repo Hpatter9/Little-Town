@@ -220,9 +220,10 @@ const GROUND_PER_LANE = 3;
 /** Shooters stand along the held stretch and a little beyond it (a share of `HOLD_REACH`). */
 const SHOOT_REACH = 1.25;
 const GROUND_APART = 2;
-/** A trap laid on a way in: this far (cells) before the gate, and the next on the same lane so much further out. */
-const TRAP_FROM_GATE = 3;
-const TRAP_APART = 2.5;
+/** A trap laid on a way in: somewhere between these shares of the lane's length from where the raiders come out,
+ *  a different place each battle. */
+export const TRAP_ALONG_FROM = 0.2;
+export const TRAP_ALONG_TO = 0.7;
 /** What wading a river costs a raiding party finding its way in (in cells of plain ground). */
 const FORD = 4;
 /** The nomads' wagons, drawn up by the trail's end while they have no walls: wall spots. */
@@ -499,7 +500,8 @@ export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false, 
     const c = centre(b);
     if (def.layer === 'fore' && (def.defense?.range ?? 0) < TILE) {
       // a trap: on the trail where it crosses one; else the town lays it out on a way in, as the tower defences have
-      // their traps on the path (on each lane in turn, along the stretch before the gate, where every raider passes)
+      // their traps on the path (on each lane in turn, somewhere out along the trail where every raider passes: by the
+      // gate the raiders were held off before they reached it, the owner's complaint)
       let best: [number, number] | null = null;
       for (const p of paths) {
         const cc = cumulative(p);
@@ -512,7 +514,8 @@ export function layOut(s: GameState, side: -1 | 1, flank: boolean, sea = false, 
         const p = paths[laid % paths.length];
         const cc = cumulative(p);
         const end = cc[cc.length - 1];
-        best = pointAt(p, cc, Math.max(0, end - TRAP_FROM_GATE - Math.floor(laid / paths.length) * TRAP_APART));
+        const r = (mixSeed(hashSeed(s.seed), salt, 0x7a9, laid) >>> 0) / 4294967296;
+        best = pointAt(p, cc, Math.max(0, end * (TRAP_ALONG_FROM + r * (TRAP_ALONG_TO - TRAP_ALONG_FROM))));
         laid++;
       }
       spot('trap', best[0], best[1], b.id);
