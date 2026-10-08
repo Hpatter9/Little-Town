@@ -537,6 +537,8 @@ export interface Person {
    *  first had points to spend (left that long, the town spends them). */
   attrPts?: Partial<import('../data/attributes').Attrs>;
   ptsSince?: number;
+  /** They spend their own stat points as they come (the player's choice, remembered: a checkbox on the Character tab). */
+  autoStats?: boolean;
   /** Their level (levels.ts: from all they do, fighting most), and the XP toward the next. Left out: level 1. */
   level?: number;
   lvXp?: number;

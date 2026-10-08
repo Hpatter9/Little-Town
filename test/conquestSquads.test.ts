@@ -7,7 +7,7 @@ import { worldOf } from '../src/shared/sim/conquest/conquest';
 import { warView } from '../src/shared/sim/conquest/warView';
 import { Sim } from '../src/shared/sim/sim';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
-import { plainGame } from './helpers';
+import { camp, plainGame, put, row } from './helpers';
 
 test('troops: every kind is worth about a soldier or more, and the peoples have one each', () => {
   for (const t of TROOPS) {
@@ -61,6 +61,8 @@ test('training and the days: recruits from the provinces, batches done, upkeep p
   assert.equal(train(s, 'nobody', 1).ok, false);
   assert.equal(train(s, 'archers', 1).ok, false, 'not yet studied');
   assert.equal(train(s, 'thralls', 1).ok, false, "another people's");
+  assert.match(train(s, 'spearmen', 1).reason ?? '', /Drill Yard/, 'nowhere to drill them');
+  put(s, 'drill_yard', camp(s).x + 6, row(s));
   const r = train(s, 'spearmen', 3);
   assert.ok(r.ok, r.reason ?? '');
   assert.equal(c.recruits, 2);

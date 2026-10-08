@@ -95,7 +95,7 @@ export function statsHourly(s: GameState): void {
       delete p.ptsSince;
       continue;
     }
-    if (!ask) {
+    if (!ask || p.autoStats) {
       spendByClass(p);
       continue;
     }

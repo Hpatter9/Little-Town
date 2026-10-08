@@ -367,6 +367,18 @@ export class Sim {
       case 'spendStat': {
         const p = s.people.find((q) => q.id === c.person);
         if (p) c.attr ? spendPoint(p, c.attr) : spendByClass(p);
+        // (letting them choose is remembered: they spend their own from now on, till the box is unticked)
+        if (p && !c.attr) p.autoStats = true;
+        break;
+      }
+      case 'autoStats': {
+        const p = s.people.find((q) => q.id === c.person);
+        if (p) {
+          if (c.on) {
+            p.autoStats = true;
+            spendByClass(p);
+          } else delete p.autoStats;
+        }
         break;
       }
       case 'setAsk':

@@ -227,3 +227,31 @@ test('stat points follow the road chosen, not only the archetype', () => {
   spendByClass(p);
   assert.ok((p.attrPts.str ?? 0) > (p.attrPts.vit ?? 0));
 });
+
+test('a townsperson left to spend their own points keeps doing so, till the box is unticked', async () => {
+  const { Sim } = await import('../src/shared/sim/sim');
+  const { plainGame } = await import('./helpers');
+  const { beginRecord, freePoints, statsHourly } = await import('../src/shared/sim/attributes');
+  const sim = new Sim(plainGame('auto-stats'));
+  const s = sim.state;
+  const p = s.people[0];
+  s.statsAsk = true;
+  s.autopilot = true;
+  p.level = 1;
+  beginRecord(p); // (the record of points spent begins at the first level gained)
+  p.level = 6;
+  const before = freePoints(p);
+  assert.ok(before > 0);
+  sim.command({ type: 'spendStat', person: p.id, attr: null });
+  sim.step();
+  assert.equal(p.autoStats, true, 'remembered');
+  assert.equal(freePoints(p), 0);
+  p.level = 8;
+  statsHourly(s);
+  assert.equal(freePoints(p), 0, 'the new ones spent as they come');
+  sim.command({ type: 'autoStats', person: p.id, on: false });
+  sim.step();
+  p.level = 10;
+  statsHourly(s);
+  assert.ok(freePoints(p) > 0, 'manual again: left for the player');
+});

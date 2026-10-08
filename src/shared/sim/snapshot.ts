@@ -171,6 +171,8 @@ export interface PersonView {
   road: { name: string; text: string; next: { id: string; name: string; text: string; lore: string }[]; at: number | null; promptId: number | null } | null;
   /** Stat points earned and not yet spent (data/attributes.ts). */
   freePts: number;
+  /** They spend their own points as they come. */
+  autoStats: boolean;
   /** The two attributes their road favours (what "Let them choose" would put points into). */
   favours: (keyof Attrs)[];
   /** Which of their class's five stages they're at (0 to 4), and whether they've ascended (the last needs it). */
@@ -1420,6 +1422,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     road: roadView(s, p),
     roadId: p.road ?? null,
     freePts: freePoints(p),
+    autoStats: !!p.autoStats,
     favours: roadFavours(p.cls, p.road),
     stage: stageOf(p),
     ascended: !!p.ascended,
