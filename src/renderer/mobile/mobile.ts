@@ -196,7 +196,7 @@ bridge.onSnapshot((snap) => {
   // (and a cutscene playing: the whole screen, like a watched fight)
   const scene = !!snap.scene?.playing;
   // (and the Deep looked into)
-  const below = !!snap.deepView || !!snap.portalView;
+  const below = !!snap.deepView || !!snap.portalView || !!snap.interior;
   if (scene !== document.body.classList.contains('scene') || !!(snap.battle || snap.watch || snap.mine || below || snap.tactics || scene) !== battleOn || !!(snap.watch || snap.mine || below || snap.tactics || scene) !== watchOn) {
     battleOn = !!(snap.battle || snap.watch || snap.mine || below || snap.tactics || scene);
     watchOn = !!(snap.watch || snap.mine || below || snap.tactics || scene);

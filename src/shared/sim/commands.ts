@@ -80,6 +80,7 @@ export type Command =
   /** Look down into the Deep (sim/deep.ts): a level by its depth, or null to come back up. */
   | { type: 'watchDeep'; depth: number | null }
   | { type: 'watchPortal'; realm: string | null }
+  | { type: 'lookInside'; building: number | null }
   | { type: 'giftVillage'; id: number }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
   | { type: 'rally'; person: number }
@@ -235,6 +236,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.expedition === null || Number.isInteger(c.expedition) ? { type: 'watch', expedition: c.expedition as number | null } : null;
     case 'giftVillage':
       return Number.isInteger(c.id) ? { type: 'giftVillage', id: c.id as number } : null;
+    case 'lookInside':
+      return c.building === null || Number.isInteger(c.building) ? { type: 'lookInside', building: c.building as number | null } : null;
     case 'watchPortal':
       return c.realm === null || typeof c.realm === 'string' ? { type: 'watchPortal', realm: c.realm as string | null } : null;
     case 'watchDeep':

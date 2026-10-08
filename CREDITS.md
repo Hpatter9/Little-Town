@@ -58,6 +58,11 @@ the brick hearth's furnace (`src/renderer/art/interior/`) are from **Craftpix.ne
 top-down pack. The raid map's cobbled trail and the pads under the shooters' spots (`src/renderer/art/td/`) are from its
 free Fields Tileset and Village Tileset for top-down tower defence. The Village Tileset's half-timbered houses and striped
 awnings also stand for the medieval town's cottages, row houses, inn, trading post and stalls on the town map.
+The rooms seen inside the town's buildings (`src/renderer/interior/interiorView.ts`) are furnished from **DawnLike**'s
+`Objects/Decor0.png` by **DragonDePlatino** (beds, chairs, tables, shelves, candles, rugs, a throne:
+`src/renderer/art/interior/decor.png`, CC-BY 4.0), and walled and floored from the Glassblower's Workshop pack's
+`Walls_interior.png` (`src/renderer/art/interior/walls.png`, Craftpix.net free licence).
+
 The shops' fronts on the town map (`src/renderer/art/shops/`) are cut from the Glassblower's Workshop pack's exterior
 and interior sheets: its big timber house and small shop (the gable set on its walls), the red market canopy over the
 trading post, the cloth awning (tinted to each shop's colours), crates, sacks, barrels, a wheelbarrow, a shelf of jars,
