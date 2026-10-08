@@ -64,6 +64,7 @@ import { chooseLich, watchLich } from './occult';
 import { castHeld, castPowers, holdPower } from './powers';
 import { lurkers } from './lurkers';
 import { prowlers } from './prowlers';
+import { bandsTick } from './bands';
 import { caveBear } from './caveBear';
 import { updateNomads } from './nomads';
 import { rulesOf } from '../data/origins';
@@ -172,6 +173,7 @@ export class Sim {
     checkLeavers(s);
     updateTrade(s, this.rng);
     updateShop(s, this.rng, SHOP_TOWN);
+    bandsTick(s, this.rng); // (the visiting bands: caravans, travellers, bandits in disguise, refugees: sim/bands.ts)
     updateWages(s);
     propertyHourly(s);
     treasuryHourly(s, this.rng);

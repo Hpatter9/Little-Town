@@ -10,6 +10,7 @@ import { MapBattle } from './map/mapBattle';
 import { MapSpells } from './map/mapSpells';
 import { MapHerds } from './map/mapHerds';
 import { MapBoats } from './map/mapBoats';
+import { MapWagons } from './map/mapWagons';
 import { MapBirds } from './map/mapBirds';
 import { MapWildlife } from './map/mapWildlife';
 import { MapTracks } from './map/mapTracks';
@@ -76,6 +77,13 @@ function envoyPerson(r: NonNullable<Snapshot['envoyRider']>): PersonView {
   return { ...v, typeName: 'Envoy', mounted: 0x6a4a2a, doing: r.leaving ? 'Riding home with the answer' : 'Waiting at the fire for an answer' };
 }
 const travellerDoing = (t: TravellerView) => {
+  // (one of a visiting band: sim/bands.ts)
+  if (t.band) {
+    const ph = t.bandPhase ?? 'coming';
+    if (t.band === 'caravan') return ph === 'coming' ? 'Bringing the caravan in to the market' : ph === 'staying' ? 'Trading at the market' : 'Moving on with the caravan';
+    if (t.band === 'refugees') return ph === 'coming' ? 'Fleeing to the gate' : ph === 'staying' ? 'Camped at the gate, hoping for aid' : 'Trudging away';
+    return ph === 'coming' ? 'Passing through' : ph === 'staying' ? 'Resting a while' : 'Moving on';
+  }
   const where = t.venue === 'tavern' ? 'tavern' : 'shop';
   return t.phase === 'arriving' ? `On the way to the ${where}` : t.phase === 'shopping' ? `In the ${where}` : 'Moving on';
 };
@@ -232,6 +240,7 @@ async function start(): Promise<void> {
   const raiders = new MapRaiders(map.things);
   const herds = new MapHerds(map.things);
   const boats = new MapBoats(map.things);
+  const wagons = new MapWagons(map.things); // (the caravans' wagons: sim/bands.ts)
   const birds = new MapBirds(map.things, map);
   (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
   const butterflies = new MapButterflies(map.things, map);
@@ -1251,7 +1260,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
     if (next.away && !q && view.mode === 'full')
@@ -1286,6 +1295,7 @@ async function start(): Promise<void> {
     map.syncBuildings(next.buildings);
     herds.update(next.buildings);
     boats.update(next.fleet, next.mooring);
+    wagons.update(next.wagons);
     pools.sync(next.blood);
     disaster.sync(next.disaster, next.land.w);
     map.festival.sync(next.gathering);

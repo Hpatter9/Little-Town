@@ -452,7 +452,7 @@ export const VISIT_GAP_HOURS = 7 * 24;
 export const joinTooSoon = (s: GameState): boolean => !rulesOf(s).freeJoin && s.tick - (s.lastVisit ?? -Infinity) < VISIT_GAP_HOURS * TICKS_PER_HOUR;
 
 /** Days of food in store a head (a newcomer's question defaults to no when it's under one). */
-function foodPerHead(s: GameState): number {
+export function foodPerHead(s: GameState): number {
   let food = 0;
   for (const b of s.buildings) for (const [m, n] of Object.entries(b.store)) food += (FOOD_VALUE[m] ?? 0) * (n ?? 0);
   // (a town of the dead or of machines turns nobody away for want of food: the newcomer won't eat either)

@@ -73,6 +73,7 @@ import { DECOR_LEVELS, DECOR_MAX, DECOR_STYLES, type DecorId } from '../data/dec
 import { FARE_NAMES, type FareKind, type FurnishKind, type ItemDef } from '../data/items';
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import { LEISURE } from '../data/recreation';
+import type { BandKind } from '../data/bands';
 import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
 import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
@@ -632,6 +633,9 @@ export interface TravellerView {
   dir: 1 | -1;
   phase: 'arriving' | 'shopping' | 'leaving';
   tier: number;
+  /** One of a visiting band (sim/bands.ts): its kind and where it is in its visit. */
+  band?: BandKind | null;
+  bandPhase?: 'coming' | 'staying' | 'leaving';
 }
 
 export interface Snapshot {
@@ -654,6 +658,8 @@ export interface Snapshot {
   wageBill: number;
   ledger: Ledger | null;
   travellers: TravellerView[];
+  /** The caravans' wagons on the land (sim/bands.ts). */
+  wagons: { id: number; x: number; y: number; dir: 1 | -1 }[];
   tick: number;
   paused: boolean;
   /** How fast the town runs (1, 2 or 3 times). */
@@ -891,7 +897,14 @@ export function snapshot(s: GameState): Snapshot {
     powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
     lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
-    travellers: (s.travellers ?? []).map((t) => ({ id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', line: t.line ?? null, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1 })),
+    travellers: (s.travellers ?? []).map((t) => {
+      const band = t.band === undefined ? undefined : (s.bands ?? []).find((b) => b.id === t.band);
+      return { id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', line: t.line ?? null, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1, band: band?.kind ?? null, bandPhase: band?.phase };
+    }),
+    wagons: (s.bands ?? []).flatMap((b) => {
+      const lead = b.wagon && (s.travellers ?? []).find((t) => t.id === b.members[0]);
+      return b.wagon ? [{ id: b.id, x: b.wagon.x, y: b.wagon.y, dir: lead?.dir ?? (b.side < 0 ? 1 : -1) }] : [];
+    }),
     tick: s.tick,
     paused: s.paused,
     speed: s.gameSpeed ?? 1,
