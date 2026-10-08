@@ -1,6 +1,7 @@
 // Fixed-tick simulation. Rendering never drives it: callers feed in elapsed real time and the sim runs
 // however many whole ticks that covers.
 
+import { CONQUEST } from '../data/conquest';
 import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
 import { streetsHourly } from './streets';
@@ -204,7 +205,7 @@ export class Sim {
     huntsHourly(s);
     dragonTick(s); // (the dragon in the hills: sim/dragon.ts)
     factionsHourly(s, this.rng);
-    conquestHourly(s); // (the conquest's provinces, troops and squads: sim/conquest/squads.ts)
+    if (CONQUEST.on) conquestHourly(s); // (the conquest's provinces, troops and squads: sim/conquest/squads.ts)
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(
       s,

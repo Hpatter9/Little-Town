@@ -8,6 +8,9 @@ import { warView } from '../src/shared/sim/conquest/warView';
 import { Sim } from '../src/shared/sim/sim';
 import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { camp, plainGame, put, row } from './helpers';
+import { CONQUEST } from '../src/shared/data/conquest';
+
+CONQUEST.on = true; // (the conquest is parked in the game, but its code stays tested)
 
 test('troops: every kind is worth about a soldier or more, and the peoples have one each', () => {
   for (const t of TROOPS) {

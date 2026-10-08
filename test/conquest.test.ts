@@ -7,6 +7,9 @@ import { foundConquest, holdings, worldOf } from '../src/shared/sim/conquest/con
 import { cellOf, makeWorld, provinceYield } from '../src/shared/sim/conquest/world';
 import { realm } from '../src/shared/sim/factions';
 import { newGame } from '../src/shared/sim/state';
+import { CONQUEST } from '../src/shared/data/conquest';
+
+CONQUEST.on = true; // (the conquest is parked in the game, but its code stays tested)
 
 const ids = (n: number) => ['town', ...pickRivals(new Rng(hashSeed('w:realm')), 'settlers', n - 1).map((d) => d.id)];
 

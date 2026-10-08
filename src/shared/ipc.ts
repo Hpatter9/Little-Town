@@ -1,5 +1,6 @@
 // Channel names and the API the preload script exposes to the renderers (strip and panel).
 
+import { CONQUEST } from './data/conquest';
 import type { Command } from './sim/commands';
 import type { JournalEntryView, Snapshot } from './sim/snapshot';
 import type { NewGameOptions } from './sim/state';
@@ -24,7 +25,7 @@ export const PANELS: readonly { id: PanelId; label: string }[] = [
   { id: 'research', label: 'Studies' },
   { id: 'trade', label: 'Market' },
   { id: 'expeditions', label: 'Trips' },
-  { id: 'war', label: 'War' },
+  ...(CONQUEST.on ? [{ id: 'war' as const, label: 'War' }] : []), // (the conquest is off for now: data/conquest.ts)
   { id: 'journal', label: 'Chronicle' },
 ];
 

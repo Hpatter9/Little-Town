@@ -8,6 +8,9 @@ import { FACTION_DEFS } from '../src/shared/data/factions';
 import { ALL_TROOPS } from '../src/shared/data/troops';
 import { CAPTAIN_LOOK, CAPTAIN_PACK, captainWho, propsOfKind, REALM_COLOURS, TROOP_LOOKS, troopWho } from '../src/renderer/art/warSprites';
 import { LAND_LOOK } from '../src/renderer/art/warTerrain';
+import { CONQUEST } from '../src/shared/data/conquest';
+
+CONQUEST.on = true; // (the conquest is parked in the game, but its code stays tested)
 
 describe('the War tab art', () => {
   it('gives every troop a look, and a Himeko figure where it is one', () => {

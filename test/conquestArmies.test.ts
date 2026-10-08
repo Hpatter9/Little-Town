@@ -10,6 +10,9 @@ import { TICKS_PER_DAY } from '../src/shared/sim/time';
 import { piece } from '../src/shared/data/quality';
 import { battleOfArmy } from '../src/shared/sim/conquest/battles';
 import { plainGame } from './helpers';
+import { CONQUEST } from '../src/shared/data/conquest';
+
+CONQUEST.on = true; // (the conquest is parked in the game, but its code stays tested)
 
 /** Every province is fought for now: the town's heroes made seasoned enough to win free ground. */
 const season = (p: ReturnType<typeof plainGame>['people'][number]) => {

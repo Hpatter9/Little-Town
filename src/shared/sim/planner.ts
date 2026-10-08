@@ -3,6 +3,7 @@
 // buildings or pick research any more; they set the town's direction and send out expeditions. What it decided,
 // and why, is kept in `s.plan` for the panels to show.
 
+import { CONQUEST } from '../data/conquest';
 import { PRISON_BUILDINGS, SICKBEDS } from '../data/prisons';
 import { needsSickbed, sickbedsOf } from './sickbeds';
 import { cellsOf } from './prisoners';
@@ -769,7 +770,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
     if (CROPS[d.id] && FOOD_VALUE[CROPS[d.id].material]) continue; // (food fields come of wanting food, above)
     if (d.id === 'graveyard' && !(s.graves?.length)) continue; // (only once someone has died)
     if (LEISURE[d.id] && grown < LEISURE_PEOPLE) continue; // (a hamlet has a roof to raise before a green to play on)
-    if (TRAINING_IDS.has(d.id) && grown < WAR_PEOPLE) continue; // (training grounds for the war, once there are hands to spare)
+    if (TRAINING_IDS.has(d.id) && (!CONQUEST.on || grown < WAR_PEOPLE)) continue; // (training grounds for the war, once there are hands to spare)
     if (d.id === 'trophy_hall' && treasuresHeld(s) < 2) continue; // (only once there's something to show)
     // (a specialty shop once the general store stands and the town is big enough to keep one)
     if (lineOfDef(d.id)) {
