@@ -306,7 +306,7 @@ export class MapPeople {
     const side: HkFacing = v.dir < 0 ? 'left' : 'right';
     let facing: HkFacing = step?.facing && !fighting ? step.facing : !fighting && !working && d.face ? d.face : side;
     if (reading && facing === 'up') facing = 'down';
-    let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null || (v.activity === 'sit' && !moving), ranged: v.battle.ranged, now, reading, playing: v.activity === 'play' && !fighting, ref: v.id });
+    let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null || (v.activity === 'sit' && !moving), ranged: v.battle.ranged, now, reading, playing: (v.activity === 'play' || v.activity === 'protest') && !fighting, ref: v.id });
     // (dancing at a feast, or mourning: map/dance.ts)
     if (step && step.col !== null && !fighting) col = step.col;
     return hkTexture(keys, col, row);

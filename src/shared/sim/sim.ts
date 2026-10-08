@@ -56,6 +56,7 @@ import { nestsHourly } from './nests';
 import { calamityHourly } from './calamity';
 import { deepHourly } from './deep';
 import { giftVillage, villagesHourly } from './villages';
+import { politicsHourly } from './politics';
 import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
@@ -206,6 +207,7 @@ export class Sim {
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     villagesHourly(s); // (daughter villages: sim/villages.ts)
+    politicsHourly(s); // (the town's politics and law: sim/politics.ts)
     scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)
     // (a town just founded: its founding, to watch)
     if (s.tick === TICKS_PER_HOUR && s.autopilot !== false && !s.scenesSeen?.length && !s.scenes?.length) queueScene(s, 'founding');

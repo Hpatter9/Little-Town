@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.34.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.35.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3316,6 +3316,46 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   map, Send a gift; tapped: founded, makes, waiting to send, its carts, its folk, its news). The strip opens that tab by
   writing `littletown.subtab.build` (the panel frame hears it through the `storage` event in subtabs.ts). The minimap
   shows its plots; the news bubble a red notice for a village broken away. Tests: `test/villages.test.ts`.
+
+## Town politics and law (0.35.0; the owner's pick of the content updates, the fifth)
+
+- **The data** (`src/shared/data/politics.ts`): four blocs (`BLOCS`, `BLOC_DEFS`: the guilds, the devout, the soldiers,
+  the commons), seven laws (`LAWS`: curfew, conscription, the temple tithe, a market charter, poor relief, harsh law, a
+  day of rest; each with a `stance` per bloc), and the numbers for satisfaction, the council, crime, trials, strikes and
+  revolt.
+- **The sim** (`src/shared/sim/politics.ts`, `politicsHourly` from sim.ts, off with the autopilot; `s.politics`,
+  `PoliticsState`):
+  - **Blocs:** `blocOf` sorts every grown-up but the founder (guards, adventurers and fighting callings the soldiers; the
+    pious and scholars the devout; crafters, keepers, the would-be rich and venue owners the guilds; the rest the
+    commons). Each dawn a bloc's satisfaction drifts `SAT_DRIFT` toward `targetOf`: `SAT_BASE`, `LAW_PULL` a law in force
+    it's for or against, the tax (`TAX_PULL`), its own concerns (the commons food and poverty, the soldiers the recent
+    dead and the guards, the devout the gods' favour and a place of worship, the guilds the shops' takings) and its
+    members' spirits (`MORALE_PULL`). A member feels it (`blocMood` in townsfolk.ts `mood`: "The commons are angry").
+  - **The laws at work** (`dailyLaws`): conscription a little melee for all, the temple tithe coins to the gods' favour,
+    the market charter a fee from each venue, poor relief coins to the poor, a day of rest a morale mark every seventh
+    day; a curfew halves crime and keeps everyone from the tavern (`nightOut`); harsh law cuts crime and hardens the
+    sentences.
+  - **The council** (`council`, every `COUNCIL_EVERY_DAYS` at `COUNCIL_HOUR`, from day `COUNCIL_FROM_DAY` with
+    `COUNCIL_PEOPLE` grown-ups): the unhappiest bloc's `proposalOf` (repeal the law it hates, else pass one it wants,
+    else lower the tax) is voted by every grown-up's bloc (`callVote`); a prompt of kind `council` (`Prompt.politics`
+    'vote'): let it stand, or overrule it (`OVERRULE_COST` off the side that won).
+  - **Crime** (`crime`, at `CRIME_HOUR`, from `CRIME_PEOPLE` grown-ups): `CRIME_BASE` raised by the poor and the unhappy,
+    cut by guards, a curfew and harsh law; the culprit weighted to the unhappy, the poor and the greedy sort; theft,
+    assault, vandalism or (against an enemy) murder. Caught (`CAUGHT_*`, more with guards), a **trial** (`trial`, a
+    prompt of kind `trial`): pardon, fine, the stocks, exile, and for murder the rope; each sentence moves the blocs
+    (`SENTENCE_PULL`); the default by the crime and harsh law.
+  - **Unrest** (`unrest`, at noon): a bloc under `STRIKE_AT` strikes (`s.politics.strike`, `STRIKE_HOURS`): its members
+    take the `protest` task (people.ts: gathered before the seat, `protestSpot`, activity `protest`, no work done); a
+    town whose members' satisfaction is under `REVOLT_AT` overall, or a bloc under `REVOLT_BLOC_AT` that has struck,
+    **rises**: a prompt of kind `revolt`: give way (its hated laws repealed, the tax low), put it down (the soldiers and
+    guards against the crowd: wounds, deaths, the ringleader exiled) or step down (`s.mainId` passes to the bloc's most
+    persuasive).
+- **Seen:** `snapshot.politics` (`PoliticsView`). The Town menu's **Council** tab (`panel/politicsPanel.ts`): each bloc
+  (members, a satisfaction bar, what it would call for; tapped: who they are, where it's heading, its members), the laws
+  (in force or not, who's for and against), and the log of votes, crimes, trials, strikes and revolts. The event box
+  shows the votes, trials and revolts; on the map strikers shake their fists before the seat (the `play` pose) and
+  shout (speech topic `protest`, a line for every nature); the news bubble a red notice for a strike. Tests:
+  `test/politics.test.ts`.
 
 ## Known problem (fixed, watch)
 

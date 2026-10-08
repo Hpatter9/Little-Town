@@ -6,6 +6,7 @@
 // afford, for a little less than a stranger pays, from the house (the owner's purse, the keeper's cut: takeSale),
 // and it lifts their spirits; with nothing on tap the company still counts for half.
 
+import { lawOn } from './politics';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { SAVINGS_KEEP } from '../data/economy';
 import { natureOf, type NatureId } from '../data/natures';
@@ -53,7 +54,7 @@ export const drinking = (s: GameState, p: Person): boolean =>
 /** Of an evening (TAVERN_HOUR, from wages.ts): who goes to the tavern tonight. */
 export function nightOut(s: GameState): void {
   const tavern = venueOpen(s, 'tavern');
-  if (!tavern) return;
+  if (!tavern || lawOn(s, 'curfew')) return; // (a curfew keeps everyone home: sim/politics.ts)
   const keeper = holderOf(s, tavern);
   const day = Math.floor(s.tick / TICKS_PER_DAY);
   const goers = s.people

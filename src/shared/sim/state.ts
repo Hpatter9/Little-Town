@@ -257,6 +257,8 @@ export type Task =
   | { type: 'extinguish'; building: number }
   /** Held to the town's work by an event (cutting a fireline, the long night's watch: `s.busy`, sim/events.ts). */
   | { type: 'toil' }
+  /** On strike with their bloc, gathered before the seat (sim/politics.ts). */
+  | { type: 'protest' }
   /** At a funeral or a feast (sim/ceremonies.ts). */
   | { type: 'attend' }
   /** Of an evening at the tavern, for a drink (sim/nightOut.ts). */
@@ -292,7 +294,7 @@ export interface CraftOrder {
 
 /** What a person is visibly doing (drives their animation). */
 /** `dance`: at a feast (the map draws them dancing); `mourn`: at a funeral. */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | 'sit' | WorkAnim;
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | 'sit' | 'protest' | WorkAnim;
 
 export interface Raider {
   id: number;
@@ -696,7 +698,9 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt';
+  /** A question of the town's politics (sim/politics.ts): a council vote, a trial or a revolt. */
+  politics?: 'vote' | 'trial' | 'revolt';
   /** A daughter village's question (sim/villages.ts): some would go and found one, or one is beset. */
   village?: { about: 'parting' | 'beset'; id?: number };
   /** An evolution's two roads (sim/classes.ts): the node ids the options stand for. */
@@ -1192,6 +1196,8 @@ export interface GameState {
   /** Daughter villages (sim/villages.ts): those founded, a parting waiting on the town's answer, and when the last went. */
   villages?: import('./villages').Village[];
   villagePlan?: import('./villages').VillagePlan;
+  /** The town's politics and law (sim/politics.ts). */
+  politics?: import('./politics').PoliticsState;
   lastVillage?: number;
   /** How many people the player wants the town to hold (unset: as many as come). Nobody joins or is born past it. */
   popTarget?: number;

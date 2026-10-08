@@ -22,6 +22,7 @@ const GROUPS: Record<string, MenuTabs> = {
       ['Stores', /^Stores/],
       ['Faith', /^(The gods|Signs from the gods)/],
       ['Villages', /^Daughter villages/],
+      ['Council', /^(The council|Laws|Crime and trials)/],
       ['Treasury', /^(Treasury|Tax|Guards)/],
     ],
     intro: 'Overview',

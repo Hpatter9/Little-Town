@@ -2,6 +2,7 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { protestSpot, striking } from './politics';
 import { RING_CLEAR_PULL } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
 import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
@@ -342,6 +343,15 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       const spot = relaxSpot(b, p.id + (def.activity === 'stroll' ? Math.floor(s.tick / (6 * TICK_HZ)) : 0));
       if (def.indoors ? !goToB(s, p, b) : !goTo(s, p, spot)) break;
       p.activity = def.activity;
+      break;
+    }
+    case 'protest': {
+      if (!striking(s, p)) {
+        p.task = null;
+        break;
+      }
+      if (!goTo(s, p, protestSpot(s, p))) break;
+      p.activity = 'protest';
       break;
     }
     case 'toil': {
@@ -843,6 +853,7 @@ function rank(t: Task, p?: Person): number {
     case 'extinguish':
       return -2.5;
     case 'toil':
+    case 'protest':
       return -2.4;
     case 'attend':
       return -2.3;
@@ -877,6 +888,7 @@ function jobOf(t: Task): Job {
     case 'repair':
     case 'extinguish':
     case 'toil':
+    case 'protest':
     case 'attend':
       return 'construct';
     case 'defend':
@@ -923,6 +935,8 @@ function chooseTask(s: GameState, p: Person): Task | null {
   }
   // Held to the town's work by an event (sim/events.ts `busy`): they eat when they must, and otherwise toil on.
   if (busyNow(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'toil' ? p.task : { type: 'toil' };
+  // On strike with their bloc (sim/politics.ts): gathered before the seat, and no work done (they still eat).
+  if (striking(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'protest' ? p.task : { type: 'protest' };
   // Of an evening, those out for a drink go to the tavern and stay (sim/nightOut.ts; they eat first if they must).
   if (drinking(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'drink' ? p.task : { type: 'drink' };
   // Spirits low: a break at a place of leisure before the day's work (sim/leisure.ts; the hungry eat first).
@@ -1211,6 +1225,8 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       return !!site && site.fire !== undefined && !alarmRaised(s);
     case 'toil':
       return busyNow(s, p) && !alarmRaised(s);
+    case 'protest':
+      return striking(s, p) && !alarmRaised(s);
     case 'attend':
       return attending(s, p) && !alarmRaised(s);
     case 'drink':
