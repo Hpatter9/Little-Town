@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.19.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.20.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -2490,6 +2490,50 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   fight screen (clashes are auto, on the board), the town's armies defending a province on the board (a rival's
   attack on a province with the town's army in it is reckoned by strength), rival armies as standing pieces (a
   rival's march is resolved on arrival).
+
+- **The War tab's art (done; the owner's complaint: the battle maps and the conquest map were basic and boring):** both
+  are painted at the screen's own resolution (`devicePixels()`) from the packs, with no Pixi, by four modules.
+  `src/renderer/art/warTerrain.ts`: `LAND_LOOK` (each world land's two tones, its ground patch and share, its props by
+  set and kind, tufts, flowers, pebbles), `paintGround` (an ImageData fill: the lands' borders warped by noise, the sea
+  shaded by its depth from the shore (`depthMap`) with foam and wave streaks, the mountains in relief with snow and
+  cracks), `paintDetail` (the Path and Road pack's patches and the Fields pack's tufts through `groundDetail.ts`),
+  `placeProps`/`drawProps` (the props atlases' trees, bushes, rocks, plants and bones, by the land, seeded, sorted by
+  their feet). `src/renderer/art/warSprites.ts`: the images (`warImage`, loaded once; `onWarArt` tells the panel to draw
+  again, rAF-debounced, through `artGen` in `warKey`), the pack buildings (`SPRITES`: the Simple Summer houses, keep,
+  round castle, tent and watchtowers, the tiny-rpg-town long and gabled houses, the rocky yurt and tipi, the cave gate
+  and altar, the palisade stakes, the dungeon stonework `STONE_WALL`/`STONE_GATE`, the campfire), the troops as figures
+  (`TROOP_LOOKS`: every troop a Himeko look (`troopWho`: body, head, weapon, shield, pale or bone, mounted on the
+  whtdragon horse), a pack hero sheet, or a beast sheet; `CAPTAIN_PACK`/`CAPTAIN_LOOK` a captain for every power;
+  `drawWho`/`drawPack`/`drawBeast`/`drawTroop`/`drawCaptain`), and `REALM_COLOURS` (the town gold, then red, blue,
+  violet, teal...: none near the gold). `src/renderer/panel/warMap.ts`: the world map (`worldTerrain`, cached by the
+  cells and the images' readiness; `holdersLayer`: each realm's tint over its land, stronger for the town's, a dark edge
+  and the realm's band along its border, a thin line between provinces, white round the tapped one; settlements by tier
+  and their holder's people (`drawSettlement`: tents for the horde, the cave gate for the hold, else houses to a castle),
+  landmarks, flags, garrisons, armies, a compass). `src/renderer/panel/warBoard.ts`: the battle board (`boardGround`,
+  cached a battle: the land's ground, a wandering rutted track to the gate, the attackers' tents and fire at the west
+  edge, the settlement's trodden cobbled ground and houses (or a lair's cave and bones) east of the wall line, the
+  land's props kept off the track; `drawWall`: the palisade or the stonework, breached from the middle as the walls
+  fall; `paintBoard`: each squad as its hero's figure facing the foe (a townsperson as the map dresses them, a captain,
+  the lair's master) with its troops as small figures round them (the owner's ask: figures, not pips: the three rows
+  along the facing, the front row nearest the foe, each row's three spread up and down the cell, `drawTroop` at 0.42 of
+  a cell, the hurt faded), its health bar and count, the harm as numbers, a ring round the tapped one;
+  `paintFormation`: a tapped squad's card and the Barracks' squad cards show the hero and every troop as figures in
+  their three rows). Everything pixel art is drawn with smoothing off. Checked upright on the phone with the scratch
+  `artshot.cjs`. Test: `test/warArt.test.ts` (every troop, land and power has a look the atlases hold). **More
+  texture (the owner's ask):** `paintGround` takes `relief` (rolling ground lit from the north-west, from the slope of
+  `lieOf`, a slow noise; the board 1, the map 0.5, the formation cards 0.7), `grain` (fine light and dark flecks in each
+  land's `speckle` colours and clumps of shade) and `puddles` (on the board: still water with a muddy rim and a glint in
+  the hollows of a land with `wet`, most in the fens, ice-pale on the tundra; `puddleAt` keeps the patches, tufts and
+  props out of them). The board besides: boot prints up the track turned the way it runs, the ground trampled before
+  the gate and bare along the wall's foot, the fire in a ring of ash and stones, the tents on trodden ground, the litter
+  of older fights (bones, a skull, a burnt-out cart on its scorch, from the `places` and `desert` sets), a hamlet's
+  furrowed plot with sprouts inside the Fields pack's rail fence (`drawFenceRun`), shadows under every building and
+  the wall's shadow cast east, the settlement's cobbles greyer on the cold lands, more tufts and flowers (`more`).
+  `window.__warGround(land, tier, fort, lair)` in the panel gives a land's board as a data URL (the scratch
+  `groundshot.cjs` renders all ten). **The defenders fight back:** `takeBeat` in sim/conquest/battles.ts never passed the beat to the other side (`b.side` was set once),
+  so the garrison only riposted and a squad held at the wall line out of its reach stood 600 turns to a "defeat";
+  the sides now alternate as designed (probe: a level-24 founder's squad of nine loses to a two-squad garrison, a
+  level-32 one wins).
 
 ## The townsfolk's own economy (done; the owner's direction: see PLAN.md)
 

@@ -62,12 +62,17 @@ export interface BattleEvent {
   from: number;
   to: number | null;
   text: string;
+  /** A clash's harm done, and the riposte's. */
+  harm?: number;
+  back?: number;
 }
 export interface ProvinceBattle {
   id: number;
   province: number;
   army: number;
   started: number;
+  /** Who held the province as the battle began (null: a lair). */
+  holder?: string | null;
   /** Whose beat is next, the tick it falls on, and the turn count. */
   side: 'town' | 'foe';
   beat: number;
@@ -181,7 +186,7 @@ export function startBattle(s: GameState, c: ConquestState, a: Army, province: n
   const p = w.provinces[province];
   const rng = new Rng(hashSeed(`${s.seed}:pbattle:${s.tick}:${a.id}`));
   c.nextBattle ??= 1;
-  const b: ProvinceBattle = { id: c.nextBattle++, province, army: a.id, started: s.tick, side: 'town', beat: s.tick + BEAT_TICKS, turn: 0, squads: [], walls: 0, wallsMax: 0, events: [], done: null, endAt: null };
+  const b: ProvinceBattle = { id: c.nextBattle++, province, army: a.id, started: s.tick, holder: c.holder[province], side: 'town', beat: s.tick + BEAT_TICKS, turn: 0, squads: [], walls: 0, wallsMax: 0, events: [], done: null, endAt: null };
   const squads = a.squads.map((id) => c.squads.find((q) => q.id === id)).filter((q): q is Squad => !!q);
   squads.forEach((q, i) => {
     const f = fieldOf(s, q, i + 1, i % 2, Math.round(((i + 1) / (squads.length + 1)) * (BOARD_H - 1)));
@@ -234,6 +239,7 @@ function takeBeat(s: GameState, c: ConquestState, b: ProvinceBattle): void {
   // the squad whose turn it is: round robin by the turn count
   const q = mine[Math.floor(b.turn / 2) % mine.length];
   b.turn++;
+  b.side = b.side === 'town' ? 'foe' : 'town'; // (the other side acts next beat)
   // the nearest foe
   let target = theirs[0];
   for (const t of theirs) if (dist(q, t) < dist(q, target)) target = t;
@@ -287,7 +293,7 @@ function takeBeat(s: GameState, c: ConquestState, b: ProvinceBattle): void {
 function clash(s: GameState, c: ConquestState, b: ProvinceBattle, att: FieldSquad, dfn: FieldSquad, rng: Rng): void {
   const dealt = strike(b, att, dfn, 1, rng);
   const back = alive(dfn) ? strike(b, dfn, att, RIPOSTE, rng) : 0;
-  event(b, s.tick, 'clash', att.id, dfn.id, `${att.name} strike ${dfn.name}: ${Math.round(dealt)} harm${back ? `, ${Math.round(back)} back` : ''}.`);
+  event(b, s.tick, 'clash', att.id, dfn.id, `${att.name} strike ${dfn.name}: ${Math.round(dealt)} harm${back ? `, ${Math.round(back)} back` : ''}.`, Math.round(dealt), Math.round(back));
   for (const q of [dfn, att]) settle(s, c, b, q, rng);
 }
 /** The blows of one squad on another: each troop's, bettered by its hero's command and its kind's counter, on the row
@@ -373,8 +379,8 @@ function heroDown(s: GameState, c: ConquestState, b: ProvinceBattle, q: FieldSqu
     notify(s, `${p.name} is taken captive at ${prov.name}: ${FACTION_BY_ID[holder!]?.name ?? 'the holders'} ask ${ransom} coins.`, true);
   } else notify(s, `${p.name} is carried from the field at ${prov.name}, badly hurt.`);
 }
-function event(b: ProvinceBattle, tick: number, kind: BattleEvent['kind'], from: number, to: number | null, text: string): void {
-  b.events.push({ tick, kind, from, to, text });
+function event(b: ProvinceBattle, tick: number, kind: BattleEvent['kind'], from: number, to: number | null, text: string, harm?: number, back?: number): void {
+  b.events.push(harm === undefined ? { tick, kind, from, to, text } : { tick, kind, from, to, text, harm, back });
   if (b.events.length > EVENTS_KEPT) b.events.splice(0, b.events.length - EVENTS_KEPT);
 }
 
