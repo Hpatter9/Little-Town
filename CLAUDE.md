@@ -3868,3 +3868,7 @@ blocked by buildings, structures, trees and rocks)
   costs 4 wood and 20 s (a grate 5 and 25 s). Probe (20 days, main → now, pieces standing at day 19): druids 1 → 18 and
   26 → 114 of 116 (finished), settlers 7 → 29; knights finished their first ring by day 14 and a wider one by day 19.
   Test in `test/ringWall.test.ts`.
+- **No sound in the background (the owner's complaint):** `src/renderer/audioGate.ts`. Every Web Audio context (musicGen.ts,
+  ambience.ts: `gateContext`) is suspended and every recorded track (music.ts: `gateTrack`) paused the moment the page is
+  hidden (`visibilitychange`, `pagehide`, `freeze`), and carried on when it's back; while away `wake` does nothing, and
+  the music's next piece waits (`onBack`). A new sound source must go through it. Test: `test/audioGate.test.ts`.
