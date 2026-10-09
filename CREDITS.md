@@ -129,6 +129,21 @@ The places of leisure are laid from the Fields tileset's signpost, rail fences a
 `f_fence3.png`, `f_stump.png`), the Village tileset's bucket and bench (`v_bucket.png`, `v_bench.png`), and the pieces
 already copied (logs, boxes, lanterns, a tent, the bridge pack's planks).
 
+## The town over time and its moods (moving machinery, signposts, homes, smoke)
+
+The windmill's turning sails are cut from the same Simple Summer windmill: its body with the sails taken away and the
+hidden tower filled in (`src/renderer/art/packs/su_windmill_body.png`), one blade (`su_windmill_sail.png`, turned
+upright) and the hub (`su_windmill_hub.png`); the full picture (`su_windmill.png`) stays for still pictures. The mills'
+water wheel (`packs/sb_wheel.png`) is the top half of the ship's wheel of **Craftpix.net**'s free Top-Down Seabed
+Objects pack, mirrored. The venues' banners are the animated flag of **Craftpix.net**'s free Fields Tileset for tower
+defence (`src/renderer/art/fields/flag.png`, recoloured per shop), and the crossroads' signposts its pointers
+(`packs/f_pointer4.png`, `fields/pointer1.png`, the loose board `fields/board.png`). The shutters closed at a raid's
+warning and the rich homes' painted doors are a cell of **DawnLike**'s `Objects/Door0.png` by **DragonDePlatino**
+(`src/renderer/art/village/dl_door.png`). The flower boxes, gardens and the clutter of the poor are pieces already copied
+(the Fields Tileset's box, flowers and tufts, the dungeon clutter, the Village Tileset's bucket, the Fields logs). The
+coughs' puffs, the smoke columns over fires and the plague's crosses on doors are strips of the **5000 Pixel Effects**
+atlas already in the game (white and poison puffs, white smoke darkened, the blood cross).
+
 ## Craftpix seabed wreck (the sea beast's reef)
 
 The broken wreck a sea beast lairs on, off a shore town (`src/renderer/art/packs/sb_wreck.png`), is from

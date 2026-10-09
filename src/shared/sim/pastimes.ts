@@ -1,6 +1,7 @@
 // What townsfolk do with an idle moment (the owner's ask: everyday life to watch): a child runs off to play with the
 // other children (tag about the camp), an elder sits by the fire, and a couple walks out together of an evening.
-// It only changes where an idle wander goes and how the wait is spent: nobody is taken from work.
+// In a plague the healer, idle, goes the rounds of the sick households (the plague doctor). It only changes where an
+// idle wander goes and how the wait is spent: nobody is taken from work.
 
 import { CELL } from './land';
 import { calendar } from './time';
@@ -8,6 +9,8 @@ import { campXY, type GameState, type Person } from './state';
 import { isChild } from './social';
 import { isElder } from './ageing';
 import { buildingDoor } from './buildings';
+import { SICKBEDS } from '../data/prisons';
+import type { DoomKind } from '../data/doom';
 
 /** Market day: one day in `MARKET_EVERY` (the `MARKET_DAY`th), from `MARKET_FROM` to `MARKET_UNTIL`, in a town of at
  *  least `MARKET_PEOPLE` grown-ups: stalls go up on the square (the map draws them) and anyone idle goes to browse. */
@@ -36,7 +39,29 @@ export function marketSquare(s: GameState): { x: number; y: number } {
   return { x: c.x, y: c.y + 3 * CELL };
 }
 
-export type Pastime = 'play' | 'sit' | 'stroll' | 'market';
+export type Pastime = 'play' | 'sit' | 'stroll' | 'market' | 'rounds';
+
+/** The dooms that are a pestilence, and how many sick in town make one besides. */
+export const PLAGUE_DOOMS: readonly DoomKind[] = ['plague', 'outbreak', 'rat_plague'];
+export const PLAGUE_SICK = 3;
+
+/** Whether a plague is on: a pestilence doom come upon the town, or `PLAGUE_SICK` of the town sick at once. Pure, so
+ *  the map can ask it of the snapshot too (the marked doors). */
+export function plagueOn(doom: { kind: DoomKind; phase: string } | null | undefined, sick: number): boolean {
+  return (!!doom && doom.phase === 'active' && PLAGUE_DOOMS.includes(doom.kind)) || sick >= PLAGUE_SICK;
+}
+
+/** The healer making the rounds in a plague: the holder of a healer's hut, infirmary, hospital or trauma centre. */
+export function isHealer(s: GameState, p: Person): boolean {
+  return s.buildings.some((b) => b.operator === p.id && b.status === 'done' && SICKBEDS[b.def] !== undefined);
+}
+
+/** The homes with someone sick in them (their beds), by id: the doors the plague doctor knocks at. */
+export function sickHomes(s: GameState): number[] {
+  const out = new Set<number>();
+  for (const q of s.people) if (q.sick && q.away === null && q.bed !== null) out.add(q.bed);
+  return [...out].sort((a, b) => a - b);
+}
 
 /** Couples walk out together between these hours. */
 export const STROLL_FROM = 17;
@@ -58,6 +83,16 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
     const a = (slot * 2.399 + p.id) % (Math.PI * 2);
     const base = other ?? { x: c.x, y: c.y };
     return { x: base.x + Math.cos(a) * PLAY_NEAR * CELL, y: base.y + Math.sin(a) * PLAY_NEAR * CELL * 0.7, pastime: 'play' };
+  }
+  // (a plague on: the healer goes from one sick household's door to the next, by turns)
+  if (plagueOn(s.doom, s.people.filter((q) => q.sick).length) && isHealer(s, p)) {
+    const homes = sickHomes(s)
+      .map((id) => s.buildings.find((b) => b.id === id))
+      .filter((b): b is NonNullable<typeof b> => !!b && b.status === 'done');
+    if (homes.length) {
+      const d = buildingDoor(homes[slot % homes.length]);
+      return { x: d.x + 0.4 * CELL, y: d.y + 0.5 * CELL, pastime: 'rounds' };
+    }
   }
   const hour = calendar(s.tick).hour;
   // (market day: off to the square to browse the stalls)

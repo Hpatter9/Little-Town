@@ -299,6 +299,8 @@ export interface PersonView {
   tireless: boolean;
   order: string | null;
   sick: boolean;
+  /** The healer going the rounds of the sick households in a plague (sim/pastimes.ts): drawn masked, the plague doctor. */
+  rounds: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
    *  chance, dodge, armour and block, and the chance to strike true. */
   battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number; range: number };
@@ -1715,6 +1717,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     tireless: tireless(p),
     order: p.monster ? (p.order ?? 'hide') : null,
     sick: !!p.sick,
+    rounds: (p.task?.type === 'wander' || p.task?.type === 'idle') && p.task.pastime === 'rounds',
     ...fightView(p),
   };
 }
@@ -2025,6 +2028,7 @@ function describe(s: GameState, p: Person): string {
   switch (task.type) {
     case 'wander':
     case 'idle':
+      if (task.pastime === 'rounds') return 'Going the rounds of the sick households';
       return p.morale < SULK_MORALE ? 'Sulking (morale too low to work)' : 'Idling at camp';
     case 'gather': {
       if (task.scrounge) return 'Hungry: picking wild berries (nothing in storage)';

@@ -29,6 +29,10 @@ import { MapGraves } from './map/mapGraves';
 import { sunAt } from './art/sun';
 import { MapMarket } from './map/mapMarket';
 import { SeasonDecor } from './map/seasonDecor';
+import { HomeDecor } from './map/homeDecor';
+import { Signposts } from './map/signposts';
+import type { Signpost } from './map/signRules';
+import { plagueOn } from '../shared/sim/pastimes';
 import { StreetLamps } from './map/streetLamps';
 import { LightMap } from './map/lightMap';
 import { MapSkiffs } from './map/mapSkiffs';
@@ -82,7 +86,7 @@ function travellerPerson(t: TravellerView): PersonView {
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], body: { wounds: [], lasting: [], fitted: [], sight: 1, handling: 1, moving: 1, pain: 0, marks: [] }, growsUpIn: null, breakdown: null, ageDays: 0,
   ageYears: 0, lifeStage: 'prime', ageText: '', elder: false, swimming: false, mer: false, nature: 'cheerful', natureName: 'Cheerful', natureLine: '', job: null,
-  monster: null, tireless: false, order: null, sick: false,
+  monster: null, tireless: false, order: null, sick: false, rounds: false,
     battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8, cha: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [], road: null, roadId: null, freePts: 0, autoStats: false,
   favours: [],
   };
@@ -136,13 +140,13 @@ const travellerDoing = (t: TravellerView) => {
 import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
-import { CELL, cellAt, groundAt, idx, isMarked, isRoad, WILD } from '../shared/sim/land';
+import { CELL, cellAt, groundAt, idx, isMarked, isRoad, wet, WILD } from '../shared/sim/land';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
 import { loadLpc, loadLpcFaces, lpcFrame } from './art/lpc/lpc';
 import { topDownArt } from './art/topDown';
-import { packArt } from './map/packBuildings';
+import { packArt, pickCovered } from './map/packBuildings';
 import { airFor } from './town/ambientView';
 import { noTone, textureCanvas } from './art/pixelArt';
 import { MapCamera } from './map/mapCamera';
@@ -195,6 +199,7 @@ type Hover =
   | { kind: 'roamer'; id: number }
   | { kind: 'pet'; key: string }
   | { kind: 'grave'; id: number }
+  | { kind: 'sign'; sign: Signpost }
   | { kind: 'caravan' }
   | { kind: 'village'; id: number }
   | null;
@@ -353,6 +358,10 @@ async function start(): Promise<void> {
   (window as unknown as { __graves?: MapGraves }).__graves = graves; // (previews)
   const market = new MapMarket(map.things); // (market day's stalls)
   const decor = new SeasonDecor(map.things, map.lights); // (the doors dressed for the season)
+  const homes = new HomeDecor(map.things); // (homes showing their folk's means, and the plague's marked doors)
+  (window as unknown as { __homes?: HomeDecor }).__homes = homes; // (previews)
+  const signs = new Signposts(map.things); // (signposts at the crossroads)
+  (window as unknown as { __signs?: Signposts }).__signs = signs; // (previews)
   const lamps = new StreetLamps(map.things, map.lights); // (lamps along the streets, lit at dusk)
   const skiffs = new MapSkiffs(map.things); // (boats along the rivers)
   const traffic = new RoadTraffic(map.things); // (carts along the roads)
@@ -547,6 +556,8 @@ async function start(): Promise<void> {
     if (pet) return { kind: 'pet', key: pet };
     const grave = graves.graveAt(w.x, w.y);
     if (grave) return { kind: 'grave', id: grave.id };
+    const sign = signs.signAt(w.x, w.y);
+    if (sign) return { kind: 'sign', sign };
     const building = map.buildingAt(w.x, w.y);
     // (a daughter village's houses and fields are drawn as buildings with ids below zero: sim/villages.ts)
     if (building !== null) return building < 0 ? { kind: 'village', id: Math.floor((-building - 1) / 100) } : { kind: 'building', id: building };
@@ -599,6 +610,8 @@ async function start(): Promise<void> {
         const foes = Object.entries(r.foes.reduce<Record<string, number>>((n, f) => ((n[f.name] = (n[f.name] ?? 0) + 1), n), {})).map(([name, n]) => (n > 1 ? `${n} × ${name}` : name));
         return { title: r.name ? `${r.name[0].toUpperCase()}${r.name.slice(1)} from a nest` : ROAMER_TITLE[r.kind], lines: [doing, foes.join(', ')], y: overheadY(roamers.posOf(r.id * ROAMER_IDS), 54) };
       }
+      case 'sign':
+        return { title: 'Signpost', lines: Signposts.lines(h.sign), y: map.screenOf((h.sign.postX + 0.5) * CELL, (h.sign.postY + 0.5) * CELL).y - 40 };
       case 'caravan': {
         const c = snap.caravan;
         if (!c) return null;
@@ -1563,6 +1576,17 @@ async function start(): Promise<void> {
     debris.sync(next.debris);
     market.sync(next.market);
     decor.sync(next.buildings, next.calendar.season);
+    // (a raid on its way: the shutters close, the alarm goes up and the children run home; smoke over any fire)
+    map.setShutters(!!next.raid);
+    map.smokeColumns.sync(next.buildings);
+    people.alarm = !!next.raid;
+    const plague = plagueOn(next.doom, next.people.filter((p) => p.sick).length);
+    people.plague = plague;
+    homes.sync(next.buildings, next.people, map.fronts(), plague, (def) => pickCovered(def, buildStyle || 'town'));
+    signs.sync(next.land, next.realm, (x, y) => !wet(groundAt(next.land, x, y)) && !next.buildings.some((b) => {
+      const f = footprintOf(b);
+      return x >= f.x - 1 && x < f.x + f.w + 1 && y >= f.y && y < f.y + f.h + 1;
+    }), `${next.buildings.length}`);
     lamps.sync(next.land, next.era, next.lights ? next.lights.lights.filter((l) => l.room === null) : null);
     lamps.setDaylight(next.calendar.daylight);
     lamps.calm = map.calm;
