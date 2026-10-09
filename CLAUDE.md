@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.43.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.52.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3707,7 +3707,7 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   menu's Our ways tab (`hordeSection`: fury bar, raids, thralls, the powers sacked, the "To win" line, the glory board) and
   a Fury tile on the overview. Tests: `test/warpath.test.ts`.
 
-## Rising powers, the first hour, the timelapse, a faster town (0.43.0; the owner's picks)
+## Rising powers, the first hour, the timelapse, a faster town (0.52.0; the owner's picks)
 
 - **Rising powers (the owner: the shogunate, corsairs and infernal packs as enemy powers, "a force that grows like the
   town does"):** `src/shared/data/risingPowers.ts` and `src/shared/sim/risingPowers.ts`. Three powers in every realm
@@ -3756,6 +3756,149 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   sync (`wallCellsNow`), not every building for every neighbour. Saves pack the land's pools (`packPools`/`unpackPools`
   in save.ts, `land.packedPools` in the file only): a save went from 914 KB to 504 KB. Measured: a step plus a snapshot
   7.8 ms → 4.6 ms; a 30-day soak town runs in about half the time of main's.
+## Fixes (0.43.0)
+
+- **Nobody walks through the castle's walls (the owner's complaint about the vampires):** the paths always kept to the
+  doorways and gates (`castleStep`), but a walker kept their path as long as the goal was the same, so someone put
+  somewhere else (out of a building, off the raid board) or walking when a room went up and the doorways moved cut
+  straight across to the old path's next cell, through a wall. `walk` (walk.ts) now finds the path again when the
+  walker is more than `OFF_PATH` (2.2 cells) from its next cell, or when the castle's layout has changed since it was
+  found (kept in a WeakMap, not saved). And with no way round (a river with no bridge yet) `pathTo` wades it (`WADE` a
+  cell of river) rather than walking straight at the goal over the water and through the walls. Probe (5 vampire
+  towns, 8 days): wall crossings outside raids from about 10 a town to 0 to 2. Test in `test/castle.test.ts`.
+- **Whole coins:** a person's coins, pay, rent owed and a stranger's purse are shown in whole coins (the snapshot
+  floors them; the purses may still hold a fraction from a share of a sale or a tax).
+
+## The town comes alive (0.44.0; the owner's ask: all 22 of the art, effects and liveliness ideas)
+
+Built by four agents in parallel and merged; mostly renderer-side. Code-drawn only where no pack had the thing: the
+snowman, the washing lines and the straw skep.
+
+- **Work you can see (the owner's ask):** rules pure in `map/workSeen.ts`; pack sprites through `art/choresArt.ts` (`choresTex`, `flagFrame`).
+  - **Trees fall:** `syncProps` calls `onFelled` when a tree's cell is in `land.regrow` as forest or a rock's in `land.rubble`; `MapFelling.fall` tips the tree (`FALL_S`, `fallWay`) with leaves and dust and fades it, or crumbles the rock. A stump (Fields pack; now and then the Village pack's with an axe) stands on each felled forest cell till it grows back (`stumpCells`). Broken rock is `LandMap.rubble` (`noteCleared` in regrow.ts, `RUBBLE_DAYS` 2, cleared by `regrowHourly`), scattered with the Fields pack's stones (`rubbleCells`, `rubbleBits`).
+  - **The stockpile:** `MapStockpile` heaps logs, stone, sacks, barrels and crates by the store's share of `storage` (`pileOf`, `stockPiles`, `slotGrid`, `layPiles`), hiding its own picture (`MapView.artHidden`).
+  - **Floating gains:** `gainsBetween(prev, next)`: a load stored, a venue's sale (`b.shop.takings` now in the snapshot), a piece made (`CraftOrderView.made`, `.station`); none after a gap over `GAINS_GAP` ticks, at most `GAINS_MOST`; `MapGains` lifts the icon with "+N".
+  - **A building finished:** `finishedBetween` (not plots, ring pieces or rooms): dust and the Fields pack's banner run up; builders cheer (`MapPeople.cheer`, `CHEER_MS`).
+  - **The harvest left:** `crop.reaped` (farming.ts); `hayStacks` for `HAY_DAYS` (3), bales from the Medieval age (Medieval Field Work pack's hay, shrunk).
+  - **Sowing by hand:** `'till'` holds no tool; `sowThrow`, and `MapChores` flings seed.
+  - **The well:** by day a grown-up with a bed draws water at a finished well one idle wander in `WELL_EVERY` (`pastimeFor`: `WELL_FROM`..`WELL_UNTIL`, `wellFor`), activity `'draw'` (the Village pack's bucket bobbing), then carries it home (`'carry'`, `PersonView.bucket`).
+  - **Washing lines:** `hasLaundry`, `LAUNDRY_SHARE` of homes, on a free side; out on fair days, not in winter (`laundryOut`); code-drawn, flapping with `MapView.wind()`.
+  - Off when `calm`: falls, dust, gains, banners. `window.__workSeen`. Tests: `test/workSeen.test.ts`.
+- **The townsfolk being themselves (the owner's ask):** the rules are pure in `src/renderer/map/townLife.ts`; mapPeople.ts draws each person's moment (`moment`, `drawProps`, a forced line through `speak(..., forced)`), `src/renderer/map/mapTownLife.ts` (`MapTownLife`) what isn't anyone's own sprite; props are DawnLike cells in `art/life/`. Off on a slow phone (`calm`) but the snowmen, the coffin and the dark windows.
+  - **Habits by nature:** `HABITS`/`habitOfNature` in data/natures.ts: the jolly juggle fruit (`juggleBalls`), the grumpy kick a pebble (`kickedStone`), the curious peer at a window on tiptoe (`MapView.nearBuilding`), the dreamy lie in the grass on a fair day; any elder idle or by the fire smokes a pipe (`pipePuffs`). `habitNow`: only idle and still `HABIT_AFTER` ms, a `HABIT_FOR` bout each `HABIT_CYCLE`.
+  - **The walk home:** for `TIPSY_HOURS` after the tavern closes those served are `PersonView.tipsy` (`walkingHome` in sim/nightOut.ts): they weave (`tipsyWeave`), sing (`songNow`, `SONGS`), now and then fall (`fallenNow`, `FALL_FOR`, "Whoops!").
+  - **Waking and bedtime:** a stretch held `STRETCH_FOR` on rising; `PersonView.bedward` yawns (`yawningNow`); `MapView.darkWindows(darkHomes(people))` fades a home's glows once everyone in it at home is asleep.
+  - **The children's winter:** a code-drawn snowman by homes with a child (and a third of the rest: `snowmanHomes`), melting through spring's first day (`snowmanLeft`); children pair off for snowballs (`snowballPairs`, `SNOWBALL_REACH`, `snowballNow`); near frozen water (`iceAt`, `SKATE_REACH`) they skate loops (`skateLoop`).
+  - **Processions:** a gathering may begin with `walk` (`gather(..., from)` in sim/ceremonies.ts: `PROCESSION_PACE`, at most `PROCESSION_MOST` hours, none under `PROCESSION_LEAST` px); `gatheringPlace` puts two beside the head and the rest in a column `PROCESSION_GAP` apart. A funeral carries the coffin from the dead's door (`mournFor`) to the graveyard; a wedding walks from the couple's door (`weddingFeast`) with hearts; on rite days (sim/faith.ts) `holdRite` leads the pious and `RITE_SHARE` of the rest from the fire to the greatest place of worship to kneel `RITE_HOURS` (gathering kind `'rite'`, activity `'pray'`, `prayStep`). `snapshot.gathering.head`/`.bearers`.
+  - **The watch:** by night (`WALL_WATCH_FROM`..`WALL_WATCH_UNTIL`), the ring standing all round, a guard on watch walks the inside of the wall a quarter turn at a time (`wallWalk` in people.ts) with a torch (`torchHours`, `PersonView.onWatch`); at 6 and 18 (`changingWatch`) they say so (`WATCH_ON`, `WATCH_OFF`); a lookout stands on each lookout, watchtower and archer tower (`LOOKOUT_TOWERS`, `MapView.pictureOf`). Tests: `test/townLife.test.ts`.
+- **Small creatures and the air (the owner's ask):** renderer only, none on a slow phone (`calm`) but the hives and scarecrows. `src/renderer/map/critterRules.ts` (pure, tested): `beesOut`, `hiveKind` (a skep to the Medieval age, then a box hive), `dragonfliesOut`, `batsOut` (full at dusk), `mothsOut`, `hasScarecrow` (by the field's id, about three in five crop fields, never the orchard or herbs), `tempting` (ripe or growth 0.7), `crowsFor` (`CROWS_PER_FIELD` 3, one past a scarecrow), `ratCount` (none under half-full stores, up to `RATS_MOST` 9; +2 with a full granary, +6 in the rats' plague: `ratPlague` from the `f_rats` prompt or outcome), `frostOn`, `dewOn`, `hailing` (a third of the cold seasons' storms), `driftDepth`. `src/renderer/map/mapCritters.ts` (`MapCritters`, fed by main.ts with `lamps.litGlows()` and the camp's fire): a hive by every herb garden and orchard (`BEE_PLOTS`) with `BEES_PER_HIVE` bees, `BEES_WILD` over the grass; `DRAGONFLIES_MOST` over the water; bats in `over`; `MOTHS_PER_LIGHT` round each lamp; crows (the birds' atlas) on tempting fields, put up by feet (`CROW_SHY`) or the scarecrow's flap (`SCARE_EVERY`, `SCARE_REACH`); rats along the stores' feet (`byStore`), bolting from feet (`RAT_SHY`) and cats (`CAT_FEAR`); the cats chase them (`MapPets.prey`, `onCatch`, state `hunt`: `CAT_SEE`, `CAT_CHASE`, `CAT_CATCH`). Art: DawnLike's bee, dragonfly, moth, bat and rats, the Fields pack's crate as a box hive and a pixelled skep in `art/critters.png`; the scarecrow `art/scarecrow.png` (Himeko layers as sacking, robe and hat on a pole); both by `tools/compose-critters.cjs`. `src/renderer/map/groundFrost.ts` (`GroundFrost`, in `under`): rime and glints on the grass, hailstones that bounce and melt (`HAIL_MOST`), snow drifted along buildings' feet (`driftDepth`). `window.__critters`. Tests: `test/critters.test.ts`.
+- **The town over time and its moods (the owner's asks):** renderer-side but two small sim rules. **Wealth you can see** (`map/homeDecor.ts`, rules `map/moodRules.ts`): `homeWealth` by the owner's purse: `RICH_COINS` (150) is `rich` (a flower box under each window from `MapView.fronts()`, a painted door (DawnLike's door tinted, `PAINT`, where `DOOR_AT` knows the door), a garden); everyone under its roof under `POOR_COINS` (12) or in debt is `poor` (crates, pots, a bucket, a log by the door); plain in a town with no money yet. **Ready for a raid:** from the warning shutters close over every window and the glows go dark (`MapView.setShutters`, `SHUTTER_PX`); sheltering children run (`SHELTER_RUN` 1.5 in people.ts) with the alarm emote (`MapPeople.alarm`); a column of dark smoke climbs `SMOKE_HIGH` (320) px over every building alight, leaning with the wind (`map/smokeColumns.ts`, `MapView.smokeColumns`; thinner when `calm`). **Sickness you can see:** the sick cough (`coughing`, `COUGH_FOR`/`COUGH_EVERY`, a puff, "*cough*", poison-green in a plague); `plagueOn` (sim/pastimes.ts: `PLAGUE_DOOMS` active or `PLAGUE_SICK` 3 sick) marks sick households' doors with the blood cross (`markedDoors`); the healer (`isHealer`), idle, goes the rounds (`sickHomes`, pastime `rounds`) in the Himeko gas-mask helm (`PersonView.rounds`, `HkWho.mask`). **Moving machinery** (`map/machinery.ts`, `MapView.turnMachinery`): the windmill's sails cut from the pack's windmill (`Pick.turning`, `packTurning`) turn at `sailSpeed(wind)`; a mill by the river (`MILLS`, `millSide`) turns the Seabed pack's wheel (`WHEEL_TURN`); venue banners are the Fields pack's animated flag recoloured with the emblem (`bannerOf`, `Dressing.frames`) at `flagRate(wind)`. **Crossroads signposts** (`map/signposts.ts`, `map/signRules.ts`): up to `SIGNS_MOST` (5) crossroads (`crossroads`, `SIGN_APART`, not within `SIGN_NEAR_CAMP`), a Fields-pack post with a board each way (`boardsFor`: the region most nearly that way within `SIGN_SPREAD`, and rival towns by `townBearing` from `MAP_HOME` to `STRONGHOLD_SPOTS`); tap (hover kind `sign`). `window.__homes`, `__signs`. Tests: `test/townMoods.test.ts`.
+
+## The seats from the packs (0.45.0; the owner's complaint: the origin buildings looked clunky and rough)
+
+- **Every people's seat is laid together from pack sprites** (`src/renderer/map/seatPacks.ts`: `SEATS`, five `Pick`s a
+  people, parts on a `SEAT_CANVAS` (220 px) canvas with `SEAT_OVERHANG`; `seatPack(origin, stage, w)` through
+  `pickArt`), in place of the code-drawn seats: the settlers' cairn and benches to moot hall, guildhall, civic hall and a
+  keep between two gabled spires; the liches' altar, barrow, horned ruin, candled crypt and the Undead pack's giant lich;
+  the druids' stone arch, sacred grove and the grove trees growing to a world tree; the werewolves' den, tipi and lodge to
+  a keep with wolf totems; the machines' consoles and tanks to the Overmind's pylon; the merfolk's coral and mermaid
+  statues to round towers; the nomads' tent, yurts and a round palace; the fae's toadstools to the crystal mage tower;
+  the alchemists' still house, alembic tower and laboratories with their tanks and furnace; the knights' lookout to a
+  citadel of keeps and round towers; the orcs' skull pole and hut to the horned throne. A stage may be graded for its
+  people (`grade`: the werewolves', orcs', merfolk's and nomads' later stages). The holds' throne rooms (`ROOMS`,
+  `seatRoomPack`: DawnLike's throne, rugs, candelabras, coffins for the Court, gold and chests for the hold) furnish the
+  hall in castleArt.ts. `art/seatArt.ts` stands in only while the sprites load (MapView `art`, the feed's `cardArt`,
+  `roomFurniture`). New sprites in `src/renderer/art/seats/`; the rocky-area tipis (`packs/rocky_tipi*.png`) were
+  re-cut without the stray shell and teal bits the pack's sheet had beside them (the nomads' homes showed them).
+  Tests: `test/seatPacks.test.ts`.
+
+## Light that's stopped (0.46.0; the owner's ask: every light lights all round it as far as its kind reaches, and is
+blocked by buildings, structures, trees and rocks)
+
+- **One rule, shared:** `src/shared/sim/lightField.ts`. `occluders` reads the land into what stops light: a finished
+  building that stands up (not one lying `flat`: fields, pens, traps, yards, the stockpile and the fire, `LOW_BUILDINGS`
+  in data/lighting.ts), walls and gates, a castle's or hold's walls and the mountain stop it over the whole cell
+  (`SOLID`); a tree (a wood) or a rock only round its middle (`ROUND`, `ROUND_BLOCK` 0.38), so their shadows are round.
+  `lightSources`: each light's reach by its kind: the age's street light (`LIGHT_KIND`: torch 3.5 cells to light panel
+  6.5), the camp's fire and the fires and furnaces at buildings (`FIRE_LIGHTS`: campfire 4.5, storytellers' circle 3.5,
+  bloomery 3, kiln and smithy 2.5, glassworks 2; from the building's middle, its own walls seen through). `clearLine`
+  walks a ray cell by cell from the light: the light's own cell and building are seen through, and so is the last `FACE`
+  (half a cell) of the way, so a wall or a trunk is lit on the side facing the light and dark behind. The sim's
+  darkness (`litGrid` in sim/lighting.ts, which slows work in the dark) and the drawn light use it alike.
+- **Drawn** (`renderer/map/lightMap.ts`): four points a cell, each lit by every light that sees it, with the falloff
+  (`falloff`); one ray from the light's middle, and at a shadow's edge four more from round the flame (`SPREAD_X/Y`) for
+  a soft edge (a single ray grazing a corner left lone dark points). Each light's pool is kept (`pool`, by `poolKey`: its
+  reach, strength and the hash of what stands in it), so a felled tree or a new hut redoes only the lights near it; the
+  whole is put together at most every `REBUILD_MS` (1.5 s), and only while the light shows. The texture is sampled
+  smooth (the game's default is nearest: the pools showed as squares). The old building-only shadow polygons are gone.
+  Worst case (70 electric lamps, every pool new): about 150 ms on a desktop, once. Tests in `test/lighting.test.ts`.
+- **Flames flicker (0.47.0; the owner's ask):** `src/renderer/map/flicker.ts` (pure: `FLICKER` how far each kind
+  wavers: a torch or a fire most, a lantern less, a gas lamp a little, electric light not at all; `flicker(kind, t,
+  phase)` a share of full strength on two slow beats and a quick one, `phaseOf` so neighbours keep their own time). The
+  light map bakes only steady light (electric lamps, the castle's rooms) into the land's texture; each flame's pool is a
+  texture of its own (`flameTexture`, kept with the pool) drawn every frame at its flicker. The lanterns people carry
+  flicker on their own beat (by id), and the street lamps' glows flicker by the age's light (steady when electric).
+  Steady on a slow phone (`calm`). Tests: `test/flicker.test.ts`.
+
+## Sounds that match, and torches that light (the owner's asks)
+
+- **Every blow by the weapon in hand** (`renderer/sfx.ts`): `weaponCue` by the weapon's family (`FAMILY_CUE`: blades
+  `slash`, maces and flails `bash`, spears and polearms `stab`, bows `arrow`, crossbows `crossbow`, slings and thrown
+  `throw`, staves and wands `zap`, guns `gunshot`, automatics `burst`, energy `laser`, heavy `boom`); with none, a
+  caster's `zap`, a shooter's `throw`, else fists (`bash`); a beast's shape `bite`. A foe's blow by what it is
+  (`foeCue`: beasts `bite`, machines `laser`/`bash`, the rest `slash`/`arrow`). A shield turning a blow `block`; raiders'
+  own blows; the trail battle's towers (`ballista`) and fire.
+- **Every fight is heard:** a watched party's fight (`fightSounds`: each side's blows, spells, an ultimate's `ult`, the
+  hurt, the fallen, the victory or loss) and the raid's tactics board (`tacticsSounds`, from its `fx` and `hits`: blows
+  and shots by the striker's weapon, spells, mending, towers, traps' `snap`, chests, the lost). With the map hidden,
+  main.ts plays those and `globalSounds` (levels, coins, questions, a raid's end, the hours, gatherings, disasters), and
+  no longer the map's work, ducks and footsteps.
+- **The work as itself** (`workSounds`, `workCue`): `PersonView.work` (`workOf` in snapshot.ts: the task and the station
+  or building it's at) tells a crafter from a builder, so a station sounds of its trade (`stationCue`: `anvil`, `saw`,
+  `loom`, `reap` for tanning, `bubble`, `pound`, `chisel`, `machine`, `page`); paving `chisel`, a fire fought `splash`,
+  the sickle `reap`, the hoe `till`, study `page`. A building finished `built`; a tree felled `timber` and a rock
+  `crumble` (from `map.onFelled`, at most one every `FELL_HEARD_MS` 1.5 s, so a catch-up isn't a forest crashing
+  down). 25 new synth cues in ambience.ts. Tests: `test/sfx.test.ts`.
+- **Carried torches light like street torches** (`renderer/map/lightMap.ts`): a guard on the night watch (`onWatch`
+  in `torchHours`, as mapPeople draws the torch) casts a street torch's pool (`CARRIED_TORCH`, held `TORCH_HELD` px up),
+  stopped by buildings, trees and rocks as any light, flickering as a torch; worked out where it's held to the light
+  map's texel and kept (`torchPool`, up to `TORCH_POOLS_MOST`). Everyone else out after dark keeps the small lantern.
+
+- **Volume sliders (the owner's ask):** the ☰ menu has a Music volume and a Sound effects volume slider under the
+  Music on/off (`slider` in mobile/mobile.ts, `.volume` in mobile/index.html), each 0 to 100% in steps of 5. Moving one
+  sets the strip's level at once (`window.__volume` in main.ts: `music.setLevel`, `ambience.setLevel`, a share of each's
+  own full loudness; a slider moved mid-fade takes over from the fade, `cancelFade` in music.ts) and keeps it
+  (`src/renderer/volume.ts`: `littletown.musicVolume`, `littletown.sfxVolume`, read at start by `readLevel`). The ♪
+  button still turns both on and off. The menu scrolls when it's taller than the screen (held sideways it is). Test:
+  `test/volume.test.ts`.
+
+## Sleeping rough (0.48.0; the owner's complaint: the bedless stood in the middle of town to sleep)
+
+- `src/shared/sim/roughSleep.ts` (`roughSpot`): someone with no bed beds down on a spot of their own round the camp's
+  fire: the first just beside it (where the town always slept rough, so a lone founder's nights are as before), the
+  rest on rings about it (`RINGS`, `PLACES`) by their id, never on a road, in a building, in water or rock, nor where
+  someone already lies, and a cell clear of any building where there's room. The spot is kept on the sleep task
+  (`spot`); `sleepTask` in people.ts keeps the task through the night (the wounded's too), so it isn't lost. On the
+  map they lie flat on the ground (mapPeople's `moment`, on a slow phone too). Test: `test/roughSleep.test.ts`.
+
+## The town lights itself, and hair that stays on (0.49.0; the owner's asks)
+
+- **Lights where the town needs them** (the owner: "the townsfolk are also adding torches to cover the town in light
+  as needed"): `outdoorCells` in sim/lighting.ts replaces the old street lights (a light every fifth road cell). What
+  should be lit is every finished building's door (but the walls), the fields and pens (`FIELD_WORTH`), and the roads
+  among them (`ROAD_WORTH`) out to the furthest building and at least `CAMP_GROUND` (8) about the fire; the camp's fire,
+  the fires at the buildings and the lights already standing (kept while their cell is clear) light some; each new
+  light goes on a road or open ground beside a building (never in one, in water, rock, the mountain or a castle) where
+  it lights the most still dark through sim/lightField.ts's `clearLine`, until all is lit (`LIGHT_LEAST`) or the town
+  has as many as it can keep. A camp of fewer than `SMALL_LIGHTS` (3) grown-ups keeps a light a head. Test in
+  `test/lighting.test.ts` (every home's door lit).
+- **Hair on the head in the side lunges** (the owner: hair still slid off in some animations): in the left- and
+  right-facing lunge (every tool swing and blow) the pack draws the head 16px toward the face and the beards, hoods and
+  clothes with it, but every hair and bangs layer only 6 and the sideburns and white long hair and pigtails 4 the
+  other way. `nudgeOf` in art/hkFolk.ts moves hair and bangs 10px and those 20px in cells 12 and 20 (measured against
+  the bodies' heads, checked by eye). Test in `test/hkFolk.test.ts`.
+- Rough sleepers' spots are never inside a castle's walls (`roughSpot`: one inside made the walkers' path searches
+  fail over and over, a vampire test three times slower).
 
 ## Known problem (fixed, watch)
 
@@ -3763,3 +3906,22 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   culled (`sourceable` in `planner.ts`). Pens are culled only when full or short of food, so towns queued buildings that
   cost hide and nobody could supply it. Now only pens kept for meat count. Later soaks (8 towns per origin, 15 days,
   after the Phase 4 farming) had no town die out: druids 29.6, dwarves 30.9, settlers 28.3.
+
+## Palisades that get finished (0.50.0; the owner's complaint: the ring was never built before the town outgrew it)
+
+- A first ring is about 116 pieces, and towns raised about 4 a day: two sections at a time, only with a build slot to
+  spare, and its wood never counted as wanted, so it was built from leftovers. Now the ring's sections in work have a
+  queue of their own (`blueprintCount` leaves them out; `RING_AT_ONCE` 5), a section is released with `RING_SPARE` 1.5
+  times its cost beyond what other sites wait on, the next `RING_GATHER_AHEAD` (8) planned sections' makings are in the
+  planner's demand (`ringWants` in sim/ringWall.ts, added in `needs`), so the town gathers for its wall, and a palisade
+  costs 4 wood and 20 s (a grate 5 and 25 s). Probe (20 days, main → now, pieces standing at day 19): druids 1 → 18 and
+  26 → 114 of 116 (finished), settlers 7 → 29; knights finished their first ring by day 14 and a wider one by day 19.
+  Test in `test/ringWall.test.ts`.
+- **No sound in the background (the owner's complaint):** `src/renderer/audioGate.ts`. Every Web Audio context (musicGen.ts,
+  ambience.ts: `gateContext`) is suspended and every recorded track (music.ts: `gateTrack`) paused the moment the page is
+  hidden (`visibilitychange`, `pagehide`, `freeze`), and carried on when it's back; while away `wake` does nothing, and
+  the music's next piece waits (`onBack`). A new sound source must go through it. Test: `test/audioGate.test.ts`.
+- **Sound effects you can hear (the owner: none were heard):** the cues (the hammer, the axe, blows, coins, bells...)
+  peaked at the wind's level, a tenth of the music's. They go through a bus of their own in ambience.ts (`CUE_GAIN` 4,
+  then a limiter) over the land's beds and calls; the saw is louder too. Measured in the phone build: the hammer about
+  twice the music's peak.

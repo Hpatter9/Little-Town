@@ -4,6 +4,7 @@
 // recorded tracks (TinyRPGMusic by ansimuz and the boss themes, see CREDITS.md), never the same one twice running. A
 // change of mood fades to something of the new mood. Off by default; nothing plays while the strip is hidden.
 
+import { gateTrack, onBack, pageAway, ungateTrack } from './audioGate';
 import { createPlayer, type Player } from './musicGen';
 import { piecesFor, type Mood } from './musicScore';
 
@@ -16,6 +17,8 @@ export type { Mood };
 
 export interface Music {
   update(on: boolean, mood: Mood): void;
+  /** How loud, a share of full (the ☰ menu's slider: volume.ts). */
+  setLevel(level: number): void;
   /** For previews: what's playing. */
   readonly now: string | null;
 }
@@ -49,6 +52,13 @@ export function createMusic(): Music {
   let on = false;
   let rest: number | null = null;
   let seed = Math.floor(Math.random() * 1e6);
+  let level = 1;
+  let waiting = false;
+  onBack(() => {
+    if (!waiting) return;
+    waiting = false;
+    begin();
+  });
 
   const stopAll = () => {
     if (rest !== null) clearTimeout(rest);
@@ -56,7 +66,10 @@ export function createMusic(): Music {
     player?.stop();
     if (audio) {
       const a = audio;
-      fade(a, 0, () => a.pause());
+      fade(a, 0, () => {
+        a.pause();
+        ungateTrack(a);
+      });
     }
     audio = null;
     now = null;
@@ -64,6 +77,11 @@ export function createMusic(): Music {
 
   const begin = () => {
     if (!on || !mood) return;
+    // (out of sight, the next piece waits till the game is back: audioGate.ts)
+    if (pageAway()) {
+      waiting = true;
+      return;
+    }
     const id = nextFor(mood, now, Math.random());
     now = id;
     const after = () => {
@@ -80,25 +98,35 @@ export function createMusic(): Music {
       a.preload = 'auto';
       a.volume = 0;
       audio = a;
+      gateTrack(a);
       a.onended = () => {
+        ungateTrack(a);
         if (audio === a) audio = null;
         after();
       };
       a.onerror = () => after();
       void a.play().catch(() => after());
-      fade(a, VOLUME);
+      fade(a, VOLUME * level);
       return;
     }
     player ??= createPlayer();
     const piece = piecesFor(mood).find((p) => p.id === id);
     if (!player || !piece) return;
-    player.setVolume(VOLUME * 0.9);
+    player.setVolume(VOLUME * 0.9 * level);
     player.play(piece, seed++, after);
   };
 
   return {
     get now() {
       return now;
+    },
+    setLevel(v) {
+      level = Math.max(0, Math.min(1, v));
+      if (audio) {
+        cancelFade(audio);
+        audio.volume = VOLUME * level;
+      }
+      player?.setVolume(VOLUME * 0.9 * level);
     },
     update(want, m) {
       if (!want) {
@@ -122,10 +150,19 @@ export function createMusic(): Music {
   };
 }
 
+/** Each track's fade under way, so a slider moved mid-fade takes over from it. */
+const fading = new WeakMap<HTMLAudioElement, number>();
+function cancelFade(a: HTMLAudioElement): void {
+  fading.set(a, (fading.get(a) ?? 0) + 1);
+}
+
 function fade(a: HTMLAudioElement, to: number, done?: () => void): void {
   const from = a.volume;
   const start = performance.now();
+  cancelFade(a);
+  const mine = fading.get(a);
   const step = () => {
+    if (fading.get(a) !== mine) return;
     const t = Math.min(1, (performance.now() - start) / FADE_MS);
     a.volume = from + (to - from) * t;
     if (t < 1) requestAnimationFrame(step);

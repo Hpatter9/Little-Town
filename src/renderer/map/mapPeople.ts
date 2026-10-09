@@ -11,18 +11,34 @@ import { drawMarks, limpDip, marksKey } from './bodyMarks';
 import { HK_CELL, HK_FEET, HK_FIGURE, hkLayers, hkPose, hkWhoOf, type HkFacing } from '../art/hkFolk';
 import { hkTexture } from '../art/hkTexture';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
-import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
+import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, pixelFxFrame, type Emote } from '../art/effects';
+import { COUGH_FOR, coughing } from './moodRules';
 import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
 import { loadImage } from '../art/loadImage';
 import barrowUrl from '../art/shops/gb_barrow.png';
+import pailUrl from '../art/packs/v_bucket.png';
+import { sowThrow } from './workSeen';
 import { hauls, heapColour, mainLoad } from './haul';
+import appleUrl from '../art/life/apple.png';
+import orangeUrl from '../art/life/orange.png';
+import pearUrl from '../art/life/pear.png';
+import pebbleUrl from '../art/life/pebble.png';
+import pipeUrl from '../art/life/pipe.png';
+import torchUrl from '../art/life/torch.png';
+import { CELL, groundAt } from '../../shared/sim/land';
+import { freezes, iceAt } from './ice';
+import {
+  changingWatch, fallenNow, FALL_FOR, habitNow, juggleBalls, kickedStone, pipePuffs, skateLoop, SKATE_REACH, snowballNow, songNow,
+  STRETCH_FOR, tipsyWeave, torchHours, wakingHour, WATCH_OFF, WATCH_ON, yawningNow,
+} from './townLife';
+import type { Habit } from '../../shared/data/natures';
 
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
 import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } from '../art/lpc/lpc';
 import { glowTexture } from '../town/layer';
 import { TAIL_H, TAIL_W, tailTexture, WAIST } from '../art/merTail';
-import { BEAT, danceStep, mournStep, type DanceStep } from './dance';
+import { BEAT, danceStep, mournStep, prayStep, type DanceStep } from './dance';
 import { reflectOf, waterBelow } from './reflections';
 import type { LandMap } from '../../shared/sim/land';
 import { hash01, lineNow, makeBubble, REPLY_AFTER, SPEECH_EVERY, SPEECH_FOR, SPEECH_SHARE, TALK_NEAR, type SpeechContext } from './speech';
@@ -52,7 +68,9 @@ const PX_PER_WALK_FRAME = 4;
 const HIT_HALF_W = 11;
 const HIT_H = 50;
 /** At these a founder's hero swings their blow over and over (their work, in the only pose the sheets have for it). */
-const WORK_SWING = new Set(['chop', 'mine', 'build', 'reap', 'till', 'forage', 'spar']);
+const WORK_SWING = new Set(['chop', 'mine', 'build', 'reap', 'forage', 'spar']);
+/** Builders cheer a building finished this long (ms: map/mapGains.ts), hopping with an arm raised. */
+const CHEER_MS = 2400;
 /** A founder is drawn this much bigger than the townsfolk, with an aura in their origin's colour. */
 const FOUNDER_SCALE = 1.14;
 const AURA: Record<string, number> = { town: 0xffd860, lich: 0x9a6aff, druid: 0x7ae070, vampire: 0xff3048, werewolf: 0xc8d8ff, robot: 0x60e0ff, dwarves: 0xffa040, merfolk: 0x40e0e0, nomads: 0xffc060, fae: 0xff90e0, knights: 0xf0f0ff, alchemists: 0x80ff80, settlers: 0xffd860 };
@@ -69,6 +87,9 @@ const CLASS_LOOK: Partial<Record<ClassId, [CreatureSheet, number]>> = {
   mage: ['champ_sage', 4],
 };
 
+/** What the sick say as they cough. */
+const COUGHS = ['*cough*', '*cough cough*', '*hack*', '*wheeze*'];
+
 /** The work bar over a head: its width (px) and how far above the feet it floats. */
 const WORK_W = 18;
 const WORK_ABOVE = 58;
@@ -82,12 +103,43 @@ const CRY_FOR = 6500;
 const BARROW_SCALE = 0.62;
 const BARROW_AHEAD = 13;
 let barrowTex: Texture | null = null;
+let pailTex: Texture | null = null;
+loadImage(pailUrl)
+  .then((im) => {
+    pailTex = Texture.from(im);
+    pailTex.source.scaleMode = 'nearest';
+  })
+  .catch(() => undefined);
 loadImage(barrowUrl)
   .then((im) => {
     barrowTex = Texture.from(im);
     barrowTex.source.scaleMode = 'nearest';
   })
   .catch(() => undefined);
+
+/** The little things the townsfolk handle in their small moments (map/townLife.ts): DawnLike's fruit to juggle, a
+ *  pebble to kick, a pipe, a torch for the night watch. */
+const lifeTex: Record<'apple' | 'orange' | 'pear' | 'pebble' | 'pipe' | 'torch', Texture | null> = { apple: null, orange: null, pear: null, pebble: null, pipe: null, torch: null };
+for (const [k, u] of [['apple', appleUrl], ['orange', orangeUrl], ['pear', pearUrl], ['pebble', pebbleUrl], ['pipe', pipeUrl], ['torch', torchUrl]] as const)
+  loadImage(u)
+    .then((im) => {
+      const t = Texture.from(im);
+      t.source.scaleMode = 'nearest';
+      lifeTex[k] = t;
+    })
+    .catch(() => undefined);
+
+/** A small moment as drawn this frame (map/townLife.ts): a step of their own, a lean or lying down, a nudge from where
+ *  the town has them, a line said, a mood, and what's in their hands. */
+interface Moment {
+  step?: DanceStep;
+  rot?: number;
+  dx?: number;
+  dy?: number;
+  line?: string;
+  emote?: Emote;
+  prop?: Habit | 'torch';
+}
 
 interface Drawn {
   view: PersonView;
@@ -98,6 +150,8 @@ interface Drawn {
   load: Graphics;
   /** The wheelbarrow pushed with a heavy load (map/haul.ts), and its heap's key. */
   barrow?: Container;
+  /** The bucket of water carried home from the well (sim/pastimes.ts). */
+  pail?: Sprite;
   /** Their reflection, standing at the water's edge (map/reflections.ts). */
   reflect?: Sprite;
   /** A child's kite on a fair, breezy day at play. */
@@ -109,6 +163,8 @@ interface Drawn {
   /** The spray of a blow landing. */
   spray: Sprite;
   emote?: Sprite;
+  /** A cough's puff before the mouth (map/moodRules.ts `coughing`). */
+  cough?: Sprite;
   levels?: number;
   levelAt?: number;
   levelUp?: Sprite;
@@ -134,6 +190,14 @@ interface Drawn {
   speechSlot?: number;
   /** Answering someone beside them until this time. */
   replyUntil?: number;
+  /** Their small moments (map/townLife.ts): what they hold (fruit, a pebble, a pipe and its smoke, a torch), when
+   *  they woke, held where they fell or stretched (till when), and gliding on the ice. */
+  props?: Container;
+  wokeAt?: number;
+  hold?: { x: number; y: number; until: number; line: string };
+  fellAt?: number;
+  glide?: { x: number; y: number };
+  skate?: { key: string; spot: { x: number; y: number } | null };
   from: { x: number; y: number };
   to: { x: number; y: number };
   at: number;
@@ -185,6 +249,10 @@ export class MapPeople {
   season = 'spring';
   hour = 12;
   raid = false;
+  /** A raid on its way (its warning) or here: the alarm is up, and the children run for home. */
+  alarm = false;
+  /** A plague on (sim/pastimes.ts `plagueOn`): the sick cough oftener, a green puff. */
+  plague = false;
   zoom = 1;
   /** The latest news (main.ts, per snapshot): the town crier, the best talker about, calls it out now and then. */
   news: { id: number; text: string } | null = null;
@@ -193,6 +261,16 @@ export class MapPeople {
   /** The land (main.ts), for the reflections at the water's edge. */
   land: LandMap | null = null;
   private crierId = -1;
+  /** The clock's minute (main.ts), for the changing of the watch. */
+  minute = 0;
+  /** Whether a building's front is close by a point (main.ts: MapView.nearBuilding), for the curious at windows. */
+  nearBuilding: ((x: number, y: number) => boolean) | null = null;
+  /** The children's snowball fights (main.ts, from townLife.ts `snowballPairs`): each child's other and its place. */
+  snowballs = new Map<number, { other: number; first: boolean; seed: number }>();
+  /** The procession under way (sim/ceremonies.ts): its kind and who walk at its head. */
+  procession: { kind: string; bearers: number[] } | null = null;
+  /** A slow phone: the small moments are left out. */
+  calm = false;
   /** The map's lights layer (main.ts): everyone out after dark carries a lantern's glow there. */
   lights: Container | null = null;
   weave = false;
@@ -243,6 +321,8 @@ export class MapPeople {
       if (d.levels !== undefined && levels > d.levels) d.levelAt = now;
       d.levels = levels;
       if (p.activity !== d.lastActivity) {
+        // (up from their bed of a morning: a stretch: `moment`)
+        if (d.lastActivity === 'sleep' && wakingHour(this.hour)) d.wokeAt = now;
         d.animStart = now;
         d.lastActivity = p.activity;
       }
@@ -259,7 +339,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.reflect, d.kite, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.cough, d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -309,17 +389,41 @@ export class MapPeople {
     let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null || (v.activity === 'sit' && !moving), ranged: v.battle.ranged, now, reading, playing: (v.activity === 'play' || v.activity === 'protest') && !fighting, ref: v.id });
     // (dancing at a feast, or mourning: map/dance.ts)
     if (step && step.col !== null && !fighting) col = step.col;
+    // (sowing by hand: the arm swung out with each handful; winding the well's bucket up; cheering a building finished:
+    // map/workSeen.ts, map/mapChores.ts)
+    if (!fighting && !moving) {
+      if (v.activity === 'till') col = sowThrow(now, v.id) ? 5 : 0;
+      else if (v.activity === 'draw') col = Math.floor(now / 450 + v.id) % 2 ? 3 : 4;
+      else if (this.cheering(v.id, now)) col = Math.floor(now / 240 + v.id) % 2 ? 3 : 0;
+    }
     return hkTexture(keys, col, row);
   }
 
   /** Now and then someone says a line in their nature's voice (map/speech.ts): in a slot of their own by their id,
    *  a share of the time; someone standing by answers a moment later. */
-  private speak(d: Drawn, now: number, x: number, y: number, z: number, hidden: boolean): void {
+  private speak(d: Drawn, now: number, x: number, y: number, z: number, hidden: boolean, forced?: string): void {
     const v = d.view;
+    // (a small moment's own line: a song on the way home, a yawn, the watch changing: map/townLife.ts)
+    if (forced && !hidden && !d.visitor) {
+      let h = 0;
+      for (const ch of forced) h = (h * 31 + ch.charCodeAt(0)) | 0;
+      const key = -2e9 - Math.abs(h % 1e9);
+      if (d.speechSlot !== key || !d.speech) {
+        d.speech?.destroy();
+        d.speech = this.layer.addChild(makeBubble(forced));
+        d.speechSlot = key;
+      }
+      const kf = Math.min(2.2, Math.max(1, 1 / Math.max(0.25, this.zoom)));
+      d.speech.visible = true;
+      d.speech.scale.set(kf);
+      d.speech.position.set(Math.round(x), Math.round(y) - 64);
+      d.speech.zIndex = z + 1e7;
+      return;
+    }
     const t = now + v.id * 7331;
     const slot = Math.floor(t / SPEECH_EVERY);
     const into = t - slot * SPEECH_EVERY;
-    const quiet = hidden || d.visitor || v.activity === 'sleep' || v.activity === 'fight' || v.downed !== null || v.sinceHit < 20;
+    const quiet = hidden || d.visitor || v.activity === 'sleep' || v.activity === 'pray' || v.activity === 'fight' || v.downed !== null || v.sinceHit < 20;
     // someone near: a friend, a rival, a child, anyone (and whether this one is the answerer, a little later)
     let nearFriend = false;
     let nearRival = false;
@@ -356,6 +460,21 @@ export class MapPeople {
       d.speech.zIndex = z + 1e7;
       return;
     }
+    // (the sick cough: "*cough*" for a moment now and then, over anything else they'd say)
+    if (v.sick && !quiet && coughing(v.id, now, this.plague)) {
+      const coughKey = -2 - Math.floor((now + v.id * 2711) / 1000);
+      if (d.speechSlot !== coughKey || !d.speech) {
+        d.speech?.destroy();
+        d.speech = this.layer.addChild(makeBubble(COUGHS[Math.abs(coughKey) % COUGHS.length]));
+        d.speechSlot = coughKey;
+      }
+      const kc = Math.min(2.2, Math.max(1, 1 / Math.max(0.25, this.zoom)));
+      d.speech.visible = true;
+      d.speech.scale.set(kc);
+      d.speech.position.set(Math.round(x), Math.round(y) - 64);
+      d.speech.zIndex = z + 1e7;
+      return;
+    }
     if (!speaks) {
       if (d.speech) d.speech.visible = false;
       return;
@@ -380,10 +499,15 @@ export class MapPeople {
     if (v.activity === 'sleep') return 'zzz';
     // (at a feast, notes and hearts come thick and fast; at a funeral, none)
     if (v.activity === 'dance') return (now / 1000 + v.id * 1.3) % 4 < 1.7 ? (v.id % 3 === 0 || (v.partner && v.id % 2) ? 'heart' : 'note') : null;
-    if (v.activity === 'mourn') return null;
+    if (v.activity === 'mourn' || v.activity === 'pray') return null;
+    // (the couple at the head of their wedding party)
+    if (this.procession?.kind === 'wedding' && this.procession.bearers.includes(v.id)) return 'heart';
     // (a raid on and not in the fight, or just struck: alarm)
     if (v.sinceHit < 25 && v.downed === null && !v.defending) return 'alarm';
-    if (this.raid && !v.defending && v.activity !== 'fight' && v.downed === null && (now / 1000 + v.id) % 3 < 1.2) return 'alarm';
+    // (at the alarm a child running for home cries out all the way)
+    if (this.alarm && v.growsUpIn !== null && v.downed === null) return 'alarm';
+    if ((this.raid || this.alarm) && !v.defending && v.activity !== 'fight' && v.downed === null && (now / 1000 + v.id) % 3 < 1.2) return 'alarm';
+    if (v.sick && coughing(v.id, now, this.plague)) return 'sweat';
     const burst = ((now / 1000 + v.id * 3.7) % EMOTE_EVERY) < EMOTE_FOR;
     if (!burst) return null;
     if (v.needs.rest < 0.12 || v.needs.food < 0.12) return 'sweat';
@@ -417,6 +541,19 @@ export class MapPeople {
       sp.alpha = progress > 0.8 && f.kind !== 'frost' ? (1 - progress) / 0.2 : 1;
       sp.position.set(Math.round(who.x - SPELL_SIZE / 2), Math.round(who.y - SPELL_SIZE + 14));
     });
+  }
+
+  /** Who cheers a building finished (map/mapGains.ts), from now for `CHEER_MS`. */
+  private readonly cheers = new Map<number, number>();
+  cheer(ids: number[], now: number): void {
+    for (const id of ids) this.cheers.set(id, now + CHEER_MS);
+  }
+  private cheering(id: number, now: number): boolean {
+    const until = this.cheers.get(id);
+    if (until === undefined) return false;
+    if (until > now) return true;
+    this.cheers.delete(id);
+    return false;
   }
 
   render(now: number): void {
@@ -453,8 +590,13 @@ export class MapPeople {
       d.walked += Math.hypot(off.x - ox, off.y - oy);
       x += off.x;
       y += off.y;
-      const z = y;
       const hidden = d.view.indoors;
+      const moving = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) > 0.5;
+      // (their small moments: a habit, the walk home, a stretch, the watch, the snow: map/townLife.ts)
+      const moment = hidden ? null : this.moment(d, now, moving, x - off.x, y - off.y);
+      if (moment?.dx) x += moment.dx;
+      if (moment?.dy) y += moment.dy;
+      const z = y;
       d.sprite.visible = !hidden;
       const held = heldWeapon(d.view.gear, d.view.activity);
       let [anim, frame] = this.pose(d, now);
@@ -488,11 +630,10 @@ export class MapPeople {
       s.zIndex = z;
       const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : null;
       s.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
-      const moving = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) > 0.5;
       // (hurt legs: a hitch in the walk)
       if (moving) s.y += limpDip(v.body.moving, d.walked);
       // at a gathering: dancing to the beat (a feast) or still with grief (a funeral): map/dance.ts
-      const step = hidden ? null : v.activity === 'dance' ? danceStep(v.id, now, moving) : v.activity === 'mourn' ? mournStep(v.id) : null;
+      const step = hidden ? null : v.activity === 'dance' ? danceStep(v.id, now, moving) : v.activity === 'mourn' ? mournStep(v.id) : v.activity === 'pray' ? prayStep(v.id) : (moment?.step ?? null);
       const facing = step?.facing === 'left' || step?.facing === 'right' ? step.facing : d.view.dir < 0 ? 'left' : 'right';
       // (the side-on townsperson's sprite, which their harm is drawn over; a hero, wolf or class form isn't)
       let plain = true;
@@ -585,11 +726,16 @@ export class MapPeople {
         d.tail.visible = true;
         void TAIL_H;
       } else if (d.tail) d.tail.visible = false;
+      // (a hop for joy: a building finished)
+      if (!swimming && !moving && !fighting && this.cheering(v.id, now)) s.y -= Math.round(Math.abs(Math.sin(now / 170 + v.id)) * 4);
       // (off the ground on the beat, and a squash as they land)
       if (step && !swimming) {
         s.y -= step.lift;
         if (step.squash !== 1) s.scale.set(s.scale.x * (2 - step.squash), s.scale.y * step.squash);
       }
+      // (a lean on the walk home, lying on the grass to watch the clouds)
+      s.rotation = !swimming && hkTex ? (moment?.rot ?? 0) : 0;
+      this.drawProps(d, moment?.prop ?? null, now, x, y, z, k, step?.facing === 'left' ? -1 : step?.facing === 'right' ? 1 : d.view.dir);
       // cavalry: the rider sits on a horse
       const coat = d.view.mounted;
       d.horse.visible = coat !== null && !hidden;
@@ -651,6 +797,22 @@ export class MapPeople {
           d.barrow.scale.x = way > 0 ? -1 : 1;
           d.barrow.position.set(Math.round(x + way * BARROW_AHEAD), Math.round(y + (faceWay === 'down' ? 9 : faceWay === 'up' ? -7 : 2)) - bob);
           d.barrow.zIndex = faceWay === 'up' ? z - 0.2 : z + 0.12;
+        }
+      }
+      // the bucket of water carried home from the well, swinging at their side
+      const carrying = !!pailTex && v.bucket && !hidden && !fighting;
+      if (carrying && !d.pail) {
+        d.pail = this.layer.addChild(new Sprite(pailTex!));
+        d.pail.anchor.set(0.5, 0);
+        d.pail.scale.set(0.5);
+      }
+      if (d.pail) {
+        d.pail.visible = carrying;
+        if (carrying) {
+          const side = faceWay === 'up' || faceWay === 'down' ? 7 : v.dir * 6;
+          d.pail.position.set(Math.round(x + side), Math.round(y - 14 + (Math.floor(d.walked / 6) % 2)));
+          d.pail.rotation = Math.sin(d.walked / 9) * 0.15;
+          d.pail.zIndex = faceWay === 'up' ? z - 0.2 : z + 0.12;
         }
       }
       // a child at play on a fair day flies a kite, high on its string and dancing in the wind
@@ -736,8 +898,8 @@ export class MapPeople {
           d.levelUp.zIndex = z + 0.2;
         }
       }
-      this.speak(d, now, x, y, z, hidden);
-      const emote = hidden || d.visitor || d.view.bleedMinutes !== null ? null : this.emoteFor(d, now);
+      this.speak(d, now, x, y, z, hidden, moment?.line);
+      const emote = hidden || d.visitor || d.view.bleedMinutes !== null ? null : (moment?.emote ?? this.emoteFor(d, now));
       if (emote && !d.emote) d.emote = this.layer.addChild(new Sprite());
       if (d.emote) {
         d.emote.visible = !!emote;
@@ -745,6 +907,20 @@ export class MapPeople {
           d.emote.texture = emoteFrame(emote, now / 140 + d.view.id)!;
           d.emote.position.set(Math.round(x) - EMOTE_SIZE / 2 + 6, Math.round(y) - 62 + Math.round(Math.sin(now / 400 + d.view.id) * 1.5));
           d.emote.zIndex = z + 0.2;
+        }
+      }
+      // a cough: a little puff before the mouth (white; green in a plague), the 5000 Pixel Effects pack's
+      const coughNow = v.sick && !hidden && !d.visitor && v.activity !== 'sleep' && coughing(v.id, now, this.plague);
+      const puff = coughNow ? pixelFxFrame(this.plague ? 'poison-puff' : 'white-puff', Math.floor((((now + v.id * 2711) % COUGH_FOR) / COUGH_FOR) * 6)) : null;
+      if (puff && !d.cough) d.cough = this.layer.addChild(new Sprite());
+      if (d.cough) {
+        d.cough.visible = !!puff;
+        if (puff) {
+          d.cough.texture = puff;
+          d.cough.anchor.set(0.5);
+          d.cough.width = d.cough.height = 12;
+          d.cough.position.set(Math.round(x + v.dir * 8), Math.round(y - 40));
+          d.cough.zIndex = z + 0.3;
         }
       }
       // a blow landing: blood flung away from the striker
@@ -805,7 +981,12 @@ export class MapPeople {
           d.lamp.alpha = 0.5;
         }
         d.lamp.visible = !hidden;
-        d.lamp.position.set(Math.round(x), Math.round(y) - 12);
+        // (a guard's torch on the night watch: a brighter, flickering light, carried high)
+        const torch = moment?.prop === 'torch';
+        d.lamp.width = d.lamp.height = torch ? 84 + Math.sin(now / 90 + v.id) * 6 : 36;
+        d.lamp.tint = torch ? 0xffa850 : 0xffc070;
+        d.lamp.alpha = torch ? 0.8 : 0.5;
+        d.lamp.position.set(Math.round(x) + (torch ? d.view.dir * 7 : 0), Math.round(y) - (torch ? 30 : 12));
       }
       if (founder && !d.aura) {
         d.aura = this.layer.addChild(new Sprite(glowTexture()));
@@ -820,6 +1001,190 @@ export class MapPeople {
         d.aura.position.set(Math.round(x), Math.round(y - 22 * k));
         d.aura.zIndex = z - 0.3;
       }
+    }
+  }
+
+  /** Their small moment now, if any (map/townLife.ts): held where they fell or stretched, weaving home from the tavern
+   *  with a song, a yawn on the way to bed, the night watch's torch and the changing of the watch, a child skating on
+   *  the ice or in a snowball fight, and an idle moment's habit. `x`, `y`: where the town has them (before any step
+   *  aside). Nothing while they fight, in a raid, or on a slow phone. */
+  private moment(d: Drawn, now: number, moving: boolean, x: number, y: number): Moment | null {
+    const v = d.view;
+    // (asleep out of doors, with no bed: laid down on the ground by the fire, never stood up; on a slow phone too)
+    if (v.activity === 'sleep' && !v.indoors && !moving && v.downed === null && !v.swimming && v.mounted === null) {
+      d.hold = undefined;
+      return { rot: (v.id % 2 ? 1 : -1) * (Math.PI / 2), dy: -2, step: { col: 0, facing: 'down', lift: 0, squash: 1 } };
+    }
+    if (this.calm || d.visitor || v.downed !== null || v.activity === 'fight' || v.defending || v.sinceHit < HERO_LINGER || v.swimming || v.mounted !== null) {
+      d.hold = undefined;
+      return null;
+    }
+    // held where they are a moment (a tumble on the way home, a stretch): the town walks on, and once it's over they
+    // catch it up (the step aside eases them back: `spread` gives a walker none)
+    if (d.wokeAt !== undefined && now - d.wokeAt < 60 && !d.hold) d.hold = { x, y, until: d.wokeAt + STRETCH_FOR, line: 'Mmmh... morning!' };
+    if (v.tipsy && moving && !d.hold && fallenNow(v.id, now) && (d.fellAt === undefined || now - d.fellAt > FALL_FOR * 3)) {
+      d.fellAt = now;
+      d.hold = { x, y, until: now + FALL_FOR, line: 'Whoops!' };
+    }
+    if (d.hold) {
+      const h = d.hold;
+      if (now >= h.until || this.raid) {
+        const off = (d.off ??= { x: 0, y: 0 });
+        off.x += h.x - x;
+        off.y += h.y - y;
+        d.hold = undefined;
+      } else {
+        const fell = h.line === 'Whoops!';
+        return {
+          dx: h.x - x,
+          dy: h.y - y,
+          line: h.line,
+          step: fell ? { col: 7, facing: 'down', lift: 0, squash: 1 } : { col: 3, facing: 'down', lift: 1, squash: 1 },
+          emote: fell ? 'sweat' : undefined,
+          rot: fell ? 0.12 * (v.id % 2 ? 1 : -1) : 0,
+        };
+      }
+    }
+    if (this.raid) return null;
+    // the walk home from the tavern: a weave and a lean, and now and then a verse
+    if (v.tipsy) {
+      const song = songNow(v.id, now);
+      const w = moving ? tipsyWeave(v.id, d.walked, now) : { x: 0, lean: Math.sin(now / 500 + v.id) * 0.08 };
+      return { dx: w.x, rot: w.lean, line: song ?? undefined, emote: song ? 'note' : undefined };
+    }
+    // a yawn on the way to bed
+    if (v.bedward && yawningNow(v.id, now)) return { line: '*yaaawn*', emote: 'zzz' };
+    // the watch: the changing of it, and a torch carried round the wall by night
+    const torch = v.onWatch && torchHours(this.hour) ? ('torch' as const) : undefined;
+    if (v.guard && changingWatch(this.hour, this.minute) && (now + v.id * 4001) % 20000 < 6000) {
+      const lines = v.onWatch ? WATCH_ON : WATCH_OFF;
+      return { line: lines[v.id % lines.length], prop: torch };
+    }
+    if (torch) return { prop: torch };
+    // the children's winter: skating on the ice, a snowball fight
+    const child = v.growsUpIn !== null;
+    if (child && v.activity === 'play' && this.season === 'winter') {
+      const spot = this.skateSpot(d);
+      if (spot) {
+        const loop = skateLoop(now, v.id);
+        const g = (d.glide ??= { x: 0, y: 0 });
+        g.x += (spot.x + loop.x - x - g.x) * 0.08;
+        g.y += (spot.y + loop.y - y - g.y) * 0.08;
+        return { dx: g.x, dy: g.y, rot: loop.dir * 0.12, step: { col: 1, facing: loop.dir > 0 ? 'right' : 'left', lift: 0, squash: 1 } };
+      }
+      const fight = this.snowballs.get(v.id);
+      const other = fight && this.drawn.get(fight.other);
+      if (fight && other) {
+        const ball = snowballNow(now, fight.seed);
+        const facing = other.x < d.x ? 'left' : 'right';
+        const mine = !!ball && (ball.from === 0) === fight.first;
+        if (ball && mine && ball.along < 0.3) return { step: { col: 5, facing, lift: 0, squash: 1 } };
+        if (ball && !mine && ball.along > 0.92) return { step: { col: 7, facing, lift: 0, squash: 1 } };
+        return { step: { col: 0, facing, lift: 0, squash: 1 } };
+      }
+    }
+    if (d.glide) {
+      // (off the ice: back to where the town has them)
+      d.glide.x *= 0.9;
+      d.glide.y *= 0.9;
+      if (Math.abs(d.glide.x) + Math.abs(d.glide.y) < 1) d.glide = undefined;
+      else return { dx: d.glide.x, dy: d.glide.y };
+    }
+    // an idle moment: their habit
+    const habit = habitNow(
+      { id: v.id, nature: v.nature, elder: v.elder, activity: v.activity, child, tireless: v.tireless },
+      moving ? 0 : now - (d.stillSince ?? now),
+      now,
+      { hour: this.hour, weather: this.weather, season: this.season, raid: this.raid, nearBuilding: !!this.nearBuilding?.(x, y) },
+    );
+    switch (habit) {
+      case 'juggle':
+        return { prop: habit, step: { col: Math.floor(now / 310) % 2 ? 5 : 6, facing: 'down', lift: 0, squash: 1 } };
+      case 'kick':
+        return { prop: habit, step: { col: kickedStone(now, v.id).kicking ? 4 : 0, facing: v.dir < 0 ? 'left' : 'right', lift: 0, squash: 1 } };
+      case 'peer':
+        // (up on tiptoe at the window, then a look round)
+        return { emote: (now / 1000 + v.id) % 6 < 1.4 ? 'think' : undefined, step: { col: 0, facing: (now / 1000 + v.id) % 6 < 4.5 ? 'up' : 'down', lift: Math.sin(now / 260) > 0 ? 2 : 1, squash: 1 } };
+      case 'cloudgaze':
+        // (flat on their back in the grass: the figure laid down along the ground)
+        return { rot: (v.id % 2 ? 1 : -1) * (Math.PI / 2), dy: -2, step: { col: 0, facing: 'down', lift: 0, squash: 1 } };
+      case 'pipe':
+        return { prop: habit };
+      default:
+        return null;
+    }
+  }
+
+  /** The nearest ice a child at play could skate on (centre of the cell, world px), worked out once a spot. */
+  private skateSpot(d: Drawn): { x: number; y: number } | null {
+    const land = this.land;
+    if (!land || !freezes(this.season)) return null;
+    const cx = Math.floor(d.to.x / CELL);
+    const cy = Math.floor(d.to.y / CELL);
+    const key = `${cx},${cy},${this.season}`;
+    if (d.skate?.key === key) return d.skate.spot;
+    const wet = (wx: number, wy: number) => groundAt(land, wx, wy) === 'water';
+    let spot: { x: number; y: number } | null = null;
+    let far = Infinity;
+    for (let dy = -SKATE_REACH; dy <= SKATE_REACH; dy++)
+      for (let dx = -SKATE_REACH; dx <= SKATE_REACH; dx++) {
+        const r = dx * dx + dy * dy;
+        if (r >= far || !iceAt(wet, cx + dx, cy + dy)) continue;
+        far = r;
+        spot = { x: (cx + dx + 0.5) * CELL, y: (cy + dy + 0.5) * CELL };
+      }
+    d.skate = { key, spot };
+    return spot;
+  }
+
+  /** What's in their hands in a small moment: the jolly's three fruit in the air, the grumpy's pebble, an elder's pipe
+   *  with its smoke rising, the night watch's torch. `dir`: the way they face. */
+  private drawProps(d: Drawn, prop: Moment['prop'] | null, now: number, x: number, y: number, z: number, k: number, dir: number): void {
+    if (!prop || d.view.indoors) {
+      if (d.props) d.props.visible = false;
+      return;
+    }
+    if (!d.props) {
+      const c = (d.props = this.layer.addChild(new Container()));
+      for (let i = 0; i < 3; i++) {
+        const sp = c.addChild(new Sprite());
+        sp.anchor.set(0.5);
+        sp.visible = false;
+      }
+      c.addChild(new Graphics());
+    }
+    const c = d.props;
+    const sprites = c.children.slice(0, 3) as Sprite[];
+    const puffs = c.children[3] as Graphics;
+    c.visible = true;
+    c.position.set(Math.round(x), Math.round(y));
+    c.zIndex = z + 0.3;
+    for (const sp of sprites) sp.visible = false;
+    puffs.clear();
+    const set = (sp: Sprite, t: Texture | null, px: number, py: number, scale: number, flip = 1) => {
+      if (!t) return;
+      sp.texture = t;
+      sp.visible = true;
+      sp.position.set(Math.round(px), Math.round(py));
+      sp.scale.set(scale * flip, scale);
+    };
+    const id = d.view.id;
+    if (prop === 'juggle') {
+      const balls = juggleBalls(now, id);
+      [lifeTex.apple, lifeTex.orange, lifeTex.pear].forEach((t, i) => set(sprites[i], t, balls[i].x * k, -26 * k + balls[i].y * k, 0.55 * k));
+    } else if (prop === 'kick') {
+      const st = kickedStone(now, id);
+      set(sprites[0], lifeTex.pebble, dir * st.x * k, st.y * k - 2, 0.8 * k);
+    } else if (prop === 'pipe') {
+      set(sprites[0], lifeTex.pipe, dir * 5 * k, -36 * k, 0.32 * k, dir < 0 ? 1 : -1);
+      // (puffs of smoke drifting up from the bowl and thinning)
+      for (const p of pipePuffs(now, id)) puffs.circle(dir * 7 * k + Math.sin(p * 6 + id) * 2, -40 * k - p * 18, 1.2 + p * 2.6).fill({ color: 0xe8e4dc, alpha: 0.55 * (1 - p) });
+    } else if (prop === 'torch') {
+      set(sprites[0], lifeTex.torch, dir * 8 * k, -27 * k, 1.1 * k, dir < 0 ? -1 : 1);
+      // (the flame's flicker at its tip)
+      const fl = 1 + Math.sin(now / 70 + id) * 0.25;
+      puffs.circle(dir * 11 * k, -33 * k, 2.2 * fl).fill({ color: 0xffd060, alpha: 0.9 });
+      puffs.circle(dir * 11 * k, -34 * k, 1.1 * fl).fill({ color: 0xfff4c0, alpha: 0.95 });
     }
   }
 

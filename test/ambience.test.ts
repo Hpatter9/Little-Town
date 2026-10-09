@@ -27,3 +27,8 @@ test('winter, the blight and a raid quieten the living things', () => {
   assert.ok(ambientMix({ ...base, daylight: 0, blighted: true }).wolves > ambientMix({ ...base, daylight: 0 }).wolves);
   assert.ok(ambientMix({ ...base, raid: true }).birds < ambientMix(base).birds);
 });
+
+test('the sound effects stand out over the land and the music (the owner heard none: a hammer peaked at the wind)', async () => {
+  const { CUE_GAIN } = await import('../src/renderer/ambience');
+  assert.ok(CUE_GAIN >= 3, `cues ${CUE_GAIN}x over the beds`);
+});

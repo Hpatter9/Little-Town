@@ -5,7 +5,7 @@ import { trail } from '../src/shared/sim/battle';
 import { blueprintCount, footprint } from '../src/shared/sim/buildings';
 import { groundAt, inRect, isRoad, setGround, wet, WILD } from '../src/shared/sim/land';
 import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
-import { gateAt, gateCells, gateTurned, isGate, isRingPiece, lineOf, PUSH_ALONG, RING_AT_ONCE, RING_PAD, RING_STEP, ringCells, ringGate, riverCell, shapeRing, sideOn, wantRect, type LineCell } from '../src/shared/sim/ringWall';
+import { gateAt, gateCells, gateTurned, isGate, isRingPiece, lineOf, PUSH_ALONG, RING_AT_ONCE, RING_GATHER_AHEAD, RING_SPARE, ringWants, RING_PAD, RING_STEP, ringCells, ringGate, riverCell, shapeRing, sideOn, wantRect, type LineCell } from '../src/shared/sim/ringWall';
 import { campCell, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { pathTo } from '../src/shared/sim/walk';
 import { CELL, cellAt, isMarked, setMarked } from '../src/shared/sim/land';
@@ -112,13 +112,29 @@ test('the wall leaves the other sites the materials they still wait on', () => {
   const s = walledTown('ring-owed');
   // a shop's site waits on 12 wood; the store holds just enough for it and one wall piece
   s.buildings.push({ id: s.nextId++, def: 'trading_post', tile: campCell(s).x + 6, row: campCell(s).y + 3, status: 'blueprint', delivered: {}, progress: 0, store: {} } as Building);
-  s.buildings[0].store = { wood: 12 + BUILDING_BY_ID.palisade_wall.cost.wood! * 3 - 1, stone: 500 };
+  s.buildings[0].store = { wood: 12 + Math.ceil(BUILDING_BY_ID.palisade_wall.cost.wood! * RING_SPARE) - 1, stone: 500 };
   s.tick += PLAN_TICKS;
   runPlanner(s);
   assert.equal(s.buildings.filter((b) => isRingPiece(b.def) && b.status === 'blueprint' && !b.planned).length, 0, 'no wall piece in work over the shop (the ring is laid out, planned)');
   s.buildings[0].store = { wood: 3000, stone: 500 };
   raise(s, 1, 30);
   assert.ok(s.buildings.some((b) => isRingPiece(b.def) && b.status === 'done'), 'with wood to spare, the wall goes up');
+});
+
+test("the wall is built beside the town's other work, and the town gathers wood for it (the owner: palisades never finished)", () => {
+  const s = walledTown('ring-own-queue');
+  // the build slots all full with the town's own sites
+  for (let i = 0; i < 6; i++) s.buildings.push({ id: s.nextId++, def: 'lean_to', tile: campCell(s).x - 8 + i * 3, row: campCell(s).y + 4, status: 'blueprint', delivered: {}, progress: 0, store: {} } as Building);
+  s.tick += PLAN_TICKS;
+  runPlanner(s);
+  const ring = s.buildings.filter((b) => b.ring === s.ring!.gen);
+  assert.ok(ring.filter((b) => !b.planned).length >= 3, 'sections go into work whatever the build queue holds');
+  // the planned sections' makings are wanted, so the town gathers for them
+  const want = ringWants(s);
+  const ahead = ring.filter((b) => b.planned).slice(0, RING_GATHER_AHEAD);
+  assert.ok((want.wood ?? 0) > 0 && (want.wood ?? 0) <= ahead.reduce((k, b) => k + (BUILDING_BY_ID[b.def].cost.wood ?? 0), 0), `wood wanted: ${want.wood}`);
+  // a palisade is quick and cheap: a ring of a hundred pieces is days of work, not weeks
+  assert.ok(BUILDING_BY_ID.palisade_wall.cost.wood! <= 4 && BUILDING_BY_ID.palisade_wall.buildSeconds <= 20);
 });
 
 test('the whole ring is laid out as one blueprint, built a few sections at a time, and walked through meanwhile', () => {
@@ -134,9 +150,10 @@ test('the whole ring is laid out as one blueprint, built a few sections at a tim
   const inWork = pieces.filter((b) => !b.planned);
   assert.ok(inWork.length > 0 && inWork.length <= RING_AT_ONCE, `${inWork.length} sections in work`);
   assert.ok(pieces.length > inWork.length * 5, 'the rest only planned');
-  // the planned pieces take no build slot, and the gates come first
-  assert.equal(blueprintCount(s), s.buildings.filter((b) => b.status === 'blueprint' && !b.planned).length);
-  assert.ok(inWork.every((b) => isGate(b.def)), 'the gates are the first sections');
+  // the ring's sections, planned or in work, take no build slot (they have their own queue), and the gates come first
+  assert.equal(blueprintCount(s), s.buildings.filter((b) => b.status === 'blueprint' && !b.planned && b.ring === undefined).length);
+  const gates = pieces.filter((b) => isGate(b.def) && !b.overgrown);
+  assert.ok(inWork.every((b) => isGate(b.def)) || gates.every((b) => !b.planned), 'the gates are the first sections');
   // the planned line is no wall yet: a way straight out over it
   const c = campCell(s);
   const path = pathTo(s, { x: (c.x + 0.5) * CELL, y: (c.y + 1.5) * CELL }, { x: (c.x + 0.5) * CELL, y: (r.y + r.h + 2.5) * CELL });

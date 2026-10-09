@@ -3,13 +3,13 @@
 // within a level: haul, construct, research, gather) > loaf around camp.
 
 import { protestSpot, striking } from './politics';
-import { RING_CLEAR_PULL } from './ringWall';
+import { lineOf, RING_CLEAR_PULL } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
 import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
 import { LEISURE } from '../data/recreation';
 import { onBoard } from './tactics';
 import { noteCleared } from './regrow';
-import { attending, festive, gatheringPlace } from './ceremonies';
+import { attending, festive, gatheringPlace, guestActivity, processing } from './ceremonies';
 import { injuryPace } from './injuries';
 import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
@@ -31,6 +31,7 @@ import { guardEngages, roamerToHunt } from './roamers';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
 import { FEED_SECONDS } from '../data/lighting';
 import { feedLight, lightToFeed } from './lighting';
+import { roughSpot } from './roughSleep';
 import { CELL, cellAt, centreOf, groundAt, inMap, isMarked, isPlannedRoad, isRoad, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
 import { swims } from './sea';
@@ -157,12 +158,23 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
   const task = p.task;
   switch (task.type) {
     case 'wander':
-      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime };
+      // (home with the well's bucket: set down, and the wait spent idle)
+      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime === 'carry' ? undefined : task.pastime };
       break;
-    case 'idle':
-      p.activity = task.pastime === 'market' ? 'stroll' : (task.pastime ?? 'idle');
-      if (s.tick >= task.untilTick) p.task = null;
+    case 'idle': {
+      const pt = task.pastime;
+      p.activity = pt === 'market' ? 'stroll' : pt === 'well' ? 'draw' : pt === 'carry' || pt === 'rounds' || !pt ? 'idle' : pt;
+      if (s.tick >= task.untilTick) {
+        p.task = null;
+        // (the bucket wound up at the well, and carried home: sim/pastimes.ts)
+        const home = pt === 'well' && p.bed != null ? byId(s, p.bed) : undefined;
+        if (home) {
+          const d = buildingDoor(home);
+          p.task = { type: 'wander', targetX: d.x, targetY: d.y, pastime: 'carry' };
+        }
+      }
       break;
+    }
     case 'gather':
       if (goTo(s, p, cellXY(s, task.tile))) {
         if (task.scrounge) scrounge(s, p, task);
@@ -324,12 +336,21 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       // (in a ring round the spot, each to their own place; at a feast half of them dance round in the ring: once there,
       // they keep to their turning place)
       const at = gatheringPlace(g, g.ids.indexOf(p.id), s.tick);
+      // (on the way: walking in the procession behind the coffin, the couple or the faithful's head, step for step)
+      if (processing(g, s.tick)) {
+        // (the place is held to a 24 px grid, so the way to it isn't sought afresh every tick as the line moves on)
+        const spot = { x: Math.round(at.x / 24) * 24, y: Math.round(at.y / 24) * 24 };
+        if (dist(p, spot) >= 6) goTo(s, p, spot);
+        p.activity = 'walk';
+        p.dir = at.dir;
+        break;
+      }
       const there = dist(p, at) < 10;
       if (there && festive(g)) {
         p.x = at.x;
         p.y = at.y;
       } else if (!goTo(s, p, at)) break;
-      p.activity = festive(g) ? 'dance' : 'mourn';
+      p.activity = guestActivity(g);
       p.dir = at.dir;
       break;
     }
@@ -444,7 +465,9 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       break;
     case 'shelter': {
       const bed = p.bed === null ? undefined : byId(s, p.bed);
-      if (!(bed ? goToB(s, p, bed) : goTo(s, p, campXY(s)))) break;
+      // (at the alarm the children run for home: SHELTER_RUN)
+      const pace = isChild(p) ? SHELTER_RUN : 1;
+      if (!(bed ? goTo(s, p, buildingDoor(bed), footprint(bed), pace) : goTo(s, p, campXY(s), undefined, pace))) break;
       p.activity = bed ? 'sleep' : 'idle'; // inside, out of sight; or huddled by the fire
       break;
     }
@@ -522,8 +545,38 @@ export function onShift(s: GameState, p: Person): boolean {
   return (p.id % 2 === 0) === day;
 }
 
-/** The far end of the built town from where a guard is: the door of the building farthest from them. */
+/** Hours a guard walks the wall rather than the streets (the owner's ask: torches moving along the ring at night). */
+const WALL_WATCH_FROM = 19;
+const WALL_WATCH_UNTIL = 6;
+
+/** By night, with the ring wall standing all round, a guard on watch walks its inside face: a quarter of the way round
+ *  from where they are, then on again, so the torches go round the wall (sim/ringWall.ts's line, each cell's inner
+ *  neighbour). Null by day, or with no ring standing. */
+function wallWalk(s: GameState, p: Person): Pt | null {
+  const h = calendar(s.tick).hour;
+  if (!s.ring?.done || (h < WALL_WATCH_FROM && h >= WALL_WATCH_UNTIL)) return null;
+  const line = lineOf(s.ring);
+  if (line.length < 8) return null;
+  const cx = line.reduce((n, c) => n + c.x, 0) / line.length;
+  const cy = line.reduce((n, c) => n + c.y, 0) / line.length;
+  const at = Math.atan2(p.y / CELL - cy, p.x / CELL - cx);
+  // (round one way or the other, by who they are, so two guards don't walk together)
+  const want = at + (p.id % 2 ? 1 : -1) * (Math.PI / 2);
+  let best = line[0];
+  let far = Infinity;
+  for (const c of line) {
+    const d = Math.abs(Math.atan2(Math.sin(Math.atan2(c.y - cy, c.x - cx) - want), Math.cos(Math.atan2(c.y - cy, c.x - cx) - want)));
+    if (d < far) [far, best] = [d, c];
+  }
+  const [ix, iy] = best.side === 'n' ? [0, 1] : best.side === 's' ? [0, -1] : best.side === 'w' ? [1, 0] : [-1, 0];
+  return { x: (best.x + ix + 0.5) * CELL, y: (best.y + iy + 0.5) * CELL };
+}
+
+/** The far end of the built town from where a guard is: the door of the building farthest from them (by night, along
+ *  the ring wall: `wallWalk`). */
 function patrolEnd(s: GameState, p: Person): Pt {
+  const wall = wallWalk(s, p);
+  if (wall) return wall;
   let best: Pt = campXY(s);
   let far = -1;
   for (const b of s.buildings) {
@@ -858,7 +911,9 @@ function doEat(s: GameState, p: Person, task: Extract<Task, { type: 'eat' }>): v
 
 function doSleep(s: GameState, p: Person, task: Extract<Task, { type: 'sleep' }>): void {
   const bed = task.building === null ? undefined : byId(s, task.building);
-  if (!(bed ? goToB(s, p, bed) : goTo(s, p, { x: campXY(s).x - CELL, y: campXY(s).y + CELL }))) return;
+  // (no bed: a spot of their own on the ground round the fire, not all in one heap in the middle of town)
+  if (!bed) task.spot ??= roughSpot(s, p);
+  if (!(bed ? goToB(s, p, bed) : goTo(s, p, task.spot!))) return;
   p.activity = 'sleep';
   const bedroll = !bed && hasBedroll(s, p);
   p.needs.rest = Math.min(1, p.needs.rest + (SLEEP_PER_HOUR * (bed ? 1 : bedroll ? BEDROLL_SLEEP : GROUND_SLEEP)) / TICKS_PER_HOUR);
@@ -959,12 +1014,17 @@ function jobOf(t: Task): Job {
 /** So hungry they get up in the night to eat. */
 export const WAKE_TO_EAT = 0.12;
 
+/** To bed (their own, or none): the task they're on kept, so someone sleeping rough keeps the spot they bedded down on. */
+function sleepTask(p: Person): Task {
+  return p.task?.type === 'sleep' && !p.task.sick && p.task.building === p.bed ? p.task : { type: 'sleep', building: p.bed };
+}
+
 function chooseTask(s: GameState, p: Person): Task | null {
   p.blocked = false;
   // The badly hurt stay in bed until they're back on their feet: a sickbed if one's free (sim/sickbeds.ts), else home.
   if (p.downed) {
     const sb = sickbedFor(s, p);
-    return sb ? { type: 'sleep', building: sb.id, sick: true } : { type: 'sleep', building: p.bed };
+    return sb ? { type: 'sleep', building: sb.id, sick: true } : sleepTask(p);
   }
   // A raid: defenders fight, everyone else shelters.
   if (alarmRaised(s)) return p.priorities.defend !== 0 ? (p.task?.type === 'defend' ? p.task : { type: 'defend', cooldown: 0 }) : { type: 'shelter' };
@@ -1003,7 +1063,8 @@ function chooseTask(s: GameState, p: Person): Task | null {
   // Needs. Someone asleep and nearly empty gets up to eat (while the stores hold food).
   if (p.task?.type === 'sleep' || wantsSleep(s, p)) {
     const st = p.task?.type === 'sleep' && p.needs.food < WAKE_TO_EAT && !tireless(p) ? nearestStorage(s, p, (b) => !!foodIn(b)) : null;
-    return st ? { type: 'eat', building: st.id, until: null } : { type: 'sleep', building: p.bed };
+    if (st) return { type: 'eat', building: st.id, until: null };
+    return sleepTask(p);
   }
   if (p.needs.food < HUNGRY) {
     const st = nearestStorage(s, p, (b) => !!foodIn(b));
@@ -1318,11 +1379,14 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 export const busyNow = (s: GameState, p: Person) => !!s.busy && s.tick < s.busy.until && s.busy.ids.includes(p.id) && p.away === null && !p.downed && !alarmRaised(s);
 
 /** Step toward a point along a path over the land. Returns true once there. */
-function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {
-  const there = walk(s, p, to, STEP * injuryPace(p), through, s.tick, swims(s, p)); // (a lame leg slows them: sim/injuries.ts)
+function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>, pace = 1): boolean {
+  const there = walk(s, p, to, STEP * injuryPace(p) * pace, through, s.tick, swims(s, p)); // (a lame leg slows them: sim/injuries.ts)
   if (!there) p.activity = 'walk';
   return there;
 }
+
+/** How much faster than a walk a child runs home at a raid's alarm. */
+export const SHELTER_RUN = 1.5;
 
 /** Step toward a building: to its door. */
 const goToB = (s: GameState, p: Person, b: Building) => goTo(s, p, buildingDoor(b), footprint(b));

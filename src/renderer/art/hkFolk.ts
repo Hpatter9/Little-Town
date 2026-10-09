@@ -36,6 +36,8 @@ export interface HkWho {
   /** Lost an eye (an eyepatch), carries a scar. */
   eyeLost: boolean;
   scarred: boolean;
+  /** Masked against the pestilence: the healer going the rounds in a plague (the plague doctor). */
+  mask?: boolean;
 }
 
 /* ------------------------------------------------------------ choosing the layers */
@@ -185,8 +187,8 @@ export function weaponPiece(weapon: { name: string; family?: string; tier?: numb
   return null;
 }
 
-/** The work in hand's tool. */
-const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: ['staff01'], forage: ['sickle01', 'dagger01'], research: ['book01'], fish: ['staff01'] };
+/** The work in hand's tool (none in hand to sow by hand or wind the well's bucket: map/mapChores.ts). */
+const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: [], draw: [], forage: ['sickle01', 'dagger01'], research: ['book01'], fish: ['staff01'] };
 
 /** The layers of a person, back to front (keys of art/himeko/), for what they're doing now. */
 export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string }): string[] {
@@ -249,7 +251,8 @@ export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string 
   // a helm: what they wear on their head, by its weight; else their calling's hat; a founder their crown
   const head = w.gear.head ? ITEM_BY_ID[w.gear.head] : undefined;
   const helm =
-    head?.weight === 'heavy' ? (w.cls === 'samurai' ? 'samurai' : w.cls === 'warrior' || w.cls === 'blood_knight' ? 'horned' : 'armet')
+    w.mask ? 'gasmask'
+    : head?.weight === 'heavy' ? (w.cls === 'samurai' ? 'samurai' : w.cls === 'warrior' || w.cls === 'blood_knight' ? 'horned' : 'armet')
     : head?.weight === 'medium' ? (w.id % 2 ? 'sallet' : 'guard')
     : head?.weight === 'light' ? (w.cls === 'ranger' || w.cls === 'hunter' ? 'hoodgreen' : 'hoodred')
     : w.founder ? (w.cls && ['mage', 'witch', 'necromancer', 'summoner', 'chronomancer', 'druid', 'shaman'].includes(w.cls) ? 'magecrown' : 'crown')
@@ -350,8 +353,8 @@ export function hkCell(keys: string[], col: number, row: number): HTMLCanvasElem
   ims.forEach((im, i) => {
     if (!im) return;
     const at = standIn(keys[i], im, col, row);
-    // (a cell the pack drew out of place is put back: NUDGE)
-    const [dx, dy] = NUDGE[keys[i]]?.[row * 8 + at] ?? [0, 0];
+    // (a cell the pack drew out of place is put back: `nudgeOf`)
+    const [dx, dy] = nudgeOf(keys[i])?.[row * 8 + at] ?? [0, 0];
     g.drawImage(im, at * HK_CELL, row * HK_CELL, HK_CELL, HK_CELL, dx, dy, HK_CELL, HK_CELL);
   });
   cells.set(key, c);
@@ -369,13 +372,19 @@ export function hkCell(keys: string[], col: number, row: number): HTMLCanvasElem
  * lunge), so a person went bare or lost their hair for a moment (the owner's complaint: clothing and hair not
  * sitting right between animations). For those layers a blank cell takes the nearest pose of the same facing that
  * has it; the layers that are meant to be sparse are left as the pack drew them. */
-/** Cells the pack drew out of place, and how far to move them (px), by the cell's index (row * 8 + column): the
- *  white long hair and pigtails lie 10px toward the middle in the two side lunges, where every other colour's swing
- *  with the head (measured against the other nine colours; the heads themselves agree to the pixel). */
-const LUNGES: Record<number, [number, number]> = { 12: [10, 0], 20: [-10, 0] };
-const NUDGE: Record<string, Record<number, [number, number]>> = {
-  hairlongwhitefront: LUNGES, hairlongwhiterear: LUNGES, hairpigtailswhitefront: LUNGES, hairpigtailswhiterear: LUNGES,
-};
+/** Cells the pack drew out of place, and how far to move them (px), by the cell's index (row * 8 + column). In the two
+ *  side lunges (every tool swing and blow facing left or right) the head moves 16px toward the face, and the beards,
+ *  hoods, eyepatches and clothes with it, but the hair and bangs only 6 (the owner's complaint: their hair slid off
+ *  their head), and the sideburns and the white long hair and pigtails 4 the other way: they're moved the rest of the
+ *  way (measured against the bodies' heads, and checked by eye). */
+const LUNGE = (dx: number): Record<number, [number, number]> => ({ 12: [dx, 0], 20: [-dx, 0] });
+const LUNGE_HAIR = LUNGE(10);
+const LUNGE_FAR = LUNGE(20);
+export function nudgeOf(key: string): Record<number, [number, number]> | undefined {
+  if (/^sideburns/.test(key) || /^hair(long|pigtails)white/.test(key)) return LUNGE_FAR;
+  if (/^(hair|bangs)/.test(key)) return LUNGE_HAIR;
+  return undefined;
+}
 const SPARSE = /^(axe|bow|book|dagger|great|hammer|mace|spear|staff|sword|katana|wand|gun|rifle|orb|talisman|totem|alchemy|flail|sickle|club|scythe|shield|bangs|beard|goatee|sideburns|freckles|scar|eyepatch|cape|skeleton|orc|template)|top$/;
 /** The pose to try in place of a blank one (the stand first, then the arm raised, the lunge, the steps...). */
 const STAND_IN = [0, 3, 4, 1, 2, 6, 5, 7];
@@ -421,6 +430,7 @@ export function hkWhoOf(v: PersonView): HkWho {
     child: v.growsUpIn !== null, traveller: v.typeName === 'Traveller',
     eyeLost: v.body.marks.some((m) => /eye/i.test(m.part) && (m.look === 'patch' || m.look === 'gone')),
     scarred: v.body.lasting.some((l) => l.startsWith('scarred')),
+    mask: v.rounds,
   };
 }
 /** The townsfolk as of the last snapshot (main.ts: `hkKnow`), so a view that has only someone's id, look and gear (a

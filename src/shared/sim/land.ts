@@ -66,6 +66,8 @@ export interface LandMap {
   wear?: string;
   /** Wild cells gathered bare and growing back (sim/regrow.ts): the cell, what it was, the tick it returns. */
   regrow?: Record<number, [Ground, number]>;
+  /** Rock broken up for stone (sim/regrow.ts): the cell and the tick its rubble is cleared away (the map scatters it). */
+  rubble?: Record<number, number>;
   /** The land's named regions (landRegions.ts): the home vale first. Absent on an older, smaller land. */
   regions?: LandRegion[];
   /** The seed's hash (the regions' borders are warped by it). */

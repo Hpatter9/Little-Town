@@ -51,6 +51,13 @@ function roll(seed: string, day: number, id: number): number {
 export const drinking = (s: GameState, p: Person): boolean =>
   !!s.nightOut && s.tick < s.nightOut.until && s.nightOut.ids.includes(p.id) && p.away === null && !p.downed && !s.raid;
 
+/** The walk home (the owner's ask): at closing (`until`) they leave the tavern and make their way home, a little the
+ *  worse for drink for TIPSY_HOURS after (only those who were served): the map has them weave, now and then sing, and
+ *  now and then fall over (map/townLife.ts). A look only: nothing in the town is changed by it. */
+export const TIPSY_HOURS = 1.5;
+export const walkingHome = (s: GameState, p: Person): boolean =>
+  !!s.nightOut && s.tick >= s.nightOut.until && s.tick < s.nightOut.until + TIPSY_HOURS * TICKS_PER_HOUR && s.nightOut.served.includes(p.id) && p.away === null && !p.downed && !s.raid;
+
 /** Of an evening (TAVERN_HOUR, from wages.ts): who goes to the tavern tonight. */
 export function nightOut(s: GameState): void {
   const tavern = venueOpen(s, 'tavern');

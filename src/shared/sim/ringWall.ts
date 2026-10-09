@@ -9,7 +9,7 @@
 // Townsfolk walk out through the gates (walk.ts `blockedBy` lets gates through; a sealed town walks straight through).
 // Castles and the hold have walls of their own, and a wandering tribe its wagons: no ring for them.
 import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
-import { blueprintCount, buildSlots, builtOn, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
+import { builtOn, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
 import { holdOf } from './castle';
 import { groundAt, idx, inMap, isRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
@@ -23,10 +23,16 @@ export const RING_STEP = 5;
 export const RING_MIN = 8;
 /** Grown-ups before a town walls itself (sooner when raided or set on defence). */
 export const RING_PEOPLE = 6;
-/** Ring pieces on the build queue at a time (a slot is always left for the rest). */
-export const RING_AT_ONCE = 2;
-/** A piece is placed only while the town holds this many times its cost (the wall never takes the last wood). */
-export const RING_SPARE = 3;
+/** Ring sections in work at a time: a queue of their own, beside the town's build slots (the owner's complaint: two
+ *  at a time, and only with a slot to spare, and a ring of a hundred pieces was never finished before the town outgrew
+ *  it). */
+export const RING_AT_ONCE = 5;
+/** A section is released only while the town holds this many times its cost beyond what its other sites wait on (the
+ *  wall never takes the last wood). */
+export const RING_SPARE = 1.5;
+/** The makings of this many sections ahead are wanted (`ringWants`), so the town gathers for its wall as for any
+ *  site; it used to build the wall from whatever was left over. */
+export const RING_GATHER_AHEAD = 8;
 /** Hours after a ring stands all round before a wider one is begun (a town that has grown past it waits; a raid
  *  brings the new ring on at once). */
 export const RING_REGROW_HOURS = 72;
@@ -420,7 +426,7 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     if (b.status !== 'blueprint' || isRingPiece(b.def)) continue;
     for (const [m, n] of Object.entries(BUILDING_BY_ID[b.def]?.cost ?? {})) owed[m] = (owed[m] ?? 0) + Math.max(0, (n ?? 0) - (b.delivered[m as keyof typeof b.delivered] ?? 0));
   }
-  let room = Math.min(RING_AT_ONCE - queued, buildSlots(s) - 1 - blueprintCount(s));
+  let room = RING_AT_ONCE - queued;
   // (the next sections, in the order they were laid: the gates first, then round the ring)
   for (const b of s.buildings) {
     if (room <= 0) break;
@@ -431,6 +437,23 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     room--;
   }
   return clear;
+}
+
+/** What the ring's next sections still want, laid out but not yet in work (the planner's demand, beside what its
+ *  sites in work wait on: the town gathers for its wall), `RING_GATHER_AHEAD` sections in order. Nothing once the ring
+ *  stands. */
+export function ringWants(s: GameState): Partial<Record<string, number>> {
+  const out: Partial<Record<string, number>> = {};
+  const ring = s.ring;
+  if (!ring || ring.done) return out;
+  let n = 0;
+  for (const b of s.buildings) {
+    if (n >= RING_GATHER_AHEAD) break;
+    if (b.ring !== ring.gen || b.status !== 'blueprint' || !b.planned) continue;
+    for (const [m, k] of Object.entries(BUILDING_BY_ID[b.def]?.cost ?? {})) out[m] = (out[m] ?? 0) + (k ?? 0);
+    n++;
+  }
+  return out;
 }
 
 /** The ring's gate cell on a side (for raids: the trail ends there), if the town has a ring. */

@@ -24,7 +24,8 @@ import { cellsOf } from './prisoners';
 import { patientsIn, sickbedsIn } from './sickbeds';
 import type { Chronicle, Fallen } from './annals';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
-import { gatheringRadius } from './ceremonies';
+import { gatheringRadius, processing, processionHead } from './ceremonies';
+import { walkingHome } from './nightOut';
 import { realmView, type RealmView } from './factions';
 import { warView, type WarView } from './conquest/warView';
 import { armyOfPerson } from './conquest/armies';
@@ -73,6 +74,9 @@ import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
 import { aimableSpells, POWERS, powersView } from './powers';
 import { battleView, ranged, type BattleView } from './battle';
 
+/** Today's and yesterday's pay in whole coins. */
+const wholeIncome = (i: { today: number; yesterday: number }, last: string | null) => ({ today: Math.floor(i.today), yesterday: Math.floor(i.yesterday), last });
+
 /** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
 export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
 const themeOf = (s: GameState): ThemeId => (s.lich ? 'lich' : !s.origin || s.origin === 'settlers' ? 'town' : s.origin);
@@ -88,7 +92,7 @@ import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
 import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
-import { alarmRaised, cavalry } from './people';
+import { alarmRaised, cavalry, onShift } from './people';
 import type { Era } from '../data/eras';
 import { ITEM_BY_ID, ITEMS, type Slot } from '../data/items';
 import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
@@ -169,6 +173,9 @@ export interface PersonView {
   activity: Activity;
   /** How far along the work in hand is (0 to 1), while they're at it: the bar over their head. */
   taskDone: number | null;
+  /** The work in hand and where (a station's or building's def), for the sounds of it (renderer/sfx.ts): a crafter at
+   *  the loom isn't a builder's hammer. Left out while walking or idle. */
+  work?: { kind: string; at: string | null };
   /** Ticks since a blow last landed on them, and the side it came from (for the blood). */
   sinceHit: number;
   hitFrom: 1 | -1;
@@ -223,6 +230,8 @@ export interface PersonView {
   bedId: number | null;
   /** Asleep inside a building (the renderer hides them). */
   indoors: boolean;
+  /** Carrying a bucket of water home from the well (sim/pastimes.ts). */
+  bucket: boolean;
   /** In a raid: the player can rally them ('ready'), they're rallied ('on'), or the rally is cooling down ('wait'). */
   rally: 'ready' | 'on' | 'wait' | null;
   /** How high up a castle's keep they are, in floors (fractional on the stairs); null on the walkway. */
@@ -293,12 +302,20 @@ export interface PersonView {
   lifeStage: LifeStage;
   ageText: string;
   elder: boolean;
+  /** The town being itself (map/townLife.ts): on the way home from the tavern a little the worse for drink
+   *  (sim/nightOut.ts), on the way to bed (a yawn), a hired guard, and on watch now. */
+  tipsy?: boolean;
+  bedward?: boolean;
+  guard?: boolean;
+  onWatch?: boolean;
   /** Monsters: what they are and their standing order for the Hunter's Guild. */
   monster: string | null;
   /** Neither eats nor sleeps (the dead, the lich, machines). */
   tireless: boolean;
   order: string | null;
   sick: boolean;
+  /** The healer going the rounds of the sick households in a plague (sim/pastimes.ts): drawn masked, the plague doctor. */
+  rounds: boolean;
   /** How they'd fight now (as a fighter in the front rank), for the inspect page: a blow's damage, shares of hit
    *  chance, dodge, armour and block, and the chance to strike true. */
   battle: { damage: [number, number]; accuracy: number; dodge: number; armor: number; block: number; crit: number; ranged: boolean; attrs: Attrs; mp: number; sp: number; interval: number; range: number };
@@ -318,6 +335,10 @@ export interface CraftOrderView {
   /** Why nobody is working on it, if nobody is. */
   waiting: string | null;
   crafter: string | null;
+  /** Pieces finished so far, and the station building it's made at (null with none): the map lifts a finished piece's
+   *  picture from there (map/mapGains.ts). */
+  made: number;
+  station: number | null;
 }
 
 export interface FighterView {
@@ -847,7 +868,9 @@ export interface Snapshot {
   /** What fights left lying about (state.ts `markDebris`), with their age (ticks). */
   debris: { x: number; y: number; kind: DebrisKind; age: number; key: string }[];
   /** The town gathered (a feast, a wedding, a funeral): where, and how many came (the map dresses the spot). */
-  gathering: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; x: number; y: number; ring: number; key: number; fire: boolean } | null;
+  /** The gathering under way (sim/ceremonies.ts); `head`: where its procession's head is while it's on the way (the
+   *  coffin carried, the couple, the faithful), `bearers` who walk there (the first two). */
+  gathering: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite'; x: number; y: number; ring: number; key: number; fire: boolean; head?: { x: number; y: number } | null; bearers?: number[] } | null;
   prompts: PromptView[];
   /** Seconds until the player can rally a defender again (0: now). */
   rallyIn: number;
@@ -1079,7 +1102,7 @@ export function snapshot(s: GameState): Snapshot {
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
     travellers: (s.travellers ?? []).map((t) => {
       const band = t.band === undefined ? undefined : (s.bands ?? []).find((b) => b.id === t.band);
-      return { id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', line: t.line ?? null, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1, band: band?.kind ?? null, bandPhase: band?.phase };
+      return { id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', line: t.line ?? null, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: Math.floor(t.purse ?? 0), look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1, band: band?.kind ?? null, bandPhase: band?.phase };
     }),
     wagons: (s.bands ?? []).flatMap((b) => {
       const lead = b.wagon && (s.travellers ?? []).find((t) => t.id === b.members[0]);
@@ -1100,7 +1123,8 @@ export function snapshot(s: GameState): Snapshot {
     workingAt: workingAt(s),
     lights: lightsView(s),
     market: marketOn(s) ? marketSquare(s) : null,
-    buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}) })),
+    // (a venue's takings copied too, so the map sees a sale between two snapshots: map/mapGains.ts)
+    buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}), ...(b.shop?.takings ? { shop: { ...b.shop, takings: { ...b.shop.takings } } } : {}) })),
     people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
     visitor: v
       ? {
@@ -1137,7 +1161,7 @@ export function snapshot(s: GameState): Snapshot {
     places: placeViews(s),
     pack: packView(s),
     war: CONQUEST.on ? warView(s) : null,
-    gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40 } : null,
+    gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40, head: processing(s.gathering, s.tick) ? processionHead(s.gathering, s.tick) : null, bearers: s.gathering.ids.slice(0, 2) } : null,
     debris: (s.debris ?? []).filter((m) => s.tick - m.tick < DEBRIS_LASTS).map((m) => ({ x: m.x, y: m.y, kind: m.kind, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}:${m.kind}` })),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
@@ -1665,6 +1689,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     level: levelOf(p),
     levelProgress: levelProgress(p),
     doing: describe(s, p),
+    work: workOf(s, p),
     carrying: { ...p.carrying },
     skills: Object.fromEntries(
       SKILLS.map((k) => [k, { level: p.skills[k].level, progress: p.skills[k].xp / xpToNext(p.skills[k].level), passion: p.passions.includes(k) }]),
@@ -1681,6 +1706,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     bedId: bed ? bed.id : null,
     floor: null,
     rally: rallyState(s, p),
+    bucket: p.task?.type === 'wander' && p.task.pastime === 'carry',
     indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
     away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
@@ -1689,10 +1715,11 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,
     gear: { ...p.gear },
     gearQ: { ...(p.gearQ ?? {}) },
-    coins: p.coins ?? (moneyTown(s) ? 0 : null),
-    income: moneyTown(s) ? { ...incomeOf(s, p), last: p.paidFor?.line ?? null } : null,
+    // (whole coins only: a purse may hold the odd fraction, from a share of a sale or a tax)
+    coins: p.coins != null ? Math.floor(p.coins) : moneyTown(s) ? 0 : null,
+    income: moneyTown(s) ? wholeIncome(incomeOf(s, p), p.paidFor?.line ?? null) : null,
     owns: propertyOf(s, p),
-    debt: p.debt ?? 0,
+    debt: Math.ceil(p.debt ?? 0),
     detail: personDetail(s, p),
     recent: [...(p.recent ?? [])].reverse().map((r) => r.text),
     bedroll: hasBedroll(s, p),
@@ -1722,10 +1749,15 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     lifeStage: lifeStage(s, p),
     ageText: ageLine(s, p),
     elder: isElder(s, p),
+    tipsy: walkingHome(s, p),
+    bedward: p.task?.type === 'sleep' && p.activity === 'walk',
+    guard: !!p.guard,
+    onWatch: onShift(s, p),
     monster: p.monster ?? null,
     tireless: tireless(p),
     order: p.monster ? (p.order ?? 'hide') : null,
     sick: !!p.sick,
+    rounds: (p.task?.type === 'wander' || p.task?.type === 'idle') && p.task.pastime === 'rounds',
     ...fightView(p),
   };
 }
@@ -1758,6 +1790,18 @@ function workingAt(s: GameState): number[] {
     } else if (t.type === 'research' && t.station != null) out.add(t.station);
   }
   return [...out];
+}
+
+function workOf(s: GameState, p: Person): { kind: string; at: string | null } | undefined {
+  const t = p.task;
+  if (!t || p.away !== null || p.activity === 'walk' || p.activity === 'idle') return undefined;
+  if (t.type === 'craft') {
+    const o = s.crafting.find((q) => q.id === t.order);
+    const def = o && ITEM_BY_ID[o.item];
+    return { kind: 'craft', at: (def && stationFor(s, def)?.def) ?? null };
+  }
+  const b = 'building' in t ? s.buildings.find((q) => q.id === t.building) : undefined;
+  return { kind: t.type, at: b?.def ?? null };
 }
 
 function taskDone(s: GameState, p: Person): number | null {
@@ -1909,7 +1953,7 @@ function craftView(s: GameState, o: CraftOrder): CraftOrderView {
     else if (!s.people.some((p) => p.priorities.craft !== 0 && p.away === null)) waiting = 'Nobody has the Craft job';
     else waiting = 'Waiting for a crafter';
   }
-  return { id: o.id, item: o.item, count: o.count, progress: o.progress, needed, waiting, crafter: crafter?.name ?? null };
+  return { id: o.id, item: o.item, count: o.count, progress: o.progress, needed, waiting, crafter: crafter?.name ?? null, made: o.made, station: def ? (stationFor(s, def)?.id ?? null) : null };
 }
 
 function expeditionView(s: GameState, e: Expedition): ExpeditionView {
@@ -2036,7 +2080,12 @@ function describe(s: GameState, p: Person): string {
   switch (task.type) {
     case 'wander':
     case 'idle':
-      return p.morale < SULK_MORALE ? 'Sulking (morale too low to work)' : 'Idling at camp';
+      if (p.morale < SULK_MORALE) return 'Sulking (morale too low to work)';
+      if (task.pastime === 'rounds') return 'Going the rounds of the sick households';
+      // (water from the well: sim/pastimes.ts)
+      if (task.pastime === 'well') return task.type === 'idle' ? 'Drawing water at the well' : 'Off to the well for water';
+      if (task.pastime === 'carry') return 'Carrying water home';
+      return 'Idling at camp';
     case 'gather': {
       if (task.scrounge) return 'Hungry: picking wild berries (nothing in storage)';
       const c = cellAt(s.land, task.tile);
@@ -2090,8 +2139,12 @@ function describe(s: GameState, p: Person): string {
       const m = s.people.find((q) => q.id === task.master);
       return `Learning ${p.trade ?? 'a trade'} at ${m?.name ?? 'their master'}'s side`;
     }
-    case 'attend':
-      return s.gathering?.text ?? 'With the town';
+    case 'attend': {
+      // (on the way there in its procession: sim/ceremonies.ts)
+      const g = s.gathering;
+      if (g && processing(g, s.tick)) return g.kind === 'rite' ? 'Walking to the temple with the faithful' : g.kind === 'wedding' ? 'In the wedding party, on the way to the feast' : g.ids.slice(0, 2).includes(p.id) ? 'Carrying the coffin to the graveyard' : 'Following the coffin to the graveyard';
+      return g?.text ?? 'With the town';
+    }
     case 'drink':
       return s.nightOut ? `Letting off steam at the ${name(s.nightOut.tavern).toLowerCase()}` : 'Out for a drink';
     case 'relax': {

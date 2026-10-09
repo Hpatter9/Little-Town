@@ -5,9 +5,13 @@
 // after the lightning, and a war horn when a raid comes. On with the music (the ♪ button); silent while the strip is
 // hidden.
 
+import { gateContext, wake } from './audioGate';
 import type { AmbientMix } from './ambienceMix';
 
 const MASTER = 0.55;
+/** The sound effects (the cues: the hammer, the axe, blows, coins...) over the land's own sound (the owner: none were
+ *  heard; a hammer peaked at the wind's level, a tenth of the music's), through a limiter so a flurry doesn't clip. */
+export const CUE_GAIN = 4;
 const FADE = 1.2;
 
 /** A sound to play now: what, and where across the screen (-1 left to 1 right). */
@@ -15,12 +19,19 @@ export type Cue =
   | 'chop' | 'mine' | 'build' | 'thunder' | 'horn' | 'quack' | 'splash' | 'crunch' | 'squelch' | 'bark' | 'meow' | 'cluck' | 'roar'
   // the town's life and its fights (main.ts `soundEffects`)
   | 'clash' | 'arrow' | 'thud' | 'hurt' | 'fall' | 'spell' | 'heal' | 'coin' | 'levelup' | 'chime' | 'rooster' | 'bell'
-  | 'door' | 'cheer' | 'fanfare' | 'dirge' | 'rumble' | 'whoosh' | 'saw' | 'anvil' | 'gallop' | 'baby';
+  | 'door' | 'cheer' | 'fanfare' | 'dirge' | 'rumble' | 'whoosh' | 'saw' | 'anvil' | 'gallop' | 'baby'
+  // each weapon its own (sfx.ts `weaponCue`), the foes' blows, the defences
+  | 'slash' | 'bash' | 'stab' | 'crossbow' | 'throw' | 'zap' | 'gunshot' | 'burst' | 'laser' | 'boom' | 'block' | 'bite'
+  | 'snap' | 'ballista' | 'ult'
+  // the work: each trade its own (sfx.ts `stationCue`), the fields, a tree coming down, a building finished
+  | 'built' | 'timber' | 'crumble' | 'reap' | 'till' | 'loom' | 'pound' | 'bubble' | 'chisel' | 'machine' | 'page';
 
 export interface Ambience {
   /** Each frame: on or off, the mix, and the seconds since the last. */
   update(on: boolean, mix: AmbientMix, dt: number): void;
   cue(kind: Cue, pan?: number, delay?: number): void;
+  /** How loud, a share of full (the ☰ menu's slider: volume.ts). */
+  setLevel(level: number): void;
   /** For previews: whether the sound has started. */
   readonly running: boolean;
 }
@@ -28,21 +39,34 @@ export interface Ambience {
 export function createAmbience(): Ambience {
   let ctx: AudioContext | null = null;
   let master: GainNode;
+  let cueBus: GainNode;
+  let toCues = false;
   let noise: AudioBuffer;
   const beds: Record<'wind' | 'rain' | 'water' | 'fire', { gain: GainNode; filter: BiquadFilterNode } | null> = { wind: null, rain: null, water: null, fire: null };
   let t = 0;
   const due = { birds: 1, crickets: 0.5, frogs: 1, owls: 3, wolves: 6, crackle: 0.3 };
   let mixNow: AmbientMix | null = null;
   let on = false;
+  let loudness = 1;
 
   const start = (): boolean => {
     if (ctx) return true;
     const AC = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AC) return false;
     ctx = new AC();
+    gateContext(ctx);
     master = ctx.createGain();
     master.gain.value = 0;
     master.connect(ctx.destination);
+    cueBus = ctx.createGain();
+    cueBus.gain.value = CUE_GAIN;
+    const limit = ctx.createDynamicsCompressor();
+    limit.threshold.value = -12;
+    limit.knee.value = 6;
+    limit.ratio.value = 12;
+    limit.attack.value = 0.002;
+    limit.release.value = 0.15;
+    cueBus.connect(limit).connect(master);
     // two seconds of white noise, looped by every bed
     noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const d = noise.getChannelData(0);
@@ -52,8 +76,8 @@ export function createAmbience(): Ambience {
     beds.water = bed('lowpass', 520, 0.5);
     beds.fire = bed('bandpass', 1800, 2);
     // (the browser keeps the sound asleep until a touch: wake it on the next one)
-    const wake = () => void ctx?.resume().catch(() => undefined);
-    window.addEventListener('pointerdown', wake, { passive: true });
+    const wakeUp = () => wake(ctx);
+    window.addEventListener('pointerdown', wakeUp, { passive: true });
     return true;
   };
 
@@ -79,7 +103,7 @@ export function createAmbience(): Ambience {
     g.gain.value = 0;
     const p = ctx!.createStereoPanner();
     p.pan.value = Math.max(-1, Math.min(1, pan));
-    g.connect(p).connect(master);
+    g.connect(p).connect(toCues ? cueBus : master);
     return { g, at };
   };
   const tone = (type: OscillatorType, f0: number, f1: number, dur: number, vol: number, pan = 0, delay = 0) => {
@@ -388,7 +412,7 @@ export function createAmbience(): Ambience {
     },
     // a saw through wood, back and forth
     saw: (pan, delay) => {
-      for (let i = 0; i < 2; i++) burst('bandpass', i ? 1600 : 1300, 3, 0.22, 0.03, pan, delay + i * 0.26, 0.05);
+      for (let i = 0; i < 2; i++) burst('bandpass', i ? 1600 : 1300, 3, 0.22, 0.09, pan, delay + i * 0.26, 0.05);
     },
     // a hammer on an anvil
     anvil: (pan, delay) => {
@@ -409,6 +433,208 @@ export function createAmbience(): Ambience {
       tone('sawtooth', 450, 600, 0.4, 0.018, pan, delay);
       tone('sawtooth', 600, 420, 0.6, 0.018, pan, delay + 0.45);
     },
+    // a blade swung: the air cut, a thin ring at the end
+    slash: (pan, delay) => {
+      const f = burst('bandpass', 2600, 2, 0.16, 0.06, pan, delay, 0.02);
+      f.frequency.setValueAtTime(3600, ctx!.currentTime + delay);
+      f.frequency.exponentialRampToValueAtTime(900, ctx!.currentTime + delay + 0.15);
+      const r = 2200 + Math.random() * 700;
+      tone('triangle', r, r * 0.98, 0.14, 0.012, pan, delay + 0.1);
+    },
+    // a club or a mace landing: a deep blunt knock
+    bash: (pan, delay) => {
+      tone('sine', 170, 55, 0.2, 0.11, pan, delay);
+      burst('lowpass', 520, 1, 0.11, 0.09, pan, delay, 0.002);
+    },
+    // a spear thrust: a short hiss and a thunk
+    stab: (pan, delay) => {
+      burst('bandpass', 1800, 2.5, 0.08, 0.04, pan, delay, 0.01);
+      tone('sine', 240, 110, 0.09, 0.07, pan, delay + 0.07);
+    },
+    // a crossbow: the latch's clack, the stock's thunk, the bolt away
+    crossbow: (pan, delay) => {
+      tone('square', 900, 420, 0.03, 0.03, pan, delay);
+      tone('triangle', 150, 85, 0.12, 0.07, pan, delay + 0.01);
+      const f = burst('bandpass', 3000, 3, 0.18, 0.03, pan, delay + 0.03, 0.01);
+      f.frequency.setValueAtTime(3000, ctx!.currentTime + delay + 0.03);
+      f.frequency.exponentialRampToValueAtTime(1400, ctx!.currentTime + delay + 0.2);
+    },
+    // a stone or a knife thrown: a quick airy whirr
+    throw: (pan, delay) => {
+      const f = burst('bandpass', 900, 1.8, 0.26, 0.045, pan, delay, 0.08);
+      f.frequency.setValueAtTime(600, ctx!.currentTime + delay);
+      f.frequency.exponentialRampToValueAtTime(1500, ctx!.currentTime + delay + 0.25);
+    },
+    // a bolt from a staff or a wand: a falling zing with a sparkle
+    zap: (pan, delay) => {
+      tone('sine', 1900, 380, 0.24, 0.03, pan, delay);
+      tone('triangle', 2850, 600, 0.2, 0.012, pan, delay);
+      burst('highpass', 5000, 1, 0.15, 0.015, pan, delay + 0.02, 0.01);
+    },
+    // a gun: a sharp crack and its boom
+    gunshot: (pan, delay) => {
+      burst('highpass', 1500, 0.7, 0.05, 0.22, pan, delay, 0.001);
+      burst('lowpass', 700, 0.8, 0.35, 0.16, pan, delay, 0.002);
+      tone('sine', 95, 38, 0.25, 0.1, pan, delay);
+    },
+    // an automatic weapon: a rattle of shots
+    burst: (pan, delay) => {
+      for (let i = 0; i < 4; i++) {
+        burst('highpass', 1600, 0.7, 0.04, 0.12, pan, delay + i * 0.08, 0.001);
+        tone('sine', 110, 50, 0.08, 0.05, pan, delay + i * 0.08);
+      }
+    },
+    // an energy weapon: a buzzing pew
+    laser: (pan, delay) => {
+      tone('square', 1700, 220, 0.18, 0.025, pan, delay);
+      tone('sine', 3200, 700, 0.16, 0.02, pan, delay);
+    },
+    // a blast: a cannon, a mortar, a rocket
+    boom: (pan, delay) => {
+      burst('highpass', 1200, 0.6, 0.06, 0.18, pan, delay, 0.001);
+      burst('lowpass', 260, 0.8, 1.3, 0.32, pan, delay, 0.01);
+      tone('sine', 70, 28, 1.1, 0.14, pan, delay);
+    },
+    // a blow turned on a shield: a dull clang
+    block: (pan, delay) => {
+      const f = 700 + Math.random() * 250;
+      tone('triangle', f, f * 0.96, 0.32, 0.04, pan, delay);
+      tone('triangle', f * 1.47, f * 1.4, 0.2, 0.02, pan, delay);
+      tone('sine', 150, 80, 0.1, 0.07, pan, delay);
+      burst('bandpass', 2400, 1.5, 0.05, 0.05, pan, delay, 0.001);
+    },
+    // a beast's snarl and snap
+    bite: (pan, delay) => {
+      const f = 150 + Math.random() * 60;
+      const at = ctx!.currentTime + delay;
+      const v = voice(pan, at);
+      const o = ctx!.createOscillator();
+      o.type = 'sawtooth';
+      const lp = ctx!.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 700;
+      const lfo = ctx!.createOscillator();
+      lfo.frequency.value = 32;
+      const depth = ctx!.createGain();
+      depth.gain.value = 40;
+      lfo.connect(depth).connect(o.frequency);
+      o.frequency.setValueAtTime(f, at);
+      o.frequency.linearRampToValueAtTime(f * 1.3, at + 0.2);
+      o.connect(lp).connect(v.g);
+      v.g.gain.setValueAtTime(0, at);
+      v.g.gain.linearRampToValueAtTime(0.06, at + 0.04);
+      v.g.gain.exponentialRampToValueAtTime(0.0001, at + 0.3);
+      o.start(at);
+      lfo.start(at);
+      o.stop(at + 0.35);
+      lfo.stop(at + 0.35);
+      burst('highpass', 2500, 1, 0.03, 0.06, pan, delay + 0.26, 0.001);
+    },
+    // a trap sprung: a click and iron jaws
+    snap: (pan, delay) => {
+      burst('highpass', 4000, 1, 0.02, 0.06, pan, delay, 0.001);
+      tone('triangle', 1150, 1050, 0.2, 0.04, pan, delay + 0.02);
+      tone('sine', 200, 90, 0.1, 0.07, pan, delay + 0.02);
+    },
+    // a tower's engine loosing: a heavy twang and the bolt's rush
+    ballista: (pan, delay) => {
+      tone('triangle', 95, 60, 0.3, 0.09, pan, delay);
+      tone('sawtooth', 190, 120, 0.08, 0.02, pan, delay);
+      const f = burst('bandpass', 1800, 2, 0.4, 0.04, pan, delay + 0.03, 0.03);
+      f.frequency.setValueAtTime(1800, ctx!.currentTime + delay + 0.03);
+      f.frequency.exponentialRampToValueAtTime(500, ctx!.currentTime + delay + 0.42);
+    },
+    // an ultimate: a gathering swell, a blast and a bright shimmer over it
+    ult: (pan, delay) => {
+      const f = burst('bandpass', 600, 1.5, 0.7, 0.07, pan, delay, 0.6);
+      f.frequency.setValueAtTime(300, ctx!.currentTime + delay);
+      f.frequency.exponentialRampToValueAtTime(2400, ctx!.currentTime + delay + 0.65);
+      burst('lowpass', 240, 0.8, 1.2, 0.3, pan, delay + 0.65, 0.01);
+      tone('sine', 65, 30, 1, 0.12, pan, delay + 0.65);
+      for (let i = 0; i < 4; i++) tone('sine', 880 * Math.pow(1.5, i % 3), 1320 * Math.pow(1.5, i % 3), 0.6, 0.015, pan, delay + 0.7 + i * 0.06);
+    },
+    // a building finished: the last knocks and a bright two-note call
+    built: (pan, delay) => {
+      for (let i = 0; i < 3; i++) {
+        tone('sine', 320, 200, 0.07, 0.06, pan, delay + i * 0.16);
+        burst('bandpass', 900, 2, 0.05, 0.04, pan, delay + i * 0.16);
+      }
+      tone('triangle', 784, 784, 0.35, 0.03, pan, delay + 0.55);
+      tone('triangle', 1047, 1047, 0.6, 0.03, pan, delay + 0.72);
+    },
+    // a tree coming down: the trunk's creak, then the crash through the branches
+    timber: (pan, delay) => {
+      const at = ctx!.currentTime + delay;
+      const v = voice(pan, at);
+      const o = ctx!.createOscillator();
+      o.type = 'sawtooth';
+      const lp = ctx!.createBiquadFilter();
+      lp.type = 'bandpass';
+      lp.frequency.value = 500;
+      lp.Q.value = 3;
+      o.frequency.setValueAtTime(140, at);
+      o.frequency.linearRampToValueAtTime(95, at + 0.6);
+      o.connect(lp).connect(v.g);
+      v.g.gain.setValueAtTime(0, at);
+      v.g.gain.linearRampToValueAtTime(0.03, at + 0.1);
+      v.g.gain.linearRampToValueAtTime(0.0001, at + 0.65);
+      o.start(at);
+      o.stop(at + 0.7);
+      burst('highpass', 2200, 0.8, 0.6, 0.06, pan, delay + 0.6, 0.02);
+      burst('lowpass', 380, 0.8, 0.9, 0.18, pan, delay + 0.68, 0.01);
+      tone('sine', 80, 35, 0.6, 0.09, pan, delay + 0.7);
+    },
+    // a rock broken: a rattle of falling stones
+    crumble: (pan, delay) => {
+      for (let i = 0; i < 5; i++) burst('bandpass', 900 + Math.random() * 1600, 1.5, 0.07, 0.04, pan, delay + i * 0.06 + Math.random() * 0.04, 0.002);
+      burst('lowpass', 300, 1, 0.4, 0.08, pan, delay, 0.01);
+    },
+    // a sickle through the grain: a dry swish
+    reap: (pan, delay) => {
+      const f = burst('highpass', 2400, 0.8, 0.2, 0.035, pan, delay, 0.04);
+      f.frequency.setValueAtTime(1800, ctx!.currentTime + delay);
+      f.frequency.linearRampToValueAtTime(3800, ctx!.currentTime + delay + 0.18);
+    },
+    // a hoe into the soil: a soft thud and the earth turned
+    till: (pan, delay) => {
+      tone('sine', 130, 70, 0.1, 0.06, pan, delay);
+      burst('lowpass', 450, 1, 0.14, 0.05, pan, delay + 0.02, 0.005);
+    },
+    // a loom: the shuttle clacking across and the beater knocked home
+    loom: (pan, delay) => {
+      tone('square', 620, 520, 0.025, 0.02, pan, delay);
+      tone('square', 680, 560, 0.025, 0.02, pan, delay + 0.2);
+      tone('sine', 140, 90, 0.08, 0.06, pan, delay + 0.36);
+    },
+    // a cook's knife or a pestle: knocks on wood
+    pound: (pan, delay) => {
+      for (let i = 0; i < 3; i++) {
+        tone('sine', 260, 170, 0.05, 0.05, pan, delay + i * 0.17);
+        burst('bandpass', 1300, 2, 0.03, 0.03, pan, delay + i * 0.17, 0.001);
+      }
+    },
+    // something bubbling in a still or a pot
+    bubble: (pan, delay) => {
+      for (let i = 0; i < 4; i++) {
+        const f = 260 + Math.random() * 300;
+        tone('sine', f, f * 2.6, 0.06, 0.03, pan, delay + i * 0.09 + Math.random() * 0.05);
+      }
+    },
+    // a chisel on stone or a gem: bright little ticks
+    chisel: (pan, delay) => {
+      for (let i = 0; i < 2; i++) {
+        tone('triangle', 3100 + Math.random() * 500, 2900, 0.06, 0.025, pan, delay + i * 0.14);
+        burst('highpass', 4500, 1, 0.025, 0.03, pan, delay + i * 0.14, 0.001);
+      }
+    },
+    // a machine at work: a clank and a hiss of steam
+    machine: (pan, delay) => {
+      tone('square', 140, 120, 0.08, 0.035, pan, delay);
+      tone('square', 105, 95, 0.08, 0.03, pan, delay + 0.18);
+      burst('bandpass', 4200, 1.2, 0.35, 0.025, pan, delay + 0.25, 0.04);
+    },
+    // a page turned
+    page: (pan, delay) => burst('bandpass', 3200, 1, 0.22, 0.022, pan, delay, 0.06),
   };
 
   const level = (b: { gain: GainNode } | null, v: number) => {
@@ -425,8 +651,8 @@ export function createAmbience(): Ambience {
       if (!ctx) return;
       if (want !== on) {
         on = want;
-        master.gain.setTargetAtTime(want ? MASTER : 0, ctx.currentTime, 0.6);
-        if (want) void ctx.resume().catch(() => undefined);
+        master.gain.setTargetAtTime(want ? MASTER * loudness : 0, ctx.currentTime, 0.6);
+        if (want) wake(ctx);
       }
       if (!on) return;
       t += dt;
@@ -453,9 +679,18 @@ export function createAmbience(): Ambience {
       call('wolves', mix.wolves, howl);
       call('crackle', mix.fire * 8, () => crackle(mixNow?.fire ?? 0));
     },
+    setLevel(v) {
+      loudness = Math.max(0, Math.min(1, v));
+      if (ctx && on) master.gain.setTargetAtTime(MASTER * loudness, ctx.currentTime, 0.15);
+    },
     cue(kind, pan = 0, delay = 0) {
       if (!ctx || !on) return;
-      cues[kind](pan, delay);
+      toCues = true;
+      try {
+        cues[kind](pan, delay);
+      } finally {
+        toCues = false;
+      }
     },
   };
 }

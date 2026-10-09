@@ -2,7 +2,8 @@
 // (`clearCell` in people.ts) is remembered (`LandMap.regrow`: the cell, what it was, and when it comes back), and once
 // its time is up (`REGROW_DAYS` by kind, spread by the cell) it grows back as it was, its pool rolled afresh: unless
 // something stands on it, a road runs over it, a building stands beside it (the yards are kept), or people still
-// walk it (a footpath showing): then it waits another day. Rock and the mountain don't grow back.
+// walk it (a footpath showing): then it waits another day. Rock and the mountain don't grow back; rock broken up
+// leaves its rubble lying a while (`LandMap.rubble`, `RUBBLE_DAYS`), which the map scatters over the cell.
 
 import { noteFelled, noteRegrown } from './grove';
 import { blighted } from './blight';
@@ -18,9 +19,12 @@ import type { GameState } from './state';
 export const REGROW_DAYS: Partial<Record<Ground, number>> = { forest: 5, marsh: 2, hill: 3 };
 /** How much a cell's time is spread either way (a share of it), so a clearing doesn't spring back all at once. */
 const SPREAD = 0.4;
+/** Days the rubble of rock broken up for stone lies on its cell (map/mapFelling.ts scatters it). */
+export const RUBBLE_DAYS = 2;
 
 /** A wild cell has been gathered bare: remember what it was, and when it comes back. */
 export function noteCleared(s: GameState, i: number, was: Ground): void {
+  if (was === 'rock') (s.land.rubble ??= {})[i] = s.tick + RUBBLE_DAYS * TICKS_PER_DAY;
   const days = REGROW_DAYS[was];
   if (!days) return;
   if (was === 'forest') noteFelled(s); // (a druid grove feels it: sim/grove.ts)
@@ -30,7 +34,13 @@ export function noteCleared(s: GameState, i: number, was: Ground): void {
 
 /** Hourly: whatever's due grows back, where nothing keeps it clear. */
 export function regrowHourly(s: GameState): void {
-  if (s.tick % TICKS_PER_HOUR !== 0 || !s.land.regrow) return;
+  if (s.tick % TICKS_PER_HOUR !== 0) return;
+  // (the rubble is cleared away in time)
+  if (s.land.rubble) {
+    for (const [key, until] of Object.entries(s.land.rubble)) if (s.tick >= until) delete s.land.rubble[Number(key)];
+    if (!Object.keys(s.land.rubble).length) delete s.land.rubble;
+  }
+  if (!s.land.regrow) return;
   const m = s.land;
   let yards: Set<number> | null = null;
   for (const [key, [was, at]] of Object.entries(m.regrow!)) {

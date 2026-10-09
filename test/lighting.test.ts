@@ -4,7 +4,7 @@ import { newGame } from '../src/shared/sim/state';
 import { Sim } from '../src/shared/sim/sim';
 import { feedLight, inDark, isLit, darkPace, lightingHourly, lightToFeed, placeLights, streetCells } from '../src/shared/sim/lighting';
 import { DARK_PACE, FUEL_MOST, LIGHT_EVERY } from '../src/shared/data/lighting';
-import { depositNear, totalStock } from '../src/shared/sim/buildings';
+import { depositNear, doorCell, footprint, totalStock } from '../src/shared/sim/buildings';
 import { CELL, isRoad, setRoad } from '../src/shared/sim/land';
 import { campXY } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -21,20 +21,46 @@ function lit(seed: string) {
   return s;
 }
 
-test('street lights stand along the roads, more as the town grows', () => {
+test('lights stand by the roads and the buildings, more as the town grows', () => {
   const s = lit('lights-place');
   placeLights(s);
   const n = s.torches!.length;
   assert.ok(n > 0, 'some lights');
-  for (const t of s.torches!) assert.ok(isRoad(s.land, t.x, t.y), "a street light by a road");
-  assert.ok(streetCells(s.land).length >= n);
+  for (const t of s.torches!) {
+    assert.ok(isRoad(s.land, t.x, t.y) || s.buildings.some((b) => near(footprint(b), t.x, t.y)), 'a light by a road or a building');
+    assert.ok(!s.buildings.some((b) => inside(footprint(b), t.x, t.y)), 'never inside a building');
+  }
   assert.ok(s.torches!.every((t) => t.fuel === 0), 'new lights start empty');
-  // more people, more lights (up to the road's room)
+  // more people, more lights (up to what's dark)
   for (let i = 0; i < 6; i++) s.people.push({ ...s.people[0], id: 900 + i });
   placeLights(s);
   assert.ok(s.torches!.length >= n);
   assert.ok(LIGHT_EVERY > 1);
+  assert.ok(streetCells(s.land).length > 0);
 });
+
+test('the town lights the doors of its buildings as it builds them', () => {
+  const s = lit('lights-doors');
+  // (a ring of homes about the camp, beyond the fire's reach)
+  const spots = [
+    [8, -6],
+    [-9, -5],
+    [9, 5],
+    [-8, 6],
+  ];
+  for (const [dx, dy] of spots) put(s, 'lean_to', s.land.camp.x + dx, s.land.camp.y + dy);
+  for (let i = 0; i < 10; i++) s.people.push({ ...s.people[0], id: 900 + i });
+  placeLights(s);
+  s.tick = at(2, 23);
+  for (const t of s.torches!) t.fuel = FUEL_MOST;
+  for (const b of s.buildings.filter((b) => b.def === 'lean_to')) {
+    const d = doorCell(b);
+    assert.ok(!inDark(s, (d.x + 0.5) * CELL, (d.y + 0.5) * CELL), `the door at ${d.x},${d.y} is lit`);
+  }
+});
+
+const inside = (r: { x: number; y: number; w: number; h: number }, x: number, y: number) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+const near = (r: { x: number; y: number; w: number; h: number }, x: number, y: number) => x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h;
 
 test('lights burn their fuel by night only, and are fed from the stores', () => {
   const s = lit('lights-burn');
@@ -127,4 +153,81 @@ test('under the mountain the halls are dark at every hour without their sconces'
   p.y = y;
   lightingHourly(s);
   assert.equal(hall.fuel, 7, 'someone there: burning');
+});
+
+/* ------------------------------------------------------------ what light reaches */
+
+import { clearLine, flat, lightSources, occluders, OPEN, ROUND, SOLID } from '../src/shared/sim/lightField';
+import { FIRE_LIGHTS, LIGHT_KIND } from '../src/shared/data/lighting';
+import { setGround } from '../src/shared/sim/land';
+import { put } from './helpers';
+
+/** A clear stretch of grass east of the camp, a lit street light on it, at night. */
+function nightField(seed: string) {
+  const s = lit(seed);
+  const cx = s.land.camp.x + 10;
+  const cy = s.land.camp.y + 6;
+  for (let y = cy - 8; y <= cy + 8; y++) for (let x = cx - 8; x <= cx + 8; x++) setGround(s.land, x, y, 'grass');
+  s.buildings = s.buildings.filter((b) => b.def === 'campfire');
+  s.torches = [{ id: 1, x: cx, y: cy, fuel: FUEL_MOST }];
+  s.land.version++;
+  s.tick = at(2, 23);
+  return { s, cx, cy };
+}
+const px = (c: number) => (c + 0.5) * CELL;
+
+test('each light reaches as far as its kind: the age\'s street light, the camp\'s fire, a forge', () => {
+  const kinds = lightSources('neolithic', [{ x: 5, y: 5 }], [], { x: 40, y: 40 });
+  assert.equal(kinds[0].r, LIGHT_KIND.neolithic.radius, 'a torch');
+  assert.equal(kinds[1].r, FIRE_LIGHTS.campfire.radius, 'the camp\'s fire, with no fire standing');
+  assert.equal(lightSources('modern', [{ x: 5, y: 5 }], [], { x: 40, y: 40 })[0].r, LIGHT_KIND.modern.radius, 'an electric lamp');
+  assert.ok(LIGHT_KIND.modern.radius > LIGHT_KIND.neolithic.radius, 'an electric lamp lights further than a torch');
+  assert.ok(FIRE_LIGHTS.campfire.radius > FIRE_LIGHTS.kiln.radius, 'the camp\'s fire further than a kiln');
+  // in the sim: lit just inside the torch's reach, dark just past it
+  const { s, cx, cy } = nightField('lights-reach');
+  const r = LIGHT_KIND.neolithic.radius;
+  assert.equal(inDark(s, px(cx + Math.floor(r) - 1), px(cy)), false, 'inside the reach');
+  assert.equal(inDark(s, px(cx + Math.ceil(r) + 1), px(cy)), true, 'past the reach');
+});
+
+test('buildings, walls, trees and rocks stop the light and throw a shadow behind them', () => {
+  const { s, cx, cy } = nightField('lights-shadow');
+  // open ground both sides: lit two cells off
+  assert.equal(inDark(s, px(cx + 2), px(cy)), false);
+  assert.equal(inDark(s, px(cx - 2), px(cy)), false);
+  // a wall east of the light: lit on its face, dark behind it
+  put(s, 'palisade_wall', cx + 1, cy);
+  s.land.version++;
+  assert.equal(inDark(s, px(cx + 1), px(cy)), false, 'the wall itself is lit on its face');
+  assert.equal(inDark(s, px(cx + 2), px(cy)), true, 'behind the wall is dark');
+  assert.equal(inDark(s, px(cx - 2), px(cy)), false, 'the other side is still lit');
+  // a tree west, a rock north: shadows behind both
+  setGround(s.land, cx - 1, cy, 'forest');
+  setGround(s.land, cx, cy - 1, 'rock');
+  s.land.version++;
+  assert.equal(inDark(s, px(cx - 2), px(cy)), true, 'behind the tree');
+  assert.equal(inDark(s, px(cx), px(cy - 2)), true, 'behind the rock');
+  assert.equal(inDark(s, px(cx), px(cy + 2)), false, 'open ground south still lit');
+  // the shared rule: what stands in the way
+  const occ = occluders(s.land, s.buildings);
+  const w = s.land.w;
+  assert.equal(occ[cy * w + cx + 1], SOLID);
+  assert.equal(occ[cy * w + cx - 1], ROUND);
+  assert.equal(occ[(cy + 2) * w + cx], OPEN);
+  // a tree's shadow is round: a ray grazing the cell's corner passes
+  assert.equal(clearLine(occ, w, s.land.h, cx + 0.5, cy + 0.5, cx - 1.5, cy + 0.5), false, 'straight through the trunk');
+  assert.equal(clearLine(occ, w, s.land.h, cx + 0.5, cy + 0.98, cx - 1.5, cy + 1.02), true, 'past its edge');
+});
+
+test('light passes over fields, pens and traps lying flat', () => {
+  assert.equal(flat({ def: 'garden_plot' }), true);
+  assert.equal(flat({ def: 'chicken_coop' }), true);
+  assert.equal(flat({ def: 'pit_trap' }), true);
+  assert.equal(flat({ def: 'campfire' }), true);
+  assert.equal(flat({ def: 'palisade_wall' }), false);
+  assert.equal(flat({ def: 'lean_to' }), false);
+  const { s, cx, cy } = nightField('lights-flat');
+  put(s, 'garden_plot', cx + 1, cy - 1);
+  s.land.version++;
+  assert.equal(inDark(s, px(cx + 3), px(cy)), false, 'lit past the field');
 });

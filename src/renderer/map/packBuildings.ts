@@ -148,6 +148,10 @@ import sf24 from '../art/packs/sf_24.png';
 import sf25 from '../art/packs/sf_25.png';
 import sf26 from '../art/packs/sf_26.png';
 import suWindmill from '../art/packs/su_windmill.png';
+import suWindmillBody from '../art/packs/su_windmill_body.png';
+import suWindmillSail from '../art/packs/su_windmill_sail.png';
+import suWindmillHub from '../art/packs/su_windmill_hub.png';
+import fieldsFlag from '../art/fields/flag.png';
 import suWatchtower from '../art/packs/su_watchtower.png';
 import suLookout from '../art/packs/su_lookout.png';
 import suCastle from '../art/packs/su_castle.png';
@@ -214,6 +218,10 @@ export interface Pick {
   joins?: Partial<Record<Join, Pick>>;
   /** Recoloured for a look (`GRADES`): the shops' pictures worn by the peoples without timber houses of their own. */
   grade?: string;
+  /** Sails that turn (the windmill): on the map the picture is `body` (the sails cut away) and `blades` copies of
+   *  `sail` (one blade pointing up, its foot on the hub) turn about `at` (source px) with `hub` over them; a still
+   *  picture (a card) keeps the pick's own. */
+  turning?: { body: string; sail: string; hub: string; at: [number, number]; blades: number };
 }
 /** How a wall piece joins the pieces about it (map/mapView.ts `wallJoin`). */
 export type Join = 'h' | 'v' | 've' | 'nw' | 'ne' | 'sw' | 'se' | 'end';
@@ -264,7 +272,7 @@ const PICKS: Record<string, Pick> = {
   // the first homes: the Simple Summer pack's cottage on its stone footing, and the tiny-rpg-town pack's long house
   // (its inn sign painted over with its other window); the nomads keep their tipis and yurts
   lean_to: { url: suHouse, styles: TIMBER, overhang: 2, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4, smoke: [[29, 1]] } }] },
-  hide_tent: { url: suHouse, styles: TIMBER, overhang: 4, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[38, 2]] } }] },
+  hide_tent: { url: suHouse, styles: TIMBER, overhang: 4, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[37, 1]] } }] },
   longhouse: { url: ttLong, styles: TIMBER, overhang: 2, smoke: [[22, 2]], lamps: [[22, 44], [72, 44], [17, 77], [78, 77]], variants: [{ styles: NOMAD, pick: { url: rockyYurt1, overhang: 8, smoke: [[39, 1]] } }] },
   // the tiny-rpg-town pack's tall gabled house, its window boxes in flower, two side by side for the apartments
   apartments: { parts: [[ttGable, 0, 0], [ttGable, 47, 0]], size: [95, 132], styles: TIMBER, overhang: 2, lamps: [[25, 103], [24, 60], [72, 103], [71, 60]] },
@@ -373,7 +381,7 @@ const PICKS: Record<string, Pick> = {
   // the Village pack's stone well, its carts, its drying rack and its market awning
   well: { url: vWell, overhang: 2 },
   // (the Simple Summer pack's windmill and timber watchtowers)
-  windmill: { url: suWindmill, overhang: 8 },
+  windmill: { url: suWindmill, overhang: 8, turning: { body: suWindmillBody, sail: suWindmillSail, hub: suWindmillHub, at: [84, 85], blades: 4 } },
   watchtower: { url: suWatchtower, overhang: 3 },
   lookout: { url: suLookout, overhang: 3 },
   wagon_circle: { url: vCart2, overhang: 2 },
@@ -607,6 +615,49 @@ function regrade(g: CanvasRenderingContext2D, w: number, h: number, style: strin
   g.putImageData(im, 0, 0);
 }
 
+/** A building's turning sails (the windmill's), scaled as its picture is and recoloured for the look: the blade
+ *  (pointing up, its foot at the hub), the hub, where the hub is (px from the picture's top left) and how many blades;
+ *  null for a building without, or while a picture loads. */
+export interface Turning {
+  sail: Texture;
+  hub: Texture;
+  x: number;
+  y: number;
+  scale: number;
+  blades: number;
+}
+const turnings = new Map<string, Turning>();
+export function packTurning(def: string, w: number, style: string): Turning | null {
+  const pick = pickFor(def, style);
+  const t = pick?.turning;
+  if (!pick || !t) return null;
+  const key = `${def}|${style}|${w}`;
+  const had = turnings.get(key);
+  if (had) return had;
+  const ims = [t.body, t.sail, t.hub].map((u) => images.get(u));
+  if (ims.some((im) => im === undefined)) {
+    for (const u of [t.body, t.sail, t.hub]) if (images.get(u) === undefined) fetch(u);
+    return null;
+  }
+  if (ims.some((im) => !im)) return null;
+  const [body, sail, hub] = ims as HTMLImageElement[];
+  const scale = (w * CELL + (pick.overhang ?? OVERHANG) * 2) / body.naturalWidth;
+  // (each piece scaled on the fine grid and recoloured as the picture is)
+  const piece = (im: HTMLImageElement): Texture => {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(im.naturalWidth * scale * FINE));
+    c.height = Math.max(1, Math.round(im.naturalHeight * scale * FINE));
+    const g = c.getContext('2d')!;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(im, 0, 0, c.width, c.height);
+    if (pick.grade) regrade(g, c.width, c.height, pick.grade);
+    return new Texture({ source: new CanvasSource({ resource: c, resolution: FINE }) });
+  };
+  const out = { sail: piece(sail), hub: piece(hub), x: t.at[0] * scale, y: t.at[1] * scale, scale, blades: t.blades };
+  turnings.set(key, out);
+  return out;
+}
+
 /** Whole buildings seen from outside (houses, shop fronts, tents, towers, the windmill): never a room's furnishings. */
 const EXTERIORS = new Set([suHouse, ttLong, ttGable, house1, house2, house3, house4, gbHouse, gbShop, tent2, rockyTipi1, rockyTipi2, rockyYurt1, rockyYurt2, suWindmill, suWatchtower, suLookout, suCastle, suMageTower, suRoundCastle, suTent]);
 const urlsOf = (p: Pick): string[] => [p.url, ...(p.any ?? []), ...(p.parts ?? []).map((x) => x[0]), ...(p.of ?? []).flatMap(urlsOf)].filter((u): u is string => !!u);
@@ -619,9 +670,11 @@ export function packArtIndoors(def: string, w: number, style: string, id = 0): P
   return packArt(def, w, style, id);
 }
 
-export function packArt(def: string, w: number, style: string, id = 0, join?: Join): PixelArt | null {
+export function packArt(def: string, w: number, style: string, id = 0, join?: Join, moving = false): PixelArt | null {
   let pick = pickFor(def, style);
   if (!pick) return null;
+  // (on the map, a windmill's body alone: its sails are drawn turning over it, packTurning)
+  if (moving && pick.turning) return pickArt({ ...pick, url: pick.turning.body, turning: undefined }, w, `${def}|${style}|body`, id);
   const joined = join ? pick.joins?.[join] ?? (join === 've' ? pick.joins?.v : undefined) : undefined;
   if (joined) pick = { ...joined, grade: joined.grade ?? pick.grade };
   // (one of several by the building's id)
@@ -695,90 +748,142 @@ export interface Dressing {
   h: number;
   /** A colour laid over it (the awning's cloth in the shop's colours). */
   tint?: number;
+  /** Frames it plays through, stirring in the wind (a venue's banner): the map turns them. */
+  frames?: Texture[];
 }
 
 const dressTex = new Map<string, Texture>();
 
 /* ------------------------------------------------------------ the venues' banners */
 
-const BANNER_W = 16;
-const BANNER_H = 36;
-const banners = new Map<string, Texture>();
-/** A venue's banner: a pole with a cloth hanging from its crossbar in the shop's colours, with its emblem on it (a
- *  sword, a shield, a chair, a bottle; scales for the general store, a tankard for the tavern). Null for anything
- *  that isn't a venue. */
-function bannerOf(def: string): Texture | null {
+/** A venue's banner as it stands on the map (px), and the Fields pack's flag it is made from: six frames of 32x64,
+ *  the cloth stirring on its pole (`FLAG_FRAMES`). */
+const BANNER_W = 19;
+const BANNER_H = 38;
+const FLAG_W = 32;
+const FLAG_H = 64;
+export const FLAG_FRAMES = 6;
+/** The flag's own colours: its cloth, the cloth's light, the trim and the trim's shine (recoloured per shop). */
+const FLAG_CLOTH = 0x405273;
+const FLAG_CLOTH_LIGHT = 0x6c81a1;
+const FLAG_TRIM = 0xbbc3d0;
+const FLAG_SHINE = 0xf1f6f0;
+const banners = new Map<string, Texture[]>();
+/** A colour `k` of the way toward white. */
+const toWhite = (c: number, k: number) => {
+  const ch = (v: number) => Math.round(v + (255 - v) * k);
+  return (ch((c >> 16) & 255) << 16) | (ch((c >> 8) & 255) << 8) | ch(c & 255);
+};
+/** A venue's banner: the Fields pack's flag, its cloth and trim in the shop's colours, with the shop's emblem on it (a
+ *  sword, a shield, a chair, a bottle; scales for the general store, a tankard for the tavern), six frames of it
+ *  stirring in the wind (the map turns them faster as the wind rises). Null for anything that isn't a venue, or while
+ *  the flag loads. */
+function bannerOf(def: string): Texture[] | null {
   const line = lineOfDef(def);
   const venue = venueOfDef(def);
   if (!venue) return null;
   const kind = line ?? venue;
-  let tex = banners.get(kind);
-  if (tex) return tex;
+  const had = banners.get(kind);
+  if (had) return had;
+  const flag = images.get(fieldsFlag);
+  if (flag === undefined) {
+    fetch(fieldsFlag);
+    return null;
+  }
+  if (!flag) return null;
   const l = line ? LINES[line] : null;
   const cloth = l ? l.cloth : venue === 'tavern' ? 0x6a3a22 : 0x2e6a3a;
   const trim = l ? l.trim : venue === 'tavern' ? 0xf0d080 : 0xf0e0a0;
+  const swap = new Map<number, number>([
+    [FLAG_CLOTH, cloth],
+    [FLAG_CLOTH_LIGHT, toWhite(cloth, 0.28)],
+    [FLAG_TRIM, trim],
+    [FLAG_SHINE, toWhite(trim, 0.6)],
+  ]);
   const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
-  const c = document.createElement('canvas');
-  c.width = BANNER_W;
-  c.height = BANNER_H;
-  const g = c.getContext('2d')!;
-  const px = (x: number, y: number, w: number, h: number, col: string) => {
-    g.fillStyle = col;
-    g.fillRect(x, y, w, h);
-  };
-  px(1, 0, 2, BANNER_H, '#4a2e1a'); // the pole
-  px(1, 0, 1, BANNER_H, '#6a4428');
-  px(0, 1, 13, 2, '#4a2e1a'); // the crossbar
-  px(4, 3, 10, 20, hex(cloth)); // the cloth
-  px(4, 3, 10, 1, hex(trim));
-  px(4, 3, 1, 20, hex(trim));
-  px(13, 3, 1, 20, hex(trim));
-  px(4, 23, 4, 2, hex(cloth)); // the swallowtail
-  px(10, 23, 4, 2, hex(cloth));
-  px(4, 25, 3, 1, hex(cloth));
-  px(11, 25, 3, 1, hex(cloth));
-  const e = hex(trim);
-  switch (kind) {
-    case 'weapons': // a sword
-      px(8, 7, 2, 11, e);
-      px(6, 15, 6, 1, e);
-      px(8, 18, 2, 2, '#a07030');
-      break;
-    case 'armour': // a shield
-      px(6, 8, 6, 6, e);
-      px(7, 14, 4, 2, e);
-      px(8, 16, 2, 1, e);
-      px(8, 9, 1, 5, hex(cloth));
-      break;
-    case 'furniture': // a chair
-      px(6, 8, 2, 10, e);
-      px(6, 13, 6, 2, e);
-      px(10, 15, 2, 4, e);
-      px(6, 17, 1, 2, e);
-      break;
-    case 'medicine': // a bottle
-      px(8, 7, 2, 2, e);
-      px(7, 9, 4, 2, e);
-      px(6, 11, 6, 7, e);
-      px(7, 13, 2, 3, hex(cloth));
-      break;
-    case 'tavern': // a tankard
-      px(6, 9, 5, 9, e);
-      px(11, 11, 2, 5, e);
-      px(12, 12, 1, 3, hex(cloth));
-      px(6, 8, 5, 1, '#f8f8f0');
-      break;
-    default: // scales
-      px(8, 7, 2, 10, e);
-      px(5, 9, 8, 1, e);
-      px(4, 12, 3, 2, e);
-      px(11, 12, 3, 2, e);
-      px(6, 17, 6, 1, e);
+  const frames: Texture[] = [];
+  for (let f = 0; f < FLAG_FRAMES; f++) {
+    const c = document.createElement('canvas');
+    c.width = FLAG_W;
+    c.height = FLAG_H;
+    const g = c.getContext('2d')!;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(flag, f * FLAG_W, 0, FLAG_W, FLAG_H, 0, 0, FLAG_W, FLAG_H);
+    // (the cloth and trim in the shop's colours, and where the cloth lies in this frame for the emblem)
+    const im = g.getImageData(0, 0, FLAG_W, FLAG_H);
+    const d = im.data;
+    let x0 = FLAG_W;
+    let x1 = 0;
+    let y0 = FLAG_H;
+    for (let i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue;
+      const was = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+      const to = swap.get(was);
+      if (to === undefined) continue;
+      d[i] = (to >> 16) & 255;
+      d[i + 1] = (to >> 8) & 255;
+      d[i + 2] = to & 255;
+      if (was === FLAG_CLOTH) {
+        const x = (i / 4) % FLAG_W;
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+        y0 = Math.min(y0, Math.floor(i / 4 / FLAG_W));
+      }
+    }
+    g.putImageData(im, 0, 0);
+    // the emblem, in the trim's colour, on the middle of the cloth (drawn on a grid ten wide, a little larger)
+    const e = hex(trim);
+    const back = hex(cloth);
+    const k = 1.4;
+    const ox = (x0 + x1 + 1) / 2 - 5 * k;
+    const oy = y0 + 2;
+    const px = (x: number, y: number, w: number, h: number, col: string) => {
+      g.fillStyle = col;
+      g.fillRect(Math.round(ox + x * k), Math.round(oy + y * k), Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+    };
+    switch (kind) {
+      case 'weapons': // a sword
+        px(4, 1, 2, 11, e);
+        px(2, 9, 6, 1, e);
+        px(4, 12, 2, 2, '#a07030');
+        break;
+      case 'armour': // a shield
+        px(2, 2, 6, 6, e);
+        px(3, 8, 4, 2, e);
+        px(4, 10, 2, 1, e);
+        px(4, 3, 1, 5, back);
+        break;
+      case 'furniture': // a chair
+        px(2, 2, 2, 10, e);
+        px(2, 7, 6, 2, e);
+        px(6, 9, 2, 4, e);
+        px(2, 11, 1, 2, e);
+        break;
+      case 'medicine': // a bottle
+        px(4, 1, 2, 2, e);
+        px(3, 3, 4, 2, e);
+        px(2, 5, 6, 7, e);
+        px(3, 7, 2, 3, back);
+        break;
+      case 'tavern': // a tankard
+        px(2, 3, 5, 9, e);
+        px(7, 5, 2, 5, e);
+        px(8, 6, 1, 3, back);
+        px(2, 2, 5, 1, '#f8f8f0');
+        break;
+      default: // scales
+        px(4, 1, 2, 10, e);
+        px(1, 3, 8, 1, e);
+        px(0, 6, 3, 2, e);
+        px(7, 6, 3, 2, e);
+        px(2, 11, 6, 1, e);
+    }
+    const tex = Texture.from(c);
+    tex.source.scaleMode = 'nearest';
+    frames.push(tex);
   }
-  tex = Texture.from(c);
-  tex.source.scaleMode = 'nearest';
-  banners.set(kind, tex);
-  return tex;
+  banners.set(kind, frames);
+  return frames;
 }
 
 /** What stands by a building `w` cells wide (its picture from the pack) with this id, or nothing yet. */
@@ -821,7 +926,7 @@ export function packDressing(def: string, id: number, w: number, style: string):
   const out: Dressing[] = [];
   // (every shop and tavern hangs its banner out front, by the door, whatever the look: the owner's ask)
   const banner = bannerOf(def);
-  if (banner) out.push({ texture: banner, dx: (w * CELL) / 2 - BANNER_W - 10, dy: 1, w: BANNER_W, h: BANNER_H });
+  if (banner) out.push({ texture: banner[0], frames: banner, dx: (w * CELL) / 2 - BANNER_W - 10, dy: 1, w: BANNER_W, h: BANNER_H });
   // (its storefront: the awning and the goods of its trade, right of the door)
   const front = STOREFRONT[def];
   if (front) {

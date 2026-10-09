@@ -2,6 +2,7 @@
 // in two frames: the town strip along the bottom, scaled up for fingers, and the menus in a sheet above it.
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
+import { readLevel, saveLevel, type VolumeKind } from '../volume';
 import { startNotices } from './notices';
 import { createEventSheet } from './eventSheet';
 import { PANELS, type StripState } from '../../shared/ipc';
@@ -328,6 +329,8 @@ function drawMenu(): void {
     menu.replaceChildren(
       item('New town…', () => bridge.openPanel('newgame')),
       item(`Music: ${s.music ? 'on' : 'off'}`, () => (bridge.setMusic(!s.music), drawMenu())),
+      slider('music', 'Music volume'),
+      slider('sfx', 'Sound effects volume'),
       item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
       item('Phone alerts…', () => bridge.openPanel('alerts')),
@@ -337,6 +340,33 @@ function drawMenu(): void {
       version(),
     );
   });
+}
+/** A volume slider (the owner's ask): sets the strip's music or sound effects as it moves, and the phone remembers it
+ *  (volume.ts). */
+type VolumeWin = Window & { __volume?: Record<VolumeKind, number> };
+function slider(kind: VolumeKind, name: string): HTMLElement {
+  const row = document.createElement('label');
+  row.className = 'volume';
+  const text = document.createElement('span');
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.min = '0';
+  input.max = '100';
+  input.step = '5';
+  const live = (strip.contentWindow as VolumeWin | null)?.__volume;
+  const now = live ? live[kind] : readLevel(kind);
+  input.value = String(Math.round(now * 100));
+  const show = () => (text.textContent = `${name}: ${input.value}%`);
+  show();
+  input.addEventListener('input', () => {
+    const v = Number(input.value) / 100;
+    const vol = (strip.contentWindow as VolumeWin | null)?.__volume;
+    if (vol) vol[kind] = v;
+    saveLevel(kind, v);
+    show();
+  });
+  row.append(text, input);
+  return row;
 }
 /** The strip's minimap (map/minimap.ts), turned on and off from the ☰ menu (the owner's ask). */
 type MinimapWin = Window & { __minimap?: { shown: boolean } };
