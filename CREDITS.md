@@ -337,3 +337,11 @@ is put together from the pack's man's body (turned to sacking), its first peasan
 - Additional Half-Kaizer poses by Aleesa Tana.
 - Armor, weapon, shield, helmet, hair, skeleton, zombie, demon, fairy, mecha, wolf, boar, pumpkin, turkey, slime,
   skullbird, dragon, cactus, and other sprites are from Himeko Sutori and Septaroad Voyager by Rockwell Studios, LLC.
+
+## The wide world (geese, dust, the far settlements)
+
+- The geese flying over in their V (`src/renderer/art/geese.png`, cut by `tools/compose-geese.cjs`) are the grey and
+  white birds of **whtdragon**'s RPG Maker MV flying ducks sheet (see Creatures above for the licence note).
+- Tumbleweeds are the **Craftpix Undead tileset**'s thorn tangles (the `undead` props set), tinted dry.
+- The far settlements' fires and smoke, the will-o'-wisps, the dust devils and the weathervanes' glint are strips of the
+  **5000 Pixel Effects** atlas (`fx/pixelfx.png`; see Effects).

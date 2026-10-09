@@ -24,7 +24,9 @@ export type Cue =
   | 'slash' | 'bash' | 'stab' | 'crossbow' | 'throw' | 'zap' | 'gunshot' | 'burst' | 'laser' | 'boom' | 'block' | 'bite'
   | 'snap' | 'ballista' | 'ult'
   // the work: each trade its own (sfx.ts `stationCue`), the fields, a tree coming down, a building finished
-  | 'built' | 'timber' | 'crumble' | 'reap' | 'till' | 'loom' | 'pound' | 'bubble' | 'chisel' | 'machine' | 'page';
+  | 'built' | 'timber' | 'crumble' | 'reap' | 'till' | 'loom' | 'pound' | 'bubble' | 'chisel' | 'machine' | 'page'
+  // the wider world: geese passing over, a wind chime in a gust (map/wideWorld.ts)
+  | 'honk' | 'windchime';
 
 export interface Ambience {
   /** Each frame: on or off, the mix, and the seconds since the last. */
@@ -635,6 +637,27 @@ export function createAmbience(): Ambience {
     },
     // a page turned
     page: (pan, delay) => burst('bandpass', 3200, 1, 0.22, 0.022, pan, delay, 0.06),
+    // geese high overhead: a few nasal honks, far off and overlapping, each a falling reedy pair
+    honk: (pan, delay) => {
+      for (let i = 0; i < 3; i++) {
+        const f = 330 + Math.random() * 90;
+        const at = delay + i * (0.22 + Math.random() * 0.25);
+        tone('sawtooth', f * 1.12, f, 0.13, 0.016, pan, at);
+        tone('square', f * 2.2, f * 2, 0.1, 0.004, pan, at);
+        burst('bandpass', f * 3, 4, 0.1, 0.006, pan, at, 0.01);
+      }
+    },
+    // a wind chime: four or five metal tubes struck at random as the gust swings them, ringing out
+    windchime: (pan, delay) => {
+      const notes = [1047, 1175, 1319, 1568, 1760, 2093];
+      const n = 4 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < n; i++) {
+        const f = notes[Math.floor(Math.random() * notes.length)];
+        const at = delay + i * (0.12 + Math.random() * 0.2);
+        tone('sine', f, f, 1.6, 0.012, pan, at);
+        tone('sine', f * 2.76, f * 2.76, 0.5, 0.003, pan, at);
+      }
+    },
   };
 
   const level = (b: { gain: GainNode } | null, v: number) => {
