@@ -82,6 +82,8 @@ export type Command =
   | { type: 'watchPortal'; realm: string | null }
   | { type: 'lookInside'; building: number | null }
   | { type: 'giftVillage'; id: number }
+  /** Open or close a trade route to a power (sim/markets.ts). */
+  | { type: 'tradeRoute'; to: string; open: boolean }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
   | { type: 'rally'; person: number }
   /** The battle on the trail (sim/battle.ts): put a fighter on a spot (or off: null), send the raiders on now, auto-watch
@@ -236,6 +238,8 @@ export function parseCommand(raw: unknown): Command | null {
       return c.expedition === null || Number.isInteger(c.expedition) ? { type: 'watch', expedition: c.expedition as number | null } : null;
     case 'giftVillage':
       return Number.isInteger(c.id) ? { type: 'giftVillage', id: c.id as number } : null;
+    case 'tradeRoute':
+      return typeof c.to === 'string' && typeof c.open === 'boolean' ? { type: 'tradeRoute', to: c.to, open: c.open } : null;
     case 'lookInside':
       return c.building === null || Number.isInteger(c.building) ? { type: 'lookInside', building: c.building as number | null } : null;
     case 'watchPortal':

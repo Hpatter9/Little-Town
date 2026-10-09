@@ -98,6 +98,7 @@ import { gainSkill, housingCapacity } from './townsfolk';
 import { offerToSettle, strangerLook, strangerOrigin } from './strangers';
 import { priceRate, travellerRate } from './origin';
 import { walk } from './walk';
+import { noteFlow, priceOf } from './prices';
 
 /* ------------------------------------------------------------ the venues and their floors */
 
@@ -800,11 +801,12 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
   let met = false;
   if (want.kind === 'material') {
     const spare = town.forSale(s);
-    const n = Math.min(spare[want.m] ?? 0, want.n, Math.floor(t.purse / WORTH[want.m]));
+    const n = Math.min(spare[want.m] ?? 0, want.n, Math.floor(t.purse / priceOf(s, want.m)));
     if (n > 0) {
       met = true;
       takeStock(s, want.m, n);
-      spent += Math.round(n * WORTH[want.m] * haggle);
+      spent += Math.round(n * priceOf(s, want.m) * haggle);
+      noteFlow(s, want.m, n);
       bought.push(`${n} ${MATERIAL_NAMES[want.m].toLowerCase()}`);
     }
   } else {
@@ -879,11 +881,12 @@ function serveCustomer(s: GameState, shop: Building, t: Traveller, town: ShopTow
   let extra = 0;
   for (const [m, have] of goods) {
     if (Object.keys(sold).length >= MAX_KINDS - 1) break;
-    const n = Math.min(have, MAX_BUY_EACH * tier.purse, Math.floor((budget - extra) / WORTH[m]));
+    const n = Math.min(have, MAX_BUY_EACH * tier.purse, Math.floor((budget - extra) / priceOf(s, m)));
     if (n <= 0) continue;
     takeStock(s, m, n);
+    noteFlow(s, m, n);
     sold[m] = n;
-    extra += n * WORTH[m];
+    extra += n * priceOf(s, m);
   }
   spent += extra;
   // (to the owner's purse, or the treasury's; the keeper's cut out of it: sim/ambition.ts)
@@ -1058,7 +1061,7 @@ function buyFrom(s: GameState, shop: Building, t: Traveller, town: ShopTown, who
   let room = totalCapacity(s) - poolSize(totalStock(s));
   for (const w of town.wants(s)) {
     if (!has.has(w.m) || room <= 0) continue;
-    const price = WORTH[w.m] * BUY_MARKUP;
+    const price = priceOf(s, w.m) * BUY_MARKUP;
     const keep = w.essential ? 0 : COIN_RESERVE * PURSE_SCALE[s.era];
     const afford = Math.floor(((s.coins ?? 0) - paid - keep) / price);
     const n = Math.min(w.n, MAX_SELL_EACH, afford, room);

@@ -18,9 +18,9 @@ import {
   HORSE_WORTH,
   OFFER_WORTH,
   SELL_MARKUP,
-  WORTH,
 } from '../data/trade';
 import type { Rng } from '../rng';
+import { noteFlow, priceOf } from './prices';
 import { buildingCentreX, depositNear, storages, totalCapacity, totalStock } from './buildings';
 import { MERCHANT_PER_LEVEL } from '../data/operators';
 import { operatorSkill } from './operators';
@@ -75,10 +75,10 @@ export function makeOffers(s: GameState, rng: Rng, faction?: OriginId): Offer[] 
   const markup = Math.max(1, SELL_MARKUP - haggle);
   const rate = Math.min(0.95, BUY_RATE + haggle);
   // what the town has most of, by worth (not the totem)
-  const plenty = MATERIALS.filter((m) => m !== 'totem' && (stock[m] ?? 0) > 0).sort((a, b) => (stock[b] ?? 0) * WORTH[b] - (stock[a] ?? 0) * WORTH[a]);
+  const plenty = MATERIALS.filter((m) => m !== 'totem' && (stock[m] ?? 0) > 0).sort((a, b) => (stock[b] ?? 0) * priceOf(s, b) - (stock[a] ?? 0) * priceOf(s, a));
   const payWith = (worth: number): Stock => {
     const m = plenty[rng.int(0, Math.min(2, Math.max(0, plenty.length - 1)))] ?? 'wood';
-    return { [m]: Math.max(1, Math.ceil(worth / WORTH[m])) };
+    return { [m]: Math.max(1, Math.ceil(worth / priceOf(s, m))) };
   };
   const offers: Offer[] = [];
   const theirs = faction ? FACTION_GOODS[faction] ?? [] : [];
@@ -89,21 +89,21 @@ export function makeOffers(s: GameState, rng: Rng, faction?: OriginId): Offer[] 
   if (theirs.length) {
     const g = rng.pick(theirs);
     const worth = rng.int(OFFER_WORTH[0], OFFER_WORTH[1]) * scale;
-    const n = Math.max(1, Math.round(worth / WORTH[g]));
-    offers.push({ id: s.nextId++, gives: { [g]: n }, horse: false, wants: payWith(n * WORTH[g] * markup), done: false });
+    const n = Math.max(1, Math.round(worth / priceOf(s, g)));
+    offers.push({ id: s.nextId++, gives: { [g]: n }, horse: false, wants: payWith(n * priceOf(s, g) * markup), done: false });
   }
   for (let i = 0; i < (theirs.length ? 2 : 3); i++) {
     const g = goods.splice(rng.int(0, goods.length - 1), 1)[0];
     const worth = rng.int(OFFER_WORTH[0], OFFER_WORTH[1]) * scale;
-    const n = Math.max(1, Math.round(worth / WORTH[g]));
-    offers.push({ id: s.nextId++, gives: { [g]: n }, horse: false, wants: payWith(n * WORTH[g] * markup), done: false });
+    const n = Math.max(1, Math.round(worth / priceOf(s, g)));
+    offers.push({ id: s.nextId++, gives: { [g]: n }, horse: false, wants: payWith(n * priceOf(s, g) * markup), done: false });
   }
   if (stalls(s) > 0) offers.push({ id: s.nextId++, gives: {}, horse: true, wants: payWith(HORSE_WORTH * markup), done: false });
   // they buy what you have too much of
   for (const m of plenty.slice(0, 2)) {
-    const n = Math.max(1, Math.round((rng.int(OFFER_WORTH[0], OFFER_WORTH[1]) * scale) / WORTH[m]));
+    const n = Math.max(1, Math.round((rng.int(OFFER_WORTH[0], OFFER_WORTH[1]) * scale) / priceOf(s, m)));
     const back = all.filter((g) => g !== m)[rng.int(0, all.length - 2)];
-    offers.push({ id: s.nextId++, gives: { [back]: Math.max(1, Math.floor((n * WORTH[m] * rate) / WORTH[back])) }, horse: false, wants: { [m]: n }, done: false });
+    offers.push({ id: s.nextId++, gives: { [back]: Math.max(1, Math.floor((n * priceOf(s, m) * rate) / priceOf(s, back))) }, horse: false, wants: { [m]: n }, done: false });
   }
   return offers;
 }
@@ -132,8 +132,12 @@ export function trade(s: GameState, offerId: number, rng: Rng): TradeCheck {
   if (!check.ok) return check;
   const c = s.caravan as Caravan;
   const o = c.offers.find((q) => q.id === offerId)!;
-  for (const [m, n] of Object.entries(o.wants) as [Material, number][]) take(s, m, n);
+  for (const [m, n] of Object.entries(o.wants) as [Material, number][]) {
+    take(s, m, n);
+    noteFlow(s, m, n);
+  }
   if (poolSize(o.gives)) depositNear(s, c.x, o.gives);
+  for (const [m, n] of Object.entries(o.gives) as [Material, number][]) noteFlow(s, m, -n);
   if (o.horse) {
     const h = newHorse(s, rng);
     s.horses.push(h);
@@ -182,8 +186,8 @@ export function goodDeal(s: GameState, o: Offer): boolean {
   const spare = (Object.entries(o.wants) as [Material, number][]).every(([m, n]) => (stock[m] ?? 0) - n >= Math.max(FOOD_VALUE[m] ? FOOD_SPARE : SPARE_KEEP, n * 2));
   if (!spare) return false;
   if (o.horse) return horsesOwned(s) < stalls(s);
-  const give = (Object.entries(o.wants) as [Material, number][]).reduce((n, [m, k]) => n + WORTH[m] * k, 0);
-  const get = (Object.entries(o.gives) as [Material, number][]).reduce((n, [m, k]) => n + WORTH[m] * k, 0);
+  const give = (Object.entries(o.wants) as [Material, number][]).reduce((n, [m, k]) => n + priceOf(s, m) * k, 0);
+  const get = (Object.entries(o.gives) as [Material, number][]).reduce((n, [m, k]) => n + priceOf(s, m) * k, 0);
   const wanted = (Object.keys(o.gives) as Material[]).some((m) => (stock[m] ?? 0) < SHORT_OF);
   return wanted && give <= get * DEAR_BUY;
 }

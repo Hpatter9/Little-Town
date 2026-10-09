@@ -9,6 +9,7 @@ import { roamersTick, skirmishTrip } from './roamers';
 import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
+import { marketsHourly, setRoute } from './markets';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -204,6 +205,7 @@ export class Sim {
     streetsHourly(s); // (streets planned where folk walk, and to the gates: sim/streets.ts)
     faithHourly(s); // (the gods: sim/faith.ts)
     worldHourly(s); // (the realm beyond the town: sim/worldLife.ts)
+    marketsHourly(s); // (prices, the trade house and its wagons: sim/markets.ts)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);
@@ -442,6 +444,9 @@ export class Sim {
         break;
       case 'giftVillage':
         giftVillage(s, c.id);
+        break;
+      case 'tradeRoute':
+        setRoute(s, c.to, c.open);
         break;
       case 'lookInside':
         lookInside(s, c.building);

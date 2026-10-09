@@ -45,7 +45,7 @@ export class WorldMapView {
   }
 
   update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = [], world?: Snapshot['world']): void {
-    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)])]);
+    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.routes, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)])]);
     if (key === this.key) return;
     this.key = key;
     this.svg.replaceChildren();
@@ -71,6 +71,8 @@ export class WorldMapView {
       this.svg.append(line);
     };
     for (const e of parties) if (MAP_SPOTS[e.dest]) route(MAP_SPOTS[e.dest], 'map-route party');
+    // the trade house's open routes (sim/markets.ts), faint gold
+    for (const r of world?.routes ?? []) route(r.to, 'map-route trade-road');
     const pickedSpot = picked ? MAP_SPOTS[picked] : undefined;
     if (pickedSpot) route(pickedSpot, 'map-route picked');
 
@@ -120,7 +122,7 @@ export class WorldMapView {
         this.svg.append(line);
       }
       const at = { x: m.from.x + (m.to.x - m.from.x) * m.t, y: m.from.y + (m.to.y - m.from.y) * m.t };
-      const tok = el('div', `map-march ${m.kind}`, m.kind === 'trade' ? '🐫' : m.kind === 'envoy' ? '✉' : String(m.size));
+      const tok = el('div', `map-march ${m.kind}`, m.kind === 'trade' ? '🐫' : m.kind === 'wagon' ? '🛒' : m.kind === 'envoy' ? '✉' : String(m.size));
       tok.title = m.label;
       tok.setAttribute('aria-label', m.label);
       place(tok, at);

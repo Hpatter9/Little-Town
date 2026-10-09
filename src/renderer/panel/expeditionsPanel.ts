@@ -31,7 +31,7 @@ const ROOM_NAMES: Record<string, string> = { rival: 'rival delvers', fight: 'a f
 let mapPick: string | null = null;
 let rerenderBoard: () => void = () => {};
 // picked on the map: flag it, and bring its card into view (once the board has redrawn)
-const MARCH_MARK = { feud: '⚑', trade: '🐫', host: '⚔', envoy: '✉' } as const;
+const MARCH_MARK = { feud: '⚑', trade: '🐫', host: '⚔', envoy: '✉', wagon: '🛒' } as const;
 const worldMap = new WorldMapView((id) => {
   mapPick = id;
   rerenderBoard();

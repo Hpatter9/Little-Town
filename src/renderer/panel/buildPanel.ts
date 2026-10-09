@@ -161,6 +161,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
         ['guards', 'The guards\' wages'],
         ['bounties', 'Bounties posted (and taken back)'],
         ['realm', 'The realm: gifts, tribute, trade and plunder'],
+        ['trade', 'The trade house: wagons, loans and debts'],
       ];
       const t = el('table', 'grid ledger');
       let net = 0;

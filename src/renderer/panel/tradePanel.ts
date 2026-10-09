@@ -12,9 +12,10 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { HERDS, PEN_ROOM_PER_COL } from '../../shared/data/livestock';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, el } from './dom';
+import { marketsKey, renderMarkets } from './marketsPanel';
 
 export const tradeKey = (s: Snapshot) =>
-  JSON.stringify([s.caravan && [s.caravan.faction, Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, [s.shop, s.tavern, ...s.stores].map((v) => v && [v.name, v.keeperName, v.ownerName, v.takings, Math.round(v.renown)]), s.buildings.filter((b) => HERDS[b.def]).map((b) => [b.status, b.herd?.head, b.wide])]);
+  JSON.stringify([s.caravan && [s.caravan.faction, Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, [s.shop, s.tavern, ...s.stores].map((v) => v && [v.name, v.keeperName, v.ownerName, v.takings, Math.round(v.renown)]), s.buildings.filter((b) => HERDS[b.def]).map((b) => [b.status, b.herd?.head, b.wide]), marketsKey(s)]);
 
 const list = (st: Stock) =>
   (Object.entries(st) as [Material, number][])
@@ -65,6 +66,9 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
     out.push(el('div', 'hint', `The next caravan is due in about ${Math.ceil(s.nextCaravanHours)} game hours.`));
   }
 
+  // prices, the trade house and its routes (marketsPanel.ts)
+  out.push(...renderMarkets(s, bridge));
+
   // the pens' herds: how many head of each, against the room (sim/livestock.ts)
   const pens = s.buildings.filter((b) => b.status === 'done' && HERDS[b.def]);
   out.push(el('h2', '', `Herds (${pens.length} ${pens.length === 1 ? 'pen' : 'pens'})`));
@@ -100,7 +104,8 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
 
 /** A deal's details: what each side is worth at the town's prices, what's in store of each, and how it comes out. */
 function dealDetails(o: NonNullable<Snapshot['caravan']>['offers'][number], s: Snapshot): More[] {
-  const worth = (st: Stock) => (Object.entries(st) as [Material, number][]).reduce((n, [m, k]) => n + (WORTH[m] ?? 1) * k, 0);
+  const at = new Map(s.markets?.prices.map((p) => [p.m, p.price]) ?? []);
+  const worth = (st: Stock) => Math.round((Object.entries(st) as [Material, number][]).reduce((n, [m, k]) => n + (at.get(m) ?? WORTH[m] ?? 1) * k, 0));
   const have = (st: Stock) =>
     (Object.keys(st) as Material[])
       .map((m) => `${s.stock[m] ?? 0} ${MATERIAL_NAMES[m].toLowerCase()}`)
