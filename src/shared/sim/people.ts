@@ -58,6 +58,7 @@ import { accruePay, accruePayFrom, loadPrice, moneyTown, payFromTreasury } from 
 import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, TREASURY_KEEP } from '../data/economy';
 import { canWork, skillPace } from './property';
 import { isChild } from './social';
+import { childTask, lessonSpot } from './lineage';
 import { pastimeFor } from './pastimes';
 
 /** Walking speed in world pixels per second. */
@@ -343,6 +344,26 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       const spot = relaxSpot(b, p.id + (def.activity === 'stroll' ? Math.floor(s.tick / (6 * TICK_HZ)) : 0));
       if (def.indoors ? !goToB(s, p, b) : !goTo(s, p, spot)) break;
       p.activity = def.activity;
+      break;
+    }
+    case 'lesson': {
+      if (childTask(s, p)?.type !== 'lesson') {
+        p.task = null;
+        break;
+      }
+      if (!goTo(s, p, lessonSpot(s, p, task.building))) break;
+      p.activity = 'research';
+      break;
+    }
+    case 'apprentice': {
+      const m = s.people.find((q) => q.id === task.master);
+      if (!m || childTask(s, p)?.type !== 'apprentice') {
+        p.task = null;
+        break;
+      }
+      // (at the master's elbow, a step to one side, doing as they do)
+      if (!goTo(s, p, { x: m.x + (p.id % 2 ? 20 : -20), y: m.y + 6 })) break;
+      p.activity = m.activity === 'walk' || m.activity === 'sleep' || m.activity === 'fight' ? 'idle' : m.activity;
       break;
     }
     case 'protest': {
@@ -855,6 +876,9 @@ function rank(t: Task, p?: Person): number {
     case 'toil':
     case 'protest':
       return -2.4;
+    case 'lesson':
+    case 'apprentice':
+      return -1.5;
     case 'attend':
       return -2.3;
     case 'drink':
@@ -891,6 +915,9 @@ function jobOf(t: Task): Job {
     case 'protest':
     case 'attend':
       return 'construct';
+    case 'lesson':
+    case 'apprentice':
+      return 'research';
     case 'defend':
     case 'patrol':
       return 'defend';
@@ -939,6 +966,9 @@ function chooseTask(s: GameState, p: Person): Task | null {
   if (striking(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'protest' ? p.task : { type: 'protest' };
   // Of an evening, those out for a drink go to the tavern and stay (sim/nightOut.ts; they eat first if they must).
   if (drinking(s, p) && p.needs.food >= HUNGRY) return p.task?.type === 'drink' ? p.task : { type: 'drink' };
+  // A child: lessons of a morning, at their master's side of an afternoon (sim/lineage.ts; they eat first if they must).
+  const lesson = p.needs.food >= HUNGRY ? childTask(s, p) : null;
+  if (lesson) return p.task?.type === lesson.type ? p.task : lesson;
   // Spirits low: a break at a place of leisure before the day's work (sim/leisure.ts; the hungry eat first).
   if (p.task?.type !== 'relax' && p.needs.food >= HUNGRY) {
     const spot = wantsRelax(s, p, false);
@@ -1227,6 +1257,9 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       return busyNow(s, p) && !alarmRaised(s);
     case 'protest':
       return striking(s, p) && !alarmRaised(s);
+    case 'lesson':
+    case 'apprentice':
+      return childTask(s, p)?.type === t.type && !alarmRaised(s);
     case 'attend':
       return attending(s, p) && !alarmRaised(s);
     case 'drink':

@@ -261,6 +261,9 @@ export type Task =
   | { type: 'toil' }
   /** On strike with their bloc, gathered before the seat (sim/politics.ts). */
   | { type: 'protest' }
+  /** A child at lessons (at a building, or round the fire), or at their master's side (sim/lineage.ts). */
+  | { type: 'lesson'; building: number | null }
+  | { type: 'apprentice'; master: number }
   /** At a funeral or a feast (sim/ceremonies.ts). */
   | { type: 'attend' }
   /** Of an evening at the tavern, for a drink (sim/nightOut.ts). */
@@ -517,6 +520,11 @@ export interface Person {
   /** Children: when they were born (they grow up after CHILD_HOURS), and their parents. */
   bornTick?: number | null;
   parents?: number[];
+  /** A child's learning (sim/lineage.ts): hours at lessons, their trade and master, hours at the master's side. */
+  schooled?: number;
+  trade?: string;
+  master?: number | null;
+  apprenticed?: number;
   /** When they came of age (sim/ageing.ts): elders and old age count from it. */
   grownAt?: number;
   /** Grieving someone close, until a tick. */
@@ -1170,6 +1178,8 @@ export interface GameState {
   watchingDeep?: number;
   /** The building the player is looking into (sim/interiors.ts). */
   lookingInside?: number;
+  /** Everyone with kin, living and dead (sim/lineage.ts): the family trees. */
+  kin?: Record<number, import('./lineage').KinRecord>;
   /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
   portals?: Portal[];
   watchingPortal?: RealmId;

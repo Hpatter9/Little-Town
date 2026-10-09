@@ -3,6 +3,7 @@
 // researched, couples marry and may welcome children, who grow up over about a week of real time and
 // take after a parent. Losing someone close hits hard.
 
+import { comeOfAge, recordBirth } from './lineage';
 import { weddingFeast } from './ceremonies';
 import { natureFit, natureOf } from '../data/natures';
 import { POP_HARD_CAP } from '../data/pace';
@@ -207,6 +208,7 @@ function welcomeChild(s: GameState, a: Person, b: Person, rng: Rng): void {
     parents: [a.id, b.id],
   };
   s.people.push(child);
+  recordBirth(s, child, a, b); // (into the family's record: sim/lineage.ts)
   adjust(s, child.id, a.id, 60);
   adjust(s, child.id, b.id, 60);
   notify(s, `${a.name} and ${b.name} welcomed a child, ${child.name}.`, true);
@@ -223,7 +225,8 @@ function growUp(s: GameState): void {
     for (const k of SKILLS) p.skills[k].level = (p.passions.includes(k) ? 5 : 2) + school;
     p.autoPriorities = true;
     p.priorities = { haul: 2, construct: 2, farm: 2, craft: 2, research: 2, gather: 2, defend: 3 };
-    notify(s, `${p.name} has grown up and joins the work.`, true);
+    const gifts = comeOfAge(s, p); // (their schooling, their master and their parents: sim/lineage.ts)
+    notify(s, `${p.name} has grown up and joins the work${gifts.length ? `, with ${gifts.join(', ')}` : ''}.`, true);
   }
 }
 

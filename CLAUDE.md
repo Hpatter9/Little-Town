@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.37.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.38.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3416,6 +3416,39 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   sitting by the hearth or the table, a child playing about the floor. A bar names the room with ✕; a window (below
   upright, on the right sideways) lists the owner, beds, what's being made or studied, who's in and at what, and who's
   out. The phone counts it as a full-screen view (`below` in mobile.ts). Tests: `test/interiors.test.ts`.
+
+## Schools, apprenticeships and family trees (0.38.0; the owner's pick of the content updates, the eighth)
+
+- **The data** (`src/shared/data/lineage.ts`): the lesson and apprenticeship hours, what they're worth at coming of age,
+  what's inherited, the renown that makes a line famous.
+- **The sim** (`src/shared/sim/lineage.ts`):
+  - **Lessons:** a child at home takes the `lesson` task from `LESSON_FROM` to `LESSON_UNTIL` (`childTask`, from
+    `chooseTask` in people.ts): to the school, else a study (the elder lodge, a library: `lessonPlace`), else round the
+    fire with the elders, sat before the door reading (`lessonSpot`, activity `research`). Each hour counts
+    (`Person.schooled`, `SCHOOL_PACE` at a school; `lineageHourly`).
+  - **Apprenticeship:** from `APPRENTICE_FROM_SHARE` of the way through childhood a child is apprenticed (`apprentice`):
+    their trade is a parent's best skill (else their passion), their master the best grown-up at it (`Person.trade`,
+    `Person.master`); from `APPRENTICE_FROM` to `APPRENTICE_UNTIL` they take the `apprentice` task: at the master's
+    elbow, doing as they do (the master's work animation). Each hour counts (`Person.apprenticed`).
+  - **Coming of age** (`comeOfAge`, from `growUp` in social.ts; the notice says what they came of age with): a level of
+    learning for every `LESSON_HOURS_PER_LEVEL` (research, social, their passion; at most `LESSON_LEVELS_MOST`), the trade
+    a level for every `APPRENTICE_HOURS_PER_LEVEL` up to `APPRENTICE_SHARE` of the master's level (and a passion for it),
+    each parent's traits on `INHERIT_TRAIT` (up to two), a parent's nature on `INHERIT_NATURE`, and the family's grudges
+    (`INHERITED_GRUDGE` toward each parent's enemy, half toward their children).
+  - **The record** (`s.kin`, `KinRecord`: name, parents, born, died and how, black sheep, calling, level, titles, foes
+    felled): a child and both parents go in at birth (`recordBirth`), a death is marked (`recordDeath`, from
+    `killPerson`), a culprit brought to trial is the family's black sheep (`blackSheep`, from `trial` in politics.ts); kept
+    to `KIN_MOST`. **Inheritance** (`inherit`): a death passes their buildings and purse to the eldest grown child at
+    home, else their partner, else a child (`heirOfEstate`), with a notice; with nobody, the buildings to the town.
+  - **The lines** (`familiesView`, `snapshot.families`, `FamilyLine`): each founder with children (not one who married
+    into a line) and their descendants by generation, those who married in beside their partner; renown (`lineRenown`:
+    titles, foes felled, levels, less the black sheep), famous at `FAMOUS_AT`.
+- **Seen:** the People menu's **Families** tab (`panel/familyPanel.ts`): a card a line (★ when famous, the living and
+  the generations, its renown and black sheep); tapped, its tree: a row a generation, a chip a member (the dead with ✝,
+  children small with their master, a black sheep ⚑ with a red border), lines drawn from parents to children in SVG; a
+  living member opens their page. Children at lessons read before the school's door; apprentices work beside their
+  masters on the map; a lesson in a building shows them at the desks inside it (sim/interiors.ts). Prisoners have their
+  own sub-tab now. Tests: `test/lineage.test.ts`.
 
 ## Known problem (fixed, watch)
 

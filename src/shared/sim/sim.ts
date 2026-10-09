@@ -57,6 +57,7 @@ import { calamityHourly } from './calamity';
 import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
 import { lookInside } from './interiors';
+import { lineageHourly } from './lineage';
 import type { RealmId } from '../data/portals';
 import { giftVillage, villagesHourly } from './villages';
 import { politicsHourly } from './politics';
@@ -210,6 +211,7 @@ export class Sim {
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
+    lineageHourly(s); // (children's lessons and apprenticeships: sim/lineage.ts)
     villagesHourly(s); // (daughter villages: sim/villages.ts)
     politicsHourly(s); // (the town's politics and law: sim/politics.ts)
     scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)

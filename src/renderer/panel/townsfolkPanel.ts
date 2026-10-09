@@ -2,6 +2,7 @@
 // someone to inspect them: their picture in what they wear, their gear laid out as in Diablo (each piece in its slot
 // round them, tap one for its stats), what they carry, how they fight, and everything else about them.
 
+import { familiesSection } from './familyPanel';
 import { mapBeside, showOnMap } from './townOverview';
 import { hkDraw, hkLayers, hkWhoOf, onHkLoad } from '../art/hkFolk';
 import { pieceLabel, plusOf, qualityOf } from '../../shared/data/quality';
@@ -45,6 +46,7 @@ export const townsfolkKey = (s: Snapshot) => {
     s.visitor && [s.visitor.id, s.visitor.leaving],
     s.housing.beds <= s.housing.people,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 20), p.hungry]),
+    s.families.map((f) => [f.root, f.members.length, f.living, f.renown, f.blackSheep.length, f.members.map((m) => m.master).join()]),
     s.turnable,
     confirmTurn,
     s.research.done.length,
@@ -120,6 +122,16 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
   out.push(el('h2', '', 'Jobs'));
   out.push(priorityGrid(s, bridge));
   out.push(el('div', 'hint', 'Click a cell to cycle High, Normal, Low, Off. People do High jobs first. Auto sets them from skills. Defend: when raiders come, anyone not set to Off fights; the rest shelter (safest in a bed).'));
+
+  out.push(
+    ...familiesSection(s, (id) => {
+      inspecting = id;
+      chosenSlot = null;
+      rerender();
+      const box = scroller();
+      if (box) box.scrollTop = 0;
+    }),
+  );
 
   if (s.prisoners.length) {
     out.push(el('h2', '', 'Prisoners'));

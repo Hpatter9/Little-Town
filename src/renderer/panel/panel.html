@@ -984,6 +984,20 @@
         outline: 2px solid var(--wood-edge);
         outline-offset: 1px;
       }
+      /* the family trees (panel/familyPanel.ts) */
+      .kin-tree { position: relative; overflow-x: auto; padding: 6px 2px 4px; display: flex; flex-direction: column; gap: 22px; }
+      .kin-lines { position: absolute; left: 0; top: 0; pointer-events: none; }
+      .kin-lines path { fill: none; stroke: rgba(200, 170, 120, 0.55); stroke-width: 1.5; }
+      .kin-lines path.black { stroke: rgba(170, 60, 60, 0.7); stroke-dasharray: 3 3; }
+      .kin-row { position: relative; display: flex; gap: 6px; justify-content: center; min-width: max-content; }
+      .kin { display: flex; flex-direction: column; align-items: center; min-width: 74px; max-width: 110px; padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(200, 170, 120, 0.5); background: rgba(60, 44, 30, 0.85); color: inherit; font: inherit; }
+      .kin .kin-name { font-weight: 700; font-size: 12px; white-space: nowrap; }
+      .kin .kin-sub { font-size: 10px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+      .kin .kin-title { color: #e8c060; }
+      .kin.dead { opacity: 0.55; background: rgba(40, 34, 30, 0.85); }
+      .kin.child { min-width: 60px; transform: scale(0.92); }
+      .kin.black { border-color: rgba(190, 70, 60, 0.9); }
+      .card.family.famous { border-color: #d8b050; box-shadow: 0 0 0 1px rgba(216, 176, 80, 0.35) inset; }
       .facts {
         display: grid;
         grid-template-columns: auto 1fr;
