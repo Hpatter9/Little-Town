@@ -70,6 +70,10 @@ export const FOUNDER_CLASSES: readonly FounderClassDef[] = [
   F('aldric', 'knight', ['Disgraced Knight', 'The Oathbound', 'Oathkeeper', 'Paragon', 'The Unbroken Oath'], 'Kept his sword and his oath when he lost everything else.', { hp: 1.3, damage: 1.15 }),
   F('yseult', 'guardian', ['Shield-Bearer', 'The Shieldmaiden', 'Bridge-Holder', 'Bastion of the Order', 'The Unyielding Wall'], 'Held a bridge alone for a night and a day.', { hp: 1.35, armor: 0.1 }),
   F('cade', 'white_mage', ['Novice Chaplain', 'The Chaplain', 'Battle Priest', 'Abbot of the Order', 'Saint of the Field'], 'Prays over the wounded, then stitches them up; and swings a mace in between.', { healing: 1.35, damage: 1.15 }),
+  // the Orcs
+  F('grakk', 'warrior', ['Boss', 'The Warchief', 'Warboss', 'Overlord of the Horde', 'The Great Waaagh'], 'Leads from the front, and the horde follows the noise.', { damage: 1.35, hp: 1.2 }),
+  F('ushna', 'blood_knight', ['Raider', 'Bloodaxe', 'Reaver Queen', 'Scourge of the Roads', 'The Red Harvest'], 'Every wound she gives heals one of hers; she gives a great many.', { damage: 1.3, crit: 0.06 }),
+  F('mogra', 'shaman', ['Bone-Thrower', 'The Bone-Reader', 'Witch Doctor', 'Mother of Omens', 'The Last Bone'], 'Foul brews for the hurt and worse for the foe; the bones always say war.', { healing: 1.35, power: 1.2 }),
 ];
 
 export const FOUNDER_CLASS: Readonly<Record<string, FounderClassDef>> = Object.fromEntries(FOUNDER_CLASSES.map((f) => [f.id, f]));

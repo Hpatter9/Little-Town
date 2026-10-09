@@ -225,13 +225,13 @@ const TIMBER = new Set(['town', 'settlers', 'knights']);
  *  are kept from them; the shared props (the well, racks, fire pits, benches, plants) suit every look. */
 const OWN_TENTS = new Set(['vampire', 'lich', 'robot', 'nomads', 'merfolk', 'nomads_city']);
 /** The nomads' looks: the rocky-area pack's tipis and yurts stand for their homes. */
-const NOMAD = ['nomads', 'nomads_city'];
+const NOMAD = ['nomads', 'nomads_city', 'orcs'];
 /** The looks whose halls are the Simple Summer pack's stone keep, its crystal-crowned mage tower, its round keep (a
  *  shore town's tower by the sea), and its striped tent (a caravan on the move). */
 const KEEP_HALL = ['lich', 'werewolf'];
 const MAGE_HALL = ['alchemists', 'fae', 'druid'];
 const ROUND_HALL = ['merfolk'];
-const TENT_HALL = ['nomads'];
+const TENT_HALL = ['nomads', 'orcs'];
 const MACHINE_HALL = ['robot'];
 const hallVariants = (): { styles: string[]; pick: Pick }[] => [
   { styles: KEEP_HALL, pick: { url: suCastle, overhang: 4 } },
@@ -291,6 +291,7 @@ const PICKS: Record<string, Pick> = {
   // each people's own defence, from the props that suit it (the war engines and turrets stay painted: no pack has them)
   militia_post: { parts: [[vRack, 0, 0], [vSignSword, 26, 18]], size: [49, 42], overhang: 2 },
   bone_spire: { url: caveTotem, overhang: 2, grade: 'lich' },
+  skull_totem: { url: caveTotem, overhang: 2, grade: 'orcs' },
   gargoyle_perch: { url: caveStatue, overhang: 2, grade: 'vampire' },
   rune_bolt_thrower: { url: caveTotem, overhang: 2 },
   arrow_wagon: { parts: [[vCart2, 0, 4], [vRack, 38, 0]], size: [66, 42], overhang: 2 },
@@ -476,6 +477,7 @@ const PICKS: Record<string, Pick> = {
   alembic: { parts: [[dpTank3, 0, 10], [dpTank2, 28, 0], [dpTank3, 62, 10]], size: [88, 37], overhang: 0 },
   assembler: { parts: [[sf12, 0, 10], [dpDesk, 30, 0], [sf8, 70, 10]], size: [90, 40], overhang: 0 },
   armourer: { parts: [[house3, 0, 0], [vAnvil, 122, 132], [vSignShield, 6, 118]], size: [160, 160], smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] }, // (the knights' alone, a timber look)
+  grog_pit: { parts: [[caveFire2, 0, 8], [vRack, 46, 0]], size: [76, 50], overhang: 0 },
   pelt_house: { parts: [[vRack, 0, 0], [vRack, 30, 0], [vRack, 60, 0]], size: [88, 42], overhang: 0 },
   granary: { parts: [[doCrates, 0, 0], [doCrates, 0, 24], [doCrates, 46, 12], [fBox1, 94, 20]], size: [112, 48], overhang: 0 },
   theatre: { url: house4, styles: TIMBER, smoke: [[61, 10]], lamps: [[97, 87], [114, 122]] },
@@ -558,6 +560,7 @@ const GRADES: Record<string, { grey: number; tint: number; light: number }> = {
   nomads_city: { grey: 0.3, tint: 0xf0c890, light: 1.0 },
   druid: { grey: 0.35, tint: 0xb8e0a0, light: 0.95 },
   fae: { grey: 0.4, tint: 0xe0c0f0, light: 1.05 },
+  orcs: { grey: 0.45, tint: 0xc89a70, light: 0.86 },
   dwarves: { grey: 0.55, tint: 0xd0c0a8, light: 0.9 },
   werewolf: { grey: 0.45, tint: 0xc8a888, light: 0.85 },
   alchemists: { grey: 0.45, tint: 0xd0b0e0, light: 0.95 },

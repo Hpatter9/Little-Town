@@ -21,6 +21,11 @@ export const KINSHIP: readonly Pair[] = [
   ['alchemists', 'robot', 15, 'the crucible and the machines both love a good mechanism'],
   ['merfolk', 'druid', 10, 'river and root are old friends'],
   ['nomads', 'werewolf', 10, 'the horde and the pack both run under the open sky'],
+  ['orcs', 'dwarves', -30, 'the hold and the horde have warred over the mountains since the first iron'],
+  ['orcs', 'knights', -25, 'the Order has hunted orcs from every land it ever held'],
+  ['orcs', 'fae', -15, 'the horde burns the fair folk\'s woods for its fires'],
+  ['orcs', 'werewolf', 10, 'the horde respects anything that hunts in a pack'],
+  ['orcs', 'nomads', 5, 'the horde and the riders have traded horses and blows alike'],
   ['settlers', 'knights', 10, 'plain folk have always looked to the Order for help'],
 ];
 

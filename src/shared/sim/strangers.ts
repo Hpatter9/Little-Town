@@ -34,6 +34,16 @@ export function strangerLook(p: Pick<Person, 'id' | 'look' | 'origin'>, origin: 
     p.look.skin = SEA_SKINS[p.id % SEA_SKINS.length];
   }
   if (origin === 'vampire') p.look.skin = '#e8e0e8';
+  if (origin === 'orcs') orcLook(p);
+}
+
+/** The greenskins of the horde: the pack's orc body (tusks and pointed ears), a green skin under it for the old
+ *  side-on figure. */
+const ORC_SKINS = ['#6a9a4a', '#5a8a3e', '#7aa456', '#4e7a38', '#86a860'];
+export function orcLook(p: Pick<Person, 'id' | 'look'>): void {
+  p.look.body = 'orc';
+  p.look.skin = ORC_SKINS[p.id % ORC_SKINS.length];
+  p.look.ears = 'elf';
 }
 
 /** A stranger made one of their people: the look, and the Blood Court's and the Moon Pack's curses. */

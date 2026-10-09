@@ -32,6 +32,7 @@ export const LIFESPANS: Record<OriginId, Lifespan> = {
   merfolk: human('a merrow', 'merfolk', 70, 90, 20, 120),
   dwarves: human('a dwarf', 'dwarves', 100, 130, 50, 250),
   fae: human('a fae', 'the fae', 160, 200, 60, 600),
+  orcs: human('an orc', 'orcs', 40, 52, 14, 50), // grown fast, old young: few orcs die in bed
 };
 
 /** The werewolf's curse sets the lifespan whatever the town: it burns the body out. */

@@ -86,6 +86,9 @@ export const LOOKS: Record<string, Look> = {
   'town:rally': { sprite: 'holy', kind: 'ring', color: GOLD, also: 'aura', alt: GOLD },
   'town:shield_wall': { sprite: 'parry', kind: 'dome', color: GOLD },
   'town:oath': { sprite: 'suture', kind: 'rise', color: GOLD },
+  'town:war_cry': { sprite: 'blood_storm', onCaster: true, kind: 'ring', color: BLOOD, also: 'aura', alt: EMBER },
+  'town:berserk': { sprite: 'slash_fire', kind: 'bolt', color: BLOOD },
+  'town:grog_feast': { sprite: 'life_fountain', kind: 'sparkle', color: ACID },
   // rival lords' spells
   'rival:drain_life': { sprite: 'void', kind: 'stream', color: GREEN_DEAD },
   'rival:raise_fallen': { sprite: 'conjure', kind: 'rise', color: GREEN_DEAD },

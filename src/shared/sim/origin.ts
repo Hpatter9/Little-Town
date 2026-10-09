@@ -58,7 +58,7 @@ export function fightRate(s: GameState): number {
   const r = rulesOf(s);
   // (the Moon Pack's renown is in every blow: data/pack.ts)
   const pack = s.origin === 'werewolf' && s.pack ? 1 + Math.min(RENOWN_FIGHT_MAX, s.pack.renown * RENOWN_FIGHT) : 1;
-  return (r.fight ?? 1) * learned(s).fight * (r.moonFury && fullMoonNow(s) ? 1.3 : 1) * (buffOn(s, 'rally') ? 1.3 : 1) * (buffOn(s, 'moon_frenzy') ? 1.25 : 1) * markMult(s, 'fight') * pack;
+  return (r.fight ?? 1) * learned(s).fight * (r.moonFury && fullMoonNow(s) ? 1.3 : 1) * (buffOn(s, 'rally') ? 1.3 : 1) * (buffOn(s, 'war_cry') ? 1.35 : 1) * (buffOn(s, 'moon_frenzy') ? 1.25 : 1) * markMult(s, 'fight') * pack;
 }
 export function guardRate(s: GameState): number {
   return (rulesOf(s).guard ?? 1) * learned(s).guard * (buffOn(s, 'stone_skin') || buffOn(s, 'shield_wall') || buffOn(s, 'bone_ward') ? 0.6 : 1) * markMult(s, 'guard');

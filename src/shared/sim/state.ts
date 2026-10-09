@@ -1209,6 +1209,8 @@ export interface GameState {
   work?: import('./greatWork').WorkState;
   /** A knights' town's Order: vows, honour, tournaments, the liege, the Grail (sim/chivalry.ts). */
   order?: import('./chivalry').OrderState;
+  /** The orcs' warpath (sim/warpath.ts): fury, war raids, glory, the Waaagh!. */
+  horde?: import('./warpath').HordeState;
   /** A machine town's factory mind: power, wear, the line, modules, the Mind (sim/foundry.ts). */
   foundry?: import('./foundry').FoundryState;
   /** A settlers' town's frontier: tricks learned, strangers teaching, land claims (sim/frontier.ts). */

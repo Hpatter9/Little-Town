@@ -27,7 +27,7 @@ function logList(lines: string[]): HTMLElement {
 export function heritageSection(s: Snapshot): HTMLElement[] {
   const h = s.heritage;
   if (!h) return [];
-  return [...groveSection(h), ...courtSection(h), ...workSection(h), ...orderSection(h), ...foundrySection(h), ...frontierSection(h), ...bloodSection(h)];
+  return [...groveSection(h), ...courtSection(h), ...workSection(h), ...orderSection(h), ...foundrySection(h), ...frontierSection(h), ...bloodSection(h), ...hordeSection(h)];
 }
 
 function groveSection(h: HeritageView): HTMLElement[] {
@@ -216,5 +216,45 @@ function bloodSection(h: HeritageView): HTMLElement[] {
   c.append(bar, el('div', 'purpose', b.spared ? `The store holds ${b.keep} or more: the thralls are spared tonight.` : `Under ${b.keep}: the ${b.thralls} thrall${b.thralls === 1 ? '' : 's'} give their tithe at dusk.`));
   c.append(el('div', 'purpose', `${b.heads} beast${b.heads === 1 ? '' : 's'} in the pens · ${b.farms ? `${b.farms} Blood Farm${b.farms > 1 ? 's' : ''}, ${b.prisoners} of ${b.cells} cells filled` : 'no Blood Farm yet (from the Medieval age)'}`));
   out.push(c);
+  return out;
+}
+
+function hordeSection(h: HeritageView): HTMLElement[] {
+  const w = h.horde;
+  if (!w) return [];
+  const out: HTMLElement[] = [el('h2', '', 'Our ways: the warpath')];
+  out.push(el('div', 'hint', 'The horde lives for war. Its fury rises every day of peace and festers into brawls; it is spent on war raids the warchief leads out on the realm\'s powers, for plunder and captives, who work as thralls. Every orc earns glory by the kill and the raid, and the bloodiest take names. When the fury boils over, the Waaagh! is called.'));
+  const c = el('div', `card horde${w.waaagh !== null ? ' waaagh' : w.fury >= 70 ? ' angry' : ''}`);
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', `🪓 ${w.name}`), el('span', 'card-size', `fury ${w.fury}`));
+  const bar = el('div', 'bar');
+  const fill = el('div', `bar-fill${w.fury >= 70 ? ' low' : ''}`);
+  fill.style.width = `${w.fury}%`;
+  bar.append(fill);
+  c.append(top, bar);
+  if (w.waaagh !== null) c.append(el('div', 'purpose', `WAAAGH! The horde is on the march for ${w.waaagh} more hours: everyone fights and builds harder.`));
+  c.append(el('div', 'purpose', `${w.raids} war raid${w.raids === 1 ? '' : 's'}, ${w.won} won · ${w.waaaghs} Waaagh!${w.waaaghs === 1 ? '' : 's'} called · ${w.thralls} thrall${w.thralls === 1 ? '' : 's'} at work`));
+  if (w.out) c.append(el('div', 'purpose', `Out raiding ${w.out.target}: ${w.out.names.join(', ')} (home in ${w.out.hours}h).`));
+  const sacked = w.powers.filter((p) => p.sacked).length;
+  c.append(el('div', 'purpose win-goal', `To win: the Great Waaagh! Sack every power of the realm (${sacked} of ${w.powers.length}) and call the Waaagh! ${w.winWaaaghs} times (${w.waaaghs} so far).`));
+  out.push(c);
+  if (w.powers.length) {
+    const pc = el('div', 'card');
+    const pt = el('div', 'card-top');
+    pt.append(el('span', 'card-name', 'The powers of the realm'), el('span', 'card-size', `${sacked} sacked`));
+    pc.append(pt, el('div', 'purpose', w.powers.map((p) => `${p.sacked ? '🔥' : '·'} ${p.name}`).join('  ')));
+    out.push(pc);
+  }
+  if (w.glory.length) {
+    out.push(el('h2', '', 'Our ways: glory'));
+    for (const g of w.glory) {
+      const gc = el('div', 'card');
+      const gt = el('div', 'card-top');
+      gt.append(el('span', 'card-name', g.title ? `${g.name} ${g.title}` : g.name), el('span', 'card-size', `glory ${g.glory}`));
+      gc.append(gt);
+      out.push(gc);
+    }
+  }
+  if (w.log.length) out.push(logList(w.log));
   return out;
 }
