@@ -9,6 +9,9 @@ import { gateContext, wake } from './audioGate';
 import type { AmbientMix } from './ambienceMix';
 
 const MASTER = 0.55;
+/** The sound effects (the cues: the hammer, the axe, blows, coins...) over the land's own sound (the owner: none were
+ *  heard; a hammer peaked at the wind's level, a tenth of the music's), through a limiter so a flurry doesn't clip. */
+export const CUE_GAIN = 4;
 const FADE = 1.2;
 
 /** A sound to play now: what, and where across the screen (-1 left to 1 right). */
@@ -36,6 +39,8 @@ export interface Ambience {
 export function createAmbience(): Ambience {
   let ctx: AudioContext | null = null;
   let master: GainNode;
+  let cueBus: GainNode;
+  let toCues = false;
   let noise: AudioBuffer;
   const beds: Record<'wind' | 'rain' | 'water' | 'fire', { gain: GainNode; filter: BiquadFilterNode } | null> = { wind: null, rain: null, water: null, fire: null };
   let t = 0;
@@ -53,6 +58,15 @@ export function createAmbience(): Ambience {
     master = ctx.createGain();
     master.gain.value = 0;
     master.connect(ctx.destination);
+    cueBus = ctx.createGain();
+    cueBus.gain.value = CUE_GAIN;
+    const limit = ctx.createDynamicsCompressor();
+    limit.threshold.value = -12;
+    limit.knee.value = 6;
+    limit.ratio.value = 12;
+    limit.attack.value = 0.002;
+    limit.release.value = 0.15;
+    cueBus.connect(limit).connect(master);
     // two seconds of white noise, looped by every bed
     noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const d = noise.getChannelData(0);
@@ -89,7 +103,7 @@ export function createAmbience(): Ambience {
     g.gain.value = 0;
     const p = ctx!.createStereoPanner();
     p.pan.value = Math.max(-1, Math.min(1, pan));
-    g.connect(p).connect(master);
+    g.connect(p).connect(toCues ? cueBus : master);
     return { g, at };
   };
   const tone = (type: OscillatorType, f0: number, f1: number, dur: number, vol: number, pan = 0, delay = 0) => {
@@ -398,7 +412,7 @@ export function createAmbience(): Ambience {
     },
     // a saw through wood, back and forth
     saw: (pan, delay) => {
-      for (let i = 0; i < 2; i++) burst('bandpass', i ? 1600 : 1300, 3, 0.22, 0.03, pan, delay + i * 0.26, 0.05);
+      for (let i = 0; i < 2; i++) burst('bandpass', i ? 1600 : 1300, 3, 0.22, 0.09, pan, delay + i * 0.26, 0.05);
     },
     // a hammer on an anvil
     anvil: (pan, delay) => {
@@ -671,7 +685,12 @@ export function createAmbience(): Ambience {
     },
     cue(kind, pan = 0, delay = 0) {
       if (!ctx || !on) return;
-      cues[kind](pan, delay);
+      toCues = true;
+      try {
+        cues[kind](pan, delay);
+      } finally {
+        toCues = false;
+      }
     },
   };
 }

@@ -3872,3 +3872,7 @@ blocked by buildings, structures, trees and rocks)
   ambience.ts: `gateContext`) is suspended and every recorded track (music.ts: `gateTrack`) paused the moment the page is
   hidden (`visibilitychange`, `pagehide`, `freeze`), and carried on when it's back; while away `wake` does nothing, and
   the music's next piece waits (`onBack`). A new sound source must go through it. Test: `test/audioGate.test.ts`.
+- **Sound effects you can hear (the owner: none were heard):** the cues (the hammer, the axe, blows, coins, bells...)
+  peaked at the wind's level, a tenth of the music's. They go through a bus of their own in ambience.ts (`CUE_GAIN` 4,
+  then a limiter) over the land's beds and calls; the saw is louder too. Measured in the phone build: the hammer about
+  twice the music's peak.
