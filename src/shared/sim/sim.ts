@@ -17,6 +17,7 @@ import { workHourly } from './greatWork';
 import { orderHourly } from './chivalry';
 import { foundryHourly } from './foundry';
 import { frontierHourly } from './frontier';
+import { lightingHourly } from './lighting';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -220,6 +221,7 @@ export class Sim {
     orderHourly(s); // (a knights' town's code: sim/chivalry.ts)
     foundryHourly(s); // (a machine town's factory mind: sim/foundry.ts)
     frontierHourly(s); // (a settlers' town's frontier: sim/frontier.ts)
+    lightingHourly(s); // (the town's torches and lamps placed and burned: sim/lighting.ts)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);

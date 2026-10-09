@@ -1,5 +1,7 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { FEED_SECONDS } from '../data/lighting';
+import { lightsView } from './lighting';
 import { CONQUEST } from '../data/conquest';
 import { skirmishTrip } from './roamers';
 import { marketOn, marketSquare } from './pastimes';
@@ -932,6 +934,8 @@ export interface Snapshot {
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's castle (sim/castle.ts): every cell of it (land indices), the hall's ground, the cell before the
    *  gate, and the rectangle round the whole. */
+  /** The town's lights (sim/lighting.ts): each burning or not, how far they reach; null when lighting is off. */
+  lights: ReturnType<typeof lightsView>;
   castle: { hold: Hold; cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number }; doors: string[]; galleries: number[]; /** The side gates a growing castle opens (sim/castle.ts `sideGates`): the cell inside each and its wall. */ gates?: { x: number; y: number; side: 'n' | 's' | 'w' | 'e' }[] } | null;
   /** The middle of the camp on the land (px). */
   camp: { x: number; y: number };
@@ -1091,6 +1095,7 @@ export function snapshot(s: GameState): Snapshot {
     tileRev: s.land.version,
     tiles: [],
     workingAt: workingAt(s),
+    lights: lightsView(s),
     market: marketOn(s) ? marketSquare(s) : null,
     buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}) })),
     people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
@@ -1747,6 +1752,8 @@ function taskDone(s: GameState, p: Person): number | null {
       return b ? clamp(b.progress) : null;
     case 'pave':
       return clamp(t.progress / paveSeconds(s, t.cell));
+    case 'light':
+      return clamp(t.progress / FEED_SECONDS);
     case 'repair': {
       const most = b ? (BUILDING_BY_ID[b.def]?.hp ?? 0) : 0;
       return b && most ? clamp((b.hp ?? most) / most) : null;
@@ -2026,6 +2033,10 @@ function describe(s: GameState, p: Person): string {
       return `Carrying materials to the ${name(task.building)}`;
     case 'build':
       return `Building the ${name(task.building)}`;
+    case 'light': {
+      const t = s.torches?.find((q) => q.id === task.torch);
+      return t?.room !== undefined ? 'Filling a sconce with fuel' : `Tending the ${lightsView(s)?.kind ?? 'lamp'}s`;
+    }
     case 'pave':
       return wet(groundAt(s.land, task.cell % s.land.w, Math.floor(task.cell / s.land.w))) ? 'Building a bridge' : 'Laying a street';
     case 'research': {

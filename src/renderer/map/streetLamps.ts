@@ -12,11 +12,21 @@ import lampUrl from '../art/packs/v_lamp.png';
 import { glowTexture } from '../town/layer';
 import { lampCells, lampLit, LAMP_LOOK } from './lampRules';
 
+/** A street light of the town's (snapshot.lights, the ones on no room). */
+export interface StreetLight {
+  id: number;
+  x: number;
+  y: number;
+  lit: boolean;
+}
+
 interface Lamp {
   post: Container;
   glow: Sprite;
   rank: number;
   phase: number;
+  /** The town's light it stands for (sim/lighting.ts), when the town keeps them. */
+  id?: number;
 }
 
 export class StreetLamps {
@@ -27,7 +37,9 @@ export class StreetLamps {
   private lit = 0;
   private t = 0;
   calm = false;
-  private last: { land: LandMap; era: Era } | null = null;
+  private last: { land: LandMap; era: Era; lights?: StreetLight[] | null } | null = null;
+  /** Which of the town's lights burn (by id): a lamp unfed stands dark. */
+  private burning: Set<number> | null = null;
 
   constructor(private readonly layer: Container, private readonly lights: Container) {
     loadImage(lampUrl)
@@ -41,10 +53,11 @@ export class StreetLamps {
   }
 
   /** The posts for the land's streets and the age (redone when the roads change). */
-  sync(land: LandMap, era: Era): void {
-    this.last = { land, era };
+  sync(land: LandMap, era: Era, lights: StreetLight[] | null = null): void {
+    this.last = { land, era, lights };
+    this.burning = lights ? new Set(lights.filter((l) => l.lit).map((l) => l.id)) : null;
     // (only when the streets, the age or the picture change: the land's version moves with every log gathered)
-    const key = `${era}|${!!this.tex}|${land.camp.x},${land.camp.y}`;
+    const key = `${era}|${!!this.tex}|${land.camp.x},${land.camp.y}|${lights ? lights.map((l) => `${l.id}:${l.x},${l.y}`).join(';') : '-'}`;
     if (key === this.key && land.roads === this.roads) return;
     this.key = key;
     this.roads = land.roads;
@@ -54,7 +67,10 @@ export class StreetLamps {
     }
     this.lamps = [];
     const look = LAMP_LOOK[era];
-    const cells = lampCells(land, (x, y) => isRoad(land, x, y));
+    // (the town's own street lights where it keeps them, else a lamp every few cells of road)
+    const cells: { x: number; y: number; side: 1 | -1; id?: number }[] = lights
+      ? lights.map((l) => ({ x: l.x, y: l.y, side: isRoad(land, l.x + 1, l.y) && !isRoad(land, l.x - 1, l.y) ? -1 : 1, id: l.id }))
+      : lampCells(land, (x, y) => isRoad(land, x, y));
     cells.forEach((c, rank) => {
       const x = c.x * CELL + (c.side > 0 ? CELL - 3 : 3);
       const y = c.y * CELL + CELL - 4;
@@ -80,7 +96,7 @@ export class StreetLamps {
       glow.width = glow.height = look.radius * 2;
       glow.tint = look.light;
       glow.visible = false;
-      this.lamps.push({ post, glow, rank: rank / Math.max(1, cells.length), phase: (c.x * 7 + c.y * 13) % 10 });
+      this.lamps.push({ post, glow, rank: rank / Math.max(1, cells.length), phase: (c.x * 7 + c.y * 13) % 10, id: c.id });
     });
   }
 
@@ -92,7 +108,7 @@ export class StreetLamps {
   render(dt: number): void {
     this.t += dt;
     for (const l of this.lamps) {
-      const on = l.rank < this.lit;
+      const on = l.rank < this.lit && (l.id === undefined || !this.burning || this.burning.has(l.id));
       l.glow.visible = on;
       if (on) l.glow.alpha = this.calm ? 0.8 : 0.72 + 0.12 * Math.sin(this.t * 7 + l.phase) * Math.sin(this.t * 3.1 + l.phase * 2);
     }

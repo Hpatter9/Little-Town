@@ -30,6 +30,7 @@ import { sunAt } from './art/sun';
 import { MapMarket } from './map/mapMarket';
 import { SeasonDecor } from './map/seasonDecor';
 import { StreetLamps } from './map/streetLamps';
+import { LightMap } from './map/lightMap';
 import { MapSkiffs } from './map/mapSkiffs';
 import { RoadTraffic } from './map/roadTraffic';
 import { BloodPools } from './map/bloodPools';
@@ -151,6 +152,8 @@ import { MapRaiders } from './map/mapRaiders';
 import { createHud } from './hud';
 import { hostBridge, localBridge } from './localBridge';
 import { createMusic } from './music';
+import { moodOf } from './musicMood';
+import { soundsBetween } from './sfx';
 import { createAmbience } from './ambience';
 import { ambientMix, type AmbientMix } from './ambienceMix';
 import { createActionBar, createAwayCard, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
@@ -314,6 +317,11 @@ async function start(): Promise<void> {
 
   // the town, top-down (map/mapView.ts): the land, the buildings on their footprints, and everyone on it
   const map = new MapView();
+  // (real light: the dark of night, and every torch's pool and shadows: map/lightMap.ts)
+  const lightMap = new LightMap(app.renderer);
+  let lightDaylight = 1;
+  (window as unknown as { __lightMap: LightMap }).__lightMap = lightMap;
+  map.world.addChildAt(lightMap.sprite, map.world.getChildIndex(map.over));
   (window as unknown as { __map?: MapView }).__map = map; // (for previews and profiling)
   (window as unknown as { __topDownArt?: typeof topDownArt }).__topDownArt = topDownArt; // (for previews: a gallery of the painted buildings)
   const pools = new BloodPools(map.under); // (blood on the ground where someone fell)
@@ -473,6 +481,18 @@ async function start(): Promise<void> {
   // (an origin's look reaches its buildings too)
   const hud = createHud(bridge); // (the buildings' style follows the snapshot: see applySnapshot)
   const music = createMusic();
+  const musicMood = (n: Snapshot) =>
+    moodOf({
+      raid: n.raid?.phase === 'active',
+      boss: !!n.bossBar,
+      fight: !!n.tactics || !!n.watch?.battle,
+      daylight: n.calendar.daylight,
+      season: n.calendar.season,
+      theme: n.theme,
+      gathering: n.gathering?.kind ?? null,
+      biome: n.biome,
+    });
+  (window as unknown as { __music: typeof music }).__music = music;
   // the land's soundscape, on with the music (ambience.ts)
   const ambience = createAmbience();
   (window as unknown as { __ambience?: typeof ambience }).__ambience = ambience; // (for previews)
@@ -1268,7 +1288,7 @@ async function start(): Promise<void> {
     const modeChanged = s.mode !== view.mode;
     view = s;
     hud.apply(s);
-    music.update(s.music && !s.hidden, snap.raid?.phase === 'active');
+    music.update(s.music && !s.hidden, musicMood(snap));
     canvas.hidden = s.mode !== 'full';
     // Nothing to draw in the slim ticker or while hidden, so stop the render loop entirely.
     if (s.mode === 'full' && !s.hidden) app.ticker.start();
@@ -1343,13 +1363,19 @@ async function start(): Promise<void> {
     cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || beyond || within || next.tactics || next.prompts.length));
     map.root.visible = !watched && !inMine && !below && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
+    // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
+    if (view.music && !view.hidden && map.root.visible) for (const c of soundsBetween(snap, next, map.view)) ambience.cue(c.cue, c.pan, c.delay);
     snap = next;
     hud.update(next);
-    music.update(view.music && !view.hidden, next.raid?.phase === 'active');
+    music.update(view.music && !view.hidden, musicMood(next));
     const freeze = next.doom?.kind === 'deep_freeze' && next.doom.phase === 'active';
     // (on the phone, heavy cloud dims the land a little)
     const gloom = fullSky ? ({ clear: 0, cloudy: 0.04, rain: 0.12, storm: 0.22, snow: 0.05, fog: 0.08 } as const)[next.weather.kind] : 0;
+    lightMap.calm = map.calm;
+    lightMap.sync(next);
+    map.realLight = lightMap.active;
     map.setDaylight(next.calendar.daylight * (1 - gloom), freeze);
+    lightDaylight = next.calendar.daylight * (1 - gloom);
     map.setSun(next.calendar.hour + next.calendar.minute / 60, next.calendar.daylight * (1 - gloom));
     people.sunLean = Math.round(sunAt(next.calendar.hour + next.calendar.minute / 60, 1).skew * 5);
     map.smokeAmount = airFor(next.calendar.hour, next.calendar.season, next.weather.kind).smoke;
@@ -1537,7 +1563,7 @@ async function start(): Promise<void> {
     debris.sync(next.debris);
     market.sync(next.market);
     decor.sync(next.buildings, next.calendar.season);
-    lamps.sync(next.land, next.era);
+    lamps.sync(next.land, next.era, next.lights ? next.lights.lights.filter((l) => l.room === null) : null);
     lamps.setDaylight(next.calendar.daylight);
     lamps.calm = map.calm;
     skiffs.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.raid?.phase !== 'active';
@@ -1679,6 +1705,7 @@ async function start(): Promise<void> {
         regionHideAt = 0;
       }
     }
+    lightMap.render(map.view, lightDaylight);
     pets.render(ticker.deltaMS / 1000);
     dragon.render(ticker.deltaMS / 1000);
     sky.render(ticker.deltaMS / 1000, app.screen.width, app.screen.height);

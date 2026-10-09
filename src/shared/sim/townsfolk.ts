@@ -1,6 +1,7 @@
 // Townsfolk rules: needs, mood, work speed, skill growth, beds, and wanderers arriving at the edge of town.
 // All rates are starting values for tuning.
 
+import { darkPace } from './lighting';
 import { blocMood } from './politics';
 import { coverOf, makeSpecial, secretJoined, secretWanderer, specialFor } from './specials';
 import { injuryMood, injuryWork } from './injuries';
@@ -272,6 +273,7 @@ export function workFactor(s: GameState, p: Person): number {
   if (isInjured(p)) f *= 0.8;
   f *= injuryWork(p); // (what their wounds, scars and lost parts leave them: sim/injuries.ts)
   if (p.sick) f *= PLAGUE_WORK;
+  f *= darkPace(s, p); // (in the dark beyond the lights, or an unlit room: sim/lighting.ts)
   f *= ageWork(s, p); // (elders slow down)
   // vampires come alive at night
   if (p.monster === 'vampire') {
