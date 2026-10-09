@@ -23,6 +23,8 @@ import { heritageView, type HeritageView } from './heritage';
 import { cellsOf } from './prisoners';
 import { patientsIn, sickbedsIn } from './sickbeds';
 import type { Chronicle, Fallen } from './annals';
+import { honouredView, type HonouredView } from './memorials';
+import { ruinsView, type RuinView } from './ruins';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius, processing, processionHead } from './ceremonies';
 import { walkingHome } from './nightOut';
@@ -943,6 +945,10 @@ export interface Snapshot {
   undeadHaven: boolean;
   /** Graves of townsfolk who fell in town. */
   graves: { x: number; y: number; name: string }[];
+  /** The famous dead honoured with statues in the square, and the ruins lying where buildings fell (sim/memorials.ts,
+   *  sim/statues.ts, sim/ruins.ts). */
+  honoured: HonouredView[];
+  ruins: RuinView[];
   /** Someone just brought back from death: who, and ticks since (for the glow). */
   revived: { id: number; since: number } | null;
   /** Spells cast on townsfolk lately: who, what, and ticks since. */
@@ -1291,6 +1297,8 @@ export function snapshot(s: GameState): Snapshot {
     bossBar: bossBar(s),
     bossShake: s.bossShake ?? -1,
     graves: s.graves ?? [],
+    honoured: honouredView(s),
+    ruins: ruinsView(s),
     undeadHaven: undeadShare(s) >= 0.5,
     revived: s.revivedAt && s.tick - s.revivedAt.tick < 60 ? { id: s.revivedAt.id, since: s.tick - s.revivedAt.tick } : null,
     fx: (s.fx ?? []).filter((f) => s.tick - f.tick < FX_TICKS).map((f) => ({ id: f.id, kind: f.kind, since: s.tick - f.tick })),

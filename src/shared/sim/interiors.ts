@@ -27,7 +27,7 @@ export function hasInside(def: BuildingDef | undefined): boolean {
   if (!def || def.never) return !!def?.seat;
   if (CROPS[def.id] || HERDS[def.id]) return false;
   if (def.hp || def.defense || def.floor) return false;
-  if (/shaft|stockade|gaol|prison|stockpile|drying_rack|campfire|well|wall|gate|grate|palisade|trap|stake|caltrop|pit|mine$|quarry|derrick|pad|jetty|green|pitch|garden|yard|graveyard|shrine$|stone$|circle|totem|rift|arch$/.test(def.id)) return false;
+  if (/shaft|stockade|gaol|prison|stockpile|drying_rack|campfire|well|wall|gate|grate|palisade|trap|stake|caltrop|pit|mine$|quarry|derrick|pad|jetty|green|pitch|garden|yard|graveyard|shrine$|stone$|circle|totem|rift|arch$|statue$/.test(def.id)) return false;
   return true;
 }
 
@@ -147,7 +147,7 @@ export function interiorView(s: GameState, doing: (p: Person) => string): Interi
   return {
     building: b.id,
     def: def.id,
-    name: def.name,
+    name: b.homeName ?? def.name,
     w: f.w,
     d: f.h,
     beds: def.housing ?? 0,

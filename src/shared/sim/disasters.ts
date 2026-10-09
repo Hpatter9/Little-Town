@@ -294,7 +294,7 @@ function tornadoTick(s: GameState, d: Disaster): void {
     if (roll(s, b.id, d.start, 12) < TORNADO_FELLS) {
       const name = defOf(b).name.toLowerCase();
       castSpellFx(s, 'disaster:dust', c, [], 2);
-      demolish(s, b.id);
+      demolish(s, b.id, 'felled');
       notify(s, `🌪 The tornado tears the ${name} apart.`);
     }
   }
@@ -328,7 +328,7 @@ function shake(s: GameState, d: Disaster, strength: number): void {
     if (!fellable(b) || roll(s, b.id, s.tick, 14) >= QUAKE_FELLS * masonry * strength) continue;
     castSpellFx(s, 'disaster:dust', buildingCentre(b), [], 2);
     fell.push(defOf(b).name.toLowerCase());
-    demolish(s, b.id);
+    demolish(s, b.id, 'felled');
   }
   const dead: string[] = [];
   for (const p of [...s.people]) {
