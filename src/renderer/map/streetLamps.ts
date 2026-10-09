@@ -2,7 +2,8 @@
 // stands at the roadside: a torch on a stake in the Stone Age, the Village pack's lantern post from the Medieval age (an
 // iron gas lamp in the Industrial age, a cool electric light after), and as dusk falls they're lit one after another out
 // from the fire, as a lamplighter would go round, and put out at dawn. The posts stand among the things; their glows
-// are in the map's lights layer and flicker. None on a slow phone's flicker (`calm`).
+// are in the map's lights layer and flicker as their flames do (map/flicker.ts; electric light holds steady). None
+// flicker on a slow phone (`calm`).
 
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import type { Era } from '../../shared/data/eras';
@@ -11,6 +12,8 @@ import { loadImage } from '../art/loadImage';
 import lampUrl from '../art/packs/v_lamp.png';
 import { glowTexture } from '../town/layer';
 import { lampCells, lampLit, LAMP_LOOK } from './lampRules';
+import { LIGHT_KIND } from '../../shared/data/lighting';
+import { flicker } from './flicker';
 
 /** A street light of the town's (snapshot.lights, the ones on no room). */
 export interface StreetLight {
@@ -36,6 +39,8 @@ export class StreetLamps {
   private roads = '';
   private lit = 0;
   private t = 0;
+  /** The age's kind of light (electric light holds steady). */
+  private kind = 'torch';
   calm = false;
   private last: { land: LandMap; era: Era; lights?: StreetLight[] | null } | null = null;
   /** Which of the town's lights burn (by id): a lamp unfed stands dark. */
@@ -67,6 +72,7 @@ export class StreetLamps {
     }
     this.lamps = [];
     const look = LAMP_LOOK[era];
+    this.kind = (LIGHT_KIND[era] ?? LIGHT_KIND.neolithic).name;
     // (the town's own street lights where it keeps them, else a lamp every few cells of road)
     const cells: { x: number; y: number; side: 1 | -1; id?: number }[] = lights
       ? lights.map((l) => ({ x: l.x, y: l.y, side: isRoad(land, l.x + 1, l.y) && !isRoad(land, l.x - 1, l.y) ? -1 : 1, id: l.id }))
@@ -115,7 +121,7 @@ export class StreetLamps {
     for (const l of this.lamps) {
       const on = l.rank < this.lit && (l.id === undefined || !this.burning || this.burning.has(l.id));
       l.glow.visible = on;
-      if (on) l.glow.alpha = this.calm ? 0.8 : 0.72 + 0.12 * Math.sin(this.t * 7 + l.phase) * Math.sin(this.t * 3.1 + l.phase * 2);
+      if (on) l.glow.alpha = this.calm ? 0.8 : 0.84 * flicker(this.kind, this.t, l.phase);
     }
   }
 }

@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.46.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.47.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3783,6 +3783,13 @@ blocked by buildings, structures, trees and rocks)
   whole is put together at most every `REBUILD_MS` (1.5 s), and only while the light shows. The texture is sampled
   smooth (the game's default is nearest: the pools showed as squares). The old building-only shadow polygons are gone.
   Worst case (70 electric lamps, every pool new): about 150 ms on a desktop, once. Tests in `test/lighting.test.ts`.
+- **Flames flicker (0.47.0; the owner's ask):** `src/renderer/map/flicker.ts` (pure: `FLICKER` how far each kind
+  wavers: a torch or a fire most, a lantern less, a gas lamp a little, electric light not at all; `flicker(kind, t,
+  phase)` a share of full strength on two slow beats and a quick one, `phaseOf` so neighbours keep their own time). The
+  light map bakes only steady light (electric lamps, the castle's rooms) into the land's texture; each flame's pool is a
+  texture of its own (`flameTexture`, kept with the pool) drawn every frame at its flicker. The lanterns people carry
+  flicker on their own beat (by id), and the street lamps' glows flicker by the age's light (steady when electric).
+  Steady on a slow phone (`calm`). Tests: `test/flicker.test.ts`.
 
 ## Known problem (fixed, watch)
 
