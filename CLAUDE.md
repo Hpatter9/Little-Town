@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.38.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.39.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3449,6 +3449,44 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   living member opens their page. Children at lessons read before the school's door; apprentices work beside their
   masters on the map; a lesson in a building shows them at the desks inside it (sim/interiors.ts). Prisoners have their
   own sub-tab now. Tests: `test/lineage.test.ts`.
+
+## A real trade economy (0.39.0; the owner's pick of the content updates, the ninth)
+
+- **Prices** (`src/shared/data/markets.ts`, `src/shared/sim/markets.ts`; the price itself in `sim/prices.ts`, `priceOf`,
+  kept free of heavy imports): once a market stall or a trading post stands (`marketOf`, `s.market`, `MarketState`; the yard is `marketStall`) every good has a price
+  index (`price`, 1 = its `WORTH`). Each morning at `MARKET_HOUR` (`movePrices`) it drifts `PRICE_DRIFT` to a target:
+  supply (`flow`: coins' worth the town sold, `noteFlow`, from the caravans' deals, the shop's sales and the wagons,
+  halved each morning: `FLOW_WORTH` moves it a step, `FLOW_LEAST`..`FLOW_MOST`), war (`ARMS` dearer `WAR_ARMS` and food
+  `WAR_FOOD` for every power at war with the town, a feud half), the season (`WINTER_FOOD`, `HARVEST_FOOD`) and any
+  swing; noise `PRICE_NOISE`, bounds `PRICE_LEAST`..`PRICE_MOST`. The caravans' offers and `goodDeal`, the shop's
+  material sales and upsells and its buying from travellers all go by `priceOf`.
+- **Booms, shortages, gluts, crashes** (`swings`): on `SWING_DAILY` of mornings (at most `SWINGS_MOST`) a good the market
+  deals in (`dealtIn`) swings by `SWING_MULT` for `SWING_DAYS`, with the news of why (`SWING_WHY` by `goodKind`, filled
+  with a known power's name); a bad season (winter, or a war on) makes food shortages `BAD_SEASON` times likelier.
+- **The trade house and its routes:** each power known and not at war (`routeState`; the player may close one, the
+  `tradeRoute` command) is a route to its stronghold on the world map (`roadHours` by distance, `HOURS_PER_100`). It
+  sells its own goods cheap (`makesOf`: `FACTION_GOODS`, `MAKES_PRICE`) and pays well for three it wants (`wantsOf`, by
+  the seed, `WANTS_PRICE`), the more the further away (`DISTANCE_PREMIUM`), less a `TOLL` without a treaty
+  (`sellPrice`, `buyPrice`; the house's haggling on both). At `SEND_HOUR` (`sendWagons`) the house sends a wagon down
+  each open route it may run (`HOUSE_TIERS[].routes`, the best margins first): the goods the town can spare
+  (`GOODS_KEEP`, `FOOD_KEEP`) that fetch `SEND_MARGIN` more there, up to the tier's load, and a stake of the treasury
+  (`STAKE_SHARE`, `STAKE_MOST`; ledger line `trade`). There (`sellThere`) it sells, then buys what the town is short of
+  (`SHORT`) or what's `BUY_MARGIN` cheaper; home (`comeHome`) it may have been robbed (`ROBBED` + `ROBBED_PER_DISTANCE`,
+  half with two guards or an ally), and unloads at the stall (what won't fit sold off). A wagon reaching a power at war
+  is seized. The run's profit (`settle`) goes to the route and the house's **standing**: Peddlers, Traders (150),
+  Merchant House (600), Trade League (1800), **Merchant Power** (4500): more routes, bigger loads, haggling, loans; a
+  merchant power is told in the event box with a morale mark, and its treaty partners warm `PARTNER_GOODWILL` a day.
+- **Loans and going bust:** short of a stake worth `STAKE_LEAST`, a house of Traders or better borrows its tier's `loan`
+  (`LOAN_INTEREST`, due in `LOAN_DAYS`); each morning `loans` pays it back when the treasury holds it; due and unpaid,
+  or `LOSSES_CALL` losing runs in a row with it out, the house **goes bust** (`goBust`): the treasury and then the
+  stores (dearest first) seized for the debt, standing back to nothing, routes shut `BUST_DAYS`, `BUST_MORALE`, and the
+  tale in the event box.
+- **Seen:** the Market menu's **Prices** tab (`panel/marketsPanel.ts`: the swings as cards, a grid of today's prices
+  with arrows, dear and cheap marked) and **Trade house** tab (the tier and the next, the loan, a bust; a card each
+  route, its wagon on the road, Close/Open the route; the ledger of runs); the Trips tab's world map draws the open
+  routes faint gold and the wagons (🛒) along them (`WorldView.routes`, march kind `wagon`); the news bubble has a red
+  notice for a loan falling due and a bust; the Treasury's ledger has the trade house's line. Only with the autopilot
+  on (the tests' plainGame never trades). Tests: `test/markets.test.ts`.
 
 ## Known problem (fixed, watch)
 

@@ -15,6 +15,7 @@ import { tacticsView, type TacticsView } from './tactics';
 import { faithView, type FaithView } from './faith';
 import { disasterView, type DisasterView } from './disasters';
 import { worldView, type WorldView } from './worldLife';
+import { marketView, type MarketView } from './markets';
 import { cellsOf } from './prisoners';
 import { patientsIn, sickbedsIn } from './sickbeds';
 import type { Chronicle, Fallen } from './annals';
@@ -866,6 +867,8 @@ export interface Snapshot {
   interior: InteriorView | null;
   /** The town's families and their trees (sim/lineage.ts), for the People menu's Families tab. */
   families: FamilyLine[];
+  /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
+  markets: MarketView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
   /** The sagas under way and those ended (sim/sagas.ts). */
@@ -1185,6 +1188,7 @@ export function snapshot(s: GameState): Snapshot {
     portalView: portalView(s),
     interior: interiorView(s, (p) => describe(s, p)),
     families: slow(s, 'families', () => familiesView(s)),
+    markets: slow(s, 'markets', () => marketView(s)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,

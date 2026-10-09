@@ -53,6 +53,8 @@ const GROUPS: Record<string, MenuTabs> = {
     groups: [
       ['Shops', /^Shops/],
       ['Caravan', /^(Caravan|Deals)/],
+      ['Prices', /^Prices/],
+      ['Trade house', /^(Trade house|Trade routes|Ledger of runs)/],
       ['Workshops', /^(Orders|Recipes)/],
       ['Animals', /^(Herds|Horses)/],
     ],

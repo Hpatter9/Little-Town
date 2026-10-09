@@ -42,7 +42,7 @@ export interface Notice {
 /** The tone of a Journal line, by what it tells. */
 export function toneOf(text: string, key: boolean): Tone {
   const t = text.toLowerCase();
-  if (/died|killed|slain|carried off|breaks apart|starv|bled out|lost at sea|drown|burned down|burnt down|pillaged|taken from us|is dead|has fallen|fell to|wiped out|falls? ill|plague|the black fever/.test(t)) return 'red';
+  if (/died|killed|slain|carried off|breaks apart|starv|bled out|lost at sea|drown|burned down|burnt down|pillaged|taken from us|is dead|has fallen|fell to|wiped out|falls? ill|plague|the black fever|gone bust|goes bust|was seized|robbed/.test(t)) return 'red';
   if (/raid|raiders|war host|coming from the|at the gate|in the town!|wildfire|flood|earthquake|tornado|dragon|the behemoth|siege/.test(t)) return 'red';
   if (/asks to join|at the gate|wants to settle|a caravan|caravan has come|offers a quest|a quest|found .* to the|bounty|envoy|demands|a stranger|wishes to|would like/.test(t)) return 'gold';
   void key; // (a milestone that is good news, built or learned, is blue like the rest: gold is for what wants the player)
@@ -75,6 +75,10 @@ export function situationNotices(s: Snapshot): Notice[] {
         : { key: `raid:${s.raid.name}:a`, tone: 'red', mark: '⚔', title: `${s.raid.name} in the town!`, text: `${standing} still fighting. Tap a defender on the map to rally them.` },
     );
   }
+  // the trade house (sim/markets.ts): a loan coming due, a bust
+  const house = s.markets?.house;
+  if (house?.bustDays != null) out.push({ key: `bust:${house.busts}`, tone: 'red', mark: '⚖', title: 'The trade house is bust', text: `The moneylenders took what they were owed. No merchant will deal with us for ${house.bustDays} more day${house.bustDays === 1 ? '' : 's'}.`, action: { label: 'Market', kind: 'panel', panel: 'trade' } });
+  else if (house?.loan && house.loan.days <= 2) out.push({ key: `loan:${house.loan.from}:${house.loan.owed}`, tone: 'red', mark: '⚖', title: `A loan due in ${house.loan.days} day${house.loan.days === 1 ? '' : 's'}`, text: `${house.loan.owed} coins to the moneylenders of ${house.loan.from}. Unpaid, the trade house goes bust.`, action: { label: 'Market', kind: 'panel', panel: 'trade' } });
   // a strike (sim/politics.ts)
   if (s.politics?.strike) out.push({ key: `strike:${s.politics.strike.bloc}`, tone: 'red', mark: '✊', title: `${s.politics.strike.bloc} on strike`, text: `They've downed tools before the seat, ${s.politics.strike.hours} h more. The council will hear them.`, action: { label: 'Town', kind: 'panel', panel: 'build' } });
   // a daughter village broken away (sim/villages.ts)

@@ -9,6 +9,7 @@ import { FACTION_BY_ID, STRONGHOLD_SPOTS } from '../data/factions';
 import { MAP_HOME } from '../data/worldMap';
 import { HOST_WARNING_HOURS } from '../data/factions';
 import { realm } from './factions';
+import { routesOnMap, wagonsOnMap } from './markets';
 import { guardsOf } from './treasury';
 import { notify, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
@@ -111,13 +112,16 @@ function arrive(s: GameState): void {
 
 /** What the world map shows moving: the marches, a host coming for the town, an envoy riding in; and the feuds. */
 export interface WorldView {
-  marches: { kind: 'feud' | 'trade' | 'host' | 'envoy'; from: { x: number; y: number }; to: { x: number; y: number }; t: number; label: string; size: number }[];
+  marches: { kind: 'feud' | 'trade' | 'host' | 'envoy' | 'wagon'; from: { x: number; y: number }; to: { x: number; y: number }; t: number; label: string; size: number }[];
   feuds: { a: string; b: string; at: { x: number; y: number } }[];
+  /** The trade house's open routes (sim/markets.ts), drawn faintly from home. */
+  routes: { to: { x: number; y: number }; name: string }[];
 }
 
 export function worldView(s: GameState): WorldView {
   const spot = (id: string) => (id === 'home' ? MAP_HOME : STRONGHOLD_SPOTS[id]);
-  const out: WorldView = { marches: [], feuds: [] };
+  const out: WorldView = { marches: [], feuds: [], routes: routesOnMap(s) };
+  for (const w of wagonsOnMap(s)) out.marches.push({ kind: 'wagon', from: w.from, to: w.to, t: w.t, label: w.label, size: 1 });
   for (const m of s.marches ?? []) {
     if (!known(s, m.from) || (m.to !== 'home' && !known(s, m.to))) continue;
     const from = spot(m.from);
