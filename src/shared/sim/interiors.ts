@@ -13,6 +13,7 @@ import { TOPIC_BY_ID } from '../data/research';
 import { buildingCentre, footprint } from './buildings';
 import { stationFor } from './crafting';
 import { isChild } from './social';
+import { roomKind } from './castle';
 import { CELL } from './land';
 import type { Building, GameState, Person } from './state';
 import { calendar } from './time';
@@ -84,7 +85,8 @@ export function lookInside(s: GameState, building: number | null): boolean {
     return true;
   }
   const b = s.buildings.find((q) => q.id === building && q.status === 'done');
-  if (!b || !hasInside(BUILDING_BY_ID[b.def])) return false;
+  // (a castle's or a hold's own rooms are seen into on the map already)
+  if (!b || !hasInside(BUILDING_BY_ID[b.def]) || roomKind(s, BUILDING_BY_ID[b.def])) return false;
   s.lookingInside = b.id;
   return true;
 }

@@ -135,7 +135,7 @@ const travellerDoing = (t: TravellerView) => {
 import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
-import { CELL, cellAt, groundAt, isMarked, isRoad, WILD } from '../shared/sim/land';
+import { CELL, cellAt, groundAt, idx, isMarked, isRoad, WILD } from '../shared/sim/land';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
@@ -780,7 +780,9 @@ async function start(): Promise<void> {
         },
       });
     // (inside: a cutaway of the room and whoever is in it, sim/interiors.ts)
-    if (b.status === 'done' && b.id > 0 && hasInside(BUILDING_BY_ID[b.def]))
+    // (not a castle's or a hold's own room: those are seen into already, on the map)
+    const castleRoom = !!snap.castle && snap.castle.cells.includes(idx(snap.land, b.tile, b.row));
+    if (b.status === 'done' && b.id > 0 && !castleRoom && hasInside(BUILDING_BY_ID[b.def]))
       list.push({
         label: 'Look inside',
         onClick: () => {

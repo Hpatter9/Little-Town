@@ -58,3 +58,12 @@ test('a child at home plays about the floor; a grown-up of an evening sits by th
   const field = put(s, 'garden_plot', spot.x + 6, spot.y);
   assert.equal(lookInside(s, field.id), false);
 });
+
+test('a castle\'s own rooms are not looked into: they are seen on the map already', () => {
+  const s = plainGame('in-castle');
+  s.origin = 'vampire';
+  const b = put(s, 'lean_to', s.land.camp.x + 4, s.land.camp.y + 2);
+  assert.equal(lookInside(s, b.id), false);
+  s.origin = 'settlers';
+  assert.equal(lookInside(s, b.id), true);
+});

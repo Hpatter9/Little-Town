@@ -6,6 +6,8 @@ import { answerBargain, courtView, type CourtView } from './bargains';
 import { groveView, type GroveView } from './grove';
 import { workView, type WorkView } from './greatWork';
 import { answerOrder, orderView, type OrderView } from './chivalry';
+import { answerFoundry, foundryView, type FoundryView } from './foundry';
+import { frontierView, type FrontierView } from './frontier';
 import type { GameState, Prompt } from './state';
 
 export interface HeritageView {
@@ -13,10 +15,12 @@ export interface HeritageView {
   court: CourtView | null;
   work: WorkView | null;
   order: OrderView | null;
+  foundry: FoundryView | null;
+  frontier: FrontierView | null;
 }
 
 export function heritageView(s: GameState): HeritageView | null {
-  const v: HeritageView = { grove: groveView(s), court: courtView(s), work: workView(s), order: orderView(s) };
+  const v: HeritageView = { grove: groveView(s), court: courtView(s), work: workView(s), order: orderView(s), foundry: foundryView(s), frontier: frontierView(s) };
   return Object.values(v).some(Boolean) ? v : null;
 }
 
@@ -27,5 +31,7 @@ export function answerWays(s: GameState, prompt: Prompt, option: number, rng: Rn
       return answerBargain(s, prompt, option, rng);
     case 'order':
       return answerOrder(s, prompt, option);
+    case 'foundry':
+      return answerFoundry(s, prompt, option, rng);
   }
 }

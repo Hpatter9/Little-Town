@@ -3539,6 +3539,26 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   `LIEGE_FINE`). The Grail (`grail`): at `GRAIL_HONOUR` from the Medieval age the best rides out alone (away −4000002)
   for `GRAIL_HOURS` to each of `GRAIL_STAGES` (odds by melee, `grailOdds`; failed, hurt or lost, `GRAIL_KILLS`, and a
   wait); the third found wins the game. Tests: `test/chivalry.test.ts`.
+- **The machines' factory mind** (`data/foundry.ts`, `sim/foundry.ts`, `s.foundry`): at `FOUNDRY_HOUR`: power
+  (0..100, `power`): the sun (`SOLAR` plus `SOLAR_PER_BUILDING` for each building's panels, less in rain and winter), a
+  power station `STATION_POWER`, cells and coal burned below `BURN_UNTIL`, less `DRAIN_PER_UNIT` a unit; under
+  `BROWNOUT` the town works slower, at nothing a blackout (work and study halved, a unit may shut down). Wear
+  (`wear`: `WEAR_DAILY` a unit, mended at `MEND_AT` for an alloy (stone and wood before there are any); worn through, a
+  fault). The production line (`line`): a unit built from `UNIT_PARTS` in `UNIT_DAYS` (`newcomer` in powers.ts, now
+  exported), while there's room (`UNITS_PER_BUILDING`) and power. Modules (`fitModule`, `MODULES`: levels of a skill,
+  two a unit) while circuits are spare. The Mind (`mindAwake`: the seat at stage `MIND_SEAT_STAGE`): every
+  `MIND_DAYS` a directive (`DIRECTIVES`: recycle the oldest unit, overdrive, expand, purge the food, ascend), a `ways`
+  question; overruled `DISSENT_MOST` times, it carries the next out itself. Tests: `test/foundry.test.ts`.
+- **The settlers' frontier** (`data/frontier.ts`, `sim/frontier.ts`, `s.frontier`): at `FRONTIER_HOUR`: a people met
+  (a stranger of theirs in town, their caravan at the market: `learnTricks`) teaches its trick for good (`TRICKS`: a
+  lever `TRICK_MULT`, a mark renewed each morning); every stranger settled in town teaches `TEACH_PUPILS` others their
+  best skill (`teach`); every `CLAIM_DAYS` a land claim is staked at the edge of the known land (`stakeClaim`: the land
+  opened `CLAIM_OPEN`, a first haul by the ground, `CLAIM_HAUL`; up to `CLAIMS_MOST`), and claim-jumpers may come for
+  one (outlaws on the land, `spawnRoamerAt`). Tests: `test/frontier.test.ts`.
+- **Owner's calls with this batch:** stat points are spent the class's way by default (`statsHourly` asks only when
+  `s.statsAsk === true`: the Town menu's row turns asking on); and a castle's or a hold's own rooms have no Look inside
+  (`lookInside` refuses a `roomKind`; main.ts leaves the button off for a cell of `snapshot.castle`), since they are
+  seen into on the map already.
 
 ## Known problem (fixed, watch)
 

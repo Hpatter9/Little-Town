@@ -1196,6 +1196,10 @@ export interface GameState {
   work?: import('./greatWork').WorkState;
   /** A knights' town's Order: vows, honour, tournaments, the liege, the Grail (sim/chivalry.ts). */
   order?: import('./chivalry').OrderState;
+  /** A machine town's factory mind: power, wear, the line, modules, the Mind (sim/foundry.ts). */
+  foundry?: import('./foundry').FoundryState;
+  /** A settlers' town's frontier: tricks learned, strangers teaching, land claims (sim/frontier.ts). */
+  frontier?: import('./frontier').FrontierState;
   /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
   portals?: Portal[];
   watchingPortal?: RealmId;

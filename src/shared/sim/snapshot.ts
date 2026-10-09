@@ -1063,7 +1063,7 @@ export function snapshot(s: GameState): Snapshot {
     tactics: tacticsView(s),
     battleStyle: s.battleStyle ?? 'tactics',
     evolveAsk: s.evolveAsk !== false,
-    statsAsk: s.statsAsk !== false,
+    statsAsk: s.statsAsk === true,
     powerLog: [...(s.powerLog ?? [])].reverse().map((l) => l.text),
     lichOffer: s.research.done.includes('lichcraft') && !s.lich && !s.lichChosen && !s.people.find((p) => p.id === s.mainId)?.monster,
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,

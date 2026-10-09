@@ -27,7 +27,7 @@ function logList(lines: string[]): HTMLElement {
 export function heritageSection(s: Snapshot): HTMLElement[] {
   const h = s.heritage;
   if (!h) return [];
-  return [...groveSection(h), ...courtSection(h), ...workSection(h), ...orderSection(h)];
+  return [...groveSection(h), ...courtSection(h), ...workSection(h), ...orderSection(h), ...foundrySection(h), ...frontierSection(h)];
 }
 
 function groveSection(h: HeritageView): HTMLElement[] {
@@ -147,5 +147,51 @@ function orderSection(h: HeritageView): HTMLElement[] {
     }
   }
   if (o.log.length) out.push(logList(o.log));
+  return out;
+}
+
+function foundrySection(h: HeritageView): HTMLElement[] {
+  const f = h.foundry;
+  if (!f) return [];
+  const out: HTMLElement[] = [el('h2', '', 'Our ways: the foundry')];
+  out.push(el('div', 'hint', 'The colony builds its own: a production line turns parts into new units. Everything runs on power, from the sun, burned cells and coal, or a power station; short of it, the colony slows and units shut down. Units wear out and are mended with parts, or break down. Spare circuits become modules. Once the colony\'s seat grows into a Mind, it gives directives, and it does not like being overruled.'));
+  const c = el('div', `card foundry ${f.state}`);
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', `⚡ Power ${f.power}`), el('span', 'card-size', f.state === 'running' ? 'running' : f.state === 'brownout' ? 'brown-out' : 'BLACKOUT'));
+  c.append(top);
+  const bar = el('div', 'bar');
+  const fill = el('div', `bar-fill${f.power < 25 ? ' low' : ''}`);
+  fill.style.width = `${f.power}%`;
+  bar.append(fill);
+  c.append(bar, el('div', 'purpose', `${f.units} units (room for ${f.room}) · ${f.building !== null ? `a unit on the line, ready in ${f.building} day${f.building === 1 ? '' : 's'}` : 'the line is idle'} · ${f.built} built, ${f.faults} faults`));
+  if (f.mind.awake) c.append(el('div', 'purpose', `The Mind is awake. Overruled ${f.mind.dissent} of ${f.mind.most} times.`));
+  out.push(c);
+  if (f.worn.length) out.push(el('div', 'hint', `Wearing out: ${f.worn.map((w) => `${w.name} (${w.wear}%)`).join(', ')}.`));
+  if (f.modules.length) out.push(el('div', 'hint', `Modules: ${f.modules.map((m) => `${m.name}: ${m.fitted.join(', ')}`).join('; ')}.`));
+  if (f.log.length) out.push(logList(f.log));
+  return out;
+}
+
+function frontierSection(h: HeritageView): HTMLElement[] {
+  const f = h.frontier;
+  if (!f) return [];
+  const out: HTMLElement[] = [el('h2', '', 'Our ways: the frontier')];
+  out.push(el('div', 'hint', 'Plain folk with no magic of their own, the settlers learn: a trick from every people they meet and trade with, a trade from every stranger who settles among them. And they claim the land, a stretch at a time, and work it, though claim-jumpers may come for it.'));
+  const c = el('div', 'card frontier');
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', `🪓 ${f.claims.length} claim${f.claims.length === 1 ? '' : 's'} staked`), el('span', 'card-size', `next in ${f.nextClaimDays} day${f.nextClaimDays === 1 ? '' : 's'}`));
+  c.append(top, el('div', 'purpose', `${f.tricks.length} of ${f.tricks.length + f.unmet.length} peoples' tricks learned · ${f.taught} lessons from strangers · ${f.jumped} claim-jumpings`));
+  if (f.claims.length) c.append(el('div', 'purpose', `Claims: ${f.claims.map((q) => q.name).join(', ')}`));
+  out.push(c);
+  if (f.tricks.length) {
+    out.push(el('h2', '', 'Our ways: what we\'ve learned'));
+    for (const t of f.tricks) {
+      const tc = el('div', 'card');
+      tc.append(el('div', 'card-name', t.people), el('div', 'purpose', `Taught us ${t.what}.`));
+      out.push(tc);
+    }
+  }
+  if (f.unmet.length) out.push(el('div', 'hint', `Not met yet: ${f.unmet.join(', ')}. A stranger of theirs in town, or their caravan at the market, would teach us their trick.`));
+  if (f.log.length) out.push(logList(f.log));
   return out;
 }

@@ -14,6 +14,8 @@ import { groveHourly } from './grove';
 import { courtHourly } from './bargains';
 import { workHourly } from './greatWork';
 import { orderHourly } from './chivalry';
+import { foundryHourly } from './foundry';
+import { frontierHourly } from './frontier';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -214,6 +216,8 @@ export class Sim {
     courtHourly(s); // (a fae town's Court and its bargains: sim/bargains.ts)
     workHourly(s); // (an alchemists' town's Great Work: sim/greatWork.ts)
     orderHourly(s); // (a knights' town's code: sim/chivalry.ts)
+    foundryHourly(s); // (a machine town's factory mind: sim/foundry.ts)
+    frontierHourly(s); // (a settlers' town's frontier: sim/frontier.ts)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);
