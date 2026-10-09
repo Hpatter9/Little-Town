@@ -105,6 +105,11 @@ export class StreetLamps {
     this.lit = lampLit(daylight);
   }
 
+  /** The lamps burning now (where their flames are, world px): the moths come to them (map/mapCritters.ts). */
+  litGlows(): { x: number; y: number }[] {
+    return this.lamps.filter((l) => l.glow.visible).map((l) => ({ x: l.glow.x, y: l.glow.y + 26 }));
+  }
+
   render(dt: number): void {
     this.t += dt;
     for (const l of this.lamps) {

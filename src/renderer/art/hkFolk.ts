@@ -36,6 +36,8 @@ export interface HkWho {
   /** Lost an eye (an eyepatch), carries a scar. */
   eyeLost: boolean;
   scarred: boolean;
+  /** Masked against the pestilence: the healer going the rounds in a plague (the plague doctor). */
+  mask?: boolean;
 }
 
 /* ------------------------------------------------------------ choosing the layers */
@@ -185,8 +187,8 @@ export function weaponPiece(weapon: { name: string; family?: string; tier?: numb
   return null;
 }
 
-/** The work in hand's tool. */
-const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: ['staff01'], forage: ['sickle01', 'dagger01'], research: ['book01'], fish: ['staff01'] };
+/** The work in hand's tool (none in hand to sow by hand or wind the well's bucket: map/mapChores.ts). */
+const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: [], draw: [], forage: ['sickle01', 'dagger01'], research: ['book01'], fish: ['staff01'] };
 
 /** The layers of a person, back to front (keys of art/himeko/), for what they're doing now. */
 export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string }): string[] {
@@ -249,7 +251,8 @@ export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string 
   // a helm: what they wear on their head, by its weight; else their calling's hat; a founder their crown
   const head = w.gear.head ? ITEM_BY_ID[w.gear.head] : undefined;
   const helm =
-    head?.weight === 'heavy' ? (w.cls === 'samurai' ? 'samurai' : w.cls === 'warrior' || w.cls === 'blood_knight' ? 'horned' : 'armet')
+    w.mask ? 'gasmask'
+    : head?.weight === 'heavy' ? (w.cls === 'samurai' ? 'samurai' : w.cls === 'warrior' || w.cls === 'blood_knight' ? 'horned' : 'armet')
     : head?.weight === 'medium' ? (w.id % 2 ? 'sallet' : 'guard')
     : head?.weight === 'light' ? (w.cls === 'ranger' || w.cls === 'hunter' ? 'hoodgreen' : 'hoodred')
     : w.founder ? (w.cls && ['mage', 'witch', 'necromancer', 'summoner', 'chronomancer', 'druid', 'shaman'].includes(w.cls) ? 'magecrown' : 'crown')
@@ -421,6 +424,7 @@ export function hkWhoOf(v: PersonView): HkWho {
     child: v.growsUpIn !== null, traveller: v.typeName === 'Traveller',
     eyeLost: v.body.marks.some((m) => /eye/i.test(m.part) && (m.look === 'patch' || m.look === 'gone')),
     scarred: v.body.lasting.some((l) => l.startsWith('scarred')),
+    mask: v.rounds,
   };
 }
 /** The townsfolk as of the last snapshot (main.ts: `hkKnow`), so a view that has only someone's id, look and gear (a
