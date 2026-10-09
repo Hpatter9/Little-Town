@@ -33,7 +33,7 @@ export function renderTimelapse(): HTMLElement[] {
     slider.value = String(at);
     caption.textContent = `Day ${f.day} · ${ERA_NAMES[f.era as keyof typeof ERA_NAMES] ?? f.era} · ${f.people} ${f.people === 1 ? 'soul' : 'people'}`;
   };
-  const play = el('button', 'primary', playing ? 'Pause' : '▶ Play');
+  const play = el('button', 'place go', playing ? 'Pause' : '▶ Play');
   const stop = () => {
     playing = false;
     if (timer) clearInterval(timer);

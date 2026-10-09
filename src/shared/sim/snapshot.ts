@@ -1359,7 +1359,18 @@ function slow<T>(s: GameState, key: string, f: () => T): T {
   return v;
 }
 
+/** Each venue's view, kept for `VENUE_EVERY` ticks (a second: it was most of a big town's snapshot, ten a second). */
+const VENUE_EVERY = 10;
+const venueCache = new Map<string, { state: GameState; tick: number; view: ShopView | null }>();
 function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): ShopView | null {
+  const key = `${venue}:${line ?? ''}`;
+  const hit = venueCache.get(key);
+  if (hit && hit.state === s && s.tick >= hit.tick && s.tick - hit.tick < VENUE_EVERY) return hit.view;
+  const view = venueViewNow(s, venue, line);
+  venueCache.set(key, { state: s, tick: s.tick, view });
+  return view;
+}
+function venueViewNow(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): ShopView | null {
   const b = s.buildings.find((q) => venueOfDef(q.def) === venue && lineOfDef(q.def) === line);
   if (!b) return null;
   const inside = (s.travellers ?? []).filter((t) => (t.venue ?? 'shop') === venue && t.line === line);

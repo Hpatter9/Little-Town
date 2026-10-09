@@ -59,8 +59,17 @@ const roll = (s: GameState, ...salt: number[]) => new Rng(hashSeed(`${s.seed}:ro
 const night = (hour: number) => hour >= NIGHT_FROM || hour < NIGHT_UNTIL;
 const blighted = (s: GameState) => s.origin === 'lich' || s.origin === 'vampire';
 
-/** The box the finished ring wall encloses (px), or null with none standing all round. */
-function walledBox(s: GameState): { x0: number; y0: number; x1: number; y1: number } | null {
+/** The box the finished ring wall encloses (px), or null with none standing all round. Worked out once a tick (every
+ *  band asks every tick, and walking the whole wall each time was most of a big town's tick). */
+type Box = { x0: number; y0: number; x1: number; y1: number } | null;
+let boxOf: { s: GameState; tick: number; box: Box } | null = null;
+function walledBox(s: GameState): Box {
+  if (boxOf && boxOf.s === s && boxOf.tick === s.tick) return boxOf.box;
+  const box = walledBoxNow(s);
+  boxOf = { s, tick: s.tick, box };
+  return box;
+}
+function walledBoxNow(s: GameState): Box {
   const ring = s.ring;
   if (!ring || !(ring.done || ringComplete(s, ring))) return null;
   const line = lineOf(ring);

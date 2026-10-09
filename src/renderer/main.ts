@@ -1653,8 +1653,8 @@ async function start(): Promise<void> {
       map.setCamera(box.x, box.y, box.w, box.h);
       const c = app.renderer.extract.canvas({ target: map.world, frame: new Rectangle(box.x, box.y, box.w, box.h), resolution: Math.min(1, (SHOT_SIZE * 2) / box.w) }) as HTMLCanvasElement;
       keepFrame(next.seed, { day: next.calendar.day, era: next.era, people: next.people.length, url: frameUrl(c) });
-    } catch {
-      /* (a picture missed is no matter) */
+    } catch (e) {
+      console.warn('timelapse', e); // (a picture missed is no matter)
     } finally {
       map.setCamera(v.x, v.y, v.w, v.h);
     }

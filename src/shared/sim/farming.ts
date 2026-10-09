@@ -20,7 +20,7 @@ import { CELL } from './land';
 import { toolSpeed } from './crafting';
 import { holds } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
-import { modifiers } from './research';
+import { researchMods } from './research';
 import { doomGrowth } from './doom';
 import { biomeOf } from '../data/biomes';
 import { BUILDING_BY_ID, RIVER_GROWTH, RIVER_TILES } from '../data/buildings';
@@ -67,7 +67,7 @@ export function growCrops(s: GameState): void {
     if (!isField(b)) continue;
     const c = cropOf(b);
     if (c.stage !== 'growing') continue;
-    speed ??= modifiers(s.research).cropSpeed;
+    speed ??= researchMods(s.research).cropSpeed;
     // indoor fields (hydroponics) don't care about the season or the weather
     const def = CROPS[b.def];
     const indoor = def.indoor;
@@ -151,7 +151,7 @@ export function workField(s: GameState, p: Person, b: Building): boolean {
       c.stage = 'growing';
     } else {
       c.stage = 'fallow';
-      if (!def.indoor) c.soil = Math.max(SOIL.min, soil - SOIL.drain * modifiers(s.research).soil);
+      if (!def.indoor) c.soil = Math.max(SOIL.min, soil - SOIL.drain * researchMods(s.research).soil);
     }
     gainSkill(p, 'farming', HARVEST_XP);
   }
@@ -173,7 +173,7 @@ export function ripensInTime(s: GameState, b: Building): boolean {
   if (cal.season === 'winter') return false;
   if (cal.season !== 'autumn' || def.establishHours) return true;
   const left = (DAYS_PER_SEASON - cal.dayOfSeason) * 24 + (24 - cal.hour);
-  const speed = (def.hardy ? 1 : SEASON_GROWTH.autumn) * modifiers(s.research).cropSpeed * cropSpeed(s) * biomeOf(s).crops;
+  const speed = (def.hardy ? 1 : SEASON_GROWTH.autumn) * researchMods(s.research).cropSpeed * cropSpeed(s) * biomeOf(s).crops;
   return left * speed >= def.growHours;
 }
 
@@ -187,7 +187,7 @@ export function tendFields(s: GameState, rng: Rng): void {
   if (!fields.length) return;
   const pens = s.buildings.filter((b) => b.status === 'done' && HERDS[b.def] && (b.herd?.head ?? 0) > 0).length;
   const muck = Math.min(SOIL.manureMax, pens * SOIL.manurePerPen);
-  const soilMod = modifiers(s.research).soil;
+  const soilMod = researchMods(s.research).soil;
   for (const b of fields) {
     const c = cropOf(b);
     const resting = c.stage === 'fallow' || cal.season === 'winter';
@@ -268,7 +268,7 @@ function workDeep(s: GameState, p: Person, b: Building, task: { work: number; ce
     task.depth = level.depth;
     task.work = 0;
   }
-  task.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * modifiers(s.research).gather.mine * workFactor(s, p) * (holds(p, b) ? HOLDER_EDGE : 1)) / (digSeconds(level.depth) * TICK_HZ);
+  task.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * researchMods(s.research).gather.mine * workFactor(s, p) * (holds(p, b) ? HOLDER_EDGE : 1)) / (digSeconds(level.depth) * TICK_HZ);
   gainSkill(p, 'gathering', FARM_XP_PER_SEC / TICK_HZ);
   if (task.work < 1) return false;
   const got = digDeep(s, p, level.depth, task.cell);
@@ -291,7 +291,7 @@ function workDeep(s: GameState, p: Person, b: Building, task: { work: number; ce
 export function workMine(s: GameState, p: Person, b: Building, progress: { work: number; cell?: number; depth?: number }): boolean {
   if (b.def === SHAFT) return workDeep(s, p, b, progress);
   const w = WORKPLACES[b.def];
-  progress.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * modifiers(s.research).gather.mine * workFactor(s, p) * (holds(p, b) ? HOLDER_EDGE : 1)) / (w.seconds * ERA_MULTIPLIER[earlier(s.era, eraOfResearch(BUILDING_BY_ID[b.def].research))] * TICK_HZ);
+  progress.work += (skillSpeed(p.skills.gathering.level) * toolSpeed(p, 'mine') * researchMods(s.research).gather.mine * workFactor(s, p) * (holds(p, b) ? HOLDER_EDGE : 1)) / (w.seconds * ERA_MULTIPLIER[earlier(s.era, eraOfResearch(BUILDING_BY_ID[b.def].research))] * TICK_HZ);
   gainSkill(p, 'gathering', FARM_XP_PER_SEC / TICK_HZ);
   if (progress.work < 1) return false;
   progress.work = 0;

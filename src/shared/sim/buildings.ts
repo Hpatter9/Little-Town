@@ -18,7 +18,7 @@ import { CROPS } from '../data/crops';
 import { openGround } from '../data/biomes';
 import { HERDS } from '../data/livestock';
 import { buildable, carvable, clearable, isPlannedRoad, planRoad, setGround, setMarked, wildToClear, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
-import { modifiers } from './research';
+import { researchMods } from './research';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
 
 export const defOf = (b: { def: string }): BuildingDef => BUILDING_BY_ID[b.def];
@@ -99,7 +99,7 @@ export function enclosure(_s: GameState): { lo: number; hi: number; wall: string
 export function storageCapacity(s: GameState, b: Building): number {
   const base = b.status === 'done' ? (defOf(b).storage ?? 0) : 0;
   const pots = b.def === 'campfire' && b.status === 'done' ? potStorage(s) : 0;
-  return Math.floor(base * modifiers(s.research).storage) + pots;
+  return Math.floor(base * researchMods(s.research).storage) + pots;
 }
 
 /** Extra campfire storage from clay pots. */
@@ -162,7 +162,7 @@ export function stillNeeded(b: Building): Stock {
 }
 
 /** Blueprints allowed at once (research adds more). */
-export const buildSlots = (s: Pick<GameState, 'research'>) => BUILD_QUEUE_SLOTS + modifiers(s.research).queueSlots;
+export const buildSlots = (s: Pick<GameState, 'research'>) => BUILD_QUEUE_SLOTS + researchMods(s.research).queueSlots;
 
 export function blueprintCount(s: Pick<GameState, 'buildings'>): number {
   return s.buildings.filter(inWork).length;

@@ -47,7 +47,7 @@ import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } from './raids';
 import { ENEMIES } from '../data/enemies';
 import { THROW_RANGE } from '../data/raids';
-import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
+import { freeStation, modifiers, researchMods, researchStations, studyingAt, topicFor } from './research';
 import { holderOf, holds, jobOf as heldJob } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
 import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Raider, type Task } from './state';
@@ -736,7 +736,7 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
   }
   if (p.activity !== def.anim) pickTool(s, p, def.anim);
   p.activity = def.anim;
-  const speed = skillSpeed(p.skills.gathering.level) * modifiers(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
+  const speed = skillSpeed(p.skills.gathering.level) * researchMods(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
   // (the land is the same in every era: a tree takes no longer to fell in the Medieval era)
   task.progress += speed / (def.secondsPerUnit * TICK_HZ);
   while (task.progress >= 1 && p.task === task) {
