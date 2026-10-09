@@ -10,6 +10,8 @@ import {
   BARGAIN_BY_ID,
   BARGAINS,
   COURT_DRIFT,
+  CROWN_AT,
+  CROWN_BARGAINS,
   COURT_HOUR,
   COURT_MOODS,
   FORFEIT_FAVOUR,
@@ -53,6 +55,8 @@ export interface CourtState {
   struck: number;
   refused: number;
   taken: string[];
+  /** Prices paid in full (the fae's win). */
+  paid?: number;
   log: string[];
 }
 
@@ -83,6 +87,10 @@ export function courtHourly(s: GameState): void {
   coldIron(s, c);
   if (fullMoon(s) && c.favour >= REVEL_AT) revel(s, c);
   if (s.tick >= c.next && !s.prompts.some((p) => p.ways?.system === 'court')) offerBargain(s, c);
+  if ((c.paid ?? 0) >= CROWN_BARGAINS && c.favour >= CROWN_AT && !s.gameOver) {
+    tellStory(s, 'Crowned by the Court', 'Under the full moon the whole Court came out of the trees, the Queen at its head, and set a crown of frost and briar on the founder\'s head. The town is the Court\'s own now: half in this world and half in theirs, forever.', 'fae crown moon glade');
+    s.gameOver = { tick: s.tick, won: true, text: 'The Fae Court has crowned the town its own. It stands half in the mortal world and half in the twilight, and will never grow old. The fair folk have won.' };
+  }
 }
 
 /** Cold iron in the stores: the fair folk feel it. */
@@ -147,6 +155,7 @@ function collect(s: GameState, c: CourtState, d: FaeDebt): void {
   const rng = roll(s, `collect:${b.id}`);
   const paid = payPrice(s, c, b.price, rng);
   if (paid) {
+    c.paid = (c.paid ?? 0) + 1;
     c.favour = clamp(c.favour + PAID_FAVOUR);
     log(s, c, `The Court took its price for ${b.title}: ${b.priceText}.`);
     tellStory(s, `The price of ${b.title}`, `The fair folk came back, as they always do, to collect: ${b.priceText}. ${paid}`, 'fae glade faerie night');
@@ -210,6 +219,7 @@ export interface CourtView {
   nextDays: number;
   struck: number;
   refused: number;
+  paid: number;
   taken: string[];
   log: string[];
 }
@@ -229,6 +239,7 @@ export function courtView(s: GameState): CourtView | null {
     nextDays: Math.max(0, Math.ceil((c.next - s.tick) / TICKS_PER_DAY)),
     struck: c.struck,
     refused: c.refused,
+    paid: c.paid ?? 0,
     taken: c.taken,
     log: c.log,
   };

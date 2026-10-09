@@ -166,3 +166,8 @@ export const COURT_MOODS: [number, string][] = [
   [-50, 'The Court is offended'],
   [-101, 'The Court is cruel'],
 ];
+
+/** The fae's win: `CROWN_BARGAINS` bargains struck and paid, and the Court's favour at `CROWN_AT`: the Court crowns the town
+ *  its own. */
+export const CROWN_BARGAINS = 15;
+export const CROWN_AT = 80;

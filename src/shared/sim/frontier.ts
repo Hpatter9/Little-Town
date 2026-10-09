@@ -6,7 +6,7 @@
 // of what the ground holds, spirits lifted), which claim-jumpers may come for (outlaws on the land, `jump`). Only in a
 // settlers' town, with the autopilot on.
 
-import { CLAIM_DAYS, CLAIM_HAUL, CLAIM_MORALE, CLAIM_NAMES, CLAIM_OPEN, CLAIMS_MOST, FRONTIER_HOUR, JUMP_CHANCE, TEACH_PUPILS, TEACH_XP, TRICK_MULT, TRICKS } from '../data/frontier';
+import { TAMED_TRICKS, CLAIM_DAYS, CLAIM_HAUL, CLAIM_MORALE, CLAIM_NAMES, CLAIM_OPEN, CLAIMS_MOST, FRONTIER_HOUR, JUMP_CHANCE, TEACH_PUPILS, TEACH_XP, TRICK_MULT, TRICKS } from '../data/frontier';
 import type { Material } from '../data/materials';
 import { ORIGIN_DEFS, type OriginId } from '../data/origins';
 import { SKILLS, SKILL_NAMES, type Skill } from '../data/skills';
@@ -59,6 +59,10 @@ export function frontierHourly(s: GameState): void {
   teach(s, f);
   if (s.tick - f.lastClaim >= CLAIM_DAYS * TICKS_PER_DAY && f.claims.length < CLAIMS_MOST) stakeClaim(s, f);
   jump(s, f);
+  if (f.claims.length >= CLAIMS_MOST && f.tricks.length >= TAMED_TRICKS && !s.gameOver) {
+    tellStory(s, 'The Frontier Tamed', `${CLAIMS_MOST} claims staked and worked, and something learned from every people the town has met. The wild edge of the map is a road now, with farms along it. Plain folk did this, with no magic but stubbornness.`, 'fields farms frontier settlers');
+    s.gameOver = { tick: s.tick, won: true, text: 'The frontier is tamed: the land claimed and homesteaded, and the settlers have learned from every people they met. Plain folk have won.' };
+  }
 }
 
 /** The peoples the town has met: strangers of theirs in town, their caravan at the market. */

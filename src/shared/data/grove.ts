@@ -115,3 +115,8 @@ export const GROVE_MOODS: [number, string][] = [
   [-60, 'The grove is angry'],
   [-101, 'The grove is wrathful'],
 ];
+
+/** The druids' win: the grove held at `BLOOM_AT` favour or more for `BLOOM_DAYS` mornings running, and the heart of the
+ *  grove blooms. */
+export const BLOOM_AT = 80;
+export const BLOOM_DAYS = 10;

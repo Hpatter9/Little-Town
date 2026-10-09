@@ -41,6 +41,7 @@ function groveSection(h: HeritageView): HTMLElement[] {
   c.append(top, favourBar(g.favour));
   c.append(el('div', 'purpose', g.blessed ? 'Its blessing is on the fields and the foraging today.' : g.angry ? 'Its anger is on the fields; its thorns wait in the woods.' : 'Neither blessing nor curse today.'));
   c.append(el('div', 'purpose', `Next rite: ${g.nextRite.name}, in ${g.nextRite.days} day${g.nextRite.days > 1 ? 's' : ''}.`));
+  c.append(el('div', 'purpose win-goal', `To win: hold the grove at +80 for ten mornings running, and its heart blooms (${g.bloom} of 10).`));
   out.push(
     expandable(c, 'grove', () => [
       facts([
@@ -77,6 +78,7 @@ function courtSection(h: HeritageView): HTMLElement[] {
   card.append(el('div', 'purpose', `${c.struck} bargain${c.struck === 1 ? '' : 's'} struck, ${c.refused} refused. The next comes in about ${c.nextDays} day${c.nextDays === 1 ? '' : 's'}.`));
   if (c.ironHurts) card.append(el('div', 'lock short', `${c.iron} cold iron in the stores: the fair folk feel it.`));
   if (c.revels) card.append(el('div', 'purpose', 'Charmed: the Court holds revels under the full moon.'));
+  card.append(el('div', 'purpose win-goal', `To win: pay the Court in full for ${15} bargains (${c.paid} so far) with its favour at +80, and it crowns the town its own.`));
   out.push(card);
   if (c.debts.length) {
     out.push(el('h2', '', 'Our ways: what we owe'));
@@ -165,6 +167,7 @@ function foundrySection(h: HeritageView): HTMLElement[] {
   bar.append(fill);
   c.append(bar, el('div', 'purpose', `${f.units} units (room for ${f.room}) · ${f.building !== null ? `a unit on the line, ready in ${f.building} day${f.building === 1 ? '' : 's'}` : 'the line is idle'} · ${f.built} built, ${f.faults} faults`));
   if (f.mind.awake) c.append(el('div', 'purpose', `The Mind is awake. Overruled ${f.mind.dissent} of ${f.mind.most} times.`));
+  c.append(el('div', 'purpose win-goal', `To win: build 25 units on the line (${f.built} so far), wake the Mind and never overrule it, and run at full power: the Singularity.`));
   out.push(c);
   if (f.worn.length) out.push(el('div', 'hint', `Wearing out: ${f.worn.map((w) => `${w.name} (${w.wear}%)`).join(', ')}.`));
   if (f.modules.length) out.push(el('div', 'hint', `Modules: ${f.modules.map((m) => `${m.name}: ${m.fitted.join(', ')}`).join('; ')}.`));
@@ -182,6 +185,7 @@ function frontierSection(h: HeritageView): HTMLElement[] {
   top.append(el('span', 'card-name', `🪓 ${f.claims.length} claim${f.claims.length === 1 ? '' : 's'} staked`), el('span', 'card-size', `next in ${f.nextClaimDays} day${f.nextClaimDays === 1 ? '' : 's'}`));
   c.append(top, el('div', 'purpose', `${f.tricks.length} of ${f.tricks.length + f.unmet.length} peoples' tricks learned · ${f.taught} lessons from strangers · ${f.jumped} claim-jumpings`));
   if (f.claims.length) c.append(el('div', 'purpose', `Claims: ${f.claims.map((q) => q.name).join(', ')}`));
+  c.append(el('div', 'purpose win-goal', `To win: stake all 10 claims and learn the tricks of four peoples, and the frontier is tamed.`));
   out.push(c);
   if (f.tricks.length) {
     out.push(el('h2', '', 'Our ways: what we\'ve learned'));

@@ -3555,6 +3555,16 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   best skill (`teach`); every `CLAIM_DAYS` a land claim is staked at the edge of the known land (`stakeClaim`: the land
   opened `CLAIM_OPEN`, a first haul by the ground, `CLAIM_HAUL`; up to `CLAIMS_MOST`), and claim-jumpers may come for
   one (outlaws on the land, `spawnRoamerAt`). Tests: `test/frontier.test.ts`.
+- **A win for every new system:** the druids' Heart of the Grove (`BLOOM_AT` held `BLOOM_DAYS` mornings,
+  `GroveState.bloom`), the fae crowned by the Court (`CROWN_BARGAINS` prices paid, `CourtState.paid`, with favour at
+  `CROWN_AT`), the machines' Singularity (`SINGULARITY_BUILT` units off the line, the Mind awake and never overruled,
+  full power), the settlers' frontier tamed (every claim staked and `TAMED_TRICKS` peoples' tricks learned), beside the
+  alchemists' Stone and the knights' Grail; each shown as "To win" on its Our ways card (`.win-goal`).
+- **Old grudges and friendships** (`data/kinship.ts`, `KINSHIP`, `kinship(us, them)`): a power of the realm feels so
+  about the town by its people alone (the vampires and the pack, the Order and the dead, the hold and the fae, the grove
+  and the machines...; the grove and the fae, the hold and the Order, the crucible and the machines...), added to its
+  temper's rest in `realm()` and in the daily drift (sim/factions.ts); the Realm card says why
+  (`FactionView.kin`). Tests: `test/originWins.test.ts`.
 - **Owner's calls with this batch:** stat points are spent the class's way by default (`statsHourly` asks only when
   `s.statsAsk === true`: the Town menu's row turns asking on); and a castle's or a hold's own rooms have no Look inside
   (`lookInside` refuses a `roomKind`; main.ts leaves the button off for a cell of `snapshot.castle`), since they are

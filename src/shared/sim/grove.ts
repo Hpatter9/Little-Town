@@ -8,6 +8,8 @@
 
 import {
   ANGRY_AT,
+  BLOOM_AT,
+  BLOOM_DAYS,
   BLESS_MULT,
   BLESSED_AT,
   CURSE_MULT,
@@ -60,6 +62,8 @@ export interface GroveState {
   lastGuardian: number;
   /** The last rite kept (its season and year), and the log. */
   rite: string;
+  /** Mornings running at `BLOOM_AT` or more (the druids' win). */
+  bloom?: number;
   log: string[];
 }
 
@@ -108,6 +112,11 @@ export function groveMorning(s: GameState, g: GroveState): void {
   if (g.felled > FELL_ALLOWANCE + 4 && g.favour < before) log(s, g, `${g.felled} trees felled yesterday. The grove felt every one.`);
   g.felled = 0;
   g.regrown = 0;
+  g.bloom = g.favour >= BLOOM_AT ? (g.bloom ?? 0) + 1 : 0;
+  if (g.bloom >= BLOOM_DAYS && !s.gameOver) {
+    tellStory(s, 'The Heart of the Grove blooms', 'For ten mornings the grove has sung, and this morning every tree in the land flowered at once, white as snow, and the scent reached the sea. The circle has done what no circle has done in a thousand years: the land and its people are one again.', 'forest grove bloom spring');
+    s.gameOver = { tick: s.tick, won: true, text: 'The Heart of the Grove has bloomed. The land and the circle are one, and the wild will never again be cut against its will. The druids have won.' };
+  }
   const rng = roll(s, 'morning');
   const until = s.tick + TICKS_PER_DAY;
   if (g.favour >= BLESSED_AT) {
@@ -227,6 +236,7 @@ export interface GroveView {
   angry: boolean;
   guardians: { name: string; beast: string; days: number }[];
   nextRite: { name: string; days: number };
+  bloom: number;
   log: string[];
 }
 
@@ -242,6 +252,7 @@ export function groveView(s: GameState): GroveView | null {
     blessed: g.favour >= BLESSED_AT,
     angry: g.favour <= ANGRY_AT,
     guardians: g.guardians.map((q) => ({ name: q.name, beast: q.beast, days: Math.floor((s.tick - q.came) / TICKS_PER_DAY) })),
+    bloom: g.bloom ?? 0,
     nextRite: { name: RITES[next].name, days: DAYS_PER_SEASON - cal.dayOfSeason + 1 },
     log: g.log,
   };

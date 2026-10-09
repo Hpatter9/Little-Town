@@ -48,3 +48,6 @@ export const CLAIM_HAUL: Record<string, Partial<Record<Material, number>>> = {
 };
 export const JUMP_CHANCE = 0.06;
 export const CLAIM_NAMES = ['Pine Hollow', 'Stony Ford', 'Hope\'s End', 'Cold Spring', 'Long Meadow', 'Crow\'s Rest', 'Fortune Hill', 'Bitter Creek', 'Sunny Bank', 'Last Chance', 'Elm Bottom', 'Two Rocks', 'Widow\'s Patch', 'Lucky Strike'];
+
+/** The settlers' win: every claim staked (`CLAIMS_MOST`) and the tricks of this many peoples learned. */
+export const TAMED_TRICKS = 4;

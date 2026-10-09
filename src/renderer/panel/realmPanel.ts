@@ -50,6 +50,7 @@ function factionCard(f: FactionView, s: Snapshot, bridge: Bridge | undefined): H
     return card;
   }
   card.append(el('div', 'realm-sub', `${f.lord}, of ${f.stronghold}${f.size === 'ruin' ? ' (in ruins)' : `, a ${f.size} of about ${f.folk}`} · ${f.temper.toLowerCase()}${f.married ? ' · kin by marriage' : ''}`));
+  if (f.kin) card.append(el('div', `realm-sub kin-${f.kin.value < 0 ? 'grudge' : 'friend'}`, `${f.kin.value < 0 ? 'An old grudge' : 'An old friendship'}: ${f.kin.why}.`));
   if (f.stance === 'destroyed') {
     card.append(el('div', 'hint', `${f.stronghold} lies in ruins.`));
     return card;

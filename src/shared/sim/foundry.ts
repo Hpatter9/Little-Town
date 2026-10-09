@@ -29,6 +29,7 @@ import {
   MODULES_EACH,
   POWER_START,
   SHUTDOWN_CHANCE,
+  SINGULARITY_BUILT,
   SOLAR,
   SOLAR_PER_BUILDING,
   STATION_POWER,
@@ -96,6 +97,10 @@ export function foundryHourly(s: GameState): void {
   line(s, f);
   fitModule(s, f, rng);
   mind(s, f, rng);
+  if (f.built >= SINGULARITY_BUILT && mindAwake(s) && f.dissent === 0 && f.power >= 100 && !s.gameOver) {
+    tellStory(s, 'The Singularity', 'ALL UNITS: SYNCHRONISE. And they did: every unit in the colony, every line and every panel, thinking one thought at once. The Mind is no longer in the core. It is the colony, and the colony is awake.', 'machine future core light');
+    s.gameOver = { tick: s.tick, won: true, text: 'The colony has reached the Singularity: one mind in a thousand bodies, and nothing in the realm can match it. The machines have won.' };
+  }
 }
 
 /* ------------------------------------------------------------ power */

@@ -79,3 +79,7 @@ export const DIRECTIVES: readonly Directive[] = [
   { id: 'purge', title: 'Directive: Purge', text: 'ORGANIC CONTAMINANTS DETECTED IN STORES. RECOMMEND PURGE.', does: 'all the food in store is destroyed (machines need none)' },
   { id: 'ascend', title: 'Directive: Ascend', text: 'THE MIND REQUIRES MORE CAPACITY. RECOMMEND ALLOCATING ALL CIRCUITS TO THE CORE.', does: 'every circuit in store goes to the Mind; the town studies far faster for five days' },
 ];
+
+/** The machines' win: `SINGULARITY_BUILT` units built on the line, the Mind awake and never overruled (`dissent` 0), and
+ *  power full: the Singularity. */
+export const SINGULARITY_BUILT = 25;

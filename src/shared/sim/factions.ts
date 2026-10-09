@@ -7,6 +7,7 @@
 // in an assault: the whole town in one long fight, wave after wave, the lord last; stormed, it is plundered, some of
 // its folk come over, and it is made a vassal or razed. A dungeon can be stormed the same way.
 
+import { kinship } from '../data/kinship';
 import { DESTINATION_BY_ID, type Destination } from '../data/expeditions';
 import { DUNGEONS, DUNGEON_BY_ID } from '../data/dungeons';
 import { ENEMIES } from '../data/enemies';
@@ -52,7 +53,7 @@ export function realm(s: GameState): Faction[] {
   const tempers: Temper[] = ['warlike', 'greedy', 'honourable', 'treacherous'];
   s.factions = picked.map((d) => {
     const temper = rng.chance(0.7) ? d.temper : tempers[rng.int(0, tempers.length - 1)];
-    return { id: d.id, known: false, troops: rng.int(TROOPS_START[0], TROOPS_START[1]), folk: rng.int(FOLK_START[0], FOLK_START[1]), attitude: TEMPER_REST[temper], stance: 'neutral' as RealmStance, temper, since: 0 };
+    return { id: d.id, known: false, troops: rng.int(TROOPS_START[0], TROOPS_START[1]), folk: rng.int(FOLK_START[0], FOLK_START[1]), attitude: TEMPER_REST[temper] + kinship(own, d.origin).value, stance: 'neutral' as RealmStance, temper, since: 0 };
   });
   return s.factions;
 }
@@ -133,7 +134,7 @@ export function factionsDaily(s: GameState, rng: Rng): void {
     if (!f.known || !standing(f)) continue;
     f.troops = Math.min(TROOPS_MOST, f.troops + TROOPS_PER_DAY * (f.stance === 'vassal' ? 0.5 : 1));
     // goodwill drifts to the temper's rest, warmed by treaties and a marriage
-    const rest = TEMPER_REST[f.temper];
+    const rest = TEMPER_REST[f.temper] + kinship(s.origin ?? 'settlers', FACTION_BY_ID[f.id]?.origin).value;
     warm(f, Math.sign(rest - f.attitude) * Math.min(ATTITUDE_DRIFT, Math.abs(rest - f.attitude)) + (TREATY_WARMTH[f.stance] ?? 0) + (f.married ? MARRIAGE_WARMTH : 0));
     if (f.stance === 'trade' || f.stance === 'alliance') pay(s, TRADE_COINS, `Trade with ${defOf(f).name}`);
     if (f.stance === 'vassal') {
@@ -791,6 +792,8 @@ export interface FactionView {
   size: string;
   tier: number;
   married: boolean;
+  /** An old grudge or friendship between its people and the town's (data/kinship.ts), and why. */
+  kin: { value: number; why: string } | null;
   /** A host on its way: in how many hours, and how many. */
   host: { hours: number; size: number } | null;
   beaten: number;
@@ -838,6 +841,7 @@ export function realmView(s: GameState, dungeonOpen: (id: string) => boolean): R
       stanceName: STANCE_NAME[f.stance],
       attitude: f.attitude,
       mood: moodWord(f.attitude),
+      kin: ((k) => (f.known && k.why ? { value: k.value, why: k.why } : null))(kinship(s.origin ?? 'settlers', d.origin)),
       troops: Math.round(f.troops),
       folk: f.folk ?? 0,
       size: f.stance === 'destroyed' ? 'ruin' : townTier(f.folk ?? 0).name,
