@@ -166,6 +166,12 @@ The menagerie's 304 creatures (`src/shared/data/menagerie.ts`) are DawnLike's to
 Undead; both animation frames, `0` and `1`), cut into `src/renderer/art/creatures/dawn.png` by
 `tools/compose-dawn.cjs`. Same licence, same credit: **DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**.
 
+The little things the townsfolk handle in their idle moments and on the watch (`src/renderer/art/life/`: the jolly's
+juggled apple, orange and pear from `Items/Food.png`, the grumpy's pebble from `Items/Rock.png`, an elder's pipe from
+`Items/Tool.png`, the night watch's torch from `Items/Light.png`) and the coffin carried at a funeral's head
+(`Objects/Decor0.png`) are single cells of **DawnLike** too: **DragonDePlatino**, on **DawnBringer**'s palette,
+**CC-BY 4.0**.
+
 ## Music
 
 "Tiny RPG" town, battle and two boss themes by **Luis Zuno (@ansimuz)** (`src/renderer/music/`, from

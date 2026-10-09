@@ -61,3 +61,9 @@ export function danceStep(id: number, now: number, ring: boolean): DanceStep {
 export function mournStep(id: number): DanceStep {
   return { col: id % 3 === 0 ? 7 : 0, facing: null, lift: 0, squash: 1 };
 }
+
+/** At a rite before the temple (sim/ceremonies.ts): two in three kneel, the rest stand, all turned to it (up the map:
+ *  they gather below its door). */
+export function prayStep(id: number): DanceStep {
+  return { col: id % 3 === 0 ? 0 : 7, facing: 'up', lift: 0, squash: 1 };
+}

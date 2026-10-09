@@ -1032,6 +1032,7 @@ export class MapView {
   /** A frame of the air: smoke from the finished buildings' chimneys and stacks, and the fireflies. */
   renderAir(dt: number): void {
     this.blight.render(dt);
+    this.fadeWindows(dt);
     this.fireflies(dt);
     this.windT += dt;
     this.sway();
@@ -1356,6 +1357,39 @@ export class MapView {
       if (wx >= r.x && wx < r.x + r.w && wy >= r.y && wy < r.y + r.h && !isPlot(d.sig.slice(0, d.sig.indexOf('|')))) return true;
     }
     return false;
+  }
+
+  /** The homes whose windows have gone dark (map/townLife.ts `darkHomes`: everyone in them asleep), from main.ts each
+   *  snapshot; each house's glows fade out (and back in) over a second or two in `renderAir`, so the windows go out
+   *  one house at a time as each household goes to bed. */
+  private dark = new Set<number>();
+  private readonly lit = new Map<number, number>();
+  private readonly glowBase = new WeakMap<Sprite, number>();
+  darkWindows(dark: Set<number>): void {
+    this.dark = dark;
+  }
+  private fadeWindows(dt: number): void {
+    for (const [id, d] of this.buildings) {
+      if (!d.glows?.length) continue;
+      const want = this.dark.has(id) ? 0 : 1;
+      const was = this.lit.get(id) ?? 1;
+      // (set every frame: a house drawn again has new glows, which take the fade it's at)
+      const now = want > was ? Math.min(want, was + dt * 0.8) : Math.max(want, was - dt * 0.8);
+      this.lit.set(id, now);
+      for (const g of d.glows) {
+        if (!this.glowBase.has(g)) this.glowBase.set(g, g.alpha);
+        g.alpha = this.glowBase.get(g)! * now;
+      }
+    }
+  }
+
+  /** A finished building's picture as drawn (world px) and the top of its picture at its middle column: where a
+   *  lookout stands on a tower (map/mapTownLife.ts). */
+  pictureOf(id: number): { x: number; y: number; w: number; h: number; top: number } | null {
+    const d = this.buildings.get(id);
+    if (!d || d.room) return null;
+    const r = d.rect;
+    return { ...r, top: r.y + (d.art.tops[Math.floor(r.w / 2)] ?? 0) };
   }
 
   /** Whether a world point is within `pad` px of any building, plot or pen (the wild beasts keep their distance). */

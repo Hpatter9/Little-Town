@@ -148,6 +148,8 @@ import { noTone, textureCanvas } from './art/pixelArt';
 import { MapCamera } from './map/mapCamera';
 import { MapView } from './map/mapView';
 import { MapPeople } from './map/mapPeople';
+import { MapTownLife } from './map/mapTownLife';
+import { darkHomes, LOOKOUT_TOWERS, snowballPairs, snowmanHomes, snowmanLeft } from './map/townLife';
 import { MapRaiders } from './map/mapRaiders';
 import { createHud } from './hud';
 import { hostBridge, localBridge } from './localBridge';
@@ -350,6 +352,9 @@ async function start(): Promise<void> {
   // the town's dogs, cats and hens (map/mapPets.ts)
   const pets = new MapPets(map.things, map.over, map);
   const graves = new MapGraves(map.things); // (a headstone for each of the fallen)
+  // the town being itself: snowmen, snowballs, the coffin carried, the lookouts on the towers (map/mapTownLife.ts)
+  const townLife = new MapTownLife(map.things, map.over, map.lights, (id) => people.posOf(id));
+  (window as unknown as { __townLife?: MapTownLife }).__townLife = townLife; // (previews)
   (window as unknown as { __graves?: MapGraves }).__graves = graves; // (previews)
   const market = new MapMarket(map.things); // (market day's stalls)
   const decor = new SeasonDecor(map.things, map.lights); // (the doors dressed for the season)
@@ -1618,6 +1623,40 @@ async function start(): Promise<void> {
     people.zoom = stripScale; // (the phone page's scale: bubbles stay readable)
     people.weave = next.research.done.includes('weaving');
     people.founderId = next.mainId;
+    // the town being itself (map/townLife.ts): the watch changing, the curious at the windows, the children's winter,
+    // the procession, the windows going dark house by house, a lookout on every tower
+    people.minute = next.calendar.minute;
+    people.calm = townLife.calm = map.calm;
+    people.nearBuilding = (x, y) => map.nearBuilding(x, y - 6, 6);
+    const proc = next.gathering?.head ? next.gathering : null;
+    people.procession = proc ? { kind: proc.kind, bearers: proc.bearers ?? [] } : null;
+    townLife.syncProcession(proc && proc.kind !== 'wedding' && proc.kind !== 'feast' && proc.kind !== 'rite' ? proc.head! : null, proc?.bearers ?? []);
+    const home = next.people.filter((p) => p.away === null);
+    const winter = next.calendar.season === 'winter';
+    const pairs = winter ? snowballPairs(home.filter((p) => p.growsUpIn !== null && p.activity === 'play' && !p.indoors)) : [];
+    people.snowballs = new Map(pairs.flatMap(([a, b]): [number, { other: number; first: boolean; seed: number }][] => [[a, { other: b, first: true, seed: a * 31 + b }], [b, { other: a, first: false, seed: a * 31 + b }]]));
+    townLife.syncSnowballs(pairs);
+    map.darkWindows(darkHomes(next.people));
+    const doors = new Map(next.buildings.filter((b) => b.status === 'done').map((b) => [b.id, b]));
+    const melt = snowmanLeft(next.calendar.season, next.calendar.dayOfSeason, next.calendar.hour);
+    townLife.syncSnowmen(
+      snowmanHomes(next.people.map((p) => ({ bedId: p.bedId, child: p.growsUpIn !== null })))
+        .filter((id) => doors.has(id) && !next.castle?.cells.length)
+        .map((id) => ({ id, door: buildingDoor(doors.get(id)!) })),
+      melt,
+    );
+    const watchers = home.filter((p) => p.growsUpIn === null && !p.tireless);
+    const lookouts = watchers.filter((p) => p.guard).concat(watchers.filter((p) => !p.guard));
+    townLife.syncLookouts(
+      lookouts.length
+        ? next.buildings
+            .filter((b) => b.status === 'done' && LOOKOUT_TOWERS.has(b.def) && next.raid?.phase !== 'active')
+            .flatMap((b) => {
+              const pic = map.pictureOf(b.id);
+              return pic ? [{ id: b.id, x: pic.x + pic.w / 2, y: pic.top + Math.round(pic.h * 0.3), look: lookouts[b.id % lookouts.length].look }] : [];
+            })
+        : [],
+    );
     publishInspect(); // (the phone's top card keeps up with what it shows)
     weather?.update(next.calendar, next.weather);
     people.revived = next.revived ? { ...next.revived, at: performance.now() } : null;
@@ -1665,6 +1704,7 @@ async function start(): Promise<void> {
     const shaking = performance.now() < shakeUntil;
     app.stage.position.set(shaking ? Math.round((Math.random() - 0.5) * 6) : 0, shaking ? Math.round((Math.random() - 0.5) * 4) : 0);
     people.render(performance.now());
+    townLife.render(performance.now());
     raiders.render(performance.now());
     herds.render(performance.now(), ticker.deltaMS / 1000);
     market.render(ticker.deltaMS / 1000);
