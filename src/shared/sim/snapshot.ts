@@ -143,14 +143,14 @@ import { blightSources } from './blight';
 import { NEST_DEFS, type NestKind } from '../data/nests';
 import { directionName, isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
-import { RIVALS } from '../data/rivals';
+import { ALL_LORD_SPELLS } from '../data/rivals';
 import { DEEP_H, DEEP_LEVELS, DEEP_W, OPEN_AFTER, RISE_AT, SHAFT } from '../data/deep';
 import { deepFarms, shaftOf } from './deep';
 
 const spellName = (spell: string): string => {
   const [side, id] = spell.split(':');
   if (side === 'town') return POWERS[id]?.name ?? id;
-  for (const r of Object.values(RIVALS)) for (const sp of r.spells) if (sp.id === id) return sp.name;
+  for (const sp of ALL_LORD_SPELLS()) if (sp.id === id) return sp.name;
   return id;
 };
 import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';
@@ -1383,7 +1383,18 @@ function slow<T>(s: GameState, key: string, f: () => T): T {
   return v;
 }
 
+/** Each venue's view, kept for `VENUE_EVERY` ticks (a second: it was most of a big town's snapshot, ten a second). */
+const VENUE_EVERY = 10;
+const venueCache = new Map<string, { state: GameState; tick: number; view: ShopView | null }>();
 function venueView(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): ShopView | null {
+  const key = `${venue}:${line ?? ''}`;
+  const hit = venueCache.get(key);
+  if (hit && hit.state === s && s.tick >= hit.tick && s.tick - hit.tick < VENUE_EVERY) return hit.view;
+  const view = venueViewNow(s, venue, line);
+  venueCache.set(key, { state: s, tick: s.tick, view });
+  return view;
+}
+function venueViewNow(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): ShopView | null {
   const b = s.buildings.find((q) => venueOfDef(q.def) === venue && lineOfDef(q.def) === line);
   if (!b) return null;
   const inside = (s.travellers ?? []).filter((t) => (t.venue ?? 'shop') === venue && t.line === line);

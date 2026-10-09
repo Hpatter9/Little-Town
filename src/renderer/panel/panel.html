@@ -2381,6 +2381,36 @@
       .quest-log-row.done .quest-log-mark { color: #7cc87c; }
       .quest-log-row.failed .quest-log-mark { color: #e0604a; }
       .quest-log-text { font-size: 12px; opacity: 0.7; margin: 0 0 4px 22px; }
+      /* the Chronicle's Timelapse (panel/timelapsePanel.ts) */
+      .timelapse {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .timelapse-img {
+        width: min(100%, 360px, calc(100vh - 170px));
+        aspect-ratio: 1;
+        image-rendering: auto;
+        border-radius: 6px;
+        border: 2px solid var(--line, #6b5a3a);
+        background: #10140e;
+      }
+      .timelapse-caption {
+        font-family: var(--font-display);
+        font-size: 15px;
+      }
+      .timelapse-controls {
+        width: min(100%, 360px);
+        min-width: 220px;
+        align-items: center;
+        gap: 8px;
+      }
+      .timelapse-slider {
+        flex: 1;
+        min-width: 0;
+        accent-color: var(--accent, #d8a24a);
+      }
     </style>
   </head>
   <body>

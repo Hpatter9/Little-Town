@@ -1,7 +1,7 @@
 {
   "name": "little-town",
   "productName": "Chronos Settlement",
-  "version": "0.51.0",
+  "version": "0.52.0",
   "private": true,
   "description": "A pixel-art idle town builder that lives in a strip above the taskbar.",
   "author": "Chronos Settlement",

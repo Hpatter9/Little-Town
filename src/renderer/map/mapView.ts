@@ -15,7 +15,6 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS, sectionsDone } from '../../shared/data/crops';
 import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
-import { inRect } from '../../shared/sim/land';
 import { inSea } from '../../shared/sim/sea';
 import { CELL, cellAt, groundAt, isMarked, isPlannedRoad, isRoad, wet, type Ground, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
@@ -916,7 +915,8 @@ export class MapView {
     const def = BUILDING_BY_ID[b.def];
     if (b.turned && def?.hp) return 'v'; // (a gate standing down a column)
     if (!def?.hp || def.width !== 1 || def.defense) return undefined;
-    const wallAt = (x: number, y: number) => this.simBuildings.some((o) => o !== b && !!BUILDING_BY_ID[o.def]?.hp && !BUILDING_BY_ID[o.def]?.defense && inRect(footprint(o), x, y));
+    const cells = this.wallCellsNow();
+    const wallAt = (x: number, y: number) => cells.has(x * 4096 + y);
     const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);
     // (a run down a column is the west wall's or the east wall's: its post stands at the left or the right of the cell to
     // meet the corners' posts; told by which way the run turns at its ends)
@@ -1010,6 +1010,21 @@ export class MapView {
 
   /** The town's buildings as last synced (a wall piece's picture depends on its neighbours: `wallJoin`). */
   private simBuildings: Building[] = [];
+  /** The cells walls and gates stand on (x * 4096 + y), for `wallJoin`: worked out once a sync (it asked every
+   *  building for every cell round every wall piece, most of a big town's frame). */
+  private wallCells: { of: Building[]; cells: Set<number> } | null = null;
+  private wallCellsNow(): Set<number> {
+    if (this.wallCells?.of === this.simBuildings) return this.wallCells.cells;
+    const cells = new Set<number>();
+    for (const o of this.simBuildings) {
+      const d = BUILDING_BY_ID[o.def];
+      if (!d?.hp || d.defense) continue;
+      const r = footprint(o);
+      for (let x = r.x; x < r.x + r.w; x++) for (let y = r.y; y < r.y + r.h; y++) cells.add(x * 4096 + y);
+    }
+    this.wallCells = { of: this.simBuildings, cells };
+    return cells;
+  }
   /** The sim's clock (main.ts, per snapshot): how old each building is. */
   tick = 0;
   /** Where the sun is (art/sun.ts `sunAt`): the buildings' cast shadows follow it. */

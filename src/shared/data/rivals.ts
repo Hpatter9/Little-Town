@@ -5,6 +5,7 @@
 // Numbers are starting points for tuning.
 
 import type { OriginId } from './origins';
+import { RISING } from './risingPowers';
 
 /** What a rival lord's spell does (see sim/rivals.ts). */
 export type RivalSpellKind =
@@ -178,7 +179,10 @@ export const RIVALS: Record<Exclude<OriginId, 'settlers'>, RivalDef> = {
 
 /** The rival (if any) behind a raid kind, and the one whose lord this is. */
 export const rivalOfRaid = (kind: string): RivalDef | undefined => Object.values(RIVALS).find((r) => r.raid === kind);
-export const rivalOfLeader = (enemy: string): RivalDef | undefined => Object.values(RIVALS).find((r) => r.leader === enemy);
+export const rivalOfLeader = (enemy: string): Pick<RivalDef, 'raid' | 'leader' | 'spells'> | undefined =>
+  Object.values(RIVALS).find((r) => r.leader === enemy) ?? Object.values(RISING).filter((r) => r.lord === enemy).map((r) => ({ raid: r.raids[0], leader: r.lord, spells: r.spells }))[0];
+/** Every lord's spells, the rival peoples' and the rising powers'. */
+export const ALL_LORD_SPELLS = (): RivalSpell[] => [...Object.values(RIVALS).flatMap((r) => r.spells), ...Object.values(RISING).flatMap((r) => r.spells)];
 
 /** (When they come, and how often, is in data/raids.ts: from day 8, in any era.) */
 /** A lord grows stronger as the days pass: this share of its health at first, and this much more per day. */

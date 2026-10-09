@@ -336,7 +336,19 @@ export function riverCell(m: LandMap, p: Pt): boolean {
 }
 
 /** Whether the ring stands all round: every piece of it finished (cells that can't take one don't count). */
-export const ringComplete = (s: GameState, ring: Ring) => !missingPieces(s, ring).length && !s.buildings.some((b) => b.ring === ring.gen && b.status !== 'done');
+/** The ring stands all round: none of its pieces unbuilt (the quick test, first) and none missing. The walk round the
+ *  wall is kept until the buildings or the land change (the roaming bands ask every tick). */
+let completeOf: { key: string; s: GameState; done: boolean } | null = null;
+export function ringComplete(s: GameState, ring: Ring): boolean {
+  if (s.buildings.some((b) => b.ring === ring.gen && b.status !== 'done')) return false;
+  let done = 0;
+  for (const b of s.buildings) if (b.status === 'done') done++;
+  const key = `${ring.gen}|${s.buildings.length}|${done}|${s.land.version}|${s.buildings.at(-1)?.id ?? 0}`;
+  if (completeOf && completeOf.s === s && completeOf.key === key) return completeOf.done;
+  const v = !missingPieces(s, ring).length;
+  completeOf = { key, s, done: v };
+  return v;
+}
 
 /** The planner's turn (from planBuilding, each pass): start or widen the ring, place its next pieces (up to
  *  `RING_AT_ONCE` on the queue, a slot left for the rest, only while the stores hold `RING_SPARE` times a piece's cost),

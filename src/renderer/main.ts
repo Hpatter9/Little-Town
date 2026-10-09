@@ -62,7 +62,8 @@ import { hasInside } from '../shared/sim/interiors';
 import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
-import { Application, Graphics, TextureStyle } from 'pixi.js';
+import { Application, Graphics, Rectangle, TextureStyle } from 'pixi.js';
+import { frameDue, frameUrl, keepFrame, readTimelapse, SHOT_SIZE, townBox } from './timelapse';
 import { STRIP_HEIGHT } from '../shared/constants';
 import { BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../shared/data/buildings';
 import { eraReached } from '../shared/data/eras';
@@ -1437,6 +1438,7 @@ async function start(): Promise<void> {
     cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || beyond || within || next.tactics || next.prompts.length));
     map.root.visible = !watched && !inMine && !below && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
+    shootTown(next);
     // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
     if (view.music && !view.hidden) {
       const heard = map.root.visible
@@ -1775,6 +1777,31 @@ async function start(): Promise<void> {
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
   };
+  // The town's timelapse (renderer/timelapse.ts): at noon each day, a small picture of the map round its buildings,
+  // drawn with the culling lifted for the moment (the camera put over the town and back), kept on the device.
+  let shotTried = -1;
+  function shootTown(next: Snapshot): void {
+    if (next.calendar.hour < 12 || shotTried === next.calendar.day || next.raid || next.battle || next.tactics || !map.root.visible) return;
+    shotTried = next.calendar.day;
+    if (!frameDue(readTimelapse(), next.seed, next.calendar.day, next.calendar.hour)) return;
+    const boxes = next.buildings.filter((b) => b.status === 'done').map((b) => {
+      const r = footprintOf(b);
+      return { x: r.x * CELL, y: r.y * CELL, w: r.w * CELL, h: r.h * CELL };
+    });
+    const box = townBox(boxes, { x: (next.land.camp.x + 0.5) * CELL, y: (next.land.camp.y + 0.5) * CELL }, CELL);
+    const v = map.view;
+    try {
+      map.setCamera(box.x, box.y, box.w, box.h);
+      const c = app.renderer.extract.canvas({ target: map.world, frame: new Rectangle(box.x, box.y, box.w, box.h), resolution: Math.min(1, (SHOT_SIZE * 2) / box.w) }) as HTMLCanvasElement;
+      keepFrame(next.seed, { day: next.calendar.day, era: next.era, people: next.people.length, url: frameUrl(c) });
+    } catch (e) {
+      console.warn('timelapse', e); // (a picture missed is no matter)
+    } finally {
+      map.setCamera(v.x, v.y, v.w, v.h);
+    }
+  }
+  Object.assign(window, { __shootTown: () => ((shotTried = -1), snap && shootTown(snap)) });
+
   bridge.onSnapshot(applySnapshot);
   applySnapshot(first);
 

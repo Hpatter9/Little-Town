@@ -30,7 +30,7 @@ import { FOOD_VALUE } from '../data/people';
 import { buildingCentreX, depositNear } from './buildings';
 import { stabilize } from './health';
 import { treatSickness } from './doom';
-import { modifiers } from './research';
+import { researchMods } from './research';
 import { addStock, campX, ERA_MULTIPLIER, maxHp, notify, type Building, type CraftOrder, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { qualityBonus } from './origin';
@@ -71,7 +71,7 @@ export function missingItems(s: GameState, o: CraftOrder): string[] {
 export const PER_STATION = 3;
 /** Craft orders allowed at once: `PER_STATION` for every station standing (research adds more; never fewer than the
  *  campfire's few). */
-export const craftSlots = (s: Pick<GameState, 'research' | 'buildings'>) => Math.max(CRAFT_QUEUE_SLOTS, PER_STATION * s.buildings.filter((b) => b.status === 'done' && (STATIONS as readonly string[]).includes(b.def)).length) + modifiers(s.research).queueSlots;
+export const craftSlots = (s: Pick<GameState, 'research' | 'buildings'>) => Math.max(CRAFT_QUEUE_SLOTS, PER_STATION * s.buildings.filter((b) => b.status === 'done' && (STATIONS as readonly string[]).includes(b.def)).length) + researchMods(s.research).queueSlots;
 /** Orders a station of this kind can take: `PER_STATION` for each standing (one's worth before any stands). */
 export const stationSlots = (s: Pick<GameState, 'buildings'>, station: string) => PER_STATION * Math.max(1, s.buildings.filter((b) => b.status === 'done' && b.def === station).length);
 /** Orders queued at a station. */

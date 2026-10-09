@@ -13,6 +13,7 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { marchSummary } from '../../shared/sim/conquest/marches';
 import { CHATTER } from '../chatter';
 import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
+import { loadMet, meet, saveMet, tipsDue, tipsOn, type Tip } from './tips';
 
 export type Tone = 'red' | 'gold' | 'blue';
 const RANK: Record<Tone, number> = { red: 3, gold: 2, blue: 1 };
@@ -24,6 +25,8 @@ export interface NoticeAction {
   kind: 'watch' | 'panel' | 'recap' | 'map' | 'question';
   watch?: number;
   panel?: string;
+  /** The tab to open the menu at (panel/subtabs.ts). */
+  tab?: string;
   target?: { person?: number; building?: string; traveller?: number };
 }
 export interface Notice {
@@ -149,6 +152,11 @@ export function situationNotices(s: Snapshot): Notice[] {
   const pts = s.people.filter((p) => p.freePts > 0);
   if (pts.length && s.statsAsk) out.push({ key: `pts:${pts.map((p) => `${p.id}:${p.freePts}`).join(',')}`, tone: 'gold', mark: '+', title: pts.length === 1 ? `${pts[0].name} has ${pts[0].freePts} stat ${pts[0].freePts === 1 ? 'point' : 'points'} to spend` : `${pts.length} townsfolk have stat points to spend`, text: 'Strength, Dexterity, Vitality, Intellect, Wisdom or Charisma: on their Character tab. Left two days, they spend them their own way.', action: { label: 'People', kind: 'panel', panel: 'townsfolk' } });
   return out;
+}
+
+/** A tip as a notice (gold, with a way to where it lives). */
+export function tipNotice(t: Tip): Notice {
+  return { key: `tip:${t.id}`, tone: 'gold', mark: '💡', title: t.title, text: t.text, ...(t.panel ? { action: { label: t.label ?? 'Show me', kind: 'panel' as const, panel: t.panel, tab: t.tab } } : {}) };
 }
 
 /** The Journal's latest lines as notices (the newest first), the day's small change left out. */
@@ -295,6 +303,12 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
         bridge.command?.({ type: 'watch', expedition: a.watch! });
         break;
       case 'panel':
+        if (a.tab)
+          try {
+            localStorage.setItem(`littletown.subtab.${a.panel}`, a.tab);
+          } catch {
+            /* (no storage) */
+          }
         bridge.openPanel(a.panel!);
         break;
       case 'recap':
@@ -311,7 +325,10 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
     }
   };
 
-  const all = (): Notice[] => (snap ? [...situationNotices(snap), ...journalNotices(entries, snap)] : []);
+  // the first hour's tips (mobile/tips.ts): each met once, shown at the top till read
+  let met = loadMet();
+  const tips = (): Notice[] => (tipsOn() ? tipsDue(met, (k) => read.has(k)).map(tipNotice) : []);
+  const all = (): Notice[] => (snap ? [...tips(), ...situationNotices(snap), ...journalNotices(entries, snap)] : []);
   const unread = (ns: Notice[]) => ns.filter((n) => !read.has(n.key));
 
   const drawBubble = () => {
@@ -415,6 +432,10 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
   };
   bridge.onSnapshot((s) => {
     snap = s;
+    if (tipsOn()) {
+      const now = meet(s, met);
+      if (now.length !== met.length) saveMet((met = now));
+    }
     if (s.journalHead !== head0 && performance.now() - lastFetch > 1500) {
       head0 = s.journalHead;
       refresh();
