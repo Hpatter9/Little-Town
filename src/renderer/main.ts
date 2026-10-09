@@ -27,6 +27,8 @@ import { MapWater } from './map/mapWater';
 import { MapButterflies } from './map/mapButterflies';
 import { MapCritters } from './map/mapCritters';
 import { GroundFrost } from './map/groundFrost';
+import { WideWorld } from './map/wideWorld';
+import type { CourierView } from './map/mapCourier';
 import { BattleDebris } from './map/battleDebris';
 import { MapGraves } from './map/mapGraves';
 import { sunAt } from './art/sun';
@@ -133,6 +135,11 @@ function villagerFigures(s: Snapshot, now: number): PersonView[] {
     });
   }
   return out;
+}
+/** A courier riding in with news (map/mapCourier.ts), drawn as a traveller on horseback like an envoy. */
+function courierPerson(c: CourierView): PersonView {
+  const v = travellerPerson({ id: c.id, name: c.name, kind: 'courier', venue: 'shop', line: null, wants: '', temper: '', purse: 0, look: c.look, x: c.x, y: c.y, dir: c.dir, phase: 'arriving', tier: 0 });
+  return { ...v, typeName: 'Courier', mounted: c.coat, activity: c.riding ? 'walk' : 'idle', doing: c.line };
 }
 /** A power's envoy (sim/factions.ts), drawn as a traveller on horseback. */
 function envoyPerson(r: NonNullable<Snapshot['envoyRider']>): PersonView {
@@ -377,6 +384,12 @@ async function start(): Promise<void> {
   pets.onCatch = (id) => critters.caught(id);
   const frost = new GroundFrost(map.under);
   (window as unknown as { __critters?: unknown }).__critters = { critters, frost }; // (for previews)
+  // the wider world felt from home and the land's weather: far settlements past the fog, a host's torches, eyes in the
+  // dark, wisps, geese, couriers, tumbleweeds and dust devils, weathervanes and chimes, sun shafts (map/wideWorld.ts)
+  const wide = new WideWorld(map);
+  wide.geese.onHonk = (pan) => ambience.cue('honk', pan);
+  wide.vanes.onChime = (pan) => ambience.cue('windchime', pan);
+  (window as unknown as { __wide?: WideWorld }).__wide = wide; // (for previews)
   const graves = new MapGraves(map.things); // (a headstone for each of the fallen)
   // the town being itself: snowmen, snowballs, the coffin carried, the lookouts on the towers (map/mapTownLife.ts)
   const townLife = new MapTownLife(map.things, map.over, map.lights, (id) => people.posOf(id));
@@ -1700,6 +1713,7 @@ async function start(): Promise<void> {
     lamps.calm = map.calm;
     critters.sync(next, lamps.litGlows());
     critters.folk = birds.folk;
+    wide.sync(next, buildStyle === 'lich' || buildStyle === 'vampire', birds.folk);
     Object.assign(frost, { season: next.calendar.season, dayOfSeason: next.calendar.dayOfSeason, day: next.calendar.day, hour: next.calendar.hour, daylight: next.calendar.daylight, weather: next.weather.kind, cold: !!biomeById(next.biome).cold, buildings: next.buildings });
     skiffs.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.raid?.phase !== 'active';
     skiffs.era = next.era;
@@ -1792,7 +1806,7 @@ async function start(): Promise<void> {
     people.revived = next.revived ? { ...next.revived, at: performance.now() } : null;
     people.fx = next.fx.map((f) => ({ ...f, at: performance.now() }));
     people.update(
-      [...next.people.filter((p) => p.away === null), ...next.travellers.map(travellerPerson), ...(next.envoyRider ? [envoyPerson(next.envoyRider)] : []), ...villagerFigures(next, performance.now())],
+      [...next.people.filter((p) => p.away === null), ...next.travellers.map(travellerPerson), ...(next.envoyRider ? [envoyPerson(next.envoyRider)] : []), ...villagerFigures(next, performance.now()), ...wide.riders().map(courierPerson)],
       next.visitor,
       performance.now(),
     );
@@ -1883,6 +1897,7 @@ async function start(): Promise<void> {
     critters.cats = pets.cats();
     pets.prey = critters.prey();
     critters.render(ticker.deltaMS / 1000, performance.now());
+    wide.render(ticker.deltaMS / 1000);
     frost.render(ticker.deltaMS / 1000, map.view, snap?.land ?? null, map.calm);
     dragon.render(ticker.deltaMS / 1000);
     sky.render(ticker.deltaMS / 1000, app.screen.width, app.screen.height);
