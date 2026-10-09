@@ -73,7 +73,7 @@ export const FOUNDER_CLASSES: readonly FounderClassDef[] = [
   // the Orcs
   F('grakk', 'warrior', ['Boss', 'The Warchief', 'Warboss', 'Overlord of the Horde', 'The Great Waaagh'], 'Leads from the front, and the horde follows the noise.', { damage: 1.35, hp: 1.2 }),
   F('ushna', 'blood_knight', ['Raider', 'Bloodaxe', 'Reaver Queen', 'Scourge of the Roads', 'The Red Harvest'], 'Every wound she gives heals one of hers; she gives a great many.', { damage: 1.3, crit: 0.06 }),
-  F('mogra', 'shaman', ['Bone-Thrower', 'The Bone-Reader', 'Witch Doctor', 'Mother of Omens', 'The Last Bone'], 'Foul brews for the hurt and worse for the foe; the bones always say war.', { healing: 1.35, power: 1.2 }),
+  F('mogra', 'shaman', ['Bone-Thrower', 'The Bone-Reader', 'Grub-Seer', 'Mother of Omens', 'The Last Bone'], 'Foul brews for the hurt and worse for the foe; the bones always say war.', { healing: 1.35, power: 1.2 }),
 ];
 
 export const FOUNDER_CLASS: Readonly<Record<string, FounderClassDef>> = Object.fromEntries(FOUNDER_CLASSES.map((f) => [f.id, f]));

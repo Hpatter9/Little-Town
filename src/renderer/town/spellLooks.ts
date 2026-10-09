@@ -118,6 +118,9 @@ export const LOOKS: Record<string, Look> = {
   'rival:transmute': { sprite: 'hourglass', kind: 'rocks', color: SAND },
   'rival:rally': { sprite: 'holy', kind: 'ring', color: GOLD, also: 'aura', alt: GOLD },
   'rival:shield_wall': { sprite: 'parry', kind: 'dome', color: GOLD },
+  'rival:war_cry': { sprite: 'blood_storm', onCaster: true, kind: 'ring', color: BLOOD, also: 'aura', alt: EMBER },
+  'rival:war_drums': { sprite: 'void', kind: 'stream', color: BLOOD },
+  'rival:more_orcs': { sprite: 'portal', kind: 'vortex', color: ACID },
   'rival:oath': { sprite: 'suture', kind: 'rise', color: GOLD },
 };
 
