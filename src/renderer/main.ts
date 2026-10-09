@@ -74,7 +74,7 @@ import { OPERATORS } from '../shared/data/operators';
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { TERRAIN } from '../shared/data/terrain';
 import type { Bridge, InspectInfo, StripState } from '../shared/ipc';
-import { blueprintCount, buildingDoor, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
+import { blueprintCount, buildingCentre, buildingDoor, canPlace, defOf, depthOf, isUnlocked, type PlaceCheck } from '../shared/sim/buildings';
 import type { PersonView, RaiderView, RoamerView, Snapshot, TravellerView } from '../shared/sim/snapshot';
 import { lineOfDef, venueOfDef } from '../shared/data/shop';
 import { storePanel, type PanelId } from '../shared/ipc';
@@ -172,6 +172,10 @@ import { fightSounds, globalSounds, soundsBetween, tacticsSounds, workSounds } f
 import { createAmbience } from './ambience';
 import { readLevel } from './volume';
 import { ambientMix, type AmbientMix } from './ambienceMix';
+import { quietZones, zoneMix, zoneSources, type ZoneMix } from './soundZones';
+import { BUZZ, buzzesBetween, collapsesBetween, type Buzz } from './vibration';
+import { createReplayPlayer, type ReplayPlayer } from './replay/replayPlayer';
+import type { ReplayFrame } from '../shared/replay';
 import { createActionBar, createAwayCard, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
 import { createTooltip } from './tooltip';
 import { ExpeditionPane } from './town/expeditionPane';
@@ -409,11 +413,17 @@ async function start(): Promise<void> {
   (window as unknown as { __traffic?: unknown }).__traffic = { skiffs, traffic, ground: map.groundWeather }; // (previews)
   // the dragon in the sky (map/mapDragon.ts)
   const dragon = new MapDragon(map.over, map.under, map);
-  dragon.onFlight = (low, pan) => ambience.cue('roar', pan, low ? 0.2 : 0.8);
+  dragon.onFlight = (low, pan) => {
+    ambience.cue('roar', pan, low ? 0.2 : 0.8);
+    buzz('roar');
+  };
   (window as unknown as { __pets?: MapPets }).__pets = pets; // (for previews)
   // (thunder rolls in a moment after the flash, from the side it struck)
   pets.onSound = (kind, x) => ambience.cue(kind, ((x - map.view.x) / Math.max(1, map.view.w)) * 1.6 - 0.8);
-  water.onStrike = (x) => ambience.cue('thunder', ((x - map.view.x) / Math.max(1, map.view.w)) * 1.4 - 0.7, 0.3 + Math.random() * 1.2);
+  water.onStrike = (x) => {
+    ambience.cue('thunder', ((x - map.view.x) / Math.max(1, map.view.w)) * 1.4 - 0.7, 0.3 + Math.random() * 1.2);
+    buzz('thunder');
+  };
   (window as unknown as { __water?: MapWater }).__water = water; // (for previews)
   const pane = new ExpeditionPane(seedHash);
   const snow = new SnowView();
@@ -567,6 +577,15 @@ async function start(): Promise<void> {
     },
   };
   let ambMix: AmbientMix | null = null;
+  /** The sounds by place where the view is (soundZones.ts): quiet while the map isn't on the screen. */
+  let ambZones: ZoneMix = quietZones();
+  Object.assign(window, { __zones: () => ambZones }); // (previews)
+  /** A replay of the time away playing (replay/replayPlayer.ts): no sounds, buzzes or cards from its frames. */
+  let replaying = false;
+  /** The phone buzzes softly at the big moments (vibration.ts): the page does it, by its own setting. */
+  const buzz = (k: Buzz) => {
+    if (!replaying && !snap?.catchingUp) bridge.vibrate?.(BUZZ[k]);
+  };
   let wasRaid = false;
   const tip = createTooltip();
   const actions = createActionBar();
@@ -1438,7 +1457,7 @@ async function start(): Promise<void> {
     map.root.visible = !watched && !inMine && !below && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
     // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
-    if (view.music && !view.hidden) {
+    if (view.music && !view.hidden && !replaying) {
       const heard = map.root.visible
         ? soundsBetween(snap, next, map.view)
         : [
@@ -1447,6 +1466,13 @@ async function start(): Promise<void> {
             ...(next.tactics ? tacticsSounds(snap, next) : []),
           ];
       for (const c of heard) ambience.cue(c.cue, c.pan, c.delay);
+    }
+    // (the big moments buzz the phone: the horn, a quake, a building coming down, which is heard too where it's seen)
+    if (next.catchingUp == null && !replaying) {
+      for (const k of buzzesBetween(snap, next)) buzz(k);
+      const mv = map.view;
+      const fell = view.music && !view.hidden && map.root.visible ? collapsesBetween(snap, next).map((b) => buildingCentre(b)).find((c) => c.x >= mv.x && c.x <= mv.x + mv.w && c.y >= mv.y && c.y <= mv.y + mv.h) : undefined;
+      if (fell) ambience.cue('collapse', ((fell.x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
     }
     // (what rose and what was finished since the last snapshot: map/workSeen.ts)
     const gained = map.root.visible && !view.hidden ? gainsBetween(snap, next) : [];
@@ -1564,6 +1590,8 @@ async function start(): Promise<void> {
       //  trade, the sickle and the hoe; a few at most: sfx.ts)
       //  (only while the map is on the screen: not over a watched fight, the raid's board or a room looked into)
       const mapShown = map.root.visible;
+      // (the town heard where it is: the tavern, the market, the hymns, the forge, the herds, by the view: soundZones.ts)
+      ambZones = mapShown && !replaying ? zoneMix(zoneSources(next), v) : quietZones();
       if (mapShown) for (const c of workSounds(next, v)) ambience.cue(c.cue, c.pan, c.delay);
       if (mapShown && water.count > 0 && Math.random() < 0.012) ambience.cue('quack', Math.random() * 1.2 - 0.6);
       // (boots crunching in the snow, feet sucking in the mud: a few of the steps laid, panned by where they fell)
@@ -1642,7 +1670,7 @@ async function start(): Promise<void> {
     chores.sync({ buildings: next.buildings, people: next.people, tick: next.tick, era: next.era, weather: next.weather.kind, season: next.calendar.season, daylight: next.calendar.daylight, landW: next.land.w });
     gainsView.add(gained, finished, map.calm);
     for (const f of finished) people.cheer(f.builders, performance.now());
-    if (view.music && finished.length) {
+    if (view.music && finished.length && !replaying) {
       const f = finished[0];
       const mv = map.view;
       if (f.x >= mv.x && f.x <= mv.x + mv.w && f.y >= mv.y && f.y <= mv.y + mv.h) ambience.cue('built', ((f.x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
@@ -1775,8 +1803,97 @@ async function start(): Promise<void> {
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
   };
-  bridge.onSnapshot(applySnapshot);
+  // The time away replayed, sped up, before the report card (replay/replayPlayer.ts, shared/replay.ts): while the
+  // catch-up runs the town is veiled; at its end the page hands over the frames it kept, and they play through
+  // `applySnapshot` as light snapshots (the town as it is now, with the frame's clock, weather and buildings, and
+  // nobody about); the live snapshots wait meanwhile, and the latest is shown when it's done.
+  let replayBase: Snapshot = first;
+  let held: Snapshot | null = null;
+  const frameSnap = (f: ReplayFrame): Snapshot => ({
+    ...replayBase,
+    tick: f.tick,
+    calendar: f.calendar,
+    weather: f.weather,
+    buildings: f.buildings,
+    villageBuildings: f.villageBuildings,
+    castle: f.castle,
+    era: f.era,
+    people: [],
+    travellers: [],
+    visitor: null,
+    envoyRider: null,
+    raid: null,
+    battle: null,
+    tactics: null,
+    watch: null,
+    mine: null,
+    deepView: null,
+    portalView: null,
+    interior: null,
+    scene: null,
+    prompts: [],
+    away: null,
+    roamers: [],
+    spells: [],
+    fx: [],
+    gathering: null,
+    wagons: [],
+    disaster: null,
+    blood: [],
+    debris: [],
+    workingAt: [],
+    market: null,
+    catchingUp: undefined,
+  });
+  const replayer = createReplayPlayer(document.body, {
+    apply: (f) => applySnapshot(frameSnap(f)),
+    light: (d, hour) => {
+      map.setDaylight(d, false);
+      lightDaylight = d;
+      map.setSun(hour, d);
+      lamps.setDaylight(d);
+    },
+    done: () => {
+      const now = held ?? replayBase;
+      held = null;
+      snap = now; // (nothing "new" since the last frame: no flurry of gains or cheers)
+      applySnapshot(now);
+    },
+    shown: (on) => {
+      replaying = on;
+      bridge.replayShown?.(on);
+    },
+  });
+  (window as unknown as { __replay?: ReplayPlayer }).__replay = replayer; // (previews)
+  let wasCatching = first.catchingUp != null;
+  const startReplay = (n: Snapshot): boolean => {
+    const r = bridge.takeReplay?.();
+    if (!r) return false;
+    replayBase = n;
+    held = null;
+    select(null);
+    selectPerson(null);
+    replayer.start(r, performance.now());
+    return true;
+  };
+  bridge.onSnapshot((n) => {
+    if (replayer.playing) {
+      held = n;
+      return;
+    }
+    if (n.catchingUp != null) {
+      wasCatching = true;
+      replayer.veil(n.catchingUp);
+    } else if (wasCatching) {
+      wasCatching = false;
+      replayer.veil(null);
+      if (startReplay(n)) return;
+    }
+    applySnapshot(n);
+  });
   applySnapshot(first);
+  if (first.catchingUp != null) replayer.veil(first.catchingUp);
+  else startReplay(first); // (the page caught up before the strip had loaded)
 
   /* -------------------------------------------------------- frame loop */
 
@@ -1790,6 +1907,7 @@ async function start(): Promise<void> {
     __zoomAbout: (mx: number, my: number, from: number, to: number) => camera.shift((mx - viewW / 2) * (1 - from / to), (my - viewH / 2) * (1 - from / to)),
   });
   app.ticker.add((ticker) => {
+    replayer.tick(performance.now());
     const w = layoutSplit(); // the town's share of the width
     // zoomed (the strip got wider or narrower): keep the middle of the view where it was
     const h = app.screen.height;
@@ -1858,7 +1976,7 @@ async function start(): Promise<void> {
     frost.render(ticker.deltaMS / 1000, map.view, snap?.land ?? null, map.calm);
     dragon.render(ticker.deltaMS / 1000);
     sky.render(ticker.deltaMS / 1000, app.screen.width, app.screen.height);
-    if (ambMix) ambience.update(view.music && !view.hidden, ambMix, ticker.deltaMS / 1000);
+    if (ambMix) ambience.update(view.music && !view.hidden, ambMix, ticker.deltaMS / 1000, ambZones);
     butterflies.render(ticker.deltaMS / 1000, performance.now());
     map.renderPlaces(performance.now());
     map.renderAir(ticker.deltaMS / 1000);

@@ -21,6 +21,8 @@ import { postHunt } from '../../shared/sim/hunts';
 import { startRaid } from '../../shared/sim/raids';
 import { RAID_KIND_BY_ID } from '../../shared/data/raids';
 import { Rng } from '../../shared/rng';
+import { REPLAY_EVERY, ReplayRecorder, type Replay } from '../../shared/replay';
+import { mayBuzz, readVibrate } from '../vibration';
 
 const SAVE_KEY = 'littletown.save';
 const BACKUP_KEY = 'littletown.backup';
@@ -36,6 +38,8 @@ const LOOK_SLICE_MS = 6;
 const LOOK_PAUSE_MS = 60;
 const LOOK_AGAIN_MS = 5 * 60_000;
 const AUTOSAVE_MS = 30_000;
+/** A replay of the time away not taken by the strip in this long is dropped (the strip was never loaded to show it). */
+const REPLAY_KEEP_MS = 2 * 60_000;
 
 /** Browser storage can be missing or full; the game carries on either way. */
 function read(key: string): string | null {
@@ -80,6 +84,19 @@ export function mobileBridge(): Bridge {
     return null;
   })();
   const game = new GameLoop(loaded?.state ?? newGame(randomSeed()), (snap) => snapListeners.forEach((f) => f(snap)));
+  // The time away, replayed sped up before the report card (shared/replay.ts): a frame each game hour as the catch-up
+  // runs; at its end, kept for the strip to take (`takeReplay`) if it's worth a show, for `REPLAY_KEEP_MS`.
+  const recorder = new ReplayRecorder();
+  let replay: { r: Replay; at: number } | null = null;
+  game.sampler = {
+    every: REPLAY_EVERY,
+    take: (snap, done) => {
+      if (!done) return recorder.add(snap);
+      const s = game.state;
+      const r = recorder.finish(snap, { raidAtGate: s.raid?.waiting !== undefined, eventHeld: !!s.event?.held, gameOver: !!s.gameOver });
+      replay = r ? { r, at: Date.now() } : null;
+    },
+  };
   if (loaded) game.catchUp(Date.now() - loaded.savedAt, saveNow);
   else {
     saveNow();
@@ -143,8 +160,31 @@ export function mobileBridge(): Bridge {
   const inspectListeners = new Set<(info: InspectInfo | null) => void>();
   const actionListeners = new Set<(id: string) => void>();
   const pinchListeners = new Set<(phase: 'start' | 'move' | 'end', spread: number, mx: number, my: number) => void>();
+  const replayListeners = new Set<(on: boolean) => void>();
+  /** When the phone last buzzed (renderer/vibration.ts). */
+  let lastBuzz = -Infinity;
 
   return {
+    // (the strip asks; the buzz is made here, in the page the player touched: an iframe's own call may be refused)
+    vibrate: (pattern) => {
+      if (document.hidden || game.catchingUp || !readVibrate() || typeof navigator.vibrate !== 'function') return;
+      const now = performance.now();
+      if (!mayBuzz(lastBuzz, now)) return;
+      lastBuzz = now;
+      try {
+        navigator.vibrate([...pattern]);
+      } catch {}
+    },
+    takeReplay: () => {
+      const r = replay && Date.now() - replay.at < REPLAY_KEEP_MS ? replay.r : null;
+      replay = null;
+      return r;
+    },
+    replayShown: (on) => replayListeners.forEach((f) => f(on)),
+    onReplayShown: (cb) => {
+      replayListeners.add(cb);
+      return () => replayListeners.delete(cb);
+    },
     pinch: (phase, spread, mx = 0, my = 0) => pinchListeners.forEach((f) => f(phase, spread, mx, my)),
     onPinch: (cb) => {
       pinchListeners.add(cb);

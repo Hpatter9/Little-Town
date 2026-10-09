@@ -1121,10 +1121,16 @@
       /* a cutscene playing has the whole screen: no title bar, no tabs, no news bubble (mobile.ts toggles it) */
       body.scene #top,
       body.scene #tabs,
-      body.scene #notice-bubble {
+      body.scene #notice-bubble,
+      body.replay #top,
+      body.replay #tabs,
+      body.replay #notice-bubble,
+      body.replay #inspect,
+      body.replay #hint {
         display: none !important;
       }
-      body.scene #strip-box {
+      body.scene #strip-box,
+      body.replay #strip-box {
         bottom: env(safe-area-inset-bottom) !important;
       }
     </style>
