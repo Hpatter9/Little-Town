@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.49.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.50.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3857,3 +3857,18 @@ blocked by buildings, structures, trees and rocks)
   culled (`sourceable` in `planner.ts`). Pens are culled only when full or short of food, so towns queued buildings that
   cost hide and nobody could supply it. Now only pens kept for meat count. Later soaks (8 towns per origin, 15 days,
   after the Phase 4 farming) had no town die out: druids 29.6, dwarves 30.9, settlers 28.3.
+
+## Palisades that get finished (0.50.0; the owner's complaint: the ring was never built before the town outgrew it)
+
+- A first ring is about 116 pieces, and towns raised about 4 a day: two sections at a time, only with a build slot to
+  spare, and its wood never counted as wanted, so it was built from leftovers. Now the ring's sections in work have a
+  queue of their own (`blueprintCount` leaves them out; `RING_AT_ONCE` 5), a section is released with `RING_SPARE` 1.5
+  times its cost beyond what other sites wait on, the next `RING_GATHER_AHEAD` (8) planned sections' makings are in the
+  planner's demand (`ringWants` in sim/ringWall.ts, added in `needs`), so the town gathers for its wall, and a palisade
+  costs 4 wood and 20 s (a grate 5 and 25 s). Probe (20 days, main → now, pieces standing at day 19): druids 1 → 18 and
+  26 → 114 of 116 (finished), settlers 7 → 29; knights finished their first ring by day 14 and a wider one by day 19.
+  Test in `test/ringWall.test.ts`.
+- **No sound in the background (the owner's complaint):** `src/renderer/audioGate.ts`. Every Web Audio context (musicGen.ts,
+  ambience.ts: `gateContext`) is suspended and every recorded track (music.ts: `gateTrack`) paused the moment the page is
+  hidden (`visibilitychange`, `pagehide`, `freeze`), and carried on when it's back; while away `wake` does nothing, and
+  the music's next piece waits (`onBack`). A new sound source must go through it. Test: `test/audioGate.test.ts`.

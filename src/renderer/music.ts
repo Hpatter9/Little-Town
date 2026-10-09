@@ -4,6 +4,7 @@
 // recorded tracks (TinyRPGMusic by ansimuz and the boss themes, see CREDITS.md), never the same one twice running. A
 // change of mood fades to something of the new mood. Off by default; nothing plays while the strip is hidden.
 
+import { gateTrack, onBack, pageAway, ungateTrack } from './audioGate';
 import { createPlayer, type Player } from './musicGen';
 import { piecesFor, type Mood } from './musicScore';
 
@@ -52,6 +53,12 @@ export function createMusic(): Music {
   let rest: number | null = null;
   let seed = Math.floor(Math.random() * 1e6);
   let level = 1;
+  let waiting = false;
+  onBack(() => {
+    if (!waiting) return;
+    waiting = false;
+    begin();
+  });
 
   const stopAll = () => {
     if (rest !== null) clearTimeout(rest);
@@ -59,7 +66,10 @@ export function createMusic(): Music {
     player?.stop();
     if (audio) {
       const a = audio;
-      fade(a, 0, () => a.pause());
+      fade(a, 0, () => {
+        a.pause();
+        ungateTrack(a);
+      });
     }
     audio = null;
     now = null;
@@ -67,6 +77,11 @@ export function createMusic(): Music {
 
   const begin = () => {
     if (!on || !mood) return;
+    // (out of sight, the next piece waits till the game is back: audioGate.ts)
+    if (pageAway()) {
+      waiting = true;
+      return;
+    }
     const id = nextFor(mood, now, Math.random());
     now = id;
     const after = () => {
@@ -83,7 +98,9 @@ export function createMusic(): Music {
       a.preload = 'auto';
       a.volume = 0;
       audio = a;
+      gateTrack(a);
       a.onended = () => {
+        ungateTrack(a);
         if (audio === a) audio = null;
         after();
       };

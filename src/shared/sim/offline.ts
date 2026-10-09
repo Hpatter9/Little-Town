@@ -3,7 +3,7 @@
 // out to their defaults. Afterwards a "while you were away" report goes into the Town Journal.
 
 import { MATERIAL_NAMES, MATERIALS, type Stock } from '../data/materials';
-import { blueprintCount, totalStock } from './buildings';
+import { inWork, totalStock } from './buildings';
 import type { Sim } from './sim';
 import { addJournal, notify, type GameState } from './state';
 import { holdAtGate, openGate, RAID_WAIT_MS, raidAtGate } from './raidWait';
@@ -163,7 +163,7 @@ function stockChange(a: Stock, b: Stock): string {
 /** Nothing left to do: the player should set up the next batch. */
 function idleNote(s: GameState): string | null {
   const gathering = s.land.marked.length > 0;
-  if (gathering || blueprintCount(s) > 0 || s.research.queue.length > 0) return null;
+  if (gathering || s.buildings.some(inWork) || s.research.queue.length > 0) return null;
   return 'The queues ran dry: no building, research or gathering is waiting.';
 }
 

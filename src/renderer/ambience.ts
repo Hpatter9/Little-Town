@@ -5,6 +5,7 @@
 // after the lightning, and a war horn when a raid comes. On with the music (the ♪ button); silent while the strip is
 // hidden.
 
+import { gateContext, wake } from './audioGate';
 import type { AmbientMix } from './ambienceMix';
 
 const MASTER = 0.55;
@@ -48,6 +49,7 @@ export function createAmbience(): Ambience {
     const AC = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AC) return false;
     ctx = new AC();
+    gateContext(ctx);
     master = ctx.createGain();
     master.gain.value = 0;
     master.connect(ctx.destination);
@@ -60,8 +62,8 @@ export function createAmbience(): Ambience {
     beds.water = bed('lowpass', 520, 0.5);
     beds.fire = bed('bandpass', 1800, 2);
     // (the browser keeps the sound asleep until a touch: wake it on the next one)
-    const wake = () => void ctx?.resume().catch(() => undefined);
-    window.addEventListener('pointerdown', wake, { passive: true });
+    const wakeUp = () => wake(ctx);
+    window.addEventListener('pointerdown', wakeUp, { passive: true });
     return true;
   };
 
@@ -636,7 +638,7 @@ export function createAmbience(): Ambience {
       if (want !== on) {
         on = want;
         master.gain.setTargetAtTime(want ? MASTER * loudness : 0, ctx.currentTime, 0.6);
-        if (want) void ctx.resume().catch(() => undefined);
+        if (want) wake(ctx);
       }
       if (!on) return;
       t += dt;

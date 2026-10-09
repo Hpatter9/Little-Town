@@ -26,7 +26,7 @@ import { buildOrigin } from './nomads';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
 import { TRAINING_BUILDINGS, WAR_PEOPLE } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
-import { isGrate, isRingPiece, planRing, RING_PEOPLE } from './ringWall';
+import { isGrate, isRingPiece, planRing, ringWants, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
@@ -139,6 +139,8 @@ function needs(s: GameState): Needs {
   const demand: Stock = {};
   const want = (m: Material, n: number) => (demand[m] = (demand[m] ?? 0) + n);
   for (const b of s.buildings) if (inWork(b)) for (const [m, n] of Object.entries(stillNeeded(b)) as [Material, number][]) want(m, n);
+  // (and the ring wall's next sections, laid out but not yet in work: the town gathers for its wall)
+  for (const [m, n] of Object.entries(ringWants(s)) as [Material, number][]) want(m, n);
   for (const o of s.crafting) for (const [m, n] of Object.entries(craftNeeded(o)) as [Material, number][]) want(m, n * o.count);
   for (const [m, n] of Object.entries(RESERVE) as [Material, number][]) if (sourceable(s, m)) want(m, n);
   const used = MATERIALS.reduce((n, m) => n + (stock[m] ?? 0), 0);

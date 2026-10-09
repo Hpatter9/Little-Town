@@ -3,6 +3,7 @@
 // (a convolver on a made-up room) sits under it all. `play` starts a piece and calls back when it's done; `stop`
 // fades it out.
 
+import { gateContext, wake } from './audioGate';
 import { compose, pieceSeconds, type Instrument, type Note, type Piece } from './musicScore';
 
 const AHEAD = 0.25;
@@ -21,6 +22,7 @@ export function createPlayer(): Player | null {
   const AC = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
   const ctx = new AC();
+  gateContext(ctx);
   const out = ctx.createGain();
   out.gain.value = 0;
   out.connect(ctx.destination);
@@ -42,7 +44,7 @@ export function createPlayer(): Player | null {
   const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const nd = noise.getChannelData(0);
   for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-  window.addEventListener('pointerdown', () => void ctx.resume().catch(() => undefined), { passive: true });
+  window.addEventListener('pointerdown', () => wake(ctx), { passive: true });
 
   let volume = 0.2;
   let piece: Piece | null = null;
@@ -230,7 +232,7 @@ export function createPlayer(): Player | null {
     play(p, seed, done) {
       halt();
       gen++;
-      void ctx.resume().catch(() => undefined);
+      wake(ctx);
       piece = p;
       notes = compose(p, seed);
       next = 0;
