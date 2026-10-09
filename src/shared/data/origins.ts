@@ -195,7 +195,7 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     name: 'Crucible',
     town: 'Chronos Crucible',
     description: 'Alchemists and their experiments. Clever, and a little strange: newcomers come out changed.',
-    features: ['Research 30% faster', 'Newcomers gain a strange gift (an extra trait)', 'Poor builders', 'Workings: Transmute, Elixir, Volatile Flask'],
+    features: ['Research 30% faster', 'Newcomers gain a strange gift (an extra trait)', 'The Great Work: daily experiments (some explode) through five stages, homunculi and elixirs, to the Philosopher\'s Stone and the game won', 'Poor builders', 'Workings: Transmute, Elixir, Volatile Flask'],
     start: { companions: ['elder'], stores: { herbs: 15, berries: 18 }, research: ['herbalism', 'fire_keeping'] },
     rules: { research: 1.3, mutate: true, build: 0.85 },
     powers: ['transmute', 'elixir', 'volatile_flask'],

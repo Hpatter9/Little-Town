@@ -3517,6 +3517,16 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   iron (`IRON_HARM` iron, steel and ore in store) hurts the fair folk (`coldIron`: morale, favour); a charmed Court
   (`REVEL_AT`) holds revels under the full moon (morale, travellers). Prompt kind `ways` (`Prompt.ways`: system,
   about) is shown by the event box. Tests: `test/bargains.test.ts`.
+- **The alchemists' Great Work** (`data/greatWork.ts`, `sim/greatWork.ts`, `s.work`): at `WORK_HOUR` the best at
+  Research (`alchemist`) runs an experiment (`experiment`): the best transmutation the age and the stores allow
+  (`TRANSMUTATIONS`: clay to copper, stone to tin ore, copper or iron to silver, silver to gold, coal to gems), else a
+  potion (`POTIONS`: a lever's mark), on odds by their Research (`oddsOf`, better after Nigredo); failed, it may blow up
+  (`BLAST_CHANCE`: a wound, the nearest building alight on `FIRE_CHANCE`) or misfire (a sickness, a sour mood). Each
+  success adds progress; `advance` reaches each of the five `STAGES` at its mark, with its age and its offering in
+  store (told in the event box): Albedo grows homunculi (`HOMUNCULUS_DAYS`, up to `HOMUNCULI_MOST`, each
+  `HOMUNCULUS_WORK` on the town's work; now and then one runs off), Citrinitas mends every wound weekly, Rubedo makes
+  `RUBEDO_COINS` weekly, and the Philosopher's Stone wins the game (`s.gameOver.won`). Probe (15 days): about 12
+  experiments of 15 worked, progress 12. Tests: `test/greatWork.test.ts`.
 
 ## Known problem (fixed, watch)
 

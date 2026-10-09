@@ -27,7 +27,7 @@ function logList(lines: string[]): HTMLElement {
 export function heritageSection(s: Snapshot): HTMLElement[] {
   const h = s.heritage;
   if (!h) return [];
-  return [...groveSection(h), ...courtSection(h)];
+  return [...groveSection(h), ...courtSection(h), ...workSection(h)];
 }
 
 function groveSection(h: HeritageView): HTMLElement[] {
@@ -90,5 +90,30 @@ function courtSection(h: HeritageView): HTMLElement[] {
   }
   if (c.taken.length) out.push(el('div', 'hint', `Taken by the fair folk: ${c.taken.join(', ')}.`));
   if (c.log.length) out.push(logList(c.log));
+  return out;
+}
+
+function workSection(h: HeritageView): HTMLElement[] {
+  const w = h.work;
+  if (!w) return [];
+  const out: HTMLElement[] = [el('h2', '', 'Our ways: the Great Work')];
+  out.push(el('div', 'hint', 'Each morning the Crucible\'s best mind runs an experiment: a transmutation of base matter, or a potion for the town. Some explode. Each that works brings the Great Work on, through five stages, each opened by an offering, to the Philosopher\'s Stone: the Elixir of Life, and the game won.'));
+  const c = el('div', 'card work');
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', `⚗ ${w.stageName}`), el('span', 'card-size', `stage ${w.stage} of 5`));
+  c.append(top);
+  if (w.next) {
+    const row = el('div', 'bar-row');
+    const bar = el('div', 'bar');
+    const fill = el('div', 'bar-fill');
+    fill.style.width = `${Math.round(Math.min(1, w.progress / w.next.at) * 100)}%`;
+    bar.append(fill);
+    row.append(el('span', 'bar-label', 'Next'), bar, el('span', 'bar-text', `${w.next.name}: ${w.progress}/${w.next.at}`));
+    c.append(row, el('div', 'purpose', `Offering: ${w.next.offering}. ${w.next.gift}`));
+  } else c.append(el('div', 'purpose', 'The Great Work is complete.'));
+  c.append(el('div', 'purpose', `${w.alchemist ? `${w.alchemist} works the athanor (${w.odds}% odds)` : 'Nobody at the athanor'} · ${w.worked} of ${w.tried} experiments worked, ${w.blasts} blew up`));
+  out.push(c);
+  if (w.homunculi.length) out.push(el('div', 'hint', `Homunculi at work: ${w.homunculi.join(', ')}.`));
+  if (w.log.length) out.push(logList(w.log));
   return out;
 }

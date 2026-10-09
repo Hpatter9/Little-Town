@@ -4,15 +4,17 @@
 import type { Rng } from '../rng';
 import { answerBargain, courtView, type CourtView } from './bargains';
 import { groveView, type GroveView } from './grove';
+import { workView, type WorkView } from './greatWork';
 import type { GameState, Prompt } from './state';
 
 export interface HeritageView {
   grove: GroveView | null;
   court: CourtView | null;
+  work: WorkView | null;
 }
 
 export function heritageView(s: GameState): HeritageView | null {
-  const v: HeritageView = { grove: groveView(s), court: courtView(s) };
+  const v: HeritageView = { grove: groveView(s), court: courtView(s), work: workView(s) };
   return Object.values(v).some(Boolean) ? v : null;
 }
 

@@ -1190,6 +1190,8 @@ export interface GameState {
   grove?: import('./grove').GroveState;
   /** A fae town's Court and its bargains (sim/bargains.ts). */
   court?: import('./bargains').CourtState;
+  /** An alchemists' town's Great Work (sim/greatWork.ts). */
+  work?: import('./greatWork').WorkState;
   /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
   portals?: Portal[];
   watchingPortal?: RealmId;
