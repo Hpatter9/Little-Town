@@ -16,6 +16,8 @@ export type { Mood };
 
 export interface Music {
   update(on: boolean, mood: Mood): void;
+  /** How loud, a share of full (the ☰ menu's slider: volume.ts). */
+  setLevel(level: number): void;
   /** For previews: what's playing. */
   readonly now: string | null;
 }
@@ -49,6 +51,7 @@ export function createMusic(): Music {
   let on = false;
   let rest: number | null = null;
   let seed = Math.floor(Math.random() * 1e6);
+  let level = 1;
 
   const stopAll = () => {
     if (rest !== null) clearTimeout(rest);
@@ -86,19 +89,27 @@ export function createMusic(): Music {
       };
       a.onerror = () => after();
       void a.play().catch(() => after());
-      fade(a, VOLUME);
+      fade(a, VOLUME * level);
       return;
     }
     player ??= createPlayer();
     const piece = piecesFor(mood).find((p) => p.id === id);
     if (!player || !piece) return;
-    player.setVolume(VOLUME * 0.9);
+    player.setVolume(VOLUME * 0.9 * level);
     player.play(piece, seed++, after);
   };
 
   return {
     get now() {
       return now;
+    },
+    setLevel(v) {
+      level = Math.max(0, Math.min(1, v));
+      if (audio) {
+        cancelFade(audio);
+        audio.volume = VOLUME * level;
+      }
+      player?.setVolume(VOLUME * 0.9 * level);
     },
     update(want, m) {
       if (!want) {
@@ -122,10 +133,19 @@ export function createMusic(): Music {
   };
 }
 
+/** Each track's fade under way, so a slider moved mid-fade takes over from it. */
+const fading = new WeakMap<HTMLAudioElement, number>();
+function cancelFade(a: HTMLAudioElement): void {
+  fading.set(a, (fading.get(a) ?? 0) + 1);
+}
+
 function fade(a: HTMLAudioElement, to: number, done?: () => void): void {
   const from = a.volume;
   const start = performance.now();
+  cancelFade(a);
+  const mine = fading.get(a);
   const step = () => {
+    if (fading.get(a) !== mine) return;
     const t = Math.min(1, (performance.now() - start) / FADE_MS);
     a.volume = from + (to - from) * t;
     if (t < 1) requestAnimationFrame(step);

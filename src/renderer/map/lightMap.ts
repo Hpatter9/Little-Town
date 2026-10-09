@@ -13,9 +13,11 @@
 
 import { Container, Graphics, RenderTexture, Sprite, Texture, type Renderer } from 'pixi.js';
 import { footprint } from '../../shared/sim/buildings';
-import { clearLine, falloff, lightSources, occluders, type LightSource } from '../../shared/sim/lightField';
+import { clearLine, falloff, FLAME, lightSources, occluders, type LightSource } from '../../shared/sim/lightField';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { flicker, flickers, phaseOf } from './flicker';
+import { torchHours } from './townLife';
+import { LIGHT_KIND } from '../../shared/data/lighting';
 
 /** World px a texel of the light map covers, and texels a cell. */
 const SCALE = 8;
@@ -29,6 +31,13 @@ const ROOM = 0xb88a5a;
 const SCONCE = 0xffc888;
 const LANTERN = 0xc89a60;
 const LANTERN_RADIUS = 1.6;
+/** A torch carried (a guard on the night watch): a street torch's reach and flame, its shadows thrown as it moves. Its
+ *  pool is worked out where it stands, to the light map's texel, and kept for when it comes that way again. */
+const CARRIED_TORCH = LIGHT_KIND.neolithic.radius;
+/** Held up at about the shoulder (px above the feet). */
+const TORCH_HELD = 20;
+/** Carried torches' pools kept. */
+const TORCH_POOLS_MOST = 160;
 /** Where the rays of a light start, round its middle (cells): a light the size of a flame. */
 const SPREAD_X = [0.22, -0.22, 0.22, -0.22];
 const SPREAD_Y = [0.22, 0.22, -0.22, -0.22];
@@ -227,6 +236,11 @@ export class LightMap {
   private caveCells: number[] = [];
   private landW = 0;
   private lanterns: { x: number; y: number; id: number }[] = [];
+  /** Those carrying a torch, and their torches' pools by where they stood (`TORCH_POOLS_MOST`). */
+  private torches: { x: number; y: number; id: number }[] = [];
+  private torchPools = new Map<string, Pool>();
+  /** What stands in a carried torch's way (kept after the land's light is built). */
+  private field: Plan | null = null;
   private shown = false;
   calm = false;
 
@@ -246,8 +260,12 @@ export class LightMap {
       this.sprite.visible = false;
       return;
     }
-    // (the lanterns: everyone out of doors carries one after dark)
-    this.lanterns = this.calm ? [] : snap.people.filter((p) => p.away === null && !p.indoors && p.activity !== 'sleep').map((p) => ({ x: p.x, y: p.y, id: p.id }));
+    // (the torches: a guard on the night watch carries one, lit as a street torch is; the lanterns: everyone else out
+    //  of doors carries one after dark)
+    const out = snap.people.filter((p) => p.away === null && !p.indoors && p.activity !== 'sleep');
+    const torch = (p: (typeof out)[number]) => !!p.onWatch && torchHours(snap.calendar.hour);
+    this.torches = out.filter(torch).map((p) => ({ x: p.x, y: p.y - TORCH_HELD, id: p.id }));
+    this.lanterns = this.calm ? [] : out.filter((p) => !torch(p)).map((p) => ({ x: p.x, y: p.y, id: p.id }));
     const w = snap.land.w;
     const h = snap.land.h;
     const done = snap.buildings.filter((b) => b.status === 'done');
@@ -260,6 +278,7 @@ export class LightMap {
       this.occHash = hashOf(this.occ);
     }
     const key = [w, h, snap.era, L.lights.map((l) => `${l.id}${l.lit ? '+' : '-'}`).join(','), this.occHash].join('|');
+    this.field = { w, h, occ: this.occ!, castle, sources: [], rooms: [] };
     this.landW = w;
     this.caveCells = L.cave && snap.castle ? snap.castle.cells : [];
     if (key === this.key) return;
@@ -436,6 +455,16 @@ export class LightMap {
       s.position.set(p.x0 - x0, p.y0 - y0);
       s.alpha = lit.alpha * (this.calm ? 0.92 : flicker(f.kind, t, f.phase));
     }
+    // the torches carried: each a street torch's pool where it's held, the shadows of what stands near thrown from it
+    if (lit.alpha > 0.2 && this.field)
+      for (const p of this.torches) {
+        const pl = this.torchPool(this.field, p.x, p.y);
+        if (!pl.tex) continue;
+        const s = c.addChild(new Sprite(pl.tex));
+        s.blendMode = 'add';
+        s.position.set(pl.x0 - x0, pl.y0 - y0);
+        s.alpha = lit.alpha * (this.calm ? 0.92 : flicker('torch', t, (p.id * 2.39) % 6.283));
+      }
     // the lanterns people carry
     if (lit.alpha > 0.2)
       for (const p of this.lanterns) {
@@ -451,6 +480,27 @@ export class LightMap {
     c.destroy({ children: true });
     this.sprite.position.set(x0 * SCALE, y0 * SCALE);
     this.sprite.visible = true;
+  }
+
+  /** A carried torch's pool where it's held (world px), to the light map's texel, kept by where and by what stands
+   *  round it. */
+  private torchPool(plan: Plan, wx: number, wy: number): Pool {
+    const src: LightSource = { x: Math.round((wx / CELL) * PER_CELL) / PER_CELL, y: Math.round((wy / CELL) * PER_CELL) / PER_CELL, r: CARRIED_TORCH, own: null, color: FLAME, power: 1, kind: 'torch' };
+    const id = `${src.x},${src.y}`;
+    const key = poolKey(plan, src);
+    let p = this.torchPools.get(id);
+    if (!p || p.key !== key) {
+      p?.tex?.destroy(true);
+      p = pool(plan, src, key);
+      p.tex = flameTexture(p, FLAME);
+      if (this.torchPools.size >= TORCH_POOLS_MOST) {
+        const [oldest, q] = this.torchPools.entries().next().value as [string, Pool];
+        q.tex?.destroy(true);
+        this.torchPools.delete(oldest);
+      }
+    } else this.torchPools.delete(id);
+    this.torchPools.set(id, p);
+    return p;
   }
 
   /** Whether the map's own night tint should stand down (the light map darkens the night instead). */

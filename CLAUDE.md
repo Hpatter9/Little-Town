@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.47.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.48.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3790,6 +3790,38 @@ blocked by buildings, structures, trees and rocks)
   texture of its own (`flameTexture`, kept with the pool) drawn every frame at its flicker. The lanterns people carry
   flicker on their own beat (by id), and the street lamps' glows flicker by the age's light (steady when electric).
   Steady on a slow phone (`calm`). Tests: `test/flicker.test.ts`.
+
+## Sounds that match, and torches that light (the owner's asks)
+
+- **Every blow by the weapon in hand** (`renderer/sfx.ts`): `weaponCue` by the weapon's family (`FAMILY_CUE`: blades
+  `slash`, maces and flails `bash`, spears and polearms `stab`, bows `arrow`, crossbows `crossbow`, slings and thrown
+  `throw`, staves and wands `zap`, guns `gunshot`, automatics `burst`, energy `laser`, heavy `boom`); with none, a
+  caster's `zap`, a shooter's `throw`, else fists (`bash`); a beast's shape `bite`. A foe's blow by what it is
+  (`foeCue`: beasts `bite`, machines `laser`/`bash`, the rest `slash`/`arrow`). A shield turning a blow `block`; raiders'
+  own blows; the trail battle's towers (`ballista`) and fire.
+- **Every fight is heard:** a watched party's fight (`fightSounds`: each side's blows, spells, an ultimate's `ult`, the
+  hurt, the fallen, the victory or loss) and the raid's tactics board (`tacticsSounds`, from its `fx` and `hits`: blows
+  and shots by the striker's weapon, spells, mending, towers, traps' `snap`, chests, the lost). With the map hidden,
+  main.ts plays those and `globalSounds` (levels, coins, questions, a raid's end, the hours, gatherings, disasters), and
+  no longer the map's work, ducks and footsteps.
+- **The work as itself** (`workSounds`, `workCue`): `PersonView.work` (`workOf` in snapshot.ts: the task and the station
+  or building it's at) tells a crafter from a builder, so a station sounds of its trade (`stationCue`: `anvil`, `saw`,
+  `loom`, `reap` for tanning, `bubble`, `pound`, `chisel`, `machine`, `page`); paving `chisel`, a fire fought `splash`,
+  the sickle `reap`, the hoe `till`, study `page`. A building finished `built`; a tree felled `timber` and a rock
+  `crumble` (from `map.onFelled`, at most one every `FELL_HEARD_MS` 1.5 s, so a catch-up isn't a forest crashing
+  down). 25 new synth cues in ambience.ts. Tests: `test/sfx.test.ts`.
+- **Carried torches light like street torches** (`renderer/map/lightMap.ts`): a guard on the night watch (`onWatch`
+  in `torchHours`, as mapPeople draws the torch) casts a street torch's pool (`CARRIED_TORCH`, held `TORCH_HELD` px up),
+  stopped by buildings, trees and rocks as any light, flickering as a torch; worked out where it's held to the light
+  map's texel and kept (`torchPool`, up to `TORCH_POOLS_MOST`). Everyone else out after dark keeps the small lantern.
+
+- **Volume sliders (the owner's ask):** the ☰ menu has a Music volume and a Sound effects volume slider under the
+  Music on/off (`slider` in mobile/mobile.ts, `.volume` in mobile/index.html), each 0 to 100% in steps of 5. Moving one
+  sets the strip's level at once (`window.__volume` in main.ts: `music.setLevel`, `ambience.setLevel`, a share of each's
+  own full loudness; a slider moved mid-fade takes over from the fade, `cancelFade` in music.ts) and keeps it
+  (`src/renderer/volume.ts`: `littletown.musicVolume`, `littletown.sfxVolume`, read at start by `readLevel`). The ♪
+  button still turns both on and off. The menu scrolls when it's taller than the screen (held sideways it is). Test:
+  `test/volume.test.ts`.
 
 ## Known problem (fixed, watch)
 
