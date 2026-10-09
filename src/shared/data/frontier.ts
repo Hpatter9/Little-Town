@@ -42,8 +42,8 @@ export const CLAIM_HAUL: Record<string, Partial<Record<Material, number>>> = {
   rock: { stone: 20, flint: 4 },
   hill: { stone: 10, wood: 8 },
   marsh: { fiber: 12, herbs: 6 },
-  fertile: { grain: 10, berries: 10 },
-  grass: { fiber: 8, berries: 8 },
+  fertile: { clay: 8, fiber: 8, herbs: 4 },
+  grass: { fiber: 8, wood: 6 },
   sand: { clay: 10, stone: 6 },
 };
 export const JUMP_CHANCE = 0.06;

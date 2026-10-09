@@ -409,6 +409,7 @@ async function start(): Promise<void> {
     go: () => bridge.command({ type: 'battleGo' }),
     auto: (on) => bridge.command({ type: 'battleAuto', on }),
     speed: (n) => bridge.command({ type: 'battleSpeed', speed: n }),
+    skip: () => bridge.command({ type: 'raidSkip' }),
     pick: (person) => {
       battle.selectedPerson = person;
     },
@@ -1546,6 +1547,15 @@ async function start(): Promise<void> {
     traffic.on = skiffs.on && next.weather.kind !== 'snow';
     traffic.land = next.land;
     disaster.sync(next.disaster, next.land.w);
+    // (a raid skipped to its recap: a word over the fast-forwarding battle, sim/raidSkip.ts)
+    let skipNote = document.getElementById('raid-skipping');
+    if (next.raidSkipping && !skipNote) {
+      skipNote = document.createElement('div');
+      skipNote.id = 'raid-skipping';
+      skipNote.textContent = 'The town fights it out… ⏭';
+      document.body.append(skipNote);
+    }
+    if (skipNote) skipNote.style.display = next.raidSkipping ? '' : 'none';
     map.festival.sync(next.gathering);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);

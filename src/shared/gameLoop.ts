@@ -15,6 +15,9 @@ const SLEEP_GAP_MS = 60_000;
 const CATCH_UP_SLICE_MS = 80;
 const CATCH_UP_BATCH = 500;
 
+/** How long a frame spends running a raid being skipped (ms). */
+const SKIP_SLICE_MS = 24;
+
 export class GameLoop {
   private sim: Sim;
   private last = performance.now();
@@ -84,6 +87,14 @@ export class GameLoop {
     }
     this.lastWall = Date.now();
     const now = performance.now();
+    // (a raid being skipped to its recap runs flat out, a slice a frame: sim/raidSkip.ts)
+    if (this.sim.state.raidSkip && this.sim.state.raid && !this.sim.state.paused && this.speed > 0) {
+      const until = now + SKIP_SLICE_MS;
+      while (this.sim.state.raid && performance.now() < until) this.sim.step();
+      this.last = performance.now();
+      this.onTicks(this.snapshot());
+      return;
+    }
     // (a raid's battle can be played at 2 or 3 times: the sim simply runs that much more time)
     const fast = this.speed * battleSpeedNow(this.sim.state);
     const ms = (now - this.last) * fast;

@@ -14,7 +14,7 @@ export interface BattleHud {
   insets(): [number, number];
 }
 
-export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed(n: number): void; pick(person: number | null): void; spell(id: string | null): void }): BattleHud {
+export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed(n: number): void; skip(): void; pick(person: number | null): void; spell(id: string | null): void }): BattleHud {
   const top = document.createElement('div');
   top.id = 'battle-top';
   top.setAttribute('data-hit', '');
@@ -35,7 +35,13 @@ export function createBattleHud(on: { go(): void; auto(on: boolean): void; speed
   const speed = document.createElement('button');
   speed.className = 'tab battle-speed';
   speed.addEventListener('click', () => on.speed(((last?.speed ?? 1) % 3) + 1));
-  row.append(go, speed, auto);
+  // skip to the end: the town fights it out at once, and the recap shows (sim/raidSkip.ts)
+  const skip = document.createElement('button');
+  skip.className = 'tab battle-skip';
+  skip.textContent = 'Skip ⏭';
+  skip.title = 'Let the town fight it out, and skip to the recap';
+  skip.addEventListener('click', () => on.skip());
+  row.append(go, speed, auto, skip);
   // how much of the raid is decided: the raiders beaten (green) and got through (red), of all that came
   const progress = document.createElement('div');
   progress.className = 'battle-progress';

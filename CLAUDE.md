@@ -3565,6 +3565,14 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   and the machines...; the grove and the fae, the hold and the Order, the crucible and the machines...), added to its
   temper's rest in `realm()` and in the daily drift (sim/factions.ts); the Realm card says why
   (`FactionView.kin`). Tests: `test/originWins.test.ts`.
+- **Skip a raid to its recap (the owner's ask):** `sim/raidSkip.ts`. A battle's **Skip ⏭** (the trail's battle bar,
+  `battleHud.ts`; the tactics board's corner, `tacticsView.ts`; the `raidSkip` command) or the Town menu's Raid battles
+  row "Skip to the recap" (`s.skipRaids`, the `skipRaids` command; `skipRaidsTick` skips each raid as it turns active)
+  sets `s.raidSkip` (keeping the player's `autoBattle`): the town fights it out on auto (`setAutoBattle`, and the board
+  plays itself while `raidSkip` is set), and `GameLoop.pump` runs the sim flat out, `SKIP_SLICE_MS` a frame, until the
+  raid ends (the same ticks, so it ends as a watched raid would); `endRaid` restores the setting (`raidSkipOver`) and the
+  recap shows. "The town fights it out… ⏭" (`#raid-skipping`, `snapshot.raidSkipping`) sits over it meanwhile. Tests:
+  `test/raidSkip.test.ts`.
 - **Owner's calls with this batch:** stat points are spent the class's way by default (`statsHourly` asks only when
   `s.statsAsk === true`: the Town menu's row turns asking on); and a castle's or a hold's own rooms have no Look inside
   (`lookInside` refuses a `roomKind`; main.ts leaves the button off for a cell of `snapshot.castle`), since they are

@@ -11,6 +11,7 @@ import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
 import { marketsHourly, setRoute } from './markets';
 import { groveHourly } from './grove';
+import { skipRaid, skipRaidsTick } from './raidSkip';
 import { courtHourly } from './bargains';
 import { workHourly } from './greatWork';
 import { orderHourly } from './chivalry';
@@ -147,6 +148,7 @@ export class Sim {
       return;
     }
     for (const c of this.pending) this.apply(c);
+    skipRaidsTick(s); // (a town set to skip its raids: sim/raidSkip.ts)
     this.pending = [];
     if (s.paused) return;
 
@@ -394,6 +396,13 @@ export class Sim {
         break;
       case 'battleSpeed':
         setBattleSpeed(s, c.speed);
+        break;
+      case 'raidSkip':
+        skipRaid(s);
+        break;
+      case 'skipRaids':
+        s.skipRaids = c.on;
+        if (c.on) skipRaid(s);
         break;
       case 'tactics':
         tacticsOrder(s, c.order);

@@ -35,7 +35,7 @@ import { SKILL_NAMES } from '../../shared/data/skills';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift]), s.politics && [s.politics.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics.laws.map((l) => l.on), s.politics.log[0], s.politics.crimes, s.politics.strike, s.politics.tax], s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)]), heritageKey(s)]);
+  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift]), s.politics && [s.politics.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics.laws.map((l) => l.on), s.politics.log[0], s.politics.crimes, s.politics.strike, s.politics.tax], s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)]), heritageKey(s), s.skipRaids]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const used = blueprintCount(s);
@@ -103,6 +103,10 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   for (const [style, name] of [['trail', 'Trail (tower defence)'], ['tactics', 'Tactics board']] as const)
     styles.append(button(name, () => bridge?.command({ type: 'battleStyle', style }), { cls: `place small${s.battleStyle === style ? ' on' : ' quiet'}` }));
   out.push(styles, el('div', 'hint', s.battleStyle === 'tactics' ? 'Raids are fought turn by turn on a board cut from the land round the gate: height, facing and the turn order count. From the next raid.' : 'Raids come down winding trails past the towers to the gate. From the next raid.'));
+  const skips = el('div', 'row directions');
+  for (const [on, name] of [[false, 'Watch the raids'], [true, 'Skip to the recap']] as const)
+    skips.append(button(name, () => bridge?.command({ type: 'skipRaids', on }), { cls: `place small${s.skipRaids === on ? ' on' : ' quiet'}` }));
+  out.push(skips, el('div', 'hint', s.skipRaids ? 'Every raid is fought out by the town at once, and you see the recap when it is over.' : 'Raids are fought on screen; a battle\'s Skip button fights it out at once.'));
 
   // evolutions and stat points: put to the player, or the town's own call (sim/classes.ts, sim/attributes.ts)
   out.push(el('h2', '', 'Callings and stats'));

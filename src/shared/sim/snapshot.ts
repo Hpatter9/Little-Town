@@ -870,6 +870,9 @@ export interface Snapshot {
   families: FamilyLine[];
   /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
   markets: MarketView | null;
+  /** A raid being skipped to its recap, and whether every raid is (sim/raidSkip.ts). */
+  raidSkipping: boolean;
+  skipRaids: boolean;
   /** The town's people's own ways (sim/heritage.ts). */
   heritage: HeritageView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
@@ -1192,6 +1195,8 @@ export function snapshot(s: GameState): Snapshot {
     interior: interiorView(s, (p) => describe(s, p)),
     families: slow(s, 'families', () => familiesView(s)),
     markets: slow(s, 'markets', () => marketView(s)),
+    raidSkipping: !!s.raidSkip && !!s.raid,
+    skipRaids: !!s.skipRaids,
     heritage: slow(s, 'heritage', () => heritageView(s)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({

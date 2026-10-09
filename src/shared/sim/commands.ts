@@ -92,6 +92,9 @@ export type Command =
   | { type: 'battleGo' }
   | { type: 'battleAuto'; on: boolean }
   | { type: 'battleSpeed'; speed: number }
+  /** Skip the raid under way to its recap; or skip every raid (sim/raidSkip.ts). */
+  | { type: 'raidSkip' }
+  | { type: 'skipRaids'; on: boolean }
   | { type: 'battleStyle'; style: 'trail' | 'tactics' }
   /** Spend one of a townsperson's stat points (data/attributes.ts), or all of them their class's way (`attr` null). */
   | { type: 'spendStat'; person: number; attr: keyof Attrs | null }
@@ -260,6 +263,10 @@ export function parseCommand(raw: unknown): Command | null {
       return (c.op === 'watch' || c.op === 'done' || c.op === 'skip') && Number.isInteger(c.key) ? { type: 'scene', op: c.op, key: c.key as number } : null;
     case 'gameSpeed':
       return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'gameSpeed', speed: c.speed } : null;
+    case 'raidSkip':
+      return { type: 'raidSkip' };
+    case 'skipRaids':
+      return typeof c.on === 'boolean' ? { type: 'skipRaids', on: c.on } : null;
     case 'battleSpeed':
       return c.speed === 1 || c.speed === 2 || c.speed === 3 ? { type: 'battleSpeed', speed: c.speed } : null;
     case 'battleStyle':

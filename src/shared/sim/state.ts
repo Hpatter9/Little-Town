@@ -1117,6 +1117,10 @@ export interface GameState {
   battleStyle?: 'trail' | 'tactics';
   /** The tactics board's turns are the town's to play (unset: on); off, the player gives the orders. */
   tacticsAuto?: boolean;
+  /** The raid under way is being skipped to its recap (sim/raidSkip.ts), with the auto setting it had; and whether every
+   *  raid is skipped. */
+  raidSkip?: { auto?: boolean };
+  skipRaids?: boolean;
   /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */
   autoBattle?: boolean;
   /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */
