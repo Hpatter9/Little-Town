@@ -710,7 +710,9 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways';
+  /** A people's own question (the origins made deeper: sim/heritage.ts `answerWays`): whose, and about what. */
+  ways?: { system: string; about: string; id?: number };
   /** A question of the town's politics (sim/politics.ts): a council vote, a trial or a revolt. */
   politics?: 'vote' | 'trial' | 'revolt';
   /** A daughter village's question (sim/villages.ts): some would go and found one, or one is beset. */
@@ -1186,6 +1188,8 @@ export interface GameState {
   market?: import('./markets').MarketState;
   /** A druid town's grove (sim/grove.ts). */
   grove?: import('./grove').GroveState;
+  /** A fae town's Court and its bargains (sim/bargains.ts). */
+  court?: import('./bargains').CourtState;
   /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
   portals?: Portal[];
   watchingPortal?: RealmId;

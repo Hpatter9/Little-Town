@@ -3507,6 +3507,16 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   circle keeps a rite (`RITES`: the Greening, the Midsummer Fire, the Reaping, the Long Night: an offering for a mark,
   a gift of food or the hurt eased; poor without the offering). Probe (15 days, 5 towns): favour 13 to 49, guardians
   in three. Tests: `test/grove.test.ts`.
+- **The Fae Court's bargains** (`data/bargains.ts`, `sim/bargains.ts`, `s.court`): at `COURT_HOUR` every `OFFER_DAYS`
+  the Court offers one of `BARGAINS` (a `ways` prompt, `askWays` in sim/telling.ts, answered through sim/heritage.ts
+  `answerWays`; the town's own choice, `wise`, the default): a boon now (events' effects through `apply`), a price due
+  `due` days later (`s.court.debts`; besides the events' effects, `youth` (days of someone's life), `taken` (a child or
+  anyone, gone to the Court), `forget` (levels of the best at a skill)). The Court always collects (`collect`); a price
+  that can't be paid is forfeit: someone is taken (`takeAway`). Favour moves with bargains struck, paid and refused
+  (`STRUCK_FAVOUR`, `PAID_FAVOUR`, `REFUSED_FAVOUR`, `FORFEIT_FAVOUR`); refused, it may play a trick (`PRANKS`). Cold
+  iron (`IRON_HARM` iron, steel and ore in store) hurts the fair folk (`coldIron`: morale, favour); a charmed Court
+  (`REVEL_AT`) holds revels under the full moon (morale, travellers). Prompt kind `ways` (`Prompt.ways`: system,
+  about) is shown by the event box. Tests: `test/bargains.test.ts`.
 
 ## Known problem (fixed, watch)
 

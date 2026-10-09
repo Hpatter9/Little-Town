@@ -11,6 +11,7 @@ import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
 import { marketsHourly, setRoute } from './markets';
 import { groveHourly } from './grove';
+import { courtHourly } from './bargains';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -208,6 +209,7 @@ export class Sim {
     worldHourly(s); // (the realm beyond the town: sim/worldLife.ts)
     marketsHourly(s); // (prices, the trade house and its wagons: sim/markets.ts)
     groveHourly(s); // (a druid town's grove: sim/grove.ts)
+    courtHourly(s); // (a fae town's Court and its bargains: sim/bargains.ts)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);

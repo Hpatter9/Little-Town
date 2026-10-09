@@ -26,3 +26,25 @@ export function tellStory(s: GameState, title: string, story: string, words: str
   if (!opts.quiet) notify(s, `${title}.`, true);
   return prompt;
 }
+
+/** A people's own question in the event box (kind `ways`, answered by sim/heritage.ts `answerWays`). */
+export function askWays(s: GameState, ways: { system: string; about: string; id?: number }, title: string, story: string, words: string, options: string[], defaultOption: number, hours: number, who?: number): Prompt {
+  const cal = calendar(s.tick);
+  const prompt: Prompt = {
+    id: s.nextId++,
+    kind: 'ways',
+    ways,
+    expedition: null,
+    title,
+    text: story.split('. ')[0] + '.',
+    story,
+    picture: eventPicture(`ways:${ways.system}:${ways.about}`, words, { hour: cal.hour, season: cal.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) }),
+    who: who ?? s.mainId,
+    options,
+    defaultOption,
+    expiresTick: s.tick + hours * TICKS_PER_HOUR,
+  };
+  s.prompts.push(prompt);
+  notify(s, `${title}: a question for the town.`, true);
+  return prompt;
+}

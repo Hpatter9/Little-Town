@@ -243,7 +243,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
         tell(snap);
         return;
       }
-      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt'));
+      const p = snap.prompts.find((q) => !read.has(q.id) && (q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways'));
       const on = !!p && !away;
       el.hidden = !on;
       document.body.classList.toggle('event-open', on);

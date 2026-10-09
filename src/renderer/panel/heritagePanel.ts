@@ -27,7 +27,7 @@ function logList(lines: string[]): HTMLElement {
 export function heritageSection(s: Snapshot): HTMLElement[] {
   const h = s.heritage;
   if (!h) return [];
-  return [...groveSection(h)];
+  return [...groveSection(h), ...courtSection(h)];
 }
 
 function groveSection(h: HeritageView): HTMLElement[] {
@@ -62,5 +62,33 @@ function groveSection(h: HeritageView): HTMLElement[] {
   }
   if (g.guardians.length) out.push(grid);
   if (g.log.length) out.push(logList(g.log));
+  return out;
+}
+
+function courtSection(h: HeritageView): HTMLElement[] {
+  const c = h.court;
+  if (!c) return [];
+  const out: HTMLElement[] = [el('h2', '', 'Our ways: the Court')];
+  out.push(el('div', 'hint', 'Every few nights at moonrise the Fae Court comes with a bargain: a boon now, a price later. The fair folk always collect, and a price that can\'t be paid is taken another way. Refused, they sulk. Cold iron in the stores hurts them all; a charmed Court holds revels under the full moon.'));
+  const card = el('div', `card court${c.revels ? ' blessed' : c.favour < -20 ? ' angry' : ''}`);
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', `🧚 ${c.mood}`), el('span', 'card-size', `favour ${c.favour > 0 ? '+' : ''}${c.favour}`));
+  card.append(top, favourBar(c.favour));
+  card.append(el('div', 'purpose', `${c.struck} bargain${c.struck === 1 ? '' : 's'} struck, ${c.refused} refused. The next comes in about ${c.nextDays} day${c.nextDays === 1 ? '' : 's'}.`));
+  if (c.ironHurts) card.append(el('div', 'lock short', `${c.iron} cold iron in the stores: the fair folk feel it.`));
+  if (c.revels) card.append(el('div', 'purpose', 'Charmed: the Court holds revels under the full moon.'));
+  out.push(card);
+  if (c.debts.length) {
+    out.push(el('h2', '', 'Our ways: what we owe'));
+    for (const d of c.debts) {
+      const dc = el('div', 'card');
+      const t = el('div', 'card-top');
+      t.append(el('span', 'card-name', d.title), el('span', 'card-size', d.days ? `due in ${d.days} day${d.days > 1 ? 's' : ''}` : 'due today'));
+      dc.append(t, el('div', 'purpose', `The price: ${d.price}.`));
+      out.push(dc);
+    }
+  }
+  if (c.taken.length) out.push(el('div', 'hint', `Taken by the fair folk: ${c.taken.join(', ')}.`));
+  if (c.log.length) out.push(logList(c.log));
   return out;
 }

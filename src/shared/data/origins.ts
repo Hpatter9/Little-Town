@@ -185,7 +185,7 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     name: 'Fae Court',
     town: 'Chronos Glade',
     description: 'The fair folk. Their glamour charms coin from strangers, and strangers into staying.',
-    features: ['Strangers pay half again as much', 'Glamoured travellers may join the town', 'Iron dulls them: crafting slower', 'Spells: Glamour, Changeling, Faerie Ring'],
+    features: ['Strangers pay half again as much', 'Glamoured travellers may join the town', 'The Court comes at moonrise with bargains: a boon now, a price later, and the fair folk always collect', 'Cold iron in the stores hurts them; a charmed Court holds revels under the full moon', 'Iron dulls them: crafting slower', 'Spells: Glamour, Changeling, Faerie Ring'],
     start: { companions: ['gatherer'], stores: { berries: 20, herbs: 6 } },
     rules: { prices: 1.5, travellers: 1.2, craft: 0.8, moraleFloor: 25 },
     powers: ['glamour', 'changeling', 'faerie_ring'],
