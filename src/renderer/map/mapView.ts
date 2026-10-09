@@ -291,6 +291,9 @@ export class MapView {
   private frost = false;
   private highlight: number | null = null;
   private land: LandMap | null = null;
+  /** The gates shut (by night, or with raiders coming): main.ts sets it each snapshot, and the palisade's gates are
+   *  drawn with their doors closed (`wallJoin`). */
+  gatesShut = false;
   private season = 'summer';
   private era: Era = 'neolithic';
   private biome = 'forest';
@@ -913,6 +916,13 @@ export class MapView {
    *  (undefined for anything but a wall, so other pictures are untouched). */
   private wallJoin(b: Building): Join | undefined {
     const def = BUILDING_BY_ID[b.def];
+    // (the palisade's gate: which wall it stands in, by where the camp is, and whether it's shut: packBuildings.ts)
+    if (b.def === 'palisade_gate' && this.land) {
+      const f = footprint(b);
+      const shut = this.gatesShut ? 'x' : '';
+      if (b.turned) return ((f.x + f.w / 2 < this.land.camp.x + 0.5 ? 'v' : 've') + shut) as Join;
+      return ((f.y + f.h / 2 < this.land.camp.y + 0.5 ? 'gn' : 'gs') + shut) as Join;
+    }
     if (b.turned && def?.hp) return 'v'; // (a gate standing down a column)
     if (!def?.hp || def.width !== 1 || def.defense) return undefined;
     const cells = this.wallCellsNow();

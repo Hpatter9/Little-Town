@@ -337,3 +337,8 @@ is put together from the pack's man's body (turned to sacking), its first peasan
 - Additional Half-Kaizer poses by Aleesa Tana.
 - Armor, weapon, shield, helmet, hair, skeleton, zombie, demon, fairy, mecha, wolf, boar, pumpkin, turkey, slime,
   skullbird, dragon, cactus, and other sprites are from Himeko Sutori and Septaroad Voyager by Rockwell Studios, LLC.
+
+The palisade's gate (`src/renderer/map/packBuildings.ts`, `gateFront`, `gateSide`) is the Village Tileset's own gate
+frame (`src/renderer/art/village/palisade36.png`, `37`, `44`, `45`) with its animated double doors (`gate_door.png`,
+`gate_door_side.png`), from **Craftpix.net**'s free Village Pixel Tileset for top-down defence; the steps up to it
+are the ladder of **Craftpix.net**'s free Green Zone Tileset (`gate_ladder.png`), recoloured to the palisade's wood.

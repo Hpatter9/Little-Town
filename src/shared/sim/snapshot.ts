@@ -92,7 +92,8 @@ import type { MonsterKind } from '../data/monsters';
 import { ENEMIES } from '../data/enemies';
 import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
-import { alarmRaised, cavalry, onShift } from './people';
+import { alarmRaised, cavalry, gateTop, onShift } from './people';
+import { isGate } from './ringWall';
 import type { Era } from '../data/eras';
 import { ITEM_BY_ID, ITEMS, type Slot } from '../data/items';
 import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
@@ -308,6 +309,9 @@ export interface PersonView {
   bedward?: boolean;
   guard?: boolean;
   onWatch?: boolean;
+  /** Standing up on top of a gate (a sentry by night, a shooter on its wall spot in a battle): the map lifts them onto
+   *  the beam. 'h' a gate across a row, 'v' one turned down a column. */
+  onGate?: 'h' | 'v';
   /** Monsters: what they are and their standing order for the Hunter's Guild. */
   monster: string | null;
   /** Neither eats nor sleeps (the dead, the lich, machines). */
@@ -1753,6 +1757,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     bedward: p.task?.type === 'sleep' && p.activity === 'walk',
     guard: !!p.guard,
     onWatch: onShift(s, p),
+    ...gateView(s, p),
     monster: p.monster ?? null,
     tireless: tireless(p),
     order: p.monster ? (p.order ?? 'hide') : null,
@@ -2230,4 +2235,21 @@ function annalsView(s: GameState): AnnalsView {
     .slice(0, HALL_FAMOUS)
     .map((p) => ({ id: p.id, name: p.name, calling: callingName(p, stageOf(p)), level: levelOf(p), felled: p.felled ?? 0, trips: p.trips ?? 0, titles: [...(p.titles ?? [])], founder: p.id === s.mainId }));
   return { fallen: annalsCache.fallen, chronicles: annalsCache.chronicles, famous };
+}
+
+/** Whether someone stands on top of a gate: a sentry at their post (people.ts `gatePost`), or a fighter at a wall spot
+ *  on a gate in a battle on the trail, arrived. */
+function gateView(s: GameState, p: Person): { onGate?: 'h' | 'v' } {
+  let gate: Building | undefined;
+  const t = p.task;
+  if (t?.type === 'patrol' && t.post !== undefined) gate = s.buildings.find((b) => b.id === t.post);
+  else if (t?.type === 'defend' && s.raid?.battle) {
+    const b = s.raid.battle;
+    const unit = b.units.find((u) => u.person === p.id);
+    const spot = unit && b.map.spots.find((q) => q.id === unit.spot);
+    if (spot?.kind === 'wall' && spot.building !== undefined) gate = s.buildings.find((q) => q.id === spot.building);
+  }
+  if (!gate || gate.status !== 'done' || !isGate(gate.def)) return {};
+  const top = gateTop(gate);
+  return Math.hypot(p.x - top.x, p.y - top.y) < 6 ? { onGate: gate.turned ? 'v' : 'h' } : {};
 }

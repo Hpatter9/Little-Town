@@ -11,7 +11,7 @@
 // autopilot (the tests' plainGame); the tests spawn bands themselves.
 
 import { roadSafety } from './roamers';
-import { BAND_FIRST_DAY, BAND_HOURLY, BAND_SIZE, BAND_SPEED, BAND_WEIGHTS, BANDIT_BUDGET_SHARE, BANDITS_FROM_DAY, BANDITS_PEOPLE, CATCH_BASE, CATCH_PER_LEVEL, MEMBER_KIND, PASS_HOURS, REFUGEE_FOOD, REFUGEE_OPTIONS, REFUGEE_REPUTATION, REFUGEE_REST_HOURS, REFUGEE_WAIT_HOURS, STRIKE_FROM, STRIKE_UNTIL, WAGON_LAG, type BandKind } from '../data/bands';
+import { BAND_FIRST_DAY, BAND_HOURLY, BAND_SIZE, BAND_SPEED, BAND_WEIGHTS, BANDIT_BUDGET_SHARE, BANDITS_FROM_DAY, BANDITS_PEOPLE, CATCH_BASE, CATCH_PER_LEVEL, GATE_SENTRY_CATCH, MEMBER_KIND, PASS_HOURS, REFUGEE_FOOD, REFUGEE_OPTIONS, REFUGEE_REPUTATION, REFUGEE_REST_HOURS, REFUGEE_WAIT_HOURS, STRIKE_FROM, STRIKE_UNTIL, WAGON_LAG, type BandKind } from '../data/bands';
 import { venueOfDef } from '../data/shop';
 import type { Material } from '../data/materials';
 import { ORIGIN_DEFS, rulesOf } from '../data/origins';
@@ -25,7 +25,7 @@ import { onShift } from './people';
 import { raidBudget, startRaid } from './raids';
 import { strangerName } from './shop';
 import { makeStranger, strangerLook, strangerOrigin } from './strangers';
-import { campXY, edgeXY, makePerson, notify, townFull, type Band, type GameState, type Person, type Traveller } from './state';
+import { campXY, dist, edgeXY, makePerson, notify, townFull, type Band, type GameState, type Person, type Traveller } from './state';
 import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { eventPicture } from '../data/eventScenes';
 import { seaTown } from './sea';
@@ -250,7 +250,9 @@ export function seenThrough(s: GameState, rng: Rng): Person | null {
   const watch = s.people.filter((p) => p.away === null && !p.downed && p.guard && onShift(s, p));
   if (!watch.length) return null;
   const best = [...watch].sort((a, b) => fighting(b) - fighting(a))[0];
-  return rng.chance(CATCH_BASE + CATCH_PER_LEVEL * fighting(best)) ? best : null;
+  // (a sentry up on a gate sees more: sim/people.ts gatePost)
+  const sentry = watch.some((p) => p.task?.type === 'patrol' && p.task.post !== undefined && dist(p, { x: p.task.targetX, y: p.task.targetY }) < 4);
+  return rng.chance(CATCH_BASE + CATCH_PER_LEVEL * fighting(best) + (sentry ? GATE_SENTRY_CATCH : 0)) ? best : null;
 }
 const fighting = (p: Person) => Math.max(p.skills.melee.level, p.skills.ranged.level);
 

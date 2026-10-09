@@ -80,6 +80,9 @@ import type { PersonView, RaiderView, RoamerView, Snapshot, TravellerView } from
 import { lineOfDef, venueOfDef } from '../shared/data/shop';
 import { storePanel, type PanelId } from '../shared/ipc';
 /** The window a venue's building opens (the shop, the tavern, or a specialty shop's). */
+/** The hours the gates stand shut (map/mapView.ts `gatesShut`). */
+const GATES_SHUT_FROM = 21;
+const GATES_OPEN_AT = 6;
 const venuePanel = (def: string): PanelId | undefined => (lineOfDef(def) ? storePanel(lineOfDef(def)!) : venueOfDef(def));
 import { buildingTint } from './theme';
 
@@ -1638,6 +1641,8 @@ async function start(): Promise<void> {
     minimap.setLand(next.land, next.calendar.season);
     map.tick = next.tick;
     stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
+    // (the gates shut at night and when raiders come: the palisade's are drawn closed)
+    map.gatesShut = next.calendar.hour >= GATES_SHUT_FROM || next.calendar.hour < GATES_OPEN_AT || !!next.raid;
     map.syncBuildings(next.villageBuildings.length ? [...next.buildings, ...next.villageBuildings] : next.buildings);
     felling.season = next.calendar.season;
     felling.sync(next.land, next.buildings);
