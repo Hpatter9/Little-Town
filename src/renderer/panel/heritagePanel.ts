@@ -27,7 +27,7 @@ function logList(lines: string[]): HTMLElement {
 export function heritageSection(s: Snapshot): HTMLElement[] {
   const h = s.heritage;
   if (!h) return [];
-  return [...groveSection(h), ...courtSection(h), ...workSection(h)];
+  return [...groveSection(h), ...courtSection(h), ...workSection(h), ...orderSection(h)];
 }
 
 function groveSection(h: HeritageView): HTMLElement[] {
@@ -115,5 +115,37 @@ function workSection(h: HeritageView): HTMLElement[] {
   out.push(c);
   if (w.homunculi.length) out.push(el('div', 'hint', `Homunculi at work: ${w.homunculi.join(', ')}.`));
   if (w.log.length) out.push(logList(w.log));
+  return out;
+}
+
+function orderSection(h: HeritageView): HTMLElement[] {
+  const o = h.order;
+  if (!o) return [];
+  const out: HTMLElement[] = [el('h2', '', 'Our ways: the Order')];
+  out.push(el('div', 'hint', 'The Order lives by its code. Its people swear vows and are honoured or shamed by how they keep them; the worthy are knighted; a tournament is held each week; the liege calls for service; and an Order rich in honour rides out after the Holy Grail, which wins the game.'));
+  const c = el('div', 'card order');
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', `🛡 ${o.name}`), el('span', 'card-size', `honour ${o.honour}`));
+  c.append(top, favourBar(o.honour));
+  c.append(el('div', 'purpose', `${o.kept} vows kept, ${o.broken} broken · next tournament in ${o.tourneyDays} day${o.tourneyDays === 1 ? '' : 's'}`));
+  if (o.knights.length) c.append(el('div', 'purpose', `Knights of the Order: ${o.knights.join(', ')}`));
+  if (o.liege) c.append(el('div', 'purpose', `In the liege's service: ${o.liege.names.join(' and ')} (home in ${o.liege.hours}h).`));
+  out.push(c);
+  const g = el('div', 'card grail');
+  const gt = el('div', 'card-top');
+  gt.append(el('span', 'card-name', '🏆 The Holy Grail'), el('span', 'card-size', `${o.grail.stage} of ${o.grail.of}`));
+  g.append(gt, el('div', 'purpose', o.grail.rider ? `${o.grail.rider} rides to ${o.grail.next}.` : o.grail.next ? (o.honour >= o.grail.needs ? `Next: ${o.grail.next}. The Order's best will ride out.` : `The quest waits for the Order's honour to reach ${o.grail.needs}.`) : 'The Grail is found.'));
+  out.push(g);
+  if (o.vows.length) {
+    out.push(el('h2', '', 'Our ways: vows sworn'));
+    for (const v of o.vows) {
+      const vc = el('div', 'card');
+      const vt = el('div', 'card-top');
+      vt.append(el('span', 'card-name', v.who), el('span', 'card-size', `${v.days} day${v.days === 1 ? '' : 's'} left`));
+      vc.append(vt, el('div', 'purpose', `Has sworn ${v.vow}: ${v.text}.`));
+      out.push(vc);
+    }
+  }
+  if (o.log.length) out.push(logList(o.log));
   return out;
 }

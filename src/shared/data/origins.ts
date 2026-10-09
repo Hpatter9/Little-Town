@@ -205,7 +205,7 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     name: 'Exiled Order',
     town: 'Chronos Bastion',
     description: 'Knights in exile. Armed and armoured from the first day, hard to break, slow to learn a trade.',
-    features: ['Start with three fighters, arms and armour, and palisades known', 'Fight harder, take less harm', 'Crafting slower, research slower', 'Rites: Rally, Shield Wall, Oath of Mending'],
+    features: ['Start with three fighters, arms and armour, and palisades known', 'Fight harder, take less harm', 'The code: vows sworn and kept (or broken), knighthoods, weekly tournaments, the liege\'s call, and the Grail quest, which wins the game', 'Crafting slower, research slower', 'Rites: Rally, Shield Wall, Oath of Mending'],
     start: {
       companions: ['hunter', 'hunter'],
       stores: { berries: 24, wood: 20 },

@@ -572,6 +572,8 @@ export interface Person {
   lvXp?: number;
   /** Raiders this person has struck the last blow on (sim/raidRecap.ts), for the hall of heroes. */
   felled?: number;
+  /** A knight of the Order who has kept a vow (sim/chivalry.ts): worthy of being dubbed. */
+  keptVow?: boolean;
   /** The class stage last announced (an evolution is told once). */
   stageSeen?: number;
   /** Has reached their class's last stage (classes.ts ascend): rare and late. */
@@ -1192,6 +1194,8 @@ export interface GameState {
   court?: import('./bargains').CourtState;
   /** An alchemists' town's Great Work (sim/greatWork.ts). */
   work?: import('./greatWork').WorkState;
+  /** A knights' town's Order: vows, honour, tournaments, the liege, the Grail (sim/chivalry.ts). */
+  order?: import('./chivalry').OrderState;
   /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
   portals?: Portal[];
   watchingPortal?: RealmId;

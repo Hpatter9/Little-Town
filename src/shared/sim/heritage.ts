@@ -5,16 +5,18 @@ import type { Rng } from '../rng';
 import { answerBargain, courtView, type CourtView } from './bargains';
 import { groveView, type GroveView } from './grove';
 import { workView, type WorkView } from './greatWork';
+import { answerOrder, orderView, type OrderView } from './chivalry';
 import type { GameState, Prompt } from './state';
 
 export interface HeritageView {
   grove: GroveView | null;
   court: CourtView | null;
   work: WorkView | null;
+  order: OrderView | null;
 }
 
 export function heritageView(s: GameState): HeritageView | null {
-  const v: HeritageView = { grove: groveView(s), court: courtView(s), work: workView(s) };
+  const v: HeritageView = { grove: groveView(s), court: courtView(s), work: workView(s), order: orderView(s) };
   return Object.values(v).some(Boolean) ? v : null;
 }
 
@@ -23,5 +25,7 @@ export function answerWays(s: GameState, prompt: Prompt, option: number, rng: Rn
   switch (prompt.ways?.system) {
     case 'court':
       return answerBargain(s, prompt, option, rng);
+    case 'order':
+      return answerOrder(s, prompt, option);
   }
 }

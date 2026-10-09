@@ -3527,6 +3527,18 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   `HOMUNCULUS_WORK` on the town's work; now and then one runs off), Citrinitas mends every wound weekly, Rubedo makes
   `RUBEDO_COINS` weekly, and the Philosopher's Stone wins the game (`s.gameOver.won`). Probe (15 days): about 12
   experiments of 15 worked, progress 12. Tests: `test/greatWork.test.ts`.
+- **The knights' code** (`data/chivalry.ts`, `sim/chivalry.ts`, `s.order`): the Order's honour (−100..100). At
+  `CODE_HOUR` grown-ups swear vows (`VOWS`: valour (fell a foe in time), poverty (what they earn past `POVERTY_MOST`
+  goes to the Order; owning property breaks it), temperance (no drink at the tavern), chastity (no partner), vigil (stay
+  a guard)); `checkVows` hourly: kept to the end (or valour's foe felled), honour, a level of melee and spirits
+  (`Person.keptVow`); broken, shame (`Person.sore`, honour). The kept with melee `KNIGHT_LEVEL` are dubbed (`dub`: the
+  title Knight of the Order, told in the event box). A tournament every `TOURNEY_DAYS` at `TOURNEY_HOUR` (`tourney`:
+  the best `TOURNEY_ENTRANTS` against visiting knights of `VISITOR_LEVEL` plus the days; winners take `TOURNEY_PURSE`,
+  the crowd draws travellers). The liege's call every `LIEGE_DAYS` (`liegeCall`, a `ways` question: `LIEGE_SENT` away
+  `LIEGE_HOURS` (`Person.away` −4000001), home with pay and honour, now and then hurt or dead; refused, honour and
+  `LIEGE_FINE`). The Grail (`grail`): at `GRAIL_HONOUR` from the Medieval age the best rides out alone (away −4000002)
+  for `GRAIL_HOURS` to each of `GRAIL_STAGES` (odds by melee, `grailOdds`; failed, hurt or lost, `GRAIL_KILLS`, and a
+  wait); the third found wins the game. Tests: `test/chivalry.test.ts`.
 
 ## Known problem (fixed, watch)
 

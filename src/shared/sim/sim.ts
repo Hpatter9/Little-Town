@@ -13,6 +13,7 @@ import { marketsHourly, setRoute } from './markets';
 import { groveHourly } from './grove';
 import { courtHourly } from './bargains';
 import { workHourly } from './greatWork';
+import { orderHourly } from './chivalry';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -212,6 +213,7 @@ export class Sim {
     groveHourly(s); // (a druid town's grove: sim/grove.ts)
     courtHourly(s); // (a fae town's Court and its bargains: sim/bargains.ts)
     workHourly(s); // (an alchemists' town's Great Work: sim/greatWork.ts)
+    orderHourly(s); // (a knights' town's code: sim/chivalry.ts)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);
