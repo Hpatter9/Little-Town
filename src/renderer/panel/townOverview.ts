@@ -77,6 +77,9 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
   tile('Food', days === Infinity ? 'No need' : `${days < 10 ? days.toFixed(1) : Math.round(days)} days`, 'in store for those who eat', ['build', 'Stores'], days < 2);
   tile('Spirits', `${morale}`, morale >= 60 ? 'content' : morale >= 35 ? 'getting by' : 'unhappy', ['townsfolk', 'People'], morale < 35);
   tile('Treasury', `${s.coins ?? 0}`, 'coins', ['build', 'Treasury']);
+  // (the Court's blood: sim/vampires.ts)
+  const blood = s.heritage?.blood;
+  if (blood) tile('Blood', `${blood.store}`, blood.farms ? `${blood.prisoners}/${blood.cells} in the farm's cells` : `about +${blood.nightly} each dusk`, ['build', 'Our ways'], blood.store < 5);
   tile('Stores', `${s.storageUsed}/${s.storageCapacity}`, 'stored', ['build', 'Stores'], s.storageUsed >= s.storageCapacity * 0.9);
   const site = s.buildings.filter((b) => b.status === 'blueprint');
   tile('Building', site.length ? `${site.length}` : 'Nothing', site.length ? site.slice(0, 2).map((b) => BUILDING_BY_ID[b.def]?.name ?? b.def).join(', ') : 'right now', ['build', 'Buildings']);

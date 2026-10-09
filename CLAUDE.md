@@ -3573,6 +3573,18 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   raid ends (the same ticks, so it ends as a watched raid would); `endRaid` restores the setting (`raidSkipOver`) and the
   recap shows. "The town fights it out… ⏭" (`#raid-skipping`, `snapshot.raidSkipping`) sits over it meanwhile. Tests:
   `test/raidSkip.test.ts`.
+- **More gates as the castle grows (the owner's ask: the castle only entered by its doors, and not all by one):**
+  `sideGates` in sim/castle.ts: a castle on the land (not the mountain hold) opens one more gate for every
+  `ROOMS_PER_GATE` (4) rooms, up to `GATES_MOST` (4) in all, each on the outer wall where open firm ground lies outside,
+  as far as can be from the gates already there; `CastleLayout.gates` (`CastleGate`: inside, outside, side) are every
+  way in or out (`castleStep` lets a step through any of them and nowhere else). `snapshot.castle.gates` carries the side
+  gates; castleArt.ts draws the arched door in a south or north wall and a doorway in a west or east one. A room may no
+  longer be built over the ground before the main gate (`canPlace`: "The way to the gate"; one once walled a castle shut).
+  Test in `test/castle.test.ts`.
+- **The Court's blood shown (the owner's ask):** `bloodView` in sim/vampires.ts (the store against `BLOOD_KEEP`, whether
+  the thralls are spared, the thralls, the pens' head, the Blood Farms and their cells filled, about how much comes in
+  at dusk), on the Our ways tab ("Our ways: the blood") and as a Blood tile on the Town overview. Test in
+  `test/bloodCourt.test.ts`.
 - **Owner's calls with this batch:** stat points are spent the class's way by default (`statsHourly` asks only when
   `s.statsAsk === true`: the Town menu's row turns asking on); and a castle's or a hold's own rooms have no Look inside
   (`lookInside` refuses a `roomKind`; main.ts leaves the button off for a cell of `snapshot.castle`), since they are

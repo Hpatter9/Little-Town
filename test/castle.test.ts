@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { canPlace, doorCell, footprint, placeBlueprint } from '../src/shared/sim/buildings';
-import { castleBounds, castleCells, castleGate, castleLayout, castleStep, coreRect, joinsCastle, roomKind, rooms, sharedEdges } from '../src/shared/sim/castle';
+import { castleBounds, castleCells, castleGate, castleLayout, castleStep, coreRect, GATES_MOST, joinsCastle, roomKind, rooms, sharedEdges } from '../src/shared/sim/castle';
 import { delvePool, GEM_DEPTH, GOLD_DEPTH, groundAt, idx, inMap, isRoad, MOUNTAIN_FOOT } from '../src/shared/sim/land';
 import { Rng } from '../src/shared/rng';
 import { Sim } from '../src/shared/sim/sim';
@@ -48,6 +48,13 @@ test('a Blood Court builds one castle: rooms built on to the hall and each other
   const snap = snapshot(s).castle!;
   assert.equal(snap.cells.length, cells.size);
   assert.deepEqual(snap.gate, castleGate(s));
+  // a growing castle opens more gates: one more for every few rooms, each a way in and out
+  const layout = castleLayout(s)!;
+  assert.ok(layout.gates.length > 1, `gates: ${layout.gates.length} for ${built.length} rooms`);
+  assert.ok(layout.gates.length <= GATES_MOST);
+  assert.equal(snap.gates?.length, layout.gates.length - 1);
+  const step = castleStep(s, layout);
+  for (const g of layout.gates) assert.ok(step(g.outside.x, g.outside.y, g.inside.x, g.inside.y), `in by the ${g.side} gate ${JSON.stringify(g)} ${layout.region.get(idx(s.land, g.inside.x, g.inside.y))} ${layout.region.get(idx(s.land, g.outside.x, g.outside.y))} ${groundAt(s.land, g.outside.x, g.outside.y)}`);
 });
 
 test('other towns spread out as before, with no castle', () => {

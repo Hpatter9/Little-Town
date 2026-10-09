@@ -8,6 +8,7 @@ import { workView, type WorkView } from './greatWork';
 import { answerOrder, orderView, type OrderView } from './chivalry';
 import { answerFoundry, foundryView, type FoundryView } from './foundry';
 import { frontierView, type FrontierView } from './frontier';
+import { bloodView, type BloodView } from './vampires';
 import type { GameState, Prompt } from './state';
 
 export interface HeritageView {
@@ -17,10 +18,11 @@ export interface HeritageView {
   order: OrderView | null;
   foundry: FoundryView | null;
   frontier: FrontierView | null;
+  blood: BloodView | null;
 }
 
 export function heritageView(s: GameState): HeritageView | null {
-  const v: HeritageView = { grove: groveView(s), court: courtView(s), work: workView(s), order: orderView(s), foundry: foundryView(s), frontier: frontierView(s) };
+  const v: HeritageView = { grove: groveView(s), court: courtView(s), work: workView(s), order: orderView(s), foundry: foundryView(s), frontier: frontierView(s), blood: bloodView(s) };
   return Object.values(v).some(Boolean) ? v : null;
 }
 

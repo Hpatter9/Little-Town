@@ -41,3 +41,40 @@ export function bloodHourly(s: GameState): void {
   depositNear(s, campXY(s), { blood });
   notify(s, `The tithe: ${blood} blood from ${thralls} thrall${thralls === 1 ? '' : 's'}${bled ? `, ${bled} prisoner${bled === 1 ? '' : 's'}` : ''}${heads ? ' and the pens' : ''}.`);
 }
+
+export interface BloodView {
+  /** Blood in store, and the reserve past which the thralls are spared. */
+  store: number;
+  keep: number;
+  spared: boolean;
+  /** Where tonight's tithe comes from: the thralls, the pens' beasts, the Blood Farm's cells. */
+  thralls: number;
+  heads: number;
+  farms: number;
+  cells: number;
+  prisoners: number;
+  /** About how much comes in at dusk. */
+  nightly: number;
+}
+
+/** The Court's blood, for the Town menu (Our ways) and the overview. Null outside a blood town. */
+export function bloodView(s: GameState): BloodView | null {
+  if (!bloodTown(s)) return null;
+  const store = bloodInStore(s);
+  const spared = store >= BLOOD_KEEP;
+  const thralls = s.people.filter((p) => p.away === null && !isChild(p) && !p.monster && !p.machine).length;
+  const heads = s.buildings.reduce((n, b) => n + (b.status === 'done' ? (b.herd?.head ?? 0) : 0), 0);
+  const cells = farmCells(s);
+  const prisoners = s.prisoners.length;
+  return {
+    store,
+    keep: BLOOD_KEEP,
+    spared,
+    thralls,
+    heads,
+    farms: s.buildings.filter((b) => b.def === BLOOD_FARM.id && b.status === 'done').length,
+    cells,
+    prisoners,
+    nightly: Math.floor((spared ? 0 : thralls) * TITHE_PER_THRALL + heads * BLOOD_PER_HEAD + Math.min(prisoners, cells) * BLOOD_PER_PRISONER),
+  };
+}

@@ -89,3 +89,16 @@ test('the blood farm is the Court\'s own, and blood wine is brewed from blood', 
   assert.equal(wine.cost.blood, 3);
   assert.ok(wine.ware && wine.ware.tier >= 2);
 });
+
+test('the Court\'s blood is shown: the store, what comes in at dusk, the farm\'s cells', async () => {
+  const { bloodView } = await import('../src/shared/sim/vampires');
+  const { snapshot } = await import('../src/shared/sim/snapshot');
+  const { plainGame } = await import('./helpers');
+  const s = plainGame('blood-view');
+  s.origin = 'vampire';
+  const v = bloodView(s)!;
+  assert.ok(v && v.keep > 0 && v.nightly >= 0);
+  assert.equal(snapshot(s).heritage?.blood?.store, v.store);
+  s.origin = 'settlers';
+  assert.equal(bloodView(s), null);
+});

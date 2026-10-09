@@ -27,7 +27,7 @@ function logList(lines: string[]): HTMLElement {
 export function heritageSection(s: Snapshot): HTMLElement[] {
   const h = s.heritage;
   if (!h) return [];
-  return [...groveSection(h), ...courtSection(h), ...workSection(h), ...orderSection(h), ...foundrySection(h), ...frontierSection(h)];
+  return [...groveSection(h), ...courtSection(h), ...workSection(h), ...orderSection(h), ...foundrySection(h), ...frontierSection(h), ...bloodSection(h)];
 }
 
 function groveSection(h: HeritageView): HTMLElement[] {
@@ -197,5 +197,24 @@ function frontierSection(h: HeritageView): HTMLElement[] {
   }
   if (f.unmet.length) out.push(el('div', 'hint', `Not met yet: ${f.unmet.join(', ')}. A stranger of theirs in town, or their caravan at the market, would teach us their trick.`));
   if (f.log.length) out.push(logList(f.log));
+  return out;
+}
+
+function bloodSection(h: HeritageView): HTMLElement[] {
+  const b = h.blood;
+  if (!b) return [];
+  const out: HTMLElement[] = [el('h2', '', 'Our ways: the blood')];
+  out.push(el('div', 'hint', 'The Court lives on blood. Each dusk the thralls give their tithe (spared while the store is full), the beasts in the pens are bled, and prisoners kept in the Blood Farm\'s cells give theirs. The vampires drink from the store; what\'s left over is brewed into blood wine.'));
+  const c = el('div', `card blood${b.store < 5 ? ' angry' : ''}`);
+  const top = el('div', 'card-top');
+  top.append(el('span', 'card-name', `🩸 ${b.store} blood in store`), el('span', 'card-size', `about +${b.nightly} each dusk`));
+  c.append(top);
+  const bar = el('div', 'bar');
+  const fill = el('div', `bar-fill${b.store < 5 ? ' low' : ''}`);
+  fill.style.width = `${Math.round(Math.min(1, b.store / b.keep) * 100)}%`;
+  bar.append(fill);
+  c.append(bar, el('div', 'purpose', b.spared ? `The store holds ${b.keep} or more: the thralls are spared tonight.` : `Under ${b.keep}: the ${b.thralls} thrall${b.thralls === 1 ? '' : 's'} give their tithe at dusk.`));
+  c.append(el('div', 'purpose', `${b.heads} beast${b.heads === 1 ? '' : 's'} in the pens · ${b.farms ? `${b.farms} Blood Farm${b.farms > 1 ? 's' : ''}, ${b.prisoners} of ${b.cells} cells filled` : 'no Blood Farm yet (from the Medieval age)'}`));
+  out.push(c);
   return out;
 }
