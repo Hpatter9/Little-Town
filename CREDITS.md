@@ -158,7 +158,10 @@ butterflies its `Pest0.png` and `Pest1.png`, two cut into `src/renderer/art/butt
 town (deer, stag, boar, fox, wolf, squirrel, bear, camel, snow fox) are cells of its `Quadraped`, `Dog` and `Rodent`
 sheets, with the ducks, swan and leaping fish from its `Avian` and `Aquatic` sheets, and the town's dogs, cats, rooster
 and hen from its `Dog`, `Cat` and `Avian` sheets, all cut into
-`src/renderer/art/wildlife.png` by `tools/compose-wildlife.cjs`). As the author asks, Platino is
+`src/renderer/art/wildlife.png` by `tools/compose-wildlife.cjs`; the bees, dragonflies, moths, bats and rats about the
+town are cells of its `Pest`, `Avian` and `Rodent` sheets, cut into `src/renderer/art/critters.png` by
+`tools/compose-critters.cjs`, beside the box hive, which is the **Craftpix** Fields Tileset's crate `Box1.png`). As the
+author asks, Platino is
 hidden somewhere in the game.
 
 The menagerie's 304 creatures (`src/shared/data/menagerie.ts`) are DawnLike's too: cells of its `Characters` sheets
@@ -285,7 +288,8 @@ The townsfolk and founders (the bodies, outfits, hair, beards, helms, shields, w
 juggernaut, tyrant, slimes, mummy, ghost, zombies and imp (`src/renderer/art/creatures/packs/hk_*.png`, their layers
 composed and their right-facing frames cut by `tools/compose-sheets.cjs`) are from the Himeko Sutori sprite share, free
 to use with attribution. The spear (`spear01*.png`) is the pack's naginata with its blade redrawn as a spearhead by
-`tools/make-spear.cjs`.
+`tools/make-spear.cjs`. The scarecrow on the fields (`src/renderer/art/scarecrow.png`, by `tools/compose-critters.cjs`)
+is put together from the pack's man's body (turned to sacking), its first peasant's robe and its gunslinger's hat.
 
 - Half-Kaizer sprite template created by Showkaizer.
 - Additional Half-Kaizer poses by Aleesa Tana.
