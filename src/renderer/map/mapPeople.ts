@@ -53,6 +53,11 @@ export function idleFidget(now: number, id: number): number {
   return t < 0.18 ? 1 : t > 2.2 && t < 2.36 ? 8 : 0;
 }
 
+/** How far a sentry on a gate stands above the gate's middle (px): the crossbeam's top in the pack's frame across a
+ *  row, the plank landing on a gate turned down a column (map/packBuildings.ts `gateFront`, `gateSide`); and how far
+ *  before the gate's middle they're sorted, so the frame is behind them. */
+const GATE_LIFT = { h: 37, v: 44 } as const;
+const GATE_FRONT = { h: 20, v: 36 } as const;
 const EMOTE_EVERY = 11;
 const EMOTE_FOR = 3;
 const PILLAR_SCALE = 2;
@@ -596,7 +601,10 @@ export class MapPeople {
       const moment = hidden ? null : this.moment(d, now, moving, x - off.x, y - off.y);
       if (moment?.dx) x += moment.dx;
       if (moment?.dy) y += moment.dy;
-      const z = y;
+      // (up on a gate's beam, a sentry or a shooter on it: lifted onto it and drawn before it: GATE_LIFT)
+      const onGate = hidden ? undefined : d.view.onGate;
+      const z = onGate ? y + GATE_FRONT[onGate] : y;
+      if (onGate) y -= GATE_LIFT[onGate];
       d.sprite.visible = !hidden;
       const held = heldWeapon(d.view.gear, d.view.activity);
       let [anim, frame] = this.pose(d, now);

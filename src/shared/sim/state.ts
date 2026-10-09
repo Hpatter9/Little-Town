@@ -250,7 +250,7 @@ export type Task =
   /** Raid: go after a raider and fight (ticks until the next strike). */
   | { type: 'defend'; cooldown: number }
   /** Guard duty between raids (with a Barracks): walking the town from end to end. */
-  | { type: 'patrol'; targetX: number; targetY: number; band?: number }
+  | { type: 'patrol'; targetX: number; targetY: number; band?: number; /** A sentry's gate (by night: gatePost in people.ts). */ post?: number }
   /** Raid: hide in your bed (safe), or huddle by the fire if you have none. */
   | { type: 'shelter' }
   /** Stop someone's bleeding (an attempt takes a while; it may fail). */

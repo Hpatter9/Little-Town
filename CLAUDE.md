@@ -3876,3 +3876,26 @@ blocked by buildings, structures, trees and rocks)
   peaked at the wind's level, a tenth of the music's. They go through a bus of their own in ambience.ts (`CUE_GAIN` 4,
   then a limiter) over the land's beds and calls; the saw is louder too. Measured in the phone build: the hammer about
   twice the music's peak.
+
+## The palisade's gate, and a sentry on it (the owner's asks)
+
+- **The gate as the pack builds it:** the Village pack's gate frame, two tiles tall (Tile2_36, 37, 44, 45: the
+  crossbeam and braces over the cell above, the posts to the ground), with its double door (`gate_door.png`, the pack's
+  DoubleDoor1: frame 0 shut, frame 4 open) and steps up to the beam on the town's side (the Green Zone pack's ladder in
+  the palisade's wood, `gate_ladder.png`): `gateFront` in packBuildings.ts, before the frame for a gate in the north
+  wall and behind it for one in the south. A gate turned down a column (`gateSide`) is the pack's DoubleDoor2 edge on in
+  the wall's line when shut, a gap when open, a plank landing at its north end and the steps; the east wall's mirrored
+  (`Pick.flip`). `wallJoin` (mapView.ts) tells which wall a palisade gate stands in by the camp (`gn`, `gs`, `v`, `ve`;
+  `GateJoin`) and adds `x` when shut: `MapView.gatesShut`, set by main.ts each snapshot from `GATES_SHUT_FROM` (21) to
+  `GATES_OPEN_AT` (6) and whenever raiders are coming. (It drew only the crossbeam, squeezed into one cell at the foot.)
+- **A sentry up on the gate:** `gatePost` in people.ts: by night (the wall watch's hours) with the ring standing, the
+  first half of the guards on watch each stand up on one of its gates and the rest walk the wall; a lone guard climbs up
+  every other hour, a different gate each time. The `patrol` task carries `post` and keeps the guard there.
+  `PersonView.onGate` (`gateView` in snapshot.ts: a sentry at the post, or a fighter on a gate's wall spot in a battle
+  on the trail) has mapPeople lift them onto the beam (`GATE_LIFT`) and draw them before it (`GATE_FRONT`). A sentry
+  on a gate sees through bandits in disguise better (`GATE_SENTRY_CATCH` in data/bands.ts).
+- **The night watch sleeps by day:** a hired guard on the night watch (the odd ids: `onShift`) went to bed at ten with
+  everyone else, so nobody kept it; once the ring stands they sleep `DAY_SLEEP_FROM` (8) to `DAY_SLEEP_UNTIL` (16)
+  (`nightWatch`, `bedtime` in townsfolk.ts), never the founder (a lone founder taken on as the guard slept the working
+  day away). Everyone else's hours are untouched (waking from 6: moving it to 5 changed how lone towns grew). Tests:
+  `test/gateSentry.test.ts`.
