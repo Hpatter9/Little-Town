@@ -62,7 +62,8 @@ import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, 
 import { canWork, skillPace } from './property';
 import { isChild } from './social';
 import { childTask, lessonSpot } from './lineage';
-import { pastimeFor } from './pastimes';
+import { pastimeActivity, pastimeFor } from './pastimes';
+import { tagStep, TAG_RETARGET } from './idleScenes';
 
 /** Walking speed in world pixels per second. */
 export const WALK_SPEED = 48;
@@ -159,11 +160,16 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
   switch (task.type) {
     case 'wander':
       // (home with the well's bucket: set down, and the wait spent idle)
+      // (tag: the chase goes on, the way changing as the others run: sim/idleScenes.ts)
+      if (task.pastime === 'tag' && (s.tick + p.id) % TAG_RETARGET === 0) {
+        const to = tagStep(s, p);
+        if (to) [task.targetX, task.targetY] = [to.x, to.y];
+      }
       if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime === 'carry' ? undefined : task.pastime };
       break;
     case 'idle': {
       const pt = task.pastime;
-      p.activity = pt === 'market' ? 'stroll' : pt === 'well' ? 'draw' : pt === 'carry' || pt === 'rounds' || !pt ? 'idle' : pt;
+      p.activity = pastimeActivity(pt);
       if (s.tick >= task.untilTick) {
         p.task = null;
         // (the bucket wound up at the well, and carried home: sim/pastimes.ts)

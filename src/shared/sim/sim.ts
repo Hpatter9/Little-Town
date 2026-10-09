@@ -104,6 +104,7 @@ import { propertyHourly } from './property';
 import { treasuryHourly } from './treasury';
 import { ambitionHourly } from './ambition';
 import { ceremoniesHourly } from './ceremonies';
+import { diaryTick } from './diary';
 import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
 import { boatsHourly } from './boats';
@@ -234,6 +235,7 @@ export class Sim {
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
     lineageHourly(s); // (children's lessons and apprenticeships: sim/lineage.ts)
+    diaryTick(s); // (the day's doings counted for each townsperson's diary: sim/diary.ts)
     villagesHourly(s); // (daughter villages: sim/villages.ts)
     politicsHourly(s); // (the town's politics and law: sim/politics.ts)
     scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)

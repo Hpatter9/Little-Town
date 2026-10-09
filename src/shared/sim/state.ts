@@ -591,6 +591,9 @@ export interface Person {
   coins?: number;
   /** What they've done lately that's worth a line on their card (newest last). */
   recent?: { tick: number; text: string }[];
+  /** Today's doings, counted a quarter-hour at a time for their diary (sim/diary.ts): the hours at each thing, and
+   *  the hours beside each townsperson at the same thing. */
+  diary?: { day: number; hours: Record<string, number>; with: Record<number, number> };
   /** Sick with the plague until a tick. */
   sick?: { until: number; treated?: boolean } | null;
   /** A machine (the Machine Colony origin): never eats, sleeps or sickens, and its spirits hold steady. */

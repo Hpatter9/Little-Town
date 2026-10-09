@@ -6,7 +6,8 @@
 
 import { CELL } from './land';
 import { calendar } from './time';
-import { campXY, type GameState, type Person } from './state';
+import { campXY, type Activity, type GameState, type Person } from './state';
+import { benchSpot, busks, buskSpot, BUSK_EVERY, BUSK_FROM, BUSK_PEOPLE, BUSK_UNTIL, eavesSpot, EAVES_PEOPLE, fairNow, PIGEON_EVERY, PIGEON_FROM, PIGEON_UNTIL, puddleSpot, RIVER_FROM, RIVER_UNTIL, riverSpot, playingKids, someoneBusking, tagIt, tagTarget, wetNow } from './idleScenes';
 import { isChild } from './social';
 import { isElder } from './ageing';
 import { buildingDoor } from './buildings';
@@ -40,7 +41,31 @@ export function marketSquare(s: GameState): { x: number; y: number } {
   return { x: c.x, y: c.y + 3 * CELL };
 }
 
-export type Pastime = 'play' | 'sit' | 'stroll' | 'market' | 'well' | 'carry' | 'rounds';
+export type Pastime = 'play' | 'sit' | 'stroll' | 'market' | 'well' | 'carry' | 'rounds' | IdleScene;
+/** The small scenes about town and in the rain (sim/idleScenes.ts). */
+export type IdleScene = 'eaves' | 'splash' | 'tag' | 'pigeons' | 'riverside' | 'busk';
+
+/** What someone at a pastime is doing, as the map draws it (the idle wait's activity). */
+export function pastimeActivity(pt: Pastime | undefined): Activity {
+  switch (pt) {
+    case 'market':
+      return 'stroll';
+    case 'well':
+      return 'draw';
+    case 'splash':
+    case 'tag':
+      return 'play';
+    case 'pigeons':
+    case 'riverside':
+      return 'sit';
+    case 'play':
+    case 'sit':
+    case 'stroll':
+      return pt;
+    default:
+      return 'idle';
+  }
+}
 
 /** Water is drawn at the well from `WELL_FROM` to `WELL_UNTIL`, by a grown-up one idle wander in `WELL_EVERY`. */
 export const WELL_FROM = 7;
@@ -95,7 +120,14 @@ const STROLL_RING = 5;
 export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; y: number; pastime: Pastime } | null {
   if (p.away !== null || s.raid) return null;
   const c = campXY(s);
+  const wet = wetNow(s);
   if (isChild(p)) {
+    // (in the rain, off from puddle to puddle, splashing: sim/idleScenes.ts)
+    if (wet) return { ...puddleSpot(s, p, slot), pastime: 'splash' };
+    // (every other turn, a game of tag with the others: "it" chases, the rest run, and the roles go round)
+    const playing = slot % 2 === 1 ? playingKids(s) : [];
+    const it = tagIt(playing, slot);
+    if (it !== null && playing.includes(p)) return { ...tagTarget(p, playing, it, c), pastime: 'tag' };
     // (round another child, so they chase each other about; else about the fire)
     const kids = s.people.filter((q) => q !== p && q.away === null && isChild(q));
     const other = kids.length ? kids[(slot + p.id) % kids.length] : null;
@@ -114,6 +146,15 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
     }
   }
   const hour = calendar(s.tick).hour;
+  // (rain: under the eaves of the nearest roof till it passes: sim/idleScenes.ts)
+  const grown = s.people.filter((q) => q.away === null && !isChild(q)).length;
+  if (wet && grown >= EAVES_PEOPLE) {
+    const e = eavesSpot(s, p);
+    if (e) return { ...e, pastime: 'eaves' };
+  }
+  // (a merry sort plays a tune in the square by day, one at a time)
+  if (!wet && grown >= BUSK_PEOPLE && hour >= BUSK_FROM && hour < BUSK_UNTIL && (slot + p.id) % BUSK_EVERY === 0 && busks(p) && !isElder(s, p) && !someoneBusking(s, p))
+    return { ...buskSpot(s, marketSquare(s)), pastime: 'busk' };
   // (market day: off to the square to browse the stalls)
   if (marketOn(s)) {
     const m = marketSquare(s);
@@ -122,6 +163,11 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
     return { x: m.x + Math.cos(a) * r, y: m.y + Math.sin(a) * r * 0.6, pastime: 'market' };
   }
   const partner = p.partner != null ? s.people.find((q) => q.id === p.partner && q.away === null) : undefined;
+  // (at dusk, every other evening, a couple sits together by the water: sim/idleScenes.ts)
+  if (partner && fairNow(s) && hour >= RIVER_FROM && hour < RIVER_UNTIL && (calendar(s.tick).day + Math.min(p.id, partner.id)) % 2 === 0) {
+    const bank = calendar(s.tick).season === 'winter' ? null : riverSpot(s, Math.min(p.id, partner.id));
+    if (bank) return { x: bank.x + (p.id < partner.id ? -0.32 : 0.32) * CELL, y: bank.y, pastime: 'riverside' };
+  }
   if (partner && hour >= STROLL_FROM && hour < STROLL_UNTIL) {
     // (the lower id leads them round a loop about the town; the other keeps a step beside)
     if (p.id < partner.id) {
@@ -135,6 +181,8 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
     const w = wellFor(s, p);
     if (w) return { x: w.x + (p.id % 2 ? 0.45 : -0.45) * CELL, y: w.y - 0.2 * CELL, pastime: 'well' };
   }
+  // (an elder on a bench feeding the pigeons, now and then on a fair day: the map's birds come down round them)
+  if (isElder(s, p) && fairNow(s) && hour >= PIGEON_FROM && hour < PIGEON_UNTIL && (slot + p.id) % PIGEON_EVERY === 0) return { ...benchSpot(s, p), pastime: 'pigeons' };
   if (isElder(s, p)) {
     const a = (p.id * 1.7) % (Math.PI * 2);
     return { x: c.x + Math.cos(a) * FIRE_RING * CELL, y: c.y + Math.sin(a) * FIRE_RING * CELL * 0.6, pastime: 'sit' };

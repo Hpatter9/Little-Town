@@ -24,7 +24,9 @@ export type Cue =
   | 'slash' | 'bash' | 'stab' | 'crossbow' | 'throw' | 'zap' | 'gunshot' | 'burst' | 'laser' | 'boom' | 'block' | 'bite'
   | 'snap' | 'ballista' | 'ult'
   // the work: each trade its own (sfx.ts `stationCue`), the fields, a tree coming down, a building finished
-  | 'built' | 'timber' | 'crumble' | 'reap' | 'till' | 'loom' | 'pound' | 'bubble' | 'chisel' | 'machine' | 'page';
+  | 'built' | 'timber' | 'crumble' | 'reap' | 'till' | 'loom' | 'pound' | 'bubble' | 'chisel' | 'machine' | 'page'
+  // a busker's soft tune in the square (map/mapScenes.ts), heard only near them
+  | 'busk';
 
 export interface Ambience {
   /** Each frame: on or off, the mix, and the seconds since the last. */
@@ -317,6 +319,17 @@ export function createAmbience(): Ambience {
       f.frequency.exponentialRampToValueAtTime(6000, ctx!.currentTime + delay + 0.5);
     },
     // mending: three soft rising notes
+    // a busker's phrase: four plucked notes of a pentatonic tune, soft, a new phrase each time
+    busk: (pan, delay) => {
+      const scale = [392, 440, 494, 587, 659, 784];
+      let i = Math.floor(Math.random() * 3);
+      for (let n = 0; n < 4; n++) {
+        const f = scale[i];
+        tone('triangle', f, f * 0.995, 0.55, 0.022, pan, delay + n * 0.3);
+        tone('sine', f * 2, f * 2, 0.25, 0.006, pan, delay + n * 0.3);
+        i = Math.max(0, Math.min(scale.length - 1, i + [-1, 1, 1, 2, -2][Math.floor(Math.random() * 5)]));
+      }
+    },
     heal: (pan, delay) => {
       [523, 659, 784].forEach((f, i) => tone('sine', f, f, 0.5, 0.025, pan, delay + i * 0.09));
     },
