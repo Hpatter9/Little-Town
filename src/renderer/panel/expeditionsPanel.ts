@@ -2,6 +2,7 @@
 
 import { renderRealm } from './realmPanel';
 import { renderMuster } from './musterPanel';
+import { acceptedQuests, questBoard } from './questBoardPanel';
 import { BOAT_BY_KIND } from '../../shared/data/boats';
 import { eraReached } from '../../shared/data/eras';
 import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
@@ -20,9 +21,8 @@ import { FULL_MOON_PHASE } from '../../shared/sim/monsters';
 import { ERA_NAMES } from '../../shared/data/eras';
 import { DUNGEON_BY_ID } from '../../shared/data/dungeons';
 import { REGION_BY_ID } from '../../shared/data/regions';
-import { QUARRY_BY_ID } from '../../shared/data/hunts';
 import { CLASS_DEFS } from '../../shared/data/classes';
-import { expandable, facts, foeLine, groupLine, itemStats, list, stockLine, type More } from './details';
+import { expandable, facts, groupLine, itemStats, list, stockLine, type More } from './details';
 
 /** Each kind of room, as the card names it. */
 const ROOM_NAMES: Record<string, string> = { rival: 'rival delvers', fight: 'a fight', trap: 'a trap', treasure: 'treasure', shrine: 'a shrine', puzzle: 'a puzzle door', camp: 'a rest camp', fork: 'a fork', boss: 'the boss' };
@@ -59,7 +59,12 @@ export const expeditionsKey = (s: Snapshot) =>
     s.horses,
     s.uniques,
     s.regions,
-    s.quests.map((q) => [q.id, Math.ceil(q.hoursLeft / 24)]),
+    s.quests.map((q) => [q.id, q.accepted, q.hoursLeft]),
+    s.hunts.hunts.map((h) => [h.id, h.accepted, h.hoursLeft]),
+    s.hunts.forge.map((f) => [f.made, f.ready, f.holder]),
+    s.questLog.length,
+    s.sagas.open.map((g) => [g.run, g.now, g.log.length, g.dest]),
+    s.sagas.done.length,
     s.fleet,
     s.muster,
     s.realm,
@@ -160,9 +165,11 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     grid.append(card);
   }
   out.push(grid);
+  // (the quest board: the offers, then those accepted, each a sub-tab: questBoardPanel.ts)
+  out.push(...questBoard(s, bridge));
+  out.push(...acceptedQuests(s, bridge));
   out.push(...sagaList(s, bridge));
-  out.push(...huntList(s, bridge));
-  out.push(...questList(s, bridge));
+  out.push(...guildForge(s));
   out.push(...treasures(s));
   out.push(...renderRealm(s, bridge));
   out.push(el('div', 'hint', 'Fighters stand in front; scouts, medics and porters in back. Parties fall back when hurt past their stance, or when you are badly hurt. The downed bleed out unless a medic tends them.'));
@@ -255,7 +262,6 @@ const done = (c: HTMLElement): HTMLElement => {
 /* ------------------------------------------------------------ the details (tap a card: details.ts) */
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
-const days = (hours: number) => (hours >= 48 ? `${Math.ceil(hours / 24)} days` : `${Math.max(1, Math.round(hours))} hours`);
 
 /** A place on the board: how far, what's found there, who may be met and how likely, and for a dungeon its rooms,
  *  bosses and hoard. */
@@ -290,50 +296,6 @@ function destDetails(d: Destination, v: DestinationView, s: Snapshot): More[] {
     d.guaranteed ? `Always brought back: ${stockLine(d.guaranteed)}.` : null,
     dg ? `The hoard at the bottom: ${stockLine(dg.hoard)}.` : null,
     ...s.quests.filter((q) => q.dungeon === d.id).map((q) => `Quest: ${q.title}. ${q.reward}`),
-  ];
-}
-
-/** A quest: who asked, what it pays, and the dungeon it sends the party into. */
-function questDetails(q: Snapshot['quests'][number], s: Snapshot): More[] {
-  const dg = DUNGEON_BY_ID[q.dungeon];
-  const v = s.destinations.find((x) => x.id === q.dungeon);
-  const going = s.expeditions.find((e) => e.dest === q.dungeon);
-  return [
-    facts([
-      ['Asked by', q.from],
-      ['Kind', { rescue: 'A rescue', bounty: 'A bounty', relic: 'A relic hunt', gear: "A fallen delver's gear" }[q.kind] ?? q.kind],
-      ['Time left', days(q.hoursLeft)],
-      ['The dungeon', dg?.name],
-      ['Region', dg ? REGION_BY_ID[dg.region]?.name : null],
-      ['Rooms', dg ? `${dg.rooms}, then the boss` : null],
-      ['Round trip', v ? `about ${duration(v.tripSeconds)}` : null],
-      ['Bounty posted', v?.bounty ? `${v.bounty} coins` : null],
-      ['Now', going ? `a party is in it${going.leader ? `, led by ${going.leader}` : ''}` : v?.vetoed ? 'the dungeon is forbidden: no party will go' : 'waiting for a party to take it up'],
-    ]),
-    `The reward: ${q.reward}`,
-    dg ? list('Who may wait at the bottom', dg.bosses.map((g) => groupLine(g))) : null,
-    dg ? list('Met on the way down', dg.foes.map((g) => groupLine(g))) : null,
-    dg?.description ?? null,
-    'Parties choose for themselves where to go; a bounty on the dungeon (below, on its card) draws them to it.',
-  ];
-}
-
-/** A hunt: the quarry's foes and their strength, the purse and the parts, and how long the notice stays up. */
-function huntDetails(h: Snapshot['hunts']['hunts'][number], s: Snapshot): More[] {
-  const q = QUARRY_BY_ID[h.quarry];
-  const v = s.destinations.find((x) => x.id === h.dest);
-  return [
-    facts([
-      ['Stars', `${'★'.repeat(h.stars)} of 5`],
-      ['Age', q ? ERA_NAMES[q.era] : null],
-      ['Purse', `${h.purse} coins, to the hunting party`],
-      ['Parts', h.parts],
-      ['Notice up for', days(h.hoursLeft)],
-      ['Round trip', v ? `about ${duration(v.tripSeconds)}` : null],
-      ['Bounty posted', v?.bounty ? `${v.bounty} coins` : null],
-    ]),
-    q ? list('The quarry', Object.entries(q.foes).map(([k, n]) => foeLine(k, n))) : null,
-    'The guild forges the parts into one-of-a-kind gear (the Guild forge, below).',
   ];
 }
 
@@ -431,26 +393,15 @@ function raiseFor(dest: string, s: Snapshot, bridge: Bridge | undefined): HTMLEl
   return row;
 }
 
-function huntList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
+/** The guild's forge: the one-of-a-kind gear made from the hunts' parts (the hunts themselves are on the quest board). */
+function guildForge(s: Snapshot): HTMLElement[] {
   const g = s.hunts;
-  const out: HTMLElement[] = [el('h2', '', `Hunts${g.won ? ` · ${g.won} won` : ''}`)];
-  if (!g.guild && !g.hunts.length) {
-    out.push(el('div', 'hint', "Once the town learns Monster Lore it raises a Monster Hunters' Guild. The guild posts hunts now and then, one to five stars, with a purse to match; the hunters bring home the monsters' parts, and the guild forges them into gear there is only one of."));
+  const out: HTMLElement[] = [];
+  if (!g.guild) {
+    out.push(el('h2', '', 'Guild forge'), el('div', 'hint', "Once the town learns Monster Lore it raises a Monster Hunters' Guild. The guild posts hunts on the quest board, one to five stars, with a purse to match; the hunters bring home the monsters' parts, and the guild forges them into gear there is only one of."));
     return out;
   }
-  if (!g.hunts.length) out.push(el('div', 'hint', 'No hunts posted just now. The guild posts one every day or two.'));
-  const grid = el('div', 'cards wide');
-  for (const h of g.hunts) {
-    const c = el('div', 'card quest hunt');
-    const top = el('div', 'card-top');
-    top.append(el('span', 'card-name', h.name), el('span', 'card-size stars', '★'.repeat(h.stars)));
-    c.append(top, el('div', 'purpose', h.text), el('div', 'lock short', `${h.purse} coins and ${h.parts} · ${Math.ceil(h.hoursLeft / 24)} days left`), raiseFor(h.dest, s, bridge));
-    c.addEventListener('click', () => pick(h.dest));
-    grid.append(expandable(c, `hunt:${h.dest}`, () => huntDetails(h, s)));
-  }
-  if (g.hunts.length) out.push(grid);
-  if (!g.guild) return out;
-  out.push(el('h2', '', 'Guild forge'));
+  out.push(el('h2', '', `Guild forge${g.won ? ` · ${g.won} hunts won` : ''}`));
   const forge = el('div', 'cards wide');
   for (const f of g.forge) {
     const c = el('div', `card unique${f.made ? '' : ' unmade'}`);
@@ -495,23 +446,6 @@ function sagaList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
     c.append(top);
     if (g.hero) c.append(el('div', 'lock short', `Its hero: ${g.hero}`));
     grid.append(expandable(c, `sagadone:${g.title}:${g.day}`, () => [g.blurb, facts([['Ended', `day ${g.day}`], ['How', OUTCOME[g.outcome]], ['Its hero', g.hero]])]));
-  }
-  out.push(grid);
-  return out;
-}
-
-/** The quests open, each for a dungeon: clear it while it's open, and the reward comes home with the party. */
-function questList(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
-  if (!s.quests.length) return [];
-  const out: HTMLElement[] = [el('h2', '', 'Quests')];
-  const grid = el('div', 'cards wide');
-  for (const q of s.quests) {
-    const c = el('div', 'card quest');
-    const top = el('div', 'card-top');
-    top.append(el('span', 'card-name', q.title), el('span', 'card-size', `${Math.ceil(q.hoursLeft / 24)} days left`));
-    c.append(top, el('div', 'purpose', q.text), el('div', 'lock short', 'Clear the dungeon while the quest is open; the reward comes home with the party.'), raiseFor(q.dungeon, s, bridge));
-    c.addEventListener('click', () => pick(q.dungeon));
-    grid.append(expandable(c, `quest:${q.id}`, () => questDetails(q, s)));
   }
   out.push(grid);
   return out;

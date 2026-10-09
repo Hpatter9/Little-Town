@@ -36,3 +36,6 @@ export const DARK_PACE = 0.75;
 /** The camp's fire lights so far (cells), and the open fires (the bloomery, the kiln...) so far. */
 export const CAMPFIRE_RADIUS = 4.5;
 export const FIRE_RADIUS = 2.5;
+/** Under the mountain the sconces burn from waking to bed (they're put out while the hold sleeps). */
+export const CAVE_WAKE = 6;
+export const CAVE_SLEEP = 22;

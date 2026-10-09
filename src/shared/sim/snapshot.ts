@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { DUNGEON_BY_ID } from '../data/dungeons';
 import { FEED_SECONDS } from '../data/lighting';
 import { lightsView } from './lighting';
 import { CONQUEST } from '../data/conquest';
@@ -878,7 +879,9 @@ export interface Snapshot {
   /** The town's people's own ways (sim/heritage.ts). */
   heritage: HeritageView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
-  quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
+  /** The quest board (sim/questBoard.ts): offered or accepted; hours left of the offer or the time limit. */
+  quests: { id: number; kind: string; dungeon: string; dungeonName: string; title: string; text: string; hoursLeft: number; from: string; reward: string; accepted: boolean; acceptedAgo: number | null }[];
+  questLog: import('./questBoard').QuestLogEntry[];
   /** The sagas under way and those ended (sim/sagas.ts). */
   sagas: { open: SagaView[]; done: SagaDoneView[] };
   /** The kinds of foe the town has met (the Bestiary). */
@@ -1147,6 +1150,9 @@ export function snapshot(s: GameState): Snapshot {
       text: q.text,
       hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)),
       from: q.from,
+      accepted: q.accepted !== undefined,
+      acceptedAgo: q.accepted === undefined ? null : Math.floor((s.tick - q.accepted) / TICKS_PER_HOUR),
+      dungeonName: DUNGEON_BY_ID[q.dungeon]?.name ?? q.dungeon,
       // (what it pays, for the quest's details: tap it in the Expeditions tab)
       reward:
         q.kind === 'rescue' ? 'The captive comes home with the party, and stays in the town (if there is room).'
@@ -1154,6 +1160,7 @@ export function snapshot(s: GameState): Snapshot {
         : q.kind === 'relic' ? `${ITEM_BY_ID[q.unique ?? '']?.name ?? 'A unique weapon'}: ${ITEM_BY_ID[q.unique ?? '']?.description ?? ''}`
         : "The fallen delver's gear: a fine weapon of the dungeon's age, into the town's stores.",
     })),
+    questLog: s.questLog ?? [],
     sagas: sagasView(s),
     met: s.met ?? [],
     annals: annalsView(s),

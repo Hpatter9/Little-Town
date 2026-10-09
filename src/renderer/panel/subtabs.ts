@@ -33,7 +33,9 @@ const GROUPS: Record<string, MenuTabs> = {
     groups: [
       ['Parties', /^(Parties|Boats)/],
       ['Places', /^(The Calamity|On the town's land|The pack|Destinations)/],
-      ['Quests', /^(Sagas|Hunts|Guild forge|Quests|Unique weapons)/],
+      ['Quest board', /^Quest board/],
+      ['Accepted', /^(Accepted quests|Quest log)/],
+      ['Sagas', /^(Sagas|Guild forge|Unique weapons)/],
       ['Realm', /^(The realm|Assaults)/],
     ],
     intro: 'Places',

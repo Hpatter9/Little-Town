@@ -7,7 +7,7 @@
 // none. Where it's dark and unlit, work goes slower (`darkPace`, in `workFactor`): out in the night beyond the
 // lights' reach and the fires', and in an unlit room of the castle or the hold. Only with the autopilot on.
 
-import { CAMPFIRE_RADIUS, DARK_BELOW, DARK_PACE, FEED_BELOW, FEED_FROM, FEED_UNTIL, FIRE_RADIUS, FUEL_MOST, FUEL_PER_UNIT, LIGHT_EVERY, LIGHT_KIND, STREET_LIGHTS_BASE, STREET_LIGHTS_MOST, STREET_LIGHTS_PER_PERSON } from '../data/lighting';
+import { CAVE_SLEEP, CAVE_WAKE, CAMPFIRE_RADIUS, DARK_BELOW, DARK_PACE, FEED_BELOW, FEED_FROM, FEED_UNTIL, FIRE_RADIUS, FUEL_MOST, FUEL_PER_UNIT, LIGHT_EVERY, LIGHT_KIND, STREET_LIGHTS_BASE, STREET_LIGHTS_MOST, STREET_LIGHTS_PER_PERSON } from '../data/lighting';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { totalStock } from './buildings';
 import { castleLayout, holdOf } from './castle';
@@ -58,8 +58,20 @@ function regionAt(s: GameState, x: number, y: number): number | undefined {
 
 /** Is it dark where a light stands (so it burns)? */
 function darkThere(s: GameState, t: Torch): boolean {
-  if (t.room !== undefined && holdOf(s) === 'mountain') return true;
+  if (t.room !== undefined) {
+    // (a room's sconce is lit only while someone is in the room; under the mountain at any hour but while the hold
+    // sleeps, in a castle by night)
+    const dark = holdOf(s) === 'mountain' ? calendar(s.tick).hour >= CAVE_WAKE && calendar(s.tick).hour < CAVE_SLEEP : isNight(s);
+    return dark && someoneIn(s, t.room);
+  }
   return isNight(s);
+}
+
+/** Is anyone of the town in a castle region now? */
+function someoneIn(s: GameState, room: number): boolean {
+  const lay = castleLayout(s);
+  if (!lay) return false;
+  return s.people.some((p) => p.away === null && lay.region.get(idx(s.land, Math.floor(p.x / CELL), Math.floor((p.y ?? 0) / CELL))) === room);
 }
 
 /** Hourly from sim.ts: the lights placed for the streets and rooms, and burned. */
@@ -94,7 +106,8 @@ export function placeLights(s: GameState): void {
       sum.set(r, a);
     }
     // (the sconce on the room's back wall, over its middle)
-    for (const [r, a] of sum) roomAt.set(r, { x: Math.round(a.x / a.n), y: a.top });
+    // (the hall and the rooms; the dug galleries are worked by the miners' own lamps)
+    for (const [r, a] of sum) if (r >= -1) roomAt.set(r, { x: Math.round(a.x / a.n), y: a.top });
   }
   const kept = ts.filter((t) => (t.room !== undefined ? roomAt.has(t.room) : wanted.has(keyOf(t.x, t.y))));
   const have = new Set(kept.filter((t) => t.room === undefined).map((t) => keyOf(t.x, t.y)));

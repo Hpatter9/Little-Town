@@ -52,6 +52,7 @@ export const townsfolkKey = (s: Snapshot) => {
     s.research.done.length,
     inspecting,
     chosenSlot,
+    inspectTab, // (the inspect page's own tabs: a tap must redraw)
     chosenSkill, // (a tapped skill, spell or trait opens its card: the tap must redraw)
     classOpen,
     s.theme,

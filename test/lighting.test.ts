@@ -116,7 +116,15 @@ test('under the mountain the halls are dark at every hour without their sconces'
   assert.equal(inDark(s, x, y), true, 'dark at noon, unlit');
   hall.fuel = 8;
   assert.equal(inDark(s, x, y), false, 'lit by its sconce');
-  // and the sconce burns by day too
+  // and the sconce burns by day too, while someone is in the room (and not while it stands empty)
+  const p = s.people[0];
+  p.x = 0;
+  p.y = 0;
+  for (const q of s.people) q.x = q.y = 0;
   lightingHourly(s);
-  assert.equal(hall.fuel, 7);
+  assert.equal(hall.fuel, 8, 'nobody there: not burning');
+  p.x = x;
+  p.y = y;
+  lightingHourly(s);
+  assert.equal(hall.fuel, 7, 'someone there: burning');
 });

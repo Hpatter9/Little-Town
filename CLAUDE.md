@@ -3620,10 +3620,11 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   castle's or cave's rooms dark):** `src/shared/data/lighting.ts` and `src/shared/sim/lighting.ts`. The town keeps
   lights (`s.torches`, `Torch`): street lights by the roads (`streetCells`: every `LIGHT_EVERY` road cells by hash,
   nearest the camp first, `STREET_LIGHTS_BASE` + `STREET_LIGHTS_PER_PERSON` a grown-up up to `STREET_LIGHTS_MOST`),
-  and in a castle or the hold a sconce in every room, the hall and each gallery (`room`: its castle region), placed
-  hourly (`placeLights`). Each age's light (`LIGHT_KIND`): a torch and a lantern burn wood, a gas lamp coal, electric
-  light needs nothing. A light burns an hour of fuel each dark hour (`FUEL_MOST` 12; outdoors and in a castle by night,
-  under the mountain always) and goes out when it's empty (`isLit`). **The lamplighter:** a `light` task (people.ts):
+  and in a castle or the hold a sconce in the hall and every room (`room`: its castle region; the dug galleries have
+  none), placed hourly (`placeLights`). Each age's light (`LIGHT_KIND`): a torch and a lantern burn wood, a gas lamp coal, electric
+  light needs nothing. A light burns an hour of fuel each dark hour (`FUEL_MOST` 12; outdoors by night; a room's sconce
+  only while someone is in the room (`someoneIn`), in a castle by night, under the mountain from `CAVE_WAKE` to
+  `CAVE_SLEEP`: a hold of two once spent its days carrying wood to sixteen sconces) and goes out when it's empty (`isLit`). **The lamplighter:** a `light` task (people.ts):
   from `FEED_FROM` (15) to `FEED_UNTIL` (23), a cave's sconces at any hour, one or two of the town (one more a dozen
   people) walk to the emptiest light below half and fill it from the stores (`lightToFeed`, `feedLight`: a unit fills
   `FUEL_PER_UNIT` hours; `FEED_SECONDS`), ahead of their own work (and when idle). **The dark bites:** work goes at
@@ -3640,6 +3641,31 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   carry after dark; under the mountain the halls are dark by day too (`CAVE`) but for the lit ones. The street lamp posts
   (`streetLamps.ts`) stand where the town's lights are and glow only when fed. No shadows or lanterns on a slow phone
   (`calm`). `window.__lightMap` for previews. Tests: `test/lighting.test.ts`.
+
+## The quest board, and buttons that answer (the owner's asks)
+
+- **The quest board** (`src/shared/sim/questBoard.ts`, `src/renderer/panel/questBoardPanel.ts`): a tavern guest's quest
+  (sim/quests.ts) and a guild hunt (sim/hunts.ts) are first an **offer** (`Quest.accepted`/`Hunt.accepted` unset; up for
+  `OFFER_HOURS` 48, `offerUntil`). Accepted (`acceptQuest`, the `quest` command, op `accept`), its time limit starts
+  (`QUEST_DAYS` 6 / `HUNT_DAYS` from then, `until`); declined (`declineQuest`) it's gone. Only an accepted hunt is on the
+  Expedition Board for the parties (`huntDestinations`), and only an accepted quest pays (`questsDone`). An accepted one
+  out of time with no party out for it **fails** (`questBoardHourly`: `FAIL_MORALE` for a day, "the town's word wasn't
+  kept"); an offer unanswered lapses, or after `AUTO_ACCEPT_HOURS` (18) the town takes it up itself when it has an
+  adventurer at home (hands-off). A town run by hand (autopilot off: the tests) takes every quest as offered. Ended
+  quests go to `s.questLog` (`logQuest`: done, failed, lapsed, declined; `LOG_MOST` 10; `snapshot.questLog`). The Trips
+  menu's sub-tabs: **Quest board** (the offers: the giver, the tale, the reward, how long it's open and the time limit it
+  would have; Accept and Decline), **Accepted** (each accepted quest with its time left as a bar, red under a day, the
+  tale and reward, the round trip against the time left, and either the party out for it (where they are and the trip's
+  bar via `tripLabel`/`tripShare`, the room and torches in a delve, who went, **Watch them**) or **Form a party…** (the
+  muster); tapped, where it is, when it was taken up, the foes; then the **Quest log**), and **Sagas** (the sagas, the
+  guild's forge, the uniques). The hunts' cards moved from the old Quests list onto the board. `expeditionsKey` now
+  carries the quests, hunts, forge, log and sagas (new hunts and saga lines didn't redraw before). Tests:
+  `test/questBoard.test.ts`.
+- **Buttons that answer (the owner: the Townsfolk inspect page's buttons didn't work well):** the inspect page's own
+  tabs (Equipment, Character, Background, Skills) set `inspectTab`, which wasn't in `townsfolkKey`, so a tap did nothing
+  until something else redrew the page; it is now. And every menu holds its redraws while a finger is down on it
+  (panel.ts `pressing`: from pointerdown until just after the pointer lifts, never more than 1.5 s), so a snapshot can
+  no longer pull a button from under a tap. The tabs take the display font (`.inv-tab`).
 
 ## Known problem (fixed, watch)
 

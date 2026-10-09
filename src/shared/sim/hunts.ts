@@ -13,6 +13,7 @@ import { MATERIAL_NAMES, type Material } from '../data/materials';
 import { hashSeed, Rng } from '../rng';
 import { campXY, notify, type Expedition, type GameState, type Hunt, type Person } from './state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { logQuest, offerUntil } from './questBoard';
 import { describeFoes } from './places';
 import { payParty } from './economy';
 import { depositNear, totalStock } from './buildings';
@@ -37,10 +38,7 @@ export function starsFor(s: GameState): number {
 /** Each hour: lapsed hunts come off the board, and now and then a new one goes up; the guild forges what it can. */
 export function huntsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  const out = new Set(s.expeditions.map((e) => e.dest));
-  const lapsed = (s.hunts ?? []).filter((h) => s.tick >= h.until && !out.has(`${HUNT_DEST}${h.id}`));
-  for (const h of lapsed) notify(s, `The guild takes down its notice for ${QUARRY_BY_ID[h.quarry]?.name ?? 'a hunt'}: nobody went.`);
-  if (lapsed.length) s.hunts = (s.hunts ?? []).filter((h) => !lapsed.includes(h));
+  // (offers lapsing, accepted hunts failing: sim/questBoard.ts)
   if (!guildStands(s)) return;
   if (s.autopilot !== false) planForge(s);
   maybePost(s);
@@ -61,7 +59,7 @@ export function postHunt(s: GameState, rng: Rng, quarry?: string): Hunt | null {
   const pool = ALL_QUARRIES.filter((q) => q.stars <= most && eraReached(s.era, q.era) && !up.has(q.id));
   const q = quarry ? QUARRY_BY_ID[quarry] : pickWeighted(rng, pool, (x) => (1 + (most - x.stars) * 0.6) * (x.id.startsWith('m_') ? 0.15 : 1));
   if (!q) return null;
-  const h: Hunt = { id: s.nextId++, quarry: q.id, posted: s.tick, until: s.tick + HUNT_DAYS * TICKS_PER_DAY };
+  const h: Hunt = { id: s.nextId++, quarry: q.id, posted: s.tick, ...offerUntil(s, HUNT_DAYS) };
   (s.hunts ??= []).push(h);
   s.lastHunt = s.tick;
   notify(s, `The Monster Hunters' Guild posts a hunt: ${q.name}, ${'★'.repeat(q.stars)}, for ${HUNT_PURSE[q.stars]} coins and its parts. ${q.text}`, true);
@@ -101,7 +99,8 @@ const partsLine = (q: Quarry) =>
     .map(([m, n]) => `${n} ${MATERIAL_NAMES[m as Material].toLowerCase()}`)
     .join(', ');
 
-export const huntDestinations = (s: GameState): Destination[] => (s.hunts ?? []).map((h) => huntDestination(s, h)).filter((d): d is Destination => !!d);
+// (only a hunt taken up is on the board for the parties: sim/questBoard.ts)
+export const huntDestinations = (s: GameState): Destination[] => (s.hunts ?? []).filter((h) => h.accepted !== undefined).map((h) => huntDestination(s, h)).filter((d): d is Destination => !!d);
 export const huntDestOf = (s: GameState, id: string): Destination | undefined => {
   const h = huntOf(s, id);
   return h ? huntDestination(s, h) : undefined;
@@ -127,6 +126,7 @@ export function huntHome(s: GameState, e: Expedition, members: Person[]): void {
   payParty(s, standing.length ? standing : members, purse, `The guild's purse for ${q.name}`);
   depositNear(s, campXY(s), { ...q.parts });
   (s.huntsWon ??= {})[q.id] = (s.huntsWon[q.id] ?? 0) + 1;
+  logQuest(s, `Hunt: ${q.name}`, 'hunt', 'done', `Slain by ${members.map((p) => p.name).join(', ')}; ${purse} coins paid.`);
   notify(s, `${q.name} is slain! The guild pays ${purse} coins, and the hunters bring home ${partsLine(q)}.`, true);
 }
 
@@ -158,7 +158,12 @@ export interface HuntView {
   purse: number;
   parts: string;
   text: string;
+  /** Hours left: of the offer, or once accepted of its time limit. */
   hoursLeft: number;
+  id: number;
+  accepted: boolean;
+  /** Hours since it was taken up (null: still an offer). */
+  acceptedAgo: number | null;
 }
 export interface ForgeView {
   id: string;
@@ -173,7 +178,7 @@ export function huntsView(s: GameState): { guild: boolean; hunts: HuntView[]; fo
   const guild = guildStands(s);
   const hunts = (s.hunts ?? []).map((h) => {
     const q = QUARRY_BY_ID[h.quarry];
-    return { dest: `${HUNT_DEST}${h.id}`, quarry: q.id, name: q.name, stars: q.stars, purse: HUNT_PURSE[q.stars], parts: partsLine(q), text: q.text, hoursLeft: Math.max(0, Math.ceil((h.until - s.tick) / TICKS_PER_HOUR)) };
+    return { dest: `${HUNT_DEST}${h.id}`, quarry: q.id, name: q.name, stars: q.stars, purse: HUNT_PURSE[q.stars], parts: partsLine(q), text: q.text, hoursLeft: Math.max(0, Math.ceil((h.until - s.tick) / TICKS_PER_HOUR)), id: h.id, accepted: h.accepted !== undefined, acceptedAgo: h.accepted === undefined ? null : Math.floor((s.tick - h.accepted) / TICKS_PER_HOUR) };
   });
   const stock = totalStock(s);
   const forge = FORGED_IDS.map((id) => {

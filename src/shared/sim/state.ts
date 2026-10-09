@@ -378,7 +378,9 @@ export interface Hunt {
   id: number;
   quarry: string;
   posted: number;
+  /** The offer's end, or once accepted the time limit (sim/questBoard.ts). */
   until: number;
+  accepted?: number;
 }
 
 /** A saga under way (data/sagas.ts, sim/sagas.ts). */
@@ -963,6 +965,8 @@ export interface GameState {
   dungeonQuiet?: Record<string, number>;
   /** Quests open (sim/quests.ts). */
   quests?: Quest[];
+  /** Quests and hunts ended: done, failed, lapsed or declined (sim/questBoard.ts). */
+  questLog?: import('./questBoard').QuestLogEntry[];
   /** The places on the town's own land (sim/places.ts): seeded on first use, found as the land opens. */
   places?: MapPlace[];
   /** Blood on the ground where someone was struck down (`markBlood`). */
