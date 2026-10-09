@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.45.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.46.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3762,6 +3762,27 @@ snowman, the washing lines and the straw skep.
   `roomFurniture`). New sprites in `src/renderer/art/seats/`; the rocky-area tipis (`packs/rocky_tipi*.png`) were
   re-cut without the stray shell and teal bits the pack's sheet had beside them (the nomads' homes showed them).
   Tests: `test/seatPacks.test.ts`.
+
+## Light that's stopped (0.46.0; the owner's ask: every light lights all round it as far as its kind reaches, and is
+blocked by buildings, structures, trees and rocks)
+
+- **One rule, shared:** `src/shared/sim/lightField.ts`. `occluders` reads the land into what stops light: a finished
+  building that stands up (not one lying `flat`: fields, pens, traps, yards, the stockpile and the fire, `LOW_BUILDINGS`
+  in data/lighting.ts), walls and gates, a castle's or hold's walls and the mountain stop it over the whole cell
+  (`SOLID`); a tree (a wood) or a rock only round its middle (`ROUND`, `ROUND_BLOCK` 0.38), so their shadows are round.
+  `lightSources`: each light's reach by its kind: the age's street light (`LIGHT_KIND`: torch 3.5 cells to light panel
+  6.5), the camp's fire and the fires and furnaces at buildings (`FIRE_LIGHTS`: campfire 4.5, storytellers' circle 3.5,
+  bloomery 3, kiln and smithy 2.5, glassworks 2; from the building's middle, its own walls seen through). `clearLine`
+  walks a ray cell by cell from the light: the light's own cell and building are seen through, and so is the last `FACE`
+  (half a cell) of the way, so a wall or a trunk is lit on the side facing the light and dark behind. The sim's
+  darkness (`litGrid` in sim/lighting.ts, which slows work in the dark) and the drawn light use it alike.
+- **Drawn** (`renderer/map/lightMap.ts`): four points a cell, each lit by every light that sees it, with the falloff
+  (`falloff`); one ray from the light's middle, and at a shadow's edge four more from round the flame (`SPREAD_X/Y`) for
+  a soft edge (a single ray grazing a corner left lone dark points). Each light's pool is kept (`pool`, by `poolKey`: its
+  reach, strength and the hash of what stands in it), so a felled tree or a new hut redoes only the lights near it; the
+  whole is put together at most every `REBUILD_MS` (1.5 s), and only while the light shows. The texture is sampled
+  smooth (the game's default is nearest: the pools showed as squares). The old building-only shadow polygons are gone.
+  Worst case (70 electric lamps, every pool new): about 150 ms on a desktop, once. Tests in `test/lighting.test.ts`.
 
 ## Known problem (fixed, watch)
 
