@@ -246,6 +246,7 @@ export function comeOfAge(s: GameState, p: Person): string[] {
     for (const k of s.people) if (k.parents?.includes(id) && k.id !== p.id) adjust(s, p.id, k.id, INHERITED_GRUDGE / 2);
   }
   if (grudges.size) out.push(`the family's grudge against ${[...grudges].map((id) => s.people.find((q) => q.id === id)?.name).filter(Boolean).join(' and ')}`);
+  p.master = null; // (the apprenticeship is over: the trade is theirs)
   if (!recs.length && !parents.length) return out;
   kinOf(s, p);
   return out;

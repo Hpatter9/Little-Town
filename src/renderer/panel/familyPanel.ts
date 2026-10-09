@@ -19,7 +19,7 @@ function tree(line: FamilyLine, open: (id: number) => void): HTMLElement {
     const ms = rows.get(g)!.sort((a, b) => Math.min(a.id, a.partner ?? a.id) - Math.min(b.id, b.partner ?? b.id) || a.id - b.id);
     for (const m of ms) {
       const c = el('button', `kin${m.alive ? '' : ' dead'}${m.child ? ' child' : ''}${m.black ? ' black' : ''}`);
-      c.append(el('span', 'kin-name', `${m.alive ? '' : '✝ '}${m.name}${m.black ? ' ⚑' : ''}`), el('span', 'kin-sub', m.child ? (m.master ? `apprentice to ${m.master}` : 'a child') : m.alive ? `${m.calling ?? 'no calling'} · lv ${m.level}` : (m.died ?? 'gone')));
+      c.append(el('span', 'kin-name', `${m.alive ? '' : '✝ '}${m.name}${m.black ? ' ⚑' : ''}`), el('span', 'kin-sub', m.child ? (m.master ? `apprentice to ${m.master}` : 'a child') : m.alive ? `${m.calling ?? 'no calling'} · lv ${m.level}` : (m.died ?? 'left the town')));
       if (m.titles.length) c.append(el('span', 'kin-sub kin-title', m.titles[0]));
       c.title = [m.black ? `The black sheep: ${m.black}` : '', m.died ?? '', m.trade ? `Learning ${m.trade}` : ''].filter(Boolean).join('\n');
       if (m.alive) c.addEventListener('click', (e) => (e.stopPropagation(), open(m.id)));
