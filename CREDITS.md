@@ -270,7 +270,7 @@ Peral, Huerta Tipográfica), Pirata One (Rodrigo Fuenzalida, Nicolas Massi), IM 
 (Igino Marini), Uncial Antiqua (Astigmatic), Crimson Text (Sebastian Kosch), Grenze Gotisch (Omnibus-Type), EB Garamond
 (Georg Duffner, Octavio Pardo), New Rocker (Impallari Type), Orbitron (Matt McInerney), Share Tech Mono (Carrois
 Apostrophe), Cinzel (Natanael Gama), Berkshire Swash (Astigmatic), Quicksand (Andrew Paglinawan), Marcellus SC (Brian J.
-Bonislawsky), Fondamento (Astigmatic) and MedievalSharp (Wojciech Kalinowski).
+Bonislawsky), Fondamento (Astigmatic), MedievalSharp (Wojciech Kalinowski) and Metal Mania (Open Window, the orcs' look).
 
 ## Craftpix bridges (the shore town's piers)
 
@@ -282,7 +282,8 @@ the raw files are not redistributed).
 
 The townsfolk and founders (the bodies, outfits, hair, beards, helms, shields, weapons and tools in
 `src/renderer/art/himeko/`, copied and cut to their drawn rows by `tools/import-himeko.cjs`) and the ogres, demons,
-juggernaut, tyrant, slimes, mummy, ghost, zombies and imp (`src/renderer/art/creatures/packs/hk_*.png`, their layers
+juggernaut, tyrant, slimes, mummy, ghost, zombies, imp and the orc warband (grunt, archer, brute and warlord: the Orc body
+in the barbarians' outfits) (`src/renderer/art/creatures/packs/hk_*.png`, their layers
 composed and their right-facing frames cut by `tools/compose-sheets.cjs`) are from the Himeko Sutori sprite share, free
 to use with attribution. The spear (`spear01*.png`) is the pack's naginata with its blade redrawn as a spearhead by
 `tools/make-spear.cjs`.

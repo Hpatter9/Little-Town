@@ -61,7 +61,7 @@ test('every workshop is a station with recipes of its own, hung on a topic that 
 
 test("a people's own workshop is theirs alone, from the Medieval age", () => {
   const own = WORKSHOP_BUILDINGS.filter((b) => b.origin);
-  assert.equal(own.length, 11);
+  assert.equal(own.length, 12);
   for (const def of own) {
     const theirs = newGame(`own-${def.id}`, { origin: def.origin });
     theirs.research.done.push('barter');

@@ -29,6 +29,7 @@ export const FONT_FILES: FontFile[] = [
   { family: 'Marcellus SC', pkg: 'marcellus-sc', weights: [400] },
   { family: 'Fondamento', pkg: 'fondamento', weights: [400] },
   { family: 'MedievalSharp', pkg: 'medievalsharp', weights: [400] },
+  { family: 'Metal Mania', pkg: 'metal-mania', weights: [400] },
 ];
 
 /** The file a face and weight is shipped as, under fonts/. */
@@ -48,6 +49,7 @@ export const FONTS: Record<string, [string, string]> = {
   fae: ['Fondamento', 'Quicksand'], // a light calligraphic hand
   alchemists: ['IM Fell English SC', 'IM Fell English'], // the printed plates of an old treatise
   knights: ['MedievalSharp', 'EB Garamond'], // the herald's hand and the chronicle
+  orcs: ['Metal Mania', 'Alegreya Sans'], // hacked out with an axe
 };
 
 const FALLBACK_BODY = "'Segoe UI', system-ui, sans-serif";

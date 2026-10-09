@@ -319,7 +319,31 @@ ${P.fill} { background: linear-gradient(90deg, #3050a0, #e8c040) !important; }
 `;
 }
 
-const SKINS: Partial<Record<ThemeId, (T: string) => string>> = { nomads, druid, lich, vampire, werewolf, robot, dwarves, merfolk, fae, alchemists, knights };
+/* ------------------------------------------------------------ the Orc Warband: hide, iron and war paint */
+
+const TUSK = svg(12, 12, `<path d='M2 11 Q2 4 6 1 Q4 6 5 11 Z' fill='#f0e8d0' stroke='#5a3a20' stroke-width='0.6'/><path d='M10 11 Q10 4 6 1 Q8 6 7 11 Z' fill='#f0e8d0' stroke='#5a3a20' stroke-width='0.6'/>`);
+const HIDE = 'repeating-linear-gradient(115deg, rgba(0, 0, 0, 0.12) 0 2px, transparent 2px 7px), linear-gradient(rgba(255, 220, 180, 0.08), transparent 40%, rgba(0, 0, 0, 0.25))';
+const STUDS = 'radial-gradient(circle, #b0a8a0 0 1.2px, #3a3430 1.6px, transparent 2px) 0 0 / 14px 100%';
+
+function orcs(T: string): string {
+  const P = parts(T);
+  const torn = 'polygon(0 0, 100% 0, 100% 100%, 85% calc(100% - 5px), 65% 100%, 45% calc(100% - 6px), 25% 100%, 0 calc(100% - 4px))';
+  return `
+${P.frame} { border: 5px solid #4a2e1a; box-shadow: inset 0 0 0 2px #8a1a14; }
+${P.header} { background: ${HIDE}, #4a2a18; border-bottom: 3px solid #8a1a14; }
+${P.title} { color: #f8d8b0; letter-spacing: 0.06em; text-shadow: 0 2px 0 #1a0a04; }
+${P.btn} { background: ${HIDE}, #6a4a2e !important; color: #fff0dc !important; border: 1px solid #2a1a0e !important; border-radius: 3px 8px 3px 6px; font-weight: 700; text-shadow: 0 1px 0 #1a0a04; }
+${T} #tabs button { clip-path: ${torn}; padding-bottom: 7px !important; background: ${HIDE}, #5a3a22 !important; color: #f8e0c0 !important; }
+${P.on} { background: ${HIDE}, #8a1a14 !important; color: #fff0dc !important; border-color: #e06030 !important; }
+${P.card} { background: ${HIDE}, rgba(44, 28, 18, 0.95) !important; border: 2px solid #4a2e1a !important; border-radius: 4px 10px 4px 8px; box-shadow: inset 0 0 0 1px rgba(224, 96, 48, 0.35); }
+${P.h2} { color: #e8783a !important; padding-left: 18px; background: ${TUSK} 0 50% / 12px 12px no-repeat; }
+${T} #tabs { background: ${STUDS}, linear-gradient(#3a2416, #1e120a); border-top: 4px solid #8a1a14; }
+${T} #clock { background: ${HIDE}, #3a2416 !important; border-bottom: 3px solid #8a1a14 !important; }
+${P.fill} { background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.18) 0 3px, transparent 3px 7px), linear-gradient(90deg, #4a7a2a, #a8d050) !important; }
+`;
+}
+
+const SKINS: Partial<Record<ThemeId, (T: string) => string>> = { nomads, druid, lich, vampire, werewolf, robot, dwarves, merfolk, fae, alchemists, knights, orcs };
 
 /** A theme's materials and shapes (after its colours), or nothing (the settlers keep the plain look). */
 export const skinCss = (id: ThemeId, T: string): string => SKINS[id]?.(T) ?? '';

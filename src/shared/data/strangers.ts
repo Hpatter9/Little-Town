@@ -21,6 +21,7 @@ export const STRANGER_ORIGINS: [OriginId, number][] = [
   ['dwarves', 1.5],
   ['merfolk', 1],
   ['fae', 1],
+  ['orcs', 0.8],
   ['vampire', 0.4],
   ['werewolf', 0.4],
 ];

@@ -18,7 +18,7 @@ test('troops: every kind is worth about a soldier or more, and the peoples have 
     assert.ok(t.cost.coins > 0);
   }
   const owned = TROOPS.filter((t) => t.origin).map((t) => t.origin);
-  assert.equal(new Set(owned).size, 11);
+  assert.equal(new Set(owned).size, 12);
   assert.ok(TROOPS.filter((t) => !t.origin).length >= 15);
 });
 

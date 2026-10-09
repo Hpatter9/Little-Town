@@ -514,6 +514,46 @@ export const POWERS: Record<string, PowerDef> = {
     when: (s) => hurt(s).length > 0,
     cast: (s) => `The oath was spoken over ${healAll(s, 20)} of the order.`,
   },
+  // Orcs
+  war_cry: {
+    id: 'war_cry',
+    name: 'War Cry',
+    description: 'In a raid: the horde roars, and every orc fights harder for a while.',
+    cooldown: 10,
+    lasts: 2,
+    when: raidOn,
+    cast: (s) => {
+      cheer(s, 4);
+      return 'The horde roared, and the ground shook with it.';
+    },
+  },
+  berserk: {
+    id: 'berserk',
+    name: 'Berserk',
+    description: 'In a raid: the orcs eat raw meat and throw themselves at the raiders, heedless of the blows.',
+    cooldown: 9,
+    costs: [{ meat: 4 }, { berries: 8 }],
+    when: raidOn,
+    cast: (s) => {
+      const fell = strike(s, 22, 'blood');
+      return `The orcs went berserk among the raiders${fell ? `: ${fell} fell` : ''}.`;
+    },
+  },
+  grog_feast: {
+    id: 'grog_feast',
+    name: 'Grog Feast',
+    description: 'When spirits run low: a night of grog, meat and fistfights, and everyone feels better for it.',
+    cooldown: 36,
+    costs: [{ meat: 6 }, { berries: 12 }],
+    when: (s) => {
+      const h = home(s);
+      return h.length > 1 && h.reduce((a, p) => a + p.morale, 0) / h.length < 50;
+    },
+    cast: (s) => {
+      cheer(s, 9);
+      return 'The grog went round, and so did the fists; spirits rose.';
+    },
+  },
 };
 
 /* ------------------------------------------------------------ calling on them */
@@ -551,6 +591,7 @@ const TOUCH: Record<string, [Touch, number]> = {
   glamour: ['venue', 3], changeling: ['newest', 2.5], faerie_ring: ['home', 3],
   transmute: ['caster', 2.5], elixir: ['hurt', 2.5], volatile_flask: ['foes', 2],
   rally: ['defenders', 2.5], shield_wall: ['defenders', 3], oath: ['hurt', 2.5],
+  war_cry: ['defenders', 2.5], berserk: ['foes', 2], grog_feast: ['home', 3],
 };
 
 function touched(s: GameState, touch: Touch): SpellTarget[] {
