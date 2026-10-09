@@ -246,7 +246,7 @@ export type Task =
   /** Walk to a storage building with food and eat one unit (taking until `until`, once started). */
   | { type: 'eat'; building: number; until: number | null }
   /** Sleep in a bed (building id) or on the ground by the camp (null). */
-  | { type: 'sleep'; building: number | null; sick?: boolean }
+  | { type: 'sleep'; building: number | null; sick?: boolean; spot?: { x: number; y: number } }
   /** Raid: go after a raider and fight (ticks until the next strike). */
   | { type: 'defend'; cooldown: number }
   /** Guard duty between raids (with a Barracks): walking the town from end to end. */

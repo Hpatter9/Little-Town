@@ -31,6 +31,7 @@ import { guardEngages, roamerToHunt } from './roamers';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
 import { FEED_SECONDS } from '../data/lighting';
 import { feedLight, lightToFeed } from './lighting';
+import { roughSpot } from './roughSleep';
 import { CELL, cellAt, centreOf, groundAt, inMap, isMarked, isPlannedRoad, isRoad, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
 import { swims } from './sea';
@@ -910,7 +911,9 @@ function doEat(s: GameState, p: Person, task: Extract<Task, { type: 'eat' }>): v
 
 function doSleep(s: GameState, p: Person, task: Extract<Task, { type: 'sleep' }>): void {
   const bed = task.building === null ? undefined : byId(s, task.building);
-  if (!(bed ? goToB(s, p, bed) : goTo(s, p, { x: campXY(s).x - CELL, y: campXY(s).y + CELL }))) return;
+  // (no bed: a spot of their own on the ground round the fire, not all in one heap in the middle of town)
+  if (!bed) task.spot ??= roughSpot(s, p);
+  if (!(bed ? goToB(s, p, bed) : goTo(s, p, task.spot!))) return;
   p.activity = 'sleep';
   const bedroll = !bed && hasBedroll(s, p);
   p.needs.rest = Math.min(1, p.needs.rest + (SLEEP_PER_HOUR * (bed ? 1 : bedroll ? BEDROLL_SLEEP : GROUND_SLEEP)) / TICKS_PER_HOUR);
@@ -1011,12 +1014,17 @@ function jobOf(t: Task): Job {
 /** So hungry they get up in the night to eat. */
 export const WAKE_TO_EAT = 0.12;
 
+/** To bed (their own, or none): the task they're on kept, so someone sleeping rough keeps the spot they bedded down on. */
+function sleepTask(p: Person): Task {
+  return p.task?.type === 'sleep' && !p.task.sick && p.task.building === p.bed ? p.task : { type: 'sleep', building: p.bed };
+}
+
 function chooseTask(s: GameState, p: Person): Task | null {
   p.blocked = false;
   // The badly hurt stay in bed until they're back on their feet: a sickbed if one's free (sim/sickbeds.ts), else home.
   if (p.downed) {
     const sb = sickbedFor(s, p);
-    return sb ? { type: 'sleep', building: sb.id, sick: true } : { type: 'sleep', building: p.bed };
+    return sb ? { type: 'sleep', building: sb.id, sick: true } : sleepTask(p);
   }
   // A raid: defenders fight, everyone else shelters.
   if (alarmRaised(s)) return p.priorities.defend !== 0 ? (p.task?.type === 'defend' ? p.task : { type: 'defend', cooldown: 0 }) : { type: 'shelter' };
@@ -1055,7 +1063,8 @@ function chooseTask(s: GameState, p: Person): Task | null {
   // Needs. Someone asleep and nearly empty gets up to eat (while the stores hold food).
   if (p.task?.type === 'sleep' || wantsSleep(s, p)) {
     const st = p.task?.type === 'sleep' && p.needs.food < WAKE_TO_EAT && !tireless(p) ? nearestStorage(s, p, (b) => !!foodIn(b)) : null;
-    return st ? { type: 'eat', building: st.id, until: null } : { type: 'sleep', building: p.bed };
+    if (st) return { type: 'eat', building: st.id, until: null };
+    return sleepTask(p);
   }
   if (p.needs.food < HUNGRY) {
     const st = nearestStorage(s, p, (b) => !!foodIn(b));
