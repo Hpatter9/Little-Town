@@ -80,6 +80,15 @@ export function patchTownsfolk(s: Snapshot, root: HTMLElement): void {
   const who = inspecting === null ? null : byId.get(inspecting);
   const doing = root.querySelector<HTMLElement>('.inspect-doing');
   if (doing && who) doing.textContent = who.away !== null ? `Away on an expedition: ${who.away}` : who.doing;
+  // (today's diary, written afresh as the day goes on: patched in place, not a redraw)
+  const diary = root.querySelector<HTMLElement>('.diary');
+  if (diary && who && diary.dataset.text !== who.diary.join('\n')) fillDiary(diary, who.diary);
+}
+
+/** Today's diary page (sim/diary.ts): a paragraph a line, in their own words. */
+function fillDiary(box: HTMLElement, lines: string[]): void {
+  box.dataset.text = lines.join('\n');
+  box.replaceChildren(...lines.map((l) => el('p', 'diary-line', l)));
 }
 
 /** Who's being inspected (null: the list), and the slot whose piece is shown below their gear. */
@@ -358,6 +367,15 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   for (const r of p.recent.slice(0, 8)) lifeCard.append(el('div', 'hint', r));
   if (!ties && !p.recent.length) lifeCard.append(el('div', 'hint', 'Nothing much has happened to them yet.'));
   right.append(lifeCard);
+  // today, in their own words and their nature's voice (sim/diary.ts)
+  if (p.diary.length) {
+    right.append(el('h2', '', "Today's diary"));
+    const page = el('div', 'card person diary-page');
+    const box = el('div', 'diary');
+    fillDiary(box, p.diary);
+    page.append(box);
+    right.append(page);
+  }
   out.append(left, right);
 }
 

@@ -216,6 +216,11 @@ juggled apple, orange and pear from `Items/Food.png`, the grumpy's pebble from `
 (`Objects/Decor0.png`) are single cells of **DawnLike** too: **DragonDePlatino**, on **DawnBringer**'s palette,
 **CC-BY 4.0**.
 
+The busker's instruments (`src/renderer/art/life/lute.png`, the lyre, and `flute.png`) are single cells of
+**DawnLike**'s `Items/Music.png`: **DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**. The log an elder
+sits on to feed the pigeons, and a couple by the water at dusk, is the Craftpix Village tileset's log already in the
+game (`art/village/`).
+
 ## Music
 
 "Tiny RPG" town, battle and two boss themes by **Luis Zuno (@ansimuz)** (`src/renderer/music/`, from

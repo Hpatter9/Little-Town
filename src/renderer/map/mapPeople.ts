@@ -41,7 +41,11 @@ import { TAIL_H, TAIL_W, tailTexture, WAIST } from '../art/merTail';
 import { BEAT, danceStep, mournStep, prayStep, type DanceStep } from './dance';
 import { reflectOf, waterBelow } from './reflections';
 import type { LandMap } from '../../shared/sim/land';
-import { hash01, lineNow, makeBubble, REPLY_AFTER, SPEECH_EVERY, SPEECH_FOR, SPEECH_SHARE, TALK_NEAR, type SpeechContext } from './speech';
+import { gossipNow, hash01, lineNow, makeBubble, REPLY_AFTER, SPEECH_EVERY, SPEECH_FOR, SPEECH_SHARE, TALK_NEAR, type SpeechContext } from './speech';
+import { gossipLine, gossipReply, type Gossip } from '../../shared/sim/gossip';
+import { hooded, sceneMoment } from './sceneMoments';
+import luteUrl from '../art/life/lute.png';
+import fluteUrl from '../art/life/flute.png';
 
 /** Standing still, a person breathes (a pixel's rise every couple of seconds) and shifts their weight now and then
  *  (a step frame for a moment every few seconds), each on their own clock, so nobody looks frozen. */
@@ -119,8 +123,8 @@ loadImage(barrowUrl)
 
 /** The little things the townsfolk handle in their small moments (map/townLife.ts): DawnLike's fruit to juggle, a
  *  pebble to kick, a pipe, a torch for the night watch. */
-const lifeTex: Record<'apple' | 'orange' | 'pear' | 'pebble' | 'pipe' | 'torch', Texture | null> = { apple: null, orange: null, pear: null, pebble: null, pipe: null, torch: null };
-for (const [k, u] of [['apple', appleUrl], ['orange', orangeUrl], ['pear', pearUrl], ['pebble', pebbleUrl], ['pipe', pipeUrl], ['torch', torchUrl]] as const)
+const lifeTex: Record<'apple' | 'orange' | 'pear' | 'pebble' | 'pipe' | 'torch' | 'lute' | 'flute', Texture | null> = { apple: null, orange: null, pear: null, pebble: null, pipe: null, torch: null, lute: null, flute: null };
+for (const [k, u] of [['apple', appleUrl], ['orange', orangeUrl], ['pear', pearUrl], ['pebble', pebbleUrl], ['pipe', pipeUrl], ['torch', torchUrl], ['lute', luteUrl], ['flute', fluteUrl]] as const)
   loadImage(u)
     .then((im) => {
       const t = Texture.from(im);
@@ -138,7 +142,7 @@ interface Moment {
   dy?: number;
   line?: string;
   emote?: Emote;
-  prop?: Habit | 'torch';
+  prop?: Habit | 'torch' | 'lute' | 'flute';
 }
 
 interface Drawn {
@@ -190,6 +194,9 @@ interface Drawn {
   speechSlot?: number;
   /** Answering someone beside them until this time. */
   replyUntil?: number;
+  /** The town's news they're telling in a slot (sim/gossip.ts), and the news they heard and are answering. */
+  told?: { slot: number; g: Gossip };
+  heard?: Gossip;
   /** Their small moments (map/townLife.ts): what they hold (fruit, a pebble, a pipe and its smoke, a torch), when
    *  they woke, held where they fell or stretched (till when), and gliding on the ice. */
   props?: Container;
@@ -256,6 +263,8 @@ export class MapPeople {
   zoom = 1;
   /** The latest news (main.ts, per snapshot): the town crier, the best talker about, calls it out now and then. */
   news: { id: number; text: string } | null = null;
+  /** The town's talk (main.ts, per snapshot: sim/gossip.ts): what those standing together talk over. */
+  gossip: Gossip[] = [];
   /** Where the sun leans their shadows (px aside; main.ts, from art/sun.ts). */
   sunLean = 0;
   /** The land (main.ts), for the reflections at the water's edge. */
@@ -380,7 +389,7 @@ export class MapPeople {
     const fighting = inCombat || v.activity === 'fight';
     const working = WORK_SWING.has(v.activity) && !fighting;
     const reading = v.activity === 'research' && !fighting;
-    const keys = hkLayers(hkWhoOf(v), { fighting, activity: v.activity });
+    const keys = hkLayers({ ...hkWhoOf(v), hood: !fighting && hooded(this.weather, v.indoors, v.pastime?.kind) }, { fighting, activity: v.activity });
     // (up or down the map while that's mostly how they walk; else the side they're turned to; a reader turned away
     // would hold the book over their head, so they read facing us)
     const side: HkFacing = v.dir < 0 ? 'left' : 'right';
@@ -430,18 +439,27 @@ export class MapPeople {
     let nearChild = false;
     let nearAnyone = false;
     let answering = false;
+    let heardFrom: Drawn | null = null;
     for (const o of this.drawn.values()) {
       if (o === d || o.view.indoors || Math.hypot(o.x - d.x, o.y - d.y) > TALK_NEAR) continue;
       nearAnyone = true;
       if (v.friends.includes(o.view.name)) nearFriend = true;
       if (v.rivals.includes(o.view.name)) nearRival = true;
       if (o.view.growsUpIn !== null) nearChild = true;
-      if (o.speech?.visible && o.speechSlot !== undefined && now - (o.speechSlot * SPEECH_EVERY - o.view.id * 7331) < REPLY_AFTER + 400 && now - (o.speechSlot * SPEECH_EVERY - o.view.id * 7331) >= REPLY_AFTER) answering = true;
+      if (o.speech?.visible && o.speechSlot !== undefined && now - (o.speechSlot * SPEECH_EVERY - o.view.id * 7331) < REPLY_AFTER + 400 && now - (o.speechSlot * SPEECH_EVERY - o.view.id * 7331) >= REPLY_AFTER) {
+        answering = true;
+        heardFrom = o;
+      }
     }
     const share = (window as unknown as { __talk?: number }).__talk ?? SPEECH_SHARE; // (previews: everyone talks)
     const talk = (window as unknown as { __talk?: number }).__talk;
     // (an answer, once begun, stays up its full time)
-    if (answering && !quiet && (d.replyUntil === undefined || now > d.replyUntil + SPEECH_EVERY / 4)) d.replyUntil = now + SPEECH_FOR;
+    if (answering && !quiet && (d.replyUntil === undefined || now > d.replyUntil + SPEECH_EVERY / 4)) {
+      d.replyUntil = now + SPEECH_FOR;
+      // (told some news: the answer is to it, sim/gossip.ts)
+      const told = heardFrom?.told;
+      d.heard = told && told.slot === heardFrom!.speechSlot ? told.g : undefined;
+    }
     const replying = d.replyUntil !== undefined && now < d.replyUntil;
     const speaks = !quiet && ((into < (talk ? SPEECH_EVERY : SPEECH_FOR) && hash01(v.id, slot) < share) || replying);
     // (the town crier: "Hear ye!" and the latest news, for a few seconds in every twenty while it's fresh)
@@ -483,7 +501,11 @@ export class MapPeople {
     if (d.speechSlot !== key || !d.speech) {
       d.speech?.destroy();
       const c: SpeechContext = { weather: this.weather, season: this.season, hour: this.hour, raid: this.raid, nearFriend, nearRival, nearChild, nearAnyone };
-      d.speech = this.layer.addChild(makeBubble(lineNow(v, c, key)));
+      // (now and then, with someone by, the town's news, told in their own way; an answer to news fits it)
+      const news = key === slot ? gossipNow(v, slot, c, this.gossip) : null;
+      d.told = news ? { slot: key, g: news } : undefined;
+      const line = news ? gossipLine(news, v.nature, hash01(v.id, slot, 17)) : key !== slot && d.heard ? gossipReply(d.heard, v.nature, hash01(v.id, key, 19)) : lineNow(v, c, key);
+      d.speech = this.layer.addChild(makeBubble(line));
       d.speechSlot = key;
     }
     const k = Math.min(2.2, Math.max(1, 1 / Math.max(0.25, this.zoom)));
@@ -816,7 +838,7 @@ export class MapPeople {
         }
       }
       // a child at play on a fair day flies a kite, high on its string and dancing in the wind
-      const flying = !hidden && v.growsUpIn !== null && v.activity === 'play' && v.id % 2 === 0 && this.hour >= 8 && this.hour < 18 && this.season !== 'winter' && (this.weather === 'clear' || this.weather === 'cloudy');
+      const flying = !hidden && v.growsUpIn !== null && v.activity === 'play' && !v.pastime && v.id % 2 === 0 && this.hour >= 8 && this.hour < 18 && this.season !== 'winter' && (this.weather === 'clear' || this.weather === 'cloudy');
       if (flying && !d.kite) d.kite = this.layer.addChild(new Graphics());
       if (d.kite) {
         d.kite.visible = flying;
@@ -1090,6 +1112,11 @@ export class MapPeople {
       if (Math.abs(d.glide.x) + Math.abs(d.glide.y) < 1) d.glide = undefined;
       else return { dx: d.glide.x, dy: d.glide.y };
     }
+    // a small scene about town (sim/idleScenes.ts): sheltering, splashing, tag, the pigeons, the water, the busker
+    if (v.pastime) {
+      const sc = sceneMoment(v.pastime.kind, { id: v.id, now, moving, it: v.pastime.it, water: v.pastime.kind === 'riverside' ? this.waterSide(x, y) : null });
+      if (sc) return sc;
+    }
     // an idle moment: their habit
     const habit = habitNow(
       { id: v.id, nature: v.nature, elder: v.elder, activity: v.activity, child, tireless: v.tireless },
@@ -1113,6 +1140,19 @@ export class MapPeople {
       default:
         return null;
     }
+  }
+
+  /** Which way the water lies from someone sat by it (sim/idleScenes.ts `riverSpot`), so they look out over it. */
+  private waterSide(x: number, y: number): HkFacing | null {
+    const land = this.land;
+    if (!land) return null;
+    const cx = Math.floor(x / CELL);
+    const cy = Math.floor(y / CELL);
+    const wet = (dx: number, dy: number) => {
+      const g = groundAt(land, cx + dx, cy + dy);
+      return g === 'water' || g === 'shallows';
+    };
+    return wet(0, -1) ? 'up' : wet(-1, 0) ? 'left' : wet(1, 0) ? 'right' : wet(0, 1) ? 'down' : null;
   }
 
   /** The nearest ice a child at play could skate on (centre of the cell, world px), worked out once a spot. */
@@ -1179,6 +1219,11 @@ export class MapPeople {
       set(sprites[0], lifeTex.pipe, dir * 5 * k, -36 * k, 0.32 * k, dir < 0 ? 1 : -1);
       // (puffs of smoke drifting up from the bowl and thinning)
       for (const p of pipePuffs(now, id)) puffs.circle(dir * 7 * k + Math.sin(p * 6 + id) * 2, -40 * k - p * 18, 1.2 + p * 2.6).fill({ color: 0xe8e4dc, alpha: 0.55 * (1 - p) });
+    } else if (prop === 'lute' || prop === 'flute') {
+      // (the busker's lyre held before them, a flute to the lips: DawnLike's)
+      const strum = Math.floor(now / 190 + id) % 2;
+      if (prop === 'lute') set(sprites[0], lifeTex.lute, 2 * k, -22 * k + strum, 0.9 * k);
+      else set(sprites[0], lifeTex.flute, 5 * k, -31 * k, 0.8 * k);
     } else if (prop === 'torch') {
       set(sprites[0], lifeTex.torch, dir * 8 * k, -27 * k, 1.1 * k, dir < 0 ? -1 : 1);
       // (the flame's flicker at its tip)

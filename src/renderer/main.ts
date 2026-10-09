@@ -13,6 +13,7 @@ import { MapHerds } from './map/mapHerds';
 import { MapBoats } from './map/mapBoats';
 import { MapWagons } from './map/mapWagons';
 import { MapBirds } from './map/mapBirds';
+import { MapScenes } from './map/mapScenes';
 import { MapWildlife } from './map/mapWildlife';
 import { MapTracks } from './map/mapTracks';
 import { Minimap } from './map/minimap';
@@ -104,6 +105,8 @@ function travellerPerson(t: TravellerView): PersonView {
   monster: null, tireless: false, order: null, sick: false, rounds: false,
     battle: { damage: [0, 0], accuracy: 0, dodge: 0, armor: 0, block: 0, crit: 0, ranged: false, attrs: { str: 8, dex: 8, vit: 8, int: 8, wis: 8, cha: 8 }, mp: 0, sp: 0, interval: 12, range: 1 }, kit: [], passives: [], road: null, roadId: null, freePts: 0, autoStats: false,
   favours: [],
+  diary: [],
+  pastime: null,
   };
 }
 /** A daughter village's folk (sim/villages.ts), drawn as travellers about their own houses by day: each walks from one
@@ -373,6 +376,9 @@ async function start(): Promise<void> {
   const wagons = new MapWagons(map.things); // (the caravans' wagons: sim/bands.ts)
   const birds = new MapBirds(map.things, map);
   (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
+  // (the small scenes about town: the elders' benches and crumbs, puddle splashes, the busker's notes: map/mapScenes.ts)
+  const scenes = new MapScenes(map.things, (id) => people.posOf(id));
+  let buskDue = 0;
   const butterflies = new MapButterflies(map.things, map);
   const wildlife = new MapWildlife(map.things, map);
   (window as unknown as { __wildlife?: MapWildlife }).__wildlife = wildlife; // (for previews)
@@ -1776,6 +1782,8 @@ async function start(): Promise<void> {
     people.theme = next.theme;
     people.weather = next.weather.kind;
     people.news = next.news;
+    people.gossip = next.gossip;
+    scenes.sync(next.people);
     // a big moment (a new age, a wedding, a birth, the founder's death, the dragon): letterboxed, a title card
     if ((next.news?.id ?? -1) !== lastNewsId) {
       const first = lastNewsId === -2;
@@ -2016,6 +2024,21 @@ async function start(): Promise<void> {
     pets.prey = critters.prey();
     critters.render(ticker.deltaMS / 1000, performance.now());
     wide.render(ticker.deltaMS / 1000);
+    scenes.calm = map.calm;
+    scenes.render(performance.now());
+    birds.feeders = scenes.feeders();
+    // (the busker's tune, soft, heard only with the view near them)
+    buskDue -= ticker.deltaMS / 1000;
+    const busker = buskDue <= 0 && view.music && !view.hidden && map.root.visible ? scenes.busker() : null;
+    if (busker) {
+      const mv = map.view;
+      const dx = (busker.x - (mv.x + mv.w / 2)) / Math.max(1, mv.w / 2);
+      const dy = (busker.y - (mv.y + mv.h / 2)) / Math.max(1, mv.h / 2);
+      if (Math.hypot(dx, dy) < 0.8) {
+        ambience.cue('busk', Math.max(-0.8, Math.min(0.8, dx * 0.8)));
+        buskDue = 2.4 + Math.random() * 0.8;
+      }
+    }
     frost.render(ticker.deltaMS / 1000, map.view, snap?.land ?? null, map.calm);
     dragon.render(ticker.deltaMS / 1000);
     sky.render(ticker.deltaMS / 1000, app.screen.width, app.screen.height);
