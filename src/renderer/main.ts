@@ -4,6 +4,7 @@
 import { biomeById } from '../shared/data/biomes';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
 import { seatArt } from './art/seatArt';
+import { seatPack } from './map/seatPacks';
 import { SEAT_STAGE } from '../shared/data/seats';
 import { CHATTER } from './chatter';
 import { MapBattle } from './map/mapBattle';
@@ -1552,7 +1553,7 @@ async function start(): Promise<void> {
     const cardArt = (id: string) => {
       const def = BUILDING_BY_ID[id];
       const seat = SEAT_STAGE[id];
-      if (seat) return seatArt(seat.origin, seat.stage, def.width, depthOf(def), noTone, 'card');
+      if (seat) return seatPack(seat.origin, seat.stage, def.width) ?? seatArt(seat.origin, seat.stage, def.width, depthOf(def), noTone, 'card');
       return packArt(id, def.width, buildStyle || 'town') ?? topDownArt(id, def.width, depthOf(def), noTone, 'card', buildStyle || 'town');
     };
     (window as unknown as { __picture?: (p: { person?: number; building?: string }) => HTMLCanvasElement | null }).__picture = (h) => {

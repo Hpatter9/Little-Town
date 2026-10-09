@@ -52,6 +52,7 @@ import { GroundWeather } from './groundWeather';
 import { reflectOf, waterBelow } from './reflections';
 import { castleClutter, clutterLoaded, flickerCastle, onClutterArt, type Flame } from './castleClutter';
 import { seatArt } from '../art/seatArt';
+import { seatPack } from './seatPacks';
 import { SEAT_STAGE } from '../../shared/data/seats';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
@@ -900,9 +901,10 @@ export class MapView {
     if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey, cropDone(b));
     // (a castle's room: its furnishings, on the castle's floor: map/castleArt.ts)
     if (b.room) return roomFurniture(BUILDING_BY_ID[b.def], f.w, b.id, this.tone, this.toneKey, this.style) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
-    // (the seat of the town: its own picture, by origin and stage: art/seatArt.ts)
+    // (the seat of the town: laid together from the packs by origin and stage, map/seatPacks.ts; the painted one,
+    // art/seatArt.ts, while its sprites load)
     const seat = SEAT_STAGE[b.def];
-    if (seat) return seatArt(seat.origin, seat.stage, f.w, f.h, this.tone, this.toneKey);
+    if (seat) return seatPack(seat.origin, seat.stage, f.w) ?? seatArt(seat.origin, seat.stage, f.w, f.h, this.tone, this.toneKey);
     // (a pack picture where one suits the look: map/packBuildings.ts)
     // (else the top-down painter's: art/topDown.ts)
     return packArt(b.def, f.w, this.style, b.id, this.wallJoin(b), true) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);

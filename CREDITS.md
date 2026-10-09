@@ -151,6 +151,19 @@ warning and the rich homes' painted doors are a cell of **DawnLike**'s `Objects/
 coughs' puffs, the smoke columns over fires and the plague's crosses on doors are strips of the **5000 Pixel Effects**
 atlas already in the game (white and poison puffs, white smoke darkened, the blood cross).
 
+## The seats of the towns (every people's, all five stages)
+
+The seat at the heart of each town (`src/renderer/map/seatPacks.ts`) is laid together from sprites of the packs: the
+Simple Summer keeps, round castle, mage tower, tent and towers, the tiny-rpg-town and Glassblower's Workshop houses and
+the Village Tileset's timber houses, lanterns and palisade (all **Craftpix.net** and the tiny-rpg-town pack, as
+credited above); the Top-Down Cave Objects' altar, gate, totem, crystals and fires; the Rocky Area Objects' tipis and
+yurts; the futuristic objects' tanks, consoles and pylon; and from the folder `src/renderer/art/seats/`: the grove
+trees of **Craftpix.net**'s free Forest Objects pack (`grove_*.png`), the corals, shell and mermaid statues of its free
+Top-Down Seabed Objects pack (`coral*.png`, `shell.png`, `mermaid*.png`), the ruins, giant lich and pile of skulls of
+its free Undead Tileset (`ud_*.png`), the Fields Tileset's banner (`flag.png`), and **DawnLike**'s throne, rugs,
+candelabra, coffins and gold (`dl_*.png`, from `Objects/Decor0.png`) by **DragonDePlatino** (CC-BY 4.0) for the holds'
+throne rooms.
+
 ## Craftpix seabed wreck (the sea beast's reef)
 
 The broken wreck a sea beast lairs on, off a shore town (`src/renderer/art/packs/sb_wreck.png`), is from
