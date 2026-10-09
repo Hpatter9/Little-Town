@@ -3,7 +3,7 @@
 // A walker keeps its path and the goal it was found for; a new goal, or a building put up across the way, finds a
 // new one. With no way through (an island, a walled yard) it walks straight at the goal, so nobody is ever stuck.
 
-import { castleLayout, castleStep } from './castle';
+import { castleLayout, castleStep, type CastleLayout } from './castle';
 import { isGate } from './ringWall';
 import { footprint } from './buildings';
 import { addWear, CELL, cellOf, centreOf, findPath, idx, inMap, inRect, SWIM_COST, type Pt, type Rect } from './land';
@@ -24,6 +24,14 @@ export interface Walker {
 export const ARRIVE = 2;
 /** A path is thrown away and found again after this many ticks (something may have been built across it). */
 const REPLAN_TICKS = 200;
+/** Further than this from the next cell on the path (px) and the walker has left it (put somewhere by a building, a
+ *  battle or a task): the path is found again, or they'd cut straight across to it, through a castle's walls. */
+const OFF_PATH = CELL * 2.2;
+/** The castle's layout each walker's path was found for: a room built, or a doorway moved, finds the path again
+ *  (kept off the walker so it isn't saved). */
+/** What a cell of river costs to wade, when there's no other way across. */
+const WADE = 8;
+const walls = new WeakMap<Walker, CastleLayout | null>();
 
 /** Whether a cell is inside a building (one that isn't `through`: the walker's own goal). A castle's rooms are walked
  *  through: inside its walls, everyone goes from room to room. */
@@ -46,7 +54,11 @@ export function pathTo(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'orig
   const clamp = (c: Pt) => ({ x: Math.max(0, Math.min(s.land.w - 1, c.x)), y: Math.max(0, Math.min(s.land.h - 1, c.y)) });
   // (a castle's walls: from room to room through the doorways, in and out through the gate)
   const layout = castleLayout(s);
-  const cells = findPath(s.land, clamp(a), clamp(b), blockedBy(s, through), { maxNodes: 12000, ...(swim ? { swim: SWIM_COST } : {}), ...(layout ? { edge: castleStep(s, layout) } : {}) });
+  const blocked = blockedBy(s, through);
+  const opts = { maxNodes: 12000, ...(swim ? { swim: SWIM_COST } : {}), ...(layout ? { edge: castleStep(s, layout) } : {}) };
+  // (no way round: a river with no bridge yet is waded, slowly, rather than walked straight at, over the water and
+  // through any castle wall in the way)
+  const cells = findPath(s.land, clamp(a), clamp(b), blocked, opts) ?? (swim ? null : findPath(s.land, clamp(a), clamp(b), blocked, { ...opts, ford: WADE }));
   if (!cells) return null;
   const pts = cells.map((c) => centreOf(c.x, c.y));
   // (the goal lies in the last cell: straight to it, not by way of the cell's middle)
@@ -68,8 +80,12 @@ export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin
     delete w.goal;
     return true;
   }
-  if (!w.path || !same(w.goal, to) || (tick && tick % REPLAN_TICKS === 0)) {
+  const layout = castleLayout(s);
+  const offPath = !!w.path && w.path.length > 1 && Math.hypot(w.path[0].x - w.x, w.path[0].y - w.y) > OFF_PATH;
+  const rebuilt = !!w.path && (walls.get(w) ?? null) !== layout;
+  if (!w.path || !same(w.goal, to) || offPath || rebuilt || (tick && tick % REPLAN_TICKS === 0)) {
     w.path = pathTo(s, w, to, through, swim) ?? [{ x: to.x, y: to.y }];
+    walls.set(w, layout);
     w.goal = { x: to.x, y: to.y };
     // (the first cell is the one we stand in: skip it when we're past its centre already)
     if (w.path.length > 1 && Math.hypot(w.path[0].x - w.x, w.path[0].y - w.y) < CELL * 0.5) w.path.shift();
