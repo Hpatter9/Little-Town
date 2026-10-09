@@ -272,7 +272,7 @@ const PICKS: Record<string, Pick> = {
   // the first homes: the Simple Summer pack's cottage on its stone footing, and the tiny-rpg-town pack's long house
   // (its inn sign painted over with its other window); the nomads keep their tipis and yurts
   lean_to: { url: suHouse, styles: TIMBER, overhang: 2, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4, smoke: [[29, 1]] } }] },
-  hide_tent: { url: suHouse, styles: TIMBER, overhang: 4, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[38, 2]] } }] },
+  hide_tent: { url: suHouse, styles: TIMBER, overhang: 4, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[37, 1]] } }] },
   longhouse: { url: ttLong, styles: TIMBER, overhang: 2, smoke: [[22, 2]], lamps: [[22, 44], [72, 44], [17, 77], [78, 77]], variants: [{ styles: NOMAD, pick: { url: rockyYurt1, overhang: 8, smoke: [[39, 1]] } }] },
   // the tiny-rpg-town pack's tall gabled house, its window boxes in flower, two side by side for the apartments
   apartments: { parts: [[ttGable, 0, 0], [ttGable, 47, 0]], size: [95, 132], styles: TIMBER, overhang: 2, lamps: [[25, 103], [24, 60], [72, 103], [71, 60]] },
