@@ -4,6 +4,7 @@ import { CONQUEST } from './data/conquest';
 import type { Command } from './sim/commands';
 import type { JournalEntryView, Snapshot } from './sim/snapshot';
 import type { NewGameOptions } from './sim/state';
+import type { Replay } from './replay';
 
 export type StripMode = 'full' | 'minimal';
 
@@ -134,6 +135,14 @@ export interface Bridge {
    *  point between the fingers, in the strip's pixels, which the zoom keeps still). */
   pinch?(phase: 'start' | 'move' | 'end', spread: number, mx?: number, my?: number): void;
   onPinch?(cb: (phase: 'start' | 'move' | 'end', spread: number, mx: number, my: number) => void): () => void;
+  /** Phone only: buzz the phone softly (a pattern as navigator.vibrate takes it: renderer/vibration.ts); the page
+   *  keeps the setting and the pace, and never buzzes while hidden. */
+  vibrate?(pattern: readonly number[]): void;
+  /** Phone only: the replay of the time away just caught up (shared/replay.ts), once: null when there's none. */
+  takeReplay?(): Replay | null;
+  /** Phone only: the strip says a replay is playing, so the page gives it the whole screen. */
+  replayShown?(on: boolean): void;
+  onReplayShown?(cb: (on: boolean) => void): () => void;
 }
 
 /** What the phone's top card shows about the selected thing. */

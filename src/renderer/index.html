@@ -1037,6 +1037,130 @@
       #cinema .cine-go[hidden] {
         display: none;
       }
+      /* the time away replayed, sped up (replay/replayPlayer.ts): black bars top and foot, the day count in the foot;
+         while the catch-up runs, a veil with how far it's got */
+      #replay {
+        position: fixed;
+        inset: 0;
+        z-index: 45;
+        pointer-events: none;
+      }
+      #replay.on {
+        pointer-events: auto;
+        cursor: pointer;
+      }
+      #replay .rp-bar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        background: #000;
+        transition: transform 0.45s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      #replay .rp-bar.top {
+        top: 0;
+        height: 9%;
+        min-height: 34px;
+        justify-content: space-between;
+        padding: 0 12px;
+        box-sizing: border-box;
+        transform: translateY(-100%);
+      }
+      #replay .rp-bar.bottom {
+        bottom: 0;
+        height: 19%;
+        min-height: 92px;
+        transform: translateY(100%);
+      }
+      #replay.on .rp-bar {
+        transform: none;
+      }
+      #replay .rp-kicker,
+      #replay .rp-skip {
+        zoom: var(--ui-zoom, 1);
+        font: 600 11px var(--font-body, sans-serif);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #c8a060;
+      }
+      #replay .rp-skip {
+        color: #9a8a70;
+        letter-spacing: 0.06em;
+      }
+      #replay .rp-card {
+        zoom: var(--ui-zoom, 1);
+        width: min(360px, 92vw);
+        text-align: center;
+        color: #f6ecd2;
+      }
+      #replay .rp-title {
+        font-family: var(--font-display, serif);
+        font-size: 26px;
+        letter-spacing: 1px;
+        color: #ffe08a;
+        text-shadow: 0 2px 6px #000;
+        white-space: nowrap;
+      }
+      #replay .rp-clock {
+        font: 14px var(--font-body, sans-serif);
+        margin-top: 2px;
+        color: #e8dcc0;
+        font-variant-numeric: tabular-nums;
+      }
+      #replay .rp-tally {
+        font: 12px var(--font-body, sans-serif);
+        margin-top: 2px;
+        color: #a8c890;
+      }
+      #replay .rp-tally[hidden] {
+        display: none;
+      }
+      #replay .rp-track {
+        height: 3px;
+        margin: 8px auto 0;
+        width: 70%;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      #replay .rp-fill {
+        height: 100%;
+        width: 0;
+        background: #c8a060;
+      }
+      #replay .rp-veil {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(ellipse at center, rgba(8, 10, 20, 0.55), rgba(0, 0, 0, 0.85));
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      }
+      #replay.veiled .rp-veil {
+        opacity: 1;
+      }
+      #replay .rp-veil-card {
+        zoom: var(--ui-zoom, 1);
+        text-align: center;
+        color: #f6ecd2;
+        width: min(300px, 80vw);
+      }
+      #replay .rp-veil-title {
+        font-family: var(--font-display, serif);
+        font-size: 24px;
+        color: #ffe08a;
+        text-shadow: 0 2px 6px #000;
+      }
+      #replay .rp-veil-sub {
+        font: italic 13px var(--font-body, sans-serif);
+        color: #c8bca0;
+        margin-top: 2px;
+      }
       #raid-recap {
         position: absolute;
         left: 50%;

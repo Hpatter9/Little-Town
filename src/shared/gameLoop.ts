@@ -27,6 +27,11 @@ export class GameLoop {
   private job: { job: CatchUpJob; awayMs: number; t0: number; done?: (r: CatchUpResult) => void } | null = null;
   /** Debug time multiplier (1 = real time). */
   speed = 1;
+  /** While time away is caught up, a snapshot every `every` ticks (`done` false), and one more when it's finished (`done`
+   *  true): the phone's replay of the time away (shared/replay.ts). The catch-up's batches stop at each, so they fall on
+   *  the hour; the ticks simulated are the same either way. */
+  sampler: { every: number; take: (snap: Snapshot, done: boolean) => void } | null = null;
+  private nextSample = 0;
 
   constructor(
     state: GameState,
@@ -62,6 +67,7 @@ export class GameLoop {
   catchUp(ms: number, done?: (r: CatchUpResult) => void): void {
     if (this.job) return; // (already catching up: the rest of this gap is dropped)
     this.job = { job: startCatchUp(this.sim, ms), awayMs: ms, t0: performance.now(), done };
+    this.nextSample = this.sim.state.tick;
   }
 
   command(c: Command): void {
@@ -106,10 +112,18 @@ export class GameLoop {
     const j = this.job!;
     const until = performance.now() + CATCH_UP_SLICE_MS;
     let finished = false;
-    while (!finished && performance.now() < until) finished = j.job.run(CATCH_UP_BATCH);
+    while (!finished && performance.now() < until) {
+      const sampler = this.sampler;
+      if (sampler && this.sim.state.tick >= this.nextSample) {
+        sampler.take(this.snapshot(), false);
+        this.nextSample = this.sim.state.tick + sampler.every;
+      }
+      finished = j.job.run(sampler ? Math.max(1, Math.min(CATCH_UP_BATCH, this.nextSample - this.sim.state.tick)) : CATCH_UP_BATCH);
+    }
     if (finished) {
       const r = j.job.finish();
       this.job = null;
+      this.sampler?.take(this.snapshot(), true);
       if (r.ticks) console.log(`[offline] simulated ${r.ticks} ticks for ${Math.round(j.awayMs / 1000)}s away in ${Math.round(performance.now() - j.t0)}ms`);
       // (time kept passing while we caught up: that little bit is simply skipped)
       this.last = performance.now();
