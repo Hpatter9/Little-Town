@@ -3885,3 +3885,36 @@ blocked by buildings, structures, trees and rocks)
   builds a site at full pace (`skillPace` 1, and the founder always) tries Construct before Haul at the same priority
   (`buildsFirst`, `BUILDER_JOBS` in people.ts). The less skilled haul first, as before. Haulers bring to the sites being
   built first (`haulOrder`), so a builder isn't left waiting. Test: `test/haulers.test.ts`.
+
+## More life (the owner's "all of them in one big batch": sixteen atmosphere ideas)
+
+- **Memory in the town:** `sim/memorials.ts` (`memorialsHourly` from sim.ts), `data/memorials.ts`, `data/homeNames.ts`.
+  **Statues:** someone `famous` (`FAMOUS_FELLED` 12 raiders felled, `FAMOUS_LEVEL` 18, or `FAMOUS_TRIPS` 5) who dies
+  is honoured (`honour`, from `recordFallen` in annals.ts; up to `HONOURED_MOST`); at `STATUE_HOUR` (11) the town raises
+  a statue (the `statue` building, never built by the planner: `NEVER`) at `statueSpot` for `STATUE_STONE`, up to
+  `STATUES_MOST` (12); `sim/statues.ts` `deedsOf` tells their story on the tap card; drawn by `map/statueArt.ts` (a
+  plinth and the old statue, `art/memorial/`). **Ruins:** a building burnt, felled by a disaster or pulled down leaves
+  a ruin (`demolish(s, id, ruin)`; `sim/ruins.ts`: `RUIN_HOURS` burnt 72, felled 60, pulled 36, `RUINS_MOST` 24,
+  `ruinsHourly`, `ruinLine`), cleared when something is built over it; drawn by `map/mapRuins.ts`, tap kind `ruin`.
+  **Home names:** each home has a name (`nameHomes`, `Building.homeName`) on a sign by its door when zoomed in past
+  `SIGN_ZOOM` (0.95: `map/homeSigns.ts`). `window.__memory`. Tests: `test/memorials.test.ts`.
+- **The wide world** (renderer only; `map/wideWorld.ts`, `WideWorld`, plays `onHonk`/`onChime`; `window.__wide`):
+  **past the fog** (`map/horizonRules.ts`, `map/mapHorizon.ts`): the realm's towns that lie beyond the fog
+  (`settlementsSeen`, `fogEdge`, `HEARTH_BEYOND`) show campfires by night (`FIRES_BY_TIER`) and smoke by day
+  (`SMOKES_BY_TIER`), and a war host coming shows its torches (`hostTorches`, `HOST_FAR`). **Couriers**
+  (`map/mapCourier.ts`, `Couriers`): news worth riding for (`NEWS_PROMPTS`, `newsBetween`) gallops in from its way
+  (`newsBearing`, `GALLOP`) to the seat and waits (`WAIT_AT_SEAT`). **Eyes in the dark and wisps** (`map/airRules.ts`,
+  `map/mapEyes.ts`): pairs of eyes blink at the forest's edge by night and flee feet (`EYES_*`, `forestEdge`); wisps
+  over the graveyard (`WISPS_*`, more on the dead's land). **Geese** (`map/mapGeese.ts`, `art/geese.png` from DawnLike
+  by `tools/compose-geese.cjs`): a V (`vFormation`) crosses in spring and autumn (`geeseFly`, `GEESE_EVERY`) with
+  shadows and a honk. **Dust** (`map/mapDust.ts`): tumbleweeds and dust devils on dry lands (`dustWanted`).
+  **Vanes and chimes** (`map/mapVanes.ts`): weathervanes (`hasVane`, `vaneAngle` by `gustAt`) and wind chimes ringing
+  in gusts (`chimeRings`). **Sun shafts and dawn haze** (`map/mapSunShafts.ts`, `shaftsStrength`, `dawnHaze`, the
+  golden hours). Off on a slow phone. Tests: `test/wideWorld.test.ts`.
+- **Sound and feel:** `src/renderer/soundZones.ts` (pure): places heard by nearness to the view's middle and the zoom,
+  panned: the tavern's hubbub and fiddle, the market, hymns from the temple, the forge, workshops, herds; ambience.ts
+  plays them on buses of their own. **Vibration** (`src/renderer/vibration.ts`: a pattern per moment, `buzzesBetween`;
+  the page buzzes through the bridge, never while hidden; the ☰ menu's Vibration on/off, `littletown.vibrate`).
+  **The time away replayed:** `src/shared/replay.ts` and `GameLoop.sampler` keep a frame each game hour of the
+  catch-up; `replay/replayPlayer.ts` plays it sped up over the map before the report card, letterboxed with the day
+  count, tap to skip (`body.replay`). Tests: `test/soundZones.test.ts`, `test/vibration.test.ts`, `test/replay.test.ts`.
