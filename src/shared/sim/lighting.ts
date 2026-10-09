@@ -1,5 +1,5 @@
-// Light in the dark (the owner's ask; numbers in data/lighting.ts). The town keeps lights (`s.torches`): along its
-// streets (a torch a few road cells apart, more as it grows: a torch in the Stone Age, a lantern, a gas lamp, then
+// Light in the dark (the owner's ask; numbers in data/lighting.ts). The town keeps lights (`s.torches`): wherever it's
+// dark out of doors, its buildings' doors first, then its streets (`outdoorCells`; more as it grows: a torch in the Stone Age, a lantern, a gas lamp, then
 // electric light on the grid), and in a castle's or a hold's every room and gallery a sconce. A light burns its fuel an
 // hour at a time while it's dark where it stands (outdoors and in a castle by night; in the hold under the mountain
 // always), and goes out when the fuel runs out: from mid-afternoon the town's lamplighters (anyone with nothing better
@@ -8,10 +8,14 @@
 // lights' reach and the fires', and in an unlit room of the castle or the hold. Only with the autopilot on.
 
 import { CAVE_SLEEP, CAVE_WAKE, DARK_BELOW, DARK_PACE, FEED_BELOW, FEED_FROM, FEED_UNTIL, FUEL_MOST, FUEL_PER_UNIT, LIGHT_EVERY, LIGHT_KIND, STREET_LIGHTS_BASE, STREET_LIGHTS_MOST, STREET_LIGHTS_PER_PERSON } from '../data/lighting';
-import { totalStock } from './buildings';
+import { doorCell, footprint, totalStock } from './buildings';
+import { BUILDING_BY_ID } from '../data/buildings';
+import { CROPS } from '../data/crops';
+import { HERDS } from '../data/livestock';
+import { isGate, isGrate } from './ringWall';
 import { castleLayout, holdOf } from './castle';
 import { takeFromStorage } from './expeditions';
-import { CELL, idx, inMap, isRoad } from './land';
+import { CELL, groundAt, idx, inMap, isRoad, wet, type Rect } from './land';
 import { clearLine, lightSources, occluders } from './lightField';
 import { isChild } from './social';
 import { tireless, type GameState, type Person } from './state';
@@ -82,13 +86,14 @@ export function lightingHourly(s: GameState): void {
   for (const t of s.torches ?? []) if (t.fuel > 0 && darkThere(s, t)) t.fuel = Math.max(0, t.fuel - 1);
 }
 
-/** The lights the town wants: street lights for its size, a sconce for each room and gallery. */
+/** The lights the town wants: lights out of doors where the town is dark (`outdoorCells`), as many as it can keep for
+ *  its size, and a sconce for each room of a castle or a hold. */
 export function placeLights(s: GameState): void {
   const ts = (s.torches ??= []);
   const grown = s.people.filter((p) => !isChild(p)).length;
-  const want = Math.min(STREET_LIGHTS_MOST, STREET_LIGHTS_BASE + STREET_LIGHTS_PER_PERSON * grown);
-  const cells = streetCells(s.land).slice(0, want);
+  const want = grown < SMALL_LIGHTS ? grown : Math.min(STREET_LIGHTS_MOST, STREET_LIGHTS_BASE + STREET_LIGHTS_PER_PERSON * grown);
   const keyOf = (x: number, y: number) => `${x},${y}`;
+  const cells = outdoorCells(s, ts.filter((t) => t.room === undefined), want);
   const wanted = new Set(cells.map((c) => keyOf(c.x, c.y)));
   // the rooms
   const lay = castleLayout(s);
@@ -118,6 +123,111 @@ export function placeLights(s: GameState): void {
   // (the lamps on a room keep up with its middle as it's rebuilt)
   for (const t of kept) if (t.room !== undefined) Object.assign(t, roomAt.get(t.room));
   s.torches = kept;
+}
+
+/** A camp of fewer grown-ups keeps only a light a head (the fire lights the rest): a lone founder has the day's
+ *  work to do before rounds of lamps. */
+const SMALL_LIGHTS = 3;
+/** How much a door that should be lit counts, and a stretch of road. */
+const DOOR_WORTH = 1;
+const ROAD_WORTH = 0.3;
+const FIELD_WORTH = 0.5;
+/** How far out from the fire the camp's own ground reaches (cells), lit even before anything stands there. */
+const CAMP_GROUND = 8;
+/** A light goes up only where it lights at least this much that was dark. */
+const LIGHT_LEAST = 0.6;
+
+/** Where the town's lights out of doors stand (the owner's ask: the town covers itself in light as it needs): what
+ *  should be lit is every finished building's door (but the walls), the fields and pens, and the roads among them; the
+ *  camp's fire and the fires at the buildings light some already, and so do the lights standing (kept while their
+ *  cell is still clear). Each new light goes on the road or the open ground by a building where it lights the most of
+ *  what's still dark (sim/lightField.ts: buildings, trees and rocks in the way), until all is lit or the town has as
+ *  many as it can keep (`want`). */
+export function outdoorCells(s: GameState, standing: { x: number; y: number }[], want: number): { x: number; y: number }[] {
+  const m = s.land;
+  const kind = kindOf(s);
+  const reach = kind.radius * 0.85;
+  const lay = castleLayout(s);
+  const occ = occluders(m, s.buildings, lay ? lay.region.keys() : undefined);
+  const solid = new Set<number>();
+  const near = new Set<number>();
+  const targets: { x: number; y: number; w: number }[] = [];
+  const doors = new Set<number>();
+  let far = 0;
+  for (const b of s.buildings) {
+    if (b.room) continue;
+    const r = footprint(b);
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) solid.add(idx(m, x, y));
+    for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (inMap(m, x, y)) near.add(idx(m, x, y));
+    if (b.status !== 'done' || b.ring !== undefined || isGate(b.def) || isGrate(b.def) || BUILDING_BY_ID[b.def]?.hp) continue;
+    // (a field or a pen is worked all over: every other cell of it)
+    if (CROPS[b.def] || HERDS[b.def]) {
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if ((x + y) % 2 === 0) targets.push({ x: x + 0.5, y: y + 0.5, w: FIELD_WORTH });
+      far = Math.max(far, Math.hypot(r.x + r.w / 2 - m.camp.x, r.y + r.h / 2 - m.camp.y));
+      continue;
+    }
+    const d = doorCell(b);
+    if (!inMap(m, d.x, d.y) || doors.has(idx(m, d.x, d.y))) continue;
+    doors.add(idx(m, d.x, d.y));
+    targets.push({ x: d.x + 0.5, y: d.y + 0.5, w: DOOR_WORTH });
+    far = Math.max(far, Math.hypot(d.x - m.camp.x, d.y - m.camp.y));
+  }
+  // (the roads among the buildings, every other cell; and the camp's own ground about the fire)
+  far = Math.max(far + 2, CAMP_GROUND);
+  const roads: number[] = [];
+  for (let y = Math.max(0, Math.floor(m.camp.y - far)); y <= Math.min(m.h - 1, Math.ceil(m.camp.y + far)); y++)
+    for (let x = Math.max(0, Math.floor(m.camp.x - far)); x <= Math.min(m.w - 1, Math.ceil(m.camp.x + far)); x++) {
+      if (!isRoad(m, x, y) || Math.hypot(x - m.camp.x, y - m.camp.y) > far) continue;
+      roads.push(idx(m, x, y));
+      if ((x + y) % 2 === 0 && !doors.has(idx(m, x, y))) targets.push({ x: x + 0.5, y: y + 0.5, w: ROAD_WORTH });
+    }
+  // where a light may stand: a road, or open ground beside a building (never in one, in water, rock or the mountain)
+  const ok = (i: number) => {
+    if (solid.has(i) || lay?.region.has(i)) return false;
+    const g = groundAt(m, i % m.w, Math.floor(i / m.w));
+    return !wet(g) && g !== 'mountain' && g !== 'rock' && g !== 'hall';
+  };
+  const spots = new Set<number>();
+  for (const i of roads) if (ok(i)) spots.add(i);
+  for (const i of near) if (ok(i) && Math.hypot((i % m.w) - m.camp.x, Math.floor(i / m.w) - m.camp.y) <= far) spots.add(i);
+  // what each light lights (a light's own cell's middle out to its reach)
+  const sees = (sx: number, sy: number, r: number, own: Rect | null = null) => {
+    const out: number[] = [];
+    targets.forEach((tg, j) => {
+      if (Math.hypot(tg.x - sx, tg.y - sy) <= r && clearLine(occ, m.w, m.h, sx, sy, tg.x, tg.y, own)) out.push(j);
+    });
+    return out;
+  };
+  const lit = new Uint8Array(targets.length);
+  for (const src of lightSources(s.era, [], s.buildings, m.camp)) for (const j of sees(src.x, src.y, src.r * 0.85, src.own)) lit[j] = 1;
+  const out: { x: number; y: number }[] = [];
+  // (the lights standing are kept while their cell is clear, the nearest the camp first)
+  const keep = standing.filter((t) => inMap(m, t.x, t.y) && ok(idx(m, t.x, t.y))).sort((a, b) => Math.hypot(a.x - m.camp.x, a.y - m.camp.y) - Math.hypot(b.x - m.camp.x, b.y - m.camp.y));
+  for (const t of keep.slice(0, want)) {
+    out.push({ x: t.x, y: t.y });
+    spots.delete(idx(m, t.x, t.y));
+    for (const j of sees(t.x + 0.5, t.y + 0.5, reach)) lit[j] = 1;
+  }
+  // (then where each new one lights the most still dark; roads a little before open ground, nearer the camp first)
+  const cover = [...spots].map((i) => ({ i, sees: sees((i % m.w) + 0.5, Math.floor(i / m.w) + 0.5, reach), road: isRoad(m, i % m.w, Math.floor(i / m.w)), d: Math.hypot((i % m.w) - m.camp.x, Math.floor(i / m.w) - m.camp.y) }));
+  while (out.length < want) {
+    let best: (typeof cover)[number] | null = null;
+    let bestGain = LIGHT_LEAST - 1e-9;
+    for (const c of cover) {
+      let gain = c.road ? 0.05 : 0;
+      for (const j of c.sees) if (!lit[j]) gain += targets[j].w;
+      gain -= c.d * 0.001;
+      if (gain > bestGain) {
+        bestGain = gain;
+        best = c;
+      }
+    }
+    if (!best) break;
+    out.push({ x: best.i % m.w, y: Math.floor(best.i / m.w) });
+    for (const j of best.sees) lit[j] = 1;
+    cover.splice(cover.indexOf(best), 1);
+  }
+  return out;
 }
 
 /** The light the town should feed next for this person: the emptiest below half, nearest first; null if none or

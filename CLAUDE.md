@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.48.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.49.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3799,6 +3799,25 @@ blocked by buildings, structures, trees and rocks)
   someone already lies, and a cell clear of any building where there's room. The spot is kept on the sleep task
   (`spot`); `sleepTask` in people.ts keeps the task through the night (the wounded's too), so it isn't lost. On the
   map they lie flat on the ground (mapPeople's `moment`, on a slow phone too). Test: `test/roughSleep.test.ts`.
+
+## The town lights itself, and hair that stays on (0.49.0; the owner's asks)
+
+- **Lights where the town needs them** (the owner: "the townsfolk are also adding torches to cover the town in light
+  as needed"): `outdoorCells` in sim/lighting.ts replaces the old street lights (a light every fifth road cell). What
+  should be lit is every finished building's door (but the walls), the fields and pens (`FIELD_WORTH`), and the roads
+  among them (`ROAD_WORTH`) out to the furthest building and at least `CAMP_GROUND` (8) about the fire; the camp's fire,
+  the fires at the buildings and the lights already standing (kept while their cell is clear) light some; each new
+  light goes on a road or open ground beside a building (never in one, in water, rock, the mountain or a castle) where
+  it lights the most still dark through sim/lightField.ts's `clearLine`, until all is lit (`LIGHT_LEAST`) or the town
+  has as many as it can keep. A camp of fewer than `SMALL_LIGHTS` (3) grown-ups keeps a light a head. Test in
+  `test/lighting.test.ts` (every home's door lit).
+- **Hair on the head in the side lunges** (the owner: hair still slid off in some animations): in the left- and
+  right-facing lunge (every tool swing and blow) the pack draws the head 16px toward the face and the beards, hoods and
+  clothes with it, but every hair and bangs layer only 6 and the sideburns and white long hair and pigtails 4 the
+  other way. `nudgeOf` in art/hkFolk.ts moves hair and bangs 10px and those 20px in cells 12 and 20 (measured against
+  the bodies' heads, checked by eye). Test in `test/hkFolk.test.ts`.
+- Rough sleepers' spots are never inside a castle's walls (`roughSpot`: one inside made the walkers' path searches
+  fail over and over, a vampire test three times slower).
 
 ## Known problem (fixed, watch)
 

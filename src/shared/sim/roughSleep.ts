@@ -4,7 +4,8 @@
 // and a cell clear of any building where there's room. The map lays them down there (map/mapPeople.ts).
 
 import { footprint } from './buildings';
-import { CELL, groundAt, inMap, isPlannedRoad, isRoad, wet, type Pt } from './land';
+import { castleLayout } from './castle';
+import { CELL, groundAt, idx, inMap, isPlannedRoad, isRoad, wet, type Pt } from './land';
 import { campXY, type GameState, type Person } from './state';
 
 /** The rings round the fire (cells out), and how many places on each. */
@@ -35,6 +36,7 @@ export function roughSpot(s: GameState, p: Person): Pt {
   const first = { x: c.x - CELL, y: c.y + CELL };
   if (!taken.has(cellKey(first))) return first;
   const m = s.land;
+  const castle = castleLayout(s)?.region; // (never inside a castle's or a hold's walls)
   for (const clear of [true, false])
     for (let ring = 0; ring < RINGS.length; ring++) {
       const n = PLACES[ring];
@@ -46,7 +48,7 @@ export function roughSpot(s: GameState, p: Person): Pt {
         const cx = Math.floor(x / CELL);
         const cy = Math.floor(y / CELL);
         const k = cy * 4096 + cx;
-        if (!inMap(m, cx, cy) || built.has(k) || (clear && near.has(k)) || taken.has(k) || isRoad(m, cx, cy) || isPlannedRoad(m, cx, cy)) continue;
+        if (!inMap(m, cx, cy) || castle?.has(idx(m, cx, cy)) || built.has(k) || (clear && near.has(k)) || taken.has(k) || isRoad(m, cx, cy) || isPlannedRoad(m, cx, cy)) continue;
         const g = groundAt(m, cx, cy);
         if (wet(g) || g === 'mountain' || g === 'rock') continue;
         return { x: Math.round(x), y: Math.round(y) };

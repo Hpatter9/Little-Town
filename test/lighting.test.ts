@@ -4,7 +4,7 @@ import { newGame } from '../src/shared/sim/state';
 import { Sim } from '../src/shared/sim/sim';
 import { feedLight, inDark, isLit, darkPace, lightingHourly, lightToFeed, placeLights, streetCells } from '../src/shared/sim/lighting';
 import { DARK_PACE, FUEL_MOST, LIGHT_EVERY } from '../src/shared/data/lighting';
-import { depositNear, totalStock } from '../src/shared/sim/buildings';
+import { depositNear, doorCell, footprint, totalStock } from '../src/shared/sim/buildings';
 import { CELL, isRoad, setRoad } from '../src/shared/sim/land';
 import { campXY } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -21,20 +21,46 @@ function lit(seed: string) {
   return s;
 }
 
-test('street lights stand along the roads, more as the town grows', () => {
+test('lights stand by the roads and the buildings, more as the town grows', () => {
   const s = lit('lights-place');
   placeLights(s);
   const n = s.torches!.length;
   assert.ok(n > 0, 'some lights');
-  for (const t of s.torches!) assert.ok(isRoad(s.land, t.x, t.y), "a street light by a road");
-  assert.ok(streetCells(s.land).length >= n);
+  for (const t of s.torches!) {
+    assert.ok(isRoad(s.land, t.x, t.y) || s.buildings.some((b) => near(footprint(b), t.x, t.y)), 'a light by a road or a building');
+    assert.ok(!s.buildings.some((b) => inside(footprint(b), t.x, t.y)), 'never inside a building');
+  }
   assert.ok(s.torches!.every((t) => t.fuel === 0), 'new lights start empty');
-  // more people, more lights (up to the road's room)
+  // more people, more lights (up to what's dark)
   for (let i = 0; i < 6; i++) s.people.push({ ...s.people[0], id: 900 + i });
   placeLights(s);
   assert.ok(s.torches!.length >= n);
   assert.ok(LIGHT_EVERY > 1);
+  assert.ok(streetCells(s.land).length > 0);
 });
+
+test('the town lights the doors of its buildings as it builds them', () => {
+  const s = lit('lights-doors');
+  // (a ring of homes about the camp, beyond the fire's reach)
+  const spots = [
+    [8, -6],
+    [-9, -5],
+    [9, 5],
+    [-8, 6],
+  ];
+  for (const [dx, dy] of spots) put(s, 'lean_to', s.land.camp.x + dx, s.land.camp.y + dy);
+  for (let i = 0; i < 10; i++) s.people.push({ ...s.people[0], id: 900 + i });
+  placeLights(s);
+  s.tick = at(2, 23);
+  for (const t of s.torches!) t.fuel = FUEL_MOST;
+  for (const b of s.buildings.filter((b) => b.def === 'lean_to')) {
+    const d = doorCell(b);
+    assert.ok(!inDark(s, (d.x + 0.5) * CELL, (d.y + 0.5) * CELL), `the door at ${d.x},${d.y} is lit`);
+  }
+});
+
+const inside = (r: { x: number; y: number; w: number; h: number }, x: number, y: number) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+const near = (r: { x: number; y: number; w: number; h: number }, x: number, y: number) => x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h;
 
 test('lights burn their fuel by night only, and are fed from the stores', () => {
   const s = lit('lights-burn');
