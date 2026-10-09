@@ -157,7 +157,7 @@ export function factionsDaily(s: GameState, rng: Rng): void {
   growTowns(fs);
   // a new power is met (its envoy at the gate): the rising powers each on their own day
   const known = fs.filter((f) => f.known && !defOf(f).rising).length;
-  const next = fs.find((f) => !f.known && !defOf(f).rising) ?? fs.find((f) => !f.known && defOf(f).rising && day >= RISE_MEET_DAYS[defOf(f).rising!]);
+  const next = fs.find((f) => !f.known && defOf(f).rising && day >= RISE_MEET_DAYS[defOf(f).rising!]) ?? fs.find((f) => !f.known && !defOf(f).rising);
   if (next && (defOf(next).rising || day >= FIRST_MEET_DAY + known * MEET_EVERY_DAYS) && !envoyWaiting(s)) {
     next.known = true;
     envoy(s, next, 'greet');
