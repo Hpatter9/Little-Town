@@ -26,7 +26,6 @@ test('a skilled builder builds while the unskilled haul', () => {
   hand.needs = { food: 1, rest: 1 };
   hand.traits = [];
   s.people.push(hand);
-  s.hour = 9;
   assert.ok(buildableNow(site), 'half the makings in: there is work for a builder');
   const sim = new Sim(s);
   let built = false;
