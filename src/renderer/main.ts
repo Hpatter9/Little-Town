@@ -135,7 +135,7 @@ const travellerDoing = (t: TravellerView) => {
 import { bleedLeft } from '../shared/format';
 import { poolSize } from '../shared/sim/state';
 import { hashSeed } from '../shared/rng';
-import { CELL, cellAt, groundAt, isMarked, isRoad, WILD } from '../shared/sim/land';
+import { CELL, cellAt, groundAt, idx, isMarked, isRoad, WILD } from '../shared/sim/land';
 import { loadCreatures } from './art/creatures';
 import { loadEffects } from './art/effects';
 import { loadStills } from './art/stills';
@@ -409,6 +409,7 @@ async function start(): Promise<void> {
     go: () => bridge.command({ type: 'battleGo' }),
     auto: (on) => bridge.command({ type: 'battleAuto', on }),
     speed: (n) => bridge.command({ type: 'battleSpeed', speed: n }),
+    skip: () => bridge.command({ type: 'raidSkip' }),
     pick: (person) => {
       battle.selectedPerson = person;
     },
@@ -780,7 +781,9 @@ async function start(): Promise<void> {
         },
       });
     // (inside: a cutaway of the room and whoever is in it, sim/interiors.ts)
-    if (b.status === 'done' && b.id > 0 && hasInside(BUILDING_BY_ID[b.def]))
+    // (not a castle's or a hold's own room: those are seen into already, on the map)
+    const castleRoom = !!snap.castle && snap.castle.cells.includes(idx(snap.land, b.tile, b.row));
+    if (b.status === 'done' && b.id > 0 && !castleRoom && hasInside(BUILDING_BY_ID[b.def]))
       list.push({
         label: 'Look inside',
         onClick: () => {
@@ -1491,7 +1494,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     // (a question that needs an answer goes first; the report waits behind it)
     if (next.away && !q && view.mode === 'full')
@@ -1544,6 +1547,15 @@ async function start(): Promise<void> {
     traffic.on = skiffs.on && next.weather.kind !== 'snow';
     traffic.land = next.land;
     disaster.sync(next.disaster, next.land.w);
+    // (a raid skipped to its recap: a word over the fast-forwarding battle, sim/raidSkip.ts)
+    let skipNote = document.getElementById('raid-skipping');
+    if (next.raidSkipping && !skipNote) {
+      skipNote = document.createElement('div');
+      skipNote.id = 'raid-skipping';
+      skipNote.textContent = 'The town fights it out… ⏭';
+      document.body.append(skipNote);
+    }
+    if (skipNote) skipNote.style.display = next.raidSkipping ? '' : 'none';
     map.festival.sync(next.gathering);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);

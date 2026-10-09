@@ -146,6 +146,70 @@ export interface CastleLayout {
   doors: Set<string>;
   gateOut: number;
   gateIn: number;
+  /** Every way in or out: the gate before the hall, then the side gates a growing castle opens (`sideGates`). */
+  gates: CastleGate[];
+}
+
+/** A gate: the castle cell inside it, the cell outside it, and which wall it's in. */
+export interface CastleGate {
+  inside: Pt;
+  outside: Pt;
+  side: 'n' | 's' | 'w' | 'e';
+}
+
+/** A castle on the land opens another gate for every `ROOMS_PER_GATE` rooms, up to `GATES_MOST` in all, so the
+ *  townsfolk aren't all squeezed through one (the owner's ask; a mountain hold keeps its one carved gate). */
+export const ROOMS_PER_GATE = 4;
+export const GATES_MOST = 4;
+
+const SIDE_STEP: Record<CastleGate['side'], [number, number]> = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] };
+
+/** The side gates: each on the outer wall, on firm open ground outside, as far as can be from the gates already there. */
+function sideGates(s: CastleState, region: Map<number, number>, main: CastleGate): CastleGate[] {
+  if (holdOf(s) !== 'castle') return [];
+  const want = Math.min(GATES_MOST, 1 + Math.floor(rooms(s).length / ROOMS_PER_GATE)) - 1;
+  if (want <= 0) return [];
+  const m = s.land;
+  const built = new Set<number>();
+  for (const b of s.buildings) {
+    const f = footprint(b);
+    for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (inMap(m, x, y)) built.add(idx(m, x, y));
+  }
+  const cands: CastleGate[] = [];
+  for (const [i, id] of region) {
+    if (id <= -2) continue; // (not a hold's galleries)
+    const x = i % m.w;
+    const y = (i - x) / m.w;
+    for (const side of ['s', 'e', 'w', 'n'] as const) {
+      const [dx, dy] = SIDE_STEP[side];
+      const ox = x + dx;
+      const oy = y + dy;
+      if (!inMap(m, ox, oy)) continue;
+      const o = idx(m, ox, oy);
+      if (region.has(o) || built.has(o)) continue;
+      const g = groundAt(m, ox, oy);
+      if (g === 'water' || g === 'mountain' || g === 'shallows') continue;
+      cands.push({ inside: { x, y }, outside: { x: ox, y: oy }, side });
+    }
+  }
+  const gates = [main];
+  const out: CastleGate[] = [];
+  for (let k = 0; k < want && cands.length; k++) {
+    let best = -1;
+    let bestD = -1;
+    for (let c = 0; c < cands.length; c++) {
+      const d = Math.min(...gates.map((q) => Math.abs(q.inside.x - cands[c].inside.x) + Math.abs(q.inside.y - cands[c].inside.y)));
+      if (d > bestD) {
+        bestD = d;
+        best = c;
+      }
+    }
+    if (best < 0 || bestD < 3) break;
+    const g = cands.splice(best, 1)[0];
+    gates.push(g);
+    out.push(g);
+  }
+  return out;
 }
 
 /** The doorway between each pair of regions: one in the middle of the longest straight run of wall they share. The map
@@ -240,7 +304,8 @@ export function castleLayout(s: CastleState): CastleLayout | null {
     }
   }
   const g = castleGate(s);
-  const layout: CastleLayout = { region, doors: doorsOf(region, m.w), gateOut: idx(m, g.x, g.y), gateIn: idx(m, g.x, g.y - 1) };
+  const main: CastleGate = { inside: { x: g.x, y: g.y - 1 }, outside: g, side: 's' };
+  const layout: CastleLayout = { region, doors: doorsOf(region, m.w), gateOut: idx(m, g.x, g.y), gateIn: idx(m, g.x, g.y - 1), gates: [main, ...sideGates(s, region, main)] };
   layouts.set(s, { key, tick, layout });
   return layout;
 }
@@ -259,7 +324,11 @@ export function castleStep(s: CastleState, layout: CastleLayout): (ax: number, a
     if (ra === undefined || rb === undefined) {
       const out = ra === undefined ? a : b;
       if (groundAt(m, out % m.w, Math.floor(out / m.w)) === 'mountain') return true;
-      return (a === layout.gateOut && b === layout.gateIn) || (b === layout.gateOut && a === layout.gateIn);
+      return layout.gates.some((q) => {
+        const qi = q.inside.y * m.w + q.inside.x;
+        const qo = q.outside.y * m.w + q.outside.x;
+        return (a === qo && b === qi) || (b === qo && a === qi);
+      });
     }
     // (the edge between the two cells, named by the lower or the right one)
     const key = ay === by ? `${Math.max(ax, bx)},${ay}|v` : `${ax},${Math.max(ay, by)}|h`;

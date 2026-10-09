@@ -308,6 +308,8 @@ export interface Raider {
   tamedBy?: number;
   /** Fighting for the town: summoned, raised by a necromancer, or tamed. */
   ally?: boolean;
+  /** A druid grove's guardian (sim/grove.ts), by its id. */
+  guardian?: number;
   /** (a fallen raider a necromancer has already looked at) */
   raiseChecked?: boolean;
   /** Epic bosses: raging, called for help, blows struck, trophy handed over. */
@@ -570,6 +572,8 @@ export interface Person {
   lvXp?: number;
   /** Raiders this person has struck the last blow on (sim/raidRecap.ts), for the hall of heroes. */
   felled?: number;
+  /** A knight of the Order who has kept a vow (sim/chivalry.ts): worthy of being dubbed. */
+  keptVow?: boolean;
   /** The class stage last announced (an evolution is told once). */
   stageSeen?: number;
   /** Has reached their class's last stage (classes.ts ascend): rare and late. */
@@ -708,7 +712,9 @@ export interface Secret {
 /** A question waiting for the player, answered by default when the timer runs out. */
 export interface Prompt {
   id: number;
-  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt';
+  kind: 'strangers' | 'raid' | 'rite' | 'lich' | 'gate' | 'event' | 'thirst' | 'visitor' | 'secret' | 'saga' | 'road' | 'debrief' | 'envoy' | 'watch' | 'dragon' | 'evolve' | 'refugees' | 'village' | 'council' | 'trial' | 'revolt' | 'ways';
+  /** A people's own question (the origins made deeper: sim/heritage.ts `answerWays`): whose, and about what. */
+  ways?: { system: string; about: string; id?: number };
   /** A question of the town's politics (sim/politics.ts): a council vote, a trial or a revolt. */
   politics?: 'vote' | 'trial' | 'revolt';
   /** A daughter village's question (sim/villages.ts): some would go and found one, or one is beset. */
@@ -1111,6 +1117,10 @@ export interface GameState {
   battleStyle?: 'trail' | 'tactics';
   /** The tactics board's turns are the town's to play (unset: on); off, the player gives the orders. */
   tacticsAuto?: boolean;
+  /** The raid under way is being skipped to its recap (sim/raidSkip.ts), with the auto setting it had; and whether every
+   *  raid is skipped. */
+  raidSkip?: { auto?: boolean };
+  skipRaids?: boolean;
   /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */
   autoBattle?: boolean;
   /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */
@@ -1182,6 +1192,18 @@ export interface GameState {
   kin?: Record<number, import('./lineage').KinRecord>;
   /** The trade economy: prices, booms and shortages, the trade house, its routes and wagons (sim/markets.ts). */
   market?: import('./markets').MarketState;
+  /** A druid town's grove (sim/grove.ts). */
+  grove?: import('./grove').GroveState;
+  /** A fae town's Court and its bargains (sim/bargains.ts). */
+  court?: import('./bargains').CourtState;
+  /** An alchemists' town's Great Work (sim/greatWork.ts). */
+  work?: import('./greatWork').WorkState;
+  /** A knights' town's Order: vows, honour, tournaments, the liege, the Grail (sim/chivalry.ts). */
+  order?: import('./chivalry').OrderState;
+  /** A machine town's factory mind: power, wear, the line, modules, the Mind (sim/foundry.ts). */
+  foundry?: import('./foundry').FoundryState;
+  /** A settlers' town's frontier: tricks learned, strangers teaching, land claims (sim/frontier.ts). */
+  frontier?: import('./frontier').FrontierState;
   /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
   portals?: Portal[];
   watchingPortal?: RealmId;

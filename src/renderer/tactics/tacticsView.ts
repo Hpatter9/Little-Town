@@ -712,6 +712,7 @@ export class TacticsScene {
     void auto;
     const speed = t.speed;
     this.button(`${speed}×`, w - 112, h - (t.orders ? 140 : 84) - 32, 34, 26, () => this.command({ type: 'battleSpeed', speed: (speed % 3) + 1 }));
+    this.button('Skip ⏭', w - 182, h - (t.orders ? 140 : 84) - 32, 64, 26, () => this.command({ type: 'raidSkip' }));
     void now;
   }
 

@@ -34,6 +34,8 @@ export interface CastleView {
   cells: number[];
   core: Rect;
   gate: { x: number; y: number };
+  /** The side gates (sim/castle.ts `sideGates`). */
+  gates?: { x: number; y: number; side: 'n' | 's' | 'w' | 'e' }[];
   bounds: Rect;
   /** The doorways between regions the sim walks through (sim/castle.ts `doorsOf`), and a hold's dug galleries. */
   doors: string[];
@@ -302,10 +304,24 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
         }
       }
     }
+    // a side gate in the outer wall (sim/castle.ts sideGates): the arched door in the south or north wall, a doorway west
+    // or east
+    const side = castle.gates?.find((q) => q.x === x && q.y === y);
+    if (side && gateTex) {
+      if (side.side === 's' && s === undefined) {
+        const g = put(gateTex, px, py + CELL + WALL_FACE - 32, py + CELL + WALL_FACE + 1);
+        g.width = g.height = 32;
+      } else if (side.side === 'n' && n === undefined) {
+        const g = put(gateTex, px, py + MERLON + WALL_T + INNER_FACE - 32, py + MERLON + WALL_T + INNER_FACE + 1);
+        g.width = g.height = 32;
+      }
+    }
     // west: the curtain wall, or a partition with the room to the left (drawn by the right cell)
-    if (w === undefined) put((mountain ? P.rockV : P.outerW).texture, px, py, py + CELL);
+    if (w === undefined && side?.side === 'w') put(P.doorV.texture, px, py, py + CELL);
+    else if (w === undefined) put((mountain ? P.rockV : P.outerW).texture, px, py, py + CELL);
     else if (w !== id) put((doors.has(`${x},${y}|v`) ? P.doorV : P.partV).texture, px, py, py + CELL);
-    if (e === undefined) put((mountain ? P.rockV : P.outerE).texture, px + CELL - (mountain ? ROCK_T : OUTER_SIDE_T), py, py + CELL);
+    if (e === undefined && side?.side === 'e') put(P.doorV.texture, px + CELL - OUTER_SIDE_T, py, py + CELL);
+    else if (e === undefined) put((mountain ? P.rockV : P.outerE).texture, px + CELL - (mountain ? ROCK_T : OUTER_SIDE_T), py, py + CELL);
     // a round tower at each outer corner (where two outer edges meet; the mountain needs none)
     if (!mountain) for (const [cx, cy, a, b] of [
       [px, py, n, w],

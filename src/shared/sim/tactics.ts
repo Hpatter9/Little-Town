@@ -499,7 +499,7 @@ export function startTactics(s: GameState, r: Raid): void {
   const foes = r.raiders.filter((rd) => !rd.ally && !rd.down && !rd.gone);
   const folk = fighters(s);
   const board = makeBoard(s, r.side, foes.length + folk.length >= BIG_AT || !!r.host, s.tick);
-  const auto = s.tacticsAuto !== false || !!r.alone || runtime.quiet || s.autopilot === false;
+  const auto = s.tacticsAuto !== false || !!s.raidSkip || !!r.alone || runtime.quiet || s.autopilot === false;
   const t: Tactics = { ...board, units: [], waiting: [], auto, phase: 'fighting', turns: 0, killed: 0, through: 0, lost: 0, started: s.tick, hits: [], fx: [], chests: [] };
   r.tactics = t;
   r.leavesTick = Math.max(r.leavesTick, s.tick + 3 * TICKS_PER_HOUR);

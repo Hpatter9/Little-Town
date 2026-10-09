@@ -89,7 +89,7 @@ export function spendByClass(p: Person): number {
 /** Each hour: points are spent the class's way unless the player is asked (then only once they've waited
  *  AUTO_SPEND_HOURS unspent, so a town left to itself still grows). */
 export function statsHourly(s: GameState): void {
-  const ask = s.statsAsk !== false && s.autopilot !== false;
+  const ask = s.statsAsk === true && s.autopilot !== false; // (auto unless the player asks to choose: the owner's call)
   for (const p of s.people) {
     if (freePoints(p) <= 0) {
       delete p.ptsSince;

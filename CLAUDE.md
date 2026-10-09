@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.39.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.40.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3487,6 +3487,108 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   routes faint gold and the wagons (🛒) along them (`WorldView.routes`, march kind `wagon`); the news bubble has a red
   notice for a loan falling due and a bust; the Treasury's ledger has the trade house's line. Only with the autopilot
   on (the tests' plainGame never trades). Tests: `test/markets.test.ts`.
+
+## The peoples made deeper (the owner's ask: the thinner origins brought up to the deep ones)
+
+Each people's own system runs itself (the autopilot on) and is shown on the Town menu's **Our ways** tab
+(`panel/heritagePanel.ts`, `snapshot.heritage` from `sim/heritage.ts`); tales go to the event box through
+`sim/telling.ts` (`tellStory`, a `debrief` prompt with a backdrop picked by its words).
+
+- **The druids' living grove** (`data/grove.ts`, `sim/grove.ts`, `s.grove`): the grove's favour (−100..100) moves
+  each morning (`GROVE_HOUR`, `groveMorning`): forest felled costs it (`noteFelled` from regrow.ts `noteCleared`;
+  `FELL_ALLOWANCE` a day forgiven, the rest `FELL_FAVOUR` each up to `FELL_MOST`: the ring wall's clearing bites slowly),
+  the wild grown back gives it (`noteRegrown`), and the druids tend `TEND_CELLS` felled cells on (their regrowth
+  hurried a day). Pleased (`BLESSED_AT`) it blesses the day's crops and foraging (marks `BLESS_MULT`) and sends a
+  guardian beast every `GUARDIAN_DAYS` (`GUARDIAN_KINDS` by the land: `grove_wolf`, `grove_bear`, `grove_boar` in
+  `GROVE_ENEMIES`, merged into ENEMIES; up to `GUARDIANS_MOST`) that fights beside the town in every raid
+  (`groveAllies` from `startRaid`, `Raider.guardian`) and is lost if struck down (`groveRaidOver` from `endRaid`).
+  Angered (`ANGRY_AT`) it curses the crops, its thorns cut a woodcutter (`THORN_CHANCE`), it looses wolves
+  (`WOLVES_CHANCE`), and its guardians leave (`GUARDIAN_LEAVES_AT`). At `RITE_HOUR` on each season's first day the
+  circle keeps a rite (`RITES`: the Greening, the Midsummer Fire, the Reaping, the Long Night: an offering for a mark,
+  a gift of food or the hurt eased; poor without the offering). Probe (15 days, 5 towns): favour 13 to 49, guardians
+  in three. Tests: `test/grove.test.ts`.
+- **The Fae Court's bargains** (`data/bargains.ts`, `sim/bargains.ts`, `s.court`): at `COURT_HOUR` every `OFFER_DAYS`
+  the Court offers one of `BARGAINS` (a `ways` prompt, `askWays` in sim/telling.ts, answered through sim/heritage.ts
+  `answerWays`; the town's own choice, `wise`, the default): a boon now (events' effects through `apply`), a price due
+  `due` days later (`s.court.debts`; besides the events' effects, `youth` (days of someone's life), `taken` (a child or
+  anyone, gone to the Court), `forget` (levels of the best at a skill)). The Court always collects (`collect`); a price
+  that can't be paid is forfeit: someone is taken (`takeAway`). Favour moves with bargains struck, paid and refused
+  (`STRUCK_FAVOUR`, `PAID_FAVOUR`, `REFUSED_FAVOUR`, `FORFEIT_FAVOUR`); refused, it may play a trick (`PRANKS`). Cold
+  iron (`IRON_HARM` iron, steel and ore in store) hurts the fair folk (`coldIron`: morale, favour); a charmed Court
+  (`REVEL_AT`) holds revels under the full moon (morale, travellers). Prompt kind `ways` (`Prompt.ways`: system,
+  about) is shown by the event box. Tests: `test/bargains.test.ts`.
+- **The alchemists' Great Work** (`data/greatWork.ts`, `sim/greatWork.ts`, `s.work`): at `WORK_HOUR` the best at
+  Research (`alchemist`) runs an experiment (`experiment`): the best transmutation the age and the stores allow
+  (`TRANSMUTATIONS`: clay to copper, stone to tin ore, copper or iron to silver, silver to gold, coal to gems), else a
+  potion (`POTIONS`: a lever's mark), on odds by their Research (`oddsOf`, better after Nigredo); failed, it may blow up
+  (`BLAST_CHANCE`: a wound, the nearest building alight on `FIRE_CHANCE`) or misfire (a sickness, a sour mood). Each
+  success adds progress; `advance` reaches each of the five `STAGES` at its mark, with its age and its offering in
+  store (told in the event box): Albedo grows homunculi (`HOMUNCULUS_DAYS`, up to `HOMUNCULI_MOST`, each
+  `HOMUNCULUS_WORK` on the town's work; now and then one runs off), Citrinitas mends every wound weekly, Rubedo makes
+  `RUBEDO_COINS` weekly, and the Philosopher's Stone wins the game (`s.gameOver.won`). Probe (15 days): about 12
+  experiments of 15 worked, progress 12. Tests: `test/greatWork.test.ts`.
+- **The knights' code** (`data/chivalry.ts`, `sim/chivalry.ts`, `s.order`): the Order's honour (−100..100). At
+  `CODE_HOUR` grown-ups swear vows (`VOWS`: valour (fell a foe in time), poverty (what they earn past `POVERTY_MOST`
+  goes to the Order; owning property breaks it), temperance (no drink at the tavern), chastity (no partner), vigil (stay
+  a guard)); `checkVows` hourly: kept to the end (or valour's foe felled), honour, a level of melee and spirits
+  (`Person.keptVow`); broken, shame (`Person.sore`, honour). The kept with melee `KNIGHT_LEVEL` are dubbed (`dub`: the
+  title Knight of the Order, told in the event box). A tournament every `TOURNEY_DAYS` at `TOURNEY_HOUR` (`tourney`:
+  the best `TOURNEY_ENTRANTS` against visiting knights of `VISITOR_LEVEL` plus the days; winners take `TOURNEY_PURSE`,
+  the crowd draws travellers). The liege's call every `LIEGE_DAYS` (`liegeCall`, a `ways` question: `LIEGE_SENT` away
+  `LIEGE_HOURS` (`Person.away` −4000001), home with pay and honour, now and then hurt or dead; refused, honour and
+  `LIEGE_FINE`). The Grail (`grail`): at `GRAIL_HONOUR` from the Medieval age the best rides out alone (away −4000002)
+  for `GRAIL_HOURS` to each of `GRAIL_STAGES` (odds by melee, `grailOdds`; failed, hurt or lost, `GRAIL_KILLS`, and a
+  wait); the third found wins the game. Tests: `test/chivalry.test.ts`.
+- **The machines' factory mind** (`data/foundry.ts`, `sim/foundry.ts`, `s.foundry`): at `FOUNDRY_HOUR`: power
+  (0..100, `power`): the sun (`SOLAR` plus `SOLAR_PER_BUILDING` for each building's panels, less in rain and winter), a
+  power station `STATION_POWER`, cells and coal burned below `BURN_UNTIL`, less `DRAIN_PER_UNIT` a unit; under
+  `BROWNOUT` the town works slower, at nothing a blackout (work and study halved, a unit may shut down). Wear
+  (`wear`: `WEAR_DAILY` a unit, mended at `MEND_AT` for an alloy (stone and wood before there are any); worn through, a
+  fault). The production line (`line`): a unit built from `UNIT_PARTS` in `UNIT_DAYS` (`newcomer` in powers.ts, now
+  exported), while there's room (`UNITS_PER_BUILDING`) and power. Modules (`fitModule`, `MODULES`: levels of a skill,
+  two a unit) while circuits are spare. The Mind (`mindAwake`: the seat at stage `MIND_SEAT_STAGE`): every
+  `MIND_DAYS` a directive (`DIRECTIVES`: recycle the oldest unit, overdrive, expand, purge the food, ascend), a `ways`
+  question; overruled `DISSENT_MOST` times, it carries the next out itself. Tests: `test/foundry.test.ts`.
+- **The settlers' frontier** (`data/frontier.ts`, `sim/frontier.ts`, `s.frontier`): at `FRONTIER_HOUR`: a people met
+  (a stranger of theirs in town, their caravan at the market: `learnTricks`) teaches its trick for good (`TRICKS`: a
+  lever `TRICK_MULT`, a mark renewed each morning); every stranger settled in town teaches `TEACH_PUPILS` others their
+  best skill (`teach`); every `CLAIM_DAYS` a land claim is staked at the edge of the known land (`stakeClaim`: the land
+  opened `CLAIM_OPEN`, a first haul by the ground, `CLAIM_HAUL`; up to `CLAIMS_MOST`), and claim-jumpers may come for
+  one (outlaws on the land, `spawnRoamerAt`). Tests: `test/frontier.test.ts`.
+- **A win for every new system:** the druids' Heart of the Grove (`BLOOM_AT` held `BLOOM_DAYS` mornings,
+  `GroveState.bloom`), the fae crowned by the Court (`CROWN_BARGAINS` prices paid, `CourtState.paid`, with favour at
+  `CROWN_AT`), the machines' Singularity (`SINGULARITY_BUILT` units off the line, the Mind awake and never overruled,
+  full power), the settlers' frontier tamed (every claim staked and `TAMED_TRICKS` peoples' tricks learned), beside the
+  alchemists' Stone and the knights' Grail; each shown as "To win" on its Our ways card (`.win-goal`).
+- **Old grudges and friendships** (`data/kinship.ts`, `KINSHIP`, `kinship(us, them)`): a power of the realm feels so
+  about the town by its people alone (the vampires and the pack, the Order and the dead, the hold and the fae, the grove
+  and the machines...; the grove and the fae, the hold and the Order, the crucible and the machines...), added to its
+  temper's rest in `realm()` and in the daily drift (sim/factions.ts); the Realm card says why
+  (`FactionView.kin`). Tests: `test/originWins.test.ts`.
+- **Skip a raid to its recap (the owner's ask):** `sim/raidSkip.ts`. A battle's **Skip ⏭** (the trail's battle bar,
+  `battleHud.ts`; the tactics board's corner, `tacticsView.ts`; the `raidSkip` command) or the Town menu's Raid battles
+  row "Skip to the recap" (`s.skipRaids`, the `skipRaids` command; `skipRaidsTick` skips each raid as it turns active)
+  sets `s.raidSkip` (keeping the player's `autoBattle`): the town fights it out on auto (`setAutoBattle`, and the board
+  plays itself while `raidSkip` is set), and `GameLoop.pump` runs the sim flat out, `SKIP_SLICE_MS` a frame, until the
+  raid ends (the same ticks, so it ends as a watched raid would); `endRaid` restores the setting (`raidSkipOver`) and the
+  recap shows. "The town fights it out… ⏭" (`#raid-skipping`, `snapshot.raidSkipping`) sits over it meanwhile. Tests:
+  `test/raidSkip.test.ts`.
+- **More gates as the castle grows (the owner's ask: the castle only entered by its doors, and not all by one):**
+  `sideGates` in sim/castle.ts: a castle on the land (not the mountain hold) opens one more gate for every
+  `ROOMS_PER_GATE` (4) rooms, up to `GATES_MOST` (4) in all, each on the outer wall where open firm ground lies outside,
+  as far as can be from the gates already there; `CastleLayout.gates` (`CastleGate`: inside, outside, side) are every
+  way in or out (`castleStep` lets a step through any of them and nowhere else). `snapshot.castle.gates` carries the side
+  gates; castleArt.ts draws the arched door in a south or north wall and a doorway in a west or east one. A room may no
+  longer be built over the ground before the main gate (`canPlace`: "The way to the gate"; one once walled a castle shut).
+  Test in `test/castle.test.ts`.
+- **The Court's blood shown (the owner's ask):** `bloodView` in sim/vampires.ts (the store against `BLOOD_KEEP`, whether
+  the thralls are spared, the thralls, the pens' head, the Blood Farms and their cells filled, about how much comes in
+  at dusk), on the Our ways tab ("Our ways: the blood") and as a Blood tile on the Town overview. Test in
+  `test/bloodCourt.test.ts`.
+- **Owner's calls with this batch:** stat points are spent the class's way by default (`statsHourly` asks only when
+  `s.statsAsk === true`: the Town menu's row turns asking on); and a castle's or a hold's own rooms have no Look inside
+  (`lookInside` refuses a `roomKind`; main.ts leaves the button off for a cell of `snapshot.castle`), since they are
+  seen into on the map already.
 
 ## Known problem (fixed, watch)
 

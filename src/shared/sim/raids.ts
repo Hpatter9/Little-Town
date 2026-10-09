@@ -101,6 +101,8 @@ import { caveBearBeaten } from './caveBear';
 import { packRaidBeaten } from './pack';
 import { sagaRaidOver } from './sagas';
 import { calamityRaidOver } from './calamity';
+import { groveAllies, groveRaidOver } from './grove';
+import { raidSkipOver } from './raidSkip';
 import { fireAt, speedOf, tickBurns } from './defenses';
 import { rustle } from './livestock';
 import { circleWagons } from './nomads';
@@ -291,6 +293,8 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   if (inside === undefined) alliesFor(s, raid, rng, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   // (and its loyal daughter villages: sim/villages.ts)
   if (inside === undefined) villageAllies(s, raid, rng, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
+  // (and a druid grove's guardians: sim/grove.ts)
+  groveAllies(s, raid, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   if (inside !== undefined) {
     raiders.forEach((rd, i) => {
       rd.x = inside.x + (i - (raiders.length - 1) / 2) * 14;
@@ -843,6 +847,7 @@ const theName = (name: string) => (/^the /i.test(name) ? name.slice(4) : name.to
 function endRaid(s: GameState, rng: Rng): void {
   const r = s.raid!;
   s.raid = null;
+  raidSkipOver(s);
   if (r.tactics) tacticsOver(s, r); // (the board stays up a moment for the last word: sim/tactics.ts)
   const kind = RAID_KIND_BY_ID[r.kind];
   meet(s, r.raiders.filter((rd) => !rd.ally).map((rd) => rd.kind)); // (the Bestiary)
@@ -859,6 +864,7 @@ function endRaid(s: GameState, rng: Rng): void {
   sagaRaidOver(s, r);
   hostOver(s, r);
   calamityRaidOver(s, r);
+  groveRaidOver(s, r);
   // thieves who got away may have led off a horse, too
   if (s.horses.length && r.raiders.some((rd) => rd.gone && poolSize(rd.carrying) > 0) && rng.chance(HORSE_THEFT)) {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];

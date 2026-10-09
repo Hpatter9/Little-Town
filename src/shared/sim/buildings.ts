@@ -212,6 +212,9 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
   if (castleOn(s)) {
     const cells = castleCells(s);
     if (room && !joinsCastle(cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };
+    // (never over the ground before the gate: a room built there once walled the castle shut)
+    const g = castleGate(s);
+    if (room && g.x >= r.x && g.x < r.x + r.w && g.y >= r.y && g.y < r.y + r.h + 1) return { ok: false, reason: 'The way to the gate' };
     if (!room && nearCastle(cells, m, r)) return { ok: false, reason: "The castle's ground" };
   }
   return { ok: true };

@@ -10,6 +10,13 @@ import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
 import { marketsHourly, setRoute } from './markets';
+import { groveHourly } from './grove';
+import { skipRaid, skipRaidsTick } from './raidSkip';
+import { courtHourly } from './bargains';
+import { workHourly } from './greatWork';
+import { orderHourly } from './chivalry';
+import { foundryHourly } from './foundry';
+import { frontierHourly } from './frontier';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -141,6 +148,7 @@ export class Sim {
       return;
     }
     for (const c of this.pending) this.apply(c);
+    skipRaidsTick(s); // (a town set to skip its raids: sim/raidSkip.ts)
     this.pending = [];
     if (s.paused) return;
 
@@ -206,6 +214,12 @@ export class Sim {
     faithHourly(s); // (the gods: sim/faith.ts)
     worldHourly(s); // (the realm beyond the town: sim/worldLife.ts)
     marketsHourly(s); // (prices, the trade house and its wagons: sim/markets.ts)
+    groveHourly(s); // (a druid town's grove: sim/grove.ts)
+    courtHourly(s); // (a fae town's Court and its bargains: sim/bargains.ts)
+    workHourly(s); // (an alchemists' town's Great Work: sim/greatWork.ts)
+    orderHourly(s); // (a knights' town's code: sim/chivalry.ts)
+    foundryHourly(s); // (a machine town's factory mind: sim/foundry.ts)
+    frontierHourly(s); // (a settlers' town's frontier: sim/frontier.ts)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);
@@ -382,6 +396,13 @@ export class Sim {
         break;
       case 'battleSpeed':
         setBattleSpeed(s, c.speed);
+        break;
+      case 'raidSkip':
+        skipRaid(s);
+        break;
+      case 'skipRaids':
+        s.skipRaids = c.on;
+        if (c.on) skipRaid(s);
         break;
       case 'tactics':
         tacticsOrder(s, c.order);

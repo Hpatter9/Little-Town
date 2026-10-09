@@ -4,6 +4,7 @@
 // something stands on it, a road runs over it, a building stands beside it (the yards are kept), or people still
 // walk it (a footpath showing): then it waits another day. Rock and the mountain don't grow back.
 
+import { noteFelled, noteRegrown } from './grove';
 import { blighted } from './blight';
 import { Rng, hashSeed } from '../rng';
 import { TERRAIN } from '../data/terrain';
@@ -22,6 +23,7 @@ const SPREAD = 0.4;
 export function noteCleared(s: GameState, i: number, was: Ground): void {
   const days = REGROW_DAYS[was];
   if (!days) return;
+  if (was === 'forest') noteFelled(s); // (a druid grove feels it: sim/grove.ts)
   const k = ((hashSeed(`${s.seed}:${i}`) % 1000) / 1000 - 0.5) * 2 * SPREAD;
   (s.land.regrow ??= {})[i] = [was, s.tick + Math.round(days * (1 + k) * TICKS_PER_DAY)];
 }
@@ -62,6 +64,7 @@ export function regrowHourly(s: GameState): void {
     }
     m.pools[i] = pool;
     delete m.regrow![i];
+    noteRegrown(s);
   }
   if (!Object.keys(m.regrow!).length) delete m.regrow;
 }

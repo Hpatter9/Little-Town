@@ -86,7 +86,7 @@ function healAll(s: GameState, hp: number): number {
 const cheer = (s: GameState, n: number) => home(s).forEach((p) => (p.morale = Math.min(100, p.morale + n)));
 
 /** A new townsperson, raised or built or charmed, at the camp. */
-function newcomer(s: GameState, rng: Rng, type: string, how: string): Person {
+export function newcomer(s: GameState, rng: Rng, type: string, how: string): Person {
   const p = makePerson(rng, s.nextId++, type, campXY(s), s.people.map((q) => q.name));
   s.people.push(p);
   joinOrigin(s, p, rng);
