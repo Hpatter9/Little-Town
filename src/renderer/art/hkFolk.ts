@@ -234,7 +234,8 @@ export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string 
   } else if (robed || w.founder) {
     family = own ?? 'adventurer';
     grade = GRADE[Math.max(0, Math.min(4, w.stage))];
-  } else if (w.traveller || w.cls) [family, grade] = ['adventurer', 1 + (w.id % 2)];
+  } else if (w.look.body === 'orc') [family, grade] = ['barbarian', 1 + (w.id % 3)]; // (the horde goes about in hide and fur)
+  else if (w.traveller || w.cls) [family, grade] = ['adventurer', 1 + (w.id % 2)];
   else [family, grade] = ['peasant', 1 + (w.id % 2)];
   if (w.founder && !body && grade < 3) grade = 3; // (a founder dresses the part from the first)
   out.push(sexed(`${family}0${grade}`, sex) ?? sexed(`${family}01`, sex));

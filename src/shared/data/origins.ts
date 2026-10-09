@@ -7,7 +7,7 @@ import type { Material } from './materials';
 import type { MonsterKind } from './monsters';
 import type { Era } from './eras';
 
-export const ORIGINS = ['settlers', 'lich', 'druid', 'vampire', 'werewolf', 'robot', 'dwarves', 'merfolk', 'nomads', 'fae', 'alchemists', 'knights'] as const;
+export const ORIGINS = ['settlers', 'lich', 'druid', 'vampire', 'werewolf', 'robot', 'dwarves', 'merfolk', 'nomads', 'fae', 'alchemists', 'knights', 'orcs'] as const;
 export type OriginId = (typeof ORIGINS)[number];
 
 /** How an origin bends the rules (anything left out is as usual). */
@@ -214,6 +214,21 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     },
     rules: { fight: 1.3, guard: 0.8, craft: 0.75, research: 0.85 },
     powers: ['rally', 'shield_wall', 'oath'],
+  },
+  orcs: {
+    id: 'orcs',
+    name: 'Orc Warband',
+    town: 'Chronos Warcamp',
+    description: 'A warband of orcs: strong, fierce and restless. They raid, they brawl, and they grow bored and sullen in peace. Glory is everything.',
+    features: ['Strong in a fight, quick to build rough; slow to learn, careless crafters, poor farmers', 'The warpath: the horde\'s fury rises with every fight and festers in peace; the warchief leads war raids out on the realm\'s powers for plunder and captives', 'Glory: every orc earns it by the kill and the raid, and the bloodiest take names (Skullsplitter, Warboss...)', 'Captives are put to work as thralls; when the fury boils over, the Waaagh! is called', 'The Great Waaagh, every power of the realm sacked, wins the game', 'Travellers are wary of a warcamp', 'Rites: War Cry, Berserk, Grog Feast'],
+    start: {
+      companions: ['hunter', 'hunter'],
+      stores: { meat: 18, berries: 10, wood: 16 },
+      research: ['flint_knapping', 'spear_hunting'],
+      items: { spear: 3 },
+    },
+    rules: { fight: 1.25, guard: 0.9, build: 1.15, research: 0.75, craft: 0.85, quality: -0.5, crops: 0.85, travellers: 0.6, prices: 0.85, captives: 1.5 },
+    powers: ['war_cry', 'berserk', 'grog_feast'],
   },
 };
 

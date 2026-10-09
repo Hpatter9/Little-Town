@@ -181,6 +181,18 @@ const PALETTES: Record<Exclude<ThemeId, 'town'>, Palette> = {
     labels: { build: 'Keep', research: 'Studies', townsfolk: 'The Order', journal: 'Chronicle' },
     tint: ['#8a90a0', 0.2],
   },
+  orcs: {
+    bg: '#120c08', wood: 'rgba(28, 18, 12, 0.96)', header: ['#2e1c12', '#1e120a'],
+    edge: '#7a3a1a', btn: '#2a1a10', btnHover: '#3a2416', on: '#5a1a10', onRim: '#e06030', glow: 'rgba(224, 96, 48, 0.45)',
+    text: '#f0e2cc', dim: '#b09a80', heading: '#e8783a', headingGlow: 'rgba(230, 90, 40, 0.4)',
+    fill: ['#4a7a2a', '#a8d050'], low: ['#6a1410', '#c03020'], card: 'rgba(34, 22, 14, 0.95)',
+    glyph: '\\2620',
+    mist: ['rgba(230, 100, 40, 0.07)', 'rgba(120, 180, 60, 0.05)', 'rgba(140, 40, 20, 0.06)'],
+    canvas: 'saturate(0.9) sepia(0.12) brightness(0.92) contrast(1.08)', vignette: 'rgba(30, 6, 0, 0.45)',
+    page: ['#080402', '#1e120a', '#120c08'],
+    labels: { build: 'Warcamp', research: 'Bone Lore', townsfolk: 'The Horde', trade: 'Loot', expeditions: 'Raids', journal: 'War Tales' },
+    tint: ['#7a5a3a', 0.2],
+  },
 };
 
 export const panelLabel = (id: PanelId, label: string, theme: Theme) => (theme === 'town' ? label : (PALETTES[theme].labels[id] ?? label));

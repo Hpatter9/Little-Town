@@ -74,6 +74,9 @@ import { ORIGIN_DEFS, originOf, type OriginId } from '../data/origins';
 import { aimableSpells, POWERS, powersView } from './powers';
 import { battleView, ranged, type BattleView } from './battle';
 
+/** Today's and yesterday's pay in whole coins. */
+const wholeIncome = (i: { today: number; yesterday: number }, last: string | null) => ({ today: Math.floor(i.today), yesterday: Math.floor(i.yesterday), last });
+
 /** How the game looks: the classic town, or an origin's own (a lich founder makes any town a necropolis). */
 export type ThemeId = 'town' | Exclude<OriginId, 'settlers'>;
 const themeOf = (s: GameState): ThemeId => (s.lich ? 'lich' : !s.origin || s.origin === 'settlers' ? 'town' : s.origin);
@@ -1096,7 +1099,7 @@ export function snapshot(s: GameState): Snapshot {
     ledger: s.ledger?.yesterday ? { ...s.ledger.yesterday } : null,
     travellers: (s.travellers ?? []).map((t) => {
       const band = t.band === undefined ? undefined : (s.bands ?? []).find((b) => b.id === t.band);
-      return { id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', line: t.line ?? null, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: t.purse, look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1, band: band?.kind ?? null, bandPhase: band?.phase };
+      return { id: t.id, name: t.name, kind: t.kind, venue: t.venue ?? 'shop', line: t.line ?? null, wants: t.want ? wantText(t.want) : '', temper: temperOf(t.temper).name, purse: Math.floor(t.purse ?? 0), look: t.look, x: t.x, y: t.y, dir: t.dir, phase: t.phase, tier: t.tier ?? 1, band: band?.kind ?? null, bandPhase: band?.phase };
     }),
     wagons: (s.bands ?? []).flatMap((b) => {
       const lead = b.wagon && (s.travellers ?? []).find((t) => t.id === b.members[0]);
@@ -1697,10 +1700,11 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,
     gear: { ...p.gear },
     gearQ: { ...(p.gearQ ?? {}) },
-    coins: p.coins ?? (moneyTown(s) ? 0 : null),
-    income: moneyTown(s) ? { ...incomeOf(s, p), last: p.paidFor?.line ?? null } : null,
+    // (whole coins only: a purse may hold the odd fraction, from a share of a sale or a tax)
+    coins: p.coins != null ? Math.floor(p.coins) : moneyTown(s) ? 0 : null,
+    income: moneyTown(s) ? wholeIncome(incomeOf(s, p), p.paidFor?.line ?? null) : null,
     owns: propertyOf(s, p),
-    debt: p.debt ?? 0,
+    debt: Math.ceil(p.debt ?? 0),
     detail: personDetail(s, p),
     recent: [...(p.recent ?? [])].reverse().map((r) => r.text),
     bedroll: hasBedroll(s, p),

@@ -68,6 +68,7 @@ export const WORKSHOP_BUILDINGS: readonly BuildingDef[] = [
   shop('assembler', 'Assembler', 2, { stone: 14, iron: 10 }, 140, 'Clockwork toys and brass automata.', 'barter', own('robot')),
   shop('armourer', "Armourer's Hall", 3, { stone: 14, iron: 8, lumber: 8 }, 160, 'Heraldic shields and tourney pennants.', 'barter', own('knights')),
   shop('pelt_house', 'Pelt House', 2, { wood: 12, hide: 8, bone: 4 }, 100, 'Pelts and fang necklaces from the hunt.', 'barter', own('werewolf')),
+  shop('grog_pit', 'Grog Pit', 2, { wood: 10, hide: 4, bone: 6 }, 90, 'A pit of fermenting swill and a pot of war paint: grog for the horde, and trinkets of tusk and bone.', 'barter', own('orcs')),
   // comforts and stores (no station)
   { id: 'granary', name: 'Granary', layer: 'mid', width: 3, cost: { lumber: 16, stone: 8 }, buildSeconds: 120, purpose: 'A raised store for the harvest: 150 units.', research: 'milling', storage: 150 },
   { id: 'theatre', name: 'Theatre', layer: 'mid', width: 4, cost: { lumber: 20, bricks: 10, cloth: 6 }, buildSeconds: 240, purpose: 'Morale: players on the boards of an evening.', research: 'guilds', morale: [8, 'A play at the theatre'] },
@@ -183,5 +184,8 @@ export const WORKSHOP_ITEMS: readonly ItemDef[] = [
   ware('heraldic_shield', 'Heraldic Shield', 'armourer', { iron: 2, cloth: 1 }, 150, [], 3, 85, 'a shield painted with arms.', ic('Shield', 0, 0)),
   furnish('tourney_pennants', 'Tourney Pennants', 'armourer', { cloth: 2 }, 70, ['hospitality'], 'decor', 6, 'pennants from the lists.', ic('Armor', 3, 0)),
   ware('wolf_pelts', 'Wolf Pelts', 'pelt_house', { hide: 3 }, 60, [], 2, 30, 'pelts from the hunt.', ic('Flesh', 0, 8)),
+  fare('grog', 'Grog', 'grog_pit', { berries: 3 }, 50, [], 'drink', 9, 'swill that burns going down; the orcs swear by it.', ic('Potion', 2, 0)),
+  ware('war_paint', 'War Paint', 'grog_pit', { berries: 2, bone: 1 }, 60, [], 2, 28, 'red and black, in a pot of bone.', ic('Potion', 3, 1)),
+  ware('tusk_charm', 'Tusk Charm', 'grog_pit', { bone: 3, hide: 1 }, 80, [], 3, 46, 'a boar\'s tusk carved with the horde\'s marks.', ic('Amulet', 6, 0)),
   ware('fang_necklace', 'Fang Necklace', 'pelt_house', { bone: 3, hide: 1 }, 90, [], 3, 50, 'fangs on a leather cord.', ic('Amulet', 7, 0)),
 ];

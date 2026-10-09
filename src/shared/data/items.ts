@@ -60,12 +60,12 @@ export type Station =
   // the workshops of data/workshops.ts
   | 'smokehouse' | 'bone_carver' | 'basketry' | 'brewery' | 'tailor' | 'jeweller' | 'cooper' | 'apothecary' | 'chandlery' | 'dyeworks'
   | 'print_shop' | 'clockmaker' | 'cannery' | 'textile_mill' | 'appliance_plant' | 'pharmacy' | 'bio_lab' | 'nanoforge'
-  | 'blood_cellar' | 'bone_forge' | 'gem_cutter' | 'herb_press' | 'pearl_works' | 'felt_works' | 'glamour_loom' | 'alembic' | 'assembler' | 'armourer' | 'pelt_house'
+  | 'blood_cellar' | 'bone_forge' | 'gem_cutter' | 'herb_press' | 'pearl_works' | 'felt_works' | 'glamour_loom' | 'alembic' | 'assembler' | 'armourer' | 'pelt_house' | 'grog_pit'
   // the Monster Hunters' Guild (data/hunts.ts)
   | 'monster_guild';
 export const STATIONS: readonly Station[] = ['campfire', 'boatyard', 'workbench', 'tanning_rack', 'drying_rack', 'kiln', 'bloomery', 'smithy', 'sawmill', 'tannery', 'loom', 'windmill', 'bakery', 'steelworks', 'glassworks', 'gunsmith', 'refinery', 'cement_works', 'electronics_plant', 'garage', 'alloy_foundry', 'chip_fab', 'battery_plant', 'robot_workshop', 'tavern',
   'smokehouse', 'bone_carver', 'basketry', 'brewery', 'tailor', 'jeweller', 'cooper', 'apothecary', 'chandlery', 'dyeworks', 'print_shop', 'clockmaker', 'cannery', 'textile_mill', 'appliance_plant', 'pharmacy', 'bio_lab', 'nanoforge',
-  'blood_cellar', 'bone_forge', 'gem_cutter', 'herb_press', 'pearl_works', 'felt_works', 'glamour_loom', 'alembic', 'assembler', 'armourer', 'pelt_house', 'monster_guild'];
+  'blood_cellar', 'bone_forge', 'gem_cutter', 'herb_press', 'pearl_works', 'felt_works', 'glamour_loom', 'alembic', 'assembler', 'armourer', 'pelt_house', 'grog_pit', 'monster_guild'];
 
 /** What an item does for whoever wears it (gear) or for the town (the rest). */
 export interface ItemEffects {
@@ -334,6 +334,7 @@ const BASE_ITEMS: readonly ItemDef[] = [
   { id: 'hunt_crown', name: 'Crown of the Wild Hunt', slot: 'head', station: 'campfire', cost: {}, seconds: 0, research: ['__relic'], relic: true, effects: { armor: 0.15, morale: 12 }, description: 'Antlers and starlight. +12 morale, and 15% off every hit.', icon: { sheet: 'Custom', x: 0, y: 0, name: 'crown' } },
   { id: 'philosophers_stone', name: "Philosopher's Stone", slot: 'charm', station: 'campfire', cost: {}, seconds: 0, research: ['__relic'], relic: true, effects: { damage: 4, armor: 0.1, morale: 4 }, description: 'Warm, and heavier than it looks. A little of everything: +4 damage, 10% off every hit, +4 morale.', icon: { sheet: 'Magic', x: 4, y: 2 } },
   { id: 'order_shield', name: "The Grand Master's Shield", slot: 'offhand', station: 'campfire', cost: {}, seconds: 0, research: ['__relic'], relic: true, effects: { block: 0.35, armor: 0.1, morale: 4 }, description: 'The Order\'s arms, scored by a hundred fights. Blocks 35% of blows.', icon: { sheet: 'Shield', x: 4, y: 0 } },
+  { id: 'warlord_axe', name: "Gorbag's Cleaver", slot: 'weapon', station: 'campfire', cost: {}, seconds: 0, research: ['__relic'], relic: true, effects: { range: 1.4, damage: 18, crit: 0.08, morale: 3 }, description: 'The Warlord\'s great axe, notched by a hundred skulls. Hits like a falling tree.', icon: { sheet: 'LongWep', x: 1, y: 4 } },
   { id: 'truck', name: 'Truck', slot: null, station: 'garage', cost: { steel: 10, electronics: 3, plastic: 4 }, seconds: 400, research: ['motor_transport'], effects: {}, description: `An expedition that takes a truck (and fuel) carries far more and travels far faster.`, icon: { sheet: 'Custom', x: 0, y: 0, name: 'truck' } },
   // Occult
   { id: 'spirit_totem', name: 'Spirit Totem', slot: null, station: 'campfire', cost: { bone: 8, herbs: 4, hide: 2 }, seconds: 120, research: ['spirit_binding'], effects: {}, description: 'If the founder dies, they come back, once.', icon: { sheet: 'Magic', x: 4, y: 1 } },

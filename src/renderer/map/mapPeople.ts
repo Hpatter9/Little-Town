@@ -639,7 +639,9 @@ export class MapPeople {
       let plain = true;
       // a fighting calling takes its combat form (a Craftpix hero) while it fights, and a little after
       // (the raised dead fight as the pack's skeletons, whatever their calling)
-      const hero = v.monster === 'undead' ? skeletonSheet(v.battle.ranged, v.id) : heroSheet(v.cls, v.id);
+      // (an orc keeps the pack's Orc body in its own gear: no pack hero is green)
+      const orc = v.look.body === 'orc';
+      const hero = v.monster === 'undead' ? skeletonSheet(v.battle.ranged, v.id) : orc ? undefined : heroSheet(v.cls, v.id);
       // (a defender keeps the form the whole raid: switching only while striking made it flicker between turns)
       const inCombat = v.defending || v.activity === 'fight' || v.sinceBlow < HERO_LINGER || v.sinceHit < HERO_LINGER;
       if (hero && inCombat && !hidden && !founder && !(v.cls && CLASS_LOOK[v.cls])) {
@@ -651,7 +653,7 @@ export class MapPeople {
       }
       // a founder wears their combat form always (the owner's ask): walking, standing, fighting, and at work the
       // hero's blow swung over and over (chopping, digging, building, reaping)
-      if (founder && !hidden && v.monster !== 'undead') {
+      if (founder && !hidden && v.monster !== 'undead' && !orc) {
         const sheet = founderSheet(v.cls, v.id, v.battle.ranged, (v.battle.attrs?.int ?? 0) > (v.battle.attrs?.str ?? 0));
         const working = WORK_SWING.has(v.activity);
         const swing = working ? Math.floor((now / 100) % 14) : 999;

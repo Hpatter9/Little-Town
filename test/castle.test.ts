@@ -9,7 +9,7 @@ import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { newGame } from '../src/shared/sim/state';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
-import { pathTo } from '../src/shared/sim/walk';
+import { pathTo, walk, type Walker } from '../src/shared/sim/walk';
 import { clearAround, put } from './helpers';
 
 /** The castle's cells without one room's own (a mountain hold's galleries under it too). */
@@ -131,6 +131,29 @@ test('inside the walls people go room to room by the doorways, and in and out by
   assert.ok(out.some((p) => cellOfPt(p).x === gate.x && cellOfPt(p).y === gate.y), 'out by the gate');
   // and the walls really are shut: no step out of the room's south side
   assert.equal(ok(f.x + 1, f.y + f.h - 1, f.x + 1, f.y + f.h), false);
+});
+
+test('a walker put somewhere else finds their way again, never cutting through the walls to the old path', () => {
+  // (people came out of a building or off the raid board still holding the path from where they'd been, and walked
+  // straight from there to its next cell, through the castle's walls)
+  const s = newGame('through', { origin: 'vampire' });
+  const core = coreRect(s);
+  const room = put(s, 'longhouse', core.x + core.w, core.y, { room: true });
+  const f = footprint(room);
+  const ok = castleStep(s, castleLayout(s)!);
+  const goal = { x: (f.x + f.w - 1.5) * 32, y: (f.y + 1.5) * 32 };
+  const w: Walker = { x: (core.x + 1.5) * 32, y: (core.y + 1.5) * 32, dir: 1 };
+  walk(s, w, goal, 4);
+  // put below the castle, outside it: the next step must not go straight back in through a wall
+  w.x = (f.x + 1.5) * 32;
+  w.y = (f.y + f.h + 3.5) * 32;
+  let at = { x: Math.floor(w.x / 32), y: Math.floor(w.y / 32) };
+  for (let i = 0; i < 400 && !walk(s, w, goal, 4); i++) {
+    const c = { x: Math.floor(w.x / 32), y: Math.floor(w.y / 32) };
+    if (c.x !== at.x && c.y !== at.y) assert.ok((ok(at.x, at.y, c.x, at.y) && ok(c.x, at.y, c.x, c.y)) || (ok(at.x, at.y, at.x, c.y) && ok(at.x, c.y, c.x, c.y)), `diagonal ${at.x},${at.y} to ${c.x},${c.y}`);
+    else if (c.x !== at.x || c.y !== at.y) assert.ok(ok(at.x, at.y, c.x, c.y), `through a wall at ${at.x},${at.y} to ${c.x},${c.y}`);
+    at = c;
+  }
 });
 
 test('a Deep Hold is cut into the mountain: half the land is rock, the halls carved into it behind one gate', () => {

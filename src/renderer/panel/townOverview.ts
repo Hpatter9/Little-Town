@@ -80,6 +80,9 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
   // (the Court's blood: sim/vampires.ts)
   const blood = s.heritage?.blood;
   if (blood) tile('Blood', `${blood.store}`, blood.farms ? `${blood.prisoners}/${blood.cells} in the farm's cells` : `about +${blood.nightly} each dusk`, ['build', 'Our ways'], blood.store < 5);
+  // (the horde's fury: sim/warpath.ts)
+  const horde = s.heritage?.horde;
+  if (horde) tile('Fury', `${horde.fury}`, horde.waaagh !== null ? 'WAAAGH!' : horde.out ? `raiding ${horde.out.target}` : horde.name, ['build', 'Our ways'], horde.fury >= 70);
   tile('Stores', `${s.storageUsed}/${s.storageCapacity}`, 'stored', ['build', 'Stores'], s.storageUsed >= s.storageCapacity * 0.9);
   const site = s.buildings.filter((b) => b.status === 'blueprint');
   tile('Building', site.length ? `${site.length}` : 'Nothing', site.length ? site.slice(0, 2).map((b) => BUILDING_BY_ID[b.def]?.name ?? b.def).join(', ') : 'right now', ['build', 'Buildings']);
