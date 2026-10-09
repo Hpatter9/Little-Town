@@ -828,6 +828,8 @@ export interface Faction {
   /** Hosts it lost against the town, and assaults the town made on it. */
   beaten?: number;
   stormed?: number;
+  /** A rising power's own doings (sim/risingPowers.ts). */
+  rise?: import('./risingPowers').RiseState;
 }
 
 export interface Expedition {

@@ -122,5 +122,16 @@ export const LOOKS: Record<string, Look> = {
   'rival:war_drums': { sprite: 'void', kind: 'stream', color: BLOOD },
   'rival:more_orcs': { sprite: 'portal', kind: 'vortex', color: ACID },
   'rival:oath': { sprite: 'suture', kind: 'rise', color: GOLD },
+  // the rising powers' lords (data/risingPowers.ts)
+  'rival:shogun_banner': { sprite: 'blood_storm', onCaster: true, kind: 'ring', color: BLOOD, also: 'aura', alt: GOLD },
+  'rival:smoke_bombs': { sprite: 'frost', onCaster: true, kind: 'fog', color: 0xb8b0c0 },
+  'rival:shadow_clan': { sprite: 'portal', kind: 'vortex', color: VIOLET },
+  'rival:broadside': { sprite: 'missile', kind: 'arrows', color: EMBER },
+  'rival:press_gang': { sprite: 'portal', kind: 'vortex', color: SEA },
+  'rival:pillage': { kind: 'coins', color: GOLD },
+  'rival:hellfire': { sprite: 'prism', kind: 'bolt', color: EMBER },
+  'rival:soul_drain': { sprite: 'void', kind: 'stream', color: BLOOD },
+  'rival:open_the_pit': { sprite: 'portal', kind: 'vortex', color: EMBER },
+  'rival:despair': { sprite: 'void', kind: 'stream', color: VIOLET },
 };
 

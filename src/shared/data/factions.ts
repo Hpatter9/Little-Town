@@ -8,6 +8,7 @@
 import type { EnemyDef } from './enemies';
 import type { OriginId } from './origins';
 import { PACK_SHEETS } from './packSheets';
+import { RISING, RISING_IDS, type RisingId } from './risingPowers';
 import { RIVALS } from './rivals';
 import type { SceneId } from './scenes';
 import type { Rng } from '../rng';
@@ -32,7 +33,15 @@ export interface FactionDef {
   temper: Temper;
   /** What a vassal of it pays, or a trade treaty brings, besides coin. */
   goods: string;
+  /** One of the rising powers (data/risingPowers.ts): in every realm, growing with the town. */
+  rising?: RisingId;
 }
+
+const RISING_SEATS: Record<RisingId, [string, SceneId, SceneId, Temper, string]> = {
+  shogunate: ['the Castle of Mists', 'highlands', 'keep', 'warlike', 'cloth'],
+  corsairs: ['Blacktide Cove', 'coast', 'ship_hold', 'greedy', 'fish'],
+  infernal: ['the Smoking Pit', 'burned_village', 'crypt', 'treacherous', 'coal'],
+};
 
 const STRONGHOLDS: Record<Exclude<OriginId, 'settlers'>, [string, SceneId, SceneId, Temper, string]> = {
   lich: ['the Barrow Throne', 'burned_village', 'crypt', 'warlike', 'bone'],
@@ -71,19 +80,24 @@ export const FACTION_DEFS: readonly FactionDef[] = [
     return { id: o, origin: o, name: RAID_NAMES[o], raid: RIVALS[o].raid, lord: RIVALS[o].leader, stronghold, road, inside, temper, goods };
   }),
   { id: 'brotherhood', name: 'The Red Brotherhood', raid: 'bandits', lord: 'bandit_chief', stronghold: 'Gallows Hold', road: 'bandit_camp', inside: 'keep', temper: 'greedy', goods: 'iron' },
+  ...RISING_IDS.map((id) => {
+    const [stronghold, road, inside, temper, goods] = RISING_SEATS[id];
+    return { id, name: RISING[id].name, raid: RISING[id].raids[0], lord: RISING[id].lord, stronghold, road, inside, temper, goods, rising: id };
+  }),
 ];
 /** Where each power's stronghold stands on the world map (768px square, data/worldMap.ts). */
 export const STRONGHOLD_SPOTS: Readonly<Record<string, { x: number; y: number }>> = {
   lich: { x: 40, y: 150 }, druid: { x: 740, y: 80 }, vampire: { x: 420, y: 80 }, werewolf: { x: 740, y: 300 },
   robot: { x: 740, y: 530 }, dwarves: { x: 80, y: 200 }, merfolk: { x: 600, y: 740 }, nomads: { x: 30, y: 470 },
   fae: { x: 600, y: 200 }, alchemists: { x: 440, y: 250 }, knights: { x: 250, y: 290 }, orcs: { x: 300, y: 600 }, brotherhood: { x: 130, y: 480 },
+  shogunate: { x: 690, y: 420 }, corsairs: { x: 300, y: 740 }, infernal: { x: 170, y: 640 },
 };
 export const FACTION_BY_ID: Readonly<Record<string, FactionDef>> = Object.fromEntries(FACTION_DEFS.map((f) => [f.id, f]));
 
 /** The rival powers of a world: `count` of them drawn by `rng` from the origins the town isn't, the bandits taking
  *  the last place once there are three or more (the same draws whatever asks, so the realm and the conquest agree). */
 export function pickRivals(rng: Rng, own: OriginId, count: number): FactionDef[] {
-  const pool = FACTION_DEFS.filter((d) => d.origin !== own && d.id !== 'brotherhood');
+  const pool = FACTION_DEFS.filter((d) => d.origin !== own && d.id !== 'brotherhood' && !d.rising);
   const bandits = count >= 3 ? 1 : 0;
   const picked: FactionDef[] = [];
   while (picked.length < count - bandits && pool.length) picked.push(pool.splice(rng.int(0, pool.length - 1), 1)[0]);

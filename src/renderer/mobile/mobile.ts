@@ -9,6 +9,7 @@ import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
 import { css, mix, skyColors, weatherCover } from '../town/skyColors';
 import { applyTheme, panelLabel } from '../theme';
+import { setTipsOn, tipsOn } from './tips';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -328,6 +329,7 @@ function drawMenu(): void {
       item('New town…', () => bridge.openPanel('newgame')),
       item(`Music: ${s.music ? 'on' : 'off'}`, () => (bridge.setMusic(!s.music), drawMenu())),
       item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
+      item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
       item('Phone alerts…', () => bridge.openPanel('alerts')),
       label('Zoom (or pinch the town with two fingers; tap the % to reset)'),
       zooms,

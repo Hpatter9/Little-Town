@@ -35,3 +35,25 @@ test('the standing situations and the Journal become keyed notices; the small ch
   // (keys are stable, so a notice counts as new once)
   assert.deepEqual(situationNotices(snap).map((n) => n.key), now.map((n) => n.key));
 });
+
+test('the first hour: each tip is met once, the earliest first, a couple at a time, with a way to its tab', async () => {
+  const { meet, tipsDue, TIPS, TIPS_AT_ONCE } = await import('../src/renderer/mobile/tips');
+  const { tipNotice } = await import('../src/renderer/mobile/notices');
+  const s = plainGame('tips');
+  let met = meet(snapshot(s), []);
+  assert.ok(met.includes('welcome'), 'welcome at once');
+  assert.ok(!met.includes('raid'), 'no raid yet');
+  const read = new Set<string>();
+  const due = tipsDue(met, (k) => read.has(k));
+  assert.ok(due.length <= TIPS_AT_ONCE);
+  assert.equal(due[0].id, 'welcome');
+  read.add('tip:welcome');
+  assert.ok(!tipsDue(met, (k) => read.has(k)).some((t) => t.id === 'welcome'), 'read, gone');
+  met = meet(snapshot(s), met);
+  assert.equal(new Set(met).size, met.length, 'each once');
+  for (const t of TIPS) {
+    const n = tipNotice(t);
+    assert.equal(n.tone, 'gold');
+    if (t.panel) assert.equal(n.action?.panel, t.panel);
+  }
+});

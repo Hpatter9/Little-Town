@@ -139,14 +139,14 @@ import { blightSources } from './blight';
 import { NEST_DEFS, type NestKind } from '../data/nests';
 import { directionName, isPlaceDest, PLACE_DEFS, type PlaceKind } from '../data/places';
 import type { Destination } from '../data/expeditions';
-import { RIVALS } from '../data/rivals';
+import { ALL_LORD_SPELLS } from '../data/rivals';
 import { DEEP_H, DEEP_LEVELS, DEEP_W, OPEN_AFTER, RISE_AT, SHAFT } from '../data/deep';
 import { deepFarms, shaftOf } from './deep';
 
 const spellName = (spell: string): string => {
   const [side, id] = spell.split(':');
   if (side === 'town') return POWERS[id]?.name ?? id;
-  for (const r of Object.values(RIVALS)) for (const sp of r.spells) if (sp.id === id) return sp.name;
+  for (const sp of ALL_LORD_SPELLS()) if (sp.id === id) return sp.name;
   return id;
 };
 import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';

@@ -21,6 +21,7 @@ import { frontierHourly } from './frontier';
 import { lightingHourly } from './lighting';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
+import { risingHourly } from './risingPowers';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
 import { specialsHourly } from './specials';
 import { sagasHourly } from './sagas';
@@ -247,6 +248,7 @@ export class Sim {
     huntsHourly(s);
     dragonTick(s); // (the dragon in the hills: sim/dragon.ts)
     factionsHourly(s, this.rng);
+    risingHourly(s); // (the rising powers' own moves: sim/risingPowers.ts)
     if (CONQUEST.on) conquestHourly(s); // (the conquest's provinces, troops and squads: sim/conquest/squads.ts)
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(

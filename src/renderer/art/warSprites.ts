@@ -284,6 +284,7 @@ export const TROOP_LOOKS: Record<string, TroopLook> = {
 export const CAPTAIN_PACK: Record<string, string> = {
   knights: 'knight_1', nomads: 'horde_2', werewolf: 'werewolf_black', robot: 'robot_infantry', lich: 'skeleton_warrior', druid: 'wanderer_mage',
   fae: 'kitsune', alchemists: 'fire_wizard', brotherhood: 'pirate_leader', orcs: 'hk_orc_warlord',
+  shogunate: 'samurai_commander', corsairs: 'pirate_leader', infernal: 'hk_demon_lord',
 };
 export const CAPTAIN_LOOK: Record<string, TroopLook> = {
   vampire: { kind: 'hk', body: 'embroidered_robe', weapon: 'arming_sword', pale: true },

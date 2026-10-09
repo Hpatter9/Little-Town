@@ -5,6 +5,7 @@ import { DUNGEON_BOSSES } from './dungeonBosses';
 import { PACK_BOSSES } from './pack';
 import type { Stock } from './materials';
 import { BESTIARY_ENEMIES } from './bestiary';
+import { RISING_ENEMIES } from './risingPowers';
 import { BOAT_ENEMIES } from './boats';
 import { MENAGERIE } from './menagerie';
 import { NEST_ENEMIES } from './nests';
@@ -105,6 +106,7 @@ export const enemyArmor = (kind: string) => ENEMIES[kind]?.armor ?? (ARMOURED.te
 export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   // (the Craftpix packs' foes and bosses: data/bestiary.ts)
   ...BESTIARY_ENEMIES,
+  ...RISING_ENEMIES,
   // (the dungeons' bosses: data/dungeonBosses.ts)
   ...DUNGEON_BOSSES,
   ...PACK_BOSSES,
