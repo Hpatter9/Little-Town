@@ -16,6 +16,8 @@ import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SH
 import { creatureFlip } from '../art/creatures';
 import { loadImage } from '../art/loadImage';
 import barrowUrl from '../art/shops/gb_barrow.png';
+import pailUrl from '../art/packs/v_bucket.png';
+import { sowThrow } from './workSeen';
 import { hauls, heapColour, mainLoad } from './haul';
 
 import { heldWeapon, wardrobe, wornLayers } from '../art/held';
@@ -52,7 +54,9 @@ const PX_PER_WALK_FRAME = 4;
 const HIT_HALF_W = 11;
 const HIT_H = 50;
 /** At these a founder's hero swings their blow over and over (their work, in the only pose the sheets have for it). */
-const WORK_SWING = new Set(['chop', 'mine', 'build', 'reap', 'till', 'forage', 'spar']);
+const WORK_SWING = new Set(['chop', 'mine', 'build', 'reap', 'forage', 'spar']);
+/** Builders cheer a building finished this long (ms: map/mapGains.ts), hopping with an arm raised. */
+const CHEER_MS = 2400;
 /** A founder is drawn this much bigger than the townsfolk, with an aura in their origin's colour. */
 const FOUNDER_SCALE = 1.14;
 const AURA: Record<string, number> = { town: 0xffd860, lich: 0x9a6aff, druid: 0x7ae070, vampire: 0xff3048, werewolf: 0xc8d8ff, robot: 0x60e0ff, dwarves: 0xffa040, merfolk: 0x40e0e0, nomads: 0xffc060, fae: 0xff90e0, knights: 0xf0f0ff, alchemists: 0x80ff80, settlers: 0xffd860 };
@@ -82,6 +86,13 @@ const CRY_FOR = 6500;
 const BARROW_SCALE = 0.62;
 const BARROW_AHEAD = 13;
 let barrowTex: Texture | null = null;
+let pailTex: Texture | null = null;
+loadImage(pailUrl)
+  .then((im) => {
+    pailTex = Texture.from(im);
+    pailTex.source.scaleMode = 'nearest';
+  })
+  .catch(() => undefined);
 loadImage(barrowUrl)
   .then((im) => {
     barrowTex = Texture.from(im);
@@ -98,6 +109,8 @@ interface Drawn {
   load: Graphics;
   /** The wheelbarrow pushed with a heavy load (map/haul.ts), and its heap's key. */
   barrow?: Container;
+  /** The bucket of water carried home from the well (sim/pastimes.ts). */
+  pail?: Sprite;
   /** Their reflection, standing at the water's edge (map/reflections.ts). */
   reflect?: Sprite;
   /** A child's kite on a fair, breezy day at play. */
@@ -259,7 +272,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.reflect, d.kite, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -309,6 +322,13 @@ export class MapPeople {
     let [col, row] = hkPose({ facing, moving, walked: d.walked, working, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null || (v.activity === 'sit' && !moving), ranged: v.battle.ranged, now, reading, playing: (v.activity === 'play' || v.activity === 'protest') && !fighting, ref: v.id });
     // (dancing at a feast, or mourning: map/dance.ts)
     if (step && step.col !== null && !fighting) col = step.col;
+    // (sowing by hand: the arm swung out with each handful; winding the well's bucket up; cheering a building finished:
+    // map/workSeen.ts, map/mapChores.ts)
+    if (!fighting && !moving) {
+      if (v.activity === 'till') col = sowThrow(now, v.id) ? 5 : 0;
+      else if (v.activity === 'draw') col = Math.floor(now / 450 + v.id) % 2 ? 3 : 4;
+      else if (this.cheering(v.id, now)) col = Math.floor(now / 240 + v.id) % 2 ? 3 : 0;
+    }
     return hkTexture(keys, col, row);
   }
 
@@ -417,6 +437,19 @@ export class MapPeople {
       sp.alpha = progress > 0.8 && f.kind !== 'frost' ? (1 - progress) / 0.2 : 1;
       sp.position.set(Math.round(who.x - SPELL_SIZE / 2), Math.round(who.y - SPELL_SIZE + 14));
     });
+  }
+
+  /** Who cheers a building finished (map/mapGains.ts), from now for `CHEER_MS`. */
+  private readonly cheers = new Map<number, number>();
+  cheer(ids: number[], now: number): void {
+    for (const id of ids) this.cheers.set(id, now + CHEER_MS);
+  }
+  private cheering(id: number, now: number): boolean {
+    const until = this.cheers.get(id);
+    if (until === undefined) return false;
+    if (until > now) return true;
+    this.cheers.delete(id);
+    return false;
   }
 
   render(now: number): void {
@@ -583,6 +616,8 @@ export class MapPeople {
         d.tail.visible = true;
         void TAIL_H;
       } else if (d.tail) d.tail.visible = false;
+      // (a hop for joy: a building finished)
+      if (!swimming && !moving && !fighting && this.cheering(v.id, now)) s.y -= Math.round(Math.abs(Math.sin(now / 170 + v.id)) * 4);
       // (off the ground on the beat, and a squash as they land)
       if (step && !swimming) {
         s.y -= step.lift;
@@ -649,6 +684,22 @@ export class MapPeople {
           d.barrow.scale.x = way > 0 ? -1 : 1;
           d.barrow.position.set(Math.round(x + way * BARROW_AHEAD), Math.round(y + (faceWay === 'down' ? 9 : faceWay === 'up' ? -7 : 2)) - bob);
           d.barrow.zIndex = faceWay === 'up' ? z - 0.2 : z + 0.12;
+        }
+      }
+      // the bucket of water carried home from the well, swinging at their side
+      const carrying = !!pailTex && v.bucket && !hidden && !fighting;
+      if (carrying && !d.pail) {
+        d.pail = this.layer.addChild(new Sprite(pailTex!));
+        d.pail.anchor.set(0.5, 0);
+        d.pail.scale.set(0.5);
+      }
+      if (d.pail) {
+        d.pail.visible = carrying;
+        if (carrying) {
+          const side = faceWay === 'up' || faceWay === 'down' ? 7 : v.dir * 6;
+          d.pail.position.set(Math.round(x + side), Math.round(y - 14 + (Math.floor(d.walked / 6) % 2)));
+          d.pail.rotation = Math.sin(d.walked / 9) * 0.15;
+          d.pail.zIndex = faceWay === 'up' ? z - 0.2 : z + 0.12;
         }
       }
       // a child at play on a fair day flies a kite, high on its string and dancing in the wind

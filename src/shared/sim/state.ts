@@ -111,7 +111,7 @@ export interface Building {
   /** Fields: what's in the ground. `growth` runs 0..1 while growing; `work` is sowing or harvest progress. */
   /** A field's crop. `soil`: how good the ground is (1 when left out; see SOIL in data/crops.ts). `bearing`: an
    *  orchard's trees have come into fruit. */
-  crop?: { stage: 'fallow' | 'growing' | 'ripe'; growth: number; work: number; soil?: number; bearing?: boolean };
+  crop?: { stage: 'fallow' | 'growing' | 'ripe'; growth: number; work: number; soil?: number; bearing?: boolean; reaped?: number };
   /** A pen's animals (sim/livestock.ts): how many, when they were last tended, progress to the next birth (0..1), hours
    *  gone hungry this winter, and the work done on the tending under way. */
   herd?: { head: number; tended: number; breed: number; hungry: number; work: number; owed?: number };
@@ -301,7 +301,8 @@ export interface CraftOrder {
 
 /** What a person is visibly doing (drives their animation). */
 /** `dance`: at a feast (the map draws them dancing); `mourn`: at a funeral. */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | 'sit' | 'protest' | WorkAnim;
+/** `draw`: winding up the well's bucket (sim/pastimes.ts). */
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | 'sit' | 'protest' | 'draw' | WorkAnim;
 
 export interface Raider {
   id: number;

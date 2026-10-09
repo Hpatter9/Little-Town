@@ -128,6 +128,13 @@ coil (`ao_coil.png`) is the first frame of the trap in the loose Craftpix animat
 The places of leisure are laid from the Fields tileset's signpost, rail fences and stump (`f_pointer4.png`, `f_fence1.png`,
 `f_fence3.png`, `f_stump.png`), the Village tileset's bucket and bench (`v_bucket.png`, `v_bench.png`), and the pieces
 already copied (logs, boxes, lanterns, a tent, the bridge pack's planks).
+The work you can see (`src/renderer/art/chores/`): the felled trees' stumps are the Fields tileset's (`f_stump.png`), the
+rubble of broken rock its small stones (`rubble1`..`4.png`), the banner run up over a finished building its animated flag
+(`flag.png`), and the stockpile's heaps its logs and crates (`box3.png`, `log4.png`, with the pieces already copied); the
+Village tileset gives the heaps' barrel, crate and log bundle (`barrel.png`, `crate.png`, `logs.png`), the stump with an
+axe left in it (`stump_axe.png`) and the well's bucket (`v_bucket.png`); the sacks are the Glassblower's Workshop pack's
+(`shops/gb_sacks.png`). The haystack and the bale left on a reaped field (`hay_heap.png`, `hay_bale.png`) are **Craftpix.net**'s
+free Medieval Field Work 2D tileset's hay, shrunk to the map's pixel.
 
 ## Craftpix seabed wreck (the sea beast's reef)
 

@@ -151,6 +151,7 @@ export function workField(s: GameState, p: Person, b: Building): boolean {
       c.stage = 'growing';
     } else {
       c.stage = 'fallow';
+      c.reaped = s.tick; // (the sheaves stand on the stubble a while: map/mapChores.ts)
       if (!def.indoor) c.soil = Math.max(SOIL.min, soil - SOIL.drain * modifiers(s.research).soil);
     }
     gainSkill(p, 'farming', HARVEST_XP);
