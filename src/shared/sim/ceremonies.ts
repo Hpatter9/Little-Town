@@ -21,8 +21,15 @@ import {
   GREAT_FUNERAL_HOURS,
   GREAT_FUNERAL_MARK,
   MIDSUMMER_DAY,
+  PROCESSION_GAP,
+  PROCESSION_LEAST,
+  PROCESSION_MOST,
+  PROCESSION_PACE,
+  RITE_HOURS,
+  RITE_SHARE,
   WEDDING_FEAST_MARK,
 } from '../data/ceremonies';
+import { natureOf } from '../data/natures';
 import { FRIEND } from '../data/social';
 import { PURSE_SCALE } from '../data/shop';
 import { TREASURY_KEEP } from '../data/economy';
@@ -32,7 +39,7 @@ import { addStock, eatersOf, foodDaysFor, tireless, campXY, earn, notify, type G
 import { calendar, TICKS_PER_HOUR } from './time';
 import { takeSale } from './ambition';
 
-export type GatheringKind = 'funeral' | 'great_funeral' | 'wedding' | 'feast';
+export type GatheringKind = 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite';
 
 /** A death in town (or on the road): remembered for the next funeral, with who was close to them. Called before the
  *  dead are struck from the relations table. */
@@ -41,12 +48,17 @@ export function mournFor(s: GameState, dead: Person): void {
   const close = s.people
     .filter((p) => p !== dead && (p.partner === dead.id || opinion(s, p.id, dead.id) >= FRIEND || p.parents?.includes(dead.id) || dead.parents?.includes(p.id)))
     .map((p) => p.id);
-  (s.funeralsDue ??= []).push({ name: dead.name, close, tick: s.tick });
+  // (the coffin is carried from their home's door, else from where they fell)
+  const home = dead.bed !== null ? s.buildings.find((b) => b.id === dead.bed && b.status === 'done') : undefined;
+  const from = home ? buildingDoor(home) : { x: dead.x, y: dead.y };
+  (s.funeralsDue ??= []).push({ name: dead.name, close, tick: s.tick, x: from.x, y: from.y });
 }
 
-/** A wedding: feasted that evening. */
+/** A wedding: feasted that evening, the couple leading the wedding party from their door. */
 export function weddingFeast(s: GameState, a: Person, b: Person): void {
-  s.feastDue = { kind: 'wedding', text: `the wedding of ${a.name} and ${b.name}` };
+  const home = [a, b].map((p) => (p.bed !== null ? s.buildings.find((q) => q.id === p.bed && q.status === 'done') : undefined)).find((q) => q);
+  const from = home ? buildingDoor(home) : { x: a.x, y: a.y };
+  s.feastDue = { kind: 'wedding', text: `the wedding of ${a.name} and ${b.name}`, x: from.x, y: from.y, lead: [a.id, b.id] };
 }
 
 /** A raid driven off: the town feasts the victory, if it can. */
@@ -78,9 +90,34 @@ const here = (s: GameState) => s.people.filter((p) => p.away === null && !p.down
 const tavernOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && (b.def === 'fireside_inn' || b.def === 'tavern'));
 const graveyardOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && b.def === 'graveyard');
 
-/** Begin a gathering: who, where, for how long. */
-function gather(s: GameState, kind: GatheringKind, ids: number[], hours: number, text: string, at: { x: number; y: number }): void {
-  s.gathering = { kind, ids, until: s.tick + hours * TICKS_PER_HOUR, text, x: at.x, y: at.y, from: s.tick };
+/** Begin a gathering: who, where, for how long; with `from`, it begins as a procession from there (the head walking at
+ *  PROCESSION_PACE), the gathering's time counted from when it arrives. */
+function gather(s: GameState, kind: GatheringKind, ids: number[], hours: number, text: string, at: { x: number; y: number }, from?: { x: number; y: number }): void {
+  const far = from ? Math.hypot(at.x - from.x, at.y - from.y) : 0;
+  const walkTicks = far >= PROCESSION_LEAST ? Math.min(PROCESSION_MOST * TICKS_PER_HOUR, Math.ceil(far / PROCESSION_PACE)) : 0;
+  s.gathering = { kind, ids, until: s.tick + walkTicks + hours * TICKS_PER_HOUR, text, x: at.x, y: at.y, from: s.tick };
+  if (walkTicks && from) s.gathering.walk = { x: from.x, y: from.y, until: s.tick + walkTicks };
+}
+
+/** Put these first in a gathering (the bearers or the couple at the head of the line, by their place). */
+const leading = (ids: number[], lead: number[]) => [...lead.filter((id) => ids.includes(id)), ...ids.filter((id) => !lead.includes(id))];
+
+/** A rite day at the temple (sim/faith.ts): the faithful walk from the fire to its door in a procession and kneel there
+ *  a while. Only when nothing else is gathering. */
+export function holdRite(s: GameState, temple: { x: number; y: number }, day: number): void {
+  if (s.gathering || s.raid || s.autopilot === false) return;
+  const ids = here(s)
+    .filter((p) => !isChild(p) && !p.guard && !tireless(p) && (natureOf(p).id === 'pious' || riteRoll(s.seed, day, p.id) < RITE_SHARE))
+    .map((p) => p.id);
+  if (!ids.length) return;
+  gather(s, 'rite', ids, RITE_HOURS, 'At the rite at the temple', temple, campXY(s));
+}
+
+/** A roll of their own by the day (the sim's clock has no rng here). */
+function riteRoll(seed: string, day: number, id: number): number {
+  let h = 2166136261;
+  for (const ch of `${seed}|rite|${day}|${id}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return ((h >>> 0) % 10000) / 10000;
 }
 
 /** Once an hour: at the evening hour, a funeral for the dead since the last, else a feast that's due. */
@@ -104,7 +141,9 @@ export function ceremoniesHourly(s: GameState): void {
     // (nobody was close to them: the town buries them all the same)
     const ids = great || !close.length ? here(s).map((p) => p.id) : close;
     if (!ids.length) return;
-    gather(s, great ? 'great_funeral' : 'funeral', ids, great ? GREAT_FUNERAL_HOURS : FUNERAL_HOURS, great ? `The great funeral for ${list}` : `At the funeral of ${list}`, at);
+    // (the coffin carried from the last one's home to the graveyard, the mourners behind it: a procession)
+    const last = due.at(-1)!;
+    gather(s, great ? 'great_funeral' : 'funeral', ids, great ? GREAT_FUNERAL_HOURS : FUNERAL_HOURS, great ? `The great funeral for ${list}` : `At the funeral of ${list}`, at, grave && last.x !== undefined && last.y !== undefined ? { x: last.x, y: last.y } : undefined);
     const where = grave ? 'at the graveyard' : 'by the fire';
     notify(s, great ? `The whole town gathers ${where} to bury its dead: ${list}.` : !close.length ? `The town gathers ${where} to lay ${list} to rest.` : `${ids.length === 1 ? 'One who loved them gathers' : `${ids.length} who loved them gather`} ${where} to lay ${list} to rest.`, true);
     return;
@@ -136,7 +175,9 @@ export function ceremoniesHourly(s: GameState): void {
     }
   }
   s.lastFeast = s.tick;
-  gather(s, feast.kind, all.map((p) => p.id), FEAST_HOURS, feast.kind === 'wedding' ? `Feasting ${feast.text}` : `At ${feast.text}`, at);
+  // (a wedding party walks from the couple's door to the feast, the couple at its head)
+  const walk = feast.kind === 'wedding' && feast.x !== undefined && feast.y !== undefined ? { x: feast.x, y: feast.y } : undefined;
+  gather(s, feast.kind, leading(all.map((p) => p.id), feast.lead ?? []), FEAST_HOURS, feast.kind === 'wedding' ? `Feasting ${feast.text}` : `At ${feast.text}`, at, walk);
   notify(s, `The town gathers ${tavern ? 'at the tavern' : 'round the fire'} for ${feast.text}.`, true);
 }
 
@@ -150,11 +191,13 @@ function endGathering(s: GameState): void {
     // (those who came are eased in their grief)
     for (const p of came) if (p.grief && s.tick < p.grief.until) p.grief = { ...p.grief, value: Math.round(p.grief.value * FUNERAL_EASE) };
     mark(g.kind === 'great_funeral' ? GREAT_FUNERAL_MARK : FUNERAL_MARK, g.kind === 'great_funeral' ? 'We buried our dead together' : 'Laid to rest');
-  } else mark(g.kind === 'wedding' ? WEDDING_FEAST_MARK : FEAST_MARK, g.text.replace(/^(At|Feasting) /, '').replace(/^the /, 'The '));
+  } else if (g.kind !== 'rite') mark(g.kind === 'wedding' ? WEDDING_FEAST_MARK : FEAST_MARK, g.text.replace(/^(At|Feasting) /, '').replace(/^the /, 'The '));
 }
 
 /** A feast (not a funeral): the town dances. */
 export const festive = (g: NonNullable<GameState['gathering']>) => g.kind === 'feast' || g.kind === 'wedding';
+/** What the guests do once there: dance at a feast, kneel in prayer at a rite, mourn at a funeral. */
+export const guestActivity = (g: NonNullable<GameState['gathering']>) => (festive(g) ? 'dance' : g.kind === 'rite' ? 'pray' : 'mourn');
 /** At a feast every other guest joins the ring dance round the spot, which turns this many radians a tick (a turn in
  *  about 40 s); the rest dance where they stand. */
 export const RING_SPIN = (Math.PI * 2) / 400;
@@ -167,9 +210,30 @@ export function gatheringRadius(g: NonNullable<GameState['gathering']>): number 
   return festive(g) ? Math.min(120, 34 + n * 5) : Math.min(90, 26 + n * 3.5);
 }
 
+/** Still on the way: the procession hasn't reached the spot. */
+export const processing = (g: NonNullable<GameState['gathering']>, tick: number) => !!g.walk && tick < g.walk.until;
+
+/** Where the head of a procession is now (the coffin, the couple). */
+export function processionHead(g: NonNullable<GameState['gathering']>, tick: number): { x: number; y: number } {
+  const w = g.walk!;
+  const k = Math.max(0, Math.min(1, (tick - (g.from ?? tick)) / Math.max(1, w.until - (g.from ?? tick))));
+  return { x: w.x + (g.x - w.x) * k, y: w.y + (g.y - w.y) * k };
+}
+
 /** Where a guest stands (or dances) at a gathering: a ring round the spot, the ring dancers' places turning with the
- *  time; and which way they face (dir, as `Person.dir`). */
+ *  time; and which way they face (dir, as `Person.dir`). On the way, their place in the procession: the first two side
+ *  by side at its head (the bearers, the couple), the rest in a column behind, along the way back to where it set out. */
 export function gatheringPlace(g: NonNullable<GameState['gathering']>, i: number, tick: number): { x: number; y: number; dir: 1 | -1 } {
+  if (processing(g, tick)) {
+    const w = g.walk!;
+    const head = processionHead(g, tick);
+    const len = Math.max(1, Math.hypot(g.x - w.x, g.y - w.y));
+    const [ux, uy] = [(g.x - w.x) / len, (g.y - w.y) / len];
+    const dir: 1 | -1 = ux >= 0 ? 1 : -1;
+    if (i < 2) return { x: head.x - uy * (i ? -9 : 9), y: head.y + ux * (i ? -9 : 9) * 0.7, dir };
+    const back = (i - 1) * PROCESSION_GAP;
+    return { x: head.x - ux * back + ((i % 2) - 0.5) * 6, y: head.y - uy * back, dir };
+  }
   const n = Math.max(1, g.ids.length);
   const r = gatheringRadius(g);
   const turning = festive(g) && inRing(i);

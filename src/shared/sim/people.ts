@@ -3,13 +3,13 @@
 // within a level: haul, construct, research, gather) > loaf around camp.
 
 import { protestSpot, striking } from './politics';
-import { RING_CLEAR_PULL } from './ringWall';
+import { lineOf, RING_CLEAR_PULL } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
 import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
 import { LEISURE } from '../data/recreation';
 import { onBoard } from './tactics';
 import { noteCleared } from './regrow';
-import { attending, festive, gatheringPlace } from './ceremonies';
+import { attending, festive, gatheringPlace, guestActivity, processing } from './ceremonies';
 import { injuryPace } from './injuries';
 import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
@@ -324,12 +324,21 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       // (in a ring round the spot, each to their own place; at a feast half of them dance round in the ring: once there,
       // they keep to their turning place)
       const at = gatheringPlace(g, g.ids.indexOf(p.id), s.tick);
+      // (on the way: walking in the procession behind the coffin, the couple or the faithful's head, step for step)
+      if (processing(g, s.tick)) {
+        // (the place is held to a 24 px grid, so the way to it isn't sought afresh every tick as the line moves on)
+        const spot = { x: Math.round(at.x / 24) * 24, y: Math.round(at.y / 24) * 24 };
+        if (dist(p, spot) >= 6) goTo(s, p, spot);
+        p.activity = 'walk';
+        p.dir = at.dir;
+        break;
+      }
       const there = dist(p, at) < 10;
       if (there && festive(g)) {
         p.x = at.x;
         p.y = at.y;
       } else if (!goTo(s, p, at)) break;
-      p.activity = festive(g) ? 'dance' : 'mourn';
+      p.activity = guestActivity(g);
       p.dir = at.dir;
       break;
     }
@@ -522,8 +531,38 @@ export function onShift(s: GameState, p: Person): boolean {
   return (p.id % 2 === 0) === day;
 }
 
-/** The far end of the built town from where a guard is: the door of the building farthest from them. */
+/** Hours a guard walks the wall rather than the streets (the owner's ask: torches moving along the ring at night). */
+const WALL_WATCH_FROM = 19;
+const WALL_WATCH_UNTIL = 6;
+
+/** By night, with the ring wall standing all round, a guard on watch walks its inside face: a quarter of the way round
+ *  from where they are, then on again, so the torches go round the wall (sim/ringWall.ts's line, each cell's inner
+ *  neighbour). Null by day, or with no ring standing. */
+function wallWalk(s: GameState, p: Person): Pt | null {
+  const h = calendar(s.tick).hour;
+  if (!s.ring?.done || (h < WALL_WATCH_FROM && h >= WALL_WATCH_UNTIL)) return null;
+  const line = lineOf(s.ring);
+  if (line.length < 8) return null;
+  const cx = line.reduce((n, c) => n + c.x, 0) / line.length;
+  const cy = line.reduce((n, c) => n + c.y, 0) / line.length;
+  const at = Math.atan2(p.y / CELL - cy, p.x / CELL - cx);
+  // (round one way or the other, by who they are, so two guards don't walk together)
+  const want = at + (p.id % 2 ? 1 : -1) * (Math.PI / 2);
+  let best = line[0];
+  let far = Infinity;
+  for (const c of line) {
+    const d = Math.abs(Math.atan2(Math.sin(Math.atan2(c.y - cy, c.x - cx) - want), Math.cos(Math.atan2(c.y - cy, c.x - cx) - want)));
+    if (d < far) [far, best] = [d, c];
+  }
+  const [ix, iy] = best.side === 'n' ? [0, 1] : best.side === 's' ? [0, -1] : best.side === 'w' ? [1, 0] : [-1, 0];
+  return { x: (best.x + ix + 0.5) * CELL, y: (best.y + iy + 0.5) * CELL };
+}
+
+/** The far end of the built town from where a guard is: the door of the building farthest from them (by night, along
+ *  the ring wall: `wallWalk`). */
 function patrolEnd(s: GameState, p: Person): Pt {
+  const wall = wallWalk(s, p);
+  if (wall) return wall;
   let best: Pt = campXY(s);
   let far = -1;
   for (const b of s.buildings) {
