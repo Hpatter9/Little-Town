@@ -3899,3 +3899,7 @@ blocked by buildings, structures, trees and rocks)
   (`nightWatch`, `bedtime` in townsfolk.ts), never the founder (a lone founder taken on as the guard slept the working
   day away). Everyone else's hours are untouched (waking from 6: moving it to 5 changed how lone towns grew). Tests:
   `test/gateSentry.test.ts`.
+- **A wider wall pushed well out (the owner's ask):** when the town outgrows its ring, the new one is `RING_WIDEN`
+  (10) cells further out each side than the town needs yet, and at least `RING_STEP` past the old ring (`widened` in
+  sim/ringWall.ts); it was only just past the buildings and soon outgrown again. The first ring is as before. The ring
+  tests clear 50 cells round the camp (the wider ring reaches past the old 34). Test in `test/ringWall.test.ts`.
