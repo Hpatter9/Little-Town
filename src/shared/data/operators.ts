@@ -21,7 +21,7 @@ const CRAFT_TITLES: Record<string, string> = {
   brewery: 'Brewer', tailor: 'Tailor', jeweller: 'Jeweller', cooper: 'Cooper', apothecary: 'Apothecary', chandlery: 'Chandler', dyeworks: 'Dyer', print_shop: 'Printer',
   clockmaker: 'Clockmaker', cannery: 'Canner', textile_mill: 'Mill Hand', appliance_plant: 'Fitter', pharmacy: 'Pharmacist', bio_lab: 'Biofabricator', nanoforge: 'Nanosmith',
   blood_cellar: 'Cellarer', bone_forge: 'Bone Smith', gem_cutter: 'Gem Cutter', herb_press: 'Herbalist', pearl_works: 'Pearl Worker', felt_works: 'Felter', glamour_loom: 'Glamour Weaver',
-  alembic: 'Distiller', assembler: 'Assembler', armourer: 'Armourer', pelt_house: 'Pelt Dresser',
+  alembic: 'Distiller', assembler: 'Assembler', armourer: 'Armourer', pelt_house: 'Pelt Dresser', grog_pit: 'Grog-Brewer',
 };
 
 /** Town jobs: every crafting station (but the fire everyone shares), mine, the hunters' lodge and the studies have a

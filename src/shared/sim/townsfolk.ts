@@ -41,7 +41,7 @@ import { foodDaysFor, makeUndying, NO_EATERS_DAYS, townFull, tireless, maxHp, ca
 import { calendar, TICKS_PER_HOUR } from './time';
 import { ORIGIN_DEFS, rulesOf } from '../data/origins';
 import { natureOf } from '../data/natures';
-import { makeStranger, oneOf, strangerOrigin, welcomes } from './strangers';
+import { makeStranger, oneOf, orcLook, strangerOrigin, welcomes } from './strangers';
 import { originWork, moraleMarks } from './origin';
 
 /** Need drain per game hour. Food lasts about a day; rest about 18 waking hours. */
@@ -536,6 +536,8 @@ export function raisedLook(p: Person): void {
  *  captive, a child), is made kin: raised in a lich town (and looks it), bitten in a pack, remade in a colony. The lich
  *  themself is left as they are. */
 export function keepKin(s: GameState): void {
+  // the horde's own are greenskins (a stranger taken in keeps their own looks)
+  if (s.origin === 'orcs') for (const p of s.people) if ((!p.origin || p.origin === 'orcs') && p.look.body !== 'orc' && p.monster !== 'undead') orcLook(p);
   const kin = rulesOf(s).kin;
   if (!kin) return;
   for (const p of s.people) {

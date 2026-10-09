@@ -446,6 +446,19 @@ const home: Record<Style, (p: Painter, w: number, h: number, size: number) => vo
       for (let x = hx + 4; x < hx + hw - 4; x += 8) arch(p, x, h - 24, 5, 9, '#2a2a30');
     }
   },
+  // an orc hut: hides stretched over bent poles, tusks crossed over the door, a skull on the ridge, a fire pit
+  orcs: (p, w, h, size) => {
+    const hw = [w - 6, w - 8, w - 8, w - 6][size];
+    const hx = (w - hw) / 2;
+    const hh = [26, 34, 38, 52][size];
+    roof(p, hx, hx + hw, h, h - hh, '#7a5a3a', '#5a3e26', 5);
+    for (let x = hx + 4; x < hx + hw - 4; x += 7) p.rect(x, h - hh + 4, 1, hh - 4, '#3e2a18'); // the poles under the hides
+    arch(p, w / 2 - 4, h - 14, 8, 14, '#1a120c');
+    for (const s of [-1, 1]) for (let i = 0; i < 6; i++) p.px(w / 2 + s * (5 - i * 0.6), h - 15 - i, '#f0e8d0'); // tusks over the door
+    skull(p, w / 2 - 2, h - hh - 4);
+    if (size >= 2) banner(p, hx + hw - 2, h - hh - 8, 10, '#8a1a14', '#1a1a1a');
+    p.disc(hx - 1, h - 2, 2, '#e07030');
+  },
 };
 
 /* ------------------------------------------------------------ walls and gates */
@@ -623,6 +636,25 @@ const wall: Record<Style, (p: Painter, w: number, h: number, strong: boolean, ga
       banner(p, w / 2, h - 60, 10, '#3050a0', '#e8c040');
     }
   },
+  orcs: (p, w, h, strong, gate) => {
+    if (strong) {
+      for (let y = 10; y < h; y += 6) for (let x = (y / 6) % 2 ? 0 : -4; x < w; x += 8) p.rect(x + 1, y, 7, 5, (x + y) % 3 ? '#5a5048' : '#6a6058');
+      for (let x = 0; x < w; x += 9) for (let i = 0; i < 4; i++) p.rect(x + i, 10 - (4 - i) * 2, 6 - i * 2, 2, '#4a4038'); // spiked crenels
+    } else {
+      for (let x = 1; x < w - 1; x += 5) {
+        p.rect(x, 8, 5, h - 8, '#4a3220');
+        p.rect(x, 8, 1, h - 8, '#6a4a2e');
+        for (let i = 0; i < 4; i++) p.rect(x + i * 0.5, 8 - (4 - i) * 2, 5 - i, 2, '#6a4a2e'); // sharpened stakes
+      }
+      p.rect(0, 22, w, 2, '#2a1a10');
+    }
+    for (let x = 4; x < w - 4; x += 13) skull(p, x, 12);
+    if (gate) {
+      arch(p, w / 2 - 10, h - 40, 20, 40, '#2a1a10');
+      for (let x = w / 2 - 9; x < w / 2 + 9; x += 4) p.rect(x, h - 38, 1, 38, '#4a3220');
+      banner(p, w / 2, h - 58, 12, '#8a1a14', '#1a1a1a');
+    }
+  },
 };
 
 /* ------------------------------------------------------------ dressing for everything else */
@@ -706,6 +738,11 @@ const dress: Record<Style, (p: Painter, w: number, h: number, peak: number, seed
     banner(p, w - 8, Math.max(8, peak + 2), 10, '#3050a0', '#e8c040');
     shieldCrest(p, 3, h - 16, '#a03030', '#e8c040');
   },
+  orcs: (p, w, h, peak) => {
+    skull(p, w / 2 - 2, peak - 6);
+    banner(p, w - 7, Math.max(8, peak + 2), 10, '#8a1a14', '#1a1a1a');
+    p.disc(4, h - 3, 2, '#e07030');
+  },
 };
 
 /** The usual building materials (thatch, plaster, brick, timber, lit windows), and what each origin builds with
@@ -724,6 +761,7 @@ const SWAP: Record<Style, string[]> = {
   fae: ['#8a4ac8', '#6a2aa0', '#e8e0d0', '#f8f0e8', '#c83a3a', '#982828', '#e05a5a', '#6a5a8a', '#8a7aaa', '#3a2a4a', '#f8f0a0'],
   alchemists: ['#4a9a80', '#2a7a60', '#9a9090', '#aaa0a0', '#8a6a5a', '#5a4040', '#a47a64', '#6a5a4a', '#8a6a4a', '#3a2a20', '#80f060'],
   knights: ['#8a3a30', '#6a2a24', '#a09a8a', '#b0aa9a', '#8a8a90', '#5a5a64', '#9a9aa2', '#4a3420', '#6a4a2a', '#2a1e14', '#f0d890'],
+  orcs: ['#7a5a3a', '#5a3e26', '#8a7a5a', '#9a8a6a', '#5a5048', '#3a322c', '#6a6058', '#4a3220', '#6a4a2e', '#2a1a10', '#f08030'],
 };
 
 // (each origin's window glow gives light at night, like the usual one)

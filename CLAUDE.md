@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.41.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.42.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3666,6 +3666,46 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   until something else redrew the page; it is now. And every menu holds its redraws while a finger is down on it
   (panel.ts `pressing`: from pointerdown until just after the pointer lifts, never more than 1.5 s), so a snapshot can
   no longer pull a button from under a tap. The tabs take the display font (`.inv-tab`).
+
+## The Orc Warband (0.42.0; the owner's pick of the new origins, made as deep as the others)
+
+- **The people** (`orcs` in `ORIGINS`, data/origins.ts: the Orc Warband, Chronos Warcamp): fight 1.25, guard 0.9, build
+  1.15, research 0.75, craft 0.85, quality −0.5, crops 0.85, travellers 0.6, prices 0.85, captives 1.5; start with two
+  hunters, meat, wood and spears. Rites (sim/powers.ts): **War Cry** (a buff, `war_cry`: fighting ×1.35 in origin.ts),
+  **Berserk** (raw meat eaten, every raider struck), **Grog Feast** (spirits under 50). Founders (data/founders.ts,
+  founderClasses.ts): Grakk the Warchief (warrior), Ushna Bloodaxe (blood knight), Old Mogra the Bone-Reader (shaman).
+  Lifespan short (grown at 14, old at 50); backstories, four gods (Grub-Mother, Old Tusk, Gork, Mork), kinship (the hold
+  and the Order hate them, the pack and the steppe riders less so), a stranger people (`STRANGER_ORIGINS`), the
+  six-topic heritage line (War Paint to The Star Horde), a troop (Orc Boyz), a workshop (the Grog Pit: grog, war paint, tusk
+  charms) and a defence (the Skull Totem, `rout`).
+- **Greenskins:** the townsfolk wear the Himeko pack's **Orc body** (`Look.body` 'orc', `orcLook` in sim/strangers.ts:
+  a green skin under it for the side-on fallback, pointed ears), kept by `keepKin` for the town's own (a stranger taken in
+  keeps their looks), and go about in the pack's barbarian outfits (`hkLayers`: grade by id) unless armoured.
+- **As a rival** (data/rivals.ts, raids.ts `rival_orcs`, factions.ts: The Warband at the Skull Pit, warlike, goods meat):
+  Gorbag the Warlord (`orc_warlord`, trophy Gorbag's Cleaver) and orc grunts, archers and brutes, four Himeko sheets
+  composed by `tools/compose-sheets.cjs` (`hk_orc_*`: the Orc body in the barbarians' outfits with an axe and round
+  shield, a bow, a sledge, a horned helm and a great axe). The lord casts War Cry (frenzy), War Drums (dread) and More Orcs
+  (summon).
+- **The look:** a palette, labels (Warcamp, Bone Lore, The Horde, Loot, Raids, War Tales) and a skin of hide, rivets and
+  war paint (theme.ts, skins.ts: tusks before the headings, torn tab banners), the Metal Mania font (@fontsource, OFL),
+  the tipis and yurts for homes and the striped tent for the hall (`NOMAD`, `TENT_HALL` in packBuildings.ts), every
+  other pack building recoloured (`GRADES.orcs`), hide huts and spiked palisades with skulls in originStyles.ts, and a
+  seat of five stages (data/seats.ts, seatArt.ts: Skull Pole, War Hut, Great Longhut, Iron Hall, Throne of Skulls).
+- **The warpath** (data/warpath.ts, sim/warpath.ts `hordeHourly`, `s.horde`; autopilot on): **fury** (0..100) rises
+  each morning at `HORDE_HOUR` (`FURY_DAILY`, more after `RESTLESS_DAYS` with no fight), with a raid beaten at home and a
+  war raid won; at `BRAWL_AT` the bored horde brawls (a wound, a grudge, a morale mark). From `CALL_AT` the warchief
+  calls a **war raid** (a `ways` question, system `horde`: raid the weakest power not yet sacked, raid the roads, or hold
+  back for more fury and sore spirits); `RAID_SHARE` of the fit go (`Person.away` = `RAID_AWAY`, shown as "the war") for
+  `RAID_HOURS`; the odds are their might against the power's troops (`raidOdds`). Won: plunder (half to the raiders'
+  purses, half to the hoard), the power's goods, captives put in the cells as **thralls** (each morning every prisoner
+  hauls `THRALL_WORK` wood and stone into the stores), the power's troops and goodwill down (war at `WAR_AT`), the
+  power **sacked**; the roads instead scare the travellers off. Lost: the dead and wounded. **Glory** per orc
+  (`addGlory`: raiders felled at home, raids) brings **names** at 10, 30, 60 and 100 (`GLORY_NAMES`: the Blooded,
+  Skullsplitter, Ironjaw, Warboss...). At full fury the **Waaagh!** is called (`waaagh`: fight and build marks for
+  `WAAAGH_DAYS`, the whole fit horde marches at once with better odds; the first is the cutscene `waaagh`). **The Great
+  Waaagh** (`checkWin`): every power sacked or razed and `WIN_WAAAGHS` Waaaghs called wins the game. Shown on the Town
+  menu's Our ways tab (`hordeSection`: fury bar, raids, thralls, the powers sacked, the "To win" line, the glory board) and
+  a Fury tile on the overview. Tests: `test/warpath.test.ts`.
 
 ## Known problem (fixed, watch)
 

@@ -164,6 +164,16 @@ export const RIVALS: Record<Exclude<OriginId, 'settlers'>, RivalDef> = {
       { id: 'oath', name: 'Oath of Mending', kind: 'raise', every: 30, power: 2, text: 'The Grand Master swears an oath, and the fallen knights rise!' },
     ],
   },
+  orcs: {
+    origin: 'orcs',
+    raid: 'rival_orcs',
+    leader: 'orc_warlord',
+    spells: [
+      { id: 'war_cry', name: 'War Cry', kind: 'frenzy', every: 18, power: 10, text: 'WAAAGH! The warband roars and charges!' },
+      { id: 'war_drums', name: 'War Drums', kind: 'dread', every: 24, power: 6, text: 'The war drums beat, and the defenders\' hearts sink.' },
+      { id: 'more_orcs', name: 'More Orcs', kind: 'summon', every: 30, power: 3, summons: 'orc_grunt', text: 'Gorbag bellows, and more orcs come running!' },
+    ],
+  },
 };
 
 /** The rival (if any) behind a raid kind, and the one whose lord this is. */

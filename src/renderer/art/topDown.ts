@@ -89,6 +89,7 @@ const SHAPES: Record<string, Shape> = {
   tesla_coil: 'tower',
   militia_post: 'tower',
   bone_spire: 'tower',
+  skull_totem: 'tower',
   gargoyle_perch: 'tower',
   sentry_bot: 'tower',
   rune_bolt_thrower: 'tower',
@@ -534,7 +535,7 @@ function drawTower(g: G): void {
     for (const dx of [-7, 4]) p.rect(cx + dx, topY - 11, 3, 6, '#4a4a50');
     p.fpx(cx - 1, topY - 8, '#e0506a');
     p.fpx(cx + 1, topY - 8, '#e0506a');
-  } else if (defId === 'bone_spire') {
+  } else if (defId === 'bone_spire' || defId === 'skull_totem') {
     for (let y = 0; y < 16; y++) p.rect(cx - 2 + Math.floor(y / 8), topY - 16 + y, 4 - Math.floor(y / 8) * 2, 1, y % 3 ? '#e8e0d0' : '#b8b0a0');
     p.fpx(cx, topY - 17, '#7cff9a');
   } else if (defId === 'militia_post' || defId === 'arrow_wagon') {

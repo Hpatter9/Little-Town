@@ -1,7 +1,7 @@
 {
   "name": "little-town",
   "productName": "Chronos Settlement",
-  "version": "0.41.0",
+  "version": "0.42.0",
   "private": true,
   "description": "A pixel-art idle town builder that lives in a strip above the taskbar.",
   "author": "Chronos Settlement",
@@ -31,6 +31,7 @@
     "@fontsource/im-fell-english-sc": "^5.3.0",
     "@fontsource/marcellus-sc": "^5.3.0",
     "@fontsource/medievalsharp": "^5.3.0",
+    "@fontsource/metal-mania": "^5.3.0",
     "@fontsource/new-rocker": "^5.3.0",
     "@fontsource/orbitron": "^5.3.0",
     "@fontsource/pirata-one": "^5.3.0",
