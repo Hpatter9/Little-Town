@@ -162,7 +162,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       break;
     case 'idle': {
       const pt = task.pastime;
-      p.activity = pt === 'market' ? 'stroll' : pt === 'well' ? 'draw' : pt === 'carry' || !pt ? 'idle' : pt;
+      p.activity = pt === 'market' ? 'stroll' : pt === 'well' ? 'draw' : pt === 'carry' || pt === 'rounds' || !pt ? 'idle' : pt;
       if (s.tick >= task.untilTick) {
         p.task = null;
         // (the bucket wound up at the well, and carried home: sim/pastimes.ts)
@@ -464,7 +464,9 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       break;
     case 'shelter': {
       const bed = p.bed === null ? undefined : byId(s, p.bed);
-      if (!(bed ? goToB(s, p, bed) : goTo(s, p, campXY(s)))) break;
+      // (at the alarm the children run for home: SHELTER_RUN)
+      const pace = isChild(p) ? SHELTER_RUN : 1;
+      if (!(bed ? goTo(s, p, buildingDoor(bed), footprint(bed), pace) : goTo(s, p, campXY(s), undefined, pace))) break;
       p.activity = bed ? 'sleep' : 'idle'; // inside, out of sight; or huddled by the fire
       break;
     }
@@ -1368,11 +1370,14 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 export const busyNow = (s: GameState, p: Person) => !!s.busy && s.tick < s.busy.until && s.busy.ids.includes(p.id) && p.away === null && !p.downed && !alarmRaised(s);
 
 /** Step toward a point along a path over the land. Returns true once there. */
-function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {
-  const there = walk(s, p, to, STEP * injuryPace(p), through, s.tick, swims(s, p)); // (a lame leg slows them: sim/injuries.ts)
+function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>, pace = 1): boolean {
+  const there = walk(s, p, to, STEP * injuryPace(p) * pace, through, s.tick, swims(s, p)); // (a lame leg slows them: sim/injuries.ts)
   if (!there) p.activity = 'walk';
   return there;
 }
+
+/** How much faster than a walk a child runs home at a raid's alarm. */
+export const SHELTER_RUN = 1.5;
 
 /** Step toward a building: to its door. */
 const goToB = (s: GameState, p: Person, b: Building) => goTo(s, p, buildingDoor(b), footprint(b));

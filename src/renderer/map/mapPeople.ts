@@ -11,7 +11,8 @@ import { drawMarks, limpDip, marksKey } from './bodyMarks';
 import { HK_CELL, HK_FEET, HK_FIGURE, hkLayers, hkPose, hkWhoOf, type HkFacing } from '../art/hkFolk';
 import { hkTexture } from '../art/hkTexture';
 import { CREATURE_FRAME, creatureFrame, creatureSize, type CreatureSheet } from '../art/creatures';
-import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, type Emote } from '../art/effects';
+import { EMOTE_SIZE, emoteFrame, levelUpFrame, HOLY_SIZE, holyFrame, REVIVE_SIZE, reviveFrame, SPELL_SIZE, spellFrame, spellFrames, SPLAT_SIZE, splatFrame, pixelFxFrame, type Emote } from '../art/effects';
+import { COUGH_FOR, coughing } from './moodRules';
 import { fightAnim, fightPose, founderSheet, heroFrame, heroScale, heroSheet, SHOOT_TICKS, skeletonSheet, WOLF_FORMS, WOLF_SCALE } from '../art/combatPoses';
 import { creatureFlip } from '../art/creatures';
 import { loadImage } from '../art/loadImage';
@@ -86,6 +87,9 @@ const CLASS_LOOK: Partial<Record<ClassId, [CreatureSheet, number]>> = {
   mage: ['champ_sage', 4],
 };
 
+/** What the sick say as they cough. */
+const COUGHS = ['*cough*', '*cough cough*', '*hack*', '*wheeze*'];
+
 /** The work bar over a head: its width (px) and how far above the feet it floats. */
 const WORK_W = 18;
 const WORK_ABOVE = 58;
@@ -159,6 +163,8 @@ interface Drawn {
   /** The spray of a blow landing. */
   spray: Sprite;
   emote?: Sprite;
+  /** A cough's puff before the mouth (map/moodRules.ts `coughing`). */
+  cough?: Sprite;
   levels?: number;
   levelAt?: number;
   levelUp?: Sprite;
@@ -243,6 +249,10 @@ export class MapPeople {
   season = 'spring';
   hour = 12;
   raid = false;
+  /** A raid on its way (its warning) or here: the alarm is up, and the children run for home. */
+  alarm = false;
+  /** A plague on (sim/pastimes.ts `plagueOn`): the sick cough oftener, a green puff. */
+  plague = false;
   zoom = 1;
   /** The latest news (main.ts, per snapshot): the town crier, the best talker about, calls it out now and then. */
   news: { id: number; text: string } | null = null;
@@ -329,7 +339,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.cough, d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -450,6 +460,21 @@ export class MapPeople {
       d.speech.zIndex = z + 1e7;
       return;
     }
+    // (the sick cough: "*cough*" for a moment now and then, over anything else they'd say)
+    if (v.sick && !quiet && coughing(v.id, now, this.plague)) {
+      const coughKey = -2 - Math.floor((now + v.id * 2711) / 1000);
+      if (d.speechSlot !== coughKey || !d.speech) {
+        d.speech?.destroy();
+        d.speech = this.layer.addChild(makeBubble(COUGHS[Math.abs(coughKey) % COUGHS.length]));
+        d.speechSlot = coughKey;
+      }
+      const kc = Math.min(2.2, Math.max(1, 1 / Math.max(0.25, this.zoom)));
+      d.speech.visible = true;
+      d.speech.scale.set(kc);
+      d.speech.position.set(Math.round(x), Math.round(y) - 64);
+      d.speech.zIndex = z + 1e7;
+      return;
+    }
     if (!speaks) {
       if (d.speech) d.speech.visible = false;
       return;
@@ -479,7 +504,10 @@ export class MapPeople {
     if (this.procession?.kind === 'wedding' && this.procession.bearers.includes(v.id)) return 'heart';
     // (a raid on and not in the fight, or just struck: alarm)
     if (v.sinceHit < 25 && v.downed === null && !v.defending) return 'alarm';
-    if (this.raid && !v.defending && v.activity !== 'fight' && v.downed === null && (now / 1000 + v.id) % 3 < 1.2) return 'alarm';
+    // (at the alarm a child running for home cries out all the way)
+    if (this.alarm && v.growsUpIn !== null && v.downed === null) return 'alarm';
+    if ((this.raid || this.alarm) && !v.defending && v.activity !== 'fight' && v.downed === null && (now / 1000 + v.id) % 3 < 1.2) return 'alarm';
+    if (v.sick && coughing(v.id, now, this.plague)) return 'sweat';
     const burst = ((now / 1000 + v.id * 3.7) % EMOTE_EVERY) < EMOTE_FOR;
     if (!burst) return null;
     if (v.needs.rest < 0.12 || v.needs.food < 0.12) return 'sweat';
@@ -877,6 +905,20 @@ export class MapPeople {
           d.emote.texture = emoteFrame(emote, now / 140 + d.view.id)!;
           d.emote.position.set(Math.round(x) - EMOTE_SIZE / 2 + 6, Math.round(y) - 62 + Math.round(Math.sin(now / 400 + d.view.id) * 1.5));
           d.emote.zIndex = z + 0.2;
+        }
+      }
+      // a cough: a little puff before the mouth (white; green in a plague), the 5000 Pixel Effects pack's
+      const coughNow = v.sick && !hidden && !d.visitor && v.activity !== 'sleep' && coughing(v.id, now, this.plague);
+      const puff = coughNow ? pixelFxFrame(this.plague ? 'poison-puff' : 'white-puff', Math.floor((((now + v.id * 2711) % COUGH_FOR) / COUGH_FOR) * 6)) : null;
+      if (puff && !d.cough) d.cough = this.layer.addChild(new Sprite());
+      if (d.cough) {
+        d.cough.visible = !!puff;
+        if (puff) {
+          d.cough.texture = puff;
+          d.cough.anchor.set(0.5);
+          d.cough.width = d.cough.height = 12;
+          d.cough.position.set(Math.round(x + v.dir * 8), Math.round(y - 40));
+          d.cough.zIndex = z + 0.3;
         }
       }
       // a blow landing: blood flung away from the striker
