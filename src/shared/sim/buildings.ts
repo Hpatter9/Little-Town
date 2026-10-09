@@ -164,8 +164,10 @@ export function stillNeeded(b: Building): Stock {
 /** Blueprints allowed at once (research adds more). */
 export const buildSlots = (s: Pick<GameState, 'research'>) => BUILD_QUEUE_SLOTS + modifiers(s.research).queueSlots;
 
+/** Blueprints taking a build slot: the ring wall's sections in work have a queue of their own (`RING_AT_ONCE` in
+ *  sim/ringWall.ts; the owner's complaint: the wall waited on the town's other building and was never finished). */
 export function blueprintCount(s: Pick<GameState, 'buildings'>): number {
-  return s.buildings.filter(inWork).length;
+  return s.buildings.filter((b) => inWork(b) && b.ring === undefined).length;
 }
 /** A blueprint being worked (not one only planned, laid out ahead with the rest of its wall: `Building.planned`). */
 export const inWork = (b: Building) => b.status === 'blueprint' && !b.planned;
