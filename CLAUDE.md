@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.47.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.48.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3790,6 +3790,15 @@ blocked by buildings, structures, trees and rocks)
   texture of its own (`flameTexture`, kept with the pool) drawn every frame at its flicker. The lanterns people carry
   flicker on their own beat (by id), and the street lamps' glows flicker by the age's light (steady when electric).
   Steady on a slow phone (`calm`). Tests: `test/flicker.test.ts`.
+
+## Sleeping rough (0.48.0; the owner's complaint: the bedless stood in the middle of town to sleep)
+
+- `src/shared/sim/roughSleep.ts` (`roughSpot`): someone with no bed beds down on a spot of their own round the camp's
+  fire: the first just beside it (where the town always slept rough, so a lone founder's nights are as before), the
+  rest on rings about it (`RINGS`, `PLACES`) by their id, never on a road, in a building, in water or rock, nor where
+  someone already lies, and a cell clear of any building where there's room. The spot is kept on the sleep task
+  (`spot`); `sleepTask` in people.ts keeps the task through the night (the wounded's too), so it isn't lost. On the
+  map they lie flat on the ground (mapPeople's `moment`, on a slow phone too). Test: `test/roughSleep.test.ts`.
 
 ## Known problem (fixed, watch)
 

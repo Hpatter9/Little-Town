@@ -1010,6 +1010,11 @@ export class MapPeople {
    *  aside). Nothing while they fight, in a raid, or on a slow phone. */
   private moment(d: Drawn, now: number, moving: boolean, x: number, y: number): Moment | null {
     const v = d.view;
+    // (asleep out of doors, with no bed: laid down on the ground by the fire, never stood up; on a slow phone too)
+    if (v.activity === 'sleep' && !v.indoors && !moving && v.downed === null && !v.swimming && v.mounted === null) {
+      d.hold = undefined;
+      return { rot: (v.id % 2 ? 1 : -1) * (Math.PI / 2), dy: -2, step: { col: 0, facing: 'down', lift: 0, squash: 1 } };
+    }
     if (this.calm || d.visitor || v.downed !== null || v.activity === 'fight' || v.defending || v.sinceHit < HERO_LINGER || v.swimming || v.mounted !== null) {
       d.hold = undefined;
       return null;
