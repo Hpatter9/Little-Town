@@ -157,12 +157,23 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
   const task = p.task;
   switch (task.type) {
     case 'wander':
-      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime };
+      // (home with the well's bucket: set down, and the wait spent idle)
+      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime === 'carry' ? undefined : task.pastime };
       break;
-    case 'idle':
-      p.activity = task.pastime === 'market' ? 'stroll' : (task.pastime ?? 'idle');
-      if (s.tick >= task.untilTick) p.task = null;
+    case 'idle': {
+      const pt = task.pastime;
+      p.activity = pt === 'market' ? 'stroll' : pt === 'well' ? 'draw' : pt === 'carry' || !pt ? 'idle' : pt;
+      if (s.tick >= task.untilTick) {
+        p.task = null;
+        // (the bucket wound up at the well, and carried home: sim/pastimes.ts)
+        const home = pt === 'well' && p.bed != null ? byId(s, p.bed) : undefined;
+        if (home) {
+          const d = buildingDoor(home);
+          p.task = { type: 'wander', targetX: d.x, targetY: d.y, pastime: 'carry' };
+        }
+      }
       break;
+    }
     case 'gather':
       if (goTo(s, p, cellXY(s, task.tile))) {
         if (task.scrounge) scrounge(s, p, task);

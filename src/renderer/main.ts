@@ -29,6 +29,11 @@ import { MapGraves } from './map/mapGraves';
 import { sunAt } from './art/sun';
 import { MapMarket } from './map/mapMarket';
 import { SeasonDecor } from './map/seasonDecor';
+import { MapFelling } from './map/mapFelling';
+import { MapStockpile } from './map/mapStockpile';
+import { MapGains } from './map/mapGains';
+import { MapChores } from './map/mapChores';
+import { finishedBetween, gainsBetween } from './map/workSeen';
 import { StreetLamps } from './map/streetLamps';
 import { LightMap } from './map/lightMap';
 import { MapSkiffs } from './map/mapSkiffs';
@@ -78,6 +83,7 @@ function travellerPerson(t: TravellerView): PersonView {
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [], grieving: false,
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, bedId: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
+    bucket: false,
     rally: null,
     away: null, hp: 1, maxHp: 1, downed: null, bleedMinutes: null, gear: {}, gearQ: {}, coins: null, detail: [], recent: [], bedroll: false, carryCapacity: 0,
     partner: null, married: false, friends: [], rivals: [], enemies: [], devoted: [], body: { wounds: [], lasting: [], fitted: [], sight: 1, handling: 1, moving: 1, pain: 0, marks: [] }, growsUpIn: null, breakdown: null, ageDays: 0,
@@ -360,6 +366,14 @@ async function start(): Promise<void> {
   const decor = new SeasonDecor(map.things, map.lights); // (the doors dressed for the season)
   const lamps = new StreetLamps(map.things, map.lights); // (lamps along the streets, lit at dusk)
   const skiffs = new MapSkiffs(map.things); // (boats along the rivers)
+  // work you can see: trees falling and their stumps, the stockpile's heaps, gains floating up, the harvest left in the
+  // field, the well and the washing (map/workSeen.ts)
+  const felling = new MapFelling(map.things);
+  map.onFelled = (tex, x, y, kind, cell) => felling.fall(tex, x, y, kind, cell, map.calm);
+  const stockpile = new MapStockpile(map.things, map.artHidden);
+  const gainsView = new MapGains(map.over);
+  const chores = new MapChores(map.things);
+  (window as unknown as { __workSeen?: unknown }).__workSeen = { felling, stockpile, gains: gainsView, chores, people }; // (previews)
   const traffic = new RoadTraffic(map.things); // (carts along the roads)
   (window as unknown as { __traffic?: unknown }).__traffic = { skiffs, traffic, ground: map.groundWeather }; // (previews)
   // the dragon in the sky (map/mapDragon.ts)
@@ -1370,6 +1384,9 @@ async function start(): Promise<void> {
     showNotices(next);
     // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
     if (view.music && !view.hidden && map.root.visible) for (const c of soundsBetween(snap, next, map.view)) ambience.cue(c.cue, c.pan, c.delay);
+    // (what rose and what was finished since the last snapshot: map/workSeen.ts)
+    const gained = map.root.visible && !view.hidden ? gainsBetween(snap, next) : [];
+    const finished = map.root.visible && !view.hidden ? finishedBetween(snap, next) : [];
     snap = next;
     hud.update(next);
     music.update(view.music && !view.hidden, musicMood(next));
@@ -1558,7 +1575,13 @@ async function start(): Promise<void> {
     map.syncLand(next.land, next.calendar.season, next.biome, next.era); // (paints again only what changed)
     minimap.setLand(next.land, next.calendar.season);
     map.tick = next.tick;
+    stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
     map.syncBuildings(next.villageBuildings.length ? [...next.buildings, ...next.villageBuildings] : next.buildings);
+    felling.season = next.calendar.season;
+    felling.sync(next.land, next.buildings);
+    chores.sync({ buildings: next.buildings, people: next.people, tick: next.tick, era: next.era, weather: next.weather.kind, season: next.calendar.season, daylight: next.calendar.daylight, landW: next.land.w });
+    gainsView.add(gained, finished, map.calm);
+    for (const f of finished) people.cheer(f.builders, performance.now());
     map.workFx.sync(next.buildings, next.workingAt);
     map.workFx.syncBuilders(next.people.filter((p) => p.activity === 'build' && !p.indoors).map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })));
     herds.update(next.buildings);
@@ -1716,6 +1739,9 @@ async function start(): Promise<void> {
     wildlife.render(ticker.deltaMS / 1000, performance.now());
     water.render(ticker.deltaMS / 1000);
     tracks.render(ticker.deltaMS / 1000);
+    felling.render(ticker.deltaMS / 1000, map.calm, map.wind());
+    gainsView.render(ticker.deltaMS / 1000, map.calm);
+    chores.render(ticker.deltaMS / 1000, performance.now(), map.calm, map.wind());
     if (snap && minimap.shown)
       minimap.render({
         people: snap.people.filter((p) => p.away === null).map((p) => ({ x: p.x, y: p.y })),

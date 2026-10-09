@@ -185,8 +185,8 @@ export function weaponPiece(weapon: { name: string; family?: string; tier?: numb
   return null;
 }
 
-/** The work in hand's tool. */
-const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: ['staff01'], forage: ['sickle01', 'dagger01'], research: ['book01'], fish: ['staff01'] };
+/** The work in hand's tool (none in hand to sow by hand or wind the well's bucket: map/mapChores.ts). */
+const TOOL: Record<string, string[]> = { chop: ['axe01'], build: ['hammer01'], reap: ['sickle01', 'scythe01'], mine: ['greathammer01'], till: [], draw: [], forage: ['sickle01', 'dagger01'], research: ['book01'], fish: ['staff01'] };
 
 /** The layers of a person, back to front (keys of art/himeko/), for what they're doing now. */
 export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string }): string[] {

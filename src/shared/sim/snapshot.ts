@@ -224,6 +224,8 @@ export interface PersonView {
   bedId: number | null;
   /** Asleep inside a building (the renderer hides them). */
   indoors: boolean;
+  /** Carrying a bucket of water home from the well (sim/pastimes.ts). */
+  bucket: boolean;
   /** In a raid: the player can rally them ('ready'), they're rallied ('on'), or the rally is cooling down ('wait'). */
   rally: 'ready' | 'on' | 'wait' | null;
   /** How high up a castle's keep they are, in floors (fractional on the stairs); null on the walkway. */
@@ -325,6 +327,10 @@ export interface CraftOrderView {
   /** Why nobody is working on it, if nobody is. */
   waiting: string | null;
   crafter: string | null;
+  /** Pieces finished so far, and the station building it's made at (null with none): the map lifts a finished piece's
+   *  picture from there (map/mapGains.ts). */
+  made: number;
+  station: number | null;
 }
 
 export interface FighterView {
@@ -1109,7 +1115,8 @@ export function snapshot(s: GameState): Snapshot {
     workingAt: workingAt(s),
     lights: lightsView(s),
     market: marketOn(s) ? marketSquare(s) : null,
-    buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}) })),
+    // (a venue's takings copied too, so the map sees a sale between two snapshots: map/mapGains.ts)
+    buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}), ...(b.shop?.takings ? { shop: { ...b.shop, takings: { ...b.shop.takings } } } : {}) })),
     people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
     visitor: v
       ? {
@@ -1679,6 +1686,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     bedId: bed ? bed.id : null,
     floor: null,
     rally: rallyState(s, p),
+    bucket: p.task?.type === 'wander' && p.task.pastime === 'carry',
     indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
     away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
@@ -1911,7 +1919,7 @@ function craftView(s: GameState, o: CraftOrder): CraftOrderView {
     else if (!s.people.some((p) => p.priorities.craft !== 0 && p.away === null)) waiting = 'Nobody has the Craft job';
     else waiting = 'Waiting for a crafter';
   }
-  return { id: o.id, item: o.item, count: o.count, progress: o.progress, needed, waiting, crafter: crafter?.name ?? null };
+  return { id: o.id, item: o.item, count: o.count, progress: o.progress, needed, waiting, crafter: crafter?.name ?? null, made: o.made, station: def ? (stationFor(s, def)?.id ?? null) : null };
 }
 
 function expeditionView(s: GameState, e: Expedition): ExpeditionView {
@@ -2038,7 +2046,11 @@ function describe(s: GameState, p: Person): string {
   switch (task.type) {
     case 'wander':
     case 'idle':
-      return p.morale < SULK_MORALE ? 'Sulking (morale too low to work)' : 'Idling at camp';
+      if (p.morale < SULK_MORALE) return 'Sulking (morale too low to work)';
+      // (water from the well: sim/pastimes.ts)
+      if (task.pastime === 'well') return task.type === 'idle' ? 'Drawing water at the well' : 'Off to the well for water';
+      if (task.pastime === 'carry') return 'Carrying water home';
+      return 'Idling at camp';
     case 'gather': {
       if (task.scrounge) return 'Hungry: picking wild berries (nothing in storage)';
       const c = cellAt(s.land, task.tile);

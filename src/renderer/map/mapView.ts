@@ -231,6 +231,10 @@ export class MapView {
   readonly festival: MapFestival;
   /** Each workshop at work shows it: sparks, steam, sawdust, threads, glints (map/workFx.ts). */
   readonly workFx: WorkFx;
+  /** Told when a tree or a rock it drew goes from a cell just felled or broken up (map/mapFelling.ts falls it). */
+  onFelled?: (tex: Texture, fx: number, fy: number, kind: 'tree' | 'rock', cell: number) => void;
+  /** Buildings whose own picture is hidden, something else drawn in its place (the stockpile's heaps: mapStockpile.ts). */
+  readonly artHidden = new Set<number>();
   /** A soft darkening at the view's edges (the owner's ask: the eye drawn in), over the land, under the HUD. */
   private readonly vignette = new Sprite(vignetteTexture());
   /** The stars over the dark beyond the known land, shooting stars and the cold lands' aurora (map/nightSky.ts). */
@@ -604,6 +608,10 @@ export class MapView {
       }
     for (const [i, p] of this.props)
       if (!seen.has(i)) {
+        // (a tree felled, a rock broken up just now: it falls or crumbles where it stood, map/mapFelling.ts)
+        const cell = i >> 1;
+        const felled = p.kind === 'tree' ? land.regrow?.[cell]?.[0] === 'forest' : p.kind === 'rock' && land.rubble?.[cell] !== undefined;
+        if (felled && i % 2 === 0 && !this.calm) this.onFelled?.(p.sprite.texture, p.sprite.x, p.sprite.y, p.kind as 'tree' | 'rock', cell);
         p.sprite.destroy();
         p.reflect?.destroy();
         this.props.delete(i);
@@ -1010,6 +1018,12 @@ export class MapView {
       }
       if (b.status === 'blueprint' && d.progress !== b.progress) this.updateBlueprint(b, d);
       if (b.fire !== undefined) d.sprite.tint = 0xff9060;
+      const shown = b.status !== 'done' || !this.artHidden.has(b.id);
+      if (d.sprite.visible !== shown) d.sprite.visible = shown;
+      if (d.cast && !shown) {
+        d.cast.destroy();
+        d.cast = undefined;
+      }
     }
     for (const [id, d] of this.buildings)
       if (!seen.has(id)) {
@@ -1051,7 +1065,7 @@ export class MapView {
   }
 
   /** The wind now (0 to about 2), and its slow swell. */
-  private wind(): number {
+  wind(): number {
     const base = WIND[this.weather] ?? 0.5;
     return base * (0.75 + 0.25 * Math.sin(this.windT * 0.21));
   }
