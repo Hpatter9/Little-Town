@@ -26,6 +26,8 @@ export interface Ambience {
   /** Each frame: on or off, the mix, and the seconds since the last. */
   update(on: boolean, mix: AmbientMix, dt: number): void;
   cue(kind: Cue, pan?: number, delay?: number): void;
+  /** How loud, a share of full (the ☰ menu's slider: volume.ts). */
+  setLevel(level: number): void;
   /** For previews: whether the sound has started. */
   readonly running: boolean;
 }
@@ -39,6 +41,7 @@ export function createAmbience(): Ambience {
   const due = { birds: 1, crickets: 0.5, frogs: 1, owls: 3, wolves: 6, crackle: 0.3 };
   let mixNow: AmbientMix | null = null;
   let on = false;
+  let loudness = 1;
 
   const start = (): boolean => {
     if (ctx) return true;
@@ -632,7 +635,7 @@ export function createAmbience(): Ambience {
       if (!ctx) return;
       if (want !== on) {
         on = want;
-        master.gain.setTargetAtTime(want ? MASTER : 0, ctx.currentTime, 0.6);
+        master.gain.setTargetAtTime(want ? MASTER * loudness : 0, ctx.currentTime, 0.6);
         if (want) void ctx.resume().catch(() => undefined);
       }
       if (!on) return;
@@ -659,6 +662,10 @@ export function createAmbience(): Ambience {
       call('owls', mix.owls, owl);
       call('wolves', mix.wolves, howl);
       call('crackle', mix.fire * 8, () => crackle(mixNow?.fire ?? 0));
+    },
+    setLevel(v) {
+      loudness = Math.max(0, Math.min(1, v));
+      if (ctx && on) master.gain.setTargetAtTime(MASTER * loudness, ctx.currentTime, 0.15);
     },
     cue(kind, pan = 0, delay = 0) {
       if (!ctx || !on) return;

@@ -3815,6 +3815,14 @@ blocked by buildings, structures, trees and rocks)
   stopped by buildings, trees and rocks as any light, flickering as a torch; worked out where it's held to the light
   map's texel and kept (`torchPool`, up to `TORCH_POOLS_MOST`). Everyone else out after dark keeps the small lantern.
 
+- **Volume sliders (the owner's ask):** the ☰ menu has a Music volume and a Sound effects volume slider under the
+  Music on/off (`slider` in mobile/mobile.ts, `.volume` in mobile/index.html), each 0 to 100% in steps of 5. Moving one
+  sets the strip's level at once (`window.__volume` in main.ts: `music.setLevel`, `ambience.setLevel`, a share of each's
+  own full loudness; a slider moved mid-fade takes over from the fade, `cancelFade` in music.ts) and keeps it
+  (`src/renderer/volume.ts`: `littletown.musicVolume`, `littletown.sfxVolume`, read at start by `readLevel`). The ♪
+  button still turns both on and off. The menu scrolls when it's taller than the screen (held sideways it is). Test:
+  `test/volume.test.ts`.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be
