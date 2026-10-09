@@ -7,12 +7,12 @@
 // none. Where it's dark and unlit, work goes slower (`darkPace`, in `workFactor`): out in the night beyond the
 // lights' reach and the fires', and in an unlit room of the castle or the hold. Only with the autopilot on.
 
-import { CAVE_SLEEP, CAVE_WAKE, CAMPFIRE_RADIUS, DARK_BELOW, DARK_PACE, FEED_BELOW, FEED_FROM, FEED_UNTIL, FIRE_RADIUS, FUEL_MOST, FUEL_PER_UNIT, LIGHT_EVERY, LIGHT_KIND, STREET_LIGHTS_BASE, STREET_LIGHTS_MOST, STREET_LIGHTS_PER_PERSON } from '../data/lighting';
-import { BUILDING_BY_ID } from '../data/buildings';
+import { CAVE_SLEEP, CAVE_WAKE, DARK_BELOW, DARK_PACE, FEED_BELOW, FEED_FROM, FEED_UNTIL, FUEL_MOST, FUEL_PER_UNIT, LIGHT_EVERY, LIGHT_KIND, STREET_LIGHTS_BASE, STREET_LIGHTS_MOST, STREET_LIGHTS_PER_PERSON } from '../data/lighting';
 import { totalStock } from './buildings';
 import { castleLayout, holdOf } from './castle';
 import { takeFromStorage } from './expeditions';
 import { CELL, idx, inMap, isRoad } from './land';
+import { clearLine, lightSources, occluders } from './lightField';
 import { isChild } from './social';
 import { tireless, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
@@ -165,39 +165,31 @@ interface LitCache {
 }
 const caches = new WeakMap<GameState, LitCache>();
 
-/** Which cells are lit now (1), by the lights burning, the camp's fire and the open fires; kept until the hour, the
- *  lights or the buildings change. */
+/** Which cells are lit now (1): each light burning out of doors lights the cells within its reach that it can see
+ *  (sim/lightField.ts: buildings, walls, trees and rocks stand in the way), and a burning sconce its room. Kept until
+ *  the hour, the lights, the buildings or the land change. */
 function litGrid(s: GameState): Uint8Array {
   const hour = Math.floor(s.tick / TICKS_PER_HOUR);
   const ts = s.torches ?? [];
-  const key = `${hour}|${ts.length}|${ts.reduce((n, t) => n + (isLit(s, t) ? t.id : 0), 0)}|${s.buildings.length}|${s.land.version}`;
+  const key = `${hour}|${ts.length}|${ts.reduce((n, t) => n + (isLit(s, t) ? t.id : 0), 0)}|${s.buildings.length}|${s.buildings.reduce((n, b) => n + (b.status === 'done' ? b.id : 0), 0)}|${s.land.version}`;
   const hit = caches.get(s);
   if (hit && hit.key === key) return hit.grid;
   const m = s.land;
   const grid = new Uint8Array(m.w * m.h);
   const lay = castleLayout(s);
-  const disc = (cx: number, cy: number, r: number) => {
-    for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++)
-      for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
-        if (!inMap(m, x, y) || Math.hypot(x - cx, y - cy) > r) continue;
+  const occ = occluders(m, s.buildings, lay ? lay.region.keys() : undefined);
+  const streets = ts.filter((t) => t.room === undefined && isLit(s, t));
+  for (const src of lightSources(s.era, streets, s.buildings, m.camp)) {
+    for (let y = Math.floor(src.y - src.r); y <= Math.ceil(src.y + src.r); y++)
+      for (let x = Math.floor(src.x - src.r); x <= Math.ceil(src.x + src.r); x++) {
+        if (!inMap(m, x, y) || Math.hypot(x + 0.5 - src.x, y + 0.5 - src.y) > src.r) continue;
         // (outdoor light doesn't reach into the castle's rooms)
         if (lay?.region.has(idx(m, x, y))) continue;
+        if (grid[idx(m, x, y)] || !clearLine(occ, m.w, m.h, src.x, src.y, x + 0.5, y + 0.5, src.own)) continue;
         grid[idx(m, x, y)] = 1;
       }
-  };
-  const radius = kindOf(s).radius;
-  for (const t of ts) {
-    if (!isLit(s, t)) continue;
-    if (t.room !== undefined && lay) {
-      for (const [i, r] of lay.region) if (r === t.room) grid[i] = 1;
-    } else disc(t.x, t.y, radius);
   }
-  disc(m.camp.x, m.camp.y, CAMPFIRE_RADIUS);
-  for (const b of s.buildings) {
-    if (b.status !== 'done' || !['bloomery', 'kiln', 'storytellers_circle'].includes(b.def)) continue;
-    const def = BUILDING_BY_ID[b.def];
-    disc(b.tile + (def?.width ?? 1) / 2, b.row + 0.5, FIRE_RADIUS);
-  }
+  if (lay) for (const t of ts) if (t.room !== undefined && isLit(s, t)) for (const [i, r] of lay.region) if (r === t.room) grid[i] = 1;
   caches.set(s, { key, grid });
   return grid;
 }
