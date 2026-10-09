@@ -15,6 +15,7 @@ import { Container, Graphics, RenderTexture, Sprite, Texture, type Renderer } fr
 import { footprint } from '../../shared/sim/buildings';
 import { clearLine, falloff, lightSources, occluders, type LightSource } from '../../shared/sim/lightField';
 import type { Snapshot } from '../../shared/sim/snapshot';
+import { flicker, flickers, phaseOf } from './flicker';
 
 /** World px a texel of the light map covers, and texels a cell. */
 const SCALE = 8;
@@ -114,6 +115,39 @@ interface Pool {
   bw: number;
   bh: number;
   vals: Float32Array;
+  /** A flame's pool as its own texture, drawn each frame at its flicker's strength (`flameTexture`). */
+  tex?: Texture;
+}
+
+/** A flame's pool painted onto a texture of its own box. */
+function flameTexture(p: Pool, color: number): Texture {
+  const c = document.createElement('canvas');
+  c.width = p.bw;
+  c.height = p.bh;
+  const ctx = c.getContext('2d')!;
+  const img = ctx.createImageData(p.bw, p.bh);
+  const d = img.data;
+  const cr = (color >> 16) & 255;
+  const cg = (color >> 8) & 255;
+  const cb = color & 255;
+  for (let i = 0, j = 0; i < p.vals.length; i++, j += 4) {
+    const k = p.vals[i];
+    d[j] = Math.min(255, cr * k);
+    d[j + 1] = Math.min(255, cg * k);
+    d[j + 2] = Math.min(255, cb * k);
+    d[j + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = Texture.from(c);
+  tex.source.scaleMode = 'linear';
+  return tex;
+}
+
+/** A flame burning on the land: its pool, what it is, and its own beat. */
+interface Flame {
+  pool: Pool;
+  kind: string;
+  phase: number;
 }
 
 /** What a light's pool depends on: its reach, its strength and what stands in it (and the castle's cells there). */
@@ -184,13 +218,15 @@ export class LightMap {
   private plan: Plan | null = null;
   /** Each light's pool, kept until something in its reach changes. */
   private pools = new Map<string, Pool>();
+  /** The flames out of doors, drawn each frame with their flicker (electric light is in the land's texture). */
+  private flames: Flame[] = [];
   private built = 0;
   private landKey = '';
   private occ: Uint8Array | null = null;
   private occHash = 0;
   private caveCells: number[] = [];
   private landW = 0;
-  private lanterns: { x: number; y: number }[] = [];
+  private lanterns: { x: number; y: number; id: number }[] = [];
   private shown = false;
   calm = false;
 
@@ -211,7 +247,7 @@ export class LightMap {
       return;
     }
     // (the lanterns: everyone out of doors carries one after dark)
-    this.lanterns = this.calm ? [] : snap.people.filter((p) => p.away === null && !p.indoors && p.activity !== 'sleep').map((p) => ({ x: p.x, y: p.y }));
+    this.lanterns = this.calm ? [] : snap.people.filter((p) => p.away === null && !p.indoors && p.activity !== 'sleep').map((p) => ({ x: p.x, y: p.y, id: p.id }));
     const w = snap.land.w;
     const h = snap.land.h;
     const done = snap.buildings.filter((b) => b.status === 'done');
@@ -276,19 +312,28 @@ export class LightMap {
     };
     // each light out of doors: its pool, worked out afresh only when something in its reach has changed (`pool`)
     const keep = new Map<string, Pool>();
+    const flames: Flame[] = [];
     for (const src of plan.sources) {
       const id = `${src.kind}@${src.x},${src.y}`;
       const key = poolKey(plan, src);
       let p = this.pools.get(id);
       if (!p || p.key !== key) p = pool(plan, src, key);
       keep.set(id, p);
+      // (a flame flickers: its pool is drawn each frame on its own, not baked into the land's light)
+      if (flickers(src.kind)) {
+        p.tex ??= flameTexture(p, src.color);
+        flames.push({ pool: p, kind: src.kind, phase: phaseOf(src.x, src.y) });
+        continue;
+      }
       for (let y = 0; y < p.bh; y++)
         for (let x = 0; x < p.bw; x++) {
           const k = p.vals[y * p.bw + x];
           if (k > 0) add((p.y0 + y) * tw + p.x0 + x, src.color, k);
         }
     }
+    for (const [id, p] of this.pools) if (keep.get(id) !== p) p.tex?.destroy(true);
     this.pools = keep;
+    this.flames = flames;
     // the rooms lit by their sconces: wall to wall, and brighter by the sconce
     for (const room of plan.rooms) {
       for (const c of room.cells) {
@@ -381,6 +426,16 @@ export class LightMap {
     lit.position.set(-x0, -y0);
     // (how strongly the lights show: fully at night, faintly by day but for the cave)
     lit.alpha = cave ? 1 : Math.max(0, Math.min(1, (0.75 - daylight) / 0.5));
+    // the flames, each wavering on its own beat (steady on a slow phone)
+    const t = now / 1000;
+    for (const f of this.flames) {
+      const p = f.pool;
+      if (!p.tex || p.x0 > x0 + tw || p.y0 > y0 + th || p.x0 + p.bw < x0 || p.y0 + p.bh < y0) continue;
+      const s = c.addChild(new Sprite(p.tex));
+      s.blendMode = 'add';
+      s.position.set(p.x0 - x0, p.y0 - y0);
+      s.alpha = lit.alpha * (this.calm ? 0.92 : flicker(f.kind, t, f.phase));
+    }
     // the lanterns people carry
     if (lit.alpha > 0.2)
       for (const p of this.lanterns) {
@@ -388,7 +443,7 @@ export class LightMap {
         s.anchor.set(0.5);
         s.blendMode = 'add';
         s.tint = LANTERN;
-        s.alpha = lit.alpha * 0.8;
+        s.alpha = lit.alpha * 0.8 * (this.calm ? 1 : flicker('carried', t, (p.id * 2.39) % 6.283));
         s.width = s.height = (LANTERN_RADIUS * CELL * 2) / SCALE;
         s.position.set(p.x / SCALE - x0, (p.y - 8) / SCALE - y0);
       }
