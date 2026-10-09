@@ -3876,3 +3876,12 @@ blocked by buildings, structures, trees and rocks)
   peaked at the wind's level, a tenth of the music's. They go through a bus of their own in ambience.ts (`CUE_GAIN` 4,
   then a limiter) over the land's beds and calls; the saw is louder too. Measured in the phone build: the hammer about
   twice the music's peak.
+
+## Builders build, the rest carry (the owner's ask)
+
+- A site no longer waits for all its makings before work starts: its walls go up as far as what's been brought
+  (`deliveredShare` in sim/buildings.ts). A builder takes a site once it has `BUILD_AHEAD` (5%) more delivered than
+  built (`buildableNow`), stops when they catch up (people.ts `build`), and comes back as more arrives. Someone who
+  builds a site at full pace (`skillPace` 1, and the founder always) tries Construct before Haul at the same priority
+  (`buildsFirst`, `BUILDER_JOBS` in people.ts). The less skilled haul first, as before. Haulers bring to the sites being
+  built first (`haulOrder`), so a builder isn't left waiting. Test: `test/haulers.test.ts`.

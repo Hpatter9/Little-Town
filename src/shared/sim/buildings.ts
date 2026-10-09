@@ -161,6 +161,25 @@ export function stillNeeded(b: Building): Stock {
   return out;
 }
 
+/** The share of a blueprint's makings on site: the walls go up only as far as what's been brought, so a builder
+ *  works on while the rest is carried in. */
+export function deliveredShare(b: Building): number {
+  let total = 0;
+  let got = 0;
+  for (const [m, n] of Object.entries(defOf(b).cost) as [Material, number][]) {
+    total += n;
+    got += Math.min(n, b.delivered[m] ?? 0);
+  }
+  return total > 0 ? got / total : 1;
+}
+/** How far ahead of the walls the makings must be before a builder takes up a site still short of some. */
+export const BUILD_AHEAD = 0.05;
+/** Whether a site has work for a builder now: everything is in, or enough of it to go on with. */
+export function buildableNow(b: Building): boolean {
+  const share = deliveredShare(b);
+  return share >= 1 || share - b.progress >= BUILD_AHEAD;
+}
+
 /** Blueprints allowed at once (research adds more). */
 export const buildSlots = (s: Pick<GameState, 'research'>) => BUILD_QUEUE_SLOTS + modifiers(s.research).queueSlots;
 
