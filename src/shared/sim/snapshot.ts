@@ -173,6 +173,9 @@ export interface PersonView {
   activity: Activity;
   /** How far along the work in hand is (0 to 1), while they're at it: the bar over their head. */
   taskDone: number | null;
+  /** The work in hand and where (a station's or building's def), for the sounds of it (renderer/sfx.ts): a crafter at
+   *  the loom isn't a builder's hammer. Left out while walking or idle. */
+  work?: { kind: string; at: string | null };
   /** Ticks since a blow last landed on them, and the side it came from (for the blood). */
   sinceHit: number;
   hitFrom: 1 | -1;
@@ -1675,6 +1678,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     level: levelOf(p),
     levelProgress: levelProgress(p),
     doing: describe(s, p),
+    work: workOf(s, p),
     carrying: { ...p.carrying },
     skills: Object.fromEntries(
       SKILLS.map((k) => [k, { level: p.skills[k].level, progress: p.skills[k].xp / xpToNext(p.skills[k].level), passion: p.passions.includes(k) }]),
@@ -1775,6 +1779,18 @@ function workingAt(s: GameState): number[] {
     } else if (t.type === 'research' && t.station != null) out.add(t.station);
   }
   return [...out];
+}
+
+function workOf(s: GameState, p: Person): { kind: string; at: string | null } | undefined {
+  const t = p.task;
+  if (!t || p.away !== null || p.activity === 'walk' || p.activity === 'idle') return undefined;
+  if (t.type === 'craft') {
+    const o = s.crafting.find((q) => q.id === t.order);
+    const def = o && ITEM_BY_ID[o.item];
+    return { kind: 'craft', at: (def && stationFor(s, def)?.def) ?? null };
+  }
+  const b = 'building' in t ? s.buildings.find((q) => q.id === t.building) : undefined;
+  return { kind: t.type, at: b?.def ?? null };
 }
 
 function taskDone(s: GameState, p: Person): number | null {

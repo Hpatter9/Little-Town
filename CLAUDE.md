@@ -3791,6 +3791,30 @@ blocked by buildings, structures, trees and rocks)
   flicker on their own beat (by id), and the street lamps' glows flicker by the age's light (steady when electric).
   Steady on a slow phone (`calm`). Tests: `test/flicker.test.ts`.
 
+## Sounds that match, and torches that light (the owner's asks)
+
+- **Every blow by the weapon in hand** (`renderer/sfx.ts`): `weaponCue` by the weapon's family (`FAMILY_CUE`: blades
+  `slash`, maces and flails `bash`, spears and polearms `stab`, bows `arrow`, crossbows `crossbow`, slings and thrown
+  `throw`, staves and wands `zap`, guns `gunshot`, automatics `burst`, energy `laser`, heavy `boom`); with none, a
+  caster's `zap`, a shooter's `throw`, else fists (`bash`); a beast's shape `bite`. A foe's blow by what it is
+  (`foeCue`: beasts `bite`, machines `laser`/`bash`, the rest `slash`/`arrow`). A shield turning a blow `block`; raiders'
+  own blows; the trail battle's towers (`ballista`) and fire.
+- **Every fight is heard:** a watched party's fight (`fightSounds`: each side's blows, spells, an ultimate's `ult`, the
+  hurt, the fallen, the victory or loss) and the raid's tactics board (`tacticsSounds`, from its `fx` and `hits`: blows
+  and shots by the striker's weapon, spells, mending, towers, traps' `snap`, chests, the lost). With the map hidden,
+  main.ts plays those and `globalSounds` (levels, coins, questions, a raid's end, the hours, gatherings, disasters), and
+  no longer the map's work, ducks and footsteps.
+- **The work as itself** (`workSounds`, `workCue`): `PersonView.work` (`workOf` in snapshot.ts: the task and the station
+  or building it's at) tells a crafter from a builder, so a station sounds of its trade (`stationCue`: `anvil`, `saw`,
+  `loom`, `reap` for tanning, `bubble`, `pound`, `chisel`, `machine`, `page`); paving `chisel`, a fire fought `splash`,
+  the sickle `reap`, the hoe `till`, study `page`. A building finished `built`; a tree felled `timber` and a rock
+  `crumble` (from `map.onFelled`, at most one every `FELL_HEARD_MS` 1.5 s, so a catch-up isn't a forest crashing
+  down). 25 new synth cues in ambience.ts. Tests: `test/sfx.test.ts`.
+- **Carried torches light like street torches** (`renderer/map/lightMap.ts`): a guard on the night watch (`onWatch`
+  in `torchHours`, as mapPeople draws the torch) casts a street torch's pool (`CARRIED_TORCH`, held `TORCH_HELD` px up),
+  stopped by buildings, trees and rocks as any light, flickering as a torch; worked out where it's held to the light
+  map's texel and kept (`torchPool`, up to `TORCH_POOLS_MOST`). Everyone else out after dark keeps the small lantern.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

@@ -168,7 +168,7 @@ import { createHud } from './hud';
 import { hostBridge, localBridge } from './localBridge';
 import { createMusic } from './music';
 import { moodOf } from './musicMood';
-import { soundsBetween } from './sfx';
+import { fightSounds, globalSounds, soundsBetween, tacticsSounds, workSounds } from './sfx';
 import { createAmbience } from './ambience';
 import { ambientMix, type AmbientMix } from './ambienceMix';
 import { createActionBar, createAwayCard, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
@@ -387,7 +387,19 @@ async function start(): Promise<void> {
   // work you can see: trees falling and their stumps, the stockpile's heaps, gains floating up, the harvest left in the
   // field, the well and the washing (map/workSeen.ts)
   const felling = new MapFelling(map.things);
-  map.onFelled = (tex, x, y, kind, cell) => felling.fall(tex, x, y, kind, cell, map.calm);
+  /** The least time between two falls heard (ms). */
+  const FELL_HEARD_MS = 1500;
+  let lastFelled = 0;
+  map.onFelled = (tex, x, y, kind, cell) => {
+    felling.fall(tex, x, y, kind, cell, map.calm);
+    // (a tree comes down with a creak and a crash, a rock breaks with a rattle: heard when the sound is on, one at a
+    //  time, so the map catching up after time away isn't a forest crashing down)
+    const mv = map.view;
+    const now = performance.now();
+    if (now - lastFelled < FELL_HEARD_MS) return;
+    lastFelled = now;
+    if (view.music && !view.hidden && x >= mv.x && x <= mv.x + mv.w && y >= mv.y && y <= mv.y + mv.h) ambience.cue(kind === 'tree' ? 'timber' : 'crumble', ((x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
+  };
   const stockpile = new MapStockpile(map.things, map.artHidden);
   const gainsView = new MapGains(map.over);
   const chores = new MapChores(map.things);
@@ -1405,7 +1417,16 @@ async function start(): Promise<void> {
     map.root.visible = !watched && !inMine && !below && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
     // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
-    if (view.music && !view.hidden && map.root.visible) for (const c of soundsBetween(snap, next, map.view)) ambience.cue(c.cue, c.pan, c.delay);
+    if (view.music && !view.hidden) {
+      const heard = map.root.visible
+        ? soundsBetween(snap, next, map.view)
+        : [
+            ...globalSounds(snap, next),
+            ...(watched && snap?.watch ? fightSounds(snap.watch, watched, next.tick - snap.tick) : []),
+            ...(next.tactics ? tacticsSounds(snap, next) : []),
+          ];
+      for (const c of heard) ambience.cue(c.cue, c.pan, c.delay);
+    }
     // (what rose and what was finished since the last snapshot: map/workSeen.ts)
     const gained = map.root.visible && !view.hidden ? gainsBetween(snap, next) : [];
     const finished = map.root.visible && !view.hidden ? finishedBetween(snap, next) : [];
@@ -1518,20 +1539,16 @@ async function start(): Promise<void> {
       const raidNow = next.raid?.phase === 'active';
       if (raidNow && !wasRaid) ambience.cue('horn', 0, 0.2);
       wasRaid = raidNow;
-      // (each worker in view swings about every second; a few at most, the nearest the middle first)
-      let n = 0;
-      for (const p of next.people) {
-        if (n >= 3 || p.away !== null || p.indoors) continue;
-        const kind = p.activity === 'chop' ? 'chop' : p.activity === 'mine' ? 'mine' : p.activity === 'build' ? 'build' : null;
-        if (!kind || p.x < v.x || p.x > v.x + v.w || p.y < v.y || p.y > v.y + v.h) continue;
-        n++;
-        if (Math.random() < 0.09) ambience.cue(kind, ((p.x - v.x) / Math.max(1, v.w)) * 1.6 - 0.8);
-      }
-      if (water.count > 0 && Math.random() < 0.012) ambience.cue('quack', Math.random() * 1.2 - 0.6);
+      // (each worker in view heard about every second, by their work: the axe, the pick, the hammer, a station's own
+      //  trade, the sickle and the hoe; a few at most: sfx.ts)
+      //  (only while the map is on the screen: not over a watched fight, the raid's board or a room looked into)
+      const mapShown = map.root.visible;
+      if (mapShown) for (const c of workSounds(next, v)) ambience.cue(c.cue, c.pan, c.delay);
+      if (mapShown && water.count > 0 && Math.random() < 0.012) ambience.cue('quack', Math.random() * 1.2 - 0.6);
       // (boots crunching in the snow, feet sucking in the mud: a few of the steps laid, panned by where they fell)
       let heard = 0;
       for (const st of tracks.takeSteps()) {
-        if (heard >= 3 || st.ground === 'sand' || Math.random() > 0.5) continue;
+        if (!mapShown || heard >= 3 || st.ground === 'sand' || Math.random() > 0.5) continue;
         heard++;
         ambience.cue(st.ground === 'snow' ? 'crunch' : 'squelch', st.x * 1.6 - 0.8, Math.random() * 0.1);
       }
@@ -1604,6 +1621,11 @@ async function start(): Promise<void> {
     chores.sync({ buildings: next.buildings, people: next.people, tick: next.tick, era: next.era, weather: next.weather.kind, season: next.calendar.season, daylight: next.calendar.daylight, landW: next.land.w });
     gainsView.add(gained, finished, map.calm);
     for (const f of finished) people.cheer(f.builders, performance.now());
+    if (view.music && finished.length) {
+      const f = finished[0];
+      const mv = map.view;
+      if (f.x >= mv.x && f.x <= mv.x + mv.w && f.y >= mv.y && f.y <= mv.y + mv.h) ambience.cue('built', ((f.x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
+    }
     map.workFx.sync(next.buildings, next.workingAt);
     map.workFx.syncBuilders(next.people.filter((p) => p.activity === 'build' && !p.indoors).map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })));
     herds.update(next.buildings);
