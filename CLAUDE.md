@@ -3488,6 +3488,26 @@ goes); `window.__cry`, `__graves`, `__traffic` (skiffs, carts, the ground's weat
   notice for a loan falling due and a bust; the Treasury's ledger has the trade house's line. Only with the autopilot
   on (the tests' plainGame never trades). Tests: `test/markets.test.ts`.
 
+## The peoples made deeper (the owner's ask: the thinner origins brought up to the deep ones)
+
+Each people's own system runs itself (the autopilot on) and is shown on the Town menu's **Our ways** tab
+(`panel/heritagePanel.ts`, `snapshot.heritage` from `sim/heritage.ts`); tales go to the event box through
+`sim/telling.ts` (`tellStory`, a `debrief` prompt with a backdrop picked by its words).
+
+- **The druids' living grove** (`data/grove.ts`, `sim/grove.ts`, `s.grove`): the grove's favour (−100..100) moves
+  each morning (`GROVE_HOUR`, `groveMorning`): forest felled costs it (`noteFelled` from regrow.ts `noteCleared`;
+  `FELL_ALLOWANCE` a day forgiven, the rest `FELL_FAVOUR` each up to `FELL_MOST`: the ring wall's clearing bites slowly),
+  the wild grown back gives it (`noteRegrown`), and the druids tend `TEND_CELLS` felled cells on (their regrowth
+  hurried a day). Pleased (`BLESSED_AT`) it blesses the day's crops and foraging (marks `BLESS_MULT`) and sends a
+  guardian beast every `GUARDIAN_DAYS` (`GUARDIAN_KINDS` by the land: `grove_wolf`, `grove_bear`, `grove_boar` in
+  `GROVE_ENEMIES`, merged into ENEMIES; up to `GUARDIANS_MOST`) that fights beside the town in every raid
+  (`groveAllies` from `startRaid`, `Raider.guardian`) and is lost if struck down (`groveRaidOver` from `endRaid`).
+  Angered (`ANGRY_AT`) it curses the crops, its thorns cut a woodcutter (`THORN_CHANCE`), it looses wolves
+  (`WOLVES_CHANCE`), and its guardians leave (`GUARDIAN_LEAVES_AT`). At `RITE_HOUR` on each season's first day the
+  circle keeps a rite (`RITES`: the Greening, the Midsummer Fire, the Reaping, the Long Night: an offering for a mark,
+  a gift of food or the hurt eased; poor without the offering). Probe (15 days, 5 towns): favour 13 to 49, guardians
+  in three. Tests: `test/grove.test.ts`.
+
 ## Known problem (fixed, watch)
 
 - **Slow growth after the livestock change** was the planner counting hide as available because a goat pen can be

@@ -308,6 +308,8 @@ export interface Raider {
   tamedBy?: number;
   /** Fighting for the town: summoned, raised by a necromancer, or tamed. */
   ally?: boolean;
+  /** A druid grove's guardian (sim/grove.ts), by its id. */
+  guardian?: number;
   /** (a fallen raider a necromancer has already looked at) */
   raiseChecked?: boolean;
   /** Epic bosses: raging, called for help, blows struck, trophy handed over. */
@@ -1182,6 +1184,8 @@ export interface GameState {
   kin?: Record<number, import('./lineage').KinRecord>;
   /** The trade economy: prices, booms and shortages, the trade house, its routes and wagons (sim/markets.ts). */
   market?: import('./markets').MarketState;
+  /** A druid town's grove (sim/grove.ts). */
+  grove?: import('./grove').GroveState;
   /** Realms opened through an arch or a rift (sim/portals.ts), and the one the player is looking into. */
   portals?: Portal[];
   watchingPortal?: RealmId;

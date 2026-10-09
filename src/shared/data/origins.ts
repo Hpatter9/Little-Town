@@ -115,7 +115,7 @@ export const ORIGIN_DEFS: Record<OriginId, OriginDef> = {
     name: 'Druid Grove',
     town: 'Chronos Grove',
     description: 'A druid circle. Fields grow fast, the forest grows back, and the grove answers when called.',
-    features: ['Fields grow 40% faster; foraging 30% faster', 'Cleared forest grows back', 'Builds slower, and works metal badly', 'Spells: Call Rain, Entangle, Bloom'],
+    features: ['Fields grow 40% faster; foraging 30% faster', 'Cleared forest grows back', 'The grove is alive: felling angers it, regrowth and the seasons\' rites please it; pleased, it blesses the fields and sends beasts to guard the town', 'Builds slower, and works metal badly', 'Spells: Call Rain, Entangle, Bloom'],
     start: { companions: ['gatherer'], stores: { berries: 20, herbs: 10 }, research: ['foraging', 'herbalism'] },
     rules: { crops: 1.4, forage: 1.3, regrow: true, build: 0.85, quality: -0.5, raids: { wolves: 0.5 } },
     powers: ['call_rain', 'entangle', 'bloom'],

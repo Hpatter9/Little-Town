@@ -10,6 +10,7 @@ import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
 import { marketsHourly, setRoute } from './markets';
+import { groveHourly } from './grove';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -206,6 +207,7 @@ export class Sim {
     faithHourly(s); // (the gods: sim/faith.ts)
     worldHourly(s); // (the realm beyond the town: sim/worldLife.ts)
     marketsHourly(s); // (prices, the trade house and its wagons: sim/markets.ts)
+    groveHourly(s); // (a druid town's grove: sim/grove.ts)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);

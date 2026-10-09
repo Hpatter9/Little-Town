@@ -16,6 +16,7 @@ import { faithView, type FaithView } from './faith';
 import { disasterView, type DisasterView } from './disasters';
 import { worldView, type WorldView } from './worldLife';
 import { marketView, type MarketView } from './markets';
+import { heritageView, type HeritageView } from './heritage';
 import { cellsOf } from './prisoners';
 import { patientsIn, sickbedsIn } from './sickbeds';
 import type { Chronicle, Fallen } from './annals';
@@ -869,6 +870,8 @@ export interface Snapshot {
   families: FamilyLine[];
   /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
   markets: MarketView | null;
+  /** The town's people's own ways (sim/heritage.ts). */
+  heritage: HeritageView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
   /** The sagas under way and those ended (sim/sagas.ts). */
@@ -1189,6 +1192,7 @@ export function snapshot(s: GameState): Snapshot {
     interior: interiorView(s, (p) => describe(s, p)),
     families: slow(s, 'families', () => familiesView(s)),
     markets: slow(s, 'markets', () => marketView(s)),
+    heritage: slow(s, 'heritage', () => heritageView(s)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,
