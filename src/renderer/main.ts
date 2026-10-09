@@ -24,6 +24,8 @@ import { MapPets, type PetHome } from './map/mapPets';
 import { freezes, iceAt } from './map/ice';
 import { MapWater } from './map/mapWater';
 import { MapButterflies } from './map/mapButterflies';
+import { MapCritters } from './map/mapCritters';
+import { GroundFrost } from './map/groundFrost';
 import { BattleDebris } from './map/battleDebris';
 import { MapGraves } from './map/mapGraves';
 import { sunAt } from './art/sun';
@@ -362,6 +364,12 @@ async function start(): Promise<void> {
   (window as unknown as { __tracks?: MapTracks }).__tracks = tracks; // (for previews)
   // the town's dogs, cats and hens (map/mapPets.ts)
   const pets = new MapPets(map.things, map.over, map);
+  // bees and hives, dragonflies, bats, moths, crows and scarecrows, rats (map/mapCritters.ts); frost, dew, hail and
+  // drifts on the ground (map/groundFrost.ts)
+  const critters = new MapCritters(map.things, map.over, map);
+  pets.onCatch = (id) => critters.caught(id);
+  const frost = new GroundFrost(map.under);
+  (window as unknown as { __critters?: unknown }).__critters = { critters, frost }; // (for previews)
   const graves = new MapGraves(map.things); // (a headstone for each of the fallen)
   // the town being itself: snowmen, snowballs, the coffin carried, the lookouts on the towers (map/mapTownLife.ts)
   const townLife = new MapTownLife(map.things, map.over, map.lights, (id) => people.posOf(id));
@@ -1618,6 +1626,9 @@ async function start(): Promise<void> {
     lamps.sync(next.land, next.era, next.lights ? next.lights.lights.filter((l) => l.room === null) : null);
     lamps.setDaylight(next.calendar.daylight);
     lamps.calm = map.calm;
+    critters.sync(next, lamps.litGlows());
+    critters.folk = birds.folk;
+    Object.assign(frost, { season: next.calendar.season, dayOfSeason: next.calendar.dayOfSeason, day: next.calendar.day, hour: next.calendar.hour, daylight: next.calendar.daylight, weather: next.weather.kind, cold: !!biomeById(next.biome).cold, buildings: next.buildings });
     skiffs.on = next.calendar.daylight > 0.35 && next.weather.kind !== 'storm' && next.raid?.phase !== 'active';
     skiffs.era = next.era;
     skiffs.season = next.calendar.season;
@@ -1797,6 +1808,10 @@ async function start(): Promise<void> {
     }
     lightMap.render(map.view, lightDaylight);
     pets.render(ticker.deltaMS / 1000);
+    critters.cats = pets.cats();
+    pets.prey = critters.prey();
+    critters.render(ticker.deltaMS / 1000, performance.now());
+    frost.render(ticker.deltaMS / 1000, map.view, snap?.land ?? null, map.calm);
     dragon.render(ticker.deltaMS / 1000);
     sky.render(ticker.deltaMS / 1000, app.screen.width, app.screen.height);
     if (ambMix) ambience.update(view.music && !view.hidden, ambMix, ticker.deltaMS / 1000);
