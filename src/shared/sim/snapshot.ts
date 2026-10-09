@@ -1,5 +1,8 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { DUNGEON_BY_ID } from '../data/dungeons';
+import { FEED_SECONDS } from '../data/lighting';
+import { lightsView } from './lighting';
 import { CONQUEST } from '../data/conquest';
 import { skirmishTrip } from './roamers';
 import { marketOn, marketSquare } from './pastimes';
@@ -876,7 +879,9 @@ export interface Snapshot {
   /** The town's people's own ways (sim/heritage.ts). */
   heritage: HeritageView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
-  quests: { id: number; kind: string; dungeon: string; title: string; text: string; hoursLeft: number; from: string; reward: string }[];
+  /** The quest board (sim/questBoard.ts): offered or accepted; hours left of the offer or the time limit. */
+  quests: { id: number; kind: string; dungeon: string; dungeonName: string; title: string; text: string; hoursLeft: number; from: string; reward: string; accepted: boolean; acceptedAgo: number | null }[];
+  questLog: import('./questBoard').QuestLogEntry[];
   /** The sagas under way and those ended (sim/sagas.ts). */
   sagas: { open: SagaView[]; done: SagaDoneView[] };
   /** The kinds of foe the town has met (the Bestiary). */
@@ -932,6 +937,8 @@ export interface Snapshot {
   nomad: { site: 'home' | 'pasture'; settled: boolean; nextMoveDays: number | null; move: { from: number; to: number; since: number } | null; traces: { x: number; w: number }[] } | null;
   /** A castle town's castle (sim/castle.ts): every cell of it (land indices), the hall's ground, the cell before the
    *  gate, and the rectangle round the whole. */
+  /** The town's lights (sim/lighting.ts): each burning or not, how far they reach; null when lighting is off. */
+  lights: ReturnType<typeof lightsView>;
   castle: { hold: Hold; cells: number[]; core: { x: number; y: number; w: number; h: number }; gate: { x: number; y: number }; bounds: { x: number; y: number; w: number; h: number }; doors: string[]; galleries: number[]; /** The side gates a growing castle opens (sim/castle.ts `sideGates`): the cell inside each and its wall. */ gates?: { x: number; y: number; side: 'n' | 's' | 'w' | 'e' }[] } | null;
   /** The middle of the camp on the land (px). */
   camp: { x: number; y: number };
@@ -1091,6 +1098,7 @@ export function snapshot(s: GameState): Snapshot {
     tileRev: s.land.version,
     tiles: [],
     workingAt: workingAt(s),
+    lights: lightsView(s),
     market: marketOn(s) ? marketSquare(s) : null,
     buildings: s.buildings.map((b) => ({ ...b, delivered: { ...b.delivered }, store: { ...b.store }, ...(b.herd ? { herd: { ...b.herd } } : {}) })),
     people: ((riders) => s.people.map((p) => ({ ...personView(s, p, stock), mounted: riders.get(p.id) ?? null })))(cavalry(s)),
@@ -1142,6 +1150,9 @@ export function snapshot(s: GameState): Snapshot {
       text: q.text,
       hoursLeft: Math.max(0, Math.ceil((q.until - s.tick) / TICKS_PER_HOUR)),
       from: q.from,
+      accepted: q.accepted !== undefined,
+      acceptedAgo: q.accepted === undefined ? null : Math.floor((s.tick - q.accepted) / TICKS_PER_HOUR),
+      dungeonName: DUNGEON_BY_ID[q.dungeon]?.name ?? q.dungeon,
       // (what it pays, for the quest's details: tap it in the Expeditions tab)
       reward:
         q.kind === 'rescue' ? 'The captive comes home with the party, and stays in the town (if there is room).'
@@ -1149,6 +1160,7 @@ export function snapshot(s: GameState): Snapshot {
         : q.kind === 'relic' ? `${ITEM_BY_ID[q.unique ?? '']?.name ?? 'A unique weapon'}: ${ITEM_BY_ID[q.unique ?? '']?.description ?? ''}`
         : "The fallen delver's gear: a fine weapon of the dungeon's age, into the town's stores.",
     })),
+    questLog: s.questLog ?? [],
     sagas: sagasView(s),
     met: s.met ?? [],
     annals: annalsView(s),
@@ -1747,6 +1759,8 @@ function taskDone(s: GameState, p: Person): number | null {
       return b ? clamp(b.progress) : null;
     case 'pave':
       return clamp(t.progress / paveSeconds(s, t.cell));
+    case 'light':
+      return clamp(t.progress / FEED_SECONDS);
     case 'repair': {
       const most = b ? (BUILDING_BY_ID[b.def]?.hp ?? 0) : 0;
       return b && most ? clamp((b.hp ?? most) / most) : null;
@@ -2026,6 +2040,10 @@ function describe(s: GameState, p: Person): string {
       return `Carrying materials to the ${name(task.building)}`;
     case 'build':
       return `Building the ${name(task.building)}`;
+    case 'light': {
+      const t = s.torches?.find((q) => q.id === task.torch);
+      return t?.room !== undefined ? 'Filling a sconce with fuel' : `Tending the ${lightsView(s)?.kind ?? 'lamp'}s`;
+    }
     case 'pave':
       return wet(groundAt(s.land, task.cell % s.land.w, Math.floor(task.cell / s.land.w))) ? 'Building a bridge' : 'Laying a street';
     case 'research': {

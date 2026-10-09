@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.40.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.41.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3589,6 +3589,83 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   `s.statsAsk === true`: the Town menu's row turns asking on); and a castle's or a hold's own rooms have no Look inside
   (`lookInside` refuses a `roomKind`; main.ts leaves the button off for a cell of `snapshot.castle`), since they are
   seen into on the map already.
+
+## Music, sound and real light (0.41.0; the owner's asks)
+
+- **Much more music (the owner: "so it's not always the same 2 songs"):** `src/renderer/musicScore.ts` (pure): 18
+  pieces (`PIECES`: a name, the moods it suits, a key and mode (ionian, dorian, phrygian, lydian, mixolydian, aeolian,
+  harmonic minor), a tempo and metre, an A and a B chord plan, a lead and an accompaniment instrument, drums, how busy),
+  and `compose(piece, seed)` writes one out as notes: A A B A twice over (the second pass varied), the melody from a
+  motif that comes back, walking the scale and landing on the chord's tones on the strong beats, broken chords, held
+  chords, a drone or a strum underneath, a bass, and drums (light, march, heavy); a new seed each time, so each playing
+  differs. `src/renderer/musicGen.ts` (`createPlayer`) plays it in Web Audio (no files): flute, pluck, harp, bell
+  (partials), pad, organ, brass, bass, kick, snare, hat, tambourine, through a made-up room's echo, scheduled ahead by a
+  timer. `music.ts` (`createMusic().update(on, mood)`) picks by **mood** (`Mood`: day, night, winter, dark, feast,
+  battle, boss, sea, heroic; `moodOf` in `musicMood.ts` from main.ts's snapshot: a boss bar, a raid or a fight on
+  screen, a feast or a wedding, the lich and vampire towns, night, winter or the cold lands, the merfolk, the knights),
+  `nextFor` takes turns between the composed pieces and the recorded tracks (`FILES`: town, battle and two boss themes
+  from TinyRPGMusic; about one in four in the town, half in a fight) and never plays the same twice running. A fight's
+  music starts at once and ends with it; a quieter change waits for the piece to end. `window.__music.now` names what's
+  playing. Tests: `test/music.test.ts`.
+- **Many more sound effects:** 22 more synth cues in `ambience.ts` (`clash`, `arrow`, `thud`, `hurt`, `fall`, `spell`,
+  `heal`, `coin`, `levelup`, `chime`, `rooster`, `bell`, `door`, `cheer`, `fanfare`, `dirge`, `rumble`, `whoosh`, `saw`,
+  `anvil`, `gallop`, `baby`), played by `src/renderer/sfx.ts` (`soundsBetween(prev, next, view)`, pure): blows struck
+  and landing on the townsfolk in view (a bow's twang for an archer), raiders struck and falling, spells cast (mending
+  ones chime), coins in, a level gained, a question asked, a raid won (a fanfare) or pillaged (a toll), the rooster at
+  six (not in a lich or machine town) and the bell at noon and six in a town of six, doors as people go in, a feast's
+  cheer and a funeral's bell, a birth, an earthquake's rumble and a wildfire's rush, the anvil and the saw at work in
+  view, hooves on the road; at most two of a kind a snapshot. On with the ♪ button, as the music. Tests:
+  `test/sfx.test.ts`.
+- **Real light (the owner: torches that must be fed, that light so far and cast shadows, and the dark without them; a
+  castle's or cave's rooms dark):** `src/shared/data/lighting.ts` and `src/shared/sim/lighting.ts`. The town keeps
+  lights (`s.torches`, `Torch`): street lights by the roads (`streetCells`: every `LIGHT_EVERY` road cells by hash,
+  nearest the camp first, `STREET_LIGHTS_BASE` + `STREET_LIGHTS_PER_PERSON` a grown-up up to `STREET_LIGHTS_MOST`),
+  and in a castle or the hold a sconce in the hall and every room (`room`: its castle region; the dug galleries have
+  none), placed hourly (`placeLights`). Each age's light (`LIGHT_KIND`): a torch and a lantern burn wood, a gas lamp coal, electric
+  light needs nothing. A light burns an hour of fuel each dark hour (`FUEL_MOST` 12; outdoors by night; a room's sconce
+  only while someone is in the room (`someoneIn`), in a castle by night, under the mountain from `CAVE_WAKE` to
+  `CAVE_SLEEP`: a hold of two once spent its days carrying wood to sixteen sconces) and goes out when it's empty (`isLit`). **The lamplighter:** a `light` task (people.ts):
+  from `FEED_FROM` (15) to `FEED_UNTIL` (23), a cave's sconces at any hour, one or two of the town (one more a dozen
+  people) walk to the emptiest light below half and fill it from the stores (`lightToFeed`, `feedLight`: a unit fills
+  `FUEL_PER_UNIT` hours; `FEED_SECONDS`), ahead of their own work (and when idle). **The dark bites:** work goes at
+  `DARK_PACE` (0.75) where it's dark and unlit (`darkPace` in `workFactor`; `inDark` from a lit-cell grid cached by the
+  hour and the lights: the lights' reach, the camp's fire `CAMPFIRE_RADIUS`, the open fires `FIRE_RADIUS`, a room whose
+  sconce burns); the dead, machines and vampires see in the dark. Only with the autopilot on (`lightingOn`; off in the
+  tests' plainGame, `s.lighting = false` turns it off). `snapshot.lights` (`lightsView`: the age's light, its reach,
+  each light burning or not). **Drawn:** `src/renderer/map/lightMap.ts` (`LightMap`, in the world under `over`, in
+  multiply): the night's dark (`NIGHT`, a deep moonlit blue; the map's own tint stands down to a faint blue,
+  `MapView.realLight`), and added on it each burning light's warm pool (`falloffTexture`) with the shadows of the
+  buildings in its reach thrown away from it (the edges turned from the light, projected out; drawn into the light
+  texture of the whole land, an eighth of its size, only when the lights or buildings change), the camp's fire and the
+  open fires, a lit room filled wall to wall (`roomCells`) with a glow at its sconce, and each frame the lanterns people
+  carry after dark; under the mountain the halls are dark by day too (`CAVE`) but for the lit ones. The street lamp posts
+  (`streetLamps.ts`) stand where the town's lights are and glow only when fed. No shadows or lanterns on a slow phone
+  (`calm`). `window.__lightMap` for previews. Tests: `test/lighting.test.ts`.
+
+## The quest board, and buttons that answer (the owner's asks)
+
+- **The quest board** (`src/shared/sim/questBoard.ts`, `src/renderer/panel/questBoardPanel.ts`): a tavern guest's quest
+  (sim/quests.ts) and a guild hunt (sim/hunts.ts) are first an **offer** (`Quest.accepted`/`Hunt.accepted` unset; up for
+  `OFFER_HOURS` 48, `offerUntil`). Accepted (`acceptQuest`, the `quest` command, op `accept`), its time limit starts
+  (`QUEST_DAYS` 6 / `HUNT_DAYS` from then, `until`); declined (`declineQuest`) it's gone. Only an accepted hunt is on the
+  Expedition Board for the parties (`huntDestinations`), and only an accepted quest pays (`questsDone`). An accepted one
+  out of time with no party out for it **fails** (`questBoardHourly`: `FAIL_MORALE` for a day, "the town's word wasn't
+  kept"); an offer unanswered lapses, or after `AUTO_ACCEPT_HOURS` (18) the town takes it up itself when it has an
+  adventurer at home (hands-off). A town run by hand (autopilot off: the tests) takes every quest as offered. Ended
+  quests go to `s.questLog` (`logQuest`: done, failed, lapsed, declined; `LOG_MOST` 10; `snapshot.questLog`). The Trips
+  menu's sub-tabs: **Quest board** (the offers: the giver, the tale, the reward, how long it's open and the time limit it
+  would have; Accept and Decline), **Accepted** (each accepted quest with its time left as a bar, red under a day, the
+  tale and reward, the round trip against the time left, and either the party out for it (where they are and the trip's
+  bar via `tripLabel`/`tripShare`, the room and torches in a delve, who went, **Watch them**) or **Form a party…** (the
+  muster); tapped, where it is, when it was taken up, the foes; then the **Quest log**), and **Sagas** (the sagas, the
+  guild's forge, the uniques). The hunts' cards moved from the old Quests list onto the board. `expeditionsKey` now
+  carries the quests, hunts, forge, log and sagas (new hunts and saga lines didn't redraw before). Tests:
+  `test/questBoard.test.ts`.
+- **Buttons that answer (the owner: the Townsfolk inspect page's buttons didn't work well):** the inspect page's own
+  tabs (Equipment, Character, Background, Skills) set `inspectTab`, which wasn't in `townsfolkKey`, so a tap did nothing
+  until something else redrew the page; it is now. And every menu holds its redraws while a finger is down on it
+  (panel.ts `pressing`: from pointerdown until just after the pointer lifts, never more than 1.5 s), so a snapshot can
+  no longer pull a button from under a tap. The tabs take the display font (`.inv-tab`).
 
 ## Known problem (fixed, watch)
 

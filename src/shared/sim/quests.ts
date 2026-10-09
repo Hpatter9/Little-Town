@@ -16,7 +16,8 @@ import type { Pt } from './land';
 import { addItems } from './crafting';
 import { destinationHidden, destinationUnlocked } from './expeditions';
 import { townFull, earn, makePerson, notify, type GameState, type Person } from './state';
-import { TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
+import { TICKS_PER_HOUR } from './time';
+import { logQuest, offerUntil } from './questBoard';
 import { assignBeds } from './townsfolk';
 
 export type QuestKind = 'rescue' | 'bounty' | 'relic' | 'gear';
@@ -32,8 +33,10 @@ export interface Quest {
   /** The unique a relic hunt is for, the coins a bounty pays. */
   unique?: string;
   coins?: number;
-  /** It lapses at this tick. */
+  /** It lapses at this tick: the offer's end, or once accepted the time limit (sim/questBoard.ts). */
   until: number;
+  /** When the player (or the town) took it up. */
+  accepted?: number;
 }
 
 /** Quests open at once, at most; how long one stays open; the hour they're offered, and the chance on an evening. */
@@ -47,8 +50,7 @@ const GIVERS = ['a grey-haired pilgrim', 'a weeping widow', 'a hard-faced mercen
 /** Once an hour: an evening offer of a quest, and the old ones lapsing. */
 export function questsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0) return;
-  for (const q of s.quests ?? []) if (s.tick >= q.until) notify(s, `Nobody took up the quest at ${DUNGEON_BY_ID[q.dungeon]?.name ?? q.dungeon}: ${q.from} has given up and gone.`);
-  if (s.quests?.length) s.quests = s.quests.filter((q) => s.tick < q.until);
+  // (offers lapsing, accepted quests failing: sim/questBoard.ts)
   const hour = Math.floor(s.tick / TICKS_PER_HOUR) % 24;
   if (hour !== OFFER_HOUR || (s.quests?.length ?? 0) >= MAX_QUESTS) return;
   const rng = new Rng(mixSeed(hashSeed(s.seed), s.tick, 0x9e57));
@@ -63,7 +65,7 @@ export function questsHourly(s: GameState): void {
   const tavern = s.buildings.some((b) => b.status === 'done' && (b.def === 'fireside_inn' || b.def === 'tavern'));
   const from = GIVERS[rng.int(0, GIVERS.length - 1)];
   const where = tavern ? 'at the tavern' : 'at the edge of town';
-  const q: Quest = { id: s.nextId++, kind, dungeon: d.id, from, title: '', text: '', until: s.tick + QUEST_DAYS * TICKS_PER_DAY };
+  const q: Quest = { id: s.nextId++, kind, dungeon: d.id, from, title: '', text: '', ...offerUntil(s, QUEST_DAYS) };
   switch (kind) {
     case 'rescue':
       q.title = `Rescue from ${d.name}`;
@@ -85,17 +87,19 @@ export function questsHourly(s: GameState): void {
       break;
   }
   (s.quests ??= []).push(q);
-  notify(s, `A quest: ${q.text}`, true);
+  notify(s, `A quest is offered: ${q.text} (the Trips tab's Quests: accept it or not)`, true);
 }
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** A delving party home from a dungeon they cleared: every open quest on it pays. `x`: where they came in. */
 export function questsDone(s: GameState, dungeon: string, at: Pt, rng: Rng, party: Person[] = []): void {
-  const done = (s.quests ?? []).filter((q) => q.dungeon === dungeon);
+  // (only a quest taken up pays: an offer still open stays open)
+  const done = (s.quests ?? []).filter((q) => q.dungeon === dungeon && q.accepted !== undefined);
   if (!done.length) return;
-  s.quests = (s.quests ?? []).filter((q) => q.dungeon !== dungeon);
+  s.quests = (s.quests ?? []).filter((q) => !done.includes(q));
   for (const q of done) {
+    logQuest(s, q.title, 'quest', 'done', `${DUNGEON_BY_ID[dungeon]?.name ?? 'The place'} cleared${party.length ? ` by ${party.map((p) => p.name).join(', ')}` : ''}.`);
     switch (q.kind) {
       case 'rescue': {
         if (townFull(s)) {

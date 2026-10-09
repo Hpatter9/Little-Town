@@ -261,6 +261,7 @@ export class MapView {
   private tone: Tone = noTone;
   private toneKey = 'plain';
   private daylight = 1;
+  private daylightKey = 1;
   private frost = false;
   private highlight: number | null = null;
   private land: LandMap | null = null;
@@ -272,6 +273,8 @@ export class MapView {
   height = 0;
   /** A slower phone: fewer props. */
   calm = false;
+  /** The light map (map/lightMap.ts) darkens the night instead of the moonlit tint: the tint stays only faint. */
+  realLight = false;
   /** The weather (main.ts, per snapshot): the fireflies come out only in fair weather. */
   weather = 'clear';
   /** The view the camera last showed (world px): where the fireflies live, and the birds (mapBirds.ts). */
@@ -360,10 +363,13 @@ export class MapView {
 
   setDaylight(daylight: number, frost = false): void {
     const d = Math.max(0, Math.min(1, daylight));
-    if (d === this.daylight && frost === this.frost) return;
+    const key = this.realLight ? d + 2 : d;
+    if (key === this.daylightKey && frost === this.frost) return;
+    this.daylightKey = key;
     this.daylight = d;
     this.frost = frost;
-    const t = daylightTint(d);
+    // (with real light the dark is the light map's: only a little of the moon's blue is left in the tint)
+    const t = daylightTint(this.realLight ? 0.75 + 0.25 * d : d);
     this.world.tint = frost ? multiplyTint(t, FROST_TINT) : t;
     // (the windows light up as the day goes: fully by deep dusk)
     this.lights.alpha = Math.max(0, Math.min(1, (0.6 - d) / 0.35));

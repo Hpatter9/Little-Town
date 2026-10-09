@@ -168,8 +168,9 @@ Undead; both animation frames, `0` and `1`), cut into `src/renderer/art/creature
 
 ## Music
 
-"Tiny RPG" town and battle themes by **Luis Zuno (@ansimuz)** (`src/renderer/music/`, from
-`assets/TinyRPGMusic`): free for personal and commercial use.
+"Tiny RPG" town, battle and two boss themes by **Luis Zuno (@ansimuz)** (`src/renderer/music/`, from
+`assets/TinyRPGMusic`): free for personal and commercial use. Everything else heard in the game (the generated
+pieces of `src/renderer/musicGen.ts` and every sound effect) is made in the browser by the game's own code.
 
 ## Effects
 

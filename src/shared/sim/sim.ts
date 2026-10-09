@@ -17,6 +17,7 @@ import { workHourly } from './greatWork';
 import { orderHourly } from './chivalry';
 import { foundryHourly } from './foundry';
 import { frontierHourly } from './frontier';
+import { lightingHourly } from './lighting';
 import { annalsHourly } from './annals';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
@@ -58,6 +59,7 @@ import { ransom } from './conquest/battles';
 import { addToArmy, dismissArmy, dropFromArmy, garrison, loadTrain, marchArmy, pickUp, raiseArmy, recallArmy } from './conquest/armies';
 import { spendByClass, spendPoint } from './attributes';
 import { questsHourly } from './quests';
+import { acceptQuest, declineQuest, questBoardHourly } from './questBoard';
 import { delvesHourly } from './delves';
 import { placesHourly } from './places';
 import { nestsHourly } from './nests';
@@ -220,6 +222,8 @@ export class Sim {
     orderHourly(s); // (a knights' town's code: sim/chivalry.ts)
     foundryHourly(s); // (a machine town's factory mind: sim/foundry.ts)
     frontierHourly(s); // (a settlers' town's frontier: sim/frontier.ts)
+    lightingHourly(s); // (the town's torches and lamps placed and burned: sim/lighting.ts)
+    questBoardHourly(s); // (offers taken up or lapsing, accepted quests failing: sim/questBoard.ts)
     questsHourly(s);
     delvesHourly(s);
     placesHourly(s, this.rng);
@@ -535,6 +539,10 @@ export class Sim {
         break;
       case 'veto':
         setVeto(s, c.dest, c.on);
+        break;
+      case 'quest':
+        if (c.op === 'accept') acceptQuest(s, c.sort, c.id);
+        else declineQuest(s, c.sort, c.id);
         break;
       case 'bounty':
         if (c.post) {

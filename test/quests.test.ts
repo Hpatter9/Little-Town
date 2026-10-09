@@ -6,6 +6,7 @@ import { QUEST_UNIQUES } from '../src/shared/data/uniques';
 import { delvesHourly } from '../src/shared/sim/delves';
 import { destinationUnlocked, sendDelve } from '../src/shared/sim/expeditions';
 import { questsDone, questsHourly } from '../src/shared/sim/quests';
+import { questBoardHourly } from '../src/shared/sim/questBoard';
 import { attractiveness, TROPHY_RENOWN, treasuresHeld } from '../src/shared/sim/shop';
 import { type Building, type GameState, campCell } from '../src/shared/sim/state';
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -32,20 +33,22 @@ test('of an evening, someone offers a quest on a dungeon the town knows; open qu
   assert.ok(q.text.length > 20 && q.title.length > 5);
   if (q.kind === 'relic') assert.ok(QUEST_UNIQUES.includes(q.unique!));
   // and none stays open past its days
+  // (a town run by hand takes every quest up as offered: sim/questBoard.ts)
+  assert.ok(q.accepted !== undefined, 'taken up');
   s.tick = q.until;
-  questsHourly(s);
-  assert.ok(!s.quests!.some((x) => x.id === q.id), 'it lapsed');
+  questBoardHourly(s);
+  assert.ok(!s.quests!.some((x) => x.id === q.id), 'it ran out');
 });
 
 test('a cleared dungeon pays every quest on it: a captive joins, a bounty, a relic, a fallen delver\'s gear', () => {
   const s = town('rewards');
   const until = s.tick + TICKS_PER_DAY;
   s.quests = [
-    { id: 1, kind: 'rescue', dungeon: 'barrow_crypt', from: 'a widow', title: 't', text: 't', until },
-    { id: 2, kind: 'bounty', dungeon: 'barrow_crypt', from: 'a merchant', title: 't', text: 't', coins: 80, until },
-    { id: 3, kind: 'relic', dungeon: 'barrow_crypt', from: 'a scholar', title: 't', text: 't', unique: 'sunblade', until },
-    { id: 4, kind: 'gear', dungeon: 'barrow_crypt', from: 'a squire', title: 't', text: 't', until },
-    { id: 5, kind: 'bounty', dungeon: 'deep_mine', from: 'a hunter', title: 't', text: 't', coins: 50, until },
+    { id: 1, kind: 'rescue', dungeon: 'barrow_crypt', from: 'a widow', title: 't', text: 't', until, accepted: 0 },
+    { id: 2, kind: 'bounty', dungeon: 'barrow_crypt', from: 'a merchant', title: 't', text: 't', coins: 80, until, accepted: 0 },
+    { id: 3, kind: 'relic', dungeon: 'barrow_crypt', from: 'a scholar', title: 't', text: 't', unique: 'sunblade', until, accepted: 0 },
+    { id: 4, kind: 'gear', dungeon: 'barrow_crypt', from: 'a squire', title: 't', text: 't', until, accepted: 0 },
+    { id: 5, kind: 'bounty', dungeon: 'deep_mine', from: 'a hunter', title: 't', text: 't', coins: 50, until, accepted: 0 },
   ];
   const people = s.people.length;
   const coins = s.coins ?? 0;

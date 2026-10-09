@@ -36,6 +36,25 @@ document.getElementById('close')!.addEventListener('click', () => bridge?.closeP
 let shown: PanelId | null = null;
 let snap: Snapshot | null = null;
 let renderedKey = '';
+/** A finger (or the mouse) is down on the menu: a rebuild now would pull the button from under it and the tap would
+ *  be lost (the owner: the Townsfolk page's buttons didn't work well), so redraws wait for it to lift. */
+let pressing = false;
+let pressTimer: number | null = null;
+body.addEventListener('pointerdown', () => {
+  pressing = true;
+  if (pressTimer !== null) clearTimeout(pressTimer);
+  // (never held for long: a press that never lifts, a scroll that ate the pointerup)
+  pressTimer = window.setTimeout(release, 1500);
+}, { capture: true, passive: true });
+const release = () => {
+  if (!pressing) return;
+  pressing = false;
+  if (pressTimer !== null) clearTimeout(pressTimer);
+  pressTimer = null;
+  // (after the click has gone through)
+  window.setTimeout(render, 0);
+};
+for (const ev of ['pointerup', 'pointercancel'] as const) window.addEventListener(ev, () => window.setTimeout(release, 60), { capture: true, passive: true });
 
 function render(): void {
   if (!shown) return;
@@ -69,6 +88,8 @@ function render(): void {
     if (snap && shown === 'townsfolk') patchTownsfolk(snap, body);
     return;
   }
+  // (a tap under way: the redraw waits for it, unless the page itself asked for it in the tap)
+  if (pressing) return;
   renderedKey = keyed;
   const tab = PANELS.find((p) => p.id === shown);
   title.textContent = tab ? panelLabel(tab.id, tab.label, currentTheme()) : (shown === 'alerts' ? 'Phone alerts' : shown === 'newgame' ? 'New town' : isVenuePanel(shown) ? (venueView(snap, shown)?.name ?? (shown === 'shop' ? 'Shop' : shown === 'tavern' ? 'Tavern' : 'Shop')) : '');

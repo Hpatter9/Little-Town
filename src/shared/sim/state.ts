@@ -238,6 +238,8 @@ export type Task =
   | { type: 'build'; building: number }
   /** Lay a cell of a planned street, or a bridge (sim/streets.ts). */
   | { type: 'pave'; cell: number; progress: number }
+  /** Feed a street light or a room's sconce from the stores (sim/lighting.ts). */
+  | { type: 'light'; torch: number; progress: number }
   /** Study at a research station (a building id; null: the camp, for a town with none). One person to a station; each
    *  works on a topic of their own from the queue where they can. (Older saves: neither set, and it's chosen afresh.) */
   | { type: 'research'; station?: number | null; topic?: string }
@@ -376,7 +378,9 @@ export interface Hunt {
   id: number;
   quarry: string;
   posted: number;
+  /** The offer's end, or once accepted the time limit (sim/questBoard.ts). */
   until: number;
+  accepted?: number;
 }
 
 /** A saga under way (data/sagas.ts, sim/sagas.ts). */
@@ -917,6 +921,9 @@ export interface Muster {
 }
 
 export interface GameState {
+  /** The town's lights, and whether lighting is at work (sim/lighting.ts; off in the tests' plainGame). */
+  torches?: import('./lighting').Torch[];
+  lighting?: boolean;
   version: 17;
   /** A party the player is raising (sim/muster.ts). */
   muster?: Muster;
@@ -958,6 +965,8 @@ export interface GameState {
   dungeonQuiet?: Record<string, number>;
   /** Quests open (sim/quests.ts). */
   quests?: Quest[];
+  /** Quests and hunts ended: done, failed, lapsed or declined (sim/questBoard.ts). */
+  questLog?: import('./questBoard').QuestLogEntry[];
   /** The places on the town's own land (sim/places.ts): seeded on first use, found as the land opens. */
   places?: MapPlace[];
   /** Blood on the ground where someone was struck down (`markBlood`). */

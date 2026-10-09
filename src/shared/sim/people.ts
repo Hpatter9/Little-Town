@@ -29,6 +29,8 @@ import { SHAFT } from '../data/deep';
 import { shaftHasWork } from './deep';
 import { guardEngages, roamerToHunt } from './roamers';
 import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
+import { FEED_SECONDS } from '../data/lighting';
+import { feedLight, lightToFeed } from './lighting';
 import { CELL, cellAt, centreOf, groundAt, inMap, isMarked, isPlannedRoad, isRoad, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
 import { swims } from './sea';
@@ -126,7 +128,7 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
 
   if (p.task && !stillValid(s, p, p.task)) p.task = null;
   // (laying a street is spare-time work: any other work comes first, sim/streets.ts)
-  const loafing = !p.task || p.task.type === 'wander' || p.task.type === 'idle' || p.task.type === 'pave';
+  const loafing = !p.task || p.task.type === 'wander' || p.task.type === 'idle' || p.task.type === 'pave' || p.task.type === 'light';
   // someone loafing looks for work once a second (not every tick); anyone else rechecks now and then
   if ((loafing && (!p.task || (s.tick + p.id) % LOOK_TICKS === 0)) || (s.tick + p.id) % RECHECK_TICKS === 0) {
     // Switch only to something strictly more urgent, so ongoing work isn't restarted.
@@ -137,8 +139,11 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     // (nothing to do: a stretch of street to lay, sim/streets.ts; a break at a place of leisure with a spot free, else
     // a wander about the camp: sim/leisure.ts)
     const spot = wantsRelax(s, p, true);
-    const cell = !spot && !s.raid && p.priorities.construct !== 0 && !isChild(p) ? nextPave(s, p) : null;
-    if (cell !== null) p.task = { type: 'pave', cell, progress: 0 };
+    // (a light to feed before dark comes first: sim/lighting.ts)
+    const torch = !s.raid && !isChild(p) ? lightToFeed(s, p) : null;
+    const cell = !torch && !spot && !s.raid && p.priorities.construct !== 0 && !isChild(p) ? nextPave(s, p) : null;
+    if (torch) p.task = { type: 'light', torch: torch.id, progress: 0 };
+    else if (cell !== null) p.task = { type: 'pave', cell, progress: 0 };
     else if (spot) p.task = { type: 'relax', building: spot.id, until: s.tick + relaxTicks(spot) };
     else {
       const c = campXY(s);
@@ -254,6 +259,21 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
       if (task.progress >= paveSeconds(s, task.cell)) {
         pave(s, task.cell);
+        p.task = null;
+      }
+      break;
+    }
+    case 'light': {
+      const t = s.torches?.find((q) => q.id === task.torch);
+      if (!t) {
+        p.task = null;
+        break;
+      }
+      if (!goTo(s, p, centreOf(t.x, t.y))) break;
+      p.activity = 'build';
+      task.progress += 1 / TICK_HZ;
+      if (task.progress >= FEED_SECONDS) {
+        feedLight(s, t);
         p.task = null;
       }
       break;
@@ -909,6 +929,7 @@ function jobOf(t: Task): Job {
   switch (t.type) {
     case 'build':
     case 'pave':
+    case 'light':
     case 'repair':
     case 'extinguish':
     case 'toil':
@@ -1037,6 +1058,15 @@ function chooseTask(s: GameState, p: Person): Task | null {
   if (p.morale < SULK_MORALE || p.breakdown) return null; // sulking (or in the middle of a break)
   // (hands already full, whatever they're doing: no more gathering or fetching on top)
   if (poolSize(p.carrying) >= carryCapacity(s, p)) handsFull = true;
+  // The lamplighter's round (sim/lighting.ts): a light running low and the dark coming, one or two of the town go
+  // round with fuel before their own work.
+  if (!handsFull && !s.raid && p.priorities.construct !== 0) {
+    const lighting = s.people.filter((q) => q !== p && q.task?.type === 'light').length;
+    if (lighting < 1 + Math.floor(s.people.length / 12)) {
+      const torch = lightToFeed(s, p);
+      if (torch) return p.task?.type === 'light' && p.task.torch === torch.id ? p.task : { type: 'light', torch: torch.id, progress: 0 };
+    }
+  }
   // Their own post first: the smith works the smithy's orders, the miner digs, the scholar studies at their desk.
   const own = ownWork(s, p, handsFull);
   if (own) return own;
@@ -1242,6 +1272,8 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
       const c = cellAt(s.land, t.cell);
       return !s.raid && isPlannedRoad(s.land, c.x, c.y) && p.priorities.construct !== 0;
     }
+    case 'light':
+      return !s.raid && !!s.torches?.some((q) => q.id === t.torch);
     case 'craft': {
       const o = s.crafting.find((q) => q.id === t.order);
       return !!o && !!stationFor(s, ITEM_BY_ID[o.item]) && p.priorities.craft !== 0;
