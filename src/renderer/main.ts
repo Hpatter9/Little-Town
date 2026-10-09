@@ -39,6 +39,10 @@ import { MapChores } from './map/mapChores';
 import { finishedBetween, gainsBetween } from './map/workSeen';
 import { HomeDecor } from './map/homeDecor';
 import { Signposts } from './map/signposts';
+import { MapRuins } from './map/mapRuins';
+import { HomeSigns } from './map/homeSigns';
+import { setStatueFolk } from './map/statueArt';
+import { RUIN_HOURS, STATUE } from '../shared/data/memorials';
 import type { Signpost } from './map/signRules';
 import { plagueOn } from '../shared/sim/pastimes';
 import { StreetLamps } from './map/streetLamps';
@@ -211,6 +215,7 @@ type Hover =
   | { kind: 'roamer'; id: number }
   | { kind: 'pet'; key: string }
   | { kind: 'grave'; id: number }
+  | { kind: 'ruin'; id: number }
   | { kind: 'sign'; sign: Signpost }
   | { kind: 'caravan' }
   | { kind: 'village'; id: number }
@@ -383,6 +388,11 @@ async function start(): Promise<void> {
   (window as unknown as { __homes?: HomeDecor }).__homes = homes; // (previews)
   const signs = new Signposts(map.things); // (signposts at the crossroads)
   (window as unknown as { __signs?: Signposts }).__signs = signs; // (previews)
+  // memory written into the town: ruins where buildings fell, and the homes' names by their doors (map/mapRuins.ts,
+  // map/homeSigns.ts; the statues are buildings, map/statueArt.ts)
+  const ruins = new MapRuins(map.under, map.things, (def, id) => map.artFor(def, id));
+  const homeSigns = new HomeSigns(map.things);
+  (window as unknown as { __memory?: unknown }).__memory = { ruins, homeSigns }; // (previews)
   const lamps = new StreetLamps(map.things, map.lights); // (lamps along the streets, lit at dusk)
   const skiffs = new MapSkiffs(map.things); // (boats along the rivers)
   // work you can see: trees falling and their stumps, the stockpile's heaps, gains floating up, the harvest left in the
@@ -622,6 +632,8 @@ async function start(): Promise<void> {
     const building = map.buildingAt(w.x, w.y);
     // (a daughter village's houses and fields are drawn as buildings with ids below zero: sim/villages.ts)
     if (building !== null) return building < 0 ? { kind: 'village', id: Math.floor((-building - 1) / 100) } : { kind: 'building', id: building };
+    const ruin = ruins.ruinAt(w.x, w.y);
+    if (ruin) return { kind: 'ruin', id: ruin.id };
     const place = map.placeAt(w.x, w.y);
     if (place) return { kind: 'place', id: place.id };
     const cell = map.cellAt(w.x, w.y);
@@ -711,6 +723,13 @@ async function start(): Promise<void> {
         if (!b || !r) return null;
         const def = defOf(b);
         const lines: string[] = [];
+        // (a statue tells the story of the one it stands for: sim/statues.ts)
+        const hero = b.def === STATUE && b.statue !== undefined ? snap.honoured.find((q) => q.id === b.statue) : undefined;
+        if (hero) {
+          const story = [...(b.status === 'blueprint' ? [b.progress > 0 ? `Being carved: ${Math.floor(b.progress * 100)}%` : 'Waiting for its stone'] : []), ...(hero.calling ? [`${hero.calling}, level ${hero.level}`] : []), ...hero.deeds, `Died on day ${hero.day}, ${hero.cause}.`];
+          return { title: `Statue of ${hero.name}`, lines: story, hint: 'Click for options', y: r.y };
+        }
+        if (b.homeName && b.status === 'done') lines.push(def.name); // (a home by its name: sim/memorials.ts)
         if (b.status === 'blueprint') {
           const parts = (Object.entries(def.cost) as [Material, number][]).map(([m, n]) => `${MATERIAL_NAMES[m]} ${b.delivered[m] ?? 0}/${n}`);
           lines.push(b.progress > 0 ? `Under construction: ${Math.floor(b.progress * 100)}%` : `Materials delivered: ${parts.join(' · ')}`);
@@ -772,7 +791,13 @@ async function start(): Promise<void> {
             if (!crop.indoor && !crop.establishHours) lines.push(`Soil: ${soil >= 1 ? 'rich' : soil >= 0.75 ? 'good' : soil >= 0.5 ? 'tiring' : 'worn out'} (the harvest ×${soil.toFixed(1)})`);
           }
         }
-        return { title: def.name + (b.status === 'blueprint' ? ' (blueprint)' : ''), lines, hint: 'Click for options', y: r.y };
+        return { title: (b.homeName && b.status === 'done' ? b.homeName : def.name) + (b.status === 'blueprint' ? ' (blueprint)' : ''), lines, hint: 'Click for options', y: r.y };
+      }
+      case 'ruin': {
+        const r = snap.ruins.find((q) => q.id === h.id);
+        if (!r) return null;
+        const left = Math.max(1, Math.ceil(RUIN_HOURS[r.kind] - r.hours));
+        return { title: 'Ruins', lines: [`${r.line}.`, `Cleared away in about ${left} hour${left === 1 ? '' : 's'}, or when something is built here.`], y: map.screenOf((r.x + r.w / 2) * CELL, r.y * CELL).y - 20 };
       }
       case 'grave': {
         const who = snap.annals.fallen.find((f) => f.id === h.id);
@@ -1498,6 +1523,8 @@ async function start(): Promise<void> {
         if (!folk || b.status !== 'done' || b.room) continue;
         homes.push({ id: b.id, door: buildingDoor(b), name: folk[0].name.split(' ')[0], residents: folk.map((p) => p.id) });
       }
+      setStatueFolk(next.honoured);
+      ruins.sync(next.ruins);
       graves.sync(next.annals.fallen, next.buildings, { x: (next.land.camp.x + 0.5) * CELL, y: (next.land.camp.y + 0.5) * CELL }, next.calendar.day, (x, y) => map.nearBuilding(x, y, 6) || !['grass', 'fertile', 'sand'].includes(groundAt(next.land, Math.floor(x / CELL), Math.floor(y / CELL))) || isRoad(next.land, Math.floor(x / CELL), Math.floor(y / CELL)));
       pets.land = next.land;
       pets.people = buildStyle;
@@ -1663,6 +1690,7 @@ async function start(): Promise<void> {
     const plague = plagueOn(next.doom, next.people.filter((p) => p.sick).length);
     people.plague = plague;
     homes.sync(next.buildings, next.people, map.fronts(), plague, (def) => pickCovered(def, buildStyle || 'town'));
+    homeSigns.sync(next.buildings, stripScale);
     signs.sync(next.land, next.realm, (x, y) => !wet(groundAt(next.land, x, y)) && !next.buildings.some((b) => {
       const f = footprintOf(b);
       return x >= f.x - 1 && x < f.x + f.w + 1 && y >= f.y && y < f.y + f.h + 1;

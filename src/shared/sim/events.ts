@@ -338,7 +338,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
       for (let i = 0; i < e.ruin && can.length; i++) {
         const b = can.splice(Math.floor(rng.next() * can.length), 1)[0];
         notify(s, `The ${BUILDING_BY_ID[b.def]?.name.toLowerCase() ?? b.def} is brought down.`, true);
-        demolish(s, b.id);
+        demolish(s, b.id, 'felled');
       }
     } else if ('exodus' in e) {
       const pool = grownUps(s).filter((p) => p.id !== s.mainId && p.away === null);

@@ -87,6 +87,12 @@ the Rocky Area Objects' cave entrance (the goblin warren), the Top-Down Cave Obj
 dark totem (the heart), and the Undead Tileset's skull door (the barrow) and pile of skulls; the ward stone is the Cave
 Objects' white crystal.
 
+The statues of the town's heroes stand on a plinth cut together from **Craftpix.net**'s free 2D Top-Down Pixel Dungeon
+pack's walls-and-floor sheet (its pale slab over its brick face: `src/renderer/art/memorial/plinth.png`), the figure the
+person's own Himeko Sutori layers turned to stone; until those load, the Rocky Area Objects' old man statue stands in
+(`src/renderer/art/memorial/statue_old.png`). The homes' name signs are the Village Tileset's hanging signboard, and the
+ruins are drawn with the Fields Tileset's stones and logs (already credited above).
+
 ## Craftpix cave objects (the Deep)
 
 The things down in the Deep under the town (`src/renderer/art/deep/`: the glowing mushrooms of the fungus grottos, the

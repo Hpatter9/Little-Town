@@ -19,6 +19,8 @@ import { openGround } from '../data/biomes';
 import { HERDS } from '../data/livestock';
 import { buildable, carvable, clearable, isPlannedRoad, planRoad, setGround, setMarked, wildToClear, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
 import { modifiers } from './research';
+import { clearRuinsUnder, leaveRuin } from './ruins';
+import { STATUE, type RuinKind } from '../data/memorials';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
 
 export const defOf = (b: { def: string }): BuildingDef => BUILDING_BY_ID[b.def];
@@ -256,6 +258,7 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
     for (let cy = f.y; cy < f.y + f.h; cy++) for (let cx = f.x; cx < f.x + f.w; cx++) unsetRoad(s.land, cx, cy);
     if (holdOf(s) === 'mountain') carve(s, f);
   } else connectRoad(s, b);
+  if (!planned) clearRuinsUnder(s, footprint(b)); // (built over a ruin: it's cleared away, sim/ruins.ts)
   return { ok: true };
 }
 
@@ -410,13 +413,15 @@ export const CLEAR_MOST = 2;
 export const CLEAR_WORTH = 0.6;
 /** What may be pulled down to make room: a finished building that isn't the seat, a wall of the ring, a gate, a
  *  castle's room, a venue (its furnishings and custom), a field or pen, a store with goods, a prison with prisoners, or alight. */
-function mayClear(q: Building): boolean {
+export function mayClear(q: Building): boolean {
   const d = defOf(q);
   if (q.status !== 'done' || q.fire !== undefined || q.ring !== undefined || q.room || q.def === 'campfire') return false;
   if (isSeat(q.def) || isGate(q.def) || d.floor || d.cells || d.hp) return false;
   // (the owner's complaint: a town pulled down its only crop for a house. Fields and pens are the food and never go;
   // nor a store with goods in it)
   if (CROPS[q.def] || HERDS[q.def]) return false;
+  // (nor a statue to the town's dead: sim/memorials.ts)
+  if (q.def === STATUE || q.statue !== undefined) return false;
   if (d.storage && poolSize(q.store) > 0) return false;
   return true;
 }
@@ -476,6 +481,7 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
     // (a hold's room grows into the rock, no road to it)
     if (holdOf(s) === 'mountain') carve(s, footprint(b));
   } else connectRoad(s, b);
+  clearRuinsUnder(s, footprint(b));
   depositNear(s, at, salvage);
   notify(s, `Upgrading to a ${next.name}.`);
   return { ok: true };
@@ -483,9 +489,10 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
 
 /**
  * Cancel a blueprint (refunds everything delivered) or demolish a finished building (refunds part of
- * its cost). Refunds and stored contents go to the nearest storage with room; anything else is lost.
+ * its cost). Refunds and stored contents go to the nearest storage with room; anything else is lost. A finished
+ * building leaves its ruin a few days (`ruin`: how it fell, sim/ruins.ts; null for none).
  */
-export function demolish(s: GameState, id: number): void {
+export function demolish(s: GameState, id: number, ruin: RuinKind | null = 'pulled'): void {
   const i = s.buildings.findIndex((b) => b.id === id);
   if (i < 0) return;
   const b = s.buildings[i];
@@ -495,6 +502,7 @@ export function demolish(s: GameState, id: number): void {
     for (const m of MATERIALS) if (b.store[m]) addStock(refund, m, b.store[m]!);
   }
   s.buildings.splice(i, 1);
+  if (ruin) leaveRuin(s, b, footprint(b), ruin);
   depositNear(s, buildingDoor(b), refund);
 }
 
