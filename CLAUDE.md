@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.41.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.42.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3666,6 +3666,19 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   until something else redrew the page; it is now. And every menu holds its redraws while a finger is down on it
   (panel.ts `pressing`: from pointerdown until just after the pointer lifts, never more than 1.5 s), so a snapshot can
   no longer pull a button from under a tap. The tabs take the display font (`.inv-tab`).
+
+## Fixes (0.42.0)
+
+- **Nobody walks through the castle's walls (the owner's complaint about the vampires):** the paths always kept to the
+  doorways and gates (`castleStep`), but a walker kept their path as long as the goal was the same, so someone put
+  somewhere else (out of a building, off the raid board) or walking when a room went up and the doorways moved cut
+  straight across to the old path's next cell, through a wall. `walk` (walk.ts) now finds the path again when the
+  walker is more than `OFF_PATH` (2.2 cells) from its next cell, or when the castle's layout has changed since it was
+  found (kept in a WeakMap, not saved). And with no way round (a river with no bridge yet) `pathTo` wades it (`WADE` a
+  cell of river) rather than walking straight at the goal over the water and through the walls. Probe (5 vampire
+  towns, 8 days): wall crossings outside raids from about 10 a town to 0 to 2. Test in `test/castle.test.ts`.
+- **Whole coins:** a person's coins, pay, rent owed and a stranger's purse are shown in whole coins (the snapshot
+  floors them; the purses may still hold a fraction from a share of a sale or a tax).
 
 ## Known problem (fixed, watch)
 
