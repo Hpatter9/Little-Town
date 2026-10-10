@@ -6,6 +6,9 @@ import { lightsView } from './lighting';
 import { CONQUEST } from '../data/conquest';
 import { skirmishTrip } from './roamers';
 import { marketOn, marketSquare } from './pastimes';
+import { diaryOf } from './diary';
+import { townGossip, type Gossip } from './gossip';
+import { playingKids, tagIt } from './idleScenes';
 import { ROAMER_NAME } from '../data/roamers';
 import { paveSeconds } from './streets';
 import { branchesOf, PATH_BY_ID } from '../data/paths';
@@ -23,6 +26,8 @@ import { heritageView, type HeritageView } from './heritage';
 import { cellsOf } from './prisoners';
 import { patientsIn, sickbedsIn } from './sickbeds';
 import type { Chronicle, Fallen } from './annals';
+import { honouredView, type HonouredView } from './memorials';
+import { ruinsView, type RuinView } from './ruins';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius, processing, processionHead } from './ceremonies';
 import { walkingHome } from './nightOut';
@@ -259,6 +264,10 @@ export interface PersonView {
   detail: string[];
   /** What they've done lately, newest first. */
   recent: string[];
+  /** Today's diary in their own words (sim/diary.ts), a paragraph a line. */
+  diary: string[];
+  /** A small scene they're in (sim/idleScenes.ts, sim/pastimes.ts): which, and for tag whether they're "it". */
+  pastime: { kind: string; it?: boolean } | null;
   /** Sleeps on a bedroll (no bed). */
   bedroll: boolean;
   carryCapacity: number;
@@ -947,6 +956,10 @@ export interface Snapshot {
   undeadHaven: boolean;
   /** Graves of townsfolk who fell in town. */
   graves: { x: number; y: number; name: string }[];
+  /** The famous dead honoured with statues in the square, and the ruins lying where buildings fell (sim/memorials.ts,
+   *  sim/statues.ts, sim/ruins.ts). */
+  honoured: HonouredView[];
+  ruins: RuinView[];
   /** Someone just brought back from death: who, and ticks since (for the glow). */
   revived: { id: number; since: number } | null;
   /** Spells cast on townsfolk lately: who, what, and ticks since. */
@@ -1031,6 +1044,8 @@ export interface Snapshot {
   journalHead: number;
   /** The latest big news (a journal milestone of the last few hours): the town crier calls it out on the map. */
   news: { id: number; text: string } | null;
+  /** The town's talk (sim/gossip.ts): the last day and a half's news, newest first, for the townsfolk to talk over. */
+  gossip: Gossip[];
   /** An unread "while you were away" report. */
   away: JournalEntryView | null;
   eraReady: boolean;
@@ -1295,6 +1310,8 @@ export function snapshot(s: GameState): Snapshot {
     bossBar: bossBar(s),
     bossShake: s.bossShake ?? -1,
     graves: s.graves ?? [],
+    honoured: honouredView(s),
+    ruins: ruinsView(s),
     undeadHaven: undeadShare(s) >= 0.5,
     revived: s.revivedAt && s.tick - s.revivedAt.tick < 60 ? { id: s.revivedAt.id, since: s.tick - s.revivedAt.tick } : null,
     fx: (s.fx ?? []).filter((f) => s.tick - f.tick < FX_TICKS).map((f) => ({ id: f.id, kind: f.kind, since: s.tick - f.tick })),
@@ -1363,6 +1380,7 @@ export function snapshot(s: GameState): Snapshot {
     nursing: s.buildings.filter((b) => sickbedsIn(b) > 0).map((b) => ({ building: b.id, beds: sickbedsIn(b), people: patientsIn(s, b).map((p) => p.id) })),
     journalHead: s.journal.at(-1)?.id ?? 0,
     news: latestNews(s),
+    gossip: slow(s, 'gossip', () => townGossip(s.journal, s.tick)),
     away: awayView(s),
     eraReady: s.eraReady,
   };
@@ -1726,6 +1744,8 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     debt: Math.ceil(p.debt ?? 0),
     detail: personDetail(s, p),
     recent: [...(p.recent ?? [])].reverse().map((r) => r.text),
+    diary: slow(s, `diary:${p.id}`, () => diaryOf(s, p)),
+    pastime: pastimeView(s, p),
     bedroll: hasBedroll(s, p),
     carryCapacity: carryCapacity(s, p),
     partner: p.partner == null ? null : (s.people.find((q) => q.id === p.partner)?.name ?? null),
@@ -1770,6 +1790,14 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
 /** How far along the work in hand is, for the bar over someone's head: a site's building, a repair, a craft order,
  *  the topic studied, a field's sowing or reaping, a load being gathered or dug, a patient tended. Null while they walk
  *  to it, or do anything else. */
+/** The small scene someone's in, for the map (sim/idleScenes.ts): tag's "it" among the children. */
+function pastimeView(s: GameState, p: Person): PersonView['pastime'] {
+  const t = p.task;
+  if (!t || (t.type !== 'wander' && t.type !== 'idle') || !t.pastime) return null;
+  if (t.pastime !== 'tag') return { kind: t.pastime };
+  return { kind: 'tag', it: tagIt(playingKids(s), Math.floor(s.tick / 80)) === p.id };
+}
+
 /** The newest milestone in the journal, while it's still news (`NEWS_HOURS`). */
 const NEWS_HOURS = 4;
 function latestNews(s: GameState): { id: number; text: string } | null {
@@ -2073,6 +2101,16 @@ function researchView(s: GameState): ResearchView {
   };
 }
 
+/** What someone at one of the small scenes is doing (sim/idleScenes.ts), there and on the way. */
+const SCENE_DOING: Partial<Record<string, string>> = {
+  eaves: 'Sheltering from the rain', splash: 'Splashing in the puddles', tag: 'Playing tag', pigeons: 'Feeding the pigeons',
+  riverside: 'Sitting by the water together', busk: 'Playing a tune in the square',
+};
+const SCENE_GOING: Partial<Record<string, string>> = {
+  eaves: 'Running in out of the rain', splash: 'Running for the next puddle', pigeons: 'Off to feed the pigeons',
+  riverside: 'Walking down to the water together', busk: 'Off to play in the square',
+};
+
 function describe(s: GameState, p: Person): string {
   const name = (id: number) => {
     const b = s.buildings.find((q) => q.id === id);
@@ -2090,6 +2128,9 @@ function describe(s: GameState, p: Person): string {
       // (water from the well: sim/pastimes.ts)
       if (task.pastime === 'well') return task.type === 'idle' ? 'Drawing water at the well' : 'Off to the well for water';
       if (task.pastime === 'carry') return 'Carrying water home';
+      // (the small scenes and the rain: sim/idleScenes.ts)
+      const scene = task.pastime && SCENE_DOING[task.pastime];
+      if (scene) return (task.type === 'wander' && task.pastime !== 'tag' && SCENE_GOING[task.pastime!]) || scene;
       return 'Idling at camp';
     case 'gather': {
       if (task.scrounge) return 'Hungry: picking wild berries (nothing in storage)';

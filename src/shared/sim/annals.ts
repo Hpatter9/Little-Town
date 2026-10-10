@@ -15,6 +15,7 @@ import { calendar, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { notify, type GameState, type Person, type Prompt } from './state';
+import { honour } from './memorials';
 
 /** Midwinter: the second day of winter, of an evening. */
 export const CHRONICLE_DAY = 2;
@@ -62,7 +63,7 @@ export interface YearStart {
 
 /** Remember someone who has died, for the hall of heroes and the year's chronicle. */
 export function recordFallen(s: GameState, p: Person, cause: string): void {
-  (s.fallen ??= []).push({
+  const f: Fallen = {
     id: p.id,
     name: p.name,
     day: calendar(s.tick).day,
@@ -73,7 +74,9 @@ export function recordFallen(s: GameState, p: Person, cause: string): void {
     felled: p.felled ?? 0,
     trips: p.trips ?? 0,
     founder: p.id === s.mainId,
-  });
+  };
+  (s.fallen ??= []).push(f);
+  honour(s, p, f); // (the famous are honoured with a statue in the square: sim/memorials.ts)
   if (s.fallen.length > FALLEN_MOST) s.fallen.splice(0, s.fallen.length - FALLEN_MOST);
 }
 

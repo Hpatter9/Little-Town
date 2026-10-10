@@ -552,7 +552,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
 const RING_MIN_PEOPLE = 4;
 const CAPSTONES = ['elder_lodge', 'town_hall', 'power_station', 'mission_control', 'launch_site'];
 /** Never built by the planner: tied to hidden choices, or one-off rescue machines the player earns. */
-const NEVER = new Set(['wayside_shrine', 'temple', 'cathedral', 'phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_vat', 'palisade_gate', 'stone_gate', 'ward_stone']);
+const NEVER = new Set(['wayside_shrine', 'temple', 'cathedral', 'phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_vat', 'palisade_gate', 'stone_gate', 'ward_stone', 'statue']);
 
 /** How far beyond the town's reach the land is known (cells), and the furthest it opens on its own (the rest is for the
  *  map's own events to open, later). */

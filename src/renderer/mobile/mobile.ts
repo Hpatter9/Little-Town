@@ -3,6 +3,7 @@
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
 import { readLevel, saveLevel, type VolumeKind } from '../volume';
+import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
 import { createEventSheet } from './eventSheet';
 import { PANELS, type StripState } from '../../shared/ipc';
@@ -191,6 +192,12 @@ const tabButtons = PANELS.map((p) => {
   const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip);
   bridge.onSnapshot((snap) => sheet.update(snap));
 }
+// the time away replayed takes the whole screen too, like a cutscene (replay/replayPlayer.ts in the strip)
+bridge.onReplayShown?.((on) => {
+  document.body.classList.toggle('replay', on);
+  if (on) menu.hidden = true;
+  layout();
+});
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)
@@ -332,6 +339,8 @@ function drawMenu(): void {
       slider('music', 'Music volume'),
       slider('sfx', 'Sound effects volume'),
       item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
+      // (the phone buzzes softly at the big moments: vibration.ts; its own setting, not the sound's)
+      ...('vibrate' in navigator ? [item(`Vibration: ${readVibrate() ? 'on' : 'off'}`, () => (saveVibrate(!readVibrate()), drawMenu()))] : []),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
       item('Phone alerts…', () => bridge.openPanel('alerts')),
       label('Zoom (or pinch the town with two fingers; tap the % to reset)'),

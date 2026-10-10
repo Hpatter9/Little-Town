@@ -6,6 +6,7 @@ import { BURN_HOURS, EXTINGUISH_SECONDS, SPREAD_PER_HOUR } from '../data/raids';
 import { skillSpeed } from '../data/skills';
 import type { Rng } from '../rng';
 import { buildingCentre, defOf, footprint } from './buildings';
+import { leaveRuin } from './ruins';
 import { notify, type Building, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_HOUR } from './time';
 import { workFactor } from './townsfolk';
@@ -39,6 +40,7 @@ export function updateFires(s: GameState, rng: Rng): void {
     }
     if (b.fire! >= 1) {
       s.buildings = s.buildings.filter((q) => q !== b);
+      leaveRuin(s, b, footprint(b), 'burnt'); // (a blackened shell, a few days: sim/ruins.ts)
       notify(s, `The ${defOf(b).name.toLowerCase()} burned down.`, true);
     }
   }

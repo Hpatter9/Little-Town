@@ -38,6 +38,8 @@ export interface HkWho {
   scarred: boolean;
   /** Masked against the pestilence: the healer going the rounds in a plague (the plague doctor). */
   mask?: boolean;
+  /** Out in the rain: a hood up (the pack's red or green hood) unless something's already on their head. */
+  hood?: boolean;
 }
 
 /* ------------------------------------------------------------ choosing the layers */
@@ -255,6 +257,7 @@ export function hkLayers(w: HkWho, doing: { fighting: boolean; activity: string 
     : head?.weight === 'heavy' ? (w.cls === 'samurai' ? 'samurai' : w.cls === 'warrior' || w.cls === 'blood_knight' ? 'horned' : 'armet')
     : head?.weight === 'medium' ? (w.id % 2 ? 'sallet' : 'guard')
     : head?.weight === 'light' ? (w.cls === 'ranger' || w.cls === 'hunter' ? 'hoodgreen' : 'hoodred')
+    : w.hood ? (w.id % 2 ? 'hoodred' : 'hoodgreen')
     : w.founder ? (w.cls && ['mage', 'witch', 'necromancer', 'summoner', 'chronomancer', 'druid', 'shaman'].includes(w.cls) ? 'magecrown' : 'crown')
     : w.cls ? (BARE_HEAD[w.cls] ?? null)
     : null;
