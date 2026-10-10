@@ -386,6 +386,14 @@ export function wagonsOnTheRoad(s: GameState, mk: MarketState): void {
   }
 }
 
+/** A wagon on the road taken (the Corsairs: sim/risingPowers.ts): everything on it lost. Returns what it carried. */
+export function seizeWagon(s: GameState, mk: MarketState, w: Wagon, by: string): string {
+  mk.wagons.splice(mk.wagons.indexOf(w), 1);
+  const what = w.sold ? list(w.back) : list(w.out);
+  settle(s, mk, w, 0, `The wagon ${w.sold ? 'coming home from' : 'bound for'} ${mid(w.to)} was taken on the road by ${by}. Everything on it is lost.`);
+  return what;
+}
+
 function sellThere(s: GameState, mk: MarketState, f: Faction, w: Wagon): void {
   let purse = w.stake;
   for (const [m, n] of Object.entries(w.out) as [Material, number][]) {

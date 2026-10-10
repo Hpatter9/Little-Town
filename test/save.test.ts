@@ -127,3 +127,15 @@ test('catching up a slice at a time ends exactly where catching up in one go doe
   assert.equal(job.progress, 1);
   assert.equal(JSON.stringify(sliced.state), JSON.stringify(whole.state));
 });
+test('the land\'s pools are packed in the save, and come back as they were', async () => {
+  const { newGame: ng } = await import('../src/shared/sim/state');
+  const { parseSave: ps, serialize: ser, packPools, unpackPools } = await import('../src/shared/sim/save');
+  const s = ng('pack-pools');
+  s.land.pools[5] = { wood: 2.5, stone: -1 } as never;
+  assert.deepEqual(unpackPools(packPools(s.land.pools)), JSON.parse(JSON.stringify(s.land.pools)));
+  const text = ser(s, 1);
+  assert.ok(text.length < JSON.stringify(s).length * 0.75, 'smaller');
+  const back = ps(text);
+  assert.ok(back.ok);
+  if (back.ok) assert.equal(JSON.stringify(back.save.state), JSON.stringify(s));
+});

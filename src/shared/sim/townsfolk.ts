@@ -88,14 +88,25 @@ export function isNight(hour: number): boolean {
 /** Time for bed: late at night (unless fully rested), or dead on their feet. */
 export function wantsSleep(s: GameState, p: Person): boolean {
   if (tireless(p)) return false;
-  return (isNight(calendar(s.tick).hour) && p.needs.rest < 0.9) || p.needs.rest < 0.15;
+  return (bedtime(s, p, calendar(s.tick).hour) && p.needs.rest < 0.9) || p.needs.rest < 0.15;
 }
 
-/** Done sleeping: fully rested, or rested enough and it's day. */
+/** Done sleeping: fully rested, or rested enough and it's day (their day: a guard on the night watch's is the night). */
 export function wantsToWake(s: GameState, p: Person): boolean {
   if (p.downed) return false; // stays in bed until back on their feet
   const h = calendar(s.tick).hour;
-  return p.needs.rest >= 1 || (h >= 6 && h < 22 && p.needs.rest >= 0.6);
+  return p.needs.rest >= 1 || ((nightWatch(s, p) ? !bedtime(s, p, h) : h >= 6 && h < 22) && p.needs.rest >= 0.6);
+}
+
+/** A hired guard on the night watch (people.ts `onShift`: the odd ids keep it) sleeps by day, `DAY_SLEEP_FROM` to
+ *  `DAY_SLEEP_UNTIL`, so they're up for their watch (they went to bed at ten with everyone else, and the wall and its
+ *  gates stood unwatched). Only once the ring wall stands, with its gates to keep, and never the founder: a lone
+ *  founder taken on as the guard slept the working day away and the town never grew. */
+const DAY_SLEEP_FROM = 8;
+const DAY_SLEEP_UNTIL = 16;
+const nightWatch = (s: GameState, p: Person) => !!p.guard && p.id % 2 !== 0 && p.id !== s.mainId && !!s.ring?.done;
+function bedtime(s: GameState, p: Person, h: number): boolean {
+  return nightWatch(s, p) ? h >= DAY_SLEEP_FROM && h < DAY_SLEEP_UNTIL : isNight(h);
 }
 
 export interface MoodReason {

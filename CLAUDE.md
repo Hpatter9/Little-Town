@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.51.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.53.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3707,6 +3707,55 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   menu's Our ways tab (`hordeSection`: fury bar, raids, thralls, the powers sacked, the "To win" line, the glory board) and
   a Fury tile on the overview. Tests: `test/warpath.test.ts`.
 
+## Rising powers, the first hour, the timelapse, a faster town (0.52.0; the owner's picks)
+
+- **Rising powers (the owner: the shogunate, corsairs and infernal packs as enemy powers, "a force that grows like the
+  town does"):** `src/shared/data/risingPowers.ts` and `src/shared/sim/risingPowers.ts`. Three powers in every realm
+  besides the rival peoples and the bandits (`FactionDef.rising`; `realm()` adds them, `addRising`, older towns too; never
+  in `pickRivals`, so the conquest's realms are as before): **the Shogunate** (Shogun Raizen of the Mists, the
+  samurai commander sheet tinted; ashigaru and dart ninjas, then ronin, archers, kunoichi and shadow monks, then the
+  tengu), **the Black Tide Corsairs** (Admiral Vask the Red, the pirate captain's sheet; deckhands and the drowned, then
+  sea reavers, then gunners and squid spawn; from the sea at a shore town, `seaRaids`) and **the Infernal Host**
+  (Malphas, Prince of the Pit, the Himeko demon lord; imps and satyrs, then gorgons and minotaurs, then brute demons and
+  ring demons). Each army is a raid kind per stage (`shogun_0..2`, `corsairs_*`, `infernal_*`: the stage is the town's
+  age, `stageOf`; `raidOf` in sim/factions.ts gives a power's current one for hosts, levies and allies), its lord casts
+  like a rival lord (`spells`; `rivalOfLeader` finds them; looks `rival:*` in spellLooks.ts) and drops a trophy and a
+  unique (`RISING_TROPHIES`; Mistcutter, the Red Tide, Pitfire in uniques.ts). **Met on their own days**
+  (`RISE_MEET_DAYS` 5, 9, 13 paced), ill-disposed (`RISING_HOSTILITY`), and **they grow with the town**: each morning
+  their troops close `RISE_CATCH` of the way to `RISE_TROOPS_BASE` + `RISE_TROOPS_PER_MIGHT` a point of `townMight`, and
+  their folk to `RISE_FOLK_PER_HEAD` a townsperson (`rise`); broken, they come back. Their ordinary raids come only once
+  met (`rivalRaidOdds`). **Their own moves** (`risingHourly`, the morning at hour 10; every roll the seed's own): the
+  Shogunate at war sends **shinobi in by night** (`shinobi_night`, begun at a building's door at `NIGHT_RAID_HOUR`) and,
+  not at peace, its champion **challenges the town's best to a duel** (an envoy `duel`: odds by the fighter's level
+  and melee against `theirMight`; won, goodwill and the title Duellist; lost, `DUEL_KILLS` dead else badly hurt;
+  refused, goodwill and spirits down); the Corsairs **take trade wagons off the road** (`seizeWagon` in markets.ts) or
+  skim a shore town's stores when nobody is on watch; the Infernal Host at war **opens a rift** `RIFT_CELLS` out that
+  looses its creatures by night as roaming bands (`RIFT_BANDS`), and offers **a pact** (an envoy `pact`: a life for
+  `pactCoins` and a fighting mark; refused by default; never the founder). The Realm card says what each has grown into
+  and its deeds (`FactionView.rising`, `riseLine`). The envoys' shuffle keeps the town's own dice for the old powers
+  (the rising ones have their own), so a town runs as before until one is met. Tests: `test/risingPowers.test.ts`.
+- **The first hour (the owner's ask):** `src/renderer/mobile/tips.ts` (`TIPS`: welcome, direction, choices, a stranger
+  at the gate, a raid, the recap, a party, a place found, other powers, a rising power, callings, the quest board, the
+  shop, a caravan, the fallen, a new age, the treasury). Each is met the first time its thing happens (`meet`, kept in
+  `littletown.tipsMet`) and shows once as a gold 💡 notice in the news bubble (`tipNotice` in notices.ts; at most
+  `TIPS_AT_ONCE` at a time) with a button to its menu and tab (`NoticeAction.tab` sets `littletown.subtab.<menu>`).
+  Nothing to do: they only explain. The ☰ menu has "Tips: on/off" (`littletown.tips`). Tests in `test/notices.test.ts`.
+- **The timelapse (the owner's pick):** `src/renderer/timelapse.ts`. Each day at noon the strip takes a picture of the
+  town (`shootTown` in main.ts: the map over `townBox`, the buildings' square padded, never under `SHOT_LEAST_CELLS`,
+  drawn by Pixi's extract with the culling lifted for the moment) squeezed to `SHOT_SIZE` (192) px as WebP, kept in
+  `littletown.timelapse` per town (its seed), at most `FRAMES_MOST` (80; past that the older half is thinned, `thin`).
+  The Chronicle's **Timelapse** tab (`panel/timelapsePanel.ts`) plays them as a flipbook with a slider and "Day N · age ·
+  people". `window.__shootTown()` takes one now (previews). Tests: `test/timelapse.test.ts`.
+- **A faster town (the owner's pick: profiled on a 25-day knights' town):** the gate streets (`gatePaths`) searched
+  the whole land every hour for a gate with no way to it (half the sim's time and 250 ms hitches): a gate with no way is
+  tried again only after `GATE_RETRY_HOURS` (12, `s.gateTried`). The roaming bands asked every tick whether the ring
+  wall stood all round, walking the whole wall (two thirds of a big town's tick): `walledBox` is worked out once a tick
+  and `ringComplete` keeps its answer until the buildings or the land change (the quick test, any piece unbuilt, first).
+  Storage and the other read-only research bonuses use `researchMods` (remembered) not `modifiers`. Each venue's view
+  in the snapshot is kept for `VENUE_EVERY` (10) ticks. On the map, `wallJoin` reads a set of the wall cells made once a
+  sync (`wallCellsNow`), not every building for every neighbour. Saves pack the land's pools (`packPools`/`unpackPools`
+  in save.ts, `land.packedPools` in the file only): a save went from 914 KB to 504 KB. Measured: a step plus a snapshot
+  7.8 ms → 4.6 ms; a 30-day soak town runs in about half the time of main's.
 ## Fixes (0.43.0)
 
 - **Nobody walks through the castle's walls (the owner's complaint about the vampires):** the paths always kept to the
@@ -3935,3 +3984,30 @@ blocked by buildings, structures, trees and rocks)
   lyre or flute (`art/life/`, `instrumentOf`) and a soft `busk` cue near the view. Probe (8 towns, 14 days, eaves on
   against off): ring pieces 448 against 471, one knights town down, the settlers up: the towns' courses drift apart,
   no steady cost. Tests: `test/innerLife.test.ts`.
+
+## The palisade's gate, and a sentry on it (the owner's asks)
+
+- **The gate as the pack builds it:** the Village pack's gate frame, two tiles tall (Tile2_36, 37, 44, 45: the
+  crossbeam and braces over the cell above, the posts to the ground), with its double door (`gate_door.png`, the pack's
+  DoubleDoor1: frame 0 shut, frame 4 open) and steps up to the beam on the town's side (the Green Zone pack's ladder in
+  the palisade's wood, `gate_ladder.png`): `gateFront` in packBuildings.ts, before the frame for a gate in the north
+  wall and behind it for one in the south. A gate turned down a column (`gateSide`) is the pack's DoubleDoor2 edge on in
+  the wall's line when shut, a gap when open, a plank landing at its north end and the steps; the east wall's mirrored
+  (`Pick.flip`). `wallJoin` (mapView.ts) tells which wall a palisade gate stands in by the camp (`gn`, `gs`, `v`, `ve`;
+  `GateJoin`) and adds `x` when shut: `MapView.gatesShut`, set by main.ts each snapshot from `GATES_SHUT_FROM` (21) to
+  `GATES_OPEN_AT` (6) and whenever raiders are coming. (It drew only the crossbeam, squeezed into one cell at the foot.)
+- **A sentry up on the gate:** `gatePost` in people.ts: by night (the wall watch's hours) with the ring standing, the
+  first half of the guards on watch each stand up on one of its gates and the rest walk the wall; a lone guard climbs up
+  every other hour, a different gate each time. The `patrol` task carries `post` and keeps the guard there.
+  `PersonView.onGate` (`gateView` in snapshot.ts: a sentry at the post, or a fighter on a gate's wall spot in a battle
+  on the trail) has mapPeople lift them onto the beam (`GATE_LIFT`) and draw them before it (`GATE_FRONT`). A sentry
+  on a gate sees through bandits in disguise better (`GATE_SENTRY_CATCH` in data/bands.ts).
+- **The night watch sleeps by day:** a hired guard on the night watch (the odd ids: `onShift`) went to bed at ten with
+  everyone else, so nobody kept it; once the ring stands they sleep `DAY_SLEEP_FROM` (8) to `DAY_SLEEP_UNTIL` (16)
+  (`nightWatch`, `bedtime` in townsfolk.ts), never the founder (a lone founder taken on as the guard slept the working
+  day away). Everyone else's hours are untouched (waking from 6: moving it to 5 changed how lone towns grew). Tests:
+  `test/gateSentry.test.ts`.
+- **A wider wall pushed well out (the owner's ask):** when the town outgrows its ring, the new one is `RING_WIDEN`
+  (10) cells further out each side than the town needs yet, and at least `RING_STEP` past the old ring (`widened` in
+  sim/ringWall.ts); it was only just past the buildings and soon outgrown again. The first ring is as before. The ring
+  tests clear 50 cells round the camp (the wider ring reaches past the old 34). Test in `test/ringWall.test.ts`.

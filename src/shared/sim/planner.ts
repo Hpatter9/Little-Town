@@ -46,7 +46,7 @@ import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, fo
 import { buildable, wet, setGround, type Rect, touchesWater, type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
 import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
-import { canQueue, modifiers, queueResearch } from './research';
+import { canQueue, researchMods, queueResearch } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
 import { tireless, eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
@@ -299,7 +299,7 @@ const REFINE_AT = 4;
 const LEADS_SHARE = 0.85;
 
 function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
-  const slots = modifiers(s.research).researchSlots;
+  const slots = researchMods(s.research).researchSlots;
   while (s.research.queue.length < slots) {
     let best: Topic | null = null;
     let bestScore = -Infinity;
@@ -760,7 +760,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const station = Object.entries(RESEARCH_STATIONS).filter(([id]) => BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id])).sort((a, b) => b[1].mult - a[1].mult)[0];
   if (station && !planned(s, station[0])) add(station[0], 'somewhere better to study');
   const stations = s.buildings.filter((b) => RESEARCH_STATIONS[b.def]).length;
-  const wantStations = Math.min(modifiers(s.research).researchSlots, 1 + Math.floor(grown / 4));
+  const wantStations = Math.min(researchMods(s.research).researchSlots, 1 + Math.floor(grown / 4));
   // (never a second campfire: another desk waits for a real place of study)
   if (station && station[0] !== 'campfire' && stations < wantStations) add(station[0], `a desk for another researcher (${stations} for ${grown} people)`);
   // the next era, once the town can manage it

@@ -152,6 +152,9 @@ export function planStreets(s: GameState): number {
 
 /** A street to each gate of the ring wall (planned with the wall, so the gates sit where the streets go), through
  *  the gate and `GATE_PATH_OUT` cells beyond, the way travellers come in (the owner's ask). */
+/** How long before a gate the town found no way to is tried again (game hours). */
+export const GATE_RETRY_HOURS = 12;
+
 export function gatePaths(s: GameState): void {
   const ring = s.ring;
   if (!ring) return;
@@ -165,7 +168,15 @@ export function gatePaths(s: GameState): void {
     const [ix, iy] = side === 'w' ? [1, 0] : side === 'e' ? [-1, 0] : side === 'n' ? [0, 1] : [0, -1];
     const inside: Pt = { x: g.x + ix, y: g.y + iy };
     if (!inMap(m, inside.x, inside.y) || line.some((l) => l.x === inside.x && l.y === inside.y)) continue;
-    if (!layStreet(s, inside, nearestStreet(s, inside), 60)) continue;
+    // (a gate with no way to it is tried again only every `GATE_RETRY_HOURS`: the search is dear when it fails)
+    const key = `${ring.gen}:${g.x},${g.y}`;
+    const tried = (s.gateTried ??= {});
+    if (tried[key] !== undefined && s.tick - tried[key] < GATE_RETRY_HOURS * TICKS_PER_HOUR) continue;
+    if (!layStreet(s, inside, nearestStreet(s, inside), 60)) {
+      tried[key] = s.tick;
+      continue;
+    }
+    delete tried[key];
     planRoad(m, g.x, g.y);
     // (and out beyond the gate a few cells, where nothing stands in the way)
     for (let k = 1; k <= GATE_PATH_OUT; k++) {

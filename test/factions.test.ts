@@ -19,11 +19,12 @@ import { sendExpedition, updateExpeditions } from '../src/shared/sim/expeditions
 
 test('the realm: four powers, never the town\'s own people, the bandits always among them, the same every time', () => {
   const s = plainGame('realm1');
-  const fs = realm(s);
+  const fs = realm(s).filter((f) => !defOf(f).rising);
   assert.equal(fs.length, 4);
+  assert.equal(realm(s).length, 7, 'and the three rising powers');
   assert.ok(fs.some((f) => f.id === 'brotherhood'));
   assert.ok(!fs.some((f) => defOf(f).origin === (s.origin ?? 'settlers')));
-  assert.deepEqual(realm(plainGame('realm1')).map((f) => f.id), fs.map((f) => f.id));
+  assert.deepEqual(realm(plainGame('realm1')).filter((f) => !defOf(f).rising).map((f) => f.id), fs.map((f) => f.id));
   assert.ok(fs.every((f) => !f.known && f.stance === 'neutral'));
 });
 

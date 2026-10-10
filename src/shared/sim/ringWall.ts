@@ -21,6 +21,9 @@ export const RING_PAD = 4;
 export const RING_STEP = 5;
 /** A ring reaches at least this far from the camp each way (before the pad), so a young town has room to grow in it. */
 export const RING_MIN = 8;
+/** When the town outgrows its wall, the wider ring is pushed out this many cells more each side than the town needs
+ *  yet (the owner's ask: it was only just past the buildings, and soon outgrown again). The first ring is as before. */
+export const RING_WIDEN = 10;
 /** Grown-ups before a town walls itself (sooner when raided or set on defence). */
 export const RING_PEOPLE = 6;
 /** Ring sections in work at a time: a queue of their own, beside the town's build slots (the owner's complaint: two
@@ -111,6 +114,16 @@ export function wantRect(s: GameState): Rect {
 }
 const depth = (def: BuildingDef) => def.depth ?? (def.hp && def.width <= 2 && !def.housing ? 1 : def.width <= 3 ? 2 : def.width <= 5 ? 3 : 4);
 
+/** The town's wanted ring pushed `RING_WIDEN` cells further each side, and at least `RING_STEP` past the old ring
+ *  (so the new wall stands clear of the old one), kept on the land. */
+export function widened(s: GameState, want: Rect, old: Rect): Rect {
+  const m = s.land;
+  const x0 = Math.max(0, Math.min(want.x - RING_WIDEN, old.x - RING_STEP));
+  const y0 = Math.max(0, Math.min(want.y - RING_WIDEN, old.y - RING_STEP));
+  const x1 = Math.min(m.w - 1, Math.max(want.x + want.w - 1 + RING_WIDEN, old.x + old.w - 1 + RING_STEP));
+  const y1 = Math.min(m.h - 1, Math.max(want.y + want.h - 1 + RING_WIDEN, old.y + old.h - 1 + RING_STEP));
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
 const contains = (a: Rect, b: Rect) => b.x >= a.x && b.y >= a.y && b.x + b.w <= a.x + a.w && b.y + b.h <= a.y + a.h;
 
 /** The cells of a box's edge, clockwise from its top-left corner (a ring's starting shape, and an older town's ring). */
@@ -336,7 +349,19 @@ export function riverCell(m: LandMap, p: Pt): boolean {
 }
 
 /** Whether the ring stands all round: every piece of it finished (cells that can't take one don't count). */
-export const ringComplete = (s: GameState, ring: Ring) => !missingPieces(s, ring).length && !s.buildings.some((b) => b.ring === ring.gen && b.status !== 'done');
+/** The ring stands all round: none of its pieces unbuilt (the quick test, first) and none missing. The walk round the
+ *  wall is kept until the buildings or the land change (the roaming bands ask every tick). */
+let completeOf: { key: string; s: GameState; done: boolean } | null = null;
+export function ringComplete(s: GameState, ring: Ring): boolean {
+  if (s.buildings.some((b) => b.ring === ring.gen && b.status !== 'done')) return false;
+  let done = 0;
+  for (const b of s.buildings) if (b.status === 'done') done++;
+  const key = `${ring.gen}|${s.buildings.length}|${done}|${s.land.version}|${s.buildings.at(-1)?.id ?? 0}`;
+  if (completeOf && completeOf.s === s && completeOf.key === key) return completeOf.done;
+  const v = !missingPieces(s, ring).length;
+  completeOf = { key, s, done: v };
+  return v;
+}
 
 /** The planner's turn (from planBuilding, each pass): start or widen the ring, place its next pieces (up to
  *  `RING_AT_ONCE` on the queue, a slot left for the rest, only while the stores hold `RING_SPARE` times a piece's cost),
@@ -357,9 +382,11 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     const line = shapeRing(s, want);
     s.ring = { gen: 1, rect: want, line, wall, gate: GATE_OF[wall], gates: gateCells(s, line) };
   } else if (!contains(cur.rect, want) && mayRegrow) {
-    // (the town has grown past its wall: a wider ring outside it; the gates where the roads cross now)
-    const line = shapeRing(s, want);
-    s.ring = { gen: cur.gen + 1, rect: want, line, wall, gate: GATE_OF[wall], gates: gateCells(s, line) };
+    // (the town has grown past its wall: a wider ring well outside it, `RING_WIDEN` more each side, and never inside
+    // the old one; the gates where the roads cross now)
+    const rect = widened(s, want, cur.rect);
+    const line = shapeRing(s, rect);
+    s.ring = { gen: cur.gen + 1, rect, line, wall, gate: GATE_OF[wall], gates: gateCells(s, line) };
   } else if (cur.wall !== wall) {
     // (a better wall learned: new pieces are of it; the old ones are rebuilt in place by the upgrade loop)
     cur.wall = wall;

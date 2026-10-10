@@ -5,7 +5,7 @@ import { trail } from '../src/shared/sim/battle';
 import { blueprintCount, footprint } from '../src/shared/sim/buildings';
 import { groundAt, inRect, isRoad, setGround, wet, WILD } from '../src/shared/sim/land';
 import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
-import { gateAt, gateCells, gateTurned, isGate, isRingPiece, lineOf, PUSH_ALONG, RING_AT_ONCE, RING_GATHER_AHEAD, RING_SPARE, ringWants, RING_PAD, RING_STEP, ringCells, ringGate, riverCell, shapeRing, sideOn, wantRect, type LineCell } from '../src/shared/sim/ringWall';
+import { gateAt, gateCells, gateTurned, isGate, isRingPiece, lineOf, PUSH_ALONG, RING_AT_ONCE, RING_GATHER_AHEAD, RING_SPARE, RING_WIDEN, ringWants, RING_PAD, RING_STEP, ringCells, ringGate, riverCell, shapeRing, sideOn, wantRect, type LineCell } from '../src/shared/sim/ringWall';
 import { campCell, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { pathTo } from '../src/shared/sim/walk';
 import { CELL, cellAt, isMarked, setMarked } from '../src/shared/sim/land';
@@ -16,7 +16,7 @@ import { clearAround, makeWild } from './helpers';
 function walledTown(seed: string): GameState {
   const s = newGame(seed);
   s.research.done.push('palisades', 'basic_shelter');
-  clearAround(s, 34);
+  clearAround(s, 50);
   s.buildings[0].store = { wood: 3000, stone: 500, fiber: 300, berries: 400 };
   for (let i = 0; i < 6; i++) s.people.push({ ...s.people[0], id: s.nextId++, name: `Hand ${i}` });
   return s;
@@ -105,6 +105,11 @@ test('when the town grows past its wall a wider ring goes up outside, and the ol
   assert.equal(s.ring!.gen, first.gen + 1);
   assert.ok(s.ring!.done, 'the wider ring stands');
   assert.ok(s.ring!.rect.x + s.ring!.rect.w > first.rect.x + first.rect.w, 'wider to the east');
+  // (pushed well out, with room to grow: RING_WIDEN more each side than the town needs yet, never inside the old one)
+  const want = wantRect(s);
+  const r = s.ring!.rect;
+  assert.ok(r.x + RING_WIDEN <= want.x && r.y + RING_WIDEN <= want.y && r.x + r.w >= want.x + want.w + RING_WIDEN && r.y + r.h >= want.y + want.h + RING_WIDEN, `ring ${JSON.stringify(r)} wants ${JSON.stringify(want)}`);
+  assert.ok(r.x < first.rect.x && r.y < first.rect.y && r.x + r.w > first.rect.x + first.rect.w && r.y + r.h > first.rect.y + first.rect.h, 'outside the old ring all round');
   assert.equal(s.buildings.filter((b) => isRingPiece(b.def) && b.ring !== s.ring!.gen).length, 0, 'the old ring is down');
 });
 

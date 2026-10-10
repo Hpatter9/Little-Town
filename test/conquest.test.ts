@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CELL_CODES, PROVINCES_PER_REALM, REALMS_DEFAULT, START_PROVINCES, worldSide } from '../src/shared/data/conquest';
-import { pickRivals } from '../src/shared/data/factions';
+import { FACTION_BY_ID, pickRivals } from '../src/shared/data/factions';
 import { hashSeed, Rng } from '../src/shared/rng';
 import { foundConquest, holdings, worldOf } from '../src/shared/sim/conquest/conquest';
 import { cellOf, makeWorld, provinceYield } from '../src/shared/sim/conquest/world';
@@ -92,7 +92,7 @@ test('a new town founds a conquest: the realms are the realm\'s powers, the star
   const s = newGame('conq');
   assert.ok(s.conquest);
   assert.equal(s.conquest!.realmIds.length, REALMS_DEFAULT);
-  const fs = realm(s);
+  const fs = realm(s).filter((f) => !FACTION_BY_ID[f.id].rising);
   assert.deepEqual(fs.map((f) => f.id), s.conquest!.realmIds.slice(1), 'the same powers');
   const w = worldOf(s)!;
   assert.equal(w.provinces.length, PROVINCES_PER_REALM * REALMS_DEFAULT);
@@ -101,10 +101,10 @@ test('a new town founds a conquest: the realms are the realm\'s powers, the star
   // a chosen size
   const big = newGame('conq2', { realms: 12 });
   assert.equal(big.conquest!.realmIds.length, 12);
-  assert.equal(realm(big).length, 11);
-  assert.equal(new Set(realm(big).map((f) => f.id)).size, 11);
+  assert.equal(realm(big).filter((f) => !FACTION_BY_ID[f.id].rising).length, 11);
+  assert.equal(new Set(realm(big).map((f) => f.id)).size, 14);
   const small = newGame('conq3', { realms: 2, origin: 'knights' });
-  assert.equal(realm(small).length, 1);
+  assert.equal(realm(small).filter((f) => !FACTION_BY_ID[f.id].rising).length, 1);
   assert.notEqual(realm(small)[0].id, 'brotherhood');
   assert.notEqual(realm(small)[0].id, 'knights');
   // the world's realms hold at the founding, and rebuilt from the seed they're the same

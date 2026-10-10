@@ -3,7 +3,7 @@
 // within a level: haul, construct, research, gather) > loaf around camp.
 
 import { protestSpot, striking } from './politics';
-import { lineOf, RING_CLEAR_PULL } from './ringWall';
+import { isGate, lineOf, RING_CLEAR_PULL } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
 import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
 import { LEISURE } from '../data/recreation';
@@ -48,7 +48,7 @@ import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } from './raids';
 import { ENEMIES } from '../data/enemies';
 import { THROW_RANGE } from '../data/raids';
-import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
+import { freeStation, modifiers, researchMods, researchStations, studyingAt, topicFor } from './research';
 import { holderOf, holds, jobOf as heldJob } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
 import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Raider, type Task } from './state';
@@ -470,6 +470,15 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
         task.targetY = band.y;
         if (guardEngages(s, p)) break;
       }
+      // (a sentry keeps to the gate while it's theirs: up the steps and standing on top, looking out)
+      if (task.post !== undefined) {
+        if (gatePost(s, p)?.id !== task.post) {
+          p.task = null;
+          break;
+        }
+        if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.activity = 'idle';
+        break;
+      }
       if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = null; // then back the other way
       break;
     }
@@ -584,6 +593,30 @@ function wallWalk(s: GameState, p: Person): Pt | null {
   const [ix, iy] = best.side === 'n' ? [0, 1] : best.side === 's' ? [0, -1] : best.side === 'w' ? [1, 0] : [-1, 0];
   return { x: (best.x + ix + 0.5) * CELL, y: (best.y + iy + 0.5) * CELL };
 }
+
+/** A sentry on the gate (the owner's ask: steps up so a guard can stand on top of the gate to guard it): by night,
+ *  with the ring standing all round, the first half of the guards on watch (by id) each stand up on one of its gates,
+ *  the rest walk the wall; a lone guard on watch climbs up every other hour, a different gate each time. The gate it
+ *  is (the guard stands on its beam, over its middle: the map lifts them up there), or null. */
+export function gatePost(s: GameState, p: Person): Building | null {
+  const h = calendar(s.tick).hour;
+  if (!s.ring?.done || (h < WALL_WATCH_FROM && h >= WALL_WATCH_UNTIL)) return null;
+  const gen = s.ring.gen;
+  const gates = s.buildings.filter((b) => b.ring === gen && b.status === 'done' && isGate(b.def));
+  if (!gates.length) return null;
+  const watch = s.people.filter((q) => q.away === null && !q.downed && onShift(s, q)).sort((a, b) => a.id - b.id);
+  const i = watch.indexOf(p);
+  if (i < 0) return null;
+  const turn = Math.floor(s.tick / TICKS_PER_HOUR);
+  if (watch.length === 1) return turn % 2 === 0 ? gates[Math.floor(turn / 2) % gates.length] : null;
+  return i < Math.min(gates.length, Math.ceil(watch.length / 2)) ? gates[i] : null;
+}
+
+/** Where a sentry stands on a gate: over its middle. */
+export const gateTop = (b: Building): Pt => {
+  const r = footprint(b);
+  return { x: (r.x + r.w / 2) * CELL, y: (r.y + r.h / 2) * CELL };
+};
 
 /** The far end of the built town from where a guard is: the door of the building farthest from them (by night, along
  *  the ring wall: `wallWalk`). */
@@ -802,7 +835,7 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
   }
   if (p.activity !== def.anim) pickTool(s, p, def.anim);
   p.activity = def.anim;
-  const speed = skillSpeed(p.skills.gathering.level) * modifiers(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
+  const speed = skillSpeed(p.skills.gathering.level) * researchMods(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
   // (the land is the same in every era: a tree takes no longer to fell in the Medieval era)
   task.progress += speed / (def.secondsPerUnit * TICK_HZ);
   while (task.progress >= 1 && p.task === task) {
@@ -1215,6 +1248,12 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       // (a band roaming near the town: they go out after it)
       const band = roamerToHunt(s, p);
       if (band) return { type: 'patrol', targetX: band.x, targetY: band.y, band: band.id };
+      // (by night, up on a gate: gatePost)
+      const post = gatePost(s, p);
+      if (post) {
+        const top = gateTop(post);
+        return { type: 'patrol', targetX: top.x, targetY: top.y, post: post.id };
+      }
       const end = patrolEnd(s, p);
       return { type: 'patrol', targetX: end.x, targetY: end.y };
     case 'research': {

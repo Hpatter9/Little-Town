@@ -58,6 +58,11 @@ import palisade46 from '../art/village/palisade46.png';
 import palisade03 from '../art/village/palisade03.png';
 import palisade36 from '../art/village/palisade36.png';
 import palisade37 from '../art/village/palisade37.png';
+import palisade44 from '../art/village/palisade44.png';
+import palisade45 from '../art/village/palisade45.png';
+import gateDoor from '../art/village/gate_door.png';
+import gateDoorSide from '../art/village/gate_door_side.png';
+import gateLadder from '../art/village/gate_ladder.png';
 import palisade19 from '../art/village/palisade19.png';
 import dwalls from '../art/village/dwalls.png';
 import dprops from '../art/village/dprops.png';
@@ -194,6 +199,35 @@ const grate = (col: number, grade?: string): Pick => {
   const bars: Pick = { parts: [[dlFence, 0, 0, col * 16, 0, 16, 16]], size: [16, 16], overhang: 0, ...(grade ? { grade } : {}) };
   return { own: true, ...bars, joins: { v: { ...bars, rotate: 90 } } };
 };
+/** The palisade's gate as the Village pack builds one (the owner: the old gate wasn't right): its timber frame, two
+ *  tiles tall (the crossbeam with its braces up over the cell above, the posts down to the ground: Tile2_36, 37, 44,
+ *  45), its double door hung in the opening (`gate_door.png`, the pack's DoubleDoor1: frame 0 shut, frame 4 swung
+ *  open), and steps up to the beam on the town's side for the sentry (the Green Zone pack's ladder in the palisade's
+ *  wood, `gate_ladder.png`, two lengths): before the frame for a gate in the north wall, whose town side faces us,
+ *  behind it (seen through the opening) for one in the south wall. Its canvas hangs `GATE_HANG` px over each side so
+ *  the steps can lean against the stakes beside it. */
+const GATE_HANG = 8;
+const gateFront = (open: boolean, stepsFront: boolean): Pick => {
+  const steps: Part[] = stepsFront ? [[gateLadder, 0, 4], [gateLadder, 0, 32]] : [[gateLadder, GATE_HANG + 34, 6], [gateLadder, GATE_HANG + 34, 30]];
+  const frame: Part[] = [[palisade36, GATE_HANG, 0], [palisade37, GATE_HANG + 32, 0], [palisade44, GATE_HANG, 32], [palisade45, GATE_HANG + 32, 32]];
+  const door: Part = [gateDoor, GATE_HANG, 0, open ? 256 : 0, 0, 64, 64];
+  return { parts: stepsFront ? [...frame, door, ...steps] : [...steps, ...frame, door], size: [64 + GATE_HANG * 2, 64], overhang: GATE_HANG };
+};
+/** A gate turned down a column (the west and east walls): seen end on. Shut, the pack's DoubleDoor2 edge on in the
+ *  wall's line (frame 0); open, a gap between the stakes of the runs either side. A plank landing across its north end
+ *  from the frame's crossbeam, where the sentry stands, and the steps up to it on the town's side. Its canvas hangs
+ *  `GATE_HANG` px over each side (the steps lean into the town). Drawn for the west wall; the east's is it mirrored. */
+const gateSide = (open: boolean, flip: boolean): Pick => ({
+  parts: [
+    ...(open ? [] : ([[gateDoorSide, GATE_HANG, 0, 0, 0, 32, 96]] as Part[])),
+    [palisade36, GATE_HANG, 16, 0, 6, 32, 12],
+    [gateLadder, GATE_HANG + 16, 34],
+    [gateLadder, GATE_HANG + 16, 62],
+  ],
+  size: [32 + GATE_HANG * 2, 96],
+  overhang: GATE_HANG,
+  ...(flip ? { flip: true as const } : {}),
+});
 export interface Pick {
   url?: string;
   parts?: Part[];
@@ -214,6 +248,8 @@ export interface Pick {
   own?: true;
   /** Drawn turned a quarter clockwise (a gate standing down a column). */
   rotate?: 90;
+  /** Drawn mirrored left to right (the east wall's gate). */
+  flip?: true;
   /** A wall piece's picture by how it joins its neighbours (the ring wall: sim/ringWall.ts): along a row (`h`), down a
    *  column (`v`), at a corner, or standing alone (`end`); the pick itself when a join has none. */
   joins?: Partial<Record<Join, Pick>>;
@@ -225,7 +261,10 @@ export interface Pick {
   turning?: { body: string; sail: string; hub: string; at: [number, number]; blades: number };
 }
 /** How a wall piece joins the pieces about it (map/mapView.ts `wallJoin`). */
-export type Join = 'h' | 'v' | 've' | 'nw' | 'ne' | 'sw' | 'se' | 'end';
+export type Join = 'h' | 'v' | 've' | 'nw' | 'ne' | 'sw' | 'se' | 'end' | GateJoin;
+/** How a palisade gate stands (map/mapView.ts `wallJoin`): in the north wall (`gn`, its steps before it) or the south
+ *  (`gs`), the west (`v`) or the east (`ve`); `x` shut (by night, or with raiders coming). */
+export type GateJoin = 'gn' | 'gnx' | 'gs' | 'gsx' | 'vx' | 'vex';
 /** The glow of a pack house's window (the painter's window colour). */
 const WINDOW_GLOW = 0xf0d890;
 /** The looks the pack's timber houses suit. */
@@ -341,7 +380,11 @@ const PICKS: Record<string, Pick> = {
       end: { parts: [POST], size: [32, 32], overhang: 0 },
     },
   },
-  palisade_gate: { own: true, parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, joins: { v: { parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, rotate: 90 } } },
+  palisade_gate: {
+    own: true,
+    ...gateFront(true, true),
+    joins: { gn: gateFront(true, true), gnx: gateFront(false, true), gs: gateFront(true, false), gsx: gateFront(false, false), v: gateSide(true, false), vx: gateSide(false, false), ve: gateSide(true, true), vex: gateSide(false, true) },
+  },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
   stone_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
   brick_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'brick' },
@@ -712,6 +755,10 @@ export function pickArt(pick: Pick, w: number, key0: string, id = 0): PixelArt |
     if (pick.rotate) {
       g.translate(c.width, 0);
       g.rotate(Math.PI / 2);
+    }
+    if (pick.flip) {
+      g.translate(c.width, 0);
+      g.scale(-1, 1);
     }
     src.draw(g, scale * FINE);
     if (pick.grade) {

@@ -69,7 +69,8 @@ import { hasInside } from '../shared/sim/interiors';
 import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
-import { Application, Graphics, TextureStyle } from 'pixi.js';
+import { Application, Graphics, Rectangle, TextureStyle } from 'pixi.js';
+import { frameDue, frameUrl, keepFrame, readTimelapse, SHOT_SIZE, townBox } from './timelapse';
 import { STRIP_HEIGHT } from '../shared/constants';
 import { BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../shared/data/buildings';
 import { eraReached } from '../shared/data/eras';
@@ -86,6 +87,9 @@ import type { PersonView, RaiderView, RoamerView, Snapshot, TravellerView } from
 import { lineOfDef, venueOfDef } from '../shared/data/shop';
 import { storePanel, type PanelId } from '../shared/ipc';
 /** The window a venue's building opens (the shop, the tavern, or a specialty shop's). */
+/** The hours the gates stand shut (map/mapView.ts `gatesShut`). */
+const GATES_SHUT_FROM = 21;
+const GATES_OPEN_AT = 6;
 const venuePanel = (def: string): PanelId | undefined => (lineOfDef(def) ? storePanel(lineOfDef(def)!) : venueOfDef(def));
 import { buildingTint } from './theme';
 
@@ -1500,6 +1504,7 @@ async function start(): Promise<void> {
     cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || beyond || within || next.tactics || next.prompts.length));
     map.root.visible = !watched && !inMine && !below && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
+    if (!replaying) shootTown(next);
     // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
     if (view.music && !view.hidden && !replaying) {
       const heard = map.root.visible
@@ -1710,6 +1715,8 @@ async function start(): Promise<void> {
     minimap.setLand(next.land, next.calendar.season);
     map.tick = next.tick;
     stockpile.sync(next.buildings); // (before the buildings, so a stockpile's own picture is hidden at once)
+    // (the gates shut at night and when raiders come: the palisade's are drawn closed)
+    map.gatesShut = next.calendar.hour >= GATES_SHUT_FROM || next.calendar.hour < GATES_OPEN_AT || !!next.raid;
     map.syncBuildings(next.villageBuildings.length ? [...next.buildings, ...next.villageBuildings] : next.buildings);
     felling.season = next.calendar.season;
     felling.sync(next.land, next.buildings);
@@ -1853,6 +1860,32 @@ async function start(): Promise<void> {
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
   };
+  // The town's timelapse (renderer/timelapse.ts): at noon each day, a small picture of the map round its buildings,
+  // drawn with the culling lifted for the moment (the camera put over the town and back), kept on the device.
+  let shotTried = -1;
+  function shootTown(next: Snapshot): void {
+    if (next.calendar.hour < 12 || shotTried === next.calendar.day || next.raid || next.battle || next.tactics || !map.root.visible) return;
+    shotTried = next.calendar.day;
+    if (!frameDue(readTimelapse(), next.seed, next.calendar.day, next.calendar.hour)) return;
+    const boxes = next.buildings.filter((b) => b.status === 'done').map((b) => {
+      const r = footprintOf(b);
+      return { x: r.x * CELL, y: r.y * CELL, w: r.w * CELL, h: r.h * CELL };
+    });
+    const box = townBox(boxes, { x: (next.land.camp.x + 0.5) * CELL, y: (next.land.camp.y + 0.5) * CELL }, CELL);
+    const v = map.view;
+    try {
+      map.setCamera(box.x, box.y, box.w, box.h);
+      const c = app.renderer.extract.canvas({ target: map.world, frame: new Rectangle(box.x, box.y, box.w, box.h), resolution: Math.min(1, (SHOT_SIZE * 2) / box.w) }) as HTMLCanvasElement;
+      keepFrame(next.seed, { day: next.calendar.day, era: next.era, people: next.people.length, url: frameUrl(c) });
+    } catch (e) {
+      console.warn('timelapse', e); // (a picture missed is no matter)
+    } finally {
+      map.setCamera(v.x, v.y, v.w, v.h);
+    }
+  }
+  Object.assign(window, { __shootTown: () => ((shotTried = -1), snap && shootTown(snap)) });
+
+
   // The time away replayed, sped up, before the report card (replay/replayPlayer.ts, shared/replay.ts): while the
   // catch-up runs the town is veiled; at its end the page hands over the frames it kept, and they play through
   // `applySnapshot` as light snapshots (the town as it is now, with the frame's clock, weather and buildings, and

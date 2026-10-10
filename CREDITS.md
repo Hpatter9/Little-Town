@@ -356,3 +356,8 @@ is put together from the pack's man's body (turned to sacking), its first peasan
 - Tumbleweeds are the **Craftpix Undead tileset**'s thorn tangles (the `undead` props set), tinted dry.
 - The far settlements' fires and smoke, the will-o'-wisps, the dust devils and the weathervanes' glint are strips of the
   **5000 Pixel Effects** atlas (`fx/pixelfx.png`; see Effects).
+
+The palisade's gate (`src/renderer/map/packBuildings.ts`, `gateFront`, `gateSide`) is the Village Tileset's own gate
+frame (`src/renderer/art/village/palisade36.png`, `37`, `44`, `45`) with its animated double doors (`gate_door.png`,
+`gate_door_side.png`), from **Craftpix.net**'s free Village Pixel Tileset for top-down defence; the steps up to it
+are the ladder of **Craftpix.net**'s free Green Zone Tileset (`gate_ladder.png`), recoloured to the palisade's wood.

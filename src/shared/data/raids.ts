@@ -8,6 +8,7 @@ import { REBEL_RAID } from './villages';
 import { PORTAL_RAIDS } from './portals';
 import { PACK_RAIDS } from './pack';
 import { BESTIARY_RAIDS } from './bestiary';
+import { RISING_RAIDS } from './risingPowers';
 import { MENAGERIE_RAIDS } from './menagerie';
 import type { Era } from './eras';
 
@@ -103,6 +104,8 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   { id: 'rival_orcs', name: 'The Warband', goal: 'harm', goals: { harm: 3, burn: 2, steal: 1, kidnap: 1 }, steals: 'food', enemies: { orc_grunt: 18, orc_archer: 9, orc_brute: 6 }, fromDay: 8, weight: 0.3, speed: 58, bribable: true, plural: false, origin: 'orcs', leader: 'orc_warlord' },
   // the Craftpix packs' foes (data/bestiary.ts)
   ...BESTIARY_RAIDS,
+  // the rising powers' armies (data/risingPowers.ts)
+  ...RISING_RAIDS,
   // the menagerie's (data/menagerie.ts): one for each family, and the ice's, the dunes' and the deep's own
   ...MENAGERIE_RAIDS,
   // the nests' and the Calamity's (data/nests.ts, data/calamity.ts): never rolled

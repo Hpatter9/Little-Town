@@ -44,7 +44,7 @@ import type { Doom } from './doom';
 import { MONSTER_HP, type MonsterKind, type StandingOrder } from '../data/monsters';
 import { ORIGIN_DEFS, type OriginId } from '../data/origins';
 import type { BandKind } from '../data/bands';
-import { modifiers, type ResearchState } from './research';
+import { researchMods, type ResearchState } from './research';
 import { TICKS_PER_HOUR } from './time';
 
 export type { Era } from '../data/eras';
@@ -255,7 +255,7 @@ export type Task =
   /** Raid: go after a raider and fight (ticks until the next strike). */
   | { type: 'defend'; cooldown: number }
   /** Guard duty between raids (with a Barracks): walking the town from end to end. */
-  | { type: 'patrol'; targetX: number; targetY: number; band?: number }
+  | { type: 'patrol'; targetX: number; targetY: number; band?: number; /** A sentry's gate (by night: gatePost in people.ts). */ post?: number }
   /** Raid: hide in your bed (safe), or huddle by the fire if you have none. */
   | { type: 'shelter' }
   /** Stop someone's bleeding (an attempt takes a while; it may fail). */
@@ -837,6 +837,8 @@ export interface Faction {
   /** Hosts it lost against the town, and assaults the town made on it. */
   beaten?: number;
   stormed?: number;
+  /** A rising power's own doings (sim/risingPowers.ts). */
+  rise?: import('./risingPowers').RiseState;
 }
 
 export interface Expedition {
@@ -930,6 +932,8 @@ export interface Muster {
 }
 
 export interface GameState {
+  /** Gates of the ring the town found no street to, and when it last tried (sim/streets.ts `gatePaths`). */
+  gateTried?: Record<string, number>;
   /** The town's lights, and whether lighting is at work (sim/lighting.ts; off in the tests' plainGame). */
   torches?: import('./lighting').Torch[];
   lighting?: boolean;
@@ -1442,7 +1446,7 @@ export function addJournal(s: GameState, e: JournalEntry): void {
 /** Units a person can carry, including research bonuses and (for a given person) their pack. */
 export function carryCapacity(s: GameState, p?: Person): number {
   const pack = p?.gear.pack ? (ITEM_BY_ID[p.gear.pack]?.effects.carry ?? 0) : 0;
-  return CARRY_CAPACITY + modifiers(s.research).carryBonus + pack;
+  return CARRY_CAPACITY + researchMods(s.research).carryBonus + pack;
 }
 
 /** Choices made when founding a town. */

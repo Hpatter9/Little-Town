@@ -62,6 +62,10 @@ const ROWS: Row[] = [
   ['judgement', 'Judgement', 'sw', 8, M, { undeadDamage: 10, crit: 0.1 }, 'The Grand Master\'s blade, blessed against the dark.', ['grand_master']],
   ['commanders_saber', 'The Commander\'s Saber', 'sw', 5, I, { crit: 0.1 }, 'Polished for parades, and sharper than it looks.', ['commander']],
   ['quicksilver_staff', 'Quicksilver', 'st', 7, I, { cleave: 0.5, pierce: 0.3 }, 'The Mad Alchemist\'s staff: its tip is a bead of moving metal.', ['mad_alchemist']],
+  // the rising powers' lords (data/risingPowers.ts)
+  ['mistcutter', 'Mistcutter', 'sw', 8, M, { crit: 0.2, speed: 0.85 }, 'Shogun Raizen\'s long blade. It parts the mist before it parts you.', ['shogun_raizen']],
+  ['red_tide', 'The Red Tide', 'sw', 7, M, { lifesteal: 0.1, crit: 0.12 }, 'Admiral Vask\'s boarding cutlass, its guard a scallop of red coral.', ['admiral_vask']],
+  ['pitfire_scourge', 'Pitfire', 'fl', 9, M, { cleave: 0.5, undeadDamage: 6 }, 'A scourge of chain from the Pit, still hissing. Malphas used it on his own.', ['malphas']],
   // the sea
   ['drowned_cutlass', 'The Drowned Cutlass', 'sw', 6, M, { lifesteal: 0.1, undeadDamage: 5 }, 'Barnacled, and never dry.', ['drowned_captain']],
   ['krakens_hook', 'The Kraken\'s Hook', 'sc', 5, M, { crit: 0.12, beastDamage: 4 }, 'Squidbeard\'s gaff, hooked like a beak.', ['squidbeard']],
