@@ -4,6 +4,54 @@ A pixel-art town that runs itself, like an ant farm. It's played mainly as a pho
 owner's Android, hosted on GitHub Pages). There's also a Windows desktop overlay (Electron): a strip above the
 taskbar. TypeScript + PixiJS. `DESIGN.md` is the original design, and `README.md` covers how to play and build.
 
+## Read this first (for every agent: Claude, Gemini or any other)
+
+This file is long (about 430 KB). Read this section, **Priorities**, **Commands**, **Layout** and **Conventions** in
+full. Everything after "Current work" is a record of what has been built: don't read it top to bottom. Search it
+(grep) for the system, file or name you are about to touch, and read that part before changing it.
+
+**How to work:**
+
+1. Start from the latest `main` on a branch of your own (Claude uses `claude/...`; other agents use
+   `gemini/<topic>` or similar). Never push to `main` directly: the owner merges.
+2. Before editing a file, read it and the files next to it, and copy their style: names, comment density,
+   plain-English comments, British spelling in the game's text.
+3. Keep each change small and finish it before starting the next one.
+4. Check your work: `npm run typecheck`, then `npm test` (about 3 to 5 minutes; every test must pass), then
+   `npm run web` if you touched the renderer. Fix what fails. Never skip, delete or loosen a test to get it to pass.
+5. Add a test in `test/` for any new rule in the simulation (copy a nearby test file's shape; `test/helpers.ts`
+   has `plainGame` and the land helpers).
+6. Add a short note for what you built in the right section of this file (or a new `##` section at the end), in
+   the same style: what it does, the file, the key names and constants.
+7. Commit with a clear message and push your branch. Only add an AI attribution line that names the model actually
+   doing the work. Never put a model name or ID in code, comments or this file.
+
+**Rules that are easy to break:**
+
+- **The simulation is deterministic.** In `src/shared/sim/` never use `Math.random()`, `Date.now()` or anything
+  that varies from run to run. Randomness comes from the town's seeded stream (`s.rngState` through the `Rng`
+  passed in) or a side stream: `new Rng(hashSeed(`${s.seed}:<your-system>:${s.tick}`))` (`src/shared/rng.ts`).
+  A **new** system should use its own side stream. Drawing extra numbers from the town's stream changes how every
+  existing town plays out and breaks balance tests.
+- **New systems run only with the autopilot on** (`if (!s.autopilot) return;`). The tests' `plainGame` turns it off
+  so single mechanics can be tested alone. A test of your system sets `s.autopilot = true` itself.
+- **Save compatibility.** New `GameState` fields are optional (`field?: T`), and code must cope with them being
+  missing (older saves). Don't bump the save version unless the owner asks.
+- **The renderer never changes the game state.** It reads the snapshot (`sim/snapshot.ts`). The player acts through
+  commands: add the type and its checks in `src/shared/sim/commands.ts` and apply it in `src/shared/sim/sim.ts`.
+- **Danger by day uses `paceDay(s)`** (`sim/time.ts`), not the plain day: the game is paced to last months.
+- **Research bonuses:** read `researchMods(s)` (cached), not `modifiers(s.research)`.
+- **New content is merged into the shared tables:** new buildings into `BUILDINGS`, foes into `ENEMIES`, items into
+  `ITEMS`, raid kinds into `RAID_KINDS`. Follow how an existing data file (e.g. `data/workshops.ts`) does it.
+- **Menus:** a panel redraws only when its key changes. Anything a button changes must be in that panel's key, or
+  the tap seems to do nothing. A new `h2` section in a menu needs its heading in `GROUPS` (`panel/subtabs.ts`).
+- **Modules the tests import** must not import Pixi or touch the DOM. Keep game rules in pure functions.
+- **Art:** use sprites from the packs (see below), copied one at a time into `src/`, and credit them in
+  `CREDITS.md`. Never change `../chronos-assets`.
+- **Never run** Electron (`npm start`) or `npm run dist`.
+- **When unsure what the owner wants, ask.** Don't guess at design decisions or add manual controls the owner didn't
+  ask for (the town is hands-off).
+
 ## Priorities (from the owner)
 
 - **Phone first.** Design every change for the phone version. Before calling anything done, check it at phone
