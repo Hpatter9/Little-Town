@@ -87,6 +87,12 @@ the Rocky Area Objects' cave entrance (the goblin warren), the Top-Down Cave Obj
 dark totem (the heart), and the Undead Tileset's skull door (the barrow) and pile of skulls; the ward stone is the Cave
 Objects' white crystal.
 
+The statues of the town's heroes stand on a plinth cut together from **Craftpix.net**'s free 2D Top-Down Pixel Dungeon
+pack's walls-and-floor sheet (its pale slab over its brick face: `src/renderer/art/memorial/plinth.png`), the figure the
+person's own Himeko Sutori layers turned to stone; until those load, the Rocky Area Objects' old man statue stands in
+(`src/renderer/art/memorial/statue_old.png`). The homes' name signs are the Village Tileset's hanging signboard, and the
+ruins are drawn with the Fields Tileset's stones and logs (already credited above).
+
 ## Craftpix cave objects (the Deep)
 
 The things down in the Deep under the town (`src/renderer/art/deep/`: the glowing mushrooms of the fungus grottos, the
@@ -209,6 +215,11 @@ juggled apple, orange and pear from `Items/Food.png`, the grumpy's pebble from `
 `Items/Tool.png`, the night watch's torch from `Items/Light.png`) and the coffin carried at a funeral's head
 (`Objects/Decor0.png`) are single cells of **DawnLike** too: **DragonDePlatino**, on **DawnBringer**'s palette,
 **CC-BY 4.0**.
+
+The busker's instruments (`src/renderer/art/life/lute.png`, the lyre, and `flute.png`) are single cells of
+**DawnLike**'s `Items/Music.png`: **DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**. The log an elder
+sits on to feed the pigeons, and a couple by the water at dusk, is the Craftpix Village tileset's log already in the
+game (`art/village/`).
 
 ## Music
 
@@ -337,6 +348,14 @@ is put together from the pack's man's body (turned to sacking), its first peasan
 - Additional Half-Kaizer poses by Aleesa Tana.
 - Armor, weapon, shield, helmet, hair, skeleton, zombie, demon, fairy, mecha, wolf, boar, pumpkin, turkey, slime,
   skullbird, dragon, cactus, and other sprites are from Himeko Sutori and Septaroad Voyager by Rockwell Studios, LLC.
+
+## The wide world (geese, dust, the far settlements)
+
+- The geese flying over in their V (`src/renderer/art/geese.png`, cut by `tools/compose-geese.cjs`) are the grey and
+  white birds of **whtdragon**'s RPG Maker MV flying ducks sheet (see Creatures above for the licence note).
+- Tumbleweeds are the **Craftpix Undead tileset**'s thorn tangles (the `undead` props set), tinted dry.
+- The far settlements' fires and smoke, the will-o'-wisps, the dust devils and the weathervanes' glint are strips of the
+  **5000 Pixel Effects** atlas (`fx/pixelfx.png`; see Effects).
 
 The palisade's gate (`src/renderer/map/packBuildings.ts`, `gateFront`, `gateSide`) is the Village Tileset's own gate
 frame (`src/renderer/art/village/palisade36.png`, `37`, `44`, `45`) with its animated double doors (`gate_door.png`,

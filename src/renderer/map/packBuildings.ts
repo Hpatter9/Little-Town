@@ -101,6 +101,7 @@ import fBox1 from '../art/packs/f_box1.png';
 import fStump from '../art/packs/f_stump.png';
 import fDirt from '../art/packs/f_dirt.png';
 import caveCrystal from '../art/packs/cave_crystal.png';
+import statueOld from '../art/memorial/statue_old.png';
 import caveGate from '../art/packs/cave_gate.png';
 import portalGate from '../art/deep/ruin2.png';
 import portalCircle from '../art/deep/circle.png';
@@ -472,6 +473,8 @@ const PICKS: Record<string, Pick> = {
   portal_rift: { parts: [[portalCircle, 0, 0], [shard1, 32, 8]], size: [128, 118], overhang: 0 },
   // (the Calamity's ward stone: the cave pack's white crystal)
   ward_stone: { url: caveCrystal, overhang: 0 },
+  // (a statue's own figure in stone is map/statueArt.ts; the Rocky Area pack's old man stands in while it loads)
+  statue: { url: statueOld, overhang: 4 },
   temple: { url: suMageTower, overhang: 4 },
   cathedral: { url: suCastle, overhang: 4 },
   phylactery: { url: caveCrystal, overhang: 0, variants: [{ styles: ['lich'], pick: { url: caveGem, overhang: 0 } }] },

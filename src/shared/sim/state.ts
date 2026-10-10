@@ -129,6 +129,11 @@ export interface Building {
   operator?: number | null;
   /** Who owns it (sim/property.ts): a person, or the treasury when left out. */
   owner?: number;
+  /** A home's name (data/homeNames.ts), given once its first owner or resident is known and kept after
+   *  (sim/memorials.ts `nameHomes`). */
+  homeName?: string;
+  /** A statue: the one of the town's famous dead it stands for (a person's id, in `s.honoured`: sim/memorials.ts). */
+  statue?: number;
   /** A pen widened for its herd: this many columns more than its def's width (sim/livestock.ts `growPen`). */
   wide?: number;
   operatorChosen?: boolean;
@@ -591,6 +596,9 @@ export interface Person {
   coins?: number;
   /** What they've done lately that's worth a line on their card (newest last). */
   recent?: { tick: number; text: string }[];
+  /** Today's doings, counted a quarter-hour at a time for their diary (sim/diary.ts): the hours at each thing, and
+   *  the hours beside each townsperson at the same thing. */
+  diary?: { day: number; hours: Record<string, number>; with: Record<number, number> };
   /** Sick with the plague until a tick. */
   sick?: { until: number; treated?: boolean } | null;
   /** A machine (the Machine Colony origin): never eats, sleeps or sickens, and its spirits hold steady. */
@@ -1149,6 +1157,10 @@ export interface GameState {
   raidRecap?: RaidRecap;
   /** The annals (sim/annals.ts): the fallen, the year's chronicles, and the year being reckoned. */
   fallen?: Fallen[];
+  /** The famous dead the town means to raise statues to, in the order they fell (sim/memorials.ts). */
+  honoured?: import('./memorials').Honoured[];
+  /** Ruins left where buildings burned, fell or were pulled down, cleared in a few days (sim/ruins.ts). */
+  ruins?: import('./ruins').Ruin[];
   /** The town's gods: their favour and the latest signs (sim/faith.ts). */
   faith?: import('./faith').FaithState;
   /** A natural disaster under way on the map, when the next is due, and the last (for its ash: sim/disasters.ts). */

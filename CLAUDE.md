@@ -91,7 +91,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.52.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.53.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -3925,6 +3925,65 @@ blocked by buildings, structures, trees and rocks)
   peaked at the wind's level, a tenth of the music's. They go through a bus of their own in ambience.ts (`CUE_GAIN` 4,
   then a limiter) over the land's beds and calls; the saw is louder too. Measured in the phone build: the hammer about
   twice the music's peak.
+
+## Builders build, the rest carry (the owner's ask)
+
+- A site no longer waits for all its makings before work starts: its walls go up as far as what's been brought
+  (`deliveredShare` in sim/buildings.ts). A builder takes a site once it has `BUILD_AHEAD` (5%) more delivered than
+  built (`buildableNow`), stops when they catch up (people.ts `build`), and comes back as more arrives. Someone who
+  builds a site at full pace (`skillPace` 1, and the founder always) tries Construct before Haul at the same priority
+  (`buildsFirst`, `BUILDER_JOBS` in people.ts). The less skilled haul first, as before. Haulers bring to the sites being
+  built first (`haulOrder`), so a builder isn't left waiting. Test: `test/haulers.test.ts`.
+
+## More life (the owner's "all of them in one big batch": sixteen atmosphere ideas)
+
+- **Memory in the town:** `sim/memorials.ts` (`memorialsHourly` from sim.ts), `data/memorials.ts`, `data/homeNames.ts`.
+  **Statues:** someone `famous` (`FAMOUS_FELLED` 12 raiders felled, `FAMOUS_LEVEL` 18, or `FAMOUS_TRIPS` 5) who dies
+  is honoured (`honour`, from `recordFallen` in annals.ts; up to `HONOURED_MOST`); at `STATUE_HOUR` (11) the town raises
+  a statue (the `statue` building, never built by the planner: `NEVER`) at `statueSpot` for `STATUE_STONE`, up to
+  `STATUES_MOST` (12); `sim/statues.ts` `deedsOf` tells their story on the tap card; drawn by `map/statueArt.ts` (a
+  plinth and the old statue, `art/memorial/`). **Ruins:** a building burnt, felled by a disaster or pulled down leaves
+  a ruin (`demolish(s, id, ruin)`; `sim/ruins.ts`: `RUIN_HOURS` burnt 72, felled 60, pulled 36, `RUINS_MOST` 24,
+  `ruinsHourly`, `ruinLine`), cleared when something is built over it; drawn by `map/mapRuins.ts`, tap kind `ruin`.
+  **Home names:** each home has a name (`nameHomes`, `Building.homeName`) on a sign by its door when zoomed in past
+  `SIGN_ZOOM` (0.95: `map/homeSigns.ts`). `window.__memory`. Tests: `test/memorials.test.ts`.
+- **The wide world** (renderer only; `map/wideWorld.ts`, `WideWorld`, plays `onHonk`/`onChime`; `window.__wide`):
+  **past the fog** (`map/horizonRules.ts`, `map/mapHorizon.ts`): the realm's towns that lie beyond the fog
+  (`settlementsSeen`, `fogEdge`, `HEARTH_BEYOND`) show campfires by night (`FIRES_BY_TIER`) and smoke by day
+  (`SMOKES_BY_TIER`), and a war host coming shows its torches (`hostTorches`, `HOST_FAR`). **Couriers**
+  (`map/mapCourier.ts`, `Couriers`): news worth riding for (`NEWS_PROMPTS`, `newsBetween`) gallops in from its way
+  (`newsBearing`, `GALLOP`) to the seat and waits (`WAIT_AT_SEAT`). **Eyes in the dark and wisps** (`map/airRules.ts`,
+  `map/mapEyes.ts`): pairs of eyes blink at the forest's edge by night and flee feet (`EYES_*`, `forestEdge`); wisps
+  over the graveyard (`WISPS_*`, more on the dead's land). **Geese** (`map/mapGeese.ts`, `art/geese.png` from DawnLike
+  by `tools/compose-geese.cjs`): a V (`vFormation`) crosses in spring and autumn (`geeseFly`, `GEESE_EVERY`) with
+  shadows and a honk. **Dust** (`map/mapDust.ts`): tumbleweeds and dust devils on dry lands (`dustWanted`).
+  **Vanes and chimes** (`map/mapVanes.ts`): weathervanes (`hasVane`, `vaneAngle` by `gustAt`) and wind chimes ringing
+  in gusts (`chimeRings`). **Sun shafts and dawn haze** (`map/mapSunShafts.ts`, `shaftsStrength`, `dawnHaze`, the
+  golden hours). Off on a slow phone. Tests: `test/wideWorld.test.ts`.
+- **Sound and feel:** `src/renderer/soundZones.ts` (pure): places heard by nearness to the view's middle and the zoom,
+  panned: the tavern's hubbub and fiddle, the market, hymns from the temple, the forge, workshops, herds; ambience.ts
+  plays them on buses of their own. **Vibration** (`src/renderer/vibration.ts`: a pattern per moment, `buzzesBetween`;
+  the page buzzes through the bridge, never while hidden; the ☰ menu's Vibration on/off, `littletown.vibrate`).
+  **The time away replayed:** `src/shared/replay.ts` and `GameLoop.sampler` keep a frame each game hour of the
+  catch-up; `replay/replayPlayer.ts` plays it sped up over the map before the report card, letterboxed with the day
+  count, tap to skip (`body.replay`). Tests: `test/soundZones.test.ts`, `test/vibration.test.ts`, `test/replay.test.ts`.
+- **Townsfolk with more inner life:** **Gossip** (`sim/gossip.ts`, `data/gossip.ts`): `readNews` turns the Journal's
+  milestones into news; `townGossip` keeps the last `GOSSIP_HOURS` (36), newest first, up to `GOSSIP_MOST` (6), as
+  `snapshot.gossip`; `GOSSIP_SHARE` (0.45) of fresh speech is news (`gossipNow` in speech.ts; never in a raid, dance,
+  mourning or protest), told with the nature's opener (`gossipLine`) and answered (`gossipReply`). **Today's diary**
+  (`sim/diary.ts`, `data/diary.ts`): `diaryTick` (autopilot on) counts each person's day on `Person.diary` every
+  `DIARY_EVERY` (a quarter hour): what they did and who was within `DIARY_NEAR` (3 cells); `writeDiary` (pure) writes it
+  in their nature's `VOICES` with their own lines in the first person (`firstPerson`), mood, wounds, grief, a raid, the
+  talk, the weather; `PersonView.diary`, the parchment on the People page's Background tab (`.diary-page`). **Rain:**
+  hoods up (`hooded`, `HkWho.hood`); grown-ups take the eaves of the nearest roof within `EAVES_REACH` (14) in a town of
+  `EAVES_PEOPLE` (3) (`eavesSpot`), children splash between puddles (`puddleSpot`). **Small scenes** (pastimes,
+  `pastimeActivity` in sim/pastimes.ts; rules `sim/idleScenes.ts`, looks `map/sceneMoments.ts`, drawn by
+  `map/mapScenes.ts`): tag (`tagIt`, `tagTarget`, `tagStep`), an elder feeding pigeons on a log 10 to 17 (`PIGEON_*`,
+  `benchSpot`, `MapBirds.feeders`), a couple on the riverbank at dusk 18 to 21, not in winter (`riverSpot`,
+  `RIVER_PLACES`, `RIVER_APART`), a busker of a merry nature 10 to 18 in a town of `BUSK_PEOPLE` (6) with DawnLike's
+  lyre or flute (`art/life/`, `instrumentOf`) and a soft `busk` cue near the view. Probe (8 towns, 14 days, eaves on
+  against off): ring pieces 448 against 471, one knights town down, the settlers up: the towns' courses drift apart,
+  no steady cost. Tests: `test/innerLife.test.ts`.
 
 ## The palisade's gate, and a sentry on it (the owner's asks)
 

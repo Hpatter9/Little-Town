@@ -52,6 +52,8 @@ import { reflectOf, waterBelow } from './reflections';
 import { castleClutter, clutterLoaded, flickerCastle, onClutterArt, type Flame } from './castleClutter';
 import { seatArt } from '../art/seatArt';
 import { seatPack } from './seatPacks';
+import { onStatueArt, statueArt } from './statueArt';
+import { STATUE } from '../../shared/data/memorials';
 import { SEAT_STAGE } from '../../shared/data/seats';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
@@ -366,6 +368,7 @@ export class MapView {
     loadFieldTiles().then(() => undefined, () => undefined);
     onFieldTiles(() => this.artGen++);
     onPackArt(() => this.artGen++);
+    onStatueArt(() => this.artGen++);
     onCastleArt(() => {
       if (this.castle) this.castle.key = '';
     });
@@ -907,6 +910,9 @@ export class MapView {
     // art/seatArt.ts, while its sprites load)
     const seat = SEAT_STAGE[b.def];
     if (seat) return seatPack(seat.origin, seat.stage, f.w) ?? seatArt(seat.origin, seat.stage, f.w, f.h, this.tone, this.toneKey);
+    // (a statue: the one it stands for, carved in stone on a plinth: map/statueArt.ts)
+    const statue = b.def === STATUE && b.status === 'done' ? statueArt(b.statue, f.w) : null;
+    if (statue) return statue;
     // (a pack picture where one suits the look: map/packBuildings.ts)
     // (else the top-down painter's: art/topDown.ts)
     return packArt(b.def, f.w, this.style, b.id, this.wallJoin(b), true) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
@@ -1551,6 +1557,12 @@ export class MapView {
         g.alpha = this.glowBase.get(g)! * now;
       }
     }
+  }
+
+  /** A building's picture as the map would draw it standing, by its kind and id (its ruin's shell: map/mapRuins.ts). */
+  artFor(def: string, id: number): PixelArt | null {
+    if (!BUILDING_BY_ID[def]) return null;
+    return this.art({ id, def, tile: 0, row: 0, status: 'done', delivered: {}, progress: 1, store: {} });
   }
 
   /** A finished building's picture as drawn (world px) and the top of its picture at its middle column: where a

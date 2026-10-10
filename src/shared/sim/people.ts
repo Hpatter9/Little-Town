@@ -28,7 +28,7 @@ import { nextPave, pave, paveReady, paveSeconds } from './streets';
 import { SHAFT } from '../data/deep';
 import { shaftHasWork } from './deep';
 import { guardEngages, roamerToHunt } from './roamers';
-import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
+import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared, buildableNow, deliveredShare } from './buildings';
 import { FEED_SECONDS } from '../data/lighting';
 import { feedLight, lightToFeed } from './lighting';
 import { roughSpot } from './roughSleep';
@@ -62,7 +62,8 @@ import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, 
 import { canWork, skillPace } from './property';
 import { isChild } from './social';
 import { childTask, lessonSpot } from './lineage';
-import { pastimeFor } from './pastimes';
+import { pastimeActivity, pastimeFor } from './pastimes';
+import { tagStep, TAG_RETARGET } from './idleScenes';
 
 /** Walking speed in world pixels per second. */
 export const WALK_SPEED = 48;
@@ -159,11 +160,16 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
   switch (task.type) {
     case 'wander':
       // (home with the well's bucket: set down, and the wait spent idle)
+      // (tag: the chase goes on, the way changing as the others run: sim/idleScenes.ts)
+      if (task.pastime === 'tag' && (s.tick + p.id) % TAG_RETARGET === 0) {
+        const to = tagStep(s, p);
+        if (to) [task.targetX, task.targetY] = [to.x, to.y];
+      }
       if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime === 'carry' ? undefined : task.pastime };
       break;
     case 'idle': {
       const pt = task.pastime;
-      p.activity = pt === 'market' ? 'stroll' : pt === 'well' ? 'draw' : pt === 'carry' || pt === 'rounds' || !pt ? 'idle' : pt;
+      p.activity = pastimeActivity(pt);
       if (s.tick >= task.untilTick) {
         p.task = null;
         // (the bucket wound up at the well, and carried home: sim/pastimes.ts)
@@ -236,6 +242,13 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       // (a steep curve by skill, and slower than it was: data/economy.ts)
       const speed = buildPower(p.skills.construction.level) * skillPace(s, p, site) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
       site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
+      // (no further than the makings brought: caught up, they put it down until more comes)
+      const share = deliveredShare(site);
+      if (share < 1 && site.progress >= share) {
+        site.progress = share;
+        p.task = null;
+        break;
+      }
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
       // (paid by the hour: by the treasury for its works, by the owner for theirs; an owner works for nothing)
       if (site.owner === undefined) accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
@@ -1164,9 +1177,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
   // Their own post first: the smith works the smithy's orders, the miner digs, the scholar studies at their desk.
   const own = ownWork(s, p, handsFull);
   if (own) return own;
-  // Jobs, by the person's priorities.
+  // Jobs, by the person's priorities. A builder up to the work keeps building and leaves the carrying to others:
+  // at the same priority, construct comes before haul for them (the unskilled haul first, as before).
+  const jobs = buildsFirst(s, p) ? BUILDER_JOBS : JOBS;
   for (const level of [1, 2, 3]) {
-    for (const job of JOBS) {
+    for (const job of jobs) {
       if (p.priorities[job] !== level || (handsFull && (job === 'haul' || job === 'gather' || job === 'craft'))) continue;
       const t = findJob(s, p, job);
       if (t) return t;
@@ -1184,20 +1199,27 @@ export function researchCanWait(s: GameState, p: Person): boolean {
   // (a handful of people lay the streets planned before they study: else nobody idles and they're never laid)
   if (grown <= SMALL_TOWN && !s.raid && paveReady(s)) return true;
   if (!sites.length) return false;
-  const ready = sites.some((b) => poolSize(stillNeeded(b)) === 0 || b.progress > 0);
+  const ready = sites.some((b) => buildableNow(b) || b.progress > 0);
   // (a handful of people: anything they could build or gather for comes first; a site waiting on what the land can't
   // give (a desert's fiber) doesn't keep them from their books)
   if (grown <= SMALL_TOWN) return ready || s.land.marked.length > 0;
   return ready && !s.people.some((q) => q !== p && q.task?.type === 'build');
 }
+/** The jobs in order for someone who'd rather build than carry. */
+const BUILDER_JOBS = ['construct', ...JOBS.filter((j) => j !== 'construct')] as const;
+/** Whether someone builds at full pace on a site with work for a builder now (the founder always does). */
+function buildsFirst(s: GameState, p: Person): boolean {
+  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1);
+}
+
 /** Up to this many grown-ups, building and gathering come before study. */
 const SMALL_TOWN = 3;
 
 function findJob(s: GameState, p: Person, job: Job): Task | null {
   switch (job) {
     case 'haul':
-      for (const b of s.buildings) {
-        if (!inWork(b)) continue;
+      // (a site with a builder at it, or walls going up, is carried to first, so the builder never stops for want)
+      for (const b of haulOrder(s)) {
         const need = unreserved(s, p, b);
         if (!poolSize(need)) continue;
         const from = nearestStorage(s, p, (st) => (Object.keys(need) as Material[]).some((m) => (st.store[m] ?? 0) > 0));
@@ -1215,7 +1237,7 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       }
       return null;
     case 'construct': {
-      const b = s.buildings.find((q) => inWork(q) && poolSize(stillNeeded(q)) === 0 && canWork(s, p, q));
+      const b = s.buildings.find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q));
       if (b) return { type: 'build', building: b.id };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
@@ -1296,6 +1318,15 @@ function findCraft(s: GameState, p: Person, station?: string): Task | null {
   return null;
 }
 
+/** Sites in work, those being built (someone at it, or begun) before the rest. */
+function haulOrder(s: GameState): Building[] {
+  const sites = s.buildings.filter(inWork);
+  const busy = new Set<number>();
+  for (const o of s.people) if (o.task?.type === 'build') busy.add(o.task.building);
+  const first = sites.filter((b) => busy.has(b.id) || b.progress > 0);
+  return first.length ? [...first, ...sites.filter((b) => !first.includes(b))] : sites;
+}
+
 /** What a blueprint still needs that nobody else is already fetching or carrying to it. */
 function unreserved(s: GameState, p: Person, b: Building): Stock {
   const need = stillNeeded(b);
@@ -1346,7 +1377,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
     case 'deliver':
       return !!site && inWork(site);
     case 'build':
-      return !!site && inWork(site) && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0 && canWork(s, p, site);
+      return !!site && inWork(site) && site.progress < deliveredShare(site) && p.priorities.construct !== 0 && canWork(s, p, site);
     case 'research':
       // (still their station: built, standing, and nobody else's)
       return (
