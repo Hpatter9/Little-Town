@@ -3918,3 +3918,20 @@ blocked by buildings, structures, trees and rocks)
   **The time away replayed:** `src/shared/replay.ts` and `GameLoop.sampler` keep a frame each game hour of the
   catch-up; `replay/replayPlayer.ts` plays it sped up over the map before the report card, letterboxed with the day
   count, tap to skip (`body.replay`). Tests: `test/soundZones.test.ts`, `test/vibration.test.ts`, `test/replay.test.ts`.
+- **Townsfolk with more inner life:** **Gossip** (`sim/gossip.ts`, `data/gossip.ts`): `readNews` turns the Journal's
+  milestones into news; `townGossip` keeps the last `GOSSIP_HOURS` (36), newest first, up to `GOSSIP_MOST` (6), as
+  `snapshot.gossip`; `GOSSIP_SHARE` (0.45) of fresh speech is news (`gossipNow` in speech.ts; never in a raid, dance,
+  mourning or protest), told with the nature's opener (`gossipLine`) and answered (`gossipReply`). **Today's diary**
+  (`sim/diary.ts`, `data/diary.ts`): `diaryTick` (autopilot on) counts each person's day on `Person.diary` every
+  `DIARY_EVERY` (a quarter hour): what they did and who was within `DIARY_NEAR` (3 cells); `writeDiary` (pure) writes it
+  in their nature's `VOICES` with their own lines in the first person (`firstPerson`), mood, wounds, grief, a raid, the
+  talk, the weather; `PersonView.diary`, the parchment on the People page's Background tab (`.diary-page`). **Rain:**
+  hoods up (`hooded`, `HkWho.hood`); grown-ups take the eaves of the nearest roof within `EAVES_REACH` (14) in a town of
+  `EAVES_PEOPLE` (3) (`eavesSpot`), children splash between puddles (`puddleSpot`). **Small scenes** (pastimes,
+  `pastimeActivity` in sim/pastimes.ts; rules `sim/idleScenes.ts`, looks `map/sceneMoments.ts`, drawn by
+  `map/mapScenes.ts`): tag (`tagIt`, `tagTarget`, `tagStep`), an elder feeding pigeons on a log 10 to 17 (`PIGEON_*`,
+  `benchSpot`, `MapBirds.feeders`), a couple on the riverbank at dusk 18 to 21, not in winter (`riverSpot`,
+  `RIVER_PLACES`, `RIVER_APART`), a busker of a merry nature 10 to 18 in a town of `BUSK_PEOPLE` (6) with DawnLike's
+  lyre or flute (`art/life/`, `instrumentOf`) and a soft `busk` cue near the view. Probe (8 towns, 14 days, eaves on
+  against off): ring pieces 448 against 471, one knights town down, the settlers up: the towns' courses drift apart,
+  no steady cost. Tests: `test/innerLife.test.ts`.
