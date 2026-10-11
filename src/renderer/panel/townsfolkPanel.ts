@@ -7,6 +7,7 @@ import { mapBeside, showOnMap } from './townOverview';
 import { hkDraw, hkLayers, hkWhoOf, onHkLoad } from '../art/hkFolk';
 import { pieceLabel, plusOf, qualityOf } from '../../shared/data/quality';
 import { ITEM_BY_ID, SLOT_NAMES, SLOTS, type Slot } from '../../shared/data/items';
+import { ORIGIN_DEFS, type OriginId } from '../../shared/data/origins';
 import { MATERIAL_NAMES } from '../../shared/data/materials';
 import { stockIcon } from '../art/materialIcons';
 import { CENTRE_X, FEET_Y, FRAME_SIZE, loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
@@ -99,6 +100,7 @@ let classOpen: number | null = null;
 
 /** High -> Normal -> Low -> Off -> High. */
 const NEXT: Record<Priority, Priority> = { 1: 2, 2: 3, 3: 0, 0: 1 };
+const ORIGIN_MARK: Record<OriginId, string> = { settlers: '●', lich: '☠', druid: '♣', vampire: '♜', werewolf: '🐺', robot: '⚙', dwarves: '⛏', merfolk: '≈', nomads: '⌂', fae: '✦', alchemists: '⚗', knights: '⚔', orcs: '◆' };
 
 export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => undefined): HTMLElement[] {
   startLpc(rerender);
@@ -174,7 +176,14 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   pic.append(face(p, s), el('span', 'folk-pts'), el('span', 'folk-evo'));
   row.append(pic);
   const mid = el('span', 'folk-mid');
-  mid.append(el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('span', 'folk-class'), el('span', 'folk-doing'));
+  const name = el('span', 'folk-name-line');
+  name.append(el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`));
+  const origin = p.origin ?? s.origin.id;
+  const race = el('span', 'folk-race', ORIGIN_MARK[origin]);
+  race.title = ORIGIN_DEFS[origin].name;
+  race.setAttribute('aria-label', ORIGIN_DEFS[origin].name);
+  name.append(race);
+  mid.append(name, el('span', 'folk-class'), el('span', 'folk-doing'));
   const right = el('span', 'folk-right');
   right.append(miniBar(p.hp / p.maxHp, 'hp'), miniBar(p.morale / 100, 'mood'), el('span', 'folk-flag'));
   row.append(mid, right, el('span', 'folk-go', '›'));

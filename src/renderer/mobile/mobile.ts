@@ -30,6 +30,26 @@ const MAX_ZOOM = 2.6;
 const bridge = mobileBridge();
 window.bridge = bridge;
 
+// Keep the town visible while its page is open on phones that support the Screen Wake Lock API. The browser releases
+// the lock when the page is hidden; ask for it again when the player returns.
+let screenWakeLock: WakeLockSentinel | null = null;
+async function keepScreenAwake(): Promise<void> {
+  if (document.visibilityState !== 'visible' || screenWakeLock || !('wakeLock' in navigator)) return;
+  try {
+    screenWakeLock = await navigator.wakeLock.request('screen');
+    screenWakeLock.addEventListener('release', () => {
+      screenWakeLock = null;
+    });
+  } catch {
+    // (unsupported browsers and system power settings may refuse the request)
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') void keepScreenAwake();
+  else screenWakeLock = null;
+});
+void keepScreenAwake();
+
 const $ = (id: string) => document.getElementById(id)!;
 const stripBox = $('strip-box');
 const sheet = $('sheet');
