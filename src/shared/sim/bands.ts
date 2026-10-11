@@ -304,7 +304,7 @@ export function answerRefugees(s: GameState, option: string, rng: Rng): void {
     let taken = 0;
     for (const t of members) {
       if (townFull(s)) break;
-      const p = makePerson(rng, s.nextId++, 'wanderer', { x: t.x, y: t.y }, s.people.map((q) => q.name));
+      const p = makePerson(rng, s.nextId++, 'wanderer', { x: t.x, y: t.y }, s.people.map((q) => q.name), t.origin ?? s.origin ?? 'settlers');
       p.name = t.name;
       p.look = t.look;
       p.dir = t.dir;

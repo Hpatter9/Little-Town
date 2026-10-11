@@ -87,7 +87,7 @@ const cheer = (s: GameState, n: number) => home(s).forEach((p) => (p.morale = Ma
 
 /** A new townsperson, raised or built or charmed, at the camp. */
 export function newcomer(s: GameState, rng: Rng, type: string, how: string): Person {
-  const p = makePerson(rng, s.nextId++, type, campXY(s), s.people.map((q) => q.name));
+  const p = makePerson(rng, s.nextId++, type, campXY(s), s.people.map((q) => q.name), originOf(s).id);
   s.people.push(p);
   joinOrigin(s, p, rng);
   notify(s, `${p.name} ${how}`, true);

@@ -72,7 +72,7 @@ export function offerToSettle(s: GameState, t: Traveller, rng: Rng, housingFree:
     return false;
   }
   const type = t.tier && t.tier >= 3 ? 'elder' : t.venue === 'tavern' ? 'wanderer' : 'crafter';
-  const person = makePerson(rng, s.nextId++, type, { x: t.x, y: t.y }, [...s.people.map((p) => p.name)]);
+  const person = makePerson(rng, s.nextId++, type, { x: t.x, y: t.y }, [...s.people.map((p) => p.name)], origin ?? s.origin ?? 'settlers');
   person.name = t.name;
   person.look = { ...t.look };
   if (origin) makeStranger(s, person, origin);

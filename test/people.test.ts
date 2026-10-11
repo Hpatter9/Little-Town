@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { TERRAIN } from '../src/shared/data/terrain';
+import { ALL_PERSON_NAMES, ORIGIN_NAMES } from '../src/shared/data/people';
+import { ORIGINS } from '../src/shared/data/origins';
+import { Rng } from '../src/shared/rng';
 import { WALK_SPEED } from '../src/shared/sim/people';
 import { Sim } from '../src/shared/sim/sim';
 import { cellPx, isWild, nearestWild, plainGame, poolOf } from './helpers';
 import { totalCapacity, totalStock } from '../src/shared/sim/buildings';
-import { campXY, CARRY_CAPACITY, dist, newGame, poolSize, type GameState } from '../src/shared/sim/state';
+import { campXY, CARRY_CAPACITY, dist, makePerson, newGame, poolSize, type GameState } from '../src/shared/sim/state';
 import { TICK_HZ } from '../src/shared/sim/time';
 import { cellAt, groundAt, isMarked, WILD } from '../src/shared/sim/land';
 
@@ -13,6 +16,26 @@ const main = (s: GameState) => s.people.find((p) => p.id === s.mainId)!;
 const run = (sim: Sim, seconds: number) => {
   for (let i = 0; i < seconds * TICK_HZ; i++) sim.step();
 };
+
+test('each origin has a distinct pool and together they offer over a thousand names', () => {
+  assert.ok(new Set(ALL_PERSON_NAMES).size >= 1000);
+  for (const origin of ORIGINS) {
+    assert.ok(ORIGIN_NAMES[origin].length >= 200, `${origin} has its own large pool`);
+    assert.equal(new Set(ORIGIN_NAMES[origin]).size, ORIGIN_NAMES[origin].length, `${origin} has no duplicates in its pool`);
+  }
+});
+
+test('a town uses its own name pool and avoids names already in use', () => {
+  const s = newGame('orcs-names', { origin: 'orcs' });
+  const used = s.people.map((p) => p.name);
+  for (let i = 0; i < 200; i++) {
+    const p = makePerson(new Rng(i + 1), s.nextId++, 'wanderer', campXY(s), used, 'orcs');
+    assert.equal(p.origin, 'orcs');
+    assert.ok(ORIGIN_NAMES.orcs.includes(p.name), `${p.name} is from the Orc Warband pool`);
+    assert.ok(!used.includes(p.name), `${p.name} has not been used in this town`);
+    used.push(p.name);
+  }
+});
 
 test('new game: one main character at camp, a little food, pools on wild cells only', () => {
   const s = newGame('start');
