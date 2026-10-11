@@ -149,7 +149,6 @@ export class Sim {
     const s = this.state;
     if (s.gameOver) {
       // the story is over; only a new game continues (but the report of how it ended can still be put away)
-      for (const c of this.pending) if (c.type === 'dismissAway') this.apply(c);
       this.pending = [];
       return;
     }
@@ -528,9 +527,6 @@ export class Sim {
         if (c.on) p.priorities = autoPriorities(p.skills, p.id === s.mainId);
         break;
       }
-      case 'dismissAway':
-        s.unreadAway = null;
-        break;
       case 'cheatUnlockAll':
         if (!s.ironman) s.cheats.unlockAll = c.on; // (no cheating in ironman)
         break;

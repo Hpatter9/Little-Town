@@ -69,8 +69,7 @@ import { hasInside } from '../shared/sim/interiors';
 import { createFightHud } from './fight/fightHud';
 import { applySeasonPalette } from './art/palette';
 import 'pixi.js/unsafe-eval'; // Pixi's shader code generation without eval(), required by our CSP
-import { Application, Graphics, Rectangle, TextureStyle } from 'pixi.js';
-import { frameDue, frameUrl, keepFrame, readTimelapse, SHOT_SIZE, townBox } from './timelapse';
+import { Application, Graphics, TextureStyle } from 'pixi.js';
 import { STRIP_HEIGHT } from '../shared/constants';
 import { BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../shared/data/buildings';
 import { eraReached } from '../shared/data/eras';
@@ -192,9 +191,7 @@ import { readLevel } from './volume';
 import { ambientMix, type AmbientMix } from './ambienceMix';
 import { quietZones, zoneMix, zoneSources, type ZoneMix } from './soundZones';
 import { BUZZ, buzzesBetween, collapsesBetween, type Buzz } from './vibration';
-import { createReplayPlayer, type ReplayPlayer } from './replay/replayPlayer';
-import type { ReplayFrame } from '../shared/replay';
-import { createActionBar, createAwayCard, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
+import { createActionBar, createBanner, createExpeditionHeader, createGameOver, createPersonCard, createPromptCard, createToasts, type Action } from './overlayUi';
 import { createTooltip } from './tooltip';
 import { ExpeditionPane } from './town/expeditionPane';
 import { SnowView } from './town/snowView';
@@ -562,14 +559,6 @@ async function start(): Promise<void> {
   const expHeader = createExpeditionHeader(() => bridge.openPanel('expeditions'));
   const promptCard = createPromptCard((prompt, option) => bridge.command({ type: 'answerPrompt', prompt, option }));
   const gameOver = createGameOver(() => bridge.openPanel('newgame'));
-  const dismissAway = () => bridge.command({ type: 'dismissAway' });
-  const awayCard = createAwayCard(
-    () => {
-      dismissAway();
-      bridge.openPanel('journal');
-    },
-    dismissAway,
-  );
 
   // (an origin's look reaches its buildings too)
   const hud = createHud(bridge); // (the buildings' style follows the snapshot: see applySnapshot)
@@ -613,11 +602,9 @@ async function start(): Promise<void> {
   /** The sounds by place where the view is (soundZones.ts): quiet while the map isn't on the screen. */
   let ambZones: ZoneMix = quietZones();
   Object.assign(window, { __zones: () => ambZones }); // (previews)
-  /** A replay of the time away playing (replay/replayPlayer.ts): no sounds, buzzes or cards from its frames. */
-  let replaying = false;
   /** The phone buzzes softly at the big moments (vibration.ts): the page does it, by its own setting. */
   const buzz = (k: Buzz) => {
-    if (!replaying && !snap?.catchingUp) bridge.vibrate?.(BUZZ[k]);
+    if (!snap?.catchingUp) bridge.vibrate?.(BUZZ[k]);
   };
   let wasRaid = false;
   const tip = createTooltip();
@@ -1450,16 +1437,12 @@ async function start(): Promise<void> {
 
   /* -------------------------------------------------------- sim snapshots */
 
-  // Each notice is shown once; ones from before this page loaded are skipped, and so are ones from a
-  // catch-up after the PC slept (the "while you were away" report covers those).
+  // Each notice is shown once; ones from before this page loaded are skipped.
   let lastNotice = first.notices.at(-1)?.id ?? 0;
-  let lastAway = first.away?.id ?? 0;
   const showNotices = (next: Snapshot) => {
-    const caughtUp = !!next.away && next.away.id > lastAway;
-    if (next.away) lastAway = Math.max(lastAway, next.away.id);
     // (upright on the phone the feed above the town shows the news: the strip pops up only what the feed leaves out)
     const feedShown = document.body.classList.contains('feed-shown');
-    if (!caughtUp) for (const n of next.notices) if (n.id > lastNotice && (!feedShown || CHATTER.test(n.text))) toasts.push(n.text);
+    if (next.catchingUp == null) for (const n of next.notices) if (n.id > lastNotice && (!feedShown || CHATTER.test(n.text))) toasts.push(n.text);
     lastNotice = Math.max(lastNotice, next.notices.at(-1)?.id ?? 0);
   };
 
@@ -1504,9 +1487,8 @@ async function start(): Promise<void> {
     cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || beyond || within || next.tactics || next.prompts.length));
     map.root.visible = !watched && !inMine && !below && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
-    if (!replaying) shootTown(next);
     // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
-    if (view.music && !view.hidden && !replaying) {
+    if (view.music && !view.hidden) {
       const heard = map.root.visible
         ? soundsBetween(snap, next, map.view)
         : [
@@ -1517,7 +1499,7 @@ async function start(): Promise<void> {
       for (const c of heard) ambience.cue(c.cue, c.pan, c.delay);
     }
     // (the big moments buzz the phone: the horn, a quake, a building coming down, which is heard too where it's seen)
-    if (next.catchingUp == null && !replaying) {
+    if (next.catchingUp == null) {
       for (const k of buzzesBetween(snap, next)) buzz(k);
       const mv = map.view;
       const fell = view.music && !view.hidden && map.root.visible ? collapsesBetween(snap, next).map((b) => buildingCentre(b)).find((c) => c.x >= mv.x && c.x <= mv.x + mv.w && c.y >= mv.y && c.y <= mv.y + mv.h) : undefined;
@@ -1642,7 +1624,7 @@ async function start(): Promise<void> {
       //  (only while the map is on the screen: not over a watched fight, the raid's board or a room looked into)
       const mapShown = map.root.visible;
       // (the town heard where it is: the tavern, the market, the hymns, the forge, the herds, by the view: soundZones.ts)
-      ambZones = mapShown && !replaying ? zoneMix(zoneSources(next), v) : quietZones();
+      ambZones = mapShown ? zoneMix(zoneSources(next), v) : quietZones();
       if (mapShown) for (const c of workSounds(next, v)) ambience.cue(c.cue, c.pan, c.delay);
       if (mapShown && water.count > 0 && Math.random() < 0.012) ambience.cue('quack', Math.random() * 1.2 - 0.6);
       // (boots crunching in the snow, feet sucking in the mud: a few of the steps laid, panned by where they fell)
@@ -1683,16 +1665,6 @@ async function start(): Promise<void> {
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
     if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
-    // (a question that needs an answer goes first; the report waits behind it)
-    if (next.away && !q && view.mode === 'full')
-      awayCard.show(next.away, (h) => {
-        // the report card's pictures: the townsperson, or the building, in the town's own style
-        const who = h.person != null ? next.people.find((p) => p.id === h.person) : undefined;
-        if (who) return personPicture(who);
-        if (h.building && BUILDING_BY_ID[h.building]) return textureCanvas(cardArt(h.building).texture, 96, 64);
-        return null;
-      });
-    else awayCard.hide();
     if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won);
     // a boss roars or sweeps: the strip shakes (only for fresh moments, not ones from before a reload)
     if (next.bossShake !== lastShake) {
@@ -1723,7 +1695,7 @@ async function start(): Promise<void> {
     chores.sync({ buildings: next.buildings, people: next.people, tick: next.tick, era: next.era, weather: next.weather.kind, season: next.calendar.season, daylight: next.calendar.daylight, landW: next.land.w });
     gainsView.add(gained, finished, map.calm);
     for (const f of finished) people.cheer(f.builders, performance.now());
-    if (view.music && finished.length && !replaying) {
+    if (view.music && finished.length) {
       const f = finished[0];
       const mv = map.view;
       if (f.x >= mv.x && f.x <= mv.x + mv.w && f.y >= mv.y && f.y <= mv.y + mv.h) ambience.cue('built', ((f.x - mv.x) / Math.max(1, mv.w)) * 1.6 - 0.8);
@@ -1860,123 +1832,8 @@ async function start(): Promise<void> {
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
   };
-  // The town's timelapse (renderer/timelapse.ts): at noon each day, a small picture of the map round its buildings,
-  // drawn with the culling lifted for the moment (the camera put over the town and back), kept on the device.
-  let shotTried = -1;
-  function shootTown(next: Snapshot): void {
-    if (next.calendar.hour < 12 || shotTried === next.calendar.day || next.raid || next.battle || next.tactics || !map.root.visible) return;
-    shotTried = next.calendar.day;
-    if (!frameDue(readTimelapse(), next.seed, next.calendar.day, next.calendar.hour)) return;
-    const boxes = next.buildings.filter((b) => b.status === 'done').map((b) => {
-      const r = footprintOf(b);
-      return { x: r.x * CELL, y: r.y * CELL, w: r.w * CELL, h: r.h * CELL };
-    });
-    const box = townBox(boxes, { x: (next.land.camp.x + 0.5) * CELL, y: (next.land.camp.y + 0.5) * CELL }, CELL);
-    const v = map.view;
-    try {
-      map.setCamera(box.x, box.y, box.w, box.h);
-      const c = app.renderer.extract.canvas({ target: map.world, frame: new Rectangle(box.x, box.y, box.w, box.h), resolution: Math.min(1, (SHOT_SIZE * 2) / box.w) }) as HTMLCanvasElement;
-      keepFrame(next.seed, { day: next.calendar.day, era: next.era, people: next.people.length, url: frameUrl(c) });
-    } catch (e) {
-      console.warn('timelapse', e); // (a picture missed is no matter)
-    } finally {
-      map.setCamera(v.x, v.y, v.w, v.h);
-    }
-  }
-  Object.assign(window, { __shootTown: () => ((shotTried = -1), snap && shootTown(snap)) });
-
-
-  // The time away replayed, sped up, before the report card (replay/replayPlayer.ts, shared/replay.ts): while the
-  // catch-up runs the town is veiled; at its end the page hands over the frames it kept, and they play through
-  // `applySnapshot` as light snapshots (the town as it is now, with the frame's clock, weather and buildings, and
-  // nobody about); the live snapshots wait meanwhile, and the latest is shown when it's done.
-  let replayBase: Snapshot = first;
-  let held: Snapshot | null = null;
-  const frameSnap = (f: ReplayFrame): Snapshot => ({
-    ...replayBase,
-    tick: f.tick,
-    calendar: f.calendar,
-    weather: f.weather,
-    buildings: f.buildings,
-    villageBuildings: f.villageBuildings,
-    castle: f.castle,
-    era: f.era,
-    people: [],
-    travellers: [],
-    visitor: null,
-    envoyRider: null,
-    raid: null,
-    battle: null,
-    tactics: null,
-    watch: null,
-    mine: null,
-    deepView: null,
-    portalView: null,
-    interior: null,
-    scene: null,
-    prompts: [],
-    away: null,
-    roamers: [],
-    spells: [],
-    fx: [],
-    gathering: null,
-    wagons: [],
-    disaster: null,
-    blood: [],
-    debris: [],
-    workingAt: [],
-    market: null,
-    catchingUp: undefined,
-  });
-  const replayer = createReplayPlayer(document.body, {
-    apply: (f) => applySnapshot(frameSnap(f)),
-    light: (d, hour) => {
-      map.setDaylight(d, false);
-      lightDaylight = d;
-      map.setSun(hour, d);
-      lamps.setDaylight(d);
-    },
-    done: () => {
-      const now = held ?? replayBase;
-      held = null;
-      snap = now; // (nothing "new" since the last frame: no flurry of gains or cheers)
-      applySnapshot(now);
-    },
-    shown: (on) => {
-      replaying = on;
-      bridge.replayShown?.(on);
-    },
-  });
-  (window as unknown as { __replay?: ReplayPlayer }).__replay = replayer; // (previews)
-  let wasCatching = first.catchingUp != null;
-  const startReplay = (n: Snapshot): boolean => {
-    const r = bridge.takeReplay?.();
-    if (!r) return false;
-    replayBase = n;
-    held = null;
-    select(null);
-    selectPerson(null);
-    replayer.start(r, performance.now());
-    return true;
-  };
-  bridge.onSnapshot((n) => {
-    if (replayer.playing) {
-      held = n;
-      return;
-    }
-    if (n.catchingUp != null) {
-      wasCatching = true;
-      replayer.veil(n.catchingUp);
-    } else if (wasCatching) {
-      wasCatching = false;
-      replayer.veil(null);
-      if (startReplay(n)) return;
-    }
-    applySnapshot(n);
-  });
+  bridge.onSnapshot(applySnapshot);
   applySnapshot(first);
-  if (first.catchingUp != null) replayer.veil(first.catchingUp);
-  else startReplay(first); // (the page caught up before the strip had loaded)
 
   /* -------------------------------------------------------- frame loop */
 
@@ -1990,7 +1847,6 @@ async function start(): Promise<void> {
     __zoomAbout: (mx: number, my: number, from: number, to: number) => camera.shift((mx - viewW / 2) * (1 - from / to), (my - viewH / 2) * (1 - from / to)),
   });
   app.ticker.add((ticker) => {
-    replayer.tick(performance.now());
     const w = layoutSplit(); // the town's share of the width
     // zoomed (the strip got wider or narrower): keep the middle of the view where it was
     const h = app.screen.height;
@@ -2120,7 +1976,7 @@ async function start(): Promise<void> {
 
 start().catch((err) => console.error('strip failed to start', err));
 
-/** A townsperson's picture for the feed, the event box and the report card: as the map draws them, in their Himeko
+/** A townsperson's picture for the feed and event box: as the map draws them, in their Himeko
  *  look (art/hkFolk.ts), standing facing us. Until the layers load it holds their old look, and is painted over in
  *  place when they come (the cards keep the canvas they were given). */
 function personPicture(who: PersonView): HTMLCanvasElement {
