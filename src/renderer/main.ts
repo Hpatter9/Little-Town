@@ -568,6 +568,7 @@ async function start(): Promise<void> {
       raid: n.raid?.phase === 'active',
       boss: !!n.bossBar,
       fight: !!n.tactics || !!n.watch?.battle,
+      victory: n.expeditions.some((e) => e.result?.outcome === 'won' && e.result.age < 80),
       daylight: n.calendar.daylight,
       season: n.calendar.season,
       theme: n.theme,
