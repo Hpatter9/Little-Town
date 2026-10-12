@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.61.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.62.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4083,3 +4083,7 @@ blocked by buildings, structures, trees and rocks)
 ## The townsfolk name their settlement (0.61.0; the owner's ask)
 - **A vote on day 15:** `sim/settlementName.ts` builds ballot names from the biome, origin and recent town events. Each resident casts a seeded vote; the winning name is saved in `GameState.townName` and shown in the phone title and desktop ticker. Old saves keep their origin name until the vote. The vote is deterministic across saves.
 - Version: 0.61.0.
+
+## One coordinated wall project (0.62.0; the owner's ask)
+- **The wall builds as one project:** `sim/ringWall.ts` releases every cleared section into work together and gathers materials for the whole planned ring. The cell pieces remain separate internally for pathing, combat damage and joined wall art. The old ring still stays until every section of the new ring is complete.
+- Version: 0.62.0.
