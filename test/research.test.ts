@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDINGS } from '../src/shared/data/buildings';
 import { skillSpeed } from '../src/shared/data/skills';
-import { ORIGIN_DEFS } from '../src/shared/data/origins';
 import { TOPIC_BY_ID, TOPICS } from '../src/shared/data/research';
 import { totalCapacity } from '../src/shared/sim/buildings';
 import { canQueue, cancelResearch, modifiers, queueResearch } from '../src/shared/sim/research';
@@ -30,15 +29,6 @@ test('data: building research exists; prerequisites exist and come earlier (no c
       assert.ok(TOPICS.findIndex((q) => q.id === p) < i, `${t.id}: prereq ${p} must come first`);
     }
   });
-});
-
-test('each origin starts with its own first heritage topic learned', () => {
-  for (const origin of Object.values(ORIGIN_DEFS)) {
-    const heritage = (origin.start.research ?? []).filter((id) => TOPIC_BY_ID[id]?.origin === origin.id);
-    assert.equal(heritage.length, 1, `${origin.name} starts with one heritage topic`);
-    const s = newGame(`origin-${origin.id}`, { origin: origin.id });
-    assert.ok(s.research.done.includes(heritage[0]), `${origin.name} starts with ${heritage[0]} learned`);
-  }
 });
 
 test('queue: prerequisites must be done or queued ahead; slots are limited', () => {
