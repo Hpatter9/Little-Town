@@ -131,7 +131,8 @@ export function scheduleNextRaid(s: GameState, rng: Rng): void {
   const days = paceDay(s.tick);
   const hours = Math.max(RAID_INTERVAL_MIN, RAID_INTERVAL_HOURS - days * 0.5) + rng.range(-RAID_INTERVAL_JITTER, RAID_INTERVAL_JITTER);
   // like everything else, the gaps between raids stretch with the era
-  s.nextRaidTick = s.tick + Math.round(Math.max(RAID_INTERVAL_MIN, hours) * ERA_MULTIPLIER[s.era] * difficultyOf(s).raidGap * TICKS_PER_HOUR);
+  const scaledHours = Math.round(Math.max(RAID_INTERVAL_MIN, hours) * ERA_MULTIPLIER[s.era] * difficultyOf(s).raidGap);
+  s.nextRaidTick = s.tick + Math.max(RAID_INTERVAL_MIN, scaledHours) * TICKS_PER_HOUR;
 }
 
 /** Stock units plus 5 per finished building: what makes a town worth raiding. */
