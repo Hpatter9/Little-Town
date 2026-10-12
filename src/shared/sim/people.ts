@@ -236,7 +236,10 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     }
     case 'build': {
       const site = byId(s, task.building)!;
-      if (!goToB(s, p, site)) break;
+      const spot = buildSpot(s, p, site);
+      if (!spot) { p.task = null; break; }
+      task.spot = spot;
+      if (!goTo(s, p, spot, footprint(site))) break;
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
       // (a steep curve by skill, and slower than it was: data/economy.ts)
@@ -1207,9 +1210,30 @@ export function researchCanWait(s: GameState, p: Person): boolean {
 }
 /** The jobs in order for someone who'd rather build than carry. */
 const BUILDER_JOBS = ['construct', ...JOBS.filter((j) => j !== 'construct')] as const;
+/** Reachable cells around a construction footprint; each can hold one builder at a time. */
+function buildSpots(s: GameState, p: Person, b: Building): Pt[] {
+  const r = footprint(b), cells: Pt[] = [];
+  for (let x = r.x; x < r.x + r.w; x++) cells.push({ x, y: r.y - 1 }, { x, y: r.y + r.h });
+  for (let y = r.y; y < r.y + r.h; y++) cells.push({ x: r.x - 1, y }, { x: r.x + r.w, y });
+  const open = (cell: Pt) => {
+    if (!inMap(s.land, cell.x, cell.y) || (wet(s.land, cell.x, cell.y) && !swims(s, p))) return false;
+    return !s.buildings.some((other) => {
+      if (other.id === b.id) return false;
+      const q = footprint(other);
+      return cell.x >= q.x && cell.x < q.x + q.w && cell.y >= q.y && cell.y < q.y + q.h;
+    });
+  };
+  return cells.filter(open).map((cell) => ({ x: (cell.x + 0.5) * CELL, y: (cell.y + 0.5) * CELL }));
+}
+function buildSpot(s: GameState, p: Person, b: Building): Pt | undefined {
+  const occupied = new Set(s.people.filter((q) => q.id !== p.id && q.task?.type === 'build' && q.task.building === b.id && q.task.spot)
+    .map((q) => { const task = q.task as Extract<Task, { type: 'build' }>; return `${task.spot!.x},${task.spot!.y}`; }));
+  if (p.task?.type === 'build' && p.task.building === b.id && p.task.spot && !occupied.has(`${p.task.spot.x},${p.task.spot.y}`)) return p.task.spot;
+  return buildSpots(s, p, b).find((spot) => !occupied.has(`${spot.x},${spot.y}`));
+}
 /** Whether someone builds at full pace on a site with work for a builder now (the founder always does). */
 function buildsFirst(s: GameState, p: Person): boolean {
-  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1);
+  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && buildSpot(s, p, b) && skillPace(s, p, b) >= 1);
 }
 
 /** Up to this many grown-ups, building and gathering come before study. */
@@ -1237,8 +1261,8 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       }
       return null;
     case 'construct': {
-      const b = s.buildings.find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q));
-      if (b) return { type: 'build', building: b.id };
+      const b = s.buildings.find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q));
+      if (b) return { type: 'build', building: b.id, spot: buildSpot(s, p, b) };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
     }

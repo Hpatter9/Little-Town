@@ -4101,3 +4101,11 @@ blocked by buildings, structures, trees and rocks)
 ## Origin signatures at the start (0.65.0; the owner's ask)
 - **A distinct first study for every origin:** each town starts with its first origin-only heritage topic already learned. This makes its heritage lane visible as a learned starting point and applies its small matching bonus from the first day. The New Town feature list names the starting tradition (data/origins.ts); the six-step origin lines remain in data/research.ts.
 - Version: 0.65.0.
+
+## Origin honours, wall silhouettes, and construction crews (0.66.0; the owner's asks)
+- **Plague is rarer:** the disaster weight is lowered while the existing warning, spread, and treatment rules remain in place (`data/doom.ts`).
+- **Names earned by deeds:** residents earn a first and higher title for kills or expedition service; each origin has its own title names, and saved titles remain optional for older towns (`sim/annals.ts`).
+- **Origin-shaped walls:** each origin's palisade gains a distinct crest and construction pattern in the town view (`renderer/art/originStyles.ts`).
+- **Victory music:** a successful expedition fight switches briefly to its own triumphant score before the town's regular mood resumes (`renderer/musicMood.ts`, `musicScore.ts`).
+- **Builders need room at the site:** workers claim separate open cells beside a blueprint; the available crew size follows the footprint, with larger buildings offering more spaces (`sim/people.ts`, `sim/state.ts`).
+- Version: 0.66.0.
