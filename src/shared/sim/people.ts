@@ -1216,7 +1216,7 @@ function buildSpots(s: GameState, p: Person, b: Building): Pt[] {
   for (let x = r.x; x < r.x + r.w; x++) cells.push({ x, y: r.y - 1 }, { x, y: r.y + r.h });
   for (let y = r.y; y < r.y + r.h; y++) cells.push({ x: r.x - 1, y }, { x: r.x + r.w, y });
   const open = (cell: Pt) => {
-    if (!inMap(s.land, cell.x, cell.y) || (wet(s.land, cell.x, cell.y) && !swims(s, p))) return false;
+    if (!inMap(s.land, cell.x, cell.y) || (wet(groundAt(s.land, cell.x, cell.y)) && !swims(s, p))) return false;
     return !s.buildings.some((other) => {
       if (other.id === b.id) return false;
       const q = footprint(other);
