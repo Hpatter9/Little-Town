@@ -657,6 +657,27 @@ const wall: Record<Style, (p: Painter, w: number, h: number, strong: boolean, ga
   },
 };
 
+/** Origin-specific rooflines make defensive walls identifiable from the town view. */
+function wallCrest(p: Painter, st: Style, w: number, strong: boolean): void {
+  const step = strong ? 18 : 12;
+  switch (st) {
+    case 'lich': for (let x = 3; x < w; x += step) { bone(p, x, 0, 12); if (x + 5 < w) skull(p, x + 1, 0); } break;
+    case 'druid': for (let x = 4; x < w; x += 9) { p.ellipse(x, 5, 6, 5, '#2e5a28'); p.ellipse(x - 1, 4, 4, 3, '#4a8a3a'); } break;
+    case 'vampire': for (let x = 4; x < w - 5; x += step) { p.rect(x, 0, 8, 12, '#3e3040'); p.rect(x + 1, 0, 6, 2, '#8a7a8a'); p.rect(x + 3, 2, 2, 5, '#1e1622'); } break;
+    case 'werewolf': for (let x = 2; x < w; x += 7) { const top = (x % 3) * 2; p.rect(x, top, 3, 12 - top, '#5a3a22'); p.rect(x + 1, Math.max(0, top - 2), 1, 2, '#c8b890'); } break;
+    case 'robot': for (const x of [3, Math.max(3, w - 9)]) { p.rect(x, 0, 6, 13, '#6a7684'); p.rect(x + 2, 0, 2, 3, '#80e0ff'); p.rect(x + 3, 0, 1, 4, '#d0f8ff'); } break;
+    case 'dwarves': for (let x = 0; x < w; x += 12) { p.rect(x, 0, 8, 7, '#6a625a'); p.rect(x + 2, 1, 4, 2, '#a89888'); } break;
+    case 'merfolk': for (let x = 0; x < w; x += 8) p.rect(x, 3 + ((x / 8) % 2) * 3, 4, 9, (x / 8) % 2 ? '#e88a7a' : '#a08a70'); break;
+    case 'nomads': for (let x = 3; x < w - 4; x += step) for (let y = 0; y < 8; y++) p.rect(x + Math.abs(4 - y), y, Math.max(1, 8 - Math.abs(4 - y) * 2), 1, '#b83a2a'); break;
+    case 'fae': for (let x = 0; x < w; x += 6) { const top = (x % 4) * 2; p.rect(x, top, 2, 12 - top, '#4a3048'); p.px(x + 1, Math.max(0, top - 1), '#a0e080'); } break;
+    case 'alchemists': for (let x = 5; x < w; x += step) { p.rect(x, 0, 2, 12, '#b08040'); p.disc(x + 1, 2, 3, '#80f060'); } break;
+    case 'knights': for (let x = 1; x < w; x += 12) { p.rect(x, 0, 7, 9, '#8a8a90'); p.rect(x + 2, 1, 3, 2, '#e8c040'); } break;
+    case 'orcs': for (let x = 1; x < w; x += 7) { const top = (x % 3) * 2; p.rect(x, top, 3, 12 - top, '#6a6058'); p.rect(x + 1, Math.max(0, top - 2), 1, 2, '#c8b890'); } break;
+  }
+}
+
+
+
 /* ------------------------------------------------------------ dressing for everything else */
 
 /** The first opaque row in a column (the building's roofline), or -1. */
@@ -821,7 +842,7 @@ export function styled(style: string, defId: string): { h?: number; draw?: Draw;
   const hi = homeSize(defId);
   if (hi >= 0) return { h: HOME_H[hi], draw: (p, w, h) => home[st](p, w, h, hi) };
   const wi = WALLS.indexOf(defId as (typeof WALLS)[number]);
-  if (wi >= 0) return { h: WALL_H[wi], draw: (p, w, h) => wall[st](p, w, h, wi === 1, false) };
+  if (wi >= 0) return { h: WALL_H[wi], draw: (p, w, h) => { wall[st](p, w, h, wi === 1, false); wallCrest(p, st, w, wi === 1); } };
   const gi = GATES.indexOf(defId as (typeof GATES)[number]);
   if (gi >= 0) return { h: GATE_H[gi], draw: (p, w, h) => wall[st](p, w, h, gi === 1, true) };
   if (UNDRESSED.has(defId)) return null;
