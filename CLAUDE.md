@@ -1151,6 +1151,8 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
       reference. The people view (`Drawn.face`) faces someone up or down the map when that's mostly how they moved
       last, and keeps it while they stand; never when mounted or fighting. Travellers are drawn by the same view, and
       raiders' LPC sprites face the same way in mapRaiders.ts.
+    - **Riding in town:** `mapPeople.ts` holds a mounted rider in a still saddle pose while the horse takes the walk
+      cycle; a cached lower-leg crop of each horse frame draws over the rider's legs, seating them into the horse.
     - **Deaths pass (done):** the "deaths run low" watch item was mostly a counting bug (above). A soak must count journal
       entries by identity (a `WeakSet` of the entry objects seen, scanning `s.journal` each tick), never by its length,
       since the journal is capped. Counted that way (4 towns per origin, 15 days, people/deaths): settlers 26.8/20 (15

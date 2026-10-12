@@ -66,7 +66,8 @@ const EMOTE_EVERY = 11;
 const EMOTE_FOR = 3;
 const PILLAR_SCALE = 2;
 const HORSE_SCALE = 0.85;
-const SADDLE_LIFT = 16;
+const SADDLE_LIFT = 21;
+const HORSE_LEG_CUT = 0.38;
 const BLEED_MINUTES = 120;
 const CHILD_SCALE = 0.7;
 /** A Himeko figure drawn as tall as the side-on townsfolk were (about 48px). */
@@ -156,6 +157,7 @@ interface Drawn {
   sprite: Sprite;
   shadow: Sprite;
   horse: Sprite;
+  horseFront: Sprite;
   load: Graphics;
   /** The wheelbarrow pushed with a heavy load (map/haul.ts), and its heap's key. */
   barrow?: Container;
@@ -318,13 +320,16 @@ export class MapPeople {
         const horse = this.layer.addChild(new Sprite());
         horse.scale.set(HORSE_SCALE);
         horse.visible = false;
+        const horseFront = this.layer.addChild(new Sprite());
+        horseFront.scale.set(HORSE_SCALE);
+        horseFront.visible = false;
         const sprite = this.layer.addChild(new Sprite());
         sprite.anchor.set(CENTRE_X / FRAME_SIZE, FEET_Y / FRAME_SIZE);
         const bubble = this.layer.addChild(questionBubble());
         const spray = this.layer.addChild(new Sprite());
         spray.anchor.set(0.5, 0.5);
         spray.visible = false;
-        d = { view: p, visitor: isVisitor, sprite, shadow, horse, load, bubble, spray, from: { x: p.x, y: p.y }, to: { x: p.x, y: p.y }, at: now, x: p.x, y: p.y, walked: 0, animStart: now, lastActivity: p.activity, face: null };
+        d = { view: p, visitor: isVisitor, sprite, shadow, horse, horseFront, load, bubble, spray, from: { x: p.x, y: p.y }, to: { x: p.x, y: p.y }, at: now, x: p.x, y: p.y, walked: 0, animStart: now, lastActivity: p.activity, face: null };
         this.drawn.set(p.id, d);
       }
       if (d.stillSince === undefined || Math.abs(p.x - d.to.x) >= 0.5 || Math.abs(p.y - d.to.y) >= 0.5) d.stillSince = now;
@@ -353,7 +358,7 @@ export class MapPeople {
     }
     for (const [id, d] of this.drawn)
       if (!seen.has(id)) {
-        for (const o of [d.cough, d.sprite, d.shadow, d.horse, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
+        for (const o of [d.cough, d.sprite, d.shadow, d.horse, d.horseFront, d.load, d.bubble, d.spray, d.barrow, d.pail, d.reflect, d.kite, d.props, d.blood, d.emote, d.levelUp, d.aura, d.lamp, d.tail, d.speech, d.marks, d.work, d.hpBar]) o?.destroy();
         this.drawn.delete(id);
       }
   }
@@ -619,6 +624,9 @@ export class MapPeople {
       y += off.y;
       const hidden = d.view.indoors;
       const moving = Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) > 0.5;
+      const mounted = d.view.mounted !== null;
+      // The horse carries the movement; the rider holds still in the saddle.
+      const riderMoving = moving && !mounted;
       // (their small moments: a habit, the walk home, a stretch, the watch, the snow: map/townLife.ts)
       const moment = hidden ? null : this.moment(d, now, moving, x - off.x, y - off.y);
       if (moment?.dx) x += moment.dx;
@@ -638,6 +646,7 @@ export class MapPeople {
         const fp = fightPose({ sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, down: v.downed !== null }, fightAnim(v.gear, v.battle.ranged));
         if (v.activity === 'fight' || fp[0] !== 'walk') [anim, frame] = fp;
       }
+      if (mounted && !fighting) [anim, frame] = ['walk', 0];
       const [look, wear] = this.dressed(d.view);
       const s = d.sprite;
       // which way they face: up or down the map when that's mostly how they're moving, else the side they look to
@@ -661,9 +670,9 @@ export class MapPeople {
       const glow = d.view.rally === 'on' ? (Math.sin(now / 90) > 0 ? 0xffe070 : 0xffc040) : null;
       s.tint = glow ?? (d.view.monster === 'undead' ? 0xb0c8a8 : d.view.monster === 'vampire' ? 0xe8e0f0 : 0xffffff);
       // (hurt legs: a hitch in the walk)
-      if (moving) s.y += limpDip(v.body.moving, d.walked);
+      if (riderMoving) s.y += limpDip(v.body.moving, d.walked);
       // at a gathering: dancing to the beat (a feast) or still with grief (a funeral): map/dance.ts
-      const step = hidden ? null : v.activity === 'dance' ? danceStep(v.id, now, moving) : v.activity === 'mourn' ? mournStep(v.id) : v.activity === 'pray' ? prayStep(v.id) : (moment?.step ?? null);
+      const step = hidden || mounted ? null : v.activity === 'dance' ? danceStep(v.id, now, moving) : v.activity === 'mourn' ? mournStep(v.id) : v.activity === 'pray' ? prayStep(v.id) : (moment?.step ?? null);
       const facing = step?.facing === 'left' || step?.facing === 'right' ? step.facing : d.view.dir < 0 ? 'left' : 'right';
       // (the side-on townsperson's sprite, which their harm is drawn over; a hero, wolf or class form isn't)
       let plain = true;
@@ -676,7 +685,7 @@ export class MapPeople {
       const inCombat = v.defending || v.activity === 'fight' || v.sinceBlow < HERO_LINGER || v.sinceHit < HERO_LINGER;
       if (hero && inCombat && !hidden && !founder && !(v.cls && CLASS_LOOK[v.cls])) {
         plain = false;
-        s.texture = heroFrame(hero, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
+        s.texture = heroFrame(hero, { facing, moving: riderMoving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
         const hk = heroScale(hero) * k;
         s.anchor.set(0.5, 1);
         s.scale.set(hk * creatureFlip(hero, facing), hk);
@@ -688,7 +697,7 @@ export class MapPeople {
         const working = WORK_SWING.has(v.activity);
         const swing = working ? Math.floor((now / 100) % 14) : 999;
         plain = false;
-        s.texture = heroFrame(sheet, { facing, moving, walked: d.walked, sinceBlow: inCombat ? v.sinceBlow : swing, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
+        s.texture = heroFrame(sheet, { facing, moving: riderMoving, walked: d.walked, sinceBlow: inCombat ? v.sinceBlow : swing, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
         const hk = heroScale(sheet) * k;
         s.anchor.set(0.5, 1);
         s.scale.set(hk * creatureFlip(sheet, facing), hk);
@@ -697,7 +706,7 @@ export class MapPeople {
       if (d.view.cls && CLASS_LOOK[d.view.cls] && !hidden && !founder) {
         const [sheet, block] = CLASS_LOOK[d.view.cls]!;
         plain = false;
-        s.texture = creatureFrame(sheet, block, facing, moving ? Math.floor(d.walked / 5) : 1);
+        s.texture = creatureFrame(sheet, block, facing, riderMoving ? Math.floor(d.walked / 5) : 1);
         const size = creatureSize(sheet);
         s.anchor.set(0.5, 1);
         s.scale.set(2 * k, 2 * k);
@@ -707,8 +716,8 @@ export class MapPeople {
       // round; it takes over from the side-on sprite, the hero forms and the class looks (the hero sheets are kept for
       // bosses and special strangers). Until their layers have loaded, the old look stands in.
       // (a fight's look adds the weapon: until its layer loads, the look without it, else the last frame drawn)
-      let hkTex = hidden ? null : this.hkTexture(d, now, inCombat, moving, step);
-      if (!hkTex && !hidden && inCombat) hkTex = this.hkTexture(d, now, false, moving);
+      let hkTex = hidden ? null : this.hkTexture(d, now, inCombat, riderMoving, step);
+      if (!hkTex && !hidden && inCombat) hkTex = this.hkTexture(d, now, false, riderMoving);
       if (hkTex) d.hkLast = hkTex;
       else if (!hidden && d.hkLast) hkTex = d.hkLast;
       if (hkTex) {
@@ -723,7 +732,7 @@ export class MapPeople {
         // (the Craftpix werewolves: black, red or white by who they are)
         const wolf = WOLF_FORMS[v.id % WOLF_FORMS.length];
         plain = false;
-        s.texture = heroFrame(wolf, { facing, moving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
+        s.texture = heroFrame(wolf, { facing, moving: riderMoving, walked: d.walked, sinceBlow: v.sinceBlow, sinceHit: v.sinceHit, sinceBlock: v.sinceBlock, down: v.downed !== null, now, ref: v.id });
         const wk = heroScale(wolf) * k * WOLF_SCALE;
         s.anchor.set(0.5, 1);
         s.scale.set(wk * creatureFlip(wolf, facing), wk);
@@ -734,7 +743,7 @@ export class MapPeople {
         const b = v.beast;
         const sheet = b.sheet as CreatureSheet;
         plain = false;
-        s.texture = creatureFrame(sheet, b.block, facing, moving ? Math.floor(d.walked / 5) : Math.floor(now / 220 + v.id) % 3);
+        s.texture = creatureFrame(sheet, b.block, facing, riderMoving ? Math.floor(d.walked / 5) : Math.floor(now / 220 + v.id) % 3);
         s.anchor.set(0.5, 1);
         s.scale.set(b.scale * k * creatureFlip(sheet, facing), b.scale * k);
       }
@@ -757,7 +766,7 @@ export class MapPeople {
         void TAIL_H;
       } else if (d.tail) d.tail.visible = false;
       // (a hop for joy: a building finished)
-      if (!swimming && !moving && !fighting && this.cheering(v.id, now)) s.y -= Math.round(Math.abs(Math.sin(now / 170 + v.id)) * 4);
+      if (!swimming && !moving && !fighting && !mounted && this.cheering(v.id, now)) s.y -= Math.round(Math.abs(Math.sin(now / 170 + v.id)) * 4);
       // (off the ground on the beat, and a squash as they land)
       if (step && !swimming) {
         s.y -= step.lift;
@@ -769,12 +778,21 @@ export class MapPeople {
       // cavalry: the rider sits on a horse
       const coat = d.view.mounted;
       d.horse.visible = coat !== null && !hidden;
+      d.horseFront.visible = coat !== null && !hidden;
       if (coat !== null) {
-        d.horse.texture = creatureFrame('horse', coat, facing, moving ? Math.floor(d.walked / 8) % 3 : 1);
-        d.horse.position.set(Math.round(x - (CREATURE_FRAME * HORSE_SCALE) / 2), Math.round(y + 2 - CREATURE_FRAME * HORSE_SCALE));
+        const horseFrame = creatureFrame('horse', coat, facing, moving ? Math.floor(d.walked / 8) % 3 : 1);
+        const horseX = Math.round(x - (CREATURE_FRAME * HORSE_SCALE) / 2);
+        const horseY = Math.round(y + 2 - CREATURE_FRAME * HORSE_SCALE);
+        const legCut = Math.round(horseFrame.frame.height * HORSE_LEG_CUT);
+        d.horse.texture = horseFrame;
+        d.horse.position.set(horseX, horseY);
         d.horse.zIndex = z - 0.1;
-        s.y -= SADDLE_LIFT;
-        if (anim === 'walk' && !hkTex) s.texture = lpcFrame(look, 'walk', 0, held, wear);
+        d.horseFront.texture = horseLegs(horseFrame, legCut);
+        d.horseFront.position.set(horseX, horseY + legCut * HORSE_SCALE);
+        d.horseFront.zIndex = z + 0.1;
+        // One pixel of lift in time with the horse's middle stride keeps the rider seated in the saddle.
+        const stride = moving ? Math.floor(d.walked / 8) % 3 : 1;
+        s.y -= SADDLE_LIFT + (stride === 1 ? 1 : 0);
       }
       // their harm, over the sprite (bodyMarks.ts)
       const marks = v.body.marks;
@@ -1304,6 +1322,18 @@ function questionBubble(): Graphics {
 function cycle(secs: number, period: number, frames: number): number {
   const phase = (secs % period) / period;
   return phase < 0.7 ? Math.floor((phase / 0.7) * frames) : 0;
+}
+
+/** The horse's front legs, drawn over the rider so they sit into the saddle rather than on the horse's back. */
+const horseLegFrames = new WeakMap<Texture, Texture>();
+function horseLegs(frame: Texture, cut: number): Texture {
+  let t = horseLegFrames.get(frame);
+  if (!t) {
+    const f = frame.frame;
+    t = new Texture({ source: frame.source, frame: new Rectangle(f.x, f.y + cut, f.width, f.height - cut) });
+    horseLegFrames.set(frame, t);
+  }
+  return t;
 }
 
 /** A person's frame cut off at the waist (for swimming), one cut per frame. */
