@@ -185,6 +185,7 @@ import { createHud } from './hud';
 import { hostBridge, localBridge } from './localBridge';
 import { createMusic } from './music';
 import { moodOf } from './musicMood';
+import { TICKS_PER_HOUR } from '../shared/sim/time';
 import { fightSounds, globalSounds, soundsBetween, tacticsSounds, workSounds } from './sfx';
 import { createAmbience } from './ambience';
 import { readLevel } from './volume';
@@ -568,7 +569,7 @@ async function start(): Promise<void> {
       raid: n.raid?.phase === 'active',
       boss: !!n.bossBar,
       fight: !!n.tactics || !!n.watch?.battle,
-      victory: n.expeditions.some((e) => e.result?.outcome === 'won' && e.result.age < 80),
+      victory: (n.raidRecap?.outcome === 'victory' && n.raidRecap.hoursAgo * TICKS_PER_HOUR < 80) || n.expeditions.some((e) => e.result?.outcome === 'won' && e.result.age < 80),
       daylight: n.calendar.daylight,
       season: n.calendar.season,
       theme: n.theme,
