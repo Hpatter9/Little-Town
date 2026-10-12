@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.62.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.63.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4087,3 +4087,7 @@ blocked by buildings, structures, trees and rocks)
 ## One coordinated wall project (0.62.0; the owner's ask)
 - **The wall builds as one project:** `sim/ringWall.ts` releases every cleared section into work together and gathers materials for the whole planned ring. The cell pieces remain separate internally for pathing, combat damage and joined wall art. The old ring still stays until every section of the new ring is complete.
 - Version: 0.62.0.
+
+## Fine map zoom control (0.63.0; the owner's ask)
+- **The phone menu's zoom can be set precisely:** a range control replaces the old 20% jumps with one-percent steps and shows the current value. The map previews smoothly while the slider moves, then redraws sharply when released. Pinch zoom remains available; one button restores the default zoom (`mobile/mobile.ts`, `mobile/index.html`).
+- Version: 0.63.0.

@@ -340,12 +340,45 @@ function drawMenu(): void {
       return b;
     };
     const zooms = document.createElement('div');
-    zooms.className = 'zooms';
-    const step = (by: number) => () => {
-      setZoom(zoom * by);
-      drawMenu();
+    zooms.className = 'zoom-control';
+    const zoomLabel = document.createElement('span');
+    const zoomInput = document.createElement('input');
+    zoomInput.type = 'range';
+    zoomInput.min = String(Math.round(MIN_ZOOM * 100));
+    zoomInput.max = String(Math.round(MAX_ZOOM * 100));
+    zoomInput.step = '1';
+    zoomInput.value = String(Math.round(zoom * 100));
+    zoomInput.setAttribute('aria-label', 'Map zoom');
+    let zoomStart: number | null = null;
+    const startZoomPreview = () => {
+      if (zoomStart !== null) return;
+      zoomStart = zoom;
+      const canvas = mapCanvas();
+      if (canvas) canvas.style.transformOrigin = '50% 50%';
+      stripBox.classList.add('pinching');
     };
-    zooms.append(item('− Out', step(1 / 1.2)), item(`${Math.round(zoom * 100)}%`, () => (setZoom(DEFAULT_ZOOMS[orientation()]), drawMenu())), item('In +', step(1.2)));
+    const previewZoom = () => {
+      startZoomPreview();
+      const scale = (Number(zoomInput.value) / 100) / (zoomStart ?? zoom);
+      const canvas = mapCanvas();
+      if (canvas) canvas.style.transform = `scale(${scale})`;
+    };
+    const commitZoom = () => {
+      if (zoomStart === null) return;
+      const canvas = mapCanvas();
+      if (canvas) canvas.style.transform = '';
+      stripBox.classList.remove('pinching');
+      zoomStart = null;
+      setZoom(Number(zoomInput.value) / 100);
+    };
+    const showZoom = () => (zoomLabel.textContent = `Map zoom: ${zoomInput.value}%`);
+    showZoom();
+    zoomInput.addEventListener('pointerdown', startZoomPreview);
+    zoomInput.addEventListener('keydown', startZoomPreview);
+    zoomInput.addEventListener('input', () => (previewZoom(), showZoom()));
+    zoomInput.addEventListener('change', commitZoom);
+    zoomInput.addEventListener('blur', commitZoom);
+    zooms.append(zoomLabel, zoomInput, item('Reset zoom', () => (setZoom(DEFAULT_ZOOMS[orientation()]), drawMenu())));
     const installed = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
     menu.replaceChildren(
       item('New town…', () => bridge.openPanel('newgame')),
@@ -357,7 +390,7 @@ function drawMenu(): void {
       ...('vibrate' in navigator ? [item(`Vibration: ${readVibrate() ? 'on' : 'off'}`, () => (saveVibrate(!readVibrate()), drawMenu()))] : []),
       item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
       item('Phone alerts…', () => bridge.openPanel('alerts')),
-      label('Zoom (or pinch the town with two fingers; tap the % to reset)'),
+      label('Zoom, or pinch the town with two fingers'),
       zooms,
       ...(installed ? [] : [label('To install: Chrome menu ⋮ → Add to Home screen')]),
       version(),
