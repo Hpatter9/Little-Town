@@ -105,9 +105,32 @@ function startYear(s: GameState): void {
   s.yearRaids = { came: 0, won: 0, pillaged: 0 };
 }
 
+/** Award durable, origin-flavoured titles for a person's record in the settlement. */
+function awardTownTitles(s: GameState): void {
+  const names: Record<GameState['origin'], [string, string]> = {
+    settlers: ['Frontier Guard', 'Homestead Hero'], lich: ['Bone Warden', 'Grave Champion'],
+    druid: ['Thorn Keeper', 'Grove Guardian'], vampire: ['Nightblade', 'Blood Sentinel'],
+    werewolf: ['Pack Fang', 'Moonclaw'], robot: ['Sentinel Unit', 'Vanguard Unit'],
+    dwarves: ['Stone Guard', 'Deep Champion'], merfolk: ['Tide Guard', 'Reef Champion'],
+    nomads: ['Road Warden', 'Caravan Champion'], fae: ['Glimmer Guard', 'Thorn Knight'],
+    alchemists: ['Crucible Guard', 'Aegis Adept'], knights: ['Shield Bearer', 'Paragon'],
+    orcs: ['Redfang', 'Skullsplitter'],
+  };
+  for (const p of s.people) {
+    const kills = p.felled ?? 0, trips = p.trips ?? 0, earned = p.titles ?? [];
+    const [first, second] = names[s.origin];
+    const title = kills >= 8 || trips >= 12 ? second : kills >= 3 || trips >= 5 ? first : null;
+    if (!title || earned.includes(title)) continue;
+    earned.push(title);
+    p.titles = earned;
+    notify(s, `${p.name} is now known as ${p.name} ${title}.`, true);
+  }
+}
+
 /** Hourly: start the reckoning if there is none, and at midwinter write the chronicle of the year past. */
 export function annalsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver) return;
+  awardTownTitles(s);
   if (!s.yearStart) return startYear(s);
   const cal = calendar(s.tick);
   if (cal.season !== 'winter' || cal.dayOfSeason !== CHRONICLE_DAY || cal.hour !== CHRONICLE_HOUR) return;
