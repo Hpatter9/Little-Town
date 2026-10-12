@@ -4097,3 +4097,7 @@ blocked by buildings, structures, trees and rocks)
 - **Two days of offline progress:** `MAX_OFFLINE_MS` in `sim/offline.ts` is 48 minutes of simulated play time (two 24-minute game days); the existing away-time slowdown and event/raid gates still apply.
 - **Fewer interruptions:** ordinary raids use a 72-hour base interval with a 48-hour minimum and 12-hour jitter (`data/raids.ts`). War, zombie, Deep Freeze and Rat Plague waves are no more frequent than every 48 game hours (`data/doom.ts`). Disasters now recur every 10–15 days, and choice events are spaced 72–120 hours apart.
 - Version: 0.64.0.
+
+## Origin signatures at the start (0.65.0; the owner's ask)
+- **A distinct first study for every origin:** each town starts with its first origin-only heritage topic already learned. This makes its heritage lane visible as a learned starting point and applies its small matching bonus from the first day. The New Town feature list names the starting tradition (data/origins.ts); the six-step origin lines remain in data/research.ts.
+- Version: 0.65.0.
