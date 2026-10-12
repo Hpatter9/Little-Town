@@ -5,7 +5,7 @@
 // melody built from a motif that comes back. musicGen.ts plays it with Web Audio; music.ts picks what to play by mood.
 
 export type Instrument = 'flute' | 'pluck' | 'harp' | 'bell' | 'pad' | 'organ' | 'brass' | 'bass' | 'kick' | 'snare' | 'hat' | 'tambour';
-export type Mood = 'day' | 'night' | 'winter' | 'dark' | 'feast' | 'battle' | 'boss' | 'sea' | 'heroic';
+export type Mood = 'day' | 'night' | 'winter' | 'dark' | 'feast' | 'battle' | 'boss' | 'sea' | 'heroic' | 'victory';
 
 export interface Piece {
   id: string;
@@ -37,6 +37,7 @@ const AEOLIAN = [0, 2, 3, 5, 7, 8, 10];
 const HARMONIC = [0, 2, 3, 5, 7, 8, 11];
 
 export const PIECES: readonly Piece[] = [
+  { id: 'triumph', name: 'The Town Stands', moods: ['victory'], root: 67, mode: IONIAN, bpm: 128, meter: 4, a: [0, 4, 5, 0], b: [3, 4, 5, 0], lead: 'brass', comp: 'chords', compInst: 'brass', drums: 'march', busy: 0.78 },
   { id: 'morning', name: 'Morning in the Valley', moods: ['day'], root: 60, mode: IONIAN, bpm: 92, meter: 4, a: [0, 5, 3, 4], b: [5, 3, 0, 4], lead: 'flute', comp: 'arp', compInst: 'harp', drums: 'none', busy: 0.5 },
   { id: 'market', name: 'Market Day', moods: ['day', 'feast'], root: 62, mode: MIXOLYDIAN, bpm: 112, meter: 4, a: [0, 6, 3, 0], b: [3, 6, 4, 0], lead: 'pluck', comp: 'strum', compInst: 'pluck', drums: 'light', busy: 0.7 },
   { id: 'oldroad', name: 'The Old Road', moods: ['day'], root: 57, mode: DORIAN, bpm: 84, meter: 4, a: [0, 3, 0, 4], b: [2, 3, 6, 4], lead: 'flute', comp: 'arp', compInst: 'harp', drums: 'none', busy: 0.45 },
