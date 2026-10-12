@@ -86,7 +86,7 @@ export function createMusic(): Music {
     now = id;
     const after = () => {
       if (now !== id || !on) return;
-      const fight = mood === 'battle' || mood === 'boss';
+      const fight = mood === 'battle' || mood === 'boss' || mood === 'victory';
       rest = window.setTimeout(() => {
         rest = null;
         if (now === id && on) begin();
@@ -137,7 +137,7 @@ export function createMusic(): Music {
       if (on && m === mood) return;
       // a fight's music starts at once, and ends with the fight; a quieter change (dusk, a feast, winter) waits for
       // the piece playing to end, and the next is of the new mood
-      const fight = (x: Mood | null) => x === 'battle' || x === 'boss';
+      const fight = (x: Mood | null) => x === 'battle' || x === 'boss' || x === 'victory';
       const was = mood;
       const wasOn = on;
       on = true;
