@@ -36,7 +36,7 @@ export const DOOMS: Record<DoomKind, DoomDef> = {
     ends: 'The last of the sick are on the mend. The plague has passed.',
     warnHours: 24,
     hours: [0, 0],
-    weight: 1,
+    weight: 0.35,
   },
   ash_winter: {
     name: 'Ash Winter',
