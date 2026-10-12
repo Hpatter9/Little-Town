@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { catchUp, MAX_OFFLINE_MS, OFFLINE_REPORT_MS, startCatchUp } from '../src/shared/sim/offline';
+import { catchUp, MAX_OFFLINE_MS, startCatchUp } from '../src/shared/sim/offline';
 import { parseSave, serialize } from '../src/shared/sim/save';
 import { Sim } from '../src/shared/sim/sim';
-import { snapshot } from '../src/shared/sim/snapshot';
 import { addStock, MAX_JOURNAL, newGame, notify, type GameState } from '../src/shared/sim/state';
 import { TICK_MS, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { plainGame, row, nearestWild } from './helpers';
@@ -54,7 +53,7 @@ test('corrupt saves and saves from another version are refused', () => {
   assert.ok(r.ok && r.save.savedAt === 5);
 });
 
-test('offline: the town works through its research queue, then a report goes in the journal', () => {
+test('offline: the town catches up through its work without making a recap', () => {
   const sim = new Sim(plainGame('offline'));
   const s = sim.state;
   s.people[0].priorities.research = 1;
@@ -64,24 +63,14 @@ test('offline: the town works through its research queue, then a report goes in 
   // (two hours away: capped at a game day)
   assert.equal(r.ticks, MAX_OFFLINE_MS / TICK_MS);
   assert.ok(s.research.done.includes('basic_shelter'));
-  const report = s.journal.at(-1)!;
-  assert.equal(report.id, r.reportId);
-  assert.match(report.text, /While you were away \(2h 0m, 1 game day\)/);
-  assert.ok(report.lines!.some((l) => l.includes('Research complete: Basic Shelter')));
-  assert.ok(report.lines!.some((l) => l.includes('queues ran dry')));
-  assert.equal(snapshot(s).away?.id, report.id);
-
-  sim.command({ type: 'dismissAway' });
-  sim.step();
-  assert.equal(snapshot(s).away, null);
-  assert.ok(s.journal.some((e) => e.id === report.id), 'still in the journal');
+  assert.ok(s.journal.every((e) => !e.text.startsWith('While you were away')));
 });
 
-test('offline: short gaps are caught up without a report; paused games stay put; long ones are capped', () => {
+test('offline: short gaps catch up; paused games stay put; long ones are capped', () => {
   const sim = new Sim(plainGame('gaps'));
   const s = sim.state;
-  assert.equal(catchUp(sim, OFFLINE_REPORT_MS - 1000).reportId, null);
-  assert.equal(s.unreadAway, null);
+  assert.ok(catchUp(sim, 60_000).ticks > 0);
+  assert.ok(s.journal.every((e) => !e.text.startsWith('While you were away')));
 
   s.paused = true;
   const tick = s.tick;

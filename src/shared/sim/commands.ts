@@ -146,8 +146,6 @@ export type Command =
   | { type: 'reduceCraft'; order: number; all: boolean }
   /** Put a spare item on someone (or take off what's in the slot, with item null). */
   | { type: 'equip'; person: number; slot: Slot; item: string | null }
-  /** Close the "while you were away" report (it stays in the Journal). */
-  | { type: 'dismissAway' }
   /** Bind the founder's soul into a phylactery (once Lichcraft is learned): the town builds it. */
   | { type: 'becomeLich' }
   /** Debug: make every building available regardless of research. */
@@ -316,7 +314,6 @@ export function parseCommand(raw: unknown): Command | null {
       return Number.isInteger(c.expedition) ? { type: 'recallExpedition', expedition: c.expedition as number } : null;
     case 'acceptVisitor':
     case 'rejectVisitor':
-    case 'dismissAway':
       return { type: c.type };
     case 'setPriority':
       return Number.isInteger(c.person) && JOBS.includes(c.job as Job) && [0, 1, 2, 3].includes(c.priority as number)

@@ -21,13 +21,13 @@ import { postHunt } from '../../shared/sim/hunts';
 import { startRaid } from '../../shared/sim/raids';
 import { RAID_KIND_BY_ID } from '../../shared/data/raids';
 import { Rng } from '../../shared/rng';
-import { REPLAY_EVERY, ReplayRecorder, type Replay } from '../../shared/replay';
 import { mayBuzz, readVibrate } from '../vibration';
 
 const SAVE_KEY = 'littletown.save';
 const BACKUP_KEY = 'littletown.backup';
 const SETTINGS_KEY = 'littletown.settings';
 const ALERTS_KEY = 'littletown.alerts';
+const TIMELAPSE_KEY = 'littletown.timelapse';
 /** ntfy messages booked on the way out (dropped on the way back, where the server allows). */
 const SCHEDULED_KEY = 'littletown.scheduledAlerts';
 /** The look ahead for phone alerts runs a copy of the town forward on the game's own thread, so it takes a little at a
@@ -38,8 +38,6 @@ const LOOK_SLICE_MS = 6;
 const LOOK_PAUSE_MS = 60;
 const LOOK_AGAIN_MS = 5 * 60_000;
 const AUTOSAVE_MS = 30_000;
-/** A replay of the time away not taken by the strip in this long is dropped (the strip was never loaded to show it). */
-const REPLAY_KEEP_MS = 2 * 60_000;
 
 /** Browser storage can be missing or full; the game carries on either way. */
 function read(key: string): string | null {
@@ -62,6 +60,9 @@ function write(key: string, value: string): boolean {
 const randomSeed = () => Math.floor(Math.random() * 0xffffffff).toString(36);
 
 export function mobileBridge(): Bridge {
+  try {
+    localStorage.removeItem(TIMELAPSE_KEY);
+  } catch {}
   const settings: { music: boolean } = { music: false, ...JSON.parse(read(SETTINGS_KEY) ?? '{}') };
   const state: StripState = { mode: 'full', hidden: document.hidden, panel: null, music: settings.music };
   const stateListeners = new Set<(s: StripState) => void>();
@@ -84,19 +85,6 @@ export function mobileBridge(): Bridge {
     return null;
   })();
   const game = new GameLoop(loaded?.state ?? newGame(randomSeed()), (snap) => snapListeners.forEach((f) => f(snap)));
-  // The time away, replayed sped up before the report card (shared/replay.ts): a frame each game hour as the catch-up
-  // runs; at its end, kept for the strip to take (`takeReplay`) if it's worth a show, for `REPLAY_KEEP_MS`.
-  const recorder = new ReplayRecorder();
-  let replay: { r: Replay; at: number } | null = null;
-  game.sampler = {
-    every: REPLAY_EVERY,
-    take: (snap, done) => {
-      if (!done) return recorder.add(snap);
-      const s = game.state;
-      const r = recorder.finish(snap, { raidAtGate: s.raid?.waiting !== undefined, eventHeld: !!s.event?.held, gameOver: !!s.gameOver });
-      replay = r ? { r, at: Date.now() } : null;
-    },
-  };
   if (loaded) game.catchUp(Date.now() - loaded.savedAt, saveNow);
   else {
     saveNow();
@@ -160,7 +148,6 @@ export function mobileBridge(): Bridge {
   const inspectListeners = new Set<(info: InspectInfo | null) => void>();
   const actionListeners = new Set<(id: string) => void>();
   const pinchListeners = new Set<(phase: 'start' | 'move' | 'end', spread: number, mx: number, my: number) => void>();
-  const replayListeners = new Set<(on: boolean) => void>();
   /** When the phone last buzzed (renderer/vibration.ts). */
   let lastBuzz = -Infinity;
 
@@ -174,16 +161,6 @@ export function mobileBridge(): Bridge {
       try {
         navigator.vibrate([...pattern]);
       } catch {}
-    },
-    takeReplay: () => {
-      const r = replay && Date.now() - replay.at < REPLAY_KEEP_MS ? replay.r : null;
-      replay = null;
-      return r;
-    },
-    replayShown: (on) => replayListeners.forEach((f) => f(on)),
-    onReplayShown: (cb) => {
-      replayListeners.add(cb);
-      return () => replayListeners.delete(cb);
     },
     pinch: (phase, spread, mx = 0, my = 0) => pinchListeners.forEach((f) => f(phase, spread, mx, my)),
     onPinch: (cb) => {

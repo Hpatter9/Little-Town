@@ -212,12 +212,6 @@ const tabButtons = PANELS.map((p) => {
   const sheet = createEventSheet((prompt, option) => bridge.command?.({ type: 'answerPrompt', prompt, option }), strip);
   bridge.onSnapshot((snap) => sheet.update(snap));
 }
-// the time away replayed takes the whole screen too, like a cutscene (replay/replayPlayer.ts in the strip)
-bridge.onReplayShown?.((on) => {
-  document.body.classList.toggle('replay', on);
-  if (on) menu.hidden = true;
-  layout();
-});
 // the necropolis look, once the founder is a lich (and the menus' new names)
 bridge.onSnapshot((snap) => {
   // (watching a party away takes the screen the same way)

@@ -1063,10 +1063,8 @@ export interface GameState {
   crafting: CraftOrder[];
   /** Recent in-strip messages ("Research complete: ..."), newest last. */
   notices: Notice[];
-  /** The Town Journal: every notice plus "while you were away" reports, newest last (the oldest drop off). */
+  /** The Town Journal: every notice, newest last (the oldest drop off). */
   journal: JournalEntry[];
-  /** The latest "while you were away" report, until the player dismisses it. */
-  unreadAway: number | null;
   /** Set when the era capstone is researched (the next era arrives in Milestone 2). */
   eraReady: boolean;
   /** Testing aids toggled from the tray's Debug menu. */
@@ -1632,7 +1630,6 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     crafting: [],
     notices: [],
     journal: [],
-    unreadAway: null,
     eraReady: false,
     cheats: { unlockAll: false },
     ...(biome && biome !== 'forest' ? { biome } : {}),

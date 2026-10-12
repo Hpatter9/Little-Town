@@ -133,18 +133,6 @@ test('once every raider is running off empty-handed the alarm drops (so the woun
   assert.equal(alarmRaised(s), true, 'after the thief!');
 });
 
-test('after the game is over, the "while you were away" report can still be put away', () => {
-  const s = town('over-away');
-  const sim = new Sim(s);
-  s.unreadAway = 1;
-  s.gameOver = { tick: s.tick, text: 'The end.' };
-  sim.command({ type: 'dismissAway' });
-  sim.command({ type: 'setPaused', paused: true });
-  sim.step();
-  assert.equal(s.unreadAway, null);
-  assert.ok(!s.paused, '(other commands do nothing once it is over)');
-});
-
 test('the starving waste away and die of hunger; a meal stops it', async () => {
   const { heal } = await import('../src/shared/sim/health');
   const s = town('hunger');
@@ -262,21 +250,6 @@ test('a skilled healer a little further off goes to the wounded, rather than a c
   for (let i = 0; i < 30; i++) sim.step();
   assert.equal(healer.task?.type, 'tend');
   assert.notEqual(clumsy.task?.type, 'tend');
-});
-
-test('the "while you were away" report names everyone lost, first', async () => {
-  const { catchUp } = await import('../src/shared/sim/offline');
-  const s = town('away-dead');
-  const sim = new Sim(s);
-  const [, a] = s.people;
-  s.people = s.people.slice(0, 2);
-  s.people[0].x = 100;
-  a.hp = 0;
-  a.downed = { bleedUntil: s.tick + 10 };
-  catchUp(sim, 3 * 3600 * 1000);
-  const report = s.journal.find((e) => e.lines);
-  assert.ok(report, 'a report');
-  assert.equal(report!.lines![0], `Lost while you were away: ${a.name} (of their wounds).`);
 });
 
 test("the founder's death passes the town to an heir (their partner first); only with no grown-up left is it over", () => {

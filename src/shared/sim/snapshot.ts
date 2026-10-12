@@ -1048,8 +1048,6 @@ export interface Snapshot {
   news: { id: number; text: string } | null;
   /** The town's talk (sim/gossip.ts): the last day and a half's news, newest first, for the townsfolk to talk over. */
   gossip: Gossip[];
-  /** An unread "while you were away" report. */
-  away: JournalEntryView | null;
   eraReady: boolean;
 }
 
@@ -1073,7 +1071,7 @@ function awayWithArmy(s: GameState, p: Person): string {
 }
 
 export function journalView(s: GameState): JournalEntryView[] {
-  return s.journal.map(entryView);
+  return s.journal.filter((e) => !e.text.startsWith('While you were away (')).map(entryView);
 }
 
 function entryView(e: JournalEntry): JournalEntryView {
@@ -1383,7 +1381,6 @@ export function snapshot(s: GameState): Snapshot {
     journalHead: s.journal.at(-1)?.id ?? 0,
     news: latestNews(s),
     gossip: slow(s, 'gossip', () => townGossip(s.journal, s.tick)),
-    away: awayView(s),
     eraReady: s.eraReady,
   };
 }
@@ -1670,11 +1667,6 @@ function partyView(s: GameState, dest: string): { party: string[]; partyHorses: 
     return p ? [`${p.name} (${ROLES[plan.roles[id] ?? 'fighter'].name.toLowerCase()})`] : [];
   });
   return { party, partyHorses: plan.horses, partyTruck: plan.truck };
-}
-
-function awayView(s: GameState): JournalEntryView | null {
-  const e = s.unreadAway === null ? undefined : s.journal.find((q) => q.id === s.unreadAway);
-  return e ? entryView(e) : null;
 }
 
 function personView(s: GameState, p: Person, _stock?: Stock): PersonView {

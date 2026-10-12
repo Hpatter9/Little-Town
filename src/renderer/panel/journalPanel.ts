@@ -7,10 +7,9 @@ import { el } from './dom';
 import { renderBestiary } from './bestiaryPanel';
 import { renderHeroes } from './heroesPanel';
 import { renderLegends } from './legendsPanel';
-import { renderTimelapse } from './timelapsePanel';
 import type { AnnalsView } from '../../shared/sim/snapshot';
 
-type Filter = 'all' | 'key' | 'deaths' | 'heroes' | 'legends' | 'bestiary' | 'scenes' | 'timelapse';
+type Filter = 'all' | 'key' | 'deaths' | 'heroes' | 'legends' | 'bestiary' | 'scenes';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['key', 'Key events'],
@@ -19,7 +18,6 @@ const FILTERS: [Filter, string][] = [
   ['legends', 'Legends'],
   ['bestiary', 'Bestiary'],
   ['scenes', 'Scenes'],
-  ['timelapse', 'Timelapse'],
 ];
 /** (kept while the panel re-renders) */
 let filter: Filter = 'all';
@@ -39,10 +37,6 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
     );
     if (filter === 'heroes') {
       list.replaceChildren(...renderHeroes(annals ?? { fallen: [], chronicles: [], famous: [] }));
-      return;
-    }
-    if (filter === 'timelapse') {
-      list.replaceChildren(...renderTimelapse());
       return;
     }
     if (filter === 'legends') {

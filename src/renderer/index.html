@@ -426,7 +426,6 @@
       /* the battle on the trail: a bar of what's happening at the top, fighters or spells along the bottom */
       body.in-battle #clock,
       body.in-battle #prompt,
-      body.in-battle #away,
       body.in-battle #banner,
       body.in-battle #raid-flash,
       body.in-battle #tip {
@@ -578,7 +577,6 @@
       /* watching a party away (fight/fightHud.ts): the old games' blue windows */
       body.in-fight #clock,
       body.in-fight #prompt,
-      body.in-fight #away,
       body.in-fight #banner,
       body.in-fight #raid-flash,
       body.in-fight #toasts,
@@ -1037,130 +1035,6 @@
       #cinema .cine-go[hidden] {
         display: none;
       }
-      /* the time away replayed, sped up (replay/replayPlayer.ts): black bars top and foot, the day count in the foot;
-         while the catch-up runs, a veil with how far it's got */
-      #replay {
-        position: fixed;
-        inset: 0;
-        z-index: 45;
-        pointer-events: none;
-      }
-      #replay.on {
-        pointer-events: auto;
-        cursor: pointer;
-      }
-      #replay .rp-bar {
-        position: absolute;
-        left: 0;
-        right: 0;
-        background: #000;
-        transition: transform 0.45s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-      }
-      #replay .rp-bar.top {
-        top: 0;
-        height: 9%;
-        min-height: 34px;
-        justify-content: space-between;
-        padding: 0 12px;
-        box-sizing: border-box;
-        transform: translateY(-100%);
-      }
-      #replay .rp-bar.bottom {
-        bottom: 0;
-        height: 19%;
-        min-height: 92px;
-        transform: translateY(100%);
-      }
-      #replay.on .rp-bar {
-        transform: none;
-      }
-      #replay .rp-kicker,
-      #replay .rp-skip {
-        zoom: var(--ui-zoom, 1);
-        font: 600 11px var(--font-body, sans-serif);
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: #c8a060;
-      }
-      #replay .rp-skip {
-        color: #9a8a70;
-        letter-spacing: 0.06em;
-      }
-      #replay .rp-card {
-        zoom: var(--ui-zoom, 1);
-        width: min(360px, 92vw);
-        text-align: center;
-        color: #f6ecd2;
-      }
-      #replay .rp-title {
-        font-family: var(--font-display, serif);
-        font-size: 26px;
-        letter-spacing: 1px;
-        color: #ffe08a;
-        text-shadow: 0 2px 6px #000;
-        white-space: nowrap;
-      }
-      #replay .rp-clock {
-        font: 14px var(--font-body, sans-serif);
-        margin-top: 2px;
-        color: #e8dcc0;
-        font-variant-numeric: tabular-nums;
-      }
-      #replay .rp-tally {
-        font: 12px var(--font-body, sans-serif);
-        margin-top: 2px;
-        color: #a8c890;
-      }
-      #replay .rp-tally[hidden] {
-        display: none;
-      }
-      #replay .rp-track {
-        height: 3px;
-        margin: 8px auto 0;
-        width: 70%;
-        background: rgba(255, 255, 255, 0.15);
-        border-radius: 2px;
-        overflow: hidden;
-      }
-      #replay .rp-fill {
-        height: 100%;
-        width: 0;
-        background: #c8a060;
-      }
-      #replay .rp-veil {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: radial-gradient(ellipse at center, rgba(8, 10, 20, 0.55), rgba(0, 0, 0, 0.85));
-        opacity: 0;
-        transition: opacity 0.5s ease;
-      }
-      #replay.veiled .rp-veil {
-        opacity: 1;
-      }
-      #replay .rp-veil-card {
-        zoom: var(--ui-zoom, 1);
-        text-align: center;
-        color: #f6ecd2;
-        width: min(300px, 80vw);
-      }
-      #replay .rp-veil-title {
-        font-family: var(--font-display, serif);
-        font-size: 24px;
-        color: #ffe08a;
-        text-shadow: 0 2px 6px #000;
-      }
-      #replay .rp-veil-sub {
-        font: italic 13px var(--font-body, sans-serif);
-        color: #c8bca0;
-        margin-top: 2px;
-      }
       #raid-recap {
         position: absolute;
         left: 50%;
@@ -1461,72 +1335,6 @@
         color: var(--text-dim);
         font-weight: 400;
       }
-      /* the morning report card: the three biggest things that happened while away, as pictures */
-      #away .away-cards {
-        display: flex;
-        gap: 6px;
-        margin: 4px 0 6px;
-      }
-      #away .away-card {
-        flex: 1 1 0;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 3px;
-      }
-      #away .away-pic {
-        width: 100%;
-        height: 68px;
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-        border: 1px solid var(--wood-edge);
-        border-radius: 4px;
-        background: linear-gradient(#5f8fc8, #9cc4e8 70%, #6a8a4a 70%, #56733c);
-        overflow: hidden;
-      }
-      #away .away-pic canvas {
-        max-width: 100%;
-        max-height: 100%;
-        image-rendering: pixelated;
-      }
-      #away .away-cap {
-        font-size: 11px;
-        line-height: 1.2;
-        text-align: center;
-        color: var(--text);
-      }
-      #away {
-        position: absolute;
-        top: 6px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: min(620px, calc(100% - 24px));
-        box-sizing: border-box;
-        padding: 6px 8px;
-        background: var(--wood);
-        border: 2px solid #c79a55;
-        border-radius: 6px;
-      }
-      #away .away-lines {
-        max-height: 104px;
-        overflow-y: auto;
-        margin: 3px 0 5px;
-        padding-left: 16px;
-        color: var(--text-dim);
-        font: 12px/1.35 var(--font-body);
-      }
-      #away .prompt-row {
-        display: flex;
-        gap: 4px;
-      }
-      #away .tab {
-        width: auto;
-      }
-      #away .tab.default {
-        border-color: #c79a55;
-      }
       #gameover {
         position: absolute;
         left: 50%;
@@ -1680,17 +1488,8 @@
         border-bottom: 2px solid var(--wood-edge);
       }
       body.embedded #prompt,
-      body.embedded #away,
       body.embedded #banner {
         top: 34px;
-      }
-      /* (on the phone the strip can be short: the report card scrolls, its pictures smaller) */
-      body.embedded #away {
-        max-height: calc(100% - 40px);
-        overflow-y: auto;
-      }
-      body.embedded #away .away-pic {
-        height: 52px;
       }
       /* (notices go to the bottom corner, clear of a question card at the top: they fade in a few seconds) */
       body.embedded #toasts {
@@ -1713,7 +1512,6 @@
       body.embedded #clock,
       body.embedded #toasts,
       body.embedded #prompt,
-      body.embedded #away,
       body.embedded #banner,
       body.embedded #gameover,
       body.embedded #boss-bar {
