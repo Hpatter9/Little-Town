@@ -107,7 +107,7 @@ function startYear(s: GameState): void {
 
 /** Award durable, origin-flavoured titles for a person's record in the settlement. */
 function awardTownTitles(s: GameState): void {
-  const names: Record<GameState['origin'], [string, string]> = {
+  const names: Record<NonNullable<GameState['origin']>, [string, string]> = {
     settlers: ['Frontier Guard', 'Homestead Hero'], lich: ['Bone Warden', 'Grave Champion'],
     druid: ['Thorn Keeper', 'Grove Guardian'], vampire: ['Nightblade', 'Blood Sentinel'],
     werewolf: ['Pack Fang', 'Moonclaw'], robot: ['Sentinel Unit', 'Vanguard Unit'],
@@ -116,9 +116,10 @@ function awardTownTitles(s: GameState): void {
     alchemists: ['Crucible Guard', 'Aegis Adept'], knights: ['Shield Bearer', 'Paragon'],
     orcs: ['Redfang', 'Skullsplitter'],
   };
+  const origin = s.origin ?? 'settlers';
   for (const p of s.people) {
     const kills = p.felled ?? 0, trips = p.trips ?? 0, earned = p.titles ?? [];
-    const [first, second] = names[s.origin];
+    const [first, second] = names[origin];
     const title = kills >= 8 || trips >= 12 ? second : kills >= 3 || trips >= 5 ? first : null;
     if (!title || earned.includes(title)) continue;
     earned.push(title);
