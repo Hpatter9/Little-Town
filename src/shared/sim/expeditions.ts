@@ -777,7 +777,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, at: Pt, rng
       const joined: Person[] = [];
       for (let i = 0; i < n && !townFull(s); i++) {
         const type = rng.weighted(ARRIVING_TYPES);
-        const p = makePerson(rng, s.nextId++, type, at, s.people.map((q) => q.name));
+        const p = makePerson(rng, s.nextId++, type, at, s.people.map((q) => q.name), s.origin ?? 'settlers');
         s.people.push(p);
         joined.push(p);
       }

@@ -11,7 +11,7 @@ import { taxRate } from './treasury';
 import { ageWork } from './ageing';
 import { POP_SOFT_CAP } from '../data/pace';
 import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/buildings';
-import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID, FOOD_VALUE } from '../data/people';
+import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID, FOOD_VALUE, personName } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
 import { hashSeed, mixSeed, type Rng } from '../rng';
 import { STAGE_LEVELS } from '../data/classes';
@@ -374,11 +374,12 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   // once the Occult is known, now and then a monster comes asking (the RNG is only drawn on then)
   const monster = occultRevealed(s) && rng.chance(MONSTER_ARRIVAL) ? rng.pick<MonsterKind>(['werewolf', 'vampire']) : null;
   const type = monster ?? rng.weighted(ARRIVING_TYPES);
-  const person = makePerson(rng, s.nextId++, type, edge, [...s.people.map((p) => p.name)]);
+  const person = makePerson(rng, s.nextId++, type, edge, [...s.people.map((p) => p.name)], s.origin ?? 'settlers');
   if (monster) becomeMonster(s, person, monster);
   // a stranger of another people (sim/strangers.ts): their look and span are theirs; a xenophobic town turns them away
   const origin = monster ? null : strangerOrigin(s, rng);
   if (origin) {
+    person.name = personName(rng, origin, [...s.people.map((p) => p.name), person.name]);
     makeStranger(s, person, origin);
     if (!welcomes(s, origin)) {
       s.nextId--;
@@ -419,7 +420,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
 export function secretStranger(s: GameState, rng: Rng): boolean {
   if (s.visitor || townFull(s) || rulesOf(s).noWanderers || joinTooSoon(s)) return false;
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
-  const person = makePerson(rng, s.nextId++, 'wanderer', edgeXY(s, side), [...s.people.map((p) => p.name)]);
+  const person = makePerson(rng, s.nextId++, 'wanderer', edgeXY(s, side), [...s.people.map((p) => p.name)], s.origin ?? 'settlers');
   const special = specialFor(s, person);
   if (!special) {
     s.nextId--;

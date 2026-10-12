@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.56.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.59.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -195,6 +195,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   normally.
 - **The townsfolk's people mark:** `PersonView.origin` carries each person's own origin (or the town's for its own
   people); `folk-race` in `panel/townsfolkPanel.ts` shows its mark beside their name and its full name on hover.
+- **Names by origin:** `ORIGIN_NAMES` in `data/people.ts` makes more than 3,000 seeded combinations from 16 name parts
+  per origin, with the old common names kept for Settlers. `personName` chooses an unused name in that pool first;
+  town arrivals, founders, and origin-known newcomers use their people's names.
 - **Phase 3 is done** (the Tavern: see above).
 - **Origins are done:** `src/shared/data/origins.ts` (defs: start, rules, powers), applied at founding in
   `newGame`; the rule multipliers are in `src/shared/sim/origin.ts` (asked for by people, farming, raids, crafting, the

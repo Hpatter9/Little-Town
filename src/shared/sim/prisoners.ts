@@ -103,7 +103,7 @@ function feed(s: GameState): boolean {
 
 function convert(s: GameState, pr: Prisoner, rng: Rng): void {
   s.prisoners = s.prisoners.filter((q) => q !== pr);
-  const p = makePerson(rng, s.nextId++, 'hunter', campXY(s), s.people.map((q) => q.name));
+  const p = makePerson(rng, s.nextId++, 'hunter', campXY(s), s.people.map((q) => q.name), s.origin ?? 'settlers');
   p.name = pr.name;
   s.people.push(p);
   assignBeds(s);

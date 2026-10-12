@@ -342,7 +342,7 @@ function rideIn(s: GameState, f: Faction): void {
   const d = defOf(f);
   const side: -1 | 1 = hashSeed(f.id) % 2 ? 1 : -1;
   const at = edgeXY(s, side);
-  const p = makePerson(new Rng(hashSeed(`${s.seed}:envoy:${f.id}:${s.tick}`)), ENVOY_ID, 'gatherer', at, []);
+  const p = makePerson(new Rng(hashSeed(`${s.seed}:envoy:${f.id}:${s.tick}`)), ENVOY_ID, 'gatherer', at, [], d.origin ?? s.origin ?? 'settlers');
   if (d.origin) strangerLook(p, d.origin);
   s.envoyRider = { id: ENVOY_ID, faction: f.id, name: `Envoy of ${d.name.replace(/^The /, 'the ')}`, look: p.look, x: at.x, y: at.y, dir: side < 0 ? 1 : -1, leaving: false };
 }
@@ -483,7 +483,7 @@ function marry(s: GameState, f: Faction, rng: Rng): string {
   const single = s.people.filter((p) => !isChild(p) && p.away === null && p.partner == null && !p.monster).sort((a, b) => (a.id === s.mainId ? -1 : 0) - (b.id === s.mainId ? -1 : 0) || levelOf(b) - levelOf(a))[0];
   if (townFull(s) || !single) return `The houses are joined in word: ${d.name} count the town as kin.`;
   const at = { x: single.x + 20, y: single.y };
-  const p = makePerson(rng, s.nextId++, 'gatherer', at, s.people.map((o) => o.name));
+  const p = makePerson(rng, s.nextId++, 'gatherer', at, s.people.map((o) => o.name), d.origin ?? s.origin ?? 'settlers');
   if (d.origin) {
     p.origin = d.origin;
     makeStranger(s, p, d.origin);
@@ -801,7 +801,7 @@ export function assaultOver(s: GameState, target: string, won: boolean, loot: Re
   const n = townFull(s) ? 0 : rng.int(RECRUITS[0], RECRUITS[1]);
   const joined: string[] = [];
   for (let i = 0; i < n; i++) {
-    const p = makePerson(rng, s.nextId++, 'gatherer', { x: 0, y: 0 }, s.people.map((o) => o.name));
+    const p = makePerson(rng, s.nextId++, 'gatherer', { x: 0, y: 0 }, s.people.map((o) => o.name), d.origin ?? s.origin ?? 'settlers');
     if (d.origin) {
       p.origin = d.origin;
       makeStranger(s, p, d.origin);

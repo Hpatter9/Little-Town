@@ -26,7 +26,7 @@ import type { Delve } from './delves';
 import type { PackState } from './pack';
 import type { Quest } from './quests';
 import type { Material, Stock } from '../data/materials';
-import { JOB_SKILL, JOBS, NAMES, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
+import { JOB_SKILL, JOBS, personName, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
 import { SKILLS, type Skill, type SkillLevel } from '../data/skills';
 import { DESTINATIONS, type Role, type Stance } from '../data/expeditions';
 import { ITEM_BY_ID, type FareKind, type Slot } from '../data/items';
@@ -1500,7 +1500,8 @@ function makeChild(p: Person): void {
 }
 
 export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
-  const rules = (ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers).rules;
+  const origin = ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers;
+  const rules = origin.rules;
   const hold = rules.hold;
   // (a shore town is always on the coast)
   const biome = rules.shape === 'sea' ? 'coast' : opts.biome;
@@ -1511,7 +1512,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   /** Where the next person stands: about the fire. */
   const standing = (n: number): Pt => campPx((n % 2 ? 1 : -1) * Math.ceil(n / 2) * 0.9, 1.6 + (n % 3) * 0.3);
 
-  const main = makePerson(rng, 1, 'founder', campPx(-1, 1.6), []);
+  const main = makePerson(rng, 1, 'founder', campPx(-1, 1.6), [], origin.id);
   if (opts.founder) makeFounder(main, opts.founder);
   main.priorities = autoPriorities(main.skills, true); // (the founder turns their hand to anything)
   // The camp starts with its fire, which doubles as a small cache, and a little food (more, and company, in
@@ -1525,7 +1526,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   const people = [main];
   let nextId = 3;
   for (const type of scenario.companions) {
-    const p = makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name));
+    const p = makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name), origin.id);
     if (type === 'child') makeChild(p);
     people.push(p);
   }
@@ -1538,11 +1539,10 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     if (n > here) extra[m] = n - here;
   }
   // the origin: its own companions, stores, knowledge and buildings, and who the founder (and everyone) is
-  const origin = ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers;
   // (and whoever a ready-made founder brings)
   const brings = opts.founder?.pick ? (FOUNDER_BY_ID[opts.founder.pick]?.brings ?? []) : [];
   for (const type of [...(origin.start.companions ?? []), ...brings]) {
-    people.push(makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name)));
+    people.push(makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name), origin.id));
   }
   for (const [m, n] of Object.entries(origin.start.stores ?? {}) as [Material, number][]) {
     const here = Math.min(n, room);
@@ -1654,7 +1654,7 @@ function turnMonster(p: Person, kind: MonsterKind, tick: number): void {
 }
 
 /** A new person of a recruit type: skills from its ranges, 1-3 passions, 1-2 traits, a name not in use. */
-export function makePerson(rng: Rng, id: number, typeId: string, at: Pt, takenNames: readonly string[]): Person {
+export function makePerson(rng: Rng, id: number, typeId: string, at: Pt, takenNames: readonly string[], origin: OriginId = 'settlers'): Person {
   const type = RECRUIT_TYPES[typeId];
   const skills = Object.fromEntries(
     SKILLS.map((k) => {
@@ -1677,10 +1677,10 @@ export function makePerson(rng: Rng, id: number, typeId: string, at: Pt, takenNa
     traits.push(t.id);
   }
 
-  const free = NAMES.filter((n) => !takenNames.includes(n));
   return {
     id,
-    name: rng.pick(free.length ? free : NAMES),
+    name: personName(rng, origin, takenNames),
+    ...(origin !== 'settlers' ? { origin } : {}),
     type: typeId,
     look: randomLook(rng, typeId === 'elder'),
     x: at.x,

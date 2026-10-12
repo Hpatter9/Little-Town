@@ -414,7 +414,7 @@ function newcomer(s: GameState, rng: Rng, type?: string): void {
     notify(s, 'Someone would have stayed, but the town is as big as you want it: they go on their way.');
     return;
   }
-  const p = makePerson(rng, s.nextId++, type ?? rng.weighted(ARRIVING_TYPES), campXY(s), s.people.map((q) => q.name));
+  const p = makePerson(rng, s.nextId++, type ?? rng.weighted(ARRIVING_TYPES), campXY(s), s.people.map((q) => q.name), s.origin ?? 'settlers');
   s.people.push(p);
   joinOrigin(s, p, rng);
   assignBeds(s);
