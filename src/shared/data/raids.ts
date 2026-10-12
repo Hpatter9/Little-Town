@@ -121,10 +121,10 @@ export const RAID_KIND_BY_ID: Readonly<Record<string, RaidKind>> = Object.fromEn
 
 /** No raids before this many game hours. */
 export const RAID_GRACE_HOURS = 48;
-/** Hours between raids: a base that shrinks as days pass, never below the minimum, plus some randomness. */
-export const RAID_INTERVAL_HOURS = 30;
-export const RAID_INTERVAL_MIN = 14;
-export const RAID_INTERVAL_JITTER = 6;
+/** Hours between raids: a base that shrinks as days pass, never below two days, plus some randomness. */
+export const RAID_INTERVAL_HOURS = 72;
+export const RAID_INTERVAL_MIN = 48;
+export const RAID_INTERVAL_JITTER = 12;
 /** Strength budget: base + per day survived + per 25 points of wealth (stock units, 5 per building). */
 /** Every raid's budget is multiplied by this (the owner's call: deaths should be common, and small towns since arrivals
  *  became the player's choice drew raids of two or three beasts that never downed anyone). */
