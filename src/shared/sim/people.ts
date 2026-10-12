@@ -1233,7 +1233,7 @@ function buildSpot(s: GameState, p: Person, b: Building): Pt | undefined {
 }
 /** Whether someone builds at full pace on a site with work for a builder now (the founder always does). */
 function buildsFirst(s: GameState, p: Person): boolean {
-  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1);
+  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && buildSpot(s, p, b) && skillPace(s, p, b) >= 1);
 }
 
 /** Up to this many grown-ups, building and gathering come before study. */
