@@ -14,7 +14,7 @@ import { TICK_MS } from './time';
 export const AWAY_FULL_MS = 30 * 60_000;
 /** How fast time away passes after that, compared with play. */
 export const AWAY_RATE = 0.25;
-/** At most this much of the town's time is simulated for one absence (one game day); the rest is skipped. */
+/** At most this much of the town's time is simulated for one absence (two game days); the rest is skipped. */
 export const MAX_OFFLINE_MS = 48 * 60_000;
 
 /** How much of the town's time (as play time, ms) an absence of `awayMs` is worth. */
