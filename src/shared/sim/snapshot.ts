@@ -811,6 +811,8 @@ export interface SkirmishView {
 
 export interface Snapshot {
   seed: string;
+  /** The settlement's voted name, or its origin's default until the vote. */
+  townName: string;
   /** The town's coins (from selling to travellers), its shop (once one's planned), and the travellers in town. */
   coins: number;
   shop: ShopView | null;
@@ -1102,6 +1104,7 @@ export function snapshot(s: GameState): Snapshot {
   const v = s.visitor;
   return {
     seed: s.seed,
+    townName: s.townName ?? (s.lich ? ORIGIN_DEFS.lich.town : originOf(s).town),
     coins: Math.floor(s.coins ?? 0),
     shop: venueView(s, 'shop'),
     tavern: venueView(s, 'tavern'),

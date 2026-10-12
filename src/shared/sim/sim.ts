@@ -110,6 +110,7 @@ import { diaryTick } from './diary';
 import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
 import { boatsHourly } from './boats';
+import { voteSettlementName } from './settlementName';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -158,6 +159,7 @@ export class Sim {
     if (s.paused) return;
 
     s.tick++;
+    voteSettlementName(s);
     const ctx = newTickContext();
     for (const p of s.people) {
       if (p.away !== null) continue;

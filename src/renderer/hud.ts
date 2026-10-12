@@ -82,11 +82,12 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
   // Slim ticker.
   const ticker = el('div', { id: 'ticker', 'data-hit': '', hidden: '' });
   const tickerText = el('span', { class: 'clock-text' });
+  const tickerName = el('span', { class: 'ticker-name' }, 'Chronos Settlement');
   const tickerPause = el('button', { class: 'tab pause' });
   tickerPause.addEventListener('click', togglePause);
   const expand = el('button', { class: 'tab expand', title: 'Show the full town' }, 'Expand ▴');
   expand.addEventListener('click', () => bridge.setMode('full'));
-  ticker.append(el('span', { class: 'ticker-name' }, 'Chronos Settlement'), tickerText, tickerPause, expand);
+  ticker.append(tickerName, tickerText, tickerPause, expand);
 
   document.body.append(clock, dock, ticker);
 
@@ -100,6 +101,8 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
       for (const [id, b] of tabs) b.classList.toggle('active', s.panel === id);
     },
     update(snap) {
+      tickerName.textContent = snap.townName;
+      if (document.title !== snap.townName) document.title = snap.townName;
       // the necropolis look, once the founder is a lich (the desktop dock's tabs take the new names)
       if (applyTheme(snap.theme, 'strip')) {
         for (const p of PANELS) tabs.get(p.id)!.querySelector('.tab-label')!.textContent = panelLabel(p.id, p.label, snap.theme);

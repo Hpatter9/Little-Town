@@ -236,8 +236,8 @@ bridge.onSnapshot((snap) => {
     const short = SHORT_LABELS[t.id] ?? t.name;
     t.label.dataset.short = t.label.textContent.length <= 8 ? t.label.textContent : short; // (six tabs upright: a long name is cut)
   }
-  $('top-title').textContent = snap.origin.town;
-  document.title = snap.origin.town;
+  $('top-title').textContent = snap.townName;
+  document.title = snap.townName;
 });
 // The page above the strip is more of the same sky, a little deeper toward the top of the screen.
 let skyKey = '';
