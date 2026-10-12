@@ -44,7 +44,7 @@ import { isChild } from './social';
 export const EVENT_HOURS = 3;
 /** The first event comes no sooner than this (game hours), and then one every so often. */
 export const EVENT_GRACE_HOURS = 18;
-export const EVENT_GAP_HOURS: [number, number] = [16, 30];
+export const EVENT_GAP_HOURS: [number, number] = [72, 120];
 /** An event isn't drawn again until this many others have come. */
 const NO_REPEAT = 25;
 

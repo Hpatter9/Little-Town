@@ -4091,3 +4091,9 @@ blocked by buildings, structures, trees and rocks)
 ## Fine map zoom control (0.63.0; the owner's ask)
 - **The phone menu's zoom can be set precisely:** a range control replaces the old 20% jumps with one-percent steps and shows the current value. The map previews smoothly while the slider moves, then redraws sharply when released. Pinch zoom remains available; one button restores the default zoom (`mobile/mobile.ts`, `mobile/index.html`).
 - Version: 0.63.0.
+
+## Longer seasons and calmer pacing (0.64.0; the owner's asks)
+- **Ten-day seasons:** `DAYS_PER_SEASON` in `sim/time.ts` is now 10, so season and year labels follow the longer calendar.
+- **Two days of offline progress:** `MAX_OFFLINE_MS` in `sim/offline.ts` is 48 minutes of simulated play time (two 24-minute game days); the existing away-time slowdown and event/raid gates still apply.
+- **Fewer interruptions:** ordinary raids use a 72-hour base interval with a 48-hour minimum and 12-hour jitter (`data/raids.ts`). War, zombie, Deep Freeze and Rat Plague waves are no more frequent than every 48 game hours (`data/doom.ts`). Disasters now recur every 10–15 days, and choice events are spaced 72–120 hours apart.
+- Version: 0.64.0.

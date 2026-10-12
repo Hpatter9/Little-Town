@@ -9,7 +9,7 @@ export const SECONDS_PER_GAME_HOUR = 60;
 export const TICKS_PER_HOUR = SECONDS_PER_GAME_HOUR * TICK_HZ;
 export const TICKS_PER_DAY = TICKS_PER_HOUR * 24;
 
-export const DAYS_PER_SEASON = 3;
+export const DAYS_PER_SEASON = 10;
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
 export type Season = (typeof SEASONS)[number];
 
