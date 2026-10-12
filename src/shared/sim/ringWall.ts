@@ -26,16 +26,13 @@ export const RING_MIN = 8;
 export const RING_WIDEN = 10;
 /** Grown-ups before a town walls itself (sooner when raided or set on defence). */
 export const RING_PEOPLE = 6;
-/** Ring sections in work at a time: a queue of their own, beside the town's build slots (the owner's complaint: two
- *  at a time, and only with a slot to spare, and a ring of a hundred pieces was never finished before the town outgrew
- *  it). */
-export const RING_AT_ONCE = 5;
+/** The ring is one construction project: every cleared section may be worked at once, alongside the town's own sites. */
+export const RING_AT_ONCE = Number.POSITIVE_INFINITY;
 /** A section is released only while the town holds this many times its cost beyond what its other sites wait on (the
  *  wall never takes the last wood). */
 export const RING_SPARE = 1.5;
-/** The makings of this many sections ahead are wanted (`ringWants`), so the town gathers for its wall as for any
- *  site; it used to build the wall from whatever was left over. */
-export const RING_GATHER_AHEAD = 8;
+/** The whole planned ring is one material order, rather than a short queue of separate wall pieces. */
+export const RING_GATHER_AHEAD = Number.POSITIVE_INFINITY;
 /** Hours after a ring stands all round before a wider one is begun (a town that has grown past it waits; a raid
  *  brings the new ring on at once). */
 export const RING_REGROW_HOURS = 72;
@@ -363,10 +360,9 @@ export function ringComplete(s: GameState, ring: Ring): boolean {
   return v;
 }
 
-/** The planner's turn (from planBuilding, each pass): start or widen the ring, place its next pieces (up to
- *  `RING_AT_ONCE` on the queue, a slot left for the rest, only while the stores hold `RING_SPARE` times a piece's cost),
- *  take the old ring down once the new one stands. Returns
- *  the wild cells to clear for it. */
+/** The planner's turn (from planBuilding, each pass): start or widen one ring project, lay all of its cell pieces,
+ *  release every cleared piece into work together when materials allow, then take the old ring down only once the new
+ *  one stands. Returns the wild cells to clear for it. */
 export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<string, number>> = {}, raided = false): number[] {
   const clear: number[] = [];
   if (!ringTown(s)) return clear;
@@ -406,9 +402,8 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     delete ring.clearing;
     return clear;
   }
-  // The whole ring is laid out at once (the owner's ask: one blueprint for the wall, built a section at a time):
-  // every piece that can stand now goes down as a planned blueprint (`Building.planned`: no slot, no hauling, walked
-  // through), and the sections are released into work in the ring's order, `RING_AT_ONCE` at a time.
+  // The whole ring is laid out and worked as one project. Its cell pieces stay separate for pathing, damage and art,
+  // but all cleared sections can be built in parallel; none waits behind a five-piece queue.
   for (const piece of missing) {
     if (piece.clear) {
       if (clear.length < RING_CLEAR) clear.push(idx(s.land, piece.at.x, piece.at.y));
@@ -442,7 +437,7 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     for (const [m, n] of Object.entries(BUILDING_BY_ID[b.def]?.cost ?? {})) owed[m] = (owed[m] ?? 0) + Math.max(0, (n ?? 0) - (b.delivered[m as keyof typeof b.delivered] ?? 0));
   }
   let room = RING_AT_ONCE - queued;
-  // (the next sections, in the order they were laid: the gates first, then round the ring)
+  // (the gates first, then the rest of the ring; the old ring stays standing until every new section is done)
   for (const b of s.buildings) {
     if (room <= 0) break;
     if (b.ring !== ring.gen || !b.planned || b.overgrown) continue;
@@ -454,9 +449,7 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
   return clear;
 }
 
-/** What the ring's next sections still want, laid out but not yet in work (the planner's demand, beside what its
- *  sites in work wait on: the town gathers for its wall), `RING_GATHER_AHEAD` sections in order. Nothing once the ring
- *  stands. */
+/** Materials wanted by every section in the planned ring, alongside what active sites need. Nothing once it stands. */
 export function ringWants(s: GameState): Partial<Record<string, number>> {
   const out: Partial<Record<string, number>> = {};
   const ring = s.ring;
