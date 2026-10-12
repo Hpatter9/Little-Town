@@ -7,7 +7,7 @@ export interface MoodInput {
   boss: boolean;
   /** Another fight on screen: a watched party's, a tactics battle. */
   fight: boolean;
-  victory: boolean;
+  victory?: boolean;
   daylight: number;
   season: string;
   theme: string;
