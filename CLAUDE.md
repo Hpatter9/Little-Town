@@ -2224,8 +2224,9 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   clouds, a white cast with snow driven sideways, shimmering bands; each eases in over some seconds. The wind howls
   with them (ambience). `window.__sky.force` holds one for previews. Tests: `test/pets.test.ts`.
 - **The Dragon (the owner's ask: something massive):** `src/shared/sim/dragon.ts` (`dragonTick` from sim.ts, every
-  tick for its flight and hourly for the rest; the autopilot on, `s.dragons !== false`). From `DRAGON_FIRST_DAY` (9)
-  with `DRAGON_PEOPLE` (6) grown-ups at home, `DRAGON_HOURLY` a dragon comes (`summonDragon`; `dragonFor` the land: the
+  tick for its flight and hourly for the rest; the autopilot on, `s.dragons !== false`). Each game seed picks a fixed
+  arrival day from `DRAGON_FIRST_DAY` (20) through `DRAGON_LAST_DAY` (100); once that day is reached and
+  `DRAGON_PEOPLE` (6) grown-ups are at home, a dragon comes (`dragonArrivalDay`, `summonDragon`; `dragonFor` the land: the
   Rimewyrm on the tundra, the Ashen Wyrm in the desert, else Vermithrax the Red; `s.dragon`, `DragonState`). **Omens:**
   `OMEN_FLIGHTS` (3) high flights `OMEN_HOURS` apart, its vast shadow sweeping the land. **The demand:** it lands on the
   hill and asks tribute (`tributeOf`: a share of the treasury and the town's size, `RAISE` more each time paid), a
