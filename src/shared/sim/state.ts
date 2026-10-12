@@ -240,7 +240,7 @@ export type Task =
   | { type: 'fetch'; building: number; from: number; amounts: Stock }
   /** Carry fetched materials to a construction site. */
   | { type: 'deliver'; building: number }
-  | { type: 'build'; building: number }
+  | { type: 'build'; building: number; /** Adjacent cell reserved by this builder (older saves omit it). */ spot?: Pt }
   /** Lay a cell of a planned street, or a bridge (sim/streets.ts). */
   | { type: 'pave'; cell: number; progress: number }
   /** Feed a street light or a room's sconce from the stores (sim/lighting.ts). */
