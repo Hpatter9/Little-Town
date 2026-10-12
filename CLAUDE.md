@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.55.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.56.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -188,6 +188,13 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   once sat over the town is gone (the owner's ask); the news is the **news bubble** (see "The news bubble" below).
 - **The phone's selected tab:** `#tabs button.on` in `mobile/index.html` has a brighter gold underline and heavier
   label, so the open menu is easy to spot in both upright and sideways layouts.
+- **The phone's news bubble:** `#notice-bubble` in `mobile/index.html` is a smaller circle at the top left; on its side
+  it sits below the tabs so it does not cover them.
+- **The phone stays awake:** `keepScreenAwake()` in `mobile/mobile.ts` requests a screen wake lock while the page is
+  visible, and asks again when it becomes visible after being backgrounded. Browsers that do not support it carry on
+  normally.
+- **The townsfolk's people mark:** `PersonView.origin` carries each person's own origin (or the town's for its own
+  people); `folk-race` in `panel/townsfolkPanel.ts` shows its mark beside their name and its full name on hover.
 - **Phase 3 is done** (the Tavern: see above).
 - **Origins are done:** `src/shared/data/origins.ts` (defs: start, rules, powers), applied at founding in
   `newGame`; the rule multipliers are in `src/shared/sim/origin.ts` (asked for by people, farming, raids, crafting, the

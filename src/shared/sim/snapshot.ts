@@ -171,6 +171,8 @@ export interface SkillView {
 export interface PersonView {
   id: number;
   name: string;
+  /** Their people (sim/strangers.ts), or the town's origin if they were born or founded here. */
+  origin?: OriginId;
   typeName: string;
   look: Look;
   x: number;
@@ -1681,6 +1683,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
   return {
     id: p.id,
     name: p.name,
+    origin: p.origin ?? originOf(s).id,
     typeName: RECRUIT_TYPES[p.type]?.name ?? p.type,
     look: p.look,
     x: p.x,
