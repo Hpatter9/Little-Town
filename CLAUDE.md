@@ -4089,5 +4089,5 @@ blocked by buildings, structures, trees and rocks)
 - Version: 0.62.0.
 
 ## Fine map zoom control (0.63.0; the owner's ask)
-- **The phone menu's zoom can be set precisely:** a range control replaces the old 20% jumps with one-percent steps and shows the current value. Pinch zoom remains available; one button restores the default zoom (`mobile/mobile.ts`, `mobile/index.html`).
+- **The phone menu's zoom can be set precisely:** a range control replaces the old 20% jumps with one-percent steps and shows the current value. The map previews smoothly while the slider moves, then redraws sharply when released. Pinch zoom remains available; one button restores the default zoom (`mobile/mobile.ts`, `mobile/index.html`).
 - Version: 0.63.0.

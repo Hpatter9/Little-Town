@@ -349,12 +349,35 @@ function drawMenu(): void {
     zoomInput.step = '1';
     zoomInput.value = String(Math.round(zoom * 100));
     zoomInput.setAttribute('aria-label', 'Map zoom');
+    let zoomStart: number | null = null;
+    const startZoomPreview = () => {
+      if (zoomStart !== null) return;
+      zoomStart = zoom;
+      const canvas = mapCanvas();
+      if (canvas) canvas.style.transformOrigin = '50% 50%';
+      stripBox.classList.add('pinching');
+    };
+    const previewZoom = () => {
+      startZoomPreview();
+      const scale = (Number(zoomInput.value) / 100) / (zoomStart ?? zoom);
+      const canvas = mapCanvas();
+      if (canvas) canvas.style.transform = `scale(${scale})`;
+    };
+    const commitZoom = () => {
+      if (zoomStart === null) return;
+      const canvas = mapCanvas();
+      if (canvas) canvas.style.transform = '';
+      stripBox.classList.remove('pinching');
+      zoomStart = null;
+      setZoom(Number(zoomInput.value) / 100);
+    };
     const showZoom = () => (zoomLabel.textContent = `Map zoom: ${zoomInput.value}%`);
     showZoom();
-    zoomInput.addEventListener('input', () => {
-      setZoom(Number(zoomInput.value) / 100);
-      showZoom();
-    });
+    zoomInput.addEventListener('pointerdown', startZoomPreview);
+    zoomInput.addEventListener('keydown', startZoomPreview);
+    zoomInput.addEventListener('input', () => (previewZoom(), showZoom()));
+    zoomInput.addEventListener('change', commitZoom);
+    zoomInput.addEventListener('blur', commitZoom);
     zooms.append(zoomLabel, zoomInput, item('Reset zoom', () => (setZoom(DEFAULT_ZOOMS[orientation()]), drawMenu())));
     const installed = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
     menu.replaceChildren(
