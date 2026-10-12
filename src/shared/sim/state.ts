@@ -1189,6 +1189,8 @@ export interface GameState {
   /** Who founded the town (see data/origins.ts; Settlers when left out), when each of its powers is ready again, what
    *  it has cast lately (newest last), and the spells still in effect (by id, until a tick). */
   origin?: OriginId;
+  /** Chosen by the townsfolk's day-15 vote (sim/settlementName.ts). */
+  townName?: string;
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
   buffs?: Record<string, number>;

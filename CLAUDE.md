@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.60.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.61.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4079,3 +4079,7 @@ blocked by buildings, structures, trees and rocks)
 - **No return recap or time-lapse:** `shared/gameLoop.ts` catches the town up in ordinary slices without sampling replay frames. The phone applies snapshots directly; it does not play a time-away replay, show an away report card, or create a journal recap. `snapshot.ts` also hides older away-report entries from saves made before this change.
 - **No town timelapse:** removed daily screenshot capture and the Chronicle tab; returning to play no longer extracts or stores map images.
 - Offline progress itself still runs, including its existing cap and raid/event handling. Version: 0.60.0.
+
+## The townsfolk name their settlement (0.61.0; the owner's ask)
+- **A vote on day 15:** `sim/settlementName.ts` builds ballot names from the biome, origin and recent town events. Each resident casts a seeded vote; the winning name is saved in `GameState.townName` and shown in the phone title and desktop ticker. Old saves keep their origin name until the vote. The vote is deterministic across saves.
+- Version: 0.61.0.
