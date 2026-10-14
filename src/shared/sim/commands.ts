@@ -44,6 +44,8 @@ export type Command =
   /** Remove a topic (and anything queued that depends on it) from the queue. Progress is kept; the town leaves it be
    *  while it has anything else to study. */
   | { type: 'cancelResearch'; topic: string }
+  /** Pin (on) or unpin a building from the Building book: the town builds it next (sim/pins.ts). */
+  | { type: 'pinBuilding'; def: string; on: boolean }
   /** Move a hand-picked topic a place earlier (-1) or later (1) among the picks. */
   | { type: 'moveResearch'; topic: string; dir: -1 | 1 }
   /** Move a topic to the front of the queue. */
@@ -203,6 +205,8 @@ export function parseCommand(raw: unknown): Command | null {
     case 'cancelResearch':
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
+    case 'pinBuilding':
+      return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && typeof c.on === 'boolean' ? { type: 'pinBuilding', def: c.def, on: c.on } : null;
     case 'moveResearch':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] && (c.dir === -1 || c.dir === 1) ? { type: 'moveResearch', topic: c.topic, dir: c.dir } : null;
     case 'sendDelve':

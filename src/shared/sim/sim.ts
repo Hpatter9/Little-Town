@@ -81,6 +81,7 @@ import { maybeStartRaid, startGuildRaid, startRaid, updateRaid } from './raids';
 import { answerPrompt, expirePrompts } from './roadEvents';
 import { newTickContext, updatePerson, walkTo } from './people';
 import type { Person } from './state';
+import { setPin } from './pins';
 import { cancelResearch, moveResearch, pickResearch, researchNext, seatStageNow } from './research';
 import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
@@ -349,6 +350,11 @@ export class Sim {
       case 'cancelResearch':
         cancelResearch(s.research, c.topic, true);
         break;
+      case 'pinBuilding': {
+        const no = setPin(s, c.def, c.on);
+        if (no) notify(s, `Can't wish for that: ${no.toLowerCase()}.`);
+        break;
+      }
       case 'moveResearch':
         moveResearch(s.research, c.topic, c.dir);
         break;

@@ -31,6 +31,7 @@ import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
 import { isSeat, seatId, seatOf } from '../data/seats';
+import { pinned, tendPins } from './pins';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { ORES } from '../data/minerals';
 import { mines } from './places';
@@ -139,6 +140,8 @@ function needs(s: GameState): Needs {
   const demand: Stock = {};
   const want = (m: Material, n: number) => (demand[m] = (demand[m] ?? 0) + n);
   for (const b of s.buildings) if (inWork(b)) for (const [m, n] of Object.entries(stillNeeded(b)) as [Material, number][]) want(m, n);
+  // (the player's wishes not yet laid: the town gathers their makings)
+  for (const p of s.pins ?? []) if (p.building === undefined) for (const [m, k] of Object.entries(BUILDING_BY_ID[p.def]?.cost ?? {}) as [Material, number][]) want(m, k);
   // (and the ring wall's next sections, laid out but not yet in work: the town gathers for its wall)
   for (const [m, n] of Object.entries(ringWants(s)) as [Material, number][]) want(m, n);
   for (const o of s.crafting) for (const [m, n] of Object.entries(craftNeeded(o)) as [Material, number][]) want(m, n * o.count);
@@ -845,6 +848,39 @@ function planSeat(s: GameState, n: Needs, plan: TownPlan): boolean {
   return true;
 }
 
+/** The player's building wishes (sim/pins.ts): each built next, in the order pinned, as soon as a slot is free, its
+ *  makings can be had and there's a spot for it. What holds one back is kept on the pin for the menu. */
+function planPins(s: GameState, n: Needs, plan: TownPlan): boolean {
+  tendPins(s);
+  for (const p of s.pins ?? []) {
+    if (p.building !== undefined) continue;
+    const def = BUILDING_BY_ID[p.def];
+    if (!def || !isUnlocked(unlockInfo(s), def)) {
+      p.why = 'not learned yet';
+      continue;
+    }
+    if (blueprintCount(s) >= buildSlots(s)) {
+      p.why = 'waiting for a free building slot';
+      continue;
+    }
+    if (!affordable(s, def, n.stock)) {
+      const missing = (Object.entries(def.cost) as [Material, number][]).filter(([m, k]) => (n.stock[m] ?? 0) < k && !sourceable(s, m, 0, true)).map(([m]) => m);
+      p.why = `no way to get ${names(missing.length ? missing : (Object.keys(def.cost) as Material[]))} yet`;
+      continue;
+    }
+    const at = roomKind(s, def) ? roomSpot(s, def) : findSpot(s, def);
+    if (!at || !placeBlueprint(s, def.id, at.x, at.y, false, false, 'wild' in at && !!at.wild).ok) {
+      p.why = 'no room for it';
+      continue;
+    }
+    p.building = s.buildings[s.buildings.length - 1].id;
+    p.why = undefined;
+    plan.build = { def: def.id, why: 'you wished for it' };
+    return true;
+  }
+  return false;
+}
+
 /** Fewer, bigger fields: two garden plots side by side, both lying fallow, are ploughed into one open field (and an
  *  open field grows into an estate farm where it stands, if there's room). In winter, when nothing's in the ground
  *  anyway, or whenever more food is wanted. */
@@ -888,7 +924,7 @@ function shelveStalled(s: GameState, n: Needs, plan: TownPlan): void {
       moved[b.id] = { tick: s.tick, sig };
       continue;
     }
-    if (s.tick - m.tick < STALL_HOURS * TICKS_PER_HOUR || CAPSTONES.includes(b.def) || isSeat(b.def) || b.progress > 0) continue;
+    if (s.tick - m.tick < STALL_HOURS * TICKS_PER_HOUR || CAPSTONES.includes(b.def) || isSeat(b.def) || pinned(s, b.id) || b.progress > 0) continue;
     const missing = (Object.keys(stillNeeded(b)) as Material[]).filter((k) => (n.stock[k] ?? 0) === 0);
     if (!missing.length) continue;
     demolish(s, b.id);
@@ -952,8 +988,9 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
     if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.raided));
     if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
   };
-  // (the seat first, even with the queue full: the new age's studies wait on it)
+  // (the seat first, even with the queue full: the new age's studies wait on it; then the player's wishes)
   if (planSeat(s, n, plan)) return clear;
+  if (planPins(s, n, plan)) return clear;
   if (blueprintCount(s) >= buildSlots(s)) {
     // (the queue full, the ring's plan still goes on: its planned pieces take no slot, and the trees and rocks on its
     // line are marked to clear; no section is released into work without room: the owner's ask that a wall laid

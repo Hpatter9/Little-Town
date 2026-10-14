@@ -1037,6 +1037,8 @@ export interface Snapshot {
   mainId: number;
   unlockAll: boolean;
   research: ResearchView;
+  /** The player's building wishes (sim/pins.ts): what, whether it's going up and how far, or what it waits on. */
+  pins: { def: string; name: string; building: boolean; progress: number; why: string | null }[];
   notices: Notice[];
   /** Spare items (not worn), and the craft queue. */
   items: Record<string, number>;
@@ -1371,6 +1373,10 @@ export function snapshot(s: GameState): Snapshot {
     mainId: s.mainId,
     unlockAll: s.cheats.unlockAll,
     research: researchView(s),
+    pins: (s.pins ?? []).map((p) => {
+      const b = p.building !== undefined ? s.buildings.find((q) => q.id === p.building) : undefined;
+      return { def: p.def, name: BUILDING_BY_ID[p.def]?.name ?? p.def, building: !!b, progress: b?.progress ?? 0, why: p.why ?? null };
+    }),
     notices: [...s.notices],
     items: { ...s.items },
     crafting: s.crafting.map((o) => craftView(s, o)),
