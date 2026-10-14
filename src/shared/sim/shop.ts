@@ -640,8 +640,7 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
       venues = new Map();
       for (const b of s.buildings) {
         if (b.status !== 'done') continue;
-        const l = lineOfDef(b.def);
-        const k = l ? `l:${l}` : venueOfDef(b.def) ? `v:${venueOfDef(b.def)}` : null;
+        const k = venueKey(b.def);
         if (k && !venues.has(k)) venues.set(k, b);
       }
     }
@@ -650,6 +649,18 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
   arrive(s, rng, 'shop', town, undefined, standing);
   arrive(s, rng, 'tavern', town, undefined, standing);
   for (const line of SHOP_LINES) arrive(s, rng, 'shop', town, line, standing);
+}
+
+/** What a kind of building is to the arrivals: a store of a line (`l:`), a venue (`v:`), or nothing. */
+const VENUE_KEYS = new Map<string, string | null>();
+function venueKey(def: string): string | null {
+  let k = VENUE_KEYS.get(def);
+  if (k === undefined) {
+    const l = lineOfDef(def);
+    k = l ? `l:${l}` : venueOfDef(def) ? `v:${venueOfDef(def)}` : null;
+    VENUE_KEYS.set(def, k);
+  }
+  return k;
 }
 
 /** A new stranger on the road, if one's due for a venue. */
