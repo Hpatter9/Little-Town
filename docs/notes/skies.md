@@ -33,7 +33,7 @@ town without airships plays out as before (checked: fresh towns byte-identical t
   paced day `SKY_RAID_FROM_DAY`, never within `SKY_RAID_GAP_DAYS` of the last, and only in place of a raid due within
   `SKY_RAID_DUE` hours (like a nest's raid). Their ship is seen (`seePirates`: `s.skies.pirates`, a red notice) and
   `SKY_WARNING_HOURS` later they slide down their ropes into the middle of the town by the stores (`dropIn`:
-  `startRaid(..., inside)` with `SKY_RAIDS` by the age, weight 0, `SKY_RAID_SHARE` of a raid's budget): walls don't stop
+  `startRaid(..., inside)` with `SKY_RAIDS` by the age, weight 0, `SKY_RAID_SHARE` (0.7) of a raid's budget): walls don't stop
   them. Gale's Roost cleared (`airshipHome` with the job done), they keep away `ROOST_QUIET_DAYS` (`s.skies.quietUntil`).
 - **Hunters from the sky** (`skyHuntersHourly`, from day `SKY_HUNT_FIRST_DAY` 5 in a town of `SKY_HUNT_PEOPLE` 4, on
   `SKY_HUNT_HOURLY` 0.006 an hour, more in the highlands, one at a time): a roaming band with `Roamer.flying`

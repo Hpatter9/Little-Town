@@ -180,7 +180,7 @@ export const SKY_RAID_GAP_DAYS = 6;
 export const SKY_RAID_DUE = 24;
 export const SKY_WARNING_HOURS = 1;
 /** Their raid's budget, a share of an ordinary raid's (they come by rope: fewer, harder). */
-export const SKY_RAID_SHARE = 0.85;
+export const SKY_RAID_SHARE = 0.7;
 /** Gale's Roost cleared: no sky pirates for this many days. */
 export const ROOST_QUIET_DAYS = 20;
 
