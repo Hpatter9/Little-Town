@@ -54,7 +54,7 @@ import { freeStation, modifiers, researchMods, researchStations, studyingAt, tid
 import { isSeat } from '../data/seats';
 import { holderOf, holds, jobOf as heldJob } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
-import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Raider, type Task } from './state';
+import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, buildingById, type Building, type GameState, type Person, type Raider, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { mended, needsSickbed, sickbedFor } from './sickbeds';
@@ -1258,9 +1258,22 @@ function coverOf(s: GameState): Cover {
   return c;
 }
 
-function buildSpot(s: GameState, p: Person, b: Building, cover?: () => Cover): Pt | undefined {
-  const occupied = new Set(s.people.filter((q) => q.id !== p.id && q.task?.type === 'build' && q.task.building === b.id && q.task.spot)
-    .map((q) => { const task = q.task as Extract<Task, { type: 'build' }>; return `${task.spot!.x},${task.spot!.y}`; }));
+/** Who stands at which site's spots (by the site's id): the spots taken. */
+type Builders = Map<number, { id: number; spot: string }[]>;
+function buildersAt(s: GameState): Builders {
+  const at: Builders = new Map();
+  for (const q of s.people) {
+    if (q.task?.type !== 'build' || !q.task.spot) continue;
+    const l = at.get(q.task.building);
+    const e = { id: q.id, spot: `${q.task.spot.x},${q.task.spot.y}` };
+    if (l) l.push(e);
+    else at.set(q.task.building, [e]);
+  }
+  return at;
+}
+function buildSpot(s: GameState, p: Person, b: Building, cover?: () => Cover, builders?: () => Builders): Pt | undefined {
+  // (the builders at every site are gathered once for a look over many sites: each site looked over everyone)
+  const occupied = new Set(((builders ?? (() => buildersAt(s)))().get(b.id) ?? []).filter((q) => q.id !== p.id).map((q) => q.spot));
   if (p.task?.type === 'build' && p.task.building === b.id && p.task.spot && !occupied.has(`${p.task.spot.x},${p.task.spot.y}`)) return p.task.spot;
   const r = footprint(b), cells: Pt[] = [];
   for (let x = r.x; x < r.x + r.w; x++) cells.push({ x, y: r.y - 1 }, { x, y: r.y + r.h });
@@ -1280,7 +1293,9 @@ function buildSpot(s: GameState, p: Person, b: Building, cover?: () => Cover): P
 function buildsFirst(s: GameState, p: Person): boolean {
   let c: Cover | null = null;
   const cover = () => (c ??= coverOf(s));
-  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b, cover));
+  let at: Builders | null = null;
+  const builders = () => (at ??= buildersAt(s));
+  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b, cover, builders));
 }
 
 /** Up to this many grown-ups, building and gathering come before study. */
@@ -1310,8 +1325,10 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
     case 'construct': {
       let c: Cover | null = null;
       const cover = () => (c ??= coverOf(s));
-      const b = s.buildings.find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q, cover));
-      if (b) return { type: 'build', building: b.id, spot: buildSpot(s, p, b, cover) };
+      let at: Builders | null = null;
+      const builders = () => (at ??= buildersAt(s));
+      const b = s.buildings.find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q, cover, builders));
+      if (b) return { type: 'build', building: b.id, spot: buildSpot(s, p, b, cover, builders) };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
     }
@@ -1557,7 +1574,7 @@ const listCarried = (p: Person) =>
     .join(', ');
 
 function byId(s: GameState, id: number): Building | undefined {
-  return s.buildings.find((b) => b.id === id);
+  return buildingById(s, id);
 }
 
 function nearestStorage(s: GameState, at: Pt, ok: (b: Building) => boolean): Building | null {

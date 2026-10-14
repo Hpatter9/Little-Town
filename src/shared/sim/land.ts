@@ -656,7 +656,6 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
     costOf[i] = c;
     return c;
   };
-  const gAt = (i: number) => (seenAt[i] === gen ? g[i] : Infinity);
   const start = from.y * W + from.x;
   seenAt[start] = gen;
   g[start] = 0;
@@ -767,24 +766,32 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
       const cx = c % W;
       const cy = (c - cx) / W;
       const gc = g[c];
+      // (the four sides' costs once: each is asked again for the corners beside it)
+      const cw = cost(cx - 1, cy);
+      const ce = cost(cx + 1, cy);
+      const cn = cost(cx, cy - 1);
+      const cs = cost(cx, cy + 1);
       for (let dy = -1; dy <= 1; dy++)
         for (let dx = -1; dx <= 1; dx++) {
           if (!dx && !dy) continue;
-          if (four && dx && dy) continue;
+          const diag = dx !== 0 && dy !== 0;
+          if (four && diag) continue;
           const nx = cx + dx;
           const ny = cy + dy;
-          const step = cost(nx, ny);
+          const step = diag ? cost(nx, ny) : dx < 0 ? cw : dx > 0 ? ce : dy < 0 ? cn : cs;
           if (step === Infinity) continue;
           // (no cutting a corner past something that can't be crossed)
-          if (dx && dy && (cost(cx + dx, cy) === Infinity || cost(cx, cy + dy) === Infinity)) continue;
-          if (e && (dx && dy ? !(e(cx, cy, nx, cy) && e(nx, cy, nx, ny) && e(cx, cy, cx, ny) && e(cx, ny, nx, ny)) : !e(cx, cy, nx, ny))) continue;
+          if (diag && ((dx < 0 ? cw : ce) === Infinity || (dy < 0 ? cn : cs) === Infinity)) continue;
+          if (e && (diag ? !(e(cx, cy, nx, cy) && e(nx, cy, nx, ny) && e(cx, cy, cx, ny) && e(cx, ny, nx, ny)) : !e(cx, cy, nx, ny))) continue;
           const nn = ny * W + nx;
-          const ng = gc + step * (dx && dy ? 1.414 : 1);
-          if (ng < gAt(nn)) {
+          const ng = gc + step * (diag ? 1.414 : 1);
+          if (seenAt[nn] !== gen || ng < g[nn]) {
             seenAt[nn] = gen;
             g[nn] = ng;
             came[nn] = c;
-            push(ng + hfn(nx, ny), nn);
+            const hx = nx > to.x ? nx - to.x : to.x - nx;
+            const hy = ny > to.y ? ny - to.y : to.y - ny;
+            push(ng + 0.55 * ((hx > hy ? hx : hy) + 0.414 * (hx < hy ? hx : hy)), nn);
           }
         }
     }

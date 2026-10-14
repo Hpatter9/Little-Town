@@ -1810,3 +1810,22 @@ export function addStock(to: Stock, m: Material, n: number): void {
 export const townFull = (s: Pick<GameState, 'popTarget' | 'people'>) => s.popTarget !== undefined && s.people.length >= s.popTarget;
 /** The sizes the player can pick for the town (the Plan tab); `undefined` is no limit. */
 export const TOWN_SIZES = [5, 10, 20, 40] as const;
+
+/** A building by its id, as `s.buildings.find` would give it, from an index of where each stands in the list (asked
+ *  for every task of everyone each tick). The index is checked on every use and made again when the list has moved
+ *  under it; an id it hasn't is looked for as before. */
+let buildingIndex: { list: Building[]; at: Map<number, number> } | null = null;
+export function buildingById(s: Pick<GameState, 'buildings'>, id: number): Building | undefined {
+  const list = s.buildings;
+  if (buildingIndex?.list === list) {
+    const i = buildingIndex.at.get(id);
+    if (i !== undefined && list[i]?.id === id) return list[i];
+  }
+  const b = list.find((q) => q.id === id);
+  if (b) {
+    const at = new Map<number, number>();
+    for (let i = list.length - 1; i >= 0; i--) at.set(list[i].id, i);
+    buildingIndex = { list, at };
+  }
+  return b;
+}
