@@ -42,7 +42,7 @@ import {
 import { levelOf, xpToLevel } from '../data/levels';
 import { CIRCLE_PACE, FLY_HIGH, SKY_RANGE_CELLS, SKY_SEE_CELLS, SWOOP_PACE } from '../data/skies';
 import { hashSeed, Rng } from '../rng';
-import { builtOn, depositNear, townRadius } from './buildings';
+import { builtOnNow, depositNear, townRadius } from './buildings';
 import { battleLoot, startBattle, stepBattle } from './combat';
 import { killPerson, knockDown } from './health';
 import { woundFor, woundPerson } from './injuries';
@@ -109,7 +109,7 @@ function walkable(s: GameState, x: number, y: number): boolean {
   if (!inMap(s.land, cx, cy)) return false;
   const g = groundAt(s.land, cx, cy);
   if (wet(g) || g === 'mountain' || g === 'hall') return false;
-  if (builtOn(s, cx, cy)) return false;
+  if (builtOnNow(s, cx, cy)) return false;
   return !sheltered(s, x, y);
 }
 
@@ -174,7 +174,7 @@ function moveRoamer(s: GameState, r: Roamer, folk: Person[]): void {
   }
   // someone in sight, out in the open?
   const seen = folk
-    .filter((p) => !sheltered(s, p.x, p.y ?? 0) && Math.hypot(p.x - r.x, (p.y ?? 0) - r.y) <= SEE_CELLS * CELL)
+    .filter((p) => Math.hypot(p.x - r.x, (p.y ?? 0) - r.y) <= SEE_CELLS * CELL && !sheltered(s, p.x, p.y ?? 0))
     .sort((a, b) => Math.hypot(a.x - r.x, (a.y ?? 0) - r.y) - Math.hypot(b.x - r.x, (b.y ?? 0) - r.y))[0];
   if (seen) {
     if (r.chasing !== seen.id) notify(s, `${seen.name} is set upon by ${roamerName(r)} out on the land!`);

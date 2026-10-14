@@ -5,8 +5,8 @@ import { CROPS } from '../src/shared/data/crops';
 import { HERDS } from '../src/shared/data/livestock';
 import { pickCovered } from '../src/renderer/map/packBuildings';
 
-/** What no pack has (the war engines and turrets, the launch pad, three peoples' own defences): still painted. */
-const PAINTED = new Set(['gun_nest', 'gun_turret', 'laser_turret', 'launch_site', 'boiling_oil', 'ballista', 'catapult', 'cannon', 'flame_turret', 'mortar_pit', 'sentry_bot', 'tide_pool_trap', 'acid_sprayer']);
+/** What no pack has (most war engines and turrets, the launch pad, two peoples' own defences): still painted. */
+const PAINTED = new Set(['gun_nest', 'gun_turret', 'laser_turret', 'launch_site', 'boiling_oil', 'ballista', 'catapult', 'flame_turret', 'mortar_pit', 'tide_pool_trap', 'acid_sprayer']);
 const LOOKS = ['town', 'settlers', 'knights', 'lich', 'vampire', 'druid', 'werewolf', 'robot', 'dwarves', 'merfolk', 'nomads', 'fae', 'alchemists'];
 
 test('every building is drawn from the packs in every look, but what no pack has', () => {

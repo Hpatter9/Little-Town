@@ -180,6 +180,8 @@ import dlStakes from '../art/packs/dl_stakes.png';
 import dlCaltrops from '../art/packs/dl_caltrops.png';
 import dlSpikes from '../art/packs/dl_spikes.png';
 import aoCoil from '../art/packs/ao_coil.png';
+import dpCannon from '../art/packs/dp_cannon.png';
+import rwScarab from '../art/packs/rw_scarab.png';
 import sfPylon from '../art/packs/sf_pylon.png';
 import sf27 from '../art/packs/sf_27.png';
 import sfTube4 from '../art/packs/sf_tube4.png';
@@ -337,8 +339,12 @@ const PICKS: Record<string, Pick> = {
   bramble_snare: { url: dlStakes, overhang: 0, grade: 'druid' },
   land_mine: { url: dlSpikes, overhang: 0 },
   tesla_coil: { url: aoCoil, overhang: 2 },
+  // the Dungeon Props pack's cannon on its carriage; the Robot Warfare pack's Scarab, a squat robot with a gun, for the
+  // machines' sentry bot (the other war engines and turrets stay painted: no pack has them)
+  cannon: { url: dpCannon, overhang: 2 },
+  sentry_bot: { url: rwScarab, overhang: 2 },
   shield_generator: { parts: [[aoCoil, 0, 0], [aoCoil, 34, 0]], size: [63, 43], overhang: 2 },
-  // each people's own defence, from the props that suit it (the war engines and turrets stay painted: no pack has them)
+  // each people's own defence, from the props that suit it
   militia_post: { parts: [[vRack, 0, 0], [vSignSword, 26, 18]], size: [49, 42], overhang: 2 },
   bone_spire: { url: caveTotem, overhang: 2, grade: 'lich' },
   skull_totem: { url: caveTotem, overhang: 2, grade: 'orcs' },

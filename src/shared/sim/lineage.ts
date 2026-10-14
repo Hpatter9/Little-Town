@@ -137,9 +137,16 @@ function trimKin(s: GameState): void {
 /* ------------------------------------------------------------ learning */
 
 /** Where lessons are held: the school, else a study (the elder lodge, a library, a college), else the fire. */
+const STUDY = /librar|elder|college|universit|scriptor|academy/;
 export function lessonPlace(s: GameState): Building | null {
-  const done = s.buildings.filter((b) => b.status === 'done');
-  return done.find((b) => b.def === 'school') ?? done.find((b) => /librar|elder|college|universit|scriptor|academy/.test(b.def)) ?? null;
+  // (one look over the buildings: every child asks, every few ticks)
+  let study: Building | null = null;
+  for (const b of s.buildings) {
+    if (b.status !== 'done') continue;
+    if (b.def === 'school') return b;
+    if (!study && STUDY.test(b.def)) study = b;
+  }
+  return study;
 }
 
 const childShare = (s: GameState, p: Person) => (p.bornTick == null ? 1 : (s.tick - p.bornTick) / (CHILD_HOURS * TICKS_PER_HOUR));

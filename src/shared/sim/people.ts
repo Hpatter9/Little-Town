@@ -54,7 +54,7 @@ import { freeStation, modifiers, researchMods, researchStations, studyingAt, tid
 import { isSeat } from '../data/seats';
 import { holderOf, holds, jobOf as heldJob } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
-import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Raider, type Task } from './state';
+import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, buildingById, type Building, type GameState, type Person, type Raider, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { mended, needsSickbed, sickbedFor } from './sickbeds';
@@ -1258,29 +1258,70 @@ function coverOf(s: GameState): Cover {
   return c;
 }
 
-function buildSpot(s: GameState, p: Person, b: Building, cover?: () => Cover): Pt | undefined {
-  const occupied = new Set(s.people.filter((q) => q.id !== p.id && q.task?.type === 'build' && q.task.building === b.id && q.task.spot)
-    .map((q) => { const task = q.task as Extract<Task, { type: 'build' }>; return `${task.spot!.x},${task.spot!.y}`; }));
-  if (p.task?.type === 'build' && p.task.building === b.id && p.task.spot && !occupied.has(`${p.task.spot.x},${p.task.spot.y}`)) return p.task.spot;
-  const r = footprint(b), cells: Pt[] = [];
-  for (let x = r.x; x < r.x + r.w; x++) cells.push({ x, y: r.y - 1 }, { x, y: r.y + r.h });
-  for (let y = r.y; y < r.y + r.h; y++) cells.push({ x: r.x - 1, y }, { x: r.x + r.w, y });
+/** Who stands at which site's spots (by the site's id): the spots taken. */
+type Builders = Map<number, { id: number; x: number; y: number }[]>;
+const NOBODY: { id: number; x: number; y: number }[] = [];
+function buildersAt(s: GameState): Builders {
+  const at: Builders = new Map();
+  for (const q of s.people) {
+    if (q.task?.type !== 'build' || !q.task.spot) continue;
+    const l = at.get(q.task.building);
+    const e = { id: q.id, x: q.task.spot.x, y: q.task.spot.y };
+    if (l) l.push(e);
+    else at.set(q.task.building, [e]);
+  }
+  return at;
+}
+function buildSpot(s: GameState, p: Person, b: Building, cover?: () => Cover, builders?: () => Builders): Pt | undefined {
+  // (the builders at every site are gathered once for a look over many sites: each site looked over everyone)
+  const there = (builders ?? (() => buildersAt(s)))().get(b.id);
+  const others = there ? there.filter((q) => q.id !== p.id) : NOBODY;
+  const taken = (x: number, y: number) => others.some((q) => q.x === x && q.y === y);
+  if (p.task?.type === 'build' && p.task.building === b.id && p.task.spot && !taken(p.task.spot.x, p.task.spot.y)) return p.task.spot;
+  const r = footprint(b);
   let on: Cover | null = null;
-  for (const cell of cells) {
-    const spot = { x: (cell.x + 0.5) * CELL, y: (cell.y + 0.5) * CELL };
-    if (occupied.has(`${spot.x},${spot.y}`)) continue;
-    if (!inMap(s.land, cell.x, cell.y) || (wet(groundAt(s.land, cell.x, cell.y)) && !swims(s, p))) continue;
+  const free = (cx: number, cy: number): Pt | undefined => {
+    const x = (cx + 0.5) * CELL;
+    const y = (cy + 0.5) * CELL;
+    if (others.length && taken(x, y)) return undefined;
+    if (!inMap(s.land, cx, cy) || (wet(groundAt(s.land, cx, cy)) && !swims(s, p))) return undefined;
     on ??= cover ? cover() : coverOf(s);
-    if (on.get(cell.y * 65536 + cell.x)?.some((id) => id !== b.id)) continue; // (another building stands there)
-    return spot;
+    const ids = on.get(cy * 65536 + cx);
+    if (ids && (ids.length > 1 || ids[0] !== b.id)) return undefined; // (another building stands there)
+    return { x, y };
+  };
+  // (its rows above and below, then its sides)
+  for (let x = r.x; x < r.x + r.w; x++) {
+    const spot = free(x, r.y - 1) ?? free(x, r.y + r.h);
+    if (spot) return spot;
+  }
+  for (let y = r.y; y < r.y + r.h; y++) {
+    const spot = free(r.x - 1, y) ?? free(r.x + r.w, y);
+    if (spot) return spot;
   }
   return undefined;
 }
+/** The sites (blueprints) in the buildings' order, gathered once a tick for everyone choosing work (each looked over
+ *  every building, twice). While the townsfolk act, a building turns into a site only by being laid (the list grows,
+ *  and they're gathered again): an upgrade or a move is the planner's or a command's, before or after them. Sites
+ *  finished meanwhile stay in the list, and are passed over as before (`inWork`). */
+let sitesMade: { list: Building[]; length: number; last: Building | undefined; tick: number; sites: Building[] } | null = null;
+function blueprintsNow(s: GameState): Building[] {
+  const m = sitesMade;
+  const bs = s.buildings;
+  if (m && m.list === bs && m.length === bs.length && m.last === bs[bs.length - 1] && m.tick === s.tick) return m.sites;
+  const sites = bs.filter((b) => b.status === 'blueprint');
+  sitesMade = { list: bs, length: bs.length, last: bs[bs.length - 1], tick: s.tick, sites };
+  return sites;
+}
+
 /** Whether someone builds at full pace on a site with work for a builder now (the founder always does). */
 function buildsFirst(s: GameState, p: Person): boolean {
   let c: Cover | null = null;
   const cover = () => (c ??= coverOf(s));
-  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b, cover));
+  let at: Builders | null = null;
+  const builders = () => (at ??= buildersAt(s));
+  return blueprintsNow(s).some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b, cover, builders));
 }
 
 /** Up to this many grown-ups, building and gathering come before study. */
@@ -1310,8 +1351,10 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
     case 'construct': {
       let c: Cover | null = null;
       const cover = () => (c ??= coverOf(s));
-      const b = s.buildings.find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q, cover));
-      if (b) return { type: 'build', building: b.id, spot: buildSpot(s, p, b, cover) };
+      let at: Builders | null = null;
+      const builders = () => (at ??= buildersAt(s));
+      const b = blueprintsNow(s).find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q, cover, builders));
+      if (b) return { type: 'build', building: b.id, spot: buildSpot(s, p, b, cover, builders) };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
     }
@@ -1557,7 +1600,7 @@ const listCarried = (p: Person) =>
     .join(', ');
 
 function byId(s: GameState, id: number): Building | undefined {
-  return s.buildings.find((b) => b.id === id);
+  return buildingById(s, id);
 }
 
 function nearestStorage(s: GameState, at: Pt, ok: (b: Building) => boolean): Building | null {

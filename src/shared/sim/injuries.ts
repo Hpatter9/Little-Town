@@ -131,7 +131,28 @@ const WHOLE: Capacities = { sight: 1, handling: 1, moving: 1, pain: 0 };
 /** What someone can do, all told (1 sound; a bionic part can take it past 1). */
 export function capacities(p: Person): Capacities {
   if (!p.wounds?.length && !p.lasting?.length) return WHOLE;
-  const w = (b: BodyPart) => partWorks(p, b);
+  // (the wounds and what's lasting gone over once, not once a part: asked for the hurt every tick as they walk)
+  const worst = new Map<BodyPart, number>();
+  for (const x of p.wounds ?? []) worst.set(x.part, Math.max(worst.get(x.part) ?? 0, x.sev));
+  const gone = new Set<BodyPart>();
+  const scars = new Set<BodyPart>();
+  for (const l of p.lasting ?? []) {
+    if (l.kind === 'lost') gone.add(l.part);
+    else if (l.kind === 'scar') scars.add(l.part);
+  }
+  // (as partWorks reckons it)
+  const w = (part: BodyPart): number => {
+    if (gone.has(part)) {
+      const own = p.fitted?.[part];
+      if (own) return PROSTHETIC_BY_ITEM[own]?.works ?? 0;
+      if (part.startsWith('hand')) {
+        const arm = p.fitted?.[part === 'hand_l' ? 'arm_l' : 'arm_r'];
+        if (arm) return PROSTHETIC_BY_ITEM[arm]?.works ?? 0;
+      }
+      return 0;
+    }
+    return (scars.has(part) ? SCAR_WORKS : 1) * (1 - (worst.get(part) ?? 0) * WOUND_HINDERS);
+  };
   const sight = (w('eye_l') + w('eye_r')) / 2;
   const handling = (w('arm_l') * Math.min(1.25, w('hand_l')) + w('arm_r') * Math.min(1.25, w('hand_r'))) / 2;
   const moving = (w('leg_l') + w('leg_r')) / 2;

@@ -110,6 +110,14 @@ export function sameLayout(bs: readonly Building[], was: BuildingsLayout | undef
   return true;
 }
 
+/** `builtOn` asked often while the buildings stand still (a band's every step): the cells indexed, kept while the
+ *  buildings' layout is the same. */
+let coverNow: { layout: BuildingsLayout; at: (x: number, y: number) => Building | undefined } | null = null;
+export function builtOnNow(s: Pick<GameState, 'buildings'>, x: number, y: number): Building | undefined {
+  if (!coverNow || !sameLayout(s.buildings, coverNow.layout)) coverNow = { layout: layoutOf(s.buildings), at: builtOnIndex(s) };
+  return coverNow.at(x, y);
+}
+
 /** The last town radius worked out (it's asked for every walker and every band each tick). */
 let radiusMade: { layout: BuildingsLayout; cx: number; cy: number; r: number } | null = null;
 export function townRadius(s: Pick<GameState, 'buildings' | 'land' | 'nomad'>): number {
