@@ -3,6 +3,7 @@
 
 import { darkPace } from './lighting';
 import { blocMood } from './politics';
+import { guildMood, guildWork } from './guildPerks';
 import { coverOf, makeSpecial, secretJoined, secretWanderer, specialFor } from './specials';
 import { injuryMood, injuryWork } from './injuries';
 import { TAX } from '../data/economy';
@@ -144,6 +145,9 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   // (how their bloc feels about the town's rule: sim/politics.ts)
   const bm = blocMood(s, p);
   if (bm) add(bm.text, bm.value);
+  // (belonging to a guild: sim/guilds.ts)
+  const gm = guildMood(s, p);
+  if (gm) add(gm.text, gm.value);
   const charm = gearEffects(p).morale;
   if (charm) add('Lucky charm', charm);
   const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
@@ -286,6 +290,7 @@ export function workFactor(s: GameState, p: Person): number {
   if (p.sick) f *= PLAGUE_WORK;
   f *= darkPace(s, p); // (in the dark beyond the lights, or an unlit room: sim/lighting.ts)
   f *= ageWork(s, p); // (elders slow down)
+  f *= guildWork(s, p); // (a guild's own at its work: sim/guilds.ts)
   // vampires come alive at night
   if (p.monster === 'vampire') {
     const h = calendar(s.tick).hour;

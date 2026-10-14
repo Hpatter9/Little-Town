@@ -4224,3 +4224,25 @@ blocked by buildings, structures, trees and rocks)
   joins that to each listed event's `when` as EVENTS is put together (data/events.ts), so a lich or machine town never
   meets them. A new event about any of these goes in its list. Test: `test/eventFit.test.ts` (and any event whose
   words speak of hunger must be listed or named as someone else's hunger).
+
+## Guilds and squads (the owner's ask: the town forms its own guilds to fill a role it lacks)
+
+- `src/shared/data/guilds.ts` and `src/shared/sim/guilds.ts` (`guildsHourly` from sim.ts at `GUILD_HOUR` 17; autopilot
+  on; its own side stream `${seed}:guilds:${tick}`). Seven roles (`GUILD_ROLES`: wardens (defence), menders (healing),
+  rangers (scouting and hunting), crafters, merchants, scholars, and the elite squad), each with the skills that fit
+  someone (`fitFor`), the bloc that favours it and its perk. From day `GUILD_FROM_DAY` (5) in a town of `GUILD_PEOPLE`
+  (5) grown-ups, no oftener than `GUILD_GAP_DAYS` (4) and at most one guild per `GUILD_PER_PEOPLE` (4) grown-ups, the
+  town fills the role it lacks most (`needOf`: raids and the dead for wardens, the hurt and sick for menders, places
+  and roaming bands for rangers, the craft queue, the venues, the research queue; the elite only in a town of
+  `ELITE_PEOPLE` raided lately, from fighters of `ELITE_LEVEL`), if `MEMBERS_LEAST` fit (`lacking`): either the fittest
+  starts it, or (`COUNCIL_SHARE` 0.4, while the council sits) the council votes on it by bloc (sim/politics.ts
+  `blocOf`). The town names it (`guildName`: `ORIGIN_WORDS` per people, darker for the elite: "The Black Knives", or
+  "The Wardens of <town name>"), and the founding (or the vote that failed) is told in the event box (`tellStory`).
+  Daily the ranks are kept (the dead dropped, a new leader, those who fit join up to `MEMBERS_MOST` 6, `ELITE_MOST` 4;
+  the elite may call people from another guild; an empty guild disbands). `s.guilds` (`Guild` in sim/guildPerks.ts),
+  `s.lastGuild`. **Perks** (sim/guildPerks.ts, read by raids.ts, health.ts and townsfolk.ts): wardens' blows
+  `WARDEN_FIGHT` 1.15 and the elite's `ELITE_FIGHT` 1.3 in raids (`guildFight`), the hurt mend `MENDER_CARE` 1.25 faster
+  while a menders' guild stands (`guildCare`), crafters and scholars at their own work `GUILD_WORK` 1.2 (`guildWork`),
+  the rangers' daily haul of meat and hide, the merchants' dues to the treasury (ledger `trade`), and every member
+  `MEMBER_MORALE` spirits (`guildMood`). Seen on the People menu's **Guilds** tab (`panel/guildPanel.ts`,
+  `snapshot.guilds`, `GuildView`). Tests: `test/guilds.test.ts`.
