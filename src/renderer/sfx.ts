@@ -242,6 +242,7 @@ function globalPart(prev: Snapshot, next: Snapshot, r: () => number, play: Play)
   if (next.gathering && next.gathering.key !== prev.gathering?.key) {
     const k = next.gathering.kind;
     play(k === 'funeral' || k === 'great_funeral' ? 'dirge' : 'cheer');
+    if (k === 'festival') play('fanfare');
   }
   // disasters: the ground shaking, the fire's rush
   if (next.disaster && next.disaster.kind !== prev.disaster?.kind) play(next.disaster.kind === 'wildfire' ? 'whoosh' : 'rumble');

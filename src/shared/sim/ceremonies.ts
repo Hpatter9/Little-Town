@@ -38,8 +38,9 @@ import { isChild, opinion } from './social';
 import { addStock, eatersOf, foodDaysFor, tireless, campXY, earn, notify, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { takeSale } from './ambition';
+import { festivalOver } from './festivals';
 
-export type GatheringKind = 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite';
+export type GatheringKind = 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival';
 
 /** A death in town (or on the road): remembered for the next funeral, with who was close to them. Called before the
  *  dead are struck from the relations table. */
@@ -67,14 +68,14 @@ export function victoryFeast(s: GameState): void {
 }
 
 /** Days of food in store for everyone. */
-function foodDays(s: GameState): number {
+export function foodDays(s: GameState): number {
   const stock = totalStock(s);
   const food = Object.entries(FOOD_VALUE).reduce((n, [m, v]) => n + (stock[m as Material] ?? 0) * (v ?? 0), 0);
   return foodDaysFor(s, food);
 }
 
 /** Eat a feast's worth of food from the stores (the plainest first). */
-function eatFeast(s: GameState, heads: number): void {
+export function eatFeast(s: GameState, heads: number): void {
   let need = heads * FEAST_FOOD;
   for (const m of Object.keys(FOOD_VALUE) as Material[]) {
     for (const st of storages(s)) {
@@ -86,13 +87,13 @@ function eatFeast(s: GameState, heads: number): void {
   }
 }
 
-const here = (s: GameState) => s.people.filter((p) => p.away === null && !p.downed);
+export const here = (s: GameState) => s.people.filter((p) => p.away === null && !p.downed);
 const tavernOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && (b.def === 'fireside_inn' || b.def === 'tavern'));
 const graveyardOf = (s: GameState) => s.buildings.find((b) => b.status === 'done' && b.def === 'graveyard');
 
 /** Begin a gathering: who, where, for how long; with `from`, it begins as a procession from there (the head walking at
  *  PROCESSION_PACE), the gathering's time counted from when it arrives. */
-function gather(s: GameState, kind: GatheringKind, ids: number[], hours: number, text: string, at: { x: number; y: number }, from?: { x: number; y: number }): void {
+export function gather(s: GameState, kind: GatheringKind, ids: number[], hours: number, text: string, at: { x: number; y: number }, from?: { x: number; y: number }): void {
   const far = from ? Math.hypot(at.x - from.x, at.y - from.y) : 0;
   const walkTicks = far >= PROCESSION_LEAST ? Math.min(PROCESSION_MOST * TICKS_PER_HOUR, Math.ceil(far / PROCESSION_PACE)) : 0;
   s.gathering = { kind, ids, until: s.tick + walkTicks + hours * TICKS_PER_HOUR, text, x: at.x, y: at.y, from: s.tick };
@@ -191,11 +192,12 @@ function endGathering(s: GameState): void {
     // (those who came are eased in their grief)
     for (const p of came) if (p.grief && s.tick < p.grief.until) p.grief = { ...p.grief, value: Math.round(p.grief.value * FUNERAL_EASE) };
     mark(g.kind === 'great_funeral' ? GREAT_FUNERAL_MARK : FUNERAL_MARK, g.kind === 'great_funeral' ? 'We buried our dead together' : 'Laid to rest');
-  } else if (g.kind !== 'rite') mark(g.kind === 'wedding' ? WEDDING_FEAST_MARK : FEAST_MARK, g.text.replace(/^(At|Feasting) /, '').replace(/^the /, 'The '));
+  } else if (g.kind === 'festival') festivalOver(s, g);
+  else if (g.kind !== 'rite') mark(g.kind === 'wedding' ? WEDDING_FEAST_MARK : FEAST_MARK, g.text.replace(/^(At|Feasting) /, '').replace(/^the /, 'The '));
 }
 
 /** A feast (not a funeral): the town dances. */
-export const festive = (g: NonNullable<GameState['gathering']>) => g.kind === 'feast' || g.kind === 'wedding';
+export const festive = (g: NonNullable<GameState['gathering']>) => g.kind === 'feast' || g.kind === 'wedding' || g.kind === 'festival';
 /** What the guests do once there: dance at a feast, kneel in prayer at a rite, mourn at a funeral. */
 export const guestActivity = (g: NonNullable<GameState['gathering']>) => (festive(g) ? 'dance' : g.kind === 'rite' ? 'pray' : 'mourn');
 /** At a feast every other guest joins the ring dance round the spot, which turns this many radians a tick (a turn in

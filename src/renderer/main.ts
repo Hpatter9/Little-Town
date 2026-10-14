@@ -605,6 +605,8 @@ async function start(): Promise<void> {
   // (an origin's look reaches its buildings too)
   const hud = createHud(bridge); // (the buildings' style follows the snapshot: see applySnapshot)
   const music = createMusic();
+  /** A festival's own song while the town gathers for it (renderer/musicScore.ts `festivalPiece`). */
+  const festivalSong = (n: Snapshot) => (n.gathering?.kind === 'festival' && n.gathering.festival ? `fest:${n.gathering.festival}` : null);
   const musicMood = (n: Snapshot) =>
     moodOf({
       raid: n.raid?.phase === 'active' && n.tactics?.phase !== 'done',
@@ -1478,7 +1480,7 @@ async function start(): Promise<void> {
     const modeChanged = s.mode !== view.mode;
     view = s;
     hud.apply(s);
-    music.update(s.music && !s.hidden, musicMood(snap));
+    music.update(s.music && !s.hidden, musicMood(snap), festivalSong(snap));
     canvas.hidden = s.mode !== 'full';
     // Nothing to draw in the slim ticker or while hidden, so stop the render loop entirely.
     if (s.mode === 'full' && !s.hidden) app.ticker.start();
@@ -1627,7 +1629,7 @@ async function start(): Promise<void> {
     const finished = map.root.visible && !view.hidden ? finishedBetween(snap, next) : [];
     snap = next;
     hud.update(next);
-    music.update(view.music && !view.hidden, musicMood(next));
+    music.update(view.music && !view.hidden, musicMood(next), festivalSong(next));
     const freeze = next.doom?.kind === 'deep_freeze' && next.doom.phase === 'active';
     // (on the phone, heavy cloud dims the land a little)
     const gloom = fullSky ? ({ clear: 0, cloudy: 0.04, rain: 0.12, storm: 0.22, snow: 0.05, fog: 0.08 } as const)[next.weather.kind] : 0;
@@ -1861,7 +1863,7 @@ async function start(): Promise<void> {
       document.body.append(skipNote);
     }
     if (skipNote) skipNote.style.display = next.raidSkipping ? '' : 'none';
-    map.festival.sync(next.gathering);
+    map.festival.sync(next.gathering, next.festivals?.on && next.festivals.on.phase !== 'held' ? next.festivals.on : null);
     map.syncCastle(next.castle ?? null, next.buildings);
     map.syncPlaces(next.places);
     map.syncBlight(next.blight ?? [], next.calamity?.heartAt ?? null);
@@ -1906,7 +1908,7 @@ async function start(): Promise<void> {
     people.nearBuilding = (x, y) => map.nearBuilding(x, y - 6, 6);
     const proc = next.gathering?.head ? next.gathering : null;
     people.procession = proc ? { kind: proc.kind, bearers: proc.bearers ?? [] } : null;
-    townLife.syncProcession(proc && proc.kind !== 'wedding' && proc.kind !== 'feast' && proc.kind !== 'rite' ? proc.head! : null, proc?.bearers ?? []);
+    townLife.syncProcession(proc && proc.kind !== 'wedding' && proc.kind !== 'feast' && proc.kind !== 'rite' && proc.kind !== 'festival' ? proc.head! : null, proc?.bearers ?? []);
     const home = next.people.filter((p) => p.away === null);
     const winter = next.calendar.season === 'winter';
     const pairs = winter ? snowballPairs(home.filter((p) => p.growsUpIn !== null && p.activity === 'play' && !p.indoors)) : [];

@@ -9,6 +9,7 @@ import { el } from './dom';
 import { inTabs, selectTab, tabKey } from './subtabs';
 import { expeditionsKey, renderExpeditions } from './expeditionsPanel';
 import { renderJournal } from './journalPanel';
+import { festivalsKey } from './festivalsPanel';
 import { renderResearch, researchKey } from './researchPanel';
 import { patchTownsfolk, renderTownsfolk, townsfolkKey } from './townsfolkPanel';
 import { renderTrade, tradeKey } from './tradePanel';
@@ -70,7 +71,7 @@ function render(): void {
           : shown === 'expeditions'
             ? 'e' + expeditionsKey(snap)
             : shown === 'journal'
-              ? 'j' + snap.journalHead + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}`).join(',')
+              ? 'j' + festivalsKey(snap.festivals) + '|' + snap.journalHead + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}`).join(',')
               : shown === 'crafting'
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'
@@ -99,7 +100,7 @@ function render(): void {
     void bridge.getJournal().then((entries) => {
       if (renderedKey !== keyed) return; // moved on meanwhile
       const top = body.scrollTop;
-      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals, snap?.scenesSeen ?? [], (key) => (bridge.command({ type: 'scene', op: 'watch', key }), bridge.closePanel?.())));
+      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals, snap?.scenesSeen ?? [], (key) => (bridge.command({ type: 'scene', op: 'watch', key }), bridge.closePanel?.()), snap?.festivals));
       body.scrollTop = top;
     });
     return;
