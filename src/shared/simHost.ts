@@ -13,6 +13,7 @@ import type { JournalEntryView } from './sim/snapshot';
 import { parseSave, serialize } from './sim/save';
 import { newGame, type GameState, type Roamer } from './sim/state';
 import { cleanNewGameOptions } from './data/founding';
+import { BIOMES } from './data/biomes';
 import { TICKS_PER_HOUR } from './sim/time';
 import { inherit, legendOf, type Legend } from './sim/legacy';
 import { queueScene } from './sim/cutscenes';
@@ -43,9 +44,16 @@ export type ToHost =
       now: number;
       hidden: boolean;
       alerts: AlertSettings;
+      /** With no save: the new town's seed and land (the desktop app's `--seed=` and `--biome=`). */
+      seed?: string;
+      biome?: string;
     }
   | { t: 'command'; c: Command }
-  | { t: 'hidden'; on: boolean }
+  /** Out of sight. On the phone that means the player has gone, so the game saves and books the alerts; the desktop
+   *  strip hidden behind a fullscreen app saves only (`book: false`), and books them on quitting. */
+  | { t: 'hidden'; on: boolean; book?: boolean }
+  /** The desktop app's debug speed (1 = real time). */
+  | { t: 'speed'; n: number }
   | { t: 'alerts'; a: AlertSettings }
   | { t: 'save'; id: number }
   | { t: 'journal'; id: number }
@@ -105,8 +113,11 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
     setTimeout(lookAhead, LOOK_PAUSE_MS);
   };
   const book = () => {
-    if (!game || !alerts?.enabled || game.catchingUp) return;
-    void scheduleAlerts(alerts, game.state, ahead ?? looking ?? undefined).then((ids) => post({ t: 'booked', ids }));
+    // (nothing to book still says so: the desktop app waits on it before quitting)
+    if (!game || !alerts?.enabled || game.catchingUp) return post({ t: 'booked', ids: [] });
+    void scheduleAlerts(alerts, game.state, ahead ?? looking ?? undefined)
+      .catch(() => [] as string[])
+      .then((ids) => post({ t: 'booked', ids }));
   };
   const stateOf = (): GameState => game!.state;
   /** For poking at it from a desktop browser's console (previews): `__saga(id)` begins a saga, and so on. */
@@ -157,7 +168,8 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
           } else unreadable = true;
         }
         const fresh = !state;
-        game = new GameLoop(state ?? newGame(randomSeed()), send);
+        const biome = BIOMES.find((b) => b === m.biome);
+        game = new GameLoop(state ?? newGame(m.seed ?? randomSeed(), biome ? { biome } : {}), send);
         game.hidden = hidden;
         post({ t: 'started', fresh, unreadable });
         if (!fresh) game.catchUp(m.now - savedAt, saveNow);
@@ -176,11 +188,14 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
         if (m.on) {
           // (the page may be frozen in moments: the save first, then the alerts)
           saveNow();
-          book();
+          if (m.book !== false) book();
         } else if (game) send(game.snapshot()); // (what changed while hidden, at once)
         return;
       case 'alerts':
         alerts = m.a;
+        return;
+      case 'speed':
+        if (game && m.n > 0) game.speed = m.n;
         return;
       case 'save':
         return post({ t: 'reply', id: m.id, value: saveText() });

@@ -62,7 +62,8 @@
       "package.json"
     ],
     "asarUnpack": [
-      "node_modules/koffi/**"
+      "node_modules/koffi/**",
+      "out/simThread.js"
     ],
     "win": {
       "target": "nsis",
