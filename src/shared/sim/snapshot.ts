@@ -142,6 +142,7 @@ import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
 import { familiesView, type FamilyLine } from './lineage';
+import { guildsView, type GuildView } from './guilds';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
@@ -922,6 +923,8 @@ export interface Snapshot {
   interior: InteriorView | null;
   /** The town's families and their trees (sim/lineage.ts), for the People menu's Families tab. */
   families: FamilyLine[];
+  /** The town's guilds and squads (sim/guilds.ts), for the People menu's Guilds tab. */
+  guilds: GuildView[];
   /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
   markets: MarketView | null;
   /** A raid being skipped to its recap, and whether every raid is (sim/raidSkip.ts). */
@@ -1273,6 +1276,7 @@ export function snapshot(s: GameState): Snapshot {
     portalView: portalView(s),
     interior: interiorView(s, (p) => describe(s, p)),
     families: slow(s, 'families', () => familiesView(s)),
+    guilds: slow(s, 'guilds', () => guildsView(s)),
     markets: slow(s, 'markets', () => marketView(s)),
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,

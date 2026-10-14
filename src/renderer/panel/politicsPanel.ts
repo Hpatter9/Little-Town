@@ -2,14 +2,16 @@
 // them and what they'd ask the council for; the laws in force and the rest; the latest votes, crimes, trials and
 // strikes. The council decides for itself; the player answers its votes, trials and revolts in the event box.
 
+import type { LawId } from '../../shared/data/politics';
+import type { Bridge } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { el } from './dom';
+import { button, el } from './dom';
 import { expandable, facts } from './details';
 
 const word = (n: number) => (n >= 75 ? 'Content' : n >= 55 ? 'Settled' : n >= 40 ? 'Grumbling' : n >= 25 ? 'Angry' : 'Furious');
 const MARK: Record<string, string> = { vote: '⚖', crime: '🗝', trial: '⚖', strike: '✊', revolt: '🔥', law: '📜' };
 
-export function politicsSection(s: Snapshot): HTMLElement[] {
+export function politicsSection(s: Snapshot, bridge?: Bridge): HTMLElement[] {
   const pol = s.politics;
   if (!pol) return [];
   const out: HTMLElement[] = [el('h2', '', 'The council')];
@@ -44,6 +46,17 @@ export function politicsSection(s: Snapshot): HTMLElement[] {
 
   out.push(el('h2', '', 'Laws'));
   out.push(el('div', 'hint', `The tax is ${pol.tax}. ${pol.laws.filter((l) => l.on).length ? '' : 'No laws are in force yet.'}`));
+  out.push(
+    el(
+      'div',
+      'hint',
+      pol.edictWait > 0
+        ? `Edicts: the town will bear another in ${pol.edictWait} h.`
+        : `Edicts: tap a law to proclaim it, repeal it or call a vote on it yourself, paid for with ${pol.edictCoins} coins from the treasury or with standing (every bloc ${pol.edictStanding} less content).`,
+    ),
+  );
+  const edict = (op: 'proclaim' | 'repeal' | 'vote', law: LawId, pay: 'coins' | 'standing', label: string) =>
+    button(`${label} (${pay === 'coins' ? `${pol.edictCoins} coins` : 'standing'})`, () => bridge?.command({ type: 'edict', op, law, pay }), { cls: 'place small', disabled: pol.edictWait > 0 || (pay === 'coins' && s.coins < pol.edictCoins) });
   const laws = el('div', 'cards');
   for (const l of [...pol.laws].sort((a, b) => Number(b.on) - Number(a.on))) {
     const c = el('div', `card law${l.on ? ' on' : ' off'}`);
@@ -56,6 +69,11 @@ export function politicsSection(s: Snapshot): HTMLElement[] {
           ['For it', l.for.join(', ') || 'nobody'],
           ['Against it', l.against.join(', ') || 'nobody'],
         ]),
+        ...(['coins', 'standing'] as const).map((pay) => {
+          const row = el('div', 'edicts');
+          row.append(edict(l.on ? 'repeal' : 'proclaim', l.id, pay, l.on ? 'Repeal by edict' : 'Proclaim by edict'), edict('vote', l.id, pay, 'Call a vote'));
+          return row;
+        }),
       ]),
     );
   }
