@@ -1260,6 +1260,7 @@ function coverOf(s: GameState): Cover {
 
 /** Who stands at which site's spots (by the site's id): the spots taken. */
 type Builders = Map<number, { id: number; x: number; y: number }[]>;
+const NOBODY: { id: number; x: number; y: number }[] = [];
 function buildersAt(s: GameState): Builders {
   const at: Builders = new Map();
   for (const q of s.people) {
@@ -1273,18 +1274,21 @@ function buildersAt(s: GameState): Builders {
 }
 function buildSpot(s: GameState, p: Person, b: Building, cover?: () => Cover, builders?: () => Builders): Pt | undefined {
   // (the builders at every site are gathered once for a look over many sites: each site looked over everyone)
-  const others = ((builders ?? (() => buildersAt(s)))().get(b.id) ?? []).filter((q) => q.id !== p.id);
+  const there = (builders ?? (() => buildersAt(s)))().get(b.id);
+  const others = there ? there.filter((q) => q.id !== p.id) : NOBODY;
   const taken = (x: number, y: number) => others.some((q) => q.x === x && q.y === y);
   if (p.task?.type === 'build' && p.task.building === b.id && p.task.spot && !taken(p.task.spot.x, p.task.spot.y)) return p.task.spot;
   const r = footprint(b);
   let on: Cover | null = null;
   const free = (cx: number, cy: number): Pt | undefined => {
-    const spot = { x: (cx + 0.5) * CELL, y: (cy + 0.5) * CELL };
-    if (others.length && taken(spot.x, spot.y)) return undefined;
+    const x = (cx + 0.5) * CELL;
+    const y = (cy + 0.5) * CELL;
+    if (others.length && taken(x, y)) return undefined;
     if (!inMap(s.land, cx, cy) || (wet(groundAt(s.land, cx, cy)) && !swims(s, p))) return undefined;
     on ??= cover ? cover() : coverOf(s);
-    if (on.get(cy * 65536 + cx)?.some((id) => id !== b.id)) return undefined; // (another building stands there)
-    return spot;
+    const ids = on.get(cy * 65536 + cx);
+    if (ids && (ids.length > 1 || ids[0] !== b.id)) return undefined; // (another building stands there)
+    return { x, y };
   };
   // (its rows above and below, then its sides)
   for (let x = r.x; x < r.x + r.w; x++) {

@@ -38,7 +38,7 @@ import { DREAD_MORALE, TRIUMPH_MORALE } from './bosses';
 import { TAVERN_BASE, TAVERN_PER_LEVEL } from '../data/operators';
 import { ASH_MORALE, FALLOUT_MORALE, FREEZE_COLD_MORALE, FREEZE_MORALE, PLAGUE_MORALE, PLAGUE_WORK, SMOG_MORALE } from '../data/doom';
 import { isInjured } from './health';
-import { foodDaysFor, makeUndying, NO_EATERS_DAYS, townFull, tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type Building, type GameState, type Person, type Visitor } from './state';
+import { foodDaysFor, makeUndying, NO_EATERS_DAYS, townFull, tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, buildingById, type Building, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { ORIGIN_DEFS, rulesOf } from '../data/origins';
 import { natureOf } from '../data/natures';
@@ -348,20 +348,18 @@ export function housingCapacity(s: GameState): number {
 
 /** Drop beds that no longer exist; give bedless people a free bed (in id order). */
 export function assignBeds(s: GameState): void {
-  // (every tick for everyone: the buildings by id and the finished homes are gathered once, in the list's order, so the
-  // first home with room is the one `find` would have given)
-  const byId = new Map<number, Building>();
-  const homes: Building[] = [];
-  for (const b of s.buildings) {
-    if (!byId.has(b.id)) byId.set(b.id, b);
-    if (b.status === 'done' && (defOf(b).housing ?? 0) > 0) homes.push(b);
-  }
   const used = new Map<number, number>();
+  let bedless = false;
   for (const p of s.people) {
-    const b = p.bed === null ? undefined : byId.get(p.bed);
+    const b = p.bed === null ? undefined : buildingById(s, p.bed);
     if (!b || b.status !== 'done' || !defOf(b).housing) p.bed = null;
     else used.set(b.id, (used.get(b.id) ?? 0) + 1);
+    if (p.bed === null) bedless = true;
   }
+  if (!bedless) return;
+  // (the finished homes gathered once, in the list's order, so the first with room is the one `find` would have given:
+  // every tick, for everyone without a bed, it looked over every building)
+  const homes = s.buildings.filter((b) => b.status === 'done' && (defOf(b).housing ?? 0) > 0);
   const room = (b: Building) => defOf(b).housing! > (used.get(b.id) ?? 0);
   // (whoever owns a home sleeps in it: the rest take what's free)
   for (const p of s.people) {
