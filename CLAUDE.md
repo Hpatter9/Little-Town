@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.79.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.80.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4346,7 +4346,7 @@ blocked by buildings, structures, trees and rocks)
   (4) grown-ups, no oftener than `GUILD_GAP_DAYS` (4) and at most one guild per `GUILD_PER_PEOPLE` (4) grown-ups, the
   town fills the role it lacks most (`needOf`: raids and the dead for wardens, the hurt and sick for menders, places
   and roaming bands for rangers, the craft queue, the venues, the research queue; the elite only in a town of
-  `ELITE_PEOPLE` raided lately, from fighters of `ELITE_LEVEL`), if `MEMBERS_LEAST` fit (`lacking`): either the fittest
+  `ELITE_PEOPLE` (6) raided lately, from fighters of `ELITE_LEVEL`), if `MEMBERS_LEAST` fit (`lacking`): either the fittest
   starts it, or (`COUNCIL_SHARE` 0.4, while the council sits) the council votes on it by bloc (sim/politics.ts
   `blocOf`). The town names it (`guildName`: `ORIGIN_WORDS` per people, darker for the elite: "The Black Knives", or
   "The Wardens of <town name>"), and the founding (or the vote that failed) is told in the event box (`tellStory`).

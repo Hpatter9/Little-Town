@@ -68,7 +68,7 @@ export const ELITE_MOST = 4;
 /** Fewest fit people for a guild to be founded. */
 export const MEMBERS_LEAST = 2;
 /** The elite squad wants a town this strong, fighters this seasoned, and to have been raided. */
-export const ELITE_PEOPLE = 10;
+export const ELITE_PEOPLE = 6;
 export const ELITE_LEVEL = 8;
 /** How badly a role must be wanted before anyone acts (`needOf`). */
 export const NEED_AT = 3;
