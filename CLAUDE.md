@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.67.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.68.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4110,17 +4110,27 @@ blocked by buildings, structures, trees and rocks)
 - **Builders need room at the site:** workers claim separate open cells beside a blueprint; the available crew size follows the footprint, with larger buildings offering more spaces (`sim/people.ts`, `sim/state.ts`).
 - Version: 0.66.0.
 
-## Review after the outside changes (0.67.0)
+## The wall raised as one construction (0.67.0; the owner's ask: "a single construction, not one section at a time")
+- **Every section in work at once:** `planRing` (sim/ringWall.ts) puts every laid piece clear of trees and rocks into
+  work in the same pass; only pieces whose ground is still being cleared stay `planned`. `RING_AT_ONCE`, `RING_SPARE`
+  and `RING_GATHER_AHEAD` are gone. The wall still never takes the wood another site waits on: `haulOrder` (people.ts,
+  now exported) serves the town's other sites before any ring piece. `ringWants` adds the overgrown pieces' makings to
+  the demand (the rest are counted with every site in work).
+- **One figure for the whole wall:** `ringProgress` (sections standing of all, and the share of the work done, each
+  section weighed by its build time), `snapshot.wall`; a piece's tap card reads "The town's wall, built as one: N of M
+  sections standing (P%)" (main.ts). The pieces stay separate cells for pathing, damage and the joined art. Test in
+  `test/ringWall.test.ts`.
 
-- **The suite was red on main** (17 tests): the changes from 0.60.0 to 0.66.0 were merged without running `npm test`.
+## Review after the outside changes (0.68.0)
+
+- **The suite was red on main** (17 tests): the changes from 0.60.0 to 0.67.0 were merged without running `npm test`.
   Each was looked at; the code was right and the tests had the old rules in them, but for two real fixes below.
   - Wave gaps (doom.test, freeze.test, ratplague.test) now read `WAR_RAID_EVERY_HOURS`, `ZOMBIE_WAVE_HOURS`,
     `FREEZE_WAVE_HOURS`, `RAT_WAVE_HOURS`; the away cap test (save.test) allows two days and expects no away report.
   - Seasons (farming.test, fields.test, livestock.test) are reckoned by `DAYS_PER_SEASON`, never "day 9 is winter".
   - Starting heritage (founding.test, heritage.test): a settlers' town starts with Homesteading; the druids' next study
     is Wild Speech.
-  - The wall as one project (ringWall.test): every planned section's makings are wanted (`ringWants`), and sections go
-    into work as the stores allow, not a few at a time.
+  - The wall tests (ringWall.test) were rewritten with the wall raised as one construction (0.67.0, above).
   - The lone town (planner.test) is seed `lone-6`: 8 lone towns average 2.5 people at day 10 with builders' spots
     against 2.4 before, so `lone-8` reaching 2 was the seed's luck.
   - A lich town may sow one field once it has an inn (undead.test checks that rule, not the settlers' count).
@@ -4132,4 +4142,3 @@ blocked by buildings, structures, trees and rocks)
 - Checked and fine: castle and hold rooms still get built with the builders' spots (probe: vampires and dwarves as many
   rooms by day 8 as before), the starting heritage topics all exist, and `Person.origin` set for a town's own people
   (makePerson) is read as "of the town" everywhere it was read as "a stranger".
-

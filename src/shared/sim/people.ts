@@ -1343,12 +1343,15 @@ function findCraft(s: GameState, p: Person, station?: string): Task | null {
 }
 
 /** Sites in work, those being built (someone at it, or begun) before the rest. */
-function haulOrder(s: GameState): Building[] {
+export function haulOrder(s: GameState): Building[] {
   const sites = s.buildings.filter(inWork);
   const busy = new Set<number>();
   for (const o of s.people) if (o.task?.type === 'build') busy.add(o.task.building);
   const first = sites.filter((b) => busy.has(b.id) || b.progress > 0);
-  return first.length ? [...first, ...sites.filter((b) => !first.includes(b))] : sites;
+  const ordered = first.length ? [...first, ...sites.filter((b) => !first.includes(b))] : sites;
+  // (the ring wall is one job of many sections, all in work at once: the town's other sites are served before it, so
+  //  the wall never takes the wood another site waits on)
+  return [...ordered.filter((b) => b.ring === undefined), ...ordered.filter((b) => b.ring !== undefined)];
 }
 
 /** What a blueprint still needs that nobody else is already fetching or carrying to it. */
