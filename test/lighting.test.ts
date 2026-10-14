@@ -239,6 +239,8 @@ test('a light stands at each side of every gate in the ring wall, and those are 
   for (let y = c.y - 14; y <= c.y + 14; y++) for (let x = c.x - 4; x <= c.x + 4; x++) setGround(s.land, x, y, 'grass');
   const north = put(s, 'palisade_gate', c.x, c.y - 12, { ring: 1 });
   const south = put(s, 'palisade_gate', c.x, c.y + 12, { ring: 1 });
+  // (a town of six: lights enough for both sides of both gates)
+  for (let i = 0; i < 5; i++) s.people.push({ ...s.people[0], id: s.nextId++ });
   placeLights(s);
   const gateLights = s.torches!.filter((t) => t.gate);
   for (const g of [north, south]) {
@@ -247,6 +249,13 @@ test('a light stands at each side of every gate in the ring wall, and those are 
     assert.ok(by.some((t) => Math.abs(t.y - c.y) < Math.abs(r.y - c.y)), 'a light just inside the gate');
     assert.ok(by.some((t) => Math.abs(t.y - c.y) > Math.abs(r.y - c.y)), 'a light just outside the gate');
   }
+  // a hamlet with lights for only a few: the gates' insides still come before anything else
+  s.people.length = 2;
+  placeLights(s);
+  assert.equal(s.torches!.filter((t) => t.room === undefined).length, 2);
+  assert.ok(s.torches!.every((t) => t.gate && Math.abs(t.y - c.y) < 12), 'each gate lit on the inside first');
+  s.people.length = 6;
+  placeLights(s);
   // the lamplighter goes to a gate's light before a nearer, emptier one
   s.tick = at(1, 17);
   for (const t of s.torches!) t.fuel = t.gate ? 3 : 0;

@@ -4134,6 +4134,6 @@ blocked by buildings, structures, trees and rocks)
   `test/fightSpeed.test.ts`.
 - **The fight banner at the top:** `#fight-banner` stands under the progress bars (`top: 36px`), clear of the fighters.
 - **Lights at the gates first:** `gateLightCells` (sim/lighting.ts): at each finished gate of the ring wall a light
-  just inside (the side nearest the camp) and one just outside, placed first by `outdoorCells` (on top of the town's
-  `want`, and counted as lit before the rest are chosen) and marked `Torch.gate`; the lamplighter (`lightToFeed`) feeds
+  just inside (the side nearest the camp) and one just outside (every gate's inside before any outside), placed first by
+  `outdoorCells` within the town's `want` (counted as lit before the rest are chosen) and marked `Torch.gate`; the lamplighter (`lightToFeed`) feeds
   a gate's light before any other. Test in `test/lighting.test.ts`.

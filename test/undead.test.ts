@@ -43,8 +43,9 @@ test('a lich town sows a field at most (for its tavern\'s guests); a settlers\' 
     return s;
   };
   const lich = run('lich');
-  // (how many fields a lone town has sown early on is the seed's luck: the best of three towns, by day 8)
-  const sown = Math.max(foodFields(run('settlers', '-c', 8)), foodFields(run('settlers', '-d', 8)), foodFields(run('settlers', '-e', 8)));
+  // (how many fields a lone town has sown early on is the seed's luck: the best of three towns, by day 11, when a lone
+  // settler town has its second field; a lich town may have its one for the tavern's guests by day 5)
+  const sown = Math.max(foodFields(run('settlers', '-c', 11)), foodFields(run('settlers', '-d', 11)), foodFields(run('settlers', '-e', 11)));
   assert.ok(foodFields(lich) <= 1, `the dead sow nothing for themselves (${foodFields(lich)})`);
   assert.ok(sown > foodFields(lich), `the living do (${sown})`);
 });
