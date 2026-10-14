@@ -13,13 +13,14 @@ import { AHEAD_TICKS, cancelAlerts, cleanAlerts, scheduleAlerts, startForecast, 
 import { GameLoop } from '../../shared/gameLoop';
 import { parseSave, serialize } from '../../shared/sim/save';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { newGame, type GameState } from '../../shared/sim/state';
+import { newGame, type GameState, type Roamer } from '../../shared/sim/state';
 import { cleanNewGameOptions } from '../../shared/data/founding';
 import { TICKS_PER_HOUR } from '../../shared/sim/time';
 import { beginSaga } from '../../shared/sim/sagas';
 import { postHunt } from '../../shared/sim/hunts';
 import { startRaid } from '../../shared/sim/raids';
 import { RAID_KIND_BY_ID } from '../../shared/data/raids';
+import { startSkirmish } from '../../shared/sim/roamers';
 import { Rng } from '../../shared/rng';
 import { mayBuzz, readVibrate } from '../vibration';
 
@@ -139,7 +140,7 @@ export function mobileBridge(): Bridge {
   });
   window.addEventListener('pagehide', saveNow);
   // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga, `__hunt(id)` posts a hunt and `__raid(kind)` starts a raid, for previews)
-  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)), __disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind), __dragon: (kind?: string) => summonDragon(stateOf(), kind), __band: (kind: BandKind) => spawnBand(stateOf(), new Rng(4), kind), __cutscene: (id: string, vars: Record<string, string> = {}, foes: Record<string, string> = {}) => queueScene(stateOf(), id, { vars, foes }) });
+  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)), __disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind), __dragon: (kind?: string) => summonDragon(stateOf(), kind), __band: (kind: BandKind) => spawnBand(stateOf(), new Rng(4), kind), __skirmish: (group: Record<string, number> = { wolf: 3 }) => { const s = stateOf(); const p = s.people[0]; if (!p) return; const r: Roamer = { id: s.nextId++, kind: 'beasts', group, x: p.x, y: p.y, homeX: p.x, homeY: p.y, tx: p.x, ty: p.y, until: s.tick + 600, chasing: null, dir: 1 }; (s.roamers ??= []).push(r); s.watching = startSkirmish(s, r, p).id; }, __cutscene: (id: string, vars: Record<string, string> = {}, foes: Record<string, string> = {}) => queueScene(stateOf(), id, { vars, foes }) });
   function stateOf(): GameState {
     return (game as unknown as { sim: { state: GameState } }).sim.state;
   }

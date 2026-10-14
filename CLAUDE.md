@@ -4120,3 +4120,16 @@ blocked by buildings, structures, trees and rocks)
   section weighed by its build time), `snapshot.wall`; a piece's tap card reads "The town's wall, built as one: N of M
   sections standing (P%)" (main.ts). The pieces stay separate cells for pathing, damage and the joined art. Test in
   `test/ringWall.test.ts`.
+
+## Fixes, second batch (the owner's asks)
+
+- **Walkers keep apart:** `MapPeople.walkAside` (map/mapPeople.ts): a walker is eased aside of anyone within
+  `WALK_SPACE` (26 px), mostly across their way (`WALK_ACROSS`), at most `WALK_ASIDE_MOST` (14 px) and only a little up
+  the map; worked from where they truly are every `SPREAD_EVERY` and eased in (`ASIDE_EASE`), so nobody jigs. Drawing
+  only; nothing in a raid.
+- **Every fight starts at 1×:** `fightOn` (sim/battle.ts: a raid's battle or tactics board, or a watched party's or
+  skirmish's fight) and `fightSpeedTick` (each tick from sim.ts) put `s.battleSpeed` back to 1 as a fight comes on
+  screen; `battleSpeedNow` uses it for watched fights too. The FF screen has its own speed button under the ✕
+  (`#fight-speed`, `snapshot.fightSpeed`). `window.__skirmish(group)` starts a watched skirmish (previews). Test:
+  `test/fightSpeed.test.ts`.
+- **The fight banner at the top:** `#fight-banner` stands under the progress bars (`top: 36px`), clear of the fighters.

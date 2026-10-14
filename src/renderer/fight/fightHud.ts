@@ -172,7 +172,8 @@ export function createFightHud(on: { back(): void; speed(n: number): void }): Fi
     const scale = ult ? 1.25 - 0.25 * inK : 0.85 + 0.15 * inK;
     const lift = outK * 10;
     const jolt = ult && t < 0.25 ? Math.sin(now / 18) * 2 * (1 - t / 0.25) : 0;
-    banner.style.transform = `translate(calc(-50% + ${jolt}px), calc(-50% - ${lift}px)) scale(${scale})`;
+    banner.style.transform = `translate(calc(-50% + ${jolt}px), ${-lift}px) scale(${scale})`;
+    banner.style.transformOrigin = '50% 0';
     requestAnimationFrame(fadeBanner);
   };
   const POOL_NAMES = { mp: 'MP', sp: 'SP', limit: 'LIMIT' } as const;
