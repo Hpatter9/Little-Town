@@ -105,6 +105,7 @@ import { sagaRaidOver } from './sagas';
 import { calamityRaidOver } from './calamity';
 import { groveAllies, groveRaidOver } from './grove';
 import { mountFight, ranchAllies, ranchRaidOver } from './ranch';
+import { ancestorAllies } from './ancestors';
 import { raidSkipOver } from './raidSkip';
 import { fireAt, speedOf, tickBurns } from './defenses';
 import { rustle } from './livestock';
@@ -301,6 +302,8 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   groveAllies(s, raid, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   // (and the ranch's guard beasts: sim/ranch.ts)
   ranchAllies(s, raid, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
+  // (and a descendant's town's forebears: a spirit, the Old House's riders: sim/ancestors.ts)
+  ancestorAllies(s, raid, inside !== undefined, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   if (inside !== undefined) {
     raiders.forEach((rd, i) => {
       rd.x = inside.x + (i - (raiders.length - 1) / 2) * 14;

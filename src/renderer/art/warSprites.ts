@@ -291,6 +291,7 @@ export const CAPTAIN_LOOK: Record<string, TroopLook> = {
   dwarves: { kind: 'hk', body: 'plate_harness', head: 'great_helm', weapon: 'battle_axe', offhand: 'iron_shield' },
   merfolk: { kind: 'hk', body: 'scale_hauberk', weapon: 'iron_spear' },
   settlers: { kind: 'hk', body: 'plate_harness', head: 'great_helm', weapon: 'arming_sword', offhand: 'heater_shield' },
+  old_house: { kind: 'hk', body: 'plate_harness', head: 'great_helm', weapon: 'arming_sword', offhand: 'heater_shield' },
 };
 /** The lair's master and the pack. */
 export const LAIR_MASTER = 'boar_king';

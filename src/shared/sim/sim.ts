@@ -69,6 +69,7 @@ import { nestsHourly } from './nests';
 import { calamityHourly } from './calamity';
 import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
+import { ancestorsHourly } from './ancestors';
 import { lookInside } from './interiors';
 import { lineageHourly } from './lineage';
 import type { RealmId } from '../data/portals';
@@ -111,6 +112,7 @@ import { propertyHourly } from './property';
 import { treasuryHourly } from './treasury';
 import { ambitionHourly } from './ambition';
 import { ceremoniesHourly } from './ceremonies';
+import { festivalsHourly } from './festivals';
 import { diaryTick } from './diary';
 import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
@@ -217,6 +219,7 @@ export class Sim {
     partiesHourly(s);
     boatsHourly(s, this.rng);
     ceremoniesHourly(s);
+    festivalsHourly(s);
     annalsHourly(s);
     memorialsHourly(s); // (homes named, ruins cleared, statues to the famous dead: sim/statues.ts)
     injuriesHourly(s, this.rng);
@@ -244,6 +247,7 @@ export class Sim {
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
+    ancestorsHourly(s); // (a descendant's forebears: spirits, the heirloom, the Old House: sim/ancestors.ts)
     lineageHourly(s); // (children's lessons and apprenticeships: sim/lineage.ts)
     diaryTick(s); // (the day's doings counted for each townsperson's diary: sim/diary.ts)
     villagesHourly(s); // (daughter villages: sim/villages.ts)

@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { ancestryView, type AncestryView } from './ancestors';
 import { fightOnScreen } from './raidWait';
 import { RING_SHAPE_NAMES } from '../data/ringShapes';
 import { deedLines } from './deeds';
@@ -33,6 +34,7 @@ import { honouredView, type HonouredView } from './memorials';
 import { ruinsView, type RuinView } from './ruins';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius, processing, processionHead } from './ceremonies';
+import { festivalsView, type FestivalsView } from './festivals';
 import { walkingHome } from './nightOut';
 import { realmView, type RealmView } from './factions';
 import { warView, type WarView } from './conquest/warView';
@@ -905,7 +907,9 @@ export interface Snapshot {
   /** The town gathered (a feast, a wedding, a funeral): where, and how many came (the map dresses the spot). */
   /** The gathering under way (sim/ceremonies.ts); `head`: where its procession's head is while it's on the way (the
    *  coffin carried, the couple, the faithful), `bearers` who walk there (the first two). */
-  gathering: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite'; x: number; y: number; ring: number; key: number; fire: boolean; head?: { x: number; y: number } | null; bearers?: number[] } | null;
+  gathering: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival'; x: number; y: number; ring: number; key: number; fire: boolean; head?: { x: number; y: number } | null; bearers?: number[]; festival?: string } | null;
+  /** The year's festivals and what's next (sim/festivals.ts). */
+  festivals: FestivalsView;
   prompts: PromptView[];
   /** Seconds until the player can rally a defender again (0: now). */
   rallyIn: number;
@@ -944,6 +948,8 @@ export interface Snapshot {
   skipRaids: boolean;
   /** The town's people's own ways (sim/heritage.ts). */
   heritage: HeritageView | null;
+  /** A descendant's town: its line, spirits, heirloom and the old town (sim/ancestors.ts). */
+  ancestry: AncestryView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   /** The quest board (sim/questBoard.ts): offered or accepted; hours left of the offer or the time limit. */
   quests: { id: number; kind: string; dungeon: string; dungeonName: string; title: string; text: string; hoursLeft: number; from: string; reward: string; accepted: boolean; acceptedAgo: number | null }[];
@@ -1227,7 +1233,8 @@ export function snapshot(s: GameState): Snapshot {
     places: placeViews(s),
     pack: packView(s),
     war: CONQUEST.on ? warView(s) : null,
-    gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40, head: processing(s.gathering, s.tick) ? processionHead(s.gathering, s.tick) : null, bearers: s.gathering.ids.slice(0, 2) } : null,
+    gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40, head: processing(s.gathering, s.tick) ? processionHead(s.gathering, s.tick) : null, bearers: s.gathering.ids.slice(0, 2), festival: s.gathering.festival } : null,
+    festivals: festivalsView(s),
     debris: (s.debris ?? []).filter((m) => s.tick - m.tick < DEBRIS_LASTS).map((m) => ({ x: m.x, y: m.y, kind: m.kind, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}:${m.kind}` })),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
@@ -1304,6 +1311,7 @@ export function snapshot(s: GameState): Snapshot {
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,
     heritage: slow(s, 'heritage', () => heritageView(s)),
+    ancestry: slow(s, 'ancestry', () => ancestryView(s)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,

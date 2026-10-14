@@ -4,6 +4,8 @@ import { CONQUEST } from './data/conquest';
 import type { Command } from './sim/commands';
 import type { JournalEntryView, Snapshot } from './sim/snapshot';
 import type { NewGameOptions } from './sim/state';
+import type { Legend } from './sim/legacy';
+import type { SnapDelta } from './snapDelta';
 
 export type StripMode = 'full' | 'minimal';
 
@@ -86,6 +88,9 @@ export const IPC = {
   getAlerts: 'alerts:get',
   setAlerts: 'alerts:set',
   testAlert: 'alerts:test',
+  getLegends: 'legends:get',
+  snapDelta: 'game:snap-delta',
+  snapResync: 'game:snap-resync',
 } as const;
 
 export interface Bridge {
@@ -123,6 +128,14 @@ export interface Bridge {
   setAlerts(a: AlertSettings): Promise<AlertSettings>;
   testAlert(): Promise<string>;
 
+  /** The desktop app keeps the legends of towns gone by itself (main/legends.ts); the phone keeps them in the page. */
+  getLegends?(): Promise<Legend[]>;
+
+  /** Desktop: the snapshots as what changed (the whole one first, and again after `snapResync`); the renderer puts
+   *  them back together (renderer/deltaBridge.ts), which is far less to copy across than a whole snapshot a tick. */
+  onSnapDelta?(cb: (m: SnapMessage) => void): () => void;
+  snapResync?(): void;
+
   /** Phone only (the page around the strip): the strip says what's selected, for the card at the top of the
    *  screen (null clears it); the card's buttons come back as action ids. */
   inspect?(info: InspectInfo | null): void;
@@ -144,4 +157,10 @@ export interface InspectInfo {
   title: string;
   lines: string[];
   actions: { id: string; label: string; danger?: boolean; primary?: boolean }[];
+}
+
+/** A snapshot message on the desktop (`Bridge.onSnapDelta`): the whole snapshot, or what changed since the last. */
+export interface SnapMessage {
+  full?: Snapshot;
+  d?: SnapDelta;
 }

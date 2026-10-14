@@ -170,6 +170,18 @@
         height: 100%;
         background: #ffd84a;
       }
+      /* (the Chronicle's Festivals tab: what's made of what's wanted, and the next one marked) */
+      .festival-made {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 8px;
+        align-items: center;
+        margin-top: 6px;
+        font-size: 12px;
+      }
+      .festival-card.next {
+        border-color: #ffd84a;
+      }
       .card.unique {
         border-color: #ff9a30;
         box-shadow: inset 0 0 0 1px rgba(255, 154, 48, 0.35);
@@ -2461,6 +2473,39 @@
       table.ladder { width: 100%; border-collapse: collapse; }
       table.ladder td, table.ladder th { padding: 3px 4px; text-align: left; }
       table.ladder tr.ours td { color: var(--heading, #f0d890); }
+      /* the Hall of Legends: our own line, the lines of descent (panel/legendsPanel.ts) */
+      .card.legend.ours {
+        border-color: #c8a24a;
+      }
+      .card.legend .hint.bad {
+        color: #d88a8a;
+      }
+      .legend-chain {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        margin-top: 6px;
+        font-size: 12px;
+      }
+      .legend-link {
+        padding: 1px 6px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .legend-link.fell {
+        color: #d8a0a0;
+      }
+      .legend-link.won {
+        color: #e8cc78;
+      }
+      .legend-link.lost {
+        opacity: 0.6;
+        font-style: italic;
+      }
+      .legend-arrow {
+        color: var(--text-dim);
+      }
     </style>
   </head>
   <body>

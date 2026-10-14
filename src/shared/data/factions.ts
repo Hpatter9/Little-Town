@@ -35,6 +35,9 @@ export interface FactionDef {
   goods: string;
   /** One of the rising powers (data/risingPowers.ts): in every realm, growing with the town. */
   rising?: RisingId;
+  /** The old house: a descendant's forebears' town, still standing, a power of the realm (sim/ancestors.ts). Never
+   *  drawn as a rival; it stands only in a realm whose town is of its line. */
+  kin?: boolean;
 }
 
 const RISING_SEATS: Record<RisingId, [string, SceneId, SceneId, Temper, string]> = {
@@ -84,20 +87,21 @@ export const FACTION_DEFS: readonly FactionDef[] = [
     const [stronghold, road, inside, temper, goods] = RISING_SEATS[id];
     return { id, name: RISING[id].name, raid: RISING[id].raids[0], lord: RISING[id].lord, stronghold, road, inside, temper, goods, rising: id };
   }),
+  { id: 'old_house', name: 'The Old House', raid: 'rival_knights', lord: 'grand_master', stronghold: 'the Old Hall', road: 'meadow', inside: 'keep', temper: 'honourable', goods: 'cloth', kin: true },
 ];
 /** Where each power's stronghold stands on the world map (768px square, data/worldMap.ts). */
 export const STRONGHOLD_SPOTS: Readonly<Record<string, { x: number; y: number }>> = {
   lich: { x: 40, y: 150 }, druid: { x: 740, y: 80 }, vampire: { x: 420, y: 80 }, werewolf: { x: 740, y: 300 },
   robot: { x: 740, y: 530 }, dwarves: { x: 80, y: 200 }, merfolk: { x: 600, y: 740 }, nomads: { x: 30, y: 470 },
   fae: { x: 600, y: 200 }, alchemists: { x: 440, y: 250 }, knights: { x: 250, y: 290 }, orcs: { x: 300, y: 600 }, brotherhood: { x: 130, y: 480 },
-  shogunate: { x: 690, y: 420 }, corsairs: { x: 300, y: 740 }, infernal: { x: 170, y: 640 },
+  shogunate: { x: 690, y: 420 }, corsairs: { x: 300, y: 740 }, infernal: { x: 170, y: 640 }, old_house: { x: 520, y: 540 },
 };
 export const FACTION_BY_ID: Readonly<Record<string, FactionDef>> = Object.fromEntries(FACTION_DEFS.map((f) => [f.id, f]));
 
 /** The rival powers of a world: `count` of them drawn by `rng` from the origins the town isn't, the bandits taking
  *  the last place once there are three or more (the same draws whatever asks, so the realm and the conquest agree). */
 export function pickRivals(rng: Rng, own: OriginId, count: number): FactionDef[] {
-  const pool = FACTION_DEFS.filter((d) => d.origin !== own && d.id !== 'brotherhood' && !d.rising);
+  const pool = FACTION_DEFS.filter((d) => d.origin !== own && d.id !== 'brotherhood' && !d.rising && !d.kin);
   const bandits = count >= 3 ? 1 : 0;
   const picked: FactionDef[] = [];
   while (picked.length < count - bandits && pool.length) picked.push(pool.splice(rng.int(0, pool.length - 1), 1)[0]);
