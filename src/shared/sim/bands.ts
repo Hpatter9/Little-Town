@@ -73,7 +73,7 @@ function nextStrike(s: GameState, rng: Rng): number {
 }
 
 /** A band comes in from one side of the land. */
-export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 = rng.chance(0.5) ? -1 : 1): Band {
+export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 = rng.chance(0.5) ? -1 : 1, note?: string): Band {
   const n = rng.int(BAND_SIZE[kind][0], BAND_SIZE[kind][1]);
   const band: Band = { id: s.nextId++, kind, members: [], side, at: stopAt(s, kind, side), phase: 'coming', until: 0 };
   // (a caravan's or a refugee band's people are one people, now and then another than the town's)
@@ -108,7 +108,7 @@ export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 =
   const who = origin ? ` of the ${ORIGIN_DEFS[origin].name}` : '';
   notify(
     s,
-    kind === 'caravan'
+    note ? note.replace('{n}', String(n)) : kind === 'caravan'
       ? `The caravan's merchants${who} are bringing their wagon in to the market.`
       : kind === 'refugees'
         ? `${n} refugees${who} are coming to the gate, footsore, asking for aid and rest.`

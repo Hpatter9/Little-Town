@@ -9,12 +9,15 @@ import { renderBestiary } from './bestiaryPanel';
 import { renderHeroes } from './heroesPanel';
 import { renderLegends } from './legendsPanel';
 import type { AnnalsView } from '../../shared/sim/snapshot';
+import type { FestivalsView } from '../../shared/sim/festivals';
+import { renderFestivals } from './festivalsPanel';
 
-type Filter = 'all' | 'key' | 'deaths' | 'heroes' | 'legends' | 'bestiary' | 'scenes';
+type Filter = 'all' | 'key' | 'deaths' | 'festivals' | 'heroes' | 'legends' | 'bestiary' | 'scenes';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['key', 'Key events'],
   ['deaths', 'Deaths'],
+  ['festivals', 'Festivals'],
   ['heroes', 'Heroes'],
   ['legends', 'Legends'],
   ['bestiary', 'Bestiary'],
@@ -25,7 +28,7 @@ let filter: Filter = 'all';
 
 const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 
-export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null): HTMLElement[] {
+export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView): HTMLElement[] {
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
   const draw = () => {
@@ -38,6 +41,10 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
     );
     if (filter === 'heroes') {
       list.replaceChildren(...renderHeroes(annals ?? { fallen: [], chronicles: [], famous: [] }));
+      return;
+    }
+    if (filter === 'festivals') {
+      list.replaceChildren(...renderFestivals(festivals));
       return;
     }
     if (filter === 'legends') {

@@ -6,7 +6,7 @@
 
 import { gateTrack, onBack, pageAway, ungateTrack } from './audioGate';
 import { createPlayer, type Player } from './musicGen';
-import { piecesFor, type Mood } from './musicScore';
+import { pieceById, piecesFor, type Mood } from './musicScore';
 
 const VOLUME = 0.22;
 const FADE_MS = 1500;
@@ -16,7 +16,8 @@ const REST_MS = 6000;
 export type { Mood };
 
 export interface Music {
-  update(on: boolean, mood: Mood): void;
+  /** `song`: the piece a mood asks for by name (a festival's own song). */
+  update(on: boolean, mood: Mood, song?: string | null): void;
   /** How loud, a share of full (the ☰ menu's slider: volume.ts). */
   setLevel(level: number): void;
   /** For previews: what's playing. */
@@ -54,6 +55,7 @@ export function createMusic(): Music {
   let seed = Math.floor(Math.random() * 1e6);
   let level = 1;
   let waiting = false;
+  let song: string | null = null;
   onBack(() => {
     if (!waiting) return;
     waiting = false;
@@ -82,7 +84,8 @@ export function createMusic(): Music {
       waiting = true;
       return;
     }
-    const id = nextFor(mood, now, Math.random());
+    // (a festival plays its own song, over and over while it lasts)
+    const id = mood === 'festival' && song ? song : nextFor(mood, now, Math.random());
     now = id;
     const after = () => {
       if (now !== id || !on) return;
@@ -110,7 +113,7 @@ export function createMusic(): Music {
       return;
     }
     player ??= createPlayer();
-    const piece = piecesFor(mood).find((p) => p.id === id);
+    const piece = pieceById(id);
     if (!player || !piece) return;
     player.setVolume(VOLUME * 0.9 * level);
     player.play(piece, seed++, after);
@@ -128,7 +131,8 @@ export function createMusic(): Music {
       }
       player?.setVolume(VOLUME * 0.9 * level);
     },
-    update(want, m) {
+    update(want, m, wantSong) {
+      song = wantSong ?? null;
       if (!want) {
         if (on) stopAll();
         on = false;

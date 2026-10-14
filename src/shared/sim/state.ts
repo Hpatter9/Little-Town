@@ -1,4 +1,5 @@
 import type { NightOut } from './nightOut';
+import type { FestivalLogEntry, FestivalRun } from './festivals';
 import type { CalamityState } from './calamity';
 import type { DeepState } from './deep';
 import type { Portal } from './portals';
@@ -1125,7 +1126,10 @@ export interface GameState {
    *  (from where, till when: sim/ceremonies.ts). */
   funeralsDue?: { name: string; close: number[]; tick: number; x?: number; y?: number }[];
   feastDue?: { kind: 'wedding' | 'feast'; text: string; x?: number; y?: number; lead?: number[] };
-  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite'; ids: number[]; until: number; text: string; x: number; y: number; from?: number; walk?: { x: number; y: number; until: number } };
+  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival'; ids: number[]; until: number; text: string; x: number; y: number; from?: number; walk?: { x: number; y: number; until: number }; festival?: string };
+  /** The season's festival under way or being made ready, and those of the years before (sim/festivals.ts). */
+  festival?: FestivalRun;
+  festivalLog?: FestivalLogEntry[];
   /** The evening at the tavern under way (sim/nightOut.ts). */
   nightOut?: NightOut;
   lastFeast?: number;
