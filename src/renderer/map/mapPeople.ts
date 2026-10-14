@@ -253,6 +253,11 @@ const ASIDE: readonly [number, number][] = [0, 1, 2].flatMap((ring) =>
 );
 /** How quickly a step aside is taken (a share of the way each frame at 60 fps). */
 const ASIDE_EASE = 0.12;
+/** Walkers keep this far (px) from each other and from those standing; a walker is eased aside at most
+ *  `WALK_ASIDE_MOST` (so nobody is drawn off their way, or up behind a building), mostly across their way (`WALK_ACROSS`). */
+const WALK_SPACE = 26;
+const WALK_ASIDE_MOST = 14;
+const WALK_ACROSS = 0.8;
 
 export class MapPeople {
   private readonly drawn = new Map<number, Drawn>();
@@ -364,7 +369,9 @@ export class MapPeople {
   }
 
   /** Nobody stands on top of anyone else: those standing still, by id, each keep their spot unless someone already
-   *  placed is within `PERSONAL_SPACE`, and then take the nearest free place round it (`ASIDE`). Walkers are left alone. */
+   *  placed is within `PERSONAL_SPACE`, and then take the nearest free place round it (`ASIDE`). Walkers are eased
+   *  apart from anyone within `WALK_SPACE` (`walkAside`), so a crowd on the move spreads out rather than walking in a
+   *  clump. Drawing only: the sim's positions are untouched. */
   private spreadAt = 0;
   private spread(now: number): void {
     if (now - this.spreadAt < SPREAD_EVERY) return;
@@ -378,13 +385,55 @@ export class MapPeople {
     const placed: { x: number; y: number }[] = [];
     const still = [...this.drawn.values()].filter((d) => !d.view.indoors && now - (d.stillSince ?? now) >= STILL_AFTER).sort((a, b) => a.view.id - b.view.id);
     const free = (x: number, y: number) => placed.every((q) => Math.hypot(q.x - x, (q.y - y) / SQUASH) >= PERSONAL_SPACE);
-    for (const d of this.drawn.values()) if (!still.includes(d)) d.aside = undefined;
     for (const d of still) {
       const keep = d.aside && free(d.to.x + d.aside.x, d.to.y + d.aside.y) ? d.aside : null;
       const step = keep ?? (free(d.to.x, d.to.y) ? { x: 0, y: 0 } : (ASIDE.map(([x, y]) => ({ x, y })).find((o) => free(d.to.x + o.x, d.to.y + o.y)) ?? { x: 0, y: 0 }));
       d.aside = step;
       placed.push({ x: d.to.x + step.x, y: d.to.y + step.y });
     }
+    const walkers = [...this.drawn.values()].filter((d) => !d.view.indoors && !still.includes(d));
+    for (const d of walkers) d.aside = this.walkAside(d, walkers, placed);
+  }
+
+  /** Where a walker is drawn aside of their own way: pushed off everyone within `WALK_SPACE` (walkers where they are on
+   *  their way, those standing where they're drawn), mostly across the way they walk so they pass side by side. Worked
+   *  from where they truly are, which moves smoothly, and eased in at a walk, so nobody jigs. Two on one spot part by
+   *  their ids (the lower to the left of the way). */
+  private walkAside(d: Drawn, walkers: Drawn[], placed: { x: number; y: number }[]): { x: number; y: number } {
+    let wx = d.to.x - d.from.x;
+    let wy = d.to.y - d.from.y;
+    const wl = Math.hypot(wx, wy);
+    if (wl > 0.5) [wx, wy] = [wx / wl, wy / wl];
+    else [wx, wy] = [1, 0];
+    let px = 0;
+    let py = 0;
+    const push = (ox: number, oy: number, otherId: number) => {
+      let dx = d.x - ox;
+      let dy = (d.y - oy) / SQUASH;
+      let dl = Math.hypot(dx, dy);
+      if (dl >= WALK_SPACE) return;
+      if (dl < 0.5) {
+        // (on the very spot: across the way, by id)
+        const side = d.view.id < otherId ? -1 : 1;
+        [dx, dy, dl] = [-wy * side, wx * side, 1];
+      }
+      const k = (WALK_SPACE - dl) / WALK_SPACE / dl;
+      px += dx * k;
+      py += dy * k;
+    };
+    for (const o of walkers) if (o !== d) push(o.x, o.y, o.view.id);
+    for (const q of placed) push(q.x, q.y, Number.MAX_SAFE_INTEGER);
+    // (mostly across the way: pushing someone along it only bunches them up behind)
+    const along = px * wx + py * wy;
+    px -= along * wx * WALK_ACROSS;
+    py -= along * wy * WALK_ACROSS;
+    let ax = px * WALK_ASIDE_MOST;
+    let ay = py * WALK_ASIDE_MOST * SQUASH;
+    const al = Math.hypot(ax, ay);
+    if (al > WALK_ASIDE_MOST) [ax, ay] = [(ax / al) * WALK_ASIDE_MOST, (ay / al) * WALK_ASIDE_MOST];
+    // (never up the map further than a little: up there they go behind the building at whose door they walk)
+    if (ay < -WALK_ASIDE_MOST / 3) ay = -WALK_ASIDE_MOST / 3;
+    return { x: Math.round(ax), y: Math.round(ay) };
   }
 
   private dressed(v: PersonView): [PersonView['look'], string[]] {
@@ -1068,7 +1117,7 @@ export class MapPeople {
       return null;
     }
     // held where they are a moment (a tumble on the way home, a stretch): the town walks on, and once it's over they
-    // catch it up (the step aside eases them back: `spread` gives a walker none)
+    // catch it up (the step aside eases them back: a walker's is only a small `walkAside`)
     if (d.wokeAt !== undefined && now - d.wokeAt < 60 && !d.hold) d.hold = { x, y, until: d.wokeAt + STRETCH_FOR, line: 'Mmmh... morning!' };
     if (v.tipsy && moving && !d.hold && fallenNow(v.id, now) && (d.fellAt === undefined || now - d.fellAt > FALL_FOR * 3)) {
       d.fellAt = now;
