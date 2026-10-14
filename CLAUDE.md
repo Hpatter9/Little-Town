@@ -4231,7 +4231,7 @@ blocked by buildings, structures, trees and rocks)
   on; its own side stream `${seed}:guilds:${tick}`). Seven roles (`GUILD_ROLES`: wardens (defence), menders (healing),
   rangers (scouting and hunting), crafters, merchants, scholars, and the elite squad), each with the skills that fit
   someone (`fitFor`), the bloc that favours it and its perk. From day `GUILD_FROM_DAY` (5) in a town of `GUILD_PEOPLE`
-  (5) grown-ups, no oftener than `GUILD_GAP_DAYS` (4) and at most one guild per `GUILD_PER_PEOPLE` (4) grown-ups, the
+  (4) grown-ups, no oftener than `GUILD_GAP_DAYS` (4) and at most one guild per `GUILD_PER_PEOPLE` (4) grown-ups, the
   town fills the role it lacks most (`needOf`: raids and the dead for wardens, the hurt and sick for menders, places
   and roaming bands for rangers, the craft queue, the venues, the research queue; the elite only in a town of
   `ELITE_PEOPLE` raided lately, from fighters of `ELITE_LEVEL`), if `MEMBERS_LEAST` fit (`lacking`): either the fittest

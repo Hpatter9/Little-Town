@@ -57,7 +57,7 @@ export const ORIGIN_WORDS: Record<OriginId, { plain: string[]; elite: string[] }
 export const GUILD_HOUR = 17;
 /** No guild before this day, nor in a town of fewer grown-ups. */
 export const GUILD_FROM_DAY = 5;
-export const GUILD_PEOPLE = 5;
+export const GUILD_PEOPLE = 4;
 /** Days between foundings (or a vote that failed). */
 export const GUILD_GAP_DAYS = 4;
 /** At most one guild for this many grown-ups. */
