@@ -14,8 +14,9 @@ them itself; there is nothing for the player to do.
   bone for the liches...). How many: `FOOD_LEAST`/`WARE_LEAST` plus one per `PER_PEOPLE` grown-ups, up to `MAKE_MOST`.
 - **The sim** (`src/shared/sim/festivals.ts`, `festivalsHourly` from sim.ts after the ceremonies; autopilot only;
   `s.festival` the run, `s.festivalLog` the last 16 outcomes; optional fields, no save bump):
-  - **Making ready:** from the first prep morning the food and ware are ordered at the fire (`orderMakings` through
-    `queueCraft`, topped up each morning at 6; the planner gathers their makings like any order's).
+  - **Making ready:** from the first prep morning the food and ware are ordered at the fire (`orderMakings`, topped up
+    each morning at 6; the planner gathers their makings like any order's). They go to the head of the craft queue,
+    over its limits: with a full queue a shore town's festivals were once bare.
   - **Visitors:** on the day at 9 a travellers band comes in for it (`spawnBand(..., note)`, a side stream
     `${seed}:festivals:${tick}`, from `VISIT_PEOPLE` grown-ups) and the roads are busier (`travellers` mark `VISIT_MULT`).
   - **Held** (`hold`): needs `FESTIVAL_FOOD_DAYS` (2) of food left after `FESTIVAL_FOOD` a head (only the living eat:
@@ -41,5 +42,7 @@ them itself; there is nothing for the player to do.
   what's next (days till it, when making ready starts, the food and ware made of what's wanted) and the year's four,
   each opening on its lore, food, ware, god, song and boon, with how it went last time.
 - **Previews:** `window.__festival('prep' | 'hold')` on the phone page (`previewFestival`: held now, with food enough).
-- Tests: `test/festivals.test.ts`. Probe (28 days, autopilot): settlers, knights, vampires and liches held all three
-  festivals they reached, readiness 0.5 to 1. Checked on the phone upright (393x852) and sideways (852x393).
+- Tests: `test/festivals.test.ts`. Probe (28 days, one seed each, autopilot): settlers, knights, vampires, liches,
+  merfolk, orcs and machines held the festivals they reached, mostly fully ready (one settlers' autumn festival missed).
+  People at day 28 against main on the same seeds: knights 10 (5), merfolk 4 (2), orcs 14 (3), settlers 3 (4),
+  vampires 9 (7): single seeds, so noisy, but no sign of harm. Checked on the phone upright (393x852) and sideways (852x393).

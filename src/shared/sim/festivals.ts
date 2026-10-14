@@ -11,7 +11,7 @@ import { FAVOUR_MOST } from '../data/gods';
 import { PURSE_SCALE } from '../data/shop';
 import { Rng, hashSeed } from '../rng';
 import { eatFeast, foodDays, gather, here } from './ceremonies';
-import { queueCraft, reduceCraft } from './crafting';
+import { reduceCraft } from './crafting';
 import { faithOf, godOf } from './faith';
 import { isChild } from './social';
 import { spawnBand } from './bands';
@@ -68,10 +68,16 @@ function wants(s: GameState): [number, number] {
 const have = (s: GameState, id: string) => s.items[id] ?? 0;
 const ordered = (s: GameState, id: string) => s.crafting.filter((o) => o.item === id).reduce((n, o) => n + o.count, 0);
 
-/** Order what's still wanted at the fire (as many as are short, made and ordered counted). */
+/** Order what's still wanted at the fire (as many as are short, made and ordered counted). A festival's makings go to
+ *  the head of the queue, over its limits: the town's other orders can wait a few days (a full queue once kept a
+ *  shore town's festivals bare). */
 function orderMakings(s: GameState, f: FestivalDef, run: FestivalRun): void {
   for (const [id, want] of [[foodId(f), run.foodWant], [wareId(f), run.wareWant]] as [string, number][]) {
-    for (let k = have(s, id) + ordered(s, id); k < want; k++) if (!queueCraft(s, id).ok) break;
+    const short = want - have(s, id) - ordered(s, id);
+    if (short <= 0) continue;
+    const o = s.crafting.find((q) => q.item === id);
+    if (o) o.count += short;
+    else s.crafting.unshift({ id: s.nextId++, item: id, count: short, delivered: {}, itemsTaken: false, progress: 0, made: 0 });
   }
 }
 
