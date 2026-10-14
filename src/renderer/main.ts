@@ -764,7 +764,7 @@ async function start(): Promise<void> {
         // (a piece of the ring wall under way is one job with the whole wall: sim/ringWall.ts)
         const wall = b.ring !== undefined && snap.wall && b.ring === snap.wall.gen ? snap.wall : null;
         if (wall && b.status === 'blueprint') {
-          lines.push(`The town's wall, built as one: ${wall.done} of ${wall.of} sections standing (${Math.floor(wall.share * 100)}%)`);
+          lines.push(`The town's wall, ${wall.shape}, built as one: ${wall.done} of ${wall.of} sections standing (${Math.floor(wall.share * 100)}%)`);
           if (b.overgrown) lines.push('Clearing the ground here first: the trees and rocks on the line are being cut and dug out');
           else if (b.planned) lines.push('Laid out, waiting to be worked');
           return { title: `${def.name} (the wall going up)`, lines, hint: 'Click for options', y: r.y };

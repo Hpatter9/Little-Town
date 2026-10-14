@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { RING_SHAPE_NAMES } from '../data/ringShapes';
 import { deedLines } from './deeds';
 import { DUNGEON_BY_ID } from '../data/dungeons';
 import { FEED_SECONDS } from '../data/lighting';
@@ -99,7 +100,7 @@ import { ENEMIES } from '../data/enemies';
 import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry, gateTop, onShift } from './people';
-import { isGate, ringProgress } from './ringWall';
+import { isGate, ringProgress, ringShapeOf } from './ringWall';
 import type { Era } from '../data/eras';
 import { ITEM_BY_ID, ITEMS, type Slot } from '../data/items';
 import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
@@ -883,7 +884,7 @@ export interface Snapshot {
   mooring: { x: number; y: number } | null;
   /** The ring wall under way as one job (sim/ringWall.ts `ringProgress`): its generation, sections standing of all,
    *  and the share of the whole wall's work done. Null with no ring or once it stands. */
-  wall: { gen: number; done: number; of: number; share: number } | null;
+  wall: { gen: number; done: number; of: number; share: number; shape: string } | null;
   /** The Moon Pack's standing (sim/pack.ts), for a werewolf town. */
   pack: PackView | null;
   /** Blood on the ground where someone was struck down: where, the side the blow came from, and how old (ticks). */
@@ -1181,7 +1182,7 @@ export function snapshot(s: GameState): Snapshot {
       ...((line) => (line ? { boat: line } : {}))(boatLine(s, d)),
     })),
     fleet: fleet(s).map((b) => ({ id: b.id, kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull, away: b.away === null ? null : ((e) => (e ? destinationOf(s, e.dest)?.name ?? '' : ''))(s.expeditions.find((e) => e.id === b.away)) })),
-    wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w } : null))(ringProgress(s)) : null,
+    wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w, shape: RING_SHAPE_NAMES[ringShapeOf(s)] } : null))(ringProgress(s)) : null,
     mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
     trips: tripsView(s),
     muster: musterView(s, (p) => callingName(p, stageOf(p))),
