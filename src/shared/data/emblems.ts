@@ -167,7 +167,7 @@ const C: Record<string, Compose> = {
   clockwork_sage: { main: ['Tool', 1] },
 };
 // (the peoples' own roads carry their emblems with them)
-for (const r of ORIGIN_ROADS) for (const n of [r.two, r.three]) C[n.id] = { main: n.emblem.main as Glyph, ...(n.emblem.charge ? { charge: n.emblem.charge as Glyph } : {}) };
+for (const r of ORIGIN_ROADS) for (const n of [r.two, r.three, r.high]) C[n.id] = { main: n.emblem.main as Glyph, ...(n.emblem.charge ? { charge: n.emblem.charge as Glyph } : {}) };
 
 /** A founder's line's colours: royal violet and gold, whatever their base. */
 export const FOUNDER_COLOURS: EmblemColours = { fill: '#5a2f7a', dark: '#2e1640', light: '#e8c860' };
