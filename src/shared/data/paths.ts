@@ -281,10 +281,12 @@ export const PATHS: readonly PathNode[] = [...nodes];
 const originNodes: PathNode[] = [];
 for (const r of ORIGIN_ROADS) {
   const mk = (n: (typeof r)['two'], stage: number, from: string): PathNode => ({ id: n.id, name: n.name, stage, from, cls: n.cls, text: n.text, lore: n.lore, origin: r.origin, ...(n.stats ? { stats: n.stats } : {}), ...(n.companion ? { companion: n.companion } : {}) });
-  originNodes.push(mk(r.two, 2, r.from), mk(r.three, 3, r.two.id));
-  originNodes.push({ id: r.asc[0], name: r.asc[1], stage: 4, from: r.three.id, cls: r.three.cls, text: `${r.three.text} Ascended: the last and greatest of their people's road.`, origin: r.origin, ...(r.three.companion ? { companion: r.three.companion } : {}) });
+  const base = nodes.find((n) => n.id === r.from)!.from!;
+  originNodes.push(mk(r.two, 1, base), mk(r.three, 2, r.two.id), mk(r.high, 3, r.three.id));
+  originNodes.push({ id: r.asc[0], name: r.asc[1], stage: 4, from: r.high.id, cls: r.high.cls, text: `${r.high.text} Ascended: the last and greatest of their people's road.`, origin: r.origin, ...(r.high.companion ? { companion: r.high.companion } : {}) });
 }
-/** Every people's road of its own: a third choice at the second evolution, then straight on. */
+/** Every people's road of its own: a third choice at the first evolution (beside the shared calling `from`), then
+ *  straight on. */
 export const ORIGIN_PATHS: readonly PathNode[] = originNodes;
 
 /* ------------------------------------------------------------ the founders' lines, with their choices */

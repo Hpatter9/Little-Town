@@ -21,9 +21,9 @@ import { TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { Rng } from '../src/shared/rng';
 import { plainGame } from './helpers';
 
-test('every people has a road of its own: a third choice at the second evolution, its own name, lore, skill and emblem', () => {
+test('every people has a road of its own: a third choice at the first evolution, its own name, lore, skill and emblem', () => {
   for (const o of ORIGINS) assert.equal(ORIGIN_ROADS.filter((r) => r.origin === o).length, 1, `${o} has one road of its own`);
-  assert.equal(ORIGIN_PATHS.length, ORIGIN_ROADS.length * 3);
+  assert.equal(ORIGIN_PATHS.length, ORIGIN_ROADS.length * 4);
   for (const n of ORIGIN_PATHS) {
     assert.ok(n.origin);
     if (n.stage < 4) {
@@ -34,17 +34,22 @@ test('every people has a road of its own: a third choice at the second evolution
     assert.ok(emblemOf(n.id)?.main, `${n.id} has an emblem`);
   }
   for (const r of ORIGIN_ROADS) {
+    // it opens at the first evolution, beside the shared calling it suits
+    const base = PATH_BY_ID[r.from].from!;
+    assert.equal(PATH_BY_ID[base].stage, 0);
+    assert.equal(PATH_BY_ID[r.two.id].stage, 1);
     // only their own people see it; the shared tree is as it was
-    assert.ok(!branchesOf(r.from).some((n) => n.origin), `${r.from}'s shared roads are two`);
-    const theirs = roadsFrom(r.from, r.origin);
+    assert.ok(!branchesOf(base).some((n) => n.origin), `${base}'s shared roads are two`);
+    const theirs = roadsFrom(base, r.origin);
     assert.equal(theirs.length, 3);
-    for (const o of ORIGINS) if (o !== r.origin) assert.ok(!roadsFrom(r.from, o).some((n) => n.origin === r.origin));
+    for (const o of ORIGINS) if (o !== r.origin) assert.ok(!roadsFrom(base, o).some((n) => n.origin === r.origin));
     // its emblem differs from the shared roads'
     const looks = theirs.map((n) => { const e = emblemOf(n.id)!; return JSON.stringify([e.behind, e.main, e.charge]); });
-    assert.equal(new Set(looks).size, 3, `${r.from}'s three roads look different`);
+    assert.equal(new Set(looks).size, 3, `${base}'s three roads look different`);
     // and straight on from there to the ascended form
     assert.deepEqual(branchesOf(r.two.id).map((n) => n.id), [r.three.id]);
-    assert.deepEqual(branchesOf(r.three.id).map((n) => n.id), [r.asc[0]]);
+    assert.deepEqual(branchesOf(r.three.id).map((n) => n.id), [r.high.id]);
+    assert.deepEqual(branchesOf(r.high.id).map((n) => n.id), [r.asc[0]]);
   }
 });
 
@@ -55,11 +60,11 @@ test('a lich at the fork is offered the Grave Cantor; a settler there is not; th
   const p = s.people[0];
   p.origin = 'lich';
   p.cls = 'witch';
-  p.road = 'occultist';
-  p.level = STAGE_LEVELS[2];
+  p.road = PATH_BY_ID.occultist.from!;
+  p.level = STAGE_LEVELS[1];
   assert.ok(roadsOpen(p, s).some((n) => n.id === 'grave_cantor'));
   const settler = makePerson(new Rng(1), 900, 'hunter', { x: 0, y: 0 }, []);
-  Object.assign(settler, { origin: 'settlers', cls: 'witch', road: 'occultist', level: STAGE_LEVELS[2] });
+  Object.assign(settler, { origin: 'settlers', cls: 'witch', road: PATH_BY_ID.occultist.from!, level: STAGE_LEVELS[1] });
   assert.ok(!roadsOpen(settler, s).some((n) => n.origin));
   s.tick = TICKS_PER_HOUR;
   classesHourly(s);
@@ -70,9 +75,12 @@ test('a lich at the fork is offered the Grave Cantor; a settler there is not; th
   assert.equal(p.cls, 'necromancer');
   assert.ok(abilitiesKnown(p.cls, p.level, p.road).some((a) => a.id === 'requiem'));
   // a people's road is a step stronger than a shared road of the same archetype at the same stage
-  const shared = { ...p, road: 'necromancer', origin: 'lich' as const };
+  const shared = { ...p, road: 'occultist', origin: 'lich' as const };
   assert.ok(evolveSteps(p) > evolveSteps(shared));
-  assert.ok(maxHp(p) > maxHp(shared));
+  // (and it tells more the further down the road: at the second stage it's plain in their health)
+  const two = { ...p, road: 'deathless_magister', level: STAGE_LEVELS[2] };
+  const sharedTwo = { ...two, road: 'witch' };
+  assert.ok(maxHp(two) > maxHp(sharedTwo));
 });
 
 test('evolving is a big jump: attributes, health and power all rise well beyond a level\'s worth', () => {

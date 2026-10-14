@@ -55,7 +55,7 @@ export const LEANS: Record<string, Lean> = {
 };
 
 // (the peoples' own roads carry their leans with them)
-for (const r of ORIGIN_ROADS) for (const n of [r.two, r.three]) LEANS[n.id] = n.lean;
+for (const r of ORIGIN_ROADS) for (const n of [r.two, r.three, r.high]) LEANS[n.id] = n.lean;
 
 const cache = new Map<string, Attrs>();
 /** The shares a townsperson's points are spent by: their archetype's growth leaned the way of their road (the

@@ -69,11 +69,11 @@ test('evolution: with the level, the two roads are put to the player; the answer
   p.cls = 'warrior';
   p.road = 'fighter';
   p.level = STAGE_LEVELS[1];
-  assert.deepEqual(roadsOpen(p).map((n) => n.id), ['knight', 'berserker']);
+  assert.deepEqual(roadsOpen(p).map((n) => n.id), ['knight', 'berserker', 'militia_captain']); // (a settler's own road opens beside them)
   s.tick = TICKS_PER_HOUR;
   classesHourly(s);
   const q = s.prompts.find((x) => x.kind === 'evolve');
-  assert.ok(q && q.who === p.id && q.options.length === 3, 'asked');
+  assert.ok(q && q.who === p.id && q.options.length === 4, 'asked');
   assert.equal(p.road, 'fighter', 'nothing changes until it is answered');
   classesHourly(s);
   assert.equal(s.prompts.filter((x) => x.kind === 'evolve').length, 1, 'asked once');
@@ -86,7 +86,7 @@ test('evolution: with the level, the two roads are put to the player; the answer
   classesHourly(s);
   const q2 = s.prompts.find((x) => x.kind === 'evolve')!;
   answerPrompt(s, q2.id, q2.defaultOption, new Rng(2));
-  assert.ok(p.road === 'paladin' || p.road === 'dragoon' || p.road === 'militia_captain', p.road!); // (a settler's own road is open here too)
+  assert.ok(p.road === 'paladin' || p.road === 'dragoon', p.road!);
   // with the asking off, the town decides on the hour
   s.evolveAsk = false;
   p.level = STAGE_LEVELS[3];
