@@ -72,7 +72,12 @@ export function missingItems(s: GameState, o: CraftOrder): string[] {
 export const PER_STATION = 3;
 /** Craft orders allowed at once: `PER_STATION` for every station standing (research adds more; never fewer than the
  *  campfire's few). */
-export const craftSlots = (s: Pick<GameState, 'research' | 'buildings'>) => Math.max(CRAFT_QUEUE_SLOTS, PER_STATION * s.buildings.filter((b) => b.status === 'done' && (STATIONS as readonly string[]).includes(b.def)).length) + researchMods(s.research).queueSlots;
+const STATION_SET: ReadonlySet<string> = new Set(STATIONS);
+export const craftSlots = (s: Pick<GameState, 'research' | 'buildings'>) => {
+  let n = 0;
+  for (const b of s.buildings) if (b.status === 'done' && STATION_SET.has(b.def)) n++;
+  return Math.max(CRAFT_QUEUE_SLOTS, PER_STATION * n) + researchMods(s.research).queueSlots;
+};
 /** Orders a station of this kind can take: `PER_STATION` for each standing (one's worth before any stands). */
 export const stationSlots = (s: Pick<GameState, 'buildings'>, station: string) => PER_STATION * Math.max(1, s.buildings.filter((b) => b.status === 'done' && b.def === station).length);
 /** Orders queued at a station. */

@@ -619,17 +619,15 @@ function wildCells(s: GameState): { i: number; pool: Stock; d: number }[] {
   return out;
 }
 /** Which gatherable materials the open land holds, for the tick (`sourceable`). */
-let wildHas: { list: unknown; has: Map<Material, boolean> } | null = null;
+let wildHas: { list: unknown; has: Set<string> } | null = null;
 function wildHolds(s: GameState, m: Material): boolean {
   const list = wildCells(s);
-  if (wildHas?.list !== list) wildHas = { list, has: new Map() };
-  // (each material looked for only when asked, nearest first: most are found a few cells out)
-  let has = wildHas.has.get(m);
-  if (has === undefined) {
-    has = list.some(({ pool }) => (pool[m] ?? 0) > 0);
-    wildHas.has.set(m, has);
+  if (wildHas?.list !== list) {
+    const has = new Set<string>();
+    for (const { pool } of list) for (const k in pool) if ((pool[k as Material] ?? 0) > 0) has.add(k);
+    wildHas = { list, has };
   }
-  return has;
+  return wildHas.has.has(m);
 }
 function scanWild(s: GameState): { i: number; pool: Stock; d: number }[] {
   const m = s.land;
