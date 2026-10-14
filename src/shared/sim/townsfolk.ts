@@ -134,6 +134,8 @@ interface TownMood {
   undead: boolean;
   /** Those with a child (in town or away). */
   parents: Set<number>;
+  /** Those who own a venue (the guilds' own: sim/politics.ts `blocOf`). */
+  owners: Set<number>;
 }
 function townMood(s: GameState): TownMood {
   const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
@@ -157,12 +159,14 @@ function townMood(s: GameState): TownMood {
     vampire: s.people.some((q) => q.monster === 'vampire' && q.away === null),
     undead: s.people.some((q) => q.monster === 'undead' && q.away === null),
     parents: new Set(s.people.filter(isChild).flatMap((k) => k.parents ?? [])),
+    owners: new Set(s.buildings.filter((b) => b.shop && b.owner != null).map((b) => b.owner!)),
   };
 }
 
 export function mood(s: GameState, p: Person, here?: TownMood): { target: number; reasons: MoodReason[] } {
   const reasons: MoodReason[] = [];
   const add = (text: string, value: number) => reasons.push({ text, value });
+  const town = here ?? townMood(s);
   const { food, rest } = p.needs;
   // (the dead and machines feel no hunger or weariness, good or bad)
   if (!tireless(p)) {
@@ -181,14 +185,13 @@ export function mood(s: GameState, p: Person, here?: TownMood): { target: number
   // (a break at a place of leisure: sim/leisure.ts)
   if (p.fun && s.tick < p.fun.until) add(p.fun.text, p.fun.value);
   // (how their bloc feels about the town's rule: sim/politics.ts)
-  const bm = blocMood(s, p);
+  const bm = blocMood(s, p, town.owners);
   if (bm) add(bm.text, bm.value);
   // (belonging to a guild: sim/guilds.ts)
   const gm = guildMood(s, p);
   if (gm) add(gm.text, gm.value);
   const charm = gearEffects(p).morale;
   if (charm) add('Lucky charm', charm);
-  const town = here ?? townMood(s);
   if (town.campfire) add('Warm campfire', 5);
   if (town.circle) add('Stories by the fire', 6);
   // the best of the other morale buildings (a tavern, the elder lodge...)
