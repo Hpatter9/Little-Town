@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.63.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.67.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4131,3 +4131,14 @@ blocked by buildings, structures, trees and rocks)
   "Research complete", the townsfolk's doings, the chronicle, the building and item cards; `ResearchView.origin`). A
   topic's card says what it's known as elsewhere and whether the people take to it or find it foreign. Test:
   `test/originResearch.test.ts`.
+
+## The wall raised as one construction (0.67.0; the owner's ask: "a single construction, not one section at a time")
+- **Every section in work at once:** `planRing` (sim/ringWall.ts) puts every laid piece clear of trees and rocks into
+  work in the same pass; only pieces whose ground is still being cleared stay `planned`. `RING_AT_ONCE`, `RING_SPARE`
+  and `RING_GATHER_AHEAD` are gone. The wall still never takes the wood another site waits on: `haulOrder` (people.ts,
+  now exported) serves the town's other sites before any ring piece. `ringWants` adds the overgrown pieces' makings to
+  the demand (the rest are counted with every site in work).
+- **One figure for the whole wall:** `ringProgress` (sections standing of all, and the share of the work done, each
+  section weighed by its build time), `snapshot.wall`; a piece's tap card reads "The town's wall, built as one: N of M
+  sections standing (P%)" (main.ts). The pieces stay separate cells for pathing, damage and the joined art. Test in
+  `test/ringWall.test.ts`.

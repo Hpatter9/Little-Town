@@ -931,7 +931,7 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   const shopFirst = n.unsourced.length > 0 && !s.buildings.some((b) => isShop(b.def));
   // (a handful of people can't wall a town and build it too: the ring waits for RING_MIN_PEOPLE, raided or not)
   const ringTurn = () => {
-    if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
+    if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.raided));
     if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
   };
   if (blueprintCount(s) >= buildSlots(s)) {

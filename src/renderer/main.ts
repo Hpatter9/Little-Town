@@ -770,6 +770,14 @@ async function start(): Promise<void> {
           return { title: `Statue of ${hero.name}`, lines: story, hint: 'Click for options', y: r.y };
         }
         if (b.homeName && b.status === 'done') lines.push(def.name); // (a home by its name: sim/memorials.ts)
+        // (a piece of the ring wall under way is one job with the whole wall: sim/ringWall.ts)
+        const wall = b.ring !== undefined && snap.wall && b.ring === snap.wall.gen ? snap.wall : null;
+        if (wall && b.status === 'blueprint') {
+          lines.push(`The town's wall, built as one: ${wall.done} of ${wall.of} sections standing (${Math.floor(wall.share * 100)}%)`);
+          if (b.overgrown) lines.push('Clearing the ground here first: the trees and rocks on the line are being cut and dug out');
+          else if (b.planned) lines.push('Laid out, waiting to be worked');
+          return { title: `${def.name} (the wall going up)`, lines, hint: 'Click for options', y: r.y };
+        }
         if (b.status === 'blueprint') {
           const parts = (Object.entries(def.cost) as [Material, number][]).map(([m, n]) => `${MATERIAL_NAMES[m]} ${b.delivered[m] ?? 0}/${n}`);
           lines.push(b.progress > 0 ? `Under construction: ${Math.floor(b.progress * 100)}%` : `Materials delivered: ${parts.join(' · ')}`);
