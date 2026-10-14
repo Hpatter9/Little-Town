@@ -24,7 +24,7 @@ if (!only || only === 'fixture') {
   while (!job.run(500));
   console.log(`fixture ${hash(s)} ${((performance.now() - t) / 1000).toFixed(1)} s`);
 }
-for (const [seed, origin] of [['hash-a', 'settlers'], ['hash-b', 'knights'], ['hash-c', 'vampires'], ['hash-d', 'dwarves']] as const) {
+for (const [seed, origin] of [['hash-a', 'settlers'], ['hash-b', 'knights'], ['hash-c', 'vampire'], ['hash-d', 'dwarves']] as const) {
   if (only && only !== seed) continue;
   const s = newGame(seed, { origin });
   const sim = new Sim(s);

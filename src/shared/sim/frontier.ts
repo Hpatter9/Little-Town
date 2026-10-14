@@ -6,7 +6,7 @@
 // of what the ground holds, spirits lifted), which claim-jumpers may come for (outlaws on the land, `jump`). Only in a
 // settlers' town, with the autopilot on.
 
-import { TAMED_TRICKS, CLAIM_DAYS, CLAIM_HAUL, CLAIM_MORALE, CLAIM_NAMES, CLAIM_OPEN, CLAIMS_MOST, FRONTIER_HOUR, JUMP_CHANCE, TEACH_PUPILS, TEACH_XP, TRICK_MULT, TRICKS } from '../data/frontier';
+import { TAMED_TRICKS, CLAIM_DAYS, CLAIM_HAUL, CLAIM_MORALE, CLAIM_NAMES, CLAIM_OPEN, CLAIMS_MOST, FRONTIER_HOUR, JUMP_CHANCE, WAGON_EVERY, WAGON_FOOD, WAGON_PAIR, WAGONS_WAITING, WAGON_TYPES, TEACH_PUPILS, TEACH_XP, TRICK_MULT, TRICKS } from '../data/frontier';
 import type { Material } from '../data/materials';
 import { ORIGIN_DEFS, type OriginId } from '../data/origins';
 import { SKILLS, SKILL_NAMES, type Skill } from '../data/skills';
@@ -15,10 +15,11 @@ import { depositNear } from './buildings';
 import { CELL, groundAt, inMap } from './land';
 import { spawnRoamerAt } from './roamers';
 import { isChild } from './social';
-import { campXY, notify, type GameState, type Person } from './state';
+import { campXY, edgeXY, makePerson, notify, townFull, type GameState, type Person } from './state';
 import { tellStory } from './telling';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
-import { gainSkill } from './townsfolk';
+import { assignBeds, foodPerHead, gainSkill, housingCapacity, joinOrigin } from './townsfolk';
+import { equipAll } from './crafting';
 
 export interface Claim {
   name: string;
@@ -34,6 +35,9 @@ export interface FrontierState {
   taught: number;
   jumped: number;
   log: string[];
+  /** Wagons of new settlers on the road (one per claim staked), waiting on a free bed and food. */
+  wagons?: number;
+  arrived?: number;
 }
 
 export const frontierTown = (s: GameState) => (s.origin ?? 'settlers') === 'settlers';
@@ -59,6 +63,7 @@ export function frontierHourly(s: GameState): void {
   teach(s, f);
   if (s.tick - f.lastClaim >= CLAIM_DAYS * TICKS_PER_DAY && f.claims.length < CLAIMS_MOST) stakeClaim(s, f);
   jump(s, f);
+  wagon(s, f);
   if (f.claims.length >= CLAIMS_MOST && f.tricks.length >= TAMED_TRICKS && !s.gameOver) {
     tellStory(s, 'The Frontier Tamed', `${CLAIMS_MOST} claims staked and worked, and something learned from every people the town has met. The wild edge of the map is a road now, with farms along it. Plain folk did this, with no magic but stubbornness.`, 'fields farms frontier settlers');
     s.gameOver = { tick: s.tick, won: true, text: 'The frontier is tamed: the land claimed and homesteaded, and the settlers have learned from every people they met. Plain folk have won.' };
@@ -128,6 +133,7 @@ export function stakeClaim(s: GameState, f: FrontierState): Claim | null {
     const claim: Claim = { name, x, y, day: calendar(s.tick).day };
     f.claims.push(claim);
     f.lastClaim = s.tick;
+    if (f.claims.length % WAGON_EVERY === 1 % WAGON_EVERY) f.wagons = Math.min(WAGONS_WAITING, (f.wagons ?? 0) + 1);
     s.land.open = Math.min(86, s.land.open + CLAIM_OPEN);
     s.land.version++;
     const haul = CLAIM_HAUL[g] ?? CLAIM_HAUL.grass;
@@ -141,6 +147,33 @@ export function stakeClaim(s: GameState, f: FrontierState): Claim | null {
     return claim;
   }
   return null;
+}
+
+/** A wagon train: the claims draw settlers. If one is on the road and the town has a free bed and food, a household of
+ *  one (sometimes two) rolls in and stays. Its own side stream, so no other roll shifts. */
+export function wagon(s: GameState, f: FrontierState): Person[] {
+  if (!(f.wagons ?? 0) || townFull(s) || foodPerHead(s) < WAGON_FOOD) return [];
+  const beds = housingCapacity(s) - s.people.length;
+  if (beds <= 0) return [];
+  const rng = roll(s, 'wagon');
+  const n = Math.min(beds, rng.chance(WAGON_PAIR) ? 2 : 1);
+  const come: Person[] = [];
+  const edge = edgeXY(s, rng.chance(0.5) ? -1 : 1);
+  for (let i = 0; i < n && !townFull(s); i++) {
+    const p = makePerson(rng, s.nextId++, rng.weighted(WAGON_TYPES), edge, s.people.map((q) => q.name), 'settlers');
+    s.people.push(p);
+    joinOrigin(s, p);
+    come.push(p);
+  }
+  if (!come.length) return [];
+  f.wagons = (f.wagons ?? 1) - 1;
+  f.arrived = (f.arrived ?? 0) + come.length;
+  assignBeds(s);
+  equipAll(s);
+  const names = come.map((p) => p.name).join(' and ');
+  log(s, f, `A wagon rolled in with ${names}.`);
+  notify(s, `A wagon of settlers has come for the claims: ${names} joined the town.`, true);
+  return come;
 }
 
 /** Claim-jumpers: now and then outlaws come for a claim, and roam the land between it and the town. */
