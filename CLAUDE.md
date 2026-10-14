@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.68.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.69.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4142,3 +4142,12 @@ blocked by buildings, structures, trees and rocks)
 - Checked and fine: castle and hold rooms still get built with the builders' spots (probe: vampires and dwarves as many
   rooms by day 8 as before), the starting heritage topics all exist, and `Person.origin` set for a town's own people
   (makePerson) is read as "of the town" everywhere it was read as "a stranger".
+
+## Smooth zoom (0.69.0; the owner's complaint: "sluggish and choppy")
+- **Zoom that keeps up:** `layout()` in `mobile/mobile.ts` no longer snaps the strip's scale to whole screen pixels per
+  art pixel unless the zoom is within `SNAP_NEAR` (4%) of one (halves below two): it used to jump between a few steps,
+  so most of a pinch, and most of the zoom slider, did nothing and then leapt. While two fingers are down the canvas
+  follows them once a frame (`showPinch`, on `requestAnimationFrame`), grows about the point first pressed and moves
+  with the fingers, so a pinch pans too; the strip stops drawing meanwhile and holds the snapshots that arrive
+  (`__pinching` in main.ts: the ticker stopped, `heldSnap` applied on release; the quality watcher forgives the pause,
+  `resumedAt`), and on release `__zoomAbout(mx, my, from, to, nx, ny)` puts what was under the fingers where they lifted.

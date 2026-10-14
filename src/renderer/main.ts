@@ -320,6 +320,10 @@ async function start(): Promise<void> {
   // (quality 2: everything; 1: no smoke or mist; 0: and drawn at the screen's plain resolution, as before)
   let quality = 2;
   let stripScale = 1;
+  // (two fingers on the town: the page is pinching it, and the strip holds still: __pinching below)
+  let pinching = false;
+  let heldSnap: Snapshot | null = null;
+  let resumedAt = 0;
   const sharpen = (scale: number) => {
     stripScale = scale;
     app.renderer.resize(app.screen.width, app.screen.height, (window.devicePixelRatio || 1) * (quality > 0 ? scale : 1));
@@ -333,6 +337,11 @@ async function start(): Promise<void> {
     app.ticker.add(() => {
       const now = performance.now();
       if ((window as unknown as { __keepQuality?: boolean }).__keepQuality) return; // (previews in a slow headless browser)
+      // (a pinch stops the drawing for a moment: that time isn't the phone falling behind)
+      if (resumedAt) {
+        resumedAt = 0;
+        since = now + 3000;
+      }
       if (document.hidden || now < since) {
         frames = 0;
         if (document.hidden) since = now + 3000;
@@ -1842,7 +1851,10 @@ async function start(): Promise<void> {
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
   };
-  bridge.onSnapshot(applySnapshot);
+  bridge.onSnapshot((next) => {
+    if (pinching) heldSnap = next;
+    else applySnapshot(next);
+  });
   applySnapshot(first);
 
   /* -------------------------------------------------------- frame loop */
@@ -1854,7 +1866,24 @@ async function start(): Promise<void> {
   // pixels; from, to: the scales the strip was and is shown at). The resize below keeps the middle still; this is the
   // rest, for a point off the middle.
   Object.assign(window, {
-    __zoomAbout: (mx: number, my: number, from: number, to: number) => camera.shift((mx - viewW / 2) * (1 - from / to), (my - viewH / 2) * (1 - from / to)),
+    // (nx, ny: where the fingers were when they lifted, if they moved together: the point under them at the start goes
+    // there, so a pinch pans as well)
+    __zoomAbout: (mx: number, my: number, from: number, to: number, nx = mx, ny = my) =>
+      camera.shift(mx - viewW / 2 - ((nx - viewW / 2) * from) / to, my - viewH / 2 - ((ny - viewH / 2) * from) / to),
+    // While two fingers are down the page only moves and scales the canvas (mobile.ts), so the strip stops drawing and
+    // holds the snapshots that come meanwhile; when they lift it draws again from the latest.
+    __pinching: (on: boolean) => {
+      pinching = on;
+      if (on) {
+        app.ticker.stop();
+        return;
+      }
+      resumedAt = performance.now();
+      app.ticker.start();
+      const held = heldSnap;
+      heldSnap = null;
+      if (held) applySnapshot(held);
+    },
   });
   app.ticker.add((ticker) => {
     const w = layoutSplit(); // the town's share of the width
