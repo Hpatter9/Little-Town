@@ -84,7 +84,7 @@ export function stationCue(def: string | null | undefined): Cue | null {
   // (the most particular first: a sawmill is a saw, a nanoforge a machine, a glamour loom a loom)
   if (/sawmill|saw_|carpent|cooper|joiner|workbench|boat|furniture/.test(def)) return 'saw';
   if (/nano|factory|plant|assembl|fab|robot|electron|refin|print|clock|appliance|garage|cement/.test(def)) return 'machine';
-  if (/smith|forge|bloomery|armour|armor|weapon|foundry|steel|monster_guild/.test(def)) return 'anvil';
+  if (/smith|forge|bloomery|armour|armor|weapon|foundry|steel|monster_guild|airship/.test(def)) return 'anvil';
   if (/loom|weav|tailor|textile|felt|dye|spin|basket/.test(def)) return 'loom';
   if (/tann|pelt/.test(def)) return 'reap';
   if (/alemb|alchem|apothec|pharm|herb|lab|blood|brew|still|cellar|grog|chandl|clone|vat/.test(def)) return 'bubble';

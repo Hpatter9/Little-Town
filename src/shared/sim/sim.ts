@@ -6,6 +6,7 @@ import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
 import { streetsHourly } from './streets';
 import { roamersTick, skirmishTrip } from './roamers';
+import { skiesHourly, skiesTick } from './skies';
 import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
@@ -174,6 +175,7 @@ export class Sim {
     }
     updateExpeditions(s, this.rng);
     roamersTick(s); // (bands roaming the land, and the fights they start: sim/roamers.ts)
+    skiesTick(s); // (sky pirates dropping in, and the town shooting at what hunts from the sky: sim/skies.ts)
     fightSpeedTick(s); // (every fight starts at 1×: sim/battle.ts)
     envoyTick(s);
     maybeStartRaid(s, this.rng);
@@ -214,6 +216,7 @@ export class Sim {
     ambitionHourly(s);
     partiesHourly(s);
     boatsHourly(s, this.rng);
+    skiesHourly(s); // (airships, sky pirates and the hunters of the sky: sim/skies.ts)
     ceremoniesHourly(s);
     annalsHourly(s);
     memorialsHourly(s); // (homes named, ruins cleared, statues to the famous dead: sim/statues.ts)

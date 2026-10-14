@@ -493,6 +493,9 @@ const PICKS: Record<string, Pick> = {
   factory: { parts: [[sfTube4, 40, 0], [sf26, 0, 28], [sf27, 68, 41], [sf24, 146, 0]], size: [214, 76], overhang: 0 },
   garage: { parts: [[sf27, 0, 0], [sf27, 78, 0]], size: [156, 35], overhang: 0 },
   radio_tower: { url: sfPylon, overhang: 3 },
+  // the airship mast (data/skies.ts): the futuristic pack's lattice pylon for the mast, its tank for the lifting gas,
+  // a console and a box by it (map/mapAirships.ts makes her nose fast to the pylon's head)
+  airship_mast: { parts: [[sf25, 0, 115], [sfPylon, 69, 0], [sf19, 104, 170], [sf17, 0, 176]], size: [140, 192], overhang: 0 },
   drone_hub: { parts: [[sf27, 0, 10], [sf12, 48, 0]], size: [78, 45], overhang: 0 },
   battery_plant: { parts: [[sf24, 0, 0], [sf26, 72, 28]], size: [140, 76], overhang: 0 },
   electronics_plant: { parts: [[sf9, 0, 10], [sf12, 40, 10], [sf13, 70, 6], [sf14, 130, 6], [sf10, 190, 8]], size: [202, 32], overhang: 0 },

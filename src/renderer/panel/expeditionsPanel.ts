@@ -3,6 +3,7 @@
 // the log), Places (the world map, the land's places, the pack's lairs, the destinations; each card one button, the
 // rest in its details), Companies (the bonded parties, sim/companies.ts), Realm and Treasures.
 
+import { AIRSHIP_BY_KIND } from '../../shared/data/skies';
 import { renderRealm } from './realmPanel';
 import { renderMuster } from './musterPanel';
 import { acceptedQuests, questBoard, questLog } from './questBoardPanel';
@@ -70,6 +71,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.sagas.open.map((g) => [g.run, g.now, g.log.length, g.dest]),
     s.sagas.done.length,
     s.fleet,
+    s.airships.map((a) => [a.id, a.hull, a.away]),
     s.muster,
     s.realm,
     s.companies.map((c) => [c.id, c.trips, c.ended, c.out, c.members.length, c.members.filter((m) => m.alive).length]),
@@ -95,6 +97,11 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
   if (s.fleet.length) {
     out.push(el('h2', '', 'Boats'));
     for (const b of s.fleet) out.push(el('div', 'hint', `The ${b.name} (${BOAT_BY_KIND[b.kind].name.toLowerCase()}, hull ${b.hull}/${b.max}): ${b.away === null ? (b.hull < b.max / 2 ? 'mending at the boatyard' : 'at home, fishing') : `sailed for ${b.away}`}`));
+  }
+  // the town's airships (sim/skies.ts): moored at the mast, or carrying a party
+  if (s.airships.length) {
+    out.push(el('h2', '', 'Airships'));
+    for (const a of s.airships) out.push(el('div', 'hint', `The ${a.name} (${AIRSHIP_BY_KIND[a.kind].name.toLowerCase()}, hull ${a.hull}/${a.max}): ${a.away === null ? (a.hull < a.max / 2 ? 'mending at the mast' : 'moored at the mast, ready to fly') : `flying for ${a.away}`}`));
   }
   // the Calamity (sim/calamity.ts): how near it is, its stage, and its heart to strike at
   if (s.calamity) out.push(...calamitySection(s, bridge));
@@ -200,6 +207,7 @@ function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined):
   c.append(top, bar, el('div', 'purpose', `${company ? `${company.name}: ` : ''}${lead}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''} · home in ${duration(e.secondsLeft)}${down ? ` · ${down} down` : ''}${e.bounty ? ` · bounty ${e.bounty}` : ''}`));
   if (e.delve) c.append(el('div', 'lock short', e.delve.cleared ? 'Cleared! Bringing the hoard home.' : e.delve.room ? `Room ${e.delve.room} of ${e.delve.rooms}${e.delve.kind ? ` (${ROOM_NAMES[e.delve.kind] ?? e.delve.kind})` : ''} · ${e.delve.torches} torch${e.delve.torches === 1 ? '' : 'es'} left` : `${e.delve.torches} torches for ${e.delve.rooms} rooms`));
   if (e.wrecked) c.append(el('div', 'lock short', 'Wrecked: swimming for home.'));
+  if (e.crashed) c.append(el('div', 'lock short', 'Their airship came down: walking home.'));
   // (watch them: the town view gives way to the party on the road and their fights, as in the old games)
   const row = el('div', 'row stakes');
   row.append(
@@ -237,7 +245,8 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
     c.append(el('div', 'lock short', v.quietHours ? `Cleared: it lies quiet, and wakes again in about ${Math.ceil(v.quietHours / 24)} day${v.quietHours > 24 ? 's' : ''}.` : d.research ? `Needs research: ${topicName(d.research, s.origin.id)}` : 'Not reachable yet.'));
     return expandable(c, `dest:${d.id}`, () => destDetails(d, v, s));
   }
-  if (v.boat && !going && v.byBoat && v.boat.startsWith('Needs')) c.append(el('div', 'lock short', v.boat));
+  if (v.boat && !going && v.byBoat && v.boat.startsWith('Needs') && !v.airship) c.append(el('div', 'lock short', v.boat));
+  if (v.airship && !going && v.bySky && v.airship.startsWith('Needs')) c.append(el('div', 'lock short', v.airship));
   // one thing to do from the card: send a party (the rest, forbidding and bounties, are in its details)
   if (!going && !v.vetoed) {
     const row = el('div', 'row stakes');
@@ -270,7 +279,8 @@ function destDetails(d: Destination, v: DestinationView, s: Snapshot): More[] {
       ['Rooms', dg ? `${dg.rooms} before the boss's` : null],
       ['Research', d.research ? (topicName(d.research, s.origin.id)) : null],
       ['Purse', d.coins ? `${d.coins} coins from the treasury` : null],
-      ['By boat', d.byBoat ? 'only a boat reaches it' : null],
+      ['By boat', d.byBoat ? 'only a boat (or an airship) reaches it' : null],
+      ['By air', d.bySky ? 'only an airship reaches it' : null],
       ['Party', `${d.recommendedParty} suggested`],
       ['A fight there', d.encounters ? pct(d.encounters.arrival) : null],
       ['Ambush going home', d.encounters ? pct(d.encounters.ambush) : null],
@@ -307,6 +317,7 @@ function activeDetails(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefine
       ['Stakes', e.stakes ? (e.stakes === 'risky' ? 'risky: bold, more fights, bigger packs' : 'safe: careful, fewer fights') : null],
       ['Carrying', `${e.lootSize} of ${e.carry}`],
       ['Boat', e.boat ? `the ${e.boat.name}, hull ${e.boat.hull}/${e.boat.max}` : null],
+      ['Airship', e.airship ? `the ${e.airship.name}, hull ${e.airship.hull}/${e.airship.max}` : null],
     ]),
     list('The party', lines),
     e.lootSize ? `Found so far: ${listStock(e.loot)}.` : null,
@@ -341,6 +352,7 @@ function pieceDetails(id: string): More[] {
 function tripControls(d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
   const box = el('div', 'dest-controls');
   if (v.boat) box.append(el('div', 'lock short', v.boat));
+  if (v.airship) box.append(el('div', 'lock short', v.airship));
   const step = s.trips.bountyStep;
   const row = el('div', 'row stakes');
   row.append(

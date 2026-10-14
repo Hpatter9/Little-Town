@@ -650,7 +650,34 @@ export const CUSTOM_ICONS: Record<string, (p: Painter) => void> = {
     p.rect(6, 7, 6, 3, '#e8eef2');
     p.rect(7, 8, 4, 1, '#2a3a4a');
   }),
+  // the airships built at the mast (data/skies.ts): a gasbag over a gondola, against the sky
+  airship_dirigible: (p) => airshipIcon(p, '#ecdcb8', '#a88a62', '#6a4a30'),
+  airship_zeppelin: (p) => airshipIcon(p, '#d6dae0', '#868c96', '#3a3e48'),
+  airship_sky_cruiser: (p) => airshipIcon(p, '#b0bc98', '#66785e', '#2a3a30'),
+  airship_sky_frigate: (p) => {
+    p.rect(2, 6, 12, 4, '#6a86b0');
+    p.rect(3, 5, 9, 1, '#a8c0de');
+    p.rect(1, 7, 1, 2, '#f0c040');
+    p.rect(14, 7, 2, 2, '#60e0f0');
+    p.rect(5, 10, 6, 1, '#2a3446');
+    p.rect(6, 4, 3, 1, '#f0c040');
+  },
 };
+
+/** An airship icon: her gasbag (light over shade), its ribs, the fin, and the gondola under it. */
+function airshipIcon(p: Painter, light: string, shade: string, gondola: string): void {
+  p.rect(2, 3, 11, 5, light);
+  p.rect(1, 4, 13, 3, light);
+  p.rect(2, 7, 11, 1, shade);
+  p.rect(5, 3, 1, 5, shade);
+  p.rect(9, 3, 1, 5, shade);
+  p.rect(14, 3, 1, 5, shade);
+  p.rect(15, 4, 1, 3, shade);
+  p.rect(5, 8, 1, 2, gondola);
+  p.rect(9, 8, 1, 2, gondola);
+  p.rect(4, 10, 7, 2, gondola);
+  p.rect(11, 10, 2, 1, gondola);
+}
 
 /** A boat icon: her hull over a line of water, and what stands on her deck. */
 function boatIcon(p: Painter, light: string, dark: string, deck: () => void): void {

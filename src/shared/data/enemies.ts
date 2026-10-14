@@ -7,6 +7,7 @@ import type { Stock } from './materials';
 import { BESTIARY_ENEMIES } from './bestiary';
 import { RISING_ENEMIES } from './risingPowers';
 import { BOAT_ENEMIES } from './boats';
+import { SKY_ENEMIES } from './skies';
 import { MENAGERIE } from './menagerie';
 import { NEST_ENEMIES } from './nests';
 import { CALAMITY_ENEMIES } from './calamity';
@@ -111,6 +112,7 @@ export const ENEMIES: Readonly<Record<string, EnemyDef>> = {
   ...DUNGEON_BOSSES,
   ...PACK_BOSSES,
   ...BOAT_ENEMIES,
+  ...SKY_ENEMIES,
   // (the war hosts' siege engines: data/factions.ts)
   ...SIEGE_ENEMIES,
   // the menagerie: DawnLike's creatures (data/menagerie.ts)

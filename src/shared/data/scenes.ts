@@ -7,6 +7,7 @@ import { BESTIARY_ROUTES } from './bestiary';
 import { SCOUT_ROUTES } from './regions';
 import { TRADE_ROUTES } from './minerals';
 import { ISLAND_ROUTES } from './boats';
+import { SKY_ROUTES } from './skies';
 import { DUNGEON_ROUTES } from './dungeons';
 import { FACTION_DEFS } from './factions';
 import { biomeById, type Biome } from './biomes';
@@ -28,6 +29,7 @@ export const ROUTES: Record<string, [SceneId, SceneId]> = {
   ...TRADE_ROUTES,
   ...DUNGEON_ROUTES,
   ...ISLAND_ROUTES,
+  ...SKY_ROUTES,
   // (assaults: a power's stronghold, the road there and inside its walls; a dungeon stormed as it is delved)
   ...Object.fromEntries(FACTION_DEFS.map((f) => [`assault:${f.id}`, [f.road, f.inside] as [SceneId, SceneId]])),
   ...Object.fromEntries(Object.entries(DUNGEON_ROUTES).map(([id, r]) => [`assault:dungeon:${id}`, r])),
@@ -122,8 +124,11 @@ const SEASONAL = new Set<SceneId>(['meadow', 'riverbank', 'pinewoods', 'bandit_c
 /** A shore town's trips (the merfolk) out of doors: under the waves, or the open sea under the sky. */
 const SEA_LOOKS: readonly SceneLook[] = [...n('underwater', 1, 2, 3, 4), ...skies(...n('ocean', 1, 2, 3, 4, 5))];
 
-export function lookFor(scene: SceneId, seed: number, season?: string, sea = false): SceneLook {
-  const own = sea && !INDOOR_SCENES.has(scene) ? SEA_LOOKS : (season && SEASONAL.has(scene) && SEASON_LOOKS[season]) || SCENE_LOOKS[scene];
+/** A party aloft in an airship (sim/skies.ts): nothing but sky and cloud all round. */
+export const SKY_LOOKS: readonly SceneLook[] = [...n('clouds', 1, 2, 3, 4, 5), ...n('cloudscape', 1, 2, 3, 4)];
+
+export function lookFor(scene: SceneId, seed: number, season?: string, sea = false, sky = false): SceneLook {
+  const own = sky ? SKY_LOOKS : sea && !INDOOR_SCENES.has(scene) ? SEA_LOOKS : (season && SEASONAL.has(scene) && SEASON_LOOKS[season]) || SCENE_LOOKS[scene];
   const h = Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b) >>> 0;
   return own[h % own.length];
 }
