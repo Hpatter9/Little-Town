@@ -6,7 +6,7 @@
 import { castleLayout, castleStep, type CastleLayout } from './castle';
 import { isGate } from './ringWall';
 import { footprint } from './buildings';
-import { addWear, CELL, cellOf, centreOf, findPath, idx, inMap, inRect, SWIM_COST, type LandMap, type Pt, type Rect } from './land';
+import { addWear, CELL, cellOf, centreOf, findPath, mayReach, idx, inMap, inRect, SWIM_COST, type LandMap, type Pt, type Rect } from './land';
 import type { GameState } from './state';
 
 export interface Walker {
@@ -96,32 +96,86 @@ function noteFailed(m: LandMap, key: string, blocked: Set<number>, layout: unkno
   all.set(key, { cells: m.cells, roads: m.roads, blocked, layout });
 }
 
-/** Ways found, likewise: the same search over the same land, buildings and castle finds the same way, so it's given
- *  again (walkers go back and forth between the same doors, and every walker's path is found again every
- *  `REPLAN_TICKS`). All forgotten when anything they were found over changes. */
+/** Ways found, likewise: a search's answer rests only on the cells it looked at (their ground, roads and what stands
+ *  on them) and the castle's walls, so the same search is given the same way again for as long as nothing changed
+ *  within its reach (walkers go back and forth between the same doors, and every walker's path is found again every
+ *  `REPLAN_TICKS`). When the land, the roads or the buildings change, only the ways whose searches looked at a cell
+ *  that changed are forgotten; a change to the castle forgets them all. */
+interface Way {
+  way: readonly Pt[];
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
 interface Found {
   cells: string;
   roads: string;
   blocked: Set<number>;
   layout: unknown;
-  ways: Map<string, readonly Pt[]>;
+  ways: Map<string, Way>;
 }
 const FOUND_MOST = 4096;
+/** More cells changed at once than this, and every way is forgotten (cheaper than looking). */
+const CHANGED_MOST = 256;
 const founds = new WeakMap<object, Found>();
-export const pathStats = { asked: 0, hit: 0 };
-function foundBefore(m: LandMap, key: string, blocked: Set<number>, layout: unknown): Pt[] | null {
-  pathStats.asked++;
-  const f = founds.get(m);
-  if (!f || f.cells !== m.cells || f.roads !== m.roads || f.blocked !== blocked || f.layout !== layout) return null;
-  const way = f.ways.get(key);
-  if (way) pathStats.hit++;
-  return way ? way.map((c) => ({ x: c.x, y: c.y })) : null;
-}
-function noteFound(m: LandMap, key: string, blocked: Set<number>, layout: unknown, way: Pt[]): void {
+/** The ways found, brought up to the land as it is now. */
+function foundNow(m: LandMap, blocked: Set<number>, layout: unknown): Found {
   let f = founds.get(m);
-  if (!f || f.cells !== m.cells || f.roads !== m.roads || f.blocked !== blocked || f.layout !== layout) founds.set(m, (f = { cells: m.cells, roads: m.roads, blocked, layout, ways: new Map() }));
+  if (!f) {
+    founds.set(m, (f = { cells: m.cells, roads: m.roads, blocked, layout, ways: new Map() }));
+    return f;
+  }
+  if (f.cells === m.cells && f.roads === m.roads && f.blocked === blocked && f.layout === layout) return f;
+  let changed: number[] | null = f.layout === layout ? [] : null;
+  const differ = (a: string, b: string) => {
+    if (!changed || a === b) return;
+    if (a.length !== b.length) return void (changed = null);
+    for (let i = 0; i < a.length; i++)
+      if (a.charCodeAt(i) !== b.charCodeAt(i)) {
+        changed.push(i);
+        if (changed.length > CHANGED_MOST) return void (changed = null);
+      }
+  };
+  differ(f.cells, m.cells);
+  differ(f.roads, m.roads);
+  if (changed && f.blocked !== blocked) {
+    // (the cells built on are keyed y * 4096 + x: made the land's index here)
+    const add = (k: number) => {
+      if (!changed) return;
+      const x = k % 4096;
+      changed.push(((k - x) / 4096) * m.w + x);
+      if (changed.length > CHANGED_MOST) changed = null;
+    };
+    for (const k of f.blocked) if (!blocked.has(k)) add(k);
+    for (const k of blocked) if (!f.blocked.has(k)) add(k);
+  }
+  const gone: number[] | null = changed;
+  if (!gone) f.ways.clear();
+  else if (gone.length)
+    for (const [key, w] of f.ways)
+      for (const i of gone) {
+        const x = i % m.w;
+        const y = (i - x) / m.w;
+        if (x >= w.x0 && x <= w.x1 && y >= w.y0 && y <= w.y1) {
+          f.ways.delete(key);
+          break;
+        }
+      }
+  f.cells = m.cells;
+  f.roads = m.roads;
+  f.blocked = blocked;
+  f.layout = layout;
+  return f;
+}
+function foundBefore(m: LandMap, key: string, blocked: Set<number>, layout: unknown): Pt[] | null {
+  const way = foundNow(m, blocked, layout).ways.get(key);
+  return way ? way.way.map((c) => ({ x: c.x, y: c.y })) : null;
+}
+function noteFound(m: LandMap, key: string, blocked: Set<number>, layout: unknown, way: Pt[], reach: { x0: number; y0: number; x1: number; y1: number }): void {
+  const f = foundNow(m, blocked, layout);
   if (f.ways.size >= FOUND_MOST) f.ways.clear();
-  f.ways.set(key, way.map((c) => ({ x: c.x, y: c.y })));
+  f.ways.set(key, { way: way.map((c) => ({ x: c.x, y: c.y })), ...reach });
 }
 
 /** A path from a point to another, as px centres of the cells on the way, ending on `to` itself (null: no way). */
@@ -133,7 +187,8 @@ export function pathTo(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'orig
   const layout = castleLayout(s);
   const solid = solidCells(s);
   const blocked = through ? (x: number, y: number) => solid.has(y * 4096 + x) && !inRect(through, x, y) : (x: number, y: number) => solid.has(y * 4096 + x);
-  const opts = { maxNodes: 12000, ...(swim ? { swim: SWIM_COST } : {}), ...(layout ? { edge: castleStep(s, layout) } : {}) };
+  const reach = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+  const opts = { maxNodes: 12000, reach, ...(swim ? { swim: SWIM_COST } : {}), ...(layout ? { edge: castleStep(s, layout) } : {}) };
   const ca = clamp(a);
   const cb = clamp(b);
   const key = `${ca.x},${ca.y}>${cb.x},${cb.y}|${swim ? 1 : 0}${through ? `|${through.x},${through.y},${through.w},${through.h}` : ''}`;
@@ -141,12 +196,19 @@ export function pathTo(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'orig
   const found = foundBefore(s.land, key, solid, layout);
   // (no way round: a river with no bridge yet is waded, slowly, rather than walked straight at, over the water and
   // through any castle wall in the way)
-  const cells = found ?? findPath(s.land, ca, cb, blocked, opts) ?? (swim ? null : findPath(s.land, ca, cb, blocked, { ...opts, ford: WADE }));
+  // (a way that surely isn't there, the goal on other ground altogether, isn't looked for over every cell first)
+  // (that answer rests on the whole land: a way remembered after it is forgotten at any change)
+  const dry = () => {
+    if (swim || layout || mayReach(s.land, solid, through, ca, cb)) return findPath(s.land, ca, cb, blocked, opts);
+    Object.assign(reach, { x0: 0, y0: 0, x1: s.land.w - 1, y1: s.land.h - 1 });
+    return null;
+  };
+  const cells = found ?? dry() ?? (swim ? null : findPath(s.land, ca, cb, blocked, { ...opts, ford: WADE }));
   if (!cells) {
     noteFailed(s.land, key, solid, layout);
     return null;
   }
-  if (!found) noteFound(s.land, key, solid, layout, cells);
+  if (!found) noteFound(s.land, key, solid, layout, cells, reach);
   const pts = cells.map((c) => centreOf(c.x, c.y));
   // (the goal lies in the last cell: straight to it, not by way of the cell's middle)
   if (pts.length) pts.pop();
