@@ -631,7 +631,16 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
     // (a raiding party wades a river where it must: water costs `ford`, not everything)
     return c === Infinity && opts.ford !== undefined && inMap(m, x, y) && groundAt(m, x, y) === 'water' && !b?.(x, y) ? opts.ford : c;
   };
-  const cost0 = (x: number, y: number) => (x === to.x && y === to.y ? Math.min(raw(x, y), 1) : raw(x, y, blocked));
+  // (with no swimming or fording, a cell's cost is read from the land's grid of road and ground costs, kept while its
+  // cells and roads are the same: stepCost asked of every cell looked at was a third of a search)
+  const grid = opts.swim === undefined && opts.ford === undefined ? costGrid(m) : null;
+  const cost0 = grid
+    ? (x: number, y: number) => {
+        const i = y * W + x;
+        if (x === to.x && y === to.y) return Math.min(grid.cost[i], 1);
+        return grid.road[i] ? 0.55 : blocked?.(x, y) ? Infinity : grid.cost[i];
+      }
+    : (x: number, y: number) => (x === to.x && y === to.y ? Math.min(raw(x, y), 1) : raw(x, y, blocked));
   // (the search's buffers are kept between searches and marked by a generation, never refilled: a search on the wide
   // land allocated and filled half a megabyte; a cell's cost is asked up to three times, so it's kept for the search)
   const n = W * m.h;
@@ -712,6 +721,42 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
   };
   const e = opts.edge;
   const four = opts.four;
+  // (a goal shut in where the start isn't, by buildings, water or rock: flooded out from the goal over the same steps
+  // the search would take, backwards, and closed off within `SHUT_IN_MOST` cells, the search can only fail. Walkers
+  // heading somewhere shut in asked again and again, each failure looking at every cell it was allowed. Not with a
+  // castle's walls, whose steps needn't go both ways.)
+  const shutIn = (): boolean => {
+    const mark = B.floodAt;
+    const flood = B.queue;
+    let head = 0;
+    let tail = 0;
+    const markGen = gen;
+    mark[goal] = markGen;
+    flood[tail++] = goal;
+    while (head < tail) {
+      if (tail > SHUT_IN_MOST) return false;
+      const c = flood[head++];
+      const cx = c % W;
+      const cy = (c - cx) / W;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          if (four && dx && dy) continue;
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= m.h) continue;
+          const nn = ny * W + nx;
+          if (mark[nn] === markGen) continue;
+          if (nn !== start && cost(nx, ny) === Infinity) continue;
+          if (dx && dy && (cost(cx + dx, cy) === Infinity || cost(cx, cy + dy) === Infinity)) continue;
+          if (nn === start) return false;
+          mark[nn] = markGen;
+          flood[tail++] = nn;
+        }
+    }
+    return true;
+  };
+  if (!e && shutIn()) return null;
   const search = (): boolean => {
     push(hfn(from.x, from.y), start);
     let seen = 0;
@@ -759,6 +804,30 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
   return out.reverse();
 }
 
+/** Each cell's `stepCost` with nothing standing on it (a road 0.55 over anything), and whether it's a road; kept for a
+ *  land while its cells and roads strings are the same ones. */
+interface CostGrid {
+  cells: string;
+  roads: string;
+  cost: Float64Array;
+  road: Uint8Array;
+}
+const costGrids = new WeakMap<LandMap, CostGrid>();
+function costGrid(m: LandMap): CostGrid {
+  const had = costGrids.get(m);
+  if (had && had.cells === m.cells && had.roads === m.roads) return had;
+  const n = m.w * m.h;
+  const g: CostGrid = { cells: m.cells, roads: m.roads, cost: new Float64Array(n), road: new Uint8Array(n) };
+  for (let i = 0; i < n; i++) {
+    const x = i % m.w;
+    const y = (i - x) / m.w;
+    g.road[i] = m.roads[i] === '#' ? 1 : 0;
+    g.cost[i] = stepCost(m, x, y);
+  }
+  costGrids.set(m, g);
+  return g;
+}
+
 /** The path search's buffers, kept between searches (for one size of land at a time). */
 interface SearchBuffers {
   n: number;
@@ -770,10 +839,14 @@ interface SearchBuffers {
   costAt: Uint32Array;
   hf: Float64Array;
   hc: Int32Array;
+  floodAt: Uint32Array;
+  queue: Int32Array;
 }
+/** How far a goal's surroundings are flooded to see whether it's shut in, in cells. */
+const SHUT_IN_MOST = 1500;
 let buffers: SearchBuffers | null = null;
 let searching = false;
-const newBuffers = (n: number): SearchBuffers => ({ n, gen: 0, g: new Float64Array(n), came: new Int32Array(n), seenAt: new Uint32Array(n), cost: new Float64Array(n), costAt: new Uint32Array(n), hf: new Float64Array(1024), hc: new Int32Array(1024) });
+const newBuffers = (n: number): SearchBuffers => ({ n, gen: 0, g: new Float64Array(n), came: new Int32Array(n), seenAt: new Uint32Array(n), cost: new Float64Array(n), costAt: new Uint32Array(n), hf: new Float64Array(1024), hc: new Int32Array(1024), floodAt: new Uint32Array(n), queue: new Int32Array(SHUT_IN_MOST + 9) });
 function searchBuffers(n: number): SearchBuffers {
   if (!buffers || buffers.n !== n || buffers.gen >= 0xfffffff0) buffers = newBuffers(n);
   return buffers;

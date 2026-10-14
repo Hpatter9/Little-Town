@@ -522,7 +522,15 @@ async function start(): Promise<void> {
   });
   const raidRecap = createRaidRecap();
   const catchingScreen = createCatchingUp();
-  const awayCard = createAwayCard();
+  // (closed, the news bubble on the phone's page counts nothing from the absence: mobile/notices.ts `readAbsence`)
+  let journalHeadNow = 0;
+  const awayCard = createAwayCard(() => {
+    try {
+      window.parent?.dispatchEvent(new CustomEvent('littletown:away-seen', { detail: journalHeadNow }));
+    } catch {
+      /* (no page around the strip: the desktop app) */
+    }
+  });
   const cinema = startCinema(document.body); // (a big moment as a title card, the screen letterboxed)
   let lastNewsId = -2; // (-2: no snapshot yet; the news already there when the page opens is not shown again)
   const battleHud = createBattleHud({
@@ -1963,6 +1971,7 @@ async function start(): Promise<void> {
     lastNotice = Math.max(lastNotice, next.notices.at(-1)?.id ?? 0);
     raidRecap.seenNow(next);
     applySnapshot(next);
+    journalHeadNow = next.journalHead;
     if (next.away?.length) awayCard.show(next.away);
     return true;
   };

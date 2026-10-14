@@ -6,7 +6,7 @@
 import { castleLayout, castleStep, type CastleLayout } from './castle';
 import { isGate } from './ringWall';
 import { footprint } from './buildings';
-import { addWear, CELL, cellOf, centreOf, findPath, idx, inMap, inRect, SWIM_COST, type Pt, type Rect } from './land';
+import { addWear, CELL, cellOf, centreOf, findPath, idx, inMap, inRect, SWIM_COST, type LandMap, type Pt, type Rect } from './land';
 import type { GameState } from './state';
 
 export interface Walker {
@@ -36,6 +36,10 @@ const walls = new WeakMap<Walker, CastleLayout | null>();
 /** Whether a cell is inside a building (one that isn't `through`: the walker's own goal). A castle's rooms are walked
  *  through: inside its walls, everyone goes from room to room. */
 export function blockedBy(s: Pick<GameState, 'buildings'>, through?: Rect): (x: number, y: number) => boolean {
+  const cells = blockedCells(s, through);
+  return (x, y) => cells.has(y * 4096 + x);
+}
+function blockedCells(s: Pick<GameState, 'buildings'>, through?: Rect): Set<number> {
   // (the cells inside buildings, as a set keyed by (x, y) packed into one number: a path search asks thousands of
   // times, and a walled town has a hundred wall pieces; the ring wall's gates are walked through)
   const cells = new Set<number>();
@@ -44,7 +48,32 @@ export function blockedBy(s: Pick<GameState, 'buildings'>, through?: Rect): (x: 
     const r = footprint(b);
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (!(through && inRect(through, x, y))) cells.add(y * 4096 + x);
   }
-  return (x, y) => cells.has(y * 4096 + x);
+  return cells;
+}
+
+/** Searches that found no way, kept with what they were made over (the land's cells and roads, the cells built on,
+ *  the castle's layout): a walker who can't reach their goal asks again at every replanning, and a failed search
+ *  looks at 12 000 cells twice over (with and without wading). Asked again over just the same, the answer is the same,
+ *  so it's given at once. Nothing else is remembered: any change and the search is made afresh. */
+interface Failed {
+  cells: string;
+  roads: string;
+  blocked: Set<number>;
+  layout: unknown;
+}
+const FAILS_MOST = 256;
+const failures = new WeakMap<object, Map<string, Failed>>();
+function failedBefore(m: LandMap, key: string, blocked: Set<number>, layout: unknown): boolean {
+  const f = failures.get(m)?.get(key);
+  if (!f || f.cells !== m.cells || f.roads !== m.roads || f.layout !== layout || f.blocked.size !== blocked.size) return false;
+  for (const c of blocked) if (!f.blocked.has(c)) return false;
+  return true;
+}
+function noteFailed(m: LandMap, key: string, blocked: Set<number>, layout: unknown): void {
+  let all = failures.get(m);
+  if (!all) failures.set(m, (all = new Map()));
+  if (all.size >= FAILS_MOST) all.clear();
+  all.set(key, { cells: m.cells, roads: m.roads, blocked, layout });
 }
 
 /** A path from a point to another, as px centres of the cells on the way, ending on `to` itself (null: no way). */
@@ -54,12 +83,20 @@ export function pathTo(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'orig
   const clamp = (c: Pt) => ({ x: Math.max(0, Math.min(s.land.w - 1, c.x)), y: Math.max(0, Math.min(s.land.h - 1, c.y)) });
   // (a castle's walls: from room to room through the doorways, in and out through the gate)
   const layout = castleLayout(s);
-  const blocked = blockedBy(s, through);
+  const solid = blockedCells(s, through);
+  const blocked = (x: number, y: number) => solid.has(y * 4096 + x);
   const opts = { maxNodes: 12000, ...(swim ? { swim: SWIM_COST } : {}), ...(layout ? { edge: castleStep(s, layout) } : {}) };
+  const ca = clamp(a);
+  const cb = clamp(b);
+  const key = `${ca.x},${ca.y}>${cb.x},${cb.y}|${swim ? 1 : 0}`;
+  if (failedBefore(s.land, key, solid, layout)) return null;
   // (no way round: a river with no bridge yet is waded, slowly, rather than walked straight at, over the water and
   // through any castle wall in the way)
-  const cells = findPath(s.land, clamp(a), clamp(b), blocked, opts) ?? (swim ? null : findPath(s.land, clamp(a), clamp(b), blocked, { ...opts, ford: WADE }));
-  if (!cells) return null;
+  const cells = findPath(s.land, ca, cb, blocked, opts) ?? (swim ? null : findPath(s.land, ca, cb, blocked, { ...opts, ford: WADE }));
+  if (!cells) {
+    noteFailed(s.land, key, solid, layout);
+    return null;
+  }
   const pts = cells.map((c) => centreOf(c.x, c.y));
   // (the goal lies in the last cell: straight to it, not by way of the cell's middle)
   if (pts.length) pts.pop();
