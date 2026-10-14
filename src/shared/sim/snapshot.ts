@@ -1,5 +1,8 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { fightOnScreen } from './raidWait';
+import { RING_SHAPE_NAMES } from '../data/ringShapes';
+import { deedLines } from './deeds';
 import { DUNGEON_BY_ID } from '../data/dungeons';
 import { FEED_SECONDS } from '../data/lighting';
 import { lightsView } from './lighting';
@@ -98,7 +101,7 @@ import { ENEMIES } from '../data/enemies';
 import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expeditions';
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry, gateTop, onShift } from './people';
-import { isGate, ringProgress } from './ringWall';
+import { isGate, ringProgress, ringShapeOf } from './ringWall';
 import type { Era } from '../data/eras';
 import { ITEM_BY_ID, ITEMS, type Slot } from '../data/items';
 import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
@@ -302,8 +305,10 @@ export interface PersonView {
   natureLine: string;
   /** Their own short story (data/backstories.ts; a ready-made founder's is the one written for them). */
   story: string;
-  /** Titles won in the sagas (sim/sagas.ts), the latest last. */
+  /** Titles earned by deeds, the sagas and the rest (sim/deeds.ts, sim/annals.ts), the latest last. */
   titles: string[];
+  /** Their deeds counted toward titles, and the next title each leads to (sim/deeds.ts). */
+  deeds: { label: string; n: number; next: string | null; at: number | null }[];
   /** A special newcomer's secret, once the town knows it (sim/specials.ts). */
   secret: { name: string; text: string } | null;
   /** Their life's goal (data/ambitions.ts), and trips made. */
@@ -882,7 +887,7 @@ export interface Snapshot {
   mooring: { x: number; y: number } | null;
   /** The ring wall under way as one job (sim/ringWall.ts `ringProgress`): its generation, sections standing of all,
    *  and the share of the whole wall's work done. Null with no ring or once it stands. */
-  wall: { gen: number; done: number; of: number; share: number } | null;
+  wall: { gen: number; done: number; of: number; share: number; shape: string } | null;
   /** The Moon Pack's standing (sim/pack.ts), for a werewolf town. */
   pack: PackView | null;
   /** Blood on the ground where someone was struck down: where, the side the blow came from, and how old (ticks). */
@@ -995,6 +1000,8 @@ export interface Snapshot {
   battle: BattleView | null;
   /** A raid fought on a tactics board (sim/tactics.ts), while it's on; and how raids are fought. */
   tactics: TacticsView | null;
+  /** A raid's battle or a watched fight is on the screen: nothing else pops up over it (sim/raidWait.ts). */
+  fightOn: boolean;
   battleStyle: 'trail' | 'tactics';
   /** Evolutions and stat points put to the player (the Town menu's settings). */
   evolveAsk: boolean;
@@ -1121,6 +1128,7 @@ export function snapshot(s: GameState): Snapshot {
     powers: powersView(s),
     battle: battleView(s, aimableSpells(s)),
     tactics: tacticsView(s),
+    fightOn: fightOnScreen(s),
     battleStyle: s.battleStyle ?? 'tactics',
     evolveAsk: s.evolveAsk !== false,
     statsAsk: s.statsAsk === true,
@@ -1181,7 +1189,7 @@ export function snapshot(s: GameState): Snapshot {
       ...((line) => (line ? { boat: line } : {}))(boatLine(s, d)),
     })),
     fleet: fleet(s).map((b) => ({ id: b.id, kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull, away: b.away === null ? null : ((e) => (e ? destinationOf(s, e.dest)?.name ?? '' : ''))(s.expeditions.find((e) => e.id === b.away)) })),
-    wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w } : null))(ringProgress(s)) : null,
+    wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w, shape: RING_SHAPE_NAMES[ringShapeOf(s)] } : null))(ringProgress(s)) : null,
     mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
     trips: tripsView(s),
     muster: musterView(s, (p) => callingName(p, stageOf(p))),
@@ -1768,6 +1776,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     natureLine: natureOf(p).line,
     story: storyOf(s, p),
     titles: p.titles ?? [],
+    deeds: deedLines(p),
     secret: secretView(p),
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
     trips: p.trips ?? 0,

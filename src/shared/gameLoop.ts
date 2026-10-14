@@ -1,6 +1,7 @@
 // Drives the sim from real time, independent of any window's frame rate: in the desktop app's main process,
 // and on the phone (web) version in the page itself.
 
+import { fightOnScreen } from './sim/raidWait';
 import type { Command } from './sim/commands';
 import { battleSpeedNow } from './sim/battle';
 import { startCatchUp, type CatchUpJob, type CatchUpResult } from './sim/offline';
@@ -39,6 +40,9 @@ export class GameLoop {
     return this.sim.state;
   }
 
+  /** The page is in the background (set by the page): a fight on screen waits meanwhile. */
+  hidden = false;
+
   /** Whether time away is still being simulated (don't save mid-way: the save would lose the rest). */
   get catchingUp(): boolean {
     return !!this.job;
@@ -60,7 +64,8 @@ export class GameLoop {
 
   /** Start simulating time spent away (the game closed, or the PC asleep); `done` runs when it's finished. */
   catchUp(ms: number, done?: (r: CatchUpResult) => void): void {
-    if (this.job) return; // (already catching up: the rest of this gap is dropped)
+    if (this.job) return;
+    if (fightOnScreen(this.sim.state)) return void done?.({ ticks: 0 }); // (a fight left on screen waits for the player) // (already catching up: the rest of this gap is dropped)
     this.job = { job: startCatchUp(this.sim, ms), awayMs: ms, t0: performance.now(), done };
   }
 
@@ -81,6 +86,13 @@ export class GameLoop {
   private pump(): void {
     if (this.job) return this.catchUpSlice();
     const wallGap = Date.now() - this.lastWall;
+    // (a raid or a fight on the screen waits while the page is in the background, and the time away is not played:
+    // the player comes back to it as they left it; sim/raidWait.ts)
+    if ((this.hidden || wallGap > SLEEP_GAP_MS) && fightOnScreen(this.sim.state)) {
+      this.last = performance.now();
+      this.lastWall = Date.now();
+      return;
+    }
     if (wallGap > SLEEP_GAP_MS) {
       this.catchUp(wallGap);
       return;

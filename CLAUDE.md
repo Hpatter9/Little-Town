@@ -116,7 +116,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 ## Layout
 
 - `src/shared/sim/`: the deterministic simulation. It runs at 10 ticks a second, with 600 ticks per game hour
-  and 3-day seasons.
+  and 10-day seasons (`DAYS_PER_SEASON`; it was 3 before 0.64.0).
   - `sim.ts`: the step order.
   - `planner.ts`: the self-running town. It can be turned off with `state.autopilot = false`; the tests' `plainGame`
     helper does this.
@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.67.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.70.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -249,7 +249,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   world x. `art/sprites.ts` has the scenery (trees with bark and leaf clusters, stumps, logs, ferns, mushrooms);
   the background has mountains and a wooded ridge, hedgerows, furrows, river banks.
 - **Offline pacing:** `awayPlayMs` in `sim/offline.ts`: the first half hour away passes as in play, the rest at a
-  quarter pace, and at most 1 game day passes for one absence (`MAX_OFFLINE_MS`).
+  quarter pace, and at most 2 game days pass for one absence (`MAX_OFFLINE_MS`; 1 before 0.64.0).
 - **Raids wait for you:** `src/shared/sim/raidWait.ts`. During the catch-up after time away, raiders reaching the gate
   hold there (`holdAtGate`: `Raid.waiting`, the town paused, a `gate` prompt, "Watch the fight", with no countdown);
   answering it or unpausing lets them in (`openGate`). Held more than `RAID_WAIT_MS` (12 real hours, across visits), or
@@ -292,7 +292,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
   wind, then a town-wide cooldown (`s.rallyReady`); the rallied pulse gold (peopleView). `PersonView.rally` and
   `snapshot.rallyIn` drive the card. A power held back (`s.heldPower`, `holdPower`/`castHeld` in `powers.ts`; the Plan
   tab's Hold back / Cast now) is never cast by the town; in a raid a button by the clock casts it (`hud.ts`).
-- **Morning report card:** `src/shared/sim/highlights.ts` picks the three biggest things from the away report's
+- **Morning report card (removed in 0.60.0 with the away report; `sim/highlights.ts` is left unused):** `src/shared/sim/highlights.ts` picks the three biggest things from the away report's
   milestones (deaths together first, then a new age, raids, weddings, newcomers, great buildings, research), each with
   a building or a townsperson to show; stored on the report (`JournalEntry.highlights`). The away card draws them as
   pictures (`textureCanvas` in `art/pixelArt.ts`; the picture callback in `main.ts`), buttons above the long list.
@@ -3803,7 +3803,7 @@ Each people's own system runs itself (the autopilot on) and is shown on the Town
   `littletown.tipsMet`) and shows once as a gold 💡 notice in the news bubble (`tipNotice` in notices.ts; at most
   `TIPS_AT_ONCE` at a time) with a button to its menu and tab (`NoticeAction.tab` sets `littletown.subtab.<menu>`).
   Nothing to do: they only explain. The ☰ menu has "Tips: on/off" (`littletown.tips`). Tests in `test/notices.test.ts`.
-- **The timelapse (the owner's pick):** `src/renderer/timelapse.ts`. Each day at noon the strip takes a picture of the
+- **The timelapse (the owner's pick; removed in 0.60.0, see "Catch-up without recaps"):** `src/renderer/timelapse.ts`. Each day at noon the strip takes a picture of the
   town (`shootTown` in main.ts: the map over `townBox`, the buildings' square padded, never under `SHOT_LEAST_CELLS`,
   drawn by Pixi's extract with the culling lifted for the moment) squeezed to `SHOT_SIZE` (192) px as WebP, kept in
   `littletown.timelapse` per town (its seed), at most `FRAMES_MOST` (80; past that the older half is thinned, `thin`).
@@ -4027,7 +4027,7 @@ blocked by buildings, structures, trees and rocks)
   panned: the tavern's hubbub and fiddle, the market, hymns from the temple, the forge, workshops, herds; ambience.ts
   plays them on buses of their own. **Vibration** (`src/renderer/vibration.ts`: a pattern per moment, `buzzesBetween`;
   the page buzzes through the bridge, never while hidden; the ☰ menu's Vibration on/off, `littletown.vibrate`).
-  **The time away replayed:** `src/shared/replay.ts` and `GameLoop.sampler` keep a frame each game hour of the
+  **The time away replayed (removed in 0.60.0, see "Catch-up without recaps"):** `src/shared/replay.ts` and `GameLoop.sampler` keep a frame each game hour of the
   catch-up; `replay/replayPlayer.ts` plays it sped up over the map before the report card, letterboxed with the day
   count, tap to skip (`body.replay`). Tests: `test/soundZones.test.ts`, `test/vibration.test.ts`, `test/replay.test.ts`.
 - **Townsfolk with more inner life:** **Gossip** (`sim/gossip.ts`, `data/gossip.ts`): `readNews` turns the Journal's
@@ -4120,6 +4120,65 @@ blocked by buildings, structures, trees and rocks)
   section weighed by its build time), `snapshot.wall`; a piece's tap card reads "The town's wall, built as one: N of M
   sections standing (P%)" (main.ts). The pieces stay separate cells for pathing, damage and the joined art. Test in
   `test/ringWall.test.ts`.
+
+## Review after the outside changes (0.68.0)
+
+- **The suite was red on main** (17 tests): the changes from 0.60.0 to 0.67.0 were merged without running `npm test`.
+  Each was looked at; the code was right and the tests had the old rules in them, but for two real fixes below.
+  - Wave gaps (doom.test, freeze.test, ratplague.test) now read `WAR_RAID_EVERY_HOURS`, `ZOMBIE_WAVE_HOURS`,
+    `FREEZE_WAVE_HOURS`, `RAT_WAVE_HOURS`; the away cap test (save.test) allows two days and expects no away report.
+  - Seasons (farming.test, fields.test, livestock.test) are reckoned by `DAYS_PER_SEASON`, never "day 9 is winter".
+  - Starting heritage (founding.test, heritage.test): a settlers' town starts with Homesteading; the druids' next study
+    is Wild Speech.
+  - The wall tests (ringWall.test) were rewritten with the wall raised as one construction (0.67.0, above).
+  - The lone town (planner.test) is seed `lone-6`: 8 lone towns average 2.5 people at day 10 with builders' spots
+    against 2.4 before, so `lone-8` reaching 2 was the seed's luck.
+  - A lich town may sow one field once it has an inn (undead.test checks that rule, not the settlers' count).
+  - The rain test's helper (innerLife.test `weatherTick`) found rain at one hour and set the clock to another.
+- **Midsummer and midwinter are mid-season again:** `MIDSUMMER_DAY` (data/ceremonies.ts) and `CHRONICLE_DAY`
+  (sim/annals.ts) are `Math.ceil(DAYS_PER_SEASON / 2)`; they were day 2, the season's start once seasons grew to ten days.
+- **The news bubble clears the clock bar:** at its new top-left place (`#notice-bubble` in mobile/index.html) it sat on
+  the strip's clock bar and hid the day, upright and sideways; it now stands just below it.
+- Checked and fine: castle and hold rooms still get built with the builders' spots (probe: vampires and dwarves as many
+  rooms by day 8 as before), the starting heritage topics all exist, and `Person.origin` set for a town's own people
+  (makePerson) is read as "of the town" everywhere it was read as "a stranger".
+
+## Smooth zoom (0.69.0; the owner's complaint: "sluggish and choppy")
+- **Zoom that keeps up:** `layout()` in `mobile/mobile.ts` no longer snaps the strip's scale to whole screen pixels per
+  art pixel unless the zoom is within `SNAP_NEAR` (4%) of one (halves below two): it used to jump between a few steps,
+  so most of a pinch, and most of the zoom slider, did nothing and then leapt. While two fingers are down the canvas
+  follows them once a frame (`showPinch`, on `requestAnimationFrame`), grows about the point first pressed and moves
+  with the fingers, so a pinch pans too; the strip stops drawing meanwhile and holds the snapshots that arrive
+  (`__pinching` in main.ts: the ticker stopped, `heldSnap` applied on release; the quality watcher forgives the pause,
+  `resumedAt`), and on release `__zoomAbout(mx, my, from, to, nx, ny)` puts what was under the fingers where they lifted.
+
+## Raids and deeds (the owner's asks; branch claude/raids-and-deeds)
+- **Titles from deeds:** `data/deeds.ts` (`DEED_TITLES`: a ladder of titles each for raids defended, buildings raised,
+  pieces made, lives tended, topics learned, bosses felled, dungeons cleared, sagas ended) and `sim/deeds.ts`
+  (`addDeed`, counted on `Person.deeds`; `awardDeedTitles` hourly from `annalsHourly`, beside the origin titles for
+  kills and trips). Counted where each happens: a site finished (everyone building it), `finishPiece`, `doTend` and
+  surgery, a topic learned, a boss's last blow (`credit` in raidRecap.ts) or a party's boss, a delve cleared, a saga's
+  hero, and everyone who stood and lived in a raid not pillaged. `PersonView.deeds`; the People row shows the latest
+  title, the Background tab every title and each deed with how far to the next. Test: `test/deeds.test.ts`.
+- **The ring's shape by people:** `data/ringShapes.ts` (`RING_SHAPE_OF`, `RING_SHAPE_NAMES`); `shapeTest` in
+  sim/ringWall.ts lays the shape over the ring's box (settlers' square, knights' star fort, the round ring of the
+  nomads and the pack, octagon, honeycomb, coffin, winding grove, scalloped shell, petals, jagged camp, terraces),
+  a straight run `GATE_FLAT` either side of each side's middle for the gates, and `TOWN_KEEP` round every building
+  taken back in; then the river push as before. The wall's tap card names its shape (`snapshot.wall.shape`). Tests in
+  `test/ringWall.test.ts`.
+- **A fight on screen holds the game:** `fightOnScreen` (sim/raidWait.ts: a raid's battle or board, or a watched
+  fight). `GameLoop` stands still while the page is hidden (`hidden`, set by mobileBridge.ts) and plays no time away
+  for it; `holdForFight` (from sim.ts) holds every question's clock but the raid's own; `snapshot.fightOn`. Nothing
+  pops up over it: the event box, the strip's question card, the cutscene offer and the toasts wait (the last
+  `HELD_TOASTS` shown after); the recap waits for the board to close. Test: `test/fightHold.test.ts`.
+- **The flashier raid screen:** `battle/juice.ts` (`BattleJuice`: impacts from the 5000 Pixel Effects pack, popping
+  numbers, trauma shake, kill and combo callouts, sliding banners, the victory's rays, sparkles and confetti; rules in
+  `battle/juiceRules.ts`). The tactics board feeds it its hits, kills, banners and ultimates, and draws the unit boxes'
+  bars each frame with a draining ghost (`drawBars`); the trail battle's juice is fed by main.ts (`juiceTrail`, from
+  snapshot diffs; the recap waits `VICTORY_MS`). The bars over heads (mapPeople, mapRaiders) have ghosts and a flash
+  too. The minimap stands aside on a board or a watched fight (`body.board-on`). Test: `test/juice.test.ts`.
+- **Victory music:** the `victory` mood for a raid driven off as well as won, and the board's win the moment it comes;
+  a second victory piece (`walls_held`).
 
 ## Fixes, second batch (the owner's asks)
 

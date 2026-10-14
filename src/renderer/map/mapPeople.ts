@@ -2,6 +2,7 @@
 // tick rate and are interpolated per frame; everyone stands in `things`, sorted by their feet. The LPC sprites are
 // side-on: they face the way they're going, left or right.
 
+import { ghostStep } from '../battle/juiceRules';
 import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { ClassId } from '../../shared/data/classes';
 import type { PersonView } from '../../shared/sim/snapshot';
@@ -193,6 +194,8 @@ interface Drawn {
   hkLast?: Texture;
   /** Their health over their head in a raid (the raiders have theirs), and the fill last drawn. */
   hpBar?: Graphics;
+  /** The health bar's ghost (the health just lost, draining after it) and when it was last struck (battle/juiceRules.ts). */
+  hpGhost?: { g: number; held: number; was: number; at: number };
   hpFill?: string;
   /** A merfolk's tail, while they swim (art/merTail.ts). */
   tail?: Sprite;
@@ -966,15 +969,28 @@ export class MapPeople {
         if (showHp) {
           const share = Math.max(0, Math.min(1, v.hp / Math.max(1, v.maxHp)));
           const fill = Math.round(share * HP_W);
-          const key = `${fill}:${v.downed ? 1 : 0}`;
+          // (the ghost of the health just lost, held a moment then draining; a white flash as the blow lands)
+          const nowMs = performance.now();
+          const gh = (d.hpGhost ??= { g: share, held: 9, was: share, at: nowMs });
+          const dt = Math.min(0.1, (nowMs - gh.at) / 1000);
+          gh.at = nowMs;
+          if (share < gh.was) gh.held = 0;
+          gh.was = share;
+          gh.held += dt;
+          gh.g = ghostStep(gh.g, share, gh.held, dt);
+          const ghost = Math.round(gh.g * HP_W);
+          const flash = gh.held < 0.12;
+          const key = `${fill}:${ghost}:${flash ? 1 : 0}:${v.downed ? 1 : 0}`;
           if (key !== d.hpFill) {
             d.hpFill = key;
             const col = v.downed ? 0x8a8a8a : share > 0.6 ? 0x5ad04a : share > 0.3 ? 0xe0b030 : 0xe04838;
             d.hpBar.clear();
-            d.hpBar.rect(-1, -1, HP_W + 2, 5).fill({ color: 0x14100c, alpha: 0.85 });
-            d.hpBar.rect(0, 0, HP_W, 3).fill({ color: 0x3a2622 });
-            if (fill > 0) d.hpBar.rect(0, 0, fill, 3).fill({ color: col });
+            d.hpBar.rect(-1, -1, HP_W + 2, 6).fill({ color: 0x14100c, alpha: 0.85 });
+            d.hpBar.rect(0, 0, HP_W, 4).fill({ color: 0x3a2622 });
+            if (ghost > fill) d.hpBar.rect(fill, 0, ghost - fill, 4).fill({ color: 0xfff0c0 });
+            if (fill > 0) d.hpBar.rect(0, 0, fill, 4).fill({ color: col });
             if (fill > 0) d.hpBar.rect(0, 0, fill, 1).fill({ color: 0xffffff, alpha: 0.35 });
+            if (flash) d.hpBar.rect(-1, -1, HP_W + 2, 6).fill({ color: 0xffffff, alpha: 0.7 });
           }
           // (above the work bar when both show; higher over a hero's bigger figure)
           const above = (d.work?.visible ? WORK_ABOVE + 6 : WORK_ABOVE) + (plain ? 0 : 8);

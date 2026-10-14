@@ -90,6 +90,8 @@ sheet.append(panel);
 /** A raid's battle, or a party's fight, is on screen (the map has all of it); a fight is drawn at its own scale. */
 let battleOn = false;
 let watchOn = false;
+/** How near (a share) the zoom must come to a whole step of the screen's pixels to be snapped onto it. */
+const SNAP_NEAR = 0.04;
 
 function layout(): void {
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
@@ -97,14 +99,13 @@ function layout(): void {
   const room = free;
   // (the top-down town fills its room at the zoom, a raid's battle on it; a party's fight is drawn at its own scale)
   const fit = watchOn ? 1 : zoom;
-  // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
+  // (the zoom as asked, so a pinch or the slider moves it smoothly; only when it comes close to a whole number of the
+  // screen's pixels to an art pixel (halves below two) is it snapped there, for sharp squares. It was always snapped,
+  // so the zoom jumped between a few steps and most of a pinch did nothing: the owner's "sluggish and choppy")
   const dpr = window.devicePixelRatio || 1;
-  // (and, where it costs little, an even number: the art has detail on a grid twice as fine, pixelArt.ts FINE)
-  // (below two of the screen's pixels the steps would be a doubling, so halves are allowed there)
-  const steps = fit * dpr + 0.01;
-  const whole = steps < 2 ? Math.max(1, Math.floor(steps * 2) / 2) : Math.floor(steps);
-  const even = Math.floor(whole / 2) * 2;
-  const z = (even >= 2 && even >= whole * 0.75 ? even : whole) / dpr;
+  const steps = fit * dpr;
+  const near = steps < 2 ? Math.max(0.5, Math.round(steps * 2) / 2) : Math.round(steps);
+  const z = (Math.abs(near - steps) <= steps * SNAP_NEAR ? near : steps) / dpr;
   // (it fills its room, the town along the bottom and sky over it)
   const height = room / z;
   strip.style.width = `${stripBox.clientWidth / z}px`;
@@ -144,32 +145,59 @@ layout();
 // smooth), so the clock bar and the other overlays over the map stay as they are; when the fingers lift the strip is
 // laid out again at the new zoom, drawn sharp, and its view moved so what was under the fingers stays there. The strip
 // measures the fingers in its own pixels, which is what the canvas's transform is in too.
-let pinch: { zoom: number; z: number; screen: number; mx: number; my: number; k: number } | null = null;
+let pinch: { zoom: number; z: number; screen: number; mx: number; my: number; nx: number; ny: number; k: number } | null = null;
+let pinchFrame = 0;
 const mapCanvas = () => strip.contentDocument?.querySelector('body > canvas') as HTMLCanvasElement | null;
+type StripWin = Window & {
+  __zoomAbout?: (mx: number, my: number, from: number, to: number, nx?: number, ny?: number) => void;
+  __pinching?: (on: boolean) => void;
+};
+const stripWin = () => strip.contentWindow as StripWin | null;
+// (the canvas follows the fingers once a frame, however many moves the touch screen reports between)
+const showPinch = () => {
+  pinchFrame = 0;
+  const c = mapCanvas();
+  if (!pinch || !c) return;
+  const { k, mx, my, nx, ny } = pinch;
+  // (what was under the fingers when they came down stays under them: the map grows about that point and goes with
+  // the fingers as they move together, so two fingers pan as they zoom)
+  c.style.transform = `translate(${nx - mx * k}px, ${ny - my * k}px) scale(${k})`;
+};
 bridge.onPinch?.((phase, spread, mx, my) => {
   if (phase === 'start') {
     const z = parseFloat(strip.style.transform.replace('scale(', '')) || zoom; // (what the strip is shown at now)
-    pinch = { zoom, z, screen: spread, mx, my, k: 1 };
+    pinch = { zoom, z, screen: spread, mx, my, nx: mx, ny: my, k: 1 };
     const c = mapCanvas();
-    if (c) c.style.transformOrigin = '0 0';
+    if (c) {
+      c.style.transformOrigin = '0 0';
+      c.style.willChange = 'transform';
+    }
+    // (the strip stops drawing while the fingers are down: the canvas is only moved and scaled, so the page has the
+    // whole of each frame for it and it keeps up with the fingers)
+    stripWin()?.__pinching?.(true);
   } else if (phase === 'move') {
     if (!pinch) return;
     // (the fingers' spread against where they began: how much to zoom by)
-    const k = Math.min(MAX_ZOOM / pinch.zoom, Math.max(MIN_ZOOM / pinch.zoom, spread / pinch.screen));
-    pinch.k = k;
-    // (the point between the fingers stays put: the map grows about it)
-    const c = mapCanvas();
-    if (c) c.style.transform = `translate(${pinch.mx * (1 - k)}px, ${pinch.my * (1 - k)}px) scale(${k})`;
-    zoom = pinch.zoom * k;
+    pinch.k = Math.min(MAX_ZOOM / pinch.zoom, Math.max(MIN_ZOOM / pinch.zoom, spread / pinch.screen));
+    pinch.nx = mx;
+    pinch.ny = my;
+    zoom = pinch.zoom * pinch.k;
+    if (!pinchFrame) pinchFrame = requestAnimationFrame(showPinch);
   } else {
     if (!pinch) return;
-    const { mx, my, z } = pinch;
+    const { mx, my, nx, ny, z } = pinch;
     pinch = null;
+    if (pinchFrame) cancelAnimationFrame(pinchFrame);
+    pinchFrame = 0;
     const c = mapCanvas();
-    if (c) c.style.transform = '';
+    if (c) {
+      c.style.transform = '';
+      c.style.willChange = '';
+    }
     setZoom(zoom); // (laid out again, sharp, and saved)
     const now = parseFloat(strip.style.transform.replace('scale(', '')) || zoom;
-    (strip.contentWindow as (Window & { __zoomAbout?: (mx: number, my: number, from: number, to: number) => void }) | null)?.__zoomAbout?.(mx, my, z, now);
+    stripWin()?.__zoomAbout?.(mx, my, z, now, nx, ny);
+    stripWin()?.__pinching?.(false);
   }
 });
 

@@ -4,6 +4,7 @@
 // (`capacities`): their work, their pace, their aim and blows, and the pain on their mood. A lost part is made good
 // by a prosthetic the town crafts (the planner orders the best it can make) and its healer fits in surgery.
 
+import { addDeed } from './deeds';
 import { sickbedHealing } from './sickbeds';
 import { ENEMIES } from '../data/enemies';
 import {
@@ -238,6 +239,7 @@ function surgery(s: GameState, rng: Rng): void {
       const name = ITEM_BY_ID[d.item]?.name.toLowerCase() ?? d.item;
       if (rng.chance(odds)) {
         (p.fitted ??= {})[l.part] = d.item;
+        addDeed(healer, 'healed');
         notify(s, `${healer.name} fitted ${p.name} with a ${name} for their lost ${PARTS[l.part].name}.`, true);
       } else {
         (p.wounds ??= []).push({ part: 'torso', kind: 'cut', sev: 0.35, peak: 0.35 });

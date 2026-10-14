@@ -6,6 +6,7 @@
 // have something done; a raid comes to the gate (`Raid.saga`, decided in `sagaRaidOver`); an end leaves the town its
 // effects, a title for the hero and perhaps a unique. Everything here draws on its own seeded stream.
 
+import { addDeed } from './deeds';
 import { queueScene } from './cutscenes';
 import { MAX_SAGAS, SAGAS, SAGA_ASK_HOURS, SAGA_BY_ID, SAGA_DAILY, SAGA_FIRST_DAY, SAGA_GAP_DAYS, SAGA_HOUR, type Chapter, type Foes, type Next, type SagaDef, type SagaEffect } from '../data/sagas';
 import type { EventEffect } from '../data/eventKit';
@@ -299,6 +300,7 @@ function finish(s: GameState, r: SagaRun, c: Extract<Chapter, { kind: 'end' }> |
   const ending = c ? sagaText(s, r, c.text) : 'The story trails off.';
   r.log.push(ending);
   notify(s, `${def.title} is ended. ${ending}${out.length ? ` (${out.join(', ')})` : ''}`, true);
+  addDeed(heroOf(s, r), 'sagas');
   (s.sagasDone ??= []).push({ id: r.id, outcome, tick: s.tick, hero: heroOf(s, r)?.name });
   if (outcome === 'triumph') queueScene(s, 'saga_triumph', { vars: { saga: def.title }, people: heroOf(s, r) ? { hero: heroOf(s, r)! } : {} });
 }

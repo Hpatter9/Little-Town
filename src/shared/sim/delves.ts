@@ -5,6 +5,7 @@
 // and the boss at the bottom, whose hoard comes home. The party turns back when the torches run out or half of them
 // are down; a lost or fled fight sends them home as on any trip (expeditions.ts). Deaths are real.
 
+import { addDeed } from './deeds';
 import { payParty } from './economy';
 /** The party's people (still in the town's list while away). */
 const partyOf = (s: GameState, e: Expedition): Person[] => e.members.map((id) => s.people.find((p) => p.id === id)).filter((p): p is Person => !!p);
@@ -312,6 +313,7 @@ function cleared(s: GameState, e: Expedition, d: DungeonDef, v: Delve, hooks: De
     got.push(`${k} ${MATERIAL_NAMES[m].toLowerCase()}`);
   }
   (s.delved ??= {})[d.id] = (s.delved[d.id] ?? 0) + 1;
+  for (const id of e.members) addDeed(s.people.find((p) => p.id === id), 'delves');
   // (the dungeon goes quiet, then wakes again, deeper)
   (s.dungeonQuiet ??= {})[d.id] = s.tick + QUIET_DAYS * TICKS_PER_DAY;
   say(s, v, `${The(d.name)} is cleared! The party heads home with the hoard${got.length ? `: ${got.join(', ')}` : ''}.`, true);

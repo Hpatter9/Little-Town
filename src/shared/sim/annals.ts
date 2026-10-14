@@ -5,20 +5,21 @@
 // is reckoned from what the town looked like at the last chronicle, or its founding (`s.yearStart`), and from the raids
 // tallied as they end (`s.yearRaids`).
 
+import { awardDeedTitles } from './deeds';
 import { ERA_NAMES } from '../data/eras';
 import { callingName } from '../data/founderClasses';
 import { levelOf, stageOf } from '../data/levels';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
 import { eventPicture } from '../data/eventScenes';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { calendar, DAYS_PER_SEASON, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { notify, type GameState, type Person, type Prompt } from './state';
 import { honour } from './memorials';
 
-/** Midwinter: the second day of winter, of an evening. */
-export const CHRONICLE_DAY = 2;
+/** Midwinter: the middle day of winter, of an evening. */
+export const CHRONICLE_DAY = Math.ceil(DAYS_PER_SEASON / 2);
 export const CHRONICLE_HOUR = 19;
 /** How long the chronicle's card waits to be read (game hours). */
 const CHRONICLE_HOURS = 24;
@@ -132,6 +133,7 @@ function awardTownTitles(s: GameState): void {
 export function annalsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver) return;
   awardTownTitles(s);
+  awardDeedTitles(s);
   if (!s.yearStart) return startYear(s);
   const cal = calendar(s.tick);
   if (cal.season !== 'winter' || cal.dayOfSeason !== CHRONICLE_DAY || cal.hour !== CHRONICLE_HOUR) return;

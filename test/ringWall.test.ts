@@ -10,6 +10,8 @@ import { campCell, newGame, type Building, type GameState } from '../src/shared/
 import { pathTo } from '../src/shared/sim/walk';
 import { CELL, cellAt, isMarked, setMarked } from '../src/shared/sim/land';
 import { bestGatherTile, clearCell, haulOrder } from '../src/shared/sim/people';
+import { RING_SHAPE_OF } from '../src/shared/data/ringShapes';
+import { ringShapeOf } from '../src/shared/sim/ringWall';
 import { clearAround, makeWild } from './helpers';
 
 /** A town ready to wall itself: palisades learned, the land about it clear, wood to spare, enough grown-ups. */
@@ -269,3 +271,47 @@ function longestRiverRun(s: GameState, line: LineCell[]): number {
   }
   return most;
 }
+
+test("each people's ring takes its own shape, closes round the whole town, and keeps a gate on every side (the owner's ask)", () => {
+  const lines = new Map<string, string>();
+  for (const origin of ['settlers', 'knights', 'nomads', 'alchemists', 'robot', 'lich', 'druid', 'merfolk', 'fae', 'orcs'] as const) {
+    const s = walledTown(`ring-shape-${origin}`);
+    s.origin = origin;
+    assert.equal(ringShapeOf(s), RING_SHAPE_OF[origin]);
+    const r = wantRect(s);
+    const line = shapeRing(s, r);
+    const on = new Set(line.map((p) => `${p.x},${p.y}`));
+    // (unbroken: every piece joins two others, across, down or corner to corner)
+    for (const p of line) {
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && on.has(`${p.x + dx},${p.y + dy}`)) n++;
+      assert.ok(n >= 2, `${origin}: the line joins at ${p.x},${p.y}`);
+    }
+    // (closed round the town: from the camp nobody gets past it without crossing it)
+    const c = campCell(s);
+    const seen = new Set([`${c.x},${c.y}`]);
+    const q = [c];
+    for (let i = 0; i < q.length; i++)
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = q[i].x + dx, y = q[i].y + dy, k = `${x},${y}`;
+        if (seen.has(k) || on.has(k)) continue;
+        assert.ok(Math.abs(x - c.x) < 60 && Math.abs(y - c.y) < 60, `${origin}: closed round the camp`);
+        seen.add(k);
+        q.push({ x, y });
+      }
+    for (const b of s.buildings) assert.ok(seen.has(`${b.tile},${b.row}`), `${origin}: ${b.def} inside`);
+    const gates = gateCells(s, line);
+    const sideAt = (g: { x: number; y: number }) => line.find((l) => l.x === g.x && l.y === g.y)?.side;
+    for (const side of ['n', 's', 'w', 'e'] as const) assert.ok(gates.some((g) => sideAt(g) === side), `${origin}: a gate on the ${side} side`);
+    lines.set(origin, line.map((p) => `${p.x - c.x},${p.y - c.y}`).sort().join(' '));
+  }
+  assert.equal(new Set([...lines.values()]).size, lines.size, 'every shape its own');
+});
+
+test('a star fort is raised all round like any ring', () => {
+  const s = walledTown('ring-star');
+  s.origin = 'knights';
+  raise(s);
+  assert.ok(s.ring?.done, 'the ring stands');
+  assert.ok(lineOf(s.ring!).length > ringCells(s.ring!.rect).length, 'the bastions reach past the box');
+});

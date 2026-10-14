@@ -582,6 +582,8 @@ export interface Person {
   lvXp?: number;
   /** Raiders this person has struck the last blow on (sim/raidRecap.ts), for the hall of heroes. */
   felled?: number;
+  /** Deeds counted toward titles (sim/deeds.ts, data/deeds.ts). */
+  deeds?: Partial<Record<import('../data/deeds').DeedKind, number>>;
   /** A knight of the Order who has kept a vow (sim/chivalry.ts): worthy of being dubbed. */
   keptVow?: boolean;
   /** The class stage last announced (an evolution is told once). */

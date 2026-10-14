@@ -56,6 +56,7 @@ import { BloodPools } from './map/bloodPools';
 import { MapDisaster } from './map/mapDisaster';
 import { createBattleHud } from './battle/battleHud';
 import { createRaidRecap } from './battle/raidRecap';
+import { BattleJuice } from './battle/juice';
 import { startCinema } from './cinema/cinema';
 import { momentOf } from './cinema/moments';
 import { CutsceneScene } from './cutscene/cutsceneView';
@@ -96,7 +97,7 @@ import { buildingTint } from './theme';
 function travellerPerson(t: TravellerView): PersonView {
   return {
     id: t.id, name: t.name, typeName: 'Traveller', look: t.look, x: t.x, y: t.y, dir: t.dir,
-    activity: 'walk', taskDone: null, story: '', titles: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
+    activity: 'walk', taskDone: null, story: '', titles: [], deeds: [], secret: null, sinceHit: 999, hitFrom: 1, sinceBlow: 999, sinceBlock: 999, defending: false, beast: null, cls: null, clsName: null, clsPast: [], income: null, owns: [], debt: 0, ambition: null, trips: 0, clsText: '', founderCalling: false, stage: 0, ascended: false, level: 1, levelProgress: 0, mounted: null, doing: travellerDoing(t), carrying: {},
     skills: {} as PersonView['skills'], traits: [], needs: { food: 1, rest: 1 }, morale: 60, moodTarget: 60, moodReasons: [], grieving: false,
     priorities: {} as PersonView['priorities'], autoPriorities: false, bed: null, bedId: null, floor: null,
     indoors: t.phase === 'shopping', // (inside the shop: see its window)
@@ -218,6 +219,8 @@ const DEEP_SIDE = 250;
 const FPS_IDLE = 30;
 /** How long the strip shakes for a boss moment. */
 const SHAKE_MS = 450;
+/** How long the victory's flourish has the screen before the raid's recap (battle/juice.ts). */
+const VICTORY_MS = 3200;
 
 /** 'scenery' is background art: hovering it lets you scroll, but there is nothing to act on. */
 type Hover =
@@ -320,6 +323,10 @@ async function start(): Promise<void> {
   // (quality 2: everything; 1: no smoke or mist; 0: and drawn at the screen's plain resolution, as before)
   let quality = 2;
   let stripScale = 1;
+  // (two fingers on the town: the page is pinching it, and the strip holds still: __pinching below)
+  let pinching = false;
+  let heldSnap: Snapshot | null = null;
+  let resumedAt = 0;
   const sharpen = (scale: number) => {
     stripScale = scale;
     app.renderer.resize(app.screen.width, app.screen.height, (window.devicePixelRatio || 1) * (quality > 0 ? scale : 1));
@@ -333,6 +340,11 @@ async function start(): Promise<void> {
     app.ticker.add(() => {
       const now = performance.now();
       if ((window as unknown as { __keepQuality?: boolean }).__keepQuality) return; // (previews in a slow headless browser)
+      // (a pinch stops the drawing for a moment: that time isn't the phone falling behind)
+      if (resumedAt) {
+        resumedAt = 0;
+        since = now + 3000;
+      }
       if (document.hidden || now < since) {
         frames = 0;
         if (document.hidden) since = now + 3000;
@@ -472,6 +484,11 @@ async function start(): Promise<void> {
   app.stage.addChild(snow.root, leaves.root, pane.root);
   // a raid's battle is fought on the town's own map (map/mapBattle.ts draws the trail, the spots and the shots over it)
   const battle = new MapBattle(map);
+  // the flash of a raid fought on the trail (battle/juice.ts): impacts and numbers on the map, the shake, callouts,
+  // wave banners and the victory over it
+  const mapJuice = new BattleJuice();
+  map.over.addChild(mapJuice.world);
+  app.stage.addChild(mapJuice.screen);
   // (spells on the map: the packs' effect sheets over whoever they touch, following people and raiders)
   const spells = new MapSpells(map.over, (t) => (t.id === undefined ? null : t.raider ? raiders.posOf(t.id) : people.posOf(t.id)));
   (window as unknown as { __battle?: MapBattle }).__battle = battle; // (for previews: where a spot is on screen)
@@ -567,10 +584,14 @@ async function start(): Promise<void> {
   const music = createMusic();
   const musicMood = (n: Snapshot) =>
     moodOf({
-      raid: n.raid?.phase === 'active',
+      raid: n.raid?.phase === 'active' && n.tactics?.phase !== 'done',
       boss: !!n.bossBar,
-      fight: !!n.tactics || !!n.watch?.battle,
-      victory: (n.raidRecap?.outcome === 'victory' && n.raidRecap.hoursAgo * TICKS_PER_HOUR < 80) || n.expeditions.some((e) => e.result?.outcome === 'won' && e.result.age < 80),
+      fight: (!!n.tactics && n.tactics.phase !== 'done') || !!n.watch?.battle,
+      // (a fight won: a raid beaten off, on the trail or the board, a party's fight; music/musicScore.ts's victory)
+      victory:
+        n.tactics?.banner?.kind === 'win' ||
+        (!!n.raidRecap && n.raidRecap.outcome !== 'pillaged' && n.raidRecap.hoursAgo * TICKS_PER_HOUR < 80) ||
+        n.expeditions.some((e) => e.result?.outcome === 'won' && e.result.age < 80),
       daylight: n.calendar.daylight,
       season: n.calendar.season,
       theme: n.theme,
@@ -765,7 +786,7 @@ async function start(): Promise<void> {
         // (a piece of the ring wall under way is one job with the whole wall: sim/ringWall.ts)
         const wall = b.ring !== undefined && snap.wall && b.ring === snap.wall.gen ? snap.wall : null;
         if (wall && b.status === 'blueprint') {
-          lines.push(`The town's wall, built as one: ${wall.done} of ${wall.of} sections standing (${Math.floor(wall.share * 100)}%)`);
+          lines.push(`The town's wall, ${wall.shape}, built as one: ${wall.done} of ${wall.of} sections standing (${Math.floor(wall.share * 100)}%)`);
           if (b.overgrown) lines.push('Clearing the ground here first: the trees and rocks on the line are being cut and dug out');
           else if (b.planned) lines.push('Laid out, waiting to be worked');
           return { title: `${def.name} (the wall going up)`, lines, hint: 'Click for options', y: r.y };
@@ -1450,10 +1471,20 @@ async function start(): Promise<void> {
 
   // Each notice is shown once; ones from before this page loaded are skipped.
   let lastNotice = first.notices.at(-1)?.id ?? 0;
+  const heldToasts: string[] = [];
+  const HELD_TOASTS = 3;
   const showNotices = (next: Snapshot) => {
     // (upright on the phone the feed above the town shows the news: the strip pops up only what the feed leaves out)
     const feedShown = document.body.classList.contains('feed-shown');
-    if (next.catchingUp == null) for (const n of next.notices) if (n.id > lastNotice && (!feedShown || CHATTER.test(n.text))) toasts.push(n.text);
+    // (a raid's battle or a watched fight is never interrupted: what comes meanwhile waits, the last few of it shown
+    // once it's over; the rest is in the news bubble)
+    const fresh = next.catchingUp == null ? next.notices.filter((n) => n.id > lastNotice && (!feedShown || CHATTER.test(n.text) || next.fightOn || !!next.tactics)).map((n) => n.text) : [];
+    if (next.fightOn || next.tactics) heldToasts.push(...fresh);
+    else {
+      for (const t of heldToasts.slice(-HELD_TOASTS)) toasts.push(t);
+      heldToasts.length = 0;
+      for (const t of fresh) toasts.push(t);
+    }
     lastNotice = Math.max(lastNotice, next.notices.at(-1)?.id ?? 0);
   };
 
@@ -1461,12 +1492,57 @@ async function start(): Promise<void> {
   let shakeUntil = 0;
   let lastCamp: { x: number; y: number } | null = null;
   let buildStyle = 'town';
+  // the trail battle's juice, from what changed since the last snapshot: blows on raiders and townsfolk, raiders
+  // felled, a new wave, the end
+  let recapHold = 0;
+  let juiceEnd = 0;
+  const juiceTrail = (next: Snapshot) => {
+    const b = next.battle;
+    const was = snap.battle;
+    if (b && !was) {
+      mapJuice.reset();
+      juiceEnd = 0;
+      mapJuice.showBanner('Defend the town!', next.raid?.name ?? 'Raiders', 0xffe070, 2.6);
+    }
+    if (b && was) {
+      if (b.wave > was.wave) mapJuice.showBanner(`Wave ${b.wave} of ${b.waves}`, `${b.coming} raiders coming`, 0xff9a40);
+      else if (b.phase === 'fighting' && was.phase !== 'fighting' && b.wave <= 1) mapJuice.showBanner('Here they come!', null, 0xff6050, 1.8);
+      if (b.killed > was.killed) mapJuice.killed(b.killed - was.killed);
+      const before = new Map((snap.raid?.raiders ?? []).map((r) => [r.id, r]));
+      for (const r of next.raid?.raiders ?? []) {
+        const o = before.get(r.id);
+        if (!o || r.ally || r.hp >= o.hp) continue;
+        mapJuice.hit(r.x, r.y - 24, { label: String(Math.round(o.hp - r.hp)), share: (o.hp - r.hp) / Math.max(1, r.maxHp), onFoe: true });
+      }
+      const folk = new Map(snap.people.map((p) => [p.id, p]));
+      for (const p of next.people) {
+        const o = folk.get(p.id);
+        if (!o || p.away !== null || p.hp >= o.hp || o.hp - p.hp < 1) continue;
+        mapJuice.hit(p.x, p.y - 30, { label: String(Math.round(o.hp - p.hp)), share: (o.hp - p.hp) / Math.max(1, p.maxHp), onFoe: false });
+      }
+    }
+    if (!b && was) {
+      const r = next.raidRecap;
+      const won = !!r && r.outcome !== 'pillaged';
+      mapJuice.win(won, r ? `${r.killed} felled${r.outcome === 'victory' ? ' · not one got away' : ''}` : '');
+      recapHold = performance.now() + VICTORY_MS;
+      juiceEnd = performance.now() + VICTORY_MS;
+    }
+    if (juiceEnd && performance.now() > juiceEnd) {
+      mapJuice.reset();
+      juiceEnd = 0;
+    }
+  };
+
   const applySnapshot = (next: Snapshot) => {
     // a raid's battle, while there is one: drawn over the town's map; the camera looks to the gate as it begins
     const begun = !!next.battle && !snap.battle;
     battle.update(next);
     battleHud.update(next.battle, next.raid?.name ?? 'Raiders');
-    raidRecap.update(next);
+    juiceTrail(next);
+    document.body.classList.toggle('board-on', !!(next.tactics || next.watch));
+    // (the recap waits while the victory has its moment)
+    if (performance.now() >= recapHold) raidRecap.update(next);
     battle.selectedPerson = battleHud.picked;
     battle.aiming = battleHud.aiming;
     if (begun) {
@@ -1674,7 +1750,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !next.fightOn && !next.tactics && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won);
     // a boss roars or sweeps: the strip shakes (only for fresh moments, not ones from before a reload)
@@ -1843,7 +1919,10 @@ async function start(): Promise<void> {
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
   };
-  bridge.onSnapshot(applySnapshot);
+  bridge.onSnapshot((next) => {
+    if (pinching) heldSnap = next;
+    else applySnapshot(next);
+  });
   applySnapshot(first);
 
   /* -------------------------------------------------------- frame loop */
@@ -1855,7 +1934,24 @@ async function start(): Promise<void> {
   // pixels; from, to: the scales the strip was and is shown at). The resize below keeps the middle still; this is the
   // rest, for a point off the middle.
   Object.assign(window, {
-    __zoomAbout: (mx: number, my: number, from: number, to: number) => camera.shift((mx - viewW / 2) * (1 - from / to), (my - viewH / 2) * (1 - from / to)),
+    // (nx, ny: where the fingers were when they lifted, if they moved together: the point under them at the start goes
+    // there, so a pinch pans as well)
+    __zoomAbout: (mx: number, my: number, from: number, to: number, nx = mx, ny = my) =>
+      camera.shift(mx - viewW / 2 - ((nx - viewW / 2) * from) / to, my - viewH / 2 - ((ny - viewH / 2) * from) / to),
+    // While two fingers are down the page only moves and scales the canvas (mobile.ts), so the strip stops drawing and
+    // holds the snapshots that come meanwhile; when they lift it draws again from the latest.
+    __pinching: (on: boolean) => {
+      pinching = on;
+      if (on) {
+        app.ticker.stop();
+        return;
+      }
+      resumedAt = performance.now();
+      app.ticker.start();
+      const held = heldSnap;
+      heldSnap = null;
+      if (held) applySnapshot(held);
+    },
   });
   app.ticker.add((ticker) => {
     const w = layoutSplit(); // the town's share of the width
@@ -1872,7 +1968,10 @@ async function start(): Promise<void> {
     map.setCamera(camera.x, camera.y, w, h);
     // screen shake (a boss's roar or sweeping attack)
     const shaking = performance.now() < shakeUntil;
-    app.stage.position.set(shaking ? Math.round((Math.random() - 0.5) * 6) : 0, shaking ? Math.round((Math.random() - 0.5) * 4) : 0);
+    // (and the trail battle's: heavy blows and kills, battle/juice.ts)
+    mapJuice.render(performance.now(), app.screen.width, app.screen.height);
+    const [jx, jy] = mapJuice.shake();
+    app.stage.position.set((shaking ? Math.round((Math.random() - 0.5) * 6) : 0) + jx, (shaking ? Math.round((Math.random() - 0.5) * 4) : 0) + jy);
     people.render(performance.now());
     townLife.render(performance.now());
     raiders.render(performance.now());

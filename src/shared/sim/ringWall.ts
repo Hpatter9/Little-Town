@@ -9,6 +9,7 @@
 // Townsfolk walk out through the gates (walk.ts `blockedBy` lets gates through; a sealed town walks straight through).
 // Castles and the hold have walls of their own, and a wandering tribe its wagons: no ring for them.
 import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
+import { RING_SHAPE_OF, type RingShape } from '../data/ringShapes';
 import { builtOn, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
 import { holdOf } from './castle';
 import { groundAt, idx, inMap, isRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
@@ -138,14 +139,27 @@ export interface LineCell { x: number; y: number; side: Side }
 export const PUSH_ALONG = 5;
 export const PUSH_MOST = 8;
 const sideOfBox = (r: Rect, p: Pt): Side => (p.y === r.y ? 'n' : p.y === r.y + r.h - 1 ? 's' : p.x === r.x ? 'w' : 'e');
-export function shapeRing(s: Pick<GameState, 'land'>, r: Rect): LineCell[] {
+export function shapeRing(s: Pick<GameState, 'land'> & Partial<Pick<GameState, 'origin' | 'buildings'>>, r: Rect, shape: RingShape = ringShapeOf(s)): LineCell[] {
   const m = s.land;
   const M = PUSH_MOST + 2;
   const bx = r.x - M, by = r.y - M, bw = r.w + 2 * M, bh = r.h + 2 * M;
   const inBox = (x: number, y: number) => x >= bx && y >= by && x < bx + bw && y < by + bh;
   const key = (x: number, y: number) => (y - by) * bw + (x - bx);
   const R = new Uint8Array(bw * bh);
-  for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) R[key(x, y)] = 1;
+  if (shape === 'box') for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) R[key(x, y)] = 1;
+  else {
+    // (the people's own shape over the box, data/ringShapes.ts; whatever it cuts off that the town stands on is taken
+    // back in, `TOWN_KEEP` round each building)
+    const inside = shapeTest(shape, r);
+    for (let y = by + 1; y < by + bh - 1; y++) for (let x = bx + 1; x < bx + bw - 1; x++) if (inMap(m, x, y) && inside(x, y)) R[key(x, y)] = 1;
+    for (const b of s.buildings ?? []) {
+      const def = BUILDING_BY_ID[b.def];
+      if (!def || def.layer === 'back' || isRingPiece(b.def) || (def.hp && def.width === 1)) continue;
+      const w = def.width + (b.wide ?? 0), d = depth(def);
+      for (let y = b.row - TOWN_KEEP; y < b.row + d + TOWN_KEEP; y++)
+        for (let x = b.tile - TOWN_KEEP; x < b.tile + w + TOWN_KEEP; x++) if (inBox(x, y) && x > bx && y > by && x < bx + bw - 1 && y < by + bh - 1) R[key(x, y)] = 1;
+    }
+  }
   const inR = (x: number, y: number) => inBox(x, y) && R[key(x, y)] === 1;
   const N8 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const;
   const boundary = (): Pt[] => {
@@ -208,6 +222,91 @@ export function shapeRing(s: Pick<GameState, 'land'>, r: Rect): LineCell[] {
 }
 // (clockwise from the top-left, as the box's edge ran)
 const ang = (dx: number, dy: number) => (Math.atan2(dy, dx) + Math.PI * 1.75) % (Math.PI * 2);
+
+/** How far round each building the shaped ring keeps the town inside it. */
+const TOWN_KEEP = 2;
+
+/** The ring's shape for this town's people (data/ringShapes.ts). */
+export function ringShapeOf(s: Partial<Pick<GameState, 'origin'>>): RingShape {
+  return RING_SHAPE_OF[s.origin ?? 'settlers'] ?? 'box';
+}
+
+/** Whether a cell lies inside a shape laid over the ring's box `r`: the box's inside is about -1..1 each way (u, v),
+ *  and a shape is drawn about as big, bulging past it here and cutting in there. Every shape keeps a straight run
+ *  of wall at the middle of each side, for the gates. */
+export function shapeTest(shape: RingShape, r: Rect): (x: number, y: number) => boolean {
+  const base = shapeBase(shape, r);
+  if (shape === 'box') return base;
+  // (a straight run, `GATE_FLAT` cells either side of each side's middle, at the shape's reach there: the gates' room)
+  const cx = Math.round(r.x + (r.w - 1) / 2), cy = Math.round(r.y + (r.h - 1) / 2);
+  const reach = (dx: number, dy: number) => {
+    let n = 0;
+    while (n < r.w + r.h && base(cx + dx * (n + 1), cy + dy * (n + 1))) n++;
+    return n;
+  };
+  const w = reach(-1, 0), e = reach(1, 0), n = reach(0, -1), s = reach(0, 1);
+  return (x, y) => {
+    const dx = x - cx, dy = y - cy;
+    if (Math.abs(dy) <= GATE_FLAT && Math.abs(dx) > Math.abs(dy)) return dx < 0 ? -dx <= w : dx <= e;
+    if (Math.abs(dx) <= GATE_FLAT && Math.abs(dy) > Math.abs(dx)) return dy < 0 ? -dy <= n : dy <= s;
+    return base(x, y);
+  };
+}
+const GATE_FLAT = 2;
+function shapeBase(shape: RingShape, r: Rect): (x: number, y: number) => boolean {
+  const cx = r.x + (r.w - 1) / 2, cy = r.y + (r.h - 1) / 2;
+  const A = Math.max(2, (r.w - 2) / 2), B = Math.max(2, (r.h - 2) / 2);
+  const cells = Math.min(A, B);
+  return (x, y) => {
+    const dx = x - cx, dy = y - cy;
+    const u = dx / A, v = dy / B, au = Math.abs(u), av = Math.abs(v);
+    const rho = Math.hypot(u, v), th = Math.atan2(v, u);
+    switch (shape) {
+      case 'box':
+        return au <= 1 && av <= 1;
+      case 'star': {
+        // (a bastion, an arrowhead, at each corner, `cells` a third of the half-width out)
+        if (au <= 1 && av <= 1) return true;
+        const k = Math.max(3, Math.round(cells * 0.32));
+        return Math.abs(Math.abs(dx) - A) + Math.abs(Math.abs(dy) - B) <= k && au >= 0.6 && av >= 0.6;
+      }
+      case 'round':
+        return rho <= 1.12;
+      case 'octagon':
+        return au <= 1.04 && av <= 1.04 && au + av <= 1.5;
+      case 'hexagon':
+        // (flat west and east walls, pointed north and south)
+        return au <= 1.08 && av + 0.55 * au <= 1.22;
+      case 'coffin': {
+        // (widest a third of the way down, narrower at the head and narrower still at the foot)
+        const w = v < -0.35 ? 1.05 - ((-0.35 - v) / 0.7) * 0.4 : 1.05 - ((v + 0.35) / 1.4) * 0.5;
+        return av <= 1.06 && au <= w;
+      }
+      case 'grove':
+        return rho <= 1.08 + 0.08 * Math.sin(3 * th + 0.7) + 0.06 * Math.sin(5 * th + 2.1) + 0.04 * Math.sin(7 * th + 4.0) - 0.03;
+      case 'scalloped':
+        return rho <= 1.06 + 0.07 * Math.cos(12 * th);
+      case 'flower':
+        // (eight petals, one at each side's middle)
+        return rho <= 1.0 + 0.14 * Math.cos(8 * th);
+      case 'jagged': {
+        // (teeth along every side, `TOOTH` cells apart, `TOOTH_DEEP` deep, the middle of each side left straight)
+        const tooth = (t: number) => (Math.abs(t) < 3 ? 0 : TOOTH_DEEP * (1 - Math.abs((((Math.abs(t) / TOOTH) % 1) * 2) - 1)));
+        if (au >= av) return Math.abs(dx) <= A + tooth(dy) && av <= 1;
+        return Math.abs(dy) <= B + tooth(dx) && au <= 1;
+      }
+      case 'terraced': {
+        // (the corners stepped down like terraces on a hillside, `TERRACE` cells a step)
+        if (au > 1 || av > 1) return false;
+        const fx = Math.floor((A - Math.abs(dx)) / TERRACE), fy = Math.floor((B - Math.abs(dy)) / TERRACE);
+        return fx + fy >= Math.floor(cells / TERRACE / 2);
+      }
+    }
+  };
+}
+const TOOTH = 6;
+const TOOTH_DEEP = 2;
+const TERRACE = 2;
 
 /** A ring's line (an older town's ring, laid before the line was shaped, keeps its box). */
 export function lineOf(ring: Ring): LineCell[] {
