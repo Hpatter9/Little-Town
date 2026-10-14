@@ -239,6 +239,30 @@
       body.in-fight #minimap {
         display: none;
       }
+      /* back to the town's camp (main.ts): the strip's bottom-right corner */
+      #centre-town {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        z-index: 30;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        font-size: 20px;
+        line-height: 30px;
+        color: var(--text);
+        background: var(--wood);
+        border: 2px solid var(--wood-edge);
+        border-radius: 6px;
+        cursor: pointer;
+        zoom: var(--ui-zoom, 1);
+      }
+      body.in-battle #centre-town,
+      body.in-fight #centre-town,
+      body.board-on #centre-town,
+      body.scene-on #centre-town {
+        display: none;
+      }
       /* the name of the region the view is over (sim/landRegions.ts), shown a moment as the view crosses into it */
       #region-name {
         position: absolute;
@@ -1060,6 +1084,85 @@
       }
       #raid-recap[hidden] {
         display: none;
+      }
+      /* the time away being caught up (the town isn't drawn meanwhile), and the plain card of what mattered */
+      #catching-up {
+        position: absolute;
+        inset: 0;
+        z-index: 45;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: #0d0f14;
+        color: #e8dcc0;
+        font: 14px/1.3 var(--font-body);
+      }
+      #catching-up[hidden],
+      #away-card[hidden] {
+        display: none;
+      }
+      #catching-up .cu-bar {
+        width: min(240px, 70%);
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+      }
+      #catching-up .cu-fill {
+        height: 100%;
+        background: #d9a94e;
+      }
+      #away-card {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 41;
+        width: min(360px, 90%);
+        max-height: 80%;
+        overflow-y: auto;
+        padding: 10px 12px 12px;
+        zoom: var(--ui-zoom, 1);
+        box-sizing: border-box;
+        background: var(--wood);
+        border: 2px solid #c79a55;
+        border-radius: 6px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+        color: var(--text);
+        font: 13px/1.35 var(--font-body);
+      }
+      #away-card .aw-title {
+        font-family: var(--font-display);
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        color: var(--heading, #f0c870);
+        margin-bottom: 6px;
+      }
+      #away-card ul {
+        list-style: none;
+        margin: 0 0 10px;
+        padding: 0;
+      }
+      #away-card li {
+        padding: 3px 0 3px 8px;
+        border-left: 3px solid #6a8cc8;
+        margin: 4px 0;
+      }
+      #away-card li.bad {
+        border-color: #d05040;
+      }
+      #away-card li.good {
+        border-color: #6cb050;
+      }
+      #away-card li.ask {
+        border-color: #e0b040;
+      }
+      #away-card button {
+        display: block;
+        width: 100%;
       }
       #raid-recap .rr-title,
       #fight-result .ff-result-title {

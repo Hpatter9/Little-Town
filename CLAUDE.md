@@ -4224,3 +4224,27 @@ blocked by buildings, structures, trees and rocks)
   joins that to each listed event's `when` as EVENTS is put together (data/events.ts), so a lich or machine town never
   meets them. A new event about any of these goes in its list. Test: `test/eventFit.test.ts` (and any event whose
   words speak of hunger must be listed or named as someone else's hunger).
+
+## Fixes, third batch (the owner's asks)
+
+- **No roads through the ring wall but at its gates:** `ringWallCells`/`wallOnly` in sim/ringWall.ts (every cell of
+  the ring's line but the gates' covers, and any gate standing there). `layStreet` never plans or paths over one,
+  `planStreets`, `gatePaths`' way out and `squareRoads` skip them, and `pave` drops a planned street there; a road laid
+  over a broken or missing piece kept the wall from being raised again (`canPlace`: "A road runs here").
+  `liftRoadsOffWall` (hourly from `streetsHourly`, autopilot or not) lifts roads and planned streets an older town laid
+  there, so the wall is wanted again. Test: `test/ringRoads.test.ts`.
+- **A plain return (the owner: no recaps or time-lapse, a fast start, only the important things):** while the time
+  away is caught up the strip isn't drawn (main.ts `catchUpSnap`: the ticker stopped, a dark "Catching up on your
+  town…" screen with a bar, `renderer/awayCard.ts` `createCatchingUp`), and `GameLoop` runs `CATCH_UP_SLICE_MS` (200)
+  slices back to back and sends a snapshot only every `CATCH_UP_SNAP_MS` (400). Done, the town is drawn from where it
+  stands with nothing since popping up (no toasts, buzzes or sounds; raids fought meanwhile are marked seen,
+  `raidRecap.seenNow`), and one card, **While you were away** (`createAwayCard`, `#away-card`), lists what mattered:
+  `src/shared/sim/awaySummary.ts` (`awayBefore` before the catch-up, `awayWatch` after each batch since only the last
+  raid recap stays, `awaySummary` after: the dead and how, those who left, each raid and how it ended, births and
+  newcomers by name, a new age, treasures won, places found, a question waiting), on the last snapshot as
+  `snapshot.away`; nothing important, no card. A scene waits to be offered until the card is closed. Measured on a
+  day-12 knights' town, six hours away (two days' cap), headless: caught up 31 s after load where it was 36 s at
+  desktop speed, 138 s where it was 157 s at a quarter of the speed (about a phone). The sim itself is now most of it (about 0.6 ms a tick, pathfinding a
+  third): `findPath` is the next lever. Test: `test/awaySummary.test.ts`.
+- **Back to the town:** a ⌂ button at the strip's bottom-right (`#centre-town`, main.ts) centres the camera on the
+  camp; hidden in battles, on the board and in scenes.
