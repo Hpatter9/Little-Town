@@ -1198,6 +1198,9 @@ export interface GameState {
   origin?: OriginId;
   /** Chosen by the townsfolk's day-15 vote (sim/settlementName.ts). */
   townName?: string;
+  /** The town's guilds and squads (sim/guilds.ts), and when the last was founded or voted down. */
+  guilds?: import('./guildPerks').Guild[];
+  lastGuild?: number;
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
   buffs?: Record<string, number>;

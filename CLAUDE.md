@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.72.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.74.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4248,3 +4248,57 @@ blocked by buildings, structures, trees and rocks)
   Friendship counts more in recruiting (`RECRUIT_OPINION` 1/8, was 1/20). `snapshot.companies` (`CompanyView`) feeds
   the Companies tab (members as chips, the dead ✝; tapped: formed, trips, members with calling and level, deeds) and
   names a company on its party's Out now card. Tests: `test/companies.test.ts`.
+
+## Fixes, third batch (the owner's asks)
+
+- **No roads through the ring wall but at its gates:** `ringWallCells`/`wallOnly` in sim/ringWall.ts (every cell of
+  the ring's line but the gates' covers, and any gate standing there). `layStreet` never plans or paths over one,
+  `planStreets`, `gatePaths`' way out and `squareRoads` skip them, and `pave` drops a planned street there; a road laid
+  over a broken or missing piece kept the wall from being raised again (`canPlace`: "A road runs here").
+  `liftRoadsOffWall` (hourly from `streetsHourly`, autopilot or not) lifts roads and planned streets an older town laid
+  there, so the wall is wanted again. Test: `test/ringRoads.test.ts`.
+- **A plain return (the owner: no recaps or time-lapse, a fast start, only the important things):** while the time
+  away is caught up the strip isn't drawn (main.ts `catchUpSnap`: the ticker stopped, a dark "Catching up on your
+  town…" screen with a bar, `renderer/awayCard.ts` `createCatchingUp`), and `GameLoop` runs `CATCH_UP_SLICE_MS` (200)
+  slices back to back and sends a snapshot only every `CATCH_UP_SNAP_MS` (400). Done, the town is drawn from where it
+  stands with nothing since popping up (no toasts, buzzes or sounds; raids fought meanwhile are marked seen,
+  `raidRecap.seenNow`), and one card, **While you were away** (`createAwayCard`, `#away-card`), lists what mattered:
+  `src/shared/sim/awaySummary.ts` (`awayBefore` before the catch-up, `awayWatch` after each batch since only the last
+  raid recap stays, `awaySummary` after: the dead and how, those who left, each raid and how it ended, births and
+  newcomers by name, a new age, treasures won, places found, a question waiting), on the last snapshot as
+  `snapshot.away`; nothing important, no card. A scene waits to be offered until the card is closed. Measured on a
+  day-12 knights' town, six hours away (two days' cap), headless: caught up 31 s after load where it was 36 s at
+  desktop speed, 138 s where it was 157 s at a quarter of the speed (about a phone). The sim itself is now most of it (about 0.6 ms a tick, pathfinding a
+  third): `findPath` is the next lever. Test: `test/awaySummary.test.ts`.
+- **Back to the town:** a ⌂ button at the strip's bottom-right (`#centre-town`, main.ts) centres the camera on the
+  camp; hidden in battles, on the board and in scenes.
+
+## Guilds and squads (the owner's ask: the town forms its own guilds to fill a role it lacks)
+
+- `src/shared/data/guilds.ts` and `src/shared/sim/guilds.ts` (`guildsHourly` from sim.ts at `GUILD_HOUR` 17; autopilot
+  on; its own side stream `${seed}:guilds:${tick}`). Seven roles (`GUILD_ROLES`: wardens (defence), menders (healing),
+  rangers (scouting and hunting), crafters, merchants, scholars, and the elite squad), each with the skills that fit
+  someone (`fitFor`), the bloc that favours it and its perk. From day `GUILD_FROM_DAY` (5) in a town of `GUILD_PEOPLE`
+  (4) grown-ups, no oftener than `GUILD_GAP_DAYS` (4) and at most one guild per `GUILD_PER_PEOPLE` (4) grown-ups, the
+  town fills the role it lacks most (`needOf`: raids and the dead for wardens, the hurt and sick for menders, places
+  and roaming bands for rangers, the craft queue, the venues, the research queue; the elite only in a town of
+  `ELITE_PEOPLE` raided lately, from fighters of `ELITE_LEVEL`), if `MEMBERS_LEAST` fit (`lacking`): either the fittest
+  starts it, or (`COUNCIL_SHARE` 0.4, while the council sits) the council votes on it by bloc (sim/politics.ts
+  `blocOf`). The town names it (`guildName`: `ORIGIN_WORDS` per people, darker for the elite: "The Black Knives", or
+  "The Wardens of <town name>"), and the founding (or the vote that failed) is told in the event box (`tellStory`).
+  Daily the ranks are kept (the dead dropped, a new leader, those who fit join up to `MEMBERS_MOST` 6, `ELITE_MOST` 4;
+  the elite may call people from another guild; an empty guild disbands). `s.guilds` (`Guild` in sim/guildPerks.ts),
+  `s.lastGuild`. **Perks** (sim/guildPerks.ts, read by raids.ts, health.ts and townsfolk.ts): wardens' blows
+  `WARDEN_FIGHT` 1.15 and the elite's `ELITE_FIGHT` 1.3 in raids (`guildFight`), the hurt mend `MENDER_CARE` 1.25 faster
+  while a menders' guild stands (`guildCare`), crafters and scholars at their own work `GUILD_WORK` 1.2 (`guildWork`),
+  the rangers' daily haul of meat and hide, the merchants' dues to the treasury (ledger `trade`), and every member
+  `MEMBER_MORALE` spirits (`guildMood`). Seen on the People menu's **Guilds** tab (`panel/guildPanel.ts`,
+  `snapshot.guilds`, `GuildView`). Tests: `test/guilds.test.ts`.
+- **The founder's edicts (the owner's ask):** on the Council tab each law's card opens on **Proclaim / Repeal by
+  edict** and **Call a vote**, each paid for in coins (`EDICT_COINS` 40 from the treasury) or in standing (every bloc
+  `EDICT_STANDING` 6 less content); the `edict` command (op `proclaim`, `repeal` or `vote`, the law, `pay`), checked by
+  `edictCheck` and done by `issueEdict` in sim/politics.ts. A law proclaimed or repealed takes effect at once and moves
+  each bloc `EDICT_SWAY` (6) the way its stance on the law goes (then the law's own pull, as for any law in force); a
+  vote is the council's usual vote (`callVote` with no bloc: "<founder> called for..."). The next edict waits
+  `EDICT_COOLDOWN_DAYS` (3: `PoliticsState.lastEdict`, `edictWait`, `PoliticsView.edictWait`). The council still
+  governs itself the rest of the time. Tests: `test/edicts.test.ts`.

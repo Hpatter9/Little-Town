@@ -4,7 +4,7 @@
 // the camp) when it's placed, so the town grows along its roads.
 
 import { VILLAGE_KEEP } from '../data/villages';
-import { isGate, riverCell } from './ringWall';
+import { isGate, riverCell, wallOnly } from './ringWall';
 import { isSeat } from '../data/seats';
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild, seaTown } from './sea';
@@ -339,8 +339,9 @@ export function nearestStreet(s: GameState, from: Pt): Pt {
 export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): boolean {
   const m = s.land;
   if (!inMap(m, from.x, from.y)) return false;
+  // (never over the ring wall's line but at a gate: a road there keeps a broken piece from being raised again)
   const lay = (x: number, y: number) => {
-    if (!isRoad(m, x, y)) planRoad(m, x, y);
+    if (!isRoad(m, x, y) && !wallOnly(s, x, y)) planRoad(m, x, y);
   };
   if (to.x === from.x && to.y === from.y) {
     lay(from.x, from.y);
@@ -355,7 +356,7 @@ export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): b
   const blocked = (x: number, y: number) => !ground(x, y) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
   // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
   const gate = (x: number, y: number) => isGate(builtOn(s, x, y)?.def ?? '');
-  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST });
+  const path = findPath(m, from, to, (x, y) => wallOnly(s, x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST });
   if (!path || path.length > reach) return false;
   lay(from.x, from.y);
   for (const c of path) if ((!builtOn(s, c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);
@@ -371,7 +372,7 @@ const PIER_COST = 2.5;
  *  every road runs on edge to edge. */
 export function squareRoads(s: GameState): void {
   const m = s.land;
-  const free = (x: number, y: number) => inMap(m, x, y) && buildable(groundAt(m, x, y)) && !builtOn(s, x, y);
+  const free = (x: number, y: number) => inMap(m, x, y) && buildable(groundAt(m, x, y)) && !builtOn(s, x, y) && !wallOnly(s, x, y);
   for (let y = 0; y < m.h - 1; y++)
     for (let x = 0; x < m.w; x++) {
       if (!isRoad(m, x, y)) continue;

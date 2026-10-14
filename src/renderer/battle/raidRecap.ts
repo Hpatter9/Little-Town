@@ -27,6 +27,8 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
 export interface RaidRecapView {
   update(s: Snapshot): void;
   open(): boolean;
+  /** A raid fought while the player was away is told on the return card, not by its own recap: marked seen. */
+  seenNow(s: Snapshot): void;
 }
 
 export function createRaidRecap(): RaidRecapView {
@@ -123,6 +125,10 @@ export function createRaidRecap(): RaidRecapView {
       }
       if (last.tick > seen) draw(last);
       else if (!box.hidden) draw(last);
+    },
+    seenNow(s) {
+      last = s.raidRecap;
+      close();
     },
     open() {
       if (!last) return false;

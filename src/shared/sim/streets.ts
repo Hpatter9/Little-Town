@@ -9,7 +9,7 @@
 import { builtOn, layStreet, nearestStreet, totalStock } from './buildings';
 import { takeFromStorage } from './expeditions';
 import { cellAt, groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, setRoad, wearAt, wet, type Pt } from './land';
-import { isGate, lineOf, sideOn } from './ringWall';
+import { isGate, liftRoadsOffWall, lineOf, sideOn, wallOnly } from './ringWall';
 import { campCell, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 
@@ -48,6 +48,7 @@ function ready(s: GameState, i: number, wood: number): boolean {
   const m = s.land;
   const c = cellAt(m, i);
   if (builtOn(s, c.x, c.y) && !isGate(builtOn(s, c.x, c.y)!.def)) return false;
+  if (wallOnly(s, c.x, c.y)) return false;
   if (isBridge(s, i) && wood < BRIDGE_WOOD) return false;
   const camp = campCell(s);
   if (Math.abs(c.x - camp.x) + Math.abs(c.y - camp.y) <= 2) return true;
@@ -94,6 +95,10 @@ export function nextPave(s: GameState, p: Person): number | null {
 export function pave(s: GameState, i: number): boolean {
   const c = cellAt(s.land, i);
   if (!isPlannedRoad(s.land, c.x, c.y)) return true;
+  if (wallOnly(s, c.x, c.y)) {
+    planRoad(s.land, c.x, c.y, false); // (the wall's line: no street there but at a gate)
+    return true;
+  }
   if (isBridge(s, i)) {
     if ((totalStock(s).wood ?? 0) < BRIDGE_WOOD) return false;
     takeFromStorage(s, 'wood', BRIDGE_WOOD);
@@ -118,7 +123,9 @@ export function layAll(s: GameState): void {
 /** Hourly: where the townsfolk wear a path, the town plans a street (a worn cell that joins a street or a planned one,
  *  near the town, on open ground with nothing on it), a few a day; and a path to each gate of the ring wall. */
 export function streetsHourly(s: GameState): void {
-  if (s.autopilot === false || s.tick % TICKS_PER_HOUR !== 0) return;
+  if (s.tick % TICKS_PER_HOUR !== 0) return;
+  liftRoadsOffWall(s); // (roads an older town laid over the wall's line are lifted, so the wall can be raised there)
+  if (s.autopilot === false) return;
   gatePaths(s);
   if (Math.floor(s.tick / TICKS_PER_HOUR) % 24 !== 6) return;
   planStreets(s);
@@ -134,7 +141,7 @@ export function planStreets(s: GameState): number {
     for (let x = Math.max(0, camp.x - STREET_REACH); x <= Math.min(m.w - 1, camp.x + STREET_REACH); x++) {
       const i = idx(m, x, y);
       const w = wearAt(m, i);
-      if (w < STREET_WEAR || isRoad(m, x, y) || isPlannedRoad(m, x, y) || builtOn(s, x, y)) continue;
+      if (w < STREET_WEAR || isRoad(m, x, y) || isPlannedRoad(m, x, y) || builtOn(s, x, y) || wallOnly(s, x, y)) continue;
       const g = groundAt(m, x, y);
       if (g !== 'grass' && g !== 'fertile' && g !== 'sand') continue;
       if (!N4.some(([dx, dy]) => isRoad(m, x + dx, y + dy) || isPlannedRoad(m, x + dx, y + dy))) continue;
@@ -181,7 +188,7 @@ export function gatePaths(s: GameState): void {
     // (and out beyond the gate a few cells, where nothing stands in the way)
     for (let k = 1; k <= GATE_PATH_OUT; k++) {
       const x = g.x - ix * k, y = g.y - iy * k;
-      if (!inMap(m, x, y) || builtOn(s, x, y) || isRoad(m, x, y)) break;
+      if (!inMap(m, x, y) || builtOn(s, x, y) || isRoad(m, x, y) || wallOnly(s, x, y)) break;
       const gr = groundAt(m, x, y);
       if (gr !== 'grass' && gr !== 'fertile' && gr !== 'sand') break;
       planRoad(m, x, y);

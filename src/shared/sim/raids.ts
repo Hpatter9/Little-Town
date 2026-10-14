@@ -95,6 +95,7 @@ import { TICK_HZ, TICKS_PER_HOUR, paceDay } from './time';
 import { campEdge, gainSkill } from './townsfolk';
 import { rulesOf } from '../data/origins';
 import { fightRate, guardRate } from './origin';
+import { guildFight } from './guildPerks';
 import { fogAim, frenzyOf, heldBack, lordHp, rivalsInRaid, turretsDown, wardOf } from './rivals';
 import { RIVAL_LEADER_COST } from '../data/rivals';
 import { lurkersBeaten } from './lurkers';
@@ -763,7 +764,7 @@ function strikeRaider(s: GameState, p: Person, rd: Raider, rng: Rng, bonus: numb
   gainSkill(p, f.ranged ? 'ranged' : 'melee', 6);
   const captain = operatorSkill(s, 'watchtower') * CAPTAIN_PER_LEVEL; // a guard captain drills the defenders
   if (rng.next() >= f.accuracy + captain - fogAim(s) - dodge) return;
-  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: enemyArmor(rd.kind), block: 0, tough: false }, rng) + bonus) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
+  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: enemyArmor(rd.kind), block: 0, tough: false }, rng) + bonus) * fightRate(s) * guildFight(s, p) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
   // a Blood Knight hits harder when hurt, and heals from what they deal
   if (p.cls === 'blood_knight') {
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);
@@ -791,7 +792,7 @@ const CLEAVE_PX = 20;
 function mageFire(s: GameState, p: Person, rd: Raider, rng: Rng, mult: number, near: Raider[]): void {
   gainSkill(p, 'research', 6);
   if (rng.next() >= MAGE_ACCURACY - fogAim(s)) return;
-  const dmg = (rng.int(MAGE_DAMAGE[0], MAGE_DAMAGE[1]) + p.skills.research.level * MAGE_PER_LEVEL) * fightRate(s) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult;
+  const dmg = (rng.int(MAGE_DAMAGE[0], MAGE_DAMAGE[1]) + p.skills.research.level * MAGE_PER_LEVEL) * fightRate(s) * guildFight(s, p) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult;
   for (const [o, k] of [[rd, 1] as const, ...near.map((o) => [o, MAGE_SPLASH] as const)]) {
     o.hp = Math.max(0, o.hp - Math.round(dmg * k));
     o.lastHit = s.tick;
