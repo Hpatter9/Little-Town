@@ -5,6 +5,7 @@ import type { TacticsOrder } from './tactics';
 import type { RealmOp } from './factions';
 const REALM_OPS: readonly RealmOp[] = ['gift', 'peace', 'trade', 'alliance', 'war', 'demand', 'free', 'marry'];
 import { TAX_RATES, type TaxRate } from '../data/economy';
+import { EDICT_OPS, LAW_BY_ID, type EdictOp, type EdictPay, type LawId } from '../data/politics';
 import { ATTR_KEYS, type Attrs } from '../data/attributes';
 import type { MonsterKind } from '../data/monsters';
 const TURN_KINDS: readonly string[] = ['undead', 'vampire', 'werewolf'];
@@ -26,6 +27,8 @@ export type Command =
   | { type: 'setDirection'; direction: Direction }
   | { type: 'setTownSize'; size: number | null }
   | { type: 'setTax'; rate: TaxRate }
+  /** The founder's edict on a law (sim/politics.ts `issueEdict`). */
+  | { type: 'edict'; op: EdictOp; law: LawId; pay: EdictPay }
   /** Forbid a destination to the town's parties, or allow it again; post (raise) or withdraw a bounty on one. */
   | { type: 'veto'; dest: string; on: boolean }
   /** The quest board (sim/questBoard.ts): take an offer up, or turn it down. */
@@ -39,10 +42,15 @@ export type Command =
   | { type: 'demolish'; building: number }
   /** Throw out everything of one material held in a storage building (to make room). */
   | { type: 'discardStock'; building: number; material: Material }
-  /** Add a topic to the end of the research queue. */
+  /** Pick a topic by hand: queued ahead of the town's own choices (sim/research.ts pickResearch). */
   | { type: 'queueResearch'; topic: string }
-  /** Remove a topic (and anything queued that depends on it) from the queue. Progress is kept. */
+  /** Remove a topic (and anything queued that depends on it) from the queue. Progress is kept; the town leaves it be
+   *  while it has anything else to study. */
   | { type: 'cancelResearch'; topic: string }
+  /** Pin (on) or unpin a building from the Building book: the town builds it next (sim/pins.ts). */
+  | { type: 'pinBuilding'; def: string; on: boolean }
+  /** Move a hand-picked topic a place earlier (-1) or later (1) among the picks. */
+  | { type: 'moveResearch'; topic: string; dir: -1 | 1 }
   /** Move a topic to the front of the queue. */
   | { type: 'researchNext'; topic: string }
   /** Send a party (leader first) to a destination, with a role for each member and a stance. */
@@ -162,6 +170,10 @@ export function parseCommand(raw: unknown): Command | null {
       return { type: 'becomeLich' };
     case 'setDirection':
       return DIRECTIONS.includes(c.direction as Direction) ? { type: 'setDirection', direction: c.direction as Direction } : null;
+    case 'edict':
+      return EDICT_OPS.includes(c.op as EdictOp) && typeof c.law === 'string' && LAW_BY_ID[c.law as LawId] && (c.pay === 'coins' || c.pay === 'standing')
+        ? { type: 'edict', op: c.op as EdictOp, law: c.law as LawId, pay: c.pay }
+        : null;
     case 'setTax':
       return TAX_RATES.includes(c.rate as TaxRate) ? { type: 'setTax', rate: c.rate as TaxRate } : null;
     case 'quest':
@@ -200,6 +212,10 @@ export function parseCommand(raw: unknown): Command | null {
     case 'cancelResearch':
     case 'researchNext':
       return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] ? { type: c.type, topic: c.topic } : null;
+    case 'pinBuilding':
+      return typeof c.def === 'string' && BUILDING_BY_ID[c.def] && typeof c.on === 'boolean' ? { type: 'pinBuilding', def: c.def, on: c.on } : null;
+    case 'moveResearch':
+      return typeof c.topic === 'string' && TOPIC_BY_ID[c.topic] && (c.dir === -1 || c.dir === 1) ? { type: 'moveResearch', topic: c.topic, dir: c.dir } : null;
     case 'sendDelve':
       return typeof c.dest === 'string' && Array.isArray(c.members) && c.members.every((m: unknown) => typeof m === 'number') && (c.stakes === 'safe' || c.stakes === 'risky') ? { type: 'sendDelve', dest: c.dest, members: c.members as number[], stakes: c.stakes } : null;
     case 'realm':

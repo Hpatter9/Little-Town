@@ -1111,6 +1111,8 @@ export interface GameState {
   plan?: TownPlan;
   /** The ring wall round the town (sim/ringWall.ts). */
   ring?: Ring;
+  /** Buildings the player pinned in the Building book: the town builds them next (sim/pins.ts). */
+  pins?: Pin[];
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
   /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
@@ -1132,6 +1134,11 @@ export interface GameState {
   busy?: { until: number; ids: number[]; text: string; x: number; y: number; anim: 'chop' | 'build' | 'mine' };
   bounties?: Record<string, number>;
   lastParty?: number;
+  /** Bonded parties (sim/companies.ts): the companies, the trips counted toward a bond (by the members' ids), and
+   *  the last company id given. */
+  companies?: import('./companies').Company[];
+  fellows?: Record<string, number>;
+  nextCompany?: number;
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
@@ -1194,6 +1201,9 @@ export interface GameState {
   origin?: OriginId;
   /** Chosen by the townsfolk's day-15 vote (sim/settlementName.ts). */
   townName?: string;
+  /** The town's guilds and squads (sim/guilds.ts), and when the last was founded or voted down. */
+  guilds?: import('./guildPerks').Guild[];
+  lastGuild?: number;
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
   buffs?: Record<string, number>;
@@ -1432,6 +1442,17 @@ export function meet(s: GameState, kinds: Iterable<string>): void {
 /** What came of an answer (an event's, a secret's, a saga's), kept a while for the event box and the feed's card. */
 export function setOutcome(s: GameState, title: string, choice: string | null, text: string): void {
   s.eventOutcome = { title, choice, text, tick: s.tick };
+}
+
+/** A building the player wished for: waiting for its turn (with why), or under way as `building`. */
+export interface Pin {
+  def: string;
+  /** The tick it was pinned (the wish gives up after PIN_WAIT_HOURS with no start). */
+  at: number;
+  /** The blueprint laid for it. */
+  building?: number;
+  /** What it's waiting on, for the menu. */
+  why?: string;
 }
 
 export function notify(s: GameState, text: string, key = false): void {

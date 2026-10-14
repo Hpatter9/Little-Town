@@ -18,7 +18,7 @@ import { FOOD_VALUE } from '../data/people';
 import {
   BLOC_DEFS, BLOCS, CAUGHT_BASE, CAUGHT_HARSH, CAUGHT_MOST, CAUGHT_PER_GUARD, COUNCIL_EVERY_DAYS, COUNCIL_FROM_DAY, COUNCIL_HOUR, COUNCIL_HOURS, COUNCIL_OPTIONS, COUNCIL_PEOPLE, CRIME_BASE, CRIME_HOUR, CRIME_PEOPLE, CRIME_PER_GUARD, CRIME_POOR, CRIME_UNHAPPY, CRIMES,
   CRIMINAL_NATURES, CURFEW_CRIME, FINE, GIVE_WAY, HARSH_CRIME, LAW_BY_ID, LAW_PULL, LAWS, MOOD_DIV, MOOD_LEAST, MOOD_MOST, MORALE_PULL, OVERRULE_COST, POOR_COINS, REVOLT_AT, REVOLT_BLOC_AT, REVOLT_GAP_DAYS, REVOLT_HOURS, REVOLT_OPTIONS, SAT_BASE, SAT_DRIFT, SAT_START,
-  SENTENCE_OF, SENTENCE_PULL, SENTENCES, STEP_DOWN, STOCKS_MORALE, STRIKE_AT, STRIKE_EASE, STRIKE_GAP_DAYS, STRIKE_HOURS, TAX_PULL, TRIAL_HOURS, type BlocId, type CrimeKind, type LawId, type Sentence,
+  EDICT_COINS, EDICT_COOLDOWN_DAYS, EDICT_STANDING, EDICT_SWAY, type EdictOp, type EdictPay, SENTENCE_OF, SENTENCE_PULL, SENTENCES, STEP_DOWN, STOCKS_MORALE, STRIKE_AT, STRIKE_EASE, STRIKE_GAP_DAYS, STRIKE_HOURS, TAX_PULL, TRIAL_HOURS, type BlocId, type CrimeKind, type LawId, type Sentence,
 } from '../data/politics';
 import type { TaxRate } from '../data/economy';
 import { hashSeed, mixSeed, Rng } from '../rng';
@@ -39,12 +39,14 @@ export interface PoliticsState {
   sat: Record<BlocId, number>;
   laws: LawId[];
   lastCouncil?: number;
-  vote?: { prompt: number; by: BlocId; law?: LawId; repeal?: boolean; tax?: TaxRate; for: number; against: number; passes: boolean };
+  vote?: { prompt: number; by: BlocId | null; law?: LawId; repeal?: boolean; tax?: TaxRate; for: number; against: number; passes: boolean };
   trial?: { prompt: number; who: number; crime: CrimeKind; what: string; options: Sentence[]; victim?: number };
   strike?: { bloc: BlocId; until: number };
   lastStrike?: Partial<Record<BlocId, number>>;
   revolt?: { prompt: number; bloc: BlocId };
   lastRevolt?: number;
+  /** When the founder last issued an edict (`issueEdict`). */
+  lastEdict?: number;
   /** A day's crime and trial counts, for the menu. */
   crimes?: number;
   caught?: number;
@@ -225,7 +227,7 @@ export function council(s: GameState): void {
   }
 }
 
-export function callVote(s: GameState, by: BlocId, prop: NonNullable<ReturnType<typeof proposalOf>>): void {
+export function callVote(s: GameState, by: BlocId | null, prop: NonNullable<ReturnType<typeof proposalOf>>): void {
   const pol = politicsOf(s);
   let yes = 0;
   let no = 0;
@@ -245,11 +247,11 @@ export function callVote(s: GameState, by: BlocId, prop: NonNullable<ReturnType<
     kind: 'council',
     expedition: null,
     title: `The council votes on ${name}`,
-    text: `${BLOC_DEFS[by].name} called for ${name}. ${yes} for, ${no} against: it ${passes ? 'passes' : 'fails'}.`,
+    text: `${by ? BLOC_DEFS[by].name : founderName(s)} called for ${name}. ${yes} for, ${no} against: it ${passes ? 'passes' : 'fails'}.`,
     options: [...COUNCIL_OPTIONS],
     defaultOption: 0,
     expiresTick: s.tick + COUNCIL_HOURS * TICKS_PER_HOUR,
-    story: `The council meets by the fire as the light goes. ${BLOC_DEFS[by].name} have the floor, and they've come angry: they call for ${name}.${prop.tax ? '' : ` (${what})`}\n\nThe town votes: ${yes} for, ${no} against. It ${passes ? 'passes' : 'fails'}.\n\nYou may let the vote stand, or overrule it. Overruled, those who won will not forget it.`,
+    story: `The council meets by the fire as the light goes. ${by ? `${BLOC_DEFS[by].name} have the floor, and they've come angry: they call for ${name}.` : `${founderName(s)} has called it, and puts it to them: ${name}.`}${prop.tax ? '' : ` (${what})`}\n\nThe town votes: ${yes} for, ${no} against. It ${passes ? 'passes' : 'fails'}.\n\nYou may let the vote stand, or overrule it. Overruled, those who won will not forget it.`,
     picture: eventPicture(`council:${s.tick}`, 'town hall crowd council vote', { hour: cal.hour, season: cal.season, weather: weatherAt(s.seed, s.tick, null).kind, biome: s.biome ?? 'forest', era: s.era, sea: seaTown(s) }),
     politics: 'vote',
   };
@@ -276,6 +278,56 @@ function settleVote(s: GameState, overrule: boolean): void {
     else if (prop.law && !pol.laws.includes(prop.law)) pol.laws.push(prop.law);
   }
   log(s, 'vote', `${overrule ? 'Overruled by the founder: ' : 'The council: '}${name} ${passes ? 'carried' : 'thrown out'} (${v.for} for, ${v.against} against).`, true);
+}
+
+const founderName = (s: GameState) => s.people.find((p) => p.id === s.mainId)?.name ?? 'The founder';
+
+/* ------------------------------------------------------------ the founder's edicts */
+
+/** Whether the founder may issue an edict now, and why not. */
+export function edictCheck(s: GameState, op: EdictOp, law: LawId, pay: EdictPay): { ok: true } | { ok: false; reason: string } {
+  const pol = s.politics;
+  if (!pol) return { ok: false, reason: 'the town has no council yet' };
+  if (!LAW_BY_ID[law]) return { ok: false, reason: 'no such law' };
+  const wait = edictWait(s);
+  if (wait > 0) return { ok: false, reason: `the town needs ${wait} more hour${wait === 1 ? '' : 's'} before another edict` };
+  if (op === 'proclaim' && pol.laws.includes(law)) return { ok: false, reason: 'that law is in force already' };
+  if (op === 'repeal' && !pol.laws.includes(law)) return { ok: false, reason: 'that law is not in force' };
+  if (op === 'vote' && (pol.vote || s.prompts.some((q) => q.politics === 'vote'))) return { ok: false, reason: 'the council is already voting' };
+  if (op === 'vote' && grownAtHome(s).filter((p) => blocOf(s, p)).length < 2) return { ok: false, reason: 'too few at home to vote' };
+  if (pay === 'coins' && (s.coins ?? 0) < EDICT_COINS) return { ok: false, reason: `the treasury hasn't ${EDICT_COINS} coins` };
+  return { ok: true };
+}
+/** Hours until the founder may issue another edict. */
+export function edictWait(s: GameState): number {
+  const last = s.politics?.lastEdict;
+  return last === undefined ? 0 : Math.max(0, Math.ceil((last + EDICT_COOLDOWN_DAYS * TICKS_PER_DAY - s.tick) / TICKS_PER_HOUR));
+}
+
+/** The founder's edict: paid for in coins or standing; a law proclaimed or repealed at once (the blocs that care moved
+ *  as the law would move them), or a vote called on it. */
+export function issueEdict(s: GameState, op: EdictOp, law: LawId, pay: EdictPay): { ok: true } | { ok: false; reason: string } {
+  const check = edictCheck(s, op, law, pay);
+  if (!check.ok) return check;
+  const pol = politicsOf(s);
+  pol.lastEdict = s.tick;
+  if (pay === 'coins') {
+    s.coins = (s.coins ?? 0) - EDICT_COINS;
+    earn(s, 'realm', -EDICT_COINS);
+  } else for (const b of BLOCS) pol.sat[b] = clamp(pol.sat[b] - EDICT_STANDING);
+  const def = LAW_BY_ID[law];
+  const how = pay === 'coins' ? `for ${EDICT_COINS} coins` : 'at the cost of the town\'s goodwill';
+  if (op === 'vote') {
+    callVote(s, null, { law, repeal: pol.laws.includes(law) });
+    log(s, 'law', `${founderName(s)} calls the council to vote on ${pol.laws.includes(law) ? 'repealing' : 'passing'} ${def.name.toLowerCase()} (${how}).`, true);
+    return check;
+  }
+  const sign = op === 'proclaim' ? 1 : -1;
+  for (const b of BLOCS) pol.sat[b] = clamp(pol.sat[b] + (def.stance[b] ?? 0) * sign * EDICT_SWAY);
+  if (op === 'proclaim') pol.laws.push(law);
+  else pol.laws = pol.laws.filter((l) => l !== law);
+  log(s, 'law', `By edict of ${founderName(s)}, ${def.name.toLowerCase()} is ${op === 'proclaim' ? 'proclaimed' : 'repealed'} (${how}).`, true);
+  return check;
 }
 
 /* ------------------------------------------------------------ crime */
@@ -534,6 +586,10 @@ export interface PoliticsView {
   caught: number;
   strike: { bloc: string; hours: number } | null;
   tax: TaxRate;
+  /** Hours until the founder may issue another edict, and what one costs. */
+  edictWait: number;
+  edictCoins: number;
+  edictStanding: number;
 }
 
 export function politicsView(s: GameState): PoliticsView | null {
@@ -567,5 +623,8 @@ export function politicsView(s: GameState): PoliticsView | null {
     caught: pol.caught ?? 0,
     strike: pol.strike && s.tick < pol.strike.until ? { bloc: BLOC_DEFS[pol.strike.bloc].name, hours: Math.ceil((pol.strike.until - s.tick) / TICKS_PER_HOUR) } : null,
     tax: s.tax ?? 'fair',
+    edictWait: edictWait(s),
+    edictCoins: EDICT_COINS,
+    edictStanding: EDICT_STANDING,
   };
 }

@@ -56,6 +56,7 @@ import { BloodPools } from './map/bloodPools';
 import { MapDisaster } from './map/mapDisaster';
 import { createBattleHud } from './battle/battleHud';
 import { createRaidRecap } from './battle/raidRecap';
+import { createAwayCard, createCatchingUp } from './awayCard';
 import { BattleJuice } from './battle/juice';
 import { startCinema } from './cinema/cinema';
 import { momentOf } from './cinema/moments';
@@ -520,6 +521,8 @@ async function start(): Promise<void> {
     speed: (n) => bridge.command({ type: 'battleSpeed', speed: n }),
   });
   const raidRecap = createRaidRecap();
+  const catchingScreen = createCatchingUp();
+  const awayCard = createAwayCard();
   const cinema = startCinema(document.body); // (a big moment as a title card, the screen letterboxed)
   let lastNewsId = -2; // (-2: no snapshot yet; the news already there when the page opens is not shown again)
   const battleHud = createBattleHud({
@@ -571,6 +574,18 @@ async function start(): Promise<void> {
   let regionShown = '';
   let regionHideAt = 0;
   (window as unknown as { __camera?: MapCamera }).__camera = camera; // (for previews)
+  // (a button back to the town's camp, wherever the view has wandered: the owner's ask)
+  const homeButton = document.createElement('button');
+  homeButton.id = 'centre-town';
+  homeButton.setAttribute('data-hit', '');
+  homeButton.title = 'Back to the town';
+  homeButton.setAttribute('aria-label', 'Back to the town');
+  homeButton.textContent = '⌂';
+  homeButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    camera.centreOn(snap?.camp ?? first.camp, app.screen.width, app.screen.height);
+  });
+  document.body.append(homeButton);
   camera.centreOn(first.camp, app.screen.width, app.screen.height); // (a nomad tribe's camp may be away on its pasture)
 
   /** The expedition shown in the split view: the most recently sent one. */
@@ -790,6 +805,13 @@ async function start(): Promise<void> {
           if (b.overgrown) lines.push('Clearing the ground here first: the trees and rocks on the line are being cut and dug out');
           else if (b.planned) lines.push('Laid out, waiting to be worked');
           return { title: `${def.name} (the wall going up)`, lines, hint: 'Click for options', y: r.y };
+        }
+        // (the seat holds back each new age's studies until it is raised to that age: sim/research.ts)
+        const seatAt = SEAT_STAGE[b.def] ? snap.research.seat : null;
+        if (seatAt) {
+          if (seatAt.building) lines.push(`Being raised to the ${seatAt.next}: the new age's studies open when it stands`);
+          else if (seatAt.next) lines.push(`Stage ${seatAt.stage} of 5. The ${seatAt.nextEra} age's studies wait until it is raised to the ${seatAt.next}`);
+          else lines.push('Stage 5 of 5: every age\'s studies are open');
         }
         if (b.status === 'blueprint') {
           const parts = (Object.entries(def.cost) as [Material, number][]).map(([m, n]) => `${MATERIAL_NAMES[m]} ${b.delivered[m] ?? 0}/${n}`);
@@ -1571,7 +1593,7 @@ async function start(): Promise<void> {
     interior.update(within, next.people);
     tactics.update(next);
     // (a scene is offered only while nothing else has the screen: a battle, a watched fight, a question)
-    cutscene.update(next.scene, next.era, !!(next.battle || next.raid || watched || inMine || below || beyond || within || next.tactics || next.prompts.length));
+    cutscene.update(next.scene, next.era, awayCard.open || !!(next.battle || next.raid || watched || inMine || below || beyond || within || next.tactics || next.prompts.length));
     map.root.visible = !watched && !inMine && !below && !beyond && !within && !next.tactics && !cutscene.shown;
     showNotices(next);
     // (the town's sounds: blows, spells, coins, bells... when the sound is on and the town is on screen)
@@ -1919,11 +1941,38 @@ async function start(): Promise<void> {
     if (selected) showActions();
     if (selectedPerson !== null) showPersonCard();
   };
+  // While the time away is caught up the town isn't drawn (the ticker stopped, the snapshots only move a bar): drawing
+  // each slice once took two thirds of the catch-up. Done, the town is drawn from where it now stands (nothing since
+  // it was last drawn pops up: no toasts, buzzes, sounds or the raids' recaps), and one card says what mattered.
+  let catching = false;
+  const catchUpSnap = (next: Snapshot): boolean => {
+    if (next.catchingUp != null) {
+      catchingScreen.show(next.catchingUp);
+      if (!catching) {
+        catching = true;
+        app.ticker.stop();
+      }
+      return true;
+    }
+    if (!catching) return false;
+    catching = false;
+    catchingScreen.hide();
+    resumedAt = performance.now();
+    app.ticker.start();
+    snap = next;
+    lastNotice = Math.max(lastNotice, next.notices.at(-1)?.id ?? 0);
+    raidRecap.seenNow(next);
+    applySnapshot(next);
+    if (next.away?.length) awayCard.show(next.away);
+    return true;
+  };
   bridge.onSnapshot((next) => {
+    if (catchUpSnap(next)) return;
     if (pinching) heldSnap = next;
     else applySnapshot(next);
   });
   applySnapshot(first);
+  if (first.catchingUp != null) catchUpSnap(first);
 
   /* -------------------------------------------------------- frame loop */
 

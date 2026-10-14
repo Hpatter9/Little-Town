@@ -6,7 +6,7 @@
 
 import { ERA_NAMES, ERAS, eraReached, type Era } from '../../shared/data/eras';
 import { TOPICS, type Branch, type Topic } from '../../shared/data/research';
-import { foreignHeritage, prereqsMet } from '../../shared/sim/research';
+import { foreignHeritage, prereqsMet, seatNeeded } from '../../shared/sim/research';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { el } from './dom';
 import { topicKnown } from './secrets';
@@ -140,10 +140,14 @@ export function renderTree(s: Snapshot, selected: string | null, onSelect: (id: 
     const p = pos.get(t.id)!;
     const done = r.done.includes(t.id);
     const queued = r.queue.includes(t.id);
-    const open = !done && !queued && prereqsMet(rs, t.id, era, s.origin.id).ok;
+    const seat = r.seat?.stage;
+    const open = !done && !queued && prereqsMet(rs, t.id, era, s.origin.id, seat).ok;
     const ahead = !eraReached(era, eraOf(t));
     const state = done ? 'done' : queued ? 'queued' : ahead ? 'future' : open ? 'open' : 'locked';
-    const n = el('div', `tn ${state}${t.id === selected ? ' sel' : ''}`, nameOf(t));
+    // (picked by hand, and waiting on the seat raised to its age: research.ts)
+    const picked = r.picked.includes(t.id);
+    const gated = !done && !ahead && seat !== undefined && seat < seatNeeded(t.id);
+    const n = el('div', `tn ${state}${picked ? ' picked' : ''}${gated ? ' seat' : ''}${t.id === selected ? ' sel' : ''}`, `${picked ? '✋ ' : gated ? '🏛 ' : ''}${nameOf(t)}`);
     n.style.left = `${p.x}px`;
     n.style.top = `${p.y}px`;
     n.title = nameOf(t);

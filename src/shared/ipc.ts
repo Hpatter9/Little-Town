@@ -24,7 +24,7 @@ export const PANELS: readonly { id: PanelId; label: string }[] = [
   { id: 'townsfolk', label: 'People' },
   { id: 'research', label: 'Studies' },
   { id: 'trade', label: 'Market' },
-  { id: 'expeditions', label: 'Trips' },
+  { id: 'expeditions', label: 'Quests' },
   ...(CONQUEST.on ? [{ id: 'war' as const, label: 'War' }] : []), // (the conquest is off for now: data/conquest.ts)
   { id: 'journal', label: 'Chronicle' },
 ];

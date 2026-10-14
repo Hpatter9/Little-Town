@@ -3,6 +3,7 @@
 // round them, tap one for its stats), what they carry, how they fight, and everything else about them.
 
 import { familiesSection } from './familyPanel';
+import { guildsSection } from './guildPanel';
 import { mapBeside, showOnMap } from './townOverview';
 import { hkDraw, hkLayers, hkWhoOf, onHkLoad } from '../art/hkFolk';
 import { pieceLabel, plusOf, qualityOf } from '../../shared/data/quality';
@@ -48,6 +49,7 @@ export const townsfolkKey = (s: Snapshot) => {
     s.housing.beds <= s.housing.people,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 20), p.hungry]),
     s.families.map((f) => [f.root, f.members.length, f.living, f.renown, f.blackSheep.length, f.members.map((m) => m.master).join()]),
+    s.guilds.map((g) => [g.id, g.name, g.leader?.id, g.members.map((m) => [m.id, m.level]), g.log[0]]),
     s.turnable,
     confirmTurn,
     s.research.done.length,
@@ -137,6 +139,16 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
 
   out.push(
     ...familiesSection(s, (id) => {
+      inspecting = id;
+      chosenSlot = null;
+      rerender();
+      const box = scroller();
+      if (box) box.scrollTop = 0;
+    }),
+  );
+
+  out.push(
+    ...guildsSection(s, (id) => {
       inspecting = id;
       chosenSlot = null;
       rerender();

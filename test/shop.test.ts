@@ -1,3 +1,5 @@
+import { UPGRADES } from '../src/shared/data/buildings';
+import { seatOf } from '../src/shared/data/seats';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
@@ -370,6 +372,8 @@ test('drawing customers it has no wares for, the town studies what makes them', 
   s.era = 'medieval';
   s.direction = 'trade';
   s.research.done = TOPICS.filter((t) => !t.era && !t.hidden && t.branch !== 'occult').map((t) => t.id).concat(['mining']);
+  const seat = seatOf(s.buildings)!;
+  seat.def = UPGRADES[seat.def]; // (the Medieval studies wait on the seat raised to its stage: sim/research.ts)
   addBuilding(s, 'trading_post', camp(s).x + 3);
   s.buildings.find((b) => b.def === 'trading_post')!.shop = { pieces: [], renown: 50 }; // (nobles come: no noble's ware can be made yet)
   s.buildings[0].store = { wood: 25, stone: 25, berries: 25 };
