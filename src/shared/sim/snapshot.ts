@@ -102,7 +102,8 @@ import { atPlace, DESTINATIONS, MAX_EXPEDITIONS, ROLES, the } from '../data/expe
 import { RAID_KIND_BY_ID } from '../data/raids';
 import { alarmRaised, cavalry, gateTop, onShift } from './people';
 import { isGate, ringProgress, ringShapeOf } from './ringWall';
-import type { Era } from '../data/eras';
+import { ERA_NAMES, type Era } from '../data/eras';
+import { seatOf } from '../data/seats';
 import { ITEM_BY_ID, ITEMS, type Slot } from '../data/items';
 import { MATERIAL_NAMES, type Material, type Stock } from '../data/materials';
 import { CROPS } from '../data/crops';
@@ -121,7 +122,7 @@ import { SKILLS, skillSpeed, xpToNext, type Skill } from '../data/skills';
 import { TERRAIN } from '../data/terrain';
 import { buildingCentre, buildingCentreX, buildSlots, defOf, enclosure, footprint, totalCapacity, totalStock } from './buildings';
 import { destinationHidden, destinationOf, destinationUnlocked, foodNeeded, partyCarry, planParty } from './expeditions';
-import { modifiers, researchStation, researchStations } from './research';
+import { modifiers, researchStation, researchStations, seatStageNow } from './research';
 import { tireless, carryCapacity, ERA_MULTIPLIER, FX_TICKS, maxHp, RESEARCH_MULTIPLIER, poolSize, type PersonFx, type RaiderHitFx, type SpellTarget, SPELL_FX_TICKS, type Activity, type Building, type CraftOrder, type Expedition, type ExpeditionPhase, type GameState, type JournalEntry, type Ledger, type Needs, type Notice, type Person, type TileState, campCell, campX, campXY, BLOOD_LASTS, DEBRIS_LASTS, type DebrisKind, type ShopTalk } from './state';
 import { cellAt, groundAt, inMap, type LandMap, wet, CELL } from './land';
 import { calendar, TICK_HZ, TICKS_PER_HOUR, type Calendar } from './time';
@@ -1112,6 +1113,11 @@ export interface ResearchView {
   speed: number;
   /** The town's people: the topics' and lanes' names are theirs (data/originResearch.ts). */
   origin?: OriginId;
+  /** Topics the player picked by hand (first in the queue), and those they took out. */
+  picked: string[];
+  shelved: string[];
+  /** The seat's stage (1..5) the research gate reads (null: no gate), its name, and the next stage's name and era. */
+  seat: { stage: number; name: string; next: string | null; nextEra: string | null; building: boolean } | null;
 }
 
 export function snapshot(s: GameState): Snapshot {
@@ -2116,7 +2122,19 @@ function researchView(s: GameState): ResearchView {
     }),
     speed: ((main ? skillSpeed(main.skills.research.level) : 1) * station.mult * mods.researchSpeed) / (RESEARCH_MULTIPLIER[s.era] * RESEARCH_PACE[s.era]),
     origin: s.origin,
+    picked: [...(r.picked ?? [])],
+    shelved: [...(r.shelved ?? [])],
+    seat: seatView(s),
   };
+}
+
+function seatView(s: GameState): ResearchView['seat'] {
+  const stage = seatStageNow(s);
+  const seat = seatOf(s.buildings);
+  if (stage === undefined || !seat) return null;
+  const at = seat.status === 'done' ? seat.def : Object.keys(UPGRADES).find((k) => UPGRADES[k] === seat.def) ?? seat.def;
+  const next = UPGRADES[at] ? BUILDING_BY_ID[UPGRADES[at]] : undefined;
+  return { stage, name: BUILDING_BY_ID[at]?.name ?? '', next: next?.name ?? null, nextEra: next?.era ? ERA_NAMES[next.era] : null, building: seat.status !== 'done' };
 }
 
 /** What someone at one of the small scenes is doing (sim/idleScenes.ts), there and on the way. */

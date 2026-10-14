@@ -5,6 +5,7 @@ import { forgone, topicName } from '../data/originResearch';
 import type { OriginId } from '../data/origins';
 import { RESEARCH_QUEUE_BASE, RESEARCH_STATIONS, TOPIC_BY_ID, type ResearchRule } from '../data/research';
 import type { WorkAnim } from '../data/terrain';
+import { SEAT_ERAS, SEAT_STAGE, seatOf } from '../data/seats';
 import type { GameState, Person } from './state';
 
 export interface ResearchState {
@@ -15,6 +16,11 @@ export interface ResearchState {
   progress: Record<string, number>;
   /** Hidden topics the town has discovered. */
   revealed?: string[];
+  /** Topics the player picked by hand, in the order they want them: these go first in the queue, and the planner
+   *  never takes them out (pickResearch). */
+  picked?: string[];
+  /** Topics the player took out of the queue: the planner leaves them be while it has anything else to study. */
+  shelved?: string[];
 }
 
 export interface Modifiers {
@@ -136,9 +142,11 @@ export interface QueueCheck {
  * Whether a topic's prerequisites are met (done, or queued ahead of it) and its era has come. Ignores
  * queue space. A capstone's "n other topics" counts only topics of its own era.
  */
-export function prereqsMet(r: ResearchState, id: string, era: Era = 'neolithic', origin?: OriginId): QueueCheck {
+export function prereqsMet(r: ResearchState, id: string, era: Era = 'neolithic', origin?: OriginId, seat?: number): QueueCheck {
   const t = TOPIC_BY_ID[id];
   if (!t) return { ok: false, reason: 'Unknown topic' };
+  const need = seatNeeded(id);
+  if (seat !== undefined && seat < need) return { ok: false, reason: `Needs the seat raised to its ${ERA_NAMES[SEAT_ERAS[need - 1]]} stage` };
   if (foreignHeritage(id, origin)) return { ok: false, reason: 'Another people\'s heritage' };
   if (forgone(id, origin)) return { ok: false, reason: 'Not studied by your people' };
   if (t.hidden && !(r.revealed ?? []).includes(t.id)) return { ok: false, reason: 'Undiscovered' };
@@ -155,36 +163,120 @@ export function prereqsMet(r: ResearchState, id: string, era: Era = 'neolithic',
 }
 
 /** Whether a topic can be added to the queue (prerequisites may be queued ahead of it). */
-export function canQueue(r: ResearchState, id: string, era: Era = 'neolithic', origin?: OriginId): QueueCheck {
+export function canQueue(r: ResearchState, id: string, era: Era = 'neolithic', origin?: OriginId, seat?: number): QueueCheck {
   if (r.done.includes(id)) return { ok: false, reason: 'Already researched' };
   if (r.queue.includes(id)) return { ok: false, reason: 'Already queued' };
-  const pre = prereqsMet(r, id, era, origin);
+  const pre = prereqsMet(r, id, era, origin, seat);
   if (!pre.ok) return pre;
   if (r.queue.length >= modifiers(r).researchSlots) return { ok: false, reason: 'Research queue is full' };
   return { ok: true };
 }
 
-export function queueResearch(r: ResearchState, id: string, era: Era = 'neolithic', origin?: OriginId): QueueCheck {
-  const check = canQueue(r, id, era, origin);
+export function queueResearch(r: ResearchState, id: string, era: Era = 'neolithic', origin?: OriginId, seat?: number): QueueCheck {
+  const check = canQueue(r, id, era, origin, seat);
   if (check.ok) r.queue.push(id);
   return check;
 }
 
-/** Remove a topic from the queue, along with anything queued that depends on it. */
-export function cancelResearch(r: ResearchState, id: string): void {
+/** Remove a topic from the queue, along with anything queued that depends on it. The player's removal (`byHand`)
+ *  shelves them, so the planner doesn't put them straight back. */
+export function cancelResearch(r: ResearchState, id: string, byHand = false): void {
   if (!r.queue.includes(id)) return;
   const drop = new Set([id]);
   for (const q of r.queue) if (TOPIC_BY_ID[q].prereqs.some((p) => drop.has(p))) drop.add(q);
   r.queue = r.queue.filter((q) => !drop.has(q));
+  if (r.picked) r.picked = r.picked.filter((q) => !drop.has(q));
+  if (byHand) r.shelved = [...new Set([...(r.shelved ?? []), ...drop])];
 }
 
-/** Move a topic to the front of the queue, if its prerequisites are all done. */
+/** Move a topic to the front of the queue, if its prerequisites are all done. (Behind the player's picks, if it
+ *  isn't one.) */
 export function researchNext(r: ResearchState, id: string): void {
   const i = r.queue.indexOf(id);
   if (i <= 0) return;
   if (!TOPIC_BY_ID[id].prereqs.every((p) => r.done.includes(p))) return;
   r.queue.splice(i, 1);
   r.queue.unshift(id);
+  if (!(r.picked ?? []).includes(id)) orderQueue(r);
+}
+
+/** The seat's stage (data/seats.ts) a topic waits on: its era's (Stone Age 1, Medieval 2...). */
+export const seatNeeded = (id: string): number => Math.max(1, SEAT_ERAS.indexOf(TOPIC_BY_ID[id]?.era ?? 'neolithic') + 1);
+
+/** The stage the town's seat stands at, for the research gate; undefined (no gate) for a town without one, or with
+ *  every topic unlocked. */
+export function seatStageNow(s: GameState): number | undefined {
+  if (s.cheats?.unlockAll) return undefined;
+  const seat = seatOf(s.buildings);
+  if (!seat) return undefined;
+  const stage = SEAT_STAGE[seat.def]?.stage ?? 1;
+  // (being rebuilt, it stands at the stage before)
+  return Math.max(1, seat.status === 'done' ? stage : stage - 1);
+}
+
+/** The player's picks first, in their order (each after its own picked prerequisites), then the town's own. */
+function orderQueue(r: ResearchState): void {
+  const picked = (r.picked ?? []).filter((id) => r.queue.includes(id));
+  r.picked = picked;
+  const out: string[] = [];
+  const put = (id: string) => {
+    if (out.includes(id)) return;
+    for (const p of TOPIC_BY_ID[id].prereqs) if (picked.includes(p)) put(p);
+    out.push(id);
+  };
+  for (const id of picked) put(id);
+  r.queue = [...out, ...r.queue.filter((id) => !out.includes(id))];
+}
+
+/** The player picks a topic by hand: queued ahead of the town's own choices (any of its prerequisites already queued
+ *  are picked with it, so they come first). With the queue full, the last of the town's own choices makes room. */
+export function pickResearch(r: ResearchState, id: string, era: Era = 'neolithic', origin?: OriginId, seat?: number): QueueCheck {
+  if (r.done.includes(id)) return { ok: false, reason: 'Already researched' };
+  if ((r.picked ?? []).includes(id)) return { ok: false, reason: 'Already picked' };
+  const pre = prereqsMet(r, id, era, origin, seat);
+  if (!pre.ok) return pre;
+  const chain: string[] = [];
+  const add = (q: string) => {
+    if (chain.includes(q) || r.done.includes(q)) return;
+    for (const p of TOPIC_BY_ID[q].prereqs) if (r.queue.includes(p)) add(p);
+    chain.push(q);
+  };
+  add(id);
+  const picked = r.picked ?? [];
+  const slots = modifiers(r).researchSlots;
+  // (full of the player's own picks: one must go first)
+  if (new Set([...picked, ...chain]).size > slots) return { ok: false, reason: 'Research queue is full' };
+  r.picked = [...picked, ...chain.filter((q) => !picked.includes(q))];
+  if (!r.queue.includes(id)) r.queue.push(id);
+  r.shelved = (r.shelved ?? []).filter((q) => !chain.includes(q));
+  orderQueue(r);
+  // (room made: the town's own choices from the back, and whatever of theirs depended on them)
+  while (r.queue.length > slots) {
+    const last = [...r.queue].reverse().find((q) => !r.picked!.includes(q));
+    if (!last) break;
+    cancelResearch(r, last);
+  }
+  return { ok: true };
+}
+
+/** Move one of the player's picks a place earlier (-1) or later (1) among the picks; never ahead of its own
+ *  prerequisites, never behind what needs it. */
+export function moveResearch(r: ResearchState, id: string, dir: -1 | 1): void {
+  const picked = r.picked ?? [];
+  const i = picked.indexOf(id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= picked.length) return;
+  const [a, b] = dir < 0 ? [picked[j], id] : [id, picked[j]];
+  // (b would come before a: not if b needs a)
+  if (TOPIC_BY_ID[b].prereqs.includes(a)) return;
+  picked[i] = picked[j];
+  picked[j] = id;
+  orderQueue(r);
+}
+
+/** Finished topics leave the picks too. */
+export function tidyPicks(r: ResearchState): void {
+  if (r.picked?.length) r.picked = r.picked.filter((q) => r.queue.includes(q));
 }
 
 /** Every place research can happen, best first: each finished research station (the campfire among them). One person

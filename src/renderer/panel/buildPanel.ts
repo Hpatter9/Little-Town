@@ -307,6 +307,7 @@ function buildingDetails(def: BuildingDef, s: Snapshot): More[] {
       ['Job', job ? `${job.title} (${SKILL_NAMES[job.skill]}): ${job.effect.toLowerCase()}` : null],
       ['Built by the shore', def.shore ? 'yes: it must touch water' : null],
       ['Rebuilt from', from.length ? from.join(' or ') : null],
+      ['Opens studies', def.seat ? `of the ${ERA_NAMES[def.era ?? 'neolithic']} age: until the seat stands at this stage, that age's research waits` : null],
       ['Grows into', next ? `${next.name}${next.research ? ` (once ${topicName(next.research, s.origin.id)} is learned)` : ''}` : null],
       ['In town', standing.length ? `${standing.filter((b) => b.status === 'done').length} standing${standing.some((b) => b.status !== 'done') ? `, ${standing.filter((b) => b.status !== 'done').length} going up` : ''}` : null],
     ]),

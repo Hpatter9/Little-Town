@@ -391,7 +391,8 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
   if (!b || !to || b.status !== 'done') return { ok: false, reason: 'Nothing to upgrade to' };
   const def = BUILDING_BY_ID[to];
   if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: def.era && !eraReached(s.era, def.era) ? `Opens in the ${ERA_NAMES[def.era]} era` : `Needs research: ${topicName(def.research!, s.origin)}`, to };
-  if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full', to };
+  // (the seat is rebuilt whatever else is in hand: the new age's studies wait on it)
+  if (blueprintCount(s) >= buildSlots(s) && !isSeat(b.def)) return { ok: false, reason: 'Construction queue is full', to };
   if (b.fire !== undefined) return { ok: false, reason: 'It is on fire', to };
   // (absorbing a neighbour: it's pulled down to make room, so it doesn't count as in the way)
   const merged = absorb === undefined ? undefined : s.buildings.find((q) => q.id === absorb);

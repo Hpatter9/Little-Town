@@ -4224,3 +4224,23 @@ blocked by buildings, structures, trees and rocks)
   joins that to each listed event's `when` as EVENTS is put together (data/events.ts), so a lich or machine town never
   meets them. A new event about any of these goes in its list. Test: `test/eventFit.test.ts` (and any event whose
   words speak of hunger must be listed or named as someone else's hunger).
+
+## Research picked by hand, and the seat that opens each age (the owner's asks)
+
+- **Picking research:** `pickResearch` in sim/research.ts (the `queueResearch` command from the player; the planner
+  still calls `queueResearch` the function). A pick goes in `ResearchState.picked` and to the front of the queue, its
+  queued prerequisites picked with it (`orderQueue`: picks first, each after its own picked prerequisites); with the
+  queue full, the town's own choices go from the back; full of picks, it's refused. `moveResearch` (the `moveResearch`
+  command, `dir` -1 or 1) reorders the picks, never ahead of a prerequisite. `cancelResearch(..., byHand)` (the player's
+  Remove) puts the topic and what depends on it in `shelved`, which the planner's `planResearch` skips while it has
+  anything else; picking it again takes it off. `tidyPicks` drops finished picks. With no picks the planner runs as
+  before. The Studies tab: queue rows say "your pick" (✋) or "the town's choice", with ▲ ▼ for picks, Pick for the
+  town's, Remove for both; a topic's card has **✋ Pick: study this first**; picked nodes in the tree are blue
+  (`.tn.picked`). `ResearchView.picked`/`.shelved`. Test: `test/researchPicks.test.ts`.
+- **The seat opens each age's studies:** a topic of an era needs the seat (data/seats.ts) at that era's stage
+  (`seatNeeded`: Stone Age 1, Medieval 2...; `prereqsMet`/`canQueue` take the stage as `seat`, from `seatStageNow`:
+  the seat's stage, one less while it's being rebuilt; undefined, no gate, with no seat or `unlockAll`). The planner's
+  `planSeat` now runs before the full-build-queue check, `canUpgrade` lets a seat over the slot limit, haulers serve
+  the seat first (`haulOrder`), and a town with no seat (an older save) lays its first (open towns only). Shown: a
+  dashed 🏛 node in the tree, a line on the Studies tab and on each topic's card (`ResearchView.seat`), the seat's tap
+  card and its building card ("Opens studies").

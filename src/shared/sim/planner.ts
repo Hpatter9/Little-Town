@@ -30,7 +30,7 @@ import { isGrate, isRingPiece, planRing, ringWants, RING_PEOPLE } from './ringWa
 import { inSea, seaBuild, seaTown } from './sea';
 import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
-import { isSeat, seatOf } from '../data/seats';
+import { isSeat, seatId, seatOf } from '../data/seats';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { ORES } from '../data/minerals';
 import { mines } from './places';
@@ -46,7 +46,7 @@ import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, fo
 import { buildable, wet, setGround, type Rect, touchesWater, type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
 import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
-import { canQueue, researchMods, queueResearch } from './research';
+import { canQueue, researchMods, queueResearch, seatStageNow, tidyPicks } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
 import { tireless, eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
@@ -300,6 +300,11 @@ const LEADS_SHARE = 0.85;
 
 function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
   const slots = researchMods(s.research).researchSlots;
+  const seat = seatStageNow(s);
+  tidyPicks(s.research);
+  // (the player's own picks stand first; the town fills the rest, leaving what the player took out unless there's
+  // nothing else)
+  const shelved = new Set(s.research.shelved ?? []);
   while (s.research.queue.length < slots) {
     let best: Topic | null = null;
     let bestScore = -Infinity;
@@ -313,22 +318,26 @@ function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
       if (open.length !== 1) continue;
       leads.set(open[0], Math.max(leads.get(open[0]) ?? 0, topicScore(t, n) * LEADS_SHARE));
     }
-    for (const t of TOPICS) {
-      // (refinements wait until the town is a few people strong: its first days go on shelter and food)
-      if (t.refinement && n.people < REFINE_AT) continue;
-      if (!canQueue(s.research, t.id, s.era, s.origin).ok) continue;
-      const sc = Math.max(topicScore(t, n), leads.get(t.id) ?? 0);
-      if (sc > bestScore) {
-        best = t;
-        bestScore = sc;
+    for (const pass of [false, true]) {
+      for (const t of TOPICS) {
+        // (refinements wait until the town is a few people strong: its first days go on shelter and food)
+        if (t.refinement && n.people < REFINE_AT) continue;
+        if (shelved.has(t.id) !== pass) continue;
+        if (!canQueue(s.research, t.id, s.era, s.origin, seat).ok) continue;
+        const sc = Math.max(topicScore(t, n), leads.get(t.id) ?? 0);
+        if (sc > bestScore) {
+          best = t;
+          bestScore = sc;
+        }
       }
+      if (best) break;
     }
     if (!best) break;
-    queueResearch(s.research, best.id, s.era, s.origin);
+    queueResearch(s.research, best.id, s.era, s.origin, seat);
   }
   const head = s.research.queue[0];
   const t = head ? TOPICS.find((q) => q.id === head) : undefined;
-  plan.research = t ? { id: t.id, why: whyTopic(t, n) } : null;
+  plan.research = t ? { id: t.id, why: (s.research.picked ?? []).includes(t.id) ? 'you picked it' : whyTopic(t, n) } : null;
 }
 
 /* ------------------------------------------------------------ crafting */
@@ -818,6 +827,15 @@ function planPrison(s: GameState, n: Needs, plan: TownPlan): boolean {
  *  find the materials: it is never built new, only rebuilt where it stands. */
 function planSeat(s: GameState, n: Needs, plan: TownPlan): boolean {
   const seat = seatOf(s.buildings);
+  // (a town founded before there were seats, or one that lost it, lays its first again: the ages' studies wait on
+  // it; a castle's or hold's stands on its hall, so only an open town's)
+  if (!seat && !holdOf(s)) {
+    const first = BUILDING_BY_ID[seatId(s.origin ?? 'settlers', 1)];
+    const at = first && findSpot(s, first);
+    if (!at || !placeBlueprint(s, first.id, at.x, at.y, false, false, !!at.wild).ok) return false;
+    plan.build = { def: first.id, why: 'the town has no seat: the new ages wait on one' };
+    return true;
+  }
   if (!seat || seat.status !== 'done') return false;
   const to = UPGRADES[seat.def];
   const def = to ? BUILDING_BY_ID[to] : undefined;
@@ -934,6 +952,8 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
     if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.raided));
     if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
   };
+  // (the seat first, even with the queue full: the new age's studies wait on it)
+  if (planSeat(s, n, plan)) return clear;
   if (blueprintCount(s) >= buildSlots(s)) {
     // (the queue full, the ring's plan still goes on: its planned pieces take no slot, and the trees and rocks on its
     // line are marked to clear; no section is released into work without room: the owner's ask that a wall laid
@@ -941,7 +961,6 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
     ringTurn();
     return clear;
   }
-  if (planSeat(s, n, plan)) return clear;
   if (planPrison(s, n, plan)) return clear;
   if (consolidateHomes(s, n, plan)) return clear;
   if (consolidateFields(s, n, plan)) return clear;

@@ -81,7 +81,7 @@ import { maybeStartRaid, startGuildRaid, startRaid, updateRaid } from './raids';
 import { answerPrompt, expirePrompts } from './roadEvents';
 import { newTickContext, updatePerson, walkTo } from './people';
 import type { Person } from './state';
-import { cancelResearch, queueResearch, researchNext } from './research';
+import { cancelResearch, moveResearch, pickResearch, researchNext, seatStageNow } from './research';
 import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, keepKin, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
@@ -344,10 +344,13 @@ export class Sim {
         break;
       }
       case 'queueResearch':
-        queueResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era, s.origin);
+        pickResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era, s.origin, seatStageNow(s));
         break;
       case 'cancelResearch':
-        cancelResearch(s.research, c.topic);
+        cancelResearch(s.research, c.topic, true);
+        break;
+      case 'moveResearch':
+        moveResearch(s.research, c.topic, c.dir);
         break;
       case 'researchNext':
         researchNext(s.research, c.topic);
