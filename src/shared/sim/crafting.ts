@@ -4,6 +4,7 @@
 
 import { addDeed } from './deeds';
 import { launch } from './boats';
+import { launchAirship } from './skies';
 import { payFromTreasury } from './economy';
 import { BUILDING_BY_ID } from '../data/buildings';
 import {
@@ -175,6 +176,7 @@ export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): 
   const def = ITEM_BY_ID[o.item];
   addDeed(p, 'crafted');
   if (def.boat) launch(s, def.boat); // (a boat joins the fleet: sim/boats.ts)
+  else if (def.airship) launchAirship(s, def.airship); // (an airship joins the fleet: sim/skies.ts)
   else if (def.makes) {
     const at = stationFor(s, def);
     const left = depositNear(s, at ? buildingCentreX(at) : p.x, def.makes);

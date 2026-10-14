@@ -9,6 +9,7 @@ import { PORTAL_RAIDS } from './portals';
 import { PACK_RAIDS } from './pack';
 import { BESTIARY_RAIDS } from './bestiary';
 import { RISING_RAIDS } from './risingPowers';
+import { SKY_RAIDS } from './skies';
 import { MENAGERIE_RAIDS } from './menagerie';
 import type { Era } from './eras';
 
@@ -114,6 +115,7 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   ...DEEP_RAIDS,
   REBEL_RAID,
   ...PORTAL_RAIDS,
+  ...SKY_RAIDS,
 ];
 
 export const RAID_KINDS: readonly RaidKind[] = [...BASE_RAID_KINDS, ...PACK_RAIDS];

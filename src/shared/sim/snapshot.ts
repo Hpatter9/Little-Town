@@ -45,6 +45,9 @@ import { musterView, type MusterView } from './muster';
 import { secretView, specialStory } from './specials';
 import { BOAT_BY_KIND, type BoatKind } from '../data/boats';
 import { boatLine, boatyardOf, fleet, mooring } from './boats';
+import { airfleet, airshipLine, mastOf } from './skies';
+import { AIRSHIP_BY_KIND, type AirshipKind } from '../data/skies';
+import { flyHeight } from './roamers';
 import { peopleOf } from './strangers';
 import { FOUNDER_BY_ID } from '../data/founders';
 import { backstory } from '../data/backstories';
@@ -146,6 +149,9 @@ import { villageBuildings, villageDestinations, villageViews, type VillageView }
 import { interiorView, type InteriorView } from './interiors';
 import { familiesView, type FamilyLine } from './lineage';
 import { guildsView, type GuildView } from './guilds';
+import { beastHome, ranchView, type RanchView } from './ranch';
+import { arenaTrip, arenaView, type ArenaView } from './arena';
+import { ARENA_AWAY } from '../data/arena';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
@@ -444,6 +450,8 @@ export interface RaiderView {
   lame: number;
   sinceAction: number;
   sinceHit: number;
+  /** Flying this high over its spot (px): a hunter from the sky (sim/skies.ts); its shadow stays on the ground. */
+  aloft?: number;
 }
 
 export interface SpellView {
@@ -524,6 +532,9 @@ export interface ExpeditionView {
   /** The boat they sail in (sim/boats.ts), and whether she went down on the way. */
   boat?: { kind: BoatKind; name: string; hull: number; max: number };
   wrecked?: boolean;
+  /** The airship they fly in (sim/skies.ts), and whether she came down on the way. */
+  airship?: { kind: AirshipKind; name: string; hull: number; max: number };
+  crashed?: boolean;
   loot: Stock;
   lootSize: number;
   carry: number;
@@ -690,6 +701,9 @@ export interface DestinationView {
   /** Only a boat reaches it; and which boat a trip would take, or that it waits for one (sim/boats.ts boatLine). */
   byBoat?: boolean;
   boat?: string;
+  /** Only an airship reaches it; and which airship a trip would take (sim/skies.ts airshipLine). */
+  bySky?: boolean;
+  airship?: string;
 }
 
 export interface VisitorView extends PersonView {
@@ -796,7 +810,12 @@ export interface TravellerView {
 
 export interface RoamerView {
   id: number;
-  kind: 'beasts' | 'dead' | 'bandits' | 'nest';
+  kind: 'beasts' | 'dead' | 'bandits' | 'nest' | 'sky';
+  /** A hunter from the sky (sim/skies.ts): how high it flies over its spot (px), and how hurt the town's shooting
+   *  has it (0 to 1). */
+  flying?: boolean;
+  height?: number;
+  hurt?: number;
   /** A nest's band: what it's called ("goblins"). */
   name?: string;
   x: number;
@@ -892,6 +911,14 @@ export interface Snapshot {
    *  boatyard where those at home lie moored. */
   fleet: { id: number; kind: BoatKind; name: string; hull: number; max: number; away: string | null }[];
   mooring: { x: number; y: number } | null;
+  /** The town's airships (sim/skies.ts): at home at the mast (away null) or the place they've flown for; `leg` while
+   *  she's leaving or coming home over the town (the share of the way out or back, and the side the place lies); and
+   *  the mast's footprint (cells) where those at home are moored. */
+  airships: { id: number; kind: AirshipKind; name: string; hull: number; max: number; away: string | null; leg: { phase: 'out' | 'back'; share: number; side: -1 | 1 } | null }[];
+  mast: { x: number; y: number; w: number; h: number } | null;
+  /** Sky pirates' ship over the town (sim/skies.ts): coming (they drop in when the warning's up), or hanging over the
+   *  raid it dropped. */
+  skyPirates: { x: number; y: number; phase: 'coming' | 'over'; share: number } | null;
   /** The ring wall under way as one job (sim/ringWall.ts `ringProgress`): its generation, sections standing of all,
    *  and the share of the whole wall's work done. Null with no ring or once it stands. */
   wall: { gen: number; done: number; of: number; share: number; shape: string } | null;
@@ -932,6 +959,12 @@ export interface Snapshot {
   families: FamilyLine[];
   /** The town's guilds and squads (sim/guilds.ts), for the People menu's Guilds tab. */
   guilds: GuildView[];
+  /** The monster ranch and its beasts (sim/ranch.ts), for the Market menu's Ranch tab and the map's pens. */
+  ranch: RanchView | null;
+  /** Where each ranch beast is penned on the map (sim/ranch.ts `beastHome`), by its id. */
+  ranchPens: { id: number; kind: string; x: number; y: number; w: number; h: number }[];
+  /** The arena: its season, tonight's card, the bout, the ladder (sim/arena.ts), for the People menu's Arena tab. */
+  arena: ArenaView | null;
   /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
   markets: MarketView | null;
   /** A raid being skipped to its recap, and whether every raid is (sim/raidSkip.ts). */
@@ -1212,10 +1245,15 @@ export function snapshot(s: GameState): Snapshot {
       bounty: bountyOn(s, d.id),
       ...(d.byBoat ? { byBoat: true } : {}),
       ...((line) => (line ? { boat: line } : {}))(boatLine(s, d)),
+      ...(d.bySky ? { bySky: true } : {}),
+      ...((line) => (line ? { airship: line } : {}))(airshipLine(s, d)),
     })),
     fleet: fleet(s).map((b) => ({ id: b.id, kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull, away: b.away === null ? null : ((e) => (e ? destinationOf(s, e.dest)?.name ?? '' : ''))(s.expeditions.find((e) => e.id === b.away)) })),
     wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w, shape: RING_SHAPE_NAMES[ringShapeOf(s)] } : null))(ringProgress(s)) : null,
     mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
+    airships: airshipsView(s),
+    mast: ((m) => (m ? footprint(m) : null))(mastOf(s)),
+    skyPirates: skyPiratesView(s),
     trips: tripsView(s),
     companies: companiesView(s),
     muster: musterView(s, (p) => callingName(p, stageOf(p))),
@@ -1276,6 +1314,7 @@ export function snapshot(s: GameState): Snapshot {
       fighting: r.fighting !== undefined,
       skirmish: r.fighting ?? null,
       chasing: r.chasing !== null ? (s.people.find((p) => p.id === r.chasing)?.name ?? null) : null,
+      ...(r.flying ? { flying: true, height: flyHeight(r), hurt: r.hurt ?? 0 } : {}),
     })),
     skirmishes: (s.skirmishes ?? []).map((k) => ({
       id: k.id,
@@ -1286,7 +1325,7 @@ export function snapshot(s: GameState): Snapshot {
       over: k.ended !== undefined,
       won: k.e.result ? k.e.result.outcome === 'won' : null,
     })),
-    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching) ?? skirmishTrip(s, s.watching)),
+    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching) ?? skirmishTrip(s, s.watching) ?? arenaTrip(s, s.watching)),
     mine: mineView(s),
     deep: deepSummary(s),
     deepView: deepView(s),
@@ -1295,6 +1334,9 @@ export function snapshot(s: GameState): Snapshot {
     interior: interiorView(s, (p) => describe(s, p)),
     families: slow(s, 'families', () => familiesView(s)),
     guilds: slow(s, 'guilds', () => guildsView(s)),
+    ranch: slow(s, 'ranch', () => ranchView(s)),
+    ranchPens: slow(s, 'ranchPens', () => (s.ranch?.beasts ?? []).map((b) => ({ id: b.id, kind: b.kind, ...beastHome(s, b) }))),
+    arena: slow(s, 'arena', () => arenaView(s)),
     markets: slow(s, 'markets', () => marketView(s)),
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,
@@ -1811,7 +1853,7 @@ function personFast(s: GameState, p: Person): Pick<PersonView, FastPart> {
     rally: rallyState(s, p),
     bucket: p.task?.type === 'wander' && p.task.pastime === 'carry',
     indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
-    away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
+    away: p.away === null ? null : p.away === ARENA_AWAY ? 'the arena' : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
     bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,
@@ -2130,6 +2172,8 @@ function expeditionView(s: GameState, e: Expedition): ExpeditionView {
     truck: !!e.truck,
     ...((b) => (b ? { boat: { kind: b.kind, name: b.name, hull: Math.max(0, b.hull), max: BOAT_BY_KIND[b.kind].hull } } : {}))(fleet(s).find((b) => b.id === e.boat)),
     ...(e.wrecked ? { wrecked: true } : {}),
+    ...((a) => (a ? { airship: { kind: a.kind, name: a.name, hull: Math.max(0, a.hull), max: AIRSHIP_BY_KIND[a.kind].hull } } : {}))(airfleet(s).find((a) => a.id === e.airship)),
+    ...(e.crashed ? { crashed: true } : {}),
     loot: { ...e.loot },
     lootSize: poolSize(e.loot),
     carry: partyCarry(s, e),
@@ -2423,4 +2467,28 @@ function gateView(s: GameState, p: Person): { onGate?: 'h' | 'v' } {
   if (!gate || gate.status !== 'done' || !isGate(gate.def)) return {};
   const top = gateTop(gate);
   return Math.hypot(p.x - top.x, p.y - top.y) < 6 ? { onGate: gate.turned ? 'v' : 'h' } : {};
+}
+
+/** The airships as the map draws them: at the mast, or flying out over the town (the first `LEG_SHOWN` of the way
+ *  out) and home again (the last of the way back). */
+const LEG_SHOWN = 0.25;
+function airshipsView(s: GameState): Snapshot['airships'] {
+  return airfleet(s).map((a) => {
+    const e = a.away === null ? undefined : s.expeditions.find((q) => q.id === a.away);
+    const side = ((e && s.destSides[e.dest]) ?? 1) as -1 | 1;
+    let leg: Snapshot['airships'][number]['leg'] = null;
+    if (e && e.phase === 'out' && e.elapsed < e.outTicks * LEG_SHOWN) leg = { phase: 'out', share: e.elapsed / Math.max(1, e.outTicks * LEG_SHOWN), side };
+    else if (e && e.phase === 'back' && e.elapsed > e.backTicks * (1 - LEG_SHOWN)) leg = { phase: 'back', share: (e.elapsed - e.backTicks * (1 - LEG_SHOWN)) / Math.max(1, e.backTicks * LEG_SHOWN), side };
+    return { id: a.id, kind: a.kind, name: a.name, hull: Math.max(0, a.hull), max: AIRSHIP_BY_KIND[a.kind].hull, away: e ? (destinationOf(s, e.dest)?.name ?? '') : null, leg };
+  });
+}
+function skyPiratesView(s: GameState): Snapshot['skyPirates'] {
+  const p = s.skies?.pirates;
+  if (p) return { x: p.x, y: p.y, phase: 'coming', share: Math.min(1, (s.tick - p.seen) / Math.max(1, p.at - p.seen)) };
+  const r = s.raid;
+  if (r && r.kind.startsWith('sky_pirates')) {
+    const at = s.skies?.dropped;
+    return at ? { x: at.x, y: at.y, phase: 'over', share: 1 } : null;
+  }
+  return null;
 }

@@ -6,6 +6,7 @@ import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
 import { streetsHourly } from './streets';
 import { roamersTick, skirmishTrip } from './roamers';
+import { skiesHourly, skiesTick } from './skies';
 import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
@@ -76,6 +77,8 @@ import type { RealmId } from '../data/portals';
 import { giftVillage, villagesHourly } from './villages';
 import { issueEdict, politicsHourly } from './politics';
 import { guildsHourly } from './guilds';
+import { ranchCommand, ranchHourly } from './ranch';
+import { arenaBet, arenaHourly, arenaTick, arenaTrip } from './arena';
 import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
@@ -176,6 +179,7 @@ export class Sim {
     }
     updateExpeditions(s, this.rng);
     roamersTick(s); // (bands roaming the land, and the fights they start: sim/roamers.ts)
+    skiesTick(s); // (sky pirates dropping in, and the town shooting at what hunts from the sky: sim/skies.ts)
     fightSpeedTick(s); // (every fight starts at 1×: sim/battle.ts)
     envoyTick(s);
     maybeStartRaid(s, this.rng);
@@ -216,6 +220,7 @@ export class Sim {
     ambitionHourly(s);
     partiesHourly(s);
     boatsHourly(s, this.rng);
+    skiesHourly(s); // (airships, sky pirates and the hunters of the sky: sim/skies.ts)
     ceremoniesHourly(s);
     festivalsHourly(s);
     annalsHourly(s);
@@ -251,6 +256,9 @@ export class Sim {
     villagesHourly(s); // (daughter villages: sim/villages.ts)
     politicsHourly(s); // (the town's politics and law: sim/politics.ts)
     guildsHourly(s); // (guilds and squads formed to fill what the town lacks: sim/guilds.ts)
+    ranchHourly(s); // (the monster ranch's day: sim/ranch.ts)
+    arenaHourly(s); // (the arena's season, its card and its bout: sim/arena.ts)
+    arenaTick(s);
     scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)
     // (a town just founded: its founding, to watch)
     if (s.tick === TICKS_PER_HOUR && s.autopilot !== false && !s.scenesSeen?.length && !s.scenes?.length) queueScene(s, 'founding');
@@ -493,10 +501,16 @@ export class Sim {
         castAt(s, c.power, this.rng, [c.x, c.y]);
         break;
       case 'watch':
-        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition)) ? c.expedition : undefined;
+        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition) || !!arenaTrip(s, c.expedition)) ? c.expedition : undefined;
         break;
       case 'giftVillage':
         giftVillage(s, c.id);
+        break;
+      case 'ranch':
+        ranchCommand(s, c.id, c.op, c.name, c.keep);
+        break;
+      case 'arenaBet':
+        arenaBet(s, c.on, c.amount);
         break;
       case 'tradeRoute':
         setRoute(s, c.to, c.open);

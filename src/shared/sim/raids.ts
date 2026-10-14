@@ -104,6 +104,7 @@ import { packRaidBeaten } from './pack';
 import { sagaRaidOver } from './sagas';
 import { calamityRaidOver } from './calamity';
 import { groveAllies, groveRaidOver } from './grove';
+import { mountFight, ranchAllies, ranchRaidOver } from './ranch';
 import { ancestorAllies } from './ancestors';
 import { raidSkipOver } from './raidSkip';
 import { fireAt, speedOf, tickBurns } from './defenses';
@@ -299,6 +300,8 @@ export function startRaid(s: GameState, kind: RaidKind, budget: number, rng: Rng
   if (inside === undefined) villageAllies(s, raid, rng, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   // (and a druid grove's guardians: sim/grove.ts)
   groveAllies(s, raid, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
+  // (and the ranch's guard beasts: sim/ranch.ts)
+  ranchAllies(s, raid, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   // (and a descendant's town's forebears: a spirit, the Old House's riders: sim/ancestors.ts)
   ancestorAllies(s, raid, inside !== undefined, (k) => ally(s, k, townEdgeX(s, side), side < 0 ? -1 : 1));
   if (inside !== undefined) {
@@ -767,7 +770,7 @@ function strikeRaider(s: GameState, p: Person, rd: Raider, rng: Rng, bonus: numb
   gainSkill(p, f.ranged ? 'ranged' : 'melee', 6);
   const captain = operatorSkill(s, 'watchtower') * CAPTAIN_PER_LEVEL; // a guard captain drills the defenders
   if (rng.next() >= f.accuracy + captain - fogAim(s) - dodge) return;
-  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: enemyArmor(rd.kind), block: 0, tough: false }, rng) + bonus) * fightRate(s) * guildFight(s, p) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
+  let dmg = Math.round((hitDamage(f, { kind: rd.kind, armor: enemyArmor(rd.kind), block: 0, tough: false }, rng) + bonus) * fightRate(s) * guildFight(s, p) * mountFight(s, p) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult);
   // a Blood Knight hits harder when hurt, and heals from what they deal
   if (p.cls === 'blood_knight') {
     if (p.hp < maxHp(p) / 2) dmg = Math.round(dmg * BLOOD_FURY);
@@ -795,7 +798,7 @@ const CLEAVE_PX = 20;
 function mageFire(s: GameState, p: Person, rd: Raider, rng: Rng, mult: number, near: Raider[]): void {
   gainSkill(p, 'research', 6);
   if (rng.next() >= MAGE_ACCURACY - fogAim(s)) return;
-  const dmg = (rng.int(MAGE_DAMAGE[0], MAGE_DAMAGE[1]) + p.skills.research.level * MAGE_PER_LEVEL) * fightRate(s) * guildFight(s, p) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult;
+  const dmg = (rng.int(MAGE_DAMAGE[0], MAGE_DAMAGE[1]) + p.skills.research.level * MAGE_PER_LEVEL) * fightRate(s) * guildFight(s, p) * mountFight(s, p) * wardOf(s) * (rallied(s, p) ? RALLY_DAMAGE : 1) * mult;
   for (const [o, k] of [[rd, 1] as const, ...near.map((o) => [o, MAGE_SPLASH] as const)]) {
     o.hp = Math.max(0, o.hp - Math.round(dmg * k));
     o.lastHit = s.tick;
@@ -871,6 +874,7 @@ function endRaid(s: GameState, rng: Rng): void {
   hostOver(s, r);
   calamityRaidOver(s, r);
   groveRaidOver(s, r);
+  ranchRaidOver(s, r); // (tamed beasts home to the ranch: sim/ranch.ts)
   // thieves who got away may have led off a horse, too
   if (s.horses.length && r.raiders.some((rd) => rd.gone && poolSize(rd.carrying) > 0) && rng.chance(HORSE_THEFT)) {
     const h = s.horses.splice(rng.int(0, s.horses.length - 1), 1)[0];

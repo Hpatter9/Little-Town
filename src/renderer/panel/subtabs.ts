@@ -41,7 +41,7 @@ const GROUPS: Record<string, MenuTabs> = {
     ],
     intro: 'Out now',
   },
-  townsfolk: { groups: [['People', /^People/], ['Jobs', /^Jobs/], ['Families', /^Families/], ['Guilds', /^Guilds/], ['Prisoners', /^Prisoners/]] },
+  townsfolk: { groups: [['People', /^People/], ['Jobs', /^Jobs/], ['Families', /^Families/], ['Guilds', /^Guilds/], ['Prisoners', /^Prisoners/], ['Arena', /^(The arena|Standings|Bouts|Champions)/]] },
   // the War (the conquest): the map of provinces, the armies, the barracks and squads, the realms
   war: {
     groups: [
@@ -61,6 +61,7 @@ const GROUPS: Record<string, MenuTabs> = {
       ['Trade house', /^(Trade house|Trade routes|Ledger of runs)/],
       ['Workshops', /^(Orders|Recipes)/],
       ['Animals', /^(Herds|Horses)/],
+      ['Ranch', /^The ranch/],
     ],
     intro: 'Caravan',
   },

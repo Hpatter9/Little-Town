@@ -92,6 +92,10 @@ export type Command =
   | { type: 'watchPortal'; realm: string | null }
   | { type: 'lookInside'; building: number | null }
   | { type: 'giftVillage'; id: number }
+  /** Name a ranch beast, or forbid (or allow) its sale (sim/ranch.ts). */
+  | { type: 'ranch'; id: number; op: 'name' | 'keep'; name?: string; keep?: boolean }
+  /** The treasury's bet on tonight's bout at the arena (0 takes it back: sim/arena.ts). */
+  | { type: 'arenaBet'; on: 'town' | 'visitor'; amount: number }
   /** Open or close a trade route to a power (sim/markets.ts). */
   | { type: 'tradeRoute'; to: string; open: boolean }
   /** Rally a defender in a raid (a burst of courage; sim/rally.ts). */
@@ -259,6 +263,12 @@ export function parseCommand(raw: unknown): Command | null {
       return c.expedition === null || Number.isInteger(c.expedition) ? { type: 'watch', expedition: c.expedition as number | null } : null;
     case 'giftVillage':
       return Number.isInteger(c.id) ? { type: 'giftVillage', id: c.id as number } : null;
+    case 'ranch':
+      if (!Number.isInteger(c.id)) return null;
+      if (c.op === 'name') return typeof c.name === 'string' && c.name.trim().length > 0 && c.name.length <= 40 ? { type: 'ranch', id: c.id as number, op: 'name', name: c.name } : null;
+      return c.op === 'keep' && typeof c.keep === 'boolean' ? { type: 'ranch', id: c.id as number, op: 'keep', keep: c.keep } : null;
+    case 'arenaBet':
+      return (c.on === 'town' || c.on === 'visitor') && Number.isInteger(c.amount) && (c.amount as number) >= 0 && (c.amount as number) <= 100000 ? { type: 'arenaBet', on: c.on, amount: c.amount as number } : null;
     case 'tradeRoute':
       return typeof c.to === 'string' && typeof c.open === 'boolean' ? { type: 'tradeRoute', to: c.to, open: c.open } : null;
     case 'lookInside':

@@ -55,7 +55,7 @@ export function fightOnScreen(s: GameState): boolean {
   const r = s.raid;
   if (r && r.phase === 'active' && !r.alone && (r.battle || r.tactics) && !s.raidSkip) return true;
   if (s.watching === undefined) return false;
-  const e = s.expeditions.find((x) => x.id === s.watching) ?? s.skirmishes?.find((k) => k.e.id === s.watching)?.e;
+  const e = s.expeditions.find((x) => x.id === s.watching) ?? s.skirmishes?.find((k) => k.e.id === s.watching)?.e ?? (s.arena?.bout?.id === s.watching ? s.arena.bout.e : undefined);
   return !!e?.battle;
 }
 

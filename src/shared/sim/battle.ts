@@ -752,7 +752,7 @@ export function fightOn(s: GameState): boolean {
   const t = s.raid?.tactics;
   if ((b && b.phase !== 'done') || (t && t.phase !== 'done')) return true;
   if (s.watching === undefined) return false;
-  const e = s.expeditions.find((x) => x.id === s.watching) ?? s.skirmishes?.find((k) => k.id === s.watching && k.ended === undefined)?.e;
+  const e = s.expeditions.find((x) => x.id === s.watching) ?? s.skirmishes?.find((k) => k.id === s.watching && k.ended === undefined)?.e ?? (s.arena?.bout?.id === s.watching && s.arena.bout.ended === undefined ? s.arena.bout.e : undefined);
   return !!e?.battle && !e.battle.outcome;
 }
 

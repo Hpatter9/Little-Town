@@ -4,6 +4,7 @@
 
 import { familiesSection } from './familyPanel';
 import { guildsSection } from './guildPanel';
+import { arenaSection } from './arenaPanel';
 import { mapBeside, showOnMap } from './townOverview';
 import { hkDraw, hkLayers, hkWhoOf, onHkLoad } from '../art/hkFolk';
 import { pieceLabel, plusOf, qualityOf } from '../../shared/data/quality';
@@ -168,6 +169,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
       out.push(c);
     }
   }
+  out.push(...arenaSection(s, bridge));
   return out;
 }
 

@@ -13,6 +13,7 @@ import type { RaidRecap, RaidTally } from './raidRecap';
 import type { Chronicle, Fallen, YearStart } from './annals';
 import type { SpecialId } from '../data/specials';
 import type { BoatKind } from '../data/boats';
+import type { AirshipKind } from '../data/skies';
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
 import type { TaxRate } from '../data/economy';
@@ -320,6 +321,8 @@ export interface Raider {
   ally?: boolean;
   /** A druid grove's guardian (sim/grove.ts), by its id. */
   guardian?: number;
+  /** One of the ranch's beasts let out to guard the town (sim/ranch.ts), by its id. */
+  ranch?: number;
   /** (a fallen raider a necromancer has already looked at) */
   raiseChecked?: boolean;
   /** Epic bosses: raging, called for help, blows struck, trophy handed over. */
@@ -775,8 +778,14 @@ export type ExpeditionPhase = 'out' | 'work' | 'back';
  *  where it came from and is wandering to, who it's after, and when it wanders off. */
 export interface Roamer {
   id: number;
-  kind: 'beasts' | 'dead' | 'bandits' | 'nest';
+  kind: 'beasts' | 'dead' | 'bandits' | 'nest' | 'sky';
   group: Record<string, number>;
+  /** A hunter from the sky (sim/skies.ts): it flies over walls and water, and only a roof is cover from it. */
+  flying?: boolean;
+  /** How hurt it is by the town's shooting (0 to 1: it falls at 1). */
+  hurt?: number;
+  /** Swooping down on someone (it's low over them). */
+  swoop?: boolean;
   /** Come out of a monster nest (a place id, sim/nests.ts), and what it's called in the news ("goblins"). */
   nest?: number;
   name?: string;
@@ -825,6 +834,31 @@ export interface Boat {
   hull: number;
   /** The expedition she's away with, or null at home. */
   away: number | null;
+}
+
+/** An airship of the town's fleet (data/skies.ts, sim/skies.ts). */
+export interface Airship {
+  id: number;
+  kind: AirshipKind;
+  name: string;
+  /** What's left of her hull. */
+  hull: number;
+  /** The expedition she's away with, or null at home at the mast. */
+  away: number | null;
+}
+
+/** The skies' own state (sim/skies.ts). */
+export interface SkiesState {
+  /** Sky pirates' ship seen: they drop in at `at` (a tick) over the spot (px). */
+  pirates?: { at: number; x: number; y: number; kind: string; seen: number };
+  /** Where the last sky pirates dropped in (px): their ship hangs over it while the raid lasts. */
+  dropped?: { x: number; y: number };
+  /** When the last sky pirates came (a tick). */
+  lastPirates?: number;
+  /** Gale's Roost cleared: no sky pirates until this tick. */
+  quietUntil?: number;
+  /** Airships lost, ever. */
+  lost?: number;
 }
 
 /** A power of the realm, as the town knows it (data/factions.ts has what doesn't change). */
@@ -901,6 +935,10 @@ export interface Expedition {
   wrecked?: boolean;
   /** The boat the party sails in (its id in `s.boats`): an island's trip, or a faster one along the water. */
   boat?: number;
+  /** The airship the party flies in (its id in `s.airships`): any trip, faster (sim/skies.ts). */
+  airship?: number;
+  /** Their airship fell (sim/skies.ts `crash`): they walk home with nothing. */
+  crashed?: boolean;
   /** A dungeon delve's progress room by room (sim/delves.ts). */
   delve?: Delve;
   /** The Moon Pack's full-moon hunt (sim/pack.ts). */
@@ -1095,6 +1133,12 @@ export interface GameState {
   boats?: Boat[];
   /** Boats built so far (for their names, in turn). */
   boatsBuilt?: number;
+  /** The town's airships (data/skies.ts, sim/skies.ts): built at the airship mast, moored there or away with a party. */
+  airships?: Airship[];
+  /** Airships built so far (for their names, in turn). */
+  airshipsBuilt?: number;
+  /** The skies: sky pirates coming, and the like (sim/skies.ts). */
+  skies?: SkiesState;
   /** How many of its own the town has buried, ever (a Necromancer's calling needs some). */
   burials?: number;
   /** The last person brought back from death, and when (for the glow). */
@@ -1220,6 +1264,10 @@ export interface GameState {
   townName?: string;
   /** The town's guilds and squads (sim/guilds.ts), and when the last was founded or voted down. */
   guilds?: import('./guildPerks').Guild[];
+  /** The monster ranch's beasts (sim/ranch.ts). */
+  ranch?: import('./ranch').RanchState;
+  /** The arena: its fighting seasons, the ladder, the bouts and the bets (sim/arena.ts). */
+  arena?: import('./arena').ArenaState;
   lastGuild?: number;
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
@@ -1424,7 +1472,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties' | 'realm' | 'trade';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties' | 'realm' | 'trade' | 'ranch' | 'arena';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */
@@ -1655,7 +1703,8 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     visitor: null,
     expeditions: [],
     scouted: [],
-    destSides: Object.fromEntries(DESTINATIONS.map((d) => [d.id, rng.chance(0.5) ? -1 : 1])),
+    // (the places in the sky have no side drawn: they came later, and a draw for each would change how every town plays out)
+    destSides: Object.fromEntries(DESTINATIONS.filter((d) => !d.bySky).map((d) => [d.id, rng.chance(0.5) ? -1 : 1])),
     prompts: [],
     reputation: 0,
     gameOver: null,
