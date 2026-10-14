@@ -117,7 +117,7 @@ export function createRaidRecap(): RaidRecapView {
     update(s) {
       last = s.raidRecap;
       // (not over a battle still on; once a raid is over, shown once by itself)
-      if (!last || s.battle || s.raid) {
+      if (!last || s.battle || s.raid || s.tactics) {
         box.hidden = true;
         return;
       }

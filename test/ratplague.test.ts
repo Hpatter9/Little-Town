@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { possibleDooms, updateDoom } from '../src/shared/sim/doom';
+import { RAT_WAVE_HOURS } from '../src/shared/data/doom';
 import { storages } from '../src/shared/sim/buildings';
 import { bossSlain } from '../src/shared/sim/bosses';
 import { startRaid, updateRaid } from '../src/shared/sim/raids';
@@ -40,7 +41,7 @@ test('the rats eat the stores, and swarms come again and again', () => {
   storages(s)[0].store = { bread: 100 };
   hours(s, 5, rng);
   assert.ok((storages(s)[0].store.bread ?? 0) < 95, `bread ${storages(s)[0].store.bread}`);
-  assert.ok(s.nextRaidTick <= s.tick + 8 * Math.sqrt(6) * TICKS_PER_HOUR + 1, 'a swarm is coming soon (every 8h, stretched for the era)');
+  assert.ok(s.nextRaidTick <= s.tick + RAT_WAVE_HOURS * Math.sqrt(6) * TICKS_PER_HOUR + 1, 'a swarm is coming soon (every RAT_WAVE_HOURS, stretched for the era)');
 });
 
 test("a plague rat's bite can carry the sickness", () => {

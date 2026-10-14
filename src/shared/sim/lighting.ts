@@ -30,6 +30,8 @@ export interface Torch {
   fuel: number;
   /** A castle's or hold's sconce: the region it lights (the hall -1, a room's id, a gallery -2, -3...). */
   room?: number;
+  /** A light at a gate of the ring wall: placed first and fed first (`gateLightCells`). */
+  gate?: boolean;
 }
 
 /** Is lighting at work (the autopilot's towns; the tests run without it). */
@@ -95,6 +97,7 @@ export function placeLights(s: GameState): void {
   const keyOf = (x: number, y: number) => `${x},${y}`;
   const cells = outdoorCells(s, ts.filter((t) => t.room === undefined), want);
   const wanted = new Set(cells.map((c) => keyOf(c.x, c.y)));
+  const atGates = new Set(cells.filter((c) => c.gate).map((c) => keyOf(c.x, c.y)));
   // the rooms
   const lay = castleLayout(s);
   const roomAt = new Map<number, { x: number; y: number }>();
@@ -122,6 +125,10 @@ export function placeLights(s: GameState): void {
   for (const [r, at] of roomAt) if (!haveRoom.has(r)) kept.push({ id: next++, x: at.x, y: at.y, fuel: 0, room: r });
   // (the lamps on a room keep up with its middle as it's rebuilt)
   for (const t of kept) if (t.room !== undefined) Object.assign(t, roomAt.get(t.room));
+  for (const t of kept) {
+    if (t.room === undefined && atGates.has(keyOf(t.x, t.y))) t.gate = true;
+    else delete t.gate;
+  }
   s.torches = kept;
 }
 
@@ -137,13 +144,47 @@ const CAMP_GROUND = 8;
 /** A light goes up only where it lights at least this much that was dark. */
 const LIGHT_LEAST = 0.6;
 
+/** The cells for the lights at the ring wall's gates, the town's first lights (the owner's ask): at each finished
+ *  gate, one on the ground just inside it (the side nearest the camp), then (after every gate's inside) one just
+ *  outside, where they can stand. */
+export function gateLightCells(s: GameState, ok: (i: number) => boolean): { x: number; y: number }[] {
+  const m = s.land;
+  const inside: { x: number; y: number }[] = [];
+  const outside: { x: number; y: number }[] = [];
+  const seen = new Set<number>();
+  for (const b of s.buildings) {
+    if (b.status !== 'done' || b.ring === undefined || !isGate(b.def)) continue;
+    const r = footprint(b);
+    const by: { i: number; d: number }[] = [];
+    const edge = (x: number, y: number) => {
+      if (inMap(m, x, y) && ok(idx(m, x, y))) by.push({ i: idx(m, x, y), d: Math.hypot(x - m.camp.x, y - m.camp.y) });
+    };
+    for (let x = r.x; x < r.x + r.w; x++) {
+      edge(x, r.y - 1);
+      edge(x, r.y + r.h);
+    }
+    for (let y = r.y; y < r.y + r.h; y++) {
+      edge(r.x - 1, y);
+      edge(r.x + r.w, y);
+    }
+    if (!by.length) continue;
+    by.sort((a, c) => a.d - c.d || a.i - c.i);
+    for (const [c, list] of [[by[0], inside], [by[by.length - 1], outside]] as const) {
+      if (seen.has(c.i)) continue;
+      seen.add(c.i);
+      list.push({ x: c.i % m.w, y: Math.floor(c.i / m.w) });
+    }
+  }
+  return [...inside, ...outside];
+}
+
 /** Where the town's lights out of doors stand (the owner's ask: the town covers itself in light as it needs): what
  *  should be lit is every finished building's door (but the walls), the fields and pens, and the roads among them; the
  *  camp's fire and the fires at the buildings light some already, and so do the lights standing (kept while their
  *  cell is still clear). Each new light goes on the road or the open ground by a building where it lights the most of
  *  what's still dark (sim/lightField.ts: buildings, trees and rocks in the way), until all is lit or the town has as
- *  many as it can keep (`want`). */
-export function outdoorCells(s: GameState, standing: { x: number; y: number }[], want: number): { x: number; y: number }[] {
+ *  many as it can keep (`want`). The lights at the ring wall's gates come first (`gateLightCells`). */
+export function outdoorCells(s: GameState, standing: { x: number; y: number }[], want: number): { x: number; y: number; gate?: boolean }[] {
   const m = s.land;
   const kind = kindOf(s);
   const reach = kind.radius * 0.85;
@@ -200,10 +241,16 @@ export function outdoorCells(s: GameState, standing: { x: number; y: number }[],
   };
   const lit = new Uint8Array(targets.length);
   for (const src of lightSources(s.era, [], s.buildings, m.camp)) for (const j of sees(src.x, src.y, src.r * 0.85, src.own)) lit[j] = 1;
-  const out: { x: number; y: number }[] = [];
+  const out: { x: number; y: number; gate?: boolean }[] = [];
+  // (first a light at each side of every gate in the ring wall: the town's first care)
+  for (const g of gateLightCells(s, ok).slice(0, want)) {
+    out.push({ ...g, gate: true });
+    spots.delete(idx(m, g.x, g.y));
+    for (const j of sees(g.x + 0.5, g.y + 0.5, reach)) lit[j] = 1;
+  }
   // (the lights standing are kept while their cell is clear, the nearest the camp first)
-  const keep = standing.filter((t) => inMap(m, t.x, t.y) && ok(idx(m, t.x, t.y))).sort((a, b) => Math.hypot(a.x - m.camp.x, a.y - m.camp.y) - Math.hypot(b.x - m.camp.x, b.y - m.camp.y));
-  for (const t of keep.slice(0, want)) {
+  const keep = standing.filter((t) => inMap(m, t.x, t.y) && ok(idx(m, t.x, t.y)) && !out.some((g) => g.x === t.x && g.y === t.y)).sort((a, b) => Math.hypot(a.x - m.camp.x, a.y - m.camp.y) - Math.hypot(b.x - m.camp.x, b.y - m.camp.y));
+  for (const t of keep.slice(0, Math.max(0, want - out.length))) {
     out.push({ x: t.x, y: t.y });
     spots.delete(idx(m, t.x, t.y));
     for (const j of sees(t.x + 0.5, t.y + 0.5, reach)) lit[j] = 1;
@@ -230,8 +277,8 @@ export function outdoorCells(s: GameState, standing: { x: number; y: number }[],
   return out;
 }
 
-/** The light the town should feed next for this person: the emptiest below half, nearest first; null if none or
- *  there's nothing to feed it with, or it isn't the lamplighters' hours. */
+/** The light the town should feed next for this person: the gates' lights first, then the emptiest below half,
+ *  nearest first; null if none or there's nothing to feed it with, or it isn't the lamplighters' hours. */
 export function lightToFeed(s: GameState, p: Person): Torch | null {
   if (!lightingOn(s) || !needsFuel(s) || isChild(p)) return null;
   const h = calendar(s.tick).hour;
@@ -248,7 +295,8 @@ export function lightToFeed(s: GameState, p: Person): Torch | null {
     if (t.room === undefined && (h < FEED_FROM || h >= FEED_UNTIL)) continue;
     const d = Math.abs((t.x + 0.5) * CELL - p.x) + Math.abs((t.y + 0.5) * CELL - (p.y ?? 0));
     const score = t.fuel * 400 + d;
-    if (score < bestScore) {
+    // (a gate's light before any other; among the rest as before)
+    if ((t.gate && !best?.gate) || (!!t.gate === !!best?.gate && score < bestScore) || !best) {
       bestScore = score;
       best = t;
     }

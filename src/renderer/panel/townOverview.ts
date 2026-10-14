@@ -11,6 +11,7 @@ import { HERDS } from '../../shared/data/livestock';
 import { OPERATORS } from '../../shared/data/operators';
 import { FOOD_VALUE } from '../../shared/data/people';
 import { TOPIC_BY_ID } from '../../shared/data/research';
+import { topicName } from '../../shared/data/originResearch';
 import { STATIONS } from '../../shared/data/items';
 import type { Material } from '../../shared/data/materials';
 import type { Bridge, PanelId } from '../../shared/ipc';
@@ -89,7 +90,7 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
   tile('Building', site.length ? `${site.length}` : 'Nothing', site.length ? site.slice(0, 2).map((b) => BUILDING_BY_ID[b.def]?.name ?? b.def).join(', ') : 'right now', ['build', 'Buildings']);
   const r = s.research;
   const topic = r.queue[0] ? TOPIC_BY_ID[r.queue[0]] : undefined;
-  tile('Studying', topic ? topic.name : 'Nothing', topic ? `${Math.floor((r.progress[topic.id] ?? 0) * 100)}% · ${r.queue.length} queued` : 'for now', ['research', 'Studying']);
+  tile('Studying', topic ? topicName(topic.id, s.research.origin) : 'Nothing', topic ? `${Math.floor((r.progress[topic.id] ?? 0) * 100)}% · ${r.queue.length} queued` : 'for now', ['research', 'Studying']);
   tile('Workshops', `${s.crafting.length}`, `of ${s.craftSlots} orders`, ['trade', 'Workshops']);
   tile('Trips', `${s.expeditions.length}`, s.expeditions.length ? 'parties out' : 'nobody away', ['expeditions', s.expeditions.length ? 'Parties' : 'Places']);
   if (s.shop || s.tavern || s.stores.length) tile('Shops', `${[s.shop, s.tavern, ...s.stores].filter(Boolean).length}`, 'open for trade', ['trade', 'Shops']);

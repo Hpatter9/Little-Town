@@ -2,6 +2,7 @@
 // walk in from one end of the world. Beasts go for anyone they can see, then the food; rival scouts go for
 // the food and run. Walls and gates stop them until broken. Defenders fight; everyone else shelters.
 
+import { addDeed } from './deeds';
 import { alliesFor, hostOver, rivalRaidOdds } from './factions';
 import { SIEGE_WALL } from '../data/factions';
 import { ally } from './classes';
@@ -920,6 +921,8 @@ function endRaid(s: GameState, rng: Rng): void {
     stolen,
     spoils,
   });
+  // (a deed for everyone who stood and lived, when the town held: sim/deeds.ts)
+  if (s.raidRecap.outcome !== 'pillaged') for (const row of s.raidRecap.rows) if (!row.died) addDeed(s.people.find((q) => q.id === row.id), 'defended');
   tallyRaid(s, s.raidRecap.outcome); // (the year's chronicle: sim/annals.ts)
   if (killed && !took.length) victoryFeast(s); // (driven off with nothing: the town feasts it, sim/ceremonies.ts)
 }

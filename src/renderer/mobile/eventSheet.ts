@@ -233,7 +233,7 @@ export function createEventSheet(onAnswer: (prompt: number, option: number) => v
   return {
     update(snap) {
       tick = snap.tick;
-      const away = !!snap.battle || !!snap.watch || !!snap.mine;
+      const away = !!snap.battle || !!snap.watch || !!snap.mine || !!snap.tactics || snap.fightOn;
       const w = win();
       if (w) w.__eventSheet = true;
       if (answered && away) answered = null;

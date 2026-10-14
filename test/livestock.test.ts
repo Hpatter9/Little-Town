@@ -9,7 +9,7 @@ import { PEN_ROOM_PER_COL } from '../src/shared/data/livestock';
 import { Rng } from '../src/shared/rng';
 import { Sim } from '../src/shared/sim/sim';
 import type { Building, GameState } from '../src/shared/sim/state';
-import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { DAYS_PER_SEASON, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { camp, clearAround, plainGame, priorities, row } from './helpers';
 
 const pen = (s: GameState, def: string, tile: number): Building => {
@@ -18,7 +18,7 @@ const pen = (s: GameState, def: string, tile: number): Building => {
   return b;
 };
 /** Days from the start of the game to a season (3 days each): spring 0, summer 1, autumn 2, winter 3. */
-const toSeason = (s: GameState, season: number) => (s.tick = season * 3 * TICKS_PER_DAY + 1);
+const toSeason = (s: GameState, season: number) => (s.tick = season * DAYS_PER_SEASON * TICKS_PER_DAY + 1);
 
 test('data: every pen is a background building, unlocked by research, with a herd that yields something', () => {
   for (const [id, h] of Object.entries(HERDS)) {
@@ -65,7 +65,7 @@ test('in winter the herd eats grain, and starves without it', () => {
   h.head = HERDS.cattle_pasture.start;
   const store = s.buildings.find((q) => q.def === 'campfire')!.store;
   store.grain = 20;
-  const winter = 9 * TICKS_PER_DAY;
+  const winter = 3 * DAYS_PER_SEASON * TICKS_PER_DAY;
   const hours = (n: number) => {
     for (let hr = 0; hr < n; hr++) tendHerds({ ...s, tick: winter + (hr + 1) * TICKS_PER_HOUR } as GameState);
   };

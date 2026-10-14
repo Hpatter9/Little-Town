@@ -749,11 +749,12 @@
       }
       /* the floating window over a watched fight naming what was just done (fight/fightHud.ts fades and lifts it by
          the clock): lower in the scene, as the old games had it; gold for an ultimate */
+      /* (at the top of the scene, under the progress bars, clear of the fighters: the owner's ask) */
       #fight-banner {
         position: absolute;
         left: 50%;
-        top: 54%;
-        transform: translate(-50%, -50%);
+        top: 36px;
+        transform: translate(-50%, 0);
         z-index: 30;
         pointer-events: none;
         text-align: center;
@@ -877,6 +878,8 @@
       /* the Deep looked into (deep/deepView.ts): a bar over the level, its news under it */
       #deep-hud { position: fixed; inset: 0; z-index: 40; pointer-events: none; font: 13px/1.3 var(--font-body, sans-serif); color: #e8dcc8; }
       #deep-hud[hidden] { display: none; }
+      /* (a raid's board or a watched fight has the whole strip: the minimap stands aside) */
+      body.board-on #minimap { display: none !important; }
       body.deep-on > *:not(canvas):not(#deep-hud):not(#scene-offer):not(#cutscene) { visibility: hidden !important; }
       #deep-hud .dh-top { position: absolute; left: 0; right: 0; top: 0; height: 50px; display: flex; align-items: center; gap: 8px; padding: 0 10px; box-sizing: border-box; background: linear-gradient(#1a1418, #120e12); border-bottom: 2px solid #5a4632; pointer-events: auto; }
       #deep-hud .dh-title { flex: 1; text-align: center; font: 700 15px var(--font-display, serif); color: #ffd890; letter-spacing: 0.04em; text-shadow: 0 1px 0 #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1236,6 +1239,29 @@
         zoom: var(--ui-zoom, 1);
       }
       #fight-leave[hidden] {
+        display: none;
+      }
+      /* how fast the fight plays, under the corner button */
+      #fight-speed {
+        position: absolute;
+        top: 42px;
+        right: 6px;
+        z-index: 31;
+        width: 30px;
+        height: 24px;
+        border-radius: 5px;
+        border: 2px solid #c79a55;
+        background: var(--wood);
+        color: var(--text);
+        font-size: 12px;
+        line-height: 1;
+        padding: 0;
+        zoom: var(--ui-zoom, 1);
+      }
+      #fight-speed.active {
+        color: #ffe680;
+      }
+      #fight-speed[hidden] {
         display: none;
       }
       /* the party's rows: name and health, then the turn gauge with the pools beside it */
