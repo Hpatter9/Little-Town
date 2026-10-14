@@ -5,6 +5,7 @@ import type { TacticsOrder } from './tactics';
 import type { RealmOp } from './factions';
 const REALM_OPS: readonly RealmOp[] = ['gift', 'peace', 'trade', 'alliance', 'war', 'demand', 'free', 'marry'];
 import { TAX_RATES, type TaxRate } from '../data/economy';
+import { EDICT_OPS, LAW_BY_ID, type EdictOp, type EdictPay, type LawId } from '../data/politics';
 import { ATTR_KEYS, type Attrs } from '../data/attributes';
 import type { MonsterKind } from '../data/monsters';
 const TURN_KINDS: readonly string[] = ['undead', 'vampire', 'werewolf'];
@@ -26,6 +27,8 @@ export type Command =
   | { type: 'setDirection'; direction: Direction }
   | { type: 'setTownSize'; size: number | null }
   | { type: 'setTax'; rate: TaxRate }
+  /** The founder's edict on a law (sim/politics.ts `issueEdict`). */
+  | { type: 'edict'; op: EdictOp; law: LawId; pay: EdictPay }
   /** Forbid a destination to the town's parties, or allow it again; post (raise) or withdraw a bounty on one. */
   | { type: 'veto'; dest: string; on: boolean }
   /** The quest board (sim/questBoard.ts): take an offer up, or turn it down. */
@@ -167,6 +170,10 @@ export function parseCommand(raw: unknown): Command | null {
       return { type: 'becomeLich' };
     case 'setDirection':
       return DIRECTIONS.includes(c.direction as Direction) ? { type: 'setDirection', direction: c.direction as Direction } : null;
+    case 'edict':
+      return EDICT_OPS.includes(c.op as EdictOp) && typeof c.law === 'string' && LAW_BY_ID[c.law as LawId] && (c.pay === 'coins' || c.pay === 'standing')
+        ? { type: 'edict', op: c.op as EdictOp, law: c.law as LawId, pay: c.pay }
+        : null;
     case 'setTax':
       return TAX_RATES.includes(c.rate as TaxRate) ? { type: 'setTax', rate: c.rate as TaxRate } : null;
     case 'quest':

@@ -1219,29 +1219,30 @@ export function researchCanWait(s: GameState, p: Person): boolean {
 /** The jobs in order for someone who'd rather build than carry. */
 const BUILDER_JOBS = ['construct', ...JOBS.filter((j) => j !== 'construct')] as const;
 /** Reachable cells around a construction footprint; each can hold one builder at a time. */
-function buildSpots(s: GameState, p: Person, b: Building): Pt[] {
-  const r = footprint(b), cells: Pt[] = [];
-  for (let x = r.x; x < r.x + r.w; x++) cells.push({ x, y: r.y - 1 }, { x, y: r.y + r.h });
-  for (let y = r.y; y < r.y + r.h; y++) cells.push({ x: r.x - 1, y }, { x: r.x + r.w, y });
-  const open = (cell: Pt) => {
-    if (!inMap(s.land, cell.x, cell.y) || (wet(groundAt(s.land, cell.x, cell.y)) && !swims(s, p))) return false;
-    return !s.buildings.some((other) => {
-      if (other.id === b.id) return false;
-      const q = footprint(other);
-      return cell.x >= q.x && cell.x < q.x + q.w && cell.y >= q.y && cell.y < q.y + q.h;
-    });
-  };
-  return cells.filter(open).map((cell) => ({ x: (cell.x + 0.5) * CELL, y: (cell.y + 0.5) * CELL }));
-}
+/** The first free spot beside a site's footprint (its rows above and below, then its sides) that isn't water (unless
+ *  they swim), under another building, or taken by another builder, as a point in px. Checked one at a time, the
+ *  cheapest test first (the catch-up after time away spent a tenth of its time listing them all). */
 function buildSpot(s: GameState, p: Person, b: Building): Pt | undefined {
   const occupied = new Set(s.people.filter((q) => q.id !== p.id && q.task?.type === 'build' && q.task.building === b.id && q.task.spot)
     .map((q) => { const task = q.task as Extract<Task, { type: 'build' }>; return `${task.spot!.x},${task.spot!.y}`; }));
   if (p.task?.type === 'build' && p.task.building === b.id && p.task.spot && !occupied.has(`${p.task.spot.x},${p.task.spot.y}`)) return p.task.spot;
-  return buildSpots(s, p, b).find((spot) => !occupied.has(`${spot.x},${spot.y}`));
+  const r = footprint(b), cells: Pt[] = [];
+  for (let x = r.x; x < r.x + r.w; x++) cells.push({ x, y: r.y - 1 }, { x, y: r.y + r.h });
+  for (let y = r.y; y < r.y + r.h; y++) cells.push({ x: r.x - 1, y }, { x: r.x + r.w, y });
+  let others: ReturnType<typeof footprint>[] | null = null;
+  for (const cell of cells) {
+    const spot = { x: (cell.x + 0.5) * CELL, y: (cell.y + 0.5) * CELL };
+    if (occupied.has(`${spot.x},${spot.y}`)) continue;
+    if (!inMap(s.land, cell.x, cell.y) || (wet(groundAt(s.land, cell.x, cell.y)) && !swims(s, p))) continue;
+    others ??= s.buildings.filter((o) => o.id !== b.id).map(footprint);
+    if (others.some((q) => cell.x >= q.x && cell.x < q.x + q.w && cell.y >= q.y && cell.y < q.y + q.h)) continue;
+    return spot;
+  }
+  return undefined;
 }
 /** Whether someone builds at full pace on a site with work for a builder now (the founder always does). */
 function buildsFirst(s: GameState, p: Person): boolean {
-  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && buildSpot(s, p, b) && skillPace(s, p, b) >= 1);
+  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b));
 }
 
 /** Up to this many grown-ups, building and gathering come before study. */

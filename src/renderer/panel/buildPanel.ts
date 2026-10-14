@@ -37,7 +37,7 @@ import { topicName } from '../../shared/data/originResearch';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift]), s.politics && [s.politics.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics.laws.map((l) => l.on), s.politics.log[0], s.politics.crimes, s.politics.strike, s.politics.tax], s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)]), heritageKey(s), s.skipRaids, s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why])]);
+  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift]), s.politics && [s.politics.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics.laws.map((l) => l.on), s.politics.log[0], s.politics.crimes, s.politics.strike, s.politics.tax, s.politics.edictWait], s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)]), heritageKey(s), s.skipRaids, s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why])]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const used = blueprintCount(s);
@@ -216,7 +216,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   out.push(...inTown(s, bridge));
   out.push(...faithSection(s));
   out.push(...villagesSection(s, bridge));
-  out.push(...politicsSection(s));
+  out.push(...politicsSection(s, bridge));
   out.push(...heritageSection(s));
 
   // everything it knows how to build (for reference: it decides for itself)

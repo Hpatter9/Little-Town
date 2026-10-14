@@ -1,6 +1,7 @@
 // Health: injury, being downed, bleeding out, death, and healing in town (DESIGN §3).
 
 import { mournFor } from './ceremonies';
+import { guildCare } from './guildPerks';
 import { recordFallen } from './annals';
 import { recordDeath } from './lineage';
 import { sickbedHealing } from './sickbeds';
@@ -194,6 +195,7 @@ export function heal(s: GameState, p: Person): void {
   const nursed = sickbedHealing(s, p);
   let infirmary = nursed ?? 1;
   if (nursed !== null) infirmary += operatorSkill(s, 'infirmary') * HEALER_PER_LEVEL;
+  infirmary *= guildCare(s); // (a menders' guild: sim/guilds.ts)
   const care = researchMods(s.research);
   // (the struck-down dead or a machine reforms at its own pace, needing no healer)
   const reform = tireless(p) && p.downed ? (max * BACK_ON_FEET) / REFORM_HOURS : 0;

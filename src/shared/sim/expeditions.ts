@@ -8,7 +8,8 @@ import { ASSAULT_MOST } from '../data/factions';
 import { boatDef, boatHome, fleet, freeBoat, sailSpeed, sailsTo, seaHour } from './boats';
 import { payParty } from './economy';
 import { homeFromTrip } from './ambition';
-import { payBounty } from './parties';
+import { jobDone, payBounty } from './parties';
+import { companyHome } from './companies';
 import { woundFor, woundPerson } from './injuries';
 import { levelOf, xpToLevel } from '../data/levels';
 import { crossroads, debrief } from './muster';
@@ -726,6 +727,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   dragonHome(s, e, party);
   villageHome(s, e.dest, !!e.cleared && !e.recalled);
   portalHome(s, e.dest, party, !!e.cleared && !e.recalled, at);
+  companyHome(s, e, party, d.name, jobDone(e, party)); // (a bond between those who went, sim/companies.ts)
   payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);
   debrief(s, e, d); // (a party the player sent: what it cost and won, sim/muster.ts)

@@ -143,6 +143,7 @@ import { dragonDestinations, dragonView, type DragonView } from './dragon';
 import { villageBuildings, villageDestinations, villageViews, type VillageView } from './villages';
 import { interiorView, type InteriorView } from './interiors';
 import { familiesView, type FamilyLine } from './lineage';
+import { guildsView, type GuildView } from './guilds';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
@@ -873,6 +874,8 @@ export interface Snapshot {
   destinations: DestinationView[];
   /** Parties forming themselves: the next that would set out, who's fit to go, and the bounty step. */
   trips: TripsView;
+  /** Bonded parties (sim/companies.ts): the companies, living first. */
+  companies: CompanyView[];
   /** A party the player is raising (sim/muster.ts). */
   muster: MusterView | null;
   /** The powers of the realm (sim/factions.ts), and the town's might they weigh against. */
@@ -923,6 +926,8 @@ export interface Snapshot {
   interior: InteriorView | null;
   /** The town's families and their trees (sim/lineage.ts), for the People menu's Families tab. */
   families: FamilyLine[];
+  /** The town's guilds and squads (sim/guilds.ts), for the People menu's Guilds tab. */
+  guilds: GuildView[];
   /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
   markets: MarketView | null;
   /** A raid being skipped to its recap, and whether every raid is (sim/raidSkip.ts). */
@@ -1031,6 +1036,9 @@ export interface Snapshot {
   /** Game hours until lift-off, once the ship is built. */
   launchHours: number | null;
   /** Time away being simulated: how far along (0..1). Set by the main process while it catches up. */
+  /** The important things since the player was last here (sim/awaySummary.ts): on the snapshot that ends a catch-up
+   *  only, for the phone's return card. */
+  away?: import('./awaySummary').AwayLine[];
   catchingUp?: number;
   biome: Biome;
   ironman: boolean;
@@ -1203,6 +1211,7 @@ export function snapshot(s: GameState): Snapshot {
     wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w, shape: RING_SHAPE_NAMES[ringShapeOf(s)] } : null))(ringProgress(s)) : null,
     mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
     trips: tripsView(s),
+    companies: companiesView(s),
     muster: musterView(s, (p) => callingName(p, stageOf(p))),
     envoyRider: s.envoyRider ? { ...s.envoyRider } : null,
     realm: realmView(s, (id) => !destinationHidden(s, id) && !!DEST_BY_ID[id] && destinationUnlocked(s, DEST_BY_ID[id])),
@@ -1278,6 +1287,7 @@ export function snapshot(s: GameState): Snapshot {
     portalView: portalView(s),
     interior: interiorView(s, (p) => describe(s, p)),
     families: slow(s, 'families', () => familiesView(s)),
+    guilds: slow(s, 'guilds', () => guildsView(s)),
     markets: slow(s, 'markets', () => marketView(s)),
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,
@@ -1671,6 +1681,33 @@ export interface TripsView {
   bountyStep: number;
   /** Adventurers in the town (who form parties of their own accord). */
   adventurers: number;
+}
+
+export interface CompanyView {
+  id: number;
+  name: string;
+  members: { id: number; name: string; alive: boolean; level: number; calling: string | null }[];
+  formed: number;
+  ended: number | null;
+  trips: number;
+  wins: number;
+  deeds: string[];
+  /** Where it is now: out on a trip (its place), else home. */
+  out: string | null;
+}
+
+function companiesView(s: GameState): CompanyView[] {
+  return (s.companies ?? [])
+    .map((c) => {
+      const members = c.members.map((id) => {
+        const p = s.people.find((q) => q.id === id);
+        const f = (s.fallen ?? []).find((q) => q.id === id);
+        return { id, name: p?.name ?? f?.name ?? '?', alive: !!p, level: p ? levelOf(p) : f?.level ?? 0, calling: p && (p.cls || p.fcls) ? callingName(p, stageOf(p)) : null };
+      });
+      const trip = s.expeditions.find((e) => e.members.filter((id) => c.members.includes(id)).length >= 2);
+      return { id: c.id, name: c.name, members, formed: c.formed, ended: c.ended ?? null, trips: c.trips, wins: c.wins, deeds: [...c.deeds], out: trip && !c.ended ? destinationOf(s, trip.dest)?.name ?? trip.dest : null };
+    })
+    .sort((a, b) => (a.ended === null ? 0 : 1) - (b.ended === null ? 0 : 1) || b.trips - a.trips);
 }
 
 function tripsView(s: GameState): TripsView {

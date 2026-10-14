@@ -130,3 +130,15 @@ export const REVOLT_HOURS = 6;
 export const REVOLT_OPTIONS = ['Give way to them', 'Put it down', 'Step down'] as const;
 export const GIVE_WAY = 20;
 export const STEP_DOWN = 25;
+
+/** The founder's edicts (the Council tab): proclaim a law, repeal one, or call a vote. Each is paid for in coins from
+ *  the treasury or in standing (every bloc's satisfaction down this much: the town dislikes rule by decree), moves the
+ *  blocs that care this much at once (the law's own pull follows, as for any law in force), and the next waits this
+ *  many days. */
+export const EDICT_COINS = 40;
+export const EDICT_STANDING = 6;
+export const EDICT_SWAY = 6;
+export const EDICT_COOLDOWN_DAYS = 3;
+export const EDICT_OPS = ['proclaim', 'repeal', 'vote'] as const;
+export type EdictOp = (typeof EDICT_OPS)[number];
+export type EdictPay = 'coins' | 'standing';
