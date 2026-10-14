@@ -38,6 +38,13 @@ function write(key: string, value: string): boolean {
 /** The game, in a worker of its own (simWorker.js, beside the page), or where a browser can't start one, the same
  *  file loaded into the page (`?inpage` forces it, for comparing). Messages sent before it's ready wait. */
 function startGame(take: (m: FromHost) => void): (m: ToHost) => void {
+  // (started already by boot.js in the page's head, its catch-up under way: what it said meanwhile is taken first)
+  const boot = (window as unknown as { __simBoot?: { worker: Worker; early: FromHost[]; take: ((m: FromHost) => void) | null } }).__simBoot;
+  if (boot) {
+    for (const m of boot.early.splice(0)) take(m);
+    boot.take = take;
+    return (m) => boot.worker.postMessage(m);
+  }
   try {
     if (typeof Worker !== 'undefined' && !/[?&]inpage\b/.test(location.search)) {
       const w = new Worker('simWorker.js');
@@ -115,7 +122,9 @@ export function mobileBridge(): Bridge {
       send({ ...m, id } as ToHost);
     });
   const catchingUp = () => !!assembler.current?.catchingUp;
-  send({ t: 'init', save: savedText, now: Date.now(), hidden: document.hidden, alerts });
+  // (boot.js has sent the town already, when it could start the worker)
+  if (!(window as unknown as { __simBoot?: unknown }).__simBoot) send({ t: 'init', save: savedText, now: Date.now(), hidden: document.hidden, alerts });
+  else send({ t: 'hidden', on: document.hidden });
 
   // Phone alerts (ntfy): booked for the time away as the page goes to the background (the game's side looks ahead
   // while it's open), dropped when it comes back.

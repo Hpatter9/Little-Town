@@ -132,6 +132,8 @@ interface TownMood {
   best: [number, string] | undefined;
   vampire: boolean;
   undead: boolean;
+  /** Those with a child (in town or away). */
+  parents: Set<number>;
 }
 function townMood(s: GameState): TownMood {
   const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
@@ -154,6 +156,7 @@ function townMood(s: GameState): TownMood {
     best,
     vampire: s.people.some((q) => q.monster === 'vampire' && q.away === null),
     undead: s.people.some((q) => q.monster === 'undead' && q.away === null),
+    parents: new Set(s.people.filter(isChild).flatMap((k) => k.parents ?? [])),
   };
 }
 
@@ -229,7 +232,7 @@ export function mood(s: GameState, p: Person, here?: TownMood): { target: number
   if (friendsOf(s, p).some((f) => f.id !== p.partner)) add('Has friends', 3);
   const rival = rivalsOf(s, p)[0];
   if (rival) add(`Can't stand ${rival.name}`, -5);
-  if (s.people.some((k) => isChild(k) && k.parents?.includes(p.id))) add('A child to raise', 3);
+  if (town.parents.has(p.id)) add('A child to raise', 3);
   if (isChild(p)) add(town.school ? 'Learning at school' : 'Playing', 5);
   const target = Math.max(0, Math.min(100, 50 + reasons.reduce((n, r) => n + r.value, 0)));
   return { target, reasons };

@@ -4,7 +4,7 @@
 // localStorage, the legends and the buzz. Commands come in, snapshots go out as what changed (snapDelta.ts). No DOM:
 // where a browser has no workers the page runs this itself, and the tests run it under node.
 
-import { AHEAD_TICKS, scheduleAlerts, startForecast, type Ahead, type ForecastJob } from './alerts';
+import { AHEAD_TICKS, cleanAlerts, scheduleAlerts, startForecast, type Ahead, type ForecastJob } from './alerts';
 import type { AlertSettings } from './ipc';
 import { GameLoop } from './gameLoop';
 import { SnapDiffer, type SnapDelta } from './snapDelta';
@@ -158,7 +158,7 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
     switch (m.t) {
       case 'init': {
         hidden = m.hidden;
-        alerts = m.alerts;
+        alerts = cleanAlerts(m.alerts); // (boot.js sends them as stored)
         let unreadable = false;
         let state: GameState | null = null;
         let savedAt = m.now;
