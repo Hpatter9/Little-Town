@@ -28,7 +28,7 @@ import { specialsHourly } from './specials';
 import { sagasHourly } from './sagas';
 import { huntsHourly } from './hunts';
 import { dragonTick } from './dragon';
-import { openGate } from './raidWait';
+import { holdForFight, openGate } from './raidWait';
 import { maybeEvent } from './events';
 import { rally } from './rally';
 import { battleGo, placeFighter, setAutoBattle, setBattleSpeed, setGameSpeed } from './battle';
@@ -270,6 +270,7 @@ export class Sim {
     updateAdvice(s);
     maybeArrive(s, this.rng);
     maybeEvent(s, this.rng);
+    holdForFight(s); // (questions wait while a fight is on screen: sim/raidWait.ts)
     updateVisitor(s, (p: Person, to: Pt) => walkTo(s, p, to));
     // the town decides for itself what to research, make, build and gather
     runPlanner(s);

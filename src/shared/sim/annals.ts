@@ -5,6 +5,7 @@
 // is reckoned from what the town looked like at the last chronicle, or its founding (`s.yearStart`), and from the raids
 // tallied as they end (`s.yearRaids`).
 
+import { awardDeedTitles } from './deeds';
 import { ERA_NAMES } from '../data/eras';
 import { callingName } from '../data/founderClasses';
 import { levelOf, stageOf } from '../data/levels';
@@ -132,6 +133,7 @@ function awardTownTitles(s: GameState): void {
 export function annalsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver) return;
   awardTownTitles(s);
+  awardDeedTitles(s);
   if (!s.yearStart) return startYear(s);
   const cal = calendar(s.tick);
   if (cal.season !== 'winter' || cal.dayOfSeason !== CHRONICLE_DAY || cal.hour !== CHRONICLE_HOUR) return;

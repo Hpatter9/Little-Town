@@ -2,6 +2,7 @@
 // materials from storage, carries them to the item's station and makes it there. Items land in the town
 // inventory and are handed out as gear automatically; food and ammo go into storage as materials.
 
+import { addDeed } from './deeds';
 import { launch } from './boats';
 import { payFromTreasury } from './economy';
 import { BUILDING_BY_ID } from '../data/buildings';
@@ -167,6 +168,7 @@ export function takeItemInputs(s: GameState, o: CraftOrder): boolean {
 /** One piece is done: into the inventory (or storage, for materials); the order moves on. */
 export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): void {
   const def = ITEM_BY_ID[o.item];
+  addDeed(p, 'crafted');
   if (def.boat) launch(s, def.boat); // (a boat joins the fleet: sim/boats.ts)
   else if (def.makes) {
     const at = stationFor(s, def);

@@ -2,6 +2,7 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
+import { addDeed } from './deeds';
 import { assaultDestination, assaultOver, assaultTargets, isAssaultDest, leviesFor, planAssault } from './factions';
 import { ASSAULT_MOST } from '../data/factions';
 import { boatDef, boatHome, fleet, freeBoat, sailSpeed, sailsTo, seaHour } from './boats';
@@ -592,7 +593,10 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
     case 'won': {
       // a boss slain: its trophy comes home with the party (its purse goes to the town: shown on the victory screen)
       const coinsBefore = s.coins ?? 0;
-      for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.boss) bossSlain(s, f.kind);
+      for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.boss) {
+        bossSlain(s, f.kind);
+        for (const p of members) addDeed(p, 'bosses'); // (a deed for the whole party: sim/deeds.ts)
+      }
       result.coins = (s.coins ?? 0) - coinsBefore;
       // (a boss's purse is the party's, split among them: data/economy.ts)
       if (result.coins > 0) {
