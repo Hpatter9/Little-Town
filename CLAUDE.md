@@ -4137,3 +4137,9 @@ blocked by buildings, structures, trees and rocks)
   just inside (the side nearest the camp) and one just outside (every gate's inside before any outside), placed first by
   `outdoorCells` within the town's `want` (counted as lit before the rest are chosen) and marked `Torch.gate`; the lamplighter (`lightToFeed`) feeds
   a gate's light before any other. Test in `test/lighting.test.ts`.
+- **Events that fit the town:** `src/shared/data/eventFit.ts`: events about hunger and food (`FOOD_EVENTS`), sickness
+  (`SICK_EVENTS`) and drink (`DRINK_EVENTS`) need someone living (`living`: not the raised dead, a lich or a machine,
+  as `tireless`); weddings, births and birthdays (`KIN_EVENTS`) two grown-ups of the living (`couples`). `fitEvents`
+  joins that to each listed event's `when` as EVENTS is put together (data/events.ts), so a lich or machine town never
+  meets them. A new event about any of these goes in its list. Test: `test/eventFit.test.ts` (and any event whose
+  words speak of hunger must be listed or named as someone else's hunger).
