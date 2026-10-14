@@ -4244,3 +4244,13 @@ blocked by buildings, structures, trees and rocks)
   the seat first (`haulOrder`), and a town with no seat (an older save) lays its first (open towns only). Shown: a
   dashed 🏛 node in the tree, a line on the Studies tab and on each topic's card (`ResearchView.seat`), the seat's tap
   card and its building card ("Opens studies").
+- **Building wishes:** `sim/pins.ts` (`s.pins`, `Pin`: def, when pinned, the blueprint laid, what it waits on;
+  `PINS_MOST` 5). The `pinBuilding` command (`def`, `on`; `setPin`, refused by `pinRefusal`: unknown, the seat and
+  `never` buildings, walls and gates (the ring's), not learned, already pinned, too many; the refusal goes to the
+  Journal). The planner's `planPins` (planner.ts, right after the seat, before the town's own wishes) lays each pin in
+  the order pinned once a build slot is free, its makings can be had and there's a spot (`findSpot`, `roomSpot` in a
+  castle), noting what holds it back on `Pin.why`; its cost is in the planner's demand meanwhile, so the town gathers
+  for it, and its blueprint is never set aside (`pinned` in `shelveStalled`). `tendPins`: when it stands the Journal
+  says "Your wish is built", a lost site or one not started in `PIN_WAIT_HOURS` (72) is told and dropped. The Building
+  book's cards have **📌 Build this next** / **📌 Pinned: unpin**, and "Your wishes" lists them with Unpin
+  (`snapshot.pins`). Test: `test/pins.test.ts`.
