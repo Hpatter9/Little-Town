@@ -6,6 +6,7 @@
 // fightHud.ts.
 
 import { boatArt } from '../art/boatArt';
+import { airshipTexture, DECK, loadAirshipArt } from '../art/airshipArt';
 import { ColorMatrixFilter, Container, Graphics, Sprite, Text, TilingSprite } from 'pixi.js';
 import { ABILITY_BY_ID } from '../../shared/data/abilities';
 import type { Element } from '../../shared/data/effects';
@@ -161,7 +162,7 @@ export class FightScene {
     // (`window.__scene` shows any scene, for previews)
     const scene = (window as unknown as { __scene?: SceneId }).__scene ?? sceneFor(v.dest, v.scenery, v.phase, biome);
     // (and painted by hand, or a painted backdrop from the packs: `window.__look` forces one, for previews)
-    const look = (window as unknown as { __look?: SceneLook }).__look ?? lookFor(scene, v.id, season, sea);
+    const look = (window as unknown as { __look?: SceneLook }).__look ?? lookFor(scene, v.id, season, sea && !this.aloft(v), this.aloft(v));
     const key = `${v.id}|${scene}|${look}`;
     if (key !== this.sceneKey) {
       this.sceneKey = key;
@@ -269,7 +270,7 @@ export class FightScene {
     this.fx.clear();
     const seen = new Set<string>();
     // (at sea the scroll keeps going: she sails on, fight or no fight)
-    if (this.afloat(v) && !walking) this.scroll += MARCH * dt * 0.5;
+    if (this.aboard(v) && !walking) this.scroll += MARCH * dt * 0.5;
     this.drawSea(this.afloat(v), now);
     if (fighting) this.drawFight(v.battle!, v, now, seen);
     else this.drawMarch(v, now, walking, seen);
@@ -358,7 +359,7 @@ export class FightScene {
     for (const sp of this.fxPool) sp.visible = false;
     const n = v.members.length;
     // (at sea they stand on her deck as she rides the swell: the sea goes by, not their feet)
-    const afloat = this.afloat(v);
+    const afloat = this.aboard(v);
     const bob = afloat ? Math.round(Math.sin(now / 600) * 1.5) : 0;
     if (afloat) this.showHull(v, this.vw / 2, Math.round(this.hy + 40) + bob + 6, Math.max(96, n * 22 + 56), now);
     else this.hull.visible = false;
@@ -420,9 +421,33 @@ export class FightScene {
   private afloat(v: ExpeditionView): boolean {
     return !!v.boat && v.phase !== 'work';
   }
+  /** Whether the party is aloft in an airship (out or back): the sky all round, her gondola under their feet. */
+  private aloft(v: ExpeditionView): boolean {
+    return !!v.airship && v.phase !== 'work';
+  }
+  private aboard(v: ExpeditionView): boolean {
+    return this.afloat(v) || this.aloft(v);
+  }
 
   /** Her hull, `length` px long, centred at x with her deck at y, rocking a little. */
   private showHull(v: ExpeditionView, x: number, y: number, length: number, now: number): void {
+    if (this.aloft(v)) {
+      // (her gasbag over them and her gondola under their feet, the pack's airship turned to fly right: art/airshipArt.ts)
+      const tex = airshipTexture(v.airship!.kind, 1, true);
+      if (!tex) {
+        void loadAirshipArt();
+        this.hull.visible = false;
+        return;
+      }
+      const k = Math.max(1, (length * 1.5) / tex.width);
+      this.hull.texture = tex;
+      this.hull.scale.set(k);
+      this.hull.visible = true;
+      this.hull.position.set(Math.round(x), Math.round(y - 6 + tex.height * k * (1 - DECK[v.airship!.kind])));
+      this.hull.rotation = Math.sin(now / 1300) * 0.01;
+      return;
+    }
+    this.hull.scale.set(1);
     const art = boatArt(v.boat!.kind, length);
     this.hull.texture = art.texture;
     this.hull.visible = true;
@@ -458,7 +483,7 @@ export class FightScene {
       at.set(`party:${f.ref}`, [Math.round(vw * 0.66) + c * 34 + r * 8 + (f.row === 'back' ? 12 : 0), Math.round(hy + 16 + r * partyGap)]);
     });
     // (a fight at sea: they stand on her deck, which runs under the whole column)
-    if (this.afloat(v)) this.showHull(v, Math.round(vw * 0.74), Math.round(hy + 16 + Math.max(0, party.length - 1) * partyGap) + 8, Math.max(110, party.length * 26 + 60), now);
+    if (this.aboard(v)) this.showHull(v, Math.round(vw * 0.74), Math.round(hy + 16 + Math.max(0, party.length - 1) * partyGap) + 8, Math.max(110, party.length * 26 + 60), now);
     else this.hull.visible = false;
     // the spells and skills just used: a flash of their colour and their effect on whoever they touched
     let used = 0;

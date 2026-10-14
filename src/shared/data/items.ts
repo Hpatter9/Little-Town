@@ -18,6 +18,7 @@ import { FESTIVAL_ITEMS } from './festivals';
 import { MINERAL_ITEMS } from './minerals';
 import { FORGED_ARMOUR } from './hunts';
 import { BOAT_ITEMS, type BoatKind } from './boats';
+import { AIRSHIP_ITEMS, SKY_TROPHIES, type AirshipKind } from './skies';
 import type { WorkAnim } from './terrain';
 
 export type Slot = 'tool' | 'weapon' | 'offhand' | 'head' | 'body' | 'charm' | 'pack';
@@ -36,6 +37,7 @@ export const SLOT_NAMES: Record<Slot, string> = {
 export type Station =
   | 'campfire'
   | 'boatyard'
+  | 'airship_mast'
   | 'workbench'
   | 'tanning_rack'
   | 'drying_rack'
@@ -65,7 +67,7 @@ export type Station =
   | 'blood_cellar' | 'bone_forge' | 'gem_cutter' | 'herb_press' | 'pearl_works' | 'felt_works' | 'glamour_loom' | 'alembic' | 'assembler' | 'armourer' | 'pelt_house' | 'grog_pit'
   // the Monster Hunters' Guild (data/hunts.ts)
   | 'monster_guild';
-export const STATIONS: readonly Station[] = ['campfire', 'boatyard', 'workbench', 'tanning_rack', 'drying_rack', 'kiln', 'bloomery', 'smithy', 'sawmill', 'tannery', 'loom', 'windmill', 'bakery', 'steelworks', 'glassworks', 'gunsmith', 'refinery', 'cement_works', 'electronics_plant', 'garage', 'alloy_foundry', 'chip_fab', 'battery_plant', 'robot_workshop', 'tavern',
+export const STATIONS: readonly Station[] = ['campfire', 'boatyard', 'airship_mast', 'workbench', 'tanning_rack', 'drying_rack', 'kiln', 'bloomery', 'smithy', 'sawmill', 'tannery', 'loom', 'windmill', 'bakery', 'steelworks', 'glassworks', 'gunsmith', 'refinery', 'cement_works', 'electronics_plant', 'garage', 'alloy_foundry', 'chip_fab', 'battery_plant', 'robot_workshop', 'tavern',
   'smokehouse', 'bone_carver', 'basketry', 'brewery', 'tailor', 'jeweller', 'cooper', 'apothecary', 'chandlery', 'dyeworks', 'print_shop', 'clockmaker', 'cannery', 'textile_mill', 'appliance_plant', 'pharmacy', 'bio_lab', 'nanoforge',
   'blood_cellar', 'bone_forge', 'gem_cutter', 'herb_press', 'pearl_works', 'felt_works', 'glamour_loom', 'alembic', 'assembler', 'armourer', 'pelt_house', 'grog_pit', 'monster_guild'];
 
@@ -125,6 +127,8 @@ export interface ItemDef {
   makes?: Partial<Record<Material, number>>;
   /** A boat: built at the boatyard, she joins the fleet (sim/boats.ts `launch`), not the stores. */
   boat?: BoatKind;
+  /** An airship: built at the airship mast, she joins the fleet (sim/skies.ts `launchAirship`), not the stores. */
+  airship?: AirshipKind;
   effects: ItemEffects;
   description: string;
   /** DawnLike item sheet and cell (16px); or a code-drawn one by name (sheet 'Custom'). */
@@ -416,7 +420,7 @@ const FIRST: Record<string, Pick<ItemDef, 'family' | 'tier' | 'weight'>> = {
 };
 
 /** Everything that can be made or found: the first items, and the armoury of data/weapons.ts and data/armour.ts. */
-export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...FORGED_ARMOUR, ...WORKSHOP_ITEMS, ...MINERAL_ITEMS, ...BOAT_ITEMS, ...CALAMITY_TROPHIES, ...RISING_TROPHIES, ...FESTIVAL_ITEMS];
+export const ITEMS: readonly ItemDef[] = [...BASE_ITEMS.map((i) => (FIRST[i.id] ? { ...i, ...FIRST[i.id] } : i)), ...WEAPONS, ...ARMOUR, ...BESTIARY_TROPHIES, ...UNIQUES, ...FORGED_ARMOUR, ...WORKSHOP_ITEMS, ...MINERAL_ITEMS, ...BOAT_ITEMS, ...AIRSHIP_ITEMS, ...CALAMITY_TROPHIES, ...RISING_TROPHIES, ...SKY_TROPHIES, ...FESTIVAL_ITEMS];
 
 export const ITEM_BY_ID: Readonly<Record<string, ItemDef>> = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 

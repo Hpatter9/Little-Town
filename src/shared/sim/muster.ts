@@ -432,7 +432,7 @@ export function debrief(s: GameState, e: Expedition, d: Destination): void {
   const leaderName = e.start.names[e.leader ?? ids[0]] ?? 'The leader';
   const took = stockText(e.loot);
   lines.push(`${leaderName}'s party is home from ${the(d.name)} after ${days < 1 ? 'less than a day' : days < 1.5 ? 'a day' : `${Math.round(days)} days`}${e.recalled ? ', called back' : ''}.`);
-  lines.push(e.wrecked ? 'Their boat went down; what they found went with her.' : took ? `They bring home ${took}.` : 'They come home empty-handed.');
+  lines.push(e.crashed ? 'Their airship came down; what they found was lost with her.' : e.wrecked ? 'Their boat went down; what they found went with her.' : took ? `They bring home ${took}.` : 'They come home empty-handed.');
   if (e.cleared) lines.push(`${The(d.name)} is cleared.`);
   for (const id of ids) {
     const p = byId(s, id);

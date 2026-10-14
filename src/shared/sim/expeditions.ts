@@ -6,6 +6,7 @@ import { addDeed } from './deeds';
 import { assaultDestination, assaultOver, assaultTargets, isAssaultDest, leviesFor, planAssault } from './factions';
 import { ASSAULT_MOST } from '../data/factions';
 import { boatDef, boatHome, fleet, freeBoat, sailSpeed, sailsTo, seaHour } from './boats';
+import { airfleet, airshipDef, airshipHome, airshipLost, boardAirship, flySpeed, fliesWith, freeAirship, skyHour } from './skies';
 import { payParty } from './economy';
 import { homeFromTrip } from './ambition';
 import { jobDone, payBounty } from './parties';
@@ -189,8 +190,11 @@ export function canSend(s: GameState, destId: string, memberIds: readonly number
   if (d.coins && (s.coins ?? 0) < d.coins) return { ok: false, reason: `Needs ${d.coins} coins for the purse` };
   // (an island: only a boat reaches it, and she takes no more than her crew)
   const boat = sailsTo(d) ? freeBoat(s) : undefined;
-  if (d.byBoat && !boat) return { ok: false, reason: 'Needs a seaworthy boat' };
-  const most = boat && d.byBoat ? Math.min(boatDef(boat).crew, MAX_DELVERS) : d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : isAssaultDest(d.id) ? ASSAULT_MOST : MAX_PARTY;
+  // (a place in the sky only an airship reaches; an island an airship reaches too, with no boat free)
+  const ship = d.bySky || (d.byBoat && !boat) ? freeAirship(s) : undefined;
+  if (d.bySky && !ship) return { ok: false, reason: 'Needs an airworthy airship' };
+  if (d.byBoat && !boat && !ship) return { ok: false, reason: 'Needs a seaworthy boat' };
+  const most = ship ? Math.min(airshipDef(ship).crew, MAX_DELVERS) : boat && d.byBoat ? Math.min(boatDef(boat).crew, MAX_DELVERS) : d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : isAssaultDest(d.id) ? ASSAULT_MOST : MAX_PARTY;
   if (memberIds.length > most) return { ok: false, reason: `Parties are at most ${most} people` };
   if (new Set(memberIds).size !== memberIds.length) return { ok: false, reason: 'Someone is listed twice' };
   for (const id of memberIds) {
@@ -253,8 +257,10 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     takeFromStorage(s, 'fuel', TRUCK_FUEL);
   }
   // (by boat, to an island or along the water, at her speed: no horse beats her there)
-  const boat = sailsTo(d) && members.length <= Math.max(MAX_PARTY, freeBoat(s) ? boatDef(freeBoat(s)!).crew : 0) ? freeBoat(s) : undefined;
-  const speed = boat ? 1 / sailSpeed(boat) : truck ? TRUCK_SPEEDUP : (waterskins ? WATERSKIN_SPEEDUP : 1) * (mounted ? HORSE_SPEEDUP : 1);
+  // (or in an airship, anywhere, faster than any boat or horse: sim/skies.ts)
+  const ship = fliesWith(s, d, members.length);
+  const boat = !ship && sailsTo(d) && members.length <= Math.max(MAX_PARTY, freeBoat(s) ? boatDef(freeBoat(s)!).crew : 0) ? freeBoat(s) : undefined;
+  const speed = ship ? 1 / flySpeed(ship) : boat ? 1 / sailSpeed(boat) : truck ? TRUCK_SPEEDUP : (waterskins ? WATERSKIN_SPEEDUP : 1) * (mounted ? HORSE_SPEEDUP : 1);
 
   const out = Math.round(phaseTicks(s, d.outSeconds) * speed);
   const e: Expedition = {
@@ -286,6 +292,7 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
   if (assault) e.assault = assault;
   s.expeditions.push(e);
   if (boat) boat.away = e.id;
+  if (ship) boardAirship(ship, e);
   // (a delve: its rooms rolled and its torches packed)
   if (d.type === 'delve') startDelve(s, e, (m, n) => takeFromStorage(s, m, n));
   for (const p of members) {
@@ -294,7 +301,7 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     p.activity = 'walk';
     p.blocked = false;
   }
-  notify(s, `${names(members)} set out for ${the(d.name)}${boat ? ` in the ${boat.name}` : ''}.`);
+  notify(s, `${names(members)} set out for ${the(d.name)}${ship ? `, flying in the ${ship.name}` : boat ? ` in the ${boat.name}` : ''}.`);
   return { ok: true };
 }
 
@@ -345,7 +352,8 @@ function startBack(s: GameState, e: Expedition, walkedTicks: number): void {
 export function partyCarry(s: GameState, e: Expedition): number {
   const people = e.members.reduce((n, id) => n + carryCapacity(s, s.people.find((p) => p.id === id)) * (e.roles[id] === 'porter' ? PORTER_CARRY : 1), 0);
   const boat = e.boat ? fleet(s).find((b) => b.id === e.boat) : undefined;
-  const hold = boat ? boatDef(boat).cargo : 0;
+  const ship = e.airship ? airfleet(s).find((a) => a.id === e.airship) : undefined;
+  const hold = (boat ? boatDef(boat).cargo : 0) + (ship ? airshipDef(ship).cargo : 0);
   return Math.round((people + (e.horses?.length ?? 0) * HORSE_CARRY + (e.truck ? TRUCK_CARRY : 0) + hold) * (e.stakes ? STAKES[e.stakes].carry : 1));
 }
 
@@ -433,6 +441,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
     if (!members.length) {
       s.expeditions = s.expeditions.filter((q) => q !== e);
       notify(s, `No one came back from ${the(d.name)}.`, true);
+      airshipLost(s, e);
       continue;
     }
 
@@ -456,6 +465,16 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
       if (s.gameOver) return;
       members = membersOf(s, e);
       if (e.wrecked && e.phase !== 'back') startBack(s, e, e.elapsed);
+      if (e.battle) continue;
+    }
+    // (aloft: each hour out and back may bring a storm, guns from below, sky pirates or flyers: sim/skies.ts)
+    if (e.airship && e.phase !== 'work' && e.elapsed % TICKS_PER_HOUR === 0) {
+      const pace = e.airship ? flySpeed(airfleet(s).find((a) => a.id === e.airship)) : 1;
+      skyHour(s, e, members, (group, g) => fightGroup(s, e, d, members, group, false, g));
+      if (s.gameOver) return;
+      members = membersOf(s, e);
+      // (fallen on the way out: they walk home from there, as long as walking it takes)
+      if (e.crashed && e.phase === 'out') startBack(s, e, Math.round(e.elapsed * pace));
       if (e.battle) continue;
     }
     switch (e.phase) {
@@ -687,6 +706,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   if (e.horses?.length) s.horses.push(...e.horses);
   if (e.truck) s.items.truck = (s.items.truck ?? 0) + 1;
   boatHome(s, e);
+  airshipHome(s, e, jobDone(e, members));
   const side = s.destSides[d.id] ?? 1;
   const at = campEdge(s, side);
   // Share out the loot and leftover food; they'll haul it to storage like anything else.
