@@ -4133,3 +4133,7 @@ blocked by buildings, structures, trees and rocks)
   (`#fight-speed`, `snapshot.fightSpeed`). `window.__skirmish(group)` starts a watched skirmish (previews). Test:
   `test/fightSpeed.test.ts`.
 - **The fight banner at the top:** `#fight-banner` stands under the progress bars (`top: 36px`), clear of the fighters.
+- **Lights at the gates first:** `gateLightCells` (sim/lighting.ts): at each finished gate of the ring wall a light
+  just inside (the side nearest the camp) and one just outside, placed first by `outdoorCells` (on top of the town's
+  `want`, and counted as lit before the rest are chosen) and marked `Torch.gate`; the lamplighter (`lightToFeed`) feeds
+  a gate's light before any other. Test in `test/lighting.test.ts`.

@@ -231,3 +231,27 @@ test('light passes over fields, pens and traps lying flat', () => {
   s.land.version++;
   assert.equal(inDark(s, px(cx + 3), px(cy)), false, 'lit past the field');
 });
+
+test('a light stands at each side of every gate in the ring wall, and those are fed first', () => {
+  const s = lit('lights-gates');
+  const c = s.land.camp;
+  // (a gate in the ring north and south of the camp, the ground about them clear)
+  for (let y = c.y - 14; y <= c.y + 14; y++) for (let x = c.x - 4; x <= c.x + 4; x++) setGround(s.land, x, y, 'grass');
+  const north = put(s, 'palisade_gate', c.x, c.y - 12, { ring: 1 });
+  const south = put(s, 'palisade_gate', c.x, c.y + 12, { ring: 1 });
+  placeLights(s);
+  const gateLights = s.torches!.filter((t) => t.gate);
+  for (const g of [north, south]) {
+    const r = footprint(g);
+    const by = gateLights.filter((t) => t.x >= r.x - 1 && t.x <= r.x + r.w && t.y >= r.y - 1 && t.y <= r.y + r.h);
+    assert.ok(by.some((t) => Math.abs(t.y - c.y) < Math.abs(r.y - c.y)), 'a light just inside the gate');
+    assert.ok(by.some((t) => Math.abs(t.y - c.y) > Math.abs(r.y - c.y)), 'a light just outside the gate');
+  }
+  // the lamplighter goes to a gate's light before a nearer, emptier one
+  s.tick = at(1, 17);
+  for (const t of s.torches!) t.fuel = t.gate ? 3 : 0;
+  depositNear(s, campXY(s), { wood: 50 });
+  const p = s.people[0];
+  const next = lightToFeed(s, p);
+  assert.ok(next?.gate, 'the gate first');
+});
