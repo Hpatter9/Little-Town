@@ -4,7 +4,7 @@ import '../src/shared/data/events'; // (first: the event kit's own import order)
 import { FRONTIER_HOUR, TRICKS } from '../src/shared/data/frontier';
 import { Rng } from '../src/shared/rng';
 import { totalStock } from '../src/shared/sim/buildings';
-import { frontierHourly, frontierOf, learnTricks, stakeClaim, teach } from '../src/shared/sim/frontier';
+import { frontierHourly, frontierOf, learnTricks, stakeClaim, teach, wagon } from '../src/shared/sim/frontier';
 import { markMult } from '../src/shared/sim/origin';
 import { makePerson, type GameState } from '../src/shared/sim/state';
 import { snapshot } from '../src/shared/sim/snapshot';
@@ -46,4 +46,23 @@ test('a claim is staked at the edge of the known land and homesteaded', () => {
   assert.ok(Object.values(totalStock(s)).reduce((a, b) => a + (b ?? 0), 0) > before, 'the first haul');
   assert.ok(snapshot(s).heritage?.frontier?.claims.length === 1);
   assert.equal(frontierOf({ ...s, origin: 'lich' } as GameState), null, 'only the settlers');
+});
+
+test('a claim draws a wagon of settlers, who come in only to a free bed and food', () => {
+  const s = frontier('fr-wagon');
+  const f = frontierOf(s)!;
+  stakeClaim(s, f);
+  assert.equal(f.wagons, 1, 'a wagon is on the road');
+  const folk = s.people.length;
+  s.buildings.push({ id: s.nextId++, def: 'longhouse', tile: s.land.camp.x + 3, row: s.land.camp.y, status: 'done', delivered: {}, progress: 1, store: { berries: 400 } } as never);
+  s.buildings.find((b) => b.def === 'campfire')!.store = {};
+  s.buildings.find((b) => b.def === 'longhouse')!.store = {};
+  assert.deepEqual(wagon(s, f), [], 'no food, no wagon');
+  s.buildings.find((b) => b.def === 'longhouse')!.store = { berries: 400 };
+  const come = wagon(s, f);
+  assert.ok(come.length >= 1 && come.length <= 2, 'a household rolls in');
+  assert.equal(s.people.length, folk + come.length);
+  assert.equal(f.wagons, 0);
+  assert.ok(come.every((p) => p.origin === undefined || p.origin === 'settlers'));
+  assert.deepEqual(wagon(s, f), [], 'no wagon waiting');
 });
