@@ -4120,3 +4120,31 @@ blocked by buildings, structures, trees and rocks)
   section weighed by its build time), `snapshot.wall`; a piece's tap card reads "The town's wall, built as one: N of M
   sections standing (P%)" (main.ts). The pieces stay separate cells for pathing, damage and the joined art. Test in
   `test/ringWall.test.ts`.
+
+## Raids and deeds (the owner's asks; branch claude/raids-and-deeds)
+- **Titles from deeds:** `data/deeds.ts` (`DEED_TITLES`: a ladder of titles each for raids defended, buildings raised,
+  pieces made, lives tended, topics learned, bosses felled, dungeons cleared, sagas ended) and `sim/deeds.ts`
+  (`addDeed`, counted on `Person.deeds`; `awardDeedTitles` hourly from `annalsHourly`, beside the origin titles for
+  kills and trips). Counted where each happens: a site finished (everyone building it), `finishPiece`, `doTend` and
+  surgery, a topic learned, a boss's last blow (`credit` in raidRecap.ts) or a party's boss, a delve cleared, a saga's
+  hero, and everyone who stood and lived in a raid not pillaged. `PersonView.deeds`; the People row shows the latest
+  title, the Background tab every title and each deed with how far to the next. Test: `test/deeds.test.ts`.
+- **The ring's shape by people:** `data/ringShapes.ts` (`RING_SHAPE_OF`, `RING_SHAPE_NAMES`); `shapeTest` in
+  sim/ringWall.ts lays the shape over the ring's box (settlers' square, knights' star fort, the round ring of the
+  nomads and the pack, octagon, honeycomb, coffin, winding grove, scalloped shell, petals, jagged camp, terraces),
+  a straight run `GATE_FLAT` either side of each side's middle for the gates, and `TOWN_KEEP` round every building
+  taken back in; then the river push as before. The wall's tap card names its shape (`snapshot.wall.shape`). Tests in
+  `test/ringWall.test.ts`.
+- **A fight on screen holds the game:** `fightOnScreen` (sim/raidWait.ts: a raid's battle or board, or a watched
+  fight). `GameLoop` stands still while the page is hidden (`hidden`, set by mobileBridge.ts) and plays no time away
+  for it; `holdForFight` (from sim.ts) holds every question's clock but the raid's own; `snapshot.fightOn`. Nothing
+  pops up over it: the event box, the strip's question card, the cutscene offer and the toasts wait (the last
+  `HELD_TOASTS` shown after); the recap waits for the board to close. Test: `test/fightHold.test.ts`.
+- **The flashier raid screen:** `battle/juice.ts` (`BattleJuice`: impacts from the 5000 Pixel Effects pack, popping
+  numbers, trauma shake, kill and combo callouts, sliding banners, the victory's rays, sparkles and confetti; rules in
+  `battle/juiceRules.ts`). The tactics board feeds it its hits, kills, banners and ultimates, and draws the unit boxes'
+  bars each frame with a draining ghost (`drawBars`); the trail battle's juice is fed by main.ts (`juiceTrail`, from
+  snapshot diffs; the recap waits `VICTORY_MS`). The bars over heads (mapPeople, mapRaiders) have ghosts and a flash
+  too. The minimap stands aside on a board or a watched fight (`body.board-on`). Test: `test/juice.test.ts`.
+- **Victory music:** the `victory` mood for a raid driven off as well as won, and the board's win the moment it comes;
+  a second victory piece (`walls_held`).
