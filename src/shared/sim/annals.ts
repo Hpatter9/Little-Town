@@ -10,13 +10,13 @@ import { ERA_NAMES } from '../data/eras';
 import { callingName } from '../data/founderClasses';
 import { levelOf, stageOf } from '../data/levels';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { TOPIC_BY_ID } from '../data/research';
 import { eventPicture } from '../data/eventScenes';
 import { calendar, DAYS_PER_SEASON, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { notify, type GameState, type Person, type Prompt } from './state';
 import { honour } from './memorials';
+import { topicName } from '../data/originResearch';
 
 /** Midwinter: the middle day of winter, of an evening. */
 export const CHRONICLE_DAY = Math.ceil(DAYS_PER_SEASON / 2);
@@ -167,7 +167,7 @@ export function writeChronicle(s: GameState): Chronicle {
   const champ = now.map((p) => ({ p, n: (p.felled ?? 0) - (y.felled[p.id] ?? 0) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
   if (champ) lines.push(`The year's champion was ${champ.p.name}, who felled ${champ.n === 1 ? 'a raider' : `${champ.n} raiders`}.`);
   const learned = s.research.done.slice(y.research);
-  if (learned.length) lines.push(`We learned ${learned.length === 1 ? `one thing, ${topicName(learned[0])}` : `${learned.length} things, among them ${list(learned.slice(-3).map(topicName))}`}.`);
+  if (learned.length) lines.push(`We learned ${learned.length === 1 ? `one thing, ${topicName(learned[0], s.origin)}` : `${learned.length} things, among them ${list(learned.slice(-3).map((id) => topicName(id, s.origin)))}`}.`);
   const built = doneBuildings(s).filter((id) => !y.built.includes(id));
   const kinds = [...new Set(built.map((id) => BUILDING_BY_ID[s.buildings.find((b) => b.id === id)!.def]?.name).filter(Boolean))] as string[];
   if (built.length) lines.push(`${built.length === 1 ? 'One building rose' : `${built.length} buildings rose`}${kinds.length ? `: ${some(kinds.map((k) => k.toLowerCase()), 4)}` : ''}.`);
@@ -199,4 +199,4 @@ export function writeChronicle(s: GameState): Chronicle {
   return c;
 }
 
-const topicName = (id: string) => TOPIC_BY_ID[id]?.name ?? id;
+

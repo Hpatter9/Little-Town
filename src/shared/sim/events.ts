@@ -39,6 +39,7 @@ import { eventPicture, sceneLine } from '../data/eventScenes';
 import { EVENT_MORE } from '../data/eventMore';
 import { assignBeds, campEdge, joinOrigin, secretStranger } from './townsfolk';
 import { isChild } from './social';
+import { topicName } from '../data/originResearch';
 
 /** Game hours an event waits for an answer before the default is taken (in play; it waits while you're away). */
 export const EVENT_HOURS = 3;
@@ -325,7 +326,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
       const t = topic ? TOPIC_BY_ID[topic] : undefined;
       if (t) {
         s.research.progress[topic] = Math.min(0.99, (s.research.progress[topic] ?? 0) + e.research / t.seconds);
-        say(`study of ${t.name} ${e.research > 0 ? 'forward' : 'set back'}`);
+        say(`study of ${topicName(t.id, s.origin)} ${e.research > 0 ? 'forward' : 'set back'}`);
       }
     } else if ('occult' in e) revealOccult(s, e.occult);
     else if ('chance' in e) apply(s, rng.chance(e.chance) ? e.then : (e.else ?? []), rng, whoId, out);
@@ -362,7 +363,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
         delete r.progress[id];
         r.queue = r.queue.filter((q) => q !== id);
         r.done.push(id);
-        notify(s, `Learned outright: ${TOPIC_BY_ID[id]?.name ?? id}.`, true);
+        notify(s, `Learned outright: ${topicName(id, s.origin)}.`, true);
       }
     } else if ('heal' in e) {
       for (const p of s.people) {

@@ -1,6 +1,6 @@
 // Small text formatting shared by the sim's notices and the renderer (no sim imports: the renderer bundles it).
 
-import { TOPIC_BY_ID } from './data/research';
+import { topicName } from './data/originResearch';
 import type { ExpeditionView, ResearchView } from './sim/snapshot';
 
 /** How far through its whole trip an expedition is, 0..1 (out, work and back as equal thirds). */
@@ -24,7 +24,7 @@ export function researchFill(r: ResearchView): { pct: number; title: string } | 
   const id = r.queue[0];
   if (!id) return null;
   const pct = Math.floor((r.progress[id] ?? 0) * 100);
-  return { pct, title: `Researching ${TOPIC_BY_ID[id]?.name ?? id}: ${pct}%` };
+  return { pct, title: `Researching ${topicName(id, r.origin)}: ${pct}%` };
 }
 
 /** "1h 20m" / "45m": a span of game minutes (how long someone bleeding has left). */

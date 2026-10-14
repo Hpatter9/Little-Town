@@ -1,6 +1,7 @@
 // Research rules: the queue, what finished topics change, and where research happens.
 
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
+import { forgone, topicName } from '../data/originResearch';
 import type { OriginId } from '../data/origins';
 import { RESEARCH_QUEUE_BASE, RESEARCH_STATIONS, TOPIC_BY_ID, type ResearchRule } from '../data/research';
 import type { WorkAnim } from '../data/terrain';
@@ -139,10 +140,12 @@ export function prereqsMet(r: ResearchState, id: string, era: Era = 'neolithic',
   const t = TOPIC_BY_ID[id];
   if (!t) return { ok: false, reason: 'Unknown topic' };
   if (foreignHeritage(id, origin)) return { ok: false, reason: 'Another people\'s heritage' };
+  if (forgone(id, origin)) return { ok: false, reason: 'Not studied by your people' };
   if (t.hidden && !(r.revealed ?? []).includes(t.id)) return { ok: false, reason: 'Undiscovered' };
   if (!eraReached(era, t.era)) return { ok: false, reason: `Opens in the ${ERA_NAMES[t.era!]} era` };
-  const missing = t.prereqs.filter((p) => !r.done.includes(p) && !r.queue.includes(p));
-  if (missing.length) return { ok: false, reason: `Needs ${missing.map((p) => TOPIC_BY_ID[p].name).join(', ')}` };
+  // (a topic this people never studies stands as met for what comes after it)
+  const missing = t.prereqs.filter((p) => !r.done.includes(p) && !r.queue.includes(p) && !forgone(p, origin));
+  if (missing.length) return { ok: false, reason: `Needs ${missing.map((p) => topicName(p, origin)).join(', ')}` };
   if (t.requiresCount) {
     const sameEra = (d: string) => (TOPIC_BY_ID[d]?.era ?? 'neolithic') === (t.era ?? 'neolithic');
     const others = r.done.filter((d) => !t.prereqs.includes(d) && sameEra(d)).length;

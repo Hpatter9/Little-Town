@@ -7,7 +7,6 @@ import { BOAT_BY_KIND } from '../../shared/data/boats';
 import { eraReached } from '../../shared/data/eras';
 import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../../shared/data/materials';
-import { TOPIC_BY_ID } from '../../shared/data/research';
 import type { Bridge } from '../../shared/ipc';
 import type { DestinationView, ExpeditionView, Snapshot } from '../../shared/sim/snapshot';
 import { bleedLeft, tripProgress } from '../../shared/format';
@@ -23,6 +22,7 @@ import { DUNGEON_BY_ID } from '../../shared/data/dungeons';
 import { REGION_BY_ID } from '../../shared/data/regions';
 import { CLASS_DEFS } from '../../shared/data/classes';
 import { expandable, facts, groupLine, itemStats, list, stockLine, type More } from './details';
+import { topicName } from '../../shared/data/originResearch';
 
 /** Each kind of room, as the card names it. */
 const ROOM_NAMES: Record<string, string> = { rival: 'rival delvers', fight: 'a fight', trap: 'a trap', treasure: 'treasure', shrine: 'a shrine', puzzle: 'a puzzle door', camp: 'a rest camp', fork: 'a fork', boss: 'the boss' };
@@ -246,7 +246,7 @@ function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge
   if (!v.unlocked) {
     // (a cleared dungeon lies quiet a while; else it's waiting on research)
     if (v.quietHours) c.append(el('div', 'lock short', `Cleared: it lies quiet now, and wakes again in about ${Math.ceil(v.quietHours / 24)} day${v.quietHours > 24 ? 's' : ''}.`));
-    else c.append(el('div', 'lock short', `Needs research: ${TOPIC_BY_ID[d.research!]?.name ?? d.research}`));
+    else c.append(el('div', 'lock short', `Needs research: ${topicName(d.research!, s.origin.id)}`));
     return done(c);
   }
   return done(tripControls(c, d, v, s, bridge));
@@ -280,7 +280,7 @@ function destDetails(d: Destination, v: DestinationView, s: Snapshot): More[] {
       ['Work there', duration(d.workSeconds)],
       ['Region', dg ? REGION_BY_ID[dg.region]?.name : null],
       ['Rooms', dg ? `${dg.rooms} before the boss's` : null],
-      ['Research', d.research ? (TOPIC_BY_ID[d.research]?.name ?? d.research) : null],
+      ['Research', d.research ? (topicName(d.research, s.origin.id)) : null],
       ['Purse', d.coins ? `${d.coins} coins from the treasury` : null],
       ['By boat', d.byBoat ? 'only a boat reaches it' : null],
       ['Party', `${d.recommendedParty} suggested`],

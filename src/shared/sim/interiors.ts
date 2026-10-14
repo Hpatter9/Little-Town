@@ -9,7 +9,6 @@ import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
 import { CROPS } from '../data/crops';
 import { ITEM_BY_ID } from '../data/items';
 import { HERDS } from '../data/livestock';
-import { TOPIC_BY_ID } from '../data/research';
 import { buildingCentre, footprint } from './buildings';
 import { stationFor } from './crafting';
 import { isChild } from './social';
@@ -17,6 +16,7 @@ import { roomKind } from './castle';
 import { CELL } from './land';
 import type { Building, GameState, Person } from './state';
 import { calendar } from './time';
+import { topicName } from '../data/originResearch';
 
 /** Where someone stands inside: in bed, at the room's station or desk, by the hearth, at the table, or about the floor. */
 export type InsideAt = 'bed' | 'station' | 'desk' | 'hearth' | 'table' | 'floor';
@@ -141,7 +141,7 @@ export function interiorView(s: GameState, doing: (p: Person) => string): Interi
     })
     .map((o) => ({ name: ITEM_BY_ID[o.item].name, done: Math.max(0, Math.min(1, (o.made + o.progress) / Math.max(1, o.count))) }));
   const studier = s.people.find((p) => p.task?.type === 'research' && p.task.station === b.id);
-  const topic = studier?.task?.type === 'research' && studier.task.topic ? TOPIC_BY_ID[studier.task.topic]?.name ?? null : null;
+  const topic = studier?.task?.type === 'research' && studier.task.topic ? topicName(studier.task.topic, s.origin) : null;
   const owner = b.owner !== undefined ? s.people.find((p) => p.id === b.owner)?.name ?? null : null;
   const cal = calendar(s.tick);
   return {

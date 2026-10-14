@@ -19,6 +19,7 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/ma
 import { BEDROLL_SLEEP, ITEM_BY_ID, STATIONS } from '../data/items';
 import { FOOD_VALUE, JOBS, type Job } from '../data/people';
 import { eraOfResearch, RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
+import { studyPace, topicName } from '../data/originResearch';
 import { WORKPLACES } from '../data/crops';
 import { earlier } from '../data/eras';
 import { skillSpeed } from '../data/skills';
@@ -803,7 +804,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   const mult = (building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1) * (holds(p, building) ? HOLDER_EDGE : 1);
   const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p) * researchSpeed(s);
   // (and the game's pace: a town takes generations to learn it all, data/pace.ts)
-  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * RESEARCH_PACE[topic.era ?? 'neolithic'] * TICK_HZ);
+  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * studyPace(topic.id, s.origin) * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * RESEARCH_PACE[topic.era ?? 'neolithic'] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   accruePay(s, p, STUDY_PER_HOUR, 'wages', 'study', TICKS_PER_HOUR);
   if (r.progress[topic.id] < 1) return;
@@ -811,7 +812,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   delete r.progress[topic.id];
   r.queue = r.queue.filter((id) => id !== topic.id);
   r.done.push(topic.id);
-  notify(s, `Research complete: ${topic.name}`, true);
+  notify(s, `Research complete: ${topicName(topic.id, s.origin)}`, true);
   addDeed(p, 'studied');
   if (topic.id === 'blood_rite') offerBloodRite(s);
   if (topic.id === 'moon_rite') offerMoonRite(s);

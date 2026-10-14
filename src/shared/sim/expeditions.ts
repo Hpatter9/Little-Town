@@ -45,7 +45,7 @@ import { WATERSKIN_SPEEDUP } from '../data/items';
 import { HORSE_CARRY, HORSE_DIE_ON_LOSS, HORSE_HP, HORSE_HURT, HORSE_HURT_ON_RETREAT, HORSE_SPEEDUP } from '../data/trade';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { ARRIVING_TYPES, FOOD_VALUE } from '../data/people';
-import { TOPIC_BY_ID, TOPICS } from '../data/research';
+import { TOPICS } from '../data/research';
 import { skillSpeed, type Skill } from '../data/skills';
 import { hashSeed, Rng } from '../rng';
 import { depositNear, storages, totalStock } from './buildings';
@@ -75,6 +75,7 @@ import { tireless, townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, make
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { askToWatch } from './watchAsk';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
+import { topicName } from '../data/originResearch';
 
 /** XP per unit of loot brought in, and per attack made in a fight. */
 const LOOT_XP = 10;
@@ -773,7 +774,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, at: Pt, rng
       if (!topic) return;
       const p = r.progress[topic] ?? 0;
       r.progress[topic] = p + (1 - p) / 2;
-      notify(s, `Old writings from ${the(d.name)}: research on ${TOPIC_BY_ID[topic].name} is half done.`, true);
+      notify(s, `Old writings from ${the(d.name)}: research on ${topicName(topic, s.origin)} is half done.`, true);
       return;
     }
     case 'rescue': {

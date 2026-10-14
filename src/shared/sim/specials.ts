@@ -28,6 +28,7 @@ import { minorWound } from './injuries';
 import { canQueue } from './research';
 import { assignBeds, gainSkill } from './townsfolk';
 import { take } from './events';
+import { topicName } from '../data/originResearch';
 
 const def = (p: Person): SpecialDef => SPECIALS[p.secret!.id];
 const named = (text: string, p: Person) => text.replace(/\{name\}/g, p.name);
@@ -452,7 +453,7 @@ export function answerSecret(s: GameState, who: number | undefined, option: numb
           r.queue = r.queue.filter((q) => q !== id);
           r.done.push(id);
         }
-        say(`${p.name} is given the old tower and a free hand. The surges stop: the power has somewhere to go.${id ? ` By morning the town knows ${TOPIC_BY_ID[id]?.name ?? id}.` : ''}`);
+        say(`${p.name} is given the old tower and a free hand. The surges stop: the power has somewhere to go.${id ? ` By morning the town knows ${topicName(id, s.origin)}.` : ''}`);
       } else if (option === 1) {
         p.level = Math.max(1, (p.level ?? 1) - 15);
         say(`${p.name} binds their own power with a silver chain and a word. They are only an old scholar now (15 levels gone), and they sleep through the night for the first time in years.`);
