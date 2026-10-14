@@ -57,7 +57,7 @@ export const ROUTES: Record<string, [SceneId, SceneId]> = {
   warlord_fort: ['compound', 'bunker'],
   pirate_flagship: ['coast', 'ship_hold'],
 };
-const OLD_SCENERY: Record<string, SceneId> = { thicket: 'meadow', river: 'riverbank', woods: 'pinewoods', quarry: 'quarry', cave: 'cave' };
+const OLD_SCENERY: Record<string, SceneId> = { thicket: 'meadow', river: 'riverbank', woods: 'pinewoods', quarry: 'quarry', cave: 'cave', arena: 'ruins' };
 /** The green scenes take the town's own land: sand, snow, shore, fen, jungle, ash or steppe (`scenes` in data/biomes.ts). */
 const biomeSwap = (biome: Biome, id: SceneId): SceneId => (biomeById(biome).scenes[id] as SceneId | undefined) ?? id;
 export const INDOOR_SCENES: ReadonlySet<SceneId> = new Set<SceneId>(['cave', 'keep', 'dragon_den', 'crypt', 'vault', 'ship_hold', 'factory', 'bunker']);

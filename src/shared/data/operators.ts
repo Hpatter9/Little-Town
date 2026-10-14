@@ -44,6 +44,8 @@ export const OPERATORS: Readonly<Record<string, OperatorRole>> = {
   market: { title: 'Merchant', skill: 'social', effect: 'Better prices from caravans' },
   infirmary: { title: 'Healer', skill: 'medicine', effect: 'Wounds heal faster still' },
   watchtower: { title: 'Guard Captain', skill: 'melee', effect: 'Defenders hit harder and more often' },
+  beast_ranch: { title: 'Beastmaster', skill: 'animals', effect: 'Trains the beasts, tends the sick, and catches beasts left on the field' },
+  arena: { title: 'Arena Master', skill: 'social', effect: 'A bigger crowd at the gate for every bout' },
 };
 
 /** How much faster a job's holder works at their own station. */

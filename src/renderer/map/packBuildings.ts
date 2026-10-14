@@ -158,6 +158,8 @@ import suWindmillBody from '../art/packs/su_windmill_body.png';
 import suWindmillSail from '../art/packs/su_windmill_sail.png';
 import suWindmillHub from '../art/packs/su_windmill_hub.png';
 import fieldsFlag from '../art/fields/flag.png';
+import hayHeap from '../art/chores/hay_heap.png';
+import hayBale from '../art/chores/hay_bale.png';
 import suWatchtower from '../art/packs/su_watchtower.png';
 import suLookout from '../art/packs/su_lookout.png';
 import suCastle from '../art/packs/su_castle.png';
@@ -407,6 +409,12 @@ const PICKS: Record<string, Pick> = {
   village_green: { parts: [[fPointer4, 36, 4], [log3, 2, 44], [log3, 50, 46], [fStump, 66, 8], [flower1, 10, 12], [flower5, 20, 30], [flower9, 60, 40], [flower1, 86, 30], [tuft2, 28, 56], [tuft2, 78, 20]], size: [96, 64], overhang: 0 },
   sparring_yard: { parts: [[vRack, 0, 6], [palisade19, 62, 2, 4, 0, 28, 32], [fDirt, 40, 30], [fDirt, 70, 38], [fFence1, 0, 49], [fFence1, 28, 49], [fFence1, 56, 49], [box1, 80, 46]], size: [96, 64], overhang: 0 },
   fishing_jetty: { parts: [[pierH, 0, 0], [pierH, 32, 0], [barrel, 42, 4], [vBucket, 6, 10]], size: [64, 36], overhang: 0 },
+  // the monster ranch (data/ranch.ts): the Village pack's awning for a shelter, the Fields pack's rails round the pens,
+  // the Medieval Field Work pack's hay, a bucket for the trough
+  beast_ranch: { parts: [[tent2, 0, 0], [fence1, 66, 2], [fence1, 93, 2], [fence9, 122, 6], [fence9, 122, 38], [fence9, 122, 70], [hayHeap, 70, 26], [hayBale, 96, 30], [hayBale, 90, 40], [vBucket, 104, 56], [log3, 8, 66], [fence1, 0, 82], [fence1, 27, 82], [fence1, 54, 82], [fence1, 81, 82], [fence1, 100, 82]], size: [128, 96], overhang: 0 },
+  // the arena (data/arena.ts): a ring of the Village pack's palisade stakes round trodden sand, logs for the crowd's
+  // benches, a weapon rack, lanterns at the gate and the sword sign over it
+  arena: { parts: [[fDirt, 30, 50], [fDirt, 60, 70], [fDirt, 84, 56], [fDirt, 70, 40], [fDirt, 44, 80], [fDirt, 96, 84], [palisade01, 0, 0], [palisade02, 32, 0], [palisade03, 64, 0], [palisade02, 96, 0], [palisade06, 128, 0], [log3, 20, 30], [log3, 64, 30], [palisade17, 0, 32], [palisade17, 0, 64], [palisade22, 128, 32], [palisade22, 128, 64], [vRack, 104, 56], [lantern, 4, 84], [lantern, 140, 84], [palisade04, 0, 96], [palisade02, 32, 96], [vSignSword, 68, 100], [palisade02, 96, 96], [palisade04, 128, 96]], size: [160, 128], overhang: 0, lamps: [[12, 93], [148, 93]] },
   // the training grounds (data/training.ts)
   drill_yard: { parts: [[vRack, 0, 6], [palisade19, 62, 2, 4, 0, 28, 32], [palisade19, 30, 10, 4, 0, 28, 32], [fDirt, 40, 30], [fDirt, 70, 38], [fFence1, 0, 49], [fFence1, 28, 49], [fFence1, 56, 49]], size: [96, 64], overhang: 0 },
   archery_range: { parts: [[fFence3, 0, 0], [fFence3, 26, 0], [box2, 70, 4], [box2, 82, 10], [palisade19, 52, 0, 4, 0, 28, 32]], size: [96, 32], overhang: 0 },

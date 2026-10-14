@@ -278,6 +278,29 @@ function roamerFigures(rs: readonly RoamerView[]): RaiderView[] {
   );
 }
 
+/** The ranch's beasts in their pens (sim/ranch.ts `beastHome`): each ambles between spots in its pen, a few seconds a
+ *  spot, by its id and the clock (drawing only: the sim keeps no place for them). */
+const PEN_STEP_MS = 4200;
+function ranchFigures(pens: Snapshot['ranchPens'], now: number): RaiderView[] {
+  const spot = (id: number, n: number) => {
+    const h = Math.imul(id * 2654435761 + n * 40503, 2246822519) >>> 0;
+    return { u: (h & 0xffff) / 0xffff, v: (h >>> 16) / 0xffff };
+  };
+  return pens.map((b) => {
+    const t = now / PEN_STEP_MS + b.id * 0.37;
+    const n = Math.floor(t);
+    const f = Math.min(1, (t - n) * 2); // (walks the first half of the step, then stands)
+    const a = spot(b.id, n);
+    const z = spot(b.id, n + 1);
+    const u = a.u + (z.u - a.u) * f;
+    const v = a.v + (z.v - a.v) * f;
+    return {
+      id: 9_000_000 + b.id, swimming: false, ally: false, sinceArea: 999, sinceConjured: 999, sinceCast: 999, hitFx: null, kind: b.kind, name: '', floor: null,
+      x: b.x + u * b.w, y: b.y + v * b.h, dir: z.u >= a.u ? 1 : -1, hp: 1, maxHp: 1, down: false, fleeing: false, gone: false, carrying: 0, captive: null, lame: 0, sinceAction: 999, sinceHit: 999,
+    };
+  });
+}
+
 /** Width of the tab dock at the right end of the strip (see #dock in index.html). */
 const DOCK_WIDTH = 108;
 /** The expedition pane's width range, and how far down it starts counting as "over" it. */
@@ -391,6 +414,8 @@ async function start(): Promise<void> {
   (window as unknown as { __hkCell?: typeof hkCell }).__hkCell = hkCell; // (for previews: a townsperson's cell)
   const raiders = new MapRaiders(map.things);
   const roamers = new MapRaiders(map.things); // (the bands roaming the land: sim/roamers.ts)
+  const penned = new MapRaiders(map.things); // (the ranch's beasts in their pens: sim/ranch.ts)
+  (window as unknown as { __penned?: unknown }).__penned = penned; // (for previews)
   const herds = new MapHerds(map.things);
   const boats = new MapBoats(map.things);
   const airships = new MapAirships(map.things, map.over, map.under); // (the skies: sim/skies.ts)
@@ -1955,6 +1980,7 @@ async function start(): Promise<void> {
     );
     raiders.update(next.raid?.phase === 'active' ? next.raid.raiders : [], performance.now());
     roamers.update(roamerFigures(next.roamers), performance.now());
+    penned.update(ranchFigures(next.ranchPens ?? [], performance.now()), performance.now());
     spells.update(next.spells, next.camp, performance.now());
     if (hover || placing) refreshHover(); // tooltip contents change as work progresses
     if (selected) showActions();
@@ -2044,6 +2070,8 @@ async function start(): Promise<void> {
     people.render(performance.now());
     townLife.render(performance.now());
     raiders.render(performance.now());
+    roamers.render(performance.now()); // (the bands on the land: drawn only once this was added)
+    penned.render(performance.now()); // (the ranch's beasts)
     herds.render(performance.now(), ticker.deltaMS / 1000);
     market.render(ticker.deltaMS / 1000);
     lamps.render(ticker.deltaMS / 1000);

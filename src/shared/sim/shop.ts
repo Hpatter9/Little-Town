@@ -296,7 +296,7 @@ export function addRenown(b: Building, n: number): void {
 }
 
 /** How attractive a venue is, all told: its floor and its renown. This decides who comes, and how often. */
-export const attractiveness = (s: GameState, b: Building) => appeal(b) + Math.floor(renownOf(b)) + trophyRenown(s);
+export const attractiveness = (s: GameState, b: Building) => appeal(b) + Math.floor(renownOf(b)) + trophyRenown(s) + Math.floor(s.arena?.renown ?? 0);
 
 /** Renown each treasure on show in a Trophy Hall adds to every venue (a boss's trophy, a unique weapon). */
 export const TROPHY_RENOWN = 3;

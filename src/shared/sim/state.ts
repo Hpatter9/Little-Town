@@ -321,6 +321,8 @@ export interface Raider {
   ally?: boolean;
   /** A druid grove's guardian (sim/grove.ts), by its id. */
   guardian?: number;
+  /** One of the ranch's beasts let out to guard the town (sim/ranch.ts), by its id. */
+  ranch?: number;
   /** (a fallen raider a necromancer has already looked at) */
   raiseChecked?: boolean;
   /** Epic bosses: raging, called for help, blows struck, trophy handed over. */
@@ -1252,6 +1254,10 @@ export interface GameState {
   townName?: string;
   /** The town's guilds and squads (sim/guilds.ts), and when the last was founded or voted down. */
   guilds?: import('./guildPerks').Guild[];
+  /** The monster ranch's beasts (sim/ranch.ts). */
+  ranch?: import('./ranch').RanchState;
+  /** The arena: its fighting seasons, the ladder, the bouts and the bets (sim/arena.ts). */
+  arena?: import('./arena').ArenaState;
   lastGuild?: number;
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
@@ -1456,7 +1462,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties' | 'realm' | 'trade';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties' | 'realm' | 'trade' | 'ranch' | 'arena';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */
