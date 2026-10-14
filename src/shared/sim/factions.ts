@@ -8,6 +8,8 @@
 // its folk come over, and it is made a vassal or razed. A dungeon can be stormed the same way.
 
 import { kinship } from '../data/kinship';
+import { HOUSE_START, HOUSE_WARMTH } from '../data/legends';
+import { RIVALS } from '../data/rivals';
 import { DESTINATION_BY_ID, type Destination } from '../data/expeditions';
 import { DUNGEONS, DUNGEON_BY_ID } from '../data/dungeons';
 import { ENEMIES } from '../data/enemies';
@@ -47,6 +49,7 @@ export function realm(s: GameState): Faction[] {
     // (an older town's powers are given their towns: a size by their strength)
     for (const f of s.factions) if (f.folk === undefined) f.folk = f.stance === 'destroyed' ? 0 : Math.round(FOLK_START[0] + f.troops * 0.6);
     addRising(s, s.factions);
+    addOldHouse(s, s.factions);
     return s.factions;
   }
   const rng = new Rng(hashSeed(`${s.seed}:realm`));
@@ -59,6 +62,7 @@ export function realm(s: GameState): Faction[] {
     return { id: d.id, known: false, troops: rng.int(TROOPS_START[0], TROOPS_START[1]), folk: rng.int(FOLK_START[0], FOLK_START[1]), attitude: TEMPER_REST[temper] + kinship(own, d.origin).value, stance: 'neutral' as RealmStance, temper, since: 0 };
   });
   addRising(s, s.factions);
+  addOldHouse(s, s.factions);
   return s.factions;
 }
 
@@ -72,9 +76,24 @@ function addRising(s: GameState, fs: Faction[]): void {
   void s;
 }
 
+/** A descendant's realm holds the old house (data/legends.ts, sim/ancestors.ts): the forebears' town, still standing,
+ *  known from the founding and warm to its kin. */
+function addOldHouse(s: GameState, fs: Faction[]): void {
+  const a = s.ancestry;
+  if (a?.oldTown !== 'power' || fs.some((f) => f.id === 'old_house')) return;
+  fs.push({ id: 'old_house', known: true, troops: TROOPS_START[1], folk: Math.max(FOLK_START[1], a.people * 2), attitude: HOUSE_START, stance: 'neutral', temper: 'honourable', since: 0 });
+}
+
+/** The old house's armies are of its own people. */
+export function oldHouseRaid(s: GameState): string {
+  const o = s.ancestry?.origin;
+  return o && o !== 'settlers' && RIVALS[o] ? RIVALS[o].raid : 'rival_knights';
+}
+
 /** The raid kind a power's armies are now: a rising power's by the town's age (and by sea at a shore town). */
 export function raidOf(s: GameState, f: Faction): string {
   const d = defOf(f);
+  if (d.kin) return oldHouseRaid(s);
   if (!d.rising) return d.raid;
   const r = RISING[d.rising];
   const st = stageOf(s.era);
@@ -156,8 +175,8 @@ export function factionsDaily(s: GameState, rng: Rng): void {
   const fs = realm(s);
   growTowns(fs);
   // a new power is met (its envoy at the gate): the rising powers each on their own day
-  const known = fs.filter((f) => f.known && !defOf(f).rising).length;
-  const next = fs.find((f) => !f.known && defOf(f).rising && day >= RISE_MEET_DAYS[defOf(f).rising!]) ?? fs.find((f) => !f.known && !defOf(f).rising);
+  const known = fs.filter((f) => f.known && !defOf(f).rising && !defOf(f).kin).length;
+  const next = fs.find((f) => !f.known && defOf(f).rising && day >= RISE_MEET_DAYS[defOf(f).rising!]) ?? fs.find((f) => !f.known && !defOf(f).rising && !defOf(f).kin);
   if (next && (defOf(next).rising || day >= FIRST_MEET_DAY + known * MEET_EVERY_DAYS) && !envoyWaiting(s)) {
     next.known = true;
     envoy(s, next, 'greet');
@@ -168,7 +187,7 @@ export function factionsDaily(s: GameState, rng: Rng): void {
     if (defOf(f).rising && f.stance !== 'vassal') rise(s, f, might);
     else f.troops = Math.min(TROOPS_MOST, f.troops + TROOPS_PER_DAY * (f.stance === 'vassal' ? 0.5 : 1));
     // goodwill drifts to the temper's rest, warmed by treaties and a marriage
-    const rest = TEMPER_REST[f.temper] + kinship(s.origin ?? 'settlers', FACTION_BY_ID[f.id]?.origin).value + (defOf(f).rising ? RISING_HOSTILITY : 0);
+    const rest = TEMPER_REST[f.temper] + kinship(s.origin ?? 'settlers', FACTION_BY_ID[f.id]?.origin).value + (defOf(f).rising ? RISING_HOSTILITY : 0) + (defOf(f).kin ? HOUSE_WARMTH : 0);
     warm(f, Math.sign(rest - f.attitude) * Math.min(ATTITUDE_DRIFT, Math.abs(rest - f.attitude)) + (TREATY_WARMTH[f.stance] ?? 0) + (f.married ? MARRIAGE_WARMTH : 0));
     if (f.stance === 'trade' || f.stance === 'alliance') pay(s, TRADE_COINS, `Trade with ${defOf(f).name}`);
     if (f.stance === 'vassal') {
@@ -886,7 +905,7 @@ export function realmView(s: GameState, dungeonOpen: (id: string) => boolean): R
       stanceName: STANCE_NAME[f.stance],
       attitude: f.attitude,
       mood: moodWord(f.attitude),
-      kin: ((k) => (f.known && k.why ? { value: k.value, why: k.why } : null))(kinship(s.origin ?? 'settlers', d.origin)),
+      kin: d.kin && s.ancestry ? { value: HOUSE_WARMTH, why: `Kin: the old town of ${s.ancestry.founder}, where ${s.ancestry.line} began` } : ((k) => (f.known && k.why ? { value: k.value, why: k.why } : null))(kinship(s.origin ?? 'settlers', d.origin)),
       troops: Math.round(f.troops),
       folk: f.folk ?? 0,
       size: f.stance === 'destroyed' ? 'ruin' : townTier(f.folk ?? 0).name,

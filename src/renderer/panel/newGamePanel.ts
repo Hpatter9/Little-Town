@@ -240,7 +240,7 @@ function lineage(redraw: () => void): HTMLElement[] {
   const cards = el('div', 'cards');
   cards.append(pickCard(!heir, 'A new line', 'The founder owes nothing to anyone.', () => ((heir = null), redraw())));
   for (const l of all) cards.append(legendCard(l, heir === l.id, () => ((heir = l.id), redraw())));
-  return [el('h3', 'newgame-head', "The founder's line"), el('div', 'hint', 'A descendant inherits the heirloom, some coin and renown, and the town remembers the line.'), cards];
+  return [el('h3', 'newgame-head', "The founder's line"), el('div', 'hint', 'A descendant inherits the heirloom (stronger each generation, and perhaps cursed), some coin and renown. Their forebears may return as spirits, and the old town comes back: as ruins on the land if it fell, else as the Old House, a power of the realm.'), cards];
 }
 
 function pickCard(on: boolean, name: string, text: string, onClick: () => void): HTMLElement {

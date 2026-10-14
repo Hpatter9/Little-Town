@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { ancestryView, type AncestryView } from './ancestors';
 import { fightOnScreen } from './raidWait';
 import { RING_SHAPE_NAMES } from '../data/ringShapes';
 import { deedLines } from './deeds';
@@ -935,6 +936,8 @@ export interface Snapshot {
   skipRaids: boolean;
   /** The town's people's own ways (sim/heritage.ts). */
   heritage: HeritageView | null;
+  /** A descendant's town: its line, spirits, heirloom and the old town (sim/ancestors.ts). */
+  ancestry: AncestryView | null;
   /** Quests open (sim/quests.ts): what, for which dungeon, and hours left to take it up. */
   /** The quest board (sim/questBoard.ts): offered or accepted; hours left of the offer or the time limit. */
   quests: { id: number; kind: string; dungeon: string; dungeonName: string; title: string; text: string; hoursLeft: number; from: string; reward: string; accepted: boolean; acceptedAgo: number | null }[];
@@ -1292,6 +1295,7 @@ export function snapshot(s: GameState): Snapshot {
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,
     heritage: slow(s, 'heritage', () => heritageView(s)),
+    ancestry: slow(s, 'ancestry', () => ancestryView(s)),
     hero: s.hero !== undefined && s.people.some((p) => p.id === s.hero) ? s.hero : null,
     prompts: s.prompts.map((p) => ({
       id: p.id,
