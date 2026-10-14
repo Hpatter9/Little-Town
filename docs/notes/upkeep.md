@@ -16,3 +16,10 @@
   line a job, a failing job's whole TAP report, the five slowest files, then `# files`, `# tests`, `# suites`,
   `# pass`, `# fail`, `# cancelled`, `# skipped`, `# todo`, `# duration_ms`; the exit code is 1 if anything failed
   (or a process died before reporting, counted as a failure).
+- **Timings** (the cloud's 4 cores): `npm test` took 5 min 4 s before; the new runner takes about 4 min 27 s (965
+  tests, all passing). That is close to the floor here: the tests are about 940 s of work on 4 cores. The critical
+  path is now the slowest single test (undead.test.ts's lich-farming test, about 2 min, four towns simulated), not a
+  whole file, so machines with more cores gain more. Profiling a long town run: about a fifth of the sim's time is
+  `scanWild` in planner.ts (the open land's pools scanned and sorted afresh each tick that the planner's `needs`
+  is asked for); caching it across ticks would speed up every test and the phone, but every place that changes a
+  pool would have to bump `land.version`, so it was left for a change of its own.
