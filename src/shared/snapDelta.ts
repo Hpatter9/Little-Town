@@ -11,6 +11,9 @@ import type { Snapshot } from './sim/snapshot';
 /** How often the land's pools are looked over for changes, in deltas, when the land's version hasn't moved (a pool
  *  drawn down by gathering doesn't move it; only the tap card's "N left" reads the amounts). */
 export const POOLS_EVERY = 10;
+/** A part that is the very same object as last time is taken as unchanged, but looked into again every `RECHECK`
+ *  deltas: some are the state's own objects, changed in place (a person's titles, the town's met foes). */
+export const RECHECK = 10;
 
 type Pools = LandMap['pools'];
 type Pool = Pools[number];
@@ -59,18 +62,21 @@ function poolMark(p: Pool): number {
 /** The worker's side: what's been sent, and the delta from it to a new snapshot. */
 export class SnapDiffer {
   private sent = new Map<string, string>();
+  private refs = new Map<string, unknown>();
   private sentPrim = new Map<string, unknown>();
   /** For each list sent thing by thing: its ids in order, and each thing's fields as last sent (JSON). */
-  private listSent = new Map<string, { order: string; things: Map<number, Map<string, string>> }>();
+  private listSent = new Map<string, { order: string; things: Map<number, { marks: Map<string, string>; refs: Map<string, unknown> }> }>();
   private landSent = new Map<string, unknown>();
   private poolRefs = new Map<number, Pool>();
   private poolMarks = new Map<number, number>();
   private landVersion = -1;
   private count = 0;
+  private recheck = false;
   private landRef: LandMap | null = null;
 
   diff(snap: Snapshot): SnapDelta {
     this.count++;
+    this.recheck = this.count % RECHECK === 0;
     const set: Record<string, unknown> = {};
     const seen = new Set<string>();
     let lists: Record<string, ListDelta> | undefined;
@@ -95,9 +101,11 @@ export class SnapDiffer {
       }
       this.listSent.delete(key);
       // (the views are made afresh or are the state's own, changed in place: so each is compared by its contents)
+      if (this.refs.get(key) === v && this.sent.has(key) && !this.recheck) continue;
       const j = JSON.stringify(v);
       if (this.sent.get(key) !== j) set[key] = v;
       this.sent.set(key, j);
+      this.refs.set(key, v);
       this.sentPrim.delete(key);
     }
     const gone: string[] = [];
@@ -105,6 +113,7 @@ export class SnapDiffer {
       if (!seen.has(key) || s[key] === undefined) {
         gone.push(key);
         this.sent.delete(key);
+        this.refs.delete(key);
         this.sentPrim.delete(key);
         this.listSent.delete(key);
       }
@@ -132,13 +141,17 @@ export class SnapDiffer {
     for (const id of [...last.things.keys()]) if (!here.has(id)) last.things.delete(id);
     for (const t of list) {
       const id = t.id as number;
-      let fields = last.things.get(id);
-      if (!fields) last.things.set(id, (fields = new Map()));
+      let thing = last.things.get(id);
+      if (!thing) last.things.set(id, (thing = { marks: new Map(), refs: new Map() }));
+      const { marks: fields, refs } = thing;
       let put: Record<string, unknown> | null = null;
       for (const f in t) {
         const v = t[f];
         if (v === undefined) continue;
-        const mark = typeof v === 'object' && v !== null ? JSON.stringify(v) : typeof v === 'string' ? `s${v}` : String(v);
+        const obj = typeof v === 'object' && v !== null;
+        if (obj && refs.get(f) === v && fields.has(f) && !this.recheck) continue;
+        const mark = obj ? JSON.stringify(v) : typeof v === 'string' ? `s${v}` : String(v);
+        if (obj) refs.set(f, v);
         if (fields.get(f) !== mark) {
           (put ??= {})[f] = v;
           fields.set(f, mark);
@@ -147,6 +160,7 @@ export class SnapDiffer {
       for (const f of [...fields.keys()])
         if (t[f] === undefined) {
           fields.delete(f);
+          refs.delete(f);
           ((d.drop ??= {})[id] ??= []).push(f);
           any = true;
         }
@@ -165,8 +179,12 @@ export class SnapDiffer {
     const d: LandDelta = {};
     const fields: Record<string, unknown> = {};
     let any = false;
+    const poolsNow = fresh || (m.version ?? 0) !== this.landVersion || this.count % POOLS_EVERY === 0;
     for (const key in m) {
       if (key === 'pools') continue;
+      // (the footpaths' wear changes whenever anyone steps into a new cell, and is drawn again at most every second
+      // and a half: it goes at the pools' pace)
+      if (key === 'wear' && !poolsNow && this.landSent.has(key)) continue;
       const v = (m as unknown as Record<string, unknown>)[key];
       const mark = typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
       if (fresh || !this.landSent.has(key) || this.landSent.get(key) !== mark) {
@@ -192,7 +210,7 @@ export class SnapDiffer {
         this.poolMarks.set(i, poolMark(m.pools[i]));
       }
       this.landVersion = m.version ?? 0;
-    } else if ((m.version ?? 0) !== this.landVersion || this.count % POOLS_EVERY === 0) {
+    } else if (poolsNow) {
       this.landVersion = m.version ?? 0;
       const changes: [number, Pool | null][] = [];
       const here = new Set<number>();

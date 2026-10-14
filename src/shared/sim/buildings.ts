@@ -4,7 +4,7 @@
 // the camp) when it's placed, so the town grows along its roads.
 
 import { VILLAGE_KEEP } from '../data/villages';
-import { isGate, riverCell, wallOnly } from './ringWall';
+import { isGate, ringWallCells, riverCell, wallOnly } from './ringWall';
 import { isSeat } from '../data/seats';
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild, seaTown } from './sea';
@@ -41,6 +41,18 @@ export const footprint = (b: Pick<Building, 'def' | 'tile' | 'row'> & { turned?:
 export const footprints = (s: Pick<GameState, 'buildings'>, except?: Building): Rect[] => s.buildings.filter((b) => b !== except).map(footprint);
 /** Whether a cell is under a building. */
 export const builtOn = (s: Pick<GameState, 'buildings'>, x: number, y: number): Building | undefined => s.buildings.find((b) => inRect(footprint(b), x, y));
+/** `builtOn` for many cells at once while the buildings stand still (a path search asks it of thousands of cells, and
+ *  a walled town has hundreds of buildings): the cells indexed once, the first building in the list winning, as
+ *  `builtOn` finds it. Made afresh for each use: it doesn't follow buildings put up or pulled down after. */
+export function builtOnIndex(s: Pick<GameState, 'buildings'>): (x: number, y: number) => Building | undefined {
+  const at = new Map<number, Building>();
+  for (let k = s.buildings.length - 1; k >= 0; k--) {
+    const b = s.buildings[k];
+    const r = footprint(b);
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) at.set(y * 65536 + x, b);
+  }
+  return (x, y) => at.get(y * 65536 + x);
+}
 
 /** The cell in front of a building's door, and the same in world px (where workers and callers stand). A castle's
  *  room has no door cell outside: people walk in, and stand in its middle. */
@@ -340,8 +352,12 @@ export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): b
   const m = s.land;
   if (!inMap(m, from.x, from.y)) return false;
   // (never over the ring wall's line but at a gate: a road there keeps a broken piece from being raised again)
+  // (the buildings and the wall's cells indexed once for the search: `builtOn` and `wallOnly` each ask every building)
+  const on = builtOnIndex(s);
+  const wallCells = s.ring ? ringWallCells(s) : null;
+  const walled = (x: number, y: number) => !!wallCells && inMap(m, x, y) && wallCells.has(idx(m, x, y)) && !isGate(on(x, y)?.def ?? ''); // (wallOnly)
   const lay = (x: number, y: number) => {
-    if (!isRoad(m, x, y) && !wallOnly(s, x, y)) planRoad(m, x, y);
+    if (!isRoad(m, x, y) && !walled(x, y)) planRoad(m, x, y);
   };
   if (to.x === from.x && to.y === from.y) {
     lay(from.x, from.y);
@@ -353,13 +369,13 @@ export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): b
   // over the sea as a pier)
   const water = (x: number, y: number) => wet(groundAt(m, x, y)) && (pier || riverCell(m, { x, y }));
   const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || water(x, y);
-  const blocked = (x: number, y: number) => !ground(x, y) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
+  const blocked = (x: number, y: number) => !ground(x, y) || !!on(x, y) || !!castle?.has(idx(m, x, y));
   // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
-  const gate = (x: number, y: number) => isGate(builtOn(s, x, y)?.def ?? '');
-  const path = findPath(m, from, to, (x, y) => wallOnly(s, x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST });
+  const gate = (x: number, y: number) => isGate(on(x, y)?.def ?? '');
+  const path = findPath(m, from, to, (x, y) => walled(x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST });
   if (!path || path.length > reach) return false;
   lay(from.x, from.y);
-  for (const c of path) if ((!builtOn(s, c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);
+  for (const c of path) if ((!on(c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);
   return true;
 }
 /** What a cell of bridge costs to lay against a road on land (so a street crosses a river only where it must). */

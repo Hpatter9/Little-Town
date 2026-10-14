@@ -655,8 +655,21 @@ export function cavalry(s: GameState): Map<number, number> {
   return out;
 }
 
+/** Whether someone rides in this raid: `cavalry(s).has(p.id)`, without sorting the town for every defender (the
+ *  riders are the first of the defenders by id, as many as there are horses fit to ride). */
+function mountedNow(s: GameState, p: Person): boolean {
+  if (!s.raid) return false;
+  const rides = (q: Person) => q.away === null && !q.downed && q.task?.type === 'defend' && q.priorities.defend === 1;
+  if (!rides(p)) return false;
+  let horses = 0;
+  for (const h of s.horses) if (h.hp >= HORSE_HP / 2) horses++;
+  let ahead = 0;
+  for (const q of s.people) if (q.id < p.id && rides(q)) ahead++;
+  return ahead < horses;
+}
+
 function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' }>, rng: Rng): void {
-  const mounted = cavalry(s).has(p.id);
+  const mounted = mountedNow(s, p);
   // the battle on the trail (battle.ts): a placed fighter walks to their spot and fights from it; the rest wait at
   // the gate for whoever gets through
   // (on a tactics board: the battle stands them where they are: sim/tactics.ts)
@@ -1222,27 +1235,47 @@ const BUILDER_JOBS = ['construct', ...JOBS.filter((j) => j !== 'construct')] as 
 /** The first free spot beside a site's footprint (its rows above and below, then its sides) that isn't water (unless
  *  they swim), under another building, or taken by another builder, as a point in px. Checked one at a time, the
  *  cheapest test first (the catch-up after time away spent a tenth of its time listing them all). */
-function buildSpot(s: GameState, p: Person, b: Building): Pt | undefined {
+/** Which buildings stand on each cell (`y * 65536 + x`), made once for a run of `buildSpot`s while nothing is built or
+ *  pulled down between them (each spot looked over every building's footprint, for every site, for everyone idle). */
+type Cover = Map<number, number[]>;
+function coverOf(s: GameState): Cover {
+  const c: Cover = new Map();
+  for (const b of s.buildings) {
+    const r = footprint(b);
+    for (let y = r.y; y < r.y + r.h; y++)
+      for (let x = r.x; x < r.x + r.w; x++) {
+        const k = y * 65536 + x;
+        const l = c.get(k);
+        if (l) l.push(b.id);
+        else c.set(k, [b.id]);
+      }
+  }
+  return c;
+}
+
+function buildSpot(s: GameState, p: Person, b: Building, cover?: () => Cover): Pt | undefined {
   const occupied = new Set(s.people.filter((q) => q.id !== p.id && q.task?.type === 'build' && q.task.building === b.id && q.task.spot)
     .map((q) => { const task = q.task as Extract<Task, { type: 'build' }>; return `${task.spot!.x},${task.spot!.y}`; }));
   if (p.task?.type === 'build' && p.task.building === b.id && p.task.spot && !occupied.has(`${p.task.spot.x},${p.task.spot.y}`)) return p.task.spot;
   const r = footprint(b), cells: Pt[] = [];
   for (let x = r.x; x < r.x + r.w; x++) cells.push({ x, y: r.y - 1 }, { x, y: r.y + r.h });
   for (let y = r.y; y < r.y + r.h; y++) cells.push({ x: r.x - 1, y }, { x: r.x + r.w, y });
-  let others: ReturnType<typeof footprint>[] | null = null;
+  let on: Cover | null = null;
   for (const cell of cells) {
     const spot = { x: (cell.x + 0.5) * CELL, y: (cell.y + 0.5) * CELL };
     if (occupied.has(`${spot.x},${spot.y}`)) continue;
     if (!inMap(s.land, cell.x, cell.y) || (wet(groundAt(s.land, cell.x, cell.y)) && !swims(s, p))) continue;
-    others ??= s.buildings.filter((o) => o.id !== b.id).map(footprint);
-    if (others.some((q) => cell.x >= q.x && cell.x < q.x + q.w && cell.y >= q.y && cell.y < q.y + q.h)) continue;
+    on ??= cover ? cover() : coverOf(s);
+    if (on.get(cell.y * 65536 + cell.x)?.some((id) => id !== b.id)) continue; // (another building stands there)
     return spot;
   }
   return undefined;
 }
 /** Whether someone builds at full pace on a site with work for a builder now (the founder always does). */
 function buildsFirst(s: GameState, p: Person): boolean {
-  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b));
+  let c: Cover | null = null;
+  const cover = () => (c ??= coverOf(s));
+  return s.buildings.some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b, cover));
 }
 
 /** Up to this many grown-ups, building and gathering come before study. */
@@ -1270,8 +1303,10 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       }
       return null;
     case 'construct': {
-      const b = s.buildings.find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q));
-      if (b) return { type: 'build', building: b.id, spot: buildSpot(s, p, b) };
+      let c: Cover | null = null;
+      const cover = () => (c ??= coverOf(s));
+      const b = s.buildings.find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q, cover));
+      if (b) return { type: 'build', building: b.id, spot: buildSpot(s, p, b, cover) };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
     }
