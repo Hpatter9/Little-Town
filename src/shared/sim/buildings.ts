@@ -93,13 +93,34 @@ export const unlockInfo = (s: GameState) => ({ unlockAll: s.cheats.unlockAll, do
 
 /** The town's reach: the furthest any of its buildings (fields too) stands from the camp, in cells (chessboard), at
  *  least the camp's own ground. */
+/** What the buildings' places and shapes depend on, in order (id, place, kind, width, turned): kept beside something
+ *  worked out from them, and compared exactly (`sameLayout`) to know whether it still holds. */
+export type BuildingsLayout = (string | number | boolean | undefined)[];
+export function layoutOf(bs: readonly Building[]): BuildingsLayout {
+  const out: BuildingsLayout = [];
+  for (const b of bs) out.push(b.id, b.tile, b.row, b.def, b.wide, b.turned);
+  return out;
+}
+export function sameLayout(bs: readonly Building[], was: BuildingsLayout | undefined): boolean {
+  if (!was || was.length !== bs.length * 6) return false;
+  for (let k = 0, j = 0; k < bs.length; k++, j += 6) {
+    const b = bs[k];
+    if (was[j] !== b.id || was[j + 1] !== b.tile || was[j + 2] !== b.row || was[j + 3] !== b.def || was[j + 4] !== b.wide || was[j + 5] !== b.turned) return false;
+  }
+  return true;
+}
+
+/** The last town radius worked out (it's asked for every walker and every band each tick). */
+let radiusMade: { layout: BuildingsLayout; cx: number; cy: number; r: number } | null = null;
 export function townRadius(s: Pick<GameState, 'buildings' | 'land' | 'nomad'>): number {
   const c = campCell(s);
+  if (radiusMade && radiusMade.cx === c.x && radiusMade.cy === c.y && sameLayout(s.buildings, radiusMade.layout)) return radiusMade.r;
   let r = 3;
   for (const b of s.buildings) {
     const f = footprint(b);
     r = Math.max(r, Math.abs(f.x - c.x), Math.abs(f.x + f.w - 1 - c.x), Math.abs(f.y - c.y), Math.abs(f.y + f.h - 1 - c.y));
   }
+  radiusMade = { layout: layoutOf(s.buildings), cx: c.x, cy: c.y, r };
   return r;
 }
 

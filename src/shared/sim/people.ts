@@ -30,7 +30,7 @@ import { nextPave, pave, paveReady, paveSeconds } from './streets';
 import { SHAFT } from '../data/deep';
 import { shaftHasWork } from './deep';
 import { guardEngages, roamerToHunt } from './roamers';
-import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared, buildableNow, deliveredShare } from './buildings';
+import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared, buildableNow, deliveredShare, layoutOf, sameLayout, type BuildingsLayout } from './buildings';
 import { FEED_SECONDS } from '../data/lighting';
 import { feedLight, lightToFeed } from './lighting';
 import { roughSpot } from './roughSleep';
@@ -1235,12 +1235,16 @@ const BUILDER_JOBS = ['construct', ...JOBS.filter((j) => j !== 'construct')] as 
 /** The first free spot beside a site's footprint (its rows above and below, then its sides) that isn't water (unless
  *  they swim), under another building, or taken by another builder, as a point in px. Checked one at a time, the
  *  cheapest test first (the catch-up after time away spent a tenth of its time listing them all). */
-/** Which buildings stand on each cell (`y * 65536 + x`), made once for a run of `buildSpot`s while nothing is built or
- *  pulled down between them (each spot looked over every building's footprint, for every site, for everyone idle). */
+/** Which buildings stand on each cell (`y * 65536 + x`), for `buildSpot` (each spot looked over every building's
+ *  footprint, for every site, for everyone idle): made again only when a building is put up, pulled down or changed. */
 type Cover = Map<number, number[]>;
+/** The last index made, and the buildings' layout it was made from (buildings.ts `layoutOf`). */
+let coverMade: { from: BuildingsLayout; cover: Cover } | null = null;
 function coverOf(s: GameState): Cover {
+  const bs = s.buildings;
+  if (coverMade && sameLayout(bs, coverMade.from)) return coverMade.cover;
   const c: Cover = new Map();
-  for (const b of s.buildings) {
+  for (const b of bs) {
     const r = footprint(b);
     for (let y = r.y; y < r.y + r.h; y++)
       for (let x = r.x; x < r.x + r.w; x++) {
@@ -1250,6 +1254,7 @@ function coverOf(s: GameState): Cover {
         else c.set(k, [b.id]);
       }
   }
+  coverMade = { from: layoutOf(bs), cover: c };
   return c;
 }
 

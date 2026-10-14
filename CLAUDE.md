@@ -4364,3 +4364,42 @@ blocked by buildings, structures, trees and rocks)
   vote is the council's usual vote (`callVote` with no bloc: "<founder> called for..."). The next edict waits
   `EDICT_COOLDOWN_DAYS` (3: `PoliticsState.lastEdict`, `edictWait`, `PoliticsView.edictWait`). The council still
   governs itself the rest of the time. Tests: `test/edicts.test.ts`.
+
+## The phone made smoother (the owner's ask: the same engine, TypeScript and PixiJS, running better)
+
+- **Measured on a late-game town** (`test/fixtures/late-town.json.gz`: knights, day 33, 37 people, 281 buildings;
+  `node tools/perf-sim.mjs [ticks]` gives a tick's step, its snapshot, the delta and its copy against the whole
+  snapshot's, and the two days' catch-up). Desktop numbers, main → this work: snapshot 7.2 → 3.1 ms a tick; copying it
+  between threads 21 ms (1 MB) → 0.3 ms (about 24 KB); catch-up of two days away 127.5 → 38 s (the end state the same to the byte).
+- **The sim runs in a Web Worker on the phone** (`src/shared/simHost.ts`, started by `src/renderer/mobile/simWorker.ts`,
+  built into `out/web/simWorker.js`): the game loop, the catch-up and the away card's summary, the autosave's writing
+  out (the page stores the text: localStorage stays the page's), the alerts' look ahead and booking on the way out, new
+  towns and legends, the journal, raid skip and battle speed (commands), and pausing while hidden. Messages: `ToHost`
+  in, `FromHost` out; questions with an `id` get a `reply`. `mobileBridge.ts` is the page's side; a browser without
+  workers loads the same file as a script (`__simHost`), and `?inpage` forces that. The preview hooks (`__raid`,
+  `__saga`..., `__game.sim.step(n)`, `__game.snapshot()`) are messages now. The desktop app is as it was.
+- **Snapshots go as what changed** (`src/shared/snapDelta.ts`: `SnapDiffer` in the worker, `SnapAssembler` in the page):
+  each part compared by its JSON, a part that is the very same object taken as unchanged but looked into again every
+  `RECHECK` deltas; the lists in `LISTS` (people, buildings, travellers...) thing by thing and field by field; the land's
+  fields when they change, its pools and footpath wear every `POOLS_EVERY` deltas or when its version moves. Unchanged
+  parts keep the same object on the page, and the page's `land` is one object changed in place, as the renderer had it.
+- **Cheaper snapshots:** a person's slower parts (skills, kit, story, ties, mood's reasons...: `personSlow` in
+  snapshot.ts) are worked out every `PERSON_SLOW_EVERY` (10) ticks, staggered by id; where they stand and what they're at
+  (`personFast`) every tick. Any command (`viewsChanged`, from `Sim.apply`) has everything worked out afresh at once, so
+  a button's change shows straight away. Politics and hunts likewise (`brief`).
+- **Faster paths** (`findPath` in land.ts, the same paths as before): buffers kept between searches and marked by a
+  generation; a heap in typed arrays with the same order of swaps; each cell's cost asked once a search and read from a
+  grid of road and ground costs kept while the land's cells and roads are the same (`costGrid`); a goal shut in where the
+  start isn't is found by flooding out from it (`SHUT_IN_MOST`) and answered at once (half the catch-up's searches were
+  walkers heading somewhere they couldn't reach, each looking at 12 000 cells twice). A search from inside another's
+  callbacks has buffers of its own.
+- **Hitches fixed:** planning a street asked every building of every cell it looked at (317 ms): `builtOnIndex` in
+  buildings.ts; a builder's spot looked at every footprint for every site for everyone idle: the cells indexed once
+  (`coverOf` in people.ts); who rides in a raid sorted the town for each defender (`mountedNow`).
+- **Deterministic as before:** end-state hashes match main on four seeds, a day of the fixture, and its two days'
+  catch-up. Tests: `test/snapDelta.test.ts` (a snapshot put back together from deltas is the snapshot; the host starts,
+  answers and saves; the path search).
+- **The news bubble after time away** (the owner's ask: it counted every Journal line of the absence): closing the "While
+  you were away" card (`createAwayCard`'s callback in main.ts) tells the page (`littletown:away-seen`, with the last
+  Journal line's id), and `readAbsence` in mobile/notices.ts marks everything up to it read. Test in
+  `test/notices.test.ts`.

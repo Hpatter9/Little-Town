@@ -10,6 +10,7 @@ import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { SnapDiffer } from '../src/shared/snapDelta';
 import { MAX_OFFLINE_MS, startCatchUp } from '../src/shared/sim/offline';
+import { TICKS_PER_DAY } from '../src/shared/sim/time';
 
 const load = () => {
   const r = parseSave(gunzipSync(readFileSync('test/fixtures/late-town.json.gz')).toString('utf8'));
@@ -49,8 +50,13 @@ const f = (x: number) => (x / N).toFixed(2);
 console.log(`${s.people.length} people, ${s.buildings.length} buildings, ${N} ticks`);
 console.log(`step ${f(step)} ms · snapshot ${f(snap)} ms · ticks over 50 ms ${hitches}`);
 console.log(`delta ${f(diff)} ms to make, ${f(clone)} ms to copy, ${(bytes / N / 1024).toFixed(1)} KB · whole snapshot ${(full / fulls).toFixed(2)} ms to copy`);
+// (the raid at the fixture's gate, and any raid or choice event, would stop the catch-up for the player: left out, so
+// the whole two days are played)
 const away = load();
-const job = startCatchUp(new Sim(away), MAX_OFFLINE_MS);
+away.raid = null;
+away.nextRaidTick = Number.MAX_SAFE_INTEGER;
+away.nextEventTick = Number.MAX_SAFE_INTEGER;
+const job = startCatchUp(new Sim(away), 7 * 24 * 3_600_000);
 const t0 = performance.now();
 while (!job.run(500));
-console.log(`catching up ${MAX_OFFLINE_MS / 60000} min of play (two days away): ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+console.log(`catching up ${MAX_OFFLINE_MS / 60000} min of play (two days away, ${(job.finish().ticks / TICKS_PER_DAY).toFixed(1)} game days): ${((performance.now() - t0) / 1000).toFixed(1)} s`);

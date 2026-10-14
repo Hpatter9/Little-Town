@@ -1453,7 +1453,7 @@ function brief<T>(s: GameState, key: string, f: () => T): T {
   let m = briefCache.get(s);
   if (!m) briefCache.set(s, (m = new Map()));
   const c = m.get(key);
-  if (c && c.epoch === viewEpoch && s.tick >= c.tick && s.tick - c.tick < PERSON_SLOW_EVERY) return c.v as T;
+  if (c && c.epoch === viewEpoch && s.tick > c.tick && s.tick - c.tick < PERSON_SLOW_EVERY) return c.v as T;
   const v = f();
   m.set(key, { tick: s.tick, epoch: viewEpoch, v });
   return v;
@@ -1753,7 +1753,8 @@ function partyView(s: GameState, dest: string): { party: string[]; partyHorses: 
 
 /** How often a person's slower parts are worked out again, in ticks (staggered by their id), unless a command has come
  *  in since (`viewsChanged`): their skills, kit, story, ties and mood's reasons were most of a big town's snapshot, ten
- *  times a second. Where they stand and what they're doing are always fresh. */
+ *  times a second. Where they stand and what they're doing are always fresh, and so is all of it in a second snapshot
+ *  of the same tick (the tests, and a menu asking for one). */
 const PERSON_SLOW_EVERY = 10;
 let viewEpoch = 0;
 /** A command came in (sim.ts): every view is worked out afresh at the next snapshot, so a button's change shows at once. */
@@ -1766,7 +1767,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
   let cache = personSlowCache.get(s);
   if (!cache) personSlowCache.set(s, (cache = new Map()));
   let c = cache.get(p.id);
-  if (!c || c.epoch !== viewEpoch || s.tick < c.tick || s.tick - c.tick >= PERSON_SLOW_EVERY || (s.tick + p.id) % PERSON_SLOW_EVERY === 0) {
+  if (!c || c.epoch !== viewEpoch || s.tick <= c.tick || s.tick - c.tick >= PERSON_SLOW_EVERY || (s.tick + p.id) % PERSON_SLOW_EVERY === 0) {
     if (cache.size > 400) cache.clear();
     cache.set(p.id, (c = { tick: s.tick, epoch: viewEpoch, v: personSlow(s, p) }));
   }
