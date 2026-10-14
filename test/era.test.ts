@@ -1,3 +1,5 @@
+import { UPGRADES } from '../src/shared/data/buildings';
+import { seatOf } from '../src/shared/data/seats';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { raidKindsFor } from '../src/shared/sim/raids';
@@ -59,6 +61,12 @@ test('Medieval research stays closed until the Elder Lodge is finished, then the
   assert.equal(s.era, 'medieval');
   assert.ok(s.notices.some((n) => n.text.includes('Medieval era')));
   assert.equal(canQueue(r, 'mining', s.era).ok, true);
+  // (the age's studies wait on the seat raised to its stage: sim/research.ts)
+  sim.command({ type: 'queueResearch', topic: 'mining' });
+  sim.step();
+  assert.deepEqual(r.queue, []);
+  const seat = seatOf(s.buildings)!;
+  seat.def = UPGRADES[seat.def];
   sim.command({ type: 'queueResearch', topic: 'mining' });
   sim.step();
   assert.deepEqual(r.queue, ['mining']);

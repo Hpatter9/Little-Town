@@ -1110,6 +1110,8 @@ export interface GameState {
   plan?: TownPlan;
   /** The ring wall round the town (sim/ringWall.ts). */
   ring?: Ring;
+  /** Buildings the player pinned in the Building book: the town builds them next (sim/pins.ts). */
+  pins?: Pin[];
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
   /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
@@ -1439,6 +1441,17 @@ export function meet(s: GameState, kinds: Iterable<string>): void {
 /** What came of an answer (an event's, a secret's, a saga's), kept a while for the event box and the feed's card. */
 export function setOutcome(s: GameState, title: string, choice: string | null, text: string): void {
   s.eventOutcome = { title, choice, text, tick: s.tick };
+}
+
+/** A building the player wished for: waiting for its turn (with why), or under way as `building`. */
+export interface Pin {
+  def: string;
+  /** The tick it was pinned (the wish gives up after PIN_WAIT_HOURS with no start). */
+  at: number;
+  /** The blueprint laid for it. */
+  building?: number;
+  /** What it's waiting on, for the menu. */
+  why?: string;
 }
 
 export function notify(s: GameState, text: string, key = false): void {

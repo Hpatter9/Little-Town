@@ -806,6 +806,13 @@ async function start(): Promise<void> {
           else if (b.planned) lines.push('Laid out, waiting to be worked');
           return { title: `${def.name} (the wall going up)`, lines, hint: 'Click for options', y: r.y };
         }
+        // (the seat holds back each new age's studies until it is raised to that age: sim/research.ts)
+        const seatAt = SEAT_STAGE[b.def] ? snap.research.seat : null;
+        if (seatAt) {
+          if (seatAt.building) lines.push(`Being raised to the ${seatAt.next}: the new age's studies open when it stands`);
+          else if (seatAt.next) lines.push(`Stage ${seatAt.stage} of 5. The ${seatAt.nextEra} age's studies wait until it is raised to the ${seatAt.next}`);
+          else lines.push('Stage 5 of 5: every age\'s studies are open');
+        }
         if (b.status === 'blueprint') {
           const parts = (Object.entries(def.cost) as [Material, number][]).map(([m, n]) => `${MATERIAL_NAMES[m]} ${b.delivered[m] ?? 0}/${n}`);
           lines.push(b.progress > 0 ? `Under construction: ${Math.floor(b.progress * 100)}%` : `Materials delivered: ${parts.join(' · ')}`);

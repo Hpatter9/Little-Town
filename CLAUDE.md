@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.75.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.76.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4224,6 +4224,36 @@ blocked by buildings, structures, trees and rocks)
   joins that to each listed event's `when` as EVENTS is put together (data/events.ts), so a lich or machine town never
   meets them. A new event about any of these goes in its list. Test: `test/eventFit.test.ts` (and any event whose
   words speak of hunger must be listed or named as someone else's hunger).
+
+## Research picked by hand, and the seat that opens each age (the owner's asks)
+
+- **Picking research:** `pickResearch` in sim/research.ts (the `queueResearch` command from the player; the planner
+  still calls `queueResearch` the function). A pick goes in `ResearchState.picked` and to the front of the queue, its
+  queued prerequisites picked with it (`orderQueue`: picks first, each after its own picked prerequisites); with the
+  queue full, the town's own choices go from the back; full of picks, it's refused. `moveResearch` (the `moveResearch`
+  command, `dir` -1 or 1) reorders the picks, never ahead of a prerequisite. `cancelResearch(..., byHand)` (the player's
+  Remove) puts the topic and what depends on it in `shelved`, which the planner's `planResearch` skips while it has
+  anything else; picking it again takes it off. `tidyPicks` drops finished picks. With no picks the planner runs as
+  before. The Studies tab: queue rows say "your pick" (✋) or "the town's choice", with ▲ ▼ for picks, Pick for the
+  town's, Remove for both; a topic's card has **✋ Pick: study this first**; picked nodes in the tree are blue
+  (`.tn.picked`). `ResearchView.picked`/`.shelved`. Test: `test/researchPicks.test.ts`.
+- **The seat opens each age's studies:** a topic of an era needs the seat (data/seats.ts) at that era's stage
+  (`seatNeeded`: Stone Age 1, Medieval 2...; `prereqsMet`/`canQueue` take the stage as `seat`, from `seatStageNow`:
+  the seat's stage, one less while it's being rebuilt; undefined, no gate, with no seat or `unlockAll`). The planner's
+  `planSeat` now runs before the full-build-queue check, `canUpgrade` lets a seat over the slot limit, haulers serve
+  the seat first (`haulOrder`), and a town with no seat (an older save) lays its first (open towns only). Shown: a
+  dashed 🏛 node in the tree, a line on the Studies tab and on each topic's card (`ResearchView.seat`), the seat's tap
+  card and its building card ("Opens studies").
+- **Building wishes:** `sim/pins.ts` (`s.pins`, `Pin`: def, when pinned, the blueprint laid, what it waits on;
+  `PINS_MOST` 5). The `pinBuilding` command (`def`, `on`; `setPin`, refused by `pinRefusal`: unknown, the seat and
+  `never` buildings, walls and gates (the ring's), not learned, already pinned, too many; the refusal goes to the
+  Journal). The planner's `planPins` (planner.ts, right after the seat, before the town's own wishes) lays each pin in
+  the order pinned once a build slot is free, its makings can be had and there's a spot (`findSpot`, `roomSpot` in a
+  castle), noting what holds it back on `Pin.why`; its cost is in the planner's demand meanwhile, so the town gathers
+  for it, and its blueprint is never set aside (`pinned` in `shelveStalled`). `tendPins`: when it stands the Journal
+  says "Your wish is built", a lost site or one not started in `PIN_WAIT_HOURS` (72) is told and dropped. The Building
+  book's cards have **📌 Build this next** / **📌 Pinned: unpin**, and "Your wishes" lists them with Unpin
+  (`snapshot.pins`). Test: `test/pins.test.ts`.
 
 ## The Quests tab and bonded parties (the owner's asks: "rework the whole Trips menu, maybe call it the Quests tab"; parties of friends that bond)
 - **The Quests tab:** the panel id stays `expeditions` (saves, the desktop app); its label is Quests (`PANELS` in

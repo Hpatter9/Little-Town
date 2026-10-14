@@ -50,7 +50,8 @@ import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } from './raids';
 import { ENEMIES } from '../data/enemies';
 import { THROW_RANGE } from '../data/raids';
-import { freeStation, modifiers, researchMods, researchStations, studyingAt, topicFor } from './research';
+import { freeStation, modifiers, researchMods, researchStations, studyingAt, tidyPicks, topicFor } from './research';
+import { isSeat } from '../data/seats';
 import { holderOf, holds, jobOf as heldJob } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
 import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Raider, type Task } from './state';
@@ -811,6 +812,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
 
   delete r.progress[topic.id];
   r.queue = r.queue.filter((id) => id !== topic.id);
+  tidyPicks(r);
   r.done.push(topic.id);
   notify(s, `Research complete: ${topicName(topic.id, s.origin)}`, true);
   addDeed(p, 'studied');
@@ -1358,7 +1360,9 @@ export function haulOrder(s: GameState): Building[] {
   const ordered = first.length ? [...first, ...sites.filter((b) => !first.includes(b))] : sites;
   // (the ring wall is one job of many sections, all in work at once: the town's other sites are served before it, so
   //  the wall never takes the wood another site waits on)
-  return [...ordered.filter((b) => b.ring === undefined), ...ordered.filter((b) => b.ring !== undefined)];
+  // (and the seat, which the new age's studies wait on, before the rest: sim/research.ts seatStageNow)
+  const seat = ordered.filter((b) => isSeat(b.def));
+  return [...seat, ...ordered.filter((b) => b.ring === undefined && !seat.includes(b)), ...ordered.filter((b) => b.ring !== undefined)];
 }
 
 /** What a blueprint still needs that nobody else is already fetching or carrying to it. */
