@@ -185,6 +185,11 @@ City Ruins, Ocean and Clouds, City, Futuristic City, Steampunk Cityscape, Underw
 Sky with Parallax Clouds, Sky with Clouds, Cloud and Sky, Post-Apocalyptic, and Fantasy 2D Battlegrounds backgrounds,
 and the industrial platformer pack's Day and Night backgrounds.
 
+The airships (`src/renderer/art/skies/`): the great airship over the fourth city of **Craftpix.net**'s free Steampunk
+Cityscape Pixel Backgrounds (`airship.png`, cut from its layer and recoloured in code for each kind and for the sky
+pirates), and the fifth ship of Craftpix's free Enemy Spaceship 2D Sprites (Pixel Art) for the sky frigate
+(`skyfrigate.png`).
+
 The ground the party walks on where a backdrop has none at foot height (`src/renderer/art/fightGround/`): the
 grass-topped earth from Craftpix's **Free Platformer Game Tileset (Pixel Art)**, and the capped brick and metal panels
 from the industrial platformer pack's `1 Tiles` (both free, **Craftpix.net**).

@@ -12,6 +12,7 @@ import { MapBattle } from './map/mapBattle';
 import { MapSpells } from './map/mapSpells';
 import { MapHerds } from './map/mapHerds';
 import { MapBoats } from './map/mapBoats';
+import { MapAirships } from './map/mapAirships';
 import { MapWagons } from './map/mapWagons';
 import { MapBirds } from './map/mapBirds';
 import { MapScenes } from './map/mapScenes';
@@ -244,7 +245,7 @@ type Hover =
 
 /** The bands roaming the land drawn as raiders (one figure a foe, in a little knot), their ids so many a band. */
 const ROAMER_IDS = 16;
-const ROAMER_TITLE: Record<RoamerView['kind'], string> = { beasts: 'Wild beasts', dead: 'The restless dead', bandits: 'Bandits', nest: 'From a nest' };
+const ROAMER_TITLE: Record<RoamerView['kind'], string> = { beasts: 'Wild beasts', dead: 'The restless dead', bandits: 'Bandits', nest: 'From a nest', sky: 'Hunting from the sky' };
 function roamerFigures(rs: readonly RoamerView[]): RaiderView[] {
   return rs.flatMap((r) =>
     r.foes.slice(0, ROAMER_IDS).map((f, i) => ({
@@ -271,6 +272,8 @@ function roamerFigures(rs: readonly RoamerView[]): RaiderView[] {
       lame: 0,
       sinceAction: 999,
       sinceHit: 999,
+      // (a hunter from the sky flies over its spot, its bar the town's shooting: sim/skies.ts)
+      ...(r.flying ? { aloft: r.height ?? 46, hp: 1 - (r.hurt ?? 0), x: r.x + ((i % 3) - 1) * 20, y: r.y + Math.floor(i / 3) * 10 } : {}),
     })),
   );
 }
@@ -390,6 +393,7 @@ async function start(): Promise<void> {
   const roamers = new MapRaiders(map.things); // (the bands roaming the land: sim/roamers.ts)
   const herds = new MapHerds(map.things);
   const boats = new MapBoats(map.things);
+  const airships = new MapAirships(map.things, map.over, map.under); // (the skies: sim/skies.ts)
   const wagons = new MapWagons(map.things); // (the caravans' wagons: sim/bands.ts)
   const birds = new MapBirds(map.things, map);
   (window as unknown as { __birds?: MapBirds }).__birds = birds; // (for previews)
@@ -836,6 +840,8 @@ async function start(): Promise<void> {
           const name = (id: number) => snap.people.find((q) => q.id === id)?.name;
           const owner = b.owner !== undefined ? name(b.owner) : undefined;
           if (!def.hp && !CROPS[b.def]) lines.push(owner ? `Owned by ${owner}` : "The town's own (the treasury's)");
+          // (the airship mast: who's moored there, who's away: sim/skies.ts)
+          if (b.def === 'airship_mast') lines.push(snap.airships.length ? snap.airships.map((a) => `The ${a.name}: ${a.away === null ? `moored, hull ${a.hull}/${a.max}` : `flying for ${a.away}`}`).join(' · ') : 'No airship yet: the town will build one when it has the makings');
           if (def.housing) {
             const living = snap.people.filter((q) => q.bedId === b.id);
             lines.push(living.length ? `Home of ${living.map((q) => q.name + (owner && q.id !== b.owner ? ' (renting)' : '')).join(', ')} · ${living.length}/${def.housing} beds` : `Empty · ${def.housing} ${def.housing === 1 ? 'bed' : 'beds'}`);
@@ -1825,6 +1831,7 @@ async function start(): Promise<void> {
     map.workFx.syncBuilders(next.people.filter((p) => p.activity === 'build' && !p.indoors).map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })));
     herds.update(next.buildings);
     boats.update(next.fleet, next.mooring);
+    airships.update(next.airships, next.mast, next.skyPirates);
     wagons.update(next.wagons);
     pools.sync(next.blood);
     debris.sync(next.debris);
@@ -2043,6 +2050,7 @@ async function start(): Promise<void> {
     skiffs.render(ticker.deltaMS / 1000, map.view, map.calm);
     traffic.render(ticker.deltaMS / 1000, map.view, map.calm);
     boats.render(performance.now());
+    airships.render(performance.now(), map.wind());
     birds.render(ticker.deltaMS / 1000, performance.now());
     wildlife.render(ticker.deltaMS / 1000, performance.now());
     water.render(ticker.deltaMS / 1000);

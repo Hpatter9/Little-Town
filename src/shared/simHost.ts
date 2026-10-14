@@ -20,6 +20,7 @@ import { queueScene } from './sim/cutscenes';
 import { spawnBand } from './sim/bands';
 import type { BandKind } from './data/bands';
 import { summonDragon } from './sim/dragon';
+import { skiesPreview } from './sim/skiesPreview';
 import { startDisaster, type DisasterKind } from './sim/disasters';
 import { previewFestival } from './sim/festivals';
 import { beginSaga } from './sim/sagas';
@@ -129,6 +130,7 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
     disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind),
     festival: (now: 'prep' | 'hold' = 'hold') => previewFestival(stateOf(), now),
     dragon: (kind?: string) => summonDragon(stateOf(), kind),
+    skies: (what: string) => skiesPreview(stateOf(), what),
     band: (kind: BandKind) => spawnBand(stateOf(), new Rng(4), kind),
     skirmish: (group: Record<string, number> = { wolf: 3 }) => {
       const s = stateOf();

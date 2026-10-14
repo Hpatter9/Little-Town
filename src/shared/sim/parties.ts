@@ -46,6 +46,7 @@ import { companyOf, sameCompany } from './companies';
 import { DEVOTED, ENEMY } from '../data/social';
 import { ambitionOf } from './ambition';
 import { boatDef, freeBoat } from './boats';
+import { airshipDef, freeAirship } from './skies';
 import { payParty } from './economy';
 import { destinationOf, destinationUnlocked, rolesFor, STAKES, sendExpedition, planParty, type SendCheck, type Stakes } from './expeditions';
 import { placeDestinations, placeOfDest } from './places';
@@ -175,6 +176,9 @@ export const mostFor = (s: GameState, d: Destination) => {
   // (an island's party is her crew)
   const boat = d.byBoat ? freeBoat(s) : undefined;
   if (boat) return Math.min(boatDef(boat).crew, MAX_DELVERS);
+  // (a place in the sky's party is an airship's crew, and an island's when she takes them)
+  const ship = d.bySky || d.byBoat ? freeAirship(s) : undefined;
+  if (ship) return Math.min(airshipDef(ship).crew, MAX_DELVERS);
   return d.id.startsWith('assault:') ? ASSAULT_MOST : d.type === 'delve' || isPlaceDest(d.id) || d.id.startsWith('pack:') ? MAX_DELVERS : MAX_PARTY;
 };
 
@@ -241,7 +245,7 @@ function pull(s: GameState, leader: Person, d: Destination): number {
 function choosable(s: GameState): Destination[] {
   const going = new Set(s.expeditions.map((e) => e.dest));
   return boardDestinations(s).filter(
-    (d) => d.id !== HUNT_DEST && !vetoed(s, d.id) && !going.has(d.id) && destinationUnlocked(s, d) && (!d.coins || (s.coins ?? 0) >= d.coins * 2) && (!d.byBoat || !!freeBoat(s)),
+    (d) => d.id !== HUNT_DEST && !vetoed(s, d.id) && !going.has(d.id) && destinationUnlocked(s, d) && (!d.coins || (s.coins ?? 0) >= d.coins * 2) && (!d.byBoat || !!freeBoat(s) || !!freeAirship(s)) && (!d.bySky || !!freeAirship(s)),
   );
 }
 

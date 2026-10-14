@@ -5,6 +5,7 @@ import { SCOUT_DESTINATIONS } from './regions';
 import { TRADE_DESTINATIONS } from './minerals';
 import { DUNGEON_DESTINATIONS } from './dungeons';
 import { ISLANDS } from './boats';
+import { SKY_PLACES } from './skies';
 import type { EnemyGroup } from './enemies';
 import type { Era } from './eras';
 import type { Material } from './materials';
@@ -47,6 +48,8 @@ export interface Destination {
   description: string;
   /** Only a boat reaches it: an island, a market over the sea (data/boats.ts). */
   byBoat?: boolean;
+  /** Only an airship reaches it: a place in the sky (data/skies.ts). */
+  bySky?: boolean;
 }
 
 /** Names that carry their own article, or are a doing rather than a place. */
@@ -391,6 +394,7 @@ export const DESTINATIONS: readonly Destination[] = [
   // (the dungeons to delve: data/dungeons.ts)
   ...DUNGEON_DESTINATIONS,
   ...ISLANDS,
+  ...SKY_PLACES,
 ];
 
 export const DESTINATION_BY_ID: Readonly<Record<string, Destination>> = Object.fromEntries(DESTINATIONS.map((d) => [d.id, d]));
