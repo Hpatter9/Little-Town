@@ -48,3 +48,20 @@ export function raidDueTick(s: GameState): number | null {
   if (s.raid) return s.raid.phase === 'warning' ? s.raid.arrivesTick : null;
   return s.nextRaidTick ?? null;
 }
+
+/** A raid's battle or a watched fight is on the screen (the owner's ask: the game pauses in the background then,
+ *  and nothing else may pop up over it). */
+export function fightOnScreen(s: GameState): boolean {
+  const r = s.raid;
+  if (r && r.phase === 'active' && !r.alone && (r.battle || r.tactics) && !s.raidSkip) return true;
+  if (s.watching === undefined) return false;
+  const e = s.expeditions.find((x) => x.id === s.watching) ?? s.skirmishes?.find((k) => k.e.id === s.watching)?.e;
+  return !!e?.battle;
+}
+
+/** Every tick of a fight on screen, the open questions' clocks stand still (none is answered for the player while
+ *  they watch the fight), but the raid's own. */
+export function holdForFight(s: GameState): void {
+  if (!fightOnScreen(s)) return;
+  for (const p of s.prompts) if (p.kind !== 'raid' && p.kind !== 'gate') p.expiresTick += 1;
+}

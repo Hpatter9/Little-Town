@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { fightOnScreen } from './raidWait';
 import { RING_SHAPE_NAMES } from '../data/ringShapes';
 import { deedLines } from './deeds';
 import { DUNGEON_BY_ID } from '../data/dungeons';
@@ -997,6 +998,8 @@ export interface Snapshot {
   battle: BattleView | null;
   /** A raid fought on a tactics board (sim/tactics.ts), while it's on; and how raids are fought. */
   tactics: TacticsView | null;
+  /** A raid's battle or a watched fight is on the screen: nothing else pops up over it (sim/raidWait.ts). */
+  fightOn: boolean;
   battleStyle: 'trail' | 'tactics';
   /** Evolutions and stat points put to the player (the Town menu's settings). */
   evolveAsk: boolean;
@@ -1123,6 +1126,7 @@ export function snapshot(s: GameState): Snapshot {
     powers: powersView(s),
     battle: battleView(s, aimableSpells(s)),
     tactics: tacticsView(s),
+    fightOn: fightOnScreen(s),
     battleStyle: s.battleStyle ?? 'tactics',
     evolveAsk: s.evolveAsk !== false,
     statsAsk: s.statsAsk === true,

@@ -135,6 +135,7 @@ export function mobileBridge(): Bridge {
       book();
     } else dropBooked();
     state.hidden = document.hidden;
+    game.hidden = document.hidden;
     emit();
   });
   window.addEventListener('pagehide', saveNow);

@@ -1449,10 +1449,20 @@ async function start(): Promise<void> {
 
   // Each notice is shown once; ones from before this page loaded are skipped.
   let lastNotice = first.notices.at(-1)?.id ?? 0;
+  const heldToasts: string[] = [];
+  const HELD_TOASTS = 3;
   const showNotices = (next: Snapshot) => {
     // (upright on the phone the feed above the town shows the news: the strip pops up only what the feed leaves out)
     const feedShown = document.body.classList.contains('feed-shown');
-    if (next.catchingUp == null) for (const n of next.notices) if (n.id > lastNotice && (!feedShown || CHATTER.test(n.text))) toasts.push(n.text);
+    // (a raid's battle or a watched fight is never interrupted: what comes meanwhile waits, the last few of it shown
+    // once it's over; the rest is in the news bubble)
+    const fresh = next.catchingUp == null ? next.notices.filter((n) => n.id > lastNotice && (!feedShown || CHATTER.test(n.text) || next.fightOn)).map((n) => n.text) : [];
+    if (next.fightOn) heldToasts.push(...fresh);
+    else {
+      for (const t of heldToasts.slice(-HELD_TOASTS)) toasts.push(t);
+      heldToasts.length = 0;
+      for (const t of fresh) toasts.push(t);
+    }
     lastNotice = Math.max(lastNotice, next.notices.at(-1)?.id ?? 0);
   };
 
@@ -1673,7 +1683,7 @@ async function start(): Promise<void> {
     };
     const q = next.prompts[0];
     // (on the phone, a choice event has the whole screen: mobile/eventSheet.ts)
-    if (q && view.mode === 'full' && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
+    if (q && view.mode === 'full' && !next.fightOn && !((q.kind === 'event' || q.kind === 'secret' || q.kind === 'saga' || q.kind === 'road' || q.kind === 'debrief' || q.kind === 'envoy' || q.kind === 'watch' || q.kind === 'dragon' || q.kind === 'evolve' || q.kind === 'refugees' || q.kind === 'village' || q.kind === 'council' || q.kind === 'trial' || q.kind === 'revolt' || q.kind === 'ways') && (window as unknown as { __eventSheet?: boolean }).__eventSheet)) promptCard.show(q);
     else promptCard.hide();
     if (next.gameOver) gameOver.show(next.gameOver.text, next.gameOver.won);
     // a boss roars or sweeps: the strip shakes (only for fresh moments, not ones from before a reload)
