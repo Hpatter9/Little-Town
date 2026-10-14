@@ -2463,6 +2463,39 @@
       .quest-log-row.done .quest-log-mark { color: #7cc87c; }
       .quest-log-row.failed .quest-log-mark { color: #e0604a; }
       .quest-log-text { font-size: 12px; opacity: 0.7; margin: 0 0 4px 22px; }
+      /* the Hall of Legends: our own line, the lines of descent (panel/legendsPanel.ts) */
+      .card.legend.ours {
+        border-color: #c8a24a;
+      }
+      .card.legend .hint.bad {
+        color: #d88a8a;
+      }
+      .legend-chain {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        margin-top: 6px;
+        font-size: 12px;
+      }
+      .legend-link {
+        padding: 1px 6px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .legend-link.fell {
+        color: #d8a0a0;
+      }
+      .legend-link.won {
+        color: #e8cc78;
+      }
+      .legend-link.lost {
+        opacity: 0.6;
+        font-style: italic;
+      }
+      .legend-arrow {
+        color: var(--text-dim);
+      }
     </style>
   </head>
   <body>

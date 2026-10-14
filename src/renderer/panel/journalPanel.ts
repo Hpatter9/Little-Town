@@ -1,6 +1,7 @@
 // Town Journal: the running history of the town, newest first, grouped by day. "While you were away"
 // reports stand out as cards. A filter at the top narrows it to the key events, or to the dead.
 
+import type { AncestryView } from '../../shared/sim/ancestors';
 import type { JournalEntryView } from '../../shared/sim/snapshot';
 import { platino } from '../art/icons';
 import { el } from './dom';
@@ -27,7 +28,7 @@ let filter: Filter = 'all';
 
 const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 
-export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, festivals?: FestivalsView): HTMLElement[] {
+export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView): HTMLElement[] {
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
   const draw = () => {
@@ -47,7 +48,7 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
       return;
     }
     if (filter === 'legends') {
-      list.replaceChildren(...renderLegends());
+      list.replaceChildren(...renderLegends(ancestry));
       return;
     }
     // (the cutscenes seen or passed by, to watch again: sim/cutscenes.ts)
