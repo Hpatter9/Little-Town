@@ -4692,3 +4692,7 @@ bleeding and hunger badges, and Food. Nothing else changed.
 - **Unchanged:** the Food figure stays in the bar. The `food` tip still says "The Food figure at the top", which is
   still true. The `snap.housing`, `snap.coins` and `snap.shop` fields are still read by the menus, so the snapshot
   keeps them.
+
+## Wagon trains (settlers grow faster)
+
+Settlers' towns sat at 1 to 4 people through day 40: the only ways in were wanderers (at most one asking a week, `VISIT_GAP_HOURS`, and rarely) and births. Now every `WAGON_EVERY`th (2nd) claim staked (`stakeClaim`, every `CLAIM_DAYS`) sends a wagon of new settlers up the road (`FrontierState.wagons`, at most `WAGONS_WAITING` 3 waiting). On a frontier morning (`wagon()` in `sim/frontier.ts`, called from `frontierHourly`) a waiting wagon rolls in when the town has a free bed (`housingCapacity`), is not full (`townFull`) and holds `WAGON_FOOD` (1.5) days of food a head (`foodPerHead`). A household of one, or two with chance `WAGON_PAIR` (0.25), joins without a question (`joinOrigin`, `assignBeds`, `equipAll`); types from `WAGON_TYPES`. The rolls use their own side stream (`roll(s, 'wagon')`). `FrontierState.arrived` counts them. Settlers only, autopilot only; nothing else about the wanderer rules changed, and no one is made safer. Adds to "The settlers' frontier" in HISTORY.md. Test: `test/frontier.test.ts`.
