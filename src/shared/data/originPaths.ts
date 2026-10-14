@@ -1,7 +1,8 @@
 // Origin roads (the owner's ask: some evolutions open only to certain peoples). Every people has one road of its own,
-// a third choice at the second evolution (level 30) off a stage-1 calling that suits it: the liches' Grave Cantor off
-// the Occultist, the orcs' Nob off the Berserker, the dwarves' Hearthguard off the Sentinel. It runs on straight from
-// there (a stage-3 calling and its ascended form: no more forks, the people's own way is narrow) and is a step
+// a third choice at the first evolution (level 12; the owner's call: it was the second) beside the shared calling that
+// suits it: the liches' Grave Cantor beside the Occultist, the orcs' Nob beside the Berserker, the dwarves' Hearthguard
+// beside the Sentinel. It runs on straight from there (stage 2, stage 3 and its ascended form: no more forks, the
+// people's own way is narrow) and is a step
 // stronger than the shared roads (`ORIGIN_EDGE` in data/levels.ts). Each node has its name, text, lore, signature
 // skill, emblem and stat lean; data/paths.ts adds them to the tree (`ORIGIN_PATHS`, `roadsFrom`).
 
@@ -27,18 +28,21 @@ export interface OriginNode {
 }
 export interface OriginRoad {
   origin: OriginId;
-  /** The stage-1 calling it branches from. */
+  /** The shared stage-1 calling it stands beside (it branches from that calling's base). */
   from: string;
-  /** The stage-2 and stage-3 callings, and the ascended form's [id, name]. */
+  /** The stage-1, stage-2 and stage-3 callings, and the ascended form's [id, name]. */
   two: OriginNode;
   three: OriginNode;
+  high: OriginNode;
   asc: [string, string];
 }
+type Road = Omit<OriginRoad, 'high'>;
+type High = Pick<OriginNode, 'id' | 'name' | 'text' | 'lore' | 'skill'>;
 
 const P = (p: Passive) => p;
 const A = (cooldown: number, effects: Effect[]): [number, Effect[]] => [cooldown, effects];
 
-export const ORIGIN_ROADS: readonly OriginRoad[] = [
+const ROADS: readonly Road[] = [
   {
     origin: 'settlers', from: 'knight',
     two: { id: 'militia_captain', name: 'Militia Captain', cls: 'knight', text: 'Drills farmhands into a line that holds, and stands at its middle.', lore: 'No noble blood and no warhorse: only a pitchfork that became a pike, a hayfield that became a drill ground, and neighbours who would follow them anywhere. The Militia Captain makes an army out of a village, and the village never forgets it.', skill: ['muster_the_village', 'Muster the Village', A(28, [grant('protect', 8, 'allies'), grant('inspired', 8, 'allies')])], lean: { str: 0.1, vit: 0.15, cha: 0.2 }, emblem: { main: ['LongWep', 32], charge: ['Tool', 3] } },
@@ -118,3 +122,25 @@ export const ORIGIN_ROADS: readonly OriginRoad[] = [
     asc: ['waaagh_prophet', 'Prophet of the Waaagh'],
   },
 ];
+
+/** Each road's stage-3 calling (added when the roads came to open at the first evolution): the archetype, lean,
+ *  emblem, stats and companion of the stage-2 calling before it. */
+const HIGH: Record<string, High> = {
+  settlers: { id: 'march_warden', name: 'Warden of the March', text: 'Holds the borderlands: every farm in reach sleeps easier.', lore: 'A Warden of the March rides the edge of the known land with a horn and a hard face. The outlying farms know the sound of the horn, and so do the raiders, who have learned that it means the whole shire is coming.', skill: ['the_horn_of_the_march', 'Horn of the March', A(30, [grant('inspired', 8, 'allies'), grant('protect', 6, 'allies'), hit(1.4)])] },
+  lich: { id: 'ossuary_lord', name: 'Lord of the Ossuary', text: 'Keeps the bones of the town\'s dead, and calls on them.', lore: 'The Lord of the Ossuary knows every bone in the crypts by name. In a fight the dead stand up behind them in rows, and what the living cannot hold the dead hold for them, without complaint and without end.', skill: ['the_bone_choir', 'The Bone Choir', A(34, [summon('zombie'), inflict('fear', 5, 'foes', 0.5), drain(1.2, 'dark', 'foes')])] },
+  druid: { id: 'thorn_elder', name: 'Elder of the Thorn', text: 'The hedges grow where they walk, and close behind them.', lore: 'An Elder of the Thorn has been in the wood so long the wood has grown into them. Where they stand the brambles rise in a ring, and raiders who push through come out the far side bleeding and much slower.', skill: ['thornwall', 'Thornwall', A(30, [inflict('slow', 6, 'foes', 0.6), inflict('bleed', 6, 'foes', 0.5), grant('regen', 8, 'allies')])] },
+  vampire: { id: 'blood_prince', name: 'Blood Prince', text: 'Drinks deep in the fight, and the thralls fight harder for it.', lore: 'A Blood Prince has a court of their own and a cellar to keep it. In battle they move like a rumour, a bite here and a bite there, and every drop they take makes the thralls round them stronger and less afraid.', skill: ['crimson_feast', 'Crimson Feast', A(28, [drain(1.6, 'blood', 'foes'), grant('berserk', 6, 'allies')])] },
+  werewolf: { id: 'packfather', name: 'Packfather', text: 'The pack runs at their heel, and the pack is never small.', lore: 'A Packfather has run with the moon long enough to be more wolf than not. When they howl the pack answers from every side, and the raiders find they are not hunting anything at all.', skill: ['the_great_howl', 'The Great Howl', A(30, [summon('companion_wolf'), summon('companion_wolf'), inflict('fear', 4, 'foes', 0.5)])] },
+  robot: { id: 'siege_colossus', name: 'Siege Colossus', text: 'Walls of plate and a gun in each arm: the line stops at them.', lore: 'A Siege Colossus was built to stand where the fighting is worst and not move. It has been rebuilt more times than anyone has counted, each time bigger, and each time with a louder gun.', skill: ['colossus_barrage', 'Colossus Barrage', A(30, [hit(1.8, 'physical', 'foes'), grant('shield', 10, 'self', 2), inflict('stun', 2, 'foes', 0.3)])] },
+  dwarves: { id: 'deep_thane', name: 'Thane of the Deep Halls', text: 'Speaks for a hall of the hold, and the hall stands behind them.', lore: 'A Thane of the Deep Halls holds the oaths of a hundred dwarves and the keys to a hundred doors. When the drums beat they set their shield in the gate, and the whole hall sets theirs beside it.', skill: ['oath_of_the_halls', 'Oath of the Halls', A(32, [grant('shield', 12, 'allies', 2), grant('inspired', 8, 'allies'), grant('taunt', 6, 'self')])] },
+  merfolk: { id: 'stormtide_oracle', name: 'Stormtide Oracle', text: 'Reads the weather in the water, and calls it down.', lore: 'A Stormtide Oracle hears the storm three days before it comes and can call it sooner if they must. The sea rises at their word, and the raiders on the strand go under the wave.', skill: ['the_drowning_storm', 'The Drowning Storm', A(32, [hit(1.6, 'water', 'foes'), inflict('slow', 6, 'foes', 0.5), summon('coral_golem')])] },
+  nomads: { id: 'plains_khan', name: 'Khan of the Plains', text: 'Leads the horde\'s riders: the whole host wheels at their signal.', lore: 'A Khan of the Plains can turn a thousand riders with a flick of the hand, and has. The arrows come from everywhere at once, and by the time the foe has found the archers they are somewhere else.', skill: ['the_horde_wheels', 'The Horde Wheels', A(28, [hit(1.5, 'physical', 'foes'), grant('haste', 6, 'allies'), grant('focus', 6, 'allies')])] },
+  fae: { id: 'thorn_regent', name: 'Thorn Regent', text: 'Rules a corner of the Court, and the Court\'s glamour with it.', lore: 'A Thorn Regent sits a throne of briars in a hall nobody else can find. Their glamours are older and stranger than a weaver\'s, and a raider caught in one may wander lost for the rest of the fight.', skill: ['the_regents_glamour', 'The Regent\'s Glamour', A(30, [inflict('charm', 6, 'foes', 0.5), inflict('blind', 5, 'foes', 0.5), grant('invisible', 4, 'allies')])] },
+  alchemists: { id: 'red_stone_keeper', name: 'Keeper of the Red Stone', text: 'Carries a shard of the Stone itself: wounds close round them.', lore: 'A Keeper of the Red Stone has a splinter of it set in a ring and will not say where they found it. Near them the hurt mend and the tired stand straight, and the flasks they throw burn hotter than any fire.', skill: ['red_tincture', 'Red Tincture', A(30, [heal(0.8, 'allies'), grant('regen', 8, 'allies'), inflict('burn', 6, 'foes', 0.6)])] },
+  knights: { id: 'order_marshal', name: 'Marshal of the Order', text: 'Marshals the Order\'s lances: every knight in the field rides with them.', lore: 'A Marshal of the Order rides at the head of every lance the chapterhouses can send. When the trumpets go the whole Order lowers its spears at once, and the ground in front of them is cleared.', skill: ['lances_level', 'Lances Level', A(30, [hit(1.9, 'physical', 'foes'), inflict('stun', 2, 'foes', 0.4), grant('protect', 6, 'allies')])] },
+  orcs: { id: 'warboss', name: 'Warboss', text: 'The biggest and loudest of them all: the whole warband follows.', lore: 'A Warboss got big by winning and won by getting big, and now leads every boy in the camp who can carry a choppa. They go in first and come out last, and the warband fights twice as hard just to keep up.', skill: ['waaagh_now', 'WAAAGH Now!', A(30, [grant('berserk', 8, 'allies'), grant('inspired', 6, 'allies'), hit(1.8)])] },
+};
+
+/** Every people's road of its own. */
+export const ORIGIN_ROADS: readonly OriginRoad[] = ROADS.map((r) => ({ ...r, high: { ...HIGH[r.origin], cls: r.three.cls, lean: r.three.lean, emblem: r.three.emblem, ...(r.three.stats ? { stats: r.three.stats } : {}), ...(r.three.companion ? { companion: r.three.companion } : {}) } }));
+

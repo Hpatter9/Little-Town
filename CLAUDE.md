@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.77.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.78.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4233,9 +4233,11 @@ blocked by buildings, structures, trees and rocks)
   and what they summon (`levelPower`), and `EVOLVE_ATTRS` (3) to every attribute and as many again to the two their road
   favours (`attributesOf`, through `roadFavours`). A people's own road also grows its class edge by `ORIGIN_EDGE` (1.2,
   in `classStat`).
-- **Every people has a road of its own** (`data/originPaths.ts`, `ORIGIN_ROADS`): a third choice at the second
-  evolution (level 30) off a stage-1 calling that suits it, then straight on to its stage-3 calling and ascended form:
-  the settlers' Militia Captain (off the Knight), the liches' Grave Cantor (Occultist), the druids' Oakheart, the
+- **Every people has a road of its own** (`data/originPaths.ts`, `ORIGIN_ROADS`): a third choice at the first
+  evolution (level 12; the owner's call, it was the second), beside the shared stage-1 calling that suits it (`from`;
+  the road branches from that calling's base), then straight on through stage 2, a stage-3 calling (`high`, from
+  `HIGH`: the Warden of the March, Lord of the Ossuary, Warboss...) and the ascended form:
+  the settlers' Militia Captain (beside the Knight), the liches' Grave Cantor (Occultist), the druids' Oakheart, the
   Court's Thrall-Lord and the orcs' Nob (Berserker), the pack's Moonhowler (Ranger), the machines' Servitor Prime and
   the alchemists' Transmuter (Tinker), the dwarves' Hearthguard (Sentinel), the merfolk's Tidecaller (Summoner), the
   nomads' Horse Archer (Archer), the fae's Glamour Weaver (Bard), the knights' Knight of the Order (Knight). Each node

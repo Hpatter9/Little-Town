@@ -424,7 +424,7 @@ export const ABILITIES: readonly AbilityDef[] = LISTS.flatMap(([cls, rows]) =>
  *  shared edge. */
 const STAGE_AT = [1, 12, 30, 55, 85];
 export const PATH_ABILITIES: readonly AbilityDef[] = [
-  ...[...PATH_SKILL_ROWS, ...ORIGIN_ROADS.flatMap((r) => [r.two, r.three].map((n) => [n.id, ...n.skill] as const))].map(([node, id, name, what]): AbilityDef => {
+  ...[...PATH_SKILL_ROWS, ...ORIGIN_ROADS.flatMap((r) => [r.two, r.three, r.high].map((n) => [n.id, ...n.skill] as const))].map(([node, id, name, what]): AbilityDef => {
     const level = STAGE_AT[PATH_BY_ID[node]?.stage ?? 1];
     return Array.isArray(what) ? { id, name, cls: null, path: node, level, active: { cooldown: what[0], effects: what[1] }, use: useOf(what[1]) } : { id, name, cls: null, path: node, level, passive: what, use: 'passive' as const };
   }),
