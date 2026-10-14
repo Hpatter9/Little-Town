@@ -20,6 +20,7 @@ import { foundConquest, realmCount } from './conquest/conquest';
 import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
+import { founderRoot } from '../data/paths';
 import { CELL, FOG_BAND, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
 import { SEAT_D, seatId } from '../data/seats';
 import type { Delve } from './delves';
@@ -634,7 +635,7 @@ export const TOUGH_HP = 20;
 export const FRAIL_HP = 12;
 export const MIN_HP = 24;
 
-export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; fcls?: string | null; level?: number }): number {
+export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; fcls?: string | null; road?: string | null; ascended?: boolean; level?: number }): number {
   const frail = p.traits.filter((t) => t === 'frail').length * FRAIL_HP;
   const base = Math.max(MIN_HP, BASE_HP + (p.traits.includes('tough') ? TOUGH_HP : 0) + (p.monster ? MONSTER_HP : 0) - frail);
   // (a class and its stage, and every level, add to it: levels.ts)
@@ -1505,6 +1506,7 @@ function makeFounder(p: Person, spec: FounderSpec): void {
   if (calling) {
     p.cls = calling.base;
     p.fcls = calling.id;
+    p.road = founderRoot(calling.id);
     p.level = 1;
     p.stageSeen = 0;
   }

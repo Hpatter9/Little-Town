@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.76.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.77.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4224,6 +4224,38 @@ blocked by buildings, structures, trees and rocks)
   joins that to each listed event's `when` as EVENTS is put together (data/events.ts), so a lich or machine town never
   meets them. A new event about any of these goes in its list. Test: `test/eventFit.test.ts` (and any event whose
   words speak of hunger must be listed or named as someone else's hunger).
+
+## Evolutions that matter (the owner's asks: origin roads, founders evolving, a big jump at each)
+
+- **Each evolution is a big jump** (`data/levels.ts`): `evolveSteps(p)` is `EVOLVE_STEPS` [0, 1, 2, 3.2, 5] at their
+  stage (none without a calling), times `ORIGIN_EVOLVE` (1.25) on a people's own road and `FOUNDER_EVOLVE` (1.5) on a
+  founder's line. Each step adds `EVOLVE_HP` (12%) to health (`hpMult`), `EVOLVE_POWER` (10%) to blows, spell power
+  and what they summon (`levelPower`), and `EVOLVE_ATTRS` (3) to every attribute and as many again to the two their road
+  favours (`attributesOf`, through `roadFavours`). A people's own road also grows its class edge by `ORIGIN_EDGE` (1.2,
+  in `classStat`).
+- **Every people has a road of its own** (`data/originPaths.ts`, `ORIGIN_ROADS`): a third choice at the second
+  evolution (level 30) off a stage-1 calling that suits it, then straight on to its stage-3 calling and ascended form:
+  the settlers' Militia Captain (off the Knight), the liches' Grave Cantor (Occultist), the druids' Oakheart, the
+  Court's Thrall-Lord and the orcs' Nob (Berserker), the pack's Moonhowler (Ranger), the machines' Servitor Prime and
+  the alchemists' Transmuter (Tinker), the dwarves' Hearthguard (Sentinel), the merfolk's Tidecaller (Summoner), the
+  nomads' Horse Archer (Archer), the fae's Glamour Weaver (Bard), the knights' Knight of the Order (Knight). Each node
+  has its name, text, lore (`PathNode.lore`), signature skill (merged into `PATH_ABILITIES`), lean (merged into
+  `LEANS`) and emblem (merged into `COMPOSITIONS`). In data/paths.ts they are `ORIGIN_PATHS` (`PathNode.origin`),
+  in `PATH_BY_ID` but not `PATHS` (the shared tree) nor `branchesOf` from a shared node; `roadsFrom(id, origin)` gives
+  a person's roads, which `roadsOpen(p, s)` uses (their people: `p.origin`, else the town's). `chooseRoad` leans a
+  little to their people's road; the evolution card says it is theirs alone.
+- **Founders evolve by choice** (`data/founderLines.ts`: the founders' table moved here from founderClasses.ts, which
+  re-exports it, and `FOUNDER_ROADS`: for each of the 39 founders a road of their own at each of the first three
+  evolutions, a name and line each, and a `bent` of stats). `FOUNDER_PATHS` in data/paths.ts is a tree a founder
+  (`f_<id>`, then `_o` for the line's own stage or `_a` for the road of their own at each fork, `_x` the last stage,
+  always the line's: 23 nodes a founder; `founderRoot`). A founder stands on it (`p.road`, set by `makeFounder`; an
+  older save's by `adoptFounderRoad`, the line's own node of their stage) and is asked at each evolution like anyone
+  (`FOUNDER_FORK` in pathLore.ts). `classStat` reads the node's stats on a founder's line (the line's signature, or
+  with the bent); `callingName` names the road taken and the line's own stages to come; the emblem is the founder's
+  violet and gold with their base calling's device, a different charge for the road of their own.
+- Probe (20 days, two towns each of settlers, knights, vampires and orcs, nobody answering): 50 alive and 13 dead
+  against main's 47 and 14; founders evolve about day 15 to 20, two or three townsfolk a town by day 20.
+- Tests: `test/evolutions.test.ts`.
 
 ## Research picked by hand, and the seat that opens each age (the owner's asks)
 

@@ -86,7 +86,7 @@ test('evolution: with the level, the two roads are put to the player; the answer
   classesHourly(s);
   const q2 = s.prompts.find((x) => x.kind === 'evolve')!;
   answerPrompt(s, q2.id, q2.defaultOption, new Rng(2));
-  assert.ok(p.road === 'paladin' || p.road === 'dragoon', p.road!);
+  assert.ok(p.road === 'paladin' || p.road === 'dragoon' || p.road === 'militia_captain', p.road!); // (a settler's own road is open here too)
   // with the asking off, the town decides on the hour
   s.evolveAsk = false;
   p.level = STAGE_LEVELS[3];
