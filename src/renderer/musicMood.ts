@@ -19,6 +19,7 @@ export function moodOf(m: MoodInput): Mood {
   if (m.boss) return 'boss';
   if (m.raid || m.fight) return 'battle';
   if (m.victory) return 'victory';
+  if (m.gathering === 'festival') return 'festival';
   if (m.gathering === 'feast' || m.gathering === 'wedding') return 'feast';
   if (m.theme === 'lich' || m.theme === 'vampire') return 'dark';
   if (m.daylight < 0.2) return 'night';

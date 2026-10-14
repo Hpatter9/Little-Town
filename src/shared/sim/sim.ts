@@ -111,6 +111,7 @@ import { propertyHourly } from './property';
 import { treasuryHourly } from './treasury';
 import { ambitionHourly } from './ambition';
 import { ceremoniesHourly } from './ceremonies';
+import { festivalsHourly } from './festivals';
 import { diaryTick } from './diary';
 import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
@@ -219,6 +220,7 @@ export class Sim {
     boatsHourly(s, this.rng);
     skiesHourly(s); // (airships, sky pirates and the hunters of the sky: sim/skies.ts)
     ceremoniesHourly(s);
+    festivalsHourly(s);
     annalsHourly(s);
     memorialsHourly(s); // (homes named, ruins cleared, statues to the famous dead: sim/statues.ts)
     injuriesHourly(s, this.rng);

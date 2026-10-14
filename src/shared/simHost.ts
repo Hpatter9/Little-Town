@@ -22,6 +22,7 @@ import type { BandKind } from './data/bands';
 import { summonDragon } from './sim/dragon';
 import { skiesPreview } from './sim/skiesPreview';
 import { startDisaster, type DisasterKind } from './sim/disasters';
+import { previewFestival } from './sim/festivals';
 import { beginSaga } from './sim/sagas';
 import { postHunt } from './sim/hunts';
 import { startRaid } from './sim/raids';
@@ -127,6 +128,7 @@ export function startSimHost(post: (m: FromHost) => void): (m: ToHost) => void {
     hunt: (id: string) => postHunt(stateOf(), new Rng(1), id),
     raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)),
     disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind),
+    festival: (now: 'prep' | 'hold' = 'hold') => previewFestival(stateOf(), now),
     dragon: (kind?: string) => summonDragon(stateOf(), kind),
     skies: (what: string) => skiesPreview(stateOf(), what),
     band: (kind: BandKind) => spawnBand(stateOf(), new Rng(4), kind),

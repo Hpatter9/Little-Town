@@ -34,6 +34,7 @@ import { honouredView, type HonouredView } from './memorials';
 import { ruinsView, type RuinView } from './ruins';
 import { RECAP_HOURS, type RaidRecap } from './raidRecap';
 import { gatheringRadius, processing, processionHead } from './ceremonies';
+import { festivalsView, type FestivalsView } from './festivals';
 import { walkingHome } from './nightOut';
 import { realmView, type RealmView } from './factions';
 import { warView, type WarView } from './conquest/warView';
@@ -927,7 +928,9 @@ export interface Snapshot {
   /** The town gathered (a feast, a wedding, a funeral): where, and how many came (the map dresses the spot). */
   /** The gathering under way (sim/ceremonies.ts); `head`: where its procession's head is while it's on the way (the
    *  coffin carried, the couple, the faithful), `bearers` who walk there (the first two). */
-  gathering: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite'; x: number; y: number; ring: number; key: number; fire: boolean; head?: { x: number; y: number } | null; bearers?: number[] } | null;
+  gathering: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival'; x: number; y: number; ring: number; key: number; fire: boolean; head?: { x: number; y: number } | null; bearers?: number[]; festival?: string } | null;
+  /** The year's festivals and what's next (sim/festivals.ts). */
+  festivals: FestivalsView;
   prompts: PromptView[];
   /** Seconds until the player can rally a defender again (0: now). */
   rallyIn: number;
@@ -1250,7 +1253,8 @@ export function snapshot(s: GameState): Snapshot {
     places: placeViews(s),
     pack: packView(s),
     war: CONQUEST.on ? warView(s) : null,
-    gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40, head: processing(s.gathering, s.tick) ? processionHead(s.gathering, s.tick) : null, bearers: s.gathering.ids.slice(0, 2) } : null,
+    gathering: s.gathering && s.tick < s.gathering.until && !s.raid ? { kind: s.gathering.kind, x: s.gathering.x, y: s.gathering.y, ring: gatheringRadius(s.gathering), key: s.gathering.from ?? 0, fire: Math.hypot(s.gathering.x - campXY(s).x, s.gathering.y - campXY(s).y) > 40, head: processing(s.gathering, s.tick) ? processionHead(s.gathering, s.tick) : null, bearers: s.gathering.ids.slice(0, 2), festival: s.gathering.festival } : null,
+    festivals: festivalsView(s),
     debris: (s.debris ?? []).filter((m) => s.tick - m.tick < DEBRIS_LASTS).map((m) => ({ x: m.x, y: m.y, kind: m.kind, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}:${m.kind}` })),
     blood: (s.blood ?? []).filter((m) => s.tick - m.tick < BLOOD_LASTS).map((m) => ({ x: m.x, y: m.y, from: m.from, age: s.tick - m.tick, key: `${m.tick}:${m.x}:${m.y}` })),
     rallyIn: Math.max(0, Math.ceil(((s.rallyReady ?? 0) - s.tick) / TICK_HZ)),
