@@ -2282,6 +2282,24 @@
       .glance-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.7; }
       .glance-value { font-family: var(--font-display); font-size: 17px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; max-width: 100%; white-space: nowrap; }
       .glance-sub { font-size: 11px; opacity: 0.75; line-height: 1.25; }
+      /* the Quests tab (expeditionsPanel.ts) */
+      .quests-glance { grid-template-columns: repeat(3, 1fr); }
+      .next-party { margin: 2px 0 8px; }
+      .card.fighting { border-color: #c0503a; }
+      .dest-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 2px; }
+      .dest-chip { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); white-space: nowrap; }
+      .dest-chip.threat { color: #f0b8a8; }
+      .dest-chip.gold { color: #f3d27a; border-color: rgba(243, 210, 122, 0.45); }
+      .dest-chip.ok { color: #a8e0a0; border-color: rgba(168, 224, 160, 0.45); }
+      .dest-chip.bad { color: #f09080; border-color: rgba(240, 144, 128, 0.45); }
+      .dest-controls { margin-bottom: 6px; }
+      .locked-list { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 8px; }
+      .locked-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 4px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.04); opacity: 0.8; }
+      .locked-why { opacity: 0.7; text-align: right; }
+      .company-who { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+      .company-member { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: rgba(243, 210, 122, 0.14); border: 1px solid rgba(243, 210, 122, 0.35); }
+      .company-member.dead { opacity: 0.55; background: transparent; }
+      .card.company.ended { opacity: 0.7; }
       /* a menu's own filters inside a tab (the stores' kinds): small chips, not more tabs */
       .inv-tabs:not(.menu-tabs):not(.inspect-tabs):not(.journal-tabs) { gap: 4px; }
       .inv-tabs:not(.menu-tabs):not(.inspect-tabs):not(.journal-tabs) .inv-tab { font-size: 11px; padding: 2px 8px; border-radius: 10px; }

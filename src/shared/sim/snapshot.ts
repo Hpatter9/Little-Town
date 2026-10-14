@@ -873,6 +873,8 @@ export interface Snapshot {
   destinations: DestinationView[];
   /** Parties forming themselves: the next that would set out, who's fit to go, and the bounty step. */
   trips: TripsView;
+  /** Bonded parties (sim/companies.ts): the companies, living first. */
+  companies: CompanyView[];
   /** A party the player is raising (sim/muster.ts). */
   muster: MusterView | null;
   /** The powers of the realm (sim/factions.ts), and the town's might they weigh against. */
@@ -1201,6 +1203,7 @@ export function snapshot(s: GameState): Snapshot {
     wall: s.ring && !s.ring.done ? ((w) => (w ? { gen: s.ring!.gen, ...w, shape: RING_SHAPE_NAMES[ringShapeOf(s)] } : null))(ringProgress(s)) : null,
     mooring: ((y) => (y ? mooring(s.land, footprint(y)) : null))(boatyardOf(s)),
     trips: tripsView(s),
+    companies: companiesView(s),
     muster: musterView(s, (p) => callingName(p, stageOf(p))),
     envoyRider: s.envoyRider ? { ...s.envoyRider } : null,
     realm: realmView(s, (id) => !destinationHidden(s, id) && !!DEST_BY_ID[id] && destinationUnlocked(s, DEST_BY_ID[id])),
@@ -1666,6 +1669,33 @@ export interface TripsView {
   bountyStep: number;
   /** Adventurers in the town (who form parties of their own accord). */
   adventurers: number;
+}
+
+export interface CompanyView {
+  id: number;
+  name: string;
+  members: { id: number; name: string; alive: boolean; level: number; calling: string | null }[];
+  formed: number;
+  ended: number | null;
+  trips: number;
+  wins: number;
+  deeds: string[];
+  /** Where it is now: out on a trip (its place), else home. */
+  out: string | null;
+}
+
+function companiesView(s: GameState): CompanyView[] {
+  return (s.companies ?? [])
+    .map((c) => {
+      const members = c.members.map((id) => {
+        const p = s.people.find((q) => q.id === id);
+        const f = (s.fallen ?? []).find((q) => q.id === id);
+        return { id, name: p?.name ?? f?.name ?? '?', alive: !!p, level: p ? levelOf(p) : f?.level ?? 0, calling: p && (p.cls || p.fcls) ? callingName(p, stageOf(p)) : null };
+      });
+      const trip = s.expeditions.find((e) => e.members.filter((id) => c.members.includes(id)).length >= 2);
+      return { id: c.id, name: c.name, members, formed: c.formed, ended: c.ended ?? null, trips: c.trips, wins: c.wins, deeds: [...c.deeds], out: trip && !c.ended ? destinationOf(s, trip.dest)?.name ?? trip.dest : null };
+    })
+    .sort((a, b) => (a.ended === null ? 0 : 1) - (b.ended === null ? 0 : 1) || b.trips - a.trips);
 }
 
 function tripsView(s: GameState): TripsView {

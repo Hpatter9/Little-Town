@@ -1131,6 +1131,11 @@ export interface GameState {
   busy?: { until: number; ids: number[]; text: string; x: number; y: number; anim: 'chop' | 'build' | 'mine' };
   bounties?: Record<string, number>;
   lastParty?: number;
+  /** Bonded parties (sim/companies.ts): the companies, the trips counted toward a bond (by the members' ids), and
+   *  the last company id given. */
+  companies?: import('./companies').Company[];
+  fellows?: Record<string, number>;
+  nextCompany?: number;
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;

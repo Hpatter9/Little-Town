@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.74.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.75.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4224,6 +4224,30 @@ blocked by buildings, structures, trees and rocks)
   joins that to each listed event's `when` as EVENTS is put together (data/events.ts), so a lich or machine town never
   meets them. A new event about any of these goes in its list. Test: `test/eventFit.test.ts` (and any event whose
   words speak of hunger must be listed or named as someone else's hunger).
+
+## The Quests tab and bonded parties (the owner's asks: "rework the whole Trips menu, maybe call it the Quests tab"; parties of friends that bond)
+- **The Quests tab:** the panel id stays `expeditions` (saves, the desktop app); its label is Quests (`PANELS` in
+  ipc.ts; the notices, tips and the Town overview's tile say Quests). Sub-tabs (`GROUPS.expeditions` in subtabs.ts):
+  **Out now** (tiles at a glance: parties out, quests accepted and offered, companies, each a tap to its tab; the next
+  party forming; a compact card a party out: a bar, who leads, home in, Watch; Recall in its details), the boats and the
+  Calamity; **Quests** (accepted first, then the board's offers, the sagas, the quest log: `questLog` split out of
+  questBoardPanel.ts); **Places** (the world map, the land's places, the pack, the destinations as compact cards: a row
+  of chips (`.dest-chip`: threats, a party there, bounty, quest, forbidden, unexplored, cleared, purse) and one button,
+  Send a party…; bounties and Forbid/Allow are in the card's details (`tripControls`); locked ones are a short list
+  under "Not yet reachable"); **Companies**; **Realm**; **Treasures** (the guild forge, the uniques). The per-people
+  tab names in theme.ts (Sorties, Raids) are kept.
+- **Bonded parties** (`src/shared/data/companies.ts`, `src/shared/sim/companies.ts`): `companyHome` (from `comeHome`
+  in expeditions.ts) counts each party home toward a bond between those of no company who went (`s.fellows`, by their
+  ids); the same few out and back `BOND_TRIPS` (2) times become a **company** (`s.companies`, `Company`: name, members
+  living and dead, formed, trips, wins, deeds; `s.nextCompany`), named by the seed (`nameCompany`: `NAME_ADJ`,
+  `NAME_NOUN`, the people's own words `ORIGIN_NOUN`, the leader's name or the place of its first deed). A trip with two
+  or more of a company counts as its trip (a deed, a win when `jobDone`), and whoever went with them joins while there's
+  room (`COMPANY_MOST` 6). Fewer than `BOND_LEAST` alive and it breaks up (`tidyCompanies`), remembered till
+  `COMPANIES_KEPT` push it out. They go out together again: `recruit` (sim/parties.ts) adds `RECRUIT_COMPANY` for a
+  member of the same company as one going, and a leader with company home and fit leads sooner (`LEAD_COMPANY`).
+  Friendship counts more in recruiting (`RECRUIT_OPINION` 1/8, was 1/20). `snapshot.companies` (`CompanyView`) feeds
+  the Companies tab (members as chips, the dead ✝; tapped: formed, trips, members with calling and level, deeds) and
+  names a company on its party's Out now card. Tests: `test/companies.test.ts`.
 
 ## Fixes, third batch (the owner's asks)
 

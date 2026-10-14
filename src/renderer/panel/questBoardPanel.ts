@@ -1,5 +1,5 @@
 // The quest board (the owner's ask: a quest offered, accepted with a tap, then followed on an Accepted tab with its
-// time limit, more about it, a party formed for it, how it's going and a way to watch). Two sections of the Trips menu,
+// time limit, more about it, a party formed for it, how it's going and a way to watch). Sections of the Quests menu,
 // each its own sub-tab (subtabs.ts): **Quest board** (the offers: a tavern guest's quests and the guild's hunts, with
 // Accept and Decline) and **Accepted quests** (each with the time left as a bar, what it is and pays, the party out
 // for it (where they are, a bar of the trip, who went, Watch) or Form a party, and below, the quest log). The sim's
@@ -103,8 +103,8 @@ export function questBoard(s: Snapshot, bridge: Bridge | undefined): HTMLElement
   const offers = entries(s).filter((e) => !e.accepted);
   const taken = entries(s).filter((e) => e.accepted).length;
   const out: HTMLElement[] = [el('h2', '', 'Quest board')];
-  out.push(el('div', 'hint', 'Quests offered at the tavern and hunts posted by the guild. Accept one and its clock starts; the town\'s adventurers take up what is accepted, or you can form a party yourself on the Accepted tab. Left unanswered, the town takes an offer up itself after a while if it has an adventurer to send.'));
-  if (!offers.length) out.push(el('div', 'empty', taken ? `Nothing new offered. ${taken} accepted: see the Accepted tab.` : 'Nothing offered just now. Guests at the tavern ask of an evening; the guild posts hunts every day or two.'));
+  out.push(el('div', 'hint', 'Offered at the tavern and posted by the guild. Accept one and its clock starts. Left unanswered, the town takes one up itself if it has an adventurer to send.'));
+  if (!offers.length) out.push(el('div', 'empty', taken ? 'Nothing new offered.' : 'Nothing offered just now. Guests at the tavern ask of an evening; the guild posts hunts every day or two.'));
   const grid = el('div', 'cards wide');
   for (const e of offers) {
     const c = el('div', 'card quest offer');
@@ -126,9 +126,14 @@ export function questBoard(s: Snapshot, bridge: Bridge | undefined): HTMLElement
 export function acceptedQuests(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const taken = entries(s).filter((e) => e.accepted);
   const out: HTMLElement[] = [el('h2', '', 'Accepted quests')];
-  if (!taken.length) out.push(el('div', 'empty', 'No quests accepted. Take one up on the Board.'));
+  if (!taken.length) out.push(el('div', 'empty', 'None accepted. Take one up from the Quest board below.'));
   for (const e of taken) out.push(acceptedCard(e, s, bridge));
-  out.push(el('h2', '', 'Quest log'));
+  return out;
+}
+
+/** The quests ended: done, failed, lapsed or declined. */
+export function questLog(s: Snapshot): HTMLElement[] {
+  const out: HTMLElement[] = [el('h2', '', 'Quest log')];
   if (!s.questLog.length) out.push(el('div', 'empty', 'Nothing ended yet.'));
   else {
     const ul = el('div', 'quest-log');
@@ -170,8 +175,8 @@ function acceptedCard(e: Entry, s: Snapshot, bridge: Bridge | undefined): HTMLEl
   else {
     const row = el('div', 'row stakes');
     const blocked = !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS || (v ? !v.unlocked : false);
-    row.append(button('Form a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest: e.dest }), { cls: 'place go', disabled: blocked, title: 'Choose who goes, how boldly, and what they take' }));
-    c.append(el('div', 'lock short', v?.vetoed ? 'Forbidden on the Places tab: no party of the town\'s own will go.' : "No party out yet: the town's adventurers may take it up, or form one yourself."), row);
+    row.append(button('Send a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest: e.dest }), { cls: 'place go', disabled: blocked, title: 'Choose who goes, how boldly, and what they take' }));
+    c.append(el('div', 'lock short', v?.vetoed ? "Forbidden on the Places tab: no party of the town's own will go." : 'No party out yet.'), row);
   }
   return expandable(c, `taken:${e.key}`, () => [
     facts([

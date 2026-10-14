@@ -1,11 +1,15 @@
-// Expedition Board: parties that are out, and where you can send one next.
+// The Quests tab (the panel's id is still 'expeditions'; the owner's ask: the old Trips menu reworked). Its sub-tabs
+// (subtabs.ts): Out now (tiles at a glance, the parties out, boats, the Calamity), Quests (accepted, offered, sagas,
+// the log), Places (the world map, the land's places, the pack's lairs, the destinations; each card one button, the
+// rest in its details), Companies (the bonded parties, sim/companies.ts), Realm and Treasures.
 
 import { renderRealm } from './realmPanel';
 import { renderMuster } from './musterPanel';
-import { acceptedQuests, questBoard } from './questBoardPanel';
+import { acceptedQuests, questBoard, questLog } from './questBoardPanel';
+import { goTo } from './townOverview';
 import { BOAT_BY_KIND } from '../../shared/data/boats';
 import { eraReached } from '../../shared/data/eras';
-import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, MAX_PARTY, ROLES, STANCES, type Destination, type Role, type Stance } from '../../shared/data/expeditions';
+import { DESTINATIONS, EXPEDITION_TYPE_NAMES, MAX_EXPEDITIONS, ROLES, type Destination, type Role } from '../../shared/data/expeditions';
 import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../../shared/data/materials';
 import type { Bridge } from '../../shared/ipc';
 import type { DestinationView, ExpeditionView, Snapshot } from '../../shared/sim/snapshot';
@@ -68,6 +72,7 @@ export const expeditionsKey = (s: Snapshot) =>
     s.fleet,
     s.muster,
     s.realm,
+    s.companies.map((c) => [c.id, c.trips, c.ended, c.out, c.members.length, c.members.filter((m) => m.alive).length]),
   ]);
 
 const listStock = (st: Stock) =>
@@ -80,9 +85,28 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
   const out: HTMLElement[] = [];
   // (a party the player is raising: its sheet over everything, musterPanel.ts)
   if (s.muster) out.push(renderMuster(s.muster, s, bridge));
-  const head = el('div', 'panel-head');
-  head.append(el('span', '', `Expeditions out ${s.expeditions.length}/${MAX_EXPEDITIONS}`), el('span', '', `Parties of up to ${MAX_PARTY}`));
-  out.push(head);
+
+  /* ---- Out now: the quests at a glance, the parties out, the boats, the Calamity */
+  out.push(glanceRow(s, bridge, rerender));
+  out.push(el('div', 'purpose next-party', `Next: ${s.trips.forming}`));
+  if (!s.expeditions.length) out.push(el('div', 'empty', 'No party is out. Adventurers set out of a morning when somewhere calls them; accept a quest or post a bounty to steer them.'));
+  for (const e of s.expeditions) out.push(expandable(activeCard(e, s, bridge), `trip:${e.id}`, () => activeDetails(e, s, bridge)));
+  // the town's boats (sim/boats.ts): at home fishing, or out with a party
+  if (s.fleet.length) {
+    out.push(el('h2', '', 'Boats'));
+    for (const b of s.fleet) out.push(el('div', 'hint', `The ${b.name} (${BOAT_BY_KIND[b.kind].name.toLowerCase()}, hull ${b.hull}/${b.max}): ${b.away === null ? (b.hull < b.max / 2 ? 'mending at the boatyard' : 'at home, fishing') : `sailed for ${b.away}`}`));
+  }
+  // the Calamity (sim/calamity.ts): how near it is, its stage, and its heart to strike at
+  if (s.calamity) out.push(...calamitySection(s, bridge));
+
+  /* ---- Quests: those accepted first, then the offers, the sagas, the log (questBoardPanel.ts) */
+  out.push(...acceptedQuests(s, bridge));
+  out.push(...questBoard(s, bridge));
+  out.push(...sagaList(s, bridge));
+  out.push(...questLog(s));
+
+  /* ---- Places: the map, then what's on the town's own land, the pack's lairs, the world's places */
+  out.push(el('h2', '', 'Places'));
   // destinations from eras the town hasn't reached stay off the board (and off the map)
   // (and so do places in regions the scouts haven't mapped, and the scouting trips to regions they have)
   const shown = DESTINATIONS.filter((d) => (s.unlockAll || eraReached(s.era, d.era)) && !s.destinations.find((v) => v.id === d.id)?.hidden);
@@ -94,170 +118,134 @@ export function renderExpeditions(s: Snapshot, bridge: Bridge | undefined, reren
     s.realm.factions.filter((f) => f.known).map((f) => ({ id: f.id, name: f.name, stronghold: f.stronghold, stance: f.stance, stanceName: f.stanceName, assault: f.assault, folk: f.folk, size: f.size, tier: f.tier })),
     s.world,
   );
-  out.push(worldMap.el, el('div', 'hint map-hint', 'Tap a place on the map, or a destination below, to mark it.'));
+  out.push(worldMap.el, el('div', 'hint map-hint', 'Tap a place on the map to find its card. Tap a card for more: the foes, the loot, a bounty, or forbidding it.'));
   // the realm on the move (sim/worldLife.ts): hosts, caravans and envoys on the roads, and the powers' feuds
   if (s.world.marches.length || s.world.feuds.length)
     out.push(el('div', 'hint world-news', [...s.world.feuds.map((f) => `⚔ ${f.a} and ${f.b} are at war.`), ...s.world.marches.map((m) => `${MARCH_MARK[m.kind]} ${m.label}`)].join(' ')));
-  // parties form themselves: who would set out next, and why not
-  out.push(el('h2', '', 'Parties'));
-  out.push(el('div', 'purpose', s.trips.forming));
-  out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away · treasury ${s.coins ?? 0} coins. Adventurers choose where to go, and a bounty draws them to a place. Forbid a place to keep them from it.`));
-  // the town's boats (sim/boats.ts): at home fishing, or out with a party
-  if (s.fleet.length) {
-    out.push(el('h2', '', 'Boats'));
-    out.push(
-      el(
-        'div',
-        'hint',
-        s.fleet.map((b) => `The ${b.name} (${BOAT_BY_KIND[b.kind].name.toLowerCase()}, hull ${b.hull}/${b.max}): ${b.away === null ? (b.hull < b.max / 2 ? 'mending at the boatyard' : 'at home, fishing') : `sailed for ${b.away}`}`).join(' · '),
-      ),
-    );
-  }
-  for (const e of s.expeditions) {
-    const card = activeCard(e, s, bridge);
-    card.addEventListener('click', () => pick(e.dest));
-    out.push(expandable(card, `trip:${e.id}`, () => activeDetails(e, s)));
-  }
-  // the Calamity (sim/calamity.ts): how near it is, its stage, and its heart to strike at
-  if (s.calamity) out.push(...calamitySection(s, bridge));
   // the places found on the town's own land that want a party (sim/places.ts)
   const nearby = s.places.filter((p) => p.dest).map((p) => p.dest!);
   if (nearby.length) {
-    out.push(el('h2', '', 'On the town\'s land'));
+    out.push(el('h2', '', "On the town's land"));
     const near = el('div', 'cards wide');
-    for (const d of nearby) {
-      const card = destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge);
-      card.dataset.dest = d.id;
-      near.append(card);
-    }
+    for (const d of nearby) near.append(destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge));
     out.push(near);
   }
   // the Moon Pack: its renown, the moon, the rival packs' lairs a war party can break (sim/pack.ts)
-  if (s.pack) {
-    const k = s.pack;
-    const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
-    out.push(el('h2', '', 'The pack'));
-    const nights = FULL_MOON_PHASE - k.moon;
-    out.push(el('div', 'hint', `Renown ${k.renown} · ${k.hunts} hunt${k.hunts === 1 ? '' : 's'} run · ${k.grounds} hunting ground${k.grounds === 1 ? '' : 's'} · the moon is ${nights === 0 ? 'full tonight: the pack hunts' : `full in ${nights} night${nights === 1 ? '' : 's'}`}.`));
-    out.push(el('div', 'hint', k.beast === 'slain' ? 'The Pale Behemoth has fallen to the pack.' : k.beast === 'due' ? 'The Pale Behemoth is abroad: the next hunt may meet it.' : 'The Pale Behemoth will show itself once the pack\'s renown reaches 10. Break every rival pack and bring it down to win the Great Hunt.'));
-    const lairs = el('div', 'cards wide');
-    for (const r of k.packs) {
-      if (r.broken) {
-        out.push(el('div', 'hint', `${cap(r.name)}: broken. Their hills are the pack's hunting ground.`));
-        continue;
-      }
-      const d = packDestination(RIVAL_PACK_BY_ID[r.id]);
-      const v = s.destinations.find((q) => q.id === d.id);
-      if (!v) continue;
-      const card = destinationCard(d, v, s, bridge);
-      card.dataset.dest = d.id;
-      lairs.append(card);
-    }
-    if (lairs.childElementCount) out.push(lairs);
-  }
+  if (s.pack) out.push(...packSection(s, bridge));
+  const open = shown.filter((d) => s.destinations.find((v) => v.id === d.id)?.unlocked);
+  const locked = shown.filter((d) => !s.destinations.find((v) => v.id === d.id)?.unlocked);
   out.push(el('h2', '', 'Destinations'));
   const grid = el('div', 'cards wide');
-  for (const d of shown) {
-    const card = destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge);
-    card.dataset.dest = d.id;
-    if (d.id === mapPick) card.classList.add('chosen');
-    card.addEventListener('click', () => pick(d.id));
-    grid.append(card);
-  }
+  for (const d of open) grid.append(destinationCard(d, s.destinations.find((v) => v.id === d.id)!, s, bridge));
   out.push(grid);
-  // (the quest board: the offers, then those accepted, each a sub-tab: questBoardPanel.ts)
-  out.push(...questBoard(s, bridge));
-  out.push(...acceptedQuests(s, bridge));
-  out.push(...sagaList(s, bridge));
+  if (locked.length) {
+    out.push(el('h2', '', 'Not yet reachable'));
+    const box = el('div', 'locked-list');
+    for (const d of locked) {
+      const v = s.destinations.find((q) => q.id === d.id)!;
+      const r = el('div', 'locked-row');
+      r.dataset.dest = d.id;
+      r.append(el('span', 'locked-name', d.name), el('span', 'locked-why', v.quietHours ? `cleared: wakes in ${Math.ceil(v.quietHours / 24)} d` : d.research ? `needs ${topicName(d.research, s.origin.id)}` : 'not yet'));
+      box.append(r);
+    }
+    out.push(box);
+  }
+
+  /* ---- Companies: the bonded parties (sim/companies.ts), and who would set out */
+  out.push(...companiesSection(s));
+
+  /* ---- Realm and Treasures */
+  out.push(...renderRealm(s, bridge));
   out.push(...guildForge(s));
   out.push(...treasures(s));
-  out.push(...renderRealm(s, bridge));
-  out.push(el('div', 'hint', 'Fighters stand in front; scouts, medics and porters in back. Parties fall back when hurt past their stance, or when you are badly hurt. The downed bleed out unless a medic tends them.'));
   return out;
 }
 
+/** The tiles along the top: parties out, quests, companies, each a way to its tab. */
+function glanceRow(s: Snapshot, bridge: Bridge | undefined, rerender: () => void): HTMLElement {
+  const grid = el('div', 'glance quests-glance');
+  const tile = (label: string, value: string, sub: string, tab: string | null, warn = false) => {
+    const t = el(tab ? 'button' : 'div', `glance-tile${warn ? ' warn' : ''}`);
+    t.append(el('span', 'glance-label', label), el('span', 'glance-value', value));
+    if (sub) t.append(el('span', 'glance-sub', sub));
+    if (tab) t.addEventListener('click', () => goTo(bridge, 'expeditions', 'expeditions', tab, rerender));
+    grid.append(t);
+  };
+  const fighting = s.expeditions.some((e) => e.battle);
+  tile('Out now', `${s.expeditions.length}/${MAX_EXPEDITIONS}`, fighting ? 'a party is fighting!' : s.expeditions.length ? 'parties on the road' : 'all at home', null, fighting);
+  const accepted = s.quests.filter((q) => q.accepted).length + s.hunts.hunts.filter((h) => h.accepted).length;
+  const offered = s.quests.filter((q) => !q.accepted).length + s.hunts.hunts.filter((h) => !h.accepted).length;
+  const urgent = [...s.quests, ...s.hunts.hunts].some((q) => q.accepted && q.hoursLeft < 24);
+  tile('Quests', `${accepted}`, `accepted${offered ? ` · ${offered} offered` : ''}${s.sagas.open.length ? ` · ${s.sagas.open.length} saga` : ''}`, 'Quests', urgent);
+  const companies = s.companies.filter((c) => c.ended === null).length;
+  tile('Companies', `${companies}`, `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} · ${s.trips.fit} fit`, 'Companies');
+  return grid;
+}
+
+/** A party out: where they're going and how far along, who leads, and Watch (Recall is in its details). */
 function activeCard(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
-  const c = el('div', 'card arrival');
-  const phase = e.battle
-    ? 'Fighting!'
-    : e.waiting
-      ? 'Waiting for your decision'
-      : e.phase === 'out'
-        ? 'Heading out'
-        : e.phase === 'work'
-          ? 'Working the site'
-          : e.recalled
-            ? 'Recalled, heading home'
-            : 'Heading home';
+  const c = el('div', `card arrival${e.battle ? ' fighting' : ''}`);
+  c.dataset.dest = e.dest;
+  const phase = e.battle ? 'Fighting!' : e.waiting ? 'Waiting on you' : e.phase === 'out' ? 'Heading out' : e.phase === 'work' ? (e.delve ? 'Down in the dark' : 'At the site') : e.recalled ? 'Recalled' : 'Heading home';
   const top = el('div', 'card-top');
-  top.append(el('span', 'card-name', e.destName), el('span', 'card-size', `${phase} · home in ${duration(e.secondsLeft)}`));
-  const who = e.members.map((m) => {
-    const p = s.people.find((q) => q.id === m.id);
-    const hp = p ? (p.downed ? (p.downed === 'bleeding' ? ` (bleeding out: ${bleedLeft(p.bleedMinutes)})` : ' (down)') : ` ${Math.round(p.hp)}/${p.maxHp}`) : '';
-    return `${m.name} · ${ROLES[(e.roles[m.id] ?? 'fighter') as Role].name}${hp}`;
-  });
-  c.append(top, el('div', 'lock', `${who.join(' | ')} · ${e.stakes ? (e.stakes === 'risky' ? 'Risky' : 'Safe') : STANCES[e.stance as Stance].name}${e.truck ? ' · by truck' : ''}${e.boat ? ` · in the ${e.boat.name} (hull ${e.boat.hull}/${e.boat.max})` : ''}${e.wrecked ? ' · wrecked, swimming for home' : ''}`));
-  if (e.leader || e.bounty) c.append(el('div', 'purpose', `${e.leader ? `Led by ${e.leader}` : ''}${e.leader && e.bounty ? ' · ' : ''}${e.bounty ? `after a bounty of ${e.bounty} coins` : ''}`));
-  if (e.battle) {
-    const foes = e.battle.filter((f) => f.side === 'enemy');
-    c.append(el('div', 'lock short', `Against: ${foes.map((f) => `${f.name}${f.down ? ' (down)' : ` ${f.hp}/${f.maxHp}`}`).join(', ')}`));
-  }
-  const whole = tripProgress(e);
+  top.append(el('span', 'card-name', e.destName), el('span', 'card-size', phase));
   const bar = el('div', 'bar');
   const fill = el('div', 'bar-fill');
-  fill.style.width = `${Math.round(whole * 100)}%`;
+  fill.style.width = `${Math.round(tripProgress(e) * 100)}%`;
   bar.append(fill);
-  c.append(bar);
-  if (e.delve) {
-    const kind = e.delve.kind ? ROOM_NAMES[e.delve.kind] ?? e.delve.kind : null;
-    c.append(el('div', 'purpose', e.delve.cleared ? 'Cleared! Heading home with the hoard.' : e.delve.room ? `Room ${e.delve.room} of ${e.delve.rooms}${kind ? ` (${kind})` : ''} · ${e.delve.torches} torch${e.delve.torches === 1 ? '' : 'es'} left` : `${e.delve.torches} torches packed for ${e.delve.rooms} rooms`));
-    if (e.delve.twist) c.append(el('div', 'lock short', `${e.delve.twist}: ${e.delve.twistText}`));
-    const last = e.delve.log.at(-1);
-    if (last) c.append(el('div', 'lock short', last));
-  }
-  c.append(el('div', 'purpose', `Loot ${e.lootSize}/${e.carry}${e.lootSize ? ': ' + listStock(e.loot) : ''}`));
-  c.append(el('div', 'purpose', `Packed food: ${listStock(e.supplies) || 'none'}`));
+  const lead = e.leader ?? e.members[0]?.name;
+  const others = e.members.length - 1;
+  const company = s.companies.find((k) => k.ended === null && e.members.filter((m) => k.members.some((x) => x.id === m.id)).length >= 2);
+  const down = e.members.filter((m) => s.people.find((p) => p.id === m.id)?.downed).length;
+  c.append(top, bar, el('div', 'purpose', `${company ? `${company.name}: ` : ''}${lead}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''} · home in ${duration(e.secondsLeft)}${down ? ` · ${down} down` : ''}${e.bounty ? ` · bounty ${e.bounty}` : ''}`));
+  if (e.delve) c.append(el('div', 'lock short', e.delve.cleared ? 'Cleared! Bringing the hoard home.' : e.delve.room ? `Room ${e.delve.room} of ${e.delve.rooms}${e.delve.kind ? ` (${ROOM_NAMES[e.delve.kind] ?? e.delve.kind})` : ''} · ${e.delve.torches} torch${e.delve.torches === 1 ? '' : 'es'} left` : `${e.delve.torches} torches for ${e.delve.rooms} rooms`));
+  if (e.wrecked) c.append(el('div', 'lock short', 'Wrecked: swimming for home.'));
   // (watch them: the town view gives way to the party on the road and their fights, as in the old games)
-  c.append(
-    button(
-      'Watch',
-      () => {
-        bridge?.command({ type: 'watch', expedition: e.id });
-        bridge?.closePanel();
-      },
-      { title: 'Follow the party on the road and watch their fights.' },
-    ),
+  const row = el('div', 'row stakes');
+  row.append(
+    button(e.battle ? 'Watch the fight' : 'Watch', () => {
+      bridge?.command({ type: 'watch', expedition: e.id });
+      bridge?.closePanel();
+    }, { cls: 'place go', title: 'Follow the party on the road and watch their fights.' }),
   );
-  if (e.phase !== 'back' && !e.battle) c.append(button('Recall', () => bridge?.command({ type: 'recallExpedition', expedition: e.id }), { cls: 'place quiet', title: 'Turn them around. They still have to walk back.' }));
+  c.append(row);
   return c;
 }
 
 function destinationCard(d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
-  const c = el('div', v.unlocked ? 'card' : 'card locked');
-  expandLater.set(c, () => expandable(c, `dest:${d.id}`, () => destDetails(d, v, s)));
+  const c = el('div', v.unlocked ? 'card dest' : 'card dest locked');
+  c.dataset.dest = d.id;
+  if (d.id === mapPick) c.classList.add('chosen');
+  c.addEventListener('click', () => pick(d.id));
   const top = el('div', 'card-top');
-  top.append(el('span', 'card-name', d.name), el('span', 'card-size', `${EXPEDITION_TYPE_NAMES[d.type]} · ~${duration(v.tripSeconds)} round trip`));
-  c.append(top, el('div', 'purpose', d.description));
-  const loot = Object.keys(d.loot) as Material[];
-  const lootText = v.scouted ? loot.map((m) => MATERIAL_NAMES[m]).join(', ') : loot.map((m) => `${MATERIAL_NAMES[m]}?`).join(', ');
-  const extra = Object.keys(d.guaranteed ?? {}).map((m) => MATERIAL_NAMES[m as Material]);
-  c.append(el('div', 'purpose', `Loot: ${lootText}${extra.length ? ` + ${extra.join(', ')}` : ''}${v.scouted ? '' : ' (not scouted)'}`));
-  c.append(el('div', 'lock', `Threats: ${d.threats} · Suggested party: ${d.recommendedParty}${d.coins ? ` · Purse: ${d.coins} coins${(s.coins ?? 0) < d.coins ? ` (the town has ${s.coins ?? 0})` : ''}` : ''}`));
+  top.append(el('span', 'card-name', d.name), el('span', 'card-size', `${EXPEDITION_TYPE_NAMES[d.type]} · ~${duration(v.tripSeconds)}`));
+  c.append(top);
+  // what matters at a glance: the danger, and anything about it now (a party there, a bounty, a quest, forbidden)
+  const going = s.expeditions.find((e) => e.dest === d.id);
+  const chips = el('div', 'dest-chips');
+  const chip = (text: string, cls = '') => chips.append(el('span', `dest-chip ${cls}`, text));
+  chip(d.threats ? `⚔ ${d.threats}` : 'Peaceful', d.threats ? 'threat' : '');
+  if (going) chip(`Party there${going.leader ? `: ${going.leader}` : ''}`, 'ok');
+  if (v.bounty) chip(`Bounty ${v.bounty}`, 'gold');
+  if (s.quests.some((q) => q.dungeon === d.id)) chip('Quest', 'gold');
+  if (v.vetoed) chip('Forbidden', 'bad');
+  if (!v.scouted) chip('Unexplored');
+  if (v.cleared) chip(`Cleared ×${v.cleared}`);
+  if (d.coins) chip(`Purse ${d.coins}`, (s.coins ?? 0) < d.coins ? 'bad' : '');
+  c.append(chips);
   if (!v.unlocked) {
-    // (a cleared dungeon lies quiet a while; else it's waiting on research)
-    if (v.quietHours) c.append(el('div', 'lock short', `Cleared: it lies quiet now, and wakes again in about ${Math.ceil(v.quietHours / 24)} day${v.quietHours > 24 ? 's' : ''}.`));
-    else c.append(el('div', 'lock short', `Needs research: ${topicName(d.research!, s.origin.id)}`));
-    return done(c);
+    c.append(el('div', 'lock short', v.quietHours ? `Cleared: it lies quiet, and wakes again in about ${Math.ceil(v.quietHours / 24)} day${v.quietHours > 24 ? 's' : ''}.` : d.research ? `Needs research: ${topicName(d.research, s.origin.id)}` : 'Not reachable yet.'));
+    return expandable(c, `dest:${d.id}`, () => destDetails(d, v, s));
   }
-  return done(tripControls(c, d, v, s, bridge));
+  if (v.boat && !going && v.byBoat && v.boat.startsWith('Needs')) c.append(el('div', 'lock short', v.boat));
+  // one thing to do from the card: send a party (the rest, forbidding and bounties, are in its details)
+  if (!going && !v.vetoed) {
+    const row = el('div', 'row stakes');
+    row.append(button('Send a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest: d.id }), { cls: 'place go', disabled: !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS, title: 'Choose who goes, how boldly, and what they take' }));
+    c.append(row);
+  }
+  return expandable(c, `dest:${d.id}`, () => [tripControls(d, v, s, bridge), ...destDetails(d, v, s)]);
 }
-
-/** Cards whose details are added last (after their buttons, so the "More" mark sits at the foot). */
-const expandLater = new WeakMap<HTMLElement, () => void>();
-const done = (c: HTMLElement): HTMLElement => {
-  expandLater.get(c)?.();
-  return c;
-};
 
 /* ------------------------------------------------------------ the details (tap a card: details.ts) */
 
@@ -305,7 +293,7 @@ function sagaDetails(g: Snapshot['sagas']['open'][number]): More[] {
 }
 
 /** A party out: each member's health, calling and level, what they've found and packed, and a delve's log. */
-function activeDetails(e: ExpeditionView, s: Snapshot): More[] {
+function activeDetails(e: ExpeditionView, s: Snapshot, bridge: Bridge | undefined): More[] {
   const lines = e.members.map((m) => {
     const p = s.people.find((q) => q.id === m.id);
     if (!p) return m.name;
@@ -322,8 +310,11 @@ function activeDetails(e: ExpeditionView, s: Snapshot): More[] {
     ]),
     list('The party', lines),
     e.lootSize ? `Found so far: ${listStock(e.loot)}.` : null,
+    `Packed food: ${listStock(e.supplies) || 'none'}.`,
+    e.delve?.twist ? `${e.delve.twist}: ${e.delve.twistText}` : null,
     e.delve ? list('Down in the dark', e.delve.log) : null,
     e.battle ? list('In the fight', e.battle.map((f) => `${f.side === 'enemy' ? '⚔ ' : ''}${f.name}: ${f.down ? 'down' : `${f.hp}/${f.maxHp}`}`)) : null,
+    e.phase !== 'back' && !e.battle ? button('Recall them', () => bridge?.command({ type: 'recallExpedition', expedition: e.id }), { cls: 'place quiet', title: 'Turn them around. They still have to walk back.' }) : null,
   ];
 }
 
@@ -346,36 +337,82 @@ function pieceDetails(id: string): More[] {
   ];
 }
 
-/** Parties form themselves (sim/parties.ts): the player may forbid a place, or have the treasury post a bounty on it. */
-function tripControls(c: HTMLElement, d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
-  if (v.cleared) c.append(el('div', 'purpose', `Cleared ${v.cleared} time${v.cleared === 1 ? '' : 's'}: it wakes deeper each time.`));
-  for (const q of s.quests.filter((q) => q.dungeon === d.id)) c.append(el('div', 'lock', `Quest: ${q.title} (${Math.ceil(q.hoursLeft / 24)} days left)`));
-  const going = s.expeditions.find((e) => e.dest === d.id);
-  if (v.boat && !s.expeditions.some((e) => e.dest === d.id)) c.append(el('div', v.byBoat && v.boat.startsWith('Needs') ? 'lock short' : 'purpose', v.boat));
-  if (v.vetoed) c.append(el('div', 'lock short', 'Forbidden: no party will go here.'));
-  else if (going) c.append(el('div', 'purpose', `A party is there now${going.leader ? `, led by ${going.leader}` : ''}.`));
-  if (v.bounty) c.append(el('div', 'purpose', `Bounty: ${v.bounty} coins from the treasury, paid to the party that does the job.`));
+/** In a place's details: forbid it, or have the treasury post a bounty on it (sim/parties.ts). */
+function tripControls(d: Destination, v: DestinationView, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
+  const box = el('div', 'dest-controls');
+  if (v.boat) box.append(el('div', 'lock short', v.boat));
   const step = s.trips.bountyStep;
-  // (send a party yourself: an adventurer steps up to lead, sim/muster.ts)
-  if (!going && v.unlocked) {
-    const raise = el('div', 'row stakes');
-    raise.append(button('Raise a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest: d.id }), { cls: 'place go', disabled: !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS, title: 'Choose who goes, how boldly, and what they take' }));
-    c.append(raise);
-  }
   const row = el('div', 'row stakes');
   row.append(
-    button(v.vetoed ? 'Allow' : 'Forbid', () => bridge?.command({ type: 'veto', dest: d.id, on: !v.vetoed }), {
-      cls: v.vetoed ? 'place' : 'place quiet',
-      title: v.vetoed ? 'Let parties choose this place again.' : 'No party will choose this place (a bounty on it is taken back).',
-    }),
     button(v.bounty ? `Raise bounty +${step}` : `Post bounty ${step}`, () => bridge?.command({ type: 'bounty', dest: d.id, post: true }), {
       disabled: v.vetoed || (s.coins ?? 0) < step,
       title: `The treasury sets ${step} coins aside for the party that does the job here. The adventurers go after the biggest bounty they can take on.`,
     }),
   );
   if (v.bounty) row.append(button('Withdraw', () => bridge?.command({ type: 'bounty', dest: d.id, post: false }), { cls: 'place quiet', title: 'The coins go back to the treasury.' }));
-  c.append(row);
-  return c;
+  row.append(
+    button(v.vetoed ? 'Allow' : 'Forbid', () => bridge?.command({ type: 'veto', dest: d.id, on: !v.vetoed }), {
+      cls: v.vetoed ? 'place' : 'place quiet',
+      title: v.vetoed ? 'Let parties choose this place again.' : 'No party will choose this place (a bounty on it is taken back).',
+    }),
+  );
+  box.append(row, el('div', 'hint', `${d.description}`));
+  return box;
+}
+
+/** The Moon Pack: its renown, the moon, and the rival packs' lairs a war party can break (sim/pack.ts). */
+function packSection(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
+  const k = s.pack!;
+  const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
+  const out: HTMLElement[] = [el('h2', '', 'The pack')];
+  const nights = FULL_MOON_PHASE - k.moon;
+  out.push(el('div', 'hint', `Renown ${k.renown} · ${k.hunts} hunt${k.hunts === 1 ? '' : 's'} run · ${k.grounds} hunting ground${k.grounds === 1 ? '' : 's'} · the moon is ${nights === 0 ? 'full tonight: the pack hunts' : `full in ${nights} night${nights === 1 ? '' : 's'}`}.`));
+  out.push(el('div', 'hint', k.beast === 'slain' ? 'The Pale Behemoth has fallen to the pack.' : k.beast === 'due' ? 'The Pale Behemoth is abroad: the next hunt may meet it.' : "The Pale Behemoth will show itself once the pack's renown reaches 10. Break every rival pack and bring it down to win the Great Hunt."));
+  const lairs = el('div', 'cards wide');
+  for (const r of k.packs) {
+    if (r.broken) {
+      out.push(el('div', 'hint', `${cap(r.name)}: broken. Their hills are the pack's hunting ground.`));
+      continue;
+    }
+    const d = packDestination(RIVAL_PACK_BY_ID[r.id]);
+    const v = s.destinations.find((q) => q.id === d.id);
+    if (v) lairs.append(destinationCard(d, v, s, bridge));
+  }
+  if (lairs.childElementCount) out.push(lairs);
+  return out;
+}
+
+/** The bonded parties (sim/companies.ts): each with its members, trips and deeds; and who would set out next. */
+function companiesSection(s: Snapshot): HTMLElement[] {
+  const out: HTMLElement[] = [el('h2', '', 'Companies')];
+  out.push(el('div', 'hint', `${s.trips.adventurers} adventurer${s.trips.adventurers === 1 ? '' : 's'} in town · ${s.trips.fit} fit to go · ${s.trips.room} more may be away. Friends go out together; when the same few go out and come home together twice, they name themselves and go out together again.`));
+  if (!s.companies.length) {
+    out.push(el('div', 'empty', 'No company yet.'));
+    return out;
+  }
+  const grid = el('div', 'cards wide');
+  for (const k of s.companies) {
+    const c = el('div', `card company${k.ended !== null ? ' ended' : ''}`);
+    const top = el('div', 'card-top');
+    top.append(el('span', 'card-name', k.name), el('span', 'card-size', k.ended !== null ? `broken up, day ${k.ended}` : k.out ? `out at ${k.out}` : 'at home'));
+    const who = el('div', 'company-who');
+    for (const m of k.members) who.append(el('span', `company-member${m.alive ? '' : ' dead'}`, m.alive ? m.name : `✝ ${m.name}`));
+    c.append(top, who, el('div', 'purpose', `${k.trips} trip${k.trips === 1 ? '' : 's'} together · ${k.wins} done well${k.deeds.length ? ` · last: ${k.deeds.at(-1)!.replace(/^Day \d+: /, '')}` : ''}`));
+    grid.append(
+      expandable(c, `company:${k.id}`, () => [
+        facts([
+          ['Formed', `day ${k.formed}`],
+          ['Trips', k.trips],
+          ['Done well', k.wins],
+          ['Now', k.ended !== null ? `broken up on day ${k.ended}` : k.out ? `out at ${k.out}` : 'at home'],
+        ]),
+        list('Its members', k.members.map((m) => `${m.alive ? '' : '✝ '}${m.name}${m.calling ? `, ${m.calling}` : ''}${m.level ? ` (level ${m.level})` : ''}`)),
+        list('Its deeds', [...k.deeds].reverse()),
+      ]),
+    );
+  }
+  out.push(grid);
+  return out;
 }
 
 /** The Monster Hunters' Guild: the hunts on its board (stars, purse, parts), and its forge's one-of-a-kind gear. */
@@ -385,7 +422,7 @@ function raiseFor(dest: string, s: Snapshot, bridge: Bridge | undefined): HTMLEl
   const row = el('div', 'row stakes');
   const going = s.expeditions.some((e) => e.dest === dest);
   const v = s.destinations.find((x) => x.id === dest);
-  row.append(button(going ? 'A party is on its way' : 'Raise a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest }), {
+  row.append(button(going ? 'A party is on its way' : 'Send a party…', () => bridge?.command({ type: 'muster', op: 'raise', dest }), {
     cls: 'place go',
     disabled: going || !!s.muster || s.expeditions.length >= MAX_EXPEDITIONS || (v ? !v.unlocked : false),
     title: 'Choose who goes, how boldly, and what they take',
