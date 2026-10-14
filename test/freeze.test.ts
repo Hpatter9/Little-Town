@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FREEZE_FROM_DAY, FREEZE_HP_PER_HOUR } from '../src/shared/data/doom';
+import { FREEZE_FROM_DAY, FREEZE_HP_PER_HOUR, FREEZE_WAVE_HOURS } from '../src/shared/data/doom';
+import { ERA_MULTIPLIER } from '../src/shared/sim/state';
 import { doomGrowth, possibleDooms, updateDoom } from '../src/shared/sim/doom';
 import { storages } from '../src/shared/sim/buildings';
 import { bossSlain } from '../src/shared/sim/bosses';
@@ -70,7 +71,7 @@ test('ice mages attack in waves, their Archmage comes before the end, and slayin
   storages(s)[0].store.wood = 500;
   const rng = new Rng(5);
   hours(s, 1, rng);
-  assert.ok(s.nextRaidTick <= s.tick + 10 * TICKS_PER_HOUR, 'a wave is coming soon');
+  assert.ok(s.nextRaidTick <= s.tick + FREEZE_WAVE_HOURS * Math.sqrt(ERA_MULTIPLIER[s.era]) * TICKS_PER_HOUR + 1, 'a wave is coming soon');
   s.doom!.untilTick = s.tick + 4 * TICKS_PER_HOUR;
   s.raid = null;
   hours(s, 1, rng);

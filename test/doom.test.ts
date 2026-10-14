@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DOOMS } from '../src/shared/data/doom';
+import { DOOMS, WAR_RAID_EVERY_HOURS, ZOMBIE_WAVE_HOURS } from '../src/shared/data/doom';
+import { ERA_MULTIPLIER } from '../src/shared/sim/state';
 import { doomGrowth, possibleDooms, updateDoom } from '../src/shared/sim/doom';
 import { raidBudget } from '../src/shared/sim/raids';
 import { hourlyItems } from '../src/shared/sim/crafting';
@@ -95,11 +96,11 @@ test('in a war, raids come often and hit harder', () => {
   const s = plainGame('war');
   s.era = 'modern';
   const calm = raidBudget(s);
-  s.nextRaidTick = s.tick + 100 * TICKS_PER_HOUR;
-  s.doom = { kind: 'war', phase: 'active', untilTick: s.tick + 100 * TICKS_PER_HOUR };
+  s.nextRaidTick = s.tick + 1000 * TICKS_PER_HOUR;
+  s.doom = { kind: 'war', phase: 'active', untilTick: s.tick + 1000 * TICKS_PER_HOUR };
   hours(s, 1, new Rng(3));
-  // (10 hours, stretched by the square root of the Modern multiplier: far sooner than a normal Modern raid)
-  assert.ok(s.nextRaidTick <= s.tick + 40 * TICKS_PER_HOUR);
+  // (WAR_RAID_EVERY_HOURS, stretched by the square root of the Modern multiplier: sooner than a raid already far off)
+  assert.ok(s.nextRaidTick <= s.tick + WAR_RAID_EVERY_HOURS * Math.sqrt(ERA_MULTIPLIER.modern) * TICKS_PER_HOUR + 1);
   assert.ok(raidBudget(s) > calm);
 });
 test('a zombie outbreak sends waves of the dead, the fallen rise, and the Abomination leads the last wave', async () => {
@@ -112,7 +113,7 @@ test('a zombie outbreak sends waves of the dead, the fallen rise, and the Abomin
   s.nextRaidTick = s.tick + 1000 * TICKS_PER_HOUR;
   const rng = new Rng(9);
   hours(s, 1, rng);
-  assert.ok(s.nextRaidTick <= s.tick + 10 * TICKS_PER_HOUR, 'a wave is coming soon');
+  assert.ok(s.nextRaidTick <= s.tick + ZOMBIE_WAVE_HOURS * Math.sqrt(ERA_MULTIPLIER[s.era]) * TICKS_PER_HOUR + 1, 'a wave is coming soon');
   // someone dies among the dead: they rise
   const { startRaid } = await import('../src/shared/sim/raids');
   const { RAID_KIND_BY_ID } = await import('../src/shared/data/raids');

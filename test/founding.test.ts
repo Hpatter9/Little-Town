@@ -2,6 +2,7 @@ import { row, wildsNear } from './helpers';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { cleanNewGameOptions, SCENARIO_BY_ID, SCENARIOS } from '../src/shared/data/founding';
+import { ORIGIN_DEFS } from '../src/shared/data/origins';
 import { autoPriorities, maxHp, newGame } from '../src/shared/sim/state';
 import { totalStock } from '../src/shared/sim/buildings';
 import { Sim } from '../src/shared/sim/sim';
@@ -19,7 +20,8 @@ test('a plain new game is the same lone founder and campfire as ever', () => {
   // (and, since the seats, the settlers' meeting stone beyond the fire)
   assert.deepEqual(s.buildings.map((b) => [b.def, b.store]), [['campfire', { berries: 8 }], ['seat_settlers_1', {}]]);
   assert.equal(s.nextId, 4);
-  assert.deepEqual(s.research.done, []);
+  // (nothing learned but the settlers' own first heritage study)
+  assert.deepEqual(s.research.done, ORIGIN_DEFS.settlers.start.research);
 });
 
 test('the founder the player made: name, looks, background skills and passions, chosen traits', () => {
@@ -45,7 +47,7 @@ test('scenarios: company, food (the campfire holds what fits, a stockpile the re
     assert.ok(s.nextId > Math.max(...s.people.map((p) => p.id), ...s.buildings.map((b) => b.id)));
     const stock = totalStock(s);
     for (const [m, n] of Object.entries(sc.stores)) assert.equal(stock[m as keyof typeof stock], n, `${sc.id}: ${m}`);
-    assert.deepEqual(s.research.done, sc.research);
+    assert.deepEqual(s.research.done, [...new Set([...sc.research, ...(ORIGIN_DEFS.settlers.start.research ?? [])])]);
     assert.ok((s.buildings[0].store.berries ?? 0) <= 30);
   }
   const tribe = newGame('tribe', { scenario: 'tribe' });

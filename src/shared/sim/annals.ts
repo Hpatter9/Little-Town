@@ -12,14 +12,14 @@ import { levelOf, stageOf } from '../data/levels';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { TOPIC_BY_ID } from '../data/research';
 import { eventPicture } from '../data/eventScenes';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { calendar, DAYS_PER_SEASON, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { notify, type GameState, type Person, type Prompt } from './state';
 import { honour } from './memorials';
 
-/** Midwinter: the second day of winter, of an evening. */
-export const CHRONICLE_DAY = 2;
+/** Midwinter: the middle day of winter, of an evening. */
+export const CHRONICLE_DAY = Math.ceil(DAYS_PER_SEASON / 2);
 export const CHRONICLE_HOUR = 19;
 /** How long the chronicle's card waits to be read (game hours). */
 const CHRONICLE_HOURS = 24;
