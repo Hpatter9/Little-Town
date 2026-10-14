@@ -1,0 +1,1982 @@
+{
+ "actFx.test.ts": {
+  "ms": 165,
+  "tests": {
+   "every spell and skill has an effect that fits its element and shape, from the pixel effects atlas": 14
+  }
+ },
+ "actions.test.ts": {
+  "ms": 248,
+  "tests": {
+   "the lists: 160 spells and 530 skills (ten for anyone, twenty a class), all well formed": 2,
+   "three spells ready, the best of each kind, better ones as they level; the great ones wait long": 1,
+   "in a fight: a white mage mends the hurt, a sorcerer burns the pack, a summoner calls help, statuses take hold": 13
+  }
+ },
+ "ambience.test.ts": {
+  "ms": 157,
+  "tests": {
+   "the land sounds by the hour: birds by day, crickets and owls by night": 1,
+   "the weather and the land change the beds: rain, storm wind, water in view, frogs by it": 0,
+   "winter, the blight and a raid quieten the living things": 0,
+   "the sound effects stand out over the land and the music (the owner heard none: a hammer peaked at the wind)": 71
+  }
+ },
+ "annals.test.ts": {
+  "ms": 977,
+  "tests": {
+   "the fallen are remembered: their name, how they died, their calling, level and deeds": 301,
+   "at midwinter the chronicle of the year is written once: who was born and lost, the raids, the champion": 313
+  }
+ },
+ "audioGate.test.ts": {
+  "ms": 80,
+  "tests": {
+   "no sound while the game is in the background: contexts suspended, tracks paused, and both back on return": 1
+  }
+ },
+ "ambition.test.ts": {
+  "ms": 1337,
+  "tests": {
+   "everyone grown has an ambition, decided once and kept": 379,
+   "a keeper saves up and buys the town's shop at a price that counts its takings; then its takings are theirs": 296,
+   "an adventurer home from enough trips with a full purse settles down to keep a shop": 294
+  }
+ },
+ "advice.test.ts": {
+  "ms": 1596,
+  "tests": {
+   "a new town is told it runs itself (once), and the founder downed gives no bleeding note": 696,
+   "a town left to itself researches, marks land and plans a building within the first hours": 555
+  }
+ },
+ "ageing.test.ts": {
+  "ms": 2498,
+  "tests": {
+   "every people has a span: coming of age before old age, elders before old age, the long-lived long": 1,
+   "a settler of 70 days is old, a dwarf of 70 days is barely grown; years follow each people's reckoning": 837,
+   "the curse sets a werewolf's span whatever the town, and the deathless have no age to speak of": 600,
+   "a child's years climb to their coming of age": 186,
+   "old age takes the old in the small hours, sooner for the short-lived, and never the dwarf in their prime": 592
+  }
+ },
+ "awaySummary.test.ts": {
+  "ms": 1047,
+  "tests": {
+   "nothing important while away: no card": 361,
+   "the return card names the dead, the newcomers, the raids, a new age and a question waiting": 264
+  }
+ },
+ "bargains.test.ts": {
+  "ms": 1444,
+  "tests": {
+   "the Court comes at moonrise with a bargain, put to the town as a question": 468,
+   "struck, the boon comes now and the price falls due; the fair folk always collect": 275,
+   "a price that can't be paid is forfeit: someone is taken": 200,
+   "refused, the Court cools; cold iron in the stores hurts the fair folk": 155
+  }
+ },
+ "bestiary.test.ts": {
+  "ms": 162,
+  "tests": {
+   "every new foe is drawn from a pack sheet, and every pack sheet is used": 2,
+   "the new raids and lairs bring foes that exist; every boss drops a trophy that exists": 1
+  }
+ },
+ "bandits.test.ts": {
+  "ms": 2218,
+  "tests": {
+   "fire burns a wooden building down and jumps to its neighbour, unless put out; stone does not burn": 421,
+   "townsfolk drop everything to put a fire out": 357,
+   "an arsonist sets fires; a thief takes the valuables first": 511,
+   "a kidnapper carries someone off to the bandit camp; cut down on the way, they drop them": 534
+  }
+ },
+ "bands.test.ts": {
+  "ms": 2464,
+  "tests": {
+   "travellers come in one side, rest at the tavern, and go out the far side": 536,
+   "refugees at the gate: a question; taken in they join, fed they rest and eat, turned away they go": 931,
+   "bandits in disguise strike from inside the town at night; a guard on watch may see through them first": 503,
+   "a caravan's merchants come with it when it arrives at the market (the town running itself)": 158
+  }
+ },
+ "blood.test.ts": {
+  "ms": 995,
+  "tests": {
+   "a landed blow records when it fell and the side it came from; a miss records nothing": 322,
+   "whoever is struck down leaves blood on the ground, kept a while and never more than a few dozen marks": 340
+  }
+ },
+ "bloodCourt.test.ts": {
+  "ms": 1591,
+  "tests": {
+   "the Blood Court keeps the tithe from its founding, and at dusk the thralls, the pens and the celled prisoners give blood": 637,
+   "a vampire drinks from the store before anyone is bitten; with the store dry the Court's tithe still feeds them": 179,
+   "the Court keeps its prisoners: none come round, and few get out of the cells": 166,
+   "the blood farm is the Court's own, and blood wine is brewed from blood": 0,
+   "the Court's blood is shown: the store, what comes in at dusk, the farm's cells": 273
+  }
+ },
+ "bosses.test.ts": {
+  "ms": 1444,
+  "tests": {
+   "every epic boss with a trophy has one that exists, and a lair to face it in": 1,
+   "in battle a dragon breathes fire on several at once, and rages below half health": 432,
+   "the Black Knight calls his men at half health; a boss in town roars, and its death brings a trophy and triumph": 361,
+   "an epic boss fights to the death in a raid; ordinary raiders run when badly hurt": 274
+  }
+ },
+ "battle.test.ts": {
+  "ms": 6709,
+  "tests": {
+   "the battle is laid out on the land: the trail runs from its edge to the gate, walls overlooking it give wall spots, a tower in reach is a tower": 858,
+   "a raid arrives: the placing phase, then the town places whoever the player has not, and they hold the trail": 796,
+   "with nobody to stop them, raiders walk the trail and get through to the town": 342,
+   "a big raid comes in waves; auto-watch places everyone at once": 228,
+   "a spell cast on the map strikes only the raiders where it is aimed": 159,
+   "the same battle plays out the same every time (it is part of the sim)": 997,
+   "the town places its blockers on the trail and its shooters on the walls first": 175,
+   "the trail fords a river where it must, and never crosses water otherwise": 91,
+   "the raiders walk the trail over the land, and the fighters walk out to their spots before they fight": 236,
+   "mages: their fire bursts over the raiders round the one hit": 151,
+   "a battle can be played at 2 or 3 times, only while it is on, and each battle starts at 1×": 209,
+   "a fighter who falls back off the line takes a parting blow from each raider they were holding": 96,
+   "a raider that breaks and runs takes a parting blow from each fighter with it in reach": 82,
+   "a battle fights itself unless the player has turned auto off": 78,
+   "the set-up stage: fighters hold the stretch by the gate, and the raiders stay in the fog until every one placed stands at their spot": 143,
+   "several ways in, each winding: raiders spread over them, and shooters stand where they see the most trail": 208,
+   "a trap the town has built is laid on a way in, where the raiders pass": 141,
+   "every calling that fights from afar (casters, healers, archers) stands off the trail and uses its spells and skills": 1135
+  }
+ },
+ "biomes.test.ts": {
+  "ms": 7205,
+  "tests": {
+   "every biome makes a playable start, and the biome is saved": 3505,
+   "biomes shape the land: deserts are rocky and bare, forests wooded": 6,
+   "ironman towns cannot cheat": 321,
+   "difficulty scales raid strength": 639,
+   "ten lands, each shaped its own way: the fens marshy, the jungle wooded, the highlands stony, the ashlands cinders, the steppe open, the taiga pine": 1797,
+   "every land has raids, lairs and creatures of its own, and every creature named exists": 3
+  }
+ },
+ "calamity.test.ts": {
+  "ms": 1481,
+  "tests": {
+   "every nest and every Calamity has its foes, raids, avatar and trophy": 1,
+   "a nest comes up on the land, grows, goes on the board once found, and raids the town": 373,
+   "the land round a nest is blighted (crops wither, nothing regrows) unless a ward stone stands near": 494,
+   "the Calamity wakes, its dread rises with the nests and falls with wards and cleared nests, through its stages": 227,
+   "the last siege: won, the game is won; lost, the town burns and it comes again": 138
+  }
+ },
+ "care.test.ts": {
+  "ms": 981,
+  "tests": {
+   "the care of the hurt is learned: every medicine topic but the buildings' does something": 1,
+   "Field Dressing and Barber-Surgeons give the downed longer before they bleed out": 416,
+   "Physick and Convalescence heal faster; Bonesetting gets the downed up sooner": 243
+  }
+ },
+ "boats.test.ts": {
+  "ms": 9062,
+  "tests": {
+   "every land has water for a boatyard, a hold under its mountain too (a tarn below it)": 6123,
+   "a boatyard stands only at the water's edge, and the town finds such a spot": 339,
+   "a boat built at the boatyard joins the fleet with a name, not the stores": 360,
+   "an island needs a boat; with one the party sails, the boat goes with them and comes home": 309,
+   "a trip along the water goes faster by boat than on foot": 201,
+   "wrecked: the boat is lost, the party comes home with nothing, and some may drown": 854,
+   "a boat at home fishes each evening": 116,
+   "the island destinations are boat-only and on the map in the sea": 75
+  }
+ },
+ "ceremonies.test.ts": {
+  "ms": 1624,
+  "tests": {
+   "a death is mourned at the evening funeral by those who were close, and their grief is eased": 314,
+   "many dead at once: a great funeral for the whole town": 328,
+   "a wedding is feasted that evening, and the feast eats from the stores": 309,
+   "no feast the stores cannot spare (but a victory is feasted when they can)": 157,
+   "at a feast the town dances: half the ring turns round the spot; at a funeral they mourn, still": 237,
+   "the dance steps: on the beat, off the ground and back; mourners kneel or stand": 1
+  }
+ },
+ "chivalry.test.ts": {
+  "ms": 1501,
+  "tests": {
+   "a vow kept raises the Order's honour and makes them worthy of knighthood; one broken shames it": 379,
+   "a tournament: the best fighters joust, the winners take the purse": 334,
+   "the liege calls: fighters ride out and come home with pay; refused, the Order pays for it": 209,
+   "the Grail: at high honour the best rides out; three stages found win the game": 221
+  }
+ },
+ "clutter.test.ts": {
+  "ms": 114,
+  "tests": {
+   "every room is dressed as what it is": 2
+  }
+ },
+ "buildings.test.ts": {
+  "ms": 9758,
+  "tests": {
+   "placement: needs cleared land, no overlap, inside the known land": 371,
+   "placement: locked buildings need research (or the debug unlock); the queue has limited slots": 411,
+   "with storage full of stone, gathered wood goes straight to the blueprint": 1046,
+   "throwing out a stored material frees the room": 208,
+   "a stockpile gets built from gathered wood: gather, store, fetch, deliver, build": 922,
+   "construction waits for materials, then starts when they arrive": 283,
+   "cancelling a blueprint refunds deliveries; demolishing refunds half the cost": 294,
+   "with all storage full, gathering stops and the worker says so": 228,
+   "upgrading in place: a lean-to becomes a longhouse where it stands, reusing half its materials": 183,
+   "merging: two lean-tos side by side with no room to widen become one longhouse": 125,
+   "an upgrade with no room pulls down the small things in its way, never what matters": 584,
+   "a town short of beds rebuilds a small home bigger before building another": 167,
+   "a blueprint gets a street to the camp: planned, then laid a stretch at a time by someone with time to spare": 4029
+  }
+ },
+ "combatPoses.test.ts": {
+  "ms": 597,
+  "tests": {
+   "striking at a raider records the blow; a blow turned by a shield records the block": 310
+  }
+ },
+ "combat.test.ts": {
+  "ms": 2220,
+  "tests": {
+   "a capable pair beats a boar; a lone novice against a bear falls back": 370,
+   "melee can only reach the front row while it stands": 259,
+   "the party falls back when the main character is badly hurt": 291,
+   "downed members bleed out without a medic; a medic stabilizes them": 292,
+   "the main character's death ends the game and stops the sim": 217,
+   "injured people rest in bed until they are back on their feet": 250,
+   "a question from the road times out to its default; helping raises reputation": 162
+  }
+ },
+ "companies.test.ts": {
+  "ms": 1699,
+  "tests": {
+   "the same few out and home twice become a named company, and its trips and deeds are remembered": 372,
+   "the name is the seed's own: the same town names it the same": 541,
+   "a company goes out together again: recruiting takes its members first": 145,
+   "too few left alive: the company breaks up and is remembered": 173,
+   "friends go together: of two alike, the one the party likes is asked along": 134
+  }
+ },
+ "conquest.test.ts": {
+  "ms": 2007,
+  "tests": {
+   "a world for every size: one province each way, whole, joined and named": 404,
+   "a world replays from its seed and differs by seed": 162,
+   "a new town founds a conquest: the realms are the realm's powers, the starts are held": 1123
+  }
+ },
+ "conquestArmies.test.ts": {
+  "ms": 1747,
+  "tests": {
+   "an army marches by order, takes free provinces, its heroes away meanwhile, and comes home": 847,
+   "the way goes through friendly land only; a second squad joins at home; bare provinces revolt": 491
+  }
+ },
+ "conquestBattles.test.ts": {
+  "ms": 1796,
+  "tests": {
+   "a veteran's army storms a rival province: a battle on the board, won, the province taken": 777,
+   "a green squad is beaten: the army falls back, the hero wounded, captured or killed; a captive can be ransomed": 326,
+   "a lair must be cleared: beasts hold it, and a win clears it": 235
+  }
+ },
+ "conquestMarches.test.ts": {
+  "ms": 1462,
+  "tests": {
+   "free ground is fought for: its folk, outlaws or beasts stand against the army, with no walls": 536,
+   "a march beaten back ends with its report: fell back, the losses, told to the player": 484
+  }
+ },
+ "conquestOff.test.ts": {
+  "ms": 646,
+  "tests": {
+   "the conquest is parked: no War tab, no war in the snapshot": 342
+  }
+ },
+ "conquestRivals.test.ts": {
+  "ms": 963,
+  "tests": {
+   "rival realms spread over free land, and at war come for the town's bare provinces": 339,
+   "the win: every province the town's, or an ally's or vassal's": 273
+  }
+ },
+ "conquestSquads.test.ts": {
+  "ms": 1699,
+  "tests": {
+   "troops: every kind is worth about a soldier or more, and the peoples have one each": 1,
+   "a hero carries the squad: level and gear beat numbers": 343,
+   "training and the days: recruits from the provinces, batches done, upkeep paid": 625,
+   "a squad fills its ranks itself when formed: a line in front, shooters behind, within the lead; the player changes any place": 239
+  }
+ },
+ "critters.test.ts": {
+  "ms": 99,
+  "tests": {
+   "bees work by day in the warm seasons, never in the cold or the wet": 1,
+   "dragonflies by summer days, bats at dusk, moths on warm nights": 0,
+   "crows come to ripening fields, and a scarecrow keeps all but one off": 0,
+   "rats come as the stores fill, more with a full granary, a swarm in the plague": 0,
+   "frost on cold mornings, dew on the others at dawn": 0,
+   "hail in some cold storms, never in summer's; drifts deepen through winter": 2
+  }
+ },
+ "cutscenes.test.ts": {
+  "ms": 1397,
+  "tests": {
+   "every scene is well made: its speakers, actors, backdrops and words are all real, and it plays a fair while": 3,
+   "lines are filled with the town's names, as written, capitalised or shouted": 0,
+   "a scene is cast from the town, offered, and played with the town held still; watched, its telling is dropped": 414,
+   "a scene skipped, or left too long, gives its telling instead": 307,
+   "the Calamity waking is played out, its telling waiting on it": 243,
+   "the clock plays a scene through: shots in turn, actors walking on, the camera following": 5
+  }
+ },
+ "crafting.test.ts": {
+  "ms": 3312,
+  "tests": {
+   "a flint knife is made at the campfire from stored materials, then worn": 439,
+   "orders wait for their station, their ingredients and their materials, and say why": 360,
+   "every crafting station standing holds three orders of its own": 245,
+   "item ingredients come out of the inventory: rope, then a snare from it": 170,
+   "food and ammo are made into storage; cancelling an order returns what was brought": 168,
+   "tools: the right one is picked up for the job and speeds it": 470,
+   "gear is handed out: weapons to the best fighter, a pack adds carry, pots add storage": 198,
+   "combat gear: armour and weapons change the numbers; slings spend stones": 136,
+   "inventory items at work: snares catch meat, poultices stop bleeding, bedrolls help the bedless": 289,
+   "an expedition takes waterskins and sling stones, and brings the skins back": 148,
+   "a save from before the land (version 9) is refused as too old: a new town is founded": 236
+  }
+ },
+ "deeds.test.ts": {
+  "ms": 993,
+  "tests": {
+   "deeds count toward a ladder of titles, each taken once, with the news": 303,
+   "a piece made is a crafting deed, and the People page carries the deeds": 280
+  }
+ },
+ "classes.test.ts": {
+  "ms": 15933,
+  "tests": {
+   "the last stage is rare and late: levels alone stop a stage short; an ascension takes them there": 13490,
+   "every grown-up starts on one of the eight base callings, weighted by their skills, and is never switched": 940,
+   "levels from all XP (fighting most); classes evolve at the stage levels; gear by class": 2,
+   "in battle: a summoner brings a spirit, a necromancer raises the fallen, a blood knight heals as they hit": 340,
+   "in a raid at home, a beast tamer turns a wolf against the pack": 372
+  }
+ },
+ "defenses.test.ts": {
+  "ms": 939,
+  "tests": {
+   "every era has its traps and engines, and every origin a piece of its own, all real buildings with research or an era": 2,
+   "an origin's piece is its own: open to it from the Medieval age, never to another": 302,
+   "a splash hurts those beside the one struck, a chain leaps on, a slow and a burn linger, a glamour routs": 283
+  }
+ },
+ "deep.test.ts": {
+  "ms": 1691,
+  "tests": {
+   "the Deep is wired in: a topic, the shaft, five levels, and a raid of real creatures for each": 2,
+   "a level is made from the seed: rock with ore, its pockets, the way up in a little chamber": 34,
+   "miners at the shaft carve the Deep out cell by cell, carry up what it held, and open the way down": 430,
+   "a fungus grotto dug into is farmed: food at dawn": 360,
+   "the digging stirs what lives below: past its limit, something climbs up the shaft": 311,
+   "only rock is dug: never the lake, never twice": 188
+  }
+ },
+ "details.test.ts": {
+  "ms": 944,
+  "tests": {
+   "a quest carries who asked and what it pays, for its details": 315,
+   "a hunt carries its quarry, and a saga its whole story so far, for their details": 331
+  }
+ },
+ "deaths.test.ts": {
+  "ms": 6532,
+  "tests": {
+   "someone downed in town bleeds out if nobody tends them; the founder is carried to safety": 486,
+   "a poultice in storage gets someone back up, and then they tend the others": 555,
+   "someone free goes to tend the bleeding: skill decides it, a failed try costs the patient time, a dressing always works": 596,
+   "a killer finishes off the fallen at its feet when nobody else is in reach": 231,
+   "after a raid an infirmary gets every one of the fallen to safety; without one some are left bleeding": 2207,
+   "once every raider is running off empty-handed the alarm drops (so the wounded can be tended); thieves are still chased": 103,
+   "the starving waste away and die of hunger; a meal stops it": 118,
+   "hungry with nothing in storage, people pick wild berries to eat (and leave the trees standing)": 116,
+   "the Bear Cave's totem is never dropped or thrown out, even with storage full": 150,
+   "the Hunter's Guild finishes off only monsters, never the ordinary folk they knock down": 370,
+   "a Healer's Hut (Neolithic) slows the bleeding, but only an infirmary brings everyone in after a raid": 132,
+   "picking the last berries off a tile with nothing else on it clears it (so gathering there never breaks)": 183,
+   "a skilled healer a little further off goes to the wounded, rather than a clumsy neighbour": 176,
+   "the founder's death passes the town to an heir (their partner first); only with no grown-up left is it over": 110,
+   "with the Elder's Council learned and no totem fetched, the Cave Bear comes down for it; killed, it gives it up": 270,
+   "defenders hold the edge of the town: they go no further out after the raiders": 106,
+   "a bigger town draws a bigger raid, and a big raid may split and come round the other side": 93
+  }
+ },
+ "disasters.test.ts": {
+  "ms": 1474,
+  "tests": {
+   "a flood climbs out of the river a ring an hour and spoils the fields it reaches": 326,
+   "a wildfire burns the woods to grass and sets alight a building beside them": 282,
+   "a tornado tears down what stands in its path": 205,
+   "an earthquake shakes the town": 138,
+   "disasters come by themselves now and then": 142
+  }
+ },
+ "dragon.test.ts": {
+  "ms": 1525,
+  "tests": {
+   "a dragon by the land; it circles, then lands and demands tribute": 340,
+   "refused, it comes down on the roofs; the engines and bows drive it off": 253,
+   "slain in its lair: the hoard comes home and the party are Dragonslayers": 251,
+   "no dragon comes to a small or young town": 189,
+   "a dragon arrives on its seed-chosen day between 20 and 100": 203
+  }
+ },
+ "doom.test.ts": {
+  "ms": 1644,
+  "tests": {
+   "a drought gives a day of warning, stops the fields (a well keeps them going), then ends": 260,
+   "plague spreads between people near each other, dressings shorten it, and it ends when nobody is sick": 311,
+   "later disasters come with the eras: ash winter, smog (only with smoky works), war": 233,
+   "ash winter stops every field (a well is no help); smog wears people down but never kills": 212,
+   "in a war, raids come often and hit harder": 176,
+   "a zombie outbreak sends waves of the dead, the fallen rise, and the Abomination leads the last wave": 160
+  }
+ },
+ "edicts.test.ts": {
+  "ms": 1585,
+  "tests": {
+   "an edict proclaims a law at once, paid in coins, and moves the blocs the law would": 337,
+   "paid in standing, every bloc is less content; repealing undoes the law": 234,
+   "edicts wait out their cooldown, and are refused when they make no sense": 172,
+   "an edict may call a vote instead, and the command runs through the sim": 309
+  }
+ },
+ "delves.test.ts": {
+  "ms": 9840,
+  "tests": {
+   "each delve rolls its boss from its dungeon and a twist; the twists come up, and change the run": 5637,
+   "every dungeon is a delve on the board, on the map, with scenes, hidden in its region, its foes and boss real": 2,
+   "a strong party picked by the player delves room by room, kills the boss and brings the hoard home": 1473,
+   "without torches a party turns back at the door": 640,
+   "a delve rolls the same rooms each time for the same town and trip": 293,
+   "only dungeons can be delved, by up to five": 125,
+   "a Champions run down a deep dungeon meets elites, named for their affix": 864
+  }
+ },
+ "eventFit.test.ts": {
+  "ms": 1296,
+  "tests": {
+   "every event listed as needing the living is an event": 3,
+   "no food or hunger event fires for a town with no eaters; nor sickness, drink, weddings or births": 671,
+   "the living still meet them": 257
+  }
+ },
+ "era.test.ts": {
+  "ms": 3665,
+  "tests": {
+   "Medieval research stays closed until the Elder Lodge is finished, then the era turns": 623,
+   "finishing the Town Hall opens the Industrial era and its research": 315,
+   "a capstone's topic count only counts its own era": 245,
+   "a gatherer with no marked land digs iron ore at the mine; the sawmill turns wood into lumber": 345,
+   "bows share out arrows and spend them": 178,
+   "Medieval destinations: hidden before the era; a rescue brings people home; clearing the bandit camp stops raids": 1581,
+   "raid kinds follow the era: rival scouts, then bandits, then gangs and armies, then mechanized forces": 2,
+   "work is stretched by the era of what is made, not the era the town is in": 1
+  }
+ },
+ "eventTelling.test.ts": {
+  "ms": 646,
+  "tests": {
+   "every event has a passage of its own, and every passage an event": 3,
+   "every event has a picture that suits it, looked over by hand where its words mislead": 21,
+   "an event is told in full: the scene set, its text, its passage, its picture and who is in it": 320
+  }
+ },
+ "eventPurpose.test.ts": {
+  "ms": 2244,
+  "tests": {
+   "every answer to every event does something you can point to (not just a note or a little morale)": 3,
+   "what came of an answer is said in one line under its title": 374,
+   "the new effects: a skill learned, a bond, a trait, gear, a horse, a building ready to raise": 1038,
+   "the feed is told what came of the last answer, for a few hours": 176,
+   "what came of an answer is kept for the event box, for events and sagas alike": 290
+  }
+ },
+ "evolutions.test.ts": {
+  "ms": 1270,
+  "tests": {
+   "every people has a road of its own: a third choice at the first evolution, its own name, lore, skill and emblem": 7,
+   "a lich at the fork is offered the Grave Cantor; a settler there is not; the road's skill is theirs once taken": 382,
+   "evolving is a big jump: attributes, health and power all rise well beyond a level's worth": 240,
+   "founders evolve by choice too: the line's own stage or a road of their own, and grow more than anyone": 275,
+   "a founder from before the choices stands on the line's own node of their stage": 5
+  }
+ },
+ "expeditions.test.ts": {
+  "ms": 2523,
+  "tests": {
+   "a party goes to the Berry Thicket and comes home with loot it can carry": 476,
+   "loot is limited by what the party can carry": 475,
+   "a recalled party turns around and comes back empty-handed": 285,
+   "sending: locked destinations, party size, people already away, expedition limit": 257,
+   "away members do no town work and eat from their packs": 188,
+   "the Bear Cave yields the totem the Elder Lodge needs, once the bear is beaten": 487
+  }
+ },
+ "economy.test.ts": {
+  "ms": 15424,
+  "tests": {
+   "guests who come of an evening take a bed for the night and leave in the morning; with no beds they ask for one": 7729,
+   "a master crafter makes finer things than a novice, and the finest stay rare": 22,
+   "the inventory keeps each piece's quality: best first, and pieces used up elsewhere take the poorest": 368,
+   "finer gear does more in a fight": 296,
+   "before the town has money, gear is handed out; after, the townsfolk buy it with their wages": 268,
+   "people earn by their work: a load sold to the stores, pay from the treasury above its keep, loot split among a party": 377,
+   "venues start bare, and the town only commissions a furnishing it can pay for; the crafter is paid for it": 463,
+   "a crafter working a commission says who it's for, who asked, and the price; and is paid when it's done": 904,
+   "of an evening the townsfolk spend their wages at the tavern, and it cheers them": 130,
+   "strangers have names of their own, a temper, and something they came for": 391,
+   "a tavern has guest rooms upstairs, one bed to a room, and more rooms as it is extended": 104,
+   "a tavern guest used to more comfort walks out; one it suits eats, and pays": 2890
+  }
+ },
+ "factions.test.ts": {
+  "ms": 2751,
+  "tests": {
+   "the realm: four powers, never the town's own people, the bandits always among them, the same every time": 619,
+   "a power is met by its envoy, and how it is received sets its goodwill": 280,
+   "treaties need goodwill; peace, trade, then an alliance; breaking one costs trust everywhere": 110,
+   "a power much weaker than the town kneels to a demand, and pays tribute each day": 111,
+   "a war host: warned days ahead, up to sixty strong with siege engines and the lord, in many waves; allies come": 233,
+   "an assault is one fight: the next wave comes on as the last falls, the lord last": 151,
+   "storming a stronghold end to end: the whole town marches, fights its waves, and the conquered are asked about": 299,
+   "a siege engine on the trail batters the gate it reaches, and brings it down": 191,
+   "allies and vassals send levies to an assault": 142,
+   "an envoy rides in to the fire, waits while asked, and rides off when answered; an easy demand is paid unanswered": 103,
+   "every stronghold and dungeon assault has its own scenes and a spot on the world map": 0,
+   "the powers' towns grow on the world map: quicker at peace with the town, slower at war, gone when razed": 170
+  }
+ },
+ "faith.test.ts": {
+  "ms": 1504,
+  "tests": {
+   "gods with nowhere to be worshipped grow wrathful, and strike": 391,
+   "a temple keeps the gods pleased, and pleased they bless the town": 298,
+   "each people keeps its own gods": 444
+  }
+ },
+ "farming.test.ts": {
+  "ms": 2222,
+  "tests": {
+   "a garden plot is sown, grows by itself, and is harvested into storage (and sown again)": 1117,
+   "nothing grows in winter, and fields are not sown then": 520
+  }
+ },
+ "fields.test.ts": {
+  "ms": 2275,
+  "tests": {
+   "each harvest tires the soil, and a tired field gives less": 331,
+   "a worn-out field is left to rest while there is food, and sown anyway when the town is hungry": 277,
+   "fallow ground rests, and muck from the pens mends it": 195,
+   "blight takes the crop, and spreads through fields of the same kind (but not others)": 231,
+   "an orchard is planted once: it takes a while to bear, then fruits again without sowing, and never tires the soil": 92,
+   "nobody sows in late autumn what cannot ripen before winter; hardy vegetables still go in": 117,
+   "at the turn of winter a well-stocked town holds a harvest home; a hungry one grumbles": 284,
+   "two garden plots side by side, lying fallow, are ploughed into one open field (keeping the poorer soil)": 178,
+   "a field is reaped a section at a time: the crop comes in by sections, the farmer moving along it": 169
+  }
+ },
+ "fightHold.test.ts": {
+  "ms": 1174,
+  "tests": {
+   "while a raid's battle is on screen, nothing pops up over it: the questions' clocks stand still": 489,
+   "a fight left on the screen waits in the background: the time away is not played": 315
+  }
+ },
+ "fightSpeed.test.ts": {
+  "ms": 1223,
+  "tests": {
+   "every raid battle starts at 1×, whatever the last one was played at": 562,
+   "a watched party fight starts at 1× too": 260
+  }
+ },
+ "flicker.test.ts": {
+  "ms": 77,
+  "tests": {
+   "flames flicker, electric light holds steady": 1,
+   "a torch wavers more than a gas lamp, and neighbours keep their own time": 2
+  }
+ },
+ "flexWork.test.ts": {
+  "ms": 1618,
+  "tests": {
+   "the founder turns their hand to anything: building and study never below normal, no job left off": 467,
+   "the town runs at 1, 2 or 3 times; a battle keeps its own speed": 243,
+   "every skill, spell and fighting skill has words for what it does": 18,
+   "the bar over someone's head shows how far along their work is, and only while they're at it": 383,
+   "every calling says what it is, how it fights and its role": 1,
+   "everyone has a short story of their own": 205
+  }
+ },
+ "footpaths.test.ts": {
+  "ms": 939,
+  "tests": {
+   "walking across the land wears each cell stepped into, roads excepted, and the wear grasses over by the hour": 654
+  }
+ },
+ "forecast.test.ts": {
+  "ms": 3013,
+  "tests": {
+   "the forecast sees the next raid exactly when it will come, and leaves the real game alone": 849,
+   "alerts are planned only when turned on, with the raid warning ahead of time": 1811
+  }
+ },
+ "founderClasses.test.ts": {
+  "ms": 3203,
+  "tests": {
+   "a founder starts in their calling, stronger than its base, and the snapshot names only what they have been": 2272,
+   "every ready-made founder has a calling of their own, named unlike any other": 2,
+   "a town founded before callings: its founder takes theirs, keeping their level": 267
+  }
+ },
+ "foundry.test.ts": {
+  "ms": 1567,
+  "tests": {
+   "the production line builds a unit from parts": 397,
+   "power runs down with no sun or fuel, then brown-out and blackout slow the colony": 281,
+   "wear is mended with parts; worn through without them, a fault": 360,
+   "spare circuits become modules; an overruled Mind stops asking": 204
+  }
+ },
+ "freeze.test.ts": {
+  "ms": 1441,
+  "tests": {
+   "the Deep Freeze only comes once the town has lasted a while": 300,
+   "in the freeze nothing grows outdoors, and the town burns wood to keep warm": 330,
+   "with nothing to burn the town freezes: health drains (never below 1) and spirits sink; a power station heats it": 305,
+   "ice mages attack in waves, their Archmage comes before the end, and slaying it breaks the freeze": 211
+  }
+ },
+ "frontier.test.ts": {
+  "ms": 1049,
+  "tests": {
+   "a stranger of another people teaches the settlers their trick, and their trade": 333,
+   "a claim is staked at the edge of the known land and homesteaded": 341
+  }
+ },
+ "gateSentry.test.ts": {
+  "ms": 1452,
+  "tests": {
+   "by night a guard climbs a gate and stands sentry on top of it; by day nobody does (the owner: steps up the gate)": 643,
+   "a guard on the night watch sleeps by day once the wall stands, so they are up for it; never the founder": 290
+  }
+ },
+ "graveyard.test.ts": {
+  "ms": 1487,
+  "tests": {
+   "a graveyard gathers the graves, and eases the mourning": 427,
+   "a Necromancer calls the buried up out of the graveyard to defend the town": 319,
+   "the town's own allies aren't counted among the raid's dead, or taken prisoner": 356
+  }
+ },
+ "greatWork.test.ts": {
+  "ms": 2965,
+  "tests": {
+   "the morning experiment transmutes base matter, and success brings the Great Work on": 2330,
+   "a stage is reached with its mark, its age and its offering; the Stone wins the game": 238,
+   "after Albedo homunculi are grown and the town works faster": 109
+  }
+ },
+ "events.test.ts": {
+  "ms": 29320,
+  "tests": {
+   "every answer to every event can be given, and what comes of it later happens too": 18338,
+   "the events: five hundred and the fateful ones, each with two or three answers and exactly one default": 2,
+   "events come up in a town left alone, and nobody answering takes the default": 7278,
+   "an answer can leave a lasting mark: a lever pushed, or everyone's spirits": 25,
+   "while you are away, a question waits for you (its clock is held)": 8,
+   "away, a choice event pauses the town: at most one comes, and answering it sets the town going": 242,
+   "the phone alert for a choice event is sent, and nothing past it": 304,
+   "the fateful events: rare, no sooner than their gap, and their effects bite (fire, ruin, exodus, learning, healing)": 24,
+   "events with weight: the fireline holds the town to it for a day; a fire let burn may come back as a worse choice": 2302,
+   "an event that asks for coins says what the treasury holds, and what each answer costs": 15
+  }
+ },
+ "grove.test.ts": {
+  "ms": 1395,
+  "tests": {
+   "felling angers the grove, regrowth pleases it, and only a druid town has one": 527,
+   "a pleased grove blesses the fields and sends a guardian, who fights in raids and may fall": 279,
+   "an angry grove curses the fields": 125,
+   "the rites are kept at the turn of each season: an offering for a gift, poorer without one": 202
+  }
+ },
+ "guilds.test.ts": {
+  "ms": 2213,
+  "tests": {
+   "the town notices the role it lacks: the hurt and the sick ask for healers": 318,
+   "a townsperson founds a guild: named by the town, led by the fittest, told in the event box": 499,
+   "the council may vote a guild in, by its blocs": 285,
+   "an elite squad: the seasoned fighters after a raid, a dark name, harder blows": 170,
+   "guild perks at work: crafters craft faster, rangers bring home meat": 180,
+   "a guild whose members are all gone is disbanded; a lost leader is replaced": 180,
+   "names are the town's own and never repeat; the hour is quiet without the autopilot": 229
+  }
+ },
+ "haulers.test.ts": {
+  "ms": 995,
+  "tests": {
+   "a skilled builder builds while the unskilled haul": 518
+  }
+ },
+ "heldPower.test.ts": {
+  "ms": 986,
+  "tests": {
+   "a power held back is never cast by the town; the player casts it when it is ready": 435,
+   "only the town's own powers can be held": 296
+  }
+ },
+ "heritage.test.ts": {
+  "ms": 1777,
+  "tests": {
+   "data: every origin has six heritage topics, one line from the Stone Age to the stars": 3,
+   "heritage: only the town of that origin can study it": 454,
+   "research bends the origin levers: building, crafting, fighting, harm, strangers, quality": 428,
+   "the remembered modifiers follow newly finished topics": 286,
+   "heritage makes powers come back sooner": 258,
+   "effects read as words": 0
+  }
+ },
+ "highlights.test.ts": {
+  "ms": 816,
+  "tests": {
+   "the report card shows the three biggest things: deaths first (together), then raids, then what was built": 319,
+   "a quiet time away gives fewer cards, and none from notes that were not milestones": 255
+  }
+ },
+ "hkFolk.test.ts": {
+  "ms": 214,
+  "tests": {
+   "every layer the townsfolk are dressed from is a file beside the page": 5,
+   "everyone is dressed: a body, an outfit with its top, and their hair, whatever their calling, stage, skin or sex": 29,
+   "every hairstyle and colour shows": 2,
+   "in a fight they hold their weapon, of its family; at work, the tool": 18,
+   "the raised dead are bone, and a founder is crowned": 0,
+   "they wear the armour they have on: its weight, in their calling's style where it fits; and carry their weapon about town": 1,
+   "the weapon drawn is the weapon carried: every weapon its own kind of piece, or none where the pack has nothing like it": 8,
+   "hair stays on the head in the side lunges: hair and bangs moved with it, beards and hoods left as drawn": 2
+  }
+ },
+ "hero.test.ts": {
+  "ms": 3131,
+  "tests": {
+   "the player can follow a townsperson (and stop); only the living can be followed": 409,
+   "the one you follow: their big moments are foreseen, and come as phone alerts": 2262
+  }
+ },
+ "hunts.test.ts": {
+  "ms": 3520,
+  "tests": {
+   "the guild: quarries of one to five stars, every part dropped by some hunt and wanted by the forge": 8,
+   "hunts are posted now and then while the guild stands, up to the town; they lapse": 626,
+   "a hunt won: the guild pays the party, and the parts come home": 230,
+   "the guild forges a unique from the parts, once only": 190,
+   "a hunt always comes to a fight: a careful party, a scout among them, still meets the quarry": 1943
+  }
+ },
+ "injuries.test.ts": {
+  "ms": 1669,
+  "tests": {
+   "a blow leaves a wound on a part, which hurts, hinders, and heals in days (faster tended)": 347,
+   "a lost leg slows them to a crawl; a peg leg fitted by the healer gets them walking again": 370,
+   "an arm lost takes the hand with it; their hands work half as well": 350,
+   "bad wounds sometimes scar for good": 139,
+   "what shows of the harm: a patch, a peg, a crutch and a bandage": 266
+  }
+ },
+ "founding.test.ts": {
+  "ms": 22777,
+  "tests": {
+   "every scenario runs its first two days": 18455,
+   "a plain new game is the same lone founder and campfire as ever": 376,
+   "the founder the player made: name, looks, background skills and passions, chosen traits": 277,
+   "scenarios: company, food (the campfire holds what fits, a stockpile the rest) and known research": 1144,
+   "the panel's choices are checked: unknown or unfair picks are refused, names are cleaned": 2,
+   "a site with all its materials gets built before any more gathering (the founder used to shuttle between the two)": 1098,
+   "the moon keeps its phase all night, and the drawn full moon is the werewolves' full moon": 160,
+   "every origin has three ready-made founders, each one the rules allow and the drawing can dress": 23,
+   "a ready-made founder founds the town as they are (only the name can change)": 196,
+   "a settler founder brings a friend (the town doesn't start a person short of the other origins)": 195
+  }
+ },
+ "inspect.test.ts": {
+  "ms": 603,
+  "tests": {
+   "the inspect page sees how someone fights, and their kit, and keeps up with their gear": 323
+  }
+ },
+ "innerLife.test.ts": {
+  "ms": 2030,
+  "tests": {
+   "the journal is read into news: deaths, homecomings, the dragon, weddings, births, buildings": 5,
+   "the town's talk: the last day and a half's milestones, newest first, the party's leader named": 363,
+   "gossip told in each nature's voice, naming names, and answered to fit": 1,
+   "gossip is told only with someone by, outside a raid, in about the share of slots meant": 7,
+   "the diary is written from the day: the work, the company, what they did, how they feel": 4,
+   "their notes in their own words: 'Bought...' becomes 'I bought...', 'Hired as...' 'I was hired as...'": 0,
+   "the day is counted a quarter-hour at a time, with who was beside them at the same thing": 419,
+   "in the rain the grown-ups shelter under the eaves, the children splash in puddles": 192,
+   "tag: one is \"it\" and chases the nearest, the rest run away from them, and the roles go round": 130,
+   "an elder feeds the pigeons on a bench, a busker plays in the square": 296,
+   "a couple sits together by the water at dusk (not in winter), on a bank near the camp, side by side, each couple its own place": 196
+  }
+ },
+ "juice.test.ts": {
+  "ms": 123,
+  "tests": {
+   "the raid screen juice: heavier blows and kills shake harder, and the shake fades": 1,
+   "kills in a row and blows in a combo have their callouts": 0,
+   "banners slide in, hold and slide out; numbers pop and settle; a bar's ghost holds, then drains": 0
+  }
+ },
+ "interiors.test.ts": {
+  "ms": 1397,
+  "tests": {
+   "homes, workshops and studies have an inside; fields, walls and the fire do not": 5,
+   "whoever sleeps in a home is inside it, and the view shows them; out of doors they are listed as out": 429,
+   "a child at home plays about the floor; a grown-up of an evening sits by the hearth; a field cannot be looked into": 285,
+   "a castle's own rooms are not looked into: they are seen on the map already": 339
+  }
+ },
+ "kin.test.ts": {
+  "ms": 1419,
+  "tests": {
+   "a lich town is the dead alone: whoever comes in living is raised, and looks it; the lich is left as they are": 450,
+   "a pack bites its newcomers; a settlers' town leaves them be": 662
+  }
+ },
+ "legacy.test.ts": {
+  "ms": 1174,
+  "tests": {
+   "a town only just begun is not remembered": 363,
+   "a town becomes a legend, and its descendant inherits the heirloom, coin and the line": 529
+  }
+ },
+ "land.test.ts": {
+  "ms": 3318,
+  "tests": {
+   "the land is the same for the same seed, and differs by seed and biome": 758,
+   "every biome: a clear camp, a river with fertile banks, a fair share of wild land, water only on the coast and in rivers": 1271,
+   "footprints fit on open buildable ground only, not over each other, roads or the wild": 149,
+   "paths go round water and buildings, and prefer roads": 186,
+   "a four-way path never steps diagonally (roads join edge to edge)": 197,
+   "the wide land: named regions round the home vale, each shaping its ground": 629
+  }
+ },
+ "leisure.test.ts": {
+  "ms": 2573,
+  "tests": {
+   "spirits low, someone takes a break on the village green before their work, and comes away lighter": 414,
+   "never more than a share of the grown-ups at play at once; children play on the green, never in the yard": 301,
+   "the yard teaches a little of the blade, and the jetty may bring a fish home; the jetty stands at the water": 478,
+   "nights on the ground weigh heavier each night; someone sleeping rough makes the town want a roof first; low spirits, a comfort": 983
+  }
+ },
+ "lich.test.ts": {
+  "ms": 1322,
+  "tests": {
+   "Lichcraft learned: the founder is offered the rite, and the offer stays open on the Plan tab if put off": 329,
+   "chosen: the town builds the phylactery first; once it stands the founder is a lich, and the game looks it": 332,
+   "the Become a lich command binds the soul (only once Lichcraft is learned)": 291
+  }
+ },
+ "lineage.test.ts": {
+  "ms": 1415,
+  "tests": {
+   "a child goes to lessons of a morning and to their master of an afternoon, and it counts": 305,
+   "coming of age makes the learning good: levels of schooling, the trade, and the family grudge": 252,
+   "a death passes the land and purse to the eldest grown child; the record keeps them": 380,
+   "the family tree: three generations under one line, its black sheep, and renown making it famous": 208
+  }
+ },
+ "hunger.test.ts": {
+  "ms": 16954,
+  "tests": {
+   "a new town with food in store has nobody starving in its first three days": 15464,
+   "asleep, hunger drains at half the pace": 363
+  }
+ },
+ "lighting.test.ts": {
+  "ms": 3000,
+  "tests": {
+   "lights stand by the roads and the buildings, more as the town grows": 375,
+   "the town lights the doors of its buildings as it builds them": 317,
+   "lights burn their fuel by night only, and are fed from the stores": 296,
+   "the lamplighters go round in the afternoon, and feed the lights": 426,
+   "in the dark beyond the lights, work goes slower": 225,
+   "under the mountain the halls are dark at every hour without their sconces": 181,
+   "each light reaches as far as its kind: the age's street light, the camp's fire, a forge": 190,
+   "buildings, walls, trees and rocks stop the light and throw a shadow behind them": 233,
+   "light passes over fields, pens and traps lying flat": 176,
+   "a light stands at each side of every gate in the ring wall, and those are fed first": 241
+  }
+ },
+ "lively.test.ts": {
+  "ms": 2308,
+  "tests": {
+   "a heavy load goes in a wheelbarrow heaped with it": 441,
+   "every workshop and study shows its work": 1,
+   "idle children play together, elders sit by the fire, couples walk out of an evening": 269,
+   "the snapshot names the buildings at work and the latest news": 272,
+   "buildings show their years and their knocks": 0,
+   "a fire put out leaves the building scorched": 128,
+   "a fallen raider leaves what it dropped, a beast its bones, a machine nothing": 191,
+   "homes and venues are dressed for the season; a market is held once a week": 245,
+   "shadows lean west in the morning, east in the evening, long at the ends of the day and gone at night": 1,
+   "street lamps stand along the roads, nearest the fire first, lit from dusk and every age has one": 2,
+   "rain wets the ground and it dries after; snow settles at the end of autumn and melts in spring": 0,
+   "a cart keeps to the road, mostly straight on, and stops at a dead end": 0,
+   "things at the water's edge are mirrored in it": 153,
+   "the big moments are shown as title cards; the news is dressed for the age": 1
+  }
+ },
+ "lurkers.test.ts": {
+  "ms": 2412,
+  "tests": {
+   "the land's own beasts come only in their own lands; the Behemoth now and then drives them": 1549,
+   "a chest left at the shop comes alive at night: a mimic inside the town, with no warning; killed, its hoard is the town's": 155,
+   "a library's tomes wake and fly at the scholars; beaten, they give up their secrets": 128,
+   "a druid grove's Entangle wakes walking mushrooms to fight for it": 169
+  }
+ },
+ "markets.test.ts": {
+  "ms": 1758,
+  "tests": {
+   "prices move with supply, war and the season, and drift back": 352,
+   "booms, shortages, gluts and crashes come with a reason, move the price, and end": 245,
+   "a wagon carries what the town can spare to a power that wants it, sells, and comes home with the takings": 247,
+   "a wagon on a road to a power gone to war is seized": 158,
+   "short of a stake the house borrows; unpaid when due it goes bust, and the debt is seized": 211,
+   "a loan paid back in time keeps the house; a fortune makes it a merchant power": 181
+  }
+ },
+ "meltdown.test.ts": {
+  "ms": 1181,
+  "tests": {
+   "a meltdown only threatens a Modern town with a power station; it sets the reactor alight, sickens the town and stops the fields": 391,
+   "disasters that stop the food last as long in the Modern era as in the first (a ten-day ash winter would just be a famine)": 289
+  }
+ },
+ "menagerie.test.ts": {
+  "ms": 652,
+  "tests": {
+   "at least 250 new creatures, each a foe with its own name and a cell of the composed sheet": 2,
+   "every creature turns up somewhere: a raid, a lair or cave, a dungeon, or a hunt": 5,
+   "the town remembers each kind of foe it meets, once": 366
+  }
+ },
+ "memorials.test.ts": {
+  "ms": 2122,
+  "tests": {
+   "who is famous: the founder always, a title, many raiders felled, a high level or many journeys; not the rest": 1,
+   "a famous death is honoured with their look and gear; an ordinary one is not": 389,
+   "the town raises a statue to the honoured before its seat, one at a time, the oldest dead first": 300,
+   "no statue without the stone, nor past the most, nor with the autopilot off": 209,
+   "a statue is never pulled down to make room": 251,
+   "a home pulled down leaves its foundation, named for who lived there, cleared in its time": 132,
+   "building over a ruin is allowed, and clears it at once": 161,
+   "a building that burns down leaves a blackened shell; blueprints, walls and fields leave nothing": 165,
+   "a home name is decided by its id and its person, the same every time; each people its own words": 1,
+   "homes are named for their owner, else their eldest resident, and keep the name after": 184
+  }
+ },
+ "minerals.test.ts": {
+  "ms": 1830,
+  "tests": {
+   "the minerals are materials with a worth, recipes, wares, a topic each and a bell tower": 1,
+   "a cleared cave opens as a mine: ore in the walls round its mouth, dug out it goes deeper, and the last level is the last": 429,
+   "the player goes into a mine: the snapshot has its walls and whoever is digging": 390,
+   "a trade caravan costs its purse and brings minerals home; the far markets wait on the scouts": 405,
+   "another people's caravan brings its own goods": 166
+  }
+ },
+ "monsters.test.ts": {
+  "ms": 1235,
+  "tests": {
+   "a werewolf mauls someone on the full-moon night; a vampire feeds every couple of days": 670,
+   "the Guild grows hostile while a monster lives in town, then comes; hiding or handing over ends it": 240
+  }
+ },
+ "modern.test.ts": {
+  "ms": 3298,
+  "tests": {
+   "every Modern building, item and destination points at research that exists": 3,
+   "the Power Station opens the Modern era and its research": 427,
+   "a gatherer pumps oil at the derrick": 607,
+   "a truck needs fuel, burns it, carries more, gets there faster, and comes home": 1233,
+   "a gun turret fires on raiders in range, and never runs out": 332,
+   "a medkit gets someone straight back up; a phoenix feather brings back the dead; Death takes the coin instead of the founder": 250
+  }
+ },
+ "music.test.ts": {
+  "ms": 211,
+  "tests": {
+   "the composer writes the same piece the same way from the same seed, and differently from another": 76,
+   "every piece is playable: notes in range, in time, and a fair length": 43,
+   "the pieces differ: keys, tempos, modes and instruments": 1,
+   "every mood has music, and the next is never the one just played": 5,
+   "the mood follows the town": 0
+  }
+ },
+ "moonrite.test.ts": {
+  "ms": 1336,
+  "tests": {
+   "the Moon Rite is hidden Occult research; answering the moon makes the founder a werewolf (refusing is the default)": 358,
+   "a werewolf founder's wolves run with the town, all but the alpha": 325,
+   "under a full moon a werewolf founder won't stay dead (once a night)": 302
+  }
+ },
+ "natures.test.ts": {
+  "ms": 594,
+  "tests": {
+   "fourteen natures, each with a name, a line and something to say on most topics; everyone has one": 2,
+   "like warms to like and clashing natures grate; a nature sets a pace": 337
+  }
+ },
+ "muster.test.ts": {
+  "ms": 1482,
+  "tests": {
+   "raising a party: an adventurer leads, with a party of the willing; the founder is never refused": 344,
+   "someone who says no can be talked round with coins, or ordered along and resent it": 269,
+   "a commanded party asks on the road, and is debriefed when it is home": 339,
+   "a party can be raised and sent for a guild hunt (the Quests tab's cards raise one too)": 141
+  }
+ },
+ "nightOut.test.ts": {
+  "ms": 1316,
+  "tests": {
+   "of an evening the townsfolk walk to the tavern, buy a drink there, and come home cheered": 565,
+   "the dead, children and those without the coins stay home; nobody goes without a tavern open": 414
+  }
+ },
+ "notices.test.ts": {
+  "ms": 985,
+  "tests": {
+   "the news is told apart by tone: red for threats and losses, gold for what wants the player, blue for the rest": 2,
+   "the standing situations and the Journal become keyed notices; the small change is left out": 301,
+   "the first hour: each tip is met once, the earliest first, a couple at a time, with a way to its tab": 336,
+   "closing the away card reads everything from the absence, and nothing after": 4
+  }
+ },
+ "occult.test.ts": {
+  "ms": 1163,
+  "tests": {
+   "the Occult stays hidden until something reveals it": 368,
+   "a vampire founder rises once a night; a lich returns while the phylactery stands": 447,
+   "a Spirit Totem, then a Resurrection Shrine, bring the founder back; after that, death is final": 127
+  }
+ },
+ "operators.test.ts": {
+  "ms": 1354,
+  "tests": {
+   "the best-suited person runs the tavern, their skill sets its morale, and the player can switch them": 592,
+   "town jobs: the best crafter holds the smithy, works its orders first and faster, and others leave them while the smith is free": 429
+  }
+ },
+ "originResearch.test.ts": {
+  "ms": 134,
+  "tests": {
+   "every people's own names, lanes, paces and left-out topics refer to real shared topics and lanes": 4,
+   "every people but the settlers has its own names for the tree and its lanes, and studies at its own pace": 0,
+   "the dead and the machines never study raising children or bettering crops, and what comes after stands open": 11
+  }
+ },
+ "originWins.test.ts": {
+  "ms": 1298,
+  "tests": {
+   "old grudges and friendships between the peoples set a power's goodwill": 386,
+   "the druids win when the grove is held high for ten mornings": 270,
+   "the settlers win when the frontier is tamed": 323
+  }
+ },
+ "nomads.test.ts": {
+  "ms": 28520,
+  "tests": {
+   "the camp moves with the seasons: tents go on the wagons, rooted things stay, and it all comes home in winter": 15310,
+   "the great works are built on the home ground, even from the pasture; no walls while the tribe wanders": 10967,
+   "a nomad tribe has a home ground and a summer pasture; other towns have neither": 522,
+   "when raiders come the wagons are drawn up across the camp, and put away after": 267,
+   "in the Industrial age the tribe comes home and settles for good": 210
+  }
+ },
+ "origins.test.ts": {
+  "ms": 21127,
+  "tests": {
+   "machines: they never eat or tire, nobody wanders in, and new units are assembled from salvage": 13617,
+   "every origin founds a town: its look, its powers (all real), its start": 2469,
+   "lich: a lich founder with a phylactery, and the raised dead, who never hunger or tire": 306,
+   "druid: fields grow faster, and cleared forest grows back": 1430,
+   "vampire: a vampire founder, and the town works harder by night than by day": 279,
+   "raid powers strike: a werewolf town howls up wolves, alchemists throw flasks": 432,
+   "powers wait for their moment: a druid won't call rain with nothing growing": 125,
+   "dwarves make finer things than druids": 811,
+   "alchemists: a newcomer comes out of the crucible with an extra trait": 176,
+   "knights start armed, with palisades known": 233
+  }
+ },
+ "packCoverage.test.ts": {
+  "ms": 181,
+  "tests": {
+   "every building is drawn from the packs in every look, but what no pack has": 9
+  }
+ },
+ "pack.test.ts": {
+  "ms": 3140,
+  "tests": {
+   "the Moon Pack is all werewolves, with the rival packs' lairs on its board and a hunt of its own": 561,
+   "under the full moon the pack runs out to hunt, a guard left at the den": 439,
+   "a rival pack broken at its lair joins the town; one broken at the gate does not; both are hunting grounds": 146,
+   "the Great Hunt: every pack broken and the Pale Behemoth slain wins the game": 108,
+   "one who outgrows the Alpha may challenge them the morning after the moon; the winner leads": 1465
+  }
+ },
+ "parties.test.ts": {
+  "ms": 2888,
+  "tests": {
+   "an adventurer gathers a party and sets out on their own; the founder and guards stay home": 361,
+   "no adventurer and no bounty: no party forms; the autopilot off: none either": 431,
+   "a forbidden place is never chosen": 219,
+   "the hurt, the tired and those just home rest first": 192,
+   "enemies never go together; the devoted go along": 125,
+   "a bounty: set aside from the treasury, draws the adventurers, and is paid to the party that does the job": 322,
+   "a recalled party earns no bounty": 246,
+   "enemies side by side may come to blows": 139,
+   "a founder and one companion stay home": 365,
+   "every town has an adventurer early: the first grown-up settled after the founder, while there is none": 195
+  }
+ },
+ "paths.test.ts": {
+  "ms": 1774,
+  "tests": {
+   "the tree: eight bases, two roads at every fork, one ascended form at the end, every node an archetype with a skill of its own": 8,
+   "a grown-up starts on a base calling fitting their skills; skills come from the road taken; the name is the node": 477,
+   "evolution: with the level, the two roads are put to the player; the answer (or their own choice) takes one": 230,
+   "an old save's classed townsperson takes the node of their class at their stage": 1,
+   "stat points: two a level, spent by the player or the class's way; Charisma counts; the glass cannon summons grow with them": 242,
+   "every calling has its telling and its emblem: lore for all but the ascended, a glyph on a real cell, colours by base": 4,
+   "stat points follow the road chosen, not only the archetype": 193,
+   "a townsperson left to spend their own points keeps doing so, till the box is unticked": 140
+  }
+ },
+ "pets.test.ts": {
+  "ms": 106,
+  "tests": {
+   "homes keep dogs, cats and hens, the same ones every time": 8,
+   "the dead keep black cats, the machines nothing": 1,
+   "the sky: fog, sandstorms, blizzards and heat haze come with their weather": 1
+  }
+ },
+ "pins.test.ts": {
+  "ms": 1518,
+  "tests": {
+   "the pin command is checked": 3,
+   "a pinned building is laid next, gathered for, and the Journal says when it stands": 843,
+   "refused when it can't be had; given up when it waits too long; unpinned on request": 338
+  }
+ },
+ "livestock.test.ts": {
+  "ms": 45262,
+  "tests": {
+   "a druid town keeps building: a goat pen does not make hide count as available": 42755,
+   "data: every pen is a background building, unlocked by research, with a herd that yields something": 1,
+   "a farmer tends the pen: eggs into the stores": 409,
+   "herds breed in spring and summer, not in winter; a full pen stops growing": 282,
+   "in winter the herd eats grain, and starves without it": 249,
+   "raiders who get away can drive off livestock": 159,
+   "a pen is built empty: its animals are bought in, it widens as the herd fills it, and a full pen sells its surplus": 216
+  }
+ },
+ "places.test.ts": {
+  "ms": 1209,
+  "tests": {
+   "a land holds its places: scattered round the camp, apart, on dry land, the same every time": 325,
+   "places are found as the known land reaches them; a peaceful one is looked over, a fight waits on the board": 325,
+   "a party the player picks goes to a place, and clearing it brings its hoard home": 252
+  }
+ },
+ "people.test.ts": {
+  "ms": 7427,
+  "tests": {
+   "each origin has a distinct pool and together they offer over a thousand names": 2,
+   "a town uses its own name pool and avoids names already in use": 632,
+   "new game: one main character at camp, a little food, pools on wild cells only": 331,
+   "idle main character wanders around camp without leaving it": 606,
+   "a marked forest cell is gathered until it clears": 754,
+   "gathering takes about walk time + units x seconds / skill speed": 228,
+   "unmarking a cell stops the work; marking a clear cell does nothing": 276,
+   "the nearest marked cell is worked first, then the next": 513,
+   "same seed and commands give identical results": 3226
+  }
+ },
+ "politics.test.ts": {
+  "ms": 2445,
+  "tests": {
+   "the grown-ups fall into blocs (never the founder), and each bloc has its own satisfaction": 369,
+   "the council votes on what the unhappiest bloc asks; the player may let it stand or overrule it": 538,
+   "crime comes by night; a culprit caught is tried, and the sentence is carried out": 427,
+   "a bloc pushed too far strikes: its members stop work and gather; a town ruled badly rises": 487,
+   "the laws do their work: a curfew keeps people from the tavern, poor relief feeds the poor": 263
+  }
+ },
+ "portals.test.ts": {
+  "ms": 1535,
+  "tests": {
+   "portals are wired in: a topic, the arch, three realms whose creatures and bosses are real": 4,
+   "a finished arch opens a realm: a telling, and its next site on the board": 340,
+   "a party that wins explores the site and brings its riches; the realm stirs, and past the brim things come out": 299,
+   "each realm has its rule: the Feywild turns years, the Underworld drains; the heart broken calms it": 411,
+   "a rift may tear open by itself, from its day, onto a realm not yet reached": 106
+  }
+ },
+ "prisoners.test.ts": {
+  "ms": 661,
+  "tests": {
+   "fallen human raiders may be taken alive (never beasts); prisoners come round and join, or go free": 301
+  }
+ },
+ "progress.test.ts": {
+  "ms": 118,
+  "tests": {
+   "a trip fills a third out, a third there (a delve by its rooms), a third home": 1,
+   "a fight fills as the foes lose health; an assault counts the waves before as done": 0
+  }
+ },
+ "prisonsAndSickbeds.test.ts": {
+  "ms": 1184,
+  "tests": {
+   "a raider is taken alive only with a cell free: none without a stockade, as many as it has cells with one": 326,
+   "the struck-down and the badly hurt are nursed in a sickbed, heal faster there, and get up once mended": 394
+  }
+ },
+ "props.test.ts": {
+  "ms": 80,
+  "tests": {
+   "every scenery set for the raid map has its atlas and objects that fit in it": 2
+  }
+ },
+ "property.test.ts": {
+  "ms": 1713,
+  "tests": {
+   "building needs skill: anyone lends a hand, the unskilled slower; the founder works any site at full pace": 419,
+   "a person with coins enough buys a plot and the makings of a home from the town, and owns the site": 523,
+   "rent at dawn: a bed in the town's home costs a coin a day; short of it, arrears and a grudge": 226,
+   "an owner pays the builders they hire by the hour, and works on their own site for nothing": 185
+  }
+ },
+ "questBoard.test.ts": {
+  "ms": 1797,
+  "tests": {
+   "a quest is first an offer; accepted, its time limit starts": 372,
+   "an offer unanswered lapses; declined, it is gone at once; both are logged": 276,
+   "an accepted quest out of time fails, and the town feels it": 334,
+   "only an accepted quest pays": 241,
+   "with an adventurer at home, the town takes an unanswered offer up itself": 163,
+   "a hunt is an offer too, and only an accepted one is on the board for the parties": 115
+  }
+ },
+ "prowlers.test.ts": {
+  "ms": 2675,
+  "tests": {
+   "with no wall the gap is whole, a ring begun closes it as it goes up, and a castle town has none": 631,
+   "prowlers slip in at night where there is no wall: never by day, in the first days, twice within the gap, or with the wall up": 1271,
+   "who comes: sneak-thieves or beasts in the Stone Age, thieves, slavers or beasts after; wild dogs in dry lands": 314
+  }
+ },
+ "raidRecap.test.ts": {
+  "ms": 868,
+  "tests": {
+   "a raid ends with a recap: who fought, the harm they dealt and took, the raiders felled, what was won or lost": 568
+  }
+ },
+ "raidSkip.test.ts": {
+  "ms": 1049,
+  "tests": {
+   "a raid skipped is fought out by the town, and the player's auto setting comes back after": 481,
+   "a town set to skip its raids skips each as it turns active": 265
+  }
+ },
+ "castle.test.ts": {
+  "ms": 133014,
+  "tests": {
+   "a Deep Hold digs on into the mountain: faces beside its halls open, dug out they become galleries": 45888,
+   "a Blood Court builds one castle: rooms built on to the hall and each other, everything else kept clear of it": 32042,
+   "a Deep Hold grows its halls into the mountain over the days": 41142,
+   "other towns spread out as before, with no castle": 8519,
+   "a room must share a wall with the castle; nothing else may come within a cell of it": 526,
+   "inside the walls people go room to room by the doorways, and in and out by the gate": 278,
+   "a walker put somewhere else finds their way again, never cutting through the walls to the old path": 251,
+   "a Deep Hold is cut into the mountain: half the land is rock, the halls carved into it behind one gate": 393,
+   "the mountain holds richer veins the deeper in: stone at the face, gold and gems far in": 2,
+   "a dwarf town is always founded at the foot of its mountain, whatever the land": 1434,
+   "into a Deep Hold only by its gate: the rock and the hall's walls are never walked through": 101
+  }
+ },
+ "raiderWounds.test.ts": {
+  "ms": 1435,
+  "tests": {
+   "a heavy blow can lame a raider: it walks slower for the rest of the raid, and never below the most a wound takes": 304,
+   "a lame bandit breaking from the fight is run down by a fighter close by, taken alive and made a prisoner": 479,
+   "a lame raider running through the town is caught by a defender beside it": 285
+  }
+ },
+ "quests.test.ts": {
+  "ms": 6525,
+  "tests": {
+   "now and then a rival party is down there too": 4848,
+   "of an evening, someone offers a quest on a dungeon the town knows; open quests lapse": 285,
+   "a cleared dungeon pays every quest on it: a captive joins, a bounty, a relic, a fallen delver's gear": 326,
+   "a cleared dungeon lies quiet, then wakes deeper": 268,
+   "a Trophy Hall shows off the town's treasures, and each one draws more travellers": 222
+  }
+ },
+ "raidWait.test.ts": {
+  "ms": 2774,
+  "tests": {
+   "raiders reaching the gate while you are away wait for you: the town pauses and asks you to watch": 621,
+   "unpausing the town lets held raiders in too": 285,
+   "away more than 12 hours after they came, and the raid played out without you": 883,
+   "raiders held at the gate give up waiting after 12 hours across visits, and attack": 586
+  }
+ },
+ "rally.test.ts": {
+  "ms": 1323,
+  "tests": {
+   "a defender can be rallied in a raid, once in a while: a second wind, and harder blows": 421,
+   "no rallying outside a fight, or someone who is not defending": 633
+  }
+ },
+ "ratplague.test.ts": {
+  "ms": 1388,
+  "tests": {
+   "the Rat Plague comes only from the Industrial era": 361,
+   "the rats eat the stores, and swarms come again and again": 234,
+   "a plague rat's bite can carry the sickness": 203,
+   "near the end the Rat King leads the swarm, and killing it ends the plague": 242
+  }
+ },
+ "regions.test.ts": {
+  "ms": 943,
+  "tests": {
+   "every region but home has a scouting trip, and every hidden place lies in a real region": 1,
+   "a lair stays hidden until its region is scouted; then the scouting trip is gone from the board": 531
+  }
+ },
+ "regrow.test.ts": {
+  "ms": 996,
+  "tests": {
+   "a wood chopped bare grows back in a few days, its wood and berries again": 364,
+   "a cell kept clear does not grow back: walked, or beside a building; rock never does": 327
+  }
+ },
+ "raids.test.ts": {
+  "ms": 4146,
+  "tests": {
+   "no raids in the first two days; then one comes, with a warning that defaults to the alarm": 1240,
+   "strong defenders drive off a wolf pack; any kills end up in storage": 362,
+   "with nobody defending, rival scouts steal food and escape": 637,
+   "a palisade stops raiders until broken; builders repair it afterwards": 304,
+   "a lookout gives a much longer warning": 582,
+   "rivals can be paid off with food": 147,
+   "people sheltering in bed are safe from a wolf pack": 230
+  }
+ },
+ "ringRoads.test.ts": {
+  "ms": 1158,
+  "tests": {
+   "no road over the ring wall but at a gate; old roads there are lifted so the wall is raised again": 762
+  }
+ },
+ "researchPicks.test.ts": {
+  "ms": 1701,
+  "tests": {
+   "the commands are checked: a topic must exist, and a move goes one way": 3,
+   "picked by hand: first in the queue ahead of the town's own, reordered, removed and left alone": 765,
+   "with the queue full of the town's own choices, a pick makes room": 379,
+   "the seat must be raised before an age's studies; the town raises it": 241
+  }
+ },
+ "research.test.ts": {
+  "ms": 3603,
+  "tests": {
+   "data: building research exists; prerequisites exist and come earlier (no cycles)": 2,
+   "queue: prerequisites must be done or queued ahead; slots are limited": 317,
+   "queue: cancelling drops dependents and keeps progress; Oral Tradition adds a slot": 388,
+   "queue: the Elder's Council needs Oral Tradition and 10 other topics": 266,
+   "research takes about seconds / speed and unlocks its buildings": 721,
+   "a Storyteller's Circle makes research faster": 724,
+   "construction interrupts research; research resumes where it left off": 596,
+   "research effects: carrying and storage": 210
+  }
+ },
+ "risingPowers.test.ts": {
+  "ms": 1835,
+  "tests": {
+   "every realm has the three rising powers, with lords, armies for every age and trophies": 283,
+   "they are met on their own days, and their armies never come before": 312,
+   "a rising power grows with the town, and its army with the age": 246,
+   "the Shogunate challenges the town's best to a duel; it is fought to an end": 181,
+   "the Infernal Host opens a rift at war, and things come out of it by night": 124,
+   "the Infernal pact takes a life and pays in gold; refused, it costs nothing but goodwill": 231,
+   "a town run by hand sees none of it": 145
+  }
+ },
+ "roamers.test.ts": {
+  "ms": 1775,
+  "tests": {
+   "a band comes out on the land beyond the town, and travellers come less while it roams": 289,
+   "someone out in the open is run down, and the fight is on: they stand and fight until it ends": 467,
+   "the camp is a shelter by day but not by night, until a wall stands all round": 285,
+   "helpers near by join the fight, guards first": 245,
+   "a guard on watch goes after a band near the town and takes it on": 139
+  }
+ },
+ "rivals.test.ts": {
+  "ms": 2546,
+  "tests": {
+   "every origin but the settlers is a rival: an army, a lord with a trophy, spells that exist": 3,
+   "a rival army always marches behind its lord, and the lord grows stronger with the days": 670,
+   "a rival never raids a town founded its own way": 260,
+   "the Lich Lord drains the living, and raises its fallen dead": 188,
+   "the Archdruid roots the defenders: held, they often lose their strike": 233,
+   "the Overmind's EMP stops machines dead, and a ward turns the defenders' blows": 272,
+   "a rival lord slain leaves its trophy": 108,
+   "every spell has a look, and casting one leaves it for the renderer: from the caster, onto what it touched": 410
+  }
+ },
+ "roughSleep.test.ts": {
+  "ms": 503,
+  "tests": {
+   "everyone sleeping rough beds down on a spot of their own round the fire, on open ground": 271
+  }
+ },
+ "sagas.test.ts": {
+  "ms": 2278,
+  "tests": {
+   "thirty-one sagas, every chapter they lead to written, every ending reachable, every saga unique a prize": 788,
+   "the Burnt Cart: a question, a trip on the board, a raid, and a triumph that leaves a title and a unique": 376,
+   "nobody goes in time: the story bends (Wynn is lost, the boy stays)": 143,
+   "a beaten party, then the raid lost: ruin": 114,
+   "a task chapter waits for the town to build what it needs": 183,
+   "the Feud is about two of the town, and the duel can kill": 132,
+   "sagas come rarely: one at a time, never within ten days of the last one ending, each once": 163
+  }
+ },
+ "scenery.test.ts": {
+  "ms": 78,
+  "tests": {
+   "the town has pack scenery for every land and season, all in its atlas": 2
+  }
+ },
+ "scenes.test.ts": {
+  "ms": 101,
+  "tests": {
+   "29 fight scenes, every one reachable, every destination routed": 2,
+   "on the road it is the land; arrived at a dungeon it is inside": 0,
+   "every scene has looks, and every look names a painted backdrop that exists": 1
+  }
+ },
+ "sea.test.ts": {
+  "ms": 3527,
+  "tests": {
+   "a sea-shaped land: the south half sea, shallows along the shore, the camp dry on the strand": 508,
+   "a shore town knows its land further out than a dry one": 475,
+   "the Tide Clan is a shore town on the coast whoever picked the forest; settlers are not": 422,
+   "a swimmer crosses the sea; a walker wades the shallows and is stopped by open water": 304,
+   "a shore town builds its homes in the sea, not its fields; a dry town builds in neither": 575,
+   "the sea gives again at dawn: fished-out cells get new pools": 278,
+   "raiders from the sea: only against a shore town, out of the deep water, swimming ashore to the strand": 326,
+   "a shore town's sea beasts: a lair out on the reef, and the Leviathan coming ashore": 408
+  }
+ },
+ "seatPacks.test.ts": {
+  "ms": 179,
+  "tests": {
+   "every people's seat is laid together from the packs, all five stages": 4
+  }
+ },
+ "ringWall.test.ts": {
+  "ms": 9777,
+  "tests": {
+   "the ring is laid a few cells outside the town, stepped out from the camp, with gates on the camp row": 414,
+   "the planner raises the ring all round, townsfolk get out through its gates, and raids come to the gate": 539,
+   "the wall leaves the other sites the materials they still wait on: they are carried to first": 367,
+   "the wall is built beside the town's other work (the owner: palisades never finished)": 252,
+   "the whole ring is one construction: laid out at once, every section in work together, walked through meanwhile (the owner: a single construction)": 373,
+   "the trees and rocks on the ring's line are marked to clear at once, taken first, and the wall follows them": 303,
+   "where a river crosses the ring the wall is carried over it on grates; the gates stand on dry ground on all four sides": 240,
+   "each people's ring takes its own shape, closes round the whole town, and keeps a gate on every side (the owner's ask)": 2053,
+   "a star fort is raised all round like any ring": 365,
+   "when the town grows past its wall a wider ring goes up outside, and the old one comes down once it stands": 4149
+  }
+ },
+ "sfx.test.ts": {
+  "ms": 166,
+  "tests": {
+   "the town is heard: blows, levels, coins, questions, a raid won, the dawn": 6,
+   "a big fight is not a wall of noise": 0,
+   "each weapon is heard as itself": 1,
+   "the work sounds like itself: a crafter at the loom is no builder": 1,
+   "a watched fight is heard: the party by their weapons, the foes by what they are": 1,
+   "the tactics board is heard: traps, towers, chests, blows landing": 1
+  }
+ },
+ "shapeshift.test.ts": {
+  "ms": 878,
+  "tests": {
+   "a druid takes a bear's shape from the Shapeshifter stage: holding the trail, tougher and fiercer": 306,
+   "a shapeshifter changes shape at every stage: wolf, lion, bear, drake, wyvern": 226
+  }
+ },
+ "seats.test.ts": {
+  "ms": 3448,
+  "tests": {
+   "every origin has a seat of five stages, one an era, chained by upgrades": 2,
+   "a town is founded with its own first seat standing by the camp; a hold's on its hall": 2556,
+   "the next stage opens with its era, never another people's; it is rebuilt where it stands": 109,
+   "a hold's seat is rebuilt on its hall, campfire and all": 133,
+   "the town rebuilds its seat grander as the ages come": 192
+  }
+ },
+ "save.test.ts": {
+  "ms": 9665,
+  "tests": {
+   "a saved game carries on exactly as if it had never stopped": 1908,
+   "corrupt saves and saves from another version are refused": 533,
+   "offline: the town catches up through its work without making a recap": 1138,
+   "offline: short gaps catch up; paused games stay put; long ones are capped": 991,
+   "offline: a busy town simulates a real hour quickly": 527,
+   "the journal keeps the most recent entries": 176,
+   "the land's pools are packed in the save, and come back as they were": 395,
+   "catching up a slice at a time ends exactly where catching up in one go does": 3204
+  }
+ },
+ "shopTalk.test.ts": {
+  "ms": 1709,
+  "tests": {
+   "a customer looks round the shop first, then goes up to the counter and is served there, then is done": 572,
+   "none in stock but the town can make one: the keeper takes their coin and orders it; finished, it goes to them": 384,
+   "none in stock and nothing to make one with: the keeper turns them down": 368
+  }
+ },
+ "siteClearing.test.ts": {
+  "ms": 999,
+  "tests": {
+   "a blueprint laid over trees and rocks waits for them: they're marked and taken first, nobody builds till they're gone": 446,
+   "the town builds near over a wood rather than far on open ground, and never over a vein": 222
+  }
+ },
+ "sim.test.ts": {
+  "ms": 2480,
+  "tests": {
+   "rng: same seed gives the same sequence": 3,
+   "rng: resuming from saved state continues the exact sequence": 0,
+   "world: same seed gives the same world, different seeds differ": 1,
+   "world: camp is cleared and rivers stay out of it": 3,
+   "sim: advance runs whole ticks and carries the remainder": 389,
+   "sim: chunked real time gives the same state as one big step": 717,
+   "sim: resuming from a saved (JSON) state matches running straight through": 624,
+   "sim: pause stops time; commands apply at the next tick": 153,
+   "sim: a long gap is capped instead of freezing the app": 203,
+   "calendar: starts day 1 of spring in the morning": 1,
+   "calendar: night is dark, days and seasons roll over": 0
+  }
+ },
+ "planner.test.ts": {
+  "ms": 55272,
+  "tests": {
+   "a town left entirely alone grows: people, homes, fields, research, and no game over": 26381,
+   "it never orders what it can't make: nothing made from an item it hasn't got, nothing it has no makings for": 18812,
+   "the same town left alone twice turns out the same (the planner uses no chance)": 6643,
+   "full stores: surplus wood and stone are cleared out, food never is": 550,
+   "its direction steers it: set on defence, it studies fighting or healing first": 764,
+   "autopilot off: the planner leaves the town alone": 195,
+   "a blueprint stuck for want of what nobody has is set aside, its slot freed and its materials back": 182
+  }
+ },
+ "shop.test.ts": {
+  "ms": 32761,
+  "tests": {
+   "travellers stop at an open shop, buy what the town has spare for coins, and walk on out of town": 761,
+   "nobody to keep it, no travellers: a shop with no shopkeeper stays shut": 504,
+   "with no fiber on the land, the town buys it from travellers, whatever it costs": 746,
+   "what it could gather itself, it buys only for a building it is waiting on, and keeps coins back": 208,
+   "the shopkeeper sets out what the town makes: on the floor, clear of the counter, the door and each other": 1600,
+   "a second piece just like one already out adds half its appeal": 121,
+   "rebuilt bigger, the shop keeps its furnishings, and what no longer fits goes back to be set out again": 156,
+   "the planner: with the land out of fiber, it studies Barter and builds a Trading Post, and then its homes get built": 370,
+   "the shop sells only what is spare: food beyond several days, never the totem, nothing a blueprint needs": 246,
+   "old saves (from before the shop) load and play on, with an empty purse": 279,
+   "the shop window: layout, furnishings and the log reach the snapshot": 243,
+   "a customer who finds a ware of their standing buys it and spreads the shop's renown; one who does not leaves disappointed": 802,
+   "ordinary travellers never buy the finer wares; the grand buy the finest they can afford first": 1514,
+   "coins go into the shop: a crowded floor is extended, and pieces are improved a level at a time": 566,
+   "an improved piece adds half its appeal again per level": 87,
+   "the town makes wares from what it has spare, never from what it can only buy": 288,
+   "drawing customers it has no wares for, the town studies what makes them": 276,
+   "a specialty shop: its own customers come for its line, buy what the town has of it, and its stock is on show": 271,
+   "the planner opens a specialty shop once it has a general store, the craft and enough people": 108,
+   "an ordinary shop draws only ordinary travellers; an attractive one draws merchants and nobles too": 9244,
+   "left alone in the desert, a town builds a shop, furnishes it, and earns coins": 7084,
+   "a better-furnished shop draws more travellers": 5502
+  }
+ },
+ "soundZones.test.ts": {
+  "ms": 158,
+  "tests": {
+   "the tavern is loud of an evening with a fiddle playing, quiet by day, louder with drinkers in": 2,
+   "the market chatters by day, the square on market day; hymns of a morning and at a rite": 1,
+   "the forge rings and the workshops work only while an order is made; the herds call; a raid hushes it all": 2,
+   "a zone is loudest in the middle of the view, gone well past it, and panned to its side": 0,
+   "the mix follows the view: the tavern heard where it stands, faded as the view moves off it": 1,
+   "zoomed out the zones are quieter, zoomed in louder": 0
+  }
+ },
+ "space.test.ts": {
+  "ms": 2407,
+  "tests": {
+   "Mission Control opens the Robotic & Space era": 299,
+   "the finished ship lifts off after the countdown, and the game is won": 565,
+   "losing the launch site stops the countdown": 206,
+   "a clone vat brings the founder back with less skill; a cryo pod leaves them frail; both need time to recharge": 183,
+   "meteors set buildings alight unless a shield is up; the machine uprising idles the bots and brings drone raids": 308,
+   "a hydroponics bay grows grain in winter": 424
+  }
+ },
+ "snapDelta.test.ts": {
+  "ms": 27336,
+  "tests": {
+   "a snapshot put back together from deltas is the snapshot itself": 24805,
+   "an unchanged part keeps the very same object on the page": 504,
+   "the game host starts a town, answers, and saves": 930,
+   "the path search gives the same way again, and a nested search its own": 251
+  }
+ },
+ "specials.test.ts": {
+  "ms": 2097,
+  "tests": {
+   "seven special newcomers, each with a cover, a truth, a way to be seen through and answers": 1,
+   "a secret stranger comes one event turn in a hundred, any day, each kind once, secrets overlapping; the gate sees only the cover": 359,
+   "a skilled townsperson sees through a newcomer, and the town is asked what to do": 278,
+   "a hidden pilgrim spreads the fever when it is due": 202,
+   "the saboteur, unseen, cuts the gate and springs the traps the night before the clan rides in": 135,
+   "a guard on watch catches the saboteur at it; locked up, he is a prisoner and his clan comes as a plain raid": 122,
+   "the highwayman lifts coins while hidden; handed over, the bounty is paid and the coins found": 172,
+   "the black oath broken for coins; the exile given a tower teaches the town a topic": 151,
+   "a newcomer's calling stays hidden in the town's view until the secret is out": 145,
+   "about one ordinary wanderer in ten is secretly a special too": 141
+  }
+ },
+ "stakes.test.ts": {
+  "ms": 1404,
+  "tests": {
+   "the town plans the party: the fittest go, the founder stays, half the town stays home": 363,
+   "the player picks the stakes: a risky party carries more (and meets more trouble) than a safe one": 563,
+   "a town of one can still send its founder: the choice is the player's": 189
+  }
+ },
+ "strangers.test.ts": {
+  "ms": 1429,
+  "tests": {
+   "a stranger of another people brings their look and their span; a vampire stranger comes in hiding": 378,
+   "the Deep Hold keeps to its own; settlers welcome anyone": 596,
+   "a hidden vampire feeds the quiet way first; bites stir the town, and a tithe ends them": 200
+  }
+ },
+ "streets.test.ts": {
+  "ms": 1289,
+  "tests": {
+   "a worn footpath that joins a street is planned as a street": 350,
+   "a street over a river is a bridge, laid with wood": 356,
+   "every gate of the ring wall gets a street to it, through it and out": 287
+  }
+ },
+ "social.test.ts": {
+  "ms": 14084,
+  "tests": {
+   "at the breaking point people break: sulk, binge, brawl with a rival, or walk out for good": 4223,
+   "people who spend their days together become friends (or, with no chemistry, rivals)": 3939,
+   "a couple marries (with Family Life), has a child who grows up; a partner grieves a death": 2816,
+   "a school sends children into the world more skilled": 915,
+   "a whole town in despair for a day is abandoned (with a warning first)": 709
+  }
+ },
+ "tacticsArea.test.ts": {
+  "ms": 110,
+  "tests": {
+   "every spell and skill has its own reach and area on the board, by what it does and what it is called": 5,
+   "the tiles an area touches and where it may be aimed": 2
+  }
+ },
+ "taming.test.ts": {
+  "ms": 97,
+  "tests": {
+   "a novice rarely tames a wild, strong beast; a master often tames a hurt wolf; never sure": 1,
+   "the same tamer finds a gentle kind easier than a wild one, a hurt beast easier, and a wary one harder": 0,
+   "a tamer holds more beasts as their calling grows": 0
+  }
+ },
+ "townMoods.test.ts": {
+  "ms": 1357,
+  "tests": {
+   "a rich owner's home is dressed well; a home of the poor gathers clutter": 1,
+   "the sick cough now and then, oftener in a plague; their homes are marked in a plague": 2,
+   "a plague is a pestilence doom or many sick; the healer goes the rounds of the sick households": 325,
+   "at the alarm the children run for home faster than a walk": 382,
+   "smoke rises over every building alight, thinner on a slow phone": 1,
+   "the sails turn with the wind, the banners stir faster as it rises, a mill by the river has a wheel": 164,
+   "signposts at the crossroads name the country each way, and the rival towns": 150
+  }
+ },
+ "townLife.test.ts": {
+  "ms": 2012,
+  "tests": {
+   "habits by nature: the jolly juggle, the grumpy kick a stone, the curious peer, the dreamy watch the clouds, elders smoke": 6,
+   "the walk home from the tavern: only those served, only after closing, for a while": 354,
+   "the windows go dark house by house: a home is dark once everyone in it is asleep": 0,
+   "the children's winter: snowmen by the doors melt in spring, snowball fights pair the children off": 4,
+   "the watch: the guard changes at six and eighteen, and carries a torch by night": 0,
+   "a funeral carries the coffin from the home of the dead to the graveyard before gathering": 611,
+   "a wedding party walks from the couple's door to the feast, the couple at its head": 246,
+   "on a rite day the faithful walk to the temple and kneel there": 248,
+   "by night a guard on watch walks the inside of the ring wall": 116
+  }
+ },
+ "tactics.test.ts": {
+  "ms": 2597,
+  "tests": {
+   "the tactics board is cut from the land round the gate: no buildings, the town's wall across it with a gate, the field varied": 440,
+   "a blow from behind bites hardest, from beside harder, and from above more": 1,
+   "a raid on the tactics board plays out turn by turn to an end, with blows struck both ways": 454,
+   "struck down on the field, a townsperson has a count of three of their turns, then is lost; a friend can tend them": 434,
+   "the player gives the orders on their fighters' turns: a move within reach, a blow in reach, a wait": 192,
+   "a raid led by a chief breaks when the chief falls": 119,
+   "the board stays up a moment after the raid is over, with the outcome across it": 152,
+   "a spell aimed at a tile falls on everyone in its area: a 3x3 hits all three raiders standing in it": 168,
+   "a river across the field is wadeable shallows on the board, not a wall; only wide water stays deep": 304,
+   "traps are laid out on the field the raiders cross, a different spread each battle, never by the wall": 1
+  }
+ },
+ "treasury.test.ts": {
+  "ms": 755,
+  "tests": {
+   "tax at dawn takes a share of what each earned yesterday, at the rate the player set; heavy tax kept up drives people off": 272,
+   "the treasury hires guards it can pay, one for every six grown-ups, pays them at dawn, and they keep watch without a barracks": 258
+  }
+ },
+ "turning.test.ts": {
+  "ms": 1538,
+  "tests": {
+   "turning is hidden until a lich, vampire or werewolf can pass it on": 310,
+   "a lich turns one person, then the whole town; the undead never hunger, and zombies pass them by": 219,
+   "a lich can command the dead in an outbreak: most of each wave fights for the town": 232,
+   "a town of werewolves hunts on the full moon instead of mauling": 180,
+   "turning leaves a spell on each one turned, shown for a few seconds": 228
+  }
+ },
+ "turns.test.ts": {
+  "ms": 359,
+  "tests": {
+   "every class has twenty skills of its own, one of them an ultimate; ids are unique; summons exist": 7,
+   "attributes grow by class and level, and dexterity brings the turn round sooner": 11,
+   "spells cost mana and skills stamina; an ultimate waits on the limit gauge": 1,
+   "a fight is turn-based: one action a tick, a beat between turns, and it still ends": 12,
+   "the limit gauge fills from hurt and the ultimate is loosed when full, with a fanfare": 2
+  }
+ },
+ "trade.test.ts": {
+  "ms": 4195,
+  "tests": {
+   "with a market, a caravan comes, offers deals, trades, and moves on": 2719,
+   "horses carry for an expedition, speed it up, and come home": 477,
+   "a horse can be bought even when storage is overfull (it lives in the stable)": 341,
+   "the town takes a deal it wants itself, but only after the caravan's first half (the player's pick first)": 177
+  }
+ },
+ "uniques.test.ts": {
+  "ms": 1503,
+  "tests": {
+   "every unique is a named weapon of a real family, harder-hitting than a made one of its tier, from real bosses": 5,
+   "a slain boss pays its purse, and gives up each of its uniques once in the world": 265,
+   "bosses without a trophy still pay out, and the trophy still comes with the loot": 459,
+   "a town that buys its gear still hands its treasures to its fighters": 384
+  }
+ },
+ "vibration.test.ts": {
+  "ms": 76,
+  "tests": {
+   "each big moment has its own short, soft pattern": 1,
+   "the setting is on unless turned off, and buzzes keep their distance": 0,
+   "the horn as a raid comes on, the ground as a quake begins and shakes again": 1,
+   "a building that comes down buzzes; one taken down in a quiet time, or upgraded, does not": 0
+  }
+ },
+ "villages.test.ts": {
+  "ms": 2321,
+  "tests": {
+   "a big town is asked to let some go; blessed, they found a village out on the land": 457,
+   "forbidden, they stay sore, or go anyway thinking ill of the town": 514,
+   "each morning it grows and works its land; a full cart comes down the road to the town": 328,
+   "neglected and taxed hard it breaks away and raids; brought to heel it is the town's again": 228,
+   "a loyal village sends fighters to a raid on the town; a gift warms it": 193,
+   "beset: fighters sent go away and come back; left alone it loses people and loyalty": 221
+  }
+ },
+ "volume.test.ts": {
+  "ms": 80,
+  "tests": {
+   "a stored volume reads as a share of full, full when nothing sensible is stored": 3
+  }
+ },
+ "warArt.test.ts": {
+  "ms": 134,
+  "tests": {}
+ },
+ "townsfolk.test.ts": {
+  "ms": 10235,
+  "tests": {
+   "recruits: skills follow their type, passions are unique, conflicting traits never combine": 48,
+   "wanderers only come while a bed is free; accepting adds them with a bed": 1324,
+   "hungry people eat from storage": 356,
+   "people sleep at night: in their bed if they have one, else on the ground": 1005,
+   "morale drifts toward its target; below 15 people sulk instead of working": 213,
+   "job priorities: Off is never done; High is done first": 220,
+   "two haulers never over-deliver, and materials are conserved": 384,
+   "two gatherers spread over two marked tiles": 235,
+   "one person studies at a station at a time: a second researcher needs a second station, and studies a topic of their own": 333,
+   "traits: Hard Worker works faster, Lazy slower; Quick Learner and passions learn faster": 143,
+   "with a barracks, guards on Defend High walk patrols on their shift, and off shift they work": 579,
+   "the town size the player picks: nobody joins past it, and it can be lifted": 1763,
+   "visitors turned away, or kept waiting too long, walk off": 2769
+  }
+ },
+ "warpath.test.ts": {
+  "ms": 2640,
+  "tests": {
+   "the orcs are a whole people: an origin, founders, a rival warband with its own lord and sprites": 2,
+   "an orc town founds as greenskins, and its own are kept so": 409,
+   "fury rises each morning, faster in long peace, and boils over into brawls": 342,
+   "the war drums: a raid called and answered; the party goes out and comes home with plunder, captives and glory": 285,
+   "held back, the horde grumbles and its fury grows": 131,
+   "thralls work: each prisoner hauls wood and stone into the stores each morning": 221,
+   "glory brings names in blood": 133,
+   "the Waaagh! at full fury: marks on the town, the whole horde marches; the Great Waaagh wins": 171,
+   "a road raid scares the travellers off; a town run by hand never raids": 371
+  }
+ },
+ "watchAsk.test.ts": {
+  "ms": 2916,
+  "tests": {
+   "a big fight at the place the party set out for waits for the player: watch it, or let it play out": 1214,
+   "unanswered, the fight plays out; nobody is asked while the town is caught up": 1341
+  }
+ },
+ "weather.test.ts": {
+  "ms": 105,
+  "tests": {
+   "the weather is the same for the same town and time, and holds for a spell of hours": 2,
+   "the season sets the odds: snow only in winter, storms mostly in summer; every season has some variety": 12,
+   "disasters bring their own weather": 0
+  }
+ },
+ "wideWorld.test.ts": {
+  "ms": 221,
+  "tests": {
+   "the far towns show past the fog, the way their strongholds lie, more of them the bigger the town": 3,
+   "a host's torches draw in to the fog's edge as it comes, more of them for a bigger host": 0,
+   "couriers bring the news: a question, war, a host, a quest, a caravan; nothing on the first look": 1,
+   "a courier gallops in along the way, waits at the seat, and rides back out": 0,
+   "eyes in the dark: none by day, more in winter and on blighted land, and they blink": 1,
+   "wisps over the graves at night, more in a town of the dead": 0,
+   "geese fly over in spring and autumn by day, north then south, in a V": 0,
+   "tumbleweeds and dust devils on the dry lands by day, more weeds in more wind": 0,
+   "weathervanes on some pitched roofs, chimes at some homes, and a chime rings on a gust": 3,
+   "sun shafts in the golden hours of fair days, slanting with the sun; a haze at dawn": 1
+  }
+ },
+ "wildlife.test.ts": {
+  "ms": 99,
+  "tests": {
+   "the land offers its own beasts: wolves by night, camels in the desert, snow foxes in winter, wolves only on blighted land": 1
+  }
+ },
+ "winter.test.ts": {
+  "ms": 74,
+  "tests": {
+   "narrow water freezes in the cold, wide water stays open": 1,
+   "footprints: deep in snow, brief in sand, in mud only in the rain, never on roads": 0,
+   "breath shows in the cold": 0
+  }
+ },
+ "workSeen.test.ts": {
+  "ms": 1269,
+  "tests": {
+   "a felled wood leaves a stump until it grows back; broken rock leaves rubble a while": 319,
+   "the stockpile heaps grow and shrink with the store": 3,
+   "a load stored, a sale and a piece made rise between snapshots": 1,
+   "a building finished is cheered by those who built it": 1,
+   "a reaped field keeps its hay for a few days, taken in as it is sown again": 309,
+   "water is drawn at the well by day and carried home": 278,
+   "the sower, the washing and what covers the ground": 1
+  }
+ },
+ "weapons.test.ts": {
+  "ms": 3811,
+  "tests": {
+   "the town makes a weapon for whoever has a calling and nothing to fight with": 3064,
+   "the armoury: ten times the weapons, in many families, each makeable": 2,
+   "+N: rare, rarer for a novice; a basic weapon at +5 is about as good as one three tiers up": 15,
+   "weapons fight their own way: grade and + raise the damage; quirks strike true, pierce, stun and cleave": 2,
+   "armour in four weights, shields and trinkets, about a hundred pieces, each makeable": 1,
+   "every weapon has a range on the battle map: a spear or polearm reaches further than a sword, a bow far further": 1,
+   "an archer needs a bow: without one they fight up close and use no skills; casters need nothing in hand": 5
+  }
+ },
+ "worldLife.test.ts": {
+  "ms": 775,
+  "tests": {
+   "two powers at feud march on each other, and the loser bleeds": 319,
+   "a power that trades sends its caravan down the road, and a war host is seen marching on the town": 205
+  }
+ },
+ "workshops.test.ts": {
+  "ms": 5714,
+  "tests": {
+   "a people's own workshop is theirs alone, from the Medieval age": 4088,
+   "every workshop is a station with recipes of its own, hung on a topic that exists": 4,
+   "a ware is made at its workshop, and a smokehouse turns meat into more dried meat": 814
+  }
+ },
+ "soak.test.ts": {
+  "ms": 82155,
+  "tests": {
+   "a Medieval town runs for days without anything breaking (and survives a save)": 81459
+  }
+ },
+ "undead.test.ts": {
+  "ms": 123805,
+  "tests": {
+   "a lich town sows a field at most (for its tavern's guests); a settlers' town farms for its people": 121959,
+   "the lich is dead in body too: no hunger, no sleep, nobody in a lich town eats": 354,
+   "an older lich town's lich is made undying, and the raised are left neither hungry nor tired": 296,
+   "the dead don't bleed out: struck down, they fall apart and pull themselves together, needing no healer or medkit": 216
+  }
+ }
+}

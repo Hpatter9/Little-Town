@@ -1,6 +1,7 @@
 // Town Journal: the running history of the town, newest first, grouped by day. "While you were away"
 // reports stand out as cards. A filter at the top narrows it to the key events, or to the dead.
 
+import type { AncestryView } from '../../shared/sim/ancestors';
 import type { JournalEntryView } from '../../shared/sim/snapshot';
 import { platino } from '../art/icons';
 import { el } from './dom';
@@ -8,12 +9,15 @@ import { renderBestiary } from './bestiaryPanel';
 import { renderHeroes } from './heroesPanel';
 import { renderLegends } from './legendsPanel';
 import type { AnnalsView } from '../../shared/sim/snapshot';
+import type { FestivalsView } from '../../shared/sim/festivals';
+import { renderFestivals } from './festivalsPanel';
 
-type Filter = 'all' | 'key' | 'deaths' | 'heroes' | 'legends' | 'bestiary' | 'scenes';
+type Filter = 'all' | 'key' | 'deaths' | 'festivals' | 'heroes' | 'legends' | 'bestiary' | 'scenes';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['key', 'Key events'],
   ['deaths', 'Deaths'],
+  ['festivals', 'Festivals'],
   ['heroes', 'Heroes'],
   ['legends', 'Legends'],
   ['bestiary', 'Bestiary'],
@@ -24,7 +28,7 @@ let filter: Filter = 'all';
 
 const isDeath = (e: JournalEntryView) => / has died /.test(e.text);
 
-export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void): HTMLElement[] {
+export function renderJournal(entries: JournalEntryView[], met: readonly string[] = [], annals?: AnnalsView, scenes: { key: number; title: string; tick: number }[] = [], watch?: (key: number) => void, ancestry?: AncestryView | null, festivals?: FestivalsView): HTMLElement[] {
   const list = el('div');
   const row = el('div', 'row inv-tabs menu-tabs');
   const draw = () => {
@@ -39,8 +43,12 @@ export function renderJournal(entries: JournalEntryView[], met: readonly string[
       list.replaceChildren(...renderHeroes(annals ?? { fallen: [], chronicles: [], famous: [] }));
       return;
     }
+    if (filter === 'festivals') {
+      list.replaceChildren(...renderFestivals(festivals));
+      return;
+    }
     if (filter === 'legends') {
-      list.replaceChildren(...renderLegends());
+      list.replaceChildren(...renderLegends(ancestry));
       return;
     }
     // (the cutscenes seen or passed by, to watch again: sim/cutscenes.ts)
