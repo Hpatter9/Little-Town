@@ -6,7 +6,7 @@
 import { VILLAGE_KEEP } from '../data/villages';
 import { isGate, ringWallCells, riverCell, wallOnly } from './ringWall';
 import { isSeat } from '../data/seats';
-import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
+import { castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild, seaTown } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
@@ -313,10 +313,9 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
   }
   if (b.room) {
     // (no roads inside the castle: a road that ran where the room now stands is taken up; a mountain hold's room is
-    // cut out of the rock)
+    // cut out of the rock as it is built, from its doorway inward: `digRoom`)
     const f = footprint(b);
     for (let cy = f.y; cy < f.y + f.h; cy++) for (let cx = f.x; cx < f.x + f.w; cx++) unsetRoad(s.land, cx, cy);
-    if (holdOf(s) === 'mountain') carve(s, f);
   } else connectRoad(s, b);
   if (!planned) clearRuinsUnder(s, footprint(b)); // (built over a ruin: it's cleared away, sim/ruins.ts)
   return { ok: true };
@@ -544,8 +543,7 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
   const f = footprint(b);
   if (!isGate(b.def)) for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (isRoad(s.land, x, y)) setRoad(s.land, x, y, false); // (the road runs on under a gate)
   if (b.room) {
-    // (a hold's room grows into the rock, no road to it)
-    if (holdOf(s) === 'mountain') carve(s, footprint(b));
+    // (a hold's room grows into the rock as it is built, no road to it)
   } else connectRoad(s, b);
   clearRuinsUnder(s, footprint(b));
   depositNear(s, at, salvage);

@@ -23,7 +23,7 @@ import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
 import { founderRoot } from '../data/paths';
-import { CELL, FOG_BAND, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
+import { CELL, FOG_BAND, findPath, groundAt, makeLand, MOUNTAIN_FOOT, setGround, stepCost, type LandMap, type Pt } from './land';
 import { SEAT_D, seatId } from '../data/seats';
 import type { Delve } from './delves';
 import type { PackState } from './pack';
@@ -997,7 +997,7 @@ export interface GameState {
   /** The conquest: the realms sharing the world of provinces and who holds each (sim/conquest/conquest.ts). */
   conquest?: import('./conquest/conquest').ConquestState;
   /** An envoy riding in to the town's fire, waiting there for an answer, and riding out (sim/factions.ts). */
-  envoyRider?: { id: number; faction: string; name: string; look: Look; x: number; y: number; dir: 1 | -1; leaving: boolean };
+  envoyRider?: { id: number; faction: string; name: string; look: Look; x: number; y: number; dir: 1 | -1; leaving: boolean; path?: Pt[]; goal?: Pt; cell?: number };
   /** World seed (the land is made from it; changes live in `land`). */
   seed: string;
   /** Ticks simulated since the game began. */
@@ -1847,7 +1847,36 @@ export function edgeXY(s: Pick<GameState, 'land' | 'nomad'>, side: -1 | 1): Pt {
   // (where the known land ends in the fog on the camp's row: on the wide land the map's own edge is a long walk off)
   const reach = Math.min(s.land.open + FOG_BAND + 3, side < 0 ? s.land.camp.x + 1 : s.land.w - s.land.camp.x);
   const cx = campX(s) + side * reach * CELL;
-  return { x: Math.max(-CELL / 2, Math.min((s.land.w + 0.5) * CELL, cx)), y: campXY(s).y };
+  const at = { x: Math.max(-CELL / 2, Math.min((s.land.w + 0.5) * CELL, cx)), y: campXY(s).y };
+  return openEdge(s, at);
+}
+
+/** Strangers come in where they can walk: a spot that is rock or water (a mountain's spur reaching the camp's row) is
+ *  moved to the nearest open ground with a way to the camp. Remembered while the land's cells are the same. */
+const edges = new WeakMap<object, { cells: string; camp: string; spots: Map<string, Pt> }>();
+function openEdge(s: Pick<GameState, 'land' | 'nomad'>, at: Pt): Pt {
+  const m = s.land;
+  const cx = Math.floor(at.x / CELL);
+  const cy = Math.floor(at.y / CELL);
+  if (cx < 0 || cx >= m.w || groundAt(m, cx, cy) !== 'mountain') return at;
+  const camp = campCell(s);
+  const campKey = `${camp.x},${camp.y}`;
+  let memo = edges.get(m);
+  if (!memo || memo.cells !== m.cells || memo.camp !== campKey) edges.set(m, (memo = { cells: m.cells, camp: campKey, spots: new Map() }));
+  const key = `${cx},${cy}`;
+  const kept = memo.spots.get(key);
+  if (kept) return kept;
+  let found: Pt = at;
+  search: for (let r = 1; r <= 24; r++)
+    for (let y = cy - r; y <= cy + r; y++)
+      for (let x = cx - r; x <= cx + r; x++) {
+        if (Math.max(Math.abs(x - cx), Math.abs(y - cy)) !== r || x < 0 || y < 0 || x >= m.w || y >= m.h || stepCost(m, x, y) === Infinity) continue;
+        if (!findPath(m, { x, y }, camp, undefined, 6000)) continue;
+        found = { x: (x + 0.5) * CELL, y: (y + 0.5) * CELL };
+        break search;
+      }
+  memo.spots.set(key, found);
+  return found;
 }
 /** Which side of the camp a point lies. */
 export const sideOf = (s: Pick<GameState, 'land' | 'nomad'>, p: Pt): -1 | 1 => (p.x < campX(s) ? -1 : 1);

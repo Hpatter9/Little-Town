@@ -7,7 +7,7 @@
 
 import type { BuildingDef } from '../data/buildings';
 import { rulesOf } from '../data/origins';
-import { carvable, groundAt, idx, inMap, MOUNTAIN_FOOT, setGround, type LandMap, type Pt, type Rect } from './land';
+import { carvable, groundAt, idx, inMap, MOUNTAIN_FOOT, setGround, wet, type LandMap, type Pt, type Rect } from './land';
 import { footprint } from './buildings';
 import { campCell, type GameState } from './state';
 
@@ -44,6 +44,73 @@ export function coreRect(s: Pick<GameState, 'land' | 'nomad' | 'origin'>): Rect 
 /** Cut a room's ground out of the mountain (a mountain hold: its cells become hall, walked through). */
 export function carve(s: Pick<GameState, 'land'>, r: Rect): void {
   for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(s.land, x, y) && groundAt(s.land, x, y) === 'mountain') setGround(s.land, x, y, 'hall');
+}
+
+/** Open or dug ground someone can stand on beside rock they cut. */
+const standable = (m: LandMap, x: number, y: number) => inMap(m, x, y) && groundAt(m, x, y) !== 'mountain' && !wet(groundAt(m, x, y));
+const FOUR = [[0, -1], [-1, 0], [1, 0], [0, 1]] as const;
+
+/** The rock still to cut out of a mountain hold's room, in the order it is cut: from the cell beside open or dug ground
+ *  that lies nearest the camp (the doorway), inward cell by cell through the rock (nearest the doorway first). Cells the
+ *  digging can't yet reach (the room joins another still being dug) come last, nearest first. */
+export function digOrder(s: CastleState, r: Rect): Pt[] {
+  const m = s.land;
+  const layout = castleLayout(s);
+  const step = layout ? castleStep(s, layout) : () => true;
+  const rock: Pt[] = [];
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(m, x, y) && groundAt(m, x, y) === 'mountain') rock.push({ x, y });
+  if (!rock.length) return rock;
+  const key = (x: number, y: number) => y * m.w + x;
+  const left = new Set(rock.map((c) => key(c.x, c.y)));
+  const toCamp = (c: Pt) => Math.hypot(c.x - m.camp.x, c.y - m.camp.y);
+  const out: Pt[] = [];
+  const done = new Set<number>();
+  const from = (seed: Pt) => {
+    const queue = [seed];
+    done.add(key(seed.x, seed.y));
+    for (let q = 0; q < queue.length; q++) {
+      const c = queue[q];
+      out.push(c);
+      for (const [dx, dy] of FOUR) {
+        const nx = c.x + dx;
+        const ny = c.y + dy;
+        const k = key(nx, ny);
+        if (left.has(k) && !done.has(k)) {
+          done.add(k);
+          queue.push({ x: nx, y: ny });
+        }
+      }
+    }
+  };
+  // (the doorway: a cell of rock that someone can step into from open or dug ground, through the castle's walls)
+  const open = rock.filter((c) => FOUR.some(([dx, dy]) => standable(m, c.x + dx, c.y + dy) && step(c.x + dx, c.y + dy, c.x, c.y)));
+  const best = (cs: Pt[]) => cs.reduce((a, b) => (toCamp(b) < toCamp(a) - 1e-9 ? b : a));
+  if (open.length) from(best(open));
+  const rest = rock.filter((c) => !done.has(key(c.x, c.y)));
+  if (rest.length) from(best(rest));
+  for (const c of rock) if (!done.has(key(c.x, c.y))) from(c);
+  return out;
+}
+
+/** Where someone stands to cut the room's next cell of rock: open or dug ground beside it (undefined: none yet, or no
+ *  rock left). `free` rules out a spot. */
+export function digStand(s: CastleState, r: Rect, free: (x: number, y: number) => boolean = () => true): Pt | undefined {
+  const m = s.land;
+  const next = digOrder(s, r)[0];
+  if (!next) return undefined;
+  const layout = castleLayout(s);
+  const step = layout ? castleStep(s, layout) : () => true;
+  for (const [dx, dy] of FOUR) if (standable(m, next.x + dx, next.y + dy) && step(next.x + dx, next.y + dy, next.x, next.y) && free(next.x + dx, next.y + dy)) return { x: next.x + dx, y: next.y + dy };
+  return undefined;
+}
+
+/** Cut a mountain hold's room as it is built: as much of the rock as its progress is of the whole, in the order above. */
+export function digRoom(s: CastleState, b: Parameters<typeof footprint>[0], progress: number): void {
+  const r = footprint(b);
+  const order = digOrder(s, r);
+  if (!order.length) return;
+  const want = progress >= 1 ? order.length : Math.max(0, Math.ceil(progress * r.w * r.h) - (r.w * r.h - order.length));
+  for (const c of order.slice(0, want)) setGround(s.land, c.x, c.y, 'hall');
 }
 
 /** Whether every cell of a footprint is the mountain's (or already cut), where a mountain hold's rooms go. */

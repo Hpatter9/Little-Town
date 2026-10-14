@@ -20,7 +20,7 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import { buildingDoor, totalStock } from './buildings';
 import { takeFromStorage } from './expeditions';
-import { CELL, type Pt } from './land';
+import { CELL, groundAt, type Pt } from './land';
 import { onShift } from './people';
 import { raidBudget, startRaid } from './raids';
 import { strangerName } from './shop';
@@ -72,6 +72,9 @@ function nextStrike(s: GameState, rng: Rng): number {
   return s.tick + toNight * TICKS_PER_HOUR + rng.int(0, 2) * TICKS_PER_HOUR + rng.int(0, TICKS_PER_HOUR - 1);
 }
 
+/** A band's member strung out behind the first, unless that would put them on rock (then they stand with the first). */
+const strung = (s: GameState, at: Pt, x: number, y: number): Pt => (groundAt(s.land, Math.floor(x / CELL), Math.floor(y / CELL)) === 'mountain' ? { x: at.x, y: at.y } : { x, y });
+
 /** A band comes in from one side of the land. */
 export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 = rng.chance(0.5) ? -1 : 1, note?: string): Band {
   const n = rng.int(BAND_SIZE[kind][0], BAND_SIZE[kind][1]);
@@ -85,8 +88,7 @@ export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 =
       name: strangerName(s, rng),
       kind: MEMBER_KIND[kind],
       look: randomLook(rng),
-      x: edge.x - side * i * 18,
-      y: edge.y + (i % 2 ? 10 : -8),
+      ...strung(s, edge, edge.x - side * i * 18, edge.y + (i % 2 ? 10 : -8)),
       dir: side < 0 ? 1 : -1,
       phase: 'arriving',
       toX: band.at.x,
@@ -125,7 +127,7 @@ export function spawnVillageCart(s: GameState, rng: Rng, village: number, from: 
   const side: -1 | 1 = from.x < campXY(s).x ? -1 : 1;
   const band: Band = { id: s.nextId++, kind: 'village', members: [], side, at: stopAt(s, 'caravan', side), phase: 'coming', until: Math.round(stayHours * TICKS_PER_HOUR), village, home: { ...from } };
   for (let i = 0; i < n; i++) {
-    const t: Traveller = { id: s.nextId++, name: strangerName(s, rng), kind: MEMBER_KIND.village, look: randomLook(rng), x: from.x - side * i * 18, y: from.y + (i % 2 ? 10 : -8), dir: side < 0 ? 1 : -1, phase: 'arriving', toX: band.at.x, toY: band.at.y, until: 0, purse: 0, band: band.id };
+    const t: Traveller = { id: s.nextId++, name: strangerName(s, rng), kind: MEMBER_KIND.village, look: randomLook(rng), ...strung(s, from, from.x - side * i * 18, from.y + (i % 2 ? 10 : -8)), dir: side < 0 ? 1 : -1, phase: 'arriving', toX: band.at.x, toY: band.at.y, until: 0, purse: 0, band: band.id };
     (s.travellers ??= []).push(t);
     band.members.push(t.id);
   }
@@ -177,7 +179,7 @@ function moveBand(s: GameState, b: Band, rng: Rng, step: number): void {
     members.forEach((t, i) => {
       if (!walk(s, t, spotOf(b, i), step, undefined, s.tick)) all = false;
     });
-    if (b.wagon) rollWagon(b, members[0], step);
+    if (b.wagon) rollWagon(s, b, members[0], step);
     if (!all) return;
     b.phase = 'staying';
     if (b.kind === 'travellers' || b.kind === 'bandits') b.until = s.tick + Math.round(rng.range(PASS_HOURS[0], PASS_HOURS[1]) * TICKS_PER_HOUR);
@@ -211,12 +213,12 @@ function moveBand(s: GameState, b: Band, rng: Rng, step: number): void {
     return;
   }
   for (const t of members) if (walk(s, t, { x: t.toX, y: t.toY }, step, undefined, s.tick)) s.travellers = s.travellers!.filter((q) => q !== t);
-  if (b.wagon) rollWagon(b, members[0], step);
+  if (b.wagon) rollWagon(s, b, members[0], step);
   if (!membersOf(s, b).length) drop(s, b);
 }
 
 /** The wagon rolls along behind the lead merchant. */
-function rollWagon(b: Band, lead: Traveller, step: number): void {
+function rollWagon(s: GameState, b: Band, lead: Traveller, step: number): void {
   const w = b.wagon!;
   const tx = lead.x - lead.dir * WAGON_LAG;
   const ty = lead.y + 6;
@@ -226,8 +228,12 @@ function rollWagon(b: Band, lead: Traveller, step: number): void {
     w.y = ty;
     return;
   }
-  w.x += ((tx - w.x) / d) * step;
-  w.y += ((ty - w.y) / d) * step;
+  const nx = w.x + ((tx - w.x) / d) * step;
+  const ny = w.y + ((ty - w.y) / d) * step;
+  // (the wagon keeps off the rock: a corner cut across a spur waits for the lead to come round)
+  if (groundAt(s.land, Math.floor(nx / CELL), Math.floor(ny / CELL)) === 'mountain') return;
+  w.x = nx;
+  w.y = ny;
 }
 
 /** The band moves on, out of the land on a side. */

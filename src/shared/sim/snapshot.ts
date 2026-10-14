@@ -1257,7 +1257,7 @@ export function snapshot(s: GameState): Snapshot {
     trips: tripsView(s),
     companies: companiesView(s),
     muster: musterView(s, (p) => callingName(p, stageOf(p))),
-    envoyRider: s.envoyRider ? { ...s.envoyRider } : null,
+    envoyRider: s.envoyRider ? { id: s.envoyRider.id, name: s.envoyRider.name, look: s.envoyRider.look, x: s.envoyRider.x, y: s.envoyRider.y, dir: s.envoyRider.dir, leaving: s.envoyRider.leaving } : null,
     realm: realmView(s, (id) => !destinationHidden(s, id) && !!DEST_BY_ID[id] && destinationUnlocked(s, DEST_BY_ID[id])),
     places: placeViews(s),
     pack: packView(s),

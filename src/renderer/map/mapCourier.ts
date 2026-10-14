@@ -10,7 +10,7 @@ import { NAMES, randomLook, type Look } from '../../shared/data/people';
 import { isSeat } from '../../shared/data/seats';
 import { Rng } from '../../shared/rng';
 import { doorCell } from '../../shared/sim/buildings';
-import { CELL, findPath, type LandMap } from '../../shared/sim/land';
+import { CELL, findPath, stepCost, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
 import { COURIER_GAP, COURIERS_MOST, fogEdge, newsBearing, newsBetween, NEWS_WAITING, riderAt, type News, type NewsShot, type Pt } from './horizonRules';
 
@@ -94,22 +94,20 @@ export class Couriers {
   }
 
   /** The way in (world px): from the fog's edge on the news's side, along the land's cheapest way (the roads are
-   *  cheap), to the seat's door; straight in where no way is found. Null with no seat (nowhere to bring it). */
+   *  cheap), to the seat's door. Null with no seat (nowhere to bring it) or no way in. */
   private routeFor(news: News, land: LandMap, buildings: readonly Building[], bearing = newsBearing(news)): Pt[] | null {
     const seat = buildings.find((b) => isSeat(b.def) && b.status === 'done') ?? buildings.find((b) => b.def === 'campfire');
     const door = seat ? doorCell(seat) : land.camp;
     const goal = { x: Math.max(0, Math.min(land.w - 1, door.x)), y: Math.max(0, Math.min(land.h - 1, door.y)) };
-    // (a little round the fog's edge till a way in is found: water or the mountain in the way)
-    for (const turn of [0, 0.15, -0.15, 0.3, -0.3, 0.5, -0.5]) {
+    // (a little round the fog's edge till a way in is found, then further round: water or the mountain in the way. The
+    // mountain is solid, so a rider never starts on rock or crosses it: a town walled in on one side is reached from the others)
+    for (const turn of [0, 0.15, -0.15, 0.3, -0.3, 0.5, -0.5, 0.8, -0.8, 1.2, -1.2, 1.6, -1.6, 2.2, -2.2, 3]) {
       const e = fogEdge(land, bearing + turn, -1);
       const from = { x: Math.max(0, Math.min(land.w - 1, Math.floor(e.x))), y: Math.max(0, Math.min(land.h - 1, Math.floor(e.y))) };
+      if (stepCost(land, from.x, from.y) === Infinity) continue; // (rock or water: not a place to start)
       const path = findPath(land, from, goal, undefined, { maxNodes: 60000, ford: FORD });
       if (path && path.length > 2) return [from, ...path].map((c) => ({ x: (c.x + 0.5) * CELL, y: (c.y + 0.5) * CELL }));
     }
-    const e = fogEdge(land, bearing, -1);
-    return [
-      { x: e.x * CELL, y: e.y * CELL },
-      { x: (goal.x + 0.5) * CELL, y: (goal.y + 0.5) * CELL },
-    ];
+    return null;
   }
 }
