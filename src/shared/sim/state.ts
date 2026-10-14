@@ -1145,7 +1145,7 @@ export interface GameState {
   skipRaids?: boolean;
   /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */
   autoBattle?: boolean;
-  /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */
+  /** How fast the fight on screen plays: 1, 2 or 3 times (back to 1 as each fight starts: `fightSpeedTick` in battle.ts). */
   battleSpeed?: number;
   /** How fast the town runs between battles: 1, 2 or 3 times (the clock bar's button). */
   gameSpeed?: number;

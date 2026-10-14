@@ -1238,6 +1238,29 @@
       #fight-leave[hidden] {
         display: none;
       }
+      /* how fast the fight plays, under the corner button */
+      #fight-speed {
+        position: absolute;
+        top: 42px;
+        right: 6px;
+        z-index: 31;
+        width: 30px;
+        height: 24px;
+        border-radius: 5px;
+        border: 2px solid #c79a55;
+        background: var(--wood);
+        color: var(--text);
+        font-size: 12px;
+        line-height: 1;
+        padding: 0;
+        zoom: var(--ui-zoom, 1);
+      }
+      #fight-speed.active {
+        color: #ffe680;
+      }
+      #fight-speed[hidden] {
+        display: none;
+      }
       /* the party's rows: name and health, then the turn gauge with the pools beside it */
       .ff-member {
         display: block;
