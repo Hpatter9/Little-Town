@@ -7,6 +7,7 @@ import { storages, totalStock } from '../src/shared/sim/buildings';
 import { realm } from '../src/shared/sim/factions';
 import { goBust, loans, marketOf, marketsHourly, marketView, movePrices, sellPrice, sendWagons, swings, tierOf, wagonsOnTheRoad, wantsOf } from '../src/shared/sim/markets';
 import { noteFlow, priceOf } from '../src/shared/sim/prices';
+import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import type { GameState } from '../src/shared/sim/state';
 import { START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
@@ -136,4 +137,15 @@ test('a loan paid back in time keeps the house; a fortune makes it a merchant po
   assert.equal(s.coins, 450);
   assert.equal(tierOf(mk.standing).tier.name, 'Merchant Power');
   assert.ok(s.prompts.some((p) => p.title === 'A merchant power'));
+});
+
+test('a route closed by command shows closed in the very next snapshot (not after the views\' slow refresh)', () => {
+  const s = market('mk-route-fresh');
+  marketOf(s);
+  const sim = new Sim(s);
+  const to = snapshot(s).markets!.routes.find((r) => !r.closed)!.to;
+  assert.ok(to, 'a route to close');
+  sim.command({ type: 'tradeRoute', to, open: false });
+  sim.step();
+  assert.equal(snapshot(s).markets!.routes.find((r) => r.to === to)!.closed, true);
 });

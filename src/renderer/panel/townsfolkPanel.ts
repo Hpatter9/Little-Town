@@ -792,7 +792,12 @@ function priorityGrid(s: Snapshot, bridge: Bridge | undefined): HTMLElement {
     }
     t.append(tr);
   }
-  return t;
+  // (seven columns of buttons are wider than a phone: they scroll sideways under the names)
+  const wrap = el('div', 'grid-scroll');
+  wrap.append(t);
+  const box = el('div');
+  box.append(el('div', 'hint swipe-hint', 'Swipe the table sideways to see every job.'), wrap);
+  return box;
 }
 
 /** What each curse gives and takes (the turning is hidden until a lich, vampire or werewolf is in town). */

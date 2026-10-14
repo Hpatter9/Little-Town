@@ -107,7 +107,7 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isDragonDest(id)) return dragonDestination(s);
   if (isVillageDest(id)) return villageDestination(s, id);
   if (isPortalDest(id)) return portalDestination(s, id);
-  if (isHeartDest(id)) return heartDestination(s);
+  if (isHeartDest(id)) return heartDestination(s, true); // (held: a party that cleared it still has to get home)
   if (isAssaultDest(id)) return assaultDestination(s, id);
   if (isWildDest(id)) return wildDestination(id); // (a fight with a band out on the land: sim/roamers.ts)
   if (isArenaDest(id)) return arenaDestination(id); // (a bout in the arena: sim/arena.ts)

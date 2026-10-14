@@ -17,7 +17,7 @@ export function guildsSection(s: Snapshot, open: (id: number) => void): HTMLElem
     const c = el('div', `card guild${g.role === 'elite' ? ' elite' : ''}`);
     const top = el('div', 'card-top');
     top.append(el('span', 'card-name', `${g.role === 'elite' ? '⚔ ' : ''}${g.name}`), el('span', 'card-size', `${g.members.length} member${g.members.length === 1 ? '' : 's'}`));
-    const chips = el('div', 'kin-row');
+    const chips = el('div', 'kin-row guild-chips');
     for (const m of g.members) {
       const b = el('button', 'kin');
       b.append(el('span', 'kin-name', `${m.lead ? '★ ' : ''}${m.name}`), el('span', 'kin-sub', m.lead ? `leader · lv ${m.level}` : `lv ${m.level}`));
