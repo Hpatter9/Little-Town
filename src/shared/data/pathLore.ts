@@ -15,6 +15,9 @@ export const FORK: Record<string, string> = {
   minstrel: 'When {name} starts a song at the fire, the quarrelling stops and the tired sit up. People fight better when they are near them, and nobody is quite sure why. A voice like that can carry a party, or a trade can carry a town.',
 };
 
+/** How a founder's evolution is told: the line the stories expect, or a road of their own. */
+export const FOUNDER_FORK = 'The town has grown up round {name} like a village round a well. The songs they sing about the founder already say what comes next, and {name} could become exactly that. Or they could become something the songs never imagined.';
+
 const L: Record<string, string> = {
   // the bases
   fighter: 'The plainest beginning: a strong arm, a borrowed blade, and the willingness to stand where the blows fall. Every great warrior started here, and so did most of the dead ones.',

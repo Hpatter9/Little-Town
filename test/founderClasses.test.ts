@@ -38,6 +38,7 @@ test('a founder starts in their calling, stronger than its base, and the snapsho
       assert.ok(better, `${origin}: ${k} beats the base class`);
     }
     p.level = STAGE_LEVELS[2];
+    p.road = `f_${f.id}_o_o`; // (evolved twice along the line's own road: an evolution is a choice now, test/evolutions.test.ts)
     const v = snapshot(s).people.find((q) => q.id === p.id)!;
     assert.equal(v.clsName, FOUNDER_CLASS[f.id].stages[2]);
     assert.deepEqual(v.clsPast, FOUNDER_CLASS[f.id].stages.slice(0, 2));

@@ -7,7 +7,8 @@
 import type { ClassId } from './classes';
 import { cleanse, drain, grant, heal, hit, inflict, summon, useOf, type Effect, type Use } from './effects';
 import { MORE_ABILITIES } from './moreAbilities';
-import { lineage, PATHS } from './paths';
+import { lineage, PATH_BY_ID } from './paths';
+import { ORIGIN_ROADS } from './originPaths';
 import { ASCENDANCY, PATH_SKILL_ROWS } from './pathSkills';
 
 /** What a passive skill adds: shares (damage 0.1: a tenth more) or chances (counter 0.2: one blow in five). */
@@ -423,11 +424,11 @@ export const ABILITIES: readonly AbilityDef[] = LISTS.flatMap(([cls, rows]) =>
  *  shared edge. */
 const STAGE_AT = [1, 12, 30, 55, 85];
 export const PATH_ABILITIES: readonly AbilityDef[] = [
-  ...PATH_SKILL_ROWS.map(([node, id, name, what]): AbilityDef => {
-    const level = STAGE_AT[PATHS.find((n) => n.id === node)?.stage ?? 1];
+  ...[...PATH_SKILL_ROWS, ...ORIGIN_ROADS.flatMap((r) => [r.two, r.three].map((n) => [n.id, ...n.skill] as const))].map(([node, id, name, what]): AbilityDef => {
+    const level = STAGE_AT[PATH_BY_ID[node]?.stage ?? 1];
     return Array.isArray(what) ? { id, name, cls: null, path: node, level, active: { cooldown: what[0], effects: what[1] }, use: useOf(what[1]) } : { id, name, cls: null, path: node, level, passive: what, use: 'passive' as const };
   }),
-  ...PATHS.filter((n) => n.stage === 4).map((n): AbilityDef => ({ id: `ascendancy_${n.id}`, name: 'Ascendancy', cls: null, path: n.id, level: STAGE_AT[4], passive: ASCENDANCY, use: 'passive' as const })),
+  ...Object.values(PATH_BY_ID).filter((n) => n.stage === 4).map((n): AbilityDef => ({ id: `ascendancy_${n.id}`, name: 'Ascendancy', cls: null, path: n.id, level: STAGE_AT[4], passive: ASCENDANCY, use: 'passive' as const })),
 ];
 export const ALL_ABILITIES: readonly AbilityDef[] = [...ABILITIES, ...PATH_ABILITIES];
 export const ABILITY_BY_ID: Readonly<Record<string, AbilityDef>> = Object.fromEntries(ALL_ABILITIES.map((a) => [a.id, a]));

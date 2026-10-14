@@ -14,7 +14,7 @@ import { townGossip, type Gossip } from './gossip';
 import { playingKids, tagIt } from './idleScenes';
 import { ROAMER_NAME } from '../data/roamers';
 import { paveSeconds } from './streets';
-import { branchesOf, PATH_BY_ID } from '../data/paths';
+import { PATH_BY_ID, roadsFrom } from '../data/paths';
 import { CLASS_DEFS, STAGE_LEVELS } from '../data/classes';
 import { loreOf } from '../data/pathLore';
 import { ROLE_ABOUT } from '../data/classAbout';
@@ -1922,14 +1922,14 @@ export function roadOf(id: string): RoadView | null {
   if (!n) return null;
   const a = PATH_ABILITIES.find((x) => x.path === id);
   const skill = a ? { name: a.name, text: a.active ? describeAct(a.active.effects, a.active.cooldown) : describePassive(a.passive!) } : null;
-  return { id, name: n.name, role: ROLE_ABOUT[CLASS_DEFS[n.cls].role].name, text: n.text, lore: loreOf(id, n.name, n.from ? PATH_BY_ID[n.from]?.name : undefined), skill };
+  return { id, name: n.name, role: ROLE_ABOUT[CLASS_DEFS[n.cls].role].name, text: n.text, lore: n.lore ?? loreOf(id, n.name, n.from ? PATH_BY_ID[n.from]?.name : undefined), skill };
 }
 
 /** Where someone stands on their road, and what's open next (null for a founder or anyone without one). */
 function roadView(s: GameState, p: Person): PersonView['road'] {
   const node = p.road ? PATH_BY_ID[p.road] : undefined;
   if (!node) return null;
-  const next = node.stage >= 4 ? [] : branchesOf(node.id).map((n) => ({ id: n.id, name: n.name, text: n.text, lore: loreOf(n.id, n.name, node.name) }));
+  const next = node.stage >= 4 ? [] : roadsFrom(node.id, p.origin ?? s.origin ?? 'settlers').map((n) => ({ id: n.id, name: n.name, text: n.text, lore: n.lore ?? loreOf(n.id, n.name, node.name) }));
   const prompt = s.prompts.find((q) => q.kind === 'evolve' && q.who === p.id);
   return { name: node.name, text: node.text, next, at: node.stage >= 4 ? null : STAGE_LEVELS[node.stage + 1], promptId: prompt?.id ?? null };
 }

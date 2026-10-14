@@ -77,14 +77,36 @@ export function classStat(p: Leveled, k: keyof ClassStats): number {
   // (a founder's own calling: its signature stats, else its base class's, and a step above either)
   const f = p.fcls ? FOUNDER_CLASS[p.fcls] : undefined;
   const node = p.road ? PATH_BY_ID[p.road] : undefined;
-  const v = f?.stats[k] ?? node?.stats?.[k] ?? CLASS_DEFS[p.cls].stats[k];
+  // (on a founder's line, the road they took: its own stage's signature stats, or the bent of a road of their own)
+  const v = (node?.founder ? node.stats?.[k] : f?.stats[k]) ?? node?.stats?.[k] ?? CLASS_DEFS[p.cls].stats[k];
   if (v === undefined) return plain;
-  const grow = (1 + STAGE_STEP * stageOf(p)) * (f ? FOUNDER_EDGE : 1);
+  const grow = (1 + STAGE_STEP * stageOf(p)) * (f ? FOUNDER_EDGE : node?.origin ? ORIGIN_EDGE : 1);
   // (speed is better below 1: its edge is how much below)
   return plain + (v - plain) * grow;
 }
 
-/** Health: the class's, and a little more each level. */
-export const hpMult = (p: Leveled) => classStat(p, 'hp') * (1 + HP_PER_LEVEL * (levelOf(p) - 1));
-/** Strength in a fight (damage, spell power): a little more each level. */
-export const levelPower = (p: Leveled) => 1 + POWER_PER_LEVEL * (levelOf(p) - 1);
+/* ------------------------------------------------------------ evolutions (the owner's ask: each a big jump) */
+
+/** How far each stage's evolution has lifted someone, in steps (the ascension a bigger one). */
+export const EVOLVE_STEPS = [0, 1, 2, 3.2, 5] as const;
+/** What a step of evolution gives: health and power (damage, spell power, what they summon) as shares, and points
+ *  to every attribute (`EVOLVE_ATTRS`) and as many again to the two their road favours (sim/attributes.ts). */
+export const EVOLVE_HP = 0.12;
+export const EVOLVE_POWER = 0.1;
+export const EVOLVE_ATTRS = 3;
+/** A people's own road gives more (on the class's edge and on each step), a founder's line more still. */
+export const ORIGIN_EDGE = 1.2;
+export const ORIGIN_EVOLVE = 1.25;
+export const FOUNDER_EVOLVE = 1.5;
+/** Someone's evolution steps, times their edge (none without a calling). */
+export function evolveSteps(p: Leveled): number {
+  if (!p.cls) return 0;
+  const node = p.road ? PATH_BY_ID[p.road] : undefined;
+  const edge = p.fcls ? FOUNDER_EVOLVE : node?.origin ? ORIGIN_EVOLVE : 1;
+  return EVOLVE_STEPS[stageOf(p)] * edge;
+}
+
+/** Health: the class's, a little more each level, and much more with each evolution. */
+export const hpMult = (p: Leveled) => classStat(p, 'hp') * (1 + HP_PER_LEVEL * (levelOf(p) - 1)) * (1 + EVOLVE_HP * evolveSteps(p));
+/** Strength in a fight (damage, spell power): a little more each level, and much more with each evolution. */
+export const levelPower = (p: Leveled) => (1 + POWER_PER_LEVEL * (levelOf(p) - 1)) * (1 + EVOLVE_POWER * evolveSteps(p));
