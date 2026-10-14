@@ -70,6 +70,7 @@ import { nestsHourly } from './nests';
 import { calamityHourly } from './calamity';
 import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
+import { ancestorsHourly } from './ancestors';
 import { lookInside } from './interiors';
 import { lineageHourly } from './lineage';
 import type { RealmId } from '../data/portals';
@@ -245,6 +246,7 @@ export class Sim {
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
+    ancestorsHourly(s); // (a descendant's forebears: spirits, the heirloom, the Old House: sim/ancestors.ts)
     lineageHourly(s); // (children's lessons and apprenticeships: sim/lineage.ts)
     diaryTick(s); // (the day's doings counted for each townsperson's diary: sim/diary.ts)
     villagesHourly(s); // (daughter villages: sim/villages.ts)

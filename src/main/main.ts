@@ -2,17 +2,17 @@ import { app, BrowserWindow, ipcMain, Menu, nativeImage, powerMonitor, screen, s
 import path from 'node:path';
 import { PANEL_HEIGHT, PANEL_WIDTH, STRIP_HEIGHT, TICKER_HEIGHT } from '../shared/constants';
 import { IPC, PANEL_IDS, type PanelId, type StripMode, type StripState } from '../shared/ipc';
+import { Worker } from 'node:worker_threads';
 import { BUILDING_BY_ID } from '../shared/data/buildings';
 import { parseCommand } from '../shared/sim/commands';
-import type { Snapshot } from '../shared/sim/snapshot';
-import { newGame, type NewGameOptions } from '../shared/sim/state';
-import { TICKS_PER_HOUR } from '../shared/sim/time';
-import { BIOMES } from '../shared/data/biomes';
 import { cleanNewGameOptions } from '../shared/data/founding';
+import type { SnapDelta } from '../shared/snapDelta';
+import { startSimHost, type FromHost, type ToHost } from '../shared/simHost';
 import { fullscreenAppOnMonitorOf, hwndAddress } from './fullscreen';
-import { GameLoop } from '../shared/gameLoop';
-import { loadSave, savesDir, writeSave } from './saves';
-import { cancelAlerts, scheduleAlerts, testAlert } from '../shared/alerts';
+import { backupNow, loadSaveText, savesDir, writeSaveText } from './saves';
+import { keepLegendFile, legendById, readLegendsFile } from './legends';
+import { SimClient, type SimPort } from './simClient';
+import { cancelAlerts, testAlert } from '../shared/alerts';
 import { cleanAlerts, loadSettings, saveSettings, type Settings } from './settings';
 import { trayIconPng } from './trayIcon';
 
@@ -20,7 +20,10 @@ const FULLSCREEN_POLL_MS = 1000;
 const AUTOSAVE_MS = 60_000;
 const DEBUG_SPEEDS = [1, 10, 60, 600];
 
-let game: GameLoop;
+/** The game, in a thread of its own (main/simThread.ts): the main process only hands its snapshots on. */
+let game: SimClient;
+/** The debug speed the tray last set (the thread holds the real one). */
+let speed = 1;
 let strip: BrowserWindow | null = null;
 let panel: BrowserWindow | null = null;
 let panelReady = false;
@@ -61,30 +64,88 @@ function broadcast(): void {
   }
 }
 
-/** Sim snapshots go only to windows that are showing. */
-function sendSnapshot(snap: Snapshot): void {
+/** Which windows have the whole snapshot to build on (by webContents id): the rest are sent it whole first. A window
+ *  that is hidden, reloads or asks again (its own copy lost) is sent it whole when next it shows. */
+const synced = new Set<number>();
+
+/** Sim snapshots go only to windows that are showing, as what changed (the renderer puts them back together:
+ *  renderer/deltaBridge.ts); a window not yet in step gets the whole one. */
+function sendSnapshot(d: SnapDelta): void {
+  const whole = game.current;
+  if (whole) seed = whole.seed;
   for (const w of [strip, panel]) {
-    if (alive(w) && w.isVisible() && !w.webContents.isLoading()) w.webContents.send(IPC.snapshot, snap);
+    if (!alive(w)) continue;
+    const id = w.webContents.id;
+    if (!w.isVisible() || w.webContents.isLoading()) {
+      synced.delete(id);
+      continue;
+    }
+    if (synced.has(id)) w.webContents.send(IPC.snapDelta, { d });
+    else if (whole) {
+      w.webContents.send(IPC.snapDelta, { full: whole });
+      synced.add(id);
+    }
   }
 }
 
+/** Start the game thread (the built simThread.js beside main.js, unpacked from the app's archive). Should the thread
+ *  fail before it has said a word, the game runs in this process instead, as it always used to, with what was sent to
+ *  the thread sent again. */
+function spawnSim(): SimPort {
+  const handlers: ((m: FromHost) => void)[] = [];
+  const give = (m: FromHost) => handlers.forEach((f) => f(m));
+  const sent: ToHost[] = [];
+  let heard = false;
+  let local: ((m: ToHost) => void) | null = null;
+  let worker: Worker | null = null;
+  const fallBack = (err: unknown) => {
+    console.error('[sim] the game thread failed; the game runs in the main process', err);
+    worker = null;
+    local = startSimHost((m) => queueMicrotask(() => give(m)));
+    for (const m of sent.splice(0)) local(m);
+  };
+  try {
+    worker = new Worker(path.join(__dirname, 'simThread.js').replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`));
+    worker.on('message', (m: FromHost) => {
+      heard = true;
+      sent.length = 0;
+      give(m);
+    });
+    worker.on('error', (err) => (heard ? console.error('[sim] the game thread failed', err) : fallBack(err)));
+  } catch (err) {
+    fallBack(err);
+  }
+  return {
+    post: (m) => {
+      if (local) return local(m);
+      if (!heard) sent.push(m);
+      worker?.postMessage(m);
+    },
+    onMessage: (cb) => handlers.push(cb),
+    terminate: () => void worker?.terminate(),
+  };
+}
+
 /** Start over on a new world. The old town is kept as the newest backup (unless it was an ironman town, or had
- *  only just begun, like the starter town waiting behind the New town panel on a first run). */
-function newSeed(opts: NewGameOptions = {}): void {
-  const keepOld = game.state.tick >= TICKS_PER_HOUR;
-  if (keepOld) writeSave(game.state);
-  seed = randomSeed();
-  game.reset(newGame(seed, opts));
-  writeSave(game.state, keepOld);
+ *  only just begun, like the starter town waiting behind the New town panel on a first run), the old town becomes a
+ *  legend (main/legends.ts), and a descendant of a legend may found the new one. */
+async function newSeed(raw: unknown): Promise<void> {
+  const heir = legendById(app.getPath('userData'), (raw as { heir?: unknown } | null)?.heir);
+  const old = await game.saveText();
+  if (old) writeSaveText(old);
+  const town = await game.newTown(raw, heir);
+  if (!town) return;
+  if (town.legend) keepLegendFile(app.getPath('userData'), town.legend);
+  writeSaveText(town.text, town.keepOld);
+  synced.clear();
+  game.restart(spawnSim);
+  startSim(town.text);
   restartStrip();
   rebuildTray();
 }
 
-
-/** Save now (unless time away is still being simulated: that save would lose the rest of it). */
-const save = () => {
-  if (!game.catchingUp) writeSave(game.state);
-};
+/** Save now (the game thread sends the text; while time away is still being simulated it sends none). */
+const save = () => void game.saveText().then((text) => text && writeSaveText(text));
 
 /* ------------------------------------------------------------ placement */
 
@@ -251,6 +312,8 @@ function setMusic(on: boolean): void {
 }
 
 function applyVisibility(): void {
+  // (the game hears it too: a fight on screen waits while nobody can see it; the alerts are booked only on quitting)
+  if (game) game.send(isHidden() ? { t: 'hidden', on: true, book: false } : { t: 'hidden', on: false });
   if (alive(strip)) {
     if (isHidden()) strip.hide();
     else if (!strip.isVisible()) strip.showInactive();
@@ -292,14 +355,18 @@ ipcMain.on(IPC.closePanel, () => setPanel(null));
 ipcMain.handle(IPC.getState, () => state());
 ipcMain.on(IPC.command, (_e, raw: unknown) => {
   const c = parseCommand(raw);
-  if (c) game.command(c);
+  if (c) game.send({ t: 'command', c });
 });
-ipcMain.handle(IPC.getSnapshot, () => game.snapshot());
+ipcMain.handle(IPC.getSnapshot, () => game.whole());
 ipcMain.handle(IPC.getJournal, () => game.journal());
+ipcMain.handle(IPC.getLegends, () => readLegendsFile(app.getPath('userData')));
+// (a window that lost its place in the snapshots asks for the whole one again)
+ipcMain.on(IPC.snapResync, (e) => synced.delete(e.sender.id));
 ipcMain.handle(IPC.getAlerts, () => settings.alerts);
 ipcMain.handle(IPC.setAlerts, (_e, a: unknown) => {
   settings.alerts = cleanAlerts(a);
   saveSettings(settings);
+  game.send({ t: 'alerts', a: settings.alerts });
   return settings.alerts;
 });
 ipcMain.handle(IPC.testAlert, () => testAlert(settings.alerts));
@@ -308,7 +375,7 @@ ipcMain.on(IPC.newGame, (e, raw: unknown) => {
   const opts = cleanNewGameOptions(raw);
   if (!opts || !alive(panel) || e.sender !== panel.webContents || openPanel !== 'newgame') return;
   setPanel(null);
-  newSeed(opts);
+  void newSeed(raw);
 });
 ipcMain.on(IPC.startPlacement, (_e, defId: unknown) => {
   if (typeof defId !== 'string' || !BUILDING_BY_ID[defId]) return;
@@ -316,6 +383,23 @@ ipcMain.on(IPC.startPlacement, (_e, defId: unknown) => {
   if (settings.mode !== 'full') setMode('full');
   if (alive(strip)) strip.webContents.send(IPC.placement, defId);
 });
+
+/* ------------------------------------------------------------ the strip's own settings (as the phone's ☰ menu) */
+
+/** Run a line in the strip's page (its settings live there, as on the phone). */
+function stripDo(js: string): void {
+  if (alive(strip) && !strip.webContents.isLoading()) void strip.webContents.executeJavaScript(js, true).catch(() => {});
+}
+
+const VOLUME_STEPS = [0, 25, 50, 75, 100];
+const VOLUME_KEYS = { music: 'littletown.musicVolume', sfx: 'littletown.sfxVolume' } as const;
+/** The tray's music and sound volume submenus: set in the strip, and kept in its storage (renderer/volume.ts). */
+function volumeMenu(kind: 'music' | 'sfx'): MenuItemConstructorOptions[] {
+  return VOLUME_STEPS.map((v) => ({
+    label: `${v}%`,
+    click: () => stripDo(`window.__volume && (window.__volume.${kind} = ${v / 100}); try { localStorage.setItem('${VOLUME_KEYS[kind]}', '${v}') } catch {}`),
+  }));
+}
 
 /* ------------------------------------------------------------ tray (quitting and window options live here: the strip has no hotkeys) */
 
@@ -341,6 +425,10 @@ function rebuildTray(): void {
       { label: 'Hide strip', type: 'checkbox', checked: hiddenFromTray, click: (mi) => { hiddenFromTray = mi.checked; applyVisibility(); } },
       { label: 'Show on', submenu: displays },
       { label: 'Music', type: 'checkbox', checked: settings.music, click: (mi) => setMusic(mi.checked) },
+      // (the phone's ☰ menu has these; the strip keeps them in its own storage)
+      { label: 'Music volume', submenu: volumeMenu('music') },
+      { label: 'Sound effects volume', submenu: volumeMenu('sfx') },
+      { label: 'Show minimap', click: () => stripDo('window.__minimap && (window.__minimap.shown = true)') },
       { label: 'Phone alerts…', click: () => setPanel('alerts') },
       { type: 'separator' },
       {
@@ -349,15 +437,15 @@ function rebuildTray(): void {
           ...DEBUG_SPEEDS.map((s): MenuItemConstructorOptions => ({
             label: `Game speed ${s}x`,
             type: 'radio',
-            checked: game.speed === s,
-            click: () => { game.speed = s; },
+            checked: speed === s,
+            click: () => { speed = s; game.send({ t: 'speed', n: s }); },
           })),
           { type: 'separator' },
           {
             label: 'Unlock all buildings',
             type: 'checkbox',
-            checked: game.snapshot().unlockAll,
-            click: (mi) => game.command({ type: 'cheatUnlockAll', on: mi.checked }),
+            checked: !!game.current?.unlockAll,
+            click: (mi) => game.send({ t: 'command', c: { type: 'cheatUnlockAll', on: mi.checked } }),
           },
           { type: 'separator' },
           { label: 'Open saves folder', click: () => void shell.openPath(savesDir()) },
@@ -382,11 +470,8 @@ app.whenReady().then(() => {
     saveSettings(settings);
   }
   startGame();
-  game.start();
   setInterval(save, AUTOSAVE_MS);
   createStrip();
-  // a first run: make the founder and pick how to begin (a starter town waits behind)
-  if (firstRun) setPanel('newgame');
   tray = new Tray(nativeImage.createFromBuffer(trayIconPng()));
   tray.on('click', () => {
     if (hiddenFromTray) {
@@ -412,44 +497,48 @@ app.whenReady().then(() => {
 });
 
 /**
- * Load the saved town and simulate the time since it was saved, or start a new one. `--seed=` always
- * starts a new town (the old save becomes a backup), in the forest unless --biome= says otherwise. (A first
+ * Load the saved town and simulate the time since it was saved (in the game thread), or start a new one. `--seed=`
+ * always starts a new town (the old save becomes a backup), in the forest unless --biome= says otherwise. (A first
  * town is founded in the forest; the tray's New game… offers the other biomes and ironman.)
  */
-let firstRun = false;
 function startGame(): void {
   const forced = seedFromArgs();
-  const saved = forced ? null : loadSave();
-  firstRun = !saved && !forced;
-  if (saved) {
-    seed = saved.state.seed;
-    game = new GameLoop(saved.state, sendSnapshot);
-    // (caught up a slice at a time; saved once it's done)
-    game.catchUp(Date.now() - saved.savedAt, () => writeSave(game.state));
-  } else {
-    const arg = process.argv.find((a) => a.startsWith('--biome='))?.slice('--biome='.length);
-    const biome = BIOMES.find((b) => b === arg);
-    game = new GameLoop(newGame(seed, { biome }), sendSnapshot);
-  }
-  if (!game.catchingUp) writeSave(game.state, !!forced);
+  if (forced) backupNow();
+  game = new SimClient(spawnSim, {
+    snapshot: (d) => sendSnapshot(d),
+    save: (text) => {
+      if (!quitting) writeSaveText(text);
+    },
+    started: (fresh) => {
+      // a first run: make the founder and pick how to begin (a starter town waits behind)
+      if (fresh && !forced) setPanel('newgame');
+    },
+    booked: () => {},
+  });
+  startSim(forced ? null : loadSaveText(), forced ?? undefined);
 }
 
-let alertsScheduled = false;
+/** Hand the game thread its town (a save's text, or none for a new one). */
+function startSim(save: string | null, forcedSeed?: string): void {
+  const biome = process.argv.find((a) => a.startsWith('--biome='))?.slice('--biome='.length);
+  game.send({ t: 'init', save, now: Date.now(), hidden: isHidden(), alerts: settings.alerts, ...(forcedSeed ? { seed: forcedSeed, biome } : {}) });
+  if (speed !== 1) game.send({ t: 'speed', n: speed });
+}
+
+let quitReady = false;
 app.on('before-quit', (e) => {
   quitting = true;
-  if (!game) return;
-  save();
-  // phone alerts for the time away: hold the quit until they're scheduled (or give up after a while)
-  if (!settings.alerts.enabled || alertsScheduled) return;
+  if (!game || quitReady) return;
+  // the last save, and phone alerts for the time away: hold the quit until the game thread has done both (or give up
+  // after a while)
   e.preventDefault();
-  alertsScheduled = true;
-  const giveUp = new Promise<string[]>((resolve) => setTimeout(() => resolve([]), 10_000));
-  void Promise.race([scheduleAlerts(settings.alerts, game.state), giveUp])
-    .catch(() => [] as string[])
-    .then((ids) => {
-      settings.scheduledAlerts = ids;
-      saveSettings(settings);
-      app.quit();
-    });
+  quitReady = true;
+  void game.hide(settings.alerts.enabled).then(({ text, ids }) => {
+    if (text) writeSaveText(text);
+    settings.scheduledAlerts = ids;
+    saveSettings(settings);
+    game.stop();
+    app.quit();
+  });
 });
 app.on('window-all-closed', () => app.quit());

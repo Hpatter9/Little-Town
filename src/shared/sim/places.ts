@@ -18,6 +18,7 @@ import { depositNear } from './buildings';
 import { packLairCleared } from './pack';
 import { nestCleared, nestPlaceName, type NestState } from './nests';
 import { NEST_DEFS, NEST_SECONDS_PER_CELL } from '../data/nests';
+import { oldPlaceCleared, oldPlaceDestination, oldPlaceFound } from './ancestors';
 
 export interface MapPlace {
   id: number;
@@ -37,6 +38,8 @@ export interface MapPlace {
   mine?: { depth: number; ores: Material[]; cells: number[] };
   /** A monster nest (sim/nests.ts): its kind, level and when it grew. */
   nest?: NestState;
+  /** The old town's place on a descendant's land (sim/ancestors.ts): its ruins, or its founder's barrow. */
+  old?: boolean;
 }
 
 /** How deep a mine goes before it's worked out, and what each level's walls hold (richer the deeper). */
@@ -185,6 +188,10 @@ export function placesHourly(s: GameState, rng: Rng): void {
     if (p.found === null) {
       if (!isOpen(s.land, p.x, p.y)) continue;
       p.found = s.tick;
+      if (p.old) {
+        oldPlaceFound(s, p); // (the old town's place: sim/ancestors.ts)
+        continue;
+      }
       const def = PLACE_DEFS[p.kind];
       const where = directionName(p.x - camp.x, p.y - camp.y);
       if (p.kind === 'cart' && rng.chance(CART_ROBBED)) p.foes = rollFoes(s, 'cart', rng);
@@ -281,7 +288,7 @@ export function placeDestination(s: GameState, p: MapPlace): Destination {
       description: `${nd.found} Left alone it grows, blights the land round it and sends its ${nd.folk} against the town.`,
     };
   }
-  return {
+  const d: Destination = {
     id: placeDestId(p.id),
     name: `${def.name} to the ${where}`,
     type: 'clear',
@@ -295,6 +302,7 @@ export function placeDestination(s: GameState, p: MapPlace): Destination {
     scenery: def.scenery,
     description: `${def.found} On the town's own land: a short walk, and a fight at the end of it.`,
   };
+  return p.old ? oldPlaceDestination(s, p, d) : d;
 }
 
 /** The fight places waiting on the board. */
@@ -309,6 +317,7 @@ export function placeCleared(s: GameState, dest: string, loot: Partial<Record<Ma
   if (!p || p.state !== 'waiting') return;
   const def = PLACE_DEFS[p.kind];
   p.state = 'done';
+  if (p.old) return oldPlaceCleared(s, p, loot, rng); // (the old town's dead laid to rest: sim/ancestors.ts)
   if (p.nest) {
     const nd = NEST_DEFS[p.nest.kind];
     for (const [m, n] of Object.entries(nd.hoard) as [Material, number][]) addStock(loot, m, n * p.nest.level);

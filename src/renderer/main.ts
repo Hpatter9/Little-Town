@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
 import { seatArt } from './art/seatArt';
@@ -296,7 +297,8 @@ const GROUND_NAMES: Record<string, string> = { grass: 'Open ground', fertile: 'R
 
 async function start(): Promise<void> {
   TextureStyle.defaultOptions.scaleMode = 'nearest';
-  const bridge = window.bridge ?? (window.bridge = hostBridge() ?? localBridge());
+  // (the desktop's snapshots come as what changed, put back together here: renderer/deltaBridge.ts)
+  const bridge = withDeltas(window.bridge) ?? (window.bridge = hostBridge() ?? localBridge());
   // (on the phone the page around the strip has its own, bigger tab buttons)
   if (hostBridge()) document.body.classList.add('embedded');
   /** In the phone (web) version's page: tapping selects, and a card at the top of the screen shows it. */
