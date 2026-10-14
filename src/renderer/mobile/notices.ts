@@ -87,6 +87,9 @@ export function situationNotices(s: Snapshot): Notice[] {
         : { key: `raid:${s.raid.name}:a`, tone: 'red', mark: '⚔', title: `${s.raid.name} in the town!`, text: `${standing} still fighting. Tap a defender on the map to rally them.` },
     );
   }
+  // the skies (sim/skies.ts): sky pirates' ship sighted, and a hunter over the town
+  if (s.skyPirates?.phase === 'coming') out.push({ key: `skypirates:${Math.round(s.skyPirates.x)}`, tone: 'red', mark: '⚓', title: 'Sky pirates coming', text: 'A ship with black gasbags is coming out of the clouds. They will slide down their ropes into the middle of the town: the walls will not stop them.' });
+  for (const r of s.roamers) if (r.flying && !r.fighting) out.push({ key: `skyhunter:${r.id}`, tone: 'red', mark: '🦅', title: `${r.foes[0]?.name ?? 'Something'} hunting from the sky`, text: 'It flies over the walls and dives on anyone out in the open. Bows, guns and the town\'s engines can bring it down.' });
   // the trade house (sim/markets.ts): a loan coming due, a bust
   const house = s.markets?.house;
   if (house?.bustDays != null) out.push({ key: `bust:${house.busts}`, tone: 'red', mark: '⚖', title: 'The trade house is bust', text: `The moneylenders took what they were owed. No merchant will deal with us for ${house.bustDays} more day${house.bustDays === 1 ? '' : 's'}.`, action: { label: 'Market', kind: 'panel', panel: 'trade' } });

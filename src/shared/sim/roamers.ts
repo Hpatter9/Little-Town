@@ -40,6 +40,7 @@ import {
   type RoamerKind,
 } from '../data/roamers';
 import { levelOf, xpToLevel } from '../data/levels';
+import { CIRCLE_PACE, FLY_HIGH, SKY_RANGE_CELLS, SKY_SEE_CELLS, SWOOP_PACE } from '../data/skies';
 import { hashSeed, Rng } from '../rng';
 import { builtOn, depositNear, townRadius } from './buildings';
 import { battleLoot, startBattle, stepBattle } from './combat';
@@ -139,7 +140,8 @@ export function roamersTick(s: GameState): void {
   for (const r of [...s.roamers]) {
     if (r.fighting !== undefined) continue;
     if ((s.tick + r.id) % 3 !== 0) continue;
-    moveRoamer(s, r, folk);
+    if (r.flying) moveFlyer(s, r, folk);
+    else moveRoamer(s, r, folk);
   }
 }
 
@@ -194,6 +196,61 @@ function moveRoamer(s: GameState, r: Roamer, folk: Person[]): void {
   }
 }
 
+/** Under a roof: the only cover from what hunts from the sky (asleep in bed, at the tavern, sheltering, indoors at a
+ *  play or down a mine are left out of the prey already). */
+const roofed = (p: Person) => (p.task?.type === 'craft' && p.task.phase === 'work') || p.task?.type === 'research';
+
+/** A hunter from the sky (sim/skies.ts): it flies over walls, water and roofs, circles over the town, and swoops on
+ *  anyone out in the open; only a roof is cover. Fleeing (its time up, or hurt by the town's shooting), it makes off. */
+function moveFlyer(s: GameState, r: Roamer, folk: Person[]): void {
+  const fly = (pace: number, tx: number, ty: number) => {
+    const d = Math.hypot(tx - r.x, ty - r.y);
+    if (d < 1) return;
+    const k = Math.min(1, (pace * 3) / d);
+    const nx = Math.max(0, Math.min(s.land.w * CELL - 1, r.x + (tx - r.x) * k));
+    const ny = Math.max(0, Math.min(s.land.h * CELL - 1, r.y + (ty - r.y) * k));
+    if (nx !== r.x) r.dir = nx > r.x ? 1 : -1;
+    r.x = nx;
+    r.y = ny;
+  };
+  r.swoop = false;
+  if (r.until <= s.tick) return fly(SWOOP_PACE, r.homeX, r.homeY);
+  if (r.chasing !== null) {
+    const p = folk.find((q) => q.id === r.chasing);
+    if (!p || roofed(p) || Math.hypot(p.x - r.homeX, (p.y ?? 0) - r.homeY) > SKY_RANGE_CELLS * CELL) r.chasing = null;
+    else {
+      r.swoop = true;
+      if (Math.hypot(p.x - r.x, (p.y ?? 0) - r.y) <= CATCH_PX) {
+        startSkirmish(s, r, p);
+        return;
+      }
+      return fly(SWOOP_PACE, p.x, p.y ?? 0);
+    }
+  }
+  // (still coming in from afar: straight for the town at full speed)
+  if (Math.hypot(r.homeX - r.x, r.homeY - r.y) > WANDER_CELLS * 2 * CELL) return fly(SWOOP_PACE, r.homeX, r.homeY);
+  // circling: it looks down for anyone out in the open (its own odds, so it doesn't stoop on the first it sees)
+  const g = roll(s, r.id, s.tick, 3);
+  if (g.chance(0.08)) {
+    const seen = folk.filter((p) => !roofed(p) && Math.hypot(p.x - r.x, (p.y ?? 0) - r.y) <= SKY_SEE_CELLS * CELL);
+    if (seen.length) {
+      const p = g.pick(seen);
+      notify(s, `${p.name} looks up: something is diving out of the sky at them!`);
+      r.chasing = p.id;
+      return;
+    }
+  }
+  // round and round over the town
+  if (Math.hypot(r.tx - r.x, r.ty - r.y) < 6) {
+    const a = g.next() * Math.PI * 2;
+    r.tx = r.homeX + Math.cos(a) * WANDER_CELLS * CELL;
+    r.ty = r.homeY + Math.sin(a) * WANDER_CELLS * CELL * 0.6;
+  }
+  fly(CIRCLE_PACE, r.tx, r.ty);
+}
+/** How high a flyer is over the ground (px: it comes low when it swoops). */
+export const flyHeight = (r: Roamer) => (r.swoop ? 0 : FLY_HIGH);
+
 /** Hourly: the dead crumble at dawn, bands wander off, and a new one may come out. */
 export function roamersHourly(s: GameState): void {
   const hour = calendar(s.tick).hour;
@@ -207,7 +264,8 @@ export function roamersHourly(s: GameState): void {
   const grown = s.people.filter((p) => p.away === null && !isChild(p)).length;
   if (grown < ROAM_PEOPLE) return;
   const most = Math.min(ROAMERS_MOST, ROAMERS_LEAST + Math.floor(grown / ROAMERS_PER));
-  if (s.roamers.length >= most) return;
+  // (the hunters of the sky come on their own: sim/skies.ts)
+  if (s.roamers.filter((r) => !r.flying).length >= most) return;
   const g = roll(s, s.tick);
   if (!g.chance(ROAM_HOURLY)) return;
   const kinds: RoamerKind[] = ['beasts'];
@@ -242,7 +300,7 @@ export function spawnRoamer(s: GameState, kind: RoamerKind, g: Rng = roll(s, s.t
  *  name; it wanders about `home` (null when it can't stand there, or the land has its fill of bands). */
 export function spawnRoamerAt(s: GameState, group: Record<string, number>, at: { x: number; y: number }, home: { x: number; y: number }, extra: { nest?: number; name?: string }, hours: number): Roamer | null {
   if (Object.keys(group).some((id) => !ENEMIES[id])) return null;
-  if ((s.roamers ?? []).length >= ROAMERS_MOST + 2) return null;
+  if ((s.roamers ?? []).filter((r) => !r.flying).length >= ROAMERS_MOST + 2) return null;
   if (!walkable(s, at.x, at.y) || !walkable(s, home.x, home.y)) return null;
   const r: Roamer = { id: s.nextId++, kind: 'nest', group: { ...group }, x: at.x, y: at.y, homeX: home.x, homeY: home.y, tx: home.x, ty: home.y, until: s.tick + Math.round(hours * TICKS_PER_HOUR), chasing: null, dir: 1, ...extra };
   (s.roamers ??= []).push(r);
@@ -260,7 +318,7 @@ export function roamerToHunt(s: GameState, p: Person): Roamer | null {
   let best: Roamer | null = null;
   let bestD = Infinity;
   for (const r of s.roamers ?? []) {
-    if (r.fighting !== undefined || Math.hypot(r.x - c.x, r.y - c.y) > reach) continue;
+    if (r.fighting !== undefined || r.flying || Math.hypot(r.x - c.x, r.y - c.y) > reach) continue;
     const d = Math.hypot(r.x - p.x, r.y - (p.y ?? 0));
     if (d < bestD) {
       bestD = d;
@@ -273,7 +331,7 @@ export function roamerToHunt(s: GameState, p: Person): Roamer | null {
 /** A guard reaches a band they went after: the fight is on. */
 export function guardEngages(s: GameState, p: Person): boolean {
   if (p.skirmish !== undefined) return false;
-  const r = (s.roamers ?? []).find((q) => q.fighting === undefined && Math.hypot(q.x - p.x, q.y - (p.y ?? 0)) <= CATCH_PX * 1.5);
+  const r = (s.roamers ?? []).find((q) => q.fighting === undefined && !q.flying && Math.hypot(q.x - p.x, q.y - (p.y ?? 0)) <= CATCH_PX * 1.5);
   if (!r) return false;
   startSkirmish(s, r, p);
   return true;

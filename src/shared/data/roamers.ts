@@ -5,13 +5,15 @@
 
 import type { Era } from './eras';
 
-export type RoamerKind = 'beasts' | 'dead' | 'bandits' | 'nest';
+export type RoamerKind = 'beasts' | 'dead' | 'bandits' | 'nest' | 'sky';
 
 /** Who roams, by kind and age (a group of foes, as the expeditions' fights take). The beasts of a land with its own
  *  (data/places.ts `BIOME_BEASTS`) are those. */
 export const ROAMER_GROUPS: Record<RoamerKind, Partial<Record<Era, Record<string, number>[]>>> = {
   // (a nest's creatures: their group is the nest's, sim/nests.ts)
   nest: { neolithic: [{ redcap: 1 }] },
+  // (hunters from the sky: their groups are data/skies.ts `SKY_HUNTERS`, sent by sim/skies.ts)
+  sky: { neolithic: [{ bald_eagle: 1 }] },
   beasts: {
     neolithic: [{ wolf: 2 }, { boar: 1 }, { wolf: 3 }],
     medieval: [{ wolf: 3 }, { boar: 2 }, { wolf_alpha: 1, wolf: 2 }],
@@ -36,7 +38,7 @@ export const ROAMER_GROUPS: Record<RoamerKind, Partial<Record<Era, Record<string
 };
 
 /** What a band is called in the news. */
-export const ROAMER_NAME: Record<RoamerKind, string> = { beasts: 'wild beasts', dead: 'the restless dead', bandits: 'bandits', nest: 'creatures from a nest' };
+export const ROAMER_NAME: Record<RoamerKind, string> = { beasts: 'wild beasts', dead: 'the restless dead', bandits: 'bandits', nest: 'creatures from a nest', sky: 'hunters from the sky' };
 /** A band's name in the news: a nest's own folk, else its kind's. */
 export const roamerName = (r: { kind: RoamerKind; name?: string }) => r.name ?? ROAMER_NAME[r.kind];
 

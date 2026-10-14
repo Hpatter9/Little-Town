@@ -9,6 +9,7 @@ import { needsSickbed, sickbedsOf } from './sickbeds';
 import { cellsOf } from './prisoners';
 import { bloodTown } from './vampires';
 import { BOAT_TOPICS } from '../data/boats';
+import { SKY_TOPICS } from '../data/skies';
 import { COMPONENTS, FORGED_IDS } from '../data/hunts';
 import { prostheticsWanted } from './injuries';
 import { PROSTHETIC_BY_ITEM } from '../data/injuries';
@@ -279,6 +280,8 @@ function topicScore(t: Topic, n: Needs): number {
   if (t.id === 'delving') score += n.people >= 5 ? 30 : 4; // (the shaft to the Deep: ore below, and what lives with it, sim/deep.ts)
   if (t.id === 'monster_lore') score += n.people >= 5 ? 20 : 4; // (the Monster Hunters' Guild: hunts for a purse, and gear from the parts)
   if (BOAT_TOPICS.some((b) => b.id === t.id)) score += (n.people >= 4 ? 24 : 6) + (t.id === 'boatbuilding' && n.shore ? 16 : 0) + (n.foodDays < 5 && t.id === 'boatbuilding' ? 12 : 0) + (n.direction === 'trade' && (t.id === 'navigation' || t.id === 'steamships') ? 10 : 0);
+  // (airships: parties fly anywhere, faster, and reach the sky's far places: data/skies.ts)
+  if (SKY_TOPICS.some((a) => a.id === t.id)) score += (n.people >= 6 ? 20 : 4) + (n.direction === 'trade' || n.direction === 'growth' ? 8 : 0);
   // (someone has lost a limb or an eye: learn to make them good)
   if ((t.id === 'peg_and_hook' || t.id === 'prosthetics' || t.id === 'bionics') && n.limbless) score += 30;
   // (the town has been bleeding: learn to tend the hurt)
