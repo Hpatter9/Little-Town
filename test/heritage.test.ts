@@ -23,7 +23,9 @@ test('data: every origin has six heritage topics, one line from the Stone Age to
 
 test('heritage: only the town of that origin can study it', () => {
   const druid = newGame('grove', { origin: 'druid' });
-  assert.equal(canQueue(druid.research, 'seed_lore', druid.era, druid.origin).ok, true);
+  // (the grove starts with its first heritage study, Seed Lore, learned: the next is open to it)
+  assert.ok(druid.research.done.includes('seed_lore'));
+  assert.equal(canQueue(druid.research, 'wild_speech', druid.era, druid.origin).ok, true);
   assert.match(canQueue(druid.research, 'night_eyes', druid.era, druid.origin).reason ?? '', /heritage/);
   assert.equal(foreignHeritage('night_eyes', 'vampire'), false);
   assert.equal(foreignHeritage('homesteading', undefined), false, 'settlers are the default');
@@ -45,6 +47,7 @@ test('research bends the origin levers: building, crafting, fighting, harm, stra
 
 test('the remembered modifiers follow newly finished topics', () => {
   const s = newGame('memo');
+  s.research.done = s.research.done.filter((t) => t !== 'homesteading'); // (a settlers' town starts with it)
   assert.equal(researchMods(s.research).rules.build, 1);
   s.research.done.push('homesteading');
   assert.equal(researchMods(s.research).rules.build, 1.1);

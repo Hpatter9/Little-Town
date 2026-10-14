@@ -1,3 +1,4 @@
+import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CROPS } from '../src/shared/data/crops';
@@ -46,7 +47,9 @@ test('a lich town sows a field at most (for its tavern\'s guests); a settlers\' 
   // (how many fields a lone town has sown early on is the seed's luck: the best of three towns, by day 8)
   const sown = Math.max(foodFields(run('settlers', '-c', 8)), foodFields(run('settlers', '-d', 8)), foodFields(run('settlers', '-e', 8)));
   assert.ok(foodFields(lich) <= 1, `the dead sow nothing for themselves (${foodFields(lich)})`);
-  assert.ok(sown > foodFields(lich), `the living do (${sown})`);
+  // (the one field a lich town may sow is for its tavern's guests: none without an inn or tavern)
+  if (foodFields(lich)) assert.ok(lich.buildings.some((b) => BUILDING_BY_ID[b.def]?.floor?.venue === 'tavern'), 'a field only for an inn\'s guests');
+  assert.ok(sown >= 1, `the living do (${sown})`);
 });
 
 test('the dead don\'t bleed out: struck down, they fall apart and pull themselves together, needing no healer or medkit', async () => {

@@ -7,7 +7,7 @@ import { totalStock } from '../src/shared/sim/buildings';
 import { fieldSpot, fieldToWork, ripensInTime, tendFields, workField } from '../src/shared/sim/farming';
 import type { Rng } from '../src/shared/rng';
 import { type Building, type GameState, campCell } from '../src/shared/sim/state';
-import { calendar, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { calendar, DAYS_PER_SEASON, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { plainGame, row, clearAround } from './helpers';
 import { runPlanner, PLAN_TICKS } from '../src/shared/sim/planner';
 
@@ -106,7 +106,7 @@ test('an orchard is planted once: it takes a while to bear, then fruits again wi
 
 test('nobody sows in late autumn what cannot ripen before winter; hardy vegetables still go in', () => {
   const s = plainGame('autumn');
-  s.tick = tickAt('autumn', 3, 0);
+  s.tick = tickAt('autumn', DAYS_PER_SEASON, 0); // (autumn's last day)
   assert.equal(ripensInTime(s, field(s, 'garden_plot')), false);
   assert.equal(ripensInTime(s, field(s, 'vegetable_patch', 6)), true);
   s.tick = tickAt('autumn', 1, 8);
