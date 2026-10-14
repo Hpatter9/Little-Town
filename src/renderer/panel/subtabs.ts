@@ -29,16 +29,17 @@ const GROUPS: Record<string, MenuTabs> = {
     intro: 'Overview',
   },
   research: { groups: [['Studying', /^(Studying|Stations)/], ['Tech tree', /^Tech tree/]], intro: 'Studying' },
+  // the Quests tab (the panel's id is still 'expeditions'): what's out now, the quests, the places, the companies
   expeditions: {
     groups: [
-      ['Parties', /^(Parties|Boats)/],
-      ['Places', /^(The Calamity|On the town's land|The pack|Destinations)/],
-      ['Quest board', /^Quest board/],
-      ['Accepted', /^(Accepted quests|Quest log)/],
-      ['Sagas', /^(Sagas|Guild forge|Unique weapons)/],
+      ['Out now', /^(Out now|Boats|The Calamity)/],
+      ['Quests', /^(Accepted quests|Quest board|Sagas|Quest log)/],
+      ['Places', /^(Places|On the town's land|The pack|Destinations|Not yet reachable)/],
+      ['Companies', /^Companies/],
       ['Realm', /^(The realm|Assaults)/],
+      ['Treasures', /^(Guild forge|Unique weapons)/],
     ],
-    intro: 'Places',
+    intro: 'Out now',
   },
   townsfolk: { groups: [['People', /^People/], ['Jobs', /^Jobs/], ['Families', /^Families/], ['Prisoners', /^Prisoners/]] },
   // the War (the conquest): the map of provinces, the armies, the barracks and squads, the realms

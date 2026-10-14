@@ -92,7 +92,7 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
   const topic = r.queue[0] ? TOPIC_BY_ID[r.queue[0]] : undefined;
   tile('Studying', topic ? topicName(topic.id, s.research.origin) : 'Nothing', topic ? `${Math.floor((r.progress[topic.id] ?? 0) * 100)}% · ${r.queue.length} queued` : 'for now', ['research', 'Studying']);
   tile('Workshops', `${s.crafting.length}`, `of ${s.craftSlots} orders`, ['trade', 'Workshops']);
-  tile('Trips', `${s.expeditions.length}`, s.expeditions.length ? 'parties out' : 'nobody away', ['expeditions', s.expeditions.length ? 'Parties' : 'Places']);
+  tile('Quests', `${s.expeditions.length}`, s.expeditions.length ? 'parties out' : 'nobody away', ['expeditions', s.expeditions.length ? 'Out now' : 'Quests']);
   if (s.shop || s.tavern || s.stores.length) tile('Shops', `${[s.shop, s.tavern, ...s.stores].filter(Boolean).length}`, 'open for trade', ['trade', 'Shops']);
   if (s.faith.on) {
     const worst = [...s.faith.gods].sort((a, b) => a.favour - b.favour)[0];
