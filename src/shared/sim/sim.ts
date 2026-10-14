@@ -31,7 +31,7 @@ import { dragonTick } from './dragon';
 import { holdForFight, openGate } from './raidWait';
 import { maybeEvent } from './events';
 import { rally } from './rally';
-import { battleGo, placeFighter, setAutoBattle, setBattleSpeed, setGameSpeed } from './battle';
+import { battleGo, fightSpeedTick, placeFighter, setAutoBattle, setBattleSpeed, setGameSpeed } from './battle';
 import { castAt } from './powers';
 import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
@@ -171,6 +171,7 @@ export class Sim {
     }
     updateExpeditions(s, this.rng);
     roamersTick(s); // (bands roaming the land, and the fights they start: sim/roamers.ts)
+    fightSpeedTick(s); // (every fight starts at 1×: sim/battle.ts)
     envoyTick(s);
     maybeStartRaid(s, this.rng);
     lurkers(s, this.rng);

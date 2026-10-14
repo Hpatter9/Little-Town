@@ -842,6 +842,8 @@ export interface Snapshot {
   paused: boolean;
   /** How fast the town runs (1, 2 or 3 times). */
   speed: number;
+  /** How fast the fight on screen plays (1, 2 or 3 times; each starts at 1): the FF screen's speed button. */
+  fightSpeed: number;
   /** The last event answered and what came of it, for `OUTCOME_HOURS` (the feed's card). */
   eventOutcome: { title: string; choice: string | null; text: string; tick: number } | null;
   /** The last raid's recap while it's fresh (sim/raidRecap.ts), and how long ago it ended (game hours). */
@@ -1144,6 +1146,7 @@ export function snapshot(s: GameState): Snapshot {
     tick: s.tick,
     paused: s.paused,
     speed: s.gameSpeed ?? 1,
+    fightSpeed: s.battleSpeed ?? 1,
     raidRecap: s.raidRecap && s.tick - s.raidRecap.tick < RECAP_HOURS * TICKS_PER_HOUR ? { ...s.raidRecap, hoursAgo: (s.tick - s.raidRecap.tick) / TICKS_PER_HOUR } : null,
     eventOutcome: s.eventOutcome && s.tick - s.eventOutcome.tick < OUTCOME_HOURS * TICKS_PER_HOUR ? { title: s.eventOutcome.title, choice: s.eventOutcome.choice, text: s.eventOutcome.text, tick: s.eventOutcome.tick } : null,
     calendar: calendar(s.tick),

@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.70.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.71.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4179,3 +4179,26 @@ blocked by buildings, structures, trees and rocks)
   too. The minimap stands aside on a board or a watched fight (`body.board-on`). Test: `test/juice.test.ts`.
 - **Victory music:** the `victory` mood for a raid driven off as well as won, and the board's win the moment it comes;
   a second victory piece (`walls_held`).
+
+## Fixes, second batch (the owner's asks)
+
+- **Walkers keep apart:** `MapPeople.walkAside` (map/mapPeople.ts): a walker is eased aside of anyone within
+  `WALK_SPACE` (26 px), mostly across their way (`WALK_ACROSS`), at most `WALK_ASIDE_MOST` (14 px) and only a little up
+  the map; worked from where they truly are every `SPREAD_EVERY` and eased in (`ASIDE_EASE`), so nobody jigs. Drawing
+  only; nothing in a raid.
+- **Every fight starts at 1×:** `fightOn` (sim/battle.ts: a raid's battle or tactics board, or a watched party's or
+  skirmish's fight) and `fightSpeedTick` (each tick from sim.ts) put `s.battleSpeed` back to 1 as a fight comes on
+  screen; `battleSpeedNow` uses it for watched fights too. The FF screen has its own speed button under the ✕
+  (`#fight-speed`, `snapshot.fightSpeed`). `window.__skirmish(group)` starts a watched skirmish (previews). Test:
+  `test/fightSpeed.test.ts`.
+- **The fight banner at the top:** `#fight-banner` stands under the progress bars (`top: 36px`), clear of the fighters.
+- **Lights at the gates first:** `gateLightCells` (sim/lighting.ts): at each finished gate of the ring wall a light
+  just inside (the side nearest the camp) and one just outside (every gate's inside before any outside), placed first by
+  `outdoorCells` within the town's `want` (counted as lit before the rest are chosen) and marked `Torch.gate`; the lamplighter (`lightToFeed`) feeds
+  a gate's light before any other. Test in `test/lighting.test.ts`.
+- **Events that fit the town:** `src/shared/data/eventFit.ts`: events about hunger and food (`FOOD_EVENTS`), sickness
+  (`SICK_EVENTS`) and drink (`DRINK_EVENTS`) need someone living (`living`: not the raised dead, a lich or a machine,
+  as `tireless`); weddings, births and birthdays (`KIN_EVENTS`) two grown-ups of the living (`couples`). `fitEvents`
+  joins that to each listed event's `when` as EVENTS is put together (data/events.ts), so a lich or machine town never
+  meets them. A new event about any of these goes in its list. Test: `test/eventFit.test.ts` (and any event whose
+  words speak of hunger must be listed or named as someone else's hunger).

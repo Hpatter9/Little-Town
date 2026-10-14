@@ -517,6 +517,7 @@ async function start(): Promise<void> {
       bridge.command({ type: 'watch', expedition: null });
       bridge.command({ type: 'watchMine', place: null });
     },
+    speed: (n) => bridge.command({ type: 'battleSpeed', speed: n }),
   });
   const raidRecap = createRaidRecap();
   const cinema = startCinema(document.body); // (a big moment as a title card, the screen letterboxed)
@@ -1554,7 +1555,7 @@ async function start(): Promise<void> {
     const watched = next.battle ? null : next.watch;
     // (the sea's looks for a shore town's trips, and for any party out in a boat)
     fight.update(watched, next.biome, next.calendar.season, next.origin.id === 'merfolk' || (!!watched?.boat && watched.phase !== 'work'));
-    fightHud.update(watched);
+    fightHud.update(watched, next.fightSpeed);
     // (a mine gone into: the same screen, unless a fight or battle has it)
     const inMine = watched || next.battle ? null : next.mine;
     mine.update(inMine);

@@ -749,11 +749,12 @@
       }
       /* the floating window over a watched fight naming what was just done (fight/fightHud.ts fades and lifts it by
          the clock): lower in the scene, as the old games had it; gold for an ultimate */
+      /* (at the top of the scene, under the progress bars, clear of the fighters: the owner's ask) */
       #fight-banner {
         position: absolute;
         left: 50%;
-        top: 54%;
-        transform: translate(-50%, -50%);
+        top: 36px;
+        transform: translate(-50%, 0);
         z-index: 30;
         pointer-events: none;
         text-align: center;
@@ -1238,6 +1239,29 @@
         zoom: var(--ui-zoom, 1);
       }
       #fight-leave[hidden] {
+        display: none;
+      }
+      /* how fast the fight plays, under the corner button */
+      #fight-speed {
+        position: absolute;
+        top: 42px;
+        right: 6px;
+        z-index: 31;
+        width: 30px;
+        height: 24px;
+        border-radius: 5px;
+        border: 2px solid #c79a55;
+        background: var(--wood);
+        color: var(--text);
+        font-size: 12px;
+        line-height: 1;
+        padding: 0;
+        zoom: var(--ui-zoom, 1);
+      }
+      #fight-speed.active {
+        color: #ffe680;
+      }
+      #fight-speed[hidden] {
         display: none;
       }
       /* the party's rows: name and health, then the turn gauge with the pools beside it */
