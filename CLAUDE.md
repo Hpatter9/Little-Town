@@ -139,7 +139,7 @@ opens a menu. Never launch Electron; the owner runs the desktop app themselves.
 - Run `npm run typecheck` and `npm test` after changes, and add tests for new rules in `test/`.
 - After CSS changes, check the braces balance and that each `@media` block holds only what it should. A broken
   `@media` block once wrecked the phone layout.
-- **The version (the owner's ask):** the ☰ menu ends with "Version 0.63.0 · <commit> · built <day>" (`gameVersion` in
+- **The version (the owner's ask):** the ☰ menu ends with "Version 0.67.0 · <commit> · built <day>" (`gameVersion` in
   `mobile/mobile.ts`; `tools/build-web.mjs` defines `__GAME_VERSION__` from package.json, `__GAME_COMMIT__` from
   `git rev-parse --short HEAD`, `__GAME_BUILT__` the build's day). With every merge to main, bump the minor version
   in `package.json` (0.3.0, 0.4.0, ...) in the merged branch, and tell the owner the new number afterwards.
@@ -4110,7 +4110,7 @@ blocked by buildings, structures, trees and rocks)
 - **Builders need room at the site:** workers claim separate open cells beside a blueprint; the available crew size follows the footprint, with larger buildings offering more spaces (`sim/people.ts`, `sim/state.ts`).
 - Version: 0.66.0.
 
-## The wall raised as one construction (the owner's ask: "a single construction, not one section at a time")
+## The wall raised as one construction (0.67.0; the owner's ask: "a single construction, not one section at a time")
 - **Every section in work at once:** `planRing` (sim/ringWall.ts) puts every laid piece clear of trees and rocks into
   work in the same pass; only pieces whose ground is still being cleared stay `planned`. `RING_AT_ONCE`, `RING_SPARE`
   and `RING_GATHER_AHEAD` are gone. The wall still never takes the wood another site waits on: `haulOrder` (people.ts,
