@@ -105,7 +105,10 @@ import { noteFlow, priceOf } from './prices';
 /** The town's venue of a kind, once built (there's only ever one of each). */
 export const venueOf = (s: GameState, venue: Venue): Building | undefined => s.buildings.find((b) => b.status === 'done' && venueOfDef(b.def) === venue && !lineOfDef(b.def));
 /** The town's specialty shop of a line (data/stores.ts), once built. */
-export const storeOf = (s: GameState, line: ShopLine): Building | undefined => s.buildings.find((b) => b.status === 'done' && lineOfDef(b.def) === line);
+export const storeOf = (s: GameState, line: ShopLine): Building | undefined => {
+  for (const b of s.buildings) if (b.status === 'done' && lineOfDef(b.def) === line) return b;
+  return undefined;
+};
 /** Open: built, and its keeper at home and on their feet. */
 export const storeOpen = (s: GameState, line: ShopLine): Building | undefined => {
   const b = storeOf(s, line);
@@ -639,9 +642,11 @@ function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown, line?: Shop
   const open = line ? storeOpen(s, line) : venueOpen(s, kind);
   if (!open) return;
   const travellers = s.travellers!;
-  const attract = attractiveness(s, open);
   const due = line ? s.nextStoreTick?.[line] : kind === 'shop' ? s.nextTravellerTick : s.nextGuestTick;
+  // (the venue's draw is worked out only when a traveller is due: it was reckoned every tick)
+  let attract = 0;
   const schedule = () => {
+    attract = attractiveness(s, open);
     const next = s.tick + travellerGap(s, rng, attract);
     if (line) (s.nextStoreTick ??= {})[line] = next;
     else if (kind === 'shop') s.nextTravellerTick = next;

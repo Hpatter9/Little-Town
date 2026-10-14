@@ -12,7 +12,7 @@ import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
 import { RING_SHAPE_OF, type RingShape } from '../data/ringShapes';
 import { builtOn, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
 import { holdOf } from './castle';
-import { groundAt, idx, inMap, isRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
+import { groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, unsetRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
 import { campCell, type Building, type GameState } from './state';
 import { TICKS_PER_HOUR } from './time';
@@ -566,4 +566,47 @@ export function ringGate(s: GameState, side: -1 | 1): Pt | null {
   if (!ring) return null;
   const g = ring.gates.find((p) => sideOn(ring, p) === (side < 0 ? 'w' : 'e'));
   return g ?? null;
+}
+
+/** The ring's cells where only the wall may stand: every cell of its line but the gates' (the owner's ask: a road
+ *  laid over a cell whose piece was destroyed or never built kept the wall from being raised there again, so roads
+ *  cross the ring only at its gates). Kept by the ring, its line and its gates. */
+let wallCellsOf: { ring: Ring; key: string; cells: Set<number> } | null = null;
+export function ringWallCells(s: GameState): Set<number> {
+  const ring = s.ring;
+  if (!ring) return new Set();
+  const m = s.land;
+  const line = lineOf(ring);
+  const key = `${ring.gen}|${line.length}|${ring.gates.map((g) => `${g.x},${g.y}`).join(';')}|${m.w}`;
+  if (wallCellsOf && wallCellsOf.ring === ring && wallCellsOf.key === key) return wallCellsOf.cells;
+  const gates = new Set<number>();
+  for (const g of ring.gates) for (const c of gateCovers(ring, g)) gates.add(idx(m, c.x, c.y));
+  const cells = new Set<number>();
+  for (const p of line) if (inMap(m, p.x, p.y) && !gates.has(idx(m, p.x, p.y))) cells.add(idx(m, p.x, p.y));
+  wallCellsOf = { ring, key, cells };
+  return cells;
+}
+
+/** Whether a road may not run over a cell: a cell of the ring's line with no gate on it (one standing there, or the
+ *  ring's own gate cells, may be crossed). */
+export function wallOnly(s: GameState, x: number, y: number): boolean {
+  if (!s.ring || !inMap(s.land, x, y) || !ringWallCells(s).has(idx(s.land, x, y))) return false;
+  return !isGate(builtOn(s, x, y)?.def ?? '');
+}
+
+/** Roads and planned streets lying over the ring's wall cells are lifted, so the wall can be raised there (older towns
+ *  laid them over broken or missing pieces). Returns how many cells were cleared. */
+export function liftRoadsOffWall(s: GameState): number {
+  if (!s.ring) return 0;
+  const m = s.land;
+  let n = 0;
+  for (const i of ringWallCells(s)) {
+    const x = i % m.w, y = Math.floor(i / m.w);
+    const road = isRoad(m, x, y), planned = isPlannedRoad(m, x, y);
+    if ((!road && !planned) || !wallOnly(s, x, y)) continue;
+    if (road) unsetRoad(m, x, y);
+    if (planned) planRoad(m, x, y, false);
+    n++;
+  }
+  return n;
 }

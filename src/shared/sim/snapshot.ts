@@ -1033,6 +1033,9 @@ export interface Snapshot {
   /** Game hours until lift-off, once the ship is built. */
   launchHours: number | null;
   /** Time away being simulated: how far along (0..1). Set by the main process while it catches up. */
+  /** The important things since the player was last here (sim/awaySummary.ts): on the snapshot that ends a catch-up
+   *  only, for the phone's return card. */
+  away?: import('./awaySummary').AwayLine[];
   catchingUp?: number;
   biome: Biome;
   ironman: boolean;
