@@ -246,6 +246,14 @@ export class SnapAssembler {
     return this.snap;
   }
 
+  /** Start from a whole snapshot (a window that has just opened, on the desktop: main/main.ts); the deltas after it
+   *  apply as usual. */
+  seed(snap: Snapshot): Snapshot {
+    this.snap = snap;
+    this.land = (snap.land as LandMap | undefined) ?? null;
+    return snap;
+  }
+
   apply(d: SnapDelta): Snapshot {
     const next = { ...(this.snap ?? {}), ...d.set } as Record<string, unknown>;
     for (const key of d.gone) delete next[key];

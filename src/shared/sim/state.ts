@@ -1183,6 +1183,9 @@ export interface GameState {
   /** The line the founder comes of, when they're a legend's descendant (sim/legacy.ts), and the renown it brought. */
   lineage?: { of: string; founder: string; generation: number; from: string };
   inherited?: number;
+  /** A descendant's town: its forebears (the legend it was founded from), their spirits, the heirloom and the old
+   *  town come back (sim/ancestors.ts). Set at founding from the legend's data. */
+  ancestry?: import('./ancestors').Ancestry;
   marches?: import('./worldLife').March[];
   lastDisaster?: { kind: import('./disasters').DisasterKind; tick: number; burnt?: [number, number][] };
   chronicles?: Chronicle[];

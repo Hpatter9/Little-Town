@@ -1,6 +1,7 @@
 // The peoples' own ways (the origins made deeper): each origin's system, as the Town menu's "Our ways" tab shows it,
 // and the answers to their questions (prompts of kind `ways`).
 
+import { answerLegacy } from './ancestors';
 import type { Rng } from '../rng';
 import { answerBargain, courtView, type CourtView } from './bargains';
 import { groveView, type GroveView } from './grove';
@@ -39,5 +40,7 @@ export function answerWays(s: GameState, prompt: Prompt, option: number, rng: Rn
       return answerFoundry(s, prompt, option, rng);
     case 'horde':
       return answerHorde(s, prompt, option);
+    case 'legacy':
+      return answerLegacy(s, prompt, option); // (a spirit of the line: sim/ancestors.ts)
   }
 }
