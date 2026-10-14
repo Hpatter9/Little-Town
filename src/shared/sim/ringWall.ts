@@ -10,11 +10,11 @@
 // Castles and the hold have walls of their own, and a wandering tribe its wagons: no ring for them.
 import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
 import { RING_SHAPE_OF, type RingShape } from '../data/ringShapes';
-import { builtOn, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
+import { builtOn, builtOnIndex, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
 import { holdOf } from './castle';
 import { groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, unsetRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
-import { campCell, type Building, type GameState } from './state';
+import { campCell, type GameState } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 /** Cells between the outermost building and the wall; the ring grows in steps of this many cells a side. */
@@ -370,12 +370,6 @@ export function gateCells(s: GameState, line: LineCell[]): Pt[] {
   return out.map((l) => ({ x: l.x, y: l.y }));
 }
 
-/** The ring piece standing on a cell (of this ring or an older one). */
-const pieceAt = (s: GameState, p: Pt): Building | undefined => {
-  const b = builtOn(s, p.x, p.y);
-  return b && isRingPiece(b.def) ? b : undefined;
-};
-
 /** What the ring still needs: the gates first, then the walls and the grates; each with its cell to build on, or a
  *  wild cell to clear first. A wet cell gets a grate where the ring crosses a river or a stream, or runs down one
  *  (`riverCell`); the sea, a lake, the mountain and another building are left as they are (they are the wall
@@ -384,12 +378,17 @@ export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; 
   const out: { def: string; at: Pt; clear: boolean; turned?: boolean; wild?: boolean }[] = [];
   const m = s.land;
   const covered = new Set<number>();
+  // (the cells built on, indexed once: nothing is built while the pieces are reckoned, and every cell of the ring asks)
+  const on = builtOnIndex(s);
   // (whether the cells are accounted for: a piece stands or is wanted there, or something else stands in its place)
   const want = (def: string, at: Pt, cells: Pt[], turned = false): boolean => {
-    const there = cells.map((c) => pieceAt(s, c));
+    const there = cells.map((c) => {
+      const b = on(c.x, c.y);
+      return b && isRingPiece(b.def) ? b : undefined;
+    });
     if (there.some((b) => b && b.ring === ring.gen)) return true;
     if (there.some((b) => b && b.ring !== ring.gen)) return true; // (an older ring's piece stands there: it goes when this ring is up)
-    if (cells.some((c) => !inMap(m, c.x, c.y) || !!builtOn(s, c.x, c.y))) return true;
+    if (cells.some((c) => !inMap(m, c.x, c.y) || !!on(c.x, c.y))) return true;
     const wild = cells.find((c) => WILD.includes(groundAt(m, c.x, c.y)));
     // (trees or rocks on its cells: the piece is laid over them all the same, so the whole wall shows in the plan,
     // gates and all (the owner's ask), and they're cleared before it's built)

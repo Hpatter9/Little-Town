@@ -639,7 +639,17 @@ export const TOUGH_HP = 20;
 export const FRAIL_HP = 12;
 export const MIN_HP = 24;
 
-export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; fcls?: string | null; road?: string | null; ascended?: boolean; level?: number }): number {
+type HpOf = Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; fcls?: string | null; road?: string | null; ascended?: boolean; level?: number };
+/** Each one's health worked out last, with what it was worked out from (asked for everyone every tick, by healing). */
+const hpMade = new WeakMap<object, { traits: string[]; monster: unknown; cls: unknown; fcls: unknown; road: unknown; ascended: unknown; level: unknown; hp: number }>();
+export function maxHp(p: HpOf): number {
+  const was = hpMade.get(p);
+  if (was && was.monster === p.monster && was.cls === p.cls && was.fcls === p.fcls && was.road === p.road && was.ascended === p.ascended && was.level === p.level && was.traits.length === p.traits.length && was.traits.every((t, i) => t === p.traits[i])) return was.hp;
+  const hp = maxHpNow(p);
+  hpMade.set(p, { traits: [...p.traits], monster: p.monster, cls: p.cls, fcls: p.fcls, road: p.road, ascended: p.ascended, level: p.level, hp });
+  return hp;
+}
+function maxHpNow(p: HpOf): number {
   const frail = p.traits.filter((t) => t === 'frail').length * FRAIL_HP;
   const base = Math.max(MIN_HP, BASE_HP + (p.traits.includes('tough') ? TOUGH_HP : 0) + (p.monster ? MONSTER_HP : 0) - frail);
   // (a class and its stage, and every level, add to it: levels.ts)
@@ -1866,3 +1876,22 @@ export function addStock(to: Stock, m: Material, n: number): void {
 export const townFull = (s: Pick<GameState, 'popTarget' | 'people'>) => s.popTarget !== undefined && s.people.length >= s.popTarget;
 /** The sizes the player can pick for the town (the Plan tab); `undefined` is no limit. */
 export const TOWN_SIZES = [5, 10, 20, 40] as const;
+
+/** A building by its id, as `s.buildings.find` would give it, from an index of where each stands in the list (asked
+ *  for every task of everyone each tick). The index is checked on every use and made again when the list has moved
+ *  under it; an id it hasn't is looked for as before. */
+let buildingIndex: { list: Building[]; at: Map<number, number> } | null = null;
+export function buildingById(s: Pick<GameState, 'buildings'>, id: number): Building | undefined {
+  const list = s.buildings;
+  if (buildingIndex?.list === list) {
+    const i = buildingIndex.at.get(id);
+    if (i !== undefined && list[i]?.id === id) return list[i];
+  }
+  const b = list.find((q) => q.id === id);
+  if (b) {
+    const at = new Map<number, number>();
+    for (let i = list.length - 1; i >= 0; i--) at.set(list[i].id, i);
+    buildingIndex = { list, at };
+  }
+  return b;
+}

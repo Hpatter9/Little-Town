@@ -75,12 +75,13 @@ function log(s: GameState, kind: PoliticsState['log'][number]['kind'], text: str
 const FIGHTING = new Set(['tank', 'bruiser', 'striker', 'shooter']);
 
 /** The bloc someone belongs to (never the founder: they rule). */
-export function blocOf(s: GameState, p: Person): BlocId | null {
+/** `owners`: those who own a venue, when the caller has gathered them already (everyone's mood, at once). */
+export function blocOf(s: GameState, p: Person, owners?: ReadonlySet<number>): BlocId | null {
   if (p.id === s.mainId || isChild(p) || p.monster === 'undead') return null;
   if (p.guard || p.ambition === 'guard' || p.ambition === 'adventurer') return 'soldiers';
   const n = natureOf(p).id;
   if (n === 'pious' || p.ambition === 'scholar') return 'devout';
-  if (p.ambition === 'crafter' || p.ambition === 'keeper' || p.ambition === 'wealthy' || s.buildings.some((b) => b.owner === p.id && b.shop)) return 'guilds';
+  if (p.ambition === 'crafter' || p.ambition === 'keeper' || p.ambition === 'wealthy' || (owners ? owners.has(p.id) : s.buildings.some((b) => b.owner === p.id && b.shop))) return 'guilds';
   if (p.cls && FIGHTING.has(CLASS_DEFS[p.cls]?.role)) return 'soldiers';
   return 'commons';
 }
@@ -122,10 +123,10 @@ export function targetOf(s: GameState, b: BlocId): number {
 }
 
 /** A member's mood line from their bloc (townsfolk.ts `mood`). */
-export function blocMood(s: GameState, p: Person): { text: string; value: number } | null {
+export function blocMood(s: GameState, p: Person, owners?: ReadonlySet<number>): { text: string; value: number } | null {
   const pol = s.politics;
   if (!pol) return null;
-  const b = blocOf(s, p);
+  const b = blocOf(s, p, owners);
   if (!b) return null;
   const v = Math.max(MOOD_LEAST, Math.min(MOOD_MOST, Math.round((pol.sat[b] - 50) / MOOD_DIV)));
   if (!v) return null;

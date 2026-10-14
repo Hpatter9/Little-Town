@@ -366,3 +366,9 @@ The palisade's gate (`src/renderer/map/packBuildings.ts`, `gateFront`, `gateSide
 frame (`src/renderer/art/village/palisade36.png`, `37`, `44`, `45`) with its animated double doors (`gate_door.png`,
 `gate_door_side.png`), from **Craftpix.net**'s free Village Pixel Tileset for top-down defence; the steps up to it
 are the ladder of **Craftpix.net**'s free Green Zone Tileset (`gate_ladder.png`), recoloured to the palisade's wood.
+
+## War engines from the packs
+
+The cannon on the town map (`src/renderer/art/packs/dp_cannon.png`) is the cannon from Craftpix's free Pixel Dungeon
+Props and Objects pack (craftpix.net, free licence). The machines' sentry bot (`src/renderer/art/packs/rw_scarab.png`)
+is the Scarab from the Robot Warfare Asset Pack (CC0, public domain).

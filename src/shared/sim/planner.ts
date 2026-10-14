@@ -45,7 +45,7 @@ import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
 import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
-import { buildable, wet, setGround, type Rect, touchesWater, type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
+import { buildable, wet, setGround, type Rect, touchesWater, type Pt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
 import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
 import { canQueue, researchMods, queueResearch, seatStageNow, tidyPicks } from './research';
@@ -198,6 +198,25 @@ const planned = (s: GameState, id: string) => s.buildings.some((b) => chainOf(id
  *  station built or at least unlocked, and the recipe's own inputs obtainable), or (unless `buy` is off) from the
  *  travellers who stop at its shop. */
 function sourceable(s: GameState, m: Material, depth = 0, buy = true): boolean {
+  // (asked hundreds of times a planning pass, each looking down every recipe: the answers are kept while nothing they
+  // rest on changes: the land's pools, the research known, the age and the shop)
+  // (the shop is looked for again only when the one found is no longer it: within a tick nothing new is finished
+  // while the town plans, so no other can have become the shop)
+  const k = sourced;
+  const shopSame = !!k && (k.shop ? s.buildings[k.shopAt] === k.shop && k.shop.status === 'done' && venueOfDef(k.shop.def) === 'shop' && !lineOfDef(k.shop.def) : true);
+  if (!k || !shopSame || k.s !== s || k.tick !== s.tick || k.count !== s.buildings.length || k.version !== s.land.version || k.open !== s.land.open || k.done !== s.research.done.length || k.era !== s.era || k.unlockAll !== s.cheats.unlockAll) {
+    const shop = shopOf(s);
+    sourced = { s, tick: s.tick, count: s.buildings.length, version: s.land.version, open: s.land.open, done: s.research.done.length, era: s.era, shop, shopAt: shop ? s.buildings.indexOf(shop) : -1, unlockAll: s.cheats.unlockAll, known: new Map() };
+  }
+  const key = `${m}|${depth}|${buy ? 1 : 0}`;
+  const had = sourced!.known.get(key);
+  if (had !== undefined) return had;
+  const r = sourceableNow(s, m, depth, buy);
+  sourced!.known.set(key, r);
+  return r;
+}
+let sourced: { s: GameState; tick: number; count: number; version: number; open: number; done: number; era: string; shop: Building | undefined; shopAt: number; unlockAll: unknown; known: Map<string, boolean> } | null = null;
+function sourceableNow(s: GameState, m: Material, depth: number, buy: boolean): boolean {
   if (depth > 3) return false;
   if (buy && buyable(s, m)) return true;
   if (GATHERABLE.has(m) && wildHolds(s, m)) return true;
@@ -607,12 +626,12 @@ function wildCells(s: GameState): { i: number; pool: Stock; d: number }[] {
   return out;
 }
 /** Which gatherable materials the open land holds, for the tick (`sourceable`). */
-let wildHas: { list: unknown; has: Set<Material> } | null = null;
+let wildHas: { list: unknown; has: Set<string> } | null = null;
 function wildHolds(s: GameState, m: Material): boolean {
   const list = wildCells(s);
   if (wildHas?.list !== list) {
-    const has = new Set<Material>();
-    for (const { pool } of list) for (const [k, n] of Object.entries(pool)) if ((n ?? 0) > 0) has.add(k as Material);
+    const has = new Set<string>();
+    for (const { pool } of list) for (const k in pool) if ((pool[k as Material] ?? 0) > 0) has.add(k);
     wildHas = { list, has };
   }
   return wildHas.has.has(m);
@@ -620,14 +639,26 @@ function wildHolds(s: GameState, m: Material): boolean {
 function scanWild(s: GameState): { i: number; pool: Stock; d: number }[] {
   const m = s.land;
   const c = campCell(s);
+  // (the open cells in the order the wild is wanted, nearest first, worked out once for the camp and the open land:
+  // the pools then picked out in that order are just what sorting them every planning pass gave)
+  const o = nearestOrder(m, c);
   const out: { i: number; pool: Stock; d: number }[] = [];
-  for (const [k, pool] of Object.entries(m.pools)) {
-    const i = Number(k);
-    const at = cellAt(m, i);
-    if (!isOpen(m, at.x, at.y)) continue;
-    out.push({ i, pool, d: Math.hypot(at.x - c.x, at.y - c.y) });
+  for (let k = 0; k < o.cells.length; k++) {
+    const pool = m.pools[o.cells[k]];
+    if (pool !== undefined) out.push({ i: o.cells[k], pool, d: o.d[k] });
   }
-  return out.sort((a, b) => a.d - b.d || a.i - b.i);
+  return out;
+}
+let nearest: { w: number; h: number; ox: number; oy: number; open: number; cx: number; cy: number; cells: Int32Array; d: Float64Array } | null = null;
+function nearestOrder(m: GameState['land'], c: Pt): { cells: Int32Array; d: Float64Array } {
+  const n = nearest;
+  if (n && n.w === m.w && n.h === m.h && n.ox === m.camp.x && n.oy === m.camp.y && n.open === m.open && n.cx === c.x && n.cy === c.y) return n;
+  const all: { i: number; d: number }[] = [];
+  for (let y = 0; y < m.h; y++)
+    for (let x = 0; x < m.w; x++) if (isOpen(m, x, y)) all.push({ i: y * m.w + x, d: Math.hypot(x - c.x, y - c.y) });
+  all.sort((a, b) => a.d - b.d || a.i - b.i);
+  nearest = { w: m.w, h: m.h, ox: m.camp.x, oy: m.camp.y, open: m.open, cx: c.x, cy: c.y, cells: Int32Array.from(all, (e) => e.i), d: Float64Array.from(all, (e) => e.d) };
+  return nearest;
 }
 
 /** The nearest free spot for a building, out from the camp in rings, each ring's spots nearest a road first, so the
