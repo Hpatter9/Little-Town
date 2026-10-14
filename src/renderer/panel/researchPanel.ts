@@ -9,6 +9,7 @@ import { canQueue, prereqsMet } from '../../shared/sim/research';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, duration, el } from './dom';
 import { renderTree } from './techTree';
+import { forgone, studyPace, topicName } from '../../shared/data/originResearch';
 
 /** Changes whenever something this panel shows changes (progress to the whole percent). */
 export const researchKey = (s: Snapshot) => {
@@ -22,7 +23,9 @@ const BUILDINGS_BY_TOPIC = new Map<string, string[]>();
 for (const b of BUILDINGS) if (b.research) BUILDINGS_BY_TOPIC.set(b.research, [...(BUILDINGS_BY_TOPIC.get(b.research) ?? []), b.name]);
 for (const i of ITEMS) for (const r of i.research) BUILDINGS_BY_TOPIC.set(r, [...(BUILDINGS_BY_TOPIC.get(r) ?? []), i.name]);
 
-const remaining = (s: Snapshot, t: Topic) => (t.seconds * (1 - (s.research.progress[t.id] ?? 0))) / s.research.speed;
+const remaining = (s: Snapshot, t: Topic) => (t.seconds * studyPace(t.id, s.origin.id) * (1 - (s.research.progress[t.id] ?? 0))) / s.research.speed;
+/** A topic by the town's own people's name for it (data/originResearch.ts). */
+const nameOf = (s: Snapshot, id: string) => topicName(id, s.origin.id);
 
 /** The topic tapped in the tree (its card shows under it). */
 let selected: string | null = null;
@@ -46,7 +49,7 @@ export function renderResearch(s: Snapshot, bridge: Bridge | undefined, rerender
     const fill = el('div', 'bar-fill');
     fill.style.width = `${Math.floor(p * 100)}%`;
     bar.append(fill);
-    row.append(el('span', 'queue-name', `${i + 1}. ${t.name}`), bar, el('span', 'queue-time', `${Math.floor(p * 100)}% · ${duration(remaining(s, t))} left`));
+    row.append(el('span', 'queue-name', `${i + 1}. ${nameOf(s, id)}`), bar, el('span', 'queue-time', `${Math.floor(p * 100)}% · ${duration(remaining(s, t))} left`));
     const canGoNext = i > 0 && t.prereqs.every((q) => r.done.includes(q));
     if (canGoNext) row.append(button('Do next', () => send('researchNext', id), { cls: 'place small' }));
     row.append(button('Cancel', () => send('cancelResearch', id), { cls: 'place small', title: 'Progress is kept if you queue it again' }));
@@ -92,13 +95,19 @@ function card(t: Topic, s: Snapshot): HTMLElement {
   const c = el('div', done ? 'card done' : !available && queuedAt < 0 ? 'card locked' : 'card');
 
   const top = el('div', 'card-top');
-  top.append(el('span', 'card-name', t.name), el('span', 'card-size', done ? 'Researched' : `~${duration(remaining(s, t))}`));
+  top.append(el('span', 'card-name', nameOf(s, t.id)), el('span', 'card-size', done ? 'Researched' : `~${duration(remaining(s, t))}`));
   c.append(top);
+  // (a people's own name: the shared one under it, so the topic can be told from another town's; and how quickly
+  // they take to it)
+  if (nameOf(s, t.id) !== t.name) c.append(el('div', 'hint', `Known elsewhere as ${t.name}`));
+  const pace = studyPace(t.id, s.origin.id);
+  if (pace < 0.95) c.append(el('div', 'purpose', `${s.origin.name} take to this: studied ${Math.round((1 - pace) * 100)}% quicker`));
+  else if (pace > 1.05) c.append(el('div', 'lock', `Foreign to ${s.origin.name}: studied ${Math.round((pace - 1) * 100)}% slower`));
 
   const unlocks = [...(BUILDINGS_BY_TOPIC.get(t.id) ?? []), ...(t.unlocks ? [t.unlocks] : [])].join(', ');
   if (unlocks) c.append(el('div', 'purpose', `Unlocks: ${unlocks}`));
   if (t.prereqs.length || t.requiresCount) {
-    const needs = t.prereqs.map((p) => `${r.done.includes(p) ? '✓ ' : ''}${TOPIC_BY_ID[p].name}`);
+    const needs = t.prereqs.filter((p) => !forgone(p, s.origin.id)).map((p) => `${r.done.includes(p) ? '✓ ' : ''}${nameOf(s, p)}`);
     if (t.requiresCount) needs.push(`${t.requiresCount} other topics`);
     c.append(el('div', 'lock', `Needs: ${needs.join(', ')}`));
   }

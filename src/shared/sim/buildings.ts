@@ -9,7 +9,6 @@ import { isSeat } from '../data/seats';
 import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild, seaTown } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
-import { TOPIC_BY_ID } from '../data/research';
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
 import type { OriginId } from '../data/origins';
 import { MAX_POTS, POT_STORAGE } from '../data/items';
@@ -22,6 +21,7 @@ import { researchMods } from './research';
 import { clearRuinsUnder, leaveRuin } from './ruins';
 import { STATUE, type RuinKind } from '../data/memorials';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
+import { topicName } from '../data/originResearch';
 
 export const defOf = (b: { def: string }): BuildingDef => BUILDING_BY_ID[b.def];
 
@@ -390,7 +390,7 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
   const to = b && UPGRADES[b.def];
   if (!b || !to || b.status !== 'done') return { ok: false, reason: 'Nothing to upgrade to' };
   const def = BUILDING_BY_ID[to];
-  if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: def.era && !eraReached(s.era, def.era) ? `Opens in the ${ERA_NAMES[def.era]} era` : `Needs research: ${TOPIC_BY_ID[def.research!]?.name ?? def.research}`, to };
+  if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: def.era && !eraReached(s.era, def.era) ? `Opens in the ${ERA_NAMES[def.era]} era` : `Needs research: ${topicName(def.research!, s.origin)}`, to };
   if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full', to };
   if (b.fire !== undefined) return { ok: false, reason: 'It is on fire', to };
   // (absorbing a neighbour: it's pulled down to make room, so it doesn't count as in the way)

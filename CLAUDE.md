@@ -4109,3 +4109,25 @@ blocked by buildings, structures, trees and rocks)
 - **Victory music:** a successful expedition fight switches briefly to its own triumphant score before the town's regular mood resumes (`renderer/musicMood.ts`, `musicScore.ts`).
 - **Builders need room at the site:** workers claim separate open cells beside a blueprint; the available crew size follows the footprint, with larger buildings offering more spaces (`sim/people.ts`, `sim/state.ts`).
 - Version: 0.66.0.
+
+## Smooth zoom, and research shaped for each people (the owner's asks)
+- **Zoom that keeps up (the owner: "sluggish and choppy"):** `layout()` in `mobile/mobile.ts` no longer snaps the strip's
+  scale to whole screen pixels per art pixel unless the zoom is within `SNAP_NEAR` (4%) of one (halves below two): it
+  used to jump between a few steps, so most of a pinch, and most of the zoom slider, did nothing and then leapt. While
+  two fingers are down the canvas follows them once a frame (`showPinch`, on `requestAnimationFrame`), grows about the
+  point first pressed and moves with the fingers, so a pinch pans too; the strip stops drawing meanwhile and holds the
+  snapshots that arrive (`__pinching` in main.ts: the ticker stopped, `heldSnap` applied on release; the quality watcher
+  forgives the pause, `resumedAt`), and on release `__zoomAbout(mx, my, from, to, nx, ny)` puts what was under the
+  fingers where they lifted.
+- **Research for each people (the owner's ask: shared research shaped per origin):** `src/shared/data/originResearch.ts`
+  (`ORIGIN_RESEARCH`): for every people but the settlers, its own names for the shared topics (`names`, 30 to 50 each:
+  the robots' Herbalism is Lubricants, the liches' Foraging Grave Robbing, the orcs' Archery Shooty Bows) and for the
+  tree's lanes (`lanes`: the liches' Necromancy, the dwarves' The Forge...), a study pace by lane (`pace`: the liches
+  0.6 on the occult and 1.4 on farming, the dwarves 0.75 on building and the forge, the knights 0.75 on war...;
+  `studyPace`, multiplied into the topic's time in people.ts and the panel's estimates; the heritage lines and the
+  settlers as before), and topics a people never studies (`forgone`: the dead and the machines leave out Family Life,
+  Schooling and the crops' refinements, `UNDYING_FORGO`), which `prereqsMet` refuses and counts as met where another
+  topic needs them. `topicName`/`laneName` are used wherever a topic is named (the tech tree and its card, the queue,
+  "Research complete", the townsfolk's doings, the chronicle, the building and item cards; `ResearchView.origin`). A
+  topic's card says what it's known as elsewhere and whether the people take to it or find it foreign. Test:
+  `test/originResearch.test.ts`.

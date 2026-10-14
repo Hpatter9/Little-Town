@@ -32,6 +32,7 @@ import { ITEMS } from '../../shared/data/items';
 import { ERA_NAMES } from '../../shared/data/eras';
 import { depthOf } from '../../shared/sim/buildings';
 import { SKILL_NAMES } from '../../shared/data/skills';
+import { topicName } from '../../shared/data/originResearch';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
@@ -268,7 +269,7 @@ function card(def: BuildingDef, s: Snapshot): HTMLElement {
   c.append(top, cost, el('div', 'purpose', def.purpose));
   const tip = placementTip(def);
   if (tip) c.append(el('div', 'hint', tip));
-  if (!unlocked) c.append(el('div', 'lock', `Needs research: ${TOPIC_BY_ID[def.research!]?.name ?? def.research}`));
+  if (!unlocked) c.append(el('div', 'lock', `Needs research: ${topicName(def.research!, s.origin.id)}`));
   else {
     const n = s.buildings.filter((b) => b.def === def.id && b.status === 'done').length;
     c.append(el('div', 'lock', n ? `In town: ${n}` : 'None yet'));
@@ -291,7 +292,7 @@ function buildingDetails(def: BuildingDef, s: Snapshot): More[] {
     facts([
       ['Size', `${def.width} × ${depthOf(def)} cells`],
       ['Age', ERA_NAMES[eraOfResearch(def.research)]],
-      ['Research', def.research ? (TOPIC_BY_ID[def.research]?.name ?? def.research) : 'none'],
+      ['Research', def.research ? (topicName(def.research, s.origin.id)) : 'none'],
       ['Beds', def.housing],
       ['Storage', def.storage],
       ['Morale', def.morale ? `+${def.morale[0]} (${def.morale[1]})` : null],
@@ -306,7 +307,7 @@ function buildingDetails(def: BuildingDef, s: Snapshot): More[] {
       ['Job', job ? `${job.title} (${SKILL_NAMES[job.skill]}): ${job.effect.toLowerCase()}` : null],
       ['Built by the shore', def.shore ? 'yes: it must touch water' : null],
       ['Rebuilt from', from.length ? from.join(' or ') : null],
-      ['Grows into', next ? `${next.name}${next.research ? ` (once ${TOPIC_BY_ID[next.research]?.name ?? next.research} is learned)` : ''}` : null],
+      ['Grows into', next ? `${next.name}${next.research ? ` (once ${topicName(next.research, s.origin.id)} is learned)` : ''}` : null],
       ['In town', standing.length ? `${standing.filter((b) => b.status === 'done').length} standing${standing.some((b) => b.status !== 'done') ? `, ${standing.filter((b) => b.status !== 'done').length} going up` : ''}` : null],
     ]),
     crop ? facts([['Grows', `${MATERIAL_NAMES[crop.material]}, about ${crop.yield} a harvest`], ['Ripens in', `${crop.growHours} hours in spring and summer${crop.hardy ? ' (and autumn)' : ''}`], ['Indoors', crop.indoor ? 'yes: no seasons, no weather' : null]]) : null,

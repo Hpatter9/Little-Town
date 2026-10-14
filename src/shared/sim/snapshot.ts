@@ -160,6 +160,7 @@ const spellName = (spell: string): string => {
   return id;
 };
 import { housingCapacity, mood, SULK_MORALE, type MoodReason } from './townsfolk';
+import { topicName } from '../data/originResearch';
 
 export interface SkillView {
   level: number;
@@ -1097,6 +1098,8 @@ export interface ResearchView {
   stations: { label: string; mult: number; who: string | null; topic: string | null }[];
   /** Research speed of the main character there (skill x station x bonuses), for time estimates. */
   speed: number;
+  /** The town's people: the topics' and lanes' names are theirs (data/originResearch.ts). */
+  origin?: OriginId;
 }
 
 export function snapshot(s: GameState): Snapshot {
@@ -1426,7 +1429,7 @@ function venueViewNow(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): 
   const elsewhere = new Set(SHOP_LINES.filter((l) => !line && s.buildings.some((q) => q.status === 'done' && lineOfDef(q.def) === l)));
   const sells = (i: ItemDef) => (line ? LINE_ITEMS[line].includes(i) : !!i.ware || (SALE_GEAR.includes(i) && ![...elsewhere].some((l) => LINE_ITEMS[l].includes(i))));
   const needs = (w: ItemDef) => {
-    const missing = w.research.filter((r) => !s.research.done.includes(r)).map((r) => TOPIC_BY_ID[r]?.name ?? r);
+    const missing = w.research.filter((r) => !s.research.done.includes(r)).map((r) => topicName(r, s.origin));
     return missing.length ? `needs ${missing.join(' and ')}` : !itemUnlocked(s, w) ? 'not yet' : !stationFor(s, w) ? `needs a ${BUILDING_BY_ID[w.station]?.name ?? w.station}` : null;
   };
   const def = BUILDING_BY_ID[b.def];
@@ -1512,7 +1515,7 @@ function venueViewNow(s: GameState, venue: 'shop' | 'tavern', line?: ShopLine): 
     nextHours: ((due) => (open && due !== undefined ? Math.max(0, (due - s.tick) / TICKS_PER_HOUR) : null))(line ? s.nextStoreTick?.[line] : venue === 'shop' ? s.nextTravellerTick : s.nextGuestTick),
     making: making ? ITEM_BY_ID[making.item].name : null,
     waiting: Object.entries(s.items).filter(([id, n]) => n > 0 && mine(id)).map(([id, n]) => (n > 1 ? `${ITEM_BY_ID[id].name} ×${n}` : ITEM_BY_ID[id].name)),
-    grows: next ? { name: next.name, research: next.research && !s.research.done.includes(next.research) ? (TOPIC_BY_ID[next.research]?.name ?? next.research) : null } : null,
+    grows: next ? { name: next.name, research: next.research && !s.research.done.includes(next.research) ? topicName(next.research, s.origin) : null } : null,
   };
 }
 
@@ -1958,7 +1961,7 @@ function personDetail(s: GameState, p: Person): string[] {
     if (b) out.push(`The ${defOf(b).name} is ${Math.floor(b.progress * 100)}% built`);
   } else if (task?.type === 'research') {
     const t = TOPIC_BY_ID[s.research.queue[0]];
-    if (t) out.push(`${t.name}: ${Math.floor(((s.research.progress[t.id] ?? 0) as number) * 100)}% learned`);
+    if (t) out.push(`${topicName(t.id, s.origin)}: ${Math.floor(((s.research.progress[t.id] ?? 0) as number) * 100)}% learned`);
   } else if (task?.type === 'craft' || (p.priorities.craft && p.priorities.craft <= 2)) {
     out.push(`Crafting ${p.skills.crafting.level}: their pieces usually come out ${qualityOf(Math.round(typicalQuality(p.skills.crafting.level))).name}`);
   } else if (task?.type === 'gather' && !task.scrounge && s.plan?.gathering.length) {
@@ -2092,10 +2095,11 @@ function researchView(s: GameState): ResearchView {
     stationMult: station.mult,
     stations: researchStations(s).map((st) => {
       const who = s.people.find((q) => q.away === null && q.task?.type === 'research' && q.task.station === st.buildingId);
-      const topic = who?.task?.type === 'research' && who.task.topic ? (TOPIC_BY_ID[who.task.topic]?.name ?? null) : null;
+      const topic = who?.task?.type === 'research' && who.task.topic ? topicName(who.task.topic, s.origin) : null;
       return { label: st.label, mult: st.mult, who: who?.name ?? null, topic };
     }),
     speed: ((main ? skillSpeed(main.skills.research.level) : 1) * station.mult * mods.researchSpeed) / (RESEARCH_MULTIPLIER[s.era] * RESEARCH_PACE[s.era]),
+    origin: s.origin,
   };
 }
 
@@ -2154,7 +2158,7 @@ function describe(s: GameState, p: Person): string {
       const t = TOPIC_BY_ID[task.topic ?? s.research.queue[0]];
       const at = task.station != null ? s.buildings.find((b) => b.id === task.station) : undefined;
       const where = at ? ` at ${RESEARCH_STATIONS[at.def]?.label ?? defOf(at).name}` : '';
-      return t ? `Researching ${t.name}${where}` : 'Researching';
+      return t ? `Researching ${topicName(t.id, s.origin)}${where}` : 'Researching';
     }
     case 'eat':
       return 'Eating';
