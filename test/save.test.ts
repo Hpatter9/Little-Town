@@ -80,11 +80,11 @@ test('offline: short gaps catch up; paused games stay put; long ones are capped'
 
   const capped = new Sim(plainGame('cap'));
   capped.state.people[0].needs = { food: 1, rest: 1 };
-  // a night away is one day in the town, not weeks
+  // a night away is two days in the town at most, not weeks
   const r = catchUp(capped, 9 * HOUR_MS);
   assert.ok(r.ticks <= MAX_OFFLINE_MS / TICK_MS);
-  assert.ok(r.ticks / TICKS_PER_DAY <= 1, `${r.ticks / TICKS_PER_DAY} game days`);
-  assert.ok(capped.state.journal.at(-1)!.lines!.some((l) => l.includes('at most 1 game day passes')));
+  assert.ok(r.ticks / TICKS_PER_DAY <= 2, `${r.ticks / TICKS_PER_DAY} game days`);
+  assert.ok(capped.state.journal.every((e) => !e.text.startsWith('While you were away')), 'no away report any more');
 });
 
 test('offline: a busy town simulates a real hour quickly', () => {

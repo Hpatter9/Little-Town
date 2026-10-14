@@ -174,9 +174,10 @@ test('the day is counted a quarter-hour at a time, with who was beside them at t
 
 /** A tick when it's raining (or not) at an hour, by the seed's weather. */
 function weatherTick(s: GameState, wet: boolean, hour: number): number {
-  for (let t = hour * TICKS_PER_HOUR; t < 6000 * TICKS_PER_HOUR; t += 24 * TICKS_PER_HOUR) {
+  // (the clock starts at START_HOUR, 6: the tick of that hour on each day, and the weather then)
+  for (let t = (((hour - 6) % 24) + 24) % 24 * TICKS_PER_HOUR; t < 6000 * TICKS_PER_HOUR; t += 24 * TICKS_PER_HOUR) {
     const k = weatherAt(s.seed, t, null).kind;
-    if ((k === 'rain' || k === 'storm') === wet && (wet || k === 'clear' || k === 'cloudy')) return t - 6 * TICKS_PER_HOUR; // (START_HOUR)
+    if ((k === 'rain' || k === 'storm') === wet && (wet || k === 'clear' || k === 'cloudy')) return t;
   }
   throw new Error('no such day');
 }

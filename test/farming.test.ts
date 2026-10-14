@@ -4,7 +4,7 @@ import { CROPS } from '../src/shared/data/crops';
 import { totalStock } from '../src/shared/sim/buildings';
 import { Sim } from '../src/shared/sim/sim';
 import { type Building, type GameState, campCell } from '../src/shared/sim/state';
-import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
+import { DAYS_PER_SEASON, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { plainGame, priorities, row } from './helpers';
 
 const runUntil = (sim: Sim, done: () => boolean, maxTicks: number) => {
@@ -48,7 +48,7 @@ test('a garden plot is sown, grows by itself, and is harvested into storage (and
 test('nothing grows in winter, and fields are not sown then', () => {
   const sim = farmer('winter');
   const s = sim.state;
-  s.tick = 9 * TICKS_PER_DAY; // days 10-12 are winter
+  s.tick = 3 * DAYS_PER_SEASON * TICKS_PER_DAY; // (the first day of winter)
   const plot = field(s, 'herb_garden');
   plot.crop = { stage: 'growing', growth: 0.5, work: 0 };
   const fallow = field(s, 'garden_plot');

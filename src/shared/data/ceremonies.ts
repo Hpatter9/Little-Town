@@ -1,3 +1,4 @@
+import { DAYS_PER_SEASON } from '../sim/time';
 // Life's ceremonies (PLAN.md step 7): funerals, a great funeral after a day of many deaths, wedding feasts, and the
 // town's feasts (midsummer, a victory). Each is a gathering: those it's for stop work and stand together a while at
 // the graveyard, the tavern or the fire, and come away a little better for it.
@@ -21,8 +22,8 @@ export const FEAST_MARK: [number, number] = [6, 24];
 export const FEAST_FOOD = 0.5;
 export const FEAST_FOOD_DAYS = 3;
 export const FEAST_COIN = 2;
-/** A feast at midsummer (the second day of summer), and after a raid driven off. Never two within FEAST_GAP_HOURS. */
-export const MIDSUMMER_DAY = 2;
+/** A feast at midsummer (the middle day of summer), and after a raid driven off. Never two within FEAST_GAP_HOURS. */
+export const MIDSUMMER_DAY = Math.ceil(DAYS_PER_SEASON / 2);
 export const FEAST_GAP_HOURS = 36;
 /** Processions (the owner's ask): a funeral carries the coffin from where the dead lived to the graveyard, a wedding
  *  party walks from the couple's door to the feast, the faithful walk from the fire to the temple on a rite day. The
