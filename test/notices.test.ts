@@ -71,3 +71,18 @@ test('closing the away card reads everything from the absence, and nothing after
   readAbsence([{ key: 'tip:welcome', tone: 'gold', mark: '💡', title: 't', text: '' }], read, 44);
   assert.ok(!read.has('tip:welcome'));
 });
+
+test('the first days: tips for the food counter, sending a party and the beds come when the town needs them', async () => {
+  const { meet } = await import('../src/renderer/mobile/tips');
+  const { makePerson } = await import('../src/shared/sim/state');
+  const { Rng } = await import('../src/shared/rng');
+  const { TICKS_PER_DAY } = await import('../src/shared/sim/time');
+  const s = plainGame('tips-days');
+  assert.ok(!meet(snapshot(s), []).includes('sendparty'), 'not on the first day, nor alone');
+  const rng = new Rng(5);
+  for (let i = 0; i < 2; i++) s.people.push(makePerson(rng, s.nextId++, 'hunter', { x: s.people[0].x, y: s.people[0].y }, s.people.map((q) => q.name)));
+  s.tick = 2 * TICKS_PER_DAY;
+  const met = meet(snapshot(s), []);
+  assert.ok(met.includes('sendparty'), 'three of them by the third day: a party may go');
+  assert.ok(met.includes('food'), 'no food in store: the counter is explained');
+});

@@ -10,7 +10,7 @@ import { RISE_MEET_DAYS, RISING, RISING_IDS } from '../src/shared/data/risingPow
 import { Rng } from '../src/shared/rng';
 import { factionsDaily, raidOf, realm, rivalRaidOdds } from '../src/shared/sim/factions';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
-import { champion, risingHourly } from '../src/shared/sim/risingPowers';
+import { champion, risingEnvoyText, risingHourly } from '../src/shared/sim/risingPowers';
 import { makePerson, maxHp, type GameState } from '../src/shared/sim/state';
 import { START_HOUR, TICKS_PER_DAY, TICKS_PER_HOUR } from '../src/shared/sim/time';
 import { plainGame } from './helpers';
@@ -109,6 +109,16 @@ test('the Shogunate challenges the town\'s best to a duel; it is fought to an en
   assert.equal(d.won + d.lost, 1);
   if (d.won) assert.ok(best.titles?.includes('Duellist'));
   else assert.ok(s.people.length < people || best.hp < maxHp(best), 'the loser fell');
+});
+
+test('a lone leader is never sent to a duel by default (a loss would end the town)', () => {
+  const s = town('rise-duel-lone', 1);
+  for (const o of realm(s)) o.known = true;
+  const f = realm(s).find((x) => x.id === 'shogunate')!;
+  s.people[0].skills.melee.level = 50;
+  assert.equal(risingEnvoyText(s, f, 'duel')!.def, 1);
+  s.people.push(makePerson(new Rng(4), s.nextId++, 'hunter', { x: s.people[0].x, y: s.people[0].y }, ['x']));
+  assert.equal(risingEnvoyText(s, f, 'duel')!.def, 0, 'with an heir at home, the best answers');
 });
 
 test('the Infernal Host opens a rift at war, and things come out of it by night', () => {

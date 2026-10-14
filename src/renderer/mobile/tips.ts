@@ -5,6 +5,8 @@
 // Tips met are kept (`littletown.tipsMet`); at most `TIPS_AT_ONCE` show at a time, the earliest met first; the ☰ menu
 // turns them off (`littletown.tips`). The pure part (`TIPS`, `tipsDue`) has no DOM, so the tests read it.
 
+import { FOOD_VALUE } from '../../shared/data/people';
+import type { Material } from '../../shared/data/materials';
 import type { Snapshot } from '../../shared/sim/snapshot';
 
 export interface Tip {
@@ -20,9 +22,19 @@ export interface Tip {
 }
 
 
+/** How many days the stored food lasts everyone who eats (the strip's Food figure, renderer/hud.ts). */
+function foodDays(s: Snapshot): number {
+  const eaters = s.people.filter((p) => p.monster !== 'undead' && p.away === null).length;
+  const food = (Object.entries(FOOD_VALUE) as [Material, number][]).reduce((n, [m, v]) => n + (s.stock[m] ?? 0) * v, 0);
+  return eaters ? food / eaters : Infinity;
+}
+
 export const TIPS: readonly Tip[] = [
-  { id: 'welcome', when: () => true, title: 'Your town runs itself', text: 'Like an ant farm: the townsfolk gather, build, study and trade on their own. Watch them, tap anyone or anything on the map to see what it is, and pinch to zoom. The news gathers here in this bubble.' },
+  { id: 'welcome', when: () => true, title: 'Your town runs itself', text: 'Like an ant farm: the townsfolk gather, build, study and trade on their own. Watch them, tap anyone or anything on the map to see what it is, and pinch to zoom. The news gathers in the News bubble (tap it); Pause and 1× at the top set the speed.' },
   { id: 'direction', when: (s) => s.calendar.day >= 1 && s.calendar.hour >= 10, title: 'The one lever: the town\'s direction', text: 'Growth, Defence, Trade or Knowledge. It steers what the town builds and studies first. Everything else it decides for itself.', panel: 'build', tab: 'Overview', label: 'Direction' },
+  { id: 'sendparty', when: (s) => s.calendar.day >= 2 && s.people.length >= 3, title: 'Going further afield', text: 'Parties set out on their own, but you can raise one yourself: in Quests, open Places, tap a place and choose Send a party. Pick who goes, or let the town choose.', panel: 'expeditions', tab: 'Places', label: 'Places' },
+  { id: 'food', when: (s) => s.calendar.day >= 1 && s.people.length > 0 && foodDays(s) < 1, title: 'The food counter', text: 'The Food figure at the top is how many days the stored food lasts everyone; under a day it turns red. The town gathers, hunts and farms for itself, so there is nothing to do but watch it through.' },
+  { id: 'beds', when: (s) => s.housing.people > s.housing.beds && s.people.length >= 3, title: 'People and beds', text: 'People and Beds at the top show how crowded the town is. When there are more people than beds, the town builds homes of its own accord.' },
   { id: 'question', when: (s) => s.prompts.some((p) => p.kind === 'event'), title: 'Choices', text: 'Now and then something happens that the town can\'t decide alone. Answer it, or leave it: when the time runs out, the town takes the choice marked as its own.' },
   { id: 'visitor', when: (s) => !!s.visitor, title: 'A stranger at the gate', text: 'Newcomers only join with your leave. Take them in or send them on (on their card, or in the People menu). Left too long, the town decides by its food.', panel: 'townsfolk', tab: 'People', label: 'People' },
   { id: 'raid', when: (s) => !!s.raid, title: 'A raid!', text: 'The town fights it out on its own. You can watch, take the battle off Auto to place fighters yourself, or skip straight to the recap. Deaths are real.' },

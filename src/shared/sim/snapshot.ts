@@ -1483,17 +1483,19 @@ export function snapshot(s: GameState): Snapshot {
 let dealsCache: { state: GameState; tick: number; forSale: Stock; wants: ShopView['wants'] } | null = null;
 const DEALS_EVERY = 60;
 
+let viewEpoch = 0;
 /** Things the snapshot shows that change slowly and cost a lot (the planned parties, the next party forming): kept for
  *  `SLOW_EVERY` ticks a state and key, so the phone isn't working them out ten times a second. */
 const SLOW_EVERY = 50;
-const slowCache = new WeakMap<GameState, Map<string, { tick: number; v: unknown }>>();
+const slowCache = new WeakMap<GameState, Map<string, { tick: number; epoch: number; v: unknown }>>();
 function slow<T>(s: GameState, key: string, f: () => T): T {
   let m = slowCache.get(s);
   if (!m) slowCache.set(s, (m = new Map()));
   const c = m.get(key);
-  if (c && s.tick >= c.tick && s.tick - c.tick < SLOW_EVERY) return c.v as T;
+  // (or until a command comes in, `viewsChanged`: a button on a slow view, a route closed, a bet placed, shows at once)
+  if (c && c.epoch === viewEpoch && s.tick >= c.tick && s.tick - c.tick < SLOW_EVERY) return c.v as T;
   const v = f();
-  m.set(key, { tick: s.tick, v });
+  m.set(key, { tick: s.tick, epoch: viewEpoch, v });
   return v;
 }
 
@@ -1806,7 +1808,6 @@ function partyView(s: GameState, dest: string): { party: string[]; partyHorses: 
  *  times a second. Where they stand and what they're doing are always fresh, and so is all of it in a second snapshot
  *  of the same tick (the tests, and a menu asking for one). */
 const PERSON_SLOW_EVERY = 10;
-let viewEpoch = 0;
 /** A command came in (sim.ts): every view is worked out afresh at the next snapshot, so a button's change shows at once. */
 export function viewsChanged(): void {
   viewEpoch++;

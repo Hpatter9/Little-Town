@@ -16,7 +16,7 @@ import { hashSeed, Rng } from '../rng';
 import { buildingDoor } from './buildings';
 import { takeFromStorage } from './expeditions';
 import { defOf, envoy, factionOf, realm } from './factions';
-import { killPerson } from './health';
+import { heirOf, killPerson } from './health';
 import { minorWound } from './injuries';
 import { marketOf, seizeWagon } from './markets';
 import { raidBudget, startRaid } from './raids';
@@ -183,7 +183,8 @@ export function risingEnvoyText(s: GameState, f: Faction, about: string): { titl
       title: `A challenge from ${defOf(f).name}`,
       text: `${championName(s)}, a champion of ${nameOf(f)}, stands at the gate with two swords and a bow. They challenge the town's best to single combat${p ? `: that is ${p.name}` : ''}. Win, and ${nameOf(f)} will think the better of the town; refuse, and the whole valley hears of it. (By the look of them, ${p?.name ?? 'our best'} has ${odds >= 0.6 ? 'the better of it' : odds >= 0.4 ? 'an even chance' : 'the worse of it'}.)`,
       options: [`${p?.name ?? 'Our best'} takes up the challenge`, 'Refuse the duel'],
-      def: odds >= 0.4 ? 0 : 1,
+      // (the town does not stake its last leader on a duel by itself: lose, and the camp is finished)
+      def: odds >= 0.4 && !(p && p.id === s.mainId && !heirOf(s, p)) ? 0 : 1,
     };
   }
   if (about === 'pact') {

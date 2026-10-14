@@ -670,6 +670,22 @@
           top: calc(env(safe-area-inset-top) + var(--tabs-h) + 40px); /* (below the tabs and the clock bar) */
         }
       }
+      /* (a word under the circle, so a new player knows what the bare number is) */
+      #notice-bubble::after {
+        content: 'news';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 1px;
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #e8c88a;
+        text-shadow: 0 1px 3px #000, 0 0 3px #000;
+        pointer-events: none;
+      }
       #notice-bubble[hidden] {
         display: none;
       }
