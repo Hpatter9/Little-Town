@@ -1,5 +1,6 @@
 // What the renderers see of the sim: a read-only copy sent over IPC each tick.
 
+import { deedLines } from './deeds';
 import { DUNGEON_BY_ID } from '../data/dungeons';
 import { FEED_SECONDS } from '../data/lighting';
 import { lightsView } from './lighting';
@@ -302,8 +303,10 @@ export interface PersonView {
   natureLine: string;
   /** Their own short story (data/backstories.ts; a ready-made founder's is the one written for them). */
   story: string;
-  /** Titles won in the sagas (sim/sagas.ts), the latest last. */
+  /** Titles earned by deeds, the sagas and the rest (sim/deeds.ts, sim/annals.ts), the latest last. */
   titles: string[];
+  /** Their deeds counted toward titles, and the next title each leads to (sim/deeds.ts). */
+  deeds: { label: string; n: number; next: string | null; at: number | null }[];
   /** A special newcomer's secret, once the town knows it (sim/specials.ts). */
   secret: { name: string; text: string } | null;
   /** Their life's goal (data/ambitions.ts), and trips made. */
@@ -1765,6 +1768,7 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     natureLine: natureOf(p).line,
     story: storyOf(s, p),
     titles: p.titles ?? [],
+    deeds: deedLines(p),
     secret: secretView(p),
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
     trips: p.trips ?? 0,

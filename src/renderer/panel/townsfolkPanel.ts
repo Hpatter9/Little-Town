@@ -42,7 +42,7 @@ export const townsfolkKey = (s: Snapshot) => {
       who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
       who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
-      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles,
+      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, who.deeds.map((d) => d.n),
     ],
     s.visitor && [s.visitor.id, s.visitor.leaving],
     s.housing.beds <= s.housing.people,
@@ -177,7 +177,7 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   row.append(pic);
   const mid = el('span', 'folk-mid');
   const name = el('span', 'folk-name-line');
-  name.append(el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`));
+  name.append(el('span', 'folk-name', `${p.name}${p.titles.length ? ` ${p.titles[p.titles.length - 1]}` : ''}${p.id === s.mainId ? ' (you)' : ''}`));
   const origin = p.origin ?? s.origin.id;
   const race = el('span', 'folk-race', ORIGIN_MARK[origin]);
   race.title = ORIGIN_DEFS[origin].name;
@@ -358,7 +358,13 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   const who = el('div', 'card person');
   // their own story first (data/backstories.ts)
   if (p.story) who.append(el('div', 'story', p.story));
-  if (p.titles.length) who.append(el('div', 'story titles', `Called ${p.titles.join(', ')}, for the sagas.`));
+  if (p.titles.length) who.append(el('div', 'story titles', `Known as ${p.titles.join(', ')}.`));
+  // their deeds, and the title each leads to next (sim/deeds.ts)
+  if (p.deeds.length) {
+    const deeds = el('div', 'deeds');
+    for (const d of p.deeds) deeds.append(el('div', 'lock', `${d.label}: ${d.n}${d.next ? ` (${d.at! - d.n} more to be called ${d.next})` : ''}`));
+    who.append(deeds);
+  }
   // (a special newcomer's secret, once the town knows it: sim/specials.ts)
   if (p.secret) who.append(el('div', 'story secret', `${p.secret.name}.`));
   if (p.ageText) who.append(el('div', 'lock', p.ageText));

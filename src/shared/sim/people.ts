@@ -2,6 +2,7 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { addDeed } from './deeds';
 import { protestSpot, striking } from './politics';
 import { isGate, lineOf, RING_CLEAR_PULL } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
@@ -267,6 +268,8 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
         if (defOf(site).hp) site.hp = defOf(site).hp;
         p.task = null;
         notify(s, `Finished building: ${defOf(site).name}`, true);
+        // (a deed for everyone with their hands on it: sim/deeds.ts)
+        for (const q of s.people) if (q === p || (q.task?.type === 'build' && q.task.building === site.id)) addDeed(q, 'built');
         onBuilt(s, site);
       }
       break;
@@ -541,6 +544,7 @@ function doTend(s: GameState, p: Person, task: Extract<Task, { type: 'tend' }>, 
   if (dressing) s.items[dressing] -= 1;
   if (dressing || rng.chance(tendChance(p.skills.medicine.level))) {
     stabilize(q);
+    addDeed(p, 'healed');
     notify(s, `${p.name} stopped ${q.name}'s bleeding${dressing ? ` with a ${dressing}` : ''}.`);
     p.task = null;
     return;
@@ -808,6 +812,7 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   r.queue = r.queue.filter((id) => id !== topic.id);
   r.done.push(topic.id);
   notify(s, `Research complete: ${topic.name}`, true);
+  addDeed(p, 'studied');
   if (topic.id === 'blood_rite') offerBloodRite(s);
   if (topic.id === 'moon_rite') offerMoonRite(s);
   if (topic.id === 'lichcraft') offerLichRite(s);
