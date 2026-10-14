@@ -1,27 +1,13 @@
-// The phone (web) version's stand-in for the desktop app's main process: it runs the game loop in the page,
-// keeps the town in the browser's storage, and catches up on the time the app was closed or in the background.
+// The phone (web) version's stand-in for the desktop app's main process: it starts the game in a worker of its own
+// (shared/simHost.ts, renderer/mobile/simWorker.ts), puts the snapshots back together from what changed
+// (shared/snapDelta.ts), and keeps the town in the browser's storage from the save text the game sends.
 
-import { queueScene } from '../../shared/sim/cutscenes';
-import { spawnBand } from '../../shared/sim/bands';
-import type { BandKind } from '../../shared/data/bands';
-import { summonDragon } from '../../shared/sim/dragon';
-import { startDisaster, type DisasterKind } from '../../shared/sim/disasters';
-import { inherit, legendOf } from '../../shared/sim/legacy';
 import { keepLegend, readLegends } from '../legends';
 import { type AlertSettings, type Bridge, type InspectInfo, type StripState } from '../../shared/ipc';
-import { AHEAD_TICKS, cancelAlerts, cleanAlerts, scheduleAlerts, startForecast, testAlert, type Ahead, type ForecastJob } from '../../shared/alerts';
-import { GameLoop } from '../../shared/gameLoop';
-import { parseSave, serialize } from '../../shared/sim/save';
-import type { Snapshot } from '../../shared/sim/snapshot';
-import { newGame, type GameState, type Roamer } from '../../shared/sim/state';
-import { cleanNewGameOptions } from '../../shared/data/founding';
-import { TICKS_PER_HOUR } from '../../shared/sim/time';
-import { beginSaga } from '../../shared/sim/sagas';
-import { postHunt } from '../../shared/sim/hunts';
-import { startRaid } from '../../shared/sim/raids';
-import { RAID_KIND_BY_ID } from '../../shared/data/raids';
-import { startSkirmish } from '../../shared/sim/roamers';
-import { Rng } from '../../shared/rng';
+import { cancelAlerts, cleanAlerts, testAlert } from '../../shared/alerts';
+import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
+import { SnapAssembler } from '../../shared/snapDelta';
+import type { FromHost, NewTown, ToHost, startSimHost } from '../../shared/simHost';
 import { mayBuzz, readVibrate } from '../vibration';
 
 const SAVE_KEY = 'littletown.save';
@@ -31,15 +17,6 @@ const ALERTS_KEY = 'littletown.alerts';
 const TIMELAPSE_KEY = 'littletown.timelapse';
 /** ntfy messages booked on the way out (dropped on the way back, where the server allows). */
 const SCHEDULED_KEY = 'littletown.scheduledAlerts';
-/** The look ahead for phone alerts runs a copy of the town forward on the game's own thread, so it takes a little at a
- *  time: at most `LOOK_SLICE_MS` of work, then `LOOK_PAUSE_MS` of rest (about a tenth of the phone's time; it was 60
- *  ticks a slice every 40 ms, most of a phone's time for a minute or more, and the town stuttered), made again every
- *  `LOOK_AGAIN_MS`. The last finished look stands meanwhile. */
-const LOOK_SLICE_MS = 6;
-const LOOK_PAUSE_MS = 60;
-const LOOK_AGAIN_MS = 5 * 60_000;
-const AUTOSAVE_MS = 30_000;
-
 /** Browser storage can be missing or full; the game carries on either way. */
 function read(key: string): string | null {
   try {
@@ -58,7 +35,31 @@ function write(key: string, value: string): boolean {
   }
 }
 
-const randomSeed = () => Math.floor(Math.random() * 0xffffffff).toString(36);
+/** The game, in a worker of its own (simWorker.js, beside the page), or where a browser can't start one, the same
+ *  file loaded into the page (`?inpage` forces it, for comparing). Messages sent before it's ready wait. */
+function startGame(take: (m: FromHost) => void): (m: ToHost) => void {
+  try {
+    if (typeof Worker !== 'undefined' && !/[?&]inpage\b/.test(location.search)) {
+      const w = new Worker('simWorker.js');
+      w.onmessage = (e: MessageEvent<FromHost>) => take(e.data);
+      w.onerror = (e) => console.error('[mobile] the sim worker failed', e);
+      return (m) => w.postMessage(m);
+    }
+  } catch (err) {
+    console.warn('[mobile] no sim worker; the game runs in the page', err);
+  }
+  let give: ((m: ToHost) => void) | null = null;
+  const waiting: ToHost[] = [];
+  const script = document.createElement('script');
+  script.src = 'simWorker.js';
+  script.onload = () => {
+    const host = (window as unknown as { __simHost: typeof startSimHost }).__simHost;
+    give = host((m) => queueMicrotask(() => take(m)));
+    for (const m of waiting.splice(0)) give(m);
+  };
+  document.head.append(script);
+  return (m) => (give ? give(m) : waiting.push(m));
+}
 
 export function mobileBridge(): Bridge {
   try {
@@ -73,78 +74,78 @@ export function mobileBridge(): Bridge {
 
   /** Set once a new town has been written, so nothing saves the old one over it on the way out. */
   let leaving = false;
-  const saveNow = () => {
-    if (!game.catchingUp && !leaving) write(SAVE_KEY, serialize(game.state, Date.now()));
-  };
-
-  const loaded = (() => {
-    const text = read(SAVE_KEY);
-    if (!text) return null;
-    const r = parseSave(text);
-    if (r.ok) return r.save;
-    write(`${SAVE_KEY}.unreadable`, text); // kept, never overwritten silently
-    return null;
-  })();
-  const game = new GameLoop(loaded?.state ?? newGame(randomSeed()), (snap) => snapListeners.forEach((f) => f(snap)));
-  if (loaded) game.catchUp(Date.now() - loaded.savedAt, saveNow);
-  else {
-    saveNow();
-    state.panel = 'newgame'; // a first run: make the founder and pick how to begin (a starter town waits behind)
-  }
-  game.start();
-  setInterval(saveNow, AUTOSAVE_MS);
-
-  // Phone alerts (ntfy): booked for the time away as the page goes to the background, dropped when it comes back.
   let alerts: AlertSettings = cleanAlerts(JSON.parse(read(ALERTS_KEY) ?? '{}'));
+  const assembler = new SnapAssembler();
+  let firstSnap: (s: Snapshot) => void = () => {};
+  const first = new Promise<Snapshot>((res) => (firstSnap = res));
+  let nextAsk = 1;
+  const asked = new Map<number, (v: unknown) => void>();
+  const savedText = read(SAVE_KEY);
+  const send = startGame((m) => {
+    switch (m.t) {
+      case 'snap': {
+        const snap = assembler.apply(m.d);
+        firstSnap(snap);
+        snapListeners.forEach((f) => f(snap));
+        return;
+      }
+      case 'save':
+        if (!leaving) write(SAVE_KEY, m.text);
+        return;
+      case 'started':
+        if (m.unreadable && savedText) write(`${SAVE_KEY}.unreadable`, savedText); // kept, never overwritten silently
+        if (m.fresh) {
+          state.panel = 'newgame'; // a first run: make the founder and pick how to begin (a starter town waits behind)
+          emit();
+        }
+        return;
+      case 'booked':
+        write(SCHEDULED_KEY, JSON.stringify(m.ids));
+        return;
+      case 'reply':
+        asked.get(m.id)?.(m.value);
+        asked.delete(m.id);
+        return;
+    }
+  });
+  const ask = <T>(m: Record<string, unknown> & { t: 'save' | 'journal' | 'newGame' }): Promise<T> =>
+    new Promise<T>((res) => {
+      const id = nextAsk++;
+      asked.set(id, res as (v: unknown) => void);
+      send({ ...m, id } as ToHost);
+    });
+  const catchingUp = () => !!assembler.current?.catchingUp;
+  send({ t: 'init', save: savedText, now: Date.now(), hidden: document.hidden, alerts });
+
+  // Phone alerts (ntfy): booked for the time away as the page goes to the background (the game's side looks ahead
+  // while it's open), dropped when it comes back.
   const dropBooked = () => {
     const ids = JSON.parse(read(SCHEDULED_KEY) ?? '[]') as string[];
     if (!ids.length) return;
     write(SCHEDULED_KEY, '[]');
     void cancelAlerts(alerts, ids);
   };
-  // Looking a day ahead takes seconds on a phone, and a page sent to the background may be frozen in moments: so it's
-  // worked out while the game is open, a little at a time, and kept fresh; leaving, the alerts go straight out.
-  let ahead: Ahead | null = null;
-  let looking: ForecastJob | null = null;
-  const lookAhead = () => {
-    if (alerts.enabled && !document.hidden && !game.catchingUp) {
-      looking ??= startForecast(game.state, AHEAD_TICKS);
-      const until = performance.now() + LOOK_SLICE_MS;
-      let finished = false;
-      while (!finished && performance.now() < until) finished = looking.run(2);
-      if (finished) {
-        ahead = looking;
-        looking = null;
-        return setTimeout(lookAhead, LOOK_AGAIN_MS);
-      }
-    }
-    setTimeout(lookAhead, LOOK_PAUSE_MS);
-  };
-  setTimeout(lookAhead, 60_000); // (the first look a minute in, once the page has settled)
-  const book = () => {
-    if (!alerts.enabled || game.catchingUp) return;
-    dropBooked();
-    // (what's been looked at so far, if the first look isn't finished yet)
-    void scheduleAlerts(alerts, game.state, ahead ?? looking ?? undefined).then((ids) => write(SCHEDULED_KEY, JSON.stringify(ids)));
-  };
   dropBooked();
 
-  // In the background the page is frozen: save on the way out; coming back, the loop sees the gap and catches up.
+  // In the background the page is frozen: the game saves on the way out (and books the alerts); coming back, it sees
+  // the gap and catches up.
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      saveNow();
-      book();
-    } else dropBooked();
+    if (!document.hidden) dropBooked();
+    send({ t: 'hidden', on: document.hidden });
     state.hidden = document.hidden;
-    game.hidden = document.hidden;
     emit();
   });
-  window.addEventListener('pagehide', saveNow);
-  // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga, `__hunt(id)` posts a hunt and `__raid(kind)` starts a raid, for previews)
-  Object.assign(window, { __game: game, __saga: (id: string) => beginSaga(stateOf(), id), __hunt: (id: string) => postHunt(stateOf(), new Rng(1), id), __raid: (kind: string, budget = 60) => startRaid(stateOf(), RAID_KIND_BY_ID[kind], budget, new Rng(2)), __disaster: (kind: DisasterKind) => startDisaster(stateOf(), kind), __dragon: (kind?: string) => summonDragon(stateOf(), kind), __band: (kind: BandKind) => spawnBand(stateOf(), new Rng(4), kind), __skirmish: (group: Record<string, number> = { wolf: 3 }) => { const s = stateOf(); const p = s.people[0]; if (!p) return; const r: Roamer = { id: s.nextId++, kind: 'beasts', group, x: p.x, y: p.y, homeX: p.x, homeY: p.y, tx: p.x, ty: p.y, until: s.tick + 600, chasing: null, dir: 1 }; (s.roamers ??= []).push(r); s.watching = startSkirmish(s, r, p).id; }, __cutscene: (id: string, vars: Record<string, string> = {}, foes: Record<string, string> = {}) => queueScene(stateOf(), id, { vars, foes }) });
-  function stateOf(): GameState {
-    return (game as unknown as { sim: { state: GameState } }).sim.state;
-  }
+  window.addEventListener('pagehide', () => send({ t: 'hidden', on: true }));
+  // (for poking at it from a desktop browser's console; `__saga(id)` begins a saga, `__hunt(id)` posts a hunt and
+  // `__raid(kind)` starts a raid, for previews; `__game.sim.step(n)` runs the town n ticks on)
+  const debug =
+    (name: string) =>
+    (...args: unknown[]) =>
+      send({ t: 'debug', name, args });
+  Object.assign(window, {
+    __game: { sim: { step: (n = 1) => send({ t: 'step', n }) }, command: (c: Parameters<Bridge['command']>[0]) => send({ t: 'command', c }), snapshot: () => assembler.current },
+    ...Object.fromEntries(['saga', 'hunt', 'raid', 'disaster', 'dragon', 'band', 'skirmish', 'cutscene'].map((n) => [`__${n}`, debug(n)])),
+  });
 
   // the strip's selection, shown in the card at the top of the page (and the card's buttons, back to the strip)
   const inspectListeners = new Set<(info: InspectInfo | null) => void>();
@@ -156,7 +157,7 @@ export function mobileBridge(): Bridge {
   return {
     // (the strip asks; the buzz is made here, in the page the player touched: an iframe's own call may be refused)
     vibrate: (pattern) => {
-      if (document.hidden || game.catchingUp || !readVibrate() || typeof navigator.vibrate !== 'function') return;
+      if (document.hidden || catchingUp() || !readVibrate() || typeof navigator.vibrate !== 'function') return;
       const now = performance.now();
       if (!mayBuzz(lastBuzz, now)) return;
       lastBuzz = now;
@@ -214,33 +215,33 @@ export function mobileBridge(): Bridge {
       return () => placeListeners.delete(cb);
     },
     newGame: (raw) => {
-      const opts = cleanNewGameOptions(raw);
-      if (!opts) return;
-      // the old town is kept as the one backup (unless it was ironman), then the page starts over on the new one
-      const old = read(SAVE_KEY);
-      if (old && !game.state.ironman && game.state.tick >= TICKS_PER_HOUR) write(BACKUP_KEY, old); // (a town only just begun isn't kept)
-      // the old town becomes a legend, and the new founder may be of its line (or another's: sim/legacy.ts)
-      const legend = game.catchingUp ? null : legendOf(game.state, Date.now());
-      if (legend) keepLegend(legend);
-      const town = newGame(randomSeed(), opts);
+      if (leaving) return;
+      // the old town is kept as the one backup (unless it was ironman), then the page starts over on the new one; the
+      // old town becomes a legend, and the new founder may be of its line (or another's: sim/legacy.ts)
       const heir = (raw as { heir?: unknown }).heir;
       const line = typeof heir === 'string' ? readLegends().find((l) => l.id === heir) : undefined;
-      if (line) inherit(town, line);
-      write(SAVE_KEY, serialize(town, Date.now()));
-      leaving = true;
-      location.reload();
+      void ask<NewTown | null>({ t: 'newGame', opts: raw, heir: line, now: Date.now() }).then((town) => {
+        if (!town) return;
+        leaving = true;
+        const old = read(SAVE_KEY);
+        if (old && town.keepOld) write(BACKUP_KEY, old); // (a town only just begun isn't kept)
+        if (town.legend) keepLegend(town.legend);
+        write(SAVE_KEY, town.text);
+        location.reload();
+      });
     },
-    command: (c) => game.command(c),
-    getSnapshot: async () => game.snapshot(),
+    command: (c) => send({ t: 'command', c }),
+    getSnapshot: () => (assembler.current ? Promise.resolve(assembler.current) : first),
     onSnapshot: (cb) => {
       snapListeners.add(cb);
       return () => snapListeners.delete(cb);
     },
-    getJournal: async () => game.journal(),
+    getJournal: () => ask<JournalEntryView[]>({ t: 'journal' }),
     getAlerts: async () => ({ ...alerts }),
     setAlerts: async (a) => {
       alerts = cleanAlerts(a);
       write(ALERTS_KEY, JSON.stringify(alerts));
+      send({ t: 'alerts', a: alerts });
       return { ...alerts };
     },
     testAlert: async () => testAlert(alerts),

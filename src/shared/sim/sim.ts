@@ -78,6 +78,7 @@ import { guildsHourly } from './guilds';
 import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
+import { viewsChanged } from './snapshot';
 import { maybeStartRaid, startGuildRaid, startRaid, updateRaid } from './raids';
 import { answerPrompt, expirePrompts } from './roadEvents';
 import { newTickContext, updatePerson, walkTo } from './people';
@@ -311,6 +312,7 @@ export class Sim {
   }
 
   private apply(c: Command): void {
+    viewsChanged(); // (the snapshot's views are worked out afresh: snapshot.ts)
     const s = this.state;
     switch (c.type) {
       case 'placeBuilding':

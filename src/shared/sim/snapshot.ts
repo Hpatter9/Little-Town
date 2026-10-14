@@ -1248,10 +1248,10 @@ export function snapshot(s: GameState): Snapshot {
     faith: faithView(s),
     disaster: disasterView(s),
     world: worldView(s),
-    hunts: huntsView(s),
+    hunts: brief(s, 'hunts', () => huntsView(s)),
     dragon: dragonView(s),
     villages: villageViews(s),
-    politics: politicsView(s),
+    politics: brief(s, 'politics', () => politicsView(s)),
     villageBuildings: villageBuildings(s),
     calamity: calamityView(s),
     scene: sceneView(s),
@@ -1444,6 +1444,18 @@ function slow<T>(s: GameState, key: string, f: () => T): T {
   if (c && s.tick >= c.tick && s.tick - c.tick < SLOW_EVERY) return c.v as T;
   const v = f();
   m.set(key, { tick: s.tick, v });
+  return v;
+}
+
+/** A view kept for `PERSON_SLOW_EVERY` ticks, or until a command comes in (`viewsChanged`). */
+const briefCache = new WeakMap<GameState, Map<string, { tick: number; epoch: number; v: unknown }>>();
+function brief<T>(s: GameState, key: string, f: () => T): T {
+  let m = briefCache.get(s);
+  if (!m) briefCache.set(s, (m = new Map()));
+  const c = m.get(key);
+  if (c && c.epoch === viewEpoch && s.tick > c.tick && s.tick - c.tick < PERSON_SLOW_EVERY) return c.v as T;
+  const v = f();
+  m.set(key, { tick: s.tick, epoch: viewEpoch, v });
   return v;
 }
 
@@ -1739,14 +1751,35 @@ function partyView(s: GameState, dest: string): { party: string[]; partyHorses: 
   return { party, partyHorses: plan.horses, partyTruck: plan.truck };
 }
 
+/** How often a person's slower parts are worked out again, in ticks (staggered by their id), unless a command has come
+ *  in since (`viewsChanged`): their skills, kit, story, ties and mood's reasons were most of a big town's snapshot, ten
+ *  times a second. Where they stand and what they're doing are always fresh, and so is all of it in a second snapshot
+ *  of the same tick (the tests, and a menu asking for one). */
+const PERSON_SLOW_EVERY = 10;
+let viewEpoch = 0;
+/** A command came in (sim.ts): every view is worked out afresh at the next snapshot, so a button's change shows at once. */
+export function viewsChanged(): void {
+  viewEpoch++;
+}
+const personSlowCache = new WeakMap<GameState, Map<number, { tick: number; epoch: number; v: Omit<PersonView, FastPart> }>>();
+
 function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
-  const m = mood(s, p);
-  const bed = p.bed === null ? undefined : s.buildings.find((b) => b.id === p.bed);
+  let cache = personSlowCache.get(s);
+  if (!cache) personSlowCache.set(s, (cache = new Map()));
+  let c = cache.get(p.id);
+  if (!c || c.epoch !== viewEpoch || s.tick <= c.tick || s.tick - c.tick >= PERSON_SLOW_EVERY || (s.tick + p.id) % PERSON_SLOW_EVERY === 0) {
+    if (cache.size > 400) cache.clear();
+    cache.set(p.id, (c = { tick: s.tick, epoch: viewEpoch, v: personSlow(s, p) }));
+  }
+  return { ...personFast(s, p), ...c.v } as PersonView;
+}
+
+/** What changes tick by tick: where they are and what they're at. */
+type FastPart = 'id' | 'name' | 'look' | 'x' | 'y' | 'dir' | 'activity' | 'taskDone' | 'sinceHit' | 'hitFrom' | 'sinceBlow' | 'sinceBlock' | 'defending' | 'beast' | 'mounted' | 'doing' | 'work' | 'carrying' | 'needs' | 'morale' | 'rally' | 'bucket' | 'indoors' | 'away' | 'hp' | 'downed' | 'bleedMinutes' | 'floor' | 'pastime' | 'swimming' | 'tipsy' | 'bedward' | 'onWatch' | 'rounds' | 'grieving' | 'onGate';
+function personFast(s: GameState, p: Person): Pick<PersonView, FastPart> {
   return {
     id: p.id,
     name: p.name,
-    origin: p.origin ?? originOf(s).id,
-    typeName: RECRUIT_TYPES[p.type]?.name ?? p.type,
     look: p.look,
     x: p.x,
     y: p.y,
@@ -1760,6 +1793,37 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     defending: !!s.raid && p.task?.type === 'defend',
     beast: beastForm(p),
     mounted: null,
+    doing: describe(s, p),
+    work: workOf(s, p),
+    carrying: { ...p.carrying },
+    needs: { ...p.needs },
+    morale: p.morale,
+    grieving: !!p.grief && p.grief.until > s.tick,
+    floor: null,
+    rally: rallyState(s, p),
+    bucket: p.task?.type === 'wander' && p.task.pastime === 'carry',
+    indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
+    away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
+    hp: p.hp,
+    downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
+    bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,
+    pastime: pastimeView(s, p),
+    swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
+    tipsy: walkingHome(s, p),
+    bedward: p.task?.type === 'sleep' && p.activity === 'walk',
+    onWatch: onShift(s, p),
+    ...gateView(s, p),
+    rounds: (p.task?.type === 'wander' || p.task?.type === 'idle') && p.task.pastime === 'rounds',
+  };
+}
+
+/** The rest of a person's view, worked out at most every `PERSON_SLOW_EVERY` ticks. */
+function personSlow(s: GameState, p: Person): Omit<PersonView, FastPart> {
+  const m = mood(s, p);
+  const bed = p.bed === null ? undefined : s.buildings.find((b) => b.id === p.bed);
+  return {
+    origin: p.origin ?? originOf(s).id,
+    typeName: RECRUIT_TYPES[p.type]?.name ?? p.type,
     cls: p.cls ?? null,
     // (a special newcomer's calling is part of their secret until it's out)
     clsName: p.secret && !p.secret.found ? null : callingName(p, stageOf(p)),
@@ -1775,31 +1839,17 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     ascended: !!p.ascended,
     level: levelOf(p),
     levelProgress: levelProgress(p),
-    doing: describe(s, p),
-    work: workOf(s, p),
-    carrying: { ...p.carrying },
     skills: Object.fromEntries(
       SKILLS.map((k) => [k, { level: p.skills[k].level, progress: p.skills[k].xp / xpToNext(p.skills[k].level), passion: p.passions.includes(k) }]),
     ) as Record<Skill, SkillView>,
     traits: p.traits.map((t) => ({ name: TRAIT_BY_ID[t]?.name ?? t, description: TRAIT_BY_ID[t]?.description ?? '' })),
-    needs: { ...p.needs },
-    morale: p.morale,
     moodTarget: m.target,
     moodReasons: m.reasons,
-    grieving: !!p.grief && p.grief.until > s.tick,
     priorities: { ...p.priorities },
     autoPriorities: p.autoPriorities,
     bed: bed ? defOf(bed).name : null,
     bedId: bed ? bed.id : null,
-    floor: null,
-    rally: rallyState(s, p),
-    bucket: p.task?.type === 'wander' && p.task.pastime === 'carry',
-    indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
-    away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
-    hp: p.hp,
     maxHp: maxHp(p),
-    downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
-    bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,
     gear: { ...p.gear },
     gearQ: { ...(p.gearQ ?? {}) },
     // (whole coins only: a purse may hold the odd fraction, from a share of a sale or a tax)
@@ -1810,7 +1860,6 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     detail: personDetail(s, p),
     recent: [...(p.recent ?? [])].reverse().map((r) => r.text),
     diary: slow(s, `diary:${p.id}`, () => diaryOf(s, p)),
-    pastime: pastimeView(s, p),
     bedroll: hasBedroll(s, p),
     carryCapacity: carryCapacity(s, p),
     partner: p.partner == null ? null : (s.people.find((q) => q.id === p.partner)?.name ?? null),
@@ -1832,23 +1881,17 @@ function personView(s: GameState, p: Person, _stock?: Stock): PersonView {
     secret: secretView(p),
     ambition: p.bornTick == null ? { name: AMBITIONS[ambitionOf(p)].name, line: AMBITIONS[ambitionOf(p)].line } : null,
     trips: p.trips ?? 0,
-    swimming: swims(s, p) && p.away === null && wet(groundAt(s.land, Math.floor(p.x / CELL), Math.floor(p.y / CELL))),
     mer: peopleOf(s, p) === 'merfolk' && !p.monster,
     ageDays: Math.floor(ageDays(s, p)),
     ageYears: Math.floor(ageYears(s, p)),
     lifeStage: lifeStage(s, p),
     ageText: ageLine(s, p),
     elder: isElder(s, p),
-    tipsy: walkingHome(s, p),
-    bedward: p.task?.type === 'sleep' && p.activity === 'walk',
     guard: !!p.guard,
-    onWatch: onShift(s, p),
-    ...gateView(s, p),
     monster: p.monster ?? null,
     tireless: tireless(p),
     order: p.monster ? (p.order ?? 'hide') : null,
     sick: !!p.sick,
-    rounds: (p.task?.type === 'wander' || p.task?.type === 'idle') && p.task.pastime === 'rounds',
     ...fightView(p),
   };
 }

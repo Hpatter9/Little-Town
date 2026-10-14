@@ -22,7 +22,7 @@ export function createCatchingUp(): { show(share: number): void; hide(): void } 
   };
 }
 
-export function createAwayCard(): { show(lines: AwayLine[]): void; get open(): boolean } {
+export function createAwayCard(closed?: () => void): { show(lines: AwayLine[]): void; get open(): boolean } {
   const box = document.createElement('div');
   box.id = 'away-card';
   box.setAttribute('data-hit', '');
@@ -45,7 +45,10 @@ export function createAwayCard(): { show(lines: AwayLine[]): void; get open(): b
       const ok = document.createElement('button');
       ok.className = 'tab';
       ok.textContent = 'Continue';
-      ok.addEventListener('click', () => (box.hidden = true));
+      ok.addEventListener('click', () => {
+        box.hidden = true;
+        closed?.();
+      });
       box.append(title, list, ok);
       box.hidden = false;
     },
