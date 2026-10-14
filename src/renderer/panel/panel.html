@@ -2451,6 +2451,16 @@
       .quest-log-row.done .quest-log-mark { color: #7cc87c; }
       .quest-log-row.failed .quest-log-mark { color: #e0604a; }
       .quest-log-text { font-size: 12px; opacity: 0.7; margin: 0 0 4px 22px; }
+      /* the ranch's beast cards and the arena's book and ladder (ranchPanel.ts, arenaPanel.ts) */
+      .card.beast .card-top { align-items: center; gap: 6px; }
+      .card.beast.sick { opacity: 0.8; }
+      .chip.bad { color: #e8a0a0; border-color: #a05050; }
+      .beast-name { flex: 1 1 8em; min-width: 6em; font: inherit; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(0, 0, 0, 0.25); color: inherit; }
+      .card-more .row, .arena-card .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+      .bet-row .bet-on { flex: 1 1 100%; font-size: 0.9em; opacity: 0.85; }
+      table.ladder { width: 100%; border-collapse: collapse; }
+      table.ladder td, table.ladder th { padding: 3px 4px; text-align: left; }
+      table.ladder tr.ours td { color: var(--heading, #f0d890); }
     </style>
   </head>
   <body>

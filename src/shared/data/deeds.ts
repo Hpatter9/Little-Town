@@ -10,7 +10,9 @@ export type DeedKind =
   | 'studied' // topics learned at their desk
   | 'bosses' // bosses brought down
   | 'delves' // dungeons cleared
-  | 'sagas'; // sagas ended as their hero
+  | 'sagas' // sagas ended as their hero
+  | 'beasts' // beasts bred and trained at the ranch, as its Beastmaster
+  | 'bouts'; // bouts won in the arena
 
 export interface DeedLadder {
   /** What the deed is called on the People page ("Raids defended"). */
@@ -28,6 +30,8 @@ export const DEED_TITLES: Record<DeedKind, DeedLadder> = {
   bosses: { label: 'Bosses felled', steps: [[1, 'Giantsbane'], [3, 'Bane of Monsters'], [6, 'the Legend']] },
   delves: { label: 'Dungeons cleared', steps: [[1, 'Delver'], [3, 'Deepwalker'], [6, 'Lord of the Depths']] },
   sagas: { label: 'Sagas ended', steps: [[1, 'the Storied'], [3, 'Hero of Tales']] },
+  beasts: { label: 'Beasts raised', steps: [[3, 'Friend of Beasts'], [10, 'Beastmaster'], [25, 'Lord of the Menagerie']] },
+  bouts: { label: 'Arena bouts won', steps: [[1, 'the Brawler'], [4, 'Gladiator'], [10, 'Champion of the Sand']] },
 };
 
 export const DEED_KINDS = Object.keys(DEED_TITLES) as DeedKind[];

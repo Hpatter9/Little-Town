@@ -43,7 +43,7 @@ export interface Destination {
   /** The era it opens in (neolithic when left out). */
   era?: Era;
   /** Scenery for the split view. */
-  scenery: 'thicket' | 'river' | 'woods' | 'quarry' | 'cave';
+  scenery: 'thicket' | 'river' | 'woods' | 'quarry' | 'cave' | 'arena';
   description: string;
   /** Only a boat reaches it: an island, a market over the sea (data/boats.ts). */
   byBoat?: boolean;

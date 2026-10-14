@@ -11,6 +11,7 @@ import { expeditionsKey, renderExpeditions } from './expeditionsPanel';
 import { renderJournal } from './journalPanel';
 import { renderResearch, researchKey } from './researchPanel';
 import { patchTownsfolk, renderTownsfolk, townsfolkKey } from './townsfolkPanel';
+import { arenaKey } from './arenaPanel';
 import { renderTrade, tradeKey } from './tradePanel';
 import { renderWar, warKey } from './warPanel';
 import { renderAlerts } from './alertsPanel';
@@ -66,7 +67,7 @@ function render(): void {
       : shown === 'research'
         ? 'r' + researchKey(snap)
         : shown === 'townsfolk'
-          ? 't' + townsfolkKey(snap)
+          ? 't' + townsfolkKey(snap) + arenaKey(snap)
           : shown === 'expeditions'
             ? 'e' + expeditionsKey(snap)
             : shown === 'journal'

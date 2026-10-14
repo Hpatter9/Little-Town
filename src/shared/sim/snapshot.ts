@@ -144,6 +144,9 @@ import { villageBuildings, villageDestinations, villageViews, type VillageView }
 import { interiorView, type InteriorView } from './interiors';
 import { familiesView, type FamilyLine } from './lineage';
 import { guildsView, type GuildView } from './guilds';
+import { beastHome, ranchView, type RanchView } from './ranch';
+import { arenaTrip, arenaView, type ArenaView } from './arena';
+import { ARENA_AWAY } from '../data/arena';
 import { portalDestinations, portalSummaries, portalView, type PortalSummary, type PortalView } from './portals';
 import { politicsView, type PoliticsView } from './politics';
 import { calamityView, heartDestinations, type CalamityView } from './calamity';
@@ -928,6 +931,12 @@ export interface Snapshot {
   families: FamilyLine[];
   /** The town's guilds and squads (sim/guilds.ts), for the People menu's Guilds tab. */
   guilds: GuildView[];
+  /** The monster ranch and its beasts (sim/ranch.ts), for the Market menu's Ranch tab and the map's pens. */
+  ranch: RanchView | null;
+  /** Where each ranch beast is penned on the map (sim/ranch.ts `beastHome`), by its id. */
+  ranchPens: { id: number; kind: string; x: number; y: number; w: number; h: number }[];
+  /** The arena: its season, tonight's card, the bout, the ladder (sim/arena.ts), for the People menu's Arena tab. */
+  arena: ArenaView | null;
   /** The trade economy: prices, booms and shortages, the trade house and its routes (sim/markets.ts). */
   markets: MarketView | null;
   /** A raid being skipped to its recap, and whether every raid is (sim/raidSkip.ts). */
@@ -1279,7 +1288,7 @@ export function snapshot(s: GameState): Snapshot {
       over: k.ended !== undefined,
       won: k.e.result ? k.e.result.outcome === 'won' : null,
     })),
-    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching) ?? skirmishTrip(s, s.watching)),
+    watch: ((e) => (e ? expeditionView(s, e) : null))(s.expeditions.find((e) => e.id === s.watching) ?? skirmishTrip(s, s.watching) ?? arenaTrip(s, s.watching)),
     mine: mineView(s),
     deep: deepSummary(s),
     deepView: deepView(s),
@@ -1288,6 +1297,9 @@ export function snapshot(s: GameState): Snapshot {
     interior: interiorView(s, (p) => describe(s, p)),
     families: slow(s, 'families', () => familiesView(s)),
     guilds: slow(s, 'guilds', () => guildsView(s)),
+    ranch: slow(s, 'ranch', () => ranchView(s)),
+    ranchPens: slow(s, 'ranchPens', () => (s.ranch?.beasts ?? []).map((b) => ({ id: b.id, kind: b.kind, ...beastHome(s, b) }))),
+    arena: slow(s, 'arena', () => arenaView(s)),
     markets: slow(s, 'markets', () => marketView(s)),
     raidSkipping: !!s.raidSkip && !!s.raid,
     skipRaids: !!s.skipRaids,
@@ -1803,7 +1815,7 @@ function personFast(s: GameState, p: Person): Pick<PersonView, FastPart> {
     rally: rallyState(s, p),
     bucket: p.task?.type === 'wander' && p.task.pastime === 'carry',
     indoors: (p.activity === 'mine' && p.task?.type === 'mine' && p.task.depth !== undefined) || (p.activity === 'sleep' && ((p.task?.type === 'sleep' && p.task.building !== null) || (p.task?.type === 'shelter' && p.bed !== null))) || (p.activity === 'drink' && p.task?.type === 'drink') || (p.activity === 'watch' && p.task?.type === 'relax'),
-    away: p.away === null ? null : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
+    away: p.away === null ? null : p.away === ARENA_AWAY ? 'the arena' : p.away < 0 ? awayWithArmy(s, p) : (destinationOf(s, s.expeditions.find((e) => e.id === p.away)?.dest ?? '')?.name ?? 'expedition'),
     hp: p.hp,
     downed: !p.downed ? null : p.downed.bleedUntil === null ? 'recovering' : 'bleeding',
     bleedMinutes: p.downed?.bleedUntil != null ? Math.max(0, Math.ceil(((p.downed.bleedUntil - s.tick) / TICKS_PER_HOUR) * 60)) : null,

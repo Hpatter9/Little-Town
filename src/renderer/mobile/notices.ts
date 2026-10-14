@@ -121,6 +121,10 @@ export function situationNotices(s: Snapshot): Notice[] {
   for (const k of s.skirmishes ?? []) {
     if (!k.over) out.push({ key: `skirmish:${k.id}`, tone: 'red', mark: '⚔', title: `Set upon by ${k.foe}`, text: `${k.who.join(', ')} ${k.who.length > 1 ? 'fight' : 'fights'} for their life out on the land.`, action: { label: 'Watch', kind: 'watch', watch: k.id } });
   }
+  // (the arena: tonight's bout, to bet on, and the bout under way, to watch: sim/arena.ts)
+  const ar = s.arena;
+  if (ar?.bout && !ar.bout.over) out.push({ key: `bout:${ar.bout.id}`, tone: 'gold', mark: '⚔', title: `In the arena: ${ar.bout.town} against ${ar.bout.visitor}`, text: `A champion of ${ar.bout.from}. The crowd is on its feet.`, action: { label: 'Watch', kind: 'watch', watch: ar.bout.id } });
+  else if (ar?.card) out.push({ key: `card:${ar.card.id}`, tone: 'gold', mark: '⚔', title: `${ar.card.final ? 'The final' : 'Tonight at the arena'}: ${ar.card.town.name} against ${ar.card.visitor.name}`, text: `${ar.card.pays.town}:1 on the town, ${ar.card.pays.visitor}:1 on the visitor; ${ar.card.pot} coins on it so far. The treasury may bet too.`, action: { label: 'The book', kind: 'panel', panel: 'townsfolk', tab: 'Arena' } });
   const near = (s.roamers ?? []).filter((r) => !r.fighting).length;
   if (near) out.push({ key: `roamers:${(s.roamers ?? []).map((r) => r.id).join('.')}`, tone: 'gold', mark: '⚠', title: `${near} band${near === 1 ? '' : 's'} roaming the land`, text: 'Anyone out alone is in danger, and travellers keep away. A wall all round keeps them out; guards on watch go after them.' });
   for (const e of s.expeditions) {

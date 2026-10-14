@@ -229,10 +229,14 @@ const BRANCH_OF = (t: Topic) => t.branch as string;
 /** Whether the town could build it from what it can get (nothing it has no source for). */
 const canMake = (d: BuildingDef, n: Needs) => !(Object.keys(d.cost) as Material[]).some((m) => n.unsourced.includes(m));
 
+const SELF_BUILT = new Set(['beast_ranch', 'arena']);
+
 function topicScore(t: Topic, n: Needs): number {
   let score = 60 / Math.sqrt(t.seconds); // quicker topics first, all else equal
   // (a wall's water grate is part of the wall, not a thing of its own: sim/ringWall.ts)
-  for (const b of BUILDINGS.filter((d) => d.research === t.id && !isGrate(d.id))) {
+  // (nor the ranch and the arena, which the town raises on its own terms: sim/ranch.ts, sim/arena.ts; counting them
+  // would shift every town's studies)
+  for (const b of BUILDINGS.filter((d) => d.research === t.id && !isGrate(d.id) && !SELF_BUILT.has(d.id))) {
     score += 4;
     if (b.housing && n.freeBeds <= 1 && canMake(b, n)) score += 30;
     if (CROPS[b.id] && CROPS[b.id].material !== 'fiber' && n.foodDays < 5) score += 25;
@@ -564,7 +568,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
 const RING_MIN_PEOPLE = 4;
 const CAPSTONES = ['elder_lodge', 'town_hall', 'power_station', 'mission_control', 'launch_site'];
 /** Never built by the planner: tied to hidden choices, or one-off rescue machines the player earns. */
-const NEVER = new Set(['wayside_shrine', 'temple', 'cathedral', 'phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_vat', 'palisade_gate', 'stone_gate', 'ward_stone', 'statue']);
+const NEVER = new Set(['wayside_shrine', 'temple', 'cathedral', 'phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_vat', 'palisade_gate', 'stone_gate', 'ward_stone', 'statue', 'beast_ranch', 'arena']);
 
 /** How far beyond the town's reach the land is known (cells), and the furthest it opens on its own (the rest is for the
  *  map's own events to open, later). */
