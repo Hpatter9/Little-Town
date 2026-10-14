@@ -4109,3 +4109,14 @@ blocked by buildings, structures, trees and rocks)
 - **Victory music:** a successful expedition fight switches briefly to its own triumphant score before the town's regular mood resumes (`renderer/musicMood.ts`, `musicScore.ts`).
 - **Builders need room at the site:** workers claim separate open cells beside a blueprint; the available crew size follows the footprint, with larger buildings offering more spaces (`sim/people.ts`, `sim/state.ts`).
 - Version: 0.66.0.
+
+## The wall raised as one construction (the owner's ask: "a single construction, not one section at a time")
+- **Every section in work at once:** `planRing` (sim/ringWall.ts) puts every laid piece clear of trees and rocks into
+  work in the same pass; only pieces whose ground is still being cleared stay `planned`. `RING_AT_ONCE`, `RING_SPARE`
+  and `RING_GATHER_AHEAD` are gone. The wall still never takes the wood another site waits on: `haulOrder` (people.ts,
+  now exported) serves the town's other sites before any ring piece. `ringWants` adds the overgrown pieces' makings to
+  the demand (the rest are counted with every site in work).
+- **One figure for the whole wall:** `ringProgress` (sections standing of all, and the share of the work done, each
+  section weighed by its build time), `snapshot.wall`; a piece's tap card reads "The town's wall, built as one: N of M
+  sections standing (P%)" (main.ts). The pieces stay separate cells for pathing, damage and the joined art. Test in
+  `test/ringWall.test.ts`.
