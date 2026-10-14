@@ -4246,3 +4246,11 @@ blocked by buildings, structures, trees and rocks)
   the rangers' daily haul of meat and hide, the merchants' dues to the treasury (ledger `trade`), and every member
   `MEMBER_MORALE` spirits (`guildMood`). Seen on the People menu's **Guilds** tab (`panel/guildPanel.ts`,
   `snapshot.guilds`, `GuildView`). Tests: `test/guilds.test.ts`.
+- **The founder's edicts (the owner's ask):** on the Council tab each law's card opens on **Proclaim / Repeal by
+  edict** and **Call a vote**, each paid for in coins (`EDICT_COINS` 40 from the treasury) or in standing (every bloc
+  `EDICT_STANDING` 6 less content); the `edict` command (op `proclaim`, `repeal` or `vote`, the law, `pay`), checked by
+  `edictCheck` and done by `issueEdict` in sim/politics.ts. A law proclaimed or repealed takes effect at once and moves
+  each bloc `EDICT_SWAY` (6) the way its stance on the law goes (then the law's own pull, as for any law in force); a
+  vote is the council's usual vote (`callVote` with no bloc: "<founder> called for..."). The next edict waits
+  `EDICT_COOLDOWN_DAYS` (3: `PoliticsState.lastEdict`, `edictWait`, `PoliticsView.edictWait`). The council still
+  governs itself the rest of the time. Tests: `test/edicts.test.ts`.

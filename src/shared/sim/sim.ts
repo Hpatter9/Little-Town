@@ -73,7 +73,7 @@ import { lookInside } from './interiors';
 import { lineageHourly } from './lineage';
 import type { RealmId } from '../data/portals';
 import { giftVillage, villagesHourly } from './villages';
-import { politicsHourly } from './politics';
+import { issueEdict, politicsHourly } from './politics';
 import { guildsHourly } from './guilds';
 import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
 import { turnPerson, turnTown } from './turning';
@@ -563,6 +563,11 @@ export class Sim {
       case 'setTax':
         s.tax = c.rate;
         break;
+      case 'edict': {
+        const r = issueEdict(s, c.op, c.law, c.pay);
+        if (!r.ok) notify(s, `No edict: ${r.reason}.`);
+        break;
+      }
       case 'setTownSize':
         if (c.size === null) delete s.popTarget;
         else s.popTarget = c.size;
