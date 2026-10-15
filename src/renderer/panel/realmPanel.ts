@@ -1,31 +1,20 @@
 // The Realm (sim/factions.ts), under the Expeditions menu: each power the town shares the land with, as a card (its
 // name and lord, how it stands with the town, its temper and goodwill, its troops against the town's might, a war host
-// on its way), with what the town may do about it (gifts, treaties, a marriage, war, demands, freeing a vassal, and
-// at war, storming its stronghold); then the dungeons the whole town could storm.
+// on its way, and what the town's council of war would do about it: the town keeps its own diplomacy, sim/war/), and
+// at war, storming its stronghold; then the dungeons the whole town could storm. The wars themselves are on the War
+// tab.
 
 import type { Bridge } from '../../shared/ipc';
 import type { FactionView } from '../../shared/sim/factions';
 import type { Snapshot } from '../../shared/sim/snapshot';
-import { GIFT_COINS } from '../../shared/data/factions';
 import { button, el } from './dom';
-
-const OP_LABEL: Record<string, [string, string]> = {
-  gift: [`Send gifts (${GIFT_COINS})`, 'Coins from the treasury: they think better of the town'],
-  peace: ['Propose peace', 'They agree if they bear the town no great grudge (sooner if they are losing a war)'],
-  trade: ['Propose trade', 'Open roads: coins each day, and goodwill. Needs some warmth'],
-  alliance: ['Propose an alliance', 'Their troops stand with the town against hosts and raids. Needs real warmth'],
-  marry: ['Offer a match', 'One of theirs weds one of the town\'s: kin are slow to war on kin'],
-  demand: ['Demand submission', 'Only a much weaker power kneels; the rest take offence'],
-  free: ['Free them', 'A vassal released: peace, and gratitude'],
-  war: ['Declare war', 'Breaking a treaty makes every power trust the town less'],
-};
 
 const STANCE_CLASS: Record<string, string> = { war: 'bad', neutral: 'mid', peace: 'ok', trade: 'ok', alliance: 'good', vassal: 'good', destroyed: 'gone' };
 
 export function renderRealm(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
   const out: HTMLElement[] = [el('h2', '', 'The realm')];
   const r = s.realm;
-  out.push(el('div', 'hint', `The town's might in the field: ${r.might} (its grown-ups, the seasoned counting for more). Each power weighs its troops against it. Envoys come to the gate with offers and demands; answer them in the box that opens.`));
+  out.push(el('div', 'hint', `The town's might in the field: ${r.might} (its grown-ups, the seasoned counting for more). Each power weighs its troops against it. Envoys come to the gate with offers and demands, and the town's council has its answer ready (by the town's direction and its name for good or ill); answer them yourself in the box that opens, or let the council's stand. The realm's wars are on the War tab.`));
   const cards = el('div', 'cards wide realm');
   for (const f of r.factions) cards.append(factionCard(f, s, bridge));
   out.push(cards);
@@ -71,11 +60,8 @@ function factionCard(f: FactionView, s: Snapshot, bridge: Bridge | undefined): H
   const odds = f.troops > s.realm.might * 1.2 ? 'stronger than the town' : f.troops < s.realm.might * 0.7 ? 'weaker than the town' : 'about the town\'s match';
   card.append(el('div', 'realm-sub', `${f.troops} under arms (${odds})${f.beaten ? ` · ${f.beaten} host${f.beaten === 1 ? '' : 's'} broken` : ''}${f.stormed ? ` · stormed ${f.stormed}×` : ''}`));
   if (f.host) card.append(el('div', 'realm-host', `⚔ A war host of ${f.host.size} marches on the town: here in ${f.host.hours} hour${f.host.hours === 1 ? '' : 's'}.`));
+  if (f.council) card.append(el('div', 'realm-sub', `The council: ${f.council}`));
   const acts = el('div', 'realm-acts');
-  for (const op of f.can) {
-    const [label, title] = OP_LABEL[op];
-    acts.append(button(label, () => bridge?.command({ type: 'realm', faction: f.id, op } as never), { cls: op === 'war' ? 'place quiet danger' : 'place quiet', title, disabled: op === 'gift' && (s.coins ?? 0) < GIFT_COINS }));
-  }
   if (f.assault) acts.append(button('Storm their stronghold…', () => bridge?.command({ type: 'muster', op: 'raise', dest: f.assault! } as never), { cls: 'place go', title: 'Raise the whole town for an assault' }));
   card.append(acts);
   return card;

@@ -432,6 +432,8 @@ export interface Raid {
   /** One of the Great Enemy's raids (sim/greatEnemy.ts): bearing its mark, a host led by a lieutenant (which), or the
    *  last siege. */
   enemy?: 'mark' | 'host' | 'siege';
+  /** A realm power's siege host (sim/war/siege.ts): fought out like the Enemy's last siege, not left on the clock. */
+  warSiege?: boolean;
   enemyLt?: number;
   /** Fallen raiders raised by necromancers this raid, and when a Beast Tamer can tame again. */
   raised?: number;
@@ -562,6 +564,8 @@ export interface Person {
   /** Their partner (a couple), and whether they're married. */
   partner?: number | null;
   married?: boolean;
+  /** Left by the war (sim/war/memory.ts): whom they lost, in which war, and whether as a widow or an orphan. */
+  warLoss?: { name: string; war: string; as: 'widow' | 'orphan'; tick: number };
   /** Children: when they were born (they grow up after CHILD_HOURS), and their parents. */
   bornTick?: number | null;
   parents?: number[];
@@ -787,7 +791,7 @@ export interface Prompt {
   /** An evolution's two roads (sim/classes.ts): the node ids the options stand for. */
   roads?: string[];
   /** An envoy from a power of the realm (sim/factions.ts): which, and what they've come about. */
-  envoy?: { faction: string; about: string; coins?: number };
+  envoy?: { faction: string; about: string; coins?: number; camp?: number };
   /** A commanded party's question on the road (sim/muster.ts `CROSSROADS`): which one. */
   road?: string;
   /** A saga's question: the run it belongs to (sim/sagas.ts). */
@@ -920,8 +924,8 @@ export interface Faction {
   /** The last envoy (tick), and the last host it sent (tick). */
   lastEnvoy?: number;
   lastHost?: number;
-  /** A host on its way: when it comes, and how many. */
-  host?: { at: number; size: number };
+  /** A host on its way: when it comes, and how many; an autumn harvest raid, or a siege (sim/war/siege.ts). */
+  host?: { at: number; size: number; harvest?: boolean; siege?: boolean };
   /** A grudge from a war host the town hunted down: the next host it musters comes bigger (sim/factions.ts `musterHost`). */
   grudge?: boolean;
   /** Hosts it lost against the town, and assaults the town made on it. */
@@ -1038,6 +1042,8 @@ export interface GameState {
   factions?: Faction[];
   /** The conquest: the realms sharing the world of provinces and who holds each (sim/conquest/conquest.ts). */
   conquest?: import('./conquest/conquest').ConquestState;
+  /** The seasons of war with the realm: campaigns, sieges, the occupation, the war dead (sim/war/state.ts). */
+  war?: import('./war/state').WarState;
   /** An envoy riding in to the town's fire, waiting there for an answer, and riding out (sim/factions.ts). */
   envoyRider?: { id: number; faction: string; name: string; look: Look; x: number; y: number; dir: 1 | -1; leaving: boolean; path?: Pt[]; goal?: Pt; cell?: number };
   /** World seed (the land is made from it; changes live in `land`). */

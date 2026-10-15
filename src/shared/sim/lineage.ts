@@ -54,6 +54,8 @@ export interface KinRecord {
   female: boolean;
   /** Why they're the family's black sheep (a crime, an exile). */
   black?: string;
+  /** What the realm's wars took from them: widowed or orphaned (sim/war/memory.ts). */
+  war?: string;
   /** Their calling and level, titles and foes felled, last seen (for the dead). */
   calling?: string | null;
   level?: number;
@@ -278,6 +280,8 @@ export interface KinNode {
   female: boolean;
   died: string | null;
   black: string | null;
+  /** Widowed or orphaned by a war (sim/war/memory.ts). */
+  war: string | null;
   calling: string | null;
   level: number;
   titles: string[];
@@ -362,6 +366,7 @@ export function familiesView(s: GameState): FamilyLine[] {
         female: r.female,
         died: r.died ? `died day ${r.died.day}, ${r.died.cause}` : null,
         black: r.black ?? null,
+        war: r.war ?? null,
         calling: r.calling ?? null,
         level: r.level ?? 1,
         titles: r.titles ?? [],

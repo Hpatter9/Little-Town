@@ -811,7 +811,7 @@ export function stepTactics(s: GameState, r: Raid, rng: Rng): boolean {
   tidy(s, r, t, rng);
   // (the raid's clock runs out while the raiders are winning: they press on instead of leaving; a siege never draws off)
   if (s.tick >= r.leavesTick) {
-    if (r.enemy === 'siege') {
+    if (r.enemy === 'siege' || r.warSiege) { // (and a realm power's siege: sim/war/siege.ts)
       // (the Enemy's last siege is fought out, whoever is ahead: its host does not draw off on a clock while the field is
       // held, or its leader would come on last and never be struck at; at most `SIEGE_MAX_HOURS`)
       if (s.tick < r.arrivesTick + SIEGE_MAX_HOURS * TICKS_PER_HOUR) r.leavesTick = s.tick + TICKS_PER_HOUR;

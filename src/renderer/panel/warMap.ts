@@ -2,13 +2,13 @@
 // sea by its depth with foam at the shore, the mountains in relief), the lands' trees, bushes and rocks from the
 // props atlases, each province's settlement as the pack's buildings by its tier (a tent camp for the nomads, a
 // carved gate for the dwarves), its landmark (a lair's cave, a shrine, a mine, ruins, a signpost, a jetty), the
-// realms' holdings as a tint with a coloured band along their borders, flags on the held settlements, garrisons,
-// and the armies as figures under their banners. The terrain and the holdings are painted once each and kept
+// realms' holdings as a tint with a coloured band along their borders, flags on the held settlements, an occupier's
+// garrison, and the hosts marching (a power's captain under its banner, the town's war party led by one of its own). The terrain and the holdings are painted once each and kept
 // (art/warTerrain.ts); the marks are drawn on every redraw.
 
 import { CELL_CODES, type WorldCell } from '../../shared/data/conquest';
 import { FACTION_BY_ID } from '../../shared/data/factions';
-import { ownerAt, type ArmyView, type ProvinceView, type WarView } from '../../shared/sim/conquest/warView';
+import { ownerAt, type ProvinceView, type WarView } from '../../shared/sim/war/view';
 import type { PersonView } from '../../shared/sim/snapshot';
 import { hkWhoOf } from '../art/hkFolk';
 import { drawCaptain, drawProp, drawSprite, drawWho, REALM_COLOURS, type SpriteId, type WarPropSet } from '../art/warSprites';
@@ -91,7 +91,8 @@ export function worldTerrain(w: WarView): HTMLCanvasElement {
 }
 /** The cell size (device px) the map is drawn at: fitted to the panel's width at the screen's resolution. */
 export function terrainCell(w: WarView): number {
-  const width = Math.max(280, (document.getElementById('body')?.clientWidth ?? 360) - 28);
+  // (fitted to the width, and on a phone turned sideways to the height too, so the whole world fits one screen)
+  const width = Math.max(280, Math.min((document.getElementById('body')?.clientWidth ?? 360) - 28, window.innerHeight - 24));
   const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
   return Math.max(3, Math.floor((width * dpr) / w.side));
 }
@@ -174,7 +175,7 @@ export function holdersLayer(w: WarView, cell: number, selected: number | null):
 /* ------------------------------------------------------------ the marks */
 
 export interface MarkContext {
-  /** The town's people (as the snapshot has them), its origin, and the picked army. */
+  /** The town's people (as the snapshot has them), its origin, and the picked army (none now). */
   people: PersonView[];
   townOrigin: string;
   picked: number | null;
@@ -357,57 +358,28 @@ export function drawMarks(g: CanvasRenderingContext2D, w: WarView, cell: number,
     const col = realmColour(w, p.holder);
     if (col) drawFlag(g, x + cell * 1.1, y + cell * 0.5, cell * (p.capitalOf ? 2.0 : 1.3), col, !!p.capitalOf);
     if (p.garrison) drawGarrison(g, x - cell * 1.3, y - cell * 0.2, cell * 0.95, col ?? '#888', p.garrison, ctx.font);
-    if (p.bare) {
-      g.fillStyle = '#ff5a3a';
-      g.beginPath();
-      g.arc(x - cell * 1.1, y - cell * 1.1, Math.max(2, cell * 0.22), 0, Math.PI * 2);
-      g.fill();
-    }
   }
-  // the rival realms' armies on the march
+  // the hosts on the march: a power's border march, a war's strike (a harvest raid dotted), the town's war party
   for (const ra of w.rivalArmies) {
     const [fx, fy] = px(w.provinces[ra.from]);
     const [tx, ty] = px(w.provinces[ra.to]);
-    const col = realmColour(w, ra.realm) ?? '#f00';
+    const town = ra.kind === 'town';
+    const col = town ? '#ffd24a' : realmColour(w, ra.realm) ?? '#f00';
     g.strokeStyle = col;
-    g.lineWidth = Math.max(1, cell * 0.12);
-    g.setLineDash([cell * 0.4, cell * 0.4]);
+    g.lineWidth = Math.max(1, cell * (ra.kind === 'strike' || town ? 0.16 : 0.12));
+    g.setLineDash(ra.kind === 'harvest' ? [cell * 0.15, cell * 0.3] : [cell * 0.4, cell * 0.4]);
     g.beginPath();
     g.moveTo(fx, fy);
     g.lineTo(tx, ty);
     g.stroke();
     g.setLineDash([]);
-    const origin = originOf(ra.realm, ctx.townOrigin) ?? 'brotherhood';
-    drawArmy(g, (fx + tx) / 2, (fy + ty) / 2, cell, col, () => drawCaptain(g, origin, 0, tx < fx ? 'left' : 'right', (fx + tx) / 2, (fy + ty) / 2, cell * 1.6), false, ctx.font, ra.strength);
-  }
-  // the town's armies, with their way
-  for (const a of w.armies) {
-    const from = w.provinces[a.at];
-    const to = a.going === null ? null : w.provinces[a.going];
-    let [x, y] = px(from);
-    if (to) {
-      const [tx, ty] = px(to);
-      g.strokeStyle = '#fff';
-      g.lineWidth = Math.max(1, cell * 0.12);
-      g.setLineDash([cell * 0.4, cell * 0.4]);
-      g.beginPath();
-      g.moveTo(x, y);
-      g.lineTo(tx, ty);
-      for (const q of a.path) {
-        const [qx, qy] = px(w.provinces[q]);
-        g.lineTo(qx, qy);
-      }
-      g.stroke();
-      g.setLineDash([]);
-      x = (x + tx) / 2;
-      y = (y + ty) / 2;
-    } else {
-      x -= cell * 1.2;
-      y += cell * 0.9;
-    }
-    const general = heroOf(w, a, ctx.people);
-    const facing = to && to.x < from.x ? 'left' : 'right';
-    drawArmy(g, x, y, cell, '#ffd24a', () => (general ? drawWho(g, hkWhoOf(general), facing, x, y, cell * 1.6) : drawCaptain(g, ctx.townOrigin, 0, facing, x, y, cell * 1.6)), a.id === ctx.picked, ctx.font);
+    const t = Math.max(0.1, Math.min(0.9, ra.t));
+    const x = fx + (tx - fx) * t;
+    const y = fy + (ty - fy) * t;
+    const facing = tx < fx ? 'left' : 'right';
+    const lead = town ? ctx.people.find((p) => p.away !== null) : undefined;
+    const origin = town ? ctx.townOrigin : originOf(ra.realm, ctx.townOrigin) ?? 'brotherhood';
+    drawArmy(g, x, y, cell, col, () => (lead ? drawWho(g, hkWhoOf(lead), facing, x, y, cell * 1.6) : drawCaptain(g, origin, 0, facing, x, y, cell * 1.6)), false, ctx.font, ra.strength);
   }
   // names: the capitals', the selected province's
   for (const p of w.provinces) {
@@ -415,11 +387,6 @@ export function drawMarks(g: CanvasRenderingContext2D, w: WarView, cell: number,
     const [x, y] = px(p);
     label(g, p.name, x, y + cell * 1.9, p.id === ctx.selected ? smallFont * 1.15 : smallFont, ctx.font, p.id === ctx.selected ? '#fff' : '#f4e8c8');
   }
-}
-/** The general of an army: the townsperson leading its general's squad. */
-export function heroOf(w: WarView, a: ArmyView, people: PersonView[]): PersonView | null {
-  const q = w.squads.find((s) => s.id === a.general);
-  return q ? people.find((p) => p.id === q.hero) ?? null : null;
 }
 /** A small compass rose in a corner. */
 export function drawCompass(g: CanvasRenderingContext2D, x: number, y: number, r: number, font: string): void {
