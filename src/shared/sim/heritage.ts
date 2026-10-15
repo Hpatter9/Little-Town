@@ -1,6 +1,7 @@
 // The peoples' own ways (the origins made deeper): each origin's system, as the Town menu's "Our ways" tab shows it,
 // and the answers to their questions (prompts of kind `ways`).
 
+import { answerReligion } from './religion';
 import { answerLegacy } from './ancestors';
 import type { Rng } from '../rng';
 import { answerBargain, courtView, type CourtView } from './bargains';
@@ -45,5 +46,7 @@ export function answerWays(s: GameState, prompt: Prompt, option: number, rng: Rn
       return answerUnder(s, prompt, option); // (a cave town's envoy: sim/underdark.ts)
     case 'legacy':
       return answerLegacy(s, prompt, option); // (a spirit of the line: sim/ancestors.ts)
+    case 'religion':
+      return answerReligion(s, prompt, option); // (the rival cult: sim/religion.ts)
   }
 }
