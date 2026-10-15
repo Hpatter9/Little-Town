@@ -28,6 +28,9 @@ export const HELD_MOST = 5;
 /** A newcomer to the held traits must beat the weakest of them by this much to take its place. */
 export const DISPLACE = 4;
 /** The custom day in its season (the festivals use the seventh and the days of making ready before it). */
+/** No culture before this day of the game, and a dish is ordered only with this many days of food in store. */
+export const CULTURE_FROM_DAY = 20;
+export const DISH_FOOD_DAYS = 3;
 export const CUSTOM_DAY = 2;
 export const CUSTOM_HOUR = 18;
 /** The dish is ordered from the season's first day; the custom's morale (hours), more with the dish made. */

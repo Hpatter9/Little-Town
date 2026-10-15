@@ -48,7 +48,8 @@ test('a held trait orders its dish and keeps its custom', () => {
   const c = cultureOf(s);
   c.held = [t.id];
   c.strength[t.id] = 30;
-  s.tick = 0;
+  addStock(storages(s)[0].store, 'berries', 300);
+  s.tick = 25 * TICKS_PER_DAY;
   let sawOrder = false, kept = false;
   const seasonStart = () => calendar(s.tick).season === t.custom.season && calendar(s.tick).dayOfSeason === 1 && calendar(s.tick).hour === 5;
   while (!seasonStart()) s.tick += TICKS_PER_HOUR;

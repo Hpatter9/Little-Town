@@ -7,7 +7,7 @@
 // journal, and, for some, a fashion in the children's names (`fashionName`). Off with the autopilot; its rolls come from
 // a side stream of its own ('culture'), and it draws nothing from the town's stream.
 
-import { CULTURE_TRAITS, CUSTOM_DAY, CUSTOM_HOUR, CUSTOM_MARK, DECAY, DISH_MARK, DISH_MOST, DISPLACE, FASHION_SHARE, HELD_MOST, LOSE, REMARK_DAYS, STRENGTH_MOST, TRAIT_BY_ID, WIN, dishId, type CultureSignal, type CultureTrait, type Fashion } from '../data/culture';
+import { CULTURE_FROM_DAY, DISH_FOOD_DAYS, CULTURE_TRAITS, CUSTOM_DAY, CUSTOM_HOUR, CUSTOM_MARK, DECAY, DISH_MARK, DISH_MOST, DISPLACE, FASHION_SHARE, HELD_MOST, LOSE, REMARK_DAYS, STRENGTH_MOST, TRAIT_BY_ID, WIN, dishId, type CultureSignal, type CultureTrait, type Fashion } from '../data/culture';
 import { DOMAINS } from '../data/gods';
 import type { Topic } from '../data/natures';
 import { Rng, hashSeed } from '../rng';
@@ -71,7 +71,6 @@ export function readSignals(s: GameState): Record<CultureSignal, number> {
     else if (/battle|liege/.test(f.cause)) sig.war += 2;
     if (!f.cause.includes(OLD_AGE)) sig.deaths += 1;
   }
-  if (foodDays(s) < 0.5) sig.hunger += 1;
   if (s.people.filter((p) => p.sick).length >= 2) sig.plague += 1;
   const y = s.yearRaids ?? { came: 0, won: 0, pillaged: 0 };
   const delta = (cur: number, prev: number) => (cur >= prev ? cur - prev : cur);
@@ -140,7 +139,8 @@ function customsHourly(s: GameState): void {
     if (c.kept.includes(key)) continue;
     const dish = dishId(t);
     if (cal.dayOfSeason < CUSTOM_DAY || (cal.dayOfSeason === CUSTOM_DAY && cal.hour < CUSTOM_HOUR)) {
-      if (cal.hour !== 6) continue;
+      // (the dish is ordered only when the larder can spare it)
+      if (cal.hour !== 6 || foodDays(s) < DISH_FOOD_DAYS) continue;
       const short = dishWant(s) - have(s, dish) - s.crafting.filter((o) => o.item === dish).reduce((n, o) => n + o.count, 0);
       if (short > 0) s.crafting.push({ id: s.nextId++, item: dish, count: short, delivered: {}, itemsTaken: false, progress: 0, made: 0 });
       continue;
@@ -180,6 +180,8 @@ function remarksHourly(s: GameState): void {
 export function cultureHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver || s.autopilot === false) return;
   const cal = calendar(s.tick);
+  // (a town has no ways of its own in its first days: culture comes of months of history)
+  if (cal.day < CULTURE_FROM_DAY) return;
   if (cal.hour === HOUR_READ) cultureDaily(s);
   if (!s.culture?.held.length) return;
   customsHourly(s);
