@@ -1,6 +1,7 @@
 // Strip renderer: draws the town and HUD, turns clicks into sim commands, and decides when the strip
 // should capture the mouse.
 
+import { guildsOf } from './art/guildMarks';
 import { withDeltas } from './deltaBridge';
 import { biomeById } from '../shared/data/biomes';
 import { hkCell, hkDraw, hkKnow, hkLayers, hkWhoOf, onHkLoad } from './art/hkFolk';
@@ -1221,7 +1222,7 @@ async function start(): Promise<void> {
       if (selectedPerson !== null && !p) selectedPerson = null;
       return personCard.hide();
     }
-    personCard.show(p, p.id === snap.mainId, map.screenOf(at.x, at.y).x);
+    personCard.show(p, p.id === snap.mainId, map.screenOf(at.x, at.y).x, guildsOf(snap, p.id));
   };
 
   const selectPerson = (id: number | null) => {
