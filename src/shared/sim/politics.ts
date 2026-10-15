@@ -10,6 +10,7 @@
 // shows (`answerPolitics`, from answerPrompt).
 
 import { feudFrom } from './dynasty';
+import { hideCrime, swingVote } from './intrigue';
 import { blackSheep } from './lineage';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { CLASS_DEFS } from '../data/classes';
@@ -206,7 +207,7 @@ export function proposalOf(s: GameState, b: BlocId): { law?: LawId; repeal?: boo
   return null;
 }
 /** A bloc's stance on a proposal: +1 for, -1 against. */
-function stanceOn(b: BlocId, prop: NonNullable<ReturnType<typeof proposalOf>>): number {
+export function stanceOn(b: BlocId, prop: NonNullable<ReturnType<typeof proposalOf>>): number {
   if (prop.tax) return Math.sign(TAX_PULL.low[b] ?? 0) || 0;
   const st = LAW_BY_ID[prop.law!].stance[b] ?? 0;
   return prop.repeal ? -st : st;
@@ -240,6 +241,7 @@ export function callVote(s: GameState, by: BlocId | null, prop: NonNullable<Retu
     if (st > 0) yes++;
     else if (st < 0) no++;
   }
+  ({ yes, no } = swingVote(s, prop, yes, no)); // (a councillor in a house's pocket votes its way: sim/intrigue.ts)
   const passes = yes > no;
   const name = proposalName(prop);
   const cal = calendar(s.tick);
@@ -392,6 +394,7 @@ export function crime(s: GameState, rng: Rng): void {
   const caught = Math.min(CAUGHT_MOST, CAUGHT_BASE + guards * CAUGHT_PER_GUARD + (lawOn(s, 'harsh_law') ? CAUGHT_HARSH : 0));
   if (!rng.chance(caught)) {
     log(s, 'crime', `In the night someone ${what}. Nobody saw who.`, kind === 'murder');
+    hideCrime(s, culprit, what); // (a secret someone may hold over them: sim/intrigue.ts)
     return;
   }
   pol.caught = (pol.caught ?? 0) + 1;

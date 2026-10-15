@@ -6,6 +6,7 @@ import { MAP_HOME, MAP_SIZE, MAP_SPOTS } from '../../shared/data/worldMap';
 import { STRONGHOLD_SPOTS } from '../../shared/data/factions';
 import { regionScouted, REGIONS } from '../../shared/data/regions';
 import type { ExpeditionView, Snapshot } from '../../shared/sim/snapshot';
+import type { GreatEnemyView } from '../../shared/sim/greatEnemy';
 import { tripProgress } from '../../shared/format';
 import { el } from './dom';
 
@@ -44,8 +45,9 @@ export class WorldMapView {
     this.el.append(this.svg, this.marks);
   }
 
-  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = [], world?: Snapshot['world']): void {
-    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.routes, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)])]);
+  update(dests: MapDestination[], picked: string | null, parties: ExpeditionView[], known: string[], holds: MapHold[] = [], world?: Snapshot['world'], enemy: GreatEnemyView | null = null): void {
+    const foe = enemy && [enemy.stage, enemy.seatKnown, enemy.seatOpen, enemy.spread, enemy.lieutenants.map((l) => [l.slain, l.dest])];
+    const key = JSON.stringify([dests, picked, parties.map((e) => [e.id, e.dest, Math.round(tripProgress(e) * 200), e.phase]), known, holds, world?.feuds, world?.routes, world?.marches.map((m) => [m.kind, m.label, Math.round(m.t * 100)]), foe]);
     if (key === this.key) return;
     this.key = key;
     this.svg.replaceChildren();
@@ -58,6 +60,15 @@ export class WorldMapView {
       place(fog, r);
       fog.style.width = fog.style.height = pct(r.r * 2);
       this.marks.append(fog, label(r.name, { x: r.x, y: r.y + 14 }, 'fogged'));
+    }
+
+    // the Great Enemy's shadow (sim/greatEnemy.ts): a stain spreading from its seat as its plan grows, under everything
+    if (enemy && enemy.seatKnown && enemy.spread > 0) {
+      const stain = el('div', 'map-spread');
+      place(stain, enemy.seatAt);
+      stain.style.width = stain.style.height = pct(enemy.spread * 2);
+      stain.style.setProperty('--foe', enemy.colour);
+      this.marks.append(stain);
     }
 
     // routes: to the picked destination, and each party's
@@ -127,6 +138,29 @@ export class WorldMapView {
       tok.setAttribute('aria-label', m.label);
       place(tok, at);
       this.marks.append(tok);
+    }
+
+    // the Great Enemy's seat (once found: tap to strike it, when a party may) and its lieutenants' outposts
+    if (enemy?.seatKnown) {
+      const seatId = enemy.dests.find((d) => d.id.endsWith(':seat'))?.id;
+      const m = el('button', `map-foe seat${seatId ? ' open' : ''}${enemy.stage === 'peace' ? ' beaten' : ''}`, enemy.stage === 'peace' ? '✕' : '☠');
+      m.title = `${enemy.seat}: the seat of ${enemy.name}`;
+      m.setAttribute('aria-label', m.title);
+      m.style.setProperty('--foe', enemy.colour);
+      place(m, enemy.seatAt);
+      if (seatId) m.addEventListener('click', () => this.onPick(seatId));
+      const name = enemy.seat.charAt(0).toUpperCase() + enemy.seat.slice(1);
+      this.marks.append(m, label(name, { x: enemy.seatAt.x, y: enemy.seatAt.y + 10 }, 'foe'));
+    }
+    for (const l of enemy && enemy.stage !== 'omens' ? enemy.lieutenants : []) {
+      if (!l.dest && !l.slain) continue;
+      const m = el('button', `map-foe outpost${l.slain ? ' slain' : ''}`, l.slain ? '✕' : '⚑');
+      m.title = l.slain ? `${l.outpost}: ${l.name}, slain` : `${l.outpost}: held by ${l.name}`;
+      m.setAttribute('aria-label', m.title);
+      m.style.setProperty('--foe', enemy!.colour);
+      place(m, l.at);
+      if (l.dest) m.addEventListener('click', () => this.onPick(l.dest!));
+      this.marks.append(m);
     }
 
     const home = el('div', 'map-home');

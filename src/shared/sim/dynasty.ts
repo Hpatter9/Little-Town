@@ -36,6 +36,7 @@ import { adjust, brawl, isChild, opinion } from './social';
 import { notify, tireless, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { politicsOf } from './politics';
+import { intrigueYearLines, wealthStrength } from './intrigue';
 
 /** What a child has lived through so far. */
 export interface Rearing {
@@ -396,6 +397,7 @@ export function strengthOf(s: GameState, h: Houses, root: number): number {
     t -= Math.min(15, (m.debt ?? 0) / 10);
     if (s.kin?.[m.id]?.black) t -= 12;
   }
+  t += wealthStrength(s, root); // (the family chest: sim/intrigue.ts)
   // (what the dead earned, remembered a little)
   const dead = Object.values(s.kin ?? {}).filter((r) => rootOf(h, r.id) === root && !s.people.some((p) => p.id === r.id)) as KinRecord[];
   return Math.max(0, t + lineRenown(dead) * 0.1);
@@ -506,7 +508,7 @@ function decline(s: GameState, h: Houses, root: number): string {
 /** How a challenger came to the seat, by what it has most of. */
 function bestWay(s: GameState, h: Houses, root: number): string {
   const a = adultsOf(s, h, root);
-  const wealth = a.reduce((n, p) => n + (p.coins ?? 0) / 20 + s.buildings.filter((b) => b.owner === p.id).length * 3, 0);
+  const wealth = a.reduce((n, p) => n + (p.coins ?? 0) / 20 + s.buildings.filter((b) => b.owner === p.id).length * 3, 0) + wealthStrength(s, root);
   const arms = a.reduce((n, p) => n + (p.felled ?? 0) * 0.5 + (p.level ?? 1), 0);
   const standing = a.reduce((n, p) => n + (p.titles?.length ?? 0) * 5 + (p.skills.social?.level ?? 0), 0);
   const top = Math.max(wealth, arms, standing);
@@ -764,7 +766,7 @@ export function dynastyView(s: GameState): DynastyView | null {
 export function dynastyYearLines(s: GameState, since: number): string[] {
   const d = s.dynasty;
   if (!d || off(s)) return [];
-  const lines = d.log.filter((e) => e.tick >= since && !/begins its rule/.test(e.text)).map((e) => e.text);
+  const lines = [...d.log.filter((e) => e.tick >= since && !/begins its rule/.test(e.text)).map((e) => e.text), ...intrigueYearLines(s, since)];
   const r = d.ruling;
   const out = lines.length > 4 ? [...lines.slice(0, 2), ...lines.slice(-2)] : lines;
   if (r && s.kin && Object.keys(s.kin).length > 0 && !out.length) {

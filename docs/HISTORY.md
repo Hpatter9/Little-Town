@@ -4992,3 +4992,242 @@ Unchanged on purpose: `TALL` (64) and `TALL_S` (44), so wall heights stay the sa
 
 The wall picture still rises `TALL` above its foot, so a wall still covers the room behind it by the same height. What
 is smaller is the depth the walls take across the room, and the thickness of the walk and face.
+
+## The Great Enemy (the owner's ask: one slow-building villain a town, a long arc for a game meant to last months)
+
+- **The data** (`src/shared/data/greatEnemy.ts`): six Enemies (`GREAT_ENEMIES`, `EnemyKind`), each a person-like foe with
+  a name, a seat on the world map (`SEAT_SPOTS`), a goal, a way of fighting, three lieutenants (`Lieutenant`: an enemy
+  id, a name, the outpost it holds and its guard), an army (`GREAT_ENEMY_RAIDS`, merged into RAID_KINDS, weight 0: never
+  rolled), a seat guard, omens, dreams, a stranger's warning, travellers lost, its agents' disguise, each stage's
+  telling, its tribute demand, a picture, a backdrop, a colour for the world map, and a relic:
+  - **tower**: Malgrith the Tower Lord, the Black Tower of Vorn (storm-mages, fallen knights, demons; Isolde the Ember
+    Witch, Gorrath the Gate Warden, the Black Seneschal).
+  - **brood**: Sarnath, Mother of Wyrms, the Smoking Peaks (drakes and wyrmlings; Vyrax the Drake Lord, the Wyrm
+    Priest, Ossk, Warden of the Clutch).
+  - **plague**: the Pale Prophet, the Bell Fen (the risen flock, plague rats, cultists; the Rat Mother, Old Toller the
+    Bell Ringer, the Mourner).
+  - **engine**: the Engine Mind, the Clockwork Deep (golems, sentries, drones; Unit Foreman, Blade Unit Seven, Gunner
+    Prime).
+  - **drowned**: the Drowned King, the Sunken Throne (drowned sailors, squid-kin, coral golems; Admiral Kell, the Tide
+    Witch, the Deep Maw). A shore town's only (`enemyFit`: the coast biome or a sea town).
+  - **undying**: Kharzul the Undying, the Field of Spears (bone legions, death knights, wraith archers; the Bone Marshal,
+    Ser Hollow, the Gravecaller).
+  The 24 foes (`GREAT_ENEMY_FOES`, merged into ENEMIES): the Enemies 1500 to 1800 health (deadlier than the Calamity's
+  avatars), their lieutenants 540 to 780, every one a boss with a kit; all drawn from pack sheets already in the game
+  (`packSheets.ts`: lightning_mage, wyvern, ninja_monk, robot_destroyer, pirate_zombie, samurai_commander for the
+  Enemies; fire_wizard, hk_demon, knight_3, drakes, shaman_king, the DawnLike drakes and sea dragon, gorgon_2,
+  hk_zombie_brute, hk_mummy, hk_juggernaut, robot_swordsman, robot_infantry, pirate_leader, squidman, skeleton_spearman,
+  knight_2, champ_necromancer for the lieutenants), recoloured by `look`. No new sprite was copied in. Relics
+  (`GREAT_ENEMY_TROPHIES`, merged into ITEMS: the Iron Crown of Vorn, the Heart of the Brood, the Bell of Stillness, the
+  Engine Core, the Coral Crown, Kharzul's Banner); unique weapons (`GREAT_ENEMY_UNIQUES`, folded into data/uniques.ts'
+  rows: one each Enemy, one shared by its three lieutenants). The **Victory Monument** (`MONUMENT_BUILDING`,
+  `victory_monument`, in BUILDINGS; the planner's `NEVER`; drawn with the cave statue in map/packBuildings.ts).
+- **Choosing** (`sim/greatEnemy.ts`): on day `ENEMY_CHOSEN_DAY` (2) at `ENEMY_HOUR` (9), `chooseEnemy` draws a kind
+  weighted by `enemyFit(kind, biome, origin, shore, calamity)` from its own side stream (`${seed}:enemy:kind`). The
+  drowned king only by the sea; the brood in the high, cold and burnt lands; the plague cult in fens, jungle and forest;
+  the engine mind for the machines, alchemists and dwarves and in the wastes; the undying on the steppe and ashlands.
+  Never a second dark lord or rot beside the town's Calamity (the tyrant halves the tower and all but rules out the
+  undying; the rot rules out the plague), and seldom the undying for a lich town.
+- **The arc** (`s.greatEnemy`, `GreatEnemyState`; `greatEnemyHourly` from sim.ts after the Calamity): each morning its
+  **plan** grows by `pace / DANGER_PACE`, a paced day (`paceDay`), and the stages come at `PLAN_AT` (omens 5, stirring
+  15, march 32, siege 52 paced days: with nothing for or against it, game days 13, 38, 80 and 130; at about two and a
+  half game days a real day of play, about 5, 15, 32 and 52 real days). `paceToday`: 1, plus `OUTPOST_HASTE` (0.2) for
+  each outpost still standing (ignoring it speeds it), less `COUNTER_TOPICS` for each known (scouting, writing,
+  fortification, oral tradition, physick) and `FAITH_SLOW` when the gods' favour sums past `FAITH_FAVOUR` with a shrine,
+  temple or cathedral standing; held between `PACE_LEAST` and `PACE_MOST`.
+  - **Omens**: an omen on a night (`OMEN_NIGHTLY` at `OMEN_HOUR`, a morale chill), and with it a dream (`e.dream`) that
+    about half the town writes in their diaries the next day (sim/diary.ts `dreamOf`, "Last night I dreamed..."); a
+    traveller lost now and then (`MISSING_DAILY`); a stranger's warning once (`WARNING_DAILY`, a told prompt), which
+    reveals the seat; else the scouts find it (`SEAT_FOUND_DAILY`, more with Scouting and each mapped region).
+  - **Stirring**: the seat is found if it wasn't; its three outposts go on the board (`enemy:<kind>:out<i>`); its blight
+    creeps onto the town's land (`e.creep`, a cell at the land's edge toward its seat, `CREEP_PER_DAY` up to
+    `CREEP_MOST`, a source in sim/blight.ts `blightSources`: fields grow slower, ward stones keep it off); its agents
+    among the visitors (`AGENT_DAILY`: a fire, a theft or a killing, unless the watch unmasks them, more often with
+    guards); raids bearing its mark (`MARK_CHANCE`, its army in place of a raid due within a day, `Raid.enemy` 'mark');
+    every `FALL_EVERY_DAYS` a power of the realm falls to it (`powerFalls`, up to `POWERS_FALL_MOST`: an ally of the town
+    razed, any other at war with the town at -100, `e.thralls`; freed at the peace); the Monster Hunters' Guild posts a
+    purse on each lieutenant (`GUILD_PURSE`, into `s.bounties`, so the parties are drawn and paid by the usual bounty).
+  - **The march**: every `HOST_EVERY_DAYS` a living lieutenant leads a host (`startRaid` with `host`: `HOST_SHARE` of the
+    raid budget, `HOST_MOST` foes and one more for each `HOST_PER_GROWN` grown-ups at home up to `HOST_CAP`, staying
+    `HOST_HOURS` to fight (an ordinary raid's three hours ran out mid-board and they routed on the clock), a siege engine from the Medieval age, the lieutenant at its head: `Raid.enemy`
+    'host', `enemyLt`); every `TRIBUTE_EVERY_DAYS` it demands tribute (a prompt of kind `enemy`, `answerEnemy` from
+    roadEvents.ts: `tributeOf`, half as much again each time; paid, the plan slips `TRIBUTE_SETBACK`; refused, it hastens
+    `REFUSED_HASTE` and a host comes the next morning; left unanswered, the town pays only if it holds twice the sum).
+  - **The last siege**: warned `SIEGE_WARNING_HOURS` (36) ahead, then `startSiege`: its army at `SIEGE_SHARE` of the
+    budget (more for each living lieutenant), up to `SIEGE_SIZE` plus `SIEGE_PER_LIEUTENANT` a living lieutenant plus one for each `SIEGE_PER_GROWN` grown-ups (at
+    most `SIEGE_CAP`), staying `SIEGE_HOURS`, two siege engines, the
+    Enemy at its head and its living lieutenants beside it (`Raid.enemy` 'siege'). `greatEnemyRaidOver` (from raids.ts
+    `endRaid`): any lieutenant down in one of its raids is slain; the Enemy down is the **peace** (`victory`: stage
+    `peace`, its relic in the stores, the monument raised at once (or a blueprint over the wild), the town titled "the
+    Bane of ..." and its hardest hitter (the raid's tally, else the best fighter) given "...'s Bane", the thralls freed,
+    the blight gone, `PEACE_MORALE` for `PEACE_DAYS`; the town goes on). Lost, it is a sack: `SIEGE_BURN` buildings
+    burn, `SACK_SLAIN` of the townsfolk are cut down (never the founder), the plan falls back to `SIEGE_REGROUP` short;
+    the `SIEGES_TO_FALL`th (second) lost is the end of the town (`s.gameOver`, stage `fallen`).
+- **The town fights back**: `PULL_OUTPOST` draws the town's own parties to the outposts (sim/parties.ts `pull`), never
+  to the seat (`choosable` leaves `isEnemySeat` out: that's for the player's expeditions). An outpost cleared
+  (`enemyPlaceCleared`, from sim/expeditions.ts as a place is cleared) slays its lieutenant (`slayLieutenant`:
+  `LIEUTENANT_SETBACK` paced days off the plan, a morale lift, a scene). The seat (`enemy:<kind>:seat`, `seatOpen` once
+  found, quiet `SEAT_QUIET_DAYS` after a strike) holds its seat guard doubled while a lieutenant lives (a win sets the
+  plan back `SEAT_SETBACK`), and the Enemy itself once they are all dead (a win there is the peace, early).
+- **Legends across towns**: simHost.ts puts `enemyLegend` on the legend as a town ends (`Legend & { enemy }`: its kind,
+  name and fate), and a descendant's town whose forebears it broke meets the same Enemy (`inheritEnemy`:
+  `e.vengeance`, told at the omens). The Hall of Legends card says who slew or broke the town (legendsPanel.ts).
+- **Seen**: the Trips tab's Out now has **The Great Enemy** (expeditionsPanel.ts `greatEnemySection`, in `GROUPS`): its
+  stage, the plan as a bar toward the siege, what's next and when, the latest omen, its lieutenants, the powers fallen
+  to it, More (goal, way, seat, pace, sieges lost, title, slayer, the story so far, the arc), and its places' cards. The
+  world map (worldMapView.ts) shows its seat once found (☠, tap to pick it when open), its outposts (⚑, ✕ slain) and its
+  shadow spreading from the seat as the plan grows (`.map-spread`, its colour). A Town overview tile; the news bubble's
+  standing notice from the stirring (red from the march, the siege's count-down) and its lines' tones (notices.ts); the
+  yearly chronicle tells its turns (annals.ts, from `e.log`). Eight scenes (`data/greatEnemyScenes.ts`, merged into
+  CUTSCENES: `enemy_omens`, `enemy_stirring`, `enemy_march`, `enemy_siege`, `enemy_lieutenant`, `enemy_victory`,
+  `enemy_repelled`, `enemy_fallen`), the Enemy cast as `foe:{enemy}`.
+- **Previews**: `__enemy(stage, kind)` in the phone page's console (mobileBridge.ts, simHost.ts `DEBUG`, `forceEnemy`)
+  brings it straight to omens, stirring, march or the siege (which comes within the hour).
+- Only with the autopilot on; every roll is its own side stream (`${seed}:enemy:...`). Optional state (`s.greatEnemy`,
+  `Raid.enemy`, `Raid.enemyLt`); an older save's Enemy is chosen on its next morning and starts from nothing. Tests:
+  `test/greatEnemy.test.ts`.
+- **Soaks and probes** (main 0.93, 40 days, 3 towns each, people/deaths/wiped, main's in brackets): settlers 8.0/8.7/1
+  (9.7/6.7/1), knights 14.7/3.7/0 (15.0/4.0/0), orcs 11.3/4.7/0 (10.0/5.3/0). A 160-day settlers town: omens day 16,
+  stirring day 46, the march day 99, its three lieutenants slain (one at its shrine by a party, two leading hosts),
+  tribute refused five times, the plan at 49.3 of 52 on day 161 (the siege about day 168), 171 dead in all. Forced on
+  the late fixture (37 people), a siege of 57 cost 9 and 10 lives (the sack's 7 among them); the town's tactics board
+  kills few of the town in any raid, as before.
+
+## Battle maps: varied boards, terrain rules, shots in the air
+
+Changes the HISTORY.md sections "Tactics battles", "Weapon range" and "Combat effects" (the raid board, shooters, the
+fight screens' arrows).
+
+**The board is laid per battle** (`makeBoard` in `sim/tactics.ts`, pieces in `sim/tacticsTerrain.ts`). After the land's
+own ground, the old lumps and boulders (`lieOfTheLand`) and a new `easeRelief` (no step over `CLIMB_MAX` 2 left by the
+relief), `layTerrain` strews the field (columns 2 to the wall less 2) from a **side stream**
+`new Rng(hashSeed(`${seed}:board:${tick}:${attempt}`))`; the town's stream is never drawn on. What and how much comes
+from the land's `LOOKS[biome]` (copses, hills, outcrops, thickets, logs, pond and stream odds) plus the share of the
+board the land itself makes wooded, hilly or wet. Pieces: **hills** (a flat top `HILL_RISE` 3 over flattened ground, a
+ramp two tiles wide up one side in steps of one, a cliff on every other side: `TacTile.hill` `'top'`/`'ramp'`), **copses**
+(`tree`), **boulder outcrops** (`block: 'rock'`), **thickets** (`bush`), **fallen logs** (`log`), a **pond** (deep middle,
+shallows round it) and a **stream** across the way with one or two fords. Water laid on the field carries
+`TacTile.art`, a land cell of real water whose painted ground the top borrows. `boardOk` checks every standable tile can
+be walked to from the gate and back over town rules (jump 2, no deep water), none in the raiders' edge columns lost and
+at most 3% strays; a layout that fails is laid again (attempt 2) and then the plain field stands. The town's own fences
+and fields are already on the board as the land's painted ground; nothing extra was laid for them.
+
+**Rules** (added to the existing ones, not beside them): `canStep` is the one step rule for `reachable` and the raiders'
+`wayIn` distance field: a climb over `min(jump, CLIMB_MAX)` is a cliff (so a hill is climbed from its ramp alone, by the
+town's fighters and the raiders alike, who go round), each step climbed costs `CLIMB_COST` more, a log `LOG_COST`; a drop
+of more than jump + 1 is too far. `sightClear` (shooters, and single-mark spells in `bestCast` and the player's orders):
+trees (2 high) and boulders (1.6) over the eye-to-mark line block a shot, hills' brows too, walls are shot over as before.
+`coverChance` replaces the flat `COVER` for shots: tree 0.3, bush 0.2, log 0.2 where the target stands, +0.15 for a tree,
+boulder or log beside it on the shooter's side, halved from a shooter 2+ steps above, capped 0.5 (melee keeps `COVER`
+0.2 for tree and bush). `shotReach`: `HIGH_REACH` 0.7 tile a step above the mark (a hill's top reaches two further).
+The defence bonus of height is the existing `blowMult` (10% a step up to three).
+
+**Every town's raid outcomes change** (new terrain in the rules, new draws): expected. Soak figures are in the
+coordinator's report.
+
+**Shots** (renderer only; the sim resolves as before): `TacFx.shot` names what flew (`data/projectiles.ts` `shotOf`:
+arrow, bolt, bullet, spear, stone, beam, ball, or `orb:<element>`), set for a shooter's blow and a tower's bolt.
+`battle/projectiles.ts` `ShotPainter` flies it (stateless: age in, sprite and trail out; DawnLike `items/Ammo.png`
+cells for missiles, the pixel-effects atlas `px:<element>-orb` for spells) over `flightTicks`. The tactics board
+(`TacticsScene.flightOf`) delays a blow's number, its landing sheet and an area's flash until the shot arrives; a spell
+at the other side flies an orb of its element (`actFx`) before its sheet plays. `fight/fightView.ts` (side view) and
+`map/mapBattle.ts` use the same painter (the side view finds a plain shot's target by matching the hit's age).
+
+**Life on the board** (`tactics/boardLife.ts`): birds (`art/birds.png`) startle from a copse when a fighter steps beside
+it, trees and thickets sway, leaves (autumn, summer and spring in woodland), snow (winter or snowing), dust (desert,
+steppe) or embers (ashlands) drift over, water glints, torches flicker at the gate by night, fallen logs from the wild
+prop set. No new art files; sources already in `CREDITS.md`.
+
+Tests: `test/tacticsTerrain.test.ts` (connected boards in every biome, same seed same board, hills climbed by the ramp
+alone, step costs, line of sight, cover, reach, shot names). Tools: `tools/probe-board.mjs [count] [show]`.
+
+**A stall found by the hold scenario, and fixed:** with the first rules a raider could drop three steps into a pond-bank pocket it
+could not climb out of, and a defender above it could not strike down three steps: the battle stood still for days. A
+cliff is now a cliff both ways (`canStep`: a step of more than `min(jump, CLIMB_MAX)` either way is refused), and a
+raider still on the field `STALL_TICKS` (2 hours) past its raid's leaving time slips away (`stepTactics`). The castle test
+'a Deep Hold grows its halls' now uses the seed 'hold-grows-b' (the old seed's town simply took a different course: rooms
+over ten seeds were 95 on this branch against 98 on main).
+
+## House intrigue (the owner's ask on the ruling house from 0.96.0: own the town, a mafia, bribes, blackmail and murder for the council)
+
+Extends HISTORY.md "Generations and dynasties" and "Town politics and law". New state `s.intrigue` (`IntrigueState`, optional, so
+old saves load; nothing is made until the autopilot is on and the town has `INTRIGUE_PEOPLE` grown-ups after `INTRIGUE_FROM_DAY`).
+Files: `sim/intrigue.ts` (rules and `intrigueView`), `data/intrigue.ts` (every number), the Families tab
+(`renderer/panel/familyPanel.ts` `intrigueBlocks`), test `test/intrigue.test.ts`. `intrigueHourly` runs once a day at 03:00
+(`INTRIGUE_HOUR`, after the night's crime and before the dynasty's dawn) from `sim.ts`, on its own side stream
+`${seed}:intrigue:${tick}`. It never draws from the town's stream.
+
+**Houses own the town.** A house is a dynasty house (`housesOf`). `IntrigueState.books[root]` (`HouseBook`) is its chest (`purse`),
+what it has drawn, its crimes and (maybe) its ring. `of` maps each person to their house's root (refreshed each night, so the
+sums between nights are deterministic). `houseCut(s, owner, n)` is called from `property.ts collectRent` and `ambition.ts
+takeSale`: `HOUSE_TITHE` (35%) of what a landlord or keeper takes in goes to their house's chest (the fraction of a coin is
+carried in `book.carry`; the founder's own takings are never tithed). Each night a house whose purse is `BUY_SPARE` x a price
+buys a building (`buyProperty`): the town's homes, shops, workshops and fields (not public works) at `TOWN_SELLS_AT`, or a
+neighbour's in debt (`FORCED_DEBT`) at `FORCED_PRICE`, which pays off what they owed. A house holds at most `OWN_SHARE_MOST` of the
+town's sellable buildings. The new owner is the house's steward (its adult with the fewest holdings, never the founder), so
+rent and takings keep flowing through `houseCut`. `dynasty.ts strengthOf` adds `wealthStrength` (the purse / `WEALTH_PER_STRENGTH`,
+capped), and `bestWay` counts it ("by its wealth").
+
+**A mafia** (`Mafia`, `foundMafia`/`mafiaDay`). A house with a purse of `MAFIA_PURSE` and a hard-natured member
+(`HARD_NATURES`, the boss) may turn to crime (`MAFIA_CHANCE` a night, `MAFIA_MOST` rings). It hires up to `MUSCLE_MOST` knives
+(paid `MUSCLE_WAGE` a day). Each night it calls on venues: shops pay `PROTECTION_SHARE` of yesterday's takings (taverns
+`TAVERN_SHARE`); a proud or stern keeper refuses (`REFUSE_CHANCE`) and gets an "accident": the shop damaged (`ACCIDENT_HP`) or a
+beating (`ACCIDENT_BEAT`, and `ACCIDENT_DEADLY` of it fatal). The treasury's own venues are skimmed (`TILL_SKIM`), and with muscle
+a share of yesterday's trade is smuggled off the caravans (`SMUGGLE_SHARE`). `Mafia.heat` rises with each take; the nightly
+chance of being found out is `EXPOSE_BASE + heat x EXPOSE_HEAT + guards x EXPOSE_GUARD` (+ `EXPOSE_HARSH` under harsh law).
+Found out (`exposeMafia`): a knife or the boss is tried (queued, see below), `ARREST_DEADLY` of the time the boss dies resisting,
+two of those who paid start a feud with the house, and the ring breaks up (`BREAK_UP`) or lies low `LIE_LOW_DAYS`.
+
+**Taking the council.** The four blocs' speakers (`speakers`: the best-spoken member of each) are the council's seats. A scheming
+house (`scheme`: `SCHEME_CHANCE` a night with `SCHEME_PURSE` or a ring, `SCHEME_GAP_DAYS` between, at most two a night) picks a
+rival speaker and a method by what it has: a **bribe** (`BRIBE_COST`; the taker's nature decides, an honest one throws the purse
+back in public), **blackmail** (needs a secret: `secretsAbout` = a crime nobody saw (`hideCrime`, from `politics.ts crime`), a big
+debt, a lover; a target that fights back airs the secret and names the blackmailer, and `CORNERED_KILLS` of the time kills them),
+**fear** (a ring's muscle; a beaten target who talks names the men) or **murder**. A successful hold (`Hold`, `HOLD_DAYS`) makes
+`politics.ts callVote` call `swingVote`: the held speaker's own vote goes and the house's position counts `SEAT_VOTES`
+(`housePosition`: a ring wants harsh law and curfew gone and the tax low, other houses follow their head's bloc). A house with
+more than half the seats is whispered of. `Method` weights are in `METHOD_WEIGHT`.
+
+**Murder** (`houseMurder`, `Plot`). A hard house with a ring or a hot feud may have a rival speaker or the ruling house's heir
+killed (never when `recentKill`). The knife (a hired man, else the schemer) succeeds at `MURDER_SUCCESS` less a guard's bite; a
+failed knife dies (`KNIFE_FALLS`) or is taken and may name its master (`KNIFE_NAMES`). A clean job (`ACCIDENT_SHARE`) is an
+"accident" (`ACCIDENTS`); otherwise a knife in the dark, and the house may pin it on a patsy (`FRAME_CHANCE`: an enemy of the dead,
+else the poorest hand; the patsy is tried for it). Each night a hidden plot is found out with `UNCOVER_BASE + guards x UNCOVER_GUARD`
+(`uncover`): the patsy is cleared, the real culprit is tried, a feud starts (`startFeud`, heat 60), the house is shamed (a morale
+mark), and the wronged house may swear revenge (`REVENGE_CHANCE`; `revengeDay` strikes openly some days later, which is itself a
+murder to be tried). A house with `BANISH_AT` known crimes has its head run out of town (`banishIfEnough`).
+
+**Trials.** The court takes one case at a time (`politics.ts trial` leaves a pending prompt alone), so intrigue queues its
+trials in `IntrigueState.trials` and `drainTrials` calls them when it is free. A trial of a house member goes through `trial` ->
+`blackSheep` -> `dynastyScandal`, so the ruling house's scandal works as before.
+
+**The owner's rule: the leader never changes by intrigue.** `slay` is the only place intrigue kills, and refuses `s.mainId`; the
+founder is also excluded from every target, culprit, patsy, steward, muscle and boss pool. A takeover of the ruling house
+(dynasty.ts) still does not change `s.mainId`. Jilting is untouched.
+
+**Visible.** Whispers (`Whisper`, `whisper`) hint at hidden deeds as non-key news; what comes to light is a key news item and goes in
+`IntrigueState.log`, which `dynastyYearLines` adds to the year's chronicle (`intrigueYearLines`). `snapshot.intrigue`
+(`IntrigueView`, slow) -> the Families tab: a card per rich or guilty house (holdings, chest, council seats, known ring,
+known crimes on tap, a whispered rumour while nothing is proved) and a Whispers card. The People panel's key
+(`townsfolkPanel.ts`) includes it.
+
+Not done / for the coordinator: the gossip lines (`sim/gossip.ts READS`) don't yet read the whispers (that file belongs to the
+town-culture chat); a `rumour` kind there could read `Folk say ...` / `They say ...` notices. `diary.ts` could call
+`secretsAbout` so a diary hints at a secret a person keeps.
+
+## The carts face the way they go
+
+Renderer fix only; the sim is unchanged. The owner saw a horse-drawn cart with the cart out in front of the horse.
+
+The Village pack's `cart.png` (48x26) has its shafts on its left and its wheel on the right, so it is drawn facing
+left. The horse sheet's left row faces left and its right row faces right (`creatureFrame`), so the horse needed no
+change. The two places that flip the cart had the sign backwards: it was flipped the wrong way for the direction of
+travel, so the shafts pointed away from the horse or the lead.
+
+- `src/renderer/map/roadTraffic.ts` (`RoadTraffic.render`): the carter's horse sits ahead of the cart (`x + dir * 14`)
+  and the cart trails (`x - dir * 12`). The cart is now flipped with `scale.set(-dir, 1)` so its shafts point at the
+  horse.
+- `src/renderer/map/mapWagons.ts` (`MapWagons.update`): a caravan's wagon trails the lead merchant (`bands.ts`
+  `rollWagon`). It is now flipped with `w.dir > 0 ? -SCALE : SCALE`, so its shafts point at the lead.
+
+The couriers (`mapCourier.ts`) and the people's horses (`mapPeople.ts`) draw no cart, so they were not changed.

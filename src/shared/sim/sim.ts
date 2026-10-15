@@ -69,11 +69,13 @@ import { placesHourly } from './places';
 import { nestsHourly } from './nests';
 import { wildHourly } from './wild';
 import { calamityHourly } from './calamity';
+import { greatEnemyHourly } from './greatEnemy';
 import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
 import { ancestorsHourly } from './ancestors';
 import { lookInside } from './interiors';
 import { dynastyHourly } from './dynasty';
+import { intrigueHourly } from './intrigue';
 import { lineageHourly } from './lineage';
 import type { RealmId } from '../data/portals';
 import { giftVillage, villagesHourly } from './villages';
@@ -259,6 +261,7 @@ export class Sim {
     nestsHourly(s); // (monster nests on the land: sim/nests.ts)
     wildHourly(s); // (herds, predators and the woods spreading: sim/wild.ts)
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
+    greatEnemyHourly(s); // (the Great Enemy: sim/greatEnemy.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
     ancestorsHourly(s); // (a descendant's forebears: spirits, the heirloom, the Old House: sim/ancestors.ts)
@@ -267,6 +270,7 @@ export class Sim {
     villagesHourly(s); // (daughter villages: sim/villages.ts)
     politicsHourly(s); // (the town's politics and law: sim/politics.ts)
     dynastyHourly(s); // (upbringing, feuds, the ruling house, heirlooms: sim/dynasty.ts)
+    intrigueHourly(s); // (the houses' holdings, a ring, schemes on the council: sim/intrigue.ts)
     guildsHourly(s); // (guilds and squads formed to fill what the town lacks: sim/guilds.ts)
     ranchHourly(s); // (the monster ranch's day: sim/ranch.ts)
     arenaHourly(s); // (the arena's season, its card and its bout: sim/arena.ts)
