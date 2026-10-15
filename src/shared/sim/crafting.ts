@@ -2,7 +2,9 @@
 // materials from storage, carries them to the item's station and makes it there. Items land in the town
 // inventory and are handed out as gear automatically; food and ammo go into storage as materials.
 
+import { addDeed } from './deeds';
 import { launch } from './boats';
+import { launchAirship } from './skies';
 import { payFromTreasury } from './economy';
 import { BUILDING_BY_ID } from '../data/buildings';
 import {
@@ -30,7 +32,7 @@ import { FOOD_VALUE } from '../data/people';
 import { buildingCentreX, depositNear } from './buildings';
 import { stabilize } from './health';
 import { treatSickness } from './doom';
-import { modifiers } from './research';
+import { researchMods } from './research';
 import { addStock, campX, ERA_MULTIPLIER, maxHp, notify, type Building, type CraftOrder, type GameState, type Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 import { qualityBonus } from './origin';
@@ -71,7 +73,12 @@ export function missingItems(s: GameState, o: CraftOrder): string[] {
 export const PER_STATION = 3;
 /** Craft orders allowed at once: `PER_STATION` for every station standing (research adds more; never fewer than the
  *  campfire's few). */
-export const craftSlots = (s: Pick<GameState, 'research' | 'buildings'>) => Math.max(CRAFT_QUEUE_SLOTS, PER_STATION * s.buildings.filter((b) => b.status === 'done' && (STATIONS as readonly string[]).includes(b.def)).length) + modifiers(s.research).queueSlots;
+const STATION_SET: ReadonlySet<string> = new Set(STATIONS);
+export const craftSlots = (s: Pick<GameState, 'research' | 'buildings'>) => {
+  let n = 0;
+  for (const b of s.buildings) if (b.status === 'done' && STATION_SET.has(b.def)) n++;
+  return Math.max(CRAFT_QUEUE_SLOTS, PER_STATION * n) + researchMods(s.research).queueSlots;
+};
 /** Orders a station of this kind can take: `PER_STATION` for each standing (one's worth before any stands). */
 export const stationSlots = (s: Pick<GameState, 'buildings'>, station: string) => PER_STATION * Math.max(1, s.buildings.filter((b) => b.status === 'done' && b.def === station).length);
 /** Orders queued at a station. */
@@ -167,7 +174,9 @@ export function takeItemInputs(s: GameState, o: CraftOrder): boolean {
 /** One piece is done: into the inventory (or storage, for materials); the order moves on. */
 export function finishPiece(s: GameState, o: CraftOrder, p: Person, rng?: Rng): void {
   const def = ITEM_BY_ID[o.item];
+  addDeed(p, 'crafted');
   if (def.boat) launch(s, def.boat); // (a boat joins the fleet: sim/boats.ts)
+  else if (def.airship) launchAirship(s, def.airship); // (an airship joins the fleet: sim/skies.ts)
   else if (def.makes) {
     const at = stationFor(s, def);
     const left = depositNear(s, at ? buildingCentreX(at) : p.x, def.makes);

@@ -16,6 +16,27 @@ const dir = savesDir;
 const live = () => path.join(dir(), 'town.json');
 const backup = (n: number) => path.join(dir(), `town.bak${n}.json`);
 
+/** The live save's text, or the newest readable backup's (the game itself reads it, in its own thread: main/simThread.ts). */
+export function loadSaveText(): string | null {
+  for (const file of [live(), ...Array.from({ length: BACKUPS }, (_, i) => backup(i + 1))]) {
+    let text: string;
+    try {
+      text = fs.readFileSync(file, 'utf8');
+    } catch {
+      continue; // missing
+    }
+    const r = parseSave(text);
+    if (r.ok) {
+      if (file !== live()) console.warn(`[saves] live save unreadable; loaded ${path.basename(file)}`);
+      return text;
+    }
+    const tag = r.reason === 'old-version' ? `v${r.version ?? 'unknown'}` : 'corrupt';
+    setAside(file, tag);
+    console.warn(`[saves] ${path.basename(file)} is ${r.reason}; set aside`);
+  }
+  return null;
+}
+
 /** The live save, or the newest readable backup. Unreadable files are renamed aside so they're kept. */
 export function loadSave(): SaveFile | null {
   for (const file of [live(), ...Array.from({ length: BACKUPS }, (_, i) => backup(i + 1))]) {
@@ -39,15 +60,29 @@ export function loadSave(): SaveFile | null {
 
 /** Write the live save. `forceBackup` cuts a backup of the previous save first regardless of age. */
 export function writeSave(state: GameState, forceBackup = false): void {
+  writeSaveText(serialize(state, Date.now()), forceBackup);
+}
+
+/** Write the live save from its text (as the game thread sends it). `forceBackup` as for `writeSave`. */
+export function writeSaveText(text: string, forceBackup = false): void {
   try {
     fs.mkdirSync(dir(), { recursive: true });
     // (an ironman town has one save only: no backups of it are kept)
     if (fs.existsSync(live()) && !wasIronman() && (forceBackup || backupAge() >= BACKUP_EVERY_MS)) rotateBackups();
     const tmp = live() + '.tmp';
-    fs.writeFileSync(tmp, serialize(state, Date.now()));
+    fs.writeFileSync(tmp, text);
     fs.renameSync(tmp, live());
   } catch (err) {
     console.error('[saves] could not write the save:', err);
+  }
+}
+
+/** Cut a backup of the save on disk now (unless it's an ironman town's): before a forced new town replaces it. */
+export function backupNow(): void {
+  try {
+    if (fs.existsSync(live()) && !wasIronman()) rotateBackups();
+  } catch (err) {
+    console.error('[saves] could not back up the save:', err);
   }
 }
 

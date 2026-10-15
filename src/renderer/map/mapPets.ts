@@ -24,6 +24,10 @@ const RUN: Record<PetKind, number> = { dog: 110, cat: 130, hen: 60 };
 const RAID_SEE = 260;
 const DOG_NEAR = 55;
 const HEN_SHY = 30;
+/** How far a cat sees a rat about the stores (map/mapCritters.ts), how fast it gives chase, and how near is caught (px). */
+const CAT_SEE = 150;
+const CAT_CHASE = 105;
+const CAT_CATCH = 7;
 
 export interface PetHome {
   id: number;
@@ -32,7 +36,7 @@ export interface PetHome {
   name: string;
   residents: number[];
 }
-type State = 'idle' | 'wander' | 'follow' | 'bark' | 'flee' | 'sleep' | 'happy';
+type State = 'idle' | 'wander' | 'follow' | 'bark' | 'flee' | 'sleep' | 'happy' | 'hunt';
 interface Pet {
   key: string;
   def: PetDef;
@@ -53,6 +57,8 @@ interface Pet {
   bark: number;
   hop: number;
   alpha: number;
+  /** The rat a cat is after (map/mapCritters.ts's id). */
+  prey?: number | null;
 }
 
 let frames: Texture[][] | null = null;
@@ -78,6 +84,9 @@ export class MapPets {
   raid = false;
   /** A bark, a meow or a cluck (ambience.ts), with where (world x). */
   onSound: ((kind: 'bark' | 'meow' | 'cluck', x: number) => void) | null = null;
+  /** The rats about the stores (map/mapCritters.ts, each frame), and a rat caught. */
+  prey: { id: number; x: number; y: number }[] = [];
+  onCatch: ((id: number) => void) | null = null;
   private readonly pets = new Map<string, Pet>();
   private folk: { id: number; x: number; y: number }[] = [];
   private raiders: { x: number; y: number }[] = [];
@@ -129,6 +138,11 @@ export class MapPets {
       }
   }
 
+  /** Where the cats are (the rats run from them). */
+  cats(): { x: number; y: number }[] {
+    return [...this.pets.values()].filter((p) => p.def.kind === 'cat').map((p) => ({ x: p.x, y: p.y }));
+  }
+
   /** The pet under a world point (for its card). */
   petAt(wx: number, wy: number): string | null {
     let best: { key: string; d: number } | null = null;
@@ -171,8 +185,8 @@ export class MapPets {
       p.s.visible = p.sh.visible = shown;
       if (!shown) continue;
       const k = SCALE[p.def.kind];
-      const moving = p.state === 'wander' || p.state === 'follow' || p.state === 'flee' || (p.state === 'bark' && Math.hypot(p.tx - p.x, p.ty - p.y) > 3);
-      p.step += dt * (p.state === 'flee' ? 11 : moving ? 5 : p.def.kind === 'hen' ? 1.4 : p.state === 'bark' ? 6 : 0.25);
+      const moving = p.state === 'wander' || p.state === 'follow' || p.state === 'flee' || p.state === 'hunt' || (p.state === 'bark' && Math.hypot(p.tx - p.x, p.ty - p.y) > 3);
+      p.step += dt * (p.state === 'flee' || p.state === 'hunt' ? 11 : moving ? 5 : p.def.kind === 'hen' ? 1.4 : p.state === 'bark' ? 6 : 0.25);
       p.s.texture = frames![column(p.def)][p.state === 'sleep' ? 0 : Math.floor(p.step) % 2];
       p.hop = Math.max(0, p.hop - dt * 1.6);
       const lift = p.hop > 0 ? Math.abs(Math.sin(p.hop * Math.PI * 3)) * 6 : p.state === 'bark' ? Math.abs(Math.sin(p.step * Math.PI)) * 2 : 0;
@@ -238,7 +252,35 @@ export class MapPets {
     // a cat bolts from a dog; hens from feet
     if (kind === 'cat') {
       const dog = [...this.pets.values()].find((q) => q.def.kind === 'dog' && q.state !== 'sleep' && Math.hypot(q.x - p.x, q.y - p.y) < DOG_NEAR);
-      if (dog) return this.bolt(p, dog, 90, 'Hsss!');
+      if (dog) {
+        p.prey = null;
+        return this.bolt(p, dog, 90, 'Hsss!');
+      }
+      // (and gives chase to a rat about the stores, pouncing if it's quick enough)
+      const after = p.prey != null ? this.prey.find((r) => r.id === p.prey) : undefined;
+      const rat = after ?? (p.state === 'idle' || p.state === 'wander' ? this.nearest(this.prey, p, CAT_SEE) : null);
+      if (rat && Math.hypot(rat.x - p.x, rat.y - p.y) < CAT_SEE * 1.4) {
+        p.state = 'hunt';
+        p.prey = rat.id;
+        p.tx = rat.x;
+        p.ty = rat.y;
+        this.go(p, CAT_CHASE, dt);
+        if (Math.hypot(rat.x - p.x, rat.y - p.y) < CAT_CATCH) {
+          this.onCatch?.(p.prey);
+          p.prey = null;
+          p.state = 'happy';
+          p.wait = 1.8;
+          p.hop = 0.6;
+          this.say(p, 'Mrrp!', 0xf0f0ff);
+          this.onSound?.('meow', p.x);
+        }
+        return;
+      }
+      if (p.state === 'hunt') {
+        p.prey = null;
+        p.state = 'idle';
+        p.wait = 1 + Math.random() * 3;
+      }
     }
     if (kind === 'hen' && p.alpha > 0.5) {
       const near = this.nearest(this.folk, p, HEN_SHY);
@@ -365,8 +407,8 @@ export class MapPets {
     return !this.map.standingAt(x, y);
   }
 
-  private nearest(list: { x: number; y: number }[], p: Pet, within: number): { x: number; y: number } | null {
-    let best: { x: number; y: number } | null = null;
+  private nearest<T extends { x: number; y: number }>(list: T[], p: Pet, within: number): T | null {
+    let best: T | null = null;
     let bd = within * within;
     for (const q of list) {
       const d = (q.x - p.x) ** 2 + (q.y - p.y) ** 2;

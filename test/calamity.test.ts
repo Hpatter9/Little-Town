@@ -10,7 +10,8 @@ import { CALAMITY_EVENTS } from '../src/shared/data/calamityEvents';
 import { EVENT_MORE } from '../src/shared/data/eventMore';
 import { NEST_DEFS, NEST_KINDS, NEST_MAX_LEVEL, NEST_RAIDS } from '../src/shared/data/nests';
 import { blighted, findNest, growNest, nestRaid, nestsOf, spawnNest } from '../src/shared/sim/nests';
-import { calamityHourly, calamityKindOf, calamityRaidOver, calamityView, dreadToday, heartCleared, heartDestination, wakeCalamity } from '../src/shared/sim/calamity';
+import { destinationOf } from '../src/shared/sim/expeditions';
+import { HEART_DEST, calamityHourly, calamityKindOf, calamityRaidOver, calamityView, dreadToday, heartCleared, heartDestination, wakeCalamity } from '../src/shared/sim/calamity';
 import { placeCleared, placeDestinations } from '../src/shared/sim/places';
 import { placeDestId } from '../src/shared/data/places';
 import { growCrops } from '../src/shared/sim/farming';
@@ -112,6 +113,7 @@ test('the Calamity wakes, its dread rises with the nests and falls with wards an
   heartCleared(s);
   assert.equal(c.dread, Math.max(0, mid - HEART_DREAD));
   assert.equal(heartDestination(s), undefined, 'the heart lies quiet a while');
+  assert.ok(destinationOf(s, HEART_DEST), 'but the party that cleared it still has somewhere to be coming home from (it crashed the next tick)');
   assert.ok(calamityView(s)!.next.length > 0);
 });
 

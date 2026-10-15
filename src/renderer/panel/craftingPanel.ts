@@ -14,6 +14,7 @@ import { duration, el } from './dom';
 import { hiddenNote, HidePrefs } from './hide';
 import { topicKnown } from './secrets';
 import { expandable, itemDetails, materialDetails, pickable, pickedIn } from './details';
+import { topicName } from '../../shared/data/originResearch';
 
 /** Changes whenever something this panel shows changes (progress to the whole percent). */
 export const craftingKey = (s: Snapshot) =>
@@ -232,7 +233,7 @@ function recipeCard(def: ItemDef, s: Snapshot, stationBuilt: boolean): HTMLEleme
   for (const [id, n] of Object.entries(def.items ?? {})) cost.append(el('span', (s.items[id] ?? 0) >= n ? 'chip' : 'chip short', `${ITEM_BY_ID[id].name} ${n}`));
   c.append(top, cost, el('div', 'purpose', def.description));
   if (!unlocked) {
-    const need = def.research.filter((r) => !s.research.done.includes(r)).map((r) => TOPIC_BY_ID[r]?.name ?? r);
+    const need = def.research.filter((r) => !s.research.done.includes(r)).map((r) => topicName(r, s.origin.id));
     c.append(el('div', 'lock', `Needs research: ${need.join(', ')}`));
     return expandable(c, `recipe:${def.id}`, () => itemDetails(def, s));
   }

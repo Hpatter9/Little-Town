@@ -168,6 +168,24 @@ export function themeOf(id: string, words: string): PictureTheme | null {
 
 /** Themes looked over by hand where the words alone pick wrong. */
 export const PICTURE_OF: Record<string, PictureTheme> = {
+  // the festivals' (festivalEvents.ts)
+  fest_rival_stall: 'village',
+  fest_lost_child: 'village',
+  fest_storm_threat: 'storm',
+  fest_old_song: 'village',
+  fest_settlers_bean: 'village',
+  fest_lich_mourner: 'dead',
+  fest_druid_hawthorn: 'forest',
+  fest_vampire_guest: 'hall',
+  fest_wolf_challenge: 'dark_wood',
+  fest_robot_glitch: 'future',
+  fest_dwarf_rune: 'cave',
+  fest_mer_whale: 'sea',
+  fest_nomad_horse: 'plains',
+  fest_fae_mortal: 'fae',
+  fest_alchemist_vat: 'lab',
+  fest_knight_herald: 'hall',
+  fest_orc_brawl: 'wild',
   // the Calamity's (calamityEvents.ts)
   calamity_dream: 'dead',
   calamity_hedge_witch: 'fae',

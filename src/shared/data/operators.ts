@@ -21,7 +21,7 @@ const CRAFT_TITLES: Record<string, string> = {
   brewery: 'Brewer', tailor: 'Tailor', jeweller: 'Jeweller', cooper: 'Cooper', apothecary: 'Apothecary', chandlery: 'Chandler', dyeworks: 'Dyer', print_shop: 'Printer',
   clockmaker: 'Clockmaker', cannery: 'Canner', textile_mill: 'Mill Hand', appliance_plant: 'Fitter', pharmacy: 'Pharmacist', bio_lab: 'Biofabricator', nanoforge: 'Nanosmith',
   blood_cellar: 'Cellarer', bone_forge: 'Bone Smith', gem_cutter: 'Gem Cutter', herb_press: 'Herbalist', pearl_works: 'Pearl Worker', felt_works: 'Felter', glamour_loom: 'Glamour Weaver',
-  alembic: 'Distiller', assembler: 'Assembler', armourer: 'Armourer', pelt_house: 'Pelt Dresser',
+  alembic: 'Distiller', assembler: 'Assembler', armourer: 'Armourer', pelt_house: 'Pelt Dresser', grog_pit: 'Grog-Brewer',
 };
 
 /** Town jobs: every crafting station (but the fire everyone shares), mine, the hunters' lodge and the studies have a
@@ -44,6 +44,8 @@ export const OPERATORS: Readonly<Record<string, OperatorRole>> = {
   market: { title: 'Merchant', skill: 'social', effect: 'Better prices from caravans' },
   infirmary: { title: 'Healer', skill: 'medicine', effect: 'Wounds heal faster still' },
   watchtower: { title: 'Guard Captain', skill: 'melee', effect: 'Defenders hit harder and more often' },
+  beast_ranch: { title: 'Beastmaster', skill: 'animals', effect: 'Trains the beasts, tends the sick, and catches beasts left on the field' },
+  arena: { title: 'Arena Master', skill: 'social', effect: 'A bigger crowd at the gate for every bout' },
 };
 
 /** How much faster a job's holder works at their own station. */

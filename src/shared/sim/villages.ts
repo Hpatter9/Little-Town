@@ -455,7 +455,7 @@ function wedding(s: GameState, v: Village, rng: Rng): void {
   const moveIn = !townFull(s) && housingCapacity(s) > s.people.length;
   if (!theirs) {
     if (v.pop <= v.folk.length) return;
-    theirs = makePerson(rng, s.nextId++, 'gatherer', { x: (v.x + 0.5) * CELL, y: (v.y + 0.5) * CELL }, [...s.people, ...v.folk].map((p) => p.name));
+    theirs = makePerson(rng, s.nextId++, 'gatherer', { x: (v.x + 0.5) * CELL, y: (v.y + 0.5) * CELL }, [...s.people, ...v.folk].map((p) => p.name), ours.origin ?? s.origin ?? 'settlers');
     theirs.origin = ours.origin;
     v.folk.push(theirs);
   }

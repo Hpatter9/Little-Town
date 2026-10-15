@@ -30,10 +30,9 @@ import { eventPicture } from '../data/eventScenes';
 import { weatherAt } from './weather';
 
 export const DRAGON_DEST = 'dragon:lair';
-export const DRAGON_FIRST_DAY = 9;
+export const DRAGON_FIRST_DAY = 20;
+export const DRAGON_LAST_DAY = 100;
 export const DRAGON_PEOPLE = 6;
-/** The chance each hour, once it may come, that it does (about one in two days). */
-export const DRAGON_HOURLY = 0.02;
 export const OMEN_FLIGHTS = 3;
 export const OMEN_HOURS = 6;
 export const DEMAND_HOURS = 8;
@@ -91,6 +90,11 @@ export const dragonName = (kind: string) => ENEMIES[kind]?.name ?? 'The Dragon';
 const grown = (s: GameState) => s.people.filter((p) => !isChild(p) && p.away === null).length;
 const rngOf = (s: GameState, salt: number) => Rng.from(hashSeed(s.seed), s.tick, 0xd4a6 + salt);
 
+/** Each game seed picks one fixed arrival day, so a dragon cannot arrive before day 20 or keep slipping past day 100. */
+export function dragonArrivalDay(seed: string): number {
+  return Rng.from(hashSeed(seed), 0xd4a6, 0xada6).int(DRAGON_FIRST_DAY, DRAGON_LAST_DAY);
+}
+
 /** What it asks: a share of the treasury, more for a bigger town, and more each time it's paid. */
 export function tributeOf(s: GameState, d: DragonState): number {
   const base = Math.max(80, Math.round((s.coins ?? 0) * 0.35 + grown(s) * 12));
@@ -129,8 +133,7 @@ export function dragonTick(s: GameState): void {
 }
 
 function maybeCome(s: GameState): void {
-  if (calendar(s.tick).day < DRAGON_FIRST_DAY || grown(s) < DRAGON_PEOPLE) return;
-  if (!rngOf(s, 1).chance(DRAGON_HOURLY)) return;
+  if (calendar(s.tick).day < dragonArrivalDay(s.seed) || grown(s) < DRAGON_PEOPLE) return;
   summonDragon(s);
 }
 

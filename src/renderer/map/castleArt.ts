@@ -7,6 +7,7 @@
 // own sprites (`roomFurniture`): a pack picture where one suits the room, else beds, or a table, chairs and a chest.
 
 import { seatInterior } from '../art/seatArt';
+import { seatRoomPack } from './seatPacks';
 import { SEAT_STAGE } from '../../shared/data/seats';
 import { Container, Graphics, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 import type { BuildingDef } from '../../shared/data/buildings';
@@ -42,19 +43,30 @@ export interface CastleView {
   galleries: number[];
 }
 
-/** The walls' measures (px): a partition's walk and face, the curtain wall's battlements, walk and face. */
+/** The walls' measures (px): a partition's walk and face, the curtain wall's battlements, walk and face. These are what
+ *  stands on the ground (where a wall's foot is, and so where people can walk); how tall a wall is drawn is `TALL`. */
 const PART_T = 6;
 const PART_FACE = 22;
 const MERLON = 6;
 const WALL_T = 8;
-const WALL_FACE = 16;
-/** The curtain wall's face seen from inside (its north run), and a hold's hewn rock face: tall, so they read as walls. */
+/** The curtain wall's face seen from inside (its north run), and a hold's hewn rock face. */
 const INNER_FACE = 26;
 const ROCK_FACE = 24;
 const SIDE_T = 10;
 const OUTER_SIDE_T = 10;
-/** A doorway's opening (px) in a partition. */
-const DOOR = 20;
+/** How tall a wall face stands (px) above its foot: a person is drawn 48 tall, a doorway about 1.25 times that and a
+ *  wall at least as tall as its doorway. Only the picture rises (up over what stands behind it); a wall's foot, and so
+ *  the ground it takes, is where it was. */
+const TALL = 64;
+/** The south wall, which the town is seen over, stands lower so the hall behind it stays in view (its gate, the tallest
+ *  thing in it, stands up over it). */
+const TALL_S = 44;
+/** A wall's foot (its z, the line people sort against) stands on the cell's edge, this far past it: someone in the cell
+ *  beside the wall is in front of it, never up on its face; someone in the cell behind it is behind it. */
+const FOOT = 4;
+/** A doorway's opening in a partition (px): wide, and tall enough to walk through. */
+const DOOR = 24;
+const DOOR_H = 54;
 const CARPET_W = 22;
 const STONE_DARK = '#2e222e';
 
@@ -65,81 +77,93 @@ const piece = (key: string, make: () => PixelArt) => {
   return a;
 };
 
-/** The wall pieces, one cell long, in a look. */
+/** The wall pieces, one cell long, in a look. A wall along a row is its walk along the top and its face hanging down to
+ *  the foot; a wall down a column is its top (shown `TALL` above the foot, as the face is) and, below it, the end of the
+ *  wall: the cells of a run stand on one another, so only the last one's end shows. */
 function pieces(tone: Tone, toneKey: string, winter: boolean) {
   const cap = (a: PixelArt) => (winter ? snowCapped(a) : a);
   const k = `${toneKey}|${winter ? 'w' : ''}`;
   return {
     // a partition between two rooms: its walk and the face looking south, at the top of the lower room
-    partH: piece(`partH|${k}`, () => cap(paint(CELL, PART_T + PART_FACE, tone, (p) => {
+    partH: piece(`partH|${k}`, () => cap(paint(CELL, PART_T + TALL, tone, (p) => {
       walk(p, 0, 0, CELL, PART_T, 'x');
-      blocks(p, 0, PART_T, CELL, PART_FACE);
-      foot(p, 0, PART_T + PART_FACE, CELL);
+      blocks(p, 0, PART_T, CELL, TALL);
+      foot(p, 0, PART_T + TALL, CELL);
     }, 0.5))),
     // the same with a doorway cut through its middle
-    doorH: piece(`doorH|${k}`, () => cap(paint(CELL, PART_T + PART_FACE, tone, (p) => {
+    doorH: piece(`doorH|${k}`, () => cap(paint(CELL, PART_T + TALL, tone, (p) => {
       const j = (CELL - DOOR) / 2;
+      const lintel = TALL - DOOR_H;
       // (the walk runs on over the doorway as its lintel; the jambs either side; the opening's top in shadow)
       walk(p, 0, 0, CELL, PART_T, 'x');
       for (const x of [0, CELL - j]) {
-        blocks(p, x, PART_T, j, PART_FACE);
-        foot(p, x, PART_T + PART_FACE, j);
+        blocks(p, x, PART_T, j, TALL);
+        foot(p, x, PART_T + TALL, j);
       }
-      blocks(p, j, PART_T, DOOR, 4);
-      p.rect(j, PART_T + 4, DOOR, 3, STONE_DARK);
-      p.frect(j, PART_T + 7, DOOR, 1, mixHex(STONE_DARK, '#000000', 0.3));
-      p.frect(j - 0.5, PART_T + 4, 0.5, PART_FACE - 4, STONE_DARK);
-      p.frect(CELL - j, PART_T + 4, 0.5, PART_FACE - 4, STONE_DARK);
+      blocks(p, j, PART_T, DOOR, lintel - 3);
+      p.rect(j, PART_T + lintel - 3, DOOR, 3, STONE_DARK);
+      p.frect(j, PART_T + lintel, DOOR, 1, mixHex(STONE_DARK, '#000000', 0.3));
+      p.frect(j - 0.5, PART_T + lintel, 0.5, DOOR_H, STONE_DARK);
+      p.frect(CELL - j, PART_T + lintel, 0.5, DOOR_H, STONE_DARK);
     }, 0.5))),
-    // (a run down a column: its top, with the stone of its east face showing as a shaded edge, so it stands up too)
-    partV: piece(`partV|${k}`, () => cap(paint(SIDE_T, CELL, tone, (p) => sideRun(p, 0, CELL), 0.5))),
-    doorV: piece(`doorV|${k}`, () => cap(paint(SIDE_T, CELL, tone, (p) => {
+    // (a run down a column: its top, with the stone of its east face showing as a shaded edge, and the end below it)
+    partV: piece(`partV|${k}`, () => cap(paint(SIDE_T, TALL + CELL, tone, (p) => {
+      sideRun(p, 0, CELL);
+      blocks(p, 0, CELL, SIDE_T, TALL);
+      foot(p, 0, CELL + TALL, SIDE_T);
+    }, 0.5))),
+    doorV: piece(`doorV|${k}`, () => cap(paint(SIDE_T, TALL + CELL, tone, (p) => {
       const j = (CELL - DOOR) / 2;
+      // (the jambs, each with its end: the north one's is turned to the doorway)
       sideRun(p, 0, j);
+      blocks(p, 0, j, SIDE_T, TALL);
       sideRun(p, CELL - j, j);
-      // (the jambs' ends, their faces turned to the doorway)
-      blocks(p, 0, j - 3, SIDE_T, 3);
-      blocks(p, 0, CELL - 3, SIDE_T, 3);
+      blocks(p, 0, CELL, SIDE_T, TALL);
+      foot(p, 0, CELL + TALL, SIDE_T);
     }, 0.5))),
     // the curtain wall's north run (its face looks into the castle), at the top of the cell
-    outerN: piece(`outerN|${k}`, () => cap(paint(CELL, MERLON + WALL_T + INNER_FACE, tone, (p) => {
+    outerN: piece(`outerN|${k}`, () => cap(paint(CELL, MERLON + WALL_T + TALL, tone, (p) => {
       merlons(p, 0, 0, CELL);
       walk(p, 0, MERLON, CELL, WALL_T, 'x');
-      blocks(p, 0, MERLON + WALL_T, CELL, INNER_FACE);
-      foot(p, 0, MERLON + WALL_T + INNER_FACE, CELL);
+      blocks(p, 0, MERLON + WALL_T, CELL, TALL);
+      foot(p, 0, MERLON + WALL_T + TALL, CELL);
     }, 0.6))),
     // its south run: the walk at the cell's foot, the face hanging below it over the ground outside
-    outerS: piece(`outerS|${k}`, () => cap(paint(CELL, MERLON + WALL_T + WALL_FACE, tone, (p) => {
+    outerS: piece(`outerS|${k}`, () => cap(paint(CELL, MERLON + WALL_T + TALL_S, tone, (p) => {
       merlons(p, 0, 0, CELL);
       walk(p, 0, MERLON, CELL, WALL_T, 'x');
-      blocks(p, 0, MERLON + WALL_T, CELL, WALL_FACE);
-      p.frect(0, MERLON + WALL_T + WALL_FACE - 1, CELL, 1, STONE_DARK);
+      blocks(p, 0, MERLON + WALL_T, CELL, TALL_S);
+      p.frect(0, MERLON + WALL_T + TALL_S - 1, CELL, 1, STONE_DARK);
     }, 0.6))),
-    // its west and east runs: a walk with the battlements' nubs along the outer side
-    outerW: piece(`outerW|${k}`, () => cap(paint(OUTER_SIDE_T, CELL, tone, (p) => {
+    // its west and east runs: a walk with the battlements' nubs along the outer side, and the run's end below
+    outerW: piece(`outerW|${k}`, () => cap(paint(OUTER_SIDE_T, TALL + CELL, tone, (p) => {
       walk(p, 2, 0, OUTER_SIDE_T - 2, CELL, 'y');
       for (let y = 1; y < CELL; y += 8) p.rect(0, y, 2, 4, mixHex('#564658', '#000000', 0.25));
+      blocks(p, 0, CELL, OUTER_SIDE_T, TALL);
+      foot(p, 0, CELL + TALL, OUTER_SIDE_T);
     }, 0.6))),
-    outerE: piece(`outerE|${k}`, () => cap(paint(OUTER_SIDE_T, CELL, tone, (p) => {
+    outerE: piece(`outerE|${k}`, () => cap(paint(OUTER_SIDE_T, TALL + CELL, tone, (p) => {
       walk(p, 0, 0, OUTER_SIDE_T - 2, CELL, 'y');
       for (let y = 1; y < CELL; y += 8) p.rect(OUTER_SIDE_T - 2, y, 2, 4, mixHex('#564658', '#000000', 0.25));
+      blocks(p, 0, CELL, OUTER_SIDE_T, TALL);
+      foot(p, 0, CELL + TALL, OUTER_SIDE_T);
     }, 0.6))),
     tower: cap(cornerTower(tone, toneKey)),
     // a mountain hold's outer walls are the living rock: rough, dark, seamed
     // (seen from inside: the rough rock above, and the face hewn down to the floor below it)
-    rockN: piece(`rockN|${k}`, () => cap(paint(CELL, ROCK_T + ROCK_FACE, tone, (p) => {
+    rockN: piece(`rockN|${k}`, () => cap(paint(CELL, ROCK_T + TALL, tone, (p) => {
       rock(p, CELL, ROCK_T, 1);
-      hewn(p, 0, ROCK_T, CELL, ROCK_FACE, 1);
+      hewn(p, 0, ROCK_T, CELL, TALL, 1);
     }, 0.7))),
-    rockS: piece(`rockS|${k}`, () => cap(paint(CELL, ROCK_T + WALL_FACE, tone, (p) => {
+    rockS: piece(`rockS|${k}`, () => cap(paint(CELL, ROCK_T + TALL_S, tone, (p) => {
       rock(p, CELL, ROCK_T, 2);
       // (the face below: the cliff the gate is cut into)
-      p.rect(0, ROCK_T, CELL, WALL_FACE, '#565260');
-      for (let x = 2; x < CELL; x += 8) p.rect(x, ROCK_T + 1, 1, WALL_FACE - 2, '#3a3642');
-      p.frect(0, ROCK_T, CELL, 0.5, '#7a7684');
-      p.rect(0, ROCK_T + WALL_FACE - 1, CELL, 1, '#2a2630');
+      hewn(p, 0, ROCK_T, CELL, TALL_S, 3);
     }, 0.7))),
-    rockV: piece(`rockV|${k}`, () => cap(paint(ROCK_T, CELL, tone, (p) => rock(p, ROCK_T, CELL, 3), 0.7))),
+    rockV: piece(`rockV|${k}`, () => cap(paint(ROCK_T, TALL + CELL, tone, (p) => {
+      rock(p, ROCK_T, CELL, 3);
+      hewn(p, 0, CELL, ROCK_T, TALL, 4);
+    }, 0.7))),
   };
 }
 
@@ -207,9 +231,9 @@ export function onCastleArt(cb: () => void): void {
 /** Whether the pack's floor and gate have loaded (the castle is drawn again when they do). */
 export const castleArtReady = () => !!textures.get(floorUrl) && !!textures.get(gateUrl) && !!textures.get(doorsUrl);
 /** A mountain hold's gate: the dungeon pack's stone archway with its wooden doors swung open (the door sheet's second
- *  row, fourth frame), drawn half again a cell's size in the cliff. */
+ *  row, fourth frame), drawn as tall as the wall, so a person walks in upright. */
 const HOLD_GATE = new Rectangle(96, 32, 32, 32);
-const HOLD_GATE_SIZE = 48;
+const HOLD_GATE_SIZE = TALL;
 let holdGate: Texture | null = null;
 function holdGateTexture(): Texture | null {
   if (holdGate) return holdGate;
@@ -226,6 +250,9 @@ export const wallDepth = (mountain: boolean, outside: boolean): number => (outsi
 export interface CastleDrawing {
   under: Container;
   things: Container[];
+  /** The walls and towers, which stand tall over whatever is behind them: they are drawn see-through where someone is
+   *  (map/mapView.ts `seeThrough`). Each is one of `things`. */
+  walls: Sprite[];
 }
 
 /** Draw the castle: `cells` are the land indices of the hall and of every finished room (`rooms`), `landW` the land's
@@ -265,11 +292,13 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
   // the doorways the sim walks through (sim/castle.ts `doorsOf`), so the doors people use are the ones drawn
   const doors = new Set(castle.doors);
 
-  const put = (tex: Texture, x: number, y: number, z: number) => {
+  const walls: Sprite[] = [];
+  const put = (tex: Texture, x: number, y: number, z: number, wall = true) => {
     const sp = new Sprite(tex);
     sp.position.set(x, y);
     sp.zIndex = z;
     things.push(sp);
+    if (wall) walls.push(sp);
     return sp;
   };
   const mountain = castle.hold === 'mountain';
@@ -286,21 +315,22 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
     const e = at(x + 1, y);
     // north: the curtain wall's inside face, or a partition with the room above (drawn by the lower cell)
     if (n === undefined) {
-      if (mountain) put(P.rockN.texture, px, py, py + ROCK_T + ROCK_FACE);
-      else put(P.outerN.texture, px, py, py + MERLON + WALL_T + INNER_FACE);
-    } else if (n !== id) put((doors.has(`${x},${y}|h`) ? P.doorH : P.partH).texture, px, py, py + PART_T + PART_FACE);
+      // (nothing worth seeing is behind the outer wall, so it never fades)
+      if (mountain) put(P.rockN.texture, px, py + FOOT - ROCK_T - TALL, py + FOOT, false);
+      else put(P.outerN.texture, px, py + FOOT - (MERLON + WALL_T + TALL), py + FOOT, false);
+    } else if (n !== id) put((doors.has(`${x},${y}|h`) ? P.doorH : P.partH).texture, px, py + FOOT - (PART_T + TALL), py + FOOT);
     // south: the curtain wall's outer face hanging below the cell, the gate in it before the hall (a mountain hold's
     // carved gate in the cliff)
     if (s === undefined) {
-      if (mountain) put(P.rockS.texture, px, py + CELL - ROCK_T, py + CELL + WALL_FACE);
-      else put(P.outerS.texture, px, py + CELL - (MERLON + WALL_T), py + CELL + WALL_FACE);
+      if (mountain) put(P.rockS.texture, px, py + CELL + FOOT - ROCK_T - TALL_S, py + CELL + FOOT);
+      else put(P.outerS.texture, px, py + CELL + FOOT - (MERLON + WALL_T + TALL_S), py + CELL + FOOT);
       if (x === castle.gate.x && y === castle.gate.y - 1 && gateTex) {
         if (mountain) {
-          const g = put(gateTex, px + CELL / 2 - HOLD_GATE_SIZE / 2, py + CELL + WALL_FACE - HOLD_GATE_SIZE, py + CELL + WALL_FACE + 1);
+          const g = put(gateTex, px + CELL / 2 - HOLD_GATE_SIZE / 2, py + CELL + FOOT - HOLD_GATE_SIZE, py + CELL + FOOT + 1, false);
           g.width = g.height = HOLD_GATE_SIZE;
         } else {
-          const g = put(gateTex, px, py + CELL + WALL_FACE - 32, py + CELL + WALL_FACE + 1);
-          g.width = g.height = 32;
+          const g = put(gateTex, px + CELL / 2 - TALL / 2, py + CELL + FOOT - TALL, py + CELL + FOOT + 1, false);
+          g.width = g.height = TALL;
         }
       }
     }
@@ -309,19 +339,19 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
     const side = castle.gates?.find((q) => q.x === x && q.y === y);
     if (side && gateTex) {
       if (side.side === 's' && s === undefined) {
-        const g = put(gateTex, px, py + CELL + WALL_FACE - 32, py + CELL + WALL_FACE + 1);
-        g.width = g.height = 32;
+        const g = put(gateTex, px + CELL / 2 - TALL / 2, py + CELL + FOOT - TALL, py + CELL + FOOT + 1, false);
+        g.width = g.height = TALL;
       } else if (side.side === 'n' && n === undefined) {
-        const g = put(gateTex, px, py + MERLON + WALL_T + INNER_FACE - 32, py + MERLON + WALL_T + INNER_FACE + 1);
-        g.width = g.height = 32;
+        const g = put(gateTex, px + CELL / 2 - TALL / 2, py + FOOT - TALL, py + FOOT + 1, false);
+        g.width = g.height = TALL;
       }
     }
     // west: the curtain wall, or a partition with the room to the left (drawn by the right cell)
-    if (w === undefined && side?.side === 'w') put(P.doorV.texture, px, py, py + CELL);
-    else if (w === undefined) put((mountain ? P.rockV : P.outerW).texture, px, py, py + CELL);
-    else if (w !== id) put((doors.has(`${x},${y}|v`) ? P.doorV : P.partV).texture, px, py, py + CELL);
-    if (e === undefined && side?.side === 'e') put(P.doorV.texture, px + CELL - OUTER_SIDE_T, py, py + CELL);
-    else if (e === undefined) put((mountain ? P.rockV : P.outerE).texture, px + CELL - (mountain ? ROCK_T : OUTER_SIDE_T), py, py + CELL);
+    if (w === undefined && side?.side === 'w') put(P.doorV.texture, px, py - TALL, py + CELL);
+    else if (w === undefined) put((mountain ? P.rockV : P.outerW).texture, px, py - TALL, py + CELL);
+    else if (w !== id) put((doors.has(`${x},${y}|v`) ? P.doorV : P.partV).texture, px, py - TALL, py + CELL);
+    if (e === undefined && side?.side === 'e') put(P.doorV.texture, px + CELL - OUTER_SIDE_T, py - TALL, py + CELL);
+    else if (e === undefined) put((mountain ? P.rockV : P.outerE).texture, px + CELL - (mountain ? ROCK_T : OUTER_SIDE_T), py - TALL, py + CELL);
     // a round tower at each outer corner (where two outer edges meet; the mountain needs none)
     if (!mountain) for (const [cx, cy, a, b] of [
       [px, py, n, w],
@@ -332,11 +362,11 @@ export function buildCastle(castle: CastleView, rooms: Building[], footprint: (b
       const k = `${cx},${cy}`;
       if (a === undefined && b === undefined && !towers.has(k)) {
         towers.add(k);
-        put(P.tower.texture, cx - TOWER_W / 2, cy - TOWER_H + 4 + (cy > py ? WALL_FACE : 0), cy + (cy > py ? WALL_FACE + 2 : 6));
+        put(P.tower.texture, cx - TOWER_W / 2, cy - TOWER_H + 4, cy + 6);
       }
     }
   }
-  return { under, things };
+  return { under, things, walls };
 }
 
 // ------------------------------------------------------------------------------------------------ the furnishings
@@ -349,9 +379,10 @@ const furniture = new Map<string, PixelArt>();
  *  there is one (shelves, benches, racks, a well, a fire pit...), else beds for a home (one a sleeper, as many as fit),
  *  crates and barrels for a store, and a table with chairs and a chest for the rest. */
 export function roomFurniture(def: BuildingDef, w: number, id: number, tone: Tone, toneKey: string, style: string): PixelArt | null {
-  // (the seat of the hold: the throne room's furnishings, art/seatArt.ts)
+  // (the seat of the hold: the throne room's furnishings from the packs, map/seatPacks.ts; the painted ones,
+  // art/seatArt.ts, while they load)
   const seat = SEAT_STAGE[def.id];
-  if (seat) return seatInterior(seat.origin, seat.stage, w, tone, toneKey);
+  if (seat) return seatRoomPack(seat.origin, seat.stage, w) ?? seatInterior(seat.origin, seat.stage, w, tone, toneKey);
   const inner = Math.max(1, w - 1);
   // (a home in a castle or a hold is beds, never a tent)
   const pack = def.housing ? null : packArtIndoors(def.id, inner, style, id);

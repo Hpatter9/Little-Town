@@ -6,6 +6,7 @@ import { tacticsOrder } from './tactics';
 import { regrowHourly } from './regrow';
 import { streetsHourly } from './streets';
 import { roamersTick, skirmishTrip } from './roamers';
+import { skiesHourly, skiesTick } from './skies';
 import { faithHourly } from './faith';
 import { disastersTick } from './disasters';
 import { worldHourly } from './worldLife';
@@ -15,20 +16,23 @@ import { skipRaid, skipRaidsTick } from './raidSkip';
 import { courtHourly } from './bargains';
 import { workHourly } from './greatWork';
 import { orderHourly } from './chivalry';
+import { hordeHourly } from './warpath';
 import { foundryHourly } from './foundry';
 import { frontierHourly } from './frontier';
 import { lightingHourly } from './lighting';
 import { annalsHourly } from './annals';
+import { memorialsHourly } from './statues';
 import { envoyTick, factionsHourly, realmCommand } from './factions';
+import { risingHourly } from './risingPowers';
 import { addMember, cancelMuster, dropMember, makeLeader, order, persuade, raiseParty, sendMuster, setMuster } from './muster';
 import { specialsHourly } from './specials';
 import { sagasHourly } from './sagas';
 import { huntsHourly } from './hunts';
 import { dragonTick } from './dragon';
-import { openGate } from './raidWait';
+import { holdForFight, openGate } from './raidWait';
 import { maybeEvent } from './events';
 import { rally } from './rally';
-import { battleGo, placeFighter, setAutoBattle, setBattleSpeed, setGameSpeed } from './battle';
+import { battleGo, fightSpeedTick, placeFighter, setAutoBattle, setBattleSpeed, setGameSpeed } from './battle';
 import { castAt } from './powers';
 import { Rng } from '../rng';
 import { demolish, discardStock, placeBlueprint, townRadius, upgrade } from './buildings';
@@ -63,22 +67,29 @@ import { acceptQuest, declineQuest, questBoardHourly } from './questBoard';
 import { delvesHourly } from './delves';
 import { placesHourly } from './places';
 import { nestsHourly } from './nests';
+import { wildHourly } from './wild';
 import { calamityHourly } from './calamity';
 import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
+import { ancestorsHourly } from './ancestors';
 import { lookInside } from './interiors';
 import { lineageHourly } from './lineage';
 import type { RealmId } from '../data/portals';
 import { giftVillage, villagesHourly } from './villages';
-import { politicsHourly } from './politics';
+import { issueEdict, politicsHourly } from './politics';
+import { guildsHourly } from './guilds';
+import { ranchCommand, ranchHourly } from './ranch';
+import { arenaBet, arenaHourly, arenaTick, arenaTrip } from './arena';
 import { endScene, queueScene, scenesHourly, watchScene } from './cutscenes';
 import { turnPerson, turnTown } from './turning';
 import { updateLaunch } from './era';
+import { viewsChanged } from './snapshot';
 import { maybeStartRaid, startGuildRaid, startRaid, updateRaid } from './raids';
 import { answerPrompt, expirePrompts } from './roadEvents';
 import { newTickContext, updatePerson, walkTo } from './people';
 import type { Person } from './state';
-import { cancelResearch, queueResearch, researchNext } from './research';
+import { setPin } from './pins';
+import { cancelResearch, moveResearch, pickResearch, researchNext, seatStageNow } from './research';
 import { autoPriorities, campCell, notify, type GameState } from './state';
 import { TICK_MS, TICKS_PER_HOUR } from './time';
 import { acceptVisitor, assignBeds, drillGuards, driftMorale, keepKin, maybeArrive, rejectVisitor, updateVisitor } from './townsfolk';
@@ -103,9 +114,12 @@ import { propertyHourly } from './property';
 import { treasuryHourly } from './treasury';
 import { ambitionHourly } from './ambition';
 import { ceremoniesHourly } from './ceremonies';
+import { festivalsHourly } from './festivals';
+import { diaryTick } from './diary';
 import { injuriesHourly } from './injuries';
 import { partiesHourly, postBounty, setVeto, withdrawBounty } from './parties';
 import { boatsHourly } from './boats';
+import { voteSettlementName } from './settlementName';
 
 /** How the town trades at its shop: the planner decides what's spare and what to buy. */
 const SHOP_TOWN: ShopTown = { forSale, wants: shoppingList };
@@ -151,7 +165,6 @@ export class Sim {
     const s = this.state;
     if (s.gameOver) {
       // the story is over; only a new game continues (but the report of how it ended can still be put away)
-      for (const c of this.pending) if (c.type === 'dismissAway') this.apply(c);
       this.pending = [];
       return;
     }
@@ -161,6 +174,7 @@ export class Sim {
     if (s.paused) return;
 
     s.tick++;
+    voteSettlementName(s);
     const ctx = newTickContext();
     for (const p of s.people) {
       if (p.away !== null) continue;
@@ -172,6 +186,8 @@ export class Sim {
     }
     updateExpeditions(s, this.rng);
     roamersTick(s); // (bands roaming the land, and the fights they start: sim/roamers.ts)
+    skiesTick(s); // (sky pirates dropping in, and the town shooting at what hunts from the sky: sim/skies.ts)
+    fightSpeedTick(s); // (every fight starts at 1×: sim/battle.ts)
     envoyTick(s);
     maybeStartRaid(s, this.rng);
     lurkers(s, this.rng);
@@ -211,8 +227,11 @@ export class Sim {
     ambitionHourly(s);
     partiesHourly(s);
     boatsHourly(s, this.rng);
+    skiesHourly(s); // (airships, sky pirates and the hunters of the sky: sim/skies.ts)
     ceremoniesHourly(s);
+    festivalsHourly(s);
     annalsHourly(s);
+    memorialsHourly(s); // (homes named, ruins cleared, statues to the famous dead: sim/statues.ts)
     injuriesHourly(s, this.rng);
     if (s.tick % TICKS_PER_HOUR === 0) for (const p of s.people) if (p.autoPriorities) p.priorities = autoPriorities(p.skills, p.id === s.mainId);
     if (s.tick % TICKS_PER_HOUR === 0) classesHourly(s);
@@ -226,6 +245,7 @@ export class Sim {
     courtHourly(s); // (a fae town's Court and its bargains: sim/bargains.ts)
     workHourly(s); // (an alchemists' town's Great Work: sim/greatWork.ts)
     orderHourly(s); // (a knights' town's code: sim/chivalry.ts)
+    hordeHourly(s); // (an orc town's warpath: sim/warpath.ts)
     foundryHourly(s); // (a machine town's factory mind: sim/foundry.ts)
     frontierHourly(s); // (a settlers' town's frontier: sim/frontier.ts)
     lightingHourly(s); // (the town's torches and lamps placed and burned: sim/lighting.ts)
@@ -234,12 +254,19 @@ export class Sim {
     delvesHourly(s);
     placesHourly(s, this.rng);
     nestsHourly(s); // (monster nests on the land: sim/nests.ts)
+    wildHourly(s); // (herds, predators and the woods spreading: sim/wild.ts)
     calamityHourly(s); // (the Calamity: sim/calamity.ts)
     deepHourly(s); // (the Deep under the town: sim/deep.ts)
     portalsHourly(s); // (other worlds through an arch or a rift: sim/portals.ts)
+    ancestorsHourly(s); // (a descendant's forebears: spirits, the heirloom, the Old House: sim/ancestors.ts)
     lineageHourly(s); // (children's lessons and apprenticeships: sim/lineage.ts)
+    diaryTick(s); // (the day's doings counted for each townsperson's diary: sim/diary.ts)
     villagesHourly(s); // (daughter villages: sim/villages.ts)
     politicsHourly(s); // (the town's politics and law: sim/politics.ts)
+    guildsHourly(s); // (guilds and squads formed to fill what the town lacks: sim/guilds.ts)
+    ranchHourly(s); // (the monster ranch's day: sim/ranch.ts)
+    arenaHourly(s); // (the arena's season, its card and its bout: sim/arena.ts)
+    arenaTick(s);
     scenesHourly(s); // (cutscenes left unwatched lapse: sim/cutscenes.ts)
     // (a town just founded: its founding, to watch)
     if (s.tick === TICKS_PER_HOUR && s.autopilot !== false && !s.scenesSeen?.length && !s.scenes?.length) queueScene(s, 'founding');
@@ -251,6 +278,7 @@ export class Sim {
     huntsHourly(s);
     dragonTick(s); // (the dragon in the hills: sim/dragon.ts)
     factionsHourly(s, this.rng);
+    risingHourly(s); // (the rising powers' own moves: sim/risingPowers.ts)
     if (CONQUEST.on) conquestHourly(s); // (the conquest's provinces, troops and squads: sim/conquest/squads.ts)
     if (s.tick % TICKS_PER_HOUR === 0) keepKin(s);
     packHourly(
@@ -267,6 +295,7 @@ export class Sim {
     updateAdvice(s);
     maybeArrive(s, this.rng);
     maybeEvent(s, this.rng);
+    holdForFight(s); // (questions wait while a fight is on screen: sim/raidWait.ts)
     updateVisitor(s, (p: Person, to: Pt) => walkTo(s, p, to));
     // the town decides for itself what to research, make, build and gather
     runPlanner(s);
@@ -303,6 +332,7 @@ export class Sim {
   }
 
   private apply(c: Command): void {
+    viewsChanged(); // (the snapshot's views are worked out afresh: snapshot.ts)
     const s = this.state;
     switch (c.type) {
       case 'placeBuilding':
@@ -339,10 +369,18 @@ export class Sim {
         break;
       }
       case 'queueResearch':
-        queueResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era, s.origin);
+        pickResearch(s.research, c.topic, s.cheats.unlockAll ? 'space' : s.era, s.origin, seatStageNow(s));
         break;
       case 'cancelResearch':
-        cancelResearch(s.research, c.topic);
+        cancelResearch(s.research, c.topic, true);
+        break;
+      case 'pinBuilding': {
+        const no = setPin(s, c.def, c.on);
+        if (no) notify(s, `Can't wish for that: ${no.toLowerCase()}.`);
+        break;
+      }
+      case 'moveResearch':
+        moveResearch(s.research, c.topic, c.dir);
         break;
       case 'researchNext':
         researchNext(s.research, c.topic);
@@ -471,10 +509,16 @@ export class Sim {
         castAt(s, c.power, this.rng, [c.x, c.y]);
         break;
       case 'watch':
-        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition)) ? c.expedition : undefined;
+        s.watching = c.expedition !== null && (s.expeditions.some((e) => e.id === c.expedition) || !!skirmishTrip(s, c.expedition) || !!arenaTrip(s, c.expedition)) ? c.expedition : undefined;
         break;
       case 'giftVillage':
         giftVillage(s, c.id);
+        break;
+      case 'ranch':
+        ranchCommand(s, c.id, c.op, c.name, c.keep);
+        break;
+      case 'arenaBet':
+        arenaBet(s, c.on, c.amount);
         break;
       case 'tradeRoute':
         setRoute(s, c.to, c.open);
@@ -526,9 +570,6 @@ export class Sim {
         if (c.on) p.priorities = autoPriorities(p.skills, p.id === s.mainId);
         break;
       }
-      case 'dismissAway':
-        s.unreadAway = null;
-        break;
       case 'cheatUnlockAll':
         if (!s.ironman) s.cheats.unlockAll = c.on; // (no cheating in ironman)
         break;
@@ -559,6 +600,11 @@ export class Sim {
       case 'setTax':
         s.tax = c.rate;
         break;
+      case 'edict': {
+        const r = issueEdict(s, c.op, c.law, c.pay);
+        if (!r.ok) notify(s, `No edict: ${r.reason}.`);
+        break;
+      }
       case 'setTownSize':
         if (c.size === null) delete s.popTarget;
         else s.popTarget = c.size;

@@ -15,7 +15,6 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { CROPS, sectionsDone } from '../../shared/data/crops';
 import { eraOfResearch } from '../../shared/data/research';
 import { depthOf, footprint, stillNeeded } from '../../shared/sim/buildings';
-import { inRect } from '../../shared/sim/land';
 import { inSea } from '../../shared/sim/sea';
 import { CELL, cellAt, groundAt, isMarked, isPlannedRoad, isRoad, wet, type Ground, type LandMap } from '../../shared/sim/land';
 import type { Building } from '../../shared/sim/state';
@@ -28,14 +27,18 @@ import { weathered } from '../art/weathered';
 import { sunAt, type Sun } from '../art/sun';
 import { ageStage, damageStage, SCORCH_DAYS, wearKey, type Wear } from '../art/wear';
 import { TICKS_PER_DAY } from '../../shared/sim/time';
-import { mixHex, noTone, type PixelArt, type Tone } from '../art/pixelArt';
+import { mixHex, noTone, paint, type PixelArt, type Tone } from '../art/pixelArt';
+import { HALLWAY } from '../../shared/sim/castle';
 import { PROP_FINE, autumnTextures, propTextures, type PropSet } from '../art/props';
 import propKinds from '../art/propKinds.json';
 import { loadTdTiles, tdTiles } from '../art/tdTiles';
 import { glowTexture } from '../town/layer';
 import { ChimneySmoke } from '../town/ambientView';
 import { CHUNK, chunkKey, groundArtReady, FOG_BAND, hash, paintChunk, visibility } from './groundArt';
-import { onPackArt, packArt, packDressing, type Join } from './packBuildings';
+import { onPackArt, packArt, packDressing, packTurning, type Join } from './packBuildings';
+import { flagRate, millSide, MILLS, sailSpeed, WHEEL_PX, WHEEL_TURN, wheelTexture } from './machinery';
+import doorUrl from '../art/village/dl_door.png';
+import { SmokeColumns } from './smokeColumns';
 import { loadRoadTiles } from '../art/roadTiles';
 import { loadGroundDetail } from '../art/groundDetail';
 import { campfirePack, loadFieldTiles, onFieldTiles } from '../art/fieldTiles';
@@ -49,6 +52,9 @@ import { GroundWeather } from './groundWeather';
 import { reflectOf, waterBelow } from './reflections';
 import { castleClutter, clutterLoaded, flickerCastle, onClutterArt, type Flame } from './castleClutter';
 import { seatArt } from '../art/seatArt';
+import { seatPack } from './seatPacks';
+import { onStatueArt, statueArt } from './statueArt';
+import { STATUE } from '../../shared/data/memorials';
 import { SEAT_STAGE } from '../../shared/data/seats';
 
 /** Things this far outside the view are still drawn (so nothing pops at the edge). */
@@ -95,6 +101,8 @@ const UNDERGROWTH: [PropKind, number][] = [['bush', 0.55], ['plant', 0.45]];
 const UNDERGROWTH_SHARE = 0.6;
 /** A tree with someone (or a building's front) behind it is drawn see-through, this much. */
 const SEE_THROUGH = 0.42;
+/** How much of a castle wall shows over someone standing behind it. */
+const WALL_SEE_THROUGH = 0.3;
 /** How hard the wind blows in each weather (the trees' sway, the clouds' and leaves' drift). */
 const WIND: Record<string, number> = { clear: 0.45, cloudy: 0.7, rain: 1, storm: 2.2, snow: 0.6, fog: 0.15 };
 /** How far a tree's crown leans at a wind of 1 (radians of skew), and a bush's. */
@@ -167,7 +175,24 @@ interface DrawnBuilding {
   room?: boolean;
   /** Its shadow cast by the sun (art/sun.ts): the picture in black, laid back on the ground and swung with the hour. */
   cast?: Sprite;
+  /** Its windows (world px): shuttered at a raid's warning, and the flower boxes under them (map/wealthDecor.ts). */
+  windows?: { x: number; y: number }[];
+  shutters?: Sprite[];
+  /** The windmill's sails, turning about the hub (map/machinery.ts), and a mill's water wheel by the river. */
+  sails?: Container;
+  wheel?: Sprite;
 }
+
+/** Where a finished building's front is (world px): its picture's middle, its foot, and its windows. */
+export interface Front {
+  cx: number;
+  bottom: number;
+  w: number;
+  windows: { x: number; y: number }[];
+}
+
+/** A shutter's size over a window (px): the DawnLike door's planks, shrunk. */
+const SHUTTER_PX = 9;
 
 /** Buildings whose fire glows at night though their picture (a pack's) has no lamp colours in it. */
 const FIRES = new Set(['campfire', 'bloomery', 'kiln', 'storytellers_circle']);
@@ -231,12 +256,18 @@ export class MapView {
   readonly festival: MapFestival;
   /** Each workshop at work shows it: sparks, steam, sawdust, threads, glints (map/workFx.ts). */
   readonly workFx: WorkFx;
+  /** Told when a tree or a rock it drew goes from a cell just felled or broken up (map/mapFelling.ts falls it). */
+  onFelled?: (tex: Texture, fx: number, fy: number, kind: 'tree' | 'rock', cell: number) => void;
+  /** Buildings whose own picture is hidden, something else drawn in its place (the stockpile's heaps: mapStockpile.ts). */
+  readonly artHidden = new Set<number>();
   /** A soft darkening at the view's edges (the owner's ask: the eye drawn in), over the land, under the HUD. */
   private readonly vignette = new Sprite(vignetteTexture());
   /** The stars over the dark beyond the known land, shooting stars and the cold lands' aurora (map/nightSky.ts). */
   readonly nightSky: NightSky;
   /** Gusts over the grass, puddles after rain, snow settling and melting (map/groundWeather.ts). */
   readonly groundWeather: GroundWeather;
+  /** Columns of smoke over the buildings alight (map/smokeColumns.ts). */
+  readonly smokeColumns: SmokeColumns;
   /** How much the hearths are burning now (0 to 1: ambientView's `airFor`). */
   smokeAmount = 0.5;
   /** Marks on the ground under everything standing (a battle's trail and spots), and effects over it all. */
@@ -265,6 +296,9 @@ export class MapView {
   private frost = false;
   private highlight: number | null = null;
   private land: LandMap | null = null;
+  /** The gates shut (by night, or with raiders coming): main.ts sets it each snapshot, and the palisade's gates are
+   *  drawn with their doors closed (`wallJoin`). */
+  gatesShut = false;
   private season = 'summer';
   private era: Era = 'neolithic';
   private biome = 'forest';
@@ -288,14 +322,29 @@ export class MapView {
   private leafDue = 0;
   /** A castle town's keep (map/keepArt.ts): its floor and side walks under everything, its walls and towers among the
    *  things; `wide` sprites span the view and are never culled. */
-  private castle: { key: string; under: Container; things: Container[]; flames: Flame[] } | null = null;
+  private castle: { key: string; under: Container; things: Container[]; walls: Sprite[]; flames: Flame[] } | null = null;
   /** Seconds the lights have flickered (castleClutter's `flickerCastle`). */
   private flick = 0;
   private readonly wide = new Set<Container>();
   /** Bumped when a pack picture loads: every building is drawn again with it. */
   private artGen = 0;
+  /** The banners stirring on their poles (sprite to its frames), and the clocks of the sails, wheels and banners. */
+  private readonly flags = new Map<Sprite, Texture[]>();
+  private flagT = 0;
+  private sailA = 0;
+  private wheelA = 0;
+  /** Shutters closed over the windows (a raid on its way: main.ts), and the planks they're made of. */
+  private shuttered = false;
+  private shutterTex: Texture | null = null;
 
   constructor() {
+    loadImage(doorUrl)
+      .then((im) => {
+        this.shutterTex = Texture.from(im);
+        this.shutterTex.source.scaleMode = 'nearest';
+        if (this.shuttered) this.syncShutters();
+      })
+      .catch(() => undefined);
     this.things.sortableChildren = true;
     // (the ground is its own render group: people walking and re-sorting among the things made Pixi rebuild the whole
     // map's draw list every frame, the ground's hundred-odd chunks with it)
@@ -310,6 +359,7 @@ export class MapView {
     this.workFx = new WorkFx(this.over, this.lights);
     this.nightSky = new NightSky(this.lights);
     this.groundWeather = new GroundWeather(this.under);
+    this.smokeColumns = new SmokeColumns(this.over);
     this.smoke.size = 1.6;
     this.lights.blendMode = 'add';
     this.lights.alpha = 0;
@@ -321,6 +371,7 @@ export class MapView {
     loadFieldTiles().then(() => undefined, () => undefined);
     onFieldTiles(() => this.artGen++);
     onPackArt(() => this.artGen++);
+    onStatueArt(() => this.artGen++);
     onCastleArt(() => {
       if (this.castle) this.castle.key = '';
     });
@@ -604,6 +655,10 @@ export class MapView {
       }
     for (const [i, p] of this.props)
       if (!seen.has(i)) {
+        // (a tree felled, a rock broken up just now: it falls or crumbles where it stood, map/mapFelling.ts)
+        const cell = i >> 1;
+        const felled = p.kind === 'tree' ? land.regrow?.[cell]?.[0] === 'forest' : p.kind === 'rock' && land.rubble?.[cell] !== undefined;
+        if (felled && i % 2 === 0 && !this.calm) this.onFelled?.(p.sprite.texture, p.sprite.x, p.sprite.y, p.kind as 'tree' | 'rock', cell);
         p.sprite.destroy();
         p.reflect?.destroy();
         this.props.delete(i);
@@ -646,6 +701,18 @@ export class MapView {
   seeThrough(points: { x: number; y: number }[]): void {
     const land = this.land;
     if (!land) return;
+    // (a castle's tall walls: see-through where someone stands behind them, so the rooms stay in view)
+    for (const sp of this.castle?.walls ?? []) {
+      // (a run along the top of a cell hides what stands north of its foot; a run down a column, only what stands in
+      // its own strip: someone walking beside it is in front of it or level with it, not behind it)
+      const foot = sp.zIndex;
+      const column = sp.texture.width <= CELL / 2;
+      const hidden = column
+        ? points.some((pt) => pt.y < sp.y + sp.texture.height - CELL && pt.y > sp.y + 8 && pt.x > sp.x && pt.x < sp.x + sp.texture.width)
+        : points.some((pt) => pt.y < foot - 3 && pt.y > sp.y + 8 && pt.x > sp.x - 8 && pt.x < sp.x + sp.texture.width + 8);
+      const target = hidden ? WALL_SEE_THROUGH : 1;
+      sp.alpha = Math.abs(target - sp.alpha) < 0.03 ? target : sp.alpha + (target - sp.alpha) * 0.45;
+    }
     const pts = points.slice();
     for (const d of this.buildings.values()) {
       const r = d.rect;
@@ -848,27 +915,41 @@ export class MapView {
 
   /* ------------------------------------------------------------ buildings */
 
+  private hallBare: PixelArt | null = null;
   private art(b: Building): PixelArt {
     if (b.def === 'campfire') return (campfirePack() ?? this.fire)[0];
     const f = footprint(b);
     if (isPlot(b.def)) return fieldArt(b.def, f.w, f.h, cropLook(b), this.tone, this.toneKey, cropDone(b));
     // (a castle's room: its furnishings, on the castle's floor: map/castleArt.ts)
+    if (b.room && b.def === HALLWAY) return (this.hallBare ??= paint(2, 2, noTone, () => {}, 0)); // (a hallway is bare floor: the dungeon pack's flagstones, castleArt.ts)
     if (b.room) return roomFurniture(BUILDING_BY_ID[b.def], f.w, b.id, this.tone, this.toneKey, this.style) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
-    // (the seat of the town: its own picture, by origin and stage: art/seatArt.ts)
+    // (the seat of the town: laid together from the packs by origin and stage, map/seatPacks.ts; the painted one,
+    // art/seatArt.ts, while its sprites load)
     const seat = SEAT_STAGE[b.def];
-    if (seat) return seatArt(seat.origin, seat.stage, f.w, f.h, this.tone, this.toneKey);
+    if (seat) return seatPack(seat.origin, seat.stage, f.w) ?? seatArt(seat.origin, seat.stage, f.w, f.h, this.tone, this.toneKey);
+    // (a statue: the one it stands for, carved in stone on a plinth: map/statueArt.ts)
+    const statue = b.def === STATUE && b.status === 'done' ? statueArt(b.statue, f.w) : null;
+    if (statue) return statue;
     // (a pack picture where one suits the look: map/packBuildings.ts)
     // (else the top-down painter's: art/topDown.ts)
-    return packArt(b.def, f.w, this.style, b.id, this.wallJoin(b)) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
+    return packArt(b.def, f.w, this.style, b.id, this.wallJoin(b), true) ?? topDownArt(b.def, f.w, f.h, this.tone, this.toneKey, this.style);
   }
 
   /** How a one-cell wall piece joins the walls and gates about it: along a row, down a column, at a corner, or alone
    *  (undefined for anything but a wall, so other pictures are untouched). */
   private wallJoin(b: Building): Join | undefined {
     const def = BUILDING_BY_ID[b.def];
+    // (the palisade's gate: which wall it stands in, by where the camp is, and whether it's shut: packBuildings.ts)
+    if (b.def === 'palisade_gate' && this.land) {
+      const f = footprint(b);
+      const shut = this.gatesShut ? 'x' : '';
+      if (b.turned) return ((f.x + f.w / 2 < this.land.camp.x + 0.5 ? 'v' : 've') + shut) as Join;
+      return ((f.y + f.h / 2 < this.land.camp.y + 0.5 ? 'gn' : 'gs') + shut) as Join;
+    }
     if (b.turned && def?.hp) return 'v'; // (a gate standing down a column)
     if (!def?.hp || def.width !== 1 || def.defense) return undefined;
-    const wallAt = (x: number, y: number) => this.simBuildings.some((o) => o !== b && !!BUILDING_BY_ID[o.def]?.hp && !BUILDING_BY_ID[o.def]?.defense && inRect(footprint(o), x, y));
+    const cells = this.wallCellsNow();
+    const wallAt = (x: number, y: number) => cells.has(x * 4096 + y);
     const l = wallAt(b.tile - 1, b.row), r = wallAt(b.tile + 1, b.row), u = wallAt(b.tile, b.row - 1), d = wallAt(b.tile, b.row + 1);
     // (a run down a column is the west wall's or the east wall's: its post stands at the left or the right of the cell to
     // meet the corners' posts; told by which way the run turns at its ends)
@@ -957,11 +1038,26 @@ export class MapView {
       g.tint = 0xffb060;
       f.glow = g;
     }
-    this.castle = { key, under: drawing.under, things: [...drawing.things, ...clutter.things], flames: clutter.flames };
+    this.castle = { key, under: drawing.under, things: [...drawing.things, ...clutter.things], walls: drawing.walls, flames: clutter.flames };
   }
 
   /** The town's buildings as last synced (a wall piece's picture depends on its neighbours: `wallJoin`). */
   private simBuildings: Building[] = [];
+  /** The cells walls and gates stand on (x * 4096 + y), for `wallJoin`: worked out once a sync (it asked every
+   *  building for every cell round every wall piece, most of a big town's frame). */
+  private wallCells: { of: Building[]; cells: Set<number> } | null = null;
+  private wallCellsNow(): Set<number> {
+    if (this.wallCells?.of === this.simBuildings) return this.wallCells.cells;
+    const cells = new Set<number>();
+    for (const o of this.simBuildings) {
+      const d = BUILDING_BY_ID[o.def];
+      if (!d?.hp || d.defense) continue;
+      const r = footprint(o);
+      for (let x = r.x; x < r.x + r.w; x++) for (let y = r.y; y < r.y + r.h; y++) cells.add(x * 4096 + y);
+    }
+    this.wallCells = { of: this.simBuildings, cells };
+    return cells;
+  }
   /** The sim's clock (main.ts, per snapshot): how old each building is. */
   tick = 0;
   /** Where the sun is (art/sun.ts `sunAt`): the buildings' cast shadows follow it. */
@@ -1010,6 +1106,12 @@ export class MapView {
       }
       if (b.status === 'blueprint' && d.progress !== b.progress) this.updateBlueprint(b, d);
       if (b.fire !== undefined) d.sprite.tint = 0xff9060;
+      const shown = b.status !== 'done' || !this.artHidden.has(b.id);
+      if (d.sprite.visible !== shown) d.sprite.visible = shown;
+      if (d.cast && !shown) {
+        d.cast.destroy();
+        d.cast = undefined;
+      }
     }
     for (const [id, d] of this.buildings)
       if (!seen.has(id)) {
@@ -1025,16 +1127,58 @@ export class MapView {
     d.faint?.destroy();
     d.mask?.destroy();
     d.site?.destroy();
-    for (const e of d.extras ?? []) e.destroy();
+    for (const e of d.extras ?? []) {
+      this.flags.delete(e);
+      e.destroy();
+    }
     for (const g of d.glows ?? []) g.destroy();
+    for (const sh of d.shutters ?? []) sh.destroy();
+    d.sails?.destroy({ children: true });
+    d.wheel?.destroy();
+  }
+
+  /** Where each finished building's front is (its middle, foot and windows), for what's set out before it. */
+  fronts(): Map<number, Front> {
+    const out = new Map<number, Front>();
+    for (const [id, d] of this.buildings) if (d.progress < 0 && !d.room) out.set(id, { cx: d.rect.x + d.rect.w / 2, bottom: d.rect.y + d.rect.h, w: d.rect.w, windows: d.windows ?? [] });
+    return out;
+  }
+
+  /** A raid on its way: the shutters close over every window, and the windows go dark (opened again when it's over). */
+  setShutters(on: boolean): void {
+    if (on === this.shuttered) return;
+    this.shuttered = on;
+    this.syncShutters();
+  }
+
+  private syncShutters(): void {
+    for (const d of this.buildings.values()) this.shutBuilding(d);
+  }
+
+  private shutBuilding(d: DrawnBuilding): void {
+    for (const sh of d.shutters ?? []) sh.destroy();
+    d.shutters = undefined;
+    const shut = this.shuttered && !!this.shutterTex && !!d.windows?.length;
+    for (const g of d.glows ?? []) g.visible = !shut;
+    if (!shut) return;
+    d.shutters = d.windows!.map((w) => {
+      const sh = this.things.addChild(new Sprite(this.shutterTex!));
+      sh.anchor.set(0.5);
+      sh.width = sh.height = SHUTTER_PX;
+      sh.position.set(Math.round(w.x), Math.round(w.y));
+      sh.zIndex = d.rect.y + d.rect.h + 0.25;
+      return sh;
+    });
   }
 
   /** A frame of the air: smoke from the finished buildings' chimneys and stacks, and the fireflies. */
   renderAir(dt: number): void {
     this.blight.render(dt);
+    this.fadeWindows(dt);
     this.fireflies(dt);
     this.windT += dt;
     this.sway();
+    this.turnMachinery(dt);
     this.cloudShadows(dt);
     this.fallingLeaves(dt);
     if (this.castle?.flames.length) flickerCastle(this.castle.flames, (this.flick += dt));
@@ -1042,6 +1186,7 @@ export class MapView {
     this.workFx.render(dt, this.view, this.calm, this.wind());
     this.nightSky.render(dt, this.view, this.land, this.lights.alpha, this.calm);
     this.groundWeather.render(dt, this.view, this.land, this.wind(), this.calm);
+    this.smokeColumns.render(dt, this.wind(), this.calm);
     if (this.calm) return;
     this.smoke.amount = this.smokeAmount;
     const chimneys: { x: number; y: number }[] = [];
@@ -1049,8 +1194,24 @@ export class MapView {
     this.smoke.update(dt, chimneys);
   }
 
+  /** The windmills' sails turn with the wind, the mills' wheels with the river, and the banners stir on their poles. */
+  private turnMachinery(dt: number): void {
+    const wind = this.wind();
+    this.sailA += dt * sailSpeed(wind);
+    this.wheelA += dt * WHEEL_TURN;
+    this.flagT += dt * flagRate(wind);
+    for (const d of this.buildings.values()) {
+      if (d.sails?.renderable) d.sails.rotation = this.sailA + (d.rect.x % 7) * 0.4;
+      if (d.wheel?.renderable) d.wheel.rotation = this.wheelA * (d.wheel.scale.x < 0 ? -1 : 1);
+    }
+    for (const [sp, frames] of this.flags) {
+      if (!sp.renderable) continue;
+      sp.texture = frames[Math.floor(this.flagT + (sp.x % 11)) % frames.length];
+    }
+  }
+
   /** The wind now (0 to about 2), and its slow swell. */
-  private wind(): number {
+  wind(): number {
     const base = WIND[this.weather] ?? 0.5;
     return base * (0.75 + 0.25 * Math.sin(this.windT * 0.21));
   }
@@ -1281,6 +1442,36 @@ export class MapView {
         d.cast = cast;
         this.castShadow(cast);
       }
+      // (its windows, where the shutters close at a raid's warning: map/wealthDecor.ts sets boxes under them too)
+      if (art.lights?.length && !b.room && !FIRES.has(b.def) && !PORTALS.has(b.def)) d.windows = art.lights.map((l) => ({ x: left + l.x, y: top + l.y }));
+      if (this.shuttered) this.shutBuilding(d);
+      // (the windmill's sails, turning about the hub with the wind: map/machinery.ts)
+      const turn = !b.room ? packTurning(b.def, f.w, this.style) : null;
+      if (turn) {
+        const c = this.things.addChild(new Container());
+        c.position.set(left + turn.x, top + turn.y);
+        c.zIndex = bottom + 0.05;
+        for (let i = 0; i < turn.blades; i++) {
+          const bl = c.addChild(new Sprite(turn.sail));
+          bl.anchor.set(0.5, 1);
+          bl.rotation = Math.PI / 4 + (i * Math.PI * 2) / turn.blades;
+        }
+        const hub = c.addChild(new Sprite(turn.hub));
+        hub.anchor.set(0.5);
+        d.sails = c;
+      }
+      // (a mill by the river turns a water wheel at its side)
+      const side = MILLS.has(b.def) && this.land ? millSide(this.land, f) : null;
+      const wheel = side ? wheelTexture(() => this.artGen++) : null;
+      if (side && wheel) {
+        const sp = this.things.addChild(new Sprite(wheel));
+        sp.anchor.set(0.5);
+        const k = WHEEL_PX / wheel.width;
+        sp.scale.set(side === 'w' ? -k : k, k);
+        sp.position.set(side === 'e' ? (f.x + f.w) * CELL + 4 : f.x * CELL - 4, bottom - WHEEL_PX * 0.35);
+        sp.zIndex = bottom + 0.1;
+        d.wheel = sp;
+      }
       if (art.smoke) d.chimneys = art.smoke.map((c) => ({ x: left + c.x, y: top + c.y }));
       else if (FIRES.has(b.def)) d.chimneys = [{ x: cx, y: bottom - (f.h * CELL) / 2 - 6 }]; // (an open fire smokes too)
       // (a lantern post, a barrel, a cart by a pack-drawn house's corners)
@@ -1302,8 +1493,11 @@ export class MapView {
         });
       for (const e of packDressing(b.def, b.id, f.w, this.style)) {
         const sp = this.things.addChild(new Sprite(e.texture));
+        sp.width = e.w;
+        sp.height = e.h;
         sp.position.set(Math.round(x0 + e.dx), Math.round(y0 + e.dy - e.h));
         if (e.tint !== undefined) sp.tint = e.tint;
+        if (e.frames) this.flags.set(sp, e.frames);
         sp.zIndex = y0 + e.dy + 0.2;
         (d.extras ??= []).push(sp);
       }
@@ -1356,6 +1550,45 @@ export class MapView {
       if (wx >= r.x && wx < r.x + r.w && wy >= r.y && wy < r.y + r.h && !isPlot(d.sig.slice(0, d.sig.indexOf('|')))) return true;
     }
     return false;
+  }
+
+  /** The homes whose windows have gone dark (map/townLife.ts `darkHomes`: everyone in them asleep), from main.ts each
+   *  snapshot; each house's glows fade out (and back in) over a second or two in `renderAir`, so the windows go out
+   *  one house at a time as each household goes to bed. */
+  private dark = new Set<number>();
+  private readonly lit = new Map<number, number>();
+  private readonly glowBase = new WeakMap<Sprite, number>();
+  darkWindows(dark: Set<number>): void {
+    this.dark = dark;
+  }
+  private fadeWindows(dt: number): void {
+    for (const [id, d] of this.buildings) {
+      if (!d.glows?.length) continue;
+      const want = this.dark.has(id) ? 0 : 1;
+      const was = this.lit.get(id) ?? 1;
+      // (set every frame: a house drawn again has new glows, which take the fade it's at)
+      const now = want > was ? Math.min(want, was + dt * 0.8) : Math.max(want, was - dt * 0.8);
+      this.lit.set(id, now);
+      for (const g of d.glows) {
+        if (!this.glowBase.has(g)) this.glowBase.set(g, g.alpha);
+        g.alpha = this.glowBase.get(g)! * now;
+      }
+    }
+  }
+
+  /** A building's picture as the map would draw it standing, by its kind and id (its ruin's shell: map/mapRuins.ts). */
+  artFor(def: string, id: number): PixelArt | null {
+    if (!BUILDING_BY_ID[def]) return null;
+    return this.art({ id, def, tile: 0, row: 0, status: 'done', delivered: {}, progress: 1, store: {} });
+  }
+
+  /** A finished building's picture as drawn (world px) and the top of its picture at its middle column: where a
+   *  lookout stands on a tower (map/mapTownLife.ts). */
+  pictureOf(id: number): { x: number; y: number; w: number; h: number; top: number } | null {
+    const d = this.buildings.get(id);
+    if (!d || d.room) return null;
+    const r = d.rect;
+    return { ...r, top: r.y + (d.art.tops[Math.floor(r.w / 2)] ?? 0) };
   }
 
   /** Whether a world point is within `pad` px of any building, plot or pen (the wild beasts keep their distance). */

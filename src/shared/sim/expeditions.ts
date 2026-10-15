@@ -2,17 +2,21 @@
 // with what it can carry (maybe ambushed on the way). While away, members are off the map: no town work,
 // and they eat the food they packed. Fights and questions for the player pause the trip.
 
+import { addDeed } from './deeds';
 import { assaultDestination, assaultOver, assaultTargets, isAssaultDest, leviesFor, planAssault } from './factions';
 import { ASSAULT_MOST } from '../data/factions';
 import { boatDef, boatHome, fleet, freeBoat, sailSpeed, sailsTo, seaHour } from './boats';
+import { airfleet, airshipDef, airshipHome, airshipLost, boardAirship, flySpeed, fliesWith, freeAirship, skyHour } from './skies';
 import { payParty } from './economy';
 import { homeFromTrip } from './ambition';
-import { payBounty } from './parties';
+import { jobDone, payBounty } from './parties';
+import { companyHome } from './companies';
 import { woundFor, woundPerson } from './injuries';
 import { levelOf, xpToLevel } from '../data/levels';
 import { crossroads, debrief } from './muster';
 import { ENEMIES } from '../data/enemies';
 import { isWildDest, wildDestination } from '../data/roamers';
+import { arenaDestination, isArenaDest } from '../data/arena';
 import { eraReached } from '../data/eras';
 import { HIDDEN_IN, HOME_REGION, REGION_BY_ID, regionScouted } from '../data/regions';
 import {
@@ -44,7 +48,7 @@ import { WATERSKIN_SPEEDUP } from '../data/items';
 import { HORSE_CARRY, HORSE_DIE_ON_LOSS, HORSE_HP, HORSE_HURT, HORSE_HURT_ON_RETREAT, HORSE_SPEEDUP } from '../data/trade';
 import { MATERIALS, type Material, type Stock } from '../data/materials';
 import { ARRIVING_TYPES, FOOD_VALUE } from '../data/people';
-import { TOPIC_BY_ID, TOPICS } from '../data/research';
+import { TOPICS } from '../data/research';
 import { skillSpeed, type Skill } from '../data/skills';
 import { hashSeed, Rng } from '../rng';
 import { depositNear, storages, totalStock } from './buildings';
@@ -73,7 +77,9 @@ import { packDestinationOf, packDestUnlocked, packHome } from './pack';
 import { tireless, townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, meet, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { askToWatch } from './watchAsk';
+import { huntedUnit, huntFactors } from './wild';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
+import { topicName } from '../data/originResearch';
 
 /** XP per unit of loot brought in, and per attack made in a fight. */
 const LOOT_XP = 10;
@@ -102,9 +108,10 @@ export function destinationOf(s: GameState, id: string): Destination | undefined
   if (isDragonDest(id)) return dragonDestination(s);
   if (isVillageDest(id)) return villageDestination(s, id);
   if (isPortalDest(id)) return portalDestination(s, id);
-  if (isHeartDest(id)) return heartDestination(s);
+  if (isHeartDest(id)) return heartDestination(s, true); // (held: a party that cleared it still has to get home)
   if (isAssaultDest(id)) return assaultDestination(s, id);
   if (isWildDest(id)) return wildDestination(id); // (a fight with a band out on the land: sim/roamers.ts)
+  if (isArenaDest(id)) return arenaDestination(id); // (a bout in the arena: sim/arena.ts)
   return DESTINATION_BY_ID[id];
 }
 
@@ -184,8 +191,11 @@ export function canSend(s: GameState, destId: string, memberIds: readonly number
   if (d.coins && (s.coins ?? 0) < d.coins) return { ok: false, reason: `Needs ${d.coins} coins for the purse` };
   // (an island: only a boat reaches it, and she takes no more than her crew)
   const boat = sailsTo(d) ? freeBoat(s) : undefined;
-  if (d.byBoat && !boat) return { ok: false, reason: 'Needs a seaworthy boat' };
-  const most = boat && d.byBoat ? Math.min(boatDef(boat).crew, MAX_DELVERS) : d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : isAssaultDest(d.id) ? ASSAULT_MOST : MAX_PARTY;
+  // (a place in the sky only an airship reaches; an island an airship reaches too, with no boat free)
+  const ship = d.bySky || (d.byBoat && !boat) ? freeAirship(s) : undefined;
+  if (d.bySky && !ship) return { ok: false, reason: 'Needs an airworthy airship' };
+  if (d.byBoat && !boat && !ship) return { ok: false, reason: 'Needs a seaworthy boat' };
+  const most = ship ? Math.min(airshipDef(ship).crew, MAX_DELVERS) : boat && d.byBoat ? Math.min(boatDef(boat).crew, MAX_DELVERS) : d.type === 'delve' || isPlaceDest(d.id) || isPackDest(d.id) ? MAX_DELVERS : d.id === HUNT_DEST ? HUNT_PARTY : isAssaultDest(d.id) ? ASSAULT_MOST : MAX_PARTY;
   if (memberIds.length > most) return { ok: false, reason: `Parties are at most ${most} people` };
   if (new Set(memberIds).size !== memberIds.length) return { ok: false, reason: 'Someone is listed twice' };
   for (const id of memberIds) {
@@ -248,10 +258,13 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     takeFromStorage(s, 'fuel', TRUCK_FUEL);
   }
   // (by boat, to an island or along the water, at her speed: no horse beats her there)
-  const boat = sailsTo(d) && members.length <= Math.max(MAX_PARTY, freeBoat(s) ? boatDef(freeBoat(s)!).crew : 0) ? freeBoat(s) : undefined;
-  const speed = boat ? 1 / sailSpeed(boat) : truck ? TRUCK_SPEEDUP : (waterskins ? WATERSKIN_SPEEDUP : 1) * (mounted ? HORSE_SPEEDUP : 1);
+  // (or in an airship, anywhere, faster than any boat or horse: sim/skies.ts)
+  const ship = fliesWith(s, d, members.length);
+  const boat = !ship && sailsTo(d) && members.length <= Math.max(MAX_PARTY, freeBoat(s) ? boatDef(freeBoat(s)!).crew : 0) ? freeBoat(s) : undefined;
+  const speed = ship ? 1 / flySpeed(ship) : boat ? 1 / sailSpeed(boat) : truck ? TRUCK_SPEEDUP : (waterskins ? WATERSKIN_SPEEDUP : 1) * (mounted ? HORSE_SPEEDUP : 1);
 
-  const out = Math.round(phaseTicks(s, d.outSeconds) * speed);
+  // (a hunt goes further when the game near town is thin: sim/wild.ts)
+  const out = Math.round(phaseTicks(s, d.outSeconds) * speed * (d.type === 'hunt' ? huntFactors(s).travel : 1));
   const e: Expedition = {
     id: s.nextId++,
     dest: destId,
@@ -281,6 +294,7 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
   if (assault) e.assault = assault;
   s.expeditions.push(e);
   if (boat) boat.away = e.id;
+  if (ship) boardAirship(ship, e);
   // (a delve: its rooms rolled and its torches packed)
   if (d.type === 'delve') startDelve(s, e, (m, n) => takeFromStorage(s, m, n));
   for (const p of members) {
@@ -289,7 +303,7 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
     p.activity = 'walk';
     p.blocked = false;
   }
-  notify(s, `${names(members)} set out for ${the(d.name)}${boat ? ` in the ${boat.name}` : ''}.`);
+  notify(s, `${names(members)} set out for ${the(d.name)}${ship ? `, flying in the ${ship.name}` : boat ? ` in the ${boat.name}` : ''}.`);
   return { ok: true };
 }
 
@@ -340,7 +354,8 @@ function startBack(s: GameState, e: Expedition, walkedTicks: number): void {
 export function partyCarry(s: GameState, e: Expedition): number {
   const people = e.members.reduce((n, id) => n + carryCapacity(s, s.people.find((p) => p.id === id)) * (e.roles[id] === 'porter' ? PORTER_CARRY : 1), 0);
   const boat = e.boat ? fleet(s).find((b) => b.id === e.boat) : undefined;
-  const hold = boat ? boatDef(boat).cargo : 0;
+  const ship = e.airship ? airfleet(s).find((a) => a.id === e.airship) : undefined;
+  const hold = (boat ? boatDef(boat).cargo : 0) + (ship ? airshipDef(ship).cargo : 0);
   return Math.round((people + (e.horses?.length ?? 0) * HORSE_CARRY + (e.truck ? TRUCK_CARRY : 0) + hold) * (e.stakes ? STAKES[e.stakes].carry : 1));
 }
 
@@ -428,6 +443,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
     if (!members.length) {
       s.expeditions = s.expeditions.filter((q) => q !== e);
       notify(s, `No one came back from ${the(d.name)}.`, true);
+      airshipLost(s, e);
       continue;
     }
 
@@ -453,6 +469,16 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
       if (e.wrecked && e.phase !== 'back') startBack(s, e, e.elapsed);
       if (e.battle) continue;
     }
+    // (aloft: each hour out and back may bring a storm, guns from below, sky pirates or flyers: sim/skies.ts)
+    if (e.airship && e.phase !== 'work' && e.elapsed % TICKS_PER_HOUR === 0) {
+      const pace = e.airship ? flySpeed(airfleet(s).find((a) => a.id === e.airship)) : 1;
+      skyHour(s, e, members, (group, g) => fightGroup(s, e, d, members, group, false, g));
+      if (s.gameOver) return;
+      members = membersOf(s, e);
+      // (fallen on the way out: they walk home from there, as long as walking it takes)
+      if (e.crashed && e.phase === 'out') startBack(s, e, Math.round(e.elapsed * pace));
+      if (e.battle) continue;
+    }
     switch (e.phase) {
       case 'out':
         if (!e.rolled.outEvent && e.elapsed >= e.outTicks * EVENT_AT) {
@@ -462,7 +488,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
         if (e.elapsed >= e.outTicks) {
           e.phase = 'work';
           e.elapsed = 0;
-          maybeFight(s, e, d, members, d.encounters.arrival, rng);
+          maybeFight(s, e, d, members, d.encounters.arrival + huntRisk(s, d), rng);
         }
         break;
       case 'work': {
@@ -476,14 +502,16 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
           break;
         }
         const cap = partyCarry(s, e);
+        const game = d.type === 'hunt' ? huntFactors(s).yield : 1; // (real game: sim/wild.ts)
         const lodge = d.type === 'hunt' && s.buildings.some((b) => b.def === 'hunters_lodge' && b.status === 'done') ? HUNTERS_LODGE_BONUS : 1;
         for (const p of members) {
           if (p.downed || e.roles[p.id] === 'porter') continue;
-          e.work += (skillSpeed(p.skills[workSkill(d, p)].level) * workFactor(s, p) * lodge) / (d.secondsPerUnit * ERA_MULTIPLIER[s.era] * TICK_HZ);
+          e.work += (skillSpeed(p.skills[workSkill(d, p)].level) * workFactor(s, p) * lodge * game) / (d.secondsPerUnit * ERA_MULTIPLIER[s.era] * TICK_HZ);
         }
         while (e.work >= 1 && poolSize(e.loot) < cap) {
           e.work -= 1;
           addStock(e.loot, rng.weighted(d.loot as Record<Material, number>), 1);
+          if (d.type === 'hunt') huntedUnit(s, 1); // (a head falls from the nearest herd)
           const workers = members.filter((p) => !p.downed);
           const worker = workers[rng.int(0, workers.length - 1)] ?? members[0];
           gainSkill(worker, workSkill(d, worker), LOOT_XP);
@@ -497,7 +525,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
       case 'back':
         if (!e.rolled.ambush && e.elapsed >= e.backTicks * AMBUSH_AT) {
           e.rolled.ambush = true;
-          maybeFight(s, e, d, members, d.encounters.ambush, rng);
+          maybeFight(s, e, d, members, d.encounters.ambush + huntRisk(s, d), rng);
           if (e.battle) break;
         }
         if (!e.rolled.backEvent && e.elapsed >= e.backTicks * EVENT_AT) {
@@ -509,6 +537,9 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
     }
   }
 }
+
+/** The added odds of a fight on a hunt when the game is far from town (sim/wild.ts). */
+const huntRisk = (s: GameState, d: Destination) => (d.type === 'hunt' ? huntFactors(s).risk : 0);
 
 /** Roll for a fight; a scout may spot a (non-boss) one first and lead the party around it. */
 function maybeFight(s: GameState, e: Expedition, d: Destination, members: Person[], chance: number, rng: Rng): void {
@@ -592,7 +623,10 @@ function finishBattle(s: GameState, e: Expedition, d: Destination, members: Pers
     case 'won': {
       // a boss slain: its trophy comes home with the party (its purse goes to the town: shown on the victory screen)
       const coinsBefore = s.coins ?? 0;
-      for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.boss) bossSlain(s, f.kind);
+      for (const f of b.fighters) if (f.side === 'enemy' && f.down && ENEMIES[f.kind]?.boss) {
+        bossSlain(s, f.kind);
+        for (const p of members) addDeed(p, 'bosses'); // (a deed for the whole party: sim/deeds.ts)
+      }
       result.coins = (s.coins ?? 0) - coinsBefore;
       // (a boss's purse is the party's, split among them: data/economy.ts)
       if (result.coins > 0) {
@@ -679,6 +713,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   if (e.horses?.length) s.horses.push(...e.horses);
   if (e.truck) s.items.truck = (s.items.truck ?? 0) + 1;
   boatHome(s, e);
+  airshipHome(s, e, jobDone(e, members));
   const side = s.destSides[d.id] ?? 1;
   const at = campEdge(s, side);
   // Share out the loot and leftover food; they'll haul it to storage like anything else.
@@ -721,6 +756,7 @@ function comeHome(s: GameState, e: Expedition, d: Destination, members: Person[]
   dragonHome(s, e, party);
   villageHome(s, e.dest, !!e.cleared && !e.recalled);
   portalHome(s, e.dest, party, !!e.cleared && !e.recalled, at);
+  companyHome(s, e, party, d.name, jobDone(e, party)); // (a bond between those who went, sim/companies.ts)
   payBounty(s, e, party); // (a bounty the treasury posted on the place, if they did the job)
   if (!e.recalled) findRelic(s, e, d, rng);
   debrief(s, e, d); // (a party the player sent: what it cost and won, sim/muster.ts)
@@ -769,7 +805,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, at: Pt, rng
       if (!topic) return;
       const p = r.progress[topic] ?? 0;
       r.progress[topic] = p + (1 - p) / 2;
-      notify(s, `Old writings from ${the(d.name)}: research on ${TOPIC_BY_ID[topic].name} is half done.`, true);
+      notify(s, `Old writings from ${the(d.name)}: research on ${topicName(topic, s.origin)} is half done.`, true);
       return;
     }
     case 'rescue': {
@@ -777,7 +813,7 @@ function specialOutcome(s: GameState, e: Expedition, d: Destination, at: Pt, rng
       const joined: Person[] = [];
       for (let i = 0; i < n && !townFull(s); i++) {
         const type = rng.weighted(ARRIVING_TYPES);
-        const p = makePerson(rng, s.nextId++, type, at, s.people.map((q) => q.name));
+        const p = makePerson(rng, s.nextId++, type, at, s.people.map((q) => q.name), s.origin ?? 'settlers');
         s.people.push(p);
         joined.push(p);
       }

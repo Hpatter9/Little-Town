@@ -230,7 +230,7 @@ test('mages: their fire bursts over the raiders round the one hit', () => {
   assert.equal(hurt, 3, 'all three burnt');
 });
 
-test('a battle can be played at 2 or 3 times, only while it is on, and the choice is kept', () => {
+test('a battle can be played at 2 or 3 times, only while it is on, and each battle starts at 1×', () => {
   const sim = new Sim(town('speed', 4));
   const s = sim.state;
   assert.equal(battleSpeedNow(s), 1);
@@ -240,14 +240,15 @@ test('a battle can be played at 2 or 3 times, only while it is on, and the choic
   const r = raidNow(s, 40);
   sim.step();
   assert.ok(r.battle);
-  assert.equal(battleSpeedNow(s), 3);
-  assert.equal(battleView(s, [])!.speed, 3);
+  sim.step(); // (the fight is seen on screen: back to 1×)
+  assert.equal(battleSpeedNow(s), 1, 'every battle starts at 1×');
+  assert.equal(battleView(s, [])!.speed, 1);
   sim.command({ type: 'battleSpeed', speed: 2 });
   sim.step();
   assert.equal(battleSpeedNow(s), 2);
   r.battle!.phase = 'done';
   assert.equal(battleSpeedNow(s), 1, 'over: back to the town pace');
-  assert.equal(s.battleSpeed, 2, 'kept for the next battle');
+  assert.equal(s.battleSpeed, 2, 'the player sped it up during the fight');
 });
 
 test('a fighter who falls back off the line takes a parting blow from each raider they were holding', () => {

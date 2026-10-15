@@ -1,4 +1,5 @@
 import type { NightOut } from './nightOut';
+import type { FestivalLogEntry, FestivalRun } from './festivals';
 import type { CalamityState } from './calamity';
 import type { DeepState } from './deep';
 import type { Portal } from './portals';
@@ -12,6 +13,7 @@ import type { RaidRecap, RaidTally } from './raidRecap';
 import type { Chronicle, Fallen, YearStart } from './annals';
 import type { SpecialId } from '../data/specials';
 import type { BoatKind } from '../data/boats';
+import type { AirshipKind } from '../data/skies';
 import type { ShopLine } from '../data/stores';
 import type { DecorId } from '../data/decor';
 import type { TaxRate } from '../data/economy';
@@ -20,13 +22,14 @@ import { foundConquest, realmCount } from './conquest/conquest';
 import type { AmbitionId } from '../data/ambitions';
 import type { NatureId } from '../data/natures';
 import { FOUNDER_CLASS } from '../data/founderClasses';
-import { CELL, FOG_BAND, makeLand, MOUNTAIN_FOOT, setGround, type LandMap, type Pt } from './land';
+import { founderRoot } from '../data/paths';
+import { CELL, FOG_BAND, findPath, groundAt, makeLand, MOUNTAIN_FOOT, setGround, stepCost, type LandMap, type Pt } from './land';
 import { SEAT_D, seatId } from '../data/seats';
 import type { Delve } from './delves';
 import type { PackState } from './pack';
 import type { Quest } from './quests';
 import type { Material, Stock } from '../data/materials';
-import { JOB_SKILL, JOBS, NAMES, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
+import { JOB_SKILL, JOBS, personName, randomLook, RECRUIT_TYPES, TRAITS, type Job, type Look, type Priority } from '../data/people';
 import { SKILLS, type Skill, type SkillLevel } from '../data/skills';
 import { DESTINATIONS, type Role, type Stance } from '../data/expeditions';
 import { ITEM_BY_ID, type FareKind, type Slot } from '../data/items';
@@ -44,7 +47,7 @@ import type { Doom } from './doom';
 import { MONSTER_HP, type MonsterKind, type StandingOrder } from '../data/monsters';
 import { ORIGIN_DEFS, type OriginId } from '../data/origins';
 import type { BandKind } from '../data/bands';
-import { modifiers, type ResearchState } from './research';
+import { researchMods, type ResearchState } from './research';
 import { TICKS_PER_HOUR } from './time';
 
 export type { Era } from '../data/eras';
@@ -87,6 +90,8 @@ export interface Building {
   row: number;
   /** A room of a castle (sim/castle.ts: inside the keep). */
   room?: boolean;
+  /** A hold's room laid under the hallway rule (opens off a hallway only: sim/castle.ts `hallCells`). Older rooms lack it. */
+  halled?: boolean;
   /** A blueprint is waiting for materials or being built; progress > 0 once work has started. */
   status: 'blueprint' | 'done';
   /** Materials hauled to the site so far. */
@@ -111,7 +116,7 @@ export interface Building {
   /** Fields: what's in the ground. `growth` runs 0..1 while growing; `work` is sowing or harvest progress. */
   /** A field's crop. `soil`: how good the ground is (1 when left out; see SOIL in data/crops.ts). `bearing`: an
    *  orchard's trees have come into fruit. */
-  crop?: { stage: 'fallow' | 'growing' | 'ripe'; growth: number; work: number; soil?: number; bearing?: boolean };
+  crop?: { stage: 'fallow' | 'growing' | 'ripe'; growth: number; work: number; soil?: number; bearing?: boolean; reaped?: number };
   /** A pen's animals (sim/livestock.ts): how many, when they were last tended, progress to the next birth (0..1), hours
    *  gone hungry this winter, and the work done on the tending under way. */
   herd?: { head: number; tended: number; breed: number; hungry: number; work: number; owed?: number };
@@ -129,6 +134,11 @@ export interface Building {
   operator?: number | null;
   /** Who owns it (sim/property.ts): a person, or the treasury when left out. */
   owner?: number;
+  /** A home's name (data/homeNames.ts), given once its first owner or resident is known and kept after
+   *  (sim/memorials.ts `nameHomes`). */
+  homeName?: string;
+  /** A statue: the one of the town's famous dead it stands for (a person's id, in `s.honoured`: sim/memorials.ts). */
+  statue?: number;
   /** A pen widened for its herd: this many columns more than its def's width (sim/livestock.ts `growPen`). */
   wide?: number;
   operatorChosen?: boolean;
@@ -235,7 +245,7 @@ export type Task =
   | { type: 'fetch'; building: number; from: number; amounts: Stock }
   /** Carry fetched materials to a construction site. */
   | { type: 'deliver'; building: number }
-  | { type: 'build'; building: number }
+  | { type: 'build'; building: number; /** Adjacent cell reserved by this builder (older saves omit it). */ spot?: Pt }
   /** Lay a cell of a planned street, or a bridge (sim/streets.ts). */
   | { type: 'pave'; cell: number; progress: number }
   /** Feed a street light or a room's sconce from the stores (sim/lighting.ts). */
@@ -246,11 +256,11 @@ export type Task =
   /** Walk to a storage building with food and eat one unit (taking until `until`, once started). */
   | { type: 'eat'; building: number; until: number | null }
   /** Sleep in a bed (building id) or on the ground by the camp (null). */
-  | { type: 'sleep'; building: number | null; sick?: boolean }
+  | { type: 'sleep'; building: number | null; sick?: boolean; spot?: { x: number; y: number } }
   /** Raid: go after a raider and fight (ticks until the next strike). */
   | { type: 'defend'; cooldown: number }
   /** Guard duty between raids (with a Barracks): walking the town from end to end. */
-  | { type: 'patrol'; targetX: number; targetY: number; band?: number }
+  | { type: 'patrol'; targetX: number; targetY: number; band?: number; /** A sentry's gate (by night: gatePost in people.ts). */ post?: number }
   /** Raid: hide in your bed (safe), or huddle by the fire if you have none. */
   | { type: 'shelter' }
   /** Stop someone's bleeding (an attempt takes a while; it may fail). */
@@ -301,7 +311,8 @@ export interface CraftOrder {
 
 /** What a person is visibly doing (drives their animation). */
 /** `dance`: at a feast (the map draws them dancing); `mourn`: at a funeral. */
-export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | 'sit' | 'protest' | WorkAnim;
+/** `draw`: winding up the well's bucket (sim/pastimes.ts). */
+export type Activity = 'idle' | 'walk' | 'build' | 'research' | 'eat' | 'sleep' | 'fight' | 'reap' | 'till' | 'dance' | 'mourn' | 'drink' | 'spar' | 'fish' | 'play' | 'stroll' | 'watch' | 'sit' | 'protest' | 'pray' | 'draw' | WorkAnim;
 
 export interface Raider {
   id: number;
@@ -312,6 +323,8 @@ export interface Raider {
   ally?: boolean;
   /** A druid grove's guardian (sim/grove.ts), by its id. */
   guardian?: number;
+  /** One of the ranch's beasts let out to guard the town (sim/ranch.ts), by its id. */
+  ranch?: number;
   /** (a fallen raider a necromancer has already looked at) */
   raiseChecked?: boolean;
   /** Epic bosses: raging, called for help, blows struck, trophy handed over. */
@@ -576,6 +589,8 @@ export interface Person {
   lvXp?: number;
   /** Raiders this person has struck the last blow on (sim/raidRecap.ts), for the hall of heroes. */
   felled?: number;
+  /** Deeds counted toward titles (sim/deeds.ts, data/deeds.ts). */
+  deeds?: Partial<Record<import('../data/deeds').DeedKind, number>>;
   /** A knight of the Order who has kept a vow (sim/chivalry.ts): worthy of being dubbed. */
   keptVow?: boolean;
   /** The class stage last announced (an evolution is told once). */
@@ -590,6 +605,9 @@ export interface Person {
   coins?: number;
   /** What they've done lately that's worth a line on their card (newest last). */
   recent?: { tick: number; text: string }[];
+  /** Today's doings, counted a quarter-hour at a time for their diary (sim/diary.ts): the hours at each thing, and
+   *  the hours beside each townsperson at the same thing. */
+  diary?: { day: number; hours: Record<string, number>; with: Record<number, number> };
   /** Sick with the plague until a tick. */
   sick?: { until: number; treated?: boolean } | null;
   /** A machine (the Machine Colony origin): never eats, sleeps or sickens, and its spirits hold steady. */
@@ -623,7 +641,17 @@ export const TOUGH_HP = 20;
 export const FRAIL_HP = 12;
 export const MIN_HP = 24;
 
-export function maxHp(p: Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; fcls?: string | null; level?: number }): number {
+type HpOf = Pick<Person, 'traits'> & { monster?: MonsterKind | null; cls?: ClassId | null; fcls?: string | null; road?: string | null; ascended?: boolean; level?: number };
+/** Each one's health worked out last, with what it was worked out from (asked for everyone every tick, by healing). */
+const hpMade = new WeakMap<object, { traits: string[]; monster: unknown; cls: unknown; fcls: unknown; road: unknown; ascended: unknown; level: unknown; hp: number }>();
+export function maxHp(p: HpOf): number {
+  const was = hpMade.get(p);
+  if (was && was.monster === p.monster && was.cls === p.cls && was.fcls === p.fcls && was.road === p.road && was.ascended === p.ascended && was.level === p.level && was.traits.length === p.traits.length && was.traits.every((t, i) => t === p.traits[i])) return was.hp;
+  const hp = maxHpNow(p);
+  hpMade.set(p, { traits: [...p.traits], monster: p.monster, cls: p.cls, fcls: p.fcls, road: p.road, ascended: p.ascended, level: p.level, hp });
+  return hp;
+}
+function maxHpNow(p: HpOf): number {
   const frail = p.traits.filter((t) => t === 'frail').length * FRAIL_HP;
   const base = Math.max(MIN_HP, BASE_HP + (p.traits.includes('tough') ? TOUGH_HP : 0) + (p.monster ? MONSTER_HP : 0) - frail);
   // (a class and its stage, and every level, add to it: levels.ts)
@@ -752,8 +780,14 @@ export type ExpeditionPhase = 'out' | 'work' | 'back';
  *  where it came from and is wandering to, who it's after, and when it wanders off. */
 export interface Roamer {
   id: number;
-  kind: 'beasts' | 'dead' | 'bandits' | 'nest';
+  kind: 'beasts' | 'dead' | 'bandits' | 'nest' | 'sky';
   group: Record<string, number>;
+  /** A hunter from the sky (sim/skies.ts): it flies over walls and water, and only a roof is cover from it. */
+  flying?: boolean;
+  /** How hurt it is by the town's shooting (0 to 1: it falls at 1). */
+  hurt?: number;
+  /** Swooping down on someone (it's low over them). */
+  swoop?: boolean;
   /** Come out of a monster nest (a place id, sim/nests.ts), and what it's called in the news ("goblins"). */
   nest?: number;
   name?: string;
@@ -804,6 +838,31 @@ export interface Boat {
   away: number | null;
 }
 
+/** An airship of the town's fleet (data/skies.ts, sim/skies.ts). */
+export interface Airship {
+  id: number;
+  kind: AirshipKind;
+  name: string;
+  /** What's left of her hull. */
+  hull: number;
+  /** The expedition she's away with, or null at home at the mast. */
+  away: number | null;
+}
+
+/** The skies' own state (sim/skies.ts). */
+export interface SkiesState {
+  /** Sky pirates' ship seen: they drop in at `at` (a tick) over the spot (px). */
+  pirates?: { at: number; x: number; y: number; kind: string; seen: number };
+  /** Where the last sky pirates dropped in (px): their ship hangs over it while the raid lasts. */
+  dropped?: { x: number; y: number };
+  /** When the last sky pirates came (a tick). */
+  lastPirates?: number;
+  /** Gale's Roost cleared: no sky pirates until this tick. */
+  quietUntil?: number;
+  /** Airships lost, ever. */
+  lost?: number;
+}
+
 /** A power of the realm, as the town knows it (data/factions.ts has what doesn't change). */
 export interface Faction {
   id: string;
@@ -828,6 +887,8 @@ export interface Faction {
   /** Hosts it lost against the town, and assaults the town made on it. */
   beaten?: number;
   stormed?: number;
+  /** A rising power's own doings (sim/risingPowers.ts). */
+  rise?: import('./risingPowers').RiseState;
 }
 
 export interface Expedition {
@@ -876,6 +937,10 @@ export interface Expedition {
   wrecked?: boolean;
   /** The boat the party sails in (its id in `s.boats`): an island's trip, or a faster one along the water. */
   boat?: number;
+  /** The airship the party flies in (its id in `s.airships`): any trip, faster (sim/skies.ts). */
+  airship?: number;
+  /** Their airship fell (sim/skies.ts `crash`): they walk home with nothing. */
+  crashed?: boolean;
   /** A dungeon delve's progress room by room (sim/delves.ts). */
   delve?: Delve;
   /** The Moon Pack's full-moon hunt (sim/pack.ts). */
@@ -921,6 +986,8 @@ export interface Muster {
 }
 
 export interface GameState {
+  /** Gates of the ring the town found no street to, and when it last tried (sim/streets.ts `gatePaths`). */
+  gateTried?: Record<string, number>;
   /** The town's lights, and whether lighting is at work (sim/lighting.ts; off in the tests' plainGame). */
   torches?: import('./lighting').Torch[];
   lighting?: boolean;
@@ -932,7 +999,7 @@ export interface GameState {
   /** The conquest: the realms sharing the world of provinces and who holds each (sim/conquest/conquest.ts). */
   conquest?: import('./conquest/conquest').ConquestState;
   /** An envoy riding in to the town's fire, waiting there for an answer, and riding out (sim/factions.ts). */
-  envoyRider?: { id: number; faction: string; name: string; look: Look; x: number; y: number; dir: 1 | -1; leaving: boolean };
+  envoyRider?: { id: number; faction: string; name: string; look: Look; x: number; y: number; dir: 1 | -1; leaving: boolean; path?: Pt[]; goal?: Pt; cell?: number };
   /** World seed (the land is made from it; changes live in `land`). */
   seed: string;
   /** Ticks simulated since the game began. */
@@ -1050,10 +1117,8 @@ export interface GameState {
   crafting: CraftOrder[];
   /** Recent in-strip messages ("Research complete: ..."), newest last. */
   notices: Notice[];
-  /** The Town Journal: every notice plus "while you were away" reports, newest last (the oldest drop off). */
+  /** The Town Journal: every notice, newest last (the oldest drop off). */
   journal: JournalEntry[];
-  /** The latest "while you were away" report, until the player dismisses it. */
-  unreadAway: number | null;
   /** Set when the era capstone is researched (the next era arrives in Milestone 2). */
   eraReady: boolean;
   /** Testing aids toggled from the tray's Debug menu. */
@@ -1070,6 +1135,12 @@ export interface GameState {
   boats?: Boat[];
   /** Boats built so far (for their names, in turn). */
   boatsBuilt?: number;
+  /** The town's airships (data/skies.ts, sim/skies.ts): built at the airship mast, moored there or away with a party. */
+  airships?: Airship[];
+  /** Airships built so far (for their names, in turn). */
+  airshipsBuilt?: number;
+  /** The skies: sky pirates coming, and the like (sim/skies.ts). */
+  skies?: SkiesState;
   /** How many of its own the town has buried, ever (a Necromancer's calling needs some). */
   burials?: number;
   /** The last person brought back from death, and when (for the glow). */
@@ -1097,6 +1168,8 @@ export interface GameState {
   plan?: TownPlan;
   /** The ring wall round the town (sim/ringWall.ts). */
   ring?: Ring;
+  /** Buildings the player pinned in the Building book: the town builds them next (sim/pins.ts). */
+  pins?: Pin[];
   /** False turns the town's own planner off (tests of single mechanics). On when left out. */
   autopilot?: boolean;
   /** The player's veto on destinations, the treasury's bounties on them (coins set aside), and when the last party
@@ -1104,10 +1177,15 @@ export interface GameState {
   vetoed?: string[];
   /** An event holds some of the town to one job for a while (a fireline cut, the bridge rebuilt): who, where, till when. */
   /** Life's ceremonies (sim/ceremonies.ts): the dead to bury at the next funeral (with who was close), a feast due, the
-   *  gathering under way, and when the last feast was. */
-  funeralsDue?: { name: string; close: number[]; tick: number }[];
-  feastDue?: { kind: 'wedding' | 'feast'; text: string };
-  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast'; ids: number[]; until: number; text: string; x: number; y: number; from?: number };
+   *  gathering under way, and when the last feast was. A funeral remembers where the dead lived (the coffin is carried
+   *  from there), a wedding where the couple set out from and who they are; a gathering's `walk` is its procession
+   *  (from where, till when: sim/ceremonies.ts). */
+  funeralsDue?: { name: string; close: number[]; tick: number; x?: number; y?: number }[];
+  feastDue?: { kind: 'wedding' | 'feast'; text: string; x?: number; y?: number; lead?: number[] };
+  gathering?: { kind: 'funeral' | 'great_funeral' | 'wedding' | 'feast' | 'rite' | 'festival'; ids: number[]; until: number; text: string; x: number; y: number; from?: number; walk?: { x: number; y: number; until: number }; festival?: string };
+  /** The season's festival under way or being made ready, and those of the years before (sim/festivals.ts). */
+  festival?: FestivalRun;
+  festivalLog?: FestivalLogEntry[];
   /** The evening at the tavern under way (sim/nightOut.ts). */
   nightOut?: NightOut;
   lastFeast?: number;
@@ -1116,6 +1194,11 @@ export interface GameState {
   busy?: { until: number; ids: number[]; text: string; x: number; y: number; anim: 'chop' | 'build' | 'mine' };
   bounties?: Record<string, number>;
   lastParty?: number;
+  /** Bonded parties (sim/companies.ts): the companies, the trips counted toward a bond (by the members' ids), and
+   *  the last company id given. */
+  companies?: import('./companies').Company[];
+  fellows?: Record<string, number>;
+  nextCompany?: number;
   /** Raids fought as tower-defence battles (unset: on; the tests' plainGame turns them off), and auto-watch: the town
    *  places its fighters and fights by itself (sim/battle.ts). */
   battles?: boolean;
@@ -1132,7 +1215,7 @@ export interface GameState {
   skipRaids?: boolean;
   /** The raid battles fight themselves (`autoBattle` in battle.ts): on unless the player turned it off. */
   autoBattle?: boolean;
-  /** How fast a battle plays: 1, 2 or 3 times (kept for later battles; `battleSpeedNow` in battle.ts). */
+  /** How fast the fight on screen plays: 1, 2 or 3 times (back to 1 as each fight starts: `fightSpeedTick` in battle.ts). */
   battleSpeed?: number;
   /** How fast the town runs between battles: 1, 2 or 3 times (the clock bar's button). */
   gameSpeed?: number;
@@ -1142,6 +1225,10 @@ export interface GameState {
   raidRecap?: RaidRecap;
   /** The annals (sim/annals.ts): the fallen, the year's chronicles, and the year being reckoned. */
   fallen?: Fallen[];
+  /** The famous dead the town means to raise statues to, in the order they fell (sim/memorials.ts). */
+  honoured?: import('./memorials').Honoured[];
+  /** Ruins left where buildings burned, fell or were pulled down, cleared in a few days (sim/ruins.ts). */
+  ruins?: import('./ruins').Ruin[];
   /** The town's gods: their favour and the latest signs (sim/faith.ts). */
   faith?: import('./faith').FaithState;
   /** A natural disaster under way on the map, when the next is due, and the last (for its ash: sim/disasters.ts). */
@@ -1152,6 +1239,9 @@ export interface GameState {
   /** The line the founder comes of, when they're a legend's descendant (sim/legacy.ts), and the renown it brought. */
   lineage?: { of: string; founder: string; generation: number; from: string };
   inherited?: number;
+  /** A descendant's town: its forebears (the legend it was founded from), their spirits, the heirloom and the old
+   *  town come back (sim/ancestors.ts). Set at founding from the legend's data. */
+  ancestry?: import('./ancestors').Ancestry;
   marches?: import('./worldLife').March[];
   lastDisaster?: { kind: import('./disasters').DisasterKind; tick: number; burnt?: [number, number][] };
   chronicles?: Chronicle[];
@@ -1172,6 +1262,15 @@ export interface GameState {
   /** Who founded the town (see data/origins.ts; Settlers when left out), when each of its powers is ready again, what
    *  it has cast lately (newest last), and the spells still in effect (by id, until a tick). */
   origin?: OriginId;
+  /** Chosen by the townsfolk's day-15 vote (sim/settlementName.ts). */
+  townName?: string;
+  /** The town's guilds and squads (sim/guilds.ts), and when the last was founded or voted down. */
+  guilds?: import('./guildPerks').Guild[];
+  /** The monster ranch's beasts (sim/ranch.ts). */
+  ranch?: import('./ranch').RanchState;
+  /** The arena: its fighting seasons, the ladder, the bouts and the bets (sim/arena.ts). */
+  arena?: import('./arena').ArenaState;
+  lastGuild?: number;
   powers?: Record<string, number>;
   powerLog?: { tick: number; text: string }[];
   buffs?: Record<string, number>;
@@ -1188,6 +1287,8 @@ export interface GameState {
    *  town (snapshot.watch). */
   watching?: number;
   /** Hostile bands roaming the town's land, and the fights they've started with townsfolk out on it (sim/roamers.ts). */
+  /** The living wilderness: herds, predator packs, the wind (sim/wild.ts). */
+  wild?: import('./wild').Wild;
   roamers?: Roamer[];
   skirmishes?: Skirmish[];
   /** The Calamity (sim/calamity.ts): what it is, how far its dread has risen, its heart and sieges. */
@@ -1209,6 +1310,8 @@ export interface GameState {
   work?: import('./greatWork').WorkState;
   /** A knights' town's Order: vows, honour, tournaments, the liege, the Grail (sim/chivalry.ts). */
   order?: import('./chivalry').OrderState;
+  /** The orcs' warpath (sim/warpath.ts): fury, war raids, glory, the Waaagh!. */
+  horde?: import('./warpath').HordeState;
   /** A machine town's factory mind: power, wear, the line, modules, the Mind (sim/foundry.ts). */
   foundry?: import('./foundry').FoundryState;
   /** A settlers' town's frontier: tricks learned, strangers teaching, land claims (sim/frontier.ts). */
@@ -1373,7 +1476,7 @@ export const MAX_JOURNAL = 400;
 
 /** A day's coins in and out: from travellers at the shop and the tavern, from the townsfolk (their gear and their
  *  evenings out), and out on wages, crafters' pay, the venues (rooms and improvements), and goods bought in. */
-export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties' | 'realm' | 'trade';
+export type LedgerLine = 'shop' | 'tavern' | 'townsfolk' | 'wages' | 'crafters' | 'venues' | 'goods' | 'events' | 'rent' | 'tax' | 'guards' | 'bounties' | 'realm' | 'trade' | 'ranch' | 'arena';
 export type Ledger = Partial<Record<LedgerLine, number>>;
 
 /** Book coins in (or out) against a line of the town's ledger. */
@@ -1410,6 +1513,17 @@ export function setOutcome(s: GameState, title: string, choice: string | null, t
   s.eventOutcome = { title, choice, text, tick: s.tick };
 }
 
+/** A building the player wished for: waiting for its turn (with why), or under way as `building`. */
+export interface Pin {
+  def: string;
+  /** The tick it was pinned (the wish gives up after PIN_WAIT_HOURS with no start). */
+  at: number;
+  /** The blueprint laid for it. */
+  building?: number;
+  /** What it's waiting on, for the menu. */
+  why?: string;
+}
+
 export function notify(s: GameState, text: string, key = false): void {
   const n = { id: s.nextId++, tick: s.tick, text };
   s.notices.push(n);
@@ -1425,7 +1539,7 @@ export function addJournal(s: GameState, e: JournalEntry): void {
 /** Units a person can carry, including research bonuses and (for a given person) their pack. */
 export function carryCapacity(s: GameState, p?: Person): number {
   const pack = p?.gear.pack ? (ITEM_BY_ID[p.gear.pack]?.effects.carry ?? 0) : 0;
-  return CARRY_CAPACITY + modifiers(s.research).carryBonus + pack;
+  return CARRY_CAPACITY + researchMods(s.research).carryBonus + pack;
 }
 
 /** Choices made when founding a town. */
@@ -1461,6 +1575,7 @@ function makeFounder(p: Person, spec: FounderSpec): void {
   if (calling) {
     p.cls = calling.base;
     p.fcls = calling.id;
+    p.road = founderRoot(calling.id);
     p.level = 1;
     p.stageSeen = 0;
   }
@@ -1479,7 +1594,8 @@ function makeChild(p: Person): void {
 }
 
 export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
-  const rules = (ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers).rules;
+  const origin = ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers;
+  const rules = origin.rules;
   const hold = rules.hold;
   // (a shore town is always on the coast)
   const biome = rules.shape === 'sea' ? 'coast' : opts.biome;
@@ -1490,7 +1606,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   /** Where the next person stands: about the fire. */
   const standing = (n: number): Pt => campPx((n % 2 ? 1 : -1) * Math.ceil(n / 2) * 0.9, 1.6 + (n % 3) * 0.3);
 
-  const main = makePerson(rng, 1, 'founder', campPx(-1, 1.6), []);
+  const main = makePerson(rng, 1, 'founder', campPx(-1, 1.6), [], origin.id);
   if (opts.founder) makeFounder(main, opts.founder);
   main.priorities = autoPriorities(main.skills, true); // (the founder turns their hand to anything)
   // The camp starts with its fire, which doubles as a small cache, and a little food (more, and company, in
@@ -1504,7 +1620,7 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
   const people = [main];
   let nextId = 3;
   for (const type of scenario.companions) {
-    const p = makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name));
+    const p = makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name), origin.id);
     if (type === 'child') makeChild(p);
     people.push(p);
   }
@@ -1517,11 +1633,10 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     if (n > here) extra[m] = n - here;
   }
   // the origin: its own companions, stores, knowledge and buildings, and who the founder (and everyone) is
-  const origin = ORIGIN_DEFS[opts.origin ?? 'settlers'] ?? ORIGIN_DEFS.settlers;
   // (and whoever a ready-made founder brings)
   const brings = opts.founder?.pick ? (FOUNDER_BY_ID[opts.founder.pick]?.brings ?? []) : [];
   for (const type of [...(origin.start.companions ?? []), ...brings]) {
-    people.push(makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name)));
+    people.push(makePerson(rng, nextId++, type, standing(people.length), people.map((q) => q.name), origin.id));
   }
   for (const [m, n] of Object.entries(origin.start.stores ?? {}) as [Material, number][]) {
     const here = Math.min(n, room);
@@ -1592,7 +1707,8 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     visitor: null,
     expeditions: [],
     scouted: [],
-    destSides: Object.fromEntries(DESTINATIONS.map((d) => [d.id, rng.chance(0.5) ? -1 : 1])),
+    // (the places in the sky have no side drawn: they came later, and a draw for each would change how every town plays out)
+    destSides: Object.fromEntries(DESTINATIONS.filter((d) => !d.bySky).map((d) => [d.id, rng.chance(0.5) ? -1 : 1])),
     prompts: [],
     reputation: 0,
     gameOver: null,
@@ -1611,7 +1727,6 @@ export function newGame(seed: string, opts: NewGameOptions = {}): GameState {
     crafting: [],
     notices: [],
     journal: [],
-    unreadAway: null,
     eraReady: false,
     cheats: { unlockAll: false },
     ...(biome && biome !== 'forest' ? { biome } : {}),
@@ -1633,7 +1748,7 @@ function turnMonster(p: Person, kind: MonsterKind, tick: number): void {
 }
 
 /** A new person of a recruit type: skills from its ranges, 1-3 passions, 1-2 traits, a name not in use. */
-export function makePerson(rng: Rng, id: number, typeId: string, at: Pt, takenNames: readonly string[]): Person {
+export function makePerson(rng: Rng, id: number, typeId: string, at: Pt, takenNames: readonly string[], origin: OriginId = 'settlers'): Person {
   const type = RECRUIT_TYPES[typeId];
   const skills = Object.fromEntries(
     SKILLS.map((k) => {
@@ -1656,10 +1771,10 @@ export function makePerson(rng: Rng, id: number, typeId: string, at: Pt, takenNa
     traits.push(t.id);
   }
 
-  const free = NAMES.filter((n) => !takenNames.includes(n));
   return {
     id,
-    name: rng.pick(free.length ? free : NAMES),
+    name: personName(rng, origin, takenNames),
+    ...(origin !== 'settlers' ? { origin } : {}),
     type: typeId,
     look: randomLook(rng, typeId === 'elder'),
     x: at.x,
@@ -1736,7 +1851,36 @@ export function edgeXY(s: Pick<GameState, 'land' | 'nomad'>, side: -1 | 1): Pt {
   // (where the known land ends in the fog on the camp's row: on the wide land the map's own edge is a long walk off)
   const reach = Math.min(s.land.open + FOG_BAND + 3, side < 0 ? s.land.camp.x + 1 : s.land.w - s.land.camp.x);
   const cx = campX(s) + side * reach * CELL;
-  return { x: Math.max(-CELL / 2, Math.min((s.land.w + 0.5) * CELL, cx)), y: campXY(s).y };
+  const at = { x: Math.max(-CELL / 2, Math.min((s.land.w + 0.5) * CELL, cx)), y: campXY(s).y };
+  return openEdge(s, at);
+}
+
+/** Strangers come in where they can walk: a spot that is rock or water (a mountain's spur reaching the camp's row) is
+ *  moved to the nearest open ground with a way to the camp. Remembered while the land's cells are the same. */
+const edges = new WeakMap<object, { cells: string; camp: string; spots: Map<string, Pt> }>();
+function openEdge(s: Pick<GameState, 'land' | 'nomad'>, at: Pt): Pt {
+  const m = s.land;
+  const cx = Math.floor(at.x / CELL);
+  const cy = Math.floor(at.y / CELL);
+  if (cx < 0 || cx >= m.w || groundAt(m, cx, cy) !== 'mountain') return at;
+  const camp = campCell(s);
+  const campKey = `${camp.x},${camp.y}`;
+  let memo = edges.get(m);
+  if (!memo || memo.cells !== m.cells || memo.camp !== campKey) edges.set(m, (memo = { cells: m.cells, camp: campKey, spots: new Map() }));
+  const key = `${cx},${cy}`;
+  const kept = memo.spots.get(key);
+  if (kept) return kept;
+  let found: Pt = at;
+  search: for (let r = 1; r <= 24; r++)
+    for (let y = cy - r; y <= cy + r; y++)
+      for (let x = cx - r; x <= cx + r; x++) {
+        if (Math.max(Math.abs(x - cx), Math.abs(y - cy)) !== r || x < 0 || y < 0 || x >= m.w || y >= m.h || stepCost(m, x, y) === Infinity) continue;
+        if (!findPath(m, { x, y }, camp, undefined, 6000)) continue;
+        found = { x: (x + 0.5) * CELL, y: (y + 0.5) * CELL };
+        break search;
+      }
+  memo.spots.set(key, found);
+  return found;
 }
 /** Which side of the camp a point lies. */
 export const sideOf = (s: Pick<GameState, 'land' | 'nomad'>, p: Pt): -1 | 1 => (p.x < campX(s) ? -1 : 1);
@@ -1765,3 +1909,22 @@ export function addStock(to: Stock, m: Material, n: number): void {
 export const townFull = (s: Pick<GameState, 'popTarget' | 'people'>) => s.popTarget !== undefined && s.people.length >= s.popTarget;
 /** The sizes the player can pick for the town (the Plan tab); `undefined` is no limit. */
 export const TOWN_SIZES = [5, 10, 20, 40] as const;
+
+/** A building by its id, as `s.buildings.find` would give it, from an index of where each stands in the list (asked
+ *  for every task of everyone each tick). The index is checked on every use and made again when the list has moved
+ *  under it; an id it hasn't is looked for as before. */
+let buildingIndex: { list: Building[]; at: Map<number, number> } | null = null;
+export function buildingById(s: Pick<GameState, 'buildings'>, id: number): Building | undefined {
+  const list = s.buildings;
+  if (buildingIndex?.list === list) {
+    const i = buildingIndex.at.get(id);
+    if (i !== undefined && list[i]?.id === id) return list[i];
+  }
+  const b = list.find((q) => q.id === id);
+  if (b) {
+    const at = new Map<number, number>();
+    for (let i = list.length - 1; i >= 0; i--) at.set(list[i].id, i);
+    buildingIndex = { list, at };
+  }
+  return b;
+}

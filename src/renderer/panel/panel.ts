@@ -1,5 +1,6 @@
 // Pop-up panel window. One window serves every tab; the main process shows it and tells it which tab is open.
 
+import { withDeltas } from '../deltaBridge';
 import { PANELS, type Bridge, type PanelId, type StripState } from '../../shared/ipc';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { buildKey, renderBuild } from './buildPanel';
@@ -9,8 +10,10 @@ import { el } from './dom';
 import { inTabs, selectTab, tabKey } from './subtabs';
 import { expeditionsKey, renderExpeditions } from './expeditionsPanel';
 import { renderJournal } from './journalPanel';
+import { festivalsKey } from './festivalsPanel';
 import { renderResearch, researchKey } from './researchPanel';
 import { patchTownsfolk, renderTownsfolk, townsfolkKey } from './townsfolkPanel';
+import { arenaKey } from './arenaPanel';
 import { renderTrade, tradeKey } from './tradePanel';
 import { renderWar, warKey } from './warPanel';
 import { renderAlerts } from './alertsPanel';
@@ -19,6 +22,7 @@ import { isVenuePanel, renderShop, shopKey, venueView } from './shopPanel';
 import { hkKnow } from '../art/hkFolk';
 import { applyTheme, currentTheme, panelLabel } from '../theme';
 import { detailsKey, setDetailsRedraw } from './details';
+import { legendsVersion, primeLegends } from '../legends';
 
 declare global {
   interface Window {
@@ -28,10 +32,16 @@ declare global {
 
 
 // In a plain browser (previewing), run a local stand-in; open a tab with window.bridge.togglePanel('research').
-const bridge = window.bridge ?? (window.bridge = hostBridge() ?? localBridge());
+// (the desktop's snapshots come as what changed, put back together here: renderer/deltaBridge.ts)
+const bridge = withDeltas(window.bridge) ?? (window.bridge = hostBridge() ?? localBridge());
 const title = document.getElementById('title')!;
 const body = document.getElementById('body')!;
 document.getElementById('close')!.addEventListener('click', () => bridge?.closePanel());
+// (the desktop app keeps the legends itself: ask for them, and draw again once they're in)
+primeLegends(bridge, () => {
+  renderedKey = '';
+  render();
+});
 
 let shown: PanelId | null = null;
 let snap: Snapshot | null = null;
@@ -66,11 +76,11 @@ function render(): void {
       : shown === 'research'
         ? 'r' + researchKey(snap)
         : shown === 'townsfolk'
-          ? 't' + townsfolkKey(snap)
+          ? 't' + townsfolkKey(snap) + arenaKey(snap)
           : shown === 'expeditions'
             ? 'e' + expeditionsKey(snap)
             : shown === 'journal'
-              ? 'j' + snap.journalHead + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}`).join(',')
+              ? 'j' + festivalsKey(snap.festivals) + '|' + snap.journalHead + '|' + legendsVersion() + '|' + JSON.stringify(snap.ancestry ? [snap.ancestry.visits, snap.ancestry.log.length, snap.ancestry.place, snap.ancestry.heirloom] : null) + '|' + snap.met.length + '|' + snap.scenesSeen.length + '|' + snap.annals.fallen.length + '|' + snap.annals.chronicles.length + '|' + snap.annals.famous.map((f) => `${f.id}:${f.felled}:${f.level}:${f.titles.length}`).join(',')
               : shown === 'crafting'
                 ? 'c' + craftingKey(snap)
                 : shown === 'trade'
@@ -80,7 +90,7 @@ function render(): void {
                   : isVenuePanel(shown)
                     ? shown + shopKey(snap, shown)
                   : shown === 'newgame'
-                    ? 'n' + !!snap.gameOver
+                    ? 'n' + !!snap.gameOver + legendsVersion()
                     : shown;
   const keyed = `${key}|${tabKey(shown ?? '')}|${detailsKey()}`;
   if (keyed === renderedKey) {
@@ -99,7 +109,7 @@ function render(): void {
     void bridge.getJournal().then((entries) => {
       if (renderedKey !== keyed) return; // moved on meanwhile
       const top = body.scrollTop;
-      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals, snap?.scenesSeen ?? [], (key) => (bridge.command({ type: 'scene', op: 'watch', key }), bridge.closePanel?.())));
+      body.replaceChildren(...renderJournal(entries, snap?.met ?? [], snap?.annals, snap?.scenesSeen ?? [], (key) => (bridge.command({ type: 'scene', op: 'watch', key }), bridge.closePanel?.()), snap?.ancestry, snap?.festivals));
       body.scrollTop = top;
     });
     return;

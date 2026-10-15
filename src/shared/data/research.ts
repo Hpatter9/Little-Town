@@ -9,6 +9,7 @@ import { MONSTER_LORE } from './hunts';
 import { DELVING } from './deep';
 import { PLANAR_LORE } from './portals';
 import { BOAT_TOPICS } from './boats';
+import { SKY_TOPICS } from './skies';
 
 export type Branch = 'construction' | 'crafting' | 'agriculture' | 'military' | 'medicine' | 'logistics' | 'society' | 'occult' | 'heritage';
 
@@ -351,12 +352,21 @@ export const TOPICS: readonly Topic[] = [
     ['combined_arms', 'Combined Arms', [R('guard', 0.9)]],
     ['star_knights', 'Star Knights', [R('fight', 1.15), R('guard', 0.9)]],
   ]),
+  ...heritage('orcs', [
+    ['war_paint_rites', 'War Paint', [R('fight', 1.1)]],
+    ['slave_pens', 'Thrall Pens', [R('build', 1.1)]],
+    ['the_waaagh', 'The Waaagh', [{ type: 'powers', recharge: 0.8 }, R('fight', 1.05)]],
+    ['iron_tusks', 'Iron Tusks', [R('craft', 1.15), R('guard', 0.9)]],
+    ['war_engines', 'Big Gunz', [R('fight', 1.1), R('build', 1.1)]],
+    ['star_horde', 'The Star Horde', [R('fight', 1.15), R('guard', 0.9)]],
+  ]),
   ...WORKSHOP_TOPICS,
   ...MINERAL_TOPICS,
   MONSTER_LORE,
   DELVING,
   PLANAR_LORE,
   ...BOAT_TOPICS,
+  ...SKY_TOPICS,
 ];
 
 /** What a finished topic's lasting effects do, in words. */

@@ -376,6 +376,35 @@ export const FOUNDERS: Readonly<Record<OriginId, readonly FounderDef[]>> = {
       look: { gender: 'm', skin: '#c9956a', hair: 'plain', hairColor: '#4a3020', beard: false, outfit: '#e8e0d0', wear: ['torso_robe:#e8e0d0', 'legs_robeskirt:#e8e0d0', 'torso_chain', 'back_cape:#8a1a1a', 'head_hood:#e8e0d0', 'belt_cloth:#c8a040'] },
     },
   ],
+  orcs: [
+    {
+      id: 'grakk',
+      name: 'Grakk',
+      title: 'the Warchief',
+      story: 'Broke the old chief\'s jaw and took the warband. He has been looking for a bigger fight ever since.',
+      background: bg('warchief', 'Warchief', 'Leads from the front and bellows the rest into line.', { melee: 5, social: 3, construction: 3 }, ['melee', 'social']),
+      traits: ['tough'],
+      look: { gender: 'm', skin: '#5a8a3e', hair: 'shortknot', hairColor: '#1a1414', beard: false, outfit: '#5a3a2a', body: 'orc', ears: 'elf', wear: ['torso_leather:#4a3020', 'torso_platearms:#6a6a70', 'legs_pants:#3a2a1a', 'feet_boots', 'belt_leather'] },
+    },
+    {
+      id: 'ushna',
+      name: 'Ushna',
+      title: 'Bloodaxe',
+      story: 'Took her name from her axe and her axe from a knight. She keeps both very sharp.',
+      background: bg('reaver', 'Reaver', 'Raids, carries off the spoils and fights the whole way home.', { melee: 5, gathering: 3, ranged: 3 }, ['melee', 'gathering']),
+      traits: ['hard_worker'],
+      look: { gender: 'f', skin: '#6a9a4a', hair: 'ponytail', hairColor: '#2a1a14', beard: false, outfit: '#7a2a1a', body: 'orc', ears: 'elf', wear: ['torso_leather:#5a2a1a', 'hands_bracers', 'legs_pants:#3a2a1a', 'feet_boots', 'belt_leather'] },
+    },
+    {
+      id: 'mogra',
+      name: 'Old Mogra',
+      title: 'the Bone-Reader',
+      story: 'Reads the future in thrown knucklebones. It is always war; she is always right.',
+      background: bg('bone_reader', 'Bone-Reader', 'Heals with foul brews, curses with worse, and reads the bones.', { medicine: 5, social: 4, research: 3 }, ['medicine', 'social']),
+      traits: ['quick_learner'],
+      look: { gender: 'f', skin: '#4e7a38', hair: 'long', hairColor: '#c8c0b0', beard: false, outfit: '#4a3a2a', body: 'orc', ears: 'elf', wear: ['torso_robe:#4a3a2a', 'legs_robeskirt:#4a3a2a', 'head_hood:#3a2a1a', 'belt_cloth:#8a6a3a'] },
+    },
+  ],
 };
 
 export const FOUNDER_BY_ID: Readonly<Record<string, FounderDef>> = Object.fromEntries(Object.values(FOUNDERS).flatMap((l) => l.map((f) => [f.id, f])));

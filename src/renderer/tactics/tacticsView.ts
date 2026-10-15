@@ -26,6 +26,8 @@ import { loadDelveProps, propFrame } from '../art/delveProps';
 import type { SpriteFx } from '../town/spellLooks';
 import { areaTiles } from '../../shared/sim/tacticsArea';
 import { PROP_GROW } from '../art/props';
+import { BattleJuice } from '../battle/juice';
+import { ghostStep } from '../battle/juiceRules';
 
 /** A tile's diamond (px), and a step of height. */
 const TW = 64;
@@ -84,7 +86,7 @@ export class TacticsScene {
   private key = '';
   private tiles: { c: Container; mark: Graphics; top: number }[] = [];
   private pictures: Sprite[] = [];
-  private hits = new Map<string, { t: Text; born: number }>();
+  private hits = new Map<string, { born: number }>();
   private marks: Text[] = [];
   private chestSprites: Sprite[] = [];
   private cam = { x: 0, y: 0, k: 1, set: false, panX: 0, panY: 0 };
@@ -99,6 +101,15 @@ export class TacticsScene {
   private selected: string | null = null;
   private skillPage = 0;
   private hudKey = '';
+  /** The flash of it all: impacts, numbers, shake, callouts, banners, the victory (battle/juice.ts). */
+  private juice = new BattleJuice();
+  private seenBanner = '';
+  private lastKilled = 0;
+  private ults = new Set<string>();
+  /** The unit boxes' health bars, drawn each frame with their ghosts (the health just lost, draining after). */
+  private barsG = new Graphics();
+  private boxes: { key: string; x: number; y: number; w: number }[] = [];
+  private ghosts = new Map<string, { g: number; held: number; flash: number; was: number }>();
   private lastUpdate = 0;
 
   constructor(
@@ -111,8 +122,8 @@ export class TacticsScene {
     this.raiders = new MapRaiders(this.board);
     this.people.raid = true;
     this.fx.addChild(this.lines, this.fxSprites);
-    this.world.addChild(this.board, this.fx);
-    this.root.addChild(this.back, this.world, this.shade, this.hud);
+    this.world.addChild(this.board, this.fx, this.juice.world);
+    this.root.addChild(this.back, this.world, this.shade, this.juice.screen, this.hud, this.barsG);
     loadDelveProps();
   }
 
@@ -141,6 +152,11 @@ export class TacticsScene {
     this.root.visible = !!t;
     this.lastUpdate = performance.now();
     if (!t) {
+      this.juice.reset();
+      this.seenBanner = '';
+      this.lastKilled = 0;
+      this.ults.clear();
+      this.ghosts.clear();
       if (this.key) {
         for (const c of this.tiles) c.c.destroy({ children: true });
         for (const p of this.pictures) p.destroy();
@@ -523,9 +539,16 @@ export class TacticsScene {
     this.cam.set = true;
     // (an ultimate shakes the board)
     const ult = t.fx.some((f) => f.ult && f.age < 8);
-    const shake = ult ? (Math.random() - 0.5) * 8 : 0;
+    for (const f of t.fx)
+      if (f.ult && f.age < 4 && !this.ults.has(`${f.name}|${f.from}`)) {
+        this.ults.add(`${f.name}|${f.from}`);
+        this.juice.jolt(0.8);
+        if (f.name) this.juice.callout(f.name.toUpperCase(), 0xffc040);
+      }
+    // (the juice's shake: heavy blows, kills and ultimates)
+    const [sx, sy] = this.juice.shake();
     this.world.scale.set(k);
-    this.world.position.set(Math.round(w / 2 - this.cam.x * k + shake), Math.round(top + (h - top - bottom) / 2 - this.cam.y * k + shake * 0.6));
+    this.world.position.set(Math.round(w / 2 - this.cam.x * k + sx), Math.round(top + (h - top - bottom) / 2 - this.cam.y * k + sy));
     this.people.render(now);
     this.raiders.render(now);
     this.renderFx(t, now);
@@ -535,7 +558,65 @@ export class TacticsScene {
     if (t.night) this.shade.rect(0, 0, w, h).fill({ color: 0x0a1030, alpha: 0.28 });
     if (ult) this.shade.rect(0, 0, w, h).fill({ color: 0xffffff, alpha: Math.max(0, 0.25 - (t.fx.find((f) => f.ult)?.age ?? 9) * 0.03) });
     this.renderHud(t, now);
+    this.juiceUp(t);
+    this.juice.top = 48;
+    this.juice.render(now, w, h);
+    this.drawBars(now);
   }
+
+  /** What the juice hears from the board: kills, banners and the end. */
+  private juiceUp(t: TacticsView): void {
+    if (t.killed > this.lastKilled) this.juice.killed(t.killed - this.lastKilled);
+    this.lastKilled = t.killed;
+    const b = t.banner;
+    const id = b ? `${b.kind}|${b.text}` : '';
+    if (b && id !== this.seenBanner) {
+      this.seenBanner = id;
+      if (b.kind === 'win' || b.kind === 'lose') this.juice.win(b.kind === 'win', `${t.turns} turns · ${t.killed} down${t.lost ? ` · ${t.lost} lost` : ''}`);
+      else if (b.kind === 'start') this.juice.showBanner(b.text, 'The battle begins', 0xffe070, 3.2);
+      else if (b.kind === 'wave') this.juice.showBanner(b.text, `${t.waiting} more to come`, 0xff9a40);
+      else if (b.kind === 'leader') this.juice.showBanner(b.text, 'Their leader is down!', 0xffd040);
+      else this.juice.showBanner(b.text, null, 0xff6050);
+    }
+  }
+
+  /** The unit boxes' health bars: the fill, the ghost of what was just lost draining after it, a flash as it's struck. */
+  private drawBars(now: number): void {
+    const t = this.view;
+    this.barsG.clear();
+    if (!t) return;
+    const dt = Math.min(0.1, (now - (this.barsAt || now)) / 1000);
+    this.barsAt = now;
+    for (const box of this.boxes) {
+      const u = t.units.find((x) => x.key === box.key);
+      if (!u || u.tower) continue;
+      const share = Math.max(0, Math.min(1, u.hp / Math.max(1, u.max)));
+      let gh = this.ghosts.get(u.key);
+      if (!gh) this.ghosts.set(u.key, (gh = { g: share, held: 0, flash: 0, was: share }));
+      if (share < gh.was) {
+        gh.held = 0;
+        gh.flash = 1;
+      }
+      gh.was = share;
+      gh.held += dt;
+      gh.g = ghostStep(gh.g, share, gh.held, dt);
+      gh.flash = Math.max(0, gh.flash - dt * 4);
+      const bw = box.w - 16, x = box.x + 8, y = box.y + 37;
+      const col = share > 0.6 ? 0x5ad04a : share > 0.3 ? 0xe0b030 : 0xe04838;
+      this.barsG.roundRect(x - 1, y - 1, bw + 2, 10, 3).fill({ color: 0x0c0806 });
+      this.barsG.rect(x, y, bw, 8).fill({ color: 0x2a1a14 });
+      if (gh.g > share) this.barsG.rect(x + bw * share, y, bw * (gh.g - share), 8).fill({ color: 0xfff0c0 });
+      if (share > 0) {
+        this.barsG.rect(x, y, bw * share, 8).fill({ color: col });
+        this.barsG.rect(x, y, bw * share, 3).fill({ color: 0xffffff, alpha: 0.3 });
+        this.barsG.rect(x, y + 6, bw * share, 2).fill({ color: 0x000000, alpha: 0.25 });
+      }
+      // (low: the bar pulses red)
+      if (share > 0 && share <= 0.3) this.barsG.rect(x, y, bw * share, 8).fill({ color: 0xff2010, alpha: 0.3 + 0.3 * Math.sin(now / 120) });
+      if (gh.flash > 0) this.barsG.rect(x - 1, y - 1, bw + 2, 10).fill({ color: 0xffffff, alpha: gh.flash * 0.7 });
+    }
+  }
+  private barsAt = 0;
 
   /** The arrows in flight, the slashes and the spells' sheets where they land. */
   private renderFx(t: TacticsView, now: number): void {
@@ -612,27 +693,16 @@ export class TacticsScene {
     for (const x of t.hits) {
       const id = `${x.u},${x.v},${x.text},${Math.round((this.lastUpdate - x.age * TICK) / 400)}`;
       seen.add(id);
-      let n = this.hits.get(id);
-      if (!n) {
-        const word = !/^[\d+]/.test(x.text);
-        const t2 = new Text({ text: x.text, style: style(word ? 13 : 19, x.heal ? 0x7cff8a : word ? 0xd8d8d8 : x.foe ? 0xffffff : 0xff6a5a, true) });
-        t2.anchor.set(0.5, 1);
-        this.fx.addChild(t2);
-        n = { t: t2, born: now - x.age * TICK };
-        this.hits.set(id, n);
-      }
-      const life = (now - n.born) / 1000;
+      if (this.hits.has(id)) continue;
+      this.hits.set(id, { born: now - x.age * TICK });
+      if (x.age > 8) continue; // (from before the board was seen)
+      // (the juice: an impact, a big popping number, the shake, the combo: battle/juice.ts)
       const [hx, hy] = this.at(x.u, x.v, this.tileH(x.u, x.v));
-      // (a number bounces up and settles, as FFT's do)
-      const bounce = life < 0.35 ? Math.sin((life / 0.35) * Math.PI) * 10 : 0;
-      n.t.position.set(hx, hy - 50 - Math.min(1, life) * 10 - bounce);
-      n.t.alpha = Math.max(0, 1 - Math.max(0, life - 1.2) * 1.6);
+      const u = t.units.find((q) => q.u === x.u && q.v === x.v);
+      const n = parseInt(x.text, 10);
+      this.juice.hit(hx, hy - 20, { label: x.text, share: u && n > 0 ? n / Math.max(1, u.max) : 0.1, onFoe: x.foe, heal: x.heal });
     }
-    for (const [id, n] of this.hits)
-      if (!seen.has(id)) {
-        n.t.destroy();
-        this.hits.delete(id);
-      }
+    for (const id of [...this.hits.keys()]) if (!seen.has(id)) this.hits.delete(id);
   }
 
   /* ------------------------------------------------------------ the HUD */
@@ -643,6 +713,7 @@ export class TacticsScene {
     if (key === this.hudKey) return;
     this.hudKey = key;
     for (const c of this.hud.removeChildren()) c.destroy({ children: true });
+    this.boxes = [];
     this.buttons = [];
     const { w, h } = this;
     const up = w < 600;
@@ -679,19 +750,6 @@ export class TacticsScene {
       label.position.set((w - bw) / 2 + 14, (up ? 96 : 48) + 5);
       this.hud.addChild(box, label);
     }
-    // the words across the screen
-    if (t.banner && (t.banner.age < 30 || over)) {
-      const big = t.banner.kind === 'win' || t.banner.kind === 'lose' || t.banner.kind === 'start';
-      const col = t.banner.kind === 'win' ? 0xffe070 : t.banner.kind === 'lose' || t.banner.kind === 'lost' ? 0xff6050 : 0xffffff;
-      const b = new Text({ text: t.banner.text, style: style(big ? 30 : 22, col, true, 6) });
-      b.anchor.set(0.5);
-      // (the last word stays up as long as the board does)
-      b.alpha = Math.max(0, Math.min(1, t.banner.age < 3 ? t.banner.age / 3 : over ? 1 : 1 - (t.banner.age - 22) / 8));
-      b.position.set(w / 2, h * 0.38);
-      const s = Math.min(1, (w - 30) / Math.max(1, b.width));
-      b.scale.set(s);
-      this.hud.addChild(b);
-    }
     // the unit boxes: whose turn it is, and the target (or the one tapped)
     const activeKey = t.act?.key ?? t.orders?.key;
     const me = activeKey ? t.units.find((x) => x.key === activeKey) : undefined;
@@ -727,16 +785,13 @@ export class TacticsScene {
     sub.position.set(x + 8, y + 22);
     this.hud.addChild(name, sub);
     if (!u.tower) {
-      const share = Math.max(0, Math.min(1, u.hp / Math.max(1, u.max)));
-      const bar = new Graphics();
-      bar.rect(0, 0, w - 16, 6).fill({ color: 0x2a1a14 });
-      bar.rect(0, 0, (w - 16) * share, 6).fill({ color: share > 0.6 ? 0x5ad04a : share > 0.3 ? 0xe0b030 : 0xe04838 });
-      bar.position.set(x + 8, y + 38);
+      // (its health bar is drawn each frame, with its ghost: drawBars)
+      this.boxes.push({ key: u.key, x, y, w });
       const hp = new Text({ text: u.count !== null ? `DOWN · ${u.count} turn${u.count === 1 ? '' : 's'} left` : `HP ${u.hp}/${u.max}`, style: { fontFamily: FONT, fontSize: 10, fill: u.count !== null ? 0xff8070 : 0xffffff } });
       hp.position.set(x + 8, y + 46);
       const mv = new Text({ text: `Mv ${u.move} Jp ${u.jump} Rg ${u.reach}${u.st.length ? ` · ${u.st.slice(0, 2).join(', ')}` : ''}`, style: { fontFamily: FONT, fontSize: 10, fill: 0xc8c0e0 } });
       mv.position.set(x + 8, y + 58);
-      this.hud.addChild(bar, hp, mv);
+      this.hud.addChild(hp, mv);
     }
   }
 

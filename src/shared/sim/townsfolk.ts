@@ -3,6 +3,7 @@
 
 import { darkPace } from './lighting';
 import { blocMood } from './politics';
+import { guildMood, guildWork } from './guildPerks';
 import { coverOf, makeSpecial, secretJoined, secretWanderer, specialFor } from './specials';
 import { injuryMood, injuryWork } from './injuries';
 import { TAX } from '../data/economy';
@@ -11,7 +12,7 @@ import { taxRate } from './treasury';
 import { ageWork } from './ageing';
 import { POP_SOFT_CAP } from '../data/pace';
 import { ADJACENT_TILES, BUILDING_BY_ID, TAVERN_MARKET_MORALE } from '../data/buildings';
-import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID, FOOD_VALUE } from '../data/people';
+import { TRAITS, ARRIVING_TYPES, TRAIT_BY_ID, FOOD_VALUE, personName } from '../data/people';
 import { gainXp, type Skill } from '../data/skills';
 import { hashSeed, mixSeed, type Rng } from '../rng';
 import { STAGE_LEVELS } from '../data/classes';
@@ -37,11 +38,11 @@ import { DREAD_MORALE, TRIUMPH_MORALE } from './bosses';
 import { TAVERN_BASE, TAVERN_PER_LEVEL } from '../data/operators';
 import { ASH_MORALE, FALLOUT_MORALE, FREEZE_COLD_MORALE, FREEZE_MORALE, PLAGUE_MORALE, PLAGUE_WORK, SMOG_MORALE } from '../data/doom';
 import { isInjured } from './health';
-import { foodDaysFor, makeUndying, NO_EATERS_DAYS, townFull, tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, type GameState, type Person, type Visitor } from './state';
+import { foodDaysFor, makeUndying, NO_EATERS_DAYS, townFull, tireless, maxHp, campX, campXY, edgeXY, makePerson, notify, sideOf, buildingById, type Building, type GameState, type Person, type Visitor } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
 import { ORIGIN_DEFS, rulesOf } from '../data/origins';
 import { natureOf } from '../data/natures';
-import { makeStranger, oneOf, strangerOrigin, welcomes } from './strangers';
+import { makeStranger, oneOf, orcLook, strangerOrigin, welcomes } from './strangers';
 import { originWork, moraleMarks } from './origin';
 
 /** Need drain per game hour. Food lasts about a day; rest about 18 waking hours. */
@@ -88,14 +89,25 @@ export function isNight(hour: number): boolean {
 /** Time for bed: late at night (unless fully rested), or dead on their feet. */
 export function wantsSleep(s: GameState, p: Person): boolean {
   if (tireless(p)) return false;
-  return (isNight(calendar(s.tick).hour) && p.needs.rest < 0.9) || p.needs.rest < 0.15;
+  return (bedtime(s, p, calendar(s.tick).hour) && p.needs.rest < 0.9) || p.needs.rest < 0.15;
 }
 
-/** Done sleeping: fully rested, or rested enough and it's day. */
+/** Done sleeping: fully rested, or rested enough and it's day (their day: a guard on the night watch's is the night). */
 export function wantsToWake(s: GameState, p: Person): boolean {
   if (p.downed) return false; // stays in bed until back on their feet
   const h = calendar(s.tick).hour;
-  return p.needs.rest >= 1 || (h >= 6 && h < 22 && p.needs.rest >= 0.6);
+  return p.needs.rest >= 1 || ((nightWatch(s, p) ? !bedtime(s, p, h) : h >= 6 && h < 22) && p.needs.rest >= 0.6);
+}
+
+/** A hired guard on the night watch (people.ts `onShift`: the odd ids keep it) sleeps by day, `DAY_SLEEP_FROM` to
+ *  `DAY_SLEEP_UNTIL`, so they're up for their watch (they went to bed at ten with everyone else, and the wall and its
+ *  gates stood unwatched). Only once the ring wall stands, with its gates to keep, and never the founder: a lone
+ *  founder taken on as the guard slept the working day away and the town never grew. */
+const DAY_SLEEP_FROM = 8;
+const DAY_SLEEP_UNTIL = 16;
+const nightWatch = (s: GameState, p: Person) => !!p.guard && p.id % 2 !== 0 && p.id !== s.mainId && !!s.ring?.done;
+function bedtime(s: GameState, p: Person, h: number): boolean {
+  return nightWatch(s, p) ? h >= DAY_SLEEP_FROM && h < DAY_SLEEP_UNTIL : isNight(h);
 }
 
 export interface MoodReason {
@@ -110,9 +122,51 @@ export const ROUGH_PER_NIGHT = 3;
 export const ROUGH_BEDROLL_PER_NIGHT = 1;
 export const ROUGH_NIGHTS_MOST = 4;
 
-export function mood(s: GameState, p: Person): { target: number; reasons: MoodReason[] } {
+/** What goes into everyone's mood alike: worked out once for all the townsfolk at a time (driftMorale), not once a
+ *  head (it looks over every building). */
+interface TownMood {
+  tick: number;
+  campfire: boolean;
+  circle: boolean;
+  school: boolean;
+  best: [number, string] | undefined;
+  vampire: boolean;
+  undead: boolean;
+  /** Those with a child (in town or away). */
+  parents: Set<number>;
+  /** Those who own a venue (the guilds' own: sim/politics.ts `blocOf`). */
+  owners: Set<number>;
+}
+function townMood(s: GameState): TownMood {
+  const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
+  const best = s.buildings
+    .filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.morale)
+    .map((b): [number, string] => {
+      const m = BUILDING_BY_ID[b.def].morale!;
+      // the tavern is as good as its barkeep
+      if (b.def !== 'tavern') return m;
+      // (and a tavern by the market is livelier)
+      const market = s.buildings.some((q) => q.def === 'market' && q.status === 'done' && Math.abs(q.tile - b.tile) <= ADJACENT_TILES);
+      return [Math.round(TAVERN_BASE + operatorSkill(s, 'tavern') * TAVERN_PER_LEVEL) + (market ? TAVERN_MARKET_MORALE : 0), market ? `${m[1]}, by the market` : m[1]];
+    })
+    .sort((a, b) => b[0] - a[0])[0];
+  return {
+    tick: s.tick,
+    campfire: done('campfire'),
+    circle: done('storytellers_circle'),
+    school: done('school'),
+    best,
+    vampire: s.people.some((q) => q.monster === 'vampire' && q.away === null),
+    undead: s.people.some((q) => q.monster === 'undead' && q.away === null),
+    parents: new Set(s.people.filter(isChild).flatMap((k) => k.parents ?? [])),
+    owners: new Set(s.buildings.filter((b) => b.shop && b.owner != null).map((b) => b.owner!)),
+  };
+}
+
+export function mood(s: GameState, p: Person, here?: TownMood): { target: number; reasons: MoodReason[] } {
   const reasons: MoodReason[] = [];
   const add = (text: string, value: number) => reasons.push({ text, value });
+  const town = here ?? townMood(s);
   const { food, rest } = p.needs;
   // (the dead and machines feel no hunger or weariness, good or bad)
   if (!tireless(p)) {
@@ -131,25 +185,17 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   // (a break at a place of leisure: sim/leisure.ts)
   if (p.fun && s.tick < p.fun.until) add(p.fun.text, p.fun.value);
   // (how their bloc feels about the town's rule: sim/politics.ts)
-  const bm = blocMood(s, p);
+  const bm = blocMood(s, p, town.owners);
   if (bm) add(bm.text, bm.value);
+  // (belonging to a guild: sim/guilds.ts)
+  const gm = guildMood(s, p);
+  if (gm) add(gm.text, gm.value);
   const charm = gearEffects(p).morale;
   if (charm) add('Lucky charm', charm);
-  const done = (id: string) => s.buildings.some((b) => b.def === id && b.status === 'done');
-  if (done('campfire')) add('Warm campfire', 5);
-  if (done('storytellers_circle')) add('Stories by the fire', 6);
+  if (town.campfire) add('Warm campfire', 5);
+  if (town.circle) add('Stories by the fire', 6);
   // the best of the other morale buildings (a tavern, the elder lodge...)
-  const best = s.buildings
-    .filter((b) => b.status === 'done' && BUILDING_BY_ID[b.def]?.morale)
-    .map((b): [number, string] => {
-      const m = BUILDING_BY_ID[b.def].morale!;
-      // the tavern is as good as its barkeep
-      if (b.def !== 'tavern') return m;
-      // (and a tavern by the market is livelier)
-      const market = s.buildings.some((q) => q.def === 'market' && q.status === 'done' && Math.abs(q.tile - b.tile) <= ADJACENT_TILES);
-      return [Math.round(TAVERN_BASE + operatorSkill(s, 'tavern') * TAVERN_PER_LEVEL) + (market ? TAVERN_MARKET_MORALE : 0), market ? `${m[1]}, by the market` : m[1]];
-    })
-    .sort((a, b) => b[0] - a[0])[0];
+  const best = town.best;
   if (best) add(best[1], best[0]);
   // (the tax lever, data/economy.ts: once there's money to tax)
   if (moneyTown(s) && p.bornTick == null && TAX[taxRate(s)].morale) add(`${TAX[taxRate(s)].name} taxes`, TAX[taxRate(s)].morale);
@@ -173,14 +219,14 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   if (s.doom?.phase === 'active' && s.doom.kind === 'smog' && p.away === null) add('Choking smog', SMOG_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'meltdown' && p.away === null && !tireless(p)) add('Fallout sickness', FALLOUT_MORALE);
   if (s.doom?.phase === 'active' && s.doom.kind === 'deep_freeze' && p.away === null && !tireless(p)) add(s.doom.cold ? 'Freezing: nothing left to burn' : 'The Deep Freeze', s.doom.cold ? FREEZE_COLD_MORALE : FREEZE_MORALE);
-  if (!p.monster && s.people.some((q) => q.monster === 'vampire' && q.away === null)) add('Uneasy nights (a vampire in town)', UNEASY_MORALE);
+  if (!p.monster && town.vampire) add('Uneasy nights (a vampire in town)', UNEASY_MORALE);
   if (s.tick < s.celebrationUntil) add('A wedding in town', 5);
   for (const [text, value] of moraleMarks(s)) add(text, value); // (what the town chose in its events)
   // epic bosses: the dread of one at the gates, the triumph of one slain
   if (s.tick < (s.dreadUntil ?? 0)) add('A monster at the gates', DREAD_MORALE);
   if (s.triumph && s.tick < s.triumph.until) add(`Slew ${s.triumph.name}`, TRIUMPH_MORALE);
   // turned townsfolk, and the living who share a town with them
-  if (!p.monster && !p.undying && s.people.some((q) => q.monster === 'undead' && q.away === null)) add('Living among the dead', LIVING_AMONG_DEAD_MORALE);
+  if (!p.monster && !p.undying && town.undead) add('Living among the dead', LIVING_AMONG_DEAD_MORALE);
   if (!p.monster && !p.undying && s.tick < (s.turningFearUntil ?? 0)) add('Afraid of being turned', TURNING_FEAR_MORALE);
   if (p.monster === 'vampire' && s.tick - (p.lastFed ?? s.tick) > FEED_HOURS * 1.5 * TICKS_PER_HOUR) add('Thirsting for blood', THIRST_MORALE);
   // the people in their life
@@ -189,8 +235,8 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
   if (friendsOf(s, p).some((f) => f.id !== p.partner)) add('Has friends', 3);
   const rival = rivalsOf(s, p)[0];
   if (rival) add(`Can't stand ${rival.name}`, -5);
-  if (s.people.some((k) => isChild(k) && k.parents?.includes(p.id))) add('A child to raise', 3);
-  if (isChild(p)) add(done('school') ? 'Learning at school' : 'Playing', 5);
+  if (town.parents.has(p.id)) add('A child to raise', 3);
+  if (isChild(p)) add(town.school ? 'Learning at school' : 'Playing', 5);
   const target = Math.max(0, Math.min(100, 50 + reasons.reduce((n, r) => n + r.value, 0)));
   return { target, reasons };
 }
@@ -198,6 +244,7 @@ export function mood(s: GameState, p: Person): { target: number; reasons: MoodRe
 /** Ticks between morale updates. */
 const MORALE_EVERY = 10;
 
+let lastTown: { s: GameState; mood: TownMood } | null = null;
 export function driftMorale(s: GameState, p: Person): void {
   // (working out someone's mood weighs up everyone they know, so it's done once a second, not every tick)
   if (s.tick % MORALE_EVERY !== 0) return;
@@ -207,7 +254,9 @@ export function driftMorale(s: GameState, p: Person): void {
     return;
   }
   // (their nature nudges where their spirits settle: data/natures.ts)
-  const target = Math.max(0, Math.min(100, mood(s, p).target + natureOf(p).mood));
+  // (what's alike for everyone is worked out once a tick: the townsfolk's moods are all drifted together, sim.ts)
+  if (lastTown?.s !== s || lastTown.mood.tick !== s.tick) lastTown = { s, mood: townMood(s) };
+  const target = Math.max(0, Math.min(100, mood(s, p, lastTown.mood).target + natureOf(p).mood));
   const step = (MORALE_DRIFT_PER_HOUR / TICKS_PER_HOUR) * MORALE_EVERY;
   p.morale = p.morale < target ? Math.min(target, p.morale + step) : Math.max(target, p.morale - step);
   // (some origins' folk never sink too low: thralls, the fair folk)
@@ -275,6 +324,7 @@ export function workFactor(s: GameState, p: Person): number {
   if (p.sick) f *= PLAGUE_WORK;
   f *= darkPace(s, p); // (in the dark beyond the lights, or an unlit room: sim/lighting.ts)
   f *= ageWork(s, p); // (elders slow down)
+  f *= guildWork(s, p); // (a guild's own at its work: sim/guilds.ts)
   // vampires come alive at night
   if (p.monster === 'vampire') {
     const h = calendar(s.tick).hour;
@@ -305,22 +355,29 @@ export function housingCapacity(s: GameState): number {
 /** Drop beds that no longer exist; give bedless people a free bed (in id order). */
 export function assignBeds(s: GameState): void {
   const used = new Map<number, number>();
+  let bedless = false;
   for (const p of s.people) {
-    const b = p.bed === null ? undefined : s.buildings.find((q) => q.id === p.bed);
+    const b = p.bed === null ? undefined : buildingById(s, p.bed);
     if (!b || b.status !== 'done' || !defOf(b).housing) p.bed = null;
     else used.set(b.id, (used.get(b.id) ?? 0) + 1);
+    if (p.bed === null) bedless = true;
   }
+  if (!bedless) return;
+  // (the finished homes gathered once, in the list's order, so the first with room is the one `find` would have given:
+  // every tick, for everyone without a bed, it looked over every building)
+  const homes = s.buildings.filter((b) => b.status === 'done' && (defOf(b).housing ?? 0) > 0);
+  const room = (b: Building) => defOf(b).housing! > (used.get(b.id) ?? 0);
   // (whoever owns a home sleeps in it: the rest take what's free)
   for (const p of s.people) {
     if (p.bed !== null) continue;
-    const own = s.buildings.find((b) => b.owner === p.id && b.status === 'done' && (defOf(b).housing ?? 0) > (used.get(b.id) ?? 0));
+    const own = homes.find((b) => b.owner === p.id && room(b));
     if (!own) continue;
     p.bed = own.id;
     used.set(own.id, (used.get(own.id) ?? 0) + 1);
   }
   for (const p of s.people) {
     if (p.bed !== null) continue;
-    const free = s.buildings.find((b) => b.status === 'done' && (defOf(b).housing ?? 0) > (used.get(b.id) ?? 0));
+    const free = homes.find(room);
     if (!free) return;
     p.bed = free.id;
     used.set(free.id, (used.get(free.id) ?? 0) + 1);
@@ -363,11 +420,12 @@ export function maybeArrive(s: GameState, rng: Rng): void {
   // once the Occult is known, now and then a monster comes asking (the RNG is only drawn on then)
   const monster = occultRevealed(s) && rng.chance(MONSTER_ARRIVAL) ? rng.pick<MonsterKind>(['werewolf', 'vampire']) : null;
   const type = monster ?? rng.weighted(ARRIVING_TYPES);
-  const person = makePerson(rng, s.nextId++, type, edge, [...s.people.map((p) => p.name)]);
+  const person = makePerson(rng, s.nextId++, type, edge, [...s.people.map((p) => p.name)], s.origin ?? 'settlers');
   if (monster) becomeMonster(s, person, monster);
   // a stranger of another people (sim/strangers.ts): their look and span are theirs; a xenophobic town turns them away
   const origin = monster ? null : strangerOrigin(s, rng);
   if (origin) {
+    person.name = personName(rng, origin, [...s.people.map((p) => p.name), person.name]);
     makeStranger(s, person, origin);
     if (!welcomes(s, origin)) {
       s.nextId--;
@@ -408,7 +466,7 @@ export function maybeArrive(s: GameState, rng: Rng): void {
 export function secretStranger(s: GameState, rng: Rng): boolean {
   if (s.visitor || townFull(s) || rulesOf(s).noWanderers || joinTooSoon(s)) return false;
   const side: -1 | 1 = rng.chance(0.5) ? -1 : 1;
-  const person = makePerson(rng, s.nextId++, 'wanderer', edgeXY(s, side), [...s.people.map((p) => p.name)]);
+  const person = makePerson(rng, s.nextId++, 'wanderer', edgeXY(s, side), [...s.people.map((p) => p.name)], s.origin ?? 'settlers');
   const special = specialFor(s, person);
   if (!special) {
     s.nextId--;
@@ -536,6 +594,8 @@ export function raisedLook(p: Person): void {
  *  captive, a child), is made kin: raised in a lich town (and looks it), bitten in a pack, remade in a colony. The lich
  *  themself is left as they are. */
 export function keepKin(s: GameState): void {
+  // the horde's own are greenskins (a stranger taken in keeps their own looks)
+  if (s.origin === 'orcs') for (const p of s.people) if ((!p.origin || p.origin === 'orcs') && p.look.body !== 'orc' && p.monster !== 'undead') orcLook(p);
   const kin = rulesOf(s).kin;
   if (!kin) return;
   for (const p of s.people) {

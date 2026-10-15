@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Rng } from '../src/shared/rng';
 import { answerPrompt } from '../src/shared/sim/roadEvents';
-import { DRAGON_DEST, DRAGON_FIRST_DAY, FLEE_AT, OMEN_FLIGHTS, PASS_TICKS, dragonFor, dragonHome, dragonTick, summonDragon, tributeOf, volley } from '../src/shared/sim/dragon';
+import { DRAGON_DEST, DRAGON_FIRST_DAY, DRAGON_LAST_DAY, DRAGON_PEOPLE, FLEE_AT, OMEN_FLIGHTS, PASS_TICKS, dragonArrivalDay, dragonFor, dragonHome, dragonTick, summonDragon, tributeOf, volley } from '../src/shared/sim/dragon';
 import { destinationOf, destinationUnlocked } from '../src/shared/sim/expeditions';
 import { boardDestinations } from '../src/shared/sim/parties';
 import { totalStock } from '../src/shared/sim/buildings';
@@ -96,4 +96,22 @@ test('no dragon comes to a small or young town', () => {
   s.people.length = 3;
   hours(s, 24 * 10);
   assert.equal(s.dragon, undefined);
+});
+
+test('a dragon arrives on its seed-chosen day between 20 and 100', () => {
+  const seed = 'dragon-arrival-window';
+  const arrival = dragonArrivalDay(seed);
+  assert.equal(dragonArrivalDay(seed), arrival, 'the day is stable for this seed');
+  assert.ok(arrival >= DRAGON_FIRST_DAY && arrival <= DRAGON_LAST_DAY, `arrival day ${arrival} is in range`);
+
+  const s = plainGame(seed);
+  s.autopilot = true;
+  for (let i = 1; i < DRAGON_PEOPLE; i++) {
+    s.people.push(makePerson(new Rng(s.nextId), s.nextId++, 'wanderer', campXY(s), s.people.map((p) => p.name)));
+  }
+  for (let day = 1; day <= arrival; day++) {
+    s.tick = (day - 1) * TICKS_PER_DAY;
+    dragonTick(s);
+    assert.equal(!!s.dragon, day >= arrival, `dragon arrival on day ${day}`);
+  }
 });

@@ -11,7 +11,7 @@ export const WALL_FACE = 22;
 export const MERLON = 6;
 /** A corner tower's picture. */
 export const TOWER_W = 30;
-export const TOWER_H = 58;
+export const TOWER_H = 96;
 /** The gate's opening and the carpet's width (px). */
 export const GATE_W = 36;
 export const CARPET_W = 22;

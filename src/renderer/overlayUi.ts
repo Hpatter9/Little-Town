@@ -3,7 +3,7 @@
 
 import { SKILL_NAMES, SKILLS } from '../shared/data/skills';
 import { ITEM_BY_ID, SLOT_NAMES, SLOTS } from '../shared/data/items';
-import type { ExpeditionView, JournalEntryView, PersonView, PromptView } from '../shared/sim/snapshot';
+import type { ExpeditionView, PersonView, PromptView } from '../shared/sim/snapshot';
 import { bleedLeft, tripProgress } from '../shared/format';
 import { itemIcon } from './art/icons';
 
@@ -280,67 +280,6 @@ export function createPromptCard(onAnswer: (prompt: number, option: number) => v
         el.replaceChildren(title, text, row);
       }
       count.textContent = p.secondsLeft === null ? '' : `${p.options[p.defaultOption]} in ${Math.ceil(p.secondsLeft)}s`;
-      el.hidden = false;
-    },
-    hide() {
-      el.hidden = true;
-      shown = -1;
-    },
-  };
-}
-
-/** The "while you were away" report, shown once on return (it stays in the Journal). */
-export function createAwayCard(onJournal: () => void, onClose: () => void): { show(e: JournalEntryView, picture?: (h: NonNullable<JournalEntryView['highlights']>[number]) => HTMLCanvasElement | null): void; hide(): void } {
-  const el = document.createElement('div');
-  el.id = 'away';
-  el.setAttribute('data-hit', '');
-  el.hidden = true;
-  document.body.append(el);
-  let shown = -1;
-  return {
-    show(e, picture) {
-      if (e.id !== shown) {
-        shown = e.id;
-        const title = document.createElement('div');
-        title.className = 'prompt-title';
-        title.textContent = e.text;
-        // the morning report card: the three biggest things, as pictures
-        const cards = document.createElement('div');
-        cards.className = 'away-cards';
-        for (const h of e.highlights ?? []) {
-          const card = document.createElement('div');
-          card.className = 'away-card';
-          const pic = picture?.(h);
-          const frame = document.createElement('div');
-          frame.className = 'away-pic';
-          if (pic) frame.append(pic);
-          const cap = document.createElement('div');
-          cap.className = 'away-cap';
-          cap.textContent = h.text;
-          card.append(frame, cap);
-          cards.append(card);
-        }
-        const list = document.createElement('ul');
-        list.className = 'away-lines';
-        for (const line of e.lines ?? []) {
-          const li = document.createElement('li');
-          li.textContent = line;
-          list.append(li);
-        }
-        const row = document.createElement('div');
-        row.className = 'prompt-row';
-        const journal = document.createElement('button');
-        journal.className = 'tab';
-        journal.textContent = 'Open Journal';
-        journal.addEventListener('click', onJournal);
-        const ok = document.createElement('button');
-        ok.className = 'tab default';
-        ok.textContent = 'OK';
-        ok.addEventListener('click', onClose);
-        row.append(ok, journal);
-        // (the buttons before the long list, so they're in reach on a short strip)
-        el.replaceChildren(title, ...(e.highlights?.length ? [cards] : []), row, list);
-      }
       el.hidden = false;
     },
     hide() {

@@ -2,6 +2,8 @@
 // in two frames: the town strip along the bottom, scaled up for fingers, and the menus in a sheet above it.
 // Everything the desktop tray does (new town, music, zoom) lives in the ☰ menu.
 
+import { readLevel, saveLevel, type VolumeKind } from '../volume';
+import { readVibrate, saveVibrate } from '../vibration';
 import { startNotices } from './notices';
 import { createEventSheet } from './eventSheet';
 import { PANELS, type StripState } from '../../shared/ipc';
@@ -9,6 +11,7 @@ import { mobileBridge } from './mobileBridge';
 import { expeditionFill, researchFill } from '../../shared/format';
 import { css, mix, skyColors, weatherCover } from '../town/skyColors';
 import { applyTheme, panelLabel } from '../theme';
+import { setTipsOn, tipsOn } from './tips';
 
 /** A phone on its side (the same test as the page's CSS): the tabs run across the top, and the town fills the
  *  rest of the screen under them. */
@@ -26,6 +29,26 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.6;
 const bridge = mobileBridge();
 window.bridge = bridge;
+
+// Keep the town visible while its page is open on phones that support the Screen Wake Lock API. The browser releases
+// the lock when the page is hidden; ask for it again when the player returns.
+let screenWakeLock: WakeLockSentinel | null = null;
+async function keepScreenAwake(): Promise<void> {
+  if (document.visibilityState !== 'visible' || screenWakeLock || !('wakeLock' in navigator)) return;
+  try {
+    screenWakeLock = await navigator.wakeLock.request('screen');
+    screenWakeLock.addEventListener('release', () => {
+      screenWakeLock = null;
+    });
+  } catch {
+    // (unsupported browsers and system power settings may refuse the request)
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') void keepScreenAwake();
+  else screenWakeLock = null;
+});
+void keepScreenAwake();
 
 const $ = (id: string) => document.getElementById(id)!;
 const stripBox = $('strip-box');
@@ -67,6 +90,8 @@ sheet.append(panel);
 /** A raid's battle, or a party's fight, is on screen (the map has all of it); a fight is drawn at its own scale. */
 let battleOn = false;
 let watchOn = false;
+/** How near (a share) the zoom must come to a whole step of the screen's pixels to be snapped onto it. */
+const SNAP_NEAR = 0.04;
 
 function layout(): void {
   const free = window.innerHeight - $('tabs').offsetHeight - (sideways.matches ? 0 : $('top').offsetHeight);
@@ -74,14 +99,13 @@ function layout(): void {
   const room = free;
   // (the top-down town fills its room at the zoom, a raid's battle on it; a party's fight is drawn at its own scale)
   const fit = watchOn ? 1 : zoom;
-  // (snapped so each pixel of the art is a whole number of the screen's pixels: even, sharp squares)
+  // (the zoom as asked, so a pinch or the slider moves it smoothly; only when it comes close to a whole number of the
+  // screen's pixels to an art pixel (halves below two) is it snapped there, for sharp squares. It was always snapped,
+  // so the zoom jumped between a few steps and most of a pinch did nothing: the owner's "sluggish and choppy")
   const dpr = window.devicePixelRatio || 1;
-  // (and, where it costs little, an even number: the art has detail on a grid twice as fine, pixelArt.ts FINE)
-  // (below two of the screen's pixels the steps would be a doubling, so halves are allowed there)
-  const steps = fit * dpr + 0.01;
-  const whole = steps < 2 ? Math.max(1, Math.floor(steps * 2) / 2) : Math.floor(steps);
-  const even = Math.floor(whole / 2) * 2;
-  const z = (even >= 2 && even >= whole * 0.75 ? even : whole) / dpr;
+  const steps = fit * dpr;
+  const near = steps < 2 ? Math.max(0.5, Math.round(steps * 2) / 2) : Math.round(steps);
+  const z = (Math.abs(near - steps) <= steps * SNAP_NEAR ? near : steps) / dpr;
   // (it fills its room, the town along the bottom and sky over it)
   const height = room / z;
   strip.style.width = `${stripBox.clientWidth / z}px`;
@@ -121,32 +145,59 @@ layout();
 // smooth), so the clock bar and the other overlays over the map stay as they are; when the fingers lift the strip is
 // laid out again at the new zoom, drawn sharp, and its view moved so what was under the fingers stays there. The strip
 // measures the fingers in its own pixels, which is what the canvas's transform is in too.
-let pinch: { zoom: number; z: number; screen: number; mx: number; my: number; k: number } | null = null;
+let pinch: { zoom: number; z: number; screen: number; mx: number; my: number; nx: number; ny: number; k: number } | null = null;
+let pinchFrame = 0;
 const mapCanvas = () => strip.contentDocument?.querySelector('body > canvas') as HTMLCanvasElement | null;
+type StripWin = Window & {
+  __zoomAbout?: (mx: number, my: number, from: number, to: number, nx?: number, ny?: number) => void;
+  __pinching?: (on: boolean) => void;
+};
+const stripWin = () => strip.contentWindow as StripWin | null;
+// (the canvas follows the fingers once a frame, however many moves the touch screen reports between)
+const showPinch = () => {
+  pinchFrame = 0;
+  const c = mapCanvas();
+  if (!pinch || !c) return;
+  const { k, mx, my, nx, ny } = pinch;
+  // (what was under the fingers when they came down stays under them: the map grows about that point and goes with
+  // the fingers as they move together, so two fingers pan as they zoom)
+  c.style.transform = `translate(${nx - mx * k}px, ${ny - my * k}px) scale(${k})`;
+};
 bridge.onPinch?.((phase, spread, mx, my) => {
   if (phase === 'start') {
     const z = parseFloat(strip.style.transform.replace('scale(', '')) || zoom; // (what the strip is shown at now)
-    pinch = { zoom, z, screen: spread, mx, my, k: 1 };
+    pinch = { zoom, z, screen: spread, mx, my, nx: mx, ny: my, k: 1 };
     const c = mapCanvas();
-    if (c) c.style.transformOrigin = '0 0';
+    if (c) {
+      c.style.transformOrigin = '0 0';
+      c.style.willChange = 'transform';
+    }
+    // (the strip stops drawing while the fingers are down: the canvas is only moved and scaled, so the page has the
+    // whole of each frame for it and it keeps up with the fingers)
+    stripWin()?.__pinching?.(true);
   } else if (phase === 'move') {
     if (!pinch) return;
     // (the fingers' spread against where they began: how much to zoom by)
-    const k = Math.min(MAX_ZOOM / pinch.zoom, Math.max(MIN_ZOOM / pinch.zoom, spread / pinch.screen));
-    pinch.k = k;
-    // (the point between the fingers stays put: the map grows about it)
-    const c = mapCanvas();
-    if (c) c.style.transform = `translate(${pinch.mx * (1 - k)}px, ${pinch.my * (1 - k)}px) scale(${k})`;
-    zoom = pinch.zoom * k;
+    pinch.k = Math.min(MAX_ZOOM / pinch.zoom, Math.max(MIN_ZOOM / pinch.zoom, spread / pinch.screen));
+    pinch.nx = mx;
+    pinch.ny = my;
+    zoom = pinch.zoom * pinch.k;
+    if (!pinchFrame) pinchFrame = requestAnimationFrame(showPinch);
   } else {
     if (!pinch) return;
-    const { mx, my, z } = pinch;
+    const { mx, my, nx, ny, z } = pinch;
     pinch = null;
+    if (pinchFrame) cancelAnimationFrame(pinchFrame);
+    pinchFrame = 0;
     const c = mapCanvas();
-    if (c) c.style.transform = '';
+    if (c) {
+      c.style.transform = '';
+      c.style.willChange = '';
+    }
     setZoom(zoom); // (laid out again, sharp, and saved)
     const now = parseFloat(strip.style.transform.replace('scale(', '')) || zoom;
-    (strip.contentWindow as (Window & { __zoomAbout?: (mx: number, my: number, from: number, to: number) => void }) | null)?.__zoomAbout?.(mx, my, z, now);
+    stripWin()?.__zoomAbout?.(mx, my, z, now, nx, ny);
+    stripWin()?.__pinching?.(false);
   }
 });
 
@@ -213,8 +264,8 @@ bridge.onSnapshot((snap) => {
     const short = SHORT_LABELS[t.id] ?? t.name;
     t.label.dataset.short = t.label.textContent.length <= 8 ? t.label.textContent : short; // (six tabs upright: a long name is cut)
   }
-  $('top-title').textContent = snap.origin.town;
-  document.title = snap.origin.town;
+  $('top-title').textContent = snap.townName;
+  document.title = snap.townName;
 });
 // The page above the strip is more of the same sky, a little deeper toward the top of the screen.
 let skyKey = '';
@@ -317,24 +368,89 @@ function drawMenu(): void {
       return b;
     };
     const zooms = document.createElement('div');
-    zooms.className = 'zooms';
-    const step = (by: number) => () => {
-      setZoom(zoom * by);
-      drawMenu();
+    zooms.className = 'zoom-control';
+    const zoomLabel = document.createElement('span');
+    const zoomInput = document.createElement('input');
+    zoomInput.type = 'range';
+    zoomInput.min = String(Math.round(MIN_ZOOM * 100));
+    zoomInput.max = String(Math.round(MAX_ZOOM * 100));
+    zoomInput.step = '1';
+    zoomInput.value = String(Math.round(zoom * 100));
+    zoomInput.setAttribute('aria-label', 'Map zoom');
+    let zoomStart: number | null = null;
+    const startZoomPreview = () => {
+      if (zoomStart !== null) return;
+      zoomStart = zoom;
+      const canvas = mapCanvas();
+      if (canvas) canvas.style.transformOrigin = '50% 50%';
+      stripBox.classList.add('pinching');
     };
-    zooms.append(item('− Out', step(1 / 1.2)), item(`${Math.round(zoom * 100)}%`, () => (setZoom(DEFAULT_ZOOMS[orientation()]), drawMenu())), item('In +', step(1.2)));
+    const previewZoom = () => {
+      startZoomPreview();
+      const scale = (Number(zoomInput.value) / 100) / (zoomStart ?? zoom);
+      const canvas = mapCanvas();
+      if (canvas) canvas.style.transform = `scale(${scale})`;
+    };
+    const commitZoom = () => {
+      if (zoomStart === null) return;
+      const canvas = mapCanvas();
+      if (canvas) canvas.style.transform = '';
+      stripBox.classList.remove('pinching');
+      zoomStart = null;
+      setZoom(Number(zoomInput.value) / 100);
+    };
+    const showZoom = () => (zoomLabel.textContent = `Map zoom: ${zoomInput.value}%`);
+    showZoom();
+    zoomInput.addEventListener('pointerdown', startZoomPreview);
+    zoomInput.addEventListener('keydown', startZoomPreview);
+    zoomInput.addEventListener('input', () => (previewZoom(), showZoom()));
+    zoomInput.addEventListener('change', commitZoom);
+    zoomInput.addEventListener('blur', commitZoom);
+    zooms.append(zoomLabel, zoomInput, item('Reset zoom', () => (setZoom(DEFAULT_ZOOMS[orientation()]), drawMenu())));
     const installed = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
     menu.replaceChildren(
       item('New town…', () => bridge.openPanel('newgame')),
       item(`Music: ${s.music ? 'on' : 'off'}`, () => (bridge.setMusic(!s.music), drawMenu())),
+      slider('music', 'Music volume'),
+      slider('sfx', 'Sound effects volume'),
       item(`Minimap: ${minimapShown() ? 'on' : 'off'}`, () => (setMinimap(!minimapShown()), drawMenu())),
+      // (the phone buzzes softly at the big moments: vibration.ts; its own setting, not the sound's)
+      ...('vibrate' in navigator ? [item(`Vibration: ${readVibrate() ? 'on' : 'off'}`, () => (saveVibrate(!readVibrate()), drawMenu()))] : []),
+      item(`Tips: ${tipsOn() ? 'on' : 'off'}`, () => (setTipsOn(!tipsOn()), drawMenu())),
       item('Phone alerts…', () => bridge.openPanel('alerts')),
-      label('Zoom (or pinch the town with two fingers; tap the % to reset)'),
+      label('Zoom, or pinch the town with two fingers'),
       zooms,
       ...(installed ? [] : [label('To install: Chrome menu ⋮ → Add to Home screen')]),
       version(),
     );
   });
+}
+/** A volume slider (the owner's ask): sets the strip's music or sound effects as it moves, and the phone remembers it
+ *  (volume.ts). */
+type VolumeWin = Window & { __volume?: Record<VolumeKind, number> };
+function slider(kind: VolumeKind, name: string): HTMLElement {
+  const row = document.createElement('label');
+  row.className = 'volume';
+  const text = document.createElement('span');
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.min = '0';
+  input.max = '100';
+  input.step = '5';
+  const live = (strip.contentWindow as VolumeWin | null)?.__volume;
+  const now = live ? live[kind] : readLevel(kind);
+  input.value = String(Math.round(now * 100));
+  const show = () => (text.textContent = `${name}: ${input.value}%`);
+  show();
+  input.addEventListener('input', () => {
+    const v = Number(input.value) / 100;
+    const vol = (strip.contentWindow as VolumeWin | null)?.__volume;
+    if (vol) vol[kind] = v;
+    saveLevel(kind, v);
+    show();
+  });
+  row.append(text, input);
+  return row;
 }
 /** The strip's minimap (map/minimap.ts), turned on and off from the ☰ menu (the owner's ask). */
 type MinimapWin = Window & { __minimap?: { shown: boolean } };

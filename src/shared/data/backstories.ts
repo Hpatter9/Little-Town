@@ -84,6 +84,12 @@ const FROM: Record<OriginId, string[]> = {
     'Grew up on a small estate with a proud name and an empty purse',
     'Came from a march-land where every child learns the spear',
   ],
+  orcs: [
+    'Was born in a raiding camp and weaned on smoke and meat',
+    'Grew up fighting their brothers for scraps in the war-pits',
+    'Was taken from a burned fort as a whelp and raised by the warband',
+    'Came down from the black hills, where the orcs still keep to the old ways',
+  ],
 };
 
 /** What they did before, by how they came. */

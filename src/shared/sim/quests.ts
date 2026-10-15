@@ -106,7 +106,7 @@ export function questsDone(s: GameState, dungeon: string, at: Pt, rng: Rng, part
           notify(s, `The captive rescued from ${DUNGEON_BY_ID[dungeon].name} thanks the party and goes home: the town is as big as you want it.`, true);
           break;
         }
-        const p = makePerson(rng, s.nextId++, rng.weighted(ARRIVING_TYPES), at, s.people.map((o) => o.name));
+        const p = makePerson(rng, s.nextId++, rng.weighted(ARRIVING_TYPES), at, s.people.map((o) => o.name), s.origin ?? 'settlers');
         s.people.push(p);
         assignBeds(s);
         notify(s, `${p.name}, rescued from ${DUNGEON_BY_ID[dungeon].name}, comes home with the party and stays.`, true);
@@ -148,7 +148,7 @@ function fallenGear(_s: GameState, dungeon: string, rng: Rng): string {
 
 /** Someone a delving party met who comes home with them (a rival delver won over). */
 export function joinTown(s: GameState, at: Pt, rng: Rng): Person {
-  const p = makePerson(rng, s.nextId++, rng.weighted(ARRIVING_TYPES), at, s.people.map((o) => o.name));
+  const p = makePerson(rng, s.nextId++, rng.weighted(ARRIVING_TYPES), at, s.people.map((o) => o.name), s.origin ?? 'settlers');
   s.people.push(p);
   assignBeds(s);
   return p;

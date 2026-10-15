@@ -24,6 +24,12 @@ const MOST_WINTER = 4;
 /** The ground birds land on (besides roads and the fields). */
 const LANDS = new Set<Ground>(['grass', 'fertile', 'sand', 'hill']);
 const HOP_SECONDS = 0.22;
+/** Pigeons round an elder feeding them (sim/idleScenes.ts): the grey bird, how many to each, how near they keep (px),
+ *  and how often another comes down (s). */
+const PIGEON = 2;
+const PIGEONS_EACH = 4;
+const PIGEON_NEAR = 44;
+const PIGEON_EVERY = 1.6;
 
 interface Bird {
   s: Sprite;
@@ -44,6 +50,8 @@ interface Bird {
   to: { x: number; y: number };
   hopping: number;
   wing: number;
+  /** Come down to an elder's crumbs: where they sit (it hops round them, and isn't scared off by them). */
+  feeder?: { x: number; y: number };
 }
 
 let frames: Texture[][] | null = null;
@@ -70,8 +78,11 @@ export class MapBirds {
   land: LandMap | null = null;
   /** Everyone about (world px), who scares them off. */
   folk: { x: number; y: number }[] = [];
+  /** The elders feeding the pigeons (map/mapScenes.ts): the grey birds come down round them. */
+  feeders: { x: number; y: number }[] = [];
   private readonly birds: Bird[] = [];
   private nextFlock = 2;
+  private nextPigeon = 0;
 
   constructor(
     private readonly layer: Container,
@@ -95,6 +106,17 @@ export class MapBirds {
         for (let i = 0; i < n; i++) this.hatch(kind, spot.x + (Math.random() - 0.5) * 28, spot.y + (Math.random() - 0.5) * 16);
       }
     }
+    // (pigeons to the elders feeding them, a few each)
+    this.nextPigeon -= dt;
+    if (want && this.feeders.length && this.nextPigeon <= 0) {
+      this.nextPigeon = PIGEON_EVERY * (0.6 + Math.random() * 0.8);
+      const f = this.feeders.find((q) => this.birds.filter((b) => b.feeder && Math.hypot(b.feeder.x - q.x, b.feeder.y - q.y) < 4).length < PIGEONS_EACH);
+      if (f) {
+        const b = this.hatch(PIGEON, f.x + (Math.random() - 0.5) * 2 * PIGEON_NEAR * 0.8, f.y + 8 + Math.random() * 16);
+        b.feeder = { x: f.x, y: f.y };
+        b.stay = 18 + Math.random() * 20;
+      }
+    }
     for (let i = this.birds.length - 1; i >= 0; i--) {
       const b = this.birds[i];
       if (b.state === 'landing') {
@@ -114,10 +136,15 @@ export class MapBirds {
           b.hop = 0.5 + Math.random() * 1.6;
           b.from = { x: b.x, y: b.y };
           b.to = { x: b.x + (Math.random() - 0.5) * 18, y: b.y + (Math.random() - 0.5) * 8 };
+          // (a pigeon keeps hopping back toward the crumbs, before the elder's feet)
+          if (b.feeder && Math.hypot(b.x - b.feeder.x, b.y - b.feeder.y - 12) > PIGEON_NEAR * 0.6) b.to = { x: b.x + (b.feeder.x - b.x) * 0.35, y: b.y + (b.feeder.y + 12 - b.y) * 0.35 };
           b.hopping = 0;
           b.s.scale.x = (b.to.x < b.x ? -1 : 1) * Math.abs(b.s.scale.x);
         }
-        const near = this.folk.find((f) => (f.x - b.x) ** 2 + (f.y - b.y) ** 2 < SCARE * SCARE);
+        // (the elder feeding them doesn't scare them, nor does anyone else sat with the crumbs)
+        const near = this.folk.find((f) => (f.x - b.x) ** 2 + (f.y - b.y) ** 2 < SCARE * SCARE && !this.feeders.some((q) => Math.hypot(q.x - f.x, q.y - f.y) < 12));
+        // (the feeding over, the pigeons are off)
+        if (b.feeder && !this.feeders.some((q) => Math.hypot(q.x - b.feeder!.x, q.y - b.feeder!.y) < 24)) b.stay = Math.min(b.stay, 0.5 + Math.random());
         if (near || b.stay <= 0) {
           b.state = 'flying';
           const ang = near ? Math.atan2(b.y - near.y, b.x - near.x) : Math.random() * Math.PI * 2;
@@ -167,7 +194,7 @@ export class MapBirds {
     return null;
   }
 
-  private hatch(kind: number, x: number, y: number): void {
+  private hatch(kind: number, x: number, y: number): Bird {
     const s = this.layer.addChild(new Sprite(frames![kind][0]));
     s.anchor.set(0.5, 1);
     const sh = this.layer.addChild(new Sprite(glowTexture()));
@@ -177,6 +204,8 @@ export class MapBirds {
     sh.height = 4;
     const vx = (Math.random() - 0.5) * 30;
     s.scale.x = vx < 0 ? -1 : 1;
-    this.birds.push({ s, sh, kind, x: x - vx * 0.6, y, h: 70, state: 'landing', vx, vy: 0, hop: 0.6, stay: 7 + Math.random() * 14, from: { x, y }, to: { x, y }, hopping: -1, wing: 0 });
+    const b: Bird = { s, sh, kind, x: x - vx * 0.6, y, h: 70, state: 'landing', vx, vy: 0, hop: 0.6, stay: 7 + Math.random() * 14, from: { x, y }, to: { x, y }, hopping: -1, wing: 0 };
+    this.birds.push(b);
+    return b;
   }
 }

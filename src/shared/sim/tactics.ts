@@ -38,7 +38,7 @@ import { CELL, groundAt, isRoad, type Ground } from './land';
 import { before, credit, TOWERS } from './raidRecap';
 import { attackPerson, defenderAttack } from './raids';
 import { GATE_OF, GRATE_OF, isGrate, WALL_KINDS } from './ringWall';
-import { maxHp, notify, type GameState, type Person, type Raid, type Raider } from './state';
+import { buildingById, maxHp, notify, type GameState, type Person, type Raid, type Raider } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { runtime } from './watchAsk';
@@ -456,9 +456,28 @@ function standable(tile: TacTile | null, foe: boolean, swim = false): boolean {
 
 /* ------------------------------------------------------------ who's who */
 
-const personOf = (s: GameState, key: string) => (key[0] === 'p' ? s.people.find((p) => p.id === +key.slice(1)) : undefined);
-const raiderOf = (r: Raid, key: string) => (key[0] === 'r' ? r.raiders.find((q) => q.id === +key.slice(1)) : undefined);
-const towerOf = (s: GameState, key: string) => (key[0] === 't' ? s.buildings.find((b) => b.id === +key.slice(1)) : undefined);
+/** A unit's key's id (its number after the letter), read once (every unit is looked up many times a tick). */
+const KEY_IDS = new Map<string, number>();
+const idOfKey = (key: string): number => {
+  let id = KEY_IDS.get(key);
+  if (id === undefined) {
+    id = +key.slice(1);
+    if (KEY_IDS.size > 4096) KEY_IDS.clear();
+    KEY_IDS.set(key, id);
+  }
+  return id;
+};
+const personOf = (s: GameState, key: string) => {
+  if (key[0] !== 'p') return undefined;
+  const id = idOfKey(key);
+  return s.people.find((p) => p.id === id);
+};
+const raiderOf = (r: Raid, key: string) => {
+  if (key[0] !== 'r') return undefined;
+  const id = idOfKey(key);
+  return r.raiders.find((q) => q.id === id);
+};
+const towerOf = (s: GameState, key: string) => (key[0] === 't' ? buildingById(s, idOfKey(key)) : undefined);
 
 export interface TacStats {
   speed: number;
@@ -816,6 +835,10 @@ function fallen(s: GameState, r: Raid, t: Tactics, u: TacUnit, rng: Rng): void {
 }
 
 /** Each tick: the statuses on everyone run (a poison's bite, regeneration). */
+const noStatus = (st: object): boolean => {
+  for (const _ in st) return false;
+  return true;
+};
 function statuses(s: GameState, r: Raid, t: Tactics, rng: Rng): void {
   const arena: Arena = { tick: s.tick, rng, all: () => [], summon: () => null, log: () => {} };
   for (const u of t.units) {
@@ -823,12 +846,14 @@ function statuses(s: GameState, r: Raid, t: Tactics, rng: Rng): void {
     const p = personOf(s, u.key);
     if (p) {
       if (!u.st || u.count !== undefined) continue;
+      // (nothing on them and no mending due: nothing to do, as tickStatuses would find)
+      if (noStatus(u.st) && !(s.tick % TICK_HZ === 0 && u.kit?.passive.regen)) continue;
       const proxy = { get hp() { return p.hp; }, set hp(v: number) { p.hp = Math.max(1, Math.round(v)); }, down: false, maxHp: maxHp(p), kind: 'person', st: u.st, kit: u.kit } as unknown as Combatant;
       tickStatuses(arena, proxy);
       continue;
     }
     const rd = raiderOf(r, u.key);
-    if (!rd?.bt?.st) continue;
+    if (!rd?.bt?.st || noStatus(rd.bt.st)) continue;
     const proxy = { get hp() { return rd.hp; }, set hp(v: number) { rd.hp = Math.max(0, Math.round(v)); }, get down() { return rd.down; }, set down(v: boolean) { rd.down = v; }, maxHp: rd.maxHp, kind: rd.kind, st: rd.bt.st } as unknown as Combatant;
     tickStatuses(arena, proxy);
   }

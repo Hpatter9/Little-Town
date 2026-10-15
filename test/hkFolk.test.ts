@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { CLASS_DEFS, type ClassId } from '../src/shared/data/classes';
 import { ITEMS } from '../src/shared/data/items';
 import { HAIR_STYLES, SKINS, type Look } from '../src/shared/data/people';
-import { hkLayers, hkWhoOfLook, weaponPiece, type HkWho } from '../src/renderer/art/hkFolk';
+import { hkLayers, hkWhoOfLook, nudgeOf, weaponPiece, type HkWho } from '../src/renderer/art/hkFolk';
 import manifest from '../src/renderer/art/himeko.json';
 
 const look = (gender: 'm' | 'f', skin: string, hair: string, hairColor = '#5a3a24', beard = false): Look =>
@@ -47,11 +47,13 @@ test('in a fight they hold their weapon, of its family; at work, the tool', () =
     const plain = hkLayers(who({ look: look('m', SKINS[0], 'plain') }), { fighting: true, activity: 'fight' });
     assert.ok(fighting.length > plain.length, `${it.id} (${it.family}) is held`);
   }
-  for (const activity of ['chop', 'build', 'reap', 'mine', 'till', 'forage']) {
+  const idle = hkLayers(who({ look: look('f', SKINS[3], 'long') }), { fighting: false, activity: 'idle' });
+  for (const activity of ['chop', 'build', 'reap', 'mine', 'forage']) {
     const keys = hkLayers(who({ look: look('f', SKINS[3], 'long') }), { fighting: false, activity });
-    const idle = hkLayers(who({ look: look('f', SKINS[3], 'long') }), { fighting: false, activity: 'idle' });
     assert.ok(keys.length > idle.length, `${activity}: a tool in hand`);
   }
+  // (seed is sown by hand, and the well's bucket wound with both: nothing in hand)
+  for (const activity of ['till', 'draw']) assert.equal(hkLayers(who({ look: look('f', SKINS[3], 'long') }), { fighting: false, activity }).filter(Boolean).length, idle.filter(Boolean).length, activity);
 });
 
 test('the raised dead are bone, and a founder is crowned', () => {
@@ -111,4 +113,15 @@ test('the weapon drawn is the weapon carried: every weapon its own kind of piece
       if (['st', 'wd'].includes(it.family) && k) assert.match(k, /^(staff|wand)/, `${it.name}`);
     }
   }
+});
+
+test('hair stays on the head in the side lunges: hair and bangs moved with it, beards and hoods left as drawn', () => {
+  assert.deepEqual(nudgeOf('hairshortbrownfront')?.[12], [10, 0]);
+  assert.deepEqual(nudgeOf('hairlongbrownrear')?.[20], [-10, 0]);
+  assert.deepEqual(nudgeOf('bangsbigred')?.[12], [10, 0]);
+  assert.deepEqual(nudgeOf('hairlongwhitefront')?.[12], [20, 0]);
+  assert.deepEqual(nudgeOf('sideburnsblack')?.[20], [-20, 0]);
+  assert.equal(nudgeOf('beardbrown'), undefined);
+  assert.equal(nudgeOf('helmhoodredmale'), undefined);
+  assert.equal(nudgeOf('templatefemale'), undefined);
 });

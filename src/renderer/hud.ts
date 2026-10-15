@@ -33,7 +33,6 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
   let speed = 1;
   const fast = el('button', { class: 'tab speed', title: 'Game speed' }, '1×');
   fast.addEventListener('click', () => bridge.command({ type: 'gameSpeed', speed: GAME_SPEEDS[(GAME_SPEEDS.indexOf(speed as never) + 1) % GAME_SPEEDS.length] }));
-  const stock = el('span', { class: 'stock' });
   const raid = el('span', { class: 'raid-badge', hidden: '' });
   const doom = el('span', { class: 'raid-badge doom-badge', hidden: '' });
   const launch = el('span', { class: 'raid-badge launch-badge', hidden: '' });
@@ -46,7 +45,7 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
   // the power the player holds back: theirs to cast in a raid (sim/powers.ts castHeld)
   const cast = el('button', { class: 'tab cast', hidden: '' });
   cast.addEventListener('click', () => bridge.command({ type: 'castHeld' }));
-  clock.append(clockText, pause, fast, music, cast, raid, bleed, hunger, doom, launch, foodDays, stock);
+  clock.append(clockText, pause, fast, music, cast, raid, bleed, hunger, doom, launch, foodDays);
   const flash = el('div', { id: 'raid-flash', hidden: '' });
   document.body.append(flash);
   // an epic boss's health bar, across the top of the strip
@@ -83,11 +82,12 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
   // Slim ticker.
   const ticker = el('div', { id: 'ticker', 'data-hit': '', hidden: '' });
   const tickerText = el('span', { class: 'clock-text' });
+  const tickerName = el('span', { class: 'ticker-name' }, 'Chronos Settlement');
   const tickerPause = el('button', { class: 'tab pause' });
   tickerPause.addEventListener('click', togglePause);
   const expand = el('button', { class: 'tab expand', title: 'Show the full town' }, 'Expand ▴');
   expand.addEventListener('click', () => bridge.setMode('full'));
-  ticker.append(el('span', { class: 'ticker-name' }, 'Chronos Settlement'), tickerText, tickerPause, expand);
+  ticker.append(tickerName, tickerText, tickerPause, expand);
 
   document.body.append(clock, dock, ticker);
 
@@ -101,6 +101,8 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
       for (const [id, b] of tabs) b.classList.toggle('active', s.panel === id);
     },
     update(snap) {
+      tickerName.textContent = snap.townName;
+      if (document.title !== snap.townName) document.title = snap.townName;
       // the necropolis look, once the founder is a lich (the desktop dock's tabs take the new names)
       if (applyTheme(snap.theme, 'strip')) {
         for (const p of PANELS) tabs.get(p.id)!.querySelector('.tab-label')!.textContent = panelLabel(p.id, p.label, snap.theme);
@@ -193,10 +195,6 @@ export function createHud(bridge: Bridge, onTheme?: (theme: Theme) => void): Hud
       if (foodDays.textContent !== foodText) foodDays.textContent = foodText;
       foodDays.classList.toggle('low', days < 1);
       foodDays.title = 'How long the stored food lasts everyone, at a meal a day each';
-      const town = `People ${snap.housing.people} · Beds ${snap.housing.beds}` + (snap.shop || snap.coins ? ` · ● ${snap.coins} coins` : '');
-      // (what's in store is on the Plan tab's Town status, not here: the owner's ask)
-      const stockText = town;
-      if (stock.textContent !== stockText) stock.textContent = stockText;
     },
   };
 }

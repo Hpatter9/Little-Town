@@ -5,11 +5,12 @@
 // town hasn't reached fainter still. Tap a topic for its card (the Research tab shows it under the tree).
 
 import { ERA_NAMES, ERAS, eraReached, type Era } from '../../shared/data/eras';
-import { BRANCH_NAMES, TOPICS, type Branch, type Topic } from '../../shared/data/research';
-import { foreignHeritage, prereqsMet } from '../../shared/sim/research';
+import { TOPICS, type Branch, type Topic } from '../../shared/data/research';
+import { foreignHeritage, prereqsMet, seatNeeded } from '../../shared/sim/research';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { el } from './dom';
 import { topicKnown } from './secrets';
+import { forgone, laneName, topicName } from '../../shared/data/originResearch';
 
 const NODE_W = 96;
 const NODE_H = 28;
@@ -31,7 +32,9 @@ const eraOf = (t: Topic): Era => t.era ?? 'neolithic';
 export function renderTree(s: Snapshot, selected: string | null, onSelect: (id: string) => void): HTMLElement {
   const r = s.research;
   const era = s.unlockAll ? 'space' : s.era;
-  const topics = TOPICS.filter((t) => topicKnown(s, t.id) && !foreignHeritage(t.id, s.origin.id));
+  // (another people's heritage, and what this people never studies, are left out: data/originResearch.ts)
+  const topics = TOPICS.filter((t) => topicKnown(s, t.id) && !foreignHeritage(t.id, s.origin.id) && !forgone(t.id, s.origin.id));
+  const nameOf = (t: Topic) => topicName(t.id, s.origin.id);
   const byId = new Map(topics.map((t) => [t.id, t]));
   const rs = { done: r.done, queue: r.queue, progress: r.progress, revealed: r.revealed };
 
@@ -76,7 +79,7 @@ export function renderTree(s: Snapshot, selected: string | null, onSelect: (id: 
     }
     const tallest = Math.max(1, ...[...cells.values()].map((l) => l.length));
     const h = LANE_HEAD + tallest * ROW_H + LANE_PAD * 2;
-    for (const [c, list] of cells) list.sort((p, q) => p.name.localeCompare(q.name)).forEach((t, i) => pos.set(t.id, { x: colX(c), y: y + LANE_HEAD + LANE_PAD + i * ROW_H }));
+    for (const [c, list] of cells) list.sort((p, q) => nameOf(p).localeCompare(nameOf(q))).forEach((t, i) => pos.set(t.id, { x: colX(c), y: y + LANE_HEAD + LANE_PAD + i * ROW_H }));
     laneTops.push({ branch: b, top: y, h });
     y += h;
   }
@@ -105,7 +108,7 @@ export function renderTree(s: Snapshot, selected: string | null, onSelect: (id: 
     const lane = el('div', 'tree-lane');
     lane.style.top = `${l.top}px`;
     lane.style.height = `${l.h}px`;
-    lane.append(el('span', 'tree-lane-name', l.branch === 'heritage' ? `${s.origin.name} heritage` : BRANCH_NAMES[l.branch]));
+    lane.append(el('span', 'tree-lane-name', l.branch === 'heritage' ? `${s.origin.name} heritage` : laneName(l.branch, s.origin.id)));
     tree.append(lane);
   }
 
@@ -137,13 +140,17 @@ export function renderTree(s: Snapshot, selected: string | null, onSelect: (id: 
     const p = pos.get(t.id)!;
     const done = r.done.includes(t.id);
     const queued = r.queue.includes(t.id);
-    const open = !done && !queued && prereqsMet(rs, t.id, era, s.origin.id).ok;
+    const seat = r.seat?.stage;
+    const open = !done && !queued && prereqsMet(rs, t.id, era, s.origin.id, seat).ok;
     const ahead = !eraReached(era, eraOf(t));
     const state = done ? 'done' : queued ? 'queued' : ahead ? 'future' : open ? 'open' : 'locked';
-    const n = el('div', `tn ${state}${t.id === selected ? ' sel' : ''}`, t.name);
+    // (picked by hand, and waiting on the seat raised to its age: research.ts)
+    const picked = r.picked.includes(t.id);
+    const gated = !done && !ahead && seat !== undefined && seat < seatNeeded(t.id);
+    const n = el('div', `tn ${state}${picked ? ' picked' : ''}${gated ? ' seat' : ''}${t.id === selected ? ' sel' : ''}`, `${picked ? '✋ ' : gated ? '🏛 ' : ''}${nameOf(t)}`);
     n.style.left = `${p.x}px`;
     n.style.top = `${p.y}px`;
-    n.title = t.name;
+    n.title = nameOf(t);
     if (queued && r.progress[t.id]) {
       const bar = el('div', 'tn-bar');
       bar.style.width = `${Math.floor((r.progress[t.id] ?? 0) * 100)}%`;

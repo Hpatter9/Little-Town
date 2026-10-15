@@ -151,3 +151,12 @@ const PROTEST: Record<NatureId, string[]> = {
 };
 // (the feast and funeral lines, into each nature's voice)
 for (const n of NATURES) Object.assign(n.say, GATHERED[n.id], { protest: PROTEST[n.id] });
+
+/** Habits (the owner's ask: the townsfolk being themselves): what someone does with an idle moment, by their nature.
+ *  The jolly juggle, the grumpy kick a stone about, the curious peer in at windows, the dreamy lie on the grass and
+ *  watch the clouds; and any elder, whatever their nature, sits back with a pipe. Drawn on the map only
+ *  (renderer/map/townLife.ts); nothing in the town is changed by them. */
+export type Habit = 'juggle' | 'kick' | 'peer' | 'cloudgaze' | 'pipe';
+export const HABITS: Partial<Record<NatureId, Habit>> = { jolly: 'juggle', grumpy: 'kick', curious: 'peer', dreamy: 'cloudgaze' };
+/** Their habit, if they have one (an elder's pipe first). */
+export const habitOfNature = (nature: NatureId, elder: boolean): Habit | null => (elder ? 'pipe' : (HABITS[nature] ?? null));

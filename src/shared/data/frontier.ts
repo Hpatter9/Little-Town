@@ -46,6 +46,14 @@ export const CLAIM_HAUL: Record<string, Partial<Record<Material, number>>> = {
   grass: { fiber: 8, wood: 6 },
   sand: { clay: 10, stone: 6 },
 };
+/** Wagon trains: every `WAGON_EVERY`th claim staked (the first, the third...) draws a wagon of new settlers (a household of one, sometimes two), who come in by
+ *  themselves, no question asked, the morning there is a free bed and `WAGON_FOOD` days of food a head. At most
+ *  `WAGONS_WAITING` wait on the road. */
+export const WAGON_FOOD = 1.5;
+export const WAGON_PAIR = 0.25;
+export const WAGON_EVERY = 2;
+export const WAGONS_WAITING = 3;
+export const WAGON_TYPES: Readonly<Record<string, number>> = { gatherer: 3, crafter: 2, hunter: 2, wanderer: 2 };
 export const JUMP_CHANCE = 0.06;
 export const CLAIM_NAMES = ['Pine Hollow', 'Stony Ford', 'Hope\'s End', 'Cold Spring', 'Long Meadow', 'Crow\'s Rest', 'Fortune Hill', 'Bitter Creek', 'Sunny Bank', 'Last Chance', 'Elm Bottom', 'Two Rocks', 'Widow\'s Patch', 'Lucky Strike'];
 

@@ -4,12 +4,11 @@
 // the camp) when it's placed, so the town grows along its roads.
 
 import { VILLAGE_KEEP } from '../data/villages';
-import { isGate, riverCell } from './ringWall';
+import { isGate, ringWallCells, riverCell, wallOnly } from './ringWall';
 import { isSeat } from '../data/seats';
-import { carve, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
+import { hallCells, HALLWAY, castleCells, castleGate, castleOn, holdOf, joinsCastle, nearCastle, roomKind, solidCells } from './castle';
 import { seaBuild, seaTown } from './sea';
 import { BUILD_QUEUE_SLOTS, BUILDING_BY_ID, DEMOLISH_REFUND, UPGRADES, type BuildingDef } from '../data/buildings';
-import { TOPIC_BY_ID } from '../data/research';
 import { ERA_NAMES, eraReached, type Era } from '../data/eras';
 import type { OriginId } from '../data/origins';
 import { MAX_POTS, POT_STORAGE } from '../data/items';
@@ -18,8 +17,11 @@ import { CROPS } from '../data/crops';
 import { openGround } from '../data/biomes';
 import { HERDS } from '../data/livestock';
 import { buildable, carvable, clearable, isPlannedRoad, planRoad, setGround, setMarked, wildToClear, CELL, cellOf, doorOf, findPath, fits, groundAt, idx, inMap, inRect, isRoad, overlaps, setRoad, unsetRoad, type LandMap, type Pt, type Rect , wet, touchesWater } from './land';
-import { modifiers } from './research';
+import { researchMods } from './research';
+import { clearRuinsUnder, leaveRuin } from './ruins';
+import { STATUE, type RuinKind } from '../data/memorials';
 import { addStock, campCell, campXY, dist, notify, poolSize, type Building, type GameState } from './state';
+import { topicName } from '../data/originResearch';
 
 export const defOf = (b: { def: string }): BuildingDef => BUILDING_BY_ID[b.def];
 
@@ -39,6 +41,18 @@ export const footprint = (b: Pick<Building, 'def' | 'tile' | 'row'> & { turned?:
 export const footprints = (s: Pick<GameState, 'buildings'>, except?: Building): Rect[] => s.buildings.filter((b) => b !== except).map(footprint);
 /** Whether a cell is under a building. */
 export const builtOn = (s: Pick<GameState, 'buildings'>, x: number, y: number): Building | undefined => s.buildings.find((b) => inRect(footprint(b), x, y));
+/** `builtOn` for many cells at once while the buildings stand still (a path search asks it of thousands of cells, and
+ *  a walled town has hundreds of buildings): the cells indexed once, the first building in the list winning, as
+ *  `builtOn` finds it. Made afresh for each use: it doesn't follow buildings put up or pulled down after. */
+export function builtOnIndex(s: Pick<GameState, 'buildings'>): (x: number, y: number) => Building | undefined {
+  const at = new Map<number, Building>();
+  for (let k = s.buildings.length - 1; k >= 0; k--) {
+    const b = s.buildings[k];
+    const r = footprint(b);
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) at.set(y * 65536 + x, b);
+  }
+  return (x, y) => at.get(y * 65536 + x);
+}
 
 /** The cell in front of a building's door, and the same in world px (where workers and callers stand). A castle's
  *  room has no door cell outside: people walk in, and stand in its middle. */
@@ -79,13 +93,42 @@ export const unlockInfo = (s: GameState) => ({ unlockAll: s.cheats.unlockAll, do
 
 /** The town's reach: the furthest any of its buildings (fields too) stands from the camp, in cells (chessboard), at
  *  least the camp's own ground. */
+/** What the buildings' places and shapes depend on, in order (id, place, kind, width, turned): kept beside something
+ *  worked out from them, and compared exactly (`sameLayout`) to know whether it still holds. */
+export type BuildingsLayout = (string | number | boolean | undefined)[];
+export function layoutOf(bs: readonly Building[]): BuildingsLayout {
+  const out: BuildingsLayout = [];
+  for (const b of bs) out.push(b.id, b.tile, b.row, b.def, b.wide, b.turned);
+  return out;
+}
+export function sameLayout(bs: readonly Building[], was: BuildingsLayout | undefined): boolean {
+  if (!was || was.length !== bs.length * 6) return false;
+  for (let k = 0, j = 0; k < bs.length; k++, j += 6) {
+    const b = bs[k];
+    if (was[j] !== b.id || was[j + 1] !== b.tile || was[j + 2] !== b.row || was[j + 3] !== b.def || was[j + 4] !== b.wide || was[j + 5] !== b.turned) return false;
+  }
+  return true;
+}
+
+/** `builtOn` asked often while the buildings stand still (a band's every step): the cells indexed, kept while the
+ *  buildings' layout is the same. */
+let coverNow: { layout: BuildingsLayout; at: (x: number, y: number) => Building | undefined } | null = null;
+export function builtOnNow(s: Pick<GameState, 'buildings'>, x: number, y: number): Building | undefined {
+  if (!coverNow || !sameLayout(s.buildings, coverNow.layout)) coverNow = { layout: layoutOf(s.buildings), at: builtOnIndex(s) };
+  return coverNow.at(x, y);
+}
+
+/** The last town radius worked out (it's asked for every walker and every band each tick). */
+let radiusMade: { layout: BuildingsLayout; cx: number; cy: number; r: number } | null = null;
 export function townRadius(s: Pick<GameState, 'buildings' | 'land' | 'nomad'>): number {
   const c = campCell(s);
+  if (radiusMade && radiusMade.cx === c.x && radiusMade.cy === c.y && sameLayout(s.buildings, radiusMade.layout)) return radiusMade.r;
   let r = 3;
   for (const b of s.buildings) {
     const f = footprint(b);
     r = Math.max(r, Math.abs(f.x - c.x), Math.abs(f.x + f.w - 1 - c.x), Math.abs(f.y - c.y), Math.abs(f.y + f.h - 1 - c.y));
   }
+  radiusMade = { layout: layoutOf(s.buildings), cx: c.x, cy: c.y, r };
   return r;
 }
 
@@ -99,7 +142,7 @@ export function enclosure(_s: GameState): { lo: number; hi: number; wall: string
 export function storageCapacity(s: GameState, b: Building): number {
   const base = b.status === 'done' ? (defOf(b).storage ?? 0) : 0;
   const pots = b.def === 'campfire' && b.status === 'done' ? potStorage(s) : 0;
-  return Math.floor(base * modifiers(s.research).storage) + pots;
+  return Math.floor(base * researchMods(s.research).storage) + pots;
 }
 
 /** Extra campfire storage from clay pots. */
@@ -161,11 +204,32 @@ export function stillNeeded(b: Building): Stock {
   return out;
 }
 
-/** Blueprints allowed at once (research adds more). */
-export const buildSlots = (s: Pick<GameState, 'research'>) => BUILD_QUEUE_SLOTS + modifiers(s.research).queueSlots;
+/** The share of a blueprint's makings on site: the walls go up only as far as what's been brought, so a builder
+ *  works on while the rest is carried in. */
+export function deliveredShare(b: Building): number {
+  let total = 0;
+  let got = 0;
+  for (const [m, n] of Object.entries(defOf(b).cost) as [Material, number][]) {
+    total += n;
+    got += Math.min(n, b.delivered[m] ?? 0);
+  }
+  return total > 0 ? got / total : 1;
+}
+/** How far ahead of the walls the makings must be before a builder takes up a site still short of some. */
+export const BUILD_AHEAD = 0.05;
+/** Whether a site has work for a builder now: everything is in, or enough of it to go on with. */
+export function buildableNow(b: Building): boolean {
+  const share = deliveredShare(b);
+  return share >= 1 || share - b.progress >= BUILD_AHEAD;
+}
 
+/** Blueprints allowed at once (research adds more). */
+export const buildSlots = (s: Pick<GameState, 'research'>) => BUILD_QUEUE_SLOTS + researchMods(s.research).queueSlots;
+
+/** Blueprints taking a build slot: the ring wall is one construction of its own, all its sections in work at once
+ *  (sim/ringWall.ts; the owner's complaint: the wall waited on the town's other building and was never finished). */
 export function blueprintCount(s: Pick<GameState, 'buildings'>): number {
-  return s.buildings.filter(inWork).length;
+  return s.buildings.filter((b) => inWork(b) && b.ring === undefined).length;
 }
 /** A blueprint being worked (not one only planned, laid out ahead with the rest of its wall: `Building.planned`). */
 export const inWork = (b: Building) => b.status === 'blueprint' && !b.planned;
@@ -211,7 +275,7 @@ export function canPlace(s: Pick<GameState, 'land' | 'buildings' | 'origin' | 'e
   if (def.shore && !touchesWater(m, r)) return { ok: false, reason: `${def.name} stands at the water's edge` };
   if (castleOn(s)) {
     const cells = castleCells(s);
-    if (room && !joinsCastle(cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };
+    if (room && !joinsCastle(holdOf(s) === 'mountain' ? hallCells(s) : cells, m, r, solidCells(s))) return { ok: false, reason: 'A room is built on to the castle' };
     // (never over the ground before the gate: a room built there once walled the castle shut)
     const g = castleGate(s);
     if (room && g.x >= r.x && g.x < r.x + r.w && g.y >= r.y && g.y < r.y + r.h + 1) return { ok: false, reason: 'The way to the gate' };
@@ -232,7 +296,7 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
   if (!planned && blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full' };
   const check = canPlace(s, def, x, y, undefined, turned, overWild);
   if (!check.ok) return check;
-  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true } : {}), ...(turned ? { turned: true } : {}), ...(planned ? { planned: true } : {}) };
+  const b: Building = { id: s.nextId++, def: defId, tile: x, row: y, status: 'blueprint', delivered: {}, progress: 0, store: {}, ...(castleOn(s) && roomKind(s, def) ? { room: true, ...(holdOf(s) === 'mountain' && def.id !== HALLWAY ? { halled: true } : {}) } : {}), ...(turned ? { turned: true } : {}), ...(planned ? { planned: true } : {}) };
   s.buildings.push(b);
   if (overWild) {
     // (laid over a wood or rocks: a wild cell with nothing left on it is cleared at once; the rest wait for the axe
@@ -249,11 +313,11 @@ export function placeBlueprint(s: GameState, defId: string, x: number, y: number
   }
   if (b.room) {
     // (no roads inside the castle: a road that ran where the room now stands is taken up; a mountain hold's room is
-    // cut out of the rock)
+    // cut out of the rock as it is built, from its doorway inward: `digRoom`)
     const f = footprint(b);
     for (let cy = f.y; cy < f.y + f.h; cy++) for (let cx = f.x; cx < f.x + f.w; cx++) unsetRoad(s.land, cx, cy);
-    if (holdOf(s) === 'mountain') carve(s, f);
   } else connectRoad(s, b);
+  if (!planned) clearRuinsUnder(s, footprint(b)); // (built over a ruin: it's cleared away, sim/ruins.ts)
   return { ok: true };
 }
 
@@ -315,8 +379,13 @@ export function nearestStreet(s: GameState, from: Pt): Pt {
 export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): boolean {
   const m = s.land;
   if (!inMap(m, from.x, from.y)) return false;
+  // (never over the ring wall's line but at a gate: a road there keeps a broken piece from being raised again)
+  // (the buildings and the wall's cells indexed once for the search: `builtOn` and `wallOnly` each ask every building)
+  const on = builtOnIndex(s);
+  const wallCells = s.ring ? ringWallCells(s) : null;
+  const walled = (x: number, y: number) => !!wallCells && inMap(m, x, y) && wallCells.has(idx(m, x, y)) && !isGate(on(x, y)?.def ?? ''); // (wallOnly)
   const lay = (x: number, y: number) => {
-    if (!isRoad(m, x, y)) planRoad(m, x, y);
+    if (!isRoad(m, x, y) && !walled(x, y)) planRoad(m, x, y);
   };
   if (to.x === from.x && to.y === from.y) {
     lay(from.x, from.y);
@@ -328,13 +397,13 @@ export function layStreet(s: GameState, from: Pt, to: Pt, reach = ROAD_REACH): b
   // over the sea as a pier)
   const water = (x: number, y: number) => wet(groundAt(m, x, y)) && (pier || riverCell(m, { x, y }));
   const ground = (x: number, y: number) => buildable(groundAt(m, x, y)) || water(x, y);
-  const blocked = (x: number, y: number) => !ground(x, y) || !!builtOn(s, x, y) || !!castle?.has(idx(m, x, y));
+  const blocked = (x: number, y: number) => !ground(x, y) || !!on(x, y) || !!castle?.has(idx(m, x, y));
   // (a road may run through the ring wall's gate; a gate cell is left a plain cell, the gate stands on it)
-  const gate = (x: number, y: number) => isGate(builtOn(s, x, y)?.def ?? '');
-  const path = findPath(m, from, to, (x, y) => blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST });
+  const gate = (x: number, y: number) => isGate(on(x, y)?.def ?? '');
+  const path = findPath(m, from, to, (x, y) => walled(x, y) || (blocked(x, y) && !isRoad(m, x, y) && !isPlannedRoad(m, x, y) && !gate(x, y)), { maxNodes: 6000, four: true, swim: pier ? PIER_COST : BRIDGE_COST });
   if (!path || path.length > reach) return false;
   lay(from.x, from.y);
-  for (const c of path) if ((!builtOn(s, c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);
+  for (const c of path) if ((!on(c.x, c.y) || gate(c.x, c.y)) && ground(c.x, c.y)) lay(c.x, c.y);
   return true;
 }
 /** What a cell of bridge costs to lay against a road on land (so a street crosses a river only where it must). */
@@ -347,7 +416,7 @@ const PIER_COST = 2.5;
  *  every road runs on edge to edge. */
 export function squareRoads(s: GameState): void {
   const m = s.land;
-  const free = (x: number, y: number) => inMap(m, x, y) && buildable(groundAt(m, x, y)) && !builtOn(s, x, y);
+  const free = (x: number, y: number) => inMap(m, x, y) && buildable(groundAt(m, x, y)) && !builtOn(s, x, y) && !wallOnly(s, x, y);
   for (let y = 0; y < m.h - 1; y++)
     for (let x = 0; x < m.w; x++) {
       if (!isRoad(m, x, y)) continue;
@@ -366,8 +435,9 @@ export function canUpgrade(s: GameState, id: number, absorb?: number): PlaceChec
   const to = b && UPGRADES[b.def];
   if (!b || !to || b.status !== 'done') return { ok: false, reason: 'Nothing to upgrade to' };
   const def = BUILDING_BY_ID[to];
-  if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: def.era && !eraReached(s.era, def.era) ? `Opens in the ${ERA_NAMES[def.era]} era` : `Needs research: ${TOPIC_BY_ID[def.research!]?.name ?? def.research}`, to };
-  if (blueprintCount(s) >= buildSlots(s)) return { ok: false, reason: 'Construction queue is full', to };
+  if (!isUnlocked(unlockInfo(s), def)) return { ok: false, reason: def.era && !eraReached(s.era, def.era) ? `Opens in the ${ERA_NAMES[def.era]} era` : `Needs research: ${topicName(def.research!, s.origin)}`, to };
+  // (the seat is rebuilt whatever else is in hand: the new age's studies wait on it)
+  if (blueprintCount(s) >= buildSlots(s) && !isSeat(b.def)) return { ok: false, reason: 'Construction queue is full', to };
   if (b.fire !== undefined) return { ok: false, reason: 'It is on fire', to };
   // (absorbing a neighbour: it's pulled down to make room, so it doesn't count as in the way)
   const merged = absorb === undefined ? undefined : s.buildings.find((q) => q.id === absorb);
@@ -408,13 +478,15 @@ export const CLEAR_MOST = 2;
 export const CLEAR_WORTH = 0.6;
 /** What may be pulled down to make room: a finished building that isn't the seat, a wall of the ring, a gate, a
  *  castle's room, a venue (its furnishings and custom), a field or pen, a store with goods, a prison with prisoners, or alight. */
-function mayClear(q: Building): boolean {
+export function mayClear(q: Building): boolean {
   const d = defOf(q);
   if (q.status !== 'done' || q.fire !== undefined || q.ring !== undefined || q.room || q.def === 'campfire') return false;
   if (isSeat(q.def) || isGate(q.def) || d.floor || d.cells || d.hp) return false;
   // (the owner's complaint: a town pulled down its only crop for a house. Fields and pens are the food and never go;
   // nor a store with goods in it)
   if (CROPS[q.def] || HERDS[q.def]) return false;
+  // (nor a statue to the town's dead: sim/memorials.ts)
+  if (q.def === STATUE || q.statue !== undefined) return false;
   if (d.storage && poolSize(q.store) > 0) return false;
   return true;
 }
@@ -471,9 +543,9 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
   const f = footprint(b);
   if (!isGate(b.def)) for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (isRoad(s.land, x, y)) setRoad(s.land, x, y, false); // (the road runs on under a gate)
   if (b.room) {
-    // (a hold's room grows into the rock, no road to it)
-    if (holdOf(s) === 'mountain') carve(s, footprint(b));
+    // (a hold's room grows into the rock as it is built, no road to it)
   } else connectRoad(s, b);
+  clearRuinsUnder(s, footprint(b));
   depositNear(s, at, salvage);
   notify(s, `Upgrading to a ${next.name}.`);
   return { ok: true };
@@ -481,9 +553,10 @@ export function upgrade(s: GameState, id: number, absorb?: number): PlaceCheck {
 
 /**
  * Cancel a blueprint (refunds everything delivered) or demolish a finished building (refunds part of
- * its cost). Refunds and stored contents go to the nearest storage with room; anything else is lost.
+ * its cost). Refunds and stored contents go to the nearest storage with room; anything else is lost. A finished
+ * building leaves its ruin a few days (`ruin`: how it fell, sim/ruins.ts; null for none).
  */
-export function demolish(s: GameState, id: number): void {
+export function demolish(s: GameState, id: number, ruin: RuinKind | null = 'pulled'): void {
   const i = s.buildings.findIndex((b) => b.id === id);
   if (i < 0) return;
   const b = s.buildings[i];
@@ -493,6 +566,7 @@ export function demolish(s: GameState, id: number): void {
     for (const m of MATERIALS) if (b.store[m]) addStock(refund, m, b.store[m]!);
   }
   s.buildings.splice(i, 1);
+  if (ruin) leaveRuin(s, b, footprint(b), ruin);
   depositNear(s, buildingDoor(b), refund);
 }
 

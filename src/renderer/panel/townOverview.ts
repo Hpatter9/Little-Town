@@ -3,6 +3,7 @@
 // buildings standing in town grouped by what they're for, each card opening on its owner, who lives or works there and
 // how it's doing, with a way to see it on the map.
 
+import { STATUE } from '../../shared/data/memorials';
 import { BUILDING_BY_ID, type BuildingDef } from '../../shared/data/buildings';
 import { CROPS, sectionsDone, sectionsOf } from '../../shared/data/crops';
 import { ERA_NAMES } from '../../shared/data/eras';
@@ -10,6 +11,7 @@ import { HERDS } from '../../shared/data/livestock';
 import { OPERATORS } from '../../shared/data/operators';
 import { FOOD_VALUE } from '../../shared/data/people';
 import { TOPIC_BY_ID } from '../../shared/data/research';
+import { topicName } from '../../shared/data/originResearch';
 import { STATIONS } from '../../shared/data/items';
 import type { Material } from '../../shared/data/materials';
 import type { Bridge, PanelId } from '../../shared/ipc';
@@ -80,14 +82,17 @@ export function glance(s: Snapshot, bridge: Bridge | undefined, rerender: () => 
   // (the Court's blood: sim/vampires.ts)
   const blood = s.heritage?.blood;
   if (blood) tile('Blood', `${blood.store}`, blood.farms ? `${blood.prisoners}/${blood.cells} in the farm's cells` : `about +${blood.nightly} each dusk`, ['build', 'Our ways'], blood.store < 5);
+  // (the horde's fury: sim/warpath.ts)
+  const horde = s.heritage?.horde;
+  if (horde) tile('Fury', `${horde.fury}`, horde.waaagh !== null ? 'WAAAGH!' : horde.out ? `raiding ${horde.out.target}` : horde.name, ['build', 'Our ways'], horde.fury >= 70);
   tile('Stores', `${s.storageUsed}/${s.storageCapacity}`, 'stored', ['build', 'Stores'], s.storageUsed >= s.storageCapacity * 0.9);
   const site = s.buildings.filter((b) => b.status === 'blueprint');
   tile('Building', site.length ? `${site.length}` : 'Nothing', site.length ? site.slice(0, 2).map((b) => BUILDING_BY_ID[b.def]?.name ?? b.def).join(', ') : 'right now', ['build', 'Buildings']);
   const r = s.research;
   const topic = r.queue[0] ? TOPIC_BY_ID[r.queue[0]] : undefined;
-  tile('Studying', topic ? topic.name : 'Nothing', topic ? `${Math.floor((r.progress[topic.id] ?? 0) * 100)}% · ${r.queue.length} queued` : 'for now', ['research', 'Studying']);
+  tile('Studying', topic ? topicName(topic.id, s.research.origin) : 'Nothing', topic ? `${Math.floor((r.progress[topic.id] ?? 0) * 100)}% · ${r.queue.length} queued` : 'for now', ['research', 'Studying']);
   tile('Workshops', `${s.crafting.length}`, `of ${s.craftSlots} orders`, ['trade', 'Workshops']);
-  tile('Trips', `${s.expeditions.length}`, s.expeditions.length ? 'parties out' : 'nobody away', ['expeditions', s.expeditions.length ? 'Parties' : 'Places']);
+  tile('Quests', `${s.expeditions.length}`, s.expeditions.length ? 'parties out' : 'nobody away', ['expeditions', s.expeditions.length ? 'Out now' : 'Quests']);
   if (s.shop || s.tavern || s.stores.length) tile('Shops', `${[s.shop, s.tavern, ...s.stores].filter(Boolean).length}`, 'open for trade', ['trade', 'Shops']);
   if (s.faith.on) {
     const worst = [...s.faith.gods].sort((a, b) => a.favour - b.favour)[0];
@@ -123,6 +128,7 @@ const KINDS: [string, (d: BuildingDef) => boolean][] = [
   ['Workshops', (d) => (STATIONS as readonly string[]).includes(d.id)],
   ['Defences', (d) => !!d.hp || !!d.defense || !!d.cells],
   ['Stores', (d) => !!d.storage],
+  ['Statues', (d) => d.id === STATUE],
   ['Everything else', () => true],
 ];
 
@@ -146,10 +152,13 @@ export function inTown(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
       const def = BUILDING_BY_ID[b.def];
       const c = el('div', 'card');
       const top = el('div', 'card-top');
-      top.append(el('span', 'card-name', def.name), el('span', 'card-size', statusOf(b, s)));
+      // (a home by its name, a statue by whom it stands for: sim/memorials.ts)
+      const hero = b.def === STATUE ? s.honoured.find((h) => h.id === b.statue) : undefined;
+      top.append(el('span', 'card-name', hero ? `Statue of ${hero.name}` : b.homeName ?? def.name), el('span', 'card-size', statusOf(b, s)));
       c.append(top);
       const owner = b.owner !== undefined ? s.people.find((p) => p.id === b.owner)?.name : undefined;
-      c.append(el('div', 'purpose', owner ? `Owned by ${owner}` : "The town's own"));
+      if (hero) c.append(el('div', 'purpose', hero.deeds[0]));
+      else c.append(el('div', 'purpose', `${b.homeName ? `${def.name} · ` : ''}${owner ? `Owned by ${owner}` : "The town's own"}`));
       if (map) c.append(button('Show on the map', () => showOnMap(bridge, { building: b.id }), { cls: 'place small quiet' }));
       grid.append(expandable(c, `bld:${b.id}`, () => buildingMore(b, s)));
     }
@@ -182,6 +191,9 @@ function statusOf(b: Building, s: Snapshot): string {
 function buildingMore(b: Building, s: Snapshot): More[] {
   const def = BUILDING_BY_ID[b.def];
   const name = (id: number | undefined) => (id === undefined ? undefined : s.people.find((p) => p.id === id)?.name);
+  // (a statue: the story of the one it stands for)
+  const hero = b.def === STATUE ? s.honoured.find((h) => h.id === b.statue) : undefined;
+  if (hero) return [...hero.deeds.slice(1), `Died on day ${hero.day}, ${hero.cause}.`];
   const rows: [string, string][] = [];
   const role = OPERATORS[b.def];
   if (role) rows.push([role.title, name(b.operator ?? undefined) ?? 'nobody yet']);

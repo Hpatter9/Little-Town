@@ -3,10 +3,13 @@
 // round them, tap one for its stats), what they carry, how they fight, and everything else about them.
 
 import { familiesSection } from './familyPanel';
+import { guildsSection } from './guildPanel';
+import { arenaSection } from './arenaPanel';
 import { mapBeside, showOnMap } from './townOverview';
 import { hkDraw, hkLayers, hkWhoOf, onHkLoad } from '../art/hkFolk';
 import { pieceLabel, plusOf, qualityOf } from '../../shared/data/quality';
 import { ITEM_BY_ID, SLOT_NAMES, SLOTS, type Slot } from '../../shared/data/items';
+import { ORIGIN_DEFS, type OriginId } from '../../shared/data/origins';
 import { MATERIAL_NAMES } from '../../shared/data/materials';
 import { stockIcon } from '../art/materialIcons';
 import { CENTRE_X, FEET_Y, FRAME_SIZE, loadLpc, lpcCanvas } from '../art/lpc/lpcCompose';
@@ -41,12 +44,13 @@ export const townsfolkKey = (s: Snapshot) => {
       who.id, who.job, who.order, who.sick, who.gear, who.gearQ, who.owns, who.debt, who.bedroll, who.carryCapacity, who.partner, who.married, who.friends, who.rivals, who.enemies, who.devoted,
       who.body, who.growsUpIn !== null && Math.ceil(who.growsUpIn / 24), Math.round(who.hp / 5), who.downed, who.bleedMinutes !== null, Math.round(who.morale / 5), Math.round(who.moodTarget / 5),
       Math.round(who.needs.food * 10), Math.round(who.needs.rest * 10), who.bed, SKILLS.map((k) => [who.skills[k].level, Math.floor(who.skills[k].progress * 4)]),
-      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles,
+      who.cls, who.monster, who.clsName, who.stage, who.level, Math.floor(who.levelProgress * 4), who.away, who.battle, who.kit.length, who.carrying, who.recent, who.freePts, who.autoStats, who.road, who.coins, who.income, who.traits.length, who.titles, who.deeds.map((d) => d.n),
     ],
     s.visitor && [s.visitor.id, s.visitor.leaving],
     s.housing.beds <= s.housing.people,
     s.prisoners.map((p) => [p.id, Math.floor(p.conviction * 20), p.hungry]),
     s.families.map((f) => [f.root, f.members.length, f.living, f.renown, f.blackSheep.length, f.members.map((m) => m.master).join()]),
+    s.guilds.map((g) => [g.id, g.name, g.leader?.id, g.members.map((m) => [m.id, m.level]), g.log[0]]),
     s.turnable,
     confirmTurn,
     s.research.done.length,
@@ -80,6 +84,15 @@ export function patchTownsfolk(s: Snapshot, root: HTMLElement): void {
   const who = inspecting === null ? null : byId.get(inspecting);
   const doing = root.querySelector<HTMLElement>('.inspect-doing');
   if (doing && who) doing.textContent = who.away !== null ? `Away on an expedition: ${who.away}` : who.doing;
+  // (today's diary, written afresh as the day goes on: patched in place, not a redraw)
+  const diary = root.querySelector<HTMLElement>('.diary');
+  if (diary && who && diary.dataset.text !== who.diary.join('\n')) fillDiary(diary, who.diary);
+}
+
+/** Today's diary page (sim/diary.ts): a paragraph a line, in their own words. */
+function fillDiary(box: HTMLElement, lines: string[]): void {
+  box.dataset.text = lines.join('\n');
+  box.replaceChildren(...lines.map((l) => el('p', 'diary-line', l)));
 }
 
 /** Who's being inspected (null: the list), and the slot whose piece is shown below their gear. */
@@ -90,6 +103,7 @@ let classOpen: number | null = null;
 
 /** High -> Normal -> Low -> Off -> High. */
 const NEXT: Record<Priority, Priority> = { 1: 2, 2: 3, 3: 0, 0: 1 };
+const ORIGIN_MARK: Record<OriginId, string> = { settlers: '●', lich: '☠', druid: '♣', vampire: '♜', werewolf: '🐺', robot: '⚙', dwarves: '⛏', merfolk: '≈', nomads: '⌂', fae: '✦', alchemists: '⚗', knights: '⚔', orcs: '◆' };
 
 export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => undefined): HTMLElement[] {
   startLpc(rerender);
@@ -134,6 +148,16 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
     }),
   );
 
+  out.push(
+    ...guildsSection(s, (id) => {
+      inspecting = id;
+      chosenSlot = null;
+      rerender();
+      const box = scroller();
+      if (box) box.scrollTop = 0;
+    }),
+  );
+
   if (s.prisoners.length) {
     out.push(el('h2', '', 'Prisoners'));
     out.push(el('div', 'hint', 'Taken in raids. They eat a ration a day and may slip away; in time they come round and join the town (faster with someone good at Social).'));
@@ -145,6 +169,7 @@ export function renderTownsfolk(s: Snapshot, bridge: Bridge | undefined, rerende
       out.push(c);
     }
   }
+  out.push(...arenaSection(s, bridge));
   return out;
 }
 
@@ -165,7 +190,14 @@ function folkRow(p: PersonView, s: Snapshot, open: () => void): HTMLElement {
   pic.append(face(p, s), el('span', 'folk-pts'), el('span', 'folk-evo'));
   row.append(pic);
   const mid = el('span', 'folk-mid');
-  mid.append(el('span', 'folk-name', `${p.name}${p.id === s.mainId ? ' (you)' : ''}`), el('span', 'folk-class'), el('span', 'folk-doing'));
+  const name = el('span', 'folk-name-line');
+  name.append(el('span', 'folk-name', `${p.name}${p.titles.length ? ` ${p.titles[p.titles.length - 1]}` : ''}${p.id === s.mainId ? ' (you)' : ''}`));
+  const origin = p.origin ?? s.origin.id;
+  const race = el('span', 'folk-race', ORIGIN_MARK[origin]);
+  race.title = ORIGIN_DEFS[origin].name;
+  race.setAttribute('aria-label', ORIGIN_DEFS[origin].name);
+  name.append(race);
+  mid.append(name, el('span', 'folk-class'), el('span', 'folk-doing'));
   const right = el('span', 'folk-right');
   right.append(miniBar(p.hp / p.maxHp, 'hp'), miniBar(p.morale / 100, 'mood'), el('span', 'folk-flag'));
   row.append(mid, right, el('span', 'folk-go', '›'));
@@ -340,7 +372,13 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   const who = el('div', 'card person');
   // their own story first (data/backstories.ts)
   if (p.story) who.append(el('div', 'story', p.story));
-  if (p.titles.length) who.append(el('div', 'story titles', `Called ${p.titles.join(', ')}, for the sagas.`));
+  if (p.titles.length) who.append(el('div', 'story titles', `Known as ${p.titles.join(', ')}.`));
+  // their deeds, and the title each leads to next (sim/deeds.ts)
+  if (p.deeds.length) {
+    const deeds = el('div', 'deeds');
+    for (const d of p.deeds) deeds.append(el('div', 'lock', `${d.label}: ${d.n}${d.next ? ` (${d.at! - d.n} more to be called ${d.next})` : ''}`));
+    who.append(deeds);
+  }
   // (a special newcomer's secret, once the town knows it: sim/specials.ts)
   if (p.secret) who.append(el('div', 'story secret', `${p.secret.name}.`));
   if (p.ageText) who.append(el('div', 'lock', p.ageText));
@@ -358,6 +396,15 @@ function backgroundTab(p: PersonView, s: Snapshot, out: HTMLElement): void {
   for (const r of p.recent.slice(0, 8)) lifeCard.append(el('div', 'hint', r));
   if (!ties && !p.recent.length) lifeCard.append(el('div', 'hint', 'Nothing much has happened to them yet.'));
   right.append(lifeCard);
+  // today, in their own words and their nature's voice (sim/diary.ts)
+  if (p.diary.length) {
+    right.append(el('h2', '', "Today's diary"));
+    const page = el('div', 'card person diary-page');
+    const box = el('div', 'diary');
+    fillDiary(box, p.diary);
+    page.append(box);
+    right.append(page);
+  }
   out.append(left, right);
 }
 
@@ -745,7 +792,12 @@ function priorityGrid(s: Snapshot, bridge: Bridge | undefined): HTMLElement {
     }
     t.append(tr);
   }
-  return t;
+  // (seven columns of buttons are wider than a phone: they scroll sideways under the names)
+  const wrap = el('div', 'grid-scroll');
+  wrap.append(t);
+  const box = el('div');
+  box.append(el('div', 'hint swipe-hint', 'Swipe the table sideways to see every job.'), wrap);
+  return box;
 }
 
 /** What each curse gives and takes (the turning is hidden until a lich, vampire or werewolf is in town). */

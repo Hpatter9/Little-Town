@@ -1,6 +1,7 @@
 // Draws raiders on the map, interpolated between the sim's ticks, with a health bar and a flash where blows land
 // (the raid map's own fighting is phase 5: for now they come in along the camp's row).
 
+import { ghostStep } from '../battle/juiceRules';
 import { limpDip } from './bodyMarks';
 import { Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { WAIST } from '../art/merTail';
@@ -20,7 +21,10 @@ interface Drawn {
   view: RaiderView;
   sprite: Sprite;
   shadow: Sprite;
+  /** How high it's drawn over its spot (eased toward the view's `aloft`). */
+  aloft?: number;
   bar: Graphics;
+  ghost?: { g: number; held: number; was: number; at: number };
   load: Graphics;
   spark: Sprite;
   from: { x: number; y: number };
@@ -144,7 +148,12 @@ export class MapRaiders {
         const bob = Math.sin(secs * 2.6 + r.id) * 1.5;
         s.position.set(Math.round(x + lunge), Math.round(y - 4 + bob));
       }
-      s.zIndex = y;
+      // in the air (a hunter from the sky): lifted over its spot, its wings beating, eased up and down as it swoops
+      d.aloft = (d.aloft ?? r.aloft ?? 0) + ((r.aloft ?? 0) - (d.aloft ?? 0)) * 0.12;
+      const lift = d.aloft > 0.5 ? Math.round(d.aloft + Math.sin(secs * 9 + r.id) * 2) : 0;
+      s.y -= lift;
+      top -= lift;
+      s.zIndex = lift ? y + 400 : y;
       s.alpha = r.down ? 0.4 : 1;
       // (an ally keeps its own colours: a green glow underfoot and a green bar mark it as the town's; tinting the
       // whole creature green made a summoned wolf look like a stray monster)
@@ -172,17 +181,27 @@ export class MapRaiders {
       d.bar.clear();
       d.bar.position.set(Math.round(x), Math.round(top));
       if (!r.down) {
-        d.bar
-          .rect(-w / 2 - 1, -5, w + 2, 4)
-          .fill({ color: 0x1a120c, alpha: 0.85 })
-          .rect(-w / 2, -4, Math.max(1, Math.round((w * r.hp) / r.maxHp)), 2)
-          .fill(r.ally ? 0x8cc05a : 0xe06040);
+        // (the ghost of the health just lost, held a moment then draining, and a flash as the blow lands:
+        // battle/juiceRules.ts)
+        const share = Math.max(0, Math.min(1, r.hp / Math.max(1, r.maxHp)));
+        const gh = (d.ghost ??= { g: share, held: 9, was: share, at: now });
+        const dt = Math.min(0.1, (now - gh.at) / 1000);
+        gh.at = now;
+        if (share < gh.was) gh.held = 0;
+        gh.was = share;
+        gh.held += dt;
+        gh.g = ghostStep(gh.g, share, gh.held, dt);
+        d.bar.rect(-w / 2 - 1, -6, w + 2, 5).fill({ color: 0x1a120c, alpha: 0.85 });
+        if (gh.g > share) d.bar.rect(-w / 2 + Math.round(w * share), -5, Math.round(w * (gh.g - share)), 3).fill({ color: 0xfff0c0 });
+        d.bar.rect(-w / 2, -5, Math.max(1, Math.round(w * share)), 3).fill(r.ally ? 0x8cc05a : 0xe06040);
+        if (gh.held < 0.12) d.bar.rect(-w / 2 - 1, -6, w + 2, 5).fill({ color: 0xffffff, alpha: 0.7 });
       }
-      d.bar.zIndex = y + 0.4;
+      d.bar.zIndex = (lift ? y + 400 : y) + 0.4;
       d.shadow.visible = s.visible;
-      d.shadow.width = Math.max(10, Math.abs(s.width) * 0.6);
-      d.shadow.height = Math.max(4, Math.abs(s.width) * 0.12);
-      d.shadow.alpha = r.down ? 0.25 : r.ally ? 0.7 : 0.42;
+      // (high up its shadow is smaller and fainter)
+      d.shadow.width = Math.max(10, Math.abs(s.width) * 0.6) * (lift ? 0.7 : 1);
+      d.shadow.height = Math.max(4, Math.abs(s.width) * 0.12) * (lift ? 0.7 : 1);
+      d.shadow.alpha = r.down ? 0.25 : r.ally ? 0.7 : lift ? 0.28 : 0.42;
       d.shadow.tint = r.ally && !r.down ? 0x60e070 : 0x000000;
       d.shadow.position.set(Math.round(x), Math.round(y) + 2);
       d.shadow.zIndex = y - 0.5;

@@ -6,6 +6,7 @@
 
 import { ATTR_KEYS, classAttrs, type Attrs } from './attributes';
 import { lineage, PATH_BY_ID } from './paths';
+import { ORIGIN_ROADS } from './originPaths';
 import type { ClassId } from './classes';
 
 type Lean = Partial<Attrs>;
@@ -52,6 +53,9 @@ export const LEANS: Record<string, Lean> = {
   tinker: L(0, 0.2, 0, 0.3), alchemist: L(0, 0.15, 0.05, 0.35), bombardier: L(0.05, 0.3, 0.05, 0.25), philosopher: L(0, 0, 0, 0.35, 0.3),
   artificer: L(0.05, 0.15, 0.05, 0.35), machinist: L(0.1, 0.2, 0.1, 0.3), clockwork_sage: L(0, 0.1, 0, 0.35, 0.3),
 };
+
+// (the peoples' own roads carry their leans with them)
+for (const r of ORIGIN_ROADS) for (const n of [r.two, r.three, r.high]) LEANS[n.id] = n.lean;
 
 const cache = new Map<string, Attrs>();
 /** The shares a townsperson's points are spent by: their archetype's growth leaned the way of their road (the

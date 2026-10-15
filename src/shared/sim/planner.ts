@@ -9,6 +9,7 @@ import { needsSickbed, sickbedsOf } from './sickbeds';
 import { cellsOf } from './prisoners';
 import { bloodTown } from './vampires';
 import { BOAT_TOPICS } from '../data/boats';
+import { SKY_TOPICS } from '../data/skies';
 import { COMPONENTS, FORGED_IDS } from '../data/hunts';
 import { prostheticsWanted } from './injuries';
 import { PROSTHETIC_BY_ITEM } from '../data/injuries';
@@ -26,11 +27,12 @@ import { buildOrigin } from './nomads';
 import { LEISURE, LEISURE_PEOPLE, LOW_SPIRITS } from '../data/recreation';
 import { TRAINING_BUILDINGS, WAR_PEOPLE } from '../data/training';
 const TRAINING_IDS = new Set(TRAINING_BUILDINGS.map((d) => d.id));
-import { isGrate, isRingPiece, planRing, RING_PEOPLE } from './ringWall';
+import { isGrate, isRingPiece, planRing, ringWants, RING_PEOPLE } from './ringWall';
 import { inSea, seaBuild, seaTown } from './sea';
-import { castleCells, castleOn, holdOf, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
+import { castleCells, castleOn, coreRect, hallCells, HALLWAY, holdOf, isHallway, joinsCastle, nearCastle, roomKind, sharedEdges, solidCells } from './castle';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADES, type BuildingDef } from '../data/buildings';
-import { isSeat, seatOf } from '../data/seats';
+import { isSeat, seatId, seatOf } from '../data/seats';
+import { pinned, tendPins } from './pins';
 import { CROPS, WORKPLACES } from '../data/crops';
 import { ORES } from '../data/minerals';
 import { mines } from './places';
@@ -42,11 +44,11 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock , SEA_MATERIALS } 
 import { FOOD_VALUE } from '../data/people';
 import { RESEARCH_STATIONS, TOPICS, type Topic } from '../data/research';
 import { TERRAIN } from '../data/terrain';
-import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
-import { buildable, wet, setGround, type Rect, touchesWater, type Pt, cellAt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, roadDistance, setMarked, spiralSpot } from './land';
+import { blueprintCount, buildSlots, canPlace, canUpgrade, demolish, depthOf, footprint, footprints, isUnlocked, placeBlueprint, stillNeeded, storages, totalCapacity, totalStock, townRadius, unlockInfo, upgrade, inWork, overgrownCells, refreshOvergrown } from './buildings';
+import { buildable, wet, setGround, type Rect, touchesWater, type Pt, delveDepth, delvePool, doorOf, groundAt, idx, inMap, isMarked, isOpen, overlaps, roadDistance, setMarked, spiralSpot } from './land';
 import { openGround } from '../data/biomes';
 import { craftNeeded, craftSlots, itemUnlocked, queueCraft, reduceCraft, stationFor } from './crafting';
-import { canQueue, modifiers, queueResearch } from './research';
+import { canQueue, researchMods, queueResearch, seatStageNow, tidyPicks } from './research';
 import { acceptVisitor, housingCapacity } from './townsfolk';
 import { tireless, eatersOf, foodDaysFor, addStock, campCell, poolSize, type Building, type GameState } from './state';
 import { calendar, TICKS_PER_HOUR } from './time';
@@ -139,6 +141,10 @@ function needs(s: GameState): Needs {
   const demand: Stock = {};
   const want = (m: Material, n: number) => (demand[m] = (demand[m] ?? 0) + n);
   for (const b of s.buildings) if (inWork(b)) for (const [m, n] of Object.entries(stillNeeded(b)) as [Material, number][]) want(m, n);
+  // (the player's wishes not yet laid: the town gathers their makings)
+  for (const p of s.pins ?? []) if (p.building === undefined) for (const [m, k] of Object.entries(BUILDING_BY_ID[p.def]?.cost ?? {}) as [Material, number][]) want(m, k);
+  // (and the ring wall's next sections, laid out but not yet in work: the town gathers for its wall)
+  for (const [m, n] of Object.entries(ringWants(s)) as [Material, number][]) want(m, n);
   for (const o of s.crafting) for (const [m, n] of Object.entries(craftNeeded(o)) as [Material, number][]) want(m, n * o.count);
   for (const [m, n] of Object.entries(RESERVE) as [Material, number][]) if (sourceable(s, m)) want(m, n);
   const used = MATERIALS.reduce((n, m) => n + (stock[m] ?? 0), 0);
@@ -192,6 +198,25 @@ const planned = (s: GameState, id: string) => s.buildings.some((b) => chainOf(id
  *  station built or at least unlocked, and the recipe's own inputs obtainable), or (unless `buy` is off) from the
  *  travellers who stop at its shop. */
 function sourceable(s: GameState, m: Material, depth = 0, buy = true): boolean {
+  // (asked hundreds of times a planning pass, each looking down every recipe: the answers are kept while nothing they
+  // rest on changes: the land's pools, the research known, the age and the shop)
+  // (the shop is looked for again only when the one found is no longer it: within a tick nothing new is finished
+  // while the town plans, so no other can have become the shop)
+  const k = sourced;
+  const shopSame = !!k && (k.shop ? s.buildings[k.shopAt] === k.shop && k.shop.status === 'done' && venueOfDef(k.shop.def) === 'shop' && !lineOfDef(k.shop.def) : true);
+  if (!k || !shopSame || k.s !== s || k.tick !== s.tick || k.count !== s.buildings.length || k.version !== s.land.version || k.open !== s.land.open || k.done !== s.research.done.length || k.era !== s.era || k.unlockAll !== s.cheats.unlockAll) {
+    const shop = shopOf(s);
+    sourced = { s, tick: s.tick, count: s.buildings.length, version: s.land.version, open: s.land.open, done: s.research.done.length, era: s.era, shop, shopAt: shop ? s.buildings.indexOf(shop) : -1, unlockAll: s.cheats.unlockAll, known: new Map() };
+  }
+  const key = `${m}|${depth}|${buy ? 1 : 0}`;
+  const had = sourced!.known.get(key);
+  if (had !== undefined) return had;
+  const r = sourceableNow(s, m, depth, buy);
+  sourced!.known.set(key, r);
+  return r;
+}
+let sourced: { s: GameState; tick: number; count: number; version: number; open: number; done: number; era: string; shop: Building | undefined; shopAt: number; unlockAll: unknown; known: Map<string, boolean> } | null = null;
+function sourceableNow(s: GameState, m: Material, depth: number, buy: boolean): boolean {
   if (depth > 3) return false;
   if (buy && buyable(s, m)) return true;
   if (GATHERABLE.has(m) && wildHolds(s, m)) return true;
@@ -224,10 +249,14 @@ const BRANCH_OF = (t: Topic) => t.branch as string;
 /** Whether the town could build it from what it can get (nothing it has no source for). */
 const canMake = (d: BuildingDef, n: Needs) => !(Object.keys(d.cost) as Material[]).some((m) => n.unsourced.includes(m));
 
+const SELF_BUILT = new Set(['beast_ranch', 'arena']);
+
 function topicScore(t: Topic, n: Needs): number {
   let score = 60 / Math.sqrt(t.seconds); // quicker topics first, all else equal
   // (a wall's water grate is part of the wall, not a thing of its own: sim/ringWall.ts)
-  for (const b of BUILDINGS.filter((d) => d.research === t.id && !isGrate(d.id))) {
+  // (nor the ranch and the arena, which the town raises on its own terms: sim/ranch.ts, sim/arena.ts; counting them
+  // would shift every town's studies)
+  for (const b of BUILDINGS.filter((d) => d.research === t.id && !isGrate(d.id) && !SELF_BUILT.has(d.id))) {
     score += 4;
     if (b.housing && n.freeBeds <= 1 && canMake(b, n)) score += 30;
     if (CROPS[b.id] && CROPS[b.id].material !== 'fiber' && n.foodDays < 5) score += 25;
@@ -270,6 +299,8 @@ function topicScore(t: Topic, n: Needs): number {
   if (t.id === 'delving') score += n.people >= 5 ? 30 : 4; // (the shaft to the Deep: ore below, and what lives with it, sim/deep.ts)
   if (t.id === 'monster_lore') score += n.people >= 5 ? 20 : 4; // (the Monster Hunters' Guild: hunts for a purse, and gear from the parts)
   if (BOAT_TOPICS.some((b) => b.id === t.id)) score += (n.people >= 4 ? 24 : 6) + (t.id === 'boatbuilding' && n.shore ? 16 : 0) + (n.foodDays < 5 && t.id === 'boatbuilding' ? 12 : 0) + (n.direction === 'trade' && (t.id === 'navigation' || t.id === 'steamships') ? 10 : 0);
+  // (airships: parties fly anywhere, faster, and reach the sky's far places: data/skies.ts)
+  if (SKY_TOPICS.some((a) => a.id === t.id)) score += (n.people >= 6 ? 20 : 4) + (n.direction === 'trade' || n.direction === 'growth' ? 8 : 0);
   // (someone has lost a limb or an eye: learn to make them good)
   if ((t.id === 'peg_and_hook' || t.id === 'prosthetics' || t.id === 'bionics') && n.limbless) score += 30;
   // (the town has been bleeding: learn to tend the hurt)
@@ -297,7 +328,12 @@ const REFINE_AT = 4;
 const LEADS_SHARE = 0.85;
 
 function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
-  const slots = modifiers(s.research).researchSlots;
+  const slots = researchMods(s.research).researchSlots;
+  const seat = seatStageNow(s);
+  tidyPicks(s.research);
+  // (the player's own picks stand first; the town fills the rest, leaving what the player took out unless there's
+  // nothing else)
+  const shelved = new Set(s.research.shelved ?? []);
   while (s.research.queue.length < slots) {
     let best: Topic | null = null;
     let bestScore = -Infinity;
@@ -311,22 +347,26 @@ function planResearch(s: GameState, n: Needs, plan: TownPlan): void {
       if (open.length !== 1) continue;
       leads.set(open[0], Math.max(leads.get(open[0]) ?? 0, topicScore(t, n) * LEADS_SHARE));
     }
-    for (const t of TOPICS) {
-      // (refinements wait until the town is a few people strong: its first days go on shelter and food)
-      if (t.refinement && n.people < REFINE_AT) continue;
-      if (!canQueue(s.research, t.id, s.era, s.origin).ok) continue;
-      const sc = Math.max(topicScore(t, n), leads.get(t.id) ?? 0);
-      if (sc > bestScore) {
-        best = t;
-        bestScore = sc;
+    for (const pass of [false, true]) {
+      for (const t of TOPICS) {
+        // (refinements wait until the town is a few people strong: its first days go on shelter and food)
+        if (t.refinement && n.people < REFINE_AT) continue;
+        if (shelved.has(t.id) !== pass) continue;
+        if (!canQueue(s.research, t.id, s.era, s.origin, seat).ok) continue;
+        const sc = Math.max(topicScore(t, n), leads.get(t.id) ?? 0);
+        if (sc > bestScore) {
+          best = t;
+          bestScore = sc;
+        }
       }
+      if (best) break;
     }
     if (!best) break;
-    queueResearch(s.research, best.id, s.era, s.origin);
+    queueResearch(s.research, best.id, s.era, s.origin, seat);
   }
   const head = s.research.queue[0];
   const t = head ? TOPICS.find((q) => q.id === head) : undefined;
-  plan.research = t ? { id: t.id, why: whyTopic(t, n) } : null;
+  plan.research = t ? { id: t.id, why: (s.research.picked ?? []).includes(t.id) ? 'you picked it' : whyTopic(t, n) } : null;
 }
 
 /* ------------------------------------------------------------ crafting */
@@ -550,7 +590,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
 const RING_MIN_PEOPLE = 4;
 const CAPSTONES = ['elder_lodge', 'town_hall', 'power_station', 'mission_control', 'launch_site'];
 /** Never built by the planner: tied to hidden choices, or one-off rescue machines the player earns. */
-const NEVER = new Set(['wayside_shrine', 'temple', 'cathedral', 'phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_vat', 'palisade_gate', 'stone_gate', 'ward_stone']);
+const NEVER = new Set(['wayside_shrine', 'temple', 'cathedral', 'phylactery', 'resurrection_shrine', 'cryo_pod', 'clone_vat', 'palisade_gate', 'stone_gate', 'ward_stone', 'statue', 'beast_ranch', 'arena']);
 
 /** How far beyond the town's reach the land is known (cells), and the furthest it opens on its own (the rest is for the
  *  map's own events to open, later). */
@@ -586,12 +626,12 @@ function wildCells(s: GameState): { i: number; pool: Stock; d: number }[] {
   return out;
 }
 /** Which gatherable materials the open land holds, for the tick (`sourceable`). */
-let wildHas: { list: unknown; has: Set<Material> } | null = null;
+let wildHas: { list: unknown; has: Set<string> } | null = null;
 function wildHolds(s: GameState, m: Material): boolean {
   const list = wildCells(s);
   if (wildHas?.list !== list) {
-    const has = new Set<Material>();
-    for (const { pool } of list) for (const [k, n] of Object.entries(pool)) if ((n ?? 0) > 0) has.add(k as Material);
+    const has = new Set<string>();
+    for (const { pool } of list) for (const k in pool) if ((pool[k as Material] ?? 0) > 0) has.add(k);
     wildHas = { list, has };
   }
   return wildHas.has.has(m);
@@ -599,14 +639,26 @@ function wildHolds(s: GameState, m: Material): boolean {
 function scanWild(s: GameState): { i: number; pool: Stock; d: number }[] {
   const m = s.land;
   const c = campCell(s);
+  // (the open cells in the order the wild is wanted, nearest first, worked out once for the camp and the open land:
+  // the pools then picked out in that order are just what sorting them every planning pass gave)
+  const o = nearestOrder(m, c);
   const out: { i: number; pool: Stock; d: number }[] = [];
-  for (const [k, pool] of Object.entries(m.pools)) {
-    const i = Number(k);
-    const at = cellAt(m, i);
-    if (!isOpen(m, at.x, at.y)) continue;
-    out.push({ i, pool, d: Math.hypot(at.x - c.x, at.y - c.y) });
+  for (let k = 0; k < o.cells.length; k++) {
+    const pool = m.pools[o.cells[k]];
+    if (pool !== undefined) out.push({ i: o.cells[k], pool, d: o.d[k] });
   }
-  return out.sort((a, b) => a.d - b.d || a.i - b.i);
+  return out;
+}
+let nearest: { w: number; h: number; ox: number; oy: number; open: number; cx: number; cy: number; cells: Int32Array; d: Float64Array } | null = null;
+function nearestOrder(m: GameState['land'], c: Pt): { cells: Int32Array; d: Float64Array } {
+  const n = nearest;
+  if (n && n.w === m.w && n.h === m.h && n.ox === m.camp.x && n.oy === m.camp.y && n.open === m.open && n.cx === c.x && n.cy === c.y) return n;
+  const all: { i: number; d: number }[] = [];
+  for (let y = 0; y < m.h; y++)
+    for (let x = 0; x < m.w; x++) if (isOpen(m, x, y)) all.push({ i: y * m.w + x, d: Math.hypot(x - c.x, y - c.y) });
+  all.sort((a, b) => a.d - b.d || a.i - b.i);
+  nearest = { w: m.w, h: m.h, ox: m.camp.x, oy: m.camp.y, open: m.open, cx: c.x, cy: c.y, cells: Int32Array.from(all, (e) => e.i), d: Float64Array.from(all, (e) => e.d) };
+  return nearest;
 }
 
 /** The nearest free spot for a building, out from the camp in rings, each ring's spots nearest a road first, so the
@@ -645,18 +697,87 @@ export function findSpot(s: GameState, def: BuildingDef): (Pt & { wild?: true })
 /** Where a castle's next room goes: built on to the castle, as near the hall as may be, the snuggest spot of a ring
  *  first (the more of its walls it shares, the more compact the castle stays). */
 function roomSpot(s: GameState, def: BuildingDef): Pt | null {
-  const cells = castleCells(s);
+  // (a mountain hold's rooms open off its hallways and the entrance hall, never off one another)
+  // (the main hallway's ground is kept clear of rooms until it is cut)
+  const held = holdOf(s) === 'mountain' && !s.buildings.some(isHallway) ? trunkSite(s) : null;
+  // (an older hold walled in on every side, with no hallway to be cut, still grows off any of its rooms)
+  const cells = holdOf(s) === 'mountain' && (s.buildings.some(isHallway) || hallSpot(s)) ? hallCells(s) : castleCells(s);
   const solid = solidCells(s);
   const r = spiralSpot(s.land, def.width, depthOf(def), footprints(s), campCell(s), {
     maxR: 40,
     roads: true,
     door: false,
     carve: holdOf(s) === 'mountain',
-    ok: (rect) => joinsCastle(cells, s.land, rect, solid),
+    ok: (rect) => joinsCastle(cells, s.land, rect, solid) && !(held && overlaps(rect, held)),
     prefer: (rect) => -sharedEdges(cells, s.land, rect, solid),
   });
   if (!r) return null;
   return canPlace(s, def, r.x, r.y).ok ? { x: r.x, y: r.y } : null;
+}
+
+/** Where a mountain hold's next hallway is cut: the main hallway runs north into the rock from the entrance hall, a few
+ *  lengths deep; then side halls branch off it east and west, and off one another when the trunk is full. A hallway
+ *  shares at least two cell edges with the hall or an earlier hallway. */
+export function hallSpot(s: GameState): { x: number; y: number; turned: boolean } | null {
+  const key = `${s.buildings.length}|${s.land.version}|${s.land.open}`;
+  const hit = hallSpots.get(s);
+  if (hit && hit.key === key) return hit.at;
+  const at = findHallSpot(s);
+  hallSpots.set(s, { key, at });
+  return at;
+}
+const hallSpots = new WeakMap<object, { key: string; at: { x: number; y: number; turned: boolean } | null }>();
+function findHallSpot(s: GameState): { x: number; y: number; turned: boolean } | null {
+  const def = BUILDING_BY_ID[HALLWAY];
+  const core = coreRect(s);
+  const cells = hallCells(s);
+  const solid = solidCells(s);
+  const halls = s.buildings.filter((b) => isHallway(b) && b.room);
+  const trunk = halls.filter((b) => !b.turned && footprint(b).x === core.x + Math.floor(core.w / 2) - 1);
+  const tipY = trunk.length ? Math.min(...trunk.map((b) => footprint(b).y)) : core.y;
+  const mid = core.x + Math.floor(core.w / 2) - 1;
+  const camp = campCell(s);
+  let best: { x: number; y: number; turned: boolean; score: number } | null = null;
+  // (a hold whose north side is taken already, an older save's, branches off the hall wherever it can)
+  const trunkOpen = halls.length > 0 || canPlace(s, def, mid, core.y - depthOf(def)).ok;
+  for (const turned of [false, true]) {
+    const w = turned ? depthOf(def) : def.width;
+    const h = turned ? def.width : depthOf(def);
+    for (let y = core.y - 40; y <= core.y + core.h; y++)
+      for (let x = core.x - 30; x <= core.x + core.w + 30; x++) {
+        const r = { x, y, w, h };
+        if (sharedEdges(cells, s.land, r, solid) < 2) continue;
+        let cat = 3;
+        if (!turned && !trunk.length && x === mid && y + h === core.y) cat = 0;
+        else if (!turned && trunk.length && core.y - tipY < 18 && x === mid && y + h === tipY) cat = 1;
+        else if (turned && trunk.length) cat = 2;
+        if (!halls.length && cat !== 0 && trunkOpen) continue;
+        const score = cat * 10000 + Math.hypot(x + w / 2 - camp.x, y + h / 2 - camp.y) * 10 + (x + y) * 0.001;
+        if (best && score >= best.score) continue;
+        if (canPlace(s, def, x, y, undefined, turned).ok) best = { x, y, turned, score };
+      }
+  }
+  return best ? { x: best.x, y: best.y, turned: best.turned } : null;
+}
+
+/** Where the main hallway will run: north of the entrance hall, in the middle of its top wall. */
+const trunkSite = (s: GameState) => {
+  const core = coreRect(s);
+  const d = depthOf(BUILDING_BY_ID[HALLWAY]);
+  return { x: core.x + Math.floor(core.w / 2) - 1, y: core.y - d, w: BUILDING_BY_ID[HALLWAY].width, h: d };
+};
+
+/** A mountain hold cuts a hallway: the main one once it has a couple of rooms, and another whenever a room finds no hallway
+ *  frontage (`wanted`). One at a time. */
+function tryHall(s: GameState, n: Needs, wanted: boolean): void {
+  if (holdOf(s) !== 'mountain') return;
+  const def = BUILDING_BY_ID[HALLWAY];
+  if (!def || s.buildings.some((b) => isHallway(b) && b.status === 'blueprint')) return;
+  const built = s.buildings.some((b) => isHallway(b));
+  if (!wanted && (built || s.buildings.filter((b) => b.room && !isHallway(b) && b.status === 'done').length < 3)) return;
+  if (blueprintCount(s) >= buildSlots(s) || !affordable(s, def, n.stock)) return;
+  const at = hallSpot(s);
+  if (at) placeBlueprint(s, HALLWAY, at.x, at.y, at.turned);
 }
 
 const isWall = (d: BuildingDef | undefined) => !!d && !!d.hp && d.width === 1 && !d.defense;
@@ -758,7 +879,7 @@ function wishes(s: GameState, n: Needs): { def: string; why: string }[] {
   const station = Object.entries(RESEARCH_STATIONS).filter(([id]) => BUILDING_BY_ID[id] && can(BUILDING_BY_ID[id])).sort((a, b) => b[1].mult - a[1].mult)[0];
   if (station && !planned(s, station[0])) add(station[0], 'somewhere better to study');
   const stations = s.buildings.filter((b) => RESEARCH_STATIONS[b.def]).length;
-  const wantStations = Math.min(modifiers(s.research).researchSlots, 1 + Math.floor(grown / 4));
+  const wantStations = Math.min(researchMods(s.research).researchSlots, 1 + Math.floor(grown / 4));
   // (never a second campfire: another desk waits for a real place of study)
   if (station && station[0] !== 'campfire' && stations < wantStations) add(station[0], `a desk for another researcher (${stations} for ${grown} people)`);
   // the next era, once the town can manage it
@@ -816,6 +937,15 @@ function planPrison(s: GameState, n: Needs, plan: TownPlan): boolean {
  *  find the materials: it is never built new, only rebuilt where it stands. */
 function planSeat(s: GameState, n: Needs, plan: TownPlan): boolean {
   const seat = seatOf(s.buildings);
+  // (a town founded before there were seats, or one that lost it, lays its first again: the ages' studies wait on
+  // it; a castle's or hold's stands on its hall, so only an open town's)
+  if (!seat && !holdOf(s)) {
+    const first = BUILDING_BY_ID[seatId(s.origin ?? 'settlers', 1)];
+    const at = first && findSpot(s, first);
+    if (!at || !placeBlueprint(s, first.id, at.x, at.y, false, false, !!at.wild).ok) return false;
+    plan.build = { def: first.id, why: 'the town has no seat: the new ages wait on one' };
+    return true;
+  }
   if (!seat || seat.status !== 'done') return false;
   const to = UPGRADES[seat.def];
   const def = to ? BUILDING_BY_ID[to] : undefined;
@@ -823,6 +953,39 @@ function planSeat(s: GameState, n: Needs, plan: TownPlan): boolean {
   if (!upgrade(s, seat.id).ok) return false;
   plan.build = { def: def.id, why: 'the seat of the town, rebuilt grander for the new age' };
   return true;
+}
+
+/** The player's building wishes (sim/pins.ts): each built next, in the order pinned, as soon as a slot is free, its
+ *  makings can be had and there's a spot for it. What holds one back is kept on the pin for the menu. */
+function planPins(s: GameState, n: Needs, plan: TownPlan): boolean {
+  tendPins(s);
+  for (const p of s.pins ?? []) {
+    if (p.building !== undefined) continue;
+    const def = BUILDING_BY_ID[p.def];
+    if (!def || !isUnlocked(unlockInfo(s), def)) {
+      p.why = 'not learned yet';
+      continue;
+    }
+    if (blueprintCount(s) >= buildSlots(s)) {
+      p.why = 'waiting for a free building slot';
+      continue;
+    }
+    if (!affordable(s, def, n.stock)) {
+      const missing = (Object.entries(def.cost) as [Material, number][]).filter(([m, k]) => (n.stock[m] ?? 0) < k && !sourceable(s, m, 0, true)).map(([m]) => m);
+      p.why = `no way to get ${names(missing.length ? missing : (Object.keys(def.cost) as Material[]))} yet`;
+      continue;
+    }
+    const at = roomKind(s, def) ? roomSpot(s, def) : findSpot(s, def);
+    if (!at || !placeBlueprint(s, def.id, at.x, at.y, false, false, 'wild' in at && !!at.wild).ok) {
+      p.why = 'no room for it';
+      continue;
+    }
+    p.building = s.buildings[s.buildings.length - 1].id;
+    p.why = undefined;
+    plan.build = { def: def.id, why: 'you wished for it' };
+    return true;
+  }
+  return false;
 }
 
 /** Fewer, bigger fields: two garden plots side by side, both lying fallow, are ploughed into one open field (and an
@@ -868,7 +1031,7 @@ function shelveStalled(s: GameState, n: Needs, plan: TownPlan): void {
       moved[b.id] = { tick: s.tick, sig };
       continue;
     }
-    if (s.tick - m.tick < STALL_HOURS * TICKS_PER_HOUR || CAPSTONES.includes(b.def) || isSeat(b.def) || b.progress > 0) continue;
+    if (s.tick - m.tick < STALL_HOURS * TICKS_PER_HOUR || CAPSTONES.includes(b.def) || isSeat(b.def) || pinned(s, b.id) || b.progress > 0) continue;
     const missing = (Object.keys(stillNeeded(b)) as Material[]).filter((k) => (n.stock[k] ?? 0) === 0);
     if (!missing.length) continue;
     demolish(s, b.id);
@@ -929,9 +1092,12 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
   const shopFirst = n.unsourced.length > 0 && !s.buildings.some((b) => isShop(b.def));
   // (a handful of people can't wall a town and build it too: the ring waits for RING_MIN_PEOPLE, raided or not)
   const ringTurn = () => {
-    if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.stock, n.raided));
+    if (!shopFirst && grownUps >= RING_MIN_PEOPLE) clear.push(...planRing(s, n.raided || n.direction === 'defense' || grownUps >= RING_PEOPLE, n.raided));
     if (n.foodDays < 2 && clear.length) clear.length = 0; // (food first: no clearing for the wall while hungry)
   };
+  // (the seat first, even with the queue full: the new age's studies wait on it; then the player's wishes)
+  if (planSeat(s, n, plan)) return clear;
+  if (planPins(s, n, plan)) return clear;
   if (blueprintCount(s) >= buildSlots(s)) {
     // (the queue full, the ring's plan still goes on: its planned pieces take no slot, and the trees and rocks on its
     // line are marked to clear; no section is released into work without room: the owner's ask that a wall laid
@@ -939,7 +1105,6 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
     ringTurn();
     return clear;
   }
-  if (planSeat(s, n, plan)) return clear;
   if (planPrison(s, n, plan)) return clear;
   if (consolidateHomes(s, n, plan)) return clear;
   if (consolidateFields(s, n, plan)) return clear;
@@ -963,9 +1128,12 @@ function planBuilding(s: GameState, n: Needs, plan: TownPlan): number[] {
     if (!affordable(s, def, n.stock)) continue;
     let at: Pt | null;
     if (roomKind(s, def)) {
-      // (a castle town builds it on to the castle, or clears the land beside the castle for it)
-      at = roomSpot(s, def);
+      // (a castle town builds it on to the castle, or clears the land beside the castle for it; a hold with no hallway
+      // frontage left cuts another hallway first)
+      if (def.id !== HALLWAY) tryHall(s, n, false);
+      at = def.id === HALLWAY ? null : roomSpot(s, def);
       if (!at) {
+        if (def.id !== HALLWAY) tryHall(s, n, true);
         blocked ??= def;
         continue;
       }

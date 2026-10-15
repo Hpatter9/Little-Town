@@ -697,7 +697,63 @@ const PAINTERS: Record<OriginId, (c: C) => void> = {
     }
     banner(p, mid, bottom - kh - Math.round(kw * 0.3) - 18, 18, red);
     if (stage === 5) for (const dx of [-1, 1]) banner(p, mid + (dx * kw) / 2, bottom - kh - 6 - 11 - 12, 12, '#e8c040');
+  },  orcs(c) {
+    const { p, W, H, D, stage } = c;
+    const mid = W / 2;
+    const red = '#8a1a14';
+    const bone = '#e8e0c8';
+    // a skull, front-on
+    const skull = (x: number, y: number, s = 1) => {
+      p.ellipse(x, y, 2.4 * s, 2 * s, bone);
+      p.rect(Math.round(x - 1.5 * s), Math.round(y + 1.5 * s), Math.max(1, Math.round(3 * s)), Math.max(1, Math.round(1.5 * s)), bone);
+      p.frect(x - 1.3 * s, y - 0.3 * s, 0.9 * s, 0.9 * s, '#1a1410');
+      p.frect(x + 0.4 * s, y - 0.3 * s, 0.9 * s, 0.9 * s, '#1a1410');
+    };
+    // a pole hung with skulls
+    const pole = (x: number, bottom: number, h: number, skulls: number) => {
+      p.rect(x, bottom - h, 2, h, '#4a3220');
+      p.frect(x, bottom - h, 0.5, h, '#6a4a2e');
+      for (let i = 0; i < skulls; i++) skull(x + 1, bottom - h + 3 + i * 6);
+    };
+    // trodden ground and a fire pit before it all
+    p.ellipse(mid, H - D / 2, D * 0.75, D * 0.4, '#6a5a3e');
+    if (stage === 1) {
+      pole(mid - 1, H - D / 2, 34, 3);
+      for (const dx of [-14, 14]) pole(mid + dx, H - D / 2 + 3, 20, 1);
+      p.ellipse(mid, H - 7, 6, 2.5, '#3a3430');
+      flame(p, mid, H - 7, 9, '#ff9030');
+      return;
+    }
+    const hide: [string, string] = ['#8a6a44', '#5a3e26'];
+    const logs: [string, string] = ['#6a4a2e', '#3e2a18'];
+    const iron: [string, string] = ['#6a6a70', '#3a3a40'];
+    const bottom = H - 6;
+    const hw = Math.round(W * [0, 0, 0.5, 0.66, 0.7, 0.62][stage]);
+    const top = H - D - [0, 0, 8, 10, 14, 22][stage];
+    if (stage <= 3) {
+      // a hut of hide over poles (then a long log hall), tusks over the door
+      block(p, mid - hw / 2, mid + hw / 2, top, bottom - 18 - stage * 2, bottom, hide, stage === 3 ? logs : hide);
+      for (let x = mid - hw / 2 + 3; x < mid + hw / 2 - 2; x += 5) p.frect(x, top + 1, 0.5, bottom - 20 - stage * 2 - top, '#3e2a18');
+      for (const s of [-1, 1]) for (let k = 0; k < 7; k++) p.px(Math.round(mid + s * (6 - k * 0.6)), bottom - 12 - k, bone);
+      skull(mid, top - 3, 1.3);
+    } else {
+      // the iron hall: riveted plates over logs, then the throne of skulls on a hill of iron and bone
+      block(p, mid - hw / 2, mid + hw / 2, top, bottom - 26, bottom, iron, stage === 5 ? iron : logs);
+      for (let x = mid - hw / 2 + 2; x < mid + hw / 2; x += 6) for (let y = bottom - 24; y < bottom - 3; y += 6) p.px(x, y, '#9a9aa2');
+      if (stage === 5) {
+        // a heap of skulls on the roof, the throne at its top
+        for (let row = 0; row < 4; row++) for (let k = 0; k <= 5 - row; k++) skull(mid - (5 - row) * 2.6 + k * 5.2, top - 2 - row * 4, 0.9);
+        p.rect(mid - 5, top - 30, 10, 14, '#3a2a1a');
+        p.rect(mid - 7, top - 34, 14, 4, red);
+        skull(mid, top - 36, 1.5);
+      } else skull(mid, top - 3, 1.5);
+    }
+    for (const dx of [-1, 1]) pole(Math.round(mid + dx * (hw / 2 + 5)), bottom, 26 + stage * 3, stage >= 3 ? 3 : 2);
+    banner(p, Math.round(mid + hw / 2 - 4), top - 18, 16, red);
+    p.ellipse(mid - hw / 2 - 2, H - 4, 5, 2, '#3a3430');
+    flame(p, mid - hw / 2 - 2, H - 4, 8, '#ff9030');
   },
+
 };
 
 /* ------------------------------------------------------------ the throne rooms */

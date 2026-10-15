@@ -137,7 +137,7 @@ export function breakPack(s: GameState, id: string, rng: Rng, atLair: boolean): 
     const n = Math.min(1 + rng.int(0, 1), s.popTarget === undefined ? 2 : s.popTarget - s.people.length);
     const names: string[] = [];
     for (let i = 0; i < n; i++) {
-      const q = makePerson(rng, s.nextId++, 'hunter', campXY(s), s.people.map((o) => o.name));
+      const q = makePerson(rng, s.nextId++, 'hunter', campXY(s), s.people.map((o) => o.name), s.origin ?? 'settlers');
       becomeMonster(s, q, 'werewolf');
       s.people.push(q);
       names.push(q.name);

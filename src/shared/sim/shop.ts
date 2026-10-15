@@ -105,7 +105,10 @@ import { noteFlow, priceOf } from './prices';
 /** The town's venue of a kind, once built (there's only ever one of each). */
 export const venueOf = (s: GameState, venue: Venue): Building | undefined => s.buildings.find((b) => b.status === 'done' && venueOfDef(b.def) === venue && !lineOfDef(b.def));
 /** The town's specialty shop of a line (data/stores.ts), once built. */
-export const storeOf = (s: GameState, line: ShopLine): Building | undefined => s.buildings.find((b) => b.status === 'done' && lineOfDef(b.def) === line);
+export const storeOf = (s: GameState, line: ShopLine): Building | undefined => {
+  for (const b of s.buildings) if (b.status === 'done' && lineOfDef(b.def) === line) return b;
+  return undefined;
+};
 /** Open: built, and its keeper at home and on their feet. */
 export const storeOpen = (s: GameState, line: ShopLine): Building | undefined => {
   const b = storeOf(s, line);
@@ -293,7 +296,7 @@ export function addRenown(b: Building, n: number): void {
 }
 
 /** How attractive a venue is, all told: its floor and its renown. This decides who comes, and how often. */
-export const attractiveness = (s: GameState, b: Building) => appeal(b) + Math.floor(renownOf(b)) + trophyRenown(s);
+export const attractiveness = (s: GameState, b: Building) => appeal(b) + Math.floor(renownOf(b)) + trophyRenown(s) + Math.floor(s.arena?.renown ?? 0);
 
 /** Renown each treasure on show in a Trophy Hall adds to every venue (a boss's trophy, a unique weapon). */
 export const TROPHY_RENOWN = 3;
@@ -573,7 +576,7 @@ export function wantKey(w: Want, tier = 1): string {
 /** Every tick: strangers walk in, deal, and walk on; once an hour the keepers set out a new piece; once a day renown
  *  fades a little and old wants are forgotten. */
 export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
-  for (const b of s.buildings) {
+  if (s.tick % TICKS_PER_HOUR === 0 || s.tick % TICKS_PER_DAY === 0) for (const b of s.buildings) {
     if (b.status !== 'done' || !venueOfDef(b.def)) continue;
     if (s.tick % TICKS_PER_HOUR === 0) {
       settle(s, b);
@@ -629,19 +632,51 @@ export function updateShop(s: GameState, rng: Rng, town: ShopTown): void {
       }
     }
   }
-  arrive(s, rng, 'shop', town);
-  arrive(s, rng, 'tavern', town);
-  for (const line of SHOP_LINES) arrive(s, rng, 'shop', town, line);
+  // (the venues and stores standing, found in one look over the buildings for all the arrivals below: venueOf and
+  // storeOf each looked over every building, for each of them, every tick)
+  let venues: Map<string, Building> | null = null;
+  const standing = (key: string): Building | undefined => {
+    if (!venues) {
+      venues = new Map();
+      for (const b of s.buildings) {
+        if (b.status !== 'done') continue;
+        const k = venueKey(b.def);
+        if (k && !venues.has(k)) venues.set(k, b);
+      }
+    }
+    return venues.get(key);
+  };
+  arrive(s, rng, 'shop', town, undefined, standing);
+  arrive(s, rng, 'tavern', town, undefined, standing);
+  for (const line of SHOP_LINES) arrive(s, rng, 'shop', town, line, standing);
+}
+
+/** What a kind of building is to the arrivals: a store of a line (`l:`), a venue (`v:`), or nothing. */
+const VENUE_KEYS = new Map<string, string | null>();
+function venueKey(def: string): string | null {
+  let k = VENUE_KEYS.get(def);
+  if (k === undefined) {
+    const l = lineOfDef(def);
+    k = l ? `l:${l}` : venueOfDef(def) ? `v:${venueOfDef(def)}` : null;
+    VENUE_KEYS.set(def, k);
+  }
+  return k;
 }
 
 /** A new stranger on the road, if one's due for a venue. */
-function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown, line?: ShopLine): void {
-  const open = line ? storeOpen(s, line) : venueOpen(s, kind);
+function arrive(s: GameState, rng: Rng, kind: Venue, town: ShopTown, line: ShopLine | undefined, standing: (key: string) => Building | undefined): void {
+  const due = line ? s.nextStoreTick?.[line] : kind === 'shop' ? s.nextTravellerTick : s.nextGuestTick;
+  // (nobody due yet: nothing to do, open or not; asked first, since finding the venue and its keeper looks over every
+  // building and everyone, for each venue each tick)
+  if (due !== undefined && s.tick < due) return;
+  const built = standing(line ? `l:${line}` : `v:${kind}`);
+  const open = built && operatorOf(s, built.def) ? built : undefined;
   if (!open) return;
   const travellers = s.travellers!;
-  const attract = attractiveness(s, open);
-  const due = line ? s.nextStoreTick?.[line] : kind === 'shop' ? s.nextTravellerTick : s.nextGuestTick;
+  // (the venue's draw is worked out only when a traveller is due: it was reckoned every tick)
+  let attract = 0;
   const schedule = () => {
+    attract = attractiveness(s, open);
     const next = s.tick + travellerGap(s, rng, attract);
     if (line) (s.nextStoreTick ??= {})[line] = next;
     else if (kind === 'shop') s.nextTravellerTick = next;

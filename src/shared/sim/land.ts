@@ -66,6 +66,10 @@ export interface LandMap {
   wear?: string;
   /** Wild cells gathered bare and growing back (sim/regrow.ts): the cell, what it was, the tick it returns. */
   regrow?: Record<number, [Ground, number]>;
+  /** Burnt wood that will regrow richer (sim/disasters.ts, sim/regrow.ts), by cell index. */
+  rich?: Record<number, 1>;
+  /** Rock broken up for stone (sim/regrow.ts): the cell and the tick its rubble is cleared away (the map scatters it). */
+  rubble?: Record<number, number>;
   /** The land's named regions (landRegions.ts): the home vale first. Absent on an older, smaller land. */
   regions?: LandRegion[];
   /** The seed's hash (the regions' borders are warped by it). */
@@ -609,6 +613,9 @@ export interface PathOpts {
   /** Whether a step from one cell to a side neighbour is allowed (walls between cells: a castle's, sim/castle.ts
    *  `castleStep`). A diagonal step must be allowed both ways round. */
   edge?: (ax: number, ay: number, bx: number, by: number) => boolean;
+  /** Widened to take in every cell the search looked at: what it found rests on those cells alone (sim/walk.ts keeps
+   *  ways found while nothing in their reach changes). */
+  reach?: { x0: number; y0: number; x1: number; y1: number };
 }
 /** What a cell of the sea costs a swimmer. */
 export const SWIM_COST = 0.8;
@@ -629,39 +636,91 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
     // (a raiding party wades a river where it must: water costs `ford`, not everything)
     return c === Infinity && opts.ford !== undefined && inMap(m, x, y) && groundAt(m, x, y) === 'water' && !b?.(x, y) ? opts.ford : c;
   };
-  const cost = (x: number, y: number) => (x === to.x && y === to.y ? Math.min(raw(x, y), 1) : raw(x, y, blocked));
-  // (typed arrays, not maps: a search runs to thousands of cells, and on a phone the maps were half its time)
-  const g = new Float64Array(W * m.h).fill(Infinity);
-  const came = new Int32Array(W * m.h).fill(-1);
+  // (with no swimming or fording, a cell's cost is read from the land's grid of road and ground costs, kept while its
+  // cells and roads are the same: stepCost asked of every cell looked at was a third of a search)
+  const grid = opts.swim === undefined && opts.ford === undefined ? costGrid(m) : null;
+  const cost0 = grid
+    ? (x: number, y: number) => {
+        const i = y * W + x;
+        if (x === to.x && y === to.y) return Math.min(grid.cost[i], 1);
+        return grid.road[i] ? 0.55 : blocked?.(x, y) ? Infinity : grid.cost[i];
+      }
+    : (x: number, y: number) => (x === to.x && y === to.y ? Math.min(raw(x, y), 1) : raw(x, y, blocked));
+  // (the search's buffers are kept between searches and marked by a generation, never refilled: a search on the wide
+  // land allocated and filled half a megabyte; a cell's cost is asked up to three times, so it's kept for the search)
+  const n = W * m.h;
+  const B = searching ? newBuffers(n) : searchBuffers(n); // (a search from inside another's callbacks has its own)
+  const gen = ++B.gen;
+  const { g, came, seenAt, cost: costOf, costAt } = B;
+  const reach = opts.reach;
+  const cost = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= W || y >= m.h) return Infinity;
+    const i = y * W + x;
+    if (costAt[i] === gen) return costOf[i];
+    const c = cost0(x, y);
+    if (reach) {
+      if (x < reach.x0) reach.x0 = x;
+      if (x > reach.x1) reach.x1 = x;
+      if (y < reach.y0) reach.y0 = y;
+      if (y > reach.y1) reach.y1 = y;
+    }
+    costAt[i] = gen;
+    costOf[i] = c;
+    return c;
+  };
   const start = from.y * W + from.x;
+  seenAt[start] = gen;
   g[start] = 0;
-  // a binary heap of [f, cell]
-  const heap: [number, number][] = [];
+  came[start] = -1;
+  // a binary heap of (f, cell) in two typed arrays (the same pushes, swaps and pops as ever, so the very same paths)
+  let hf = B.hf;
+  let hc = B.hc;
+  let size = 0;
   const push = (f: number, c: number) => {
-    heap.push([f, c]);
-    let i = heap.length - 1;
+    if (size === hf.length) {
+      const nf = new Float64Array(size * 2);
+      const nc = new Int32Array(size * 2);
+      nf.set(hf);
+      nc.set(hc);
+      B.hf = hf = nf;
+      B.hc = hc = nc;
+    }
+    let i = size++;
+    hf[i] = f;
+    hc[i] = c;
     while (i > 0) {
       const p = (i - 1) >> 1;
-      if (heap[p][0] <= heap[i][0]) break;
-      [heap[p], heap[i]] = [heap[i], heap[p]];
+      if (hf[p] <= hf[i]) break;
+      const tf = hf[p];
+      const tc = hc[p];
+      hf[p] = hf[i];
+      hc[p] = hc[i];
+      hf[i] = tf;
+      hc[i] = tc;
       i = p;
     }
   };
-  const pop = (): [number, number] => {
-    const top = heap[0];
-    const last = heap.pop()!;
-    if (heap.length) {
-      heap[0] = last;
+  const pop = (): number => {
+    const top = hc[0];
+    size--;
+    if (size) {
+      hf[0] = hf[size];
+      hc[0] = hc[size];
       let i = 0;
       for (;;) {
         const l = i * 2 + 1;
         const r = l + 1;
-        let s = i;
-        if (l < heap.length && heap[l][0] < heap[s][0]) s = l;
-        if (r < heap.length && heap[r][0] < heap[s][0]) s = r;
-        if (s === i) break;
-        [heap[s], heap[i]] = [heap[i], heap[s]];
-        i = s;
+        let k = i;
+        if (l < size && hf[l] < hf[k]) k = l;
+        if (r < size && hf[r] < hf[k]) k = r;
+        if (k === i) break;
+        const tf = hf[k];
+        const tc = hc[k];
+        hf[k] = hf[i];
+        hc[k] = hc[i];
+        hf[i] = tf;
+        hc[i] = tc;
+        i = k;
       }
     }
     return top;
@@ -671,40 +730,145 @@ export function findPath(m: LandMap, from: { x: number; y: number }, to: { x: nu
     const dy = Math.abs(y - to.y);
     return 0.55 * (Math.max(dx, dy) + 0.414 * Math.min(dx, dy)); // (admissible: roads are the cheapest steps)
   };
-  push(hfn(from.x, from.y), start);
-  let seen = 0;
-  while (heap.length) {
-    const [, c] = pop();
-    if (c === goal) break;
-    if (++seen > maxNodes) return null;
-    const cx = c % W;
-    const cy = (c - cx) / W;
-    const gc = g[c];
-    for (let dy = -1; dy <= 1; dy++)
-      for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy) continue;
-        if (opts.four && dx && dy) continue;
-        const nx = cx + dx;
-        const ny = cy + dy;
-        const step = cost(nx, ny);
-        if (step === Infinity) continue;
-        // (no cutting a corner past something that can't be crossed)
-        if (dx && dy && (cost(cx + dx, cy) === Infinity || cost(cx, cy + dy) === Infinity)) continue;
-        const e = opts.edge;
-        if (e && (dx && dy ? !(e(cx, cy, nx, cy) && e(nx, cy, nx, ny) && e(cx, cy, cx, ny) && e(cx, ny, nx, ny)) : !e(cx, cy, nx, ny))) continue;
-        const n = ny * W + nx;
-        const ng = gc + step * (dx && dy ? 1.414 : 1);
-        if (ng < g[n]) {
-          g[n] = ng;
-          came[n] = c;
-          push(ng + hfn(nx, ny), n);
+  const e = opts.edge;
+  const four = opts.four;
+  // (a goal shut in where the start isn't, by buildings, water or rock: flooded out from the goal over the same steps
+  // the search would take, backwards, and closed off within `SHUT_IN_MOST` cells, the search can only fail. Walkers
+  // heading somewhere shut in asked again and again, each failure looking at every cell it was allowed. Not with a
+  // castle's walls, whose steps needn't go both ways.)
+  const shutIn = (): boolean => {
+    const mark = B.floodAt;
+    const flood = B.queue;
+    let head = 0;
+    let tail = 0;
+    const markGen = gen;
+    mark[goal] = markGen;
+    flood[tail++] = goal;
+    while (head < tail) {
+      if (tail > SHUT_IN_MOST) return false;
+      const c = flood[head++];
+      const cx = c % W;
+      const cy = (c - cx) / W;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          if (four && dx && dy) continue;
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= m.h) continue;
+          const nn = ny * W + nx;
+          if (mark[nn] === markGen) continue;
+          if (nn !== start && cost(nx, ny) === Infinity) continue;
+          if (dx && dy && (cost(cx + dx, cy) === Infinity || cost(cx, cy + dy) === Infinity)) continue;
+          if (nn === start) return false;
+          mark[nn] = markGen;
+          flood[tail++] = nn;
         }
-      }
+    }
+    return true;
+  };
+  if (!e && shutIn()) return null;
+  const search = (): boolean => {
+    push(hfn(from.x, from.y), start);
+    let seen = 0;
+    while (size) {
+      const c = pop();
+      if (c === goal) break;
+      if (++seen > maxNodes) return false;
+      const cx = c % W;
+      const cy = (c - cx) / W;
+      const gc = g[c];
+      // (the four sides' costs once: each is asked again for the corners beside it)
+      const cw = cost(cx - 1, cy);
+      const ce = cost(cx + 1, cy);
+      const cn = cost(cx, cy - 1);
+      const cs = cost(cx, cy + 1);
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const diag = dx !== 0 && dy !== 0;
+          if (four && diag) continue;
+          const nx = cx + dx;
+          const ny = cy + dy;
+          const step = diag ? cost(nx, ny) : dx < 0 ? cw : dx > 0 ? ce : dy < 0 ? cn : cs;
+          if (step === Infinity) continue;
+          // (no cutting a corner past something that can't be crossed)
+          if (diag && ((dx < 0 ? cw : ce) === Infinity || (dy < 0 ? cn : cs) === Infinity)) continue;
+          if (e && (diag ? !(e(cx, cy, nx, cy) && e(nx, cy, nx, ny) && e(cx, cy, cx, ny) && e(cx, ny, nx, ny)) : !e(cx, cy, nx, ny))) continue;
+          const nn = ny * W + nx;
+          const ng = gc + step * (diag ? 1.414 : 1);
+          if (seenAt[nn] !== gen || ng < g[nn]) {
+            seenAt[nn] = gen;
+            g[nn] = ng;
+            came[nn] = c;
+            const hx = nx > to.x ? nx - to.x : to.x - nx;
+            const hy = ny > to.y ? ny - to.y : to.y - ny;
+            push(ng + 0.55 * ((hx > hy ? hx : hy) + 0.414 * (hx < hy ? hx : hy)), nn);
+          }
+        }
+    }
+    return true;
+  };
+  const mine = !searching;
+  searching = true;
+  let ok: boolean;
+  try {
+    ok = search();
+  } finally {
+    if (mine) searching = false;
   }
-  if (came[goal] < 0) return null;
+  if (!ok || seenAt[goal] !== gen || came[goal] < 0) return null;
   const out: { x: number; y: number }[] = [];
   for (let c = goal; c !== start; c = came[c]) out.push({ x: c % W, y: Math.floor(c / W) });
   return out.reverse();
+}
+
+/** Each cell's `stepCost` with nothing standing on it (a road 0.55 over anything), and whether it's a road; kept for a
+ *  land while its cells and roads strings are the same ones. */
+interface CostGrid {
+  cells: string;
+  roads: string;
+  cost: Float64Array;
+  road: Uint8Array;
+}
+const costGrids = new WeakMap<LandMap, CostGrid>();
+function costGrid(m: LandMap): CostGrid {
+  const had = costGrids.get(m);
+  if (had && had.cells === m.cells && had.roads === m.roads) return had;
+  const n = m.w * m.h;
+  const g: CostGrid = { cells: m.cells, roads: m.roads, cost: new Float64Array(n), road: new Uint8Array(n) };
+  for (let i = 0; i < n; i++) {
+    const x = i % m.w;
+    const y = (i - x) / m.w;
+    g.road[i] = m.roads[i] === '#' ? 1 : 0;
+    g.cost[i] = stepCost(m, x, y);
+  }
+  costGrids.set(m, g);
+  return g;
+}
+
+/** The path search's buffers, kept between searches (for one size of land at a time). */
+interface SearchBuffers {
+  n: number;
+  gen: number;
+  g: Float64Array;
+  came: Int32Array;
+  seenAt: Uint32Array;
+  cost: Float64Array;
+  costAt: Uint32Array;
+  hf: Float64Array;
+  hc: Int32Array;
+  floodAt: Uint32Array;
+  queue: Int32Array;
+}
+/** How far a goal's surroundings are flooded to see whether it's shut in, in cells. */
+const SHUT_IN_MOST = 1500;
+let buffers: SearchBuffers | null = null;
+let searching = false;
+const newBuffers = (n: number): SearchBuffers => ({ n, gen: 0, g: new Float64Array(n), came: new Int32Array(n), seenAt: new Uint32Array(n), cost: new Float64Array(n), costAt: new Uint32Array(n), hf: new Float64Array(1024), hc: new Int32Array(1024), floodAt: new Uint32Array(n), queue: new Int32Array(SHUT_IN_MOST + 9) });
+function searchBuffers(n: number): SearchBuffers {
+  if (!buffers || buffers.n !== n || buffers.gen >= 0xfffffff0) buffers = newBuffers(n);
+  return buffers;
 }
 
 /* ------------------------------------------------------------ footpaths */
@@ -746,3 +910,113 @@ export function touchesWater(m: LandMap, r: Rect): boolean {
   return false;
 }
 
+
+/* ------------------------------------------------------------ which cells join up */
+
+/** The land's passable cells (`stepCost` finite, a road always, nothing in `solid` standing on it) labelled by the
+ *  piece of open ground they belong to, four ways: with no corner-cutting past what can't be crossed, a diagonal step
+ *  is allowed only where both cells beside it are passable, so the eight-way paths join exactly the cells that join
+ *  four ways. Kept for a land while its cells, roads and `solid` (the cells built on, keyed y * 4096 + x) are the
+ *  same. -1: not passable. */
+interface Pieces {
+  cells: string;
+  roads: string;
+  solid: Set<number>;
+  label: Int32Array;
+}
+const piecesOf = new WeakMap<LandMap, Pieces>();
+function landPieces(m: LandMap, solid: Set<number>): Pieces {
+  const had = piecesOf.get(m);
+  if (had && had.cells === m.cells && had.roads === m.roads && had.solid === solid) return had;
+  const grid = costGrid(m);
+  const W = m.w;
+  const n = W * m.h;
+  const label = new Int32Array(n).fill(-2);
+  const open = (i: number) => {
+    if (grid.road[i]) return true;
+    const x = i % W;
+    return grid.cost[i] !== Infinity && !solid.has(((i - x) / W) * 4096 + x);
+  };
+  const queue = new Int32Array(n);
+  let next = 0;
+  for (let i = 0; i < n; i++) {
+    if (label[i] !== -2) continue;
+    if (!open(i)) {
+      label[i] = -1;
+      continue;
+    }
+    const id = next++;
+    let head = 0;
+    let tail = 0;
+    label[i] = id;
+    queue[tail++] = i;
+    while (head < tail) {
+      const c = queue[head++];
+      const x = c % W;
+      const nb = [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, c - W, c + W];
+      for (const k of nb) {
+        if (k < 0 || k >= n || label[k] !== -2) continue;
+        if (open(k)) {
+          label[k] = id;
+          queue[tail++] = k;
+        } else label[k] = -1;
+      }
+    }
+  }
+  const p: Pieces = { cells: m.cells, roads: m.roads, solid, label };
+  piecesOf.set(m, p);
+  return p;
+}
+
+/** Whether a plain search (no swimming, fording or walls between cells) from one cell to another could find a way,
+ *  over the cells in `solid` but those in `through` (where the walker is headed): false only when it surely can't, as
+ *  `findPath` would find after looking at every cell it can reach. */
+export function mayReach(m: LandMap, solid: Set<number>, through: Rect | undefined, from: Pt, to: Pt): boolean {
+  if (from.x === to.x && from.y === to.y) return true;
+  if (!inMap(m, from.x, from.y) || !inMap(m, to.x, to.y)) return true; // (findPath says so itself)
+  if (Math.abs(from.x - to.x) + Math.abs(from.y - to.y) === 1) return true;
+  const { label } = landPieces(m, solid);
+  const grid = costGrid(m);
+  const W = m.w;
+  // (the cells of `through` that are passable only because the walker may go in: joined to what they touch)
+  const extra = new Map<number, number>();
+  if (through) {
+    for (let y = Math.max(0, through.y); y < Math.min(m.h, through.y + through.h); y++)
+      for (let x = Math.max(0, through.x); x < Math.min(W, through.x + through.w); x++) {
+        const i = y * W + x;
+        if (label[i] === -1 && grid.cost[i] !== Infinity) extra.set(i, -3 - extra.size);
+      }
+  }
+  // (a union of the labels the extra cells join)
+  const parent = new Map<number, number>();
+  const root = (a: number): number => {
+    let r = a;
+    while (parent.has(r) && parent.get(r) !== r) r = parent.get(r)!;
+    return r;
+  };
+  const join = (a: number, b: number) => {
+    const ra = root(a);
+    const rb = root(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+  const labelOf = (i: number) => (label[i] >= 0 ? label[i] : (extra.get(i) ?? -1));
+  const sides = (i: number): number[] => {
+    const x = i % W;
+    const y = (i - x) / W;
+    const out: number[] = [];
+    if (x > 0) out.push(i - 1);
+    if (x < W - 1) out.push(i + 1);
+    if (y > 0) out.push(i - W);
+    if (y < m.h - 1) out.push(i + W);
+    return out;
+  };
+  for (const [i, l] of extra) for (const k of sides(i)) if (labelOf(k) !== -1) join(l, labelOf(k));
+  const near = (c: Pt) => {
+    const out = new Set<number>();
+    for (const k of sides(c.y * W + c.x)) if (labelOf(k) !== -1) out.add(root(labelOf(k)));
+    return out;
+  };
+  const a = near(from);
+  for (const l of near(to)) if (a.has(l)) return true;
+  return false;
+}

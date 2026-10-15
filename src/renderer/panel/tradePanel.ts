@@ -13,9 +13,10 @@ import { HERDS, PEN_ROOM_PER_COL } from '../../shared/data/livestock';
 import type { Snapshot } from '../../shared/sim/snapshot';
 import { button, el } from './dom';
 import { marketsKey, renderMarkets } from './marketsPanel';
+import { ranchKey, ranchSection } from './ranchPanel';
 
 export const tradeKey = (s: Snapshot) =>
-  JSON.stringify([s.caravan && [s.caravan.faction, Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, [s.shop, s.tavern, ...s.stores].map((v) => v && [v.name, v.keeperName, v.ownerName, v.takings, Math.round(v.renown)]), s.buildings.filter((b) => HERDS[b.def]).map((b) => [b.status, b.herd?.head, b.wide]), marketsKey(s)]);
+  JSON.stringify([s.caravan && [s.caravan.faction, Math.ceil(s.caravan.hoursLeft), s.caravan.offers.map((o) => [o.done, o.ok, o.reason])], s.marketBuilt, s.nextCaravanHours !== null && Math.ceil(s.nextCaravanHours), s.horses, s.stalls, s.stock, [s.shop, s.tavern, ...s.stores].map((v) => v && [v.name, v.keeperName, v.ownerName, v.takings, Math.round(v.renown)]), s.buildings.filter((b) => HERDS[b.def]).map((b) => [b.status, b.herd?.head, b.wide]), marketsKey(s), ranchKey(s)]);
 
 const list = (st: Stock) =>
   (Object.entries(st) as [Material, number][])
@@ -99,6 +100,7 @@ export function renderTrade(s: Snapshot, bridge: Bridge | undefined): HTMLElemen
     row.append(el('span', 'bar-label', h.name), bar, el('span', 'bar-text', h.away ? 'On an expedition' : h.hp < HORSE_HP * 0.5 ? 'Resting (hurt)' : 'In the stable'));
     out.push(row);
   }
+  out.push(...ranchSection(s, bridge));
   return out;
 }
 

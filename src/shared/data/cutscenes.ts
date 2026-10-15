@@ -374,6 +374,22 @@ const SCENES: Cutscene[] = [
     ],
   },
 
+  // ---------------------------------------------------------------- the orcs' Waaagh! (sim/warpath.ts)
+  {
+    id: 'waaagh',
+    title: 'WAAAGH!',
+    cast: { founder: { role: 'founder', x: 150, facing: 'left' }, hero: { role: 'hero', x: 100, facing: 'right' }, wit: { role: 'wit', x: 76, facing: 'right' }, worrier: { role: 'worrier', x: 200, facing: 'left' } },
+    shots: [
+      { look: 'town', cam: sky(160), to: wide(150, 1.1), fx: ['fadeIn', 'red', 'rumble'], caption: 'The fury boils over', hold: 2.5, lines: [tell('It started with one orc banging a pot. By midnight every pot in the camp had been banged flat.')] },
+      { cam: close('founder', 2.8, 0.06), acts: [{ who: 'founder', pose: 'cheer' }], fx: ['shake'], lines: [say('founder', 'Too long we have sat by the fire! Too long we have eaten porridge!', 'shout')] },
+      { cam: close('hero', 3, -0.05), lines: [say('hero', 'I like porridge.'), say('founder', 'NOBODY LIKES PORRIDGE.', 'shout')] },
+      { cam: two('wit', 'hero', 2.2), lines: [say('wit', 'I have painted my face red. It is mostly berries. Some of it is the wall.')] },
+      { cam: close('worrier', 3, 0.08), lines: [say('worrier', 'Has anyone checked who we are actually fighting?'), say('wit', 'Everyone.'), say('worrier', 'That is a lot of people.')] },
+      { look: 'battle_graves', cam: wide(160, 1.2), acts: [{ who: 'founder', pose: 'strike' }, { who: 'hero', pose: 'strike' }], fx: ['flash', 'shake', 'red'], burst: { on: 'founder', fx: 'px:fire-explosion' }, lines: [say('founder', 'WAAAAAGH!', 'shout'), say('hero', 'WAAAAAGH!', 'shout')] },
+      { cam: sky(170), fx: ['rumble', 'fadeOut'], hold: 2.5, lines: [tell('The green tide rolled out over the hills. Somewhere far off, every lord in the realm checked the lock on their door.')] },
+    ],
+  },
+
   // ---------------------------------------------------------------- a tale well ended
   {
     id: 'saga_triumph',

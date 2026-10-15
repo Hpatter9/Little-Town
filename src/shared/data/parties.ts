@@ -32,7 +32,7 @@ export const PULL_NEST_LEVEL = 1.5;
 export const PULL_HEART = 12;
 /** Recruiting: the weight of a member's opinion of the party (per point), of filling a needed role, of being an
  *  adventurer, and of being devoted to someone going. */
-export const RECRUIT_OPINION = 1 / 20;
+export const RECRUIT_OPINION = 1 / 8; // (friends go together: the owner's ask; it was 1/20)
 export const RECRUIT_ROLE = 4;
 export const RECRUIT_ADVENTURER = 2;
 export const RECRUIT_DEVOTED = 8;
