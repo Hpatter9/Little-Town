@@ -125,8 +125,43 @@ side stream (`${seed}:magic:${tick}`), never the town's.
       tomes and potions, two reading tables).
   - **The fight screen** (fightView.ts) no longer paints its cast and impact circles. A cast plays the pixel-effects
     atlas's `<element>-gather` strip round the caster (`PX_ELEMENT`).
-- **Tests:** `test/magic.test.ts`.
-- **Changes other systems** (all one-line hooks):
-  - "Turn-based fights where stats matter": `readySpells` and `kitOf` take studied spells and a focus's power.
+- **Tests:** `test/magic.test.ts`, `test/mana.test.ts`.
+
+- **Changes other systems** (all small hooks):
+  - "Turn-based fights where stats matter": `readySpells` and `kitOf` take studied spells and a focus's power; mana is
+    kept between fights.
+  - "Tactics battles" and "Tower-defence raids": spells cost mana there now.
   - "Class paths" (`canWear`).
   - "Combat effects" (the fight screen's cast).
+
+### Mana that runs out (the owner's ask: "casters can just cast all they want; a mana bar under the health bar")
+
+- **Why it felt free:** only an expedition's fight gave its fighters a pool (combat.ts `personFighter`). The raid's
+  tactics board and its trail built their townsfolk without one, and `canPay` (actions.ts) lets a fighter with no pool
+  cast anything. On the board, too, the player's order (`tacticsOrder` 'skill') never asked about the cost.
+- **The pool** (`src/shared/sim/mana.ts`):
+  - Who has one: a calling that casts, or anyone who has learned spells by study (`hasMana`).
+  - Its size is `maxManaOf` (Intellect and Wisdom), widened by a focus or a magic charm (`FOCUS_MANA` 1.5 × its spell
+    power: a Ley Crystal +30%).
+  - It's kept on the person between fights (`Person.mana`, left out while full; `manaNow`, `setMana`).
+- **Charged in every fight:**
+  - **Expeditions:** a fight starts from what's left (`personFighter` `mp: manaNow(p)`) and writes it back at the end
+    (expeditions.ts `finishBattle`).
+  - **The tactics board and the trail:** the townsfolk's combatants read and charge the person's own pool (getters on
+    `asPerson` in tactics.ts, `mapArena` in battle.ts).
+  - **The player's orders on the board:** they can't pick a spell they can't pay for (the 'skill' order, and the menu's
+    `ready`).
+  - **Falling back:** a caster without the mana strikes instead.
+- **Coming back:**
+  - In a fight, `manaRegenOf` each turn (`manaTurn`: at each turn on the board, each action on the trail).
+  - Out of a fight, `MANA_REST` (0.12) of the pool an hour, times (1 + the leyline's strength where they stand)
+    (`manaRest`, from `manaHourly` in sim/magic.ts). This runs every hour whether or not the autopilot is on, like
+    healing.
+  - Potions are left to the battle-items chat.
+- **Seen:**
+  - `PersonView.mana` ([now, most], a fast field of the snapshot; null without a pool).
+  - A thin blue bar under the health bar over people on the map in a raid (mapPeople.ts `hpBar`).
+  - Under each unit box's health bar on the tactics board, with "MP n/m" beside HP (`TacUnitView.mp`/`mpMax`,
+    tacticsView.ts `drawBars`).
+  - On the Townsfolk page's "Health and spirits" (`manaBar`).
+  - The side-view fight's HUD already had its MP meter under each party member's health (fightHud.ts); foes have no pool.
