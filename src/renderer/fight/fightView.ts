@@ -10,6 +10,11 @@ import { airshipTexture, DECK, loadAirshipArt } from '../art/airshipArt';
 import { ColorMatrixFilter, Container, Graphics, Sprite, Text, TilingSprite } from 'pixi.js';
 import { ABILITY_BY_ID } from '../../shared/data/abilities';
 import type { Element } from '../../shared/data/effects';
+import { actFx } from '../../shared/data/actFx';
+import { castsMagic } from '../../shared/data/classes';
+import { ITEM_BY_ID } from '../../shared/data/items';
+import { shotCode, shotOf } from '../../shared/data/projectiles';
+import { ShotPainter, shotTicks } from '../battle/projectiles';
 import { ENEMIES, type HumanSprite, type MachineSprite, type StillSprite } from '../../shared/data/enemies';
 import { SPELL_BY_ID } from '../../shared/data/spells';
 import type { ExpeditionView, FighterView } from '../../shared/sim/snapshot';
@@ -60,6 +65,51 @@ function elementOf(id: string): Element {
   return effects.find((e) => e.element)?.element ?? (effects.some((e) => e.kind === 'heal' || e.kind === 'revive') ? 'holy' : 'arcane');
 }
 
+/** Ticks a shot waits before it leaves the hand (the draw or the cast), and the px a tile counts as when timing its flight
+ *  (the fight screen's figures are small and close). */
+const LEAD = 1;
+const SHOT_TILE = 24;
+/** How big the shots are drawn against their usual size. */
+const SHOT_SCALE = 0.55;
+/** The families of effect a skill (not a spell) flies as: a thrown bolt of power, not a blow up close. */
+const FLYING_FAMILY = ['bolt', 'orb', 'explosion', 'flame', 'splash', 'spread'];
+const FOE_TARGETS = ['foe', 'foes', 'random_foes'];
+
+/** A spell or skill's flying shot (`orb:<element>`), or null when it does not fly: friends and self (heals, wards), blows
+ *  up close, and the big sheets of an ultimate. The element is the pixel effect's own (data/actFx.ts: `px:<element>-<family>`). */
+function flyingAct(id: string): string | null {
+  const spell = SPELL_BY_ID[id];
+  const effects = spell?.effects ?? ABILITY_BY_ID[id]?.active?.effects ?? [];
+  if (!effects.some((e) => FOE_TARGETS.includes(e.target) && e.kind !== 'heal' && e.kind !== 'revive')) return null;
+  const fx = actFx(id);
+  if (!fx.startsWith('px:')) return null;
+  const dash = fx.indexOf('-');
+  const el = fx.slice(3, dash);
+  if (el === 'white') return null;
+  if (!spell && !FLYING_FAMILY.includes(fx.slice(dash + 1))) return null;
+  return shotCode({ ammo: 'orb', el });
+}
+
+/** What a fighter looses with a plain ranged blow, by the weapon in a townsperson's hand (their calling's bolt if they
+ *  cast) or by the foe's kind (the same idea as the tactics board's `shotFor`). */
+function blowShot(f: FighterView): string {
+  if (f.kind === 'person') {
+    const magic = castsMagic(f.cls);
+    return shotOf((f.gear.weapon ? ITEM_BY_ID[f.gear.weapon]?.name : undefined) ?? (magic ? 'staff' : 'sling'), { magic, caster: f.cls ?? '' });
+  }
+  const d = ENEMIES[f.kind];
+  if (!d) return 'arrow';
+  const w = 'weapon' in d.sprite && d.sprite.weapon ? d.sprite.weapon : '';
+  return shotOf(`${d.name} ${w}`, { caster: `${f.kind} ${d.name}` });
+}
+
+/** A shot in the air on the fight screen, and the blow it carries: who it lands on and how old the act is (ticks, as the
+ *  sim counts), so that the number, the flinch and the spark of that blow wait for it to arrive. */
+interface Flight {
+  age: number;
+  wait: number;
+}
+
 interface Figure {
   sprite: Sprite;
   pop: Text;
@@ -95,6 +145,9 @@ export class FightScene {
   /** The spells' and skills' effects playing where they landed (a pool, reused frame to frame), and when each act was
    *  first seen (ms: the sim's ages are whole ticks, so the frames are timed here). */
   private readonly effects = new Container();
+  /** Arrows and spells in the air (battle/projectiles.ts), and each shooter's last plain shot: when it began (ms) and where. */
+  private readonly shots = new ShotPainter();
+  private readonly blows = new Map<string, { last: number; start: number; code: string; from: string; to: string | null; wait: number }>();
   private readonly fxPool: Sprite[] = [];
   private readonly actSeen = new Map<string, number>();
   private readonly figs = new Map<string, Figure>();
@@ -116,7 +169,7 @@ export class FightScene {
 
   constructor() {
     this.root.visible = false;
-    this.world.addChild(this.photo, this.ground, ...this.layers.slice(0, 3), this.wallTorches, this.roomProp, this.layers[3], this.sea, this.figures, this.fx, this.effects, this.dark);
+    this.world.addChild(this.photo, this.ground, ...this.layers.slice(0, 3), this.wallTorches, this.roomProp, this.layers[3], this.sea, this.figures, this.fx, this.shots.container, this.effects, this.dark);
     this.ground.visible = false;
     this.figures.addChild(this.hull);
     this.hull.anchor.set(0.5, 1);
@@ -272,8 +325,13 @@ export class FightScene {
     // (at sea the scroll keeps going: she sails on, fight or no fight)
     if (this.aboard(v) && !walking) this.scroll += MARCH * dt * 0.5;
     this.drawSea(this.afloat(v), now);
+    this.shots.begin();
     if (fighting) this.drawFight(v.battle!, v, now, seen);
-    else this.drawMarch(v, now, walking, seen);
+    else {
+      this.blows.clear();
+      this.drawMarch(v, now, walking, seen);
+    }
+    this.shots.end();
     for (const [k, f] of this.figs) {
       if (seen.has(k)) continue;
       f.sprite.destroy();
@@ -485,9 +543,11 @@ export class FightScene {
     // (a fight at sea: they stand on her deck, which runs under the whole column)
     if (this.aboard(v)) this.showHull(v, Math.round(vw * 0.74), Math.round(hy + 16 + Math.max(0, party.length - 1) * partyGap) + 8, Math.max(110, party.length * 26 + 60), now);
     else this.hull.visible = false;
-    // the spells and skills just used: a flash of their colour and their effect on whoever they touched
+    // the spells and skills just used: an orb of their element flies to the foe first (not for friends and self), then a
+    // flash of their colour and their effect on whoever they touched
     let used = 0;
     const live = new Set<string>();
+    const flights = new Map<string, Flight[]>();
     for (const act of v.acts) {
       const id = this.idByName.get(act.name) ?? '';
       const key = `${act.side}:${act.ref}:${act.name}:${act.targets.join(',')}`;
@@ -496,9 +556,25 @@ export class FightScene {
       if (start === undefined) this.actSeen.set(key, (start = now - act.age * 100));
       // (`window.__fxSlow` slows them, for previews)
       const t = (now - start) / 1000 / ((window as unknown as { __fxSlow?: number }).__fxSlow ?? 1);
-      if (act.age <= 8) {
+      // the shot: from the caster to the first foe, or to the middle of the foes an area touches
+      let wait = 0;
+      const code = flyingAct(id);
+      const foeSide = act.side === 'party' ? 'enemy' : 'party';
+      const aims = code ? act.targets.map((r) => at.get(`${foeSide}:${r}`)).filter((q): q is [number, number] => !!q) : [];
+      const from = at.get(`${act.side}:${act.ref}`);
+      if (code && from && aims.length) {
+        const goal = aims.length > 1 ? [aims.reduce((s, q) => s + q[0], 0) / aims.length, aims.reduce((s, q) => s + q[1], 0) / aims.length] : aims[0];
+        const a: [number, number] = [from[0] + (act.side === 'party' ? -10 : 8), from[1] - 16];
+        const b: [number, number] = [goal[0], goal[1] - 14];
+        const dur = shotTicks(code, a, b, SHOT_TILE);
+        wait = LEAD + dur;
+        this.shots.put(code, a, b, t * 10 - LEAD, dur, SHOT_SCALE);
+        for (const r of act.targets) flights.set(`${foeSide}:${r}`, [...(flights.get(`${foeSide}:${r}`) ?? []), { age: act.age, wait }]);
+      }
+      const landed = t - wait / 10;
+      if (act.age - wait <= 8 && act.age - wait >= 0) {
         const colour = ELEMENT_COLOUR[elementOf(id)];
-        const k = act.age / 8;
+        const k = (act.age - wait) / 8;
         for (const ref of act.targets) {
           const p = at.get(`enemy:${ref}`) ?? at.get(`party:${ref}`);
           if (!p) continue;
@@ -508,8 +584,8 @@ export class FightScene {
       const sh = sheetOf(actSprite(id));
       act.targets.forEach((ref, i) => {
         const p = at.get(`enemy:${ref}`) ?? at.get(`party:${ref}`);
-        const tex = p ? sh.frame((t - i * 0.08) * sh.fps) : null;
-        if (!p || !tex || t - i * 0.08 < 0) return;
+        const tex = p ? sh.frame((landed - i * 0.08) * sh.fps) : null;
+        if (!p || !tex || landed - i * 0.08 < 0) return;
         const sp = (this.fxPool[used] ??= this.effects.addChild(new Sprite()));
         used++;
         sp.visible = true;
@@ -522,13 +598,20 @@ export class FightScene {
         sp.position.set(Math.round(p[0] - (sh.size * k * flip) / 2), Math.round(p[1] + sh.foot * k - sh.size * k));
       });
     }
+    this.plainShots(fighters, v, at, now, flights);
     for (let i = used; i < this.fxPool.length; i++) this.fxPool[i].visible = false;
     for (const k of this.actSeen.keys()) if (!live.has(k)) this.actSeen.delete(k);
-    for (const f of fighters) {
-      const key = `${f.side}:${f.ref}`;
+    for (const real of fighters) {
+      const key = `${real.side}:${real.ref}`;
       const p = at.get(key);
       if (!p) continue;
       seen.add(key);
+      // (a blow that was shot or cast at them lands when the shot arrives: its flinch and number wait for it)
+      const wait = flights.get(key);
+      const hitWait = wait?.find((w) => Math.abs(real.sinceHit - w.age) <= 2)?.wait ?? 0;
+      const popWait = real.pop ? (wait?.find((w) => Math.abs(real.pop!.age - w.age) <= 2)?.wait ?? 0) : 0;
+      const late = hitWait > 0 && real.sinceHit < hitWait;
+      const f: FighterView = hitWait ? { ...real, sinceHit: late ? 999 : real.sinceHit - hitWait, ...(late ? { down: false } : {}), pop: real.pop } : real;
       const g = this.fig(key);
       const acting = f.sinceAction < 6 && !f.down;
       // (they step out toward the foe to strike or cast)
@@ -539,7 +622,7 @@ export class FightScene {
       // (an elite wears its affix's colour; a boss its own)
       g.sprite.tint = f.sinceHit < 3 && !f.down ? 0xff8080 : f.elite ? (ELITES[f.elite as EliteAffix]?.tint ?? 0xffffff) : (ENEMIES[f.kind]?.tint ?? 0xffffff);
       // the number over them: damage white, healing green, rising and fading
-      const pop = f.pop && f.pop.age < 14 ? f.pop : null;
+      const pop = real.pop && real.pop.age - popWait >= 0 && real.pop.age - popWait < 14 ? { ...real.pop, age: real.pop.age - popWait } : null;
       g.pop.visible = !!pop && (pop.amount > 0 || !pop.heal);
       if (pop) {
         g.pop.text = pop.amount > 0 ? String(pop.amount) : 'Miss';
@@ -563,6 +646,48 @@ export class FightScene {
       }
     }
     this.figures.sortableChildren = true;
+  }
+
+  /** The plain ranged blows (a bow, a sling, a gun, a caster's bolt): the sim logs no target for them, so the foe that was
+   *  struck (or missed) as the blow was made is the one it flies to. Their numbers and flinches wait for it (`flights`). */
+  private plainShots(fighters: FighterView[], v: ExpeditionView, at: Map<string, [number, number]>, now: number, flights: Map<string, Flight[]>): void {
+    const live = new Set<string>();
+    for (const f of fighters) {
+      const key = `${f.side}:${f.ref}`;
+      const p = at.get(key);
+      if (!f.ranged || !p) continue;
+      live.add(key);
+      let b = this.blows.get(key);
+      if (!b || f.sinceAction < b.last) {
+        b = { last: f.sinceAction, start: now - f.sinceAction * 100, code: blowShot(f), from: key, to: null, wait: 0 };
+        this.blows.set(key, b);
+        // (a spell or skill is shown by its own act, not as a plain shot)
+        const cast = v.acts.some((a) => a.side === f.side && a.ref === f.ref && Math.abs(a.age - f.sinceAction) <= 2);
+        if (f.sinceAction <= 4 && !cast) {
+          let best = 3;
+          for (const o of fighters) {
+            if (o.side === f.side) continue;
+            const hit = Math.min(o.sinceHit, o.pop && !o.pop.heal ? o.pop.age : 999);
+            const d = Math.abs(hit - f.sinceAction);
+            const q = at.get(`${o.side}:${o.ref}`);
+            if (q && d < best) {
+              best = d;
+              b.to = `${o.side}:${o.ref}`;
+            }
+          }
+        }
+      }
+      b.last = f.sinceAction;
+      const goal = b.to ? at.get(b.to) : null;
+      if (!goal) continue;
+      const a: [number, number] = [p[0] + (f.side === 'party' ? -10 : 8), p[1] - 16];
+      const z: [number, number] = [goal[0], goal[1] - 14];
+      const dur = shotTicks(b.code, a, z, SHOT_TILE);
+      b.wait = LEAD + dur;
+      this.shots.put(b.code, a, z, (now - b.start) / 100 - LEAD, dur, SHOT_SCALE);
+      if (f.sinceAction < b.wait + 16) flights.set(b.to!, [...(flights.get(b.to!) ?? []), { age: f.sinceAction, wait: b.wait }]);
+    }
+    for (const k of this.blows.keys()) if (!live.has(k)) this.blows.delete(k);
   }
 
   /** A fighter's picture: a townsperson (or a raised foe) as an LPC figure, a creature, a still or a machine. */
