@@ -13,6 +13,8 @@ import { setFire } from './fire';
 import { killPerson } from './health';
 import { cellAt, cellOf, centreOf, groundAt, idx, inMap, isOpen, setGround, wet, CELL } from './land';
 import { noteCleared } from './regrow';
+import { maybeShiftRiver } from './rivers';
+import { RICH_DAYS } from '../data/wild';
 import { campCell, castSpellFx, maxHp, notify, tireless, type GameState, type Person } from './state';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
@@ -37,6 +39,10 @@ export interface Disaster {
   dead: number;
   /** The town's crew is at it (sandbags, a firebreak). */
   crew?: boolean;
+  /** A wildfire: the wind's heading (radians, sim/wild.ts) it spreads with, and whether it's a dry summer's (it runs
+   *  through dry grass and the fields too). */
+  wind?: number;
+  dry?: boolean;
 }
 
 /** The first comes on this day; then one every so many days. */
@@ -64,7 +70,7 @@ export const QUAKE_HOURS = 3;
 
 const roll = (s: GameState, ...salts: number[]) => (mixSeed(hashSeed(s.seed), 0xd15a, ...salts) >>> 0) / 4294967296;
 const fellable = (b: GameState['buildings'][number]) => b.status === 'done' && !b.room && !defOf(b).seat && b.def !== 'campfire';
-const raining = (s: GameState) => ['rain', 'storm', 'snow'].includes(weatherAt(s.seed, s.tick, s.doom?.kind ?? null).kind);
+export const raining = (s: GameState) => ['rain', 'storm', 'snow'].includes(weatherAt(s.seed, s.tick, s.doom?.kind ?? null).kind);
 
 /** Each tick from sim.ts. */
 export function disastersTick(s: GameState): void {
@@ -103,7 +109,7 @@ function near(s: GameState, ok: (i: number) => boolean): number[] {
   return out;
 }
 const waterNear = (s: GameState) => near(s, (i) => { const { x, y } = cellAt(s.land, i); return groundAt(s.land, x, y) === 'water'; });
-const woodsNear = (s: GameState) => near(s, (i) => { const { x, y } = cellAt(s.land, i); return groundAt(s.land, x, y) === 'forest'; });
+export const woodsNear = (s: GameState) => near(s, (i) => { const { x, y } = cellAt(s.land, i); return groundAt(s.land, x, y) === 'forest'; });
 
 export function startDisaster(s: GameState, kind: DisasterKind): Disaster {
   const d: Disaster = { kind, start: s.tick, until: s.tick, cells: [], hit: [], dead: 0 };
@@ -229,6 +235,7 @@ function fireSpread(s: GameState, d: Disaster): void {
   const burning = d.burning!;
   const chance = FIRE_SPREAD * (raining(s) ? 0.3 : 1) * (d.crew && s.tick - d.start >= 2 * TICKS_PER_HOUR ? 0.6 : 1);
   const next: Record<number, number> = {};
+  const burntSet = new Set(d.burnt!.map(([k]) => k));
   for (const [key, since] of Object.entries(burning)) {
     const i = Number(key);
     const { x, y } = cellAt(m, i);
@@ -237,7 +244,9 @@ function fireSpread(s: GameState, d: Disaster): void {
       if (d.hit.includes(b.id) || b.status !== 'done') continue;
       const f = footprint(b);
       if (x < f.x - 1 || x > f.x + f.w || y < f.y - 1 || y > f.y + f.h) continue;
-      if (roll(s, s.tick, b.id, 9) < Math.min(0.9, chance * 1.4)) {
+      const fc = buildingCentre(b);
+      const wind = d.wind === undefined ? 1 : Math.max(0.1, 1 + 0.9 * Math.cos(Math.atan2(fc.y / CELL - y - 0.5, fc.x / CELL - x - 0.5) - d.wind));
+      if (roll(s, s.tick, b.id, 9) < Math.min(0.9, chance * 1.4 * wind)) {
         d.hit.push(b.id);
         setFire(s, b);
       }
@@ -246,19 +255,28 @@ function fireSpread(s: GameState, d: Disaster): void {
       next[i] = since;
       continue;
     }
-    // burnt out: ash, and the wood grows back in time (sim/regrow.ts)
+    // burnt out: ash, and the wood grows back (richer for the burning) in time (sim/regrow.ts)
     if (groundAt(m, x, y) === 'forest') {
       setGround(m, x, y, 'grass');
       noteCleared(s, i, 'forest');
+      if (m.regrow?.[i]) {
+        m.regrow[i][1] = s.tick + RICH_DAYS * TICKS_PER_DAY;
+        (m.rich ??= {})[i] = 1;
+      }
     }
     d.burnt!.push([i, s.tick]);
+    burntSet.add(i);
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
       const nx = x + dx;
       const ny = y + dy;
       if (!inMap(m, nx, ny)) continue;
       const j = idx(m, nx, ny);
-      if (burning[j] !== undefined || next[j] !== undefined || d.burnt!.some(([k]) => k === j)) continue;
-      if (groundAt(m, nx, ny) === 'forest' && roll(s, s.tick, j, 10) < chance) next[j] = s.tick;
+      if (burning[j] !== undefined || next[j] !== undefined || burntSet.has(j)) continue;
+      const g = groundAt(m, nx, ny);
+      // (the wind drives it on: the way it blows, it runs; against it, it creeps)
+      const wind = d.wind === undefined ? 1 : Math.max(0.1, 1 + 0.9 * Math.cos(Math.atan2(dy, dx) - d.wind));
+      const base = g === 'forest' ? 1 : d.dry && g === 'grass' ? 0.8 : d.dry && g === 'fertile' ? 0.5 : 0;
+      if (base && roll(s, s.tick, j, 10) < chance * base * wind) next[j] = s.tick;
     }
   }
   d.burning = next;
@@ -350,6 +368,8 @@ function end(s: GameState, d: Disaster): void {
   // (the ash lies a while after a fire: kept on for the drawing, nothing else)
   s.lastDisaster = { kind: d.kind, tick: s.tick, burnt: d.burnt };
   s.disaster = undefined;
+  // (a big flood may shift the river for good: sim/rivers.ts)
+  if (d.kind === 'flood') maybeShiftRiver(s);
 }
 
 /** What the map draws. */
