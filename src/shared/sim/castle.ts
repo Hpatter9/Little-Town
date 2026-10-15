@@ -6,6 +6,7 @@
 // room's door is its own middle, and roads run to the gate in the hall's south wall, never inside.
 
 import type { BuildingDef } from '../data/buildings';
+import { isSeat } from '../data/seats';
 import { rulesOf } from '../data/origins';
 import { carvable, groundAt, idx, inMap, MOUNTAIN_FOOT, setGround, wet, type LandMap, type Pt, type Rect } from './land';
 import { footprint } from './buildings';
@@ -346,7 +347,8 @@ export function hallCells(s: CastleState): Set<number> {
  *  hall, or a gallery), never into another room's interior. */
 function offHall(s: CastleState, rs: CastleState['buildings']): ((a: number, b: number) => boolean) | undefined {
   if (holdOf(s) !== 'mountain') return undefined;
-  const halls = new Set(rs.filter(isHallway).map((b) => b.id));
+  // (the seat's hall lies over the entrance hall's cells: it counts as the hall)
+  const halls = new Set(rs.filter((b) => isHallway(b) || isSeat(b.def)).map((b) => b.id));
   const halled = new Set(rs.filter((b) => b.halled).map((b) => b.id));
   if (!halled.size) return undefined;
   const hallLike = (id: number) => id < 0 || halls.has(id);
