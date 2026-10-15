@@ -48,6 +48,7 @@ import { boatLine, boatyardOf, fleet, mooring } from './boats';
 import { airfleet, airshipLine, mastOf } from './skies';
 import { AIRSHIP_BY_KIND, type AirshipKind } from '../data/skies';
 import { flyHeight } from './roamers';
+import { wildView, type WildView } from './wild';
 import { peopleOf } from './strangers';
 import { FOUNDER_BY_ID } from '../data/founders';
 import { backstory } from '../data/backstories';
@@ -944,6 +945,8 @@ export interface Snapshot {
   watch: ExpeditionView | null;
   /** Hostile bands roaming the land, and the fights they're in (sim/roamers.ts). */
   roamers: RoamerView[];
+  /** The herds and predator packs of the wilderness (sim/wild.ts); absent until the town runs itself. */
+  wild?: WildView;
   skirmishes: SkirmishView[];
   /** The mine the player has gone into, in place of the town (sim/places.ts). */
   mine: MineView | null;
@@ -1306,6 +1309,7 @@ export function snapshot(s: GameState): Snapshot {
     scenesSeen: (s.scenesSeen ?? []).map((r) => ({ key: r.key, id: r.id, title: r.title, tick: r.tick })),
     blight: blightSources(s),
     uniques: (s.uniques ?? []).map((id) => ({ id, holder: s.people.find((p) => p.gear.weapon === id)?.name ?? null })),
+    wild: wildView(s),
     roamers: (s.roamers ?? []).map((r) => ({
       id: r.id,
       kind: r.kind,

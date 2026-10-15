@@ -77,6 +77,7 @@ import { packDestinationOf, packDestUnlocked, packHome } from './pack';
 import { tireless, townFull, addStock, carryCapacity, earn, ERA_MULTIPLIER, makePerson, maxHp, meet, notify, poolSize, type Expedition, type FightResult, type GameState, type Person } from './state';
 import { TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { askToWatch } from './watchAsk';
+import { huntedUnit, huntFactors } from './wild';
 import { assignBeds, campEdge, drainNeeds, FOOD_PER_HOUR, gainSkill, HUNGRY, workFactor } from './townsfolk';
 import { topicName } from '../data/originResearch';
 
@@ -262,7 +263,8 @@ export function sendExpedition(s: GameState, destId: string, memberIds: readonly
   const boat = !ship && sailsTo(d) && members.length <= Math.max(MAX_PARTY, freeBoat(s) ? boatDef(freeBoat(s)!).crew : 0) ? freeBoat(s) : undefined;
   const speed = ship ? 1 / flySpeed(ship) : boat ? 1 / sailSpeed(boat) : truck ? TRUCK_SPEEDUP : (waterskins ? WATERSKIN_SPEEDUP : 1) * (mounted ? HORSE_SPEEDUP : 1);
 
-  const out = Math.round(phaseTicks(s, d.outSeconds) * speed);
+  // (a hunt goes further when the game near town is thin: sim/wild.ts)
+  const out = Math.round(phaseTicks(s, d.outSeconds) * speed * (d.type === 'hunt' ? huntFactors(s).travel : 1));
   const e: Expedition = {
     id: s.nextId++,
     dest: destId,
@@ -486,7 +488,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
         if (e.elapsed >= e.outTicks) {
           e.phase = 'work';
           e.elapsed = 0;
-          maybeFight(s, e, d, members, d.encounters.arrival, rng);
+          maybeFight(s, e, d, members, d.encounters.arrival + huntRisk(s, d), rng);
         }
         break;
       case 'work': {
@@ -500,14 +502,16 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
           break;
         }
         const cap = partyCarry(s, e);
+        const game = d.type === 'hunt' ? huntFactors(s).yield : 1; // (real game: sim/wild.ts)
         const lodge = d.type === 'hunt' && s.buildings.some((b) => b.def === 'hunters_lodge' && b.status === 'done') ? HUNTERS_LODGE_BONUS : 1;
         for (const p of members) {
           if (p.downed || e.roles[p.id] === 'porter') continue;
-          e.work += (skillSpeed(p.skills[workSkill(d, p)].level) * workFactor(s, p) * lodge) / (d.secondsPerUnit * ERA_MULTIPLIER[s.era] * TICK_HZ);
+          e.work += (skillSpeed(p.skills[workSkill(d, p)].level) * workFactor(s, p) * lodge * game) / (d.secondsPerUnit * ERA_MULTIPLIER[s.era] * TICK_HZ);
         }
         while (e.work >= 1 && poolSize(e.loot) < cap) {
           e.work -= 1;
           addStock(e.loot, rng.weighted(d.loot as Record<Material, number>), 1);
+          if (d.type === 'hunt') huntedUnit(s, 1); // (a head falls from the nearest herd)
           const workers = members.filter((p) => !p.downed);
           const worker = workers[rng.int(0, workers.length - 1)] ?? members[0];
           gainSkill(worker, workSkill(d, worker), LOOT_XP);
@@ -521,7 +525,7 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
       case 'back':
         if (!e.rolled.ambush && e.elapsed >= e.backTicks * AMBUSH_AT) {
           e.rolled.ambush = true;
-          maybeFight(s, e, d, members, d.encounters.ambush, rng);
+          maybeFight(s, e, d, members, d.encounters.ambush + huntRisk(s, d), rng);
           if (e.battle) break;
         }
         if (!e.rolled.backEvent && e.elapsed >= e.backTicks * EVENT_AT) {
@@ -533,6 +537,9 @@ export function updateExpeditions(s: GameState, rng: Rng): void {
     }
   }
 }
+
+/** The added odds of a fight on a hunt when the game is far from town (sim/wild.ts). */
+const huntRisk = (s: GameState, d: Destination) => (d.type === 'hunt' ? huntFactors(s).risk : 0);
 
 /** Roll for a fight; a scout may spot a (non-boss) one first and lead the party around it. */
 function maybeFight(s: GameState, e: Expedition, d: Destination, members: Person[], chance: number, rng: Rng): void {

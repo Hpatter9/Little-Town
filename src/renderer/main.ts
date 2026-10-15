@@ -1788,6 +1788,7 @@ async function start(): Promise<void> {
       }
     }
     wildlife.land = next.land;
+    wildlife.wild = next.wild;
     wildlife.on = !freeze && next.weather.kind !== 'storm' && !(next.raid?.phase === 'active');
     wildlife.night = next.calendar.daylight < 0.3;
     wildlife.season = next.calendar.season;

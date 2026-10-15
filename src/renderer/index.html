@@ -735,37 +735,6 @@
       .ff-atb i.full {
         background: #f0e070;
       }
-      .ff-pools {
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-        flex: none;
-        width: 34px;
-        margin-left: 4px;
-      }
-      .ff-bar {
-        display: block;
-        height: 3px;
-        background: rgba(0, 0, 0, 0.45);
-        border: 1px solid var(--wood-edge);
-      }
-      .ff-bar i {
-        display: block;
-        height: 100%;
-      }
-      .ff-bar.mp i {
-        background: #60a0ff;
-      }
-      .ff-bar.sp i {
-        background: #70e080;
-      }
-      .ff-bar.limit i {
-        background: #ff9040;
-      }
-      .ff-bar.limit i.full {
-        background: #ffe060;
-        box-shadow: 0 0 4px #ffe060;
-      }
       /* the floating window over a watched fight naming what was just done (fight/fightHud.ts fades and lifts it by
          the clock): lower in the scene, as the old games had it; gold for an ultimate */
       /* (at the top of the scene, under the progress bars, clear of the fighters: the owner's ask) */
@@ -1374,15 +1343,28 @@
       .ff-head .ff-name {
         flex: 1;
       }
-      .ff-under {
+      .ff-member.ready .ff-name {
+        color: #fff0a0;
+      }
+      /* the bars: a short turn gauge beside the name, then a long labelled health bar and the labelled pools
+         (fight/fightHud.ts); a foe's life is a bar with its numbers on it */
+      .ff-lab {
+        flex: none;
+        font-size: 9px;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        color: #c8cce8;
+      }
+      .ff-turnwrap {
+        flex: none;
         display: flex;
         align-items: center;
-        gap: 4px;
-        margin: 1px 0 3px;
+        gap: 3px;
       }
       .ff-turn {
-        flex: 1;
-        height: 6px;
+        display: block;
+        width: 26px;
+        height: 4px;
         background: #0a0a30;
         border: 1px solid #8890c0;
         border-radius: 2px;
@@ -1397,23 +1379,126 @@
         background: #f0e070;
         box-shadow: 0 0 6px #f0e070;
       }
-      .ff-member.ready .ff-name {
-        color: #fff0a0;
+      .ff-meter {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin: 1px 0;
+        min-width: 0;
       }
-      .ff-turn.foe {
+      .ff-meter.hp > .ff-lab,
+      .ff-meter.hp.foe > .ff-lab {
+        width: 13px;
+      }
+      .ff-gauge {
+        position: relative;
+        flex: 1 1 auto;
+        min-width: 0;
+        height: 10px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--wood-edge);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .ff-gauge i {
         display: block;
-        flex: none;
-        width: 60px;
-        height: 3px;
-        margin-top: 1px;
-        border-color: #a05060;
+        height: 100%;
       }
-      .ff-turn.foe i {
-        background: #e08090;
+      .ff-gauge b {
+        position: absolute;
+        inset: 0;
+        font-weight: 400;
+        font-size: 10px;
+        line-height: 8px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+        color: #fff;
+        text-shadow: 1px 1px 0 #000, -1px 0 0 #000;
       }
-      .ff-turn.foe i.full {
-        background: #ff5060;
-        box-shadow: 0 0 4px #ff5060;
+      .ff-meter.hp i {
+        background: #50c060;
+      }
+      .ff-meter.hp i.low,
+      .ff-row.low .ff-meter.hp i {
+        background: #e0b040;
+      }
+      .ff-row.down .ff-meter.hp i {
+        background: #c05050;
+      }
+      .ff-meter.hp.foe i {
+        background: #d05060;
+      }
+      .ff-meter.mp i {
+        background: #60a0ff;
+      }
+      .ff-meter.sp i {
+        background: #70e080;
+      }
+      .ff-meter.limit i {
+        background: #ff9040;
+      }
+      .ff-meter.limit i.full {
+        background: #ffe060;
+        box-shadow: 0 0 4px #ffe060;
+      }
+      .ff-pools {
+        display: flex;
+        gap: 5px;
+      }
+      .ff-pools .ff-meter {
+        flex: 1 1 0;
+        margin: 0;
+      }
+      .ff-pools .ff-gauge {
+        height: 5px;
+      }
+      .ff-foe {
+        display: block;
+        margin-bottom: 2px;
+      }
+      /* (more than three foes, or a short sideways screen: one line each, the name, its turn gauge, then the life bar) */
+      .ff-foes.crowd .ff-foe {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 1px;
+      }
+      .ff-foes.crowd .ff-foe .ff-head {
+        flex: 0 0 44%;
+        min-width: 0;
+      }
+      .ff-foes.crowd .ff-foe .ff-meter {
+        flex: 1 1 auto;
+        margin: 0;
+      }
+      .ff-foes.crowd .ff-foe .ff-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ff-foes.crowd .ff-gauge {
+        height: 9px;
+      }
+      /* (more than six foes: smaller text, no turn gauge, and thinner bars with smaller numbers) */
+      .ff-foes.tight {
+        font-size: 11px;
+      }
+      .ff-foes.tight .ff-foe .ff-turnwrap {
+        display: none;
+      }
+      .ff-foes.tight .ff-foe .ff-head {
+        flex: 0 0 52%;
+      }
+      .ff-foes.tight .ff-gauge {
+        height: 7px;
+      }
+      .ff-foes.tight .ff-gauge b {
+        font-size: 8px;
+        line-height: 5px;
+      }
+      /* (more than ten foes: the list scrolls inside its window, so the bottom stays above the fighters' feet) */
+      .ff-foes.packed {
+        max-height: 36vh;
+        overflow-y: auto;
       }
       #prompt {
         position: absolute;
