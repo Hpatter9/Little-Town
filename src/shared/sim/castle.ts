@@ -6,8 +6,9 @@
 // room's door is its own middle, and roads run to the gate in the hall's south wall, never inside.
 
 import type { BuildingDef } from '../data/buildings';
+import { isSeat } from '../data/seats';
 import { rulesOf } from '../data/origins';
-import { carvable, groundAt, idx, inMap, MOUNTAIN_FOOT, setGround, type LandMap, type Pt, type Rect } from './land';
+import { carvable, groundAt, idx, inMap, MOUNTAIN_FOOT, setGround, wet, type LandMap, type Pt, type Rect } from './land';
 import { footprint } from './buildings';
 import { campCell, type GameState } from './state';
 
@@ -17,7 +18,7 @@ export const CORE_H = 4;
 /** The widest a room may be. */
 export const ROOM_MAX_W = 12;
 /** Built outside, never as rooms (the venues keep their own halls too: `floor` on the def). */
-const OUTSIDE = new Set(['boatyard', 'graveyard', 'mine', 'coal_mine', 'deep_mine', 'oil_derrick', 'launch_site']);
+const OUTSIDE = new Set(['boatyard', 'graveyard', 'mine', 'coal_mine', 'deep_mine', 'oil_derrick', 'launch_site', 'beast_ranch', 'arena']);
 
 type CastleState = Pick<GameState, 'land' | 'nomad' | 'buildings' | 'origin'>;
 
@@ -25,6 +26,10 @@ type CastleState = Pick<GameState, 'land' | 'nomad' | 'buildings' | 'origin'>;
  *  dwarves), or none. */
 export type Hold = 'castle' | 'mountain';
 export const holdOf = (s: Pick<GameState, 'origin'>): Hold | null => (rulesOf(s).castle ? 'castle' : rulesOf(s).hold === 'mountain' ? 'mountain' : null);
+/** A mountain hold's hallway (data/buildings.ts `HOLD_HALLWAY`): a room that is only a passage. */
+export const HALLWAY = 'hold_hallway';
+export const isHallway = (b: Pick<{ def: string }, 'def'>) => b.def === HALLWAY;
+
 export const castleOn = (s: Pick<GameState, 'origin'>) => holdOf(s) !== null;
 
 /** Whether a kind of building goes into the castle, as a room. */
@@ -44,6 +49,73 @@ export function coreRect(s: Pick<GameState, 'land' | 'nomad' | 'origin'>): Rect 
 /** Cut a room's ground out of the mountain (a mountain hold: its cells become hall, walked through). */
 export function carve(s: Pick<GameState, 'land'>, r: Rect): void {
   for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(s.land, x, y) && groundAt(s.land, x, y) === 'mountain') setGround(s.land, x, y, 'hall');
+}
+
+/** Open or dug ground someone can stand on beside rock they cut. */
+const standable = (m: LandMap, x: number, y: number) => inMap(m, x, y) && groundAt(m, x, y) !== 'mountain' && !wet(groundAt(m, x, y));
+const FOUR = [[0, -1], [-1, 0], [1, 0], [0, 1]] as const;
+
+/** The rock still to cut out of a mountain hold's room, in the order it is cut: from the cell beside open or dug ground
+ *  that lies nearest the camp (the doorway), inward cell by cell through the rock (nearest the doorway first). Cells the
+ *  digging can't yet reach (the room joins another still being dug) come last, nearest first. */
+export function digOrder(s: CastleState, r: Rect): Pt[] {
+  const m = s.land;
+  const layout = castleLayout(s);
+  const step = layout ? castleStep(s, layout) : () => true;
+  const rock: Pt[] = [];
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(m, x, y) && groundAt(m, x, y) === 'mountain') rock.push({ x, y });
+  if (!rock.length) return rock;
+  const key = (x: number, y: number) => y * m.w + x;
+  const left = new Set(rock.map((c) => key(c.x, c.y)));
+  const toCamp = (c: Pt) => Math.hypot(c.x - m.camp.x, c.y - m.camp.y);
+  const out: Pt[] = [];
+  const done = new Set<number>();
+  const from = (seed: Pt) => {
+    const queue = [seed];
+    done.add(key(seed.x, seed.y));
+    for (let q = 0; q < queue.length; q++) {
+      const c = queue[q];
+      out.push(c);
+      for (const [dx, dy] of FOUR) {
+        const nx = c.x + dx;
+        const ny = c.y + dy;
+        const k = key(nx, ny);
+        if (left.has(k) && !done.has(k)) {
+          done.add(k);
+          queue.push({ x: nx, y: ny });
+        }
+      }
+    }
+  };
+  // (the doorway: a cell of rock that someone can step into from open or dug ground, through the castle's walls)
+  const open = rock.filter((c) => FOUR.some(([dx, dy]) => standable(m, c.x + dx, c.y + dy) && step(c.x + dx, c.y + dy, c.x, c.y)));
+  const best = (cs: Pt[]) => cs.reduce((a, b) => (toCamp(b) < toCamp(a) - 1e-9 ? b : a));
+  if (open.length) from(best(open));
+  const rest = rock.filter((c) => !done.has(key(c.x, c.y)));
+  if (rest.length) from(best(rest));
+  for (const c of rock) if (!done.has(key(c.x, c.y))) from(c);
+  return out;
+}
+
+/** Where someone stands to cut the room's next cell of rock: open or dug ground beside it (undefined: none yet, or no
+ *  rock left). `free` rules out a spot. */
+export function digStand(s: CastleState, r: Rect, free: (x: number, y: number) => boolean = () => true): Pt | undefined {
+  const m = s.land;
+  const next = digOrder(s, r)[0];
+  if (!next) return undefined;
+  const layout = castleLayout(s);
+  const step = layout ? castleStep(s, layout) : () => true;
+  for (const [dx, dy] of FOUR) if (standable(m, next.x + dx, next.y + dy) && step(next.x + dx, next.y + dy, next.x, next.y) && free(next.x + dx, next.y + dy)) return { x: next.x + dx, y: next.y + dy };
+  return undefined;
+}
+
+/** Cut a mountain hold's room as it is built: as much of the rock as its progress is of the whole, in the order above. */
+export function digRoom(s: CastleState, b: Parameters<typeof footprint>[0], progress: number): void {
+  const r = footprint(b);
+  const order = digOrder(s, r);
+  if (!order.length) return;
+  const want = progress >= 1 ? order.length : Math.max(0, Math.ceil(progress * r.w * r.h) - (r.w * r.h - order.length));
+  for (const c of order.slice(0, want)) setGround(s.land, c.x, c.y, 'hall');
 }
 
 /** Whether every cell of a footprint is the mountain's (or already cut), where a mountain hold's rooms go. */
@@ -214,7 +286,7 @@ function sideGates(s: CastleState, region: Map<number, number>, main: CastleGate
 
 /** The doorway between each pair of regions: one in the middle of the longest straight run of wall they share. The map
  *  draws the same ones (map/castleArt.ts), so the doorways people walk through are the ones they see. */
-export function doorsOf(region: Map<number, number>, w: number): Set<string> {
+export function doorsOf(region: Map<number, number>, w: number, skip?: (a: number, b: number) => boolean): Set<string> {
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= w ? undefined : region.get(y * w + x));
   const shared = new Map<string, { h: boolean; cells: { x: number; y: number }[] }>();
   for (const [i, id] of region) {
@@ -224,7 +296,7 @@ export function doorsOf(region: Map<number, number>, w: number): Set<string> {
       [at(x, y - 1), true],
       [at(x - 1, y), false],
     ] as const) {
-      if (n === undefined || n === id) continue;
+      if (n === undefined || n === id || skip?.(id, n)) continue;
       const key = `${Math.min(id, n)}|${Math.max(id, n)}|${h ? 'h' : 'v'}`;
       let s = shared.get(key);
       if (!s) shared.set(key, (s = { h, cells: [] }));
@@ -257,6 +329,30 @@ export function galleryCells(s: CastleState): number[] {
   const out: number[] = [];
   for (let i = 0; i < s.land.cells.length; i++) if (s.land.cells[i] === 'H' && !solid.has(i)) out.push(i);
   return out;
+}
+
+/** The hold's passages: the entrance hall's cells and every hallway's (built or being cut), which its newer rooms open off. */
+export function hallCells(s: CastleState): Set<number> {
+  const m = s.land;
+  const out = new Set<number>();
+  const add = (r: Rect) => {
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(m, x, y)) out.add(idx(m, x, y));
+  };
+  add(coreRect(s));
+  for (const b of s.buildings) if (b.room && isHallway(b)) add(footprint(b));
+  return out;
+}
+
+/** In a hold, no doorway between two rooms when one is laid under the hallway rule: it opens onto a hallway (or the
+ *  hall, or a gallery), never into another room's interior. */
+function offHall(s: CastleState, rs: CastleState['buildings']): ((a: number, b: number) => boolean) | undefined {
+  if (holdOf(s) !== 'mountain') return undefined;
+  // (the seat's hall lies over the entrance hall's cells: it counts as the hall)
+  const halls = new Set(rs.filter((b) => isHallway(b) || isSeat(b.def)).map((b) => b.id));
+  const halled = new Set(rs.filter((b) => b.halled).map((b) => b.id));
+  if (!halled.size) return undefined;
+  const hallLike = (id: number) => id < 0 || halls.has(id);
+  return (a, b) => (halled.has(a) || halled.has(b)) && !hallLike(a) && !hallLike(b);
 }
 
 const layouts = new WeakMap<object, { key: string; tick: number; layout: CastleLayout }>();
@@ -305,7 +401,7 @@ export function castleLayout(s: CastleState): CastleLayout | null {
   }
   const g = castleGate(s);
   const main: CastleGate = { inside: { x: g.x, y: g.y - 1 }, outside: g, side: 's' };
-  const layout: CastleLayout = { region, doors: doorsOf(region, m.w), gateOut: idx(m, g.x, g.y), gateIn: idx(m, g.x, g.y - 1), gates: [main, ...sideGates(s, region, main)] };
+  const layout: CastleLayout = { region, doors: doorsOf(region, m.w, offHall(s, rs)), gateOut: idx(m, g.x, g.y), gateIn: idx(m, g.x, g.y - 1), gates: [main, ...sideGates(s, region, main)] };
   layouts.set(s, { key, tick, layout });
   return layout;
 }

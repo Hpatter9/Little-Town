@@ -3,12 +3,46 @@
 // long table laid with jars and pots behind the ring and a barrel beside it (the dungeon packs' clutter), confetti
 // drifting down, and after dark fireworks bursting overhead (in the map's lights layer, so they shine through the
 // night). At a funeral: candles in a ring round the mourners (the clutter's candle sheet), glowing after dark.
+// A seasonal festival (sim/festivals.ts) is dressed in its own colours and lanterns, with its people's things laid out
+// round the ring (`KITS`: the packs' flowers, fruit, skulls, corals, crystals, flasks, banners...), and from the first
+// day of making ready the poles, pennants and things go up round the fire before anyone gathers.
 
 import { AnimatedSprite, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { campfirePack } from '../art/fieldTiles';
 import { loadImage } from '../art/loadImage';
 import { glowTexture } from '../town/layer';
 import type { Snapshot } from '../../shared/sim/snapshot';
+import { FESTIVAL_BY_ID, type DecorKit } from '../../shared/data/festivals';
+import candelabraUrl from '../art/seats/dl_candelabra.png';
+import skullsUrl from '../art/seats/ud_skulls.png';
+import bonesUrl from '../art/deep/bones1.png';
+import groveFruitUrl from '../art/seats/grove_fruit.png';
+import groveLitUrl from '../art/seats/grove_lit1.png';
+import mushroomUrl from '../art/deep/mushroom1.png';
+import coral1Url from '../art/seats/coral1.png';
+import coral2Url from '../art/seats/coral2.png';
+import coral3Url from '../art/seats/coral3.png';
+import shellUrl from '../art/seats/shell.png';
+import crystal1Url from '../art/deep/crystal1.png';
+import crystal2Url from '../art/deep/crystal2.png';
+import crystal3Url from '../art/deep/crystal3.png';
+import gold1Url from '../art/clutter/gold1.png';
+import gold2Url from '../art/clutter/gold2.png';
+import chestGoldUrl from '../art/clutter/chest_gold.png';
+import shieldsUrl from '../art/clutter/shields.png';
+import totemUrl from '../art/deep/totem.png';
+import flagUrl from '../art/seats/flag.png';
+import flaskRedUrl from '../art/clutter/flask_red.png';
+import flaskBlueUrl from '../art/clutter/flask_blue.png';
+import potionsUrl from '../art/clutter/potions.png';
+import jarBlueUrl from '../art/clutter/jar_blue.png';
+import ashUrl from '../art/deep/bonfire.png';
+import appleUrl from '../art/life/apple.png';
+import pearUrl from '../art/life/pear.png';
+import orangeUrl from '../art/life/orange.png';
+import pots3Url from '../art/clutter/pots3.png';
+import plantsUrl from '../art/clutter/plants.png';
+import plantUrl from '../art/shops/ap_plant.png';
 import tableUrl from '../art/clutter/table_long.png';
 import pots1Url from '../art/clutter/pots1.png';
 import pots2Url from '../art/clutter/pots2.png';
@@ -18,6 +52,37 @@ import stoolUrl from '../art/clutter/stool.png';
 import candlesUrl from '../art/clutter/candles.png';
 
 type Gathering = NonNullable<Snapshot['gathering']>;
+/** A festival being made ready: dressed round the fire before anyone gathers. */
+export interface FestivalPrep {
+  id: string;
+  x: number;
+  y: number;
+}
+
+/** A thing laid out: the picture, its scale, and where its feet are (a share of its height). */
+type Prop = [string, number, number];
+/** Each festival kit's things (the packs' sprites), laid round the ring in turn. */
+const KITS: Record<DecorKit, Prop[]> = {
+  blossom: [[plantUrl, 1, 1], [appleUrl, 1, 1], [plantsUrl, 0.8, 1], [mushroomUrl, 0.4, 0.82], [pearUrl, 1, 1], [pots1Url, 1, 1]],
+  harvest: [crate(), [pots3Url, 1, 1], [pearUrl, 1, 1], [orangeUrl, 1, 1], [plantsUrl, 0.8, 1], [appleUrl, 1, 1]],
+  candles: [[candelabraUrl, 1.2, 1], [pots1Url, 1, 1], [candelabraUrl, 1.2, 1], [jarUrl, 1, 1]],
+  bones: [[skullsUrl, 0.55, 0.9], [candelabraUrl, 1.2, 1], [bonesUrl, 0.32, 0.78], [candelabraUrl, 1.2, 1]],
+  grove: [[groveFruitUrl, 0.6, 0.95], [mushroomUrl, 0.4, 0.82], [groveLitUrl, 0.6, 0.95], [plantUrl, 1, 1]],
+  sea: [[coral1Url, 0.8, 1], [shellUrl, 0.8, 1], [coral2Url, 0.8, 1], [coral3Url, 0.8, 1]],
+  crystal: [[crystal1Url, 0.45, 0.85], [crystal2Url, 0.45, 0.85], [crystal3Url, 0.45, 0.85]],
+  forge: [[shieldsUrl, 1, 1], [gold1Url, 1, 1], [chestGoldUrl, 1, 1], crate()],
+  war: [[totemUrl, 0.32, 0.9], [flagUrl, 0.7, 1], [shieldsUrl, 1, 1], [flagUrl, 0.7, 1]],
+  flasks: [[flaskRedUrl, 1.2, 1], [potionsUrl, 1, 1], [flaskBlueUrl, 1.2, 1], [jarBlueUrl, 1.2, 1]],
+  banners: [[flagUrl, 0.7, 1], [shieldsUrl, 1, 1], [flagUrl, 0.7, 1], crate()],
+  fire: [[ashUrl, 0.5, 0.7], [totemUrl, 0.3, 0.9], [bonesUrl, 0.3, 0.78]],
+  gold: [[gold1Url, 1, 1], [candelabraUrl, 1.2, 1], [chestGoldUrl, 1, 1], [gold2Url, 1, 1]],
+};
+function crate(): Prop {
+  return [barrelUrl, 1, 1];
+}
+/** Things round a festival's ring, and the ring's size while it is being made ready. */
+const KIT_PROPS = 8;
+const PREP_RING = 64;
 
 /** Poles round the ring, how far out past the dancers, and how tall. */
 const POLES = 10;
@@ -81,6 +146,10 @@ export class MapFestival {
   private nextBurst = 0;
   private t = 0;
   private flutterAt = -1;
+  /** The festival's colours and lantern (the plain ones at a feast), and whether one is dressed. */
+  private colours: number[] = PENNANTS;
+  private lantern: number[] = LANTERN;
+  private festival = false;
 
   constructor(
     private things: Container,
@@ -95,16 +164,48 @@ export class MapFestival {
     };
   }
 
-  /** The gathering now (null: none): the dressing is laid out again when it changes. */
-  sync(g: Gathering | null): void {
-    const key = g ? `${g.kind}|${g.x}|${g.y}|${g.ring}|${g.key}|${g.fire}|${[...textures.values()].filter(Boolean).length}|${campfirePack() ? 1 : 0}` : '';
+  /** The gathering now (null: none), and a festival being made ready (null: none): the dressing is laid out again
+   *  when either changes. A gathering takes the place of the making ready. */
+  sync(g: Gathering | null, prep: FestivalPrep | null = null): void {
+    const p = g ? null : prep;
+    const n = [...textures.values()].filter(Boolean).length;
+    const key = g ? `${g.kind}|${g.x}|${g.y}|${g.ring}|${g.key}|${g.fire}|${g.festival}|${n}|${campfirePack() ? 1 : 0}` : p ? `prep|${p.id}|${p.x}|${p.y}|${n}` : '';
     if (key === this.key) return;
     this.key = key;
-    this.g = g;
     this.clear();
+    const fest = FESTIVAL_BY_ID[(g ? g.festival : p?.id) ?? ''];
+    this.festival = !!fest;
+    this.colours = fest ? fest.colours : PENNANTS;
+    this.lantern = fest ? [fest.lantern] : LANTERN;
+    if (p && fest) {
+      // (made ready: the ring of poles and the things go up round the fire, nobody dancing yet)
+      this.g = { kind: 'festival', x: p.x, y: p.y, ring: PREP_RING, key: 0, fire: false, festival: fest.id };
+      this.dressPoles(this.g);
+      this.dressKit(this.g, fest.kit);
+      return;
+    }
+    this.g = g;
     if (!g) return;
-    if (g.kind === 'feast' || g.kind === 'wedding') this.dressFeast(g);
+    if (g.kind === 'feast' || g.kind === 'wedding' || g.kind === 'festival') this.dressFeast(g);
     else this.dressFuneral(g);
+    if (fest) this.dressKit(g, fest.kit);
+  }
+
+  /** The festival's things round the ring, just outside the poles. */
+  private dressKit(g: Gathering, kit: DecorKit): void {
+    const props = KITS[kit];
+    for (let i = 0; i < KIT_PROPS; i++) {
+      const [url, scale, foot] = props[i % props.length];
+      const t = tex(url);
+      if (!t) continue;
+      const p = this.ring(g, POLE_OUT + 16, i + 0.5, KIT_PROPS);
+      const s = this.things.addChild(new Sprite(t));
+      s.anchor.set(0.5, foot);
+      s.scale.set(scale);
+      s.position.set(p.x, p.y);
+      s.zIndex = p.y;
+      this.standing.push(s);
+    }
   }
 
   private clear(): void {
@@ -147,6 +248,12 @@ export class MapFestival {
       glow.position.set(g.x, g.y - 8);
       this.lanternGlows.push({ s: glow, i: 99 });
     }
+    this.dressPoles(g);
+    this.dressTable(g);
+  }
+
+  /** The poles round the ring, with their strings of pennants and a lantern on each. */
+  private dressPoles(g: Gathering): void {
     const poles = Array.from({ length: POLES }, (_, i) => this.ring(g, POLE_OUT, i, POLES));
     poles.forEach((p, i) => {
       // (a pole: a post of dark wood with a gilt knob, standing with its foot on the ground)
@@ -169,11 +276,14 @@ export class MapFestival {
       const glow = this.lights.addChild(new Sprite(glowTexture()));
       glow.anchor.set(0.5);
       glow.width = glow.height = 26;
-      glow.tint = LANTERN[i % LANTERN.length];
+      glow.tint = this.lantern[i % this.lantern.length];
       glow.position.set((p.x + q.x) / 2, (p.y + q.y) / 2 - POLE_H + 9);
       this.lanternGlows.push({ s: glow, i });
     });
-    // (the feast table behind the ring, laid, with a barrel and stools)
+  }
+
+  /** The feast table behind the ring, laid, with a barrel and stools. */
+  private dressTable(g: Gathering): void {
     const back = { x: g.x, y: Math.round(g.y - (g.ring + POLE_OUT) * 0.7 - 16) };
     const put = (url: string, dx: number, dy: number, z = 0) => {
       const t = tex(url);
@@ -220,7 +330,7 @@ export class MapFestival {
     this.t += dt;
     const g = this.g;
     if (!g) return;
-    const festive = g.kind === 'feast' || g.kind === 'wedding';
+    const festive = g.kind === 'feast' || g.kind === 'wedding' || g.kind === 'festival';
     // (the strings, redrawn a few times a second as the pennants flutter)
     const frame = Math.floor(this.t * 8);
     if (festive && frame !== this.flutterAt) {
@@ -234,7 +344,8 @@ export class MapFestival {
       if (src.frame.y !== f * 32) c.s.texture = new Texture({ source: src.source, frame: new Rectangle(src.frame.x, f * 32, 32, 32) });
       c.glow.alpha = 0.7 + 0.3 * Math.sin(this.t * 7 + c.seed * 5);
     }
-    if (!festive || calm) {
+    // (while it's being made ready: no confetti or fireworks yet)
+    if (!festive || calm || this.key.startsWith('prep|')) {
       this.confettiGfx.clear();
       this.fireGfx.clear();
       return;
@@ -268,13 +379,13 @@ export class MapFestival {
       const u = k / n;
       const p = at(u);
       const sway = Math.sin(this.t * 5 + k * 0.9 + s.i) * 1.4;
-      const col = PENNANTS[(k + s.i) % PENNANTS.length];
+      const col = this.colours[(k + s.i) % this.colours.length];
       gfx.poly([p.x - 2.5, p.y, p.x + 2.5, p.y, p.x + sway, p.y + 6]).fill(col);
       gfx.poly([p.x - 2.5, p.y, p.x, p.y, p.x + sway * 0.5, p.y + 6]).fill({ color: 0x000000, alpha: 0.12 });
     }
     // the lantern at the middle: a round paper lantern with a dark cap and foot
     const m = at(0.5);
-    const col = LANTERN[s.i % LANTERN.length];
+    const col = this.lantern[s.i % this.lantern.length];
     gfx.rect(m.x - 0.5, m.y, 1, 3).fill(0x3a2a1a);
     gfx.ellipse(m.x, m.y + 7, 3.5, 4.5).fill(col);
     gfx.ellipse(m.x - 1, m.y + 6, 1.4, 2.6).fill({ color: 0xffffff, alpha: 0.35 });
@@ -285,7 +396,7 @@ export class MapFestival {
   private drawConfetti(g: Gathering, dt: number): void {
     const r = g.ring + POLE_OUT;
     while (this.confetti.length < CONFETTI_MOST) {
-      this.confetti.push({ x: (Math.random() * 2 - 1) * r, y: -60 - Math.random() * 50, vx: (Math.random() - 0.5) * 10, vy: 14 + Math.random() * 14, color: PENNANTS[Math.floor(Math.random() * PENNANTS.length)], life: 2.5 + Math.random() * 2.5, spin: Math.random() * 6 });
+      this.confetti.push({ x: (Math.random() * 2 - 1) * r, y: -60 - Math.random() * 50, vx: (Math.random() - 0.5) * 10, vy: 14 + Math.random() * 14, color: this.colours[Math.floor(Math.random() * this.colours.length)], life: 2.5 + Math.random() * 2.5, spin: Math.random() * 6 });
     }
     const c = this.confettiGfx;
     c.position.set(g.x, g.y);
@@ -316,7 +427,7 @@ export class MapFestival {
         this.nextBurst = FIREWORK_EVERY * (0.5 + Math.random());
         const glow = this.lights.addChild(new Sprite(glowTexture()));
         glow.anchor.set(0.5);
-        const color = [0xff5050, 0x60d0ff, 0xffd040, 0x80ff80, 0xff80ff, 0xffffff][Math.floor(Math.random() * 6)];
+        const color = this.festival ? this.colours[Math.floor(Math.random() * this.colours.length)] : [0xff5050, 0x60d0ff, 0xffd040, 0x80ff80, 0xff80ff, 0xffffff][Math.floor(Math.random() * 6)];
         glow.tint = color;
         const x = g.x + (Math.random() - 0.5) * 160;
         const y = g.y - 90 - Math.random() * 70;

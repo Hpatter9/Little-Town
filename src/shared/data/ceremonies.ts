@@ -1,3 +1,4 @@
+import { DAYS_PER_SEASON } from '../sim/time';
 // Life's ceremonies (PLAN.md step 7): funerals, a great funeral after a day of many deaths, wedding feasts, and the
 // town's feasts (midsummer, a victory). Each is a gathering: those it's for stop work and stand together a while at
 // the graveyard, the tavern or the fire, and come away a little better for it.
@@ -21,6 +22,19 @@ export const FEAST_MARK: [number, number] = [6, 24];
 export const FEAST_FOOD = 0.5;
 export const FEAST_FOOD_DAYS = 3;
 export const FEAST_COIN = 2;
-/** A feast at midsummer (the second day of summer), and after a raid driven off. Never two within FEAST_GAP_HOURS. */
-export const MIDSUMMER_DAY = 2;
+/** A feast at midsummer (the middle day of summer), and after a raid driven off. Never two within FEAST_GAP_HOURS. */
+export const MIDSUMMER_DAY = Math.ceil(DAYS_PER_SEASON / 2);
 export const FEAST_GAP_HOURS = 36;
+/** Processions (the owner's ask): a funeral carries the coffin from where the dead lived to the graveyard, a wedding
+ *  party walks from the couple's door to the feast, the faithful walk from the fire to the temple on a rite day. The
+ *  head of the line moves at PROCESSION_PACE px a tick (a slow walk: people walk about 4.8), its guests in a column
+ *  PROCESSION_GAP px apart behind it (the first two side by side at the head: the coffin's bearers, the couple); a
+ *  procession shorter than PROCESSION_LEAST px isn't walked, and none takes longer than PROCESSION_MOST hours. */
+export const PROCESSION_PACE = 1.6;
+export const PROCESSION_GAP = 18;
+export const PROCESSION_LEAST = 96;
+export const PROCESSION_MOST = 1.5;
+/** A rite at the temple: the pious go, and RITE_SHARE of the rest (by a roll of their own by the day); it lasts
+ *  RITE_HOURS, the faithful kneeling in a ring before the temple's door. */
+export const RITE_SHARE = 0.4;
+export const RITE_HOURS = 1;

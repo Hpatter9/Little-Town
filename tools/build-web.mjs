@@ -45,6 +45,19 @@ await esbuild.build({
   loader: { '.png': 'dataurl' },
   logLevel: 'warning',
 });
+// the page's first script, which starts the worker before the page's own script has loaded (mobile/boot.ts)
+await esbuild.build({ entryPoints: ['src/renderer/mobile/boot.ts'], outfile: `${OUT}/boot.js`, bundle: true, platform: 'browser', format: 'iife', target: 'es2023', logLevel: 'warning' });
+// the game itself, in a worker of its own (mobileBridge.ts starts it), so the sim never holds up drawing or a tap
+await esbuild.build({
+  entryPoints: ['src/renderer/mobile/simWorker.ts'],
+  outfile: `${OUT}/simWorker.js`,
+  bundle: true,
+  platform: 'browser',
+  format: 'iife',
+  target: 'es2023',
+  loader: { '.png': 'dataurl' },
+  logLevel: 'warning',
+});
 copyFileSync('src/renderer/mobile/index.html', `${OUT}/index.html`);
 writeFileSync(`${OUT}/icon-192.png`, trayIconPng(12));
 writeFileSync(`${OUT}/icon-512.png`, trayIconPng(32));

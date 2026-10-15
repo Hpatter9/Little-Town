@@ -39,12 +39,13 @@ import { eventPicture, sceneLine } from '../data/eventScenes';
 import { EVENT_MORE } from '../data/eventMore';
 import { assignBeds, campEdge, joinOrigin, secretStranger } from './townsfolk';
 import { isChild } from './social';
+import { topicName } from '../data/originResearch';
 
 /** Game hours an event waits for an answer before the default is taken (in play; it waits while you're away). */
 export const EVENT_HOURS = 3;
 /** The first event comes no sooner than this (game hours), and then one every so often. */
 export const EVENT_GRACE_HOURS = 18;
-export const EVENT_GAP_HOURS: [number, number] = [16, 30];
+export const EVENT_GAP_HOURS: [number, number] = [72, 120];
 /** An event isn't drawn again until this many others have come. */
 const NO_REPEAT = 25;
 
@@ -325,7 +326,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
       const t = topic ? TOPIC_BY_ID[topic] : undefined;
       if (t) {
         s.research.progress[topic] = Math.min(0.99, (s.research.progress[topic] ?? 0) + e.research / t.seconds);
-        say(`study of ${t.name} ${e.research > 0 ? 'forward' : 'set back'}`);
+        say(`study of ${topicName(t.id, s.origin)} ${e.research > 0 ? 'forward' : 'set back'}`);
       }
     } else if ('occult' in e) revealOccult(s, e.occult);
     else if ('chance' in e) apply(s, rng.chance(e.chance) ? e.then : (e.else ?? []), rng, whoId, out);
@@ -338,7 +339,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
       for (let i = 0; i < e.ruin && can.length; i++) {
         const b = can.splice(Math.floor(rng.next() * can.length), 1)[0];
         notify(s, `The ${BUILDING_BY_ID[b.def]?.name.toLowerCase() ?? b.def} is brought down.`, true);
-        demolish(s, b.id);
+        demolish(s, b.id, 'felled');
       }
     } else if ('exodus' in e) {
       const pool = grownUps(s).filter((p) => p.id !== s.mainId && p.away === null);
@@ -362,7 +363,7 @@ export function apply(s: GameState, effects: readonly EventEffect[], rng: Rng, w
         delete r.progress[id];
         r.queue = r.queue.filter((q) => q !== id);
         r.done.push(id);
-        notify(s, `Learned outright: ${TOPIC_BY_ID[id]?.name ?? id}.`, true);
+        notify(s, `Learned outright: ${topicName(id, s.origin)}.`, true);
       }
     } else if ('heal' in e) {
       for (const p of s.people) {
@@ -414,7 +415,7 @@ function newcomer(s: GameState, rng: Rng, type?: string): void {
     notify(s, 'Someone would have stayed, but the town is as big as you want it: they go on their way.');
     return;
   }
-  const p = makePerson(rng, s.nextId++, type ?? rng.weighted(ARRIVING_TYPES), campXY(s), s.people.map((q) => q.name));
+  const p = makePerson(rng, s.nextId++, type ?? rng.weighted(ARRIVING_TYPES), campXY(s), s.people.map((q) => q.name), s.origin ?? 'settlers');
   s.people.push(p);
   joinOrigin(s, p, rng);
   assignBeds(s);

@@ -5,18 +5,20 @@ import { trail } from '../src/shared/sim/battle';
 import { blueprintCount, footprint } from '../src/shared/sim/buildings';
 import { groundAt, inRect, isRoad, setGround, wet, WILD } from '../src/shared/sim/land';
 import { PLAN_TICKS, runPlanner } from '../src/shared/sim/planner';
-import { gateAt, gateCells, gateTurned, isGate, isRingPiece, lineOf, PUSH_ALONG, RING_AT_ONCE, RING_PAD, RING_STEP, ringCells, ringGate, riverCell, shapeRing, sideOn, wantRect, type LineCell } from '../src/shared/sim/ringWall';
+import { gateAt, gateCells, gateTurned, isGate, isRingPiece, lineOf, PUSH_ALONG, RING_WIDEN, ringProgress, RING_PAD, RING_STEP, ringCells, ringGate, riverCell, shapeRing, sideOn, wantRect, type LineCell } from '../src/shared/sim/ringWall';
 import { campCell, newGame, type Building, type GameState } from '../src/shared/sim/state';
 import { pathTo } from '../src/shared/sim/walk';
 import { CELL, cellAt, isMarked, setMarked } from '../src/shared/sim/land';
-import { bestGatherTile, clearCell } from '../src/shared/sim/people';
+import { bestGatherTile, clearCell, haulOrder } from '../src/shared/sim/people';
+import { RING_SHAPE_OF } from '../src/shared/data/ringShapes';
+import { ringShapeOf } from '../src/shared/sim/ringWall';
 import { clearAround, makeWild } from './helpers';
 
 /** A town ready to wall itself: palisades learned, the land about it clear, wood to spare, enough grown-ups. */
 function walledTown(seed: string): GameState {
   const s = newGame(seed);
   s.research.done.push('palisades', 'basic_shelter');
-  clearAround(s, 34);
+  clearAround(s, 50);
   s.buildings[0].store = { wood: 3000, stone: 500, fiber: 300, berries: 400 };
   for (let i = 0; i < 6; i++) s.people.push({ ...s.people[0], id: s.nextId++, name: `Hand ${i}` });
   return s;
@@ -105,23 +107,39 @@ test('when the town grows past its wall a wider ring goes up outside, and the ol
   assert.equal(s.ring!.gen, first.gen + 1);
   assert.ok(s.ring!.done, 'the wider ring stands');
   assert.ok(s.ring!.rect.x + s.ring!.rect.w > first.rect.x + first.rect.w, 'wider to the east');
+  // (pushed well out, with room to grow: RING_WIDEN more each side than the town needs yet, never inside the old one)
+  const want = wantRect(s);
+  const r = s.ring!.rect;
+  assert.ok(r.x + RING_WIDEN <= want.x && r.y + RING_WIDEN <= want.y && r.x + r.w >= want.x + want.w + RING_WIDEN && r.y + r.h >= want.y + want.h + RING_WIDEN, `ring ${JSON.stringify(r)} wants ${JSON.stringify(want)}`);
+  assert.ok(r.x < first.rect.x && r.y < first.rect.y && r.x + r.w > first.rect.x + first.rect.w && r.y + r.h > first.rect.y + first.rect.h, 'outside the old ring all round');
   assert.equal(s.buildings.filter((b) => isRingPiece(b.def) && b.ring !== s.ring!.gen).length, 0, 'the old ring is down');
 });
 
-test('the wall leaves the other sites the materials they still wait on', () => {
+test('the wall leaves the other sites the materials they still wait on: they are carried to first', () => {
   const s = walledTown('ring-owed');
-  // a shop's site waits on 12 wood; the store holds just enough for it and one wall piece
-  s.buildings.push({ id: s.nextId++, def: 'trading_post', tile: campCell(s).x + 6, row: campCell(s).y + 3, status: 'blueprint', delivered: {}, progress: 0, store: {} } as Building);
-  s.buildings[0].store = { wood: 12 + BUILDING_BY_ID.palisade_wall.cost.wood! * 3 - 1, stone: 500 };
+  const shop = { id: s.nextId++, def: 'trading_post', tile: campCell(s).x + 6, row: campCell(s).y + 3, status: 'blueprint', delivered: {}, progress: 0, store: {} } as Building;
+  s.buildings.push(shop);
   s.tick += PLAN_TICKS;
   runPlanner(s);
-  assert.equal(s.buildings.filter((b) => isRingPiece(b.def) && b.status === 'blueprint' && !b.planned).length, 0, 'no wall piece in work over the shop (the ring is laid out, planned)');
-  s.buildings[0].store = { wood: 3000, stone: 500 };
-  raise(s, 1, 30);
-  assert.ok(s.buildings.some((b) => isRingPiece(b.def) && b.status === 'done'), 'with wood to spare, the wall goes up');
+  const order = haulOrder(s);
+  const wall = order.filter((b) => b.ring !== undefined);
+  assert.ok(wall.length > 0, 'the wall is in work');
+  assert.ok(order.indexOf(shop) < order.indexOf(wall[0]), "the shop's site is served before any of the wall");
 });
 
-test('the whole ring is laid out as one blueprint, built a few sections at a time, and walked through meanwhile', () => {
+test("the wall is built beside the town's other work (the owner: palisades never finished)", () => {
+  const s = walledTown('ring-own-queue');
+  // the build slots all full with the town's own sites
+  for (let i = 0; i < 6; i++) s.buildings.push({ id: s.nextId++, def: 'lean_to', tile: campCell(s).x - 8 + i * 3, row: campCell(s).y + 4, status: 'blueprint', delivered: {}, progress: 0, store: {} } as Building);
+  s.tick += PLAN_TICKS;
+  runPlanner(s);
+  const ring = s.buildings.filter((b) => b.ring === s.ring!.gen);
+  assert.ok(ring.filter((b) => !b.planned).length >= 3, 'sections go into work whatever the build queue holds');
+  // a palisade is quick and cheap: a ring of a hundred pieces is days of work, not weeks
+  assert.ok(BUILDING_BY_ID.palisade_wall.cost.wood! <= 4 && BUILDING_BY_ID.palisade_wall.buildSeconds <= 20);
+});
+
+test('the whole ring is one construction: laid out at once, every section in work together, walked through meanwhile (the owner: a single construction)', () => {
   const s = walledTown('ring-planned');
   s.tick += PLAN_TICKS;
   runPlanner(s);
@@ -131,20 +149,26 @@ test('the whole ring is laid out as one blueprint, built a few sections at a tim
   // (a cell still wild waits to be cleared, the river and a road beside a gate take no wall; everything else is laid at once)
   const open = lineOf(s.ring!).filter((p) => !covered(p) && !WILD.includes(groundAt(s.land, p.x, p.y)) && !['water', 'shallows', 'mountain'].includes(groundAt(s.land, p.x, p.y)) && !isRoad(s.land, p.x, p.y));
   assert.equal(open.length, 0, `the first pass lays the whole ring: gaps at ${JSON.stringify(open)}`);
-  const inWork = pieces.filter((b) => !b.planned);
-  assert.ok(inWork.length > 0 && inWork.length <= RING_AT_ONCE, `${inWork.length} sections in work`);
-  assert.ok(pieces.length > inWork.length * 5, 'the rest only planned');
-  // the planned pieces take no build slot, and the gates come first
-  assert.equal(blueprintCount(s), s.buildings.filter((b) => b.status === 'blueprint' && !b.planned).length);
-  assert.ok(inWork.every((b) => isGate(b.def)), 'the gates are the first sections');
-  // the planned line is no wall yet: a way straight out over it
+  // every section clear of trees and rocks is in work at once; only the overgrown still wait
+  assert.ok(pieces.length > 40, `${pieces.length} sections`);
+  assert.deepEqual(pieces.filter((b) => b.planned && !b.overgrown), [], 'no section held back');
+  // the ring's sections take no build slot: the wall is a job of its own
+  assert.equal(blueprintCount(s), s.buildings.filter((b) => b.status === 'blueprint' && !b.planned && b.ring === undefined).length);
+  // one figure for the whole wall
+  const before = ringProgress(s)!;
+  assert.equal(before.of, pieces.length);
+  assert.equal(before.done, 0);
+  // the wall going up is no wall yet: a way straight out over it
   const c = campCell(s);
   const path = pathTo(s, { x: (c.x + 0.5) * CELL, y: (c.y + 1.5) * CELL }, { x: (c.x + 0.5) * CELL, y: (r.y + r.h + 2.5) * CELL });
-  assert.ok(path, 'a way out across the planned wall');
-  // built section by section, the ring stands in the end
+  assert.ok(path, 'a way out across the wall going up');
+  const half = pieces.slice(0, Math.floor(pieces.length / 2));
+  for (const b of half) finish(b);
+  const mid = ringProgress(s)!;
+  assert.equal(mid.done, half.length);
+  assert.ok(mid.share > 0.4 && mid.share < 0.6, `about half the work: ${mid.share}`);
   const passes = raise(s);
   assert.ok(s.ring?.done, `ring after ${passes} passes`);
-  assert.ok(passes > 5, `built over ${passes} passes, not all at once`);
   assert.ok(s.buildings.filter((b) => b.ring === s.ring!.gen).every((b) => b.status === 'done' && !b.planned));
 });
 
@@ -247,3 +271,47 @@ function longestRiverRun(s: GameState, line: LineCell[]): number {
   }
   return most;
 }
+
+test("each people's ring takes its own shape, closes round the whole town, and keeps a gate on every side (the owner's ask)", () => {
+  const lines = new Map<string, string>();
+  for (const origin of ['settlers', 'knights', 'nomads', 'alchemists', 'robot', 'lich', 'druid', 'merfolk', 'fae', 'orcs'] as const) {
+    const s = walledTown(`ring-shape-${origin}`);
+    s.origin = origin;
+    assert.equal(ringShapeOf(s), RING_SHAPE_OF[origin]);
+    const r = wantRect(s);
+    const line = shapeRing(s, r);
+    const on = new Set(line.map((p) => `${p.x},${p.y}`));
+    // (unbroken: every piece joins two others, across, down or corner to corner)
+    for (const p of line) {
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && on.has(`${p.x + dx},${p.y + dy}`)) n++;
+      assert.ok(n >= 2, `${origin}: the line joins at ${p.x},${p.y}`);
+    }
+    // (closed round the town: from the camp nobody gets past it without crossing it)
+    const c = campCell(s);
+    const seen = new Set([`${c.x},${c.y}`]);
+    const q = [c];
+    for (let i = 0; i < q.length; i++)
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = q[i].x + dx, y = q[i].y + dy, k = `${x},${y}`;
+        if (seen.has(k) || on.has(k)) continue;
+        assert.ok(Math.abs(x - c.x) < 60 && Math.abs(y - c.y) < 60, `${origin}: closed round the camp`);
+        seen.add(k);
+        q.push({ x, y });
+      }
+    for (const b of s.buildings) assert.ok(seen.has(`${b.tile},${b.row}`), `${origin}: ${b.def} inside`);
+    const gates = gateCells(s, line);
+    const sideAt = (g: { x: number; y: number }) => line.find((l) => l.x === g.x && l.y === g.y)?.side;
+    for (const side of ['n', 's', 'w', 'e'] as const) assert.ok(gates.some((g) => sideAt(g) === side), `${origin}: a gate on the ${side} side`);
+    lines.set(origin, line.map((p) => `${p.x - c.x},${p.y - c.y}`).sort().join(' '));
+  }
+  assert.equal(new Set([...lines.values()]).size, lines.size, 'every shape its own');
+});
+
+test('a star fort is raised all round like any ring', () => {
+  const s = walledTown('ring-star');
+  s.origin = 'knights';
+  raise(s);
+  assert.ok(s.ring?.done, 'the ring stands');
+  assert.ok(lineOf(s.ring!).length > ringCells(s.ring!.rect).length, 'the bastions reach past the box');
+});

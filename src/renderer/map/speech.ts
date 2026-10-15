@@ -5,6 +5,7 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { lineFor, NATURE_BY_ID, type Topic } from '../../shared/data/natures';
 import type { PersonView } from '../../shared/sim/snapshot';
+import type { Gossip } from '../../shared/sim/gossip';
 import { fontStacks } from '../fonts';
 import { currentTheme } from '../theme';
 
@@ -66,6 +67,18 @@ export function lineNow(v: PersonView, c: SpeechContext, slot: number): string {
   const n = NATURE_BY_ID[v.nature];
   const roll = hash01(v.id, slot, 3);
   return lineFor(n, topicFor(v, c, roll), hash01(v.id, slot, 7) * 1000);
+}
+
+/** The share of slots in which someone with company, and news to hand, tells it rather than their usual line. */
+export const GOSSIP_SHARE = 0.45;
+
+/** The town's news someone tells in a slot (sim/gossip.ts), or null: only with someone by, never in a raid or at a
+ *  gathering, the newer news likelier. */
+export function gossipNow(v: Pick<PersonView, 'id' | 'activity'>, slot: number, c: SpeechContext, gossip: readonly Gossip[]): Gossip | null {
+  if (!gossip.length || !c.nearAnyone || c.raid || v.activity === 'dance' || v.activity === 'mourn' || v.activity === 'protest') return null;
+  if (hash01(v.id, slot, 11) >= GOSSIP_SHARE) return null;
+  const r = hash01(v.id, slot, 13);
+  return gossip[Math.min(gossip.length - 1, Math.floor(r * r * gossip.length))];
 }
 
 /** A bubble: a rounded white box with a little tail, the text in the look's body face. */

@@ -13,10 +13,11 @@ import {
   OFFERING_FAVOUR, PANTHEONS, PIOUS, RITE_EVERY_DAYS, RITE_FAVOUR, SIGN_HOURS, SIGN_SPENDS, WORSHIP, WRATH_AT, WRATH_CHANCE,
   type Domain,
 } from '../data/gods';
+import { holdRite } from './ceremonies';
 import { natureOf } from '../data/natures';
 import type { Material } from '../data/materials';
 import { CROPS } from '../data/crops';
-import { buildingCentre, canUpgrade, defOf, placeBlueprint, upgrade, unlockInfo, isUnlocked } from './buildings';
+import { buildingCentre, buildingDoor, canUpgrade, defOf, placeBlueprint, upgrade, unlockInfo, isUnlocked } from './buildings';
 import { BUILDING_BY_ID, UPGRADES } from '../data/buildings';
 import { FOOD_VALUE } from '../data/people';
 import { findSpot } from './planner';
@@ -79,6 +80,12 @@ export function faithHourly(s: GameState): void {
     for (const d of DOMAINS) f.favour[d] = clamp(f.favour[d] + RITE_FAVOUR);
     (s.marks ??= []).push({ lever: 'morale', value: 3, until: s.tick + 12 * TICKS_PER_HOUR, text: 'The rite was kept' });
     notify(s, `The town keeps the rite of the four gods: ${DOMAINS.map((d) => godOf(s, d)[0]).join(', ')}.`);
+    // (the faithful walk from the fire to the greatest place of worship and kneel before it: sim/ceremonies.ts)
+    const temple = s.buildings.filter((b) => b.status === 'done' && WORSHIP[b.def]).sort((a, b) => WORSHIP[b.def]! - WORSHIP[a.def]!)[0];
+    if (temple) {
+      const door = buildingDoor(temple);
+      holdRite(s, { x: door.x, y: door.y + 34 }, day);
+    }
   }
   // a sign: the most moved god first
   const order = [...DOMAINS].sort((a, b) => Math.abs(f.favour[b]) - Math.abs(f.favour[a]));

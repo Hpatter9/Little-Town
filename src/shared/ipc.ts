@@ -4,6 +4,8 @@ import { CONQUEST } from './data/conquest';
 import type { Command } from './sim/commands';
 import type { JournalEntryView, Snapshot } from './sim/snapshot';
 import type { NewGameOptions } from './sim/state';
+import type { Legend } from './sim/legacy';
+import type { SnapDelta } from './snapDelta';
 
 export type StripMode = 'full' | 'minimal';
 
@@ -24,7 +26,7 @@ export const PANELS: readonly { id: PanelId; label: string }[] = [
   { id: 'townsfolk', label: 'People' },
   { id: 'research', label: 'Studies' },
   { id: 'trade', label: 'Market' },
-  { id: 'expeditions', label: 'Trips' },
+  { id: 'expeditions', label: 'Quests' },
   ...(CONQUEST.on ? [{ id: 'war' as const, label: 'War' }] : []), // (the conquest is off for now: data/conquest.ts)
   { id: 'journal', label: 'Chronicle' },
 ];
@@ -86,6 +88,9 @@ export const IPC = {
   getAlerts: 'alerts:get',
   setAlerts: 'alerts:set',
   testAlert: 'alerts:test',
+  getLegends: 'legends:get',
+  snapDelta: 'game:snap-delta',
+  snapResync: 'game:snap-resync',
 } as const;
 
 export interface Bridge {
@@ -123,6 +128,14 @@ export interface Bridge {
   setAlerts(a: AlertSettings): Promise<AlertSettings>;
   testAlert(): Promise<string>;
 
+  /** The desktop app keeps the legends of towns gone by itself (main/legends.ts); the phone keeps them in the page. */
+  getLegends?(): Promise<Legend[]>;
+
+  /** Desktop: the snapshots as what changed (the whole one first, and again after `snapResync`); the renderer puts
+   *  them back together (renderer/deltaBridge.ts), which is far less to copy across than a whole snapshot a tick. */
+  onSnapDelta?(cb: (m: SnapMessage) => void): () => void;
+  snapResync?(): void;
+
   /** Phone only (the page around the strip): the strip says what's selected, for the card at the top of the
    *  screen (null clears it); the card's buttons come back as action ids. */
   inspect?(info: InspectInfo | null): void;
@@ -134,6 +147,9 @@ export interface Bridge {
    *  point between the fingers, in the strip's pixels, which the zoom keeps still). */
   pinch?(phase: 'start' | 'move' | 'end', spread: number, mx?: number, my?: number): void;
   onPinch?(cb: (phase: 'start' | 'move' | 'end', spread: number, mx: number, my: number) => void): () => void;
+  /** Phone only: buzz the phone softly (a pattern as navigator.vibrate takes it: renderer/vibration.ts); the page
+   *  keeps the setting and the pace, and never buzzes while hidden. */
+  vibrate?(pattern: readonly number[]): void;
 }
 
 /** What the phone's top card shows about the selected thing. */
@@ -141,4 +157,10 @@ export interface InspectInfo {
   title: string;
   lines: string[];
   actions: { id: string; label: string; danger?: boolean; primary?: boolean }[];
+}
+
+/** A snapshot message on the desktop (`Bridge.onSnapDelta`): the whole snapshot, or what changed since the last. */
+export interface SnapMessage {
+  full?: Snapshot;
+  d?: SnapDelta;
 }

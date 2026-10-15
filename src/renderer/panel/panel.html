@@ -170,6 +170,18 @@
         height: 100%;
         background: #ffd84a;
       }
+      /* (the Chronicle's Festivals tab: what's made of what's wanted, and the next one marked) */
+      .festival-made {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 8px;
+        align-items: center;
+        margin-top: 6px;
+        font-size: 12px;
+      }
+      .festival-card.next {
+        border-color: #ffd84a;
+      }
       .card.unique {
         border-color: #ff9a30;
         box-shadow: inset 0 0 0 1px rgba(255, 154, 48, 0.35);
@@ -329,6 +341,16 @@
       }
       .tn.locked {
         opacity: 0.6;
+      }
+      .tn.picked {
+        border-color: #7fd4ff;
+        box-shadow: 0 0 0 1px rgba(127, 212, 255, 0.55);
+      }
+      .tn.seat {
+        border-style: dashed;
+      }
+      .queue-row.picked .queue-name {
+        color: #9fdcff;
       }
       .tn.future {
         opacity: 0.35;
@@ -795,6 +817,24 @@
         text-align: left;
         font-weight: 700;
       }
+      .swipe-hint {
+        display: none;
+      }
+      @media (max-width: 560px) {
+        .swipe-hint {
+          display: block;
+        }
+      }
+      .grid-scroll {
+        overflow-x: auto;
+        max-width: 100%;
+      }
+      table.grid td.grid-name {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: var(--bg, #211811);
+      }
       .prio {
         width: 64px;
         padding: 2px 0;
@@ -992,6 +1032,7 @@
       .kin-lines path.black { stroke: rgba(170, 60, 60, 0.7); stroke-dasharray: 3 3; }
       .kin-row { position: relative; display: flex; gap: 6px; justify-content: center; min-width: max-content; }
       .kin { display: flex; flex-direction: column; align-items: center; min-width: 74px; max-width: 110px; padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(200, 170, 120, 0.5); background: rgba(60, 44, 30, 0.85); color: inherit; font: inherit; }
+      .kin-row.guild-chips { flex-wrap: wrap; min-width: 0; justify-content: flex-start; }
       .kin .kin-name { font-weight: 700; font-size: 12px; white-space: nowrap; }
       .kin .kin-sub { font-size: 10px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
       .kin .kin-title { color: #e8c060; }
@@ -1788,6 +1829,24 @@
       .folk-name {
         font-weight: 700;
       }
+      .folk-name-line {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 0;
+      }
+      .folk-race {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        flex: none;
+        border: 1px solid rgba(232, 200, 138, 0.55);
+        border-radius: 50%;
+        color: #e8c88a;
+        font: 700 10px/1 var(--font-body);
+      }
       .folk-class {
         font-size: 11px;
         color: #ffe08a;
@@ -1982,6 +2041,29 @@
         font-style: normal;
         font-family: var(--font-display);
         color: #e8b84a;
+      }
+      /* today's diary, on the Background tab: a page in their own hand */
+      .diary-page {
+        background: linear-gradient(#e9dcb8, #dccb9f);
+        color: #3a2a18;
+        border: 1px solid #8a6a40;
+        box-shadow: inset 0 0 12px rgba(90, 60, 20, 0.25);
+      }
+      .diary-line {
+        margin: 0 0 6px;
+        font-style: italic;
+        line-height: 1.45;
+        font-size: 13px;
+      }
+      .diary-line:first-child::first-letter {
+        font-family: var(--font-display);
+        font-size: 1.5em;
+        font-style: normal;
+        color: #7a3a18;
+      }
+      .diary-line:last-child {
+        margin-bottom: 0;
+        text-align: right;
       }
       .skill-info {
         margin-top: 8px;
@@ -2227,6 +2309,7 @@
       .dread { position: relative; height: 8px; margin: 6px 0 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
       .dread-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #6a4a8a, #a03050 70%, #ff3020); }
       .dread-warn { color: #ff8070; font-weight: bold; }
+      .edicts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
       .favour { position: relative; height: 6px; margin-top: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
       .favour::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.4); }
       .favour-fill { position: absolute; top: 0; bottom: 0; }
@@ -2240,6 +2323,24 @@
       .glance-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.7; }
       .glance-value { font-family: var(--font-display); font-size: 17px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; max-width: 100%; white-space: nowrap; }
       .glance-sub { font-size: 11px; opacity: 0.75; line-height: 1.25; }
+      /* the Quests tab (expeditionsPanel.ts) */
+      .quests-glance { grid-template-columns: repeat(3, 1fr); }
+      .next-party { margin: 2px 0 8px; }
+      .card.fighting { border-color: #c0503a; }
+      .dest-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 2px; }
+      .dest-chip { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.12); white-space: normal; max-width: 100%; }
+      .dest-chip.threat { color: #f0b8a8; }
+      .dest-chip.gold { color: #f3d27a; border-color: rgba(243, 210, 122, 0.45); }
+      .dest-chip.ok { color: #a8e0a0; border-color: rgba(168, 224, 160, 0.45); }
+      .dest-chip.bad { color: #f09080; border-color: rgba(240, 144, 128, 0.45); }
+      .dest-controls { margin-bottom: 6px; }
+      .locked-list { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 8px; }
+      .locked-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 4px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.04); opacity: 0.8; }
+      .locked-why { opacity: 0.7; text-align: right; }
+      .company-who { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+      .company-member { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: rgba(243, 210, 122, 0.14); border: 1px solid rgba(243, 210, 122, 0.35); }
+      .company-member.dead { opacity: 0.55; background: transparent; }
+      .card.company.ended { opacity: 0.7; }
       /* a menu's own filters inside a tab (the stores' kinds): small chips, not more tabs */
       .inv-tabs:not(.menu-tabs):not(.inspect-tabs):not(.journal-tabs) { gap: 4px; }
       .inv-tabs:not(.menu-tabs):not(.inspect-tabs):not(.journal-tabs) .inv-tab { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
@@ -2381,6 +2482,49 @@
       .quest-log-row.done .quest-log-mark { color: #7cc87c; }
       .quest-log-row.failed .quest-log-mark { color: #e0604a; }
       .quest-log-text { font-size: 12px; opacity: 0.7; margin: 0 0 4px 22px; }
+      /* the ranch's beast cards and the arena's book and ladder (ranchPanel.ts, arenaPanel.ts) */
+      .card.beast .card-top { align-items: center; gap: 6px; }
+      .card.beast.sick { opacity: 0.8; }
+      .chip.bad { color: #e8a0a0; border-color: #a05050; }
+      .beast-name { flex: 1 1 8em; min-width: 6em; font: inherit; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(0, 0, 0, 0.25); color: inherit; }
+      .card-more .row, .arena-card .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+      .bet-row .bet-on { flex: 1 1 100%; font-size: 0.9em; opacity: 0.85; }
+      table.ladder { width: 100%; border-collapse: collapse; }
+      table.ladder td, table.ladder th { padding: 3px 4px; text-align: left; }
+      table.ladder tr.ours td { color: var(--heading, #f0d890); }
+      /* the Hall of Legends: our own line, the lines of descent (panel/legendsPanel.ts) */
+      .card.legend.ours {
+        border-color: #c8a24a;
+      }
+      .card.legend .hint.bad {
+        color: #d88a8a;
+      }
+      .legend-chain {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        margin-top: 6px;
+        font-size: 12px;
+      }
+      .legend-link {
+        padding: 1px 6px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .legend-link.fell {
+        color: #d8a0a0;
+      }
+      .legend-link.won {
+        color: #e8cc78;
+      }
+      .legend-link.lost {
+        opacity: 0.6;
+        font-style: italic;
+      }
+      .legend-arrow {
+        color: var(--text-dim);
+      }
     </style>
   </head>
   <body>

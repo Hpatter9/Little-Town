@@ -15,6 +15,7 @@ import { CROPS } from '../../shared/data/crops';
 import { earlier, eraReached } from '../../shared/data/eras';
 import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { eraOfResearch, TOPIC_BY_ID } from '../../shared/data/research';
+import { PINS_MOST } from '../../shared/sim/pins';
 import type { Bridge } from '../../shared/ipc';
 import { DIRECTION_DEFS, DIRECTIONS } from '../../shared/sim/planner';
 import { blueprintCount, isUnlocked } from '../../shared/sim/buildings';
@@ -32,10 +33,11 @@ import { ITEMS } from '../../shared/data/items';
 import { ERA_NAMES } from '../../shared/data/eras';
 import { depthOf } from '../../shared/sim/buildings';
 import { SKILL_NAMES } from '../../shared/data/skills';
+import { topicName } from '../../shared/data/originResearch';
 
 /** Changes whenever something this panel shows changes. */
 export const buildKey = (s: Snapshot) =>
-  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift]), s.politics && [s.politics.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics.laws.map((l) => l.on), s.politics.log[0], s.politics.crimes, s.politics.strike, s.politics.tax], s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)]), heritageKey(s), s.skipRaids]);
+  JSON.stringify([hide.key, s.powers.map((p) => [p.id, Math.ceil(p.readyHours), Math.ceil(p.activeHours), p.held, p.affordable]), s.powerLog[0], s.nomad && [s.nomad.site, s.nomad.settled, Math.ceil((s.nomad.nextMoveDays ?? 0) * 24)], s.lichOffer, s.theme, s.coins, s.ledger, !!s.shop, !!s.tavern, s.era, s.research.revealed, s.buildSlots, s.stock, s.unlockAll, s.research.done, s.storageCapacity, s.housing, s.direction, s.plan, s.villages.map((v) => [v.pop, v.loyalty, v.rebel, v.beset, v.helpers, v.cartOut, v.goods, v.news[0], v.canGift]), s.politics && [s.politics.blocs.map((b) => [b.sat, b.members.length, b.wants, b.striking]), s.politics.laws.map((l) => l.on), s.politics.log[0], s.politics.crimes, s.politics.strike, s.politics.tax, s.politics.edictWait], s.buildings.map((b) => [b.def, b.status, Math.floor(b.progress * 20)]), heritageKey(s), s.skipRaids, s.pins.map((p) => [p.def, p.building, Math.floor(p.progress * 20), p.why])]);
 
 export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: () => void = () => {}): HTMLElement[] {
   const used = blueprintCount(s);
@@ -167,6 +169,8 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
         ['bounties', 'Bounties posted (and taken back)'],
         ['realm', 'The realm: gifts, tribute, trade and plunder'],
         ['trade', 'The trade house: wagons, loans and debts'],
+        ['ranch', 'The ranch: beasts sold'],
+        ['arena', 'The arena: the gate, purses and the treasury\'s bets'],
       ];
       const t = el('table', 'grid ledger');
       let net = 0;
@@ -214,13 +218,14 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
   out.push(...inTown(s, bridge));
   out.push(...faithSection(s));
   out.push(...villagesSection(s, bridge));
-  out.push(...politicsSection(s));
+  out.push(...politicsSection(s, bridge));
   out.push(...heritageSection(s));
 
   // everything it knows how to build (for reference: it decides for itself)
   out.push(
     el('h2', '', 'Building book'),
-    el('div', 'hint', 'Every building the town knows how to make, and what each is for. It builds them itself, as it needs them.'),
+    el('div', 'hint', 'Every building the town knows how to make, and what each is for. It builds them itself, as it needs them; pin one (📌) to have it built next.'),
+    ...wishesBlock(s, bridge),
     hide.row(
       [
         ['built', 'Built', 'Hide the buildings the town already has'],
@@ -242,7 +247,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
     if (!shown.length) continue;
     out.push(el('h2', '', LAYER_NAMES[layer]));
     const grid = el('div', 'cards');
-    for (const def of shown) grid.append(card(def, s));
+    for (const def of shown) grid.append(card(def, s, bridge));
     out.push(grid);
   }
   out.push(...hiddenNote(hidden));
@@ -252,7 +257,24 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
 /** What to hide in the list of buildings (kept across visits, per phone). */
 const hide = new HidePrefs('littletown.buildHide', ['built', 'locked'] as const);
 
-function card(def: BuildingDef, s: Snapshot): HTMLElement {
+/** The player's pinned wishes: each with how it stands and Unpin. */
+function wishesBlock(s: Snapshot, bridge: Bridge | undefined): HTMLElement[] {
+  if (!s.pins.length) return [];
+  const box = el('div', 'queue');
+  box.append(el('div', 'panel-head', `📌 Your wishes ${s.pins.length}/${PINS_MOST}`));
+  for (const p of s.pins) {
+    const row = el('div', 'queue-row');
+    row.append(
+      el('span', 'queue-name', p.name),
+      el('span', 'queue-time', p.building ? `going up: ${Math.floor(p.progress * 100)}% built` : p.why ? `waiting: ${p.why}` : 'next to be built'),
+      button('Unpin', () => bridge?.command({ type: 'pinBuilding', def: p.def, on: false }), { cls: 'place small' }),
+    );
+    box.append(row);
+  }
+  return [box];
+}
+
+function card(def: BuildingDef, s: Snapshot, bridge: Bridge | undefined): HTMLElement {
 
   const unlocked = isUnlocked({ unlockAll: s.unlockAll, done: s.research.done, era: s.era, origin: s.origin.id }, def);
   const c = el('div', unlocked ? 'card' : 'card locked');
@@ -268,10 +290,15 @@ function card(def: BuildingDef, s: Snapshot): HTMLElement {
   c.append(top, cost, el('div', 'purpose', def.purpose));
   const tip = placementTip(def);
   if (tip) c.append(el('div', 'hint', tip));
-  if (!unlocked) c.append(el('div', 'lock', `Needs research: ${TOPIC_BY_ID[def.research!]?.name ?? def.research}`));
+  if (!unlocked) c.append(el('div', 'lock', `Needs research: ${topicName(def.research!, s.origin.id)}`));
   else {
     const n = s.buildings.filter((b) => b.def === def.id && b.status === 'done').length;
     c.append(el('div', 'lock', n ? `In town: ${n}` : 'None yet'));
+    // (the player's wish: built next, sim/pins.ts)
+    const pin = s.pins.find((p) => p.def === def.id);
+    const can = !def.never && !(def.hp && def.width === 1 && !def.defense) && !def.seat;
+    if (pin) c.append(button('📌 Pinned: unpin', () => bridge?.command({ type: 'pinBuilding', def: def.id, on: false }), { cls: 'place small on' }));
+    else if (can) c.append(button('📌 Build this next', () => bridge?.command({ type: 'pinBuilding', def: def.id, on: true }), { cls: 'place small', disabled: s.pins.length >= PINS_MOST }));
   }
   return expandable(c, `bld:${def.id}`, () => buildingDetails(def, s));
 }
@@ -291,7 +318,7 @@ function buildingDetails(def: BuildingDef, s: Snapshot): More[] {
     facts([
       ['Size', `${def.width} × ${depthOf(def)} cells`],
       ['Age', ERA_NAMES[eraOfResearch(def.research)]],
-      ['Research', def.research ? (TOPIC_BY_ID[def.research]?.name ?? def.research) : 'none'],
+      ['Research', def.research ? (topicName(def.research, s.origin.id)) : 'none'],
       ['Beds', def.housing],
       ['Storage', def.storage],
       ['Morale', def.morale ? `+${def.morale[0]} (${def.morale[1]})` : null],
@@ -306,7 +333,8 @@ function buildingDetails(def: BuildingDef, s: Snapshot): More[] {
       ['Job', job ? `${job.title} (${SKILL_NAMES[job.skill]}): ${job.effect.toLowerCase()}` : null],
       ['Built by the shore', def.shore ? 'yes: it must touch water' : null],
       ['Rebuilt from', from.length ? from.join(' or ') : null],
-      ['Grows into', next ? `${next.name}${next.research ? ` (once ${TOPIC_BY_ID[next.research]?.name ?? next.research} is learned)` : ''}` : null],
+      ['Opens studies', def.seat ? `of the ${ERA_NAMES[def.era ?? 'neolithic']} age: until the seat stands at this stage, that age's research waits` : null],
+      ['Grows into', next ? `${next.name}${next.research ? ` (once ${topicName(next.research, s.origin.id)} is learned)` : ''}` : null],
       ['In town', standing.length ? `${standing.filter((b) => b.status === 'done').length} standing${standing.some((b) => b.status !== 'done') ? `, ${standing.filter((b) => b.status !== 'done').length} going up` : ''}` : null],
     ]),
     crop ? facts([['Grows', `${MATERIAL_NAMES[crop.material]}, about ${crop.yield} a harvest`], ['Ripens in', `${crop.growHours} hours in spring and summer${crop.hardy ? ' (and autumn)' : ''}`], ['Indoors', crop.indoor ? 'yes: no seasons, no weather' : null]]) : null,

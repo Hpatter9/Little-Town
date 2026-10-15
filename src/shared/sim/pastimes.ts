@@ -1,13 +1,18 @@
 // What townsfolk do with an idle moment (the owner's ask: everyday life to watch): a child runs off to play with the
 // other children (tag about the camp), an elder sits by the fire, and a couple walks out together of an evening.
-// It only changes where an idle wander goes and how the wait is spent: nobody is taken from work.
+// By day a grown-up now and then goes to draw water at the well, winds the bucket up and carries it home (`well`, then
+// `carry`: people.ts). In a plague the healer, idle, goes the rounds of the sick households (the plague doctor). It
+// only changes where an idle wander goes and how the wait is spent: nobody is taken from work.
 
 import { CELL } from './land';
 import { calendar } from './time';
-import { campXY, type GameState, type Person } from './state';
+import { campXY, type Activity, type GameState, type Person } from './state';
+import { benchSpot, busks, buskSpot, BUSK_EVERY, BUSK_FROM, BUSK_PEOPLE, BUSK_UNTIL, eavesSpot, EAVES_PEOPLE, fairNow, PIGEON_EVERY, PIGEON_FROM, PIGEON_UNTIL, puddleSpot, RIVER_FROM, RIVER_UNTIL, riverSpot, playingKids, someoneBusking, tagIt, tagTarget, wetNow } from './idleScenes';
 import { isChild } from './social';
 import { isElder } from './ageing';
 import { buildingDoor } from './buildings';
+import { SICKBEDS } from '../data/prisons';
+import type { DoomKind } from '../data/doom';
 
 /** Market day: one day in `MARKET_EVERY` (the `MARKET_DAY`th), from `MARKET_FROM` to `MARKET_UNTIL`, in a town of at
  *  least `MARKET_PEOPLE` grown-ups: stalls go up on the square (the map draws them) and anyone idle goes to browse. */
@@ -36,7 +41,71 @@ export function marketSquare(s: GameState): { x: number; y: number } {
   return { x: c.x, y: c.y + 3 * CELL };
 }
 
-export type Pastime = 'play' | 'sit' | 'stroll' | 'market';
+export type Pastime = 'play' | 'sit' | 'stroll' | 'market' | 'well' | 'carry' | 'rounds' | IdleScene;
+/** The small scenes about town and in the rain (sim/idleScenes.ts). */
+export type IdleScene = 'eaves' | 'splash' | 'tag' | 'pigeons' | 'riverside' | 'busk';
+
+/** What someone at a pastime is doing, as the map draws it (the idle wait's activity). */
+export function pastimeActivity(pt: Pastime | undefined): Activity {
+  switch (pt) {
+    case 'market':
+      return 'stroll';
+    case 'well':
+      return 'draw';
+    case 'splash':
+    case 'tag':
+      return 'play';
+    case 'pigeons':
+    case 'riverside':
+      return 'sit';
+    case 'play':
+    case 'sit':
+    case 'stroll':
+      return pt;
+    default:
+      return 'idle';
+  }
+}
+
+/** Water is drawn at the well from `WELL_FROM` to `WELL_UNTIL`, by a grown-up one idle wander in `WELL_EVERY`. */
+export const WELL_FROM = 7;
+export const WELL_UNTIL = 18;
+export const WELL_EVERY = 4;
+
+/** The well water is drawn at: a finished one, the nearest the person (null with none). */
+export function wellFor(s: GameState, p: { x: number; y: number }): { x: number; y: number } | null {
+  let best: { x: number; y: number } | null = null;
+  let bestD = Infinity;
+  for (const b of s.buildings) {
+    if (b.def !== 'well' || b.status !== 'done') continue;
+    const d = buildingDoor(b);
+    const k = Math.hypot(d.x - p.x, d.y - p.y);
+    if (k < bestD) [best, bestD] = [d, k];
+  }
+  return best;
+}
+
+/** The dooms that are a pestilence, and how many sick in town make one besides. */
+export const PLAGUE_DOOMS: readonly DoomKind[] = ['plague', 'outbreak', 'rat_plague'];
+export const PLAGUE_SICK = 3;
+
+/** Whether a plague is on: a pestilence doom come upon the town, or `PLAGUE_SICK` of the town sick at once. Pure, so
+ *  the map can ask it of the snapshot too (the marked doors). */
+export function plagueOn(doom: { kind: DoomKind; phase: string } | null | undefined, sick: number): boolean {
+  return (!!doom && doom.phase === 'active' && PLAGUE_DOOMS.includes(doom.kind)) || sick >= PLAGUE_SICK;
+}
+
+/** The healer making the rounds in a plague: the holder of a healer's hut, infirmary, hospital or trauma centre. */
+export function isHealer(s: GameState, p: Person): boolean {
+  return s.buildings.some((b) => b.operator === p.id && b.status === 'done' && SICKBEDS[b.def] !== undefined);
+}
+
+/** The homes with someone sick in them (their beds), by id: the doors the plague doctor knocks at. */
+export function sickHomes(s: GameState): number[] {
+  const out = new Set<number>();
+  for (const q of s.people) if (q.sick && q.away === null && q.bed !== null) out.add(q.bed);
+  return [...out].sort((a, b) => a - b);
+}
 
 /** Couples walk out together between these hours. */
 export const STROLL_FROM = 17;
@@ -51,7 +120,14 @@ const STROLL_RING = 5;
 export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; y: number; pastime: Pastime } | null {
   if (p.away !== null || s.raid) return null;
   const c = campXY(s);
+  const wet = wetNow(s);
   if (isChild(p)) {
+    // (in the rain, off from puddle to puddle, splashing: sim/idleScenes.ts)
+    if (wet) return { ...puddleSpot(s, p, slot), pastime: 'splash' };
+    // (every other turn, a game of tag with the others: "it" chases, the rest run, and the roles go round)
+    const playing = slot % 2 === 1 ? playingKids(s) : [];
+    const it = tagIt(playing, slot);
+    if (it !== null && playing.includes(p)) return { ...tagTarget(p, playing, it, c), pastime: 'tag' };
     // (round another child, so they chase each other about; else about the fire)
     const kids = s.people.filter((q) => q !== p && q.away === null && isChild(q));
     const other = kids.length ? kids[(slot + p.id) % kids.length] : null;
@@ -59,7 +135,26 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
     const base = other ?? { x: c.x, y: c.y };
     return { x: base.x + Math.cos(a) * PLAY_NEAR * CELL, y: base.y + Math.sin(a) * PLAY_NEAR * CELL * 0.7, pastime: 'play' };
   }
+  // (a plague on: the healer goes from one sick household's door to the next, by turns)
+  if (plagueOn(s.doom, s.people.filter((q) => q.sick).length) && isHealer(s, p)) {
+    const homes = sickHomes(s)
+      .map((id) => s.buildings.find((b) => b.id === id))
+      .filter((b): b is NonNullable<typeof b> => !!b && b.status === 'done');
+    if (homes.length) {
+      const d = buildingDoor(homes[slot % homes.length]);
+      return { x: d.x + 0.4 * CELL, y: d.y + 0.5 * CELL, pastime: 'rounds' };
+    }
+  }
   const hour = calendar(s.tick).hour;
+  // (rain: under the eaves of the nearest roof till it passes: sim/idleScenes.ts)
+  const grown = s.people.filter((q) => q.away === null && !isChild(q)).length;
+  if (wet && grown >= EAVES_PEOPLE) {
+    const e = eavesSpot(s, p);
+    if (e) return { ...e, pastime: 'eaves' };
+  }
+  // (a merry sort plays a tune in the square by day, one at a time)
+  if (!wet && grown >= BUSK_PEOPLE && hour >= BUSK_FROM && hour < BUSK_UNTIL && (slot + p.id) % BUSK_EVERY === 0 && busks(p) && !isElder(s, p) && !someoneBusking(s, p))
+    return { ...buskSpot(s, marketSquare(s)), pastime: 'busk' };
   // (market day: off to the square to browse the stalls)
   if (marketOn(s)) {
     const m = marketSquare(s);
@@ -68,6 +163,11 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
     return { x: m.x + Math.cos(a) * r, y: m.y + Math.sin(a) * r * 0.6, pastime: 'market' };
   }
   const partner = p.partner != null ? s.people.find((q) => q.id === p.partner && q.away === null) : undefined;
+  // (at dusk, every other evening, a couple sits together by the water: sim/idleScenes.ts)
+  if (partner && fairNow(s) && hour >= RIVER_FROM && hour < RIVER_UNTIL && (calendar(s.tick).day + Math.min(p.id, partner.id)) % 2 === 0) {
+    const bank = calendar(s.tick).season === 'winter' ? null : riverSpot(s, Math.min(p.id, partner.id));
+    if (bank) return { x: bank.x + (p.id < partner.id ? -0.32 : 0.32) * CELL, y: bank.y, pastime: 'riverside' };
+  }
   if (partner && hour >= STROLL_FROM && hour < STROLL_UNTIL) {
     // (the lower id leads them round a loop about the town; the other keeps a step beside)
     if (p.id < partner.id) {
@@ -76,6 +176,13 @@ export function pastimeFor(s: GameState, p: Person, slot: number): { x: number; 
     }
     return { x: partner.x - 0.6 * CELL, y: partner.y + 0.2 * CELL, pastime: 'stroll' };
   }
+  // (by day, now and then, to draw water at the well: stood at its foot, a little to one side)
+  if (hour >= WELL_FROM && hour < WELL_UNTIL && (slot + p.id) % WELL_EVERY === 0 && p.bed != null && !isElder(s, p)) {
+    const w = wellFor(s, p);
+    if (w) return { x: w.x + (p.id % 2 ? 0.45 : -0.45) * CELL, y: w.y - 0.2 * CELL, pastime: 'well' };
+  }
+  // (an elder on a bench feeding the pigeons, now and then on a fair day: the map's birds come down round them)
+  if (isElder(s, p) && fairNow(s) && hour >= PIGEON_FROM && hour < PIGEON_UNTIL && (slot + p.id) % PIGEON_EVERY === 0) return { ...benchSpot(s, p), pastime: 'pigeons' };
   if (isElder(s, p)) {
     const a = (p.id * 1.7) % (Math.PI * 2);
     return { x: c.x + Math.cos(a) * FIRE_RING * CELL, y: c.y + Math.sin(a) * FIRE_RING * CELL * 0.6, pastime: 'sit' };

@@ -8,6 +8,8 @@ import { REBEL_RAID } from './villages';
 import { PORTAL_RAIDS } from './portals';
 import { PACK_RAIDS } from './pack';
 import { BESTIARY_RAIDS } from './bestiary';
+import { RISING_RAIDS } from './risingPowers';
+import { SKY_RAIDS } from './skies';
 import { MENAGERIE_RAIDS } from './menagerie';
 import type { Era } from './eras';
 
@@ -100,8 +102,11 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   { id: 'rival_fae', name: 'The Wild Hunt', goal: 'kidnap', goals: { kidnap: 3, harm: 2, steal: 1 }, steals: 'food', enemies: { wisp: 6, redcap: 10, crystal_fiend: 22 }, fromDay: 8, weight: 0.3, speed: 70, bribable: false, plural: false, origin: 'fae', leader: 'hunt_queen' },
   { id: 'rival_alchemists', name: 'The Mad Alchemist\'s experiments', goal: 'harm', goals: { harm: 3, burn: 2 }, enemies: { acid_slime: 7, homunculus: 16, fire_elemental: 20 }, fromDay: 8, weight: 0.3, speed: 40, bribable: false, plural: true, origin: 'alchemists', leader: 'mad_alchemist' },
   { id: 'rival_knights', name: 'The Order', goal: 'harm', goals: { harm: 3, burn: 1, steal: 1 }, steals: 'valuables', enemies: { order_knight: 18, order_crossbow: 12 }, fromDay: 8, weight: 0.3, speed: 55, bribable: true, plural: false, origin: 'knights', leader: 'grand_master' },
+  { id: 'rival_orcs', name: 'The Warband', goal: 'harm', goals: { harm: 3, burn: 2, steal: 1, kidnap: 1 }, steals: 'food', enemies: { orc_grunt: 18, orc_archer: 9, orc_brute: 6 }, fromDay: 8, weight: 0.3, speed: 58, bribable: true, plural: false, origin: 'orcs', leader: 'orc_warlord' },
   // the Craftpix packs' foes (data/bestiary.ts)
   ...BESTIARY_RAIDS,
+  // the rising powers' armies (data/risingPowers.ts)
+  ...RISING_RAIDS,
   // the menagerie's (data/menagerie.ts): one for each family, and the ice's, the dunes' and the deep's own
   ...MENAGERIE_RAIDS,
   // the nests' and the Calamity's (data/nests.ts, data/calamity.ts): never rolled
@@ -110,6 +115,7 @@ const BASE_RAID_KINDS: readonly RaidKind[] = [
   ...DEEP_RAIDS,
   REBEL_RAID,
   ...PORTAL_RAIDS,
+  ...SKY_RAIDS,
 ];
 
 export const RAID_KINDS: readonly RaidKind[] = [...BASE_RAID_KINDS, ...PACK_RAIDS];
@@ -117,10 +123,10 @@ export const RAID_KIND_BY_ID: Readonly<Record<string, RaidKind>> = Object.fromEn
 
 /** No raids before this many game hours. */
 export const RAID_GRACE_HOURS = 48;
-/** Hours between raids: a base that shrinks as days pass, never below the minimum, plus some randomness. */
-export const RAID_INTERVAL_HOURS = 30;
-export const RAID_INTERVAL_MIN = 14;
-export const RAID_INTERVAL_JITTER = 6;
+/** Hours between raids: a base that shrinks as days pass, never below two days, plus some randomness. */
+export const RAID_INTERVAL_HOURS = 72;
+export const RAID_INTERVAL_MIN = 48;
+export const RAID_INTERVAL_JITTER = 12;
 /** Strength budget: base + per day survived + per 25 points of wealth (stock units, 5 per building). */
 /** Every raid's budget is multiplied by this (the owner's call: deaths should be common, and small towns since arrivals
  *  became the player's choice drew raids of two or three beasts that never downed anyone). */

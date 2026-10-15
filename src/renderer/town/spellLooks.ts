@@ -86,6 +86,9 @@ export const LOOKS: Record<string, Look> = {
   'town:rally': { sprite: 'holy', kind: 'ring', color: GOLD, also: 'aura', alt: GOLD },
   'town:shield_wall': { sprite: 'parry', kind: 'dome', color: GOLD },
   'town:oath': { sprite: 'suture', kind: 'rise', color: GOLD },
+  'town:war_cry': { sprite: 'blood_storm', onCaster: true, kind: 'ring', color: BLOOD, also: 'aura', alt: EMBER },
+  'town:berserk': { sprite: 'slash_fire', kind: 'bolt', color: BLOOD },
+  'town:grog_feast': { sprite: 'life_fountain', kind: 'sparkle', color: ACID },
   // rival lords' spells
   'rival:drain_life': { sprite: 'void', kind: 'stream', color: GREEN_DEAD },
   'rival:raise_fallen': { sprite: 'conjure', kind: 'rise', color: GREEN_DEAD },
@@ -115,6 +118,20 @@ export const LOOKS: Record<string, Look> = {
   'rival:transmute': { sprite: 'hourglass', kind: 'rocks', color: SAND },
   'rival:rally': { sprite: 'holy', kind: 'ring', color: GOLD, also: 'aura', alt: GOLD },
   'rival:shield_wall': { sprite: 'parry', kind: 'dome', color: GOLD },
+  'rival:war_cry': { sprite: 'blood_storm', onCaster: true, kind: 'ring', color: BLOOD, also: 'aura', alt: EMBER },
+  'rival:war_drums': { sprite: 'void', kind: 'stream', color: BLOOD },
+  'rival:more_orcs': { sprite: 'portal', kind: 'vortex', color: ACID },
   'rival:oath': { sprite: 'suture', kind: 'rise', color: GOLD },
+  // the rising powers' lords (data/risingPowers.ts)
+  'rival:shogun_banner': { sprite: 'blood_storm', onCaster: true, kind: 'ring', color: BLOOD, also: 'aura', alt: GOLD },
+  'rival:smoke_bombs': { sprite: 'frost', onCaster: true, kind: 'fog', color: 0xb8b0c0 },
+  'rival:shadow_clan': { sprite: 'portal', kind: 'vortex', color: VIOLET },
+  'rival:broadside': { sprite: 'missile', kind: 'arrows', color: EMBER },
+  'rival:press_gang': { sprite: 'portal', kind: 'vortex', color: SEA },
+  'rival:pillage': { kind: 'coins', color: GOLD },
+  'rival:hellfire': { sprite: 'prism', kind: 'bolt', color: EMBER },
+  'rival:soul_drain': { sprite: 'void', kind: 'stream', color: BLOOD },
+  'rival:open_the_pit': { sprite: 'portal', kind: 'vortex', color: EMBER },
+  'rival:despair': { sprite: 'void', kind: 'stream', color: VIOLET },
 };
 

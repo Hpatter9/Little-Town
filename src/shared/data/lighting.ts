@@ -33,9 +33,24 @@ export const FEED_UNTIL = 23;
 export const DARK_BELOW = 0.25;
 /** Work in the dark goes at this pace. */
 export const DARK_PACE = 0.75;
-/** The camp's fire lights so far (cells), and the open fires (the bloomery, the kiln...) so far. */
+/** The camp's fire lights so far (cells). */
 export const CAMPFIRE_RADIUS = 4.5;
-export const FIRE_RADIUS = 2.5;
+/** The fires that burn at the town's buildings and how far each lights (cells), its colour and strength: the camp's
+ *  fire, the open fires and the furnaces. */
+export const FIRE_LIGHTS: Record<string, { radius: number; color: number; power: number }> = {
+  campfire: { radius: CAMPFIRE_RADIUS, color: 0xffb070, power: 1 },
+  storytellers_circle: { radius: 3.5, color: 0xffb070, power: 0.95 },
+  bloomery: { radius: 3, color: 0xffa060, power: 0.9 },
+  kiln: { radius: 2.5, color: 0xffa060, power: 0.85 },
+  smithy: { radius: 2.5, color: 0xff9850, power: 0.8 },
+  glassworks: { radius: 2, color: 0xffb060, power: 0.75 },
+};
+/** Buildings that lie flat on the ground (fields, pens, yards, a heap of stores, the fire itself): light passes over
+ *  them. Fields, pens and traps besides are known by what they are (sim/lightField.ts `flat`). */
+export const LOW_BUILDINGS = new Set(['campfire', 'stockpile', 'village_green', 'quoits_pitch', 'sparring_yard', 'graveyard', 'fishing_jetty', 'herb_garden', 'pleasure_garden']);
+/** A tree's or a rock's shadow is round: how far from its cell's middle it stops light (cells). */
+export const ROUND_BLOCK = 0.38;
+
 /** Under the mountain the sconces burn from waking to bed (they're put out while the hold sleeps). */
 export const CAVE_WAKE = 6;
 export const CAVE_SLEEP = 22;

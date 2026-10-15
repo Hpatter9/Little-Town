@@ -36,7 +36,7 @@ export const DOOMS: Record<DoomKind, DoomDef> = {
     ends: 'The last of the sick are on the mend. The plague has passed.',
     warnHours: 24,
     hours: [0, 0],
-    weight: 1,
+    weight: 0.35,
   },
   ash_winter: {
     name: 'Ash Winter',
@@ -130,7 +130,7 @@ export const DOOMS: Record<DoomKind, DoomDef> = {
 
 /** No doom before this many game days; then one every so many days (a range). */
 export const DOOM_FIRST_DAY = 4;
-export const DOOM_EVERY_DAYS: [number, number] = [5, 8];
+export const DOOM_EVERY_DAYS: [number, number] = [10, 15];
 
 /** Drought: crop growth (without and with a well), and foraging speed. */
 export const DROUGHT_GROWTH = 0;
@@ -157,19 +157,19 @@ export const SMOG_HP_PER_HOUR = 0.8;
 export const SMOG_MORALE = -6;
 
 /** War: raids come at least this often (game hours), and this much stronger. */
-export const WAR_RAID_EVERY_HOURS = 10;
+export const WAR_RAID_EVERY_HOURS = 48;
 export const WAR_RAID_BUDGET = 1.5;
 
 /** Zombie outbreak: not before this day; waves at least this often (game hours, stretched like war); the
  *  Abomination leads the last wave, this many hours before the end. */
 export const OUTBREAK_FROM_DAY = 8;
-export const ZOMBIE_WAVE_HOURS = 8;
+export const ZOMBIE_WAVE_HOURS = 48;
 export const ABOMINATION_BEFORE_END_HOURS = 12;
 
 /** Deep Freeze: not before this day; ice mage waves at least this often (game hours, stretched like war); the
  *  Frost Archmage comes this many hours before the end (slaying it ends the freeze at once). */
 export const FREEZE_FROM_DAY = 10;
-export const FREEZE_WAVE_HOURS = 10;
+export const FREEZE_WAVE_HOURS = 48;
 export const ARCHMAGE_BEFORE_END_HOURS = 30;
 /** The freeze can come in any era, so the Archmage's health is scaled to the town's era. */
 export const ARCHMAGE_HP_BY_ERA: Record<Era, number> = { neolithic: 0.35, medieval: 0.6, industrial: 1, modern: 1.5, space: 2 };
@@ -189,7 +189,7 @@ export const FREEZE_MORALE = -4;
 /** Rat Plague: swarms at least this often (game hours, stretched like war); the Rat King leads them this many
  *  hours before the end (and comes back until slain); share of stored food eaten each hour; chance a plague rat's
  *  bite passes on the sickness. */
-export const RAT_WAVE_HOURS = 8;
+export const RAT_WAVE_HOURS = 48;
 export const RAT_KING_BEFORE_END_HOURS = 30;
 export const RATS_EAT_PER_HOUR = 0.02;
 export const RAT_BITE_SICKNESS = 0.25;

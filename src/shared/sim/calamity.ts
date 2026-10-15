@@ -291,10 +291,11 @@ export const heartOpen = (s: GameState) => {
   return !!c?.heart && c.stage >= 2 && c.beaten === undefined && (c.heartCleared === undefined || s.tick - c.heartCleared >= HEART_QUIET_DAYS * TICKS_PER_DAY);
 };
 
-/** The heart as a place on the Expedition Board (while it stands). */
-export function heartDestination(s: GameState): Destination | undefined {
+/** The heart as a place on the Expedition Board (while it stands). A party already out `held` there keeps its place
+ *  after clearing it (the heart is shut for a while, but the party still has to come home from it). */
+export function heartDestination(s: GameState, held = false): Destination | undefined {
   const c = s.calamity;
-  if (!c?.heart || !heartOpen(s)) return undefined;
+  if (!c?.heart || (!held && !heartOpen(s))) return undefined;
   const d = def(c);
   const camp = campCell(s);
   const cells = Math.hypot(c.heart.x - camp.x, c.heart.y - camp.y);

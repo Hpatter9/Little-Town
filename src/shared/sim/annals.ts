@@ -5,19 +5,21 @@
 // is reckoned from what the town looked like at the last chronicle, or its founding (`s.yearStart`), and from the raids
 // tallied as they end (`s.yearRaids`).
 
+import { awardDeedTitles } from './deeds';
 import { ERA_NAMES } from '../data/eras';
 import { callingName } from '../data/founderClasses';
 import { levelOf, stageOf } from '../data/levels';
 import { BUILDING_BY_ID } from '../data/buildings';
-import { TOPIC_BY_ID } from '../data/research';
 import { eventPicture } from '../data/eventScenes';
-import { calendar, TICKS_PER_HOUR } from './time';
+import { calendar, DAYS_PER_SEASON, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
 import { seaTown } from './sea';
 import { notify, type GameState, type Person, type Prompt } from './state';
+import { honour } from './memorials';
+import { topicName } from '../data/originResearch';
 
-/** Midwinter: the second day of winter, of an evening. */
-export const CHRONICLE_DAY = 2;
+/** Midwinter: the middle day of winter, of an evening. */
+export const CHRONICLE_DAY = Math.ceil(DAYS_PER_SEASON / 2);
 export const CHRONICLE_HOUR = 19;
 /** How long the chronicle's card waits to be read (game hours). */
 const CHRONICLE_HOURS = 24;
@@ -62,7 +64,7 @@ export interface YearStart {
 
 /** Remember someone who has died, for the hall of heroes and the year's chronicle. */
 export function recordFallen(s: GameState, p: Person, cause: string): void {
-  (s.fallen ??= []).push({
+  const f: Fallen = {
     id: p.id,
     name: p.name,
     day: calendar(s.tick).day,
@@ -73,7 +75,9 @@ export function recordFallen(s: GameState, p: Person, cause: string): void {
     felled: p.felled ?? 0,
     trips: p.trips ?? 0,
     founder: p.id === s.mainId,
-  });
+  };
+  (s.fallen ??= []).push(f);
+  honour(s, p, f); // (the famous are honoured with a statue in the square: sim/memorials.ts)
   if (s.fallen.length > FALLEN_MOST) s.fallen.splice(0, s.fallen.length - FALLEN_MOST);
 }
 
@@ -102,9 +106,34 @@ function startYear(s: GameState): void {
   s.yearRaids = { came: 0, won: 0, pillaged: 0 };
 }
 
+/** Award durable, origin-flavoured titles for a person's record in the settlement. */
+function awardTownTitles(s: GameState): void {
+  const names: Record<NonNullable<GameState['origin']>, [string, string]> = {
+    settlers: ['Frontier Guard', 'Homestead Hero'], lich: ['Bone Warden', 'Grave Champion'],
+    druid: ['Thorn Keeper', 'Grove Guardian'], vampire: ['Nightblade', 'Blood Sentinel'],
+    werewolf: ['Pack Fang', 'Moonclaw'], robot: ['Sentinel Unit', 'Vanguard Unit'],
+    dwarves: ['Stone Guard', 'Deep Champion'], merfolk: ['Tide Guard', 'Reef Champion'],
+    nomads: ['Road Warden', 'Caravan Champion'], fae: ['Glimmer Guard', 'Thorn Knight'],
+    alchemists: ['Crucible Guard', 'Aegis Adept'], knights: ['Shield Bearer', 'Paragon'],
+    orcs: ['Redfang', 'Skullsplitter'],
+  };
+  const origin = s.origin ?? 'settlers';
+  for (const p of s.people) {
+    const kills = p.felled ?? 0, trips = p.trips ?? 0, earned = p.titles ?? [];
+    const [first, second] = names[origin];
+    const title = kills >= 8 || trips >= 12 ? second : kills >= 3 || trips >= 5 ? first : null;
+    if (!title || earned.includes(title)) continue;
+    earned.push(title);
+    p.titles = earned;
+    notify(s, `${p.name} is now known as ${p.name} ${title}.`, true);
+  }
+}
+
 /** Hourly: start the reckoning if there is none, and at midwinter write the chronicle of the year past. */
 export function annalsHourly(s: GameState): void {
   if (s.tick % TICKS_PER_HOUR !== 0 || s.gameOver) return;
+  awardTownTitles(s);
+  awardDeedTitles(s);
   if (!s.yearStart) return startYear(s);
   const cal = calendar(s.tick);
   if (cal.season !== 'winter' || cal.dayOfSeason !== CHRONICLE_DAY || cal.hour !== CHRONICLE_HOUR) return;
@@ -138,7 +167,7 @@ export function writeChronicle(s: GameState): Chronicle {
   const champ = now.map((p) => ({ p, n: (p.felled ?? 0) - (y.felled[p.id] ?? 0) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n)[0];
   if (champ) lines.push(`The year's champion was ${champ.p.name}, who felled ${champ.n === 1 ? 'a raider' : `${champ.n} raiders`}.`);
   const learned = s.research.done.slice(y.research);
-  if (learned.length) lines.push(`We learned ${learned.length === 1 ? `one thing, ${topicName(learned[0])}` : `${learned.length} things, among them ${list(learned.slice(-3).map(topicName))}`}.`);
+  if (learned.length) lines.push(`We learned ${learned.length === 1 ? `one thing, ${topicName(learned[0], s.origin)}` : `${learned.length} things, among them ${list(learned.slice(-3).map((id) => topicName(id, s.origin)))}`}.`);
   const built = doneBuildings(s).filter((id) => !y.built.includes(id));
   const kinds = [...new Set(built.map((id) => BUILDING_BY_ID[s.buildings.find((b) => b.id === id)!.def]?.name).filter(Boolean))] as string[];
   if (built.length) lines.push(`${built.length === 1 ? 'One building rose' : `${built.length} buildings rose`}${kinds.length ? `: ${some(kinds.map((k) => k.toLowerCase()), 4)}` : ''}.`);
@@ -170,4 +199,4 @@ export function writeChronicle(s: GameState): Chronicle {
   return c;
 }
 
-const topicName = (id: string) => TOPIC_BY_ID[id]?.name ?? id;
+

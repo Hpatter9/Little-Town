@@ -59,6 +59,7 @@ export function petLine(kind: PetKind, state: string, home: string): string {
     flee: kind === 'cat' ? 'fleeing a dog, fur on end' : 'scattering in a flap',
     sleep: kind === 'hen' ? 'gone to roost' : 'curled up asleep by the door',
     happy: 'delighted with the attention',
+    hunt: 'chasing a rat round the stores',
   };
   return `${whose}, ${doing[state] ?? 'about the place'}.`;
 }

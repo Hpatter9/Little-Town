@@ -53,6 +53,7 @@ import { minorWound } from './injuries';
 import { isChild } from './social';
 import { earn, maxHp, notify, type GameState, type Person, type Prompt } from './state';
 import { askWays, tellStory } from './telling';
+import { noteJousts } from './arena';
 import { calendar, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { gainSkill } from './townsfolk';
 
@@ -196,6 +197,7 @@ export function tourney(s: GameState, o: OrderState): { name: string; won: boole
   const entrants = fighters(s).slice(0, TOURNEY_ENTRANTS);
   if (!entrants.length) return [];
   const visitor = VISITOR_LEVEL + Math.floor(calendar(s.tick).day / 4);
+  const jousts: { p: Person; won: boolean }[] = [];
   const results = entrants.map((p) => {
     const odds = Math.max(0.1, Math.min(0.9, 0.5 + (p.skills.melee.level - visitor) * 0.06));
     const won = rng.chance(odds);
@@ -204,9 +206,11 @@ export function tourney(s: GameState, o: OrderState): { name: string; won: boole
       o.honour = clamp(o.honour + TOURNEY_HONOUR);
       gainSkill(p, 'melee', 60);
     } else if (rng.chance(TOURNEY_HURT)) minorWound(s, p, Math.round(maxHp(p) * 0.2), rng);
+    jousts.push({ p, won });
     return { name: p.name, won };
   });
   (s.marks ??= []).push({ lever: 'travellers', value: TOURNEY_TRAVELLERS, until: s.tick + TICKS_PER_DAY, text: 'The tournament draws crowds' });
+  noteJousts(s, jousts); // (held in the arena, if the town has one: its ladder and its gate, sim/arena.ts)
   const wins = results.filter((r) => r.won);
   log(s, o, `The tournament: ${wins.length ? `${wins.map((r) => r.name).join(', ')} unhorsed their challengers` : 'every one of ours was unhorsed'}.`);
   tellStory(

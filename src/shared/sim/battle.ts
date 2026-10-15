@@ -735,7 +735,7 @@ export function battleGo(s: GameState): void {
 /** The speeds a battle can be played at (the top bar's button cycles through them). */
 export const BATTLE_SPEEDS = [1, 2, 3] as const;
 
-/** The player sets how fast battles play (kept for later battles). */
+/** The player sets how fast the fight on screen plays (each fight starts at 1×: `fightSpeedTick`). */
 export function setBattleSpeed(s: GameState, speed: number): void {
   s.battleSpeed = (BATTLE_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
 }
@@ -745,12 +745,32 @@ export function setGameSpeed(s: GameState, speed: number): void {
   s.gameSpeed = (BATTLE_SPEEDS as readonly number[]).includes(speed) ? speed : 1;
 }
 
-/** How many times real time the game runs now: the battle speed while a battle is on, else the town's speed
- *  (GameLoop reads it). */
-export function battleSpeedNow(s: GameState): number {
+/** A fight on screen: a raid's battle (the trail or the tactics board), or a watched party's or skirmish's fight on
+ *  the FF screen while it lasts. */
+export function fightOn(s: GameState): boolean {
   const b = s.raid?.battle;
   const t = s.raid?.tactics;
-  return (b && b.phase !== 'done') || (t && t.phase !== 'done') ? (s.battleSpeed ?? 1) : (s.gameSpeed ?? 1);
+  if ((b && b.phase !== 'done') || (t && t.phase !== 'done')) return true;
+  if (s.watching === undefined) return false;
+  const e = s.expeditions.find((x) => x.id === s.watching) ?? s.skirmishes?.find((k) => k.id === s.watching && k.ended === undefined)?.e ?? (s.arena?.bout?.id === s.watching && s.arena.bout.ended === undefined ? s.arena.bout.e : undefined);
+  return !!e?.battle && !e.battle.outcome;
+}
+
+/** How many times real time the game runs now: the battle speed while a fight is on, else the town's speed
+ *  (GameLoop reads it). */
+export function battleSpeedNow(s: GameState): number {
+  return fightOn(s) ? (s.battleSpeed ?? 1) : (s.gameSpeed ?? 1);
+}
+
+/** Whether a fight was on at the last tick, per town (not saved: a town loaded mid-fight starts it at 1× again). */
+const fightWasOn = new WeakMap<GameState, boolean>();
+
+/** Every fight starts at 1× (the owner's ask): when one comes on screen the battle speed goes back to 1, and the
+ *  player may speed it up from there. Each tick from sim.ts; it changes only how fast real time runs. */
+export function fightSpeedTick(s: GameState): void {
+  const on = fightOn(s);
+  if (on && !fightWasOn.get(s)) s.battleSpeed = 1;
+  fightWasOn.set(s, on);
 }
 
 /** The player sets auto-watch (kept for later battles): on, the town places and fights by itself. */

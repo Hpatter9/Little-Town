@@ -41,9 +41,12 @@ import {
   STRENGTH_PER_LEVEL,
   TRIP_REST_HOURS,
   PULL_NEST, PULL_NEST_LEVEL, PULL_HEART } from '../data/parties';
+import { LEAD_COMPANY, RECRUIT_COMPANY } from '../data/companies';
+import { companyOf, sameCompany } from './companies';
 import { DEVOTED, ENEMY } from '../data/social';
 import { ambitionOf } from './ambition';
 import { boatDef, freeBoat } from './boats';
+import { airshipDef, freeAirship } from './skies';
 import { payParty } from './economy';
 import { destinationOf, destinationUnlocked, rolesFor, STAKES, sendExpedition, planParty, type SendCheck, type Stakes } from './expeditions';
 import { placeDestinations, placeOfDest } from './places';
@@ -173,6 +176,9 @@ export const mostFor = (s: GameState, d: Destination) => {
   // (an island's party is her crew)
   const boat = d.byBoat ? freeBoat(s) : undefined;
   if (boat) return Math.min(boatDef(boat).crew, MAX_DELVERS);
+  // (a place in the sky's party is an airship's crew, and an island's when she takes them)
+  const ship = d.bySky || d.byBoat ? freeAirship(s) : undefined;
+  if (ship) return Math.min(airshipDef(ship).crew, MAX_DELVERS);
   return d.id.startsWith('assault:') ? ASSAULT_MOST : d.type === 'delve' || isPlaceDest(d.id) || d.id.startsWith('pack:') ? MAX_DELVERS : MAX_PARTY;
 };
 
@@ -198,6 +204,7 @@ export function recruit(s: GameState, leader: Person, d: Destination, pool: Pers
         (want && SLOT_OF[partRole(p)] === want ? RECRUIT_ROLE : 0) +
         (ambitionOf(p) === 'adventurer' ? RECRUIT_ADVENTURER : 0) +
         (devotedTo(p) ? RECRUIT_DEVOTED : 0) +
+        (party.some((q) => sameCompany(s, p.id, q.id)) ? RECRUIT_COMPANY : 0) +
         levelOf(p) / 10 -
         (d.type === 'gather' ? 0 : partRole(p) === 'healer' && filled('heal') ? 2 : 0);
       if (score > bestScore) {
@@ -238,7 +245,7 @@ function pull(s: GameState, leader: Person, d: Destination): number {
 function choosable(s: GameState): Destination[] {
   const going = new Set(s.expeditions.map((e) => e.dest));
   return boardDestinations(s).filter(
-    (d) => d.id !== HUNT_DEST && !vetoed(s, d.id) && !going.has(d.id) && destinationUnlocked(s, d) && (!d.coins || (s.coins ?? 0) >= d.coins * 2) && (!d.byBoat || !!freeBoat(s)),
+    (d) => d.id !== HUNT_DEST && !vetoed(s, d.id) && !going.has(d.id) && destinationUnlocked(s, d) && (!d.coins || (s.coins ?? 0) >= d.coins * 2) && (!d.byBoat || !!freeBoat(s) || !!freeAirship(s)) && (!d.bySky || !!freeAirship(s)),
   );
 }
 
@@ -259,7 +266,12 @@ export function proposeParty(s: GameState): PartyPlan | null {
   const places = choosable(s);
   if (!places.length) return null;
   // the leaders: the adventurers among the fit (nobody else leads a party), the most seasoned first
-  const leaders = pool.filter((p) => ambitionOf(p) === 'adventurer').sort((a, b) => levelOf(b) - levelOf(a) || a.id - b.id);
+  // (a leader whose company is home and fit to go leads sooner: a bonded party goes out together again)
+  const withCompany = (p: Person) => {
+    const c = companyOf(s, p.id);
+    return c ? c.members.filter((id) => id !== p.id && pool.some((q) => q.id === id)).length * LEAD_COMPANY : 0;
+  };
+  const leaders = pool.filter((p) => ambitionOf(p) === 'adventurer').sort((a, b) => levelOf(b) + withCompany(b) - (levelOf(a) + withCompany(a)) || a.id - b.id);
   for (const leader of leaders) {
     const ranked = [...places].sort((a, b) => pull(s, leader, b) - pull(s, leader, a) || a.id.localeCompare(b.id));
     for (const d of ranked) {

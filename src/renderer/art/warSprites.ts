@@ -272,6 +272,7 @@ export const TROOP_LOOKS: Record<string, TroopLook> = {
   bombardiers: { kind: 'hk', body: 'alchemist_coat', weapon: 'blunderbuss' },
   templars: { kind: 'hk', body: 'plate_harness', head: 'great_helm', weapon: 'arming_sword', offhand: 'heater_shield' },
   briar_wardens: { kind: 'hk', cls: 'druid', weapon: 'oak_staff' },
+  orc_boyz: { kind: 'pack', ids: ['hk_orc_grunt', 'hk_orc_brute'] },
   // the foes' own (data/troops.ts FOE_TROOPS)
   lair_beasts: { kind: 'beast', sheet: 'wolf', blocks: [0, 1, 2, 3] },
   great_beast: { kind: 'beast', sheet: 'bear', blocks: [0, 1] },
@@ -282,13 +283,15 @@ export const TROOP_LOOKS: Record<string, TroopLook> = {
 /** A captain of a power, by its people: a pack hero where one suits, else a Himeko figure in plate. */
 export const CAPTAIN_PACK: Record<string, string> = {
   knights: 'knight_1', nomads: 'horde_2', werewolf: 'werewolf_black', robot: 'robot_infantry', lich: 'skeleton_warrior', druid: 'wanderer_mage',
-  fae: 'kitsune', alchemists: 'fire_wizard', brotherhood: 'pirate_leader',
+  fae: 'kitsune', alchemists: 'fire_wizard', brotherhood: 'pirate_leader', orcs: 'hk_orc_warlord',
+  shogunate: 'samurai_commander', corsairs: 'pirate_leader', infernal: 'hk_demon_lord',
 };
 export const CAPTAIN_LOOK: Record<string, TroopLook> = {
   vampire: { kind: 'hk', body: 'embroidered_robe', weapon: 'arming_sword', pale: true },
   dwarves: { kind: 'hk', body: 'plate_harness', head: 'great_helm', weapon: 'battle_axe', offhand: 'iron_shield' },
   merfolk: { kind: 'hk', body: 'scale_hauberk', weapon: 'iron_spear' },
   settlers: { kind: 'hk', body: 'plate_harness', head: 'great_helm', weapon: 'arming_sword', offhand: 'heater_shield' },
+  old_house: { kind: 'hk', body: 'plate_harness', head: 'great_helm', weapon: 'arming_sword', offhand: 'heater_shield' },
 };
 /** The lair's master and the pack. */
 export const LAIR_MASTER = 'boar_king';

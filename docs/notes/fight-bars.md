@@ -9,5 +9,4 @@ are unchanged (`FighterView` already carried `hp`/`maxHp`). Changes the "Watchin
   name) and the short `Turn` gauge. Past three kinds (`.ff-foes.crowd`) rows go one line each (name, bar) and the
   foes' turn gauge is hidden to keep the window short.
 - Helpers `turnGauge` and `meter` in `fightHud.ts`; classes `.ff-meter`, `.ff-gauge`, `.ff-lab`, `.ff-turnwrap`.
-- Preview hook `__skirmish(group?)` in `mobile/mobileBridge.ts` starts a watched skirmish (e.g.
-  `__skirmish({wolf:3})`).
+- Preview: `__skirmish(...)` (main's debug hook) starts a watched skirmish.

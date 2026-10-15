@@ -8,6 +8,8 @@
 // its folk come over, and it is made a vassal or razed. A dungeon can be stormed the same way.
 
 import { kinship } from '../data/kinship';
+import { HOUSE_START, HOUSE_WARMTH } from '../data/legends';
+import { RIVALS } from '../data/rivals';
 import { DESTINATION_BY_ID, type Destination } from '../data/expeditions';
 import { DUNGEONS, DUNGEON_BY_ID } from '../data/dungeons';
 import { ENEMIES } from '../data/enemies';
@@ -26,13 +28,16 @@ const LEVY_MOST = 6;
 /** A demand is paid unanswered when the treasury holds this many times it. */
 const DEMAND_EASY = 2;
 import { RAID_KIND_BY_ID } from '../data/raids';
+import { RISE_CATCH, RISE_FOLK_BASE, RISE_FOLK_PER_HEAD, RISE_MEET_DAYS, RISE_TROOPS_BASE, RISE_TROOPS_PER_MIGHT, RISING, RISING_HOSTILITY, RISING_IDS, risingOfRaid, stageOf } from '../data/risingPowers';
 import { hashSeed, Rng } from '../rng';
 import { weddingFeast } from './ceremonies';
+import { answerRisingEnvoy, riseLine, risingEnvoyText } from './risingPowers';
 import { assignBeds } from './townsfolk';
 import { startRaid } from './raids';
 import { seaTown } from './sea';
 import { isChild } from './social';
 import { makeStranger, strangerLook } from './strangers';
+import { walk } from './walk';
 import { addStock, campXY, earn, edgeXY, makePerson, notify, setOutcome, townFull, type Faction, type GameState, type Prompt, type Raid, type Raider } from './state';
 import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
@@ -44,6 +49,8 @@ export function realm(s: GameState): Faction[] {
   if (s.factions) {
     // (an older town's powers are given their towns: a size by their strength)
     for (const f of s.factions) if (f.folk === undefined) f.folk = f.stance === 'destroyed' ? 0 : Math.round(FOLK_START[0] + f.troops * 0.6);
+    addRising(s, s.factions);
+    addOldHouse(s, s.factions);
     return s.factions;
   }
   const rng = new Rng(hashSeed(`${s.seed}:realm`));
@@ -55,7 +62,52 @@ export function realm(s: GameState): Faction[] {
     const temper = rng.chance(0.7) ? d.temper : tempers[rng.int(0, tempers.length - 1)];
     return { id: d.id, known: false, troops: rng.int(TROOPS_START[0], TROOPS_START[1]), folk: rng.int(FOLK_START[0], FOLK_START[1]), attitude: TEMPER_REST[temper] + kinship(own, d.origin).value, stance: 'neutral' as RealmStance, temper, since: 0 };
   });
+  addRising(s, s.factions);
+  addOldHouse(s, s.factions);
   return s.factions;
+}
+
+/** The rising powers (data/risingPowers.ts) stand in every realm, after the others (an older town's are added). */
+function addRising(s: GameState, fs: Faction[]): void {
+  for (const id of RISING_IDS) {
+    if (fs.some((f) => f.id === id)) continue;
+    const d = FACTION_BY_ID[id];
+    fs.push({ id, known: false, troops: RISE_TROOPS_BASE, folk: RISE_FOLK_BASE, attitude: TEMPER_REST[d.temper] + RISING_HOSTILITY, stance: 'neutral', temper: d.temper, since: 0 });
+  }
+  void s;
+}
+
+/** A descendant's realm holds the old house (data/legends.ts, sim/ancestors.ts): the forebears' town, still standing,
+ *  known from the founding and warm to its kin. */
+function addOldHouse(s: GameState, fs: Faction[]): void {
+  const a = s.ancestry;
+  if (a?.oldTown !== 'power' || fs.some((f) => f.id === 'old_house')) return;
+  fs.push({ id: 'old_house', known: true, troops: TROOPS_START[1], folk: Math.max(FOLK_START[1], a.people * 2), attitude: HOUSE_START, stance: 'neutral', temper: 'honourable', since: 0 });
+}
+
+/** The old house's armies are of its own people. */
+export function oldHouseRaid(s: GameState): string {
+  const o = s.ancestry?.origin;
+  return o && o !== 'settlers' && RIVALS[o] ? RIVALS[o].raid : 'rival_knights';
+}
+
+/** The raid kind a power's armies are now: a rising power's by the town's age (and by sea at a shore town). */
+export function raidOf(s: GameState, f: Faction): string {
+  const d = defOf(f);
+  if (d.kin) return oldHouseRaid(s);
+  if (!d.rising) return d.raid;
+  const r = RISING[d.rising];
+  const st = stageOf(s.era);
+  return (r.seaRaids && seaTown(s) ? r.seaRaids : r.raids)[st];
+}
+
+/** A rising power grows toward what the town has: troops by its might, folk by its people. */
+function rise(s: GameState, f: Faction, might: number): void {
+  const troops = RISE_TROOPS_BASE + RISE_TROOPS_PER_MIGHT * might;
+  f.troops = Math.min(TROOPS_MOST, f.troops + Math.max(TROOPS_PER_DAY, (troops - f.troops) * RISE_CATCH));
+  const folk = RISE_FOLK_BASE + RISE_FOLK_PER_HEAD * s.people.length;
+  const now = f.folk ?? RISE_FOLK_BASE;
+  if (folk > now) f.folk = Math.min(FOLK_MOST, Math.round(now + Math.max(1, (folk - now) * RISE_CATCH)));
 }
 
 /** Each dawn of the realm the powers' towns grow (known or not), quicker at peace with the town, slower at war. */
@@ -65,6 +117,7 @@ export function growTowns(fs: Faction[]): void {
       f.folk = 0;
       continue;
     }
+    if (FACTION_BY_ID[f.id]?.rising) continue; // (they grow with the town: rise)
     const folk = f.folk ?? FOLK_START[0];
     f.folk = Math.min(FOLK_MOST, folk + Math.max(1, Math.round(folk * FOLK_GROWTH * (FOLK_GROWTH_BY[f.stance] ?? 1))));
   }
@@ -122,19 +175,20 @@ export function factionsDaily(s: GameState, rng: Rng): void {
   const might = townMight(s);
   const fs = realm(s);
   growTowns(fs);
-  // a new power is met (its envoy at the gate)
-  const known = fs.filter((f) => f.known).length;
-  const next = fs.find((f) => !f.known);
-  if (next && day >= FIRST_MEET_DAY + known * MEET_EVERY_DAYS && !envoyWaiting(s)) {
+  // a new power is met (its envoy at the gate): the rising powers each on their own day
+  const known = fs.filter((f) => f.known && !defOf(f).rising && !defOf(f).kin).length;
+  const next = fs.find((f) => !f.known && defOf(f).rising && day >= RISE_MEET_DAYS[defOf(f).rising!]) ?? fs.find((f) => !f.known && !defOf(f).rising && !defOf(f).kin);
+  if (next && (defOf(next).rising || day >= FIRST_MEET_DAY + known * MEET_EVERY_DAYS) && !envoyWaiting(s)) {
     next.known = true;
     envoy(s, next, 'greet');
     return;
   }
   for (const f of fs) {
     if (!f.known || !standing(f)) continue;
-    f.troops = Math.min(TROOPS_MOST, f.troops + TROOPS_PER_DAY * (f.stance === 'vassal' ? 0.5 : 1));
+    if (defOf(f).rising && f.stance !== 'vassal') rise(s, f, might);
+    else f.troops = Math.min(TROOPS_MOST, f.troops + TROOPS_PER_DAY * (f.stance === 'vassal' ? 0.5 : 1));
     // goodwill drifts to the temper's rest, warmed by treaties and a marriage
-    const rest = TEMPER_REST[f.temper] + kinship(s.origin ?? 'settlers', FACTION_BY_ID[f.id]?.origin).value;
+    const rest = TEMPER_REST[f.temper] + kinship(s.origin ?? 'settlers', FACTION_BY_ID[f.id]?.origin).value + (defOf(f).rising ? RISING_HOSTILITY : 0) + (defOf(f).kin ? HOUSE_WARMTH : 0);
     warm(f, Math.sign(rest - f.attitude) * Math.min(ATTITUDE_DRIFT, Math.abs(rest - f.attitude)) + (TREATY_WARMTH[f.stance] ?? 0) + (f.married ? MARRIAGE_WARMTH : 0));
     if (f.stance === 'trade' || f.stance === 'alliance') pay(s, TRADE_COINS, `Trade with ${defOf(f).name}`);
     if (f.stance === 'vassal') {
@@ -159,7 +213,10 @@ export function factionsDaily(s: GameState, rng: Rng): void {
   }
   // one envoy a day at most, from a power with something to say
   if (envoyWaiting(s)) return;
-  for (const f of [...fs].sort(() => rng.next() - 0.5)) {
+  // (the rising powers are shuffled with dice of their own, after the others: the town's own dice draw as they always did)
+  const own = new Rng(hashSeed(`${s.seed}:rising-envoys:${s.tick}`));
+  const order = [...fs.filter((f) => !defOf(f).rising).sort(() => rng.next() - 0.5), ...fs.filter((f) => defOf(f).rising).sort(() => own.next() - 0.5)];
+  for (const f of order) {
     if (!f.known || !standing(f) || s.tick - (f.lastEnvoy ?? -1e12) < ENVOY_GAP_DAYS * TICKS_PER_DAY) continue;
     const about = envoyAbout(s, f, might, rng);
     if (about) {
@@ -215,6 +272,8 @@ const envoyWaiting = (s: GameState) => s.prompts.some((p) => p.kind === 'envoy')
 /** What each envoy says and offers (the first option the bold one, the default chosen if nobody answers). */
 function envoyText(s: GameState, f: Faction, about: string, coins: number): { title: string; text: string; options: string[]; def: number } {
   const d = defOf(f);
+  const theirs = risingEnvoyText(s, f, about);
+  if (theirs) return theirs;
   const lord = lordName(f);
   switch (about) {
     case 'greet':
@@ -303,7 +362,7 @@ function rideIn(s: GameState, f: Faction): void {
   const d = defOf(f);
   const side: -1 | 1 = hashSeed(f.id) % 2 ? 1 : -1;
   const at = edgeXY(s, side);
-  const p = makePerson(new Rng(hashSeed(`${s.seed}:envoy:${f.id}:${s.tick}`)), ENVOY_ID, 'gatherer', at, []);
+  const p = makePerson(new Rng(hashSeed(`${s.seed}:envoy:${f.id}:${s.tick}`)), ENVOY_ID, 'gatherer', at, [], d.origin ?? s.origin ?? 'settlers');
   if (d.origin) strangerLook(p, d.origin);
   s.envoyRider = { id: ENVOY_ID, faction: f.id, name: `Envoy of ${d.name.replace(/^The /, 'the ')}`, look: p.look, x: at.x, y: at.y, dir: side < 0 ? 1 : -1, leaving: false };
 }
@@ -319,19 +378,11 @@ export function envoyTick(s: GameState): void {
   const camp = campXY(s);
   const side: -1 | 1 = r.x < camp.x ? -1 : 1;
   const to = r.leaving ? edgeXY(s, side) : { x: camp.x + side * 44, y: camp.y + 28 };
-  const dx = to.x - r.x;
-  const dy = to.y - r.y;
-  const d = Math.hypot(dx, dy);
-  if (d <= RIDE_PACE) {
-    r.x = to.x;
-    r.y = to.y;
+  // (along the land's own ways, never over the mountain or through the water: sim/walk.ts)
+  if (walk(s, r, to, RIDE_PACE, undefined, s.tick)) {
     if (r.leaving) s.envoyRider = undefined;
     else r.dir = side < 0 ? 1 : -1; // (waiting, facing the fire)
-    return;
   }
-  r.x += (dx / d) * RIDE_PACE;
-  r.y += (dy / d) * RIDE_PACE;
-  r.dir = dx >= 0 ? 1 : -1;
 }
 
 /** The town's answer to an envoy (the player's, or the default when nobody answers). */
@@ -340,6 +391,7 @@ export function answerEnvoy(s: GameState, prompt: Prompt, option: number, rng: R
   const f = e && factionOf(s, e.faction);
   if (!e || !f) return;
   const d = defOf(f);
+  if (answerRisingEnvoy(s, prompt, option) !== null) return;
   let said = '';
   switch (e.about) {
     case 'greet':
@@ -443,7 +495,7 @@ function marry(s: GameState, f: Faction, rng: Rng): string {
   const single = s.people.filter((p) => !isChild(p) && p.away === null && p.partner == null && !p.monster).sort((a, b) => (a.id === s.mainId ? -1 : 0) - (b.id === s.mainId ? -1 : 0) || levelOf(b) - levelOf(a))[0];
   if (townFull(s) || !single) return `The houses are joined in word: ${d.name} count the town as kin.`;
   const at = { x: single.x + 20, y: single.y };
-  const p = makePerson(rng, s.nextId++, 'gatherer', at, s.people.map((o) => o.name));
+  const p = makePerson(rng, s.nextId++, 'gatherer', at, s.people.map((o) => o.name), d.origin ?? s.origin ?? 'settlers');
   if (d.origin) {
     p.origin = d.origin;
     makeStranger(s, p, d.origin);
@@ -553,7 +605,7 @@ export function launchHost(s: GameState, f: Faction, rng: Rng): Raid | null {
   f.host = undefined;
   f.lastHost = s.tick;
   const d = defOf(f);
-  const kind = RAID_KIND_BY_ID[d.raid];
+  const kind = RAID_KIND_BY_ID[raidOf(s, f)];
   if (!kind) return null;
   const r = startRaid(s, kind, h.size * 20, rng, undefined, { ...hostMakeup(s, f, h.size), host: f.id });
   notify(s, `The war host of ${d.name} is here: ${r.raiders.filter((rd) => !rd.ally).length} strong!`, true);
@@ -572,7 +624,7 @@ export function leviesFor(s: GameState, target: string, rng: Rng): { kind: strin
   const out: { kind: string; from: string }[] = [];
   for (const f of realm(s)) {
     if (f.id === target || !f.known || (f.stance !== 'alliance' && f.stance !== 'vassal')) continue;
-    const kind = RAID_KIND_BY_ID[defOf(f).raid];
+    const kind = RAID_KIND_BY_ID[raidOf(s, f)];
     const ids = Object.keys(kind?.enemies ?? {});
     if (!ids.length) continue;
     const n = f.stance === 'vassal' ? Math.min(LEVY_MOST, Math.max(1, Math.round(f.troops * LEVY_SHARE))) : rng.int(ALLY_TROOPS[0], ALLY_TROOPS[1]);
@@ -587,7 +639,7 @@ export function alliesFor(s: GameState, r: Raid, rng: Rng, make: (kind: string) 
   for (const f of realm(s)) {
     if (f.stance !== 'alliance' || f.id === r.host) continue;
     if (!r.host && !rng.chance(0.3)) continue;
-    const kind = RAID_KIND_BY_ID[defOf(f).raid];
+    const kind = RAID_KIND_BY_ID[raidOf(s, f)];
     if (!kind) continue;
     const ids = Object.keys(kind.enemies);
     const n = rng.int(ALLY_TROOPS[0], ALLY_TROOPS[1]);
@@ -622,7 +674,10 @@ export function hostOver(s: GameState, r: Raid): void {
 /** How likely a rival's ordinary raid is (raids.ts): only from a power the town has no peace with. */
 export function rivalRaidOdds(s: GameState, kindId: string): number {
   if (!s.factions) return 1;
-  const f = s.factions.find((x) => defOf(x).raid === kindId);
+  const rising = risingOfRaid(kindId);
+  const f = s.factions.find((x) => (rising ? x.id === rising.id : defOf(x).raid === kindId));
+  // (a rising power's army comes only once it's been met)
+  if (rising && (!f || !f.known || f.stance === 'destroyed')) return 0;
   if (!f) return 1;
   if (!f.known) return 0.5;
   return f.stance === 'war' ? 2 : f.stance === 'neutral' ? 1 : 0;
@@ -660,7 +715,7 @@ export function assaultWaves(s: GameState, target: string, rng: Rng): Record<str
   }
   const f = factionOf(s, target);
   if (!f) return [];
-  const kind = RAID_KIND_BY_ID[defOf(f).raid];
+  const kind = RAID_KIND_BY_ID[raidOf(s, f)];
   const ids = Object.keys(kind?.enemies ?? {});
   if (!ids.length) return [{ [defOf(f).lord]: 1 }];
   const waves: Record<string, number>[] = [];
@@ -758,7 +813,7 @@ export function assaultOver(s: GameState, target: string, won: boolean, loot: Re
   const n = townFull(s) ? 0 : rng.int(RECRUITS[0], RECRUITS[1]);
   const joined: string[] = [];
   for (let i = 0; i < n; i++) {
-    const p = makePerson(rng, s.nextId++, 'gatherer', { x: 0, y: 0 }, s.people.map((o) => o.name));
+    const p = makePerson(rng, s.nextId++, 'gatherer', { x: 0, y: 0 }, s.people.map((o) => o.name), d.origin ?? s.origin ?? 'settlers');
     if (d.origin) {
       p.origin = d.origin;
       makeStranger(s, p, d.origin);
@@ -802,6 +857,8 @@ export interface FactionView {
   can: RealmOp[];
   /** An assault on its stronghold, when at war. */
   assault: string | null;
+  /** A rising power (data/risingPowers.ts): what it has grown into, what it is, what it has done. */
+  rising: { stage: string; line: string; deeds: string[] } | null;
 }
 
 export function moodWord(a: number): string {
@@ -841,7 +898,7 @@ export function realmView(s: GameState, dungeonOpen: (id: string) => boolean): R
       stanceName: STANCE_NAME[f.stance],
       attitude: f.attitude,
       mood: moodWord(f.attitude),
-      kin: ((k) => (f.known && k.why ? { value: k.value, why: k.why } : null))(kinship(s.origin ?? 'settlers', d.origin)),
+      kin: d.kin && s.ancestry ? { value: HOUSE_WARMTH, why: `Kin: the old town of ${s.ancestry.founder}, where ${s.ancestry.line} began` } : ((k) => (f.known && k.why ? { value: k.value, why: k.why } : null))(kinship(s.origin ?? 'settlers', d.origin)),
       troops: Math.round(f.troops),
       folk: f.folk ?? 0,
       size: f.stance === 'destroyed' ? 'ruin' : townTier(f.folk ?? 0).name,
@@ -852,6 +909,7 @@ export function realmView(s: GameState, dungeonOpen: (id: string) => boolean): R
       stormed: f.stormed ?? 0,
       can,
       assault: f.known && f.stance === 'war' ? ASSAULT_PREFIX + f.id : null,
+      rising: f.known ? riseLine(s, f) : null,
     };
   });
   const dungeons = assaultTargets(s, dungeonOpen)

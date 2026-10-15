@@ -1,12 +1,47 @@
 // People data: names, looks, recruit types, traits and jobs (DESIGN §7, §15).
 
 import type { Rng } from '../rng';
+import { ORIGINS, type OriginId } from './origins';
 import type { Skill } from './skills';
 
 export const NAMES = [
   'Arn', 'Bera', 'Cato', 'Dagna', 'Edda', 'Fen', 'Gudrun', 'Hakon', 'Ida', 'Joro', 'Kel', 'Lif', 'Maren', 'Nils', 'Orla',
   'Pell', 'Runa', 'Sten', 'Tova', 'Ulf', 'Vesna', 'Wren', 'Yrsa', 'Asa', 'Brand', 'Carro', 'Doran', 'Elka', 'Frode', 'Hild',
 ] as const;
+
+/** Name syllables for each people. Their 16-by-16 combinations give every origin its own large pool. */
+const NAME_PARTS: Record<OriginId, readonly [readonly string[], readonly string[]]> = {
+  settlers: [['Al', 'Bel', 'Cal', 'Dar', 'El', 'Fen', 'Gar', 'Had', 'Ise', 'Jon', 'Lio', 'Mar', 'Ned', 'Or', 'Pet', 'Ros'], ['a', 'en', 'ia', 'an', 'ie', 'er', 'in', 'or', 'el', 'et', 'is', 'yn', 'on', 'al', 'wyn', 'ric']],
+  lich: [['Mor', 'Ash', 'Os', 'Vel', 'Grim', 'Mal', 'Ner', 'Ebon', 'Ves', 'Sable', 'Thorn', 'Wraith', 'Dusk', 'Cair', 'Noct', 'Corv'], ['a', 'en', 'eth', 'ius', 'ora', 'is', 'oth', 'iel', 'yr', 'ian', 'ara', 'or', 'une', 'e', 'el', 'yn']],
+  druid: [['Ail', 'Bran', 'Ciar', 'Dara', 'Eira', 'Fionn', 'Gwen', 'Iona', 'Lugh', 'Mae', 'Niamh', 'Oisin', 'Ronan', 'Sio', 'Taran', 'Una'], ['a', 'an', 'en', 'eth', 'in', 'is', 'na', 'ra', 'wen', 'wyn', 'el', 'iel', 'or', 'oc', 'ith', 'e']],
+  vampire: [['Aless', 'Boris', 'Carm', 'Dimit', 'Eliz', 'Ily', 'Katar', 'Luc', 'Mira', 'Nico', 'Radu', 'Sera', 'Vlad', 'Zora', 'Is', 'Val'], ['a', 'an', 'ena', 'ina', 'ian', 'ica', 'imir', 'islav', 'ena', 'escu', 'or', 'ov', 'eva', 'ina', 'el', 'ette']],
+  werewolf: [['Arne', 'Bjorn', 'Dag', 'Eirik', 'Freya', 'Gunn', 'Hald', 'Inga', 'Kari', 'Leif', 'Magn', 'Ragn', 'Sigr', 'Tor', 'Ulf', 'Yrsa'], ['a', 'ald', 'ar', 'dis', 'en', 'hild', 'i', 'ild', 'olf', 'run', 'sten', 'ulf', 'var', 'y', 'or', 'wyn']],
+  robot: [['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'], ['-01', '-02', '-03', '-04', '-05', '-06', '-07', '-08', '-09', '-10', '-11', '-12', '-13', '-14', '-15', '-16']],
+  dwarves: [['Ald', 'Bald', 'Brun', 'Dain', 'Dur', 'Eber', 'Farin', 'Gimli', 'Hadr', 'Kili', 'Morr', 'Nori', 'Oin', 'Thrain', 'Thorin', 'Vig'], ['a', 'ar', 'din', 'dis', 'en', 'gar', 'grim', 'i', 'in', 'lin', 'mund', 'ra', 'ri', 'run', 'ur', 'ulf']],
+  merfolk: [['Aeg', 'Amph', 'Anem', 'Calyp', 'Coral', 'Delph', 'Eury', 'Galat', 'Iant', 'Marin', 'Ner', 'Oce', 'Pelag', 'Thal', 'Thet', 'Trit'], ['a', 'ander', 'ara', 'ea', 'ene', 'ia', 'ion', 'is', 'issa', 'on', 'ora', 'os', 'ria', 'us', 'yne', 'eus']],
+  nomads: [['Ayl', 'Batu', 'Dara', 'Esen', 'Farid', 'Gul', 'Jamal', 'Kamil', 'Ley', 'Mira', 'Nuri', 'Orhan', 'Samir', 'Tariq', 'Yas', 'Zara'], ['a', 'an', 'bek', 'han', 'i', 'im', 'in', 'ira', 'jan', 'mir', 'ra', 'rin', 'un', 'ya', 'zade', 'gul']],
+  fae: [['Ael', 'Ari', 'Cael', 'Elar', 'Elow', 'Fael', 'Fey', 'Iri', 'Lira', 'Lun', 'Meli', 'Naer', 'Nim', 'Syl', 'Thia', 'Vael'], ['a', 'an', 'elle', 'en', 'eth', 'ia', 'iel', 'ina', 'ion', 'ith', 'or', 'ora', 'riel', 'wen', 'wyn', 'ys']],
+  alchemists: [['Ari', 'Basil', 'Cass', 'Cleo', 'Dari', 'Elian', 'Farah', 'Hadi', 'Jas', 'Kali', 'Leand', 'Mira', 'Nad', 'Pax', 'Safi', 'Zeno'], ['a', 'an', 'ander', 'as', 'ene', 'eus', 'ia', 'ian', 'is', 'ius', 'ora', 'os', 'ra', 'ria', 'us', 'ya']],
+  knights: [['Ald', 'Alis', 'Bertr', 'Cec', 'Edm', 'Eleanor', 'Gaw', 'Geoff', 'Isab', 'Lancel', 'Marg', 'Perc', 'Rich', 'Row', 'Stef', 'Wulf'], ['a', 'ald', 'bert', 'dric', 'elle', 'en', 'fred', 'ian', 'ica', 'in', 'lyn', 'mund', 'ric', 'stan', 'win', 'wyn']],
+  orcs: [['Azog', 'Bagr', 'Brug', 'Drog', 'Ghaz', 'Gor', 'Grish', 'Karg', 'Krul', 'Mog', 'Murg', 'Naz', 'Ogg', 'Ruk', 'Urz', 'Yaz'], ['a', 'ak', 'ash', 'ga', 'gash', 'gul', 'ka', 'lok', 'nak', 'naz', 'ra', 'rok', 'sha', 'thak', 'uk', 'za']],
+};
+
+/** At least 256 names per origin, with the original common names retained for settlers. */
+export const ORIGIN_NAMES = Object.fromEntries(ORIGINS.map((origin) => {
+  const [heads, tails] = NAME_PARTS[origin];
+  const made = heads.flatMap((head) => tails.map((tail) => head + tail));
+  return [origin, [...new Set(origin === 'settlers' ? [...NAMES, ...made] : made)]];
+})) as unknown as Record<OriginId, readonly string[]>;
+
+/** The combined reserve is used only if a town ever exhausts its own people's pool. */
+export const ALL_PERSON_NAMES = [...new Set([...NAMES, ...Object.values(ORIGIN_NAMES).flat()])];
+
+/** Pick a free name for one of the town's own people, falling back to the combined reserve only if needed. */
+export function personName(rng: Pick<Rng, 'pick'>, origin: OriginId, taken: readonly string[]): string {
+  const ownFree = ORIGIN_NAMES[origin].filter((name) => !taken.includes(name));
+  const reserveFree = ALL_PERSON_NAMES.filter((name) => !taken.includes(name));
+  return rng.pick(ownFree.length ? ownFree : reserveFree.length ? reserveFree : ALL_PERSON_NAMES);
+}
 
 /* ------------------------------------------------------------ looks */
 

@@ -11,7 +11,7 @@
 // autopilot (the tests' plainGame); the tests spawn bands themselves.
 
 import { roadSafety } from './roamers';
-import { BAND_FIRST_DAY, BAND_HOURLY, BAND_SIZE, BAND_SPEED, BAND_WEIGHTS, BANDIT_BUDGET_SHARE, BANDITS_FROM_DAY, BANDITS_PEOPLE, CATCH_BASE, CATCH_PER_LEVEL, MEMBER_KIND, PASS_HOURS, REFUGEE_FOOD, REFUGEE_OPTIONS, REFUGEE_REPUTATION, REFUGEE_REST_HOURS, REFUGEE_WAIT_HOURS, STRIKE_FROM, STRIKE_UNTIL, WAGON_LAG, type BandKind } from '../data/bands';
+import { BAND_FIRST_DAY, BAND_HOURLY, BAND_SIZE, BAND_SPEED, BAND_WEIGHTS, BANDIT_BUDGET_SHARE, BANDITS_FROM_DAY, BANDITS_PEOPLE, CATCH_BASE, CATCH_PER_LEVEL, GATE_SENTRY_CATCH, MEMBER_KIND, PASS_HOURS, REFUGEE_FOOD, REFUGEE_OPTIONS, REFUGEE_REPUTATION, REFUGEE_REST_HOURS, REFUGEE_WAIT_HOURS, STRIKE_FROM, STRIKE_UNTIL, WAGON_LAG, type BandKind } from '../data/bands';
 import { venueOfDef } from '../data/shop';
 import type { Material } from '../data/materials';
 import { ORIGIN_DEFS, rulesOf } from '../data/origins';
@@ -20,12 +20,12 @@ import { RAID_KIND_BY_ID } from '../data/raids';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import { buildingDoor, totalStock } from './buildings';
 import { takeFromStorage } from './expeditions';
-import { CELL, type Pt } from './land';
+import { CELL, groundAt, type Pt } from './land';
 import { onShift } from './people';
 import { raidBudget, startRaid } from './raids';
 import { strangerName } from './shop';
 import { makeStranger, strangerLook, strangerOrigin } from './strangers';
-import { campXY, edgeXY, makePerson, notify, townFull, type Band, type GameState, type Person, type Traveller } from './state';
+import { campXY, dist, edgeXY, makePerson, notify, townFull, type Band, type GameState, type Person, type Traveller } from './state';
 import { calendar, TICK_HZ, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { eventPicture } from '../data/eventScenes';
 import { seaTown } from './sea';
@@ -72,8 +72,11 @@ function nextStrike(s: GameState, rng: Rng): number {
   return s.tick + toNight * TICKS_PER_HOUR + rng.int(0, 2) * TICKS_PER_HOUR + rng.int(0, TICKS_PER_HOUR - 1);
 }
 
+/** A band's member strung out behind the first, unless that would put them on rock (then they stand with the first). */
+const strung = (s: GameState, at: Pt, x: number, y: number): Pt => (groundAt(s.land, Math.floor(x / CELL), Math.floor(y / CELL)) === 'mountain' ? { x: at.x, y: at.y } : { x, y });
+
 /** A band comes in from one side of the land. */
-export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 = rng.chance(0.5) ? -1 : 1): Band {
+export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 = rng.chance(0.5) ? -1 : 1, note?: string): Band {
   const n = rng.int(BAND_SIZE[kind][0], BAND_SIZE[kind][1]);
   const band: Band = { id: s.nextId++, kind, members: [], side, at: stopAt(s, kind, side), phase: 'coming', until: 0 };
   // (a caravan's or a refugee band's people are one people, now and then another than the town's)
@@ -85,8 +88,7 @@ export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 =
       name: strangerName(s, rng),
       kind: MEMBER_KIND[kind],
       look: randomLook(rng),
-      x: edge.x - side * i * 18,
-      y: edge.y + (i % 2 ? 10 : -8),
+      ...strung(s, edge, edge.x - side * i * 18, edge.y + (i % 2 ? 10 : -8)),
       dir: side < 0 ? 1 : -1,
       phase: 'arriving',
       toX: band.at.x,
@@ -108,7 +110,7 @@ export function spawnBand(s: GameState, rng: Rng, kind: BandKind, side: -1 | 1 =
   const who = origin ? ` of the ${ORIGIN_DEFS[origin].name}` : '';
   notify(
     s,
-    kind === 'caravan'
+    note ? note.replace('{n}', String(n)) : kind === 'caravan'
       ? `The caravan's merchants${who} are bringing their wagon in to the market.`
       : kind === 'refugees'
         ? `${n} refugees${who} are coming to the gate, footsore, asking for aid and rest.`
@@ -125,7 +127,7 @@ export function spawnVillageCart(s: GameState, rng: Rng, village: number, from: 
   const side: -1 | 1 = from.x < campXY(s).x ? -1 : 1;
   const band: Band = { id: s.nextId++, kind: 'village', members: [], side, at: stopAt(s, 'caravan', side), phase: 'coming', until: Math.round(stayHours * TICKS_PER_HOUR), village, home: { ...from } };
   for (let i = 0; i < n; i++) {
-    const t: Traveller = { id: s.nextId++, name: strangerName(s, rng), kind: MEMBER_KIND.village, look: randomLook(rng), x: from.x - side * i * 18, y: from.y + (i % 2 ? 10 : -8), dir: side < 0 ? 1 : -1, phase: 'arriving', toX: band.at.x, toY: band.at.y, until: 0, purse: 0, band: band.id };
+    const t: Traveller = { id: s.nextId++, name: strangerName(s, rng), kind: MEMBER_KIND.village, look: randomLook(rng), ...strung(s, from, from.x - side * i * 18, from.y + (i % 2 ? 10 : -8)), dir: side < 0 ? 1 : -1, phase: 'arriving', toX: band.at.x, toY: band.at.y, until: 0, purse: 0, band: band.id };
     (s.travellers ??= []).push(t);
     band.members.push(t.id);
   }
@@ -177,7 +179,7 @@ function moveBand(s: GameState, b: Band, rng: Rng, step: number): void {
     members.forEach((t, i) => {
       if (!walk(s, t, spotOf(b, i), step, undefined, s.tick)) all = false;
     });
-    if (b.wagon) rollWagon(b, members[0], step);
+    if (b.wagon) rollWagon(s, b, members[0], step);
     if (!all) return;
     b.phase = 'staying';
     if (b.kind === 'travellers' || b.kind === 'bandits') b.until = s.tick + Math.round(rng.range(PASS_HOURS[0], PASS_HOURS[1]) * TICKS_PER_HOUR);
@@ -211,12 +213,12 @@ function moveBand(s: GameState, b: Band, rng: Rng, step: number): void {
     return;
   }
   for (const t of members) if (walk(s, t, { x: t.toX, y: t.toY }, step, undefined, s.tick)) s.travellers = s.travellers!.filter((q) => q !== t);
-  if (b.wagon) rollWagon(b, members[0], step);
+  if (b.wagon) rollWagon(s, b, members[0], step);
   if (!membersOf(s, b).length) drop(s, b);
 }
 
 /** The wagon rolls along behind the lead merchant. */
-function rollWagon(b: Band, lead: Traveller, step: number): void {
+function rollWagon(s: GameState, b: Band, lead: Traveller, step: number): void {
   const w = b.wagon!;
   const tx = lead.x - lead.dir * WAGON_LAG;
   const ty = lead.y + 6;
@@ -226,8 +228,12 @@ function rollWagon(b: Band, lead: Traveller, step: number): void {
     w.y = ty;
     return;
   }
-  w.x += ((tx - w.x) / d) * step;
-  w.y += ((ty - w.y) / d) * step;
+  const nx = w.x + ((tx - w.x) / d) * step;
+  const ny = w.y + ((ty - w.y) / d) * step;
+  // (the wagon keeps off the rock: a corner cut across a spur waits for the lead to come round)
+  if (groundAt(s.land, Math.floor(nx / CELL), Math.floor(ny / CELL)) === 'mountain') return;
+  w.x = nx;
+  w.y = ny;
 }
 
 /** The band moves on, out of the land on a side. */
@@ -250,7 +256,9 @@ export function seenThrough(s: GameState, rng: Rng): Person | null {
   const watch = s.people.filter((p) => p.away === null && !p.downed && p.guard && onShift(s, p));
   if (!watch.length) return null;
   const best = [...watch].sort((a, b) => fighting(b) - fighting(a))[0];
-  return rng.chance(CATCH_BASE + CATCH_PER_LEVEL * fighting(best)) ? best : null;
+  // (a sentry up on a gate sees more: sim/people.ts gatePost)
+  const sentry = watch.some((p) => p.task?.type === 'patrol' && p.task.post !== undefined && dist(p, { x: p.task.targetX, y: p.task.targetY }) < 4);
+  return rng.chance(CATCH_BASE + CATCH_PER_LEVEL * fighting(best) + (sentry ? GATE_SENTRY_CATCH : 0)) ? best : null;
 }
 const fighting = (p: Person) => Math.max(p.skills.melee.level, p.skills.ranged.level);
 
@@ -302,7 +310,7 @@ export function answerRefugees(s: GameState, option: string, rng: Rng): void {
     let taken = 0;
     for (const t of members) {
       if (townFull(s)) break;
-      const p = makePerson(rng, s.nextId++, 'wanderer', { x: t.x, y: t.y }, s.people.map((q) => q.name));
+      const p = makePerson(rng, s.nextId++, 'wanderer', { x: t.x, y: t.y }, s.people.map((q) => q.name), t.origin ?? s.origin ?? 'settlers');
       p.name = t.name;
       p.look = t.look;
       p.dir = t.dir;

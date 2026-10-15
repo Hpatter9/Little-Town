@@ -10,11 +10,15 @@ import { WORKSHOP_BUILDINGS } from './workshops';
 import { SHAFT_BUILDING } from './deep';
 import { PORTAL_BUILDINGS } from './portals';
 import { RECREATION_BUILDINGS } from './recreation';
+import { RANCH_BUILDING } from './ranch';
+import { ARENA_BUILDING } from './arena';
+import { STATUE_BUILDING } from './memorials';
 import { TRAINING_BUILDINGS } from './training';
 import { PRISON_BUILDINGS, PRISON_UPGRADES } from './prisons';
 import { FAITH_BUILDINGS, FAITH_UPGRADES } from './gods';
 import { WARD_BUILDING } from './calamity';
 import { BOATYARD } from './boats';
+import { AIRSHIP_MAST } from './skies';
 import { MINERAL_BUILDINGS } from './minerals';
 import { MONSTER_GUILD } from './hunts';
 import { STORE_BUILDINGS, type ShopLine } from './stores';
@@ -99,9 +103,9 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'well', name: 'Well', layer: 'mid', width: 1, cost: { stone: 12, wood: 4 }, buildSeconds: 60, purpose: 'Fields keep growing (slower) through a drought.', research: 'early_agriculture' },
   // (never built: a nomad tribe's wagons drawn up across the ends of the camp while raiders are about, see nomads.ts)
   { id: 'wagon_circle', name: 'Wagon Circle', layer: 'fore', width: 1, cost: {}, buildSeconds: 1, purpose: 'Wagons drawn up across the camp while raiders are about.', never: true, hp: 110 },
-  { id: 'palisade_wall', name: 'Palisade Wall', layer: 'fore', width: 1, cost: { wood: 8 }, buildSeconds: 40, purpose: 'Stops raiders until they break it. Townsfolk can pass. Best at the town edges.', research: 'palisades', hp: 150 },
+  { id: 'palisade_wall', name: 'Palisade Wall', layer: 'fore', width: 1, cost: { wood: 4 }, buildSeconds: 20, purpose: 'Stops raiders until they break it. Townsfolk can pass. Best at the town edges.', research: 'palisades', hp: 150 },
   { id: 'palisade_gate', name: 'Palisade Gate', layer: 'fore', width: 2, cost: { wood: 14, fiber: 4 }, buildSeconds: 70, purpose: 'Like a wall, but weaker. Townsfolk come and go through it.', research: 'palisades', hp: 120 },
-  { id: 'palisade_grate', name: 'Palisade Grate', layer: 'fore', width: 1, cost: { wood: 10 }, buildSeconds: 50, purpose: 'The palisade carried over a stream on a grating of stakes: the water runs through, nobody does.', research: 'palisades', hp: 130, onWater: true },
+  { id: 'palisade_grate', name: 'Palisade Grate', layer: 'fore', width: 1, cost: { wood: 5 }, buildSeconds: 25, purpose: 'The palisade carried over a stream on a grating of stakes: the water runs through, nobody does.', research: 'palisades', hp: 130, onWater: true },
   { id: 'lookout', name: 'Lookout Platform', layer: 'mid', width: 2, cost: { wood: 14, fiber: 6 }, buildSeconds: 90, purpose: 'Spots raiders early: an hour of warning instead of minutes.', research: 'lookout', warningMinutes: 60 },
   { id: 'spike_trap', name: 'Spike Pit', layer: 'fore', width: 1, cost: { wood: 6, flint: 2 }, buildSeconds: 40, purpose: 'Hurts raiders who cross it.', research: 'palisades', defense: { damage: [6, 12], range: 16, interval: 5, accuracy: 0.8 } },
   { id: 'trading_post', name: 'Trading Post', layer: 'mid', width: 3, cost: { wood: 12, stone: 8 }, buildSeconds: 90, purpose: 'A shop: travellers stop to buy the town\'s goods for coins, and sell it what it lacks. It starts as one bare room with a counter: every shelf and table, and every room more, is bought with coins, and a better-furnished shop sells more.', research: 'barter', floor: { venue: 'shop', cols: 8, rows: 5, appeal: 0 } },
@@ -194,7 +198,11 @@ const BASE_BUILDINGS: readonly BuildingDef[] = [
   { id: 'town_hall', name: 'Town Hall', layer: 'mid', width: 6, cost: { bricks: 40, lumber: 30, iron: 10, cloth: 10 }, buildSeconds: 3000, purpose: 'Era capstone: the seat of the town opens the Industrial era.', research: 'town_charter', morale: [6, 'A proper town'] },
 ];
 
-export const BUILDINGS: readonly BuildingDef[] = [...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS, BOATYARD, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS];
+/** A mountain hold's hallway (the dwarves): a passage dug into the rock, off which the rooms open. Bare floor; it houses and
+ *  makes nothing. Placed by the planner (sim/planner.ts `tryHall`), from the entrance hall inward. */
+export const HOLD_HALLWAY: BuildingDef = { id: 'hold_hallway', name: 'Hallway', layer: 'mid', width: 2, depth: 4, cost: { stone: 3 }, buildSeconds: 30, purpose: 'A passage cut into the mountain for the rooms to open off.', origin: 'dwarves' };
+
+export const BUILDINGS: readonly BuildingDef[] = [HOLD_HALLWAY, ...BASE_BUILDINGS, ...DEFENSE_BUILDINGS, ...ORIGIN_DEFENSES, ...SEAT_DEFS, BLOOD_FARM, ...WORKSHOP_BUILDINGS, ...MINERAL_BUILDINGS, ...STORE_BUILDINGS, BOATYARD, AIRSHIP_MAST, MONSTER_GUILD, ...PRISON_BUILDINGS, ...FAITH_BUILDINGS, ...RECREATION_BUILDINGS, ...TRAINING_BUILDINGS, WARD_BUILDING, SHAFT_BUILDING, ...PORTAL_BUILDINGS, STATUE_BUILDING, RANCH_BUILDING, ARENA_BUILDING];
 export const BUILDING_BY_ID: Readonly<Record<string, BuildingDef>> = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
 export const LAYER_NAMES: Record<BuildLayer, string> = { fore: 'Foreground (walkway)', mid: 'Midground', back: 'Background (fields)' };

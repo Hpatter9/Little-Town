@@ -67,7 +67,7 @@ test('idle children play together, elders sit by the fire, couples walk out of a
   assert.equal(pastimeFor(s, a, 3)?.pastime, 'stroll');
   assert.equal(pastimeFor(s, b, 3)?.pastime, 'stroll');
   s.tick = 91 * TICKS_PER_DAY + ((10 - START_HOUR + 24) % 24) * TICKS_PER_HOUR;
-  assert.equal(pastimeFor(s, a, 3), null, 'not at mid-morning');
+  assert.notEqual(pastimeFor(s, a, 3)?.pastime, 'stroll', 'no stroll at mid-morning');
 });
 
 test('the snapshot names the buildings at work and the latest news', () => {

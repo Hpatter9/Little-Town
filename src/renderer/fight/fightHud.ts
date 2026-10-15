@@ -7,7 +7,8 @@ import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { fightShare, tripLabel, tripShare } from './progress';
 
 export interface FightHud {
-  update(v: ExpeditionView | null): void;
+  /** The watched fight (or trip), and how fast the fight plays (the speed button beside ✕). */
+  update(v: ExpeditionView | null, speed?: number): void;
   /** Inside a mine (fight/mineView.ts): the top window names it and what its walls hold; the back button leaves. */
   mine(v: MineView | null): void;
   /** How much of the screen's top and bottom the windows cover (px). */
@@ -16,7 +17,7 @@ export interface FightHud {
 
 const PHASE_WORDS: Record<string, string> = { out: 'On the way to', work: 'At', back: 'Heading home from' };
 
-export function createFightHud(on: { back(): void }): FightHud {
+export function createFightHud(on: { back(): void; speed(n: number): void }): FightHud {
   const top = document.createElement('div');
   top.id = 'fight-top';
   top.className = 'ff-window';
@@ -36,6 +37,15 @@ export function createFightHud(on: { back(): void }): FightHud {
   leave.textContent = '✕';
   leave.addEventListener('click', () => on.back());
   leave.hidden = true;
+  // (and beside it how fast the fight plays: 1×, 2×, 3×; every fight starts at 1×)
+  let speedNow = 1;
+  const fast = document.createElement('button');
+  fast.id = 'fight-speed';
+  fast.setAttribute('data-hit', '');
+  fast.title = 'Fight speed';
+  fast.textContent = '1×';
+  fast.addEventListener('click', () => on.speed((speedNow % 3) + 1));
+  fast.hidden = true;
   // the banner: who uses what (a skill or spell, with its cost), big and brief; an ultimate bigger still
   const banner = document.createElement('div');
   banner.id = 'fight-banner';
@@ -76,7 +86,7 @@ export function createFightHud(on: { back(): void }): FightHud {
   fightText.className = 'fp-text';
   fightRow.append(fightBar, fightText);
   progress.append(tripRow, fightRow);
-  document.body.append(top, progress, banner, leave, result, bottom);
+  document.body.append(top, progress, banner, leave, fast, result, bottom);
   top.hidden = bottom.hidden = progress.hidden = true;
   /** The bars, under the top window (or at the top in a fight, beside the corner button). */
   const showProgress = (v: ExpeditionView, fight: ExpeditionView['battle']) => {
@@ -162,7 +172,8 @@ export function createFightHud(on: { back(): void }): FightHud {
     const scale = ult ? 1.25 - 0.25 * inK : 0.85 + 0.15 * inK;
     const lift = outK * 10;
     const jolt = ult && t < 0.25 ? Math.sin(now / 18) * 2 * (1 - t / 0.25) : 0;
-    banner.style.transform = `translate(calc(-50% + ${jolt}px), calc(-50% - ${lift}px)) scale(${scale})`;
+    banner.style.transform = `translate(calc(-50% + ${jolt}px), ${-lift}px) scale(${scale})`;
+    banner.style.transformOrigin = '50% 0';
     requestAnimationFrame(fadeBanner);
   };
   const POOL_NAMES = { mp: 'MP', sp: 'SP', limit: 'LIMIT' } as const;
@@ -184,6 +195,7 @@ export function createFightHud(on: { back(): void }): FightHud {
       top.hidden = false;
       bottom.hidden = true;
       leave.hidden = true;
+      fast.hidden = true;
       result.hidden = true;
       const left = (Object.entries(v.left) as [Material, number][]).filter(([m, n]) => m !== 'stone' && n > 0).map(([m, n]) => `${n} ${MATERIAL_NAMES[m].toLowerCase()}`);
       const key = `${v.id}:${v.depth}:${left.join(',')}:${v.miners.length}`;
@@ -199,17 +211,22 @@ export function createFightHud(on: { back(): void }): FightHud {
       const b = bottom.hidden ? 0 : Math.round(window.innerHeight - bottom.getBoundingClientRect().top);
       return [t, b];
     },
-    update(v) {
+    update(v, speed = 1) {
       document.body.classList.toggle('in-fight', !!v);
       top.hidden = bottom.hidden = !v;
       if (!v) {
         leave.hidden = true;
+        fast.hidden = true;
         progress.hidden = true;
         return;
       }
       const fight = v.battle?.length ? v.battle : null;
       top.hidden = !!fight;
       leave.hidden = !fight;
+      fast.hidden = !fight;
+      speedNow = speed;
+      if (fast.textContent !== `${speed}×`) fast.textContent = `${speed}×`;
+      fast.classList.toggle('active', speed > 1);
       showProgress(v, fight);
       showResult(v.result);
       // the latest action, held a moment; else where they are

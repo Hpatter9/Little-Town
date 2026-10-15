@@ -42,6 +42,7 @@ export const PANTHEONS: Record<OriginId, [string, string][]> = {
   fae: [['Mab', 'the Bloom Queen'], ['Puck', 'the Hearth Trickster'], ['Oberon', 'the Thorn King'], ['Titania', 'of the Twilight']],
   alchemists: [['Viriditas', 'the Green Principle'], ['Sal', 'the Salt of Life'], ['Mars Ferrum', 'the Iron Star'], ['Mercurius', 'the Quick Spirit']],
   knights: [['Saint Isidore', 'of the Plough'], ['Saint Agnes', 'of the Hearth'], ['Saint George', 'the Dragon-Slayer'], ['Saint Elmo', 'of the Storms']],
+  orcs: [['Grub-Mother', 'of the Swill'], ['Old Tusk', 'of the Fire'], ['Gork', 'of the Red Axe'], ['Mork', 'of the Black Sky']],
 };
 
 /** Favour runs from -100 (wrathful) to 100 (well pleased). */

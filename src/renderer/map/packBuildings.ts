@@ -58,6 +58,11 @@ import palisade46 from '../art/village/palisade46.png';
 import palisade03 from '../art/village/palisade03.png';
 import palisade36 from '../art/village/palisade36.png';
 import palisade37 from '../art/village/palisade37.png';
+import palisade44 from '../art/village/palisade44.png';
+import palisade45 from '../art/village/palisade45.png';
+import gateDoor from '../art/village/gate_door.png';
+import gateDoorSide from '../art/village/gate_door_side.png';
+import gateLadder from '../art/village/gate_ladder.png';
 import palisade19 from '../art/village/palisade19.png';
 import dwalls from '../art/village/dwalls.png';
 import dprops from '../art/village/dprops.png';
@@ -96,6 +101,7 @@ import fBox1 from '../art/packs/f_box1.png';
 import fStump from '../art/packs/f_stump.png';
 import fDirt from '../art/packs/f_dirt.png';
 import caveCrystal from '../art/packs/cave_crystal.png';
+import statueOld from '../art/memorial/statue_old.png';
 import caveGate from '../art/packs/cave_gate.png';
 import portalGate from '../art/deep/ruin2.png';
 import portalCircle from '../art/deep/circle.png';
@@ -148,6 +154,12 @@ import sf24 from '../art/packs/sf_24.png';
 import sf25 from '../art/packs/sf_25.png';
 import sf26 from '../art/packs/sf_26.png';
 import suWindmill from '../art/packs/su_windmill.png';
+import suWindmillBody from '../art/packs/su_windmill_body.png';
+import suWindmillSail from '../art/packs/su_windmill_sail.png';
+import suWindmillHub from '../art/packs/su_windmill_hub.png';
+import fieldsFlag from '../art/fields/flag.png';
+import hayHeap from '../art/chores/hay_heap.png';
+import hayBale from '../art/chores/hay_bale.png';
 import suWatchtower from '../art/packs/su_watchtower.png';
 import suLookout from '../art/packs/su_lookout.png';
 import suCastle from '../art/packs/su_castle.png';
@@ -168,6 +180,8 @@ import dlStakes from '../art/packs/dl_stakes.png';
 import dlCaltrops from '../art/packs/dl_caltrops.png';
 import dlSpikes from '../art/packs/dl_spikes.png';
 import aoCoil from '../art/packs/ao_coil.png';
+import dpCannon from '../art/packs/dp_cannon.png';
+import rwScarab from '../art/packs/rw_scarab.png';
 import sfPylon from '../art/packs/sf_pylon.png';
 import sf27 from '../art/packs/sf_27.png';
 import sfTube4 from '../art/packs/sf_tube4.png';
@@ -184,11 +198,51 @@ const pal2 = (top: string, foot: string): Pick => ({ parts: [[top, 0, 0], [foot,
 const pal1 = (tile: string): Pick => ({ parts: [[tile, 0, 0]], size: [32, 32], overhang: 0 });
 /** The palisade's runs of stakes, one of three by the piece's id. */
 const PAL_RUN: Pick[] = [pal2(palisade02, palisade10), pal2(palisade03, palisade11), pal2(palisade04, palisade12)];
+/** The dungeon pack's stone wall, stood taller than a person (the tile is a person's height: 48): its cap and face on top,
+ *  two plain courses of face between, and the tile's own foot (the courses repeat every 16 px, so the joins don't show). */
+const STONE_WALL: Part[] = [
+  [dwalls, 0, 0, 32, 240, 32, 16],
+  [dwalls, 0, 16, 32, 256, 32, 16],
+  [dwalls, 0, 32, 32, 256, 32, 16],
+  [dwalls, 0, 48, 32, 256, 32, 32],
+];
+/** The stone gate drawn bigger than its cell by this much each side (the pack's arch is 28 px, under a person's height):
+ *  1.9 times as big, so a person walks in under the arch, and about as tall as the wall beside it. */
+const GATE_OVER = 14;
 /** A water grate's bars (`dl_fence.png`: a 16px cell, drawn across the whole cell), turned to stand down a column. */
 const grate = (col: number, grade?: string): Pick => {
   const bars: Pick = { parts: [[dlFence, 0, 0, col * 16, 0, 16, 16]], size: [16, 16], overhang: 0, ...(grade ? { grade } : {}) };
   return { own: true, ...bars, joins: { v: { ...bars, rotate: 90 } } };
 };
+/** The palisade's gate as the Village pack builds one (the owner: the old gate wasn't right): its timber frame, two
+ *  tiles tall (the crossbeam with its braces up over the cell above, the posts down to the ground: Tile2_36, 37, 44,
+ *  45), its double door hung in the opening (`gate_door.png`, the pack's DoubleDoor1: frame 0 shut, frame 4 swung
+ *  open), and steps up to the beam on the town's side for the sentry (the Green Zone pack's ladder in the palisade's
+ *  wood, `gate_ladder.png`, two lengths): before the frame for a gate in the north wall, whose town side faces us,
+ *  behind it (seen through the opening) for one in the south wall. Its canvas hangs `GATE_HANG` px over each side so
+ *  the steps can lean against the stakes beside it. */
+const GATE_HANG = 8;
+const gateFront = (open: boolean, stepsFront: boolean): Pick => {
+  const steps: Part[] = stepsFront ? [[gateLadder, 0, 4], [gateLadder, 0, 32]] : [[gateLadder, GATE_HANG + 34, 6], [gateLadder, GATE_HANG + 34, 30]];
+  const frame: Part[] = [[palisade36, GATE_HANG, 0], [palisade37, GATE_HANG + 32, 0], [palisade44, GATE_HANG, 32], [palisade45, GATE_HANG + 32, 32]];
+  const door: Part = [gateDoor, GATE_HANG, 0, open ? 256 : 0, 0, 64, 64];
+  return { parts: stepsFront ? [...frame, door, ...steps] : [...steps, ...frame, door], size: [64 + GATE_HANG * 2, 64], overhang: GATE_HANG };
+};
+/** A gate turned down a column (the west and east walls): seen end on. Shut, the pack's DoubleDoor2 edge on in the
+ *  wall's line (frame 0); open, a gap between the stakes of the runs either side. A plank landing across its north end
+ *  from the frame's crossbeam, where the sentry stands, and the steps up to it on the town's side. Its canvas hangs
+ *  `GATE_HANG` px over each side (the steps lean into the town). Drawn for the west wall; the east's is it mirrored. */
+const gateSide = (open: boolean, flip: boolean): Pick => ({
+  parts: [
+    ...(open ? [] : ([[gateDoorSide, GATE_HANG, 0, 0, 0, 32, 96]] as Part[])),
+    [palisade36, GATE_HANG, 16, 0, 6, 32, 12],
+    [gateLadder, GATE_HANG + 16, 34],
+    [gateLadder, GATE_HANG + 16, 62],
+  ],
+  size: [32 + GATE_HANG * 2, 96],
+  overhang: GATE_HANG,
+  ...(flip ? { flip: true as const } : {}),
+});
 export interface Pick {
   url?: string;
   parts?: Part[];
@@ -209,14 +263,23 @@ export interface Pick {
   own?: true;
   /** Drawn turned a quarter clockwise (a gate standing down a column). */
   rotate?: 90;
+  /** Drawn mirrored left to right (the east wall's gate). */
+  flip?: true;
   /** A wall piece's picture by how it joins its neighbours (the ring wall: sim/ringWall.ts): along a row (`h`), down a
    *  column (`v`), at a corner, or standing alone (`end`); the pick itself when a join has none. */
   joins?: Partial<Record<Join, Pick>>;
   /** Recoloured for a look (`GRADES`): the shops' pictures worn by the peoples without timber houses of their own. */
   grade?: string;
+  /** Sails that turn (the windmill): on the map the picture is `body` (the sails cut away) and `blades` copies of
+   *  `sail` (one blade pointing up, its foot on the hub) turn about `at` (source px) with `hub` over them; a still
+   *  picture (a card) keeps the pick's own. */
+  turning?: { body: string; sail: string; hub: string; at: [number, number]; blades: number };
 }
 /** How a wall piece joins the pieces about it (map/mapView.ts `wallJoin`). */
-export type Join = 'h' | 'v' | 've' | 'nw' | 'ne' | 'sw' | 'se' | 'end';
+export type Join = 'h' | 'v' | 've' | 'nw' | 'ne' | 'sw' | 'se' | 'end' | GateJoin;
+/** How a palisade gate stands (map/mapView.ts `wallJoin`): in the north wall (`gn`, its steps before it) or the south
+ *  (`gs`), the west (`v`) or the east (`ve`); `x` shut (by night, or with raiders coming). */
+export type GateJoin = 'gn' | 'gnx' | 'gs' | 'gsx' | 'vx' | 'vex';
 /** The glow of a pack house's window (the painter's window colour). */
 const WINDOW_GLOW = 0xf0d890;
 /** The looks the pack's timber houses suit. */
@@ -225,13 +288,13 @@ const TIMBER = new Set(['town', 'settlers', 'knights']);
  *  are kept from them; the shared props (the well, racks, fire pits, benches, plants) suit every look. */
 const OWN_TENTS = new Set(['vampire', 'lich', 'robot', 'nomads', 'merfolk', 'nomads_city']);
 /** The nomads' looks: the rocky-area pack's tipis and yurts stand for their homes. */
-const NOMAD = ['nomads', 'nomads_city'];
+const NOMAD = ['nomads', 'nomads_city', 'orcs'];
 /** The looks whose halls are the Simple Summer pack's stone keep, its crystal-crowned mage tower, its round keep (a
  *  shore town's tower by the sea), and its striped tent (a caravan on the move). */
 const KEEP_HALL = ['lich', 'werewolf'];
 const MAGE_HALL = ['alchemists', 'fae', 'druid'];
 const ROUND_HALL = ['merfolk'];
-const TENT_HALL = ['nomads'];
+const TENT_HALL = ['nomads', 'orcs'];
 const MACHINE_HALL = ['robot'];
 const hallVariants = (): { styles: string[]; pick: Pick }[] => [
   { styles: KEEP_HALL, pick: { url: suCastle, overhang: 4 } },
@@ -264,7 +327,7 @@ const PICKS: Record<string, Pick> = {
   // the first homes: the Simple Summer pack's cottage on its stone footing, and the tiny-rpg-town pack's long house
   // (its inn sign painted over with its other window); the nomads keep their tipis and yurts
   lean_to: { url: suHouse, styles: TIMBER, overhang: 2, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi2, overhang: 4, smoke: [[29, 1]] } }] },
-  hide_tent: { url: suHouse, styles: TIMBER, overhang: 4, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[38, 2]] } }] },
+  hide_tent: { url: suHouse, styles: TIMBER, overhang: 4, smoke: [[23, 5]], lamps: [[42, 72]], variants: [{ styles: NOMAD, pick: { url: rockyTipi1, overhang: 4, smoke: [[37, 1]] } }] },
   longhouse: { url: ttLong, styles: TIMBER, overhang: 2, smoke: [[22, 2]], lamps: [[22, 44], [72, 44], [17, 77], [78, 77]], variants: [{ styles: NOMAD, pick: { url: rockyYurt1, overhang: 8, smoke: [[39, 1]] } }] },
   // the tiny-rpg-town pack's tall gabled house, its window boxes in flower, two side by side for the apartments
   apartments: { parts: [[ttGable, 0, 0], [ttGable, 47, 0]], size: [95, 132], styles: TIMBER, overhang: 2, lamps: [[25, 103], [24, 60], [72, 103], [71, 60]] },
@@ -287,10 +350,15 @@ const PICKS: Record<string, Pick> = {
   bramble_snare: { url: dlStakes, overhang: 0, grade: 'druid' },
   land_mine: { url: dlSpikes, overhang: 0 },
   tesla_coil: { url: aoCoil, overhang: 2 },
+  // the Dungeon Props pack's cannon on its carriage; the Robot Warfare pack's Scarab, a squat robot with a gun, for the
+  // machines' sentry bot (the other war engines and turrets stay painted: no pack has them)
+  cannon: { url: dpCannon, overhang: 2 },
+  sentry_bot: { url: rwScarab, overhang: 2 },
   shield_generator: { parts: [[aoCoil, 0, 0], [aoCoil, 34, 0]], size: [63, 43], overhang: 2 },
-  // each people's own defence, from the props that suit it (the war engines and turrets stay painted: no pack has them)
+  // each people's own defence, from the props that suit it
   militia_post: { parts: [[vRack, 0, 0], [vSignSword, 26, 18]], size: [49, 42], overhang: 2 },
   bone_spire: { url: caveTotem, overhang: 2, grade: 'lich' },
+  skull_totem: { url: caveTotem, overhang: 2, grade: 'orcs' },
   gargoyle_perch: { url: caveStatue, overhang: 2, grade: 'vampire' },
   rune_bolt_thrower: { url: caveTotem, overhang: 2 },
   arrow_wagon: { parts: [[vCart2, 0, 4], [vRack, 38, 0]], size: [66, 42], overhang: 2 },
@@ -331,16 +399,20 @@ const PICKS: Record<string, Pick> = {
       end: { parts: [POST], size: [32, 32], overhang: 0 },
     },
   },
-  palisade_gate: { own: true, parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, joins: { v: { parts: [[palisade36, 0, 0], [palisade37, 32, 0]], size: [64, 32], overhang: 0, rotate: 90 } } },
+  palisade_gate: {
+    own: true,
+    ...gateFront(true, true),
+    joins: { gn: gateFront(true, true), gnx: gateFront(false, true), gs: gateFront(true, false), gsx: gateFront(false, false), v: gateSide(true, false), vx: gateSide(false, false), ve: gateSide(true, true), vex: gateSide(false, true) },
+  },
   // the dungeon pack's stonework: a stretch of wall, an arched gate with its door
-  stone_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0 },
-  brick_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'brick' },
-  concrete_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'concrete' },
-  force_wall: { own: true, parts: [[dwalls, 0, 0, 32, 240, 32, 48]], size: [32, 48], overhang: 0, grade: 'force' },
-  stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
-  brick_gate: { own: true, grade: 'brick', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
-  concrete_gate: { own: true, grade: 'concrete', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
-  force_gate: { own: true, grade: 'force', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: 0, rotate: 90 } } },
+  stone_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0 },
+  brick_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'brick' },
+  concrete_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'concrete' },
+  force_wall: { own: true, parts: STONE_WALL, size: [32, 80], overhang: 0, grade: 'force' },
+  stone_gate: { own: true, parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
+  brick_gate: { own: true, grade: 'brick', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
+  concrete_gate: { own: true, grade: 'concrete', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
+  force_gate: { own: true, grade: 'force', parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, joins: { v: { parts: [[dwalls, 0, 0, 80, 288, 48, 48]], size: [48, 48], overhang: GATE_OVER, rotate: 90 } } },
   // the grates where the ring wall crosses a river (sim/ringWall.ts): DawnLike's fence runs, wooden bars for the
   // palisade, iron for the stone wall, pale steel for the concrete one, the water showing between the bars
   palisade_grate: grate(0),
@@ -354,6 +426,12 @@ const PICKS: Record<string, Pick> = {
   village_green: { parts: [[fPointer4, 36, 4], [log3, 2, 44], [log3, 50, 46], [fStump, 66, 8], [flower1, 10, 12], [flower5, 20, 30], [flower9, 60, 40], [flower1, 86, 30], [tuft2, 28, 56], [tuft2, 78, 20]], size: [96, 64], overhang: 0 },
   sparring_yard: { parts: [[vRack, 0, 6], [palisade19, 62, 2, 4, 0, 28, 32], [fDirt, 40, 30], [fDirt, 70, 38], [fFence1, 0, 49], [fFence1, 28, 49], [fFence1, 56, 49], [box1, 80, 46]], size: [96, 64], overhang: 0 },
   fishing_jetty: { parts: [[pierH, 0, 0], [pierH, 32, 0], [barrel, 42, 4], [vBucket, 6, 10]], size: [64, 36], overhang: 0 },
+  // the monster ranch (data/ranch.ts): the Village pack's awning for a shelter, the Fields pack's rails round the pens,
+  // the Medieval Field Work pack's hay, a bucket for the trough
+  beast_ranch: { parts: [[tent2, 0, 0], [fence1, 66, 2], [fence1, 93, 2], [fence9, 122, 6], [fence9, 122, 38], [fence9, 122, 70], [hayHeap, 70, 26], [hayBale, 96, 30], [hayBale, 90, 40], [vBucket, 104, 56], [log3, 8, 66], [fence1, 0, 82], [fence1, 27, 82], [fence1, 54, 82], [fence1, 81, 82], [fence1, 100, 82]], size: [128, 96], overhang: 0 },
+  // the arena (data/arena.ts): a ring of the Village pack's palisade stakes round trodden sand, logs for the crowd's
+  // benches, a weapon rack, lanterns at the gate and the sword sign over it
+  arena: { parts: [[fDirt, 30, 50], [fDirt, 60, 70], [fDirt, 84, 56], [fDirt, 70, 40], [fDirt, 44, 80], [fDirt, 96, 84], [palisade01, 0, 0], [palisade02, 32, 0], [palisade03, 64, 0], [palisade02, 96, 0], [palisade06, 128, 0], [log3, 20, 30], [log3, 64, 30], [palisade17, 0, 32], [palisade17, 0, 64], [palisade22, 128, 32], [palisade22, 128, 64], [vRack, 104, 56], [lantern, 4, 84], [lantern, 140, 84], [palisade04, 0, 96], [palisade02, 32, 96], [vSignSword, 68, 100], [palisade02, 96, 96], [palisade04, 128, 96]], size: [160, 128], overhang: 0, lamps: [[12, 93], [148, 93]] },
   // the training grounds (data/training.ts)
   drill_yard: { parts: [[vRack, 0, 6], [palisade19, 62, 2, 4, 0, 28, 32], [palisade19, 30, 10, 4, 0, 28, 32], [fDirt, 40, 30], [fDirt, 70, 38], [fFence1, 0, 49], [fFence1, 28, 49], [fFence1, 56, 49]], size: [96, 64], overhang: 0 },
   archery_range: { parts: [[fFence3, 0, 0], [fFence3, 26, 0], [box2, 70, 4], [box2, 82, 10], [palisade19, 52, 0, 4, 0, 28, 32]], size: [96, 32], overhang: 0 },
@@ -372,7 +450,7 @@ const PICKS: Record<string, Pick> = {
   // the Village pack's stone well, its carts, its drying rack and its market awning
   well: { url: vWell, overhang: 2 },
   // (the Simple Summer pack's windmill and timber watchtowers)
-  windmill: { url: suWindmill, overhang: 8 },
+  windmill: { url: suWindmill, overhang: 8, turning: { body: suWindmillBody, sail: suWindmillSail, hub: suWindmillHub, at: [84, 85], blades: 4 } },
   watchtower: { url: suWatchtower, overhang: 3 },
   lookout: { url: suLookout, overhang: 3 },
   wagon_circle: { url: vCart2, overhang: 2 },
@@ -420,6 +498,8 @@ const PICKS: Record<string, Pick> = {
   portal_rift: { parts: [[portalCircle, 0, 0], [shard1, 32, 8]], size: [128, 118], overhang: 0 },
   // (the Calamity's ward stone: the cave pack's white crystal)
   ward_stone: { url: caveCrystal, overhang: 0 },
+  // (a statue's own figure in stone is map/statueArt.ts; the Rocky Area pack's old man stands in while it loads)
+  statue: { url: statueOld, overhang: 4 },
   temple: { url: suMageTower, overhang: 4 },
   cathedral: { url: suCastle, overhang: 4 },
   phylactery: { url: caveCrystal, overhang: 0, variants: [{ styles: ['lich'], pick: { url: caveGem, overhang: 0 } }] },
@@ -438,6 +518,9 @@ const PICKS: Record<string, Pick> = {
   factory: { parts: [[sfTube4, 40, 0], [sf26, 0, 28], [sf27, 68, 41], [sf24, 146, 0]], size: [214, 76], overhang: 0 },
   garage: { parts: [[sf27, 0, 0], [sf27, 78, 0]], size: [156, 35], overhang: 0 },
   radio_tower: { url: sfPylon, overhang: 3 },
+  // the airship mast (data/skies.ts): the futuristic pack's lattice pylon for the mast, its tank for the lifting gas,
+  // a console and a box by it (map/mapAirships.ts makes her nose fast to the pylon's head)
+  airship_mast: { parts: [[sf25, 0, 115], [sfPylon, 69, 0], [sf19, 104, 170], [sf17, 0, 176]], size: [140, 192], overhang: 0 },
   drone_hub: { parts: [[sf27, 0, 10], [sf12, 48, 0]], size: [78, 45], overhang: 0 },
   battery_plant: { parts: [[sf24, 0, 0], [sf26, 72, 28]], size: [140, 76], overhang: 0 },
   electronics_plant: { parts: [[sf9, 0, 10], [sf12, 40, 10], [sf13, 70, 6], [sf14, 130, 6], [sf10, 190, 8]], size: [202, 32], overhang: 0 },
@@ -476,6 +559,7 @@ const PICKS: Record<string, Pick> = {
   alembic: { parts: [[dpTank3, 0, 10], [dpTank2, 28, 0], [dpTank3, 62, 10]], size: [88, 37], overhang: 0 },
   assembler: { parts: [[sf12, 0, 10], [dpDesk, 30, 0], [sf8, 70, 10]], size: [90, 40], overhang: 0 },
   armourer: { parts: [[house3, 0, 0], [vAnvil, 122, 132], [vSignShield, 6, 118]], size: [160, 160], smoke: [[37, 0]], lamps: [[59, 86], [89, 86]] }, // (the knights' alone, a timber look)
+  grog_pit: { parts: [[caveFire2, 0, 8], [vRack, 46, 0]], size: [76, 50], overhang: 0 },
   pelt_house: { parts: [[vRack, 0, 0], [vRack, 30, 0], [vRack, 60, 0]], size: [88, 42], overhang: 0 },
   granary: { parts: [[doCrates, 0, 0], [doCrates, 0, 24], [doCrates, 46, 12], [fBox1, 94, 20]], size: [112, 48], overhang: 0 },
   theatre: { url: house4, styles: TIMBER, smoke: [[61, 10]], lamps: [[97, 87], [114, 122]] },
@@ -558,6 +642,7 @@ const GRADES: Record<string, { grey: number; tint: number; light: number }> = {
   nomads_city: { grey: 0.3, tint: 0xf0c890, light: 1.0 },
   druid: { grey: 0.35, tint: 0xb8e0a0, light: 0.95 },
   fae: { grey: 0.4, tint: 0xe0c0f0, light: 1.05 },
+  orcs: { grey: 0.45, tint: 0xc89a70, light: 0.86 },
   dwarves: { grey: 0.55, tint: 0xd0c0a8, light: 0.9 },
   werewolf: { grey: 0.45, tint: 0xc8a888, light: 0.85 },
   alchemists: { grey: 0.45, tint: 0xd0b0e0, light: 0.95 },
@@ -604,6 +689,49 @@ function regrade(g: CanvasRenderingContext2D, w: number, h: number, style: strin
   g.putImageData(im, 0, 0);
 }
 
+/** A building's turning sails (the windmill's), scaled as its picture is and recoloured for the look: the blade
+ *  (pointing up, its foot at the hub), the hub, where the hub is (px from the picture's top left) and how many blades;
+ *  null for a building without, or while a picture loads. */
+export interface Turning {
+  sail: Texture;
+  hub: Texture;
+  x: number;
+  y: number;
+  scale: number;
+  blades: number;
+}
+const turnings = new Map<string, Turning>();
+export function packTurning(def: string, w: number, style: string): Turning | null {
+  const pick = pickFor(def, style);
+  const t = pick?.turning;
+  if (!pick || !t) return null;
+  const key = `${def}|${style}|${w}`;
+  const had = turnings.get(key);
+  if (had) return had;
+  const ims = [t.body, t.sail, t.hub].map((u) => images.get(u));
+  if (ims.some((im) => im === undefined)) {
+    for (const u of [t.body, t.sail, t.hub]) if (images.get(u) === undefined) fetch(u);
+    return null;
+  }
+  if (ims.some((im) => !im)) return null;
+  const [body, sail, hub] = ims as HTMLImageElement[];
+  const scale = (w * CELL + (pick.overhang ?? OVERHANG) * 2) / body.naturalWidth;
+  // (each piece scaled on the fine grid and recoloured as the picture is)
+  const piece = (im: HTMLImageElement): Texture => {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(im.naturalWidth * scale * FINE));
+    c.height = Math.max(1, Math.round(im.naturalHeight * scale * FINE));
+    const g = c.getContext('2d')!;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(im, 0, 0, c.width, c.height);
+    if (pick.grade) regrade(g, c.width, c.height, pick.grade);
+    return new Texture({ source: new CanvasSource({ resource: c, resolution: FINE }) });
+  };
+  const out = { sail: piece(sail), hub: piece(hub), x: t.at[0] * scale, y: t.at[1] * scale, scale, blades: t.blades };
+  turnings.set(key, out);
+  return out;
+}
+
 /** Whole buildings seen from outside (houses, shop fronts, tents, towers, the windmill): never a room's furnishings. */
 const EXTERIORS = new Set([suHouse, ttLong, ttGable, house1, house2, house3, house4, gbHouse, gbShop, tent2, rockyTipi1, rockyTipi2, rockyYurt1, rockyYurt2, suWindmill, suWatchtower, suLookout, suCastle, suMageTower, suRoundCastle, suTent]);
 const urlsOf = (p: Pick): string[] => [p.url, ...(p.any ?? []), ...(p.parts ?? []).map((x) => x[0]), ...(p.of ?? []).flatMap(urlsOf)].filter((u): u is string => !!u);
@@ -616,9 +744,11 @@ export function packArtIndoors(def: string, w: number, style: string, id = 0): P
   return packArt(def, w, style, id);
 }
 
-export function packArt(def: string, w: number, style: string, id = 0, join?: Join): PixelArt | null {
+export function packArt(def: string, w: number, style: string, id = 0, join?: Join, moving = false): PixelArt | null {
   let pick = pickFor(def, style);
   if (!pick) return null;
+  // (on the map, a windmill's body alone: its sails are drawn turning over it, packTurning)
+  if (moving && pick.turning) return pickArt({ ...pick, url: pick.turning.body, turning: undefined }, w, `${def}|${style}|body`, id);
   const joined = join ? pick.joins?.[join] ?? (join === 've' ? pick.joins?.v : undefined) : undefined;
   if (joined) pick = { ...joined, grade: joined.grade ?? pick.grade };
   // (one of several by the building's id)
@@ -653,6 +783,10 @@ export function pickArt(pick: Pick, w: number, key0: string, id = 0): PixelArt |
     if (pick.rotate) {
       g.translate(c.width, 0);
       g.rotate(Math.PI / 2);
+    }
+    if (pick.flip) {
+      g.translate(c.width, 0);
+      g.scale(-1, 1);
     }
     src.draw(g, scale * FINE);
     if (pick.grade) {
@@ -692,90 +826,142 @@ export interface Dressing {
   h: number;
   /** A colour laid over it (the awning's cloth in the shop's colours). */
   tint?: number;
+  /** Frames it plays through, stirring in the wind (a venue's banner): the map turns them. */
+  frames?: Texture[];
 }
 
 const dressTex = new Map<string, Texture>();
 
 /* ------------------------------------------------------------ the venues' banners */
 
-const BANNER_W = 16;
-const BANNER_H = 36;
-const banners = new Map<string, Texture>();
-/** A venue's banner: a pole with a cloth hanging from its crossbar in the shop's colours, with its emblem on it (a
- *  sword, a shield, a chair, a bottle; scales for the general store, a tankard for the tavern). Null for anything
- *  that isn't a venue. */
-function bannerOf(def: string): Texture | null {
+/** A venue's banner as it stands on the map (px), and the Fields pack's flag it is made from: six frames of 32x64,
+ *  the cloth stirring on its pole (`FLAG_FRAMES`). */
+const BANNER_W = 19;
+const BANNER_H = 38;
+const FLAG_W = 32;
+const FLAG_H = 64;
+export const FLAG_FRAMES = 6;
+/** The flag's own colours: its cloth, the cloth's light, the trim and the trim's shine (recoloured per shop). */
+const FLAG_CLOTH = 0x405273;
+const FLAG_CLOTH_LIGHT = 0x6c81a1;
+const FLAG_TRIM = 0xbbc3d0;
+const FLAG_SHINE = 0xf1f6f0;
+const banners = new Map<string, Texture[]>();
+/** A colour `k` of the way toward white. */
+const toWhite = (c: number, k: number) => {
+  const ch = (v: number) => Math.round(v + (255 - v) * k);
+  return (ch((c >> 16) & 255) << 16) | (ch((c >> 8) & 255) << 8) | ch(c & 255);
+};
+/** A venue's banner: the Fields pack's flag, its cloth and trim in the shop's colours, with the shop's emblem on it (a
+ *  sword, a shield, a chair, a bottle; scales for the general store, a tankard for the tavern), six frames of it
+ *  stirring in the wind (the map turns them faster as the wind rises). Null for anything that isn't a venue, or while
+ *  the flag loads. */
+function bannerOf(def: string): Texture[] | null {
   const line = lineOfDef(def);
   const venue = venueOfDef(def);
   if (!venue) return null;
   const kind = line ?? venue;
-  let tex = banners.get(kind);
-  if (tex) return tex;
+  const had = banners.get(kind);
+  if (had) return had;
+  const flag = images.get(fieldsFlag);
+  if (flag === undefined) {
+    fetch(fieldsFlag);
+    return null;
+  }
+  if (!flag) return null;
   const l = line ? LINES[line] : null;
   const cloth = l ? l.cloth : venue === 'tavern' ? 0x6a3a22 : 0x2e6a3a;
   const trim = l ? l.trim : venue === 'tavern' ? 0xf0d080 : 0xf0e0a0;
+  const swap = new Map<number, number>([
+    [FLAG_CLOTH, cloth],
+    [FLAG_CLOTH_LIGHT, toWhite(cloth, 0.28)],
+    [FLAG_TRIM, trim],
+    [FLAG_SHINE, toWhite(trim, 0.6)],
+  ]);
   const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
-  const c = document.createElement('canvas');
-  c.width = BANNER_W;
-  c.height = BANNER_H;
-  const g = c.getContext('2d')!;
-  const px = (x: number, y: number, w: number, h: number, col: string) => {
-    g.fillStyle = col;
-    g.fillRect(x, y, w, h);
-  };
-  px(1, 0, 2, BANNER_H, '#4a2e1a'); // the pole
-  px(1, 0, 1, BANNER_H, '#6a4428');
-  px(0, 1, 13, 2, '#4a2e1a'); // the crossbar
-  px(4, 3, 10, 20, hex(cloth)); // the cloth
-  px(4, 3, 10, 1, hex(trim));
-  px(4, 3, 1, 20, hex(trim));
-  px(13, 3, 1, 20, hex(trim));
-  px(4, 23, 4, 2, hex(cloth)); // the swallowtail
-  px(10, 23, 4, 2, hex(cloth));
-  px(4, 25, 3, 1, hex(cloth));
-  px(11, 25, 3, 1, hex(cloth));
-  const e = hex(trim);
-  switch (kind) {
-    case 'weapons': // a sword
-      px(8, 7, 2, 11, e);
-      px(6, 15, 6, 1, e);
-      px(8, 18, 2, 2, '#a07030');
-      break;
-    case 'armour': // a shield
-      px(6, 8, 6, 6, e);
-      px(7, 14, 4, 2, e);
-      px(8, 16, 2, 1, e);
-      px(8, 9, 1, 5, hex(cloth));
-      break;
-    case 'furniture': // a chair
-      px(6, 8, 2, 10, e);
-      px(6, 13, 6, 2, e);
-      px(10, 15, 2, 4, e);
-      px(6, 17, 1, 2, e);
-      break;
-    case 'medicine': // a bottle
-      px(8, 7, 2, 2, e);
-      px(7, 9, 4, 2, e);
-      px(6, 11, 6, 7, e);
-      px(7, 13, 2, 3, hex(cloth));
-      break;
-    case 'tavern': // a tankard
-      px(6, 9, 5, 9, e);
-      px(11, 11, 2, 5, e);
-      px(12, 12, 1, 3, hex(cloth));
-      px(6, 8, 5, 1, '#f8f8f0');
-      break;
-    default: // scales
-      px(8, 7, 2, 10, e);
-      px(5, 9, 8, 1, e);
-      px(4, 12, 3, 2, e);
-      px(11, 12, 3, 2, e);
-      px(6, 17, 6, 1, e);
+  const frames: Texture[] = [];
+  for (let f = 0; f < FLAG_FRAMES; f++) {
+    const c = document.createElement('canvas');
+    c.width = FLAG_W;
+    c.height = FLAG_H;
+    const g = c.getContext('2d')!;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(flag, f * FLAG_W, 0, FLAG_W, FLAG_H, 0, 0, FLAG_W, FLAG_H);
+    // (the cloth and trim in the shop's colours, and where the cloth lies in this frame for the emblem)
+    const im = g.getImageData(0, 0, FLAG_W, FLAG_H);
+    const d = im.data;
+    let x0 = FLAG_W;
+    let x1 = 0;
+    let y0 = FLAG_H;
+    for (let i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue;
+      const was = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+      const to = swap.get(was);
+      if (to === undefined) continue;
+      d[i] = (to >> 16) & 255;
+      d[i + 1] = (to >> 8) & 255;
+      d[i + 2] = to & 255;
+      if (was === FLAG_CLOTH) {
+        const x = (i / 4) % FLAG_W;
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+        y0 = Math.min(y0, Math.floor(i / 4 / FLAG_W));
+      }
+    }
+    g.putImageData(im, 0, 0);
+    // the emblem, in the trim's colour, on the middle of the cloth (drawn on a grid ten wide, a little larger)
+    const e = hex(trim);
+    const back = hex(cloth);
+    const k = 1.4;
+    const ox = (x0 + x1 + 1) / 2 - 5 * k;
+    const oy = y0 + 2;
+    const px = (x: number, y: number, w: number, h: number, col: string) => {
+      g.fillStyle = col;
+      g.fillRect(Math.round(ox + x * k), Math.round(oy + y * k), Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+    };
+    switch (kind) {
+      case 'weapons': // a sword
+        px(4, 1, 2, 11, e);
+        px(2, 9, 6, 1, e);
+        px(4, 12, 2, 2, '#a07030');
+        break;
+      case 'armour': // a shield
+        px(2, 2, 6, 6, e);
+        px(3, 8, 4, 2, e);
+        px(4, 10, 2, 1, e);
+        px(4, 3, 1, 5, back);
+        break;
+      case 'furniture': // a chair
+        px(2, 2, 2, 10, e);
+        px(2, 7, 6, 2, e);
+        px(6, 9, 2, 4, e);
+        px(2, 11, 1, 2, e);
+        break;
+      case 'medicine': // a bottle
+        px(4, 1, 2, 2, e);
+        px(3, 3, 4, 2, e);
+        px(2, 5, 6, 7, e);
+        px(3, 7, 2, 3, back);
+        break;
+      case 'tavern': // a tankard
+        px(2, 3, 5, 9, e);
+        px(7, 5, 2, 5, e);
+        px(8, 6, 1, 3, back);
+        px(2, 2, 5, 1, '#f8f8f0');
+        break;
+      default: // scales
+        px(4, 1, 2, 10, e);
+        px(1, 3, 8, 1, e);
+        px(0, 6, 3, 2, e);
+        px(7, 6, 3, 2, e);
+        px(2, 11, 6, 1, e);
+    }
+    const tex = Texture.from(c);
+    tex.source.scaleMode = 'nearest';
+    frames.push(tex);
   }
-  tex = Texture.from(c);
-  tex.source.scaleMode = 'nearest';
-  banners.set(kind, tex);
-  return tex;
+  banners.set(kind, frames);
+  return frames;
 }
 
 /** What stands by a building `w` cells wide (its picture from the pack) with this id, or nothing yet. */
@@ -818,7 +1004,7 @@ export function packDressing(def: string, id: number, w: number, style: string):
   const out: Dressing[] = [];
   // (every shop and tavern hangs its banner out front, by the door, whatever the look: the owner's ask)
   const banner = bannerOf(def);
-  if (banner) out.push({ texture: banner, dx: (w * CELL) / 2 - BANNER_W - 10, dy: 1, w: BANNER_W, h: BANNER_H });
+  if (banner) out.push({ texture: banner[0], frames: banner, dx: (w * CELL) / 2 - BANNER_W - 10, dy: 1, w: BANNER_W, h: BANNER_H });
   // (its storefront: the awning and the goods of its trade, right of the door)
   const front = STOREFRONT[def];
   if (front) {

@@ -32,6 +32,8 @@ export const STRIKE_UNTIL = 3;
 export const BANDIT_BUDGET_SHARE = 0.7;
 export const CATCH_BASE = 0.04;
 export const CATCH_PER_LEVEL = 0.012;
+/** More, a guard standing sentry up on a gate (sim/people.ts `gatePost`): they see who comes and goes. */
+export const GATE_SENTRY_CATCH = 0.12;
 /** The wagon rolls this far behind the lead merchant; a band walks this fast (px a second). */
 export const WAGON_LAG = 44;
 export const BAND_SPEED = 55;

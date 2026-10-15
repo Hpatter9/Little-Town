@@ -1383,5 +1383,89 @@
   },
   "figure": 46,
   "facesRight": true
+ },
+ "hk_orc_grunt": {
+  "w": 94,
+  "h": 98,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 76,
+  "facesRight": true
+ },
+ "hk_orc_archer": {
+  "w": 84,
+  "h": 79,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 76,
+  "facesRight": true
+ },
+ "hk_orc_brute": {
+  "w": 92,
+  "h": 106,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 75,
+  "facesRight": true
+ },
+ "hk_orc_warlord": {
+  "w": 116,
+  "h": 122,
+  "perRow": 4,
+  "rows": [
+   "walk",
+   "attack",
+   "idle",
+   "hurt",
+   "dead"
+  ],
+  "counts": {
+   "walk": 4,
+   "attack": 2,
+   "idle": 1,
+   "hurt": 1,
+   "dead": 1
+  },
+  "figure": 85,
+  "facesRight": true
  }
 }

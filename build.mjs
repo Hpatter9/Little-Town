@@ -14,6 +14,7 @@ mkdirSync('out/renderer', { recursive: true });
 await Promise.all([
   esbuild.build({ ...node, entryPoints: ['src/main/main.ts'], outfile: 'out/main.js' }),
   esbuild.build({ ...node, entryPoints: ['src/main/preload.ts'], outfile: 'out/preload.js' }),
+  esbuild.build({ ...node, entryPoints: ['src/main/simThread.ts'], outfile: 'out/simThread.js' }),
   esbuild.build({ ...browser, entryPoints: ['src/renderer/main.ts'], outfile: 'out/renderer/renderer.js' }),
   esbuild.build({ ...browser, entryPoints: ['src/renderer/panel/panel.ts'], outfile: 'out/renderer/panel.js' }),
 ]);

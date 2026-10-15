@@ -12,7 +12,6 @@ import { WORTH } from '../../shared/data/trade';
 import { CLASS_DEFS } from '../../shared/data/classes';
 import { ENEMIES } from '../../shared/data/enemies';
 import { ITEMS, SLOT_NAMES, type ItemDef } from '../../shared/data/items';
-import { TOPIC_BY_ID } from '../../shared/data/research';
 import { FAMILIES } from '../../shared/data/weapons';
 import { WEIGHT_NAMES } from '../../shared/data/armour';
 import type { Snapshot } from '../../shared/sim/snapshot';
@@ -20,6 +19,7 @@ import { MATERIAL_NAMES, type Material } from '../../shared/data/materials';
 import { plusMult, qualityMult } from '../../shared/data/quality';
 import { quirkWords } from '../../shared/data/weapons';
 import { el } from './dom';
+import { topicName } from '../../shared/data/originResearch';
 
 const open = new Set<string>();
 const picked = new Map<string, string>();
@@ -166,7 +166,7 @@ export function itemDetails(def: ItemDef, s: Snapshot): More[] {
       ['Makes', def.makes ? stockLine(def.makes) : null],
       ['Made at', def.unique || def.relic ? 'never made: found, or won' : (BUILDING_BY_ID[def.station]?.name ?? def.station)],
       ['Takes', !def.unique && !def.relic ? [stockLine(def.cost), ...Object.entries(def.items ?? {}).map(([id, n]) => `${n} ${ITEMS.find((i) => i.id === id)?.name ?? id}`)].filter(Boolean).join(', ') : null],
-      ['Research', def.research.filter((r) => !r.startsWith('__')).map((r) => TOPIC_BY_ID[r]?.name ?? r).join(', ')],
+      ['Research', def.research.filter((r) => !r.startsWith('__')).map((r) => topicName(r, s.origin.id)).join(', ')],
       ['Sells for', def.ware ? `${def.ware.price} coins (customers of tier ${def.ware.tier} and up)` : def.fare ? `${def.fare.price} coins` : null],
       ['In a venue', def.furnish ? `${def.furnish.w} × ${def.furnish.h} cells, ${def.furnish.appeal} appeal` : null],
       ['In the stores', s.items[def.id] ? String(s.items[def.id]) : null],

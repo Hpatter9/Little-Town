@@ -5,6 +5,7 @@
 // Numbers are starting points for tuning.
 
 import type { OriginId } from './origins';
+import { RISING } from './risingPowers';
 
 /** What a rival lord's spell does (see sim/rivals.ts). */
 export type RivalSpellKind =
@@ -164,11 +165,24 @@ export const RIVALS: Record<Exclude<OriginId, 'settlers'>, RivalDef> = {
       { id: 'oath', name: 'Oath of Mending', kind: 'raise', every: 30, power: 2, text: 'The Grand Master swears an oath, and the fallen knights rise!' },
     ],
   },
+  orcs: {
+    origin: 'orcs',
+    raid: 'rival_orcs',
+    leader: 'orc_warlord',
+    spells: [
+      { id: 'war_cry', name: 'War Cry', kind: 'frenzy', every: 18, power: 10, text: 'WAAAGH! The warband roars and charges!' },
+      { id: 'war_drums', name: 'War Drums', kind: 'dread', every: 24, power: 6, text: 'The war drums beat, and the defenders\' hearts sink.' },
+      { id: 'more_orcs', name: 'More Orcs', kind: 'summon', every: 30, power: 3, summons: 'orc_grunt', text: 'Gorbag bellows, and more orcs come running!' },
+    ],
+  },
 };
 
 /** The rival (if any) behind a raid kind, and the one whose lord this is. */
 export const rivalOfRaid = (kind: string): RivalDef | undefined => Object.values(RIVALS).find((r) => r.raid === kind);
-export const rivalOfLeader = (enemy: string): RivalDef | undefined => Object.values(RIVALS).find((r) => r.leader === enemy);
+export const rivalOfLeader = (enemy: string): Pick<RivalDef, 'raid' | 'leader' | 'spells'> | undefined =>
+  Object.values(RIVALS).find((r) => r.leader === enemy) ?? Object.values(RISING).filter((r) => r.lord === enemy).map((r) => ({ raid: r.raids[0], leader: r.lord, spells: r.spells }))[0];
+/** Every lord's spells, the rival peoples' and the rising powers'. */
+export const ALL_LORD_SPELLS = (): RivalSpell[] => [...Object.values(RIVALS).flatMap((r) => r.spells), ...Object.values(RISING).flatMap((r) => r.spells)];
 
 /** (When they come, and how often, is in data/raids.ts: from day 8, in any era.) */
 /** A lord grows stronger as the days pass: this share of its health at first, and this much more per day. */

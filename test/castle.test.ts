@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { canPlace, doorCell, footprint, placeBlueprint } from '../src/shared/sim/buildings';
-import { castleBounds, castleCells, castleGate, castleLayout, castleStep, coreRect, GATES_MOST, joinsCastle, roomKind, rooms, sharedEdges } from '../src/shared/sim/castle';
+import { castleBounds, castleCells, digRoom, castleGate, castleLayout, castleStep, coreRect, GATES_MOST, joinsCastle, roomKind, rooms, sharedEdges } from '../src/shared/sim/castle';
 import { delvePool, GEM_DEPTH, GOLD_DEPTH, groundAt, idx, inMap, isRoad, MOUNTAIN_FOOT } from '../src/shared/sim/land';
 import { Rng } from '../src/shared/rng';
 import { Sim } from '../src/shared/sim/sim';
 import { snapshot } from '../src/shared/sim/snapshot';
 import { newGame } from '../src/shared/sim/state';
 import { TICKS_PER_DAY } from '../src/shared/sim/time';
-import { pathTo } from '../src/shared/sim/walk';
+import { pathTo, walk, type Walker } from '../src/shared/sim/walk';
 import { clearAround, put } from './helpers';
 
 /** The castle's cells without one room's own (a mountain hold's galleries under it too). */
@@ -133,6 +133,29 @@ test('inside the walls people go room to room by the doorways, and in and out by
   assert.equal(ok(f.x + 1, f.y + f.h - 1, f.x + 1, f.y + f.h), false);
 });
 
+test('a walker put somewhere else finds their way again, never cutting through the walls to the old path', () => {
+  // (people came out of a building or off the raid board still holding the path from where they'd been, and walked
+  // straight from there to its next cell, through the castle's walls)
+  const s = newGame('through', { origin: 'vampire' });
+  const core = coreRect(s);
+  const room = put(s, 'longhouse', core.x + core.w, core.y, { room: true });
+  const f = footprint(room);
+  const ok = castleStep(s, castleLayout(s)!);
+  const goal = { x: (f.x + f.w - 1.5) * 32, y: (f.y + 1.5) * 32 };
+  const w: Walker = { x: (core.x + 1.5) * 32, y: (core.y + 1.5) * 32, dir: 1 };
+  walk(s, w, goal, 4);
+  // put below the castle, outside it: the next step must not go straight back in through a wall
+  w.x = (f.x + 1.5) * 32;
+  w.y = (f.y + f.h + 3.5) * 32;
+  let at = { x: Math.floor(w.x / 32), y: Math.floor(w.y / 32) };
+  for (let i = 0; i < 400 && !walk(s, w, goal, 4); i++) {
+    const c = { x: Math.floor(w.x / 32), y: Math.floor(w.y / 32) };
+    if (c.x !== at.x && c.y !== at.y) assert.ok((ok(at.x, at.y, c.x, at.y) && ok(c.x, at.y, c.x, c.y)) || (ok(at.x, at.y, at.x, c.y) && ok(at.x, c.y, c.x, c.y)), `diagonal ${at.x},${at.y} to ${c.x},${c.y}`);
+    else if (c.x !== at.x || c.y !== at.y) assert.ok(ok(at.x, at.y, c.x, c.y), `through a wall at ${at.x},${at.y} to ${c.x},${c.y}`);
+    at = c;
+  }
+});
+
 test('a Deep Hold is cut into the mountain: half the land is rock, the halls carved into it behind one gate', () => {
   const s = newGame('hold', { origin: 'dwarves' });
   const m = s.land;
@@ -157,7 +180,13 @@ test('a Deep Hold is cut into the mountain: half the land is rock, the halls car
   const field = canPlace(s, BUILDING_BY_ID.garden_plot, core.x - 6, core.y + core.h + 1);
   assert.equal(field.ok, true, `a field on the terrain, clear of the hold: ${field.reason}`);
   assert.ok(placeBlueprint(s, 'workbench', east.x, east.y).ok, 'placed');
-  assert.equal(groundAt(m, east.x, east.y), 'hall', 'its ground cut out as work begins');
+  assert.equal(groundAt(m, east.x, east.y), 'mountain', 'its rock is cut as it is built, not when it is laid');
+  const room = s.buildings[s.buildings.length - 1];
+  const rf = footprint(room);
+  const cut = () => { let n = 0; for (let y = rf.y; y < rf.y + rf.h; y++) for (let x = rf.x; x < rf.x + rf.w; x++) if (groundAt(m, x, y) === 'hall') n++; return n; };
+  assert.equal(cut(), 0);
+  digRoom(s, room, 0.01);
+  assert.equal(cut(), 1, 'its first cell cut, beside the hall, at the doorway');
   // the mountain is solid: no way through the rock, only in by the hall
   const from = { x: (c.x + 0.5) * 32, y: (c.y + 0.5) * 32 };
   assert.equal(pathTo(s, from, { x: (c.x + 20.5) * 32, y: (c.y - 12.5) * 32 }), null, 'no way through the rock');

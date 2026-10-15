@@ -2,13 +2,13 @@
 // the stat points they've spent (two a level: by the player, or by the town in the class's proportions), their work
 // skills' part, their traits' and a founder's edge.
 import { ATTR_AT_START, ATTR_BASE, ATTR_KEYS, ATTR_PER_SKILL, AUTO_SPEND_HOURS, classAttrs, pointsEarned, type Attrs } from '../data/attributes';
-import { roadAttrs } from '../data/pathAttrs';
+import { roadAttrs, roadFavours } from '../data/pathAttrs';
 import { FOUNDER_EDGE } from '../data/founderClasses';
-import { levelOf } from '../data/levels';
+import { EVOLVE_ATTRS, evolveSteps, levelOf } from '../data/levels';
 import type { GameState, Person } from './state';
 import { TICKS_PER_HOUR } from './time';
 
-type Leveled = Pick<Person, 'cls' | 'level' | 'fcls' | 'skills' | 'traits' | 'monster'> & { attrPts?: Partial<Attrs>; road?: string | null };
+type Leveled = Pick<Person, 'cls' | 'level' | 'fcls' | 'skills' | 'traits' | 'monster'> & { attrPts?: Partial<Attrs>; road?: string | null; ascended?: boolean };
 
 export function attributesOf(p: Leveled): Attrs {
   const w = classAttrs(p.cls);
@@ -25,6 +25,12 @@ export function attributesOf(p: Leveled): Attrs {
     wis: ATTR_BASE + ATTR_AT_START * w.wis * edge + (spent.wis ?? 0) + sk('medicine') + sk('social') * 0.5,
     cha: ATTR_BASE + ATTR_AT_START * w.cha * edge + (spent.cha ?? 0) + sk('social'),
   };
+  // (each evolution: points to every attribute, and as many again to the two their road favours)
+  const ev = evolveSteps(p) * EVOLVE_ATTRS;
+  if (ev > 0) {
+    for (const k of ATTR_KEYS) a[k] += ev;
+    for (const k of roadFavours(p.cls, p.road)) a[k] += ev;
+  }
   if (p.traits.includes('tough')) a.vit += 3;
   if (p.traits.includes('quick_learner')) a.int += 2;
   // (a werewolf's curse: the beast's strength and quickness)

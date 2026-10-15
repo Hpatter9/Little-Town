@@ -87,6 +87,12 @@ the Rocky Area Objects' cave entrance (the goblin warren), the Top-Down Cave Obj
 dark totem (the heart), and the Undead Tileset's skull door (the barrow) and pile of skulls; the ward stone is the Cave
 Objects' white crystal.
 
+The statues of the town's heroes stand on a plinth cut together from **Craftpix.net**'s free 2D Top-Down Pixel Dungeon
+pack's walls-and-floor sheet (its pale slab over its brick face: `src/renderer/art/memorial/plinth.png`), the figure the
+person's own Himeko Sutori layers turned to stone; until those load, the Rocky Area Objects' old man statue stands in
+(`src/renderer/art/memorial/statue_old.png`). The homes' name signs are the Village Tileset's hanging signboard, and the
+ruins are drawn with the Fields Tileset's stones and logs (already credited above).
+
 ## Craftpix cave objects (the Deep)
 
 The things down in the Deep under the town (`src/renderer/art/deep/`: the glowing mushrooms of the fungus grottos, the
@@ -128,6 +134,41 @@ coil (`ao_coil.png`) is the first frame of the trap in the loose Craftpix animat
 The places of leisure are laid from the Fields tileset's signpost, rail fences and stump (`f_pointer4.png`, `f_fence1.png`,
 `f_fence3.png`, `f_stump.png`), the Village tileset's bucket and bench (`v_bucket.png`, `v_bench.png`), and the pieces
 already copied (logs, boxes, lanterns, a tent, the bridge pack's planks).
+The work you can see (`src/renderer/art/chores/`): the felled trees' stumps are the Fields tileset's (`f_stump.png`), the
+rubble of broken rock its small stones (`rubble1`..`4.png`), the banner run up over a finished building its animated flag
+(`flag.png`), and the stockpile's heaps its logs and crates (`box3.png`, `log4.png`, with the pieces already copied); the
+Village tileset gives the heaps' barrel, crate and log bundle (`barrel.png`, `crate.png`, `logs.png`), the stump with an
+axe left in it (`stump_axe.png`) and the well's bucket (`v_bucket.png`); the sacks are the Glassblower's Workshop pack's
+(`shops/gb_sacks.png`). The haystack and the bale left on a reaped field (`hay_heap.png`, `hay_bale.png`) are **Craftpix.net**'s
+free Medieval Field Work 2D tileset's hay, shrunk to the map's pixel.
+
+## The town over time and its moods (moving machinery, signposts, homes, smoke)
+
+The windmill's turning sails are cut from the same Simple Summer windmill: its body with the sails taken away and the
+hidden tower filled in (`src/renderer/art/packs/su_windmill_body.png`), one blade (`su_windmill_sail.png`, turned
+upright) and the hub (`su_windmill_hub.png`); the full picture (`su_windmill.png`) stays for still pictures. The mills'
+water wheel (`packs/sb_wheel.png`) is the top half of the ship's wheel of **Craftpix.net**'s free Top-Down Seabed
+Objects pack, mirrored. The venues' banners are the animated flag of **Craftpix.net**'s free Fields Tileset for tower
+defence (`src/renderer/art/fields/flag.png`, recoloured per shop), and the crossroads' signposts its pointers
+(`packs/f_pointer4.png`, `fields/pointer1.png`, the loose board `fields/board.png`). The shutters closed at a raid's
+warning and the rich homes' painted doors are a cell of **DawnLike**'s `Objects/Door0.png` by **DragonDePlatino**
+(`src/renderer/art/village/dl_door.png`). The flower boxes, gardens and the clutter of the poor are pieces already copied
+(the Fields Tileset's box, flowers and tufts, the dungeon clutter, the Village Tileset's bucket, the Fields logs). The
+coughs' puffs, the smoke columns over fires and the plague's crosses on doors are strips of the **5000 Pixel Effects**
+atlas already in the game (white and poison puffs, white smoke darkened, the blood cross).
+
+## The seats of the towns (every people's, all five stages)
+
+The seat at the heart of each town (`src/renderer/map/seatPacks.ts`) is laid together from sprites of the packs: the
+Simple Summer keeps, round castle, mage tower, tent and towers, the tiny-rpg-town and Glassblower's Workshop houses and
+the Village Tileset's timber houses, lanterns and palisade (all **Craftpix.net** and the tiny-rpg-town pack, as
+credited above); the Top-Down Cave Objects' altar, gate, totem, crystals and fires; the Rocky Area Objects' tipis and
+yurts; the futuristic objects' tanks, consoles and pylon; and from the folder `src/renderer/art/seats/`: the grove
+trees of **Craftpix.net**'s free Forest Objects pack (`grove_*.png`), the corals, shell and mermaid statues of its free
+Top-Down Seabed Objects pack (`coral*.png`, `shell.png`, `mermaid*.png`), the ruins, giant lich and pile of skulls of
+its free Undead Tileset (`ud_*.png`), the Fields Tileset's banner (`flag.png`), and **DawnLike**'s throne, rugs,
+candelabra, coffins and gold (`dl_*.png`, from `Objects/Decor0.png`) by **DragonDePlatino** (CC-BY 4.0) for the holds'
+throne rooms.
 
 ## Craftpix seabed wreck (the sea beast's reef)
 
@@ -144,6 +185,11 @@ City Ruins, Ocean and Clouds, City, Futuristic City, Steampunk Cityscape, Underw
 Sky with Parallax Clouds, Sky with Clouds, Cloud and Sky, Post-Apocalyptic, and Fantasy 2D Battlegrounds backgrounds,
 and the industrial platformer pack's Day and Night backgrounds.
 
+The airships (`src/renderer/art/skies/`): the great airship over the fourth city of **Craftpix.net**'s free Steampunk
+Cityscape Pixel Backgrounds (`airship.png`, cut from its layer and recoloured in code for each kind and for the sky
+pirates), and the fifth ship of Craftpix's free Enemy Spaceship 2D Sprites (Pixel Art) for the sky frigate
+(`skyfrigate.png`).
+
 The ground the party walks on where a backdrop has none at foot height (`src/renderer/art/fightGround/`): the
 grass-topped earth from Craftpix's **Free Platformer Game Tileset (Pixel Art)**, and the capped brick and metal panels
 from the industrial platformer pack's `1 Tiles` (both free, **Craftpix.net**).
@@ -158,13 +204,27 @@ butterflies its `Pest0.png` and `Pest1.png`, two cut into `src/renderer/art/butt
 town (deer, stag, boar, fox, wolf, squirrel, bear, camel, snow fox) are cells of its `Quadraped`, `Dog` and `Rodent`
 sheets, with the ducks, swan and leaping fish from its `Avian` and `Aquatic` sheets, and the town's dogs, cats, rooster
 and hen from its `Dog`, `Cat` and `Avian` sheets, all cut into
-`src/renderer/art/wildlife.png` by `tools/compose-wildlife.cjs`). As the author asks, Platino is
+`src/renderer/art/wildlife.png` by `tools/compose-wildlife.cjs`; the bees, dragonflies, moths, bats and rats about the
+town are cells of its `Pest`, `Avian` and `Rodent` sheets, cut into `src/renderer/art/critters.png` by
+`tools/compose-critters.cjs`, beside the box hive, which is the **Craftpix** Fields Tileset's crate `Box1.png`). As the
+author asks, Platino is
 hidden somewhere in the game.
 
 The menagerie's 304 creatures (`src/shared/data/menagerie.ts`) are DawnLike's too: cells of its `Characters` sheets
 (Aquatic, Avian, Cat, Demon, Dog, Elemental, Humanoid, Misc, Pest, Plant, Quadraped, Reptile, Rodent, Slime and
 Undead; both animation frames, `0` and `1`), cut into `src/renderer/art/creatures/dawn.png` by
 `tools/compose-dawn.cjs`. Same licence, same credit: **DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**.
+
+The little things the townsfolk handle in their idle moments and on the watch (`src/renderer/art/life/`: the jolly's
+juggled apple, orange and pear from `Items/Food.png`, the grumpy's pebble from `Items/Rock.png`, an elder's pipe from
+`Items/Tool.png`, the night watch's torch from `Items/Light.png`) and the coffin carried at a funeral's head
+(`Objects/Decor0.png`) are single cells of **DawnLike** too: **DragonDePlatino**, on **DawnBringer**'s palette,
+**CC-BY 4.0**.
+
+The busker's instruments (`src/renderer/art/life/lute.png`, the lyre, and `flute.png`) are single cells of
+**DawnLike**'s `Items/Music.png`: **DragonDePlatino**, on **DawnBringer**'s palette, **CC-BY 4.0**. The log an elder
+sits on to feed the pigeons, and a couple by the water at dusk, is the Craftpix Village tileset's log already in the
+game (`art/village/`).
 
 ## Music
 
@@ -270,7 +330,7 @@ Peral, Huerta Tipográfica), Pirata One (Rodrigo Fuenzalida, Nicolas Massi), IM 
 (Igino Marini), Uncial Antiqua (Astigmatic), Crimson Text (Sebastian Kosch), Grenze Gotisch (Omnibus-Type), EB Garamond
 (Georg Duffner, Octavio Pardo), New Rocker (Impallari Type), Orbitron (Matt McInerney), Share Tech Mono (Carrois
 Apostrophe), Cinzel (Natanael Gama), Berkshire Swash (Astigmatic), Quicksand (Andrew Paglinawan), Marcellus SC (Brian J.
-Bonislawsky), Fondamento (Astigmatic) and MedievalSharp (Wojciech Kalinowski).
+Bonislawsky), Fondamento (Astigmatic), MedievalSharp (Wojciech Kalinowski) and Metal Mania (Open Window, the orcs' look).
 
 ## Craftpix bridges (the shore town's piers)
 
@@ -282,12 +342,33 @@ the raw files are not redistributed).
 
 The townsfolk and founders (the bodies, outfits, hair, beards, helms, shields, weapons and tools in
 `src/renderer/art/himeko/`, copied and cut to their drawn rows by `tools/import-himeko.cjs`) and the ogres, demons,
-juggernaut, tyrant, slimes, mummy, ghost, zombies and imp (`src/renderer/art/creatures/packs/hk_*.png`, their layers
+juggernaut, tyrant, slimes, mummy, ghost, zombies, imp and the orc warband (grunt, archer, brute and warlord: the Orc body
+in the barbarians' outfits) (`src/renderer/art/creatures/packs/hk_*.png`, their layers
 composed and their right-facing frames cut by `tools/compose-sheets.cjs`) are from the Himeko Sutori sprite share, free
 to use with attribution. The spear (`spear01*.png`) is the pack's naginata with its blade redrawn as a spearhead by
-`tools/make-spear.cjs`.
+`tools/make-spear.cjs`. The scarecrow on the fields (`src/renderer/art/scarecrow.png`, by `tools/compose-critters.cjs`)
+is put together from the pack's man's body (turned to sacking), its first peasant's robe and its gunslinger's hat.
 
 - Half-Kaizer sprite template created by Showkaizer.
 - Additional Half-Kaizer poses by Aleesa Tana.
 - Armor, weapon, shield, helmet, hair, skeleton, zombie, demon, fairy, mecha, wolf, boar, pumpkin, turkey, slime,
   skullbird, dragon, cactus, and other sprites are from Himeko Sutori and Septaroad Voyager by Rockwell Studios, LLC.
+
+## The wide world (geese, dust, the far settlements)
+
+- The geese flying over in their V (`src/renderer/art/geese.png`, cut by `tools/compose-geese.cjs`) are the grey and
+  white birds of **whtdragon**'s RPG Maker MV flying ducks sheet (see Creatures above for the licence note).
+- Tumbleweeds are the **Craftpix Undead tileset**'s thorn tangles (the `undead` props set), tinted dry.
+- The far settlements' fires and smoke, the will-o'-wisps, the dust devils and the weathervanes' glint are strips of the
+  **5000 Pixel Effects** atlas (`fx/pixelfx.png`; see Effects).
+
+The palisade's gate (`src/renderer/map/packBuildings.ts`, `gateFront`, `gateSide`) is the Village Tileset's own gate
+frame (`src/renderer/art/village/palisade36.png`, `37`, `44`, `45`) with its animated double doors (`gate_door.png`,
+`gate_door_side.png`), from **Craftpix.net**'s free Village Pixel Tileset for top-down defence; the steps up to it
+are the ladder of **Craftpix.net**'s free Green Zone Tileset (`gate_ladder.png`), recoloured to the palisade's wood.
+
+## War engines from the packs
+
+The cannon on the town map (`src/renderer/art/packs/dp_cannon.png`) is the cannon from Craftpix's free Pixel Dungeon
+Props and Objects pack (craftpix.net, free licence). The machines' sentry bot (`src/renderer/art/packs/rw_scarab.png`)
+is the Scarab from the Robot Warfare Asset Pack (CC0, public domain).

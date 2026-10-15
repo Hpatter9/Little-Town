@@ -9,6 +9,9 @@
 // `evolve` unless the town is set to let them choose for themselves.
 
 import type { ClassId, ClassStats } from './classes';
+import { FOUNDER_CLASSES, FOUNDER_ROADS } from './founderLines';
+import { ORIGIN_ROADS } from './originPaths';
+import type { OriginId } from './origins';
 
 export interface PathNode {
   id: string;
@@ -23,6 +26,13 @@ export interface PathNode {
   stats?: Partial<ClassStats>;
   /** The creature a caller brings to every fight (classAllies, summonForRaid), in place of the archetype's. */
   companion?: string;
+  /** Open only to a townsperson of this people (data/originPaths.ts). */
+  origin?: OriginId;
+  /** On a founder's own line (data/founderLines.ts): the founder's id, and whether it is the line's own stage. */
+  founder?: string;
+  own?: boolean;
+  /** Its telling, for nodes off the shared tree (the shared ones' is in data/pathLore.ts). */
+  lore?: string;
 }
 
 const nodes: PathNode[] = [];
@@ -263,11 +273,61 @@ for (const base of BASES) {
   }
 }
 
-export const PATHS: readonly PathNode[] = nodes;
-export const PATH_BY_ID: Readonly<Record<string, PathNode>> = Object.fromEntries(nodes.map((n) => [n.id, n]));
+/** The shared tree, open to everyone. */
+export const PATHS: readonly PathNode[] = [...nodes];
+
+/* ------------------------------------------------------------ the peoples' own roads */
+
+const originNodes: PathNode[] = [];
+for (const r of ORIGIN_ROADS) {
+  const mk = (n: (typeof r)['two'], stage: number, from: string): PathNode => ({ id: n.id, name: n.name, stage, from, cls: n.cls, text: n.text, lore: n.lore, origin: r.origin, ...(n.stats ? { stats: n.stats } : {}), ...(n.companion ? { companion: n.companion } : {}) });
+  const base = nodes.find((n) => n.id === r.from)!.from!;
+  originNodes.push(mk(r.two, 1, base), mk(r.three, 2, r.two.id), mk(r.high, 3, r.three.id));
+  originNodes.push({ id: r.asc[0], name: r.asc[1], stage: 4, from: r.high.id, cls: r.high.cls, text: `${r.high.text} Ascended: the last and greatest of their people's road.`, origin: r.origin, ...(r.high.companion ? { companion: r.high.companion } : {}) });
+}
+/** Every people's road of its own: a third choice at the first evolution (beside the shared calling `from`), then
+ *  straight on. */
+export const ORIGIN_PATHS: readonly PathNode[] = originNodes;
+
+/* ------------------------------------------------------------ the founders' lines, with their choices */
+
+const founderNodes: PathNode[] = [];
+for (const f of FOUNDER_CLASSES) {
+  const roads = FOUNDER_ROADS[f.id];
+  const first = f.description.match(/^[^:;,.]*/)?.[0] ?? f.description;
+  const root: PathNode = { id: `f_${f.id}`, name: f.stages[0], stage: 0, from: null, cls: f.base, text: f.description, founder: f.id, own: true, stats: f.stats, lore: `${f.description} Every story of the town begins with them, and theirs is not finished.` };
+  founderNodes.push(root);
+  // (a binary tree to the third stage: the line's own name or the road of their own at each; the last stage is the line's)
+  let at: PathNode[] = [root];
+  for (let stage = 1; stage <= 3; stage++) {
+    const next: PathNode[] = [];
+    for (const parent of at) {
+      const own: PathNode = { id: `${parent.id}_o`, name: f.stages[stage], stage, from: parent.id, cls: f.base, text: f.description, founder: f.id, own: true, stats: f.stats,
+        lore: `The line the stories already tell: ${f.stages[stage]}. ${first}, and more of it, the signature of the founder grown greater. It is the road everyone expected, which is not the same as an easy one.` };
+      const [name, text] = roads.alt[stage - 1];
+      const alt: PathNode = { id: `${parent.id}_a`, name, stage, from: parent.id, cls: f.base, text, founder: f.id, own: false, stats: { ...f.stats, ...roads.bent },
+        lore: `${text} A road of the founder's own making, away from the one the stories expected: the town will have to learn new songs about them, and the old ones will not fit.` };
+      next.push(own, alt);
+    }
+    founderNodes.push(...next);
+    at = next;
+  }
+  for (const parent of at) founderNodes.push({ id: `${parent.id}_x`, name: f.stages[4], stage: 4, from: parent.id, cls: f.base, text: `${f.description} Ascended: the last and greatest of their line.`, founder: f.id, own: parent.own, stats: parent.stats });
+}
+/** The founders' own lines (a tree each: the line's stage or their own road at each of the first three evolutions). */
+export const FOUNDER_PATHS: readonly PathNode[] = founderNodes;
+/** A founder's starting node. */
+export const founderRoot = (fid: string) => `f_${fid}`;
+
+export const PATH_BY_ID: Readonly<Record<string, PathNode>> = Object.fromEntries([...nodes, ...originNodes, ...founderNodes].map((n) => [n.id, n]));
 export const BASE_PATHS: readonly PathNode[] = nodes.filter((n) => n.stage === 0);
-/** The roads out of a node (two, or the one ascended form from a stage-3 node; none past that). */
-export const branchesOf = (id: string): PathNode[] => nodes.filter((n) => n.from === id);
+const kids = new Map<string, PathNode[]>();
+for (const n of Object.values(PATH_BY_ID)) if (n.from) kids.set(n.from, [...(kids.get(n.from) ?? []), n]);
+/** The shared roads out of a node (two, or the one ascended form from a stage-3 node; none past that), and a
+ *  founder's line's. A people's own roads are left out: `roadsFrom` adds them. */
+export const branchesOf = (id: string): PathNode[] => (kids.get(id) ?? []).filter((n) => !n.origin || PATH_BY_ID[id]?.origin);
+/** The roads out of a node for someone of a people: the shared ones and their people's own. */
+export const roadsFrom = (id: string, origin?: string | null): PathNode[] => (kids.get(id) ?? []).filter((n) => !n.origin || n.origin === origin);
 /** A node and every node before it, the base first. */
 export function lineage(id: string): PathNode[] {
   const out: PathNode[] = [];

@@ -185,6 +185,19 @@ export const SEATS: Record<OriginId, SeatDef> = {
     reason: 'The banner flies',
     boon: 'warning',
   },
+  orcs: {
+    origin: 'orcs',
+    names: ['Skull Pole', 'War Hut', 'Great Longhut', 'Iron Hall', 'Throne of Skulls'],
+    texts: [
+      'A pole hung with skulls and a fire before it, where the warband gathers.',
+      'A hut of hide and tusk where the warchief holds court with a bone in his fist.',
+      'A long hall of logs with trophies on every beam and a pit for settling quarrels.',
+      'A hall of riveted iron plates, its doors dragged off a sacked fort.',
+      'A throne of skulls on a hill of iron and bone; the whole horde can see it.',
+    ],
+    reason: 'The skulls on the pole',
+    boon: 'warning',
+  },
 };
 
 /** The era each stage belongs to (stage 1 the founding). */

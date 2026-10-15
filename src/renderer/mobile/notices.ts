@@ -13,6 +13,7 @@ import { BUILDING_BY_ID } from '../../shared/data/buildings';
 import { marchSummary } from '../../shared/sim/conquest/marches';
 import { CHATTER } from '../chatter';
 import type { JournalEntryView, Snapshot } from '../../shared/sim/snapshot';
+import { loadMet, meet, saveMet, tipsDue, tipsOn, type Tip } from './tips';
 
 export type Tone = 'red' | 'gold' | 'blue';
 const RANK: Record<Tone, number> = { red: 3, gold: 2, blue: 1 };
@@ -24,6 +25,8 @@ export interface NoticeAction {
   kind: 'watch' | 'panel' | 'recap' | 'map' | 'question';
   watch?: number;
   panel?: string;
+  /** The tab to open the menu at (panel/subtabs.ts). */
+  tab?: string;
   target?: { person?: number; building?: string; traveller?: number };
 }
 export interface Notice {
@@ -37,6 +40,15 @@ export interface Notice {
   /** Who or what it is about (a picture, and a way to it on the map). */
   about?: { person?: number; building?: string };
   action?: NoticeAction;
+  /** A Journal line's id (the lines of an absence are those up to the last when the player came back). */
+  entry?: number;
+}
+
+/** The player closed the "While you were away" card: everything from that absence counts as read (it was told on the
+ *  card), so the bubble doesn't count every Journal line of two days away. `upTo` is the last Journal line's id when
+ *  the card closed; the situations standing then are read too. */
+export function readAbsence(ns: readonly Notice[], read: Set<string>, upTo: number): void {
+  for (const n of ns) if (n.entry === undefined ? !n.key.startsWith('tip:') : n.entry <= upTo) read.add(n.key);
 }
 
 /** The tone of a Journal line, by what it tells. */
@@ -75,6 +87,9 @@ export function situationNotices(s: Snapshot): Notice[] {
         : { key: `raid:${s.raid.name}:a`, tone: 'red', mark: '⚔', title: `${s.raid.name} in the town!`, text: `${standing} still fighting. Tap a defender on the map to rally them.` },
     );
   }
+  // the skies (sim/skies.ts): sky pirates' ship sighted, and a hunter over the town
+  if (s.skyPirates?.phase === 'coming') out.push({ key: `skypirates:${Math.round(s.skyPirates.x)}`, tone: 'red', mark: '⚓', title: 'Sky pirates coming', text: 'A ship with black gasbags is coming out of the clouds. They will slide down their ropes into the middle of the town: the walls will not stop them.' });
+  for (const r of s.roamers) if (r.flying && !r.fighting) out.push({ key: `skyhunter:${r.id}`, tone: 'red', mark: '🦅', title: `${r.foes[0]?.name ?? 'Something'} hunting from the sky`, text: 'It flies over the walls and dives on anyone out in the open. Bows, guns and the town\'s engines can bring it down.' });
   // the trade house (sim/markets.ts): a loan coming due, a bust
   const house = s.markets?.house;
   if (house?.bustDays != null) out.push({ key: `bust:${house.busts}`, tone: 'red', mark: '⚖', title: 'The trade house is bust', text: `The moneylenders took what they were owed. No merchant will deal with us for ${house.bustDays} more day${house.bustDays === 1 ? '' : 's'}.`, action: { label: 'Market', kind: 'panel', panel: 'trade' } });
@@ -109,6 +124,10 @@ export function situationNotices(s: Snapshot): Notice[] {
   for (const k of s.skirmishes ?? []) {
     if (!k.over) out.push({ key: `skirmish:${k.id}`, tone: 'red', mark: '⚔', title: `Set upon by ${k.foe}`, text: `${k.who.join(', ')} ${k.who.length > 1 ? 'fight' : 'fights'} for their life out on the land.`, action: { label: 'Watch', kind: 'watch', watch: k.id } });
   }
+  // (the arena: tonight's bout, to bet on, and the bout under way, to watch: sim/arena.ts)
+  const ar = s.arena;
+  if (ar?.bout && !ar.bout.over) out.push({ key: `bout:${ar.bout.id}`, tone: 'gold', mark: '⚔', title: `In the arena: ${ar.bout.town} against ${ar.bout.visitor}`, text: `A champion of ${ar.bout.from}. The crowd is on its feet.`, action: { label: 'Watch', kind: 'watch', watch: ar.bout.id } });
+  else if (ar?.card) out.push({ key: `card:${ar.card.id}`, tone: 'gold', mark: '⚔', title: `${ar.card.final ? 'The final' : 'Tonight at the arena'}: ${ar.card.town.name} against ${ar.card.visitor.name}`, text: `${ar.card.pays.town}:1 on the town, ${ar.card.pays.visitor}:1 on the visitor; ${ar.card.pot} coins on it so far. The treasury may bet too.`, action: { label: 'The book', kind: 'panel', panel: 'townsfolk', tab: 'Arena' } });
   const near = (s.roamers ?? []).filter((r) => !r.fighting).length;
   if (near) out.push({ key: `roamers:${(s.roamers ?? []).map((r) => r.id).join('.')}`, tone: 'gold', mark: '⚠', title: `${near} band${near === 1 ? '' : 's'} roaming the land`, text: 'Anyone out alone is in danger, and travellers keep away. A wall all round keeps them out; guards on watch go after them.' });
   for (const e of s.expeditions) {
@@ -151,6 +170,11 @@ export function situationNotices(s: Snapshot): Notice[] {
   return out;
 }
 
+/** A tip as a notice (gold, with a way to where it lives). */
+export function tipNotice(t: Tip): Notice {
+  return { key: `tip:${t.id}`, tone: 'gold', mark: '💡', title: t.title, text: t.text, ...(t.panel ? { action: { label: t.label ?? 'Show me', kind: 'panel' as const, panel: t.panel, tab: t.tab } } : {}) };
+}
+
 /** The Journal's latest lines as notices (the newest first), the day's small change left out. */
 export function journalNotices(entries: JournalEntryView[], snap: Snapshot | null, most = 40): Notice[] {
   const told = entries.filter((e) => !CHATTER.test(e.text)).slice(-most).reverse();
@@ -159,6 +183,7 @@ export function journalNotices(entries: JournalEntryView[], snap: Snapshot | nul
     const onMap = !!about && (about.traveller != null ? !!snap?.travellers.some((t) => t.id === about.traveller) : about.person != null ? !!snap?.people.some((p) => p.id === about.person) : !!snap?.buildings.some((b) => b.def === about.building));
     return {
       key: `j:${e.id}`,
+      entry: e.id,
       tone: toneOf(e.text, e.key),
       mark: markFor(e.text),
       title: e.text,
@@ -295,6 +320,12 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
         bridge.command?.({ type: 'watch', expedition: a.watch! });
         break;
       case 'panel':
+        if (a.tab)
+          try {
+            localStorage.setItem(`littletown.subtab.${a.panel}`, a.tab);
+          } catch {
+            /* (no storage) */
+          }
         bridge.openPanel(a.panel!);
         break;
       case 'recap':
@@ -311,10 +342,28 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
     }
   };
 
-  const all = (): Notice[] => (snap ? [...situationNotices(snap), ...journalNotices(entries, snap)] : []);
+  // the first hour's tips (mobile/tips.ts): each met once, shown at the top till read
+  let met = loadMet();
+  const tips = (): Notice[] => (tipsOn() ? tipsDue(met, (k) => read.has(k)).map(tipNotice) : []);
+  const all = (): Notice[] => (snap ? [...tips(), ...situationNotices(snap), ...journalNotices(entries, snap)] : []);
   const unread = (ns: Notice[]) => ns.filter((n) => !read.has(n.key));
 
+  // (the "While you were away" card closed, in the strip: everything from the absence is read; Journal lines fetched
+  // later are caught up when they come)
+  let absenceTo = -1;
+  window.addEventListener('littletown:away-seen', (e) => {
+    absenceTo = Math.max(absenceTo, (e as CustomEvent<number>).detail ?? snap?.journalHead ?? 0);
+    readAbsence(all(), read, absenceTo);
+    keep();
+    drawBubble();
+    refresh();
+  });
   const drawBubble = () => {
+    if (absenceTo >= 0) {
+      const before = read.size;
+      readAbsence(journalNotices(entries, snap), read, absenceTo);
+      if (read.size !== before) keep();
+    }
     const u = unread(all());
     const tone = worst(u.map((n) => n.tone));
     bubble.hidden = !u.length || !sheet.hidden;
@@ -415,6 +464,10 @@ export function startNotices(bridge: NoticeBridge, strip: HTMLIFrameElement): { 
   };
   bridge.onSnapshot((s) => {
     snap = s;
+    if (tipsOn()) {
+      const now = meet(s, met);
+      if (now.length !== met.length) saveMet((met = now));
+    }
     if (s.journalHead !== head0 && performance.now() - lastFetch > 1500) {
       head0 = s.journalHead;
       refresh();

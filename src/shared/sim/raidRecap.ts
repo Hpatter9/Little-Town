@@ -4,6 +4,8 @@
 // active, who was in town and at what level is noted (`Raid.roll`); `raidRecap` (from `endRaid`) puts it together on
 // `s.raidRecap`, and the snapshot carries it for `RECAP_HOURS`.
 
+import { ENEMIES } from '../data/enemies';
+import { addDeed } from './deeds';
 import { levelOf, xpToLevel } from '../data/levels';
 import { legWound } from './raiderWounds';
 import type { Stock } from '../data/materials';
@@ -91,6 +93,7 @@ export function credit(s: GameState, who: number, was: [Raider, number, boolean]
   if (kills && who !== TOWERS) {
     const p = s.people.find((q) => q.id === who);
     if (p) p.felled = (p.felled ?? 0) + kills;
+    for (const [rd, , down] of was) if (rd.down && !down && ENEMIES[rd.kind]?.boss) addDeed(p, 'bosses');
   }
 }
 

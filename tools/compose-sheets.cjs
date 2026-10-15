@@ -123,6 +123,11 @@ const SPECS = [
   himeko('hk_zombie_bare', ['Undead/Template_Zombie_green.png', 'Undead/Zombie Hair/Zombie_hair_caesar_brown.png']),
   himeko('hk_zombie_brute', ['Undead/Template_Zombie_shirt.png', 'Undead/Zombie Hair/Zombie_hair_caesar_blond.png', 'Undead/Skeleton Weapons/Hammer_01_Mace_Undead.png']),
   himeko('hk_imp', ['Other Monsters/Imp.png']),
+  // the orc warband (the Orc body in the barbarians' gear)
+  himeko('hk_orc_grunt', ['Orc.png', 'Barbarian_03_Raider_Male.png', 'Barbarian_03_Raider_Male_Top.png', 'Shield/Shield_Round_Male.png', 'Axe_01_Handaxe_Male.png']),
+  himeko('hk_orc_archer', ['Orc.png', 'Barbarian_01_Nomad_Male.png', 'Bow_01_Short_Male.png']),
+  himeko('hk_orc_brute', ['Orc.png', 'Barbarian_05_Mountain_Male.png', 'Barbarian_05_Mountain_Male_Top.png', 'Greathammer_01_Sledge_Male.png']),
+  himeko('hk_orc_warlord', ['Orc.png', 'Barbarian_06_Raging_Male.png', 'Barbarian_06_Raging_Male_Top.png', 'Helm/Helm_Horned_Male.png', 'Greataxe_06_Executioner_Male.png']),
 ];
 
 // (the heroes' extra rows come after the five every sheet has)

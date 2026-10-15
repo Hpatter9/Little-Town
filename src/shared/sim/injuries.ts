@@ -4,6 +4,7 @@
 // (`capacities`): their work, their pace, their aim and blows, and the pain on their mood. A lost part is made good
 // by a prosthetic the town crafts (the planner orders the best it can make) and its healer fits in surgery.
 
+import { addDeed } from './deeds';
 import { sickbedHealing } from './sickbeds';
 import { ENEMIES } from '../data/enemies';
 import {
@@ -130,7 +131,28 @@ const WHOLE: Capacities = { sight: 1, handling: 1, moving: 1, pain: 0 };
 /** What someone can do, all told (1 sound; a bionic part can take it past 1). */
 export function capacities(p: Person): Capacities {
   if (!p.wounds?.length && !p.lasting?.length) return WHOLE;
-  const w = (b: BodyPart) => partWorks(p, b);
+  // (the wounds and what's lasting gone over once, not once a part: asked for the hurt every tick as they walk)
+  const worst = new Map<BodyPart, number>();
+  for (const x of p.wounds ?? []) worst.set(x.part, Math.max(worst.get(x.part) ?? 0, x.sev));
+  const gone = new Set<BodyPart>();
+  const scars = new Set<BodyPart>();
+  for (const l of p.lasting ?? []) {
+    if (l.kind === 'lost') gone.add(l.part);
+    else if (l.kind === 'scar') scars.add(l.part);
+  }
+  // (as partWorks reckons it)
+  const w = (part: BodyPart): number => {
+    if (gone.has(part)) {
+      const own = p.fitted?.[part];
+      if (own) return PROSTHETIC_BY_ITEM[own]?.works ?? 0;
+      if (part.startsWith('hand')) {
+        const arm = p.fitted?.[part === 'hand_l' ? 'arm_l' : 'arm_r'];
+        if (arm) return PROSTHETIC_BY_ITEM[arm]?.works ?? 0;
+      }
+      return 0;
+    }
+    return (scars.has(part) ? SCAR_WORKS : 1) * (1 - (worst.get(part) ?? 0) * WOUND_HINDERS);
+  };
   const sight = (w('eye_l') + w('eye_r')) / 2;
   const handling = (w('arm_l') * Math.min(1.25, w('hand_l')) + w('arm_r') * Math.min(1.25, w('hand_r'))) / 2;
   const moving = (w('leg_l') + w('leg_r')) / 2;
@@ -238,6 +260,7 @@ function surgery(s: GameState, rng: Rng): void {
       const name = ITEM_BY_ID[d.item]?.name.toLowerCase() ?? d.item;
       if (rng.chance(odds)) {
         (p.fitted ??= {})[l.part] = d.item;
+        addDeed(healer, 'healed');
         notify(s, `${healer.name} fitted ${p.name} with a ${name} for their lost ${PARTS[l.part].name}.`, true);
       } else {
         (p.wounds ??= []).push({ part: 'torso', kind: 'cut', sev: 0.35, peak: 0.35 });

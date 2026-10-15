@@ -2,14 +2,15 @@
 // Order: needs (eat, sleep) > put away what you carry (to a blueprint that needs it, else storage) > jobs by the person's priorities (High, Normal, Low;
 // within a level: haul, construct, research, gather) > loaf around camp.
 
+import { addDeed } from './deeds';
 import { protestSpot, striking } from './politics';
-import { RING_CLEAR_PULL } from './ringWall';
+import { isGate, lineOf, RING_CLEAR_PULL } from './ringWall';
 import { drinkAt, drinking } from './nightOut';
 import { finishRelax, relaxSpot, relaxTicks, wantsRelax } from './leisure';
 import { LEISURE } from '../data/recreation';
 import { onBoard } from './tactics';
 import { noteCleared } from './regrow';
-import { attending, festive, gatheringPlace } from './ceremonies';
+import { attending, festive, gatheringPlace, guestActivity, processing } from './ceremonies';
 import { injuryPace } from './injuries';
 import { RESEARCH_PACE } from '../data/pace';
 import { rallied, RALLY_SPEED } from './rally';
@@ -18,6 +19,7 @@ import { MATERIAL_NAMES, MATERIALS, type Material, type Stock } from '../data/ma
 import { BEDROLL_SLEEP, ITEM_BY_ID, STATIONS } from '../data/items';
 import { FOOD_VALUE, JOBS, type Job } from '../data/people';
 import { eraOfResearch, RESEARCH_STATIONS, TOPIC_BY_ID } from '../data/research';
+import { studyPace, topicName } from '../data/originResearch';
 import { WORKPLACES } from '../data/crops';
 import { earlier } from '../data/eras';
 import { skillSpeed } from '../data/skills';
@@ -28,15 +30,17 @@ import { nextPave, pave, paveReady, paveSeconds } from './streets';
 import { SHAFT } from '../data/deep';
 import { shaftHasWork } from './deep';
 import { guardEngages, roamerToHunt } from './roamers';
-import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared } from './buildings';
+import { buildingCentre, buildingDoor, defOf, distToBuilding, footprint, stillNeeded, storageFree, storages, townRadius, inWork, overgrownCells, cellCleared, buildableNow, deliveredShare, layoutOf, sameLayout, type BuildingsLayout } from './buildings';
 import { FEED_SECONDS } from '../data/lighting';
 import { feedLight, lightToFeed } from './lighting';
+import { roughSpot } from './roughSleep';
 import { CELL, cellAt, centreOf, groundAt, inMap, isMarked, isPlannedRoad, isRoad, setGround, type Pt, wet, setMarked } from './land';
 import { walk } from './walk';
 import { swims } from './sea';
 import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickTool, stationFor, takeItemInputs, toolSpeed } from './crafting';
 import { leavePt } from './breaks';
 import { onBuilt } from './era';
+import { digOrder, digRoom, digStand, holdOf } from './castle';
 import { doomForage } from './doom';
 import { biomeOf, openGround } from '../data/biomes';
 import { HORSE_HP } from '../data/trade';
@@ -47,10 +51,11 @@ import { fightFire, fireToFight } from './fire';
 import { defenderAttack, defenderReach, nearestRaider, rallyPoint, townEdgeX } from './raids';
 import { ENEMIES } from '../data/enemies';
 import { THROW_RANGE } from '../data/raids';
-import { freeStation, modifiers, researchStations, studyingAt, topicFor } from './research';
+import { freeStation, modifiers, researchMods, researchStations, studyingAt, tidyPicks, topicFor } from './research';
+import { isSeat } from '../data/seats';
 import { holderOf, holds, jobOf as heldJob } from './operators';
 import { HOLDER_EDGE } from '../data/operators';
-import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, type Building, type GameState, type Person, type Raider, type Task } from './state';
+import { tireless, remember, addStock, campXY, cellXY, dist, BUILD_MULTIPLIER, carryCapacity, notify, RESEARCH_MULTIPLIER, poolSize, buildingById, type Building, type GameState, type Person, type Raider, type Task } from './state';
 import { calendar, TICK_HZ, TICKS_PER_HOUR } from './time';
 import { stabilize } from './health';
 import { mended, needsSickbed, sickbedFor } from './sickbeds';
@@ -61,7 +66,8 @@ import { BUILD_PACE, BUILD_PER_HOUR, buildPower, HIRE_PER_HOUR, STUDY_PER_HOUR, 
 import { canWork, skillPace } from './property';
 import { isChild } from './social';
 import { childTask, lessonSpot } from './lineage';
-import { pastimeFor } from './pastimes';
+import { pastimeActivity, pastimeFor } from './pastimes';
+import { tagStep, TAG_RETARGET } from './idleScenes';
 
 /** Walking speed in world pixels per second. */
 export const WALK_SPEED = 48;
@@ -157,12 +163,28 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
   const task = p.task;
   switch (task.type) {
     case 'wander':
-      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime };
+      // (home with the well's bucket: set down, and the wait spent idle)
+      // (tag: the chase goes on, the way changing as the others run: sim/idleScenes.ts)
+      if (task.pastime === 'tag' && (s.tick + p.id) % TAG_RETARGET === 0) {
+        const to = tagStep(s, p);
+        if (to) [task.targetX, task.targetY] = [to.x, to.y];
+      }
+      if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = { type: 'idle', untilTick: s.tick + rng.int(4, 12) * TICK_HZ, pastime: task.pastime === 'carry' ? undefined : task.pastime };
       break;
-    case 'idle':
-      p.activity = task.pastime === 'market' ? 'stroll' : (task.pastime ?? 'idle');
-      if (s.tick >= task.untilTick) p.task = null;
+    case 'idle': {
+      const pt = task.pastime;
+      p.activity = pastimeActivity(pt);
+      if (s.tick >= task.untilTick) {
+        p.task = null;
+        // (the bucket wound up at the well, and carried home: sim/pastimes.ts)
+        const home = pt === 'well' && p.bed != null ? byId(s, p.bed) : undefined;
+        if (home) {
+          const d = buildingDoor(home);
+          p.task = { type: 'wander', targetX: d.x, targetY: d.y, pastime: 'carry' };
+        }
+      }
       break;
+    }
     case 'gather':
       if (goTo(s, p, cellXY(s, task.tile))) {
         if (task.scrounge) scrounge(s, p, task);
@@ -218,12 +240,25 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
     }
     case 'build': {
       const site = byId(s, task.building)!;
-      if (!goToB(s, p, site)) break;
+      const spot = buildSpot(s, p, site);
+      if (!spot) { p.task = null; break; }
+      task.spot = spot;
+      if (!goTo(s, p, spot, footprint(site))) break;
       if (p.activity !== 'build') pickTool(s, p, 'construct');
       p.activity = 'build';
       // (a steep curve by skill, and slower than it was: data/economy.ts)
       const speed = buildPower(p.skills.construction.level) * skillPace(s, p, site) * toolSpeed(p, 'construct') * workFactor(s, p) * stackFactor(ctx, `b${site.id}`);
       site.progress += (speed * buildSpeed(s)) / (defOf(site).buildSeconds * BUILD_PACE * BUILD_MULTIPLIER[earlier(s.era, eraOfResearch(defOf(site).research))] * TICK_HZ);
+      // (no further than the makings brought: caught up, they put it down until more comes)
+      const share = deliveredShare(site);
+      if (share < 1 && site.progress >= share) {
+        site.progress = share;
+        if (site.room && holdOf(s) === 'mountain') digRoom(s, site, site.progress);
+        p.task = null;
+        break;
+      }
+      // (a hold's room is cut out of the rock as it is built, from its doorway inward: sim/castle.ts)
+      if (site.room && holdOf(s) === 'mountain') digRoom(s, site, site.progress);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
       // (paid by the hour: by the treasury for its works, by the owner for theirs; an owner works for nothing)
       if (site.owner === undefined) accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
@@ -239,6 +274,8 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
         if (defOf(site).hp) site.hp = defOf(site).hp;
         p.task = null;
         notify(s, `Finished building: ${defOf(site).name}`, true);
+        // (a deed for everyone with their hands on it: sim/deeds.ts)
+        for (const q of s.people) if (q === p || (q.task?.type === 'build' && q.task.building === site.id)) addDeed(q, 'built');
         onBuilt(s, site);
       }
       break;
@@ -324,12 +361,21 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       // (in a ring round the spot, each to their own place; at a feast half of them dance round in the ring: once there,
       // they keep to their turning place)
       const at = gatheringPlace(g, g.ids.indexOf(p.id), s.tick);
+      // (on the way: walking in the procession behind the coffin, the couple or the faithful's head, step for step)
+      if (processing(g, s.tick)) {
+        // (the place is held to a 24 px grid, so the way to it isn't sought afresh every tick as the line moves on)
+        const spot = { x: Math.round(at.x / 24) * 24, y: Math.round(at.y / 24) * 24 };
+        if (dist(p, spot) >= 6) goTo(s, p, spot);
+        p.activity = 'walk';
+        p.dir = at.dir;
+        break;
+      }
       const there = dist(p, at) < 10;
       if (there && festive(g)) {
         p.x = at.x;
         p.y = at.y;
       } else if (!goTo(s, p, at)) break;
-      p.activity = festive(g) ? 'dance' : 'mourn';
+      p.activity = guestActivity(g);
       p.dir = at.dir;
       break;
     }
@@ -436,6 +482,15 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
         task.targetY = band.y;
         if (guardEngages(s, p)) break;
       }
+      // (a sentry keeps to the gate while it's theirs: up the steps and standing on top, looking out)
+      if (task.post !== undefined) {
+        if (gatePost(s, p)?.id !== task.post) {
+          p.task = null;
+          break;
+        }
+        if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.activity = 'idle';
+        break;
+      }
       if (goTo(s, p, { x: task.targetX, y: task.targetY })) p.task = null; // then back the other way
       break;
     }
@@ -444,7 +499,9 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       break;
     case 'shelter': {
       const bed = p.bed === null ? undefined : byId(s, p.bed);
-      if (!(bed ? goToB(s, p, bed) : goTo(s, p, campXY(s)))) break;
+      // (at the alarm the children run for home: SHELTER_RUN)
+      const pace = isChild(p) ? SHELTER_RUN : 1;
+      if (!(bed ? goTo(s, p, buildingDoor(bed), footprint(bed), pace) : goTo(s, p, campXY(s), undefined, pace))) break;
       p.activity = bed ? 'sleep' : 'idle'; // inside, out of sight; or huddled by the fire
       break;
     }
@@ -493,6 +550,7 @@ function doTend(s: GameState, p: Person, task: Extract<Task, { type: 'tend' }>, 
   if (dressing) s.items[dressing] -= 1;
   if (dressing || rng.chance(tendChance(p.skills.medicine.level))) {
     stabilize(q);
+    addDeed(p, 'healed');
     notify(s, `${p.name} stopped ${q.name}'s bleeding${dressing ? ` with a ${dressing}` : ''}.`);
     p.task = null;
     return;
@@ -522,8 +580,62 @@ export function onShift(s: GameState, p: Person): boolean {
   return (p.id % 2 === 0) === day;
 }
 
-/** The far end of the built town from where a guard is: the door of the building farthest from them. */
+/** Hours a guard walks the wall rather than the streets (the owner's ask: torches moving along the ring at night). */
+const WALL_WATCH_FROM = 19;
+const WALL_WATCH_UNTIL = 6;
+
+/** By night, with the ring wall standing all round, a guard on watch walks its inside face: a quarter of the way round
+ *  from where they are, then on again, so the torches go round the wall (sim/ringWall.ts's line, each cell's inner
+ *  neighbour). Null by day, or with no ring standing. */
+function wallWalk(s: GameState, p: Person): Pt | null {
+  const h = calendar(s.tick).hour;
+  if (!s.ring?.done || (h < WALL_WATCH_FROM && h >= WALL_WATCH_UNTIL)) return null;
+  const line = lineOf(s.ring);
+  if (line.length < 8) return null;
+  const cx = line.reduce((n, c) => n + c.x, 0) / line.length;
+  const cy = line.reduce((n, c) => n + c.y, 0) / line.length;
+  const at = Math.atan2(p.y / CELL - cy, p.x / CELL - cx);
+  // (round one way or the other, by who they are, so two guards don't walk together)
+  const want = at + (p.id % 2 ? 1 : -1) * (Math.PI / 2);
+  let best = line[0];
+  let far = Infinity;
+  for (const c of line) {
+    const d = Math.abs(Math.atan2(Math.sin(Math.atan2(c.y - cy, c.x - cx) - want), Math.cos(Math.atan2(c.y - cy, c.x - cx) - want)));
+    if (d < far) [far, best] = [d, c];
+  }
+  const [ix, iy] = best.side === 'n' ? [0, 1] : best.side === 's' ? [0, -1] : best.side === 'w' ? [1, 0] : [-1, 0];
+  return { x: (best.x + ix + 0.5) * CELL, y: (best.y + iy + 0.5) * CELL };
+}
+
+/** A sentry on the gate (the owner's ask: steps up so a guard can stand on top of the gate to guard it): by night,
+ *  with the ring standing all round, the first half of the guards on watch (by id) each stand up on one of its gates,
+ *  the rest walk the wall; a lone guard on watch climbs up every other hour, a different gate each time. The gate it
+ *  is (the guard stands on its beam, over its middle: the map lifts them up there), or null. */
+export function gatePost(s: GameState, p: Person): Building | null {
+  const h = calendar(s.tick).hour;
+  if (!s.ring?.done || (h < WALL_WATCH_FROM && h >= WALL_WATCH_UNTIL)) return null;
+  const gen = s.ring.gen;
+  const gates = s.buildings.filter((b) => b.ring === gen && b.status === 'done' && isGate(b.def));
+  if (!gates.length) return null;
+  const watch = s.people.filter((q) => q.away === null && !q.downed && onShift(s, q)).sort((a, b) => a.id - b.id);
+  const i = watch.indexOf(p);
+  if (i < 0) return null;
+  const turn = Math.floor(s.tick / TICKS_PER_HOUR);
+  if (watch.length === 1) return turn % 2 === 0 ? gates[Math.floor(turn / 2) % gates.length] : null;
+  return i < Math.min(gates.length, Math.ceil(watch.length / 2)) ? gates[i] : null;
+}
+
+/** Where a sentry stands on a gate: over its middle. */
+export const gateTop = (b: Building): Pt => {
+  const r = footprint(b);
+  return { x: (r.x + r.w / 2) * CELL, y: (r.y + r.h / 2) * CELL };
+};
+
+/** The far end of the built town from where a guard is: the door of the building farthest from them (by night, along
+ *  the ring wall: `wallWalk`). */
 function patrolEnd(s: GameState, p: Person): Pt {
+  const wall = wallWalk(s, p);
+  if (wall) return wall;
   let best: Pt = campXY(s);
   let far = -1;
   for (const b of s.buildings) {
@@ -547,8 +659,21 @@ export function cavalry(s: GameState): Map<number, number> {
   return out;
 }
 
+/** Whether someone rides in this raid: `cavalry(s).has(p.id)`, without sorting the town for every defender (the
+ *  riders are the first of the defenders by id, as many as there are horses fit to ride). */
+function mountedNow(s: GameState, p: Person): boolean {
+  if (!s.raid) return false;
+  const rides = (q: Person) => q.away === null && !q.downed && q.task?.type === 'defend' && q.priorities.defend === 1;
+  if (!rides(p)) return false;
+  let horses = 0;
+  for (const h of s.horses) if (h.hp >= HORSE_HP / 2) horses++;
+  let ahead = 0;
+  for (const q of s.people) if (q.id < p.id && rides(q)) ahead++;
+  return ahead < horses;
+}
+
 function doDefend(s: GameState, p: Person, task: Extract<Task, { type: 'defend' }>, rng: Rng): void {
-  const mounted = cavalry(s).has(p.id);
+  const mounted = mountedNow(s, p);
   // the battle on the trail (battle.ts): a placed fighter walks to their spot and fights from it; the rest wait at
   // the gate for whoever gets through
   // (on a tactics board: the battle stands them where they are: sim/tactics.ts)
@@ -697,15 +822,17 @@ function workResearch(s: GameState, p: Person, task: Extract<Task, { type: 'rese
   const mult = (building ? (RESEARCH_STATIONS[building.def]?.mult ?? 1) : 1) * (holds(p, building) ? HOLDER_EDGE : 1);
   const speed = skillSpeed(p.skills.research.level) * mult * modifiers(r).researchSpeed * workFactor(s, p) * researchSpeed(s);
   // (and the game's pace: a town takes generations to learn it all, data/pace.ts)
-  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * RESEARCH_PACE[topic.era ?? 'neolithic'] * TICK_HZ);
+  r.progress[topic.id] = (r.progress[topic.id] ?? 0) + speed / (topic.seconds * studyPace(topic.id, s.origin) * RESEARCH_MULTIPLIER[earlier(s.era, topic.era ?? 'neolithic')] * RESEARCH_PACE[topic.era ?? 'neolithic'] * TICK_HZ);
   gainSkill(p, 'research', RESEARCH_XP_PER_SEC / TICK_HZ);
   accruePay(s, p, STUDY_PER_HOUR, 'wages', 'study', TICKS_PER_HOUR);
   if (r.progress[topic.id] < 1) return;
 
   delete r.progress[topic.id];
   r.queue = r.queue.filter((id) => id !== topic.id);
+  tidyPicks(r);
   r.done.push(topic.id);
-  notify(s, `Research complete: ${topic.name}`, true);
+  notify(s, `Research complete: ${topicName(topic.id, s.origin)}`, true);
+  addDeed(p, 'studied');
   if (topic.id === 'blood_rite') offerBloodRite(s);
   if (topic.id === 'moon_rite') offerMoonRite(s);
   if (topic.id === 'lichcraft') offerLichRite(s);
@@ -736,7 +863,7 @@ function workGather(s: GameState, p: Person, task: Extract<Task, { type: 'gather
   }
   if (p.activity !== def.anim) pickTool(s, p, def.anim);
   p.activity = def.anim;
-  const speed = skillSpeed(p.skills.gathering.level) * modifiers(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
+  const speed = skillSpeed(p.skills.gathering.level) * researchMods(s.research).gather[def.anim] * toolSpeed(p, def.anim) * workFactor(s, p) * (def.anim === 'forage' ? doomForage(s) * biomeOf(s).forage * forageSpeed(s) : 1);
   // (the land is the same in every era: a tree takes no longer to fell in the Medieval era)
   task.progress += speed / (def.secondsPerUnit * TICK_HZ);
   while (task.progress >= 1 && p.task === task) {
@@ -858,7 +985,9 @@ function doEat(s: GameState, p: Person, task: Extract<Task, { type: 'eat' }>): v
 
 function doSleep(s: GameState, p: Person, task: Extract<Task, { type: 'sleep' }>): void {
   const bed = task.building === null ? undefined : byId(s, task.building);
-  if (!(bed ? goToB(s, p, bed) : goTo(s, p, { x: campXY(s).x - CELL, y: campXY(s).y + CELL }))) return;
+  // (no bed: a spot of their own on the ground round the fire, not all in one heap in the middle of town)
+  if (!bed) task.spot ??= roughSpot(s, p);
+  if (!(bed ? goToB(s, p, bed) : goTo(s, p, task.spot!))) return;
   p.activity = 'sleep';
   const bedroll = !bed && hasBedroll(s, p);
   p.needs.rest = Math.min(1, p.needs.rest + (SLEEP_PER_HOUR * (bed ? 1 : bedroll ? BEDROLL_SLEEP : GROUND_SLEEP)) / TICKS_PER_HOUR);
@@ -959,12 +1088,17 @@ function jobOf(t: Task): Job {
 /** So hungry they get up in the night to eat. */
 export const WAKE_TO_EAT = 0.12;
 
+/** To bed (their own, or none): the task they're on kept, so someone sleeping rough keeps the spot they bedded down on. */
+function sleepTask(p: Person): Task {
+  return p.task?.type === 'sleep' && !p.task.sick && p.task.building === p.bed ? p.task : { type: 'sleep', building: p.bed };
+}
+
 function chooseTask(s: GameState, p: Person): Task | null {
   p.blocked = false;
   // The badly hurt stay in bed until they're back on their feet: a sickbed if one's free (sim/sickbeds.ts), else home.
   if (p.downed) {
     const sb = sickbedFor(s, p);
-    return sb ? { type: 'sleep', building: sb.id, sick: true } : { type: 'sleep', building: p.bed };
+    return sb ? { type: 'sleep', building: sb.id, sick: true } : sleepTask(p);
   }
   // A raid: defenders fight, everyone else shelters.
   if (alarmRaised(s)) return p.priorities.defend !== 0 ? (p.task?.type === 'defend' ? p.task : { type: 'defend', cooldown: 0 }) : { type: 'shelter' };
@@ -1003,7 +1137,8 @@ function chooseTask(s: GameState, p: Person): Task | null {
   // Needs. Someone asleep and nearly empty gets up to eat (while the stores hold food).
   if (p.task?.type === 'sleep' || wantsSleep(s, p)) {
     const st = p.task?.type === 'sleep' && p.needs.food < WAKE_TO_EAT && !tireless(p) ? nearestStorage(s, p, (b) => !!foodIn(b)) : null;
-    return st ? { type: 'eat', building: st.id, until: null } : { type: 'sleep', building: p.bed };
+    if (st) return { type: 'eat', building: st.id, until: null };
+    return sleepTask(p);
   }
   if (p.needs.food < HUNGRY) {
     const st = nearestStorage(s, p, (b) => !!foodIn(b));
@@ -1070,9 +1205,11 @@ function chooseTask(s: GameState, p: Person): Task | null {
   // Their own post first: the smith works the smithy's orders, the miner digs, the scholar studies at their desk.
   const own = ownWork(s, p, handsFull);
   if (own) return own;
-  // Jobs, by the person's priorities.
+  // Jobs, by the person's priorities. A builder up to the work keeps building and leaves the carrying to others:
+  // at the same priority, construct comes before haul for them (the unskilled haul first, as before).
+  const jobs = buildsFirst(s, p) ? BUILDER_JOBS : JOBS;
   for (const level of [1, 2, 3]) {
-    for (const job of JOBS) {
+    for (const job of jobs) {
       if (p.priorities[job] !== level || (handsFull && (job === 'haul' || job === 'gather' || job === 'craft'))) continue;
       const t = findJob(s, p, job);
       if (t) return t;
@@ -1090,20 +1227,121 @@ export function researchCanWait(s: GameState, p: Person): boolean {
   // (a handful of people lay the streets planned before they study: else nobody idles and they're never laid)
   if (grown <= SMALL_TOWN && !s.raid && paveReady(s)) return true;
   if (!sites.length) return false;
-  const ready = sites.some((b) => poolSize(stillNeeded(b)) === 0 || b.progress > 0);
+  const ready = sites.some((b) => buildableNow(b) || b.progress > 0);
   // (a handful of people: anything they could build or gather for comes first; a site waiting on what the land can't
   // give (a desert's fiber) doesn't keep them from their books)
   if (grown <= SMALL_TOWN) return ready || s.land.marked.length > 0;
   return ready && !s.people.some((q) => q !== p && q.task?.type === 'build');
 }
+/** The jobs in order for someone who'd rather build than carry. */
+const BUILDER_JOBS = ['construct', ...JOBS.filter((j) => j !== 'construct')] as const;
+/** Reachable cells around a construction footprint; each can hold one builder at a time. */
+/** The first free spot beside a site's footprint (its rows above and below, then its sides) that isn't water (unless
+ *  they swim), under another building, or taken by another builder, as a point in px. Checked one at a time, the
+ *  cheapest test first (the catch-up after time away spent a tenth of its time listing them all). */
+/** Which buildings stand on each cell (`y * 65536 + x`), for `buildSpot` (each spot looked over every building's
+ *  footprint, for every site, for everyone idle): made again only when a building is put up, pulled down or changed. */
+type Cover = Map<number, number[]>;
+/** The last index made, and the buildings' layout it was made from (buildings.ts `layoutOf`). */
+let coverMade: { from: BuildingsLayout; cover: Cover } | null = null;
+function coverOf(s: GameState): Cover {
+  const bs = s.buildings;
+  if (coverMade && sameLayout(bs, coverMade.from)) return coverMade.cover;
+  const c: Cover = new Map();
+  for (const b of bs) {
+    const r = footprint(b);
+    for (let y = r.y; y < r.y + r.h; y++)
+      for (let x = r.x; x < r.x + r.w; x++) {
+        const k = y * 65536 + x;
+        const l = c.get(k);
+        if (l) l.push(b.id);
+        else c.set(k, [b.id]);
+      }
+  }
+  coverMade = { from: layoutOf(bs), cover: c };
+  return c;
+}
+
+/** Who stands at which site's spots (by the site's id): the spots taken. */
+type Builders = Map<number, { id: number; x: number; y: number }[]>;
+const NOBODY: { id: number; x: number; y: number }[] = [];
+function buildersAt(s: GameState): Builders {
+  const at: Builders = new Map();
+  for (const q of s.people) {
+    if (q.task?.type !== 'build' || !q.task.spot) continue;
+    const l = at.get(q.task.building);
+    const e = { id: q.id, x: q.task.spot.x, y: q.task.spot.y };
+    if (l) l.push(e);
+    else at.set(q.task.building, [e]);
+  }
+  return at;
+}
+function buildSpot(s: GameState, p: Person, b: Building, cover?: () => Cover, builders?: () => Builders): Pt | undefined {
+  // (the builders at every site are gathered once for a look over many sites: each site looked over everyone)
+  const there = (builders ?? (() => buildersAt(s)))().get(b.id);
+  const others = there ? there.filter((q) => q.id !== p.id) : NOBODY;
+  const taken = (x: number, y: number) => others.some((q) => q.x === x && q.y === y);
+  if (p.task?.type === 'build' && p.task.building === b.id && p.task.spot && !taken(p.task.spot.x, p.task.spot.y)) return p.task.spot;
+  const r = footprint(b);
+  let on: Cover | null = null;
+  const free = (cx: number, cy: number): Pt | undefined => {
+    const x = (cx + 0.5) * CELL;
+    const y = (cy + 0.5) * CELL;
+    if (others.length && taken(x, y)) return undefined;
+    if (!inMap(s.land, cx, cy) || (wet(groundAt(s.land, cx, cy)) && !swims(s, p)) || groundAt(s.land, cx, cy) === 'mountain') return undefined;
+    on ??= cover ? cover() : coverOf(s);
+    const ids = on.get(cy * 65536 + cx);
+    if (ids && (ids.length > 1 || ids[0] !== b.id)) return undefined; // (another building stands there)
+    return { x, y };
+  };
+  // (a hold's room is cut from open or dug ground, never stood on in the rock: beside the next cell to cut)
+  if (b.room && holdOf(s) === 'mountain' && b.status === 'blueprint' && digOrder(s, r).length) {
+    // (a room already cut out, or the hall, is walked through: they may stand in it)
+    const c = digStand(s, r, (x, y) => !others.length || !taken((x + 0.5) * CELL, (y + 0.5) * CELL));
+    return c ? { x: (c.x + 0.5) * CELL, y: (c.y + 0.5) * CELL } : undefined;
+  }
+  // (its rows above and below, then its sides)
+  for (let x = r.x; x < r.x + r.w; x++) {
+    const spot = free(x, r.y - 1) ?? free(x, r.y + r.h);
+    if (spot) return spot;
+  }
+  for (let y = r.y; y < r.y + r.h; y++) {
+    const spot = free(r.x - 1, y) ?? free(r.x + r.w, y);
+    if (spot) return spot;
+  }
+  return undefined;
+}
+/** The sites (blueprints) in the buildings' order, gathered once a tick for everyone choosing work (each looked over
+ *  every building, twice). While the townsfolk act, a building turns into a site only by being laid (the list grows,
+ *  and they're gathered again): an upgrade or a move is the planner's or a command's, before or after them. Sites
+ *  finished meanwhile stay in the list, and are passed over as before (`inWork`). */
+let sitesMade: { list: Building[]; length: number; last: Building | undefined; tick: number; sites: Building[] } | null = null;
+function blueprintsNow(s: GameState): Building[] {
+  const m = sitesMade;
+  const bs = s.buildings;
+  if (m && m.list === bs && m.length === bs.length && m.last === bs[bs.length - 1] && m.tick === s.tick) return m.sites;
+  const sites = bs.filter((b) => b.status === 'blueprint');
+  sitesMade = { list: bs, length: bs.length, last: bs[bs.length - 1], tick: s.tick, sites };
+  return sites;
+}
+
+/** Whether someone builds at full pace on a site with work for a builder now (the founder always does). */
+function buildsFirst(s: GameState, p: Person): boolean {
+  let c: Cover | null = null;
+  const cover = () => (c ??= coverOf(s));
+  let at: Builders | null = null;
+  const builders = () => (at ??= buildersAt(s));
+  return blueprintsNow(s).some((b) => inWork(b) && buildableNow(b) && canWork(s, p, b) && skillPace(s, p, b) >= 1 && buildSpot(s, p, b, cover, builders));
+}
+
 /** Up to this many grown-ups, building and gathering come before study. */
 const SMALL_TOWN = 3;
 
 function findJob(s: GameState, p: Person, job: Job): Task | null {
   switch (job) {
     case 'haul':
-      for (const b of s.buildings) {
-        if (!inWork(b)) continue;
+      // (a site with a builder at it, or walls going up, is carried to first, so the builder never stops for want)
+      for (const b of haulOrder(s)) {
         const need = unreserved(s, p, b);
         if (!poolSize(need)) continue;
         const from = nearestStorage(s, p, (st) => (Object.keys(need) as Material[]).some((m) => (st.store[m] ?? 0) > 0));
@@ -1121,8 +1359,12 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       }
       return null;
     case 'construct': {
-      const b = s.buildings.find((q) => inWork(q) && poolSize(stillNeeded(q)) === 0 && canWork(s, p, q));
-      if (b) return { type: 'build', building: b.id };
+      let c: Cover | null = null;
+      const cover = () => (c ??= coverOf(s));
+      let at: Builders | null = null;
+      const builders = () => (at ??= buildersAt(s));
+      const b = blueprintsNow(s).find((q) => inWork(q) && buildableNow(q) && canWork(s, p, q) && buildSpot(s, p, q, cover, builders));
+      if (b) return { type: 'build', building: b.id, spot: buildSpot(s, p, b, cover, builders) };
       const hurt = s.raid ? undefined : s.buildings.find((q) => q.status === 'done' && q.hp !== undefined && q.hp < (defOf(q).hp ?? 0));
       return hurt ? { type: 'repair', building: hurt.id } : null;
     }
@@ -1132,6 +1374,12 @@ function findJob(s: GameState, p: Person, job: Job): Task | null {
       // (a band roaming near the town: they go out after it)
       const band = roamerToHunt(s, p);
       if (band) return { type: 'patrol', targetX: band.x, targetY: band.y, band: band.id };
+      // (by night, up on a gate: gatePost)
+      const post = gatePost(s, p);
+      if (post) {
+        const top = gateTop(post);
+        return { type: 'patrol', targetX: top.x, targetY: top.y, post: post.id };
+      }
       const end = patrolEnd(s, p);
       return { type: 'patrol', targetX: end.x, targetY: end.y };
     case 'research': {
@@ -1196,6 +1444,20 @@ function findCraft(s: GameState, p: Person, station?: string): Task | null {
   return null;
 }
 
+/** Sites in work, those being built (someone at it, or begun) before the rest. */
+export function haulOrder(s: GameState): Building[] {
+  const sites = s.buildings.filter(inWork);
+  const busy = new Set<number>();
+  for (const o of s.people) if (o.task?.type === 'build') busy.add(o.task.building);
+  const first = sites.filter((b) => busy.has(b.id) || b.progress > 0);
+  const ordered = first.length ? [...first, ...sites.filter((b) => !first.includes(b))] : sites;
+  // (the ring wall is one job of many sections, all in work at once: the town's other sites are served before it, so
+  //  the wall never takes the wood another site waits on)
+  // (and the seat, which the new age's studies wait on, before the rest: sim/research.ts seatStageNow)
+  const seat = ordered.filter((b) => isSeat(b.def));
+  return [...seat, ...ordered.filter((b) => b.ring === undefined && !seat.includes(b)), ...ordered.filter((b) => b.ring !== undefined)];
+}
+
 /** What a blueprint still needs that nobody else is already fetching or carrying to it. */
 function unreserved(s: GameState, p: Person, b: Building): Stock {
   const need = stillNeeded(b);
@@ -1246,7 +1508,7 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
     case 'deliver':
       return !!site && inWork(site);
     case 'build':
-      return !!site && inWork(site) && poolSize(stillNeeded(site)) === 0 && p.priorities.construct !== 0 && canWork(s, p, site);
+      return !!site && inWork(site) && site.progress < deliveredShare(site) && p.priorities.construct !== 0 && canWork(s, p, site);
     case 'research':
       // (still their station: built, standing, and nobody else's)
       return (
@@ -1318,14 +1580,24 @@ function stillValid(s: GameState, p: Person, t: Task): boolean {
 export const busyNow = (s: GameState, p: Person) => !!s.busy && s.tick < s.busy.until && s.busy.ids.includes(p.id) && p.away === null && !p.downed && !alarmRaised(s);
 
 /** Step toward a point along a path over the land. Returns true once there. */
-function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>): boolean {
-  const there = walk(s, p, to, STEP * injuryPace(p), through, s.tick, swims(s, p)); // (a lame leg slows them: sim/injuries.ts)
+function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footprint>, pace = 1): boolean {
+  const there = walk(s, p, to, STEP * injuryPace(p) * pace, through, s.tick, swims(s, p)); // (a lame leg slows them: sim/injuries.ts)
   if (!there) p.activity = 'walk';
   return there;
 }
 
+/** How much faster than a walk a child runs home at a raid's alarm. */
+export const SHELTER_RUN = 1.5;
+
 /** Step toward a building: to its door. */
-const goToB = (s: GameState, p: Person, b: Building) => goTo(s, p, buildingDoor(b), footprint(b));
+const goToB = (s: GameState, p: Person, b: Building) => {
+  // (a hold's room still being cut: to the ground beside the next cell of rock, never into the rock)
+  if (b.room && b.status === 'blueprint' && holdOf(s) === 'mountain') {
+    const c = digStand(s, footprint(b));
+    if (c) return goTo(s, p, { x: (c.x + 0.5) * CELL, y: (c.y + 0.5) * CELL }, footprint(b));
+  }
+  return goTo(s, p, buildingDoor(b), footprint(b));
+};
 
 /** Step toward a point (for visitors and the like). Returns true once there. */
 export function walkTo(s: GameState, p: Person, to: Pt): boolean {
@@ -1345,7 +1617,7 @@ const listCarried = (p: Person) =>
     .join(', ');
 
 function byId(s: GameState, id: number): Building | undefined {
-  return s.buildings.find((b) => b.id === id);
+  return buildingById(s, id);
 }
 
 function nearestStorage(s: GameState, at: Pt, ok: (b: Building) => boolean): Building | null {

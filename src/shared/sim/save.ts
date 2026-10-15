@@ -14,8 +14,50 @@ export interface SaveFile {
 }
 
 export function serialize(state: GameState, savedAt: number): string {
-  const file: SaveFile = { format: SAVE_FORMAT, savedAt, state };
+  // (the land's pools are most of a save written out cell by cell: they go packed, `packPools`)
+  const land = { ...state.land, pools: {}, packedPools: packPools(state.land.pools) };
+  const file: SaveFile = { format: SAVE_FORMAT, savedAt, state: { ...state, land } as GameState };
   return JSON.stringify(file);
+}
+
+/** The pools as one string: the materials named once, then each cell's index and amounts in base 36
+ *  ("wood,stone|1a3:0=5,1=2;1a4:0=3;..."), about a third the size of the plain JSON. */
+export function packPools(pools: GameState['land']['pools']): string {
+  const mats: string[] = [];
+  const code = new Map<string, number>();
+  const cells: string[] = [];
+  for (const [i, pool] of Object.entries(pools)) {
+    const parts: string[] = [];
+    for (const [m, n] of Object.entries(pool ?? {})) {
+      if (n === undefined) continue;
+      let c = code.get(m);
+      if (c === undefined) {
+        c = mats.length;
+        code.set(m, c);
+        mats.push(m);
+      }
+      parts.push(`${c.toString(36)}=${Number.isInteger(n) ? n.toString(36) : `~${n}`}`);
+    }
+    cells.push(`${(+i).toString(36)}:${parts.join(',')}`);
+  }
+  return `${mats.join(',')}|${cells.join(';')}`;
+}
+export function unpackPools(text: string): GameState['land']['pools'] {
+  const [head, body] = text.split('|');
+  const mats = head ? head.split(',') : [];
+  const out: Record<number, Record<string, number>> = {};
+  if (!body) return out;
+  for (const cell of body.split(';')) {
+    const [i, list] = cell.split(':');
+    const pool: Record<string, number> = {};
+    if (list)
+      for (const part of list.split(',')) {
+        const [c, n] = part.split('=');
+        pool[mats[parseInt(c, 36)]] = n.startsWith('~') ? Number(n.slice(1)) : parseInt(n, 36);
+      }
+    out[parseInt(i, 36)] = pool;
+  }
+  return out as GameState['land']['pools'];
 }
 
 export type ParsedSave = { ok: true; save: SaveFile } | { ok: false; reason: 'corrupt' | 'old-version'; version?: number };
@@ -37,6 +79,15 @@ export function parseSave(text: string): ParsedSave {
   const f = raw as Partial<SaveFile> | null;
   if (!f || f.format !== SAVE_FORMAT || typeof f.savedAt !== 'number' || !f.state || typeof f.state !== 'object') return { ok: false, reason: 'corrupt' };
   const s = f.state as Partial<GameState>;
+  const packed = (s.land as { packedPools?: string } | undefined)?.packedPools;
+  if (typeof packed === 'string' && s.land) {
+    try {
+      s.land.pools = unpackPools(packed);
+    } catch {
+      return { ok: false, reason: 'corrupt' };
+    }
+    delete (s.land as { packedPools?: string }).packedPools;
+  }
   const from = s.version as number;
   while (typeof s.version === 'number' && s.version < SAVE_VERSION && MIGRATIONS[s.version]) {
     try {

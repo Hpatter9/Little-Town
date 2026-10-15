@@ -9,11 +9,12 @@
 // Townsfolk walk out through the gates (walk.ts `blockedBy` lets gates through; a sealed town walks straight through).
 // Castles and the hold have walls of their own, and a wandering tribe its wagons: no ring for them.
 import { BUILDING_BY_ID, type BuildingDef } from '../data/buildings';
-import { blueprintCount, buildSlots, builtOn, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
+import { RING_SHAPE_OF, type RingShape } from '../data/ringShapes';
+import { builtOn, builtOnIndex, canPlace, demolish, isUnlocked, overgrownCells, placeBlueprint, unlockInfo } from './buildings';
 import { holdOf } from './castle';
-import { groundAt, idx, inMap, isRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
+import { groundAt, idx, inMap, isPlannedRoad, isRoad, planRoad, unsetRoad, wet, WILD, wildToClear, type LandMap, type Pt, type Rect } from './land';
 import { nomadic } from './nomads';
-import { campCell, type Building, type GameState } from './state';
+import { campCell, type GameState } from './state';
 import { TICKS_PER_HOUR } from './time';
 
 /** Cells between the outermost building and the wall; the ring grows in steps of this many cells a side. */
@@ -21,12 +22,11 @@ export const RING_PAD = 4;
 export const RING_STEP = 5;
 /** A ring reaches at least this far from the camp each way (before the pad), so a young town has room to grow in it. */
 export const RING_MIN = 8;
+/** When the town outgrows its wall, the wider ring is pushed out this many cells more each side than the town needs
+ *  yet (the owner's ask: it was only just past the buildings, and soon outgrown again). The first ring is as before. */
+export const RING_WIDEN = 10;
 /** Grown-ups before a town walls itself (sooner when raided or set on defence). */
 export const RING_PEOPLE = 6;
-/** Ring pieces on the build queue at a time (a slot is always left for the rest). */
-export const RING_AT_ONCE = 2;
-/** A piece is placed only while the town holds this many times its cost (the wall never takes the last wood). */
-export const RING_SPARE = 3;
 /** Hours after a ring stands all round before a wider one is begun (a town that has grown past it waits; a raid
  *  brings the new ring on at once). */
 export const RING_REGROW_HOURS = 72;
@@ -105,6 +105,16 @@ export function wantRect(s: GameState): Rect {
 }
 const depth = (def: BuildingDef) => def.depth ?? (def.hp && def.width <= 2 && !def.housing ? 1 : def.width <= 3 ? 2 : def.width <= 5 ? 3 : 4);
 
+/** The town's wanted ring pushed `RING_WIDEN` cells further each side, and at least `RING_STEP` past the old ring
+ *  (so the new wall stands clear of the old one), kept on the land. */
+export function widened(s: GameState, want: Rect, old: Rect): Rect {
+  const m = s.land;
+  const x0 = Math.max(0, Math.min(want.x - RING_WIDEN, old.x - RING_STEP));
+  const y0 = Math.max(0, Math.min(want.y - RING_WIDEN, old.y - RING_STEP));
+  const x1 = Math.min(m.w - 1, Math.max(want.x + want.w - 1 + RING_WIDEN, old.x + old.w - 1 + RING_STEP));
+  const y1 = Math.min(m.h - 1, Math.max(want.y + want.h - 1 + RING_WIDEN, old.y + old.h - 1 + RING_STEP));
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
 const contains = (a: Rect, b: Rect) => b.x >= a.x && b.y >= a.y && b.x + b.w <= a.x + a.w && b.y + b.h <= a.y + a.h;
 
 /** The cells of a box's edge, clockwise from its top-left corner (a ring's starting shape, and an older town's ring). */
@@ -129,14 +139,27 @@ export interface LineCell { x: number; y: number; side: Side }
 export const PUSH_ALONG = 5;
 export const PUSH_MOST = 8;
 const sideOfBox = (r: Rect, p: Pt): Side => (p.y === r.y ? 'n' : p.y === r.y + r.h - 1 ? 's' : p.x === r.x ? 'w' : 'e');
-export function shapeRing(s: Pick<GameState, 'land'>, r: Rect): LineCell[] {
+export function shapeRing(s: Pick<GameState, 'land'> & Partial<Pick<GameState, 'origin' | 'buildings'>>, r: Rect, shape: RingShape = ringShapeOf(s)): LineCell[] {
   const m = s.land;
   const M = PUSH_MOST + 2;
   const bx = r.x - M, by = r.y - M, bw = r.w + 2 * M, bh = r.h + 2 * M;
   const inBox = (x: number, y: number) => x >= bx && y >= by && x < bx + bw && y < by + bh;
   const key = (x: number, y: number) => (y - by) * bw + (x - bx);
   const R = new Uint8Array(bw * bh);
-  for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) R[key(x, y)] = 1;
+  if (shape === 'box') for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) R[key(x, y)] = 1;
+  else {
+    // (the people's own shape over the box, data/ringShapes.ts; whatever it cuts off that the town stands on is taken
+    // back in, `TOWN_KEEP` round each building)
+    const inside = shapeTest(shape, r);
+    for (let y = by + 1; y < by + bh - 1; y++) for (let x = bx + 1; x < bx + bw - 1; x++) if (inMap(m, x, y) && inside(x, y)) R[key(x, y)] = 1;
+    for (const b of s.buildings ?? []) {
+      const def = BUILDING_BY_ID[b.def];
+      if (!def || def.layer === 'back' || isRingPiece(b.def) || (def.hp && def.width === 1)) continue;
+      const w = def.width + (b.wide ?? 0), d = depth(def);
+      for (let y = b.row - TOWN_KEEP; y < b.row + d + TOWN_KEEP; y++)
+        for (let x = b.tile - TOWN_KEEP; x < b.tile + w + TOWN_KEEP; x++) if (inBox(x, y) && x > bx && y > by && x < bx + bw - 1 && y < by + bh - 1) R[key(x, y)] = 1;
+    }
+  }
   const inR = (x: number, y: number) => inBox(x, y) && R[key(x, y)] === 1;
   const N8 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]] as const;
   const boundary = (): Pt[] => {
@@ -200,6 +223,91 @@ export function shapeRing(s: Pick<GameState, 'land'>, r: Rect): LineCell[] {
 // (clockwise from the top-left, as the box's edge ran)
 const ang = (dx: number, dy: number) => (Math.atan2(dy, dx) + Math.PI * 1.75) % (Math.PI * 2);
 
+/** How far round each building the shaped ring keeps the town inside it. */
+const TOWN_KEEP = 2;
+
+/** The ring's shape for this town's people (data/ringShapes.ts). */
+export function ringShapeOf(s: Partial<Pick<GameState, 'origin'>>): RingShape {
+  return RING_SHAPE_OF[s.origin ?? 'settlers'] ?? 'box';
+}
+
+/** Whether a cell lies inside a shape laid over the ring's box `r`: the box's inside is about -1..1 each way (u, v),
+ *  and a shape is drawn about as big, bulging past it here and cutting in there. Every shape keeps a straight run
+ *  of wall at the middle of each side, for the gates. */
+export function shapeTest(shape: RingShape, r: Rect): (x: number, y: number) => boolean {
+  const base = shapeBase(shape, r);
+  if (shape === 'box') return base;
+  // (a straight run, `GATE_FLAT` cells either side of each side's middle, at the shape's reach there: the gates' room)
+  const cx = Math.round(r.x + (r.w - 1) / 2), cy = Math.round(r.y + (r.h - 1) / 2);
+  const reach = (dx: number, dy: number) => {
+    let n = 0;
+    while (n < r.w + r.h && base(cx + dx * (n + 1), cy + dy * (n + 1))) n++;
+    return n;
+  };
+  const w = reach(-1, 0), e = reach(1, 0), n = reach(0, -1), s = reach(0, 1);
+  return (x, y) => {
+    const dx = x - cx, dy = y - cy;
+    if (Math.abs(dy) <= GATE_FLAT && Math.abs(dx) > Math.abs(dy)) return dx < 0 ? -dx <= w : dx <= e;
+    if (Math.abs(dx) <= GATE_FLAT && Math.abs(dy) > Math.abs(dx)) return dy < 0 ? -dy <= n : dy <= s;
+    return base(x, y);
+  };
+}
+const GATE_FLAT = 2;
+function shapeBase(shape: RingShape, r: Rect): (x: number, y: number) => boolean {
+  const cx = r.x + (r.w - 1) / 2, cy = r.y + (r.h - 1) / 2;
+  const A = Math.max(2, (r.w - 2) / 2), B = Math.max(2, (r.h - 2) / 2);
+  const cells = Math.min(A, B);
+  return (x, y) => {
+    const dx = x - cx, dy = y - cy;
+    const u = dx / A, v = dy / B, au = Math.abs(u), av = Math.abs(v);
+    const rho = Math.hypot(u, v), th = Math.atan2(v, u);
+    switch (shape) {
+      case 'box':
+        return au <= 1 && av <= 1;
+      case 'star': {
+        // (a bastion, an arrowhead, at each corner, `cells` a third of the half-width out)
+        if (au <= 1 && av <= 1) return true;
+        const k = Math.max(3, Math.round(cells * 0.32));
+        return Math.abs(Math.abs(dx) - A) + Math.abs(Math.abs(dy) - B) <= k && au >= 0.6 && av >= 0.6;
+      }
+      case 'round':
+        return rho <= 1.12;
+      case 'octagon':
+        return au <= 1.04 && av <= 1.04 && au + av <= 1.5;
+      case 'hexagon':
+        // (flat west and east walls, pointed north and south)
+        return au <= 1.08 && av + 0.55 * au <= 1.22;
+      case 'coffin': {
+        // (widest a third of the way down, narrower at the head and narrower still at the foot)
+        const w = v < -0.35 ? 1.05 - ((-0.35 - v) / 0.7) * 0.4 : 1.05 - ((v + 0.35) / 1.4) * 0.5;
+        return av <= 1.06 && au <= w;
+      }
+      case 'grove':
+        return rho <= 1.08 + 0.08 * Math.sin(3 * th + 0.7) + 0.06 * Math.sin(5 * th + 2.1) + 0.04 * Math.sin(7 * th + 4.0) - 0.03;
+      case 'scalloped':
+        return rho <= 1.06 + 0.07 * Math.cos(12 * th);
+      case 'flower':
+        // (eight petals, one at each side's middle)
+        return rho <= 1.0 + 0.14 * Math.cos(8 * th);
+      case 'jagged': {
+        // (teeth along every side, `TOOTH` cells apart, `TOOTH_DEEP` deep, the middle of each side left straight)
+        const tooth = (t: number) => (Math.abs(t) < 3 ? 0 : TOOTH_DEEP * (1 - Math.abs((((Math.abs(t) / TOOTH) % 1) * 2) - 1)));
+        if (au >= av) return Math.abs(dx) <= A + tooth(dy) && av <= 1;
+        return Math.abs(dy) <= B + tooth(dx) && au <= 1;
+      }
+      case 'terraced': {
+        // (the corners stepped down like terraces on a hillside, `TERRACE` cells a step)
+        if (au > 1 || av > 1) return false;
+        const fx = Math.floor((A - Math.abs(dx)) / TERRACE), fy = Math.floor((B - Math.abs(dy)) / TERRACE);
+        return fx + fy >= Math.floor(cells / TERRACE / 2);
+      }
+    }
+  };
+}
+const TOOTH = 6;
+const TOOTH_DEEP = 2;
+const TERRACE = 2;
+
 /** A ring's line (an older town's ring, laid before the line was shaped, keeps its box). */
 export function lineOf(ring: Ring): LineCell[] {
   return ring.line ?? ringCells(ring.rect).map((p) => ({ ...p, side: sideOfBox(ring.rect, p) }));
@@ -262,12 +370,6 @@ export function gateCells(s: GameState, line: LineCell[]): Pt[] {
   return out.map((l) => ({ x: l.x, y: l.y }));
 }
 
-/** The ring piece standing on a cell (of this ring or an older one). */
-const pieceAt = (s: GameState, p: Pt): Building | undefined => {
-  const b = builtOn(s, p.x, p.y);
-  return b && isRingPiece(b.def) ? b : undefined;
-};
-
 /** What the ring still needs: the gates first, then the walls and the grates; each with its cell to build on, or a
  *  wild cell to clear first. A wet cell gets a grate where the ring crosses a river or a stream, or runs down one
  *  (`riverCell`); the sea, a lake, the mountain and another building are left as they are (they are the wall
@@ -276,12 +378,17 @@ export function missingPieces(s: GameState, ring: Ring): { def: string; at: Pt; 
   const out: { def: string; at: Pt; clear: boolean; turned?: boolean; wild?: boolean }[] = [];
   const m = s.land;
   const covered = new Set<number>();
+  // (the cells built on, indexed once: nothing is built while the pieces are reckoned, and every cell of the ring asks)
+  const on = builtOnIndex(s);
   // (whether the cells are accounted for: a piece stands or is wanted there, or something else stands in its place)
   const want = (def: string, at: Pt, cells: Pt[], turned = false): boolean => {
-    const there = cells.map((c) => pieceAt(s, c));
+    const there = cells.map((c) => {
+      const b = on(c.x, c.y);
+      return b && isRingPiece(b.def) ? b : undefined;
+    });
     if (there.some((b) => b && b.ring === ring.gen)) return true;
     if (there.some((b) => b && b.ring !== ring.gen)) return true; // (an older ring's piece stands there: it goes when this ring is up)
-    if (cells.some((c) => !inMap(m, c.x, c.y) || !!builtOn(s, c.x, c.y))) return true;
+    if (cells.some((c) => !inMap(m, c.x, c.y) || !!on(c.x, c.y))) return true;
     const wild = cells.find((c) => WILD.includes(groundAt(m, c.x, c.y)));
     // (trees or rocks on its cells: the piece is laid over them all the same, so the whole wall shows in the plan,
     // gates and all (the owner's ask), and they're cleared before it's built)
@@ -330,13 +437,24 @@ export function riverCell(m: LandMap, p: Pt): boolean {
 }
 
 /** Whether the ring stands all round: every piece of it finished (cells that can't take one don't count). */
-export const ringComplete = (s: GameState, ring: Ring) => !missingPieces(s, ring).length && !s.buildings.some((b) => b.ring === ring.gen && b.status !== 'done');
+/** The ring stands all round: none of its pieces unbuilt (the quick test, first) and none missing. The walk round the
+ *  wall is kept until the buildings or the land change (the roaming bands ask every tick). */
+let completeOf: { key: string; s: GameState; done: boolean } | null = null;
+export function ringComplete(s: GameState, ring: Ring): boolean {
+  if (s.buildings.some((b) => b.ring === ring.gen && b.status !== 'done')) return false;
+  let done = 0;
+  for (const b of s.buildings) if (b.status === 'done') done++;
+  const key = `${ring.gen}|${s.buildings.length}|${done}|${s.land.version}|${s.buildings.at(-1)?.id ?? 0}`;
+  if (completeOf && completeOf.s === s && completeOf.key === key) return completeOf.done;
+  const v = !missingPieces(s, ring).length;
+  completeOf = { key, s, done: v };
+  return v;
+}
 
-/** The planner's turn (from planBuilding, each pass): start or widen the ring, place its next pieces (up to
- *  `RING_AT_ONCE` on the queue, a slot left for the rest, only while the stores hold `RING_SPARE` times a piece's cost),
- *  take the old ring down once the new one stands. Returns
- *  the wild cells to clear for it. */
-export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<string, number>> = {}, raided = false): number[] {
+/** The planner's turn (from planBuilding, each pass): start or widen one ring project, lay all of its cell pieces and
+ *  put every cleared one into work at once (one construction, the owner's ask), then take the old ring down only once
+ *  the new one stands. Returns the wild cells to clear for it. */
+export function planRing(s: GameState, wanted: boolean, raided = false): number[] {
   const clear: number[] = [];
   if (!ringTown(s)) return clear;
   const wall = bestWall(s);
@@ -351,9 +469,11 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     const line = shapeRing(s, want);
     s.ring = { gen: 1, rect: want, line, wall, gate: GATE_OF[wall], gates: gateCells(s, line) };
   } else if (!contains(cur.rect, want) && mayRegrow) {
-    // (the town has grown past its wall: a wider ring outside it; the gates where the roads cross now)
-    const line = shapeRing(s, want);
-    s.ring = { gen: cur.gen + 1, rect: want, line, wall, gate: GATE_OF[wall], gates: gateCells(s, line) };
+    // (the town has grown past its wall: a wider ring well outside it, `RING_WIDEN` more each side, and never inside
+    // the old one; the gates where the roads cross now)
+    const rect = widened(s, want, cur.rect);
+    const line = shapeRing(s, rect);
+    s.ring = { gen: cur.gen + 1, rect, line, wall, gate: GATE_OF[wall], gates: gateCells(s, line) };
   } else if (cur.wall !== wall) {
     // (a better wall learned: new pieces are of it; the old ones are rebuilt in place by the upgrade loop)
     cur.wall = wall;
@@ -373,9 +493,8 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     delete ring.clearing;
     return clear;
   }
-  // The whole ring is laid out at once (the owner's ask: one blueprint for the wall, built a section at a time):
-  // every piece that can stand now goes down as a planned blueprint (`Building.planned`: no slot, no hauling, walked
-  // through), and the sections are released into work in the ring's order, `RING_AT_ONCE` at a time.
+  // The whole ring is laid out and worked as one project. Its cell pieces stay separate for pathing, damage and art,
+  // but all cleared sections can be built in parallel; none waits behind a five-piece queue.
   for (const piece of missing) {
     if (piece.clear) {
       if (clear.length < RING_CLEAR) clear.push(idx(s.land, piece.at.x, piece.at.y));
@@ -401,24 +520,43 @@ export function planRing(s: GameState, wanted: boolean, stock: Partial<Record<st
     else if (isGrate(b.def) && b.def !== GRATE_OF[ring.wall]) b.def = GRATE_OF[ring.wall];
     else if (!isGate(b.def) && !isGrate(b.def) && b.def !== ring.wall) b.def = ring.wall;
   }
-  const queued = s.buildings.filter((b) => b.ring === ring.gen && b.status === 'blueprint' && !b.planned).length;
-  // (what the other sites still wait on is theirs: the wall never takes the shop's last logs)
-  const owed: Record<string, number> = {};
-  for (const b of s.buildings) {
-    if (b.status !== 'blueprint' || isRingPiece(b.def)) continue;
-    for (const [m, n] of Object.entries(BUILDING_BY_ID[b.def]?.cost ?? {})) owed[m] = (owed[m] ?? 0) + Math.max(0, (n ?? 0) - (b.delivered[m as keyof typeof b.delivered] ?? 0));
-  }
-  let room = Math.min(RING_AT_ONCE - queued, buildSlots(s) - 1 - blueprintCount(s));
-  // (the next sections, in the order they were laid: the gates first, then round the ring)
-  for (const b of s.buildings) {
-    if (room <= 0) break;
-    if (b.ring !== ring.gen || !b.planned || b.overgrown) continue;
-    const cost = BUILDING_BY_ID[b.def].cost;
-    if (Object.entries(cost).some(([m, n]) => (stock[m] ?? 0) - (owed[m] ?? 0) < (n ?? 0) * RING_SPARE)) continue;
-    delete b.planned;
-    room--;
-  }
+  // (the whole ring goes into work at once, one construction: every section cleared of its trees and rocks is a site
+  //  the haulers and builders may take; the town's other sites are served first (people.ts `haulOrder`), so the wall
+  //  never takes the wood another site is waiting on)
+  for (const b of s.buildings) if (b.ring === ring.gen && b.planned && !b.overgrown) delete b.planned;
   return clear;
+}
+
+/** Materials wanted by the ring's sections still waiting on their ground to be cleared (the rest are in work, and their
+ *  needs counted with every other site's): the town gathers for its whole wall. Nothing once it stands. */
+export function ringWants(s: GameState): Partial<Record<string, number>> {
+  const out: Partial<Record<string, number>> = {};
+  const ring = s.ring;
+  if (!ring || ring.done) return out;
+  for (const b of s.buildings) {
+    if (b.ring !== ring.gen || b.status !== 'blueprint' || !b.planned) continue;
+    for (const [m, k] of Object.entries(BUILDING_BY_ID[b.def]?.cost ?? {})) out[m] = (out[m] ?? 0) + (k ?? 0);
+  }
+  return out;
+}
+
+/** How far the ring under way has come, as one job: its sections standing of all, and the share of the whole wall's
+ *  work done (each section weighed by its build time). Null with no ring. */
+export function ringProgress(s: Pick<GameState, 'ring' | 'buildings'>): { done: number; of: number; share: number } | null {
+  const ring = s.ring;
+  if (!ring) return null;
+  let done = 0, of = 0, work = 0, all = 0;
+  for (const b of s.buildings) {
+    if (b.ring !== ring.gen || !isRingPiece(b.def)) continue;
+    const w = BUILDING_BY_ID[b.def]?.buildSeconds ?? 1;
+    of++;
+    all += w;
+    if (b.status === 'done') {
+      done++;
+      work += w;
+    } else work += w * b.progress;
+  }
+  return { done, of, share: all ? work / all : 0 };
 }
 
 /** The ring's gate cell on a side (for raids: the trail ends there), if the town has a ring. */
@@ -427,4 +565,47 @@ export function ringGate(s: GameState, side: -1 | 1): Pt | null {
   if (!ring) return null;
   const g = ring.gates.find((p) => sideOn(ring, p) === (side < 0 ? 'w' : 'e'));
   return g ?? null;
+}
+
+/** The ring's cells where only the wall may stand: every cell of its line but the gates' (the owner's ask: a road
+ *  laid over a cell whose piece was destroyed or never built kept the wall from being raised there again, so roads
+ *  cross the ring only at its gates). Kept by the ring, its line and its gates. */
+let wallCellsOf: { ring: Ring; key: string; cells: Set<number> } | null = null;
+export function ringWallCells(s: GameState): Set<number> {
+  const ring = s.ring;
+  if (!ring) return new Set();
+  const m = s.land;
+  const line = lineOf(ring);
+  const key = `${ring.gen}|${line.length}|${ring.gates.map((g) => `${g.x},${g.y}`).join(';')}|${m.w}`;
+  if (wallCellsOf && wallCellsOf.ring === ring && wallCellsOf.key === key) return wallCellsOf.cells;
+  const gates = new Set<number>();
+  for (const g of ring.gates) for (const c of gateCovers(ring, g)) gates.add(idx(m, c.x, c.y));
+  const cells = new Set<number>();
+  for (const p of line) if (inMap(m, p.x, p.y) && !gates.has(idx(m, p.x, p.y))) cells.add(idx(m, p.x, p.y));
+  wallCellsOf = { ring, key, cells };
+  return cells;
+}
+
+/** Whether a road may not run over a cell: a cell of the ring's line with no gate on it (one standing there, or the
+ *  ring's own gate cells, may be crossed). */
+export function wallOnly(s: GameState, x: number, y: number): boolean {
+  if (!s.ring || !inMap(s.land, x, y) || !ringWallCells(s).has(idx(s.land, x, y))) return false;
+  return !isGate(builtOn(s, x, y)?.def ?? '');
+}
+
+/** Roads and planned streets lying over the ring's wall cells are lifted, so the wall can be raised there (older towns
+ *  laid them over broken or missing pieces). Returns how many cells were cleared. */
+export function liftRoadsOffWall(s: GameState): number {
+  if (!s.ring) return 0;
+  const m = s.land;
+  let n = 0;
+  for (const i of ringWallCells(s)) {
+    const x = i % m.w, y = Math.floor(i / m.w);
+    const road = isRoad(m, x, y), planned = isPlannedRoad(m, x, y);
+    if ((!road && !planned) || !wallOnly(s, x, y)) continue;
+    if (road) unsetRoad(m, x, y);
+    if (planned) planRoad(m, x, y, false);
+    n++;
+  }
+  return n;
 }

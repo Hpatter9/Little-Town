@@ -9,8 +9,8 @@ import { FOUNDERS } from '../data/founders';
 import { callingName, FOUNDER_CLASS } from '../data/founderClasses';
 import { ITEM_BY_ID, type ItemDef } from '../data/items';
 import { LEVEL_SHARE_FIGHT, LEVEL_SHARE_WORK, levelOf, levelPower, MAX_LEVEL, stageOf, xpToLevel } from '../data/levels';
-import { BASE_PATHS, branchesOf, lineage, PATH_BY_ID, PATHS, type PathNode } from '../data/paths';
-import { FORK } from '../data/pathLore';
+import { BASE_PATHS, founderRoot, lineage, PATH_BY_ID, PATHS, roadsFrom, type PathNode } from '../data/paths';
+import { FORK, FOUNDER_FORK } from '../data/pathLore';
 import type { Skill } from '../data/skills';
 import { hashSeed, mixSeed, Rng } from '../rng';
 import { beginRecord, statsHourly } from './attributes';
@@ -57,15 +57,18 @@ export function assignClass(s: GameState, p: Person): ClassId {
 /** How long an evolution's question waits before they choose for themselves. */
 export const EVOLVE_ASK_HOURS = 24;
 
+/** The people someone is of, for the roads only their people may take: their own, else the town's. */
+const peopleFor = (p: Person, s?: GameState) => p.origin ?? s?.origin ?? 'settlers';
+
 /** The roads open to someone now: their node's branches once they have the level (and, for the ascended form, an
- *  ascension); empty when there's nothing to become yet. */
-export function roadsOpen(p: Person): PathNode[] {
+ *  ascension), their people's own road among them; empty when there's nothing to become yet. */
+export function roadsOpen(p: Person, s?: GameState): PathNode[] {
   const node = p.road ? PATH_BY_ID[p.road] : undefined;
   if (!node || node.stage >= 4) return [];
   const next = node.stage + 1;
   if (levelOf(p) < STAGE_LEVELS[next]) return [];
   if (next === 4 && !p.ascended) return [];
-  return branchesOf(node.id);
+  return roadsFrom(node.id, peopleFor(p, s));
 }
 
 /** They take a road: the node is theirs, and they fight as its archetype from now on. */
@@ -80,7 +83,8 @@ export function evolveTo(s: GameState, p: Person, node: PathNode, why?: string):
  *  their own whim (by the seed). */
 export function chooseRoad(s: GameState, p: Person, roads: PathNode[]): PathNode {
   const rng = new Rng(mixSeed(hashSeed(s.seed), p.id * 131 + 7, roads.length));
-  const pulls = roads.map((r) => classPull(p, r.cls) / CLASS_DEFS[r.cls].rarity + rng.next() * 0.6);
+  // (their people's own road draws them a little more)
+  const pulls = roads.map((r) => classPull(p, r.cls) / CLASS_DEFS[r.cls].rarity + rng.next() * 0.6 + (r.origin ? 0.3 : 0));
   let best = 0;
   for (let i = 1; i < roads.length; i++) if (pulls[i] > pulls[best]) best = i;
   return roads[best];
@@ -91,8 +95,9 @@ export function askEvolve(s: GameState, p: Person, roads: PathNode[]): void {
   const node = PATH_BY_ID[p.road!];
   const cal = calendar(s.tick);
   const base = lineage(node.id)[0];
-  const scene = (FORK[base.id] ?? '{name} stands where the road forks.').replaceAll('{name}', p.name);
-  const story = `${scene} ${p.name} the ${node.name} is level ${levelOf(p)} now, and two callings are open to them.`;
+  const scene = (base.founder ? FOUNDER_FORK : FORK[base.id] ?? '{name} stands where the road forks.').replaceAll('{name}', p.name);
+  const mine = roads.find((r) => r.origin);
+  const story = `${scene} ${p.name} the ${node.name} is level ${levelOf(p)} now, and ${roads.length === 2 ? 'two' : roads.length === 3 ? 'three' : roads.length} callings are open to them.${mine ? ` One of them, the ${mine.name}, is the road of their own people: no one else may walk it.` : ''}`;
   s.prompts.push({
     id: s.nextId++,
     kind: 'evolve',
@@ -173,10 +178,11 @@ export function classesHourly(s: GameState): void {
       continue;
     }
     adoptPath(p);
+    adoptFounderRoad(p);
     // (at the last stage's level, each day a small chance to ascend to it: decided by the seed)
     if (!p.ascended && levelOf(p) >= STAGE_LEVELS[4] && s.tick % TICKS_PER_DAY === 0 && new Rng(mixSeed(hashSeed(s.seed), p.id, s.tick)).chance(ASCEND_DAILY)) ascend(s, p);
     if (p.road) {
-      const roads = roadsOpen(p);
+      const roads = roadsOpen(p, s);
       if (!roads.length) continue;
       if (roads.length === 1) evolveTo(s, p, roads[0]);
       else if (!asksEvolve(s)) evolveTo(s, p, chooseRoad(s, p, roads));
@@ -191,6 +197,19 @@ export function classesHourly(s: GameState): void {
     }
   }
   statsHourly(s);
+}
+
+/** A founder from before their line had choices (a calling, no road): they stand on the line's own node of their
+ *  stage, so an old save's Harvest Mother is a Harvest Mother still, and evolves by choice from there. */
+export function adoptFounderRoad(p: Person): void {
+  if (!p.fcls || p.road || !FOUNDER_CLASS[p.fcls]) return;
+  const st = stageOf(p);
+  let id = founderRoot(p.fcls);
+  for (let i = 1; i <= st; i++) id += i === 4 ? '_x' : '_o';
+  if (!PATH_BY_ID[id]) return;
+  p.road = id;
+  p.cls = PATH_BY_ID[id].cls;
+  p.stageSeen = st;
 }
 
 /** A calling's name with 'a' or 'an' before it ('The Eternal Hearth' as it is). */
