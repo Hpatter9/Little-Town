@@ -476,7 +476,7 @@ function planCrafting(s: GameState, n: Needs): Stock {
   if (room() && !ordered(s, isMedicine) && kept(s, isMedicine) < 3) tryMake(bestMakeable(s, isMedicine, (i) => (i.id === 'bandage' ? 2 : 1)));
   // 4a. battle items for the fighters' pouches, one order at a time, and only while the town is fed (sim/kit.ts)
   const isKit = (i: ItemDef) => !!KIT_BY_ID[i.id];
-  if (room() && n.foodDays >= 2 && !ordered(s, isKit)) {
+  if (process.env.KIT_X !== 'noorders' && room() && n.foodDays >= 2 && !ordered(s, isKit)) { // TEMP
     // (the most wanted the town has the makings for now; else gather for the most wanted)
     const wanted = ITEMS.filter((i) => isKit(i) && kitNeed(s, i.id) > 0 && itemUnlocked(s, i) && stationFor(s, i)).sort((x, y) => kitNeed(s, y.id) - kitNeed(s, x.id));
     const ready = wanted.find((i) => inputsReady(s, i, n.stock));

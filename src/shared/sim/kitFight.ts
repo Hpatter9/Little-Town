@@ -44,6 +44,7 @@ export function pickKitItem(a: Arena, f: Combatant): KitItem | null {
   if (!foes.length) return null;
   const smoke = best(list, 'escape');
   if (smoke && share < ESCAPE_BELOW && !has(f, 'invisible', a.tick)) return smoke;
+  if (process.env.KIT_X === 'nobuff') return null; // TEMP
   for (const k of list.filter((x) => x.use === 'buff').sort((x, y) => y.rank - x.rank)) {
     const status = k.effects.find((e) => e.status)?.status;
     if (status && !has(f, status, a.tick)) return k;
