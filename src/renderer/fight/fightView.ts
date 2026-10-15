@@ -7,7 +7,7 @@
 
 import { boatArt } from '../art/boatArt';
 import { airshipTexture, DECK, loadAirshipArt } from '../art/airshipArt';
-import { ColorMatrixFilter, Container, Graphics, Sprite, Text, TilingSprite } from 'pixi.js';
+import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Text, Texture, TilingSprite } from 'pixi.js';
 import { ABILITY_BY_ID } from '../../shared/data/abilities';
 import type { Element } from '../../shared/data/effects';
 import { actFx } from '../../shared/data/actFx';
@@ -38,7 +38,8 @@ import type { Biome } from '../../shared/data/biomes';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { fightAnim, heroFrame, heroScale, heroSheet, skeletonSheet, WOLF_FORMS } from '../art/combatPoses';
 import { stillTexture } from '../art/stills';
-import { hkLayers, hkPose, hkWhoById } from '../art/hkFolk';
+import { HK_FIGURE, hkLayers, hkPose, hkWhoById } from '../art/hkFolk';
+import { TAIL_W, tailTexture, WAIST } from '../art/merTail';
 import { hkSprite } from '../art/hkTexture';
 /** A townsperson's height on the fight screen, in the Himeko look (as the side-on figures were at 0.75). */
 const HK_HEIGHT = 36;
@@ -111,6 +112,12 @@ interface Flight {
   wait: number;
 }
 
+const NO_MERS: ReadonlySet<number> = new Set();
+/** The waist cut of a fight sprite's frame (cached per frame), and each sprite's tail child. */
+const waistCuts = new Map<Texture, Texture>();
+const tails = new WeakMap<Sprite, Sprite>();
+const HK_WAIST = 0.67;
+
 interface Figure {
   sprite: Sprite;
   pop: Text;
@@ -135,6 +142,9 @@ export class FightScene {
   private readonly fx = new Graphics();
   /** Open water over the ground while a boat is at sea (the scene's own ground is the shore). */
   private readonly sea = new Graphics();
+  /** Whether the fight is in or under water, and which of the party are merfolk (they fight on a tail there). */
+  private wet = false;
+  private mers: ReadonlySet<number> = NO_MERS;
   /** Down a dungeon: what's in the room (a chest, a door, a trap...), torches along the walls, and the dark closing in as
    *  the party's own torches run low. */
   private readonly roomProp = new Sprite();
@@ -208,7 +218,7 @@ export class FightScene {
     this.layers[3].y = Math.round(this.vh - FRONT_H + 8);
   }
 
-  update(v: ExpeditionView | null, biome?: Biome, season?: string, sea = false): void {
+  update(v: ExpeditionView | null, biome?: Biome, season?: string, sea = false, mers?: ReadonlySet<number>): void {
     this.root.visible = !!v;
     this.view = v;
     if (!v) return;
@@ -217,6 +227,9 @@ export class FightScene {
     const scene = (window as unknown as { __scene?: SceneId }).__scene ?? sceneFor(v.dest, v.scenery, v.phase, biome);
     // (and painted by hand, or a painted backdrop from the packs: `window.__look` forces one, for previews)
     const look = (window as unknown as { __look?: SceneLook }).__look ?? lookFor(scene, v.id, season, sea && !this.aloft(v), this.aloft(v));
+    // (fought in or under the water: merfolk fight in their tail form, not on legs)
+    this.wet = /underwater|ocean/.test(look) && !this.afloat(v) && !this.aloft(v);
+    this.mers = mers ?? NO_MERS;
     const key = `${v.id}|${scene}|${look}`;
     if (key !== this.sceneKey) {
       this.sceneKey = key;
@@ -853,11 +866,19 @@ export class FightScene {
     // who fights in wolf form
     if (!hs && !f.wolf && f.look) {
       const keys = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: true, activity: 'fight' });
-      const [col, row] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down, ranged: f.ranged, now });
-      if (hkSprite(s, keys, col, row, x, y, HK_HEIGHT)) return false;
+      // (on a tail they fall standing: the motion topples them, as there's no lying frame to cut at the waist)
+      const finned = this.wet && this.mers.has(f.ref);
+      const [col, row] = hkPose({ facing: faceLeft ? 'left' : 'right', moving: false, walked: 0, working: false, sinceBlow: acting ? f.sinceAction : 999, sinceHit: f.sinceHit, down: f.down && !finned, ranged: f.ranged, now });
+      if (hkSprite(s, keys, col, row, x, y, HK_HEIGHT)) {
+        this.finTail(s, finned, true, f.ref, faceLeft, now);
+        return false;
+      }
       // (until the weapon's layer loads, the same person without it: never a stranger's figure)
       const bare = hkLayers(hkWhoById(f.ref, f.look, f.gear), { fighting: false, activity: 'idle' });
-      if (hkSprite(s, bare, col, row, x, y, HK_HEIGHT)) return false;
+      if (hkSprite(s, bare, col, row, x, y, HK_HEIGHT)) {
+        this.finTail(s, finned, true, f.ref, faceLeft, now);
+        return false;
+      }
     }
     // a party member of a fighting calling in their combat form (a Craftpix hero: art/combatPoses.ts)
     // (a werewolf fights in wolf form: the Craftpix werewolves, by who they are)
@@ -891,7 +912,51 @@ export class FightScene {
     const flip = faceLeft ? -1 : 1;
     s.scale.set(k * flip, k);
     s.position.set(Math.round(x - (flip > 0 ? CENTRE_X : -CENTRE_X - 1) * k), Math.round(y - FEET_Y * k));
+    this.finTail(s, !!f.look && !hs && this.wet && this.mers.has(f.ref), false, f.ref, faceLeft, now);
     return f.down;
+  }
+
+  /** A merfolk fighting in the water shows to the waist with their tail trailing behind (art/merTail.ts, as on the
+   *  map). The tail is a child of the figure's sprite, so every lunge, recoil, squash and fall moves it too. Called
+   *  once the sprite is placed; anywhere else it hides the tail again. */
+  private finTail(s: Sprite, on: boolean, hk: boolean, ref: number, faceLeft: boolean, now: number): void {
+    let tail = tails.get(s);
+    if (!on) {
+      if (tail) tail.visible = false;
+      return;
+    }
+    if (!tail) {
+      tail = s.addChild(new Sprite());
+      tails.set(s, tail);
+    }
+    const full = s.texture;
+    const waist = hk ? HK_WAIST : WAIST;
+    let cut = waistCuts.get(full);
+    if (!cut) {
+      const fr = full.frame;
+      cut = new Texture({ source: full.source, frame: new Rectangle(fr.x, fr.y, fr.width, Math.round(fr.height * waist)) });
+      waistCuts.set(full, cut);
+    }
+    s.texture = cut;
+    let rootX = CENTRE_X;
+    let rootY = cut.height;
+    let size = 1;
+    if (hk) {
+      // (the paper doll's origin is at its feet: the cut's anchor and the tail's root follow)
+      const feet = s.anchor.y * full.height;
+      s.anchor.set(0.5, feet / cut.height);
+      rootX = 0;
+      rootY = cut.height - feet;
+      size = HK_FIGURE / 48;
+    }
+    const flip = Math.sign(s.scale.x) || 1;
+    tail.texture = tailTexture(ref);
+    tail.anchor.set(5 / TAIL_W, 0);
+    tail.position.set(rootX, rootY);
+    // (the tail art points right and trails behind: they face left, so it points right, and on the other side the other way)
+    tail.scale.set((faceLeft ? 1 : -1) * flip * size, size);
+    tail.rotation = Math.sin(now / 300 + ref) * 0.12;
+    tail.visible = true;
   }
 }
 
