@@ -6,7 +6,7 @@
 import { castleLayout, castleStep, type CastleLayout } from './castle';
 import { isGate } from './ringWall';
 import { footprint } from './buildings';
-import { addWear, CELL, cellOf, centreOf, findPath, mayReach, idx, inMap, inRect, SWIM_COST, type LandMap, type Pt, type Rect } from './land';
+import { addWear, CELL, cellOf, centreOf, findPath, groundAt, mayReach, idx, inMap, inRect, SWIM_COST, wet, type LandMap, type Pt, type Rect } from './land';
 import type { GameState } from './state';
 
 export interface Walker {
@@ -178,8 +178,45 @@ function noteFound(m: LandMap, key: string, blocked: Set<number>, layout: unknow
   f.ways.set(key, { way: way.map((c) => ({ x: c.x, y: c.y })), ...reach });
 }
 
+/** Where to stand for a goal in the mountain's rock (a face to cut, a room's middle not yet dug): nobody walks on rock,
+ *  so it's the open or dug ground beside it, the side nearest the walker. Any other goal stays as it is. */
+export function standFor(m: LandMap, from: Pt, to: Pt): Pt {
+  const c = cellOf(to);
+  if (groundAt(m, c.x, c.y) !== 'mountain') return to;
+  let best: Pt | undefined;
+  let bestD = Infinity;
+  for (const [dx, dy] of [[0, 1], [-1, 0], [1, 0], [0, -1], [-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+    const x = c.x + dx;
+    const y = c.y + dy;
+    if (!inMap(m, x, y) || groundAt(m, x, y) === 'mountain' || wet(groundAt(m, x, y))) continue;
+    if (dx && dy && (groundAt(m, c.x + dx, c.y) === 'mountain' || groundAt(m, c.x, c.y + dy) === 'mountain')) continue; // (not past a corner of rock)
+    const p = centreOf(x, y);
+    const d = Math.hypot(p.x - from.x, p.y - from.y) + (dx && dy ? CELL : 0);
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  if (best) return best;
+  // (deep in the rock: the nearest open or dug ground)
+  for (let r = 2; r <= 8 && !best; r++) {
+    for (let y = c.y - r; y <= c.y + r; y++)
+      for (let x = c.x - r; x <= c.x + r; x++) {
+        if (Math.max(Math.abs(x - c.x), Math.abs(y - c.y)) !== r || !inMap(m, x, y) || groundAt(m, x, y) === 'mountain' || wet(groundAt(m, x, y))) continue;
+        const p = centreOf(x, y);
+        const d = Math.hypot(x - c.x, y - c.y) * CELL + Math.hypot(p.x - from.x, p.y - from.y) * 0.01;
+        if (d < bestD) {
+          bestD = d;
+          best = p;
+        }
+      }
+  }
+  return best ?? to;
+}
+
 /** A path from a point to another, as px centres of the cells on the way, ending on `to` itself (null: no way). */
-export function pathTo(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin'>, from: Pt, to: Pt, through?: Rect, swim = false): Pt[] | null {
+export function pathTo(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin'>, from: Pt, goal: Pt, through?: Rect, swim = false): Pt[] | null {
+  const to = standFor(s.land, from, goal);
   const a = cellOf(from);
   const b = cellOf(to);
   const clamp = (c: Pt) => ({ x: Math.max(0, Math.min(s.land.w - 1, c.x)), y: Math.max(0, Math.min(s.land.h - 1, c.y)) });
@@ -216,12 +253,25 @@ export function pathTo(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'orig
   return pts;
 }
 
+/** With no way found, straight at the goal, but only as far as the rock: the mountain is never crossed. */
+function straightShort(m: LandMap, from: Pt, to: Pt): Pt[] {
+  const n = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / (CELL / 2));
+  let last: Pt = { x: from.x, y: from.y };
+  for (let i = 1; i <= n; i++) {
+    const p = { x: from.x + ((to.x - from.x) * i) / n, y: from.y + ((to.y - from.y) * i) / n };
+    if (groundAt(m, Math.floor(p.x / CELL), Math.floor(p.y / CELL)) === 'mountain') return [last];
+    last = p;
+  }
+  return [{ x: to.x, y: to.y }];
+}
+
 const same = (a: Pt | undefined, b: Pt) => !!a && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
 
 /** One tick's walk towards `to` at `step` px. True once there. `through` is a footprint the walker may enter (where
  *  it's going). `tick` lets the path be looked at again now and then. A swimmer (`swim`: the merfolk) goes through the
  *  sea as readily as over the land. */
-export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin'>, w: Walker, to: Pt, step: number, through?: Rect, tick = 0, swim = false): boolean {
+export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin'>, w: Walker, goal: Pt, step: number, through?: Rect, tick = 0, swim = false): boolean {
+  const to = standFor(s.land, w, goal);
   if (Math.hypot(to.x - w.x, to.y - w.y) <= Math.max(ARRIVE, step)) {
     w.x = to.x;
     w.y = to.y;
@@ -233,7 +283,7 @@ export function walk(s: Pick<GameState, 'buildings' | 'land' | 'nomad' | 'origin
   const offPath = !!w.path && w.path.length > 1 && Math.hypot(w.path[0].x - w.x, w.path[0].y - w.y) > OFF_PATH;
   const rebuilt = !!w.path && (walls.get(w) ?? null) !== layout;
   if (!w.path || !same(w.goal, to) || offPath || rebuilt || (tick && tick % REPLAN_TICKS === 0)) {
-    w.path = pathTo(s, w, to, through, swim) ?? [{ x: to.x, y: to.y }];
+    w.path = pathTo(s, w, to, through, swim) ?? straightShort(s.land, w, to);
     walls.set(w, layout);
     w.goal = { x: to.x, y: to.y };
     // (the first cell is the one we stand in: skip it when we're past its centre already)

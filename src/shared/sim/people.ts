@@ -40,6 +40,7 @@ import { swims } from './sea';
 import { craftNeeded, craftSeconds, finishPiece, hasBedroll, missingItems, pickTool, stationFor, takeItemInputs, toolSpeed } from './crafting';
 import { leavePt } from './breaks';
 import { onBuilt } from './era';
+import { digOrder, digRoom, digStand, holdOf } from './castle';
 import { doomForage } from './doom';
 import { biomeOf, openGround } from '../data/biomes';
 import { HORSE_HP } from '../data/trade';
@@ -252,9 +253,12 @@ export function updatePerson(s: GameState, p: Person, rng: Rng, ctx: TickContext
       const share = deliveredShare(site);
       if (share < 1 && site.progress >= share) {
         site.progress = share;
+        if (site.room && holdOf(s) === 'mountain') digRoom(s, site, site.progress);
         p.task = null;
         break;
       }
+      // (a hold's room is cut out of the rock as it is built, from its doorway inward: sim/castle.ts)
+      if (site.room && holdOf(s) === 'mountain') digRoom(s, site, site.progress);
       gainSkill(p, 'construction', BUILD_XP_PER_SEC / TICK_HZ);
       // (paid by the hour: by the treasury for its works, by the owner for theirs; an owner works for nothing)
       if (site.owner === undefined) accruePay(s, p, BUILD_PER_HOUR, 'wages', 'building', TICKS_PER_HOUR);
@@ -1284,12 +1288,18 @@ function buildSpot(s: GameState, p: Person, b: Building, cover?: () => Cover, bu
     const x = (cx + 0.5) * CELL;
     const y = (cy + 0.5) * CELL;
     if (others.length && taken(x, y)) return undefined;
-    if (!inMap(s.land, cx, cy) || (wet(groundAt(s.land, cx, cy)) && !swims(s, p))) return undefined;
+    if (!inMap(s.land, cx, cy) || (wet(groundAt(s.land, cx, cy)) && !swims(s, p)) || groundAt(s.land, cx, cy) === 'mountain') return undefined;
     on ??= cover ? cover() : coverOf(s);
     const ids = on.get(cy * 65536 + cx);
     if (ids && (ids.length > 1 || ids[0] !== b.id)) return undefined; // (another building stands there)
     return { x, y };
   };
+  // (a hold's room is cut from open or dug ground, never stood on in the rock: beside the next cell to cut)
+  if (b.room && holdOf(s) === 'mountain' && b.status === 'blueprint' && digOrder(s, r).length) {
+    // (a room already cut out, or the hall, is walked through: they may stand in it)
+    const c = digStand(s, r, (x, y) => !others.length || !taken((x + 0.5) * CELL, (y + 0.5) * CELL));
+    return c ? { x: (c.x + 0.5) * CELL, y: (c.y + 0.5) * CELL } : undefined;
+  }
   // (its rows above and below, then its sides)
   for (let x = r.x; x < r.x + r.w; x++) {
     const spot = free(x, r.y - 1) ?? free(x, r.y + r.h);
@@ -1580,7 +1590,14 @@ function goTo(s: GameState, p: Person, to: Pt, through?: ReturnType<typeof footp
 export const SHELTER_RUN = 1.5;
 
 /** Step toward a building: to its door. */
-const goToB = (s: GameState, p: Person, b: Building) => goTo(s, p, buildingDoor(b), footprint(b));
+const goToB = (s: GameState, p: Person, b: Building) => {
+  // (a hold's room still being cut: to the ground beside the next cell of rock, never into the rock)
+  if (b.room && b.status === 'blueprint' && holdOf(s) === 'mountain') {
+    const c = digStand(s, footprint(b));
+    if (c) return goTo(s, p, { x: (c.x + 0.5) * CELL, y: (c.y + 0.5) * CELL }, footprint(b));
+  }
+  return goTo(s, p, buildingDoor(b), footprint(b));
+};
 
 /** Step toward a point (for visitors and the like). Returns true once there. */
 export function walkTo(s: GameState, p: Person, to: Pt): boolean {

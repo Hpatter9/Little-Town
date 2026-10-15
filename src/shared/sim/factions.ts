@@ -37,6 +37,7 @@ import { startRaid } from './raids';
 import { seaTown } from './sea';
 import { isChild } from './social';
 import { makeStranger, strangerLook } from './strangers';
+import { walk } from './walk';
 import { addStock, campXY, earn, edgeXY, makePerson, notify, setOutcome, townFull, type Faction, type GameState, type Prompt, type Raid, type Raider } from './state';
 import { calendar, paceDay, TICKS_PER_DAY, TICKS_PER_HOUR } from './time';
 import { weatherAt } from './weather';
@@ -377,19 +378,11 @@ export function envoyTick(s: GameState): void {
   const camp = campXY(s);
   const side: -1 | 1 = r.x < camp.x ? -1 : 1;
   const to = r.leaving ? edgeXY(s, side) : { x: camp.x + side * 44, y: camp.y + 28 };
-  const dx = to.x - r.x;
-  const dy = to.y - r.y;
-  const d = Math.hypot(dx, dy);
-  if (d <= RIDE_PACE) {
-    r.x = to.x;
-    r.y = to.y;
+  // (along the land's own ways, never over the mountain or through the water: sim/walk.ts)
+  if (walk(s, r, to, RIDE_PACE, undefined, s.tick)) {
     if (r.leaving) s.envoyRider = undefined;
     else r.dir = side < 0 ? 1 : -1; // (waiting, facing the fire)
-    return;
   }
-  r.x += (dx / d) * RIDE_PACE;
-  r.y += (dy / d) * RIDE_PACE;
-  r.dir = dx >= 0 ? 1 : -1;
 }
 
 /** The town's answer to an envoy (the player's, or the default when nobody answers). */

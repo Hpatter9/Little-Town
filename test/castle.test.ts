@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BUILDING_BY_ID } from '../src/shared/data/buildings';
 import { canPlace, doorCell, footprint, placeBlueprint } from '../src/shared/sim/buildings';
-import { castleBounds, castleCells, castleGate, castleLayout, castleStep, coreRect, GATES_MOST, joinsCastle, roomKind, rooms, sharedEdges } from '../src/shared/sim/castle';
+import { castleBounds, castleCells, digRoom, castleGate, castleLayout, castleStep, coreRect, GATES_MOST, joinsCastle, roomKind, rooms, sharedEdges } from '../src/shared/sim/castle';
 import { delvePool, GEM_DEPTH, GOLD_DEPTH, groundAt, idx, inMap, isRoad, MOUNTAIN_FOOT } from '../src/shared/sim/land';
 import { Rng } from '../src/shared/rng';
 import { Sim } from '../src/shared/sim/sim';
@@ -180,7 +180,13 @@ test('a Deep Hold is cut into the mountain: half the land is rock, the halls car
   const field = canPlace(s, BUILDING_BY_ID.garden_plot, core.x - 6, core.y + core.h + 1);
   assert.equal(field.ok, true, `a field on the terrain, clear of the hold: ${field.reason}`);
   assert.ok(placeBlueprint(s, 'workbench', east.x, east.y).ok, 'placed');
-  assert.equal(groundAt(m, east.x, east.y), 'hall', 'its ground cut out as work begins');
+  assert.equal(groundAt(m, east.x, east.y), 'mountain', 'its rock is cut as it is built, not when it is laid');
+  const room = s.buildings[s.buildings.length - 1];
+  const rf = footprint(room);
+  const cut = () => { let n = 0; for (let y = rf.y; y < rf.y + rf.h; y++) for (let x = rf.x; x < rf.x + rf.w; x++) if (groundAt(m, x, y) === 'hall') n++; return n; };
+  assert.equal(cut(), 0);
+  digRoom(s, room, 0.01);
+  assert.equal(cut(), 1, 'its first cell cut, beside the hall, at the doorway');
   // the mountain is solid: no way through the rock, only in by the hall
   const from = { x: (c.x + 0.5) * 32, y: (c.y + 0.5) * 32 };
   assert.equal(pathTo(s, from, { x: (c.x + 20.5) * 32, y: (c.y - 12.5) * 32 }), null, 'no way through the rock');
