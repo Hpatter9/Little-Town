@@ -5413,3 +5413,10 @@ Each guild has a small round badge (DawnLike item glyph on a coloured token) sho
 - Shown in: the People list rows (after the people mark), the inspect card (a line naming every guild, leader starred), the map tap card (`overlayUi.ts`, `createPersonCard.show(..., guilds)`), and the Guilds tab (`panel/guildPanel.ts`: badge on each guild card and on each member chip; leader starred). Membership was already in the People panel key.
 - Not done: the fight HUD and Chronicle show names without a person id, so they cannot map to a guild without a sim change.
 - Art is from DawnLike sheets already in `src/renderer/art/items` and credited.
+
+## A skirmish with nobody left (a crash fix)
+
+A land skirmish (`sim/roamers.ts`) whose party was all gone by the end (dead, or gone from the land) crashed the
+closing notice: `names(members)` read the last name of an empty list. The helper is now `skirmishNames`, exported, and
+reads "Nobody" for an empty party. Found by the Underdark chat's 40-day settlers soak (seed 2, day 32). Test in
+`test/roamers.test.ts`.
