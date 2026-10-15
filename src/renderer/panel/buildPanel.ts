@@ -2,7 +2,6 @@
 // powers), what's being built and what stands, the stores (craftingPanel.ts renderStores), the treasury, and a book of
 // every building it knows. The town builds for itself.
 
-import { alignBar } from './alignBar';
 import { faithSection } from './faithPanel';
 import { villagesSection } from './villagesPanel';
 import { politicsSection } from './politicsPanel';
@@ -98,7 +97,7 @@ export function renderBuild(s: Snapshot, bridge: Bridge | undefined, rerender: (
       }),
     );
   }
-  out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description), alignBar(s));
+  out.push(dirs, el('div', 'hint', DIRECTION_DEFS[s.direction].description));
 
   // how raids are fought: down the trail (tower defence) or on a tactics board (sim/tactics.ts; a trial)
   out.push(el('h2', '', 'Raid battles'));
