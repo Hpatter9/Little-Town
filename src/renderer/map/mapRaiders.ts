@@ -15,6 +15,7 @@ import { CENTRE_X, FEET_Y, FRAME_COUNT, FRAME_SIZE, lpcFrame, type LpcAnim } fro
 import { machineFrame, machineSize } from '../art/machines';
 import { attackAnim, enemyLook } from '../art/rivals';
 import { stillTexture } from '../art/stills';
+import { SideRing } from '../art/sideRing';
 import { glowTexture } from '../town/layer';
 import { corpseAlpha, FALL_TICKS, motionOf, moveSprite, TickClock } from '../fight/fightMotion';
 
@@ -25,6 +26,8 @@ interface Drawn {
   view: RaiderView;
   sprite: Sprite;
   shadow: Sprite;
+  /** The side ring under it (art/sideRing.ts). */
+  ring: SideRing;
   /** How high it's drawn over its spot (eased toward the view's `aloft`). */
   aloft?: number;
   bar: Graphics;
@@ -45,6 +48,11 @@ export class MapRaiders {
   private readonly clock = new TickClock();
   private readonly drawn = new Map<number, Drawn>();
 
+  /** Side rings under the fighters: 'fight' (the map raid), 'board' (the tactics board's wider ring), or none. */
+  rings: 'off' | 'fight' | 'board' = 'off';
+  /** The one whose turn it is on the board (a brighter ring). */
+  activeId: number | null = null;
+
   constructor(private readonly layer: Container) {}
 
   update(raiders: RaiderView[], now: number): void {
@@ -57,12 +65,14 @@ export class MapRaiders {
         const shadow = this.layer.addChild(new Sprite(glowTexture()));
         shadow.anchor.set(0.5);
         shadow.tint = 0x000000;
+        const ring = new SideRing();
+        this.layer.addChild(ring.g);
         const load = this.layer.addChild(bundle());
         const sprite = this.layer.addChild(new Sprite());
         const bar = this.layer.addChild(new Graphics());
         const spark = this.layer.addChild(new Sprite());
         spark.visible = false;
-        d = { view: r, sprite, shadow, bar, load, spark, from: { x: r.x, y: r.y }, to: { x: r.x, y: r.y }, at: now, x: r.x, y: r.y, walked: 0 };
+        d = { view: r, sprite, shadow, ring, bar, load, spark, from: { x: r.x, y: r.y }, to: { x: r.x, y: r.y }, at: now, x: r.x, y: r.y, walked: 0 };
         this.drawn.set(r.id, d);
       }
       d.from = { x: d.x, y: d.y };
@@ -72,7 +82,7 @@ export class MapRaiders {
     }
     for (const [id, d] of this.drawn) {
       if (seen.has(id)) continue;
-      for (const o of [d.sprite, d.shadow, d.bar, d.load, d.spark]) o.destroy();
+      for (const o of [d.sprite, d.shadow, d.ring.g, d.bar, d.load, d.spark]) o.destroy();
       this.drawn.delete(id);
     }
   }
@@ -214,6 +224,9 @@ export class MapRaiders {
       d.shadow.tint = r.ally && !r.down ? 0x60e070 : 0x000000;
       d.shadow.position.set(Math.round(x), Math.round(y) + 2);
       d.shadow.zIndex = y - 0.5;
+      // the side ring: red for a raider, green for the town's helpers (summoned, raised, tamed, allied)
+      const feet = Math.max(26, Math.abs(s.width) * 0.7);
+      d.ring.set(this.rings !== 'off' && s.visible && !lift && !r.swimming ? { side: r.ally ? 'friend' : 'foe', w: this.rings === 'board' ? 44 : Math.min(48, feet), down: r.down, active: this.activeId === r.id } : null, x, y + 2, y - 0.4);
       // the blow's wind-up, lunge and recoil, the struck one's knock back and fall (a smaller step than the fight screen's)
       if (!r.swimming && !lift) {
         const wide = s.texture.width > s.texture.height * 1.1;
