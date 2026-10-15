@@ -278,32 +278,36 @@ export function createFightHud(on: { back(): void; speed(n: number): void }): Fi
         party.replaceChildren(...v.members.map((m) => line('', m.name)));
         return;
       }
-      // foes: each kind once, with how many are left standing
-      const left = new Map<string, number>();
-      for (const f of fight) if (f.side === 'enemy' && !f.down) left.set(f.name, (left.get(f.name) ?? 0) + 1);
-      // foes: each kind once, how many are left, and how near the next of them is to acting
+      // foes: a row for each one still standing, in the order the battle has them; a kind with more than one is numbered
+      // (Wolf 1, Wolf 2) by its place in the battle, so a number stays with its foe as the others fall
+      const kinds = new Map<string, number>();
+      for (const f of fight) if (f.side === 'enemy') kinds.set(f.name, (kinds.get(f.name) ?? 0) + 1);
+      const seen = new Map<string, number>();
       const foeRows: HTMLElement[] = [];
-      for (const [n, k] of left) {
-        const kin = fight.filter((f) => f.side === 'enemy' && !f.down && f.name === n);
+      for (const f of fight) {
+        if (f.side !== 'enemy') continue;
+        const place = (seen.get(f.name) ?? 0) + 1;
+        seen.set(f.name, place);
+        if (f.down) continue;
         const row = document.createElement('div');
         row.className = 'ff-row ff-foe';
         const head = document.createElement('div');
         head.className = 'ff-head';
         const name = document.createElement('span');
         name.className = 'ff-name';
-        name.textContent = k > 1 ? `${n} ×${k}` : n;
-        // how near the next of them is to acting
-        const soon = Math.max(...kin.map((f) => f.atb));
-        head.append(name, turnGauge(soon, true, 'Next turn'));
-        // their life: what's left of the kind's health, over what it began with (all of a band's together)
-        const hp = kin.reduce((a, f) => a + Math.max(0, f.hp), 0);
-        const max = kin.reduce((a, f) => a + f.maxHp, 0);
-        row.append(head, meter('hp foe', hp / Math.max(1, max), '', `${Math.round(hp)}/${Math.round(max)}`, k > 1 ? `Life left, all ${k} together` : 'Life left'));
+        name.textContent = (kinds.get(f.name) ?? 1) > 1 ? `${f.name} ${place}` : f.name;
+        // how near their next turn is, and their life: what's left over what they began with
+        head.append(name, turnGauge(f.atb, true, 'Next turn'));
+        row.append(head, meter('hp foe', f.hp / Math.max(1, f.maxHp), '', `${Math.max(0, Math.round(f.hp))}/${Math.round(f.maxHp)}`, `${name.textContent} · life left`));
         foeRows.push(row);
       }
+      const foeCount = foeRows.length;
       // (an assault: which wave this is)
       if (v.assault && v.assault.wave > 0) foeRows.unshift(line('ff-wave', `Wave ${v.assault.wave} of ${v.assault.total}`));
-      foes.classList.toggle('crowd', left.size > 3);
+      // (more than three foes: one line each; more than six: tighter still; more than ten: the list scrolls)
+      foes.classList.toggle('crowd', foeCount > 3);
+      foes.classList.toggle('tight', foeCount > 6);
+      foes.classList.toggle('packed', foeCount > 10);
       foes.replaceChildren(...(foeRows.length ? foeRows : [line('ff-dim', 'Beaten!')]));
       party.classList.toggle('many', fight.filter((f) => f.side === 'party').length > 6);
       party.replaceChildren(

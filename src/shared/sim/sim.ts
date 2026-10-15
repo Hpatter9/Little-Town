@@ -73,6 +73,7 @@ import { deepHourly } from './deep';
 import { portalsHourly } from './portals';
 import { ancestorsHourly } from './ancestors';
 import { lookInside } from './interiors';
+import { dynastyHourly } from './dynasty';
 import { lineageHourly } from './lineage';
 import type { RealmId } from '../data/portals';
 import { giftVillage, villagesHourly } from './villages';
@@ -142,10 +143,16 @@ export class Sim {
   }
 
   /** Advance by `ms` of real time. Runs whole ticks and carries the remainder. Returns ticks stepped. */
-  advance(ms: number, maxTicks = MAX_TICKS_PER_ADVANCE): number {
+  advance(ms: number, maxTicks = MAX_TICKS_PER_ADVANCE, budgetMs = Infinity): number {
     this.carryMs += Math.max(0, ms);
+    // (a wall-clock budget: ticks that don't fit stay owed and are caught up over the next calls, up to maxTicks' worth)
+    const until = budgetMs === Infinity ? Infinity : performance.now() + budgetMs;
     let n = 0;
     while (this.carryMs >= TICK_MS && n < maxTicks) {
+      if (until !== Infinity && (n & 7) === 7 && performance.now() > until) {
+        this.carryMs = Math.min(this.carryMs, TICK_MS * maxTicks);
+        return n;
+      }
       this.carryMs -= TICK_MS;
       this.step();
       n++;
@@ -257,6 +264,7 @@ export class Sim {
     diaryTick(s); // (the day's doings counted for each townsperson's diary: sim/diary.ts)
     villagesHourly(s); // (daughter villages: sim/villages.ts)
     politicsHourly(s); // (the town's politics and law: sim/politics.ts)
+    dynastyHourly(s); // (upbringing, feuds, the ruling house, heirlooms: sim/dynasty.ts)
     guildsHourly(s); // (guilds and squads formed to fill what the town lacks: sim/guilds.ts)
     ranchHourly(s); // (the monster ranch's day: sim/ranch.ts)
     arenaHourly(s); // (the arena's season, its card and its bout: sim/arena.ts)

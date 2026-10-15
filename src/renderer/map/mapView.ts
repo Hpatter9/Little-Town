@@ -703,8 +703,13 @@ export class MapView {
     if (!land) return;
     // (a castle's tall walls: see-through where someone stands behind them, so the rooms stay in view)
     for (const sp of this.castle?.walls ?? []) {
+      // (a run along the top of a cell hides what stands north of its foot; a run down a column, only what stands in
+      // its own strip: someone walking beside it is in front of it or level with it, not behind it)
       const foot = sp.zIndex;
-      const hidden = points.some((pt) => pt.y < foot - 3 && pt.y > sp.y + 8 && pt.x > sp.x - 8 && pt.x < sp.x + sp.texture.width + 8);
+      const column = sp.texture.width <= CELL / 2;
+      const hidden = column
+        ? points.some((pt) => pt.y < sp.y + sp.texture.height - CELL && pt.y > sp.y + 8 && pt.x > sp.x && pt.x < sp.x + sp.texture.width)
+        : points.some((pt) => pt.y < foot - 3 && pt.y > sp.y + 8 && pt.x > sp.x - 8 && pt.x < sp.x + sp.texture.width + 8);
       const target = hidden ? WALL_SEE_THROUGH : 1;
       sp.alpha = Math.abs(target - sp.alpha) < 0.03 ? target : sp.alpha + (target - sp.alpha) * 0.45;
     }
