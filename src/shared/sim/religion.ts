@@ -25,7 +25,7 @@ import type { Material } from '../data/materials';
 import {
   BLOOD_RITES, CONVERT_CHANCE, CULT_ALTAR, CULT_CHANCE, CULT_FAVOUR, CULT_NAMES, CULT_PEOPLE, CULT_RECRUIT, CULT_RITE_DAYS, CULT_RITE_MORALE,
   CURSED_ROTS, CURSE_SPARES_DAYS, DEMAND_MOST, DEMAND_PER_HEAD, DENOUNCE_CHANCE, DOUBTING, FAITH_LINES, FAMINE_AT, FAMINE_CHANCE, FAMINE_DAYS, FEAST_DAYS, FEAST_FOOD, FEAST_KEPT, FEAST_MISSED,
-  FEAST_MORALE, FOLLOWER_FAVOUR, FUNERAL_RITES_EASE, FUNERAL_RITES_FAVOUR, GOD_IDOL, GREAT_WRATH_AT, GREAT_WRATH_CHANCE, GREAT_WRATH_PEOPLE, GREAT_WRATH_SPENDS, HERETICAL,
+  FEAST_MORALE, FOLLOWER_FAVOUR, FUNERAL_RITES_EASE, FUNERAL_RITES_FAVOUR, GOD_IDOL, GREAT_WRATH_AT, GREAT_WRATH_CHANCE, GREAT_WRATH_PEOPLE, GREAT_WRATH_SPENDS, WRATH_GAP_DAYS, HERETICAL,
   HOLY_PLACES, IDOLS_MOST, IDOL_FAVOUR, LAPSE_CHANCE, LAPSE_UNDER, MIRACLE_AT, MIRACLE_CONVERTS, MIRACLE_GAP_DAYS, NATURE_ACTS, NONE_SHARE, OMENS,
   OMEN_AT, OMEN_GAP_DAYS, ORIGIN_CULT, PILGRIM_DEST, PILGRIM_EVERY_DAYS, PILGRIM_FAVOUR, PILGRIM_PARTY, PILGRIM_PEOPLE, PILGRIM_RELIC, PLAGUE_SHARE,
   PRIEST_HOURS, PRIEST_PER_LEVEL, PRIEST_RITE, RAID_BLESSING, RAID_BLESSING_PLEASED, ROAD_BLESSING, ROAD_BLESSING_HOURS, SCHISM_SHARE, SPARE_CHANCE,
@@ -75,6 +75,8 @@ export interface ReligionState {
   /** The pilgrimage out (an expedition id), and the day the last set out. */
   pilgrimage?: number;
   lastPilgrimage?: number;
+  /** The tick the last greater wrath (any god's) fell: the next waits `WRATH_GAP_DAYS`. */
+  lastWrath?: number;
 }
 
 const LOG_KEPT = 16;
@@ -270,7 +272,7 @@ function dawn(s: GameState): void {
     const last = rel.omens[d];
     // (a camp too small, or a starving town for the harvest god, is spared the worst: its omens still come)
     const spared = home.length < GREAT_WRATH_PEOPLE || (d === 'harvest' && home.some((p) => p.starving));
-    if (v <= GREAT_WRATH_AT && last !== undefined && !spared && rng.chance(GREAT_WRATH_CHANCE)) {
+    if (v <= GREAT_WRATH_AT && last !== undefined && !spared && wrathReady(s) && rng.chance(GREAT_WRATH_CHANCE)) {
       greatWrath(s, d, rng);
       break;
     }
@@ -383,6 +385,10 @@ function signOf(s: GameState, d: Domain, kind: 'bless' | 'wrath', text: string):
   if (f.signs.length > SIGNS_KEPT) f.signs.splice(0, f.signs.length - SIGNS_KEPT);
 }
 
+/** True when no greater wrath (of any god) has fallen in the last `WRATH_GAP_DAYS`: a town that angers one god is not
+ *  struck by a plague, a cursed harvest and a storm in the same week. */
+export const wrathReady = (s: GameState) => s.religion?.lastWrath === undefined || s.tick - s.religion.lastWrath >= WRATH_GAP_DAYS * TICKS_PER_DAY;
+
 /** A god's greater wrath, after its omens: the worst it can do, in its own nature. Its followers falter, and some turn
  *  to a kinder god. */
 export function greatWrath(s: GameState, d: Domain, rng: Rng): void {
@@ -458,6 +464,7 @@ export function greatWrath(s: GameState, d: Domain, rng: Rng): void {
 
 function afterWrath(s: GameState, d: Domain, rng: Rng, text: string, say: boolean): void {
   const f = faithOf(s);
+  religionOf(s).lastWrath = s.tick;
   f.favour[d] = clampF(f.favour[d] + GREAT_WRATH_SPENDS);
   if (say) log(s, 'wrath', text);
   else {

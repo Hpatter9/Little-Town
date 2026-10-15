@@ -94,6 +94,8 @@ export const GREAT_WRATH_CHANCE = 0.3;
 /** A camp smaller than this is spared the greater wraths (the lesser ones of sim/faith.ts still come). */
 export const GREAT_WRATH_PEOPLE = 5;
 export const GREAT_WRATH_SPENDS = 45;
+/** No two greater wraths, of any gods, within this many days of each other. */
+export const WRATH_GAP_DAYS = 5;
 /** The greater wraths: the share of food that rots, of the town that sickens, the strikes of the storm and the chance
  *  each kills whoever it finds out of doors. */
 export const CURSED_ROTS = 0.35;
