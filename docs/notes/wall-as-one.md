@@ -61,3 +61,21 @@ between planner passes and is unaffected.
 
 **Tool:** `tools/wall-probe.mjs [days] [seeds] [origins]` logs for each town when the ring was laid and stood, the spread
 between its first and last piece turning built, the crew's spread along the line, raids, people and deaths.
+
+## The wall under construction has its own look (the owner's ask: "treat it like one large building, with different immersion for a wall being under construction")
+- A ring piece being raised is no longer drawn with the ordinary construction site (`art/constructionSite.ts`) on every
+  one-cell piece. `art/wallWorks.ts` `drawWallWorks` draws each piece as one cell of one continuous work, set by the
+  cell's own place on the line so the cells run on from each other, from the wall's one progress:
+  - *surveyed* (progress under 2%): a shallow trench and a taut cord on pegs, a red-tipped peg every third cell;
+  - *footing and scaffold*: a footing along the whole line (laid stone for stone, brick and concrete walls, driven post
+    butts for a palisade), scaffold poles every other cell (steel poles from the Industrial age), a ledger at each
+    lift, braces, a deck of boards at the lift the courses have reached (`LADDER_EVERY` 9: a ladder to it);
+  - the finished wall's courses rise behind it all round together (the picture masked to the one progress, as before);
+  - a gate under construction is a frame (two posts, braces, a lintel from 45%) round its gap.
+  - Piles of timber (logs, log pile, barrels, crates) or rubble stand every `STAGING_EVERY` (8) cells along the line
+    where the haulers set loads down (`mapView.ts draw`, the pack sprites of `art/choresArt.ts`, already credited).
+- The scaffold itself is code-drawn: the asset packs (`../chronos-assets`) were not reachable from this cloud session, so
+  no pack scaffolding could be looked at or copied in; swap in pack planks and poles if one has scaffolding that joins end to end.
+- Builders at the wall hammer as they always do (the 'build' activity beside the piece); they now stand spread along
+  the line (above), so the hammering is seen all round.
+- Pieces of the wall redraw each hundredth of progress (`mapView.ts`), not every tick.
