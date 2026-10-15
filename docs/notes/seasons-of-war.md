@@ -21,8 +21,9 @@ first wanted). Only with the autopilot on; the dice are the war's own side strea
   (`data/training.ts`) are never built. The data of `data/troops.ts` stays (the map's figures and the border marches'
   numbers).
 - **The seasons** (`warSeason`, `SEASON_OF_WAR`): spring and summer `march`, autumn `harvest`, winter `hold`.
-  - Hosts against the town (sim/factions.ts `factionsDaily`, by `hostOdds`): the chance x1.6 in the marching seasons,
-    x0.8 in autumn (and a harvest host, `hostMustered`: half the size, no engines), none in winter, none from a power
+  - Hosts against the town (sim/factions.ts `factionsDaily`, by `hostOdds`): the chance x`MARCH_HOSTS` (1.6) in the
+    marching seasons (reached between paced days `MARCH_RAMP_FROM` 6 and 16, `MARCH_RAMP_DAYS`, so a young town's first
+    spring is as before), x`HARVEST_HOSTS` (0.8) in autumn (and a harvest host, `hostMustered`: half the size, no engines), none in winter, none from a power
     occupying the town. Drawn as before, so the town's dice keep their order. The rivals' ordinary raids lean the same
     way (`rivalRaidOdds` x1.4 in autumn, x0.6 in winter).
   - Wars between powers (`s.feuds`, sim/worldLife.ts): begin on `WAR_START_PLOT` (14) mornings in a hundred in autumn
@@ -36,10 +37,14 @@ first wanted). Only with the autopilot on; the dice are the war's own side strea
   rising power or the old house taking up its seat. A rising power met holds no land until it raises its banners over
   free land far from the town (`claimSeat`, daily). In autumn a strike is a harvest raid (`harvestLoss`: `HARVEST_LOSS`
   of the loser's folk, half of it of its troops, no province). The loser's deserters may make for the town
-  (`DESERT_CHANCE`, doubled against a power the town marched on): a band of `DESERT_SHARE` of its troops (2 to
-  `DESERT_MOST` 7) of its people, no lord, `DESERT_HOURS` later (`desertersHourly`).
+  (`DESERT_CHANCE` 0.12, doubled against a power the town marched on; never to a town under `DESERT_TOWN_LEAST` 5
+  grown-ups, one band every `DESERT_GAP_HOURS` 96 at most): a band of `DESERT_SHARE` of its troops (2 to `DESERT_MOST` 7,
+  never more than half the town's grown-ups) of its people, no lord, `DESERT_HOURS` later (`desertersHourly`).
 - **Called to arms** (`sim/war/campaigns.ts`): a power the town is allied with (or at peace or trading with at
-  `CALL_WARMTH` 25) may call the town to its strike (`callTown`, one call every `CALL_GAP_DAYS` 6): an envoy `campaign`
+  `CALL_WARMTH` 25), one at war with a power the town is at war with (`COMMON_FOE_WARMTH` -20), or any not at war with
+  the town that it thinks `CALL_PREFER` (15) better of than its foe (down to `CALL_COLDEST` -25) may call the town to its
+  strike (`callTown`, one call every `CALL_GAP_DAYS` 6; needs `FIGHTERS_LEAST` grown-ups the town could field, `fighters`;
+  a call blocked by another envoy at the gate is tried again each hour for `CALL_RETRY_HOURS`): an envoy `campaign`
   (`Prompt.envoy.camp`) asking for a levy (`levyFor`: a grown-up in `LEVY_PER` 4, 3 to 8): march, send `CAMPAIGN_COIN`
   (40) instead, or stay out. The strike waits on the answer and on the party (`strikeWaits`). Marching, the campaign is
   a destination, `assault:campaign:<id>`, fought as an assault (sim/factions.ts hooks: `assaultTargets` +
@@ -50,7 +55,7 @@ first wanted). Only with the autopilot on; the dice are the war's own side strea
   from the War tab or the muster first (noted by `campaignsHourly`). Won: spoils (`SPOILS_PER_TROOP` of the foe's
   troops, at least `SPOILS_LEAST`, times the people's `spoils`, 0.6 of it beside an ally, half for a harvest raid) and
   a load of its goods (or grain), the foe's troops cut, the ally warmer, a deed `campaigns` for each who came home
-  (`DEED_TITLES`: the Veteran, Warhorse, Marshal of the Realm), the victory feast, morale; the ally's strike carried.
+  (`DEED_TITLES`: the Veteran, Warhorse, Marshal of the Realm; beside the night watch's `watched`), the victory feast, morale; the ally's strike carried.
   Lost: grief (morale). The recap is `s.war.recap`.
 - **The council** (`sim/war/council.ts`): every envoy carries its pick as `Prompt.recommended` and `why`, and as the
   default (`warAdvice`, from `envoy`; only with the autopilot on, so the realm's own tests keep their defaults).
@@ -58,13 +63,14 @@ first wanted). Only with the autopilot on; the dice are the war's own side strea
   hating it, a warmonger or oathbreaker; doubled for a `just` people, who stay out without one), the profit (an easy
   war, plunder for the wicked), the direction (Defence +1, Growth -2, Trade -2 or -1, Knowledge -1), friends on both
   sides, too few fit to fight (`FIGHTERS_LEAST`) or too strong a foe; at `JOIN_AT` (2) it marches, else coin (rich,
-  allied or peaceful) or stays out. Demands (`adviseDemand`): a `proud` people never pays; much the weaker
+  allied or peaceful) or stays out. Demands (`adviseDemand`): a `proud` people pays only a power `PROUD_BOWS` (2)
+  times the town's might; much the weaker
   (x1.4), or Growth/Trade at x0.9, pays; the wicked or the warband answer a weaker power with war; Knowledge talks the
   sum down to `TALKED_DOWN` (0.6). Yielding (`adviseYield`): at `YIELD_AT` (2.6) times the town's might (x1.4 under
   Defence, x0.8 under Growth/Trade), sooner with a siege lost already, never for the proud. Peace, trade, alliances,
   marriages, surrenders and the conquered by direction and alignment. **The council's own doings** (`councilDaily`):
-  Growth and Trade send gifts to whoever is at war with the town (every `PEACE_GIFT_EVERY_DAYS`, while the treasury
-  holds `PEACE_TREASURY` times it) and take peace when they will; Knowledge (and Defence, for alliances) seeks treaties
+  Growth and Trade (not a proud people) send a gift a day to one power at war with the town (each every
+  `PEACE_GIFT_EVERY_DAYS`, while the treasury holds `PEACE_TREASURY` times it) and take peace when they will; Knowledge (and Defence, for alliances) seeks treaties
   where the goodwill is, and in winter brokers peace between two friends at war (`BROKER_CHANCE`); the wicked (or the
   warband) break a treaty in winter with a power `BREAK_STRONGER` weaker and `BREAK_RICH_FOLK` rich (alignment and
   order down), and in the marching seasons take the war to a weaker power (`townCampaign`: won, the province is the
@@ -85,7 +91,9 @@ first wanted). Only with the autopilot on; the dice are the war's own side strea
   mornings; after `OCCUPY_DAYS_MOST` (15) the occupier, paid, marches off. Stood: held when the host breaks or
   `SIEGE_LOST_FELL` (0.35) of it falls (the Siege-breaker title, morale); else **lost**: the sack (`SACK_BURN` fires,
   `SACK_SLAIN` of those in the streets cut down) and the occupation; `SIEGES_TO_FALL` (2) sieges lost to the realm's
-  powers end the town (the Great Enemy's rule, its own count kept apart). Hook: `siegeOver` from `hostOver`.
+  powers end the town (the Great Enemy's rule, its own count kept apart). Hook: `siegeOver` from `hostOver`. A siege
+  host's raid is `Raid.warSiege` and is fought out as the Enemy's last siege is (sim/tactics.ts: no clock while the field
+  is held, at most `SIEGE_MAX_HOURS`). The resistance grows at least `RESIST_LEAST` (2) a day.
 - **Memory** (`sim/war/memory.ts`): a death on a campaign, at the walls against a power's host, in the sack or on the
   gallows (`warFallen`, from annals.ts `recordFallen`) is one of the war dead (`w.dead`, `WAR_DEAD_MOST`); the partner
   is a war widow, the children war orphans (`Person.warLoss`, `warLossLine`); at `MEMORIAL_AT` (3) dead in one war, a
@@ -106,3 +114,14 @@ first wanted). Only with the autopilot on; the dice are the war's own side strea
   (arms to both sides, join -1), dwarves (proud, never break their word), vampires (join +1, spoils x1.2).
 - **Tools.** `tools/soak.ts` takes `WAR=1` (each seed's joined, won, lost, spoils, war dead, sieges, occupation,
   fallen powers, wars, the town's provinces) and `WAR=2` (and the war news).
+- **The War tab on the phone:** the map is fitted to the width, and sideways to the height (`terrainCell`), centred
+  (`.war-map` fits its canvas). Checked at 393x852 and 852x393.
+- **Probes (on main 0.121.0/0.122.0).** `tools/sim-hash.mjs`: every hash changes (fixture 45ba0aed2e31 ->
+  9a0fffb1ba06; settlers 5aa972e69df5 -> c110ce446490; knights 8dd273d97ac8 -> 9e7b165f298c; vampire 0079254d1741 ->
+  eb59b08f8018; dwarves 3859f268259d -> bdda7f36c2ee): the seasons of war run for every town with the autopilot on,
+  and the War tab's border marches (their news lines take ids) shift the town's ids from the first days. 40-day soak,
+  3 seeds, before -> after (people, deaths, none wiped): settlers 14.7/7.3 -> 13.3/10.0, knights 11.0/6.0 -> 11.7/4.7,
+  orcs 9.3/7.7 -> 10.3/7.7 (a campaign joined on each seed, one lost in the field), machines 47.7/30.0 -> 40.3/51.3.
+  An earlier round showed orcs a third down; switching the war's hourly rules off brought them back, and the deserters
+  and the fit-fighters rule were changed (above). `tools/perf-sim.mjs`: step 1.68 -> 1.73 ms, snapshot 7.99 -> 8.18 ms,
+  two days' catch-up 32.8 -> 35.6 s.

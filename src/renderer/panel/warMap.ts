@@ -91,7 +91,8 @@ export function worldTerrain(w: WarView): HTMLCanvasElement {
 }
 /** The cell size (device px) the map is drawn at: fitted to the panel's width at the screen's resolution. */
 export function terrainCell(w: WarView): number {
-  const width = Math.max(280, (document.getElementById('body')?.clientWidth ?? 360) - 28);
+  // (fitted to the width, and on a phone turned sideways to the height too, so the whole world fits one screen)
+  const width = Math.max(280, Math.min((document.getElementById('body')?.clientWidth ?? 360) - 28, window.innerHeight - 24));
   const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
   return Math.max(3, Math.floor((width * dpr) / w.side));
 }
